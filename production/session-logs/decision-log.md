@@ -5809,3 +5809,17 @@ Granularity follows the orchestrator's one-session sizing, not `fine`. QL-STORY-
 **Options considered:** [A] keep both; [B] size from `PlayerSettings.MaxAnchors` and remove the `SimSettings` addition (no balance-row/hash churn, "every constant from the players settings record").
 **Chosen:** [B], applied by the orchestrator: `PlayersSystem` constructors reduced to public `(IWorldQuery, ContentSet, SimCheckRing, SimCounters)` + internal `(IWorldQuery, PlayerSettings[, SimCheckRing, SimCounters])`; the "sized from a SimSettings value of 8" AC is met with `PlayerSettings with { MaxAnchors = 8 }`. The earlier [A2] note is superseded; no TD needed for a `sim.maxAnchors` row.
 **Category:** minor
+
+### 2026-10-17 — grid-inventory 002 /story-done closure (autonomous)
+**Decision point:** LP-CODE-REVIEW CONCERNS (6 low) and QL-TEST-COVERAGE GAPS (5) on the entry pool / occupancy story; the tree was broken twice during verification by other runners' in-flight files (world-stub `SectionIds.World`, content-data `Content/Parsing` partials) — never touched; waited and retried.
+**Options considered:** [A] fix the cheap items in-story (bound `inventory.entryPoolCapacity` to ≤ 65 535 in `InventorySettings.FromBalance`; size `Occupancy` by the widest container def and validate every def ≤ 64 columns with a new appended `SimBuildErrorCode.InventoryDefInvalid = 52`; tests for `Free`/`SetCount` on a free slot, `Place`/`Clear` conflict and out-of-bounds asserts, and the InventorySystem storage wiring) and carry the rest in TD-099; [B] carry everything; [C] a full fix round.
+**Chosen:** [A]; close COMPLETE WITH NOTES once the four legs are green. The "SetCount-only count writes / free a 0-count entry in the same call" rule is carried as an explicit AC for story 005 (TD-099 item 1).
+**Reason:** Settings/def validation is where a bad knob would otherwise surface as a raw exception at boot; the assert-path tests are the only evidence those codes are wired; the rest belongs to 005/006/009 which touch the same code.
+**Category:** minor
+
+### 2026-10-17 — ADR-0017 Key Interfaces erratum (TD-096) (autonomous)
+**Decision point:** ADR-0017's Key Interfaces sketch of `MailPay`, `DestinationFacts`, `UnitFacts` and the Effective-state rule is stale versus shipped, reviewed mail-destinations stories 003/004 code.
+**Options considered:** [A] transcription erratum: correct the sketch in place + dated `## Errata` bullets (Status unchanged); [B] leave the sketch and point stories at the code; [C] full ADR revision.
+**Chosen:** [A]. Verified against `Mail/MailPay.cs`, `HintRun.cs`, `MailRules.cs`, `DeliveriesStateRules.cs`, `DestinationFacts.cs`, `UnitFacts.cs`: sink last on every money function, `thrownPm` parameter, `UnitPenalty` ratio/min from `MailBalance`, `WalletGuard` floor as `Cents`, `Timeliness`/`LateValueRatioPm`/`HintPayout`/`HintPenalty`/`HintRun` added, `DestinationFacts.AcceptsMask`/`RequiresUnit`, `UnitFacts.Flags : MailFlags`, `DeliveriesStateRules.Effective` added; `Evaluate` already matched. TD-096 marked "(ADR part applied 2026-10-17)".
+**Reason:** Stories 007/008/010 must code against the shipped signatures; no decision changes.
+**Category:** minor

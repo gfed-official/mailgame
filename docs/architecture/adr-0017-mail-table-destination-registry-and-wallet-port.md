@@ -106,7 +106,7 @@ bit 31........26 25........18 17................6 5......0
 
 - `MailRules.Evaluate(in DestinationFacts d, in UnitFacts u) → DeliverEval` is `static`, pure and 0-alloc.
 - Checks, in order: CLOSED `closed` → LOCKED `not_on_route` → non-mail `wont_fit` → kind not accepted (a bitmask on the type def) `wont_fit` → `u.Address == d.Address` Accept → Misdeliver. That is ≤ 6 checks and no registry access.
-- `MailPay.Timeliness` (F5), `UnitPay` (F6), `UnitPenalty` (F7), `HintPayout` (F10) and `WalletGuard` (F8) are static functions over `Cents`/permille, with one `MulDivRH` per unit.
+- `MailPay.Timeliness` (F5), `UnitPay` (F6), `UnitPenalty` (F7), `HintPayout`/`HintPenalty` (F10) and `WalletGuard` (F8) are static functions over `Cents`/permille, with one `MulDivRH` per unit.
 - The client calls the same functions (ADR-0016 §3). Facts constructors exist on both sides and are covered by M-INT-2.
 
 ### 5. One consume routine (R6, TR-mail-008)
@@ -201,11 +201,25 @@ Stream `RngDerive(runSeed, "mail", shift)` (ADR-0005). It draws exactly `K = 2·
 namespace PerformativeMail.Sim.Mail;
 public readonly struct AddressId { public readonly uint Value; public int District { get; } public int Street { get; } public int Number { get; } public int Unit { get; }
     public static AddressId Pack(int district, int street, int number, int unit = 0); }
-public readonly struct DestinationFacts { public readonly EntityId Id; public readonly AddressId Address; public readonly DefIndex Type; public readonly DestState State; }
-public readonly struct UnitFacts { public readonly DefIndex Kind; public readonly ItemCategory Category; public readonly AddressId Address; public readonly ushort SpawnValue; public readonly byte DeadlineShift; public readonly byte Flags; }
+public readonly struct DestinationFacts { public readonly EntityId Id; public readonly AddressId Address; public readonly DefIndex Type; public readonly DestState State;
+    public readonly ulong AcceptsMask;   // bit k = mail kind with DefIndex.Value k accepted (kinds ≥ 64 never set)
+    public readonly bool RequiresUnit;   // DestinationTypeDef.RequiresUnit
+    public DestinationFacts(EntityId id, AddressId address, DefIndex type, DestState state, ulong acceptsMask, bool requiresUnit); }
+public readonly struct UnitFacts { public readonly DefIndex Kind; public readonly ItemCategory Category; public readonly AddressId Address; public readonly ushort SpawnValue; public readonly byte DeadlineShift; public readonly MailFlags Flags; }
 public static class MailRules { public static DeliverEval Evaluate(in DestinationFacts d, in UnitFacts u); }
-public static class MailPay { public static Cents UnitPay(in UnitFacts u, int timelinessPm, IStatSheet s, PlayerSlot? p);
-                              public static Cents UnitPenalty(in UnitFacts u, IStatSheet s); public static bool WalletGuard(Cents balance, Cents penalty, Cents floor); }
+public static class DeliveriesStateRules { public static DestState Effective(bool districtUnlocked, bool openNow, uint closeTick,
+                                                                          uint? actionStartTick, uint applyTick, int closeGraceTicks); }
+public readonly struct HintRun { public readonly byte DeadlineShift; public readonly byte Count; public readonly ushort UnitSpawnValue; }
+public static class MailPay {                                            // ref SimCounterSink is last on every money function
+    public static int Timeliness(int currentShift, int deadlineShift, int lateValueRatioPm, int deadLetterShifts);
+    public static int LateValueRatioPm(IStatSheet s);
+    public static Cents UnitPay(in UnitFacts u, int timelinessPm, int thrownPm, IStatSheet s, PlayerSlot? p, ref SimCounterSink sink);
+    public static Cents UnitPenalty(in UnitFacts u, int misdeliveryPenaltyRatioPm, int minPenaltyCents, IStatSheet s, ref SimCounterSink sink); // ratio/min from MailBalance
+    public static bool WalletGuard(Cents balance, Cents penalty, Cents floor);   // floor passed as Cents (no Economy walletFloor key yet)
+    public static Cents HintPayout(ReadOnlySpan<HintRun> runs, int currentShift, DefIndex kind, int lateValueRatioPm, int deadLetterShifts,
+                                   int thrownPm, IStatSheet s, PlayerSlot? p, ref SimCounterSink sink);
+    public static Cents HintPenalty(ReadOnlySpan<HintRun> runs, DefIndex kind, int misdeliveryPenaltyRatioPm, int minPenaltyCents,
+                                    IStatSheet s, ref SimCounterSink sink); }
 public interface IMailApi
 {
     void ConsumeHand(EntityId dest, ReadOnlySpan<EntryRef> inScanOrder, PlayerSlot actor, uint holdStartTick);
@@ -316,3 +330,10 @@ Feeders at M-1b; Economy replaces the stub when its GDD and ADR land.
 ## Related
 - ADR-0003, 0004, 0005, 0006, 0007, 0008, 0009, 0010 (Accepted); ADR-0016 (shared functions, client mirrors), ADR-0026 (world query), ADR-0025 (backlog sub-queues), ADR-0022 (JoinState Mail block); future Economy ADR.
 - `design/gdd/mail-destinations.md` R2–R16, F1–F11, M-PERF-*, OQ7/OQ27, L852.
+
+## Errata
+- 2026-10-17 — Key Interfaces: `MailPay.UnitPay` was `(u, timelinessPm, s, p)`; now `(in UnitFacts, int timelinessPm, int thrownPm, IStatSheet, PlayerSlot?, ref SimCounterSink)` — `thrownPm` is a parameter and the sink is last; source TD-096 item 1.
+- 2026-10-17 — Key Interfaces: `MailPay.UnitPenalty` was `(u, s)`; now `(in UnitFacts, int misdeliveryPenaltyRatioPm, int minPenaltyCents, IStatSheet, ref SimCounterSink)`, the ratio and minimum coming from `MailBalance`; source TD-096 item 1.
+- 2026-10-17 — Key Interfaces: `MailPay.WalletGuard(Cents balance, Cents penalty, Cents floor)` unchanged, now annotated that the floor is a `Cents` parameter because no Economy `walletFloor` key exists yet; source TD-096 item 1.
+- 2026-10-17 — Key Interfaces and §4 helper list: the sketch omitted `MailPay.Timeliness`, `LateValueRatioPm`, `HintPayout`, `HintPenalty` and the `HintRun` struct; now listed with their shipped signatures; source TD-096 item 1.
+- 2026-10-17 — Key Interfaces: `DestinationFacts` lacked `ulong AcceptsMask` and `bool RequiresUnit` (and its public ctor); `UnitFacts.Flags` was `byte`, shipped as `MailFlags`; `DeliveriesStateRules.Effective(districtUnlocked, openNow, closeTick, actionStartTick?, applyTick, closeGraceTicks)` was missing; now listed. `MailRules.Evaluate` already matched; source TD-096, TD-092.
