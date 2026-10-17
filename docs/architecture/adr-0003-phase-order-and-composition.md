@@ -98,15 +98,15 @@ Tick():
   guard: State == Running, owner thread, not re-entrant (else count badTick, run nothing)
   prologue: drain sample ring → latch (receivedTick = CurrentTick)
   Stage = InPhase
-  for p in 0..12:  _ctx.Phase = p; probe.Before(p); for b in _phases[p]: b.Run(in ctx); probe.After(p)
+  for p in 0..12:  _ctx.Phase = p; probe.Before(p); if p == 0: InputsDrain(); for b in _phases[p]: b.Run(in ctx); probe.After(p)
   Stage = TickEnd;  for c in _tickEnd: c.Check(CurrentTick)
-  Stage = InPhase; _ctx.Phase = 13; EventsFlush()                 // IEventSink.Deliver, once
+  Stage = InPhase; _ctx.Phase = 13; probe.Before(13); EventsFlush(); probe.After(13)   // IEventSink.Deliver, once
   Stage = BetweenTicks; CurrentTick++ ; apply latched stop → Stopped
   on exception escaping a phase: State = Faulted; partial log NOT delivered; re-entrancy flag cleared in finally;
      SIM_ASSERT builds rethrow after marking Faulted
 ```
-- `_phases` is `ISimPhase[][]`, frozen at `Freeze()`. Phase 0's built-in drain is the first entry of `_phases[0]`, and phase 13's flush is built in.
-- `IPhaseProbe` (Dev Tooling timing) defaults to a null object. It is never null-checked per call.
+- `_phases` is `ISimPhase[][]`, frozen at `Freeze()`. Phase 0's built-in drain is a private `InputsDrain()` branch run inside phase 0 (after `probe.Before(0)`), not an entry of `_phases[0]`; phase 13's flush is built in. Neither phase can be bound (`ReservedPhase`).
+- `IPhaseProbe` (Dev Tooling timing) defaults to a null object. It is never null-checked per call. It brackets phases 0–12 and phase 13 (`EventsFlush`); `Before(0)` also wraps the phase-0 drain.
 - `TickContext` is a `readonly struct { uint Tick; PhaseId Phase; }` passed `in`. Services are not carried in it; they arrive by constructor.
 
 ### 3. Builder and freeze (R4)
@@ -125,7 +125,8 @@ Tick():
 
 ### 4. Composition root (R4, TR-sim-013)
 - **One root:** `PerformativeMail.Sim.Composition.SimComposition.Build(in SimBuildArgs args) → SimHost`. It returns `SimHost { SimWorld World; ClientLayer Client; }`.
-  - `SimBuildArgs` = `{ SimProfile profile, ContentSet content, ulong runSeed, SimInitialCounters? counters }`. `SimSettings` and the balance table are members of `ContentSet` (C&D CD21).
+  - `SimBuildArgs` = `{ SimProfile profile, ContentSet content, ulong runSeed, SimInitialCounters? counters, IHostClock? hostClock }` plus optional init-only members `IWorldQuery? World`, `IEventSink? EventSink` and `IOpRecorder? Recorder`. A null `HostClock` gives the `ClientLayer` a clock whose `IsValid` is false; a null `World` leaves world-reading systems unbuilt; a null `Recorder` uses the world's null-object recorder. `SimSettings` and the balance table are members of `ContentSet` (C&D CD21).
+  - `SimHost` also exposes the public `ContentSet Content` it was built with (the instance passed in `SimBuildArgs.Content`) and `IStatSheet StatSheet`, plus internal `Services`, `Order` and `Systems` for tests and dump access.
   - `ClientLayer` is composed alongside, but `SimWorld` and `ClientLayer` hold no reference to each other (§6).
 - **Construction order** is the topological order of the systems-index dependency map. It is written as explicit, ordered code in `SimComposition`: no reflection-driven discovery and no DI container.
   - `Composition/SystemGraph.cs` declares each system's dependencies as data.
@@ -138,9 +139,10 @@ Tick():
 |---|---|---|
 | `EventLog` writer facade | any system | ADR-0008 |
 | `EntityIds`, `MailIds` | any system that allocates (Mail only for `MailIds`) | ADR-0004 |
-| `SlotTable` (read-only view) | any system; write face Sim Core only | ADR-0004 |
+| `ISlotView` (read-only view of `SlotTable`) | any system; write face Sim Core only | ADR-0004 |
 | its owner-filtered `IRngStreams` view (names it owns) | stream owners only; Throwing gets none | ADR-0005 |
 | `ITickReader` (current tick, phase) | any system | this ADR |
+| `IWorldQuery` (read-only world) | any system | ADR-0026 |
 | `IRunControl` | **Run Structure only** | this ADR |
 | `I<System>Api` of a **declared** dependency | per `SystemGraph` | each system's ADR |
 | `ContentSet` (or a sub-table of it) | any system | ADR-0010 |
@@ -153,7 +155,7 @@ Tick():
   - every type marked `[SimSystem(SystemId)]` has exactly one public constructor (`Id` maps it to `SystemGraph`);
   - each parameter type is in the table above for that system;
   - every `I…Api` parameter is a declared dependency in `SystemGraph`.
-- **No statics:** an architecture test fails on any static field in the Sim that is not `const`, or not `static readonly` of an immutable type (primitive, `string`, or a type marked `[ImmutableTable]`). `[CompilerGenerated]` types (lambda caches, `<PrivateImplementationDetails>`) are excluded. A `static readonly T[]` counts as **mutable**: constant tables are `ReadOnlySpan<T>` literal properties or `[ImmutableTable]` wrappers. Pure static helper methods (`SimAssert`, `SerialU16`) are allowed.
+- **No statics:** an architecture test fails on any static field in the Sim that is not `const`, or not `static readonly` of an immutable type (primitive, `string`, or a type marked `[ImmutableTable]`). `[CompilerGenerated]` types (lambda caches, `<PrivateImplementationDetails>`) are excluded. A `static readonly T[]` counts as **mutable**: constant tables are `ReadOnlySpan<T>` literal properties or `[ImmutableTable]` wrappers. For an element type wider than one byte, the literal getter binds to `RuntimeHelpers.CreateSpan`, which allocates (~64 B per call) when the getter is not optimised; shipped table getters carry `[MethodImpl(MethodImplOptions.AggressiveOptimization)]`, and a fully unoptimised (Debug/ExportDebug) Sim still allocates there. Pure static helper methods (`SimAssert`, `SerialU16`) are allowed.
 - No system holds a `SimWorld` reference, and there is no service locator.
 
 ### 5. Cross-system calls (R9, DEV-6, TR-sim-019)
@@ -360,3 +362,10 @@ New code. In the Sim Core "builder/phases/composition" story:
 ## Related
 - ADR-0001 (folders, architecture tests), ADR-0002 (`FrameRunner` calls `ClientLayer.Step`/`SimWorld.Tick`; owner thread), ADR-0004 (ids, `SlotTable`), ADR-0005–ADR-0011 (types bound or injected here), ADR-0009 (Grid phases 1–2, tick-end check).
 - `design/gdd/simulation-core.md` R2–R4, R9, States, Interactions; `design/gdd/systems-index.md` dependency map; `content-data-definitions.md` CD14, CD21.
+
+## Errata
+- 2026-10-17 — §2: the tick pseudocode and notes said phase 0's drain is the first entry of `_phases[0]` and showed the probe around phases 0–12 only; now the drain is a private `InputsDrain()` branch inside phase 0 and `IPhaseProbe` also brackets phase 13 (as shipped in `SimWorld.RunPhases`/`RunEventsFlush`); source TD-013 items 3 and 7.
+- 2026-10-17 — §4: `SimBuildArgs` was `{ profile, content, runSeed, counters }`; now also lists `IHostClock? HostClock` and the optional `World`, `EventSink` and `Recorder` members, and `SimHost`'s public `Content` (and `StatSheet`) plus internal `Services`/`Order`/`Systems`; source TD-061 item 1, TD-080 item 2.
+- 2026-10-17 — §4 injectable table: had no `IWorldQuery` row; now `IWorldQuery` (read-only world, any system, ADR-0026), as allowed by `CompositionRulesTests`; source TD-064 item 2.
+- 2026-10-17 — §4 no-statics rule: `ReadOnlySpan<T>` literal tables were presented as allocation-free unconditionally; now notes the `RuntimeHelpers.CreateSpan` Tier-0/unoptimised allocation and the `AggressiveOptimization` getter used by shipped tables; source TD-008.
+- 2026-10-17 — §4 injectable table: "`SlotTable` (read-only view)" was the row name; now `ISlotView`, the interface the composition rule test actually checks; source: errata pass review.

@@ -5,10 +5,10 @@
 > **Architecture Module**: Sim.Players (`src/PerformativeMail.Sim/Players/`; owner-role `CarrierStep` and focus in Sim.ClientLayer) + PlayerView, camera boom and prompt anchor (Godot)
 > **Milestone slice**: M-1a → M1 (GDD Quick reference). The M-1a set is chosen from the rule list (see Overview).
 > **Engine Risk**: LOW (Sim solver, plain C#). MEDIUM for the presentation (AnimationTree, `AnimationPlayer` StringName members, `Animation.length` double; remote interpolation must be our own).
-> **Est. size**: L — 26 stories (Sim first; views after `godot-host-shell`)
+> **Est. size**: L — 27 stories (Sim first; views after `godot-host-shell`)
 > **Implementation priority**: 5 of 9
 > **Status**: Ready
-> **Stories**: 26 stories written 2026-10-16 (26 Ready, 0 Blocked) — see `## Stories` below
+> **Stories**: 27 stories (26 written 2026-10-16, story 027 added 2026-10-17 for TD-091); 9 Complete, 1 In Progress, 18 Ready, 0 Blocked — see `## Stories` below
 
 ## Overview
 
@@ -138,6 +138,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 024 | [Greybox rig, `AnimationTree` state machine, gait playback, squash — and the AnimationTree spike](story-024-animationtree-greybox-rig-gait-spike.md) | Visual/Feel | Ready | ADR-0019 |
 | 025 | [Carry pose by held item class, whole-body load blend, idle doze](story-025-carry-pose-weight-blend-idle-doze.md) | Visual/Feel | Ready | ADR-0019 |
 | 026 | [Interaction prompt anchor — projected anchor and bounds, HUD focus feed](story-026-interaction-prompt-anchor-projection.md) | Integration | Ready | ADR-0019 |
+| 027 | [Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, story 009 carry-forwards (TD-091)](story-027-movement-rulings-extra-jump-slide-td-091.md) | Logic | Ready | ADR-0013 |
 
 **26 stories: 19 Logic, 3 Integration, 4 Visual/Feel — 26 Ready, 0 Blocked.**
 

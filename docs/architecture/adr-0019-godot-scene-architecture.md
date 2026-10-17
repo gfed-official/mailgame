@@ -118,7 +118,7 @@ Main (Node · GameLoop.cs · ProcessMode=Always · ProcessPriority=int.MinValue 
 1. Window/stretch guard: min size (§7).
 2. Content: M-1a `BuiltInContent`; M0 `ContentHost` → `ContentLoader.Load` → `ContentSet`. On failure, show the content-error screen and never compose the Sim.
 3. Persistence (ADR-0024).
-4. Input router (ADR-0012).
+4. Input router (ADR-0012). The `InputAdapter` node is the **last child of the root window** (`GetTree().Root`, after `Main`, not under it) and re-asserts that position (`MoveChild(this, -1)`) whenever a node enters the root (`ChildEnteredTree`; likely via `CallDeferred`, verified in input-controls story 028), with `ProcessMode = Always` (ADR-0012 §7 D-1). OQ1's autoload-first / `ProcessPriority` ordering does not apply to input: input callbacks run in reverse tree order and `ProcessPriority` has no effect on them.
 5. Session: loopback (ADR-0011).
 6. `SimComposition.Build` → `ClientLayer.Attach(ports)` (ADR-0016).
 7. World tables → `Terrain`/`Destinations` built.
@@ -353,3 +353,6 @@ public sealed class NodePool<T> where T : Node { public NodePool(PackedScene s, 
 ## Related
 - ADR-0001 (export mapping completed here), ADR-0002 (`GameLoop`), ADR-0003, ADR-0004, ADR-0010 (ContentHost/ViewCatalog contract), ADR-0016 (published states, render clock), ADR-0018 (HUD stack), ADR-0024, ADR-0029.
 - `prototypes/spike-adr0019/REPORT.md`, `prototypes/spike-godot-dotnet/REPORT.md`.
+
+## Errata
+- 2026-10-17 — §3 step 4: input-adapter placement was implied by OQ1's autoload-first / `ProcessPriority` ordering; now the adapter is the last child of the root window, re-asserted on `ChildEnteredTree` (input runs in reverse tree order; `ProcessPriority` has no effect) — consequence of the owner-accepted ADR-0012 §7 D-1; source TD-021.

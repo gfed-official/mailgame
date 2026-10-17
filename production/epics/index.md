@@ -14,7 +14,7 @@ Scope: M-1a slice (solo greybox: delivery + throwing)
 | [world-stub](world-stub/EPIC.md) | Core | World Generation — M-1a hand-authored street stub (`IWorldQuery`) | none (consumer GDDs + architecture.md Sim.World) | 7 stories (7 Ready) | Ready (Provisional — no GDD; ADR-0026 Accepted) |
 | [network-adapter-loopback](network-adapter-loopback/EPIC.md) | Core | Network adapter core — loopback (Networking & Session seam) | design/gdd/simulation-core.md §Network (no Networking GDD) | 9 stories (1 Complete, 8 Ready, 0 Blocked) | Ready |
 | [mail-destinations](mail-destinations/EPIC.md) | Feature | Mail & Destinations (M-1a slice) | design/gdd/mail-destinations.md | 16 stories (16 Ready, 0 Blocked) | Ready |
-| [player-character](player-character/EPIC.md) | Feature | Player Character & Movement (M-1a slice) | design/gdd/player-character-movement.md | 26 stories (26 Ready, 0 Blocked) | Ready |
+| [player-character](player-character/EPIC.md) | Feature | Player Character & Movement (M-1a slice) | design/gdd/player-character-movement.md | 27 stories (9 Complete, 1 In Progress, 18 Ready, 0 Blocked) | Ready |
 | [manual-delivery](manual-delivery/EPIC.md) | Feature | Manual Delivery | design/gdd/manual-delivery.md | 11 stories (9 Ready, 2 Blocked) | Ready |
 | [throwing-catching](throwing-catching/EPIC.md) | Feature | Throwing & Catching (M-1a slice + Sim-side catch pull-forward) | design/gdd/throwing-catching.md | 24 stories (22 Ready, 2 Blocked) | Ready |
 

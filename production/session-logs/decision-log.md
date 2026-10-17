@@ -5622,3 +5622,78 @@ Granularity follows the orchestrator's one-session sizing, not `fine`. QL-STORY-
 **Chosen:** [A] (revision .2 added only ADR-0012–0017/0019/0026 rules — none touch Content). Implementer `engine-programmer` only; the story touches no Godot API (`Utf8JsonReader`, `System.IO` on net8.0), so the engine specialist is not spawned for implementation; LP-CODE-REVIEW at story-done covers the BCL usage. CDD-PARSE-2 position: CV-GEN-04 is reported at the duplicate key token's own `line:column` (the field position stage 2–5 errors also use, CD3.5); the test lays the fixture out so that key sits at 7:14 — flagged for the GDD re-review since the GDD sentence can also be read as "the object's start".
 **Reason:** Lower cost, no rule change for this layer; the ≤ 2-children limit is better spent on the implementer + the gate reviewers.
 **Category:** minor
+
+### 2026-10-17 — grid-inventory 001 /dev-story context (autonomous)
+**Decision point:** Story stamped manifest 2026-10-16; current manifest is 2026-10-16.2. ADR-0009/0003/0010/0004 stamps match (2026-10-16), so the story summary is trusted and the ADRs are not re-read.
+**Options considered:** [A] update the story's Manifest Version and implement with current rules; [B] old rules + Manifest-Note; [C] stop.
+**Chosen:** [A]. Manifest Version set to 2026-10-16.2; Core-layer rules (ADR-0009 block) read and passed to the implementer.
+**Reason:** The .2 revision only added ADR batch 2 rules; no Core-layer rule relevant to this story changed.
+**Category:** minor
+
+### 2026-10-17 — grid-inventory 001 PlayerJoin hook: builder allows one IPlayerJoinListener (autonomous)
+**Decision point:** `SimWorldBuilder.BindPlayerJoinListener` accepts exactly one listener (`PlayerJoinListenerAlreadyBound`) and `PlayersSystem` already binds it; Inventory must also create a slot's panel containers inside the `PlayerJoin` call scope (AC 2). Inventory cannot call Players (`PlayerCharacter → GridInventory` in SystemGraph; the reverse would be a cycle) and an event reader would be a tick late.
+**Options considered:** [A] generalise the builder to a small fixed fan-out (bind order = composition order; same instance twice → `PlayerJoinListenerAlreadyBound`; a new appended code for the capacity limit) and adjust the two existing double-bind tests; [B] composite listener assembled in `SimComposition` (also changes PlayersSystem.Bind); [C] Inventory polls the slot table each tick (late, allocates nothing but breaks "events precede the OpReply").
+**Chosen:** [A], capacity 4. `tests/unit/sim/Core/PlayerJoinTests.SecondListenerBind_Throws` becomes "same instance twice throws" + a new fan-out-order test; `tests/unit/player/PlayerJoinBindingTests` (player-character 001, Complete) gets the same one-line adjustment.
+**Reason:** Smallest Core change; keeps ADR-0003 "binder order = composition order"; no new seam for later systems that need the join.
+**Category:** minor
+
+### 2026-10-17 — grid-inventory 001 capacity sub-record and bind stubs (autonomous)
+**Decision point:** The story proposes `inventory.containerCapacity` (64), `inventory.entryPoolCapacity` (8 192), `inventory.worldItemCapacity` (1 024) and says the sub-record "hangs off SimSettings"; `SimSettings.FromTable` reads only `sim.*` rows while every `inventory.*` row already flows through `BalanceKeys.Inventory` → `InventoryBalance` (ContentSet.Inventory). The builder has no `BindSnapshotSource`; inventory op descriptors/event kinds arrive in stories 004/005.
+**Options considered:** [A] add the three knobs to `BalanceKeys.Inventory`/`InventoryBalance` and build `InventorySettings` from `InventoryBalance` (the `PlayerSettings.FromBalance` pattern); [B] add `inventory.*` reads to `SimSettings`.
+**Chosen:** [A]. Bind in 001: `ItemsExpire`/`IntakeDrain` empty phases, a stub conservation `ITickEndCheck`, the state contributor (new `SectionIds.Inventory`); ops, event kinds and the snapshot source are left to 004/005 (snapshot envelope is ADR-0022, M0) and noted in the class summary + tech-debt.
+**Reason:** One owner per balance prefix (ADR-0010/ADR-0003 §4 "the system's own settings record"); no builder API invented for a stub.
+**Category:** minor
+
+### 2026-10-17 — commit policy (owner: "you can commit whenever")
+**Decision point:** When to commit during the parallel-runner loop.
+**Options considered:** [A] commit only at the end of the session; [B] commit a checkpoint now (Release build re-verified green) and then after each wave of closed stories when the build is green; [C] commit per story (would race the other runners' in-flight edits).
+**Chosen:** [B]. Checkpoint 4e731d7 made on `master` (1,203 files). Subsequent commits after each wave; no push unless the owner asks.
+**Reason:** Keeps the uncommitted tree small without capturing half-finished parallel edits in every commit.
+**Category:** minor
+
+### 2026-10-17 — story creation (player-character 027, TD-091) (autonomous)
+**Decision point:** How to package TD-091 (the 2026-10-16 game-designer rulings left unimplemented, plus the story 009 LP/QL carry-forwards) and what to do about the open "submerged box top = depth 0" question.
+**Options considered:** [A] one story carrying the rulings, the new `player.slideRunMaxMmS` key with the ContentHash golden regeneration, and the LP/QL follow-ups; [B] split into a jump story, a slide story and a cleanup story; [C] pin current water behaviour and list the ruling as an Open Question, or invent a ruling for submerged box tops.
+**Chosen:** [A] + pin only (no invented ruling). Story 027 (Logic, Ready, ADR-0013) depends on 006-009 and unlocks story 010, so goldens are captured after the rulings land. Choices recorded in the story: `slideRunMaxMmS` hard range 1-100 000 (GDD gives only the 2500-5000 safe range); RemY carried as `Integrate` does when sunk depth limits the slide drop; GDD "Vy 6830 / 7589" read as launch speed (post-tick 6030 / 6789) except the expiry fallback; `BoxQualifies` rejects a box with `MinY` above the plane; the expiry fallback needs a post-sweep step because `AgeCounters` runs before the sweep. EPIC.md and index.md counts updated to 27 (9 Complete, 1 In Progress, 18 Ready).
+**Reason:** The jump, slide and golden-hash changes touch the same hooks (`GravityPlan`, `PressIntoWall`, `BalanceKeys.Player`), and the shipped 006/007 code contradicts the GDD until all land; splitting adds a second golden regeneration. The submerged-box-top rule is a design call, so it stays an Open Question for game-designer.
+**Category:** minor
+
+### 2026-10-17 — ADR errata batch (autonomous)
+**Decision point:** Which accumulated tech-debt-register ADR corrections to apply to the Accepted ADRs, and which to hold as amendments for owner acceptance.
+**Options considered:** [A] apply every listed item, including TD-021 (ADR-0012 §7 D-1..D-8) and TD-028(4)/TD-058(1) (ADR-0026); [B] apply only transcription fixes verified against shipped code (ADR body corrected in place + dated `## Errata` section, Status unchanged), and hold new decisions for the owner; [C] defer all to a full `/architecture-decision` revision.
+**Chosen:** [B]. Applied to ADR-0003 (§2 drain/probe, §4 SimBuildArgs/SimHost/IWorldQuery row/span-table caveat), ADR-0004 (last-issued counters, Key Interfaces), ADR-0005 (21 keys, internal ctor, counters in every build, `drops` → HealthDamage, fallbacks), ADR-0006 (§1/§2/§3/§6/§7, Key Interfaces), ADR-0013 (§2 ceil-sqrt + final clamp, §3 atan caveat). Register: TD-004/005/007 Resolved; TD-008/010/013/043/050/061/064/071/080 marked "(ADR part applied 2026-10-17)". Held as amendments: TD-021 (ADR-0012 §7 + ADR-0019), TD-028(4) + TD-058(1) (ADR-0026). control-manifest.md not edited (stale RNG count/owner lines reported).
+**Reason:** Errata make Accepted ADRs read true without changing any decision; adapter placement, focus/capture rules, a new build-time height bound and a far-edge sampling rule are decisions the owner should accept.
+**Category:** minor
+
+### 2026-10-17 — dev-story (player-character story-011 Hold.HoldTicks, autonomous)
+**Decision point:** VERSION.md rates engine risk HIGH, which the skill reads as "always spawn the engine specialist"; the story is Godot-free integer arithmetic in the Sim assembly with no engine API surface.
+**Options considered:** [A] spawn godot-csharp-specialist alongside the gameplay-programmer; [B] gameplay-programmer only, C# quality covered by the story-done LP-CODE-REVIEW gate.
+**Chosen:** [B]. Reason: no engine API is touched (the HIGH rating concerns post-cutoff Godot APIs); the runner is limited to ≤ 2 live children; the code review gate covers .NET idiom.
+**Category:** minor
+
+### 2026-10-17 — dev-story (player-character story-011, autonomous) — `num` width
+**Decision point:** ADR-0014 §4 says `Hold.HoldTicks` is "evaluated in `long`", but the story AC requires no overflow over the full int32 input domain; `int.MaxValue × 1000 × 1000 × 30 ≈ 6.4e19 > long.MaxValue`.
+**Options considered:** [A] clamp `holdBaseMs` to an invented ceiling so `long` suffices; [B] hold `num`/`den` in `Int128` via `Fix.CeilDiv(Int128, Int128)`, keep `ceil` and the final clamp in `long`; [C] accept the overflow for absurd bases.
+**Chosen:** [B]. Reason: identical results to the ADR's long arithmetic for every base ≤ ~3e8 ms, no new magic constant, still one `CeilDiv`, still integer-only. Flagged to the LP reviewer; the ADR wording ("int64") is satisfied in spirit (integer, no float). Settings clamps are not counted (player setting, not a content defect); only out-of-range `insertPm` counts `CounterId.HoldInputClamped` (= 39).
+**Category:** minor
+
+### 2026-10-17 — owner acceptance: ADR-0012 §7 deltas, ADR-0026 amendment, `drops` owner
+**Decision point:** The ADR errata pass (technical-director, 2026-10-17) applied transcription errata to ADR-0003/0004/0005/0006/0013 and held back three items as amendments needing the owner.
+**Options considered:** Accept all D-1…D-8 / accept only D-6…D-8 as errata / hold; accept or hold the ADR-0026 §2/§7 amendment; keep `drops` = Health & Damage or revert to the shared wording.
+**Chosen (owner):** Accept all ADR-0012 §7 deltas D-1…D-8 (spike REPORT.md wording); accept the ADR-0026 amendment (corner-height bound ±1,000,000 mm, far-edge sampling, Post Office build-overload rules, Build overloads in Key Interfaces); keep `drops` owned by Health & Damage. Control manifest to be revised to 2026-10-17.1 carrying the new rules. Orchestrator also applied the manifest text errata (21 handles, every-build counting, `drops` owner) and the ADR-0006 `IPhaseProbe Before/After`, `ISqrt` method wording and ADR-0003 `ISlotView` row fixes flagged by the pass.
+**Reason:** Owner acceptance obtained via the always-ask ADR path; the amendments match reviewed, shipped code and the input spike.
+**Category:** major (ADR amendments)
+
+### 2026-10-17 — ADR-0012 §7 / ADR-0026 amendments accepted by owner
+**Decision point:** How to record the owner-accepted amendments (see the "owner acceptance" entry above) in the ADRs, the control manifest and the register.
+**Options considered:** [A] amend the ADR bodies in place with a dated `## Amendments` section (Status stays Accepted) and bump the manifest to a new revision; [B] write superseding ADRs; [C] errata-only notes without body changes.
+**Chosen:** [A]. ADR-0012 §7 rewritten with D-1…D-8 verbatim (heading no longer "provisional"; Engine Validation note 3 marked superseded by D-1); ADR-0026 §2 (±1,000,000 mm corner bound, far-edge rule), §7 (Post Office per `Build` overload, codes 37/43) and Key Interfaces (three `Build` overloads). control-manifest.md → 2026-10-17.1 with input-adapter must/never rules (D-1…D-8) and World rules. Register: TD-021, TD-028, TD-058 marked "(ADR part applied 2026-10-17)" — non-ADR items remain (GDD `ui_select`/Y follow-up and ADR-0019 placement text for TD-021; other carry-forwards for TD-028/TD-058). `drops` = Health & Damage kept (no change).
+**Reason:** The amendments refine, not replace, the accepted decisions; in-place amendment keeps one authoritative ADR per topic, and the manifest revision tells stories to re-check.
+**Category:** minor
+
+### 2026-10-17 — dev-story (mail-destinations story-003 Evaluate, autonomous)
+**Decision point:** How the AC-3 "instrumented ≤ 6 predicate checks" counter and the `DestinationFacts` extras fit the manifest's no-mutable-statics rule and the registry-free `Evaluate` contract; and how CLOSED-beats-LOCKED reaches a single-field `DestState` fact.
+**Options considered:** [A] a `[Conditional("SIM_ASSERT")]` static counter field (fails SC-ARCH-1 `SimAssembly_HasNoMutableStaticField`); [B] a `ref int` counter threaded through one private `EvaluateCore`, exposed only by an `#if SIM_ASSERT internal EvaluateCounted` entry; for facts: carry `AcceptsMask` (u64, bit = kind `DefIndex.Value`) + `RequiresUnit` in `DestinationFacts`, precomputed per type at registry build; `RawStateOf` reordered to Closed → Locked → Open and delegated to `DeliveriesStateRules.Effective` (null start tick) so the ordering rule has one copy; `MailFlags` made public because the public `UnitFacts` exposes it.
+**Chosen:** [B]. Engine specialist (godot-csharp-specialist) spawned as a read-only reviewer rather than co-implementer (Godot-free story; ≤ 2 live children). Its should-fixes applied: `AggressiveInlining` on `EvaluateCore`, `AddressId.MaxUnit` instead of `0x3F`, `IsIn` asserted in the signature test. The silent drop of kinds with `DefIndex.Value ≥ 64` from the accepts mask is logged as tech debt (content validator check owed), not fixed here.
+**Reason:** [B] keeps one copy of the rule, 0 B and no static state in every build; the additive facts fields are what the story's Implementation Notes prescribe. GDD erratum F3 ("truncates" vs exact V_k) is noted and not in this story's scope.
+**Category:** minor

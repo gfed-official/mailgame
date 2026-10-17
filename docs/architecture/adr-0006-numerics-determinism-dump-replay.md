@@ -101,7 +101,7 @@ The review also found that the seed's `MulDivRH` overflows `Int128` and that `Ma
 | Quantity | Type | Range and rule |
 |---|---|---|
 | Money | `readonly struct Cents` (a plain struct with a private constructor and `FromCents` factory that range-checks, **not** a `record struct`, because `init` and `with` would bypass the bound) | **±2^62** (±4 611 686 018 427 387 904 ¢). Add and Sub are explicitly range-checked: Debug asserts; Release saturates to ±2^62 and counts `moneySaturated`. Negative balances inside the range are legal (Mail `wallet_floor` −500). The only rounding entry point is `Cents.MulPermille`. |
-| Ratios | `int` permille (‰) | 0–10^6 for multipliers (a negative value asserts in Debug and is treated as 0 and counted in Release). Signed where a GDD defines a signed ratio. |
+| Ratios | `int` permille (‰) | 0–10^6 for multipliers. The negative-multiplier rule is owned by `Cents.MulPermille`: a negative permille asserts under `SIM_ASSERT` (`SimAssertCode.MoneyBadPermille` = 10), otherwise is treated as 0 and counted (`moneyBadPermille`, counter 5); `Fix.MulDiv`/`MulDivRH` take signed ratios. Signed where a GDD defines a signed ratio. |
 | Positions and distances | `int` millimetres | Stored and on the wire. Products widen to `long` before the first multiply (TR-movement-002). |
 | Sub-mm integration | `readonly struct Fx16` (`long Raw`, private ctor) | 16 fractional bits. Domain **[−2^47, 2^47 − 65 536]**, so `ToMm` always fits `int` (engine validation: +2^47 would give `ToMm` = 2^31, which overflows `int`). `ToMm = (int)(Raw >> 16)` (arithmetic shift = floor), never `/ 65536`. `FromMm(int mm) = (long)mm << 16`, widened **before** the shift. Out-of-domain results are clamped to the domain and counted `fxClamped`. |
 | Angles | `ushort` BAM (65 536 = 360°) | BAM addition and subtraction **wrap by design** (overflow class 1, written `unchecked((ushort)(a + b))`). Trig goes through a committed Q15 table (§6). |
@@ -114,7 +114,8 @@ The review also found that the seed's `MulDivRH` overflows `Int128` and that `Ma
 ### 2. Rounding toolkit (`Sim/Primitives/Fix.cs`, `Cents.cs`, `Fx16.cs`)
 
 All of these are pure, allocation-free and non-throwing.
-- **Faults.** A zero divisor is a fault: the helper returns 0 and counts `fixDivZero`, and Debug asserts.
+- **Faults.** A zero divisor is a fault: the helper returns 0 and counts `fixDivZero`. It does not assert (GDD F7/R31, the N-vector table below).
+- **`Int128` overloads.** `Fix.DivRoundHalfAway(Int128 n, Int128 d)`, `Fix.FloorDiv(Int128, Int128)` and `Fix.CeilDiv(Int128, Int128)` (StatSheet F1/F5 numerators) take no sink: `d ≤ 0` returns 0 with no counter and no assert. Callers pass positive constant divisors.
 - **Clamps.** A result outside the domain is clamped and counted (`fixClamped`, `moneyClamped`, `fxClamped`).
 - **Counters.** They are reached through an injected `SimCounters` reference passed by the caller, or a `ref` overload in tests. There are no statics.
 
@@ -122,10 +123,10 @@ All of these are pure, allocation-free and non-throwing.
 |---|---|---|
 | `Fix.MulDiv(a, b, c)` | `trunc((Int128)a·b / c)` (truncation toward zero; `weightSpeed` keeps this) | ±(2^63 − 1) |
 | `Fix.MulDivRH(a, b, c)` | `a·b/c` rounded **half away from zero**, by the **overflow-free algorithm** below | ±(2^63 − 1); typed wrappers clamp narrower |
-| `Fix.FloorDiv(a, b)`, `Fix.CeilDiv(a, b)` | Floor and ceiling on signed `long` (Throwing TR-throwing-004) | n/a |
-| `Fix.ISqrt(ulong n)` | Integer floor square root (bitwise Newton, no float) | n/a |
+| `Fix.FloorDiv(a, b, ref sink)`, `Fix.CeilDiv(a, b, ref sink)` | Floor and ceiling on signed `long` (Throwing TR-throwing-004) | `(long.MinValue, −1)` clamps to 2^63 − 1, counted `fixClamped` |
+| `Fix.ISqrt(ulong n) → uint` | Integer floor square root (bitwise digit-by-digit, no float) | n/a |
 | `Cents.MulPermille(c, pm)` | `≡ clamp(MulDivRH(c.Value, pm, 1000), ±2^62)`; clamp counted `moneyClamped` | ±2^62 |
-| `Fx16.ToMm(fx)` | `fx.Raw >> 16` (floor) | n/a |
+| `Fx16.ToMm(fx)` (static) | `fx.Raw >> 16` (floor) | n/a |
 
 **Overflow-free `MulDivRH`** (seed §1 correction, normative):
 ```
@@ -203,14 +204,14 @@ return neg ? -(long)q : (long)q
   - It catches `var x = a * 1.5` and the `double` keyword, which symbol bans do not reliably catch.
   - It also hosts the rule-3 check (`foreach`, `GetEnumerator`, `Keys` or `Values` on `Dictionary`/`HashSet`, including when passed as `IEnumerable`) once written (GDD OQ10).
   - Until that rule-3 check ships, rule 3 is a review rule plus SC-DET-1.
-- **`Microsoft.CodeAnalysis.BannedApiAnalyzers`** (RS0030) with `src/PerformativeMail.Sim/BannedSymbols.txt`. It uses **documentation-comment IDs without wildcards**: name-only member IDs cover every overload. The list:
+- **`Microsoft.CodeAnalysis.BannedApiAnalyzers`** (RS0030) with `src/PerformativeMail.Sim/BannedSymbols.txt`. It uses **documentation-comment IDs without wildcards**. A member ID without a parameter list matches only the parameterless overload, and a generic method needs its arity and full signature, so the shipped file lists **every net8.0 overload explicitly** (generated with Roslyn `GetDocumentationCommentId`); `T:` entries ban the whole type. `tools/ci/check-analyzer-fixtures.sh` pins the Sim to exactly `net8.0` until the lists are regenerated for a newer target. The list:
   - `T:System.Random`;
   - `M:System.Guid.NewGuid`;
-  - `M:System.Object.GetHashCode`, `M:System.String.GetHashCode` and `T:System.HashCode`;
+  - `M:System.Object.GetHashCode`, every `M:System.String.GetHashCode` overload, `M:System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(System.Object)` and `T:System.HashCode`;
   - `T:System.DateTime`, `T:System.DateTimeOffset`, `T:System.Diagnostics.Stopwatch`, `P:System.Environment.TickCount` and `P:System.Environment.TickCount64`;
-  - `T:System.Threading.Thread`, `T:System.Threading.Tasks.Task`, `T:System.Threading.Tasks.Parallel` and `T:System.Threading.Timer`;
-  - `M:System.Array.Sort`, `M:System.Collections.Generic.List`1.Sort` and `M:System.MemoryExtensions.Sort`;
-  - `M:System.Linq.Enumerable.OrderBy`, `M:System.Linq.Enumerable.OrderByDescending`, `M:System.Linq.Enumerable.ThenBy` and `M:System.Linq.Enumerable.ThenByDescending`.
+  - `T:System.Threading.Thread`, `T:System.Threading.Tasks.Task`, ``T:System.Threading.Tasks.Task`1``, `T:System.Threading.Tasks.ValueTask`, ``T:System.Threading.Tasks.ValueTask`1``, `T:System.Threading.ThreadPool`, `T:System.Threading.Tasks.Parallel`, `T:System.Threading.Timer` and `T:System.TimeProvider`;
+  - every overload of `System.Array.Sort`, ``System.Collections.Generic.List`1.Sort`` and `System.MemoryExtensions.Sort`;
+  - every overload of `System.Linq.Enumerable.OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, `Order` and `OrderDescending`.
 
   RS0030 is made an error explicitly (`dotnet_diagnostic.RS0030.severity = error` in `.editorconfig`). It does not rely only on `TreatWarningsAsErrors`.
 - **Every banned item has a fixture** under SC-ARCH-2 that must be **seen failing** before the gate counts. The fixtures include:
@@ -256,7 +257,8 @@ return neg ? -(long)q : (long)q
 | **Not required** | Clients never lockstep or re-simulate the world. World generation is not regenerated on clients (spec 13 §3). | — |
 
 ### 6. BAM and the Q15 trig table
-- **Table.** `Sim/Primitives/TrigQ15.cs` holds a committed `static readonly short[4096]` sine table, indexed by `bam >> 4`, with values `round-half-away(32767 · sin(2π·i/4096))`. It is generated **once** by `tools/GenTrigQ15` (tools may use `double`) and committed as source.
+- **Table.** `Sim/Primitives/TrigQ15.g.cs` holds a committed 4096-entry `ReadOnlySpan<short>` literal property (no static field, ADR-0003 §4) sine table, indexed by `bam >> 4`, with values `round-half-away(32767 · sin(2π·i/4096))`. It is generated **once** by `tools/GenTrigQ15` (tools may use `double`) and committed as source.
+- **Allocation caveat.** A `ReadOnlySpan<short>` literal binds to `RuntimeHelpers.CreateSpan`, whose JIT intrinsic expands only when optimising; at Tier-0 each call allocates (~64 B measured). The getter is marked `[MethodImpl(MethodImplOptions.AggressiveOptimization)]`, which fixes Release Tier-0; a fully unoptimised (Debug/ExportDebug) Sim still allocates, so 0-B checks on the table run on optimised legs only (§8).
 - **Cosine** is `Sin(bam + 16384)`. Interpolation (if any) and `atan2` belong to ADR-0013.
 - **Hash test.** A test asserts the SHA-256 of the table's LE bytes equals the value recorded in the generating story, and it runs in SC-DET-2.
 
@@ -267,7 +269,7 @@ return neg ? -(long)q : (long)q
   - `OnSample(uint receivedTick, PlayerSlot slot, in TransformSample s)` at the latch drain;
   - `OnOverflow(uint tick)`.
 - **M-1a `InMemoryRecorder`.** Preallocated, growable **only outside the tick** (it is not under the 0-alloc gate, which runs with no recorder, R32).
-  - **Header:** `formatVersion` u16; `ContentSet` hash (32 B); the SHA-256 of the `SimSettings` canonical encoding (which includes `maxOpsDrainedPerTick`, capacities and reserves); `runSeed` u64; initial counters (tick, `opSeq`, class counters, `mailId`).
+  - **Header:** `formatVersion` u16; `ContentSet` hash (32 B); the SHA-256 of the `SimSettings` canonical encoding (which includes `maxOpsDrainedPerTick`, capacities and reserves); `runSeed` u64; initial counters (`LastOpSeq`, `LastMailId`, `LastEntityCounters`, last-issued per ADR-0004). There is **no initial-tick field**: a recording and its replay start at tick 0.
   - **Body:** ordered records.
 - **Replay.** `ReplayDriver` builds a world from the header and refuses on any mismatch (no world is built; GDD edge case). It then:
   - re-enqueues each op immediately before the tick numbered its `boundaryTick`;
@@ -316,12 +318,16 @@ public readonly struct Cents {                                         // plain 
     public static Cents Sub(Cents a, Cents b, ref SimCounterSink c);
     public static Cents MulPermille(Cents c, int pm, ref SimCounterSink k); // == clamp(Fix.MulDivRH(c, pm, 1000), ±2^62)
 }
-public readonly struct Fx16 { public long Raw { get; } public int ToMm(); public static Fx16 FromMm(int mm); } // domain [−2^47, 2^47−65536]
+public readonly struct Fx16 { public long Raw { get; } public static int ToMm(Fx16 fx); public static Fx16 FromMm(int mm);   // domain [−2^47, 2^47−65536]
+    public static Fx16 FromRaw(long raw, ref SimCounterSink k); public static Fx16 Add(Fx16 a, Fx16 b, ref SimCounterSink k);
+    public static Fx16 Sub(Fx16 a, Fx16 b, ref SimCounterSink k); }                                // clamp to domain, count fxClamped
 public static class Fix {
     public static long MulDiv(long a, long b, long c, ref SimCounterSink k);
     public static long MulDivRH(long a, long b, long c, ref SimCounterSink k);
-    public static long FloorDiv(long a, long b); public static long CeilDiv(long a, long b);
-    public static ulong ISqrt(ulong n);
+    public static long FloorDiv(long a, long b, ref SimCounterSink k); public static long CeilDiv(long a, long b, ref SimCounterSink k);
+    public static uint ISqrt(ulong n);
+    public static Int128 DivRoundHalfAway(Int128 n, Int128 d);                                     // d ≤ 0 → 0, uncounted
+    public static Int128 FloorDiv(Int128 n, Int128 d); public static Int128 CeilDiv(Int128 n, Int128 d);
 }
 public ref struct CanonicalWriter { public void WriteU8(byte v); public void WriteU16(ushort v); public void WriteU32(uint v);
     public void WriteU64(ulong v); public void WriteI32(int v); public void WriteI64(long v); public void WriteBool(bool v);
@@ -335,7 +341,7 @@ public interface IOpRecorder {
     void OnSample(uint receivedTick, PlayerSlot slot, in TransformSample sample);
     void OnOverflow(uint tick);
 }
-public interface IPhaseProbe { void Enter(ProbeScope s); void Exit(ProbeScope s); }      // null object by default
+public interface IPhaseProbe { void Before(PhaseId phase); void After(PhaseId phase); }   // null object by default (ADR-0003 §2)
 // SimWorld: public bool TryWriteDump(IBufferWriter<byte> output);
 ```
 `SimCounterSink` is a thin `ref`-passed handle onto the world's `SimCounters` (no statics). Its exact shape is settled in the primitives story.
@@ -479,3 +485,13 @@ No code exists. Primitives stories create `src/PerformativeMail.Sim/Primitives/{
 - ADR-0013 (carrier): the Q15 table consumer and the `OwnedCarrier.Step` T2 surface.
   - **Erratum (recorded 2026-10-16 on ADR-0013's acceptance):** the carrier uses exact tick-rational remainders, not `Fx16` (ADR-0013 §2), because `Fx16` cannot reproduce PC F1's 166/167/167 or F3's apex golden. The Enables entry "`Fx16` carrier step" reads accordingly. §1's `Fx16` row stands for every other sub-mm use; T2 is unchanged.
 - `design/gdd/simulation-core.md` R27–R32, F7. Seed §1, §3.6–§3.9, §3.14 (consumed by this ADR).
+
+## Errata
+- 2026-10-17 — §2 Faults: said a zero divisor "Debug asserts"; now returns 0 and counts `fixDivZero` with no assert, matching the N-vector table, GDD F7/R31, the manifest and `Fix`; source TD-005 item 1.
+- 2026-10-17 — §2 table and Key Interfaces: `ISqrt` returned `ulong`, `FloorDiv`/`CeilDiv` took no sink and had clamp "n/a", `Fx16.ToMm` was an instance method; now `ISqrt → uint`, `FloorDiv`/`CeilDiv(…, ref SimCounterSink)` with the `(long.MinValue, −1)` clamp, static `Fx16.ToMm`, and `Fx16.FromRaw/Add/Sub` listed; source TD-005 item 2.
+- 2026-10-17 — §1 Ratios row: the negative-multiplier rule was stated for all multipliers; now owned by `Cents.MulPermille` (`MoneyBadPermille` counter 5 / assert code 10); source TD-005 item 3.
+- 2026-10-17 — §2 and Key Interfaces: the `Int128` `Fix.DivRoundHalfAway/FloorDiv/CeilDiv` overloads were not recorded; now listed with their `d ≤ 0` → 0, no counter, no assert policy; source TD-050 item 1.
+- 2026-10-17 — §3 Enforcement: said name-only member IDs cover every overload; now every net8.0 overload is listed explicitly, the shipped additions (`Task`1`, `ValueTask(`1)`, `ThreadPool`, `TimeProvider`, `RuntimeHelpers.GetHashCode`, `Enumerable.Order/OrderDescending`, `String.GetHashCode` overloads) are listed, and the `net8.0` pin by `check-analyzer-fixtures.sh` is stated; source TD-007.
+- 2026-10-17 — §6: the sine table was a `static readonly short[4096]` in `TrigQ15.cs`; now a `ReadOnlySpan<short>` literal property in `TrigQ15.g.cs` with the `CreateSpan` Tier-0 allocation caveat and the `AggressiveOptimization` getter; source TD-008.
+- 2026-10-17 — §7 header: listed an initial tick among the initial counters; the shipped `RecordingHeader` has no initial-tick field (replay starts at tick 0) and carries `LastOpSeq`/`LastMailId`/`LastEntityCounters`; source TD-080 item 2.
+- 2026-10-17 — §2 table: `ISqrt` method was "bitwise Newton"; now "bitwise digit-by-digit" (matches `Fix.ISqrt`). Key Interfaces: `IPhaseProbe` was `Enter/Exit(ProbeScope)`; now `Before/After(PhaseId)` as shipped and as ADR-0003 §2 states; source: errata pass review.

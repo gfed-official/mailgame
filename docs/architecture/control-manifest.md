@@ -1,10 +1,12 @@
 # Control Manifest
 
 > **Engine**: Godot 4.7.1 .NET (`4.7.1.stable.mono.official.a13da4feb`), C# — Sim and Client.Core on `net8.0`, tests on `net10.0` (+ `net8.0` leg)
-> **Last Updated**: 2026-10-16
-> **Manifest Version**: 2026-10-16.2
+> **Last Updated**: 2026-10-17
+> **Manifest Version**: 2026-10-17.1
 > **ADRs Covered**: ADR-0001 … ADR-0011, ADR-0012, ADR-0013, ADR-0014, ADR-0015, ADR-0016, ADR-0017, ADR-0019, ADR-0026
 > **Revision 2026-10-16.2**: targeted amendment adding the rules of ADR-0012–0017, 0019 and 0026, accepted 2026-10-16. Stories stamped `2026-10-16` that touch Input, Players, World, Throwing, Mail, ClientLayer previews or Godot scenes must re-check against this revision.
+> **Revision 2026-10-17.1**: owner-accepted amendments — ADR-0012 §7 D-1…D-8 rules for the Godot input adapter layer (last-child-of-root placement, mouse capture as a request, handled-state symmetry, window focus subscription, stock `ui_*` pad bindings, `Device` int vs `DeviceId*` long, connected-pad-only queries, per-event allocation/retention budget); ADR-0026 corner-height bound (±1,000,000 mm), far-edge sampling rule and Post Office `Build` overload rules; plus the 2026-10-17 ADR errata (ADR-0003/0004/0005/0006/0013) already noted. Stories stamped earlier that touch the Godot input adapter or `WorldTablesBuilder` must re-check against this revision.
+> **Errata 2026-10-17** (text only, version unchanged): RNG handle count 30 → 21; `rngIndexOutOfRange` counted in every build; `drops` owner = Health & Damage — per the ADR-0005 errata of the same date (TD-010).
 > **Status**: Active — regenerate with `/create-control-manifest update` when ADRs change
 
 `Manifest Version` is the date this manifest was generated. Story files embed
@@ -127,7 +129,7 @@ rule, see the referenced ADR. Where two ADRs disagree, see
 - **Implement `Fnv1a64`, `Mix64` (full SplitMix64 step including the `+0x9E3779B97F4A7C15` gamma), `Derive(runSeed, name, index) = Mix64(Mix64(runSeed ^ Fnv1a64(name)) ^ index)`, PCG32 `pcg32_srandom` / `Step` / `Next32` exactly as ADR-0005 §1**, every line inside `unchecked(...)` (including the `(uint)(((old >> 18) ^ old) >> 27)` narrowing); rotate written `(32 - rot) & 31` with `int rot`. — source: ADR-0005 §1, Implementation Guidelines
 - **`NextInt(uint b) = (uint)(((ulong)Next32() * b) >> 32)` — exactly one draw per call**, `b = 0` returns 0 (Debug asserts); Bernoulli p‰ is `NextInt(1000) < p`; list choice is `list[NextInt((uint)list.Count)]`. — source: ADR-0005 §4
 - **Streams come only from `RngNames` (static readonly `StreamName` fields; v1: `worldgen.<stage>`, `mail` 1–5, `mail.special` 1–5, `waves`, `mega`, `drops`, `perks`, `shop`, `events` 1–5)**; a new stream amends the ADR-0005 table + one field; `Fnv1a64` computed once at type init from a `"…"u8` literal. — source: ADR-0005 §2
-- **`RngRegistry` is per `SimWorld`**, pre-allocates every `(name, index)` handle (30 in v1) at composition; `Create` re-seeds the existing handle in place, allocating nothing; out-of-range index asserts in Debug, counts `rngIndexOutOfRange` in Release. — source: ADR-0005 §3
+- **`RngRegistry` is per `SimWorld`**, pre-allocates every `(name, index)` handle (21 in v1 — 9 names) at composition; `Create` re-seeds the existing handle in place, allocating nothing; out-of-range index counts `rngIndexOutOfRange` in every build, then asserts in Debug (Release falls back to a spare/refused stream). — source: ADR-0005 §3
 - **The `Pcg32` field inside `RngStream` is not `readonly`.** — source: ADR-0005 Implementation Guidelines
 - **Each system receives an owner-filtered `IRngStreams` view of only the names it owns** (architecture test SC-ARCH-1); Throwing receives none. — source: ADR-0005 §3
 - **Each `RngStream` counts `draws` (u64), +1 per `Next32`/`NextInt` including `NextInt(0)`**; the dump records `(name ordinal, index, state, inc, draws)` in `RngNames` order then index. — source: ADR-0005 §3
@@ -312,7 +314,7 @@ rule, see the referenced ADR. Where two ADRs disagree, see
 - **Op ring**: 4096 × 64 B = 256 KiB + 16 KiB boundary ticks; `systemOpReserve` 64 — source: ADR-0007, registry `op_and_event_capacity`
 - **Event log**: 4096 × 64 B = 256 KiB, reserve 256; F8 `cap×4 + 1.5×systemEventsPerTick ≤ capacity − reserve` (826 ≤ 3840); no overflow on the worst fixture tick (SC-R8-4, M0) — source: ADR-0008 §2, §6
 - **TickDriver**: O(1) per frame, ≤ `maxCatchUpTicksPerFrame` ticks per frame (default 4, safe 3–8), no allocation per frame — source: ADR-0002
-- **RNG**: ≈ 48 B × 30 preallocated handles (< 2 KB); `Next32` ≈ 1 ns — source: ADR-0005
+- **RNG**: ≈ 48 B × 21 preallocated handles (< 2 KB); `Next32` ≈ 1 ns — source: ADR-0005
 - **`SimCheckRing`** ≈ 256 × 24 B per world; Q15 table 8 KiB — source: ADR-0001, ADR-0006
 - **Perf is measured only in `Release`/`ExportRelease`**; perf numbers from tests or the editor are not transferable to exports — source: ADR-0001 §7, Performance Implications
 - **Content**: boot parse + validate + hash ≤ 100 ms CPU; run-start bind ≤ 25 ms (no re-parse); sheet rebuild ≤ 0.2 ms (8 players × 5 perks) (advisory); `IStatSheet.Read` 0 B — source: ADR-0010 Performance Implications, registry `stat_read`
@@ -350,6 +352,9 @@ rule, see the referenced ADR. Where two ADRs disagree, see
 - **`Lots` are in ascending `AddressId` (= Mail's `DestinationOrdinal`); destination `EntityId`s are allocated by the builder in lot order in `Constructed`; the builder rejects duplicate/out-of-range addresses and bad spacing (`SimBuildException`).** — source: ADR-0026 §6
 - **`WorldTables` is an `ISimStateContributor` (section `World`); replays record the world source identity (`M1aStreet` version constant).** — source: ADR-0026 §9
 - **`IWorldQuery` may only gain members (M1 revision); §2–§7 semantics change only by superseding ADR-0026.** — source: ADR-0026 §10
+- **Corner heights must lie within ±1,000,000 mm (`WorldConstants.MaxCornerHeightMm`); `SetCorners` rejects others (`WorldCornerHeightOutOfRange`).** — source: ADR-0026 §2
+- **At the far map edge (x = TilesX·S or z = TilesZ·S) sample the last tile with offset exactly S (far-corner heights); the heightfield march follows the same rule.** — source: ADR-0026 §2
+- **Compose the world with `WorldTablesBuilder.Build(EntityIds, slopeMaxPm, swimEnterMm)` — the only overload that requires a Post Office (code 37); `Build(int, int)` keeps it optional (validated when set); never call `Build()` with a Post Office set (code 43).** — source: ADR-0026 §7
 
 #### Persistence (ADR-0004; store details: ADR-0024, not yet written)
 - **JSON persistence of id structs uses explicit converters** — `System.Text.Json` ignores fields and would write `{}`; persist content ids as strings, never `DefIndex`. — source: ADR-0004 Implementation Guidelines
@@ -408,7 +413,7 @@ rule, see the referenced ADR. Where two ADRs disagree, see
 - **Every mutating `I…Api` method starts with `TickGuard.AssertMutable()` and opens `using var scope = log.BeginCall();`**, is one atomic mutation, raises events on commit, returns no reply. — source: ADR-0003 §5, ADR-0008 §5
 - **Op handlers validate fully before mutating, allocating ids, drawing RNG or raising events; return exactly one `Reply`; system reason codes ≥ 64 declared in the descriptor.** — source: ADR-0007
 - **Event kinds declare class, ≤ 48 B padding-free payload, `ResyncScope`, `Coalescible` if rewritten; audience resolved at raise.** — source: ADR-0008
-- **Use only the RNG streams your system owns from `RngNames`** (Mail: `mail`, `mail.special` by shift; Enemy AI & Waves: `waves`, `mega`; Health/Enemy AI: `drops`; Perks: `perks`; Economy: `shop`; Stamps & Run Events: `events`; World Generation: `worldgen.<stage>`). Mail draws spawn and address from `mail` in a fixed order. — source: ADR-0005 §2
+- **Use only the RNG streams your system owns from `RngNames`** (Mail: `mail`, `mail.special` by shift; Enemy AI & Waves: `waves`, `mega`; Health & Damage: `drops`; Perks: `perks`; Economy: `shop`; Stamps & Run Events: `events`; World Generation: `worldgen.<stage>`). Mail draws spawn and address from `mail` in a fixed order. — source: ADR-0005 §2
 - **All quantities use ADR-0006 units and helpers** (mm, permille, `Cents`, `Fx16`, BAM, ticks as absolute deadlines); one rounding per formula. **Exception:** the carrier position uses tick-rational remainders (1/30 mm horizontal, 1/60 mm vertical), never `Fx16`. — source: ADR-0006 §1–§2, ADR-0013 §2
 - **Bind an `ISimStateContributor` for any state; size every collection from `SimSettings`; allocate 0 B in the tick path.** — source: ADR-0006 §4, §8
 - **Read stats through `IStatSheet.Read`**; only Perks & Perk Draft and Stamps & Run Events push modifiers via `IStatWriter`. — source: ADR-0010 §7
@@ -487,13 +492,21 @@ rule, see the referenced ADR. Where two ADRs disagree, see
 - **Jolt (4.6+ default) affects client-side presentation physics only**; the Sim uses its own solver. — source: current-best-practices.md, technical-preferences.md
 - **Godot-side tests use gdUnit4, deferred to their own story** (needs the Godot .NET build; until then [UI] evidence goes to `production/qa/evidence/`). — source: ADR-0001 §7, tests/README.md
 
-- **Godot input adapter (ADR-0012, rows UNVERIFIED until the OQ-IC-9 spike is recorded under `prototypes/`):** it stamps `_Input` arrivals into `RawInputRecord`s for the router. HUD and in-world Controls use `FocusMode = None`, and entering a game context calls `GuiReleaseFocus()`. `ignore_joypad_on_unfocused_application = true`. Focus loss synthesises release-with-cancel and pauses through `TickDriver.Pause()` in solo. Adapter stories wait for the spike. — source: ADR-0012
+- **Godot input adapter (ADR-0012 §7, amended 2026-10-17 by the OQ-IC-9 spike):** it stamps `_Input` arrivals into `RawInputRecord`s for the router. HUD and in-world Controls use `FocusMode = None`, and entering a game context calls `GuiReleaseFocus()`. `ignore_joypad_on_unfocused_application = true`. Focus loss synthesises release-with-cancel and pauses through `TickDriver.Pause()` in solo. — source: ADR-0012 §7
+- **The adapter is the last child of the root window and re-asserts it (`MoveChild(this, -1)`) when a node enters the root (`GetTree().Root.ChildEnteredTree`; likely via `CallDeferred`, verify in story 028); `ProcessMode = Always`.** Input callbacks run in reverse tree order and `ProcessPriority` does not affect input order. `Window.WindowInput` may be used for arrival stamping only. — source: ADR-0012 §7 (D-1)
+- **Treat `Input.MouseMode = Captured` as a request: re-apply on application/window focus-in and on the first click into the window, and check the readback.** Wayland rejects capture without pointer focus; X11 does not restore the cursor position on returning to `Visible`. — source: ADR-0012 §7 (D-2)
+- **Subscribe to the adapter window's `FocusExited`/`FocusEntered` as well as `NotificationApplicationFocusOut`; either triggers the idempotent `OnFocusLost()`; the router's synthesized releases stay mandatory (the engine clears pressed keys without release events).** — source: ADR-0012 §7 (D-4)
+- **Menus outside play that want pad A/B confirm/back handle them in the menu's own navigation owner** (stock `ui_*` binds pad D-pad, left stick, Y and X on device −1, and no pad button to `ui_accept`/`ui_cancel`). — source: ADR-0012 §7 (D-5)
+- **Compare `InputEvent.Device` (`int`) directly with `InputEvent.DeviceId*` (`long`); cast when assigning (`(int)InputEvent.DeviceIdEmulation`).** — source: ADR-0012 §7 (D-6)
+- **Budget ≈410–550 managed bytes per engine-created event delivered to C# `_Input`; keep `use_accumulated_input` true; `Dispose()` engine-created events in `_Input` if the Release retention spike confirms retention (story 026 is not Done until it does or clears it).** — source: ADR-0012 §7 (D-8)
 - **Pools are pre-instantiated at boot within ADR-0019 §5's caps. Steady-state frames instantiate no nodes and allocate 0 B in the panel and ribbon.** — source: ADR-0019
 - **Presentation time comes from `IRenderClock`.** `delta`, Godot `Timer` and `Time.GetTicksMsec` are banned for gameplay-facing timing. Outcome beats play only from `PresentationEventStream`. — source: ADR-0016
 - **Presentation colliders (camera boom, picking) are a copy of `IWorldQuery` geometry and need a parity test against `StaticSolids`.** — source: ADR-0013 Risks
 ### Forbidden Approaches
 - **Never mutate the Sim from Presentation, call `SimWorld`/`ClientLayer`/`FrameRunner` from a view's `_Process`/`_PhysicsProcess`, or move Sim-driven entities in `_PhysicsProcess`.** — source: ADR-0002 §3
 - **Never use Godot physics interpolation for Sim-driven entities** (`physics_interpolation` stays false; `RenderingServer.instance_set_interpolated`/`instance_reset_physics_interpolation` were removed in 4.5). — source: ADR-0002 §3, deprecated-apis.md
+- **Never consume only one half of a press/release pair in the input adapter** (consuming a release after the GUI saw the press leaves a Control stuck pressed). — source: ADR-0012 §7 (D-3)
+- **Never rely on `ProcessPriority` for input order, and never call `Input.GetJoyInfo`/`GetJoyName` for an index not in `Input.GetConnectedJoypads()`.** — source: ADR-0012 §7 (D-1, D-7)
 - **Never use `SceneTree.Paused` for game pause** (UI may pause the tree; the Sim must be unaffected). — source: ADR-0002 §3
 - **Never pass id structs as `[Signal]` parameters, `[Export]` fields, `SetMeta` values, `Godot.Collections` elements, `Callable` binds or Variant RPC arguments.** — source: ADR-0004 Implementation Guidelines
 - **Never let `ClientLayer` or Presentation read `SimWorld` directly** (host included; use the mirror). — source: ADR-0003 §6

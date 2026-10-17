@@ -65,10 +65,10 @@ Three M-1a epics need terrain height, water, solids, bounds and the address tabl
 
 ### 2. Height field (one rounding rule for every consumer)
 
-- Corner heights: `int[] cornerMm` of `(TilesX + 1) × (TilesZ + 1)`, row-major, in mm. Tile size `S = 2000` mm (`TileSizeMm`).
+- Corner heights: `int[] cornerMm` of `(TilesX + 1) × (TilesZ + 1)`, row-major, in mm. Tile size `S = 2000` mm (`TileSizeMm`). Corner heights are bounded to ±1,000,000 mm (`WorldConstants.MaxCornerHeightMm`); `SetCorners` rejects a value outside it (`SimBuildErrorCode.WorldCornerHeightOutOfRange`).
 - `TerrainHeightMm(x, z)` is **bilinear over the containing tile's four corners**, computed in int64 with a **single `Fix.MulDivRH`** (round half away from zero, ADR-0006):
   `h = MulDivRH(h00·(S−u)(S−v) + h10·u(S−v) + h01·(S−u)v + h11·u·v, 1, S²)`
-  where `u = x − tx·S` and `v = z − tz·S` are both in `[0, S)`. Inputs are clamped to the map.
+  where `u = x − tx·S` and `v = z − tz·S` are both in `[0, S)`. Inputs are clamped to the map. At the far map edge (x = TilesX·S or z = TilesZ·S) sampling uses the last tile with offset exactly S, returning the far-corner heights; the heightfield march follows the same rule.
 - The kernel is ADR-0013 §6's `WorldHeight.Sample` (`Sim/Geometry`). `WorldTables` calls it over `GetCorners`, so there is one implementation and one T2 vector set.
 - **This replaces PC F7's truncating division** (difference ≤ 1 mm; GDD impact) and matches Throwing F4's RH. Golden vectors are committed for both signs, for corners, edges and the clamp.
 - `TerrainGradientPm(x, z, out gx, out gz)` is the analytic tile-local gradient in permille, using the same corners and the same rounding. It is a rounded convenience for presentation and AI. PC P4's walkability `gx² + gz² ≤ 700²` is decided on exact un-divided numerators (`WorldHeight.Gradient`, ADR-0013 §6, compared in `Int128`), both by the carrier and by the `Walkable` precompute (§4). It is never decided on the rounded permille value. *(Amended 2026-10-16 before acceptance to match ADR-0013.)*
@@ -112,6 +112,8 @@ Three M-1a epics need terrain height, water, solids, bounds and the address tabl
 ### 7. Post Office and spawn pad
 
 `PostOffice` is a single record `{ Vec3Mm DoorAnchor, Vec3Mm IntakeAnchor (po_intake), Vec3Mm PadCentre, int PadRingRadiusMm = 1200, byte PadSlots = 8 }`. Pad slot k sits at angle `k × 45°`, using the BAM trig LUT (ADR-0013's). The builder asserts every slot is `Walkable`, outside every `StaticSolid` and above swim depth (PC L489). If not, it fails, and the runtime fallback is `DoorAnchor` (PC F8).
+
+An unset Post Office fails only the composition path `Build(EntityIds, int, int)` (code 37, `WorldPostOfficeNotSet`); `Build(int, int)` keeps it optional (validated when set); `Build()` rejects one (code 43, `WorldPostOfficeNeedsWalkabilityLimits`).
 
 ### 8. The M-1a street (`M1aStreet`)
 
@@ -166,7 +168,10 @@ public readonly struct LotRecord { public readonly EntityId Destination; public 
     public readonly StringId Display; public readonly TileCoord MailboxTile; public readonly FaceDir Face; public readonly Vec3Mm Anchor;
     public readonly TileCoord ApproachTile; public readonly Vec3Mm TruckStopPoint; public readonly ushort HouseSolid; }
 public readonly struct PostOfficeRecord { public readonly Vec3Mm DoorAnchor, IntakeAnchor, PadCentre; public readonly int PadRingRadiusMm; public readonly byte PadSlots; }
-public sealed class WorldTablesBuilder { /* SetCorners, AddSolid, AddLot, SetPostOffice, Build(EntityIds) → WorldTables; validates §4–§7 */ }
+public sealed class WorldTablesBuilder { /* SetCorners (±MaxCornerHeightMm), AddSolid, AddLot, SetPostOffice; validates §2, §4–§7 */
+    public WorldTables Build();                                            // terrain-only; rejects a Post Office (code 43)
+    public WorldTables Build(int slopeMaxPm, int swimEnterMm);             // Post Office optional, validated when set
+    public WorldTables Build(EntityIds ids, int slopeMaxPm, int swimEnterMm); } // composition path; Post Office required (code 37)
 ```
 
 ### Implementation Guidelines
@@ -260,3 +265,9 @@ No code exists. world-stub stories, in order:
 ## Related
 - ADR-0003, 0004, 0006 (Accepted); ADR-0013 (solver), ADR-0015 (sweep/broad phase), ADR-0017 (`AddressId`, registry), ADR-0019 (terrain views), ADR-0022 (JoinState, M1), ADR-0028 (routing graph).
 - `production/epics/world-stub/EPIC.md`; `design/gdd/player-character-movement.md` P4/P6/P17/F7/F8; `throwing-catching.md` T5/T6/T11/F4/F8; `mail-destinations.md` R3/R10.
+
+## Amendments
+- 2026-10-17 — accepted by owner — §2: corner heights bounded to ±1,000,000 mm (`WorldConstants.MaxCornerHeightMm`), rejected by `SetCorners` (`WorldCornerHeightOutOfRange`); source TD-028 item 4.
+- 2026-10-17 — accepted by owner — §2: far-edge sampling rule — at x = TilesX·S or z = TilesZ·S the last tile is used with offset exactly S (far-corner heights); the heightfield march follows it; source TD-028 item 4.
+- 2026-10-17 — accepted by owner — §7: unset Post Office fails only `Build(EntityIds, int, int)` (code 37); `Build(int, int)` keeps it optional (validated when set); `Build()` rejects one (code 43); source TD-058 item 1.
+- 2026-10-17 — accepted by owner — Key Interfaces: `WorldTablesBuilder` shows the three `Build` overloads (`Build(EntityIds)` was a single parameterless-of-limits sketch); source TD-028 item 4, TD-058 item 1.

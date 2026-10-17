@@ -111,11 +111,12 @@ These are spread across five documents. Without one table, two systems pick diff
 ### 3. Allocators
 
 - `EntityIds`:
-  - one `uint[256]` of next counters per world, preallocated;
+  - one `uint[256]` of **last-issued** counters per world (0 = none issued), preallocated;
   - `Allocate(EntityClass)` → `EntityId`;
-  - `Peek(EntityClass)` for tests and dump;
-  - a constructor from initial counters (Free Play save/load path, spec 07 §7.3; tests reach exhaustion without a seam).
-- `MailIds`: one `uint` counter, `Allocate()` → `MailId`, constructor from an initial value.
+  - `Peek(EntityClass)` for tests and dump, returning the last issued counter;
+  - a constructor from initial last-issued counters (Free Play save/load path, spec 07 §7.3; tests reach exhaustion without a seam). Values above 2^24−1 clamp to exhausted.
+- `MailIds`: one `uint` counter holding the last issued id (0 = none), `Allocate()` → `MailId`, `Peek()` → last issued, constructor from a last-issued value (default 0, so the first id is 1).
+- `SimInitialCounters` carries the same last-issued convention: `LastOpSeq`, `LastMailId`, `LastEntityCounters`.
 - **Thread and phase:**
   - Allocation is legal only on the owner thread inside `Tick()`. The exception is `Destination`/`Prop` while the world is `Constructed` (world build).
   - `SIM_ASSERT` builds assert both.
@@ -178,29 +179,37 @@ public enum EntityClass : byte { None = 0, Player = 0x01, WorldItem, Construct, 
                                  TestFirst = 0xF0, TestLast = 0xFF }
 public readonly struct EntityId : IEquatable<EntityId>, IComparable<EntityId>
 {
+    public const uint CounterMask = 0xFF_FFFFu;
     public readonly uint Value;
-    public static readonly EntityId None = default;
+    public static EntityId None => default;
     public EntityClass Class => (EntityClass)(Value >> 24);
     public uint Counter => Value & 0x00FF_FFFFu;
     public static EntityId Compose(EntityClass c, uint counter) => new(((uint)c << 24) | counter);
 }
-public readonly struct ActorId  { public readonly uint Value; public static readonly ActorId System = new(0x0000_0001u); }
+public readonly struct ActorId  { public readonly uint Value; public static ActorId System => new(0x0000_0001u); }
 public readonly struct MailId   : IEquatable<MailId>, IComparable<MailId> { public readonly uint Value; }
-public readonly struct PlayerSlot { private readonly byte _v; public byte Value => _v == 0 ? (byte)0xFF : (byte)(_v - 1);
+public readonly struct PlayerSlot { public const int Count = 8; public const byte NoneValue = 0xFF;
+                                  private readonly byte _v; public byte Value => _v == 0 ? NoneValue : (byte)(_v - 1);
                                   public bool IsNone => _v == 0; }   // +1 storage: default = None
 public readonly struct EntryId  { public readonly uint Value; public bool IsTemp => (Value & 0x8000_0000u) != 0;
-    public static EntryId Temp(PlayerSlot s, uint ctr) => new(0x8000_0000u | ((uint)s.Value << 20) | (ctr & 0xF_FFFFu)); }
+    public PlayerSlot TempSlot { get; } public uint TempCounter { get; }
+    public static EntryId Real(uint value); public static EntryId FromValue(uint raw);   // FromValue: malformed temp → None (asserts)
+    public static EntryId Temp(PlayerSlot s, uint ctr)   // asserts !s.IsNone and ctr < 2^20; s.IsNone → None (never the unguarded formula)
+        => s.IsNone ? default : new(0x8000_0000u | ((uint)s.Value << 20) | (ctr & 0xF_FFFFu)); }
 public readonly struct FlightId { public readonly ushort Value; }        // compare via SerialU16 only
-public readonly struct DefIndex { private readonly ushort _v; public ushort Value => _v == 0 ? (ushort)0xFFFF : (ushort)(_v - 1);
+public readonly struct DefIndex { public const ushort NoneValue = 0xFFFF; public const ushort MaxOrdinal = 0xFFFD;
+                                  private readonly ushort _v; public ushort Value => _v == 0 ? NoneValue : (ushort)(_v - 1);
                                   public bool IsNone => _v == 0; }
 public enum StringNamespace : byte { None = 0, /* one per def type, assigned by ADR-0010 */ Run = 0xFF }
 public readonly struct StringId { public readonly StringNamespace Ns; public readonly ushort Index; }
 public static class SerialU16 { public static int Diff(ushort a, ushort b); public static bool IsNewer(ushort a, ushort b); } // + U8, U32
 public static class WireNarrow { public static ushort ToU16(uint v); public static byte ToU8(uint v); }
 namespace PerformativeMail.Sim.Core;
-public sealed class EntityIds { public EntityIds(ReadOnlySpan<uint> initialCounters = default, bool allowTestClasses = false);
-                                public EntityId Allocate(EntityClass c); public uint Peek(EntityClass c); }
-public sealed class MailIds   { public MailIds(uint initial = 1); public MailId Allocate(); }
+public sealed class EntityIds { public EntityIds(ITickReader tick, SimCheckRing ring, SimCounters counters,
+                                    ReadOnlySpan<uint> initialCounters = default, bool allowTestClasses = false, IWorldStateReader? state = null);
+                                public EntityId Allocate(EntityClass c); public uint Peek(EntityClass c); }   // Peek = last issued
+public sealed class MailIds   { public MailIds(ITickReader tick, SimCheckRing ring, SimCounters counters, uint lastIssued = 0);
+                                public MailId Allocate(); public uint Peek(); }                               // Peek = last issued
 ```
 (Constructors elided; exact members are finalised in the story. The layouts, none values and rules are fixed here.)
 
@@ -320,3 +329,7 @@ New code. The Sim Core "ids" story adds the structs, `EntityIds`, `MailIds`, `Sl
 ## Related
 - ADR-0001 (`Primitives/`, `SimCheckRing`), ADR-0003 (injection of `EntityIds`/`MailIds`), ADR-0005 (stream index by id), ADR-0006 (ordering rules, dump encoding), ADR-0007 (`ActorId`, `opSeq`, `ReqId` width), ADR-0009 (`EntryId` minting/retiring, temp ids), ADR-0010 (`DefIndex` assignment, typed tables), ADR-0011 (slot ↔ peer, hash gate), ADR-0021 (`FlightId`, receiver map), ADR-0024 (persist strings).
 - `design/gdd/simulation-core.md` R6, R19–R22, F4; `grid-inventory.md` R2, Network; `content-data-definitions.md`; `throwing-catching.md`.
+
+## Errata
+- 2026-10-17 — §3 and Key Interfaces: allocators were described as holding "next" counters (`MailIds(uint initial = 1)`, `Peek` = next id); now they hold the **last issued** id (0 = none; `MailIds(…, uint lastIssued = 0)`; `Peek` = last issued), matching `EntityIds`, `MailIds` and `SimInitialCounters` (`LastOpSeq`, `LastMailId`, `LastEntityCounters`); source TD-043 item 1.
+- 2026-10-17 — Key Interfaces: the `EntryId.Temp` sketch lacked the None-slot guard (an unguarded formula would corrupt reserved bits) and the sketch omitted `EntryId.Real/FromValue/TempSlot/TempCounter`, `PlayerSlot.Count/NoneValue`, `DefIndex.NoneValue/MaxOrdinal` and `EntityId.CounterMask`; `EntityId.None` and `ActorId.System` were `static readonly` fields and are properties; now the sketch shows the shipped members and guard; source TD-004.

@@ -115,7 +115,7 @@ NextInt(b):     return (uint)(((ulong)Next32() * b) >> 32)       // exactly one 
 
 ### 2. Stream registry (`RngNames`)
 
-`StreamName` is a `readonly struct` with a private constructor. The only instances are `static readonly` fields of `RngNames`, which is the single registry. Each entry declares the following:
+`StreamName` is a `readonly struct` with an `internal` constructor (C# cannot grant a private constructor to `RngNames`). The only instances are `static readonly` fields of `RngNames`, which is the single registry. Each entry declares the following:
 - its ASCII name (lowercase, dot-separated);
 - its owner (a system id used by the composition-root check);
 - its allowed index range;
@@ -130,7 +130,7 @@ NextInt(b):     return (uint)(((ulong)Next32() * b) >> 32)       // exactly one 
 | `mail.special` | 1–5 (shift) | Mail & Destinations | Recreated on demand |
 | `waves` | 0 | Enemy AI & Waves | Run |
 | `mega` | 0 | Enemy AI & Waves | Run |
-| `drops` | 0 | Health & Damage / Enemy AI | Run |
+| `drops` | 0 | Health & Damage (`SystemId.HealthDamage`) | Run |
 | `perks` | 0 | Perks & Perk Draft | Run |
 | `shop` | 0 | Economy, Wallet & Shop | Run |
 | `events` | 1–5 (shift) | Stamps & Run Events | Recreated on demand |
@@ -144,8 +144,9 @@ Adding a stream is an amendment to this table plus one `RngNames` field. It neve
 - **Factory.** `RngRegistry` is per `SimWorld`, constructed at composition. It is the only factory: `RngStream RngRegistry.Create(StreamName name, uint index)`.
   - It keeps **one live handle per `(name, index)`**.
   - A second `Create` for the same key **re-seeds that same handle in place**: the state and inc are reset and `draws` is set to 0. It allocates nothing, and any older reference to the handle now draws the fresh sequence.
-  - Streams are pre-allocated at composition for every registered `(name, index)` pair: 9 names, 30 keys in v1. This keeps `Create` allocation-free inside the tick.
-- **Index range.** An out-of-range index (`mail` with shift 0 or 6) asserts in Debug. Release derives it anyway and counts `rngIndexOutOfRange`, using a spare slot (SC-R24-1).
+  - Streams are pre-allocated at composition for every registered `(name, index)` pair: 9 names, 21 keys in v1. This keeps `Create` allocation-free inside the tick.
+- **Index range.** An out-of-range index (`mail` with shift 0 or 6) counts `rngIndexOutOfRange` in every build, then asserts under `SIM_ASSERT`. Without `SIM_ASSERT` it derives the stream anyway on one of 4 spare slots used round-robin (`RngRegistry.SpareCount`; not live, never dumped) (SC-R24-1).
+- **Refusals.** An unregistered name (for example `default`) counts `rngRefused` in every build and asserts (`RngUnknownName`); a name outside an owner view's set — including an unregistered name requested through a view — counts `rngRefused` and asserts `RngOwnerMismatch`. Without `SIM_ASSERT` both return one shared detached stream per registry (`_refused`, fixed seed, not live, never dumped).
 - **Owner-only handles.** The composition root (ADR-0003) passes each system an `IRngStreams` view filtered to the names that system owns. Holding the view is the ownership check. An architecture test (SC-ARCH-1) asserts that no system's constructor receives a view containing another owner's names, and that Throwing receives none.
 - **Draw counting.** Each `RngStream` counts `draws` (u64): +1 per `Next32` and per `NextInt`, including `NextInt(0)`.
 - **Dump.** The dump (ADR-0006) records every live stream as `(name ordinal, index, state, inc, draws)`, in `RngNames` declaration order and then ascending index. A stream that was never created is recorded as absent.
@@ -166,7 +167,7 @@ Adding a stream is an amendment to this table plus one `RngNames` field. It neve
 ```
  SimSettings.RunSeed ──┐
                        ▼
- RngNames (static readonly, compile-time) ──► RngRegistry (per SimWorld, preallocated 30 handles)
+ RngNames (static readonly, compile-time) ──► RngRegistry (per SimWorld, preallocated 21 handles)
    name, owner, index range, Fnv1a64            │ Create(name, idx): Derive → Mix64 → pcg32_srandom
                                                 │ one live handle per key; re-create = in-place reset
                                                 ▼
@@ -188,7 +189,7 @@ public struct Pcg32 {                                                          /
 }
 
 namespace PerformativeMail.Sim.Core;
-public readonly struct StreamName { /* private ctor; Ordinal, Name (UTF-8), Fnv, Owner, MinIndex, MaxIndex */ }
+public readonly struct StreamName { /* internal ctor; Ordinal, Name (UTF-8), Fnv, Owner, MinIndex, MaxIndex */ }
 public static class RngNames { public static readonly StreamName Mail, MailSpecial, Waves, Mega, Drops, Perks, Shop, Events /*, Worldgen* */; }
 public static class RngDerive { public static ulong Derive(ulong runSeed, in StreamName name, uint index); }
 public interface IRngSource { uint Next32(); }                                 // test seam
@@ -317,7 +318,7 @@ The `initState`/`initSeq` for row 1 are `0x56c4414fc45fe704` and `0xdab223c7b783
 ### Negative
 - **Bias.** `NextInt` carries a tiny bias, at most b/2^32. This is accepted and documented.
 - **Re-creation semantics.** Re-creating a key resets the shared handle in place, so a system that cached the handle sees a reset. This is intentional, but it must be understood (Implementation Guidelines).
-- **Preallocated keys.** Preallocating every `(name, index)` key costs 30 small objects in v1. Each new indexed name adds `(max − min + 1)` handles.
+- **Preallocated keys.** Preallocating every `(name, index)` key costs 21 small objects in v1. Each new indexed name adds `(max − min + 1)` handles.
 - **Naming discrepancy.** The `Mix64` name is "finaliser" in the GDD and registry text but includes the gamma add. The normative text here and the vectors settle it; the GDD wording is a GDD-impact note.
 
 ## Risks
@@ -331,7 +332,7 @@ The `initState`/`initSeq` for row 1 are `0x56c4414fc45fe704` and `0xdab223c7b783
 
 | GDD System | Requirement | How This ADR Addresses It |
 |------------|-------------|--------------------------|
-| simulation-core.md | R23: one derivation, compile-time `RngNames`, no `System.Random`/hash/float | §1 primitives, §2 registry with a private-ctor `StreamName` (TR-sim-027, 028) |
+| simulation-core.md | R23: one derivation, compile-time `RngNames`, no `System.Random`/hash/float | §1 primitives, §2 registry with an internal-ctor `StreamName` (TR-sim-027, 028) |
 | simulation-core.md | R24: v1 stream registry (DEV-5) | §2 table; spec 07 `mail.spawn`/`mail.address` retired |
 | simulation-core.md | R25: `Next32`, single-draw `NextInt`, `b = 0` → 0, `IRngSource` stub | §4 and the Key Interfaces (TR-sim-029) |
 | simulation-core.md | R26: owner-only handles, `draws`, dump record | §3 (the dump format is ADR-0006's) |
@@ -341,7 +342,7 @@ The `initState`/`initSeq` for row 1 are `0x56c4414fc45fe704` and `0xdab223c7b783
 
 ## Performance Implications
 - **CPU:** `Next32` is about 1 ns (one 64-bit multiply-add plus a shift and rotate). `Create` does four `Mix64` calls plus two PCG steps, and it is called a few times per shift. Negligible against the 5 ms tick budget.
-- **Memory:** about 48 B per stream handle × 30 preallocated keys, under 2 KB.
+- **Memory:** about 48 B per stream handle × 21 preallocated keys, under 2 KB.
 - **Load Time:** None. `Fnv1a64` of the names runs at type init, over 10 short strings.
 - **Network:** None. Clients never need the world RNG (Sim Core N6). Manifests, waves and drops arrive as events or state.
 
@@ -355,7 +356,7 @@ Spec 07 §4.3's stream list is superseded by §2 here (DEV-5).
 
 ## Validation Criteria
 - SC-F5-1 and V1–V6 pass verbatim in Debug and Release (M-1a).
-- SC-R24-1 passes: shifts differ, re-creation is identical and resets `draws`, and an out-of-range index asserts in Debug and is counted in Release.
+- SC-R24-1 passes: shifts differ, re-creation is identical and resets `draws`, and an out-of-range index is counted in every build and asserts under `SIM_ASSERT`.
 - SC-R25-1 passes: the stub gives 5, 9, 0, 0, with exactly +1 `draws` per call.
 - SC-R26-1 passes: the dump records `(name, index, state, inc, draws)`, Throwing holds no handle, and 100 throws leave the total `draws` unchanged.
 - SC-ARCH-1 passes the owner-only handle check. The startup test finds all `RngNames` FNV values distinct.
@@ -382,3 +383,10 @@ Spec 07 §4.3's stream list is superseded by §2 here (DEV-5).
 - ADR-0003 (composition root) wires owner-filtered `IRngStreams`.
 - ADR-0007 (validate-then-mutate) guarantees that a reject draws nothing.
 - `design/gdd/simulation-core.md` R23–R26, F5, F6. `docs/architecture/simulation-core-adr-inputs.md` §1 (unchecked rules), §3.13 (consumed by this ADR).
+
+## Errata
+- 2026-10-17 — §3, Architecture Diagram, Consequences, Performance Implications: "30 keys/handles" was wrong arithmetic; the v1 table yields 21 keys over 9 names (1 + 5 + 5 + 1 + 1 + 1 + 1 + 1 + 5); source TD-010 item 1.
+- 2026-10-17 — §2, Key Interfaces, GDD Requirements: `StreamName` ctor was "private"; now `internal` (C# cannot grant a private ctor to `RngNames`); source TD-010 item 2.
+- 2026-10-17 — §3, Validation Criteria: `rngIndexOutOfRange`/`rngRefused` were described as Release-only counts; now counted in every build before the `SIM_ASSERT` throw; source TD-010 item 3.
+- 2026-10-17 — §2 table: `drops` owner was "Health & Damage / Enemy AI"; now Health & Damage (`SystemId.HealthDamage`), as registered in `RngNames.Drops`; source TD-010 item 4.
+- 2026-10-17 — §3: the Release fallback was "a spare slot"; now states 4 round-robin spare slots, one shared detached refused stream, and `RngOwnerMismatch` for unregistered names requested through an owner view; source TD-010 item 5.
