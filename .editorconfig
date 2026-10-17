@@ -1,0 +1,128 @@
+# Performative Mail — editor and C# style settings.
+# Naming follows project.yaml `naming:` and .claude/docs/technical-preferences.md:
+#   classes/types PascalCase · public members PascalCase · constants PascalCase
+#   locals/parameters camelCase · private fields _camelCase · interfaces IPascalCase
+# EnforceCodeStyleInBuild (Directory.Build.props) + TreatWarningsAsErrors make the
+# `warning` naming rules below fail the build.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{md,yml,yaml,json}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{csproj,props,targets,sln,slnx,xml}]
+indent_size = 2
+
+[*.{tscn,tres,godot,import,cfg}]
+indent_style = tab
+
+[*.cs]
+# --- Layout / language preferences ---
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_prefer_braces = true:warning
+dotnet_sort_system_directives_first = true
+csharp_new_line_before_open_brace = all
+csharp_style_var_for_built_in_types = false:silent
+csharp_style_var_when_type_is_apparent = true:silent
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+dotnet_style_qualification_for_method = false:warning
+dotnet_style_qualification_for_event = false:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+
+# --- Naming: symbol groups ---
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_symbols.interfaces.applicable_accessibilities = *
+
+dotnet_naming_symbols.types.applicable_kinds = class, struct, enum, delegate, namespace
+dotnet_naming_symbols.types.applicable_accessibilities = *
+
+dotnet_naming_symbols.type_parameters.applicable_kinds = type_parameter
+
+dotnet_naming_symbols.constants.applicable_kinds = field, local
+dotnet_naming_symbols.constants.applicable_accessibilities = *
+dotnet_naming_symbols.constants.required_modifiers = const
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private, private_protected
+
+dotnet_naming_symbols.public_members.applicable_kinds = property, method, event, field
+dotnet_naming_symbols.public_members.applicable_accessibilities = public, internal, protected, protected_internal
+
+dotnet_naming_symbols.private_members.applicable_kinds = property, method, event, local_function
+dotnet_naming_symbols.private_members.applicable_accessibilities = private, private_protected
+
+dotnet_naming_symbols.locals_and_parameters.applicable_kinds = local, parameter
+
+# --- Naming: styles ---
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+dotnet_naming_style.camel_case.capitalization = camel_case
+
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+
+dotnet_naming_style.i_prefix_pascal_case.capitalization = pascal_case
+dotnet_naming_style.i_prefix_pascal_case.required_prefix = I
+
+dotnet_naming_style.t_prefix_pascal_case.capitalization = pascal_case
+dotnet_naming_style.t_prefix_pascal_case.required_prefix = T
+
+# --- Naming: rules (most specific first) ---
+dotnet_naming_rule.constants_pascal_case.symbols = constants
+dotnet_naming_rule.constants_pascal_case.style = pascal_case
+dotnet_naming_rule.constants_pascal_case.severity = warning
+
+dotnet_naming_rule.interfaces_i_prefix.symbols = interfaces
+dotnet_naming_rule.interfaces_i_prefix.style = i_prefix_pascal_case
+dotnet_naming_rule.interfaces_i_prefix.severity = warning
+
+dotnet_naming_rule.type_parameters_t_prefix.symbols = type_parameters
+dotnet_naming_rule.type_parameters_t_prefix.style = t_prefix_pascal_case
+dotnet_naming_rule.type_parameters_t_prefix.severity = warning
+
+dotnet_naming_rule.types_pascal_case.symbols = types
+dotnet_naming_rule.types_pascal_case.style = pascal_case
+dotnet_naming_rule.types_pascal_case.severity = warning
+
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel_case
+dotnet_naming_rule.private_fields_underscore.severity = warning
+
+dotnet_naming_rule.public_members_pascal_case.symbols = public_members
+dotnet_naming_rule.public_members_pascal_case.style = pascal_case
+dotnet_naming_rule.public_members_pascal_case.severity = warning
+
+dotnet_naming_rule.private_members_pascal_case.symbols = private_members
+dotnet_naming_rule.private_members_pascal_case.style = pascal_case
+dotnet_naming_rule.private_members_pascal_case.severity = warning
+
+dotnet_naming_rule.locals_parameters_camel_case.symbols = locals_and_parameters
+dotnet_naming_rule.locals_parameters_camel_case.style = camel_case
+dotnet_naming_rule.locals_parameters_camel_case.severity = warning
+
+# Determinism gate (ADR-0006 section 3): RS0030 (BannedApiAnalyzers, symbols in
+# src/PerformativeMail.Sim/BannedSymbols.txt) is an explicit error; do not rely on
+# TreatWarningsAsErrors alone. PMSIM001 (no float/double/decimal/Half) is an Error
+# by default in the analyzer and restated here for visibility.
+dotnet_diagnostic.RS0030.severity = error
+dotnet_diagnostic.PMSIM001.severity = error
+
+# IDE1006 (naming) must be a build diagnostic for the rules above to fail CI.
+dotnet_diagnostic.IDE1006.severity = warning
+
+# Test methods are named Scenario_Expected (.claude/rules/test-standards.md);
+# underscores separate the parts, so pascal_case naming is relaxed to suggestion.
+[tests/**/*.cs]
+dotnet_naming_rule.public_members_pascal_case.severity = suggestion

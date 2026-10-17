@@ -1,0 +1,19 @@
+$ mise exec dotnet@10.0.402 -- godot-mono --headless --path prototypes/spike-godot-dotnet --quit-after 100000 -- --maxfps=5
+Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org
+
+[spike] Engine: 4.7.1-stable (official)
+[spike] RuntimeInformation.FrameworkDescription: .NET 10.0.13
+[spike] System.Environment.Version: 10.0.13
+[spike] System.Private.CoreLib location: /home/evan/.local/share/mise/dotnet-root/shared/Microsoft.NETCore.App/10.0.13/System.Private.CoreLib.dll
+[spike] Sim type load: PerformativeMail.Sim.SimAssembly from PerformativeMail.Sim v1.0.0.0; SimAssembly.Name=PerformativeMail.Sim
+[spike] Sim assembly location: 
+[spike] Sim assembly target: .NETCoreApp,Version=v8.0
+[spike] CurrentCulture='en-US' InvariantMode=False
+[spike] Stopwatch.Frequency=1000000000 IsHighResolution=True
+[spike] Engine.MaxFps=5 PhysicsTicksPerSecond=60 vsync=Enabled
+[spike] main managed thread id=1
+[spike] elapsed=5.198s frames=28 avgFps=5.4
+[spike] _Process delta: avg=125.745ms min=16.667ms max=139.758ms; Stopwatch avg=185.649ms
+[spike] ticks run=104 dropped=51 expected~=155.9 maxTicksInOneFrame=4 framesWithZeroTicks=2
+[spike] _Process always on main managed thread: True
+exit=0

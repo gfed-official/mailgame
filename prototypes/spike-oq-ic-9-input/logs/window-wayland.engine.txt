@@ -1,0 +1,30 @@
+Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org
+WARNING: xdg-toplevel-icon protocol not found! Cannot set window icon.
+     at: init (platform/linuxbsd/wayland/wayland_thread.cpp:5591)
+Vulkan 1.4.341 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4070
+
+# probe=window
+# godot=4.7.1-stable (official) display=Wayland dotnet=10.0.13 os=Linux fps_target=0
+[S-34] display server=Wayland session XDG_SESSION_TYPE=wayland window size=(1896, 1030) WindowIsFocused=False t=1726ms
+[S-34] after 1 s: WindowIsFocused=False notifications so far=[] mouse pos=(0, 0)
+ERROR: Parameter "pointed_win" is null.
+   at: _mouse_update_mode (platform/linuxbsd/wayland/display_server_wayland.cpp:514)
+   C# backtrace (most recent call first):
+       [0] void Godot.NativeCalls.godot_icall_1_38(nint, nint, int) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/NativeCalls.cs:338)
+       [1] void Godot.Input.SetMouseMode(Godot.Input+MouseModeEnum) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/Input.cs:1099)
+       [2] void Godot.Input.set_MouseMode(Godot.Input+MouseModeEnum) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/Input.cs:128)
+       [3] void SpikeOqIc9Input.WindowProbe+<Run>d__0.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/WindowProbe.cs:24)
+       [4] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [5] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext()
+       [6] void System.Threading.Tasks.AwaitTaskContinuation.RunCallback(System.Threading.ContextCallback, object, System.Threading.Tasks.Task&)
+       [7] void System.Threading.Tasks.Task.RunContinuations(object)
+       [8] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.SetExistingTaskResult(System.Threading.Tasks.Task`1[TResult], TResult)
+       [9] void SpikeOqIc9Input.Util+<Frames>d__7.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/Util.cs:54)
+       [10] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [11] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext()
+       [12] void Godot.SignalAwaiter.SignalCallback(nint, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_bool*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/SignalAwaiter.cs:65)
+[S-34] set Captured: Input.MouseMode=Visible DisplayServer.MouseGetMode=Visible mouse pos=(0, 0) (before=(0, 0))
+[S-34] set Visible: Input.MouseMode=Visible mouse pos=(0, 0) (before capture=(0, 0); equal => position restored or never moved)
+[S-34] labels (live layout): A->A Q->Q W->W Z->Z layouts=1 current=0 name='English (US)'
+[S-34] end: notifications received during run (in order)=[] WindowIsFocused=False
+# done

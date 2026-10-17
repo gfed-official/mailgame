@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Dev-time generator for the Q15 sine table (ADR-0006 section 6, simulation-core story 005).
+    NOT part of the Sim: it references nothing in src/, carries none of the Sim's analyzers
+    (those are wired in src/PerformativeMail.Sim/PerformativeMail.Sim.csproj only), and may
+    use double. It is not run in CI; tests/unit/sim/Primitives/TrigQ15Tests.cs pins the
+    committed output by SHA-256.
+    Usage: run the tools/GenTrigQ15 project with dotnet run, optionally followed by an output path argument.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>GenTrigQ15</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

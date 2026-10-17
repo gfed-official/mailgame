@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'PerformativeMail.Sim' or '$(MSBuildProjectName)' == 'PerformativeMail.Client.Core'">
+    <SimAsserts Condition="'$(SimAsserts)' == '' and '$(Optimize)' != 'true'">true</SimAsserts>
+    <DefineConstants Condition="'$(SimAsserts)' == 'true'">$(DefineConstants);SIM_ASSERT;INVENTORY_ASSERT</DefineConstants>
+    <CheckForOverflowUnderflow Condition="'$(SimAsserts)' == 'true'">true</CheckForOverflowUnderflow>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    xUnit tests for the plain-C# Sim. No Godot dependency.
+    The GDD acceptance criteria name test files by system, e.g.
+    tests/unit/inventory/<Rule>Tests.cs and tests/integration/<system>/...,
+    so this project compiles every .cs under tests/unit/ and tests/integration/
+    in addition to files in its own folder (shared fixtures/helpers go here).
+    Default TFM is net10.0; the Sim itself stays on net8.0. The net8.0 CI leg
+    (and the local equivalent) runs the same suite on the .NET 8 runtime via
+    `dotnet test -p:PmTestTfm=net8.0` (ADR-0001 section 7).
+    Do not multi-target: the net8.0 leg is an explicit -p: run.
+  -->
+  <PropertyGroup>
+    <PmTestTfm Condition="'$(PmTestTfm)' == ''">net10.0</PmTestTfm>
+    <TargetFramework>$(PmTestTfm)</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>PerformativeMail.Sim.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../unit/**/*.cs" LinkBase="unit" />
+    <Compile Include="../integration/**/*.cs" LinkBase="integration" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/PerformativeMail.Sim/PerformativeMail.Sim.csproj" />
+    <ProjectReference Include="../../src/PerformativeMail.Client.Core/PerformativeMail.Client.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="4.0.2" />
+  </ItemGroup>
+
+</Project>

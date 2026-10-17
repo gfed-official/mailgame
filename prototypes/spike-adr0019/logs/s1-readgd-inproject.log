@@ -1,0 +1,6 @@
+Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org
+
+[s1gd] GDScript reader running
+[s1gd] res://content/test.jsonc bytes=43 err=0 exists=true
+[s1gd] res://content/manifest.txt bytes=12 err=0 exists=true
+[s1gd] stretch/mode=disabled aspect=keep

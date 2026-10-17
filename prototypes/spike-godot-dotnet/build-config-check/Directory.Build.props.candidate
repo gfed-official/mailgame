@@ -1,0 +1,11 @@
+<Project>
+  <Import Project="/home/evan/Projects/mailgame/Directory.Build.props" />
+  <!-- candidate ADR-0001 mapping, spike-tested -->
+  <PropertyGroup Condition="'$(Configuration)' == 'ExportRelease'">
+    <Optimize Condition="'$(Optimize)' == ''">true</Optimize>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'ExportDebug'">
+    <Optimize Condition="'$(Optimize)' == ''">false</Optimize>
+    <DebugSymbols Condition="'$(DebugSymbols)' == ''">true</DebugSymbols>
+  </PropertyGroup>
+</Project>

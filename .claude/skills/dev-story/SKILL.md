@@ -3,7 +3,6 @@ name: dev-story
 description: "Implement a story: ADR guidelines, right programmer agent, code plus test. Then /story-done (/story-readiness before, /code-review after, at standard/full)."
 argument-hint: "[story-path]"
 user-invocable: true
-disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion, Bash(bash "*/.claude/skills/dev-story/../../hooks/yaml-helper.sh" resolve_config *)
 model: sonnet
 ---

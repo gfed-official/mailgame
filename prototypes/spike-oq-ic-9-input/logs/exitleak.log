@@ -1,0 +1,4 @@
+# probe=exitleak
+# godot=4.7.1-stable (official) display=headless dotnet=10.0.13 os=Linux fps_target=0
+[S-26] delivered=10000 native-created InputEventKey events; quitting now with no GC.Collect and the receiver still in the tree. ObjectCount=11495
+# done

@@ -1,0 +1,18 @@
+; Engine configuration file.
+; run/main_scene is intentionally unset: no scene exists yet.
+; /dev-story or the developer sets it once a scene exists.
+
+config_version=5
+
+[application]
+
+config/name="Performative Mail"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[dotnet]
+
+project/assembly_name="PerformativeMail.Game"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"

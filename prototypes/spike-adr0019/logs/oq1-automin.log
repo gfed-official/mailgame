@@ -1,0 +1,33 @@
+Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org
+
+[oq1] f=0 GameLoopAuto _EnterTree prio=-2147483648 scene=MainRoot
+[oq1] f=0 MainRoot _EnterTree prio=0
+[oq1] f=0 ChildA _EnterTree prio=0
+[oq1] f=0 ChildB _EnterTree prio=0
+[oq1] f=0 GameLoopAuto _Ready scene=MainRoot
+[oq1] f=0 ChildA _Ready
+[oq1] f=0 ChildB _Ready
+[oq1] f=0 MainRoot _Ready
+[oq1] f=0 GameLoopAuto _Process
+[oq1] f=0 MainRoot _Process
+[oq1] f=0 ChildA _Process
+[oq1] f=0 ChildB _Process
+[oq1] f=1 GameLoopAuto _Process
+[oq1] f=1 MainRoot _Process
+[oq1] f=1 ChildA _Process
+[oq1] f=1 ChildB _Process
+[oq1] f=2 GameLoopAuto _Process
+[oq1] f=2 MainRoot _Process
+[oq1] f=2 ChildA _Process
+[oq1] f=2 ChildB _Process
+[oq1] f=3 GameLoopAuto _Process
+[oq1] f=3 MainRoot _Process
+[oq1] f=3 Root children before ChangeScene: GameLoopAuto(GameLoopAuto) MainRoot(Probe) | CurrentScene=MainRoot
+[oq1] f=3 calling ChangeSceneToFile
+[oq1] f=3 OtherRoot _EnterTree prio=0
+[oq1] f=3 OtherRoot _Ready
+[oq1] f=4 GameLoopAuto _Process
+[oq1] f=4 OtherRoot _Process
+[oq1] f=5 GameLoopAuto _Process
+[oq1] f=5 OtherRoot _Process
+[oq1] f=5 Root children after ChangeScene: GameLoopAuto(GameLoopAuto) OtherRoot(Probe) | CurrentScene=OtherRoot

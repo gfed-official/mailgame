@@ -1,0 +1,29 @@
+# probe=focus
+# godot=4.7.1-stable (official) display=headless dotnet=10.0.13 os=Linux fps_target=0
+=== S-30 Notification() delivered to a node's _Notification (handler path only, NOT OS delivery)
+  NOTIFICATION ApplicationFocusOut (2017) f=2 t=211ms
+[S-30] rx.Notification(2017) direct -> handler saw [ApplicationFocusOut]
+  NOTIFICATION ApplicationFocusIn (2016) f=2 t=211ms
+[S-30] rx.Notification(2016) direct -> handler saw [ApplicationFocusIn]
+  NOTIFICATION WMWindowFocusOut (1005) f=2 t=211ms
+[S-30] rx.Notification(1005) direct -> handler saw [WMWindowFocusOut]
+  NOTIFICATION WMWindowFocusIn (1004) f=2 t=211ms
+[S-30] rx.Notification(1004) direct -> handler saw [WMWindowFocusIn]
+  NOTIFICATION ApplicationFocusOut (2017) f=2 t=211ms
+[S-30] SceneTree.Notification(2017) (the MainLoop path the OS uses for application focus) -> node saw [ApplicationFocusOut] (does SceneTree propagate it to nodes?)
+  NOTIFICATION ApplicationFocusIn (2016) f=2 t=211ms
+[S-30] SceneTree.Notification(2016) (the MainLoop path the OS uses for application focus) -> node saw [ApplicationFocusIn] (does SceneTree propagate it to nodes?)
+[S-30] Root Window.Notification(1005) -> child node saw [] (is a window notification propagated to children?)
+[S-30] Root Window.Notification(1004) -> child node saw [] (is a window notification propagated to children?)
+=== S-31 Input.MouseMode switching headless (no real pointer)
+[S-31] initial Input.MouseMode=Visible DisplayServer.MouseGetMode=Visible HasFeature(Mouse)=False HasFeature(MouseWarp)=False
+[S-31] after set Captured: Input.MouseMode=Visible DisplayServer.MouseGetMode=Visible
+[S-31] after set Visible: Input.MouseMode=Visible mouse pos (DisplayServer.MouseGetPosition)=(0, 0) viewport mouse pos=(0, 0)
+[S-31] cursor-position restore on Visible, capture re-apply after focus-in, Wayland pointer lock: see window-*.log (short windowed run) and MANUAL M-2/M-3
+=== S-32 ignore_joypad_on_unfocused_application at runtime
+[S-32] Input.IgnoreJoypadOnUnfocusedApplication default(project unset)=False; settable at runtime -> True. Honoured with a real pad while unfocused: NOT RUN - no pad attached (MANUAL M-1)
+=== S-33 held-input state across a synthetic focus-out (does the ENGINE release held keys on focus loss?)
+  NOTIFICATION ApplicationFocusOut (2017) f=4 t=227ms
+[S-33] IsKeyPressed(F10) before synthetic focus-out=True, after Notification(WMWindowFocusOut + ApplicationFocusOut)=False (handler-path only; real OS focus loss MANUAL M-2)
+  NOTIFICATION ApplicationFocusIn (2016) f=5 t=230ms
+# done

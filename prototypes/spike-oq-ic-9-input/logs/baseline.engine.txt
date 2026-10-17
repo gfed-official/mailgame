@@ -1,0 +1,117 @@
+Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org
+
+# probe=baseline
+# godot=4.7.1-stable (official) display=headless dotnet=10.0.13 os=Linux fps_target=0
+[B1] InputEvent + 16 inheriters scanned. ClassDB methods/properties containing 'time'/'stamp': []; ClassHasMethod(InputEvent,get_timestamp)=False; C# reflection hits: []
+[B1] InputEvent own methods (no inheritance): set_device, get_device, is_action, is_action_pressed, is_action_released, get_action_strength, is_canceled, is_pressed, is_released, is_echo, as_text, is_match, is_action_type, accumulate, xformed_by
+[B1] InputEvent own properties (no inheritance): device
+[B2] InputEvent.DeviceIdKeyboard=16 DeviceIdMouse=32 DeviceIdEmulation=-1
+[B2] default Device: InputEventAction=0 InputEventKey=16 InputEventMouseButton=32 InputEventJoypadButton=0 InputEventMouseMotion=32 InputEventJoypadMotion=0 InputEventScreenTouch=0
+[B3] HasSetting=True GetSetting=false PropertyCanRevert=true PropertyGetRevert=false Input.IgnoreJoypadOnUnfocusedApplication(runtime property)=False
+[B4] Input.UseAccumulatedInput=True; project setting input_devices/pointing/... HasSetting(input_devices/buffering/agile_event_flushing)=True value=false
+[B5]   joypad event on ui_select: JoyButton index=Y (3) device=-1
+[B5]   joypad event on ui_left: JoyButton index=DpadLeft (13) device=-1
+[B5]   joypad event on ui_left: JoyMotion axis=LeftX value=-1 device=-1
+[B5]   joypad event on ui_right: JoyButton index=DpadRight (14) device=-1
+[B5]   joypad event on ui_right: JoyMotion axis=LeftX value=1 device=-1
+[B5]   joypad event on ui_up: JoyButton index=DpadUp (11) device=-1
+[B5]   joypad event on ui_up: JoyMotion axis=LeftY value=-1 device=-1
+[B5]   joypad event on ui_down: JoyButton index=DpadDown (12) device=-1
+[B5]   joypad event on ui_down: JoyMotion axis=LeftY value=1 device=-1
+[B5]   joypad event on ui_colorpicker_delete_preset: JoyButton index=X (2) device=-1
+[B5] InputMap actions=91 ui_* actions=91 joypad events on ui_* actions=10 (joypad events on ALL actions=10)
+[B5]   ui_accept[key=3 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_select[key=1 mouse=0 joyBtn=1 joyMotion=0 other=0]
+[B5]   ui_cancel[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_close_dialog[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_close_dialog.macos[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_focus_next[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_focus_prev[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_left[key=1 mouse=0 joyBtn=1 joyMotion=1 other=0]
+[B5]   ui_right[key=1 mouse=0 joyBtn=1 joyMotion=1 other=0]
+[B5]   ui_up[key=1 mouse=0 joyBtn=1 joyMotion=1 other=0]
+[B5]   ui_down[key=1 mouse=0 joyBtn=1 joyMotion=1 other=0]
+[B5]   ui_page_up[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_page_down[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_home[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_end[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_accessibility_drag_and_drop[key=0 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_cut[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_copy[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_focus_mode[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_paste[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_undo[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_redo[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_completion_query[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_completion_accept[key=3 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_completion_replace[key=3 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_newline[key=4 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_newline_blank[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_newline_above[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_indent[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_dedent[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_backspace[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_backspace_word[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_backspace_word.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_backspace_all_to_left[key=0 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_backspace_all_to_left.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_delete[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_delete_word[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_delete_word.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_delete_all_to_right[key=0 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_delete_all_to_right.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_left[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_word_left[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_word_left.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_right[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_word_right[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_word_right.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_up[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_down[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_line_start[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_line_start.macos[key=3 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_line_end[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_line_end.macos[key=3 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_page_up[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_page_down[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_document_start[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_document_start.macos[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_document_end[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_document_end.macos[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_add_below[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_add_below.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_add_above[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_caret_add_above.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_scroll_up[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_scroll_up.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_scroll_down[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_scroll_down.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_select_all[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_select_word_under_caret[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_select_word_under_caret.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_add_selection_for_next_occurrence[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_skip_selection_for_next_occurrence[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_clear_carets_and_selection[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_toggle_insert_mode[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_menu[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_text_submit[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_unicode_start[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_graph_duplicate[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_graph_delete[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_graph_follow_left[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_graph_follow_left.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_graph_follow_right[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_graph_follow_right.macos[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_filedialog_delete[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_filedialog_up_one_level[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_filedialog_refresh[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_filedialog_show_hidden[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_filedialog_find[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_filedialog_focus_path[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_filedialog_focus_path.macos[key=2 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_swap_input_direction[key=1 mouse=0 joyBtn=0 joyMotion=0 other=0]
+[B5]   ui_colorpicker_delete_preset[key=1 mouse=0 joyBtn=1 joyMotion=0 other=0]
+[B5]   ui_accept HasAction=True ui_accessibility_drag_and_drop HasAction=True
+[B6] Input.SignalName.JoyConnectionChanged='joy_connection_changed' Input.Singleton.HasSignal=True ClassDB.ClassHasSignal(Input,joy_connection_changed)=True
+[B6] Node.NotificationApplicationFocusOut=2017 NotificationApplicationFocusIn=2016 NotificationWMWindowFocusOut=1005 NotificationWMWindowFocusIn=1004 NotificationApplicationResumed=2014 NotificationApplicationPaused=2015
+# done

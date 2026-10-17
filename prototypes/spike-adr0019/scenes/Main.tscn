@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Probe.cs" id="1"]
+
+[node name="MainRoot" type="Node"]
+script = ExtResource("1")
+Label = "MainRoot"
+
+[node name="ChildA" type="Node" parent="."]
+script = ExtResource("1")
+Label = "ChildA"
+
+[node name="ChildB" type="Node" parent="."]
+script = ExtResource("1")
+Label = "ChildB"

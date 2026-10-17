@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <PmSimAsserts Condition="'$(PmSimAsserts)' == '' and '$(Optimize)' != 'true'">true</PmSimAsserts>
+    <DefineConstants Condition="'$(PmSimAsserts)' == 'true'">$(DefineConstants);PM_SIM_ASSERTS</DefineConstants>
+  </PropertyGroup>
+</Project>

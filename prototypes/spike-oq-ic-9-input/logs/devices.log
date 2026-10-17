@@ -1,0 +1,45 @@
+# probe=devices
+# godot=4.7.1-stable (official) display=headless dotnet=10.0.13 os=Linux fps_target=0
+=== S-10 compile-checked C# names (this file compiled): InputEvent.DeviceIdKeyboard/DeviceIdMouse/DeviceIdEmulation, InputEvent.Device, Input.JoyConnectionChanged, Input.GetJoyAxis, Input.GetJoyInfo, Input.MouseMode, Input.UseAccumulatedInput, DisplayServer.KeyboardGetLabelFromPhysical
+[S-10] Device property type=Int32, DeviceIdKeyboard type=Int64; DeviceIdKeyboard=16 DeviceIdMouse=32 DeviceIdEmulation=-1
+=== S-11 classification: event TYPE first, then Device (injected via ParseInputEvent+Flush, classified AFTER delivery to _Input)
+[S-11] InputEventAction ui_accept (device default 0)                  injectedDevice=  0 delivered=yes dev=0 sameManagedObject=True typeFirstRule=Synthetic(action; never changes last-used device) | naiveDeviceFirstRule=Pad/other
+[S-11] InputEventJoypadButton A device 0                              injectedDevice=  0 delivered=yes dev=0 sameManagedObject=True typeFirstRule=Pad#0 | naiveDeviceFirstRule=Pad/other
+[S-11] InputEventJoypadButton A device 1                              injectedDevice=  1 delivered=yes dev=1 sameManagedObject=True typeFirstRule=Pad#1 | naiveDeviceFirstRule=Pad/other
+[S-11] InputEventJoypadButton A device 16 (== DeviceIdKeyboard)       injectedDevice= 16 delivered=yes dev=16 sameManagedObject=True typeFirstRule=Pad#16 | naiveDeviceFirstRule=Keyboard
+[S-11] InputEventJoypadButton A device 32 (== DeviceIdMouse)          injectedDevice= 32 delivered=yes dev=32 sameManagedObject=True typeFirstRule=Pad#32 | naiveDeviceFirstRule=Mouse
+[S-11] InputEventJoypadMotion LeftX device 16                         injectedDevice= 16 delivered=yes dev=16 sameManagedObject=True typeFirstRule=Pad#16 | naiveDeviceFirstRule=Keyboard
+[S-11] InputEventJoypadMotion LeftX device 32                         injectedDevice= 32 delivered=yes dev=32 sameManagedObject=True typeFirstRule=Pad#32 | naiveDeviceFirstRule=Mouse
+[S-11] InputEventKey F7 (device default)                              injectedDevice= 16 delivered=yes dev=16 sameManagedObject=True typeFirstRule=Keyboard | naiveDeviceFirstRule=Keyboard
+[S-11] InputEventKey F7 Device=0 (old-style keyboard id)              injectedDevice=  0 delivered=yes dev=0 sameManagedObject=True typeFirstRule=Keyboard(unexpected device 0) | naiveDeviceFirstRule=Pad/other
+[S-11] InputEventMouseButton Right (device default)                   injectedDevice= 32 delivered=yes dev=32 sameManagedObject=False typeFirstRule=Mouse | naiveDeviceFirstRule=Mouse
+[S-11] InputEventMouseMotion (device default)                         injectedDevice= 32 delivered=yes dev=32 sameManagedObject=False typeFirstRule=Mouse | naiveDeviceFirstRule=Mouse
+[S-11] InputEventMouseButton Right Device=DeviceIdEmulation           injectedDevice= -1 delivered=yes dev=-1 sameManagedObject=False typeFirstRule=Mouse(emulation id) | naiveDeviceFirstRule=Mouse(emu)
+=== S-12 touch -> emulated mouse (input_devices/pointing/emulate_mouse_from_touch): is DeviceIdEmulation actually produced?
+[S-12] delivered MouseButton(btn=Left pressed=True pos=(2000, 2000) dev=-1) | typeFirstRule=Mouse(emulation id)
+[S-12] delivered InputEventScreenTouch(dev=0) | typeFirstRule=Other:InputEventScreenTouch
+[S-12] ProjectSettings emulate_mouse_from_touch=true emulate_touch_from_mouse=false
+=== S-13 does the engine accept pad indices 16 / 32 (Steam virtual-pad collision risk)?
+[S-13] after injected JoyButton A pressed on device 0: Input.IsJoyButtonPressed(0, A)=True delivered to _Input with Device=0
+[S-13] after injected JoyButton A pressed on device 1: Input.IsJoyButtonPressed(1, A)=True delivered to _Input with Device=1
+[S-13] after injected JoyButton A pressed on device 16: Input.IsJoyButtonPressed(16, A)=True delivered to _Input with Device=16
+[S-13] after injected JoyButton A pressed on device 32: Input.IsJoyButtonPressed(32, A)=True delivered to _Input with Device=32
+=== S-14 joypad motion: one axis per event, raw value, GetJoyAxis after an injected JoypadMotion
+[S-14] device 0 before: GetJoyAxis LeftX=0 TriggerLeft=0
+[S-14] device 0 injected LeftX=0.03 (below any default deadzone 0.2/0.5): delivered JoyMotion(axis=LeftX value=0.03 dev=0); _Input calls this injection=1; polled GetJoyAxis LeftX=0.03 (injected event updates polled state? True)
+[S-14] device 0 injected TriggerLeft=0.75: delivered JoyMotion(axis=TriggerLeft value=0.75 dev=0) (triggers are axes: True); polled GetJoyAxis TriggerLeft=0.75
+[S-14] device 0 SAME value injected twice (synthetic: no engine change-filtering?) -> _Input calls for the repeat injection = 1
+[S-14] device 16 before: GetJoyAxis LeftX=0.5 TriggerLeft=0
+[S-14] device 16 injected LeftX=0.03 (below any default deadzone 0.2/0.5): delivered JoyMotion(axis=LeftX value=0.03 dev=16); _Input calls this injection=1; polled GetJoyAxis LeftX=0.03 (injected event updates polled state? True)
+[S-14] device 16 injected TriggerLeft=0.75: delivered JoyMotion(axis=TriggerLeft value=0.75 dev=16) (triggers are axes: True); polled GetJoyAxis TriggerLeft=0.75
+[S-14] device 16 SAME value injected twice (synthetic: no engine change-filtering?) -> _Input calls for the repeat injection = 1
+[S-14] after one more frame: device 0 GetJoyAxis LeftX=0
+=== S-15 Input.GetJoyInfo keys and connected pads (headless, no pad attached)
+[S-15] GetConnectedJoypads.Count=0 GetJoyInfo(0).Count=0 keys=[] GetJoyName(0)='' GetJoyGuid(0)='' IsJoyKnown(0)=False
+[S-15] GetJoyInfo keys for a REAL pad (xinput_index / vendor_id / product_id / raw_name ...): NOT RUN - needs a real pad (MANUAL M-1)
+=== S-16 can Input.JoyConnectionChanged be driven headless?
+[S-16] Input script-visible methods with joy+connect/add/remove: [add_joy_mapping, remove_joy_mapping, get_connected_joypads] (a native joy_connection_changed() trigger is not script-callable)
+[S-16] manual EmitSignal(JoyConnectionChanged, 3, true): handler fired=1 idx=3 connected=True (proves the C# signal subscription/handler signature only; engine-originated hot-plug: NOT RUN - needs a real pad; hot-plug index reuse: NOT RUN - needs a real pad)
+=== S-17 polled state before the flush (ParseInputEvent buffered one frame)
+[S-17] IsKeyPressed(F8) right after ParseInputEvent (no flush)=False; after FlushBufferedEvents=True
+# done

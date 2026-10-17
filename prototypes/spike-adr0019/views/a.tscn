@@ -1,0 +1,5 @@
+[gd_scene format=3 uid="uid://d2mfornobduf0"]
+
+[node name="View_a" type="Node2D" unique_id=1309771673]
+
+[node name="Child" type="Node2D" parent="." unique_id=500296697]

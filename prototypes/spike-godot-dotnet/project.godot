@@ -1,0 +1,12 @@
+; Spike project (isolated from the repo-root project.godot). See REPORT.md.
+config_version=5
+
+[application]
+
+config/name="SpikeGodotDotnet"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[dotnet]
+
+project/assembly_name="SpikeGodotDotnet"

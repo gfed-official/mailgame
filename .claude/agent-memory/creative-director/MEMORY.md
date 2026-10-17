@@ -1,0 +1,8 @@
+- [Autonomous planning mode](project_autonomous_mode.md) — owner delegated planning 2026-10-16; log spec-amending rulings as pending ratification
+- [HUD & Notifications review rulings](project_hud_review_rulings.md) — comms split frozen behind GUARD, seed file, M-1a slice, cuts
+- [Throwing & Catching review rulings](project_throwing_review_rulings.md) — spread knob retired, exact-frame colour, gated catch-first, GCRA cooldown
+- [Simulation Core review rulings](project_simcore_review_rulings.md) — reconnect per spec 06, drain cap, reqId handler-local, 9 ADRs, ≤1,000 lines/55 ACs
+- [Content & Data review rulings](project_content_data_review_rulings.md) — FT-3 scope, Rank-4 reroll now a personal perk (stamp reversed), catalogue scope, ThrowRangePermille kept
+- [Health & Damage review rulings](project_health_damage_review_rulings.md) — thrown clear contact-based, raise order by phase, stamps, deferred knockdown-as-heal
+- [Building System review rulings](project_building_review_rulings.md) — placement not a G9 commit, B8 snapshot-first, FX-B-L, Spawned refund 0
+- [Mail & Destinations review rulings](project_mail_destinations_rulings.md) — honesty vs execution, complaint scaling, grace, roll-call, no auto-jam

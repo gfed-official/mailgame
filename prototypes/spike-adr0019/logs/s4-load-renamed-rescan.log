@@ -1,0 +1,6 @@
+Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org
+
+[s4] mode=load
+[s4] catalog loaded: DefIds=def.a,def.b Views.Length=2
+[s4] view[0] path=res://views/a.tscn instance=View_a children=1
+[s4] view[1] path=res://views/b_renamed.tscn instance=View_b children=1

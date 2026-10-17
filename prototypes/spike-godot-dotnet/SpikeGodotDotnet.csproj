@@ -1,0 +1,22 @@
+<Project Sdk="Godot.NET.Sdk/4.7.1">
+  <!--
+    Spike: Godot 4.7.1 C# game project referencing the Godot-free net8.0 Sim.
+    Hand-written in the Godot template shape: 4.7.1 build-solutions
+    does not generate a csproj when none exists (see REPORT.md).
+    Inherits /Directory.Build.props from the repo root (walks up), on purpose:
+    the spike checks Q-ARCH-03 (TreatWarningsAsErrors / EnforceCodeStyleInBuild
+    applied to a Godot project).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>SpikeGodotDotnet</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Glob-exclusion check: the root game csproj must do this for src/, tests/, prototypes/ -->
+    <Compile Remove="excluded/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/PerformativeMail.Sim/PerformativeMail.Sim.csproj" />
+  </ItemGroup>
+</Project>

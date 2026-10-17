@@ -1,0 +1,30 @@
+<Project>
+  <!--
+    Assert switch (ADR-0001 section 4). This MUST be a .targets file: the SDK sets
+    $(Optimize) for Release only after Directory.Build.props has been imported, so
+    deriving SimAsserts in .props would be wrong for Release.
+    Keyed on $(Optimize) / $(SimAsserts) only - never on $(Configuration).
+
+      Debug / ExportDebug            -> asserts + checked arithmetic
+      Release / ExportRelease        -> no asserts, unchecked
+      Release -p:SimAsserts=true     -> asserts + checked ("ReleaseAssert")
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'PerformativeMail.Sim' or '$(MSBuildProjectName)' == 'PerformativeMail.Client.Core'">
+    <SimAsserts Condition="'$(SimAsserts)' == '' and '$(Optimize)' != 'true'">true</SimAsserts>
+    <DefineConstants Condition="'$(SimAsserts)' == 'true'">$(DefineConstants);SIM_ASSERT;INVENTORY_ASSERT</DefineConstants>
+    <CheckForOverflowUnderflow Condition="'$(SimAsserts)' == 'true'">true</CheckForOverflowUnderflow>
+  </PropertyGroup>
+
+  <!--
+    Test project only: the tests need to know which build mode the Sim under test
+    was compiled in. PM_EXPECT_SIM_ASSERTS mirrors the Sim's own derivation above
+    ($(Optimize) / $(SimAsserts), never Configuration). The test project is
+    deliberately NOT given SIM_ASSERT: [Conditional("SIM_ASSERT")] binds at the call
+    site and every SimAssert call site must be inside Sim / Client.Core. Tests reach
+    live call sites through the Sim-internal SimAssertProbe instead.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'PerformativeMail.Sim.Tests'">
+    <PmExpectSimAsserts Condition="'$(SimAsserts)' == 'true' or ('$(SimAsserts)' == '' and '$(Optimize)' != 'true')">true</PmExpectSimAsserts>
+    <DefineConstants Condition="'$(PmExpectSimAsserts)' == 'true'">$(DefineConstants);PM_EXPECT_SIM_ASSERTS</DefineConstants>
+  </PropertyGroup>
+</Project>

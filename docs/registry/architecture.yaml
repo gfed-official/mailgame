@@ -1,0 +1,482 @@
+# Architecture Registry — binding stances extracted from ADRs.
+# Append-only (/architecture-decision Step 6). Never rewrite an entry; mark it
+# `status: superseded_by: ADR-NNNN` and append the replacement.
+# Entries carry the ADR's status at registration; a Proposed ADR's stance is
+# provisional until that ADR is Accepted.
+
+state_ownership:
+  - id: inventory_containers_entries_units
+    owner: grid-inventory (PerformativeMail.Sim/Inventory)
+    adr: ADR-0009
+    adr_status_at_registration: Proposed
+    stance: "Containers, entries, cursors, WorldItems, bags, the Intake outfeed FIFO and the UnitLedger are written only through InventoryMutator primitives, reached by inventory op handlers or IInventoryApi; no other system writes them."
+  - id: content_set
+    owner: content-data-definitions (PerformativeMail.Sim/Content)
+    adr: ADR-0010
+    adr_status_at_registration: Proposed
+    stance: "One immutable ContentSet per process (SimSettings + BalanceTable + DefTable<T>), built by ContentLoader via IContentSource; passed by reference into new SimWorld; never mutated."
+  - id: stat_modifiers
+    owner: StatSheet (Sim/Content); writers Perks & Perk Draft, Stamps & Run Events only
+    adr: ADR-0010
+    adr_status_at_registration: Proposed
+    stance: "Modifier source lists are authoritative; sheets are derived caches rebuilt by the pure StatSheet.Build; IStatWriter injected only into Perks and Stamps."
+  - id: peer_table_and_reqid_dedupe
+    owner: network adapter core (PerformativeMail.Client.Core/Net HostAdapter)
+    adr: ADR-0011
+    adr_status_at_registration: Proposed
+    stance: "Peer→(account, playerId, slot) mapping, actor stamping, the last-16 reply cache + in-flight set per connection (ADR-0007 §6), per-peer outbound queues. The Sim holds none of this."
+  - id: rng_streams
+    adr: ADR-0005
+    adr_status_at_registration: Proposed
+    stance: "One RngRegistry per SimWorld owns every PCG32 stream (one preallocated live handle per (name, index); re-Create resets in place); a system holds only its owner-filtered IRngStreams view; Throwing holds none."
+  - id: op_ring
+    adr: ADR-0007
+    adr_status_at_registration: Proposed
+    stance: "SimWorld owns the op ring (4096, systemOpReserve 64) and opSeq; only EnqueueOp writes it (actor overwritten from the adapter parameter); drained only in phase 0."
+  - id: event_log
+    adr: ADR-0008
+    adr_status_at_registration: Proposed
+    stance: "SimWorld owns one per-tick EventLog (4096 × 64 B, reserve 256); systems append via TryRaise/Raise inside call scopes in phases 0–12; cleared after the single phase-13 Deliver."
+  - id: sim_world_lifecycle_and_phase_table
+    owner: Sim Core (PerformativeMail.Sim/Core, Composition)
+    adr: ADR-0003
+    adr_status_at_registration: Proposed
+    stance: "SimWorld owns CurrentTick, SimState (Constructed/Ready/Running/Stopped/Faulted) and the frozen phase/tick-end/op/event/reader/contributor tables; only SimWorldBuilder writes them, only before Freeze(); worlds are built only by SimComposition.Build."
+  - id: id_allocators
+    owner: Sim Core (EntityIds, MailIds, SlotTable — per SimWorld)
+    adr: ADR-0004
+    adr_status_at_registration: Proposed
+    stance: "EntityIds/MailIds counters and the slot↔playerId SlotTable are per-world instances injected by the composition root; allocation on the owner thread inside Tick() (Destination/Prop also at world build); ids never reused/wrapped; Grid owns EntryId, Throwing FlightId, Content DefIndex."
+  - id: tick_driver_state
+    owner: Sim Hosting (TickDriver, FrameRunner — one per process)
+    adr: ADR-0002
+    adr_status_at_registration: Proposed
+    stance: "TickDriver owns acc30, last timestamp, Idle/Running/Paused and drop counters; pause is a driver state only (never SimWorld, never SceneTree.Paused); FrameRunner owns the per-frame pump; one Godot GameLoop node is its only caller."
+  - id: sim_check_ring_and_counters
+    owner: Sim Core (per SimWorld)
+    adr: ADR-0001
+    adr_status_at_registration: Proposed
+    stance: "SimCheckRing {code, tick, a, b} (rate-limited 1/code/30 ticks, never throws/allocates) and SimCounters[CounterId] are per-world; always-on checks write them in every build."
+  - id: carrier_state_and_solver
+    owner: player-character (PerformativeMail.Sim/Players)
+    adr: ADR-0013
+    adr_status_at_registration: Proposed
+    stance: "CarrierState (int mm + tick-rational remainders 1/30, 1/60 mm) is written only by OwnedCarrier.Step: owner role in ClientLayer CarrierStep, host role (Dead/Frozen only) in phase 3; the host never steps an Alive remote carrier."
+  - id: interaction_registry_life_states
+    owner: player-character (PerformativeMail.Sim/Players)
+    adr: ADR-0014
+    adr_status_at_registration: Proposed
+    stance: "Anchor registry + dense 2 m grid, focus, press latch and hold counter (client); life states with absolute-tick deadlines, TeleportSeq and the phase-11 knockdown chain (host). Holds are timed only in owner Sim ticks; the host has no hold timer."
+  - id: input_router_state
+    owner: input-controls (PerformativeMail.Client.Core/Input)
+    adr: ADR-0012
+    adr_status_at_registration: Proposed
+    stance: "RouterState tuple, per-press machines, Toggle translation, one-commit gate, look accumulation, device/glyph state, action map and UiEventLog ring (4096 x 64 B) live in Client.Core; only src/Game/Input touches Godot.Input."
+  - id: flight_table
+    owner: throwing-catching (PerformativeMail.Sim/Throwing)
+    adr: ADR-0015
+    adr_status_at_registration: Proposed
+    stance: "FlightRecords (cap 160, creation order), per-slot TAT and catch-arm state are written only by Throwing's phase-0 handlers and phase-4 step; every flight ends in exactly one terminal through IInventoryApi/IMailApi."
+
+  - id: client_mirror_and_preview_state
+    owner: ClientLayer (PerformativeMail.Sim/ClientLayer + Sim/<System>/Client); ContainerMirror stays Client.Core (ADR-0009)
+    adr: ADR-0016
+    adr_status_at_registration: Proposed
+    stance: "Client-side mirror parts (Destination, Wallet, Run, Flight, StatSheet copy) are written only by MirrorDrain; DeliverPreviewTracker (branchKey, sinceTick) and published DeliverPreviewState live in Sim/Delivery/Client and are never computed in Presentation."
+  - id: mail_table_and_destination_registry
+    owner: mail-destinations (PerformativeMail.Sim/Mail)
+    adr: ADR-0017
+    adr_status_at_registration: Proposed
+    stance: "Server-only paged SoA mail table indexed by MailId (no location column; location is the UnitLedger's); destination registry SoA in lot order (DestinationOrdinal u16) with lazily refilled complaint buckets and feeder credits; backlog storage + drain are Inventory's, Mail appends via IInventoryApi."
+  - id: world_tables
+    owner: world (PerformativeMail.Sim/World) — M-1a stub M1aStreet, M1 generator
+    adr: ADR-0026
+    adr_status_at_registration: Proposed
+    stance: "One immutable WorldTables per process behind IWorldQuery (height corners, tile flags, static solids + 4 m grid, lots in ascending AddressId, Post Office); destination EntityIds allocated by WorldTablesBuilder in lot order in Constructed; shared by reference with ClientLayer like ContentSet."
+  - id: godot_scene_tree_and_view_pools
+    owner: Godot game project (src/Game) — GameLoop root of Main.tscn
+    adr: ADR-0019
+    adr_status_at_registration: Proposed
+    stance: "Main.tscn root = the only GameLoop; zero autoloads; no ChangeScene (screens are Main/Screens subtrees); EntityViewRegistry Dictionary<EntityId, Node3D> + pre-instantiated NodePools within GDD caps; ViewCatalog .tres editor-saved (uid) and read-only."
+
+interfaces:
+  - id: inventory_op_pipeline
+    adr: ADR-0009
+    adr_status_at_registration: Proposed
+    contract: "One OpKind per inventory op (block 0x0080–0x00FF); IOpHandler.Apply = Validate (pure, fixed precedence chain) then Commit; per-container records followed by one InvVersion seal per touched container per call (version +1 per call); OpReply last; Reply.Extra = InvReplyExtra (24 B)."
+  - id: IInventoryApi
+    adr: ADR-0009
+    adr_status_at_registration: Proposed
+    contract: "Synchronous in-tick API (Spawn, TryInsert, PeekOutfeed, TakeUnit, TryCatch, DetachForThrow, ConsumeUnit, Grant, CountItem, ConsumeItems, SpillToBag); same versions/events as ops, no reply."
+  - id: IContentSource_ContentLoader
+    adr: ADR-0010
+    adr_status_at_registration: Proposed
+    contract: "IContentSource { ListManifest(); Read(path) → ReadOnlyMemory<byte> }; ContentLoader.Load → 5 stages → ContentSet; ContentHash = managed SHA-256 over the F6 canonical encoding, in the Sim."
+  - id: IStatSheet
+    adr: ADR-0010
+    adr_status_at_registration: Proposed
+    contract: "int Read(Stat, qualifier=0xFFFF, slot?, transientAdd=0) — 0-alloc, F1: Set or base×ΠMul+ΣAdd, one Int128 rounding, clamp; Explain(); Has(RuleFlag)."
+  - id: sim_network_seam
+    adr: ADR-0011
+    adr_status_at_registration: Proposed
+    contract: "In: SimWorld.EnqueueOp (actor stamped by adapter), sample ring. Out: IEventSink.Deliver once per tick (copy-only), ISnapshotSource.Write between ticks (continuous + keyed), IHostClock. Adapter core HostAdapter/ClientAdapter over ITransport {Poll, Send, Disconnect}; LoopbackTransport for solo/host."
+  - id: rng_streams_api
+    adr: ADR-0005
+    adr_status_at_registration: Proposed
+    contract: "Derive = Mix64(Mix64(runSeed ^ Fnv1a64(name)) ^ index), Mix64 = full SplitMix64 step (gamma add + finaliser); PCG32 XSH-RR srandom(Mix64(s), Mix64(s ^ 0xDA3E39CB94B95BDB)); RngStream.Next32 / NextInt(uint) (one draw, no int overload); compile-time RngNames with index ranges; golden vectors V1–V6 in ADR-0005."
+  - id: numerics_toolkit
+    adr: ADR-0006
+    adr_status_at_registration: Proposed
+    contract: "Cents (plain readonly struct, ±2^62, MulPermille ≡ clamp(MulDivRH(c,pm,1000))), Fix.MulDiv (trunc) / MulDivRH (half away from zero, UInt128 overflow-free) / FloorDiv / CeilDiv / ISqrt, Fx16 ([−2^47, 2^47−65536], ToMm = >> 16); zero divisor → 0 + counted; clamps counted; N-vectors in ADR-0006."
+  - id: canonical_dump_and_recorder
+    adr: ADR-0006
+    adr_status_at_registration: Proposed
+    contract: "ISimStateContributor { SectionId; Write(ref CanonicalWriter) } in builder registration order, LE field-by-field, collections ascending id, between ticks only (TryWriteDump); SHA-256 in tests; IOpRecorder { OnEnqueued, OnDrained, OnSample, OnOverflow }; replay header = ContentSet hash + SimSettings hash + runSeed + initial counters."
+  - id: op_queue_api
+    adr: ADR-0007
+    adr_status_at_registration: Proposed
+    contract: "Op 64 B {OpSeq u32, Actor u32, Kind u16, PayloadLength u8, Reserved u8, ReqId u32 (opaque; wire u16 zero-extended), Payload [InlineArray(48)]}; bool EnqueueOp(ActorId, in Op); Reply IOpHandler.Apply(in Op, in TickContext); Reply {ReqId, Kind, Reason u16, Result u8, pad 3, Extra 24 B} = 36 B; Core reasons 1 busy … 8 bad_request, 9–63 reserved, systems ≥ 64 keyed by (Kind, Reason); drain ≤ maxOpsDrainedPerTick (64) by opSeq."
+  - id: event_log_api
+    adr: ADR-0008
+    adr_status_at_registration: Proposed
+    contract: "EventEntry 64 B {Ordinal u32, Kind u16, Class u8, Audience u8 (raise-time slot mask), CallSeq u32, PayloadLength u8, Flags u8 (Continuation), Reserved u16, Payload 48 B}; classes Internal (fail-closed)/Replicated/OwnerOnly/Targeted; ≤ 8 pull cursors; Update only same CallSeq past the nested-call fence; IEventSink.Deliver(tick, span, in OverflowInfo{Overflow, DroppedAudienceMask, DroppedKindsMask by ResyncScope ≤ 63}) once in phase 13, copy-only."
+  - id: tick_driver_api
+    adr: ADR-0002
+    adr_status_at_registration: Proposed
+    contract: "TickDriver(long frequency 10^3..10^12, int maxCatchUp 3–8, default 4): Start(now), Advance(now)→0..cap (F2 two-step, Δ clamp freq, drop-not-bank), DropRemaining(m), Pause(), Resume(now), Resync(now), Stop(), AlphaPermille 0–999 (Presentation only), Counters; TickRate.Hz = 30 const; IMonotonicClock {Timestamp, Frequency}; FrameRunner.RunFrame(): DrainInbound → Advance → n×(ClientLayer.Step(first=i==0); SimWorld.Tick(); FlushAfterTick(tick)) [+M0 10 ms guard]."
+  - id: phase_order_and_builder
+    adr: ADR-0003
+    adr_status_at_registration: Proposed
+    contract: "PhaseId 0–13 (InputsApply … RunStep, EventsFlush); ITickEndCheck.Check(tick) between 12 and 13; systems may not bind 0 or 13; SimWorldBuilder.Bind/BindTickEnd/BindOp/BindEventKind/BindReader(≤8)/BindStateContributor/BindSnapshotSource → Freeze(); SimBuildException{Code} at boot only; ITickReader {CurrentTick, TickStage, Phase}; ClientStepId MirrorDrain, InputLatch, CarrierStep, Previews."
+  - id: composition_injectable_list
+    adr: ADR-0003
+    adr_status_at_registration: Proposed
+    contract: "SimComposition.Build(SimBuildArgs{profile, ContentSet, runSeed, counters}) → SimHost{World, Client}; [SimSystem(Id)] types take only: EventLog facade, EntityIds/MailIds, SlotTable view, own IRngStreams view, ITickReader, IRunControl (Run only), declared I…Api deps (SystemGraph), ContentSet, IStatSheet, IStatWriter (Perks/Stamps only), SimCheckRing/SimCounters, own settings record."
+  - id: id_spaces
+    adr: ADR-0004
+    adr_status_at_registration: Proposed
+    contract: "EntityId u32 = (uint)class<<24 | counter (0 None; 0x01 Player … 0x08 Prop; 0x09–0xEF reserved; 0xF0–0xFF tests); ActorId.System = 0x00000001; MailId u32 own counter; PlayerSlot u8 0–7 (+1 storage, default None, freed T reusable T+1); EntryId real bit31=0, temp 0x8000_0000|slot<<20|ctr(20b); FlightId u16 SerialU16 only; DefIndex u16 (+1 storage, default None, wire 0xFFFF, never persisted); StringId (ns u8, index u16; Run ns per run)."
+  - id: assert_symbols_and_build_configs
+    adr: ADR-0001
+    adr_status_at_registration: Proposed
+    contract: "Configs Debug/Release (libs, CI) + Godot Debug/ExportDebug/ExportRelease; Directory.Build.props maps ExportRelease→Optimize=true, ExportDebug→false; Directory.Build.targets: SimAsserts (default = Optimize!=true) → SIM_ASSERT;INVENTORY_ASSERT + CheckForOverflowUnderflow for Sim/Client.Core; ReleaseAssert = Release -p:SimAsserts=true; SimAssert [Conditional(\"SIM_ASSERT\")]; Sim.AssertsEnabled const."
+  - id: OwnedCarrier_Step
+    adr: ADR-0013
+    adr_status_at_registration: Proposed
+    contract: "static OwnedCarrier.Step(ref CarrierState, in CarrierInput, in CarrierEnv, ref CarrierScratch) - pure, integer, T2; sub-steps <= 300 mm and <= 4/tick, <= 3 slides; BAM convention -Z forward, CCW positive (Rotation.Y = bam*2pi/65536); TrigQ15.Atan2Bam via committed 1025-entry AtanQ15 table."
+  - id: IWorldQuery_consumer_contract
+    adr: ADR-0013 (implemented by World stub / ADR-0026)
+    adr_status_at_registration: Proposed
+    contract: "IWorldQuery { TileSizeMm 2000; Bounds; GetCorners(tx,tz,out HeightCorners); GetTileFlags; QueryStaticBoxes(in AabbMm, Span<StaticBox>) ascending id; StaticVersion }; Sim/Geometry: WorldHeight.Sample (bilinear, RH half-away), Gradient, SegmentIntervals (Throwing F4 Ceil/Floor), HeightfieldMarch - shared by solver, focus occlusion and flight sweep."
+  - id: IInteractable_IPlayersApi
+    adr: ADR-0014
+    adr_status_at_registration: Proposed
+    contract: "IInteractable (owner-implemented, all hooks pure): IsAvailable, GetHoldTicks, ShouldCancel, WritePrompt, TryBuildRequest, OnPress; IPlayersApi.RegisterAnchor (DuplicateVerb in every build) / CheckInteraction order dead>frozen>no_target>unavailable>position_stale|out_of_range, host range = RangeMm + rangeSlackMm; ClaimedPosition 12 B; ICatchPredictor port; IInteractionQuery snapshot."
+  - id: holdEff
+    adr: ADR-0014
+    adr_status_at_registration: Proposed
+    contract: "Hold.HoldTicks(holdBaseMs, insertPm<=750, holdSettingMs 200..1000, settings) = clamp(CeilDiv(base*(1000-insert)*setting*30, 1000*400*1000), 6, CeilDiv(max(base,2000)*30,1000)); completion on PressTick + HoldTicks (heldTicks = tick - PressTick, edges before accrual); cancel iff dist^2 > (RangeMm + incumbentSlackMm)^2."
+  - id: InputFrame_and_router
+    adr: ADR-0012
+    adr_status_at_registration: Proposed
+    contract: "Sim struct InputFrame {Tick, MoveX/MoveY Q15 disc, LookYaw BAM, LookPitch, FocusCosMinPm, RouterStateId u16, Flags, HeldBits u64, Edges[32] x 16 B (FrameAction, Kind Press/Release/Cancel, RouterStateId at event time, ArrivalSeq, presented target + Seq), Steps[4]}; router pushes edges/state/steps into the Sim ClientLayer InputLatch via IInputLatchWriter (InputRouter.FlushToLatch, GameLoop before RunFrame); the latch emits all edges on the first tick of a batch; immediates dispatched by GameLoop before RunFrame."
+  - id: throw_pipeline
+    adr: ADR-0015
+    adr_status_at_registration: Proposed
+    contract: "ThrowRelease OpKind 0x0140 (28 B: entryId, units, side, flags, feet 3xi32, dir 3xi16) reasons 64-71; CatchArm 0x0141; Throw.RH = FloorDiv(2n+d, 2d); Ballistic.PositionAt O(1); winner by (f, rank 0..7, dist^2, SplitMix.Mix64(flightId<<32|receiverKey)); ThrowLaunched 40 B, FlightResolved 32 B; IThrowingApi.FlushAllAsTimeout (Run, phase 12)."
+
+  - id: clientlayer_ports_and_preview_substeps
+    adr: ADR-0016
+    adr_status_at_registration: Proposed
+    contract: "ClientLayer.Attach(ClientPorts{IClientInbox, IPanelView, IRequestSink, IHostClock}) once before first Step; ClientLayerBuilder.BindMirrorPart(EventKindSet, IMirrorPart), BindPreview(PreviewSubStep, IClientStep); Previews sub-order Focus → DeliverPreview → ThrowPreview → EdgeResolve → HoldAdvance (edges resolved only in EdgeResolve)."
+  - id: shared_pure_functions_over_facts
+    adr: ADR-0016 (with ADR-0017)
+    adr_status_at_registration: Proposed
+    contract: "MailRules.Evaluate(in DestinationFacts, in UnitFacts), MailPay.UnitPay/UnitPenalty/HintPayout/WalletGuard, Ballistic/FlightQuery, Hold.HoldEff: static, pure, 0-alloc, facts structs or spans only; host and client each build facts; DeliverScan.Enumerate shared by preview and deliver_matching."
+  - id: render_clock_and_presentation_stream
+    adr: ADR-0016
+    adr_status_at_registration: Proposed
+    contract: "Client.Core IRenderClock {HostTick, AlphaPermille, RenderSimTimeMs = (HostTick*1000 + AlphaPermille)/30, IsValid} sampled once per frame; IHostClock (ADR-0011) unchanged; PresentationEventStream cursors in (sourceTick, ordinal) order, delivered the frame a batch arrives; [OutcomeBeat] components fed only by cursors."
+  - id: IWalletGate
+    adr: ADR-0017
+    adr_status_at_registration: Proposed
+    contract: "Mail-owned port in Sim/Mail/Ports: bool TryDebitPenalty(Cents amount, Cents floor) (applies iff balance−amount ≥ floor), void Credit(Cents amount, CreditReason reason); synchronous in the caller's phase, one call per unit; implemented by Economy (M-1a StubWallet in Sim/Economy raising WalletChanged)."
+  - id: AddressId_packing
+    adr: ADR-0017
+    adr_status_at_registration: Proposed
+    contract: "AddressId u32 = district(6)<<26 | street(8)<<18 | number(12)<<6 | unit(6); numeric order = (district, street, number, unit); 0 = None; wire narrows to AddressOrdinal u16 / DestinationOrdinal u16 via id maps."
+  - id: IMailApi_consume
+    adr: ADR-0017
+    adr_status_at_registration: Proposed
+    contract: "All consume paths → MailConsumer.Consume via IMailApi ConsumeHand (ph 0), ResolveThrownLanding (ph 4), ConsumeFed (ph 5, M-1b), ConsumeNpcDrop (ph 6); SetDeliveriesState from Run only; DeliveryOutcome 34 B Replicated with contiguous outcomeSeq per hold."
+  - id: IWorldQuery
+    adr: ADR-0026
+    adr_status_at_registration: Proposed
+    contract: "TerrainHeightMm(x,z) bilinear int64 with one MulDivRH over 2 m tiles; TerrainGradientPm; WaterDepthMm = max(0, −h); Tile flags (Water = hint only); ClampInsideMap; TrySnapWalkable (nearest Walkable tile centre, tie lower tz then tx); StaticSolids + QueryStaticSolids(region, Span<ushort>) ascending 0-alloc; Lots ascending AddressId; PostOffice record; StreetNameAt."
+  - id: ContentHost_and_ViewCatalog
+    adr: ADR-0019
+    adr_status_at_registration: Proposed
+    contract: "ContentHost : IContentSource plain C# class (not Node/autoload), synchronous, FileAccess.GetFileAsBytes + GetOpenError per read; [GlobalClass] ViewCatalog : Resource {string[] DefIds, PackedScene[] Scenes, PackedScene Placeholder} resolved at boot to PackedScene[] by DefIndex (placeholder+warning debug, content error release)."
+
+forbidden_patterns:
+  - id: sim_side_reqid_dedupe
+    adr: ADR-0011 (with ADR-0007 §6)
+    adr_status_at_registration: Proposed
+    pattern: "Any reqId comparison, dedupe or idempotence cache inside the Sim or a handler."
+  - id: client_resend_of_possibly_applied_op
+    adr: ADR-0011
+    adr_status_at_registration: Proposed
+    pattern: "Application-level retry of a request that may have been applied (only a `busy`-answered request may be resent); reply timeout must resync instead."
+  - id: host_client_shortcut
+    adr: ADR-0011
+    adr_status_at_registration: Proposed
+    pattern: "Any 'is host' path that bypasses ClientAdapter + LoopbackTransport for the host's own client."
+  - id: wire_codec_in_sim
+    adr: ADR-0011 (with ADR-0007 §4)
+    adr_status_at_registration: Proposed
+    pattern: "Wire encode/decode code in PerformativeMail.Sim; Variant/GD.BytesToVar decoding of network input."
+  - id: inline_mailids_in_events
+    adr: ADR-0009
+    adr_status_at_registration: Proposed
+    pattern: "mailIds or layouts carried inline in event entries (must be by reference into the per-tick blob)."
+    status: "superseded_by: ADR-0009 (revision 2026-10-16, aligned with ADR-0008 §1.3)"
+  - id: oversized_inventory_event_payload
+    adr: ADR-0009 (with ADR-0008 §1)
+    adr_status_at_registration: Proposed
+    pattern: "Inventory event payloads above 48 B; mailIds anywhere but chunked ascending runs on Inserted/Merged; sort layouts anywhere but by reference through ISnapshotSource."
+  - id: direct_inventory_state_write
+    adr: ADR-0009
+    adr_status_at_registration: Proposed
+    pattern: "Writing container/entry/ledger state outside InventoryMutator; automation through the op FIFO."
+  - id: reflection_json_binding
+    adr: ADR-0010
+    adr_status_at_registration: Proposed
+    pattern: "JsonSerializer/JsonDocument, GetDouble/GetDecimal, double.Parse, Enum.Parse or runtime reflection discovery on the content path; float/double/decimal/Half or T[] members in defs; Godot Resource for Sim content."
+  - id: modifier_walk_in_read
+    adr: ADR-0010
+    adr_status_at_registration: Proposed
+    pattern: "IStatSheet.Read iterating modifiers or allocating."
+  - id: float_or_system_random_in_sim
+    adr: ADR-0006 (with ADR-0005)
+    adr_status_at_registration: Proposed
+    pattern: "float/double/decimal/Half anywhere in PerformativeMail.Sim; System.Random, Guid.NewGuid, GetHashCode/HashCode, clocks, Thread/Task/Parallel/Timer, Array/List/MemoryExtensions.Sort or LINQ OrderBy in the Sim; Dictionary/HashSet iteration in state or ordering code."
+  - id: raw_blit_or_padded_payload
+    adr: ADR-0006 / ADR-0007 / ADR-0008
+    adr_status_at_registration: Proposed
+    pattern: "Dumping state by raw struct blit; op/event payload structs with padding or read via Unsafe.As (use unaligned MemoryMarshal.Read / Unsafe.ReadUnaligned); record struct for range-bounded values (Cents, Fx16)."
+  - id: checked_misuse
+    adr: ADR-0006
+    adr_status_at_registration: Proposed
+    pattern: "Hash/PRNG/serial/BAM arithmetic outside unchecked(...); relying on checked to enforce the ±2^62 money bound; raw narrowing casts to wire widths (use WireNarrow); Math.Abs on a value that may be long.MinValue."
+  - id: sync_event_subscribers_or_cross_call_coalescing
+    adr: ADR-0008
+    adr_status_at_registration: Proposed
+    pattern: "C# events/delegates between Sim systems; rewriting an event entry from a different handler/API call (or past a nested-call fence); raising in tick-end checks or during Deliver; transport, Godot or Sim calls inside IEventSink.Deliver; retaining the Deliver span; adapter reordering of one peer's entries except the ADR-0008 §7 (i)–(iii) merge."
+  - id: automation_through_op_fifo
+    adr: ADR-0007
+    adr_status_at_registration: Proposed
+    pattern: "In-tick system callers using EnqueueOp (they call I…Api in their own phase); a handler mutating, allocating ids or drawing RNG before validation completes; a client-forged System op (SystemOnly kinds)."
+  - id: godot_in_sim_or_client_core
+    adr: ADR-0001
+    adr_status_at_registration: Proposed
+    pattern: "Any Godot* reference or `using Godot` in PerformativeMail.Sim or Client.Core; Sim → Client.Core reference; runtime NuGet packages in either; Godot game project in PerformativeMail.sln; the game csproj compiling src/PerformativeMail.*/**, tests/**, tools/**, prototypes/**."
+  - id: configuration_keyed_asserts
+    adr: ADR-0001
+    adr_status_at_registration: Proposed
+    pattern: "#if DEBUG/RELEASE/EXPORTDEBUG/EXPORTRELEASE or Configuration=='Release' in Sim/Client.Core code or MSBuild logic (key on SIM_ASSERT, $(Optimize), $(SimAsserts)); trimming/AOT of the export; Assembly.Location or assembly-relative paths; process-wide static event handlers, threads or timers in Sim/Client.Core."
+  - id: engine_driven_sim_time
+    adr: ADR-0002
+    adr_status_at_registration: Proposed
+    pattern: "Driving or pausing the Sim from _PhysicsProcess, Godot Timer nodes, System.Threading timers/threads, summed _Process delta, or SceneTree.Paused; calling SimWorld/ClientLayer/FrameRunner from any node other than the one GameLoop; applying anything inside a transport callback; banking dropped ticks; float Alpha in the Sim."
+  - id: locator_statics_and_free_cross_calls
+    adr: ADR-0003
+    adr_status_at_registration: Proposed
+    pattern: "Service locators, DI containers, static mutable fields (incl. static readonly arrays) or SimWorld references inside systems; binding phase 0 or 13; mutating I…Api calls at tick end, in phase 13 or between ticks; upward calls/callbacks from callee to caller; ClientLayer reading SimWorld; a new phase without amending ADR-0003/R3."
+  - id: id_misuse
+    adr: ADR-0004
+    adr_status_at_registration: Proposed
+    pattern: "Reusing, wrapping or skipping entity/mail/entry ids; narrowing an EntityId to its low bits for the wire (use an id map); numeric comparison of FlightId; ordering by GetHashCode; persisting DefIndex; `cls << 24` without the (uint) cast; id wrapper structs as Variant/[Signal]/[Export]/RPC arguments."
+  - id: engine_physics_for_gameplay
+    adr: ADR-0013 / ADR-0015
+    adr_status_at_registration: Proposed
+    pattern: "CharacterBody3D, Jolt/physics queries, engine physics interpolation or any float maths for player movement or thrown-item flight; a second ballistic or height implementation outside Sim/Geometry and Sim/Throwing; Fx16 for carrier position."
+  - id: impure_interactable_hooks_or_host_hold_timer
+    adr: ADR-0014
+    adr_status_at_registration: Proposed
+    pattern: "IInteractable hooks that mutate, raise events, draw RNG or allocate; a host-side hold timer or a hold duration on the wire; a second holdEff copy; per-verb host ranges; decrementing life-state timers per tick."
+  - id: direct_godot_input_reads
+    adr: ADR-0012
+    adr_status_at_registration: Proposed
+    pattern: "Godot.Input.IsAction*/GetActionStrength/GetAxis/GetVector/IsKeyPressed/IsMouseButtonPressed/IsJoyButtonPressed/GetJoyAxis or InputMap mutation outside src/Game/Input (CI lint); comparing InputEvent.Device to 0; game actions in Godot InputMap; milliseconds in the Sim; dropping release/cancel edges; SceneTree.Paused."
+  - id: throwing_rounding_and_ordering
+    adr: ADR-0015
+    adr_status_at_registration: Proposed
+    pattern: "Fix.MulDivRH (half-away) in Throwing formulas other than F7 money; truncating / on a signed numerator; numeric FlightId comparison; quadratic interval tests before the |R| <= 65536 reject; applying damage in phase 4; any RNG in Throwing."
+
+  - id: preview_or_rule_reimplementation
+    adr: ADR-0016
+    adr_status_at_registration: Proposed
+    pattern: "Previews, prompts or arc colour computed in Presentation; any reimplementation of Evaluate/pay/ballistic/holdEff outside the Sim; shared rule functions taking system objects, mirrors or SimWorld; verbs resolving edges in InputLatch; Presentation deriving canStartHoldNext."
+  - id: outcome_beat_before_domain_event
+    adr: ADR-0016
+    adr_status_at_registration: Proposed
+    pattern: "Starting an outcome beat (hand beat, cha-ching, landing sfx, wallet/flag/wobble/resident/complaint, catch success) from predictive state instead of a PresentationEventStream domain event; Presentation timing from delta, Godot Timer or wall clock."
+  - id: mail_economy_reference_or_location_column
+    adr: ADR-0017
+    adr_status_at_registration: Proposed
+    pattern: "Any Sim.Mail reference to Sim.Economy or IEconomyApi; a location column in the mail table; a second payment/penalty path outside MailConsumer.Consume; per-tick iteration of complaint buckets; Inventory calling up into Mail for the backlog."
+  - id: world_bypass_or_float_height
+    adr: ADR-0026
+    adr_status_at_registration: Proposed
+    pattern: "Consumers sampling terrain/water/world solids other than through IWorldQuery; truncating or float bilinear height; TileFlags.Water used as water authority; mutating WorldTables after Build."
+  - id: godot_autoloads_scene_changes_runtime_catalogs
+    adr: ADR-0019
+    adr_status_at_registration: Proposed
+    pattern: "Registering autoloads; ChangeSceneToFile/ChangeSceneToPacked; ResourceSaver.Save of a ViewCatalog from game code (loses uid); FileAccess.GetAsText or DirAccess enumeration for content; DrawLine/DrawPolyline in HUD or ribbon; node instantiation in steady-state frames; .gdignore on content/; bare dotnet build at the repo root."
+
+api_decisions:
+  - id: content_format
+    adr: ADR-0010
+    adr_status_at_registration: Proposed
+    decision: "JSONC under content/ (res://content/), hand-written Utf8JsonReader walk, DecimalToScaled reader (≤3 fractional digits), generated never-committed manifest.txt; ContentHost/ViewCatalog Godot implementation deferred to ADR-0019 (spikes S1/S2/S4)."
+  - id: transport_deferred
+    adr: ADR-0011
+    adr_status_at_registration: Proposed
+    decision: "No Godot multiplayer API chosen; M0 spike + new transport ADR must satisfy ADR-0011 §5 transport contract."
+  - id: rng_algorithm
+    adr: ADR-0005
+    adr_status_at_registration: Proposed
+    decision: "PCG32 XSH-RR + SplitMix64/FNV-1a-64 derivation; multiply-shift NextInt with fixed draw count (bias ≤ b/2^32 accepted); no float RNG; CanonicalHash64 deferred to its first consumer."
+  - id: determinism_tiers
+    adr: ADR-0006
+    adr_status_at_registration: Proposed
+    decision: "T1 same-machine identical canonical dumps every tick (SC-DET-1); T2 Windows+Linux x64 bit-identical primitives, Q15 table, carrier step, shared pure functions (SC-DET-2) run on the net8.0 shipping runtime; no lockstep."
+  - id: reqid_width_and_dedupe
+    adr: ADR-0007
+    adr_status_at_registration: Proposed
+    decision: "Sim Op header keeps an opaque u32 reqId slot; wire reqId u16 per connection; dedupe (last-16 reply cache + in-flight set, keyed (peer, reqId)) in the adapter; the Sim never dedupes (resolves Q-ARCH-04)."
+  - id: solution_layout
+    adr: ADR-0001
+    adr_status_at_registration: Proposed
+    decision: "net8.0 Godot-free PerformativeMail.Sim + Client.Core; Godot game PerformativeMail.Game.csproj at repo root (Godot.NET.Sdk/4.7.1, hand-written, ProjectReference — spike-verified); one xUnit v3 project on net10.0 (MTP) compiling tests/unit/** + tests/integration/**; M0 adds net8.0 + windows-latest CI legs; BannedApiAnalyzers mechanism (rules: ADR-0006)."
+    status: "superseded_by: solution_layout_r2 (ADR-0001 §7 revision 2026-10-16: net8.0 CI leg from M-1a, not M0)"
+  - id: solution_layout_r2
+    adr: ADR-0001
+    adr_status_at_registration: Accepted
+    decision: "net8.0 Godot-free PerformativeMail.Sim + Client.Core; Godot game PerformativeMail.Game.csproj at repo root (Godot.NET.Sdk/4.7.1, hand-written, ProjectReference — spike-verified); one xUnit v3 project on net10.0 (MTP) compiling tests/unit/** + tests/integration/**; CI net8.0 leg (-p:PmTestTfm=net8.0) from the first Sim Core story (M-1a), windows-latest leg at M0; BannedApiAnalyzers mechanism (rules: ADR-0006)."
+  - id: sim_on_main_thread
+    adr: ADR-0002
+    adr_status_at_registration: Proposed
+    decision: "v1 Sim runs on the Godot main thread (spike F9); time source Stopwatch.GetTimestamp via IMonotonicClock (spike F10/F11); GameLoop ProcessMode=Always, lowest ProcessPriority; revisit only on R18 triggers."
+  - id: carrier_solver_numbers
+    adr: ADR-0013
+    adr_status_at_registration: Proposed
+    decision: "Carrier sub-mm integration uses exact tick-rational remainders (narrows ADR-0006 'Fx16 for sub-mm' for the carrier); no Q15 interpolation; atan2 by committed table; one height function (RH) for movement, focus and flights."
+  - id: hold_count_convention
+    adr: ADR-0014
+    adr_status_at_registration: Proposed
+    decision: "Hold completes on PressTick + HoldTicks (Input H-R3-1), superseding PCM-P12-1's 'press tick = held tick 1'; interaction (focus, press, hold) runs at the end of Players' CarrierStep binder with pure on-demand owner hooks - no new ClientStepId."
+  - id: input_router_placement
+    adr: ADR-0012
+    adr_status_at_registration: Proposed
+    decision: "Router core in Client.Core, Godot adapter is one node in src/Game/Input (adapter half spike-gated on OQ-IC-9); bindings are Client.Core physical inputs, InputMap holds only stock ui_*; settings.input integer-unit JSON parsed by hand-written Utf8JsonReader."
+  - id: throw_sim_ownership
+    adr: ADR-0015
+    adr_status_at_registration: Proposed
+    decision: "Throwing's Sim op/handler/payload fixed for M-1a here; ADR-0021 keeps wire, channels, ghost and catch-under-latency at M0; flight capacity 160 (not 16)."
+
+  - id: godot_scene_placement_and_export
+    adr: ADR-0019
+    adr_status_at_registration: Proposed
+    decision: "GameLoop = root of res://src/Game/Main.tscn (spike OQ1); stretch canvas_items + keep_height, 1920x1080 reference, 1600x900 window override, Window.MinSize 1280x720 at boot (no project setting exists); PerformativeMail.Game.sln (Debug/ExportDebug/ExportRelease) for the exporter (spike S1-3); export_presets.cfg include_filter content/*.jsonc + manifest.txt (S1-2); .gdignore on non-game folders and Godot-free libs; Upgrade Project Files once per pin move."
+  - id: world_query_adr_placement
+    adr: ADR-0026
+    adr_status_at_registration: Proposed
+    decision: "IWorldQuery contract + M-1a street stub decided now in ADR-0026; generation pipeline, districts, routing graph and JoinState world tables deferred to an M1 revision of ADR-0026 (additive members only)."
+
+performance_budgets:
+  - id: inventory_probe_gates
+    adr: ADR-0009
+    adr_status_at_registration: Proposed
+    budget: "PeekOutfeed/TakeUnit ≤ 4 candidate entries amortised (n=320, 6,400); repeat sort 0 probes; idle drain 0 probes; cap eviction ≤ created+1 candidates; automation path 0 B allocated (BLOCKING in CI)."
+  - id: stat_read
+    adr: ADR-0010
+    adr_status_at_registration: Proposed
+    budget: "Read 0 B; sheet rebuild ≤ 0.2 ms (8 players × 5 perks); boot parse+validate+hash ≤ 100 ms CPU (advisory)."
+  - id: zero_alloc_tick
+    adr: ADR-0006
+    adr_status_at_registration: Proposed
+    budget: "SimWorld.Tick() allocates 0 B after 300 warm-up ticks, no recorder, Release, dedicated process, measured on the net8.0 target (advisory M-1a, BLOCKING from M0)."
+  - id: op_and_event_capacity
+    adr: ADR-0007 / ADR-0008
+    adr_status_at_registration: Proposed
+    budget: "opQueueCapacity 4096 (256 KiB), systemOpReserve 64, maxOpsDrainedPerTick 64; eventLogCapacity 4096 × 64 B (256 KiB), reserve 256; F8: cap×4 + 1.5×systemEventsPerTick ≤ capacity − reserve (826 ≤ 3840); SC-R8-4 no overflow on SC-FIX-WORST."
+  - id: input_router_frame
+    adr: ADR-0012
+    adr_status_at_registration: Proposed
+    budget: "Router core 0 B steady state (BLOCKING M-1a); <= 0.1 ms/frame, <= 0.3 ms at 1000 Hz (advisory); UiEventLog 4096 x 64 B."
+  - id: carrier_and_focus
+    adr: ADR-0013 / ADR-0014
+    adr_status_at_registration: Proposed
+    budget: "Owner CarrierStep + focus p99 <= 0.10 ms; host player work p99 <= 0.20 ms; sub-steps <= 4/tick, slides <= 3/sub-step (counters BLOCKING); 0 B/tick with 2000 anchors."
+  - id: throwing_step
+    adr: ADR-0015
+    adr_status_at_registration: Proposed
+    budget: "Throwing.Step <= 0.15 ms p99 / 0.5 ms max with 16 flights + 8 catchers (advisory M-1a, blocking M0), 0 B; preview <= 0.3 ms p95/frame, 0 B."
+
+  - id: clientlayer_and_mail_budgets
+    adr: ADR-0016 / ADR-0017
+    adr_status_at_registration: Proposed
+    budget: "ClientLayer.Step ≤ 0.3 ms p99 (CarrierStep + focus ≤ 0.10 ms), 0 B after warm-up; Mail ≤ 1.0 ms p99 / 2 ms max per tick, manifest ≤ 0.5 ms, 40-unit op ≤ 0.2 ms, 0 B on hand/throw/feeder paths, idle tick 0 rows / 0 buckets (advisory until Q-ARCH-10)."
+  - id: presentation_frame_budgets
+    adr: ADR-0019
+    adr_status_at_registration: Proposed
+    budget: "Aim ribbon ≤ 0.3 ms/frame (cap 0.5), 0 managed B/frame; grid panel 0 B/frame steady state; pools fixed at boot (envelopes 48, residents 8, heap props 12, ×N tags 8, mail voices 16)."
+
+# ADR status ledger (append-only). Current status of each ADR whose stances appear above;
+# it overrides `adr_status_at_registration` for "is this stance still provisional?".
+adr_status:
+  - adr: ADR-0001
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0004
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0003
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0002
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0005
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0006
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0007
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0008
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0010
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0011
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"
+  - adr: ADR-0009
+    status: Accepted
+    date: 2026-10-16
+    authority: "technical-director on the project owner's explicit confirmation (main session AskUserQuestion, 2026-10-16: 'Accept all 11 (Recommended)')"

@@ -1,0 +1,58 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformativeMail.Sim", "src\PerformativeMail.Sim\PerformativeMail.Sim.csproj", "{E849B3E5-D0DE-4C44-B6AF-00BFC2FAA394}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E-EAC7-C090-1BA3-A61EC2A24D84}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformativeMail.Analyzers", "tools\PerformativeMail.Analyzers\PerformativeMail.Analyzers.csproj", "{9392B0FF-0791-42E8-97C5-D7753C0AADEF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformativeMail.Client.Core", "src\PerformativeMail.Client.Core\PerformativeMail.Client.Core.csproj", "{D1125D2A-213A-49E2-84C5-4EF055BC8579}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformativeMail.Game", "PerformativeMail.Game.csproj", "{E322D70E-7919-4AA5-9A8A-ECD16EE77E47}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E849B3E5-D0DE-4C44-B6AF-00BFC2FAA394}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E849B3E5-D0DE-4C44-B6AF-00BFC2FAA394}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E849B3E5-D0DE-4C44-B6AF-00BFC2FAA394}.ExportDebug|Any CPU.ActiveCfg = Release|Any CPU
+		{E849B3E5-D0DE-4C44-B6AF-00BFC2FAA394}.ExportDebug|Any CPU.Build.0 = Release|Any CPU
+		{E849B3E5-D0DE-4C44-B6AF-00BFC2FAA394}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{E849B3E5-D0DE-4C44-B6AF-00BFC2FAA394}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{9392B0FF-0791-42E8-97C5-D7753C0AADEF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9392B0FF-0791-42E8-97C5-D7753C0AADEF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9392B0FF-0791-42E8-97C5-D7753C0AADEF}.ExportDebug|Any CPU.ActiveCfg = Release|Any CPU
+		{9392B0FF-0791-42E8-97C5-D7753C0AADEF}.ExportDebug|Any CPU.Build.0 = Release|Any CPU
+		{9392B0FF-0791-42E8-97C5-D7753C0AADEF}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{9392B0FF-0791-42E8-97C5-D7753C0AADEF}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{D1125D2A-213A-49E2-84C5-4EF055BC8579}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1125D2A-213A-49E2-84C5-4EF055BC8579}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1125D2A-213A-49E2-84C5-4EF055BC8579}.ExportDebug|Any CPU.ActiveCfg = Release|Any CPU
+		{D1125D2A-213A-49E2-84C5-4EF055BC8579}.ExportDebug|Any CPU.Build.0 = Release|Any CPU
+		{D1125D2A-213A-49E2-84C5-4EF055BC8579}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{D1125D2A-213A-49E2-84C5-4EF055BC8579}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{E322D70E-7919-4AA5-9A8A-ECD16EE77E47}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E322D70E-7919-4AA5-9A8A-ECD16EE77E47}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E322D70E-7919-4AA5-9A8A-ECD16EE77E47}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{E322D70E-7919-4AA5-9A8A-ECD16EE77E47}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{E322D70E-7919-4AA5-9A8A-ECD16EE77E47}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{E322D70E-7919-4AA5-9A8A-ECD16EE77E47}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E849B3E5-D0DE-4C44-B6AF-00BFC2FAA394} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{9392B0FF-0791-42E8-97C5-D7753C0AADEF} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{D1125D2A-213A-49E2-84C5-4EF055BC8579} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+	EndGlobalSection
+EndGlobal

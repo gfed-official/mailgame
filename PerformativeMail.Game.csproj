@@ -1,0 +1,17 @@
+<!-- Hand-written per ADR-0001 section 2: Godot 4.7.1 build-solutions mode does not generate a csproj. -->
+<Project Sdk="Godot.NET.Sdk/4.7.1">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>PerformativeMail.Game</RootNamespace>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="src/PerformativeMail.*/**;tests/**;tools/**;prototypes/**;**/obj/**;**/bin/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="src/PerformativeMail.Sim/PerformativeMail.Sim.csproj" />
+    <ProjectReference Include="src/PerformativeMail.Client.Core/PerformativeMail.Client.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,9 @@
+# probe=window
+# godot=4.7.1-stable (official) display=X11 dotnet=10.0.13 os=Linux fps_target=0
+[S-34] display server=X11 session XDG_SESSION_TYPE=wayland window size=(1896, 1030) WindowIsFocused=True t=764ms
+[S-34] after 1 s: WindowIsFocused=True notifications so far=[] mouse pos=(0, 0)
+[S-34] set Captured: Input.MouseMode=Captured DisplayServer.MouseGetMode=Captured mouse pos=(960, 553) (before=(0, 0))
+[S-34] set Visible: Input.MouseMode=Visible mouse pos=(960, 553) (before capture=(0, 0); equal => position restored or never moved)
+[S-34] labels (live layout): A->A Q->Q W->W Z->Z layouts=1 current=0 name='English (US)'
+[S-34] end: notifications received during run (in order)=[] WindowIsFocused=True
+# done

@@ -1,0 +1,14 @@
+; Spike (OQ-IC-9 input) - isolated from the repo-root project.godot. See REPORT.md.
+; Deliberately does NOT set input_devices/joypads/ignore_joypad_on_unfocused_application
+; (probe b3 reads the engine default; run_b3_set.sh proves it can be set true).
+config_version=5
+
+[application]
+
+config/name="SpikeOqIc9Input"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[dotnet]
+
+project/assembly_name="SpikeOqIc9Input"

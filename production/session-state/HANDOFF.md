@@ -1,0 +1,88 @@
+# Session handoff — Performative Mail
+
+**Written:** 2026-10-16 23:55 PDT, by the orchestrating session at a clean stopping point.
+**Read this first in a new session.** Then read `production/session-state/planning-run-2026-10-16.md` (full run ledger + per-story checkpoint lines) only for detail.
+
+## Owner instructions in force
+
+1. "Continue the rest of the planning without my input for the whole game." (autonomous; log every decision)
+2. "Don't wait for a perfect design, start implementation when it is mostly there."
+3. Owner allowed model invocation of `/dev-story` and `/story-done` (the `disable-model-invocation: true` line was removed from both SKILL.md files — re-add it to re-reserve them).
+4. Owner explicitly **accepted ADR-0001..0017, 0019, 0026** and **ratified every creative-director ruling applied as a default** ("keep as applied"; Cannon Arm card text → "≈ 30 % farther").
+5. ADR acceptance and `automation_always_ask` categories (scope changes, file deletions, schema changes) still need the owner. Everything else: decide, log to `production/session-logs/decision-log.md`, proceed.
+
+Nothing has been committed — all work is uncommitted in the working tree on `master` (last commit e511d85). Commit only when the owner asks.
+
+## Where the project is
+
+- **Stage:** Technical Setup → implementing milestone **M-1a** (owner-directed; no formal `/gate-check` was run).
+- **Design:** 16 GDDs in `design/gdd/`. The M-1a set (grid-inventory, player-character-movement, input-controls, mail-destinations, manual-delivery, throwing-catching, hud-notifications) is reviewed, revised, cross-reconciled and consistency-checked — all **In Review** (implementation-ready; no further re-reviews by owner instruction). Simulation Core, Content & Data, Health & Damage, Building System are In Review (Provisional). Belt Logistics is Designed (Provisional, not reviewed). Comms is a frozen draft. Not yet designed: Networking & Session, World Generation, Enemy AI & Waves, Defenses, Player Combat, Vehicles, Economy, Run Structure, Perks, Persistence, Stamps, Meta, Map/Menus UI, Audio, Voice, Presentation, Onboarding, Accessibility, Dev Tooling, Harvesting.
+- **UX specs:** `design/ux/inventory-panel.md`, `design/ux/throwing-catching.md` (+ two UNREVIEWED seeds).
+- **Architecture:** `docs/architecture/architecture.md` v1.2; **19 ADRs Accepted** (0001–0017, 0019, 0026); `docs/architecture/control-manifest.md` (version 2026-10-16.2); `docs/architecture/tr-registry.yaml` (250 TRs); `docs/registry/architecture.yaml`. Godot .NET spike (`prototypes/spike-godot-dotnet/`) PASS; input spike (`prototypes/spike-oq-ic-9-input/REPORT.md`) GO-WITH-DELTAS.
+- **Code:** `PerformativeMail.sln` — `src/PerformativeMail.Sim` (Godot-free, net8.0), `src/PerformativeMail.Client.Core` (net8.0), `tools/PerformativeMail.Analyzers`, one xUnit v3 test project `tests/PerformativeMail.Sim.Tests` (compiles `tests/unit/**`, `tests/integration/**`). 4,205 tests per leg, four legs (net10/net8 × Debug/Release). No Godot game project yet (that's the godot-host-shell epic).
+- **Tech debt:** `docs/tech-debt-register.md` (TD-001…TD-091; several ADR errata waiting — see below).
+
+### Story progress (production/epics/, index in production/epics/index.md, order in production/epics/implementation-order.md)
+
+| Epic | Complete | Ready (next) | Blocked |
+|---|---|---|---|
+| simulation-core | 28/30 (001–028) | 029 (deps done; re-stamp manifest to 2026-10-16.2), 030* | — |
+| content-data | 16/19 (001–016) | 017 → 018 → 019 | — |
+| network-adapter-loopback | 7/9 | 008*, 009* | — |
+| world-stub | 6/7 | 007 (sim-core 025–027 now Complete — check its deps) | — |
+| player-character | 9/26 (001–009) | 010 → … 026 | — |
+| input-controls | 6/29 (001–006) | 007 (008 needs player-character 013) | 029 |
+| mail-destinations | 4/16 (001, 002, 011, 012) | 003 next | — |
+| manual-delivery | 0/11 | 001–008, 011 | 009, 010 |
+| grid-inventory | 0/24 | 001 → … | 022 |
+| throwing-catching | 0/24 | 001 → … | 016, 024 |
+| godot-host-shell | 0/11 | 001 → … | — |
+| **Total** | **76** | **124** | **6** |
+
+`*` Ready but waiting on other stories: sim-core 030 ← grid-inventory 007 + throwing 010; network 008/009 ← manual-delivery 004/005; world-stub 007 ← sim-core 026/027 (now Complete — should be startable).
+
+### Blocked stories (genuine blockers)
+- manual-delivery 009, throwing-catching 016 — ADR-0024 (telemetry) unwritten.
+- manual-delivery 010 — ADR-0018 (HUD) unwritten.
+- throwing-catching 024 — ADR-0020 (M0 transform/position-history) unwritten.
+- grid-inventory 022 — needs re-scope: DeliverMatching handler moved to manual-delivery 005 (ADR-0017 forbids Inventory → Mail).
+- input-controls 029 — waits for 026–028; story 026 cannot be Done until the S-25 C# event-retention follow-up spike passes (TD-022).
+
+## How to continue (the work loop that worked)
+
+**Toolchain:** run dotnet only as `mise exec dotnet@10.0.402 -- dotnet …` (SDKs 10.0.402 + 8.0.426 user-level via mise; runtimes 10.0.13 + 8.0.32). Test legs: `dotnet test --solution PerformativeMail.sln` (net10) and add `-p:PmTestTfm=net8.0` for net8; each in `-c Debug` and `-c Release`. Godot .NET: `~/.local/bin/godot-mono` (4.7.1 mono).
+
+**Per story:** `/dev-story <story-path>` then `/story-done <story-path>`, each story in its own subagent ("runner"), which spawns the implementer + gate reviewers (LP-CODE-REVIEW, QL-TEST-COVERAGE, sometimes godot-csharp-specialist). Append a one-line checkpoint per closed story to `production/session-state/planning-run-2026-10-16.md` (Phase 4).
+
+**Lessons (important):**
+- Implementer agents have a **20-turn limit** — brief them tightly (exact files, ACs, "batch edits; run tests once per fix round") and resume them with SendMessage when they stop.
+- Runner subagents get **cut off after ~10–25 min**; give each runner 2–4 stories and expect to relaunch. Children spawned in the background often **report to the main session instead of the runner** — forward the gist or tell the runner to verify from disk.
+- **Shared 20-subagent concurrency limit**: ≤ 4–5 runners in parallel, each ≤ 2 children.
+- Parallel runners break each other's builds mid-edit: re-Read shared files before editing; on foreign breaks wait 2 min or verify on an `rsync` copy under `/tmp`. Append-only enums (SimAssertCode, CounterId, CheckCode, etc.) — re-read before adding. TD ids collide between runners — recheck the highest id right before appending.
+- Zero-allocation tests must use `tests/PerformativeMail.Sim.Tests/AllocAssert.cs` in a `[Collection(NonParallelCollection.Name)]` class (TD-026 fixed the flakes).
+- Hooks block subagents from writing report `.md` files — have them return text and write the file from the main session.
+
+**Find the next Ready stories:** use `production/epics/implementation-order.md`, or the dependency scanner pattern: a story is startable when its Status is Ready and every path/“Story NNN” in its "Depends on" section is Complete (runners re-check this themselves before implementing).
+
+## Recommended next steps (in order)
+
+1. **Verify the tree first:** Release build 0 warnings + all four legs green (fix any half-finished file left by the wrap-up).
+2. **Ask the owner whether to commit** the work so far (large uncommitted tree).
+3. Continue tracks in parallel (≤ 4): content-data 017–019; simulation-core 029 (030 after grid 007 + throwing 010); world-stub 007; player-character 010→026 (first: a story implementing TD-091 — the row-27 extra-jump rule, maxExtraJumps ≤ 1 and the new slide formula/`player.slideRunMaxMmS` are in the GDD but not yet in code); input-controls 007→028; mail-destinations 003→016; then **grid-inventory 001→021, 023–024**, **manual-delivery 001→008** (005 unblocks network 008/009), **throwing-catching 001→023**, and **godot-host-shell 001→011** (the Godot game project; makes the greybox playable).
+4. **ADR errata batch** (one technical-director pass, then owner acceptance of any amended Accepted ADRs): ADR-0003 §4 (IWorldQuery row, SimBuildArgs.HostClock/Recorder, SimHost.Content), ADR-0004 (counters store last-issued), ADR-0005 (21 stream keys, `drops` owner), ADR-0006 §3 (explicit overload bans), ADR-0012 §7 deltas D-1..D-8 (TD-021), ADR-0013 §2 (ceil-sqrt + final speed clamp), ADR-0026 amendment (TD-028(4)). Search `docs/tech-debt-register.md` for "erratum"/"ADR-".
+5. **Write the missing ADRs** that block stories: ADR-0018 (HUD), ADR-0024 (telemetry), ADR-0020/0021/0022 (M0 networking) — owner must accept.
+6. **Design work still owed (later milestones):** `/design-review` Belt Logistics; then `/design-system` for Networking & Session (M0; unfreezes Comms), World Generation, Player Combat, Enemy AI & Waves, Defenses, Vehicles, Economy, Run Structure, Perks, etc. Networking must re-baseline the per-client bandwidth (belts alone ≈ 35 of 40 kbps).
+7. **Owner-only items:** the **two-friend M-1a greybox playtest** (systems-index GUARD — all non-M-1a GDDs are provisional until it's recorded in `prototypes/m1a-delivery-throwing-concept/REPORT.md`); input hardware checks M-1…M-9 in the input spike report; Belt Logistics' two CD rulings (solo-only stalls fixed by lot geography never quota/volume; street-spread exponent capped at 1.0 and never default); buildable spawn pads (deferred past v1); solo shift-1 balance (Mail OQ22).
+
+## Final state at stop
+
+Verified by the orchestrator at stop (2026-10-17 ~00:15 PDT): **Release build 0 warnings / 0 errors; all four legs 4,205 tests, 0 failed** (Debug legs skip 34 Release-only allocation tests). **No story is In Progress**; no agents running.
+
+Things to know before resuming:
+- **GDD ahead of code (TD-091):** player-character game-designer rulings (row 27 extra-jump vs ground buffer, `maxExtraJumps` 0–1, steep-slope slide formula with `player.slideRunMaxMmS` = 4000) are written into the GDD but not implemented — shipped 006/007 code contradicts GDD PCM-P5-2/4/5 and P4-1d until a story implements TD-091. Also open: submerged box top counts as dry? (design question), 009 test gaps (buffed swim speed, swim exit onto a box).
+- **input-controls TD-088(1):** needs a game-designer ruling on Tap/Hold sharing across modifier buckets.
+- **content-data TD-086(1):** pre-check against > 6 Mul modifiers on one StatSheet cell before M1 Perks. Story 018 must fix TD-090 first (Convert complexity; SelfCheck at startup), add the CV-GEN-12 > 65 535 AC (TD-075(1)) and move stage-2 rules (TD-063(1)); 017 carries CV-GEN-16 tests for `5.` and `+5`.
+- **mail-destinations:** code in `src/PerformativeMail.Sim/Mail/` but namespace `PerformativeMail.Sim.MailDestinations`; GDD erratum F3 ("truncates" vs exact V_k); 005 must delegate `IMailApi.TryGetDestinationFacts` and bind the dump contributor; 009 adds deliveries to the dump; 013 maps `KindCountsStatus` to content errors.
+- **input-controls 007:** leave `IInteractionQuery`/`ICarrierStatusSource` out of the constructor until 008/012; use instance `TryResolve` with raw held modifiers; latch the `ChordMatch` at press.
+- **sim-core 029:** zero-alloc/timing probe — run with no recorder bound; Release only.
+- The Gmail and Google Calendar connectors for this account need authorising in claude.ai connector settings (unrelated to the game; unavailable until then).

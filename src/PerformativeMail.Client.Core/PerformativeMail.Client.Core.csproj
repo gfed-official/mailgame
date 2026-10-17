@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Godot-free client/adapter core (ADR-0001 section 1, ADR-0011 section 2): the network
+    adapter (Net/), and later the Ui and Input router cores. MUST NOT reference Godot or any
+    runtime NuGet package: it references the Sim only. The Godot presentation layer
+    (PerformativeMail.Game) references this assembly, never the reverse; the Sim never
+    references this assembly.
+    net8.0 = the Godot 4.x C# minimum for desktop targets.
+    Shared settings (Nullable, TreatWarningsAsErrors, LangVersion, Deterministic,
+    InvariantGlobalization) come from /Directory.Build.props and are restated here so this
+    project's contract is visible in one place. SIM_ASSERT / INVENTORY_ASSERT and
+    CheckForOverflowUnderflow come from /Directory.Build.targets (same mapping as the Sim).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>PerformativeMail.Client.Core</RootNamespace>
+    <AssemblyName>PerformativeMail.Client.Core</AssemblyName>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PerformativeMail.Sim.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../PerformativeMail.Sim/PerformativeMail.Sim.csproj" />
+  </ItemGroup>
+
+  <!--
+    Same determinism gate as the Sim (ADR-0001 section 6): the custom PMSIM001 analyzer
+    (no float/double/decimal/Half) and BannedApiAnalyzers RS0030 with this folder's own
+    BannedSymbols.txt (a copy of the Sim's list). Build-time only (PrivateAssets="all"):
+    nothing flows to consumers, and Client.Core has no runtime package reference.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="../../tools/PerformativeMail.Analyzers/PerformativeMail.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" PrivateAssets="all" />
+    <AdditionalFiles Include="BannedSymbols.txt" />
+  </ItemGroup>
+
+</Project>

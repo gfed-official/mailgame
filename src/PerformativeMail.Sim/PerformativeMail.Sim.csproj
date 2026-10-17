@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Plain-C# gameplay simulation. MUST NOT reference Godot (simulation-core GDD):
+    the Godot presentation layer references this assembly, never the reverse.
+    net8.0 = the Godot 4.x C# minimum for desktop targets.
+    Shared settings (Nullable, TreatWarningsAsErrors, LangVersion, Deterministic,
+    InvariantGlobalization) come from /Directory.Build.props and are restated
+    here so this project's contract is visible in one place.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>PerformativeMail.Sim</RootNamespace>
+    <AssemblyName>PerformativeMail.Sim</AssemblyName>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PerformativeMail.Sim.Tests" />
+  </ItemGroup>
+
+  <!--
+    Determinism gate (ADR-0006 section 3, ADR-0001 section 6; stories SC-ARCH-2).
+    1. PerformativeMail.Sim.Analyzers (tools/): PMSIM001, no float/double/decimal/Half.
+    2. BannedApiAnalyzers RS0030 (an error via .editorconfig) + BannedSymbols.txt:
+       Random, Guid, hash codes, time sources, threads, unstable sorts.
+    Both are build-time only (PrivateAssets="all"): nothing flows to consumers.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="../../tools/PerformativeMail.Analyzers/PerformativeMail.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" PrivateAssets="all" />
+    <AdditionalFiles Include="BannedSymbols.txt" />
+  </ItemGroup>
+
+  <!--
+    SC-ARCH-2 fixture injection: tools/ci/check-analyzer-fixtures.sh compiles ONE
+    fixture from tests/fixtures/analyzers/ into the Sim via -p:PmArchFixture=<file>
+    and requires the build to fail. Never set in a normal build.
+    The script also passes -p:PmArchFixtureWork=<temp dir>: a fixture that compiles
+    (the recorded ones) must not overwrite the real Sim output, so output and
+    intermediate paths are redirected here, in the project body. They are
+    deliberately NOT passed as global -p:OutDir / -p:IntermediateOutputPath, because
+    global properties flow into the analyzer ProjectReference and break its path.
+  -->
+  <ItemGroup Condition="'$(PmArchFixture)' != ''">
+    <Compile Include="$(PmArchFixture)" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(PmArchFixture)' != '' and '$(PmArchFixtureWork)' != ''">
+    <OutDir>$(PmArchFixtureWork)/out/</OutDir>
+    <IntermediateOutputPath>$(PmArchFixtureWork)/obj/</IntermediateOutputPath>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,6 @@
+Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org
+
+# probe=b3
+# godot=4.7.1-stable (official) display=headless dotnet=10.0.13 os=Linux fps_target=0
+[B3-set] GetSetting=true Input.IgnoreJoypadOnUnfocusedApplication(runtime property)=True PropertyCanRevert=true PropertyGetRevert=false
+# done

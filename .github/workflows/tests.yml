@@ -1,0 +1,97 @@
+name: Automated Tests
+
+# Runs the plain-C# Sim test suite (xUnit v3 on Microsoft.Testing.Platform,
+# opted in via global.json). No Godot needed: the Sim has no Godot dependency.
+# Godot-side [UI] tests (gdUnit4) are not wired up yet - they need the Godot
+# .NET build.
+#
+# Matrix: test TFM {net10.0, net8.0} x configuration {Debug, Release}.
+# The net8.0 leg runs the same suite on the .NET 8 runtime (the Sim's own target)
+# via -p:PmTestTfm=net8.0 (ADR-0001 sections 7-8). A leg that runs zero tests
+# exits 8, which fails the job - never treat that as a pass.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Sim tests (${{ matrix.tfm }}, ${{ matrix.configuration }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tfm: [net10.0, net8.0]
+        configuration: [Debug, Release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # The SDK stays 10.0.x (global.json); the 8.0.x install provides the
+      # .NET 8 runtime the net8.0 leg executes on.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Guard - no Godot using in Sim / Client.Core
+        run: |
+          set -u
+          dirs=""
+          for d in src/PerformativeMail.Sim src/PerformativeMail.Client.Core; do
+            [ -d "$d" ] && dirs="$dirs $d"
+          done
+          if [ -z "$dirs" ]; then
+            echo "No Sim / Client.Core directories yet; nothing to scan."
+            exit 0
+          fi
+          # grep exits 0 on a match (fail the build), 1 on no match, 2+ on error
+          # (an error must not read as "clean").
+          rc=0
+          grep -rn "using Godot" $dirs || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::'using Godot' found in Sim / Client.Core"
+            exit 1
+          elif [ "$rc" -ne 1 ]; then
+            echo "::error::grep failed with exit code $rc"
+            exit "$rc"
+          fi
+
+      # AC-3 (story 004): the Sim is paused by its own tick gate, never SceneTree.Paused.
+      # Exit codes: 0 = clean, 1 = match, other = error. The self-check proves the regex matches.
+      - name: Guard - no SceneTree.Paused in Sim / Hosting
+        run: |
+          bash tools/ci/check-no-scenetree-paused.sh --self-check
+          bash tools/ci/check-no-scenetree-paused.sh
+
+      - name: Guard - build-configuration table (ADR-0001 section 4)
+        run: bash tools/ci/check-build-config.sh
+
+      - name: Restore
+        run: dotnet restore PerformativeMail.sln -p:PmTestTfm=${{ matrix.tfm }}
+
+      - name: Build
+        run: dotnet build PerformativeMail.sln --configuration ${{ matrix.configuration }} --no-restore -p:PmTestTfm=${{ matrix.tfm }}
+
+      # SC-ARCH-2 (story 004): every fixture must be seen FAILING with its expected
+      # diagnostic id (PMSIM001 / RS0030); a fixture that compiles fails the job.
+      # Runs after the normal build (the analyzer project is built there).
+      - name: Determinism analyzers - SC-ARCH-2 fixtures
+        if: matrix.tfm == 'net10.0' && matrix.configuration == 'Debug'
+        run: |
+          bash tools/ci/check-analyzer-fixtures.sh --self-check
+          bash tools/ci/check-analyzer-fixtures.sh
+
+      # Exit code 8 (zero tests ran) fails the step like any other non-zero code.
+      - name: Test
+        run: dotnet test --solution PerformativeMail.sln --configuration ${{ matrix.configuration }} --no-build -p:PmTestTfm=${{ matrix.tfm }}

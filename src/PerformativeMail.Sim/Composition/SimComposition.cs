@@ -1,0 +1,213 @@
+using PerformativeMail.Sim.ClientLayer;
+using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Content.Stats;
+using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Players;
+
+namespace PerformativeMail.Sim.Composition;
+
+/// <summary>
+/// The one composition root (ADR-0003 section 4, TR-sim-013). <see cref="Build"/> creates the Sim Core services, constructs
+/// the profile's systems with plain <c>new</c> in an explicit order that is a topological order of <see cref="SystemGraph"/>,
+/// lets each bind, composes the <see cref="ClientLayer"/> alongside, and freezes the world on the calling thread. No DI
+/// container, no service locator, no reflection, no <c>Activator</c>, no static state.
+/// <para>
+/// Composition order = construction order = same-phase binder order = tick-end order = dump-section order.
+/// </para>
+/// <para>
+/// Must be called on the thread that will call <see cref="SimWorld.Tick"/> (the Godot main thread): the world's owner thread
+/// and the id allocators' owner thread are both captured here. Errors are <see cref="SimBuildException"/>s, thrown only here,
+/// at boot. Allocates freely (boot-time only).
+/// </para>
+/// </summary>
+/// <example>
+/// <code>
+/// ContentSet content = BuiltInContent.CreateM1a();          // once per process
+/// SimHost host = SimComposition.Build(new SimBuildArgs(SimProfile.M1aGreybox, content, runSeed));
+/// host.World.Tick();
+/// </code>
+/// </example>
+public static class SimComposition
+{
+    /// <summary>
+    /// The explicit construction order of the shipped systems: a topological order of <see cref="SystemGraph.Shipped"/>
+    /// (checked by a test). A shipped profile is built in this order, restricted to the systems it selects.
+    /// </summary>
+    public static ReadOnlySpan<SystemId> ShippedOrder =>
+    [
+        SystemId.WorldGeneration,
+        SystemId.HealthDamage,
+        SystemId.GridInventory,
+        SystemId.PlayerCharacter,
+        SystemId.MailDestinations,
+        SystemId.Building,
+        SystemId.BeltLogistics,
+        SystemId.ManualDelivery,
+        SystemId.Throwing,
+        SystemId.Vehicles,
+        SystemId.PlayerCombat,
+        SystemId.EnemyAiWaves,
+        SystemId.Defenses,
+        SystemId.ResourceHarvesting,
+        SystemId.Economy,
+        SystemId.RunStructure,
+        SystemId.Perks,
+        SystemId.StampsRunEvents,
+    ];
+
+    /// <summary>
+    /// The order in which <see cref="Build"/> constructs <paramref name="profile"/>'s systems: <see cref="ShippedOrder"/> filtered
+    /// to the profile's selection for a shipped profile; the given order for a per-test profile.
+    /// </summary>
+    /// <param name="profile">The profile.</param>
+    /// <returns>A new array.</returns>
+    /// <example><code>SystemId[] order = SimComposition.ConstructionOrder(SimProfile.M1aGreybox);</code></example>
+    public static SystemId[] ConstructionOrder(SimProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        var order = new SystemId[profile.Count];
+        if (profile.IsPerTest)
+        {
+            for (int i = 0; i < order.Length; i++)
+            {
+                order[i] = profile[i];
+            }
+
+            return order;
+        }
+
+        int n = 0;
+        ReadOnlySpan<SystemId> shipped = ShippedOrder;
+        for (int i = 0; i < shipped.Length; i++)
+        {
+            if (profile.Includes(shipped[i]))
+            {
+                order[n++] = shipped[i];
+            }
+        }
+
+        return n == order.Length ? order : order[..n];
+    }
+
+    /// <summary>
+    /// Builds one world and its client layer. Order: validate the profile (<c>DuplicateSystem</c>, <c>DependencyCycle</c>); create
+    /// <see cref="SimCounters"/>, <see cref="SimCheckRing"/>, the <see cref="SimWorldBuilder"/>, <see cref="EntityIds"/>,
+    /// <see cref="MailIds"/>, <see cref="SlotTable"/>, <see cref="RngRegistry"/> (seeded with <see cref="SimBuildArgs.RunSeed"/>),
+    /// the <see cref="EventLogFacade"/> and the <see cref="ITickReader"/>; bind them as Sim Core state; construct and bind each
+    /// system in <see cref="ConstructionOrder"/>; build the <see cref="ClientLayer"/>; <see cref="SimWorldBuilder.Freeze"/>.
+    /// </summary>
+    /// <param name="args">Profile, content, run seed, optional counters and host clock.</param>
+    /// <returns>The host: a <see cref="SimState.Ready"/> world at tick 0 and a client layer at client tick 0.</returns>
+    /// <exception cref="ArgumentException"><see cref="SimBuildArgs.Profile"/> or <see cref="SimBuildArgs.Content"/> is null (for example <c>default(SimBuildArgs)</c>).</exception>
+    /// <exception cref="SimBuildException"><c>DuplicateSystem</c>, <c>DependencyCycle</c>, <c>UndeclaredDependency</c>, or any builder code raised by a system's binds.</exception>
+    /// <exception cref="InvalidOperationException">A per-test factory returned null.</exception>
+    /// <example><code>SimHost host = SimComposition.Build(new SimBuildArgs(SimProfile.M1aGreybox, content, 42));</code></example>
+    public static SimHost Build(in SimBuildArgs args)
+    {
+        SimProfile profile = args.Profile ?? throw new ArgumentException("SimBuildArgs.Profile is null.", nameof(args));
+        ContentSet content = args.Content ?? throw new ArgumentException("SimBuildArgs.Content is null.", nameof(args));
+        SystemId[] order = ConstructionOrder(profile);
+        ThrowIfDuplicate(order);
+        ThrowIfCyclic(profile.Graph);
+
+        // Sim Core services, all per world (no statics).
+        SimCoreSettings settings = content.Settings.Core;
+        SimInitialCounters initial = args.Counters ?? new SimInitialCounters();
+        var counters = new SimCounters();
+        var ring = new SimCheckRing(settings.CheckRingCapacity);
+        var builder = new SimWorldBuilder(settings, counters, ring, probe: null, initialCounters: initial);
+        var tick = new WorldTickForwarder();
+        var services = new SimCoreServices(
+            new EntityIds(tick, ring, counters, initial.EntityCountersSpan, allowTestClasses: false, state: tick),
+            new MailIds(tick, ring, counters, initial.LastMailId),
+            new RngRegistry(args.RunSeed, counters),
+            new SlotTable(),
+            new EventLogFacade(counters),
+            counters,
+            ring,
+            new StatSheetWriter(content, counters));
+        var runControl = new RunControlForwarder();
+        builder.BindCoreState(services.EntityIds, services.MailIds, services.Rng, services.Slots);
+        if (args.EventSink is { } eventSink)
+        {
+            builder.BindEventSink(eventSink);
+        }
+
+        if (args.Recorder is { } recorder)
+        {
+            builder.BindRecorder(recorder);
+        }
+
+        // Systems, in construction order; each binds right after construction.
+        var context = new SimSystemContext(profile.Graph, content, services, tick, runControl, args.World);
+        var systems = new List<ISimSystem>(order.Length);
+        for (int i = 0; i < order.Length; i++)
+        {
+            context.Begin(order[i]);
+            ISimSystem? system = profile.IsPerTest
+                ? profile.FactoryAt(i)(context) ?? throw new InvalidOperationException($"The factory for {order[i]} returned null.")
+                : ConstructShipped(order[i], context);
+            if (system is null)
+            {
+                continue; // a shipped system whose epic has not landed yet: its phases stay no-ops
+            }
+
+            context.Built(order[i], system);
+            system.Bind(builder);
+            systems.Add(system);
+        }
+
+        context.Close();
+
+        // The client layer: its own counters and the adapter's clock; no reference to the world.
+        ClientLayer.ClientLayer client = new ClientLayerBuilder(args.HostClock ?? new UnsyncedHostClock(), new SimCounters()).Build();
+
+        // Freeze on the calling thread (owner thread), then point the late-bound ports at the world.
+        SimWorld world = builder.Freeze();
+        tick.Attach(world);
+        services.Events.Attach(world.Events);
+        runControl.Attach(world.RunControl);
+        return new SimHost(world, client, content, services, order, systems.ToArray());
+    }
+
+    // The explicit construction code of the shipped systems, one case per system in ShippedOrder. Each gameplay epic adds its
+    // case here (and its row in SystemGraph), e.g.:
+    //   case SystemId.GridInventory:
+    //       return new GridInventory(context.Events, context.EntityIds, context.Content.Inventory);
+    //   case SystemId.MailDestinations:
+    //       return new MailSystem(context.Events, context.MailIds, context.Rng, context.Api<IGridInventoryApi>(SystemId.GridInventory), context.Content);
+    // Until then every case returns null and the profile builds with the Sim Core services only.
+    private static ISimSystem? ConstructShipped(SystemId id, SimSystemContext context)
+    {
+        switch (id)
+        {
+            case SystemId.PlayerCharacter:
+                // Players reads the world only through IWorldQuery; without one the system is left unbuilt (story player-character/001).
+                return context.World is { } world ? new PlayersSystem(world, context.Content.Player) : null;
+            default:
+                return null;
+        }
+    }
+
+    private static void ThrowIfDuplicate(SystemId[] order)
+    {
+        var seen = new bool[256];
+        for (int i = 0; i < order.Length; i++)
+        {
+            if (seen[(int)order[i]])
+            {
+                throw new SimBuildException(SimBuildErrorCode.DuplicateSystem, $"System {order[i]} is composed twice.");
+            }
+
+            seen[(int)order[i]] = true;
+        }
+    }
+
+    private static void ThrowIfCyclic(SystemGraph graph)
+    {
+        if (graph.TryFindCycle(out SystemId member))
+        {
+            throw new SimBuildException(SimBuildErrorCode.DependencyCycle, $"SystemGraph has a dependency cycle through {member}.");
+        }
+    }
+}

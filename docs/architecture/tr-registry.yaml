@@ -1,0 +1,3519 @@
+# Technical Requirements Registry — stable TR-IDs (GDD requirement -> governing ADR)
+# Bootstrapped by /architecture-review (lean, autonomous) on 2026-10-16 from
+# docs/architecture/architecture.md Appendix A (250 rows, 10 GDDs) cross-checked against
+# every ADR's "## GDD Requirements Addressed" section and every production/epics/*/story-*.md.
+# Rules: never renumber or delete an entry; reword -> add `revised:`; removed from GDD ->
+# status: deprecated; split/replaced -> status: "superseded-by: TR-x-NNN" (quoted).
+# Fields: requirement = source of truth for /dev-story; adr = primary governing ADR;
+# adr_status = that ADR's state; coverage = covered (primary ADR Accepted) | partial
+# (primary ADR not written, an Accepted ADR addresses part) | gap (no Accepted ADR);
+# also_addressed_by = other ADRs citing it in "GDD Requirements Addressed";
+# stories = story files citing the TR-ID. GDDs with no baseline TRs yet (extraction
+# deferred): belt-logistics.md, building-system.md, health-damage.md.
+version: 1
+last_updated: 2026-10-16
+source_baseline: docs/architecture/architecture.md#appendix-a
+counts: {total: 250, covered: 203, partial: 0, gap: 47}
+requirements:
+  - id: TR-sim-001
+    requirement: "Whole fixed ticks of 1/30 s; TickRateHz=30 code constant; no variable step"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-006-tickrate-f1-time-conversions.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-002
+    requirement: "Tick is uint32 from 0; differences in int64; first Tick() after Ready is tick 0"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-011-phase-table-builder-tick-loop.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-003
+    requirement: "TickDriver is a Godot-free integer accumulator in Hosting/; takes timestamps, never reads a clock"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-010-tickdriver-f2-accumulator.md, production/epics/simulation-core/story-024-framerunner.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-004
+    requirement: "Catch-up cap maxCatchUpTicksPerFrame=4 (safe 3–8); excess dropped, never banked"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-010-tickdriver-f2-accumulator.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-005
+    requirement: "M0 wall-clock guard catchUpGuardMs=10 re-read after each tick; ≥1 tick always runs"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-006
+    requirement: "F2 accumulator invariant; Δ clamped to 1 s; freq 10^3..10^12; backwards clock counted"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-010-tickdriver-f2-accumulator.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-007
+    requirement: "Sim on Godot main thread; owner thread captured at Freeze(); Debug asserts"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-012-world-lifecycle-guards-faults.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-008
+    requirement: "Transport callbacks only enqueue; nothing applied inside a callback"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md, production/epics/network-adapter-loopback/story-003-hostadapter-inbound-actor-busy.md, production/epics/network-adapter-loopback/story-007-host-loopback-session-frame-timing.md, production/epics/simulation-core/story-021-transform-sample-ring-latch.md, production/epics/simulation-core/story-024-framerunner.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-009
+    requirement: "Pause is a driver state; solo pause → Advance returns 0; SceneTree.Paused never used"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-010-tickdriver-f2-accumulator.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-010
+    requirement: "Exactly 14 PhaseIds 0–13 in fixed order; ITickEndCheck between 12 and 13"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0003"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-011-phase-table-builder-tick-loop.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-011
+    requirement: "Unbound phase is a no-op; same-phase binders in composition order; new phases need R3 amendment"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0003"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-011-phase-table-builder-tick-loop.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-012
+    requirement: "SimWorldBuilder binds phases/ops/events/readers/contributors pre-Freeze; violations throw SimBuildException"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0003"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-017-builder-validation-codes.md, production/epics/simulation-core/story-025-composition-root-reflection-test.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-013
+    requirement: "Composition root in Composition/; constructor injection only; reflection test on deps"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0003"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: [ADR-0001]
+    stories: [production/epics/simulation-core/story-025-composition-root-reflection-test.md, production/epics/simulation-core/story-028-architecture-rules-sc-arch-1.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-014
+    requirement: "SimWorld (host) and ClientLayer (client shell) separate; host loopback uses same encoder"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0003"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md, production/epics/network-adapter-loopback/story-006-clientadapter-requests-inbox-hostclock.md, production/epics/network-adapter-loopback/story-007-host-loopback-session-frame-timing.md, production/epics/network-adapter-loopback/story-009-sc-x-2-manual-delivery-over-loopback.md, production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md, production/epics/simulation-core/story-024-framerunner.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-015
+    requirement: "Op = 64 B blittable: 16 B header (opSeq, actor, kind, reqId) + ≤48 B payload"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0007"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-013-op-reply-types-descriptors.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-016
+    requirement: "Actor stamped by adapter from peer; System=0x00000001; opSeq monotonic, never reused"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0007"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-003-hostadapter-inbound-actor-busy.md, production/epics/simulation-core/story-014-op-ring-enqueueop.md, production/epics/simulation-core/story-020-phase0-drain-prechecks-replies.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-017
+    requirement: "Op ring 4096 (pow2); full → false, no opSeq consumed, adapter replies busy; systemOpReserve 64"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0007"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-003-hostadapter-inbound-actor-busy.md, production/epics/network-adapter-loopback/story-005-reqid-dedupe-reply-cache.md, production/epics/simulation-core/story-014-op-ring-enqueueop.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-018
+    requirement: "Drain ≤64 ops/tick by opSeq; validate fully before mutation; every drained op recorded"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0007"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-020-phase0-drain-prechecks-replies.md, production/epics/simulation-core/story-026-inmemory-recorder-replay.md, production/epics/simulation-core/story-030-sc-x-1-cross-system-batch-order.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-019
+    requirement: "Only player/System requests use the FIFO; in-tick callers use sync I…Api in own phase"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0003"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-020
+    requirement: "Reply {reqId,result,reason u16,extra ≤24 B} after handler events; reasons 1–63 Sim; no reqId dedupe"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0007"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-013-op-reply-types-descriptors.md, production/epics/simulation-core/story-020-phase0-drain-prechecks-replies.md, production/epics/simulation-core/story-030-sc-x-1-cross-system-batch-order.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-021
+    requirement: "One preallocated per-tick EventLog (4096, reserve 256); blittable no-string entries"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0008"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-015-event-log-call-scopes-delivery.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-022
+    requirement: "No sync subscribers; pull cursors ≤8; IEventSink.Deliver once in phase 13, copy-only"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0008"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-004-hostadapter-event-sink-outbound-batches.md, production/epics/simulation-core/story-015-event-log-call-scopes-delivery.md, production/epics/simulation-core/story-016-event-overflow-pull-readers.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-023
+    requirement: "Replication classes Internal/Replicated/OwnerOnly/Targeted; undeclared kind fails test"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0008"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-015-event-log-call-scopes-delivery.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-024
+    requirement: "Two-tier overflow admission; overflowInfo masks; adapter resyncs exactly those"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0008"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-016-event-overflow-pull-readers.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-025
+    requirement: "EntityId uint32 class<<24|counter; classes 01–08; 09–EF reserved; F0–FF tests; never reused"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0004"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-002-id-value-types.md, production/epics/simulation-core/story-018-id-allocators-slottable.md, production/epics/simulation-core/story-022-playerjoin-playerleave-handlers.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-026
+    requirement: "mailId separate uint32; PlayerSlot u8 0–7; slot freed in T reusable from T+1"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0004"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-002-id-value-types.md, production/epics/simulation-core/story-018-id-allocators-slottable.md, production/epics/simulation-core/story-022-playerjoin-playerleave-handlers.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-027
+    requirement: "PCG32 XSH-RR; Derive via Mix64/Fnv1a64; all unchecked"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0005"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-008-rng-primitives-golden-vectors.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-028
+    requirement: "Compile-time RngNames registry; v1 stream list; mail/mail.special/events indexed per shift"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0005"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-009-rng-registry-owner-views.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-029
+    requirement: "NextInt(b)=(next32*b)>>32, one draw per call; no float RNG; owner-only handles"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0005"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-008-rng-primitives-golden-vectors.md, production/epics/simulation-core/story-009-rng-registry-owner-views.md, production/epics/simulation-core/story-028-architecture-rules-sc-arch-1.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-030
+    requirement: "Committed golden vectors (pcg32, Mix64, Fnv1a64, Derive)"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0005"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-008-rng-primitives-golden-vectors.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-031
+    requirement: "Integer-only numerics (mm, permille, ticks, Cents, Fx16, BAM+Q15); float/double/decimal banned"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-003-numerics-toolkit.md, production/epics/simulation-core/story-004-determinism-analyzers-sc-arch-2.md, production/epics/simulation-core/story-005-bam-trigq15-stablesort.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-032
+    requirement: "Determinism checklist: no Dictionary iteration, stable sort, no Random/Guid/hash codes/time/threads/statics"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-004-determinism-analyzers-sc-arch-2.md, production/epics/simulation-core/story-005-bam-trigq15-stablesort.md, production/epics/simulation-core/story-027-sc-det-1-determinism-harness.md, production/epics/simulation-core/story-028-architecture-rules-sc-arch-1.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-033
+    requirement: "T1: identical canonical dump hash per tick given same inputs and logs"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Save
+    side: S
+    also_addressed_by: [ADR-0026]
+    stories: [production/epics/simulation-core/story-027-sc-det-1-determinism-harness.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-034
+    requirement: "T2: Windows+Linux x64 bit-identical carrier step, RNG, hashes, shared pure functions"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md, production/epics/simulation-core/story-003-numerics-toolkit.md, production/epics/simulation-core/story-005-bam-trigq15-stablesort.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-035
+    requirement: "Canonical dump via ISimStateContributor (fixed order, LE); SHA-256 in tests only"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Save
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-019-canonical-state-dump.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-036
+    requirement: "Tick() allocates 0 B after 300 warm-up ticks; blocking from M0"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-029-zero-alloc-tick-timing-advisory.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-037
+    requirement: "Host tick p99 5.0 / max 8.0 / median 3.0 ms; ClientLayer p99 0.3 ms; advisory until reference machine"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "perf-budget.md (not an ADR)"
+    adr_status: "n/a — docs/architecture/perf-budget.md not yet written"
+    coverage: gap
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-029-zero-alloc-tick-timing-advisory.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-038
+    requirement: "Per-phase p99 slices summing 4.50 ms + 0.50 reserve"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "perf-budget.md (not an ADR)"
+    adr_status: "n/a — docs/architecture/perf-budget.md not yet written"
+    coverage: gap
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-029-zero-alloc-tick-timing-advisory.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-039
+    requirement: "CI perf gate: p99 rank, N≥18,000, fail at 2× calibrated baseline"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "perf-budget.md (not an ADR)"
+    adr_status: "n/a — docs/architecture/perf-budget.md not yet written"
+    coverage: gap
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-029-zero-alloc-tick-timing-advisory.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-040
+    requirement: "Always-on checks to fixed record ring; asserts compile out of Release; SimCounters"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0001"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md, production/epics/simulation-core/story-007-simcounters-simcheckring.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-041
+    requirement: "Port interfaces (ISimPhase, IOpHandler, IEventSink, IHostClock, IMonotonicClock, IRngSource …)"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0003"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-011-phase-table-builder-tick-loop.md, production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-042
+    requirement: "Sim knows no peers/accounts/channels/RPC/wall clock/RTT/Godot types; request ticks in host domain"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md, production/epics/network-adapter-loopback/story-002-op-codec-registry-envelope-fuzz.md, production/epics/network-adapter-loopback/story-007-host-loopback-session-frame-timing.md, production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md, production/epics/simulation-core/story-028-architecture-rules-sc-arch-1.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-043
+    requirement: "Join snapshot after Deliver of joinTick; joiner buffers later batches"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-044
+    requirement: "Lifecycle Constructed→Ready→Running→Stopped/Faulted; RequestStop via IRunControl in phase 12"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0003"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-012-world-lifecycle-guards-faults.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-sim-045
+    requirement: "Recorder stores ops + transform samples (in-memory M-1a, file M5)"
+    system: sim
+    gdd: design/gdd/simulation-core.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Save
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-021-transform-sample-ring-latch.md, production/epics/simulation-core/story-026-inmemory-recorder-replay.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-001
+    requirement: "Sim content is JSONC under content/, one dir per def type; YAML and .tres rejected"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-017-content-sources-syntax-stage.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-002
+    requirement: "Generated content/manifest.txt drives loading; CI fails on drift"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-017-content-sources-syntax-stage.md, production/epics/content-data/story-019-content-loader-and-builtin-equality.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-003
+    requirement: "Hand-written Utf8JsonReader walk; duplicate/unknown keys, exponents, -0 rejected"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-017-content-sources-syntax-stage.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-004
+    requirement: "Three data classes: Sim content (hashed), Presentation content, Player data (Persistence)"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-019-content-loader-and-builtin-equality.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-005
+    requirement: "Unit-suffix convention; decimals stored as ms/mm/permille; money integer cents"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-016-decimal-to-scaled-fieldspec-units.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-006
+    requirement: "Every numeric field declares a unit via code-side FieldSpec"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-016-decimal-to-scaled-fieldspec-units.md, production/epics/content-data/story-018-schema-and-build-stages.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-007
+    requirement: "Def id regex; sorted ordinal into DefIndex ushort (0xFFFF none)"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0004"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: [ADR-0010]
+    stories: [production/epics/content-data/story-001-defindex-stringid-deftable.md, production/epics/content-data/story-018-schema-and-build-stages.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-008
+    requirement: "DefIndex never persisted; on the wire only after hash match"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0004"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Save
+    side: S
+    also_addressed_by: [ADR-0010]
+    stories: [production/epics/content-data/story-001-defindex-stringid-deftable.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-009
+    requirement: "StringId = (namespace, DefIndex); run-time strings interned per run"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0004"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: [ADR-0010]
+    stories: [production/epics/content-data/story-001-defindex-stringid-deftable.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-010
+    requirement: "Defs immutable sealed record class in Sim/Content; no floats; no Godot Resource"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-005-m1a-def-records.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-011
+    requirement: "Defaults always neutral; weightClass required on ItemDef and MailKindDef"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-005-m1a-def-records.md, production/epics/content-data/story-018-schema-and-build-stages.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-012
+    requirement: "Closed enums with explicit never-reused values; hand-written parse tables"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-002-closed-content-enums.md, production/epics/content-data/story-018-schema-and-build-stages.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-013
+    requirement: "Balance keys in content/balance/<owner>.jsonc; BalanceKey registry; SimSettings in balance/sim.jsonc"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-004-balance-registry-simsettings.md, production/epics/content-data/story-008-contentset-builtincontent-m1a.md, production/epics/content-data/story-019-content-loader-and-builtin-equality.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-014
+    requirement: "Stat closed enum with StatDef rows; design clamps are balance keys"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-006-stat-statdef-ruleflag.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-015
+    requirement: "StatResolve F1 in Int128, one rounding, order-independent, k ≤ 6"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-007-f1-statresolve-f5-worstcase.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-016
+    requirement: "IStatSheet read anywhere; IStatWriter only Perks and Stamps; meta never pushes modifiers"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-015-statwriter-sources-lifetimes-wiring.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-017
+    requirement: "Sheets are derived caches; team + per-slot sheets; source lists replicated"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-014-statsheet-build-read-explain.md, production/epics/content-data/story-015-statwriter-sources-lifetimes-wiring.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-018
+    requirement: "RuleFlag enum; timed effects via transientAdd; sheet has no timers"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-006-stat-statdef-ruleflag.md, production/epics/content-data/story-014-statsheet-build-read-explain.md, production/epics/content-data/story-015-statwriter-sources-lifetimes-wiring.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-019
+    requirement: "Explain() returns resolved/unclamped/sources; card numbers from placeholders"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-014-statsheet-build-read-explain.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-020
+    requirement: "5-stage load pipeline → one immutable ContentSet passed into new SimWorld"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-008-contentset-builtincontent-m1a.md, production/epics/content-data/story-019-content-loader-and-builtin-equality.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-021
+    requirement: "Loader reads via IContentSource; Sim never reads res://"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-017-content-sources-syntax-stage.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-022
+    requirement: "Validator catalogue 84 active rules (CV-<AREA>-NN); errors block the build"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-003-diagnostics-and-rule-registry.md, production/epics/content-data/story-009-cv-gen-set-rules.md, production/epics/content-data/story-010-cv-grd-cv-mail-rules.md, production/epics/content-data/story-011-cv-plr-rules.md, production/epics/content-data/story-012-cv-thr-rules.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-023
+    requirement: "tools/ContentValidator console; flags, exit codes 0–3, fixture per rule"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-003-diagnostics-and-rule-registry.md, production/epics/content-data/story-019-content-loader-and-builtin-equality.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-024
+    requirement: "ContentHash = SHA-256 over canonical encoding; encoder and managed SHA-256 both in the Sim, at load time (ADR-0010 §6, ADR-0006)"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Save
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-013-canonical-encoding-contenthash.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-025
+    requirement: "Join handshake compares 32-byte hash with refusal precedence; content never transferred"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: B
+    also_addressed_by: [ADR-0011]
+    stories: [production/epics/content-data/story-013-canonical-encoding-contenthash.md, production/epics/network-adapter-loopback/story-003-hostadapter-inbound-actor-busy.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-026
+    requirement: "Debug hot reload (F6): errors keep old set; M0 reload-and-restart; in-place swap M4"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: B
+    also_addressed_by: [ADR-0019]
+    stories: [production/epics/content-data/story-019-content-loader-and-builtin-equality.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-027
+    requirement: "Presentation ViewCatalog keyed by def id → DefIndex arrays; placeholder on missing view"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010 + ADR-0019"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-028
+    requirement: "Boot parse+validate+hash ≤100 ms CPU; bind ≤25 ms; sheet rebuild ≤0.2 ms; Read 0 B"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/content-data/story-014-statsheet-build-read-explain.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-029
+    requirement: "No mod support; hash is a mismatch detector, not security"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-content-030
+    requirement: "MetaProfile/settings owned by Persistence; content ids as strings; unknown dropped + logged"
+    system: content
+    gdd: design/gdd/content-data-definitions.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Save
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-001
+    requirement: "All ops (player and automation requests) enter one FIFO drained in Inputs.Apply; loopback same path"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-001-inventory-module-containers.md, production/epics/grid-inventory/story-007-pick-move-ops.md, production/epics/grid-inventory/story-011-open-set-close-intake.md, production/epics/grid-inventory/story-012-intake-spawn-outfeed.md, production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md, production/epics/grid-inventory/story-019-range-gated-open-pickup-leash.md, production/epics/grid-inventory/story-022-deliver-matching-handler.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-002
+    requirement: "Per-container uint32 version +1 per mutating op; batch bumps once per container"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-005-mutator-versions-events.md, production/epics/grid-inventory/story-007-pick-move-ops.md, production/epics/grid-inventory/story-008-move-split-swap-merge.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-003
+    requirement: "Entry: uint32 entryId, uint8 count, ascending mailIds[]; footprint w×h, rotation"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0004"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-002-entry-pool-occupancy.md, production/epics/grid-inventory/story-003-mailids-arena.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-004
+    requirement: "StackKey=(mailKind,addressId,flags); effMax evaluated at op time; ≤255"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-006-placement-stacking-whitelist.md, production/epics/grid-inventory/story-008-move-split-swap-merge.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-005
+    requirement: "Take-k removes lowest mailIds (oldest-first); payment per mailId"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-003-mailids-arena.md, production/epics/grid-inventory/story-008-move-split-swap-merge.md, production/epics/grid-inventory/story-010-quickmove-return-targets.md, production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md, production/epics/grid-inventory/story-022-deliver-matching-handler.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-006
+    requirement: "Fixed validation precedence chain of reason codes"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-004-op-kinds-payloads-reasons.md, production/epics/grid-inventory/story-006-placement-stacking-whitelist.md, production/epics/grid-inventory/story-007-pick-move-ops.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-007
+    requirement: "AutoPlace passes M/U/R; amortised O(1) non-full-stack index"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-009-autoplace-stackkey-index.md, production/epics/grid-inventory/story-010-quickmove-return-targets.md, production/epics/grid-inventory/story-014-pickup-core-trycatch.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-008
+    requirement: "Deterministic consolidating first-fit-decreasing sort, total-order comparator"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0025"
+    adr_status: "Planned — not written (Inventory indexing)"
+    coverage: gap
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-009
+    requirement: "Intake sort ≤8,500 probes; memoised repeat O(1)"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0025"
+    adr_status: "Planned — not written (Inventory indexing)"
+    coverage: gap
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-010
+    requirement: "Intake outfeed by arrivalSeq; PeekOutfeed/TakeUnit ≤4 entries amortised"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-012-intake-spawn-outfeed.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-011
+    requirement: "Backlog drain ≤32 entries/tick, ≤8,000 probes, 0 when idle"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-021-backlog-intake-drain.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-012
+    requirement: "O(1) conservation counters checked each tick; INVENTORY_ASSERT compiled out of Release"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-017-unitledger-conservation.md, production/epics/grid-inventory/story-018-conservation-fuzz-determinism.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-013
+    requirement: "WorldItem cap 512, expiry FIFOs, lossless mail eviction"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-013-worlditem-expiry-cap.md, production/epics/grid-inventory/story-014-pickup-core-trycatch.md, production/epics/grid-inventory/story-020-drop-op.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-014
+    requirement: "Timers as absolute ticks (bag 900, WorldItem 9000, water 300); expiry after Inputs.Apply"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-013-worlditem-expiry-cap.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-015
+    requirement: "Integer-only weight→speed (permille, one division); weightPoints int16"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-016-weight-speed.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-016
+    requirement: "Inventory tick share ≤1.0 ms median / 2.0 p99 / 3.0 worst (advisory)"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0025"
+    adr_status: "Planned — not written (Inventory indexing)"
+    coverage: gap
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-017
+    requirement: "Zero managed allocation on automation path"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-018
+    requirement: "Managed heap ≤1 MB for containers + 512 WorldItems; 2,800-entry backlog ≤150 KB"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0025"
+    adr_status: "Planned — not written (Inventory indexing)"
+    coverage: gap
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-019
+    requirement: "Reliable ordered delivery; events, replies, snapshots on one channel, event before reply"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-005-mutator-versions-events.md, production/epics/network-adapter-loopback/story-004-hostadapter-event-sink-outbound-batches.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-020
+    requirement: "Intake/Depot non-openers get GroupCounts only; ≤40 B/tick/peer"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-021
+    requirement: "Bursts ≤12 KB paced ≤800 B/tick; 24 KB high-water → resync-pending"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-022
+    requirement: "Optimistic client: pending queue 16, temp ids, dependsOn, baseVersion, 5 s timeout"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0009"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-023
+    requirement: "ContainerChecksum every 2 s, order-independent, never GetHashCode"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0022"
+    adr_status: "Planned — not written (JoinState & resync)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-024
+    requirement: "JoinState/RejoinState inventory block sizes; ≤64 KB chunks on bulk channel"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0022"
+    adr_status: "Planned — not written (JoinState & resync)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-025
+    requirement: "Sender from transport peer, never client playerId; malformed → bad_request, no exception"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0007"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-004-op-kinds-payloads-reasons.md, production/epics/network-adapter-loopback/story-002-op-codec-registry-envelope-fuzz.md, production/epics/network-adapter-loopback/story-003-hostadapter-inbound-actor-busy.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-026
+    requirement: "ContainerDef/ItemDef fields and StatSheet keys for inventory"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-001-inventory-module-containers.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-027
+    requirement: "Grid panel one custom-drawn Control; 0 B/frame; feedback via live-region Control"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0019"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-023-panel-grid-view-hotbar.md, production/epics/grid-inventory/story-024-panel-interactions-feedback.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-inventory-028
+    requirement: "SHA-256 state dump equal after 50,000-op log on two Sim instances"
+    system: inventory
+    gdd: design/gdd/grid-inventory.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-018-conservation-fuzz-determinism.md, production/epics/simulation-core/story-027-sc-det-1-determinism-harness.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-001
+    requirement: "Router core plain C#, fed abstract raw-input records + fake clock; Godot adapter is Presentation"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-002
+    requirement: "All gameplay reads via router; direct Input.IsAction* outside adapter is a CI lint failure"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-003
+    requirement: "RouterState tuple; live predicates as data; reachable-state golden list"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-004
+    requirement: "Per-press state machine: latch at press, mute until release on state change, ordered edges"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-005
+    requirement: "Action map: stable ids, grammar, predicate, defaults, flags, owner; alias table"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-006
+    requirement: "Conflict validator over reachable states; most-specific chord wins"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-007
+    requirement: "ui_* InputMap never mutated; game Controls FocusMode=None; router consumes in _Input"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-008
+    requirement: "Events arrival-stamped in _Input (no InputEvent timestamp); edges attached to first catch-up tick"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-009
+    requirement: "InputFrame Sim struct: tick, int16 move, absolute look, held bits, ordered edges, steps"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-010
+    requirement: "Two clocks: Sim ticks for holds/range; monotonic integer ms for repeat/drag/glyph/aim"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-011
+    requirement: "holdEff single shared int64 Sim function, 6-tick floor, holdCeil clamp"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-012
+    requirement: "Hold cancel range 2900 mm with hysteresis = PC incumbentSlackMm"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-013
+    requirement: "Server-validated verbs bypass the frame as reliable requests; no hold-duration field"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: B
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-006-clientadapter-requests-inbox-hostclock.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-014
+    requirement: "MP pause is a local overlay, never SceneTree.Paused; Sim keeps ticking"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-015
+    requirement: "KBM identified by DEVICE_ID_KEYBOARD/MOUSE; hot-plug via joy_connection_changed (UNVERIFIED)"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-016
+    requirement: "ignore_joypad_on_unfocused_application=true; per-device axis cache"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-017
+    requirement: "Deadzone/trigger/repeat/step caps in integer math; one step per rendered frame"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-018
+    requirement: "Router+gatherer ≤0.1 ms/frame, ≤0.3 ms at 1000 Hz burst, 0 B steady"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-019
+    requirement: "Preallocated 4096-entry event-log ring shared with UI event log"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-020
+    requirement: "settings.input schema versioned, overrides-only; M-1a user://input.json"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Save
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-021
+    requirement: "Replay corpus (200 seeded + 10 adversarial) asserts zero unauthored verbs"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-026-inmemory-recorder-replay.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-022
+    requirement: "Focus loss: release-with-cancel, zero movement, mute, swallow recapture click, solo auto-pause"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-023
+    requirement: "One-commit rule for deliver/deconstruct/throw; pendingCommitTimeout 500 ms"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-input-024
+    requirement: "One local carrier per machine; all devices OR-ed; duplicate pad edges within 20 ms collapse"
+    system: input
+    gdd: design/gdd/input-controls.md
+    adr: "ADR-0012"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Input
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-001
+    requirement: "Deterministic kinematic capsule solver in Sim; no Godot physics; no floating point"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0013"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-002
+    requirement: "mm int32, mm/s, permille, ticks; int64 before first multiply; one final division"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-003
+    requirement: "Client-authoritative movement; host authors Dead/Frozen bodies only"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0020"
+    adr_status: "Planned — not written (Transforms & Teleport)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-004
+    requirement: "Tick-time inputs only via IRemoteCapsuleSource/ISupportTransformSource"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0013"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-005
+    requirement: "Fixed-point trig LUT; terrain from World Gen height field (2 m, bilinear, int64)"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0013"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: [ADR-0026]
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-006
+    requirement: "Sub-steps ≤300 mm, ≤3 slides, step-up/snap 400 mm, slope 700‰, ≤4 sub-steps/tick"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0013"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-007
+    requirement: "Fixed-step driver with catch-up cap; local extrapolation ≤1 tick; no engine physics interpolation"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0002"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-008
+    requirement: "Transforms 16 B up, 17 B/entry batched down; 15 Hz/4 Hz; ≤19 kbps down, ≤6.7 kbps up"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0020"
+    adr_status: "Planned — not written (Transforms & Teleport)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-009
+    requirement: "Teleport reliable with wrap-safe teleportSeq, ack/resend"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0020"
+    adr_status: "Planned — not written (Transforms & Teleport)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-010
+    requirement: "Host range check via 9+3 tick history ring, claim at press, position_stale at 30 ticks"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0020"
+    adr_status: "Planned — not written (Transforms & Teleport)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-011
+    requirement: "IInteractable registry with 2 m spatial hash; one verb per anchor; integer focus, 4-tick dwell"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/grid-inventory/story-019-range-gated-open-pickup-leash.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-012
+    requirement: "Hold counter in owner Sim ticks; one request at held tick; no host hold timer"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-013
+    requirement: "Life states host-owned with absolute-tick timers"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-014
+    requirement: "Knockdown chain in phase 11 in fixed order, emits CarrierKnockedDown"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-015
+    requirement: "Frozen on disconnect 120 s; reconnect via account→peer map"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0020"
+    adr_status: "Planned — not written (Transforms & Teleport)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-016
+    requirement: "PvP push: own capsule only, half overlap, cap 60 mm/tick"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0013"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-017
+    requirement: "Support carry ≤12,000 mm/s; roof position in vehicle-local frame"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0013"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-018
+    requirement: "Water depth from height field; swim hysteresis 900/700 mm"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0013"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: [ADR-0026]
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-019
+    requirement: "ContentValidator enforces 12 cross-key movement rules"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-020
+    requirement: "Balance keys and StatSheet stats for movement; KitDef.standardIssueItem"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-021
+    requirement: "Owner CarrierStep+focus p99 ≤0.10 ms; host ≤0.20 ms/tick; 0 B/tick"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "perf-budget.md (not an ADR)"
+    adr_status: "n/a — docs/architecture/perf-budget.md not yet written"
+    coverage: gap
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-022
+    requirement: "Golden per-tick transform hash equal on Windows and Linux; Sim references no Godot"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0001"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-023
+    requirement: "Remote interpolation 160 ms delay, 100 ms extrapolation cap, snap on teleport/6 m"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0020"
+    adr_status: "Planned — not written (Transforms & Teleport)"
+    coverage: gap
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-024
+    requirement: "Camera boom solved in C# against Sim height field/AABBs; dither fade"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0029"
+    adr_status: "Planned — not written (Animation & camera)"
+    coverage: gap
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-025
+    requirement: "One AnimationTree per character, ≤4 layers, 48 characters ≤1.0 ms"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0029"
+    adr_status: "Planned — not written (Animation & camera)"
+    coverage: gap
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-movement-026
+    requirement: "animState uint8 bit layout; JoinState public block ≈30 B/player"
+    system: movement
+    gdd: design/gdd/player-character-movement.md
+    adr: "ADR-0020"
+    adr_status: "Planned — not written (Transforms & Teleport)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-001
+    requirement: "One Deliver IInteractable per destination at run start; priority 2; never deregistered"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-002
+    requirement: "Ordered 6-reason availability; deliver.pending derived from pending queue"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-003
+    requirement: "Deliver preview pure function every focused tick in ClientLayer Previews phase"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-004
+    requirement: "DeliverPreviewTracker 6-tick settle counts Sim ticks"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-005
+    requirement: "Per-tick client order: events/replies → focus → preview → resolve Interact edge"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-006
+    requirement: "Press-tick preview recompute; hold latches (dest,branch,entry,holdTicks)"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-007
+    requirement: "ShouldCancel/GetHoldTicks hooks; branch or selection change cancels"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-008
+    requirement: "deliver_matching wire: MATCH omits selectedEntryId; envelope (kind u16, reqId u16) + mailboxId u32 + holdStartTick u32 + ClaimedPosition 12 B (P13 feet x,y,z mm) [+ selectedEntryId u32 on MISDELIVER_ONE] = 24 B MATCH / 28 B MISDELIVER_ONE packed, transport framing excluded; any other length -> bad_request"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-008-deliver-matching-wire-codec.md, production/epics/network-adapter-loopback/story-009-sc-x-2-manual-delivery-over-loopback.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+    revised: 2026-10-16
+    note: "Was '12/16 B packed' (Manual Delivery Network table, no claimed position). Erratum 2026-10-16 (architecture-review, technical-director): range-gated ops carry the claimed position (grid-inventory R7; ADR-0009 §1; ADR-0014 §5). GDD sync pending for manual-delivery.md Network table + M-NET-1."
+  - id: TR-delivery-009
+    requirement: "holdStartTick in host domain via IHostClock; host clamps window"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-006-clientadapter-requests-inbox-hostclock.md, production/epics/network-adapter-loopback/story-008-deliver-matching-wire-codec.md, production/epics/network-adapter-loopback/story-009-sc-x-2-manual-delivery-over-loopback.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-010
+    requirement: "Host check: mailboxId is a registered Deliver anchor; no throttle"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-011
+    requirement: "Idempotent reqId u16; duplicate returns original reply"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0007"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-002-op-codec-registry-envelope-fuzz.md, production/epics/network-adapter-loopback/story-005-reqid-dedupe-reply-cache.md, production/epics/network-adapter-loopback/story-009-sc-x-2-manual-delivery-over-loopback.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-012
+    requirement: "Client Evaluate/F10 equal host results over 1,000 seeded pairs"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-013
+    requirement: "Preview money in integer cents, single RH per unit"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-014
+    requirement: "Entry scan order cursor→hotbar→inventory→backpack equals host consumption"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-015
+    requirement: "holdEff with Quick Hands insertPm 500; DeliverInsertPm clamp 0…750"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0014"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-016
+    requirement: "No host state, no replicated state; JoinState 0 B"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-017
+    requirement: "Hand beat once per hold keyed (actor,dest,applyTick) from DeliveryOutcome"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-018
+    requirement: "Reach echo starts only when Sim-published canStartHoldNext was true"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-019
+    requirement: "Prompt content as data from Sim; HUD renders; localisation keys, no concatenation"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: B
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-020
+    requirement: "Live-region announcements policy; accessibility_live API unsourced"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-021
+    requirement: "Race suite: no misdeliver for MATCH-latched hold across ticks ±2 and RTTs; 10,000-seed soak"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-022
+    requirement: "Telemetry latchedBranch; handShare ≥20%"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0024"
+    adr_status: "Planned — not written (Persistence)"
+    coverage: gap
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-023
+    requirement: "Mailbox flap separate node within 150-tri budget; reach layer scrubbed by hold progress"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0019"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-delivery-024
+    requirement: "Visual-only lunge ≤0.8 m via rig offset, never feeds Sim"
+    system: delivery
+    gdd: design/gdd/manual-delivery.md
+    adr: "ADR-0019"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-001
+    requirement: "All money/permille/tick math integer; int64 intermediates; one RH per formula"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-002
+    requirement: "Per-shift manifest pure function of (seed, shift, profile, addresses); stream mail"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0005"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-003
+    requirement: "Fixed RNG draw count; NextInt without rejection loop"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0005"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-004
+    requirement: "Separate mail.special stream so re-rolls never move Lost Parcels"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0005"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-005
+    requirement: "Evaluate pure, 0-alloc, same code compiled into client for prompt and arc colour"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-006
+    requirement: "Server-only SoA mail table keyed by mailId; packed AddressId"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0017"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: [ADR-0026]
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-007
+    requirement: "Wallet via Mail-owned IWalletGate; no Mail→Economy assembly/namespace reference"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0017"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-008
+    requirement: "One consume routine for hand/throw/feeder/NPC in fixed tick order"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0017"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-009
+    requirement: "Backlog ordered queue O(1) append; drain owned by Inventory; backlogUnits u16"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0017"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-010
+    requirement: "Complaint token buckets int64 ticks×permille, elapsed clamped"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0017"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-011
+    requirement: "Feeder throttle integer credit; stagger feederId mod 15"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0017"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-012
+    requirement: "No wall-clock reads; pause freezes buckets/windows/credits"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-013
+    requirement: "Closing grace by action start tick (host domain); closeGraceTicks 90"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0017"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-014
+    requirement: "DeliveriesState reliable-ordered event, not on 5 Hz snapshot"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/network-adapter-loopback/story-004-hostadapter-event-sink-outbound-batches.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-015
+    requirement: "DeliveryOutcome one event per op ≤19 B, canonical encoding; ≤16 B/tick typical"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0008"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-016
+    requirement: "Value hint ≤5 runs per entry; client recomputes payout"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-017
+    requirement: "JoinState ≤72 B; outcomeSeq drop rule on rejoin"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-018
+    requirement: "Mail content defs loaded and validated"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-019
+    requirement: "Mail ≤1.0 ms p99 / 2 ms max; manifest ≤0.5 ms; 0 alloc hot paths (advisory)"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0017"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-020
+    requirement: "Idle tick touches only feeder credits; scans no rows"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0017"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-021
+    requirement: "MailShiftStats ≤2 KB at Payday, paced ≤800 B/tick"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-022
+    requirement: "Presentation caps: residents, envelope pool, flashes, audio voices"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0019"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-mail-023
+    requirement: "Host-authoritative payment/complaint; client F10 display-only"
+    system: mail
+    gdd: design/gdd/mail-destinations.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-001
+    requirement: "Host-authoritative closed-form integer ballistic; O(1) p(k)"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0015"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-002
+    requirement: "No RNG in throwing; future randomness via registered stream by launch ordinal"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0005"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-003
+    requirement: "Preview calls same Sim function as host; identical over 10,000 throws"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0015"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-004
+    requirement: "Floor-based RH, CeilDiv/FloorDiv, isqrt; never truncating / on signed values"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0006"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: [production/epics/simulation-core/story-003-numerics-toolkit.md]
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-005
+    requirement: "Swept segment test per tick per flight (≤90 ticks); slab/circle/cylinder/sphere/heightfield"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0015"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: [ADR-0026]
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-006
+    requirement: "Receiver resolution ordering; flights in creation order"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0015"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-007
+    requirement: "Broad phase bounds |R|≤65536 mm; static 4 m grid"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0015"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Physics
+    side: S
+    also_addressed_by: [ADR-0026]
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-008
+    requirement: "Throwing.Step phase 4; 0.15 ms p99; 0 alloc; 16 flights + 8 catchers"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0015"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-009
+    requirement: "FlightRecord snapshot fields; flightId wrap-safe u16"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0004"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-010
+    requirement: "Fixed 9-check host validation; claim-and-corroborate origin"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0021"
+    adr_status: "Planned — not written (Flight protocol & catch)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-011
+    requirement: "Leaky-bucket cooldown; team cap ≤48 flights/s"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0021"
+    adr_status: "Planned — not written (Flight protocol & catch)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-012
+    requirement: "Catch arm window host-tick based; contact over 9-tick history"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0021"
+    adr_status: "Planned — not written (Flight protocol & catch)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-013
+    requirement: "Exactly one terminal state per flight; conservation through flush/disconnect"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0015"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-014
+    requirement: "Message sizes ThrowRelease 25 B, ThrowLaunched 30 B, FlightResolved 18 B, CatchArm 1 B"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0021"
+    adr_status: "Planned — not written (Flight protocol & catch)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-015
+    requirement: "≈66 B per flight per peer; budget pressure at cap"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0021"
+    adr_status: "Planned — not written (Flight protocol & catch)"
+    coverage: gap
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-016
+    requirement: "Flights 0 B JoinState; remotes render at hostTickEst−3, fast-forward via F2"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-017
+    requirement: "Aim preview ≤0.3 ms/frame, 0 alloc, screen-space dashed ribbon"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0019"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-018
+    requirement: "Launch ghost on release frame; outcome beats never before domain event"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-019
+    requirement: "ThrowDef/BalanceConfig knobs with validator rules"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-020
+    requirement: "Telemetry to session stats file only"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0024"
+    adr_status: "Planned — not written (Persistence)"
+    coverage: gap
+    status: active
+    domain: Save
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-throwing-021
+    requirement: "Spin from flightId; MultiMesh bundles; hidden beyond 35 m"
+    system: throwing
+    gdd: design/gdd/throwing-catching.md
+    adr: "ADR-0019"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-001
+    requirement: "HUD Presentation-only; no gameplay state; Sim has no reference to it"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-002
+    requirement: "Plain-C# UI core xUnit-testable via IUiClock/IRoster/IHudState/IMoneyFormatter + Godot view"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-003
+    requirement: "HUD reads only via IHudState ordered by (sourceTick, opId); loopback from M-1a"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-004
+    requirement: "Timer from IHostClock.renderSimTimeMs; HUD runs no clock"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0016"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-005
+    requirement: "Timer monotone within (phaseId, deadlineTick); text written on change only"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-006
+    requirement: "Every notification is a cue record with id/int args, never preformatted strings"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-007
+    requirement: "Cue table validated at load (CV-HUD-01..05); missing key is load error"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-008
+    requirement: "CI: every pill/toast cue has a paired world cue"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-009
+    requirement: "Toast lane: M-1a 1 slot; M0+ 2 visible + 4 queued, deterministic eviction"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-010
+    requirement: "Merge predicate on UI-clock windows; raw events always logged"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-011
+    requirement: "UI event log ring 1024 (M0), plain list M-1a; shared records"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-012
+    requirement: "All money text via one IMoneyFormatter; lint bans currency literals"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-013
+    requirement: "Screen-space MarkerLayer above post-processing; 41 markers at roster 8"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-014
+    requirement: "Flash governor ≤3/s real clock, ≤2 Hz per element; one animator"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-015
+    requirement: "1080-reference px scaled by height; text ≥18 px up to 200%; min 1280×720; stretch undecided"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-016
+    requirement: "0 alloc over 10,000 idle frames, pooled rows, atlas, no DrawLine; ≤0.8 ms, ≤60 draws (proposed)"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: Rendering
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-017
+    requirement: "Two live-region Controls; schema M-1a, announcer M4"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-018
+    requirement: "History ring 50 raw events with snapshots"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: Save
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-019
+    requirement: "Settings consumed from Persistence; HUD owns no persistence"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0024"
+    adr_status: "Planned — not written (Persistence)"
+    coverage: gap
+    status: active
+    domain: Save
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-020
+    requirement: "hud.tuning data, hot-reload in debug; cue table in shared validator library"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0010"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Data
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-hud-021
+    requirement: "Deterministic reading-time lifetime F1 incl. no-space scripts"
+    system: hud
+    gdd: design/gdd/hud-notifications.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: UI
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-comms-001
+    requirement: "Dedicated reliable-ordered channel 3 (channel count fixed at connect; spike)"
+    system: comms
+    gdd: design/gdd/comms.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-comms-002
+    requirement: "ChatMessage/Ping/Emote/PingPurge families; host-originated relay"
+    system: comms
+    gdd: design/gdd/comms.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-comms-003
+    requirement: "Host derives senderSlot from RPC peer; shape-only validation; drop not kick"
+    system: comms
+    gdd: design/gdd/comms.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-comms-004
+    requirement: "≤10 B/tick/peer sustained; 32 KB high-water drop-oldest; commsSeq gaps"
+    system: comms
+    gdd: design/gdd/comms.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-comms-005
+    requirement: "Host resolves ping cap/refresh deterministically; emits pingId + expiresTick"
+    system: comms
+    gdd: design/gdd/comms.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Core
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-comms-006
+    requirement: "JoinState replays chat by byte budget + ≤16 pings; buffer above snapshot"
+    system: comms
+    gdd: design/gdd/comms.md
+    adr: "ADR-0011"
+    adr_status: "Accepted"
+    coverage: covered
+    status: active
+    domain: Networking
+    side: S
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-comms-007
+    requirement: "Ingress sanitiser (NFC, strip controls/bidi, grapheme caps) with fixed test vectors"
+    system: comms
+    gdd: design/gdd/comms.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: Core
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16
+  - id: TR-comms-008
+    requirement: "Local per-player mute by account id; TypingState on ch3"
+    system: comms
+    gdd: design/gdd/comms.md
+    adr: "ADR-0018"
+    adr_status: "Planned — not written (HUD composition)"
+    coverage: gap
+    status: active
+    domain: Data
+    side: P
+    also_addressed_by: []
+    stories: []
+    source: "architecture.md Appendix A"
+    added: 2026-10-16

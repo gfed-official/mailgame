@@ -1,0 +1,7 @@
+Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org
+
+[s1] C# reader running
+[s1] res://content/test.jsonc bytes=43 err=Ok exists=True
+[s1] res://content/manifest.txt bytes=12 err=Ok exists=True
+[s1] DirAccess content/: manifest.txt,test.jsonc
+[s1] stretch/mode=disabled aspect=keep has_mode=True

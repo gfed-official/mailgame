@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ViewCatalogSpike" format=3 uid="uid://khev07u2mxi4"]
+
+[ext_resource type="PackedScene" uid="uid://d2mfornobduf0" path="res://views/a.tscn" id="1_vkmjp"]
+[ext_resource type="PackedScene" uid="uid://b4yqksresuj1m" path="res://views/b.tscn" id="2_lyau2"]
+[ext_resource type="Script" uid="uid://rjy0ejiqu6ng" path="res://ViewCatalogSpike.cs" id="3_lkoh5"]
+
+[resource]
+script = ExtResource("3_lkoh5")
+DefIds = PackedStringArray("def.a", "def.b")
+Views = [ExtResource("1_vkmjp"), ExtResource("2_lyau2")]

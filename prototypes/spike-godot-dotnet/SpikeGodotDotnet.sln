@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpikeGodotDotnet", "SpikeGodotDotnet.csproj", "{0EBF546F-A1EA-4A35-84AF-8090764BA633}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformativeMail.Sim", "..\..\src\PerformativeMail.Sim\PerformativeMail.Sim.csproj", "{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Debug|x64.Build.0 = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Debug|x86.Build.0 = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Release|x64.ActiveCfg = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Release|x64.Build.0 = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Release|x86.ActiveCfg = Debug|Any CPU
+		{0EBF546F-A1EA-4A35-84AF-8090764BA633}.Release|x86.Build.0 = Debug|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Debug|x64.Build.0 = Debug|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Debug|x86.Build.0 = Debug|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Release|x64.ActiveCfg = Release|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Release|x64.Build.0 = Release|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Release|x86.ActiveCfg = Release|Any CPU
+		{E1999309-67F7-4AB9-9A8C-075BF09CD3D7}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,161 @@
+Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org
+
+# probe=alloc
+# godot=4.7.1-stable (official) display=headless dotnet=10.0.13 os=Linux fps_target=0
+# GC mode: server=False latency=Interactive; Release? Debug build assembly (dotnet build default Debug); UseAccumulatedInput(default)=True; warm-up=300, measured=10000
+# Method: GC.GetAllocatedBytesForCurrentThread() delta around N events, minus the delta of one n=0 call of the same harness (call marshalling overhead).
+=== S-20a events created NATIVELY (GDScript Injector.gd, no managed wrapper exists before delivery) - the situation of OS-generated events
+[S-20a] InputEventKey, flush after every event                                 injected=10000 delivered_to__Input= 10000 bytes/injected-event=   512.9 bytes/delivered-event=   512.9 gen0_GCs_during_run=0
+[S-20a] InputEventMouseButton, flush after every event                         injected=10000 delivered_to__Input= 10000 bytes/injected-event=   550.5 bytes/delivered-event=   550.5 gen0_GCs_during_run=0
+[S-20a] InputEventJoypadMotion, flush after every event                        injected=10000 delivered_to__Input= 10000 bytes/injected-event=   416.0 bytes/delivered-event=   416.0 gen0_GCs_during_run=0
+[S-20a] InputEventMouseMotion, UseAccumulatedInput=TRUE, 16 per flush ('frame') injected=10000 delivered_to__Input=   625 bytes/injected-event=    25.5 bytes/delivered-event=   408.0 gen0_GCs_during_run=0
+[S-20a] InputEventMouseMotion, UseAccumulatedInput=FALSE, 16 per flush ('frame') injected=10000 delivered_to__Input= 10000 bytes/injected-event=   408.0 bytes/delivered-event=   408.0 gen0_GCs_during_run=0
+[S-20a] InputEventMouseMotion, UseAccumulatedInput=TRUE, 1 per flush           injected=10000 delivered_to__Input= 10000 bytes/injected-event=   408.0 bytes/delivered-event=   408.0 gen0_GCs_during_run=0
+=== S-20b events created in C# (fresh object per event; bytes INCLUDE the C# construction in the harness, so an upper bound)
+[S-20b] InputEventKey fresh object/event, flush each                           injected=10000 delivered_to__Input= 10000 bytes/injected-event=   440.8 bytes/delivered-event=   440.8 gen0_GCs_during_run=0
+[S-20b] InputEventMouseButton fresh object/event, flush each                   injected=10000 delivered_to__Input= 10000 bytes/injected-event=   512.0 bytes/delivered-event=   512.0 gen0_GCs_during_run=0
+[S-20b] InputEventJoypadMotion fresh object/event, flush each                  injected=10000 delivered_to__Input= 10000 bytes/injected-event=   104.0 bytes/delivered-event=   104.0 gen0_GCs_during_run=0
+[S-20b] InputEventMouseMotion fresh object/event, Accumulated=FALSE, 16/flush  injected=10000 delivered_to__Input= 10000 bytes/injected-event=  1205.5 bytes/delivered-event=  1205.5 gen0_GCs_during_run=0
+[S-20b] InputEventMouseMotion fresh object/event, Accumulated=TRUE, 16/flush   injected=10000 delivered_to__Input=   625 bytes/injected-event=   129.5 bytes/delivered-event=  2072.0 gen0_GCs_during_run=0
+=== S-20c one pre-built C# event instance re-injected (wrapper already exists; isolates the engine->_Input dispatch cost)
+WARNING: An input event object is being parsed more than once in the same frame, which is unsafe.
+If you are generating events in a script, you have to instantiate a new event instead of sending the same one more than once, unless the original one was sent on an earlier frame.
+You can call duplicate() on the event to get a new instance with identical values.
+     at: parse_input_event (core/input/input.cpp:1540)
+     C# backtrace (most recent call first):
+         [0] void Godot.NativeCalls.godot_icall_1_56(nint, nint, nint) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/NativeCalls.cs:495)
+         [1] void Godot.Input.ParseInputEvent(Godot.InputEvent) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/Input.cs:1205)
+         [2] void SpikeOqIc9Input.AllocProbe+<>c__DisplayClass8_0.<Run>b__11(int) (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:90)
+         [3] void SpikeOqIc9Input.AllocProbe.Row(string, string, System.Action`1[System.Int32], bool) (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:34)
+         [4] void SpikeOqIc9Input.AllocProbe+<Run>d__8.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:90)
+         [5] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+         [6] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+         [7] void System.Threading.Tasks.AwaitTaskContinuation.RunCallback(System.Threading.ContextCallback, object, System.Threading.Tasks.Task&)
+         [8] void System.Threading.Tasks.Task.RunContinuations(object)
+         [9] bool System.Threading.Tasks.Task`1.TrySetResult(TResult)
+         [10] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.SetExistingTaskResult(System.Threading.Tasks.Task`1[TResult], TResult)
+         [11] void SpikeOqIc9Input.Util+<Frames>d__7.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/Util.cs:54)
+         [12] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+         [13] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+         [14] void Godot.SignalAwaiter.SignalCallback(nint, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_bool*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/SignalAwaiter.cs:65)
+[S-20c] InputEventKey reused instance, flush each                              injected=10000 delivered_to__Input= 10000 bytes/injected-event=     0.0 bytes/delivered-event=     0.0 gen0_GCs_during_run=0
+[S-20c] InputEventJoypadMotion reused instance, flush each                     injected=10000 delivered_to__Input= 10000 bytes/injected-event=     0.0 bytes/delivered-event=     0.0 gen0_GCs_during_run=0
+=== S-21 InputEventMouseMotion.ScreenRelative vs Relative under a scaled stretch viewport (Step 5.5 note 2)
+[S-21] no stretch (Disabled): window size=(64, 64) ContentScaleMode=Disabled ContentScaleSize=(1152, 648) scale factor(ContentScaleFactor)=1 -> injected Relative=(36,18) ScreenRelative=(36,18); delivered Relative=(36, 18) ScreenRelative=(36, 18)
+[S-21] stretch CanvasItems 320x180 into window: window size=(64, 64) ContentScaleMode=CanvasItems ContentScaleSize=(320, 180) scale factor(ContentScaleFactor)=1 -> injected Relative=(36,18) ScreenRelative=(36,18); delivered Relative=(179.99998, 89.99999) ScreenRelative=(36, 18)
+[S-21] stretch Viewport 320x180 into window: window size=(64, 64) ContentScaleMode=Viewport ContentScaleSize=(320, 180) scale factor(ContentScaleFactor)=1 -> injected Relative=(36,18) ScreenRelative=(36,18); delivered Relative=(179.99998, 89.99999) ScreenRelative=(36, 18)
+=== S-22 InputEventKey.Echo for an injected echo event (ADR item 11)
+[S-22] injected Echo=False: delivered Echo=False IsEcho()=False IsPressed()=True; polled IsKeyPressed(F9)=True
+[S-22] injected Echo=True: delivered Echo=True IsEcho()=True IsPressed()=True; polled IsKeyPressed(F9)=True
+[S-22] OS key-repeat actually setting Echo (a held physical key): NOT RUN - needs a real keyboard (MANUAL M-4); the injected flag round-trips but says nothing about OS behaviour
+=== S-23 DisplayServer.KeyboardGetLabelFromPhysical (headless)
+ERROR: Not supported by this display server.
+   at: keyboard_get_label_from_physical (servers/display/display_server.cpp:1228)
+   C# backtrace (most recent call first):
+       [0] int Godot.NativeCalls.godot_icall_1_85(nint, nint, int) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/NativeCalls.cs:737)
+       [1] Godot.Key Godot.DisplayServer.KeyboardGetLabelFromPhysical(Godot.Key) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/DisplayServer.cs:4724)
+       [2] object SpikeOqIc9Input.AllocProbe+<>c.<Run>b__8_18() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:146)
+       [3] string SpikeOqIc9Input.AllocProbe.<Run>g__D|8_14(System.Func`1[System.Object]) (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:145)
+       [4] void SpikeOqIc9Input.AllocProbe+<Run>d__8.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:146)
+       [5] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [6] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [7] void System.Threading.Tasks.AwaitTaskContinuation.RunCallback(System.Threading.ContextCallback, object, System.Threading.Tasks.Task&)
+       [8] void System.Threading.Tasks.Task.RunContinuations(object)
+       [9] bool System.Threading.Tasks.Task`1.TrySetResult(TResult)
+       [10] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.SetExistingTaskResult(System.Threading.Tasks.Task`1[TResult], TResult)
+       [11] void SpikeOqIc9Input.Util+<Frames>d__7.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/Util.cs:54)
+       [12] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [13] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [14] void Godot.SignalAwaiter.SignalCallback(nint, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_bool*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/SignalAwaiter.cs:65)
+ERROR: Not supported by this display server.
+   at: keyboard_get_label_from_physical (servers/display/display_server.cpp:1228)
+   C# backtrace (most recent call first):
+       [0] int Godot.NativeCalls.godot_icall_1_85(nint, nint, int) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/NativeCalls.cs:737)
+       [1] Godot.Key Godot.DisplayServer.KeyboardGetLabelFromPhysical(Godot.Key) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/DisplayServer.cs:4724)
+       [2] object SpikeOqIc9Input.AllocProbe+<>c.<Run>b__8_19() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:146)
+       [3] string SpikeOqIc9Input.AllocProbe.<Run>g__D|8_14(System.Func`1[System.Object]) (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:145)
+       [4] void SpikeOqIc9Input.AllocProbe+<Run>d__8.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:146)
+       [5] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [6] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [7] void System.Threading.Tasks.AwaitTaskContinuation.RunCallback(System.Threading.ContextCallback, object, System.Threading.Tasks.Task&)
+       [8] void System.Threading.Tasks.Task.RunContinuations(object)
+       [9] bool System.Threading.Tasks.Task`1.TrySetResult(TResult)
+       [10] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.SetExistingTaskResult(System.Threading.Tasks.Task`1[TResult], TResult)
+       [11] void SpikeOqIc9Input.Util+<Frames>d__7.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/Util.cs:54)
+       [12] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [13] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [14] void Godot.SignalAwaiter.SignalCallback(nint, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_bool*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/SignalAwaiter.cs:65)
+ERROR: Not supported by this display server.
+   at: keyboard_get_label_from_physical (servers/display/display_server.cpp:1228)
+   C# backtrace (most recent call first):
+       [0] int Godot.NativeCalls.godot_icall_1_85(nint, nint, int) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/NativeCalls.cs:737)
+       [1] Godot.Key Godot.DisplayServer.KeyboardGetLabelFromPhysical(Godot.Key) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/DisplayServer.cs:4724)
+       [2] object SpikeOqIc9Input.AllocProbe+<>c.<Run>b__8_20() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:146)
+       [3] string SpikeOqIc9Input.AllocProbe.<Run>g__D|8_14(System.Func`1[System.Object]) (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:145)
+       [4] void SpikeOqIc9Input.AllocProbe+<Run>d__8.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:146)
+       [5] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [6] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [7] void System.Threading.Tasks.AwaitTaskContinuation.RunCallback(System.Threading.ContextCallback, object, System.Threading.Tasks.Task&)
+       [8] void System.Threading.Tasks.Task.RunContinuations(object)
+       [9] bool System.Threading.Tasks.Task`1.TrySetResult(TResult)
+       [10] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.SetExistingTaskResult(System.Threading.Tasks.Task`1[TResult], TResult)
+       [11] void SpikeOqIc9Input.Util+<Frames>d__7.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/Util.cs:54)
+       [12] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [13] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [14] void Godot.SignalAwaiter.SignalCallback(nint, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_bool*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/SignalAwaiter.cs:65)
+[S-23] KeyboardGetLabelFromPhysical(Key.A)=A (Key.Q)=Q (Key.W)=W
+ERROR: Not supported by this display server.
+   at: keyboard_get_keycode_from_physical (servers/display/display_server.cpp:1224)
+   C# backtrace (most recent call first):
+       [0] int Godot.NativeCalls.godot_icall_1_85(nint, nint, int) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/NativeCalls.cs:737)
+       [1] Godot.Key Godot.DisplayServer.KeyboardGetKeycodeFromPhysical(Godot.Key) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/DisplayServer.cs:4712)
+       [2] object SpikeOqIc9Input.AllocProbe+<>c.<Run>b__8_21() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:147)
+       [3] string SpikeOqIc9Input.AllocProbe.<Run>g__D|8_14(System.Func`1[System.Object]) (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:145)
+       [4] void SpikeOqIc9Input.AllocProbe+<Run>d__8.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:147)
+       [5] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [6] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [7] void System.Threading.Tasks.AwaitTaskContinuation.RunCallback(System.Threading.ContextCallback, object, System.Threading.Tasks.Task&)
+       [8] void System.Threading.Tasks.Task.RunContinuations(object)
+       [9] bool System.Threading.Tasks.Task`1.TrySetResult(TResult)
+       [10] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.SetExistingTaskResult(System.Threading.Tasks.Task`1[TResult], TResult)
+       [11] void SpikeOqIc9Input.Util+<Frames>d__7.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/Util.cs:54)
+       [12] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [13] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [14] void Godot.SignalAwaiter.SignalCallback(nint, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_bool*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/SignalAwaiter.cs:65)
+[S-23] KeyboardGetKeycodeFromPhysical(Key.A)=A KeyboardGetLayoutCount=0 KeyboardGetCurrentLayout=-1 KeyboardGetLayoutName(0)='Not supported' KeyboardGetLayoutLanguage(0)=''
+ERROR: Not supported by this display server.
+   at: keyboard_get_label_from_physical (servers/display/display_server.cpp:1228)
+   C# backtrace (most recent call first):
+       [0] int Godot.NativeCalls.godot_icall_1_85(nint, nint, int) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/NativeCalls.cs:737)
+       [1] Godot.Key Godot.DisplayServer.KeyboardGetLabelFromPhysical(Godot.Key) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Generated/GodotObjects/DisplayServer.cs:4724)
+       [2] void SpikeOqIc9Input.AllocProbe+<Run>d__8.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/AllocProbe.cs:148)
+       [3] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [4] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [5] void System.Threading.Tasks.AwaitTaskContinuation.RunCallback(System.Threading.ContextCallback, object, System.Threading.Tasks.Task&)
+       [6] void System.Threading.Tasks.Task.RunContinuations(object)
+       [7] bool System.Threading.Tasks.Task`1.TrySetResult(TResult)
+       [8] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.SetExistingTaskResult(System.Threading.Tasks.Task`1[TResult], TResult)
+       [9] void SpikeOqIc9Input.Util+<Frames>d__7.MoveNext() (/home/evan/Projects/mailgame/prototypes/spike-oq-ic-9-input/Util.cs:54)
+       [10] void System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, object)
+       [11] void System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1.MoveNext(System.Threading.Thread)
+       [12] void Godot.SignalAwaiter.SignalCallback(nint, Godot.NativeInterop.godot_variant**, int, Godot.NativeInterop.godot_bool*) (/root/godot/modules/mono/glue/GodotSharp/GodotSharp/Core/SignalAwaiter.cs:65)
+[S-23] OS.GetKeycodeString(Key.A)='A' OS.GetKeycodeString(KeyboardGetLabelFromPhysical(A))='A'
+[S-23] AZERTY check (physical Key.A label must read 'Q' on... i.e. Key.Q -> 'A', Key.W -> 'Z', Key.A -> 'Q' on a French layout): NOT RUN - MANUAL M-5 (needs a display session with an AZERTY layout active; H-EC-11)
+=== S-24 AccessibilityServer / screen reader (not an M-1a requirement; recorded for completeness)
+[S-24] ClassDB.ClassExists(AccessibilityServer)=True DisplayServer.HasFeature(AccessibilityScreenReader)=False DisplayServer.AccessibilityScreenReaderActive()=-1
+[S-24] Screen-reader path (NVDA / Orca) end to end: NOT RUN - not an M-1a requirement; needs a screen reader and a display session
+=== S-25 managed-wrapper lifetime of natively-created events: Performance ObjectCount before / after 10 000 events / after GC.Collect+WaitForPendingFinalizers
+[S-25] kind=key       ObjectCount baseline=1500 after 10000 events=11500 (+10000) after forced GC + finalizers + 2 frames=11499 (+9999 vs baseline)
+[S-25] kind=button    ObjectCount baseline=11499 after 10000 events=31499 (+20000) after forced GC + finalizers + 2 frames=21499 (+10000 vs baseline)
+[S-25] kind=joymotion ObjectCount baseline=11499 after 10000 events=11499 (+0) after forced GC + finalizers + 2 frames=11499 (+0 vs baseline)
+[S-25] kind=motion    ObjectCount baseline=11499 after 10000 events=31499 (+20000) after forced GC + finalizers + 2 frames=21499 (+10000 vs baseline)
+=== S-25b same check with events created in C# and dropped (no native-only creation)
+[S-25b] C#-created key    ObjectCount baseline=11499 after 10000=11499 (+0) after forced GC + finalizers + 2 frames=11499 (+0 vs baseline)
+[S-25b] C#-created button ObjectCount baseline=11499 after 10000=31499 (+20000) after forced GC + finalizers + 2 frames=21499 (+10000 vs baseline)
+=== S-25c mitigation candidate: AllocRx._Input calls @event.Dispose() after reading the fields (natively-created key / button events)
+[S-25c] Dispose-in-_Input kind=key    ObjectCount baseline=11499 after 10000=21499 (+10000) after forced GC=11499 (+0 vs baseline)
+[S-25c] Dispose-in-_Input kind=button ObjectCount baseline=11499 after 10000=21499 (+10000) after forced GC=11499 (+0 vs baseline)
+=== S-25d engine-created (C++) events: ScreenTouch injected from GDScript makes the ENGINE create the emulated InputEventMouseButton (emulate_mouse_from_touch)
+[S-25d] touch->emulated mouse: _Input calls=20000 ObjectCount baseline=11499 after 10000 touches=31499 (+20000) after forced GC=31499 (+20000 vs baseline)
+[S-25] forced GC performed before quit (see logs/alloc.engine.txt for the shutdown 'Leaked unsafe reference' / FATAL lines, if any)
+# done

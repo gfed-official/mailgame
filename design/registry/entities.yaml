@@ -1,0 +1,1363 @@
+# Entity registry — cross-system facts established by GDDs. Populated by /design-system after each GDD;
+# read by /consistency-check, /design-review and /design-system (Phase 2a) as LOCKED values.
+# Created 2026-10-16 by /design-system grid-inventory (autonomous mode; registry was absent).
+# Entries marked proposed: true are new numbers not in design/spec — confirm at the owning GDD or balance pass.
+
+entities: []
+
+items:
+  - name: container_catalogue_v1
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    description: "W×H = cols × rows. hotbar 8×1 slots (slot 0 reserved; cursor→slot swap allowed); player_inventory 8×2; backpack 8×2; bike_cargo 8×2; mail_truck_cargo 8×10 (mail only); po_intake 20×16 (mail only, outfeed_only, manifest); po_depot 20×16 (manifest); chest 8×4 (inserter_only); depot 16×10; sorter_buffer 4×2 (mail only); death_bag/spill bag = unbounded pile; cursor = 1 entry; a Spill heap is ONE WorldItem holding many entries"
+    referenced_by:
+      - design/spec/03-mail-inventory-economy.md
+      - design/spec/08-data-schemas.md
+      - "design/gdd/content-data-definitions.md (CD10 schema: layout, handCarried, acceptsInsert, beltAccess inserter_only, reservedSlots, view; CV-GRD-*)"
+      - "design/gdd/belt-logistics.md (sorter_buffer 4×2 under grid rules; chest inserter_only = belt dead end; depot/PO Depot any_side; po_intake outfeed_only)"
+
+  - name: mail_kinds_v1
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    description: "W×H / maxStack / baseValue ¢ / weightClass / complaintOnMisdelivery / unlockShift — postcard 1×1/40/4/light/3/2; letter 1×1/20/8/light/5/1; small 1×2/1/30/light/8/1; medium 2×2/1/70/medium/12/1; large 2×4/1/160/heavy/16/2; cargo 5×8/1/600/bulk/20 DEFERRED (fallbackKind large). Flags in StackKey: Cursed (stamp, value ×1.5), Found (SpawnSpecial, never Cursed); Priority/Fragile reserved, deferred"
+    referenced_by:
+      - design/spec/03-mail-inventory-economy.md
+      - design/spec/11-balance-baselines.md
+      - design/gdd/grid-inventory.md
+      - "design/gdd/content-data-definitions.md (CD10 schema: weightClass required, fallbackKind, complaintOnMisdeliveryPoints stored as milli-points, beltLengthMetres; CV-MAIL-*)"
+  - name: destination_house_v1
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    description: "v1's only destination type (spec 13): one indestructible mailbox per residential lot; accepts postcard/letter/small/medium/large to its own address; capacity unlimited; insertRate 2.0/s; base manualInsertHold 0.4 s; maxAutomatedFeeders 1 (NPC drop = transient feeder, PROPOSED); catchVolume 1.0 × 0.8 × 1.0 m centred 1.0 m above base (PROPOSED); states LOCKED (district not unlocked) / CLOSED (phase not Delivery or Raid) / OPEN; World Generation supplies per lot mailboxTile, faceNormal, anchor (+0.3 m along the normal, 1.0 m up), approachTile (buildable), truckStopPoint; same-side mailboxes ≥ 6 m apart, opposite sides staggered ≥ 3 m (design-review 2026-10-16)"
+    referenced_by:
+      - design/spec/03-mail-inventory-economy.md
+      - design/spec/08-data-schemas.md
+      - design/gdd/manual-delivery.md (MD1 registers one Deliver anchor per destination with manualInsertHold > 0)
+      - "design/gdd/content-data-definitions.md (CD10 schema: accepts, catchVolume, manualInsertHoldSeconds (0 = no Deliver anchor))"
+      - "design/gdd/belt-logistics.md (BL8 feeder on approachTile facing mailboxTile; IPlacementRule)"
+
+  - name: building_catalogue_v1
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    description: "footprint / HP / cost / blueprint / class — belt_mk1 1/80/1 Plank+1 Iron Ingot/—/transport (drag); belt_mk2 1/100/1 Plank+2 Iron/bp_fast_belts; splitter, merger 1/150/2 Iron+1 Plank; address_sorter_mk1 2x2/500/4 Iron+6 Stone/bp_sorting; inserter 1/120/2 Iron+1 Plank; inserter_long 1/120/3 Iron+1 Plank/bp_sorting; chest 1/200/4 Log; depot 2x2/800/8 Stone+4 Iron+4 Plank; vehicle_depot 3x3/1000/12 Plank+8 Stone+4 Iron/bp_truck; wall_wood 1/300/3 Log (drag); wall_stone 1/800/4 Stone/bp_defense (drag); gate 1/500/4 Log+1 Iron; turret 1/400/6 Iron+2 Stone/bp_turret; alarm_post 1/100/2 Log+1 Iron; post_office 6x6/3000 pre-built, not deconstructable. Deferred (spec 13): elevated belt, ramp, pipes, pump, pier, port, rowboat, spike strip. HP fields on build defs only (hp, armorClass)"
+    referenced_by:
+      - design/spec/10-content-tables.md
+      - design/spec/05-combat.md
+      - design/spec/13-v1-cut-and-decisions.md
+      - "design/gdd/belt-logistics.md (behaviour owner of belt, splitter, merger, sorter, inserter; container endpoint faces)"
+
+formulas:
+  - name: weightSpeed
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    variables: [classPts, weightBasis, P, ptsPermille, weightSpeedFloorPermille, strongBackPermille]
+    expression: "speedPermille = 1000 − min(10 × P, 400) × (1000 − strongBack) / 1000; P = Σ classPts per ENTRY over hotbar+inventory+backpack+cursor"
+    output_range: "600–1000 (800–1000 with Strong Back); floor at P ≥ 40"
+    referenced_by:
+      - design/spec/03-mail-inventory-economy.md
+      - design/spec/11-balance-baselines.md
+      - design/gdd/player-character-movement.md (F1 carrierSpeed consumes speedPermille; 1000 while mounted)
+      - "design/gdd/hud-notifications.md (F7 weight icon fill = 25 × min(P, 40) ‰ — full at the speed floor)"
+      - "design/gdd/content-data-definitions.md (CD12 WeightPenaltyPm: strongBackPermille = 1000 − WeightPenaltyPm; Strong Back = Mul 500)"
+  - name: stackKey
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    variables: [mailKind, addressId, flags, itemId]
+    expression: "mail: (mailKind, addressId, flags) — Cursed in key, spawn shift not; items: itemId. effMax = Read(MailMaxStack, kind) (= maxStack × stackMult; content-data CD11) evaluated at op time"
+    output_range: "effMax 1–80"
+    updated: "2026-10-16 (third review: MailMaxStack stat name adopted)"
+  - name: sortPacking
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    variables: [mode, area, maxDim, districtId, streetId, number, unit, kindIndex, flags, entryId]
+    expression: "consolidate oldest-first (chunks with changed contents get new entryIds), then first-fit-decreasing with a total-order comparator (final tiebreak entryId); passes U then R; address mode retries once in size order and replies appliedMode; abort sort_failed on failure; idempotence memo keyed (version, statEpoch) so a sort after Bulk Mailer consolidates"
+    updated: "2026-10-16 (third review)"
+    output_range: "deterministic placement; ≈ 8 k cell probes for 320 cells with per-shape hints (≈ 205 k naive)"
+
+  - name: holdEff
+    source: design/gdd/input-controls.md
+    registered: 2026-10-16
+    variables: [holdBase, insertPm, holdSetting, holdDefault, holdFloor, holdCeil, minHoldTicks]
+    expression: "holdTicks = clamp(ceil(holdBase × (1 − insertPm/1000) × (holdSetting/0.4) × 30), minHoldTicks, ceil(max(holdBase, holdCeil 2.0) × 30)); holdEff = holdTicks/30; holdFloor = minHoldTicks/30 (derived); ONE shared Sim function (PC F4 copy retired), int64, no intermediate truncation; latched at press; counted by Player Character P12 in owning-client Sim ticks"
+    output_range: "0.2–2.0 s (6–60 ticks); deliver 0.4 s = 12 ticks at default; 0.8 s base at setting 1.0 = 60 ticks (not clamped); holdSetting is a player setting 0.2–1.0 s"
+    updated: "2026-10-16 (design-review revision — holdCeil 1.25 → 2.0, shared function)"
+    proposed: true
+    referenced_by:
+      - design/gdd/player-character-movement.md (F4 holdTicks = this function; PC's own copy retired 2026-10-16 in its design-review revision — OQ-IC-1(f) done)
+      - "design/gdd/mail-destinations.md (base manualInsertHold 0.4 s; Quick Hands insertPm 500 on every deliver hold — OQ5 closed by manual-delivery MD9, reconciled 2026-10-16)"
+      - design/gdd/manual-delivery.md (F2 deliverHoldTicks restates this function unchanged; Quick Hands insertPm 500 on every deliver hold, StatSheet sum clamped ≤ 750; answers mail-destinations OQ5)
+      - design/gdd/building-system.md (B8 deconstruct hold, holdBase 0.5 s)
+  - name: carrierSpeed
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    variables: [base, speedPermille, longLegsPm, longLegsStacks, postalPm, postalTicksLeft, buffCapPm, wadePm]
+    expression: "speedMmS = base × weightPm × (1000 + min(addPm, buffCapPm)) × wadePm / 1e9 (int64, one division); base walk 5000 / sprint 7500 / swim 2000; weightPm = D1 speedPermille (1000 mounted); addPm = 120 × LongLegs + PostalSprint 300 (4 s)"
+    output_range: "walk 3000–7000 (2400 in deepest wade), sprint 4500–10500, swim 1200–2800 mm/s"
+    updated: "2026-10-16 (hand-back reconciliation: 'Carrier archetype' carrierPm 100 retired — no archetypes exist, spec 01 §4.1 / spec 10)"
+    proposed: true
+  - name: carrierJump
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    variables: [jumpHeightMm, g, extraJumpPm, terminalMmS, coyoteTicks, jumpBufferTicks]
+    expression: "v0 = isqrt(2 × g × 1200) = 7589 mm/s at g 24000 mm/s²; trapezoid integration per 30 Hz tick with the /60 remainder carried; mid-air jump SETS vy = v0 × 900/1000"
+    output_range: "apex 1196 mm at tick 9, lands tick 19 (0.63 s); extra jump 969 mm"
+    updated: "2026-10-16 (design-review: remainder carried)"
+    proposed: true
+  - name: interactFocus
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    variables: [rangeMm, incumbentSlackMm, cosMinPm, nearMm, wDist, wAng, priority, stickyPm, focusDwellTicks]
+    expression: "eligible: chest-point (feet + 1000) d ≤ 2500 (incumbent 2900), horizontal cone = 0.9 × camera horizontal half-FOV (cos 635 at FOV 80 / 16:9) or d ≤ 800, not occluded (lazy, own box excluded); cosPm = 1000 when dh < 150; score = (400 × d × 1000/2500 + 600 × (1000 − cosPm))/1000 − 100 × priority − (incumbent ? 60 : 0); lowest wins; challenger takes focus on its 4th consecutive leading tick (immediate with no incumbent); focus latched while a hold/channel is in progress or toggle-armed; display-only in Panel; last presented snapshot exposed via IInteractionQuery; holdTicks = anchor GetHoldTicks(latch), default input-controls holdEff (Quick Hands insertPm 500: 6 ticks); ShouldCancel(latch) checked every held tick; incumbentSlackMm = input-controls cancelHysteresis"
+    output_range: "score −360 … ≈1330"
+    updated: "2026-10-16 (design-review: stickyPm 150 → 60, cone from FOV, hold latch; hand-back reconciliation: hooks, IInteractionQuery, Quick Hands)"
+    proposed: true
+  - name: hostRangeCheck
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    variables: [rangeHistoryTicks, rangeSlackMm, positionStaleTicks, leashMm]
+    expression: "host position = last transform the owning client reported (spec 13 §3, no correction); a range-gated request carries the position claimed at press and passes iff chest(claim) is within range + 500 mm of the anchor AND the claim is within 1.5 m of a reported sample from the last 9 ticks (300 ms) or the dead-reckoned position; chest = feet + 1000 on client and host; no packet for 30 ticks → position_stale; leash uses the newest chest point and never fires when stale; Teleport clears the history, seeds the destination and resets lastReceivedTick"
+    updated: "2026-10-16 (design-review: claimed position + chest point)"
+    output_range: "boolean; adopted in grid-inventory R10 2026-10-16 (replaces 'client-predicted, server-corrected'; reason code position_stale added there)"
+    proposed: true
+  - name: clockIn
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    variables: [respawnMs, secondWindMs, spawnProtectMs, rejoinProtectMs, deathBagDespawnSeconds]
+    expression: "respawnTicks = 300 (90 Second Wind); respawn point = the PO's single pre-built Spawn pad, first free of 8 ring slots at 1200 mm (rotating index); protection 90 ticks (45 after rejoin, from JoinStateApplied), ends early only on a damaging action; retrieval window = 900 − respawnTicks"
+    output_range: "retrieval 20 s / 100 m walking (27 s / 135 m Second Wind)"
+  - name: carrierPush
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    variables: [capsuleRadiusMm, pushDeadMm, pushSharePm, pushCapMm]
+    expression: "each owning client moves only itself against the latest received remote capsules: corr = overlap < 10 ? 0 : min(overlap × 500/1000, 60) mm/tick; velocity toward an overlapping remote capsule clamped to 60 mm/tick; a pair overlapping for 45 ticks with neither moving > 100 mm ghosts until separated; never into swim-depth water; ledges allowed; Dead and Frozen bodies non-solid"
+    output_range: "0–60 mm per tick; walking into a friend ≈ 0.9 m/s shove"
+    proposed: true
+  - name: waterState
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    variables: [swimEnterMm, swimExitMm, maxWadeSlowPm, haulOutMm, haulOutTicks]
+    expression: "depth = max(0, −bilinear terrainH) over terrain only; swim at ≥ 900, exit at ≤ 700; wadePm = 1000 − 200 × min(depth, 900)/900; haul-out onto ledges ≤ 1200 mm after 15 ticks; no drowning"
+    output_range: "wadePm 800–1000"
+    proposed: true
+
+  - name: mailSpawnValue
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    variables: [baseValue, distPm, shiftPm, cursedPm, foundPm]
+    expression: "spawnValue = RH(base × (1000 + 250(district−1)) × (1000 + 100(shift−1)) × cursedPm × foundPm / 10^12), one round-half-up, frozen at spawn"
+    output_range: "4–1344 ¢ (Cursed Large max 672); uint16"
+    referenced_by:
+      - design/spec/03-mail-inventory-economy.md
+      - "design/gdd/simulation-core.md (F7 moneyRounding)"
+  - name: mailKindCounts
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    variables: [V, share_k, meanDistPm, E_k, carry]
+    expression: "kinds in descending baseValue, carrying value remainder r: n_k = max(0, RH((V·share_k + r)/E_k)); E_k = base × shiftPm × meanDistPm / 10^6 (no Cursed term — the stamp never changes N or addresses; realised value ≈ V × 1.05 under Cursed); no RNG; Cargo share → fallbackKind"
+    output_range: "N = 57 at V 672 (Trainee solo shift 1); 85 at V 960; 708 at 8-player shift 5 (≈ 1,035 Intake cells if never taken); ≈ 814 with Zoning Board"
+    referenced_by:
+      - design/spec/11-balance-baselines.md (§3.1 counts superseded — OQ11)
+      - "design/gdd/grid-inventory.md (D2 Intake pressure recomputed from this 2026-10-16: 8-player Intake full ≈ 79 s into shift 5, 4-player ≈ 124 s, solo never)"
+  - name: mailBatchSchedule
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    variables: [D, batchIntervalSeconds, jitter, raidSpawnRateMultPm, N]
+    expression: "nb = ceil(D/15); t_b = start + 450b + jitter(±90, batch 0 ≥ 0), clamped to D − 9 s; weight 500 in the raid window else 1000; c_b by cumulative weight; shift total conserved (raid conservation PROPOSED); RNG draws K = 2·nb + 2N + max(0, N − 1) on hash(seed,'mail',shift)"
+    output_range: "nb 16/18/20 for D 240/270/300; Σc_b = N"
+    referenced_by:
+      - "design/gdd/simulation-core.md (R24/F5: hash(seed,'mail',shift) = RngStream.Create(runSeed,'mail',shift); NextInt F6)"
+  - name: mailUnitPay
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    variables: [spawnValue, timelinessPm, MailValueMultPm, thrownPm]
+    expression: "pay = RH(spawnValue × T × MailValueMult[kind] × thrownPm / 10^9); T = 1000 on time, lateValueRatio 500 when 1 ≤ L < deadLetterShifts (1000 under Grace Period), 0 at ≥ deadLetterShifts (2); per unit, oldest first; Inspector/Watch/zero-misdelivery bonus NOT applied here (Run Structure at Payday)"
+    output_range: "0–≈1,478 ¢ per unit"
+    referenced_by:
+      - "design/gdd/simulation-core.md (F7 moneyRounding: RH = round half up on magnitude)"
+  - name: misdeliveryPenalty
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    variables: [spawnValue, misdeliveryPenaltyRatioPm, MisdeliveryPenaltyMultPm, walletFloor]
+    expression: "penalty = max(1, RH(spawnValue × 500 × mult / 10^6)) on SPAWN value; a unit is consumed only if wallet − penalty ≥ −500, per unit, oldest first, stop at first failure; money never capped"
+    output_range: "1–672 ¢ per unit"
+    referenced_by:
+      - design/gdd/grid-inventory.md
+      - "design/gdd/throwing-catching.md (F7 preview label money)"
+      - "design/gdd/simulation-core.md (F7 moneyRounding; wallet debit synchronous IEconomyApi, R3 phase 9)"
+  - name: doorComplaint
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    variables: [complaintOnMisdelivery, doorComplaintCap, doorComplaintWindowSeconds, MisdeliveryComplaintMult, lateComplaint, lateComplaintWindowSeconds]
+    expression: "per-destination token bucket (cap 20, refill 20 per 30 s) AND one team bucket (RH(40 × playerScale) = 40/98/155 at n 1/4/8, same refill per 30 s): raw misdelivery complaint per op = min(raw, door, team), then × Fragile mult; late +2 only on Accept ops with a late unit (1 ≤ L < deadLetterShifts), ≤ once per TEAM per 30 s, 0 for dead letters and under Grace Period; reported to Run Structure (owner of the meter)"
+    output_range: "≤ 20 per op; ≤ teamComplaintCap per 30 s burst team-wide; ≈ +60 per 60 s for a belt misrouting into one door"
+    amends: "spec 01 §3.3 / spec 11 §7 per-misdelivery complaint; grid-inventory edge case '20 complaint increments' (applied in grid-inventory Edge Cases 2026-10-16)"
+    proposed: true
+
+  - name: deliverPreview
+    source: design/gdd/manual-delivery.md
+    registered: 2026-10-16
+    variables: [runs(deadlineShift, count, unitSpawnValue), timelinessPm, MailValueMultPm, thrownPm, penalty, wallet, walletFloor]
+    expression: "client-side pure function; branch order REJECT (CLOSED/LOCKED) → MATCH (any cursor/hotbar/inventory/backpack entry with this address and an accepted kind) → MISDELIVER_ONE (selected hotbar mail) → NOTHING. MATCH: predictedPay = Σ entries Σ runs count × pay(value, T(currentShift − deadline), MailValueMult, thrownPm 1000); k, n, lateUnits, deadUnits, deadOnly. MISDELIVER_ONE: predictedPenalty = penalty(run 0 value); floorRefusal = wallet − penalty < walletFloor (advisory); cursed flag"
+    output_range: "predictedPay ≥ 0; penalty ≥ 1; prediction only — the host decides (example: shift 3, k 3, n 16 → 105 ¢)"
+    referenced_by:
+      - design/gdd/mail-destinations.md (composes F5–F8, F10)
+      - design/gdd/grid-inventory.md (mirrors deliver_matching's branch order)
+  - name: deliverHoldTicks
+    source: design/gdd/manual-delivery.md
+    registered: 2026-10-16
+    variables: [holdBaseMs, holdSettingMs, insertPm, minHoldTicks, holdCeilMs]
+    updated: "2026-10-16 (hand-back reconciliation: retired insertEff/absMinTicks dropped from variables; insertPm = Content & Data stat DeliverInsertPm, StatDef 0…750)"
+    expression: "holdTicks = input-controls holdEff(manualInsertHold, insertPm, holdSetting) = clamp(ceil(holdBaseMs × (1000 − insertPm) × holdSettingMs × 30 / 4×10^8), minHoldTicks 6, ceil(max(holdBase, 2.0 s) × 30)); int64, single ceiling; same for MATCH and MISDELIVER_ONE"
+    output_range: "6–30 ticks for the 0.4 s hold: none 6/12/18/30, Quick Hands 6/6/9/15 at settings 0.2/0.4/0.6/1.0 s"
+    proposed: true
+    owner_override: "restates input-controls' single shared holdEff — not a second copy; Quick Hands applies spec 10 literally (CD ruling ii, design-review 2026-10-16)"
+    referenced_by:
+      - design/gdd/input-controls.md (holdEff — hand-back OQ2 adopted 2026-10-16)
+      - design/gdd/player-character-movement.md (F4 insertPm = Quick Hands 500 and P10/P12 GetHoldTicks / ShouldCancel hooks — hand-back OQ1 adopted 2026-10-16)
+      - design/gdd/content-data-definitions.md (stat DeliverInsertPm, alias insertPm, StatDef range 0…750 — the clamp owner)
+
+  - name: hudToastLifetime
+    source: design/gdd/hud-notifications.md
+    registered: 2026-10-16
+    variables: [words, m, toastBaseMs, toastPerWordMs, toastMinMs, toastMaxMs, feedMinMs, firstShownAt]
+    expression: "words = Σ tokens containing a letter or digit (no-space scripts: ceil(2·graphemes/5) per token); lifeMs = m × clamp(1500 + 400·words, 2500, 8000)/1000, m ∈ {1, 1.5, 2, 3} ('Until dismissed' cut, design-review 2026-10-16); feed = max(6000, lifeMs); merge restart capped at firstShownAt + 8000·m/1000; pills 2500·m, captions 3000·m; prompt reason strips use lifeMs, ended early by a focus change (supersedes manual-delivery reasonStripTicks 0.8 s and throwing-catching's 2 s — reconciliation 2026-10-16)"
+    output_range: "2500–8000 ms at 1× (24000 at 3×); feed ≥ 6000 ms"
+    proposed: true
+    referenced_by:
+      - "design/gdd/manual-delivery.md (MD7, F5, M-MD7-1: reason strip lasts F1 — adopted, consistency pass 2026-10-16)"
+      - "design/gdd/throwing-catching.md (UI prompt slot, TC-U-2c: reason strip lasts F1 — adopted, consistency pass 2026-10-16)"
+  - name: hudFlashGovernor
+    source: design/gdd/hud-notifications.md
+    registered: 2026-10-16
+    variables: [cap, raidPulseActive, reducedFlash, flashWindowMs, flashMinGapMs]
+    expression: "a flash = a pair of opposing luminance changes within 1 s on an element or effect covering ≥ 10 % of the screen (flashAreaMinPermille 100); only governed requests query: grant iff |grants in last 1000 ms| < (reducedFlash ? 0 : 3 − raidPulseActive) and the element's last grant ≥ 500 ms ago; denied → static thickness change; small cut-ins / fades are not flashes; world and post-process effects request tokens from M1"
+    output_range: "≤ 3 flashes per rolling second HUD-wide (WCAG 2.3.1); ≤ 2 Hz per element"
+    proposed: true
+  - name: hudTimerDisplay
+    source: design/gdd/hud-notifications.md
+    registered: 2026-10-16
+    variables: [deadlineTick, renderSimTimeMs, phaseId, timerAmberSeconds, timerRedSeconds]
+    expression: "no HUD clock: renderSimTimeMs is read from IHudState, fed by simulation-core's IHostClock (Networking implements; host exact Sim time) — slew removed in design-review 2026-10-16, source per simulation-core HB9 (reconciled 2026-10-16); on tick boundaries disp equals simulation-core F1 displaySeconds; disp = ceil(max(0, deadlineMs − renderSimTimeMs)/1000) with a monotone guard per (phaseId, deadlineTick); Amber ≤ 60 s, Red ≤ 15 s; 00:00 only at the deadline"
+    output_range: "whole seconds; never runs backward within a key"
+    proposed: true
+    referenced_by:
+      - "design/gdd/simulation-core.md (F1 displaySeconds, IHostClock; HB9 adopted by HUD 2026-10-16)"
+      - "design/gdd/player-character-movement.md (OQ28 timer time base — answered by this entry)"
+  - name: hudCommsCourtesy
+    source: design/gdd/comms.md
+    registered: 2026-10-16
+    variables: [credit, chatRefillMs, pingSendCooldownMs, emoteCooldownMs, chatMaxChars, chatMaxBytes]
+    expression: "client-side only (no host rate limits, spec 13): chat bucket 3 lines, refill 1 per 750 ms (credit 0–2250 ms); ping cooldown 500 ms (quick + wheel shared); emote 2000 ms; text ≤ 200 graphemes and ≤ 800 B after sanitising; receivers truncate, never reject"
+    output_range: "burst 3 lines then 80 lines/min sustained; ≤ 2 pings/s; ≤ 0.5 emotes/s"
+    proposed: true
+  - name: hudPingBookkeeping
+    source: design/gdd/comms.md
+    registered: 2026-10-16
+    variables: [pingsPerPlayerMax, pingRefreshRadiusMm, pingLifetimeMs, pingLabelMax, minSpacingPx]
+    expression: "same-type within 2000 mm refreshes first; else a 3rd ping replaces the sender's lowest expiresAt; cap enforced per sender id on receivers; compass x = cx + clamp(wrap180(bearing − yaw), ±120°)/120° × halfW, greedy declutter raid edge > construct > ping > teammate > badge"
+    output_range: "≤ 2 live pings per sender, ≤ 16 team-wide; ≤ 41 screen-projected markers at 8 players"
+    proposed: true
+
+  - name: throwLaunch
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    variables: [dir, loftDeg, baseSpeed, ThrowRangePermille, handHeightMm, fwdOffMm, sideOffMm, side, feet]
+    expression: "dir = int16×3 unit vector (scale 16384) from camera pitch clamped −60…+70° + loft 6°, quantised on the client before the preview; speedPm = isqrt(ThrowRangePermille × 1000) (Cannon Arm 1500 → 1224); v = RH(baseSpeed[class] × speedPm / 1000); vel = RH(v × dir / n); origin = corroborated feet + 1200 up + 300 forward + 250 to the dominant side; host bounds 16000 ≤ n ≤ 16768, elevation −876…980 ‰ else bad_direction"
+    output_range: "v 6000–17136 mm/s; origin horizontal offset ≤ 391 mm"
+    proposed: true
+  - name: throwBallistic
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    variables: [k, g, maxFlightTicks, origin, vel]
+    expression: "closed form per tick: p(k) = o + RH(v × k / 30), y − RH(g × k² / 1800); g 9800 mm/s²; swept segment p(k−1)→p(k) for k = 1…90; no drag, no bounce, no RNG and no spread term; earliest contact fraction f (‰) wins (entry/exit intervals with CeilDiv/FloorDiv; cylinder = circle ∩ y-slab), ties by receiver rank, then nearer centre, then hash(flightId, receiverId)"
+    output_range: "light peak range 21.2 m (31.1 m Cannon Arm); medium 11.4 m; heavy 4.7 m; flights 0.6–3.0 s"
+    proposed: true
+  - name: catchWindow
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    variables: [catchRadiusMm, catchPredictMs, catchTapMs, catchArmSeconds, catchHistoryTicks, catchHistoryMaxOffsetMm]
+    expression: "prompt when a non-own flight is predicted to enter the 1500 mm sphere at chest (feet + 1000) within 15 ticks (hysteresis on 3 / off 5 ticks); armed iff downApplyTick ≤ t < armedUntil, armedUntil = min(max(up, down + 15), down + 90) (Toggle: min(down + 90, up)); host contact = earliest f over the catcher's reported positions in the last 9 ticks within 1500 mm of the newest; equal f → nearer at contact → hash(flightId, playerId); one press catches one flight; Catch preempts a focused verb only under the D3 gate (design-review 2026-10-16)"
+    output_range: "boolean; the prompt leads sphere entry by ≈ 400 ms (host clock); reaction budget ≈ 400 ms − one-way (≈ 340 ms at 120 ms RTT, ≈ 275 ms at 250 ms)"
+    updated: "2026-10-16 (design-review: F5 timeline corrected; hold-arm cap; hash tie-break)"
+    proposed: true
+  - name: thrownDamage
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    variables: [damagePerPoint, weightPoints]
+    expression: "damage = 5 × classPts of the entry's class (per entry; never P, never the count; Cannon Arm does not scale it); one hit per flight; goons only"
+    output_range: "5 / 15 / 40"
+    referenced_by:
+      - design/spec/13-v1-cut-and-decisions.md
+      - design/spec/05-combat.md
+      - "design/gdd/health-damage.md (HD2/F1: applied in Combat.Resolve, takenPm default 1000 → unchanged; goons only via HD3 allow-table)"
+  - name: throwLabelMoney
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    variables: [runs, timelinessPm, MailValueMultPm, thrownPm, wallet, walletFloor, MisdeliveryPenaltyMultPm]
+    expression: "Accept: Σ_runs count × RH(unitSpawnValue × T × MailValueMult × thrownPm / 10^9); Misdeliver: Σ penalty over the longest oldest-first prefix with Σ ≤ wallet − walletFloor, remainder shown as 'B returned'; T at the release tick's shift; preview only — DeliveryOutcome is authoritative"
+    output_range: "int32 cents; misdeliver figure ≤ wallet headroom"
+    proposed: true
+  - name: tickTimeConversion
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    variables: [t, ms, r, TickRateHz]
+    expression: "integer only: ticksToMsFloor(t) = t×1000/30; ticksToMsCeil(t) = (t×1000+29)/30; content seconds parsed as integer ms (≤ 3 decimals) → contentTicks(ms) = (ms×30+999)/1000; displaySeconds(r) = (r+29)/30 with r = max(0, deadlineTick − currentTick); never float"
+    output_range: "400 ms → 12 ticks; 15 s → 450; r 360 → '0:12'; ticksToMsFloor(1) = 33"
+  - name: catchUpAccumulator
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    variables: [freq, now, last, acc30, maxCatchUpTicksPerFrame, catchUpGuardMs]
+    expression: "Advance(now): Δ = clamp(now−last, 0, freq); last = max(last,now); acc30 += Δ×30; due = acc30/freq; n = min(due, cap 4); acc30 −= n×freq; if due > n → dropped += due−n, acc30 %= freq (drop, never bank); DropRemaining(m) (FrameRunner wall-clock guard, M0) → dropped += m, acc30 unchanged; invariant (run+dropped)×freq + acc30 = Σ min(Δ,freq)×30; Alpha = acc30/freq ∈ [0,1), presentation only"
+    updated: "2026-10-16 (design-review MAJOR REVISION: two-step Advance/DropRemaining; guard lives in FrameRunner)"
+    output_range: "0–4 ticks per frame; no drops at ≥ 7.5 fps; 150 ms hitch → 4 run, 0 dropped; 400 ms → 4 run, 8 dropped"
+    proposed: true
+  - name: tickBudgetSplit
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    variables: [p99(phase), totalTick, reserve, N]
+    updated: "2026-10-16 (design-review MAJOR REVISION: GDD keeps total gates only; per-phase slices + fixtures moved to TD-owned perf budget in docs/architecture/simulation-core-adr-inputs.md §2 (UNREVIEWED SEED) → docs/architecture/perf-budget.md at OQ5; p99 rank r = (99N+99)/100; full spike coincidence every 150th tick; reserve derived ≥ 0.3 ms; relative 2× gate blocking for total and phases with baseline ≥ 0.2 ms)"
+    expression: "gate = total-tick p99 on SC-FIX-WORST (Release, 300 warm-up, N ≥ 18000); host p99 ≤ 5.0 ms, max ≤ 8.0 ms (spec 07 §8), median ≤ 3.0 ms; per-phase p99 slices (TD perf budget, attribution only) sum 4.50 + reserve 0.50: overhead 0.10, Inputs.Apply 0.80 (inventory sub-scope 0.50), Items.Expire 0.20, Intake.Drain 0.30, Players.Step 0.20, Throwing.Step 0.15, Automation.Step 1.20 (incl. belt endpoint calls ≤ 0.25), Vehicles 0.15, Agents 0.50, Mail.Step 0.25, Economy.Flush 0.10, Combat.Resolve 0.20, Combat.React 0.05, Run.Step 0.05, Events.Flush 0.25; ClientLayer 0.30 per client tick; absolute ms gates advisory until a reference machine exists; 0-alloc and 2× CI baseline BLOCKING from M0"
+    output_range: "pass/fail per fixture; SC-FIX-STEADY median ≤ 1.5 ms, p99 ≤ 3.0 ms"
+    proposed: true
+    referenced_by:
+      - "design/gdd/throwing-catching.md (TC-P-2: Throwing.Step ≤ 0.15 ms p99 / 0.5 ms max, 16 flights + 8 armed catchers — HB6 adopted 2026-10-16)"
+      - "design/gdd/belt-logistics.md (Automation.Step 1.20 ms sub-budget; fixture counts amended, OQ-BL-H11)"
+  - name: entityIdLayout
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    variables: [class, counter]
+    expression: "EntityId u32 = ((uint)class << 24) | counter; counter 1..2^24−1 per class, never reused, never wraps (exhaustion → None); classes 0x01 player, 0x02 world_item, 0x03 construct, 0x04 vehicle, 0x05 enemy, 0x06 npc, 0x07 destination, 0x08 prop, 0xF0–0xFF test; 0 = None; ActorId System = 0x00000001; mailId separate u32 counter; opSeq u32 op order key"
+    output_range: "player 1 = 16777217, construct 1 = 50331649 (spec 08); per-class capacity ≈ 4 660 allocs/s sustained for a 1 h run (world_item dominant; re-derive per OQ9)"
+  - name: rngStreamDerivation
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    variables: [runSeed, name, index]
+    expression: "s = Mix64(Mix64(runSeed ^ Fnv1a64(utf8 name)) ^ (u64)index); Mix64 = SplitMix64 finaliser; PCG32 XSH-RR seeded with initState = Mix64(s), initSeq = Mix64(s ^ 0xDA3E39CB94B95BDB); v1 streams: worldgen.<stage>/0, mail/shift 1–5, mail.special/shift 1–5, waves/0, mega/0, drops/0, perks/0, shop/0, events/shift 1–5 (each name declares its index range); hash/PRNG code unchecked; Throwing has none (throwNoDice)"
+    output_range: "golden: Derive(1,'mail',2) = 0x120344c795c4b10e; Create(1,'mail',2) first next32 = 0x915ab962; pcg32_srandom(42,54) = 0xa15c02b7…"
+    proposed: true
+  - name: nextIntBounded
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    variables: [next32, b]
+    expression: "NextInt(b) = (u32)(((u64)next32 × b) >> 32); exactly one draw per call, no rejection loop; b = 0 → 0 (Debug assert), still one draw"
+    output_range: "0..b−1; bias ≤ b/2^32; NextInt(10) on 0x80000000 = 5"
+  - name: moneyRounding
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    variables: [c, pm, a, b, c_div, fx]
+    expression: "Cents = long cents, range ±2^62 (explicit range check: Debug assert, Release saturate + moneySaturated); MulPermille(c,pm) = sign(c) × min((|c|×pm + 500)/1000, 2^62) in Int128 (round half away from zero on magnitude = the RH of mailUnitPay/mailSpawnValue/misdeliveryPenalty); Fix.MulDiv = trunc((Int128)a×b/c); MulDivRH = half away from zero, overflow-free; zero divisor → 0 + counted; Fx16.ToMm = fx >> 16 (floor)"
+    updated: "2026-10-16 (design-review MAJOR REVISION: MulDivRH overflow and checked-vs-2^62 fixes)"
+    output_range: "MulPermille(−15,1500) = −23; MulDiv(−7,1,2) = −3; ToMm(−98304) = −2"
+  - name: statResolve
+    source: design/gdd/content-data-definitions.md
+    registered: 2026-10-16
+    variables: [base, M_i, k, A_i, transientAdd, S_j, rounding, min_s, max_s]
+    expression: "clamp(X, min, max); X = Set (min-wins or max-wins per StatDef) if any Set is live, else R_rounding((base × ΠM_i + 1000^k × (ΣA_i + transientAdd)) / 1000^k) in Int128, one division; M in permille; k ≤ stats.maxMulFactors 6"
+    output_range: "[StatDef min, max]; order-independent; examples depot rows 10×1500 Ceil = 15, QuotaMultPm 900×700 = 630, MoveSpeedAddPm 360+300 → 400"
+    proposed: true
+  - name: decimalToScaled
+    source: design/gdd/content-data-definitions.md
+    registered: 2026-10-16
+    variables: [intPart, fracDigits, fracLen, sign, scale, fieldMax]
+    expression: "sign × (intPart × scale + fracDigits × 10^(3 − fracLen)); scale 1000 decimal / 1 integer; ≤ 3 fractional digits; no exponent, no negative zero (-0, -0.0, -0.00, -0.000); early stop intPart > fieldMax/scale then final range check; raw JSON token bytes, never double"
+    output_range: "−fieldMax…fieldMax at the field's scale; '0.4' → 400, '1.5' → 1500; integer 2147483647 passes"
+    updated: "2026-10-16 (content-data-definitions design-review revision)"
+  - name: contentHash
+    source: design/gdd/content-data-definitions.md
+    registered: 2026-10-16
+    variables: [hashSchemaVersion, BalanceBlock, DefBlocks]
+    expression: "SHA-256(hashSchemaVersion u8 ‖ every SimSettings+balance key (ordinal key order, i64 LE) ‖ def tables in fixed type order, defs in DefIndex order, fixed-width LE fields, u8 presence flag on optional/variant fields, params as count + (enum u16, i64) pairs, set-valued lists sorted); over loaded values, not file bytes; encoder AND a managed SHA-256 (NIST vectors) both in the Sim — no platform crypto"
+    updated: "2026-10-16 (content-data-definitions design-review revision)"
+    output_range: "32 bytes; join compares all 32; display first 4 bytes as 8 lowercase hex"
+    proposed: true
+
+  - name: finalDamage
+    source: design/gdd/health-damage.md
+    registered: 2026-10-16
+    variables: [amount, damageTag, armorClass, damageTakenPm, minDamage]
+    expression: "takenPm == 0 ? 0 : max(health.minDamage, Pm.Scale(amount, damageTakenPm[damageTag][armorClass] (default 1000))); Pm.Scale(x,pm) = (x*pm+500)/1000 int64 half-up; amount arrives attacker-scaled (source applies MeleeDamageMultPm / TurretDamageMultPm / Mega 1.5); dealt = min(final, hp)"
+    output_range: "0–400000; normal play 5 (Fists) to 113 (Mega Wall Breaker vs Stone Wall)"
+    proposed: true
+  - name: maxHpFormula
+    source: design/gdd/health-damage.md
+    registered: 2026-10-16
+    variables: [baseHp, maxHpMultPm, statPm]
+    expression: "maxHp = (baseHp × maxHpMultPm × statPm + 500000) / 1000000 (int64, one half-up rounding); Mega maxHpMultPm 2500; constructs statPm = ConstructHpMultPm; mid-run change keeps damage taken: hp' = clamp(hp + Δmax, 1, max'); Downed stays 0"
+    output_range: "30 (Wall Breaker) to 4200 (PO with Reinforced); carriers fixed 100"
+    proposed: true
+    referenced_by:
+      - design/gdd/building-system.md (B6 Register(id, Construct, def.hp, def.armorClass, 1000, ConstructHpMultPm))
+  - name: carrierRegen
+    source: design/gdd/health-damage.md
+    registered: 2026-10-16
+    variables: [regenHpPerS, regenDelayMs, lastDamageTick]
+    expression: "gain(T) = floor(r·k/30) − floor(r·(k−1)/30), k = T − (lastDamageTick + ceil(regenDelayMs·30/1000)) + 1; carriers Up and not Frozen only; reset only by dealt > 0; first point at lastDamageTick + 164 ticks for r=2"
+    output_range: "exactly r HP per 30 ticks; 25 → 100 in ≈ 42.5 s"
+  - name: healOverTime
+    source: design/gdd/health-damage.md
+    registered: 2026-10-16
+    variables: [H, D, hotSlots]
+    expression: "gain(k) = floor(H·k/D) − floor(H·(k−1)/D), k = 1…D, summed over ≤ health.hotSlots parallel slots, clamped at maxHp; k = 1 evaluated in step 2 of the eating tick (Berries gain 0 then, first +1 at k = 6); D = ceil(durationMs·30/1000); cleared on knockdown or Frozen; damage does not cancel"
+    output_range: "exactly H per slot (Berries 25 over 150 ticks = +1 every 6 ticks)"
+    updated: "2026-10-16 (health-damage design-review revision)"
+  - name: hpPct
+    source: design/gdd/health-damage.md
+    registered: 2026-10-16
+    variables: [hp, maxHp]
+    expression: "hp == 0 ? 0 : max(1, (100·hp + maxHp − 1) / maxHp) (ceil, uint8 ≤ 100); 'damaged' for replication keys on hp < maxHp, never hpPct"
+    output_range: "0–100; living entity never 0"
+  - name: buildRecipeCharge
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    variables: [cost_i, n, ratioPm, have_i]
+    expression: "need_i = ceilDiv(cost_i × n × ratioPm, 1000) per input; all-or-nothing: CountItem every input over panel (+ PO Depot if depotEligible), then ConsumeItems each in one phase-0 handler; ratio 1000 build, Defenses ruinRebuildRatioPm for rebuild (ChargeRecipe), 0 Insured"
+    output_range: "0 … cost_i × maxLineTiles (0–800)"
+    referenced_by:
+      - design/gdd/grid-inventory.md (R17 CountItem / ConsumeItems)
+  - name: buildLinePrefix
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    variables: [N, V, A, capLeft]
+    expression: "k = min(N, V, A, capLeft); A = min_i floor(have_i / cost_i); V = leading tiles passing per-tile legality steps 2–4 incl. vetoes seeing earlier tiles of the same scan (scan stops at first failure, no gaps); a step-1 actor failure (incl. cap, locked) rejects the op, k = 0; stopReason None (k = N) | Invalid | Funds | Cap; k = 0 → rejection, nothing consumed; N = 1 PlaceLine is bad_request (client sends Place)"
+    output_range: "0–N, N ≤ maxLineTiles 40"
+    proposed: true
+  - name: salvageBank
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    variables: [cost_i, ratioPm, bank_i]
+    expression: "x = cost_i × ratioPm + bank_i; refund_i = x / 1000; bank_i' = x mod 1000; bank team-wide per item id, run-scoped, host-only Sim state (dumped/hashed), reset at run start; refund via Grant(deconstructor, SpillWorld), never ToDepot"
+    output_range: "refund 0…cost_i; bank 0–999"
+    proposed: true
+  - name: salvageRatio
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    variables: [T, placedTick, undoGraceTicks, hp, maxHp, phase]
+    expression: "0 if ruin or ownerSlot == System (pre-built); 1000 if actor == ownerSlot ∧ T − placedTick ≤ undoGraceTicks (90) ∧ hp == maxHp; salvageRatioPrepPm (1000) in Prep; else salvageRatioDeliveryPm (500, incl. Raid window); phase read in phase 0 of the apply tick; computed from B8's step-1 snapshot before Health.Unregister"
+    output_range: "0, 500 or 1000 permille"
+    proposed: true
+  - name: poDepotEligible
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    variables: [dx, dz, poDepotReachMm, SharedBuild]
+    expression: "SharedBuild ∨ dx² + dz² ≤ poDepotReachMm² (int64 mm, horizontal, placer's host-applied position to PO footprint centre (anchor + 6000 mm per axis) — from the player, not the target tile)"
+    output_range: "bool; reach 20 000 mm (spec 04)"
+  - name: buildTerrainFit
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    variables: [h, maxSlopePm, maxSpanMm]
+    expression: "slopePm(t) = max over 4 in-bounds neighbours (off-map skipped) |h(t) − h(n)| × 1000 / 2000 ≤ def.maxSlopePm (268 buildings/defense ≈ 15°, 194 transport ≈ 11°, tied to PC 400 mm step); footprint span max(h) − min(h) ≤ 1000 mm; base height H = max(h); no terrain edits (skirt to grade)"
+    output_range: "legal / too_steep / uneven"
+    proposed: true
+  - name: laneAdvance
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    variables: [speedMmS, BeltSpeedMultPm, operatedBeltMultPm, T, beltSpacingMm]
+    expression: "v = speedMmS × BeltSpeedMultPm × (inPushWindow ? operatedBeltMultPm : 1000) / 1 000 000 (one floor, int64); A(v,T) = floor(v(T+1)/30) − floor(vT/30) on the run tick (stateless, exact long-run speed); p′ = min(p + A, leader′ − 500); head capped at gate L − 250; positions integer mm, entry 250; ≤ 1 hand-off per unit per tick, overshoot discarded"
+    output_range: "A 66/67/67 (Mk1), 133/133/134 (Mk2), 100 (Mk1 + Express); v1 content v ≤ 9 000 mm/s; extremes 500–36 000"
+    proposed: true
+  - name: beltCreditGate
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    variables: [baseMilli, multPm, credit]
+    expression: "each tick: if credit ≥ 30000 and ready: act, credit −= 30000; then credit = min(credit + rateMilli, 30000 + rateMilli − 1); rateMilli = baseMilli × multPm / 1000; credit spent only on success (no burst, remainder kept). Sorter 2000 × SorterThroughputMultPm, inserter 1250 × InserterRateMultPm (clamp ≤ 4000), Intake belt-pull 1000 (unscaled)"
+    output_range: "exact long-run rate for any rateMilli: sorter every 15 ticks, inserter every 24, belt-pull every 30; ×2 sorter → 7/8-tick intervals"
+    proposed: true
+  - name: pushWindow
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    variables: [pushReachTiles, operatedBeltMultPm, pushToggleMaxSeconds]
+    expression: "units whose centre lies within ±pushReachTiles (3) tiles of the push anchor along its segment (clipped to the segment) at tick start advance at ×operatedBeltMultPm (1500); overlapping windows union (never multiply); one push per player; host revalidates every tick (Alive, not mounted/swimming, chest point ≤ rangeMm 2500 + 500); toggle mode auto-ends after 6 s; no effect on a BLOCKED segment (prompt names the jam); latency only, never throughput"
+    output_range: "window ≤ 7 tiles (14 m); Mk1 crossing 210 → 140 ticks"
+    proposed: true
+  - name: beltLeakBound
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    variables: [beltLeakIntervalTicks, beltLeakPerEndMax, beltLeakGlobalMax, beltItemCap]
+    expression: "only belt ends facing nothing leak: ≤ 1 BeltLeak WorldItem per 15 ticks per end (stagger constructId mod 15, no RNG); end pauses (belt backs up) at 6 live per end or 64 island-wide; beltUnits ≤ min(tiles × 8, beltItemCap 5000)"
+    output_range: "leaks ≤ 2/s per end, ≤ 64 live; WorldItem creation ≤ 1 per leaking end per tick"
+    proposed: true
+constants:
+  - name: weightPoints
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: "light 1 / medium 3 / heavy 8"
+    unit: points per entry
+    referenced_by:
+      - design/spec/11-balance-baselines.md
+      - "design/gdd/throwing-catching.md (F6 thrownDamage = 5 × classPts per entry — answers grid-inventory OQ6)"
+  - name: weightSpeedFloor
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 0.6
+    unit: multiplier
+  - name: weightBasis
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: PerEntry
+    unit: enum
+    proposed: true
+  - name: deathBagDespawnSeconds
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 30
+    unit: seconds
+    referenced_by:
+      - design/spec/01-run-structure.md
+      - design/gdd/player-character-movement.md (F8 retrieval window 600 ticks / 810 with Second Wind)
+  - name: worldItemDespawnSeconds
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 300
+    unit: seconds
+    referenced_by:
+      - design/spec/03-mail-inventory-economy.md
+      - "design/gdd/mail-destinations.md (R15: Loot mail exempt from expiry and cap eviction until Payday — applied in grid-inventory R12 2026-10-16)"
+  - name: worldItemCap
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 512
+    unit: WorldItems
+    proposed: true
+    referenced_by:
+      - "design/gdd/belt-logistics.md (BL15 leak bound ≤ 64 BeltLeak WorldItems)"
+  - name: inventoryMaxRows
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 16
+    unit: rows (balance key inventory.maxRows — InventoryRows clamp; Bulk Depot applies to chest and depot only)
+    proposed: true
+    referenced_by:
+      - "design/gdd/content-data-definitions.md (CD11/CD12 InventoryRows clamp, CV-GEN-17; answers OQ-CDD-17)"
+  - name: externalContainerLeashMeters
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: "open ≤ 2.5, auto-close > 3.0"
+    unit: metres
+    safe_range: "leash 3.0–5.0 (floor = open 2.5 + rangeSlackMm 0.5, player-character validator rule 1; was 2.75); Tuning Knobs name externalLeashMeters"
+    updated: "2026-10-16 (hand-back reconciliation)"
+    proposed: true
+    referenced_by:
+      - design/gdd/input-controls.md (Station overlay closes beyond 3.0 m; distinct from the 2.9 m hold-cancel range)
+      - "design/gdd/player-character-movement.md (F5 hostRangeCheck: +0.5 m slack over 300 ms history; R10 wording adopted 2026-10-16)"
+  - name: manifestCellThreshold
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 160
+    unit: cells (manifest when strictly greater)
+  - name: backlogComplaintPerPeriod
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    updated: 2026-10-16
+    value: "3 (spec 01 says 1 'per tick'; renamed — fires once per 15 s period; proposed so two ignored shifts put the team one shift from the Inspector)"
+    unit: complaint per 15 s period
+    safe_range: "decay × 15 + 0.85 … decay × 15 + 2.5 (2.35–4 at the spec's decay; net ≥ 75/90 ≈ 0.84 to bite within five shifts — grid-inventory D5; was 0.75, corrected 2026-10-16)"
+    proposed: true
+    owner_override: "Run Structure GDD must confirm — this GDD only proposes; wait for OQ15 data"
+    referenced_by:
+      - "design/gdd/mail-destinations.md (R11: reads backlogUnits > 0; not settled there; F3 shows 8-player Intake fills ~79 s into shift 5)"
+  - name: waterReturnSeconds
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 10
+    unit: seconds (sea-landed mail floats, then returns to the back of the Intake outfeed queue)
+    proposed: true
+    referenced_by:
+      - "design/gdd/throwing-catching.md (T6 WATER terminal)"
+  - name: capEvictMinAgeSeconds
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 10
+    unit: seconds (a WorldItem younger than this is never cap-evicted)
+    proposed: true
+  - name: bagOwnerGraceSeconds
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 10
+    unit: seconds (owner-only window on a fresh death bag)
+    proposed: true
+    retired: 2026-10-16 (CD D-E) — cut; bags have no owner lock and no owner grace, findability via tint strap + hat + name
+  - name: backlogDrainPerTick
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 32
+    unit: backlog entries placed per tick
+    proposed: true
+    referenced_by:
+      - "design/gdd/mail-destinations.md (R11: drain owned by Grid Inventory; queue owned by Mail & Destinations)"
+      - "design/gdd/simulation-core.md (phase 2 Intake.Drain, R3)"
+  - name: pendingDebounceMs
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: 250
+    unit: ms before an unconfirmed op renders dashed
+    proposed: true
+  - name: misdeliverUnitsPerOp
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: "hand deliver: 1 unit per hold; thrown stack landing in the wrong mailbox: whole stack"
+    unit: units consumed by one Misdeliver (Accept always consumes the whole entry)
+    decided_by: "user, 2026-10-16 (OQ4)"
+    referenced_by:
+      - "design/gdd/throwing-catching.md (T6: ResolveThrownLanding misdelivers every unit until the floor; remainder at the F8 drop point)"
+      - design/gdd/mail-destinations.md (R6, R13; thrown-stack money per unit uncapped, complaint per door)
+      - design/gdd/manual-delivery.md (MISDELIVER_ONE branch: one unit per hold, prompt "Wrong house — posts 1")
+  - name: pillar3Reading
+    source: design/gdd/game-pillars.md
+    registered: 2026-10-16
+    value: "a manual action may be instant if the machine's value is that it works unattended; automation must never remove the player's reason to move"
+    unit: pillar clarification (ratified by the user 2026-10-16, grid-inventory OQ17)
+    referenced_by:
+      - design/gdd/player-character-movement.md (Player Fantasy, fantasy test 1)
+      - "design/gdd/belt-logistics.md (BL21, Player Fantasy; answers grid-inventory OQ16)"
+  - name: intakeOutfeedOrder
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: "ascending per-ENTRY arrivalSeq (uint32, stamped at insertion into the Intake), not mailId; a sort-consolidated entry takes the MAX arrivalSeq of its parts; within an entry lowest mailId first (R6); returned entries enter whole (NoMerge = no merge into residents, never split into singles); no per-unit side array"
+    unit: rule
+    updated: 2026-10-16 (re-review blocker 6)
+    referenced_by:
+      - "design/gdd/belt-logistics.md (BL13 Fifo selector, Presort run policy)"
+  - name: deliverHoldRule
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: "one hold at a mailbox: if any cursor/panel entry matches → deliver_matching (matches only); else if the selected hotbar slot holds mail → deliver it (one-unit Misdeliver, OQ4); else no_target. No second 'Deliver all' prompt; spec 09's 1 s hold retired"
+    unit: rule (CD D-B)
+    referenced_by:
+      - design/gdd/manual-delivery.md (MD3 preview mirrors it; MD5 sends selectedEntryId only on a MISDELIVER_ONE hold, so a ✓ hold can never misdeliver)
+      - "design/gdd/mail-destinations.md (R6 orchestration: one op and one DeliveryOutcome per entry; a hold's k outcomes share one tick with contiguous outcomeSeq; R16 one door beat and one pill per (actor, destination, tick) for via = hand — manual-delivery OQ3c, reconciled 2026-10-16)"
+      - design/gdd/input-controls.md (the deliver hold is the mailbox target type's single verb; grammar, holdEff, Toggle mode)
+      - design/gdd/player-character-movement.md (P10 Deliver verb, Hold 400 ms)
+  - name: airMailRouting
+    source: design/gdd/grid-inventory.md
+    registered: 2026-10-16
+    value: "mail caught or picked up from the world → [hotbar, inventory, backpack] target-first (merge into matching hotbar stack, else lowest free slot ≥ 1); container mail keeps inventory-first; TryCatch returns {unitsIn, unitsFumbled}: oldest units go in, the newest that fit nowhere become one WorldItem at the catcher's feet (unitsIn 0 = fumble), never the cursor; non-mail by category order"
+    unit: rule (CD D-C)
+    updated: "2026-10-16 (hand-back reconciliation: partial catch adopted in grid-inventory R9)"
+    referenced_by:
+      - "design/gdd/throwing-catching.md (T6/T7: CAUGHT{unitsIn, unitsFumbled}; applied in grid-inventory R9 2026-10-16)"
+  - name: inputBindingRules
+    source: design/gdd/input-controls.md
+    registered: 2026-10-16
+    value: "(1) one meaning per binding per reachable router state; (2) no binding carries a tap verb and a hold verb for the same target in the same state — Interact (E / X) reaches several verbs only through target type: each interactable type declares exactly one verb with one grammar; verb latched at press; taps fire on press (no tap-on-release)"
+    unit: rule (refines grid-inventory UI Requirements wording — OQ-IC-10 item 13, adopted there 2026-10-16)
+    referenced_by:
+      - design/gdd/grid-inventory.md
+      - design/gdd/player-character-movement.md
+  - name: interactResolutionOrder
+    source: design/gdd/input-controls.md
+    registered: 2026-10-16
+    value: "at press: Throwing's prediction (T7/F5, catchPredictMs 500) says a teammate's flight will enter the catch sphere → Catch, but over a focused target only under the D3 gate (prediction true on the press tick, no hold in progress, the flight's predicted static receiver is not the focused interactable); else the focused target's single verb (tap, or deliver hold); else catch-armed while held (host keeps any arm ≥ catchTapMs 0.5 s, ≤ 3.0 s; Toggle mode: an open-air tap latches catch-armed for catchArmSeconds). The TARGET comes from the focus snapshot LAST PRESENTED on screen (PC IInteractionQuery); a verb may judge its own branch at the press tick (Manual Delivery MD3). A latched deliver hold is never converted to a catch mid-hold; a Toggle second press only cancels, never re-resolves"
+    unit: rule
+    updated: "2026-10-16 (hand-back reconciliation: Throwing T7 D3 gate, Manual Delivery MD3 press-tick branch adopted)"
+    referenced_by:
+      - "design/gdd/player-character-movement.md (P11 amended 2026-10-16: catch resolved at press, latched deliver hold never converted — OQ-IC-1 adopted)"
+      - "design/gdd/throwing-catching.md (T7: CatchArm edges; catch window catchPredictMs/catchTapMs 500; D3 gate on preemption — hand-back, design-review 2026-10-16)"
+  - name: holdSettingRange
+    source: design/gdd/input-controls.md
+    registered: 2026-10-16
+    value: "0.2–1.0 s, step 0.05, default 0.4; scales every timed hold proportionally (holdEff); Hold/Toggle per hold class (Sprint also Auto); catch-armed Toggle latches for catchArmSeconds 3.0 s (no exemption)"
+    unit: player setting (creative-director directive, grid-inventory OQ22)
+    referenced_by:
+      - design/gdd/player-character-movement.md (F4 holdSetting 0.2–1.0 s via holdEff — OQ-IC-1 adopted 2026-10-16)
+  - name: holdCancelRange
+    source: design/gdd/input-controls.md
+    registered: 2026-10-16
+    value: 2.9
+    unit: "metres (interactRange 2.5 + cancelHysteresis 0.4, an ALIAS of Player Character incumbentSlackMm; strictly greater cancels; ContentValidator: incumbentSlackMm ≤ rangeSlackMm − 100 mm)"
+    proposed: true
+    referenced_by:
+      - design/gdd/player-character-movement.md
+      - "design/gdd/content-data-definitions.md (CV-PLR-09 = PC rule 9 = Input H-F2-1, one catalogue rule)"
+  - name: throwMinAim
+    source: design/gdd/input-controls.md
+    registered: 2026-10-16
+    value: 0.25
+    unit: "seconds (default); player setting 0.15–0.40 s; a throw released (or toggled) before this cancels with 'Hold to aim'; not scaled by holdSetting or stack size"
+    proposed: true
+    referenced_by:
+      - "design/gdd/throwing-catching.md (T1: confirmed — closes OQ-IC-3(b); minimum cycle ≈ 0.32–0.57 s)"
+  - name: backLadder
+    source: design/gdd/input-controls.md
+    registered: 2026-10-16
+    value: "Esc / B, one press one step: cancel text entry → close action menu / stepper → cancel aim → 3b cancel a running Toggle-mode hold (consumed; Pause needs a fresh Back) → return held entry (stops on no_room; a second Back while the message is visible — ≥ backSkipSeconds 2.0 s, until the next non-Back input — skips it; entry never dropped) → close panel / Map / Station / History / Build → Pause (Esc only; B never pauses; gamepad Menu = Pause, reserved; KBM P = direct Pause, remappable)"
+    unit: rule
+    referenced_by:
+      - design/gdd/grid-inventory.md (Esc order = this ladder — OQ-IC-10 item 9, adopted 2026-10-16)
+      - "design/gdd/comms.md (H18, moved from HUD 2026-10-16: cancel text entry is the first Back step for chat)"
+      - "design/gdd/manual-delivery.md (MD4: Back that cancels a toggled deliver hold is consumed — OQ2(d) adopted)"
+  - name: oneCommitRule
+    source: design/gdd/input-controls.md
+    registered: 2026-10-16
+    value: "commit = Hold or Aim-release that moves items (deliver, deconstruct, Throw); a commit is in progress from press and PENDING until the host reply or pendingCommitTimeout 500 ms after sending (reqId + entryId; rejections shown); first commit in progress or pending wins, a second commit press is muted with 'Busy' ('Release to retry' after); item-moving taps (Drop, quick-move) not live during a commit; movement, Jump, quick ping, comms wheel, push-to-talk never commits"
+    unit: rule
+    proposed: true
+    referenced_by:
+      - design/gdd/networking-session.md (to be written — pendingCommit ack, OQ-IC-18)
+      - "design/gdd/comms.md (H14, moved from HUD 2026-10-16: the comms wheel and quick ping are never commits; a deliver hold survives the wheel)"
+      - design/gdd/building-system.md (B8 Deconstruct is a commit; Place / PlaceLine are not commits, B11; pending ghost per request)
+  - name: catchArmSeconds
+    source: design/gdd/input-controls.md
+    registered: 2026-10-16
+    value: 3.0
+    unit: "seconds; Toggle-mode catch-armed latch from an open-air Interact tap, ends on a catch or any press (safe range 1.5–5.0)"
+    proposed: true
+    referenced_by:
+      - "design/gdd/throwing-catching.md (T7: Toggle arm latches 90 ticks, armedUntil = min(down + 90, upApplyTick))"
+  - name: carrierBaseSpeeds
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "walk 5000 / sprint 7500 / swim 2000 mm/s; jump height 1200 mm; no stamina; no fall damage; no drowning"
+    unit: mm/s, mm
+    referenced_by:
+      - design/spec/11-balance-baselines.md
+      - design/spec/13-v1-cut-and-decisions.md
+  - name: buffCapPm
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: 400
+    unit: permille (summed movement buffs; max 1.4×, matches gait playback clamp 0.6–1.4)
+    proposed: true
+    referenced_by:
+      - "design/gdd/content-data-definitions.md (CD12 MoveSpeedAddPm clamp max = player.buffCapPm; F1 example Long Legs ×3 + Postal Sprint 660 → 400; CV-PRK-08 suppressed on long_legs by design)"
+  - name: interactRangeMm
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "2500 (focus/hold keep 2900; host accepts + 500 mm slack over 300 ms)"
+    unit: mm
+    referenced_by:
+      - design/spec/11-balance-baselines.md
+      - design/gdd/input-controls.md
+  - name: carrierCapsule
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "radius 300 × height 1400; step-up 400; walkable slope ≤ 35°"
+    unit: mm, degrees
+    proposed: true
+    referenced_by:
+      - "design/gdd/throwing-catching.md (bonk capsule r 300 × h 1400; fwdOffMm ≥ radius)"
+  - name: respawnSeconds
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "10 (Second Wind 3); clock-in at the PO Spawn pad; no buildable pads in v1"
+    unit: seconds
+    owner_override: "key name owned by Run Structure per grid-inventory Tuning Knobs; value from spec 11 §8"
+    conflict_note: "2026-10-16 content-data-definitions design-review: the Sim key is player.respawnMs (ms) everywhere (CD12, CV-GRD-05), and Second Wind 3 s lives only in the perk def (PC secondWindMs to retire) — hand-backs OQ-CDD-4 / OQ-CDD-9; value text left unchanged pending the owners"
+    referenced_by:
+      - design/gdd/grid-inventory.md
+      - design/spec/11-balance-baselines.md
+      - "design/gdd/content-data-definitions.md (CD12 RespawnMs, base player.respawnMs 10000, Second Wind Set 3000 min-wins; CV-PLR-05)"
+  - name: spawnProtectMs
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "3000 after clock-in, 1500 after rejoin (from JoinStateApplied); ends early only on a damaging action — throwing mail never ends it"
+    unit: ms
+    proposed: true
+    owner_override: "Health & Damage GDD confirms"
+    referenced_by:
+      - "design/gdd/health-damage.md (HD6/HD7 — value CONFIRMED 2026-10-16; ends on a weapon/turret DamageApplied with actor = carrier and dealt > 0, read by PC in phase 11, or on Throwing's phase-4 HIT_ENEMY contact regardless of dealt)"
+  - name: frozenSeconds
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "120 — on-break body: invulnerable, NON-SOLID (exception to spec 13 §4.5), untargeted, not interactable; then SpillToBag + despawn"
+    unit: seconds
+    referenced_by:
+      - design/spec/06-multiplayer-netcode.md
+      - design/gdd/grid-inventory.md
+  - name: standardIssueGrant
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "at clock-in, if the panel holds no weapon / melee tool, Grant one standard-issue copy of the kit melee item (Land kit Axe), sell value 0, ≤ 1 per clock-in (answers grid-inventory OQ23)"
+    unit: rule
+    proposed: true
+    owner_override: "Player Combat / Economy / Content & Data confirm"
+    updated: "2026-10-16 (consistency pass: modelled as content-data KitDef.standardIssueItem + a Grid Inventory entry flag, not an ItemDef flag — PC Dependencies and OQ8 aligned)"
+    referenced_by:
+      - "design/gdd/content-data-definitions.md (CD10: not an ItemDef flag — KitDef.standardIssueItem + Grid entry flag; hand-back OQ-CDD-2/4)"
+  - name: inputContextsAdded
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "Mounted (vehicle seat or turret: Interact = Dismount only) and Dead (Pause, Back, PTT, chat, comms wheel — pings anchor at the own pile, Say, emotes greyed; no Look, quick ping or spectate in v1 [D-3] — camera auto-orbits the pile; player-facing label 'Knocked down'); Panel cannot open while Mounted or Dead; sprint not live in Panel"
+    unit: rule (adopted in grid-inventory UI Requirements context table 2026-10-16)
+    updated: "2026-10-16 (hand-back reconciliation: input-controls R2 rule 5 Look / quick ping / Spectate in Dead rejected per D-3 — PC OQ17; dropped by input-controls H-R2-5b, OQ17 closed in the consistency pass)"
+    referenced_by:
+      - design/gdd/grid-inventory.md
+      - design/gdd/input-controls.md
+      - "design/gdd/comms.md (H14, moved from HUD 2026-10-16: Dead keeps chat and the comms wheel; wheel pings anchor at the own pile; no quick ping while knocked down)"
+  - name: transformSendHz
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "15 moving (every 2nd tick) / 4 keepalive; owner → host ReportTransform 16 B (aim pitch 7 bits + 1 spare flag bit reserved for manual-delivery's posting flag); throws play on ThrowLaunched and emotes on comms' Emote, no duplicate one-shot; host → each peer one batched Transforms[] per send tick, 17 B per entry; interp delay 160 ms; extrapolate cap 100 ms; snap > 6 m or teleportSeq change; ≈ 6.7 kbps up / 19 kbps down per client; 20 Hz only after a spec 06 §4.2 re-baseline"
+    unit: Hz, bytes, ms
+    proposed: true
+    updated: "2026-10-16 (design-review D-1: 20 → 15 Hz, batching contract)"
+    owner_override: "Networking & Session confirms the batching contract and overhead; 15 Hz fits spec 06 §4.2"
+    referenced_by:
+      - "design/gdd/comms.md (Network, moved from HUD 2026-10-16: proposed typing bit in the owner's transform — rejected by design-review CF-2: animState bits all used; typing moves to a ch3 message; speaking bit removed, Proximity Voice owns it)"
+  - name: supportSpeedCapMm
+    source: design/gdd/player-character-movement.md
+    registered: 2026-10-16
+    value: "12000 — belt carry + own velocity capped while on a belt (roof riders move with the vehicle, outside the cap); must stay below the mail truck's road speed"
+    unit: mm/s
+    proposed: true
+    owner_override: "Vehicles / Belt Logistics confirm"
+    referenced_by:
+      - "design/gdd/belt-logistics.md (BL14 riders; Belt Logistics confirms 12 000 — v1 max carry 9 000 with Mk2 + Express + push)"
+  - name: misdeliveryPenaltyRatio
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: 0.5
+    unit: share of SPAWN value (not timeliness-adjusted)
+    referenced_by:
+      - design/spec/11-balance-baselines.md
+  - name: lateValueRatio
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: 0.5
+    unit: pay share one shift late (Grace Period → 1.0)
+    referenced_by:
+      - design/spec/11-balance-baselines.md
+  - name: deadLetterShifts
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: 2
+    unit: shifts late at which mail pays 0 (still clears; 0 complaint)
+  - name: walletFloor
+    source: design/spec/11-balance-baselines.md
+    registered: 2026-10-16
+    value: -500
+    unit: cents (a misdelivery landing exactly on −500 is allowed — grid-inventory OQ13, confirmed by mail-destinations R8)
+    owner_override: "Economy, Wallet & Shop GDD owns the value"
+    referenced_by:
+      - design/gdd/grid-inventory.md
+      - design/gdd/mail-destinations.md
+      - design/gdd/manual-delivery.md (F1 floorRefusal prediction — advisory; the host decides)
+      - "design/gdd/hud-notifications.md (H10 wallet rendered by the single IMoneyFormatter — format owned by Economy, HN-6; floor outline flash via the governor)"
+      - "design/gdd/throwing-catching.md (F7 label headroom; T6 floor stop)"
+  - name: mailboxPhaseRule
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: "destinations accept only in Delivery and Raid (the flag for tick T is set by Run Structure in T − 1, sent as a reliable ordered DeliveriesState event); otherwise Reject 'closed' — holds fail, throws bounce, feeders hold; locked-district mailboxes Reject 'not_on_route'. Closing grace: a hold begun or throw released while OPEN resolves as OPEN if applied ≤ closeGraceTicks (90) after close; feeders/NPC no grace. The hold start is deliver_matching's holdStartTick (host tick domain, clamped by manual-delivery MD6); the release is the releaseTick passed to ResolveThrownLanding(destinationId, entry, throwerId, thrownPm, releaseTick)"
+    unit: rule
+    updated: "2026-10-16 (hand-back reconciliation — manual-delivery OQ3d, throwing-catching OQ2a)"
+  - name: mailboxFeederRate
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: "insertRate 2.0 pieces/s per feeder (one per 15 ticks, credit capped after the insert test); hands and throws never throttled"
+    unit: pieces per second
+    referenced_by:
+      - design/spec/03-mail-inventory-economy.md
+      - "design/gdd/belt-logistics.md (BL8 OfferUnit; flags F11 remainder loss, OQ-BL-H4)"
+  - name: doorComplaintCap
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: "20 raw complaint per door bucket, refill 20 per 30 s (doorComplaintWindowSeconds)"
+    unit: complaint
+    proposed: true
+  - name: lateComplaintWindowSeconds
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: 30
+    unit: seconds between late-complaint charges, team-wide (was 15 per door; design-review 2026-10-16 — +2 per 15 s exceeded the 0.1/s decay)
+    proposed: true
+  - name: lostParcelsPerShiftCap
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: 6
+    unit: "SpawnSpecial (Found) mail per shift across all callers, AND Σ spawnValue ≤ SpawnProfile.foundValueBudget (15 % of the shift quota, Run Structure); one data value foundValueMultPm 3000; Loot mail exempt from WorldItem expiry/eviction until Payday (applied in grid-inventory R12 2026-10-16)"
+    proposed: true
+  - name: catchVolume
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: "1.0 m wide × 0.8 m tall × 1.0 m deep, centred 1.0 m above the mailbox base"
+    unit: metres (thrown entry must enter it to land in the mailbox)
+    proposed: true
+    referenced_by:
+      - "design/gdd/throwing-catching.md (F4 slab test; descending entry only; first qualifying volume wins)"
+  - name: backlogUnits
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: "pieces (units) in the backlog FIFO owned by Mail & Destinations; replicated u16 to every peer; grid-inventory adopted the name 2026-10-16 (was 'backlogCount'); Run Structure's backlog complaint reads backlogUnits > 0"
+    unit: rule / name
+    referenced_by:
+      - "design/gdd/grid-inventory.md (D2, D5, Network backlog row, JoinState, OQ15)"
+      - "design/gdd/hud-notifications.md (H10 backlog chip; F7 tiers 1–40 / 41–160 / 161+ units read from Mail knobs — unrelated to grid-inventory's 160-cell manifest threshold, confirmed by mail-destinations for HN-4d)"
+  - name: teamComplaintCap
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: "RH(40 × playerScale) raw complaint per team bucket (40 / 98 / 155 at 1 / 4 / 8 players), refill the same per 30 s; applied after the per-door bucket"
+    unit: complaint
+    proposed: true
+  - name: closeGraceTicks
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: 90
+    unit: ticks after close during which a hold begun / throw released while OPEN still resolves as OPEN
+    proposed: true
+    referenced_by:
+      - design/gdd/manual-delivery.md (MD4 a close never cancels a hold in progress; MD5 request carries holdStartTick in the host tick domain; MD6 clamps it to [applyTick − (maxHoldTicks + closeGraceTicks), applyTick], never replaces it)
+  - name: deadLetterReturnToSender
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: "at Payday start every unit with L ≥ deadLetterShifts (any container, backlog or world) retires — 0 ¢, no complaint, no XP, not a misdelivery, one ledger line; Grid Inventory performs the removal (R12 Payday sweep, CONSUMED with actorId system — adopted 2026-10-16)"
+    unit: rule
+    referenced_by:
+      - "design/gdd/grid-inventory.md (R12 Payday start: dead-letter sweep, then unclaimed Loot returns to the Intake; H-R12-4)"
+      - "design/gdd/hud-notifications.md (H-ROUTE-6 lint allowlists the postal term 'dead letter(s)' — CD ruling 2026-10-16)"
+  - name: mailValueKnobs
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: "distanceStepPm 250; shiftStepPm 100; cursedValueMultPm 1500; cursedShare 10 % (Cursed Mail stamp); foundValueMultPm 3000; batchIntervalSeconds 15; batchJitterSeconds 3; tailGuardSeconds 9; streetStreakRatio 30 %; lateComplaint +2"
+    unit: data-file knobs (F1–F4, F9)
+  - name: rollCallNames
+    source: design/gdd/mail-destinations.md
+    registered: 2026-10-16
+    value: "host session setting Names (default) / 'A carrier' / Off; names the actor in the Payday roll-call (Off: no names) AND in HUD's clerk-voice misdelivery feed line and history ('Jules posted 2 letters for 9 Oak Row to 17 Elm Lane'; 'A carrier' under both other settings); machines are always named ('Belt 3', 'Truck 2'), never their builder"
+    unit: rule / session setting
+    referenced_by:
+      - "design/gdd/hud-notifications.md (H9 attribution, H-ATTR-3; HN-4b adopted by mail-destinations R16, 2026-10-16)"
+
+  - name: certifiedDeliverRequest
+    source: design/gdd/manual-delivery.md
+    registered: 2026-10-16
+    value: "on hold completion the client sends deliver_matching {mailboxId, selectedEntryId?, holdStartTick (host tick domain)}; selectedEntryId ONLY when the latched branch is MISDELIVER_ONE, so a hold that started on a ✓ can never misdeliver (host returns no_target instead); a hold cancels when the recomputed branch KIND differs from the latched one (recompute uses the destination state at the hold start, so a close never cancels); pending holds until the reply or the resync snapshot"
+    unit: rule
+    referenced_by:
+      - "design/gdd/grid-inventory.md (R7 deliver_matching carries holdStartTick u32; Network rules 7–8: timed-out entries stay pending until the snapshot, reqId u16, duplicate reqId → original reply — adopted 2026-10-16; H-R7-11)"
+      - design/gdd/mail-destinations.md (R4 closing grace, R6)
+      - "design/gdd/simulation-core.md (holdStartTick from IHostClock.EstimatedHostTick; opSeq arrival order; mailboxId = u32 destination EntityId, R19 — wire 12 B MATCH / 16 B MISDELIVER_ONE; HB8 adopted 2026-10-16. Its Edge Cases say the Sim does not dedupe reqId, vs grid-inventory rule 8 — open for /consistency-check)"
+  - name: deliverAvailabilityOrder
+    source: design/gdd/manual-delivery.md
+    registered: 2026-10-16
+    value: "Deliver IsAvailable first match: Panel open 'Close panel to deliver' (lock, no glyph) → swim depth 'Dry land required to deliver' → own non-optimistic op pending 'Delivering…'/'Sorting…' (derived from the pending queue; a timed-out entry stays pending until the resync snapshot) → CLOSED → LOCKED → preview NOTHING 'Nothing for this address' (one dim line, no lock); a predicted wallet-floor refusal is NOT a row (hold allowed, advisory line)"
+    unit: rule
+  - name: branchSettleTicks
+    source: design/gdd/manual-delivery.md
+    registered: 2026-10-16
+    value: 6
+    unit: "ticks (200 ms) a MISDELIVER_ONE branchKey (kind, destination, selected entry) must be displayed before a hold can start on it; any branchKey change or unavailable tick resets it; screen-reader mode also waits for the ✗ announcement; MATCH has no settle"
+    proposed: true
+  - name: quickHandsInsertPm
+    source: design/gdd/manual-delivery.md
+    registered: 2026-10-16
+    value: "500 (spec 10 −50 %) on every deliver hold (✓ and ✗) through the shared holdEff; minHoldTicks 6 floor unchanged; StatSheet sum clamped to 0…750 by the DeliverInsertPm StatDef (Content & Data)"
+    unit: permille (StatSheet DeliverInsertPm, alias insertPm)
+    proposed: true
+    owner_override: "Perks GDD owns the perk; spec 10 applied literally (CD ruling ii, design-review 2026-10-16) — no user ratification pending"
+    referenced_by:
+      - design/spec/10-content-tables.md
+      - design/gdd/player-character-movement.md (F4 insertPm 0 or 500, Tuning Knobs; 'Carrier archetype' insertPm 300 retired — adopted 2026-10-16)
+      - design/gdd/mail-destinations.md (answers OQ5)
+      - design/gdd/input-controls.md (F1 insertPm 0 or 500, OQ-IC-7 closed)
+      - design/gdd/content-data-definitions.md (stat DeliverInsertPm, Quick Hands +500, range 0…750)
+      - "design/gdd/content-data-definitions.md (CD12 stat DeliverInsertPm, Add, clamp 0…delivery.insertPmMax 750 — closes manual-delivery's clamp hand-back)"
+  - name: deliverAnchorPriority
+    source: design/gdd/manual-delivery.md
+    registered: 2026-10-16
+    value: 2
+    unit: "IInteractable priority for the Deliver anchor = player-character default; one level over Pick-up (1) ≈ 625 mm focus bias at the mailbox's foot"
+    referenced_by:
+      - design/gdd/player-character-movement.md (F4 interactFocus)
+  - name: reasonStripTicks
+    source: design/gdd/manual-delivery.md
+    registered: 2026-10-16
+    value: "ceil(24 × textScalePct / 100) — 24 ticks (0.8 s) at 100 % text, 36 at 150 %"
+    unit: "ticks a deliver cancel / refusal / reply-failure reason shows in a transient strip BELOW the live prompt (the live ✓ / ✗ branch stays visible and pressable); ended early by a focus change. Replaced the retired reasonShowTicks (60)"
+    proposed: true
+    status: deprecated
+    retired: "2026-10-16 (consistency pass) — the strip's lifetime is hudToastLifetime F1 (≥ 2500 ms × duration setting, HUD H11); 0.8 s was below the reading floor. manual-delivery F5 / MD7 / OQ5 and throwing-catching UI now cite HUD F1"
+
+  - name: hudNotificationCaps
+    source: design/gdd/hud-notifications.md
+    registered: 2026-10-16
+    value: "toasts M-1a 1 slot (replace-latest, no queue), M0+ 2 visible / 4 queued (1 at 200 % text), one total-order overflow rule (lowest priority then oldest, equal-or-lower only, P1 never evicted); feed 5 lines (3 at 200 %), feed-pending 4, crew-line collapse at 3 distinct actors; pills 3 = 1 own + 2 team, merge key (sign, own/team); banners 1 + 1 pending (P0 only), pending TTL 5000 ms; history ring 50; merge windows toast 3000 ms (cueId, actorId), contention 1000 ms, pill 500 ms, feed extend 2000 / commit 8000 ms"
+    unit: rule / counts / ms
+    proposed: true
+    referenced_by:
+      - "design/gdd/grid-inventory.md (OQ25 toast cap and merge rule answered here — applied 2026-10-16, with others' op sounds 1 per 250 ms per container + 6/s global)"
+      - "design/gdd/mail-destinations.md (R16: a hand hold's k outcomes in one tick render as one pill '+N¢ · k stacks' before any merge — adopted by HUD H8 2026-10-16; Mail's UI Requirements defer pill / feed caps and merge windows to H4 / H8 — consistency pass 2026-10-16; misroute ≤ 1 line per door per 10 s stays Mail's)"
+      - "design/gdd/manual-delivery.md (OQ3c per-hold pill adopted; in-world '+N' sweep pill rejected as redundant, HUD reconciliation 2026-10-16)"
+      - "design/gdd/throwing-catching.md (catch routing: clean catch → hotbar pulse, no toast; 'Bag full — fumbled' and 'Jules caught it' → catcher toasts; thrower's result → personal P3 toast, not feed — adopted in its UI and TC-T7-2h, consistency pass 2026-10-16; grid-inventory's feedback row now reads 'Bag full — fumbled')"
+  - name: hudBannerPriority
+    source: design/gdd/hud-notifications.md
+    registered: 2026-10-16
+    value: "host lost > raid > controller disconnected > all carriers down > phase; one slot + one pending (P0 only — a phase banner that cannot show goes to feed and history); pending TTL 5000 ms then demoted to feed and history; pre-empted or displaced banners go to feed and history; the knocked-down block is its own tier-A widget outside the queue"
+    unit: rule
+  - name: pingLifetimeMs
+    source: design/gdd/comms.md
+    registered: 2026-10-16
+    value: "10000 (spec 09 §2.6); pingsPerPlayerMax 2; refresh radius 2000 mm; quick-ping range 150 m (ping ack cut from v1, design-review CF-9)"
+    unit: ms / count / mm / px / m
+    referenced_by:
+      - design/spec/09-ui-ux.md
+  - name: chatMaxChars
+    source: design/gdd/comms.md
+    registered: 2026-10-16
+    value: "200 grapheme clusters (spec 06 §4), hard cap 800 UTF-8 bytes on the wire; 6 visible lines, 100-line scrollback per run; JoinState replays 20"
+    unit: graphemes / bytes / lines
+    referenced_by:
+      - design/spec/06-multiplayer-netcode.md
+  - name: commsTrustModel
+    source: design/gdd/comms.md
+    registered: 2026-10-16
+    value: "no host rate limits on chat, pings or emotes (spec 13 §3, §4.3 supersede spec 06 §4's 3/s and 1/s as server rules); host relay checks shape only and drops invalid messages without kicking; sender-side courtesy limits (hudCommsCourtesy); per-peer 32 KB comms high-water valve is a memory guard, not a rate limit"
+    unit: rule
+    referenced_by:
+      - design/spec/13-v1-cut-and-decisions.md
+      - design/spec/06-multiplayer-netcode.md
+  - name: commsChannelBudget
+    source: design/gdd/comms.md
+    registered: 2026-10-16
+    value: "reliable-ordered channel 3 'comms'; ≤ 10 B/tick sustained per peer (≈ 2.4 kbps); Ping 18 B up / 27 B relayed; JoinState HUD block ≤ 4.4 KB (≤ 16 pings + last 20 chat lines)"
+    unit: channel / bytes
+    proposed: true
+    owner_override: "Networking & Session confirms channel numbering, sizes and the up-budget re-baseline to ≥ 12 kbps (HN-9); design-review 2026-10-16 found the JoinState figure false (20 × 800 B ≈ 16 KB) — byte-budget replay pending (comms.md CF-4)"
+  - name: hudTextFloors
+    source: design/gdd/hud-notifications.md
+    registered: 2026-10-16
+    value: "1080-reference px scaled by window height / 1080: reading text (prompt, toasts, feed, captions) ≥ 18; timer digits ≥ 28; wallet and quota ≥ 20; 14 px Micro only for decoration; HUD reading text scales to 200 % (panels 150 %); contrast text ≥ 4.5:1 (large ≥ 3:1), interactive non-text ≥ 3:1; HUD scale floor 100 % (player-character OQ28's 75–150 % rejected 2026-10-16: below the reading floor); Compact layout deferred to M4; minimum window 1280×720"
+    unit: px / % / rule
+    proposed: true
+    owner_override: "spec 09 §5 amendment (HN-14) and art-bible §7 18 px floor (HN-15) pending"
+    referenced_by:
+      - "design/gdd/input-controls.md (OQ-IC-12 adapted: prompts follow H23 — reading text to 200 %, panels 150 %; prompt ≥ 18 px)"
+      - "design/gdd/player-character-movement.md (OQ28 UI scale 75–150 % — rejected by HUD reconciliation, struck in PC OQ28 2026-10-16)"
+      - design/art/art-bible.md
+  - name: hudScreenProjectedMarkers
+    source: design/gdd/hud-notifications.md
+    registered: 2026-10-16
+    value: "pings, name tags (≤ 10 m), pile beacons (8), Lost Parcel markers (8), focus bracket and prompt anchor are screen-space widgets projected from world anchors (never 3D billboards), composited above post-processing; protected zone: the toast lane is anchored under the prompt rect and toasts / feed lines never draw over the prompt, landing marker + arc label rect or bracket rect (alternate anchor); only screen-projected markers over them fade to ≤ 25 % over ≥ 250 ms; behind-camera anchors draw no marker (compass echo only); the prompt itself is screen-fixed under the reticle (not world-space or edge-clamped, no leader line — reconciliation 2026-10-16), so a behind-camera anchor removes only the bracket"
+    unit: rule
+    referenced_by:
+      - "design/gdd/input-controls.md (OQ-IC-11 answered: hold ring, slash overlay, focus bracket)"
+      - "design/gdd/throwing-catching.md (publishes the landing marker + arc label screen rect each aiming frame)"
+      - "design/gdd/manual-delivery.md (UI Requirements: placement is H11 — screen-fixed, no leader line; adopted)"
+      - "design/gdd/player-character-movement.md (Visual/Audio: focus highlight = this bracket; PC supplies anchor and bounds only — HN-2(d) adopted 2026-10-16; its interaction-prompt paragraph defers placement to H11, consistency pass 2026-10-16)"
+
+  - name: throwSpeedByClass
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: "light 14000 / medium 10000 / heavy 6000 mm/s; bulk cannot be thrown; non-mail uses its ItemDef weightClass (default light)"
+    unit: mm/s
+    referenced_by:
+      - design/spec/13-v1-cut-and-decisions.md
+      - design/spec/11-balance-baselines.md
+      - prototypes/m1a-delivery-throwing-concept/REPORT.md
+      - "design/gdd/content-data-definitions.md (CD7: weightClass is REQUIRED on every ItemDef/MailKindDef — no default; Throwing rule 8 / CV-THR-08)"
+    conflict_note: "2026-10-16 content-data-definitions CD7: '(default light)' conflicts with weightClass REQUIRED (Throwing's own rule 8 agrees); value text left unchanged pending Throwing owner — hand-back OQ-CDD-5"
+  - name: throwGravity
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: 9800
+    unit: "mm/s² (thrown items only; the carrier's jump gravity 24000 is separate)"
+    proposed: true
+  - name: throwLoftDeg
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: 6
+    unit: "degrees added to camera pitch (safe 0–8; 70 + loft ≤ 78)"
+    proposed: true
+  - name: maxFlightTicks
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: 90
+    unit: "ticks (3 s, spec 13 §4.1); then TIMEOUT drops the item to the surface below"
+  - name: throwCooldownTicks
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: "5, leaky bucket: on an accepted launch at T, TAT ← max(TAT, T) + 5; host rejects throw_cooldown if T < TAT − throwBurstTicks (5) → ≤ 2 back-to-back after a hitch, ≤ 6/s per player sustained, ≤ 48/s team; the client checks at release and holds an early release until the cooldown elapses"
+    unit: ticks
+    proposed: true
+    updated: "2026-10-16 (design-review CD-SENIOR D5: cooldownSlackTicks 2 replaced — it let the host accept 10/s per player)"
+  - name: catchRadiusMm
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: "1500 around the chest (feet + 1000)"
+    unit: mm
+    referenced_by:
+      - design/spec/13-v1-cut-and-decisions.md
+      - "design/gdd/player-character-movement.md (P10 Catch ≤ 1.5 m; validator 6 catch range < rangeMm)"
+  - name: catchPredictAndTapMs
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: "catchPredictMs 500 (prompt look-ahead, ≈ 400 ms lead after on-hysteresis); catchTapMs 500 (minimum arm); any arm capped at 90 ticks; catchHistoryMaxOffsetMm 1500 (1000–2000; catchRadiusMm + offset ≤ 3700)"
+    unit: ms / mm
+    proposed: true
+    referenced_by:
+      - "design/gdd/input-controls.md (OQ-IC-3(a) answered)"
+  - name: throwReceiverOrder
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: "earliest contact fraction wins; ties: armed catcher 0 · mailbox catch volume (descending entry only) 1 · goon 2 · teammate bonk 3 · belt lane 4 · solid 5 · ground 6 · water 7; then nearer centre, then lower hash(flightId, receiverId); thrower never a receiver; containers never accept throws; items never parented to vehicles"
+    unit: rule
+    proposed: true
+    referenced_by:
+      - "design/gdd/grid-inventory.md (OQ7 answered)"
+      - "design/gdd/mail-destinations.md (OQ8 descending entry, first qualifying volume)"
+  - name: throwNoDice
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: "no randomness in throws, ever: no spread term (the throwSpreadMrad knob is retired — ≤ 15 mrad could never reach a wrong door); execution variance is human (aim sensitivity grows with range, haste and motion, unpredicted receivers in the arc); a wrong door requires a red preview on the release frame; preview colour, pattern and glyph are exact every frame (only label text and sound wait 100 ms); if hand share < 20 % revisit with non-random levers only"
+    unit: rule (CD-SENIOR D1 + D2, design-review 2026-10-16 — supersedes the CD-GDD-ALIGN spread knob and colour debounce; amends mail-destinations OQ8 / R13 wording — ratified by the owner 2026-10-16)
+    updated: "2026-10-16 (hand-back reconciliation: HB3 adopted — flight spin is a pure cosmetic function of flightId; any future randomness must be a registered Sim Core stream indexed by a per-run u32 launch ordinal, never flightId)"
+    proposed: true
+    referenced_by:
+      - "design/gdd/mail-destinations.md (R13 / OQ8 wording adopted 2026-10-16 hand-back reconciliation; ratified by the owner 2026-10-16)"
+      - design/gdd/input-controls.md
+      - "design/gdd/simulation-core.md (R24: no RNG stream registered for Throwing; HB3)"
+  - name: bonkRule
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: "a flight hitting a non-catching teammate (capsule r 300 × h 1400, newest reported position): no damage, stun, knockback or inventory change; the whole entry drops at their feet; spawn protection unchanged; cosmetic hat-lift/sound cooldown 1000 ms per victim; never rewarded by any stat, Payday line or perk"
+    unit: rule (creative-director)
+    proposed: true
+  - name: enemyHitSlackMm
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: 300
+    unit: mm added to goon capsule radius for thrown hits
+    proposed: true
+  - name: throwRangePermille
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: "1000 default; Cannon Arm 1500 → launch speed × isqrt(1500000)/1000 = 1224 ‰ (real range ×1.24–1.47 by aim: ×1.30 flat, ×1.47 peak)"
+    unit: permille (personal StatSheet key, new)
+    updated: "2026-10-16 (owner decision: no retune; the Cannon Arm card reads the computed flat-aim outcome ≈ 30 % farther; spec 10 §4.1 / spec 13 §4.1 'throw range +50%' text superseded)"
+    proposed: true
+    referenced_by:
+      - design/spec/10-content-tables.md
+      - "design/gdd/content-data-definitions.md (CD12 stat ThrowRangePermille — rename to ThrowRangePm withdrawn at design-review 2026-10-16; Cannon Arm = Add +500, maxStacks 1; clamp throw.rangeMinPermille/rangeMaxPermille 1000/1500 PROPOSED balance keys; card shows {fx:throw.rangeRatio} = real flat-aim ratio, not 50 % (FT-1, CD27); CV-THR-02)"
+  - name: throwPayloadBytes
+    source: design/gdd/throwing-catching.md
+    registered: 2026-10-16
+    value: "positions int32×3 (12 B); ThrowRelease 25 B up (claimed feet; no clientTick); ThrowLaunched 30 B; FlightResolved 18 B (presentation only); CatchArm 1 B; flights 0 B in JoinState/RejoinState; ≈ 66 B down per flight per peer incl. 8 B framing → ≈ 2.1 kbps at 4 flights/s, ≈ 10.1 kbps at the honest 19.2/s, ≈ 25.3 kbps at the 48/s host cap"
+    updated: "2026-10-16 (design-review: origin packing defined, ceilings reconciled)"
+    unit: bytes (payload, before RPC framing)
+    proposed: true
+    owner_override: "Networking & Session confirms"
+    referenced_by:
+      - "design/gdd/simulation-core.md (R6: every OpKind payload ≤ 48 B; N4 host-tick-domain rule)"
+      - "design/gdd/input-controls.md (R11: throw release carries no tick field — HB6 / OQ-IC-3(e) reconciled 2026-10-16)"
+  - name: tickRateHz
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: 30
+    unit: ticks per second (locked; spec 07 §1.4; uint32 tick from run start, tick 0 = shift-1 Prep)
+  - name: simPhaseOrder
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: "0 Inputs.Apply → 1 Items.Expire → 2 Intake.Drain → 3 Players.Step (host role) → 4 Throwing.Step → 5 Automation.Step → 6 Vehicles.Step → 7 Agents.Step → 8 Mail.Step → 9 Economy.Flush → 10 Combat.Resolve → 11 Combat.React → 12 Run.Step → tick end (invariants) → 13 Events.Flush; only player/System requests use the op FIFO; in-tick callers use synchronous I…Api calls in their own phase (player op beats inserter); several systems may bind one phase (composition order); tick-end checks bound separately (ITickEndCheck); phase 0 drains ≤ maxOpsDrainedPerTick"
+    unit: rule (DEV-1…DEV-8 vs spec 07 §4)
+    proposed: true
+    referenced_by:
+      - "design/gdd/belt-logistics.md (BL20 order inside Automation.Step)"
+  - name: maxCatchUpTicksPerFrame
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: 4
+    unit: ticks per frame (safe 3–8; + catchUpGuardMs 10 at M0, safe 10–16 and ≥ 2 × host p99 budget, enforced by FrameRunner; excess dropped, never banked)
+    proposed: true
+  - name: opQueueCapacity
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: "4096 (systemOpReserve 64 for System ops); maxOpsDrainedPerTick 64 (safe 32–256, SimSettings, replay header; excess stays queued in order); payload ≤ 48 B per OpKind (layout in ADR seed)"
+    unit: ops
+    proposed: true
+  - name: eventLogCapacity
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: "4096 per tick (eventLogReserve 256 for cursor-read kinds and OpReply, ≤ capacity/4); constraint cap×4 + 1.5×systemEventsPerTick ≤ capacity − reserve; overflow → overflowInfo {overflow, droppedAudienceMask, droppedKindsMask} → Networking resyncs exactly that audience"
+    unit: entries (64 B each)
+    proposed: true
+  - name: warmupTicks
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: 300
+    unit: ticks excluded from perf and allocation gates
+    referenced_by:
+      - design/gdd/grid-inventory.md (first 300 ticks discarded as warm-up)
+  - name: eventOrderRule
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: "one append-only log per tick in raise order; no synchronous subscribers (pull cursor, earlier phases only); a handler's OpReply follows its events; Coalescible rewrite only within the raising handler/API call; audienceMask resolved at raise time; IEventSink.Deliver is copy-only and resolves masks to peers inside the call (no transport call inside Tick); replication classes Internal (fail-closed default) / Replicated / OwnerOnly / Targeted; flushed once in phase 13"
+    unit: rule
+  - name: determinismTiers
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: "T1 same machine: two SimWorlds, same ContentSet+SimSettings+runSeed+op log+ingested transform-sample log (recorded from M-1a) → identical canonical dumps every tick (SHA-256 in tests); T2 Windows/Linux x64 bit-identical: OwnedCarrier.Step, RNG/hash primitives, pure functions, shared checksums; no float/double/decimal in Sim state; world never lockstepped"
+    unit: rule
+  - name: playerSlot
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: "PlayerSlot u8 0–7 (wire-compact, assigned by Networking); playerId = counter-allocated player EntityId; new-account join only in Lobby/Prep (else join_closed); a disconnected player's slot stays held while Frozen and a same-account reconnect within 120 s is accepted in any run phase with the same playerId and slot (spec 06 §6, PCM P19); a freed slot is reusable from the next tick"
+    unit: id rule
+  - name: tickDriverDefault
+    source: design/gdd/simulation-core.md
+    registered: 2026-10-16
+    value: "Godot-free TickDriver (pure accumulator) driven by a Godot-free FrameRunner (injected IMonotonicClock; owns pump order, first-tick edges, M0 guard, DropRemaining, transport flush after Tick) called once per frame from one GameLoop node's _Process, main thread, solo pause = driver state (no banked time), multiplayer never pauses, SceneTree.Paused never used; resolves grid-inventory OQ20 pending ADR + Technical Setup spike (engine behaviour UNVERIFIED)"
+    unit: rule
+    proposed: true
+  - name: statCatalogue_v1
+    source: design/gdd/content-data-definitions.md
+    registered: 2026-10-16
+    value: "29 stats (closed Stat enum, PascalCase + unit suffix …Pm or …Permille, data key snake_case): DeliverInsertPm, MoveSpeedAddPm, ExtraJumps, RespawnMs, InventoryRows[container], MailMaxStack[mailKind], WeightPenaltyPm, MailValueMultPm[mailKind], ThrownCorrectPayMultPm, LateValueRatioPm, MisdeliveryPenaltyMultPm, MisdeliveryComplaintMultPm, ThrowRangePermille, BikeSpeedMultPm, BeltSpeedMultPm, SorterFilterSlots, SorterThroughputMultPm, InserterRateMultPm, ConstructHpMultPm, TurretDamageMultPm, MeleeDamageMultPm, MeleeKnockbackMultPm, RaidWarningMs, QuotaMultPm, RaidBudgetMultPm, SpawnBudgetMultPm, ShiftEarningsMultPm, ZeroMisdeliveryBonusPm, DraftRerolls (personal, provisional — Rank-4 Second Opinion perk, OQ-CDD-13); RespawnMs base player.respawnMs; RaidWarningMs base waves.warningMs; ops Add/Mul/Set (Adds not multiplied; a Set discards Adds/Muls); lifetimes Run/Shift only; only Perks and Stamps & Run Events push (IStatWriter); design clamp bounds are PROPOSED balance keys of the reading GDD (OQ-CDD-18)"
+    updated: "2026-10-16 (content-data-definitions design-review revision)"
+    unit: catalogue
+    proposed: true
+    referenced_by:
+      - "design/gdd/belt-logistics.md (reads BeltSpeedMultPm, SorterFilterSlots, SorterThroughputMultPm, InserterRateMultPm (clamp ≤ 4000) once per Automation.Step)"
+  - name: ruleFlags_v1
+    source: design/gdd/content-data-definitions.md
+    registered: 2026-10-16
+    value: "KeepHotbarOnDeath, PresortOutfeed, InsuredRebuild, SuppressLateComplaint, PriorityMail, FreeForecast, SharedBuild, LocalKnowledgeArrow, BeltMomentum, EarlyDistrictUnlock, EnemiesMarked, PostalSprint, CursedMail, RushHour — on while ≥ 1 live source holds it; timed effects pass transientAdd from the owning system"
+    unit: enum
+    proposed: true
+    referenced_by:
+      - "design/gdd/belt-logistics.md (PresortOutfeed read per pull)"
+  - name: contentValidatorCatalogue_v1
+    source: design/gdd/content-data-definitions.md
+    registered: 2026-10-16
+    value: "code registry is the single source (docs/content-rules.md generated at M0, CI diff); v1: 89 active rules (83 error / 6 warning: CV-GEN-11, CV-GEN-20, CV-PRK-08, CV-GRD-05, CV-GRD-06, CV-GRD-07) + 1 retired (CV-THR-14 → CV-PLR-06); PC, Throwing (alias THROW-CV-nn), HUD and Sim Core (CV-SIM-01…04 = F8/SC-SET-1) are index rows whose owner text is authoritative; ids CV-<AREA>-NN never reused; a violation fixture per rule clause with a reviewed alsoTrips list; CI runs --strict"
+    updated: "2026-10-16 (content-data-definitions design-review revision)"
+    unit: catalogue
+  - name: defIndexRule
+    source: design/gdd/content-data-definitions.md
+    registered: 2026-10-16
+    value: "ids ^[a-z][a-z0-9_]{0,47}$, unique per def type; DefIndex u16 = StringComparer.Ordinal sort position (= UTF-8 byte order for ASCII ids; culture-default compares banned, InvariantGlobalization); 0xFFFF = none; ≤ 65 534 defs per type; never persisted (saves/profiles/replays use string ids); content StringId = (def-type namespace, DefIndex)"
+    unit: id rule
+  - name: maxMulFactors
+    source: design/gdd/content-data-definitions.md
+    registered: 2026-10-16
+    value: 6
+    unit: Mul modifiers live per (stat, qualifier) — F1 Int128 bound
+    proposed: true
+  - name: contentFormat
+    source: design/gdd/content-data-definitions.md
+    registered: 2026-10-16
+    value: "JSONC under res://content/; manifest.txt generated at export (--write-manifest), never committed; DirectorySource enumerates; hand-written Utf8JsonReader walk (fail-fast: ≤ 1 syntax error per file); defs immutable sealed record classes with ImmutableArray lists in the Godot-free Sim; BalanceKey hard range (Error) + data-file safe range (Warning); no .tres for Sim content (Presentation ViewCatalog is .tres); balance split into content/balance/<owner>.jsonc with a BalanceKey registry (player.yaml, hud.tuning, ThrowDef migrate)"
+    unit: rule
+    proposed: true
+  - name: playerMaxHp
+    source: design/gdd/health-damage.md
+    registered: 2026-10-16
+    value: 100
+    unit: HP (balance key player.maxHp; no MaxHp Stat in v1; identical at every player count)
+    referenced_by:
+      - design/spec/05-combat.md
+      - design/spec/11-balance-baselines.md
+      - design/gdd/hud-notifications.md
+  - name: playerRegen
+    source: design/gdd/health-damage.md
+    registered: 2026-10-16
+    value: "2 HP/s after 5000 ms without a dealt > 0 hit (player.regenHpPerS, player.regenDelayMs); carriers only; runs while Protected; paused while Frozen"
+    unit: HP/s, ms
+    referenced_by:
+      - design/spec/05-combat.md
+      - design/spec/11-balance-baselines.md
+  - name: damageAllowTable
+    source: design/gdd/health-damage.md
+    registered: 2026-10-16
+    value: "code constant, default-deny: Carrier ← EnemyAttack; Enemy ← PlayerWeapon, Thrown, Turret, Spike, VehicleImpact; Construct ← EnemyAttack; Vehicle ← EnemyAttack; self-damage illegal; heals: Carrier ← Consumable, Construct ← Repair/PrepRegen, Vehicle ← Repair (provisional)"
+    unit: rule
+    referenced_by:
+      - design/spec/05-combat.md
+      - design/spec/13-v1-cut-and-decisions.md
+      - design/gdd/throwing-catching.md
+  - name: healthResolveBounds
+    source: design/gdd/health-damage.md
+    registered: 2026-10-16
+    value: "health.hotSlots 3; health.minDamage 1; health.pendingCap 1024 entries/tick (late T−1 included); damageTakenPm[breach][stone_wall] 500 (spec), [pick][tank] 2000 (spec, Tank post-v1)"
+    unit: count, HP, permille
+    proposed: true
+  - name: buildPlacementRules
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    value: "legality order (check-major): actor not_alive/swimming/mounted/wrong_phase/locked/cap → out_of_bounds → water → street (Street + Path tiles; belts only as straight perpendicular crossings, not intersections; no walls/gates; Bridge tiles refuse every class with `street`, never water) → unbuildable → reserved (PO + 1-tile apron and Spawn pad ring ≤ 2.0 m: all classes; Intake outfeed lane (outfeedLaneTiles) and mailbox approachTiles: transport only, overriding the apron) → node → occupied (incl. ruins) → too_steep → uneven → blocked_by_body (solid defs; host latest sample shrunk bodyEpsilonMm 150; construct wins after placement) → IPlacementRule vetoes → insufficient; legal phases Prep + Delivery (Raid window = Delivery); no host range check (client buildReachMm 8000); no ownership checks"
+    unit: rule
+    proposed: true
+    referenced_by:
+      - design/gdd/player-character-movement.md (OQ #18 adopted; OQ #20 spawn pads out of v1)
+      - design/spec/13-v1-cut-and-decisions.md
+  - name: deconstructBinding
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    value: "Deconstruct = Build-context command, hold RMB / hold LT (holdEff, holdBase 0.5 s = 15 ticks at default), target = construct whose footprint contains the build-cursor tile, id latched at press, cursor leaving cancels; NOT an IInteractable verb; Interact not live in Build; a G9 commit; closes Input OQ-IC-13"
+    unit: rule
+    referenced_by:
+      - design/gdd/input-controls.md (OQ-IC-13)
+      - design/gdd/player-character-movement.md (P10 Deconstruct row to be withdrawn — OQ-BLD-2)
+  - name: buildLimits
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    value: "constructCap 1000 (ruins included); maxLineTiles 40; buildReachMm 8000 (client only); poDepotReachMm 20000; undoGraceTicks 90; salvageRatioPrepPm 1000 / salvageRatioDeliveryPm 500 (spec 11); maxSpanMm 1000"
+    unit: count, tiles, mm, ticks, permille
+    proposed: true
+    referenced_by:
+      - design/spec/11-balance-baselines.md (salvage ratios)
+      - design/spec/04-automation.md (20 m PO Depot reach, 1 m level)
+      - "design/gdd/belt-logistics.md (maxLineTiles 40 segment drag; constructCap 1000 in the perf fixture)"
+  - name: constructEvents
+    source: design/gdd/building-system.md
+    registered: 2026-10-16
+    value: "ConstructPlaced run-encoded per op {reqId, firstId, defIndex, start, end, count, rot, ownerSlot, epoch} ≈ 24 B; ConstructRemoved {reqId, id, reason Deconstruct|RuinCleared, bySlot, epoch} ≈ 14 B; order charge → Placed → OpReply / spill → Removed → refund → OpReply; JoinState 13 B/record, ≤ 16 KB at 1000; epoch gap → resync (15 ticks); bank host-only"
+    unit: rule
+    proposed: true
+  - name: beltLaneModel
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "two lanes per belt (left/right relative to travel, labels survive turns); tile 2000 mm in both lanes incl. curves; spacing 500 mm; 4 units/lane/tile, 8 per tile; one mail unit per slot (mail only in v1); Mk1 2000 / Mk2 4000 mm/s; Express Lane ×1.5 (Mk2 + Express = 6 m/s, spec 'Mk3'; no Mk3 construct); segments = maximal same-tier runs between nodes/endpoints/side-loads"
+    unit: "mm, mm/s"
+    proposed: true
+  - name: beltItemCap
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "5000 units on lanes + arms island-wide (spec 07 §8); at cap Intake belt-pulls, container picks, sorter routes and thrown landings get belt_full (partial accept for throws); lane-to-lane never refused"
+    unit: "units"
+    proposed: true
+  - name: automationRates
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "sorter 2.0/s (examine lowest mailId in sorter_buffer); inserter 1.25/s, place 6 ticks after pick, place-then-pick; Intake belt-pull 1.0/s (< inserter); presortRunMax 12 (then street with lowest mailId, different street preferred); feeder 2.0/s is Mail's"
+    unit: "per second, ticks"
+    proposed: true
+  - name: sorterRules
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "2×2; input SW from back, Overflow SE to back, Front NW→N, Left NW→W, Right NE→E (rotate with rot); 3 filtered outputs + Overflow; first match Front→Left→Right; slot = AND-tuple {district, street, numberRange (needs street), kind}, OR across SorterFilterSlots slots; all-wildcard slot matches nothing; blocked output → strict stall (never to Overflow); ConfigureSorter only from the sorter's own panel (≤ 2.5 m); console Route = persisted order, one operator, bypasses credit (≈ 8/s Mk1); Halt toggle"
+    unit: "rule"
+    proposed: true
+  - name: beltEndpointRules
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "feeder = belt tile or inserter on a lot approachTile facing its mailboxTile (IPlacementRule feeder_slot_taken / feeder_not_on_approach); belt end into depot/PO Depot → TryInsert; into chest, Intake, solid → dead end; facing nothing → leak (only belt ends leak); blocked container heads retry on container version change (wake-on-version); removal → one spill bag (lane units, arm, sorter buffer)"
+    unit: "rule"
+    proposed: true
+  - name: automationPhaseOrder
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "inside Automation.Step: stats + push validation → belt-feeder offers (asc construct id) → container endpoints and leaks → sorters/splitters/mergers topological downstream-first (sorter routes before accepting) → inserters asc id (place then pick) → Intake belt-pulls → lane advance; lower step then lower id wins a contested entry slot; check-destination-then-take in one call"
+    unit: "rule"
+    proposed: true
+  - name: beltNetworkContract
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "LaneInsert 5–10 B, LaneRemove 4–6 B, LaneTransfer 6 B, PushStart 8 / PushEnd 2 B, SegmentMap 1+6n (≤ 7 per entry), LaneChecksumRoot 13 B every 2 s (root + detail on exact positions, amends spec 06 0.25 m per-segment); LaneState on the snapshot path; client RenderTick delay 6 ticks, render clamp L − 350 mm; JoinState belt block ≤ 30 KB at 5000 units; share ≤ 2.5 kbps typical / ≤ 10 kbps worst down, ≤ 0.2 up"
+    unit: "bytes, kbps"
+    proposed: true
+  - name: beltPerfFixture
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "SC-FIX-WORST belts: 700 tiles (Mk1 500, Mk2 200), 200 segments, 5000 units, 50 feeders, 24 sorters, 40 inserters, 36 splitters/mergers, 8 pushes, 4 leak ends, 1000 constructs; STEADY 400 tiles / 110 segments / 2500 units; Automation.Step ≤ 0.50 median / 1.20 p99 / 2.5 max ms (sub-budget 1.04); ≤ 400 Grid endpoint calls, ≤ 320 events per tick, 0 B alloc (BLOCKING); client BeltView CPU ≤ 1.0 + GPU ≤ 1.5 ms, ≤ 40 draw calls, visualItemCap 2500"
+    unit: "counts, ms"
+    proposed: true
+  - name: beltLeakLimits
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "beltLeakIntervalTicks 15; beltLeakPerEndMax 6; beltLeakGlobalMax 64 (≤ 1/8 worldItemCap)"
+    unit: "ticks, WorldItems"
+    proposed: true
+  - name: pushRules
+    source: design/gdd/belt-logistics.md
+    registered: 2026-10-16
+    value: "pushReachTiles 3; operatedBeltMultPm 1500 (spec 11); pushToggleMaxSeconds 6; rangeMm 2500 + 500 slack; one per player; union of windows"
+    unit: "tiles, permille, s"
+    proposed: true

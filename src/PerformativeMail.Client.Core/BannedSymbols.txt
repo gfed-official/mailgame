@@ -1,0 +1,80 @@
+// Microsoft.CodeAnalysis.BannedApiAnalyzers (RS0030, an error via .editorconfig).
+// The ADR-0006 section 3 list, expanded to the signatures RS0030 actually matches.
+// Documentation-comment IDs, no wildcards. IMPORTANT (found by the SC-ARCH-2 fixtures):
+// a member ID WITHOUT a parameter list matches only the PARAMETERLESS overload, and a generic
+// method needs its arity and full signature (Sort``1(``0[])). ADR-0006 assumed a name-only ID
+// covers every overload; it does not. So every overload below is listed explicitly (net8.0
+// reference assemblies, generated with Roslyn GetDocumentationCommentId). T: entries ban the
+// whole type, so they need no overload list.
+// Every entry has a fixture in tests/fixtures/analyzers/ whose "// covers:" header names it;
+// tools/ci/check-analyzer-fixtures.sh fails when an entry has no fixture or a fixture compiles.
+// Do not weaken or remove entries. A new overload in a newer target framework needs a new entry.
+// Format: <doc-comment-id>;<message>
+
+// Rule 6: no System.Random, Guid or hash codes in state or ordering.
+T:System.Random;ADR-0006 rule 6: use the Sim's seeded PRNG (ADR-0005), never System.Random
+M:System.Guid.NewGuid;ADR-0006 rule 6: ids come from the Sim's own counters, never Guid
+M:System.Object.GetHashCode;ADR-0006 rule 6: hash codes are not stable across runs; never call GetHashCode
+M:System.String.GetHashCode;ADR-0006 rule 6: string hash codes are randomised per process; never call GetHashCode
+M:System.String.GetHashCode(System.StringComparison);ADR-0006 rule 6: string hash codes are randomised per process; never call GetHashCode
+M:System.String.GetHashCode(System.ReadOnlySpan{System.Char});ADR-0006 rule 6: string hash codes are randomised per process; never call GetHashCode
+M:System.String.GetHashCode(System.ReadOnlySpan{System.Char},System.StringComparison);ADR-0006 rule 6: string hash codes are randomised per process; never call GetHashCode
+M:System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(System.Object);ADR-0006 rule 6: identity hash codes are not stable across runs; never call GetHashCode
+T:System.HashCode;ADR-0006 rule 6: System.HashCode is randomly seeded per process; use CanonicalHash64
+
+// Rule 7: no time sources, threads or timers.
+T:System.DateTime;ADR-0006 rule 7: no wall-clock time in the Sim; time is the tick counter
+T:System.DateTimeOffset;ADR-0006 rule 7: no wall-clock time in the Sim; time is the tick counter
+T:System.Diagnostics.Stopwatch;ADR-0006 rule 7: timing goes only through the injected IPhaseProbe
+P:System.Environment.TickCount;ADR-0006 rule 7: no wall-clock time in the Sim
+P:System.Environment.TickCount64;ADR-0006 rule 7: no wall-clock time in the Sim
+T:System.Threading.Thread;ADR-0006 rule 7: the Sim is single-threaded (use Environment.CurrentManagedThreadId for the owner assert)
+T:System.Threading.Tasks.Task;ADR-0006 rule 7: no tasks or async in the Sim
+T:System.Threading.Tasks.Task`1;ADR-0006 rule 7: no tasks or async in the Sim
+T:System.Threading.Tasks.ValueTask;ADR-0006 rule 7: no tasks or async in the Sim
+T:System.Threading.Tasks.ValueTask`1;ADR-0006 rule 7: no tasks or async in the Sim
+T:System.Threading.ThreadPool;ADR-0006 rule 7: the Sim is single-threaded; no thread-pool work
+T:System.Threading.Tasks.Parallel;ADR-0006 rule 7: no parallelism in the Sim
+T:System.Threading.Timer;ADR-0006 rule 7: no timers in the Sim
+T:System.TimeProvider;ADR-0006 rule 7: no time sources in the Sim; time is the tick counter
+
+// Rule 5: no unstable or order-undefined sorts; use Sim.Primitives.StableSort.
+M:System.Array.Sort(System.Array);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort(System.Array,System.Array);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort(System.Array,System.Array,System.Collections.IComparer);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort(System.Array,System.Array,System.Int32,System.Int32);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort(System.Array,System.Array,System.Int32,System.Int32,System.Collections.IComparer);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort(System.Array,System.Collections.IComparer);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort(System.Array,System.Int32,System.Int32);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort(System.Array,System.Int32,System.Int32,System.Collections.IComparer);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort``1(``0[]);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort``1(``0[],System.Collections.Generic.IComparer{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort``1(``0[],System.Comparison{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort``1(``0[],System.Int32,System.Int32);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort``1(``0[],System.Int32,System.Int32,System.Collections.Generic.IComparer{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort``2(``0[],``1[]);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort``2(``0[],``1[],System.Collections.Generic.IComparer{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort``2(``0[],``1[],System.Int32,System.Int32);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Array.Sort``2(``0[],``1[],System.Int32,System.Int32,System.Collections.Generic.IComparer{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Collections.Generic.List`1.Sort;ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Collections.Generic.List`1.Sort(System.Collections.Generic.IComparer{`0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Collections.Generic.List`1.Sort(System.Comparison{`0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Collections.Generic.List`1.Sort(System.Int32,System.Int32,System.Collections.Generic.IComparer{`0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.MemoryExtensions.Sort``1(System.Span{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.MemoryExtensions.Sort``1(System.Span{``0},System.Comparison{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.MemoryExtensions.Sort``2(System.Span{``0},System.Span{``1});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.MemoryExtensions.Sort``2(System.Span{``0},System.Span{``1},System.Comparison{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.MemoryExtensions.Sort``2(System.Span{``0},``1);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.MemoryExtensions.Sort``3(System.Span{``0},System.Span{``1},``2);ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.OrderByDescending``2(System.Collections.Generic.IEnumerable{``0},System.Func{``0,``1});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.OrderByDescending``2(System.Collections.Generic.IEnumerable{``0},System.Func{``0,``1},System.Collections.Generic.IComparer{``1});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.OrderBy``2(System.Collections.Generic.IEnumerable{``0},System.Func{``0,``1});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.OrderBy``2(System.Collections.Generic.IEnumerable{``0},System.Func{``0,``1},System.Collections.Generic.IComparer{``1});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.ThenByDescending``2(System.Linq.IOrderedEnumerable{``0},System.Func{``0,``1});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.ThenByDescending``2(System.Linq.IOrderedEnumerable{``0},System.Func{``0,``1},System.Collections.Generic.IComparer{``1});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.ThenBy``2(System.Linq.IOrderedEnumerable{``0},System.Func{``0,``1});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.ThenBy``2(System.Linq.IOrderedEnumerable{``0},System.Func{``0,``1},System.Collections.Generic.IComparer{``1});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.Order``1(System.Collections.Generic.IEnumerable{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.Order``1(System.Collections.Generic.IEnumerable{``0},System.Collections.Generic.IComparer{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.OrderDescending``1(System.Collections.Generic.IEnumerable{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
+M:System.Linq.Enumerable.OrderDescending``1(System.Collections.Generic.IEnumerable{``0},System.Collections.Generic.IComparer{``0});ADR-0006 rule 5: unstable or LINQ ordering; use Sim.Primitives.StableSort
