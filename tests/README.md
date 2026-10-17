@@ -37,12 +37,16 @@ production/qa/
 The .NET SDK is installed user-level via mise and is not on `PATH`:
 
 ```bash
-mise exec dotnet@10.0.402 -- dotnet build
-mise exec dotnet@10.0.402 -- dotnet test
+mise exec dotnet@10.0.402 -- dotnet build PerformativeMail.sln
+mise exec dotnet@10.0.402 -- dotnet test --solution PerformativeMail.sln
 ```
 
 (`commands.test` in `project.yaml` is the second line.) On a machine with the
-SDK on `PATH`, plain `dotnet test` works. `global.json` opts `dotnet test` into
+SDK on `PATH`, plain `dotnet test --solution PerformativeMail.sln` works. The repo
+root holds two solutions (`PerformativeMail.sln`, Godot-free, and
+`PerformativeMail.Game.sln`, Godot) plus `PerformativeMail.Game.csproj`, so a bare
+`dotnet build` / `dotnet test` is ambiguous (MSB1011): always name the solution
+(ADR-0001 section 3). `global.json` opts `dotnet test` into
 Microsoft.Testing.Platform: the .NET 10 SDK refuses the old VSTest path for
 xUnit v3. Exit code **0** = all passed; **2** = at least one test failed;
 **8** = zero tests ran (not a pass).
@@ -96,6 +100,8 @@ C# (xUnit), following `.claude/rules/test-standards.md` (Unity/NUnit C# form):
 ## CI
 
 Tests run on every push to `main`/`master` and on every pull request
-(`actions/setup-dotnet` 10.0.x → restore → build Release → `dotnet test`).
-Set a branch protection rule to require the `Run Sim Tests (xUnit)` check, so
-that a failed test suite blocks merging.
+(`actions/setup-dotnet` 10.0.x → restore → build Release → `dotnet test --solution PerformativeMail.sln`).
+Set a branch protection rule to require the `Sim tests (...)` matrix checks and
+the `Game project build (no editor)` check (`game-build` job: builds
+`PerformativeMail.Game.sln` from the `Godot.NET.Sdk` NuGet, no editor), so that a
+failed test suite or a broken game project blocks merging.

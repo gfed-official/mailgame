@@ -1,17 +1,34 @@
 ; Engine configuration file.
-; run/main_scene is intentionally unset: no scene exists yet.
-; /dev-story or the developer sets it once a scene exists.
+; Hand-written (ADR-0001 section 2). The display/stretch keys below are explicit
+; because a hand-written 4.7.1 project defaults to stretch disabled/keep (ADR-0019
+; section 7); the main-tree smoke scenario reads every key back, since a typo'd
+; key is silently ignored. There are deliberately no [autoload] entries (ADR-0019 section 1).
 
 config_version=5
 
 [application]
 
 config/name="Performative Mail"
+run/main_scene="res://src/Game/Main.tscn"
+run/low_processor_mode=false
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1600
+window/size/window_height_override=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep_height"
 
 [dotnet]
 
 project/assembly_name="PerformativeMail.Game"
+
+[physics]
+
+common/physics_interpolation=false
 
 [rendering]
 

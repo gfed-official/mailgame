@@ -1,7 +1,8 @@
 name: Automated Tests
 
 # Runs the plain-C# Sim test suite (xUnit v3 on Microsoft.Testing.Platform,
-# opted in via global.json). No Godot needed: the Sim has no Godot dependency.
+# opted in via global.json). The test job needs no Godot: the Sim has no Godot
+# dependency; the game-build job compiles the Godot C# project from the SDK NuGet only.
 # Godot-side [UI] tests (gdUnit4) are not wired up yet - they need the Godot
 # .NET build.
 #
@@ -95,3 +96,72 @@ jobs:
       # Exit code 8 (zero tests ran) fails the step like any other non-zero code.
       - name: Test
         run: dotnet test --solution PerformativeMail.sln --configuration ${{ matrix.configuration }} --no-build -p:PmTestTfm=${{ matrix.tfm }}
+
+  # Builds the Godot C# project (PerformativeMail.Game.csproj / .sln) with the .NET SDK and
+  # the Godot.NET.Sdk NuGet package only - no Godot editor is installed here. The
+  # Godot-installed headless job (editor build + smoke run) is godot-host-shell story 011's.
+  game-build:
+    name: Game project build (no editor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Guard - no Godot using in Sim / Client.Core
+        run: |
+          set -u
+          dirs=""
+          for d in src/PerformativeMail.Sim src/PerformativeMail.Client.Core; do
+            [ -d "$d" ] && dirs="$dirs $d"
+          done
+          if [ -z "$dirs" ]; then
+            echo "No Sim / Client.Core directories yet; nothing to scan."
+            exit 0
+          fi
+          # grep exits 0 on a match (fail the build), 1 on no match, 2+ on error
+          # (an error must not read as "clean").
+          rc=0
+          grep -rn "using Godot" $dirs || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::'using Godot' found in Sim / Client.Core"
+            exit 1
+          elif [ "$rc" -ne 1 ]; then
+            echo "::error::grep failed with exit code $rc"
+            exit "$rc"
+          fi
+
+      - name: Guard - .gdignore policy (ADR-0019 section 8)
+        run: |
+          bash tools/ci/check-gdignore.sh --self-check
+          bash tools/ci/check-gdignore.sh
+
+      - name: Guard - scene rules (ADR-0019 / ADR-0002)
+        run: |
+          bash tools/ci/check-scene-rules.sh --self-check
+          bash tools/ci/check-scene-rules.sh
+
+      # UNVERIFIED: that Godot.NET.Sdk/4.7.1 restores from nuget.org on a clean runner (the
+      # spike used a local nuget.config). If this step fails, the job FAILS - it is never
+      # skipped or marked continue-on-error; godot-host-shell story 001 records the outcome.
+      - name: Restore
+        run: dotnet restore PerformativeMail.Game.sln
+
+      - name: Build (Debug)
+        run: dotnet build PerformativeMail.Game.sln -c Debug --no-restore
+
+      - name: Build (ExportRelease)
+        run: dotnet build PerformativeMail.Game.sln -c ExportRelease --no-restore
+
+      - name: Guard - Export* configurations reach the libraries
+        run: bash tools/ci/check-game-build.sh

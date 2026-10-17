@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Asserts the ADR-0001 section 4 build-configuration table for src/PerformativeMail.Sim:
+# Asserts the ADR-0001 section 4 build-configuration table for BOTH
+# src/PerformativeMail.Sim and src/PerformativeMail.Client.Core (5 rows each, 10 total):
 #   Optimize, SIM_ASSERT / INVENTORY_ASSERT in DefineConstants, CheckForOverflowUnderflow,
 # for Debug, Release, Release -p:SimAsserts=true, ExportDebug and ExportRelease.
+# Exits non-zero on any failed row, or if no row was checked.
 #
 # Usage:  tools/ci/check-build-config.sh
 # Override the dotnet launcher if it is not on PATH, e.g.
@@ -9,10 +11,15 @@
 set -u
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-project="$repo_root/src/PerformativeMail.Sim/PerformativeMail.Sim.csproj"
+projects=(
+  "$repo_root/src/PerformativeMail.Sim/PerformativeMail.Sim.csproj"
+  "$repo_root/src/PerformativeMail.Client.Core/PerformativeMail.Client.Core.csproj"
+)
+project=""
 DOTNET="${DOTNET:-dotnet}"
 
 failures=0
+rows=0
 
 # prop <property> [msbuild args...] -> evaluated value of the property
 prop() {
@@ -25,6 +32,8 @@ prop() {
 check_row() {
   local label="$1" asserts="$2" optimize="$3" debugsym="$4"; shift 4
   local actual_opt actual_def actual_chk actual_dbg
+  rows=$((rows + 1))
+  label="$(basename "$project" .csproj)  $label"
   actual_opt="$(prop Optimize "$@")"
   actual_def="$(prop DefineConstants "$@")"
   actual_chk="$(prop CheckForOverflowUnderflow "$@")"
@@ -57,14 +66,25 @@ check_row() {
   fi
 }
 
-check_row "Debug"                          true  false ""     -p:Configuration=Debug
-check_row "Release"                        false true  ""     -p:Configuration=Release
-check_row "Release -p:SimAsserts=true"     true  true  ""     -p:Configuration=Release -p:SimAsserts=true
-check_row "ExportDebug"                    true  false true   -p:Configuration=ExportDebug
-check_row "ExportRelease"                  false true  ""     -p:Configuration=ExportRelease
+for project in "${projects[@]}"; do
+  if [ ! -f "$project" ]; then
+    echo "FAIL  missing project file: $project"
+    failures=$((failures + 1))
+    continue
+  fi
+  check_row "Debug"                          true  false ""     -p:Configuration=Debug
+  check_row "Release"                        false true  ""     -p:Configuration=Release
+  check_row "Release -p:SimAsserts=true"     true  true  ""     -p:Configuration=Release -p:SimAsserts=true
+  check_row "ExportDebug"                    true  false true   -p:Configuration=ExportDebug
+  check_row "ExportRelease"                  false true  ""     -p:Configuration=ExportRelease
+done
 
 if [ "$failures" -ne 0 ]; then
-  echo "check-build-config: $failures row(s) FAILED"
+  echo "check-build-config: $failures failure(s) over $rows row(s)"
   exit 1
 fi
-echo "check-build-config: all 5 rows passed"
+if [ "$rows" -eq 0 ]; then
+  echo "check-build-config: zero rows checked - refusing to report success"
+  exit 1
+fi
+echo "check-build-config: all $rows rows passed"

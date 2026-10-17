@@ -58,6 +58,6 @@ commands:
   # TODO: godot is not on PATH here — set the editor's full path via /settings
   # TODO: build — no Godot export preset exists yet; set once export_presets.cfg is created
   build: "[TO BE CONFIGURED]"
-  test: "mise exec dotnet@10.0.402 -- dotnet test"
+  test: "mise exec dotnet@10.0.402 -- dotnet test --solution PerformativeMail.sln"
   run: "godot --path . --windowed --resolution 1280x720"
   smoke: "godot --headless --quit-after 5"

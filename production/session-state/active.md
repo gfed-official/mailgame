@@ -7,13 +7,13 @@ Task: /dev-story production/epics/simulation-core/story-001-build-config-sim-ass
 <!-- /STATUS -->
 
 <!-- CHECKPOINT -->
-**Updated:** 2026-10-16
+**Updated:** 2026-10-17
 **Branch:** `master`
-**Current task:** /story-done — production/epics/player-character/story-009-water-wade-swim-haulout-f7.md closed: COMPLETE WITH NOTES
-**Next step:** new movement story implementing the 2026-10-16 game-designer rulings (TD-091), then /dev-story production/epics/player-character/story-010-golden-transform-hash-p2-1.md
+**Current task:** /story-done — production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md closed: COMPLETE WITH NOTES (parallel runners: grid-inventory, player-character, content-data, mail-destinations also active)
+**Next step:** /dev-story production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md
 **Blocked on:** nothing
 **Files in progress:** none
-**Open questions:** tech debt logged: TD-091 (ruling implementation owed; shipped 006/007 code contradicts GDD PCM-P5-2/4/5 and PCM-P4-1d until then)
+**Open questions:** tech debt logged: 1 item (TD-098)
 <!-- /CHECKPOINT -->
 
 - **Task**: Systems decomposition

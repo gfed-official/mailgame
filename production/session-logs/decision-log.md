@@ -5697,3 +5697,109 @@ Granularity follows the orchestrator's one-session sizing, not `fine`. QL-STORY-
 **Chosen:** [B]. Engine specialist (godot-csharp-specialist) spawned as a read-only reviewer rather than co-implementer (Godot-free story; ≤ 2 live children). Its should-fixes applied: `AggressiveInlining` on `EvaluateCore`, `AddressId.MaxUnit` instead of `0x3F`, `IsIn` asserted in the signature test. The silent drop of kinds with `DefIndex.Value ≥ 64` from the accepts mask is logged as tech debt (content validator check owed), not fixed here.
 **Reason:** [B] keeps one copy of the rule, 0 B and no static state in every build; the additive facts fields are what the story's Implementation Notes prescribe. GDD erratum F3 ("truncates" vs exact V_k) is noted and not in this story's scope.
 **Category:** minor
+
+### 2026-10-17 — story-done (player-character story-011, autonomous)
+**Decision point:** Close verdict after gates: LP-CODE-REVIEW CONCERNS (literal 30 vs `TickRate.Hz`; `SimCounters?` annotation; unused using; Input constants in code; hook-purity note for 012) and QL-TEST-COVERAGE GAPS (`(3000,0,200) → 45` row; `default(HoldSettings)` pin; optional `MinHoldTicks > ceil`).
+**Options considered:** [A] close as-is and log everything as debt; [B] revise the cheap items inline, close, log the rest; [C] hold the story open.
+**Chosen:** [B] → "Close and log advisory deviations as tech debt" (TD-093). Revised: `TickRate.Hz`, `SimCounters?`, unused using, the two missing tests (55/55 on net10+net8 Release, Debug green; full Release suite 4,306/0 once the foreign in-flight failures cleared). Verdict COMPLETE WITH NOTES: 5/5 ACs.
+**Reason:** Fixes were under ten lines and the gates named exact locations; the remaining items are wording reconciliation and a design choice owned by story 012 / input-controls.
+**Category:** minor
+
+
+### 2026-10-17 — dev-story (player-character story-012 anchor registry, autonomous) — design calls before spawning
+**Decision point:** Four gaps between the story text and the tree: (a) `maxAnchors` "from settings" — a new `sim.*` balance row changes `DefaultEntries`, the BuiltInContent key count and the M-1a ContentHash golden, all of which other runners are changing concurrently; (b) CV-PLR-13 needs "a content definition that names a verb", but no def type carries a verb field and adding one is a content-schema change (always-ask); (c) the ADR's `TickGuard.AssertMutable()` does not exist in the tree; (d) the story is M-sized (≈ 500 lines) against a ~20-turn implementer limit.
+**Options considered:** (a) [A1] add `sim.maxAnchors` balance row now; [A2] `SimSettings.MaxAnchors { get; init; } = 4096` as a code default read by Players (sizing still comes from `SimSettings`, tests set 8), balance row deferred to the next golden regeneration. (b) [B1] add a `verbs` field to a def (schema change → ask owner); [B2] a rule-input list `ContentValidationInput.VerbDeclarations` (`DefRef`, location, declared verb spellings), empty for built-in content, filled by fixtures — no JSON/schema change. (c) skip the guard, note for the LP reviewer. (d) one implementer vs two sequential (Sim registry first, then the CV-PLR-13 rule + enum freeze tests).
+**Chosen:** [A2] (logged as debt in this story's TD), [B2], skip (c), sequential split (d).
+**Reason:** avoids colliding with in-flight content-hash/key-count edits and avoids an always-ask schema change while still meeting every AC literally (the rule errors on unknown or duplicate verbs, fixtures exercise it, M-1a passes); the owner can promote the declaration list to a def field later without touching the rule body.
+**Category:** minor
+
+### 2026-10-17 — story-done (mail-destinations story-003, autonomous)
+**Decision point:** Close the story on LP APPROVE + QL GAPS.
+**Options considered:** [A] close with the QL gaps as tech debt; [B] fix G1/G2/G3 (3 small tests + 2 trait ids) then close; [C] hold.
+**Chosen:** [B], then "Close the story" — COMPLETE WITH NOTES. Remaining advisories (G4, LP's public mask helper + shared `64` constant, specialist nits) are in TD-092.
+**Reason:** G1/G2 each let a plausible regression pass silently and cost minutes; the rest are owed to stories 007/010 which touch the same code.
+**Category:** minor
+
+### 2026-10-17 — story-done (godot-host-shell story-001, autonomous) — gate findings
+**Decision point:** LP-CODE-REVIEW CONCERNS (no blocking; 9 findings) + QL-TEST-COVERAGE GAPS (none critical; 8 gaps).
+**Options considered:** Revise flagged issues / Accept and proceed; Close / Close and log tech debt.
+**Chosen:** Revise the cheap ones in-story, then Close and log tech debt. Fixed: LP-1 (rm stale `obj/Export*` before the csproj-level builds), LP-4 (`timeout-minutes: 20`), LP-5 (`src/PerformativeMail.*` glob), LP-6 (repo-root `.gdignore` rule + self-check plant), LP-8 (README branch-protection line); QL-1 (evidence re-captured), QL-3/4/5 (sln-mapping, csproj-shape/assembly_name and nuget.config rows — `check-game-build.sh` now 16 rows). Carried to TD-094: LP-2 (sln `ExportDebug`→`Release` for libraries vs ADR-0001 §4 if the exporter builds via the sln), LP-3/7, QL-2/6/7, plus the positive-only shape rows. Verdict COMPLETE WITH NOTES: 5/5 ACs; AC-5's clean-runner restore stays UNVERIFIED by design (job fails, never skips).
+**Reason:** Each in-story fix was < 10 lines and strengthened a gate; the carried items need the export story, story 004/011, or an ADR amendment and are outside this story's scope.
+**Category:** minor
+
+### 2026-10-17 — grid-inventory 001 /story-done closure (autonomous)
+**Decision point:** LP-CODE-REVIEW returned CONCERNS (10 low, none blocking) and QL-TEST-COVERAGE returned GAPS (6). The Debug legs also failed on first run: Debug compiles with checked arithmetic and the Fibonacci id hash + `ContainerId.GetHashCode` wrapped on purpose.
+**Options considered:** [A] fix the cheap items in-story (unchecked hash/hash code, stale composition comment, blank line; Inventory dump-section test, exact-exhaustion boundary, none-slot accessors, Release-only skip on the 0 B test) and carry the rest; [B] close on the implementer's state and carry everything; [C] hold the story for a full fix round.
+**Chosen:** [A]. Closed COMPLETE WITH NOTES; carried items in TD-095 (slot==id order coupling vs container removal, unchecked ushort narrowing, untested settings/def-missing paths, PROPOSED capacity knobs for the GDD re-review, 0 B test to cover ops in 004, `NullPlayerJoinListener` now unreferenced by the builder). Four legs 4,389/0.
+**Reason:** The Debug failure was a real portability bug worth fixing now; the dump test guards an ADR-0006 hard invariant that nothing else covered; the remaining items belong to the stories that touch the same code (002/004/016).
+**Category:** minor
+
+### 2026-10-17 — grid-inventory 002 /dev-story context (autonomous)
+**Decision point:** Story stamped manifest 2026-10-16; current manifest 2026-10-16.2. ADR-0009/0004/0006 stamps match (2026-10-16). Dependencies grid-inventory 001 and simulation-core 002 are Complete.
+**Options considered:** [A] update the stamp and implement with current rules; [B] old rules + Manifest-Note; [C] stop.
+**Chosen:** [A]. Primary agent gameplay-programmer; the Godot C# specialist is not spawned concurrently (≤ 2 children; no Godot API touched; LOW story risk) — the LP gate covers .NET quality.
+**Reason:** Same as story 001; the .2 revision changed no Core-layer rule this story depends on.
+**Category:** minor
+
+### 2026-10-17 — dev-story (godot-host-shell story-002, autonomous) — smoke harness placement
+**Decision point:** The smoke harness needs per-frame `Poll(ctx)` and a wall-clock timeout, but `GameLoop._Process` and the frame order belong to story 003, and boot to story 004.
+**Options considered:** [A] a temporary `_Process` in `GameLoop` that story 003 replaces; [B] `SmokeRunner : Node` added as a child of `Main` by `GameLoop._Ready` only when `--smoke=` is present in a debug build, polling in its own `_Process`; [C] defer the harness to story 003.
+**Chosen:** [B]. `GameLoop` exposes a `RequestBoot()` seam that returns false ("boot not wired — story 004") so `NeedsBoot` scenarios exit 4 today; `main-tree` has `NeedsBoot = false`. `Main.tscn` is hand-authored in the 4.6+ format (mirroring an editor-saved prototype scene) and the editor is run headless once (`--editor --quit`) to assign `.uid` sidecars, which are committed (ADR-0019 §8).
+**Reason:** keeps story 003's `_Process` contract untouched, the runner is debug-only and absent from the tree in normal runs, and the AC's exit-code table is implementable now.
+**Category:** minor
+
+### 2026-10-17 — story-done (content-data story-017, autonomous) — LP gate
+**Decision point:** LP-CODE-REVIEW returned CONCERNS: (1) blocking — a lone-surrogate `\ud800` escape in a key throws `InvalidOperationException` from `CopyString`, escaping `Walk`/`SyntaxStage.Run` (breaks "one CV-GEN-16 per file, every other file parsed"); (2) blocking standard — `FindUtf8Problem` CC≈19/73 lines, `WalkTokens` CC≈13, `SkipTrivia` CC≈12; (3–9) advisory (CV-GEN-04 key-position reading endorsed; nesting misattribution edge; dead `Frame.IsObject`; banned-list gaps; two types in SyntaxStage.cs; IO exceptions not mapped).
+**Options considered:** Revise flagged issues / Accept and proceed / Discuss further.
+**Chosen:** Revise: resume the implementer for one round fixing #1 (+ tests for high and low surrogate), #2 (extract `Utf8Validator`, `KeyTracker`, frame helper), #5 (require `[`/`:`/`,` before the bracket), #8, #9 file split; QL-TEST-COVERAGE runs concurrently. Remaining advisories (#3 GDD wording, #4 BOM columns doc, #6, #7 banned-list gaps, IO exceptions → CV-GEN-10, O(k²) keys) go to the tech-debt register at close.
+**Reason:** #1 is a correctness bug on authored content; #2 is the same CC standard TD-090 already carries for this epic — fixing now avoids a second carry-forward. Not stopping for the owner: no scope/schema/deletion involved.
+**Category:** minor
+
+### 2026-10-17 — story-done (content-data story-017, autonomous) — QL gate
+**Decision point:** QL-TEST-COVERAGE returned GAPS (advisory): G1–G5 "should close" (missing byte-position assertions on comment-only/invalid-JSON rows, LF/CRLF/mixed parity theory, duplicate-key tracking across nesting + key-pool resize, depth 32/33 through objects with positions, rooted-path TryRead), G6–G12 cheap hardening (UTF-8 validator branches, BOM combos, unterminated block comment, five-ways diagnostics assertion, architecture scan strength, DirectorySource edge cases, TryGet* bans). Two non-test findings: Test Evidence block stale; GDD silent on whether the BOM counts toward column 1.
+**Options considered:** close with GAPS logged as tech debt / one more test round for G1–G5 then close / fix everything.
+**Chosen:** One tests-only round for G1–G5 (+ trait fix, five-ways diagnostics assertion) with the implementer, then close; G6–G12, LP advisories #3–#7/#9 and the BOM-column GDD question go to the tech-debt register (fix in/before story 018/019).
+**Reason:** G1–G5 pin AC-level promises ("with its byte position", CRLF parity) cheaply while the implementer still has context; the rest is hardening beyond the ACs.
+**Category:** minor
+
+### 2026-10-17 — dev-story + story-done (mail-destinations story-004 MailPay, autonomous)
+**Decision point:** Money-function signatures vs the ADR-0017 sketch; where `walletFloor` comes from; whether to spawn the engine specialist; closing on LP APPROVE + QL GAPS.
+**Options considered:** sink: [A] a local `default` `SimCounterSink` inside `MailPay` (drops counters — the TD-091 pattern) vs [B] `ref SimCounterSink` last on every money function; floor: [A] invent a Mail `walletFloor` key vs [B] take it as a `Cents` parameter until Economy defines its key; specialist: spawn vs fold into the LP gate (Godot-free, same reasoning as 003); close: carry G1/G2 as debt vs add the three tests now.
+**Chosen:** sink [B]; floor [B]; specialist folded into LP-CODE-REVIEW; added G1/G2/G5 tests + trait fixes + the `WalletGuard` precondition comment, then "Close the story" — COMPLETE WITH NOTES. Advisories and the ADR-0017 erratum owed are TD-096.
+**Reason:** Counters must reach the caller's sink in both host and client; Economy owns the floor (GDD F8 "data file (Economy-owned)"); G1 is the only test that distinguishes one rounding from per-factor rounding (manifest Forbidden), G2 the only behavioural proof that `UnitPay` does not read Cannon Arm.
+**Category:** minor
+
+### 2026-10-17 — dev-story (godot-host-shell story-002, autonomous) — `check-scene-rules.sh` key matching
+**Decision point:** The first cut of `check-scene-rules.sh` grepped `project.godot` for flat `application/run/main_scene=` keys, but Godot writes section-relative keys (`[application]` + `run/main_scene=`), so R7 failed on the real file and the self-check's fake project used a form Godot would not write.
+**Options considered:** [A] rewrite `project.godot` in flat form; [B] normalise the file to full `section/key` lines (awk) before matching and make the self-check's fake project section-relative, adding flat-form plants too.
+**Chosen:** [B]. Self-check now plants 20 violations; the real check passes 9/9.
+**Reason:** [A] would fight the editor, which re-saves in section form.
+**Category:** minor
+
+### 2026-10-17 — story-done (content-data story-017, autonomous) — CLOSED
+**Decision point:** Phase 7 close after LP CONCERNS (blocking items fixed in one revision round) and QL GAPS (G1–G5 closed, 27 cases added).
+**Options considered:** Close / Close and log tech debt / Fix first.
+**Chosen:** Close and log tech debt (TD-097). Verdict COMPLETE WITH NOTES: 5/5 ACs; SyntaxStageTests 113; net10 Release 4,509/0 on the last clean build; Release build 0 warnings at that point (a later retry hit a foreign break in Inventory/Storage — grid-inventory in flight).
+**Reason:** All criteria pass with tests pinning positions; remaining findings are hardening/GDD wording, carried for 018/019.
+**Category:** minor
+
+### 2026-10-17 — dev-story (content-data story-018, autonomous)
+**Decision point:** (a) manifest `2026-10-16` → `2026-10-16.2` (no Content rule changed); (b) how to fold TD-090 / TD-075(1) / TD-063(1) into the story; (c) reference resolution — `ContentPipeline.Build` only reports unresolved `PendingReference`s and never patches `DefIndex` into records; (d) implementer sizing (L-ish story, 20-turn children).
+**Options considered:** (b) separate follow-up stories vs. extra ACs on 018; (c) patch indices inside the pipeline (touches story 009 code + BuiltInContent path) vs. pre-assign ordinal indices in the loader's build stage with `DefIdAssigner.Assign` and pass pending refs for CV-GEN-01; TD-063(1) move the stage-2 catalogue rules into the schema walker vs. keep them at stage 4 and document "2 (runs at 4)".
+**Chosen:** (a) [A] update the stamp. (b) Two ACs appended to the story ("Carried tech debt" + the > 65 535 list/string CV-GEN-12 clause). (c) Pre-assign in the loader (`Builder`), pending refs still go to `ContentPipeline.Build` so CV-GEN-01 is reported at stage 4 exactly as for built-in content; equal inputs then give equal canonical bytes. TD-063(1): the schema walker raises CV-GRD-03 for `allowedCategories: []` at stage 2 (the def never reaches stage 4, no double report); CV-GRD-04/07 and CV-MAIL-03 stay at stage 4 with an explicit "catalogue stage 2, runs at 4" remark on their rows — moving their bodies would re-open story 010 code. The GDD CV-GEN-12 wording widening (TD-075(1)) is flagged for the GDD re-review, not edited here. (d) One `engine-programmer` child in two resumed phases: Phase A = TD-090 fixes + five FieldSpec tables + SelfCheck at construction + rule rows; Phase B = SchemaWalker/Builder + SchemaStageTests.
+**Reason:** Keeps the stage-3 code path identical for loader and built-in content (the 019 equality test depends on it); folds the carried debt where the handoff asked; one resumable child keeps context across phases.
+**Category:** minor
+
+### 2026-10-17 — story-done (godot-host-shell story-002, autonomous) — gate findings
+**Decision point:** LP-CODE-REVIEW CONCERNS (12 findings, none blocking) + QL-TEST-COVERAGE GAPS (5 gaps, none critical); both gates agreed the runner's exception/watchdog path, duplicate-name shadowing and the unexecuted exit codes 1/3/4/5 should be closed before story 011 builds on the harness.
+**Options considered:** Revise flagged issues / Accept and proceed; Close / Close and log tech debt.
+**Chosen:** Revise in-story (one resumed implementer turn + one script edit): try/catch + forced exit in `SmokeRunner._Ready`/`Begin`, watchdog clock from `_Ready`, loud duplicate-name failure, FAIL-shaped timeout line, five `selftest-*` scenarios with `ExpectedExit` 1/1/3/4/5 (all executed and retained), root-name/parent and `OS.LowProcessorUsageMode` assertions, method splits; `check-scene-rules.sh` R9 (no node/tree lookups in a presenter/view `_Ready`) + `[autoload_prepend]` plant (10 rules, 23 plants). Then Close and log tech debt (TD-098) for the non-debug branch, the `AutoBoot=false`/`IsInitialized` positive control (stories 004/006), the scene-file re-save, the release-surface guard. Verdict COMPLETE WITH NOTES: 4/4 ACs.
+**Reason:** The fixes were < 150 lines in files this story owns and turned code-read-only exit paths into executed evidence; the deferred items need an export build or later stories.
+**Category:** minor
+
+### 2026-10-17 — godot-host-shell runner questions (orchestrator)
+**Decision point:** (1) Story 001 AC-4 asked for `src/.gdignore` to be removed; the runner moved the 0-byte marker into `src/PerformativeMail.Sim/` and `Client.Core/` instead of deleting. (2) TD-094(1): ADR-0019 §9 maps the game sln's `ExportDebug` to `Release` for the libraries, which may conflict with ADR-0001 §4.
+**Options considered:** (1) treat the move as an always-ask deletion and halt / accept the move as satisfying the AC's intent (no Godot-visible `src/` ignore; ADR-0001 §2 "moves into each folder"). (2) ask the owner now / queue the ADR-0019 §9 question for the next owner batch.
+**Chosen:** (1) Accept — a rename of an empty marker is not a deletion, and ADR-0001 §2 describes exactly this placement. (2) Queue for the next owner ADR batch; until then the first-export story must assert `Sim.AssertsEnabled == true` in a debug export (per TD-094).
+**Reason:** Keeps the always-ask rule meaningful (content loss) without blocking on a no-content rename.
+**Category:** minor

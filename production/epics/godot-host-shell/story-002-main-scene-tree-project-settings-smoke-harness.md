@@ -1,12 +1,12 @@
 # Story 002: `Main.tscn` scene root, the ADR-0019 node tree, explicit project settings and the headless smoke harness
 
 > **Epic**: Godot Host Shell & Greybox Scene
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~350 lines prod + the scene + smoke scenario)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-17 — implemented (dev-story, autonomous). `SmokeRunner : Node` is added as the last child of `Main` by `GameLoop._Ready` only when `--smoke=` is present in a debug build and polls in its own `_Process` (story 003's `GameLoop._Process` untouched); `GameLoop.RequestBoot()` is the story-004 seam and returns false today, so `NeedsBoot` scenarios exit 4. `Main.tscn` is hand-written `format=3` (4.7.1 loads it); one headless `--editor --quit` pass created the `.uid` sidecars, which are kept. The live `Window` content-scale assertions hold under `--headless`. `check-scene-rules.sh` normalises `project.godot`'s section-relative keys to full `section/key` lines before matching (the first cut grepped the flat form and missed `[application] run/main_scene`). Evidence: `production/qa/evidence/host-shell-scene-root-evidence.md`.
 
 ## Context
 
@@ -75,7 +75,7 @@
 **Required evidence**:
 - Integration: the `main-tree` smoke log (`SMOKE main-tree PASS …`, exit 0) from `mise exec dotnet@10.0.402 -- ~/.local/bin/godot-mono --headless --path . -- --smoke=main-tree`, plus `tools/ci/check-scene-rules.sh` and its `--self-check` output, retained in `production/qa/evidence/host-shell-scene-root-evidence.md` — `/story-done` checks the scenario, the script and the evidence file exist; pass/fail is established by `/smoke-check` (story 011 wires the run into CI)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `production/qa/evidence/host-shell-scene-root-evidence.md` (main-tree smoke 39/0 exit 0; `selftest-*` scenarios executed for exits 1/1/3/4/5; `list` shows expect= per scenario; unknown→2; scene-rules self-check 23 plants + 10/10 rules; re-captured 2026-10-17 after the gate fixes)
 
 ---
 
@@ -83,3 +83,12 @@
 
 - Depends on: Story 001 (csproj, `src/Game/`, `[dotnet]`)
 - Unlocks: Stories 003, 004, 006, 009, 010, 011; `production/epics/input-controls/story-026-godot-input-adapter-node.md` (the `Main/Input` slot), `production/epics/player-character/story-022-playerview-scene-render-pose.md`, `production/epics/player-character/story-023-camera-rig-node-focus-cone.md`, `production/epics/throwing-catching/story-020-flight-view-multimesh-trail-shadow.md` (scene root and named nodes)
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-17
+**Criteria**: 4/4 passing (no deferred criteria; the non-debug branch of AC-2/AC-4 — `Debug` stripped, `--smoke` ignored — is asserted in code but can only be observed in an exported release build, TD-098 (1))
+**Deviations**: None from ADR-0019/ADR-0002. Design choices logged: `SmokeRunner : Node` polls in its own `_Process` (story 003's `GameLoop._Process` untouched); `GameLoop.RequestBoot()` returns false until story 004 (`NeedsBoot` scenarios exit 4); `Main.tscn` hand-written `format=3`, editor re-save deferred (TD-098 (4)). Five `selftest-*` scenarios were added beyond the story's `main-tree` so every exit code has executed evidence; `check-scene-rules.sh` gained R9 (presenter/view `_Ready` does no lookups) beyond the AC's five greps.
+**Test Evidence**: Integration — `production/qa/evidence/host-shell-scene-root-evidence.md` (all seven smoke runs with process exit codes, scene-rules self-check and run); no xUnit test (Godot-side; the Godot-free test project cannot load it). The headless run is wired into CI by story 011; `check-scene-rules.sh` already runs in the `game-build` job.
+**Code Review**: Complete — LP-CODE-REVIEW CONCERNS (no blocking; findings 1/2/3/4/7 + part of 6 fixed in-story; 5/8/9/10/11/12 → TD-098) · QL-TEST-COVERAGE GAPS (none critical; gaps 1/2/5a/5b/5c/5e/5f fixed in-story; 3/4/5d → TD-098).
