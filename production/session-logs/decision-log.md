@@ -5803,3 +5803,9 @@ Granularity follows the orchestrator's one-session sizing, not `fine`. QL-STORY-
 **Chosen:** (1) Accept — a rename of an empty marker is not a deletion, and ADR-0001 §2 describes exactly this placement. (2) Queue for the next owner ADR batch; until then the first-export story must assert `Sim.AssertsEnabled == true` in a debug export (per TD-094).
 **Reason:** Keeps the always-ask rule meaningful (content loss) without blocking on a no-content rename.
 **Category:** minor
+
+### 2026-10-17 — dev-story (player-character story-012, autonomous) — registry capacity source
+**Decision point:** The implementer sized the registry from a new `SimSettings.MaxAnchors` code default (per my earlier [A2] call) and then found `PlayerSettings.MaxAnchors` (`player.maxAnchors` = 4096, a balance key story 001 already shipped) — two sources for one constant.
+**Options considered:** [A] keep both; [B] size from `PlayerSettings.MaxAnchors` and remove the `SimSettings` addition (no balance-row/hash churn, "every constant from the players settings record").
+**Chosen:** [B], applied by the orchestrator: `PlayersSystem` constructors reduced to public `(IWorldQuery, ContentSet, SimCheckRing, SimCounters)` + internal `(IWorldQuery, PlayerSettings[, SimCheckRing, SimCounters])`; the "sized from a SimSettings value of 8" AC is met with `PlayerSettings with { MaxAnchors = 8 }`. The earlier [A2] note is superseded; no TD needed for a `sim.maxAnchors` row.
+**Category:** minor

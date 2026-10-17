@@ -1,7 +1,7 @@
 # Story 003: `MailRules.Evaluate` (pure, 0-alloc) over facts structs, and the effective destination state with closing grace
 
 > **Epic**: Mail & Destinations (M-1a slice)
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: S–M (~0.5–1 day; ~200 lines prod + ~250 lines tests)
@@ -75,7 +75,7 @@
 **Required evidence**:
 - Logic: `tests/unit/mail/EvaluateTests.cs` and `tests/unit/mail/DeliveriesStateRulesTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/unit/mail/EvaluateTests.cs` (16), `EvaluateAllocationTests.cs` (2), `DeliveriesStateRulesTests.cs` (9)
 
 ---
 
@@ -83,3 +83,12 @@
 
 - Depends on: Story 002 (facts fields); `production/epics/world-stub/story-004-addressid-lots-destination-ids.md` (`AddressId`); `production/epics/content-data/story-005-m1a-def-records.md`
 - Unlocks: Story 007, Story 008, Story 010; manual-delivery preview (4b); throwing-catching arc colour (4c)
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-17
+**Criteria**: 4/4 passing (none deferred)
+**Deviations**: Additive `DestinationFacts.AcceptsMask` (u64, bit = kind `DefIndex.Value`; kinds ≥ 64 never set) and `DestinationFacts.RequiresUnit`, filled by `DestinationRegistry.TryGetDestinationFacts` from a per-type precompute (ADR-0016 §3 "small facts struct" allowance, as the Implementation Notes prescribe). `MailFlags` made public (the public `UnitFacts` exposes it); `UnitFacts.Flags` is typed `MailFlags`, not `byte`. `DestinationRegistry.RawStateOf` reordered to Closed → Locked → Open and delegated to `DeliveriesStateRules.Effective` (null start tick) so the ordering rule has one copy. The AC-3 predicate counter is a `ref int` through one private `EvaluateCore`, exposed only by an `#if SIM_ASSERT internal EvaluateCounted` (no static field, SC-ARCH-1). Namespace is `PerformativeMail.Sim.MailDestinations` (project convention). GDD erratum F3 ("truncates" vs exact V_k) noted; not this story's scope.
+**Test Evidence**: Logic — `tests/unit/mail/EvaluateTests.cs`, `tests/unit/mail/EvaluateAllocationTests.cs`, `tests/unit/mail/DeliveriesStateRulesTests.cs` (27 tests; Mail namespace 150 pass / 1 skip in Release net10, 148/1 Release net8 before the last 2 additions, Debug green). Release build 0 warnings. Solution-wide failures at closure time are in other runners' in-flight Content / Inventory / PlayerCharacter files.
+**Code Review**: Complete — LP-CODE-REVIEW APPROVE (advisories: expose a public accepts-mask helper before story 010; share the `64` mask-width constant); QL-TEST-COVERAGE GAPS → G1 (state-before-category precedence), G2 (real house mask covers all 5 kinds) and G3 (M-R4-2 trait letters) fixed before closure; G4 and the carry-forwards logged as TD-092.

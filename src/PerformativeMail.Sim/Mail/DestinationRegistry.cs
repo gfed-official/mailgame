@@ -286,19 +286,19 @@ internal sealed class DestinationRegistry
     /// <summary>
     /// Raw state of a row, no grace window: <see cref="DestState.Closed"/> when deliveries are not open (even for a locked
     /// district: Mail R5 "Evaluate checks CLOSED before LOCKED"), else <see cref="DestState.Locked"/> when its district is not
-    /// unlocked, else <see cref="DestState.Open"/>. <see cref="DeliveriesStateRules.Effective"/> is the same order with grace.
+    /// unlocked, else <see cref="DestState.Open"/>. Delegates to <see cref="DeliveriesStateRules.Effective"/> with no action
+    /// start tick, so the ordering rule has one copy.
     /// </summary>
     /// <param name="o">The ordinal.</param>
     /// <returns>The raw state.</returns>
-    public DestState RawStateOf(DestinationOrdinal o)
-    {
-        if (!Deliveries.Open)
-        {
-            return DestState.Closed;
-        }
-
-        return Deliveries.IsDistrictUnlocked(_district[o.Value]) ? DestState.Open : DestState.Locked;
-    }
+    public DestState RawStateOf(DestinationOrdinal o) =>
+        DeliveriesStateRules.Effective(
+            districtUnlocked: Deliveries.IsDistrictUnlocked(_district[o.Value]),
+            openNow: Deliveries.Open,
+            closeTick: Deliveries.CloseTick,
+            actionStartTick: null,
+            applyTick: 0u,
+            closeGraceTicks: 0);
 
     /// <summary>
     /// The <c>IMailApi.TryGetDestinationFacts</c> signature (story 005's <c>IMailApi</c> delegates here): fills

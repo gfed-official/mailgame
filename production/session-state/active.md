@@ -9,11 +9,12 @@ Task: /dev-story production/epics/simulation-core/story-001-build-config-sim-ass
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-17
 **Branch:** `master`
-**Current task:** /story-done — production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md closed: COMPLETE WITH NOTES (parallel runners: grid-inventory, player-character, content-data, mail-destinations also active)
-**Next step:** /dev-story production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md
+**Current task:** /dev-story — production/epics/player-character/story-012-anchor-registry-iinteractable-spatial-grid.md (anchor registry) — Implementation Complete
+**Next step:** /story-done production/epics/player-character/story-012-anchor-registry-iinteractable-spatial-grid.md
 **Blocked on:** nothing
-**Files in progress:** none
-**Open questions:** tech debt logged: 1 item (TD-098)
+**Files in progress:** src/PerformativeMail.Sim/Players/{Verb,VerbSpelling,VerbCatalogue,InteractMode,AnchorRef,AnchorFlags,AnchorDef,RegisterResult,IInteractable,InteractionContext,InteractionLatch,OwnerPayload16,PromptArgs,ClaimedPosition,AnchorRegistry,AnchorGrid}.cs, PlayersSystem.cs, IPlayersApi.cs, PlayersStateContributor.cs, Core/{CheckCode,CounterId}.cs, Composition/SimComposition.cs, Content/{ContentInputKeys,ContentPipeline}.cs, Content/Validation/{ContentValidationInput,VerbDeclaration}.cs, Content/Rules/{Player,PlayerChecks}.cs; tests/unit/player/AnchorRegistryTests.cs, tests/unit/content/PlayerVerbRuleTests.cs (+ fixtures/registry/enum/dump test updates)
+**Run result:** N/A — pure Sim registry and a build-time content rule, nothing observable
+**Open questions:** none
 <!-- /CHECKPOINT -->
 
 - **Task**: Systems decomposition

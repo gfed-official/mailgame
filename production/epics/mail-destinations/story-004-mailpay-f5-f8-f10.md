@@ -1,12 +1,12 @@
 # Story 004: `MailPay` — timeliness (F5), unit pay (F6), unit penalty (F7), wallet guard (F8), value-hint payout (F10)
 
 > **Epic**: Mail & Destinations (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~200 lines prod + ~300 lines parametrised tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-17
 
 ## Context
 
@@ -77,7 +77,7 @@
 **Required evidence**:
 - Logic: `tests/unit/mail/MailPayTests.cs` — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/unit/mail/MailPayTests.cs` (38), `MailPayAllocationTests.cs` (1); green on net10.0 and net8.0 Release and on Debug
 
 ---
 
@@ -85,3 +85,12 @@
 
 - Depends on: Story 003 (`UnitFacts`); `production/epics/simulation-core/story-003-numerics-toolkit.md`; `production/epics/content-data/story-014-statsheet-build-read-explain.md`
 - Unlocks: Story 007, Story 008, Story 010; manual-delivery `predictedPay`/`predictedPenalty`
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-17
+**Criteria**: 5/5 passing (none deferred)
+**Deviations**: Signatures extend the ADR-0017 sketch: every money function takes `ref SimCounterSink sink` last (so `Fix` clamp / div-zero counters are not dropped); `UnitPay` takes `thrownPm` as a parameter (per the story); `UnitPenalty` takes `misdeliveryPenaltyRatioPm` and `minPenaltyCents` from the caller's `MailBalance` (no statics); `WalletGuard` takes the floor as `Cents` because no Economy-owned `walletFloor` balance key exists yet; `HintPayout`/`HintPenalty`/`HintRun` are additions (F10). `HintPayout` computes `Count × UnitPay(run)` (identical units round identically = Σ per-unit pay, ADR-0016 §3). M-R7-2a is tested with proxy stats because no Run Structure stats exist in M-1a. ADR erratum owed: TD-096.
+**Test Evidence**: Logic — `tests/unit/mail/MailPayTests.cs`, `tests/unit/mail/MailPayAllocationTests.cs` (39 tests; Mail namespace 189 pass / 1 skip on Release net10 and net8, Debug green; Release build 0 warnings; full Release net10 suite green at the implementer's run: 4,424 / 0 / 1).
+**Code Review**: Complete — LP-CODE-REVIEW APPROVE (advisories → TD-096); QL-TEST-COVERAGE GAPS → G1 (single-rounding discriminator: letter 5 × 500‰ × 1250‰ × 1100‰ = 3, per-factor would give 4), G2 (Cannon Arm on the sheet ignored when thrownPm = 1000) and G5 (deadLetterShifts 3 band) fixed before closure; G3 trait ids corrected; G4 and the rest → TD-096.
