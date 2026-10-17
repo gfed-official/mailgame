@@ -1,0 +1,5 @@
+# Append-only logs edited by parallel story runners: merge by union so
+# worktree branches combine without conflicts.
+production/session-logs/decision-log.md merge=union
+production/session-state/planning-run-*.md merge=union
+docs/tech-debt-register.md merge=union
