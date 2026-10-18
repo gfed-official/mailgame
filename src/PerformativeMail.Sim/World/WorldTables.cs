@@ -1,3 +1,4 @@
+using System.Buffers;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Primitives;
@@ -12,6 +13,13 @@ namespace PerformativeMail.Sim.World;
 /// Beyond the contract, the tables own
 /// the small immutable world string table (address and street display text, <see cref="StringNamespace.Run"/>), read
 /// through <see cref="TryGetDisplayText"/> by Presentation; the Sim itself never formats or reads these strings.
+/// </para>
+/// <para>
+/// Dump (ADR-0026 section 9, story 007): the tables are an <see cref="ISimStateContributor"/> for <see cref="SectionIds.World"/>.
+/// The payload (see <see cref="SectionIds.World"/> for the field order) is immutable, so the builder encodes it once at the end of
+/// <c>Build</c> and every dump copies the cached bytes. The display text table and the street table are not dumped (strings never
+/// enter the dump; the authored street table only affects Presentation's <c>StreetNameAt</c> and is covered by the replay's
+/// <see cref="IWorldSource.Version"/>, which must be bumped on any authored change).
 /// Thread safety: concurrent reads are safe, except that <see cref="QueryStaticSolids"/> writes the bound
 /// <see cref="SimCounters"/> (if any, see <see cref="WorldTablesBuilder.SetCounters"/>) and must then run on the Sim tick thread.
 /// </para>
@@ -24,7 +32,7 @@ namespace PerformativeMail.Sim.World;
 /// int depth = w.WaterDepthMm(500, 1000);   // 600
 /// </code>
 /// </example>
-public sealed class WorldTables : IWorldQuery
+public sealed class WorldTables : IWorldQuery, ISimStateContributor
 {
     private const long S = WorldConstants.TileSizeMm;
 
@@ -41,6 +49,7 @@ public sealed class WorldTables : IWorldQuery
     private readonly WorldStreet[] _streets;
     private readonly string[] _displayText;
     private readonly PostOfficeRecord _postOffice;
+    private readonly ArrayBufferWriter<byte> _dumpCache = new(); // filled once by SealDumpCache; the field itself never changes
 
     /// <summary>
     /// Takes ownership of the arrays and the grid (the builder passes private copies; flags are row-major, <c>tz * tilesX + tx</c>).
@@ -75,6 +84,113 @@ public sealed class WorldTables : IWorldQuery
         _cornerMm = cornerMm;
         _flags = flags;
         _bounds = bounds;
+    }
+
+    /// <inheritdoc />
+    public ushort SectionId => SectionIds.World;
+
+    /// <inheritdoc />
+    /// <remarks>Copies the payload cached at the end of <c>Build</c>; allocation-free. Byte-identical to <see cref="WriteFields"/>.</remarks>
+    public void Write(ref CanonicalWriter w)
+    {
+        System.Diagnostics.Debug.Assert(_dumpCache.WrittenCount > 0, "WorldTables.Write before SealDumpCache: the builder seals the cache at the end of Build.");
+        w.WriteBytes(_dumpCache.WrittenSpan);
+    }
+
+    /// <summary>Bytes of the section framing <see cref="CanonicalWriter.BeginSection"/> writes before a payload: <c>id u16</c> + <c>length u32</c>.</summary>
+    internal const int SectionFrameBytes = 6;
+
+    /// <summary>
+    /// Encodes the dump payload once and keeps it. Called by the builder as the last step of <c>Build</c> (lots are filled by then);
+    /// the section framing (<c>id u16, length u32</c>) written by <see cref="CanonicalWriter"/> is sliced off.
+    /// </summary>
+    internal void SealDumpCache()
+    {
+        var output = new ArrayBufferWriter<byte>(4096);
+        var w = new CanonicalWriter(output, new CanonicalBuffer());
+        w.BeginSection(SectionIds.World);
+        WriteFields(ref w);
+        w.EndSection();
+        if (_dumpCache.WrittenCount == 0)
+        {
+            _dumpCache.Write(output.WrittenSpan.Slice(SectionFrameBytes));
+        }
+    }
+
+    /// <summary>
+    /// Writes the dump payload field by field, little-endian, in index order: bounds (4 x i64: MinX, MinZ, MaxX, MaxZ); TilesX, TilesZ (i32);
+    /// corner heights (u32 count, then i32 each in row-major order, stride TilesX + 1, index <c>cz * (TilesX + 1) + cx</c>); flags (u32 count,
+    /// then u8 each, index <c>tz * TilesX + tx</c>); solids (u32 count, then Index u16, Owner u32, Box Min XYZ and Max XYZ as 6 x i32, Kind u8);
+    /// lots (u32 count, then every <see cref="LotRecord"/> field in declaration order, <see cref="StringId"/> as ns u8 + index u16);
+    /// the Post Office (door, intake, pad centre as 3 x i32 each, ring radius i32, slot count u8). Never a struct blit, never a string.
+    /// Used to build the cache and by tests as the cache guard.
+    /// </summary>
+    /// <param name="w">The writer, with a section open.</param>
+    internal void WriteFields(ref CanonicalWriter w)
+    {
+        w.WriteI64(_bounds.MinXMm);
+        w.WriteI64(_bounds.MinZMm);
+        w.WriteI64(_bounds.MaxXMm);
+        w.WriteI64(_bounds.MaxZMm);
+        w.WriteI32(_tilesX);
+        w.WriteI32(_tilesZ);
+
+        w.WriteU32((uint)_cornerMm.Length);
+        for (int i = 0; i < _cornerMm.Length; i++)
+        {
+            w.WriteI32(_cornerMm[i]);
+        }
+
+        w.WriteU32((uint)_flags.Length);
+        for (int i = 0; i < _flags.Length; i++)
+        {
+            w.WriteU8(_flags[i]);
+        }
+
+        w.WriteU32((uint)_solids.Length);
+        for (int i = 0; i < _solids.Length; i++)
+        {
+            StaticSolid s = _solids[i];
+            w.WriteU16(s.Index);
+            w.WriteU32(s.Owner.Value);
+            WriteVec(ref w, in s.Box.Min);
+            WriteVec(ref w, in s.Box.Max);
+            w.WriteU8((byte)s.Kind);
+        }
+
+        w.WriteU32((uint)_lots.Length);
+        for (int i = 0; i < _lots.Length; i++)
+        {
+            LotRecord l = _lots[i];
+            w.WriteU32(l.Destination.Value);
+            w.WriteU32(l.Address.Value);
+            w.WriteU8(l.DistrictId);
+            w.WriteU8(l.StreetId);
+            w.WriteU16(l.Number);
+            w.WriteU8((byte)l.Display.Ns);
+            w.WriteU16(l.Display.Index);
+            w.WriteI32(l.MailboxTile.Tx);
+            w.WriteI32(l.MailboxTile.Tz);
+            w.WriteU8((byte)l.Face);
+            WriteVec(ref w, in l.Anchor);
+            w.WriteI32(l.ApproachTile.Tx);
+            w.WriteI32(l.ApproachTile.Tz);
+            WriteVec(ref w, in l.TruckStopPoint);
+            w.WriteU16(l.HouseSolid);
+        }
+
+        WriteVec(ref w, in _postOffice.DoorAnchor);
+        WriteVec(ref w, in _postOffice.IntakeAnchor);
+        WriteVec(ref w, in _postOffice.PadCentre);
+        w.WriteI32(_postOffice.PadRingRadiusMm);
+        w.WriteU8(_postOffice.PadSlots);
+    }
+
+    private static void WriteVec(ref CanonicalWriter w, in Vec3Mm v)
+    {
+        w.WriteI32(v.X);
+        w.WriteI32(v.Y);
+        w.WriteI32(v.Z);
     }
 
     /// <inheritdoc />

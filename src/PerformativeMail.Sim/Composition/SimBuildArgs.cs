@@ -53,8 +53,20 @@ public readonly struct SimBuildArgs
     /// The world's read interface (ADR-0026 section 1), handed to the systems that read terrain, solids and the Post Office pad
     /// (Players). Null when the caller has no world: a shipped system that needs one is then left unbuilt (its phases stay no-ops),
     /// like a system whose epic has not landed. Supplied by the production composition owner once world generation is composed.
+    ///
+    /// A supplied world has no replay identity (header world source 0/0): a recording made on a different supplied world replays
+    /// into a dump-hash mismatch, not a <c>WorldSource</c> refusal. Mutually exclusive with <see cref="WorldSource"/>.
     /// </summary>
     public IWorldQuery? World { get; init; }
+
+    /// <summary>
+    /// The authored world to build while the world is <c>Constructed</c> (ADR-0026 section 9): the composition root runs
+    /// <see cref="IWorldSource.Author"/>, builds the <see cref="WorldTables"/> with the world's id allocator and the Players
+    /// walkability limits, binds its <c>World</c> dump section before any system, and hands it to the systems as their
+    /// <see cref="IWorldQuery"/>. Its identity enters the <see cref="Core.Replay.RecordingHeader"/>. Null: none. Mutually exclusive
+    /// with <see cref="World"/> (<see cref="SimComposition.Build"/> throws <see cref="ArgumentException"/> when both are set).
+    /// </summary>
+    public IWorldSource? WorldSource { get; init; }
 
     /// <summary>
     /// The host's <see cref="IEventSink"/>, bound before <c>Freeze()</c> (network-adapter-loopback story 007). Null: no sink.

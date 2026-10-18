@@ -4,7 +4,7 @@ namespace PerformativeMail.Sim.Core;
 
 /// <summary>
 /// The internal Core seam through which Player Character learns of joins and leaves (GDD SC-R21-1: the player-add path is
-/// reachable only from the <c>PlayerJoin</c> handler). Bound once at build with <c>SimWorldBuilder.BindPlayerJoinListener</c>.
+/// reachable only from the <c>PlayerJoin</c> handler). Bound at build with <c>SimWorldBuilder.BindPlayerJoinListener</c> (at most 4 listeners, called in bind order).
 /// Called by the handlers on the Sim tick thread inside the op's call scope, so any event the listener raises precedes the
 /// op's <c>OpReply</c>. Called only after the slot table has changed, so <c>OnPlayerJoined</c> sees the player present and
 /// <c>OnPlayerLeft</c> sees the slot already free. Must not throw and must not allocate.
@@ -32,7 +32,7 @@ internal interface IPlayerJoinListener
     void OnPlayerLeft(PlayerSlot slot, EntityId player);
 }
 
-/// <summary>The listener used when none is bound.</summary>
+/// <summary>A listener that does nothing (a null object for tests; the builder itself fans out to the bound listeners, none when none is bound).</summary>
 internal sealed class NullPlayerJoinListener : IPlayerJoinListener
 {
     public static NullPlayerJoinListener Instance { get; } = new();

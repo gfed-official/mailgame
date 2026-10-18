@@ -27,8 +27,12 @@ public sealed class RecordingHeader
     /// <param name="settingsHash">The SHA-256 of the settings canonical encoding.</param>
     /// <param name="runSeed">The run seed.</param>
     /// <param name="counters">The initial counters; null for all zero.</param>
-    public RecordingHeader(ushort formatVersion, Hash256 contentHash, Hash256 settingsHash, ulong runSeed, SimInitialCounters? counters)
+    /// <param name="worldSourceKind">The world source kind (<see cref="World.IWorldSource.Kind"/>); 0 = no world.</param>
+    /// <param name="worldSourceVersion">The world source version (<see cref="World.IWorldSource.Version"/>); 0 = no world.</param>
+    public RecordingHeader(ushort formatVersion, Hash256 contentHash, Hash256 settingsHash, ulong runSeed, SimInitialCounters? counters, ushort worldSourceKind = 0, uint worldSourceVersion = 0)
     {
+        WorldSourceKind = worldSourceKind;
+        WorldSourceVersion = worldSourceVersion;
         FormatVersion = formatVersion;
         ContentHash = contentHash;
         SettingsHash = settingsHash;
@@ -52,6 +56,12 @@ public sealed class RecordingHeader
     /// <summary>The run seed every RNG stream derived from.</summary>
     public ulong RunSeed { get; }
 
+    /// <summary>The world source kind the session ran on (<see cref="World.IWorldSource.Kind"/>; 0 = no world source). Story world-stub/007.</summary>
+    public ushort WorldSourceKind { get; }
+
+    /// <summary>The world source version the session ran on (<see cref="World.IWorldSource.Version"/>; 0 = no world source).</summary>
+    public uint WorldSourceVersion { get; }
+
     /// <summary>The last <c>opSeq</c> already issued at build (0 = none).</summary>
     public uint LastOpSeq { get; }
 
@@ -65,10 +75,11 @@ public sealed class RecordingHeader
     /// <param name="content">The accepted content set.</param>
     /// <param name="runSeed">The run seed.</param>
     /// <param name="counters">The initial counters passed to the build; null for all zero.</param>
+    /// <param name="world">The world source the build will use (<c>SimBuildArgs.WorldSource</c>); null for none.</param>
     /// <returns>A header with <see cref="CurrentFormatVersion"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="content"/> is null.</exception>
     /// <example><code>var header = RecordingHeader.Create(BuiltInContent.CreateM1a(), 42);</code></example>
-    public static RecordingHeader Create(ContentSet content, ulong runSeed, SimInitialCounters? counters = null)
+    public static RecordingHeader Create(ContentSet content, ulong runSeed, SimInitialCounters? counters = null, World.IWorldSource? world = null)
     {
         ArgumentNullException.ThrowIfNull(content);
         return new RecordingHeader(
@@ -76,7 +87,9 @@ public sealed class RecordingHeader
             Content.Hashing.ContentHash.Compute(content),
             Content.Hashing.ContentHash.ComputeSettings(content.Settings),
             runSeed,
-            counters);
+            counters,
+            world?.Kind ?? 0,
+            world?.Version ?? 0u);
     }
 
     /// <summary>The initial counters as the value <c>SimBuildArgs</c> takes.</summary>
@@ -91,7 +104,7 @@ public sealed class RecordingHeader
 
     /// <summary>
     /// Compares this (recorded) header with the header of the replay inputs, field by field, and returns the first field that
-    /// differs. Order: format version, settings hash, content hash, run seed, initial counters. The settings hash comes before
+    /// differs. Order: format version, settings hash, content hash, run seed, world source (kind, then version), initial counters. The settings hash comes before
     /// the content hash because the content hash covers the settings: a changed <c>sim.*</c> key changes both, and the more
     /// specific field is the one worth naming.
     /// </summary>
@@ -120,6 +133,11 @@ public sealed class RecordingHeader
         if (RunSeed != replayInputs.RunSeed)
         {
             return ReplayRefusal.RunSeed;
+        }
+
+        if (WorldSourceKind != replayInputs.WorldSourceKind || WorldSourceVersion != replayInputs.WorldSourceVersion)
+        {
+            return ReplayRefusal.WorldSource;
         }
 
         return CountersEqual(replayInputs) ? ReplayRefusal.None : ReplayRefusal.InitialCounters;

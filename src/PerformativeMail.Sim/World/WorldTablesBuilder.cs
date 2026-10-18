@@ -322,6 +322,7 @@ public sealed partial class WorldTablesBuilder
         ValidatePad(tables, in postOffice, swimEnterMm);
         EntityId[] destinations = AllocateDestinations(ids, lots, solids); // patches house owners in the tables' own solids array
         FillLotRecords(tables, lots, destinations, lotRecords);
+        tables.SealDumpCache();
         return tables;
     }
 

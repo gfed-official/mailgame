@@ -1,12 +1,12 @@
 # Story 007: `WorldTables` in the world — `World` dump section, composition wiring (`Constructed`), replay world-source identity
 
 > **Epic**: World Stub — Hand-Authored Street (M-1a)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Estimate**: S–M (~0.5–1 day; ~200 lines prod + ~200 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-17
 
 ## Context
 
@@ -74,7 +74,7 @@
 **Required evidence**:
 - Integration: `tests/integration/world/WorldDumpReplayTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/integration/world/WorldDumpReplayTests.cs` (11); green on Release net10 (full suite 4,565/0/1 at the implementer run; Architecture composition rules pass)
 
 ---
 
@@ -82,3 +82,12 @@
 
 - Depends on: Story 006; `production/epics/simulation-core/story-019-canonical-state-dump.md`, `production/epics/simulation-core/story-025-composition-root-reflection-test.md`, `production/epics/simulation-core/story-026-inmemory-recorder-replay.md`, `production/epics/simulation-core/story-027-sc-det-1-determinism-harness.md`
 - Unlocks: mail-destinations (registry from `Lots` inside a composed world); player-character and throwing-catching composition; world-stub epic Definition of Done
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-17
+**Criteria**: 4/4 passing (none deferred)
+**Deviations**: `RecordingHeader` (ADR-0006 §7 had no slot) extended with trailing optional `WorldSourceKind` (u16; 1 = `M1aStreet`) and `WorldSourceVersion` (u32), `ReplayRefusal.WorldSource = 6` checked after `RunSeed` and before the counters; `ReplayDriver.Run` refuses before any world is built. New `IWorldSource { Kind, Version, Author }` + `M1aWorldSource.Instance` on `SimBuildArgs.WorldSource` so the composition root allocates destination ids from its own `EntityIds` while Constructed (`SimComposition.BindWorld`: Sim counters bound, contributor bound before the systems; `World`/`WorldSource` mutually exclusive; a supplied `WorldTables` is also bound). `SectionIds.World = 5`. The dump cache is a readonly `ArrayBufferWriter<byte>` sealed at the end of `Build` (section frame `SectionFrameBytes = 6` sliced), guarded by a fresh-`WriteFields` equality test and a `Debug.Assert` on an unsealed write. AC-2's variant is a separate minimal `TweakedSource` world (the builder has no post-author setters); AC-3's counter is read via `EntityIds.Peek`. Carry-forwards: TD-100.
+**Test Evidence**: Integration — `tests/integration/world/WorldDumpReplayTests.cs` (11 tests, WS-007-AC1..AC4). Release build 0 warnings; full Release net10 suite 4,565 / 0 / 1 at the implementer's run; at closure 4,590 with 9 failures all in `Unit.Content` (content-data runner's in-flight work, not this story).
+**Code Review**: Complete — LP-CODE-REVIEW CONCERNS (non-blocking) → fixed before closure: `SimComposition.Build` world block extracted to `BindWorld`, composed `WorldTablesBuilder.SetCounters`, cache-unsealed assert + named frame constant, streets doc comment, `SimBuildArgs.World` replay-identity doc; the rest → TD-100. QL-TEST-COVERAGE ADEQUATE.

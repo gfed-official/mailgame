@@ -204,12 +204,70 @@ public class PlayerJoinTests
 
     [Fact]
     [Trait("Id", "SC-R21-1")]
-    public void SecondListenerBind_Throws()
+    public void SameListenerBoundTwice_Throws()
     {
         var builder = new SimWorldBuilder();
-        builder.BindPlayerJoinListener(new ListenerStub());
-        var ex = Assert.Throws<SimBuildException>(() => builder.BindPlayerJoinListener(new ListenerStub()));
+        var stub = new ListenerStub();
+        builder.BindPlayerJoinListener(stub);
+        var ex = Assert.Throws<SimBuildException>(() => builder.BindPlayerJoinListener(stub));
         Assert.Equal(SimBuildErrorCode.PlayerJoinListenerAlreadyBound, ex.Code);
+    }
+
+    [Fact]
+    [Trait("Id", "SC-R21-1")]
+    public void FifthListener_ThrowsPlayerJoinListenerLimit()
+    {
+        var builder = new SimWorldBuilder();
+        for (int i = 0; i < SimWorldBuilder.MaxJoinListeners; i++)
+        {
+            builder.BindPlayerJoinListener(new ListenerStub());
+        }
+
+        var ex = Assert.Throws<SimBuildException>(() => builder.BindPlayerJoinListener(new ListenerStub()));
+        Assert.Equal(SimBuildErrorCode.PlayerJoinListenerLimit, ex.Code);
+    }
+
+    [Fact]
+    [Trait("Id", "SC-R21-1")]
+    public void TwoDistinctListeners_BothReceiveJoinAndLeave_InBindOrder()
+    {
+        var order = new List<string>();
+        var counters = new SimCounters();
+        var ring = new SimCheckRing();
+        var fwd = new Fwd();
+        var ids = new EntityIds(fwd, ring, counters);
+        var slots = new SlotTable();
+        var builder = new SimWorldBuilder(new SimCoreSettings { SystemOpReserve = 8 }, counters, ring);
+        builder.BindCoreState(ids, null, null, slots);
+        builder.BindPlayerJoinListener(new OrderListener("first", order));
+        builder.BindPlayerJoinListener(new OrderListener("second", order));
+        SimWorld world = builder.Freeze();
+        fwd.Target = world;
+
+        Op join = JoinOp(1, 2);
+        Assert.True(world.EnqueueOp(ActorId.System, in join));
+        world.Tick();
+        Op leave = LeaveOp(2, 16_777_217u);
+        Assert.True(world.EnqueueOp(ActorId.System, in leave));
+        world.Tick();
+
+        Assert.Equal(new[] { "first:join", "second:join", "first:leave", "second:leave" }, order);
+    }
+
+    private sealed class OrderListener : IPlayerJoinListener
+    {
+        private readonly string _name;
+        private readonly List<string> _log;
+
+        public OrderListener(string name, List<string> log)
+        {
+            _name = name;
+            _log = log;
+        }
+
+        public void OnPlayerJoined(PlayerSlot slot, EntityId player, uint tick) => _log.Add(_name + ":join");
+
+        public void OnPlayerLeft(PlayerSlot slot, EntityId player) => _log.Add(_name + ":leave");
     }
 
     [Fact]

@@ -2,7 +2,9 @@ using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Sim.Composition;
 
@@ -93,12 +95,12 @@ public static class SimComposition
     /// Builds one world and its client layer. Order: validate the profile (<c>DuplicateSystem</c>, <c>DependencyCycle</c>); create
     /// <see cref="SimCounters"/>, <see cref="SimCheckRing"/>, the <see cref="SimWorldBuilder"/>, <see cref="EntityIds"/>,
     /// <see cref="MailIds"/>, <see cref="SlotTable"/>, <see cref="RngRegistry"/> (seeded with <see cref="SimBuildArgs.RunSeed"/>),
-    /// the <see cref="EventLogFacade"/> and the <see cref="ITickReader"/>; bind them as Sim Core state; construct and bind each
-    /// system in <see cref="ConstructionOrder"/>; build the <see cref="ClientLayer"/>; <see cref="SimWorldBuilder.Freeze"/>.
+    /// the <see cref="EventLogFacade"/> and the <see cref="ITickReader"/>; bind them as Sim Core state; build and bind the world
+    /// tables (<see cref="BindWorld"/>); construct and bind each system in <see cref="ConstructionOrder"/>; build the <see cref="ClientLayer"/>; <see cref="SimWorldBuilder.Freeze"/>.
     /// </summary>
     /// <param name="args">Profile, content, run seed, optional counters and host clock.</param>
     /// <returns>The host: a <see cref="SimState.Ready"/> world at tick 0 and a client layer at client tick 0.</returns>
-    /// <exception cref="ArgumentException"><see cref="SimBuildArgs.Profile"/> or <see cref="SimBuildArgs.Content"/> is null (for example <c>default(SimBuildArgs)</c>).</exception>
+    /// <exception cref="ArgumentException"><see cref="SimBuildArgs.Profile"/> or <see cref="SimBuildArgs.Content"/> is null (for example <c>default(SimBuildArgs)</c>); both <see cref="SimBuildArgs.World"/> and <see cref="SimBuildArgs.WorldSource"/> are set.</exception>
     /// <exception cref="SimBuildException"><c>DuplicateSystem</c>, <c>DependencyCycle</c>, <c>UndeclaredDependency</c>, or any builder code raised by a system's binds.</exception>
     /// <exception cref="InvalidOperationException">A per-test factory returned null.</exception>
     /// <example><code>SimHost host = SimComposition.Build(new SimBuildArgs(SimProfile.M1aGreybox, content, 42));</code></example>
@@ -138,8 +140,11 @@ public static class SimComposition
             builder.BindRecorder(recorder);
         }
 
+        // The world tables (ADR-0026 section 9): built while Constructed, bound before the systems, injected by constructor only.
+        IWorldQuery? worldQuery = BindWorld(in args, builder, services.EntityIds, counters, content);
+
         // Systems, in construction order; each binds right after construction.
-        var context = new SimSystemContext(profile.Graph, content, services, tick, runControl, args.World);
+        var context = new SimSystemContext(profile.Graph, content, services, tick, runControl, worldQuery);
         var systems = new List<ISimSystem>(order.Length);
         for (int i = 0; i < order.Length; i++)
         {
@@ -172,21 +177,54 @@ public static class SimComposition
 
     // The explicit construction code of the shipped systems, one case per system in ShippedOrder. Each gameplay epic adds its
     // case here (and its row in SystemGraph), e.g.:
-    //   case SystemId.GridInventory:
-    //       return new GridInventory(context.Events, context.EntityIds, context.Content.Inventory);
     //   case SystemId.MailDestinations:
     //       return new MailSystem(context.Events, context.MailIds, context.Rng, context.Api<IGridInventoryApi>(SystemId.GridInventory), context.Content);
-    // Until then every case returns null and the profile builds with the Sim Core services only.
+    // A system whose epic has not landed yet returns null and its phases stay no-ops (GridInventory and PlayerCharacter are built).
     private static ISimSystem? ConstructShipped(SystemId id, SimSystemContext context)
     {
         switch (id)
         {
             case SystemId.PlayerCharacter:
                 // Players reads the world only through IWorldQuery; without one the system is left unbuilt (story player-character/001).
-                return context.World is { } world ? new PlayersSystem(world, context.Content.Player) : null;
+                return context.World is { } world ? new PlayersSystem(world, context.Content, context.CheckRing, context.Counters) : null;
+            case SystemId.GridInventory:
+                return new InventorySystem(context.Content, context.StatSheet, context.CheckRing);
             default:
                 return null;
         }
+    }
+
+    /// <summary>
+    /// The world step of <see cref="Build"/> (ADR-0026 section 9, story world-stub/007). With a <see cref="SimBuildArgs.WorldSource"/>
+    /// the tables are authored and built here, while the world is Constructed (destination ids are allocated from the world's own
+    /// <see cref="EntityIds"/>), with the Sim <see cref="SimCounters"/> bound for solid-query overflow counts, and bound as the first
+    /// contributor after Sim Core so the World section's place in the dump is stable. A supplied <see cref="SimBuildArgs.World"/>
+    /// that is a <see cref="WorldTables"/> is bound as a contributor too (its replay identity is 0: see <see cref="SimBuildArgs.World"/>).
+    /// </summary>
+    /// <exception cref="ArgumentException">Both <see cref="SimBuildArgs.World"/> and <see cref="SimBuildArgs.WorldSource"/> are set.</exception>
+    private static IWorldQuery? BindWorld(in SimBuildArgs args, SimWorldBuilder builder, EntityIds ids, SimCounters counters, ContentSet content)
+    {
+        if (args.WorldSource is not { } worldSource)
+        {
+            if (args.World is WorldTables suppliedTables)
+            {
+                builder.BindStateContributor(suppliedTables);
+            }
+
+            return args.World;
+        }
+
+        if (args.World is not null)
+        {
+            throw new ArgumentException("SimBuildArgs.World and SimBuildArgs.WorldSource are mutually exclusive.", nameof(args));
+        }
+
+        var worldBuilder = new WorldTablesBuilder();
+        worldBuilder.SetCounters(counters);
+        worldSource.Author(worldBuilder);
+        WorldTables tables = worldBuilder.Build(ids, content.Player.SlopeMaxPm, content.Player.SwimEnterMm);
+        builder.BindStateContributor(tables);
+        return tables;
     }
 
     private static void ThrowIfDuplicate(SystemId[] order)

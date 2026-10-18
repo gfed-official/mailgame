@@ -24,6 +24,9 @@ public enum ReplayRefusal : byte
 
     /// <summary>The initial counters (<c>LastOpSeq</c>, <c>LastMailId</c> or an entity counter) differ.</summary>
     InitialCounters = 5,
+
+    /// <summary>The world source identity (kind or version, for example <c>M1aStreet.Version</c>) differs.</summary>
+    WorldSource = 6,
 }
 
 /// <summary>How a replay ended. Append-only: values are explicit.</summary>

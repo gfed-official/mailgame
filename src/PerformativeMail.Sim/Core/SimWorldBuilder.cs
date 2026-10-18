@@ -35,7 +35,8 @@ public sealed class SimWorldBuilder
     private IEventSink? _eventSink;
     private IOpRecorder? _recorder;
     private SimCoreStateSources? _coreState;
-    private IPlayerJoinListener? _joinListener;
+    private readonly IPlayerJoinListener[] _joinListeners = new IPlayerJoinListener[MaxJoinListeners];
+    private int _joinListenerCount;
     private bool _frozen;
 
     /// <summary>Creates a builder. Every argument defaults to a fresh per-world instance.</summary>
@@ -287,24 +288,37 @@ public sealed class SimWorldBuilder
         _coreState = new SimCoreStateSources(ids, mail, rng, slots);
     }
 
+    /// <summary>The most <see cref="IPlayerJoinListener"/>s a world fans a join or leave out to.</summary>
+    internal const int MaxJoinListeners = 4;
+
     /// <summary>
-    /// Binds the one <see cref="IPlayerJoinListener"/> (Player Character creates and removes its carrier from it). Internal to the
-    /// Sim assembly. Without one the join and leave handlers use a null-object listener. A second bind throws, like the event sink.
+    /// Binds an <see cref="IPlayerJoinListener"/> (Player Character creates and removes its carrier from one, Grid Inventory its
+    /// panel containers from another). Internal to the Sim assembly. At most <see cref="MaxJoinListeners"/> are bound; the join and
+    /// leave handlers call them in bind order (composition order). Without one the handlers use a null-object listener. Binding the
+    /// same instance twice throws.
     /// </summary>
     /// <param name="listener">The listener, called inside the handler's call scope so its events precede the OpReply.</param>
-    /// <exception cref="SimBuildException"><c>BindAfterFreeze</c> after <see cref="Freeze"/>; <c>PlayerJoinListenerAlreadyBound</c> when one is already bound.</exception>
+    /// <exception cref="SimBuildException"><c>BindAfterFreeze</c> after <see cref="Freeze"/>; <c>PlayerJoinListenerAlreadyBound</c> when this instance is already bound; <c>PlayerJoinListenerLimit</c> past 4 listeners.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="listener"/> is null.</exception>
     /// <example><code>builder.BindPlayerJoinListener(players);</code></example>
     internal void BindPlayerJoinListener(IPlayerJoinListener listener)
     {
         ThrowIfFrozen();
         ArgumentNullException.ThrowIfNull(listener);
-        if (_joinListener is not null)
+        for (int i = 0; i < _joinListenerCount; i++)
         {
-            throw new SimBuildException(SimBuildErrorCode.PlayerJoinListenerAlreadyBound, "An IPlayerJoinListener is already bound; a world has at most one.");
+            if (ReferenceEquals(_joinListeners[i], listener))
+            {
+                throw new SimBuildException(SimBuildErrorCode.PlayerJoinListenerAlreadyBound, "This IPlayerJoinListener is already bound.");
+            }
         }
 
-        _joinListener = listener;
+        if (_joinListenerCount == MaxJoinListeners)
+        {
+            throw new SimBuildException(SimBuildErrorCode.PlayerJoinListenerLimit, $"At most {MaxJoinListeners} IPlayerJoinListeners can be bound.");
+        }
+
+        _joinListeners[_joinListenerCount++] = listener;
     }
 
     /// <summary>Checks the reader limit, the id (non-zero, not already bound) and that the filter is non-empty.</summary>
@@ -402,15 +416,16 @@ public sealed class SimWorldBuilder
             return;
         }
 
-        IPlayerJoinListener listener = _joinListener ?? NullPlayerJoinListener.Instance;
+        IPlayerJoinListener[] listeners = new IPlayerJoinListener[_joinListenerCount];
+        Array.Copy(_joinListeners, listeners, _joinListenerCount);
         if (!IsDeclared(OpKind.PlayerJoin))
         {
-            BindOp(CorePlayerOps.JoinDescriptor, new PlayerJoinHandler(ids, slots, listener));
+            BindOp(CorePlayerOps.JoinDescriptor, new PlayerJoinHandler(ids, slots, listeners));
         }
 
         if (!IsDeclared(OpKind.PlayerLeave))
         {
-            BindOp(CorePlayerOps.LeaveDescriptor, new PlayerLeaveHandler(slots, listener));
+            BindOp(CorePlayerOps.LeaveDescriptor, new PlayerLeaveHandler(slots, listeners));
         }
     }
 

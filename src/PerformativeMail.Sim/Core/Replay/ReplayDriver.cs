@@ -68,7 +68,7 @@ public static class ReplayDriver
         ArgumentNullException.ThrowIfNull(args.Content);
         var result = new ReplayResult();
 
-        var inputs = RecordingHeader.Create(args.Content, args.RunSeed, args.Counters);
+        var inputs = RecordingHeader.Create(args.Content, args.RunSeed, args.Counters, args.WorldSource);
         ReplayRefusal refusal = recording.Header.FirstMismatch(inputs);
         if (refusal != ReplayRefusal.None)
         {
