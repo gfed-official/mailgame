@@ -3,6 +3,15 @@
 **Written:** 2026-10-16 23:55 PDT, by the orchestrating session at a clean stopping point.
 **Read this first in a new session.** Then read `production/session-state/planning-run-2026-10-16.md` (full run ledger + per-story checkpoint lines) only for detail.
 
+## Update 2026-10-17 (read this block first; the rest below is the 2026-10-16 snapshot)
+
+- **Branch is `main`** (the old `master` was renamed and pushed to `origin/main`, replacing the Unreal-era history). Everything below that says `master` means `main`.
+- **Everything is committed and pushed** through the run's cut-off point. Commits after the snapshot: Sim/Client.Core snapshot, ADR errata, godot-host-shell 001–002, mail-destinations 003–004, ADR-0017 erratum (TD-096), content-data 017 (+018 partial), grid-inventory 001–002 (+003 partial), player-character 011–012, world-stub 007, production logs.
+- **Story counts now:** 86 Complete. **Three In Progress** with partial or no code: content-data **018** (schema stage — FieldSpec tables, SchemaTable, ParsedDef/Value etc. exist; 0/7 ACs ticked; TD-090/075(1)/063(1) still owed), grid-inventory **003** (MailIdArena.cs + `inventory.mailIdArenaUnits` knob exist; 0/4 ACs; no tests), player-character **013** (status flip and logged design calls only; no code). Resume these with `/dev-story` — the runner should read the existing files before implementing.
+- **Tree verified 2026-10-17 evening:** Release build 0 warnings; four legs 4,609 tests / 0 failed. Two compile errors in 018's last files and two stale content pins (golden digest → `018735cb`; `inventory.mailIdArenaUnits` default 32 768) were fixed in that pass.
+- **Runner worktrees removed.** The throwing-catching 001 and godot-host-shell 003 runners only reached setup (their decision-log notes were appended to the main log); both stories are still **Ready**. Both runners noted that `.claude/worktrees` branches must be based on local `main`, not `origin/main` at the time (now identical). Current manifest version is **2026-10-17.1**; stories stamped 2026-10-16.2 should re-stamp (only ADR-0012 §7 input-adapter and ADR-0026 rules changed).
+- **Next up, in order:** finish 018 → 019; finish grid-inventory 003 → 004…; player-character 013 → 026; throwing-catching 001; godot-host-shell 003; then the rest of the "Recommended next steps" below.
+
 ## Owner instructions in force
 
 1. "Continue the rest of the planning without my input for the whole game." (autonomous; log every decision)
