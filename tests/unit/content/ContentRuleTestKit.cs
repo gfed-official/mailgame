@@ -248,6 +248,8 @@ internal static class RuleFixtureCatalogue
         .AddRange(GeneralRuleFixtures.All())
         .AddRange(GridMailRuleFixtures.All())
         .AddRange(PlayerRuleFixtures.All())
+        .AddRange(SchemaRuleFixtures.All())
+        .AddRange(SyntaxRuleFixtures.All())
         .AddRange(ThrowingRuleFixtures.All());
 
     /// <summary>Fixtures for the test-only rows.</summary>

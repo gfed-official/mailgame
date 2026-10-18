@@ -51,6 +51,10 @@ public static class ContentPipeline
     /// <param name="mailMixes">Mail mix defs, any order.</param>
     /// <param name="rules">The rule registry whose stage 3 to 5 rules apply.</param>
     /// <param name="references">By-id references still to be resolved (CV-GEN-01); default means none (built-in defs hold indices).</param>
+    /// <param name="verbDeclarations">
+    /// The interaction verbs the defs declare (CV-PLR-13); default means none. No def type carries a verb field at M-1a, so
+    /// built-in content passes none; a loader for a def type that does fills this from that field.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="balance"/> or <paramref name="rules"/> is null.</exception>
     /// <exception cref="ArgumentException">
     /// An id is empty (CV-GEN-02 is a loader schema rule, story 018: the caller reports it before calling; asserts first when
@@ -66,7 +70,8 @@ public static class ContentPipeline
         ImmutableArray<DestinationTypeDef> destinationTypes,
         ImmutableArray<MailMixDef> mailMixes,
         RuleRegistry rules,
-        ImmutableArray<PendingReference> references = default)
+        ImmutableArray<PendingReference> references = default,
+        ImmutableArray<VerbDeclaration> verbDeclarations = default)
     {
         ArgumentNullException.ThrowIfNull(balance);
         ArgumentNullException.ThrowIfNull(rules);
@@ -84,7 +89,7 @@ public static class ContentPipeline
             ContentIdChecks.Prepare(DefType.DestinationType, "destination_types", ContentInputKeys.DestinationTypes, destinationTypes, dup, many, found, failed),
             ContentIdChecks.Prepare(DefType.MailMix, "mail_mixes", ContentInputKeys.MailMixes, mailMixes, dup, many, found, failed));
         ValidationResult runner = ContentValidationRunner.Run(
-            rules, new ContentValidationInput(candidate, failed.ToImmutableArray(), references));
+            rules, new ContentValidationInput(candidate, failed.ToImmutableArray(), references, default, verbDeclarations));
         ValidationResult merged = Merge(bounds.Validation.Diagnostics.AddRange(found), runner);
         return new ContentBuildResult(merged, merged.AcceptedSet(candidate));
     }

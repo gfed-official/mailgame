@@ -38,4 +38,11 @@ public static class ContentInputKeys
 
     /// <summary>The <c>throw</c> balance file (Throwing and Catching), as rules that read a <c>throw.*</c> key declare it.</summary>
     public const string ThrowBalance = "throw";
+
+    /// <summary>
+    /// The interaction verb declarations (<c>ContentValidationInput.VerbDeclarations</c>), as CV-PLR-13 (PCM-P10-1) declares its
+    /// input and names it in its findings' <c>InputKey</c>. No def table carries a verb field at M-1a, so no stage 3 failure
+    /// reports this key yet; the spelling is the future field name.
+    /// </summary>
+    public const string Verbs = "verbs";
 }

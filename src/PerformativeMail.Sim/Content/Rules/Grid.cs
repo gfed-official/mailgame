@@ -18,15 +18,18 @@ public static class GridRuleIds
     public const string HandCarriedBulk = "CV-GRD-02";
 
     /// <summary>CV-GRD-03 (Error, stage 2): <c>allowedCategories</c> present but empty.</summary>
+    /// <remarks>Catalogue stage 2; runs at stage 4 through the runner (TD-063(1)).</remarks>
     public const string EmptyAllowedCategories = "CV-GRD-03";
 
     /// <summary>CV-GRD-04 (Error, stage 2): a grid or slots container with W or H below 1, or any <c>maxStack</c> below 1.</summary>
+    /// <remarks>Catalogue stage 2; runs at stage 4 through the runner (TD-063(1)).</remarks>
     public const string Dimensions = "CV-GRD-04";
 
     /// <summary>CV-GRD-06 (Warning, stage 5): <c>capEvictMinAgeSeconds</c> at or above <c>worldItemDespawnSeconds</c>.</summary>
     public const string EvictAgeAtOrAboveDespawn = "CV-GRD-06";
 
     /// <summary>CV-GRD-07 (Warning, stage 2): <c>worldItemDespawnSeconds</c> below 30 s.</summary>
+    /// <remarks>Catalogue stage 2; runs at stage 4 through the runner (TD-063(1)).</remarks>
     public const string DespawnTooShort = "CV-GRD-07";
 }
 

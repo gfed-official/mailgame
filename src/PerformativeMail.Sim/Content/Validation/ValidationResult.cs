@@ -52,6 +52,20 @@ public sealed class ValidationResult
         WarningCount = diagnostics.Length - errors;
     }
 
+    /// <summary>
+    /// Wraps findings produced outside the stage 4 to 5 runner (a stage 1 syntax walk, a builder) as a result: sorted by
+    /// <see cref="DiagnosticOrder"/>, nothing skipped or suppressed. Lets a fixture check a stage 1 rule with
+    /// <see cref="FixtureChecker"/>.
+    /// </summary>
+    /// <param name="diagnostics">The findings; a default array reads as empty.</param>
+    /// <example>
+    /// <code>
+    /// ValidationResult r = ValidationResult.FromDiagnostics(SyntaxWalker.Walk(path, bytes, TopLevelShape.Array).Diagnostics);
+    /// </code>
+    /// </example>
+    public static ValidationResult FromDiagnostics(ImmutableArray<ContentDiagnostic> diagnostics) =>
+        new(DiagnosticOrder.Sorted(diagnostics), ImmutableArray<SkippedPair>.Empty, 0, 0);
+
     /// <summary>Unsuppressed findings, sorted by (path ordinal, line, column, rule id).</summary>
     public ImmutableArray<ContentDiagnostic> Diagnostics { get; }
 

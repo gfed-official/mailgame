@@ -18,6 +18,7 @@ public static class MailRuleIds
     public const string Shares = "CV-MAIL-02";
 
     /// <summary>CV-MAIL-03 (Error, stage 2): <c>deadLetterShifts</c> at least 1.</summary>
+    /// <remarks>Catalogue stage 2; runs at stage 4 through the runner (TD-063(1)).</remarks>
     public const string DeadLetterShifts = "CV-MAIL-03";
 
     /// <summary>CV-MAIL-04 (Error, stage 5): every kind with a share above 0 has an accepting destination or a resolving <c>fallbackKind</c> chain.</summary>

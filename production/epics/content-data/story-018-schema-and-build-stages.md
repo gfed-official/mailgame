@@ -1,12 +1,12 @@
 # Story 018: Schema and build stages for M-1a def files — FieldSpec tables, ids, enums, variants
 
 > **Epic**: Content & Data Definitions (incl. StatSheet)
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: L-ish (~1 day; split the FieldSpec tables into a follow-up if over ~600 lines)
-> **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-16.2
+> **Last Updated**: 2026-10-17
 
 ## Context
 
@@ -43,11 +43,12 @@
 - [ ] **Enums.** `weightClass` `"5"`, `"Light"` and `"LIGHT"` each give CV-GEN-08. (CDD-SCHEMA-4)
 - [ ] **Variants and widths.**
   - A `pile` container with `grid` gives CV-GEN-14.
-  - An integer above its field's storage width gives CV-GEN-12.
+  - An integer above its field's storage width gives CV-GEN-12. A list with more than 65 535 elements, or a string longer than 65 535 UTF-8 bytes, also gives CV-GEN-12 at stage 2 (the canonical encoder's `ContentEncodingException` must be unreachable from loaded content — TD-075(1)).
   - A `FieldSpec` snapshot test matches the CD10 rows for the five M-1a def types.
   - Each type's `FieldSpec` order equals its canonical encode order from story 013.
 
   (CDD-SCHEMA-6, M-1a form)
+- [ ] **Carried tech debt (added 2026-10-17).** TD-090: `DecimalToScaled.Convert` split below CC 10; `FieldSpecTable.SelfCheck` flags `IsDuration` with a unit outside {Seconds, Ms}, Min > Max, a Default outside [Min, Max], and a missing EnumSet/RefTarget; duration rows honour Min/Max clamped to [max(Min,0), min(Max, 86 400 000)]; `SelfCheck` runs over every table at loader construction and in a test; a field-name-suffix → `FieldUnit` mapping test; registry rows for CV-GEN-06/07/12 (constants only so far). TD-063(1): catalogue stage-2 rules registered at stage 4 (CV-GRD-03/04/07, CV-MAIL-03) are moved or explicitly documented as "2 (runs at 4)"; `allowedCategories: []` is raised by the schema stage so the def never reaches stage 4.
 - [ ] **Build.** Stage 3 runs only when stages 1–2 are clean for that type. It assigns `DefIndex` ordinally (story 001), maps "too many" to CV-GEN-09, converts units (story 016) and resolves references. A wrong-type or missing reference gives CV-GEN-01 at stage 4. (CD21)
 
 ---

@@ -27,6 +27,25 @@ internal sealed record ContentDraft(
     ImmutableArray<DestinationTypeDef> DestinationTypes,
     ImmutableArray<MailMixDef> MailMixes)
 {
+    /// <summary>
+    /// The interaction verb declarations handed to CV-PLR-13 (PCM-P10-1); empty by default, as production content is at M-1a
+    /// (no def type carries a verb field yet). Accumulated by <see cref="WithVerbs"/>.
+    /// </summary>
+    public ImmutableArray<VerbDeclaration> VerbDeclarations { get; init; } = ImmutableArray<VerbDeclaration>.Empty;
+
+    /// <summary>
+    /// Appends a verb declaration attributed to the destination type <paramref name="defId"/> (located at
+    /// <c>builtin/destination_types/&lt;id&gt;</c>), carrying the raw spellings <paramref name="verbs"/> (none means the def
+    /// declares the field but lists no verb).
+    /// </summary>
+    public ContentDraft WithVerbs(string defId, params string[] verbs) => this with
+    {
+        VerbDeclarations = VerbDeclarations.Add(new VerbDeclaration(
+            new DefRef(DefType.DestinationType, defId),
+            ContentValidationInput.LocationOf("destination_types", defId),
+            ImmutableArray.Create(verbs))),
+    };
+
     /// <summary>Replaces the one balance entry named <paramref name="key"/> (<c>owner.key</c>) by a value without a safe annotation.</summary>
     public ContentDraft WithBalance(string key, long value)
     {
@@ -89,11 +108,12 @@ internal sealed record ContentDraft(
             "The draft balance does not validate: " + string.Join("; ", r.Validation.Diagnostics.Select(d => d.RuleId + " " + d.InputKey + " " + d.Value)));
     }
 
-    /// <summary>Builds the candidate through the production pipeline and runs the rules (default: every registered rule).</summary>
+    /// <summary>Builds the candidate through the production pipeline and runs the rules (default: every registered rule), passing the draft's <see cref="VerbDeclarations"/>.</summary>
     public ContentBuildResult Build(RuleRegistry? rules = null, ImmutableArray<PendingReference> references = default) =>
-        ContentPipeline.Build(BuildBalance(rules), Containers, Items, MailKinds, DestinationTypes, MailMixes, rules ?? RuleRegistry.CreateDefault(), references);
+        ContentPipeline.Build(
+            BuildBalance(rules), Containers, Items, MailKinds, DestinationTypes, MailMixes, rules ?? RuleRegistry.CreateDefault(), references, VerbDeclarations);
 
-    /// <summary>Builds the adapter over the candidate (even a candidate that fails its rules), for tests that call a rule body directly.</summary>
+    /// <summary>Builds the adapter over the candidate (even a candidate that fails its rules), for tests that call a rule body directly; carries the draft's <see cref="VerbDeclarations"/>.</summary>
     public ContentValidationInput Input(ImmutableArray<FailedInput> priorFailures = default)
     {
         BalanceTable balance = BuildBalance();
@@ -105,7 +125,7 @@ internal sealed record ContentDraft(
             ContentPipeline.Sorted(MailKinds),
             ContentPipeline.Sorted(DestinationTypes),
             ContentPipeline.Sorted(MailMixes));
-        return new ContentValidationInput(set, priorFailures);
+        return new ContentValidationInput(set, priorFailures, default, default, VerbDeclarations);
     }
 
     private static ImmutableArray<T> Swap<T>(ImmutableArray<T> list, T def)

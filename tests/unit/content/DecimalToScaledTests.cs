@@ -89,6 +89,7 @@ public class DecimalToScaledTests
     }
 
     [Fact]
+    [Trait("Id", "CDD-UNIT-2")]
     public void Duration_FarOverflow_IsDuration_NotFormat()
     {
         Assert.Equal(ScaledStatus.Duration, Dur("99999999999999999999999999", FieldUnit.Seconds, out _));
@@ -240,7 +241,7 @@ public class DecimalToScaledTests
     [Trait("Id", "CDD-UNIT-1")]
     public void Scales_AndClassification_AreFrozen()
     {
-        FieldUnit[] decimals = { FieldUnit.Seconds, FieldUnit.Metres, FieldUnit.Ratio, FieldUnit.Points, FieldUnit.Deg };
+        FieldUnit[] decimals = { FieldUnit.Seconds, FieldUnit.Metres, FieldUnit.Ratio, FieldUnit.Points, FieldUnit.Deg, FieldUnit.PerSecond };
         FieldUnit[] integers = { FieldUnit.Ms, FieldUnit.Mm, FieldUnit.Pm, FieldUnit.Ticks, FieldUnit.Cents, FieldUnit.Count };
         foreach (FieldUnit u in decimals)
         {
@@ -257,7 +258,7 @@ public class DecimalToScaledTests
         }
 
         Assert.False(FieldUnits.IsDeclared(default));
-        Assert.False(FieldUnits.IsDeclared((FieldUnit)12));
+        Assert.False(FieldUnits.IsDeclared((FieldUnit)13));
         Assert.Equal(0L, FieldUnits.Scale(default));
     }
 
@@ -267,7 +268,7 @@ public class DecimalToScaledTests
         FieldUnit[] order =
         {
             FieldUnit.Seconds, FieldUnit.Metres, FieldUnit.Ratio, FieldUnit.Points, FieldUnit.Deg, FieldUnit.Ms,
-            FieldUnit.Mm, FieldUnit.Pm, FieldUnit.Ticks, FieldUnit.Cents, FieldUnit.Count,
+            FieldUnit.Mm, FieldUnit.Pm, FieldUnit.Ticks, FieldUnit.Cents, FieldUnit.Count, FieldUnit.PerSecond,
         };
         for (int i = 0; i < order.Length; i++)
         {
@@ -391,5 +392,179 @@ public class DecimalToScaledTests
         });
 
         Assert.NotEqual(0L, sum);
+    }
+
+    // ------------------------------------------------------------ TD-090 (story 018 carry-forward)
+
+    [Theory]
+    [Trait("Id", "CDD-UNIT-2")]
+    [InlineData(FieldUnit.Mm)]
+    [InlineData(FieldUnit.Metres)]
+    [InlineData(FieldUnit.Count)]
+    [InlineData((FieldUnit)0)]
+    public void ReadDuration_WithANonTimeUnit_IsFormat_NotSilentlyCapped(FieldUnit unit)
+    {
+        Assert.Equal(ScaledStatus.Format, Dur("5", unit, out long v));
+        Assert.Equal(0, v);
+        Assert.Equal(ScaledStatus.Format, DecimalToScaled.ReadDuration("5"u8, unit, 0, 1000, out _));
+    }
+
+    [Theory]
+    [Trait("Id", "CDD-UNIT-2")]
+    [InlineData("-1.5e3")]
+    [InlineData("1.5e3")]
+    [InlineData("-1.5E+3")]
+    public void Exponent_IsFormat_EvenWhenNegative(string token)
+    {
+        Assert.Equal(ScaledStatus.Format, Run(token, FieldUnit.Ratio, out long v));
+        Assert.Equal(0, v);
+    }
+
+    [Fact]
+    [Trait("Id", "CDD-UNIT-2")]
+    public void ReadDuration_HonoursTheRowRange_ClampedToTheDurationCap()
+    {
+        Assert.Equal(ScaledStatus.Ok, DecimalToScaled.ReadDuration("1.5"u8, FieldUnit.Seconds, 1000, 2000, out long v));
+        Assert.Equal(1500, v);
+        Assert.Equal(ScaledStatus.Duration, DecimalToScaled.ReadDuration("0.999"u8, FieldUnit.Seconds, 1000, 2000, out _));   // below the row min
+        Assert.Equal(ScaledStatus.Duration, DecimalToScaled.ReadDuration("2.001"u8, FieldUnit.Seconds, 1000, 2000, out _));   // above the row max
+        Assert.Equal(ScaledStatus.Ok, DecimalToScaled.ReadDuration("0"u8, FieldUnit.Seconds, long.MinValue, long.MaxValue, out v));   // min clamps up to 0
+        Assert.Equal(ScaledStatus.Duration, DecimalToScaled.ReadDuration("86400.001"u8, FieldUnit.Seconds, long.MinValue, long.MaxValue, out _));   // max clamps down to the cap
+        Assert.Equal(ScaledStatus.Duration, DecimalToScaled.ReadDuration("1"u8, FieldUnit.Seconds, 5000, 1000, out _));   // inverted range admits nothing
+
+        FieldSpec row = FieldSpec.Number("batchIntervalSeconds", FieldUnit.Seconds, min: 5_000, max: 60_000, isDuration: true);
+        Assert.Equal(ScaledStatus.Duration, row.ReadNumber("4.999"u8, out _));
+        Assert.Equal(ScaledStatus.Ok, row.ReadNumber("5"u8, out v));
+        Assert.Equal(5000, v);
+        Assert.Equal(ScaledStatus.Ok, row.ReadNumber("60"u8, out _));
+        Assert.Equal(ScaledStatus.Duration, row.ReadNumber("60.001"u8, out _));
+    }
+
+    [Fact]
+    [Trait("Id", "CDD-UNIT-2")]
+    public void IntegerUnits_FarOverflow_IsRange_AtTheDocumentedIntPartCap()
+    {
+        // IntPartCap (long.MaxValue / 1000) applies to scale-1 units too: just under it still reads, above it is Range.
+        Assert.Equal(ScaledStatus.Range, Run("9223372036854776", FieldUnit.Count, out _));
+        Assert.Equal(ScaledStatus.Range, Run("9223372036854775", FieldUnit.Cents, out _));   // fits a long, but is past any int-wide range anyway
+        Assert.Equal(ScaledStatus.Ok, DecimalToScaled.Read("9223372036854775"u8, FieldUnit.Cents, 0, long.MaxValue / 2 + 1, out long v));
+        Assert.Equal(9223372036854775L, v);
+    }
+
+    [Theory]
+    [Trait("Id", "CDD-UNIT-2")]
+    [InlineData("2", 2000)]
+    [InlineData("0.5", 500)]
+    [InlineData("1.25", 1250)]
+    [InlineData("0", 0)]
+    public void PerSecond_IsDecimal_StoredThousandths(string token, long expected)
+    {
+        Assert.True(FieldUnits.IsDeclared(FieldUnit.PerSecond));
+        Assert.True(FieldUnits.IsDecimal(FieldUnit.PerSecond));
+        Assert.Equal(1000, FieldUnits.Scale(FieldUnit.PerSecond));
+        Assert.Equal(ScaledStatus.Ok, Run(token, FieldUnit.PerSecond, out long v));
+        Assert.Equal(expected, v);
+        Assert.Equal(ScaledStatus.Format, Run("1.2345", FieldUnit.PerSecond, out _));
+        Assert.False(FieldUnits.IsDeclared((FieldUnit)13));
+    }
+
+    [Fact]
+    [Trait("Id", "CDD-UNIT-3")]
+    public void ExactTickCheck_NegativeAndOutOfDomain_FollowTheFormula_TheCallerRangeChecks()
+    {
+        Assert.True(ExactTickCheck.IsWholeTicks(-100));      // a negative multiple of 100 answers true: the caller range-checks
+        Assert.False(ExactTickCheck.IsWholeTicks(-150));
+        Assert.False(ExactTickCheck.IsWholeTicks(-1));
+        Assert.True(ExactTickCheck.IsWholeTicks(0));
+        Assert.True(ExactTickCheck.IsWholeTicks(86_400_000));
+        Assert.False(ExactTickCheck.IsWholeTicks(86_400_001));
+        Assert.True(ExactTickCheck.IsWholeTicks(86_400_100));   // past the duration cap: still a whole number of ticks
+        Assert.Equal(ScaledStatus.Duration, Dur("86400.1", FieldUnit.Seconds, out _));   // ...so CV-GEN-07 is what rejects it
+    }
+
+    private static FieldSpecIssue? Only(params FieldSpec[] table)
+    {
+        var issues = FieldSpecTable.SelfCheck(table);
+        return issues.Length == 1 ? issues[0] : null;
+    }
+
+    [Fact]
+    public void SelfCheck_DurationWithANonTimeUnit_IsFlagged_AsCvGen06_ButDistinguishable()
+    {
+        Assert.Equal(
+            new FieldSpecIssue("hold", "CV-GEN-06", FieldSpecIssueKind.DurationUnit),
+            Only(FieldSpec.Number("hold", FieldUnit.Mm, isDuration: true)));
+        Assert.Empty(FieldSpecTable.SelfCheck(new[] { FieldSpec.Number("hold", FieldUnit.Ms, isDuration: true) }));   // Ms is fine
+        Assert.Empty(FieldSpecTable.SelfCheck(new[] { FieldSpec.Number("hold", FieldUnit.Seconds, isDuration: true) }));
+        Assert.NotEqual(FieldSpecIssueKind.MissingUnit, FieldSpecIssueKind.DurationUnit);
+    }
+
+    [Fact]
+    public void SelfCheck_MinAboveMax_IsFlagged()
+    {
+        Assert.Equal(
+            new FieldSpecIssue("n", "CV-GEN-12", FieldSpecIssueKind.RangeInverted),
+            Only(FieldSpec.Number("n", FieldUnit.Count, min: 5, max: 4)));
+        Assert.Empty(FieldSpecTable.SelfCheck(new[] { FieldSpec.Number("n", FieldUnit.Count, min: 5, max: 5) }));
+    }
+
+    [Theory]
+    [InlineData(-1L)]
+    [InlineData(11L)]
+    public void SelfCheck_DefaultOutsideTheRange_IsFlagged(long defaultValue)
+    {
+        Assert.Equal(
+            new FieldSpecIssue("n", "CV-GEN-12", FieldSpecIssueKind.DefaultOutOfRange),
+            Only(FieldSpec.Number("n", FieldUnit.Count, required: false, min: 0, max: 10, defaultValue: defaultValue)));
+        Assert.Empty(FieldSpecTable.SelfCheck(new[] { FieldSpec.Number("n", FieldUnit.Count, required: false, min: 0, max: 10, defaultValue: 10) }));
+    }
+
+    [Fact]
+    public void SelfCheck_EnumWithoutASet_AndReferenceWithoutATarget_AreFlagged()
+    {
+        Assert.Equal(
+            new FieldSpecIssue("category", "CV-GEN-08", FieldSpecIssueKind.MissingEnumSet),
+            Only(FieldSpec.Other("category", FieldKind.Enum)));
+        Assert.Equal(
+            new FieldSpecIssue("cats", "CV-GEN-08", FieldSpecIssueKind.MissingEnumSet),
+            Only(FieldSpec.Other("cats", FieldKind.EnumList, enumSet: "")));
+        Assert.Equal(
+            new FieldSpecIssue("owner", "CV-GEN-01", FieldSpecIssueKind.MissingRefTarget),
+            Only(FieldSpec.Other("owner", FieldKind.Reference)));
+        Assert.Equal(
+            new FieldSpecIssue("accepts", "CV-GEN-01", FieldSpecIssueKind.MissingRefTarget),
+            Only(FieldSpec.Other("accepts", FieldKind.RefList)));
+    }
+
+    [Fact]
+    public void SelfCheck_DefaultOnARequiredRow_IsFlagged()
+    {
+        Assert.Equal(
+            new FieldSpecIssue("n", "CV-GEN-05", FieldSpecIssueKind.DefaultOnRequired),
+            Only(FieldSpec.Number("n", FieldUnit.Count, required: true, defaultValue: 0)));
+        Assert.Equal(
+            new FieldSpecIssue("slot", "CV-GEN-05", FieldSpecIssueKind.DefaultOnRequired),
+            Only(FieldSpec.Enumeration("slot", "EquipSlot", required: true, defaultSpelling: "none")));
+    }
+
+    [Fact]
+    public void SelfCheck_NestedTablesAndShapeDefects_AreFlagged_WithADottedPath()
+    {
+        var child = System.Collections.Immutable.ImmutableArray.Create(FieldSpec.Number("w", default));
+        var issues = FieldSpecTable.SelfCheck(new[] { FieldSpec.Object("volume", child) });
+        Assert.Equal(new FieldSpecIssue("volume.w", "CV-GEN-06", FieldSpecIssueKind.MissingUnit), Assert.Single(issues));
+
+        Assert.Equal(
+            new FieldSpecIssue("volume", "CV-GEN-03", FieldSpecIssueKind.MissingChildren),
+            Only(FieldSpec.Object("volume", default)));
+        Assert.Equal(
+            new FieldSpecIssue("a", "CV-GEN-04", FieldSpecIssueKind.DuplicateName),
+            FieldSpecTable.SelfCheck(new[] { FieldSpec.Text("a"), FieldSpec.Text("a") })[0]);
+        Assert.Equal(
+            new FieldSpecIssue("n", "CV-GEN-12", FieldSpecIssueKind.FixedLengthMisuse),
+            Only(new FieldSpec { Name = "n", Kind = FieldKind.Number, Unit = FieldUnit.Count, FixedLength = 2 }));
+        Assert.Equal(
+            new FieldSpecIssue("g", "CV-GEN-14", FieldSpecIssueKind.VariantTarget),
+            Only(FieldSpec.Number("g", FieldUnit.Count, required: false).WithVariant("layout", new[] { "grid" }, new string[0])));
     }
 }

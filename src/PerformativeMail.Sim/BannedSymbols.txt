@@ -111,3 +111,32 @@ M:System.Enum.IsDefined(System.Type,System.Object);ADR-0010 section 2 / CDD-PARS
 M:System.Enum.IsDefined``1(``0);ADR-0010 section 2 / CDD-PARSE-4: content enums use the hand-written *Spelling tables (Content/Enums), never reflection-based Enum APIs
 M:System.Enum.GetName(System.Type,System.Object);ADR-0010 section 2 / CDD-PARSE-4: content enums use the hand-written *Spelling tables (Content/Enums), never reflection-based Enum APIs
 M:System.Enum.GetName``1(``0);ADR-0010 section 2 / CDD-PARSE-4: content enums use the hand-written *Spelling tables (Content/Enums), never reflection-based Enum APIs
+
+// Content parser (content-data story 017, CDD-PARSE-4): the hand-written Utf8JsonReader walk and ordinal text rules.
+// No JsonSerializer / JsonDocument (reflection and DOM allocation on the content path), no Utf8JsonReader floating-point
+// getters and no Double.Parse (the Sim has no floating point; numbers go through DecimalToScaled), no culture-default
+// string comparisons and no culture-dependent case mapping on ids, keys or paths. InvariantGlobalization is also set
+// (PerformativeMail.Sim.csproj, Directory.Build.props). Use string.CompareOrdinal, StringComparison.Ordinal, ordinal byte compares.
+T:System.Text.Json.JsonSerializer;ADR-0010 section 2 / CDD-PARSE-4: content is read by the hand-written Utf8JsonReader walk, never JsonSerializer (reflection)
+T:System.Text.Json.JsonDocument;ADR-0010 section 2 / CDD-PARSE-4: content is read by the hand-written Utf8JsonReader walk, never the JsonDocument DOM
+M:System.Text.Json.Utf8JsonReader.GetDouble;ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never as floating point
+M:System.Text.Json.Utf8JsonReader.GetDecimal;ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never as System.Decimal
+M:System.Text.Json.Utf8JsonReader.GetSingle;ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never as floating point
+M:System.Double.Parse(System.String);ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never double.Parse
+M:System.Double.Parse(System.String,System.Globalization.NumberStyles);ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never double.Parse
+M:System.Double.Parse(System.String,System.IFormatProvider);ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never double.Parse
+M:System.Double.Parse(System.String,System.Globalization.NumberStyles,System.IFormatProvider);ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never double.Parse
+M:System.Double.Parse(System.ReadOnlySpan{System.Char},System.Globalization.NumberStyles,System.IFormatProvider);ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never double.Parse
+M:System.Double.Parse(System.ReadOnlySpan{System.Char},System.IFormatProvider);ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never double.Parse
+M:System.Double.Parse(System.ReadOnlySpan{System.Byte},System.Globalization.NumberStyles,System.IFormatProvider);ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never double.Parse
+M:System.Double.Parse(System.ReadOnlySpan{System.Byte},System.IFormatProvider);ADR-0010 section 2 / CDD-PARSE-4: numbers are read as raw bytes through DecimalToScaled, never double.Parse
+M:System.String.Compare(System.String,System.String);ADR-0010 section 2 / CDD-PARSE-4: culture-default compare; use string.CompareOrdinal
+M:System.String.Compare(System.String,System.String,System.Boolean);ADR-0010 section 2 / CDD-PARSE-4: culture-default compare; use string.CompareOrdinal
+M:System.String.CompareTo(System.String);ADR-0010 section 2 / CDD-PARSE-4: culture-default compare; use string.CompareOrdinal
+M:System.String.CompareTo(System.Object);ADR-0010 section 2 / CDD-PARSE-4: culture-default compare; use string.CompareOrdinal
+M:System.String.StartsWith(System.String);ADR-0010 section 2 / CDD-PARSE-4: culture-default prefix test; pass StringComparison.Ordinal
+M:System.String.EndsWith(System.String);ADR-0010 section 2 / CDD-PARSE-4: culture-default suffix test; pass StringComparison.Ordinal
+M:System.String.ToLower;ADR-0010 section 2 / CDD-PARSE-4: culture-dependent case mapping on ids, keys and paths; compare ordinally instead
+M:System.String.ToUpper;ADR-0010 section 2 / CDD-PARSE-4: culture-dependent case mapping on ids, keys and paths; compare ordinally instead
+M:System.String.ToLower(System.Globalization.CultureInfo);ADR-0010 section 2 / CDD-PARSE-4: culture-dependent case mapping on ids, keys and paths; compare ordinally instead
+M:System.String.ToUpper(System.Globalization.CultureInfo);ADR-0010 section 2 / CDD-PARSE-4: culture-dependent case mapping on ids, keys and paths; compare ordinally instead

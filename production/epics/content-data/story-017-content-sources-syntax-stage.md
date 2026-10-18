@@ -1,7 +1,7 @@
 # Story 017: IContentSource, InMemory/Directory sources and the stage-1 syntax walk
 
 > **Epic**: Content & Data Definitions (incl. StatSheet)
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: M (~1 day)
@@ -43,8 +43,8 @@
 
 *From GDD `design/gdd/content-data-definitions.md`, scoped to this story:*
 
-- [ ] One def file saved five ways produces an identical token stream and identical parsed values: with LF, with CRLF, with a leading BOM, with `//` comments, and with trailing commas. (The equal-hash form is in story 019.) A listed-but-missing file gives CV-GEN-10, and a 0-byte file gives CV-GEN-16. (CDD-PARSE-1, syntax half)
-- [ ] **CV-GEN-16** is reported, with its byte position, for each of these:
+- [x] One def file saved five ways produces an identical token stream and identical parsed values: with LF, with CRLF, with a leading BOM, with `//` comments, and with trailing commas. (The equal-hash form is in story 019.) A listed-but-missing file gives CV-GEN-10, and a 0-byte file gives CV-GEN-16. (CDD-PARSE-1, syntax half)
+- [x] **CV-GEN-16** is reported, with its byte position, for each of these:
   - invalid UTF-8;
   - a BOM other than at offset 0;
   - a comment-only file;
@@ -53,9 +53,9 @@
   - `5.` and `+5` (invalid JSON).
 
   `[]` is a valid empty file. A syntax error ends that file only, and every other file is still parsed. (Loading edge cases; CDD-PARSE-3, CV-GEN-16 half)
-- [ ] `{"id":"a","id":"b"}` starting at line 7, column 14 gives exactly one CV-GEN-04. It reports `path:7:14` (LF lines, 1-based UTF-8 byte column, tab counts 1), the offending value and the allowed form. The keys `$schema` and `suppress` are accepted. (CDD-PARSE-2, duplicate-key half)
-- [ ] `DirectorySource` lists only `*.jsonc` files under the content root, with `/`-separated relative paths, ordinal-sorted. `InMemorySource` serves fixture bytes by path. Neither type references Godot, and no Sim type contains the string `res://`. (CD2, TR-content-001/021; architecture test)
-- [ ] **CDD-PARSE-4, parser half.** `BannedSymbols.txt` bans these for the Sim (and later for `tools/`):
+- [x] `{"id":"a","id":"b"}` starting at line 7, column 14 gives exactly one CV-GEN-04. It reports `path:7:14` (LF lines, 1-based UTF-8 byte column, tab counts 1), the offending value and the allowed form. The keys `$schema` and `suppress` are accepted. (CDD-PARSE-2, duplicate-key half)
+- [x] `DirectorySource` lists only `*.jsonc` files under the content root, with `/`-separated relative paths, ordinal-sorted. `InMemorySource` serves fixture bytes by path. Neither type references Godot, and no Sim type contains the string `res://`. (CD2, TR-content-001/021; architecture test)
+- [x] **CDD-PARSE-4, parser half.** `BannedSymbols.txt` bans these for the Sim (and later for `tools/`):
   - `JsonSerializer`, `JsonDocument`, `Utf8JsonReader.GetDouble`/`GetDecimal`/`GetSingle`, `double.Parse`;
   - culture-default `string.Compare`/`CompareTo`/`StartsWith`/`EndsWith` overloads, and `ToLower`/`ToUpper`.
 
@@ -99,7 +99,7 @@
 **Required evidence**:
 - Logic: `tests/unit/content/SyntaxStageTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/unit/content/SyntaxStageTests.cs` (113 cases) + `tests/unit/content/SyntaxRuleFixtures.cs` (9 clause fixtures) + 23 analyzer fixtures `tests/fixtures/analyzers/Ban*.cs`; passing on the net10 and net8 Release legs
 
 ---
 
@@ -107,3 +107,13 @@
 
 - Depends on: Story 003 (diagnostics). Also `production/epics/simulation-core/story-004-determinism-analyzers-sc-arch-2.md` (BannedApiAnalyzers).
 - Unlocks: Story 018, Story 019
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-17
+**Criteria**: 5/5 passing (none deferred)
+**Deviations**: ADVISORY — (1) CV-GEN-04 is reported at the duplicate key's own opening quote (GDD CD3.5 "failing token" reading); the CDD-PARSE-2 sentence can also be read as the object start — GDD re-review item. (2) Positions are offsets into the original file, so line-1 columns of a BOM file count the 3 BOM bytes (GDD silent) — GDD re-review item. (3) CV-GEN-10 is reported at `path:1:1` (0:0 means built-in). (4) Stage 1 records a token side table (`SyntaxToken` kind/start/length) instead of only value start offsets, so story 018's schema walk needs no second reader pass. (5) Extra types beyond the story's list: `SyntaxStage`/`SyntaxStageResult`, `SyntaxToken`, `Utf8Validator`, `KeyTracker`, `JsonTrivia`, `OrdinalPathComparer`, `ValidationResult.FromDiagnostics`. Remaining LP/QL advisories carried as tech debt (see register).
+**Test Evidence**: Logic: `tests/unit/content/SyntaxStageTests.cs` (113 cases) + `tests/unit/content/SyntaxRuleFixtures.cs`; `tools/ci/check-analyzer-fixtures.sh` 128 fixtures / 0 failures (23 new)
+**Code Review**: Complete — LP-CODE-REVIEW CONCERNS (blocking items fixed: lone-surrogate key escape crash → CV-GEN-16; `FindUtf8Problem`/`WalkTokens`/`SkipTrivia` split below CC 10; nesting misattribution guard; dead `Frame.IsObject`; file split) → accepted; QL-TEST-COVERAGE GAPS → G1–G5 closed (27 cases added), G6–G12 logged as tech debt
+**Run result**: N/A — Godot-free Sim parser library; nothing observable in a build

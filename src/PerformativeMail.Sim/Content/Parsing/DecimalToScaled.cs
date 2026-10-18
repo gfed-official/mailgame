@@ -2,22 +2,6 @@ using PerformativeMail.Sim.Content.Rules;
 
 namespace PerformativeMail.Sim.Content.Parsing;
 
-/// <summary>The verdict of a <see cref="DecimalToScaled"/> read. The caller attaches the position and the rule.</summary>
-public enum ScaledStatus : byte
-{
-    /// <summary>The token is valid and in range.</summary>
-    Ok = 0,
-
-    /// <summary>The token is not in the grammar (CV-GEN-06).</summary>
-    Format = 1,
-
-    /// <summary>The value is outside the field range (CV-GEN-12).</summary>
-    Range = 2,
-
-    /// <summary>The value is outside the duration cap of 0 to 86 400 000 ms (CV-GEN-07).</summary>
-    Duration = 3,
-}
-
 /// <summary>
 /// The hand-written number reader (ADR-0010 section 2, content-data F2). It reads the raw token bytes (the JSON reader's
 /// <c>ValueSpan</c>) and never uses <c>GetDouble</c>, <c>GetDecimal</c> or <c>double.Parse</c>. Grammar:
@@ -41,6 +25,10 @@ public static class DecimalToScaled
     /// <summary>The duration cap in milliseconds (Sim Core F1, 24 hours).</summary>
     public const long DurationMaxMs = 86_400_000;
 
+    // The cap on the accumulated integer part is long.MaxValue / 1000 for EVERY unit, including the scale-1 integer units
+    // (Count, Cents, Ms, ...): an integer-unit token whose integer part exceeds ~9.2e15 is reported as out of range even
+    // though it would still fit a long. Harmless today (every field range is int-wide); it keeps the Seconds/Metres
+    // multiply by 1000 overflow-free without a per-unit branch in the digit loop.
     private const long IntPartCap = long.MaxValue / 1000;
     private const long MaxMagnitude = long.MaxValue - 1000;
 
@@ -66,7 +54,8 @@ public static class DecimalToScaled
 
     /// <summary>
     /// Reads a duration (<see cref="FieldUnit.Seconds"/> or <see cref="FieldUnit.Ms"/>); outside 0 to <see cref="DurationMaxMs"/> gives
-    /// <see cref="ScaledStatus.Duration"/> (CV-GEN-07).
+    /// <see cref="ScaledStatus.Duration"/> (CV-GEN-07). Any other unit gives <see cref="ScaledStatus.Format"/>: a duration with a
+    /// non-time unit is a spec-table defect (<see cref="FieldSpecTable.SelfCheck"/> flags it), never silently capped as ms.
     /// </summary>
     /// <param name="token">The raw number token bytes.</param>
     /// <param name="unit">The field's declared unit.</param>
@@ -74,7 +63,30 @@ public static class DecimalToScaled
     /// <returns>The verdict.</returns>
     /// <example><code>ScaledStatus s = DecimalToScaled.ReadDuration("15"u8, FieldUnit.Seconds, out long ms);   // Ok, 15000</code></example>
     public static ScaledStatus ReadDuration(ReadOnlySpan<byte> token, FieldUnit unit, out long value) =>
-        Convert(token, unit, 0, DurationMaxMs, ScaledStatus.Duration, out value);
+        ReadDuration(token, unit, 0, DurationMaxMs, out value);
+
+    /// <summary>
+    /// Reads a duration against the row's own range clamped to the duration cap: the allowed stored range is
+    /// [max(<paramref name="min"/>, 0), min(<paramref name="max"/>, <see cref="DurationMaxMs"/>)] and outside it gives
+    /// <see cref="ScaledStatus.Duration"/> (CV-GEN-07). A unit other than Seconds or Ms gives <see cref="ScaledStatus.Format"/>.
+    /// </summary>
+    /// <param name="token">The raw number token bytes.</param>
+    /// <param name="unit">The field's declared unit (Seconds or Ms).</param>
+    /// <param name="min">The row's smallest stored value (milliseconds).</param>
+    /// <param name="max">The row's largest stored value (milliseconds).</param>
+    /// <param name="value">The duration in milliseconds; 0 unless the result is <see cref="ScaledStatus.Ok"/>.</param>
+    /// <returns>The verdict.</returns>
+    /// <example><code>ScaledStatus s = DecimalToScaled.ReadDuration("2"u8, FieldUnit.Seconds, 0, 1500, out _);   // Duration</code></example>
+    public static ScaledStatus ReadDuration(ReadOnlySpan<byte> token, FieldUnit unit, long min, long max, out long value)
+    {
+        if (unit != FieldUnit.Seconds && unit != FieldUnit.Ms)
+        {
+            value = 0;
+            return ScaledStatus.Format;
+        }
+
+        return Convert(token, unit, Math.Max(min, 0), Math.Min(max, DurationMaxMs), ScaledStatus.Duration, out value);
+    }
 
     /// <summary>The catalogue rule id for a status: CV-GEN-06, CV-GEN-12 or CV-GEN-07; <c>null</c> for <see cref="ScaledStatus.Ok"/>.</summary>
     /// <param name="status">The verdict.</param>
@@ -97,20 +109,31 @@ public static class DecimalToScaled
             return ScaledStatus.Format;
         }
 
-        int i = 0;
         bool negative = token.Length > 0 && token[0] == (byte)'-';
-        if (negative)
-        {
-            i = 1;
-        }
-
-        if (!ReadInteger(token, ref i, scale, BoundMagnitude(min, max), out long intPart, out bool over)
-            || !ReadFraction(token, ref i, scale != 1, out long fraction)
-            || i != token.Length)
+        int i = negative ? 1 : 0;
+        if (!IsFormatOk(token, ref i, scale, BoundMagnitude(min, max), out long intPart, out bool over, out long fraction))
         {
             return ScaledStatus.Format;
         }
 
+        return Assemble(intPart, fraction, over, negative, scale, min, max, outOfRange, out value);
+    }
+
+    // Grammar check: the integer part, the optional fraction, then nothing else. Format errors win over an overflow.
+    private static bool IsFormatOk(
+        ReadOnlySpan<byte> token, ref int i, long scale, long limit, out long intPart, out bool over, out long fraction)
+    {
+        fraction = 0;
+        return ReadInteger(token, ref i, scale, limit, out intPart, out over)
+            && ReadFraction(token, ref i, scale != 1, out fraction)
+            && i == token.Length;
+    }
+
+    // Turns a well-formed token's parts into the stored value and applies the zero-sign and range rules.
+    private static ScaledStatus Assemble(
+        long intPart, long fraction, bool over, bool negative, long scale, long min, long max, ScaledStatus outOfRange, out long value)
+    {
+        value = 0;
         if (over)
         {
             return outOfRange;

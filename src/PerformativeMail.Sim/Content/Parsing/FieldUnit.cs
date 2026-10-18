@@ -3,7 +3,7 @@ namespace PerformativeMail.Sim.Content.Parsing;
 /// <summary>
 /// The unit a numeric content field declares in its <see cref="FieldSpec"/> (content-data CD4, TR-content-005/006, ADR-0010
 /// section 2). The unit decides how a decimal token is stored: <see cref="Seconds"/> as ms, <see cref="Metres"/> as mm,
-/// <see cref="Ratio"/> as permille, <see cref="Points"/> as milli-points, <see cref="Deg"/> as milli-degrees; the integer units
+/// <see cref="Ratio"/> as permille, <see cref="Points"/> as milli-points, <see cref="Deg"/> as milli-degrees, <see cref="PerSecond"/> as milli-units per second; the integer units
 /// are stored as written. Closed enum: values are explicit, 0 is "no unit declared" and is never valid, and a value is never
 /// renumbered, reordered or reused (append-only).
 /// </summary>
@@ -46,6 +46,9 @@ public enum FieldUnit : byte
 
     /// <summary>A plain integer count (<c>grid</c>, <c>maxStack</c>), stored as written.</summary>
     Count = 11,
+
+    /// <summary>A per-second rate (<c>insertRate</c>), up to three fraction digits, stored as milli-units per second (x1000).</summary>
+    PerSecond = 12,
 }
 
 /// <summary>
@@ -62,12 +65,12 @@ public static class FieldUnits
     /// <summary>True when <paramref name="unit"/> is one of the declared members (not 0, not an out-of-range cast).</summary>
     /// <param name="unit">The unit.</param>
     /// <example><code>bool ok = FieldUnits.IsDeclared(FieldUnit.Cents);   // true</code></example>
-    public static bool IsDeclared(FieldUnit unit) => unit >= FieldUnit.Seconds && unit <= FieldUnit.Count;
+    public static bool IsDeclared(FieldUnit unit) => unit >= FieldUnit.Seconds && unit <= FieldUnit.PerSecond;
 
-    /// <summary>True for the units whose tokens may carry up to three fraction digits (Seconds, Metres, Ratio, Points, Deg).</summary>
+    /// <summary>True for the units whose tokens may carry up to three fraction digits (Seconds, Metres, Ratio, Points, Deg, PerSecond).</summary>
     /// <param name="unit">The unit.</param>
     /// <example><code>bool d = FieldUnits.IsDecimal(FieldUnit.Seconds);   // true</code></example>
-    public static bool IsDecimal(FieldUnit unit) => unit >= FieldUnit.Seconds && unit <= FieldUnit.Deg;
+    public static bool IsDecimal(FieldUnit unit) => (unit >= FieldUnit.Seconds && unit <= FieldUnit.Deg) || unit == FieldUnit.PerSecond;
 
     /// <summary>The integer part multiplier: 1000 for decimal units, 1 for integer units, 0 for an undeclared unit.</summary>
     /// <param name="unit">The unit.</param>

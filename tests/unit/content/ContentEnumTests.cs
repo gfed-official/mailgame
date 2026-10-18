@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text;
 using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Sim.Tests.Unit.Content;
 
@@ -51,6 +52,14 @@ public class ContentEnumTests
     private static readonly Row[] _equipSlot =
     {
         new("None", 1, "none"), new("Back", 2, "back"),
+    };
+
+    private static readonly Row[] _verb =
+    {
+        new("Deliver", 1, "deliver"), new("Open", 2, "open"), new("PickUp", 3, "pick_up"), new("Mount", 4, "mount"),
+        new("Operate", 5, "operate"), new("Configure", 6, "configure"), new("Shop", 7, "shop"), new("Announce", 8, "announce"),
+        new("Dismount", 9, "dismount"), new("Catch", 10, "catch"), new("Push", 11, "push"), new("Rebuild", 12, "rebuild"),
+        new("Deconstruct", 13, "deconstruct"),
     };
 
     private static byte[] Utf8(string s) => Encoding.UTF8.GetBytes(s);
@@ -131,6 +140,11 @@ public class ContentEnumTests
     [Trait("Id", "CDD-SCHEMA-4")]
     public void EquipSlot_SnapshotAndBijective() =>
         AssertEnum<EquipSlot>(_equipSlot, EquipSlotSpelling.TryParse, EquipSlotSpelling.ToSpelling);
+
+    [Fact]
+    [Trait("Id", "PCM-P10-1")]
+    public void Verb_SnapshotAndBijective() =>
+        AssertEnum<Verb>(_verb, VerbSpelling.TryParse, VerbSpelling.ToSpelling);
 
     [Fact]
     [Trait("Id", "CDD-SCHEMA-4")]
@@ -232,7 +246,7 @@ public class ContentEnumTests
         foreach (Type t in new[]
         {
             typeof(ItemCategorySpelling), typeof(WeightClassSpelling), typeof(ContainerLayoutSpelling),
-            typeof(BeltAccessSpelling), typeof(ContainerViewSpelling), typeof(EquipSlotSpelling),
+            typeof(BeltAccessSpelling), typeof(ContainerViewSpelling), typeof(EquipSlotSpelling), typeof(VerbSpelling),
         })
         {
             FieldInfo[] fields = t.GetFields(

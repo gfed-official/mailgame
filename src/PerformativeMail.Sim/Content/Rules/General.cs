@@ -67,13 +67,36 @@ public static class GeneralRuleIds
 
     /// <summary>CV-GEN-12: a scaled value outside its field range (the stored <see cref="int"/> range by default). Story 018 reuses it for a list or string over 65 535.</summary>
     public const string ValueOutOfRange = "CV-GEN-12";
+
+    /// <summary>CV-GEN-02: an id that fails the lint <c>^[a-z][a-z0-9_]{0,47}$</c> (a byte scan), or contains a raw escape (stage 2, story 018).</summary>
+    public const string IdFormat = "CV-GEN-02";
+
+    /// <summary>CV-GEN-03: a field the def type's table does not declare (stage 2, story 018); the message suggests the nearest field within edit distance 2. <c>$schema</c> and <c>suppress</c> are reserved.</summary>
+    public const string UnknownField = "CV-GEN-03";
+
+    /// <summary>CV-GEN-08: an enum value that is not exactly one of the set's data spellings (stage 2, story 018); no numeric or case-insensitive fallback.</summary>
+    public const string EnumSpelling = "CV-GEN-08";
+
+    /// <summary>CV-GEN-14: a field present where the def's variant forbids it, for example <c>grid</c> on a <c>pile</c> container (stage 2, story 018).</summary>
+    public const string VariantField = "CV-GEN-14";
+
+    /// <summary>CV-GEN-04: a key repeated within one JSON object (stage 1, raised by <c>SyntaxWalker</c> at the duplicate key's own position; GDD CD3.3).</summary>
+    public const string DuplicateKey = "CV-GEN-04";
+
+    /// <summary>CV-GEN-10: a path the manifest lists that the content source cannot read (stage 1, raised by <c>SyntaxStage</c>).</summary>
+    public const string ManifestFile = "CV-GEN-10";
+
+    /// <summary>CV-GEN-16: a file that is not well-formed UTF-8 / JSON of the expected top-level shape (stage 1, raised by <c>SyntaxWalker</c>; fail-fast, one per file).</summary>
+    public const string SyntaxShape = "CV-GEN-16";
 }
 
 /// <summary>
 /// The General (Content &amp; Data) rule table, owner <c>content-data-definitions</c> (CV-GEN). It registers the rows the
-/// validation framework raises itself (CV-GEN-05, 13, 15, 20, 21) and the set-level rules of story 009 (CV-GEN-01, 09, 17,
+/// validation framework raises itself (CV-GEN-05, 13, 15, 20, 21), the stage 1 syntax rows of story 017 (CV-GEN-04, 10, 16), the
+/// stage 2 schema rows of story 018 (CV-GEN-02, 03, 06, 07, 08, 12, 14, plus the <c>required_field</c> clause of CV-GEN-05; all
+/// emitted by the schema walker) and the set-level rules of story 009 (CV-GEN-01, 09, 17,
 /// 18, whose bodies are in <c>GeneralSetChecks</c>); the remaining CV-GEN rows are registered, each with its clause
-/// fixtures, by the stories that implement them (016 to 019, loader rules). Add a row here and append a clause to an existing row; never renumber or reuse an id.
+/// fixtures, by the stories that implement them (019, loader rules). Add a row here and append a clause to an existing row; never renumber or reuse an id.
 /// </summary>
 /// <example>
 /// <code>
@@ -88,15 +111,44 @@ public static class General
     public static ImmutableArray<RuleSpec> Rules => Table(new GeneralSetChecks());
 
     private static ImmutableArray<RuleSpec> Table(GeneralSetChecks checks) => ImmutableArray.Create(
-        // Catalogue row: "Required field missing". Story 018 appends the clause "required_field"; story 004 uses the same
-        // id for a registered balance key with no value.
+        // Story 017 (stage 1: SyntaxWalker and SyntaxStage raise these).
+        RuleSpec.Emitted(
+            GeneralRuleIds.DuplicateKey,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Syntax,
+            clauses: ImmutableArray.Create(new RuleClause("duplicate_key"))),
+        RuleSpec.Emitted(
+            GeneralRuleIds.ManifestFile,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Syntax,
+            clauses: ImmutableArray.Create(new RuleClause("listed_file_missing"))),
+        RuleSpec.Emitted(
+            GeneralRuleIds.SyntaxShape,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Syntax,
+            clauses: ImmutableArray.Create(
+                new RuleClause("invalid_utf8"),
+                new RuleClause("bom_not_at_start"),
+                new RuleClause("no_json_value"),
+                new RuleClause("nesting_too_deep", HasLimit: true),
+                new RuleClause("top_level_shape"),
+                new RuleClause("invalid_json"))),
+        // Catalogue row: "Required field missing". Story 018 added the clause "required_field" (a def lacking a required field,
+        // or a variant-required one); story 004 uses the same id for a registered balance key with no value.
         RuleSpec.Emitted(
             GeneralRuleIds.SuppressWithoutWhy,
             Owner,
             string.Empty,
             RuleSeverity.Error,
             ValidationStage.Schema,
-            clauses: ImmutableArray.Create(new RuleClause("suppress_why"), new RuleClause("balance_value_missing"))),
+            clauses: ImmutableArray.Create(
+                new RuleClause("suppress_why"), new RuleClause("balance_value_missing"), new RuleClause("required_field"))),
         RuleSpec.Emitted(
             GeneralRuleIds.SuppressBadTarget,
             Owner,
@@ -104,6 +156,64 @@ public static class General
             RuleSeverity.Error,
             ValidationStage.Schema,
             clauses: ImmutableArray.Create(new RuleClause("names_error_rule"), new RuleClause("names_unknown_rule"))),
+        // Story 018 (stage 2: the schema walker raises these; no rule body). One finding per mistake.
+        RuleSpec.Emitted(
+            GeneralRuleIds.IdFormat,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Schema,
+            clauses: ImmutableArray.Create(new RuleClause("id_regex"), new RuleClause("id_escape"))),
+        RuleSpec.Emitted(
+            GeneralRuleIds.UnknownField,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Schema,
+            clauses: ImmutableArray.Create(new RuleClause("unknown_field"))),
+        RuleSpec.Emitted(
+            GeneralRuleIds.NumberFormat,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Schema,
+            clauses: ImmutableArray.Create(
+                new RuleClause("integer_dot"),
+                new RuleClause("fraction_digits"),
+                new RuleClause("exponent"),
+                new RuleClause("negative_zero"),
+                new RuleClause("no_unit"))),
+        RuleSpec.Emitted(
+            GeneralRuleIds.DurationOverCap,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Schema,
+            clauses: ImmutableArray.Create(new RuleClause("over_cap", HasLimit: true))),
+        RuleSpec.Emitted(
+            GeneralRuleIds.EnumSpelling,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Schema,
+            clauses: ImmutableArray.Create(new RuleClause("unknown_spelling"))),
+        RuleSpec.Emitted(
+            GeneralRuleIds.ValueOutOfRange,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Schema,
+            clauses: ImmutableArray.Create(
+                new RuleClause("storage_width", HasLimit: true),
+                new RuleClause("list_too_long", HasLimit: true),
+                new RuleClause("string_too_long", HasLimit: true))),
+        RuleSpec.Emitted(
+            GeneralRuleIds.VariantField,
+            Owner,
+            string.Empty,
+            RuleSeverity.Error,
+            ValidationStage.Schema,
+            clauses: ImmutableArray.Create(new RuleClause("forbidden_for_variant"))),
         // Story 004 (BalanceTable.Build raises these; one finding per mistake).
         RuleSpec.Emitted(
             GeneralRuleIds.BalanceKey,
