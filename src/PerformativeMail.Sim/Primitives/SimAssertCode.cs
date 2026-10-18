@@ -179,4 +179,22 @@ public static class SimAssertCode
 
     /// <summary><c>RouterStateInfo.Pack</c> got a layer value outside its enum's range (Release returns <c>RouterStateInfo.InvalidId</c>).</summary>
     public const ushort RouterStateLayerRange = 56;
+
+    /// <summary><c>EntryPool.SetCount</c> was given 0 (GDD R2: <c>1 &lt;= count &lt;= 255</c>; a 0 means the caller must free the entry in the same call). Release writes the 0. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryCountZero = 57;
+
+    /// <summary><c>EntryPool.Free</c> or <c>SetCount</c> was given a pool slot that holds no live entry (Release: <c>Free</c> ignores it, <c>SetCount</c> writes the count). <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryEntrySlotFree = 58;
+
+    /// <summary><c>Occupancy.Place</c> or <c>Clear</c> was given a footprint outside the container's grid (Release writes the cells anyway inside the preallocated area). <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryFootprintOutOfBounds = 59;
+
+    /// <summary><c>Occupancy.Place</c> hit an occupied cell or a <c>Free</c> entry slot, or <c>Clear</c> hit a free cell (Release overwrites). <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryCellConflict = 60;
+
+    /// <summary><c>MailIdArena</c> was given ids that are not strictly ascending, or the two inputs of a union share an id (Release stores them as given, keeping a duplicate adjacent). <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryMailIdsNotAscending = 61;
+
+    /// <summary>A <c>MailIdsHandle</c> was packed with a field outside its width, or <c>MailIdArena</c> was given a none, dead or self-paired handle, or a take count outside 1 to <c>Count</c> (Release masks, ignores or clamps). <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryArenaHandleInvalid = 62;
 }

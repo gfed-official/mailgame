@@ -147,6 +147,18 @@ public enum SimBuildErrorCode : byte
 
     /// <summary>Players: a <c>player.*</c> value that is a divisor, capacity or capsule size is below 1 (see <c>PlayerSettings.FromBalance</c>).</summary>
     PlayerSettingsInvalid = 48,
+
+    /// <summary>More than 4 distinct <c>IPlayerJoinListener</c>s were bound; a world fans a join out to at most 4 (Player Character, Grid Inventory and two spare).</summary>
+    PlayerJoinListenerLimit = 49,
+
+    /// <summary>Grid Inventory: an <c>inventory.*</c> capacity is outside its usable range (see <c>InventorySettings.FromBalance</c>).</summary>
+    InventorySettingsInvalid = 50,
+
+    /// <summary>Grid Inventory: the content set lacks one of the M-1a container defs (<c>hotbar</c>, <c>player_inventory</c>, <c>po_intake</c>, <c>cursor</c>) the module resolves at construction.</summary>
+    InventoryDefMissing = 51,
+
+    /// <summary>A container def is unusable by the inventory storage (for example wider than the 64-column occupancy bitmap).</summary>
+    InventoryDefInvalid = 52,
 }
 
 /// <summary>

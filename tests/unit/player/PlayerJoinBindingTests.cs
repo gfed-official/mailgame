@@ -393,7 +393,7 @@ public class PlayerJoinBindingTests
         players.Bind(builder);
 
         // Assert: a second listener bind is refused, and the world freezes and ticks with no phase from Players.
-        SimBuildException ex = Assert.Throws<SimBuildException>(() => builder.BindPlayerJoinListener(NullPlayerJoinListener.Instance));
+        SimBuildException ex = Assert.Throws<SimBuildException>(() => builder.BindPlayerJoinListener(players));
         Assert.Equal(SimBuildErrorCode.PlayerJoinListenerAlreadyBound, ex.Code);
         SimWorld world = builder.Freeze();
         world.Tick();
@@ -463,8 +463,8 @@ public class PlayerJoinBindingTests
         SimHost b = SimComposition.Build(in without);
 
         // Assert
-        Assert.IsType<PlayersSystem>(Assert.Single(a.Systems));
-        Assert.Empty(b.Systems);
+        Assert.IsType<PlayersSystem>(Assert.Single(a.Systems, s => s is PlayersSystem)); // Grid Inventory is also built (story grid-inventory/001)
+        Assert.DoesNotContain(b.Systems, s => s is PlayersSystem);
     }
 
     [Fact]
@@ -501,7 +501,6 @@ public class PlayerJoinBindingTests
         SimHost host = SimComposition.Build(in args);
 
         // Assert
-        Assert.Empty(host.Systems);
         Assert.DoesNotContain(host.Systems, s => s is PlayersSystem);
         Assert.Contains(SystemId.PlayerCharacter, host.Order);
     }

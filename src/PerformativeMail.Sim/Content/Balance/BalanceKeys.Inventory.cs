@@ -50,6 +50,18 @@ public static partial class BalanceKeys
         /// <summary>The key <c>inventory.manifestCellThreshold</c>.</summary>
         public const string ManifestCellThresholdKey = "manifestCellThreshold";
 
+        /// <summary>The key <c>inventory.containerCapacity</c> (PROPOSED, GDD re-review).</summary>
+        public const string ContainerCapacityKey = "containerCapacity";
+
+        /// <summary>The key <c>inventory.entryPoolCapacity</c> (PROPOSED, GDD re-review).</summary>
+        public const string EntryPoolCapacityKey = "entryPoolCapacity";
+
+        /// <summary>The key <c>inventory.worldItemCapacity</c> (PROPOSED, GDD re-review).</summary>
+        public const string WorldItemCapacityKey = "worldItemCapacity";
+
+        /// <summary>The key <c>inventory.mailIdArenaUnits</c> (PROPOSED, GDD re-review; story 003).</summary>
+        public const string MailIdArenaUnitsKey = "mailIdArenaUnits";
+
         // One table drives the rows, the default entries and (with the generated handle record) the owner record, so a key's range and value cannot drift apart.
         private static ImmutableArray<BalanceKnob> Knobs => ImmutableArray.Create(
             new BalanceKnob(WeightPointsLightKey, BalanceUnit.Count, 1, 0, 1_048_576, 1, 2),
@@ -64,7 +76,11 @@ public static partial class BalanceKeys
             new BalanceKnob(WaterReturnSecondsKey, BalanceUnit.Ms, 10_000, 0, 3_600_000, 5000, 30_000),
             new BalanceKnob(ExternalLeashMetersKey, BalanceUnit.Mm, 3000, 0, 1_000_000, 3000, 5000),
             new BalanceKnob(BacklogDrainPerTickKey, BalanceUnit.Count, 32, 0, 1_048_576, 8, 128),
-            new BalanceKnob(ManifestCellThresholdKey, BalanceUnit.Count, 160, 0, 1_048_576, 160, 239));
+            new BalanceKnob(ManifestCellThresholdKey, BalanceUnit.Count, 160, 0, 1_048_576, 160, 239),
+            new BalanceKnob(ContainerCapacityKey, BalanceUnit.Count, 64, 8, 4096, 32, 256),
+            new BalanceKnob(EntryPoolCapacityKey, BalanceUnit.Count, 8192, 64, 1_048_576, 1024, 32_768),
+            new BalanceKnob(WorldItemCapacityKey, BalanceUnit.Count, 1024, 16, 65_536, 512, 4096),
+            new BalanceKnob(MailIdArenaUnitsKey, BalanceUnit.Count, 32_768, 1024, 1_048_576, 16_384, 65_536));
 
         /// <summary>The registry rows (a new array each call; the class holds no static state).</summary>
         public static ImmutableArray<BalanceRow> Rows => BalanceKnob.ToRows(Owner, Knobs);
@@ -93,7 +109,11 @@ public static partial class BalanceKeys
                 BalanceKeys.Handle(registry, Owner, WaterReturnSecondsKey),
                 BalanceKeys.Handle(registry, Owner, ExternalLeashMetersKey),
                 BalanceKeys.Handle(registry, Owner, BacklogDrainPerTickKey),
-                BalanceKeys.Handle(registry, Owner, ManifestCellThresholdKey));
+                BalanceKeys.Handle(registry, Owner, ManifestCellThresholdKey),
+                BalanceKeys.Handle(registry, Owner, ContainerCapacityKey),
+                BalanceKeys.Handle(registry, Owner, EntryPoolCapacityKey),
+                BalanceKeys.Handle(registry, Owner, WorldItemCapacityKey),
+                BalanceKeys.Handle(registry, Owner, MailIdArenaUnitsKey));
         }
     }
 }

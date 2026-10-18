@@ -14,7 +14,11 @@ public readonly record struct InventoryKeys(
     BalanceKey WaterReturnSeconds,
     BalanceKey ExternalLeashMeters,
     BalanceKey BacklogDrainPerTick,
-    BalanceKey ManifestCellThreshold);
+    BalanceKey ManifestCellThreshold,
+    BalanceKey ContainerCapacity,
+    BalanceKey EntryPoolCapacity,
+    BalanceKey WorldItemCapacity,
+    BalanceKey MailIdArenaUnits);
 
 /// <summary>
 /// The typed <c>inventory.*</c> values, built once from the <see cref="BalanceTable"/> when the <see cref="ContentSet"/> is
@@ -63,6 +67,18 @@ public sealed record class InventoryBalance
     /// <summary>Cell count above which a container renders as a manifest. Key <c>inventory.manifestCellThreshold</c>, default 160.</summary>
     public int ManifestCellThreshold { get; init; }
 
+    /// <summary>Slots in the container table (live containers at most). Key <c>inventory.containerCapacity</c>, default 64.</summary>
+    public int ContainerCapacity { get; init; }
+
+    /// <summary>Slots in the entry pool (story 002). Key <c>inventory.entryPoolCapacity</c>, default 8192.</summary>
+    public int EntryPoolCapacity { get; init; }
+
+    /// <summary>Slots for world items, cap plus temporary headroom. Key <c>inventory.worldItemCapacity</c>, default 1024.</summary>
+    public int WorldItemCapacity { get; init; }
+
+    /// <summary>Unit budget of the mail-ids arena (story 003). Key <c>inventory.mailIdArenaUnits</c>, default 32768.</summary>
+    public int MailIdArenaUnits { get; init; }
+
     /// <summary>Reads every inventory value out of <paramref name="table"/>.</summary>
     /// <param name="table">A table built from a registry that holds the inventory rows.</param>
     /// <exception cref="ArgumentException">The table's registry lacks a inventory row.</exception>
@@ -85,6 +101,10 @@ public sealed record class InventoryBalance
             ExternalLeashMeters = table.GetInt(k.ExternalLeashMeters),
             BacklogDrainPerTick = table.GetInt(k.BacklogDrainPerTick),
             ManifestCellThreshold = table.GetInt(k.ManifestCellThreshold),
+            ContainerCapacity = table.GetInt(k.ContainerCapacity),
+            EntryPoolCapacity = table.GetInt(k.EntryPoolCapacity),
+            WorldItemCapacity = table.GetInt(k.WorldItemCapacity),
+            MailIdArenaUnits = table.GetInt(k.MailIdArenaUnits),
         };
     }
 }

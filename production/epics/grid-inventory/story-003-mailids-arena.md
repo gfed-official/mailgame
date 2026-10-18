@@ -1,12 +1,12 @@
 # Story 003: mailIds size-class arena — oldest-first take, sorted-union merge, exhaustion
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~1 day)
-> **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-16.2
+> **Last Updated**: 2026-10-17
 
 ## Context
 

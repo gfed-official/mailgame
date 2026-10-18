@@ -34,4 +34,16 @@ public enum CheckCode : ushort
 
     /// <summary>The <c>InputLatch</c> held more than 32 edges for one frame; a = edges dropped (newest presses), b = presses coalesced. Written once per overflow (ADR-0012 section 4).</summary>
     InputEdgeOverflow = 8,
+
+    /// <summary>Grid Inventory: a container could not be created because the container table is full. a = player slot (0xFF for a world container), b = table capacity.</summary>
+    InventoryContainerCapacity = 9,
+
+    /// <summary>Players: a second verb was registered on one anchor in one context (<c>RegisterResult.DuplicateVerb</c>, PCM-P10-1; ADR-0014 section 1). a = entity id, b = slot. Recorded with tick 0 (the registry has no tick source).</summary>
+    AnchorDuplicateVerb = 10,
+
+    /// <summary>Grid Inventory: an entry could not be allocated because the entry pool is full (story grid-inventory/002). a = pool capacity, b = live entries.</summary>
+    InventoryEntryPoolExhausted = 11,
+
+    /// <summary>Grid Inventory: the mail-ids arena could not give a block because the fitting class and every larger class are empty, or a run would exceed 256 ids (story grid-inventory/003; the validator maps it to <c>capacity_exhausted</c>). a = units requested, b = the fitting class index (9 when no class fits).</summary>
+    InventoryArenaExhausted = 12,
 }

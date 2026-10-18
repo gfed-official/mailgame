@@ -3,6 +3,7 @@ using System.Reflection;
 using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Primitives;
 
 namespace PerformativeMail.Sim.Tests.Unit.Sim.CompositionTests;
@@ -701,7 +702,7 @@ public class SimCompositionTests : IClassFixture<CompositionOwner>
         }
 
         // Assert
-        Assert.Empty(host.Systems);
+        Assert.IsType<InventorySystem>(Assert.Single(host.Systems)); // Grid Inventory (story grid-inventory/001); Players needs a world
         Assert.Equal(6, host.Order.Length);
         Assert.Equal(SimState.Running, host.World.State);
         Assert.Equal(3u, host.World.CurrentTick);

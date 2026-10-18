@@ -1,12 +1,12 @@
 # Story 002: Entry pool, occupancy bitmaps and entry identity
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~1 day)
-> **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-16.2
+> **Last Updated**: 2026-10-17
 
 ## Context
 
@@ -35,10 +35,10 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R2-1 (primitive form)** — GIVEN the entry allocator's last id is 41, WHEN an entry is created (42), moved between two containers via mutator primitives, its count driven to 0 (removed in the same call), and a second entry is created, THEN 42 travelled with the entry, no 0-count entry exists after any call, the second is 43, and 42 is never reissued across 10 000 further allocations.
-- [ ] **H-R2-2** — GIVEN a 2×2 footprint placed with `rotated = true`, WHEN stored, THEN `rotated = false` (square footprints canonicalise) and it occupies (0,0),(1,0),(0,1),(1,1); a 1×2 placed rotated occupies 2×1.
-- [ ] Footprint test is `h` mask-and-compares on the row bitmaps; `cellOwner` returns the entry slot for every covered cell and `0xFFFF` for free cells; a property test over 10 000 random place/remove sequences on 8×2, 8×4 and 20×16 grids keeps bitmaps, `cellOwner` and a brute-force cell grid identical.
-- [ ] `EntryRecord` layout is ≤ 40 B (`Unsafe.SizeOf` test) and holds `entryId, container slot, x, y, w, h, rotated, count (u8), isMail, key (mailKind u16, addressId u32, flags u8 | itemId), arrivalSeq u32, mailIds handle`; `1 ≤ count ≤ 255` is asserted on every write (`INVENTORY_ASSERT`).
+- [x] **H-R2-1 (primitive form)** — GIVEN the entry allocator's last id is 41, WHEN an entry is created (42), moved between two containers via mutator primitives, its count driven to 0 (removed in the same call), and a second entry is created, THEN 42 travelled with the entry, no 0-count entry exists after any call, the second is 43, and 42 is never reissued across 10 000 further allocations.
+- [x] **H-R2-2** — GIVEN a 2×2 footprint placed with `rotated = true`, WHEN stored, THEN `rotated = false` (square footprints canonicalise) and it occupies (0,0),(1,0),(0,1),(1,1); a 1×2 placed rotated occupies 2×1.
+- [x] Footprint test is `h` mask-and-compares on the row bitmaps; `cellOwner` returns the entry slot for every covered cell and `0xFFFF` for free cells; a property test over 10 000 random place/remove sequences on 8×2, 8×4 and 20×16 grids keeps bitmaps, `cellOwner` and a brute-force cell grid identical.
+- [x] `EntryRecord` layout is ≤ 40 B (`Unsafe.SizeOf` test) and holds `entryId, container slot, x, y, w, h, rotated, count (u8), isMail, key (mailKind u16, addressId u32, flags u8 | itemId), arrivalSeq u32, mailIds handle`; `1 ≤ count ≤ 255` is asserted on every write (`INVENTORY_ASSERT`).
 
 ---
 
@@ -75,7 +75,7 @@
 **Required evidence**:
 - Logic: `tests/unit/inventory/EntryStorageTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] `tests/unit/inventory/EntryStorageTests.cs` (EntryStorageTests 17 methods incl. 2 theories × 3 grids, EntryStorageAllocationTests 1 NonParallel 0 B test, Release-only) + storage wiring test in `tests/integration/inventory/ContainerCatalogueTests.cs`
 
 ---
 
@@ -84,3 +84,13 @@
 - Depends on: Story 001
 - Depends on: `production/epics/simulation-core/story-002-id-value-types.md` (`EntryId`)
 - Unlocks: Story 003, Story 005, Story 006
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-17
+**Criteria**: 4/4 passing (none deferred)
+**Deviations**: (a) `EntryRecord` is 32 B (Sequential), `Count` defaults to 1 on allocation; `SetCount(slot, 0)` asserts under `INVENTORY_ASSERT` and writes 0 in Release — "a 0-count entry is removed in the same call" is `InventoryMutator`'s rule (story 005, carried as an AC in TD-099); (b) `MailIdsHandle` is a `uint Raw` placeholder until story 003 packs `(class, block, start, count)`; (c) `Occupancy` is a global per-container-slot pool sized `containerCapacity × inventory.maxRows × widestDef` (not per container), reset on container creation; every def is validated ≤ 64 columns at build (`SimBuildErrorCode.InventoryDefInvalid = 52`); `inventory.entryPoolCapacity` bounded to ≤ 65 535 in `InventorySettings.FromBalance`; (d) `IdMap` (open-addressed, backward-shift deletion) refuses to fill past `TableSize − 1` so a miss always terminates — found by the tests; (e) appended `CheckCode.InventoryEntryPoolExhausted = 11`, `SimAssertCode` 57–60. Carried: TD-099.
+**Test Evidence**: Logic: `tests/unit/inventory/EntryStorageTests.cs` (18 methods incl. the NonParallel 0 B test; H-R2-1/H-R2-2 traits; 10 000-step property test per grid against a brute-force cell grid; assert-path tests for `InventoryEntrySlotFree`/`InventoryCellConflict`/`InventoryFootprintOutOfBounds`) + `Storage_IsSizedFromTheSettings_AndEveryCreatedContainerStartsWithAnEmptyGrid` in ContainerCatalogueTests. Inventory namespace 47/0 on Release and Debug; four full legs 0 inventory failures (the 9 failures on each leg are content-data's in-flight `tests/unit/content` RuleRegistry/PlayerRules/DecimalToScaled tests — foreign); Release build 0 warnings.
+**Code Review**: Complete — LP-CODE-REVIEW CONCERNS (6 low; fixed in-story: entryPoolCapacity bound, Occupancy sized by widest def + all-defs width check with a content-flavoured error code; rest → TD-099). QL-TEST-COVERAGE GAPS (5; closed in-story: gaps 1–3; 4–5 → TD-099).
+**Run result**: N/A — Godot-free storage primitives; nothing observable until the inventory panel (stories 023/024).

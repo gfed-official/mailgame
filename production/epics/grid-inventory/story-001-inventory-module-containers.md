@@ -1,7 +1,7 @@
 # Story 001: Inventory module skeleton — container registry, M-1a containers and per-player panel
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Estimate**: M (~1 day)
@@ -34,11 +34,11 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R1-1 (M-1a rows)** — GIVEN `BuiltInContent.CreateM1a()`, WHEN the inventory system builds, THEN each M-1a container's `(id, W, H, cells, layout, view, beltAccess, allowedCategories)` equals its R1 row: hotbar (8,1,8,slots,grid,none,any), player_inventory (8,2,16,grid,grid,none,any), po_intake (20,16,320,grid,manifest,outfeed_only,["mail"]), cursor (1 slot, slots, any hand-carryable); a row fails independently. (Deferred rows — backpack, bike_cargo, truck, po_depot, chest, depot, sorter_buffer, bags — stay open on M-1b/M0.)
-- [ ] GIVEN a world with `SimProfile.M1aGreybox`, WHEN it is built, THEN exactly one `po_intake` container exists with a stable `containerId`; WHEN a `PlayerJoin` for slot s applies, THEN hotbar, player_inventory and cursor containers exist for s with fresh `containerId`s, each `version = 0`, `lastReplaceVersion = 0`, `statEpoch = 0`; a `PlayerLeave` keeps them (disconnect handling is M0).
-- [ ] Container dimensions are instance state (`ContainerHeader.w/h`, replicated; perks grow rows later, R15) initialised from `ContainerDef` + `IStatSheet.Read(InventoryRows, container)` at creation (with no sources = def rows).
-- [ ] All container/entry/index storage is allocated at world build from the inventory settings sub-record; a test runs 1 000 ticks of joins/ops after warm-up and asserts 0 B allocated on the tick thread and no array growth.
-- [ ] `ContainerId` is a plain `readonly struct` (u32) with explicit `Equals`/`GetHashCode` (`(int)Value`)/`==`/`!=` (reflection test, I-6).
+- [x] **H-R1-1 (M-1a rows)** — GIVEN `BuiltInContent.CreateM1a()`, WHEN the inventory system builds, THEN each M-1a container's `(id, W, H, cells, layout, view, beltAccess, allowedCategories)` equals its R1 row: hotbar (8,1,8,slots,grid,none,any), player_inventory (8,2,16,grid,grid,none,any), po_intake (20,16,320,grid,manifest,outfeed_only,["mail"]), cursor (1 slot, slots, any hand-carryable); a row fails independently. (Deferred rows — backpack, bike_cargo, truck, po_depot, chest, depot, sorter_buffer, bags — stay open on M-1b/M0.)
+- [x] GIVEN a world with `SimProfile.M1aGreybox`, WHEN it is built, THEN exactly one `po_intake` container exists with a stable `containerId`; WHEN a `PlayerJoin` for slot s applies, THEN hotbar, player_inventory and cursor containers exist for s with fresh `containerId`s, each `version = 0`, `lastReplaceVersion = 0`, `statEpoch = 0`; a `PlayerLeave` keeps them (disconnect handling is M0).
+- [x] Container dimensions are instance state (`ContainerHeader.w/h`, replicated; perks grow rows later, R15) initialised from `ContainerDef` + `IStatSheet.Read(InventoryRows, container)` at creation (with no sources = def rows).
+- [x] All container/entry/index storage is allocated at world build from the inventory settings sub-record; a test runs 1 000 ticks of joins/ops after warm-up and asserts 0 B allocated on the tick thread and no array growth.
+- [x] `ContainerId` is a plain `readonly struct` (u32) with explicit `Equals`/`GetHashCode` (`(int)Value`)/`==`/`!=` (reflection test, I-6).
 
 ---
 
@@ -76,7 +76,7 @@
 **Required evidence**:
 - Integration: `tests/integration/inventory/ContainerCatalogueTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] `tests/integration/inventory/ContainerCatalogueTests.cs` (ContainerCatalogueTests 13 methods incl. 4-row H-R1-1 theory + ContainerAllocationTests 1, Release-only), `tests/unit/inventory/ContainerTableTests.cs` (5), listener fan-out tests in `tests/unit/sim/Core/PlayerJoinTests.cs`
 
 ---
 
@@ -85,3 +85,13 @@
 - Depends on: `production/epics/simulation-core/story-011-phase-table-builder-tick-loop.md` (builder binds), `production/epics/simulation-core/story-022-playerjoin-playerleave-handlers.md` (PlayerJoin), `production/epics/simulation-core/story-002-id-value-types.md` (ids); `production/epics/simulation-core/story-025-composition-root-reflection-test.md` (`SimComposition`)
 - Depends on: `production/epics/content-data/story-005-m1a-def-records.md` (`ContainerDef`), `production/epics/content-data/story-008-contentset-builtincontent-m1a.md` (`BuiltInContent`), `production/epics/content-data/story-015-statwriter-sources-lifetimes-wiring.md` (`IStatSheet` injected)
 - Unlocks: Story 002, Story 004, Story 005, Story 011, Story 012, Story 013
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-17
+**Criteria**: 5/5 passing (none deferred)
+**Deviations**: (a) `SimWorldBuilder.BindPlayerJoinListener` generalised to a fan-out of ≤ 4 listeners in bind order (Players already held the single slot; same instance twice → `PlayerJoinListenerAlreadyBound`, 5th → new `PlayerJoinListenerLimit`); (b) capacity knobs live in `BalanceKeys.Inventory`/`InventoryBalance` → `InventorySettings.FromBalance`, not in `SimSettings` (one owner per prefix; PROPOSED rows flagged for the GDD re-review); (c) no op, event kind or snapshot source bound yet — stories 004/005; the builder has no `BindSnapshotSource` (ADR-0022, M0); (d) `ContainerTable` bump slot allocator (no removal in this story) — dump relies on slot order == id order; (e) all-or-nothing panel creation at join, `CheckCode.InventoryContainerCapacity` on a full table, rejoin reuses the slot's kept containers. Pins updated: `BuiltInContentTests` (121 → 124 rows), `ContentHashTests` golden `bafdec48…`, `SimCompositionTests`/`PlayerJoinBindingTests` (GridInventory is now built without a world). Carried: TD-095.
+**Test Evidence**: Integration: `tests/integration/inventory/ContainerCatalogueTests.cs` (14 methods incl. the NonParallel 0 B test), `tests/unit/inventory/ContainerTableTests.cs` (5). Four legs green: net10/net8 × Release/Debug 4,389 tests, 0 failed (Release 1 skipped, Debug 38 skipped); Release build 0 warnings.
+**Code Review**: Complete — LP-CODE-REVIEW CONCERNS (10 low; fixed in-story: unchecked Fibonacci hash + `GetHashCode` for checked Debug builds, stale `SimComposition` comment, handler blank line; rest → TD-095). QL-TEST-COVERAGE GAPS (6; closed in-story: Inventory dump-section layout/determinism test, exact-exhaustion boundary, none-slot accessors, skipped-test confirmed not the 0 B test; 3 and 5 → TD-095).
+**Run result**: N/A — Godot-free Sim module with no presentation surface; nothing observable until the inventory panel (stories 023/024).

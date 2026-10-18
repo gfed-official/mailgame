@@ -20,4 +20,14 @@ public static class SectionIds
 
     /// <summary>Mail's section (ADR-0017): <c>u32 liveCount</c>, then live rows in ascending <c>mailId</c>. The destination registry (story 002) appends its fields to the same section.</summary>
     public const ushort Mail = 3;
+
+    /// <summary>Grid Inventory's section (ADR-0009): the next container id, the live container count, then per live container in ascending <c>containerId</c> its header fields.</summary>
+    public const ushort Inventory = 4;
+
+    /// <summary>
+    /// The world tables' section (ADR-0026 section 9): bounds (4 x i64), <c>TilesX</c>, <c>TilesZ</c> (i32), corner heights (u32 count + i32 each, row-major),
+    /// flags (u32 count + u8 each), solids (u32 count + per solid index u16, owner u32, box 6 x i32, kind u8), lots (u32 count + every
+    /// <c>LotRecord</c> field in declaration order) and the Post Office record. Immutable, so it is encoded once at build.
+    /// </summary>
+    public const ushort World = 5;
 }

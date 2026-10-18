@@ -28,9 +28,9 @@ namespace PerformativeMail.Sim.Tests.Unit.Content;
 public class ContentHashTests
 {
     /// <summary>The golden SHA-256 of <c>BuiltInContent.CreateM1a()</c> at <c>hashSchemaVersion</c> 1. See the class remarks to regenerate.</summary>
-    private const string GoldenM1aDigest = "c8d306fd1c07c3aad1b2adac66b110bb9421e3758635fd0f056aba2538384116";
+    private const string GoldenM1aDigest = "018735cb1eafd0b47f3337697e6c2d2bf830cadece1ce27697b6c7e27bf28fa6";
 
-    private const string GoldenM1aDisplay = "c8d306fd";
+    private const string GoldenM1aDisplay = "018735cb";
 
     // ------------------------------------------------------------ SHA-256 (NIST FIPS 180-2)
 
