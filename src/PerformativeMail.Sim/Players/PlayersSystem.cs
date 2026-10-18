@@ -1,4 +1,5 @@
 using PerformativeMail.Sim.Composition;
+using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Geometry;
@@ -20,7 +21,7 @@ namespace PerformativeMail.Sim.Players;
 /// </summary>
 /// <example>
 /// <code>
-/// // Composition: new PlayersSystem(context.World, context.Content.Player)
+/// // Composition: new PlayersSystem(world, content, checkRing, counters)
 /// LifeState life = players.GetLifeState(PlayerSlot.FromValue(0));   // Alive after the slot's PlayerJoin
 /// </code>
 /// </example>
@@ -34,25 +35,57 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
     private readonly EmptyRemoteCapsuleSource _emptyRemotes = new();
     private readonly EmptySupportTransformSource _emptySupports = new();
 
-    /// <summary>Creates the module over <paramref name="world"/> with settings built once from <paramref name="balance"/>.</summary>
+    /// <summary>
+    /// Creates the module with a private check ring and counter set (tests and tools; the
+    /// composition root uses the full overload).
+    /// </summary>
     /// <param name="world">The world's read interface (terrain height and the Post Office pad).</param>
     /// <param name="balance">The content set's <c>player.*</c> record.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException"><c>PlayersWorldHasNoPostOffice</c> when the world has no spawn pad; <c>PlayerSettingsInvalid</c> for an unusable value.</exception>
-    public PlayersSystem(IWorldQuery world, PlayerBalance balance)
+    internal PlayersSystem(IWorldQuery world, PlayerBalance balance)
         : this(world, PlayerSettings.FromBalance(balance))
     {
     }
 
-    /// <summary>Creates the module over <paramref name="world"/> with ready settings (tests and later composition code).</summary>
+    /// <summary>
+    /// The composition constructor (the one public constructor; ADR-0003 section 4): the content's <c>player.*</c> record (every
+    /// constant, including <c>player.maxAnchors</c>), the world's check ring and counters.
+    /// </summary>
+    /// <param name="world">The world's read interface (terrain height and the Post Office pad).</param>
+    /// <param name="content">The content set (<c>Player</c>).</param>
+    /// <param name="checks">The world's always-on check ring.</param>
+    /// <param name="counters">The world's always-on counters.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="SimBuildException"><c>PlayersWorldHasNoPostOffice</c> when the world has no spawn pad; <c>PlayerSettingsInvalid</c> for an unusable value.</exception>
+    public PlayersSystem(IWorldQuery world, ContentSet content, SimCheckRing checks, SimCounters counters)
+        : this(world, PlayerSettings.FromBalance((content ?? throw new ArgumentNullException(nameof(content))).Player), checks, counters)
+    {
+    }
+
+    /// <summary>Creates the module over <paramref name="world"/> with ready settings and private check ring and counters (tests).</summary>
     /// <param name="world">The world's read interface.</param>
     /// <param name="settings">The settings.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException"><c>PlayersWorldHasNoPostOffice</c> when the world has no spawn pad.</exception>
     internal PlayersSystem(IWorldQuery world, PlayerSettings settings)
+        : this(world, settings, new SimCheckRing(), new SimCounters())
+    {
+    }
+
+    /// <summary>Creates the module over <paramref name="world"/> with ready settings, check ring and counters.</summary>
+    /// <param name="world">The world's read interface.</param>
+    /// <param name="settings">The settings (<see cref="PlayerSettings.MaxAnchors"/> sizes the anchor registry).</param>
+    /// <param name="checks">The world's always-on check ring.</param>
+    /// <param name="counters">The world's always-on counters.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="SimBuildException"><c>PlayersWorldHasNoPostOffice</c> when the world has no spawn pad.</exception>
+    internal PlayersSystem(IWorldQuery world, PlayerSettings settings, SimCheckRing checks, SimCounters counters)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(checks);
+        ArgumentNullException.ThrowIfNull(counters);
         PostOfficeRecord po = world.PostOffice;
         if (po.PadSlots == 0)
         {
@@ -62,7 +95,23 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
         _world = world;
         _postOffice = po;
         _settings = settings;
+        Anchors = new AnchorRegistry(world.Bounds, settings.MaxAnchors, settings.RangeMm, settings.IncumbentSlackMm, checks, counters);
     }
+
+    /// <summary>The interaction anchor registry (story 012); the focus and press stories read it, owners write it through <see cref="IPlayersApi"/>.</summary>
+    internal AnchorRegistry Anchors { get; }
+
+    /// <inheritdoc />
+    public int AnchorCount => Anchors.Count;
+
+    /// <inheritdoc />
+    public RegisterResult RegisterAnchor(in AnchorDef def, IInteractable impl) => Anchors.Register(in def, impl);
+
+    /// <inheritdoc />
+    public RegisterResult UnregisterAnchor(AnchorRef anchor) => Anchors.Unregister(anchor);
+
+    /// <inheritdoc />
+    public RegisterResult MoveAnchor(AnchorRef anchor, in Vec3Mm point) => Anchors.Move(anchor, in point);
 
     /// <summary>The settings this module reads every constant from.</summary>
     public PlayerSettings Settings => _settings;

@@ -110,8 +110,8 @@ public class PlayerRulesTests
         RuleRegistry registry = RuleRegistry.CreateDefault();
         string[] deferred =
         {
-            PlayerRuleIds.BuffCap, PlayerRuleIds.RespawnSet, PlayerRuleIds.PushCap, PlayerRuleIds.SupportSpeedCap, PlayerRuleIds.UnknownVerb,
-        };
+            PlayerRuleIds.BuffCap, PlayerRuleIds.RespawnSet, PlayerRuleIds.PushCap, PlayerRuleIds.SupportSpeedCap,
+        };   // CV-PLR-13 went live in player-character story 012 (PlayerVerbRuleTests)
 
         foreach (string id in deferred)
         {
@@ -355,7 +355,8 @@ public class PlayerRulesTests
     [Trait("Id", "PCM-F8-3")]
     [InlineData(PlayerRuleIds.MinHold)]       // a live Error rule
     [InlineData("PC rule 4")]                 // its alias is not an id, so it is refused too
-    [InlineData(PlayerRuleIds.UnknownVerb)]   // a deferred rule
+    [InlineData(PlayerRuleIds.PushCap)]       // a deferred rule
+    [InlineData(PlayerRuleIds.UnknownVerb)]   // a live Error rule that reads no player.* key (story 012)
     public void Errors_AreNotSuppressible_ALivePlayerRuleOrADeferredIdNamedInSuppressIsRejected(string target)
     {
         ContentDraft draft = ContentFixtures.MinimalValid().WithBalance("player.minHoldTicks", 5);

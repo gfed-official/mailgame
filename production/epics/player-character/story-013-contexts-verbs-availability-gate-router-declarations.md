@@ -1,12 +1,12 @@
 # Story 013: Input contexts, the verb × context table (P14 router declarations) and the framework availability gate
 
 > **Epic**: Player Character & Movement (M-1a slice)
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~400 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-17
 
 > **Interaction-framework story (3 of 9) — the router declarations.** Input & Controls' action map and `RouterState` read the `BodyContext`, the verb × context table and the published `CarrierStatus` defined here. Mounted and Dead are declared but unused at M-1a.
 

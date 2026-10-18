@@ -1,4 +1,5 @@
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Hosting;
 using PerformativeMail.Sim.Primitives;
 
 namespace PerformativeMail.Sim.Players;
@@ -16,8 +17,8 @@ namespace PerformativeMail.Sim.Players;
 /// </example>
 public static class Hold
 {
-    /// <summary>Ticks per second, as the 30 in the ADR formula.</summary>
-    private const long TicksPerSecond = 30;
+    /// <summary>Ticks per second (<see cref="TickRate.Hz"/>), the 30 in the ADR formula; never a literal.</summary>
+    private const long TicksPerSecond = TickRate.Hz;
 
     /// <summary>
     /// Hold length in Sim ticks. <c>settingMs = ClampSettingMs(holdSettingMs)</c>; <c>insertPm</c> is clamped to
@@ -46,10 +47,10 @@ public static class Hold
     /// <param name="insertPm">Quick Hands style reduction, permille (0 to maxInsertPm).</param>
     /// <param name="holdSettingMs">The player's hold setting, ms; see <see cref="ClampSettingMs"/>.</param>
     /// <param name="s">The hold constants.</param>
-    /// <param name="counters">Receives the clamp count; null counts nothing.</param>
+    /// <param name="counters">Receives the clamp count; <see langword="null"/> counts nothing.</param>
     /// <returns>The hold length in ticks.</returns>
     /// <example><code>int ticks = Hold.HoldTicks(400, 900, 400, in settings, counters);   // 6, holdInputClamped + 1</code></example>
-    public static int HoldTicks(int holdBaseMs, int insertPm, int holdSettingMs, in HoldSettings s, SimCounters counters)
+    public static int HoldTicks(int holdBaseMs, int insertPm, int holdSettingMs, in HoldSettings s, SimCounters? counters)
     {
         int ticks = Compute(holdBaseMs, insertPm, holdSettingMs, in s, out bool insertClamped);
         if (insertClamped)
@@ -99,7 +100,7 @@ public static class Hold
         long settingMs = ClampSettingMs(holdSettingMs);
         long baseMs = Math.Max(0, holdBaseMs);
 
-        // The product reaches int.MaxValue * 1000 * 1000 * 30 (> long.MaxValue) for an absurd base, so it is held in Int128;
+        // The product reaches int.MaxValue * 1000 * 1000 * TickRate.Hz (> long.MaxValue) for an absurd base, so it is held in Int128;
         // for every in-range base (up to ~3e8 ms) it equals the ADR's long arithmetic.
         Int128 num = (Int128)baseMs * (1000 - insert) * settingMs * TicksPerSecond;
         Int128 den = (Int128)1000 * s.HoldDefaultMs * 1000;

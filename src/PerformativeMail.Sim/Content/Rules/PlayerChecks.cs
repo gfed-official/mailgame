@@ -1,12 +1,16 @@
+using System.Collections.Immutable;
 using System.Globalization;
+using System.Text;
 using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Content.Validation;
+using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Sim.Content.Rules;
 
 /// <summary>
 /// The bodies of the Player Character rules CV-PLR-01, 02, 04, 06, 08, 09, 10 and 11 (content-data story 011; the text is
-/// the owner's rule table in <c>player-character-movement.md</c>, PCM-F8-3). Rule bodies are stateless instance methods
+/// the owner's rule table in <c>player-character-movement.md</c>, PCM-F8-3) and CV-PLR-13 (player-character story 012,
+/// PCM-P10-1 / input-controls H-R4-5). Rule bodies are stateless instance methods
 /// (a method group over an instance is not cached by the compiler in a static field, which ADR-0003 section 4 forbids in
 /// rule types) that read <c>input.Candidate</c> and report through the context; the rows in <see cref="Player"/> choose
 /// severity and stage. Each finding belongs to no def, so it is addressed by <see cref="DefRef.None"/> at the
@@ -158,6 +162,62 @@ internal sealed class PlayerChecks
                 DefRef.None, SourceLocation.BuiltIn(PlayerFile),
                 "player.positionStaleTicks " + Num(stale), "at least " + Num(PositionStaleTicksFloor) + " ticks");
         }
+    }
+
+    /// <summary>
+    /// CV-PLR-13 (PCM-P10-1, input-controls H-R4-5), stage 2 (runs at stage 4): every verb a content definition names is in the
+    /// closed <see cref="Verb"/> catalogue, and one interactable declares exactly one verb. Reads
+    /// <see cref="ContentValidationInput.VerbDeclarations"/>, not a def field: at M-1a no def type carries a verb, so built-in
+    /// content passes no declarations and the rule is exercised by fixtures; when a def type later carries verbs the loader fills
+    /// the list and this body is unchanged. Clause <c>one_verb_per_interactable</c>: a declaration with zero or two or more
+    /// spellings, one finding naming them all. Clause <c>known_verb</c>: one finding per spelling that
+    /// <see cref="VerbSpelling.TryParse"/> rejects (so <c>revive</c> is reported, and <c>Deliver</c> too: spellings are
+    /// snake_case, compared byte for byte). A declaration with two unknown verbs reports both clauses.
+    /// </summary>
+    internal void CheckVerbs(ContentValidationInput input, RuleContext ctx)
+    {
+        foreach (VerbDeclaration decl in input.VerbDeclarations)
+        {
+            // A default (never-initialised) array reads as "no verb" rather than throwing; a null spelling is reported as unknown.
+            ImmutableArray<string> verbs = decl.Verbs.IsDefault ? ImmutableArray<string>.Empty : decl.Verbs;
+            if (verbs.Length != 1)
+            {
+                ctx.Report(
+                    decl.Def, decl.Location,
+                    verbs.IsEmpty ? "no verb" : Num(verbs.Length) + " verbs: " + string.Join(", ", verbs),
+                    "exactly one verb per interactable", ContentInputKeys.Verbs);
+            }
+
+            foreach (string? spelling in verbs)
+            {
+                if (spelling is null || !VerbSpelling.TryParse(Encoding.UTF8.GetBytes(spelling), out _))
+                {
+                    ctx.Report(decl.Def, decl.Location, spelling ?? "(null)", "one of the Verb catalogue: " + CatalogueSpellings(), ContentInputKeys.Verbs);
+                }
+            }
+        }
+    }
+
+    /// <summary>The 13 catalogue spellings in enum order, comma separated (built from <see cref="VerbSpelling.ToSpelling"/>, so it never drifts).</summary>
+    private static string CatalogueSpellings()
+    {
+        ReadOnlySpan<Verb> members = new[]
+        {
+            Verb.Deliver, Verb.Open, Verb.PickUp, Verb.Mount, Verb.Operate, Verb.Configure, Verb.Shop,
+            Verb.Announce, Verb.Dismount, Verb.Catch, Verb.Push, Verb.Rebuild, Verb.Deconstruct,
+        };
+        var sb = new StringBuilder();
+        foreach (Verb v in members)
+        {
+            if (sb.Length > 0)
+            {
+                sb.Append(", ");
+            }
+
+            sb.Append(Encoding.UTF8.GetString(VerbSpelling.ToSpelling(v)));
+        }
+
+        return sb.ToString();
     }
 
     private static void ReportNotPositive(RuleContext ctx, string key, int value)

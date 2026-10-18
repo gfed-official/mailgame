@@ -9,7 +9,7 @@ namespace PerformativeMail.Sim.Tests.Unit.PlayerCharacter;
 /// <summary>
 /// Player Character story 001, "Dump" (ADR-0006 section 4): Players' state contributor writes per slot in ascending order the
 /// player id, the life fields and every <see cref="CarrierState"/> field one by one; changing any single field changes the dump
-/// bytes, and two identical joins produce identical bytes.
+/// bytes, and two identical joins produce identical bytes. Story 012 appends the anchor registry after the per-player block.
 /// </summary>
 public class PlayersDumpTests
 {
@@ -100,6 +100,7 @@ public class PlayersDumpTests
             w.WriteU16(c.WadeSlowPm);   // story 009: appended after the pairs
         }
 
+        w.WriteU32(0);   // story 012: the anchor registry tail (an empty registry is a zero count)
         w.EndSection();
         return output.WrittenSpan[6..].ToArray();
     }
@@ -133,7 +134,7 @@ public class PlayersDumpTests
         byte[] after = PlayersSection(rig);
 
         // Assert
-        Assert.Equal(new byte[] { 0, 0, 0, 0 }, before);
+        Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, before);   // zero players, zero anchors
         Assert.NotEqual(before, after);
         Assert.Equal(SectionIds.Players, new PlayersStateContributor(rig.Players).SectionId);
         Assert.NotEqual(SectionIds.SimCore, SectionIds.Players);
@@ -150,7 +151,7 @@ public class PlayersDumpTests
         rig.LeaveAndTick(2);
 
         // Assert
-        Assert.Equal(new byte[] { 0, 0, 0, 0 }, PlayersSection(rig));
+        Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, PlayersSection(rig));
     }
 
     // ---------------------------------------------------------------- layout

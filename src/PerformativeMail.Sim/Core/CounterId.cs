@@ -134,4 +134,10 @@ public enum CounterId : ushort
 
     /// <summary><c>Hold.HoldTicks</c> received an <c>insertPm</c> outside 0 to maxInsertPm and clamped it (ADR-0014 section 4; key <c>holdInputClamped</c>; defensive - the StatSheet already clamps DeliverInsertPm).</summary>
     HoldInputClamped = 39,
+
+    /// <summary>An anchor registration was refused because the registry already held <c>maxAnchors</c> anchors (ADR-0014 section 1; key <c>anchorRegistryFull</c>).</summary>
+    AnchorRegistryFull = 40,
+
+    /// <summary>An anchor query had more hits than its result span and kept the first ones (counted once per truncating call; key <c>anchorQueryOverflow</c>).</summary>
+    AnchorQueryOverflow = 41,
 }

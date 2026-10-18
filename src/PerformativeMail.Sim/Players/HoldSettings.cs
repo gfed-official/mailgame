@@ -1,5 +1,3 @@
-using PerformativeMail.Sim.Core;
-
 namespace PerformativeMail.Sim.Players;
 
 /// <summary>

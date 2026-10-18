@@ -1,7 +1,7 @@
 # Story 011: `Hold.HoldTicks` — the single shared `holdEff` function
 
 > **Epic**: Player Character & Movement (M-1a slice)
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: S (~0.5 day; ~150 lines prod + tests)
@@ -34,11 +34,11 @@
 
 *From GDD PCM-F4-2 and input-controls H-F1-1 (shared parametrised vector table), scoped to this story:*
 
-- [ ] **PCM-F4-2.** `holdTicks` for a 400 ms base at the default 0.4 s setting: **12**; `insertPm` 500 (Quick Hands) → **6**, and **15** at the 1.0 s setting; setting 0.2 s → **6**; 1.0 s → **30**; `insertPm` 1000 (clamped to 750 internally) → **6** (the `minHoldTicks` floor); `holdBaseMs` 2000 at the 1.0 s setting → **60** (clamped to `ceil`, not 150); progress `1000 × 5 / 12` = **416 ‰** (floor) — `Hold.ProgressPm(heldTicks, holdTicks)`.
-- [ ] **H-F1-1 (input-controls).** every row of the input-controls H-F1-1 table passes against this function (default deliver 0.4 s → 12; Quick Hands at 0.4 → 6, at 0.6 → 9; deconstruct at 1.0 → 38; deliver base 0.8 s at 1.0 → 60; Quick Hands at 0.2 → 6, at 0.45 → 7; `insertPm` 750 at 1.0 → 8) and, over the full grid setting 200–1000 step 50 × `insertPm` {0, 500, 750} × base 100–2000 ms step 100, the result equals the exact rational `clamp(ceil(base × (1 − insertPm/1000) × (setting/400) × 30 / 1000), minHoldTicks, ceil)` computed with `BigInteger` in the test.
-- [ ] Out-of-range inputs are clamped, never thrown: `insertPm` −5 → 0 and 900 → 750 (each counted in `SimCounters.holdInputClamped`), `holdSettingMs` 150 → 200 and 1200 → 1000, a non-multiple of 50 (e.g. 430) is rounded to the nearest 50 by the caller-visible rule documented in the XML doc and tested.
-- [ ] `Hold.HoldTicks` is `static`, allocation-free (10 000 calls = 0 B), uses no `float`/`double`, and overflows nowhere over the full int32 input domain after clamping (max product `2000 × 1000 × 1000 × 30` fits int64).
-- [ ] `HoldSettings` (`holdDefaultMs` 400, `holdCeilMs` 2000, `minHoldTicks`, `maxInsertPm` 750) is a readonly struct built from `PlayerSettings` (`minHoldTicks`, from `PlayerBalance`) plus the two Input constants; `minHoldTicks < 6` is a content-data validator error (CV-PLR-04) and is not re-checked here.
+- [x] **PCM-F4-2.** `holdTicks` for a 400 ms base at the default 0.4 s setting: **12**; `insertPm` 500 (Quick Hands) → **6**, and **15** at the 1.0 s setting; setting 0.2 s → **6**; 1.0 s → **30**; `insertPm` 1000 (clamped to 750 internally) → **6** (the `minHoldTicks` floor); `holdBaseMs` 2000 at the 1.0 s setting → **60** (clamped to `ceil`, not 150); progress `1000 × 5 / 12` = **416 ‰** (floor) — `Hold.ProgressPm(heldTicks, holdTicks)`.
+- [x] **H-F1-1 (input-controls).** every row of the input-controls H-F1-1 table passes against this function (default deliver 0.4 s → 12; Quick Hands at 0.4 → 6, at 0.6 → 9; deconstruct at 1.0 → 38; deliver base 0.8 s at 1.0 → 60; Quick Hands at 0.2 → 6, at 0.45 → 7; `insertPm` 750 at 1.0 → 8) and, over the full grid setting 200–1000 step 50 × `insertPm` {0, 500, 750} × base 100–2000 ms step 100, the result equals the exact rational `clamp(ceil(base × (1 − insertPm/1000) × (setting/400) × 30 / 1000), minHoldTicks, ceil)` computed with `BigInteger` in the test.
+- [x] Out-of-range inputs are clamped, never thrown: `insertPm` −5 → 0 and 900 → 750 (each counted in `SimCounters.holdInputClamped`), `holdSettingMs` 150 → 200 and 1200 → 1000, a non-multiple of 50 (e.g. 430) is rounded to the nearest 50 by the caller-visible rule documented in the XML doc and tested.
+- [x] `Hold.HoldTicks` is `static`, allocation-free (10 000 calls = 0 B), uses no `float`/`double`, and overflows nowhere over the full int32 input domain after clamping (max product `2000 × 1000 × 1000 × 30` fits int64).
+- [x] `HoldSettings` (`holdDefaultMs` 400, `holdCeilMs` 2000, `minHoldTicks`, `maxInsertPm` 750) is a readonly struct built from `PlayerSettings` (`minHoldTicks`, from `PlayerBalance`) plus the two Input constants; `minHoldTicks < 6` is a content-data validator error (CV-PLR-04) and is not re-checked here.
 
 ---
 
@@ -75,7 +75,7 @@
 **Required evidence**:
 - Logic: `tests/unit/player/HoldTicksTests.cs` (`[Trait("Id", "PCM-F4-2")]`, `H-F1-1`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/unit/player/HoldTicksTests.cs` (19 methods / 55 cases; `[Trait("Id", "PCM-F4-2")]`, `H-F1-1`), green on net10.0 + net8.0 Release and Debug (Debug skips the 0-B guard by design)
 
 ---
 
@@ -83,3 +83,10 @@
 
 - Depends on: `production/epics/simulation-core/story-003-numerics-toolkit.md` (`Fix.CeilDiv`), `production/epics/simulation-core/story-007-simcounters-simcheckring.md` (clamp counter), Story 001 (`PlayerSettings.minHoldTicks`)
 - Unlocks: Stories 012 (`GetHoldTicks` default), 017 (hold counter), 018 (progress); input-controls epic (`holdEff` consumer, router F1 vectors); manual-delivery epic (hold length); HUD hold ring
+
+## Completion Notes
+**Completed**: 2026-10-17
+**Criteria**: 5/5 passing (none deferred)
+**Deviations**: (1) `Hold.Compute` holds `num`/`den` in `Int128` via `Fix.CeilDiv(Int128, Int128)` — ADR-0014 §4 says "evaluated in `long`"; required because `int.MaxValue × 1000 × 1000 × 30 > long.MaxValue` and AC4 demands no overflow over the full int32 domain (results identical for every base ≤ ~3e8 ms; LP judged acceptable; ADR/story wording to reconcile — TD-093). (2) `holdDefaultMs` 400 / `holdCeilMs` 2000 / `maxInsertPm` 750 are code constants in `HoldSettings` (AC5 permits; PROPOSED in input-controls; move to data when that epic lands — TD-093). (3) Only an out-of-range `insertPm` counts `CounterId.HoldInputClamped` (39); setting clamps/rounding are not counted (player setting, not a content defect). Note for story 012: calling the counting overload from inside a pure `IInteractable.GetHoldTicks` hook would mutate a counter — decide there (count at the latch site, or treat counters as exempt observation).
+**Test Evidence**: Logic — `tests/unit/player/HoldTicksTests.cs` + `tests/unit/sim/Core/SimCountersTests.cs` (id layout). Run: 55/55 net10.0 + net8.0 Release; 54 + 1 skipped Debug; full suite 4,306/0 Release net10.0.
+**Code Review**: Complete — LP-CODE-REVIEW CONCERNS (1 medium: literal 30 → `TickRate.Hz`; lows: `SimCounters?` annotation, unused using) all revised; QL-TEST-COVERAGE GAPS (`(3000,0,200) → 45` row; `default(HoldSettings)` behaviour) revised; optional `MinHoldTicks > ceil` pin carried in TD-093.

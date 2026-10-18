@@ -25,12 +25,14 @@ public sealed class ContentValidationInput : IValidationInput
         ContentSet candidate,
         ImmutableArray<FailedInput> priorFailures = default,
         ImmutableArray<PendingReference> references = default,
-        ImmutableArray<SuppressEntry> setSuppress = default)
+        ImmutableArray<SuppressEntry> setSuppress = default,
+        ImmutableArray<VerbDeclaration> verbDeclarations = default)
     {
         References = references.IsDefault ? ImmutableArray<PendingReference>.Empty : references;
         Candidate = candidate;
         PriorFailures = priorFailures.IsDefault ? ImmutableArray<FailedInput>.Empty : priorFailures;
         Defs = BuildRecords(candidate, setSuppress.IsDefault ? ImmutableArray<SuppressEntry>.Empty : setSuppress);
+        VerbDeclarations = verbDeclarations.IsDefault ? ImmutableArray<VerbDeclaration>.Empty : verbDeclarations;
     }
 
     /// <summary>The candidate set under validation (not yet accepted).</summary>
@@ -38,6 +40,13 @@ public sealed class ContentValidationInput : IValidationInput
 
     /// <summary>The by-id references still to be resolved (CV-GEN-01); empty for built-in content, whose defs hold resolved indices.</summary>
     public ImmutableArray<PendingReference> References { get; }
+
+    /// <summary>
+    /// The interaction verbs the defs declare, as CV-PLR-13 (PCM-P10-1) reads them; empty for built-in content and for the
+    /// production pipeline at M-1a, since no def type carries a verb field yet. When one does, the loader fills this list from
+    /// that field and the rule body is unchanged (see <see cref="VerbDeclaration"/>).
+    /// </summary>
+    public ImmutableArray<VerbDeclaration> VerbDeclarations { get; }
 
     /// <inheritdoc />
     public ImmutableArray<DefRecord> Defs { get; }

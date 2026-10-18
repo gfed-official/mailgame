@@ -7,9 +7,10 @@ namespace PerformativeMail.Sim.Tests.Unit.Content;
 
 /// <summary>
 /// Violation and valid-edge fixtures of the Player Character rules CV-PLR-01, 02, 04, 06, 08, 09, 10 and 11 (content-data
-/// story 011). Each violation is <see cref="ContentFixtures.MinimalValid"/> plus one balance value that must produce exactly
-/// one diagnostic of the rule's id; each edge sits exactly on the limit. The deferred rows (CV-PLR-03, 05, 07, 12, 13) have no
-/// fixtures: the meta-test skips them. Appended to <see cref="RuleFixtureCatalogue.Real"/>.
+/// story 011) and CV-PLR-13 (player-character story 012, PCM-P10-1). Each violation is <see cref="ContentFixtures.MinimalValid"/>
+/// plus one balance value (or, for CV-PLR-13, one verb declaration) that must produce exactly one diagnostic of the rule's id;
+/// each edge sits exactly on the limit. The deferred rows (CV-PLR-03, 05, 07, 12) have no fixtures: the meta-test skips them.
+/// Appended to <see cref="RuleFixtureCatalogue.Real"/>.
 /// </summary>
 /// <example>
 /// <code>
@@ -25,13 +26,16 @@ internal static class PlayerRuleFixtures
     public static ValidationResult WithCatchRadius(long radius) =>
         ContentFixtures.MinimalValid().WithBalance("throw.catchRadiusMm", radius).WithBalance("throw.catchHistoryMaxOffsetMm", 0).Build().Validation;
 
+    /// <summary>Validates the minimal set with one verb declaration on the <c>house</c> destination type naming <paramref name="verbs"/> (CV-PLR-13).</summary>
+    public static ValidationResult WithVerbs(params string[] verbs) => ContentFixtures.MinimalValid().WithVerbs("house", verbs).Build().Validation;
+
     private static RuleFixture Violation(string rule, string clause, Func<ValidationResult> produce) =>
         new(rule, clause, FixtureKind.Violation, produce, ImmutableArray<string>.Empty);
 
     private static RuleFixture Edge(string rule, string clause, Func<ValidationResult> produce) =>
         new(rule, clause, FixtureKind.ValidEdge, produce, ImmutableArray<string>.Empty);
 
-    /// <summary>All the story 011 fixtures.</summary>
+    /// <summary>All the story 011 fixtures, plus CV-PLR-13's (player-character story 012).</summary>
     public static ImmutableArray<RuleFixture> All() => ImmutableArray.Create(
         // CV-PLR-01: 2 500 + 500 = 3 000 passes, 2 501 + 500 errors
         Violation(PlayerRuleIds.RangeWithinLeash, "range_plus_slack_within_leash", () => With("player.rangeMm", 2501)),
@@ -58,5 +62,11 @@ internal static class PlayerRuleFixtures
         Edge(PlayerRuleIds.DivisionSafety, "g_multiple_of_30", () => With("player.g", 24_000)),
         // CV-PLR-11: 19 passes, 18 errors
         Violation(PlayerRuleIds.PositionStale, "position_stale_ticks", () => With("player.positionStaleTicks", 18)),
-        Edge(PlayerRuleIds.PositionStale, "position_stale_ticks", () => With("player.positionStaleTicks", 19)));
+        Edge(PlayerRuleIds.PositionStale, "position_stale_ticks", () => With("player.positionStaleTicks", 19)),
+        // CV-PLR-13 (PCM-P10-1, H-R4-5): "revive" is outside the Verb catalogue, "deliver" is in it; two known verbs on one
+        // interactable error (one finding for the pair), one known verb passes.
+        Violation(PlayerRuleIds.UnknownVerb, "known_verb", () => WithVerbs("revive")),
+        Edge(PlayerRuleIds.UnknownVerb, "known_verb", () => WithVerbs("deliver")),
+        Violation(PlayerRuleIds.UnknownVerb, "one_verb_per_interactable", () => WithVerbs("deliver", "open")),
+        Edge(PlayerRuleIds.UnknownVerb, "one_verb_per_interactable", () => WithVerbs("deliver")));
 }

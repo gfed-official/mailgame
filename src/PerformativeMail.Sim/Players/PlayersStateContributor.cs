@@ -6,7 +6,8 @@ namespace PerformativeMail.Sim.Players;
 /// <summary>
 /// Players' canonical dump section (ADR-0006 section 4, ADR-0013 section 2): a <c>u32</c> count of present players, then for each
 /// in ascending slot order the slot, <c>playerId</c>, life state and deadlines, <c>TeleportSeq</c>, aim, and every
-/// <see cref="CarrierState"/> field written one by one (never a struct blit), the seven push pairs, then <c>WadeSlowPm</c> (story 009, appended). The capsule size is not
+/// <see cref="CarrierState"/> field written one by one (never a struct blit), the seven push pairs, then <c>WadeSlowPm</c> (story 009, appended); then the anchor registry (story 012, appended: <c>u32</c> count and the anchors in
+/// ascending index, see <see cref="AnchorRegistry.Dump"/>). The capsule size is not
 /// written (derived from the settings). Between ticks only; allocation-free.
 /// </summary>
 /// <example><code>builder.BindStateContributor(new PlayersStateContributor(players));</code></example>
@@ -52,6 +53,8 @@ internal sealed class PlayersStateContributor : ISimStateContributor
             w.WriteU16(unchecked((ushort)r.LookPitch));
             WriteCarrier(ref w, in r.Carrier);
         }
+
+        _players.Anchors.Dump(ref w);   // story 012: the anchor registry, appended after the per-player block
     }
 
     private static void WriteCarrier(ref CanonicalWriter w, in CarrierState c)

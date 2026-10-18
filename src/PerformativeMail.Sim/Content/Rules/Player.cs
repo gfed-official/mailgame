@@ -47,16 +47,21 @@ public static class PlayerRuleIds
     /// <summary>CV-PLR-12 (deferred): <c>supportSpeedCapMm</c> below the mail truck's road speed. Needs vehicles.</summary>
     public const string SupportSpeedCap = "CV-PLR-12";
 
-    /// <summary>CV-PLR-13 (deferred): an unknown interaction verb (PCM-P10-1). Needs the <c>Verb</c> enum and interaction catalogue (ADR-0014).</summary>
+    /// <summary>
+    /// CV-PLR-13 (Error, stage 2; alias PCM-P10-1, input-controls H-R4-5): a content definition names a verb outside the closed
+    /// <c>Verb</c> catalogue, or declares other than exactly one verb for one interactable. Reads
+    /// <c>ContentValidationInput.VerbDeclarations</c> (player-character story 012).
+    /// </summary>
     public const string UnknownVerb = "CV-PLR-13";
 }
 
 /// <summary>
 /// The Player Character (player-character-movement) rule table (CV-PLR, alias <c>PC rule N</c>), owner
-/// <c>player-character-movement</c>: CV-PLR-01, 02, 04, 06, 08, 09, 10 and 11 are live (content-data story 011); CV-PLR-03, 05,
-/// 07, 12 and 13 are registered as <see cref="RuleStatus.Deferred"/> ids ("inputs not present at M-1a") so they are never
-/// renumbered or reused and the fixture meta-test skips them explicitly. Rows are explicit entries in this list; there is no
-/// reflection discovery. Never renumber or reuse an id.
+/// <c>player-character-movement</c>: CV-PLR-01, 02, 04, 06, 08, 09, 10 and 11 are live (content-data story 011) and CV-PLR-13
+/// (alias PCM-P10-1, input-controls H-R4-5) is live (player-character story 012; it reads the adapter's verb declarations, which
+/// are empty at M-1a); CV-PLR-03, 05, 07 and 12 are registered as <see cref="RuleStatus.Deferred"/> ids ("inputs not present at
+/// M-1a") so they are never renumbered or reused and the fixture meta-test skips them explicitly. Rows are explicit entries in
+/// this list; there is no reflection discovery. Never renumber or reuse an id.
 /// <para>
 /// Cross-owner rules: CV-PLR-01 (<c>player</c> + <c>inventory</c>) and CV-PLR-06 (<c>player</c> + <c>throw</c>) are stage 5 and
 /// declare both owner files, so a failed file skips the rule and counts it. CV-PLR-01 reads Grid's registered key
@@ -129,6 +134,10 @@ public static class Player
             ImmutableArray.Create(new RuleClause("position_stale_ticks", HasLimit: true))),
         RuleSpec.Defer(PlayerRuleIds.SupportSpeedCap, Owner, "PC rule 12", RuleSeverity.Error, ValidationStage.WholeSet,
             NotAtM1a + "the mail truck's road speed (Vehicles) is a later milestone"),
-        RuleSpec.Defer(PlayerRuleIds.UnknownVerb, Owner, "PCM-P10-1", RuleSeverity.Error, ValidationStage.References,
-            NotAtM1a + "the Verb enum and interaction catalogue are blocked on ADR-0014"));
+        RuleSpec.Create<ContentValidationInput>(
+            PlayerRuleIds.UnknownVerb, Owner, "PCM-P10-1", RuleSeverity.Error, ValidationStage.References,   // catalogue stage 2
+            ImmutableArray.Create(ContentInputKeys.Verbs),
+            checks.CheckVerbs,
+            ImmutableArray.Create(new RuleClause("known_verb", HasLimit: false), new RuleClause("one_verb_per_interactable", HasLimit: true)),
+            ImmutableArray.Create("H-R4-5")));
 }
