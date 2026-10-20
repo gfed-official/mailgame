@@ -12,10 +12,12 @@ namespace PerformativeMail.Sim.Inventory.Storage;
 /// <para>
 /// Rules: take-k-oldest copies the k lowest ids out and advances <c>start</c> (O(1), no move); a union is a two-pointer sorted merge
 /// into exactly one new block of the result's size class, freeing both inputs; a block whose live count is at or below a quarter of
-/// its class is re-homed (copied to the smallest fitting class) on its next take, which is hysteresis: a re-homed run is always above
-/// half of its new class, so a +-1 oscillation around the threshold re-homes at most once per crossing. An empty class borrows from
+/// its class is re-homed (copied to the smallest fitting class, else the smallest free class below its own) on its next take, which
+/// is hysteresis: a run re-homed into its fitting class is above half of it, so a +-1 oscillation around the threshold re-homes at
+/// most once per crossing (a run re-homed into a larger borrowed class may move down again, at least one class per re-home, so it
+/// is bounded). An empty class borrows from
 /// the next larger class; when every larger class is empty the request fails with nothing mutated and one
-/// <see cref="CheckCode.InventoryArenaExhausted"/> record (the validator maps it to <c>capacity_exhausted</c>, story 004). The arena
+/// <see cref="CheckCode.InventoryArenaExhausted"/> record (the validator maps it to <c>capacity_exhausted</c>, story 005). The arena
 /// stores raw <c>uint</c> ids (<c>MailId</c> wraps at the system boundary) and exposes only span reads. Allocates nothing after
 /// construction. Not thread-safe: Sim tick thread only.
 /// </para>
@@ -128,7 +130,9 @@ public sealed class MailIdArena
 
     /// <summary>
     /// Dry run of a block reservation (the validator's <c>capacity_exhausted</c> check): true when the fitting class or any larger
-    /// class has a free block. Nothing is reserved. At most 0 units is always reservable; more than <see cref="MaxUnits"/> never.
+    /// class has a free block. Nothing is reserved. At most 0 units is always reservable; more than <see cref="MaxUnits"/> never. A
+    /// commit that acquires several blocks must use <see cref="CanReserve(ReadOnlySpan{int})"/>: single-block checks that each pass
+    /// can still fail together.
     /// </summary>
     /// <param name="units">The run length to be created.</param>
     public bool CanReserve(int units)
@@ -152,6 +156,67 @@ public sealed class MailIdArena
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Dry run of a multi-block reservation (ADR-0009 section 2: the validator decides <c>capacity_exhausted</c>, Commit never fails):
+    /// true when every block a commit will acquire (several unions, appends or creates) can be had at once. Each element of
+    /// <paramref name="runUnits"/> is the unit count of one block; elements at or below 0 are ignored (an empty span is reservable),
+    /// any element over <see cref="MaxUnits"/> makes the whole reservation false. Pure (nothing reserved, mutated or recorded) and
+    /// allocation-free; O(9n).
+    /// <para>
+    /// The check is Hall's condition per threshold class t (8 down to 0): the number of requests whose fitting class is t or larger
+    /// must not exceed the number of free blocks in classes t and larger. It is exact for the arena's borrowing rule (smallest free
+    /// class at or above the fit): a request can use any class in [fit, 8], those intervals are nested, so greedy acquisition in any
+    /// commit order succeeds if and only if the condition holds.
+    /// </para>
+    /// <para>
+    /// It is conservative: blocks the commit frees along the way are ignored (a union acquires before it frees its inputs), so it
+    /// never accepts what the commit cannot do. A take's re-home between the acquisitions never invalidates it either: it pops a block
+    /// of a class c' below the run's class and pushes one of the run's class, so for every threshold the count of free blocks at or
+    /// above it stays equal or rises.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// Each element is the size of the block at the time it is acquired: <c>union(union(a, b), c)</c> needs <c>|a| + |b|</c> and then
+    /// <c>|a| + |b| + |c|</c>, and a union with a none input still acquires a block. An over-estimate is safe (a larger run can use
+    /// fewer classes), so a validator may pass upper bounds.
+    /// </remarks>
+    /// <param name="runUnits">The unit count of each block the commit will acquire.</param>
+    /// <returns>True when all of them can be acquired.</returns>
+    public bool CanReserve(ReadOnlySpan<int> runUnits)
+    {
+        for (int i = 0; i < runUnits.Length; i++)
+        {
+            if (runUnits[i] > MaxUnits)
+            {
+                return false;
+            }
+        }
+
+        int free = 0;
+        for (int t = ClassCount - 1; t >= 0; t--)
+        {
+            free += _freeCount[t];
+
+            // ClassFor(u) >= t  <=>  u > 2^(t-1) (t >= 1); every positive u for t == 0
+            int floor = t == 0 ? 0 : 1 << (t - 1);
+            int need = 0;
+            for (int i = 0; i < runUnits.Length; i++)
+            {
+                if (runUnits[i] > floor)
+                {
+                    need++;
+                }
+            }
+
+            if (need > free)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -238,20 +303,11 @@ public sealed class MailIdArena
             return k;
         }
 
-        int remaining = count - k;
-        if (count <= (1 << cls) >> 2)
+        if (count > (1 << cls) >> 2 || !TryReHome(ref h, run[k..]))
         {
-            int target = ClassFor(remaining);
-            if (target < cls && TryAcquireBelow(target, cls, out int newCls, out int newBlock))
-            {
-                run[k..].CopyTo(BlockSpan(newCls, newBlock, 0, remaining));
-                Release(cls, block);
-                h = new MailIdsHandle(newCls, newBlock, 0, remaining);
-                return k;
-            }
+            h = new MailIdsHandle(cls, block, h.Start + k, count - k);
         }
 
-        h = new MailIdsHandle(cls, block, h.Start + k, remaining);
         return k;
     }
 
@@ -353,24 +409,25 @@ public sealed class MailIdArena
 
     private Span<uint> BlockSpan(int cls, int block, int start, int count) => _slabs[cls].AsSpan((block << cls) + start, count);
 
-    /// <summary>Acquires and fills one block of the result class; frees nothing. Records exhaustion.</summary>
-    private bool TryMerge(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b, uint tick, out MailIdsHandle result)
+    /// <summary>Best-effort re-home of <paramref name="rest"/> (the run after a take) into a smaller class; false keeps the block.</summary>
+    private bool TryReHome(ref MailIdsHandle h, ReadOnlySpan<uint> rest)
     {
-        int total = a.Length + b.Length;
-        if (total > MaxUnits)
+        int cls = h.ClassIndex;
+        int target = ClassFor(rest.Length);
+        if (target >= cls || !TryAcquireBelow(target, cls, out int newCls, out int newBlock))
         {
-            _ring.Record(CheckCode.InventoryArenaExhausted, tick, total, ClassCount);
-            result = default;
             return false;
         }
 
-        if (!TryAcquire(total, ClassCount, tick, out int cls, out int block))
-        {
-            result = default;
-            return false;
-        }
+        rest.CopyTo(BlockSpan(newCls, newBlock, 0, rest.Length));
+        Release(cls, h.Block);
+        h = new MailIdsHandle(newCls, newBlock, 0, rest.Length);
+        return true;
+    }
 
-        Span<uint> dst = BlockSpan(cls, block, 0, total);
+    /// <summary>The two-pointer sorted union of <paramref name="a"/> and <paramref name="b"/> into <paramref name="dst"/> (their total length).</summary>
+    private static void MergeInto(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b, Span<uint> dst)
+    {
         int i = 0;
         int j = 0;
         int o = 0;
@@ -391,16 +448,28 @@ public sealed class MailIdArena
             }
         }
 
-        while (i < a.Length)
+        a[i..].CopyTo(dst[o..]);
+        b[j..].CopyTo(dst[(o + a.Length - i)..]);
+    }
+
+    /// <summary>Acquires and fills one block of the result class; frees nothing. Records exhaustion.</summary>
+    private bool TryMerge(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b, uint tick, out MailIdsHandle result)
+    {
+        int total = a.Length + b.Length;
+        if (total > MaxUnits)
         {
-            dst[o++] = a[i++];
+            _ring.Record(CheckCode.InventoryArenaExhausted, tick, total, ClassCount);
+            result = default;
+            return false;
         }
 
-        while (j < b.Length)
+        if (!TryAcquire(total, ClassCount, tick, out int cls, out int block))
         {
-            dst[o++] = b[j++];
+            result = default;
+            return false;
         }
 
+        MergeInto(a, b, BlockSpan(cls, block, 0, total));
         _liveUnits += total;
         result = new MailIdsHandle(cls, block, 0, total);
         return true;

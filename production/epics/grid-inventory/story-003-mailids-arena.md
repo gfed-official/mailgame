@@ -1,18 +1,17 @@
 # Story 003: mailIds size-class arena — oldest-first take, sorted-union merge, exhaustion
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~1 day)
-> **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-17
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-19
 
 ## Context
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-003` (ascending `mailIds[]`), `TR-inventory-005` (take-k removes the lowest mailIds)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay
 **ADR Decision Summary**: `mailIds` live in size classes of 1, 2, 4 … 256 `u32`s, one preallocated slab + free-index stack per class; a handle is `(class, block, start, count)`; take-k-oldest advances `start` (O(1), R6); a merge is a two-pointer sorted union into a block of the target class; a block whose live count falls to ≤ ¼ of its class is re-homed on its next mutation; an empty class borrows from the next larger; if all larger are empty validation fails `capacity_exhausted` (nothing mutated) (ADR-0009 §5).
@@ -34,10 +33,14 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R6-1 a/b (arena form)** — GIVEN A = `[4, 9, 15, 21, 30]`: take-2 → `[4, 9]` returned, A = `[15, 21, 30]`; union of A with B = `[2, 50]` → `[2, 4, 9, 15, 21, 30, 50]`; every result ascending with no duplicate.
-- [ ] Take-k-oldest is O(1) (advances `start`, no copy); a union allocates exactly one block of the result's size class and frees both inputs; re-homing triggers only when live ≤ ¼ of the class, and a block oscillating ±1 around the threshold re-homes at most once per crossing (no thrash).
-- [ ] With every larger class exhausted, a request that needs a new block returns `capacity_exhausted` (reason 85) to the validator and nothing is mutated; borrowing from a larger class is used before that.
-- [ ] A seeded property test (10 000 random take/union/append sequences, units up to 255 per handle) keeps every handle's contents equal to a reference sorted list, and frees every block when all handles are released (no leak).
+- [x] **H-R6-1 a/b (arena form)** — GIVEN A = `[4, 9, 15, 21, 30]`: take-2 → `[4, 9]` returned, A = `[15, 21, 30]`; union of A with B = `[2, 50]` → `[2, 4, 9, 15, 21, 30, 50]`; every result ascending with no duplicate.
+- [x] Take-k-oldest is O(1) (advances `start`, no copy); a union allocates exactly one block of the result's size class and frees both inputs; re-homing triggers only when live ≤ ¼ of the class, and a block oscillating ±1 around the threshold re-homes at most once per crossing (no thrash).
+- [x] With every larger class exhausted, a request that needs a new block is refused at arena level (`CanReserve` false; for an API call, `false` plus one `CheckCode.InventoryArenaExhausted` record) and nothing is mutated; borrowing from a larger class is used before that. The validator half (mapping to `capacity_exhausted`, reason 85) is story 005.
+- [x] A seeded property test (10 000 random take/union/append sequences, units up to 255 per handle) keeps every handle's contents equal to a reference sorted list, and frees every block when all handles are released (no leak).
+- [x] **(a) Multi-union reservation** — `CanReserve` validates the block count of an op that needs several unions (ADR-0009 §2: validation decides, commit never fails): it counts the blocks the op needs across classes (with borrowing); a reservation that fits passes and the subsequent commit succeeds; one block short fails and nothing is mutated.
+- [x] **(b) Best-effort re-homing** — re-homing during commit is best-effort and never fails: when no smaller block is free the run keeps its existing block, and the take still succeeds.
+
+*Scope note (2026-10-19): the arena reports exhaustion through `CanReserve` (false) and, for an API caller, `false` plus one `CheckCode.InventoryArenaExhausted` (12) record. Mapping that to reason `capacity_exhausted` (85) in the validator is story 005 (which wires the arena into the validator); this story tests the arena-level result only.*
 
 ---
 
@@ -72,7 +75,7 @@
 **Required evidence**:
 - Logic: `tests/unit/inventory/MailIdArenaTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] `tests/unit/inventory/MailIdArenaTests.cs` — `MailIdArenaTests` (24 methods: 22 Fact + 2 Theory × 3 rows — oscillation × 3 start counts, property test × 3 seeds × 10 000 executed ops — = 28 cases) + `MailIdArenaAllocationTests` (1 NonParallel 0 B test, Release-only) = 29 cases; 4,638 / 0 failed on net10.0 + net8.0 × Debug + Release
 
 ---
 
@@ -80,3 +83,19 @@
 
 - Depends on: Story 002
 - Unlocks: Story 005, Story 008
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-19
+**Criteria**: 6/6 passing (4 original + new (a), (b))
+- H-R6-1 a/b — `HR61a_TakeTwoOfA_ReturnsFourAndNine_AndALeaves15To30`, `HR61b_UnionOfAWith2And50_IsTheSortedUnion_AndBothInputsAreFreed`, `HR61_TakeThenUnionChained_EveryResultStrictlyAscending`
+- O(1) take / one-block union / ≤ ¼ re-home / no thrash — `AC2_TakeK_AdvancesStartInPlace_NoCopyNoBlockChangeNoRecord`, `AC2_Union_AllocatesOneBlockOfResultClass_AndFreesBothInputs`, `AC2_Append_ReplacesTheRunWithOneBlockOfResultClass_AndFreesTheOldBlock`, `AC2_ReHome_TriggersOnlyWhenPreTakeCountIsAtMostAQuarterOfTheClass`, `AC2_ReHome_NeverWhilePreTakeCountIsAboveAQuarter_ThenOnceAtTheQuarter`, `AC2_OscillationAroundTheQuarter_ReHomesAtMostOnce_AndSettles` (64/65/66), `AC2_DrainBySingleTakes_ReHomesOncePerQuarterCrossing_NeverThrashes`
+- borrow-up, then exhaustion with nothing mutated (arena level; reason 85 is story 005) — `AC3_FittingClassEmpty_CreateUnionAppendBorrowFromTheNextLargerClass`, `AC3_EveryLargerClassExhausted_ApiReturnsFalseWithOneRecord_AndNothingIsMutated`
+- seeded property test — `AC4_SeededRandomTakeUnionAppendFree_MatchesReferenceSortedLists_AndLeaksNothing` (3 seeds × 10 000 executed take/union/append ops, peak run 255, 350–675 ms per seed on Debug)
+- (a) — `ACa_ThreeUnionsAcrossClassesWithOneBorrow_ReservationPasses_AndEveryCommitSucceeds`, `ACa_OneBlockShort_ReservationFails_AndNothingIsMutated`, `ACa_SingleBlockChecksEachPass_ButTheCombinedReservationFails_AsTheCommitWould`, `ACa_RunOverMaxUnitsFails_NonPositiveEntriesAreIgnored`, `ACa_ReservationIgnoresBlocksTheCommitFrees_ConservativeByDesign`, plus randomised batches inside AC4
+- (b) — `ACb_NoSmallerBlockFree_TakeKeepsTheBlock_AndSucceeds`, `ACb_Control_SmallerBlockFreeInRange_TakeReHomes`
+**Deviations**: ADVISORY — the reason-85 validator mapping (deferred by the scope note) is owned by story 005's "Arena exhaustion → reason 85" AC (TD-102 (1)); AC-4 "sequences" read as executed ops per seed (TD-102 (3)). NOTE — the pre-existing `check-no-scenetree-paused.sh` false positive on main (literal `SceneTree.Paused` in the `TickDriverState.cs` doc comment) is fixed separately by PR #1 (`fix/ci-scenetree-paused-guard`, guard skips C# comments), not in this story; `TickDriverState.cs` is unchanged on this branch, and local guard runs for this story were made with that fix applied/expected. Code: new `MailIdArena.CanReserve(ReadOnlySpan<int>)`; `Take`/`TryMerge` split into `TryReHome`/`MergeInto` (no behaviour change); class doc hysteresis claim corrected.
+**Test Evidence**: Logic: `tests/unit/inventory/MailIdArenaTests.cs`
+**Code Review**: Complete — /code-review (C# specialist + QA tester; findings fixed), LP-CODE-REVIEW APPROVE, QL-TEST-COVERAGE GAPS (G1 → TD-102; G2/G3 closed with tests; G4 → TD-102; G5 fixed)
+**Tech debt**: TD-102
