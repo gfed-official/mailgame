@@ -6,11 +6,14 @@
 # Matches inside C# comments are skipped, so documentation may name the API: `//` and `///`
 # lines, a trailing `// ...` after code, and `/* ... */` blocks (also across lines, so `*`
 # continuation lines are skipped). Code before a comment or after a closed block on the same
-# line is still scanned. `//` and `/*` inside "..." / @"..." strings and '...' chars do not
-# start a comment; a match inside a string literal still counts.
+# line is still scanned. `//` and `/*` inside plain "..." / @"..." strings and '...' chars do
+# not start a comment; a match inside such a string literal still counts.
 #
 # Limitation (review-enforced): the regex misses a pause through a variable, e.g.
 # `var tree = GetTree(); tree.Paused = true;`.
+# Limitation (review-enforced, TD-103): raw """...""" strings and string literals inside $"{...}"
+# interpolation holes are not lexed, so a `//` or `/*` in them can open a fake comment and hide
+# real code (to the end of the line, or for `/*` until a later `*/`) — a missed violation.
 #
 # Usage:
 #   tools/ci/check-no-scenetree-paused.sh               scan the real directories
