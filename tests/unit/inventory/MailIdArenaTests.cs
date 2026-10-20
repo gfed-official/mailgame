@@ -12,7 +12,7 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// mail-ids size-class arena — oldest-first take, sorted-union merge, re-homing hysteresis, borrow-up, exhaustion and the multi-block
 /// dry-run reservation. The arena reports exhaustion as <c>CanReserve == false</c> and, for an API caller, <c>false</c> plus one
 /// <see cref="CheckCode.InventoryArenaExhausted"/> record; mapping that to reason <c>capacity_exhausted</c> (85) in the validator is
-/// story 004 and is not tested here. Assert-vs-tolerant behaviour is chosen by <see cref="TestBuildExpectation.SimAssertsExpected"/>.
+/// story 005 and is not tested here. Assert-vs-tolerant behaviour is chosen by <see cref="TestBuildExpectation.SimAssertsExpected"/>.
 /// </summary>
 public class MailIdArenaTests
 {
@@ -576,7 +576,7 @@ public class MailIdArenaTests
         var before = new ArenaState(arena);
         uint[][] contents = held.Select(h => arena.Read(in h).ToArray()).ToArray();
 
-        // Act + Assert: the dry runs are false and record nothing (validation would map this to reason 85: story 004)
+        // Act + Assert: the dry runs are false and record nothing (validation would map this to reason 85: story 005)
         Assert.False(arena.CanReserve(3));
         Assert.False(arena.CanReserve(new[] { 3 }));
         Assert.True(arena.CanReserve(2));

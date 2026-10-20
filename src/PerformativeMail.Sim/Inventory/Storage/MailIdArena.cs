@@ -17,7 +17,7 @@ namespace PerformativeMail.Sim.Inventory.Storage;
 /// most once per crossing (a run re-homed into a larger borrowed class may move down again, at least one class per re-home, so it
 /// is bounded). An empty class borrows from
 /// the next larger class; when every larger class is empty the request fails with nothing mutated and one
-/// <see cref="CheckCode.InventoryArenaExhausted"/> record (the validator maps it to <c>capacity_exhausted</c>, story 004). The arena
+/// <see cref="CheckCode.InventoryArenaExhausted"/> record (the validator maps it to <c>capacity_exhausted</c>, story 005). The arena
 /// stores raw <c>uint</c> ids (<c>MailId</c> wraps at the system boundary) and exposes only span reads. Allocates nothing after
 /// construction. Not thread-safe: Sim tick thread only.
 /// </para>
