@@ -39,6 +39,7 @@
 - [ ] **Seal test (ADR-0009 Validation Criteria)** — for every mutator call shape (single-container, cross-container, no-op), each touched container receives exactly one `InvVersion` after its records and before the `OpReply`; a no-op (move onto own cells) raises nothing and bumps nothing.
 - [ ] A 20-unit `InvInserted` carries its mailIds as ascending runs in `Continuation` entries of the same kind and `CallSeq` (8 runs per 48 B); `InvRemoved` carries no mailIds; every payload struct is padding-free (size test).
 - [ ] Panel (hotbar, player_inventory) and cursor events are `OwnerOnly` to the owning slot; an external container's events are `Targeted` to its subscriber set resolved at raise time (subscription = open set, story 011).
+- [ ] **Arena exhaustion → reason 85** — when the validator's arena reservation fails (`MailIdArena.CanReserve` false; the arena's `CheckCode.InventoryArenaExhausted` = 12), the op is rejected with `capacity_exhausted` (reason 85) and nothing is mutated (assert the full container state and the arena state unchanged). Caller rule: the validator passes `CanReserve` every block the op acquires, each sized at the moment it is acquired — including a union with a none input, a `TryAppend` on a none handle (= create), and chained unions (|a|+|b|, then |a|+|b|+|c|); omitting one is a false accept. (ADR-0009 §2/§5; source: story 003 scope note, TD-102.)
 
 ---
 
