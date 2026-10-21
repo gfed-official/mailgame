@@ -144,6 +144,7 @@ This epic is complete when:
 - `ICarrierLoadSource` and `IHeldItemView` adapters (player-character 020/025 define the ports; the grid-inventory Client.Core mirror must supply them): attach through story 005's `IPortContributor`.
 - The selected-hotbar-slot consumer (input-controls 013 / throwing-catching EPIC seam 1): not a shell concern; input-controls 028 registers whatever sink exists.
 - Hud CanvasLayer stack order and notification queue (ADR-0018, not written): story 006 supplies `AddLayer(order)` only.
+- `IPeerPresence` (`AnyRemotePeer`) and `SoloPausePolicy` in `src/PerformativeMail.Client.Core/Net/` — **owned by Networking & Session** (ADR-0002 §4, GDD R16); story 003 adds the seam and the M-1a `LoopbackPeerPresence` only, and `GameLoop.TryPause` obeys the policy's answer. ADR-0011 amendment pending (TD-111); the M0 remote session fills it.
 
 **Conflicts and resolutions.**
 1. **Stale epic text.** The previous EPIC said ADR-0019 was "not written / missing"; it is Accepted (2026-10-16). Corrected throughout.

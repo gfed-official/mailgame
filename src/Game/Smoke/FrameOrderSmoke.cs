@@ -33,6 +33,7 @@ public sealed class FrameOrderSmoke : SmokeScenario
         Expect(ctx, "GameLoop.ProcessMode", loop.ProcessMode, Node.ProcessModeEnum.Always);
         Expect(ctx, "GameLoop.ProcessPriority", loop.ProcessPriority, int.MinValue);
         Expect(ctx, "GameLoop.HasSequence before install", loop.HasSequence, false);
+        Expect(ctx, "GameLoop.BootThreadId (recorded in _Ready) == this main thread", loop.BootThreadId, System.Environment.CurrentManagedThreadId);
         ExpectThrows<InvalidOperationException>(ctx, "RegisterPreFrameHook with no sequence installed",
             () => loop.RegisterPreFrameHook(new RecordingPreHook(new FrameOrderLog(), 9)));
 
@@ -44,6 +45,9 @@ public sealed class FrameOrderSmoke : SmokeScenario
         loop.RegisterPostPresentHook(_rig.Post[1]);
         Expect(ctx, "hooks registered through GameLoop (pre,post)", $"{_rig.Sequence.PreFrameHookCount},{_rig.Sequence.PostPresentHookCount}", "2,2");
         Expect(ctx, "StartPending after install without arming", loop.StartPending, false);
+
+        // Time passes before frame 1: an unarmed loop must still run no ticks.
+        _rig.Clock.Advance(3 * FakeClock.TickCounts);
         BeginFrame();
     }
 
@@ -74,12 +78,16 @@ public sealed class FrameOrderSmoke : SmokeScenario
                     () => loop.RegisterPreFrameHook(new RecordingPreHook(_rig.Log, 8)));
                 ExpectThrows<InvalidOperationException>(ctx, "RegisterPostPresentHook after the first frame",
                     () => loop.RegisterPostPresentHook(new RecordingPostHook(_rig.Log, 8)));
+
+                // A repeated ArmStart must not restart the running driver (that would zero frame 3's ticks).
+                loop.ArmStart();
                 _rig.Clock.Advance(3 * FakeClock.TickCounts);
                 BeginFrame();
                 return SmokeStatus.Running;
 
             case 2:
-                CheckFrame(ctx, "frame 3 (3 catch-up ticks)", _rig, expectTicks: 3);
+                CheckFrame(ctx, "frame 3 (3 catch-up ticks, after a repeated ArmStart)", _rig, expectTicks: 3);
+                Expect(ctx, "StartPending after the repeated ArmStart's frame", loop.StartPending, false);
                 _rig.Clock.Advance(FakeClock.TickCounts * 3 / 2);
                 BeginFrame();
                 return SmokeStatus.Running;

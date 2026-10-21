@@ -6,7 +6,8 @@ namespace PerformativeMail.Game.Hosting;
 /// Receives the one message of a session-ending fault (ADR-0002 Implementation Guidelines): an exception from a hook,
 /// <c>RunFrame</c>, the render-clock sample or <c>Present</c>, a world that is <c>Faulted</c>, or a wrong-thread frame.
 /// <c>GameLoop</c> has already logged the exception and stopped the Sim when this is called. Story 004 supplies the error
-/// screen; until then <see cref="LogFaultSink"/> is the default. Main thread only.
+/// screen; until then <see cref="LogFaultSink"/> is the default. Always called on the main thread (a wrong-thread fault is
+/// delivered with a deferred call).
 /// </summary>
 /// <example><code>loop.FaultSink = errorScreen;   // story 004</code></example>
 public interface IFaultSink

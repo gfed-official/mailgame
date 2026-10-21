@@ -1,6 +1,7 @@
 using Godot;
 using PerformativeMail.Client.Core.Net;
 using PerformativeMail.Game.Smoke;
+using PerformativeMail.Sim.Hosting;
 
 namespace PerformativeMail.Game.Hosting;
 
@@ -53,6 +54,15 @@ public partial class GameLoop : Node
 
     /// <summary>True while a frame sequence is installed.</summary>
     public bool HasSequence => _sequence is not null;
+
+    /// <summary>The managed thread recorded as the boot thread (in <see cref="_Ready"/>); every frame must run on it.</summary>
+    public int BootThreadId => _bootThreadId;
+
+    /// <summary>
+    /// Optional observer of every <c>[GameLoop]</c> log line (pause refusals, faults), called after the line is printed.
+    /// The smoke scenarios use it to assert what was logged; null by default.
+    /// </summary>
+    public Action<string>? LogObserver { get; set; }
 
     /// <summary>Receives the fault message (default: log only; story 004 installs the error screen).</summary>
     /// <exception cref="ArgumentNullException">Set to null.</exception>
@@ -143,27 +153,35 @@ public partial class GameLoop : Node
 
     /// <summary>
     /// Solo pause (TR-sim-009, TR-input-014): asks Networking and Session's
-    /// <see cref="SoloPausePolicy"/> and, when allowed, pauses the tick driver. A refusal is logged
-    /// with its reason and leaves the driver running. Never touches <c>SceneTree.Paused</c>.
+    /// <see cref="SoloPausePolicy"/> and, when allowed, pauses the tick driver. The loop itself only
+    /// refuses when there is nothing running to pause (no sequence, faulted, or the driver not
+    /// Running, e.g. still waiting for its start). Every refusal is logged with its reason and leaves
+    /// the driver as it was. Never touches <c>SceneTree.Paused</c>.
     /// </summary>
     /// <param name="reason">Empty when paused; otherwise why the pause did not happen.</param>
-    /// <returns>True when the driver was paused (or the request was accepted).</returns>
+    /// <returns>True when the driver is now paused.</returns>
     public bool TryPause(out string reason)
     {
         if (_sequence is null)
         {
             reason = "no frame sequence installed";
-            return false;
         }
-
-        if (!SoloPausePolicy.CanPause(_peerPresence, out reason))
+        else if (_faulted)
         {
-            GD.Print($"[GameLoop] pause refused: {reason}");
-            return false;
+            reason = "the loop has faulted";
+        }
+        else if (_startPending || _sequence.Driver.State != TickDriverState.Running)
+        {
+            reason = $"the tick driver is not running (state {_sequence.Driver.State}, start pending {_startPending})";
+        }
+        else if (SoloPausePolicy.CanPause(_peerPresence, out reason))
+        {
+            _sequence.Driver.Pause();
+            return true;
         }
 
-        _sequence.Driver.Pause();
-        return true;
+        Info($"[GameLoop] pause refused: {reason}");
+        return false;
     }
 
     /// <summary>
@@ -220,8 +238,7 @@ public partial class GameLoop : Node
         int thread = System.Environment.CurrentManagedThreadId;
         if (thread != _bootThreadId)
         {
-            Fault(new InvalidOperationException(
-                $"GameLoop._Process ran on managed thread {thread}, not the boot thread {_bootThreadId} (TR-sim-007)"));
+            WrongThreadFault(thread);
             return;
         }
 
@@ -229,8 +246,12 @@ public partial class GameLoop : Node
         {
             if (_startPending)
             {
+                // Only an Idle driver is started: a repeated ArmStart must not restart a running or paused one.
                 _startPending = false;
-                seq.Driver.Start(seq.Clock.Timestamp);
+                if (seq.Driver.State == TickDriverState.Idle)
+                {
+                    seq.Driver.Start(seq.Clock.Timestamp);
+                }
             }
 
             if (!seq.Run())
@@ -247,32 +268,62 @@ public partial class GameLoop : Node
     private FrameSequence RequireSequence() =>
         _sequence ?? throw new InvalidOperationException("No frame sequence is installed (story 004/005).");
 
+    // ex.ToString() carries the full type name, the message, the stack and any inner exceptions.
     private void Fault(Exception ex)
     {
-        GD.PrintErr($"[GameLoop] FAULT {ex.GetType().FullName}: {ex.Message}");
-        GD.PrintErr(ex.StackTrace ?? "(no stack trace)");
+        Error($"[GameLoop] FAULT {ex}");
         Latch($"{ex.GetType().Name}: {ex.Message}");
+        DeliverFault($"{ex.GetType().Name}: {ex.Message}");
     }
 
     private void Fault(string message)
     {
-        GD.PrintErr($"[GameLoop] FAULT {message}");
+        Error($"[GameLoop] FAULT {message}");
         Latch(message);
+        DeliverFault(message);
+    }
+
+    // Runs on the wrong thread: latch at once, but hand the message to the sink on the main thread (story 004's error
+    // screen touches nodes). The exception is never thrown, so the caller's stack is logged explicitly.
+    private void WrongThreadFault(int thread)
+    {
+        var ex = new InvalidOperationException(
+            $"GameLoop._Process ran on managed thread {thread}, not the boot thread {_bootThreadId} (TR-sim-007)");
+        Error($"[GameLoop] FAULT {ex.GetType().FullName}: {ex.Message}\n{System.Environment.StackTrace}");
+        string message = $"{ex.GetType().Name}: {ex.Message}";
+        Latch(message);
+        Callable.From(() => DeliverFault(message)).CallDeferred();
     }
 
     private void Latch(string message)
     {
         _faulted = true;
         _startPending = false;
-        GD.PrintErr("[GameLoop] session ended; RunFrame will not be called again");
+        Error($"[GameLoop] session ended ({message}); RunFrame will not be called again");
+    }
+
+    private void DeliverFault(string message)
+    {
         try
         {
             _faultSink.OnFault(message);
         }
         catch (Exception sinkEx)
         {
-            GD.PrintErr($"[GameLoop] fault sink threw {sinkEx.GetType().FullName}: {sinkEx.Message}");
+            Error($"[GameLoop] fault sink threw {sinkEx}");
         }
+    }
+
+    private void Info(string line)
+    {
+        GD.Print(line);
+        LogObserver?.Invoke(line);
+    }
+
+    private void Error(string line)
+    {
+        GD.PrintErr(line);
+        LogObserver?.Invoke(line);
     }
 
     private static string? FindSmokeName()

@@ -1,3 +1,4 @@
+using PerformativeMail.Client.Core.Net;
 using PerformativeMail.Game.Hosting;
 using PerformativeMail.Sim.Hosting;
 using static PerformativeMail.Game.Smoke.SmokeChecks;
@@ -19,6 +20,7 @@ public sealed class PauseDriverStateSmoke : SmokeScenario
     private const int PausedFrames = 3;
 
     private readonly FakePeerPresence _presence = new() { AnyRemotePeer = true };
+    private readonly LogRecorder _log = new();
     private FrameLoopRig _rig = null!;
     private int _step;
     private int _framesInPhase;
@@ -31,9 +33,21 @@ public sealed class PauseDriverStateSmoke : SmokeScenario
     /// <inheritdoc />
     public override void Start(SmokeContext ctx)
     {
+        GameLoop loop = ctx.Loop;
+        Expect(ctx, "default GameLoop.PeerPresence is the loopback presence", ReferenceEquals(loop.PeerPresence, LoopbackPeerPresence.Instance), true);
         _rig = new FrameLoopRig(preHooks: 1, postHooks: 1);
-        ctx.Loop.PeerPresence = _presence;
-        ctx.Loop.InstallForSmoke(_rig.Sequence, armStart: true);
+        loop.LogObserver = _log.Observer;
+        loop.PeerPresence = _presence;
+        loop.InstallForSmoke(_rig.Sequence, armStart: true);
+
+        // Nothing running yet (start pending): the loop refuses even though Networking would allow it.
+        _presence.AnyRemotePeer = false;
+        bool early = loop.TryPause(out string earlyReason);
+        Expect(ctx, "TryPause while the driver start is pending returns", early, false);
+        Expect(ctx, "TryPause while start pending: refusal logged", _log.Any("[GameLoop] pause refused: ", "not running"), true);
+        Expect(ctx, "driver state after the refused early pause", $"{_rig.Driver.State},{loop.StartPending},{earlyReason.Length > 0}", "Idle,True,True");
+        _presence.AnyRemotePeer = true;
+        _log.Clear();
         Mark();
     }
 
@@ -72,12 +86,15 @@ public sealed class PauseDriverStateSmoke : SmokeScenario
                 Expect(ctx, "TryPause with a remote peer present returns", paused, false);
                 if (reason.Length > 0)
                 {
-                    ctx.Pass($"pause refusal reason (logged by GameLoop): {reason}");
+                    ctx.Pass($"pause refusal reason: {reason}");
                 }
                 else
                 {
                     ctx.Fail("pause refused with an empty reason");
                 }
+
+                Expect(ctx, "Networking's refusal reason logged by GameLoop", _log.Any("[GameLoop] pause refused: ", SoloPausePolicy.RemotePeerPresentReason), true);
+                Expect(ctx, "refusal reason is Networking's", reason, SoloPausePolicy.RemotePeerPresentReason);
 
                 Expect(ctx, "driver state after the refused pause", driver.State, TickDriverState.Running);
                 _rig.Clock.Advance(2 * FakeClock.TickCounts);

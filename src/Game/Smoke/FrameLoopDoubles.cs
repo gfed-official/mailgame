@@ -83,11 +83,14 @@ public sealed class FrameOrderLog
     }
 }
 
-/// <summary>An <see cref="IMonotonicClock"/> the scenario sets by hand; 10^7 counts per second.</summary>
+/// <summary>
+/// An <see cref="IMonotonicClock"/> the scenario sets by hand; 3 * 10^7 counts per second, so a tick
+/// is exactly 10^6 counts and whole, half and quarter tick periods are exact integers.
+/// </summary>
 public sealed class FakeClock : IMonotonicClock
 {
-    /// <summary>Counts per second.</summary>
-    public const long Freq = 10_000_000;
+    /// <summary>Counts per second (divisible by 30 so a tick period is exact).</summary>
+    public const long Freq = 30_000_000;
 
     /// <summary>Counts per tick (1/30 s).</summary>
     public const long TickCounts = Freq / TickRate.Hz;
@@ -241,8 +244,61 @@ public sealed class RecordingFaultSink : IFaultSink
     /// <summary>The messages received, in order.</summary>
     public List<string> Messages { get; } = [];
 
+    /// <summary>The managed thread of each <see cref="OnFault"/> call, in order.</summary>
+    public List<int> Threads { get; } = [];
+
     /// <inheritdoc />
-    public void OnFault(string message) => Messages.Add(message);
+    public void OnFault(string message)
+    {
+        Messages.Add(message);
+        Threads.Add(System.Environment.CurrentManagedThreadId);
+    }
+}
+
+/// <summary>Records every <c>GameLoop</c> log line handed to <see cref="GameLoop.LogObserver"/>.</summary>
+public sealed class LogRecorder
+{
+    private readonly List<string> _lines = [];
+
+    /// <summary>The observer to assign to <see cref="GameLoop.LogObserver"/>.</summary>
+    public Action<string> Observer => Record;
+
+    /// <summary>Forgets the lines recorded so far.</summary>
+    public void Clear()
+    {
+        lock (_lines)
+        {
+            _lines.Clear();
+        }
+    }
+
+    /// <summary>True when any recorded line contains every one of <paramref name="parts"/>.</summary>
+    /// <param name="parts">Substrings that must all appear in one line.</param>
+    /// <returns>Whether such a line was recorded.</returns>
+    public bool Any(params string[] parts)
+    {
+        lock (_lines)
+        {
+            foreach (string line in _lines)
+            {
+                if (parts.All(p => line.Contains(p, StringComparison.Ordinal)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // The wrong-thread fault logs from a worker thread, hence the lock.
+    private void Record(string line)
+    {
+        lock (_lines)
+        {
+            _lines.Add(line);
+        }
+    }
 }
 
 /// <summary>An <see cref="IPeerPresence"/> the scenario sets by hand.</summary>
