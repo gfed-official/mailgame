@@ -4,6 +4,10 @@ using PerformativeMail.Sim.ClientLayer;
 
 namespace PerformativeMail.Sim.Tests.Unit.Input;
 
+// Inside the namespace so it wins over the PerformativeMail.Sim.Delivery namespace (manual-delivery 001), which shadows the bare
+// name from an outer scope.
+using Delivery = PerformativeMail.Client.Core.Input.Delivery;
+
 /// <summary>
 /// input-controls story 005 ACs "H-R1-1", "Aliases" and "Frame bits and delivery": the action map loads only valid defs, one
 /// fixture per missing field fails with a report entry that names the action id, aliases resolve and collide as specified, and
