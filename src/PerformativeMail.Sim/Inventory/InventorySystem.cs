@@ -2,6 +2,7 @@ using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory.Events;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
@@ -15,15 +16,17 @@ namespace PerformativeMail.Sim.Inventory;
 /// calls <see cref="IPlayerJoinListener"/>. A leave keeps the containers (disconnect handling is M0) and a rejoin of the same slot reuses
 /// them. Container dimensions are instance state: the def's width and <c>IStatSheet.Read(InventoryRows)</c> rows.
 /// <para>
-/// This story binds the empty <c>ItemsExpire</c> and <c>IntakeDrain</c> phases, a no-op conservation check (story 017's), the state
-/// contributor and the join listener. It binds no op, event kind or snapshot source yet (stories 004 and 005; the builder has no
-/// <c>BindSnapshotSource</c> yet, so that bind point arrives with the snapshot envelope work). Storage is preallocated from
+/// It binds the empty <c>ItemsExpire</c> and <c>IntakeDrain</c> phases, a no-op conservation check (story 017's), the state
+/// contributor, the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). It binds no op yet
+/// (handlers are stories 007-010) and no snapshot source (the builder has no <c>BindSnapshotSource</c> yet). Every container, entry and
+/// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
+/// <see cref="Subscribers"/> set. Storage is preallocated from
 /// <see cref="InventorySettings"/>; the join and leave paths allocate nothing and never throw. Not thread-safe: Sim tick thread only.
 /// </para>
 /// </summary>
 /// <example>
 /// <code>
-/// // Composition: new InventorySystem(context.Content, context.StatSheet, context.CheckRing)
+/// // Composition: new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events)
 /// ContainerId hotbar = inventory.HotbarOf(PlayerSlot.FromValue(0));   // none until the slot's PlayerJoin
 /// </code>
 /// </example>
@@ -48,6 +51,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
     private readonly Occupancy _occupancy;
     private readonly MailIdArena _mailIds;
     private readonly InvRequestCheck _requestCheck;
+    private readonly ContainerSubscribers _subscribers;
+    private readonly InventoryMutator _mutator;
     private readonly DefIndex _hotbarDef;
     private readonly DefIndex _playerInventoryDef;
     private readonly DefIndex _cursorDef;
@@ -60,8 +65,20 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
     /// <param name="checkRing">The world's check ring (a full container table is recorded here).</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException"><c>InventorySettingsInvalid</c> for an unusable capacity; <c>InventoryDefMissing</c> when an M-1a def is absent; <c>InventoryDefInvalid</c> when any container def is wider than 64 columns.</exception>
-    public InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing)
-        : this(content, stats, checkRing, InventorySettings.FromBalance((content ?? throw new ArgumentNullException(nameof(content))).Inventory))
+    internal InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing)
+        : this(content, stats, checkRing, InventorySettings.FromBalance((content ?? throw new ArgumentNullException(nameof(content))).Inventory), null)
+    {
+    }
+
+    /// <summary>Creates the module with the world's event-log writer (the composition root's constructor).</summary>
+    /// <param name="content">The content set (container defs and the inventory balance).</param>
+    /// <param name="stats">The stat sheets (container rows).</param>
+    /// <param name="checkRing">The world's check ring.</param>
+    /// <param name="events">The world's event-log writer facade (records and seals are raised through it).</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="SimBuildException">As the three-argument constructor.</exception>
+    public InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing, EventLogFacade events)
+        : this(content, stats, checkRing, InventorySettings.FromBalance((content ?? throw new ArgumentNullException(nameof(content))).Inventory), events ?? throw new ArgumentNullException(nameof(events)))
     {
     }
 
@@ -70,9 +87,10 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
     /// <param name="stats">The stat sheets.</param>
     /// <param name="checkRing">The check ring.</param>
     /// <param name="settings">The settings.</param>
+    /// <param name="events">The event-log writer; null gives an unattached facade of its own (a module that never mutates, e.g. catalogue tests: a raise through it is a misuse).</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException"><c>InventorySettingsInvalid</c> when the settings cannot hold the intake container; <c>InventoryDefMissing</c> when an M-1a def is absent; <c>InventoryDefInvalid</c> when any container def is wider than 64 columns.</exception>
-    internal InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing, InventorySettings settings)
+    internal InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing, InventorySettings settings, EventLogFacade? events = null)
     {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(stats);
@@ -85,7 +103,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
         _containers = new ContainerTable(settings.ContainerCapacity);
         _entries = new EntryPool(settings.EntryPoolCapacity, checkRing);
         _mailIds = new MailIdArena(settings.MailIdArenaUnits, checkRing);
-        _requestCheck = new InvRequestCheck(_containers, _entries);
+        _requestCheck = new InvRequestCheck(_containers, _entries, _mailIds);
+        _subscribers = new ContainerSubscribers(settings.ContainerCapacity);
 
         // Rows are clamped to inventory.maxRows by the stat sheet; widths are bounded here for every def (the bitmaps hold 64 columns)
         // and the cellOwner array is sized by the widest def rather than the full 64 (ADR-0009 memory guidance).
@@ -96,6 +115,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
         }
 
         _occupancy = new Occupancy(settings.ContainerCapacity, content.Inventory.MaxRows, Math.Max(1, widest));
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, events ?? new EventLogFacade(new SimCounters()));
 
         DefIndex intakeDef = Resolve("po_intake");
         _hotbarDef = Resolve("hotbar");
@@ -129,8 +149,14 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
     /// <summary>The mail-ids arena (story 003 preallocation; the mutator of story 005 is its caller).</summary>
     internal MailIdArena MailIds => _mailIds;
 
-    /// <summary>The shared first step of every inventory handler's <c>Validate</c> (story 004; the handlers of stories 007-010 call it).</summary>
+    /// <summary>The shared steps of every inventory handler's <c>Validate</c> (story 004, plus the arena-reservation step of story 005; the handlers of stories 007-010 call them).</summary>
     internal InvRequestCheck RequestCheck => _requestCheck;
+
+    /// <summary>The one mutation layer (story 005): handlers' <c>Commit</c> and <c>IInventoryApi</c> calls write state only through it.</summary>
+    internal InventoryMutator Mutator => _mutator;
+
+    /// <summary>The per-container subscriber sets (the open set maintains them from story 011; tests set them directly until then).</summary>
+    internal ContainerSubscribers Subscribers => _subscribers;
 
     /// <summary>The hotbar of <paramref name="slot"/>, or none when the slot has no containers.</summary>
     /// <param name="slot">The player slot.</param>
@@ -161,12 +187,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
     }
 
     /// <summary>
-    /// Binds the empty <c>ItemsExpire</c> and <c>IntakeDrain</c> phases, the stub conservation check, the state contributor and the
-    /// join listener. Binds no op, event kind or snapshot source (stories 004 and 005).
+    /// Binds the empty <c>ItemsExpire</c> and <c>IntakeDrain</c> phases, the stub conservation check, the state contributor, the
+    /// join listener and every <see cref="InvEventDescriptors"/> kind. Binds no op (stories 007-010) or snapshot source.
     /// </summary>
     /// <param name="builder">The world's builder.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is null.</exception>
-    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c> or <c>DuplicateSection</c>.</exception>
+    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c> or <c>DuplicateEventKind</c>.</exception>
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -175,6 +201,41 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
         builder.BindTickEnd(new InventoryConservationCheck());
         builder.BindStateContributor(new InventoryStateContributor(_containers));
         builder.BindPlayerJoinListener(this);
+        foreach (EventDescriptor descriptor in InvEventDescriptors.All)
+        {
+            builder.BindEventKind(descriptor);
+        }
+    }
+
+    /// <summary>
+    /// Creates a container of <paramref name="def"/> with explicit dimensions and owner (boot-time or test-fixture use: the external
+    /// containers proper — chest, depot — arrive in M-1b; until then tests use this for a fixture external container). False when the
+    /// table is full or the dimensions are outside what the occupancy preallocation holds (0 to its <c>MaxWidth</c> / <c>MaxRows</c>);
+    /// both are checked before anything is created, so a refusal leaves no container behind.
+    /// </summary>
+    /// <param name="def">The def ordinal.</param>
+    /// <param name="w">Columns.</param>
+    /// <param name="h">Rows.</param>
+    /// <param name="layout">The layout.</param>
+    /// <param name="ownerSlot">The owner slot value, or <see cref="ContainerHeader.NoOwner"/> for an external container.</param>
+    /// <param name="id">The new id.</param>
+    /// <returns>True when created.</returns>
+    internal bool TryCreateContainer(DefIndex def, int w, int h, ContainerLayout layout, byte ownerSlot, out ContainerId id)
+    {
+        if (w < 0 || w > _occupancy.MaxWidth || h < 0 || h > _occupancy.MaxRows)
+        {
+            id = default;
+            return false;
+        }
+
+        if (!_containers.TryCreate(def, w, h, layout, ownerSlot, out id))
+        {
+            return false;
+        }
+
+        _ = _containers.TryGetSlot(id, out ushort slot);
+        _occupancy.Reset(slot, w, h);
+        return true;
     }
 
     /// <inheritdoc />

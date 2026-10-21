@@ -1220,6 +1220,114 @@ public class MailIdArenaTests
     }
 
     [Fact]
+    [Trait("Id", "TD-104")]
+    public void TryUnion_ResultAliasesAnInput_AssertsUnderInventoryAssert_OrUnionsFromCopiesInRelease()
+    {
+        // Arrange
+        var ring = NewRing();
+        var arena = new MailIdArena(MinBudget, ring);
+        MailIdsHandle a = Create(arena, new uint[] { 1, 3 });
+        MailIdsHandle b = Create(arena, new uint[] { 2, 4, 6 });
+        MailIdsHandle aBefore = a;
+        MailIdsHandle bBefore = b;
+        var before = new ArenaState(arena);
+
+        // Act + Assert
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            // the trip comes before anything is read or written: neither variable nor the arena changes
+            SimAssertException onA = Assert.Throws<SimAssertException>(() => arena.TryUnion(in a, in b, 0, out a));
+            Assert.Equal(SimAssertCode.InventoryArenaOutAliasesInput, onA.Code);
+            SimAssertException onB = Assert.Throws<SimAssertException>(() => arena.TryUnion(in a, in b, 0, out b));
+            Assert.Equal(SimAssertCode.InventoryArenaOutAliasesInput, onB.Code);
+            Assert.Equal(aBefore, a);
+            Assert.Equal(bBefore, b);
+            new ArenaState(arena).AssertEqual(before);
+        }
+        else
+        {
+            // Release success path: the inputs are freed from copies, then the union is written (no use-after-free, no leak)
+            Assert.True(arena.TryUnion(in a, in b, 0, out a));
+            Assert.Equal(new uint[] { 1, 2, 3, 4, 6 }, arena.Read(in a).ToArray());
+            Assert.Equal(1, arena.LiveBlocks);
+            Assert.Equal(5, arena.LiveUnits);
+            Assert.Equal(MailIdArena.ClassFor(5), a.ClassIndex);
+        }
+
+        Assert.Equal(0, ring.Count);
+    }
+
+    [Fact]
+    [Trait("Id", "TD-104")]
+    public void TryUnion_ResultAliasesB_AssertsUnderInventoryAssert_OrUnionsFromCopiesInRelease()
+    {
+        // Arrange
+        var ring = NewRing();
+        var arena = new MailIdArena(MinBudget, ring);
+        MailIdsHandle a = Create(arena, new uint[] { 1, 3 });
+        MailIdsHandle b = Create(arena, new uint[] { 2, 4, 6 });
+        MailIdsHandle bBefore = b;
+        var before = new ArenaState(arena);
+
+        // Act + Assert
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException thrown = Assert.Throws<SimAssertException>(() => arena.TryUnion(in a, in b, 0, out b));
+            Assert.Equal(SimAssertCode.InventoryArenaOutAliasesInput, thrown.Code);
+            Assert.Equal(bBefore, b);
+            new ArenaState(arena).AssertEqual(before);
+        }
+        else
+        {
+            Assert.True(arena.TryUnion(in a, in b, 0, out b));
+            Assert.Equal(new uint[] { 1, 2, 3, 4, 6 }, arena.Read(in b).ToArray());
+            Assert.Equal(1, arena.LiveBlocks);
+            Assert.Equal(5, arena.LiveUnits);
+        }
+
+        Assert.Equal(0, ring.Count);
+    }
+
+    [Fact]
+    [Trait("Id", "TD-104")]
+    public void TryUnion_ResultAliasesAnInput_OnFailure_AssertsUnderInventoryAssert_OrKeepsTheAliasedInputInRelease()
+    {
+        // Arrange: a (class 1) and b (class 1); the 4-unit result needs class 2 or larger, all drained
+        var ring = NewRing();
+        var arena = new MailIdArena(MinBudget, ring);
+        var source = new IdSource();
+        MailIdsHandle a = Create(arena, new uint[] { 1, 3 });
+        MailIdsHandle b = Create(arena, new uint[] { 2, 4 });
+        var held = new List<MailIdsHandle>();
+        for (int c = 2; c < MailIdArena.ClassCount; c++)
+        {
+            DrainTo(arena, source, c, 0, held);
+        }
+
+        MailIdsHandle aBefore = a;
+        var before = new ArenaState(arena);
+
+        // Act + Assert
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException thrown = Assert.Throws<SimAssertException>(() => arena.TryUnion(in a, in b, 5, out a));
+            Assert.Equal(SimAssertCode.InventoryArenaOutAliasesInput, thrown.Code);
+            Assert.Equal(0, ring.Count);
+        }
+        else
+        {
+            // Release failure path: one exhaustion record, nothing mutated, and the aliased variable still holds its live input
+            Assert.False(arena.TryUnion(in a, in b, 5, out a));
+            Assert.Equal(1, ring.Count);
+            Assert.Equal(CheckCode.InventoryArenaExhausted, ring[0].Check);
+        }
+
+        Assert.Equal(aBefore, a);
+        Assert.Equal(new uint[] { 1, 3 }, arena.Read(in a).ToArray());
+        new ArenaState(arena).AssertEqual(before);
+    }
+
+    [Fact]
     public void NonAscendingOrOverlappingIds_AssertUnderInventoryAssert_OrAreStoredAsGivenInRelease()
     {
         // Arrange

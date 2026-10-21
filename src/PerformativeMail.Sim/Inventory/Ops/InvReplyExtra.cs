@@ -25,6 +25,15 @@ public struct InvReplyExtra
     /// <summary>The saturation ceiling of every u16 count.</summary>
     public const int CountCeiling = ushort.MaxValue;
 
+    /// <summary>The cause bits (0-2) of <see cref="CauseAndFlags"/> (an <see cref="Events.InvCause"/>).</summary>
+    public const byte CauseMask = 0x07;
+
+    /// <summary>The <c>unchanged</c> flag (bit 3) of <see cref="CauseAndFlags"/>: the call changed no container (a no-op).</summary>
+    public const byte FlagUnchanged = 0x08;
+
+    /// <summary>The <c>appliedModeSize</c> flag (bit 4) of <see cref="CauseAndFlags"/> (the sort story's).</summary>
+    public const byte FlagAppliedModeSize = 0x10;
+
     /// <summary>Resulting version of the primary source container (current version on a reject).</summary>
     [FieldOffset(0)]
     public uint ResultVersionA;
@@ -69,6 +78,21 @@ public struct InvReplyExtra
     /// <param name="value">The count.</param>
     /// <returns>The saturated value.</returns>
     public static ushort Saturate(int value) => value <= 0 ? (ushort)0 : value >= CountCeiling ? ushort.MaxValue : (ushort)value;
+
+    /// <summary>The cause carried in bits 0-2 of <see cref="CauseAndFlags"/>.</summary>
+    public readonly Events.InvCause Cause => (Events.InvCause)(CauseAndFlags & CauseMask);
+
+    /// <summary>True when the <see cref="FlagUnchanged"/> bit is set.</summary>
+    public readonly bool Unchanged => (CauseAndFlags & FlagUnchanged) != 0;
+
+    /// <summary>Writes the cause bits and the <c>unchanged</c> flag, keeping the other flags (story 005 plumbing; contested outcomes are stories 013/014).</summary>
+    /// <param name="cause">The cause (masked to 3 bits).</param>
+    /// <param name="unchanged">True when the call changed nothing.</param>
+    public void SetCause(Events.InvCause cause, bool unchanged)
+    {
+        int keep = CauseAndFlags & ~(CauseMask | FlagUnchanged);
+        CauseAndFlags = (byte)(keep | ((byte)cause & CauseMask) | (unchanged ? FlagUnchanged : 0));
+    }
 
     /// <summary>Sets <see cref="RequestedUnits"/> and <see cref="GotUnits"/>, saturating.</summary>
     /// <param name="requested">Units requested.</param>

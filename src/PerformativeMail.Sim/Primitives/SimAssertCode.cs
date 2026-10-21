@@ -203,4 +203,16 @@ public static class SimAssertCode
 
     /// <summary><c>Ballistic.PositionAt</c> was given an age outside 0 to 150 ticks (the <c>throw.maxFlightTicks</c> validator ceiling). Release evaluates the same closed form anyway.</summary>
     public const ushort BallisticAgeOutOfRange = 64;
+
+    /// <summary><c>MailIdArena.TryUnion</c> was given an <c>out result</c> that is the same variable as its input <c>a</c> or <c>b</c> (TD-104). Release unions from copies of the inputs taken before <c>result</c> is written, so a success is correct; on a failure the aliased variable keeps its input handle. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryArenaOutAliasesInput = 65;
+
+    /// <summary>An <c>InvPlan</c> capacity was exceeded by a handler (a programming limit, not genuine exhaustion): more than <c>InvPlan.MaxAcquiredBlocks</c> planned arena blocks (Release marks the plan overflowed and the reservation step conservatively rejects with <c>capacity_exhausted</c> 85). A fifth touched container is not an assert: <c>InvPlan.Touch</c> returns -1 and <c>Validate</c> refuses the op before any mutation. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryPlanCapacityExceeded = 66;
+
+    /// <summary>An <c>InventoryMutator</c> primitive changed a container that <c>Validate</c> did not put in the plan's touched set (<c>InvPlan.EnsureTouched</c>, checked before the primitive changes anything). Release touches it then, so it is still sealed when the set has room; when the set is full the primitive changes nothing. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryPlanContainerNotTouched = 67;
+
+    /// <summary><c>EventLog.TryRaiseContinuation</c> was called with no open call scope, or not directly after an entry of the same kind and <c>CallSeq</c> (an orphan chunk). Release appends it anyway (nothing is lost; the adapter attaches it to whatever precedes it). <c>SIM_ASSERT</c>.</summary>
+    public const ushort EventContinuationOrphan = 68;
 }
