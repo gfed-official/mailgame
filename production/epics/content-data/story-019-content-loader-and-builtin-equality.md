@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD1, CD2, CD9, CD21, CD25; Loading edge cases)
 **Requirement**: `TR-content-020`, `TR-content-004`, `TR-content-013` (file half)
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§4 pipeline, §1 layout, §6 hash)
 **ADR Decision Summary**:

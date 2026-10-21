@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R4 binding and composition; R2 two roles composed together)
 **Requirement**: `TR-sim-012` (builder violations throw `SimBuildException` — dependency cycle row), `TR-sim-013` (composition root in `Composition/`; constructor injection only; reflection test on dependencies)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0003: Phase Order, Composition Root and Cross-System Calls (§4) — primary; ADR-0010 (`ContentSet` passed by reference into `SimComposition.Build`) — secondary
 **ADR Decision Summary**: One composition root, `SimComposition.Build(in SimBuildArgs args) → SimHost { SimWorld World; ClientLayer Client; }` with `SimBuildArgs = { SimProfile, ContentSet, ulong runSeed, SimInitialCounters? }`. Construction order is explicit, ordered code in `SimComposition` that must be a topological order of `Composition/SystemGraph.cs` (dependencies as data; a test checks order and acyclicity); composition order fixes construction, same-phase binder, tick-end and dump order. `SimProfile` selects built systems (`M1aGreybox`, `Full`, per-test). Systems take only constructor parameters from the closed injectable list; a reflection test checks every `[SimSystem(SystemId)]` type. No DI container, no service locator, no statics, no `SimWorld` reference in a system.

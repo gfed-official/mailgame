@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-026` (ContainerDef fields / stat keys consumed), `TR-inventory-001` (module binds into the one op FIFO — wiring only)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0003: Phase Order, Composition Root and Cross-System Calls; ADR-0010: Content Format, Loading, ContentSet and StatSheet; ADR-0004: Identity and Id Spaces
 **ADR Decision Summary**: Inventory is one Sim module composed by the root; containers live in a slot-indexed `ContainerHeader` struct array with an open-addressed `containerId → slot` map, preallocated from `SimSettings`; a player's panel containers and cursor get `containerId`s at `PlayerJoin` (ADR-0009 §1 "Containers on the wire", §5). `ContainerDef` comes from the immutable `ContentSet` (ADR-0010).

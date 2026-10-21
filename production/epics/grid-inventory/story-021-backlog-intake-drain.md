@@ -14,7 +14,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-011` (backlog drain ≤ 32 entries/tick, ≤ 8 000 probes, 0 when idle)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0017: Mail table, destination registry & IWalletGate — Accepted 2026-10-16 (primary); ADR-0009: InventoryOp Pipeline and Inventory Storage Layout
 **ADR Decision Summary**: The backlog FIFO is owned by Mail & Destinations and shared with Inventory's drain (ADR-0009 Enables: "ADR-0017 (mail table, backlog queue shared with the drain)"; GDD R14); the drain binds phase 2 `IntakeDrain`, exits O(1) when the backlog is empty or the Intake has no free cell, runs only after a non-drain Intake change / backlog growth / a capped pass, places ≤ `backlogDrainPerTick` (32) entries, skips entries larger than the free-cell count, no head-of-line blocking (ADR-0009 §5; GDD R14). The queue's storage and ownership are ADR-0017's — Accepted 2026-10-16.

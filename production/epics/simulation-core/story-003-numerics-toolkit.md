@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R27 units, R28 rounding/overflow; F7)
 **Requirement**: `TR-sim-031` (integer-only numerics: mm, permille, ticks, `Cents`, `Fx16`), `TR-sim-034` (T2: these helpers are on the cross-platform bit-identical list)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay
 **ADR Decision Summary**: Authoritative quantities are integers with one rounding toolkit: `Cents` (plain `readonly struct`, ±2^62, range-checked add/sub that assert in Debug and saturate + count in Release), `Fx16` (`long Raw`, 16 fractional bits, domain [−2^47, 2^47 − 65 536], `ToMm = Raw >> 16`), `Fix.MulDiv` (truncate), `Fix.MulDivRH` (half away from zero, overflow-free `UInt128` algorithm), `FloorDiv`/`CeilDiv`, `ISqrt`, and `Cents.MulPermille ≡ clamp(MulDivRH(c, pm, 1000), ±2^62)`. Helpers are pure, allocation-free and non-throwing; zero divisors and clamps are counted through an injected sink, never statics.

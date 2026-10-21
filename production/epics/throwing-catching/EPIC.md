@@ -8,7 +8,7 @@
 > **Est. size**: L — 24 stories (22 Ready, 2 Blocked)
 > **Implementation priority**: 7 of 9
 > **Status**: Ready
-> **Stories**: 24 stories written 2026-10-16 (22 Ready, 2 Blocked; 019 unblocked 2026-10-16 by `design/ux/throwing-catching.md`) — see `## Stories` below
+> **Stories**: 24 stories — 22 Ready, 2 Blocked; blocked: 016 ADR-0024, 024 ADR-0020 (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -127,7 +127,7 @@ Source: architecture.md v1.1 Appendix A; coverage per `docs/architecture/tr-regi
 | 023 | [Armed-catcher receiver — F5 contact over position history, rank 0, CAUGHT / FUMBLE via `TryCatch` (Sim-side catch 2/3)](story-023-catcher-receiver-contact-trycatch-terminals.md) | Integration | Ready | ADR-0015 |
 | 024 | [Catch end to end — two carriers over the real host position-history ring (Sim-side catch 3/3)](story-024-catch-end-to-end-two-carriers-history-ring.md) | Integration | **Blocked** (ADR-0020 / M0 history ring not written) | ADR-0015 |
 
-**24 stories: 12 Logic, 8 Integration, 3 Visual/Feel, 1 UI — 22 Ready, 2 Blocked.**
+**24 stories: 12 Logic, 8 Integration, 3 Visual/Feel, 1 UI — 22 Ready, 2 Blocked (refreshed 2026-10-20).**
 
 **Suggested order:** 001 → 002 → 003 (primitives; 002 needs 001, 003 needs both) → 004, 005 (preview, owner side) in parallel with 006, 008 (declarations, state) → 007 (needs 004, 006) → 009 → 010 → 011 → 012 → 013 → 014 → 015 (host and resolution) → 017 → 018, 020, 021 (Godot-side; after `production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md`, the scene-root story) → 022 → 023 (catch pull-forward, last; optional for the M-1a gate). Blocked: 016 (ADR-0024), 024 (ADR-0020). 019 (UI) is Ready since 2026-10-16 — after 005, 007, 018.
 

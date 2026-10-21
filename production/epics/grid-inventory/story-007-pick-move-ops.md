@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-001` (ops through the one FIFO, phase 0), `TR-inventory-002`, `TR-inventory-006`
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0007: Op Queue, Drain and Replies
 **ADR Decision Summary**: Each op is a handler `Apply = Validate → Commit → Reply` drained in phase 0; cross-container moves are all-or-nothing (destination fit computed in `Validate`, committed unchanged); a move onto the entry's own cells with the same rotation is a no-op (`ok:true`, no bump, no event) (ADR-0009 §2–§3; ADR-0007 validate-then-mutate).

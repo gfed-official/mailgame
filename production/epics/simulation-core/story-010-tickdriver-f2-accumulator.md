@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R16 pause as a driver state, R17 tick driver; F2 catch-up accumulator; States: driver `Idle → Running ⇄ Paused`)
 **Requirement**: `TR-sim-003` (Godot-free integer accumulator in `Hosting/`; takes timestamps, never reads a clock), `TR-sim-004` (cap 4, excess dropped, never banked), `TR-sim-006` (F2 invariant; Δ clamped to 1 s; freq 10^3..10^12; backwards clock counted), `TR-sim-009` (pause is a driver state; `Advance` returns 0 — interface + minimal behaviour)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0002: Tick Driver, FrameRunner and Main-Thread Sim (§1, §4)
 **ADR Decision Summary**: `TickDriver` is a Godot-free integer accumulator in `Hosting/` that never reads a clock: `new TickDriver(long frequency, int maxCatchUpTicksPerFrame)` (frequency 10^3..10^12 else `ArgumentOutOfRangeException`), and `Advance(long now)` implements GDD F2's two-step form exactly — backwards Δ counted and treated as 0, Δ clamped to 1 s, `n = min(due, cap)`, excess dropped and counted (never banked). `Start`/`Resume`/`Resync` set `last = now; acc30 = 0`; `DropRemaining(m)` moves m from run to dropped; `AlphaPermille = acc30 × 1000 / freq` is Presentation-only and frozen at 0 while paused.

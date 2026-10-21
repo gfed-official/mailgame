@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R2 one `FrameRunner` per process; R17 frame order, input edges, hitch record; R18 transport callbacks only enqueue)
 **Requirement**: `TR-sim-003` (Godot-free driver path in `Hosting/`), `TR-sim-008` (inbound drained by `RunFrame` step 1 on the main thread; nothing applied in a callback), `TR-sim-014` (client step and world tick separate, same frame loop)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0002: Tick Driver, FrameRunner and Main-Thread Sim (§2, §5) — primary; ADR-0011 (§2 frame order and hook names) — secondary
 **ADR Decision Summary**: `FrameRunner` (Godot-free, `Hosting/`) owns the per-frame pump. `RunFrame()` on the main thread: (1) the adapter hook pumps inbound (remote poll, then loopback poll) into `EnqueueOp`/the sample ring; (2) `n = driver.Advance(clock.Timestamp)`; (3) for `i = 0…n−1`: `client.Step(isFirstTickInBatch: i == 0)`, `world?.Tick()`, then the adapter flushes that tick's outbound batch; (4) if the driver's `Hitches` increased this frame, one `TickHitch` record (a = dropped this frame, b = clamped this frame). The M0 wall-clock guard (`catchUpGuardMs`) is 0 at M-1a. Headless hosts skip the runner and call `Tick()` in a loop.

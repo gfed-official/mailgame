@@ -7,8 +7,8 @@
 > **Engine Risk**: LOW (plain C#; no Godot. Terrain views are in `godot-host-shell`.)
 > **Est. size**: S — 4–6 stories
 > **Implementation priority**: between 3 and 4. Mail needs the address table; Player Character and Throwing need the height field, water and AABBs.
-> **Status**: Ready (Provisional — no GDD)
-> **Stories**: 7 stories (7 Ready) — created 2026-10-16 by `/create-stories world-stub --review lean`
+> **Status**: Complete (Provisional — no GDD)
+> **Stories**: 7 stories — 7 Complete (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -74,8 +74,8 @@ This epic is complete when:
 | 003 | [Static solids + 4 m `QueryStaticSolids`](story-003-static-solids-4m-query.md) | Logic | Complete | ADR-0026 |
 | 004 | [`AddressId`, lots, destination ids, spacing validation, `StreetNameAt`](story-004-addressid-lots-destination-ids.md) | Logic | Complete | ADR-0026, ADR-0017 §1 |
 | 005 | [Post Office record + spawn pad](story-005-post-office-spawn-pad.md) | Logic | Complete | ADR-0026, ADR-0013 §3 |
-| 006 | [`M1aStreet` + `WorldTablesFixture` (FX-Dry/Beach/Ramp/Deep/Pad)](story-006-m1a-street-and-fixtures.md) | Logic | Ready | ADR-0026 |
-| 007 | [`World` dump section, composition, replay world identity](story-007-world-dump-composition-replay-id.md) | Integration | Ready | ADR-0026, ADR-0006 |
+| 006 | [`M1aStreet` + `WorldTablesFixture` (FX-Dry/Beach/Ramp/Deep/Pad)](story-006-m1a-street-and-fixtures.md) | Logic | Complete | ADR-0026 |
+| 007 | [`World` dump section, composition, replay world identity](story-007-world-dump-composition-replay-id.md) | Integration | Complete | ADR-0026, ADR-0006 |
 
 **Untraced requirements (no TR-ID in `docs/architecture/tr-registry.yaml`; flagged for the next `/architecture-review`, not added here):** map clamp and walkable snap (PC P4 step 7, Throwing T6/F8; story 002); map bounds |coord| ≤ 1,000,000 mm (Throwing CV 17; story 002); Mail R3 mailbox-spacing guarantee and `StreetNameAt` (story 004); Post Office spawn pad (PC P17/F8; story 005, which has no TR at all).
 
