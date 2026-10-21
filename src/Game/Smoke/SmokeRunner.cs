@@ -160,7 +160,7 @@ public partial class SmokeRunner : Node
             if (_scenario.NeedsBoot && !loop.RequestBoot())
             {
                 // Name the failing step so an exit 4 shows which boot failure produced it.
-                string failed = loop.LastBootLog?.Lines.LastOrDefault(l => l.Contains(" FAIL ", StringComparison.Ordinal)) ?? "no BOOT FAIL line";
+                string failed = loop.BootLines.LastOrDefault(l => l.Contains(" FAIL ", StringComparison.Ordinal)) ?? "no BOOT FAIL line";
                 _ctx.Fail($"boot failed: GameLoop.RequestBoot() returned false ({failed})");
                 Finish(ExitBootFailed);
                 return;

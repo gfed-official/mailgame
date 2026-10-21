@@ -5,121 +5,147 @@ using PerformativeMail.Game.Hosting;
 namespace PerformativeMail.Game.Screens;
 
 /// <summary>
-/// The M-1a error screens under <c>Main/Screens</c> (ADR-0019 sections 1 and 3): a title, a detail line, the message
-/// (exception type, <c>SimBuildException</c> code name and message) and a Quit button; stock <c>ui_*</c> focus. Both
-/// <c>BootError.tscn</c> and <c>ContentError.tscn</c> use this script. The <c>BootError</c> instance is the one
-/// <see cref="IFaultSink"/> <c>GameLoop</c> installs before boot step 1; its <see cref="ContentErrorScreen"/> points at the
-/// sibling <c>ContentError</c> instance. The boot sequence calls <see cref="PrepareBootFailure"/> before the boot-fault
-/// entry, so <see cref="OnFault"/> shows <c>ContentError</c> for a step-2 failure and <c>BootError</c> otherwise; a frame
-/// fault after boot (nothing prepared) shows <c>BootError</c>. No Retry and no diagnostics list (M0 content work). Looks
-/// up only its own children; it is not a presenter or view. Main thread only.
+/// One M-1a error panel under <c>Main/Screens</c> (ADR-0019 sections 1 and 3): a heading, a line saying where it failed,
+/// the fault message (exception type, <c>SimBuildException</c> code name, message) and a Quit button that gets the stock
+/// <c>ui_*</c> focus. <c>BootError.tscn</c> and <c>ContentError.tscn</c> both use this script.
+/// <para>
+/// The <c>BootError</c> panel is the loop's single <see cref="IFaultSink"/>; <c>GameLoop</c> pairs it with the
+/// <c>ContentError</c> panel (<see cref="RouteContentFailuresTo"/>) before boot step 1. <see cref="BootSequence"/> tells
+/// the sink which step failed (<see cref="PrepareBootFailure"/>) just before the boot-fault entry delivers the message, and
+/// <see cref="OnFault"/> then decides what to show: a step-2 (content) failure on the content panel, any other step on
+/// this panel, and a fault with nothing prepared — a frame fault after boot — on this panel as a session fault.
+/// </para>
+/// No Retry and no diagnostics list (the M0 content-error screen). The script reaches only its own children; it is not a
+/// presenter or view. Main thread only.
 /// </summary>
 /// <example>
 /// <code>
-/// loop.FaultSink = bootErrorScreen;                              // GameLoop.CreateBootContext, before step 1
-/// bootErrorScreen.PrepareBootFailure(failure);                   // BootSequence, on a throwing step
-/// bootErrorScreen.OnFault("SimBuildException (code ReservedPhase): …");
+/// bootErrorPanel.RouteContentFailuresTo(contentErrorPanel);   // GameLoop, before boot step 1
+/// loop.FaultSink = bootErrorPanel;
 /// </code>
 /// </example>
 public partial class BootErrorScreen : Control, IFaultSink, IBootFailureDisplay
 {
-    /// <summary>The title of a boot-step failure.</summary>
-    public const string BootFailedTitle = "Boot failed";
+    /// <summary>Heading for a failed boot step other than content.</summary>
+    public const string BootHeading = "The game could not start";
 
-    /// <summary>The title of a content (step 2) failure.</summary>
-    public const string ContentFailedTitle = "Content failed to load";
+    /// <summary>Heading for a failed content step (boot step 2).</summary>
+    public const string ContentHeading = "The game content could not be loaded";
 
-    /// <summary>The title of a fault after boot (a frame fault).</summary>
-    public const string SessionFaultTitle = "The game stopped after an error";
+    /// <summary>Heading for a fault after boot (a frame fault).</summary>
+    public const string SessionHeading = "The game stopped after an error";
 
-    /// <summary>The process exit code of the Quit button (the session ended by a fault).</summary>
+    /// <summary>Process exit code of the Quit button: the session ended by a fault.</summary>
     public const int QuitExitCode = 1;
 
-    private Label? _title;
-    private Label? _detail;
+    /// <summary>What the sink is showing, on this panel or the content panel.</summary>
+    public enum Shown
+    {
+        /// <summary>No fault yet.</summary>
+        Nothing,
+
+        /// <summary>A failed boot step (this panel).</summary>
+        BootStep,
+
+        /// <summary>A failed content step (the content panel, or this one when none is paired).</summary>
+        ContentStep,
+
+        /// <summary>A fault after boot (this panel).</summary>
+        SessionFault,
+    }
+
+    private Label? _heading;
+    private Label? _where;
     private Label? _message;
     private Button? _quit;
-    private BootFailure? _pending;
+    private BootErrorScreen? _contentPanel;
+    private BootFailure? _announced;
 
-    /// <summary>The sibling content error screen this sink shows for a step-2 failure; null on that screen itself.</summary>
-    [Export]
-    public BootErrorScreen? ContentErrorScreen { get; set; }
+    /// <summary>What this sink currently shows.</summary>
+    public Shown Showing { get; private set; }
 
-    /// <summary>How many times <see cref="OnFault"/> was called on this sink.</summary>
-    public int FaultCount { get; private set; }
+    /// <summary>How many fault messages this panel received as a sink.</summary>
+    public int FaultsReceived { get; private set; }
 
-    /// <summary>The shown title text (empty before <c>_Ready</c>).</summary>
-    public string TitleText => _title?.Text ?? string.Empty;
+    /// <summary>This panel's heading text (empty before <c>_Ready</c>).</summary>
+    public string HeadingText => _heading?.Text ?? string.Empty;
 
-    /// <summary>The shown detail text (empty before <c>_Ready</c>).</summary>
-    public string DetailText => _detail?.Text ?? string.Empty;
+    /// <summary>This panel's "where it failed" text (empty before <c>_Ready</c>).</summary>
+    public string WhereText => _where?.Text ?? string.Empty;
 
-    /// <summary>The shown message text (empty before <c>_Ready</c>).</summary>
+    /// <summary>This panel's message text (empty before <c>_Ready</c>).</summary>
     public string MessageText => _message?.Text ?? string.Empty;
 
-    /// <summary>True when the Quit button exists and is visible in the tree.</summary>
-    public bool QuitVisible => _quit is not null && _quit.IsVisibleInTree();
+    /// <summary>True when this panel's Quit button is visible in the tree.</summary>
+    public bool QuitShown => _quit?.IsVisibleInTree() ?? false;
 
-    /// <summary>True when the Quit button has the GUI focus.</summary>
-    public bool QuitHasFocus => _quit is not null && _quit.HasFocus();
+    /// <summary>True when this panel's Quit button holds the GUI focus.</summary>
+    public bool QuitFocused => _quit?.HasFocus() ?? false;
 
     /// <inheritdoc />
     public override void _Ready()
     {
-        _title = GetNode<Label>("Margin/Column/Title");
-        _detail = GetNode<Label>("Margin/Column/Detail");
-        _message = GetNode<Label>("Margin/Column/Scroll/Message");
-        _quit = GetNode<Button>("Margin/Column/Quit");
-        _quit.Pressed += OnQuitPressed;
+        _heading = GetNode<Label>("Layout/Heading");
+        _where = GetNode<Label>("Layout/Where");
+        _message = GetNode<Label>("Layout/Details/Message");
+        _quit = GetNode<Button>("Layout/Actions/QuitButton");
+        _quit.Pressed += () => GetTree().Quit(QuitExitCode);
     }
+
+    /// <summary>Pairs this sink with the panel that shows content (step 2) failures; null or this panel shows them here.</summary>
+    /// <param name="contentPanel">The <c>ContentError</c> panel.</param>
+    public void RouteContentFailuresTo(BootErrorScreen? contentPanel) =>
+        _contentPanel = ReferenceEquals(contentPanel, this) ? null : contentPanel;
 
     /// <inheritdoc />
     public void PrepareBootFailure(BootFailure failure) =>
-        _pending = failure ?? throw new ArgumentNullException(nameof(failure));
+        _announced = failure ?? throw new ArgumentNullException(nameof(failure));
 
     /// <inheritdoc />
     public void OnFault(string message)
     {
-        FaultCount++;
-        BootFailure? failure = _pending;
-        _pending = null;
-        if (failure is null)
+        FaultsReceived++;
+        BootFailure? failure = _announced;
+        _announced = null;
+        Shown next = failure switch
         {
-            ContentErrorScreen?.Hide();
-            ShowError(SessionFaultTitle, "The session ended; the simulation will not run again.", message);
-            return;
-        }
-
-        string detail = $"Boot step {failure.Step} ({failure.Name}) failed.";
-        if (failure.Kind == BootFailureKind.Content && ContentErrorScreen is not null)
+            null => Shown.SessionFault,
+            { Kind: BootFailureKind.Content } => Shown.ContentStep,
+            _ => Shown.BootStep,
+        };
+        string where = failure is null
+            ? "The session ended; the simulation will not run again."
+            : $"Failed at boot step {failure.Step} ({failure.Name}).";
+        BootErrorScreen target = next == Shown.ContentStep && _contentPanel is not null ? _contentPanel : this;
+        BootErrorScreen? other = ReferenceEquals(target, this) ? _contentPanel : this;
+        if (target.Present(HeadingFor(next), where, message))
         {
-            Hide();
-            ContentErrorScreen.ShowError(ContentFailedTitle, detail, message);
-            return;
+            other?.Hide();
+            Showing = next;
         }
-
-        ContentErrorScreen?.Hide();
-        ShowError(failure.Kind == BootFailureKind.Content ? ContentFailedTitle : BootFailedTitle, detail, message);
     }
 
-    /// <summary>Fills the labels, shows this screen and focuses Quit.</summary>
-    /// <param name="title">The title.</param>
-    /// <param name="detail">The detail line.</param>
-    /// <param name="message">The message.</param>
-    public void ShowError(string title, string detail, string message)
+    private static string HeadingFor(Shown shown) => shown switch
     {
-        if (_title is null || _detail is null || _message is null || _quit is null)
+        Shown.ContentStep => ContentHeading,
+        Shown.SessionFault => SessionHeading,
+        _ => BootHeading,
+    };
+
+    // False when the panel is not ready yet: nothing was shown, so the sink state and the other panel stay as they were.
+    private bool Present(string heading, string where, string message)
+    {
+        if (_heading is null || _where is null || _message is null || _quit is null)
         {
-            GD.PrintErr($"[BootErrorScreen] {Name} is not ready; fault: {message}");
-            return;
+            GD.PrintErr($"[BootErrorScreen] {Name} received a fault before _Ready: {message}");
+            return false;
         }
 
-        _title.Text = title;
-        _detail.Text = detail;
+        _heading.Text = heading;
+        _where.Text = where;
         _message.Text = message;
         Show();
         _quit.GrabFocus();
+        return true;
     }
-
-    private void OnQuitPressed() => GetTree().Quit(QuitExitCode);
 }

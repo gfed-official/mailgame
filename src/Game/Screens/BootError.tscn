@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://src/Game/Screens/BootErrorScreen.cs" id="1"]
+[ext_resource type="Script" path="res://src/Game/Screens/BootErrorScreen.cs" id="1_screen"]
 
 [node name="BootError" type="Control"]
 visible = false
@@ -10,58 +10,57 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1")
+script = ExtResource("1_screen")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Shade" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.09, 0.07, 0.08, 1)
+color = Color(0.11, 0.08, 0.1, 1)
 
-[node name="Margin" type="MarginContainer" parent="."]
+[node name="Layout" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 128.0
+offset_top = 104.0
+offset_right = -128.0
+offset_bottom = -104.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 120
-theme_override_constants/margin_top = 96
-theme_override_constants/margin_right = 120
-theme_override_constants/margin_bottom = 96
+theme_override_constants/separation = 28
 
-[node name="Column" type="VBoxContainer" parent="Margin"]
+[node name="Heading" type="Label" parent="Layout"]
 layout_mode = 2
-theme_override_constants/separation = 32
+theme_override_font_sizes/font_size = 58
+text = "The game could not start"
 
-[node name="Title" type="Label" parent="Margin/Column"]
+[node name="Where" type="Label" parent="Layout"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 60
-text = "Boot failed"
-
-[node name="Detail" type="Label" parent="Margin/Column"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.75, 0.7, 1)
-theme_override_font_sizes/font_size = 36
+theme_override_colors/font_color = Color(0.93, 0.72, 0.55, 1)
+theme_override_font_sizes/font_size = 34
 autowrap_mode = 3
 
-[node name="Scroll" type="ScrollContainer" parent="Margin/Column"]
+[node name="Details" type="ScrollContainer" parent="Layout"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="Message" type="Label" parent="Margin/Column/Scroll"]
+[node name="Message" type="Label" parent="Layout/Details"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 34
 autowrap_mode = 3
 
-[node name="Quit" type="Button" parent="Margin/Column"]
-custom_minimum_size = Vector2(280, 84)
+[node name="Actions" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
-size_flags_horizontal = 0
+
+[node name="QuitButton" type="Button" parent="Layout/Actions"]
+custom_minimum_size = Vector2(300, 88)
+layout_mode = 2
 theme_override_font_sizes/font_size = 40
 text = "Quit"

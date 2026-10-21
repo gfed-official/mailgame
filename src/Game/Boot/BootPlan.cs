@@ -7,15 +7,15 @@ namespace PerformativeMail.Game.Boot;
 /// <para>Who fills each step (one explicit line here each; story 011 asserts no step is left NOT WIRED):</para>
 /// <list type="table">
 /// <listheader><term>Step</term><description>Owner</description></listheader>
-/// <item><term>1 window</term><description>godot-host-shell 004: <see cref="WindowGuardStep"/> (min size 1280×720, env lines).</description></item>
-/// <item><term>2 content</term><description>godot-host-shell 004: <see cref="ContentBootStep"/> over <see cref="IContentBootSource"/> (M-1a <see cref="BuiltInContentSource"/>; story 007 adds <c>ContentHost</c>).</description></item>
+/// <item><term>1 window</term><description>godot-host-shell 004: <see cref="MinimumWindowStep"/> (min size 1280×720, env lines).</description></item>
+/// <item><term>2 content</term><description>godot-host-shell 004: <see cref="ContentSourceStep"/> over <see cref="IContentBootSource"/> (M-1a <see cref="BuiltInContentSource"/>; story 007 adds <c>ContentHost</c>).</description></item>
 /// <item><term>3 persistence</term><description>Slot (<see cref="IBootContributor"/>, <see cref="PersistenceStep"/>): ADR-0024 persistence (not written yet).</description></item>
 /// <item><term>4 input</term><description>Slot (<see cref="IBootContributor"/>, <see cref="InputStep"/>): input-controls 028 <c>InputBoot</c> (validate <c>BuiltInActionMap</c>, read <c>user://input.json</c>, build the router, wire sinks; the adapter node's placement is 028's).</description></item>
 /// <item><term>5 session</term><description>godot-host-shell 005: <c>HostSession</c> (loopback, ADR-0011).</description></item>
 /// <item><term>6 sim</term><description>godot-host-shell 005: <c>SimComposition.Build</c> then <c>ClientLayer.Attach(ports)</c>; catches <c>SimBuildException</c> (ADR-0003).</description></item>
 /// <item><term>7 world</term><description>godot-host-shell 006 / 010: world tables, <c>Terrain</c> / <c>Destinations</c>, <c>Initialize(deps)</c>.</description></item>
 /// <item><term>8 views</term><description>godot-host-shell 008 / 009: <c>ViewCatalogResolver.Resolve(ContentSet)</c>, pools pre-instantiated.</description></item>
-/// <item><term>9 start</term><description>godot-host-shell 004: <see cref="ArmStartStep"/> (<c>GameLoop.ArmStart</c> only; the driver starts on the first <c>_Process</c>, ADR-0002).</description></item>
+/// <item><term>9 start</term><description>godot-host-shell 004: <see cref="StartGateStep"/> (<c>GameLoop.ArmStart</c> only; the driver starts on the first <c>_Process</c>, ADR-0002).</description></item>
 /// </list>
 /// </summary>
 /// <example>
@@ -87,15 +87,15 @@ public static class BootPlan
 
         return
         [
-            new WindowGuardStep(window, isDebugBuild),
-            new ContentBootStep(content),
+            new MinimumWindowStep(window, isDebugBuild),
+            new ContentSourceStep(content),
             new ContributorSlotStep(PersistenceStep, "persistence", contributors),
             new ContributorSlotStep(InputStep, "input", contributors),
             new UnwiredBootStep(SessionStep, "session", "story 005"),
             new UnwiredBootStep(SimStep, "sim", "story 005"),
             new UnwiredBootStep(WorldStep, "world", "story 006"),
             new UnwiredBootStep(ViewsStep, "views", "story 008"),
-            new ArmStartStep(armStart),
+            new StartGateStep(armStart),
         ];
     }
 }

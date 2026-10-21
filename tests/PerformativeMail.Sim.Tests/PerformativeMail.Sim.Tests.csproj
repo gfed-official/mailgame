@@ -23,9 +23,14 @@
   <ItemGroup>
     <Compile Include="../unit/**/*.cs" LinkBase="unit" />
     <Compile Include="../integration/**/*.cs" LinkBase="integration" />
-    <!-- godot-host-shell/004: the engine-free boot core (sequence, plan, steps, contracts) from the Godot host assembly,
-         unit-tested without Godot. Godot*.cs (the GodotBootWindow adapter) uses the engine and stays out. -->
-    <Compile Include="../../src/Game/Boot/*.cs" Exclude="../../src/Game/Boot/Godot*.cs" LinkBase="game-boot" />
+  </ItemGroup>
+
+  <!--
+    Story godot-host-shell/004 tests the host's boot core here without the engine: every source file of
+    src/Game/Boot is compiled into this assembly except GodotBootWindow.cs, the only one that touches Godot.
+  -->
+  <ItemGroup Label="Host boot core (Godot-free)">
+    <Compile Include="../../src/Game/Boot/*.cs" Exclude="../../src/Game/Boot/GodotBootWindow.cs" Link="HostBoot/%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

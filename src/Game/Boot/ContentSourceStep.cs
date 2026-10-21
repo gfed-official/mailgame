@@ -11,8 +11,8 @@ namespace PerformativeMail.Game.Boot;
 /// and the Sim is never composed.
 /// </summary>
 /// <param name="source">Where the content comes from (M-1a: <see cref="BuiltInContentSource"/>).</param>
-/// <example><code>IBootStep step = new ContentBootStep(new BuiltInContentSource());</code></example>
-public sealed class ContentBootStep(IContentBootSource source) : IBootStep
+/// <example><code>IBootStep step = new ContentSourceStep(new BuiltInContentSource());</code></example>
+public sealed class ContentSourceStep(IContentBootSource source) : IBootStep
 {
     private readonly IContentBootSource _source = source ?? throw new ArgumentNullException(nameof(source));
 

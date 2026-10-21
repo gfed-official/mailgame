@@ -102,24 +102,24 @@
 ## Completion Notes
 **Completed**: 2026-10-21
 **Criteria**: 8/8 passing.
-- AC1, AC2, AC4, AC6: `boot-order` (74 assertions) and `tests/unit/boot/BootSequenceTests.cs`.
-- AC3, AC5: `boot-failure` passes a–e (99 assertions), `boot-failure-exit4` (exit 4) and unit tests.
+- AC1, AC2, AC4, AC6: `boot-order` (77 assertions) and `tests/unit/boot/BootSequenceTests.cs`.
+- AC3, AC5: `boot-failure` passes a–e (105 assertions), `boot-failure-exit4` (exit 4, `src/Game/Smoke/BootFailedExitSmoke.cs`) and unit tests.
 - AC7: both PNGs captured windowed with `--write-movie` at 1280×720 and looked at (`Run result: OBSERVED` lines in the evidence file).
-- AC8: `selftest-needs-boot` expects 0; `main-tree-noboot` (25 assertions) runs; `--smoke=list` shows the new `expect=` values.
+- AC8: `selftest-needs-boot` expects 0; `main-tree-noboot` (26 assertions) runs; `--smoke=list` shows the new `expect=` values.
 
 Nothing is deferred. 4.7.1 behaviour is UNVERIFIED: every run used Godot 4.7.2 mono, which the owner approved.
 
 **Deviations** (advisory):
 - (1) **Screenshot command.** Movie Maker fixes its frame size from the project's 1600×900 window override at startup and ignores `--resolution`. The retained 1280×720 frames were captured with a temporary `override.cfg`, deleted afterwards (command in the evidence file; TD-128 item 4). The capture seams also resize the window to 1280×720 and assert it when windowed.
 - (2) **`main-tree-noboot` controls.** Besides the AutoBoot=false counter (0), it has an explicit-`RequestBoot` control and an AutoBoot=true `_Ready` control. A debug seam `GameLoop.SmokeArgsIgnored` (internal) lets those second instances take the production `_Ready` path.
-- (3) **Plan-construction failures.** A throw while building the plan inside `RequestBoot` is reported as step 0 `plan` (`BOOT plan FAIL …`, boot error screen).
-- (4) **Frame-fault message format.** `GameLoop`'s frame-fault message now uses the same `BootFaultText.Describe` format, which adds the `SimBuildException` code name. That changes the format for `SimBuildException` only.
-- (5) **Engine-free boot core.** It lives in `src/Game/Boot/` behind `IBootWindow` (`GodotBootWindow` is the adapter) and is linked into the xUnit project (`Godot*.cs` excluded). Because of the link, a reference from Boot code to `src/Game/Smoke/` fails the test build.
+- (3) **Plan-construction failures.** A throw while building or checking the plan inside `RequestBoot` is reported as step 0 `plan` through `BootSequence.FailBeforeFirstStep` (`BOOT plan FAIL …`, boot error screen), the same path a failing step takes.
+- (4) **Frame-fault message format.** `GameLoop`'s frame-fault message now uses the same `BootSequence.Summarize` format, which adds the `SimBuildException` code name. That changes the format for `SimBuildException` only.
+- (5) **Engine-free boot core.** It lives in `src/Game/Boot/` behind `IBootWindow` (`GodotBootWindow` is the adapter) and is compiled into the xUnit project (`GodotBootWindow.cs` excluded). Because of the link, a reference from Boot code to `src/Game/Smoke/` fails the test build.
 
 **Test Evidence**:
 - Integration smokes (all at their declared exits).
-- Unit tests in `tests/unit/boot/BootSequenceTests.cs`, 27 tests.
-- Four test legs: 4898 tests, 0 failed, 0 warnings.
+- Unit tests in `tests/unit/boot/BootSequenceTests.cs`, 29 tests.
+- Four test legs: 4900 tests per leg (42 skipped Debug / 2 Release), 0 failed, 0 warnings.
 - Evidence file `production/qa/evidence/host-shell-boot-evidence.md` and the two PNGs under `production/qa/evidence/godot-host-shell-story-004/`.
 
 **Code Review**: Complete.
@@ -127,8 +127,32 @@ Nothing is deferred. 4.7.1 behaviour is UNVERIFIED: every run used Godot 4.7.2 m
   - godot-csharp-specialist: ISSUES FOUND, advisory only.
   - godot-specialist: ADR-0019 COMPLIANT, advisory only.
   - qa-tester: GAPS, of which the only blockers were the not-yet-captured PNGs and evidence file, both now present.
-  - The verified advisories were fixed in this story: the plan-failure screen, stale crefs, the `NextPass` split, the self-describing exit-4 line, `Content` assigned last, the null-`ErrorScreen` warning, Quit focus, the AutoBoot=true control, and the `RequestBoot` failure pass (e).
+  - The verified advisories were fixed in this story: the plan-failure screen, stale crefs, the `NextPass` split, the self-describing exit-4 line, `Content` assigned last, the null-error-panel warning, Quit focus, the AutoBoot=true control, and the `RequestBoot` failure pass (e).
 - `/story-done` gates (Sonnet): LP-CODE-REVIEW **APPROVE**, QL-TEST-COVERAGE **ADEQUATE**.
-- Remaining advisories: TD-127 (error-screen canvas layer, hard-coded strings, keyboard scroll) and TD-128 (Quit press untested, list `expect=` not asserted, the `DebuggableAttribute` gate, the screenshot `override.cfg`, the duplicated plan-failure path, story 011's `no contributor` check).
+- Remaining advisories: TD-127 (error-screen canvas layer, hard-coded strings, keyboard scroll) and TD-128 (Quit press untested, list `expect=` not asserted, the `DebuggableAttribute` gate, the screenshot `override.cfg`, story 011's `no contributor` check). The duplicated plan-failure path (TD-128 item 5) was removed by the provenance rewrite.
 
 **Tech debt**: closed TD-120 and TD-098 item 2; added TD-127 and TD-128.
+
+**Provenance** (2026-10-21):
+- **What happened.** The first implementation attempt ran on the wrong model (a Sonnet-orchestrated session) and was discarded. The Opus implementation that replaced it used that draft as a reference. Before writing, it read the draft's `GameLoop.cs`, screen and `Main.tscn` hunks, its file list and the head of its tests. A line-overlap check then found seams, names and some lines that came from the draft.
+- **What was rewritten.** On Opus, from the ACs, the handoff and the ADRs only, without reopening the draft:
+  - `GameLoop.cs` boot section: re-authored from the pre-story file. It has a private boot record (attempts, result, log) exposed as `BootAttempts` / `BootResult` / `BootLines`; the debug-only seams `InstallBootStepsForSmoke(IReadOnlyList<IBootStep>)` and `BeginBootForSmoke()`; private `InstallErrorPanels` / `NewBootContext`; `BuildBootPlan`; the `BootErrorPanel` / `ContentErrorPanel` exports; and new docs. `FaultBoot` on an already-faulted loop only logs.
+  - `BootFaultText.cs` deleted. The formatter is now `BootSequence.Summarize` (same `(code X)` output).
+  - `BootSequence` gained `FailBeforeFirstStep`, sharing one private `Abort` path with failing steps. That removed the duplicated plan-failure code (TD-128 item 5).
+  - `BootContext` re-written with a primary constructor and a new doc example.
+  - `BootFailureExit4Smoke.cs` replaced by `BootFailedExitSmoke.cs`, on the new seam with a new `Start` body.
+  - `BootErrorScreen.cs`, `BootError.tscn`, `ContentError.tscn` and the `Main.tscn` wiring re-authored:
+    - node hierarchy `Shade` / `Layout` / `Heading`, `Where`, `Details/Message`, `Actions/QuitButton`;
+    - a sink state machine (`Shown`) that routes to the paired content panel;
+    - new headings "The game could not start" / "The game content could not be loaded" / "The game stopped after an error" and the "Failed at boot step n (name)." line.
+- **What was renamed.**
+  - Boot steps: `ArmStartStep`, `ContentBootStep`, `WindowGuardStep` → `StartGateStep`, `ContentSourceStep`, `MinimumWindowStep`.
+  - Smoke support: `BootDoubles.cs` → `BootSmokeFaults.cs` (`FaultingContributor`, `FaultingStep`, `FaultingContentSource`, `BootSmokeFaults`).
+  - Test doubles: `StubWindow`, `TallyingContentSource`, `BrokenContentSource`, `ScriptedStep`, `SlotProbe`, `DisplaySpy`.
+  - The test-csproj link is now a labelled `ItemGroup` that uses `Link=` metadata.
+- **What was kept on purpose.** The `BootPlan` step names `window`, `content`, `persistence`, `input`, `session`, `sim`, `world`, `views`, `start` and the NOT WIRED owners are a log contract that story 011's wrapper parses, so they stay as they are. `BootErrorScreen.cs` keeps the name the story dictates.
+- **Verification after the rewrite.** All smokes, both screenshots, the four legs, the guards and a short Sonnet `/code-review` pass were re-run. The code review's verified advisories were applied:
+  - `Showing` changes only when a panel was actually presented;
+  - `FaultBoot` is first-fault-wins;
+  - Quit focus is asserted on the production `RequestBoot` path;
+  - the enum order in `BootErrorScreen.cs`.

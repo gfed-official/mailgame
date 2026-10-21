@@ -4,6 +4,7 @@ using Godot;
 using PerformativeMail.Client.Core.Net;
 using PerformativeMail.Game.Boot;
 using PerformativeMail.Game.Hosting;
+using PerformativeMail.Game.Screens;
 using PerformativeMail.Sim.Hosting;
 using static PerformativeMail.Game.Smoke.SmokeChecks;
 
@@ -51,9 +52,9 @@ public sealed class BootOrderSmoke : SmokeScenario
         Expect(ctx, "StartPending immediately after RequestBoot (step 9 armed)", loop.StartPending, true);
         Expect(ctx, "rig driver state immediately after RequestBoot", _rig.Driver.State, TickDriverState.Idle);
         Expect(ctx, "loop not faulted after boot", loop.IsFaulted, false);
-        Expect(ctx, "RequestBoot call count", loop.BootRequestCount, 1);
+        Expect(ctx, "RequestBoot call count", loop.BootAttempts, 1);
 
-        IReadOnlyList<string> lines = loop.LastBootLog?.Lines ?? [];
+        IReadOnlyList<string> lines = loop.BootLines;
         CheckOrder(ctx, lines);
         CheckWindow(ctx, loop, lines);
         CheckEnv(ctx, loop, lines);
@@ -80,31 +81,31 @@ public sealed class BootOrderSmoke : SmokeScenario
             ctx.Pass($"boot log: {line}");
         }
 
-        List<(int Number, string Name, string Status)> status = BootSmoke.StatusLines(lines);
+        List<(int Number, string Name, string Status)> status = BootSmokeFaults.StatusLines(lines);
         Expect(ctx, "BOOT status line numbers in order", string.Join(",", status.Select(s => s.Number)), "1,2,3,4,5,6,7,8,9");
         Expect(ctx, "BOOT status line names in order", string.Join(",", status.Select(s => s.Name)), "window,content,persistence,input,session,sim,world,views,start");
         Expect(ctx, "BOOT FAIL lines", status.Count(s => s.Status == "FAIL"), 0);
         string notWired = string.Join(",", status.Where(s => s.Status == "NOT WIRED").Select(s => $"{s.Number} {s.Name}"));
         ctx.Pass($"NOT WIRED steps (story 011 asserts none): {notWired}");
         Expect(ctx, "NOT WIRED steps at story 004", notWired, "5 session,6 sim,7 world,8 views");
-        Expect(ctx, "step 5 NOT WIRED line names its story", BootSmoke.Has(lines, "BOOT 5 session NOT WIRED (story 005)"), true);
+        Expect(ctx, "step 5 NOT WIRED line names its story", BootSmokeFaults.Logged(lines, "BOOT 5 session NOT WIRED (story 005)"), true);
     }
 
     private static void CheckWindow(SmokeContext ctx, GameLoop loop, IReadOnlyList<string> lines)
     {
         Vector2I min = loop.GetWindow().MinSize;
         string back = $"{min.X}x{min.Y}";
-        Expect(ctx, "step 1 logged the set and read-back MinSize", BootSmoke.Has(lines, $"BOOT 1 window: min-size set 1280x720 readback {back}"), true);
+        Expect(ctx, "step 1 logged the set and read-back MinSize", BootSmokeFaults.Logged(lines, $"BOOT 1 window: min-size set 1280x720 readback {back}"), true);
         if (min == new Vector2I(1280, 720))
         {
             ctx.Pass($"GetWindow().MinSize read back {back} == 1280x720 (headless={DisplayServer.GetName()})");
-            Expect(ctx, "no min-size readback mismatch line", BootSmoke.Has(lines, "BOOT 1 window min-size readback"), false);
+            Expect(ctx, "no min-size readback mismatch line", BootSmokeFaults.Logged(lines, "BOOT 1 window min-size readback"), false);
         }
         else
         {
             // UNVERIFIED headless behaviour: the setter did not throw (step 1 ok); the value is recorded, not asserted.
-            Expect(ctx, $"read-back mismatch logged (display {DisplayServer.GetName()})", BootSmoke.Has(lines, $"BOOT 1 window min-size readback {back}"), true);
-            Expect(ctx, "step 1 ok despite the read-back mismatch (setter did not throw)", BootSmoke.Has(lines, "BOOT 1 window ok"), true);
+            Expect(ctx, $"read-back mismatch logged (display {DisplayServer.GetName()})", BootSmokeFaults.Logged(lines, $"BOOT 1 window min-size readback {back}"), true);
+            Expect(ctx, "step 1 ok despite the read-back mismatch (setter did not throw)", BootSmokeFaults.Logged(lines, "BOOT 1 window ok"), true);
         }
     }
 
@@ -164,30 +165,33 @@ public sealed class BootOrderSmoke : SmokeScenario
             Expect(ctx, "step 2 logs the 8-hex content hash", hash.Length, 8);
         }
 
-        Expect(ctx, "step 3 slot line", BootSmoke.Has(lines, "BOOT 3 persistence: no contributor"), true);
-        Expect(ctx, "step 4 slot line", BootSmoke.Has(lines, "BOOT 4 input: no contributor"), true);
+        Expect(ctx, "step 3 slot line", BootSmokeFaults.Logged(lines, "BOOT 3 persistence: no contributor"), true);
+        Expect(ctx, "step 4 slot line", BootSmokeFaults.Logged(lines, "BOOT 4 input: no contributor"), true);
     }
 
     private static void CheckHostState(SmokeContext ctx, GameLoop loop)
     {
-        Expect(ctx, "Main/Screens/BootError wired as GameLoop.ErrorScreen", loop.ErrorScreen is not null && loop.ErrorScreen.GetPath().ToString().EndsWith("/Main/Screens/BootError", StringComparison.Ordinal), true);
-        Expect(ctx, "GameLoop.FaultSink is the error screen after boot", ReferenceEquals(loop.FaultSink, loop.ErrorScreen), true);
-        Expect(ctx, "BootError hidden after a clean boot", loop.ErrorScreen?.Visible ?? true, false);
-        Expect(ctx, "ContentError hidden after a clean boot", BootSmoke.ContentScreen(loop)?.Visible ?? true, false);
+        Expect(ctx, "Main/Screens/BootError wired as GameLoop.BootErrorPanel", loop.BootErrorPanel is not null && loop.BootErrorPanel.GetPath().ToString().EndsWith("/Main/Screens/BootError", StringComparison.Ordinal), true);
+        Expect(ctx, "GameLoop.FaultSink is the error screen after boot", ReferenceEquals(loop.FaultSink, loop.BootErrorPanel), true);
+        Expect(ctx, "BootError hidden after a clean boot", loop.BootErrorPanel?.Visible ?? true, false);
+        Expect(ctx, "ContentError hidden after a clean boot", loop.ContentErrorPanel?.Visible ?? true, false);
+        Expect(ctx, "Main/Screens/ContentError wired as GameLoop.ContentErrorPanel", loop.ContentErrorPanel is not null && loop.ContentErrorPanel.GetPath().ToString().EndsWith("/Main/Screens/ContentError", StringComparison.Ordinal), true);
+        Expect(ctx, "error sink shows nothing after a clean boot", loop.BootErrorPanel?.Showing ?? BootErrorScreen.Shown.SessionFault, BootErrorScreen.Shown.Nothing);
         Expect(ctx, "PeerPresence defaulted to the loopback presence (none was set)", ReferenceEquals(loop.PeerPresence, LoopbackPeerPresence.Instance), true);
         Expect(ctx, "boot ran on the GameLoop boot thread", System.Environment.CurrentManagedThreadId, loop.BootThreadId);
     }
 
     private void CheckSecondCall(SmokeContext ctx, GameLoop loop)
     {
-        BootLog? first = loop.LastBootLog;
+        int linesBefore = loop.BootLines.Count;
         loop.LogObserver = _log.Observer;
         bool again = loop.RequestBoot();
         loop.LogObserver = null;
         Expect(ctx, "second RequestBoot returns the first result", again, true);
         Expect(ctx, "second RequestBoot logged '[GameLoop] boot already ran'", _log.Count("[GameLoop] boot already ran"), 1);
-        Expect(ctx, "second RequestBoot ran no plan (same boot log)", ReferenceEquals(loop.LastBootLog, first), true);
-        Expect(ctx, "RequestBoot call count after the refused call", loop.BootRequestCount, 2);
+        Expect(ctx, "second RequestBoot ran no plan (no new boot lines)", loop.BootLines.Count, linesBefore);
+        Expect(ctx, "BootResult after the refused call", loop.BootResult == true, true);
+        Expect(ctx, "RequestBoot call count after the refused call", loop.BootAttempts, 2);
     }
 
     private static bool HasPositive(string line, string key)

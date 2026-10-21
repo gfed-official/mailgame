@@ -4,7 +4,7 @@ using PerformativeMail.Sim.Content;
 namespace PerformativeMail.Sim.Tests.Unit.Boot;
 
 /// <summary>An in-memory <see cref="IBootWindow"/>: records the min size, can read back another value or throw.</summary>
-internal sealed class FakeBootWindow : IBootWindow
+internal sealed class StubWindow : IBootWindow
 {
     private (int Width, int Height) _min;
 
@@ -37,11 +37,11 @@ internal sealed class FakeBootWindow : IBootWindow
 }
 
 /// <summary>A content source over <see cref="BuiltInContent.CreateM1a"/> that counts loads.</summary>
-internal sealed class CountingContentSource : IContentBootSource
+internal sealed class TallyingContentSource : IContentBootSource
 {
     public int Loads { get; private set; }
 
-    public string Name => "Counting";
+    public string Name => "Tallying";
 
     public ContentSet Load()
     {
@@ -51,15 +51,15 @@ internal sealed class CountingContentSource : IContentBootSource
 }
 
 /// <summary>A content source that throws (or returns null when <see cref="Exception"/> is null).</summary>
-internal sealed class FailingContentSource(Exception? exception) : IContentBootSource
+internal sealed class BrokenContentSource(Exception? exception) : IContentBootSource
 {
-    public string Name => "Failing";
+    public string Name => "Broken";
 
     public ContentSet Load() => exception is null ? null! : throw exception;
 }
 
 /// <summary>A step that records its run into a shared list and optionally throws.</summary>
-internal sealed class RecordingStep(int number, string name, List<string> record, Exception? exception = null) : IBootStep
+internal sealed class ScriptedStep(int number, string name, List<string> record, Exception? exception = null) : IBootStep
 {
     public int Number { get; } = number;
 
@@ -73,7 +73,7 @@ internal sealed class RecordingStep(int number, string name, List<string> record
 }
 
 /// <summary>A contributor that records its run into a shared list and optionally throws.</summary>
-internal sealed class RecordingContributor(int step, string name, List<string> record, Exception? exception = null) : IBootContributor
+internal sealed class SlotProbe(int step, string name, List<string> record, Exception? exception = null) : IBootContributor
 {
     public int Step { get; } = step;
 
@@ -88,7 +88,7 @@ internal sealed class RecordingContributor(int step, string name, List<string> r
 }
 
 /// <summary>An error display that records preparations into a shared list.</summary>
-internal sealed class RecordingDisplay(List<string> record, bool throws = false) : IBootFailureDisplay
+internal sealed class DisplaySpy(List<string> record, bool throws = false) : IBootFailureDisplay
 {
     public List<BootFailure> Prepared { get; } = [];
 
@@ -109,7 +109,7 @@ internal sealed class BootHarness
     public BootHarness(bool displayThrows = false)
     {
         Log = new BootLog(Echoed.Add);
-        Display = new RecordingDisplay(Record, displayThrows);
+        Display = new DisplaySpy(Record, displayThrows);
         Context = new BootContext(Log, System.Environment.CurrentManagedThreadId, ex =>
         {
             Faults.Add(ex);
@@ -125,13 +125,13 @@ internal sealed class BootHarness
 
     public BootLog Log { get; }
 
-    public RecordingDisplay Display { get; }
+    public DisplaySpy Display { get; }
 
     public BootContext Context { get; }
 
-    public FakeBootWindow Window { get; } = new();
+    public StubWindow Window { get; } = new();
 
-    public CountingContentSource Content { get; } = new();
+    public TallyingContentSource Content { get; } = new();
 
     public int ArmCalls { get; private set; }
 

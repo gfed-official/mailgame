@@ -77,10 +77,10 @@ public class BootSequenceTests
     {
         var record = new List<string>();
 
-        Assert.Throws<ArgumentException>(() => new BootSequence([new RecordingStep(2, "b", record), new RecordingStep(2, "c", record)]));
-        Assert.Throws<ArgumentException>(() => new BootSequence([new RecordingStep(3, "b", record), new RecordingStep(1, "a", record)]));
+        Assert.Throws<ArgumentException>(() => new BootSequence([new ScriptedStep(2, "b", record), new ScriptedStep(2, "c", record)]));
+        Assert.Throws<ArgumentException>(() => new BootSequence([new ScriptedStep(3, "b", record), new ScriptedStep(1, "a", record)]));
         Assert.Throws<ArgumentException>(() => new BootSequence([]));
-        Assert.Throws<ArgumentNullException>(() => new BootSequence([new RecordingStep(1, "a", record), null!]));
+        Assert.Throws<ArgumentNullException>(() => new BootSequence([new ScriptedStep(1, "a", record), null!]));
     }
 
     [Fact]
@@ -108,10 +108,10 @@ public class BootSequenceTests
         var boom = new InvalidOperationException("step three broke");
         IBootStep[] plan =
         [
-            new RecordingStep(1, "one", h.Record),
-            new RecordingStep(2, "two", h.Record),
-            new RecordingStep(3, "three", h.Record, boom),
-            new RecordingStep(4, "four", h.Record),
+            new ScriptedStep(1, "one", h.Record),
+            new ScriptedStep(2, "two", h.Record),
+            new ScriptedStep(3, "three", h.Record, boom),
+            new ScriptedStep(4, "four", h.Record),
         ];
 
         bool ok = h.Run(plan);
@@ -132,7 +132,7 @@ public class BootSequenceTests
         var h = new BootHarness();
         var boom = new InvalidOperationException("input boot failed");
 
-        bool ok = h.Run(h.Plan(contributors: [new RecordingContributor(BootPlan.InputStep, "input-boot", h.Record, boom)]));
+        bool ok = h.Run(h.Plan(contributors: [new SlotProbe(BootPlan.InputStep, "input-boot", h.Record, boom)]));
 
         Assert.False(ok);
         Assert.Equal(
@@ -149,7 +149,7 @@ public class BootSequenceTests
     {
         var h = new BootHarness();
         var plan = new List<IBootStep>(h.Plan());
-        plan[BootPlan.SimStep - 1] = new RecordingStep(BootPlan.SimStep, "sim", h.Record, new SimBuildException(SimBuildErrorCode.ReservedPhase, "bound phase 0"));
+        plan[BootPlan.SimStep - 1] = new ScriptedStep(BootPlan.SimStep, "sim", h.Record, new SimBuildException(SimBuildErrorCode.ReservedPhase, "bound phase 0"));
 
         bool ok = h.Run(plan);
 
@@ -167,7 +167,7 @@ public class BootSequenceTests
         var h = new BootHarness();
         var findings = new InvalidOperationException("The M-1a built-in content does not validate:\nCV-GEN-01 dup");
 
-        bool ok = h.Run(h.Plan(content: new FailingContentSource(findings)));
+        bool ok = h.Run(h.Plan(content: new BrokenContentSource(findings)));
 
         Assert.False(ok);
         Assert.Equal(["BOOT 1 window ok", "BOOT 2 content FAIL InvalidOperationException: The M-1a built-in content does not validate: CV-GEN-01 dup"], h.StatusLines());
@@ -183,7 +183,7 @@ public class BootSequenceTests
     {
         var h = new BootHarness();
 
-        bool ok = h.Run(h.Plan(content: new FailingContentSource(null)));
+        bool ok = h.Run(h.Plan(content: new BrokenContentSource(null)));
 
         Assert.False(ok);
         Assert.IsType<InvalidOperationException>(Assert.Single(h.Faults));
@@ -197,7 +197,7 @@ public class BootSequenceTests
         var h = new BootHarness(displayThrows: true);
         var boom = new InvalidOperationException("boom");
 
-        bool ok = h.Run([new RecordingStep(1, "one", h.Record, boom)]);
+        bool ok = h.Run([new ScriptedStep(1, "one", h.Record, boom)]);
 
         Assert.False(ok);
         Assert.Same(boom, Assert.Single(h.Faults));
@@ -209,9 +209,9 @@ public class BootSequenceTests
     public void Run_ContextOfAFailedBoot_IsRefused()
     {
         var h = new BootHarness();
-        h.Run([new RecordingStep(1, "one", h.Record, new InvalidOperationException("boom"))]);
+        h.Run([new ScriptedStep(1, "one", h.Record, new InvalidOperationException("boom"))]);
 
-        Assert.Throws<InvalidOperationException>(() => h.Run([new RecordingStep(1, "one", h.Record)]));
+        Assert.Throws<InvalidOperationException>(() => h.Run([new ScriptedStep(1, "one", h.Record)]));
         Assert.Single(h.Faults);
     }
 
@@ -227,7 +227,7 @@ public class BootSequenceTests
         ContentSet set = Assert.IsType<ContentSet>(h.Context.Content);
         string line = Assert.Single(h.Log.Lines, l => l.StartsWith("BOOT 2 content: ", StringComparison.Ordinal));
         Assert.StartsWith(
-            $"BOOT 2 content: source=Counting containers={set.Containers.Count} items={set.Items.Count} mail_kinds={set.MailKinds.Count} " +
+            $"BOOT 2 content: source=Tallying containers={set.Containers.Count} items={set.Items.Count} mail_kinds={set.MailKinds.Count} " +
             $"destination_types={set.DestinationTypes.Count} mail_mixes={set.MailMixes.Count} hash={ContentHash.Compute(set).ToDisplayString()} load_ms=",
             line,
             StringComparison.Ordinal);
@@ -265,16 +265,16 @@ public class BootSequenceTests
         var h = new BootHarness();
         IBootContributor[] contributors =
         [
-            new RecordingContributor(BootPlan.InputStep, "input-a", h.Record),
-            new RecordingContributor(BootPlan.PersistenceStep, "persist", h.Record),
-            new RecordingContributor(BootPlan.InputStep, "input-b", h.Record),
+            new SlotProbe(BootPlan.InputStep, "input-a", h.Record),
+            new SlotProbe(BootPlan.PersistenceStep, "persist", h.Record),
+            new SlotProbe(BootPlan.InputStep, "input-b", h.Record),
         ];
 
         bool ok = h.Run(h.Plan(contributors: contributors));
 
         Assert.True(ok);
         Assert.Equal(["persist", "input-a", "input-b", "arm"], h.Record);
-        Assert.Equal(2, h.Log.Lines.Count(l => l == "BOOT 4 input: contributor RecordingContributor"));
+        Assert.Equal(2, h.Log.Lines.Count(l => l == "BOOT 4 input: contributor SlotProbe"));
         Assert.DoesNotContain("BOOT 4 input: no contributor", h.Log.Lines);
     }
 
@@ -288,7 +288,7 @@ public class BootSequenceTests
     {
         var h = new BootHarness();
 
-        Assert.Throws<ArgumentException>(() => h.Plan(contributors: [new RecordingContributor(step, "x", h.Record)]));
+        Assert.Throws<ArgumentException>(() => h.Plan(contributors: [new SlotProbe(step, "x", h.Record)]));
     }
 
     [Fact]
@@ -296,7 +296,7 @@ public class BootSequenceTests
     public void Step9_OnlyArmsTheStartOnceAfterEveryOtherStep()
     {
         var h = new BootHarness();
-        IBootContributor[] contributors = [new RecordingContributor(BootPlan.InputStep, "input", h.Record)];
+        IBootContributor[] contributors = [new SlotProbe(BootPlan.InputStep, "input", h.Record)];
 
         h.Run(h.Plan(contributors: contributors));
 
@@ -359,13 +359,41 @@ public class BootSequenceTests
 
     [Fact]
     [Trait("Id", "GHS-004-AC5")]
-    public void Describe_NamesTheTypeTheSimBuildCodeAndTheMessage()
+    public void Summarize_NamesTheTypeTheSimBuildCodeAndTheMessage()
     {
-        Assert.Equal("InvalidOperationException: x", BootFaultText.Describe(new InvalidOperationException("x")));
+        Assert.Equal("InvalidOperationException: x", BootSequence.Summarize(new InvalidOperationException("x")));
         Assert.Equal(
             "SimBuildException (code BindAfterFreeze): late",
-            BootFaultText.Describe(new SimBuildException(SimBuildErrorCode.BindAfterFreeze, "late")));
-        Assert.Throws<ArgumentNullException>(() => BootFaultText.Describe(null!));
+            BootSequence.Summarize(new SimBuildException(SimBuildErrorCode.BindAfterFreeze, "late")));
+        Assert.Throws<ArgumentNullException>(() => BootSequence.Summarize(null!));
+    }
+
+    [Fact]
+    [Trait("Id", "GHS-004-AC5")]
+    public void FailBeforeFirstStep_ReportsStepZeroPlanLikeAFailingStep()
+    {
+        var h = new BootHarness();
+        var rejected = new ArgumentException("plan out of order");
+
+        BootSequence.FailBeforeFirstStep(h.Context, rejected);
+
+        Assert.Equal(new BootFailure(0, "plan", BootFailureKind.Boot, rejected), h.Context.Failure);
+        Assert.Equal(["BOOT plan FAIL ArgumentException: plan out of order"], h.Log.Lines);
+        Assert.Equal(["prepare 0 Boot", "fault ArgumentException"], h.Record);
+        Assert.Same(rejected, Assert.Single(h.Faults));
+    }
+
+    [Fact]
+    [Trait("Id", "GHS-004-AC5")]
+    public void FailBeforeFirstStep_DisplayThrows_FaultIsStillReported()
+    {
+        var h = new BootHarness(displayThrows: true);
+        var rejected = new ArgumentException("bad plan");
+
+        BootSequence.FailBeforeFirstStep(h.Context, rejected);
+
+        Assert.Same(rejected, Assert.Single(h.Faults));
+        Assert.Contains("BOOT 0 plan: error display threw InvalidOperationException: display failed", h.Log.Lines);
     }
 
     [Fact]

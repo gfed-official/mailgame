@@ -1,25 +1,29 @@
+using System.Text;
+using PerformativeMail.Sim.Core;
+
 namespace PerformativeMail.Game.Boot;
 
 /// <summary>
-/// Runs a boot plan (ADR-0019 section 3) once, in order, on the boot thread. Each step writes one status line,
-/// <c>BOOT &lt;n&gt; &lt;name&gt; ok</c> or <c>BOOT &lt;n&gt; &lt;name&gt; NOT WIRED (story …)</c>. The first step that throws
-/// writes <c>BOOT &lt;n&gt; &lt;name&gt; FAIL &lt;type&gt; …</c>, is recorded in <see cref="BootContext.Failure"/>, prepares
-/// the error display with its kind and goes to the boot-fault entry; no later step runs (control manifest: any exception
-/// goes to the error screen and <c>RunFrame</c> stops). Never references the smoke harness.
+/// Executes a boot plan (ADR-0019 section 3) exactly as listed, on the boot thread. After each step it writes the step's
+/// status line — <c>BOOT &lt;n&gt; &lt;name&gt; ok</c> or <c>BOOT &lt;n&gt; &lt;name&gt; NOT WIRED (story …)</c>. When a step
+/// throws, the run stops there: the failure (step and kind) goes into <see cref="BootContext.Failure"/>, a
+/// <c>BOOT &lt;n&gt; &lt;name&gt; FAIL …</c> line is written, the error display learns which step failed and the boot-fault
+/// entry is called once, so the session ends before <c>RunFrame</c> ever runs. Knows nothing of the smoke harness.
 /// </summary>
 /// <example>
 /// <code>
-/// bool ok = new BootSequence(BootPlan.Create(window, isDebugBuild, new BuiltInContentSource(), BootPlan.CreateContributors(), loop.ArmStart)).Run(ctx);
+/// var sequence = new BootSequence(loop.BuildBootPlan());
+/// if (!sequence.Run(ctx)) { /* ctx.Failure says which step; the error screen is showing */ }
 /// </code>
 /// </example>
 public sealed class BootSequence
 {
-    private readonly IBootStep[] _steps;
+    private readonly IBootStep[] _plan;
 
-    /// <summary>Creates a sequence over <paramref name="steps"/>.</summary>
-    /// <param name="steps">The plan: at least one step, numbers strictly ascending.</param>
+    /// <summary>Checks and keeps the plan.</summary>
+    /// <param name="steps">The steps in run order: at least one, numbers strictly increasing, no null entry.</param>
     /// <exception cref="ArgumentNullException"><paramref name="steps"/> or one of its entries is null.</exception>
-    /// <exception cref="ArgumentException">The plan is empty or its step numbers are not strictly ascending.</exception>
+    /// <exception cref="ArgumentException">The plan is empty or a step number does not increase.</exception>
     public BootSequence(IReadOnlyList<IBootStep> steps)
     {
         ArgumentNullException.ThrowIfNull(steps);
@@ -28,81 +32,120 @@ public sealed class BootSequence
             throw new ArgumentException("A boot plan needs at least one step.", nameof(steps));
         }
 
-        _steps = new IBootStep[steps.Count];
-        for (int i = 0; i < steps.Count; i++)
+        _plan = new IBootStep[steps.Count];
+        int previous = int.MinValue;
+        for (int i = 0; i < _plan.Length; i++)
         {
-            IBootStep step = steps[i] ?? throw new ArgumentNullException(nameof(steps), $"Boot step at index {i} is null.");
-            if (i > 0 && step.Number <= _steps[i - 1].Number)
+            IBootStep step = steps[i] ?? throw new ArgumentNullException(nameof(steps), $"Boot plan entry {i} is null.");
+            if (step.Number <= previous)
             {
-                throw new ArgumentException(
-                    $"Boot step numbers must be strictly ascending: {_steps[i - 1].Number} is followed by {step.Number}.",
-                    nameof(steps));
+                throw new ArgumentException($"Boot step {step.Number} ({step.Name}) does not come after step {previous}.", nameof(steps));
             }
 
-            _steps[i] = step;
+            previous = step.Number;
+            _plan[i] = step;
         }
     }
 
-    /// <summary>The steps in run order.</summary>
-    public IReadOnlyList<IBootStep> Steps => _steps;
+    /// <summary>The plan in run order.</summary>
+    public IReadOnlyList<IBootStep> Steps => _plan;
 
-    /// <summary>Runs every step in order until one throws.</summary>
+    /// <summary>
+    /// One-line text of a fault for the log and the error screen: the exception's type name, then for a
+    /// <see cref="SimBuildException"/> its <see cref="SimBuildException.Code"/> as <c>(code Name)</c>, then the message.
+    /// </summary>
+    /// <param name="ex">The fault.</param>
+    /// <returns>For example <c>SimBuildException (code ReservedPhase): bad bind</c> or <c>InvalidOperationException: …</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="ex"/> is null.</exception>
+    public static string Summarize(Exception ex)
+    {
+        ArgumentNullException.ThrowIfNull(ex);
+        var text = new StringBuilder(ex.GetType().Name);
+        if (ex is SimBuildException composition)
+        {
+            text.Append(" (code ").Append(composition.Code).Append(')');
+        }
+
+        return text.Append(": ").Append(ex.Message).ToString();
+    }
+
+    /// <summary>
+    /// Reports a failure that happened before any step could run (building or checking the plan) the same way a failing
+    /// step is reported: as step 0 <c>plan</c>, line <c>BOOT plan FAIL …</c>, boot error screen, one boot-fault call.
+    /// </summary>
     /// <param name="ctx">The boot context.</param>
-    /// <returns>True when every step was ok or NOT WIRED; false when a step failed (the fault has been reported).</returns>
+    /// <param name="ex">What went wrong.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static void FailBeforeFirstStep(BootContext ctx, Exception ex)
+    {
+        ArgumentNullException.ThrowIfNull(ctx);
+        ArgumentNullException.ThrowIfNull(ex);
+        Abort(ctx, new BootFailure(0, "plan", BootFailureKind.Boot, ex), $"BOOT plan FAIL {Summarize(ex)}");
+    }
+
+    /// <summary>Runs the steps in order until one throws.</summary>
+    /// <param name="ctx">The boot context.</param>
+    /// <returns>True when every step was ok or NOT WIRED; false when one failed (the failure has been reported).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="ctx"/> is null.</exception>
-    /// <exception cref="InvalidOperationException">Called from a thread other than <see cref="BootContext.BootThreadId"/>, or
-    /// on a context that already ran a failed boot.</exception>
+    /// <exception cref="InvalidOperationException">Not on <see cref="BootContext.BootThreadId"/>, or the context already
+    /// holds a failed boot.</exception>
     public bool Run(BootContext ctx)
     {
         ArgumentNullException.ThrowIfNull(ctx);
-        int thread = System.Environment.CurrentManagedThreadId;
-        if (thread != ctx.BootThreadId)
+        int caller = System.Environment.CurrentManagedThreadId;
+        if (caller != ctx.BootThreadId)
         {
             throw new InvalidOperationException(
-                $"Boot ran on managed thread {thread}, not the boot thread {ctx.BootThreadId} (ADR-0003 section 3).");
+                $"Boot must run on the boot thread {ctx.BootThreadId}; it was called on managed thread {caller} (ADR-0003 section 3).");
         }
 
         if (ctx.Failure is not null)
         {
-            throw new InvalidOperationException("This boot context already holds a failed boot; create a new one.");
+            throw new InvalidOperationException("This boot context belongs to a boot that already failed; use a new context.");
         }
 
-        foreach (IBootStep step in _steps)
+        for (int i = 0; i < _plan.Length; i++)
         {
-            BootStepResult result;
+            IBootStep step = _plan[i];
+            BootStepResult outcome = default;
+            Exception? thrown = null;
             try
             {
-                result = step.Run(ctx);
+                outcome = step.Run(ctx);
             }
             catch (Exception ex)
             {
-                Fail(ctx, step, ex);
+                thrown = ex;
+            }
+
+            if (thrown is not null)
+            {
+                Abort(ctx, new BootFailure(step.Number, step.Name, step.FailureKind, thrown), $"BOOT {step.Number} {step.Name} FAIL {Summarize(thrown)}");
                 return false;
             }
 
-            ctx.Log.Write(result.IsNotWired
-                ? $"BOOT {step.Number} {step.Name} NOT WIRED ({result.UnwiredOwner})"
-                : $"BOOT {step.Number} {step.Name} ok");
+            string status = outcome.IsNotWired ? $"NOT WIRED ({outcome.UnwiredOwner})" : "ok";
+            ctx.Log.Write($"BOOT {step.Number} {step.Name} {status}");
         }
 
         return true;
     }
 
-    // Record the kind first, then tell the display, then the one boot-fault entry: OnFault shows the matching screen.
-    private static void Fail(BootContext ctx, IBootStep step, Exception ex)
+    // Order matters: the failure is recorded and logged, the display is told which screen to show (a throwing display is
+    // logged, never allowed to swallow the fault), and only then does the single boot-fault entry deliver the message.
+    private static void Abort(BootContext ctx, BootFailure failure, string failLine)
     {
-        var failure = new BootFailure(step.Number, step.Name, step.FailureKind, ex);
         ctx.Failure = failure;
-        ctx.Log.Write($"BOOT {step.Number} {step.Name} FAIL {BootFaultText.Describe(ex)}");
+        ctx.Log.Write(failLine);
         try
         {
             ctx.Display?.PrepareBootFailure(failure);
         }
         catch (Exception displayEx)
         {
-            ctx.Log.Write($"BOOT {step.Number} {step.Name}: error display threw {BootFaultText.Describe(displayEx)}");
+            ctx.Log.Write($"BOOT {failure.Step} {failure.Name}: error display threw {Summarize(displayEx)}");
         }
 
-        ctx.FaultBoot(ex);
+        ctx.FaultBoot(failure.Exception);
     }
 }

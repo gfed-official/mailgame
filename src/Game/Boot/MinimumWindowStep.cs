@@ -12,8 +12,8 @@ namespace PerformativeMail.Game.Boot;
 /// </summary>
 /// <param name="window">The root window.</param>
 /// <param name="isDebugBuild"><c>OS.IsDebugBuild()</c>, passed in so the step stays engine-free.</param>
-/// <example><code>IBootStep step = new WindowGuardStep(new GodotBootWindow(GetWindow()), OS.IsDebugBuild());</code></example>
-public sealed class WindowGuardStep(IBootWindow window, bool isDebugBuild) : IBootStep
+/// <example><code>IBootStep step = new MinimumWindowStep(new GodotBootWindow(GetWindow()), OS.IsDebugBuild());</code></example>
+public sealed class MinimumWindowStep(IBootWindow window, bool isDebugBuild) : IBootStep
 {
     /// <summary>The minimum window size (ADR-0019 section 7).</summary>
     public static readonly (int Width, int Height) MinWindowSize = (1280, 720);

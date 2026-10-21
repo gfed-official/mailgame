@@ -37,7 +37,7 @@ public abstract class ErrorScreenCaptureSmoke : SmokeScenario
     {
         GameLoop loop = ctx.Loop;
         loop.GetWindow().Size = new Vector2I(1280, 720);
-        BootContext boot = loop.CreateBootContext();
+        BootContext boot = loop.BeginBootForSmoke();
         Expect(ctx, "boot with the injected failure returns", new BootSequence(Plan(loop)).Run(boot), false);
         Expect(ctx, "loop faulted", loop.IsFaulted, true);
     }
@@ -57,16 +57,17 @@ public abstract class ErrorScreenCaptureSmoke : SmokeScenario
             Expect(ctx, "window size at capture (1280x720 minimum)", size, new Vector2I(1280, 720));
         }
 
-        BootErrorScreen? bootScreen = ctx.Loop.ErrorScreen;
-        BootErrorScreen? contentScreen = BootSmoke.ContentScreen(ctx.Loop);
+        BootErrorScreen? bootScreen = ctx.Loop.BootErrorPanel;
+        BootErrorScreen? contentScreen = ctx.Loop.ContentErrorPanel;
         BootErrorScreen? shown = IsContent ? contentScreen : bootScreen;
         Expect(ctx, $"Main/Screens/BootError visible after {Frames} frames", bootScreen?.Visible ?? false, !IsContent);
         Expect(ctx, $"Main/Screens/ContentError visible after {Frames} frames", contentScreen?.Visible ?? false, IsContent);
-        Expect(ctx, "fault sink calls", bootScreen?.FaultCount ?? -1, 1);
+        Expect(ctx, "fault sink calls", bootScreen?.FaultsReceived ?? -1, 1);
         Expect(ctx, "message shown", shown?.MessageText.Contains(ExpectedMessage, StringComparison.Ordinal) ?? false, true);
-        Expect(ctx, "Quit visible", shown?.QuitVisible ?? false, true);
-        Expect(ctx, "Quit has keyboard/pad focus (stock ui_* focus)", shown?.QuitHasFocus ?? false, true);
-        ctx.Pass($"screen text: {shown?.TitleText} | {shown?.DetailText} | {shown?.MessageText}");
+        Expect(ctx, "sink state", bootScreen?.Showing ?? BootErrorScreen.Shown.Nothing, IsContent ? BootErrorScreen.Shown.ContentStep : BootErrorScreen.Shown.BootStep);
+        Expect(ctx, "Quit visible", shown?.QuitShown ?? false, true);
+        Expect(ctx, "Quit has keyboard/pad focus (stock ui_* focus)", shown?.QuitFocused ?? false, true);
+        ctx.Pass($"screen text: {shown?.HeadingText} | {shown?.WhereText} | {shown?.MessageText}");
         return SmokeStatus.Done;
     }
 }
@@ -79,10 +80,10 @@ public sealed class BootErrorScreenCaptureSmoke : ErrorScreenCaptureSmoke
     protected override bool IsContent => false;
 
     /// <inheritdoc />
-    protected override string ExpectedMessage => $"{nameof(SimBuildException)} (code {SimBuildErrorCode.ReservedPhase}): {BootSmoke.SimBuildMessage}";
+    protected override string ExpectedMessage => $"{nameof(SimBuildException)} (code {SimBuildErrorCode.ReservedPhase}): {BootSmokeFaults.ReservedPhaseMessage}";
 
     /// <inheritdoc />
-    protected override IReadOnlyList<IBootStep> Plan(GameLoop loop) => BootSmoke.PlanWithSimBuildFailure(loop);
+    protected override IReadOnlyList<IBootStep> Plan(GameLoop loop) => BootSmokeFaults.WithFailingSimStep(loop);
 }
 
 /// <summary>Captures <c>Main/Screens/ContentError</c>: the content source throws a findings list (injection (c)).</summary>
@@ -93,8 +94,8 @@ public sealed class ContentErrorScreenCaptureSmoke : ErrorScreenCaptureSmoke
     protected override bool IsContent => true;
 
     /// <inheritdoc />
-    protected override string ExpectedMessage => $"{nameof(InvalidOperationException)}: {ThrowingContentSource.Message}";
+    protected override string ExpectedMessage => $"{nameof(InvalidOperationException)}: {FaultingContentSource.Message}";
 
     /// <inheritdoc />
-    protected override IReadOnlyList<IBootStep> Plan(GameLoop loop) => loop.CreateBootPlan(content: new ThrowingContentSource());
+    protected override IReadOnlyList<IBootStep> Plan(GameLoop loop) => loop.BuildBootPlan(content: new FaultingContentSource());
 }

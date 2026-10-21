@@ -11,22 +11,21 @@ namespace PerformativeMail.Game.Smoke;
 /// Story godot-host-shell/004 AC3 and AC5 (ADR-0019 sections 1 and 3, ADR-0003 Risks): a failing boot step shows the
 /// <c>Main/Screens</c> error screen and stops. Each pass installs a fresh <see cref="FrameLoopRig"/> sequence with
 /// <c>InstallForSmoke</c> (which clears the fault latch), runs <see cref="BootSequence"/> itself on a context from
-/// <see cref="GameLoop.CreateBootContext"/>, asserts the latch at once (<c>IsFaulted</c>, <c>StartPending == false</c>,
+/// <see cref="GameLoop.BeginBootForSmoke"/>, asserts the latch at once (<c>IsFaulted</c>, <c>StartPending == false</c>,
 /// one <c>[GameLoop] FAULT</c> line, later steps not run) and, one frame later (the sink may be delivered deferred), that
 /// <c>BootErrorScreen</c> — the single fault sink — was called once and shows the right screen with the exception type,
 /// message and (b) code name, Quit visible, and <c>RunFrame</c> never called. Passes: (a) a throwing step-4 contributor;
 /// (b) step 6 throwing <c>SimBuildException(ReservedPhase)</c>; (c) a throwing content source (<c>ContentError</c> shows,
 /// <c>BootError</c> does not, no <c>BOOT 3</c> line); (d) a clean boot followed by a frame fault shows the same
 /// <c>BootError</c> screen with the session-fault title; (e) the production entry on a second <c>Main.tscn</c> instance
-/// (<c>AutoBoot = false</c>): its debug-only plan builder throws, so <c>RequestBoot()</c> returns false through
-/// <c>FaultBoot</c>, the instance's <c>BootError</c> shows step 0 (plan), and a second call is refused with the same false.
+/// (<c>AutoBoot = false</c>): the debug-only <see cref="GameLoop.InstallBootStepsForSmoke"/> gives it a plan the sequence
+/// rejects (numbers out of order), so <c>RequestBoot()</c> returns false through <c>FaultBoot</c>, the instance's
+/// <c>BootError</c> shows step 0 (plan), and a second call is refused with the same false.
 /// </summary>
 [SmokeScenario("boot-failure")]
 public sealed class BootFailureSmoke : SmokeScenario
 {
     private const int FramesAfterFault = 3;
-
-    private const string PlanFailure = "injected plan builder failure (smoke)";
 
     private static readonly string[] _passes = ["a-contributor", "b-sim-build", "c-content", "d-frame-fault", "e-request-boot"];
 
@@ -42,8 +41,8 @@ public sealed class BootFailureSmoke : SmokeScenario
     /// <inheritdoc />
     public override void Start(SmokeContext ctx)
     {
-        BootErrorScreen? screen = ctx.Loop.ErrorScreen;
-        if (screen is null || BootSmoke.ContentScreen(ctx.Loop) is null)
+        BootErrorScreen? screen = ctx.Loop.BootErrorPanel;
+        if (screen is null || ctx.Loop.ContentErrorPanel is null)
         {
             ctx.Fail("Main/Screens/BootError or ContentError is missing; nothing to show");
             ctx.Quit();
@@ -80,7 +79,7 @@ public sealed class BootFailureSmoke : SmokeScenario
         }
 
         Expect(ctx, $"{name}: run-frame calls over {FramesAfterFault} frames after the boot fault", _rig.Run.Calls, 0);
-        Expect(ctx, $"{name}: fault sink calls after {FramesAfterFault} frames", _screen.FaultCount - _faultsBefore, 1);
+        Expect(ctx, $"{name}: fault sink calls after {FramesAfterFault} frames", _screen.FaultsReceived - _faultsBefore, 1);
         Expect(ctx, $"{name}: loop still faulted", ctx.Loop.IsFaulted, true);
         return NextPass(ctx);
     }
@@ -108,9 +107,9 @@ public sealed class BootFailureSmoke : SmokeScenario
         loop.InstallForSmoke(_rig.Sequence, armStart: false);
         Expect(ctx, $"{name}: fresh install clears the fault latch", loop.IsFaulted, false);
         loop.LogObserver = _log.Observer;
-        _boot = loop.CreateBootContext();
+        _boot = loop.BeginBootForSmoke();
         Expect(ctx, $"{name}: FaultSink is the BootError screen before step 1", ReferenceEquals(loop.FaultSink, _screen), true);
-        _faultsBefore = _screen.FaultCount;
+        _faultsBefore = _screen.FaultsReceived;
         RunPass(ctx, name);
         return SmokeStatus.Running;
     }
@@ -120,10 +119,10 @@ public sealed class BootFailureSmoke : SmokeScenario
         GameLoop loop = ctx.Loop;
         IReadOnlyList<IBootStep> plan = name switch
         {
-            "a-contributor" => loop.CreateBootPlan(contributors: [new ThrowingBootContributor(BootPlan.InputStep)]),
-            "b-sim-build" => BootSmoke.PlanWithSimBuildFailure(loop),
-            "c-content" => loop.CreateBootPlan(content: new ThrowingContentSource()),
-            _ => loop.CreateBootPlan(),
+            "a-contributor" => loop.BuildBootPlan(contributors: [new FaultingContributor(BootPlan.InputStep)]),
+            "b-sim-build" => BootSmokeFaults.WithFailingSimStep(loop),
+            "c-content" => loop.BuildBootPlan(content: new FaultingContentSource()),
+            _ => loop.BuildBootPlan(),
         };
         bool frameFault = name == "d-frame-fault";
         if (frameFault)
@@ -152,29 +151,32 @@ public sealed class BootFailureSmoke : SmokeScenario
         second.SmokeArgsIgnored = true;
         ctx.Tree.Root.AddChild(second);
         _second = second;
-        _faultsBefore = _screen.FaultCount;
+        _faultsBefore = _screen.FaultsReceived;
         second.LogObserver = _log.Observer;
-        second.SetBootPlanForSmoke(_ => throw new InjectedFaultException(PlanFailure));
-        Expect(ctx, "e-request-boot: RequestBoot with a throwing plan builder returns", second.RequestBoot(), false);
+        // A plan the sequence rejects (step numbers out of order): RequestBoot must report it like a failing step.
+        second.InstallBootStepsForSmoke([new FaultingStep(2, "two", new InjectedFaultException("never runs")), new FaultingStep(1, "one", new InjectedFaultException("never runs"))]);
+        Expect(ctx, "e-request-boot: RequestBoot with a rejected plan returns", second.RequestBoot(), false);
         Expect(ctx, "e-request-boot: IsFaulted", second.IsFaulted, true);
         Expect(ctx, "e-request-boot: StartPending", second.StartPending, false);
         Expect(ctx, "e-request-boot: one [GameLoop] FAULT line", _log.Count("[GameLoop] FAULT "), 1);
-        Expect(ctx, "e-request-boot: BOOT plan FAIL logged", BootSmoke.Has(second.LastBootLog?.Lines ?? [], $"BOOT plan FAIL {nameof(InjectedFaultException)}: {PlanFailure}"), true);
+        Expect(ctx, "e-request-boot: BOOT plan FAIL logged", BootSmokeFaults.Logged(second.BootLines, $"BOOT plan FAIL {nameof(ArgumentException)}: "), true);
         Expect(ctx, "e-request-boot: second RequestBoot after the failed boot returns the first result", second.RequestBoot(), false);
         Expect(ctx, "e-request-boot: second call refused ('[GameLoop] boot already ran')", _log.Count("[GameLoop] boot already ran"), 1);
-        Expect(ctx, "e-request-boot: RequestBoot call count", second.BootRequestCount, 2);
+        Expect(ctx, "e-request-boot: RequestBoot call count", second.BootAttempts, 2);
     }
 
     private SmokeStatus PollRequestBoot(SmokeContext ctx)
     {
         GameLoop second = _second!;
-        BootErrorScreen? screen = second.ErrorScreen;
+        BootErrorScreen? screen = second.BootErrorPanel;
         Expect(ctx, "e-request-boot: instance BootError visible one frame later", screen?.Visible ?? false, true);
-        Expect(ctx, "e-request-boot: instance fault sink calls", screen?.FaultCount ?? -1, 1);
-        Expect(ctx, "e-request-boot: title", screen?.TitleText ?? string.Empty, BootErrorScreen.BootFailedTitle);
-        Expect(ctx, "e-request-boot: detail names the plan (step 0)", screen?.DetailText ?? string.Empty, "Boot step 0 (plan) failed.");
-        Expect(ctx, "e-request-boot: label shows type and message", screen?.MessageText ?? string.Empty, $"{nameof(InjectedFaultException)}: {PlanFailure}");
-        Expect(ctx, "e-request-boot: the smoke host's own screen not called (the instance has its own)", _screen.FaultCount - _faultsBefore, 0);
+        Expect(ctx, "e-request-boot: instance fault sink calls", screen?.FaultsReceived ?? -1, 1);
+        Expect(ctx, "e-request-boot: title", screen?.HeadingText ?? string.Empty, BootErrorScreen.BootHeading);
+        Expect(ctx, "e-request-boot: detail names the plan (step 0)", screen?.WhereText ?? string.Empty, "Failed at boot step 0 (plan).");
+        Expect(ctx, "e-request-boot: label shows the plan rejection (type and message)", (screen?.MessageText ?? string.Empty).StartsWith($"{nameof(ArgumentException)}: Boot step 1 (one) does not come after step 2", StringComparison.Ordinal), true);
+        Expect(ctx, "e-request-boot: sink state", screen?.Showing ?? BootErrorScreen.Shown.Nothing, BootErrorScreen.Shown.BootStep);
+        Expect(ctx, "e-request-boot: Quit visible and focused on the production RequestBoot path", (screen?.QuitShown ?? false) && (screen?.QuitFocused ?? false), true);
+        Expect(ctx, "e-request-boot: the smoke host's own screen not called (the instance has its own)", _screen.FaultsReceived - _faultsBefore, 0);
         second.LogObserver = null;
         ctx.Tree.Root.RemoveChild(second);
         second.QueueFree();
@@ -198,12 +200,12 @@ public sealed class BootFailureSmoke : SmokeScenario
         Expect(ctx, $"{name}: [GameLoop] FAULT lines", _log.Count("[GameLoop] FAULT "), 1);
         Expect(ctx, $"{name}: FAULT line carries the full exception type and stack", _log.Any("[GameLoop] FAULT ", ExpectedType(name).FullName!, " at "), true);
         Expect(ctx, $"{name}: failure recorded in BootContext", $"{_boot.Failure?.Step},{_boot.Failure?.Name},{_boot.Failure?.Kind}", $"{step},{stepName},{kind}");
-        Expect(ctx, $"{name}: BOOT {step} {stepName} FAIL line", BootSmoke.Has(lines, $"BOOT {step} {stepName} FAIL {ExpectedType(name).Name}"), true);
-        Expect(ctx, $"{name}: no line for a later step ({next.Trim()})", BootSmoke.Has(lines, next), false);
-        Expect(ctx, $"{name}: steps before {step} ran (ok or NOT WIRED)", BootSmoke.StatusLines(lines).Count(s => s.Status is "ok" or "NOT WIRED"), step - 1);
+        Expect(ctx, $"{name}: BOOT {step} {stepName} FAIL line", BootSmokeFaults.Logged(lines, $"BOOT {step} {stepName} FAIL {ExpectedType(name).Name}"), true);
+        Expect(ctx, $"{name}: no line for a later step ({next.Trim()})", BootSmokeFaults.Logged(lines, next), false);
+        Expect(ctx, $"{name}: steps before {step} ran (ok or NOT WIRED)", BootSmokeFaults.StatusLines(lines).Count(s => s.Status is "ok" or "NOT WIRED"), step - 1);
         if (name == "b-sim-build")
         {
-            Expect(ctx, $"{name}: FAIL line names the SimBuildException code", BootSmoke.Has(lines, $"BOOT 6 sim FAIL SimBuildException (code {SimBuildErrorCode.ReservedPhase})"), true);
+            Expect(ctx, $"{name}: FAIL line names the SimBuildException code", BootSmokeFaults.Logged(lines, $"BOOT 6 sim FAIL SimBuildException (code {SimBuildErrorCode.ReservedPhase})"), true);
         }
 
         if (name == "c-content")
@@ -215,21 +217,22 @@ public sealed class BootFailureSmoke : SmokeScenario
     // One frame later: the single sink was called once and shows the screen for the failing step's kind.
     private void CheckScreen(SmokeContext ctx, string name)
     {
-        BootErrorScreen content = BootSmoke.ContentScreen(ctx.Loop)!;
+        BootErrorScreen content = ctx.Loop.ContentErrorPanel!;
         bool isContent = name == "c-content";
         BootErrorScreen shown = isContent ? content : _screen;
-        Expect(ctx, $"{name}: fault sink (BootErrorScreen) calls", _screen.FaultCount - _faultsBefore, 1);
-        Expect(ctx, $"{name}: ContentError screen calls (BootErrorScreen is the only sink)", content.FaultCount, 0);
+        Expect(ctx, $"{name}: fault sink (BootErrorScreen) calls", _screen.FaultsReceived - _faultsBefore, 1);
+        Expect(ctx, $"{name}: ContentError screen calls (BootErrorScreen is the only sink)", content.FaultsReceived, 0);
         Expect(ctx, $"{name}: Main/Screens/BootError visible", _screen.Visible, !isContent);
         Expect(ctx, $"{name}: Main/Screens/ContentError visible", content.Visible, isContent);
-        Expect(ctx, $"{name}: title", shown.TitleText, isContent ? BootErrorScreen.ContentFailedTitle : BootErrorScreen.BootFailedTitle);
+        Expect(ctx, $"{name}: title", shown.HeadingText, isContent ? BootErrorScreen.ContentHeading : BootErrorScreen.BootHeading);
+        Expect(ctx, $"{name}: sink state", _screen.Showing, isContent ? BootErrorScreen.Shown.ContentStep : BootErrorScreen.Shown.BootStep);
         string message = shown.MessageText;
         Type type = ExpectedType(name);
         string expected = name switch
         {
-            "a-contributor" => ThrowingBootContributor.Message,
-            "b-sim-build" => BootSmoke.SimBuildMessage,
-            _ => ThrowingContentSource.Message,
+            "a-contributor" => FaultingContributor.Message,
+            "b-sim-build" => BootSmokeFaults.ReservedPhaseMessage,
+            _ => FaultingContentSource.Message,
         };
         Expect(ctx, $"{name}: label shows the exception type {type.Name}", message.StartsWith(type.Name, StringComparison.Ordinal), true);
         Expect(ctx, $"{name}: label shows the exception message", message.Contains(expected, StringComparison.Ordinal), true);
@@ -238,9 +241,9 @@ public sealed class BootFailureSmoke : SmokeScenario
             Expect(ctx, $"{name}: label shows the SimBuildException code name", message.Contains($"code {SimBuildErrorCode.ReservedPhase}", StringComparison.Ordinal), true);
         }
 
-        Expect(ctx, $"{name}: detail names the failing step", shown.DetailText.StartsWith($"Boot step {_boot.Failure?.Step} ", StringComparison.Ordinal), true);
-        Expect(ctx, $"{name}: Quit visible", shown.QuitVisible, true);
-        ctx.Pass($"{name}: screen text: {shown.TitleText} | {shown.DetailText} | {message}");
+        Expect(ctx, $"{name}: detail names the failing step", shown.WhereText.StartsWith($"Failed at boot step {_boot.Failure?.Step} ", StringComparison.Ordinal), true);
+        Expect(ctx, $"{name}: Quit visible", shown.QuitShown, true);
+        ctx.Pass($"{name}: screen text: {shown.HeadingText} | {shown.WhereText} | {message}");
     }
 
     private SmokeStatus PollFrameFault(SmokeContext ctx)
@@ -258,15 +261,16 @@ public sealed class BootFailureSmoke : SmokeScenario
         }
 
         // The frame fault is delivered synchronously on the main thread; the screen is checked on the next poll.
-        if (_screen.FaultCount - _faultsBefore == 0 && _frames < 10)
+        if (_screen.FaultsReceived - _faultsBefore == 0 && _frames < 10)
         {
             return SmokeStatus.Running;
         }
 
-        Expect(ctx, "d-frame-fault: fault sink calls", _screen.FaultCount - _faultsBefore, 1);
+        Expect(ctx, "d-frame-fault: fault sink calls", _screen.FaultsReceived - _faultsBefore, 1);
         Expect(ctx, "d-frame-fault: BootError visible after a frame fault", _screen.Visible, true);
-        Expect(ctx, "d-frame-fault: ContentError hidden", BootSmoke.ContentScreen(loop)!.Visible, false);
-        Expect(ctx, "d-frame-fault: session-fault title", _screen.TitleText, BootErrorScreen.SessionFaultTitle);
+        Expect(ctx, "d-frame-fault: ContentError hidden", loop.ContentErrorPanel!.Visible, false);
+        Expect(ctx, "d-frame-fault: session-fault title", _screen.HeadingText, BootErrorScreen.SessionHeading);
+        Expect(ctx, "d-frame-fault: sink state", _screen.Showing, BootErrorScreen.Shown.SessionFault);
         Expect(ctx, "d-frame-fault: label shows the frame exception", _screen.MessageText.StartsWith(nameof(InjectedFaultException), StringComparison.Ordinal), true);
         Expect(ctx, "d-frame-fault: run-frame calls up to the fault", _rig.Run.Calls, 2);
         return NextPass(ctx);

@@ -6,8 +6,8 @@ namespace PerformativeMail.Game.Boot;
 /// become ticks).
 /// </summary>
 /// <param name="armStart">The arm callback, <c>GameLoop.ArmStart</c>.</param>
-/// <example><code>IBootStep start = new ArmStartStep(loop.ArmStart);</code></example>
-public sealed class ArmStartStep(Action armStart) : IBootStep
+/// <example><code>IBootStep start = new StartGateStep(loop.ArmStart);</code></example>
+public sealed class StartGateStep(Action armStart) : IBootStep
 {
     private readonly Action _armStart = armStart ?? throw new ArgumentNullException(nameof(armStart));
 
