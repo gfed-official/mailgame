@@ -45,7 +45,7 @@
 *Derived from the governing ADR(s) Decision / Implementation Guidelines:*
 
 - Needs `/ux-design` for the inventory panel (GDD UX Flag; OQ14 sets the panel dimensions) — stories should then cite `design/ux/inventory-panel.md`.
-- The client mirror of own containers (staged records applied at the seal) is the minimal M-1a form; the full optimistic `ContainerMirror`/`PendingQueue` is M0 (Client.Core).
+- The client mirror of own containers and the open Intake (the M-1a external, story 011; staged records applied at the seal) is the minimal M-1a form; the full optimistic `ContainerMirror`/`PendingQueue` is M0 (Client.Core).
 
 ---
 

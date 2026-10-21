@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–006, 009 and 012 are Complete (006 merged in PR #16, 009 in PR #20; 012 in PR #21, not merged yet). Next: run `/story-readiness` on `story-013-worlditem-expiry-cap.md` (013 calls 012's `ReturnToIntake`), then implement it; then 015. Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–006, 009 and 012 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21). Next: run `/story-readiness` on `story-013-worlditem-expiry-cap.md` (013 calls 012's `ReturnToIntake`), then implement it; then 015. Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
