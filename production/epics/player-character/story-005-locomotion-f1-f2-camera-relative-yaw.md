@@ -55,7 +55,7 @@
 - `Loco` values: Grounded / Airborne / Swimming / Mounted. Sprinting is a `Flags` bit, replicated as its own bit (GDD "Sprinting (input state, not speed)"); sprint requires move input and `Loco == Grounded` to *start*, persists while Airborne, clears on Swimming/Mounted/Panel/Dead or when move input ends.
 - Camera-relative input uses `TrigQ15.Sin/Cos` (sim-core story 005) and `Atan2Bam` (Story 003); `vTarget = MulDiv(w, vRef, 32767²)`. A zero input vector keeps `BodyYaw` unchanged (never calls `Atan2Bam(0, 0)` for turning).
 - **Yaw round-trip tolerance (added 2026-10-16, from Story 003 AC-4 revision):** `Sin`/`Cos` ignore the low 4 BAM bits (ADR-0006 §6), so any test that builds a move vector from an angle θ and checks the resulting `BodyYaw`/target must allow 25 BAM vs raw θ (or ≤ 10 BAM vs `θ & ~15`); never assert exact equality with θ through a Q15 round trip. See `production/session-logs/decision-log.md` (2026-10-17T01:59:27Z orchestration entry).
-- `CarrierContextFlags` (Panel, Dead, Mounted, Build) is owned by the solver input contract (ADR-0013 §7): Story 002 created it, this story appended Dead/Mounted/Build. Story 013 imports it and maps its own `CarrierStatus` onto it; it does not define the bits. *(Ownership wording clarified 2026-10-20, docs only.)*
+- `CarrierContextFlags` (Panel, Dead, Mounted, Build) is owned by the solver input contract (ADR-0013 §1 and Key Interfaces): Story 002 created it, this story appended Dead/Mounted/Build. Story 013 imports it and maps its own `CarrierStatus` onto it; it does not define the bits. *(Ownership wording clarified 2026-10-20, docs only.)*
 
 ---
 
