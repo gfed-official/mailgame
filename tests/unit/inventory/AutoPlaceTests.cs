@@ -1342,33 +1342,74 @@ public class AutoPlaceTests
         Assert.Equal(25, sumArea);
         Assert.Equal(6_684, anchorsTimesArea);
         Assert.Equal(D3IntakeBound, ((long)cells * sumArea) + cells); // GDD D3: C x sum(a) + n x a, with n x a <= C
-        Assert.True(D3IntakeBound < PerfGateCellProbes);
 
+        // Act: the empty Intake (hand count: each kind fits its first anchor (0,0) unrotated, so letter 1 + small 2 + medium 4 +
+        // large 8 = 15 cell probes over 4 anchors; per-anchor counting would give 4)
+        (long emptySweep, long emptyAnchors) = SweepV1Kinds(new InvAutoPlaceRig());
+
+        // Act: the full Intake (no fit: every anchor of all six oriented shapes, 1,711 anchors, 6,684 cells - the hand count in
+        // ProbeCounters_FullIntake_EveryV1OrientedShapeScannedToNoFit_IsExactly6684CellProbes_WithinTheD3BoundAndTheGate)
+        var full = new InvAutoPlaceRig();
+        FillIntakeWithLarges(full);
+        (long fullSweep, long fullAnchors) = SweepV1Kinds(full);
+
+        // Act: six random occupancies; each sweep's exact cost is (anchors visited) x area per shape, the anchors read cell by cell
+        // from the occupancy grid (CountScanCells), independently of AutoPlace's row masks
         uint state = 0x2545_F491u;
-        var sweeps = new List<long>();
+        var sweeps = new List<(long Measured, long Anchors)>();
         for (int occupancy = 0; occupancy < 6; occupancy++)
         {
             var rig = new InvAutoPlaceRig();
             FillRandomly(rig, rig.Intake, attempts: 8 + (occupancy * 16), ref state);
-
-            // Act: one sweep - a pure NoMerge plan of every v1 kind into the Intake
-            long p = rig.Counters[CounterId.InventoryPlacementProbes];
-            foreach (string kind in _v1MailKinds)
-            {
-                PlacementSubject subject = rig.Mail(kind, Address2);
-                var plan = new InvPlan();
-                _ = rig.Inventory.AutoPlace.Plan(ref plan, in subject, 1, AutoPlace.NoSource, new[] { rig.Intake }, MergePolicy.NoMerge, PlaceOrder.PassFirst, out _);
-            }
-
-            sweeps.Add(rig.Counters[CounterId.InventoryPlacementProbes] - p);
+            sweeps.Add(SweepV1Kinds(rig));
         }
 
-        // Assert: every sweep is positive, within the per-cell maximum (6,684) and under the 8,500 gate
-        Assert.All(sweeps, total =>
+        // Assert: the hand-counted sweeps, each different from its anchor count (so the counter is per cell, not per anchor)
+        Assert.Equal((15, 4), (emptySweep, emptyAnchors));
+        Assert.Equal((anchorsTimesArea, 1_711), (fullSweep, fullAnchors));
+
+        // Assert: every random sweep visits at least one area > 1 anchor (the medium scans at least its first anchor), so it costs
+        // strictly more cells than anchors; the full Intake is the measured maximum, within the D3 bound and under the 8,500 gate
+        Assert.All(sweeps, s =>
         {
-            Assert.InRange(total, 1, anchorsTimesArea);
-            Assert.True(total < PerfGateCellProbes, $"{total} >= H-PERF-6 gate {PerfGateCellProbes}");
+            Assert.True(s.Measured > s.Anchors, $"{s.Measured} cell probes for {s.Anchors} anchors");
+            Assert.InRange(s.Measured, emptySweep, fullSweep);
         });
+        Assert.True(fullSweep <= D3IntakeBound, $"{fullSweep} > D3 bound {D3IntakeBound}");
+        Assert.True(fullSweep < PerfGateCellProbes, $"{fullSweep} >= H-PERF-6 gate {PerfGateCellProbes}");
+    }
+
+    [Fact]
+    [Trait("Id", "TR-inventory-007")]
+    public void ProbeCounters_ASmallThatFitsOnlyRotated_CountsPassUsFailedAnchorsThenPassRUpToTheHit_TwoCellsEach()
+    {
+        // Arrange: a 4 x 2 grid with letters at (1,0), (0,1), (2,1) and (3,1) - every column holds one, so the 1 x 2 Small does not
+        // fit upright; the free cells (0,0), (2,0), (3,0) leave one 2 x 1 hole at (2,0)
+        //   y=0  . L . .
+        //   y=1  L . L L
+        var rig = new InvAutoPlaceRig();
+        ushort grid = rig.CreateGrid(4, 2);
+        _ = rig.PlaceMail(grid, "letter", 1, 0, Address9, new uint[] { 1 });
+        _ = rig.PlaceMail(grid, "letter", 0, 1, Address9, new uint[] { 2 });
+        _ = rig.PlaceMail(grid, "letter", 2, 1, Address9, new uint[] { 3 });
+        _ = rig.PlaceMail(grid, "letter", 3, 1, Address9, new uint[] { 4 });
+        ushort small = rig.DetachedMail("small", Address2, new uint[] { 900 });
+        long p0 = rig.Counters[CounterId.InventoryPlacementProbes];
+
+        // Act
+        ushort reason = rig.AutoPlace(small, grid);
+        long cellProbes = rig.Counters[CounterId.InventoryPlacementProbes] - p0;
+
+        // Assert: hand count -
+        //   PASS U 1 x 2 (fw 1, fh 2): anchor row y = 0 only, x = 0..3 all blocked (by (0,1), (1,0), (2,1), (3,1)): 4 anchors x 2 = 8
+        //   PASS R 2 x 1 (fw 2, fh 1): (0,0) blocked by (1,0); (1,0) blocked by (1,0); (2,0) free -> the hit: 3 anchors x 2 = 6
+        //   total 8 + 6 = 14 cell probes (per-anchor counting would give 4 + 3 = 7)
+        Assert.Equal(0, reason);
+        Assert.Equal(1, rig.LastPlan.NoFitCount); // PASS U's no-fit fact
+        Assert.Equal(grid, rig.Entries[small].ContainerSlot);
+        Assert.Equal((2, 0), (rig.Entries[small].X, rig.Entries[small].Y));
+        Assert.True(rig.Entries[small].Rotated);
+        Assert.Equal(14, cellProbes);
     }
 
     [Fact]
@@ -1849,6 +1890,69 @@ public class AutoPlaceTests
                 _ = rig.PlaceMail(container, kind, x, y, Address9, new[] { id++ }, rotated);
             }
         }
+    }
+
+    /// <summary>
+    /// One sweep: a pure NoMerge plan of every v1 kind into the Intake. Returns the measured cell probes and the anchors the sweep
+    /// should visit, and asserts the measured probes of each kind equal <see cref="CountScanCells"/>'s count for the occupancy.
+    /// </summary>
+    private static (long Measured, long Anchors) SweepV1Kinds(InvAutoPlaceRig rig)
+    {
+        long measured = 0;
+        long anchors = 0;
+        foreach (string kind in _v1MailKinds)
+        {
+            MailKindDef def = rig.Content.MailKinds[rig.KindIndex(kind)];
+            (long expectedCells, long expectedAnchors) = CountScanCells(rig, rig.Intake, def.GridW, def.GridH);
+            PlacementSubject subject = rig.Mail(kind, Address2);
+            var plan = new InvPlan();
+            long p = rig.Counters[CounterId.InventoryPlacementProbes];
+            _ = rig.Inventory.AutoPlace.Plan(ref plan, in subject, 1, AutoPlace.NoSource, new[] { rig.Intake }, MergePolicy.NoMerge, PlaceOrder.PassFirst, out _);
+            long kindProbes = rig.Counters[CounterId.InventoryPlacementProbes] - p;
+            Assert.True(expectedCells == kindProbes, $"{kind}: {kindProbes} cell probes, expected {expectedCells} ({expectedAnchors} anchors)");
+            measured += kindProbes;
+            anchors += expectedAnchors;
+        }
+
+        return (measured, anchors);
+    }
+
+    /// <summary>
+    /// The reference count of a PASS U then (when w != h and U found nothing) PASS R scan of a grid: anchors row-major up to and
+    /// including the first whose footprint is free, each footprint read cell by cell via <see cref="Occupancy.OwnerAt"/>; every
+    /// visited anchor costs its area in cells.
+    /// </summary>
+    private static (long Cells, long Anchors) CountScanCells(InvAutoPlaceRig rig, ushort container, int w, int h)
+    {
+        ContainerHeader header = rig.Header(container);
+        long cells = 0;
+        long anchors = 0;
+        foreach ((int fw, int fh) in w == h ? new[] { (w, h) } : new[] { (w, h), (h, w) })
+        {
+            for (int y = 0; y <= header.H - fh; y++)
+            {
+                for (int x = 0; x <= header.W - fw; x++)
+                {
+                    anchors++;
+                    cells += fw * fh;
+                    bool free = true;
+                    for (int cy = y; cy < y + fh && free; cy++)
+                    {
+                        for (int cx = x; cx < x + fw && free; cx++)
+                        {
+                            free = rig.Inventory.Occupancy.OwnerAt(container, header.W, cx, cy) == Occupancy.Free;
+                        }
+                    }
+
+                    if (free)
+                    {
+                        return (cells, anchors);
+                    }
+                }
+            }
+        }
+
+        return (cells, anchors);
     }
 
     private static uint Xorshift(ref uint state)
