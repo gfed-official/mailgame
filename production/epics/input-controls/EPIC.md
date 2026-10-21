@@ -153,7 +153,7 @@ R5 the Back ladder and F13 (stories 016: H-R5-1, H-R5-2, H-F13-1); R8 panel navi
 ### Unowned or newly owned cross-epic seams (no other epic's story file was edited)
 
 1. **`InputFrame` reconciliation** — `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md` defines `InputFrame` as PROVISIONAL and has no `IInputLatchWriter`; story **002** supplies ADR-0012 §4's shapes in the same file, adds the writer and overflow rule. If 023 is already Done when 002 starts, 002 migrates it.
-2. **`RouterStateInfo.IsPanel`** requested by `production/epics/player-character/story-020-carrierstep-clientlayer-integration.md` — delivered by story 002.
+2. **`RouterStateInfo.IsPanel`** requested by `production/epics/player-character/story-020-carrierstep-clientlayer-integration.md` — delivered by story 002. Since the owner ruling of 2026-10-21 (ADR-0012 erratum), story 020 reads Sim-side Panel from `InputFrameFlags.PanelOpen`, which story 008 sets.
 3. **`holdSettingMs` source** — Player Character 011/017 and Manual Delivery 001 take it as an argument; the Sim port `IClientInputSettings` (002) and its implementation (019) now exist.
 4. **Presented-snapshot tracking** — ADR-0014 §7 says it is "tracked by ADR-0016", but ADR-0016 defines no mechanism and HUD has no epic. Story 012 defines `IPresentedPromptSource` / `PresentedPromptLatch`; story 028 updates it after `Present`. *Needs an ADR-0016 / ADR-0018 note.*
 5. **Selected hotbar slot state** (digits 1–8 → `HotbarSlot1..8` immediates, wheel / D-pad → `HotbarStep` steps) — routed by 005 / 010 / 013, **consumed by no story**; Throwing's EPIC seam 1 (`IHotbarSelection`, `ISelectedEntryView`) and Player Character's `IHeldItemView` remain unowned.

@@ -51,7 +51,7 @@ Covers tools, materials, consumables, ammo. Mail kinds are a separate def becaus
   "maxStack": 20,                  // stacks only with same addressId
   "baseValue": 8,
   "weightClass": "light",
-  "carryByHand": true,             // false for cargo
+  "carryByHand": true,             // false for cargo; always spelled out — default false (CD10, 2026-10-21)
   "beltLanes": 1,                  // 1 or 2 (cargo)
   "beltLength": 0.5,               // metres of lane occupied
   "deadlineOffsetShifts": 0,       // added to spawnShift
@@ -100,7 +100,7 @@ Covers tools, materials, consumables, ammo. Mail kinds are a separate def becaus
 {
   "id": "mail_truck_cargo",
   "grid": [8, 10],
-  "view": "grid",                  // grid | manifest (auto if cells > 160)
+  "view": "grid",                  // grid | manifest | auto — required, no default (CD10, 2026-10-21); auto if cells > 160
   "beltAccess": "loading_face",    // none | any_side | loading_face | outfeed_only
   "allowedCategories?": ["mail"]   // omit = any
 }
