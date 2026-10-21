@@ -4,7 +4,7 @@ description: "Lightweight spec for small changes — tuning adjustments, minor m
 argument-hint: "[brief description of the change]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Write, Edit, AskUserQuestion, Bash(bash "*/.claude/skills/quick-design/../../hooks/yaml-helper.sh" resolve_config *)
-model: sonnet
+model: opus
 ---
 
 !`bash "${CLAUDE_SKILL_DIR}/../../hooks/yaml-helper.sh" resolve_config --keys automation,workflow`

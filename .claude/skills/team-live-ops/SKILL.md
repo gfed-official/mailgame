@@ -4,7 +4,7 @@ description: "Orchestrate the live-ops team — live-ops-designer, economy-desig
 argument-hint: "[season name or event description] [--review full|lean|solo]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion, TaskCreate, TaskGet, TaskList, TaskUpdate, Bash(bash "*/.claude/skills/team-live-ops/../../hooks/yaml-helper.sh" resolve_config *)
-model: sonnet
+model: opus
 ---
 # Team Live Ops
 
