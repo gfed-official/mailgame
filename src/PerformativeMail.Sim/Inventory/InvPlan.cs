@@ -70,8 +70,10 @@ internal struct InvBlockBuffer
 /// <c>[InlineArray]</c> buffers, so a handler's <c>Validate</c> writes only it and nothing is allocated. It holds:
 /// <list type="bullet">
 /// <item>the <b>touched set</b>: up to <see cref="MaxTouched"/> container table slots in first-touch order (the seal order), each with a
-/// "mutated" bit. <c>Validate</c> may <see cref="Touch"/> the containers it plans to change; the <see cref="InventoryMutator"/>
-/// primitives mark a container mutated when they really change it, and only mutated containers are sealed and bumped, so a no-op
+/// "mutated" bit. Contract: <c>Validate</c> <see cref="Touch"/>es <b>every</b> container <c>Commit</c> may change and refuses the op
+/// (<c>bad_request</c>, a handler-limit refusal) before any mutation when a touch returns -1, so <c>Commit</c> never changes a
+/// container the plan cannot seal. The <see cref="InventoryMutator"/> primitives then mark a touched container mutated when they
+/// really change it (<see cref="MarkMutated"/> asserts it was touched); only mutated containers are sealed and bumped, so a no-op
 /// (a move onto its own cells) seals nothing even though it was touched;</item>
 /// <item>the <b>acquired blocks</b>: one element per mail-ids arena block the commit acquires, each sized at the moment it is
 /// acquired (the input of <see cref="Ops.InvRequestCheck.CheckArenaReservation(in InvPlan)"/>);</item>
@@ -140,20 +142,21 @@ public struct InvPlan
     /// <returns>True when mutated.</returns>
     public readonly bool IsMutated(int index) => (_mutatedMask & (1 << index)) != 0;
 
-    /// <summary>Adds <paramref name="containerSlot"/> to the touched set (deduplicated) and returns its index.</summary>
+    /// <summary>
+    /// Adds <paramref name="containerSlot"/> to the touched set (deduplicated) and returns its index. <c>Validate</c> calls it for every
+    /// container the commit may change; -1 (the set already holds <see cref="MaxTouched"/> others) is a legitimate refusal the handler
+    /// turns into a reject before any mutation, so it does not assert.
+    /// </summary>
     /// <param name="containerSlot">The container's table slot.</param>
-    /// <returns>The index, or -1 when <see cref="MaxTouched"/> containers are already tracked (asserts under <c>INVENTORY_ASSERT</c>).</returns>
+    /// <returns>The index, or -1 when the set is full.</returns>
     public int Touch(ushort containerSlot)
     {
-        for (int i = 0; i < _touchedCount; i++)
+        int found = IndexOf(containerSlot);
+        if (found >= 0)
         {
-            if (_touched[i] == containerSlot)
-            {
-                return i;
-            }
+            return found;
         }
 
-        InventoryAssert.That(_touchedCount < MaxTouched, SimAssertCode.InventoryPlanTouchedOverflow);
         if (_touchedCount >= MaxTouched)
         {
             return -1;
@@ -163,11 +166,21 @@ public struct InvPlan
         return _touchedCount++;
     }
 
-    /// <summary>Touches <paramref name="containerSlot"/> and marks it changed (the mutator primitives call this).</summary>
+    /// <summary>
+    /// Marks a touched container changed (the mutator primitives call this). The container must already be in the touched set
+    /// (asserts <see cref="SimAssertCode.InventoryPlanContainerNotTouched"/> under <c>INVENTORY_ASSERT</c>); Release falls back to
+    /// <see cref="Touch"/>, so it is still sealed when the set has room.
+    /// </summary>
     /// <param name="containerSlot">The container's table slot.</param>
     public void MarkMutated(ushort containerSlot)
     {
-        int index = Touch(containerSlot);
+        int index = IndexOf(containerSlot);
+        InventoryAssert.That(index >= 0, SimAssertCode.InventoryPlanContainerNotTouched);
+        if (index < 0)
+        {
+            index = Touch(containerSlot);
+        }
+
         if (index >= 0)
         {
             _mutatedMask |= (byte)(1 << index);
@@ -204,12 +217,15 @@ public struct InvPlan
     /// <summary>
     /// Records one block the commit will acquire, sized at the moment it is acquired (a union with a none input and a <c>TryAppend</c> on a
     /// none handle still acquire one; a chained union needs <c>|a|+|b|</c> and then <c>|a|+|b|+|c|</c>). Beyond
-    /// <see cref="MaxAcquiredBlocks"/> the plan is marked overflowed and the reservation fails.
+    /// <see cref="MaxAcquiredBlocks"/> is a handler programming error, not genuine exhaustion: it asserts
+    /// <see cref="SimAssertCode.InventoryPlanCapacityExceeded"/> under <c>INVENTORY_ASSERT</c>; Release marks the plan overflowed and the
+    /// reservation step conservatively rejects with <c>capacity_exhausted</c> (85), never a false accept.
     /// </summary>
     /// <param name="units">The block's unit count.</param>
     /// <returns>False when the plan overflowed.</returns>
     public bool AddAcquiredBlock(int units)
     {
+        InventoryAssert.That(_blockCount < MaxAcquiredBlocks, SimAssertCode.InventoryPlanCapacityExceeded);
         if (_blockCount >= MaxAcquiredBlocks)
         {
             _blocksOverflowed = true;
@@ -218,5 +234,18 @@ public struct InvPlan
 
         _blocks[_blockCount++] = units;
         return true;
+    }
+
+    private readonly int IndexOf(ushort containerSlot)
+    {
+        for (int i = 0; i < _touchedCount; i++)
+        {
+            if (_touched[i] == containerSlot)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }

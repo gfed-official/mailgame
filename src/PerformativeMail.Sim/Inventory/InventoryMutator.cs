@@ -14,7 +14,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// <item>the primitives (<see cref="Place"/>, <see cref="Remove"/>, <see cref="Transfer"/>; <c>ConsumeUnit</c>, <c>DetachForThrow</c>,
 /// <c>Spawn</c>, <c>Destroy</c> arrive with their stories) apply the change at once and raise its <b>records</b> (<c>InvInserted</c> +
 /// mailId-run <c>Continuation</c> chunks, <c>InvRemoved</c>, <c>InvMoved</c>), each with the container's audience resolved now, and mark
-/// the container mutated in the plan. They never touch a version;</item>
+/// the (already touched, see <see cref="InvPlan"/>) container mutated in the plan. They never touch a version;</item>
 /// <item><see cref="End"/> then bumps every mutated container exactly once (+1, in first-touch order) and raises its one
 /// <c>InvVersion{c, from, to, actorId, cause}</c> seal, which therefore follows all of that container's records. A touched but
 /// unchanged container (a no-op) raises nothing and keeps its version.</item>
@@ -90,7 +90,8 @@ internal sealed class InventoryMutator
 
     /// <summary>
     /// Places a detached entry (<c>ContainerSlot == NoContainer</c>) at (<paramref name="x"/>, <paramref name="y"/>) of a container whose
-    /// cells <c>Validate</c> proved free, and raises <c>InvInserted</c> plus its mailId runs. A square footprint is stored unrotated.
+    /// cells <c>Validate</c> proved free, and raises <c>InvInserted</c> plus its mailId runs. A square footprint is stored unrotated. A
+    /// free or already placed entry asserts under <c>INVENTORY_ASSERT</c>; Release returns with nothing changed.
     /// </summary>
     /// <param name="plan">The call's plan.</param>
     /// <param name="entrySlot">The entry's pool slot.</param>
@@ -103,6 +104,11 @@ internal sealed class InventoryMutator
         ref EntryRecord e = ref _entries[entrySlot];
         InventoryAssert.That(e.IsLive, SimAssertCode.InventoryEntrySlotFree);
         InventoryAssert.That(e.ContainerSlot == EntryRecord.NoContainer, SimAssertCode.InventoryCellConflict);
+        if (!e.IsLive || e.ContainerSlot != EntryRecord.NoContainer)
+        {
+            return; // Release: a free or already placed entry is not placed again (nothing changed, nothing raised)
+        }
+
         ref ContainerHeader h = ref _containers[containerSlot];
         Footprint.Canonicalise(e.W, e.H, ref rotated);
         Footprint.Effective(e.W, e.H, rotated, out int fw, out int fh);
@@ -190,8 +196,9 @@ internal sealed class InventoryMutator
 
     /// <summary>
     /// Closes the call: bumps each mutated container of <paramref name="plan"/> by exactly 1 in first-touch order and raises its one
-    /// <c>InvVersion</c> seal, then fills <paramref name="extra"/> (<see cref="FillVersions"/>, <c>ByActorId</c>, cause, and the
-    /// <c>unchanged</c> flag when nothing was sealed).
+    /// <c>InvVersion</c> seal, then fills <paramref name="extra"/> (<see cref="FillVersions"/>, cause, and the <c>unchanged</c> flag when
+    /// nothing was sealed). <c>ByActorId</c> is left as the caller set it (0): ADR-0009 means the <i>contested</i> actor (who took or
+    /// destroyed the thing), set by stories 013/014; the acting actor is on every seal.
     /// </summary>
     /// <param name="plan">The call's plan.</param>
     /// <param name="extra">The reply extra to fill.</param>
@@ -219,7 +226,6 @@ internal sealed class InventoryMutator
         }
 
         FillVersions(in plan, ref extra);
-        extra.ByActorId = plan.Actor.Value;
         extra.SetCause(plan.Cause, unchanged: sealedCount == 0);
     }
 

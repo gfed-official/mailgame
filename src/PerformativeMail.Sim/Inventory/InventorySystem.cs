@@ -210,7 +210,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
     /// <summary>
     /// Creates a container of <paramref name="def"/> with explicit dimensions and owner (boot-time or test-fixture use: the external
     /// containers proper — chest, depot — arrive in M-1b; until then tests use this for a fixture external container). False when the
-    /// table is full; dimensions beyond the occupancy preallocation throw.
+    /// table is full or the dimensions are outside what the occupancy preallocation holds (0 to its <c>MaxWidth</c> / <c>MaxRows</c>);
+    /// both are checked before anything is created, so a refusal leaves no container behind.
     /// </summary>
     /// <param name="def">The def ordinal.</param>
     /// <param name="w">Columns.</param>
@@ -219,9 +220,14 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
     /// <param name="ownerSlot">The owner slot value, or <see cref="ContainerHeader.NoOwner"/> for an external container.</param>
     /// <param name="id">The new id.</param>
     /// <returns>True when created.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">The grid is larger than the occupancy preallocation.</exception>
     internal bool TryCreateContainer(DefIndex def, int w, int h, ContainerLayout layout, byte ownerSlot, out ContainerId id)
     {
+        if (w < 0 || w > _occupancy.MaxWidth || h < 0 || h > _occupancy.MaxRows)
+        {
+            id = default;
+            return false;
+        }
+
         if (!_containers.TryCreate(def, w, h, layout, ownerSlot, out id))
         {
             return false;

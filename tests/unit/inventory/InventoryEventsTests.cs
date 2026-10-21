@@ -54,19 +54,25 @@ public class InventoryEventsTests
         rig.Header(rig.InventoryA).Version = 4;
         EntryId e = rig.AddMail(rig.Chest, 0, 0, new uint[] { 100, 101, 102 });
         EntryId blocker = rig.AddMail(rig.Chest, 2, 0, new uint[] { 200 });
+        ContainerHeader chestBefore = rig.Header(rig.Chest);
+        ContainerHeader invBefore = rig.Header(rig.InventoryA);
 
         // Act: A's move transfers E chest -> inventory
         EventEntry[] log = rig.Run(rig.PlayerA, rig.Move(rig.Chest, e, rig.InventoryA, 0, 0));
 
-        // Assert: versions
+        // Assert: versions and the touched containers' counters
         Assert.Equal(11u, rig.Header(rig.Chest).Version);
         Assert.Equal(5u, rig.Header(rig.InventoryA).Version);
+        Assert.Equal(chestBefore.EntryCount - 1, rig.Header(rig.Chest).EntryCount);
+        Assert.Equal(chestBefore.FreeCells + 1, rig.Header(rig.Chest).FreeCells);
+        Assert.Equal(invBefore.EntryCount + 1, rig.Header(rig.InventoryA).EntryCount);
+        Assert.Equal(invBefore.FreeCells - 1, rig.Header(rig.InventoryA).FreeCells);
         Reply reply = InvEventRig.ReplyOf(log);
         Assert.True(reply.IsOk);
         InvReplyExtra extra = reply.ExtraAs<InvReplyExtra>();
         Assert.Equal(11u, extra.ResultVersionA);
         Assert.Equal(5u, extra.ResultVersionB);
-        Assert.Equal(rig.PlayerA.Value, extra.ByActorId);
+        Assert.Equal(0u, extra.ByActorId); // byActorId is the contested actor (stories 013/014); the actor is on the seals
         Assert.False(extra.Unchanged);
 
         // Assert: A receives C's InvRemoved{E} + seal v10->11 (actorId A) and the inventory's InvInserted{E} (+ its run) + seal v4->5, then the reply
@@ -123,6 +129,8 @@ public class InventoryEventsTests
             "cross-container" => (rig.InventoryA, (short)0, new[] { rig.Chest, rig.InventoryA }),
             _ => (rig.Chest, (short)0, Array.Empty<ContainerId>()),
         };
+        ContainerHeader chestBefore = rig.Header(rig.Chest);
+        ContainerHeader invBefore = rig.Header(rig.InventoryA);
 
         // Act
         EventEntry[] log = rig.Run(rig.PlayerA, rig.Move(rig.Chest, e, to, x, 0));
@@ -155,6 +163,12 @@ public class InventoryEventsTests
             int sealIndex = Array.FindIndex(log, s => s.Kind == InvEventKinds.Version && ContainerOf(in s) == c);
             Assert.True(sealIndex > i, $"record {i} ({entry.Kind}) of container {c} is not before its seal ({sealIndex})");
         }
+
+        int moved = shape == "cross-container" ? 1 : 0;
+        Assert.Equal(chestBefore.EntryCount - moved, rig.Header(rig.Chest).EntryCount);
+        Assert.Equal(chestBefore.FreeCells + moved, rig.Header(rig.Chest).FreeCells);
+        Assert.Equal(invBefore.EntryCount + moved, rig.Header(rig.InventoryA).EntryCount);
+        Assert.Equal(invBefore.FreeCells - moved, rig.Header(rig.InventoryA).FreeCells);
 
         if (shape == "no-op")
         {
@@ -417,31 +431,143 @@ public class InventoryEventsTests
     }
 
     [Fact]
-    public void CheckArenaReservation_EmptyPlanPasses_OverflowedPlanIs85_AndNeitherWritesARecord()
+    public void CheckArenaReservation_EmptyPlanPasses_OverflowedPlanAssertsUnderInventoryAssert_OrIs85InRelease_NoRecordWritten()
     {
         // Arrange
         var rig = new InvEventRig();
         var empty = new InvPlan();
         var overflowed = new InvPlan();
-        for (int i = 0; i <= InvPlan.MaxAcquiredBlocks; i++)
+        for (int i = 0; i < InvPlan.MaxAcquiredBlocks; i++)
         {
-            _ = overflowed.AddAcquiredBlock(1);
+            Assert.True(overflowed.AddAcquiredBlock(1));
         }
 
         long writes = rig.RingWrites;
 
+        // Act + Assert: the empty plan and an in-limit span pass
+        Assert.Equal(0, rig.Inventory.RequestCheck.CheckArenaReservation(in empty));
+        Assert.Equal(0, rig.Inventory.RequestCheck.CheckArenaReservation(new[] { 1, 2, 256 }));
+
+        // Act + Assert: one block over the limit is a programming error; Release keeps the conservative 85
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException thrown = Assert.Throws<SimAssertException>(() => overflowed.AddAcquiredBlock(1));
+            Assert.Equal(SimAssertCode.InventoryPlanCapacityExceeded, thrown.Code);
+            Assert.False(overflowed.AcquiredBlocksOverflowed);
+        }
+        else
+        {
+            Assert.False(overflowed.AddAcquiredBlock(1));
+            Assert.True(overflowed.AcquiredBlocksOverflowed);
+            Assert.Equal((ushort)InvReason.CapacityExhausted, rig.Inventory.RequestCheck.CheckArenaReservation(in overflowed));
+        }
+
+        Assert.Equal(InvPlan.MaxAcquiredBlocks, overflowed.AcquiredBlockCount);
+        Assert.Equal(writes, rig.RingWrites);
+    }
+
+    [Fact]
+    public void Validate_FifthTouchedContainerRefused_RejectsWithBadRequestBeforeAnyMutation()
+    {
+        // Arrange: the fixture plans three more containers, so the destination is the fifth touch
+        var rig = new InvEventRig();
+        rig.Subscribe(rig.Chest, 0b11);
+        EntryId e = rig.AddMail(rig.Chest, 0, 0, new uint[] { 5 });
+        rig.Handler.ExtraTouches = new[] { rig.HotbarA, rig.CursorA, rig.Inventory.IntakeContainer };
+        List<long> before = rig.Snapshot();
+
         // Act
-        ushort emptyReason = rig.Inventory.RequestCheck.CheckArenaReservation(in empty);
-        ushort overflowReason = rig.Inventory.RequestCheck.CheckArenaReservation(in overflowed);
-        ushort spanReason = rig.Inventory.RequestCheck.CheckArenaReservation(new[] { 1, 2, 256 });
+        EventEntry[] log = rig.Run(rig.PlayerA, rig.Move(rig.Chest, e, rig.InventoryA, 0, 0));
+
+        // Assert: same in every config (Touch refuses with -1, no assert); nothing mutated, nothing raised
+        Assert.Equal(CoreReason.BadRequest, InvEventRig.ReplyOf(log).Reason);
+        Assert.Single(log);
+        Assert.Equal(before, rig.Snapshot());
+        Assert.Equal(0, rig.Handler.Commits);
+    }
+
+    [Fact]
+    public void Primitive_MarkingAnUntouchedContainer_AssertsUnderInventoryAssert_OrIsStillSealedInRelease()
+    {
+        // Arrange: Validate breaks the contract and does not touch the destination
+        var rig = new InvEventRig();
+        rig.Subscribe(rig.Chest, 0b11);
+        EntryId e = rig.AddMail(rig.Chest, 0, 0, new uint[] { 5 });
+        rig.Handler.SkipDestinationTouch = true;
+        Op op = rig.Move(rig.Chest, e, rig.InventoryA, 0, 0);
+
+        // Act + Assert
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            Assert.True(rig.Host.World.EnqueueOp(rig.PlayerA, in op));
+            SimAssertException thrown = Assert.Throws<SimAssertException>(() => rig.Host.World.Tick());
+            Assert.Equal(SimAssertCode.InventoryPlanContainerNotTouched, thrown.Code);
+        }
+        else
+        {
+            EventEntry[] log = rig.Run(rig.PlayerA, in op);
+            uint[] sealedContainers = log.Where(x => x.Kind == InvEventKinds.Version).Select(x => ContainerOf(in x)).ToArray();
+            Assert.Equal(new[] { rig.Chest.Value, rig.InventoryA.Value }, sealedContainers);
+            Assert.Equal(1u, rig.Header(rig.InventoryA).Version);
+        }
+    }
+
+    [Fact]
+    public void Place_OnAPlacedOrFreeEntry_AssertsUnderInventoryAssert_OrReturnsWithNothingChangedInRelease()
+    {
+        // Arrange: a placed entry and a free pool slot (no tick needed: nothing may be raised)
+        var rig = new InvEventRig();
+        EntryId e = rig.AddMail(rig.Chest, 0, 0, new uint[] { 5 });
+        Assert.True(rig.Inventory.Entries.TryGetSlot(e, out ushort placed));
+        ushort free = (ushort)(rig.Inventory.Entries.Capacity - 1);
+        Assert.False(rig.Inventory.Entries[free].IsLive);
+        ushort to = rig.SlotOf(rig.InventoryA);
+        var plan = new InvPlan();
+        _ = plan.Touch(to);
+        List<long> before = rig.Snapshot();
+        InventoryMutator m = rig.Inventory.Mutator;
+
+        // Act + Assert
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException onPlaced = Assert.Throws<SimAssertException>(() => m.Place(ref plan, placed, to, 2, 0, false));
+            Assert.Equal(SimAssertCode.InventoryCellConflict, onPlaced.Code);
+            SimAssertException onFree = Assert.Throws<SimAssertException>(() => m.Place(ref plan, free, to, 2, 0, false));
+            Assert.Equal(SimAssertCode.InventoryEntrySlotFree, onFree.Code);
+        }
+        else
+        {
+            m.Place(ref plan, placed, to, 2, 0, false);
+            m.Place(ref plan, free, to, 2, 0, false);
+        }
+
+        Assert.Equal(before, rig.Snapshot());
+        Assert.Equal(0, plan.MutatedCount);
+    }
+
+    [Fact]
+    public void TryCreateContainer_SizeBeyondTheOccupancyPreallocation_ReturnsFalse_LeavingNoContainer()
+    {
+        // Arrange
+        var rig = new InvEventRig();
+        Assert.True(rig.Inventory.TryGetHeader(rig.InventoryA, out ContainerHeader inv));
+        int live = rig.Inventory.LiveContainerCount;
+        uint nextId = rig.Inventory.Containers.NextId;
+        int maxW = rig.Inventory.Occupancy.MaxWidth;
+        int maxH = rig.Inventory.Occupancy.MaxRows;
+
+        // Act
+        bool wide = rig.Inventory.TryCreateContainer(inv.DefIndex, maxW + 1, 1, inv.Layout, ContainerHeader.NoOwner, out ContainerId wideId);
+        bool tall = rig.Inventory.TryCreateContainer(inv.DefIndex, 1, maxH + 1, inv.Layout, ContainerHeader.NoOwner, out ContainerId tallId);
+        bool negative = rig.Inventory.TryCreateContainer(inv.DefIndex, -1, 1, inv.Layout, ContainerHeader.NoOwner, out _);
+        bool fits = rig.Inventory.TryCreateContainer(inv.DefIndex, maxW, maxH, inv.Layout, ContainerHeader.NoOwner, out ContainerId fitId);
 
         // Assert
-        Assert.Equal(0, emptyReason);
-        Assert.True(overflowed.AcquiredBlocksOverflowed);
-        Assert.Equal(InvPlan.MaxAcquiredBlocks, overflowed.AcquiredBlockCount);
-        Assert.Equal((ushort)InvReason.CapacityExhausted, overflowReason);
-        Assert.Equal(0, spanReason);
-        Assert.Equal(writes, rig.RingWrites);
+        Assert.False(wide || tall || negative);
+        Assert.True(wideId.IsNone && tallId.IsNone);
+        Assert.True(fits);
+        Assert.Equal(live + 1, rig.Inventory.LiveContainerCount);
+        Assert.Equal(nextId, fitId.Value); // the refusals consumed no id
     }
 
     // ---------------------------------------------------------------- InvPlan and the reply extra
@@ -456,6 +582,7 @@ public class InventoryEventsTests
         int a = plan.Touch(7);
         int b = plan.Touch(3);
         int again = plan.Touch(7);
+        int c = plan.Touch(9);
         plan.MarkMutated(3);
         plan.MarkMutated(9);
 
@@ -463,6 +590,7 @@ public class InventoryEventsTests
         Assert.Equal(0, a);
         Assert.Equal(1, b);
         Assert.Equal(0, again);
+        Assert.Equal(2, c);
         Assert.Equal(3, plan.TouchedCount);
         Assert.Equal(new ushort[] { 7, 3, 9 }, Enumerable.Range(0, plan.TouchedCount).Select(plan.TouchedSlot).ToArray());
         Assert.False(plan.IsMutated(0));
@@ -472,7 +600,7 @@ public class InventoryEventsTests
     }
 
     [Fact]
-    public void InvPlan_FifthContainer_AssertsUnderInventoryAssert_OrIsRefusedInRelease()
+    public void InvPlan_FifthContainer_TouchRefusesWithMinusOne_InEveryConfig_AndTheSetIsUnchanged()
     {
         // Arrange
         var plan = new InvPlan();
@@ -481,18 +609,15 @@ public class InventoryEventsTests
             _ = plan.Touch(s);
         }
 
-        // Act + Assert
-        if (TestBuildExpectation.SimAssertsExpected)
-        {
-            SimAssertException thrown = Assert.Throws<SimAssertException>(() => plan.Touch(99));
-            Assert.Equal(SimAssertCode.InventoryPlanTouchedOverflow, thrown.Code);
-        }
-        else
-        {
-            Assert.Equal(-1, plan.Touch(99));
-        }
+        // Act
+        int fifth = plan.Touch(99);
+        int existing = plan.Touch(2);
 
+        // Assert: a full set is a Validate refusal (no assert); a container already in the set still resolves
+        Assert.Equal(-1, fifth);
+        Assert.Equal(2, existing);
         Assert.Equal(InvPlan.MaxTouched, plan.TouchedCount);
+        Assert.DoesNotContain((ushort)99, Enumerable.Range(0, plan.TouchedCount).Select(plan.TouchedSlot));
     }
 
     [Fact]

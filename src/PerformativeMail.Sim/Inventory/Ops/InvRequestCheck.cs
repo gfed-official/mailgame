@@ -90,7 +90,8 @@ public sealed class InvRequestCheck
 
     /// <summary>
     /// <see cref="CheckArenaReservation(ReadOnlySpan{int})"/> over the plan's <see cref="InvPlan.AcquiredBlocks"/>; a plan that planned
-    /// more than <see cref="InvPlan.MaxAcquiredBlocks"/> acquisitions is <c>capacity_exhausted</c> (conservative: never a false accept).
+    /// more than <see cref="InvPlan.MaxAcquiredBlocks"/> acquisitions (a handler programming error that asserted at
+    /// <see cref="InvPlan.AddAcquiredBlock"/> under <c>INVENTORY_ASSERT</c>) is <c>capacity_exhausted</c> in Release (conservative: never a false accept).
     /// </summary>
     /// <param name="plan">The built plan.</param>
     /// <returns>0 or <see cref="InvReason.CapacityExhausted"/>.</returns>

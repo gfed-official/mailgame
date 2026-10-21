@@ -240,7 +240,10 @@ public sealed class EventLog
     /// type is not checked against the descriptor's <c>PayloadType</c> (a chunk has its own layout, for example inventory's
     /// mailId runs). Class, audience resolution, admission, drop accounting and the misuse windows are exactly
     /// <see cref="TryRaise{T}"/>'s. A <paramref name="length"/> below 0 or above <c>min(sizeof(T), descriptor length)</c> asserts
-    /// under <c>SIM_ASSERT</c> (<see cref="SimAssertCode.EventPayloadExceedsDescriptor"/>); other builds clamp it. Allocation-free.
+    /// under <c>SIM_ASSERT</c> (<see cref="SimAssertCode.EventPayloadExceedsDescriptor"/>); other builds clamp it. A chunk that is
+    /// admitted must follow an entry of the same kind and <c>CallSeq</c> inside an open call scope: an orphan asserts under
+    /// <c>SIM_ASSERT</c> (<see cref="SimAssertCode.EventContinuationOrphan"/>) and is appended as given in other builds. The check runs
+    /// after admission, so a chunk dropped because the log is full (its head was dropped too) never asserts. Allocation-free.
     /// </summary>
     /// <typeparam name="T">The chunk's padding-free <c>unmanaged</c> struct (at most 48 bytes).</typeparam>
     /// <param name="kind">The head entry's kind.</param>
@@ -270,6 +273,7 @@ public sealed class EventLog
             return false;
         }
 
+        SimAssert.That(IsLinkedContinuation(kind), SimAssertCode.EventContinuationOrphan);
         int used = Math.Clamp(length, 0, limit);
         ref EventEntry entry = ref _entries[_count];
         entry = default;
@@ -285,6 +289,10 @@ public sealed class EventLog
         _count++;
         return true;
     }
+
+    /// <summary>True when a scope is open and the last entry has <paramref name="kind"/> and the current <c>CallSeq</c>.</summary>
+    private bool IsLinkedContinuation(EventKind kind) =>
+        _depth > 0 && _count > 0 && _entries[_count - 1].Kind == kind && _entries[_count - 1].CallSeq == _currentCallSeq;
 
     /// <summary>
     /// Classifies the raise window: a raise during delivery, at tick end or between ticks is misuse. Asserts first (throws under

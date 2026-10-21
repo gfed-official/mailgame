@@ -1259,6 +1259,37 @@ public class MailIdArenaTests
 
     [Fact]
     [Trait("Id", "TD-104")]
+    public void TryUnion_ResultAliasesB_AssertsUnderInventoryAssert_OrUnionsFromCopiesInRelease()
+    {
+        // Arrange
+        var ring = NewRing();
+        var arena = new MailIdArena(MinBudget, ring);
+        MailIdsHandle a = Create(arena, new uint[] { 1, 3 });
+        MailIdsHandle b = Create(arena, new uint[] { 2, 4, 6 });
+        MailIdsHandle bBefore = b;
+        var before = new ArenaState(arena);
+
+        // Act + Assert
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException thrown = Assert.Throws<SimAssertException>(() => arena.TryUnion(in a, in b, 0, out b));
+            Assert.Equal(SimAssertCode.InventoryArenaOutAliasesInput, thrown.Code);
+            Assert.Equal(bBefore, b);
+            new ArenaState(arena).AssertEqual(before);
+        }
+        else
+        {
+            Assert.True(arena.TryUnion(in a, in b, 0, out b));
+            Assert.Equal(new uint[] { 1, 2, 3, 4, 6 }, arena.Read(in b).ToArray());
+            Assert.Equal(1, arena.LiveBlocks);
+            Assert.Equal(5, arena.LiveUnits);
+        }
+
+        Assert.Equal(0, ring.Count);
+    }
+
+    [Fact]
+    [Trait("Id", "TD-104")]
     public void TryUnion_ResultAliasesAnInput_OnFailure_AssertsUnderInventoryAssert_OrKeepsTheAliasedInputInRelease()
     {
         // Arrange: a (class 1) and b (class 1); the 4-unit result needs class 2 or larger, all drained

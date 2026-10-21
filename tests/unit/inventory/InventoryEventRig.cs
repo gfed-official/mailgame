@@ -182,6 +182,12 @@ internal sealed class InvFixtureTransferHandler : IOpHandler
 
     public int Commits { get; private set; }
 
+    /// <summary>Containers <c>Validate</c> touches before the source and destination (a handler planning more containers).</summary>
+    public ContainerId[] ExtraTouches { get; set; } = Array.Empty<ContainerId>();
+
+    /// <summary>TEST-ONLY contract break: <c>Validate</c> does not touch the destination, so the commit marks an untouched container.</summary>
+    public bool SkipDestinationTouch { get; set; }
+
     public Reply Apply(in Op op, in TickContext ctx)
     {
         MovePayload p = op.PayloadAs<MovePayload>();
@@ -242,8 +248,20 @@ internal sealed class InvFixtureTransferHandler : IOpHandler
             }
         }
 
-        _ = plan.Touch(from);
-        _ = plan.Touch(to);
+        // Contract (InvPlan): touch every container the commit may change; a full set is refused before any mutation.
+        foreach (ContainerId extra in ExtraTouches)
+        {
+            if (!containers.TryGetSlot(extra, out ushort extraSlot) || plan.Touch(extraSlot) < 0)
+            {
+                return CoreReason.BadRequest;
+            }
+        }
+
+        if (plan.Touch(from) < 0 || (!SkipDestinationTouch && plan.Touch(to) < 0))
+        {
+            return CoreReason.BadRequest;
+        }
+
         plan.Placement = new InvPlacement(entrySlot, to, (byte)p.X, (byte)p.Y, rotated);
         if (Shape is not null)
         {
