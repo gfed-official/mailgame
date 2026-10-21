@@ -162,6 +162,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 - P15–P19 and F8 (knockdown, clock-in, standard issue, on break, rejoin), TR-movement-014/015 → M-1b / M0. Story 001 holds the life-state data model only.
 - Transform replication, Teleport, host position-history ring and dead-reckoning (F5 beyond the minimal subset), remote interpolation, `animState` bit layout (TR-movement-008, 009, 010-full, 023, 026) → M0 / ADR-0020.
 - Animation LOD, dither fade, comfort options, Mounted camera, knocked-down orbit camera → M1 / M-1b / Accessibility.
+- Mounted context (P14) and the own-seat Dismount gate → M1 (Vehicles): `CarrierStatus.OccupiedSeat` is `AnchorRef.None` at M-1a (ADR-0014 erratum 2026-10-20, owner decision); Vehicles fills it, registers one `SeatOf` Dismount anchor per seat under that ref and chooses the Mount/Dismount slot scheme or a Mounted registration context (the registry has only World/Build masks). No Vehicles epic or GDD exists yet.
 - CV-PLR-07 (`pushCapMm`) → M-1b (content-data story 011 defers it to this epic's M-1b work).
 
 **M-1a minimal F5 (scope decision).** Story 019 implements the ADR-0014 §5 predicate and chain order, staleness (30 ticks) and the leash with corroboration against the *newest* ingested sample behind an `IPositionHistory` seam. The 9+3 ring and dead-reckoning are the M0 (ADR-0020) implementation of that seam.
