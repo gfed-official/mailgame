@@ -26,10 +26,10 @@ public class ThrowingRulesTests
     // SplitMix is deliberately absent from both lists: ADR-0015/ADR-0005 treat SplitMix.Mix64 as a pure hash and require it
     // for the section 4 catch tie-break (TieHash); the guard bans RNG streams only.
     private static readonly Regex _forbiddenTokens = new(
-        @"\b(Random|Pcg32|IRngStreams|RngNames|RngOwnerView|RngRegistry|StreamName|MulDivRH|MulDiv|float|double|decimal|Half|Single|Double|Math|MathF)\b",
+        @"\b(Random|Pcg32|RngStream|IRngSource|RngDerive|IRngStreams|RngNames|RngOwnerView|RngRegistry|StreamName|MulDivRH|MulDiv|float|double|decimal|Half|Single|Double|Math|MathF)\b",
         RegexOptions.CultureInvariant);
 
-    private static readonly string[] _rngTypeNames = { "Random", "Pcg32", "IRngStreams", "RngOwnerView", "RngRegistry", "StreamName", "RngNames" };
+    private static readonly string[] _rngTypeNames = { "Random", "Pcg32", "RngStream", "IRngSource", "RngDerive", "IRngStreams", "RngOwnerView", "RngRegistry", "StreamName", "RngNames" };
 
     private static Type[] ThrowingTypes() =>
         typeof(Throw).Assembly.GetTypes().Where(t => t.Namespace == Namespace || (t.Namespace?.StartsWith(Namespace + ".", StringComparison.Ordinal) ?? false)).ToArray();
@@ -71,6 +71,31 @@ public class ThrowingRulesTests
 
         // Assert
         Assert.True(hits.Count == 0, string.Join(Environment.NewLine, hits));
+    }
+
+    [Theory]
+    [Trait("Id", "TR-throwing-002")]
+    [InlineData("RngStream stream = streams.Get(name);", "RngStream")]
+    [InlineData("void Draw(IRngSource source) { }", "IRngSource")]
+    [InlineData("ulong seed = RngDerive.Seed(root, id);", "RngDerive")]
+    public void ForbiddenTokens_MatchEachRngStreamType(string line, string expected)
+    {
+        // Act
+        string[] found = _forbiddenTokens.Matches(line).Select(m => m.Value).ToArray();
+
+        // Assert
+        Assert.Equal(new[] { expected }, found);
+    }
+
+    [Fact]
+    [Trait("Id", "TR-throwing-002")]
+    public void ForbiddenTokens_DoNotMatchTheSplitMixPureHash()
+    {
+        // Act
+        bool matched = _forbiddenTokens.IsMatch("ulong h = SplitMix.Mix64(a ^ b);");
+
+        // Assert
+        Assert.False(matched);
     }
 
     [Fact]
