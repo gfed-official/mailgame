@@ -445,6 +445,68 @@ public class PlacementRulesTests
         Assert.True(axeSlot1.IsOk);
     }
 
+    // ------------------------------------------------------------ Edge rows (PR #15 advisory A4; GDD R2–R4)
+    // Rows (2) non-full merge and (3) whole move vs split are HR31_ThreeLettersTo17_OntoFiveLettersTo17_IsAMergeIntoA and
+    // WholeMove_OntoItsOwnOldCells_TreatsThemAsFree_SplitDoesNot_AndAStackNeverMergesIntoItself.
+
+    [Fact]
+    [Trait("Id", "H-R3-2")]
+    public void EdgeRow1_MailMaxStackMulsPast255_EffMaxClampsTo255_A255StackIsFullAndA254StackMerges()
+    {
+        // Arrange: letter maxStack 20 x two team Muls of 5 000 permille each (in range: StatResolve.MaxMulPermille is
+        // 10 000) = 500 before the StatDefs clamp 1..255 (entry count is uint8).
+        var f = new PlacementFixture();
+        var srcA = new ModifierSource(SourceKind.Perk, DefIndex.FromValue(1), 0, ModifierOwner.Team, 1, ModifierLifetime.Run);
+        var srcB = new ModifierSource(SourceKind.Perk, DefIndex.FromValue(2), 0, ModifierOwner.Team, 1, ModifierLifetime.Run);
+        Assert.True(f.Stats.Push(in srcA, [LetterMul(f, in srcA, 5_000)]));
+        Assert.True(f.Stats.Push(in srcB, [LetterMul(f, in srcB, 5_000)]));
+        ushort full = f.AddMail(f.Chest, "letter", 2, 0, PlacementFixture.Address17, count: 255);
+        ushort room = f.AddMail(f.Chest, "letter", 3, 0, PlacementFixture.Address17, count: 254);
+
+        // Act
+        PlacementSubject letter = f.Mail("letter", PlacementFixture.Address17);
+        PlacementVerdict ontoFull = f.Validate(f.Chest, in letter, 2, 0);
+        PlacementVerdict ontoRoom = f.Validate(f.Chest, in letter, 3, 0);
+
+        // Assert
+        Assert.Equal(255, letter.EffMax);
+        Assert.Equal(InvReason.StackFull, ontoFull.Reason);
+        Assert.Equal(full, ontoFull.TargetSlot);
+        Assert.Equal(255, ontoFull.EffMax);
+        Assert.True(ontoRoom.IsOk);
+        Assert.True(ontoRoom.IsMerge);
+        Assert.Equal(room, ontoRoom.TargetSlot);
+    }
+
+    private static Modifier LetterMul(PlacementFixture f, in ModifierSource src, int permille) => new(
+        src.Kind, src.Id, src.StackIndex, PlayerSlot.None, Stat.MailMaxStack, f.KindIndex("letter").Value, ModifierOp.Mul,
+        permille, src.Lifetime);
+
+    [Fact]
+    [Trait("Id", "TR-inventory-004")]
+    public void EdgeRow4_ItemStackKey_PlankOntoPlankMerges_PlankOntoLogOrFiberBlocked()
+    {
+        // Arrange: plank and fiber share a 1 x 1 footprint, category and maxStack, so only the itemId key differs.
+        var f = new PlacementFixture();
+        ushort planks = f.AddItem(f.Chest, "plank", 2, 0, count: 5);
+        f.AddItem(f.Chest, "log", 3, 0, count: 3);   // 1 x 2: (3,0) and (3,1)
+        f.AddItem(f.Chest, "fiber", 4, 0, count: 5);
+        PlacementSubject plank = f.Item("plank");
+
+        // Act
+        PlacementVerdict ontoPlank = f.Validate(f.Chest, in plank, 2, 0);
+        PlacementVerdict ontoLog = f.Validate(f.Chest, in plank, 3, 0);
+        PlacementVerdict ontoFiber = f.Validate(f.Chest, in plank, 4, 0);
+
+        // Assert
+        Assert.True(ontoPlank.IsOk);
+        Assert.True(ontoPlank.IsMerge);
+        Assert.Equal(planks, ontoPlank.TargetSlot);
+        Assert.Equal(InvReason.Blocked, ontoLog.Reason);
+        Assert.Equal(InvReason.Blocked, ontoFiber.Reason);
+        Assert.False(ontoFiber.IsMerge);
+    }
+
     // ------------------------------------------------------------ AC-4: rule-level precedence suffix
 
     /// <summary>
