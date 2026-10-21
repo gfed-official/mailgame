@@ -230,4 +230,7 @@ public static class SimAssertCode
 
     /// <summary><c>InventoryMutator.TakeOldest</c> was called with an invalid take: a free or unplaced entry, <c>k</c> outside 1 to the entry's count, or (mail) a <c>taken</c> span shorter than <c>k</c>. Release changes nothing and raises nothing. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryTakeInvalid = 73;
+
+    /// <summary><c>AutoPlace</c> PASS M met a stack it had already planned a merge into. Unreachable: <c>Plan</c> refuses a target list naming a container twice, PASS M walks each target's StackKey list once, and a stack is in one container's list only. Release plans the merge as before (the stack's pre-plan count is used, as with any merge). <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryAutoPlaceStackPlannedTwice = 74;
 }

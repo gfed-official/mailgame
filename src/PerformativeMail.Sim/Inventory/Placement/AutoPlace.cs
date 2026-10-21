@@ -192,7 +192,7 @@ public struct AutoPlacePlan
         _mergedUnits += units;
     }
 
-    /// <summary>True when a merge into <paramref name="targetEntrySlot"/> is already planned (PASS M's guard against planning a stack twice).</summary>
+    /// <summary>True when a merge into <paramref name="targetEntrySlot"/> is already planned (PASS M's INVENTORY_ASSERT that no stack is planned twice).</summary>
     internal readonly bool HasMergeInto(ushort targetEntrySlot)
     {
         for (int i = 0; i < _mergeCount; i++)
@@ -529,11 +529,14 @@ internal sealed class AutoPlace
             _counters.Add(CounterId.InventoryMergeCandidates);
             ref EntryRecord stack = ref _entries[s];
             if (s == pass.SourceSlot || stack.Count >= subject.EffMax
-                || !PlacementRules.CanMerge(subject.Key, StackKey.Of(in stack), subject.EffMax, def, subject.Category)
-                || result.HasMergeInto(s))
+                || !PlacementRules.CanMerge(subject.Key, StackKey.Of(in stack), subject.EffMax, def, subject.Category))
             {
-                continue; // a stack already planned keeps its pre-plan count here, so planning it again could overfill it
+                continue;
             }
+
+            // Unreachable: targets are distinct containers (IsWellFormed), each list is walked once and a stack is in one container's
+            // list only. A repeat would overfill the stack, since a planned stack keeps its pre-plan count here.
+            InventoryAssert.That(!result.HasMergeInto(s), SimAssertCode.InventoryAutoPlaceStackPlannedTwice);
 
             ushort reason = AddMerge(ref plan, ref result, ref pass, containerSlot, s, mail);
             if (reason != Pass)

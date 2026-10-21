@@ -718,6 +718,38 @@ public class AutoPlaceTests
         Assert.Equal(2, visits);
     }
 
+    [Fact]
+    [Trait("Id", "H-R3-2")]
+    public void PassM_ALinkedItemStackFullAtTheOpTimeEffMax_IsSkippedAtOpTime_NotMergedInto_TheNextNodeTakesTheUnits()
+    {
+        // Arrange: a 15-plank stack at (0,0) and a 12-plank stack at (1,0), both linked at the def's effMax 20; the op reads a lower
+        // effMax (15) for the same key, so the 15-stack stays linked although it is full at op time (items read effMax per op too)
+        var rig = new InvAutoPlaceRig();
+        PlacementSubject plank = rig.Item("plank");
+        Assert.Equal(20, plank.EffMax);
+        ushort full = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 15);
+        ushort room = rig.PlaceItem(rig.InventoryA, "plank", 1, 0, 12);
+        Assert.Equal(new[] { full, room }, ListOf(rig, rig.InventoryA, plank.Key));
+        var opTime = new PlacementSubject(plank.Key, plank.W, plank.H, plank.Category, plank.CarryByHand, plank.WeightClass, effMax: 15);
+        ushort source = rig.DetachedItem("plank", 3);
+        long m0 = rig.Counters[CounterId.InventoryMergeCandidates];
+
+        // Act
+        ushort reason = rig.AutoPlace(in opTime, 3, source, MergePolicy.Merge, PlaceOrder.PassFirst, rig.InventoryA);
+        long visits = rig.Counters[CounterId.InventoryMergeCandidates] - m0;
+
+        // Assert: the full node is visited and skipped (count 15 >= effMax 15), the 12-stack takes all 3 (to 15, not past it)
+        Assert.Equal(0, reason);
+        Assert.Equal(1, rig.LastPlan.MergeCount);
+        Assert.Equal(room, rig.LastPlan.Merge(0).TargetEntrySlot);
+        Assert.Equal(3, rig.LastPlan.Merge(0).Units);
+        Assert.False(rig.LastPlan.Placement.IsSet);
+        Assert.Equal(15, rig.Entries[full].Count);
+        Assert.Equal(15, rig.Entries[room].Count);
+        Assert.False(rig.Entries[source].IsLive);
+        Assert.Equal(2, visits);
+    }
+
     // ---------------------------------------------------------------- TD-116 merge-count bound
 
     [Fact]
@@ -900,6 +932,89 @@ public class AutoPlaceTests
         Assert.Equal(liveUnitsBefore, rig.Inventory.MailIds.LiveUnits);
         Assert.Equal(liveBlocksBefore - 1, rig.Inventory.MailIds.LiveBlocks);
         Assert.All(grids, g => Assert.Equal(StackIndex.None, rig.Index.Head(g, letter.Key)));
+    }
+
+    [Fact]
+    [Trait("Id", "TD-116")]
+    public void TwoHundredFiftyFiveSingleUnitMailMerges_TheArenaRunsOutPartway_IsCapacityExhaustedWhole_ThenExactlyTheReservableMergesCommit()
+    {
+        // Arrange: an arena of 256 class-32 blocks (budget 9 x 32 x 256; classes 64/128/256 get 128/64/32 blocks). 255 stacks of 19
+        // letters to #2 (room 1 each) over four 8 x 8 grids take 255 class-32 blocks and the 255-letter source one class-256 block, so
+        // the 20-unit union blocks can come from 1 + 128 + 64 + 31 = 224 free blocks: the 255-merge reservation runs out at merge 225.
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.ClassCount * 32 * 256);
+        ushort[] grids = { rig.CreateGrid(8, 8), rig.CreateGrid(8, 8), rig.CreateGrid(8, 8), rig.CreateGrid(8, 8) };
+        var stacks = new List<ushort>();
+        for (int i = 0; i < AutoPlacePlan.MaxMerges; i++)
+        {
+            stacks.Add(rig.PlaceMail(grids[i / 64], "letter", i % 8, (i % 64) / 8, Address2, InvAutoPlaceRig.Ids(10_000u + (uint)(i * 100), 19)));
+        }
+
+        ushort source = rig.DetachedMail("letter", Address2, InvAutoPlaceRig.Ids(1, byte.MaxValue));
+        PlacementSubject letter = rig.SubjectOf(source);
+        MailIdArena arena = rig.Inventory.MailIds;
+        const int Reservable = 224;
+        Assert.Equal(Reservable, FreeBlocksFrom(arena, MailIdArena.ClassFor(20)));
+        int liveUnitsBefore = arena.LiveUnits;
+        int liveBlocksBefore = arena.LiveBlocks;
+        uint[] versionsBefore = grids.Select(g => rig.Header(g).Version).ToArray();
+
+        // Act: the whole 255, then one more than the arena can reserve, then exactly what it can
+        ushort whole = rig.AutoPlace(letter, byte.MaxValue, source, MergePolicy.Merge, PlaceOrder.PassFirst, grids);
+        AutoPlacePlan wholePlan = rig.LastPlan;
+        EventEntry[] wholeLog = rig.LastLog;
+        ushort onePast = rig.AutoPlace(letter, Reservable + 1, source, MergePolicy.Merge, PlaceOrder.PassFirst, grids);
+
+        // Assert: both are refused whole with capacity_exhausted (85) although PASS M planned every merge; nothing is half-applied
+        Assert.Equal((ushort)InvReason.CapacityExhausted, whole);
+        Assert.Equal((ushort)InvReason.CapacityExhausted, onePast);
+        Assert.Equal(AutoPlacePlan.MaxMerges, wholePlan.MergeCount);
+        Assert.Equal(0, wholePlan.Unplaced);
+        Assert.DoesNotContain(wholeLog, e => e.Kind == InvEventKinds.Merged);
+        Assert.Equal(byte.MaxValue, rig.Entries[source].Count);
+        Assert.Equal(InvAutoPlaceRig.Ids(1, byte.MaxValue), rig.IdsOf(source));
+        for (int i = 0; i < stacks.Count; i++)
+        {
+            Assert.Equal(19, rig.Entries[stacks[i]].Count);
+            Assert.True(rig.Index.Contains(stacks[i]));
+        }
+
+        Assert.Equal(versionsBefore, grids.Select(g => rig.Header(g).Version).ToArray());
+        Assert.Equal(liveUnitsBefore, arena.LiveUnits);
+        Assert.Equal(liveBlocksBefore, arena.LiveBlocks);
+        Assert.Equal(Reservable, FreeBlocksFrom(arena, MailIdArena.ClassFor(20)));
+
+        // Act: exactly the reservable count
+        ushort fits = rig.AutoPlace(letter, Reservable, source, MergePolicy.Merge, PlaceOrder.PassFirst, grids);
+
+        // Assert: exactly 224 one-unit merges in PASS M order (oldest ids first), the other 31 stacks untouched, and the source keeps
+        // the 31 newest ids in place (a part of a stack goes only into merges)
+        Assert.Equal(0, fits);
+        Assert.Equal(Reservable, rig.LastPlan.MergeCount);
+        Assert.Equal(Reservable, rig.LastPlan.MergedUnits);
+        Assert.Equal(0, rig.LastPlan.Unplaced);
+        Assert.False(rig.LastPlan.Placement.IsSet);
+        for (int i = 0; i < stacks.Count; i++)
+        {
+            bool merged = i < Reservable;
+            Assert.Equal(merged ? 20 : 19, rig.Entries[stacks[i]].Count);
+            uint[] ids = rig.IdsOf(stacks[i]);
+            Assert.Equal(InvAutoPlaceRig.Ids(10_000u + (uint)(i * 100), 19), merged ? ids[1..] : ids);
+            if (merged)
+            {
+                Assert.Equal(1u + (uint)i, ids[0]);
+            }
+
+            Assert.Equal(!merged, rig.Index.Contains(stacks[i]));
+        }
+
+        Assert.True(rig.Entries[source].IsLive);
+        Assert.Equal(byte.MaxValue - Reservable, rig.Entries[source].Count);
+        Assert.Equal(InvAutoPlaceRig.Ids(1u + Reservable, byte.MaxValue - Reservable), rig.IdsOf(source));
+
+        // Assert: the arena — units conserved, no block gained or lost (each union replaced its stack's block), the same free total
+        Assert.Equal(liveUnitsBefore, arena.LiveUnits);
+        Assert.Equal(liveBlocksBefore, arena.LiveBlocks);
+        Assert.Equal(Reservable, FreeBlocksFrom(arena, MailIdArena.ClassFor(20)));
     }
 
     [Fact]
@@ -1411,6 +1526,7 @@ public class AutoPlaceTests
     [Fact]
     public void TargetFirst_ANoSourceSpawnOfMoreThanEffMax_PlacesOneEffMaxEntryInTheFirstTarget_AndReportsTheRestUnplaced()
     {
+        // Pins current behaviour, not a confirmed rule: TD-130 item 8 (whether TargetFirst callers, story 014, intend this is open)
         // Arrange: 30 letters to #2 spawned (no source entry) into [hotbar (empty), inventory (a 15-stack with room 5)]; effMax 20
         var rig = new InvAutoPlaceRig();
         ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 15));
@@ -1558,6 +1674,18 @@ public class AutoPlaceTests
         }
 
         return values;
+    }
+
+    /// <summary>Free arena blocks in <paramref name="fromClass"/> and every larger class (the blocks a run of that class can borrow).</summary>
+    private static int FreeBlocksFrom(MailIdArena arena, int fromClass)
+    {
+        int free = 0;
+        for (int c = fromClass; c < MailIdArena.ClassCount; c++)
+        {
+            free += arena.FreeBlocks(c);
+        }
+
+        return free;
     }
 
     private static readonly ModifierSource _doubleStackSource = new(SourceKind.Perk, DefIndex.FromValue(0), 0, ModifierOwner.Team, 1, ModifierLifetime.Run);
