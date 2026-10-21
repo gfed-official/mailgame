@@ -1,15 +1,15 @@
 # Session handoff — Performative Mail
 
 **Written:** 2026-10-16 23:55 PDT, by the orchestrating session at a clean stopping point.
-**Last refreshed:** 2026-10-20 by the planning lead (docs-only PR `lead/docs-refresh-2026-10-20`).
+**Last refreshed:** 2026-10-21 by the planning lead (docs-only PR #12, `lead/ready-pc013-md001`: status counts only).
 **Read this first in a new session.** Then read `production/session-state/planning-run-2026-10-16.md` (full run ledger + per-story checkpoint lines) only for detail.
 
 ## Update 2026-10-20 (read this block first)
 
 - **Work now lands through PRs on `gfed-official/mailgame`** (not direct pushes to `main`). Merged since the 2026-10-17 update: **PR #1** (547248f) — the `SceneTree.Paused` CI guard skips C# comments, so the four Sim test jobs run in CI again; **PR #2** (69dfa31) — grid-inventory **003 Complete** (MailIdArena tests, multi-block `CanReserve(ReadOnlySpan<int>)`; story 005 gained the reason-85 validator AC; TD-102/103/104 logged).
-- **Story counts (from the story headers, 2026-10-20):** 87 Complete, **2 In Progress**, 6 Blocked, the rest Ready.
+- **Story counts (from the story headers, 2026-10-21):** 88 Complete, **1 In Progress**, 6 Blocked, the rest Ready.
   - content-data **018** — In Progress, **waiting on the owner's ADR-0010 decision** (neutral defaults vs the CD10 `true` defaults for `carryByHand`/`acceptsInsert`/`view auto`, and where content seconds become ticks). Do not resume until decided.
-  - player-character **013** — In Progress (status flip and logged design calls only; no code). The story was fixed on 2026-10-20 (`PanelOpen` on `CarrierStatus`, all six life states mapped, GDD '—' = Absent, the swim-Catch AC moved to story 016, stamp 2026-10-17.1); resume with `/dev-story`.
+  - player-character **013** — Ready (no code yet; readiness-fixed in PR #12, 2026-10-21: injected `FrameworkReasons`, OQ-013-2 / TD-119 non-blocking). The story was fixed on 2026-10-20 (`PanelOpen` on `CarrierStatus`, all six life states mapped, GDD '—' = Absent, the swim-Catch AC moved to story 016, stamp 2026-10-17.1); resume with `/dev-story`.
 - **Next order (one story at a time):** grid-inventory 004 → grid-inventory 005 → throwing-catching 001 → godot-host-shell 003 → player-character 013 → manual-delivery 001. Then grid-inventory 006…, player-character 014…, and the rest of `implementation-order.md` (that file's wave tables date from 2026-10-16 and list Complete stories as pending — regenerate it before relying on it).
 - **Not startable:** content-data 018/019 (ADR-0010 decision), player-character 027 (TD-091 movement rulings; its Open Questions include a "stop and ask" on the haul-out `MinY` threshold), and the six Blocked stories below.
 - **Toolchain on the box (2026-10-20):** `mise` is not installed. `~/.dotnet` has SDKs **8.0.424 and 10.0.402** (runtimes 8.0.30 and 10.0.13; checked with `~/.dotnet/dotnet --list-sdks` on 2026-10-20), so `~/.dotnet/dotnet` builds this repo (`global.json` needs SDK 10.0.100+, roll-forward latestFeature). A second side-by-side install is at `/home/box/.dotnet10` (SDKs 10.0.401 + 10.0.402, runtimes 10.0.12/10.0.13 + 8.0.32); either works, e.g. `export DOTNET_ROOT=/home/box/.dotnet10 PATH=/home/box/.dotnet10:$PATH`. Godot on the box is **4.7.2 mono** at `~/.local/bin/godot` (there is no `godot-mono`); the repo pins **4.7.1** (`Godot.NET.Sdk/4.7.1`). Opening the project in the 4.7.2 editor rewrites `PerformativeMail.Game.csproj` to `Godot.NET.Sdk/4.7.2` — revert that before committing unless the owner moves the pin.
@@ -40,7 +40,7 @@
 - **UX specs:** `design/ux/inventory-panel.md`, `design/ux/throwing-catching.md` (+ two UNREVIEWED seeds).
 - **Architecture:** `docs/architecture/architecture.md` v1.2; **19 ADRs Accepted** (0001–0017, 0019, 0026); `docs/architecture/control-manifest.md` (version 2026-10-16.2); `docs/architecture/tr-registry.yaml` (250 TRs); `docs/registry/architecture.yaml`. Godot .NET spike (`prototypes/spike-godot-dotnet/`) PASS; input spike (`prototypes/spike-oq-ic-9-input/REPORT.md`) GO-WITH-DELTAS.
 - **Code:** `PerformativeMail.sln` — `src/PerformativeMail.Sim` (Godot-free, net8.0), `src/PerformativeMail.Client.Core` (net8.0), `tools/PerformativeMail.Analyzers`, one xUnit v3 test project `tests/PerformativeMail.Sim.Tests` (compiles `tests/unit/**`, `tests/integration/**`). 4,205 tests per leg, four legs (net10/net8 × Debug/Release). No Godot game project yet (that's the godot-host-shell epic).
-- **Tech debt:** `docs/tech-debt-register.md` (TD-001…TD-106 as of 2026-10-20 — TD-105 is grid-inventory 004's, in open PR #4; several ADR errata waiting — see below).
+- **Tech debt:** `docs/tech-debt-register.md` (TD-001…TD-106 as of 2026-10-20 — TD-105 is grid-inventory 004's, merged in PR #4; several ADR errata waiting — see below).
 
 ### Story progress (production/epics/, index in production/epics/index.md, order in production/epics/implementation-order.md)
 

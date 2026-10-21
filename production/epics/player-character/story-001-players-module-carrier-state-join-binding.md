@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-16
+> **Last Updated**: 2026-10-21 (citation fix in the Composition AC: `SystemId.Players` → `SystemId.PlayerCharacter`, matching the shipped code and the recorded deviation, TD-064). 2026-10-16
 
 ## Context
 
@@ -40,7 +40,7 @@
 - [x] **Life-state data model.** `LifeState { Joining, Alive, Dead, DeadAway, Frozen, Despawned }` exists with the absolute-tick fields `ClockInTick`, `FrozenUntilTick`, `ProtectedUntilTick` and `TeleportSeq` (u8); only `Joining → Alive` is exercised at M-1a. `IPlayersApi.GetLifeState(PlayerSlot)` returns it; an empty slot returns `Despawned`.
 - [x] **Leave.** A `PlayerLeave` removes the record and frees nothing else (no spill at M-1a); a re-join of the same slot from tick T + 1 creates a fresh record.
 - [x] **Dump.** Players' `ISimStateContributor` writes, per slot in ascending order, `playerId`, life fields and every `CarrierState` field one by one (never a struct blit, ADR-0006 §4); changing any single field changes the dump bytes, and two identical joins produce identical bytes.
-- [x] **Composition.** `Players` is `[SimSystem(SystemId.Players)]`, has one public constructor (reflection test from sim-core story 025 still passes), is declared in `SystemGraph` depending only on the world read interface at M-1a, and binds no phase yet (its `PlayersStep` is story 019).
+- [x] **Composition.** `Players` is `[SimSystem(SystemId.PlayerCharacter)]`, has one public constructor (reflection test from sim-core story 025 still passes), is declared in `SystemGraph` depending only on the world read interface at M-1a, and binds no phase yet (its `PlayersStep` is story 019).
 
 ---
 

@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: S–M (~0.5–1 day; ~200 lines prod + ~200 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-21 (citation fix: `SystemId.Run` does not exist; the system is `SystemId.RunStructure`, `Core/SystemId.cs`)
 
 ## Context
 
@@ -44,7 +44,7 @@
 
 *Derived from ADR-0017 §3, ADR-0003 §1/§5:*
 
-- **Files:** `src/PerformativeMail.Sim/Run/ShiftStub.cs` (`[SimSystem(SystemId.Run)]`, binds phase 12 `RunStructure`, receives `IMailApi` and `IRunControl` by constructor), `src/PerformativeMail.Sim/Run/ShiftStubSettings.cs`, `src/PerformativeMail.Sim/Run/Events/DeliveriesState.cs`. Mark every file `// M-1a STUB — replaced by Run Structure at M1 (no GDD)` (EPIC risk 4: keep it minimal so it is thrown away cleanly).
+- **Files:** `src/PerformativeMail.Sim/Run/ShiftStub.cs` (`[SimSystem(SystemId.RunStructure)]`, binds phase 12 `RunStructure`, receives `IMailApi` and `IRunControl` by constructor), `src/PerformativeMail.Sim/Run/ShiftStubSettings.cs`, `src/PerformativeMail.Sim/Run/Events/DeliveriesState.cs`. Mark every file `// M-1a STUB — replaced by Run Structure at M1 (no GDD)` (EPIC risk 4: keep it minimal so it is thrown away cleanly).
 - **Settings:** `ShiftStubSettings { int prepTicks; int deliverySeconds; byte shift = 1; ulong unlockedMask = 1; int playerScalePm = 1000; }`. It is supplied by the composition profile (greybox config), not content: Run Structure has no GDD and no balance keys yet. Default `deliverySeconds` is 240 (F2's shift-1 examples); flag it PLACEHOLDER. Ticks are derived from `TickRate` (`production/epics/simulation-core/story-006-tickrate-f1-time-conversions.md`).
 - **Phase-12 logic:** on the transition tick, compute the next state and call `IMailApi.SetDeliveriesState(open, closeTick, unlockedMask)` so it is effective from the next tick's phase 0. Raise `DeliveriesState` once. After Delivery ends, stay Closed (no Payday or Results at M-1a). Do not call `RequestStop`; the greybox runs on.
 - **Mail side (`IMailApi.SetDeliveriesState`):** store `open`, `closeTick`, `unlockedMask` in the deliveries state store read by story 002's `TryGetDestinationFacts` and story 007's facts. `TickGuard.AssertMutable()`; no event from Mail. Dump these in Mail's section.

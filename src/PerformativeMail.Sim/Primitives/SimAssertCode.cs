@@ -198,6 +198,12 @@ public static class SimAssertCode
     /// <summary>A <c>MailIdsHandle</c> was packed with a field outside its width, or <c>MailIdArena</c> was given a none, dead or self-paired handle, or a take count outside 1 to <c>Count</c> (Release masks, ignores or clamps). <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryArenaHandleInvalid = 62;
 
+    /// <summary><c>Throw.RH</c> was given a divisor <c>d &lt;= 0</c> (ADR-0015 section 2 defines it for <c>d &gt; 0</c> only; Release evaluates <c>Fix.FloorDiv(2n + d, 2d)</c> anyway, and a 0 divisor returns 0 with the <c>fixDivZero</c> count dropped by the local sink).</summary>
+    public const ushort ThrowRhDivisorNotPositive = 63;
+
+    /// <summary><c>Ballistic.PositionAt</c> was given an age outside 0 to 150 ticks (the <c>throw.maxFlightTicks</c> validator ceiling). Release evaluates the same closed form anyway.</summary>
+    public const ushort BallisticAgeOutOfRange = 64;
+
     /// <summary><c>MailIdArena.TryUnion</c> was given an <c>out result</c> that is the same variable as its input <c>a</c> or <c>b</c> (TD-104). Release unions from copies of the inputs taken before <c>result</c> is written, so a success is correct; on a failure the aliased variable keeps its input handle. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryArenaOutAliasesInput = 65;
 
