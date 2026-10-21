@@ -4,7 +4,7 @@ description: "Generate missing design or architecture docs from existing impleme
 argument-hint: "<type> <path> (e.g., 'design src/gameplay/combat' or 'architecture Assets/Scripts/Core')"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash(bash "*/.claude/skills/reverse-document/../../hooks/yaml-helper.sh" resolve_config *)
-model: sonnet
+model: claude-fable-5-1
 # Read-only diagnostic skill — no specialist agent delegation needed
 ---
 

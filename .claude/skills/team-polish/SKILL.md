@@ -4,7 +4,7 @@ description: "Orchestrate the polish team — performance-analyst, technical-art
 argument-hint: "[feature or area to polish] [--review full|lean|solo]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion, TaskCreate, TaskGet, TaskList, TaskUpdate, Bash(bash "*/.claude/skills/team-polish/../../hooks/yaml-helper.sh" resolve_config *)
-model: sonnet
+model: opus
 ---
 # Team Polish
 

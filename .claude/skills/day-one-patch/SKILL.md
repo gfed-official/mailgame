@@ -5,7 +5,7 @@ argument-hint: "[scope: known-bugs | cert-feedback | all]"
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
-model: sonnet
+model: opus
 ---
 
 # Day-One Patch
