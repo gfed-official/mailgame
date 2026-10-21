@@ -21,8 +21,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// calls <see cref="IPlayerJoinListener"/>. A leave keeps the containers (disconnect handling is M0) and a rejoin of the same slot reuses
 /// them. Container dimensions are instance state: the def's width and <c>IStatSheet.Read(InventoryRows)</c> rows.
 /// <para>
-/// It binds the empty <c>ItemsExpire</c> and <c>IntakeDrain</c> phases, a no-op conservation check (story 017's), the state
-/// contributor, the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). It binds no op yet
+/// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the still
+/// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). It binds no op yet
 /// (handlers are stories 007-010) and no snapshot source (the builder has no <c>BindSnapshotSource</c> yet). Every container, entry and
 /// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
 /// <see cref="Subscribers"/> set. Storage is preallocated from

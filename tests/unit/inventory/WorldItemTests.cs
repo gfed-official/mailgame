@@ -517,7 +517,8 @@ public class WorldItemTests
     [Trait("Id", "H-R12-3")]
     public void HR123_QualifyingMail900And901WithEqualLowestExpiresTick_TheLowerWorldItemId900IsEvicted()
     {
-        // Arrange: WorldItems "900" and "901" (letters 900 and 901) created in one tick, so equal expiresTick; 510 planks after them
+        // Arrange: WorldItems "900" and "901" (letters 900 and 901) created in one tick, so equal expiresTick 9010; 510 planks after
+        // them at ticks 11..520 (expiresTick 9011..9520)
         var w = new WorldItemRig();
         ushort e900 = w.R.DetachedMail("letter", Address, new[] { 900u });
         ushort e901 = w.R.DetachedMail("letter", Address, new[] { 901u });
@@ -526,20 +527,79 @@ public class WorldItemTests
             w.Inv.CreateWorldItem(w.R.Entries[e900].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 10),
             w.Inv.CreateWorldItem(w.R.Entries[e901].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 10),
         });
-        _ = w.CreateOnePerTick(11, 510, _ => w.R.DetachedItem("plank", 1));
+        EntityId[] planks = w.CreateOnePerTick(11, 510, _ => w.R.DetachedItem("plank", 1));
         Assert.True(w.World.Table.TryGetSlot(pair[0], out ushort s900));
         Assert.True(w.World.Table.TryGetSlot(pair[1], out ushort s901));
-        Assert.Equal(w.World.Table[s900].ExpiresTick, w.World.Table[s901].ExpiresTick);
+        Assert.True(w.World.Table.TryGetSlot(planks[0], out ushort sPlank0));
+        Assert.Equal(9_010u, w.World.Table[s900].ExpiresTick);
+        Assert.Equal(9_010u, w.World.Table[s901].ExpiresTick);
+        Assert.Equal(9_011u, w.World.Table[sPlank0].ExpiresTick);
         Assert.True(pair[0].Value < pair[1].Value);
+        uint lastSeq = w.MaxIntakeArrivalSeq();
 
-        // Act
-        w.Create(900, w.R.DetachedItem("plank", 1));
+        // Act: three over-cap creations, one per tick, each evicting exactly one item
+        var gone = new uint[3];
+        var causes = new byte[3];
+        var lost = new EventEntry[3][];
+        for (int i = 0; i < 3; i++)
+        {
+            w.Create(900 + (uint)i, w.R.DetachedItem("plank", 1));
+            EventEntry[] log = w.R.Sink.Last;
+            WorldItemDespawnedPayload d = Assert.Single(Heads(log, InvEventKinds.WorldItemDespawned)).PayloadAs<WorldItemDespawnedPayload>();
+            gone[i] = d.WorldItemId;
+            causes[i] = d.Cause;
+            lost[i] = Heads(log, InvEventKinds.ItemsLost);
+            Assert.Equal(512, w.World.LiveCount);
+        }
 
-        // Assert
-        Assert.False(w.World.Table.TryGetSlot(pair[0], out _));
-        Assert.True(w.World.Table.TryGetSlot(pair[1], out _));
+        // Assert: exact (expiresTick, id) order: 900 (9010, lower id), then 901 (9010), then the lowest plank (9011)
+        Assert.Equal(new[] { pair[0].Value, pair[1].Value, planks[0].Value }, gone);
+        Assert.Equal(new[] { (byte)InvCause.Expired, (byte)InvCause.Expired, (byte)InvCause.Destroyed }, causes);
+        Assert.Empty(lost[0]);
+        Assert.Empty(lost[1]);
+        Assert.Equal(planks[0].Value, Assert.Single(lost[2]).PayloadAs<ItemsLostPayload>().WorldItemId);
+        Assert.True(w.World.Table.TryGetSlot(planks[1], out _));
+
+        // Assert: both letters are in the Intake at the back of the outfeed queue, 900 ahead of 901
         Assert.Equal(w.R.Intake, w.R.Entries[e900].ContainerSlot);
+        Assert.Equal(w.R.Intake, w.R.Entries[e901].ContainerSlot);
+        Assert.Equal(lastSeq + 1, w.R.Entries[e900].ArrivalSeq);
+        Assert.Equal(lastSeq + 2, w.R.Entries[e901].ArrivalSeq);
+        Assert.Equal(lastSeq + 2, w.MaxIntakeArrivalSeq());
+    }
+
+    [Fact]
+    [Trait("Id", "H-R12-3")]
+    public void HR123_GroundAndWaterPlankWithEqualLowestExpiresTick_NoQualifyingMail_TheLowerWorldItemIdIsDestroyedFirst_ThenTheOther()
+    {
+        // Arrange: 511 ground planks at ticks 10..520 (expiresTick 9010..9520) and, at 8710, a water plank (8710 + 300 = 9010), so
+        // the two non-mail heads tie at 9010 and the ground plank has the lower id; no mail
+        var w = new WorldItemRig();
+        EntityId[] ground = w.CreateOnePerTick(10, 511, _ => w.R.DetachedItem("plank", 1));
+        EntityId water = w.Create(8_710, w.R.DetachedItem("plank", 2), WorldItemOrigin.Thrown, onWater: true);
+        Assert.True(w.World.Table.TryGetSlot(ground[0], out ushort sGround));
+        Assert.True(w.World.Table.TryGetSlot(water, out ushort sWater));
+        Assert.Equal(9_010u, w.World.Table[sGround].ExpiresTick);
+        Assert.Equal(9_010u, w.World.Table[sWater].ExpiresTick);
+        Assert.True(ground[0].Value < water.Value);
         Assert.Equal(512, w.World.LiveCount);
+
+        // Act: three over-cap creations, one per tick, each destroying exactly one item
+        var lost = new ItemsLostPayload[3];
+        for (int i = 0; i < 3; i++)
+        {
+            w.Create(8_720 + (uint)i, w.R.DetachedItem("plank", 1));
+            EventEntry[] log = w.R.Sink.Last;
+            lost[i] = Assert.Single(Heads(log, InvEventKinds.ItemsLost)).PayloadAs<ItemsLostPayload>();
+            Assert.Equal((byte)InvCause.Destroyed, Assert.Single(Heads(log, InvEventKinds.WorldItemDespawned)).PayloadAs<WorldItemDespawnedPayload>().Cause);
+            Assert.Empty(Heads(log, InvEventKinds.Version));
+            Assert.Equal(512, w.World.LiveCount);
+        }
+
+        // Assert: the ground plank (9010, lower id), then the water plank (9010), then the next ground plank (9011)
+        Assert.Equal(new[] { ground[0].Value, water.Value, ground[1].Value }, lost.Select(l => l.WorldItemId).ToArray());
+        Assert.Equal(new[] { 1, 2, 1 }, lost.Select(l => (int)l.Count).ToArray());
+        Assert.True(w.World.Table.TryGetSlot(ground[2], out _));
     }
 
     [Fact]
