@@ -4,7 +4,7 @@ description: "Implement a story: ADR guidelines, right programmer agent, code pl
 argument-hint: "[story-path]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion, Bash(bash "*/.claude/skills/dev-story/../../hooks/yaml-helper.sh" resolve_config *)
-model: sonnet
+model: opus
 ---
 
 !`bash "${CLAUDE_SKILL_DIR}/../../hooks/yaml-helper.sh" resolve_config --keys automation,workflow,story_granularity,qa.level,testing.strict,system_overrides`

@@ -4,7 +4,7 @@ description: "Traceability matrix mapping GDD requirements to ADRs. Finds gaps, 
 argument-hint: "[focus: full | coverage | consistency | engine | single-gdd path/to/gdd.md]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, Write, Agent, AskUserQuestion, Bash(bash "*/.claude/skills/architecture-review/../../hooks/yaml-helper.sh" resolve_config *)
-model: opus
+model: claude-fable-5-1
 ---
 
 !`bash "${CLAUDE_SKILL_DIR}/../../hooks/yaml-helper.sh" resolve_config --keys automation,workflow`

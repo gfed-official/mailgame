@@ -4,7 +4,7 @@ description: "Scope creep check — current scope versus the original plan. Flag
 argument-hint: "[feature-name or sprint-N]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash(git log *)
-model: haiku
+model: claude-fable-5-1
 ---
 
 # Scope Check
