@@ -140,7 +140,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 026 | [Interaction prompt anchor — projected anchor and bounds, HUD focus feed](story-026-interaction-prompt-anchor-projection.md) | Integration | Ready | ADR-0019 |
 | 027 | [Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, story 009 carry-forwards (TD-091)](story-027-movement-rulings-extra-jump-slide-td-091.md) | Logic | Ready | ADR-0013 |
 
-**27 stories (story 027 added 2026-10-17): 19 Logic, 3 Integration, 4 Visual/Feel as written 2026-10-16, plus 027 (Logic) — 11 Complete, 1 In Progress, 15 Ready, 0 Blocked (refreshed 2026-10-20).**
+**27 stories (story 027 added 2026-10-17): 19 Logic, 3 Integration, 4 Visual/Feel as written 2026-10-16, plus 027 (Logic) — 12 Complete, 0 In Progress, 15 Ready, 0 Blocked (refreshed 2026-10-21 from the story headers).**
 
 **Suggested order:** 001–010 (solver, in this order; 003 and 004 can run in parallel with 002/005) → 011–019 (interaction framework; 011, then 012/013, then 014–018, 019 any time after 012/013) → 020 → 021 → 022–026 (Godot-side, after the godot-host-shell epic's scene/view-registry stories).
 
