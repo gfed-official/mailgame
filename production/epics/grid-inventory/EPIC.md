@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 6 Complete, 17 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 7 Complete, 16 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -122,7 +122,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 006 | [Placement validity, StackKey stacking with effMax at op time, and the insertion whitelist](story-006-placement-stacking-whitelist.md) | Logic | Complete | ADR-0009, ADR-0010 |
 | 007 | [Pick and Move ops — whole-entry moves, cross-container atomicity, no-op moves](story-007-pick-move-ops.md) | Logic | Ready | ADR-0009, ADR-0007 |
 | 008 | [Move split-and-place, hotbar swap from the cursor, and the Merge op](story-008-move-split-swap-merge.md) | Logic | Ready | ADR-0009, ADR-0004 |
-| 009 | [AutoPlace (passes M/U/R, PassFirst/TargetFirst), StackKey non-full index and negative-fit cache](story-009-autoplace-stackkey-index.md) | Logic | Ready | ADR-0009, ADR-0006 |
+| 009 | [AutoPlace (passes M/U/R, PassFirst/TargetFirst), StackKey non-full index and negative-fit cache](story-009-autoplace-stackkey-index.md) | Logic | Complete | ADR-0009, ADR-0006 |
 | 010 | [QuickMove (entry form), Return, and the R9 quick_move target order](story-010-quickmove-return-targets.md) | Logic | Ready | ADR-0009 |
 | 011 | [Open-set bookkeeping, Close op, leash put-away hook — and the Intake as the M-1a external](story-011-open-set-close-intake.md) | Logic | Ready | ADR-0009, ADR-0008 |
 | 012 | [Spawn into the Intake (NoMerge, arrivalSeq) and the outfeed FIFO (PeekOutfeed / TakeUnit)](story-012-intake-spawn-outfeed.md) | Logic | Ready | ADR-0009, ADR-0003 |

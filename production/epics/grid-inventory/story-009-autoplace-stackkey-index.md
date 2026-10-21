@@ -1,12 +1,12 @@
 # Story 009: AutoPlace (passes M/U/R, PassFirst/TargetFirst), StackKey non-full index and negative-fit cache
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~1 day)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-21 (readiness fixes folded in from the Planner resolutions R1–R9, Lead-authorized: manifest re-stamp (no Inventory/Core rule changed since 2026-10-16); count-change primitive owned here (story 008 now depends on 009); plan shape, index/cache rules, probe counters, fixtures and the readiness ACs added; stale ADR-0025 citation fixed)
+> **Last Updated**: 2026-10-21 (closed in PR #20; earlier the same day: readiness fixes folded in from the Planner resolutions R1–R9, Lead-authorized: manifest re-stamp (no Inventory/Core rule changed since 2026-10-16); count-change primitive owned here (story 008 now depends on 009); plan shape, index/cache rules, probe counters, fixtures and the readiness ACs added; stale ADR-0025 citation fixed)
 
 ## Context
 
@@ -33,18 +33,18 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R8-1** — targets `[inventory, second grid]` (the second grid stands in for the M-1b backpack that GDD H-R8-1 names); inventory has 19 letters to #2 at (5,1) and free (0,0); the second grid has 10 letters to #2 at (0,0); AutoPlacing a detached entry of 3 letters to #2 (ascending mailIds) → the lowest id merges into the inventory stack (20), 2 merge into the second stack (12), and **no** new entry is created at inventory (0,0). The merges are committed through the count-change primitive `InventoryMutator.MergeInto`.
-- [ ] **H-R8-2 (fixture containers)** — targets `[8×2 grid (empty), 8×4 grid with a free 2×4 column at (0,0)]`: a Large lands in the 8×4 grid at (0,0) **unrotated** (pass U over all targets precedes pass R); with that grid removed → the 8×2 grid at (0,0) `rotated = true`; both full → `no_room` (77), no entry created and every target's version unchanged; a mail-only target (`po_intake`, the only mail-only def at M-1a) and a Plank → `not_allowed` (73); a mail-only target with no space and a letter → `no_room`. (bike/chest are 8×2 and 8×4 instances of the unrestricted `player_inventory` def via `PlacementFixture.CreateContainer(defId, w, h)` — no chest/bike def exists at M-1a; their content is M-1b; Large is 2×4.)
-- [ ] `MergePolicy.NoMerge` skips pass M; `effMax == 1` skips pass M; `TargetFirst` fills the first target (M→U→R) before the next.
-- [ ] The StackKey index stays equal to a brute-force scan of non-full stacks (count < effMax read at op time; stats constant during the run), each list in row-major order, across 10 000 random `Place`/`Remove`/`Transfer`/`MergeInto` calls (property test); PASS M probes are ≤ list length (1–3 typical) per target, never a container scan; PASS U and PASS R count one probe per candidate anchor (Release-compiled probe counters).
+- [x] **H-R8-1** — targets `[inventory, second grid]` (the second grid stands in for the M-1b backpack that GDD H-R8-1 names); inventory has 19 letters to #2 at (5,1) and free (0,0); the second grid has 10 letters to #2 at (0,0); AutoPlacing a detached entry of 3 letters to #2 (ascending mailIds) → the lowest id merges into the inventory stack (20), 2 merge into the second stack (12), and **no** new entry is created at inventory (0,0). The merges are committed through the count-change primitive `InventoryMutator.MergeInto`.
+- [x] **H-R8-2 (fixture containers)** — targets `[8×2 grid (empty), 8×4 grid with a free 2×4 column at (0,0)]`: a Large lands in the 8×4 grid at (0,0) **unrotated** (pass U over all targets precedes pass R); with that grid removed → the 8×2 grid at (0,0) `rotated = true`; both full → `no_room` (77), no entry created and every target's version unchanged; a mail-only target (`po_intake`, the only mail-only def at M-1a) and a Plank → `not_allowed` (73); a mail-only target with no space and a letter → `no_room`. (bike/chest are 8×2 and 8×4 instances of the unrestricted `player_inventory` def via `PlacementFixture.CreateContainer(defId, w, h)` — no chest/bike def exists at M-1a; their content is M-1b; Large is 2×4.)
+- [x] `MergePolicy.NoMerge` skips pass M; `effMax == 1` skips pass M; `TargetFirst` fills the first target (M→U→R) before the next.
+- [x] The StackKey index stays equal to a brute-force scan of non-full stacks (count < effMax read at op time; stats constant during the run), each list in row-major order, across 10 000 random `Place`/`Remove`/`Transfer`/`MergeInto` calls (property test); PASS M probes are ≤ list length (1–3 typical) per target, never a container scan; PASS U and PASS R count one probe per candidate anchor (Release-compiled probe counters).
 
 *Added by readiness (GDD R8/R15, ADR-0009 §3/§5; Planner resolutions 2026-10-21):*
 
-- [ ] **Slots layout** — on a slots container, PASS U takes the lowest free usable slot ≥ 1 and never slot 0 (reserved_slot is skipped, not returned); PASS M merges into the first mergeable slot in slot order.
-- [ ] **Partial and all-or-nothing** — a 5-unit stackable into room for 3 places the 3 oldest ids and leaves the 2 newest on the source, in id order, reply ok; a non-stackable that does not fit whole places nothing and reports `no_room`.
-- [ ] **Negative-fit cache** — after a (shape, rotated) fails at version v, a repeat AutoPlace of that shape on that container at v visits 0 anchors; a version bump, a statEpoch bump or a row change clears it. With the cache disabled, the same 10 000-call sequence yields identical plans, replies and state.
-- [ ] **effMax change** — after a test `MailMaxStack` push (`GridMailRuleFixtures.DoubleStackPm`), a statEpoch bump and `RebuildIndex` on the container, a 1-letter AutoPlace merges into an existing 20-stack that is now non-full at effMax 40.
-- [ ] **Allocation** — the index, the negative-fit cache and the AutoPlace plan allocate 0 B per call after warm-up (`AllocAssert`, Release, in a `[Collection(NonParallelCollection.Name)]` class); capacities come from `SimSettings` / the container's cell count at creation.
+- [x] **Slots layout** — on a slots container, PASS U takes the lowest free usable slot ≥ 1 and never slot 0 (reserved_slot is skipped, not returned); PASS M merges into the first mergeable slot in slot order.
+- [x] **Partial and all-or-nothing** — a 5-unit stackable into room for 3 places the 3 oldest ids and leaves the 2 newest on the source, in id order, reply ok; a non-stackable that does not fit whole places nothing and reports `no_room`.
+- [x] **Negative-fit cache** — after a (shape, rotated) fails at version v, a repeat AutoPlace of that shape on that container at v visits 0 anchors; a version bump, a statEpoch bump or a row change clears it. With the cache disabled, the same 10 000-call sequence yields identical plans, replies and state.
+- [x] **effMax change** — after a test `MailMaxStack` push (`GridMailRuleFixtures.DoubleStackPm`), a statEpoch bump and `RebuildIndex` on the container, a 1-letter AutoPlace merges into an existing 20-stack that is now non-full at effMax 40.
+- [x] **Allocation** — the index, the negative-fit cache and the AutoPlace plan allocate 0 B per call after warm-up (`AllocAssert`, Release, in a `[Collection(NonParallelCollection.Name)]` class); capacities come from `SimSettings` / the container's cell count at creation.
 
 ---
 
@@ -87,7 +87,7 @@
 **Required evidence**:
 - Logic: `tests/unit/inventory/AutoPlaceTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/inventory/AutoPlaceTests.cs`, `StackIndexPropertyTests.cs`, `AutoPlaceAllocationTests.cs`
 
 ---
 
@@ -95,3 +95,26 @@
 
 - Depends on: Story 005, Story 006
 - Unlocks: Story 008, Story 010, Story 012, Story 014, Story 015
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-21 (PR #20, stacked on PR #16)
+**Criteria**: 9/9 passing (4 story ACs + 5 readiness ACs; none deferred)
+- H-R8-1: `HR81_ThreeLettersToTwo_LowestMergesIntoInventoryTo20_TwoIntoSecondGridTo12_NoNewEntry_ViaMergeInto`
+- H-R8-2: `HR82_LargeLandsInThe8x4FreeColumnUnrotated_PassUOverAllTargetsPrecedesPassR`, `HR82_WithTheChestRemoved_LargeLandsInTheBikeAt00Rotated`, `HR82_BothFull_NoRoom77_NoEntryCreated_EveryTargetVersionUnchanged`, `HR82_MailOnlyIntakeAndAPlank_NotAllowed73_VersionUnchanged`, `HR82_MailOnlyIntakeWithNoSpaceAndALetter_NoRoom`, `NothingAdmitted_NotCarryableBeforeNotAllowed_WhenAnyTargetSkippedForCarryability`
+- NoMerge / effMax 1 / TargetFirst: `NoMerge_SkipsPassM_…`, `EffMaxOne_SkipsPassM_…`, `Mediums_EffMaxOne_NeverMerge_…`, `TargetFirst_FillsTheFirstTarget_MThenUThenR_BeforeTheNext_…`, `TargetFirst_FirstTargetHasNoRoom_…`
+- Index property + probes: `StackIndexPropertyTests.TenThousandRandomCalls_IndexEqualsBruteForceScanOfNonFullStacks_RowMajor_AutoPlaceMatchesTheOracle_ProbesBounded`, `ProbeCounters_PassMVisitsTheKeysListOnly_PassUCountsOneProbePerAnchorUpToTheFirstFit`, `Index_FollowsPlaceRemoveAndTransfer_RowMajor_…`, `RebuildIndex_UnlinksAStaleLinkWhoseCellsWereClearedOutsideTheMutator`
+- Slots layout: `Slots_PassUTakesTheLowestFreeUsableSlotFrom1_NeverSlot0_…`, `Slots_EverySlotFrom1Full_NoRoom_…`, `Slots_ASlotsContainerWithoutReservedSlots_…`
+- Partial / all-or-nothing: `Partial_FiveStackableUnitsIntoRoomForThree_…`, `AllOrNothing_ANonStackableThatDoesNotFitWhole_PlacesNothing_NoRoom`, `PartOfAPlacedStack_…`, `APlacedSourceWithNoMergeTarget_…`, `CountAboveEffMax_*` (4)
+- Negative-fit cache: `NegativeFit_ARepeatOfAFailedShapeAtTheSameVersion_VisitsZeroAnchors`, `NegativeFit_AVersionBump_ClearsIt`, `NegativeFit_AStatEpochBump_ClearsIt_AndSoDoesRebuildIndex`, `NegativeFit_ARowChange_ClearsIt`, `NegativeFit_CacheDisabled_…`, `NegativeFit_ValidateOnlyReads_…`, `StackIndexPropertyTests.TheSameTenThousandCallSequence_WithTheNegativeFitCacheDisabled_GivesIdenticalPlansRepliesAndState`
+- effMax change: `EffMaxChange_DoubleStackPushStatEpochBumpAndRebuildIndex_AOneLetterAutoPlaceMergesIntoTheFormerlyFull20Stack`
+- 0 B: `AutoPlaceAllocationTests.IndexCacheAndAutoPlacePlan_Over10000Calls_AllocateNothing_InOptimisedBuilds`, `MergeCommitAndPlaceRemove_Over1000Cycles_AllocateNothing_InOptimisedBuilds` (Release only), each with an `…_InEveryBuild` twin that runs in Debug and Release (owner skip rule)
+- MergeInto (R1): `MergeInto_*` (7); TD-116 / R4: `TenMailMergesInOnePlan_Succeed_NoAssert66_NoReason85`, `OneHundredSingleUnitMailMergesAcrossFourTargets_…`, `TwoHundredFiftyFiveSingleUnitMerges_TheExactWorstCase_…`, `MergeBound_CoversEveryLegalAutoPlace_AndThePlanStructsStayStackSized`
+**Deviations**:
+- ADVISORY: fixture grids are built with `InvAutoPlaceRig.CreateGrid(w, h, "player_inventory")` (same def and dims as `PlacementFixture.CreateContainer`, but in a mutator-backed world so the index is maintained, per R8); `PlacementFixture.Index` is reused for def lookups.
+- ADVISORY: the mutator now stores slots-layout entries as 1×1 unrotated, matching `PlacementRules` (it used w×h before) — TD-130 item 6.
+- TD-116 (R4, default "raise"): `InvPlan.MaxAcquiredBlocks` 8 → 263 (`AutoPlacePlan.MaxMerges` 255 + 8 handler headroom); PASS M never stops early. New `SimAssertCode` 69 (`InventoryMergeInvalid`), 70 (`InventoryAutoPlaceMergeBoundExceeded`); new `CounterId` 42 (`InventoryMergeCandidates`), 43 (`InventoryPlacementProbes`). Validate only reads the negative-fit cache (no ADR-0009 §2 change). New TD-129, TD-130.
+**Test Evidence**: Logic — `tests/unit/inventory/AutoPlaceTests.cs`, `StackIndexPropertyTests.cs`, `AutoPlaceAllocationTests.cs`; 4,998 tests per leg, 0 failed (net10.0/net8.0 × Debug/Release)
+**Run result**: N/A — Sim-only, no Godot surface (no smoke run)
+**Code Review**: read-only review (Sonnet): APPROVE WITH SUGGESTIONS; suggestions 1–3, 6–8 applied in cfc958a, 4–5 recorded as TD-129/TD-130
