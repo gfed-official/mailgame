@@ -2,6 +2,7 @@ using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
 
@@ -46,6 +47,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
     private readonly EntryPool _entries;
     private readonly Occupancy _occupancy;
     private readonly MailIdArena _mailIds;
+    private readonly InvRequestCheck _requestCheck;
     private readonly DefIndex _hotbarDef;
     private readonly DefIndex _playerInventoryDef;
     private readonly DefIndex _cursorDef;
@@ -83,6 +85,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
         _containers = new ContainerTable(settings.ContainerCapacity);
         _entries = new EntryPool(settings.EntryPoolCapacity, checkRing);
         _mailIds = new MailIdArena(settings.MailIdArenaUnits, checkRing);
+        _requestCheck = new InvRequestCheck(_containers, _entries);
 
         // Rows are clamped to inventory.maxRows by the stat sheet; widths are bounded here for every def (the bitmaps hold 64 columns)
         // and the cellOwner array is sized by the widest def rather than the full 64 (ADR-0009 memory guidance).
@@ -125,6 +128,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
 
     /// <summary>The mail-ids arena (story 003 preallocation; the mutator of story 005 is its caller).</summary>
     internal MailIdArena MailIds => _mailIds;
+
+    /// <summary>The shared first step of every inventory handler's <c>Validate</c> (story 004; the handlers of stories 007-010 call it).</summary>
+    internal InvRequestCheck RequestCheck => _requestCheck;
 
     /// <summary>The hotbar of <paramref name="slot"/>, or none when the slot has no containers.</summary>
     /// <param name="slot">The player slot.</param>
