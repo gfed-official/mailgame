@@ -324,6 +324,8 @@ public class StackIndexPropertyTests
 
                 long visits = Rig.Counters[CounterId.InventoryMergeCandidates] - m0;
                 Assert.True(visits <= listLengths, $"call {call}: {visits} PASS M visits > list lengths {listLengths}");
+                Assert.True(visits >= expected.MergeVisits, $"call {call}: {visits} PASS M visits < oracle {expected.MergeVisits}");
+                Assert.True(visits <= expected.MergeVisits, $"call {call}: {visits} PASS M visits > oracle {expected.MergeVisits}");
                 Assert.Equal(ExpectedProbes(in plan), Rig.Counters[CounterId.InventoryPlacementProbes] - p0);
             }
 
@@ -462,7 +464,8 @@ public class StackIndexPropertyTests
 
         // ---------------------------------------------------------------- oracle
 
-        private readonly record struct OraclePlan(ushort Reason, string Merges, string Placement, int Unplaced);
+        /// <summary>The oracle's plan; <see cref="MergeVisits"/> is the list nodes PASS M walks (the non-full same-key stacks it reaches before the units run out).</summary>
+        private readonly record struct OraclePlan(ushort Reason, string Merges, string Placement, int Unplaced, long MergeVisits);
 
         /// <summary>GDD R8 by brute force: stacks from a row-major cell scan, free cells from cell owners. No index, no cache, no masks.</summary>
         private OraclePlan Oracle(in PlacementSubject s, int units, ushort source, ushort[] targets, MergePolicy policy, PlaceOrder order)
@@ -480,7 +483,7 @@ public class StackIndexPropertyTests
 
             if (!any)
             {
-                return new OraclePlan((ushort)(carry ? InvReason.NotCarryable : InvReason.NotAllowed), string.Empty, "-", units);
+                return new OraclePlan((ushort)(carry ? InvReason.NotCarryable : InvReason.NotAllowed), string.Empty, "-", units, 0);
             }
 
             int sourceCount = Rig.Entries[source].Count;
@@ -489,6 +492,7 @@ public class StackIndexPropertyTests
             string placement = "-";
             bool merging = policy == MergePolicy.Merge && s.EffMax > 1;
             int placeUnits = 0;
+            long visits = 0;
             PlacementSubject subject = s;
 
             int PlacementUnits() => units == sourceCount && remaining <= Math.Max(1, subject.EffMax) ? remaining : 0;
@@ -504,6 +508,11 @@ public class StackIndexPropertyTests
                     }
 
                     ref EntryRecord r = ref Rig.Entries[e];
+                    if (StackKey.Of(in r).Raw == subject.Key.Raw && r.Count < Rig.Inventory.Mutator.EffMaxOf(in r))
+                    {
+                        visits++; // a node of the key's non-full list (the brute-force list AssertIndexMatchesScan checks)
+                    }
+
                     if (e == source || r.Count >= subject.EffMax || !PlacementRules.CanMerge(subject.Key, StackKey.Of(in r), subject.EffMax, def, subject.Category))
                     {
                         continue;
@@ -613,7 +622,7 @@ public class StackIndexPropertyTests
             }
 
             int moved = units - remaining;
-            return new OraclePlan(moved == 0 ? (ushort)InvReason.NoRoom : (ushort)0, string.Join(",", merges), placement, remaining);
+            return new OraclePlan(moved == 0 ? (ushort)InvReason.NoRoom : (ushort)0, string.Join(",", merges), placement, remaining, visits);
         }
 
         /// <summary>The anchors the plan's scans tested: every no-fit scan's anchors, plus the found anchor's index in its scan.</summary>

@@ -617,7 +617,8 @@ internal sealed class InvAutoPlaceRig
     private readonly GatedSink _gate;
     private uint _reqId = 100;
 
-    public InvAutoPlaceRig()
+    /// <summary>Builds the rig; <paramref name="mailIdArenaUnits"/> overrides the arena budget of this test world only (the default is the balance's).</summary>
+    public InvAutoPlaceRig(int? mailIdArenaUnits = null)
     {
         Sink = new CaptureSink();
         _gate = new GatedSink(Sink);
@@ -627,7 +628,11 @@ internal sealed class InvAutoPlaceRig
             null,
             new SimSystemEntry(
                 SystemId.GridInventory,
-                ctx => new InventoryWithActionOp(new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events), handler)));
+                ctx => new InventoryWithActionOp(
+                    mailIdArenaUnits is int units
+                        ? new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, InventorySettings.FromBalance(ctx.Content.Inventory) with { MailIdArenaUnits = units }, ctx.Events)
+                        : new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events),
+                    handler)));
         Host = SimComposition.Build(new SimBuildArgs(profile, BuiltInContent.CreateM1a(), 42) { EventSink = _gate });
         _system = (InventoryWithActionOp)Host.Systems.Single();
         var join = new Op { Kind = OpKind.PlayerJoin, ReqId = 1 };

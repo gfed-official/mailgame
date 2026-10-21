@@ -686,6 +686,38 @@ public class AutoPlaceTests
         Assert.False(rig.Entries[one].IsLive);
     }
 
+    [Fact]
+    [Trait("Id", "H-R3-2")]
+    public void PassM_ALinkedStackFullAtTheCurrentEffMax_IsSkippedAtOpTime_NotMergedInto_TheNextNodeTakesTheUnits()
+    {
+        // Arrange: under Double Stack (effMax 40) a 30-letter stack at (0,0) and a 15-letter stack at (1,0) are both linked; the perk
+        // is removed (effMax 20) with no RebuildIndex, so the 30-stack stays linked although it is full (over-full) at op time
+        var rig = new InvAutoPlaceRig();
+        Assert.True(PushDoubleStack(rig));
+        ushort over = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 30));
+        ushort room = rig.PlaceMail(rig.InventoryA, "letter", 1, 0, Address2, InvAutoPlaceRig.Ids(100, 15));
+        Assert.True(rig.Host.Services.Stats.Remove(in _doubleStackSource));
+        Assert.Equal(20, rig.Mail("letter", Address2).EffMax);
+        Assert.Equal(new[] { over, room }, ListOf(rig, rig.InventoryA, rig.Mail("letter", Address2).Key));
+        ushort source = rig.DetachedMail("letter", Address2, new uint[] { 500, 501, 502 });
+        long m0 = rig.Counters[CounterId.InventoryMergeCandidates];
+
+        // Act
+        ushort reason = rig.AutoPlace(source, rig.InventoryA);
+        long visits = rig.Counters[CounterId.InventoryMergeCandidates] - m0;
+
+        // Assert: the stale node is visited and skipped (count 30 >= effMax 20), the 15-stack takes all 3
+        Assert.Equal(0, reason);
+        Assert.Equal(1, rig.LastPlan.MergeCount);
+        Assert.Equal(room, rig.LastPlan.Merge(0).TargetEntrySlot);
+        Assert.Equal(3, rig.LastPlan.Merge(0).Units);
+        Assert.Equal(30, rig.Entries[over].Count);
+        Assert.Equal(InvAutoPlaceRig.Ids(1, 30), rig.IdsOf(over));
+        Assert.Equal(18, rig.Entries[room].Count);
+        Assert.False(rig.Entries[source].IsLive);
+        Assert.Equal(2, visits);
+    }
+
     // ---------------------------------------------------------------- TD-116 merge-count bound
 
     [Fact]
@@ -812,6 +844,62 @@ public class AutoPlaceTests
 
         Assert.False(rig.Entries[source].IsLive);
         Assert.Equal(StackIndex.None, rig.Index.Head(grids[3], rig.Item("plank").Key));
+    }
+
+    [Fact]
+    [Trait("Id", "TD-116")]
+    public void TwoHundredFiftyFiveSingleUnitMailMerges_TheExactWorstCaseWithMail_PlanAndCommit_NoAssert66_NoReason85_OldestFirst()
+    {
+        // Arrange: a test world whose arena has 600 class-32 blocks (budget 9 x 32 x 600; the default has 113): 255 stacks of 19
+        // letters to #2 (room 1 each) over four 8 x 8 grids hold 255 of them and the 255 unions reserve 255 more. A detached source of
+        // 255 letters, ids 1 to 255.
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.ClassCount * 32 * 600);
+        Assert.Equal(600, rig.Inventory.MailIds.BlocksPerClass(MailIdArena.ClassFor(20)));
+        ushort[] grids = { rig.CreateGrid(8, 8), rig.CreateGrid(8, 8), rig.CreateGrid(8, 8), rig.CreateGrid(8, 8) };
+        var stacks = new List<ushort>();
+        for (int i = 0; i < AutoPlacePlan.MaxMerges; i++)
+        {
+            stacks.Add(rig.PlaceMail(grids[i / 64], "letter", i % 8, (i % 64) / 8, Address2, InvAutoPlaceRig.Ids(10_000u + (uint)(i * 100), 19)));
+        }
+
+        ushort source = rig.DetachedMail("letter", Address2, InvAutoPlaceRig.Ids(1, byte.MaxValue));
+        PlacementSubject letter = rig.SubjectOf(source);
+        int liveUnitsBefore = rig.Inventory.MailIds.LiveUnits;
+        int liveBlocksBefore = rig.Inventory.MailIds.LiveBlocks;
+        var plan = new InvPlan();
+
+        // Act: the pure plan (its acquired blocks), then the same AutoPlace planned, reserved and committed through the fixture op
+        ushort planned = rig.Inventory.AutoPlace.Plan(ref plan, in letter, byte.MaxValue, source, grids, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+        ushort reason = rig.AutoPlace(source, grids);
+
+        // Assert: the plan — 255 one-unit merges, one 20-unit union block each, no overflow, the reservation passes
+        Assert.Equal(0, planned);
+        Assert.Equal(AutoPlacePlan.MaxMerges, ap.MergeCount);
+        Assert.Equal(AutoPlacePlan.MaxMerges, plan.AcquiredBlockCount);
+        Assert.All(plan.AcquiredBlocks.ToArray(), b => Assert.Equal(20, b));
+        Assert.False(plan.AcquiredBlocksOverflowed);
+        Assert.Equal(0, rig.Inventory.RequestCheck.CheckArenaReservation(in plan));
+
+        // Assert: the commit (no assert 66, no reason 85) — every stack took the next-oldest id, in PASS M order
+        Assert.Equal(0, reason);
+        Assert.Equal(AutoPlacePlan.MaxMerges, rig.LastPlan.MergeCount);
+        Assert.Equal(byte.MaxValue, rig.LastPlan.MergedUnits);
+        Assert.Equal(0, rig.LastPlan.Unplaced);
+        for (int i = 0; i < stacks.Count; i++)
+        {
+            Assert.Equal(stacks[i], rig.LastPlan.Merge(i).TargetEntrySlot);
+            uint[] ids = rig.IdsOf(stacks[i]);
+            Assert.Equal(20, rig.Entries[stacks[i]].Count);
+            Assert.Equal(1u + (uint)i, ids[0]);
+            Assert.Equal(InvAutoPlaceRig.Ids(10_000u + (uint)(i * 100), 19), ids[1..]);
+            Assert.False(rig.Index.Contains(stacks[i]));
+        }
+
+        // Assert: the arena — units conserved, the source's block freed and each stack's block replaced by its union
+        Assert.False(rig.Entries[source].IsLive);
+        Assert.Equal(liveUnitsBefore, rig.Inventory.MailIds.LiveUnits);
+        Assert.Equal(liveBlocksBefore - 1, rig.Inventory.MailIds.LiveBlocks);
+        Assert.All(grids, g => Assert.Equal(StackIndex.None, rig.Index.Head(g, letter.Key)));
     }
 
     [Fact]
@@ -978,6 +1066,42 @@ public class AutoPlaceTests
         Assert.Equal(0, p1 - p0);
         Assert.Equal(6, anchorProbes);
         Assert.Equal((5, 0), (rig.Entries[small].X, rig.Entries[small].Y));
+    }
+
+    [Fact]
+    [Trait("Id", "TR-inventory-007")]
+    public void ProbeCounters42And43_AreNotInTheCanonicalDump_RaisingThemLeavesTheDumpBytesUnchanged()
+    {
+        // Arrange: a 5-letter stack to #2 (a merge candidate) and a world dump before any probe
+        var rig = new InvAutoPlaceRig();
+        ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 3, 1, Address2, InvAutoPlaceRig.Ids(1, 5));
+        PlacementSubject letter = rig.Mail("letter", Address2);
+        PlacementSubject small = rig.Mail("small", Address2);
+        long m0 = rig.Counters[CounterId.InventoryMergeCandidates];
+        long p0 = rig.Counters[CounterId.InventoryPlacementProbes];
+        byte[] before = DumpHash.Bytes(rig.Host.World);
+
+        // Act: pure plans (they raise only the two counters), then direct writes of both
+        var a = new InvPlan();
+        var b = new InvPlan();
+        Assert.Equal(0, rig.Inventory.AutoPlace.Plan(ref a, in letter, 1, AutoPlace.NoSource, new[] { rig.InventoryA }, MergePolicy.Merge, PlaceOrder.PassFirst, out _));
+        Assert.Equal(0, rig.Inventory.AutoPlace.Plan(ref b, in small, 1, AutoPlace.NoSource, new[] { rig.InventoryA }, MergePolicy.Merge, PlaceOrder.PassFirst, out _));
+        long m1 = rig.Counters[CounterId.InventoryMergeCandidates];
+        long p1 = rig.Counters[CounterId.InventoryPlacementProbes];
+        rig.Counters.Add(CounterId.InventoryMergeCandidates, 1_000_000);
+        rig.Counters.Set(CounterId.InventoryPlacementProbes, 123_456_789);
+        byte[] after = DumpHash.Bytes(rig.Host.World);
+
+        // Assert: both counters moved, the dump did not
+        Assert.Equal(m0 + 1, m1);
+        Assert.True(p1 > p0, $"placement probes {p0} -> {p1}");
+        Assert.Equal(before, after);
+
+        // Assert (control): a committed change to the state does change the dump
+        ushort one = rig.DetachedMail("letter", Address2, new uint[] { 99 });
+        Assert.Equal(0, rig.AutoPlace(one, rig.InventoryA));
+        Assert.Equal(6, rig.Entries[stack].Count);
+        Assert.NotEqual(after, DumpHash.Bytes(rig.Host.World));
     }
 
     // ---------------------------------------------------------------- MergeInto
@@ -1284,6 +1408,45 @@ public class AutoPlaceTests
         Assert.Equal(10, ap.Unplaced);
     }
 
+    [Fact]
+    public void TargetFirst_ANoSourceSpawnOfMoreThanEffMax_PlacesOneEffMaxEntryInTheFirstTarget_AndReportsTheRestUnplaced()
+    {
+        // Arrange: 30 letters to #2 spawned (no source entry) into [hotbar (empty), inventory (a 15-stack with room 5)]; effMax 20
+        var rig = new InvAutoPlaceRig();
+        ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 15));
+        PlacementSubject letter = rig.Mail("letter", Address2);
+        Assert.Equal(20, letter.EffMax);
+        ushort[] targets = { rig.HotbarA, rig.InventoryA };
+        var targetPlan = new InvPlan();
+        var passPlan = new InvPlan();
+
+        // Act
+        ushort reason = rig.Inventory.AutoPlace.Plan(ref targetPlan, in letter, 30, AutoPlace.NoSource, targets, MergePolicy.Merge, PlaceOrder.TargetFirst, out AutoPlacePlan tf);
+        ushort passReason = rig.Inventory.AutoPlace.Plan(ref passPlan, in letter, 30, AutoPlace.NoSource, targets, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan pf);
+
+        // Assert: target-first fills the hotbar first (M finds nothing, U takes slot 1 with one effMax entry); one plan holds at most
+        // one free-cell placement, so it stops there and the inventory's merge room is not visited: 10 unplaced
+        Assert.Equal(0, reason);
+        Assert.Equal(0, tf.MergeCount);
+        Assert.True(tf.Placement.IsSet);
+        Assert.Equal(rig.HotbarA, tf.Placement.ContainerSlot);
+        Assert.Equal((1, 0), (tf.Placement.X, tf.Placement.Y));
+        Assert.Equal(AutoPlace.NoSource, tf.Placement.EntrySlot);
+        Assert.Equal(20, tf.PlacementUnits);
+        Assert.Equal(10, tf.Unplaced);
+        Assert.Equal(1, targetPlan.TouchedCount);
+        Assert.Equal(rig.HotbarA, targetPlan.TouchedSlot(0));
+
+        // Assert (contrast): pass-first merges 5 into the inventory stack first, then places one effMax entry in the hotbar: 5 unplaced
+        Assert.Equal(0, passReason);
+        Assert.Equal(1, pf.MergeCount);
+        Assert.Equal(stack, pf.Merge(0).TargetEntrySlot);
+        Assert.Equal(5, pf.Merge(0).Units);
+        Assert.Equal(rig.HotbarA, pf.Placement.ContainerSlot);
+        Assert.Equal(20, pf.PlacementUnits);
+        Assert.Equal(5, pf.Unplaced);
+    }
+
     // ---------------------------------------------------------------- index hooks
 
     [Fact]
@@ -1397,9 +1560,11 @@ public class AutoPlaceTests
         return values;
     }
 
+    private static readonly ModifierSource _doubleStackSource = new(SourceKind.Perk, DefIndex.FromValue(0), 0, ModifierOwner.Team, 1, ModifierLifetime.Run);
+
     private static bool PushDoubleStack(InvAutoPlaceRig rig)
     {
-        var src = new ModifierSource(SourceKind.Perk, DefIndex.FromValue(0), 0, ModifierOwner.Team, 1, ModifierLifetime.Run);
+        ModifierSource src = _doubleStackSource;
         Modifier Leg(string kind) => new(
             src.Kind, src.Id, src.StackIndex, PlayerSlot.None, Stat.MailMaxStack, rig.KindIndex(kind).Value, ModifierOp.Mul,
             GridMailRuleFixtures.DoubleStackPm, src.Lifetime);
