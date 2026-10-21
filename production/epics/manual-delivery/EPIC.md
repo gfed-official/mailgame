@@ -139,4 +139,4 @@ This epic is complete when:
 
 ## Next Step
 
-Story 001 is implemented in PR #14 (after it merges, tag its Completion Notes' open question as OQ-MD001-1). Next: `/story-readiness` then `/dev-story` on the next story in the recommended order whose dependencies are Complete (002 waits on mail-destinations 010).
+Story 001 is Complete (PR #14; its Completion Notes' open question is tagged OQ-MD001-1). Next: `/story-readiness` then `/dev-story` on the next story in the recommended order whose dependencies are Complete (002 waits on mail-destinations 010).
