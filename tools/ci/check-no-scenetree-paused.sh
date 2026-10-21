@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # AC-3 (story 004): the Sim is paused by its own tick gate, never SceneTree.Paused.
-# Scans src/PerformativeMail.Sim and src/Game/Hosting (those that exist) and fails on a match.
+# Scans src/PerformativeMail.Sim and src/Game/ EXCLUDING src/Game/Smoke/ (those that exist) and
+# fails on a match. src/Game/Smoke/ is excluded because the godot-host-shell/003
+# `pause-driver-state` smoke scenario must set GetTree().Paused = true to prove that a tree pause
+# never stops the Sim (TR-input-014); no shipping code lives there.
 # Exit codes: 0 = clean, 1 = match, other = error (an error must not read as "clean").
 #
-# Matches inside C# comments are skipped, so documentation may name the API: `//` and `///`
+# Matches inside C# comments are skipped (the stripper is tools/ci/lib/strip-cs-comments.awk,
+# shared with check-sim-access.sh), so documentation may name the API: `//` and `///`
 # lines, a trailing `// ...` after code, and `/* ... */` blocks (also across lines, so `*`
 # continuation lines are skipped). Code before a comment or after a closed block on the same
 # line is still scanned. `//` and `/*` inside plain "..." / @"..." strings and '...' chars do
@@ -17,11 +21,30 @@
 #
 # Usage:
 #   tools/ci/check-no-scenetree-paused.sh               scan the real directories
-#   tools/ci/check-no-scenetree-paused.sh --self-check  prove the scan catches code and skips comments
+#   tools/ci/check-no-scenetree-paused.sh --self-check  prove the scan catches code, skips comments
+#                                                       and skips src/Game/Smoke/ only
 set -u
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/../.." && pwd)"
+strip_lib="$script_dir/lib/strip-cs-comments.awk"
+[ -r "$strip_lib" ] || { echo "::error::missing $strip_lib" >&2; exit 2; }
 export PAUSE_PATTERN='SceneTree\.Paused|GetTree\(\)\.Paused'
+
+# Prints the scan targets under <root>, one per line: src/PerformativeMail.Sim, and every entry
+# of src/Game/ except src/Game/Smoke/ (those that exist). Used by the real scan and the self-check.
+scan_targets() {
+  local root="$1" e
+  [ -d "$root/src/PerformativeMail.Sim" ] && printf '%s\n' "$root/src/PerformativeMail.Sim"
+  if [ -d "$root/src/Game" ]; then
+    for e in "$root"/src/Game/* "$root"/src/Game/.[!.]*; do
+      [ -e "$e" ] || continue
+      [ "$e" = "$root/src/Game/Smoke" ] && continue
+      printf '%s\n' "$e"
+    done
+  fi
+  return 0
+}
 
 # Prints offending lines (file:line:text). Returns 0 = match, 1 = clean, other = error.
 # grep -l picks the candidate files; awk drops comments from each line and re-tests the code.
@@ -33,43 +56,14 @@ scan() {
   local files=()
   mapfile -t files <<< "$out"
   rc=0
-  out="$(awk '
+  out="$(awk -f "$strip_lib" -f <(cat <<'AWK'
     FNR == 1 { seen++; inblock = 0; verbatim = 0 }
     { code = strip($0); if (code ~ ENVIRON["PAUSE_PATTERN"]) { print FILENAME ":" FNR ":" $0; found = 1 } }
     # Every candidate matched grep, so it is non-empty; an unseen file means awk could not read it.
     # The verdict is a printed last line, so an awk crash (any exit code) cannot read as "clean".
     END { if (seen == ARGC - 1) print (found ? "scan-result:match" : "scan-result:clean") }
-
-    # Returns the line without comments. Block-comment and verbatim-string state carry over lines.
-    function strip(s,   out, i, n, c, nx, j) {
-      out = ""; n = length(s); i = 1
-      while (i <= n) {
-        c = substr(s, i, 1); nx = substr(s, i + 1, 1)
-        if (inblock) {
-          if (c == "*" && nx == "/") { inblock = 0; out = out " "; i += 2 } else i++
-        } else if (verbatim) {
-          out = out c
-          if (c == "\"" && nx == "\"") { out = out nx; i += 2 } else { if (c == "\"") verbatim = 0; i++ }
-        } else if (c == "/" && nx == "/") {
-          break
-        } else if (c == "/" && nx == "*") {
-          inblock = 1; i += 2
-        } else if (c == "@" && nx == "\"") {
-          verbatim = 1; out = out c nx; i += 2
-        } else if (c == "\"" || c == "\047") {
-          # Regular string or char literal: copy through the closing quote, honouring \ escapes.
-          for (j = i + 1; j <= n; j++) {
-            if (substr(s, j, 1) == "\\") j++
-            else if (substr(s, j, 1) == c) break
-          }
-          out = out substr(s, i, j - i + 1); i = j + 1
-        } else {
-          out = out c; i++
-        }
-      }
-      return out
-    }
-  ' "${files[@]}")" || rc=$?
+AWK
+  ) "${files[@]}")" || rc=$?
   local verdict="${out##*$'\n'}"
   [ "$out" != "$verdict" ] && printf '%s\n' "${out%$'\n'*}"
   if [ "$rc" -ne 0 ]; then echo "::error::awk failed with exit code $rc" >&2; return 2; fi
@@ -109,26 +103,54 @@ if [ "${1:-}" = "--self-check" ]; then
       *) echo "self-check: FAIL ($name: scan error, exit code $rc)"; ok=0 ;;
     esac
   done
+  # Directory selection (the same scan_targets as the real run): src/Game/Smoke/ is skipped,
+  # every other src/Game/ entry and the Sim are scanned.
+  tree="$tmp/tree"
+  mkdir -p "$tree/src/Game/Smoke" "$tree/src/Game/Other" "$tree/src/Game/Hosting" "$tree/src/PerformativeMail.Sim/Core"
+  printf 'class X { void F() { GetTree().Paused = true; } }\n' > "$tree/src/Game/Smoke/X.cs"
+  printf 'class H { void F() { var p = 1; } }\n' > "$tree/src/Game/Hosting/H.cs"
+  printf 'class S { void F() { var p = 1; } }\n' > "$tree/src/PerformativeMail.Sim/Core/S.cs"
+  run_tree() {  # <label> <expected rc> <must-list regex or -> <must-not-list regex>
+    local label="$1" want="$2" must="$3" mustnot="$4" targets=() out rc=0
+    mapfile -t targets < <(scan_targets "$tree")
+    out="$(scan "${targets[@]}")" || rc=$?
+    if [ "$rc" -ne "$want" ]; then
+      echo "self-check: FAIL ($label: exit $rc, expected $want)"; printf '%s\n' "$out"; ok=0; return
+    fi
+    if [ "$must" != "-" ] && ! printf '%s\n' "$out" | grep -qE "$must"; then
+      echo "self-check: FAIL ($label: $must not reported)"; ok=0; return
+    fi
+    if printf '%s\n' "$out" | grep -qE "$mustnot"; then
+      echo "self-check: FAIL ($label: $mustnot reported)"; ok=0; return
+    fi
+  }
+  run_tree "only src/Game/Smoke/ assigns" 1 - 'Smoke/X\.cs'
+  printf 'class Y { void F() { GetTree().Paused = true; } }\n' > "$tree/src/Game/Other/Y.cs"
+  run_tree "src/Game/Other/ assigns" 0 'src/Game/Other/Y\.cs:1:' 'Smoke/X\.cs'
+  rm "$tree/src/Game/Other/Y.cs"
+  printf 'class Z { void F() { SceneTree.Paused = true; } }\n' > "$tree/src/PerformativeMail.Sim/Core/Z.cs"
+  run_tree "Sim assigns" 0 'PerformativeMail\.Sim/Core/Z\.cs:1:' 'Smoke/X\.cs'
+  rm "$tree/src/PerformativeMail.Sim/Core/Z.cs"
+  printf 'class T { void F() { GetTree().Paused = true; } }\n' > "$tree/src/Game/Top.cs"
+  run_tree "a file directly in src/Game/ assigns" 0 'src/Game/Top\.cs:1:' 'Smoke/X\.cs'
   [ "$ok" = 1 ] || exit 1
-  echo "self-check: PASS (GetTree().Paused / SceneTree.Paused caught in code, skipped in comments, clean code not matched)"
+  echo "self-check: PASS (GetTree().Paused / SceneTree.Paused caught in code, skipped in comments, clean code not matched; src/Game/Smoke/ skipped, other src/Game/ and Sim files caught)"
   exit 0
 fi
 
 dirs=()
-for d in src/PerformativeMail.Sim src/Game/Hosting; do
-  [ -d "$repo_root/$d" ] && dirs+=("$repo_root/$d")
-done
+mapfile -t dirs < <(scan_targets "$repo_root")
 if [ "${#dirs[@]}" -eq 0 ]; then
-  echo "No Sim / Hosting directories yet; nothing to scan."
+  echo "No Sim / src/Game directories yet; nothing to scan."
   exit 0
 fi
 rc=0
 scan "${dirs[@]}" || rc=$?
 if [ "$rc" -eq 0 ]; then
-  echo "::error::SceneTree.Paused found in Sim / Hosting (never pause the Sim via the SceneTree)"
+  echo "::error::SceneTree.Paused found in Sim / src/Game (excluding src/Game/Smoke/) (never pause the Sim via the SceneTree)"
   exit 1
 elif [ "$rc" -ne 1 ]; then
   echo "::error::scan failed with exit code $rc"
   exit "$rc"
 fi
-echo "No SceneTree.Paused in Sim / Hosting (comments skipped)."
+echo "No SceneTree.Paused in Sim / src/Game (src/Game/Smoke/ excluded; comments skipped)."

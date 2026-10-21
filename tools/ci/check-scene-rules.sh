@@ -7,7 +7,10 @@
 #   R3  project.godot does not set application/run/low_processor_mode=true
 #   R4  project.godot does not set physics/common/physics_interpolation=true
 #   R5  no _PhysicsProcess / _physics_process override under src/Game/
-#   R6  no ".Paused =" / ".paused =" assignment under src/Game/ (reads and "==" are fine)
+#   R6  no ".Paused =" / ".paused =" assignment under src/Game/ EXCLUDING src/Game/Smoke/ (reads
+#       and "==" are fine). src/Game/Smoke/ is excluded because the godot-host-shell/003
+#       `pause-driver-state` smoke must set SceneTree.Paused = true to prove a tree pause never
+#       stops the Sim (TR-input-014); no shipping code lives there. Other rules scan Smoke too.
 #   R7  application/run/main_scene="res://src/Game/Main.tscn" is set (exact value)
 #   R9  presenters/views that override _Ready do no node/tree lookups (inert until Initialize)
 #   R8a exactly one .tscn under src/Game/ references GameLoop.cs as an ext_resource script
@@ -110,6 +113,7 @@ EOF
   plant_check R5  "_PhysicsProcess override"      'printf "partial class Y : Node { public override void _PhysicsProcess(double d) { } }\n" > src/Game/Hosting/Phys.cs'
   plant_check R6  "GetTree().Paused = true"       'printf "class Z { void F() { GetTree().Paused = true; } }\n" > src/Game/Hosting/Pause.cs'
   plant_check R6  "get_tree().paused = true (.gd)" 'printf "func f():\n\tget_tree().paused = true\n" > src/Game/pause.gd'
+  plant_check R6  "non-Smoke assignment next to a Smoke one" 'mkdir -p src/Game/Smoke src/Game/Other && printf "class S { void F() { ctx.Tree.Paused = true; } }\n" > src/Game/Smoke/S.cs && printf "class O { void F() { GetTree().Paused = true; } }\n" > src/Game/Other/O.cs'
   plant_check R7  "wrong main_scene"              'sed -i "s|^run/main_scene=.*|run/main_scene=\"res://src/Game/Other.tscn\"|" project.godot'
   plant_check R7  "main_scene absent"             'sed -i "/^run\/main_scene=/d" project.godot'
   plant_check R7  "project.godot absent"          'rm project.godot'
@@ -123,6 +127,18 @@ EOF
   plant_check R9  "view GetTree in _Ready"                'printf "using Godot;\npublic partial class PlayerView : Node3D { public override void _Ready() { var t = GetTree(); } }\n" > src/Game/PlayerView.cs'
   plant_check R1  "[autoload_prepend] section"            'printf "\n[autoload_prepend]\n\nFoo=\"*res://foo.gd\"\n" >> project.godot'
   plant_check R2  "src/Game/ absent"                     'rm -rf src/Game'
+
+  # src/Game/Smoke/ is excluded from R6 only: a Smoke assignment alone must be accepted.
+  make_clean
+  mkdir -p "$tmp/repo/src/Game/Smoke"
+  printf 'class S { void F() { GetTree().Paused = true; ctx.Tree.Paused = false; } }\n' > "$tmp/repo/src/Game/Smoke/PauseSmoke.cs"
+  if run_child && grep -q '^PASS  \[R6\]' "$tmp/out.txt"; then
+    echo "PASS  self-check: src/Game/Smoke/ Paused assignment does not trip R6"
+  else
+    echo "FAIL  self-check: src/Game/Smoke/ Paused assignment tripped R6 or the run failed"; cat "$tmp/out.txt"; bad=$((bad + 1))
+  fi
+  # ...but the exclusion is R6 only: a Smoke _PhysicsProcess still trips R5.
+  plant_check R5  "_PhysicsProcess override in src/Game/Smoke/" 'mkdir -p src/Game/Smoke && printf "partial class Y : Node { public override void _PhysicsProcess(double d) { } }\n" > src/Game/Smoke/Phys.cs'
 
   if [ "$bad" -ne 0 ]; then echo "check-scene-rules --self-check: $bad failure(s)"; exit 1; fi
   echo "check-scene-rules --self-check: clean layout accepted, $planted planted violations detected"
@@ -159,6 +175,8 @@ project_has() {
 }
 
 # src_scan <id> <description> <ERE> <include glob>... : fails on any non-comment hit under src/Game/.
+# If $scan_exclude is non-empty, hits in files under that directory prefix are ignored.
+scan_exclude=""
 src_scan() {
   local id="$1" desc="$2" pat="$3"; shift 3
   if [ ! -d "$game" ]; then fail "[$id] $desc: src/Game/ is missing"; return; fi
@@ -168,6 +186,9 @@ src_scan() {
   raw="$(grep -rnE "${inc[@]}" -e "$pat" "$game" 2>&1)"; rc=$?
   if [ "$rc" -gt 1 ]; then fail "[$id] $desc: grep error: $raw"; return; fi
   hits="$(printf '%s\n' "$raw" | grep -vE "$comment_line" | grep -v '^$')"
+  if [ -n "$scan_exclude" ] && [ -n "$hits" ]; then
+    hits="$(printf '%s\n' "$hits" | awk -v p="$scan_exclude" 'index($0, p) != 1 && $0 != ""')"
+  fi
   if [ -z "$hits" ]; then pass "[$id] $desc"; else fail "[$id] $desc:"; printf '%s\n' "$hits" | sed 's/^/        /'; fi
 }
 
@@ -202,8 +223,10 @@ src_scan R5 "no _PhysicsProcess override under src/Game/" \
   'override[[:space:]]+void[[:space:]]+_PhysicsProcess|_physics_process[[:space:]]*\(' '*.cs' '*.gd'
 
 # R6 - SceneTree.Paused is never assigned ("==" comparisons and reads are fine).
-src_scan R6 "no SceneTree.Paused assignment under src/Game/ (ADR-0002)" \
+scan_exclude="$game/Smoke/"
+src_scan R6 "no SceneTree.Paused assignment under src/Game/ outside src/Game/Smoke/ (ADR-0002)" \
   '\.(Paused|paused)[[:space:]]*=([^=]|$)' '*.cs' '*.gd'
+scan_exclude=""
 
 # R7 - main scene (exact value; tolerate a trailing CR).
 project_has '^application/run/main_scene="res://src/Game/Main\.tscn"[[:space:]]*$'
