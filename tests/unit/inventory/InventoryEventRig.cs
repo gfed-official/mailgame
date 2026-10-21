@@ -330,7 +330,7 @@ internal sealed class InvEventRig
             null,
             new SimSystemEntry(
                 SystemId.GridInventory,
-                ctx => new InventoryWithFixtureOp(new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events), handler, ctx.CheckRing)));
+                ctx => new InventoryWithFixtureOp(new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick), handler, ctx.CheckRing)));
         Host = SimComposition.Build(new SimBuildArgs(profile, BuiltInContent.CreateM1a(), 42) { EventSink = Sink });
         _system = (InventoryWithFixtureOp)Host.Systems.Single();
         Join(0, 1);
@@ -584,7 +584,22 @@ internal sealed class InvFixtureActionHandler : IOpHandler
     }
 }
 
-/// <summary>TEST-ONLY system: the real <see cref="InventorySystem"/> plus the <see cref="InvFixtureActionHandler"/>.</summary>
+/// <summary>TEST-ONLY in-tick caller (story grid-inventory/012): the body a <see cref="InvPhaseHook"/> runs inside the world's <c>MailStep</c> phase.</summary>
+internal delegate void InvPhaseAction(in TickContext ctx);
+
+/// <summary>
+/// TEST-ONLY phase binding (story grid-inventory/012): runs <see cref="Action"/> inside <c>MailStep</c> (phase 8, where Mail calls
+/// <c>Spawn</c>), standing in for an in-tick <see cref="IInventoryApi"/> caller. A null action is a no-op; invoking a cached delegate
+/// allocates nothing.
+/// </summary>
+internal sealed class InvPhaseHook : ISimPhase
+{
+    public InvPhaseAction? Action { get; set; }
+
+    public void Run(in TickContext ctx) => Action?.Invoke(in ctx);
+}
+
+/// <summary>TEST-ONLY system: the real <see cref="InventorySystem"/> plus the <see cref="InvFixtureActionHandler"/> and an <see cref="InvPhaseHook"/>.</summary>
 internal sealed class InventoryWithActionOp : ISimSystem
 {
     public InventoryWithActionOp(InventorySystem inner, InvFixtureActionHandler handler)
@@ -598,10 +613,13 @@ internal sealed class InventoryWithActionOp : ISimSystem
 
     public InvFixtureActionHandler Handler { get; }
 
+    public InvPhaseHook Hook { get; } = new();
+
     public void Bind(SimWorldBuilder builder)
     {
         Inner.Bind(builder);
         builder.BindOp(InvFixtureActionHandler.Descriptor, Handler);
+        builder.Bind(PhaseId.MailStep, Hook);
     }
 }
 
@@ -617,8 +635,11 @@ internal sealed class InvAutoPlaceRig
     private readonly GatedSink _gate;
     private uint _reqId = 100;
 
-    /// <summary>Builds the rig; <paramref name="mailIdArenaUnits"/> overrides the arena budget of this test world only (the default is the balance's).</summary>
-    public InvAutoPlaceRig(int? mailIdArenaUnits = null)
+    /// <summary>
+    /// Builds the rig; <paramref name="mailIdArenaUnits"/> overrides the arena budget of this test world only (the default is the
+    /// balance's); <paramref name="content"/> replaces the M-1a built-in set (story 012's perf fixture adds a container def).
+    /// </summary>
+    public InvAutoPlaceRig(int? mailIdArenaUnits = null, ContentSet? content = null)
     {
         Sink = new CaptureSink();
         _gate = new GatedSink(Sink);
@@ -630,10 +651,10 @@ internal sealed class InvAutoPlaceRig
                 SystemId.GridInventory,
                 ctx => new InventoryWithActionOp(
                     mailIdArenaUnits is int units
-                        ? new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, InventorySettings.FromBalance(ctx.Content.Inventory) with { MailIdArenaUnits = units }, ctx.Events)
-                        : new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events),
+                        ? new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, InventorySettings.FromBalance(ctx.Content.Inventory) with { MailIdArenaUnits = units }, ctx.Events, ctx.Tick)
+                        : new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick),
                     handler)));
-        Host = SimComposition.Build(new SimBuildArgs(profile, BuiltInContent.CreateM1a(), 42) { EventSink = _gate });
+        Host = SimComposition.Build(new SimBuildArgs(profile, content ?? BuiltInContent.CreateM1a(), 42) { EventSink = _gate });
         _system = (InventoryWithActionOp)Host.Systems.Single();
         var join = new Op { Kind = OpKind.PlayerJoin, ReqId = 1 };
         join.SetPayload(new PlayerJoinPayload { Slot = 0 });
@@ -659,6 +680,9 @@ internal sealed class InvAutoPlaceRig
     public InventorySystem Inventory => _system.Inner;
 
     public InvFixtureActionHandler Handler => _system.Handler;
+
+    /// <summary>The <c>MailStep</c> hook: an action set here runs inside every following tick (story 012's in-tick API caller).</summary>
+    public InvPhaseHook Hook => _system.Hook;
 
     public ContentSet Content => Host.Content;
 

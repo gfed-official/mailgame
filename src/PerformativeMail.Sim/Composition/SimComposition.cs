@@ -178,7 +178,7 @@ public static class SimComposition
     // The explicit construction code of the shipped systems, one case per system in ShippedOrder. Each gameplay epic adds its
     // case here (and its row in SystemGraph), e.g.:
     //   case SystemId.MailDestinations:
-    //       return new MailSystem(context.Events, context.MailIds, context.Rng, context.Api<IGridInventoryApi>(SystemId.GridInventory), context.Content);
+    //       return new MailSystem(context.Events, context.MailIds, context.Rng, context.Api<IInventoryApi>(SystemId.GridInventory), context.Content);
     // A system whose epic has not landed yet returns null and its phases stay no-ops (GridInventory and PlayerCharacter are built).
     private static ISimSystem? ConstructShipped(SystemId id, SimSystemContext context)
     {
@@ -188,7 +188,7 @@ public static class SimComposition
                 // Players reads the world only through IWorldQuery; without one the system is left unbuilt (story player-character/001).
                 return context.World is { } world ? new PlayersSystem(world, context.Content, context.CheckRing, context.Counters) : null;
             case SystemId.GridInventory:
-                return new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events);
+                return new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events, context.Tick);
             default:
                 return null;
         }

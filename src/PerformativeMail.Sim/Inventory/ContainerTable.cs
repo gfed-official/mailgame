@@ -88,6 +88,7 @@ public sealed class ContainerTable
         header.Layout = layout;
         header.OwnerSlot = ownerSlot;
         header.FreeCells = (ushort)(w * h);
+        header.NextArrivalSeq = 1;
 
         int i = Hash(id.Value) & _mapMask;
         while (_mapKeys[i] != 0)

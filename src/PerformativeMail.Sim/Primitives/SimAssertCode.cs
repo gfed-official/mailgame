@@ -221,4 +221,13 @@ public static class SimAssertCode
 
     /// <summary><c>AutoPlace.Plan</c> reached <c>AutoPlacePlan.MaxMerges</c> (255) merges with units still to merge. Unreachable: one AutoPlace moves at most 255 units and every merge takes at least one (TD-116). Release refuses the op with <c>bad_request</c> before any mutation. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryAutoPlaceMergeBoundExceeded = 70;
+
+    /// <summary>A mutating <c>I…Api</c> method was called outside a tick phase (ADR-0003 section 5, <c>TickGuard.IsMutable</c>: legal only while <c>Stage == InPhase</c> and <c>Phase</c> is at most <c>RunStep</c>). Release refuses the call with nothing mutated and counts <c>CounterId.MutatingApiOutOfPhase</c>. <c>SIM_ASSERT</c>.</summary>
+    public const ushort MutatingApiOutOfPhase = 71;
+
+    /// <summary><c>OutfeedFifo.Append</c> found no free node. Unreachable while the pool holds 2 x the entry pool (compaction keeps each outfeed's tombstones at or below its live entries). Release leaves the entry stamped but outside the outfeed memo until the next rebuild. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryOutfeedNodePoolExhausted = 72;
+
+    /// <summary><c>InventoryMutator.TakeOldest</c> was called with an invalid take: a free or unplaced entry, <c>k</c> outside 1 to the entry's count, or (mail) a <c>taken</c> span shorter than <c>k</c>. Release changes nothing and raises nothing. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryTakeInvalid = 73;
 }
