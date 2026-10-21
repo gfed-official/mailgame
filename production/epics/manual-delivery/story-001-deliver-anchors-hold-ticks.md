@@ -1,12 +1,12 @@
 # Story 001: Deliver anchors (MD1) — one `IInteractable` per destination at run start, and `GetHoldTicks` through the shared `holdEff` with `DeliverInsertPm` (F2, MD9)
 
 > **Epic**: Manual Delivery
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: S–M (~0.5–1 day; ~150 lines prod + ~200 lines tests)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-21 (review fixes on PR #12: pointers to story 005 AC-7, story 007 AC-7 and player-character 016 M-MD9-1 made exact). 2026-10-21 (readiness fixes: stamp 2026-10-17.1 — the 17.1 changes touch only the Godot input adapter, `WorldTablesBuilder` and numerics/geometry errata, none of which this story uses; real `IStatSheet.Read` signature and stat-sheet injection; priority via `AnchorDef.For` / `VerbCatalogue`; namespaces; system-shell scope moved to story 005; AC-3 latch clause pointed at player-character 016; test legs and performance note)
+> **Last Updated**: 2026-10-21 (story-done: Complete — implementation, tests and Completion Notes). 2026-10-21 (review fixes on PR #12: pointers to story 005 AC-7, story 007 AC-7 and player-character 016 M-MD9-1 made exact). 2026-10-21 (readiness fixes: stamp 2026-10-17.1 — the 17.1 changes touch only the Godot input adapter, `WorldTablesBuilder` and numerics/geometry errata, none of which this story uses; real `IStatSheet.Read` signature and stat-sheet injection; priority via `AnchorDef.For` / `VerbCatalogue`; namespaces; system-shell scope moved to story 005; AC-3 latch clause pointed at player-character 016; test legs and performance note)
 
 ## Context
 
@@ -33,9 +33,9 @@
 
 *From GDD `design/gdd/manual-delivery.md`, scoped to this story:*
 
-- [ ] **AC-1 (M-MD1-1a)** (a) Given a registry of 10 lots (built-in `house` def, `ManualInsertHoldMs` 400), `DeliverAnchors.RegisterAll` yields exactly 10 Deliver anchors (each `RegisterResult.Ok`): `AnchorRef(destId, 0)`, `Verb.Deliver`, `InteractMode.Hold`, `HoldBaseMs` 400 (the `house` type's `ManualInsertHoldMs`), range 2,500 (the framework default, `RangeMm = 0` in `AnchorDef`), the mailbox's only verb, with `GetHoldTicks`/`ShouldCancel` hooks present. Priority: the test asserts `Priority == VerbCatalogue.DefaultPriority(Verb.PickUp) + 1` (not a literal `2`); the code takes it from `AnchorDef.For(..., Verb.Deliver)`, i.e. Player Character's catalogue, never a Delivery literal. (b) The "test type with `manualInsertHold` 0 gets none" leg: at M-1a the registry types every lot as `house` (`DestinationRegistry` resolves one `house` def; there is no per-lot type yet), so the test builds a second registry over a content set whose `house` def has `ManualInsertHoldMs` 0 and asserts 0 anchors registered and `RegisterResult.Ok` returned. **Never deregistered:** Delivery has no call to `IPlayersApi.UnregisterAnchor` or `MoveAnchor` (an architecture test scans `src/PerformativeMail.Sim/Delivery/`), and all 10 anchors are still registered after 600 ticks of a Players system with no other writer; the run-cycle persistence leg (Prep → Results; at M-1a the shift stub's Prep → Delivery → Closed) is story 007's AC-7 (`tests/integration/delivery/DeliverAnchorLifetimeTests.cs`), on the world story 005 composes.
-- [ ] **AC-2 (M-F2-1)** `GetHoldTicks` for (`holdSetting` → no perk / Quick Hands `insertPm` 500): 0.20 → 6 / 6; 0.25 → 8 / 6; 0.40 → 12 / 6; 0.60 → 18 / 9; 1.00 → 30 / 15. Each equals `Hold.HoldTicks` for the same inputs (no second formula). A 1,500 ms base at the 1.0 s setting gives 60 (ceiling).
-- [ ] **AC-3 (M-MD9-1)** With `insertPm` 500, MATCH and MISDELIVER_ONE holds are both 6 ticks at the default setting and both 6 at 0.2 s. A StatSheet `DeliverInsertPm` sum of 1000 is clamped to 750. `GetHoldTicks` is a pure function of its inputs and the stat sheet's current value: a changed `DeliverInsertPm` between two calls gives the new result and nothing is cached in `DeliverInteractable`. *(That a perk or setting change after the press leaves the latched `holdTicks` unchanged is the latch's rule — `production/epics/player-character/story-016-press-resolution-tap-catch-armed.md` "Latch contents": `HoldTicks` evaluated once and never recomputed — and is asserted there as M-MD9-1 in `PressResolutionTests.cs`, not here.)*
+- [x] **AC-1 (M-MD1-1a)** (a) Given a registry of 10 lots (built-in `house` def, `ManualInsertHoldMs` 400), `DeliverAnchors.RegisterAll` yields exactly 10 Deliver anchors (each `RegisterResult.Ok`): `AnchorRef(destId, 0)`, `Verb.Deliver`, `InteractMode.Hold`, `HoldBaseMs` 400 (the `house` type's `ManualInsertHoldMs`), range 2,500 (the framework default, `RangeMm = 0` in `AnchorDef`), the mailbox's only verb, with `GetHoldTicks`/`ShouldCancel` hooks present. Priority: the test asserts `Priority == VerbCatalogue.DefaultPriority(Verb.PickUp) + 1` (not a literal `2`); the code takes it from `AnchorDef.For(..., Verb.Deliver)`, i.e. Player Character's catalogue, never a Delivery literal. (b) The "test type with `manualInsertHold` 0 gets none" leg: at M-1a the registry types every lot as `house` (`DestinationRegistry` resolves one `house` def; there is no per-lot type yet), so the test builds a second registry over a content set whose `house` def has `ManualInsertHoldMs` 0 and asserts 0 anchors registered and `RegisterResult.Ok` returned. **Never deregistered:** Delivery has no call to `IPlayersApi.UnregisterAnchor` or `MoveAnchor` (an architecture test scans `src/PerformativeMail.Sim/Delivery/`), and all 10 anchors are still registered after 600 ticks of a Players system with no other writer; the run-cycle persistence leg (Prep → Results; at M-1a the shift stub's Prep → Delivery → Closed) is story 007's AC-7 (`tests/integration/delivery/DeliverAnchorLifetimeTests.cs`), on the world story 005 composes.
+- [x] **AC-2 (M-F2-1)** `GetHoldTicks` for (`holdSetting` → no perk / Quick Hands `insertPm` 500): 0.20 → 6 / 6; 0.25 → 8 / 6; 0.40 → 12 / 6; 0.60 → 18 / 9; 1.00 → 30 / 15. Each equals `Hold.HoldTicks` for the same inputs (no second formula). A 1,500 ms base at the 1.0 s setting gives 60 (ceiling).
+- [x] **AC-3 (M-MD9-1)** With `insertPm` 500, MATCH and MISDELIVER_ONE holds are both 6 ticks at the default setting and both 6 at 0.2 s. A StatSheet `DeliverInsertPm` sum of 1000 is clamped to 750. `GetHoldTicks` is a pure function of its inputs and the stat sheet's current value: a changed `DeliverInsertPm` between two calls gives the new result and nothing is cached in `DeliverInteractable`. *(That a perk or setting change after the press leaves the latched `holdTicks` unchanged is the latch's rule — `production/epics/player-character/story-016-press-resolution-tap-catch-armed.md` "Latch contents": `HoldTicks` evaluated once and never recomputed — and is asserted there as M-MD9-1 in `PressResolutionTests.cs`, not here.)*
 
 ---
 
@@ -74,7 +74,7 @@
 **Required evidence**:
 - Logic: `tests/unit/delivery/DeliverAnchorsTests.cs` (AC-1, including the never-deregistered scan) and `tests/unit/delivery/DeliverHoldTicksTests.cs` (AC-2, AC-3; a stub `IStatSheet` supplies `DeliverInsertPm`; the 1000 → 750 clamp goes through the real `StatSheet` build) — must exist and pass on net10.0 and net8.0, Debug and Release (`tools/ci/test-legs-loop.sh`). `tests/unit/delivery/` is new; the test project globs `tests/unit/**`, so no csproj edit.
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/unit/delivery/DeliverAnchorsTests.cs` (AC-1) and `tests/unit/delivery/DeliverHoldTicksTests.cs` (AC-2, AC-3); pass on net10.0/net8.0 × Debug/Release
 
 ---
 
@@ -83,3 +83,23 @@
 - Depends on: `production/epics/player-character/story-011-hold-ticks-holdeff.md`, `production/epics/player-character/story-012-anchor-registry-iinteractable-spatial-grid.md`; `production/epics/mail-destinations/story-002-destination-registry.md`; `production/epics/content-data/story-014-statsheet-build-read-explain.md`
 - No dependency on open PRs #7, #9 or #11: none touches `Sim/Delivery`, `Sim/Players`, `Sim/Mail` or `Content/Stats`. (#11 edits `SimComposition.ConstructShipped`, which this story deliberately does not touch.) PR #8 is docs-only (ADR-0017 namespace erratum) and does not gate this story.
 - Unlocks: Story 003, Story 004, Story 005 (which also takes the `DeliverySystem` shell and composition case; it then also depends on `production/epics/mail-destinations/story-005-walletgate-stubwallet-mail-system.md`)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-10-21
+**Criteria**: 3/3 passing (no deferred items)
+- AC-1 (M-MD1-1a), `DeliverAnchorsTests`: `RegisterAll_TenLotStreet_RegistersExactlyTenDeliverAnchors_WithTheCatalogueDefaultsAndTheHouseHoldBase`, `RegisterAll_HouseTypeHoldOtherThanTheCatalogueDefault_IsTheStoredHoldBase`, `RegisterAll_FirstFailure_StopsAndReturnsIt`, `RegisterAll_EachMailbox_HasDeliverAsItsOnlyVerb_AndASecondVerbIsDuplicateVerb`, `DeliverInteractable_DeclaresItsOwnGetHoldTicksAndShouldCancelHooks`, `RegisterAll_HouseTypeWithManualInsertHoldZero_RegistersNoAnchor_AndReturnsOk`, `DeliverySource_NeverCallsUnregisterAnchorOrMoveAnchor_AndHasNoPriorityAssignment`, `DeliverySourceScan_MatchesEachForbiddenCall`, `DeliverySourceScan_IgnoresComparisonsAndCatalogueReads`, `RegisterAll_TenAnchors_AreStillRegisteredAfter600TicksOfAComposedPlayersSystem`; stub hooks: `DeliverHoldTicksTests.StubHooks_AreDeterministic_UntilStories003_004_010`.
+- AC-2 (M-F2-1), `DeliverHoldTicksTests`: `GetHoldTicks_HouseBaseBySetting_MatchesTheF2Table_AndEqualsHoldHoldTicks` (5 rows), `GetHoldTicks_1500MsBaseAtTheOneSecondSetting_Is60Ticks`, `GetHoldTicks_ReadsDeliverInsertPm_ForTheActorsSlot`.
+- AC-3 (M-MD9-1), `DeliverHoldTicksTests`: `GetHoldTicks_QuickHands_MatchAndMisdeliverOneHolds_AreBothSixTicks` (default 400 ms and 200 ms), `StatSheetBuild_TwoQuickHandsSumming1000_ClampsDeliverInsertPmTo750_AndGetHoldTicksUsesIt`, `StatSheetBuild_NoQuickHands_ReadsZero_AndAnotherSlotsPerkDoesNotApply`, `GetHoldTicks_StatChangedBetweenTwoCalls_ReturnsTheNewResult`, `DeliverInteractable_HoldsOnlyTheStatSheet_SoNothingIsCached`.
+
+**Deviations** (advisory):
+- Out-of-scope files: the `PerformativeMail.Sim.Delivery` namespace shadows the `PerformativeMail.Client.Core.Input.Delivery` enum inside `PerformativeMail.Sim.*` namespaces, so `tests/unit/input/ActionMapTests.cs`, `DefaultBindingsTests.cs` and `InputFixtures.cs` each gained one namespace-scoped alias `using Delivery = PerformativeMail.Client.Core.Input.Delivery;` (plus a two-line comment) to keep compiling — TD-124.
+- Test namespace is `PerformativeMail.Sim.Tests.Unit.ManualDelivery` (folder `tests/unit/delivery/`), following the epic-named test namespaces (`Unit.MailDestinations`, `Unit.PlayerCharacter`) and avoiding the same shadowing.
+- The MATCH / MISDELIVER_ONE leg of M-MD9-1 uses two destinations of the same type: the latch carries no outcome until story 004's `OnPress` payload (TD-125 item 4).
+- Test-hardening suggestions from review (formula sweep, non-default `HoldSettings`, defensive-clamp stub case, stub-hook test replacement, scan-regex breadth) — TD-125.
+
+**Test Evidence**: Logic — `tests/unit/delivery/DeliverAnchorsTests.cs`, `tests/unit/delivery/DeliverHoldTicksTests.cs`. Full suite 4,899 tests per leg: net10.0 Debug 4,857 passed / 42 skipped / 0 failed; net10.0 Release 4,897 / 2 / 0; net8.0 Debug 4,857 / 42 / 0; net8.0 Release 4,897 / 2 / 0; 0 build warnings. `tools/ci` guards (each with `--self-check`): no-scenetree-paused, build-config, sim-access, gdignore, scene-rules, analyzer-fixtures, game-build (`PerformativeMail.Game.sln` Debug + ExportRelease) — all PASS. No `using Godot` in Sim or Client.Core. Godot smoke not required (Godot-free Sim code).
+**Run result**: N/A — Godot-free Sim code with no scene, node or on-screen output; nothing is composed in production until story 005, so there is nothing to launch and observe.
+**Code Review**: Complete — `/code-review` (Sonnet reviewers): APPROVED WITH SUGGESTIONS; QL-TEST-COVERAGE: ADEQUATE (advisory gaps); LP-CODE-REVIEW: APPROVE.
