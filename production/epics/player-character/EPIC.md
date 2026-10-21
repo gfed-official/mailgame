@@ -124,7 +124,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 010 | [PCM-P2-1 — 600-tick golden transform hash and solver determinism gates](story-010-golden-transform-hash-p2-1.md) | Integration | Ready | ADR-0001 |
 | 011 | [`Hold.HoldTicks` — the single shared `holdEff`](story-011-hold-ticks-holdeff.md) | Logic | Complete | ADR-0014 |
 | 012 | [Anchor registry — `IInteractable`, `RegisterAnchor`, verb catalogue, dense 2 m grid](story-012-anchor-registry-iinteractable-spatial-grid.md) | Logic | Complete | ADR-0014 |
-| 013 | [Input contexts, verb × context table (P14 router declarations), framework availability gate](story-013-contexts-verbs-availability-gate-router-declarations.md) | Logic | In Progress | ADR-0014 |
+| 013 | [Input contexts, verb × context table (P14 router declarations), framework availability gate](story-013-contexts-verbs-availability-gate-router-declarations.md) | Logic | Ready | ADR-0014 |
 | 014 | [Focus — F4 score, tie-break, 4-tick dwell, `PreviewSubStep.Focus` binding](story-014-focus-scoring-dwell-preview-binding.md) | Logic | Ready | ADR-0014 |
 | 015 | [Focus occlusion — lazy, score-ordered](story-015-focus-occlusion-lazy-score-order.md) | Logic | Ready | ADR-0014 |
 | 016 | [Press resolution — Catch → presented target verb → catch-armed, latch, Tap requests](story-016-press-resolution-tap-catch-armed.md) | Logic | Ready | ADR-0014 |
