@@ -8,7 +8,7 @@
 > **Est. size**: L — 27 stories (Sim first; views after `godot-host-shell`)
 > **Implementation priority**: 5 of 9
 > **Status**: Ready
-> **Stories**: 27 stories — 11 Complete, 16 Ready (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
+> **Stories**: 27 stories — 12 Complete, 15 Ready (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -124,7 +124,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 010 | [PCM-P2-1 — 600-tick golden transform hash and solver determinism gates](story-010-golden-transform-hash-p2-1.md) | Integration | Ready | ADR-0001 |
 | 011 | [`Hold.HoldTicks` — the single shared `holdEff`](story-011-hold-ticks-holdeff.md) | Logic | Complete | ADR-0014 |
 | 012 | [Anchor registry — `IInteractable`, `RegisterAnchor`, verb catalogue, dense 2 m grid](story-012-anchor-registry-iinteractable-spatial-grid.md) | Logic | Complete | ADR-0014 |
-| 013 | [Input contexts, verb × context table (P14 router declarations), framework availability gate](story-013-contexts-verbs-availability-gate-router-declarations.md) | Logic | Ready | ADR-0014 |
+| 013 | [Input contexts, verb × context table (P14 router declarations), framework availability gate](story-013-contexts-verbs-availability-gate-router-declarations.md) | Logic | Complete | ADR-0014 |
 | 014 | [Focus — F4 score, tie-break, 4-tick dwell, `PreviewSubStep.Focus` binding](story-014-focus-scoring-dwell-preview-binding.md) | Logic | Ready | ADR-0014 |
 | 015 | [Focus occlusion — lazy, score-ordered](story-015-focus-occlusion-lazy-score-order.md) | Logic | Ready | ADR-0014 |
 | 016 | [Press resolution — Catch → presented target verb → catch-armed, latch, Tap requests](story-016-press-resolution-tap-catch-armed.md) | Logic | Ready | ADR-0014 |
@@ -140,7 +140,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 026 | [Interaction prompt anchor — projected anchor and bounds, HUD focus feed](story-026-interaction-prompt-anchor-projection.md) | Integration | Ready | ADR-0019 |
 | 027 | [Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, story 009 carry-forwards (TD-091)](story-027-movement-rulings-extra-jump-slide-td-091.md) | Logic | Ready | ADR-0013 |
 
-**27 stories (story 027 added 2026-10-17): 19 Logic, 3 Integration, 4 Visual/Feel as written 2026-10-16, plus 027 (Logic) — 11 Complete, 1 In Progress, 15 Ready, 0 Blocked (refreshed 2026-10-20).**
+**27 stories (story 027 added 2026-10-17): 19 Logic, 3 Integration, 4 Visual/Feel as written 2026-10-16, plus 027 (Logic) — 12 Complete, 0 In Progress, 15 Ready, 0 Blocked (refreshed 2026-10-21 from the story headers).**
 
 **Suggested order:** 001–010 (solver, in this order; 003 and 004 can run in parallel with 002/005) → 011–019 (interaction framework; 011, then 012/013, then 014–018, 019 any time after 012/013) → 020 → 021 → 022–026 (Godot-side, after the godot-host-shell epic's scene/view-registry stories).
 

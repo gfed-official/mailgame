@@ -1,6 +1,7 @@
 using Godot;
 using PerformativeMail.Game.Hosting;
 using PerformativeMail.Game.Presentation;
+using PerformativeMail.Game.Screens;
 
 namespace PerformativeMail.Game.Smoke;
 
@@ -46,6 +47,12 @@ public sealed class MainTreeSmoke : SmokeScenario
         Check<HudPresenter>(ctx, loop, "Hud");
         Check<AudioPresenter>(ctx, loop, "Audio");
         Check<Node>(ctx, loop, "Screens");
+        Check<BootErrorScreen>(ctx, loop, "Screens/BootError");
+        Check<BootErrorScreen>(ctx, loop, "Screens/ContentError");
+        foreach (string screen in new[] { "Screens/BootError", "Screens/ContentError" })
+        {
+            Expect(ctx, $"{screen} hidden in the un-booted tree", loop.GetNodeOrNull<Control>(screen)?.Visible ?? true, false);
+        }
     }
 
     private static void CheckDebugAndOrder(SmokeContext ctx, GameLoop loop)

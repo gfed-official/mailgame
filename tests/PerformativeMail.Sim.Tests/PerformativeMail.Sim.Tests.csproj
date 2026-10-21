@@ -25,6 +25,14 @@
     <Compile Include="../integration/**/*.cs" LinkBase="integration" />
   </ItemGroup>
 
+  <!--
+    Story godot-host-shell/004 tests the host's boot core here without the engine: every source file of
+    src/Game/Boot is compiled into this assembly except GodotBootWindow.cs, the only one that touches Godot.
+  -->
+  <ItemGroup Label="Host boot core (Godot-free)">
+    <Compile Include="../../src/Game/Boot/*.cs" Exclude="../../src/Game/Boot/GodotBootWindow.cs" Link="HostBoot/%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
