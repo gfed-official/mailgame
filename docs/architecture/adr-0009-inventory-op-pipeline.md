@@ -229,7 +229,7 @@ Client side (`PerformativeMail.Client.Core/Inventory/`, built at M0, Godot-free)
 - Every inventory op and event payload struct **must** be padding-free (ADR-0007 §1, ADR-0008 §1): the descriptor test asserts the sum of field sizes equals `Unsafe.SizeOf<T>()`. Where natural alignment would insert padding (e.g. `Move`'s 22 B), reorder fields or declare explicit zeroed pad fields and count them in the descriptor's `PayloadLength`; payloads are still read and written unaligned only.
 - Events **must** respect ADR-0008's 48 B payload ceiling: `mailIds` only as chunked ascending runs on `Inserted`/`Merged`, sort layouts only by reference through `ISnapshotSource`.
 - Storage **must** be preallocated from `SimSettings`; no `List<T>.Add` growth, LINQ, boxing or `Dictionary` enumeration in any tick path.
-- Probe counters (H-PERF-6) **must** be compiled into Release and incremented once per cell probe or candidate visit.
+- Probe counters (H-PERF-6) **must** be compiled into Release and incremented once per cell probe or candidate visit. *(Wording clarified 2026-10-21, no decision change — owner ruling 11:43 AM PT, decision log: a placement scan counts **per cell** — each footprint cell it examines, never one per anchor; "candidate visit" is an entry, list node or FIFO node inspected, as Risks defines for H-PERF-6a.)*
 - The client **must never** re-validate a pending op to decide it failed; only a reply retires it.
 - `dependsOn` **must never** be sent on the wire.
 

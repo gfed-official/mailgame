@@ -4,7 +4,7 @@
 > **Creative Director Review (CD-GDD-ALIGN)**: CONCERNS → REVISED 2026-10-16 (7 items: resident reserved for misdelivery; Payday roll-call order/spread and naming; Lost Parcel row; Pillar 5 solo-margin OQ22; Payday adjustments as stamped ledger lines; resident never in distress; impossible Large-stack test fixtures)
 > **Reconciled 2026-10-16 with sibling GDDs (hand-backs: 11 adopted, 2 adapted, 0 rejected)** — Manual Delivery OQ3, Throwing & Catching OQ1–2, HUD HN-4, Player Character OQ30, Simulation Core HB4; marked **[HB]**
 > **Author**: user + agents (creative-director, game-designer, economy-designer, systems-designer, art-director, qa-lead)
-> **Last Updated**: 2026-10-21 (owner ruling 1:21 PM PT: R11 Intake hand-off is one `Spawn` per same-key run; M-PERF-1d is an exact-count gate). 2026-10-16
+> **Last Updated**: 2026-10-21 (owner ruling 1:21 PM PT: R11 Intake hand-off is one `Spawn` per same-key run; M-PERF-1d is an exact-count gate)
 > **Last Verified**: 2026-10-16
 > **Implements Pillar**: Pillar 1 — The mail must flow; Pillar 2 — Friendslop surface, factory depth
 > **Retrofit source**: design/spec/03-mail-inventory-economy.md §1–§2 (chapter 13 wins on conflict); design/spec/01 §2.2, §3; design/spec/11 §3, §5–§7; design/spec/08 §2.2–§2.4; design/spec/10 perks/stamps/events
