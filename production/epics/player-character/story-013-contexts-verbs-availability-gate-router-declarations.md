@@ -18,7 +18,7 @@
 
 **ADR Governing Implementation**: ADR-0014: Interaction framework & hold timing (§2 context filter, §4 context-change cancels, §7 publication) — Accepted 2026-10-16 (primary); ADR-0012: Input router core (§2 `RouterState` reads `body` — OnFoot/Build/Mounted/Dead — and `holding` from the ClientLayer-published carrier status) — Accepted 2026-10-16
 **ADR Decision Summary**: Grid Inventory owns World, Panel and Holding; this system **adds Mounted and Dead**. Input & Controls owns bindings, remap and thresholds; this system declares which verbs are live in which context. The router's `body` dimension and `holding` are read each frame from the ClientLayer-published carrier status (life state, mount, cursor non-empty). Focus filtering by context (Panel → display only; Dead → none; Mounted → own seat's Dismount only; Build → `BuildModeOnly` anchors only) is ADR-0014 §2.
-**ADR Version**: ADR-0014 2026-10-16 + 2026-10-20 erratum (§1/§2 `CarrierStatus.OccupiedSeat`, Mounted filter; §3 swim note); ADR-0012 2026-10-16 + 2026-10-17 §7 amendment (Godot input adapter only — no effect on this story)
+**ADR Version**: ADR-0014 2026-10-16 + 2026-10-20 erratum (§1/§2 `CarrierStatus.OccupiedSeat`, Mounted filter); ADR-0012 2026-10-16 + 2026-10-17 §7 amendment (Godot input adapter only — no effect on this story)
 
 **Engine**: Godot 4.7.1 .NET (Godot-free `net8.0` Sim code) | **Risk**: LOW
 **Engine Notes**: None.
