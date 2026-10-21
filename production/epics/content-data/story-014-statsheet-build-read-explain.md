@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD13, CD15, CD18 transient terms, CD19, CD20; StatSheet edge cases)
 **Requirement**: `TR-content-017` (derived caches; replication is M0), `TR-content-018` (`transientAdd`), `TR-content-019` (`Explain`), `TR-content-028` (`Read` 0 B, advisory)
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§7 Faces, Derived cache, Read cost)
 **ADR Decision Summary**:

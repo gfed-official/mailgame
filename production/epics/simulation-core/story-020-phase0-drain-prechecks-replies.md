@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R6 actor, R8 drain and validate-then-mutate, R10 replies)
 **Requirement**: `TR-sim-018` (drain ≤ 64 ops/tick by `opSeq`; validate fully before mutation; every drained op recorded), `TR-sim-020` (reply after handler events; reasons 1–63 Sim; no `reqId` dedupe), `TR-sim-016` (handler sees the adapter-stamped actor)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0007: Op Queue, Drain and Replies (§3, §5) — primary; ADR-0008 (§3 `OpReply` audience, §5 call scopes) — secondary; ADR-0006 (§7 `IOpRecorder.OnDrained`) — secondary
 **ADR Decision Summary**: At the start of phase 0 the queue captures `n = min(count, maxOpsDrainedPerTick)` (default 64) and applies those ops in ascending `opSeq`. Per op: Sim Core pre-checks in order — unregistered kind, wrong `PayloadLength` or non-zero `Reserved` → `unknown_kind` (3); actor neither `System` nor a present player, or a non-System actor on a `SystemOnly` kind → `unknown_actor` (2) — then opens a call scope and calls `IOpHandler.Apply`, then appends the returned `Reply` as an `OpReply` event **after** every event the call raised (OwnerOnly to the actor's slot; audience 0 for `System`), and calls `IOpRecorder.OnDrained(applyTick, op, reply)`. Ops beyond the cap stay queued (`drainBacklog`); System ops get no bypass; ops enqueued during the drain apply on a later tick.

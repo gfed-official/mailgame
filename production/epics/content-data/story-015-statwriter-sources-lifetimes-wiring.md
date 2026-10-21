@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD14, CD15, CD16, CD17, CD18; StatSheet edge cases; States "StatSheet (per run, per peer)")
 **Requirement**: `TR-content-016`, `TR-content-017` (rebuild-on-source-change), `TR-content-018` (`RuleFlag` on while ≥ 1 source)
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§7 Faces, Derived cache) (primary); ADR-0003: Phase Order, Composition Root and Cross-System Calls (§4 injectable list)
 **ADR Decision Summary**:

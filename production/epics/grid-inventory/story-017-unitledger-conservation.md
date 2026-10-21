@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-012` (O(1) conservation counters checked each tick; `INVENTORY_ASSERT` compiled out of Release)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay; ADR-0003: Phase Order, Composition Root and Cross-System Calls
 **ADR Decision Summary**: A `UnitLedger` holds O(1) counters per location state (`Placed, Cursor, World, Flight, Belt, Backlog, Consumed, Destroyed`) for mail and per-itemId item units, plus `spawned`, `granted`; only the lowest mutator primitives touch it; the tick-end check asserts `Σ live = spawned + granted − consumed − destroyed` in every build and writes an always-on record on mismatch (never throws); the full multiset scan runs behind `[Conditional("INVENTORY_ASSERT")]` (ADR-0009 §6). Inventory state is a canonical-dump section in ascending ids (ADR-0006 §4).

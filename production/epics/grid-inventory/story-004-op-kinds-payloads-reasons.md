@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-025` (sender from transport peer; malformed → `bad_request`, no exception), `TR-inventory-006` (reason-code set)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0007: Op Queue, Drain and Replies; ADR-0011: Network Adapter Boundary
 **ADR Decision Summary**: Each GDD op is its own `OpKind` in `0x0080–0x00FF` with an explicit-layout payload ≤ 32 B, padding-free (reorder or explicit zeroed pad fields counted in `PayloadLength`); `reqId` is in the `Op` header; `bad_request` is Core reason 8; inventory reasons are 64–85, never reused; `InvReplyExtra` is exactly 24 B with explicit offsets. The actor comes from `Op.Actor` stamped by the adapter, never from a payload field (ADR-0009 §1–§2, §4; ADR-0007; ADR-0011 §3).

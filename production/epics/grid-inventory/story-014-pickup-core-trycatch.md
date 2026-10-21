@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-007` (TargetFirst AutoPlace), `TR-inventory-013` (WorldItem pickup race)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout
 **ADR Decision Summary**: Pickup = AutoPlace one entry into the panel by R9's pickup row (mail: `[hotbar, inventory, backpack]` `TargetFirst`; non-mail: category order), partial allowed, `no_room` if nothing fits; two pickups of one entry in a tick: first arrival wins, second `container_gone` with `byActorId`; `TryCatch(slot, flight) → {unitsIn, unitsFumbled}`: oldest units go in, the newest that fit nowhere become one WorldItem (`origin = Thrown`) at the catcher's feet; `unitsIn = 0` is a fumble — never the cursor (ADR-0009 §1, Key Interfaces; GDD R9, R12).

@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (ContentValidator Rule Catalogue: CV-GEN rows; Edge Cases "Loading & parsing", "Ids & enums", "StatSheet")
 **Requirement**: `TR-content-022` (M-1a subset)
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§5)
 **ADR Decision Summary**: One code-side rule registry is the single source of load-time rules. Each rule clause ships a violation fixture, plus a valid-edge fixture where it has a limit. Errors block the build.

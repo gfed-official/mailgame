@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-007` (AutoPlace use), `TR-inventory-005` (oldest-first partials)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout
 **ADR Decision Summary**: `quick_move` is AutoPlace into R9's targets (partial allowed for stackables, non-stackables all-or-nothing); `return` puts the cursor entry back into its origin cells if still free/mergeable, else AutoPlace into the panel (R9 "put away"), else the cursor keeps it (`no_room`) — never a WorldItem (ADR-0009 §1–§2; GDD R7, R9).

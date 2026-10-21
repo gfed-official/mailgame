@@ -5,8 +5,8 @@
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
-> **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-20 (docs: PC016-SWIM-CATCH AC added — moved from story 013; Mounted press follows the own-seat gate (ADR-0014 erratum 2026-10-20); PC016-SWIM-CATCH rewritten to the owner's swim-catch ruling (2026-10-20 22:05 PT — host refuses, story 022); stamp 2026-10-17.1 — the 17.1 changes touch only the Godot input adapter and `WorldTablesBuilder`)
 
 > **Interaction-framework story (6 of 9).** The Sim-side half of Input & Controls R4.3 / G1: what a latched Interact edge *does*. Input & Controls latches the edge and the presented target; this story resolves it.
 
@@ -18,7 +18,7 @@
 
 **ADR Governing Implementation**: ADR-0014: Interaction framework & hold timing (§3 press resolution, the latch) — Accepted 2026-10-16 (primary); ADR-0016 (§2 `PreviewSubStep.EdgeResolve`, `IRequestSink`) and ADR-0012 (§4 `InputEdge` carries `TargetEntity`, `TargetSlot`, `PresentedSeq`) secondary — Accepted
 **ADR Decision Summary**: In `EdgeResolve` (4d), after focus (4a) and the owners' previews (4b–4c), the tick's ordered `Interact` edges are applied in order (edges before hold accrual). A **press** resolves, first match wins: (1) **Catch** iff `ICatchPredictor.Evaluate` predicts a non-own flight entering this carrier's catch sphere on this tick **and** no hold is in progress **and** the flight's predicted static receiver is not the presented target anchor (D3 gate) → `Channel` start, the framework asks Throwing to send `CatchArm{down}`; (2) the **presented target's single verb** — the anchor named by the edge's presented-snapshot fields, if still registered, within `RangeMm` (the start range, not the incumbent range) and `IsAvailable` on this tick: `Tap` → build and send the request this tick; `Hold` → latch; `Channel` → start; (3) **no valid target** → catch-armed while held. A press on an unavailable target fires nothing (prompt pulse). The latch is `InteractionLatch = { AnchorRef, Verb, Mode, PressTick, HoldTicks, ClaimedPosition (feet at press), OwnerPayload (16 B) }`; a latched deliver hold is never converted into a catch.
-**ADR Version**: ADR-0014 2026-10-16; ADR-0016 2026-10-16; ADR-0012 2026-10-16
+**ADR Version**: ADR-0014 2026-10-16 + 2026-10-20 errata (own seat; §3 swim-catch owner ruling); ADR-0016 2026-10-16; ADR-0012 2026-10-16
 
 **Engine**: Godot 4.7.1 .NET (Godot-free `net8.0` Sim code) | **Risk**: LOW
 **Engine Notes**: Explicit sequential layout and `byte` flags (not `bool`) in `InteractionLatch` and request structs (ADR-0014 engine note 2).
@@ -32,7 +32,7 @@
 
 ## Acceptance Criteria
 
-*From GDD `design/gdd/player-character-movement.md` (PCM-P11-2b, PCM-P12-1) and `design/gdd/input-controls.md` (H-R4-2 Sim half, H-R4-4, H-R4-6), scoped to this story:*
+*From GDD `design/gdd/player-character-movement.md` (PCM-P11-2b, PCM-P12-1, plus the story-local PC016-SWIM-CATCH from P6) and `design/gdd/input-controls.md` (H-R4-2 Sim half, H-R4-4, H-R4-6), scoped to this story:*
 
 - [ ] **H-R4-2 (Sim half, parametrised).** (a) a predicted lob that reaches this carrier but not the focused mailbox → **Catch** (Channel start; `CatchArm{down}` requested through the Throwing port); (a′) the same lob predicted into the focused mailbox (`PredictedStaticReceiver == presented anchor`) → a **deliver hold** latches (D3 gate; no catch); (b) a container anchor → its `Open` **Tap** request is built and sent on the press tick; (c) a mailbox → a deliver hold latches; (d) no target → catch-armed while held (Channel start without an anchor; `CatchArm{down}`).
 - [ ] **H-R4-6.** the last presented prompt names mailbox A and focus flips to a container on the press tick → the press latches a **hold on A** (the edge's presented snapshot, G1), not the container.
@@ -42,7 +42,8 @@
 - [ ] **PCM-P12-1 (Tap).** a Tap verb sends exactly one request on the press tick (via `IInteractable.TryBuildRequest` and `IRequestSink.TrySend`); `TrySend` returning false (busy) sends nothing, leaves the interaction Idle and reports `busy` to the snapshot; the built request carries `ClaimedPosition` = the carrier's feet `(X, Y, Z)` at press (12 B, P13 layout).
 - [ ] **Latch contents.** On a Hold press the latch holds `AnchorRef`, `Verb`, `Mode`, `PressTick` (= this tick), `HoldTicks` = `IInteractable.GetHoldTicks(latch, ctx)` evaluated **once** and never recomputed, `ClaimedPosition`, and `OwnerPayload` as filled by `IInteractable.OnPress` (pure with respect to owner state — Manual Delivery's press-tick branch).
 - [ ] **Edge order.** Multiple Interact edges in one `InputFrame` are applied in arrival order, each resolving against this tick's focus state; a press followed by its release in the same frame is handled by Story 017 (this story only latches).
-- [ ] **No-op on Dead / Panel.** Interact edges are refused (no latch, no request) when the gate (Story 013) says Panel or Dead; Mounted allows only the own-seat Dismount.
+- [ ] **PC016-SWIM-CATCH — Swimming does not change press resolution; the host refuses the arm (story-local id; GDD P6 "a swimmer cannot catch"; moved from story 013 on 2026-10-20; rewritten to the owner's ruling, Evan 2026-10-20 22:05 PT, ADR-0014 §3 erratum).** While `CarrierStatus.Swimming`, a press resolves exactly as on land (ADR-0014 §3: Catch → the presented target → catch-armed): on Catch or catch-armed the client **sends `CatchArm{down}`** as usual — no client-side suppression. The host refuses it as ineligible (throwing-catching story 022 "Eligibility on arming": no arm, counted `armIneligible`, reply `ok`), Throwing records the press cause `ineligible` (swim), and the swimmer sees "Dry land required" (throwing-catching.md "Who may catch" table and result lines; shown by Throwing/HUD, not this story). A press on an anchor follows story 013's swim gate (`Unavailable(reason.dry_land)` unless `AllowWhileSwimming`). Test (this story's client half): with `Swimming` set, a no-target press sends exactly one `CatchArm{down}` and its release one `CatchArm{up}`, identical to the same press on land.
+- [ ] **No-op on Dead / Panel.** Interact edges are refused (no latch, no request) when the gate (Story 013) says Panel or Dead; Mounted allows only the own-seat Dismount: a `SeatOf` `Dismount` anchor whose `Ref == CarrierStatus.OccupiedSeat`, per story 013's gate (ADR-0014 erratum 2026-10-20; `OccupiedSeat` is `None` at M-1a, so no Mounted candidates until Vehicles, M1).
 
 ---
 
@@ -80,7 +81,7 @@
 
 **Story Type**: Logic
 **Required evidence**:
-- Logic: `tests/unit/player/PressResolutionTests.cs` (`[Trait("Id", "PCM-P11-2b")]`, `H-R4-2`, `H-R4-6`) — must exist and pass on net10.0 and net8.0
+- Logic: `tests/unit/player/PressResolutionTests.cs` (`[Trait("Id", "PCM-P11-2b")]`, `H-R4-2`, `H-R4-6`, `PC016-SWIM-CATCH`) — must exist and pass on net10.0 and net8.0
 
 **Status**: [ ] Not yet created
 

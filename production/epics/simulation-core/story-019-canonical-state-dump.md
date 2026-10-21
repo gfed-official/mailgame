@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R29 determinism tiers, R30 canonical dump)
 **Requirement**: `TR-sim-035` (canonical dump via `ISimStateContributor`, fixed order, little-endian; SHA-256 in tests only)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (§4) — primary; ADR-0005 (§3 stream tuple), ADR-0007 (§1–§2 queued ops), ADR-0004 (counters, slot table) — secondary
 **ADR Decision Summary**: Every stateful system binds `ISimStateContributor { ushort SectionId; void Write(ref CanonicalWriter w); }`. `CanonicalWriter` is a forward-only little-endian writer that buffers each section and flushes `sectionId u16, byteLength u32, payload` to an `IBufferWriter<byte>` at `EndSection`. Format v1: header `"PMSD"` (u32 LE `0x44534D50`) + `formatVersion` u16 = 1, then sections in builder registration order. Fields are written one by one (never a struct blit); collections are `u32 count` + elements in ascending id/`opSeq`/slot; no strings. `SimWorld.TryWriteDump` succeeds only between ticks on a `Ready`/`Running`/`Stopped` world; inside `Tick()` (including from the sink) it returns false and counts `dumpDuringTick`. The Sim never hashes its own state; tests take SHA-256 of the dump.
