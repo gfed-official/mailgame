@@ -1,7 +1,7 @@
 # Story 012: Spawn into the Intake (NoMerge, arrivalSeq) and the outfeed FIFO (PeekOutfeed / TakeUnit)
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M–L (~1.5 days)
@@ -35,17 +35,17 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R14-1** — GIVEN an empty Intake, WHEN 3 letters to #4 (ids 100–102) spawn NoMerge, THEN 3 entries of count 1 at (0,0),(1,0),(2,0) in id order; `PeekOutfeed` = 100; after `TakeUnit(FIFO)` → 101 and (0,0) is empty; GIVEN a returned letter id 50 is then inserted, THEN it is a separate count-1 entry and `PeekOutfeed` is still 101 (arrival order, not mailId).
-- [ ] **H-R14-4 (whole-return half)** — GIVEN an Intake holding a 5-letter entry to #9, WHEN a detached 20-letter entry to #9 (ids 200–219) is returned through `InventorySystem.ReturnToIntake`, THEN the Intake gains exactly **one** new entry of count 20 with one new `arrivalSeq` and the same entryId, the resident entry is unchanged (NoMerge), Intake version +1.
-- [ ] **H-PERF-6a** — `PeekOutfeed` and `TakeUnit(FIFO)` visit ≤ 4 candidates per call amortised over 10 000 calls (balanced take/spawn so n stays constant) at n = 320 (`po_intake`, 20×16) and at n = 6 400 on a **64×100** test container (the GDD's 80×80 cannot be built: `Occupancy.BitmapWidth` = 64, ADR-0009 §5; GDD text flagged for re-review); fails on any O(n) scan (Release probe counter `CounterId.InventoryOutfeedCandidates`, one increment per FIFO node inspected, tombstone pops included).
-- [ ] `SpawnResult` reports how many ids were placed (span order, stopping at the first id that finds no cell or that the entry pool / arena refuses, nothing mutated for that id); the unplaced remainder is `ids[Placed..]` in order. A full Intake → `Placed = 0`, no entry allocated, version unchanged; `AutoPlace.RecordNoFits` is called after the reject, outside planning. The "nothing overtakes the backlog" gate lives with the backlog, story 021 (ADR-0017 §6): this story exposes one internal `IntakeAccepting` predicate (always true at M-1a) consulted by `Spawn` and `ReturnToIntake`.
+- [x] **H-R14-1** — GIVEN an empty Intake, WHEN 3 letters to #4 (ids 100–102) spawn NoMerge, THEN 3 entries of count 1 at (0,0),(1,0),(2,0) in id order; `PeekOutfeed` = 100; after `TakeUnit(FIFO)` → 101 and (0,0) is empty; GIVEN a returned letter id 50 is then inserted, THEN it is a separate count-1 entry and `PeekOutfeed` is still 101 (arrival order, not mailId).
+- [x] **H-R14-4 (whole-return half)** — GIVEN an Intake holding a 5-letter entry to #9, WHEN a detached 20-letter entry to #9 (ids 200–219) is returned through `InventorySystem.ReturnToIntake`, THEN the Intake gains exactly **one** new entry of count 20 with one new `arrivalSeq` and the same entryId, the resident entry is unchanged (NoMerge), Intake version +1.
+- [x] **H-PERF-6a** — `PeekOutfeed` and `TakeUnit(FIFO)` visit ≤ 4 candidates per call amortised over 10 000 calls (balanced take/spawn so n stays constant) at n = 320 (`po_intake`, 20×16) and at n = 6 400 on a **64×100** test container (the GDD's 80×80 cannot be built: `Occupancy.BitmapWidth` = 64, ADR-0009 §5; GDD text flagged for re-review); fails on any O(n) scan (Release probe counter `CounterId.InventoryOutfeedCandidates`, one increment per FIFO node inspected, tombstone pops included).
+- [x] `SpawnResult` reports how many ids were placed (span order, stopping at the first id that finds no cell or that the entry pool / arena refuses, nothing mutated for that id); the unplaced remainder is `ids[Placed..]` in order. A full Intake → `Placed = 0`, no entry allocated, version unchanged; `AutoPlace.RecordNoFits` is called after the reject, outside planning. The "nothing overtakes the backlog" gate lives with the backlog, story 021 (ADR-0017 §6): this story exposes one internal `IntakeAccepting` predicate (always true at M-1a) consulted by `Spawn` and `ReturnToIntake`.
 
 *Added by readiness (Planner resolutions 2026-10-21):*
 
-- [ ] **Whitelist pin** — `Spawn` into `po_intake` with the M-1a `BuiltInContent` passes `InsertionWhitelist.Check` (mail category, `AcceptsInsert` true); a Plank → `not_allowed`, nothing mutated.
-- [ ] **Every Intake insertion stamps** — an entry placed into the Intake by any mutator path (Spawn, `ReturnToIntake`, and later player ops 007/008/010) gets a fresh `arrivalSeq` and a FIFO node; leaving the Intake resets `ArrivalSeq` to 0 and leaves a lazy tombstone.
-- [ ] **Tick guard** — `Spawn`, `TakeUnit` and `ReturnToIntake` called outside a tick phase are refused with nothing mutated and no event (asserts under `SIM_ASSERT`; Release ignores and counts) — ADR-0003 §5.
-- [ ] **Allocation** — `OutfeedFifo`, `Spawn`, `PeekOutfeed`, `TakeUnit` and `ReturnToIntake` allocate 0 B per call after warm-up (`AllocAssert`, Release, `[Collection(NonParallelCollection.Name)]`).
+- [x] **Whitelist pin** — `Spawn` into `po_intake` with the M-1a `BuiltInContent` passes `InsertionWhitelist.Check` (mail category, `AcceptsInsert` true); a Plank → `not_allowed`, nothing mutated.
+- [x] **Every Intake insertion stamps** — an entry placed into the Intake by any mutator path (Spawn, `ReturnToIntake`, and later player ops 007/008/010) gets a fresh `arrivalSeq` and a FIFO node; leaving the Intake resets `ArrivalSeq` to 0 and leaves a lazy tombstone.
+- [x] **Tick guard** — `Spawn`, `TakeUnit` and `ReturnToIntake` called outside a tick phase are refused with nothing mutated and no event (asserts under `SIM_ASSERT`; Release ignores and counts) — ADR-0003 §5.
+- [x] **Allocation** — `OutfeedFifo`, `Spawn`, `PeekOutfeed`, `TakeUnit` and `ReturnToIntake` allocate 0 B per call after warm-up (`AllocAssert`, Release, `[Collection(NonParallelCollection.Name)]`).
 
 ---
 
@@ -92,7 +92,7 @@
 **Required evidence**:
 - Logic: `tests/unit/inventory/IntakeSpawnOutfeedTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/unit/inventory/IntakeSpawnOutfeedTests.cs`, `OutfeedPerfTests.cs`, `IntakeAllocationTests.cs`; all pass on net10.0/net8.0 × Debug/Release
 
 ---
 
@@ -102,3 +102,25 @@
 - Depends on: `production/epics/simulation-core/story-018-id-allocators-slottable.md`
 - Related: `production/epics/content-data/story-018-schema-and-build-stages.md` (PR #19 ruling: `ContainerDef.AcceptsInsert` defaults to false once 018 lands — test defs here spell out `AcceptsInsert = true` and `View`)
 - Unlocks: Story 013, Story 018, Story 021; mail-destinations epic (spawner)
+
+## Completion Notes
+**Completed**: 2026-10-21 (PR #21)
+**Criteria**: 8/8 passing (4 story ACs + 4 readiness ACs; none deferred)
+- H-R14-1: `SpawnThreeLetters_ThenTakeOne_ThenReturnALowerId_PeekFollowsArrivalOrderNotMailId`
+- H-R14-4 (whole-return half): `ReturnToIntake_ADetached20LetterEntry_EntersWholeAsOneNewEntry_KeepsItsId_ResidentUnchanged_VersionPlusOne`, `ReturnToIntake_NoRoom_ReturnsFalse_AndChangesNothing`
+- H-PERF-6a: `OutfeedPerfTests.PeekAndTake_AtN320OnPoIntake_…`, `PeekAndTake_AtN6400OnA64x100Container_…`, `DrainingAnIntakeWithHalfItsEntriesRemovedMidQueue_…` (measured mean 1.500 / 1.500 / 2.489 candidates per call; bound 4); counter unit pinned per candidate visit
+- SpawnResult / RecordNoFits: `Spawn_IntoAFullIntake_PlacesNothing_…`, `Spawn_IntoANearlyFullIntake_…`, `Spawn_AfterAPartialSpawn_…_ProbesNothing_…`, `Spawn_WhenTheArenaRefusesTheBlock_…`, `Spawn_Malformed_…`, `Spawn_MergePolicyOnTheIntake_IsNoMerge_…`
+- Whitelist pin: `Whitelist_PoIntakeOfTheM1aContent_AcceptsMail_AndRefusesAPlankWithNothingMutated`
+- Every Intake insertion stamps: `EveryIntakeInsertion_Stamps_AndLeaving_ResetsTheStamp_…`, `AMoveInsideTheIntake_KeepsTheEntrysArrivalSeq_…`, `MergeIntoAnIntakeEntry_DoesNotRestampTheTarget_…`, `PeekOutfeed_SkipsAMidQueueTombstone_…`, `StateDump_CarriesNextArrivalSeq_AndARebuiltOutfeed_…`, `StateDump_IsIdenticalAcrossTwoWorlds…`
+- Tick guard: `MutatingCalls_OutsideATickPhase_AreRefused_WithNothingMutatedAndNoEvent`
+- Allocation: `IntakeAllocationTests.SpawnPeekTakeAndReturn_Over1000Cycles_AllocateNothing_InOptimisedBuilds` (Release) with the `…_InEveryBuild` twin (owner skip rule)
+- Also: `TakeUnit_OnAMultiUnitEntry_…`, `TakeOldest_*` (2), `ANonMailOutfeedHead_…`, `PeekOutfeed_IsReadOnly_…`, `PeekAndTake_OnAContainerWithoutAnOutfeed_…`
+**Deviations** (all ADVISORY, as-implemented):
+- Spawn: per-id scratch plan for the arena reservation check (all ids commit into one plan, one seal); a malformed or out-of-phase call returns `SpawnResult(0, ids.Length)` (no reason field, TD-133 item 5); `MergePolicy` is forced to NoMerge on a container with an outfeed and honoured elsewhere; the failing id's no-fit facts are recorded after `End` at the sealed version (`AutoPlace.RecordNoFitsAtCurrentVersion`).
+- FIFO: the node count lives in `OutfeedFifo`; the header holds head, tail and `NextArrivalSeq` (dumped for every container, 1 without an outfeed). No inventory load path exists yet — `InventoryMutator.RebuildOutfeed` is provided and the round-trip test rebuilds in-process (TD-132). Node pool = 2 × `entryPoolCapacity`, no new balance key.
+- Tick guard: `Core/TickGuard.IsMutable` checks `Stage == InPhase && Phase ≤ RunStep` (full ADR-0003 §5 rule); new `CounterId` 44 (`InventoryOutfeedCandidates`, one per candidate visit), 45 (`MutatingApiOutOfPhase`); new `SimAssertCode` 71 (out-of-phase), 72 (FIFO node pool empty), 73 (invalid `TakeOldest`), 75 (non-mail outfeed head; Release reads as empty). 74 is the 009 follow-up (PASS M planned-twice guard).
+- `InventorySystem`'s constructor takes `ITickReader`; `InventoryEventRig` passes it and gains a `MailStep` hook so tests call the API inside a real tick. Pins updated: `SimCountersTests` (44/45, length 46), `ContainerCatalogueTests` (dump record 28 B).
+- New TD: TD-131 (tick-guard follow-ups), TD-132 (outfeed lifecycle seams), TD-133 (Spawn cost/API notes, incl. R10's start hint).
+**Test Evidence**: Logic — see above; 5,211 tests per leg, 0 failed (net10.0/net8.0 × Debug/Release; Debug 5,165 passed / 46 skipped, Release 5,209 passed / 2 skipped)
+**Run result**: N/A — Sim-only, no Godot surface (no smoke run)
+**Code Review**: read-only review (Sonnet): APPROVE, no blocking findings; items 1–3 and 8 applied in 2c29d82, 4–7 recorded as TD-132/TD-133, 9 (Release-only 0 B test) covered by CI's Release legs and the twin
