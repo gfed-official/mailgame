@@ -5,6 +5,10 @@ using static PerformativeMail.Client.Core.Input.PhysicalInput;
 
 namespace PerformativeMail.Sim.Tests.Unit.Input;
 
+// Inside the namespace so it wins over the PerformativeMail.Sim.Delivery namespace (manual-delivery 001), which shadows the bare
+// name from an outer scope.
+using Delivery = PerformativeMail.Client.Core.Input.Delivery;
+
 /// <summary>
 /// input-controls story 005 AC "H-R6-1 (M-1a rows)" plus "Required / reserved", "Deferred rows are absent" and the frame-bit
 /// rows of "Frame bits and delivery": <see cref="BuiltInActionMap.CreateM1a"/> equals the GDD R6 table row by row (one

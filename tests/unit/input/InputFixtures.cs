@@ -4,6 +4,10 @@ using PerformativeMail.Sim.ClientLayer;
 
 namespace PerformativeMail.Sim.Tests.Unit.Input;
 
+// Inside the namespace so it wins over the PerformativeMail.Sim.Delivery namespace (manual-delivery 001), which shadows the bare
+// name from an outer scope.
+using Delivery = PerformativeMail.Client.Core.Input.Delivery;
+
 /// <summary>Shared fixtures for the story 006 validator tests: the built-in definitions with one row edited, and named state ids.</summary>
 internal static class InputFixtures
 {
