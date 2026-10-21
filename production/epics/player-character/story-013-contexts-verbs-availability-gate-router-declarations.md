@@ -61,7 +61,7 @@
 
 ## Open Questions
 
-- **OQ-013-1 (needs an owner ruling — Vehicles, M1).** What identifies the carrier's *own* seat for the Mounted gate? ADR-0014 §1/§2 say "own seat's Dismount only" and `AnchorFlags.SeatOf` marks an anchor as a seat of its entity, but no GDD rule, ADR or code field records which seat (`AnchorRef` = vehicle entity + slot) a carrier occupies (`PlayerRecord` and `CarrierState` have no mount/seat field; there is no Vehicles GDD). Until ruled, the Mounted branch admits no candidates. Candidate: an occupied-seat `AnchorRef` on `CarrierStatus`, compared for equality — an ADR-0014 §1 amendment for the technical-director, not decided here. Tracked as TD-105.
+- **OQ-013-1 (needs an owner ruling — Vehicles, M1).** What identifies the carrier's *own* seat for the Mounted gate? ADR-0014 §1/§2 say "own seat's Dismount only" and `AnchorFlags.SeatOf` marks an anchor as a seat of its entity, but no GDD rule, ADR or code field records which seat (`AnchorRef` = vehicle entity + slot) a carrier occupies (`PlayerRecord` and `CarrierState` have no mount/seat field; there is no Vehicles GDD). Until ruled, the Mounted branch admits no candidates. Candidate: an occupied-seat `AnchorRef` on `CarrierStatus`, compared for equality — an ADR-0014 §1 amendment for the technical-director, not decided here. Tracked as TD-106.
 
 ---
 

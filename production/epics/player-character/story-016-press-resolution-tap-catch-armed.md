@@ -43,7 +43,7 @@
 - [ ] **Latch contents.** On a Hold press the latch holds `AnchorRef`, `Verb`, `Mode`, `PressTick` (= this tick), `HoldTicks` = `IInteractable.GetHoldTicks(latch, ctx)` evaluated **once** and never recomputed, `ClaimedPosition`, and `OwnerPayload` as filled by `IInteractable.OnPress` (pure with respect to owner state — Manual Delivery's press-tick branch).
 - [ ] **Edge order.** Multiple Interact edges in one `InputFrame` are applied in arrival order, each resolving against this tick's focus state; a press followed by its release in the same frame is handled by Story 017 (this story only latches).
 - [ ] **PC016-SWIM-CATCH — No Catch while swimming (story-local id; from GDD P6 "a swimmer cannot catch"; moved from story 013 on 2026-10-20).** While `CarrierStatus.Swimming`, a press never resolves to Catch or catch-armed: no `CatchArm{down}` is sent, rule (a)/(d) fall through to nothing (counted), and a press on an anchor follows story 013's swim gate (`Unavailable(reason.dry_land)` unless `AllowWhileSwimming`). The host-side arm refusal is throwing-catching story 022's (eligibility on arming); this story owns the client press half.
-- [ ] **No-op on Dead / Panel.** Interact edges are refused (no latch, no request) when the gate (Story 013) says Panel or Dead; Mounted follows story 013's gate (no candidates until OQ-013-1 is ruled; TD-105).
+- [ ] **No-op on Dead / Panel.** Interact edges are refused (no latch, no request) when the gate (Story 013) says Panel or Dead; Mounted follows story 013's gate (no candidates until OQ-013-1 is ruled; TD-106).
 
 ---
 
