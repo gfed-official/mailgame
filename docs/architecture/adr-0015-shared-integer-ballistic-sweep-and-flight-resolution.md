@@ -164,7 +164,7 @@ Per slot `TAT` (absolute tick). Accept at `T` iff `T ≥ TAT − throwBurstTicks
 
 ### Key Interfaces
 ```csharp
-namespace PerformativeMail.Sim.Throwing;
+namespace PerformativeMail.Sim.ThrowingCatching;   // erratum 2026-10-20: was PerformativeMail.Sim.Throwing — see Errata (folder stays Sim/Throwing/)
 public readonly struct Launch { public readonly Vec3Mm Origin; public readonly Vec3Mm Vel; public readonly int G; }
 public static class Throw      { public static long RH(long n, long d); }                     // FloorDiv(2n + d, 2d), d > 0
 public static class LaunchMath { public static bool Compute(in LaunchInput i, out Launch l, out bool originFromChest); } // F1
@@ -273,6 +273,9 @@ No code exists. Stories create `Sim/Throwing/{Throw, LaunchMath, Ballistic, Flig
 1. `MemoryMarshal.Read<T>` throws on a short span and is native-endian. Payload reads are guarded by ADR-0007's drain pre-check (`PayloadLength == sizeof(T)`, else `unknown_kind`) and by an explicit length check in the handler (`bad_request`, never an exception). Payload structs use explicit sequential layout and `byte` flags only (no `bool`), with no padding.
 2. The aim arc, trail and ghost (Presentation) must call these functions and must not use engine physics or engine interpolation for flight positions. Engine interpolation stays off for Sim-positioned nodes (ADR-0019).
 3. The net8.0 minimum for 4.6/4.7 desktop builds is UNVERIFIED (`VERSION.md`).
+
+## Errata
+- 2026-10-20 — Key Interfaces: the namespace was `PerformativeMail.Sim.Throwing`; now **`PerformativeMail.Sim.ThrowingCatching`** (tests `PerformativeMail.Sim.Tests.Unit.ThrowingCatching`), because a `Sim.Throwing` namespace shadows `Content.Rules.Throwing` (`RuleRegistry.cs:70`, CS0234) and breaks the build — the same pattern as `Sim/Mail/` → `PerformativeMail.Sim.MailDestinations` (TD-074). The folder stays `src/PerformativeMail.Sim/Throwing/` (Migration Plan and stories unchanged), as shipped in PR #7 (throwing-catching story 001). **Accepted by Evan 2026-10-20** (owner ruling in chat, 22:31 PT); source TD-107 item 1.
 
 ## Related
 - ADR-0013 (`Sim/Geometry`); ADR-0026 (`IWorldQuery`, `QueryStaticSolids`); ADR-0014 (`ICatchPredictor`, Interact resolution, `CheckInteraction`); ADR-0016 (preview placement, launch ghost, outcome-after-event); ADR-0017 (`ResolveThrownLanding`, `Evaluate`); ADR-0020 (F5 history); ADR-0021 (flight protocol, catch under latency); ADR-0009 (`DetachForThrow`, `TryCatch`, Flight ledger); ADR-0005 (no stream; `Mix64`); ADR-0006 (rounding delegation).
