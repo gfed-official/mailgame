@@ -4,7 +4,7 @@ description: "Orchestrate the combat team — game-designer, gameplay-programmer
 argument-hint: "[combat feature description] [--review full|lean|solo]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion, TaskCreate, TaskGet, TaskList, TaskUpdate, Bash(bash "*/.claude/skills/team-combat/../../hooks/yaml-helper.sh" resolve_config *)
-model: sonnet
+model: opus
 ---
 # Team Combat
 
