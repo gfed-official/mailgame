@@ -132,6 +132,11 @@ This epic is complete when:
 
 **Notes for `/architecture-review`:** grid-inventory R7's "one version bump per touched container" conflicts with per-unit `ConsumeUnit` (ADR-0017 §5 + ADR-0009 §3); story 005 asserts the ADR behaviour. If grid-inventory exposes no read-only panel view, story 005 adds a minimal read-only `IInventoryApi` accessor for the host-side `DeliverScan`, rather than waiting on the grid-inventory story 022 re-scope (which now depends on story 005).
 
+## Open Questions
+
+- **OQ-MD001-1 (owner, non-blocking — pending Evan):** does "priority read from Player Character's data" (GDD / control manifest) mean the Players verb catalogue (`VerbCatalogue`) code table? No content field holds a priority, so story 001 takes it from the catalogue via `AnchorDef.For(..., Verb.Deliver)` (Deliver = `VerbCatalogue.DefaultPriority(Verb.PickUp) + 1`) and its test asserts that. Raised in story 001's Completion Notes (PR #14). If the answer is a content field, story 001's anchor registration and test change.
+- **OQ-MD005-1:** see story 005 AC-7 (registry access) — open.
+
 ## Next Step
 
-`/story-readiness production/epics/manual-delivery/story-001-deliver-anchors-hold-ticks.md`, then `/dev-story` in the order above.
+Story 001 is Complete (PR #14; its Completion Notes' open question is tagged OQ-MD001-1). Next: `/story-readiness` then `/dev-story` on the next story in the recommended order whose dependencies are Complete (002 waits on mail-destinations 010).
