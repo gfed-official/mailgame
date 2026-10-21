@@ -1,16 +1,17 @@
 # Session handoff — Performative Mail
 
 **Written:** 2026-10-16 23:55 PDT, by the orchestrating session at a clean stopping point.
-**Last refreshed:** 2026-10-21 by the planning lead (docs-only PR `lead/panel-channel-adr0010-rulings`: owner rulings on the Panel channel and the ADR-0010 defaults; status counts unchanged). Before that: PR #12, `lead/ready-pc013-md001`, status counts only.
+**Last refreshed:** 2026-10-21 by the planning lead (docs-only PR #19, `lead/panel-channel-adr0010-rulings`: owner rulings on the Panel channel and the ADR-0010 defaults / seconds → ticks / `view`; status counts unchanged). Before that: PR #15, `lead/ready-next-gi006-ghs004`: status counts recounted on main a6dfb98, after PR #14; grid-inventory 006 and godot-host-shell 004 readiness-fixed as the next two stories.
 **Read this first in a new session.** Then read `production/session-state/planning-run-2026-10-16.md` (full run ledger + per-story checkpoint lines) only for detail.
 
 ## Update 2026-10-20 (read this block first)
 
 - **Work now lands through PRs on `gfed-official/mailgame`** (not direct pushes to `main`). Merged since the 2026-10-17 update: **PR #1** (547248f) — the `SceneTree.Paused` CI guard skips C# comments, so the four Sim test jobs run in CI again; **PR #2** (69dfa31) — grid-inventory **003 Complete** (MailIdArena tests, multi-block `CanReserve(ReadOnlySpan<int>)`; story 005 gained the reason-85 validator AC; TD-102/103/104 logged).
-- **Story counts (from the story headers, 2026-10-21):** 92 Complete, **1 In Progress**, 6 Blocked, 108 Ready (207 total).
+- **Story counts (from the story headers on main a6dfb98, 2026-10-21, `count-story-status.sh`):** 92 Complete, **1 In Progress**, 6 Blocked, 108 Ready (207 stories).
   - content-data **018** — In Progress; **the ADR-0010 defaults are decided** (owner ruling 2026-10-21, PR `lead/panel-channel-adr0010-rulings`): neutral, off by default — `carryByHand`/`acceptsInsert` default false, `view` required (missing → CV-GEN-05), shipped content spells out all three (GDD CD10 note; story AC "Neutral defaults"). Resume with `/dev-story`. Seconds → ticks is decided too (08:08 PT): defs keep ms and consumers convert, so stage 3's seconds → ms is the whole conversion (ADR-0010 Errata 2026-10-21).
   - player-character **013** — Ready (no code yet; readiness-fixed in PR #12, 2026-10-21: injected `FrameworkReasons`, OQ-013-2 / TD-119 non-blocking). The story was fixed on 2026-10-20 (`PanelOpen` on `CarrierStatus`, all six life states mapped, GDD '—' = Absent, the swim-Catch AC moved to story 016, stamp 2026-10-17.1); resume with `/dev-story`.
-- **Next order (one story at a time):** grid-inventory 004 → grid-inventory 005 → throwing-catching 001 → godot-host-shell 003 → player-character 013 → manual-delivery 001. Then grid-inventory 006…, player-character 014…, and the rest of `implementation-order.md` (that file's wave tables date from 2026-10-16 and list Complete stories as pending — regenerate it before relying on it).
+- **Next order (one story at a time), 2026-10-21:** **grid-inventory 006 → godot-host-shell 004** (both readiness-fixed in PR #15, decision log 2026-10-21; handoffs on the agent box only, not in the repo: `/workspace/repos/logs/handoff-grid-inventory-006.md` / `handoff-godot-host-shell-004.md`; the story files are authoritative). Then, all deps Complete on main: grid-inventory 009 (after 006) → 012/013 → 015 (the M-1a critical path: it gates mail-destinations 005/007, throwing 008–010, manual-delivery 005), grid-inventory 011 and 016; throwing-catching 002 → 003, and 006; player-character 014 (after PR #13) → 015/016; player-character 021; input-controls 019, 025; simulation-core 029. Godot host shell stalls after 004: 005 needs player-character 019/020, 006–010 chain from 005, 007 also needs content-data 019. (manual-delivery 001 is Complete, PR #14; player-character 013 is in PR #13, not merged; `implementation-order.md` wave tables date from 2026-10-16 and list Complete stories as pending — regenerate it before relying on it.)
+- **Open owner question OQ-MD001-1 (non-blocking, pending Evan):** does "priority read from Player Character's data" (manual-delivery GDD / manifest) mean the Players verb catalogue (`VerbCatalogue`) code table? No content field holds a priority, so manual-delivery 001 (PR #14) takes it from the catalogue (`AnchorDef.For(..., Verb.Deliver)`, Deliver = Pick-up + 1) — see that story's Completion Notes and `production/epics/manual-delivery/EPIC.md` §Open Questions.
 - **Not startable:** player-character 027 (TD-091 movement rulings; its Open Questions include a "stop and ask" on the haul-out `MinY` threshold), and the six Blocked stories below.
 - **Toolchain on the box (2026-10-20):** `mise` is not installed. `~/.dotnet` has SDKs **8.0.424 and 10.0.402** (runtimes 8.0.30 and 10.0.13; checked with `~/.dotnet/dotnet --list-sdks` on 2026-10-20), so `~/.dotnet/dotnet` builds this repo (`global.json` needs SDK 10.0.100+, roll-forward latestFeature). A second side-by-side install is at `/home/box/.dotnet10` (SDKs 10.0.401 + 10.0.402, runtimes 10.0.12/10.0.13 + 8.0.32); either works, e.g. `export DOTNET_ROOT=/home/box/.dotnet10 PATH=/home/box/.dotnet10:$PATH`. Godot on the box is **4.7.2 mono** at `~/.local/bin/godot` (there is no `godot-mono`); the repo pins **4.7.1** (`Godot.NET.Sdk/4.7.1`). Opening the project in the 4.7.2 editor rewrites `PerformativeMail.Game.csproj` to `Godot.NET.Sdk/4.7.2` — revert that before committing unless the owner moves the pin.
 - **Owner rule (2026-10-19):** a test skipped by design in one configuration or framework (Debug vs Release, net10.0 vs net8.0) is waived only if that same test runs **and passes** in the other configuration or framework, checked test by test; reviewers check every skip (decision log 2026-10-19).
@@ -20,7 +21,7 @@
 
 - **Branch is `main`** (the old `master` was renamed and pushed to `origin/main`, replacing the Unreal-era history). Everything below that says `master` means `main`.
 - **Everything is committed and pushed** through the run's cut-off point. Commits after the snapshot: Sim/Client.Core snapshot, ADR errata, godot-host-shell 001–002, mail-destinations 003–004, ADR-0017 erratum (TD-096), content-data 017 (+018 partial), grid-inventory 001–002 (+003 partial), player-character 011–012, world-stub 007, production logs.
-- **Story counts now:** 86 Complete. **Three In Progress** with partial or no code: content-data **018** (schema stage — FieldSpec tables, SchemaTable, ParsedDef/Value etc. exist; 0/7 ACs ticked; TD-090/075(1)/063(1) still owed), grid-inventory **003** (MailIdArena.cs + `inventory.mailIdArenaUnits` knob exist; 0/4 ACs; no tests), player-character **013** (status flip and logged design calls only; no code). Resume these with `/dev-story` — the runner should read the existing files before implementing.
+- **Story counts then (2026-10-17; superseded — 92 Complete on main a6dfb98 as of 2026-10-21, see the 2026-10-20 block):** 86 Complete. **Three In Progress** with partial or no code: content-data **018** (schema stage — FieldSpec tables, SchemaTable, ParsedDef/Value etc. exist; 0/7 ACs ticked; TD-090/075(1)/063(1) still owed), grid-inventory **003** (MailIdArena.cs + `inventory.mailIdArenaUnits` knob exist; 0/4 ACs; no tests), player-character **013** (status flip and logged design calls only; no code). Resume these with `/dev-story` — the runner should read the existing files before implementing.
 - **Tree verified 2026-10-17 evening:** Release build 0 warnings; four legs 4,609 tests / 0 failed. Two compile errors in 018's last files and two stale content pins (golden digest → `018735cb`; `inventory.mailIdArenaUnits` default 32 768) were fixed in that pass.
 - **Runner worktrees removed.** The throwing-catching 001 and godot-host-shell 003 runners only reached setup (their decision-log notes were appended to the main log); both stories are still **Ready**. Both runners noted that `.claude/worktrees` branches must be based on local `main`, not `origin/main` at the time (now identical). Current manifest version is **2026-10-17.1**; stories stamped 2026-10-16.2 should re-stamp (only ADR-0012 §7 input-adapter and ADR-0026 rules changed).
 - **Next up, in order (superseded by the 2026-10-20 block):** finish 018 → 019; finish grid-inventory 003 → 004…; player-character 013 → 026; throwing-catching 001; godot-host-shell 003.
@@ -46,20 +47,22 @@
 
 | Epic | Complete | Ready (next) | Blocked |
 |---|---|---|---|
-| simulation-core | 28/30 (001–028) | 029 (deps done; re-stamp manifest to 2026-10-16.2), 030* | — |
-| content-data | 16/19 (001–016) | 017 → 018 → 019 | — |
-| network-adapter-loopback | 7/9 | 008*, 009* | — |
-| world-stub | 6/7 | 007 (sim-core 025–027 now Complete — check its deps) | — |
-| player-character | 9/26 (001–009) | 010 → … 026 | — |
-| input-controls | 6/29 (001–006) | 007 (008 needs player-character 013) | 029 |
-| mail-destinations | 4/16 (001, 002, 011, 012) | 003 next | — |
-| manual-delivery | 1/11 | 002–008, 011 | 009, 010 |
-| grid-inventory | 0/24 | 001 → … | 022 |
-| throwing-catching | 0/24 | 001 → … | 016, 024 |
-| godot-host-shell | 0/11 | 001 → … | — |
-| **Total** | **76** | **124** | **6** |
+| simulation-core | 28/30 (001–028) | 029 (deps done), 030* | — |
+| content-data | 17/19 (001–017) | 018 In Progress (ADR-0010 rulings 2026-10-21; resume) → 019 | — |
+| network-adapter-loopback | 7/9 (001–007) | 008*, 009* | — |
+| world-stub | 7/7 (001–007) | — | — |
+| player-character | 11/27 (001–009, 011, 012) | 013 (PR #13) → 014 …; 021; 010 waits on 027 (TD-091) | — |
+| input-controls | 6/29 (001–006) | 019, 025; 007 (needs player-character 018's `IInteractionQuery`) | 029 |
+| mail-destinations | 6/16 (001–004, 011, 012) | 005/007 wait on grid-inventory 015 | — |
+| manual-delivery | 1/11 (001) | 002–008, 011 | 009, 010 |
+| grid-inventory | 5/24 (001–005) | **006 (next)**, 011, 016 | 022 |
+| throwing-catching | 1/24 (001) | 002, 006 | 016, 024 |
+| godot-host-shell | 3/11 (001–003) | **004 (next)** | — |
+| **Total** | **92** (+ 1 In Progress) | **108** | **6** |
 
-`*` Ready but waiting on other stories: sim-core 030 ← grid-inventory 007 + throwing 010; network 008/009 ← manual-delivery 004/005; world-stub 007 ← sim-core 026/027 (now Complete — should be startable).
+Rows recounted 2026-10-21 from the story headers on main a6dfb98 (`/workspace/scripts/count-story-status.sh`; 207 stories), after PR #14 (manual-delivery 001) merged. PR #13 (player-character 013) is not merged; player-character stays 11/27 until it does, and whichever PR merges next recounts.
+
+`*` Ready but waiting on other stories: sim-core 030 ← grid-inventory 007 + throwing 010; network 008/009 ← manual-delivery 004/005.
 
 ### Blocked stories (genuine blockers)
 - manual-delivery 009, throwing-catching 016 — ADR-0024 (telemetry) unwritten.

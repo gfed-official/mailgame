@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1 day)
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Last Updated**: 2026-10-21 (docs-only: full-chain placement precedence AC moved here from story 006; status unchanged — still waits on the TD-105 item 3 ruling)
 
 ## Context
 
@@ -38,6 +38,7 @@
 - [ ] **H-R4-1 a–f (op form)** — the story 006 fixture driven through `move` from the cursor: a → stack 6, cursor empty, version +1; b–f → their reasons; every rejection leaves the container version and the cursor unchanged.
 - [ ] **H-R4-2 a/b** — a: a Large at (0,0) moved to (1,0) (overlapping its own cells) → `ok`, version +1; b: a cross-container move of a Medium onto an inventory cell partly covered by an Axe → `blocked`, entry unmoved, **both** versions unchanged.
 - [ ] **H-R4-3 a/b** — a: a drag-place of 2 letters to #3 onto a free cell never merges (new entry at (4,2), the existing stack of 5 unchanged, one bump); b: `move {A → its own (0,0), rotated: false}` → `ok:true`, no version bump, no event.
+- [ ] **Precedence test, full placement chain (ADR-0009 Implementation Guidelines; moved from story 006 on 2026-10-21)** — a parametrised test sends a `move`/`place` request that violates each step of `bad_request → not_open → stale_entry → stale_layout → reserved_slot → out_of_bounds → not_carryable → not_allowed → blocked / stack_full` **and every later one** and asserts the earliest code (story 006 covers the rule-level suffix from `reserved_slot`). Note: the `reserved_slot` row may need a **Grid-layout** fixture container def with a reserved index, because the only M-1a def with `ReservedSlots` is the hotbar, which uses the Slots layout (slots-specific rules such as the cursor swap would otherwise mix into the grid chain).
 
 ---
 
