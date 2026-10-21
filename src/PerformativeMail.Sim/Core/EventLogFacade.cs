@@ -42,6 +42,9 @@ public sealed class EventLogFacade
     /// <summary>The attached log, for tests and Sim Core (null before attachment).</summary>
     internal EventLog? Log => _log;
 
+    /// <summary>The world's counters this facade counts misuse into (Grid Inventory's probe counters share them, story grid-inventory/009).</summary>
+    internal SimCounters Counters => _counters;
+
     /// <summary>Opens a call scope on the world's log; see <see cref="EventLog.BeginCall"/>. Before attachment: an inert scope.</summary>
     /// <returns>The scope; keep it in a <c>using</c> declaration.</returns>
     /// <example><code>using EventCallScope scope = events.BeginCall();</code></example>

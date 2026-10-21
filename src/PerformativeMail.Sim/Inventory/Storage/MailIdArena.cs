@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Primitives;
@@ -185,11 +186,22 @@ public sealed class MailIdArena
     /// </remarks>
     /// <param name="runUnits">The unit count of each block the commit will acquire.</param>
     /// <returns>True when all of them can be acquired.</returns>
-    public bool CanReserve(ReadOnlySpan<int> runUnits)
+    public bool CanReserve(ReadOnlySpan<int> runUnits) => CanReserveCore(runUnits);
+
+    /// <summary>
+    /// <see cref="CanReserve(ReadOnlySpan{int})"/> over <c>ushort</c> block sizes (the element type of <c>InvPlan.AcquiredBlocks</c>;
+    /// story grid-inventory/009).
+    /// </summary>
+    /// <param name="runUnits">The unit count of each block the commit will acquire.</param>
+    /// <returns>True when all of them can be acquired.</returns>
+    public bool CanReserve(ReadOnlySpan<ushort> runUnits) => CanReserveCore(runUnits);
+
+    private bool CanReserveCore<T>(ReadOnlySpan<T> runUnits)
+        where T : struct, IBinaryInteger<T>
     {
         for (int i = 0; i < runUnits.Length; i++)
         {
-            if (runUnits[i] > MaxUnits)
+            if (int.CreateTruncating(runUnits[i]) > MaxUnits)
             {
                 return false;
             }
@@ -205,7 +217,7 @@ public sealed class MailIdArena
             int need = 0;
             for (int i = 0; i < runUnits.Length; i++)
             {
-                if (runUnits[i] > floor)
+                if (int.CreateTruncating(runUnits[i]) > floor)
                 {
                     need++;
                 }
