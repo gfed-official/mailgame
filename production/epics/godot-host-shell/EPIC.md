@@ -109,7 +109,7 @@ This epic is complete when:
 | 010 | [Greybox street: `TerrainView` from `IWorldQuery` (ground, water, solids, pad, light, fallback camera)](story-010-greybox-street-terrain-view.md) | Visual/Feel | Ready | ADR-0019 |
 | 011 | [Headless smoke (boot, ≥ 300 ticks, exit 0), smoke wrapper, CI wiring, `critical-paths.md`](story-011-headless-smoke-300-ticks-ci-critical-paths.md) | Integration | Ready | ADR-0019 |
 
-**11 stories: 10 Integration, 1 Visual/Feel — 2 Complete, 9 Ready, 0 Blocked (refreshed 2026-10-20).** Every governing ADR (0001, 0002, 0003, 0010, 0011, 0012, 0016, 0019, 0026) is Accepted. Stories depend on other stories, not on missing decisions, so none is Blocked.
+**11 stories: 10 Integration, 1 Visual/Feel — 4 Complete, 7 Ready, 0 Blocked (refreshed 2026-10-21; 004 Complete in PR #17).** Every governing ADR (0001, 0002, 0003, 0010, 0011, 0012, 0016, 0019, 0026) is Accepted. Stories depend on other stories, not on missing decisions, so none is Blocked.
 
 **Suggested order:** 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011. 007 may run any time after 004. Stories 001–004 can start as soon as simulation-core 001/010/024/025, network-adapter-loopback 001 and content-data 008 exist; 005 needs network-adapter-loopback 007 and player-character 019/020; 009–010 need the world-stub street (006/007).
 
@@ -158,4 +158,4 @@ This epic is complete when:
 
 ## Next Step
 
-Run `/story-readiness production/epics/godot-host-shell/story-001-game-csproj-solution-gdignore-build-mapping.md`, then `/dev-story` — in story order. Stories 001–003 need only simulation-core 001/010/024 and network-adapter-loopback 001; stories 005 onward need the loopback session (network-adapter-loopback 007), `BuiltInContent` (content-data 008) and the world-stub street (world-stub 006/007) to be Done first (epics index order 1–7).
+Stories 001–004 are Complete (004 in PR #17). Next in this epic is 005, which needs player-character 019/020 (020 held on the Panel-channel errata); 006–010 chain from 005, and 007 also needs content-data 019 (ADR-0010). Run `/story-readiness` on 005 once those are Complete. Stories 001–003 need only simulation-core 001/010/024 and network-adapter-loopback 001; stories 005 onward need the loopback session (network-adapter-loopback 007), `BuiltInContent` (content-data 008) and the world-stub street (world-stub 006/007) to be Done first (epics index order 1–7).
