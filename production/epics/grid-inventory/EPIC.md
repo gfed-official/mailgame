@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 3 Complete, 20 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 5 Complete, 18 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -117,8 +117,8 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 001 | [Inventory module skeleton — container registry, M-1a containers and per-player panel](story-001-inventory-module-containers.md) | Integration | Complete | ADR-0009, ADR-0003, ADR-0010, ADR-0004 |
 | 002 | [Entry pool, occupancy bitmaps and entry identity](story-002-entry-pool-occupancy.md) | Logic | Complete | ADR-0009, ADR-0004, ADR-0006 |
 | 003 | [mailIds size-class arena — oldest-first take, sorted-union merge, exhaustion](story-003-mailids-arena.md) | Logic | Complete | ADR-0009, ADR-0006 |
-| 004 | [Inventory op kinds, padding-free payloads, reason codes and the 24 B reply extra](story-004-op-kinds-payloads-reasons.md) | Logic | Ready | ADR-0009, ADR-0007, ADR-0011 |
-| 005 | [InventoryMutator, per-call versions, event records and InvVersion seals](story-005-mutator-versions-events.md) | Logic | Ready | ADR-0009, ADR-0008, ADR-0003 |
+| 004 | [Inventory op kinds, padding-free payloads, reason codes and the 24 B reply extra](story-004-op-kinds-payloads-reasons.md) | Logic | Complete | ADR-0009, ADR-0007, ADR-0011 |
+| 005 | [InventoryMutator, per-call versions, event records and InvVersion seals](story-005-mutator-versions-events.md) | Logic | Complete | ADR-0009, ADR-0008, ADR-0003 |
 | 006 | [Placement validity, StackKey stacking with effMax at op time, and the insertion whitelist](story-006-placement-stacking-whitelist.md) | Logic | Ready | ADR-0009, ADR-0010 |
 | 007 | [Pick and Move ops — whole-entry moves, cross-container atomicity, no-op moves](story-007-pick-move-ops.md) | Logic | Ready | ADR-0009, ADR-0007 |
 | 008 | [Move split-and-place, hotbar swap from the cursor, and the Merge op](story-008-move-split-swap-merge.md) | Logic | Ready | ADR-0009, ADR-0004 |
