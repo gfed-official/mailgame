@@ -2,7 +2,7 @@ using PerformativeMail.Sim.Core;
 
 namespace PerformativeMail.Sim.Inventory;
 
-/// <summary>Grid Inventory's <c>ItemsExpire</c> phase (phase 1). Empty until the world-item stories (story 012) fill it.</summary>
+/// <summary>Grid Inventory's <c>ItemsExpire</c> phase (phase 1). Empty until the world-item stories (story 013) fill it.</summary>
 internal sealed class ItemsExpirePhase : ISimPhase
 {
     public void Run(in TickContext ctx)

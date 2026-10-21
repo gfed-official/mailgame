@@ -14,7 +14,7 @@ namespace PerformativeMail.Sim.Composition;
 /// [SimSystem(SystemId.MailDestinations)]
 /// public sealed class MailSystem : ISimSystem, IMailApi
 /// {
-///     public MailSystem(EventLogFacade events, MailIds mailIds, IRngStreams rng, IGridInventoryApi grid, ContentSet content) { }
+///     public MailSystem(EventLogFacade events, MailIds mailIds, IRngStreams rng, IInventoryApi grid, ContentSet content) { }
 ///     public void Bind(SimWorldBuilder builder) { builder.Bind(PhaseId.MailStep, _phase); }
 /// }
 /// </code>

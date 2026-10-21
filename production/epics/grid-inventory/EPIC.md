@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 7 Complete, 16 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 8 Complete, 15 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -30,7 +30,7 @@ Grid Inventory is where every piece of mail and every item lives between spawnin
 **M-1a access to the Intake (provisional, story-level).** The R10 open set allows one external container, but the UI phase tags put external containers at M0+. The solo greybox still needs a way to take spawned mail. The recommended path is to open `po_intake` as the single external container. Contention, `take_all` and the manifest view stay deferred. **Confirmed at /create-stories (2026-10-16), decision logged.** See story 011.
 
 **Out of scope:**
-- **M-1b:** backpack, bike, truck, chest, depot and sorter-buffer; death and spill bags (R13, with Health & Damage); the Intake outfeed for belts (TR-inventory-010).
+- **M-1b:** backpack, bike, truck, chest, depot and sorter-buffer; death and spill bags (R13, with Health & Damage); belt endpoints calling the Intake outfeed (TR-inventory-010; the outfeed itself ships in story 012).
 - **M0:** contention and the optimistic client; JoinState and checksums.
 - **M1:** perks that grow containers (R15); grants and standard issue (R17); the manifest view (R18); sort (D3); split; take_all.
 
@@ -75,7 +75,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | TR-inventory-007 | AutoPlace passes M/U/R; amortised O(1) non-full-stack index | ADR-0009 ✅ | M-1a |
 | TR-inventory-008 | Deterministic consolidating first-fit-decreasing sort, total-order comparator | ❌ No ADR (planned ADR-0025, not written) | M1 |
 | TR-inventory-009 | Intake sort ≤8,500 probes; memoised repeat O(1) | ❌ No ADR (planned ADR-0025, not written) | M1 |
-| TR-inventory-010 | Intake outfeed by arrivalSeq; PeekOutfeed/TakeUnit ≤4 entries amortised | ADR-0009 ✅ | M-1b |
+| TR-inventory-010 | Intake outfeed by arrivalSeq; PeekOutfeed/TakeUnit ≤4 entries amortised | ADR-0009 ✅ | M-1a (story 012) / M-1b (belt selectors) |
 | TR-inventory-011 | Backlog drain ≤32 entries/tick, ≤8,000 probes, 0 when idle | ADR-0009 ✅ | M-1a |
 | TR-inventory-012 | O(1) conservation counters checked each tick; INVENTORY_ASSERT compiled out of Release | ADR-0009 ✅ | M-1a |
 | TR-inventory-013 | WorldItem cap 512, expiry FIFOs, lossless mail eviction | ADR-0009 ✅ | M-1a |
@@ -125,7 +125,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 009 | [AutoPlace (passes M/U/R, PassFirst/TargetFirst), StackKey non-full index and negative-fit cache](story-009-autoplace-stackkey-index.md) | Logic | Complete | ADR-0009, ADR-0006 |
 | 010 | [QuickMove (entry form), Return, and the R9 quick_move target order](story-010-quickmove-return-targets.md) | Logic | Ready | ADR-0009 |
 | 011 | [Open-set bookkeeping, Close op, leash put-away hook — and the Intake as the M-1a external](story-011-open-set-close-intake.md) | Logic | Ready | ADR-0009, ADR-0008 |
-| 012 | [Spawn into the Intake (NoMerge, arrivalSeq) and the outfeed FIFO (PeekOutfeed / TakeUnit)](story-012-intake-spawn-outfeed.md) | Logic | Ready | ADR-0009, ADR-0003 |
+| 012 | [Spawn into the Intake (NoMerge, arrivalSeq) and the outfeed FIFO (PeekOutfeed / TakeUnit)](story-012-intake-spawn-outfeed.md) | Logic | Complete | ADR-0009, ADR-0003 |
 | 013 | [WorldItem entity, absolute-tick expiry FIFOs, water float, cap eviction and tombstones](story-013-worlditem-expiry-cap.md) | Logic | Ready | ADR-0009, ADR-0004, ADR-0003 |
 | 014 | [Pickup core (AutoPlace by the R9 pickup rows) and the TryCatch API with fumble](story-014-pickup-core-trycatch.md) | Logic | Ready | ADR-0009 |
 | 015 | [IInventoryApi hooks for feature epics — ConsumeUnit, DetachForThrow, TryInsert, CountItem](story-015-inventory-api-feature-hooks.md) | Logic | Ready | ADR-0009, ADR-0003 |
@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–006 and 009 are Complete (006 merged in PR #16, 009 in PR #20). Next: run `/story-readiness` on `story-012-intake-spawn-outfeed.md` (012 builds on 009) and `story-013-worlditem-expiry-cap.md`, then implement them. Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–006, 009 and 012 are Complete (006 merged in PR #16, 009 in PR #20; 012 in PR #21, not merged yet). Next: run `/story-readiness` on `story-013-worlditem-expiry-cap.md` (013 calls 012's `ReturnToIntake`), then implement it; then 015. Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.

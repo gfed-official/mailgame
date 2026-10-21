@@ -192,7 +192,7 @@ public struct AutoPlacePlan
         _mergedUnits += units;
     }
 
-    /// <summary>True when a merge into <paramref name="targetEntrySlot"/> is already planned (PASS M's guard against planning a stack twice).</summary>
+    /// <summary>True when a merge into <paramref name="targetEntrySlot"/> is already planned (PASS M's INVENTORY_ASSERT that no stack is planned twice).</summary>
     internal readonly bool HasMergeInto(ushort targetEntrySlot)
     {
         for (int i = 0; i < _mergeCount; i++)
@@ -423,6 +423,23 @@ internal sealed class AutoPlace
     }
 
     /// <summary>
+    /// Writes <paramref name="result"/>'s no-fit facts at each container's <b>current</b> version instead of the scanned one: for a
+    /// caller that only filled the scanned containers further after the scan and then sealed them (<see cref="InventorySystem.Spawn"/>:
+    /// the failing id is scanned after every earlier id's placement, and <c>End</c>'s version bump is the only later change). Filling
+    /// cells can only remove anchors, so a shape that found none still finds none. Outside <c>Validate</c>, like <see cref="RecordNoFits"/>.
+    /// </summary>
+    /// <param name="result">A refused plan from <see cref="Plan"/>.</param>
+    public void RecordNoFitsAtCurrentVersion(in AutoPlacePlan result)
+    {
+        for (int i = 0; i < result.NoFitCount; i++)
+        {
+            AutoPlaceNoFit f = result.NoFit(i);
+            ref readonly ContainerHeader h = ref _containers[f.ContainerSlot];
+            _noFit.RecordNoFit(f.ContainerSlot, in h, f.W, f.H, f.Rotated, h.Version);
+        }
+    }
+
+    /// <summary>
     /// The handler-limit checks (<c>bad_request</c> when false): units 1 to 255, 1 to <see cref="AutoPlacePlan.MaxTargets"/> live
     /// targets with no container named twice (GDD R8/R9 target lists are sets of distinct containers; a repeat would let PASS M plan
     /// the same stack twice), and a live source holding at least <paramref name="units"/>.
@@ -532,10 +549,18 @@ internal sealed class AutoPlace
             _counters.Add(CounterId.InventoryMergeCandidates);
             ref EntryRecord stack = ref _entries[s];
             if (s == pass.SourceSlot || stack.Count >= subject.EffMax
-                || !PlacementRules.CanMerge(subject.Key, StackKey.Of(in stack), subject.EffMax, def, subject.Category)
-                || result.HasMergeInto(s))
+                || !PlacementRules.CanMerge(subject.Key, StackKey.Of(in stack), subject.EffMax, def, subject.Category))
             {
-                continue; // a stack already planned keeps its pre-plan count here, so planning it again could overfill it
+                continue;
+            }
+
+            // Unreachable: targets are distinct containers (IsWellFormed), each list is walked once and a stack is in one container's
+            // list only. A repeat would overfill the stack, since a planned stack keeps its pre-plan count here; Release skips the
+            // stack (no second merge planned).
+            InventoryAssert.That(!result.HasMergeInto(s), SimAssertCode.InventoryAutoPlaceStackPlannedTwice);
+            if (result.HasMergeInto(s))
+            {
+                continue;
             }
 
             ushort reason = AddMerge(ref plan, ref result, ref pass, containerSlot, s, mail);

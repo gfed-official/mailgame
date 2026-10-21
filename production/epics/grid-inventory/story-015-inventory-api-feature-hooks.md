@@ -44,7 +44,7 @@
 
 *Derived from the governing ADR(s) Decision / Implementation Guidelines:*
 
-- Location: `src/PerformativeMail.Sim/Inventory/InventoryApi.cs` (implements `IInventoryApi`; `[SimSystem]` publishes it for declared dependents in `SystemGraph`).
+- Location: extends story 012's `IInventoryApi` (`src/PerformativeMail.Sim/Inventory/IInventoryApi.cs`, implemented by `InventorySystem` and published for declared dependents in `SystemGraph`) with `ConsumeUnit`, `DetachForThrow`, `TryInsert`, `CountItem`; `ConsumeUnit` reuses story 012's `InventoryMutator.TakeOldest`.
 - `ConsumeReason` (Delivered / Misdelivered / ReturnedToSender) is recorded on the ledger and the internal `UnitsRemoved` event; Mail's `MailConsumed`/`DeliveryOutcome` are Mail's (ADR-0017) — not raised here.
 - `DetachForThrow` is called by Throwing's `ThrowRelease` handler after Throwing's own checks (ADR-0009 §1) — inventory never owns a throw op.
 - `Grant`/`ConsumeItems` (R17) are M1; `SpillToBag` is M-1b — leave them off the interface until their stories (or as `NotImplemented`-free absent members).
