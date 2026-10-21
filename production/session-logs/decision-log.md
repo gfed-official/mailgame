@@ -5998,3 +5998,17 @@ Granularity follows the orchestrator's one-session sizing, not `fine`. QL-STORY-
 **Chosen:** per Evan, (c). Skills and agents that write code use **opus**: `dev-story`, `godot-csharp-specialist`, `lead-programmer`, and any skill that writes code, scenarios or fixes. Pure planning and readiness skills use **claude-fable-5-1**. Review and eval skills stay on **sonnet**. Mail Dev makes the `.claude` edits in a separate PR (Mail Dev's model-pin PR); this PR edits no `.claude` file. PR #13 (player-character 013) got a small Sonnet pass in `InteractionGate.cs` under the old pin; that pass was redone on Opus in 42eec23 (the Opus re-authoring commit; PR #13's head is now cc6847e, a docs-only test-count commit).
 **Reason:** Owner rule. A skill-level pin must not silently override the model the owner chose for code-writing work.
 **Category:** process/tooling
+
+#### 2026-10-21 — Content seconds stay ms in defs; consumers convert to ticks (owner decision, Evan, 08:08 PT; recorded by the planning lead, docs only, PR #19)
+**Decision point:** content-data story 018 OQ-018-1 (raised earlier today in PR #19): where content seconds become ticks. ADR-0010 §4 and GDD CD21 put "seconds → ticks via F1" in loader stage 3, while CD4, ADR-0010 §2, TD-055 item 5, story 016 and the shipped code keep ms in the defs.
+**Options considered:** (A) stage 3 stores ticks in defs (would change story 005's `…Ms` records, the canonical encoding and `hashSchemaVersion`); (B) defs keep ms and each consuming system converts to ticks where it uses the value.
+**Chosen:** owner decision — (B). ADR-0010 gains an `## Errata` section (2026-10-21 entry; inline marker on §4 stage (3)), and GDD CD21's stage (3) and the CD4 `…Seconds` row are amended to say that defs keep ms and consumers convert with F1 (or an owner formula such as `Hold.HoldTicks`). Stage 3's `…Seconds` → ms conversion (story 016) is the whole time conversion. Story 018's Build AC and story 019's Implementation Notes now say no tick-valued def fields are added. OQ-018-1 is closed. No code, records or hash layout change.
+**Reason:** Owner decision; it matches the shipped records, the content hash and every existing consumer.
+**Category:** owner decision (ADR erratum accepted by the owner)
+
+#### 2026-10-21 — `ContainerDef.view` is required (owner decision, Evan, 08:08 PT; recorded by the planning lead, docs only, PR #19)
+**Decision point:** content-data story 018 OQ-018-2: what replaces `view`'s `auto` default after the 07:42 neutral-defaults ruling, given `ContainerView` (grid, manifest, auto) has no off member.
+**Options considered:** (a) `view` required, no default; (b) count `auto` as neutral and keep it as the default; (c) another default value.
+**Chosen:** owner decision — (a). A ContainerDef without `view` is a schema error under the existing rule CV-GEN-05 (required field missing, stage 2; the rule the GDD already uses for `weightClass`); no new rule id. GDD CD10's `view` row says **required**, and the CD10 note and the ADR-0010 Errata record it. Story 018's "Neutral defaults" AC now requires one CV-GEN-05 for a missing `view` and makes `ContainerDef.View` a `required` member (no `Auto` initializer). Story 019 notes that a fixture without `view` does not load clean. OQ-018-2 is closed. `BuiltInContent` already sets `View` on all four containers, so no loaded value or digest changes.
+**Reason:** Owner decision; CD7 allows only required or neutral-defaulted fields, and the enum has no neutral member.
+**Category:** owner decision

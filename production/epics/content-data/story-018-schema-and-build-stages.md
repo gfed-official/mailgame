@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: L-ish (~1 day; split the FieldSpec tables into a follow-up if over ~600 lines)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-21 (owner ruling on the ADR-0010 defaults: neutral, off by default; `carryByHand`/`acceptsInsert` default false — GDD CD10 note 2026-10-21; new AC "Neutral defaults"; open questions for the owner: OQ-018-1 seconds → ticks, OQ-018-2 `view`'s default; status unchanged). 2026-10-17
+> **Last Updated**: 2026-10-21 08:08 PT (owner rulings close OQ-018-1 — defs keep ms, consumers convert to ticks, so seconds → ms is stage 3's whole conversion — and OQ-018-2 — `view` required, missing → CV-GEN-05; ACs updated; status unchanged). 2026-10-21 (owner ruling on the ADR-0010 defaults: neutral, off by default; `carryByHand`/`acceptsInsert` default false — GDD CD10 note 2026-10-21; new AC "Neutral defaults"; open questions for the owner: OQ-018-1 seconds → ticks, OQ-018-2 `view`'s default; status unchanged). 2026-10-17
 
 ## Context
 
@@ -49,8 +49,8 @@
 
   (CDD-SCHEMA-6, M-1a form)
 - [ ] **Carried tech debt (added 2026-10-17).** TD-090: `DecimalToScaled.Convert` split below CC 10; `FieldSpecTable.SelfCheck` flags `IsDuration` with a unit outside {Seconds, Ms}, Min > Max, a Default outside [Min, Max], and a missing EnumSet/RefTarget; duration rows honour Min/Max clamped to [max(Min,0), min(Max, 86 400 000)]; `SelfCheck` runs over every table at loader construction and in a test; a field-name-suffix → `FieldUnit` mapping test; registry rows for CV-GEN-06/07/12 (constants only so far). TD-063(1): catalogue stage-2 rules registered at stage 4 (CV-GRD-03/04/07, CV-MAIL-03) are moved or explicitly documented as "2 (runs at 4)"; `allowedCategories: []` is raised by the schema stage so the def never reaches stage 4.
-- [ ] **Neutral defaults (owner ruling 2026-10-21; GDD CD10 note, ADR-0010 §3).** The `FieldSpec` defaults of `carryByHand` (ItemDef, MailKindDef) and `acceptsInsert` (ContainerDef) are `false`. `view` (ContainerDef) is no longer defaulted to `auto` by the ruling, but its replacement is open (OQ-018-2); keep the current row and initializer until it is answered. The def records match their `FieldSpec`: the `= true` initializers on `ItemDef.CarryByHand`, `MailKindDef.CarryByHand` and `ContainerDef.AcceptsInsert` (story 005 code) become `false`, and the comments that state the old exception (`ItemDefFieldSpec.cs` "GDD exception to neutral defaults") are corrected. Story 005's defaults test is re-pointed to match. `BuiltInContent` sets `CarryByHand` and `AcceptsInsert` explicitly on every def with the values it has today (it already sets `View`). The loaded values and the golden content digest are therefore unchanged; a test pins the digest.
-- [ ] **Build.** Stage 3 runs only when stages 1–2 are clean for that type. It assigns `DefIndex` ordinally (story 001), maps "too many" to CV-GEN-09, converts units (story 016) and resolves references. A wrong-type or missing reference gives CV-GEN-01 at stage 4. (CD21)
+- [ ] **Neutral defaults (owner ruling 2026-10-21; GDD CD10 note, ADR-0010 §3).** The `FieldSpec` defaults of `carryByHand` (ItemDef, MailKindDef) and `acceptsInsert` (ContainerDef) are `false`. `view` (ContainerDef) is **required** with no default: a ContainerDef without `view` gives exactly one CV-GEN-05, like the `weightClass` case above. The def records match their `FieldSpec`: the `= true` initializers on `ItemDef.CarryByHand`, `MailKindDef.CarryByHand` and `ContainerDef.AcceptsInsert` (story 005 code) become `false`, `ContainerDef.View` loses its `= ContainerView.Auto` initializer and becomes a `required` member (story 005's pattern for required fields), and the comments that state the old exception (`ItemDefFieldSpec.cs` "GDD exception to neutral defaults") are corrected. Story 005's defaults test is re-pointed to match. `BuiltInContent` sets `CarryByHand` and `AcceptsInsert` explicitly on every def with the values it has today (it already sets `View`). The loaded values and the golden content digest are therefore unchanged; a test pins the digest.
+- [ ] **Build.** Stage 3 runs only when stages 1–2 are clean for that type. It assigns `DefIndex` ordinally (story 001), maps "too many" to CV-GEN-09, converts units (story 016; `…Seconds` → ms is the whole time conversion — defs keep ms and add no tick-valued fields, ADR-0010 Errata 2026-10-21) and resolves references. A wrong-type or missing reference gives CV-GEN-01 at stage 4. (CD21)
 
 ---
 
@@ -64,7 +64,7 @@
   | Def type | JSON field spellings |
   |---|---|
   | `ItemDef` | `id`, `name`, `category`, `grid`, `maxStack`, `weightClass`, `sellPrice`, `buyPrice`, `carryByHand`, `equipSlot`, `tags` |
-  | `ContainerDef` | `id`, `layout`, `grid`, `view`, `beltAccess`, `allowedCategories`, `handCarried`, `acceptsInsert`, `reservedSlots` |
+  | `ContainerDef` | `id`, `layout`, `grid`, `view` (required), `beltAccess`, `allowedCategories`, `handCarried`, `acceptsInsert`, `reservedSlots` |
   | `MailKindDef` | `id`, `name`, `grid`, `maxStack`, `baseValue`, `weightClass`, `carryByHand`, `beltLanes`, `beltLengthMetres`, `deadlineOffsetShifts`, `acceptedBy`, `complaintOnMisdeliveryPoints`, `unlockShift`, `fallbackKind` |
   | `DestinationTypeDef` | `id`, `accepts`, `insertRate`, `manualInsertHoldSeconds`, `maxAutomatedFeeders`, `requiresUnit`, `catchVolume{widthMetres,heightMetres,depthMetres,centreHeightMetres,yawDeg}` |
   | `MailMixDef` | `id`, `shifts[{shift, shares{kind: Ratio}}]`, `batchIntervalSeconds`, `batchJitterSeconds`, `tailGuardSeconds`, `openingRampBatches`, the four `…Ratio` fields, `spawnOverhead` |
@@ -81,11 +81,8 @@
 
 ## Open Questions
 
-- **OQ-018-1 — where content seconds become ticks — OPEN (owner, Evan; raised 2026-10-21).** The Accepted docs and the shipped code disagree:
-  - **(A) Stage 3 stores ticks.** ADR-0010 §4 says stage (3) build does "content seconds → ticks via Sim Core F1", and GDD CD21 says "(3) build (… convert units, F1 ticks)". This would change story 005's Complete records (`…Ms` fields such as `MailMixDef.BatchIntervalMs` and `DestinationTypeDef.ManualInsertHoldMs`), the canonical encoding (`DefCanonical`, `hashSchemaVersion`) and the consumers below.
-  - **(B) Defs store ms, and the consuming system converts.** Supporting this: GDD CD4 ("`int` ms, then ticks via Sim Core F1 where the field is a duration the Sim waits on"), ADR-0010 §2 (`…Seconds` → ms), TD-055 item 5 (`…Seconds` keys hold ms), story 016's notes and the shipped code. `DeliverAnchors` copies `ManualInsertHoldMs` into `HoldBaseMs`, which `DeliverInteractable.GetHoldTicks` passes to `Hold.HoldTicks`; `BatchKnobs.From` reads the mix in ms, and `TickTime.ContentTicks` has no production caller. Choosing B needs a text erratum to ADR-0010 §4 and CD21.
-  - **Until answered:** stage 3 converts `…Seconds` → ms (story 016), which both options do. Do not add tick-valued def fields or a stage-3 tick conversion. If the answer is (A), the Build AC gains that step.
-- **OQ-018-2 — `view`'s default — OPEN (owner, Evan; raised 2026-10-21). Not blocking.** The ruling takes away `view`'s `auto` default, but `ContainerView` (grid 1, manifest 2, auto 3; 0 is never loaded) has no off member. Options: (a) `view` becomes required (omitted → CV-GEN-05); (b) `auto` counts as the neutral value under CD7 ("the runtime decides", like omit = any) and stays the default; (c) another value. Shipped content and `BuiltInContent` already set `view` on every container, so no loaded value depends on the answer.
+- **OQ-018-1 — CLOSED 2026-10-21 (owner ruling, Evan, 08:08 PT; ADR-0010 Errata 2026-10-21, GDD CD21/CD4 amended).** Content defs keep milliseconds, and each consuming system converts to ticks where it uses the value. Stage 3's `…Seconds` → ms conversion (story 016) is the whole conversion.
+- **OQ-018-2 — CLOSED 2026-10-21 (owner ruling, Evan, 08:08 PT; GDD CD10).** `view` is a required ContainerDef field with no default; a missing `view` gives CV-GEN-05.
 
 ---
 
