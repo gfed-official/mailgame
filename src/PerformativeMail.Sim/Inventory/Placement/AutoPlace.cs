@@ -192,6 +192,20 @@ public struct AutoPlacePlan
         _mergedUnits += units;
     }
 
+    /// <summary>True when a merge into <paramref name="targetEntrySlot"/> is already planned (PASS M's guard against planning a stack twice).</summary>
+    internal readonly bool HasMergeInto(ushort targetEntrySlot)
+    {
+        for (int i = 0; i < _mergeCount; i++)
+        {
+            if (_mergeSlots[i] == targetEntrySlot)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     internal void AddNoFit(in AutoPlaceNoFit fact)
     {
         if (_noFitCount < MaxNoFits)
@@ -208,8 +222,8 @@ public struct AutoPlacePlan
 /// <list type="bullet">
 /// <item><b>PASS M</b> (skipped for <see cref="MergePolicy.NoMerge"/> or <c>effMax == 1</c>): for each target, the target's StackKey
 /// non-full list (<see cref="StackIndex"/>, row-major; slot order on a slots layout), re-checking <c>count &lt; effMax</c> at op time and
-/// <see cref="PlacementRules.CanMerge"/>; each stack takes <c>min(remaining, effMax − count)</c> of the oldest units. Never a container
-/// scan;</item>
+/// <see cref="PlacementRules.CanMerge"/>; each stack takes <c>min(remaining, effMax − count)</c> of the oldest units and is planned at
+/// most once per plan. Never a container scan;</item>
 /// <item><b>PASS U</b>: per target, the first free top-left anchor (rows outer, columns inner) of the unrotated footprint, each anchor
 /// one probe of the occupancy row masks; a slots layout takes the lowest free usable slot ≥ 1 (a reserved slot is skipped, never
 /// returned, never slot 0); a shape the negative-fit cache knows does not fit at the container's version is skipped with 0 probes;</item>
@@ -222,7 +236,8 @@ public struct AutoPlacePlan
 /// Replies: nothing moved and no target admitted → <c>not_carryable</c> if a target was skipped for carryability, else
 /// <c>not_allowed</c> (ADR-0009 section 2 chain order); nothing moved otherwise → <c>no_room</c>; something moved → 0 (ok, with
 /// <see cref="AutoPlacePlan.Unplaced"/>). A handler-limit refusal is <c>bad_request</c>: units outside 1 to 255 (or above the source's
-/// count), no or too many targets, a dead container or source, or a container the plan cannot touch (<see cref="InvPlan.Touch"/> -1).
+/// count), no or too many targets, a container named twice in the target list, a dead container or source, or a container the plan
+/// cannot touch (<see cref="InvPlan.Touch"/> -1).
 /// Every container the commit may change (the placed source's and each merge or placement target) is touched; each mail merge adds its
 /// union's block to <see cref="InvPlan.AddAcquiredBlock"/> (the handler runs the reservation step, reason 85, last).
 /// </para>
@@ -318,41 +333,16 @@ internal sealed class AutoPlace
         result = default;
         result.SourceSlot = sourceSlot;
         result.Requested = units;
-        if (units < 1 || units > byte.MaxValue || targets.Length == 0 || targets.Length > AutoPlacePlan.MaxTargets)
+        if (!IsWellFormed(units, sourceSlot, targets))
         {
             return CoreReason.BadRequest;
         }
 
-        int sourceCount = 0;
-        if (sourceSlot != NoSource)
-        {
-            if (sourceSlot >= _entries.Capacity || !_entries[sourceSlot].IsLive || units > _entries[sourceSlot].Count)
-            {
-                return CoreReason.BadRequest;
-            }
-
-            sourceCount = _entries[sourceSlot].Count;
-        }
-
         Span<bool> admitted = stackalloc bool[AutoPlacePlan.MaxTargets];
-        bool anyAdmitted = false;
-        bool anyNotCarryable = false;
-        for (int i = 0; i < targets.Length; i++)
+        ushort refusal = Admit(in subject, targets, admitted);
+        if (refusal != Pass)
         {
-            if (targets[i] >= _containers.Capacity || !_containers[targets[i]].IsLive)
-            {
-                return CoreReason.BadRequest;
-            }
-
-            InvReason verdict = InsertionWhitelist.Check(_defs[_containers[targets[i]].DefIndex], in subject);
-            admitted[i] = verdict == 0;
-            anyAdmitted |= admitted[i];
-            anyNotCarryable |= verdict == InvReason.NotCarryable;
-        }
-
-        if (!anyAdmitted)
-        {
-            return (ushort)(anyNotCarryable ? InvReason.NotCarryable : InvReason.NotAllowed);
+            return refusal;
         }
 
         // The placed source's container changes whatever moves, so it is touched first (its records precede the targets').
@@ -361,6 +351,7 @@ internal sealed class AutoPlace
             return CoreReason.BadRequest;
         }
 
+        int sourceCount = sourceSlot == NoSource ? 0 : _entries[sourceSlot].Count;
         var pass = new PassState(subject, units, sourceSlot, sourceCount, policy == MergePolicy.Merge && subject.EffMax > 1);
         ushort reason = order == PlaceOrder.TargetFirst
             ? RunTargetFirst(ref plan, ref result, ref pass, targets, admitted)
@@ -428,6 +419,51 @@ internal sealed class AutoPlace
         }
     }
 
+    /// <summary>
+    /// The handler-limit checks (<c>bad_request</c> when false): units 1 to 255, 1 to <see cref="AutoPlacePlan.MaxTargets"/> live
+    /// targets with no container named twice (GDD R8/R9 target lists are sets of distinct containers; a repeat would let PASS M plan
+    /// the same stack twice), and a live source holding at least <paramref name="units"/>.
+    /// </summary>
+    private bool IsWellFormed(int units, ushort sourceSlot, ReadOnlySpan<ushort> targets)
+    {
+        if (units < 1 || units > byte.MaxValue || targets.Length == 0 || targets.Length > AutoPlacePlan.MaxTargets)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < targets.Length; i++)
+        {
+            if (targets[i] >= _containers.Capacity || !_containers[targets[i]].IsLive || targets[..i].Contains(targets[i]))
+            {
+                return false;
+            }
+        }
+
+        return sourceSlot == NoSource
+            || (sourceSlot < _entries.Capacity && _entries[sourceSlot].IsLive && units <= _entries[sourceSlot].Count);
+    }
+
+    /// <summary>The insertion whitelist per target (once each): 0 when any admits, else <c>not_carryable</c> before <c>not_allowed</c>.</summary>
+    private ushort Admit(in PlacementSubject subject, ReadOnlySpan<ushort> targets, Span<bool> admitted)
+    {
+        bool anyAdmitted = false;
+        bool anyNotCarryable = false;
+        for (int i = 0; i < targets.Length; i++)
+        {
+            InvReason verdict = InsertionWhitelist.Check(_defs[_containers[targets[i]].DefIndex], in subject);
+            admitted[i] = verdict == 0;
+            anyAdmitted |= admitted[i];
+            anyNotCarryable |= verdict == InvReason.NotCarryable;
+        }
+
+        if (anyAdmitted)
+        {
+            return Pass;
+        }
+
+        return (ushort)(anyNotCarryable ? InvReason.NotCarryable : InvReason.NotAllowed);
+    }
+
     // fw == 64 would shift by a masked 0 in C#, so the full mask is special-cased.
     private static ulong RowMask(int fw) => fw >= Occupancy.BitmapWidth ? ulong.MaxValue : (1UL << fw) - 1UL;
 
@@ -493,34 +529,47 @@ internal sealed class AutoPlace
             _counters.Add(CounterId.InventoryMergeCandidates);
             ref EntryRecord stack = ref _entries[s];
             if (s == pass.SourceSlot || stack.Count >= subject.EffMax
-                || !PlacementRules.CanMerge(subject.Key, StackKey.Of(in stack), subject.EffMax, def, subject.Category))
+                || !PlacementRules.CanMerge(subject.Key, StackKey.Of(in stack), subject.EffMax, def, subject.Category)
+                || result.HasMergeInto(s))
             {
-                continue;
+                continue; // a stack already planned keeps its pre-plan count here, so planning it again could overfill it
             }
 
-            // Unreachable (TD-116): units <= 255 and every merge takes >= 1, so MaxMerges (255) merges leave nothing remaining.
-            bool withinBound = result.MergeCount < AutoPlacePlan.MaxMerges;
-            InventoryAssert.That(withinBound, SimAssertCode.InventoryAutoPlaceMergeBoundExceeded);
-            if (!withinBound)
+            ushort reason = AddMerge(ref plan, ref result, ref pass, containerSlot, s, mail);
+            if (reason != Pass)
             {
-                return CoreReason.BadRequest; // Release: a handler-limit refusal before any mutation (Plan is pure)
+                return reason;
             }
-
-            if (plan.Touch(containerSlot) < 0)
-            {
-                return CoreReason.BadRequest;
-            }
-
-            int take = Math.Min(pass.Remaining, subject.EffMax - stack.Count);
-            result.AddMerge(s, (byte)take); // 1 <= take <= remaining <= 255
-            if (mail)
-            {
-                _ = plan.AddAcquiredBlock(stack.Count + take); // the union's block: target count + moved units
-            }
-
-            pass.Remaining -= take;
         }
 
+        return Pass;
+    }
+
+    /// <summary>Plans one merge of <c>min(remaining, effMax − count)</c> units into <paramref name="stackSlot"/>.</summary>
+    private ushort AddMerge(ref InvPlan plan, ref AutoPlacePlan result, ref PassState pass, ushort containerSlot, ushort stackSlot, bool mail)
+    {
+        // Unreachable (TD-116): units <= 255 and every merge takes >= 1, so MaxMerges (255) merges leave nothing remaining.
+        bool withinBound = result.MergeCount < AutoPlacePlan.MaxMerges;
+        InventoryAssert.That(withinBound, SimAssertCode.InventoryAutoPlaceMergeBoundExceeded);
+        if (!withinBound)
+        {
+            return CoreReason.BadRequest; // Release: a handler-limit refusal before any mutation (Plan is pure)
+        }
+
+        if (plan.Touch(containerSlot) < 0)
+        {
+            return CoreReason.BadRequest;
+        }
+
+        int count = _entries[stackSlot].Count;
+        int take = Math.Min(pass.Remaining, pass.Subject.EffMax - count);
+        result.AddMerge(stackSlot, (byte)take); // 1 <= take <= remaining <= 255
+        if (mail)
+        {
+            _ = plan.AddAcquiredBlock(count + take); // the union's block: target count + moved units
+        }
+
+        pass.Remaining -= take;
         return Pass;
     }
 

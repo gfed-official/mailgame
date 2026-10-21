@@ -896,6 +896,57 @@ public class AutoPlaceTests
         Assert.Equal(CoreReason.BadRequest, none);
     }
 
+    [Theory]
+    [InlineData(PlaceOrder.PassFirst)]
+    [InlineData(PlaceOrder.TargetFirst)]
+    public void DuplicateTarget_IsBadRequest_BeforeAnyMutation_SoOneStackIsNeverMergedTwice(PlaceOrder order)
+    {
+        // Arrange: a 15-letter stack (room 5) and a detached 10-letter source; 8 of its units are placed (a part of a stack goes only
+        // into merges, so no free cell takes the rest in either order). Planned over [inventory, inventory], PASS M would merge 5 then
+        // 3 into the same stack (it reads the pre-plan count 15 both times): the plan would claim 8 merged while the commit applies
+        // only 5 (Release skips the overfilling MergeInto; Debug asserts 69 in it).
+        var rig = new InvAutoPlaceRig();
+        ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 15));
+        ushort source = rig.DetachedMail("letter", Address2, InvAutoPlaceRig.Ids(100, 10));
+        uint version = rig.Header(rig.InventoryA).Version;
+
+        // Act
+        ushort reason = rig.AutoPlace(rig.SubjectOf(source), 8, source, MergePolicy.Merge, order, rig.InventoryA, rig.InventoryA);
+
+        // Assert: what the plan (and so the reply) says was merged is what the state shows was merged
+        Assert.Equal(rig.LastPlan.MergedUnits, rig.Entries[stack].Count - 15);
+        Assert.Equal(10 - rig.LastPlan.MergedUnits, rig.Entries[source].Count);
+
+        // Assert: refused before any mutation
+        Assert.Equal(CoreReason.BadRequest, reason);
+        Assert.Equal(0, rig.LastPlan.MergeCount);
+        Assert.Equal(InvAutoPlaceRig.Ids(1, 15), rig.IdsOf(stack));
+        Assert.Equal(InvAutoPlaceRig.Ids(100, 10), rig.IdsOf(source));
+        Assert.Equal(version, rig.Header(rig.InventoryA).Version);
+    }
+
+    [Fact]
+    public void DuplicateTarget_NotAdjacent_IsBadRequest_AndThePlanIsUntouched()
+    {
+        // Arrange: [inventory, second, inventory], each with mergeable room
+        var rig = new InvAutoPlaceRig();
+        ushort second = rig.CreateGrid(8, 2);
+        _ = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 15));
+        _ = rig.PlaceMail(second, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(50, 15));
+        PlacementSubject letter = rig.Mail("letter", Address2);
+        var plan = new InvPlan();
+
+        // Act
+        ushort reason = rig.Inventory.AutoPlace.Plan(
+            ref plan, in letter, 12, AutoPlace.NoSource, new[] { rig.InventoryA, second, rig.InventoryA }, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+
+        // Assert
+        Assert.Equal(CoreReason.BadRequest, reason);
+        Assert.Equal(0, plan.TouchedCount);
+        Assert.Equal(0, plan.AcquiredBlockCount);
+        Assert.Equal(0, ap.MergeCount);
+    }
+
     // ---------------------------------------------------------------- probe counters
 
     [Fact]
