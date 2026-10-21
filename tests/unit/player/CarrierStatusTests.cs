@@ -73,7 +73,7 @@ public class CarrierStatusTests
 
     /// <summary>The builder echoes life, cursor, panel and seq, and derives Swimming from LocoState.Swimming only.</summary>
     [Fact]
-    [Trait("Id", "PCM-P6-2b")]
+    [Trait("Id", "PCM-P6-2c")]
     public void Build_EchoesInputs_SwimmingFromLoco()
     {
         // Arrange

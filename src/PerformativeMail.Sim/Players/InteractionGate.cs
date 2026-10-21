@@ -233,7 +233,7 @@ public sealed class InteractionGate
     }
 
     /// <summary>
-    /// The framework verdict for one anchor and the carrier's status (PCM-P11-2d, PCM-P6-2b). Order: Dead → no candidate; Mounted →
+    /// The framework verdict for one anchor and the carrier's status (PCM-P11-2d, PCM-P6-2c). Order: Dead → no candidate; Mounted →
     /// a candidate only for <c>Verb == Dismount</c> with <see cref="AnchorFlags.SeatOf"/> and <c>Ref == OccupiedSeat</c> (the
     /// <see cref="AnchorRef"/> value equality: same entity and slot; a <c>None</c> seat admits nothing); Build → only
     /// <see cref="AnchorFlags.BuildModeOnly"/> anchors; Panel open → <c>Unavailable(ClosePanel)</c>; swimming without

@@ -236,7 +236,7 @@ public class InteractionGateTests
 
     /// <summary>Swimming: every anchor without AllowWhileSwimming is Unavailable(dry_land).</summary>
     [Theory]
-    [Trait("Id", "PCM-P6-2b")]
+    [Trait("Id", "PCM-P6-2c")]
     [InlineData(Verb.Deliver)]
     [InlineData(Verb.Open)]
     [InlineData(Verb.PickUp)]
@@ -257,7 +257,7 @@ public class InteractionGateTests
 
     /// <summary>Swimming: Open-on-pile and Pick-up-on-Spill-heap (AllowWhileSwimming) stay ok.</summary>
     [Theory]
-    [Trait("Id", "PCM-P6-2b")]
+    [Trait("Id", "PCM-P6-2c")]
     [InlineData(Verb.Open)]
     [InlineData(Verb.PickUp)]
     public void Swimming_AllowWhileSwimming_IsOk(Verb verb)
@@ -293,7 +293,7 @@ public class InteractionGateTests
 
     /// <summary>Hotbar select, the own panel, chat, ping and look remain allowed while swimming.</summary>
     [Theory]
-    [Trait("Id", "PCM-P6-2c")]
+    [Trait("Id", "PCM-P6-2b")]
     [InlineData(SwimVerb.HotbarSelect)]
     [InlineData(SwimVerb.OwnPanel)]
     [InlineData(SwimVerb.Chat)]
