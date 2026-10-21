@@ -35,16 +35,16 @@ public readonly struct AutoPlaceMerge
     /// <summary>The target stack's pool slot.</summary>
     public readonly ushort TargetEntrySlot;
 
-    /// <summary>The units merged into it (1 to its room).</summary>
-    public readonly ushort Units;
+    /// <summary>The units merged into it (1 to its room, at most 255).</summary>
+    public readonly byte Units;
 
     /// <summary>Creates a merge.</summary>
     /// <param name="targetEntrySlot">The target stack's pool slot.</param>
-    /// <param name="units">The units merged.</param>
-    public AutoPlaceMerge(ushort targetEntrySlot, int units)
+    /// <param name="units">The units merged, 1 to 255.</param>
+    public AutoPlaceMerge(ushort targetEntrySlot, byte units)
     {
         TargetEntrySlot = targetEntrySlot;
-        Units = (ushort)units;
+        Units = units;
     }
 }
 
@@ -83,12 +83,21 @@ public readonly struct AutoPlaceNoFit
     }
 }
 
-/// <summary>Up to <see cref="AutoPlacePlan.MaxMerges"/> merges.</summary>
+/// <summary>The target slots of up to <see cref="AutoPlacePlan.MaxMerges"/> merges.</summary>
 [InlineArray(AutoPlacePlan.MaxMerges)]
-internal struct AutoPlaceMergeBuffer
+internal struct AutoPlaceMergeSlotBuffer
 {
 #pragma warning disable CS0169 // The single element the InlineArray repeats; never referenced by name.
-    private AutoPlaceMerge _e0;
+    private ushort _e0;
+#pragma warning restore CS0169
+}
+
+/// <summary>The unit counts of up to <see cref="AutoPlacePlan.MaxMerges"/> merges (a parallel buffer, so no padding per merge).</summary>
+[InlineArray(AutoPlacePlan.MaxMerges)]
+internal struct AutoPlaceMergeUnitsBuffer
+{
+#pragma warning disable CS0169 // The single element the InlineArray repeats; never referenced by name.
+    private byte _e0;
 #pragma warning restore CS0169
 }
 
@@ -116,13 +125,13 @@ internal struct AutoPlaceNoFitBuffer
 public struct AutoPlacePlan
 {
     /// <summary>
-    /// The most merges one AutoPlace plans: 8 per target over <see cref="InvPlan.MaxTouched"/> targets. Each mail merge acquires one arena
-    /// block, so <see cref="InvPlan.MaxAcquiredBlocks"/> (40) holds a full merge list plus the handler's own blocks. When a PASS M would
-    /// need more (more than 32 non-full stacks of one key, a GDD-legal but pathological layout of loose singles), PASS M stops cleanly at
-    /// the cap — <see cref="MergeCapped"/> is set — and the remaining units go on to PASS U / PASS R and are otherwise left unplaced
-    /// (partial, still deterministic). The same stop applies when the call's plan has no acquired-block room left.
+    /// The most merges one AutoPlace can plan, an exact bound whatever the geometry (TD-116, Planner R4): one call moves at most 255
+    /// units (<c>units</c> is 1 to 255) and every merge takes at least one, so a legal PASS M never stops early (GDD R8). Each mail
+    /// merge acquires one arena block, so <see cref="InvPlan.MaxAcquiredBlocks"/> holds a full merge list plus
+    /// <see cref="InvPlan.HandlerBlockHeadroom"/>. Reaching it with units left is unreachable and asserts
+    /// <see cref="SimAssertCode.InventoryAutoPlaceMergeBoundExceeded"/> (Release: <c>bad_request</c>, nothing mutated).
     /// </summary>
-    public const int MaxMerges = 32;
+    public const int MaxMerges = byte.MaxValue;
 
     /// <summary>The most targets one AutoPlace takes (R9 rows have at most 3); more is a <c>bad_request</c> handler-limit refusal.</summary>
     public const int MaxTargets = 8;
@@ -130,11 +139,12 @@ public struct AutoPlacePlan
     /// <summary>The most no-fit facts one plan holds (PASS U and PASS R on every target).</summary>
     public const int MaxNoFits = MaxTargets * 2;
 
-    private AutoPlaceMergeBuffer _merges;
+    private AutoPlaceMergeSlotBuffer _mergeSlots;
+    private AutoPlaceMergeUnitsBuffer _mergeUnits;
     private AutoPlaceNoFitBuffer _noFits;
-    private int _mergeCount;
-    private int _noFitCount;
-    private int _mergedUnits;
+    private byte _mergeCount;
+    private byte _noFitCount;
+    private byte _mergedUnits;
 
     /// <summary>The free-cell placement of the remainder (<see cref="InvPlacement.EntrySlot"/> is the source, or <see cref="AutoPlace.NoSource"/>); unset when none.</summary>
     public InvPlacement Placement;
@@ -151,9 +161,6 @@ public struct AutoPlacePlan
     /// <summary>The source entry's pool slot, or <see cref="AutoPlace.NoSource"/> (a spawn whose entry <c>Commit</c> creates).</summary>
     public ushort SourceSlot;
 
-    /// <summary>True when PASS M stopped at <see cref="MaxMerges"/> or at the plan's acquired-block capacity (see <see cref="MaxMerges"/>).</summary>
-    public bool MergeCapped;
-
     /// <summary>The number of planned merges.</summary>
     public readonly int MergeCount => _mergeCount;
 
@@ -169,16 +176,19 @@ public struct AutoPlacePlan
     /// <summary>The <paramref name="index"/>-th merge, in PASS M order.</summary>
     /// <param name="index">0 to <see cref="MergeCount"/> - 1.</param>
     /// <returns>The merge.</returns>
-    public readonly AutoPlaceMerge Merge(int index) => _merges[index];
+    public readonly AutoPlaceMerge Merge(int index) => new(_mergeSlots[index], _mergeUnits[index]);
 
     /// <summary>The <paramref name="index"/>-th no-fit fact, in scan order.</summary>
     /// <param name="index">0 to <see cref="NoFitCount"/> - 1.</param>
     /// <returns>The fact.</returns>
     public readonly AutoPlaceNoFit NoFit(int index) => _noFits[index];
 
-    internal void AddMerge(ushort targetEntrySlot, int units)
+    /// <summary>Adds a merge; the caller keeps <see cref="MergeCount"/> below <see cref="MaxMerges"/> and the merged total at most 255.</summary>
+    internal void AddMerge(ushort targetEntrySlot, byte units)
     {
-        _merges[_mergeCount++] = new AutoPlaceMerge(targetEntrySlot, units);
+        _mergeSlots[_mergeCount] = targetEntrySlot;
+        _mergeUnits[_mergeCount] = units;
+        _mergeCount++;
         _mergedUnits += units;
     }
 
@@ -488,11 +498,12 @@ internal sealed class AutoPlace
                 continue;
             }
 
-            if (result.MergeCount >= AutoPlacePlan.MaxMerges || (mail && plan.AcquiredBlockCount >= InvPlan.MaxAcquiredBlocks))
+            // Unreachable (TD-116): units <= 255 and every merge takes >= 1, so MaxMerges (255) merges leave nothing remaining.
+            bool withinBound = result.MergeCount < AutoPlacePlan.MaxMerges;
+            InventoryAssert.That(withinBound, SimAssertCode.InventoryAutoPlaceMergeBoundExceeded);
+            if (!withinBound)
             {
-                result.MergeCapped = true; // the clean stop: PASS M ends, the rest goes on to the free-cell passes
-                pass.Merging = false;
-                return Pass;
+                return CoreReason.BadRequest; // Release: a handler-limit refusal before any mutation (Plan is pure)
             }
 
             if (plan.Touch(containerSlot) < 0)
@@ -501,7 +512,7 @@ internal sealed class AutoPlace
             }
 
             int take = Math.Min(pass.Remaining, subject.EffMax - stack.Count);
-            result.AddMerge(s, take);
+            result.AddMerge(s, (byte)take); // 1 <= take <= remaining <= 255
             if (mail)
             {
                 _ = plan.AddAcquiredBlock(stack.Count + take); // the union's block: target count + moved units

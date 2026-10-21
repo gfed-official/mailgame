@@ -26,6 +26,12 @@ public class AutoPlaceTests
     private const uint Address2 = 2u;
     private const uint Address9 = 9u;
 
+    /// <summary>sizeof(InvPlan), measured: 4 x 2 B touched slots, 263 x 2 B block sizes, counts, primaries, placement, actor, cause.</summary>
+    private const int InvPlanSize = 568;
+
+    /// <summary>sizeof(AutoPlacePlan), measured: 255 x 2 B merge targets + 255 x 1 B merge units, 16 x 12 B no-fit facts, counts, placement, ints.</summary>
+    private const int AutoPlacePlanSize = 988;
+
     // ---------------------------------------------------------------- H-R8-1
 
     [Fact]
@@ -704,7 +710,6 @@ public class AutoPlaceTests
         // Assert: ten merges, one unit each, oldest first, in row-major order across the targets
         Assert.Equal(0, reason);
         Assert.Equal(10, rig.LastPlan.MergeCount);
-        Assert.False(rig.LastPlan.MergeCapped);
         for (int i = 0; i < 10; i++)
         {
             Assert.Equal(stacks[i], rig.LastPlan.Merge(i).TargetEntrySlot);
@@ -718,67 +723,111 @@ public class AutoPlaceTests
 
     [Fact]
     [Trait("Id", "TD-116")]
-    public void MoreNonFullStacksThanMaxMerges_PassMStopsCleanlyAtTheCap_TheRestFallsThroughToFreeCellsOrStaysUnplaced()
+    public void OneHundredSingleUnitMailMergesAcrossFourTargets_PlanAndCommit_NoAssert66_NoReason85_ArenaAndIndexStayConsistent()
     {
-        // Arrange: a 10 x 4 grid of 40 stacks of 19 letters to #2 (room 1 each); a spawn-style plan of 40 units (no source)
+        // Arrange: four 5 x 5 grids of 25 stacks of 19 letters to #2 (room 1 each, ids from 10,000); a detached source of 100 letters
+        // (ids 1 to 100: the spawn/grant shape, its entry holding the planned units). 100 is past the old 32 cap and within the default
+        // arena's class-32-and-up blocks (the stacks and unions both need one each).
         var rig = new InvAutoPlaceRig();
-        ushort grid = rig.CreateGrid(10, 4);
-        for (int y = 0; y < 4; y++)
+        ushort[] grids = { rig.CreateGrid(5, 5), rig.CreateGrid(5, 5), rig.CreateGrid(5, 5), rig.CreateGrid(5, 5) };
+        var stacks = new List<ushort>();
+        foreach (ushort grid in grids)
         {
-            for (int x = 0; x < 10; x++)
+            for (int y = 0; y < 5; y++)
             {
-                _ = rig.PlaceMail(grid, "letter", x, y, Address2, InvAutoPlaceRig.Ids(1000u + (uint)(((y * 10) + x) * 100), 19));
+                for (int x = 0; x < 5; x++)
+                {
+                    stacks.Add(rig.PlaceMail(grid, "letter", x, y, Address2, InvAutoPlaceRig.Ids(10_000u + (uint)(stacks.Count * 100), 19)));
+                }
             }
         }
 
-        PlacementSubject letter = rig.Mail("letter", Address2);
+        ushort source = rig.DetachedMail("letter", Address2, InvAutoPlaceRig.Ids(1, 100));
+        PlacementSubject letter = rig.SubjectOf(source);
+        int liveUnitsBefore = rig.Inventory.MailIds.LiveUnits;
         var plan = new InvPlan();
 
-        // Act
-        ushort reason = rig.Inventory.AutoPlace.Plan(ref plan, in letter, 40, AutoPlace.NoSource, new[] { grid }, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+        // Act: the pure plan (to read its acquired blocks), then the same AutoPlace planned and committed through the fixture op
+        ushort planned = rig.Inventory.AutoPlace.Plan(ref plan, in letter, 100, source, grids, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+        ushort reason = rig.AutoPlace(source, grids);
 
-        // Assert: 32 merges (the cap), no free cell, 8 unplaced; 32 acquired blocks, no overflow, reservation passes
-        Assert.Equal(0, reason);
-        Assert.Equal(AutoPlacePlan.MaxMerges, ap.MergeCount);
-        Assert.True(ap.MergeCapped);
-        Assert.False(ap.Placement.IsSet);
-        Assert.Equal(8, ap.Unplaced);
-        Assert.Equal(AutoPlacePlan.MaxMerges, plan.AcquiredBlockCount);
+        // Assert: one union block per merge, no overflow, the reservation passes, and the commit applies all 100
+        Assert.Equal(0, planned);
+        Assert.Equal(100, ap.MergeCount);
+        Assert.Equal(0, ap.Unplaced);
+        Assert.Equal(100, plan.AcquiredBlockCount);
+        Assert.All(plan.AcquiredBlocks.ToArray(), b => Assert.Equal(20, b));
         Assert.False(plan.AcquiredBlocksOverflowed);
         Assert.Equal(0, rig.Inventory.RequestCheck.CheckArenaReservation(in plan));
-        Assert.True(InvPlan.MaxAcquiredBlocks >= AutoPlacePlan.MaxMerges + 8);
+        Assert.Equal(0, reason);
+        Assert.Equal(100, rig.LastPlan.MergeCount);
+        for (int i = 0; i < stacks.Count; i++)
+        {
+            Assert.Equal(stacks[i], rig.LastPlan.Merge(i).TargetEntrySlot);
+            Assert.Equal(1, rig.LastPlan.Merge(i).Units);
+            Assert.Equal(20, rig.Entries[stacks[i]].Count);
+            uint[] ids = rig.IdsOf(stacks[i]);
+            Assert.Equal(20, ids.Length);
+            Assert.Equal(1u + (uint)i, ids[0]); // the source's oldest ids went first, in PASS M order
+            Assert.Equal(InvAutoPlaceRig.Ids(10_000u + (uint)(i * 100), 19), ids[1..]);
+            Assert.False(rig.Index.Contains(stacks[i]));
+        }
+
+        Assert.False(rig.Entries[source].IsLive);
+        Assert.Equal(liveUnitsBefore, rig.Inventory.MailIds.LiveUnits);
+        Assert.All(grids, g => Assert.Equal(StackIndex.None, rig.Index.Head(g, letter.Key)));
     }
 
     [Fact]
     [Trait("Id", "TD-116")]
-    public void APlanWithLittleAcquiredBlockRoomLeft_PassMStopsBeforeOverflowing()
+    public void TwoHundredFiftyFiveSingleUnitMerges_TheExactWorstCase_PlansMaxMergesAndCommits_WithNoEarlyStop()
     {
-        // Arrange: 10 stacks of 19 letters (room 1 each); the handler already planned MaxAcquiredBlocks - 3 blocks
+        // Arrange: 255 stacks of 19 planks (room 1 each) over four 8 x 8 grids and a detached source of 255 planks. Items acquire no
+        // arena blocks, so the true 255-merge bound fits the default world (255 mail stacks would need more class-32 blocks than it has).
         var rig = new InvAutoPlaceRig();
-        ushort grid = rig.CreateGrid(10, 1);
-        for (int x = 0; x < 10; x++)
+        ushort[] grids = { rig.CreateGrid(8, 8), rig.CreateGrid(8, 8), rig.CreateGrid(8, 8), rig.CreateGrid(8, 8) };
+        var stacks = new List<ushort>();
+        for (int i = 0; i < AutoPlacePlan.MaxMerges; i++)
         {
-            _ = rig.PlaceMail(grid, "letter", x, 0, Address2, InvAutoPlaceRig.Ids(1000u + (uint)(x * 100), 19));
+            stacks.Add(rig.PlaceItem(grids[i / 64], "plank", i % 8, (i % 64) / 8, 19));
         }
 
-        var plan = new InvPlan();
-        for (int i = 0; i < InvPlan.MaxAcquiredBlocks - 3; i++)
-        {
-            Assert.True(plan.AddAcquiredBlock(1));
-        }
-
-        PlacementSubject letter = rig.Mail("letter", Address2);
+        ushort source = rig.DetachedItem("plank", byte.MaxValue);
 
         // Act
-        ushort reason = rig.Inventory.AutoPlace.Plan(ref plan, in letter, 10, AutoPlace.NoSource, new[] { grid }, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+        ushort reason = rig.AutoPlace(source, grids);
 
-        // Assert
+        // Assert: exactly MaxMerges merges of one unit, nothing left unplaced, every stack full and out of the index
         Assert.Equal(0, reason);
-        Assert.Equal(3, ap.MergeCount);
-        Assert.True(ap.MergeCapped);
-        Assert.Equal(7, ap.Unplaced);
-        Assert.False(plan.AcquiredBlocksOverflowed);
-        Assert.Equal(InvPlan.MaxAcquiredBlocks, plan.AcquiredBlockCount);
+        Assert.Equal(AutoPlacePlan.MaxMerges, rig.LastPlan.MergeCount);
+        Assert.Equal(byte.MaxValue, rig.LastPlan.MergedUnits);
+        Assert.Equal(0, rig.LastPlan.Unplaced);
+        Assert.False(rig.LastPlan.Placement.IsSet);
+        for (int i = 0; i < stacks.Count; i++)
+        {
+            Assert.Equal(stacks[i], rig.LastPlan.Merge(i).TargetEntrySlot);
+            Assert.Equal(20, rig.Entries[stacks[i]].Count);
+            Assert.False(rig.Index.Contains(stacks[i]));
+        }
+
+        Assert.False(rig.Entries[source].IsLive);
+        Assert.Equal(StackIndex.None, rig.Index.Head(grids[3], rig.Item("plank").Key));
+    }
+
+    [Fact]
+    [Trait("Id", "TD-116")]
+    public void MergeBound_CoversEveryLegalAutoPlace_AndThePlanStructsStayStackSized()
+    {
+        // Arrange / Act
+        int invPlan = System.Runtime.CompilerServices.Unsafe.SizeOf<InvPlan>();
+        int autoPlacePlan = System.Runtime.CompilerServices.Unsafe.SizeOf<AutoPlacePlan>();
+
+        // Assert: one merge per unit at most (units <= 255), one block per mail merge plus the handler's headroom; sizes measured on
+        // net10.0 and net8.0 (a field change must be a deliberate edit of these numbers)
+        Assert.Equal(byte.MaxValue, AutoPlacePlan.MaxMerges);
+        Assert.Equal(AutoPlacePlan.MaxMerges + InvPlan.HandlerBlockHeadroom, InvPlan.MaxAcquiredBlocks);
+        Assert.Equal(InvPlanSize, invPlan);
+        Assert.Equal(AutoPlacePlanSize, autoPlacePlan);
     }
 
     [Fact]
@@ -803,7 +852,7 @@ public class AutoPlaceTests
         Assert.Equal(chest, plan.TouchedSlot(0));
         Assert.Equal(rig.InventoryA, plan.TouchedSlot(1));
         Assert.Equal(second, plan.TouchedSlot(2));
-        Assert.Equal(new[] { 20, 5 }, plan.AcquiredBlocks.ToArray());
+        Assert.Equal(new ushort[] { 20, 5 }, plan.AcquiredBlocks.ToArray());
     }
 
     [Fact]

@@ -56,12 +56,12 @@ internal struct InvSlotBuffer
 #pragma warning restore CS0169
 }
 
-/// <summary>Up to <see cref="InvPlan.MaxAcquiredBlocks"/> block sizes.</summary>
+/// <summary>Up to <see cref="InvPlan.MaxAcquiredBlocks"/> block sizes (<c>ushort</c>: a block size may exceed 255, see <see cref="InvPlan.AddAcquiredBlock"/>).</summary>
 [InlineArray(InvPlan.MaxAcquiredBlocks)]
 internal struct InvBlockBuffer
 {
 #pragma warning disable CS0169 // The single element the InlineArray repeats; never referenced by name.
-    private int _e0;
+    private ushort _e0;
 #pragma warning restore CS0169
 }
 
@@ -95,18 +95,22 @@ public struct InvPlan
     /// <summary>The most containers one call may touch (ADR-0009 section 2).</summary>
     public const int MaxTouched = 4;
 
+    /// <summary>The arena blocks a handler may plan for itself beside one AutoPlace's merges (story 009, TD-116).</summary>
+    public const int HandlerBlockHeadroom = 8;
+
     /// <summary>
-    /// The most arena blocks one call may plan to acquire; more makes the reservation fail (conservative). 40 = one AutoPlace's merge
-    /// capacity (<see cref="PerformativeMail.Sim.Inventory.Placement.AutoPlacePlan.MaxMerges"/>, 32: PASS M over up to <see cref="MaxTouched"/> targets, one union per
-    /// mail merge) plus 8 for the handler's own acquisitions (story 009, TD-116). AutoPlace stops PASS M cleanly before either cap is
-    /// reached, so a legal AutoPlace never asserts or rejects 85 for plan capacity.
+    /// The most arena blocks one call may plan to acquire; more makes the reservation fail (conservative). 263 = one AutoPlace's exact
+    /// merge bound (<see cref="PerformativeMail.Sim.Inventory.Placement.AutoPlacePlan.MaxMerges"/>, 255: one union per mail merge) plus
+    /// <see cref="HandlerBlockHeadroom"/> for the handler's own acquisitions (story 009, TD-116 / Planner R4: the cap is raised so a
+    /// legal PASS M never stops early, GDD R8). A handler that plans at most <see cref="HandlerBlockHeadroom"/> blocks of its own
+    /// therefore never asserts or rejects 85 for plan capacity, whatever the geometry.
     /// </summary>
-    public const int MaxAcquiredBlocks = 40;
+    public const int MaxAcquiredBlocks = PerformativeMail.Sim.Inventory.Placement.AutoPlacePlan.MaxMerges + HandlerBlockHeadroom;
 
     private InvSlotBuffer _touched;
     private InvBlockBuffer _blocks;
-    private int _touchedCount;
-    private int _blockCount;
+    private byte _touchedCount;
+    private ushort _blockCount;
     private int _primaryA; // slot + 1; 0 = none
     private int _primaryB;
     private byte _mutatedMask;
@@ -135,7 +139,7 @@ public struct InvPlan
 
     /// <summary>The planned block sizes, in commit order.</summary>
     [UnscopedRef]
-    public readonly ReadOnlySpan<int> AcquiredBlocks => ((ReadOnlySpan<int>)_blocks).Slice(0, _blockCount);
+    public readonly ReadOnlySpan<ushort> AcquiredBlocks => ((ReadOnlySpan<ushort>)_blocks).Slice(0, _blockCount);
 
     /// <summary>The table slot of the <paramref name="index"/>-th touched container (first-touch order).</summary>
     /// <param name="index">0 to <see cref="TouchedCount"/> - 1.</param>
@@ -229,7 +233,9 @@ public struct InvPlan
     /// none handle still acquire one; a chained union needs <c>|a|+|b|</c> and then <c>|a|+|b|+|c|</c>). Beyond
     /// <see cref="MaxAcquiredBlocks"/> is a handler programming error, not genuine exhaustion: it asserts
     /// <see cref="SimAssertCode.InventoryPlanCapacityExceeded"/> under <c>INVENTORY_ASSERT</c>; Release marks the plan overflowed and the
-    /// reservation step conservatively rejects with <c>capacity_exhausted</c> (85), never a false accept.
+    /// reservation step conservatively rejects with <c>capacity_exhausted</c> (85), never a false accept. The size is stored as a
+    /// <c>ushort</c> clamped to 0 to 65,535: at or below 0 is ignored by the reservation and anything over
+    /// <see cref="Storage.MailIdArena.MaxUnits"/> (256) still fails it, as before.
     /// </summary>
     /// <param name="units">The block's unit count.</param>
     /// <returns>False when the plan overflowed.</returns>
@@ -242,7 +248,7 @@ public struct InvPlan
             return false;
         }
 
-        _blocks[_blockCount++] = units;
+        _blocks[_blockCount++] = (ushort)Math.Clamp(units, 0, ushort.MaxValue);
         return true;
     }
 
