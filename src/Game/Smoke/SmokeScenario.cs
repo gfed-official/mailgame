@@ -1,3 +1,5 @@
+using PerformativeMail.Game.Hosting;
+
 namespace PerformativeMail.Game.Smoke;
 
 /// <summary>Result of one <see cref="SmokeScenario.Poll"/> call.</summary>
@@ -25,6 +27,16 @@ public abstract class SmokeScenario
 
     /// <summary>Wall-clock budget in seconds before the run is stopped with exit 5.</summary>
     public virtual double TimeoutSeconds => 60;
+
+    /// <summary>
+    /// Pre-boot hook: for a <see cref="NeedsBoot"/> scenario the runner calls it just before
+    /// <c>GameLoop.RequestBoot()</c> (install a frame sequence, or a failing plan with
+    /// <c>GameLoop.InstallBootStepsForSmoke</c>). Not called when the scenario does not need boot.
+    /// </summary>
+    /// <param name="loop">The root <c>GameLoop</c>.</param>
+    public virtual void BeforeBoot(GameLoop loop)
+    {
+    }
 
     /// <summary>Runs once, after the optional boot, on the first frame.</summary>
     /// <param name="ctx">Assertion and tree access.</param>

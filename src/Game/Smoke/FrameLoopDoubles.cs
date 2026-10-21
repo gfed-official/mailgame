@@ -291,6 +291,17 @@ public sealed class LogRecorder
         return false;
     }
 
+    /// <summary>How many recorded lines contain every one of <paramref name="parts"/>.</summary>
+    /// <param name="parts">Substrings that must all appear in one line.</param>
+    /// <returns>The number of such lines.</returns>
+    public int Count(params string[] parts)
+    {
+        lock (_lines)
+        {
+            return _lines.Count(line => parts.All(p => line.Contains(p, StringComparison.Ordinal)));
+        }
+    }
+
     // The wrong-thread fault logs from a worker thread, hence the lock.
     private void Record(string line)
     {

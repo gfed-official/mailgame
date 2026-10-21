@@ -1,8 +1,8 @@
 namespace PerformativeMail.Game.Smoke;
 
 // Self-test scenarios. They exist so story 011's wrapper and the SmokeRunner exit-code table
-// have executed evidence: each deliberately ends in a non-zero exit and declares that exit as
-// ExpectedExit, so `--smoke=list` shows non-zero expect= values and the wrapper can compare.
+// have executed evidence: each declares the exit it is designed to end in as ExpectedExit (non-zero
+// except selftest-needs-boot), so `--smoke=list` shows the expect= values and the wrapper can compare.
 
 /// <summary>One pass then one fail: runner must exit 1.</summary>
 [SmokeScenario("selftest-fail")]
@@ -44,15 +44,15 @@ public sealed class SelfTestEmptySmoke : SmokeScenario
     }
 }
 
-/// <summary>Needs boot; until story 004 wires boot, RequestBoot returns false and the runner exits 4.</summary>
+/// <summary>
+/// Needs boot: the real boot (story 004) succeeds, so the runner starts the scenario and it exits 0. The exit-4 path
+/// (RequestBoot returns false) is <c>boot-failure-exit4</c>.
+/// </summary>
 [SmokeScenario("selftest-needs-boot")]
 public sealed class SelfTestNeedsBootSmoke : SmokeScenario
 {
     /// <inheritdoc />
     public override bool NeedsBoot => true;
-
-    /// <inheritdoc />
-    public override int ExpectedExit => 4;
 
     /// <inheritdoc />
     public override void Start(SmokeContext ctx) => ctx.Pass("booted");

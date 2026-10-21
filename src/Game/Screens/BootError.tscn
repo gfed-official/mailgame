@@ -1,0 +1,66 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/Game/Screens/BootErrorScreen.cs" id="1_screen"]
+
+[node name="BootError" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_screen")
+
+[node name="Shade" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.11, 0.08, 0.1, 1)
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 128.0
+offset_top = 104.0
+offset_right = -128.0
+offset_bottom = -104.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 28
+
+[node name="Heading" type="Label" parent="Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 58
+text = "The game could not start"
+
+[node name="Where" type="Label" parent="Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.72, 0.55, 1)
+theme_override_font_sizes/font_size = 34
+autowrap_mode = 3
+
+[node name="Details" type="ScrollContainer" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Message" type="Label" parent="Layout/Details"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 34
+autowrap_mode = 3
+
+[node name="Actions" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="QuitButton" type="Button" parent="Layout/Actions"]
+custom_minimum_size = Vector2(300, 88)
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "Quit"
