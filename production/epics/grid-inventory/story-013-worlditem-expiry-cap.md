@@ -1,7 +1,7 @@
 # Story 013: WorldItem entity, absolute-tick expiry FIFOs, water float, cap eviction and tombstones
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M–L (~1 day)
