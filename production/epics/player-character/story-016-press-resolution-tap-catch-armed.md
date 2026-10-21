@@ -5,8 +5,8 @@
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
-> **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-20 (docs: PC016-SWIM-CATCH AC added — moved from story 013; stamp 2026-10-17.1 — the 17.1 changes touch only the Godot input adapter and `WorldTablesBuilder`)
 
 > **Interaction-framework story (6 of 9).** The Sim-side half of Input & Controls R4.3 / G1: what a latched Interact edge *does*. Input & Controls latches the edge and the presented target; this story resolves it.
 
@@ -32,7 +32,7 @@
 
 ## Acceptance Criteria
 
-*From GDD `design/gdd/player-character-movement.md` (PCM-P11-2b, PCM-P12-1) and `design/gdd/input-controls.md` (H-R4-2 Sim half, H-R4-4, H-R4-6), scoped to this story:*
+*From GDD `design/gdd/player-character-movement.md` (PCM-P11-2b, PCM-P12-1, plus the story-local PC016-SWIM-CATCH from P6) and `design/gdd/input-controls.md` (H-R4-2 Sim half, H-R4-4, H-R4-6), scoped to this story:*
 
 - [ ] **H-R4-2 (Sim half, parametrised).** (a) a predicted lob that reaches this carrier but not the focused mailbox → **Catch** (Channel start; `CatchArm{down}` requested through the Throwing port); (a′) the same lob predicted into the focused mailbox (`PredictedStaticReceiver == presented anchor`) → a **deliver hold** latches (D3 gate; no catch); (b) a container anchor → its `Open` **Tap** request is built and sent on the press tick; (c) a mailbox → a deliver hold latches; (d) no target → catch-armed while held (Channel start without an anchor; `CatchArm{down}`).
 - [ ] **H-R4-6.** the last presented prompt names mailbox A and focus flips to a container on the press tick → the press latches a **hold on A** (the edge's presented snapshot, G1), not the container.
@@ -42,7 +42,7 @@
 - [ ] **PCM-P12-1 (Tap).** a Tap verb sends exactly one request on the press tick (via `IInteractable.TryBuildRequest` and `IRequestSink.TrySend`); `TrySend` returning false (busy) sends nothing, leaves the interaction Idle and reports `busy` to the snapshot; the built request carries `ClaimedPosition` = the carrier's feet `(X, Y, Z)` at press (12 B, P13 layout).
 - [ ] **Latch contents.** On a Hold press the latch holds `AnchorRef`, `Verb`, `Mode`, `PressTick` (= this tick), `HoldTicks` = `IInteractable.GetHoldTicks(latch, ctx)` evaluated **once** and never recomputed, `ClaimedPosition`, and `OwnerPayload` as filled by `IInteractable.OnPress` (pure with respect to owner state — Manual Delivery's press-tick branch).
 - [ ] **Edge order.** Multiple Interact edges in one `InputFrame` are applied in arrival order, each resolving against this tick's focus state; a press followed by its release in the same frame is handled by Story 017 (this story only latches).
-- [ ] **No Catch while swimming (PCM-P6-2c, moved from story 013 on 2026-10-20).** While `CarrierStatus.Swimming`, a press never resolves to Catch or catch-armed: no `CatchArm{down}` is sent, rule (a)/(d) fall through to nothing (counted), and a press on an anchor follows story 013's swim gate (`Unavailable(reason.dry_land)` unless `AllowWhileSwimming`). The host-side arm refusal is throwing-catching story 022's (eligibility on arming); this story owns the client press half.
+- [ ] **PC016-SWIM-CATCH — No Catch while swimming (story-local id; from GDD P6 "a swimmer cannot catch"; moved from story 013 on 2026-10-20).** While `CarrierStatus.Swimming`, a press never resolves to Catch or catch-armed: no `CatchArm{down}` is sent, rule (a)/(d) fall through to nothing (counted), and a press on an anchor follows story 013's swim gate (`Unavailable(reason.dry_land)` unless `AllowWhileSwimming`). The host-side arm refusal is throwing-catching story 022's (eligibility on arming); this story owns the client press half.
 - [ ] **No-op on Dead / Panel.** Interact edges are refused (no latch, no request) when the gate (Story 013) says Panel or Dead; Mounted allows only the own-seat Dismount.
 
 ---
@@ -81,7 +81,7 @@
 
 **Story Type**: Logic
 **Required evidence**:
-- Logic: `tests/unit/player/PressResolutionTests.cs` (`[Trait("Id", "PCM-P11-2b")]`, `H-R4-2`, `H-R4-6`) — must exist and pass on net10.0 and net8.0
+- Logic: `tests/unit/player/PressResolutionTests.cs` (`[Trait("Id", "PCM-P11-2b")]`, `H-R4-2`, `H-R4-6`, `PC016-SWIM-CATCH`) — must exist and pass on net10.0 and net8.0
 
 **Status**: [ ] Not yet created
 
