@@ -5,8 +5,8 @@
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M–L (~1 day)
-> **Manifest Version**: 2026-10-16
-> **Last Updated**: 2026-10-21 (close-out: ACs ticked, Test Evidence, Completion Notes)
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-21 (close-out: ACs ticked, Test Evidence, Completion Notes; review R1: Out of Scope drops the stale Blocked tags on 020/021, manifest re-stamped 2026-10-17.1, deferrals recorded)
 
 ## Context
 
@@ -59,8 +59,8 @@
 *Handled by neighbouring stories — do not implement here:*
 
 - Story 014: `pickup` core and `TryCatch`.
-- Story 020: `Drop` (Blocked).
-- Story 021: backlog branch (Blocked).
+- Story 020: `Drop`.
+- Story 021: backlog branch.
 - M-1b: Spill heaps, bags, BeltLeak.
 
 ---
@@ -89,9 +89,9 @@
 
 ## Completion Notes
 **Completed**: 2026-10-21 (PR #26)
-**Criteria**: 5/5 passing (none deferred; the backlog-if-full branch of H-R12-2 is story 021's, as the AC says)
+**Criteria**: 5/5 passing. Deferred: (1) the op-reply half of the tombstone AC — that an op naming a removed WorldItem gets a reply carrying `container_gone` with `byActorId`/`cause` (and `stale_entry` after 30 s) — is untested until story 014's pickup, the first op that names a WorldItem; here it is tested through `WorldItems.Resolve`, the function the op `Validate` will call; (2) M-1b: H-D6-1's bag case ("a bag at 2000 → 2900", GDD l.797; the bag FIFO exists but is empty at M-1a, only its 900-tick duration is pinned) and H-R12-3's "Spill heap of 40 entries → exactly one eviction" (GDD l.728; Spill is refused until M-1b); (3) the backlog-if-full branch of H-R12-2 is story 021's, as the AC says.
 - H-R12-2: `HR122_Letter500DroppedAt1000_At10000IsGone_AndIsInTheIntakeAtTheBackOfTheOutfeedQueue`, `HR122_Plank5DroppedAt1000_At10000IsGone_ItemsLostPlank5_AndInNoContainer`, `HR122_Letter600LandingOnWaterAt2000_WithIntakeHolding601To610_FloatsUntil2300_ThenEntersAfter610_PeekStill601`, `HR122_PlankLandingOnWater_IsDestroyedAt2300WithItemsLost`
-- H-R12-3: all five cases — `HR123_512HalfMailHalfPlankAllOld_A513thDropped_…`, `HR123_512Planks_A513thPlank_…`, `HR123_511PlanksAndALetterLanded2sAgo_ADroppedPlank_…`, `HR123_QualifyingMail900And901WithEqualLowestExpiresTick_…`, `HR123_512YoungMail_A513thLands_NothingEvicted_Count513_CapExceededLogged_…`; plus the H-R12-4 Loot exemption under cap pressure: `HR124_511PlanksAndTheOldestALootLetter_…`, `HR124_CapFullOfLootOnly_…`
+- H-R12-3: all five cases — `HR123_512HalfMailHalfPlankAllOld_A513thDropped_…`, `HR123_512Planks_A513thPlank_…`, `HR123_511PlanksAndALetterLanded2sAgo_ADroppedPlank_…`, `HR123_QualifyingMail900And901WithEqualLowestExpiresTick_…`, `HR123_512YoungMail_A513thLands_NothingEvicted_Count513_CapExceededLogged_…`; the tie test pins the exact eviction sequence 900 → 901 → lowest plank and the Intake order, and `HR123_GroundAndWaterPlankWithEqualLowestExpiresTick_…` pins the cross-FIFO non-mail tie (lower id first; review R1); plus the H-R12-4 Loot exemption under cap pressure: `HR124_511PlanksAndTheOldestALootLetter_…`, `HR124_CapFullOfLootOnly_…`
 - H-D6-1: `HD61_DroppedAt1000_Expires10000_ThrownAt1000LandingAt1045_Expires10045`, `HD61_SoloPauseOf300TicksOfWallTime_DoesNotMoveExpiry_TheItemExpiresOnSimTick10000`
 - H-PERF-6d: `HPERF6d_A400PlankBurstAt512OldPlanks_…` (399 visits for 400 created), `HPERF6d_A400BurstOverYoungMailOldPlanksAndWaterPlanks_…` (11 + 387 = 398), `HPERF6d_A400YoungMailBurstAt512YoungMail_…` (0); Release probe counter `CounterId.InventoryWorldItemCapCandidates` (46); see the owner flag on what a "visit" is (TD-141)
 - Tombstones: `Tombstone_PickedUpWorldItem_ResolvesContainerGoneWithTheTakerAndTaken_For30s_ThenStaleEntry`, `Tombstone_ExpiredMail_IsExpired_DestroyedPlank_IsDestroyed_EvictedItemsAlike_ByTheSystemActor`, `Tombstone_EvictedMail_IsExpired_AndANeverAllocatedOrForeignClassIdIsBadRequest`, storage tests `Tombstone_IsAliveFor30SecondsInclusive`, `Tombstone_Ring_OverwritesTheOldest_After256`. No op names a WorldItem until story 014's pickup, so the AC is tested through the id-resolution path the op handlers will call (readiness G6).
@@ -104,7 +104,7 @@
 4. `InventorySystem`'s public constructor gains `EntityIds` and `ISlotView`; composition root and test rigs updated.
 5. `createdTick` must be ≤ now and not earlier than the previous creation on the same expiry FIFO (Loot, on no FIFO, is exempt); otherwise `EntityId.None`, nothing changed, `SimAssertCode` 77 under `INVENTORY_ASSERT`. Callers must handle `None` (the entry stays detached and is theirs) — `IInventoryApi.CreateWorldItem` remarks.
 6. `BeltLeak` and `Spill` origins are refused until M-1b; `Loot` is on no FIFO and never a cap candidate.
-7. "Older than 10 s" is implemented as age ≥ 300 ticks (pinned; Sonnet review item 3 reads it as > 300 — owner flag, TD-139).
+7. "Older than 10 s" is implemented as age ≥ 300 ticks (pinned at 1299/1300; Sonnet review item 3 reads it as > 300 — with Evan, Q2; a Mail Lead ruling for > 300 is on hold until Evan rules).
 8. A tombstone answers `container_gone` up to 900 ticks after removal inclusive, `stale_entry` from 901; a full 256-ring overwrites the oldest whatever its age.
 9. Causes: mail returned to the Intake (expiry or eviction) is `expired`; destroyed non-mail is `destroyed`; a pickup is `taken`.
 10. Wrong-class or never-allocated ids resolve as `bad_request`.
@@ -114,7 +114,7 @@
 14. `Remove` opens no call scope of its own (it uses story 014's pickup handler's); `WorldItemEntriesChanged` is declared and bound but raised by 014's partial pickup.
 15. `worldItemCapacity` is validated to ≤ 65,535 (ushort slot), although the balance knob allows 65,536.
 16. `ReturnToIntake` is split into plan and commit steps so expiry runs one call scope per item; it now refuses an entry that a WorldItem holds.
-**Owner flags** (no GDD/ADR edited): (a) the interim full-Intake rule above, until story 021; (b) GDD position is cm, the Sim stores mm (`Vec3Mm`) — GDD re-review; (c) the four world event kinds carry codec id 0 — the network epic assigns wire codecs (TD-140); (d) ADR-0009 §5 erratum for the split water queues (and `ItemsLost` missing from its records list); (e) GDD Network table says tombstones live 10 s, ADR-0009 §5 says 30 s (implemented: 30 s); (f) what counts as an H-PERF-6d "visit" with the head memo, and "older than" = ≥ 300 vs > 300 ticks; (g) readiness G2/G3 left as-is: Out of Scope still calls 020/021 Blocked (both Ready) and the Manifest Version is 2026-10-16 (manifest is 2026-10-17.1).
+**Owner flags** (no GDD/ADR edited): (a) the interim full-Intake rule above, until story 021; (b) GDD position is cm, the Sim stores mm (`Vec3Mm`) — GDD re-review; (c) the four world event kinds carry codec id 0 — the network epic assigns wire codecs (TD-140); (d) ADR-0009 §5 erratum for the split water queues (and `ItemsLost` missing from its records list) — pending, see PR #26 review B1; (e) for Evan: what counts as an H-PERF-6d "visit" with the head memo (Q1), "older than" = ≥ 300 vs > 300 ticks (Q2), and the interim cap path when the Intake is full (Q3); (f) readiness G2/G3 resolved in review R1: the Out of Scope Blocked tags are dropped and the Manifest Version is re-stamped 2026-10-17.1.
 **New TD**: TD-135 (ledger hooks, story 017), TD-136 (container tombstones, M-1b), TD-137 (WorldItem load/rebuild and undumped derived state), TD-138 (interim rule → story 021), TD-139 (GDD/ADR errata), TD-140 (world event codecs), TD-141 (H-PERF-6d visit definition), TD-142 (small residuals).
 **Test Evidence**: Logic — see above; 5,278 tests per leg at 83c2c40, 0 failed (net10.0/net8.0 × Debug/Release; Debug 5,230 passed / 48 skipped, Release 5,275 passed / 3 skipped); guards all pass, `check-sim-access --self-check` 17 cases
 **Run result**: N/A — Sim-only, no Godot surface (no smoke run)
