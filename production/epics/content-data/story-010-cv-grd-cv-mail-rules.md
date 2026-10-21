@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (Rule Catalogue CV-GRD and CV-MAIL rows; F5); rule owners `design/gdd/grid-inventory.md` and `design/gdd/mail-destinations.md` (M-R1-1c, Dependencies)
 **Requirement**: `TR-content-022` (M-1a subset). The epic said "CV-INV"; no CV-INV id exists, and the Grid ids are CV-GRD.
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§5)
 **ADR Decision Summary**: One code-side rule registry, with a violation fixture per clause and a valid-edge fixture at each limit. A rule a gameplay system relies on for correctness is always an Error.

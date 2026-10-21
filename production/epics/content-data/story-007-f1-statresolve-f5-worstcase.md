@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (F1, F5, CD13; "Determinism and rounding")
 **Requirement**: `TR-content-015`
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§7 Resolution) (primary); ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (§2 rounding toolkit)
 **ADR Decision Summary**:

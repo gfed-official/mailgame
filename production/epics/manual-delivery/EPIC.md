@@ -8,7 +8,7 @@
 > **Est. size**: M — 10–12 stories
 > **Implementation priority**: 6 of 9
 > **Status**: Ready
-> **Stories**: 11 stories (9 Ready, 2 Blocked — 009 ADR-0024, 010 ADR-0018; 011 unblocked 2026-10-16 story hygiene) — created 2026-10-16 by `/create-stories manual-delivery --review lean`
+> **Stories**: 11 stories — 9 Ready, 2 Blocked; blocked: 009 ADR-0024, 010 ADR-0018 (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
 
 ## Overview
 

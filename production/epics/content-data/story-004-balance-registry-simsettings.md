@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD9, CD11 "design clamps are data"); `design/gdd/simulation-core.md` (Tuning Knobs, F8: owner of the `sim.*` keys)
 **Requirement**: `TR-content-013`
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§4 Balance keys) (primary); ADR-0003: Phase Order, Composition Root and Cross-System Calls (§4 injectable list: "the system's own settings record")
 **ADR Decision Summary**:

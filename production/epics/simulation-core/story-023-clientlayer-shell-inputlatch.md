@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R2 two roles — `ClientLayer` step order; R17 input edges on the first tick; N1 `IHostClock`)
 **Requirement**: `TR-sim-014` (`SimWorld` and `ClientLayer` separate), `TR-sim-041` (port interfaces: `IClientStep`, `IHostClock`)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0003: Phase Order, Composition Root and Cross-System Calls (§6 two roles) — primary; ADR-0002 (§2 input edges, `isFirstTickInBatch`), ADR-0011 (§1 `IHostClock`) — secondary
 **ADR Decision Summary**: `ClientLayer` is a shell that runs bound `IClientStep`s once per client tick in fixed `ClientStepId` order — `MirrorDrain`, `InputLatch`, `CarrierStep`, `Previews` — bound by owning systems through `ClientLayerBuilder.Bind(ClientStepId, IClientStep)`; it reads only its mirror, never `SimWorld`, even on the host. Latched input edges attach only to the tick with `isFirstTickInBatch == true`; later catch-up ticks carry held bits and the latest `moveIntent`; a frame that runs 0 ticks keeps its edges latched in order; a dropped tick never discards an edge. `IHostClock { uint EstimatedHostTick; bool IsValid; }` is defined by the Sim and consumed by `ClientLayer`/Presentation; its implementations are the adapter's.

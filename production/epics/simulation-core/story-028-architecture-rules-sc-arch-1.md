@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R4 no statics/no locator, R2 `ClientLayer` never reads `SimWorld`, R24 owner-only streams, R33 Godot-free Sim; SC-ARCH-1)
 **Requirement**: `TR-sim-013` (reflection test on dependencies), `TR-sim-032` (no statics), `TR-sim-042` (Sim knows no Godot types / wall clock), `TR-sim-029` (owner-only RNG handles)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0003: Phase Order, Composition Root and Cross-System Calls (§4 static-state test, §6) — primary; ADR-0001 (§8 CI guards), ADR-0002 (§1 no clock in `Hosting/`), ADR-0005 (§3 owner-only views) — secondary
 **ADR Decision Summary**: CI architecture tests fail the build when: the Sim references a `Godot*` assembly or contains `using Godot`; any Sim static field is not `const` or `static readonly` of an immutable type (primitive, `string`, or `[ImmutableTable]`; `static readonly T[]` counts as mutable; `[CompilerGenerated]` excluded); any `Hosting/` type uses a clock API; `ClientLayer` names `SimWorld` or a gameplay type; a system constructor parameter is outside the injectable list; or a system receives an RNG view containing another owner's names (Throwing receives none).

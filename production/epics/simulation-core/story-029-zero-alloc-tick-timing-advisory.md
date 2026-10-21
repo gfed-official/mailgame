@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R32 zero allocation; F3 tick budget gates)
 **Requirement**: `TR-sim-036` (`Tick()` allocates 0 B after 300 warm-up ticks — **advisory at M-1a**, blocking from M0), `TR-sim-037` (host tick p99 5.0 / max 8.0 / median 3.0 ms; ClientLayer p99 0.3 ms — **advisory until a reference machine exists**; no ADR — `perf-budget.md` not written)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (§8 zero-allocation tick) — primary for TR-sim-036. TR-sim-037: **no governing ADR** — its home is `docs/architecture/perf-budget.md` (not yet written, control manifest E-2); this story only *reports* against TR-sim-037's numbers and gates nothing, so it does not need that file.
 **ADR Decision Summary**: After `warmupTicks = 300`, `SimWorld.Tick()` must allocate 0 B on its thread, measured with no recorder, in Release, in a dedicated process (because `GC.CollectionCount(0)` is process-wide), over 18 000 ticks with `GC.GetAllocatedBytesForCurrentThread()`, on the **net8.0** target (a net10.0 pass alone does not count — .NET 9+ escape analysis can hide allocations). Tick-path collections are pre-sized from `SimSettings`; growth is allowed only during warm-up and a test asserts none afterwards. Advisory at M-1a, blocking from M0.

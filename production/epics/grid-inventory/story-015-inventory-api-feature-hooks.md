@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-005` (oldest-first consume; payment per mailId), `TR-inventory-001` (in-tick sync calls)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0003: Phase Order, Composition Root and Cross-System Calls
 **ADR Decision Summary**: In-tick callers use synchronous `IInventoryApi` (same versions/events as ops, no reply): `ConsumeUnit(entryRef, reason, actor)` consumes the oldest unit; `DetachForThrow(slot, entryId, units)` detaches the **whole selected hotbar entry** to Flight (cursor / non-hotbar → `bad_request`; count ≠ units or selection change → `stale_entry`); `TryInsert` runs the whitelist and AutoPlace (merge pass first); `CountItem` reads a per-container `itemId → units` index, never a scan (ADR-0009 Key Interfaces, §5; ADR-0003 §5).

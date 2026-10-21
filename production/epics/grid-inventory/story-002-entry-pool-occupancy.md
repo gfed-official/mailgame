@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-003` (entry: u32 entryId, u8 count, footprint w×h, rotation)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0004: Identity and Id Spaces; ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay
 **ADR Decision Summary**: A global `EntryRecord` struct pool (≤ 40 B, free-slot stack, `entryId → slot` map; slots reused, ids never); per container one `ulong` occupancy bitmap per row (row-major, bit = column; v1 width ≤ 20) plus a `cellOwner` u16 array (`0xFFFF` free) for O(1) "what is under this cell" (ADR-0009 §5). `EntryId` is u32, run-unique, never reused; temp ids are bit-31 (ADR-0004).

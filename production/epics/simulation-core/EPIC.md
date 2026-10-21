@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (`story_granularity: fine`)
 > **Implementation priority**: 1 of 9 (first; everything else builds on it)
 > **Status**: Ready
-> **Stories**: 30 created 2026-10-16 (12 Complete, 18 Ready, 0 Blocked) (counts refreshed 2026-10-16 story hygiene) — see [Stories](#stories)
+> **Stories**: 30 stories — 28 Complete, 2 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -74,7 +74,7 @@ This epic builds the Godot-free heart of the game. Every gameplay system depends
 
 ## GDD Requirements
 
-Source: architecture.md v1.1 Appendix A (the TR baseline; `docs/architecture/tr-registry.yaml` does not exist yet). **42 / 45 traced** to an Accepted ADR.
+Source: architecture.md v1.1 Appendix A (the TR baseline, now registered in `docs/architecture/tr-registry.yaml`). **42 / 45 traced** to an Accepted ADR.
 
 | TR-ID | Requirement | ADR Coverage | Slice |
 |-------|-------------|--------------|-------|
@@ -144,22 +144,22 @@ Implementation order = story number (each story's `Depends on:` is authoritative
 | 010 | [TickDriver — the F2 integer accumulator](story-010-tickdriver-f2-accumulator.md) | Logic | Complete | ADR-0002 |
 | 011 | [Phase table, builder binds and the tick loop](story-011-phase-table-builder-tick-loop.md) | Logic | Complete | ADR-0003 |
 | 012 | [World lifecycle, tick guards, owner thread and faults](story-012-world-lifecycle-guards-faults.md) | Logic | Complete | ADR-0003, ADR-0002 |
-| 013 | [Op and Reply value types, OpKind and op descriptors](story-013-op-reply-types-descriptors.md) | Logic | Ready | ADR-0007 |
-| 014 | [Op ring and EnqueueOp (stamping, reserve, refusals)](story-014-op-ring-enqueueop.md) | Logic | Ready | ADR-0007 |
-| 015 | [Event log, call scopes and phase-13 delivery](story-015-event-log-call-scopes-delivery.md) | Logic | Ready | ADR-0008, ADR-0003 |
-| 016 | [Event overflow (single tier + masks), misuse raises and pull readers](story-016-event-overflow-pull-readers.md) | Logic | Ready | ADR-0008 |
-| 017 | [Builder validation — SimBuildException codes for ops, events and readers](story-017-builder-validation-codes.md) | Logic | Ready | ADR-0003, ADR-0007, ADR-0008 |
-| 018 | [Entity and mail id allocators, and the SlotTable](story-018-id-allocators-slottable.md) | Logic | Ready | ADR-0004 |
-| 019 | [Canonical state dump (CanonicalWriter, contributors, Sim Core section)](story-019-canonical-state-dump.md) | Logic | Ready | ADR-0006 |
-| 020 | [Phase-0 drain, Core pre-checks and OpReply append](story-020-phase0-drain-prechecks-replies.md) | Logic | Ready | ADR-0007, ADR-0008, ADR-0006 |
-| 021 | [Transform sample ring, tick-boundary latch and stamping](story-021-transform-sample-ring-latch.md) | Logic | Ready | ADR-0003, ADR-0011, ADR-0006 |
-| 022 | [PlayerJoin and PlayerLeave System handlers](story-022-playerjoin-playerleave-handlers.md) | Logic | Ready | ADR-0004, ADR-0007 |
-| 023 | [ClientLayer shell, InputLatch and the IHostClock seam](story-023-clientlayer-shell-inputlatch.md) | Logic | Ready | ADR-0003, ADR-0002, ADR-0011 |
-| 024 | [FrameRunner — the per-frame pump](story-024-framerunner.md) | Logic | Ready | ADR-0002, ADR-0011 |
-| 025 | [Composition root, SystemGraph and the constructor reflection test](story-025-composition-root-reflection-test.md) | Logic | Ready | ADR-0003, ADR-0010 |
-| 026 | [In-memory recorder (ops and samples) and ReplayDriver](story-026-inmemory-recorder-replay.md) | Logic | Ready | ADR-0006, ADR-0007 |
-| 027 | [SC-DET-1 — same-machine determinism harness (T1)](story-027-sc-det-1-determinism-harness.md) | Logic | Ready | ADR-0006 |
-| 028 | [Architecture rules suite — SC-ARCH-1](story-028-architecture-rules-sc-arch-1.md) | Logic | Ready | ADR-0003, ADR-0001, ADR-0002, ADR-0005 |
+| 013 | [Op and Reply value types, OpKind and op descriptors](story-013-op-reply-types-descriptors.md) | Logic | Complete | ADR-0007 |
+| 014 | [Op ring and EnqueueOp (stamping, reserve, refusals)](story-014-op-ring-enqueueop.md) | Logic | Complete | ADR-0007 |
+| 015 | [Event log, call scopes and phase-13 delivery](story-015-event-log-call-scopes-delivery.md) | Logic | Complete | ADR-0008, ADR-0003 |
+| 016 | [Event overflow (single tier + masks), misuse raises and pull readers](story-016-event-overflow-pull-readers.md) | Logic | Complete | ADR-0008 |
+| 017 | [Builder validation — SimBuildException codes for ops, events and readers](story-017-builder-validation-codes.md) | Logic | Complete | ADR-0003, ADR-0007, ADR-0008 |
+| 018 | [Entity and mail id allocators, and the SlotTable](story-018-id-allocators-slottable.md) | Logic | Complete | ADR-0004 |
+| 019 | [Canonical state dump (CanonicalWriter, contributors, Sim Core section)](story-019-canonical-state-dump.md) | Logic | Complete | ADR-0006 |
+| 020 | [Phase-0 drain, Core pre-checks and OpReply append](story-020-phase0-drain-prechecks-replies.md) | Logic | Complete | ADR-0007, ADR-0008, ADR-0006 |
+| 021 | [Transform sample ring, tick-boundary latch and stamping](story-021-transform-sample-ring-latch.md) | Logic | Complete | ADR-0003, ADR-0011, ADR-0006 |
+| 022 | [PlayerJoin and PlayerLeave System handlers](story-022-playerjoin-playerleave-handlers.md) | Logic | Complete | ADR-0004, ADR-0007 |
+| 023 | [ClientLayer shell, InputLatch and the IHostClock seam](story-023-clientlayer-shell-inputlatch.md) | Logic | Complete | ADR-0003, ADR-0002, ADR-0011 |
+| 024 | [FrameRunner — the per-frame pump](story-024-framerunner.md) | Logic | Complete | ADR-0002, ADR-0011 |
+| 025 | [Composition root, SystemGraph and the constructor reflection test](story-025-composition-root-reflection-test.md) | Logic | Complete | ADR-0003, ADR-0010 |
+| 026 | [In-memory recorder (ops and samples) and ReplayDriver](story-026-inmemory-recorder-replay.md) | Logic | Complete | ADR-0006, ADR-0007 |
+| 027 | [SC-DET-1 — same-machine determinism harness (T1)](story-027-sc-det-1-determinism-harness.md) | Logic | Complete | ADR-0006 |
+| 028 | [Architecture rules suite — SC-ARCH-1](story-028-architecture-rules-sc-arch-1.md) | Logic | Complete | ADR-0003, ADR-0001, ADR-0002, ADR-0005 |
 | 029 | [Zero-allocation tick probe and tick-timing report (advisory at M-1a)](story-029-zero-alloc-tick-timing-advisory.md) | Logic | Ready | ADR-0006 (TR-sim-037: none — advisory) |
 | 030 | [SC-X-1 — cross-system batch order with real Grid and Throw ops](story-030-sc-x-1-cross-system-batch-order.md) | Integration | Ready | ADR-0007, ADR-0008 (+ ADR-0015 Accepted 2026-10-16) |
 

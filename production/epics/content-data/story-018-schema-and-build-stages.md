@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD3.3–3.5, CD4, CD5, CD7, CD8, CD10, CD21 stages 2–3; Ids & enums edge cases)
 **Requirement**: `TR-content-006`, `TR-content-007`, `TR-content-011`, `TR-content-012` (loader-side parts)
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§2 FieldSpec, §3 Defs, §4 stages) (primary); ADR-0004: Identity and Id Spaces (§6)
 **ADR Decision Summary**:

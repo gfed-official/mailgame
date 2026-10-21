@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-004`, `TR-inventory-005` (oldest-first), `TR-inventory-002`
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0004: Identity and Id Spaces
 **ADR Decision Summary**: A `move` with `count < total` is an atomic split-and-place (the new piece gets a new entryId, the remainder keeps the old; the k **lowest** mailIds move); a `move` from the cursor onto an occupied, non-mergeable **slots** cell swaps (one op, one bump); `merge` moves `min(count, effMax − target.count)`; entry ids are never reused (ADR-0009; ADR-0004).

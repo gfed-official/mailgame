@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R6 what an op is, R10 replies and reasons)
 **Requirement**: `TR-sim-015` (`Op` = 64 B blittable: 16 B header + ≤ 48 B payload), `TR-sim-020` (reply `{reqId, result, reason u16, extra ≤ 24 B}`; reasons 1–63 Sim)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0007: Op Queue, Drain and Replies (§1, §4, §5, Key Interfaces)
 **ADR Decision Summary**: `Op` is a 64 B blittable struct (`Pack = 4`): `OpSeq u32 · Actor u32 · Kind u16 · PayloadLength u8 · Reserved u8 · ReqId u32 · Payload [InlineArray(48)]`. Each system owns an `unmanaged`, padding-free payload struct read with `PayloadAs<T>()` (unaligned `MemoryMarshal.Read`, never `Unsafe.As`) and written with `SetPayload<T>` (zero-fill then unaligned write). `OpKind` is an append-only `u16` enum in per-system blocks; each kind registers an `OpDescriptor(Kind, PayloadLength, SystemOnly, WireCodecId, WireSize, Reasons)`. `Reply` (`Pack = 1`) is 36 B: `ReqId u32 · Kind u16 · Reason u16 · Result u8 · 3 explicit zero pad bytes · Extra [InlineArray(24)]`, `Ok ⇔ Reason == 0`; Sim Core reasons 1–63 come only from `CoreReason`, system reasons start at 64.

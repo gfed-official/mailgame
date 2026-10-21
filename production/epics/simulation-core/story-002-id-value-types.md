@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R19 ids, R20 exhaustion, R21 slots; F4)
 **Requirement**: `TR-sim-025` (EntityId layout/classes), `TR-sim-026` (MailId separate u32; PlayerSlot u8 0–7)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0004: Identity and Id Spaces
 **ADR Decision Summary**: Every id is a value-type wrapper with a fixed layout and a `None` value: `EntityId` = `((uint)cls << 24) | counter` (counter 1…2^24−1, None 0), `ActorId` (`System` = 0x00000001), `MailId` (own u32 counter), `PlayerSlot` and `DefIndex` with `+1` storage so `default` is None, `EntryId` real/temp bit-31 layout, wrap-safe `FlightId`, and `StringId` = `(ns, index)`. Ids order by raw `Value` ascending; equality and hashing are explicit arithmetic overrides.

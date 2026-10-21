@@ -14,7 +14,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-027` (feedback via live-region `Control`); input contexts consume `TR-input-*` (router)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0019: Godot presentation scene architecture — Accepted 2026-10-16 (primary); ADR-0012: Input router core & Godot input adapter — Accepted 2026-10-16; ADR-0009: InventoryOp Pipeline and Inventory Storage Layout
 **ADR Decision Summary**: Pick/place/drag/rotate/return/drop/quick-move are issued as inventory ops from the Panel and Holding contexts that Input & Controls' router owns (ADR-0012, Accepted 2026-10-16); the panel scene is ADR-0019's (Accepted 2026-10-16); toasts route through HUD composition (ADR-0018, not written); every reachable rejection has a visible revert and a non-colour cue (GDD UI Requirements feedback table).
