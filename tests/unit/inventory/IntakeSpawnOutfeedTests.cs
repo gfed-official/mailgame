@@ -422,22 +422,24 @@ public class IntakeSpawnOutfeedTests
     }
 
     [Fact]
-    public void MergeIntoAnIntakeEntry_DoesNotRestampTheTarget_AndKeepsItsFifoPosition()
+    [Trait("Id", "H-R14-3")]
+    public void MergeIntoAnIntakeEntry_RestampsTheTargetWithTheNextArrivalSeq_AndMovesItToTheFifoTail()
     {
-        // Arrange: two spawned letters, ids 1 and 2 (seq 1 and 2); a detached letter of the same StackKey, id 50
+        // Arrange: two spawned letters, ids 1 and 2 (seq 1 and 2); a detached letter of the same StackKey, id 50 (Evan 2026-10-21 12:28 PT)
         var rig = new InvAutoPlaceRig();
         DefIndex letter = rig.KindIndex("letter");
         _ = InPhase(rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, Address4, 0, Mail(1, 2), MergePolicy.NoMerge));
-        ushort second = rig.EntryAt(rig.Intake, 1, 0);
+        ushort first = rig.EntryAt(rig.Intake, 0, 0);
         ushort source = rig.DetachedMail("letter", Address4, new[] { 50u });
         OutfeedFifo fifo = rig.Inventory.Mutator.Outfeed;
+        uint next = rig.Header(rig.Intake).NextArrivalSeq;
 
-        // Act: merge the detached letter into the second Intake entry
+        // Act: merge the detached letter into the head Intake entry (seq 1)
         Reply merged = rig.Step(
             (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
-            (ref InvPlan p) => rig.Inventory.Mutator.MergeInto(ref p, source, second, 1));
+            (ref InvPlan p) => rig.Inventory.Mutator.MergeInto(ref p, source, first, 1));
         EventEntry[] log = rig.Sink.Last;
-        uint seq = rig.Entries[second].ArrivalSeq;
+        uint seq = rig.Entries[first].ArrivalSeq;
         int nodes = fifo.NodeCount(rig.Intake);
         var order = new List<uint>();
         for (int i = 0; i < 3; i++)
@@ -447,14 +449,43 @@ public class IntakeSpawnOutfeedTests
             order.Add(u.Mail.Value);
         }
 
-        // Assert: the target kept seq 2 and its one node (NextArrivalSeq unchanged); its units leave after entry 1's, lowest id first
+        // Assert: the target got the previous NextArrivalSeq (3), NextArrivalSeq +1; its old node is a tombstone beside the fresh tail
+        // node (1 tombstone, 2 live: no compaction); entry 2 now leaves first, then the merged stack, lowest id first
         Assert.True(merged.IsOk);
         Assert.Single(Heads(log, InvEventKinds.Merged));
         Assert.Empty(Heads(log, InvEventKinds.Inserted));
-        Assert.Equal(2u, seq);
-        Assert.Equal(2, nodes);
-        Assert.Equal(3u, rig.Header(rig.Intake).NextArrivalSeq);
-        Assert.Equal(new uint[] { 1, 2, 50 }, order);
+        Assert.Equal(3u, next);
+        Assert.Equal(next, seq);
+        Assert.Equal(next + 1, rig.Header(rig.Intake).NextArrivalSeq);
+        Assert.Equal(3, nodes);
+        Assert.Equal(new uint[] { 2, 1, 50 }, order);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R14-3")]
+    public void AutoPlacePassMOntoAnIntakeStack_RestampsTheStack_SoItLeavesAfterTheOtherEntries()
+    {
+        // Arrange: two spawned letters, ids 1 and 2 (seq 1 and 2); a detached letter of the same StackKey, id 50
+        var rig = new InvAutoPlaceRig();
+        DefIndex letter = rig.KindIndex("letter");
+        _ = InPhase(rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, Address4, 0, Mail(1, 2), MergePolicy.NoMerge));
+        ushort first = rig.EntryAt(rig.Intake, 0, 0);
+        ushort source = rig.DetachedMail("letter", Address4, new[] { 50u });
+
+        // Act: AutoPlace (Merge policy) of the detached letter into the Intake; PASS M merges into the first stack (0,0)
+        ushort reason = rig.AutoPlace(source, rig.Intake);
+        uint[] ids = rig.IdsOf(first);
+        uint seq = rig.Entries[first].ArrivalSeq;
+        uint next = rig.Header(rig.Intake).NextArrivalSeq;
+        TakeAll(rig, out List<uint> order);
+
+        // Assert: one merge into (0,0), restamped 3 (NextArrivalSeq 4); served 2, then 1 and 50
+        Assert.Equal(0, reason);
+        Assert.Equal(1, rig.LastPlan.MergeCount);
+        Assert.Equal(new uint[] { 1, 50 }, ids);
+        Assert.Equal(3u, seq);
+        Assert.Equal(4u, next);
+        Assert.Equal(new uint[] { 2, 1, 50 }, order);
     }
 
     [Fact]
@@ -780,6 +811,22 @@ public class IntakeSpawnOutfeedTests
         }
 
         return result;
+    }
+
+    /// <summary>Takes every unit of the Intake outfeed (one tick each) and returns the mailIds in serve order.</summary>
+    private static void TakeAll(InvAutoPlaceRig rig, out List<uint> order)
+    {
+        order = new List<uint>();
+        while (true)
+        {
+            UnitRef u = default;
+            if (!InPhase(rig, () => rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out u)))
+            {
+                return;
+            }
+
+            order.Add(u.Mail.Value);
+        }
     }
 
     internal static MailId[] Mail(params uint[] ids) => ids.Select(i => new MailId(i)).ToArray();

@@ -60,8 +60,9 @@ public struct ContainerHeader
     public uint LastSorted1;
 
     /// <summary>
-    /// The <c>arrivalSeq</c> the next entry inserted into this container gets when its def has an outfeed (<c>BeltAccess.OutfeedOnly</c>,
-    /// the Intake; GDD R14, story 012): 1 for a new container, then +1 per insertion. Sim state (dumped after <see cref="StatEpoch"/>).
+    /// The <c>arrivalSeq</c> the next entry inserted into this container, or merged onto, gets when its def has an outfeed
+    /// (<c>BeltAccess.OutfeedOnly</c>, the Intake; GDD R14, story 012; merges per Evan 2026-10-21 12:28 PT): 1 for a new container, then
+    /// +1 per insertion or merge; a move inside the container takes none. Sim state (dumped after <see cref="StatEpoch"/>).
     /// </summary>
     public uint NextArrivalSeq;
 

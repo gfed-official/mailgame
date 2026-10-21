@@ -5,6 +5,7 @@ using PerformativeMail.Sim.Content.Validation;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Placement;
+using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
 
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
@@ -123,6 +124,60 @@ public class OutfeedPerfTests
             $"H-PERF-6a drain with 160 mid-queue tombstones: {candidates / (double)calls:F3} candidates/call ({candidates} over {calls} calls; bound {MaxCandidatesPerCall:F1})");
         Assert.True(calls >= 321);
         Assert.True(candidates / (double)calls <= MaxCandidatesPerCall, $"{candidates} candidates over {calls} calls");
+    }
+
+    /// <summary>Which Intake stack a churn cycle merges onto, and from what.</summary>
+    public enum ChurnTarget
+    {
+        /// <summary>A fresh detached letter onto the oldest non-full stack (its node is the head, so the next peek pops it).</summary>
+        Oldest,
+
+        /// <summary>A fresh detached letter onto a seeded random non-full stack (mid-queue tombstones).</summary>
+        Random,
+
+        /// <summary>One unit of a random Intake stack onto another (in-Intake merges; units stay level, tombstones pile up and compact).</summary>
+        InIntake,
+    }
+
+    [Theory]
+    [Trait("Id", "H-PERF-6a")]
+    [InlineData(ChurnTarget.Oldest, 1, 2)]
+    [InlineData(ChurnTarget.Random, 1, 2)]
+    [InlineData(ChurnTarget.InIntake, 8, 1)]
+    public void RepeatedMergesOntoIntakeStacks_InterleavedWithPeekAndTake_StayWithin4CandidatesPerCall_AndNeverExhaustTheNodePool(
+        ChurnTarget target, int mergesPerCycle, int takesPerCycle)
+    {
+        // Arrange: 160 count-1 letters (ids 1-160, seq 1-160); a reference queue of the stacks in arrivalSeq order
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 160, 1);
+        var queue = new List<(ushort Slot, List<uint> Ids)>();
+        for (int i = 0; i < 160; i++)
+        {
+            queue.Add((rig.EntryAt(rig.Intake, i % 20, i / 20), new List<uint> { (uint)(i + 1) }));
+        }
+
+        // Act + Assert per cycle: the merges (each restamps its target, which moves to the queue's tail), then Peek + Take
+        // takesPerCycle times and Spawn one; every served id must be the queue's oldest unit
+        Churn r = RunMergeChurn(rig, queue, target, mergesPerCycle, takesPerCycle, cycles: 5_000, firstId: 1_000);
+
+        // Assert: Peek/Take alone, and all candidates (merge-triggered compactions included) over all calls (merges included)
+        double perPeekTake = (r.PeekCandidates + r.TakeCandidates) / (double)(r.Peeks + r.Takes);
+        double perCall = (r.PeekCandidates + r.TakeCandidates + r.MergeCandidates) / (double)(r.Peeks + r.Takes + r.Merges);
+        _output.WriteLine(
+            $"H-PERF-6a merge churn ({target}, {mergesPerCycle} merge(s) + {takesPerCycle} peek/take per cycle): {perPeekTake:F3} candidates per " +
+            $"Peek/Take call (PeekOutfeed {r.PeekCandidates / (double)r.Peeks:F3}, TakeUnit {r.TakeCandidates / (double)r.Takes:F3}); " +
+            $"{perCall:F3} per call with merges (merge compactions {r.MergeCandidates} over {r.Merges} merges); " +
+            $"max {r.MaxNodes} nodes, live {r.MinLive}-{r.MaxLive}, min {r.MinFree} free of {rig.Inventory.Mutator.Outfeed.Capacity}; bound {MaxCandidatesPerCall:F1}");
+        Assert.True(r.OrderOk, r.FirstMismatch);
+        Assert.True(r.Merges >= 5_000 * mergesPerCycle * 9 / 10, $"merges {r.Merges}");
+        Assert.True(r.MinFree > 0, "the node pool ran out");
+        Assert.True(r.BoundedOk, "a list held more than twice its live entries after a call");
+        Assert.True(perPeekTake <= MaxCandidatesPerCall, $"Peek/Take: {perPeekTake:F3} candidates per call");
+        Assert.True(perCall <= MaxCandidatesPerCall, $"with merges: {perCall:F3} candidates per call");
+        if (target == ChurnTarget.InIntake)
+        {
+            Assert.True(r.MergeCandidates > 0, "restamp tombstones never triggered a compaction");
+        }
     }
 
     [Fact]
@@ -331,6 +386,153 @@ public class OutfeedPerfTests
         return new Result(peekCandidates, takeCandidates, cycles, orderOk, h.EntryCount);
     }
 
+    /// <summary>
+    /// <paramref name="cycles"/> cycles of: <paramref name="mergesPerCycle"/> merges onto Intake stacks chosen by
+    /// <paramref name="target"/> (one tick through the fixture op), then, in one tick, Peek + Take <paramref name="takesPerCycle"/> times
+    /// and Spawn one. <paramref name="queue"/> is the reference: the stacks in arrivalSeq order, each with its ascending ids.
+    /// </summary>
+    private static Churn RunMergeChurn(
+        InvAutoPlaceRig rig, List<(ushort Slot, List<uint> Ids)> queue, ChurnTarget target, int mergesPerCycle, int takesPerCycle, int cycles, uint firstId)
+    {
+        DefIndex letter = rig.KindIndex("letter");
+        var fifo = rig.Inventory.Mutator.Outfeed;
+        int effMax = rig.Mail("letter", 4u).EffMax;
+        var rng = new Pcg32(0x0012_C0DEUL, 7);
+        uint nextId = firstId;
+        var c = new Churn { OrderOk = true, MinFree = int.MaxValue, MinLive = int.MaxValue, BoundedOk = true, FirstMismatch = string.Empty };
+        var merges = new List<(ushort Source, ushort Target)>();
+        int Pick(int n) => (int)(rng.Next32() % (uint)n);
+        for (int cycle = 0; cycle < cycles; cycle++)
+        {
+            // plan the merges against the reference queue, updating it as the mutator will
+            merges.Clear();
+            for (int m = 0; m < mergesPerCycle; m++)
+            {
+                int source = -1;
+                if (target == ChurnTarget.InIntake)
+                {
+                    var multi = Enumerable.Range(0, queue.Count).Where(q => queue[q].Ids.Count >= 2).ToList();
+                    source = multi.Count > 0 ? multi[Pick(multi.Count)] : Pick(queue.Count);
+                }
+
+                var open = Enumerable.Range(0, queue.Count).Where(q => q != source && queue[q].Ids.Count < effMax).ToList();
+                if (open.Count == 0)
+                {
+                    continue;
+                }
+
+                int at = target == ChurnTarget.Oldest ? open[0] : open[Pick(open.Count)];
+                (ushort targetSlot, List<uint> ids) = queue[at];
+                uint moved;
+                ushort sourceSlot;
+                if (source < 0)
+                {
+                    moved = nextId++;
+                    sourceSlot = rig.DetachedMail("letter", 4u, new[] { moved });
+                }
+                else
+                {
+                    sourceSlot = queue[source].Slot;
+                    moved = queue[source].Ids[0];
+                    queue[source].Ids.RemoveAt(0);
+                }
+
+                int pos = ids.BinarySearch(moved);
+                ids.Insert(pos < 0 ? ~pos : pos, moved);
+                queue.RemoveAt(at);
+                queue.Add((targetSlot, ids)); // the restamped stack leaves last
+                if (source >= 0 && source != at && queue[source > at ? source - 1 : source].Ids.Count == 0)
+                {
+                    queue.RemoveAt(source > at ? source - 1 : source); // a drained source leaves the Intake
+                }
+
+                merges.Add((sourceSlot, targetSlot));
+            }
+
+            if (merges.Count > 0)
+            {
+                long m0 = rig.Counters[CounterId.InventoryOutfeedCandidates];
+                Reply merged = rig.Step(
+                    (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
+                    (ref InvPlan p) =>
+                    {
+                        foreach ((ushort source, ushort to) in merges)
+                        {
+                            rig.Inventory.Mutator.MergeInto(ref p, source, to, 1);
+                        }
+                    });
+                Assert.True(merged.IsOk);
+                c.MergeCandidates += rig.Counters[CounterId.InventoryOutfeedCandidates] - m0;
+                c.Merges += merges.Count;
+                Track(ref c);
+            }
+
+            // peek + take, spawn one
+            uint spawnId = nextId++;
+            var one = new[] { new MailId(spawnId) };
+            uint[] peeked = new uint[takesPerCycle];
+            uint[] took = new uint[takesPerCycle];
+            IntakeSpawnOutfeedTests.InPhase(rig, () =>
+            {
+                for (int k = 0; k < takesPerCycle; k++)
+                {
+                    long c0 = rig.Counters[CounterId.InventoryOutfeedCandidates];
+                    peeked[k] = rig.Inventory.PeekOutfeed(rig.Inventory.IntakeContainer, Selector.Fifo, out UnitRef p) ? p.Mail.Value : 0u;
+                    long c1 = rig.Counters[CounterId.InventoryOutfeedCandidates];
+                    took[k] = rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out UnitRef u) ? u.Mail.Value : 0u;
+                    c.PeekCandidates += c1 - c0;
+                    c.TakeCandidates += rig.Counters[CounterId.InventoryOutfeedCandidates] - c1;
+                }
+
+                return rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, 4u, 0, one, MergePolicy.NoMerge);
+            });
+            c.Peeks += takesPerCycle;
+            c.Takes += takesPerCycle;
+            for (int k = 0; k < takesPerCycle; k++)
+            {
+                uint expected = queue[0].Ids[0];
+                if (c.OrderOk && (peeked[k] != expected || took[k] != expected))
+                {
+                    c.OrderOk = false;
+                    c.FirstMismatch = $"cycle {cycle}: peeked {peeked[k]}, took {took[k]}, expected {expected}";
+                }
+
+                queue[0].Ids.RemoveAt(0);
+                if (queue[0].Ids.Count == 0)
+                {
+                    queue.RemoveAt(0);
+                }
+            }
+
+            ushort spawned = Occupancy.Free;
+            for (int s = 0; s < rig.Entries.Capacity && spawned == Occupancy.Free; s++)
+            {
+                EntryRecord e = rig.Entries[(ushort)s];
+                if (e.IsLive && e.ContainerSlot == rig.Intake && e.Count == 1 && rig.IdsOf((ushort)s)[0] == spawnId)
+                {
+                    spawned = (ushort)s;
+                }
+            }
+
+            Assert.NotEqual(Occupancy.Free, spawned);
+            queue.Add((spawned, new List<uint> { spawnId }));
+            Track(ref c);
+        }
+
+        return c;
+
+        void Track(ref Churn t)
+        {
+            int nodes = fifo.NodeCount(rig.Intake);
+            int live = rig.Header(rig.Intake).EntryCount;
+            t.MaxNodes = Math.Max(t.MaxNodes, nodes);
+            t.MaxLive = Math.Max(t.MaxLive, live);
+            t.MinLive = Math.Min(t.MinLive, live);
+            t.MinFree = Math.Min(t.MinFree, fifo.FreeCount);
+            t.BoundedOk &= nodes <= 2 * live;
+        }
+    }
+
     private void AssertBound(in Result r, int n, string label)
     {
         Assert.Equal(Cycles, r.Cycles);
@@ -346,6 +548,10 @@ public class OutfeedPerfTests
         Assert.True(perCall <= MaxCandidatesPerCall, $"Peek + Take: {perCall:F3} candidates per call at n = {n}");
         Assert.True(r.PeekCandidates >= r.Cycles, "every peek inspects at least the live head");
     }
+
+    private record struct Churn(
+        long PeekCandidates, long TakeCandidates, long MergeCandidates, int Peeks, int Takes, int Merges,
+        int MaxNodes, int MaxLive, int MinLive, int MinFree, bool BoundedOk, bool OrderOk, string FirstMismatch);
 
     private readonly record struct Result(long PeekCandidates, long TakeCandidates, int Cycles, bool OrderOk, int EntriesAfter);
 }

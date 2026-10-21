@@ -12,8 +12,9 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <see cref="IInventoryApi.PeekOutfeed"/>, <see cref="IInventoryApi.TakeUnit"/> and <see cref="InventorySystem.ReturnToIntake"/>, and
 /// with them the <c>OutfeedFifo</c> (append, head pops, compaction) and <see cref="InventoryMutator.TakeOldest"/>, allocate 0 B per call
 /// after warm-up. One cycle, inside a real tick (the rig's <c>MailStep</c> hook, a delegate cached before the window): spawn one letter,
-/// peek, take the oldest unit, return a detached 3-letter entry to the Intake, then remove it again (so it can be returned next cycle;
-/// its tombstones drive the FIFO compaction). The Intake keeps 160 entries. The 0 B assertion runs in optimised builds only (TD-008
+/// peek, take the oldest unit, return a detached 3-letter entry to the Intake, merge one unit from it onto a resident Intake stack and
+/// one back (two restamps, Evan 2026-10-21 12:28 PT), then remove it again (so it can be returned next cycle; its tombstones drive the
+/// FIFO compaction). The resident stack is restamped every cycle, so it never reaches the head. The Intake keeps 161 entries. The 0 B assertion runs in optimised builds only (TD-008
 /// convention); its twin runs the same window in every build and asserts the results. The rig's event capture is off in the window.
 /// Joins the non-parallel collection (see <see cref="AllocAssert"/>).
 /// </summary>
@@ -33,7 +34,7 @@ public class IntakeAllocationTests
         Totals totals = default;
 
         // Act
-        AllocAssert.Zero("Spawn + PeekOutfeed + TakeUnit + ReturnToIntake x1000 cycles", () => totals = w.Run(Cycles));
+        AllocAssert.Zero("Spawn + PeekOutfeed + TakeUnit + ReturnToIntake + 2 Intake merges x1000 cycles", () => totals = w.Run(Cycles));
 
         // Assert
         Workload.AssertTotals(in totals, Cycles);
@@ -53,7 +54,7 @@ public class IntakeAllocationTests
         // Assert
         Workload.AssertTotals(in first, Cycles);
         Assert.Equal(first, second);
-        Assert.Equal(160, w.IntakeEntries);
+        Assert.Equal(161, w.IntakeEntries);
     }
 
     private static void SkipWhenUnoptimised()
@@ -65,7 +66,7 @@ public class IntakeAllocationTests
             "Unoptimised Sim: the 0 B guardrail applies to optimised builds only (TD-008).");
     }
 
-    private record struct Totals(int Spawned, int Peeked, int Taken, int InOrder, int Returned, int Removed);
+    private record struct Totals(int Spawned, int Peeked, int Taken, int InOrder, int Returned, int Merged, int Removed);
 
     /// <summary>The arranged world and the measured window.</summary>
     private sealed class Workload
@@ -78,6 +79,7 @@ public class IntakeAllocationTests
         private readonly ContainerId _intake;
         private readonly ushort _intakeSlot;
         private readonly ushort _returning;
+        private readonly ushort _resident;
         private readonly DefIndex _letter;
         private readonly MailId[] _one = new MailId[1];
         private readonly InvPhaseAction _cycle;
@@ -95,6 +97,7 @@ public class IntakeAllocationTests
             _intakeSlot = _rig.Intake;
             _letter = _rig.KindIndex("letter");
             _returning = _rig.DetachedMail("letter", 9u, InvAutoPlaceRig.Ids(900_000_000, 3));
+            _resident = _rig.PlaceMail(_intakeSlot, "letter", 19, 15, 9u, InvAutoPlaceRig.Ids(800_000_000, 5));
             _nextSpawn = 161;
             _expectedTake = 1;
             _cycle = Cycle;
@@ -104,7 +107,7 @@ public class IntakeAllocationTests
 
         public static void AssertTotals(in Totals t, int cycles)
         {
-            Assert.Equal(new Totals(cycles, cycles, cycles, cycles, cycles, cycles), t);
+            Assert.Equal(new Totals(cycles, cycles, cycles, cycles, cycles, cycles, cycles), t);
         }
 
         public Totals Run(int cycles)
@@ -141,8 +144,29 @@ public class IntakeAllocationTests
                 _totals.InOrder += took && taken.Mail.Value == _expectedTake && peeked.Mail.Value == taken.Mail.Value && peeked.Entry.Value == taken.Entry.Value ? 1 : 0;
                 _expectedTake++;
                 _totals.Returned += _inventory.ReturnToIntake(_returning, ActorId.System, InvCause.Expired) ? 1 : 0;
+                _totals.Merged += MergeThereAndBack() ? 1 : 0;
                 _totals.Removed += Detach() ? 1 : 0;
             }
+        }
+
+        /// <summary>Merges one unit of the returned entry onto the resident Intake stack and one back (both targets restamped; counts unchanged).</summary>
+        private bool MergeThereAndBack()
+        {
+            uint next = _rig.Header(_intakeSlot).NextArrivalSeq;
+            var plan = new InvPlan();
+            _ = plan.Touch(_intakeSlot);
+            var extra = new InvReplyExtra();
+            InventoryMutator m = _inventory.Mutator;
+            using (EventCallScope scope = _events.BeginCall())
+            {
+                m.Begin(ref plan, ActorId.System, InvCause.None);
+                m.MergeInto(ref plan, _returning, _resident, 1);
+                m.MergeInto(ref plan, _resident, _returning, 1);
+                m.End(ref plan, ref extra);
+            }
+
+            return _rig.Entries[_resident].ArrivalSeq == next && _rig.Entries[_returning].ArrivalSeq == next + 1
+                && _rig.Entries[_resident].Count == 5 && _rig.Entries[_returning].Count == 3;
         }
 
         /// <summary>Takes the returned entry out of the Intake again (one call scope and bracket, like an API call).</summary>

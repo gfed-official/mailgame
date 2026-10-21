@@ -9,11 +9,12 @@ namespace PerformativeMail.Sim.Inventory.Intake;
 /// <c>(arrivalSeq, entrySlot, entryId)</c> nodes per container whose def has <c>BeltAccess.OutfeedOnly</c> (the Intake), all in one
 /// preallocated node pool. A list's head and tail handles live in its <see cref="ContainerHeader"/> (<see cref="ContainerHeader.OutfeedHead"/>
 /// and <see cref="ContainerHeader.OutfeedTail"/>: node index + 1, 0 = empty). The <see cref="InventoryMutator"/> appends a node on every
-/// insertion into such a container (arrivalSeq is a per-container counter, so append order is sorted order) and leaves it behind as a
-/// <b>lazy tombstone</b> when the entry leaves; a node is live while its entry slot still holds the same entry id, placed in this
-/// container, with the same <c>arrivalSeq</c> (a returned entry keeps its id but gets a new <c>arrivalSeq</c>, so its old node is
-/// stale). <see cref="TryPeekHead"/> pops stale heads. When a list's tombstones exceed its live entries the mutator
-/// <see cref="Compact"/>s it, so every list holds at most twice its live entries and the pool (twice the entry pool, see
+/// insertion into such a container and on every merge onto one of its entries, which restamps the target (arrivalSeq is a
+/// per-container counter, so append order is sorted order), and leaves the old node behind as a <b>lazy tombstone</b> when the entry
+/// leaves or is restamped; a node is live while its entry slot still holds the same entry id, placed in this container, with the same
+/// <c>arrivalSeq</c> (a returned entry keeps its id but gets a new <c>arrivalSeq</c>, and so does a merged stack, so the old node is
+/// stale). <see cref="TryPeekHead"/> pops stale heads. When a list's tombstones (from leaves and restamps alike) exceed its live entries
+/// the mutator <see cref="Compact"/>s it, so every list holds at most twice its live entries and the pool (twice the entry pool, see
 /// <see cref="InventorySettings.OutfeedNodeCapacity"/>) never runs out. Peek and take are O(1) amortised: each node is appended once and
 /// inspected live at most once per peek before it is popped or compacted away. <see cref="CounterId.InventoryOutfeedCandidates"/>
 /// (H-PERF-6a, in every build) counts one per candidate visit = one FIFO node examined (GDD H-PERF-6 unit: one per cell probe or
@@ -89,6 +90,25 @@ internal sealed class OutfeedFifo
     /// <param name="containerSlot">The container's table slot.</param>
     /// <returns>The node count.</returns>
     public int NodeCount(ushort containerSlot) => _nodeCount[containerSlot];
+
+    /// <summary>
+    /// Reads one node of the container's list, for a read-only walk from <see cref="ContainerHeader.OutfeedHead"/> (tests and
+    /// diagnostics, like <see cref="Placement.StackIndex.Next"/>): changes nothing and counts nothing.
+    /// </summary>
+    /// <param name="containerSlot">The container's table slot.</param>
+    /// <param name="node">A node handle of the list (not <see cref="NoNode"/>).</param>
+    /// <param name="arrivalSeq">The node's <c>arrivalSeq</c>.</param>
+    /// <param name="entrySlot">The node's entry pool slot.</param>
+    /// <param name="live">True when the node is live (not a tombstone).</param>
+    /// <returns>The next node handle, <see cref="NoNode"/> at the tail.</returns>
+    public uint ReadNode(ushort containerSlot, uint node, out uint arrivalSeq, out ushort entrySlot, out bool live)
+    {
+        int i = (int)node - 1;
+        arrivalSeq = _seq[i];
+        entrySlot = _entrySlot[i];
+        live = IsLive(containerSlot, i);
+        return _next[i];
+    }
 
     /// <summary>
     /// Appends a node for the entry just stamped with <paramref name="arrivalSeq"/> at the tail of the container's list. False (asserts
@@ -169,13 +189,14 @@ internal sealed class OutfeedFifo
     }
 
     /// <summary>
-    /// Called by the mutator after an entry left the container (its node is now a tombstone): compacts the list when its tombstones
-    /// exceed <paramref name="liveEntries"/>.
+    /// Called by the mutator after one of the list's nodes became a tombstone (its entry left the container, or a merge restamped it
+    /// and appended a fresh node): compacts the list when its tombstones (every node beyond the live ones) exceed
+    /// <paramref name="liveEntries"/>.
     /// </summary>
     /// <param name="containerSlot">The container's table slot.</param>
     /// <param name="h">The container's header.</param>
     /// <param name="liveEntries">The container's live entries now (each holds exactly one live node).</param>
-    public void OnLeft(ushort containerSlot, ref ContainerHeader h, int liveEntries)
+    public void OnTombstoned(ushort containerSlot, ref ContainerHeader h, int liveEntries)
     {
         if (_nodeCount[containerSlot] - liveEntries > liveEntries)
         {

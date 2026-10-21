@@ -36,8 +36,11 @@ namespace PerformativeMail.Sim.Inventory;
 /// as a 1 x 1 unrotated footprint (GDD R1; story 009). A container whose def has an outfeed (<c>BeltAccess.OutfeedOnly</c>, the
 /// Intake) stamps every entry it receives through <see cref="Place"/> or <see cref="Transfer"/> with the next <c>arrivalSeq</c>
 /// (<see cref="ContainerHeader.NextArrivalSeq"/>, before <c>InvInserted</c>, which carries it) and appends it to the
-/// <see cref="Outfeed"/> FIFO; an entry leaving it (<see cref="Remove"/>, a cross-container <see cref="Transfer"/>) gets
-/// <c>arrivalSeq</c> 0 and leaves a lazy tombstone (story 012, GDD R14). Allocation-free; never throws on the tick path (preconditions assert under
+/// <see cref="Outfeed"/> FIFO; a stack that units are merged onto (<see cref="MergeInto"/>, AutoPlace's PASS M) is restamped the same
+/// way, before <c>InvMerged</c>, so it leaves last (owner ruling Evan 2026-10-21 12:28 PT; GDD R14 "no Intake entry's arrivalSeq ever
+/// decreases"), and its old node becomes a lazy tombstone; a move inside the container keeps the seq. An entry leaving it
+/// (<see cref="Remove"/>, a cross-container <see cref="Transfer"/>) gets <c>arrivalSeq</c> 0 and leaves a lazy tombstone (story 012,
+/// GDD R14). Allocation-free; never throws on the tick path (preconditions assert under
 /// <c>INVENTORY_ASSERT</c>). Not thread-safe: Sim tick thread only.
 /// </summary>
 /// <example>
@@ -186,9 +189,7 @@ internal sealed class InventoryMutator
         LinkIfNonFull(entrySlot);
         if (HasOutfeed(containerSlot))
         {
-            e.ArrivalSeq = h.NextArrivalSeq;
-            h.NextArrivalSeq = unchecked(h.NextArrivalSeq + 1u); // u32 per container; never wraps within a run
-            _ = _outfeed.Append(containerSlot, ref h, e.ArrivalSeq, entrySlot, e.Id.Value);
+            StampArrival(containerSlot, ref h, entrySlot, ref e);
         }
 
         RaiseInserted(containerSlot, h.Id, in e);
@@ -226,7 +227,7 @@ internal sealed class InventoryMutator
         if (e.ArrivalSeq != 0)
         {
             e.ArrivalSeq = 0;
-            _outfeed.OnLeft(containerSlot, ref h, h.EntryCount);
+            _outfeed.OnTombstoned(containerSlot, ref h, h.EntryCount);
         }
 
         plan.MarkMutated(containerSlot);
@@ -302,7 +303,12 @@ internal sealed class InventoryMutator
     /// <c>InvMerged{target container, target, units}</c> plus the moved mailIds as runs in <c>Continuation</c> chunks. A source left at
     /// 0 is removed from its container (its <c>InvRemoved</c> carries the whole count) and freed; otherwise it keeps its entryId and
     /// position. A detached source (cursor-less in-flight entry, spawn) raises no source record. Both entries are re-linked in the
-    /// StackKey index by their new counts. The source may be in the target's container (an in-container merge). The containers must
+    /// StackKey index by their new counts. A target in a container with an outfeed (the Intake) is restamped with the next
+    /// <c>arrivalSeq</c> and re-enqueued at the FIFO tail, so the merged stack leaves last (owner ruling Evan 2026-10-21 12:28 PT; GDD
+    /// R14, H-R14-3); its old node becomes a lazy tombstone, counted by the compaction rule like a leave's. The stamp is written before
+    /// <c>InvMerged</c> is raised, as <see cref="Place"/> stamps before <c>InvInserted</c>, so the record follows the entry's final state
+    /// (<c>InvMerged</c> has no <c>arrivalSeq</c> field). A partly merged source keeps its seq. The source may be in the target's
+    /// container (an in-container merge). The containers must
     /// already be touched (<see cref="InvPlan.EnsureTouched"/>). An invalid merge (free or unplaced target, a self-merge, different
     /// <c>StackKey</c>s, <paramref name="units"/> outside 1 to the source's count, a target over 255 or over its <c>effMax</c> read now
     /// (<see cref="EffMaxOf"/>, the value the index uses)) asserts
@@ -371,6 +377,13 @@ internal sealed class InventoryMutator
 
         plan.MarkMutated(to);
         LinkIfNonFull(targetSlot);
+        if (HasOutfeed(to))
+        {
+            ref ContainerHeader th = ref _containers[to];
+            StampArrival(to, ref th, targetSlot, ref dst); // its old node is now stale: a tombstone
+            _outfeed.OnTombstoned(to, ref th, th.EntryCount);
+        }
+
         byte audience = AudienceOf(to);
         var merged = new InvMergedPayload
         {
@@ -573,6 +586,17 @@ internal sealed class InventoryMutator
         {
             rotated = false;
         }
+    }
+
+    /// <summary>
+    /// Stamps a placed entry of an outfeed container with the container's next <c>arrivalSeq</c> and appends its FIFO node at the tail
+    /// (an insertion, or a merge onto the entry; a node the entry held before is stale from now on).
+    /// </summary>
+    private void StampArrival(ushort containerSlot, ref ContainerHeader h, ushort entrySlot, ref EntryRecord e)
+    {
+        e.ArrivalSeq = h.NextArrivalSeq;
+        h.NextArrivalSeq = unchecked(h.NextArrivalSeq + 1u); // u32 per container; never wraps within a run
+        _ = _outfeed.Append(containerSlot, ref h, e.ArrivalSeq, entrySlot, e.Id.Value);
     }
 
     private void LinkIfNonFull(ushort entrySlot)
