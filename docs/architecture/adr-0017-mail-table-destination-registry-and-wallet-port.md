@@ -147,7 +147,7 @@ Per unit, oldest first, inside the caller's phase:
 ### 8. `IWalletGate`: the Mail-owned port (R7, TR-mail-007)
 
 ```csharp
-namespace PerformativeMail.Sim.Mail.Ports;
+namespace PerformativeMail.Sim.MailDestinations.Ports;   // erratum 2026-10-20: was PerformativeMail.Sim.Mail.Ports — see Errata (folder Sim/Mail/)
 public enum CreditReason : byte { None = 0, DeliveryPay = 1 /* 2–31 reserved for Mail; Economy defines its own reasons elsewhere */ }
 public interface IWalletGate
 {
@@ -198,7 +198,7 @@ Stream `RngDerive(runSeed, "mail", shift)` (ADR-0005). It draws exactly `K = 2·
 ### Key Interfaces
 
 ```csharp
-namespace PerformativeMail.Sim.Mail;
+namespace PerformativeMail.Sim.MailDestinations;   // erratum 2026-10-20: was PerformativeMail.Sim.Mail — see Errata (folder Sim/Mail/)
 public readonly struct AddressId { public readonly uint Value; public int District { get; } public int Street { get; } public int Number { get; } public int Unit { get; }
     public static AddressId Pack(int district, int street, int number, int unit = 0); }
 public readonly struct DestinationFacts { public readonly EntityId Id; public readonly AddressId Address; public readonly DefIndex Type; public readonly DestState State;
@@ -234,7 +234,7 @@ public interface IMailApi
 - Mail **must** keep the mail table server-only and **must never** add a location column. Location is the `UnitLedger`'s.
 - Every consume path **must** go through `MailConsumer.Consume`. There is no second payment or penalty path.
 - `Evaluate` and `MailPay` **must** be static, pure and 0-alloc over facts structs (ADR-0016).
-- `PerformativeMail.Sim.Mail` **must never** reference `PerformativeMail.Sim.Economy` (arch test). Wallet access is only `IWalletGate`.
+- `PerformativeMail.Sim.MailDestinations` (folder `Sim/Mail/`; erratum 2026-10-20) **must never** reference `PerformativeMail.Sim.Economy` (arch test). Wallet access is only `IWalletGate`.
 - Complaint buckets **must** refill lazily on touch. `Mail.Step` **must** touch only feeder credits when idle.
 - Mail **must** append backlog entries through `IInventoryApi`. Inventory **must never** call Mail.
 - Wire narrowing of `AddressId`/destination **must** use the ordinal id maps (§1, §3).
@@ -314,7 +314,7 @@ Feeders at M-1b; Economy replaces the stub when its GDD and ADR land.
 - M-PERF-1: 0 B on hand/throw/feeder paths after warm-up; an idle tick visits 0 rows and 0 buckets (counters).
 - M-PERF-2 timing (advisory until Q-ARCH-10).
 - M-X-4: exactly one wallet call per unit; F8 stops at the first failure; −500 ¢ exactly is allowed.
-- Arch test: no `Sim.Mail` type references `Sim.Economy`.
+- Arch test: no `Sim.Mail` type (namespace `PerformativeMail.Sim.MailDestinations*`, erratum 2026-10-20) references `Sim.Economy`.
 - Contiguous `outcomeSeq` for a hold's k outcomes. Dump determinism (T1) with the mail table and registry included.
 
 ## GDD Impact (do not edit GDDs here; reconcile at re-review)
@@ -337,3 +337,4 @@ Feeders at M-1b; Economy replaces the stub when its GDD and ADR land.
 - 2026-10-17 — Key Interfaces: `MailPay.WalletGuard(Cents balance, Cents penalty, Cents floor)` unchanged, now annotated that the floor is a `Cents` parameter because no Economy `walletFloor` key exists yet; source TD-096 item 1.
 - 2026-10-17 — Key Interfaces and §4 helper list: the sketch omitted `MailPay.Timeliness`, `LateValueRatioPm`, `HintPayout`, `HintPenalty` and the `HintRun` struct; now listed with their shipped signatures; source TD-096 item 1.
 - 2026-10-17 — Key Interfaces: `DestinationFacts` lacked `ulong AcceptsMask` and `bool RequiresUnit` (and its public ctor); `UnitFacts.Flags` was `byte`, shipped as `MailFlags`; `DeliveriesStateRules.Effective(districtUnlocked, openNow, closeTick, actionStartTick?, applyTick, closeGraceTicks)` was missing; now listed. `MailRules.Evaluate` already matched; source TD-096, TD-092.
+- 2026-10-20 — Key Interfaces and Implementation Guidelines: the namespace was `PerformativeMail.Sim.Mail` (and `PerformativeMail.Sim.Mail.Ports`); now **`PerformativeMail.Sim.MailDestinations`** (tests `PerformativeMail.Sim.Tests.Unit.MailDestinations`), as shipped by mail-destinations story 001, because a `Sim.Mail` namespace shadows `Content.Rules.Mail` / `BalanceKeys.Mail`; the folder stays `src/PerformativeMail.Sim/Mail/`. The not-yet-built ports namespace follows suit: `PerformativeMail.Sim.MailDestinations.Ports` (mail-destinations story 005). The "Mail never references Economy" arch test keys on `PerformativeMail.Sim.MailDestinations*` (or the `Mail/` folder) so it cannot pass vacuously. **Accepted by Evan 2026-10-20** (owner ruling in chat, 22:49 PT); source TD-074 item 1.
