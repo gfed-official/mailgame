@@ -144,6 +144,6 @@ public enum CounterId : ushort
     /// <summary>Inventory AutoPlace PASS M: one candidate stack visited in a target's StackKey non-full list (one increment per list node walked, never a container scan; GDD R8, ADR-0009 section 5; key <c>inventoryMergeCandidates</c>). A probe counter (H-PERF-6), compiled into Release, not in the canonical dump.</summary>
     InventoryMergeCandidates = 42,
 
-    /// <summary>Inventory AutoPlace PASS U / PASS R: one candidate anchor (grid top-left or slot) tested against the occupancy row masks (one increment per anchor; a negative-fit cache hit tests none; GDD R8, ADR-0009 section 5; key <c>inventoryPlacementProbes</c>). A probe counter (H-PERF-6), compiled into Release, not in the canonical dump.</summary>
+    /// <summary>Inventory AutoPlace PASS U / PASS R: one increment per cell examined (GDD H-PERF-6 "one integer increment per cell probe"; per cell per Evan 2026-10-21). A grid candidate anchor tests all <c>fh</c> of its footprint's occupancy row masks, each covering <c>fw</c> cells, so it adds <c>fw × fh</c>; a slots-layout candidate slot adds 1; a negative-fit cache hit examines nothing. A scan therefore costs (anchors visited) × area, which matches GDD D3's per-shape <c>C × a</c> term (GDD R8, ADR-0009 section 5; key <c>inventoryPlacementProbes</c>). A probe counter, compiled into Release, not in the canonical dump.</summary>
     InventoryPlacementProbes = 43,
 }

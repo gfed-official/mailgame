@@ -32,6 +32,15 @@ public class AutoPlaceTests
     /// <summary>sizeof(AutoPlacePlan), measured: 255 x 2 B merge targets + 255 x 1 B merge units, 16 x 12 B no-fit facts, counts, placement, ints.</summary>
     private const int AutoPlacePlanSize = 988;
 
+    /// <summary>GDD D3's hinted-pack bound on the 20 x 16 Intake in cell probes: C x sum(a) + n x a &lt;= 320 x 25 + 320.</summary>
+    private const long D3IntakeBound = 8_320;
+
+    /// <summary>The H-PERF-6 b/c gate in cell probes (one Intake sort or drain pass); not lowered (Evan, 2026-10-21).</summary>
+    private const long PerfGateCellProbes = 8_500;
+
+    /// <summary>The v1 mail kinds (GDD D3): letter 1 x 1, small 1 x 2, medium 2 x 2, large 2 x 4 - six oriented shapes, areas summing to 25.</summary>
+    private static readonly string[] _v1MailKinds = { "letter", "small", "medium", "large" };
+
     // ---------------------------------------------------------------- H-R8-1
 
     [Fact]
@@ -387,7 +396,7 @@ public class AutoPlaceTests
         // Act
         ushort reason = rig.AutoPlace(plank, rig.HotbarA);
 
-        // Assert: 7 candidate slots probed (1..7); slot 0 is not a candidate
+        // Assert: 7 candidate slots probed (1..7), one cell each = 7 cell probes; slot 0 is not a candidate
         Assert.Equal((ushort)InvReason.NoRoom, reason);
         Assert.Equal(7, rig.Counters[CounterId.InventoryPlacementProbes] - probes);
         Assert.Equal(EntryRecord.NoContainer, rig.Entries[plank].ContainerSlot);
@@ -526,8 +535,9 @@ public class AutoPlaceTests
         long p1 = rig.Counters[CounterId.InventoryPlacementProbes];
         ushort reason = rig.AutoPlace(large, rig.InventoryA);
 
-        // Assert: U (2 x 4 in 8 x 2: no anchor in bounds) + R (4 x 2: 5 anchors) the first time; nothing the second time
-        Assert.Equal(5, first);
+        // Assert: U (2 x 4 in 8 x 2: no anchor in bounds) + R (4 x 2: 5 anchors x 8 footprint cells = 40 cell probes) the first
+        // time; nothing the second time
+        Assert.Equal(40, first);
         Assert.Equal((ushort)InvReason.NoRoom, reason);
         Assert.Equal(0, rig.Counters[CounterId.InventoryPlacementProbes] - p1);
         Assert.Equal(0, rig.LastPlan.NoFitCount);
@@ -547,9 +557,9 @@ public class AutoPlaceTests
         long p = rig.Counters[CounterId.InventoryPlacementProbes];
         ushort reason = rig.AutoPlace(large, rig.InventoryA);
 
-        // Assert
+        // Assert: the full R scan again, 5 anchors x 8 cells = 40
         Assert.Equal((ushort)InvReason.NoRoom, reason);
-        Assert.Equal(5, rig.Counters[CounterId.InventoryPlacementProbes] - p);
+        Assert.Equal(40, rig.Counters[CounterId.InventoryPlacementProbes] - p);
     }
 
     [Fact]
@@ -576,11 +586,11 @@ public class AutoPlaceTests
         _ = rig.AutoPlace(large, rig.InventoryA);
         long afterRebuild = rig.Counters[CounterId.InventoryPlacementProbes] - p3;
 
-        // Assert
+        // Assert: each uncached run is the full R scan, 5 anchors x 8 cells = 40
         Assert.Equal(version, rig.Header(rig.InventoryA).Version);
-        Assert.Equal(5, afterEpoch);
+        Assert.Equal(40, afterEpoch);
         Assert.Equal(0, cachedAgain);
-        Assert.Equal(5, afterRebuild);
+        Assert.Equal(40, afterRebuild);
     }
 
     [Fact]
@@ -599,8 +609,8 @@ public class AutoPlaceTests
         long p = rig.Counters[CounterId.InventoryPlacementProbes];
         ushort reason = rig.AutoPlace(large, grid);
 
-        // Assert: the cache missed and the scan found the unrotated 2 x 4 column at (0,0) on its first anchor
-        Assert.Equal(1, rig.Counters[CounterId.InventoryPlacementProbes] - p);
+        // Assert: the cache missed and the scan found the unrotated 2 x 4 column at (0,0) on its first anchor: 1 x 8 cells = 8
+        Assert.Equal(8, rig.Counters[CounterId.InventoryPlacementProbes] - p);
         Assert.Equal(0, reason);
         Assert.Equal((0, 0), (rig.Entries[large].X, rig.Entries[large].Y));
         Assert.False(rig.Entries[large].Rotated);
@@ -1039,7 +1049,7 @@ public class AutoPlaceTests
 
     [Fact]
     [Trait("Id", "TR-inventory-007")]
-    public void ProbeCounters_PassMVisitsTheKeysListOnly_PassUCountsOneProbePerAnchorUpToTheFirstFit()
+    public void ProbeCounters_PassMVisitsTheKeysListOnly_PassUCountsEveryFootprintCellOfEachAnchorUpToTheFirstFit()
     {
         // Arrange: inventory 8 x 2 with 2 letter stacks to #2 (full and non-full) among other stacks; a 1 x 2 Small to place
         var rig = new InvAutoPlaceRig();
@@ -1058,14 +1068,131 @@ public class AutoPlaceTests
         long mergeVisits = rig.Counters[CounterId.InventoryMergeCandidates] - m0;
         long p1 = rig.Counters[CounterId.InventoryPlacementProbes];
         _ = rig.AutoPlace(small, rig.InventoryA);
-        long anchorProbes = rig.Counters[CounterId.InventoryPlacementProbes] - p1;
+        long cellProbes = rig.Counters[CounterId.InventoryPlacementProbes] - p1;
 
         // Assert: one merge visit (the first list node takes the unit) - never a container scan; the Small (1 x 2) needs rows 0-1:
-        // anchors (0,0) .. (4,0) are blocked, (5,0) is free -> 6 probes
+        // anchors (0,0) .. (4,0) are blocked, (5,0) is free -> 6 anchors x 2 footprint cells = 12 cell probes
         Assert.Equal(1, mergeVisits);
         Assert.Equal(0, p1 - p0);
-        Assert.Equal(6, anchorProbes);
+        Assert.Equal(12, cellProbes);
         Assert.Equal((5, 0), (rig.Entries[small].X, rig.Entries[small].Y));
+    }
+
+    [Fact]
+    [Trait("Id", "TR-inventory-007")]
+    public void ProbeCounters_AMediumScan_CountsFourCellsPerAnchorVisited_NotOnePerAnchor()
+    {
+        // Arrange: a fixture 8 x 2 grid with letters at (1,1), (3,0) and (5,1); a 2 x 2 Medium to place
+        var rig = new InvAutoPlaceRig();
+        ushort grid = rig.CreateGrid(8, 2);
+        _ = rig.PlaceMail(grid, "letter", 1, 1, Address9, new uint[] { 1 });
+        _ = rig.PlaceMail(grid, "letter", 3, 0, Address9, new uint[] { 2 });
+        _ = rig.PlaceMail(grid, "letter", 5, 1, Address9, new uint[] { 3 });
+        PlacementSubject medium = rig.Mail("medium", Address2);
+        long p0 = rig.Counters[CounterId.InventoryPlacementProbes];
+
+        // Act: a pure plan (Medium: effMax 1 skips PASS M; w == h skips PASS R)
+        var plan = new InvPlan();
+        ushort reason = rig.Inventory.AutoPlace.Plan(ref plan, in medium, 1, AutoPlace.NoSource, new[] { grid }, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+        long cellProbes = rig.Counters[CounterId.InventoryPlacementProbes] - p0;
+
+        // Assert: the only anchor row is y = 0; anchors x = 0..5 each hold a letter in their 2 x 2 footprint and x = 6 is free, so
+        // 7 anchors are visited, each examining 4 cells: 7 x 4 = 28 cell probes (per-anchor counting would give 7)
+        const long AnchorsVisited = 7;
+        Assert.Equal(0, reason);
+        Assert.Equal((6, 0), (ap.Placement.X, ap.Placement.Y));
+        Assert.Equal(AnchorsVisited * 4, cellProbes);
+        Assert.NotEqual(AnchorsVisited, cellProbes);
+    }
+
+    [Fact]
+    [Trait("Id", "H-PERF-6")]
+    public void ProbeCounters_FullIntake_EveryV1OrientedShapeScannedToNoFit_IsExactly6684CellProbes_WithinTheD3BoundAndTheGate()
+    {
+        // Arrange: the 20 x 16 po_intake filled with 40 Larges (no free cell)
+        var rig = new InvAutoPlaceRig();
+        FillIntakeWithLarges(rig);
+        var perKind = new long[_v1MailKinds.Length];
+
+        // Act: one pure NoMerge plan per v1 kind into the Intake: letter (U 1 x 1), small (U 1 x 2, R 2 x 1), medium (U 2 x 2),
+        // large (U 2 x 4, R 4 x 2) - the six v1 oriented shapes, each scanned once
+        for (int k = 0; k < _v1MailKinds.Length; k++)
+        {
+            PlacementSubject subject = rig.Mail(_v1MailKinds[k], Address2);
+            var plan = new InvPlan();
+            long p = rig.Counters[CounterId.InventoryPlacementProbes];
+            Assert.Equal((ushort)InvReason.NoRoom, rig.Inventory.AutoPlace.Plan(ref plan, in subject, 1, AutoPlace.NoSource, new[] { rig.Intake }, MergePolicy.NoMerge, PlaceOrder.PassFirst, out _));
+            perKind[k] = rig.Counters[CounterId.InventoryPlacementProbes] - p;
+        }
+
+        // Assert: an anchor's footprint test examines all fw x fh cells, so a scan costs (anchors visited) x area and visits at most
+        // (20 - fw + 1)(16 - fh + 1) anchors; a no-fit scan visits all of them, so the full Intake is the exact worst case:
+        //   letter 1x1: 320 anchors x 1 = 320
+        //   small  1x2: 300 x 2 = 600, + R 2x1: 304 x 2 = 608 -> 1,208
+        //   medium 2x2: 285 x 4 = 1,140
+        //   large  2x4: 247 x 8 = 1,976, + R 4x2: 255 x 8 = 2,040 -> 4,016
+        // total 6,684 = sum of anchors x area over the six shapes (1,711 anchors). No occupancy exceeds it: a scan that fits stops
+        // at the fitting anchor, which is one of the counted anchors (AutoPlace keeps no hint cursor, so nothing is re-probed and
+        // there is no separate "+ placements" term). GDD D3's hinted-pack bound C x sum(a) + n x a <= 320 x 25 + 320 = 8,320.
+        long total = perKind.Sum();
+        Assert.Equal(new long[] { 320, 1_208, 1_140, 4_016 }, perKind);
+        Assert.Equal(6_684, total);
+        Assert.True(total <= D3IntakeBound, $"{total} > D3 bound {D3IntakeBound}");
+        Assert.True(total < PerfGateCellProbes, $"{total} >= H-PERF-6 gate {PerfGateCellProbes}");
+    }
+
+    [Fact]
+    [Trait("Id", "H-PERF-6")]
+    public void ProbeCounters_RandomIntakeOccupancies_EveryV1Sweep_StaysWithinSumOfAnchorsTimesArea_AndUnderThe8500Gate()
+    {
+        // Arrange: the bound from content - the v1 kinds' oriented shapes on the Intake (C = 320, sum of areas 25)
+        var probe = new InvAutoPlaceRig();
+        ContainerHeader intake = probe.Header(probe.Intake);
+        long anchorsTimesArea = 0;
+        int sumArea = 0;
+        foreach (string kind in _v1MailKinds)
+        {
+            MailKindDef def = probe.Content.MailKinds[probe.KindIndex(kind)];
+            foreach ((int fw, int fh) in def.GridW == def.GridH
+                ? new[] { (def.GridW, def.GridH) }
+                : new[] { (def.GridW, def.GridH), (def.GridH, def.GridW) })
+            {
+                anchorsTimesArea += (long)(intake.W - fw + 1) * (intake.H - fh + 1) * fw * fh;
+                sumArea += fw * fh;
+            }
+        }
+
+        int cells = intake.W * intake.H;
+        Assert.Equal(25, sumArea);
+        Assert.Equal(6_684, anchorsTimesArea);
+        Assert.Equal(D3IntakeBound, ((long)cells * sumArea) + cells); // GDD D3: C x sum(a) + n x a, with n x a <= C
+        Assert.True(D3IntakeBound < PerfGateCellProbes);
+
+        uint state = 0x2545_F491u;
+        var sweeps = new List<long>();
+        for (int occupancy = 0; occupancy < 6; occupancy++)
+        {
+            var rig = new InvAutoPlaceRig();
+            FillRandomly(rig, rig.Intake, attempts: 8 + (occupancy * 16), ref state);
+
+            // Act: one sweep - a pure NoMerge plan of every v1 kind into the Intake
+            long p = rig.Counters[CounterId.InventoryPlacementProbes];
+            foreach (string kind in _v1MailKinds)
+            {
+                PlacementSubject subject = rig.Mail(kind, Address2);
+                var plan = new InvPlan();
+                _ = rig.Inventory.AutoPlace.Plan(ref plan, in subject, 1, AutoPlace.NoSource, new[] { rig.Intake }, MergePolicy.NoMerge, PlaceOrder.PassFirst, out _);
+            }
+
+            sweeps.Add(rig.Counters[CounterId.InventoryPlacementProbes] - p);
+        }
+
+        // Assert: every sweep is positive, within the per-cell maximum (6,684) and under the 8,500 gate
+        Assert.All(sweeps, total =>
+        {
+            Assert.InRange(total, 1, anchorsTimesArea);
+            Assert.True(total < PerfGateCellProbes, $"{total} >= H-PERF-6 gate {PerfGateCellProbes}");
+        });
     }
 
     [Fact]
@@ -1502,6 +1629,56 @@ public class AutoPlaceTests
     }
 
     // ---------------------------------------------------------------- helpers
+
+    internal static void FillIntakeWithLarges(InvAutoPlaceRig rig)
+    {
+        uint id = 1000;
+        for (int y = 0; y < 16; y += 4)
+        {
+            for (int x = 0; x < 20; x += 2)
+            {
+                _ = rig.PlaceMail(rig.Intake, "large", x, y, Address9, new[] { id++ });
+            }
+        }
+
+        Assert.Equal(0, rig.Header(rig.Intake).FreeCells);
+    }
+
+    /// <summary>Tries <paramref name="attempts"/> xorshift-chosen (kind, rotation, anchor) placements, placing each whose footprint is free.</summary>
+    private static void FillRandomly(InvAutoPlaceRig rig, ushort container, int attempts, ref uint state)
+    {
+        ContainerHeader h = rig.Header(container);
+        uint id = 3000;
+        for (int i = 0; i < attempts; i++)
+        {
+            string kind = _v1MailKinds[(int)(Xorshift(ref state) % (uint)_v1MailKinds.Length)];
+            MailKindDef def = rig.Content.MailKinds[rig.KindIndex(kind)];
+            bool rotated = def.GridW != def.GridH && (Xorshift(ref state) & 1u) == 1u;
+            int fw = rotated ? def.GridH : def.GridW;
+            int fh = rotated ? def.GridW : def.GridH;
+            int x = (int)(Xorshift(ref state) % (uint)(h.W - fw + 1));
+            int y = (int)(Xorshift(ref state) % (uint)(h.H - fh + 1));
+            ulong mask = ((1UL << fw) - 1UL) << x;
+            bool free = true;
+            for (int r = 0; r < fh; r++)
+            {
+                free &= (rig.Inventory.Occupancy.RowBits(container, y + r) & mask) == 0UL;
+            }
+
+            if (free)
+            {
+                _ = rig.PlaceMail(container, kind, x, y, Address9, new[] { id++ }, rotated);
+            }
+        }
+    }
+
+    private static uint Xorshift(ref uint state)
+    {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return state;
+    }
 
     internal static List<ushort> ListOf(InvAutoPlaceRig rig, ushort container, StackKey key)
     {
