@@ -274,9 +274,9 @@ No code exists. Stories create `Sim/Throwing/{Throw, LaunchMath, Ballistic, Flig
 2. The aim arc, trail and ghost (Presentation) must call these functions and must not use engine physics or engine interpolation for flight positions. Engine interpolation stays off for Sim-positioned nodes (ADR-0019).
 3. The net8.0 minimum for 4.6/4.7 desktop builds is UNVERIFIED (`VERSION.md`).
 
-## Errata
-- 2026-10-20 — Key Interfaces: the namespace was `PerformativeMail.Sim.Throwing`; now **`PerformativeMail.Sim.ThrowingCatching`** (tests `PerformativeMail.Sim.Tests.Unit.ThrowingCatching`), because a `Sim.Throwing` namespace shadows `Content.Rules.Throwing` (`RuleRegistry.cs:70`, CS0234) and breaks the build — the same pattern as `Sim/Mail/` → `PerformativeMail.Sim.MailDestinations` (TD-074). The folder stays `src/PerformativeMail.Sim/Throwing/` (Migration Plan and stories unchanged), as shipped in PR #7 (throwing-catching story 001). **Accepted by Evan 2026-10-20** (owner ruling in chat, 22:31 PT); source TD-107 item 1.
-
 ## Related
 - ADR-0013 (`Sim/Geometry`); ADR-0026 (`IWorldQuery`, `QueryStaticSolids`); ADR-0014 (`ICatchPredictor`, Interact resolution, `CheckInteraction`); ADR-0016 (preview placement, launch ghost, outcome-after-event); ADR-0017 (`ResolveThrownLanding`, `Evaluate`); ADR-0020 (F5 history); ADR-0021 (flight protocol, catch under latency); ADR-0009 (`DetachForThrow`, `TryCatch`, Flight ledger); ADR-0005 (no stream; `Mix64`); ADR-0006 (rounding delegation).
 - `design/gdd/throwing-catching.md`.
+
+## Errata
+- 2026-10-20 — Key Interfaces: the namespace was `PerformativeMail.Sim.Throwing`; now **`PerformativeMail.Sim.ThrowingCatching`** (tests `PerformativeMail.Sim.Tests.Unit.ThrowingCatching`), because a `Sim.Throwing` namespace shadows `Content.Rules.Throwing` (`Content/Validation/RuleRegistry.cs:70`, CS0234) and breaks the build — the same pattern as `Sim/Mail/` → `PerformativeMail.Sim.MailDestinations` (TD-074). The folder stays `src/PerformativeMail.Sim/Throwing/` (Migration Plan and stories unchanged), as implemented in PR #7 (throwing-catching story 001, open at the time of writing). **Accepted by Evan 2026-10-20** (owner ruling in chat, 22:31 PT); source TD-107 item 1 (added by PR #7).
