@@ -278,6 +278,67 @@ public class AutoPlaceTests
     }
 
     [Fact]
+    public void PassM_AStackInTwoTargetsLists_AssertsPlannedTwiceInAssertBuilds()
+    {
+        Assert.SkipUnless(TestBuildExpectation.SimAssertsExpected, "INVENTORY_ASSERT is compiled out of this build.");
+
+        // Arrange: one 5-letter stack heading both targets' lists (a corrupted index, unreachable through the mutator)
+        var rig = new InvAutoPlaceRig();
+        ushort second = rig.CreateGrid(8, 4);
+        ushort stack = LinkIntoTwoLists(rig, second);
+        PlacementSubject letter = rig.Mail("letter", Address2);
+        var plan = new InvPlan();
+
+        // Act + Assert
+        SimAssertException ex = Assert.Throws<SimAssertException>(() => rig.Inventory.AutoPlace.Plan(
+            ref plan, in letter, byte.MaxValue, AutoPlace.NoSource, new[] { rig.InventoryA, second }, MergePolicy.Merge, PlaceOrder.PassFirst, out _));
+        Assert.Equal(SimAssertCode.InventoryAutoPlaceStackPlannedTwice, ex.Code);
+        Assert.Equal(5, rig.Entries[stack].Count);
+    }
+
+    [Fact]
+    public void PassM_AStackInTwoTargetsLists_IsSkippedTheSecondTimeInRelease_NoSecondMergePlanned()
+    {
+        Assert.SkipWhen(TestBuildExpectation.SimAssertsExpected, "INVENTORY_ASSERT fires first in this build (see the assert-build twin).");
+
+        // Arrange: one 5-letter stack heading both targets' lists (a corrupted index, unreachable through the mutator)
+        var rig = new InvAutoPlaceRig();
+        ushort second = rig.CreateGrid(8, 4);
+        ushort stack = LinkIntoTwoLists(rig, second);
+        PlacementSubject letter = rig.Mail("letter", Address2);
+        var plan = new InvPlan();
+
+        // Act
+        ushort reason = rig.Inventory.AutoPlace.Plan(
+            ref plan, in letter, byte.MaxValue, AutoPlace.NoSource, new[] { rig.InventoryA, second }, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+
+        // Assert: one merge fills the stack to effMax; the second visit plans nothing (no overfill past effMax)
+        Assert.Equal(0, reason);
+        Assert.Equal(1, ap.MergeCount);
+        Assert.Equal(stack, ap.Merge(0).TargetEntrySlot);
+        Assert.Equal(letter.EffMax - 5, ap.Merge(0).Units);
+    }
+
+    /// <summary>
+    /// Places a 5-letter stack (#2) at (0,0) of the inventory and another in <paramref name="second"/>, then relinks the inventory
+    /// stack as <paramref name="second"/>'s list head while the inventory's list still starts at it. Returns the inventory stack.
+    /// </summary>
+    private static ushort LinkIntoTwoLists(InvAutoPlaceRig rig, ushort second)
+    {
+        ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 5));
+        _ = rig.PlaceMail(second, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(100, 5));
+        StackKey key = rig.Mail("letter", Address2).Key;
+        rig.Entries[stack].ContainerSlot = second;
+        rig.Index.Unlink(stack); // drops second's list (its head is looked up by the overwritten container)
+        rig.Index.Link(stack);   // the stack becomes second's head
+        rig.Entries[stack].ContainerSlot = rig.InventoryA;
+        Assert.Equal(stack, rig.Index.Head(rig.InventoryA, key));
+        Assert.Equal(stack, rig.Index.Head(second, key));
+        Assert.Equal(StackIndex.None, rig.Index.Next(stack));
+        return stack;
+    }
+
+    [Fact]
     public void Mediums_EffMaxOne_NeverMerge_ASecondMediumOfTheSameKeyGoesToFreeCells()
     {
         // Arrange
@@ -1196,7 +1257,7 @@ public class AutoPlaceTests
         long p0 = rig.Counters[CounterId.InventoryPlacementProbes];
         byte[] before = DumpHash.Bytes(rig.Host.World);
 
-        // Act: pure plans (they raise only the two counters), then direct writes of both
+        // Act: pure plans (they raise only the two counters), then direct writes of both and of counters 44 and 45
         var a = new InvPlan();
         var b = new InvPlan();
         Assert.Equal(0, rig.Inventory.AutoPlace.Plan(ref a, in letter, 1, AutoPlace.NoSource, new[] { rig.InventoryA }, MergePolicy.Merge, PlaceOrder.PassFirst, out _));
@@ -1205,6 +1266,8 @@ public class AutoPlaceTests
         long p1 = rig.Counters[CounterId.InventoryPlacementProbes];
         rig.Counters.Add(CounterId.InventoryMergeCandidates, 1_000_000);
         rig.Counters.Set(CounterId.InventoryPlacementProbes, 123_456_789);
+        rig.Counters.Add(CounterId.InventoryOutfeedCandidates, 1_000_000);
+        rig.Counters.Add(CounterId.MutatingApiOutOfPhase, 7);
         byte[] after = DumpHash.Bytes(rig.Host.World);
 
         // Assert: both counters moved, the dump did not

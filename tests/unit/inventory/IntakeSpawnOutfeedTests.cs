@@ -319,6 +319,7 @@ public class IntakeSpawnOutfeedTests
         Assert.Equal(BeltAccess.OutfeedOnly, intakeDef.BeltAccess);
         Assert.Equal((InvReason)0, mail);
         Assert.Equal(InvReason.NotAllowed, item);
+        Assert.Equal("not_allowed", InvReasons.Name(item));
         Assert.False(returned);
         Assert.Equal(before, State(rig));
         Assert.Equal(EntryRecord.NoContainer, rig.Entries[plank].ContainerSlot);

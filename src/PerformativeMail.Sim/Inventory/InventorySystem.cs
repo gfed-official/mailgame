@@ -397,18 +397,25 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return false;
         }
 
-        u = UnitOf(entrySlot);
+        UnitRef unit = UnitOf(entrySlot);
         Span<uint> taken = stackalloc uint[1];
         var plan = new InvPlan();
         _ = plan.Touch(slot);
         var extra = new InvReplyExtra();
+        int took;
         using (EventCallScope scope = _events.BeginCall())
         {
             _mutator.Begin(ref plan, actor, InvCause.None);
-            _ = _mutator.TakeOldest(ref plan, entrySlot, 1, taken);
+            took = _mutator.TakeOldest(ref plan, entrySlot, 1, taken);
             _mutator.End(ref plan, ref extra);
         }
 
+        if (took != 1)
+        {
+            return false;
+        }
+
+        u = unit;
         return true;
     }
 

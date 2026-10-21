@@ -552,8 +552,13 @@ internal sealed class AutoPlace
             }
 
             // Unreachable: targets are distinct containers (IsWellFormed), each list is walked once and a stack is in one container's
-            // list only. A repeat would overfill the stack, since a planned stack keeps its pre-plan count here.
+            // list only. A repeat would overfill the stack, since a planned stack keeps its pre-plan count here; Release skips the
+            // stack (no second merge planned).
             InventoryAssert.That(!result.HasMergeInto(s), SimAssertCode.InventoryAutoPlaceStackPlannedTwice);
+            if (result.HasMergeInto(s))
+            {
+                continue;
+            }
 
             ushort reason = AddMerge(ref plan, ref result, ref pass, containerSlot, s, mail);
             if (reason != Pass)

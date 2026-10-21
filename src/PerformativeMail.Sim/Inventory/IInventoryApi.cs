@@ -65,8 +65,10 @@ public interface IInventoryApi
     SpawnResult Spawn(ContainerId c, DefIndex mailKind, uint addressId, byte flags, ReadOnlySpan<MailId> ids, MergePolicy p);
 
     /// <summary>
-    /// The unit <see cref="TakeUnit"/> would take now, without taking it: read-only (no call scope, no seal, no version change); its
-    /// stale-head pops touch only the outfeed memo. False on a container with no outfeed, an unknown selector, or an empty outfeed.
+    /// The unit <see cref="TakeUnit"/> would take now, without taking it: no call scope, no seal, no version change. It may pop stale
+    /// head tombstones, rewriting the undumped <c>OutfeedHead</c>/<c>OutfeedTail</c> memo and counting
+    /// <c>CounterId.InventoryOutfeedCandidates</c> (44), outside the tick guard; this is deterministic because the memo and the counters
+    /// are not in the canonical dump. False on a container with no outfeed, an unknown selector, or an empty outfeed.
     /// </summary>
     /// <param name="c">The container.</param>
     /// <param name="s">The selector.</param>
