@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 5 Complete, 18 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 6 Complete, 17 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -119,7 +119,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 003 | [mailIds size-class arena — oldest-first take, sorted-union merge, exhaustion](story-003-mailids-arena.md) | Logic | Complete | ADR-0009, ADR-0006 |
 | 004 | [Inventory op kinds, padding-free payloads, reason codes and the 24 B reply extra](story-004-op-kinds-payloads-reasons.md) | Logic | Complete | ADR-0009, ADR-0007, ADR-0011 |
 | 005 | [InventoryMutator, per-call versions, event records and InvVersion seals](story-005-mutator-versions-events.md) | Logic | Complete | ADR-0009, ADR-0008, ADR-0003 |
-| 006 | [Placement validity, StackKey stacking with effMax at op time, and the insertion whitelist](story-006-placement-stacking-whitelist.md) | Logic | Ready | ADR-0009, ADR-0010 |
+| 006 | [Placement validity, StackKey stacking with effMax at op time, and the insertion whitelist](story-006-placement-stacking-whitelist.md) | Logic | Complete | ADR-0009, ADR-0010 |
 | 007 | [Pick and Move ops — whole-entry moves, cross-container atomicity, no-op moves](story-007-pick-move-ops.md) | Logic | Ready | ADR-0009, ADR-0007 |
 | 008 | [Move split-and-place, hotbar swap from the cursor, and the Merge op](story-008-move-split-swap-merge.md) | Logic | Ready | ADR-0009, ADR-0004 |
 | 009 | [AutoPlace (passes M/U/R, PassFirst/TargetFirst), StackKey non-full index and negative-fit cache](story-009-autoplace-stackkey-index.md) | Logic | Ready | ADR-0009, ADR-0006 |
@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Run `/story-readiness production/epics/grid-inventory/story-001-inventory-module-containers.md`, then `/dev-story`. Stories 019–022 are Ready (ADRs Accepted 2026-10-16); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–006 are Complete (006 in PR #16). Next: run `/story-readiness production/epics/grid-inventory/story-009-autoplace-stackkey-index.md`, then implement it (009 builds on 006). Stories 019–022 are Ready (ADRs Accepted 2026-10-16); 023–024 wait on `/ux-design` for the inventory panel.
