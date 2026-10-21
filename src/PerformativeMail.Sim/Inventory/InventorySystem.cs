@@ -410,6 +410,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             _mutator.End(ref plan, ref extra);
         }
 
+        // Unreachable (the head is a live placed mail entry and k = 1); kept so TakeUnit's contract does not rely on that invariant.
         if (took != 1)
         {
             return false;
