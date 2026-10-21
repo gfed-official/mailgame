@@ -232,6 +232,61 @@ public sealed class EventLog
     }
 
     /// <summary>
+    /// Appends one <see cref="EventFlags.Continuation"/> chunk (ADR-0008 section 1.3 option (b), owner chunking): an entry of
+    /// <paramref name="kind"/> carrying the first <paramref name="length"/> bytes of <paramref name="chunk"/>, stamped with the
+    /// current scope's <c>CallSeq</c>. The owner raises it right after the head entry of the same kind in the same call, so a
+    /// chunked run is contiguous by construction. <c>PayloadLength</c> is <paramref name="length"/> (ADR-0008: at most the
+    /// descriptor length for a Continuation chunk); every byte from it to 48 is zero. Unlike <see cref="TryRaise{T}"/> the chunk
+    /// type is not checked against the descriptor's <c>PayloadType</c> (a chunk has its own layout, for example inventory's
+    /// mailId runs). Class, audience resolution, admission, drop accounting and the misuse windows are exactly
+    /// <see cref="TryRaise{T}"/>'s. A <paramref name="length"/> below 0 or above <c>min(sizeof(T), descriptor length)</c> asserts
+    /// under <c>SIM_ASSERT</c> (<see cref="SimAssertCode.EventPayloadExceedsDescriptor"/>); other builds clamp it. Allocation-free.
+    /// </summary>
+    /// <typeparam name="T">The chunk's padding-free <c>unmanaged</c> struct (at most 48 bytes).</typeparam>
+    /// <param name="kind">The head entry's kind.</param>
+    /// <param name="audience">The head entry's audience.</param>
+    /// <param name="chunk">The chunk to copy from.</param>
+    /// <param name="length">How many leading bytes of <paramref name="chunk"/> are meaningful.</param>
+    /// <returns>True when the chunk was appended; false when it was dropped.</returns>
+    /// <example><code>log.TryRaiseContinuation(kind, audience, in runs, runCount * 6);</code></example>
+    public bool TryRaiseContinuation<T>(EventKind kind, byte audience, in T chunk, int length)
+        where T : unmanaged
+    {
+        if (DroppedAsMisuse(kind, audience))
+        {
+            return false;
+        }
+
+        int size = Unsafe.SizeOf<T>();
+        EventDescriptor? descriptor = DescriptorFor(kind);
+        int limit = Math.Min(size, descriptor is null ? EventPayload.Size : descriptor.PayloadLength);
+        SimAssert.That(size <= EventPayload.Size, SimAssertCode.EventPayloadTooLarge);
+        SimAssert.That(length >= 0 && length <= limit, SimAssertCode.EventPayloadExceedsDescriptor);
+        ReplicationClass cls = descriptor?.Class ?? ReplicationClass.Internal;
+        byte resolved = ResolveAudience(cls, audience);
+        if (size > EventPayload.Size || _count >= _entries.Length)
+        {
+            RecordDrop(descriptor, resolved, carryOverflow: true);
+            return false;
+        }
+
+        int used = Math.Clamp(length, 0, limit);
+        ref EventEntry entry = ref _entries[_count];
+        entry = default;
+        entry.Ordinal = (uint)_count;
+        entry.Kind = kind;
+        entry.Class = cls;
+        entry.Audience = resolved;
+        entry.CallSeq = _currentCallSeq;
+        entry.PayloadLength = (byte)used;
+        entry.Flags = EventFlags.Continuation;
+        ReadOnlySpan<byte> bytes = MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<T, byte>(ref Unsafe.AsRef(in chunk)), size);
+        bytes.Slice(0, used).CopyTo(entry.Payload);
+        _count++;
+        return true;
+    }
+
+    /// <summary>
     /// Classifies the raise window: a raise during delivery, at tick end or between ticks is misuse. Asserts first (throws under
     /// <c>SIM_ASSERT</c>), then counts and drops. Returns true when the raise was dropped.
     /// </summary>

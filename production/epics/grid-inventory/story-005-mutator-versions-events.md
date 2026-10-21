@@ -1,12 +1,13 @@
 # Story 005: InventoryMutator, per-call versions, event records and InvVersion seals
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M–L (~1 day)
-> **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-20
+> **Depends on**: Story 004 (`InvReason`, `InvRequestCheck`) — Complete
 
 ## Context
 
@@ -40,6 +41,10 @@
 - [ ] A 20-unit `InvInserted` carries its mailIds as ascending runs in `Continuation` entries of the same kind and `CallSeq` (8 runs per 48 B); `InvRemoved` carries no mailIds; every payload struct is padding-free (size test).
 - [ ] Panel (hotbar, player_inventory) and cursor events are `OwnerOnly` to the owning slot; an external container's events are `Targeted` to its subscriber set resolved at raise time (subscription = open set, story 011).
 - [ ] **Arena exhaustion → reason 85** — when the validator's arena reservation fails (`MailIdArena.CanReserve` false; the arena's `CheckCode.InventoryArenaExhausted` = 12), the op is rejected with `capacity_exhausted` (reason 85) and nothing is mutated (assert the full container state and the arena state unchanged). Caller rule: the validator passes `CanReserve` every block the op acquires, each sized at the moment it is acquired — including a union with a none input, a `TryAppend` on a none handle (= create), and chained unions (|a|+|b|, then |a|+|b|+|c|); omitting one is a false accept. (ADR-0009 §2/§5; source: story 003 scope note, TD-102.)
+  - *Clarified (Mail Lead readiness, 2026-10-20):* this story defines the **shared validation step** every handler's `Validate` calls once its plan is built: it takes the op's acquired block sizes (one entry per block the commit acquires, each sized at the moment it is acquired) and calls `MailIdArena.CanReserve(ReadOnlySpan<int>)`; on false it rejects with `InvReason.CapacityExhausted` (85) and makes no mutation. Until handlers exist (stories 007+), it is exercised through a **test-only fixture op**.
+  - `CanReserve` is a dry run and writes **no** check record; the `InventoryArenaExhausted` record (12) comes only from a real acquire failure. The AC asserts on the **reply** (reason 85), not on record 12 (the test asserts the check ring is unchanged).
+- [ ] **Caller rule (test, not a note)** — a validator-path test over the three shapes the arena tests use (multi-block acquire, none-input union / `TryAppend` on a none handle, chained unions |a|+|b| then |a|+|b|+|c|): with the arena at exhaustion, passing every acquired block yields reason 85 with nothing mutated, and a deliberately under-sized request (one block omitted) passes `CanReserve` — the false accept the rule exists to prevent — while the real commit then fails to acquire.
+- [ ] **Never alias `out` to an input (TD-104)** — `MailIdArena.TryUnion(in a, in b, tick, out result)` guards against `result` aliasing `a` or `b` with an `INVENTORY_ASSERT` trip carrying a new `SimAssertCode`, matching the existing assert conventions; a test pins the trip; TD-104 is closed (or narrowed) with a pointer to the guard and its test.
 
 ---
 

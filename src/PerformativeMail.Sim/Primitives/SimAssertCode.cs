@@ -197,4 +197,10 @@ public static class SimAssertCode
 
     /// <summary>A <c>MailIdsHandle</c> was packed with a field outside its width, or <c>MailIdArena</c> was given a none, dead or self-paired handle, or a take count outside 1 to <c>Count</c> (Release masks, ignores or clamps). <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryArenaHandleInvalid = 62;
+
+    /// <summary><c>MailIdArena.TryUnion</c> was given an <c>out result</c> that is the same variable as its input <c>a</c> or <c>b</c> (TD-104). Release unions from copies of the inputs taken before <c>result</c> is written, so a success is correct; on a failure the aliased variable keeps its input handle. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryArenaOutAliasesInput = 63;
+
+    /// <summary>An <c>InvPlan</c> was asked to track a fifth touched container (ADR-0009 section 2: at most 4 per call). Release refuses the touch (<c>Touch</c> returns -1), so that container's change gets no seal. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryPlanTouchedOverflow = 64;
 }

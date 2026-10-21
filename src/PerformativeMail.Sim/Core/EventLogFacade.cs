@@ -69,6 +69,29 @@ public sealed class EventLogFacade
         return log.TryRaise(kind, audience, in payload);
     }
 
+    /// <summary>Raises a <c>Continuation</c> chunk on the world's log; see <see cref="EventLog.TryRaiseContinuation{T}"/>. Before attachment: as <see cref="TryRaise{T}"/>.</summary>
+    /// <typeparam name="T">The chunk struct.</typeparam>
+    /// <param name="kind">The head entry's kind.</param>
+    /// <param name="audience">The head entry's audience.</param>
+    /// <param name="chunk">The chunk.</param>
+    /// <param name="length">Meaningful leading bytes of the chunk.</param>
+    /// <returns>True when appended.</returns>
+    /// <example><code>bool ok = events.TryRaiseContinuation(kind, audience, in runs, 12);</code></example>
+    public bool TryRaiseContinuation<T>(EventKind kind, byte audience, in T chunk, int length)
+        where T : unmanaged
+    {
+        EventLog? log = _log;
+        if (log is null)
+        {
+            SimAssert.Fail(SimAssertCode.EventRaiseOutsideTick);
+            _counters.Add(CounterId.EventsOutsideTick);
+            _counters.Add(CounterId.EventsDropped);
+            return false;
+        }
+
+        return log.TryRaiseContinuation(kind, audience, in chunk, length);
+    }
+
     /// <summary>Reads the next entry for a bound pull reader; see <see cref="EventLog.Read"/>. False before attachment.</summary>
     /// <param name="cursor">The reader's cursor.</param>
     /// <param name="entry">The entry.</param>
