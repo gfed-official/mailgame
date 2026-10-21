@@ -73,7 +73,7 @@ internal struct InvBlockBuffer
 /// "mutated" bit. Contract: <c>Validate</c> <see cref="Touch"/>es <b>every</b> container <c>Commit</c> may change and refuses the op
 /// (<c>bad_request</c>, a handler-limit refusal) before any mutation when a touch returns -1, so <c>Commit</c> never changes a
 /// container the plan cannot seal. The <see cref="InventoryMutator"/> primitives then mark a touched container mutated when they
-/// really change it (<see cref="MarkMutated"/> asserts it was touched); only mutated containers are sealed and bumped, so a no-op
+/// really change it (<see cref="EnsureTouched"/> asserts it was touched, before anything changes); only mutated containers are sealed and bumped, so a no-op
 /// (a move onto its own cells) seals nothing even though it was touched;</item>
 /// <item>the <b>acquired blocks</b>: one element per mail-ids arena block the commit acquires, each sized at the moment it is
 /// acquired (the input of <see cref="Ops.InvRequestCheck.CheckArenaReservation(in InvPlan)"/>);</item>
@@ -110,7 +110,7 @@ public struct InvPlan
     /// <summary>The placement decided by <c>Validate</c>.</summary>
     public InvPlacement Placement;
 
-    /// <summary>The call's actor (written into every seal and the reply's <c>ByActorId</c>).</summary>
+    /// <summary>The call's actor (written into every seal; the reply's <c>ByActorId</c> is the contested actor, stories 013/014).</summary>
     public ActorId Actor;
 
     /// <summary>The call's cause (written into every seal and the reply's cause bits).</summary>
@@ -167,20 +167,25 @@ public struct InvPlan
     }
 
     /// <summary>
-    /// Marks a touched container changed (the mutator primitives call this). The container must already be in the touched set
-    /// (asserts <see cref="SimAssertCode.InventoryPlanContainerNotTouched"/> under <c>INVENTORY_ASSERT</c>); Release falls back to
-    /// <see cref="Touch"/>, so it is still sealed when the set has room.
+    /// The mutator primitives' check, made <b>before</b> they change anything: the container must already be in the touched set
+    /// (asserts <see cref="SimAssertCode.InventoryPlanContainerNotTouched"/> under <c>INVENTORY_ASSERT</c>). Release falls back to
+    /// <see cref="Touch"/>, so the change is still sealed when the set has room; when it is full the primitive changes nothing, so a
+    /// change is never left unsealed.
     /// </summary>
+    /// <param name="containerSlot">The container's table slot.</param>
+    /// <returns>True when the container is (now) in the touched set.</returns>
+    public bool EnsureTouched(ushort containerSlot)
+    {
+        int index = IndexOf(containerSlot);
+        InventoryAssert.That(index >= 0, SimAssertCode.InventoryPlanContainerNotTouched);
+        return index >= 0 || Touch(containerSlot) >= 0;
+    }
+
+    /// <summary>Marks a touched container changed (the mutator primitives call this after <see cref="EnsureTouched"/>); an untouched slot is ignored.</summary>
     /// <param name="containerSlot">The container's table slot.</param>
     public void MarkMutated(ushort containerSlot)
     {
         int index = IndexOf(containerSlot);
-        InventoryAssert.That(index >= 0, SimAssertCode.InventoryPlanContainerNotTouched);
-        if (index < 0)
-        {
-            index = Touch(containerSlot);
-        }
-
         if (index >= 0)
         {
             _mutatedMask |= (byte)(1 << index);

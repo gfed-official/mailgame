@@ -204,7 +204,7 @@ public static class SimAssertCode
     /// <summary>An <c>InvPlan</c> capacity was exceeded by a handler (a programming limit, not genuine exhaustion): more than <c>InvPlan.MaxAcquiredBlocks</c> planned arena blocks (Release marks the plan overflowed and the reservation step conservatively rejects with <c>capacity_exhausted</c> 85). A fifth touched container is not an assert: <c>InvPlan.Touch</c> returns -1 and <c>Validate</c> refuses the op before any mutation. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryPlanCapacityExceeded = 64;
 
-    /// <summary>An <c>InventoryMutator</c> primitive changed a container that <c>Validate</c> did not put in the plan's touched set (<c>InvPlan.MarkMutated</c> on an untouched slot). Release touches it then, so it is still sealed when the set has room. <c>INVENTORY_ASSERT</c>.</summary>
+    /// <summary>An <c>InventoryMutator</c> primitive changed a container that <c>Validate</c> did not put in the plan's touched set (<c>InvPlan.EnsureTouched</c>, checked before the primitive changes anything). Release touches it then, so it is still sealed when the set has room; when the set is full the primitive changes nothing. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryPlanContainerNotTouched = 65;
 
     /// <summary><c>EventLog.TryRaiseContinuation</c> was called with no open call scope, or not directly after an entry of the same kind and <c>CallSeq</c> (an orphan chunk). Release appends it anyway (nothing is lost; the adapter attaches it to whatever precedes it). <c>SIM_ASSERT</c>.</summary>

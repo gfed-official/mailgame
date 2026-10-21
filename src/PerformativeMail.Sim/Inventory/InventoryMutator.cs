@@ -109,6 +109,11 @@ internal sealed class InventoryMutator
             return; // Release: a free or already placed entry is not placed again (nothing changed, nothing raised)
         }
 
+        if (!plan.EnsureTouched(containerSlot))
+        {
+            return; // Release: Validate broke the touch contract and the set is full, so nothing is changed unsealed
+        }
+
         ref ContainerHeader h = ref _containers[containerSlot];
         Footprint.Canonicalise(e.W, e.H, ref rotated);
         Footprint.Effective(e.W, e.H, rotated, out int fw, out int fh);
@@ -136,6 +141,11 @@ internal sealed class InventoryMutator
         }
 
         ushort containerSlot = e.ContainerSlot;
+        if (!plan.EnsureTouched(containerSlot))
+        {
+            return;
+        }
+
         ref ContainerHeader h = ref _containers[containerSlot];
         Footprint.Effective(e.W, e.H, e.Rotated, out int fw, out int fh);
         _occupancy.Clear(containerSlot, h.W, h.H, e.X, e.Y, fw, fh);
@@ -171,6 +181,11 @@ internal sealed class InventoryMutator
         ushort fromSlot = e.ContainerSlot;
         if (fromSlot != toSlot)
         {
+            if (!plan.EnsureTouched(fromSlot) || !plan.EnsureTouched(toSlot))
+            {
+                return; // both checked before the Remove, so the entry is never left detached
+            }
+
             Remove(ref plan, entrySlot);
             Place(ref plan, entrySlot, toSlot, x, y, rotated);
             return;
@@ -179,6 +194,11 @@ internal sealed class InventoryMutator
         if (e.X == x && e.Y == y && e.Rotated == rotated)
         {
             return; // onto its own cells: a no-op bumps nothing and raises nothing (ADR-0009 section 3)
+        }
+
+        if (!plan.EnsureTouched(fromSlot))
+        {
+            return;
         }
 
         ref ContainerHeader h = ref _containers[fromSlot];

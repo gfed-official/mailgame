@@ -310,6 +310,7 @@ public class InventoryEventsTests
             EventEntry[] inventoryEntries = log.Where(x => x.Kind != EventKind.OpReply).ToArray();
             Assert.NotEmpty(inventoryEntries);
             Assert.All(inventoryEntries, x => Assert.Equal(1 << SlotA, x.Audience));
+            Assert.All(inventoryEntries, x => Assert.Equal(ReplicationClass.Targeted, x.Class)); // pinned deviation, TD-114
             Assert.Empty(InvEventRig.DeliveredTo(log, SlotB));
         }
 
@@ -543,6 +544,39 @@ public class InventoryEventsTests
 
         Assert.Equal(before, rig.Snapshot());
         Assert.Equal(0, plan.MutatedCount);
+    }
+
+    [Fact]
+    public void Transfer_WithTheTouchedSetFullOfOtherContainers_AssertsBeforeAnyChange_OrChangesNothingInRelease()
+    {
+        // Arrange: Validate broke the touch contract and filled the set with four other containers
+        var rig = new InvEventRig();
+        EntryId e = rig.AddMail(rig.Chest, 0, 0, new uint[] { 5 });
+        Assert.True(rig.Inventory.Entries.TryGetSlot(e, out ushort entry));
+        ushort to = rig.SlotOf(rig.InventoryA);
+        var plan = new InvPlan();
+        for (ushort i = 0; i < InvPlan.MaxTouched; i++)
+        {
+            Assert.True(plan.Touch((ushort)(200 + i)) >= 0);
+        }
+
+        List<long> before = rig.Snapshot();
+        InventoryMutator m = rig.Inventory.Mutator;
+
+        // Act + Assert: never a change the plan cannot seal (the entry is not left detached either)
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException thrown = Assert.Throws<SimAssertException>(() => m.Transfer(ref plan, entry, to, 0, 0, false));
+            Assert.Equal(SimAssertCode.InventoryPlanContainerNotTouched, thrown.Code);
+        }
+        else
+        {
+            m.Transfer(ref plan, entry, to, 0, 0, false);
+        }
+
+        Assert.Equal(before, rig.Snapshot());
+        Assert.Equal(0, plan.MutatedCount);
+        Assert.Equal(InvPlan.MaxTouched, plan.TouchedCount);
     }
 
     [Fact]

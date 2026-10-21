@@ -15,7 +15,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// byte audience = subscribers.Mask(chestSlot);
 /// </code>
 /// </example>
-public sealed class ContainerSubscribers
+internal sealed class ContainerSubscribers
 {
     private readonly byte[] _masks;
 
