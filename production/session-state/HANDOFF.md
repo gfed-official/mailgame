@@ -40,7 +40,7 @@
 - **UX specs:** `design/ux/inventory-panel.md`, `design/ux/throwing-catching.md` (+ two UNREVIEWED seeds).
 - **Architecture:** `docs/architecture/architecture.md` v1.2; **19 ADRs Accepted** (0001–0017, 0019, 0026); `docs/architecture/control-manifest.md` (version 2026-10-16.2); `docs/architecture/tr-registry.yaml` (250 TRs); `docs/registry/architecture.yaml`. Godot .NET spike (`prototypes/spike-godot-dotnet/`) PASS; input spike (`prototypes/spike-oq-ic-9-input/REPORT.md`) GO-WITH-DELTAS.
 - **Code:** `PerformativeMail.sln` — `src/PerformativeMail.Sim` (Godot-free, net8.0), `src/PerformativeMail.Client.Core` (net8.0), `tools/PerformativeMail.Analyzers`, one xUnit v3 test project `tests/PerformativeMail.Sim.Tests` (compiles `tests/unit/**`, `tests/integration/**`). 4,205 tests per leg, four legs (net10/net8 × Debug/Release). No Godot game project yet (that's the godot-host-shell epic).
-- **Tech debt:** `docs/tech-debt-register.md` (TD-001…TD-106 as of 2026-10-20 — TD-105 is grid-inventory 004's, in open PR #4; several ADR errata waiting — see below).
+- **Tech debt:** `docs/tech-debt-register.md` (TD-001…TD-106 as of 2026-10-20 — TD-105 is grid-inventory 004's, merged in PR #4; several ADR errata waiting — see below).
 
 ### Story progress (production/epics/, index in production/epics/index.md, order in production/epics/implementation-order.md)
 
