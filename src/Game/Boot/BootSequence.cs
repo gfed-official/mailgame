@@ -71,7 +71,7 @@ public sealed class BootSequence
 
     /// <summary>
     /// Reports a failure that happened before any step could run (building or checking the plan) the same way a failing
-    /// step is reported: as step 0 <c>plan</c>, line <c>BOOT plan FAIL …</c>, boot error screen, one boot-fault call.
+    /// step is reported: as step 0 <c>plan</c>, line <c>BOOT 0 plan FAIL …</c>, boot error screen, one boot-fault call.
     /// </summary>
     /// <param name="ctx">The boot context.</param>
     /// <param name="ex">What went wrong.</param>
@@ -80,7 +80,7 @@ public sealed class BootSequence
     {
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(ex);
-        Abort(ctx, new BootFailure(0, "plan", BootFailureKind.Boot, ex), $"BOOT plan FAIL {Summarize(ex)}");
+        Abort(ctx, new BootFailure(0, "plan", BootFailureKind.Boot, ex), $"BOOT 0 plan FAIL {Summarize(ex)}");
     }
 
     /// <summary>Runs the steps in order until one throws.</summary>

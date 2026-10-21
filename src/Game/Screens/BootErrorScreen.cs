@@ -101,6 +101,9 @@ public partial class BootErrorScreen : Control, IFaultSink, IBootFailureDisplay
     public void PrepareBootFailure(BootFailure failure) =>
         _announced = failure ?? throw new ArgumentNullException(nameof(failure));
 
+    /// <summary>Forgets a prepared failure whose fault will not be delivered (the loop had already faulted).</summary>
+    public void DropBootFailure() => _announced = null;
+
     /// <inheritdoc />
     public void OnFault(string message)
     {

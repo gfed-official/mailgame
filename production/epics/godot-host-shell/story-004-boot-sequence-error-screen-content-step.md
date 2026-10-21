@@ -103,16 +103,17 @@
 **Completed**: 2026-10-21
 **Criteria**: 8/8 passing.
 - AC1, AC2, AC4, AC6: `boot-order` (77 assertions) and `tests/unit/boot/BootSequenceTests.cs`.
-- AC3, AC5: `boot-failure` passes a–e (105 assertions), `boot-failure-exit4` (exit 4, `src/Game/Smoke/BootFailedExitSmoke.cs`) and unit tests.
+- AC3, AC5: `boot-failure` passes a–e (112 assertions), `boot-failure-exit4` (exit 4, `src/Game/Smoke/BootFailedExitSmoke.cs`) and unit tests.
 - AC7: both PNGs captured windowed with `--write-movie` at 1280×720 and looked at (`Run result: OBSERVED` lines in the evidence file).
 - AC8: `selftest-needs-boot` expects 0; `main-tree-noboot` (26 assertions) runs; `--smoke=list` shows the new `expect=` values.
 
+- Review advisories A3–A6 (2026-10-21): fixed A3 (plan failure logs `BOOT 0 plan FAIL …`, read by both status-line parsers), A4 (passes a–c arm the rig, so `StartPending == False` after the fault is a real check) and A6 (`FaultBoot` on an already-faulted loop drops the announced step via `BootErrorScreen.DropBootFailure`; pass d proves it). Logged A5 (`RequestBoot` throws instead of reaching the error screen on a wrong-thread or pre-`_Ready` call) as TD-128 item 7.
 Nothing is deferred. 4.7.1 behaviour is UNVERIFIED: every run used Godot 4.7.2 mono, which the owner approved.
 
 **Deviations** (advisory):
 - (1) **Screenshot command.** Movie Maker fixes its frame size from the project's 1600×900 window override at startup and ignores `--resolution`. The retained 1280×720 frames were captured with a temporary `override.cfg`, deleted afterwards (command in the evidence file; TD-128 item 4). The capture seams also resize the window to 1280×720 and assert it when windowed.
 - (2) **`main-tree-noboot` controls.** Besides the AutoBoot=false counter (0), it has an explicit-`RequestBoot` control and an AutoBoot=true `_Ready` control. A debug seam `GameLoop.SmokeArgsIgnored` (internal) lets those second instances take the production `_Ready` path.
-- (3) **Plan-construction failures.** A throw while building or checking the plan inside `RequestBoot` is reported as step 0 `plan` through `BootSequence.FailBeforeFirstStep` (`BOOT plan FAIL …`, boot error screen), the same path a failing step takes.
+- (3) **Plan-construction failures.** A throw while building or checking the plan inside `RequestBoot` is reported as step 0 `plan` through `BootSequence.FailBeforeFirstStep` (`BOOT 0 plan FAIL …`, the `BOOT <n> <name> FAIL` shape the log parsers read; boot error screen), the same path a failing step takes.
 - (4) **Frame-fault message format.** `GameLoop`'s frame-fault message now uses the same `BootSequence.Summarize` format, which adds the `SimBuildException` code name. That changes the format for `SimBuildException` only.
 - (5) **Engine-free boot core.** It lives in `src/Game/Boot/` behind `IBootWindow` (`GodotBootWindow` is the adapter) and is compiled into the xUnit project (`GodotBootWindow.cs` excluded). Because of the link, a reference from Boot code to `src/Game/Smoke/` fails the test build.
 

@@ -12,7 +12,7 @@
 |---|---|---|---|
 | `main-tree` | 0 | 0 | `SMOKE RESULT name=main-tree pass=43 fail=0 exit=0` |
 | `boot-order` | 0 | 0 | `SMOKE RESULT name=boot-order pass=77 fail=0 exit=0` |
-| `boot-failure` | 0 | 0 | `SMOKE RESULT name=boot-failure pass=105 fail=0 exit=0` |
+| `boot-failure` | 0 | 0 | `SMOKE RESULT name=boot-failure pass=112 fail=0 exit=0` |
 | `boot-failure-exit4` | 4 | 4 | `SMOKE RESULT name=boot-failure-exit4 pass=0 fail=1 exit=4` |
 | `main-tree-noboot` | 0 | 0 | `SMOKE RESULT name=main-tree-noboot pass=26 fail=0 exit=0` |
 | `screen-boot-error` (headless) | 0 | 0 | `SMOKE RESULT name=screen-boot-error pass=11 fail=0 exit=0` |
@@ -98,14 +98,14 @@ b-sim-build:   screen text: The game could not start | Failed at boot step 6 (si
 c-content:     screen text: The game content could not be loaded | Failed at boot step 2 (content). | InvalidOperationException: The M-1a built-in content does not validate (injected by the smoke harness): CV-GEN-01 items: duplicate id 'letter_small' CV-MAIL-04 mail_mixes 'm1a_street': kind shares sum to 950 permille, expected 1000
 ```
 
-Each of passes a–c runs `BootSequence` on a context from the debug-only `GameLoop.BeginBootForSmoke()` and asserts:
+Each of passes a–c installs the rig armed (`StartPending == True` before boot, so the latch has to clear it), runs `BootSequence` on a context from the debug-only `GameLoop.BeginBootForSmoke()` and asserts:
 - synchronously after the failing step: `IsFaulted`, `StartPending == False`, exactly one `[GameLoop] FAULT` line carrying the full type and the stack, the recorded `BootFailure` (step, name, kind), the `BOOT n name FAIL` line, no line for a later step (for c, no `BOOT 3` line at all), and for c no `ContentSet` in the context;
 - one frame later: `BootErrorScreen.FaultsReceived` +1 on the `BootError` sink, the `ContentError` panel never called as a sink, the right panel visible and the other hidden, the sink state (`Shown.BootStep` / `Shown.ContentStep`), the heading, the type/message/code in the message label, the step in the "Failed at boot step n (name)." line, and Quit visible;
 - three frames later: run-frame calls still 0, and still faulted.
 
-Pass d checks a clean boot followed by a frame fault: `BootError` shows "The game stopped after an error" with the frame exception (sink state `Shown.SessionFault`).
+Pass d first reports a step-0 boot failure on the loop still faulted by c: it is logged as not delivered, the sink is not called, and its announced step is dropped. Then it installs the rig unarmed (`StartPending == False`, so boot step 9 must arm it) and checks a clean boot followed by a frame fault: `BootError` shows "The game stopped after an error" with the frame exception (sink state `Shown.SessionFault`).
 
-Pass e runs the production `RequestBoot()` → `FaultBoot` path on a second `Main.tscn` instance. The debug-only `GameLoop.InstallBootStepsForSmoke` gives it a plan whose step numbers are out of order, so `BootSequence` rejects it before step 1 (`BootSequence.FailBeforeFirstStep`). It asserts that `RequestBoot()` returns false, `IsFaulted` is set, there is one FAULT line and a `BOOT plan FAIL ArgumentException: …` line, and the second call returns false with `boot already ran`. One frame later the instance's own `BootError` shows "Failed at boot step 0 (plan)." with Quit visible and focused, the focus coming through the production `RequestBoot` path.
+Pass e runs the production `RequestBoot()` → `FaultBoot` path on a second `Main.tscn` instance. The debug-only `GameLoop.InstallBootStepsForSmoke` gives it a plan whose step numbers are out of order, so `BootSequence` rejects it before step 1 (`BootSequence.FailBeforeFirstStep`). It asserts that `RequestBoot()` returns false, `IsFaulted` is set, there is one FAULT line and a `BOOT 0 plan FAIL ArgumentException: …` line (which `BootSmokeFaults.StatusLines` reads as `0 plan FAIL`, asserted), and the second call returns false with `boot already ran`. One frame later the instance's own `BootError` shows "Failed at boot step 0 (plan)." with Quit visible and focused, the focus coming through the production `RequestBoot` path.
 
 ## Retained screenshots (windowed `--write-movie`, never `--headless`)
 

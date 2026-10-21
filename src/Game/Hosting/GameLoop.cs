@@ -214,7 +214,8 @@ public partial class GameLoop : Node
     /// which step failed. It is the frame-fault path: the fault latch is set (<see cref="IsFaulted"/>, no pending start),
     /// one <c>[GameLoop] FAULT</c> line with the exception is logged, <see cref="FaultSink"/> receives
     /// <see cref="BootSequence.Summarize"/> of it once, and <c>RunFrame</c> is never called afterwards. On a loop that has
-    /// already faulted it only logs the exception: the first fault keeps the screen.
+    /// already faulted it only logs the exception and drops the failure announced to <see cref="BootErrorPanel"/>: the first
+    /// fault keeps the screen.
     /// </summary>
     /// <param name="ex">The exception that failed boot.</param>
     /// <exception cref="ArgumentNullException"><paramref name="ex"/> is null.</exception>
@@ -223,7 +224,9 @@ public partial class GameLoop : Node
         ArgumentNullException.ThrowIfNull(ex);
         if (_faulted)
         {
-            // The session already ended: the first fault keeps the screen; this one is only logged.
+            // The session already ended: the first fault keeps the screen; this one is only logged, and the step it
+            // announced is dropped so that a later fault is not shown as that step.
+            BootErrorPanel?.DropBootFailure();
             Error($"[GameLoop] boot fault after the loop had already faulted (not delivered): {BootSequence.Summarize(ex)}");
             return;
         }

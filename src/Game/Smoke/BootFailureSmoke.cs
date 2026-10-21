@@ -10,14 +10,15 @@ namespace PerformativeMail.Game.Smoke;
 /// <summary>
 /// Story godot-host-shell/004 AC3 and AC5 (ADR-0019 sections 1 and 3, ADR-0003 Risks): a failing boot step shows the
 /// <c>Main/Screens</c> error screen and stops. Each pass installs a fresh <see cref="FrameLoopRig"/> sequence with
-/// <c>InstallForSmoke</c> (which clears the fault latch), runs <see cref="BootSequence"/> itself on a context from
-/// <see cref="GameLoop.BeginBootForSmoke"/>, asserts the latch at once (<c>IsFaulted</c>, <c>StartPending == false</c>,
+/// <c>InstallForSmoke</c> (which clears the fault latch; armed for a-c, unarmed for d), runs <see cref="BootSequence"/>
+/// itself on a context from <see cref="GameLoop.BeginBootForSmoke"/>, asserts the latch at once (<c>IsFaulted</c>, <c>StartPending == false</c>,
 /// one <c>[GameLoop] FAULT</c> line, later steps not run) and, one frame later (the sink may be delivered deferred), that
 /// <c>BootErrorScreen</c> — the single fault sink — was called once and shows the right screen with the exception type,
 /// message and (b) code name, Quit visible, and <c>RunFrame</c> never called. Passes: (a) a throwing step-4 contributor;
 /// (b) step 6 throwing <c>SimBuildException(ReservedPhase)</c>; (c) a throwing content source (<c>ContentError</c> shows,
 /// <c>BootError</c> does not, no <c>BOOT 3</c> line); (d) a clean boot followed by a frame fault shows the same
-/// <c>BootError</c> screen with the session-fault title; (e) the production entry on a second <c>Main.tscn</c> instance
+/// <c>BootError</c> screen with the session-fault title, after a boot fault suppressed on the still-faulted loop left no
+/// step behind; (e) the production entry on a second <c>Main.tscn</c> instance
 /// (<c>AutoBoot = false</c>): the debug-only <see cref="GameLoop.InstallBootStepsForSmoke"/> gives it a plan the sequence
 /// rejects (numbers out of order), so <c>RequestBoot()</c> returns false through <c>FaultBoot</c>, the instance's
 /// <c>BootError</c> shows step 0 (plan), and a second call is refused with the same false.
@@ -103,9 +104,17 @@ public sealed class BootFailureSmoke : SmokeScenario
         }
 
         GameLoop loop = ctx.Loop;
+        if (name == "d-frame-fault")
+        {
+            DropSuppressedBootFault(ctx);
+        }
+
+        // Passes a-c start armed so that the latch must clear StartPending; d starts unarmed so that boot step 9 must arm it.
+        bool armed = name != "d-frame-fault";
         _rig = new FrameLoopRig(preHooks: 1, postHooks: 1);
-        loop.InstallForSmoke(_rig.Sequence, armStart: false);
+        loop.InstallForSmoke(_rig.Sequence, armStart: armed);
         Expect(ctx, $"{name}: fresh install clears the fault latch", loop.IsFaulted, false);
+        Expect(ctx, $"{name}: StartPending before boot", loop.StartPending, armed);
         loop.LogObserver = _log.Observer;
         _boot = loop.BeginBootForSmoke();
         Expect(ctx, $"{name}: FaultSink is the BootError screen before step 1", ReferenceEquals(loop.FaultSink, _screen), true);
@@ -142,6 +151,18 @@ public sealed class BootFailureSmoke : SmokeScenario
         }
     }
 
+    // Before (d), on the loop still faulted by (c): a boot failure whose fault is suppressed (the first fault keeps the
+    // screen) must not leave its announcement behind, or (d)'s frame fault would be shown as that boot step.
+    private void DropSuppressedBootFault(SmokeContext ctx)
+    {
+        GameLoop loop = ctx.Loop;
+        int faultsBefore = _screen.FaultsReceived;
+        BootSequence.FailBeforeFirstStep(loop.BeginBootForSmoke(), new InjectedFaultException("suppressed boot fault"));
+        Expect(ctx, "d-frame-fault: a boot fault on a faulted loop is not delivered", _screen.FaultsReceived - faultsBefore, 0);
+        Expect(ctx, "d-frame-fault: suppressed boot fault logged", _log.Count("[GameLoop] boot fault after the loop had already faulted"), 1);
+        _log.Clear();
+    }
+
     // (e): the production RequestBoot -> FaultBoot path, on a second Main.tscn instance (one boot per GameLoop).
     private void StartRequestBoot(SmokeContext ctx)
     {
@@ -159,7 +180,8 @@ public sealed class BootFailureSmoke : SmokeScenario
         Expect(ctx, "e-request-boot: IsFaulted", second.IsFaulted, true);
         Expect(ctx, "e-request-boot: StartPending", second.StartPending, false);
         Expect(ctx, "e-request-boot: one [GameLoop] FAULT line", _log.Count("[GameLoop] FAULT "), 1);
-        Expect(ctx, "e-request-boot: BOOT plan FAIL logged", BootSmokeFaults.Logged(second.BootLines, $"BOOT plan FAIL {nameof(ArgumentException)}: "), true);
+        Expect(ctx, "e-request-boot: BOOT 0 plan FAIL logged", BootSmokeFaults.Logged(second.BootLines, $"BOOT 0 plan FAIL {nameof(ArgumentException)}: "), true);
+        Expect(ctx, "e-request-boot: status lines (a log parser sees the plan FAIL)", string.Join(";", BootSmokeFaults.StatusLines(second.BootLines).Select(s => $"{s.Number} {s.Name} {s.Status}")), "0 plan FAIL");
         Expect(ctx, "e-request-boot: second RequestBoot after the failed boot returns the first result", second.RequestBoot(), false);
         Expect(ctx, "e-request-boot: second call refused ('[GameLoop] boot already ran')", _log.Count("[GameLoop] boot already ran"), 1);
         Expect(ctx, "e-request-boot: RequestBoot call count", second.BootAttempts, 2);

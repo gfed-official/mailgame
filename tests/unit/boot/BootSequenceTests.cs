@@ -378,7 +378,8 @@ public class BootSequenceTests
         BootSequence.FailBeforeFirstStep(h.Context, rejected);
 
         Assert.Equal(new BootFailure(0, "plan", BootFailureKind.Boot, rejected), h.Context.Failure);
-        Assert.Equal(["BOOT plan FAIL ArgumentException: plan out of order"], h.Log.Lines);
+        Assert.Equal(["BOOT 0 plan FAIL ArgumentException: plan out of order"], h.Log.Lines);
+        Assert.Equal(h.Log.Lines, h.StatusLines());
         Assert.Equal(["prepare 0 Boot", "fault ArgumentException"], h.Record);
         Assert.Same(rejected, Assert.Single(h.Faults));
     }
