@@ -158,4 +158,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–004 are Complete (004 in PR #17). Next in this epic is 005, which needs player-character 019/020 (020 held on the Panel-channel errata); 006–010 chain from 005, and 007 also needs content-data 019 (ADR-0010). Run `/story-readiness` on 005 once those are Complete. Stories 001–003 need only simulation-core 001/010/024 and network-adapter-loopback 001; stories 005 onward need the loopback session (network-adapter-loopback 007), `BuiltInContent` (content-data 008) and the world-stub street (world-stub 006/007) to be Done first (epics index order 1–7).
+Stories 001–004 are Complete (004 in PR #17). Next in this epic is 005, which needs player-character 019/020; 006–010 chain from 005, and 007 also needs content-data 019. Run `/story-readiness` on 005 once those are Complete. Stories 001–003 need only simulation-core 001/010/024 and network-adapter-loopback 001; stories 005 onward need the loopback session (network-adapter-loopback 007), `BuiltInContent` (content-data 008) and the world-stub street (world-stub 006/007) to be Done first (epics index order 1–7).
