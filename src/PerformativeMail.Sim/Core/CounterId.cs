@@ -152,4 +152,7 @@ public enum CounterId : ushort
 
     /// <summary>A mutating <c>I…Api</c> method was called outside a tick phase (ADR-0003 section 5: legal only while <c>Stage == InPhase</c> and <c>Phase</c> is at most <c>RunStep</c>); the call was refused with nothing mutated and no event. Asserts under <c>SIM_ASSERT</c> (<c>TickGuard</c>).</summary>
     MutatingApiOutOfPhase = 45,
+
+    /// <summary>Inventory WorldItem cap eviction: one per candidate visit = one expiry-FIFO node inspected by the eviction path (GDD H-PERF-6d; ADR-0009 section 5): a head read that was not already verified since it last changed, and each stale tombstone popped on the way. A head the <c>ItemsExpire</c> pass or an earlier eviction already verified is not read again and counts nothing; comparing two known heads counts nothing (story grid-inventory/013; key <c>inventoryWorldItemCapCandidates</c>). A probe counter (H-PERF-6d: at most items created + 1 per tick), compiled into Release, not in the canonical dump.</summary>
+    InventoryWorldItemCapCandidates = 46,
 }
