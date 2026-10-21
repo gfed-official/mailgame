@@ -887,7 +887,8 @@ public class AutoPlaceTests
     {
         // Arrange: chest 5 letters (ids 10..14) at (0,0); inventory 3 letters (20..22) at (0,0)
         var rig = new InvAutoPlaceRig();
-        rig.Inventory.Subscribers.Set(SlotOfChest(rig, out ushort chest), 0b1);
+        ushort chest = rig.CreateGrid(8, 4);
+        rig.Inventory.Subscribers.Set(chest, 0b1);
         ushort source = rig.PlaceMail(chest, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(10, 5));
         ushort target = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, new uint[] { 20, 21, 22 });
         uint chestV = rig.Header(chest).Version;
@@ -1130,12 +1131,6 @@ public class AutoPlaceTests
         }
 
         return values;
-    }
-
-    private static ushort SlotOfChest(InvAutoPlaceRig rig, out ushort chest)
-    {
-        chest = rig.CreateGrid(8, 4);
-        return chest;
     }
 
     private static bool PushDoubleStack(InvAutoPlaceRig rig)
