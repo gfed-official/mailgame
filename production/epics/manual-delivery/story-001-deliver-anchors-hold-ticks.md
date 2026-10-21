@@ -1,7 +1,7 @@
 # Story 001: Deliver anchors (MD1) — one `IInteractable` per destination at run start, and `GetHoldTicks` through the shared `holdEff` with `DeliverInsertPm` (F2, MD9)
 
 > **Epic**: Manual Delivery
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: S–M (~0.5–1 day; ~150 lines prod + ~200 lines tests)
