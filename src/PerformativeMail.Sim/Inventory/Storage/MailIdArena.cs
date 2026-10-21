@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Primitives;
 
@@ -317,28 +318,46 @@ public sealed class MailIdArena
     /// both copies of a duplicate, adjacent). A none input contributes nothing; two none inputs, or the same handle twice, yield
     /// false without a record (asserted). A result over <see cref="MaxUnits"/> ids, or exhaustion, yields false with one
     /// <see cref="CheckCode.InventoryArenaExhausted"/> record and nothing mutated (the block is acquired before anything is freed).
+    /// <para>
+    /// <paramref name="result"/> must not be the same variable as <paramref name="a"/> or <paramref name="b"/> (TD-104): an alias asserts
+    /// under <c>INVENTORY_ASSERT</c> (<see cref="SimAssertCode.InventoryArenaOutAliasesInput"/>) before anything is read or written. The
+    /// check is a reference comparison (<c>Unsafe.AreSame</c>) made before <paramref name="result"/> is written (<c>Unsafe.SkipInit</c>), and
+    /// the inputs are copied to locals first, so Release is still correct: a success frees the inputs' blocks (from the copies) and then
+    /// writes the union to <paramref name="result"/>; a failure leaves the aliased variable holding its input handle (instead of none).
+    /// </para>
     /// </summary>
     /// <param name="a">The first run.</param>
     /// <param name="b">The second run.</param>
     /// <param name="tick">The current tick (for the check record).</param>
-    /// <param name="result">The union's handle, or none.</param>
+    /// <param name="result">The union's handle, or none (or the aliased input, see above).</param>
     /// <returns>True when the union was stored and the inputs freed.</returns>
     public bool TryUnion(in MailIdsHandle a, in MailIdsHandle b, uint tick, out MailIdsHandle result)
     {
-        InventoryAssert.That(!(a.IsNone && b.IsNone) && a != b, SimAssertCode.InventoryArenaHandleInvalid);
-        if ((a.IsNone && b.IsNone) || a == b)
+        // TD-104: detect `out result` aliasing an input by address, before result is written (SkipInit writes nothing).
+        Unsafe.SkipInit(out result);
+        bool aliasA = Unsafe.AreSame(ref Unsafe.AsRef(in a), ref result);
+        bool aliasB = Unsafe.AreSame(ref Unsafe.AsRef(in b), ref result);
+        InventoryAssert.That(!aliasA && !aliasB, SimAssertCode.InventoryArenaOutAliasesInput);
+        MailIdsHandle first = a;
+        MailIdsHandle second = b;
+        MailIdsHandle onFailure = aliasA ? first : aliasB ? second : default;
+
+        InventoryAssert.That(!(first.IsNone && second.IsNone) && first != second, SimAssertCode.InventoryArenaHandleInvalid);
+        if ((first.IsNone && second.IsNone) || first == second)
         {
-            result = default;
+            result = onFailure;
             return false;
         }
 
-        if (!TryMerge(Read(in a), Read(in b), tick, out result))
+        if (!TryMerge(Read(in first), Read(in second), tick, out MailIdsHandle merged))
         {
+            result = onFailure;
             return false;
         }
 
-        Free(in a);
-        Free(in b);
+        Free(in first);
+        Free(in second);
+        result = merged;
         return true;
     }
 
