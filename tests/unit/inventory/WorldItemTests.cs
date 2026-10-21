@@ -3,7 +3,9 @@ using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Hosting;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Events;
+using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
+using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Inventory.World;
 using PerformativeMail.Sim.Primitives;
 
@@ -574,10 +576,264 @@ public class WorldItemTests
         Assert.Equal(exceededBefore + 400, w.R.Counters[CounterId.InventoryWorldItemCapExceeded]);
     }
 
+    // ---------------------------------------------------------------- tombstones (R7)
+
+    [Fact]
+    [Trait("Id", "H-R12-1")]
+    public void Tombstone_PickedUpWorldItem_ResolvesContainerGoneWithTheTakerAndTaken_For30s_ThenStaleEntry()
+    {
+        // Arrange: a plank dropped at 100 is picked up by player A at 200 (story 014's hook)
+        var w = new WorldItemRig();
+        ushort plank = w.R.DetachedItem("plank", 2);
+        EntityId item = w.Create(100, plank);
+        ushort handedBack = 0;
+        bool removed = w.At(200, () => w.World.Remove(item, w.R.PlayerA, InvCause.Taken, out handedBack));
+        EventEntry[] log = w.R.Sink.Last;
+
+        // Act: a later op names it at 200 + 900 (still alive) and 200 + 901 (dead)
+        (ushort Reason, uint By, InvCause Cause) at1100 = w.At(1_100, () => Resolve(w, item));
+        (ushort Reason, uint By, InvCause Cause) at1101 = w.At(1_101, () => Resolve(w, item));
+
+        // Assert
+        Assert.True(removed);
+        Assert.Equal(plank, handedBack);
+        Assert.Equal(EntryRecord.NoContainer, w.R.Entries[plank].ContainerSlot);
+        Assert.True(w.R.Entries[plank].IsLive); // the entry is the picker's now (story 014 places it)
+        WorldItemDespawnedPayload gone = Assert.Single(Heads(log, InvEventKinds.WorldItemDespawned)).PayloadAs<WorldItemDespawnedPayload>();
+        Assert.Equal(w.R.PlayerA.Value, gone.ByActorId);
+        Assert.Equal((byte)InvCause.Taken, gone.Cause);
+        Assert.Equal(((ushort)InvReason.ContainerGone, w.R.PlayerA.Value, InvCause.Taken), at1100);
+        Assert.Equal(((ushort)InvReason.StaleEntry, 0u, InvCause.None), at1101);
+        Assert.False(w.At(1_102, () => w.World.Remove(item, w.R.PlayerA, InvCause.Taken, out _))); // second pickup: not live
+    }
+
+    [Fact]
+    public void Tombstone_ExpiredMail_IsExpired_DestroyedPlank_IsDestroyed_EvictedItemsAlike_ByTheSystemActor()
+    {
+        // Arrange: a letter and a plank dropped at 10 (expire 9010); later 512 planks fill the cap and a 513th evicts the oldest
+        var w = new WorldItemRig();
+        EntityId letter = w.Create(10, w.R.DetachedMail("letter", Address, new[] { 123u }));
+        EntityId plank = w.Create(11, w.R.DetachedItem("plank", 1));
+        w.AdvanceTo(9_012);
+        EntityId[] fill = w.CreateOnePerTick(9_012, 512, _ => w.R.DetachedItem("plank", 1));
+        EntityId latest = w.Create(9_600, w.R.DetachedItem("plank", 1));
+
+        // Act
+        (ushort Reason, uint By, InvCause Cause)[] r = w.At(9_601, () => new[] { Resolve(w, letter), Resolve(w, plank), Resolve(w, fill[0]), Resolve(w, latest) });
+
+        // Assert: within 30 s of each removal; the evicted plank and the destroyed one both say destroyed; the live one resolves 0
+        Assert.Equal(((ushort)InvReason.ContainerGone, ActorId.System.Value, InvCause.Expired), r[0]);
+        Assert.Equal(((ushort)InvReason.ContainerGone, ActorId.System.Value, InvCause.Destroyed), r[1]);
+        Assert.Equal(((ushort)InvReason.ContainerGone, ActorId.System.Value, InvCause.Destroyed), r[2]);
+        Assert.Equal(((ushort)0, 0u, InvCause.None), r[3]);
+    }
+
+    [Fact]
+    public void Tombstone_EvictedMail_IsExpired_AndANeverAllocatedOrForeignClassIdIsBadRequest()
+    {
+        // Arrange: one old letter + 511 planks; a 513th evicts the letter (lossless)
+        var w = new WorldItemRig();
+        EntityId letter = w.Create(10, w.R.DetachedMail("letter", Address, new[] { 321u }));
+        _ = w.CreateOnePerTick(11, 511, _ => w.R.DetachedItem("plank", 1));
+        w.Create(900, w.R.DetachedItem("plank", 1));
+
+        // Act
+        (ushort Reason, uint By, InvCause Cause)[] r = w.At(901, () => new[]
+        {
+            Resolve(w, letter),
+            Resolve(w, EntityId.Compose(EntityClass.WorldItem, 100_000)),
+            Resolve(w, EntityId.Compose(EntityClass.Player, 1)),
+        });
+
+        // Assert
+        Assert.Equal(((ushort)InvReason.ContainerGone, ActorId.System.Value, InvCause.Expired), r[0]);
+        Assert.Equal(CoreReason.BadRequest, r[1].Reason);
+        Assert.Equal(CoreReason.BadRequest, r[2].Reason);
+    }
+
+    // ---------------------------------------------------------------- interim full-Intake rule (until story 021)
+
+    [Fact]
+    public void Interim_IntakeFullAtExpiry_TheMailWorldItemStaysAtItsHead_NothingLost_RetriedEachTick_FifoOrderKept()
+    {
+        // Arrange: letters 500 (dropped 1000) and 501 (dropped 1001) on the ground; a plank dropped 1002; the Intake is full
+        var w = new WorldItemRig();
+        ushort first = w.R.DetachedMail("letter", Address, new[] { 500u });
+        ushort second = w.R.DetachedMail("letter", Address, new[] { 501u });
+        EntityId a = w.Create(1000, first);
+        EntityId b = w.Create(1001, second);
+        EntityId plank = w.Create(1002, w.R.DetachedItem("plank", 1));
+        IntakeSpawnOutfeedTests.FillIntake(w.R, 320, 1);
+        long retriesBefore = w.R.Counters[CounterId.InventoryWorldItemReturnRetries];
+
+        // Act 1: ticks 10000..10004 with the Intake full
+        w.AdvanceTo(10_005);
+
+        // Assert 1: both letters are still WorldItems with their mail, at the FIFO in order; the plank (another FIFO) expired on time;
+        // one retry per blocked attempt: 10000 (a), 10001 (a; b waits behind it), ... = 5
+        Assert.True(w.World.Table.TryGetSlot(a, out _));
+        Assert.True(w.World.Table.TryGetSlot(b, out _));
+        Assert.False(w.World.Table.TryGetSlot(plank, out _));
+        Assert.Equal(new[] { 500u }, w.R.IdsOf(first));
+        Assert.Equal(EntryRecord.NoContainer, w.R.Entries[first].ContainerSlot);
+        Assert.Equal(a.Value, w.World.Fifos.IdAt(ExpiryFifo.MailWorldItem, 0));
+        Assert.Equal(b.Value, w.World.Fifos.IdAt(ExpiryFifo.MailWorldItem, 1));
+        Assert.Equal(retriesBefore + 5, w.R.Counters[CounterId.InventoryWorldItemReturnRetries]);
+
+        // Act 2: one Intake cell frees in tick 10005 (a belt takes one unit); 10006 runs expiry
+        Assert.True(w.At(10_005, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
+        w.AdvanceTo(10_007);
+
+        // Assert 2: the head (500) returned first, 501 still waits; then a second cell frees and 501 follows
+        Assert.False(w.World.Table.TryGetSlot(a, out _));
+        Assert.Equal(w.R.Intake, w.R.Entries[first].ContainerSlot);
+        Assert.True(w.World.Table.TryGetSlot(b, out _));
+        Assert.True(w.At(10_007, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
+        w.AdvanceTo(10_009);
+        Assert.False(w.World.Table.TryGetSlot(b, out _));
+        Assert.Equal(w.R.Intake, w.R.Entries[second].ContainerSlot);
+        Assert.True(w.R.Entries[second].ArrivalSeq > w.R.Entries[first].ArrivalSeq);
+    }
+
+    [Fact]
+    public void Interim_IntakeFullAtCapEviction_AnOldLetterIsNotEvicted_TheLowestPlankIs_AndAllMailOverflowsTheCap()
+    {
+        // Arrange: one old letter (10) + 511 planks (11..521); the Intake is full
+        var w = new WorldItemRig();
+        ushort letterEntry = w.R.DetachedMail("letter", Address, new[] { 600u });
+        EntityId letter = w.Create(10, letterEntry);
+        EntityId[] planks = w.CreateOnePerTick(11, 511, _ => w.R.DetachedItem("plank", 1));
+        IntakeSpawnOutfeedTests.FillIntake(w.R, 320, 1);
+        long retriesBefore = w.R.Counters[CounterId.InventoryWorldItemReturnRetries];
+
+        // Act
+        w.Create(900, w.R.DetachedItem("plank", 1));
+        EventEntry[] log = w.R.Sink.Last;
+
+        // Assert: the letter could not return, so the non-mail rule applied; one retry counted
+        Assert.True(w.World.Table.TryGetSlot(letter, out _));
+        Assert.False(w.World.Table.TryGetSlot(planks[0], out _));
+        Assert.Equal(planks[0].Value, Assert.Single(Heads(log, InvEventKinds.ItemsLost)).PayloadAs<ItemsLostPayload>().WorldItemId);
+        Assert.Equal(512, w.World.LiveCount);
+        Assert.Equal(retriesBefore + 1, w.R.Counters[CounterId.InventoryWorldItemReturnRetries]);
+    }
+
+    [Fact]
+    public void Interim_IntakeFull_512OldLetters_A513th_NothingQualifies_OverTheCap_UntilACellFrees_ThenTheHeadIsEvicted()
+    {
+        // Arrange: 512 old letters; the Intake is full
+        var w = new WorldItemRig();
+        EntityId[] letters = w.CreateOnePerTick(10, 512, i => w.R.DetachedMail("letter", Address, new[] { 2_000u + (uint)i }));
+        IntakeSpawnOutfeedTests.FillIntake(w.R, 320, 1);
+
+        // Act 1
+        w.Create(900, w.R.DetachedMail("letter", Address, new[] { 9_999u }));
+        w.AdvanceTo(905);
+
+        // Assert 1: over the cap, re-checked each tick without effect, nothing lost
+        Assert.Equal(513, w.World.LiveCount);
+        Assert.True(w.World.Table.TryGetSlot(letters[0], out _));
+
+        // Act 2: a cell frees in 905; the re-check in 906 evicts the head losslessly
+        Assert.True(w.At(905, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
+        w.AdvanceTo(907);
+
+        // Assert 2
+        Assert.Equal(512, w.World.LiveCount);
+        Assert.False(w.World.Table.TryGetSlot(letters[0], out _));
+    }
+
+    // ---------------------------------------------------------------- dump and pins
+
+    [Fact]
+    public void Dump_InventorySectionCarriesWorldSeqTheItemsInIdOrderTheFifoOrderAndTheTombstones_IdenticalAcrossIdenticalWorlds()
+    {
+        // Arrange + Act
+        (WorldItemRig a, EntityId[] ids) = History();
+        (WorldItemRig b, _) = History();
+        byte[] sa = Section(DumpHash.Bytes(a.R.Host.World), SectionIds.Inventory);
+        byte[] sb = Section(DumpHash.Bytes(b.R.Host.World), SectionIds.Inventory);
+
+        // Assert: identical; the trailer after the container records is the documented layout
+        Assert.Equal(sa, sb);
+        int at = 8 + (a.Inv.Containers.LiveCount * ContainerRecordBytes);
+        Assert.Equal(a.World.WorldSeq, U32(sa, ref at));
+        Assert.Equal(3u, a.World.WorldSeq); // two spawns, one despawn
+        Assert.Equal(1u, U32(sa, ref at)); // one live item
+        Assert.Equal(ids[1].Value, U32(sa, ref at));
+        at += 4 + 12 + 4 + 4 + 3; // entryId, position, createdTick, expiresTick, origin, fifo, onWater
+        Assert.Equal(0u, U32(sa, ref at)); // mailWorldItem FIFO: empty
+        Assert.Equal(1u, U32(sa, ref at)); // nonMailWorldItem FIFO: the plank
+        Assert.Equal(ids[1].Value, U32(sa, ref at));
+        at += 3 * 4; // the three other FIFOs: empty
+        Assert.Equal(1u, U32(sa, ref at)); // one tombstone: the picked-up letter
+        Assert.Equal(ids[0].Value, U32(sa, ref at));
+        Assert.Equal(sa.Length, at + 4 + 1 + 4 + 4);
+
+        static (WorldItemRig, EntityId[]) History()
+        {
+            var w = new WorldItemRig();
+            EntityId letter = w.Create(50, w.R.DetachedMail("letter", Address, new[] { 5u }));
+            EntityId plank = w.Create(60, w.R.DetachedItem("plank", 3));
+            Assert.True(w.At(70, () => w.World.Remove(letter, w.R.PlayerA, InvCause.Taken, out _)));
+            return (w, new[] { letter, plank });
+        }
+    }
+
+    [Fact]
+    public void Pins_NewEventKindsCheckCodesAndAssertCode_AreAppendOnlyValues()
+    {
+        Assert.Equal((EventKind)0x0086, InvEventKinds.WorldItemSpawned);
+        Assert.Equal((EventKind)0x0087, InvEventKinds.WorldItemDespawned);
+        Assert.Equal((EventKind)0x0088, InvEventKinds.WorldItemEntriesChanged);
+        Assert.Equal((EventKind)0x0089, InvEventKinds.ItemsLost);
+        Assert.Equal(13, (int)CheckCode.InventoryWorldItemCapExceeded);
+        Assert.Equal(14, (int)CheckCode.InventoryWorldItemCapacity);
+        Assert.Equal(76, SimAssertCode.InventoryWorldItemFifoFull);
+        Assert.Equal((byte)0, (byte)WorldItemOrigin.Dropped);
+        Assert.Equal((byte)1, (byte)WorldItemOrigin.Thrown);
+        Assert.Equal((byte)2, (byte)WorldItemOrigin.BeltLeak);
+        Assert.Equal((byte)3, (byte)WorldItemOrigin.Spill);
+        Assert.Equal((byte)4, (byte)WorldItemOrigin.Loot);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     internal static EventEntry[] Heads(EventEntry[] log, EventKind kind) =>
         log.Where(e => e.Kind == kind && (e.Flags & EventFlags.Continuation) == 0).ToArray();
+
+    private const int ContainerRecordBytes = 4 + 2 + 2 + 2 + 1 + 4 + 4 + 4 + 4 + 1;
+
+    private static (ushort Reason, uint By, InvCause Cause) Resolve(WorldItemRig w, EntityId id)
+    {
+        ushort reason = w.World.Resolve(id, out _, out uint by, out InvCause cause);
+        return (reason, by, cause);
+    }
+
+    private static uint U32(byte[] bytes, ref int at)
+    {
+        uint v = BitConverter.ToUInt32(bytes, at);
+        at += 4;
+        return v;
+    }
+
+    private static byte[] Section(byte[] dump, ushort id)
+    {
+        int pos = 6;
+        while (pos < dump.Length)
+        {
+            ushort sectionId = BitConverter.ToUInt16(dump, pos);
+            int length = (int)BitConverter.ToUInt32(dump, pos + 2);
+            if (sectionId == id)
+            {
+                return dump.AsSpan(pos + 6, length).ToArray();
+            }
+
+            pos += 6 + length;
+        }
+
+        throw new InvalidOperationException($"section {id} not found");
+    }
 
     /// <summary>Calls <paramref name="call"/> between ticks: under SIM_ASSERT the tick guard throws; otherwise it refuses.</summary>
     private static EntityId SimAssertOrRelease(Func<EntityId> call)
