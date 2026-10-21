@@ -7,7 +7,7 @@
 ## Update 2026-10-20 (read this block first)
 
 - **Work now lands through PRs on `gfed-official/mailgame`** (not direct pushes to `main`). Merged since the 2026-10-17 update: **PR #1** (547248f) — the `SceneTree.Paused` CI guard skips C# comments, so the four Sim test jobs run in CI again; **PR #2** (69dfa31) — grid-inventory **003 Complete** (MailIdArena tests, multi-block `CanReserve(ReadOnlySpan<int>)`; story 005 gained the reason-85 validator AC; TD-102/103/104 logged).
-- **Story counts (from the story headers, 2026-10-21):** 92 Complete, **1 In Progress**, 6 Blocked, 108 Ready.
+- **Story counts (from the story headers, 2026-10-21):** 93 Complete, **1 In Progress**, 6 Blocked, 107 Ready (207 total).
   - content-data **018** — In Progress, **waiting on the owner's ADR-0010 decision** (neutral defaults vs the CD10 `true` defaults for `carryByHand`/`acceptsInsert`/`view auto`, and where content seconds become ticks). Do not resume until decided.
   - player-character **013** — Complete (PR #13, 2026-10-21: router declarations, verb × context table, availability gate; Build blocks Panel and holding per input-controls rule 5/6 and building B11).
 - **Next order (one story at a time):** grid-inventory 004 → grid-inventory 005 → throwing-catching 001 → godot-host-shell 003 → player-character 013 → manual-delivery 001. Then grid-inventory 006…, player-character 014…, and the rest of `implementation-order.md` (that file's wave tables date from 2026-10-16 and list Complete stories as pending — regenerate it before relying on it).
@@ -53,7 +53,7 @@
 | player-character | 9/26 (001–009) | 010 → … 026 | — |
 | input-controls | 6/29 (001–006) | 007 (008 needs player-character 013) | 029 |
 | mail-destinations | 4/16 (001, 002, 011, 012) | 003 next | — |
-| manual-delivery | 0/11 | 001–008, 011 | 009, 010 |
+| manual-delivery | 1/11 | 002–008, 011 | 009, 010 |
 | grid-inventory | 0/24 | 001 → … | 022 |
 | throwing-catching | 0/24 | 001 → … | 016, 024 |
 | godot-host-shell | 0/11 | 001 → … | — |
