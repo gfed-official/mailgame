@@ -147,7 +147,7 @@ public enum CounterId : ushort
     /// <summary>Inventory AutoPlace PASS U / PASS R: one candidate anchor (grid top-left or slot) tested against the occupancy row masks (one increment per anchor; a negative-fit cache hit tests none; GDD R8, ADR-0009 section 5; key <c>inventoryPlacementProbes</c>). A probe counter (H-PERF-6), compiled into Release, not in the canonical dump.</summary>
     InventoryPlacementProbes = 43,
 
-    /// <summary>Inventory outfeed: one FIFO node inspected by <c>PeekOutfeed</c> / <c>TakeUnit</c> (a stale-head tombstone pop and the live head each count once; compaction counts each node it walks; GDD R14, ADR-0009 section 5; key <c>inventoryOutfeedCandidates</c>). A probe counter (H-PERF-6a: at most 4 per call amortised), compiled into Release, not in the canonical dump.</summary>
+    /// <summary>Inventory outfeed: one per candidate visit = one FIFO node examined (GDD H-PERF-6 unit: one per cell probe or candidate visit; never per call, per anchor or per batch). <c>PeekOutfeed</c> / <c>TakeUnit</c> count the live head and each stale-head tombstone popped once; a compaction or a rebuild counts each node it walks; an append counts nothing; GDD R14, ADR-0009 section 5; key <c>inventoryOutfeedCandidates</c>). A probe counter (H-PERF-6a: at most 4 per call amortised), compiled into Release, not in the canonical dump.</summary>
     InventoryOutfeedCandidates = 44,
 
     /// <summary>A mutating <c>I…Api</c> method was called outside a tick phase (ADR-0003 section 5: legal only while <c>Stage == InPhase</c> and <c>Phase</c> is at most <c>RunStep</c>); the call was refused with nothing mutated and no event. Asserts under <c>SIM_ASSERT</c> (<c>TickGuard</c>).</summary>

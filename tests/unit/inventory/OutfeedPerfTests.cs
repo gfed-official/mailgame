@@ -125,6 +125,106 @@ public class OutfeedPerfTests
         Assert.True(candidates / (double)calls <= MaxCandidatesPerCall, $"{candidates} candidates over {calls} calls");
     }
 
+    [Fact]
+    [Trait("Id", "H-PERF-6a")]
+    public void OutfeedCandidates_CountOnePerFifoNodeExamined_ExactDeltasForPeekTakeCompactionAndRebuild()
+    {
+        // Arrange: six letters, ids 1-6 (seq 1-6), one node each
+        var rig = new InvAutoPlaceRig();
+        DefIndex letter = rig.KindIndex("letter");
+        ContainerId intake = rig.Inventory.IntakeContainer;
+        var fifo = rig.Inventory.Mutator.Outfeed;
+        ushort[] e = new ushort[7];
+        long mark = rig.Counters[CounterId.InventoryOutfeedCandidates];
+        long Delta()
+        {
+            long now = rig.Counters[CounterId.InventoryOutfeedCandidates];
+            long d = now - mark;
+            mark = now;
+            return d;
+        }
+
+        void Leave(ushort entry)
+        {
+            Assert.True(rig.Step(
+                (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
+                (ref InvPlan p) => rig.Inventory.Mutator.Remove(ref p, entry)).IsOk);
+            rig.FreeDetached(entry);
+        }
+
+        bool Take(out UnitRef u)
+        {
+            UnitRef got = default;
+            bool took = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TakeUnit(intake, Selector.Fifo, rig.PlayerA, out got));
+            u = got;
+            return took;
+        }
+
+        SpawnResult spawned = IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.Spawn(intake, letter, 4u, 0, IntakeSpawnOutfeedTests.Mail(1, 2, 3, 4, 5, 6), MergePolicy.NoMerge));
+        long spawnDelta = Delta();
+        for (int x = 0; x < 6; x++)
+        {
+            e[x + 1] = rig.EntryAt(rig.Intake, x, 0);
+        }
+
+        // Act + Assert 1: a peek on a live head examines exactly that node
+        Assert.Equal(6, spawned.Placed);
+        Assert.Equal(0, spawnDelta); // appends examine no node; Spawn's cell probes are AutoPlace's counter, not this one
+        Assert.True(rig.Inventory.PeekOutfeed(intake, Selector.Fifo, out UnitRef head));
+        Assert.Equal(1u, head.Mail.Value);
+        Assert.Equal(1, Delta());
+
+        // Act + Assert 2: k = 2 stale head tombstones (2 tombstones, 4 live: no compaction, and leaving counts nothing); the peek is k + 1
+        Leave(e[1]);
+        Leave(e[2]);
+        Assert.Equal(0, Delta());
+        Assert.Equal(6, fifo.NodeCount(rig.Intake));
+        Assert.True(rig.Inventory.PeekOutfeed(intake, Selector.Fifo, out head));
+        Assert.Equal(3u, head.Mail.Value);
+        Assert.Equal(3, Delta());
+        Assert.Equal(4, fifo.NodeCount(rig.Intake));
+
+        // Act + Assert 3: a take whose leave does not compact (1 tombstone, 3 live) = its peek of the live head = 1
+        Assert.True(Take(out UnitRef u));
+        Assert.Equal(3u, u.Mail.Value);
+        Assert.Equal(1, Delta());
+        Assert.Equal(4, fifo.NodeCount(rig.Intake));
+
+        // Act + Assert 4: a compaction pass adds exactly the nodes it walks: id 5 leaves (2 tombstones, 2 live: none), then id 6
+        // (3 tombstones > 1 live) compacts the 4-node list down to its one live node
+        Leave(e[5]);
+        Assert.Equal(0, Delta());
+        Leave(e[6]);
+        Assert.Equal(4, Delta());
+        Assert.Equal(1, fifo.NodeCount(rig.Intake));
+
+        // Act + Assert 5: a take that compacts = its peek (1) + the 1-node compaction its leave runs (1 tombstone > 0 live) = 2
+        Assert.True(Take(out u));
+        Assert.Equal(4u, u.Mail.Value);
+        Assert.Equal(2, Delta());
+        Assert.Equal(0, fifo.NodeCount(rig.Intake));
+
+        // Act + Assert 6: a peek and a take on the empty outfeed examine nothing
+        Assert.False(rig.Inventory.PeekOutfeed(intake, Selector.Fifo, out _));
+        Assert.False(Take(out _));
+        Assert.Equal(0, Delta());
+
+        // Act + Assert 7: a rebuild counts each old node it walks (3: two live, one tombstone), not the entries it scans or the nodes it
+        // appends; the rebuilt list serves the same order
+        _ = IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.Spawn(intake, letter, 4u, 0, IntakeSpawnOutfeedTests.Mail(7, 8, 9), MergePolicy.NoMerge));
+        Leave(rig.EntryAt(rig.Intake, 1, 0)); // id 8: 1 tombstone, 2 live
+        Assert.Equal(0, Delta());
+        Assert.Equal(3, fifo.NodeCount(rig.Intake));
+        rig.Inventory.Mutator.RebuildOutfeed(rig.Intake);
+        Assert.Equal(3, Delta());
+        Assert.Equal(2, fifo.NodeCount(rig.Intake));
+        Assert.True(rig.Inventory.PeekOutfeed(intake, Selector.Fifo, out head));
+        Assert.Equal(7u, head.Mail.Value);
+        Assert.Equal(1, Delta());
+    }
+
     /// <summary>The M-1a content plus a 64-wide, mail-only <c>OutfeedOnly</c> grid def; <c>inventory.maxRows</c> 100, arena 65,536 units.</summary>
     internal static ContentSet WideContent()
     {

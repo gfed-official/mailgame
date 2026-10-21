@@ -15,8 +15,10 @@ namespace PerformativeMail.Sim.Inventory.Intake;
 /// stale). <see cref="TryPeekHead"/> pops stale heads. When a list's tombstones exceed its live entries the mutator
 /// <see cref="Compact"/>s it, so every list holds at most twice its live entries and the pool (twice the entry pool, see
 /// <see cref="InventorySettings.OutfeedNodeCapacity"/>) never runs out. Peek and take are O(1) amortised: each node is appended once and
-/// inspected live at most once per peek before it is popped or compacted away. Every node inspected by a peek, pop or compaction counts
-/// <see cref="CounterId.InventoryOutfeedCandidates"/> (H-PERF-6a), in every build.
+/// inspected live at most once per peek before it is popped or compacted away. <see cref="CounterId.InventoryOutfeedCandidates"/>
+/// (H-PERF-6a, in every build) counts one per candidate visit = one FIFO node examined (GDD H-PERF-6 unit: one per cell probe or
+/// candidate visit): the live head and each stale head popped by a peek, and each node walked by a compaction, a clear or a rebuild;
+/// never per call, per anchor or per batch. Appending a node examines none and counts nothing.
 /// <para>
 /// The nodes are a derived memo, not Sim state: the dump carries only the header's <c>NextArrivalSeq</c> and the entries'
 /// <c>arrivalSeq</c>, and <see cref="Rebuild"/> rebuilds a list from the live entries, ascending by <c>arrivalSeq</c> (after a load, and by
@@ -223,7 +225,7 @@ internal sealed class OutfeedFifo
         _nodeCount[containerSlot] = kept;
     }
 
-    /// <summary>Returns every node of the container's list to the pool and empties it (no candidate counted).</summary>
+    /// <summary>Returns every node of the container's list to the pool and empties it (one candidate per node walked).</summary>
     /// <param name="containerSlot">The container's table slot.</param>
     /// <param name="h">The container's header.</param>
     public void Clear(ushort containerSlot, ref ContainerHeader h)
@@ -231,6 +233,7 @@ internal sealed class OutfeedFifo
         uint node = h.OutfeedHead;
         while (node != NoNode)
         {
+            _counters.Add(CounterId.InventoryOutfeedCandidates);
             uint next = _next[(int)node - 1];
             FreeNode(node);
             node = next;
@@ -251,7 +254,8 @@ internal sealed class OutfeedFifo
     /// <summary>
     /// Rebuilds the container's list from its live entries, ascending by <c>arrivalSeq</c> (each placed entry of the container with a
     /// non-zero <c>arrivalSeq</c>; ADR-0009 section 5: after a load and on the M1 Intake sort). Changes no Sim state (no record, no
-    /// version). O(entry pool + n log n); allocation-free. No candidate is counted (not a peek).
+    /// version). O(entry pool + n log n); allocation-free. Counts one candidate per old node walked by the <see cref="Clear"/>; the entry
+    /// pool scan examines entries, not nodes, and the appends examine none, so neither counts.
     /// </summary>
     /// <param name="containerSlot">The container's table slot.</param>
     /// <param name="h">The container's header.</param>
