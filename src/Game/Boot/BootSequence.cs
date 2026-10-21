@@ -9,7 +9,7 @@ namespace PerformativeMail.Game.Boot;
 /// </summary>
 /// <example>
 /// <code>
-/// bool ok = new BootSequence(BootPlan.Create(window, isDebugBuild, new BuiltInContentSource(), BootPlan.Contributors, loop.ArmStart)).Run(ctx);
+/// bool ok = new BootSequence(BootPlan.Create(window, isDebugBuild, new BuiltInContentSource(), BootPlan.CreateContributors(), loop.ArmStart)).Run(ctx);
 /// </code>
 /// </example>
 public sealed class BootSequence

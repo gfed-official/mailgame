@@ -6,7 +6,7 @@ namespace PerformativeMail.Game.Boot;
 /// <c>BOOT &lt;n&gt; &lt;name&gt;: contributor &lt;Type&gt;</c> before each, or <c>BOOT &lt;n&gt; &lt;name&gt;: no contributor</c>
 /// when none is registered (the slot then passes).
 /// </summary>
-/// <example><code>IBootStep input = new ContributorSlotStep(BootPlan.InputStep, "input", BootPlan.Contributors);</code></example>
+/// <example><code>IBootStep input = new ContributorSlotStep(BootPlan.InputStep, "input", BootPlan.CreateContributors());</code></example>
 public sealed class ContributorSlotStep : IBootStep
 {
     private readonly IBootContributor[] _contributors;

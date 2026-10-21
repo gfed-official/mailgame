@@ -1,3 +1,4 @@
+using Godot;
 using PerformativeMail.Game.Boot;
 using PerformativeMail.Game.Hosting;
 using PerformativeMail.Game.Screens;
@@ -9,7 +10,9 @@ namespace PerformativeMail.Game.Smoke;
 /// <summary>
 /// Screen-capture seam for story godot-host-shell/004's retained screenshots (debug builds only, like every scenario):
 /// injects one boot failure, leaves its error screen up and passes after <see cref="Frames"/> rendered frames, so a
-/// windowed <c>--write-movie</c> run captures it. Subclasses pick the injection.
+/// windowed <c>--write-movie</c> run captures it. The root window is resized to the 1280×720 minimum first (the project's
+/// <c>window_*_override</c> 1600×900 wins over <c>--resolution</c>), so the capture shows the smallest supported layout.
+/// Subclasses pick the injection.
 /// </summary>
 public abstract class ErrorScreenCaptureSmoke : SmokeScenario
 {
@@ -33,6 +36,7 @@ public abstract class ErrorScreenCaptureSmoke : SmokeScenario
     public override void Start(SmokeContext ctx)
     {
         GameLoop loop = ctx.Loop;
+        loop.GetWindow().Size = new Vector2I(1280, 720);
         BootContext boot = loop.CreateBootContext();
         Expect(ctx, "boot with the injected failure returns", new BootSequence(Plan(loop)).Run(boot), false);
         Expect(ctx, "loop faulted", loop.IsFaulted, true);
@@ -46,6 +50,13 @@ public abstract class ErrorScreenCaptureSmoke : SmokeScenario
             return SmokeStatus.Running;
         }
 
+        Vector2I size = ctx.Loop.GetWindow().Size;
+        ctx.Pass($"window size at capture {size.X}x{size.Y} (display {DisplayServer.GetName()})");
+        if (DisplayServer.GetName() != "headless")
+        {
+            Expect(ctx, "window size at capture (1280x720 minimum)", size, new Vector2I(1280, 720));
+        }
+
         BootErrorScreen? bootScreen = ctx.Loop.ErrorScreen;
         BootErrorScreen? contentScreen = BootSmoke.ContentScreen(ctx.Loop);
         BootErrorScreen? shown = IsContent ? contentScreen : bootScreen;
@@ -54,6 +65,7 @@ public abstract class ErrorScreenCaptureSmoke : SmokeScenario
         Expect(ctx, "fault sink calls", bootScreen?.FaultCount ?? -1, 1);
         Expect(ctx, "message shown", shown?.MessageText.Contains(ExpectedMessage, StringComparison.Ordinal) ?? false, true);
         Expect(ctx, "Quit visible", shown?.QuitVisible ?? false, true);
+        Expect(ctx, "Quit has keyboard/pad focus (stock ui_* focus)", shown?.QuitHasFocus ?? false, true);
         ctx.Pass($"screen text: {shown?.TitleText} | {shown?.DetailText} | {shown?.MessageText}");
         return SmokeStatus.Done;
     }

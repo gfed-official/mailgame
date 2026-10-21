@@ -33,11 +33,14 @@ public sealed class ContentBootStep(IContentBootSource source) : IBootStep
         ContentSet set = _source.Load()
             ?? throw new InvalidOperationException($"Content source {_source.Name} returned no content set.");
         double ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
-        ctx.Content = set;
+        string hash = ContentHash.Compute(set).ToDisplayString();
         ctx.Log.Write(
             $"BOOT {Number} {Name}: source={_source.Name} containers={set.Containers.Count} items={set.Items.Count} " +
             $"mail_kinds={set.MailKinds.Count} destination_types={set.DestinationTypes.Count} mail_mixes={set.MailMixes.Count} " +
-            $"hash={ContentHash.Compute(set).ToDisplayString()} load_ms={ms.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} (advisory budget 100)");
+            $"hash={hash} load_ms={ms.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} (advisory budget 100)");
+
+        // Placed last: a step that throws leaves no content behind (BootContext.Content is null on failure).
+        ctx.Content = set;
         return BootStepResult.Ok;
     }
 }

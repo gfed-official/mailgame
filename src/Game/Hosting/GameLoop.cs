@@ -182,8 +182,10 @@ public partial class GameLoop : Node
         }
         catch (Exception ex)
         {
-            // Building the plan is part of boot: a throw here shows the error screen like a failing step.
+            // Building the plan is part of boot: a throw here shows the boot error screen like a failing step (step 0).
             ctx.Log.Write($"BOOT plan FAIL {BootFaultText.Describe(ex)}");
+            ctx.Failure = new BootFailure(0, "plan", BootFailureKind.Boot, ex);
+            ctx.Display?.PrepareBootFailure(ctx.Failure);
             FaultBoot(ex);
             return false;
         }
@@ -203,6 +205,10 @@ public partial class GameLoop : Node
         if (ErrorScreen is not null)
         {
             FaultSink = ErrorScreen;
+        }
+        else
+        {
+            Error("[GameLoop] no ErrorScreen is set (Main.tscn wires Screens/BootError); boot and frame faults are only logged");
         }
 
         var log = new BootLog(GD.Print);

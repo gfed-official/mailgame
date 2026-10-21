@@ -13,7 +13,9 @@ namespace PerformativeMail.Game.Smoke;
 /// <c>RequestBoot</c> (counter 0) and nothing was booted (no sink, presence, armed start or boot log; screens hidden; the
 /// scene-wired <c>ErrorScreen</c> / <c>ContentErrorScreen</c> exports resolved). Control: an explicit
 /// <c>RequestBoot()</c> on that instance boots (counter 1, loopback presence defaulted because none was set — TD-120, the
-/// screen installed as the sink) and a second call is refused with the first result (counter 2).
+/// screen installed as the sink) and a second call is refused with the first result (counter 2); and a third instance with
+/// <c>AutoBoot = true</c> boots from its own <c>_Ready</c> (counter 1). The two booting instances echo their own
+/// <c>BOOT</c> lines to stdout, after this scenario's start; the process's own boot log is <c>boot-order</c>'s.
 /// </summary>
 [SmokeScenario("main-tree-noboot")]
 public sealed class MainTreeNoBootSmoke : SmokeScenario
@@ -41,6 +43,28 @@ public sealed class MainTreeNoBootSmoke : SmokeScenario
         {
             ctx.Tree.Root.RemoveChild(main);
             main.QueueFree();
+        }
+
+        CheckAutoBoot(ctx, scene);
+    }
+
+    // Positive control for the seam: the same scene with AutoBoot = true boots from its own _Ready.
+    private static void CheckAutoBoot(SmokeContext ctx, PackedScene scene)
+    {
+        GameLoop auto = scene.Instantiate<GameLoop>();
+        auto.Name = "MainAutoBoot";
+        auto.SmokeArgsIgnored = true;
+        ctx.Tree.Root.AddChild(auto);
+        try
+        {
+            Expect(ctx, "AutoBoot = true control: _Ready called RequestBoot once", auto.BootRequestCount, 1);
+            Expect(ctx, "AutoBoot = true control: the boot ran (boot log written, start armed)", auto.LastBootLog is not null && auto.StartPending, true);
+            Expect(ctx, "AutoBoot = true control: not faulted", auto.IsFaulted, false);
+        }
+        finally
+        {
+            ctx.Tree.Root.RemoveChild(auto);
+            auto.QueueFree();
         }
     }
 

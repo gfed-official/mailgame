@@ -2,7 +2,7 @@ namespace PerformativeMail.Game.Boot;
 
 /// <summary>
 /// Fills an extension slot of the boot order: step 3 (persistence, ADR-0024) or step 4 (input router, ADR-0012). Each
-/// contributor is one explicit line in <see cref="BootPlan.Contributors"/>; the slot runs its contributors in registration
+/// contributor is one explicit line in <see cref="BootPlan.CreateContributors"/>; the slot runs its contributors in registration
 /// order. A contributor reports failure by throwing (the boot error screen shows).
 /// </summary>
 /// <example>

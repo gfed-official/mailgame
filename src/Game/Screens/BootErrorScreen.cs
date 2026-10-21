@@ -60,6 +60,9 @@ public partial class BootErrorScreen : Control, IFaultSink, IBootFailureDisplay
     /// <summary>True when the Quit button exists and is visible in the tree.</summary>
     public bool QuitVisible => _quit is not null && _quit.IsVisibleInTree();
 
+    /// <summary>True when the Quit button has the GUI focus.</summary>
+    public bool QuitHasFocus => _quit is not null && _quit.HasFocus();
+
     /// <inheritdoc />
     public override void _Ready()
     {
