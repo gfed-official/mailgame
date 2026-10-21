@@ -95,8 +95,13 @@ public struct InvPlan
     /// <summary>The most containers one call may touch (ADR-0009 section 2).</summary>
     public const int MaxTouched = 4;
 
-    /// <summary>The most arena blocks one call may plan to acquire; more makes the reservation fail (conservative).</summary>
-    public const int MaxAcquiredBlocks = 8;
+    /// <summary>
+    /// The most arena blocks one call may plan to acquire; more makes the reservation fail (conservative). 40 = one AutoPlace's merge
+    /// capacity (<see cref="PerformativeMail.Sim.Inventory.Placement.AutoPlacePlan.MaxMerges"/>, 32: PASS M over up to <see cref="MaxTouched"/> targets, one union per
+    /// mail merge) plus 8 for the handler's own acquisitions (story 009, TD-116). AutoPlace stops PASS M cleanly before either cap is
+    /// reached, so a legal AutoPlace never asserts or rejects 85 for plan capacity.
+    /// </summary>
+    public const int MaxAcquiredBlocks = 40;
 
     private InvSlotBuffer _touched;
     private InvBlockBuffer _blocks;

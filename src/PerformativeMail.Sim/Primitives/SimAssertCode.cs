@@ -215,4 +215,7 @@ public static class SimAssertCode
 
     /// <summary><c>EventLog.TryRaiseContinuation</c> was called with no open call scope, or not directly after an entry of the same kind and <c>CallSeq</c> (an orphan chunk). Release appends it anyway (nothing is lost; the adapter attaches it to whatever precedes it). <c>SIM_ASSERT</c>.</summary>
     public const ushort EventContinuationOrphan = 68;
+
+    /// <summary><c>InventoryMutator.MergeInto</c> was called with an invalid merge: a free or unplaced target, the source as its own target, different <c>StackKey</c>s, <c>units</c> outside 1 to the source's count, or a target count that would exceed 255. Release changes nothing and raises nothing. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryMergeInvalid = 69;
 }

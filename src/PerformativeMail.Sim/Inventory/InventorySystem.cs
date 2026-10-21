@@ -4,6 +4,7 @@ using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory.Events;
 using PerformativeMail.Sim.Inventory.Ops;
+using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
 
@@ -53,6 +54,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
     private readonly InvRequestCheck _requestCheck;
     private readonly ContainerSubscribers _subscribers;
     private readonly InventoryMutator _mutator;
+    private readonly AutoPlace _autoPlace;
     private readonly DefIndex _hotbarDef;
     private readonly DefIndex _playerInventoryDef;
     private readonly DefIndex _cursorDef;
@@ -115,7 +117,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
         }
 
         _occupancy = new Occupancy(settings.ContainerCapacity, content.Inventory.MaxRows, Math.Max(1, widest));
-        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, events ?? new EventLogFacade(new SimCounters()));
+
+        // Story 009: the StackKey index (heads sized from the entry pool) and the negative-fit cache (the content's shapes per
+        // container) are derived memos, preallocated here like the rest of the storage.
+        EventLogFacade facade = events ?? new EventLogFacade(new SimCounters());
+        var noFit = new NegativeFitCache(settings.ContainerCapacity, NegativeFitCache.WaysFor(content));
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), noFit);
+        _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
 
         DefIndex intakeDef = Resolve("po_intake");
         _hotbarDef = Resolve("hotbar");
@@ -154,6 +162,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener
 
     /// <summary>The one mutation layer (story 005): handlers' <c>Commit</c> and <c>IInventoryApi</c> calls write state only through it.</summary>
     internal InventoryMutator Mutator => _mutator;
+
+    /// <summary>AutoPlace (story 009): the shared placement passes of quick_move, spawn, return, inserter, belt, pickup, catch and grant.</summary>
+    internal AutoPlace AutoPlace => _autoPlace;
 
     /// <summary>The per-container subscriber sets (the open set maintains them from story 011; tests set them directly until then).</summary>
     internal ContainerSubscribers Subscribers => _subscribers;

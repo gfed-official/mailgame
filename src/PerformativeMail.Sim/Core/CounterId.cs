@@ -140,4 +140,10 @@ public enum CounterId : ushort
 
     /// <summary>An anchor query had more hits than its result span and kept the first ones (counted once per truncating call; key <c>anchorQueryOverflow</c>).</summary>
     AnchorQueryOverflow = 41,
+
+    /// <summary>Inventory AutoPlace PASS M: one candidate stack visited in a target's StackKey non-full list (one increment per list node walked, never a container scan; GDD R8, ADR-0009 section 5; key <c>inventoryMergeCandidates</c>). A probe counter (H-PERF-6), compiled into Release, not in the canonical dump.</summary>
+    InventoryMergeCandidates = 42,
+
+    /// <summary>Inventory AutoPlace PASS U / PASS R: one candidate anchor (grid top-left or slot) tested against the occupancy row masks (one increment per anchor; a negative-fit cache hit tests none; GDD R8, ADR-0009 section 5; key <c>inventoryPlacementProbes</c>). A probe counter (H-PERF-6), compiled into Release, not in the canonical dump.</summary>
+    InventoryPlacementProbes = 43,
 }
