@@ -1,5 +1,7 @@
 using Godot;
 using PerformativeMail.Client.Core.Net;
+using PerformativeMail.Game.Boot;
+using PerformativeMail.Game.Screens;
 using PerformativeMail.Game.Smoke;
 using PerformativeMail.Sim.Hosting;
 
@@ -15,13 +17,17 @@ namespace PerformativeMail.Game.Hosting;
 /// (<see cref="ArmStart"/>), pause is a driver state only (<see cref="TryPause"/>, never
 /// <c>SceneTree.Paused</c>), and any exception, a faulted world or a wrong-thread frame ends the
 /// session: the loop logs it, hands the message to <see cref="FaultSink"/> and never runs the Sim
-/// again. Boot (story 004) and the real sequence construction (story 005) install the sequence.
+/// again. Boot (story 004, <see cref="RequestBoot"/>) runs the ADR-0019 section 3 <see cref="BootPlan"/> once, with the
+/// <c>Main/Screens</c> error screen installed as <see cref="FaultSink"/> before step 1; a failing step goes through
+/// <see cref="FaultBoot"/> (the same latch and sink as a frame fault). The real sequence construction (story 005)
+/// installs the sequence.
 /// Deliberately no static instance, no lookups beyond its own direct children, no scene changes.
 /// Main thread only.
 /// </summary>
 /// <example>
 /// <code>
-/// // Story 004/005 boot, after the world is loaded:
+/// bool booted = loop.RequestBoot();                // _Ready does this when AutoBoot is set and no --smoke is honoured
+/// // Story 005 boot, after the world is loaded:
 /// loop.RegisterPreFrameHook(dispatchImmediates);   // before the first frame
 /// loop.ArmStart();                                 // boot step 9: Start on the next _Process
 /// if (!loop.TryPause(out string reason)) { /* refused by Networking and Session */ }
@@ -38,6 +44,8 @@ public partial class GameLoop : Node
     private bool _faulted;
     private IFaultSink _faultSink = LogFaultSink.Instance;
     private IPeerPresence? _peerPresence;
+    private bool? _bootResult;
+    private Func<GameLoop, IReadOnlyList<IBootStep>>? _smokeBootPlan;
 
     /// <summary>
     /// Test seam: when false, <see cref="_Ready"/> does not call <see cref="RequestBoot"/>.
@@ -45,6 +53,19 @@ public partial class GameLoop : Node
     /// </summary>
     [Export]
     public bool AutoBoot { get; set; } = true;
+
+    /// <summary>
+    /// The <c>Main/Screens/BootError</c> screen (set in <c>Main.tscn</c>), installed as <see cref="FaultSink"/> before boot
+    /// step 1; null leaves the log-only sink.
+    /// </summary>
+    [Export]
+    public BootErrorScreen? ErrorScreen { get; set; }
+
+    /// <summary>How many times <see cref="RequestBoot"/> was called (the first call boots; later calls are refused).</summary>
+    public int BootRequestCount { get; private set; }
+
+    /// <summary>The log of the most recent boot context (<see cref="RequestBoot"/> or <see cref="CreateBootContext"/>); null before any.</summary>
+    public BootLog? LastBootLog { get; private set; }
 
     /// <summary>True once the loop faulted; the Sim is never run again.</summary>
     public bool IsFaulted => _faulted;
@@ -64,7 +85,7 @@ public partial class GameLoop : Node
     /// </summary>
     public Action<string>? LogObserver { get; set; }
 
-    /// <summary>Receives the fault message (default: log only; story 004 installs the error screen).</summary>
+    /// <summary>Receives the fault message (default: log only; boot installs <see cref="ErrorScreen"/> before step 1).</summary>
     /// <exception cref="ArgumentNullException">Set to null.</exception>
     public IFaultSink FaultSink
     {
@@ -75,7 +96,7 @@ public partial class GameLoop : Node
     /// <summary>
     /// Networking and Session's peer presence, read through <see cref="SoloPausePolicy"/> by
     /// <see cref="TryPause"/>. Null until provided (the solo boot sets the M-1a loopback presence in
-    /// <see cref="RequestBoot"/>); while null every pause is refused (fail closed).
+    /// <see cref="RequestBoot"/> when none is set); while null every pause is refused (fail closed).
     /// </summary>
     /// <exception cref="ArgumentNullException">Set to null.</exception>
     public IPeerPresence? PeerPresence
@@ -106,7 +127,7 @@ public partial class GameLoop : Node
             }
         }
 
-        string? smokeName = FindSmokeName();
+        string? smokeName = SmokeArgsIgnored ? null : FindSmokeName();
         if (smokeName is not null)
         {
             if (isDebug)
@@ -126,19 +147,116 @@ public partial class GameLoop : Node
     }
 
     /// <summary>
-    /// Boot seam. Story 004 replaces this body with the real boot sequence.
+    /// Smoke seam: when true, <see cref="_Ready"/> ignores <c>--smoke=</c> and takes the production path (AutoBoot). A
+    /// scenario sets it on a second instance of <c>Main.tscn</c> before adding it, so that instance does not start a
+    /// second runner.
     /// </summary>
-    /// <returns>True when boot succeeded; false when it did not run or failed.</returns>
+    internal bool SmokeArgsIgnored { get; set; }
+
+    /// <summary>
+    /// Boot (ADR-0019 section 3), once, on the main thread: defaults <see cref="PeerPresence"/> to the M-1a loopback
+    /// presence only when none is set, installs <see cref="ErrorScreen"/> as <see cref="FaultSink"/>, then runs the nine
+    /// <see cref="BootPlan"/> steps (or the debug-only smoke plan) through <see cref="BootSequence"/>. A step that throws is
+    /// reported through <see cref="FaultBoot"/> and no later step runs. A second call is refused: it logs
+    /// <c>[GameLoop] boot already ran</c> and returns the first result.
+    /// </summary>
+    /// <returns>True when every step was ok or NOT WIRED; false when a step failed.</returns>
     public bool RequestBoot()
     {
-        // M-1a solo session: Networking and Session's loopback presence (no remote peers), so solo pause is allowed.
-        PeerPresence = LoopbackPeerPresence.Instance;
-        GD.Print("[GameLoop] boot not wired (story 004)");
-        return false;
+        BootRequestCount++;
+        if (_bootResult is bool first)
+        {
+            Info("[GameLoop] boot already ran");
+            return first;
+        }
+
+        _bootResult = false;
+
+        // M-1a solo session: Networking and Session's loopback presence (no remote peers), unless one was provided.
+        _peerPresence ??= LoopbackPeerPresence.Instance;
+        BootContext ctx = CreateBootContext();
+        BootSequence sequence;
+        try
+        {
+            sequence = new BootSequence(_smokeBootPlan?.Invoke(this) ?? CreateBootPlan());
+        }
+        catch (Exception ex)
+        {
+            // Building the plan is part of boot: a throw here shows the error screen like a failing step.
+            ctx.Log.Write($"BOOT plan FAIL {BootFaultText.Describe(ex)}");
+            FaultBoot(ex);
+            return false;
+        }
+
+        _bootResult = sequence.Run(ctx);
+        return _bootResult.Value;
     }
 
     /// <summary>
-    /// Boot step 9 (story 004): the tick driver is started with the clock's timestamp on the next
+    /// Makes the context of a boot run: installs <see cref="ErrorScreen"/> (when set) as <see cref="FaultSink"/> and error
+    /// display, and a fresh <see cref="BootLog"/> echoed with <c>GD.Print</c> (kept as <see cref="LastBootLog"/>), on the
+    /// boot thread. <see cref="RequestBoot"/> uses it; smoke scenarios use it to run their own plan.
+    /// </summary>
+    /// <returns>The context.</returns>
+    public BootContext CreateBootContext()
+    {
+        if (ErrorScreen is not null)
+        {
+            FaultSink = ErrorScreen;
+        }
+
+        var log = new BootLog(GD.Print);
+        LastBootLog = log;
+        return new BootContext(log, _bootThreadId, FaultBoot, _faultSink as IBootFailureDisplay);
+    }
+
+    /// <summary>The nine-step production plan (<see cref="BootPlan.Create"/>) over this loop's window and <see cref="ArmStart"/>.</summary>
+    /// <param name="content">The step 2 source; null for <see cref="BuiltInContentSource"/>.</param>
+    /// <param name="contributors">The step 3/4 contributors; null for <see cref="BootPlan.CreateContributors"/>.</param>
+    /// <returns>The steps.</returns>
+    public IReadOnlyList<IBootStep> CreateBootPlan(
+        IContentBootSource? content = null,
+        IReadOnlyList<IBootContributor>? contributors = null) =>
+        BootPlan.Create(
+            new GodotBootWindow(GetWindow()),
+            OS.IsDebugBuild(),
+            content ?? new BuiltInContentSource(),
+            contributors ?? BootPlan.CreateContributors(),
+            ArmStart);
+
+    /// <summary>
+    /// The boot-fault entry: a boot step threw. Same private latch and <see cref="FaultSink"/> delivery as a frame fault:
+    /// <see cref="IsFaulted"/> becomes true, <see cref="StartPending"/> false, one <c>[GameLoop] FAULT</c> line (type,
+    /// message, stack) is logged and the sink gets <see cref="BootFaultText.Describe"/> once. <c>RunFrame</c> is never
+    /// called afterwards. The boot sequence prepares the error display with the failing step first.
+    /// </summary>
+    /// <param name="ex">What the step threw.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="ex"/> is null.</exception>
+    public void FaultBoot(Exception ex)
+    {
+        ArgumentNullException.ThrowIfNull(ex);
+        Fault(ex);
+    }
+
+    /// <summary>
+    /// Smoke seam (debug builds only): <see cref="RequestBoot"/> runs the plan <paramref name="plan"/> builds instead of
+    /// <see cref="CreateBootPlan"/> (a scenario's pre-boot hook injects a failing step).
+    /// </summary>
+    /// <param name="plan">Builds the steps when boot runs.</param>
+    /// <exception cref="InvalidOperationException">Not a debug build.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="plan"/> is null.</exception>
+    public void SetBootPlanForSmoke(Func<GameLoop, IReadOnlyList<IBootStep>> plan)
+    {
+        if (!OS.IsDebugBuild())
+        {
+            throw new InvalidOperationException("GameLoop.SetBootPlanForSmoke is available in debug builds only.");
+        }
+
+        _smokeBootPlan = plan ?? throw new ArgumentNullException(nameof(plan));
+    }
+
+    /// <summary>
+    /// Boot step 9 (<see cref="ArmStartStep"/>): the tick driver is started with the clock's timestamp on the next
     /// <see cref="_Process"/>, not here (F12: the first-frame hitch must not become ticks).
     /// Frames before that run no ticks.
     /// </summary>
@@ -272,7 +390,7 @@ public partial class GameLoop : Node
         _sequence ?? throw new InvalidOperationException("No frame sequence is installed (story 004/005).");
 
     // ex.ToString() carries the full type name, the message, the stack and any inner exceptions.
-    private void Fault(Exception ex) => Fault($"[GameLoop] FAULT {ex}", $"{ex.GetType().Name}: {ex.Message}");
+    private void Fault(Exception ex) => Fault($"[GameLoop] FAULT {ex}", BootFaultText.Describe(ex));
 
     private void Fault(string message) => Fault($"[GameLoop] FAULT {message}", message);
 

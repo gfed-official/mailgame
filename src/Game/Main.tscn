@@ -4,11 +4,14 @@
 [ext_resource type="Script" path="res://src/Game/Presentation/WorldPresenter.cs" id="2"]
 [ext_resource type="Script" path="res://src/Game/Presentation/HudPresenter.cs" id="3"]
 [ext_resource type="Script" path="res://src/Game/Presentation/AudioPresenter.cs" id="4"]
+[ext_resource type="PackedScene" path="res://src/Game/Screens/BootError.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://src/Game/Screens/ContentError.tscn" id="6"]
 
-[node name="Main" type="Node"]
+[node name="Main" type="Node" node_paths=PackedStringArray("ErrorScreen")]
 process_mode = 3
 process_priority = -2147483648
 script = ExtResource("1")
+ErrorScreen = NodePath("Screens/BootError")
 
 [node name="Input" type="Node" parent="."]
 
@@ -38,5 +41,10 @@ script = ExtResource("3")
 script = ExtResource("4")
 
 [node name="Screens" type="Node" parent="."]
+
+[node name="BootError" parent="Screens" node_paths=PackedStringArray("ContentErrorScreen") instance=ExtResource("5")]
+ContentErrorScreen = NodePath("../ContentError")
+
+[node name="ContentError" parent="Screens" instance=ExtResource("6")]
 
 [node name="Debug" type="CanvasLayer" parent="."]
