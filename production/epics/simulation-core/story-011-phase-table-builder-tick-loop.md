@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R1 the tick, R3 phase list, R4 binding, R15 absolute deadlines)
 **Requirement**: `TR-sim-002` (tick is `uint32` from 0; first `Tick()` after `Ready` is tick 0), `TR-sim-010` (exactly 14 `PhaseId`s; `ITickEndCheck` between 12 and 13), `TR-sim-011` (unbound phase is a no-op; same-phase binders in composition order), `TR-sim-041` (port interfaces — the ADR-0003-owned subset)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0003: Phase Order, Composition Root and Cross-System Calls (§1, §2, §3 binds/freeze, Key Interfaces)
 **ADR Decision Summary**: Exactly 14 `PhaseId`s (0 `InputsApply` … 12 `RunStep`, 13 `EventsFlush`) run in a fixed order, with bound `ITickEndCheck`s between 12 and 13. `SimWorldBuilder` (used only while `Constructed`) binds `ISimPhase`s per phase and tick-end checks; several binders of one phase run in composition (bind) order; an unbound phase is a no-op; binding 0 or 13 throws `SimBuildException(ReservedPhase)`. `Freeze()` copies tables to arrays and moves to `Ready`. `TickContext` is `readonly struct { uint Tick; PhaseId Phase; }` passed `in`; `IPhaseProbe` defaults to a null object never null-checked per call.

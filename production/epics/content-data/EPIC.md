@@ -8,7 +8,7 @@
 > **Est. size**: M — 10–12 stories
 > **Implementation priority**: 2 of 9
 > **Status**: Ready
-> **Stories**: 19 stories (all Ready) — see the Stories table below
+> **Stories**: 19 stories — 17 Complete, 1 In Progress, 1 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -95,24 +95,24 @@ The numeric order is a valid implementation order. Each story's `Depends on:` fi
 
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
-| 001 | [DefIndex assignment, StringNamespace def members and DefTable](story-001-defindex-stringid-deftable.md) | Logic | Ready | ADR-0004, ADR-0010 |
-| 002 | [Closed content enums and their data-spelling tables](story-002-closed-content-enums.md) | Logic | Ready | ADR-0010 |
-| 003 | [Content diagnostics and the validator rule registry core](story-003-diagnostics-and-rule-registry.md) | Logic | Ready | ADR-0010 |
-| 004 | [BalanceKey registry, BalanceTable and SimSettings](story-004-balance-registry-simsettings.md) | Logic | Ready | ADR-0010, ADR-0003 |
-| 005 | [M-1a def records (Item, Container, MailKind, DestinationType, MailMix)](story-005-m1a-def-records.md) | Logic | Ready | ADR-0010 |
-| 006 | [Stat enum, StatDef table (M-1a rows) and RuleFlag](story-006-stat-statdef-ruleflag.md) | Logic | Ready | ADR-0010 |
-| 007 | [F1 StatResolve and F5 WorstCaseStat — pure Int128 formulas](story-007-f1-statresolve-f5-worstcase.md) | Logic | Ready | ADR-0010, ADR-0006 |
-| 008 | [ContentSet and BuiltInContent.CreateM1a — the M-1a greybox set](story-008-contentset-builtincontent-m1a.md) | Integration | Ready | ADR-0010, ADR-0003 |
-| 009 | [General set-level rules — CV-GEN-01, 09, 17, 18](story-009-cv-gen-set-rules.md) | Logic | Ready | ADR-0010 |
-| 010 | [Grid and Mail content rules — CV-GRD-01…04, 06, 07; CV-MAIL-01…06](story-010-cv-grd-cv-mail-rules.md) | Logic | Ready | ADR-0010 |
-| 011 | [Player Character content rules — CV-PLR M-1a subset](story-011-cv-plr-rules.md) | Logic | Ready | ADR-0010 |
-| 012 | [Throwing content rules — CV-THR M-1a subset](story-012-cv-thr-rules.md) | Logic | Ready | ADR-0010 |
-| 013 | [Canonical content encoding, managed SHA-256 and ContentHash](story-013-canonical-encoding-contenthash.md) | Logic | Ready | ADR-0010, ADR-0006 |
-| 014 | [StatSheet.Build, cached cells, Read and Explain](story-014-statsheet-build-read-explain.md) | Logic | Ready | ADR-0010 |
-| 015 | [IStatWriter, source identity and versioning, lifetimes, RuleFlags, composition wiring](story-015-statwriter-sources-lifetimes-wiring.md) | Integration | Ready | ADR-0010, ADR-0003 |
-| 016 | [DecimalToScaled reader, FieldSpec units and ExactTickCheck](story-016-decimal-to-scaled-fieldspec-units.md) | Logic | Ready | ADR-0010, ADR-0006 |
-| 017 | [IContentSource, InMemory/Directory sources and the stage-1 syntax walk](story-017-content-sources-syntax-stage.md) | Logic | Ready | ADR-0010 |
-| 018 | [Schema and build stages for M-1a def files](story-018-schema-and-build-stages.md) | Logic | Ready | ADR-0010, ADR-0004 |
+| 001 | [DefIndex assignment, StringNamespace def members and DefTable](story-001-defindex-stringid-deftable.md) | Logic | Complete | ADR-0004, ADR-0010 |
+| 002 | [Closed content enums and their data-spelling tables](story-002-closed-content-enums.md) | Logic | Complete | ADR-0010 |
+| 003 | [Content diagnostics and the validator rule registry core](story-003-diagnostics-and-rule-registry.md) | Logic | Complete | ADR-0010 |
+| 004 | [BalanceKey registry, BalanceTable and SimSettings](story-004-balance-registry-simsettings.md) | Logic | Complete | ADR-0010, ADR-0003 |
+| 005 | [M-1a def records (Item, Container, MailKind, DestinationType, MailMix)](story-005-m1a-def-records.md) | Logic | Complete | ADR-0010 |
+| 006 | [Stat enum, StatDef table (M-1a rows) and RuleFlag](story-006-stat-statdef-ruleflag.md) | Logic | Complete | ADR-0010 |
+| 007 | [F1 StatResolve and F5 WorstCaseStat — pure Int128 formulas](story-007-f1-statresolve-f5-worstcase.md) | Logic | Complete | ADR-0010, ADR-0006 |
+| 008 | [ContentSet and BuiltInContent.CreateM1a — the M-1a greybox set](story-008-contentset-builtincontent-m1a.md) | Integration | Complete | ADR-0010, ADR-0003 |
+| 009 | [General set-level rules — CV-GEN-01, 09, 17, 18](story-009-cv-gen-set-rules.md) | Logic | Complete | ADR-0010 |
+| 010 | [Grid and Mail content rules — CV-GRD-01…04, 06, 07; CV-MAIL-01…06](story-010-cv-grd-cv-mail-rules.md) | Logic | Complete | ADR-0010 |
+| 011 | [Player Character content rules — CV-PLR M-1a subset](story-011-cv-plr-rules.md) | Logic | Complete | ADR-0010 |
+| 012 | [Throwing content rules — CV-THR M-1a subset](story-012-cv-thr-rules.md) | Logic | Complete | ADR-0010 |
+| 013 | [Canonical content encoding, managed SHA-256 and ContentHash](story-013-canonical-encoding-contenthash.md) | Logic | Complete | ADR-0010, ADR-0006 |
+| 014 | [StatSheet.Build, cached cells, Read and Explain](story-014-statsheet-build-read-explain.md) | Logic | Complete | ADR-0010 |
+| 015 | [IStatWriter, source identity and versioning, lifetimes, RuleFlags, composition wiring](story-015-statwriter-sources-lifetimes-wiring.md) | Integration | Complete | ADR-0010, ADR-0003 |
+| 016 | [DecimalToScaled reader, FieldSpec units and ExactTickCheck](story-016-decimal-to-scaled-fieldspec-units.md) | Logic | Complete | ADR-0010, ADR-0006 |
+| 017 | [IContentSource, InMemory/Directory sources and the stage-1 syntax walk](story-017-content-sources-syntax-stage.md) | Logic | Complete | ADR-0010 |
+| 018 | [Schema and build stages for M-1a def files](story-018-schema-and-build-stages.md) | Logic | In Progress | ADR-0010, ADR-0004 |
 | 019 | [ContentLoader.Load — balance files, five stages, shipped JSONC equals BuiltInContent](story-019-content-loader-and-builtin-equality.md) | Integration | Ready | ADR-0010 |
 
 These are not stories at M-1a. Each decision is logged in `production/session-logs/decision-log.md`:

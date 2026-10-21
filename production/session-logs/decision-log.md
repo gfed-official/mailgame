@@ -5901,3 +5901,17 @@ Granularity follows the orchestrator's one-session sizing, not `fine`. QL-STORY-
 **Chosen:** (a) story 005 owns the mapping and the `CanReserve` caller rule (Mail Lead decision; new AC there, TD-102 (1) re-pointed). (b) AC3 reworded to the arena-level result, still ticked, pointing to story 005. (c) counts corrected: 24 methods (22 Fact + 2 Theory × 3) = 28 cases + 1 allocation test = 29; AC4 is 3 seeds × 10 000 executed ops. (d) logged as TD-104 (owner story 005, the first caller); no code change.
 **Reason:** Story 005 wires the arena into the validator; no `TryUnion` caller exists yet, so the guard lands with its first caller.
 **Category:** minor
+
+#### 2026-10-19 — Owner rule: config-dependent test skips (owner decision, recorded 2026-10-20 by the planning lead)
+**Decision point:** Debug legs skip Release-only tests (e.g. the zero-allocation `AllocAssert` tests: 41 skipped in Debug, 2 in Release at cf36b7a). Should a story's test evidence or a gate review treat these by-design, configuration-dependent skips as gaps?
+**Options considered:** [A] treat every skip as a gap that each story must justify; [B] waive by-design configuration-dependent skips, provided each skipped test runs (and passes) in the other configuration; [C] remove the skips and run every test in every configuration.
+**Chosen:** [B] — owner (Evan) standing rule: a test skipped by design in one configuration (Debug vs Release, net10.0 vs net8.0) is waived as long as it runs in the other configuration. Gate reviewers (QL-TEST-COVERAGE, `/story-done`) do not flag such skips; a test that is skipped in **every** leg, or skipped for a reason other than configuration, is still a gap.
+**Reason:** Allocation and timing assertions are only meaningful in Release, and assert-path tests only in Debug; four-leg CI already covers both halves.
+**Category:** owner decision (standing rule)
+
+#### 2026-10-20 — Planning lead docs refresh (docs only, PR `lead/docs-refresh-2026-10-20`)
+**Decision point:** Player-character story 013 gaps found by the 2026-10-19 `/story-readiness` and `/architecture-review` runs; stale HANDOFF.md, epic counts and `tr-registry.yaml` notes.
+**Options considered:** for story 013 — (a) where Panel reaches `CarrierStatus`; (b) a body context for `Joining`/`DeadAway`/`Frozen`/`Despawned`; (c) GDD '—' cells; (d) the untestable "a swimmer cannot start a Catch" AC.
+**Chosen:** (a) add `bool PanelOpen` to the struct and the builder inputs; story 020 fills it; the source channel (Grid Inventory panel mirror vs an `InputFrame` flag) stays an ADR-level question — no ADR edited. (b) all four map to `BodyContext.Dead` (no carrier verbs, no candidates); `BodyContext` keeps its four ADR-0012 §2 values. (c) '—' = `Absent`; only GDD "disabled" = `Disabled`; "emotes greyed" = `Greyed`; "Dismount only" / "vehicle's controls" / "orbit" / Look-in-Panel = `Live`; Sprint in Mounted `Absent` at M-1a (matches the 2026-10-17 dev-story design call (c)). (d) moved to story 016 (client press half); the host arm refusal stays throwing-catching 022. Stamp 2026-10-17.1.
+**Reason:** Keeps the story testable and inside Accepted ADR-0012/0014 without inventing the Panel channel.
+**Category:** minor

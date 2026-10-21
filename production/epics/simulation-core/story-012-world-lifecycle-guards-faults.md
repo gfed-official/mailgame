@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (States and Transitions; R18 main thread; `IRunControl`)
 **Requirement**: `TR-sim-044` (lifecycle Constructed → Ready → Running → Stopped/Faulted; `RequestStop` via `IRunControl` in phase 12), `TR-sim-007` (Sim on the main thread; owner thread captured at `Freeze()`; Debug asserts)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0003: Phase Order, Composition Root and Cross-System Calls (§2 Tick sequence, §5 `RequestStop`, §7 lifecycle) — primary; ADR-0002: Tick Driver, FrameRunner and Main-Thread Sim (§5 thread) — secondary
 **ADR Decision Summary**: The world moves only Constructed → Ready (`Freeze`) → Running (first `Tick`) → Stopped | Faulted. `Tick()` first guards: state `Running` (or `Ready` for the first tick), owner thread, not re-entrant — otherwise it counts `badTick` and runs nothing. An exception escaping a phase marks the world `Faulted`, the partial log is not delivered, the re-entrancy flag is cleared in `finally`, and `SIM_ASSERT` builds rethrow after marking. `IRunControl.RequestStop` in phase 12 is latched and applied after phase 13 of the same tick; a host `Stop()` outside a tick transitions immediately. The owner thread is captured at `Freeze()` and asserted (Debug) with `Environment.CurrentManagedThreadId`.

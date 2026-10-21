@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R24 stream registry and lifetime, R26 dump of streams; DEV-5)
 **Requirement**: `TR-sim-028` (compile-time `RngNames` registry; v1 stream list; `mail`/`mail.special`/`events` indexed per shift), `TR-sim-029` (owner-only handles)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0005: RNG Streams and Derivation (§2–§3) — primary; ADR-0003: Phase Order, Composition Root and Cross-System Calls (§4 injectable list: owner-filtered `IRngStreams`) — secondary
 **ADR Decision Summary**: `StreamName` is a `readonly struct` with a private constructor whose only instances are `static readonly` fields of `RngNames` (name, owner, index range, `Fnv1a64` precomputed once from a `"…"u8` literal). `RngRegistry` is per `SimWorld`, pre-allocates a handle for every registered `(name, index)`, and `Create` re-seeds the existing handle in place (state, inc reset, `draws = 0`) allocating nothing. Out-of-range indices assert in Debug and, in Release, derive anyway on a spare slot and count `rngIndexOutOfRange`. Each system receives an `IRngStreams` view filtered to the names it owns; Throwing receives none.

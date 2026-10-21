@@ -1,16 +1,29 @@
 # Session handoff — Performative Mail
 
 **Written:** 2026-10-16 23:55 PDT, by the orchestrating session at a clean stopping point.
+**Last refreshed:** 2026-10-20 by the planning lead (docs-only PR `lead/docs-refresh-2026-10-20`).
 **Read this first in a new session.** Then read `production/session-state/planning-run-2026-10-16.md` (full run ledger + per-story checkpoint lines) only for detail.
 
-## Update 2026-10-17 (read this block first; the rest below is the 2026-10-16 snapshot)
+## Update 2026-10-20 (read this block first)
+
+- **Work now lands through PRs on `gfed-official/mailgame`** (not direct pushes to `main`). Merged since the 2026-10-17 update: **PR #1** (547248f) — the `SceneTree.Paused` CI guard skips C# comments, so the four Sim test jobs run in CI again; **PR #2** (69dfa31) — grid-inventory **003 Complete** (MailIdArena tests, multi-block `CanReserve(ReadOnlySpan<int>)`; story 005 gained the reason-85 validator AC; TD-102/103/104 logged).
+- **Story counts (from the story headers, 2026-10-20):** 87 Complete, **2 In Progress**, 6 Blocked, the rest Ready.
+  - content-data **018** — In Progress, **waiting on the owner's ADR-0010 decision** (neutral defaults vs the CD10 `true` defaults for `carryByHand`/`acceptsInsert`/`view auto`, and where content seconds become ticks). Do not resume until decided.
+  - player-character **013** — In Progress (status flip and logged design calls only; no code). The story was fixed on 2026-10-20 (`PanelOpen` on `CarrierStatus`, all six life states mapped, GDD '—' = Absent, the swim-Catch AC moved to story 016, stamp 2026-10-17.1); resume with `/dev-story`.
+- **Next order (one story at a time):** grid-inventory 004 → grid-inventory 005 → throwing-catching 001 → godot-host-shell 003 → player-character 013 → manual-delivery 001. Then grid-inventory 006…, player-character 014…, and the rest of `implementation-order.md` (that file's wave tables date from 2026-10-16 and list Complete stories as pending — regenerate it before relying on it).
+- **Not startable:** content-data 018/019 (ADR-0010 decision), player-character 027 (TD-091 movement rulings; its Open Questions include a "stop and ask" on the haul-out `MinY` threshold), and the six Blocked stories below.
+- **Toolchain on the box (2026-10-20):** `mise` is not installed and `~/.dotnet` has only SDK 8.0, which cannot build this repo (`global.json` needs SDK 10.0.100+). Use the side-by-side install: `export DOTNET_ROOT=/home/box/.dotnet10 PATH=/home/box/.dotnet10:$PATH` (SDK 10.0.402, runtimes 10.0.13 + 8.0.32). Godot on the box is **4.7.2 mono** at `~/.local/bin/godot` (there is no `godot-mono`); the repo pins **4.7.1** (`Godot.NET.Sdk/4.7.1`). Opening the project in the 4.7.2 editor rewrites `PerformativeMail.Game.csproj` to `Godot.NET.Sdk/4.7.2` — revert that before committing unless the owner moves the pin.
+- **Owner rule (2026-10-19):** by-design config-dependent test skips (e.g. Release-only allocation tests skipped in Debug) are waived as long as each skipped test runs in the other configuration (decision log 2026-10-19).
+- **Baseline (2026-10-19, cf36b7a):** 4,609 tests per leg, 0 failed on all four legs (Debug 41 skipped, Release 2 skipped); Release 0 warnings; all `tools/ci` guards green after PR #1.
+
+## Update 2026-10-17 (historical)
 
 - **Branch is `main`** (the old `master` was renamed and pushed to `origin/main`, replacing the Unreal-era history). Everything below that says `master` means `main`.
 - **Everything is committed and pushed** through the run's cut-off point. Commits after the snapshot: Sim/Client.Core snapshot, ADR errata, godot-host-shell 001–002, mail-destinations 003–004, ADR-0017 erratum (TD-096), content-data 017 (+018 partial), grid-inventory 001–002 (+003 partial), player-character 011–012, world-stub 007, production logs.
 - **Story counts now:** 86 Complete. **Three In Progress** with partial or no code: content-data **018** (schema stage — FieldSpec tables, SchemaTable, ParsedDef/Value etc. exist; 0/7 ACs ticked; TD-090/075(1)/063(1) still owed), grid-inventory **003** (MailIdArena.cs + `inventory.mailIdArenaUnits` knob exist; 0/4 ACs; no tests), player-character **013** (status flip and logged design calls only; no code). Resume these with `/dev-story` — the runner should read the existing files before implementing.
 - **Tree verified 2026-10-17 evening:** Release build 0 warnings; four legs 4,609 tests / 0 failed. Two compile errors in 018's last files and two stale content pins (golden digest → `018735cb`; `inventory.mailIdArenaUnits` default 32 768) were fixed in that pass.
 - **Runner worktrees removed.** The throwing-catching 001 and godot-host-shell 003 runners only reached setup (their decision-log notes were appended to the main log); both stories are still **Ready**. Both runners noted that `.claude/worktrees` branches must be based on local `main`, not `origin/main` at the time (now identical). Current manifest version is **2026-10-17.1**; stories stamped 2026-10-16.2 should re-stamp (only ADR-0012 §7 input-adapter and ADR-0026 rules changed).
-- **Next up, in order:** finish 018 → 019; finish grid-inventory 003 → 004…; player-character 013 → 026; throwing-catching 001; godot-host-shell 003; then the rest of the "Recommended next steps" below.
+- **Next up, in order (superseded by the 2026-10-20 block):** finish 018 → 019; finish grid-inventory 003 → 004…; player-character 013 → 026; throwing-catching 001; godot-host-shell 003.
 
 ## Owner instructions in force
 
@@ -20,16 +33,14 @@
 4. Owner explicitly **accepted ADR-0001..0017, 0019, 0026** and **ratified every creative-director ruling applied as a default** ("keep as applied"; Cannon Arm card text → "≈ 30 % farther").
 5. ADR acceptance and `automation_always_ask` categories (scope changes, file deletions, schema changes) still need the owner. Everything else: decide, log to `production/session-logs/decision-log.md`, proceed.
 
-Nothing has been committed — all work is uncommitted in the working tree on `master` (last commit e511d85). Commit only when the owner asks.
-
-## Where the project is
+## Where the project is (2026-10-16 snapshot — counts superseded by the 2026-10-20 block)
 
 - **Stage:** Technical Setup → implementing milestone **M-1a** (owner-directed; no formal `/gate-check` was run).
 - **Design:** 16 GDDs in `design/gdd/`. The M-1a set (grid-inventory, player-character-movement, input-controls, mail-destinations, manual-delivery, throwing-catching, hud-notifications) is reviewed, revised, cross-reconciled and consistency-checked — all **In Review** (implementation-ready; no further re-reviews by owner instruction). Simulation Core, Content & Data, Health & Damage, Building System are In Review (Provisional). Belt Logistics is Designed (Provisional, not reviewed). Comms is a frozen draft. Not yet designed: Networking & Session, World Generation, Enemy AI & Waves, Defenses, Player Combat, Vehicles, Economy, Run Structure, Perks, Persistence, Stamps, Meta, Map/Menus UI, Audio, Voice, Presentation, Onboarding, Accessibility, Dev Tooling, Harvesting.
 - **UX specs:** `design/ux/inventory-panel.md`, `design/ux/throwing-catching.md` (+ two UNREVIEWED seeds).
 - **Architecture:** `docs/architecture/architecture.md` v1.2; **19 ADRs Accepted** (0001–0017, 0019, 0026); `docs/architecture/control-manifest.md` (version 2026-10-16.2); `docs/architecture/tr-registry.yaml` (250 TRs); `docs/registry/architecture.yaml`. Godot .NET spike (`prototypes/spike-godot-dotnet/`) PASS; input spike (`prototypes/spike-oq-ic-9-input/REPORT.md`) GO-WITH-DELTAS.
 - **Code:** `PerformativeMail.sln` — `src/PerformativeMail.Sim` (Godot-free, net8.0), `src/PerformativeMail.Client.Core` (net8.0), `tools/PerformativeMail.Analyzers`, one xUnit v3 test project `tests/PerformativeMail.Sim.Tests` (compiles `tests/unit/**`, `tests/integration/**`). 4,205 tests per leg, four legs (net10/net8 × Debug/Release). No Godot game project yet (that's the godot-host-shell epic).
-- **Tech debt:** `docs/tech-debt-register.md` (TD-001…TD-091; several ADR errata waiting — see below).
+- **Tech debt:** `docs/tech-debt-register.md` (TD-001…TD-104 as of 2026-10-20; several ADR errata waiting — see below).
 
 ### Story progress (production/epics/, index in production/epics/index.md, order in production/epics/implementation-order.md)
 
@@ -59,7 +70,7 @@ Nothing has been committed — all work is uncommitted in the working tree on `m
 
 ## How to continue (the work loop that worked)
 
-**Toolchain:** run dotnet only as `mise exec dotnet@10.0.402 -- dotnet …` (SDKs 10.0.402 + 8.0.426 user-level via mise; runtimes 10.0.13 + 8.0.32). Test legs: `dotnet test --solution PerformativeMail.sln` (net10) and add `-p:PmTestTfm=net8.0` for net8; each in `-c Debug` and `-c Release`. Godot .NET: `~/.local/bin/godot-mono` (4.7.1 mono).
+**Toolchain:** `export DOTNET_ROOT=/home/box/.dotnet10 PATH=/home/box/.dotnet10:$PATH` (SDK 10.0.402; runtimes 10.0.13 + 8.0.32). Test legs: `dotnet test --solution PerformativeMail.sln` (net10) and add `-p:PmTestTfm=net8.0` for net8; each in `-c Debug` and `-c Release`. Godot .NET: `~/.local/bin/godot` (4.7.2 mono on the box; the repo pins 4.7.1).
 
 **Per story:** `/dev-story <story-path>` then `/story-done <story-path>`, each story in its own subagent ("runner"), which spawns the implementer + gate reviewers (LP-CODE-REVIEW, QL-TEST-COVERAGE, sometimes godot-csharp-specialist). Append a one-line checkpoint per closed story to `production/session-state/planning-run-2026-10-16.md` (Phase 4).
 
@@ -75,19 +86,16 @@ Nothing has been committed — all work is uncommitted in the working tree on `m
 
 ## Recommended next steps (in order)
 
-1. **Verify the tree first:** Release build 0 warnings + all four legs green (fix any half-finished file left by the wrap-up).
-2. **Ask the owner whether to commit** the work so far (large uncommitted tree).
+1. **Verify the tree first:** Release build 0 warnings + all four legs green.
+2. *(Done 2026-10-17: everything is committed and pushed; work now goes through PRs.)*
 3. Continue tracks in parallel (≤ 4): content-data 017–019; simulation-core 029 (030 after grid 007 + throwing 010); world-stub 007; player-character 010→026 (first: a story implementing TD-091 — the row-27 extra-jump rule, maxExtraJumps ≤ 1 and the new slide formula/`player.slideRunMaxMmS` are in the GDD but not yet in code); input-controls 007→028; mail-destinations 003→016; then **grid-inventory 001→021, 023–024**, **manual-delivery 001→008** (005 unblocks network 008/009), **throwing-catching 001→023**, and **godot-host-shell 001→011** (the Godot game project; makes the greybox playable).
 4. **ADR errata batch** (one technical-director pass, then owner acceptance of any amended Accepted ADRs): ADR-0003 §4 (IWorldQuery row, SimBuildArgs.HostClock/Recorder, SimHost.Content), ADR-0004 (counters store last-issued), ADR-0005 (21 stream keys, `drops` owner), ADR-0006 §3 (explicit overload bans), ADR-0012 §7 deltas D-1..D-8 (TD-021), ADR-0013 §2 (ceil-sqrt + final speed clamp), ADR-0026 amendment (TD-028(4)). Search `docs/tech-debt-register.md` for "erratum"/"ADR-".
 5. **Write the missing ADRs** that block stories: ADR-0018 (HUD), ADR-0024 (telemetry), ADR-0020/0021/0022 (M0 networking) — owner must accept.
 6. **Design work still owed (later milestones):** `/design-review` Belt Logistics; then `/design-system` for Networking & Session (M0; unfreezes Comms), World Generation, Player Combat, Enemy AI & Waves, Defenses, Vehicles, Economy, Run Structure, Perks, etc. Networking must re-baseline the per-client bandwidth (belts alone ≈ 35 of 40 kbps).
 7. **Owner-only items:** the **two-friend M-1a greybox playtest** (systems-index GUARD — all non-M-1a GDDs are provisional until it's recorded in `prototypes/m1a-delivery-throwing-concept/REPORT.md`); input hardware checks M-1…M-9 in the input spike report; Belt Logistics' two CD rulings (solo-only stalls fixed by lot geography never quota/volume; street-spread exponent capped at 1.0 and never default); buildable spawn pads (deferred past v1); solo shift-1 balance (Mail OQ22).
 
-## Final state at stop
+## Things to know before resuming (from the 2026-10-17 stop; still open unless noted)
 
-Verified by the orchestrator at stop (2026-10-17 ~00:15 PDT): **Release build 0 warnings / 0 errors; all four legs 4,205 tests, 0 failed** (Debug legs skip 34 Release-only allocation tests). **No story is In Progress**; no agents running.
-
-Things to know before resuming:
 - **GDD ahead of code (TD-091):** player-character game-designer rulings (row 27 extra-jump vs ground buffer, `maxExtraJumps` 0–1, steep-slope slide formula with `player.slideRunMaxMmS` = 4000) are written into the GDD but not implemented — shipped 006/007 code contradicts GDD PCM-P5-2/4/5 and P4-1d until a story implements TD-091. Also open: submerged box top counts as dry? (design question), 009 test gaps (buffed swim speed, swim exit onto a box).
 - **input-controls TD-088(1):** needs a game-designer ruling on Tap/Hold sharing across modifier buckets.
 - **content-data TD-086(1):** pre-check against > 6 Mul modifiers on one StatSheet cell before M1 Perks. Story 018 must fix TD-090 first (Convert complexity; SelfCheck at startup), add the CV-GEN-12 > 65 535 AC (TD-075(1)) and move stage-2 rules (TD-063(1)); 017 carries CV-GEN-16 tests for `5.` and `+5`.

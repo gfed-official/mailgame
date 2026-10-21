@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` R12 (delivery), §Network N3 (event replication contract: one batch per tick in raise order; audience; replies follow events)
 **Requirement**: `TR-sim-022` (`IEventSink.Deliver` once in phase 13, copy-only — sink half), `TR-inventory-019` (reliable ordered delivery; events, replies, snapshots on one channel; event before reply), `TR-mail-014` (DeliveriesState is a reliable-ordered event, not on a snapshot — satisfied by the generic path)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0008: Event Log, Replication Classes and Event Delivery (§7 delivery and adapter ordering rule) — primary; ADR-0011 (§6 per-peer outbound policy) — secondary
 **ADR Decision Summary**: Inside `Deliver` the adapter only (a) copies the entries it needs into its own preallocated buffers, (b) resolves each entry's audience mask to a peer set through its slot → peer map (so a queued batch holds peers, never slots), (c) updates its per-peer reply cache from `OpReply` entries, and (d) may tag same-`CallSeq` events with the reply's `reqId`; it makes no transport, Godot or Sim call and keeps no span. After `Tick()` returns, `FlushOutbound(tick)` encodes each peer's entries for that tick into one ordered batch in log order (`Internal` never leaves) on the reliable channel; two entries to one peer are never reordered (cross-call merging is off until H-NET-1 proves it).

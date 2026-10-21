@@ -8,7 +8,7 @@
 > **Est. size**: M/L — 12–14 stories
 > **Implementation priority**: 4 of 9
 > **Status**: Ready
-> **Stories**: 16 stories (16 Ready, 0 Blocked; 016 unblocked 2026-10-16 story hygiene — godot-host-shell stories now exist) — created 2026-10-16 by `/create-stories mail-destinations --review lean`
+> **Stories**: 16 stories — 6 Complete, 10 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -114,18 +114,18 @@ This epic is complete when:
 
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
-| 001 | [Mail table — paged SoA, rows, retire, dump](story-001-mail-table-paged-soa.md) | Logic | Ready | ADR-0017 |
-| 002 | [Destination registry from `IWorldQuery.Lots`](story-002-destination-registry.md) | Logic | Ready | ADR-0017, ADR-0026 |
-| 003 | [`MailRules.Evaluate` + effective state / closing grace](story-003-evaluate-and-effective-state.md) | Logic | Ready | ADR-0017, ADR-0016 |
-| 004 | [`MailPay` F5–F8, F10](story-004-mailpay-f5-f8-f10.md) | Logic | Ready | ADR-0017, ADR-0006 |
+| 001 | [Mail table — paged SoA, rows, retire, dump](story-001-mail-table-paged-soa.md) | Logic | Complete | ADR-0017 |
+| 002 | [Destination registry from `IWorldQuery.Lots`](story-002-destination-registry.md) | Logic | Complete | ADR-0017, ADR-0026 |
+| 003 | [`MailRules.Evaluate` + effective state / closing grace](story-003-evaluate-and-effective-state.md) | Logic | Complete | ADR-0017, ADR-0016 |
+| 004 | [`MailPay` F5–F8, F10](story-004-mailpay-f5-f8-f10.md) | Logic | Complete | ADR-0017, ADR-0006 |
 | 005 | [`IWalletGate`, `StubWallet`, Mail system shell](story-005-walletgate-stubwallet-mail-system.md) | Integration | Ready | ADR-0017, ADR-0003 |
 | 006 | [Complaint buckets (F9), `ComplaintRaised`](story-006-complaint-buckets-f9.md) | Logic | Ready | ADR-0017 |
 | 007 | [Consume routine + hand path (`ConsumeHand`), outcomes](story-007-consume-routine-hand-path-outcomes.md) | Integration | Ready | ADR-0017, ADR-0008 |
 | 008 | [Thrown landings + hand → landing tick order](story-008-thrown-landing-and-tick-order.md) | Integration | Ready | ADR-0017, ADR-0015 |
 | 009 | [M-1a shift stub, `SetDeliveriesState`, `DeliveriesState`](story-009-shift-stub-deliveries-state.md) | Integration | Ready | ADR-0017, ADR-0003 |
 | 010 | [Client mirrors + client facts](story-010-client-mirrors-and-facts.md) | Integration | Ready | ADR-0016, ADR-0017 |
-| 011 | [Spawn value (F1) + kind counts (F3)](story-011-spawn-value-f1-kind-counts-f3.md) | Logic | Ready | ADR-0017, ADR-0006 |
-| 012 | [Batch schedule (F2), destination draws (F4), draw count](story-012-batch-schedule-f2-destinations-f4-draws.md) | Logic | Ready | ADR-0005, ADR-0017 |
+| 011 | [Spawn value (F1) + kind counts (F3)](story-011-spawn-value-f1-kind-counts-f3.md) | Logic | Complete | ADR-0017, ADR-0006 |
+| 012 | [Batch schedule (F2), destination draws (F4), draw count](story-012-batch-schedule-f2-destinations-f4-draws.md) | Logic | Complete | ADR-0005, ADR-0017 |
 | 013 | [Manifest roller + `PrepareShift`](story-013-manifest-roller-prepareshift.md) | Integration | Ready | ADR-0017, ADR-0005 |
 | 014 | [Batch firing, Intake hand-off, backlog append](story-014-batch-firing-intake-backlog.md) | Integration | Ready | ADR-0017, ADR-0009 |
 | 015 | [Mail/Run/Wallet event wire codecs](story-015-mail-event-wire-codecs.md) | Integration | Ready | ADR-0011, ADR-0017 |

@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-013` (cap 512, expiry FIFOs, lossless mail eviction), `TR-inventory-014` (absolute-tick timers; expiry after Inputs.Apply)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0004: Identity and Id Spaces; ADR-0003: Phase Order, Composition Root and Cross-System Calls
 **ADR Decision Summary**: WorldItem expiry uses one FIFO per duration class (`mailWorldItem` 9000, `nonMailWorldItem`/`spillHeap` 9000, `waterFloat` 300, `bag` 900), appended at creation so append order is `expiresTick` order (ties → ascending `worldItemId`); phase 1 (`ItemsExpire`, after `InputsApply`) pops heads with `expiresTick ≤ now`, skipping lazy tombstones; cap eviction takes the `mailWorldItem` head if older than `capEvictMinAgeSeconds`, else the lower `(expiresTick, id)` non-mail head; the new item is never a candidate; a 256-entry tombstone ring `(id, byActorId, cause, worldSeq, tick)` (30 s) feeds `container_gone` (ADR-0009 §5; ADR-0004 `EntityClass.WorldItem`).

@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` R6 (actor stamped by the adapter), R7 (`busy`), R18 (callbacks only enqueue); §Network N1–N2
 **Requirement**: `TR-sim-016` (actor stamped from the peer, never the payload), `TR-sim-017` (full ring → adapter replies `busy` — adapter half), `TR-sim-008` (nothing applied inside a callback), `TR-inventory-025` (sender from the transport peer; malformed → `bad_request`, no exception)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0011: Network Adapter Boundary (§2 `HostAdapter`, frame order; §3 actor; §4 admission) — primary; ADR-0007 (§2 `busy` on the peer's reply stream, §5 reasons), ADR-0002 (§5 callbacks only enqueue) — secondary
 **ADR Decision Summary**: `HostAdapter` owns the peer table `peer → (accountKey, playerId, slot)`, stamps `Op.Actor` from that table (any player id in a payload is ignored), decodes requests with the codec registry and calls `SimWorld.EnqueueOp` on the main thread inside `PumpInbound()` — remote `transport.Poll` first, then `loopback.Poll`, so a same-frame remote op gets the lower `opSeq`. If `EnqueueOp` returns false it answers `busy` (1) at once on that peer's reliable reply stream (never through the event log); a decode failure is answered `bad_request` (8); neither consumes `opSeq` or is recorded. Messages from unknown (unadmitted) peers are dropped. On admission it enqueues the `System` `PlayerJoin` op.

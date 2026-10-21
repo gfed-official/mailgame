@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD6, CD7, CD10); field values belong to `design/gdd/grid-inventory.md` (R1), `design/gdd/mail-destinations.md` (R1, R3, F3), and the base schema is `design/spec/08-data-schemas.md` §2.1–2.3.
 **Requirement**: `TR-content-010`, `TR-content-011`
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§3 Defs)
 **ADR Decision Summary**:

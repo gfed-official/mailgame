@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD8; CD10 for the M-1a enum fields)
 **Requirement**: `TR-content-012`
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§2 Enums)
 **ADR Decision Summary**: Content enums are closed C# enums with explicit numeric values that are never reused. Each has a snake_case ↔ member table generated at compile time; a source generator is allowed. Runtime reflection and `Enum.Parse` are not allowed.

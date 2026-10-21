@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD3.4, CD4, F2, F3)
 **Requirement**: `TR-content-005`, `TR-content-006`
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§2 Numbers) (primary); ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (§1 units)
 **ADR Decision Summary**:

@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD5, F4)
 **Requirement**: `TR-content-007`, `TR-content-008`, `TR-content-009`
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A and is mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0004: Identity and Id Spaces (primary, §6); ADR-0010: Content Format, Loading, ContentSet and StatSheet (§3)
 **ADR Decision Summary**: `DefIndex` is a `ushort` ordinal of the def id within its type's `StringComparer.Ordinal`-sorted id list. It uses `+1` storage, so `default` is None and `Value` reads `0xFFFF` for None. At most 65 534 defs are allowed per type. `DefIndex` is never persisted. `StringId` is `(StringNamespace ns, ushort index)`, with one namespace per def type plus `Run`.

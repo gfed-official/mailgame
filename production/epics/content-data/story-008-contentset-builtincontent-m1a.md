@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD9, CD21); values belong to the owner GDDs' Tuning Knobs and tables: `grid-inventory.md` (R1, D1, Tuning Knobs, AC H-R1-1 and its fixture table), `mail-destinations.md` (R1, R3, F3, Tuning Knobs), `player-character-movement.md` (Tuning Knobs), `throwing-catching.md` (Tuning Knobs), `simulation-core.md` (Tuning Knobs).
 **Requirement**: `TR-content-020` (`ContentSet` half; loader half in story 019), `TR-content-013` (owner key rows)
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§4) (primary); ADR-0003: Phase Order, Composition Root and Cross-System Calls (§4 composition root)
 **ADR Decision Summary**:

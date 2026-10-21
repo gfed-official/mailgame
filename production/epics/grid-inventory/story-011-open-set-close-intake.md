@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-001` (Close through the FIFO); open-set consistency rule of GDD R10
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0008: Event Log, Replication Classes and Event Delivery
 **ADR Decision Summary**: A player's open set = own panel + cursor + at most one external container; opening another closes the first; ops on containers outside the set → `not_open` (decided during validation); external containers' records are `Targeted` to their subscriber set (= the players that have them open) resolved at raise time (ADR-0009 §2, §4 rule 1; GDD R10).

@@ -14,7 +14,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-001`; GDD R10 open/range/leash; consumes `TR-movement-011..014` (interaction framework)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0014: Interaction framework & hold timing — Accepted 2026-10-16 (primary); ADR-0009: InventoryOp Pipeline and Inventory Storage Layout; ADR-0013: Carrier kinematic solver & fixed-point geometry — Accepted 2026-10-16
 **ADR Decision Summary**: Range-gated ops (`Open`, `Pickup`) run Player Character P13's chain first (`dead → frozen → no_target → unavailable → out_of_range / position_stale`) via `IPlayersApi`, then their own chain (ADR-0009 §2); the interaction framework, anchor registry, range/leash measurement and hold timing are ADR-0014's; carrier positions are ADR-0013's — both Accepted 2026-10-16.
