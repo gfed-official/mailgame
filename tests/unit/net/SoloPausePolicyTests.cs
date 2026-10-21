@@ -6,7 +6,7 @@ namespace PerformativeMail.Sim.Tests.Unit.Net;
 /// Covers <see cref="SoloPausePolicy"/>, <see cref="IPeerPresence"/> and <see cref="LoopbackPeerPresence"/> (story
 /// godot-host-shell/003 AC4, TR-sim-009, ADR-0002 section 4, GDD simulation-core R16): Networking and Session owns the
 /// solo-pause rule; the M-1a loopback presence reports no remote peers, so a solo pause is allowed; any remote peer
-/// refuses it with a reason. The <c>GameLoop</c> side is proven by the <c>pause-driver-state</c> smoke.
+/// refuses it with a reason; no presence at all fails closed and refuses it. The <c>GameLoop</c> side is proven by the <c>pause-driver-state</c> smoke.
 /// </summary>
 public class SoloPausePolicyTests
 {
@@ -62,9 +62,14 @@ public class SoloPausePolicyTests
     }
 
     [Fact]
-    public void NullPresence_Throws()
+    public void NullPresence_RefusesPause_WithReason()
     {
-        // Act + Assert
-        Assert.Throws<ArgumentNullException>(() => SoloPausePolicy.CanPause(null!, out _));
+        // Act
+        bool allowed = SoloPausePolicy.CanPause(null, out string reason);
+
+        // Assert
+        Assert.False(allowed);
+        Assert.Equal(SoloPausePolicy.PeerPresenceUnsetReason, reason);
+        Assert.NotEqual(SoloPausePolicy.RemotePeerPresentReason, reason);
     }
 }

@@ -37,7 +37,7 @@ public partial class GameLoop : Node
     private bool _startPending;
     private bool _faulted;
     private IFaultSink _faultSink = LogFaultSink.Instance;
-    private IPeerPresence _peerPresence = LoopbackPeerPresence.Instance;
+    private IPeerPresence? _peerPresence;
 
     /// <summary>
     /// Test seam: when false, <see cref="_Ready"/> does not call <see cref="RequestBoot"/>.
@@ -74,10 +74,11 @@ public partial class GameLoop : Node
 
     /// <summary>
     /// Networking and Session's peer presence, read through <see cref="SoloPausePolicy"/> by
-    /// <see cref="TryPause"/> (default: the M-1a loopback presence, no remote peers).
+    /// <see cref="TryPause"/>. Null until provided (the solo boot sets the M-1a loopback presence in
+    /// <see cref="RequestBoot"/>); while null every pause is refused (fail closed).
     /// </summary>
     /// <exception cref="ArgumentNullException">Set to null.</exception>
-    public IPeerPresence PeerPresence
+    public IPeerPresence? PeerPresence
     {
         get => _peerPresence;
         set => _peerPresence = value ?? throw new ArgumentNullException(nameof(value));
@@ -130,6 +131,8 @@ public partial class GameLoop : Node
     /// <returns>True when boot succeeded; false when it did not run or failed.</returns>
     public bool RequestBoot()
     {
+        // M-1a solo session: Networking and Session's loopback presence (no remote peers), so solo pause is allowed.
+        PeerPresence = LoopbackPeerPresence.Instance;
         GD.Print("[GameLoop] boot not wired (story 004)");
         return false;
     }
@@ -269,18 +272,24 @@ public partial class GameLoop : Node
         _sequence ?? throw new InvalidOperationException("No frame sequence is installed (story 004/005).");
 
     // ex.ToString() carries the full type name, the message, the stack and any inner exceptions.
-    private void Fault(Exception ex)
-    {
-        Error($"[GameLoop] FAULT {ex}");
-        Latch($"{ex.GetType().Name}: {ex.Message}");
-        DeliverFault($"{ex.GetType().Name}: {ex.Message}");
-    }
+    private void Fault(Exception ex) => Fault($"[GameLoop] FAULT {ex}", $"{ex.GetType().Name}: {ex.Message}");
 
-    private void Fault(string message)
+    private void Fault(string message) => Fault($"[GameLoop] FAULT {message}", message);
+
+    // Latch first: a throwing LogObserver must not leave the loop running. The sink still gets the fault;
+    // the observer's exception then propagates.
+    private void Fault(string faultLine, string message)
     {
-        Error($"[GameLoop] FAULT {message}");
-        Latch(message);
-        DeliverFault(message);
+        Latch();
+        try
+        {
+            Error(faultLine);
+            LogSessionEnded(message);
+        }
+        finally
+        {
+            DeliverFault(message);
+        }
     }
 
     // Runs on the wrong thread: latch at once, but hand the message to the sink on the main thread (story 004's error
@@ -289,18 +298,27 @@ public partial class GameLoop : Node
     {
         var ex = new InvalidOperationException(
             $"GameLoop._Process ran on managed thread {thread}, not the boot thread {_bootThreadId} (TR-sim-007)");
-        Error($"[GameLoop] FAULT {ex.GetType().FullName}: {ex.Message}\n{System.Environment.StackTrace}");
         string message = $"{ex.GetType().Name}: {ex.Message}";
-        Latch(message);
-        Callable.From(() => DeliverFault(message)).CallDeferred();
+        Latch();
+        try
+        {
+            Error($"[GameLoop] FAULT {ex.GetType().FullName}: {ex.Message}\n{System.Environment.StackTrace}");
+            LogSessionEnded(message);
+        }
+        finally
+        {
+            Callable.From(() => DeliverFault(message)).CallDeferred();
+        }
     }
 
-    private void Latch(string message)
+    private void Latch()
     {
         _faulted = true;
         _startPending = false;
-        Error($"[GameLoop] session ended ({message}); RunFrame will not be called again");
     }
+
+    private void LogSessionEnded(string message) =>
+        Error($"[GameLoop] session ended ({message}); RunFrame will not be called again");
 
     private void DeliverFault(string message)
     {

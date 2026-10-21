@@ -9,8 +9,9 @@ namespace PerformativeMail.Game.Smoke;
 /// through its <see cref="IFaultSink"/>, and run-frame is never called again over the next 10
 /// frames. Sources: run-frame throws, a pre hook throws, a post hook throws, the render-clock
 /// sample throws, <c>Present</c> throws, the world reports faulted after run-frame (no throw),
-/// and a <c>_Process</c> call from a background thread (the thread check faults before any Sim call).
-/// The <c>[GameLoop] FAULT</c> lines on stderr are expected.
+/// a <c>_Process</c> call from a background thread (the thread check faults before any Sim call),
+/// and run-frame throwing while the log observer throws on the FAULT line (the loop latches before
+/// it logs, so it still stops and the sink still gets the fault). The <c>[GameLoop] FAULT</c> lines on stderr are expected.
 /// </summary>
 [SmokeScenario("fault-stop")]
 public sealed class FaultStopSmoke : SmokeScenario
@@ -28,7 +29,10 @@ public sealed class FaultStopSmoke : SmokeScenario
         "present-throws",
         "world-faulted",
         "wrong-thread",
+        "log-observer-throws",
     ];
+
+    private const string ObserverThrowMessage = "log observer throws on the FAULT line";
 
     private readonly LogRecorder _log = new();
     private FrameLoopRig _rig = null!;
@@ -131,6 +135,10 @@ public sealed class FaultStopSmoke : SmokeScenario
             case "sampler-throws": _rig.Sampler.ThrowOnCall = TriggerCall; break;
             case "present-throws": _rig.Presentation.ThrowOnCall = TriggerCall; break;
             case "world-faulted": _rig.Run.FaultAfterCall = TriggerCall; break;
+            case "log-observer-throws":
+                _rig.Run.ThrowOnCall = TriggerCall;
+                loop.LogObserver = ThrowOnFaultLine;
+                break;
             default: break;
         }
 
@@ -140,8 +148,44 @@ public sealed class FaultStopSmoke : SmokeScenario
         {
             RunOffThread(ctx, loop);
         }
+        else if (_cases[_case] == "log-observer-throws")
+        {
+            RunToObserverThrow(ctx, loop);
+        }
 
         return SmokeStatus.Running;
+    }
+
+    private void ThrowOnFaultLine(string line)
+    {
+        _log.Observer(line);
+        if (line.StartsWith("[GameLoop] FAULT ", StringComparison.Ordinal))
+        {
+            throw new InjectedFaultException(ObserverThrowMessage);
+        }
+    }
+
+    // The observer's exception leaves _Process; the frames are run here so the scenario catches it
+    // instead of the engine.
+    private void RunToObserverThrow(SmokeContext ctx, GameLoop loop)
+    {
+        Exception? escaped = null;
+        for (int i = 0; i < TriggerCall && escaped is null; i++)
+        {
+            try
+            {
+                loop._Process(0);
+            }
+            catch (InjectedFaultException ex) when (ex.Message == ObserverThrowMessage)
+            {
+                escaped = ex;
+            }
+        }
+
+        Expect(ctx, "log-observer-throws: the observer's exception left _Process", escaped is not null, true);
+        Expect(ctx, "log-observer-throws: loop latched faulted despite the throwing observer", loop.IsFaulted, true);
+        Expect(ctx, "log-observer-throws: run-frame calls up to the fault", _rig.Run.Calls, TriggerCall);
+        Expect(ctx, "log-observer-throws: fault sink still called", _sink.Messages.Count, 1);
     }
 
     // AC5: the exception is logged with its type and stack (the world fault has no exception, only its message).
@@ -154,7 +198,8 @@ public sealed class FaultStopSmoke : SmokeScenario
             _ => _log.Any("[GameLoop] FAULT ", typeof(InjectedFaultException).FullName!, " at "),
         };
         Expect(ctx, $"{name}: fault logged with type and stack", ok, true);
-        Expect(ctx, $"{name}: session-ended line logged", _log.Any("[GameLoop] session ended"), true);
+        // The throwing observer cuts the logging short after the FAULT line.
+        Expect(ctx, $"{name}: session-ended line logged", _log.Any("[GameLoop] session ended"), name != "log-observer-throws");
     }
 
     private void RunOffThread(SmokeContext ctx, GameLoop loop)

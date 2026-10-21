@@ -1,34 +1,56 @@
 # Evidence: godot-host-shell story 003 — `GameLoop` frame loop, clock, pause, fault stop
 
 **Story**: `production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md`  
-**Date**: 2026-10-20  
+**Date**: 2026-10-21 (current run, after the Mail Review fixes); `list` and `selftest-*` are from the 2026-10-20 run and were not part of the 2026-10-21 run  
 **Engine used for these runs**: Godot **4.7.2**.stable.mono.official.ed1daf0bf (`~/.local/bin/godot`, headless). The project pins 4.7.1; the owner approved 4.7.2 for local runs. 4.7.1 behaviour is UNVERIFIED.  
 **.NET SDK**: 10.0.402 (`~/.dotnet10`)  
-**Procedure**: `/workspace/repos/logs/smoke.sh <worktree> <scenario...>` imports the project, builds `PerformativeMail.Game.csproj` Debug, runs each `--smoke=<name>` headless, then reverts the Godot rewrite of the csproj. The full SMOKE lines below come from direct `godot --headless --path . -- --smoke=<name>` runs of the same build, because smoke.sh shows only the first 60 lines per scenario.
+**Procedure**: `/workspace/repos/logs/smoke.sh <worktree> <scenario...>` imports the project, builds `PerformativeMail.Game.csproj` Debug, runs each `--smoke=<name>` headless, then reverts the Godot rewrite of the csproj. It keeps only lines matching `^SMOKE|ERROR|Unhandled|Exception`, up to 400 per scenario. The 2026-10-21 SMOKE lines below are copied verbatim from a single captured smoke.sh run (`/tmp/pr9-smoke.log`), with no separate direct runs.
 
 ## Smoke summary (exit code per scenario)
 
-| Scenario | Expected exit | Actual | Result line |
-|---|---|---|---|
-| `list` | 0 | 0 | 10 `SMOKE LIST` lines (below) |
-| `main-tree` | 0 | 0 | `SMOKE RESULT name=main-tree pass=39 fail=0 exit=0` |
-| `selftest-fail` | 1 | 1 | `SMOKE RESULT name=selftest-fail pass=1 fail=1 exit=1` |
-| `selftest-throws` | 1 | 1 | `SMOKE RESULT name=selftest-throws pass=0 fail=1 exit=1` |
-| `selftest-empty` | 3 | 3 | `SMOKE RESULT name=selftest-empty pass=0 fail=0 exit=3` |
-| `selftest-needs-boot` | 4 | 4 | `SMOKE RESULT name=selftest-needs-boot pass=0 fail=1 exit=4` |
-| `selftest-timeout` | 5 | 5 | `SMOKE RESULT name=selftest-timeout pass=1 fail=1 exit=5` |
-| `frame-order` | 0 | 0 | `SMOKE RESULT name=frame-order pass=50 fail=0 exit=0` |
-| `pause-driver-state` | 0 | 0 | `SMOKE RESULT name=pause-driver-state pass=63 fail=0 exit=0 (direct run)` |
-| `fault-stop` | 0 | 0 | `SMOKE RESULT name=fault-stop pass=83 fail=0 exit=0 (direct run)` |
-| `frame-alloc` | 0 | 0 | `SMOKE RESULT name=frame-alloc pass=1 fail=0 exit=0` |
+**2026-10-21 run** (one captured smoke.sh run on the current working tree, after the Mail Review fixes): `main-tree` 39/0, `frame-order` 50/0, `pause-driver-state` 68/0, `fault-stop` 98/0, `frame-alloc` 1/0 (0 B over 600 frames after 60 warm-up, advisory); all exit 0. `pause-driver-state` now includes the unset-presence refusal and solo-boot presence checks, and `fault-stop` now includes the `log-observer-throws` case.
+
+| Scenario | Run | Expected exit | Actual | Result line |
+|---|---|---|---|---|
+| `list` | 2026-10-20 | 0 | 0 | 10 `SMOKE LIST` lines (below) |
+| `main-tree` | 2026-10-21 | 0 | 0 | `SMOKE RESULT name=main-tree pass=39 fail=0 exit=0` |
+| `selftest-fail` | 2026-10-20 | 1 | 1 | `SMOKE RESULT name=selftest-fail pass=1 fail=1 exit=1` |
+| `selftest-throws` | 2026-10-20 | 1 | 1 | `SMOKE RESULT name=selftest-throws pass=0 fail=1 exit=1` |
+| `selftest-empty` | 2026-10-20 | 3 | 3 | `SMOKE RESULT name=selftest-empty pass=0 fail=0 exit=3` |
+| `selftest-needs-boot` | 2026-10-20 | 4 | 4 | `SMOKE RESULT name=selftest-needs-boot pass=0 fail=1 exit=4` |
+| `selftest-timeout` | 2026-10-20 | 5 | 5 | `SMOKE RESULT name=selftest-timeout pass=1 fail=1 exit=5` |
+| `frame-order` | 2026-10-21 | 0 | 0 | `SMOKE RESULT name=frame-order pass=50 fail=0 exit=0` |
+| `pause-driver-state` | 2026-10-21 | 0 | 0 | `SMOKE RESULT name=pause-driver-state pass=68 fail=0 exit=0` |
+| `fault-stop` | 2026-10-21 | 0 | 0 | `SMOKE RESULT name=fault-stop pass=98 fail=0 exit=0` |
+| `frame-alloc` | 2026-10-21 | 0 | 0 | `SMOKE RESULT name=frame-alloc pass=1 fail=0 exit=0` |
 
 Non-zero exits for `selftest-*` are the designed outcomes (each declares its `ExpectedExit`).
 
-### smoke.sh output (final run)
+### smoke.sh output, 2026-10-21 (RESULT and exit lines; full SMOKE lines in the sections below)
 
 ```
 import exit=0
 game build exit=0 (0 error lines)
+== --smoke=main-tree
+SMOKE RESULT name=main-tree pass=39 fail=0 exit=0
+exit=0
+== --smoke=frame-order
+SMOKE RESULT name=frame-order pass=50 fail=0 exit=0
+exit=0
+== --smoke=pause-driver-state
+SMOKE RESULT name=pause-driver-state pass=68 fail=0 exit=0
+exit=0
+== --smoke=fault-stop
+SMOKE RESULT name=fault-stop pass=98 fail=0 exit=0
+exit=0
+== --smoke=frame-alloc
+SMOKE RESULT name=frame-alloc pass=1 fail=0 exit=0
+exit=0
+```
+
+### smoke.sh output, 2026-10-20 (`list` and `selftest-*` only; not re-run 2026-10-21)
+
+```
 == --smoke=list
 SMOKE LIST fault-stop expect=0
 SMOKE LIST frame-alloc expect=0
@@ -40,9 +62,6 @@ SMOKE LIST selftest-fail expect=1
 SMOKE LIST selftest-needs-boot expect=4
 SMOKE LIST selftest-throws expect=1
 SMOKE LIST selftest-timeout expect=5
-exit=0
-== --smoke=main-tree
-SMOKE RESULT name=main-tree pass=39 fail=0 exit=0
 exit=0
 == --smoke=selftest-fail
 SMOKE RESULT name=selftest-fail pass=1 fail=1 exit=1
@@ -59,19 +78,9 @@ exit=4
 == --smoke=selftest-timeout
 SMOKE RESULT name=selftest-timeout pass=1 fail=1 exit=5
 exit=5
-== --smoke=frame-order
-SMOKE RESULT name=frame-order pass=50 fail=0 exit=0
-exit=0
-== --smoke=pause-driver-state
-exit=0
-== --smoke=fault-stop
-exit=0
-== --smoke=frame-alloc
-SMOKE RESULT name=frame-alloc pass=1 fail=0 exit=0
-exit=0
 ```
 
-## `frame-order` — AC1, AC2, AC3 (51 SMOKE lines)
+## `frame-order` — AC1, AC2, AC3 (51 SMOKE lines, 2026-10-21)
 
 ```
 SMOKE frame-order PASS GameLoop.ProcessMode == Always
@@ -127,14 +136,18 @@ SMOKE frame-order PASS StopwatchMonotonicClock.Timestamp non-decreasing over 10 
 SMOKE RESULT name=frame-order pass=50 fail=0 exit=0
 ```
 
-## `pause-driver-state` — AC4 (64 SMOKE lines)
+## `pause-driver-state` — AC4 (69 SMOKE lines, 2026-10-21)
 
 ```
-SMOKE pause-driver-state PASS default GameLoop.PeerPresence is the loopback presence == True
+SMOKE pause-driver-state PASS default GameLoop.PeerPresence is unset == True
 SMOKE pause-driver-state PASS TryPause while the driver start is pending returns == False
 SMOKE pause-driver-state PASS TryPause while start pending: refusal logged == True
 SMOKE pause-driver-state PASS driver state after the refused early pause == Idle,True,True
 SMOKE pause-driver-state PASS driver state after the first armed frame == Running
+SMOKE pause-driver-state PASS TryPause with no peer presence provided returns == False
+SMOKE pause-driver-state PASS refusal reason with no peer presence == no peer presence was provided, so a remote peer cannot be ruled out (ADR-0002 section 4)
+SMOKE pause-driver-state PASS unset-presence refusal logged by GameLoop == True
+SMOKE pause-driver-state PASS driver state after the unset-presence refusal == Running
 SMOKE pause-driver-state PASS TryPause with a remote peer present returns == False
 SMOKE pause-driver-state PASS pause refusal reason: multiplayer never pauses: a remote peer is present (ADR-0002 section 4)
 SMOKE pause-driver-state PASS Networking's refusal reason logged by GameLoop == True
@@ -142,7 +155,7 @@ SMOKE pause-driver-state PASS refusal reason is Networking's == multiplayer neve
 SMOKE pause-driver-state PASS driver state after the refused pause == Running
 SMOKE pause-driver-state PASS ticks on the frame after the refused pause == 2
 SMOKE pause-driver-state PASS TryPause with no remote peer returns == True
-SMOKE pause-driver-state PASS TryPause reason when allowed ==
+SMOKE pause-driver-state PASS TryPause reason when allowed == 
 SMOKE pause-driver-state PASS driver state after TryPause == Paused
 SMOKE pause-driver-state PASS driver-paused frame 1: _Process ran run-frame once == 1
 SMOKE pause-driver-state PASS driver-paused frame 1: ticks == 0
@@ -193,13 +206,16 @@ SMOKE pause-driver-state PASS first frame after Resume ran 1 tick(s) (<= 1, no b
 SMOKE pause-driver-state PASS ticks while SceneTree.Paused and the driver running (tree pause never stops the Sim) == 2
 SMOKE pause-driver-state PASS loop not faulted == False
 SMOKE pause-driver-state PASS SceneTree.Paused restored == False
-SMOKE RESULT name=pause-driver-state pass=63 fail=0 exit=0
+SMOKE pause-driver-state PASS GameLoop.PeerPresence after the solo RequestBoot is the loopback presence == True
+SMOKE RESULT name=pause-driver-state pass=68 fail=0 exit=0
 ```
 
-## `fault-stop` — AC5 (and AC2: a throwing hook is a fault) (84 SMOKE lines)
+## `fault-stop` — AC5 (and AC2: a throwing hook is a fault) (99 SMOKE lines, plus the 13 `[GameLoop]` lines smoke.sh kept, as logged; 2026-10-21)
 
 ```
 SMOKE fault-stop PASS run-frame-throws: fresh install clears the fault latch == False
+[GameLoop] FAULT PerformativeMail.Game.Smoke.InjectedFaultException: run-frame threw on call 3
+[GameLoop] session ended (InjectedFaultException: run-frame threw on call 3); RunFrame will not be called again
 SMOKE fault-stop PASS run-frame-throws: GameLoop.IsFaulted after the injected fault (run-frame calls so far 3)
 SMOKE fault-stop PASS run-frame-throws: fault sink message count == 1
 SMOKE fault-stop PASS run-frame-throws: fault message names 'InjectedFaultException': InjectedFaultException: run-frame threw on call 3
@@ -211,6 +227,8 @@ SMOKE fault-stop PASS run-frame-throws: Present calls over 10 frames after the f
 SMOKE fault-stop PASS run-frame-throws: fault sink messages after 10 more frames == 1
 SMOKE fault-stop PASS run-frame-throws: loop still faulted == True
 SMOKE fault-stop PASS pre-hook-throws: fresh install clears the fault latch == False
+[GameLoop] FAULT PerformativeMail.Game.Smoke.InjectedFaultException: pre-frame hook 2 threw on call 3
+[GameLoop] session ended (InjectedFaultException: pre-frame hook 2 threw on call 3); RunFrame will not be called again
 SMOKE fault-stop PASS pre-hook-throws: GameLoop.IsFaulted after the injected fault (run-frame calls so far 2)
 SMOKE fault-stop PASS pre-hook-throws: fault sink message count == 1
 SMOKE fault-stop PASS pre-hook-throws: fault message names 'InjectedFaultException': InjectedFaultException: pre-frame hook 2 threw on call 3
@@ -222,6 +240,8 @@ SMOKE fault-stop PASS pre-hook-throws: Present calls over 10 frames after the fa
 SMOKE fault-stop PASS pre-hook-throws: fault sink messages after 10 more frames == 1
 SMOKE fault-stop PASS pre-hook-throws: loop still faulted == True
 SMOKE fault-stop PASS post-hook-throws: fresh install clears the fault latch == False
+[GameLoop] FAULT PerformativeMail.Game.Smoke.InjectedFaultException: post-present hook 1 threw on call 3
+[GameLoop] session ended (InjectedFaultException: post-present hook 1 threw on call 3); RunFrame will not be called again
 SMOKE fault-stop PASS post-hook-throws: GameLoop.IsFaulted after the injected fault (run-frame calls so far 3)
 SMOKE fault-stop PASS post-hook-throws: fault sink message count == 1
 SMOKE fault-stop PASS post-hook-throws: fault message names 'InjectedFaultException': InjectedFaultException: post-present hook 1 threw on call 3
@@ -233,6 +253,8 @@ SMOKE fault-stop PASS post-hook-throws: Present calls over 10 frames after the f
 SMOKE fault-stop PASS post-hook-throws: fault sink messages after 10 more frames == 1
 SMOKE fault-stop PASS post-hook-throws: loop still faulted == True
 SMOKE fault-stop PASS sampler-throws: fresh install clears the fault latch == False
+[GameLoop] FAULT PerformativeMail.Game.Smoke.InjectedFaultException: render-clock sample threw on call 3
+[GameLoop] session ended (InjectedFaultException: render-clock sample threw on call 3); RunFrame will not be called again
 SMOKE fault-stop PASS sampler-throws: GameLoop.IsFaulted after the injected fault (run-frame calls so far 3)
 SMOKE fault-stop PASS sampler-throws: fault sink message count == 1
 SMOKE fault-stop PASS sampler-throws: fault message names 'InjectedFaultException': InjectedFaultException: render-clock sample threw on call 3
@@ -244,6 +266,8 @@ SMOKE fault-stop PASS sampler-throws: Present calls over 10 frames after the fau
 SMOKE fault-stop PASS sampler-throws: fault sink messages after 10 more frames == 1
 SMOKE fault-stop PASS sampler-throws: loop still faulted == True
 SMOKE fault-stop PASS present-throws: fresh install clears the fault latch == False
+[GameLoop] FAULT PerformativeMail.Game.Smoke.InjectedFaultException: present threw on call 3
+[GameLoop] session ended (InjectedFaultException: present threw on call 3); RunFrame will not be called again
 SMOKE fault-stop PASS present-throws: GameLoop.IsFaulted after the injected fault (run-frame calls so far 3)
 SMOKE fault-stop PASS present-throws: fault sink message count == 1
 SMOKE fault-stop PASS present-throws: fault message names 'InjectedFaultException': InjectedFaultException: present threw on call 3
@@ -267,6 +291,8 @@ SMOKE fault-stop PASS world-faulted: Present calls over 10 frames after the faul
 SMOKE fault-stop PASS world-faulted: fault sink messages after 10 more frames == 1
 SMOKE fault-stop PASS world-faulted: loop still faulted == True
 SMOKE fault-stop PASS wrong-thread: fresh install clears the fault latch == False
+[GameLoop] FAULT System.InvalidOperationException: GameLoop._Process ran on managed thread 4, not the boot thread 1 (TR-sim-007)
+[GameLoop] session ended (InvalidOperationException: GameLoop._Process ran on managed thread 4, not the boot thread 1 (TR-sim-007)); RunFrame will not be called again
 SMOKE fault-stop PASS wrong-thread: _Process called from managed thread 4 (boot thread 1)
 SMOKE fault-stop PASS wrong-thread: run-frame calls on the off-thread frame == 0
 SMOKE fault-stop PASS wrong-thread: loop latched faulted at once == True
@@ -282,23 +308,43 @@ SMOKE fault-stop PASS wrong-thread: run-frame calls over 10 frames after the fau
 SMOKE fault-stop PASS wrong-thread: Present calls over 10 frames after the fault == 0
 SMOKE fault-stop PASS wrong-thread: fault sink messages after 10 more frames == 1
 SMOKE fault-stop PASS wrong-thread: loop still faulted == True
-SMOKE RESULT name=fault-stop pass=83 fail=0 exit=0
+SMOKE fault-stop PASS log-observer-throws: fresh install clears the fault latch == False
+[GameLoop] FAULT PerformativeMail.Game.Smoke.InjectedFaultException: run-frame threw on call 3
+SMOKE fault-stop PASS log-observer-throws: the observer's exception left _Process == True
+SMOKE fault-stop PASS log-observer-throws: loop latched faulted despite the throwing observer == True
+SMOKE fault-stop PASS log-observer-throws: run-frame calls up to the fault == 3
+SMOKE fault-stop PASS log-observer-throws: fault sink still called == 1
+SMOKE fault-stop PASS log-observer-throws: GameLoop.IsFaulted after the injected fault (run-frame calls so far 3)
+SMOKE fault-stop PASS log-observer-throws: fault sink message count == 1
+SMOKE fault-stop PASS log-observer-throws: fault message names 'InjectedFaultException': InjectedFaultException: run-frame threw on call 3
+SMOKE fault-stop PASS log-observer-throws: fault sink called on the main (boot) thread == True
+SMOKE fault-stop PASS log-observer-throws: fault logged with type and stack == True
+SMOKE fault-stop PASS log-observer-throws: session-ended line logged == False
+SMOKE fault-stop PASS log-observer-throws: run-frame calls over 10 frames after the fault == 0
+SMOKE fault-stop PASS log-observer-throws: Present calls over 10 frames after the fault == 0
+SMOKE fault-stop PASS log-observer-throws: fault sink messages after 10 more frames == 1
+SMOKE fault-stop PASS log-observer-throws: loop still faulted == True
+SMOKE RESULT name=fault-stop pass=98 fail=0 exit=0
 ```
 
-## `frame-alloc` — AC6 (advisory) (2 SMOKE lines)
+## `frame-alloc` — AC6 (advisory) (2 SMOKE lines, 2026-10-21)
 
 ```
 SMOKE frame-alloc PASS FrameSequence.Run x 600 after 60 warm-up: 0 B allocated (advisory, target 0 B; ticks 825, run-frame calls 660)
 SMOKE RESULT name=frame-alloc pass=1 fail=0 exit=0
 ```
 
-## CI guards
+## tools/ci guards (local runs)
+
+All guards below and their `--self-check` modes were re-run on 2026-10-21 against the current working tree, and all exited 0. That run reconfirmed the counts for `check-sim-access --self-check` (17 cases), `check-analyzer-fixtures` (128) and `check-game-build` (16). The other last lines are as recorded on 2026-10-20.
+
+`check-sim-access.sh` is not run in CI yet: its `game-build` step in `.github/workflows/tests.yml` is PENDING (patch in the PR #9 body and the Mail Review comment, awaiting a maintainer with workflow scope).
 
 | Command | Exit | Last line |
 |---|---|---|
 | `check-no-scenetree-paused.sh --self-check` | 0 | self-check: PASS (GetTree().Paused / SceneTree.Paused caught in code, skipped in comments, clean code not matched; src/Game/Smoke/ skipped, other src/Game/ and Sim files caught) |
 | `check-no-scenetree-paused.sh` | 0 | No SceneTree.Paused in Sim / src/Game (src/Game/Smoke/ excluded; comments skipped). |
-| `check-sim-access.sh --self-check` | 0 | check-sim-access --self-check: PASS (14 cases) |
+| `check-sim-access.sh --self-check` | 0 | check-sim-access --self-check: PASS (17 cases; re-run 2026-10-21 after the Mail Review fixes) |
 | `check-sim-access.sh` | 0 | check-sim-access: clean |
 | `check-scene-rules.sh --self-check` | 0 | check-scene-rules --self-check: clean layout accepted, 25 planted violations detected |
 | `check-scene-rules.sh` | 0 | check-scene-rules: checked 10 rules |
@@ -313,9 +359,9 @@ SMOKE RESULT name=frame-alloc pass=1 fail=0 exit=0
 
 | Leg | Build | Total | Failed | Succeeded | Skipped |
 |---|---|---|---|---|---|
-| net10.0-Debug | 0 warnings, 0 errors | 4669 | 0 | 4627 | 42 |
-| net10.0-Release | 0 warnings, 0 errors | 4669 | 0 | 4667 | 2 |
-| net8.0-Debug | 0 warnings, 0 errors | 4669 | 0 | 4627 | 42 |
-| net8.0-Release | 0 warnings, 0 errors | 4669 | 0 | 4667 | 2 |
+| net10.0-Debug | 0 warnings, 0 errors | 4778 | 0 | 4736 | 42 |
+| net10.0-Release | 0 warnings, 0 errors | 4778 | 0 | 4776 | 2 |
+| net8.0-Debug | 0 warnings, 0 errors | 4778 | 0 | 4736 | 42 |
+| net8.0-Release | 0 warnings, 0 errors | 4778 | 0 | 4776 | 2 |
 
-Baseline before this story: 4638. New tests (+31): `tests/unit/net/SoloPausePolicyTests.cs`, `tests/unit/timing/RenderClockTests.cs`.
+Run 2026-10-21 on the current working tree, after the Mail Review fixes and the merge of `origin/main` (25f477a). Succeeded is Total minus Skipped. Baseline before this story: 4638. The 2026-10-20 close-out count was 4669 (+31 new: `tests/unit/net/SoloPausePolicyTests.cs`, `tests/unit/timing/RenderClockTests.cs`). The further +109 to 4778 comes in with the `origin/main` merge, which adds `tests/unit/inventory/InvMalformedOpTests.cs` and `InvOpKindTests.cs`. The Mail Review edits to `SoloPausePolicyTests.cs` add no new `[Fact]`/`[Theory]`/`[InlineData]` lines. No per-file count was taken.

@@ -4,10 +4,12 @@
 #       client shell: a code reference matching FrameRunner|SimWorld|ClientLayer|\.RunFrame\(
 #       in a .cs file under src/Game/ outside src/Game/Hosting/ and src/Game/Boot/ fails.
 #       (A declaration `void RunFrame()` has no leading dot and is not a call.)
-#   (2) GameLoop never reads `delta`: the body of `_Process(double ...)` in
+#   (2) GameLoop never reads the frame delta: the body of `_Process(double ...)` in
 #       src/Game/Hosting/GameLoop.cs (brace-matched from the signature; an expression body runs to
-#       its `;`) must not contain the word `delta` in code. The signature itself is not scanned.
-#       A missing GameLoop.cs or a missing _Process is an error, never "clean".
+#       its `;`) must not contain the word `delta`, `GetProcessDeltaTime(` or
+#       `GetPhysicsProcessDeltaTime(` in code. The signature itself is not scanned. Only the first
+#       `_Process(double` in the file is scanned. A missing GameLoop.cs or a missing _Process is an
+#       error, never "clean".
 # Comments are skipped with the shared stripper tools/ci/lib/strip-cs-comments.awk (string and char
 # literals are kept, so a `delta` inside a string in the body still counts - conservative).
 # Limitations (review-enforced): braces inside string/char literals are counted by (2); the TD-103
@@ -47,7 +49,7 @@ public partial class GameLoop : Node
         { _seq.Run(); }
     }
 
-    private void Other(double delta) { var d = delta; }
+    private void Other(double delta) { var d = delta + GetProcessDeltaTime(); }
 }
 CS
     printf 'sealed class FrameSequence { IFrameRun _run; void F() { _run.RunFrame(); } FrameRunner _r; }\n' > "$tmp/repo/src/Game/Hosting/FrameSequence.cs"
@@ -78,6 +80,9 @@ CS
   expect_rc 1 "reference after a closed block comment"      'printf "class X { /* c */ SimWorld _w; }\n" > src/Game/Smoke/X.cs'
   expect_rc 1 "delta read in the _Process body"             'sed -i "s|{ _seq.Run(); }|{ _seq.Run(); var t = delta; }|" src/Game/Hosting/GameLoop.cs'
   expect_rc 1 "delta read in an expression-bodied _Process" 'printf "public partial class GameLoop : Node\n{\n    public override void _Process(double delta) => Step(delta);\n}\n" > src/Game/Hosting/GameLoop.cs'
+  expect_rc 1 "GetProcessDeltaTime() called in the _Process body" 'sed -i "s|{ _seq.Run(); }|{ _seq.Run(); var t = GetProcessDeltaTime(); }|" src/Game/Hosting/GameLoop.cs'
+  expect_rc 1 "GetPhysicsProcessDeltaTime() called in the _Process body" 'sed -i "s|{ _seq.Run(); }|{ _seq.Run(); var t = this.GetPhysicsProcessDeltaTime (); }|" src/Game/Hosting/GameLoop.cs'
+  expect_rc 1 "GetProcessDeltaTime() in an expression-bodied _Process" 'printf "public partial class GameLoop : Node\n{\n    public override void _Process(double delta) => Step(GetProcessDeltaTime());\n}\n" > src/Game/Hosting/GameLoop.cs'
   expect_rc 1 "delta read with the brace on the signature line" 'printf "class GameLoop {\n  public override void _Process(double delta) { if (delta > 0) { } }\n}\n" > src/Game/Hosting/GameLoop.cs'
   expect_rc 0 "delta only in the signature, comments and another method" 'printf "class GameLoop {\n  public override void _Process(double delta) // delta\n  {\n    // delta\n  }\n  void G(double delta) { _ = delta; }\n}\n" > src/Game/Hosting/GameLoop.cs'
   expect_rc 2 "no _Process in GameLoop.cs is an error" 'printf "class GameLoop { void F(double delta) { } }\n" > src/Game/Hosting/GameLoop.cs'
@@ -121,7 +126,7 @@ else
   echo "PASS  no .cs files under src/Game/ outside Hosting/ and Boot/"
 fi
 
-# (2) `delta` in the GameLoop._Process body.
+# (2) `delta` / Get(Physics)ProcessDeltaTime( in the GameLoop._Process body.
 [ -f "$loop" ] || { echo "::error::$loop is missing; the delta check cannot run"; exit 2; }
 rc=0
 out="$(awk -f "$strip_lib" -f <(cat <<'AWK'
@@ -131,7 +136,7 @@ out="$(awk -f "$strip_lib" -f <(cat <<'AWK'
     if (state == 0) {
       p = match(code, /_Process[ \t]*\([ \t]*double/)
       if (p == 0) next
-      found++; state = 1; depth = 0
+      found = 1; state = 1; depth = 0
       rest = substr(code, p)
       q = index(rest, ")")
       if (q == 0) { print "scan-error:signature not closed on its line at " FNR; exit 0 }
@@ -148,7 +153,7 @@ out="$(awk -f "$strip_lib" -f <(cat <<'AWK'
     if (state == 3) {
       semi = index(code, ";")
       body = semi ? substr(code, 1, semi - 1) : code
-      if (body ~ /(^|[^A-Za-z0-9_])delta([^A-Za-z0-9_]|$)/) { print FILENAME ":" FNR ":" $0; hit = 1 }
+      if (body ~ /(^|[^A-Za-z0-9_])(delta([^A-Za-z0-9_]|$)|Get(Physics)?ProcessDeltaTime[ \t]*\()/) { print FILENAME ":" FNR ":" $0; hit = 1 }
       if (semi) state = 4
       next
     }
@@ -160,12 +165,11 @@ out="$(awk -f "$strip_lib" -f <(cat <<'AWK'
         else if (c == "}") { depth--; if (depth == 0) { seg = seg c; state = 4; break } }
         seg = seg c
       }
-      if (seg ~ /(^|[^A-Za-z0-9_])delta([^A-Za-z0-9_]|$)/) { print FILENAME ":" FNR ":" $0; hit = 1 }
+      if (seg ~ /(^|[^A-Za-z0-9_])(delta([^A-Za-z0-9_]|$)|Get(Physics)?ProcessDeltaTime[ \t]*\()/) { print FILENAME ":" FNR ":" $0; hit = 1 }
     }
   }
   END {
     if (found == 0) print "scan-error:no _Process(double ...) found"
-    else if (found > 1) print "scan-error:more than one _Process(double ...) found"
     else if (state != 4) print "scan-error:_Process body not terminated"
     else print (hit ? "scan-result:match" : "scan-result:clean")
   }
@@ -175,8 +179,8 @@ verdict="${out##*$'\n'}"
 [ "$out" != "$verdict" ] && printf '%s\n' "${out%$'\n'*}"
 if [ "$rc" -ne 0 ]; then echo "::error::awk failed with exit code $rc"; exit 2; fi
 case "$verdict" in
-  scan-result:match) echo "::error::GameLoop._Process reads delta (F11: time comes only from the monotonic clock)"; violations=$((violations + 1)) ;;
-  scan-result:clean) echo "PASS  GameLoop._Process body does not read delta (comments skipped)" ;;
+  scan-result:match) echo "::error::GameLoop._Process reads delta or Get(Physics)ProcessDeltaTime() (F11: time comes only from the monotonic clock)"; violations=$((violations + 1)) ;;
+  scan-result:clean) echo "PASS  GameLoop._Process body does not read delta or Get(Physics)ProcessDeltaTime() (comments skipped)" ;;
   scan-error:*) echo "::error::${verdict#scan-error:} in ${loop#"$root"/}"; exit 2 ;;
   *) echo "::error::awk gave no verdict"; exit 2 ;;
 esac

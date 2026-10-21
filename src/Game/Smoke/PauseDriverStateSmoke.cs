@@ -7,11 +7,12 @@ namespace PerformativeMail.Game.Smoke;
 
 /// <summary>
 /// Story godot-host-shell/003 AC4 (TR-sim-009, TR-input-014): pause is a tick-driver state. With a
-/// real driver and a fake clock: Networking's refusal (a remote peer present) keeps the driver
-/// running; an allowed pause freezes ticks and alpha at 0 while hooks and <c>Present</c> still run;
+/// real driver and a fake clock: with no peer presence provided the pause is refused (fail closed);
+/// Networking's refusal (a remote peer present) keeps the driver running; an allowed pause freezes ticks and alpha at 0 while hooks and <c>Present</c> still run;
 /// <c>SceneTree.Paused = true</c> neither stops <c>_Process</c> nor changes the tick count; after
 /// <see cref="GameLoop.Resume"/> the first frame runs at most one tick despite a 10 s jump, and the
-/// Sim keeps ticking while the tree is still paused. The scenario is the only place that sets
+/// Sim keeps ticking while the tree is still paused. Last, the solo boot path
+/// (<see cref="GameLoop.RequestBoot"/>) sets the loopback presence. The scenario is the only place that sets
 /// <c>SceneTree.Paused</c> (src/Game/Smoke/ is excluded from the guards for this) and clears it.
 /// </summary>
 [SmokeScenario("pause-driver-state")]
@@ -34,19 +35,16 @@ public sealed class PauseDriverStateSmoke : SmokeScenario
     public override void Start(SmokeContext ctx)
     {
         GameLoop loop = ctx.Loop;
-        Expect(ctx, "default GameLoop.PeerPresence is the loopback presence", ReferenceEquals(loop.PeerPresence, LoopbackPeerPresence.Instance), true);
+        Expect(ctx, "default GameLoop.PeerPresence is unset", loop.PeerPresence is null, true);
         _rig = new FrameLoopRig(preHooks: 1, postHooks: 1);
         loop.LogObserver = _log.Observer;
-        loop.PeerPresence = _presence;
         loop.InstallForSmoke(_rig.Sequence, armStart: true);
 
-        // Nothing running yet (start pending): the loop refuses even though Networking would allow it.
-        _presence.AnyRemotePeer = false;
+        // Nothing running yet (start pending): the loop's own check refuses first, before Networking is asked.
         bool early = loop.TryPause(out string earlyReason);
         Expect(ctx, "TryPause while the driver start is pending returns", early, false);
         Expect(ctx, "TryPause while start pending: refusal logged", _log.Any("[GameLoop] pause refused: ", "not running"), true);
         Expect(ctx, "driver state after the refused early pause", $"{_rig.Driver.State},{loop.StartPending},{earlyReason.Length > 0}", "Idle,True,True");
-        _presence.AnyRemotePeer = true;
         _log.Clear();
         Mark();
     }
@@ -81,7 +79,15 @@ public sealed class PauseDriverStateSmoke : SmokeScenario
             {
                 Expect(ctx, "driver state after the first armed frame", driver.State, TickDriverState.Running);
 
+                // No peer presence was ever provided: the pause is refused (fail closed) and logged.
+                bool unset = loop.TryPause(out string unsetReason);
+                Expect(ctx, "TryPause with no peer presence provided returns", unset, false);
+                Expect(ctx, "refusal reason with no peer presence", unsetReason, SoloPausePolicy.PeerPresenceUnsetReason);
+                Expect(ctx, "unset-presence refusal logged by GameLoop", _log.Any("[GameLoop] pause refused: ", SoloPausePolicy.PeerPresenceUnsetReason), true);
+                Expect(ctx, "driver state after the unset-presence refusal", driver.State, TickDriverState.Running);
+
                 // Networking and Session says a remote peer is present: the pause is refused.
+                loop.PeerPresence = _presence;
                 bool paused = loop.TryPause(out string reason);
                 Expect(ctx, "TryPause with a remote peer present returns", paused, false);
                 if (reason.Length > 0)
@@ -174,6 +180,10 @@ public sealed class PauseDriverStateSmoke : SmokeScenario
                 Expect(ctx, "loop not faulted", loop.IsFaulted, false);
                 ctx.Tree.Paused = false;
                 Expect(ctx, "SceneTree.Paused restored", ctx.Tree.Paused, false);
+
+                // The solo boot path provides the loopback presence explicitly (boot itself is story 004).
+                loop.RequestBoot();
+                Expect(ctx, "GameLoop.PeerPresence after the solo RequestBoot is the loopback presence", ReferenceEquals(loop.PeerPresence, LoopbackPeerPresence.Instance), true);
                 return SmokeStatus.Done;
         }
     }
