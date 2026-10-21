@@ -188,7 +188,7 @@ public static class SimComposition
                 // Players reads the world only through IWorldQuery; without one the system is left unbuilt (story player-character/001).
                 return context.World is { } world ? new PlayersSystem(world, context.Content, context.CheckRing, context.Counters) : null;
             case SystemId.GridInventory:
-                return new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events, context.Tick);
+                return new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events, context.Tick, context.EntityIds, context.Slots);
             default:
                 return null;
         }

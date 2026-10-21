@@ -46,4 +46,10 @@ public enum CheckCode : ushort
 
     /// <summary>Grid Inventory: the mail-ids arena could not give a block because the fitting class and every larger class are empty, or a run would exceed 256 ids (story grid-inventory/003; the validator maps it to <c>capacity_exhausted</c>). a = units requested, b = the fitting class index (9 when no class fits).</summary>
     InventoryArenaExhausted = 12,
+
+    /// <summary>Grid Inventory: the live WorldItem count went over <c>inventory.worldItemCap</c> because no eviction candidate qualified (every WorldItem young mail, GDD R12 <c>worldItemCapExceeded</c>; story grid-inventory/013). Written once when the count first goes over, then not again until it is back at or under the cap. a = live count, b = cap.</summary>
+    InventoryWorldItemCapExceeded = 13,
+
+    /// <summary>Grid Inventory: a WorldItem could not be created because the WorldItem table (<c>inventory.worldItemCapacity</c>) is full (story grid-inventory/013); the entry stays with the caller. a = table capacity, b = live count.</summary>
+    InventoryWorldItemCapacity = 14,
 }

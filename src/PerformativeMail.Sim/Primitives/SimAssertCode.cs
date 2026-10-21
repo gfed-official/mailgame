@@ -236,4 +236,7 @@ public static class SimAssertCode
 
     /// <summary><c>PeekOutfeed</c> or <c>TakeUnit</c> found a live non-mail entry at an outfeed's head. Unreachable: every outfeed container (the Intake) admits mail only through the insertion whitelist, and every Intake insertion (<c>Spawn</c>, <c>ReturnToIntake</c>, the player ops' AutoPlace and placement checks) passes it. Release reports the outfeed as empty (Peek and Take return false, nothing mutated) until that entry leaves the Intake by another path; the entry is never popped or served as mail. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryOutfeedHeadNotMail = 75;
+
+    /// <summary><c>ExpiryFifos.Append</c> found its ring still full after a compaction. Unreachable: every live WorldItem is on at most one FIFO and each ring holds the WorldItem table's capacity. Release keeps the item on no FIFO (it does not expire and is not a cap candidate, like Loot) until a load rebuilds the FIFOs. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryWorldItemFifoFull = 76;
 }

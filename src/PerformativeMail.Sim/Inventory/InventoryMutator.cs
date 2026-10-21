@@ -65,6 +65,7 @@ internal sealed class InventoryMutator
     private readonly StackIndex _index;
     private readonly NegativeFitCache _noFit;
     private readonly OutfeedFifo _outfeed;
+    private readonly ISlotView? _slots;
     private readonly uint[] _movedIds = new uint[MailIdArena.MaxUnits];
 
     /// <summary>Creates the mutator over the module's storage.</summary>
@@ -79,7 +80,8 @@ internal sealed class InventoryMutator
     /// <param name="index">The StackKey non-full index the primitives maintain.</param>
     /// <param name="noFit">The negative-fit cache <see cref="RebuildIndex"/> clears.</param>
     /// <param name="outfeed">The outfeed FIFO memo the primitives maintain (story 012).</param>
-    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <param name="slots">The slot table (the connected-slot audience of the world kinds, story 013); null gives audience 0.</param>
+    /// <exception cref="ArgumentNullException">An argument other than <paramref name="slots"/> is null.</exception>
     internal InventoryMutator(
         ContainerTable containers,
         EntryPool entries,
@@ -91,7 +93,8 @@ internal sealed class InventoryMutator
         IStatSheet stats,
         StackIndex index,
         NegativeFitCache noFit,
-        OutfeedFifo outfeed)
+        OutfeedFifo outfeed,
+        ISlotView? slots = null)
     {
         ArgumentNullException.ThrowIfNull(containers);
         ArgumentNullException.ThrowIfNull(entries);
@@ -115,6 +118,7 @@ internal sealed class InventoryMutator
         _index = index;
         _noFit = noFit;
         _outfeed = outfeed;
+        _slots = slots;
     }
 
     /// <summary>The StackKey non-full index the primitives maintain (AutoPlace's PASS M reads it).</summary>
@@ -135,6 +139,42 @@ internal sealed class InventoryMutator
     {
         byte owner = _containers[containerSlot].OwnerSlot;
         return owner < PlayerSlot.Count ? (byte)(1 << owner) : _subscribers.Mask(containerSlot);
+    }
+
+    /// <summary>The audience of the world kinds (<c>WorldItem…</c>, <c>ItemsLost</c>; <see cref="ReplicationClass.Replicated"/>): every connected slot, resolved now.</summary>
+    public byte WorldAudience => _slots?.ConnectedMask ?? 0;
+
+    /// <summary>Raises a world record (story 013: <c>WorldItem{Spawned, Despawned, EntriesChanged}</c>, <c>ItemsLost</c>) to <see cref="WorldAudience"/>. Touches no container and no version.</summary>
+    /// <typeparam name="T">The kind's payload.</typeparam>
+    /// <param name="kind">The world kind.</param>
+    /// <param name="payload">The payload.</param>
+    public void RaiseWorld<T>(EventKind kind, in T payload)
+        where T : unmanaged
+        => _ = _events.TryRaise(kind, WorldAudience, in payload);
+
+    /// <summary>
+    /// The destroy primitive for a detached entry (story 013: a non-mail WorldItem that expired, floated or was evicted; ADR-0009
+    /// section 6 lists <c>Destroy</c> among the lowest primitives): frees its mailIds block (if any) and its pool slot; the id is gone for
+    /// ever. Raises nothing (the caller raises <c>ItemsLost</c>); the ledger crossing to Destroyed is story 017's hook. A free or placed
+    /// entry asserts <see cref="SimAssertCode.InventoryEntrySlotFree"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing.
+    /// </summary>
+    /// <param name="entrySlot">The detached entry's pool slot.</param>
+    public void DestroyDetached(ushort entrySlot)
+    {
+        ref EntryRecord e = ref _entries[entrySlot];
+        bool valid = e.IsLive && e.ContainerSlot == EntryRecord.NoContainer;
+        InventoryAssert.That(valid, SimAssertCode.InventoryEntrySlotFree);
+        if (!valid)
+        {
+            return;
+        }
+
+        if (e.IsMail)
+        {
+            _mailIds.Free(in e.MailIds);
+        }
+
+        _entries.Free(entrySlot);
     }
 
     /// <summary>Opens a call over <paramref name="plan"/>: records the actor and cause every seal and the reply carry.</summary>

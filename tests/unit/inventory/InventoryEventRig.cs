@@ -330,7 +330,7 @@ internal sealed class InvEventRig
             null,
             new SimSystemEntry(
                 SystemId.GridInventory,
-                ctx => new InventoryWithFixtureOp(new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick), handler, ctx.CheckRing)));
+                ctx => new InventoryWithFixtureOp(new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots), handler, ctx.CheckRing)));
         Host = SimComposition.Build(new SimBuildArgs(profile, BuiltInContent.CreateM1a(), 42) { EventSink = Sink });
         _system = (InventoryWithFixtureOp)Host.Systems.Single();
         Join(0, 1);
@@ -651,8 +651,8 @@ internal sealed class InvAutoPlaceRig
                 SystemId.GridInventory,
                 ctx => new InventoryWithActionOp(
                     mailIdArenaUnits is int units
-                        ? new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, InventorySettings.FromBalance(ctx.Content.Inventory) with { MailIdArenaUnits = units }, ctx.Events, ctx.Tick)
-                        : new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick),
+                        ? new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, InventorySettings.FromBalance(ctx.Content.Inventory) with { MailIdArenaUnits = units }, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots)
+                        : new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots),
                     handler)));
         Host = SimComposition.Build(new SimBuildArgs(profile, content ?? BuiltInContent.CreateM1a(), 42) { EventSink = _gate });
         _system = (InventoryWithActionOp)Host.Systems.Single();
