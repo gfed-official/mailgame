@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day, including authoring `content/**/*.jsonc` for the M-1a set)
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Last Updated**: 2026-10-21 (Implementation Note: shipped files and clean fixtures spell out `carryByHand`, `acceptsInsert` and `view` — owner ruling on the ADR-0010 defaults, GDD CD10 note 2026-10-21; no AC changes)
 
 ## Context
 
@@ -72,6 +72,7 @@
 - **Authoring `content/`.**
   - Author the JSONC files to mirror story 008's values in **authored units**: seconds, metres and ratios as decimals where the key's unit is decimal.
   - Keep `cargo` out (deferred, M0).
+  - **Explicit fields (owner ruling 2026-10-21, GDD CD10 note).** Every ItemDef and MailKindDef spells out `carryByHand`, and every ContainerDef spells out `acceptsInsert` and `view`, even when the value equals the default. This applies to the shipped files and to every fixture meant to load clean. `BuiltInContent` sets the same fields explicitly (story 018), so the equality test compares authored values, not defaults.
   - Comments may cite the owner GDD.
   - Add a `content/presentation/.gitkeep`-style placeholder only if a test needs the directory.
 - **Then and later.** `BuiltInContent` stays the M-1a runtime source of truth, per the epic decision. Once this story is Done, the loader is a tested peer. **Switching the boot source to the loader is a `godot-host-shell`/M0 decision, not this story.**

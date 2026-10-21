@@ -2,7 +2,7 @@
 
 > **Status**: In Review (Provisional) — /design-review 2026-10-16 NEEDS REVISION (14 blockers); revision applied 2026-10-16, re-review decides Approved (log: `design/gdd/reviews/content-data-definitions-review-log.md`)
 > **Author**: owner + agents (autonomous /design-system run)
-> **Last Updated**: 2026-10-16
+> **Last Updated**: 2026-10-21 (CD10 defaults of `carryByHand`, `acceptsInsert` and `view` amended per the owner's ruling of 2026-10-21 — see the note under the CD10 table)
 > **Last Verified**: 2026-10-16
 > **Creative Director Review (CD-GDD-ALIGN)**: REVISED 2026-10-16 — CONCERNS (6 items) applied: FT-3 scope + Rank-4 reroll direction (ratified by the owner 2026-10-16), design clamps as data, FT-4 iteration loop, placeholder views for greybox defs, trust-model note + handshake-only content check, M0/M4 tooling split
 > **Implements Pillar**: 2 (honest rules under the slapstick), 4 (no meta power — FT-3), 5 (every lobby reads the same tables); infrastructure for 1 and 3
@@ -121,7 +121,7 @@ A numeric field with no declared unit is a load error (CV-GEN-06). Conversions a
 | Def | Field | Type / values | Default | Requested by | Note |
 |---|---|---|---|---|---|
 | ItemDef | `weightClass` | WeightClass | **required** | Throwing rule 8, Grid OQ9 | CD7 |
-| ItemDef | `carryByHand` | bool | true | Grid R5 | was MailKindDef-only in spec 08 |
+| ItemDef | `carryByHand` | bool | false *(amended 2026-10-21; was true)* | Grid R5 | was MailKindDef-only in spec 08; the MailKindDef field defaults to false too (see the note below the table) |
 | ItemDef | `equipSlot` | none \| back | none | Grid R1 (backpack) | |
 | ItemDef | `tool` + `weapon` blocks | both may be present | — | Player Character P18 (axe is tool and melee weapon) | |
 | ItemDef | `standardIssue` | **not adopted** | — | Player Character OQ8 | a "standard-issue copy, sell value 0" is a property of one *granted entry*, not of the item type: modelled as `KitDef.standardIssueItem` + an entry flag owned by Grid Inventory (hand-back) |
@@ -129,10 +129,10 @@ A numeric field with no declared unit is a load error (CV-GEN-06). Conversions a
 | ContainerDef | `layout` | grid \| slots \| pile | **required** | Grid R1 | |
 | ContainerDef | `grid` | [cols, rows] | required for grid/slots, forbidden for pile | Grid R1 | |
 | ContainerDef | `handCarried` | bool | false | Grid R5 | |
-| ContainerDef | `acceptsInsert` | bool | true | Grid R1 | `false` = no player, inserter or belt op may add an entry; only the owning system's internal API can (death bag, spill heap). Hand-back to Grid to confirm |
+| ContainerDef | `acceptsInsert` | bool | false *(amended 2026-10-21; was true)* | Grid R1 | `false` = no player, inserter or belt op may add an entry; only the owning system's internal API can (death bag, spill heap). Hand-back to Grid to confirm |
 | ContainerDef | `beltAccess` | + `inserter_only` | none | Grid R1 (chest) | |
 | ContainerDef | `reservedSlots` | int list (slots layout only) | empty | Grid R1/R4 (hotbar slot 0) | |
-| ContainerDef | `view` | grid \| manifest \| auto | auto | Grid D7 | runtime D7 rule decides `auto` |
+| ContainerDef | `view` | grid \| manifest \| auto | *not `auto` (amended 2026-10-21); replacement open — see the note below the table* | Grid D7 | runtime D7 rule decides `auto` |
 | MailKindDef | `fallbackKind` | MailKind id? | none | Mail OQ18 | cycle-free (CV-MAIL-04) |
 | MailKindDef | `complaintOnMisdeliveryPoints` | Points | required | Mail R1/F9 | authored 3/5/8/12/16, stored 3 000…16 000 (one stored unit) |
 | MailKindDef | `beltLengthMetres` | Metres | required | spec 08 `beltLength` renamed | |
@@ -150,6 +150,8 @@ A numeric field with no declared unit is a load error (CV-GEN-06). Conversions a
 | StampDef | `scoreMultRatio` | Ratio | 1.0 | spec 08 `scoreMult` renamed | consumed by Run Structure, not a stat |
 | StampDef | `params` | object, keys from closed `StampParam` | none | Mail (Cursed Mail `cursedShareRatio` 0.10) | no free-form bags |
 | RunEventDef (**new**) | `id`, `trigger` (RunEventTrigger), `fromShift`, `modifiers`, `rules`, `params`, `lifetime` | — | — | spec 10 §6, Stamps & Run Events | spec 08 has no event def |
+
+**CD10 defaults amended 2026-10-21 (owner ruling, Evan, 07:42 PT).** The `true` defaults of `carryByHand` (ItemDef and MailKindDef) and `acceptsInsert` (ContainerDef), and the `auto` default of `view` (ContainerDef), broke CD7's neutral-default rule. ADR-0010 §3 (Accepted) says "defaults are always neutral", and it stays as written. **Ruling: off by default.** `carryByHand` and `acceptsInsert` default to `false`. Shipped content files spell out all three fields on every def that has them, so no def depends on a default. `ContainerView` (grid, manifest, auto) has no off member, so what replaces `view`'s `auto` default is open: make `view` required, count `auto` as neutral ("the runtime decides"), or name another value (content-data story 018, OQ-018-2). Shipped content spells it out either way. This supersedes content-data story 005's reading [A] of 2026-10-17 (true on a permissive flag treated as the "any" value; decision log 2026-10-17). Content values are unchanged: a def that should be hand-carried or accept inserts now says so.
 
 Mail OQ18's scalar knobs (`foundValueMultPm`, `teamComplaintCap`, `closeGraceTicks`, door-complaint keys) go in `content/balance/mail.jsonc`, not in a def; `rollCallNames` is a session setting, not content (Run Structure / Networking).
 

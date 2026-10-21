@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-21 (Implementation Note: the router sets `InputFrameFlags.PanelOpen` while `overlay` is Panel — owner ruling, ADR-0012 erratum 2026-10-21; no AC changes)
 
 ## Context
 
@@ -54,6 +54,7 @@
 - Transitions are data-driven: the table lists `(ActionId, predicate) → (layer, newValue)`; the router applies the first matching row after `Feed` resolves a fired action. After any change it calls `OnStateChanged(old, new)` (story 007) so G3 runs on every button that is down, and re-computes `MouseModeRequest`.
 - Read the published status through `ICarrierStatusSource` (the Players client step publishes it each tick — Player Character 020); tests use a settable double. Do not subscribe or poll anything else.
 - The external panel, leash auto-close, mount / Build auto-stow (R2 rule 6) and knockdown transitions are M0 / M1 / M-1b; the table has reserved rows but no registered actions.
+- **Panel-open flag (owner ruling 2026-10-21, ADR-0012 Amendments).** While `overlay` is Panel, the `InputState` that `FlushToLatch` pushes has `InputFrameFlags.PanelOpen` set; otherwise it is clear. Player Character 020 reads it into `CarrierStatus.PanelOpen`. If the member is not yet in `InputFrameFlags`, append it (next free bit; frame size unchanged). Test it beside the open/close-panel AC.
 - Event-time gating: when two records arrive in one frame the state read for the *second* is the state after the first's transition (Jump then Tab → Jump gated World; a following press is gated Panel).
 
 ---
@@ -86,4 +87,4 @@
 ## Dependencies
 
 - Depends on: Story 007 (router shell), Story 005/006; `production/epics/player-character/story-013-contexts-verbs-availability-gate-router-declarations.md` (`CarrierStatus`, `VerbContextTable` — declared there, bound here)
-- Unlocks: Stories 009–019; `production/epics/player-character/story-020-carrierstep-clientlayer-integration.md` (`RouterStateId` panel flag via story 002); `production/epics/grid-inventory/story-024-panel-interactions-feedback.md` (consumer of Panel / Holding; Blocked on its UX spec — not a dependency of this story)
+- Unlocks: Stories 009–019; `production/epics/player-character/story-020-carrierstep-clientlayer-integration.md` (`InputFrameFlags.PanelOpen`, set here — ADR-0012 erratum 2026-10-21); `production/epics/grid-inventory/story-024-panel-interactions-feedback.md` (consumer of Panel / Holding; Blocked on its UX spec — not a dependency of this story)

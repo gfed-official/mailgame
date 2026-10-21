@@ -90,7 +90,7 @@ public struct InputFrame                          // ≈ 560 B, blittable, passe
     public short LookPitch;                       // BAM signed, clamped by the camera owner
     public short FocusCosMinPm;                   // focus cone threshold from the camera FOV/aspect (ADR-0014 §2)
     public ushort RouterStateId;                  // informational
-    public InputFrameFlags Flags;                 // FirstInBatch, FocusLost, Paused, LookReseeded
+    public InputFrameFlags Flags;                 // FirstInBatch, FocusLost, Paused, LookReseeded, PanelOpen (erratum 2026-10-21)
     public ulong HeldBits;                        // logical held state per FrameAction (OR across devices, mute/toggle applied)
     public byte EdgeCount, StepCount; public ushort DroppedEdges;
     public EdgeBuffer Edges;                      // [InlineArray(32)] InputEdge — ordered by arrival
@@ -313,3 +313,4 @@ No code exists. Stories: (1) `InputFrame`, `InputLatch` and `IInputLatchWriter` 
 - 2026-10-17 — accepted by owner — D-6: `InputEvent.Device` is `int`, `DeviceId*` constants are `long`; source TD-021.
 - 2026-10-17 — accepted by owner — D-7: `GetJoyInfo`/`GetJoyName` only for connected indices; source TD-021.
 - 2026-10-17 — accepted by owner — D-8: ≈410–550 B per engine-created event to C# `_Input`; `use_accumulated_input` true; retention observed, `Dispose()` in `_Input` reclaims; story 026 gated on the Release retention spike; source TD-021.
+- 2026-10-21 — owner ruling (Evan, 07:42 PT; recorded by the planning lead) — erratum, `InputFrameFlags.PanelOpen`: panel-open travels in the `InputFrame` (the Panel channel left open for player-character story 020). `InputFrameFlags` gains one member, `PanelOpen`, appended under the enum's append-only rule. It takes the next free bit of the existing one-byte field, so `sizeof(InputFrame)` and the §4 layout are unchanged. The input side sets the bit from its record of the panel UI, the router's `overlay` layer: the bit is set while `overlay` is Panel. The router owns `overlay` (§2) and the Godot adapter only feeds it events (§7). The router pushes the bit in `InputState.Flags` at `FlushToLatch`, and `InputLatch` copies it into every tick's frame like the other state fields. It is the contract that ADR-0014's `CarrierStatus.PanelOpen` reads (ADR-0014 erratum 2026-10-21); `RouterStateId` stays informational. The flag carries the same fact as `RouterStateInfo.IsPanel(RouterStateId)`. §4's last bullet is unchanged: the frame feeds the owning client only, so getting panel-open to the host is ADR-0020's (not written); frame recording for replay is ADR-0006 §7 / simulation-core story 026's. Stories: input-controls 008 (sets the bit), player-character 020 (reads it).
