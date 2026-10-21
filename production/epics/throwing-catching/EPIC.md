@@ -8,7 +8,7 @@
 > **Est. size**: L — 24 stories (22 Ready, 2 Blocked)
 > **Implementation priority**: 7 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 22 Ready, 2 Blocked; blocked: 016 ADR-0024, 024 ADR-0020 (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 1 Complete, 21 Ready, 2 Blocked; blocked: 016 ADR-0024, 024 ADR-0020 (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -102,7 +102,7 @@ Source: architecture.md v1.1 Appendix A; coverage per `docs/architecture/tr-regi
 
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
-| 001 | [`Throw.RH`, the F1 launch (`LaunchMath`) and the closed-form F2 ballistic (`Ballistic.PositionAt`)](story-001-throw-rh-launch-f1-ballistic-f2.md) | Logic | Ready | ADR-0015 |
+| 001 | [`Throw.RH`, the F1 launch (`LaunchMath`) and the closed-form F2 ballistic (`Ballistic.PositionAt`)](story-001-throw-rh-launch-f1-ballistic-f2.md) | Logic | Complete | ADR-0015 |
 | 002 | [`FlightSweep.FirstContact` — F4 swept contact, receiver ranks, descending-entry mailbox rule, `(f, rank, dist², Mix64)` winner](story-002-flightsweep-contact-ranks-winner.md) | Logic | Ready | ADR-0015 |
 | 003 | [Receiver gathering — static 4 m grid, `QueryStaticSolids`, map edges, chest → origin probe, surface-below](story-003-receiver-view-static-grid-solids-chest-probe.md) | Logic | Ready | ADR-0015 |
 | 004 | [Throw aim quantiser and the `ThrowPreview` client step (4c): the honest arc, end class, published `ThrowPreviewState`](story-004-throw-aim-quantiser-and-preview-step.md) | Logic | Ready | ADR-0016 |
