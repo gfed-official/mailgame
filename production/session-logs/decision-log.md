@@ -5955,6 +5955,7 @@ Granularity follows the orchestrator's one-session sizing, not `fine`. QL-STORY-
 **Options considered:** keep `Sim.ThrowingCatching` and record it / rename `Content.Rules.Throwing` and switch back to `Sim.Throwing`.
 **Chosen:** owner ruling — keep `PerformativeMail.Sim.ThrowingCatching`; folder stays `Sim/Throwing/`. ADR-0015 gains an `## Errata` entry (ADR-0017/0013 format) and an inline Key Interfaces marker; the control manifest gets a text-only errata line plus an inline pointer on the namespace rule, version unchanged (2026-10-17 precedent, no rule added or removed). ADR-0001 §1's general rule is not edited. Module labels "Sim.Throwing" in architecture.md and the throwing-catching EPIC.md are left as module names (the same table labels `Sim.Mail`). The TD register is not edited here (numbering conflicts); TD-107 item 1 resolves when PR #7 merges. Analysis: `claude -p --model claude-fable-5-1`.
 **Reason:** Owner ruling; matches the shipped code and the existing TD-074 precedent.
+**Category:** owner decision
 
 #### 2026-10-20 — ADR-0017 erratum: Mail Sim namespace (owner ruling, Evan, 22:49 PT; recorded by the planning lead, docs only, PR #8)
 **Decision point:** TD-074 item 1: mail-destinations story 001 shipped `src/PerformativeMail.Sim/Mail/` with namespace `PerformativeMail.Sim.MailDestinations` (28 files; tests `PerformativeMail.Sim.Tests.Unit.MailDestinations`) because `Sim.Mail` shadows `Content.Rules.Mail` / `BalanceKeys.Mail`; ADR-0017 still said `Sim.Mail` / `Sim.Mail.Ports`.
