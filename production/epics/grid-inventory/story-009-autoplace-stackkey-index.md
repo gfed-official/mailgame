@@ -1,12 +1,12 @@
 # Story 009: AutoPlace (passes M/U/R, PassFirst/TargetFirst), StackKey non-full index and negative-fit cache
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~1 day)
-> **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-21 (readiness fixes folded in from the Planner resolutions R1–R9, Lead-authorized: manifest re-stamp (no Inventory/Core rule changed since 2026-10-16); count-change primitive owned here (story 008 now depends on 009); plan shape, index/cache rules, probe counters, fixtures and the readiness ACs added; stale ADR-0025 citation fixed)
 
 ## Context
 
@@ -33,10 +33,18 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R8-1** — targets `[inventory, second grid]`; inventory has 19 letters to #2 at (5,1) and free (0,0); the second grid has 10 letters to #2 at (0,0); AutoPlacing 3 letters to #2 → the lowest id merges into the inventory stack (20), 2 merge into the second stack (12), and **no** new entry is created at inventory (0,0).
-- [ ] **H-R8-2 (fixture containers)** — targets `[8×2 grid (empty), 8×4 grid with a free 2×4 column at (0,0)]`: a Large lands in the 8×4 grid at (0,0) **unrotated** (pass U over all targets precedes pass R); with that grid removed → the 8×2 grid at (0,0) `rotated = true`; both full → `no_room`, no version change; a mail-only target and a Plank → `not_allowed`; a mail-only target with no space and a letter → `no_room`. (bike/chest are fixture `ContainerDef`s; their content is M-1b.)
+- [ ] **H-R8-1** — targets `[inventory, second grid]` (the second grid stands in for the M-1b backpack that GDD H-R8-1 names); inventory has 19 letters to #2 at (5,1) and free (0,0); the second grid has 10 letters to #2 at (0,0); AutoPlacing a detached entry of 3 letters to #2 (ascending mailIds) → the lowest id merges into the inventory stack (20), 2 merge into the second stack (12), and **no** new entry is created at inventory (0,0). The merges are committed through the count-change primitive `InventoryMutator.MergeInto`.
+- [ ] **H-R8-2 (fixture containers)** — targets `[8×2 grid (empty), 8×4 grid with a free 2×4 column at (0,0)]`: a Large lands in the 8×4 grid at (0,0) **unrotated** (pass U over all targets precedes pass R); with that grid removed → the 8×2 grid at (0,0) `rotated = true`; both full → `no_room` (77), no entry created and every target's version unchanged; a mail-only target (`po_intake`, the only mail-only def at M-1a) and a Plank → `not_allowed` (73); a mail-only target with no space and a letter → `no_room`. (bike/chest are 8×2 and 8×4 instances of the unrestricted `player_inventory` def via `PlacementFixture.CreateContainer(defId, w, h)` — no chest/bike def exists at M-1a; their content is M-1b; Large is 2×4.)
 - [ ] `MergePolicy.NoMerge` skips pass M; `effMax == 1` skips pass M; `TargetFirst` fills the first target (M→U→R) before the next.
-- [ ] The StackKey index stays equal to a brute-force scan of non-full stacks across 10 000 random mutator calls (property test); PASS M probes are ≤ list length (1–3 typical) per target, never a container scan (probe counter).
+- [ ] The StackKey index stays equal to a brute-force scan of non-full stacks (count < effMax read at op time; stats constant during the run), each list in row-major order, across 10 000 random `Place`/`Remove`/`Transfer`/`MergeInto` calls (property test); PASS M probes are ≤ list length (1–3 typical) per target, never a container scan; PASS U and PASS R count one probe per candidate anchor (Release-compiled probe counters).
+
+*Added by readiness (GDD R8/R15, ADR-0009 §3/§5; Planner resolutions 2026-10-21):*
+
+- [ ] **Slots layout** — on a slots container, PASS U takes the lowest free usable slot ≥ 1 and never slot 0 (reserved_slot is skipped, not returned); PASS M merges into the first mergeable slot in slot order.
+- [ ] **Partial and all-or-nothing** — a 5-unit stackable into room for 3 places the 3 oldest ids and leaves the 2 newest on the source, in id order, reply ok; a non-stackable that does not fit whole places nothing and reports `no_room`.
+- [ ] **Negative-fit cache** — after a (shape, rotated) fails at version v, a repeat AutoPlace of that shape on that container at v visits 0 anchors; a version bump, a statEpoch bump or a row change clears it. With the cache disabled, the same 10 000-call sequence yields identical plans, replies and state.
+- [ ] **effMax change** — after a test `MailMaxStack` push (`GridMailRuleFixtures.DoubleStackPm`), a statEpoch bump and `RebuildIndex` on the container, a 1-letter AutoPlace merges into an existing 20-stack that is now non-full at effMax 40.
+- [ ] **Allocation** — the index, the negative-fit cache and the AutoPlace plan allocate 0 B per call after warm-up (`AllocAssert`, Release, in a `[Collection(NonParallelCollection.Name)]` class); capacities come from `SimSettings` / the container's cell count at creation.
 
 ---
 
@@ -45,9 +53,15 @@
 *Derived from the governing ADR(s) Decision / Implementation Guidelines:*
 
 - Location: `src/PerformativeMail.Sim/Inventory/Placement/AutoPlace.cs`, `StackIndex.cs`, `NegativeFitCache.cs`.
-- The index is maintained inside `InventoryMutator` on insert, remove, count change and move (ADR-0009 §5) — not by AutoPlace itself.
-- AutoPlace returns a plan (per-target placements + merged unit counts) consumed by `Commit`; it never mutates. Partial placement is allowed for stackables; non-stackables are all-or-nothing.
-- Per-shape monotone start hints (D3) are ADR-0025's (sort/backlog, M1) — not needed for AutoPlace correctness.
+- The index is maintained inside `InventoryMutator` on insert, remove, count change and move (ADR-0009 §5) — not by AutoPlace itself. Story 005 shipped only `Place`, `Remove` and `Transfer`; this story adds the count-change primitive `InventoryMutator.MergeInto(ref plan, sourceSlot, targetSlot, units)`: take the `units` oldest mailIds from the source (arena take), union them into the target, set both counts, raise `InvMerged` plus its mailId-run `Continuation` chunks, remove and free a source left at 0, and update the index. Story 008's Merge op reuses it; story 017 adds its ledger hook (a Placed→Placed merge crosses no ledger state, so ADR-0009 §6 is untouched).
+- Index layout: per container an open-addressed `StackKey` (packed u64) → head map (a new preallocated 64-bit map, never enumerated) of intrusive row-major lists. PASS M always re-checks `count < effMax` at op time (GDD R8). `RebuildIndex(containerSlot)` is called when a container's `statEpoch` bumps (nothing bumps it at M-1a; tests call it).
+- Use the rules shipped in story 006: `PlacementSubject.ForMail` / `ForItem` for effMax (read at op time, never cached), `StackKey`, `PlacementRules.CanMerge` in PASS M, and `InsertionWhitelist.Check` once per target (non-zero → the target is skipped in every pass). PASS U/R test anchors with `Occupancy` row masks (one probe each), not `PlacementRules.Validate` per position. Nothing moved: if no target admitted → `not_carryable` if any target was skipped for carryability, else `not_allowed` (ADR-0009 §2 chain order); otherwise `no_room`.
+- Probe counters (manifest guardrail; `Occupancy` defers them to this story): always-on `CounterId`s for PASS M candidate visits and PASS U/R cell probes, compiled into Release, excluded from the dump (ADR-0006). This definition binds H-PERF-6 later. This story also creates `MergePolicy {Merge, NoMerge}` and the `PassFirst` / `TargetFirst` order enum.
+- The StackKey index and negative-fit cache are derived memos: excluded from the canonical dump (ADR-0006), rebuilt from entries on load, never change a result. The negative-fit cache stays ADR-literal (`(footprintShape, rotated) → versionNoFit`, ADR-0009 §5) and is additionally cleared on a statEpoch bump or row growth. A handler's `Validate` only **reads** the cache; no-fit records are written on the `Commit` path and by `IInventoryApi`-style callers, never inside `Validate` (ADR-0009 §2).
+- Do not name a type `Placement` (`InvPlan.Placement` and `PlacementRules` exist); the namespace is `PerformativeMail.Sim.Inventory.Placement`, fully qualified where it shadows (TD-074 pattern).
+- Arrange test entries through `InventoryMutator` (or call `RebuildIndex` after arranging): `PlacementFixture.AddMail`/`AddItem` and `InvEventRig.AddMail` bypass the mutator, so the index would be empty.
+- AutoPlace is pure: it fills a fixed-size `AutoPlacePlan` (merges `(targetEntrySlot, units)` in PASS M order, plus at most one free-cell `InvPlacement` for the remainder, plus the unplaced count) and does not widen `InvPlan` (story 005 is Complete). Input = `PlacementSubject` + unit count + optional source entry slot, so Spawn (story 012) needs no pre-built entry. During validation it `Touch`es every target it may change (TD-118 item 1) and calls `InvPlan.AddAcquiredBlock` per mail merge (reason 85 rule). `Commit` applies it through `MergeInto` then `Place`/`Transfer` and never recomputes (ADR-0009 §2). The source keeps its entryId; merged units leave oldest-first. Partial placement is allowed for stackables; non-stackables are all-or-nothing.
+- Per-shape monotone start hints (GDD D3) serve the backlog drain (story 021). The ADR that records them, ADR-0025, is planned and not yet written. AutoPlace does not need them for correctness.
 
 ---
 
@@ -80,4 +94,4 @@
 ## Dependencies
 
 - Depends on: Story 005, Story 006
-- Unlocks: Story 010, Story 012, Story 014, Story 015
+- Unlocks: Story 008, Story 010, Story 012, Story 014, Story 015

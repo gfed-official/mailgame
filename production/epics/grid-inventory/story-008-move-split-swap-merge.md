@@ -78,5 +78,5 @@
 
 ## Dependencies
 
-- Depends on: Story 003, Story 007
+- Depends on: Story 003, Story 007, Story 009 (`InventoryMutator.MergeInto` and the StackKey index hooks)
 - Unlocks: Story 010, Story 018
