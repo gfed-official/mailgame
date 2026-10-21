@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~100 lines glue + ~400 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-21 (AC-7 added: the M-MD1-1a run-cycle leg handed over from story 001 — Deliver anchors survive the M-1a shift-stub cycle; depends on mail-destinations 009. Manifest stamp not re-reviewed in this pass)
 
 ## Context
 
@@ -37,6 +37,7 @@
 - [ ] **AC-4 (M-NET-1, layout per the ADR-0011 erratum)** From press to completion the only message is the request (no hold-start, progress or posting packet). The serialised request is 24 B (MATCH) and 28 B (MISDELIVER_ONE) at maximum field values, transport framing excluded (supersedes the GDD's 12/16 B). The JoinState/RejoinState diff with and without this system is 0 B.
 - [ ] **AC-5 (M-NET-2)** A client that disconnects after sending and rejoins has its pending state cleared, `deliver.pending` false, and missed outcomes not replayed. A duplicate `reqId` gets the original reply and consumes nothing more. The host's own hold gets its reply in the client layer on the same or the next tick, with an exact `holdStartTick`.
 - [ ] **AC-6 (M-EC-2, M-EC-3a, M-EC-4, M-MD4-4 end to end)** A knockdown on the completion tick: request first → success and the rest spills; knockdown first → `dead`, no hand beat (both orders run). At wallet −496 a teammate spend to −497 mid MISDELIVER_ONE hold: the hold continues, the published preview shows `floorRefusal` within 1 tick, the host replies `wallet_floor` with 0 consumed. A teammate's throw arriving mid-hold leaves the panel unchanged and the hold completes. A 5-tick catch-up never shows progress above `heldTicks/holdTicks`. A Cursed MISDELIVER_ONE stopped at the floor with 0 consumed emits no `CursedMisdelivered`. Toggle mode: walking beyond 2.9 m cancels with 0 requests; a completion at 2.7 m is accepted by the host.
+- [ ] **AC-7 (M-MD1-1a, run-cycle leg — handed over from story 001)** On a composed M-1a world (story 005's composition case), every Deliver anchor registered at run start is still registered, with an unchanged `AnchorDef` (ref, point, verb, mode, hold base, priority), at the end of the run cycle. At M-1a the run cycle is the shift stub's Prep → Delivery → Closed (`production/epics/mail-destinations/story-009-shift-stub-deliveries-state.md`; there is no Results phase until Run Structure at M1, so "Prep to Results" is asserted as Prep through Closed and re-pointed when Run Structure lands). The check reads `PlayersSystem.Anchors` (`Count`, `TryGet(AnchorRef, out index)`, `DefAt(index)`) on the first Prep tick, every phase transition and 60 ticks into Closed: all 10 present every time and `Count` never drops.
 
 ---
 
@@ -70,7 +71,7 @@
 
 **Story Type**: Integration
 **Required evidence**:
-- Integration: `tests/integration/delivery/DeliverLoopbackTests.cs` and `tests/integration/delivery/EvaluateParityTests.cs` — must exist and pass
+- Integration: `tests/integration/delivery/DeliverLoopbackTests.cs`, `tests/integration/delivery/EvaluateParityTests.cs` and `tests/integration/delivery/DeliverAnchorLifetimeTests.cs` (`[Trait("Id", "M-MD1-1a")]`, AC-7 run-cycle leg) — must exist and pass on net10.0 and net8.0, Debug and Release
 
 **Status**: [ ] Not yet created
 
@@ -78,5 +79,5 @@
 
 ## Dependencies
 
-- Depends on: Stories 001–006; `production/epics/network-adapter-loopback/story-005-reqid-dedupe-reply-cache.md`, `production/epics/network-adapter-loopback/story-007-host-loopback-session-frame-timing.md`, `production/epics/network-adapter-loopback/story-008-deliver-matching-wire-codec.md`; `production/epics/player-character/story-014-focus-scoring-dwell-preview-binding.md`, `production/epics/player-character/story-020-carrierstep-clientlayer-integration.md`; `production/epics/mail-destinations/story-015-mail-event-wire-codecs.md`
+- Depends on: Stories 001–006; `production/epics/mail-destinations/story-009-shift-stub-deliveries-state.md` (the M-1a Prep → Delivery → Closed cycle, AC-7); `production/epics/network-adapter-loopback/story-005-reqid-dedupe-reply-cache.md`, `production/epics/network-adapter-loopback/story-007-host-loopback-session-frame-timing.md`, `production/epics/network-adapter-loopback/story-008-deliver-matching-wire-codec.md`; `production/epics/player-character/story-014-focus-scoring-dwell-preview-binding.md`, `production/epics/player-character/story-020-carrierstep-clientlayer-integration.md`; `production/epics/mail-destinations/story-015-mail-event-wire-codecs.md`
 - Unlocks: Story 008; `production/epics/network-adapter-loopback/story-009-sc-x-2-manual-delivery-over-loopback.md`
