@@ -29,6 +29,7 @@ public class InvMalformedOpTests
     // ------------------------------------------------------------------ H-R7-4 (malformed half)
 
     [Theory]
+    [Trait("Id", "H-R7-4")]
     [InlineData(-1, CoreReason.BadRequest)]
     [InlineData(256, CoreReason.BadRequest)]
     [InlineData(int.MinValue, CoreReason.BadRequest)]
@@ -45,6 +46,7 @@ public class InvMalformedOpTests
     }
 
     [Theory]
+    [Trait("Id", "H-R7-4")]
     [InlineData(70_000, CoreReason.BadRequest)]
     [InlineData(32_768, CoreReason.BadRequest)]
     [InlineData(-32_769, CoreReason.BadRequest)]
@@ -62,6 +64,7 @@ public class InvMalformedOpTests
     }
 
     [Fact]
+    [Trait("Id", "H-R7-4")]
     public void Move_EntryIdAtOrAboveTheHighWater_IsBadRequest_AndChangesNothing()
     {
         // Arrange
@@ -74,6 +77,7 @@ public class InvMalformedOpTests
     }
 
     [Fact]
+    [Trait("Id", "H-R7-4")]
     public void Move_AlreadyRemovedEntryId_IsStaleEntry_AndChangesNothing()
     {
         // Arrange
@@ -99,6 +103,24 @@ public class InvMalformedOpTests
         // Arrange
         var rig = new InvOpRig();
         Op op = rig.MoveOp(rig.RemovedIds[0], pad0: 1);
+
+        // Act + Assert
+        rig.AssertSingleReply(op, rig.PlayerA, CoreReason.BadRequest);
+    }
+
+    [Theory]
+    [InlineData("Move", 22, (byte)0x01)]
+    [InlineData("Move", 23, (byte)0x80)]
+    [InlineData("QuickMove", 9, (byte)0x01)]
+    [InlineData("QuickMove", 10, (byte)0x80)]
+    [InlineData("QuickMove", 11, (byte)0xFF)]
+    public void PaddedPayload_NonZeroByteInEachPadPosition_IsBadRequest_OnAnOtherwiseValidOp(string kind, int offset, byte value)
+    {
+        // Arrange: a valid op on a live entry (Ok through the stub), then one pad byte set in place.
+        var rig = new InvOpRig();
+        Op op = KindOp(rig, kind, rig.LiveIds[0], rig.LiveIds[1]);
+        Assert.Equal(0, op.Payload[offset]);
+        op.Payload[offset] = value;
 
         // Act + Assert
         rig.AssertSingleReply(op, rig.PlayerA, CoreReason.BadRequest);
@@ -135,6 +157,7 @@ public class InvMalformedOpTests
     }
 
     [Fact]
+    [Trait("Id", "H-R7-4")]
     public void Move_DecodedCountMinusOneAndX70000_AreNotRepresentableInThePayload_SoTheWidenedEntryPointsAreTheGate()
     {
         // Arrange: what a codec that skipped the widened checks would store after narrowing.
@@ -170,6 +193,7 @@ public class InvMalformedOpTests
     // ------------------------------------------------------------------ H-NET-5 (Sim half)
 
     [Fact]
+    [Trait("Id", "H-NET-5-sim")]
     public void TenThousandOutOfRangeOps_FromARecordedSeed_ThroughTheDrain_AllBadRequest_StateUnchanged_NoException()
     {
         // Arrange
@@ -216,6 +240,7 @@ public class InvMalformedOpTests
     }
 
     [Fact]
+    [Trait("Id", "H-NET-5-sim")]
     public void FaultGenerator_RecordedSeed_First256Ops_MatchThePinnedGoldenHash()
     {
         // Arrange
