@@ -88,8 +88,13 @@ public sealed class InvRequestCheck
     /// <returns>0 or <see cref="InvReason.CapacityExhausted"/>.</returns>
     public ushort CheckArenaReservation(ReadOnlySpan<int> acquiredBlockUnits) => _mailIds.CanReserve(acquiredBlockUnits) ? Pass : Exhausted;
 
+    /// <summary><see cref="CheckArenaReservation(ReadOnlySpan{int})"/> over <c>ushort</c> block sizes (<see cref="InvPlan.AcquiredBlocks"/>).</summary>
+    /// <param name="acquiredBlockUnits">One element per block the commit acquires, each sized at the moment it is acquired.</param>
+    /// <returns>0 or <see cref="InvReason.CapacityExhausted"/>.</returns>
+    public ushort CheckArenaReservation(ReadOnlySpan<ushort> acquiredBlockUnits) => _mailIds.CanReserve(acquiredBlockUnits) ? Pass : Exhausted;
+
     /// <summary>
-    /// <see cref="CheckArenaReservation(ReadOnlySpan{int})"/> over the plan's <see cref="InvPlan.AcquiredBlocks"/>; a plan that planned
+    /// <see cref="CheckArenaReservation(ReadOnlySpan{ushort})"/> over the plan's <see cref="InvPlan.AcquiredBlocks"/>; a plan that planned
     /// more than <see cref="InvPlan.MaxAcquiredBlocks"/> acquisitions (a handler programming error that asserted at
     /// <see cref="InvPlan.AddAcquiredBlock"/> under <c>INVENTORY_ASSERT</c>) is <c>capacity_exhausted</c> in Release (conservative: never a false accept).
     /// </summary>
