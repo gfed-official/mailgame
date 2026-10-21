@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Run `/story-readiness production/epics/grid-inventory/story-001-inventory-module-containers.md`, then `/dev-story`. Stories 019–022 are Ready (ADRs Accepted 2026-10-16); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–006 and 009 are Complete (006 in PR #16, 009 in PR #20, stacked on #16). Next: run `/story-readiness` on `story-012-intake-spawn-outfeed.md` (012 builds on 009) and `story-013-worlditem-expiry-cap.md`, then implement them. Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.

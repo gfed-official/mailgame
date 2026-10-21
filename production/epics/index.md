@@ -1,6 +1,6 @@
 # Epics Index
 
-Last Updated: 2026-10-21 (counts from the story headers on main a6dfb98 plus PR #16 plus PR #20, `/workspace/scripts/count-story-status.sh`: 94 Complete, 1 In Progress (content-data 018), 6 Blocked, 106 Ready — 207 stories; godot-host-shell 003, grid-inventory 004/005, throwing-catching 001 and manual-delivery 001 (PR #14) Complete; grid-inventory 006 Complete, PR #16; grid-inventory 009 Complete, PR #20)
+Last Updated: 2026-10-21 (counts from the story headers on main 141ceb6 plus PR #16 plus PR #20, `/workspace/scripts/count-story-status.sh`: 94 Complete, 1 In Progress (content-data 018), 6 Blocked, 106 Ready — 207 stories; godot-host-shell 003, grid-inventory 004/005, throwing-catching 001 and manual-delivery 001 (PR #14) Complete; grid-inventory 006 Complete, PR #16; grid-inventory 009 Complete, PR #20)
 Engine: Godot 4.7.1 pinned (the box has Godot 4.7.2 mono at `~/.local/bin/godot` — see HANDOFF.md), C# (.NET 8 Sim / net10.0 tests)
 Scope: M-1a slice (solo greybox: delivery + throwing)
 
