@@ -5,6 +5,8 @@ using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Events;
 using PerformativeMail.Sim.Inventory.Ops;
+using PerformativeMail.Sim.Inventory.Placement;
+using PerformativeMail.Sim.Inventory.Rules;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
 
@@ -476,5 +478,354 @@ internal sealed class InvEventRig
         op.SetPayload(new PlayerJoinPayload { Slot = slot });
         Assert.True(Host.World.EnqueueOp(ActorId.System, in op));
         Host.World.Tick();
+    }
+}
+
+/// <summary>TEST-ONLY validate step of <see cref="InvFixtureActionHandler"/>: builds the plan, returns 0 or a reason.</summary>
+internal delegate ushort InvPlanStep(ref InvPlan plan);
+
+/// <summary>TEST-ONLY commit step of <see cref="InvFixtureActionHandler"/>: applies the plan through the mutator.</summary>
+internal delegate void InvCommitStep(ref InvPlan plan);
+
+/// <summary>
+/// TEST-ONLY op handler (story grid-inventory/009): runs inside a real tick either caller-supplied steps (<see cref="ValidateStep"/> /
+/// <see cref="CommitStep"/>, the mutator-backed arrange helpers) or one configured <see cref="AutoPlace"/> call (Plan → the shared
+/// arena-reservation step → Begin / Commit / End). On a rejected AutoPlace it records the plan's no-fit facts after the reject was decided
+/// (<see cref="RecordNoFitsOnReject"/>), standing in for an <c>IInventoryApi</c>-style caller: never inside the validate step.
+/// </summary>
+internal sealed class InvFixtureActionHandler : IOpHandler
+{
+    public const OpKind FixtureKind = (OpKind)0x00F9;
+
+    public static readonly OpDescriptor Descriptor = OpDescriptor.For<MovePayload>(
+        FixtureKind, false, 0, 0,
+        InvReasons.Def(InvReason.NotAllowed), InvReasons.Def(InvReason.NotCarryable), InvReasons.Def(InvReason.NoRoom), InvReasons.Def(InvReason.CapacityExhausted));
+
+    public InventorySystem System { get; set; } = null!;
+
+    public OpKind Kind => FixtureKind;
+
+    public InvPlanStep? ValidateStep { get; set; }
+
+    public InvCommitStep? CommitStep { get; set; }
+
+    public PlacementSubject Subject;
+
+    public int Units;
+
+    public ushort Source = AutoPlace.NoSource;
+
+    public ushort[] Targets = new ushort[AutoPlacePlan.MaxTargets];
+
+    public int TargetCount;
+
+    public MergePolicy Policy;
+
+    public PlaceOrder Order;
+
+    public bool RecordNoFitsOnReject = true;
+
+    /// <summary>The last AutoPlace plan.</summary>
+    public AutoPlacePlan LastPlan;
+
+    /// <summary>The last call's reason (0 = committed).</summary>
+    public ushort LastReason;
+
+    public Reply Apply(in Op op, in TickContext ctx)
+    {
+        var plan = new InvPlan();
+        var extra = new InvReplyExtra();
+        bool auto = ValidateStep is null;
+        ushort reason = auto
+            ? System.AutoPlace.Plan(ref plan, in Subject, Units, Source, Targets.AsSpan(0, TargetCount), Policy, Order, out LastPlan)
+            : ValidateStep!(ref plan);
+        if (reason == 0)
+        {
+            reason = System.RequestCheck.CheckArenaReservation(in plan);
+        }
+
+        LastReason = reason;
+        if (reason != 0)
+        {
+            if (auto && RecordNoFitsOnReject)
+            {
+                System.AutoPlace.RecordNoFits(in LastPlan);
+            }
+
+            System.Mutator.FillVersions(in plan, ref extra);
+            Reply rejected = Reply.Reject(in op, reason);
+            rejected.SetExtra(in extra);
+            return rejected;
+        }
+
+        InventoryMutator m = System.Mutator;
+        m.Begin(ref plan, op.Actor, InvCause.None);
+        if (auto)
+        {
+            System.AutoPlace.Commit(ref plan, in LastPlan);
+        }
+        else
+        {
+            CommitStep?.Invoke(ref plan);
+        }
+
+        m.End(ref plan, ref extra);
+        return Reply.Ok(in op, in extra);
+    }
+}
+
+/// <summary>TEST-ONLY system: the real <see cref="InventorySystem"/> plus the <see cref="InvFixtureActionHandler"/>.</summary>
+internal sealed class InventoryWithActionOp : ISimSystem
+{
+    public InventoryWithActionOp(InventorySystem inner, InvFixtureActionHandler handler)
+    {
+        Inner = inner;
+        Handler = handler;
+        handler.System = inner;
+    }
+
+    public InventorySystem Inner { get; }
+
+    public InvFixtureActionHandler Handler { get; }
+
+    public void Bind(SimWorldBuilder builder)
+    {
+        Inner.Bind(builder);
+        builder.BindOp(InvFixtureActionHandler.Descriptor, Handler);
+    }
+}
+
+/// <summary>
+/// The story grid-inventory/009 rig: a composed M-1a world (real content, stat sheet, <see cref="InventorySystem"/> and event log) with
+/// player A in slot 0, the <see cref="InvFixtureActionHandler"/>, and mutator-backed arrange helpers, so the StackKey index is maintained
+/// exactly as in production (Planner R8: the direct-write fixtures would leave it empty). Fixture grids are <c>player_inventory</c>-def
+/// instances with explicit dims (no chest/bike def at M-1a). Every mutation runs in its own tick.
+/// </summary>
+internal sealed class InvAutoPlaceRig
+{
+    private readonly InventoryWithActionOp _system;
+    private uint _reqId = 100;
+
+    public InvAutoPlaceRig()
+    {
+        Sink = new CaptureSink();
+        var handler = new InvFixtureActionHandler();
+        var profile = SimProfile.ForTest(
+            "inventory-autoplace",
+            null,
+            new SimSystemEntry(
+                SystemId.GridInventory,
+                ctx => new InventoryWithActionOp(new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events), handler)));
+        Host = SimComposition.Build(new SimBuildArgs(profile, BuiltInContent.CreateM1a(), 42) { EventSink = Sink });
+        _system = (InventoryWithActionOp)Host.Systems.Single();
+        var join = new Op { Kind = OpKind.PlayerJoin, ReqId = 1 };
+        join.SetPayload(new PlayerJoinPayload { Slot = 0 });
+        Assert.True(Host.World.EnqueueOp(ActorId.System, in join));
+        Host.World.Tick();
+        PlayerA = ActorId.FromEntity(Host.Services.Slots.Entry(PlayerSlot.FromValue(0)).PlayerId);
+        InventoryA = SlotOf(Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0)));
+        HotbarA = SlotOf(Inventory.HotbarOf(PlayerSlot.FromValue(0)));
+        Intake = SlotOf(Inventory.IntakeContainer);
+    }
+
+    public SimHost Host { get; }
+
+    public CaptureSink Sink { get; }
+
+    public InventorySystem Inventory => _system.Inner;
+
+    public InvFixtureActionHandler Handler => _system.Handler;
+
+    public ContentSet Content => Host.Content;
+
+    public SimCounters Counters => Host.World.Counters;
+
+    public ActorId PlayerA { get; }
+
+    /// <summary>Player A's 8 x 2 player_inventory.</summary>
+    public ushort InventoryA { get; }
+
+    /// <summary>Player A's 8 x 1 slots hotbar (slot 0 reserved).</summary>
+    public ushort HotbarA { get; }
+
+    /// <summary>The 20 x 16 mail-only po_intake.</summary>
+    public ushort Intake { get; }
+
+    public EntryPool Entries => Inventory.Entries;
+
+    public StackIndex Index => Inventory.Mutator.StackIndex;
+
+    public ref ContainerHeader Header(ushort slot) => ref Inventory.Containers[slot];
+
+    public ushort SlotOf(ContainerId id)
+    {
+        Assert.True(Inventory.Containers.TryGetSlot(id, out ushort slot));
+        return slot;
+    }
+
+    /// <summary>A fixture grid: a <paramref name="def"/>-def instance of <paramref name="w"/> x <paramref name="h"/> with no owner.</summary>
+    public ushort CreateGrid(int w, int h, string def = "player_inventory")
+    {
+        DefIndex d = PlacementFixture.Index(Content.Containers, def);
+        ContainerDef cd = Content.Containers[d];
+        Assert.True(Inventory.TryCreateContainer(d, w, h, cd.Layout, ContainerHeader.NoOwner, out ContainerId id));
+        return SlotOf(id);
+    }
+
+    public DefIndex KindIndex(string kind) => PlacementFixture.Index(Content.MailKinds, kind);
+
+    public DefIndex ItemIndex(string item) => PlacementFixture.Index(Content.Items, item);
+
+    /// <summary>A mail subject with <c>effMax</c> read from the world's sheet now.</summary>
+    public PlacementSubject Mail(string kind, uint address, byte flags = 0)
+    {
+        DefIndex k = KindIndex(kind);
+        return PlacementSubject.ForMail(Content.MailKinds[k], k, address, flags, Host.StatSheet);
+    }
+
+    public PlacementSubject Item(string item)
+    {
+        DefIndex i = ItemIndex(item);
+        return PlacementSubject.ForItem(Content.Items[i], i);
+    }
+
+    public PlacementSubject SubjectOf(ushort entry) => PlacementSubject.Of(Content, Host.StatSheet, in Entries[entry]);
+
+    /// <summary>Consecutive ids <paramref name="first"/>, first + 1, ... (<paramref name="count"/> of them).</summary>
+    public static uint[] Ids(uint first, int count)
+    {
+        var ids = new uint[count];
+        for (int i = 0; i < count; i++)
+        {
+            ids[i] = first + (uint)i;
+        }
+
+        return ids;
+    }
+
+    public uint[] IdsOf(ushort entry) => Inventory.MailIds.Read(in Entries[entry].MailIds).ToArray();
+
+    /// <summary>A detached (unplaced) mail entry holding <paramref name="ids"/> (between ticks: allocation raises nothing).</summary>
+    public ushort DetachedMail(string kind, uint address, uint[] ids, byte flags = 0)
+    {
+        DefIndex k = KindIndex(kind);
+        MailKindDef def = Content.MailKinds[k];
+        Assert.True(Entries.TryAllocate(Host.World.CurrentTick, out ushort slot, out _));
+        ref EntryRecord e = ref Entries[slot];
+        e.IsMail = true;
+        e.MailKind = k.Value;
+        e.AddressId = address;
+        e.Flags = flags;
+        e.W = (byte)def.GridW;
+        e.H = (byte)def.GridH;
+        Entries.SetCount(slot, (byte)ids.Length);
+        Assert.True(Inventory.MailIds.TryCreate(ids, 0, out e.MailIds));
+        return slot;
+    }
+
+    /// <summary>A detached item entry of <paramref name="count"/>.</summary>
+    public ushort DetachedItem(string item, byte count)
+    {
+        DefIndex i = ItemIndex(item);
+        ItemDef def = Content.Items[i];
+        Assert.True(Entries.TryAllocate(Host.World.CurrentTick, out ushort slot, out _));
+        ref EntryRecord e = ref Entries[slot];
+        e.ItemId = i.Value;
+        e.W = (byte)def.GridW;
+        e.H = (byte)def.GridH;
+        Entries.SetCount(slot, count);
+        return slot;
+    }
+
+    /// <summary>Places a mail entry through <see cref="InventoryMutator.Place"/> (one tick).</summary>
+    public ushort PlaceMail(ushort container, string kind, int x, int y, uint address, uint[] ids, bool rotated = false, byte flags = 0)
+    {
+        ushort slot = DetachedMail(kind, address, ids, flags);
+        PlaceDetached(slot, container, x, y, rotated);
+        return slot;
+    }
+
+    /// <summary>Places an item entry through <see cref="InventoryMutator.Place"/> (one tick).</summary>
+    public ushort PlaceItem(ushort container, string item, int x, int y, byte count, bool rotated = false)
+    {
+        ushort slot = DetachedItem(item, count);
+        PlaceDetached(slot, container, x, y, rotated);
+        return slot;
+    }
+
+    public void PlaceDetached(ushort entry, ushort container, int x, int y, bool rotated = false)
+    {
+        Reply r = Step(
+            (ref InvPlan p) => p.Touch(container) < 0 ? CoreReason.BadRequest : (ushort)0,
+            (ref InvPlan p) => Inventory.Mutator.Place(ref p, entry, container, (byte)x, (byte)y, rotated));
+        Assert.True(r.IsOk);
+    }
+
+    /// <summary>Runs one tick whose fixture op runs <paramref name="validate"/> then (on 0) <paramref name="commit"/>; returns the reply.</summary>
+    public Reply Step(InvPlanStep validate, InvCommitStep commit)
+    {
+        Handler.ValidateStep = validate;
+        Handler.CommitStep = commit;
+        try
+        {
+            return ReplyOf(RunTick());
+        }
+        finally
+        {
+            Handler.ValidateStep = null;
+            Handler.CommitStep = null;
+        }
+    }
+
+    /// <summary>One AutoPlace through the fixture op (one tick); the plan is <see cref="InvFixtureActionHandler.LastPlan"/>.</summary>
+    public ushort AutoPlace(in PlacementSubject subject, int units, ushort source, MergePolicy policy, PlaceOrder order, params ushort[] targets)
+    {
+        Handler.Subject = subject;
+        Handler.Units = units;
+        Handler.Source = source;
+        targets.CopyTo(Handler.Targets, 0);
+        Handler.TargetCount = targets.Length;
+        Handler.Policy = policy;
+        Handler.Order = order;
+        Reply r = ReplyOf(RunTick());
+        Assert.Equal(Handler.LastReason, r.Reason);
+        return r.Reason;
+    }
+
+    /// <summary>AutoPlace of a source entry's whole count, its subject read now, merge policy and pass-first order.</summary>
+    public ushort AutoPlace(ushort source, params ushort[] targets) =>
+        AutoPlace(SubjectOf(source), Entries[source].Count, source, MergePolicy.Merge, PlaceOrder.PassFirst, targets);
+
+    public AutoPlacePlan LastPlan => Handler.LastPlan;
+
+    /// <summary>The tick's log (between ticks only).</summary>
+    public EventEntry[] LastLog => Sink.Last;
+
+    /// <summary>Enqueues the fixture op for player A, ticks once and returns that tick's log.</summary>
+    public EventEntry[] RunTick()
+    {
+        var op = new Op { Kind = InvFixtureActionHandler.FixtureKind, ReqId = _reqId++ };
+        op.SetPayload(default(MovePayload));
+        Assert.True(Host.World.EnqueueOp(PlayerA, in op));
+        Host.World.Tick();
+        return Sink.Last;
+    }
+
+    /// <summary>Frees a detached entry (its arena block, then its pool slot) between ticks.</summary>
+    public void FreeDetached(ushort entry)
+    {
+        ref EntryRecord e = ref Entries[entry];
+        Assert.Equal(EntryRecord.NoContainer, e.ContainerSlot);
+        Inventory.MailIds.Free(in e.MailIds);
+        Entries.Free(entry);
+    }
+
+    public static Reply ReplyOf(EventEntry[] log) => Assert.Single(log, e => e.Kind == EventKind.OpReply).PayloadAs<Reply>();
+
+    /// <summary>The live entry whose top-left is (x, y) of the container, or <see cref="Occupancy.Free"/>.</summary>
+    public ushort EntryAt(ushort container, int x, int y)
+    {
+        ushort owner = Inventory.Occupancy.OwnerAt(container, Header(container).W, x, y);
+        return owner != Occupancy.Free && Entries[owner].X == x && Entries[owner].Y == y ? owner : Occupancy.Free;
     }
 }
