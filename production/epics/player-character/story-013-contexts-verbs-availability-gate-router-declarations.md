@@ -102,7 +102,7 @@
   - `tests/unit/player/InteractionGateTests.cs` — `PCM-P11-2d` (filter order with reasons, the Mounted own-seat fixtures, Mounted / Build + swimming → `dry_land`, Panel + swimming → `close_panel`), `PCM-P6-2a`/`PCM-P6-2b`/`PCM-P6-2c` (seven-verb list, `AllowWhileSwimming`, allowed rows), the Reason keys AC and `ContextCancelReason` (each cancel case; walking / non-lethal damage → none; simultaneous changes follow Knockdown > Dead > Mounted > Panel > Swim).
   - `tests/unit/player/InteractionGateAllocationTests.cs` — 0 B warm loop (NonParallel collection).
 
-**Status**: [x] Created and passing. Every leg (net10.0 and net8.0, each in Debug and Release) builds with 0 warnings and runs 5011 tests with 0 failures; 42 are skipped in Debug and 2 in Release, the same skips as before this story (counts from the 2026-10-21 re-run, after R1, the main merge and the provenance pass).
+**Status**: [x] Created and passing. Every leg (net10.0 and net8.0, each in Debug and Release) builds with 0 warnings and runs 5039 tests with 0 failures; 42 are skipped in Debug and 2 in Release, the same skips as before this story (counts from the 2026-10-21 re-run after the origin/main merge (PR #14) that brought in manual-delivery 001's tests).
 
 **Completion notes (2026-10-21)**
 - Files: production code in `src/PerformativeMail.Sim/Players/` (`BodyContext.cs`, `InputContext.cs`, `VerbContextTable.cs`, `CarrierStatus.cs`, `InteractionGate.cs`, `FrameworkReasons.cs`); tests in `tests/unit/player/` (`InputContextTableTests.cs`, `CarrierStatusTests.cs`, `InteractionGateTests.cs`, `InteractionGateAllocationTests.cs`).
