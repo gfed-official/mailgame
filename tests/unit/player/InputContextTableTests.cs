@@ -137,22 +137,32 @@ public class InputContextTableTests
         Assert.Equal(VerbPress.None, VerbContextTable.Presses(ContextVerb.Respawn));
     }
 
-    /// <summary>In no context does a present (non-Absent) verb carry both a tap and a hold, except Interact.</summary>
+    /// <summary>
+    /// In no context does a bound (non-Absent: Live, Disabled or Greyed) verb carry both a tap and a hold, except Interact. Every one
+    /// of the 8 x 5 cells is visited; a Disabled cell still occupies its binding, so it counts.
+    /// </summary>
     [Fact]
     [Trait("Id", "PCM-P14-1")]
     public void TapAndHold_OnlyInteractCarriesBoth_InAnyContext()
     {
         // Arrange
         var offenders = new List<string>();
+        int visited = 0;
+        int interactBound = 0;
 
         // Act
         foreach (InputContext c in Enum.GetValues<InputContext>())
         {
             foreach (ContextVerb v in Enum.GetValues<ContextVerb>())
             {
+                visited++;
                 bool present = VerbContextTable.Cell(v, c) != CellState.Absent;
-                bool both = VerbContextTable.Presses(v) == (VerbPress.Tap | VerbPress.Hold);
-                if (present && both && v != ContextVerb.Interact)
+                bool both = (VerbContextTable.Presses(v) & (VerbPress.Tap | VerbPress.Hold)) == (VerbPress.Tap | VerbPress.Hold);
+                if (present && both && v == ContextVerb.Interact)
+                {
+                    interactBound++;
+                }
+                else if (present && both)
                 {
                     offenders.Add($"{v} in {c}");
                 }
@@ -160,8 +170,38 @@ public class InputContextTableTests
         }
 
         // Assert
+        Assert.Equal(40, visited);
         Assert.Empty(offenders);
-        Assert.Equal(VerbPress.Tap | VerbPress.Hold, VerbContextTable.Presses(ContextVerb.Interact));
+        Assert.Equal(4, interactBound);   // World, Panel (disabled), Holding, Mounted (Dismount only); absent in Dead
+    }
+
+    /// <summary>
+    /// The press-kind declaration the tap+hold rule reads (<see cref="VerbContextTable.Presses"/>), pinned verb by verb so the rule's
+    /// input cannot drift unseen. Comms wheel = Hold is this story's declaration (TD-123: Input &amp; Controls to confirm).
+    /// </summary>
+    [Fact]
+    [Trait("Id", "PCM-P14-1")]
+    public void Presses_DeclarationIsPinned()
+    {
+        // Arrange
+        (ContextVerb Verb, VerbPress Press)[] expected =
+        [
+            (ContextVerb.Move, VerbPress.None),
+            (ContextVerb.Look, VerbPress.None),
+            (ContextVerb.Sprint, VerbPress.Hold),
+            (ContextVerb.Jump, VerbPress.Tap),
+            (ContextVerb.Interact, VerbPress.Tap | VerbPress.Hold),
+            (ContextVerb.ShoulderSwap, VerbPress.Tap),
+            (ContextVerb.CommsWheel, VerbPress.Hold),
+            (ContextVerb.Respawn, VerbPress.None),
+        ];
+
+        // Act + Assert
+        Assert.Equal(expected.Length, Enum.GetValues<ContextVerb>().Length);
+        foreach ((ContextVerb verb, VerbPress press) in expected)
+        {
+            Assert.Equal(press, VerbContextTable.Presses(verb));
+        }
     }
 
     /// <summary>Out-of-range rows and columns read as Absent / no press (never out of bounds).</summary>
