@@ -285,7 +285,7 @@ public class WorldItemTests
         EntityId ok = w.At(205, () => w.Inv.CreateWorldItem(id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 205));
         EntityId twice = w.At(206, () => w.Inv.CreateWorldItem(id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 206));
         ushort other = w.R.DetachedMail("letter", Address, new[] { 97u });
-        EntityId backwards = w.At(207, () => w.Inv.CreateWorldItem(w.R.Entries[other].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 204));
+        (EntityId backwards, _) = w.At(207, () => CreateCatchingAssert(() => w.Inv.CreateWorldItem(w.R.Entries[other].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 204)));
         uint seqBefore = w.World.WorldSeq;
         EntityId between = SimAssertOrRelease(() => w.Inv.CreateWorldItem(w.R.Entries[other].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 207));
 
@@ -324,6 +324,88 @@ public class WorldItemTests
         {
             Assert.Equal(0, w.World.Fifos.NodeCount((ExpiryFifo)f));
         }
+    }
+
+    [Fact]
+    public void CreationOrder_ALootItemCreatedAfterALaterTickItem_Succeeds_AndDoesNotMoveTheOrder()
+    {
+        // Arrange: a plank dropped at 105; a Loot letter whose createdTick is 101; a Loot plank whose createdTick is 110
+        var w = new WorldItemRig();
+        ushort first = w.R.DetachedItem("plank", 1);
+        ushort loot = w.R.DetachedMail("letter", Address, new[] { 810u });
+        ushort lateLoot = w.R.DetachedItem("plank", 1);
+        ushort after = w.R.DetachedItem("plank", 1);
+        EntityId plank = w.Create(105, first);
+
+        // Act: the Loot items (on no FIFO) neither check nor move the order; the next plank (createdTick 107) only follows 105
+        EntityId early = w.At(106, () => w.Inv.CreateWorldItem(w.R.Entries[loot].Id, WorldItemRig.Pos, WorldItemOrigin.Loot, false, 101));
+        EntityId late = w.Create(110, lateLoot, WorldItemOrigin.Loot);
+        EntityId next = w.At(111, () => w.Inv.CreateWorldItem(w.R.Entries[after].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 107));
+
+        // Assert
+        Assert.False(early.IsNone);
+        Assert.False(late.IsNone);
+        Assert.False(next.IsNone);
+        Assert.Equal(4, w.World.LiveCount);
+        Assert.Equal(new[] { plank.Value, next.Value }, new[] { w.World.Fifos.IdAt(ExpiryFifo.NonMailWorldItem, 0), w.World.Fifos.IdAt(ExpiryFifo.NonMailWorldItem, 1) });
+        Assert.True(w.World.Table.TryGetSlot(next, out ushort slot));
+        Assert.Equal(9_107u, w.World.Table[slot].ExpiresTick);
+    }
+
+    [Fact]
+    public void CreationOrder_SameTickCreatesOnDifferentFifos_InAnyCreatedTickOrder_AllSucceed()
+    {
+        // Arrange: four entries created in tick 200, one per FIFO, with createdTick descending, then an equal one on each FIFO
+        var w = new WorldItemRig();
+        ushort groundPlank = w.R.DetachedItem("plank", 1);
+        ushort waterLetter = w.R.DetachedMail("letter", Address, new[] { 820u });
+        ushort groundLetter = w.R.DetachedMail("letter", Address, new[] { 821u });
+        ushort waterPlank = w.R.DetachedItem("plank", 1);
+        ushort groundPlank2 = w.R.DetachedItem("plank", 1);
+        ushort waterLetter2 = w.R.DetachedMail("letter", Address, new[] { 822u });
+
+        // Act
+        EntityId[] ids = w.At(200, () => new[]
+        {
+            w.Inv.CreateWorldItem(w.R.Entries[groundPlank].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 200),
+            w.Inv.CreateWorldItem(w.R.Entries[waterLetter].Id, WorldItemRig.Pos, WorldItemOrigin.Thrown, true, 198),
+            w.Inv.CreateWorldItem(w.R.Entries[groundLetter].Id, WorldItemRig.Pos, WorldItemOrigin.Thrown, false, 196),
+            w.Inv.CreateWorldItem(w.R.Entries[waterPlank].Id, WorldItemRig.Pos, WorldItemOrigin.Thrown, true, 194),
+            w.Inv.CreateWorldItem(w.R.Entries[groundPlank2].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 200),
+            w.Inv.CreateWorldItem(w.R.Entries[waterLetter2].Id, WorldItemRig.Pos, WorldItemOrigin.Thrown, true, 198),
+        });
+
+        // Assert: all six created, each on its FIFO with expiresTick = createdTick + its duration
+        Assert.DoesNotContain(EntityId.None, ids);
+        Assert.Equal(6, w.World.LiveCount);
+        Assert.Equal(new uint[] { 9_200, 498, 9_196, 494, 9_200, 498 }, ids.Select(id => w.World.Table.TryGetSlot(id, out ushort s) ? w.World.Table[s].ExpiresTick : 0u).ToArray());
+        Assert.Equal(2, w.World.Fifos.NodeCount(ExpiryFifo.NonMailWorldItem));
+        Assert.Equal(2, w.World.Fifos.NodeCount(ExpiryFifo.WaterFloatMail));
+        Assert.Equal(1, w.World.Fifos.NodeCount(ExpiryFifo.MailWorldItem));
+        Assert.Equal(1, w.World.Fifos.NodeCount(ExpiryFifo.WaterFloatNonMail));
+    }
+
+    [Fact]
+    public void CreationOrder_AnOutOfOrderCreateOnOneFifo_ReturnsNone_ChangesNothing_AndAssertsUnderInventoryAssert()
+    {
+        // Arrange: a plank dropped at 300
+        var w = new WorldItemRig();
+        EntityId plank = w.Create(300, w.R.DetachedItem("plank", 1));
+        ushort earlier = w.R.DetachedItem("plank", 2);
+        uint seqBefore = w.World.WorldSeq;
+
+        // Act: a second plank (same FIFO) with createdTick 299
+        (EntityId id, ushort code) = w.At(301, () => CreateCatchingAssert(() => w.Inv.CreateWorldItem(w.R.Entries[earlier].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, 299)));
+
+        // Assert: none, nothing changed; the INVENTORY_ASSERT build trips InventoryWorldItemCreatedOutOfOrder (77) first
+        Assert.Equal(EntityId.None, id);
+        Assert.Equal(TestBuildExpectation.SimAssertsExpected ? SimAssertCode.InventoryWorldItemCreatedOutOfOrder : (ushort)0, code);
+        Assert.Equal(1, w.World.LiveCount);
+        Assert.Equal(seqBefore, w.World.WorldSeq);
+        Assert.Equal(EntryRecord.NoContainer, w.R.Entries[earlier].ContainerSlot);
+        Assert.False(w.World.OwnsEntry(earlier));
+        Assert.Equal(1, w.World.Fifos.NodeCount(ExpiryFifo.NonMailWorldItem));
+        Assert.True(w.World.Table.TryGetSlot(plank, out _));
     }
 
     [Fact]
@@ -496,6 +578,99 @@ public class WorldItemTests
         Assert.True(w.World.Table.TryGetSlot(young[1], out _));
         Assert.True(w.World.Table.TryGetSlot(newest, out _));
         Assert.Equal(ringBefore + 1, w.R.Host.World.CheckRing.Count); // logged once per episode
+    }
+
+    // ---------------------------------------------------------------- H-R12-4 (Loot under cap pressure)
+
+    [Fact]
+    [Trait("Id", "H-R12-4")]
+    public void HR124_511PlanksAndTheOldestALootLetter_513thAndA511Burst_TheLootLetterIsNeverEvicted_EveryPlankBeforeTheBurstIs()
+    {
+        // Arrange: a Loot letter at 10 (the oldest item), 511 planks at 11..521: 512 live
+        var w = new WorldItemRig();
+        ushort lootEntry = w.R.DetachedMail("letter", Address, new[] { 830u });
+        EntityId loot = w.Create(10, lootEntry, WorldItemOrigin.Loot);
+        EntityId[] planks = w.CreateOnePerTick(11, 511, _ => w.R.DetachedItem("plank", 1));
+        ushort[] burst = Enumerable.Range(0, 511).Select(_ => w.R.DetachedItem("plank", 1)).ToArray();
+        long exceededBefore = w.R.Counters[CounterId.InventoryWorldItemCapExceeded];
+
+        // Act 1: the 513th (a plank) at 900
+        EntityId p513 = w.Create(900, w.R.DetachedItem("plank", 1));
+        EventEntry[] log513 = w.R.Sink.Last;
+
+        // Assert 1: the lowest plank is destroyed, not the Loot letter
+        Assert.Equal(512, w.World.LiveCount);
+        Assert.True(w.World.Table.TryGetSlot(loot, out _));
+        Assert.Equal(planks[0].Value, Assert.Single(Heads(log513, InvEventKinds.ItemsLost)).PayloadAs<ItemsLostPayload>().WorldItemId);
+        Assert.Empty(Heads(log513, InvEventKinds.Version));
+
+        // Act 2: a burst of 511 planks in tick 1000 evicts every other item on a FIFO (planks 1..510 and the 513th)
+        int created = w.At(1_000, () => w.CreateAll(burst, 1_000));
+        EventEntry[] burstLog = w.R.Sink.Last;
+
+        // Assert 2: 511 destroyed, none of them the Loot letter; it still holds its mail, detached; the cap was never exceeded
+        uint[] lost = Heads(burstLog, InvEventKinds.ItemsLost).Select(e => e.PayloadAs<ItemsLostPayload>().WorldItemId).ToArray();
+        Assert.Equal(511, created);
+        Assert.Equal(planks.Skip(1).Select(p => p.Value).Append(p513.Value).ToArray(), lost);
+        Assert.Equal(512, w.World.LiveCount);
+        Assert.True(w.World.Table.TryGetSlot(loot, out ushort slot));
+        Assert.Equal(ExpiryFifo.None, w.World.Table[slot].Fifo);
+        Assert.Equal(new[] { 830u }, w.R.IdsOf(lootEntry));
+        Assert.Equal(EntryRecord.NoContainer, w.R.Entries[lootEntry].ContainerSlot);
+        Assert.Equal(exceededBefore, w.R.Counters[CounterId.InventoryWorldItemCapExceeded]);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R12-4")]
+    public void HR124_CapFullOfLootOnly_MoreCreates_StayOverTheCap_NoLootEvicted_CapExceededPerCreation_OneCheckRecordPerEpisode()
+    {
+        // Arrange: 512 Loot planks at 10..521
+        var w = new WorldItemRig();
+        EntityId[] loot = w.CreateOnePerTick(10, 512, _ => w.R.DetachedItem("plank", 1), WorldItemOrigin.Loot);
+        int ringBefore = w.R.Host.World.CheckRing.Count;
+        long exceededBefore = w.R.Counters[CounterId.InventoryWorldItemCapExceeded];
+        long candidatesBefore = w.R.Counters[CounterId.InventoryWorldItemCapCandidates];
+
+        // Act 1: a 513th Loot plank at 600
+        w.Create(600, w.R.DetachedItem("plank", 1), WorldItemOrigin.Loot);
+        EventEntry[] log600 = w.R.Sink.Last;
+
+        // Assert 1: nothing evicted (no FIFO holds a node), 513 live, CapExceeded +1, one record (13, a = 513, b = 512)
+        Assert.Equal(513, w.World.LiveCount);
+        Assert.Empty(Heads(log600, InvEventKinds.WorldItemDespawned));
+        Assert.Equal(exceededBefore + 1, w.R.Counters[CounterId.InventoryWorldItemCapExceeded]);
+        Assert.Equal(ringBefore + 1, w.R.Host.World.CheckRing.Count);
+        SimCheckRecord record = w.R.Host.World.CheckRing[w.R.Host.World.CheckRing.Count - 1];
+        Assert.Equal(CheckCode.InventoryWorldItemCapExceeded, record.Check);
+        Assert.Equal(513, record.A);
+        Assert.Equal(512, record.B);
+
+        // Act 2: 100 ticks of ItemsExpire re-checks, then a 514th Loot plank at 700
+        w.AdvanceTo(700);
+        int at700 = w.World.LiveCount;
+        long exceededAt700 = w.R.Counters[CounterId.InventoryWorldItemCapExceeded];
+        w.Create(700, w.R.DetachedItem("plank", 1), WorldItemOrigin.Loot);
+
+        // Assert 2: the re-checks change nothing and count nothing; the 514th counts once more; still one record (latched)
+        Assert.Equal(513, at700);
+        Assert.Equal(exceededBefore + 1, exceededAt700);
+        Assert.Equal(514, w.World.LiveCount);
+        Assert.Equal(exceededBefore + 2, w.R.Counters[CounterId.InventoryWorldItemCapExceeded]);
+        Assert.Equal(ringBefore + 1, w.R.Host.World.CheckRing.Count);
+
+        // Act 3: a dropped plank at 701 (never its own creation's candidate), then tick 702's re-check
+        EntityId dropped = w.Create(701, w.R.DetachedItem("plank", 1));
+        long exceededAt701 = w.R.Counters[CounterId.InventoryWorldItemCapExceeded];
+        EventEntry[] log702 = w.RunTick(702);
+
+        // Assert 3: 701 counts once more (515); 702 destroys the dropped plank, the only item on a FIFO; every Loot plank lives on
+        Assert.Equal(exceededBefore + 3, exceededAt701);
+        Assert.Equal(dropped.Value, Assert.Single(Heads(log702, InvEventKinds.ItemsLost)).PayloadAs<ItemsLostPayload>().WorldItemId);
+        Assert.Equal(514, w.World.LiveCount);
+        Assert.All(loot, id => Assert.True(w.World.Table.TryGetSlot(id, out _)));
+        Assert.Equal(exceededBefore + 3, w.R.Counters[CounterId.InventoryWorldItemCapExceeded]);
+        Assert.Equal(ringBefore + 1, w.R.Host.World.CheckRing.Count);
+        Assert.Equal(candidatesBefore + 1, w.R.Counters[CounterId.InventoryWorldItemCapCandidates]); // the dropped plank's head check at 701
     }
 
     // ---------------------------------------------------------------- H-PERF-6d
@@ -743,6 +918,58 @@ public class WorldItemTests
         Assert.False(w.World.Table.TryGetSlot(letters[0], out _));
     }
 
+    [Fact]
+    public void Interim_IntakeFull_BlockedGroundAndWaterMailHeads_OverTheCap_EachIsRetriedOncePerTick_NothingLostOrDuplicated()
+    {
+        // Arrange: ground letter 700 dropped at 10 (expires 9010); 510 Loot planks at 11..520; the Intake is full; water letter 701
+        // lands at 8710 (expires 9010); a Loot plank at 8711 takes the count to 513 with no evictable item (the old letter cannot return)
+        var w = new WorldItemRig();
+        ushort groundEntry = w.R.DetachedMail("letter", Address, new[] { 700u });
+        ushort waterEntry = w.R.DetachedMail("letter", Address, new[] { 701u });
+        EntityId ground = w.Create(10, groundEntry);
+        _ = w.CreateOnePerTick(11, 510, _ => w.R.DetachedItem("plank", 1), WorldItemOrigin.Loot);
+        IntakeSpawnOutfeedTests.FillIntake(w.R, 320, 1);
+        EntityId water = w.Create(8_710, waterEntry, WorldItemOrigin.Thrown, onWater: true);
+        w.Create(8_711, w.R.DetachedItem("plank", 1), WorldItemOrigin.Loot);
+        long r8712 = w.R.Counters[CounterId.InventoryWorldItemReturnRetries];
+
+        // Act 1: ticks 8712..9009 (only the cap re-check tries the ground letter), then 9010..9014 (both heads are due)
+        w.AdvanceTo(9_010);
+        long r9010 = w.R.Counters[CounterId.InventoryWorldItemReturnRetries];
+        w.AdvanceTo(9_015);
+        long r9015 = w.R.Counters[CounterId.InventoryWorldItemReturnRetries];
+
+        // Assert 1: 1 retry per tick before 9010; from 9010, 2 per tick (expiry: ground, water); the cap re-check of the ground head
+        // in the same tick and Intake version is not attempted again
+        Assert.Equal(298, r9010 - r8712);
+        Assert.Equal(10, r9015 - r9010);
+        Assert.Equal(513, w.World.LiveCount);
+        Assert.True(w.World.Table.TryGetSlot(ground, out _));
+        Assert.True(w.World.Table.TryGetSlot(water, out _));
+        Assert.Equal(new[] { 700u }, w.R.IdsOf(groundEntry));
+        Assert.Equal(new[] { 701u }, w.R.IdsOf(waterEntry));
+        Assert.Equal(EntryRecord.NoContainer, w.R.Entries[groundEntry].ContainerSlot);
+        Assert.Equal(EntryRecord.NoContainer, w.R.Entries[waterEntry].ContainerSlot);
+        Assert.Equal(1, LiveEntriesHolding(w, 700));
+        Assert.Equal(1, LiveEntriesHolding(w, 701));
+
+        // Act 2: two Intake cells free in tick 9015 (after its ItemsExpire); 9016 runs expiry
+        Assert.True(w.At(9_015, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)
+            && w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
+        w.AdvanceTo(9_017);
+
+        // Assert 2: tick 9015 retried both once more; 9016 returned both, ground (lower id) first; each mail id is in one entry, in the Intake
+        Assert.Equal(12, w.R.Counters[CounterId.InventoryWorldItemReturnRetries] - r9010);
+        Assert.False(w.World.Table.TryGetSlot(ground, out _));
+        Assert.False(w.World.Table.TryGetSlot(water, out _));
+        Assert.Equal(511, w.World.LiveCount);
+        Assert.Equal(w.R.Intake, w.R.Entries[groundEntry].ContainerSlot);
+        Assert.Equal(w.R.Intake, w.R.Entries[waterEntry].ContainerSlot);
+        Assert.True(w.R.Entries[waterEntry].ArrivalSeq > w.R.Entries[groundEntry].ArrivalSeq);
+        Assert.Equal(1, LiveEntriesHolding(w, 700));
+        Assert.Equal(1, LiveEntriesHolding(w, 701));
+    }
+
     // ---------------------------------------------------------------- dump and pins
 
     [Fact]
@@ -790,6 +1017,7 @@ public class WorldItemTests
         Assert.Equal(13, (int)CheckCode.InventoryWorldItemCapExceeded);
         Assert.Equal(14, (int)CheckCode.InventoryWorldItemCapacity);
         Assert.Equal(76, SimAssertCode.InventoryWorldItemFifoFull);
+        Assert.Equal(77, SimAssertCode.InventoryWorldItemCreatedOutOfOrder);
         Assert.Equal((byte)0, (byte)WorldItemOrigin.Dropped);
         Assert.Equal((byte)1, (byte)WorldItemOrigin.Thrown);
         Assert.Equal((byte)2, (byte)WorldItemOrigin.BeltLeak);
@@ -808,6 +1036,34 @@ public class WorldItemTests
     {
         ushort reason = w.World.Resolve(id, out _, out uint by, out InvCause cause);
         return (reason, by, cause);
+    }
+
+    /// <summary>In-phase body: runs <paramref name="call"/>; under INVENTORY_ASSERT an assert trip is caught and reported as (None, its code).</summary>
+    private static (EntityId Id, ushort Code) CreateCatchingAssert(Func<EntityId> call)
+    {
+        try
+        {
+            return (call(), 0);
+        }
+        catch (SimAssertException e)
+        {
+            return (EntityId.None, e.Code);
+        }
+    }
+
+    /// <summary>How many live entries, in any container or detached, hold mail id <paramref name="mailId"/>.</summary>
+    private static int LiveEntriesHolding(WorldItemRig w, uint mailId)
+    {
+        int n = 0;
+        for (ushort s = 0; s < w.R.Entries.Capacity; s++)
+        {
+            if (w.R.Entries[s].IsLive && w.R.Entries[s].IsMail && w.R.IdsOf(s).Contains(mailId))
+            {
+                n++;
+            }
+        }
+
+        return n;
     }
 
     private static uint U32(byte[] bytes, ref int at)
@@ -913,13 +1169,13 @@ internal sealed class WorldItemRig
         return id;
     }
 
-    /// <summary>Creates <paramref name="n"/> WorldItems, one per tick from <paramref name="firstTick"/>; <paramref name="entry"/> makes each detached entry (between ticks).</summary>
-    public EntityId[] CreateOnePerTick(uint firstTick, int n, Func<int, ushort> entry)
+    /// <summary>Creates <paramref name="n"/> WorldItems of <paramref name="origin"/> on ground, one per tick from <paramref name="firstTick"/>; <paramref name="entry"/> makes each detached entry (between ticks).</summary>
+    public EntityId[] CreateOnePerTick(uint firstTick, int n, Func<int, ushort> entry, WorldItemOrigin origin = WorldItemOrigin.Dropped)
     {
         var ids = new EntityId[n];
         for (int i = 0; i < n; i++)
         {
-            ids[i] = Create(firstTick + (uint)i, entry(i));
+            ids[i] = Create(firstTick + (uint)i, entry(i), origin);
         }
 
         return ids;

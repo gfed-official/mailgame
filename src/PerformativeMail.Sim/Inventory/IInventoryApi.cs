@@ -100,8 +100,13 @@ public interface IInventoryApi
     /// the next <c>worldSeq</c>) and, if the live count goes over <c>worldItemCap</c>, evicts one other WorldItem in the same call scope.
     /// Returns the new id (class <c>WorldItem</c>, never reused), or none with nothing changed outside a tick phase, for a reserved
     /// origin (<see cref="WorldItemOrigin.BeltLeak"/>, <see cref="WorldItemOrigin.Spill"/>: M-1b), a <paramref name="createdTick"/> after
-    /// the current tick or before an earlier creation's, an entry that is not live and detached or already in a WorldItem, or a full
-    /// WorldItem table.
+    /// the current tick, a <paramref name="createdTick"/> before the last creation's on the same expiry FIFO (Loot, on no FIFO, neither
+    /// checks nor moves that order; a programming error, which also trips <c>SimAssertCode.InventoryWorldItemCreatedOutOfOrder</c> under
+    /// <c>INVENTORY_ASSERT</c>), an entry that is not live and detached or already in a WorldItem, or a full WorldItem table.
+    /// <para>
+    /// Callers must handle <see cref="EntityId.None"/>: no WorldItem was created, the entry stays detached and is still the caller's
+    /// responsibility.
+    /// </para>
     /// </summary>
     /// <param name="entry">A live detached entry (in no container).</param>
     /// <param name="posMm">The landing position, mm.</param>
