@@ -11,8 +11,8 @@ namespace PerformativeMail.Game.Smoke;
 /// Networking's refusal (a remote peer present) keeps the driver running; an allowed pause freezes ticks and alpha at 0 while hooks and <c>Present</c> still run;
 /// <c>SceneTree.Paused = true</c> neither stops <c>_Process</c> nor changes the tick count; after
 /// <see cref="GameLoop.Resume"/> the first frame runs at most one tick despite a 10 s jump, and the
-/// Sim keeps ticking while the tree is still paused. Last, the solo boot path
-/// (<see cref="GameLoop.RequestBoot"/>) sets the loopback presence. The scenario is the only place that sets
+/// Sim keeps ticking while the tree is still paused. Last, the loopback presence allows a solo pause, and
+/// <see cref="GameLoop.RequestBoot"/> keeps a presence set before boot (TD-120). The scenario is the only place that sets
 /// <c>SceneTree.Paused</c> (src/Game/Smoke/ is excluded from the guards for this) and clears it.
 /// </summary>
 [SmokeScenario("pause-driver-state")]
@@ -181,9 +181,18 @@ public sealed class PauseDriverStateSmoke : SmokeScenario
                 ctx.Tree.Paused = false;
                 Expect(ctx, "SceneTree.Paused restored", ctx.Tree.Paused, false);
 
-                // The solo boot path provides the loopback presence explicitly (boot itself is story 004).
-                loop.RequestBoot();
-                Expect(ctx, "GameLoop.PeerPresence after the solo RequestBoot is the loopback presence", ReferenceEquals(loop.PeerPresence, LoopbackPeerPresence.Instance), true);
+                // The M-1a solo presence (what boot defaults to) allows the pause.
+                loop.PeerPresence = LoopbackPeerPresence.Instance;
+                bool soloPaused = loop.TryPause(out string soloReason);
+                Expect(ctx, "TryPause with the loopback presence returns", soloPaused, true);
+                Expect(ctx, "TryPause reason with the loopback presence", soloReason, string.Empty);
+                loop.Resume();
+                Expect(ctx, "driver state after Resume (loopback presence)", driver.State, TickDriverState.Running);
+
+                // TD-120: boot only defaults the presence when none is set; a presence provided before boot is kept.
+                loop.PeerPresence = _presence;
+                Expect(ctx, "RequestBoot on the loop with a preset presence returns", loop.RequestBoot(), true);
+                Expect(ctx, "GameLoop.PeerPresence after RequestBoot is still the preset presence (TD-120)", ReferenceEquals(loop.PeerPresence, _presence), true);
                 return SmokeStatus.Done;
         }
     }

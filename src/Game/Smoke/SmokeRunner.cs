@@ -152,9 +152,16 @@ public partial class SmokeRunner : Node
             var loop = GetParent() as GameLoop
                 ?? throw new InvalidOperationException("SmokeRunner is not a child of GameLoop");
             _ctx = new SmokeContext(ScenarioName, loop, GetTree());
+            if (_scenario.NeedsBoot)
+            {
+                _scenario.BeforeBoot(loop);
+            }
+
             if (_scenario.NeedsBoot && !loop.RequestBoot())
             {
-                _ctx.Fail("boot failed: GameLoop.RequestBoot() returned false");
+                // Name the failing step so an exit 4 shows which boot failure produced it.
+                string failed = loop.BootLines.LastOrDefault(l => l.Contains(" FAIL ", StringComparison.Ordinal)) ?? "no BOOT FAIL line";
+                _ctx.Fail($"boot failed: GameLoop.RequestBoot() returned false ({failed})");
                 Finish(ExitBootFailed);
                 return;
             }
