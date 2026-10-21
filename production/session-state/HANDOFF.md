@@ -7,7 +7,7 @@
 ## Update 2026-10-20 (read this block first)
 
 - **Work now lands through PRs on `gfed-official/mailgame`** (not direct pushes to `main`). Merged since the 2026-10-17 update: **PR #1** (547248f) — the `SceneTree.Paused` CI guard skips C# comments, so the four Sim test jobs run in CI again; **PR #2** (69dfa31) — grid-inventory **003 Complete** (MailIdArena tests, multi-block `CanReserve(ReadOnlySpan<int>)`; story 005 gained the reason-85 validator AC; TD-102/103/104 logged).
-- **Story counts (from the story headers on main c7fa0f6, 2026-10-21, `count-story-status.sh`):** 91 Complete, **1 In Progress**, 6 Blocked, 109 Ready (207 stories).
+- **Story counts (from the story headers on main a6dfb98, 2026-10-21, `count-story-status.sh`):** 92 Complete, **1 In Progress**, 6 Blocked, 108 Ready (207 stories).
   - content-data **018** — In Progress, **waiting on the owner's ADR-0010 decision** (neutral defaults vs the CD10 `true` defaults for `carryByHand`/`acceptsInsert`/`view auto`, and where content seconds become ticks). Do not resume until decided.
   - player-character **013** — Ready (no code yet; readiness-fixed in PR #12, 2026-10-21: injected `FrameworkReasons`, OQ-013-2 / TD-119 non-blocking). The story was fixed on 2026-10-20 (`PanelOpen` on `CarrierStatus`, all six life states mapped, GDD '—' = Absent, the swim-Catch AC moved to story 016, stamp 2026-10-17.1); resume with `/dev-story`.
 - **Next order (one story at a time), 2026-10-21:** **grid-inventory 006 → godot-host-shell 004** (both readiness-fixed in PR #15, decision log 2026-10-21; handoffs on the agent box only, not in the repo: `/workspace/repos/logs/handoff-grid-inventory-006.md` / `handoff-godot-host-shell-004.md`; the story files are authoritative). Then, all deps Complete on main: grid-inventory 009 (after 006) → 012/013 → 015 (the M-1a critical path: it gates mail-destinations 005/007, throwing 008–010, manual-delivery 005), grid-inventory 011 and 016; throwing-catching 002 → 003, and 006; player-character 014 (after PR #13) → 015/016; player-character 021; input-controls 019, 025; simulation-core 029. Godot host shell stalls after 004: 005 needs player-character 019/020 (020 held on the Panel-channel errata), 006–010 chain from 005, 007 also needs content-data 019 (ADR-0010). (player-character 013 and manual-delivery 001 are in PRs #13/#14; `implementation-order.md` wave tables date from 2026-10-16 and list Complete stories as pending — regenerate it before relying on it.)
@@ -54,11 +54,11 @@
 | player-character | 11/27 (001–009, 011, 012) | 013 (PR #13) → 014 …; 021; 010 waits on 027 (TD-091) | — |
 | input-controls | 6/29 (001–006) | 019, 025; 007 (needs player-character 018's `IInteractionQuery`) | 029 |
 | mail-destinations | 6/16 (001–004, 011, 012) | 005/007 wait on grid-inventory 015 | — |
-| manual-delivery | 0/11 | 001–008, 011 | 009, 010 |
+| manual-delivery | 1/11 (001) | 002–008, 011 | 009, 010 |
 | grid-inventory | 5/24 (001–005) | **006 (next)**, 011, 016 | 022 |
 | throwing-catching | 1/24 (001) | 002, 006 | 016, 024 |
 | godot-host-shell | 3/11 (001–003) | **004 (next)** | — |
-| **Total** | **91** (+ 1 In Progress) | **109** | **6** |
+| **Total** | **92** (+ 1 In Progress) | **108** | **6** |
 
 Rows recounted 2026-10-21 from the story headers on main c7fa0f6 (`/workspace/scripts/count-story-status.sh`; 207 stories). PR #13 (player-character 013) and PR #14 (manual-delivery 001; it sets the manual-delivery row to 1/11) were not merged at recount time — whichever of #13, #14, #15 merges last recounts. The manual-delivery row is left as on main.
 
