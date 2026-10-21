@@ -8,7 +8,7 @@
 > **Est. size**: L — 29 stories (1 spike, 18 router-core / Sim stories, 2 integration, 4 corpus / fantasy / perf / lint, 4 Godot-adapter stories); sized to one `/dev-story` session each (≤ ~1 day, ≤ ~600 lines prod + tests)
 > **Implementation priority**: 8 of 9 (router core in Client.Core, stories 002–025); the Godot adapter (026–029) goes with priority 9, after the spike (story 001) and `godot-host-shell`
 > **Status**: Ready
-> **Stories**: 29 stories written 2026-10-16 (1 Complete, 27 Ready, 1 Blocked — 029 awaits 026–028 implementation) (counts refreshed 2026-10-16 story-done 001: OQ-IC-9 spike GO-WITH-DELTAS) — see `## Stories`
+> **Stories**: 29 stories — 6 Complete, 22 Ready, 1 Blocked; blocked: 029 awaits 026–028 (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -90,11 +90,11 @@ Source: architecture.md v1.1 Appendix A / `docs/architecture/tr-registry.yaml`. 
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
 | 001 | [OQ-IC-9 input spike — verify the Godot 4.7.1 .NET input surface and record the adapter GO / NO-GO](story-001-oq-ic-9-input-spike.md) | Integration | Complete | ADR-0012 |
-| 002 | [`InputFrame`, `InputEdge`, `IInputLatchWriter`, `RouterStateInfo` and the `InputLatch` push side](story-002-inputframe-latch-writer-routerstateinfo.md) | Logic | Ready | ADR-0012 |
-| 003 | [Client.Core input foundations — `RawInputRecord`, `IInputClock`, `PhysicalInput`, `UiEventLog`](story-003-clientcore-input-foundations-uieventlog.md) | Logic | Ready | ADR-0012 |
-| 004 | [`RouterState` tuple, live predicates as data, reachable-state golden list](story-004-routerstate-predicates-reachable-states.md) | Logic | Ready | ADR-0012 |
-| 005 | [Action map — `ActionDef`, aliases, M-1a `BuiltInActionMap` and default bindings](story-005-action-map-builtin-m1a-defaults.md) | Logic | Ready | ADR-0012 |
-| 006 | [Conflict validator, most-specific-chord resolution, verb-grammar table](story-006-conflict-validator-chord-resolution.md) | Logic | Ready | ADR-0012 |
+| 002 | [`InputFrame`, `InputEdge`, `IInputLatchWriter`, `RouterStateInfo` and the `InputLatch` push side](story-002-inputframe-latch-writer-routerstateinfo.md) | Logic | Complete | ADR-0012 |
+| 003 | [Client.Core input foundations — `RawInputRecord`, `IInputClock`, `PhysicalInput`, `UiEventLog`](story-003-clientcore-input-foundations-uieventlog.md) | Logic | Complete | ADR-0012 |
+| 004 | [`RouterState` tuple, live predicates as data, reachable-state golden list](story-004-routerstate-predicates-reachable-states.md) | Logic | Complete | ADR-0012 |
+| 005 | [Action map — `ActionDef`, aliases, M-1a `BuiltInActionMap` and default bindings](story-005-action-map-builtin-m1a-defaults.md) | Logic | Complete | ADR-0012 |
+| 006 | [Conflict validator, most-specific-chord resolution, verb-grammar table](story-006-conflict-validator-chord-resolution.md) | Logic | Complete | ADR-0012 |
 | 007 | [`InputRouter` shell — `Feed`, press machines, ordered edges, mute until release, `FlushToLatch`](story-007-router-shell-press-machines-mute.md) | Logic | Ready | ADR-0012 |
 | 008 | [Router state transitions, `holding` / `body` from the carrier status, pass-through, mouse-mode request](story-008-router-state-transitions-and-passthrough.md) | Logic | Ready | ADR-0012 |
 | 009 | [Analog input — F3 deadzone / curve, F4 trigger hysteresis, move across devices, absolute look](story-009-analog-input-deadzone-trigger-move-look.md) | Logic | Ready | ADR-0012 |
@@ -119,7 +119,7 @@ Source: architecture.md v1.1 Appendix A / `docs/architecture/tr-registry.yaml`. 
 | 028 | [`GameLoop` hook-up — router boot, call order, `user://input.json`, solo pause, wiring](story-028-gameloop-hookup-router-boot-settings-file.md) | Integration | Ready | ADR-0012, ADR-0019, ADR-0002 |
 | 029 | [Adapter integration suite and MANUAL evidence runs](story-029-adapter-integration-suite-and-manual-evidence.md) | Integration | Blocked | ADR-0012 |
 
-**29 stories: 1 Complete, 27 Ready, 1 Blocked** (refreshed 2026-10-16 at story 001 close). Types: 20 Logic, 9 Integration, 0 Visual/Feel, 0 UI, 0 Config/Data (the hold ring, prompts and glyph art are HUD's — see Notes).
+**29 stories: 6 Complete, 22 Ready, 1 Blocked** (refreshed 2026-10-20). Types: 20 Logic, 9 Integration, 0 Visual/Feel, 0 UI, 0 Config/Data (the hold ring, prompts and glyph art are HUD's — see Notes).
 
 **Blocked (1):** 029 — awaits implementation of 026–028 (its own unblock condition); the spike gate is satisfied. *History:* 026–029 were `BLOCKED: awaits OQ-IC-9 spike (story 001) outcome per ADR-0012 §7`; story 001 closed 2026-10-16 with **GO-WITH-DELTAS**, so 026–028 are Ready with the note "apply ADR-0012 deltas D-1..D-8 (TD-021) — 026 not Done until the S-25 retention follow-up (TD-022)". ADR-0012 states the adapter half is *provisional until the OQ-IC-9 spike is recorded under `prototypes/`* and (Decision Makers, ADR Dependencies → Blocks, manifest Presentation) that adapter stories wait for it. Unblock rule: story 001 Done with a `REPORT.md` verdict of GO or GO-WITH-DELTAS; each blocked story re-reads the report's deltas, then flips to Ready at `/story-readiness`. They also depend on the godot-host-shell epic (`production/epics/godot-host-shell/story-001-game-csproj-solution-gdignore-build-mapping.md`, `production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md`, `production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md`, `production/epics/godot-host-shell/story-004-boot-sequence-error-screen-content-step.md`) — a dependency, not a block. **Story 025 (CI lint) is Ready**: ADR §8 fixes its rules and carries no UNVERIFIED row, so it is not spike-conditional even though ADR-0012's Migration Plan lists it after the spike.
 

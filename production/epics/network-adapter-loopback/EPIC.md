@@ -8,7 +8,7 @@
 > **Est. size**: M — 6–8 stories
 > **Implementation priority**: alongside 1–2 (Simulation Core's `FrameRunner` needs an `IFrameTransport`; every feature op crosses this codec)
 > **Status**: Ready
-> **Stories**: 9 created 2026-10-16 (1 Complete, 8 Ready, 0 Blocked) (counts refreshed 2026-10-16 story hygiene) — see [Stories](#stories)
+> **Stories**: 9 stories — 7 Complete, 2 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -92,12 +92,12 @@ Implementation order = story number (each story's `Depends on:` is authoritative
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
 | 001 | [Client.Core assembly, transport abstractions and LoopbackTransport](story-001-client-core-assembly-loopback-transport.md) | Logic | Complete | ADR-0011, ADR-0001 |
-| 002 | [Op wire codec registry, request envelope and the H-NET-5 fuzz test](story-002-op-codec-registry-envelope-fuzz.md) | Logic | Ready | ADR-0011, ADR-0007 |
-| 003 | [HostAdapter inbound — peer table, actor stamping, EnqueueOp, busy and bad_request](story-003-hostadapter-inbound-actor-busy.md) | Logic | Ready | ADR-0011, ADR-0007, ADR-0002 |
-| 004 | [HostAdapter as IEventSink — copy-only Deliver, audience fan-out and ordered per-peer batches](story-004-hostadapter-event-sink-outbound-batches.md) | Logic | Ready | ADR-0008, ADR-0011 |
-| 005 | [reqId dedupe — last-16 reply cache and in-flight set](story-005-reqid-dedupe-reply-cache.md) | Logic | Ready | ADR-0007, ADR-0011 |
-| 006 | [ClientAdapter — reliable requests, batch intake for ClientLayer, IHostClock estimator](story-006-clientadapter-requests-inbox-hostclock.md) | Logic | Ready | ADR-0011, ADR-0007, ADR-0003 |
-| 007 | [Host loopback session — FrameRunner over loopback and next-tick reply timing](story-007-host-loopback-session-frame-timing.md) | Integration | Ready | ADR-0011, ADR-0002, ADR-0008 |
+| 002 | [Op wire codec registry, request envelope and the H-NET-5 fuzz test](story-002-op-codec-registry-envelope-fuzz.md) | Logic | Complete | ADR-0011, ADR-0007 |
+| 003 | [HostAdapter inbound — peer table, actor stamping, EnqueueOp, busy and bad_request](story-003-hostadapter-inbound-actor-busy.md) | Logic | Complete | ADR-0011, ADR-0007, ADR-0002 |
+| 004 | [HostAdapter as IEventSink — copy-only Deliver, audience fan-out and ordered per-peer batches](story-004-hostadapter-event-sink-outbound-batches.md) | Logic | Complete | ADR-0008, ADR-0011 |
+| 005 | [reqId dedupe — last-16 reply cache and in-flight set](story-005-reqid-dedupe-reply-cache.md) | Logic | Complete | ADR-0007, ADR-0011 |
+| 006 | [ClientAdapter — reliable requests, batch intake for ClientLayer, IHostClock estimator](story-006-clientadapter-requests-inbox-hostclock.md) | Logic | Complete | ADR-0011, ADR-0007, ADR-0003 |
+| 007 | [Host loopback session — FrameRunner over loopback and next-tick reply timing](story-007-host-loopback-session-frame-timing.md) | Integration | Complete | ADR-0011, ADR-0002, ADR-0008 |
 | 008 | [deliver_matching wire codec (24 B MATCH / 28 B MISDELIVER_ONE)](story-008-deliver-matching-wire-codec.md) | Logic | Ready | ADR-0011, ADR-0009 (payload resolved 2026-10-16) |
 | 009 | [SC-X-2 — a real Manual Delivery request from the host's own client over loopback](story-009-sc-x-2-manual-delivery-over-loopback.md) | Integration | Ready | ADR-0011, ADR-0007 (+ ADR-0014/0016 Accepted 2026-10-16) |
 

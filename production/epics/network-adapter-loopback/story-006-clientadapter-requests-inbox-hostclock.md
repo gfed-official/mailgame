@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` §Network N1 (`IHostClock`), N2 (batches handed to the `ClientLayer` inbox, applied by `MirrorDrain` at the next client tick), N4 (host tick domain); R2 (`ClientLayer` reads only its mirror)
 **Requirement**: `TR-input-013` (server-validated verbs travel as reliable requests outside the input frame; no hold-duration field), `TR-delivery-009` (`holdStartTick` in the host domain via `IHostClock`), `TR-sim-014` (host's client uses the same path as a remote client)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0011: Network Adapter Boundary (§2 `ClientAdapter`, §3 never resend an applied op, §1 `IHostClock`) — primary; ADR-0007 (§6 u16 wrapping `reqId` per connection), ADR-0003 (§6 `ClientLayer` mirror only) — secondary
 **ADR Decision Summary**: `ClientAdapter` encodes requests with a per-connection u16 wrapping `reqId` and sends each exactly once on the reliable channel; it never retries at the application level, except that a request answered `busy` may be sent again as a new attempt. It decodes inbound batches and replies into the `ClientLayer` inbox (never touching `SimWorld`); `MirrorDrain` applies them at the next client tick. It implements the client `IHostClock` estimator (Networking-owned algorithm; trivially exact on loopback) — every tick a client puts in a request is in the host tick domain.

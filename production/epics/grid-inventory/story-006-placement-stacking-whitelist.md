@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-004` (StackKey; `effMax` at op time; ≤ 255), `TR-inventory-006` (fixed precedence chain)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0010: Content Format, Loading, ContentSet and StatSheet
 **ADR Decision Summary**: Validation is one ordered chain per op kind (placement: `bad_request → not_open → stale_entry → stale_layout → reserved_slot → out_of_bounds → not_carryable → not_allowed → blocked / stack_full`); `effMax = IStatSheet.Read(MailMaxStack, kind)` for mail (item `maxStack` for items), read at op time (ADR-0009 §2; ADR-0010 §7).

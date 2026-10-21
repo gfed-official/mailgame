@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R21 players and slots; States: "after the last player leaves, the world keeps ticking")
 **Requirement**: `TR-sim-026` (`PlayerSlot` u8 0–7; slot freed in T reusable from T+1), `TR-sim-025` (fresh `player` ids, never reused)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0004: Identity and Id Spaces (§4) — primary; ADR-0007 (§3 `SystemOnly` kinds, §5 reasons 4–6) — secondary
 **ADR Decision Summary**: Joins, rejoins and leaves are `System`-only ops (`PlayerJoin = 0x0001`, `PlayerLeave = 0x0002`). The `PlayerJoin` handler allocates a fresh `player` `EntityId` (rejoin keeps the same id) and assigns the requested slot in the `SlotTable`; it rejects with `slot_invalid` (≥ 8), `slot_busy` (slot occupied, or freed this tick — reassignable only from T + 1) and `duplicate_player` (already present), allocating nothing on a reject. `PlayerLeave` frees the slot at the current tick. The Sim never sees accounts or transport peers — Networking maps account → `playerId` and peer → slot.

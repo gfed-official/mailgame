@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD25, F6; Hashing & join edge cases)
 **Requirement**: `TR-content-024`. The epic table slices this TR at M0. It is **pulled forward to M-1a** by this story, following ADR-0010's Migration Plan ("M-1a: … canonical encoder and managed SHA-256 with tests"). ADR-0006 §7's M-1a recorder header also needs the `ContentSet` hash, and story 019's loader-equality test compares canonical bytes. The handshake use, TR-content-025, stays M0.
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§6) (primary); ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (§4 little-endian conventions, §7 recorder header)
 **ADR Decision Summary**:

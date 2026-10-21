@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-010` (outfeed by arrivalSeq; Peek/Take ≤ 4 entries amortised — pulled forward with Spawn, belts are M-1b), `TR-inventory-001` (`system` actor path via `IInventoryApi`)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0003: Phase Order, Composition Root and Cross-System Calls
 **ADR Decision Summary**: `Spawn(container, units, NoMerge)`: one unit per entry, first-fit; every insertion into the Intake is NoMerge; a returned entry enters whole; each Intake entry gets a per-Intake `arrivalSeq` (u32); outfeed = an index-linked FIFO of `(arrivalSeq, entrySlot, entryId)` nodes with lazy tombstones; `PeekOutfeed` returns the lowest mailId of the lowest-`arrivalSeq` live entry (ADR-0009 §5; GDD R14).

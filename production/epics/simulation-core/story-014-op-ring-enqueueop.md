@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R6 actor/opSeq, R7 queue capacity and `busy`, R20 exhaustion; F8)
 **Requirement**: `TR-sim-016` (actor stamped from the peer; `System = 0x00000001`; `opSeq` monotonic, never reused), `TR-sim-017` (ring 4096 pow2; full → false, no `opSeq` consumed; `systemOpReserve` 64)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0007: Op Queue, Drain and Replies (§2)
 **ADR Decision Summary**: One preallocated ring `Op[opQueueCapacity]` (default 4096, power of two) plus a parallel `uint[]` of enqueue-boundary ticks (the `CurrentTick` at enqueue = first tick that could apply it). `bool SimWorld.EnqueueOp(ActorId actor, in Op op)` copies the op in, **overwrites** `Actor` from the parameter and stamps the next `OpSeq`. Refusals return `false`, consume no `opSeq`, record nothing in the recorder, and count: `busyPlayer` (`count ≥ capacity − systemOpReserve`, non-System actor), `busySystem` (ring completely full; plus one always-on record), `opSeq` exhausted (plus one record), `enqueueBadState` (world not `Ready`/`Running`). Owner-thread asserted in Debug.

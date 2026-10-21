@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R31 asserts/records, R33 Godot-free Sim; Acceptance Criteria legend "Configurations")
 **Requirement**: `TR-sim-040` (asserts compile out of Release), `TR-sim-042` (Sim knows no Godot types; assembly half), `TR-sim-034` (net8.0 leg prerequisite for T2 / golden vectors)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0001: Solution Layout, Assemblies, Build Configurations and Test Framework (primary); ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (secondary — the checked/unchecked build mandate)
 **ADR Decision Summary**: The Sim is a Godot-free `net8.0` library whose assert switch (`SimAsserts` → `SIM_ASSERT;INVENTORY_ASSERT` + `CheckForOverflowUnderflow`) is derived in `Directory.Build.targets` from `$(Optimize)` after the SDK has set it; `Directory.Build.props` maps Godot's `ExportRelease`/`ExportDebug` onto `Optimize`. One xUnit v3 test project runs on `net10.0` and accepts `-p:PmTestTfm=net8.0`, and CI adds a `net8.0` leg from the first Sim Core story.

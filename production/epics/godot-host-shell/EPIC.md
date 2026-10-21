@@ -8,7 +8,7 @@
 > **Est. size**: M — 11 stories (planning estimate was 8–10; the extra story splits boot from session wiring)
 > **Implementation priority**: 9 of 9 (last; uses `~/.local/bin/godot-mono`)
 > **Status**: Ready
-> **Stories**: 11 stories written 2026-10-17 (11 Ready, 0 Blocked) — see `## Stories`. Governing ADRs all Accepted; `/story-readiness` then `/dev-story` in the order below.
+> **Stories**: 11 stories — 2 Complete, 9 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -97,8 +97,8 @@ This epic is complete when:
 
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
-| 001 | [Game csproj, game `.sln`, `[dotnet]` setting, `.gdignore` hygiene, Export* build check](story-001-game-csproj-solution-gdignore-build-mapping.md) | Integration | Ready | ADR-0001 |
-| 002 | [`Main.tscn` scene root, ADR-0019 node tree, explicit project settings, headless smoke harness](story-002-main-scene-tree-project-settings-smoke-harness.md) | Integration | Ready | ADR-0019 |
+| 001 | [Game csproj, game `.sln`, `[dotnet]` setting, `.gdignore` hygiene, Export* build check](story-001-game-csproj-solution-gdignore-build-mapping.md) | Integration | Complete | ADR-0001 |
+| 002 | [`Main.tscn` scene root, ADR-0019 node tree, explicit project settings, headless smoke harness](story-002-main-scene-tree-project-settings-smoke-harness.md) | Integration | Complete | ADR-0019 |
 | 003 | [`GameLoop` frame loop: `Stopwatch` clock, `RunFrame` once per frame, hook points, driver-state pause, fault stop](story-003-gameloop-frame-loop-clock-pause-fault.md) | Integration | Ready | ADR-0002 |
 | 004 | [Boot sequence (nine steps), error screen, window guard, `BuiltInContent` step, extension slots](story-004-boot-sequence-error-screen-content-step.md) | Integration | Ready | ADR-0019 |
 | 005 | [Host session wiring: `SimComposition.Build` over loopback, `ClientLayer.Attach(ports)`, sample sink, local join, render clock](story-005-host-session-composition-ports-render-clock.md) | Integration | Ready | ADR-0019 |
@@ -109,7 +109,7 @@ This epic is complete when:
 | 010 | [Greybox street: `TerrainView` from `IWorldQuery` (ground, water, solids, pad, light, fallback camera)](story-010-greybox-street-terrain-view.md) | Visual/Feel | Ready | ADR-0019 |
 | 011 | [Headless smoke (boot, ≥ 300 ticks, exit 0), smoke wrapper, CI wiring, `critical-paths.md`](story-011-headless-smoke-300-ticks-ci-critical-paths.md) | Integration | Ready | ADR-0019 |
 
-**11 stories: 10 Integration, 1 Visual/Feel — 11 Ready, 0 Blocked.** Every governing ADR (0001, 0002, 0003, 0010, 0011, 0012, 0016, 0019, 0026) is Accepted. Stories depend on other stories, not on missing decisions, so none is Blocked.
+**11 stories: 10 Integration, 1 Visual/Feel — 2 Complete, 9 Ready, 0 Blocked (refreshed 2026-10-20).** Every governing ADR (0001, 0002, 0003, 0010, 0011, 0012, 0016, 0019, 0026) is Accepted. Stories depend on other stories, not on missing decisions, so none is Blocked.
 
 **Suggested order:** 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011. 007 may run any time after 004. Stories 001–004 can start as soon as simulation-core 001/010/024/025, network-adapter-loopback 001 and content-data 008 exist; 005 needs network-adapter-loopback 007 and player-character 019/020; 009–010 need the world-stub street (006/007).
 

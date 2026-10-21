@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-012`, `TR-inventory-028` (SHA-256 state dump equal after a 50 000-op log on two Sim instances)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (primary); ADR-0009: InventoryOp Pipeline and Inventory Storage Layout
 **ADR Decision Summary**: Determinism tier T1: two worlds with the same `ContentSet` hash, `SimSettings`, `runSeed`, applied-op log and sample log give identical canonical dumps after every tick; SHA-256 of the dump lives in tests only (ADR-0006 §4–§5); the inventory invariants are checked by the O(1) ledger after every op and the full scan periodically (ADR-0009 §6).

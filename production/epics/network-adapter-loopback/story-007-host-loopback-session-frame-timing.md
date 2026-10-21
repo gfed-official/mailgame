@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` R2 (one code path; `FrameRunner`), R17 (frame order), §Network N2 (host op in frame F applies at the next `Inputs.Apply`; reply visible to the host `ClientLayer` at exactly the next client tick)
 **Requirement**: `TR-sim-014` (host loopback uses the same encoder; `SimWorld` and `ClientLayer` separate), `TR-sim-008` (inbound drained in `RunFrame` step 1), `TR-sim-042` (host `IHostClock` reads `CurrentTick`; Sim knows no peers)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0011: Network Adapter Boundary (§2 loopback is the remote path; frame order) — primary; ADR-0002 (§2 `RunFrame`), ADR-0008 (§7 send after `Tick()`) — secondary
 **ADR Decision Summary**: The host process runs one `SimWorld` and one `ClientLayer`; the host's own `ClientLayer` reaches the Sim only through `ClientAdapter` → `LoopbackTransport` → `HostAdapter`, with no "is host" path. Per frame: `HostAdapter.PumpInbound()` (remote then loopback), `n = Advance(now)`, then per tick `ClientLayer.Step(i == 0)`, `SimWorld.Tick()`, `HostAdapter.FlushOutbound(tick)`; loopback hands the batch to the host `ClientLayer` inbox, applied by `MirrorDrain` at the next client tick. The host `IHostClock` reads `CurrentTick` (frozen in a solo pause).

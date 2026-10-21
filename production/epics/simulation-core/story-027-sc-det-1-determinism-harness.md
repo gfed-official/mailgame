@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R29 determinism tiers — T1)
 **Requirement**: `TR-sim-033` (T1: identical canonical dump hash per tick given the same inputs and logs), `TR-sim-032` (determinism checklist — exercised end to end)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (§5 tiers, §4 dump, §7 recorder)
 **ADR Decision Summary**: T1 — two `SimWorld`s with the same `ContentSet` hash, `SimSettings` canonical encoding, `runSeed`, applied-op log and ingested-sample log give identical canonical dumps after every tick. Harnesses that need "after each op" apply one op per tick; there is no test seam in production code. SC-DET-1 runs two worlds in parallel over a 50 000-op log; a third world with another seed diverges. Tests take SHA-256 of the dump.

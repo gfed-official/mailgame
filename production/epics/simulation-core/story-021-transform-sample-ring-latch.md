@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R5 sample stamping and recording; R18 thread rules; N1 sample ring crossing)
 **Requirement**: `TR-sim-045` (recorder stores ops **and transform samples** — this story provides the sample path), `TR-sim-008` (nothing applied inside a callback — samples are stamped at the drain, never in a callback)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0003: Phase Order, Composition Root and Cross-System Calls (§1 last bullet, §2 prologue) — primary; ADR-0011 (§1 sample-ring crossing), ADR-0006 (§4 latch in section 1, §7 `OnSample`), ADR-0002 (§5 owner thread) — secondary
 **ADR Decision Summary**: Transform samples are not ops. The adapter writes them into a sample ring between ticks on the Sim thread; Sim Core drains the ring into the latch in the `SimWorld.Tick` prologue — immediately before the tick that ingests them — stamping each `receivedTick = CurrentTick`. Each sample carries a per-sender sequence number; the latch keeps samples in sequence order and discards older-or-equal ones. Phase 3 (Player Character) ingests the latch. Every ingested sample is recorded via `IOpRecorder.OnSample(receivedTick, slot, in TransformSample)` from M-1a, and the latch is part of the canonical dump.

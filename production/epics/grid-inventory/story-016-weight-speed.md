@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-015` (integer-only weight→speed, permille, one division; `weightPoints` int16)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (primary); ADR-0009: InventoryOp Pipeline and Inventory Storage Layout; ADR-0010: Content Format, Loading, ContentSet and StatSheet
 **ADR Decision Summary**: Integer units with one division per formula over a wide numerator (ADR-0006 §2); `WeightPenaltyPm` is read through `IStatSheet` (ADR-0010); counted containers hotbar, inventory, backpack, cursor; `weightBasis = PerEntry`.
