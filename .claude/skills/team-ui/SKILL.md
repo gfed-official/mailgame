@@ -4,7 +4,7 @@ description: "Orchestrate the UI team through the UX pipeline — authoring, vis
 argument-hint: "[UI feature description] [--review full|lean|solo]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion, TaskCreate, TaskGet, TaskList, TaskUpdate, Bash(bash "*/.claude/skills/team-ui/../../hooks/yaml-helper.sh" resolve_config *)
-model: sonnet
+model: opus
 ---
 # Team UI
 

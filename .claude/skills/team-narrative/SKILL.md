@@ -4,7 +4,7 @@ description: "Orchestrate the narrative team — narrative-director, writer, wor
 argument-hint: "[narrative content description] [--review full|lean|solo]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Agent, AskUserQuestion, TaskCreate, TaskGet, TaskList, TaskUpdate, Bash(bash "*/.claude/skills/team-narrative/../../hooks/yaml-helper.sh" resolve_config *)
-model: sonnet
+model: opus
 ---
 # Team Narrative
 
