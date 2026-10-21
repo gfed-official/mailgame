@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` R6/R10 (`reqId` opaque to the Sim; no dedupe in the Sim); Grid Inventory Network rule 8; Manual Delivery MD5 ("the host answers a duplicate `reqId` with the original reply and applies nothing")
 **Requirement**: `TR-delivery-011` (idempotent `reqId` u16; duplicate returns the original reply), `TR-sim-017` (a `busy` answer is never cached — a retry is a new attempt)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0007: Op Queue, Drain and Replies (§6 `reqId` width, ownership and deduplication) — primary; ADR-0011 (§3 dedupe lives in `HostAdapter`, adopted verbatim) — secondary
 **ADR Decision Summary**: Deduplication lives in the adapter, never the Sim, keyed `(peer, reqId u16)`. Per connection the adapter keeps a reply cache of the last 16 replies (`reqId` → encoded reply bytes copied from `Deliver`) and an in-flight set of enqueued `reqId`s whose reply has not been delivered. A request whose `reqId` is cached gets the cached original reply resent and nothing enqueued (no `opSeq` consumed); one in flight is dropped silently; otherwise it is decoded, enqueued and added to the in-flight set — on `EnqueueOp == false` it is answered `busy` and not cached. Cache, in-flight set and expected counter reset on rejoin.

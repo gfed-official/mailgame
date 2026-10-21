@@ -14,7 +14,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R10 reply after handler events; N3.1 order preserved per peer)
 **Requirement**: `TR-sim-020` (reply after handler events), `TR-sim-018` (drain applies handlers in `opSeq` order)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0007: Op Queue, Drain and Replies (§3 reply append) — primary; ADR-0008 (§1 order, §5 call scopes); ADR-0009 (Grid op pipeline); ADR-0015 (throw — Accepted 2026-10-16)
 **ADR Decision Summary**: For every drained op, Sim Core appends the handler's `Reply` as an `OpReply` event after every event raised during that handler's call scope, so a batch always lists a system's events before its reply; composite actions (a throw) are one `OpKind` whose handler calls documented `I…Api` methods in a fixed order.

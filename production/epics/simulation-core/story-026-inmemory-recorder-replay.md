@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R29 determinism tiers, R5 sample recording; Edge Cases "replay header mismatch → no world is built")
 **Requirement**: `TR-sim-045` (recorder stores ops + transform samples; in-memory at M-1a, file at M5), `TR-sim-018` (every drained op recorded)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (§7) — primary; ADR-0007 (§2–§3 `OnEnqueued`/`OnDrained` call points) — secondary
 **ADR Decision Summary**: `IOpRecorder` (optional, injected; none in perf runs) receives `OnEnqueued(boundaryTick, op)` after `opSeq` is stamped, `OnDrained(applyTick, op, reply)` for every drained op, `OnSample(receivedTick, slot, sample)` at the latch drain and `OnOverflow(tick)`. The M-1a `InMemoryRecorder` is preallocated and grows only outside the tick; its header holds `formatVersion`, the `ContentSet` hash, the SHA-256 of the `SimSettings` canonical encoding, `runSeed` and the initial counters. `ReplayDriver` builds a world from the header and refuses on any mismatch (no world built), re-enqueues each op immediately before the tick numbered its boundary tick, re-latches samples at their `receivedTick`, ticks, asserts each op's recomputed apply tick equals the recorded one, and optionally compares per-tick dump hashes. A recording that saw `OnOverflow` is reported non-reproducible, not failed. The file writer is M5.

@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (R27 no floats, R28 determinism checklist, R33; SC-ARCH-2)
 **Requirement**: `TR-sim-031` (float/double/decimal banned), `TR-sim-032` (no Random/Guid/hash codes/time/threads/unstable sort)
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay (rule content, §3 Enforcement) — primary; ADR-0001: Solution Layout, Assemblies, Build Configurations and Test Framework (§6 mechanism) — secondary
 **ADR Decision Summary**: Two build-time tools enforce the determinism checklist. A small custom Roslyn analyzer flags any use of a type whose `SpecialType` is `System_Single`/`System_Double`/`System_Decimal`, plus `System.Half`. `Microsoft.CodeAnalysis.BannedApiAnalyzers` (RS0030, made an error in `.editorconfig`) bans the ADR-0006 §3 symbol list via `BannedSymbols.txt` (doc-comment IDs, no wildcards). Every banned item has a fixture that must be seen failing before the gate counts.

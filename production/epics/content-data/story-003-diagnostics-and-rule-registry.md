@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (CD3.5, CD22, CD23)
 **Requirement**: `TR-content-022` (M-1a subset: the registry mechanism; the full 84/89-rule catalogue is M0)
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§5 Validator, §2 diagnostics)
 **ADR Decision Summary**:

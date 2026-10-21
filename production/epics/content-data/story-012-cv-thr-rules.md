@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/content-data-definitions.md` (Rule Catalogue index row CV-THR-01…18; F3; F5 single-source mode); rule text is authoritative in `design/gdd/throwing-catching.md` ("ContentValidator rules (this GDD)", ~line 716) and its AC TC-CV-1 (~line 1205).
 **Requirement**: `TR-content-022` (M-1a subset)
-*(No `docs/architecture/tr-registry.yaml` exists yet. Requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml`.)*
 
 **ADR Governing Implementation**: ADR-0010: Content Format, Loading, ContentSet and StatSheet (§5)
 **ADR Decision Summary**: One code-side registry. `THROW-CV-nn` is the alias of `CV-THR-nn`, and every clause has a violation fixture.

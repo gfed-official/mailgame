@@ -14,7 +14,7 @@
 
 **GDD**: `design/gdd/simulation-core.md` (SC-X-2; §Network N2); `design/gdd/manual-delivery.md` (MD5)
 **Requirement**: `TR-delivery-008`, `TR-delivery-009` (`holdStartTick` via `IHostClock`), `TR-delivery-011` (duplicate `reqId` returns the original reply), `TR-sim-014`
-*(Requirement text lives in `docs/architecture/architecture.md` Appendix A — `docs/architecture/tr-registry.yaml` does not exist yet; read fresh at review time)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0011: Network Adapter Boundary (§2 loopback, §1 `IHostClock`, §3 dedupe) — primary; ADR-0007 (§6), ADR-0009 (`DeliverMatching`); ADR-0014/ADR-0016 — Accepted 2026-10-16 (manual-delivery prerequisites)
 **ADR Decision Summary**: The host's own client reaches the Sim only through the loopback adapter with the remote codec; a host op enqueued in frame F applies at the next `Inputs.Apply`, Presentation sees the events in the frame that ran that tick, and the host `ClientLayer` sees the reply at exactly the next client tick.

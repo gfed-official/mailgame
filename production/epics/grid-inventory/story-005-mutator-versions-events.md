@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-002` (per-container u32 version +1 per mutating op; batch bumps once), `TR-inventory-019` (event before reply on one stream)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0008: Event Log, Replication Classes and Event Delivery; ADR-0003: Phase Order, Composition Root and Cross-System Calls
 **ADR Decision Summary**: One `InventoryMutator` with primitives `Place/Remove/Transfer` (+ `ConsumeUnit`, `DetachForThrow`, `Spawn`, `Destroy` later) is the only writer; versions bump +1 per call per touched container, deferred to the end of the call; records (`InvInserted`, `InvRemoved`, `InvMerged`, `InvMoved`, `InvSplitFrom`, `InvCursor…`) are raised, then exactly one `InvVersion{c, version_from, version_to, actorId, cause}` seal per touched container after its records; audience resolved at raise time (panel/cursor `OwnerOnly`, external `Targeted` to subscribers); mailIds only as chunked ascending runs on `Inserted`/`Merged`; Sim Core appends the reply after every record and seal (ADR-0009 §3–§4; ADR-0008).

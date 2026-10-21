@@ -12,7 +12,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-007` (AutoPlace passes; amortised O(1) non-full-stack index)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0009: InventoryOp Pipeline and Inventory Storage Layout (primary); ADR-0006: Numerics, Determinism Rules, Canonical Dump and Replay
 **ADR Decision Summary**: AutoPlace runs PASS M (merge into non-full stacks of the same StackKey, row-major), PASS U (unrotated first-fit, row-major scan; slots: lowest free usable slot ≥ 1), PASS R (rotated, only if w ≠ h); `PassFirst` runs each pass over all targets, `TargetFirst` (mail catch / pickup) runs M→U→R per target. Per container an open-addressed `StackKey → head` map of intrusive non-full lists kept in row-major order, and a negative-fit cache `(shape, rotated) → versionNoFit` (ADR-0009 §5; GDD R8).

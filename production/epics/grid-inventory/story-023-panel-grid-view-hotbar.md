@@ -14,7 +14,7 @@
 
 **GDD**: `design/gdd/grid-inventory.md`
 **Requirement**: `TR-inventory-027` (grid panel one custom-drawn `Control`; 0 B/frame; feedback via a live-region `Control`)
-*(No `docs/architecture/tr-registry.yaml` exists yet; requirement text is in `docs/architecture/architecture.md` v1.1 Appendix A, mirrored in the epic's GDD Requirements table.)*
+*(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0019: Godot presentation scene architecture — Accepted 2026-10-16 (primary); ADR-0009: InventoryOp Pipeline and Inventory Storage Layout
 **ADR Decision Summary**: The panel is one custom-drawn grid `Control` (`_Draw`, cached text) plus a live-region `Control` for feedback text (TR-inventory-027); scene placement, view pooling, `ViewCatalog` (icons by def id) and stretch/aspect are ADR-0019's — Accepted 2026-10-16; the panel reads the client mirror of own containers (OwnerOnly events, ADR-0009 §4).
