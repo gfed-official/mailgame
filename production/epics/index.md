@@ -1,6 +1,6 @@
 # Epics Index
 
-Last Updated: 2026-10-21 (counts from the story headers on main c7fa0f6, `/workspace/scripts/count-story-status.sh`: 91 Complete, 1 In Progress (content-data 018), 6 Blocked, 109 Ready — 207 stories; godot-host-shell 003, grid-inventory 004/005 and throwing-catching 001 Complete)
+Last Updated: 2026-10-21 (counts from the story headers on main c7fa0f6, `/workspace/scripts/count-story-status.sh`: 92 Complete, 1 In Progress (content-data 018), 6 Blocked, 108 Ready — 207 stories; godot-host-shell 003, grid-inventory 004/005 and throwing-catching 001 Complete; grid-inventory 006 Complete, PR #16)
 Engine: Godot 4.7.1 pinned (the box has Godot 4.7.2 mono at `~/.local/bin/godot` — see HANDOFF.md), C# (.NET 8 Sim / net10.0 tests)
 Scope: M-1a slice (solo greybox: delivery + throwing)
 
@@ -10,7 +10,7 @@ Scope: M-1a slice (solo greybox: delivery + throwing)
 | [content-data](content-data/EPIC.md) | Foundation | Content & Data Definitions (incl. StatSheet) | design/gdd/content-data-definitions.md | 19 stories (17 Complete, 1 In Progress, 1 Ready) | Ready |
 | [input-controls](input-controls/EPIC.md) | Foundation | Input & Controls | design/gdd/input-controls.md | 29 stories (6 Complete, 22 Ready, 1 Blocked) | Ready |
 | [godot-host-shell](godot-host-shell/EPIC.md) | Foundation | Godot host shell (Presentation half of Simulation Core + Content & Data) | design/gdd/simulation-core.md, design/gdd/content-data-definitions.md | 11 stories (3 Complete, 8 Ready) | Ready |
-| [grid-inventory](grid-inventory/EPIC.md) | Core | Grid Inventory & Containers (M-1a: hotbar + own panel) | design/gdd/grid-inventory.md | 24 stories (5 Complete, 18 Ready, 1 Blocked) | Ready |
+| [grid-inventory](grid-inventory/EPIC.md) | Core | Grid Inventory & Containers (M-1a: hotbar + own panel) | design/gdd/grid-inventory.md | 24 stories (6 Complete, 17 Ready, 1 Blocked) | Ready |
 | [world-stub](world-stub/EPIC.md) | Core | World Generation — M-1a hand-authored street stub (`IWorldQuery`) | none (consumer GDDs + architecture.md Sim.World) | 7 stories (7 Complete) | Complete (Provisional — no GDD; ADR-0026 Accepted) |
 | [network-adapter-loopback](network-adapter-loopback/EPIC.md) | Core | Network adapter core — loopback (Networking & Session seam) | design/gdd/simulation-core.md §Network (no Networking GDD) | 9 stories (7 Complete, 2 Ready) | Ready |
 | [mail-destinations](mail-destinations/EPIC.md) | Feature | Mail & Destinations (M-1a slice) | design/gdd/mail-destinations.md | 16 stories (6 Complete, 10 Ready) | Ready |
