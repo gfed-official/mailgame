@@ -225,8 +225,9 @@ public struct AutoPlacePlan
 /// <see cref="PlacementRules.CanMerge"/>; each stack takes <c>min(remaining, effMax − count)</c> of the oldest units and is planned at
 /// most once per plan. Never a container scan;</item>
 /// <item><b>PASS U</b>: per target, the first free top-left anchor (rows outer, columns inner) of the unrotated footprint, each anchor
-/// one probe of the occupancy row masks; a slots layout takes the lowest free usable slot ≥ 1 (a reserved slot is skipped, never
-/// returned, never slot 0); a shape the negative-fit cache knows does not fit at the container's version is skipped with 0 probes;</item>
+/// tested against all <c>fh</c> of its footprint's occupancy row masks (no early exit), so it examines <c>fw × fh</c> cells; a slots
+/// layout takes the lowest free usable slot ≥ 1 (a reserved slot is skipped, never returned, never slot 0), one cell per slot visited;
+/// a shape the negative-fit cache knows does not fit at the container's version is skipped with 0 probes;</item>
 /// <item><b>PASS R</b> (only when <c>w ≠ h</c>, never on a slots layout): the same scan rotated.</item>
 /// </list>
 /// <see cref="PlaceOrder.PassFirst"/> runs each pass over all targets; <see cref="PlaceOrder.TargetFirst"/> runs M → U → R per target.
@@ -246,8 +247,10 @@ public struct AutoPlacePlan
 /// <see cref="InventoryMutator.Place"/> (detached source) or <see cref="InventoryMutator.Transfer"/> (placed source), never recomputing,
 /// and writes the plan's no-fit facts to the <see cref="NegativeFitCache"/>; <see cref="Plan"/> only reads it (ADR-0009 section 2). The
 /// probe counters <see cref="CounterId.InventoryMergeCandidates"/> and <see cref="CounterId.InventoryPlacementProbes"/> are incremented
-/// once per list node and once per anchor, in every build. Allocation-free; never throws on the tick path. Not thread-safe: Sim tick
-/// thread only.
+/// once per list node and once per cell examined (GDD H-PERF-6, per cell per Evan 2026-10-21): a grid anchor adds its footprint area
+/// <c>fw × fh</c>, a slot adds 1, so a scan costs (anchors visited) × area, at most Σ (W − fw + 1)(H − fh + 1) × fw × fh over the
+/// shapes scanned (6,684 for the six v1 oriented shapes on the 20 × 16 Intake, inside GDD D3's 8,320 and the 8,500 gate), in every
+/// build. Allocation-free; never throws on the tick path. Not thread-safe: Sim tick thread only.
 /// </para>
 /// </summary>
 /// <example>
@@ -598,7 +601,7 @@ internal sealed class AutoPlace
         return Pass;
     }
 
-    /// <summary>PASS U (or PASS R when <paramref name="rotated"/>) on one target: the first free anchor, one probe each.</summary>
+    /// <summary>PASS U (or PASS R when <paramref name="rotated"/>) on one target: the first free anchor, one probe per cell examined.</summary>
     private ushort PassFree(ref InvPlan plan, ref AutoPlacePlan result, ref PassState pass, ushort containerSlot, bool rotated)
     {
         ref ContainerHeader h = ref _containers[containerSlot];
@@ -638,19 +641,21 @@ internal sealed class AutoPlace
     private bool ScanGrid(ushort containerSlot, in ContainerHeader h, int fw, int fh, out int foundX, out int foundY)
     {
         ulong mask = RowMask(fw);
+        int area = fw * fh;
         for (int y = 0; y <= h.H - fh; y++)
         {
             for (int x = 0; x <= h.W - fw; x++)
             {
-                _counters.Add(CounterId.InventoryPlacementProbes);
+                // Every footprint row is tested (no early exit), so each anchor examines exactly fw x fh cells and counts that many.
+                _counters.Add(CounterId.InventoryPlacementProbes, area);
                 ulong shifted = mask << x;
-                int r = 0;
-                while (r < fh && (_occupancy.RowBits(containerSlot, y + r) & shifted) == 0UL)
+                ulong blocked = 0UL;
+                for (int r = 0; r < fh; r++)
                 {
-                    r++;
+                    blocked |= _occupancy.RowBits(containerSlot, y + r) & shifted;
                 }
 
-                if (r == fh)
+                if (blocked == 0UL)
                 {
                     foundX = x;
                     foundY = y;
@@ -677,7 +682,7 @@ internal sealed class AutoPlace
                 continue; // reserved_slot is skipped, never returned
             }
 
-            _counters.Add(CounterId.InventoryPlacementProbes);
+            _counters.Add(CounterId.InventoryPlacementProbes); // one slot is one cell
             if ((_occupancy.RowBits(containerSlot, y) & (1UL << x)) == 0UL)
             {
                 foundX = x;

@@ -321,6 +321,7 @@ Client side (`PerformativeMail.Client.Core/Inventory/`, built at M0, Godot-free)
 
 ## Performance Implications
 - **CPU**: Peek/take O(1) amortised; AutoPlace merge O(1) + footprint tests O(h) per probe; validation is a fixed chain of O(1) checks except placement fits. Inventory share target 1.0 ms median / 2.0 ms p99 (advisory) is expected to have large headroom; the blocking gates are probe counts.
+  - Probe unit: per-cell per Evan 2026-10-21 — one AutoPlace footprint test at an anchor counts `fw × fh` cell probes (H-PERF-6; `CounterId.InventoryPlacementProbes`), not one per anchor; the 8,500 gate is unchanged.
 - **Memory**: `EntryRecord` ≤ 40 B × capacity (e.g. 8,192 → 320 KB), arena ≈ 2 × peak units × 4 B, bitmaps and indices < 64 KB for all v1 containers: inside H-PERF-5's 1 MB with 512 WorldItems; capacities in `SimSettings`.
 - **Load Time**: Preallocation at world build, < 1 ms.
 - **Network**: One 64 B-entry seal per touched container per call inside the Sim; on the wire the adapter packs records + seal into `ContainerDelta` (GDD budget ≤ 40 B/tick/peer sustained — ADR-0011 / Networking).
