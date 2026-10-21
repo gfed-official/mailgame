@@ -8,7 +8,7 @@
 > **Est. size**: M — 11 stories (planning estimate was 8–10; the extra story splits boot from session wiring)
 > **Implementation priority**: 9 of 9 (last; uses `~/.local/bin/godot-mono`)
 > **Status**: Ready
-> **Stories**: 11 stories — 3 Complete, 8 Ready (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
+> **Stories**: 11 stories — 4 Complete, 7 Ready (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -100,7 +100,7 @@ This epic is complete when:
 | 001 | [Game csproj, game `.sln`, `[dotnet]` setting, `.gdignore` hygiene, Export* build check](story-001-game-csproj-solution-gdignore-build-mapping.md) | Integration | Complete | ADR-0001 |
 | 002 | [`Main.tscn` scene root, ADR-0019 node tree, explicit project settings, headless smoke harness](story-002-main-scene-tree-project-settings-smoke-harness.md) | Integration | Complete | ADR-0019 |
 | 003 | [`GameLoop` frame loop: `Stopwatch` clock, `RunFrame` once per frame, hook points, driver-state pause, fault stop](story-003-gameloop-frame-loop-clock-pause-fault.md) | Integration | Complete | ADR-0002 |
-| 004 | [Boot sequence (nine steps), error screen, window guard, `BuiltInContent` step, extension slots](story-004-boot-sequence-error-screen-content-step.md) | Integration | Ready | ADR-0019 |
+| 004 | [Boot sequence (nine steps), error screen, window guard, `BuiltInContent` step, extension slots](story-004-boot-sequence-error-screen-content-step.md) | Integration | Complete | ADR-0019 |
 | 005 | [Host session wiring: `SimComposition.Build` over loopback, `ClientLayer.Attach(ports)`, sample sink, local join, render clock](story-005-host-session-composition-ports-render-clock.md) | Integration | Ready | ADR-0019 |
 | 006 | [Presentation plumbing: `PresenterDeps`, `Initialize(deps)` injection, World/Hud/Audio registration seams, `PresentationEventStream` feed](story-006-presenters-deps-injection-event-stream.md) | Integration | Ready | ADR-0019 |
 | 007 | [Minimal `ContentHost : IContentSource` over `res://content/` and the opt-in host content mode](story-007-contenthost-minimal-iconentsource.md) | Integration | Ready | ADR-0019 |
