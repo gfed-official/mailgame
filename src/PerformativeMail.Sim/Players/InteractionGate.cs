@@ -44,7 +44,10 @@ public enum GateKind : byte
     Unavailable = 2,
 }
 
-/// <summary>The framework gate's verdict: <c>Ok | NoCandidate | Unavailable(StringId)</c>. Values only.</summary>
+/// <summary>
+/// The framework gate's verdict: <c>Ok | NoCandidate | Unavailable(StringId)</c>. Values only: a <see cref="GateKind"/> byte and a
+/// 4-byte <see cref="StringId"/>, 6 B with the alignment pad.
+/// </summary>
 /// <example><code>GateResult r = gate.Evaluate(in def, in status); if (r.Kind == GateKind.Unavailable) { StringId why = r.Reason; }</code></example>
 public readonly struct GateResult : IEquatable<GateResult>
 {
@@ -181,14 +184,17 @@ public sealed class InteractionGate
     public FrameworkReasons Reasons => _reasons;
 
     /// <summary>
-    /// True when a P6 action is allowed while swimming. False for the seven refused actions (jump, sprint, throw, build, deliver,
-    /// tool use, drop) and for any undeclared value; true for hotbar select, the own panel, chat, ping and look. This is the single
-    /// declaration owners cite; each owner enforces its own action.
+    /// True when a PC GDD P6 action may be used while swimming (PCM-P6-2a/b): only hotbar select, the own panel, chat, ping and look.
+    /// The seven refused actions (jump, sprint, throw, build, deliver, tool use, drop) and any value outside the enum return false.
+    /// The allowed set is listed member by member, so it does not depend on the enum's numbering. The parameter is the dedicated
+    /// <see cref="SwimVerb"/> enum (PR #12 A4) because the seven span <c>ContextVerb</c>, <see cref="Verb"/> and owner op kinds.
+    /// This is the one declaration the owners cite; each owner enforces its own action.
     /// </summary>
-    /// <param name="verb">The action.</param>
+    /// <param name="verb">The P6 action.</param>
     /// <returns>True when allowed while swimming.</returns>
     /// <example><code>bool ok = InteractionGate.VerbAllowedWhileSwimming(SwimVerb.Drop);   // false</code></example>
-    public static bool VerbAllowedWhileSwimming(SwimVerb verb) => verb is SwimVerb.HotbarSelect or SwimVerb.OwnPanel or SwimVerb.Chat or SwimVerb.Ping or SwimVerb.Look;
+    public static bool VerbAllowedWhileSwimming(SwimVerb verb) =>
+        verb is SwimVerb.HotbarSelect or SwimVerb.OwnPanel or SwimVerb.Chat or SwimVerb.Ping or SwimVerb.Look;
 
     /// <summary>
     /// The cancel reason when a held interaction's context changes between two consecutive statuses (ADR-0014 section 4; story 017
@@ -228,10 +234,10 @@ public sealed class InteractionGate
 
     /// <summary>
     /// The framework verdict for one anchor and the carrier's status (PCM-P11-2d, PCM-P6-2b). Order: Dead → no candidate; Mounted →
-    /// a candidate only for <c>Verb == Dismount</c> with <see cref="AnchorFlags.SeatOf"/> and <c>Ref == OccupiedSeat</c> (a
-    /// <c>None</c> seat admits nothing); Build → only <see cref="AnchorFlags.BuildModeOnly"/> anchors; Panel open →
-    /// <c>Unavailable(ClosePanel)</c>; swimming without <see cref="AnchorFlags.AllowWhileSwimming"/> → <c>Unavailable(DryLand)</c>;
-    /// else ok.
+    /// a candidate only for <c>Verb == Dismount</c> with <see cref="AnchorFlags.SeatOf"/> and <c>Ref == OccupiedSeat</c> (the
+    /// <see cref="AnchorRef"/> value equality: same entity and slot; a <c>None</c> seat admits nothing); Build → only
+    /// <see cref="AnchorFlags.BuildModeOnly"/> anchors; Panel open → <c>Unavailable(ClosePanel)</c>; swimming without
+    /// <see cref="AnchorFlags.AllowWhileSwimming"/> → <c>Unavailable(DryLand)</c>; else ok.
     /// </summary>
     /// <param name="anchor">The anchor definition.</param>
     /// <param name="status">The carrier status.</param>
@@ -244,11 +250,11 @@ public sealed class InteractionGate
             case BodyContext.Dead:
                 return GateResult.NoCandidate;
             case BodyContext.Mounted:
-                bool ownSeat = anchor.Verb == Verb.Dismount
+                bool ownSeatDismount = anchor.Verb == Verb.Dismount
                     && (anchor.Flags & AnchorFlags.SeatOf) != 0
                     && !status.OccupiedSeat.IsNone
                     && anchor.Ref == status.OccupiedSeat;
-                if (!ownSeat)
+                if (!ownSeatDismount)
                 {
                     return GateResult.NoCandidate;
                 }
