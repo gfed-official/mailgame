@@ -37,7 +37,7 @@
 - [ ] **AC-1 (M-R2-1a, M-X-1b)** At a batch tick of 3 units with the mail counter at 41, units get mailIds 42, 43, 44 in manifest order, rows are created (story 001), and each unit becomes its own Intake entry via `Spawn(po_intake, unit, NoMerge)`.
 - [ ] **AC-2 (M-R11-1a, b)** An Intake with one free cell and a 60-unit batch → 1 unit enters and 59 are appended to the backlog in manifest order (`backlogUnits` = 59). A later spawn appends while the backlog is non-empty even if an Intake cell is free.
 - [ ] **AC-3 (M-R11-1d, M-X-1d)** Conservation: spawned = Intake + backlog + circulation + consumed (the Inventory `UnitLedger` check passes every tick). 40 backlog entries against the 32-per-tick drain leave `backlogUnits` reflecting the 8 left after one tick.
-- [ ] **AC-4 (M-R10-1e, M-PERF-1d)** Batches fire only while deliveries are open (Delivery; Raid at M1); a batch tick in a closed state fires nothing and is not deferred. A 64-unit batch is covered by `Spawn` + `AppendBacklog` together for all 64 units (`Spawn` takes one same-key manifest group per call, grid-inventory story 012), and an append to a non-empty backlog makes 0 Intake probes. Each fired batch raises one `BatchArrived{units}`.
+- [ ] **AC-4 (M-R10-1e, M-PERF-1d)** Batches fire only while deliveries are open (Delivery; Raid at M1); a batch tick in a closed state fires nothing and is not deferred. A 64-unit batch makes exactly 64 `Spawn` calls (or `Spawn` + `AppendBacklog` totalling 64), and an append to a non-empty backlog makes 0 Intake probes. Each fired batch raises one `BatchArrived{units}`.
 
 ---
 

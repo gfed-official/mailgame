@@ -60,7 +60,7 @@
 | godot-host-shell | 4/11 (001–004) | 005 (needs player-character 019/020) | — |
 | **Total** | **97** (+ 1 In Progress) | **103** | **6** |
 
-Rows recounted 2026-10-21 from the story headers on main e1266f1 (PR #19, #20 and #22 merged) plus PR #21 (`/workspace/scripts/count-story-status.sh`; 207 stories: 97 Complete, 1 In Progress, 6 Blocked, 103 Ready). PR #13 (player-character 013), PR #14 (manual-delivery 001), PR #15 (readiness docs), PR #16 (grid-inventory 006), PR #17 (godot-host-shell 004) PR #19 (planning-lead rulings), PR #20 (grid-inventory 009) and PR #22 (probe-unit ruling) are merged; PR #21 (grid-inventory 012) is not merged yet — whichever PR merges next recounts.
+Rows recounted 2026-10-21 from the story headers on main e1266f1 (PR #19, #20 and #22 merged) plus PR #21 (`/workspace/scripts/count-story-status.sh`; 207 stories: 97 Complete, 1 In Progress, 6 Blocked, 103 Ready). PR #13 (player-character 013), PR #14 (manual-delivery 001), PR #15 (readiness docs), PR #16 (grid-inventory 006), PR #17 (godot-host-shell 004), PR #19 (planning-lead rulings), PR #20 (grid-inventory 009) and PR #22 (probe-unit ruling) are merged; PR #21 (grid-inventory 012) is not merged yet — whichever PR merges next recounts.
 
 `*` Ready but waiting on other stories: sim-core 030 ← grid-inventory 007 + throwing 010; network 008/009 ← manual-delivery 004/005.
 
