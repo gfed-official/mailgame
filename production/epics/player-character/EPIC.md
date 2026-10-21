@@ -8,7 +8,7 @@
 > **Est. size**: L — 27 stories (Sim first; views after `godot-host-shell`)
 > **Implementation priority**: 5 of 9
 > **Status**: Ready
-> **Stories**: 27 stories — 11 Complete, 1 In Progress, 15 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
+> **Stories**: 27 stories — 11 Complete, 16 Ready (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
 
 ## Overview
 
