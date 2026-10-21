@@ -626,13 +626,14 @@ public class WorldItemTests
         Assert.Equal(513, record.A);
         Assert.Equal(512, record.B);
 
-        // Act 2: tick 1299 (the first letters are 299 ticks old), then tick 1300 (they reach 10 s)
-        w.AdvanceTo(1300);
-        int at1299 = w.World.LiveCount;
-        EventEntry[] log = w.RunTick(1300);
+        // Act 2: tick 1300 (the first letters are exactly 300 ticks old, not yet older than 10 s), then tick 1301 (301 ticks old:
+        // strictly older than 10 s, Mail Lead ruling 2026-10-21)
+        w.AdvanceTo(1301);
+        int at1300 = w.World.LiveCount;
+        EventEntry[] log = w.RunTick(1301);
 
-        // Assert 2: the re-check on 1300 evicts exactly the first one (lowest id) to the Intake; the 513th stays
-        Assert.Equal(513, at1299);
+        // Assert 2: the re-check on 1301 evicts exactly the first one (lowest id) to the Intake; the 513th stays
+        Assert.Equal(513, at1300);
         Assert.Equal(512, w.World.LiveCount);
         Assert.Equal(young[0].Value, Assert.Single(Heads(log, InvEventKinds.WorldItemDespawned)).PayloadAs<WorldItemDespawnedPayload>().WorldItemId);
         Assert.True(w.World.Table.TryGetSlot(young[1], out _));
