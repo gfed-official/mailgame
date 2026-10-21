@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~250 lines prod + ~250 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-21 (citation fix: `SystemId.Mail` does not exist; the system is `SystemId.MailDestinations`, `Core/SystemId.cs`)
 
 ## Context
 
@@ -45,7 +45,7 @@
 
 *Derived from ADR-0017 §7–§8, Key Interfaces and Implementation Guidelines:*
 
-- **Files:** `src/PerformativeMail.Sim/Mail/Ports/IWalletGate.cs`, `Ports/CreditReason.cs` (`None 0, DeliveryPay 1`; 2–31 reserved for Mail); `src/PerformativeMail.Sim/Mail/MailSystem.cs` (`[SimSystem(SystemId.Mail)]`, the single public constructor taking `EventLog` writer, `MailIds`, `IRngStreams` (mail-owned view), `ITickReader`, `IInventoryApi`, `IWalletGate`, `IWorldQuery`, `ContentSet`, `IStatSheet`, `SimCheckRing`, `SimCounters` and its `MailSettings` record); `src/PerformativeMail.Sim/Economy/StubWallet.cs`.
+- **Files:** `src/PerformativeMail.Sim/Mail/Ports/IWalletGate.cs`, `Ports/CreditReason.cs` (`None 0, DeliveryPay 1`; 2–31 reserved for Mail); `src/PerformativeMail.Sim/Mail/MailSystem.cs` (`[SimSystem(SystemId.MailDestinations)]`, the single public constructor taking `EventLog` writer, `MailIds`, `IRngStreams` (mail-owned view), `ITickReader`, `IInventoryApi`, `IWalletGate`, `IWorldQuery`, `ContentSet`, `IStatSheet`, `SimCheckRing`, `SimCounters` and its `MailSettings` record); `src/PerformativeMail.Sim/Economy/StubWallet.cs`.
 - `IWorldQuery` is not on ADR-0003 §4's injectable list as written. ADR-0026 §1 says consumers receive it by constructor (ADR-0003), so treat it as an injectable service like `ContentSet`. If the composition reflection test rejects it, record that in the completion notes and raise it at `/architecture-review`; do not route around it with a locator.
 - `MailSystem` publishes `IMailApi` (ADR-0017 Key Interfaces). Methods not yet implemented (`ConsumeHand`, `ResolveThrownLanding`, `SetDeliveriesState`) arrive in stories 007–009. Until those stories land, they are no-ops guarded by `SimAssert.Fail("not yet implemented")` (Debug) and have no caller. The Sim never throws in a tick.
 - **Phase 8 `MailStep`:** iterates the feeder-credit array (length 0 at M-1a) and returns. Manifest batch firing hooks in later (stories 012–014). Count visited rows and buckets in `SimCounters` (`mailRowsVisited`, `mailBucketsVisited`) as test seams.
