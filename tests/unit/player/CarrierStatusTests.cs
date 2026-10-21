@@ -145,7 +145,11 @@ public class CarrierStatusTests
         Assert.Equal(kept, s.Body == BodyContext.Mounted);
     }
 
-    /// <summary>ToContextFlags: PanelOpen to Panel; Body Dead, Mounted, Build to the bit of that name; OnFoot to none.</summary>
+    /// <summary>
+    /// ToContextFlags: PanelOpen to Panel; Body Dead, Mounted, Build to the bit of that name; OnFoot to none. The Build and Dead rows
+    /// with PanelOpen are unreachable statuses (the panel opens on foot only, input-controls.md l.77 rule 5; building-system.md
+    /// l.115 B11); the raw Panel bit is kept as the more restrictive solver input.
+    /// </summary>
     [Theory]
     [Trait("Id", "PCM-P14-1")]
     [InlineData(BodyContext.OnFoot, false, CarrierContextFlags.None)]
@@ -167,16 +171,20 @@ public class CarrierStatusTests
         Assert.Equal(expected, actual);
     }
 
-    /// <summary>Router body is the status body; router holding is the cursor flag except Dead and Mounted, which are never holding.</summary>
+    /// <summary>
+    /// Router body is the status body; router holding is the cursor flag on foot only: Build, Mounted and Dead are never holding
+    /// (input-controls.md l.68 <c>holding ⇒ body OnFoot</c>, rule 6 auto-stow; building-system.md l.115 B11).
+    /// </summary>
     [Theory]
     [Trait("Id", "PCM-P14-1")]
     [InlineData(BodyContext.OnFoot, true, true)]
     [InlineData(BodyContext.OnFoot, false, false)]
-    [InlineData(BodyContext.Build, true, true)]
+    [InlineData(BodyContext.Build, true, false)]
+    [InlineData(BodyContext.Build, false, false)]
     [InlineData(BodyContext.Mounted, true, false)]
     [InlineData(BodyContext.Dead, true, false)]
     [InlineData(BodyContext.Dead, false, false)]
-    public void RouterMapping_DeadAndMountedAreNeverHolding(BodyContext body, bool cursor, bool expectedHolding)
+    public void RouterMapping_HoldingOnlyOnFoot(BodyContext body, bool cursor, bool expectedHolding)
     {
         // Arrange
         var s = new CarrierStatus { Life = LifeState.Alive, Body = body, CursorHolding = cursor };

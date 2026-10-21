@@ -8,13 +8,13 @@ namespace PerformativeMail.Sim.Players;
 /// <example><code>CellState c = VerbContextTable.Cell(ContextVerb.Jump, InputContext.Panel);   // Disabled</code></example>
 public enum InputContext : byte
 {
-    /// <summary>On foot (or in build mode), no panel, empty cursor (Grid Inventory).</summary>
+    /// <summary>On foot (or in build mode), no panel, empty cursor (Grid Inventory). Build always reads as World.</summary>
     World = 0,
 
-    /// <summary>The own panel is open (Grid Inventory).</summary>
+    /// <summary>The own panel is open (Grid Inventory); body OnFoot only (Input &amp; Controls R2 rule 5).</summary>
     Panel = 1,
 
-    /// <summary>An item is on the cursor with the panel closed (Grid Inventory).</summary>
+    /// <summary>An item is on the cursor with the panel closed (Grid Inventory); body OnFoot only (Input &amp; Controls R2 reachable states).</summary>
     Holding = 2,
 
     /// <summary>In a vehicle seat or on a turret (Player Character; M1).</summary>
@@ -39,11 +39,15 @@ public enum InputContext : byte
 /// </example>
 public static class InputContexts
 {
-    /// <summary>True when the own panel may open: never while Mounted or Dead (Input &amp; Controls R2 rule 5; PC GDD P14).</summary>
+    /// <summary>
+    /// True when the own panel may open: OnFoot only, never while Build, Mounted or Dead (Input &amp; Controls R2 rule 5 and the
+    /// reachable state <c>overlay Panel ⇒ body OnFoot</c>, H-R2-5 "Exit build first" / "Dismount first"; Building B11 "The panel
+    /// cannot open in Build"; PC GDD P14).
+    /// </summary>
     /// <param name="body">The body context.</param>
-    /// <returns>True for OnFoot and Build.</returns>
-    /// <example><code>bool ok = InputContexts.CanOpenPanel(BodyContext.Mounted);   // false</code></example>
-    public static bool CanOpenPanel(BodyContext body) => body is BodyContext.OnFoot or BodyContext.Build;
+    /// <returns>True for OnFoot only.</returns>
+    /// <example><code>bool ok = InputContexts.CanOpenPanel(BodyContext.Build);   // false</code></example>
+    public static bool CanOpenPanel(BodyContext body) => body == BodyContext.OnFoot;
 
     /// <summary>The router's <c>body</c> value for a status: the status's <see cref="CarrierStatus.Body"/> as is.</summary>
     /// <param name="status">The published carrier status.</param>
@@ -52,18 +56,20 @@ public static class InputContexts
     public static BodyContext RouterBody(in CarrierStatus status) => status.Body;
 
     /// <summary>
-    /// The router's <c>holding</c> value: the cursor is non-empty and the body is OnFoot or Build. Dead and Mounted are never
-    /// holding; this maps the router state only, the "auto-stow" of the cursor stays Grid Inventory's.
+    /// The router's <c>holding</c> value: the cursor is non-empty and the body is OnFoot (Input &amp; Controls R2 reachable state
+    /// <c>holding ⇒ body OnFoot</c>: mounting and entering Build first auto-stow, rule 6; Building B11). Build, Mounted and Dead
+    /// are never holding; this maps the router state only, the "auto-stow" of the cursor stays Grid Inventory's.
     /// </summary>
     /// <param name="status">The published carrier status.</param>
     /// <returns>True when the router is in a holding state.</returns>
     /// <example><code>bool holding = InputContexts.RouterHolding(in status);</code></example>
     public static bool RouterHolding(in CarrierStatus status) =>
-        status.CursorHolding && (status.Body is BodyContext.OnFoot or BodyContext.Build);
+        status.CursorHolding && status.Body == BodyContext.OnFoot;
 
     /// <summary>
-    /// The verb-table column for a status: Dead, then Mounted, then Panel (the panel open wins over a held cursor), then Holding,
-    /// else World. Build mode reads as World (P14: Build is World with only Deconstruct anchors focusable).
+    /// The verb-table column for a status: Dead, then Mounted, then Build (always World: P14, Build is World with only Deconstruct
+    /// anchors focusable; Panel and Holding are OnFoot only, Input &amp; Controls R2 rule 5 and rule 6, Building B11), then for
+    /// OnFoot Panel (the panel open wins over a held cursor), then Holding, else World.
     /// </summary>
     /// <param name="status">The published carrier status.</param>
     /// <returns>The input context.</returns>
@@ -76,6 +82,8 @@ public static class InputContexts
                 return InputContext.Dead;
             case BodyContext.Mounted:
                 return InputContext.Mounted;
+            case BodyContext.Build:
+                return InputContext.World;
             default:
                 if (status.PanelOpen)
                 {

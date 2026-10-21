@@ -1,3 +1,4 @@
+using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Sim.Tests.Unit.PlayerCharacter;
@@ -5,7 +6,8 @@ namespace PerformativeMail.Sim.Tests.Unit.PlayerCharacter;
 /// <summary>
 /// Player Character story 013, PCM-P14-1 and the Contexts AC: the verb x context table against an independently written copy of
 /// the GDD P14 table (design/gdd/player-character-movement.md P14), the '—' = Absent encoding, Respawn bound nowhere, the
-/// tap+hold rule, <see cref="InputContexts.CanOpenPanel"/> and Build = World.
+/// tap+hold rule, <see cref="InputContexts.CanOpenPanel"/> (OnFoot only), Build = World (never Panel or Holding) and
+/// BodyContext = ClientLayer.BodyLayer.
 /// </summary>
 public class InputContextTableTests
 {
@@ -215,14 +217,17 @@ public class InputContextTableTests
         Assert.Equal(VerbPress.None, VerbContextTable.Presses((ContextVerb)200));
     }
 
-    /// <summary>The Panel cannot open while Mounted or Dead.</summary>
+    /// <summary>
+    /// The Panel opens only on foot: never in Build, Mounted or Dead (input-controls.md l.68 <c>overlay Panel ⇒ body OnFoot</c>,
+    /// l.77 rule 5, l.753 H-R2-5; building-system.md l.115 B11 "The panel cannot open in Build").
+    /// </summary>
     [Theory]
     [Trait("Id", "PCM-P14-1")]
     [InlineData(BodyContext.OnFoot, true)]
-    [InlineData(BodyContext.Build, true)]
+    [InlineData(BodyContext.Build, false)]
     [InlineData(BodyContext.Mounted, false)]
     [InlineData(BodyContext.Dead, false)]
-    public void CanOpenPanel_FalseWhileMountedOrDead(BodyContext body, bool expected)
+    public void CanOpenPanel_OnlyOnFoot(BodyContext body, bool expected)
     {
         // Act
         bool actual = InputContexts.CanOpenPanel(body);
@@ -231,15 +236,19 @@ public class InputContextTableTests
         Assert.Equal(expected, actual);
     }
 
-    /// <summary>The status to table-column mapping; Build reads as World (Holding with a cursor item), Panel wins over Holding.</summary>
+    /// <summary>
+    /// The status to table-column mapping; Build always reads as World (never Panel or Holding), Panel wins over Holding on foot
+    /// (input-controls.md l.68 reachable states; l.77 rules 5 and 6; building-system.md l.115 B11).
+    /// </summary>
     [Theory]
     [Trait("Id", "PCM-P14-1")]
     [InlineData(BodyContext.OnFoot, false, false, InputContext.World)]
     [InlineData(BodyContext.Build, false, false, InputContext.World)]
     [InlineData(BodyContext.OnFoot, false, true, InputContext.Holding)]
-    [InlineData(BodyContext.Build, false, true, InputContext.Holding)]
+    [InlineData(BodyContext.Build, false, true, InputContext.World)]
     [InlineData(BodyContext.OnFoot, true, false, InputContext.Panel)]
     [InlineData(BodyContext.OnFoot, true, true, InputContext.Panel)]
+    [InlineData(BodyContext.Build, true, true, InputContext.World)]
     [InlineData(BodyContext.Mounted, false, true, InputContext.Mounted)]
     [InlineData(BodyContext.Dead, true, true, InputContext.Dead)]
     public void InputContextOf_MapsBodyPanelAndCursor(BodyContext body, bool panel, bool holding, InputContext expected)
@@ -252,5 +261,58 @@ public class InputContextTableTests
 
         // Assert
         Assert.Equal(expected, actual);
+    }
+
+    /// <summary>
+    /// Build refuses the Panel: input-controls.md l.77 rule 5 ("Panel cannot open while body is Build ...") and l.753 H-R2-5
+    /// ("Exit build first"); building-system.md l.115 B11 ("The panel cannot open in Build").
+    /// </summary>
+    [Fact]
+    [Trait("Id", "PCM-P14-1")]
+    public void Build_RefusesPanel()
+    {
+        // Act
+        bool canOpen = InputContexts.CanOpenPanel(BodyContext.Build);
+
+        // Assert
+        Assert.False(canOpen);
+    }
+
+    /// <summary>
+    /// Build with a cursor item is not Holding: the router reads not holding and the table column is World (input-controls.md l.68
+    /// <c>holding ⇒ body OnFoot</c>, entering Build first auto-stows, rule 6; building-system.md l.115 B11 "Entering while holding
+    /// auto-stows").
+    /// </summary>
+    [Fact]
+    [Trait("Id", "PCM-P14-1")]
+    public void Build_WithCursorItem_IsNotHolding_MapsToWorld()
+    {
+        // Arrange
+        var s = new CarrierStatus { Life = LifeState.Alive, Body = BodyContext.Build, CursorHolding = true };
+
+        // Act
+        bool routerHolding = InputContexts.RouterHolding(in s);
+        InputContext column = InputContexts.Of(in s);
+
+        // Assert
+        Assert.False(routerHolding);
+        Assert.Equal(InputContext.World, column);
+        Assert.True(s.CursorHolding); // the published field stays raw
+    }
+
+    /// <summary>
+    /// BodyContext and the router's ClientLayer.BodyLayer have the same values in the same numeric order (ADR-0012 section 2), so
+    /// the two enums cannot drift.
+    /// </summary>
+    [Fact]
+    [Trait("Id", "PCM-P14-1")]
+    public void BodyContext_MatchesBodyLayer_ValueForValue()
+    {
+        // Assert
+        Assert.Equal(Enum.GetValues<BodyLayer>().Length, Enum.GetValues<BodyContext>().Length);
+        Assert.Equal((byte)BodyLayer.OnFoot, (byte)BodyContext.OnFoot);
+        Assert.Equal((byte)BodyLayer.Build, (byte)BodyContext.Build);
+        Assert.Equal((byte)BodyLayer.Mounted, (byte)BodyContext.Mounted);
+        Assert.Equal((byte)BodyLayer.Dead, (byte)BodyContext.Dead);
     }
 }

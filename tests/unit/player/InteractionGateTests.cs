@@ -136,25 +136,32 @@ public class InteractionGateTests
         Assert.Equal(GateResult.NoCandidate, r);
     }
 
-    /// <summary>Build: only BuildModeOnly anchors are candidates; a non-Build anchor is filtered before Panel and swim.</summary>
+    /// <summary>
+    /// Build: only BuildModeOnly anchors are candidates; a non-Build anchor is filtered before Panel and swim; a BuildModeOnly anchor
+    /// then reaches swim (dry_land). The Build + panel-open row is an unreachable status (the panel opens on foot only,
+    /// building-system.md l.115 B11) kept to pin the defensive Panel filter.
+    /// </summary>
     [Theory]
     [Trait("Id", "PCM-P11-2d")]
-    [InlineData(Verb.Deconstruct, AnchorFlags.BuildModeOnly, false, false, GateKind.Ok)]
-    [InlineData(Verb.Deliver, AnchorFlags.None, false, false, GateKind.NoCandidate)]
-    [InlineData(Verb.Open, AnchorFlags.AllowWhileSwimming, false, true, GateKind.NoCandidate)]
-    [InlineData(Verb.Deliver, AnchorFlags.None, true, false, GateKind.NoCandidate)]
-    [InlineData(Verb.Deconstruct, AnchorFlags.BuildModeOnly, true, false, GateKind.Unavailable)]
-    public void Build_OnlyBuildModeOnlyAnchors(Verb verb, AnchorFlags flags, bool panel, bool swimming, GateKind expected)
+    [InlineData(Verb.Deconstruct, AnchorFlags.BuildModeOnly, false, false, GateKind.Ok, 0)]
+    [InlineData(Verb.Deliver, AnchorFlags.None, false, false, GateKind.NoCandidate, 0)]
+    [InlineData(Verb.Open, AnchorFlags.AllowWhileSwimming, false, true, GateKind.NoCandidate, 0)]
+    [InlineData(Verb.Deliver, AnchorFlags.None, true, false, GateKind.NoCandidate, 0)]
+    [InlineData(Verb.Deconstruct, AnchorFlags.BuildModeOnly, true, false, GateKind.Unavailable, 2)]
+    [InlineData(Verb.Deconstruct, AnchorFlags.BuildModeOnly, false, true, GateKind.Unavailable, 1)]
+    public void Build_OnlyBuildModeOnlyAnchors(Verb verb, AnchorFlags flags, bool panel, bool swimming, GateKind expected, int reason)
     {
         // Arrange
         AnchorDef a = Anchor(verb, flags);
         CarrierStatus s = Status(BodyContext.Build, panel, swimming);
+        StringId expectedReason = reason switch { 1 => DryLandId, 2 => ClosePanelId, _ => StringId.None };
 
         // Act
         GateResult r = Gate().Evaluate(in a, in s);
 
         // Assert
         Assert.Equal(expected, r.Kind);
+        Assert.Equal(expectedReason, r.Reason);
     }
 
     /// <summary>Panel open: every focused anchor (Deliver included, AllowWhileSwimming included) is Unavailable(close_panel).</summary>
@@ -207,6 +214,22 @@ public class InteractionGateTests
 
         // Assert
         Assert.Equal(GateResult.Unavailable(ClosePanelId), r);
+    }
+
+    /// <summary>Mounted own-seat Dismount while swimming, without AllowWhileSwimming: Mounted passes, then swim gives dry_land.</summary>
+    [Fact]
+    [Trait("Id", "PCM-P11-2d")]
+    public void Mounted_OwnSeat_ThenSwimming_IsDryLand()
+    {
+        // Arrange
+        AnchorDef a = Anchor(Verb.Dismount, AnchorFlags.SeatOf, _ownSeat);
+        CarrierStatus s = Status(BodyContext.Mounted, swimming: true, seat: _ownSeat);
+
+        // Act
+        GateResult r = Gate().Evaluate(in a, in s);
+
+        // Assert
+        Assert.Equal(GateResult.Unavailable(DryLandId), r);
     }
 
     // ---------------------------------------------------------------- PCM-P6-2a/b/c
@@ -459,6 +482,35 @@ public class InteractionGateTests
 
         // Assert
         Assert.Equal(CancelReason.None, r);
+    }
+
+    /// <summary>
+    /// Simultaneous changes on one tick resolve in the documented order Knockdown, Dead, Mounted, Panel, Swim: each row combines
+    /// one change with every lower-ranked change that can occur beside it.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "PCM-P12-1")]
+    [InlineData("knocked down while the panel opens and swim starts", CancelReason.Knockdown)]
+    [InlineData("frozen while the panel opens and swim starts", CancelReason.Dead)]
+    [InlineData("mounts while the panel opens and swim starts", CancelReason.Mounted)]
+    [InlineData("panel opens as swim starts", CancelReason.Panel)]
+    public void SimultaneousChanges_FollowTheDocumentedPrecedence(string change, CancelReason expected)
+    {
+        // Arrange
+        CarrierStatus before = Status();
+        CarrierStatus after = change switch
+        {
+            "knocked down while the panel opens and swim starts" => Status(BodyContext.Dead, panel: true, swimming: true, life: LifeState.Dead),
+            "frozen while the panel opens and swim starts" => Status(BodyContext.Dead, panel: true, swimming: true, life: LifeState.Frozen),
+            "mounts while the panel opens and swim starts" => Status(BodyContext.Mounted, panel: true, swimming: true, seat: _ownSeat),
+            _ => Status(panel: true, swimming: true),
+        };
+
+        // Act
+        CancelReason r = InteractionGate.ContextCancelReason(in before, in after);
+
+        // Assert
+        Assert.Equal(expected, r);
     }
 
     /// <summary>CancelReason is a byte with the six story-013 values pinned (append-only).</summary>

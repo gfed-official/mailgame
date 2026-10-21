@@ -1,6 +1,6 @@
 # Epics Index
 
-Last Updated: 2026-10-21 (counts from the story headers: 88 Complete, 1 In Progress (content-data 018), 6 Blocked; player-character 013 back to Ready, PR #12)
+Last Updated: 2026-10-21 (counts from the story headers: 92 Complete, 1 In Progress (content-data 018), 6 Blocked, 108 Ready (207 stories); player-character 013 Complete, PR #13)
 Engine: Godot 4.7.1 pinned (the box has Godot 4.7.2 mono at `~/.local/bin/godot` — see HANDOFF.md), C# (.NET 8 Sim / net10.0 tests)
 Scope: M-1a slice (solo greybox: delivery + throwing)
 
@@ -14,7 +14,7 @@ Scope: M-1a slice (solo greybox: delivery + throwing)
 | [world-stub](world-stub/EPIC.md) | Core | World Generation — M-1a hand-authored street stub (`IWorldQuery`) | none (consumer GDDs + architecture.md Sim.World) | 7 stories (7 Complete) | Complete (Provisional — no GDD; ADR-0026 Accepted) |
 | [network-adapter-loopback](network-adapter-loopback/EPIC.md) | Core | Network adapter core — loopback (Networking & Session seam) | design/gdd/simulation-core.md §Network (no Networking GDD) | 9 stories (7 Complete, 2 Ready) | Ready |
 | [mail-destinations](mail-destinations/EPIC.md) | Feature | Mail & Destinations (M-1a slice) | design/gdd/mail-destinations.md | 16 stories (6 Complete, 10 Ready) | Ready |
-| [player-character](player-character/EPIC.md) | Feature | Player Character & Movement (M-1a slice) | design/gdd/player-character-movement.md | 27 stories (11 Complete, 16 Ready) | Ready |
+| [player-character](player-character/EPIC.md) | Feature | Player Character & Movement (M-1a slice) | design/gdd/player-character-movement.md | 27 stories (12 Complete, 15 Ready) | Ready |
 | [manual-delivery](manual-delivery/EPIC.md) | Feature | Manual Delivery | design/gdd/manual-delivery.md | 11 stories (9 Ready, 2 Blocked) | Ready |
 | [throwing-catching](throwing-catching/EPIC.md) | Feature | Throwing & Catching (M-1a slice + Sim-side catch pull-forward) | design/gdd/throwing-catching.md | 24 stories (22 Ready, 2 Blocked) | Ready |
 

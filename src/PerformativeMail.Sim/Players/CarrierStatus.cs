@@ -24,7 +24,7 @@ public readonly struct CarrierStatus
     /// <summary>True when the carrier's locomotion mode is <see cref="LocoState.Swimming"/> (PC P6).</summary>
     public bool Swimming { get; init; }
 
-    /// <summary>True when the inventory cursor holds an item (raw; the router reads <see cref="InputContexts.RouterHolding"/>).</summary>
+    /// <summary>True when the inventory cursor holds an item (raw; the router reads <see cref="InputContexts.RouterHolding"/>, OnFoot only).</summary>
     public bool CursorHolding { get; init; }
 
     /// <summary>True when the own panel is open: the one source of the Panel flag (its channel is story 020's decision).</summary>
@@ -80,10 +80,12 @@ public readonly struct CarrierStatus
 
     /// <summary>
     /// The solver's context bits (ADR-0013 section 1; the enum is owned by <see cref="CarrierInput"/>): PanelOpen to Panel, and
-    /// Body Dead, Mounted or Build to the bit of the same name.
+    /// Body Dead, Mounted or Build to the bit of the same name. <see cref="PanelOpen"/> is echoed raw: the panel cannot open outside
+    /// OnFoot (<see cref="InputContexts.CanOpenPanel"/>), so a Panel bit beside Build, Mounted or Dead only comes from an
+    /// inconsistent status and is kept as the more restrictive input.
     /// </summary>
     /// <returns>The flags.</returns>
-    /// <example><code>CarrierContextFlags f = status.ToContextFlags();   // Panel | Build for an open panel in build mode</code></example>
+    /// <example><code>CarrierContextFlags f = status.ToContextFlags();   // Panel for an open panel on foot; Build in build mode</code></example>
     public CarrierContextFlags ToContextFlags()
     {
         CarrierContextFlags f = PanelOpen ? CarrierContextFlags.Panel : CarrierContextFlags.None;
