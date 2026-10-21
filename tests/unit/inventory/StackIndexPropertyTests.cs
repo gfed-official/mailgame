@@ -16,8 +16,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <item>after every call the StackKey index equals a brute-force row-major scan of the non-full stacks (<c>count &lt; effMax</c>), per
 /// container and key, and has no other heads or links;</item>
 /// <item>every AutoPlace plan equals a brute-force oracle (cell-scan stacks for PASS M, cell-owner first fit for PASS U / R), PASS M
-/// visits at most the summed list lengths of the admitted targets, and PASS U / R count exactly one probe per anchor scanned (every
-/// no-fit scan's anchors plus the found anchor's index);</item>
+/// visits at most the summed list lengths of the admitted targets, and PASS U / R count exactly one probe per footprint cell of each
+/// anchor scanned (every no-fit scan's anchors plus the found anchor's index, times the footprint area; one per slot);</item>
 /// <item>the same sequence with the negative-fit cache disabled gives identical plans, replies and state.</item>
 /// </list>
 /// The generator is a fixed xorshift (no <c>System.Random</c>), so a failure reproduces from its seed and call number.
@@ -625,7 +625,10 @@ public class StackIndexPropertyTests
             return new OraclePlan(moved == 0 ? (ushort)InvReason.NoRoom : (ushort)0, string.Join(",", merges), placement, remaining, visits);
         }
 
-        /// <summary>The anchors the plan's scans tested: every no-fit scan's anchors, plus the found anchor's index in its scan.</summary>
+        /// <summary>
+        /// The cells the plan's scans examined: every no-fit scan's anchors and the found anchor's index in its scan, each anchor
+        /// times its footprint area (a slot is one cell).
+        /// </summary>
         private long ExpectedProbes(in AutoPlacePlan plan)
         {
             long probes = 0;
@@ -641,7 +644,7 @@ public class StackIndexPropertyTests
 
                 int fw = f.Rotated ? f.H : f.W;
                 int fh = f.Rotated ? f.W : f.H;
-                probes += Math.Max(0, h.W - fw + 1) * Math.Max(0, h.H - fh + 1);
+                probes += Math.Max(0, h.W - fw + 1) * Math.Max(0, h.H - fh + 1) * fw * fh;
             }
 
             InvPlacement p = plan.Placement;
@@ -656,7 +659,7 @@ public class StackIndexPropertyTests
                 {
                     PlacementSubject s = Rig.Handler.Subject;
                     int fw = p.Rotated ? s.H : s.W;
-                    probes += (p.Y * (h.W - fw + 1)) + p.X + 1;
+                    probes += ((p.Y * (h.W - fw + 1)) + p.X + 1) * s.W * s.H;
                 }
             }
 
