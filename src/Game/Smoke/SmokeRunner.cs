@@ -35,6 +35,8 @@ public partial class SmokeRunner : Node
     /// </summary>
     public override void _Ready()
     {
+        // Explicit, not inherited: the watchdog must keep running while a scenario pauses the SceneTree.
+        ProcessMode = ProcessModeEnum.Always;
         SetProcess(false);
         _clock.Start();
         try

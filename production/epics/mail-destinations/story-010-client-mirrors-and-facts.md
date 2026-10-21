@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~250 lines prod + ~250 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-20 (docs: AC-1 namespace `PerformativeMail.Sim.MailDestinations` per the ADR-0017 erratum 2026-10-20; stamp unchanged — a text-only manifest erratum)
 
 ## Context
 
@@ -33,7 +33,7 @@
 
 *From ADR-0016 §1/§3 and GDD R5/R17, scoped to this story:*
 
-- [ ] **AC-1 Mirrors.** Fed a recorded stream of `DeliveriesState` and `WalletChanged` entries through `MirrorDrain`, `DestinationMirror` reports, per destination ordinal, the same OPEN/CLOSED/LOCKED as the host's `TryGetDestinationFacts` at the same ticks (story 009's stub cycle). `WalletMirror` reports the last `WalletChanged.balance`. `RunMirror` reports phase, `deadlineTick` and `closeTick`. None of these types references `SimWorld` or any `Sim.Mail` host table (reflection check).
+- [ ] **AC-1 Mirrors.** Fed a recorded stream of `DeliveriesState` and `WalletChanged` entries through `MirrorDrain`, `DestinationMirror` reports, per destination ordinal, the same OPEN/CLOSED/LOCKED as the host's `TryGetDestinationFacts` at the same ticks (story 009's stub cycle). `WalletMirror` reports the last `WalletChanged.balance`. `RunMirror` reports phase, `deadlineTick` and `closeTick`. None of these types references `SimWorld` or any `Sim.Mail` host table (namespace `PerformativeMail.Sim.MailDestinations`; reflection check).
 - [ ] **AC-2 Facts parity.** For a fixture of every (destination state incl. CLOSED-within-grace and LOCKED) × (unit category, kind, own/other address) pair, the client facts constructor (from mirrors + the `IPanelView` entry's kind/address/hint runs) and the host facts constructor (from the registry + mail table) produce equal `DestinationFacts`/`UnitFacts`, and `MailRules.Evaluate` returns equal results.
 - [ ] **AC-3 Display only.** With the mirrors at a stale wallet (one event behind), the client's `HintPayout` and `WalletGuard` preview may differ from the host's outcome, but no client code path can change the authoritative outcome. A test asserts that the client facts path has no reference to `IWalletGate` or to `MailConsumer`.
 

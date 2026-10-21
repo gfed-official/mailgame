@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~250 lines prod + ~250 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-21 (citation fix: `SystemId.Mail` does not exist; the system is `SystemId.MailDestinations`, `Core/SystemId.cs`)
+> **Last Updated**: 2026-10-21 (citation fix: `SystemId.Mail` does not exist; the system is `SystemId.MailDestinations`, `Core/SystemId.cs`); earlier: 2026-10-20 (docs: namespace `PerformativeMail.Sim.MailDestinations` per the ADR-0017 erratum 2026-10-20; stamp unchanged — a text-only manifest erratum)
 
 ## Context
 
@@ -15,7 +15,7 @@
 *(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
 **ADR Governing Implementation**: ADR-0017: Mail Table, Destination Registry and Wallet Port (primary, §7, §8); ADR-0003 (system shape, composition, phase 8 `MailStep`); ADR-0008 (`WalletChanged` Replicated ≤ 24 B)
-**ADR Decision Summary**: Mail owns `IWalletGate { bool TryDebitPenalty(Cents amount, Cents floor); void Credit(Cents amount, CreditReason reason); }` in `Sim.Mail.Ports`. Both apply immediately, synchronously in the caller's phase, one call per unit; Mail never reads the balance. Economy implements it, is constructed before Mail and is injected by the composition root (`SystemGraph`: Mail → `IWalletGate`). At M-1a, `StubWallet` (`Sim/Economy/StubWallet.cs`) holds a `Cents` balance starting at `SimSettings.startingWalletCents`, implements `IWalletGate` and `ISimStateContributor`, raises `WalletChanged{balance, delta, reason}` (Replicated, ≤ 24 B) and binds no phase. `Sim.Mail` never references `Sim.Economy` (arch test). `Mail.Step` (phase 8) updates feeder credits each tick and touches nothing else when idle (0 feeders at M-1a).
+**ADR Decision Summary**: Mail owns `IWalletGate { bool TryDebitPenalty(Cents amount, Cents floor); void Credit(Cents amount, CreditReason reason); }` in `Sim.Mail.Ports` (namespace `PerformativeMail.Sim.MailDestinations.Ports`, ADR-0017 erratum 2026-10-20). Both apply immediately, synchronously in the caller's phase, one call per unit; Mail never reads the balance. Economy implements it, is constructed before Mail and is injected by the composition root (`SystemGraph`: Mail → `IWalletGate`). At M-1a, `StubWallet` (`Sim/Economy/StubWallet.cs`) holds a `Cents` balance starting at `SimSettings.startingWalletCents`, implements `IWalletGate` and `ISimStateContributor`, raises `WalletChanged{balance, delta, reason}` (Replicated, ≤ 24 B) and binds no phase. `Sim.Mail` never references `Sim.Economy` (arch test). `Mail.Step` (phase 8) updates feeder credits each tick and touches nothing else when idle (0 feeders at M-1a).
 **ADR Version**: ADR-0017 2026-10-16; ADR-0003 2026-10-16; ADR-0008 2026-10-16
 
 **Engine**: Godot 4.7.1 (.NET) — no Godot API used | **Risk**: LOW
@@ -35,9 +35,9 @@
 *From GDD `design/gdd/mail-destinations.md` and ADR-0017 §8 Validation, scoped to this story:*
 
 - [ ] **AC-1 Port semantics (M-R7-2c, FX-W).** `StubWallet` at 0 with floor −500: `TryDebitPenalty(4)` → true, balance −4. At −496, `TryDebitPenalty(4)` → true (−500). At −500, `TryDebitPenalty(1)` → false and the balance is unchanged. `Credit(9, DeliveryPay)` adds 9. Each applied call raises exactly one `WalletChanged{balance, delta, reason}`; a refused debit raises none.
-- [ ] **AC-2 (M-R7-2d) Arch test.** A reflection test over the Sim assembly finds no type in namespace `PerformativeMail.Sim.Mail*` that references any type in `PerformativeMail.Sim.Economy*` (fields, parameters, base types, attributes, method bodies via IL type references).
+- [ ] **AC-2 (M-R7-2d) Arch test.** A reflection test over the Sim assembly finds no type in namespace `PerformativeMail.Sim.MailDestinations*` (folder `Sim/Mail/`; ADR-0017 erratum 2026-10-20 — keyed on the real namespace so the test cannot pass vacuously) that references any type in `PerformativeMail.Sim.Economy*` (fields, parameters, base types, attributes, method bodies via IL type references).
 - [ ] **AC-3 Composition.** The M-1a composition profile constructs `StubWallet` before `Mail`, injects it as `IWalletGate` and builds the destination registry (story 002) from the injected `IWorldQuery` while `Constructed`. The composition reflection test (`production/epics/simulation-core/story-025-composition-root-reflection-test.md`) passes with Mail and Economy-stub bound. Dumps include the `Mail` and `Wallet` sections.
-- [ ] **AC-4 (M-PERF-1c, M-E-1) Idle and pause.** With 10 destinations and 0 feeders, 300 idle ticks visit 0 mail rows and 0 buckets (counters), allocate 0 B and leave the `Mail` dump section unchanged. The Sim assembly references no `DateTime`, `Stopwatch` or `Environment.TickCount` (covered by the analyzer; asserted here for `Sim.Mail` and `Sim.Economy`). With zero ticks run, bucket state is unchanged (pause).
+- [ ] **AC-4 (M-PERF-1c, M-E-1) Idle and pause.** With 10 destinations and 0 feeders, 300 idle ticks visit 0 mail rows and 0 buckets (counters), allocate 0 B and leave the `Mail` dump section unchanged. The Sim assembly references no `DateTime`, `Stopwatch` or `Environment.TickCount` (covered by the analyzer; asserted here for `Sim.Mail` — namespace `PerformativeMail.Sim.MailDestinations` — and `Sim.Economy`). With zero ticks run, bucket state is unchanged (pause).
 
 ---
 
