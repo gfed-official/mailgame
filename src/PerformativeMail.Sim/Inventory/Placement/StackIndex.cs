@@ -12,11 +12,11 @@ namespace PerformativeMail.Sim.Inventory.Placement;
 /// live entry, so it never fills), linear probing and backward-shift deletion; it is never enumerated. The links are two <c>ushort</c>
 /// arrays parallel to the <see cref="EntryPool"/> (so <see cref="EntryRecord"/> keeps its 32 B).
 /// <para>
-/// Maintained only by <see cref="InventoryMutator"/> (insert, remove, count change, move; <see cref="InventoryMutator.RebuildIndex"/>
-/// when a container's <c>statEpoch</c> bumps). A derived memo: never in the canonical dump, rebuilt from the entries on load, and it
-/// never changes a result (PASS M re-checks <c>count &lt; effMax</c> at op time). Insertion is O(list length) (lists are 1–3 long
-/// typically), removal and lookup O(1) amortised. Allocates nothing after construction; never throws on the tick path. Not
-/// thread-safe: Sim tick thread only.
+/// Maintained only by <see cref="InventoryMutator"/> (insert, remove, count change, move; <see cref="InventoryMutator.RebuildIndex"/>,
+/// through <see cref="ClearContainer"/> then <see cref="Link"/>, when a container's <c>statEpoch</c> bumps). A derived memo: never in
+/// the canonical dump, rebuilt from the entries on load, and it never changes a result (PASS M re-checks <c>count &lt; effMax</c> at
+/// op time). Insertion is O(list length) (lists are 1–3 long typically), removal and lookup O(1) amortised. Allocates nothing after
+/// construction; never throws on the tick path. Not thread-safe: Sim tick thread only.
 /// </para>
 /// </summary>
 /// <example>
@@ -199,6 +199,22 @@ internal sealed class StackIndex
         _prev[entrySlot] = None;
         _linked[entrySlot] = false;
         _linkedCount--;
+    }
+
+    /// <summary>
+    /// Unlinks every linked entry whose <c>ContainerSlot</c> is <paramref name="containerSlot"/>, whatever its cells now hold (the first
+    /// step of <see cref="InventoryMutator.RebuildIndex"/>). O(entry pool); allocation-free.
+    /// </summary>
+    /// <param name="containerSlot">The container's table slot.</param>
+    public void ClearContainer(ushort containerSlot)
+    {
+        for (int s = 0; s < _linked.Length && _linkedCount > 0; s++)
+        {
+            if (_linked[s] && _entries[(ushort)s].ContainerSlot == containerSlot)
+            {
+                Unlink((ushort)s);
+            }
+        }
     }
 
     private static int RowMajor(byte x, byte y) => (y << 8) | x;

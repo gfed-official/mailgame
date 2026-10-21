@@ -1089,6 +1089,150 @@ public class AutoPlaceTests
         Assert.Equal(69, SimAssertCode.InventoryMergeInvalid);
     }
 
+    [Fact]
+    public void MergeInto_PastTheTargetsEffMax_IsInvalid_AssertsUnderInventoryAssert_OrChangesNothingInRelease()
+    {
+        // Arrange: a 19-letter target (effMax 20) and a 3-letter source of the same key; 2 units would make 21
+        var rig = new InvAutoPlaceRig();
+        ushort target = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 19));
+        ushort source = rig.PlaceMail(rig.InventoryA, "letter", 1, 0, Address2, new uint[] { 50, 51, 52 });
+        Assert.Equal(20, rig.SubjectOf(target).EffMax);
+        var plan = new InvPlan();
+        _ = plan.Touch(rig.InventoryA);
+
+        // Act + Assert (between ticks: the assert fires before anything is changed or raised)
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException thrown = Assert.Throws<SimAssertException>(() => rig.Inventory.Mutator.MergeInto(ref plan, source, target, 2));
+            Assert.Equal(SimAssertCode.InventoryMergeInvalid, thrown.Code);
+        }
+        else
+        {
+            rig.Inventory.Mutator.MergeInto(ref plan, source, target, 2);
+        }
+
+        Assert.Equal(19, rig.Entries[target].Count);
+        Assert.Equal(3, rig.Entries[source].Count);
+        Assert.Equal(InvAutoPlaceRig.Ids(1, 19), rig.IdsOf(target));
+        Assert.Equal(new uint[] { 50, 51, 52 }, rig.IdsOf(source));
+        Assert.Equal(0, plan.MutatedCount);
+    }
+
+    [Fact]
+    public void MergeInto_UpToTheTargetsEffMax_IsValid()
+    {
+        // Arrange: the same 19-letter target; exactly 1 unit fills it to effMax 20
+        var rig = new InvAutoPlaceRig();
+        ushort target = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 19));
+        ushort source = rig.PlaceMail(rig.InventoryA, "letter", 1, 0, Address2, new uint[] { 50, 51, 52 });
+
+        // Act
+        Reply reply = rig.Step(
+            (ref InvPlan p) => p.Touch(rig.InventoryA) < 0 ? CoreReason.BadRequest : (ushort)0,
+            (ref InvPlan p) => rig.Inventory.Mutator.MergeInto(ref p, source, target, 1));
+
+        // Assert
+        Assert.True(reply.IsOk);
+        Assert.Equal(20, rig.Entries[target].Count);
+        Assert.Equal(new uint[] { 51, 52 }, rig.IdsOf(source));
+        Assert.False(rig.Index.Contains(target));
+    }
+
+    // ---------------------------------------------------------------- count above effMax (after a MailMaxStack drop)
+
+    [Fact]
+    public void CountAboveEffMax_AWholeCountSourceWithMergeRoom_PlansOnlyTheMerges_TheRestStaysOnTheSource_Ok()
+    {
+        // Arrange: a 25-letter chest stack (above effMax 20, as after a MailMaxStack drop; never indexed); a 17-stack has room 3
+        var rig = new InvAutoPlaceRig();
+        ushort chest = rig.CreateGrid(8, 4);
+        ushort source = rig.PlaceMail(chest, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 25));
+        ushort target = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(100, 17));
+        Assert.Equal(20, rig.SubjectOf(source).EffMax);
+        Assert.False(rig.Index.Contains(source));
+
+        // Act
+        ushort reason = rig.AutoPlace(source, rig.InventoryA);
+
+        // Assert: 3 merged, no free-cell placement of a 22 > effMax remainder; the source keeps it in place
+        Assert.Equal(0, reason);
+        Assert.Equal(1, rig.LastPlan.MergeCount);
+        Assert.Equal(3, rig.LastPlan.MergedUnits);
+        Assert.False(rig.LastPlan.Placement.IsSet);
+        Assert.Equal(22, rig.LastPlan.Unplaced);
+        Assert.Equal(20, rig.Entries[target].Count);
+        Assert.Equal(22, rig.Entries[source].Count);
+        Assert.Equal(chest, rig.Entries[source].ContainerSlot);
+        Assert.Equal(InvAutoPlaceRig.Ids(4, 22), rig.IdsOf(source));
+    }
+
+    [Fact]
+    public void CountAboveEffMax_AWholeCountSourceWithNoMergeRoom_IsNoRoom_EvenWithFreeCells_NothingChanges()
+    {
+        // Arrange: the 25-letter source and an empty inventory (free cells, nothing to merge into)
+        var rig = new InvAutoPlaceRig();
+        ushort chest = rig.CreateGrid(8, 4);
+        ushort source = rig.PlaceMail(chest, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 25));
+        uint chestVersion = rig.Header(chest).Version;
+        uint invVersion = rig.Header(rig.InventoryA).Version;
+
+        // Act
+        ushort reason = rig.AutoPlace(source, rig.InventoryA);
+
+        // Assert
+        Assert.Equal((ushort)InvReason.NoRoom, reason);
+        Assert.Equal(0, rig.LastPlan.MergeCount);
+        Assert.False(rig.LastPlan.Placement.IsSet);
+        Assert.Equal(25, rig.LastPlan.Unplaced);
+        Assert.Equal(25, rig.Entries[source].Count);
+        Assert.Equal(chest, rig.Entries[source].ContainerSlot);
+        Assert.Equal(chestVersion, rig.Header(chest).Version);
+        Assert.Equal(invVersion, rig.Header(rig.InventoryA).Version);
+    }
+
+    [Fact]
+    public void CountAboveEffMax_MergesThatBringTheRemainderToEffMax_ThenMoveTheSourceEntryItself()
+    {
+        // Arrange: the 25-letter source; a 15-stack has room 5, leaving 20 (= effMax) for the free-cell placement
+        var rig = new InvAutoPlaceRig();
+        ushort chest = rig.CreateGrid(8, 4);
+        ushort source = rig.PlaceMail(chest, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 25));
+        _ = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(100, 15));
+
+        // Act
+        ushort reason = rig.AutoPlace(source, rig.InventoryA);
+
+        // Assert
+        Assert.Equal(0, reason);
+        Assert.Equal(5, rig.LastPlan.MergedUnits);
+        Assert.True(rig.LastPlan.Placement.IsSet);
+        Assert.Equal(20, rig.LastPlan.PlacementUnits);
+        Assert.Equal(0, rig.LastPlan.Unplaced);
+        Assert.Equal(rig.InventoryA, rig.Entries[source].ContainerSlot);
+        Assert.Equal(20, rig.Entries[source].Count);
+    }
+
+    [Fact]
+    public void CountAboveEffMax_ANoSourceSpawnOfMoreThanEffMax_PlansOneEffMaxEntry_AndReportsTheRestUnplaced()
+    {
+        // Arrange: 30 letters to #2 spawned (no source entry) into an empty inventory; effMax 20
+        var rig = new InvAutoPlaceRig();
+        PlacementSubject letter = rig.Mail("letter", Address2);
+        Assert.Equal(20, letter.EffMax);
+        var plan = new InvPlan();
+
+        // Act
+        ushort reason = rig.Inventory.AutoPlace.Plan(
+            ref plan, in letter, 30, AutoPlace.NoSource, new[] { rig.InventoryA }, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+
+        // Assert
+        Assert.Equal(0, reason);
+        Assert.Equal(0, ap.MergeCount);
+        Assert.True(ap.Placement.IsSet);
+        Assert.Equal(20, ap.PlacementUnits);
+        Assert.Equal(10, ap.Unplaced);
+    }
+
     // ---------------------------------------------------------------- index hooks
 
     [Fact]
@@ -1121,6 +1265,26 @@ public class AutoPlaceTests
         rig.Inventory.Mutator.RebuildIndex(rig.InventoryA);
         Assert.Equal(new[] { b, a }, ListOf(rig, rig.InventoryA, key));
         Assert.Equal(1, rig.Index.HeadCount);
+    }
+
+    [Fact]
+    public void RebuildIndex_UnlinksAStaleLinkWhoseCellsWereClearedOutsideTheMutator()
+    {
+        // Arrange: two linked letter stacks; b's cell is cleared directly (no mutator), so its link survives with no cell behind it
+        var rig = new InvAutoPlaceRig();
+        StackKey key = rig.Mail("letter", Address2).Key;
+        ushort a = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, new uint[] { 1 });
+        ushort b = rig.PlaceMail(rig.InventoryA, "letter", 3, 1, Address2, new uint[] { 2 });
+        rig.Inventory.Occupancy.Clear(rig.InventoryA, 8, 2, 3, 1, 1, 1);
+        Assert.True(rig.Index.Contains(b));
+
+        // Act
+        rig.Inventory.Mutator.RebuildIndex(rig.InventoryA);
+
+        // Assert
+        Assert.False(rig.Index.Contains(b));
+        Assert.Equal(new[] { a }, ListOf(rig, rig.InventoryA, key));
+        Assert.Equal(1, rig.Index.LinkedCount);
     }
 
     // ---------------------------------------------------------------- helpers

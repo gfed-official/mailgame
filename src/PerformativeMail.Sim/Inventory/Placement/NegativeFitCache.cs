@@ -151,6 +151,7 @@ internal sealed class NegativeFitCache
     /// <param name="containerSlot">The container's table slot.</param>
     public void Clear(ushort containerSlot)
     {
+        // _epochs/_rows stay: with every way empty a stale pair can only make IsNoFit miss, and RecordNoFit rewrites them on mismatch.
         Array.Clear(_shapes, containerSlot * _ways, _ways);
         Array.Clear(_versions, containerSlot * _ways, _ways);
     }

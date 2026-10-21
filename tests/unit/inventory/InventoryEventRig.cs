@@ -232,7 +232,17 @@ internal sealed class InvFixtureTransferHandler : IOpHandler
         ref readonly ContainerHeader h = ref containers[to];
         bool rotated = p.Rotated != 0;
         Footprint.Canonicalise(e.W, e.H, ref rotated);
-        Footprint.Effective(e.W, e.H, rotated, out int fw, out int fh);
+        int fw = 1;
+        int fh = 1;
+        if (h.Layout == ContainerLayout.Slots)
+        {
+            rotated = false; // a slots layout holds every entry as 1 x 1 unrotated (the mutator and PlacementRules agree)
+        }
+        else
+        {
+            Footprint.Effective(e.W, e.H, rotated, out fw, out fh);
+        }
+
         if (p.X < 0 || p.Y < 0 || p.X + fw > h.W || p.Y + fh > h.H)
         {
             return (ushort)InvReason.OutOfBounds;
@@ -604,11 +614,13 @@ internal sealed class InventoryWithActionOp : ISimSystem
 internal sealed class InvAutoPlaceRig
 {
     private readonly InventoryWithActionOp _system;
+    private readonly GatedSink _gate;
     private uint _reqId = 100;
 
     public InvAutoPlaceRig()
     {
         Sink = new CaptureSink();
+        _gate = new GatedSink(Sink);
         var handler = new InvFixtureActionHandler();
         var profile = SimProfile.ForTest(
             "inventory-autoplace",
@@ -616,7 +628,7 @@ internal sealed class InvAutoPlaceRig
             new SimSystemEntry(
                 SystemId.GridInventory,
                 ctx => new InventoryWithActionOp(new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events), handler)));
-        Host = SimComposition.Build(new SimBuildArgs(profile, BuiltInContent.CreateM1a(), 42) { EventSink = Sink });
+        Host = SimComposition.Build(new SimBuildArgs(profile, BuiltInContent.CreateM1a(), 42) { EventSink = _gate });
         _system = (InventoryWithActionOp)Host.Systems.Single();
         var join = new Op { Kind = OpKind.PlayerJoin, ReqId = 1 };
         join.SetPayload(new PlayerJoinPayload { Slot = 0 });
@@ -631,6 +643,13 @@ internal sealed class InvAutoPlaceRig
     public SimHost Host { get; }
 
     public CaptureSink Sink { get; }
+
+    /// <summary>False stops the copy of each tick's log into <see cref="Sink"/> (which allocates), for the 0 B windows; true by default.</summary>
+    public bool CaptureEvents
+    {
+        get => _gate.Enabled;
+        set => _gate.Enabled = value;
+    }
 
     public InventorySystem Inventory => _system.Inner;
 
@@ -804,11 +823,17 @@ internal sealed class InvAutoPlaceRig
     /// <summary>Enqueues the fixture op for player A, ticks once and returns that tick's log.</summary>
     public EventEntry[] RunTick()
     {
+        TickOnce();
+        return Sink.Last;
+    }
+
+    /// <summary>Enqueues the fixture op for player A and ticks once (allocation-free; the outcome is <see cref="InvFixtureActionHandler.LastReason"/>).</summary>
+    public void TickOnce()
+    {
         var op = new Op { Kind = InvFixtureActionHandler.FixtureKind, ReqId = _reqId++ };
         op.SetPayload(default(MovePayload));
         Assert.True(Host.World.EnqueueOp(PlayerA, in op));
         Host.World.Tick();
-        return Sink.Last;
     }
 
     /// <summary>Frees a detached entry (its arena block, then its pool slot) between ticks.</summary>
@@ -827,5 +852,23 @@ internal sealed class InvAutoPlaceRig
     {
         ushort owner = Inventory.Occupancy.OwnerAt(container, Header(container).W, x, y);
         return owner != Occupancy.Free && Entries[owner].X == x && Entries[owner].Y == y ? owner : Occupancy.Free;
+    }
+}
+
+/// <summary>TEST-ONLY sink gate of <see cref="InvAutoPlaceRig"/>: forwards each tick's log to the inner sink while <see cref="Enabled"/>.</summary>
+internal sealed class GatedSink : IEventSink
+{
+    private readonly IEventSink _inner;
+
+    public GatedSink(IEventSink inner) => _inner = inner;
+
+    public bool Enabled { get; set; } = true;
+
+    public void Deliver(uint tick, ReadOnlySpan<EventEntry> entries, in OverflowInfo overflow)
+    {
+        if (Enabled)
+        {
+            _inner.Deliver(tick, entries, in overflow);
+        }
     }
 }

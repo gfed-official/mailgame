@@ -267,7 +267,8 @@ internal sealed class InventoryMutator
     /// position. A detached source (cursor-less in-flight entry, spawn) raises no source record. Both entries are re-linked in the
     /// StackKey index by their new counts. The source may be in the target's container (an in-container merge). The containers must
     /// already be touched (<see cref="InvPlan.EnsureTouched"/>). An invalid merge (free or unplaced target, a self-merge, different
-    /// <c>StackKey</c>s, <paramref name="units"/> outside 1 to the source's count, a target over 255) asserts
+    /// <c>StackKey</c>s, <paramref name="units"/> outside 1 to the source's count, a target over 255 or over its <c>effMax</c> read now
+    /// (<see cref="EffMaxOf"/>, the value the index uses)) asserts
     /// <see cref="SimAssertCode.InventoryMergeInvalid"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing. The ledger hook is story
     /// 017's (a Placed-to-Placed merge crosses no ledger state, ADR-0009 section 6).
     /// </summary>
@@ -280,7 +281,7 @@ internal sealed class InventoryMutator
         ref EntryRecord src = ref _entries[sourceSlot];
         ref EntryRecord dst = ref _entries[targetSlot];
         bool valid = src.IsLive && dst.IsLive && sourceSlot != targetSlot && dst.ContainerSlot != EntryRecord.NoContainer
-            && units >= 1 && units <= src.Count && dst.Count + units <= byte.MaxValue
+            && units >= 1 && units <= src.Count && dst.Count + units <= byte.MaxValue && dst.Count + units <= EffMaxOf(in dst)
             && StackKey.Of(in src) == StackKey.Of(in dst) && (!src.IsMail || src.MailIds.Count >= units);
         InventoryAssert.That(valid, SimAssertCode.InventoryMergeInvalid);
         if (!valid)
@@ -344,45 +345,36 @@ internal sealed class InventoryMutator
 
     /// <summary>
     /// Rebuilds the container's StackKey lists from its entries (every placed entry whose count is below its <c>effMax</c> read now,
-    /// row-major) and clears its negative-fit cache. Called when the container's <c>statEpoch</c> bumps (a <c>MailMaxStack</c> or
-    /// <c>InventoryRows</c> change, R15; nothing bumps it at M-1a, tests call it), after a load, and by tests that arranged entries
-    /// outside the mutator. Changes no Sim state (both are derived memos): no record, no version. O(cells); allocation-free.
+    /// row-major) and clears its negative-fit cache. Every entry linked under the container is unlinked first
+    /// (<see cref="Placement.StackIndex.ClearContainer"/>), so a stale link whose cells were cleared outside the mutator does not
+    /// survive. Called when the container's <c>statEpoch</c> bumps (a <c>MailMaxStack</c> or <c>InventoryRows</c> change, R15; nothing
+    /// bumps it at M-1a, tests call it), after a load, and by tests that arranged entries outside the mutator. Changes no Sim state
+    /// (both are derived memos): no record, no version. O(entry pool + cells); allocation-free.
     /// </summary>
     /// <param name="containerSlot">The container's table slot.</param>
     public void RebuildIndex(ushort containerSlot)
     {
         ref ContainerHeader h = ref _containers[containerSlot];
-        for (int pass = 0; pass < 2; pass++)
+        _index.ClearContainer(containerSlot);
+        for (int y = 0; y < h.H; y++)
         {
-            for (int y = 0; y < h.H; y++)
+            if (_occupancy.RowBits(containerSlot, y) == 0UL)
             {
-                if (_occupancy.RowBits(containerSlot, y) == 0UL)
+                continue;
+            }
+
+            for (int x = 0; x < h.W; x++)
+            {
+                ushort owner = _occupancy.OwnerAt(containerSlot, h.W, x, y);
+                if (owner == Occupancy.Free)
                 {
                     continue;
                 }
 
-                for (int x = 0; x < h.W; x++)
+                ref EntryRecord e = ref _entries[owner];
+                if (e.ContainerSlot == containerSlot && e.X == x && e.Y == y)
                 {
-                    ushort owner = _occupancy.OwnerAt(containerSlot, h.W, x, y);
-                    if (owner == Occupancy.Free)
-                    {
-                        continue;
-                    }
-
-                    ref EntryRecord e = ref _entries[owner];
-                    if (e.ContainerSlot != containerSlot || e.X != x || e.Y != y)
-                    {
-                        continue; // not the entry's top-left cell
-                    }
-
-                    if (pass == 0)
-                    {
-                        _index.Unlink(owner);
-                    }
-                    else
-                    {
-                        LinkIfNonFull(owner);
-                    }
+                    LinkIfNonFull(owner); // the entry's top-left cell
                 }
             }
         }
