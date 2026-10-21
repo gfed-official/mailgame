@@ -187,6 +187,28 @@ public class IntakeSpawnOutfeedTests
     }
 
     [Fact]
+    public void Spawn_AfterAPartialSpawn_ASecondSpawnOfTheSameKeyIntoTheUnchangedIntake_ProbesNothing_AndPlacesNothing()
+    {
+        // Arrange: 318 of 320 cells taken; a partial spawn places 2 of 5 and seals the Intake (version + 1)
+        var rig = new InvAutoPlaceRig();
+        FillIntake(rig, 318, 1_000);
+        DefIndex letter = rig.KindIndex("letter");
+        SpawnResult partial = InPhase(rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, Address4, 0, Mail(5, 6, 7, 8, 9), MergePolicy.NoMerge));
+        List<long> before = State(rig);
+        long probes = rig.Counters[CounterId.InventoryPlacementProbes];
+
+        // Act: the same StackKey again, into the Intake the partial spawn left
+        SpawnResult second = InPhase(rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, Address4, 0, Mail(7, 8, 9), MergePolicy.NoMerge));
+
+        // Assert: the failing id's no-fit fact was recorded at the sealed version, so the repeat hits the cache (0 anchors probed)
+        Assert.Equal(new SpawnResult(2, 3), partial);
+        Assert.Equal(new SpawnResult(0, 3), second);
+        Assert.Equal(probes, rig.Counters[CounterId.InventoryPlacementProbes]);
+        Assert.Equal(before, State(rig));
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
     public void Spawn_WhenTheArenaRefusesTheBlock_StopsWithNothingMutatedForThatId()
     {
         // Arrange: a small arena drained to one free 1-unit block
@@ -359,6 +381,106 @@ public class IntakeSpawnOutfeedTests
         Assert.Equal(4u, rig.Entries[spawned].ArrivalSeq);
         Assert.True(rig.Inventory.PeekOutfeed(rig.Inventory.IntakeContainer, Selector.Fifo, out head));
         Assert.Equal(3u, head.Mail.Value);
+    }
+
+    [Fact]
+    public void AMoveInsideTheIntake_KeepsTheEntrysArrivalSeq_AndItsFifoPosition()
+    {
+        // Arrange: three spawned letters, ids 1-3 (seq 1-3) at (0,0), (1,0), (2,0)
+        var rig = new InvAutoPlaceRig();
+        DefIndex letter = rig.KindIndex("letter");
+        _ = InPhase(rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, Address4, 0, Mail(1, 2, 3), MergePolicy.NoMerge));
+        ushort head = rig.EntryAt(rig.Intake, 0, 0);
+        OutfeedFifo fifo = rig.Inventory.Mutator.Outfeed;
+
+        // Act: the head entry moves to (5,5) of the Intake (a same-container Transfer)
+        Reply moved = rig.Step(
+            (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
+            (ref InvPlan p) => rig.Inventory.Mutator.Transfer(ref p, head, rig.Intake, 5, 5, false));
+        EventEntry[] log = rig.Sink.Last;
+        ushort at55 = rig.EntryAt(rig.Intake, 5, 5);
+        uint seq = rig.Entries[head].ArrivalSeq;
+        int nodes = fifo.NodeCount(rig.Intake);
+        var order = new List<uint>();
+        for (int i = 0; i < 3; i++)
+        {
+            UnitRef u = default;
+            Assert.True(InPhase(rig, () => rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out u)));
+            order.Add(u.Mail.Value);
+        }
+
+        // Assert: an InvMoved, no stamp, no node, no tombstone; the moved entry is still served first
+        Assert.True(moved.IsOk);
+        Assert.Single(Heads(log, InvEventKinds.Moved));
+        Assert.Empty(Heads(log, InvEventKinds.Inserted));
+        Assert.Equal(head, at55);
+        Assert.Equal(1u, seq);
+        Assert.Equal(3, nodes);
+        Assert.Equal(4u, rig.Header(rig.Intake).NextArrivalSeq);
+        Assert.Equal(new uint[] { 1, 2, 3 }, order);
+    }
+
+    [Fact]
+    public void MergeIntoAnIntakeEntry_DoesNotRestampTheTarget_AndKeepsItsFifoPosition()
+    {
+        // Arrange: two spawned letters, ids 1 and 2 (seq 1 and 2); a detached letter of the same StackKey, id 50
+        var rig = new InvAutoPlaceRig();
+        DefIndex letter = rig.KindIndex("letter");
+        _ = InPhase(rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, Address4, 0, Mail(1, 2), MergePolicy.NoMerge));
+        ushort second = rig.EntryAt(rig.Intake, 1, 0);
+        ushort source = rig.DetachedMail("letter", Address4, new[] { 50u });
+        OutfeedFifo fifo = rig.Inventory.Mutator.Outfeed;
+
+        // Act: merge the detached letter into the second Intake entry
+        Reply merged = rig.Step(
+            (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
+            (ref InvPlan p) => rig.Inventory.Mutator.MergeInto(ref p, source, second, 1));
+        EventEntry[] log = rig.Sink.Last;
+        uint seq = rig.Entries[second].ArrivalSeq;
+        int nodes = fifo.NodeCount(rig.Intake);
+        var order = new List<uint>();
+        for (int i = 0; i < 3; i++)
+        {
+            UnitRef u = default;
+            Assert.True(InPhase(rig, () => rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out u)));
+            order.Add(u.Mail.Value);
+        }
+
+        // Assert: the target kept seq 2 and its one node (NextArrivalSeq unchanged); its units leave after entry 1's, lowest id first
+        Assert.True(merged.IsOk);
+        Assert.Single(Heads(log, InvEventKinds.Merged));
+        Assert.Empty(Heads(log, InvEventKinds.Inserted));
+        Assert.Equal(2u, seq);
+        Assert.Equal(2, nodes);
+        Assert.Equal(3u, rig.Header(rig.Intake).NextArrivalSeq);
+        Assert.Equal(new uint[] { 1, 2, 50 }, order);
+    }
+
+    [Fact]
+    public void ANonMailOutfeedHead_AssertsInAssertBuilds_AndReadsAsEmptyInRelease_WithNothingPopped()
+    {
+        // Arrange: a plank placed into the empty Intake straight through the mutator (bypassing the whitelist, which makes this unreachable)
+        var rig = new InvAutoPlaceRig();
+        ushort plank = rig.PlaceItem(rig.Intake, "plank", 0, 0, 1);
+        OutfeedFifo fifo = rig.Inventory.Mutator.Outfeed;
+        Assert.Equal(1u, rig.Entries[plank].ArrivalSeq);
+        List<long> before = State(rig);
+
+        // Act + Assert
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException ex = Assert.Throws<SimAssertException>(() => rig.Inventory.PeekOutfeed(rig.Inventory.IntakeContainer, Selector.Fifo, out _));
+            Assert.Equal(SimAssertCode.InventoryOutfeedHeadNotMail, ex.Code);
+        }
+        else
+        {
+            Assert.False(rig.Inventory.PeekOutfeed(rig.Inventory.IntakeContainer, Selector.Fifo, out _));
+            Assert.False(InPhase(rig, () => rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out _)));
+        }
+
+        Assert.Equal(before, State(rig));
+        Assert.Equal(1, fifo.NodeCount(rig.Intake));
+        Assert.Equal(rig.Intake, rig.Entries[plank].ContainerSlot);
     }
 
     [Fact]

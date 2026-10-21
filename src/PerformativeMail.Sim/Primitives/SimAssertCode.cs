@@ -233,4 +233,7 @@ public static class SimAssertCode
 
     /// <summary><c>AutoPlace</c> PASS M met a stack it had already planned a merge into. Unreachable: <c>Plan</c> refuses a target list naming a container twice, PASS M walks each target's StackKey list once, and a stack is in one container's list only. Release plans the merge as before (the stack's pre-plan count is used, as with any merge). <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryAutoPlaceStackPlannedTwice = 74;
+
+    /// <summary><c>PeekOutfeed</c> or <c>TakeUnit</c> found a live non-mail entry at an outfeed's head. Unreachable: every outfeed container (the Intake) admits mail only through the insertion whitelist, and every Intake insertion (<c>Spawn</c>, <c>ReturnToIntake</c>, the player ops' AutoPlace and placement checks) passes it. Release reports the outfeed as empty (Peek and Take return false, nothing mutated) until that entry leaves the Intake by another path; the entry is never popped or served as mail. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryOutfeedHeadNotMail = 75;
 }

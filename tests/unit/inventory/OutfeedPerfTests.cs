@@ -16,10 +16,15 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <c>po_intake</c>, 20 x 16) and n = 6,400 (a 64 x 100 test container; the GDD's 80 x 80 cannot be built: <c>Occupancy.BitmapWidth</c>
 /// is 64). The count is <see cref="CounterId.InventoryOutfeedCandidates"/>, compiled into every build, so these run (and must pass) in
 /// Debug and Release alike: no Release-only skip, no twin needed. Each cycle also checks the FIFO order, so a wrong-but-cheap
-/// outfeed fails too. The calls run inside real ticks (the rig's <c>MailStep</c> hook), 50 cycles per tick.
+/// outfeed fails too. The calls run inside real ticks (the rig's <c>MailStep</c> hook), 50 cycles per tick. Each case writes its
+/// measured mean candidates per call to the test output, so the margin to the bound is visible.
 /// </summary>
 public class OutfeedPerfTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public OutfeedPerfTests(ITestOutputHelper output) => _output = output;
+
     /// <summary>The H-PERF-6a bound: candidates per Peek/Take call, amortised.</summary>
     private const double MaxCandidatesPerCall = 4.0;
 
@@ -42,7 +47,7 @@ public class OutfeedPerfTests
         Result r = RunBalanced(rig, rig.Inventory.IntakeContainer, firstId: 1, n: 320);
 
         // Assert
-        AssertBound(in r, 320);
+        AssertBound(in r, 320, "n = 320 (po_intake 20 x 16)");
     }
 
     [Fact]
@@ -58,7 +63,7 @@ public class OutfeedPerfTests
         Result r = RunBalanced(rig, wide, firstId: 1, n: 6_400);
 
         // Assert
-        AssertBound(in r, 6_400);
+        AssertBound(in r, 6_400, "n = 6,400 (64 x 100)");
     }
 
     [Fact]
@@ -114,6 +119,8 @@ public class OutfeedPerfTests
         // Assert: the odd ids in order (the even ones left mid-queue); at least 160 peeks + 160 takes + 1 empty peek
         Assert.Equal(Enumerable.Range(0, 160).Select(i => (uint)(1 + (2 * i))), taken);
         Assert.False(rig.Inventory.PeekOutfeed(rig.Inventory.IntakeContainer, Selector.Fifo, out _));
+        _output.WriteLine(
+            $"H-PERF-6a drain with 160 mid-queue tombstones: {candidates / (double)calls:F3} candidates/call ({candidates} over {calls} calls; bound {MaxCandidatesPerCall:F1})");
         Assert.True(calls >= 321);
         Assert.True(candidates / (double)calls <= MaxCandidatesPerCall, $"{candidates} candidates over {calls} calls");
     }
@@ -224,7 +231,7 @@ public class OutfeedPerfTests
         return new Result(peekCandidates, takeCandidates, cycles, orderOk, h.EntryCount);
     }
 
-    private static void AssertBound(in Result r, int n)
+    private void AssertBound(in Result r, int n, string label)
     {
         Assert.Equal(Cycles, r.Cycles);
         Assert.True(r.OrderOk, "a peek or take returned something other than the oldest unit, or a spawn did not place");
@@ -232,6 +239,8 @@ public class OutfeedPerfTests
         double perPeek = r.PeekCandidates / (double)r.Cycles;
         double perTake = r.TakeCandidates / (double)r.Cycles;
         double perCall = (r.PeekCandidates + r.TakeCandidates) / (2.0 * r.Cycles);
+        _output.WriteLine(
+            $"H-PERF-6a {label}: {perCall:F3} candidates/call (PeekOutfeed {perPeek:F3}, TakeUnit {perTake:F3}; {r.Cycles} cycles; bound {MaxCandidatesPerCall:F1})");
         Assert.True(perPeek <= MaxCandidatesPerCall, $"PeekOutfeed: {perPeek:F3} candidates per call at n = {n}");
         Assert.True(perTake <= MaxCandidatesPerCall, $"TakeUnit: {perTake:F3} candidates per call at n = {n}");
         Assert.True(perCall <= MaxCandidatesPerCall, $"Peek + Take: {perCall:F3} candidates per call at n = {n}");

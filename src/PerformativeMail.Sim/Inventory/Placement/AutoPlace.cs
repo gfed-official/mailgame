@@ -420,6 +420,23 @@ internal sealed class AutoPlace
     }
 
     /// <summary>
+    /// Writes <paramref name="result"/>'s no-fit facts at each container's <b>current</b> version instead of the scanned one: for a
+    /// caller that only filled the scanned containers further after the scan and then sealed them (<see cref="InventorySystem.Spawn"/>:
+    /// the failing id is scanned after every earlier id's placement, and <c>End</c>'s version bump is the only later change). Filling
+    /// cells can only remove anchors, so a shape that found none still finds none. Outside <c>Validate</c>, like <see cref="RecordNoFits"/>.
+    /// </summary>
+    /// <param name="result">A refused plan from <see cref="Plan"/>.</param>
+    public void RecordNoFitsAtCurrentVersion(in AutoPlacePlan result)
+    {
+        for (int i = 0; i < result.NoFitCount; i++)
+        {
+            AutoPlaceNoFit f = result.NoFit(i);
+            ref readonly ContainerHeader h = ref _containers[f.ContainerSlot];
+            _noFit.RecordNoFit(f.ContainerSlot, in h, f.W, f.H, f.Rotated, h.Version);
+        }
+    }
+
+    /// <summary>
     /// The handler-limit checks (<c>bad_request</c> when false): units 1 to 255, 1 to <see cref="AutoPlacePlan.MaxTargets"/> live
     /// targets with no container named twice (GDD R8/R9 target lists are sets of distinct containers; a repeat would let PASS M plan
     /// the same stack twice), and a live source holding at least <paramref name="units"/>.

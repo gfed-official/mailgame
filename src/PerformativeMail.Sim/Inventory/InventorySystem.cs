@@ -292,8 +292,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// Per id (R1, Planner resolution): <see cref="PlacementSubject.ForMail"/>, <see cref="Placement.AutoPlace.Plan"/> with no source and
     /// one unit, the arena reservation of the planned blocks plus the new entry's one-unit block (on a per-id plan, so blocks acquired by
     /// earlier ids are not counted again), <see cref="EntryPool.TryAllocate"/> and the block, then <see cref="Placement.AutoPlace.Commit(ref InvPlan, in AutoPlacePlan, ushort)"/>
-    /// into the call's one plan. After a refused plan the no-fit facts are recorded (<see cref="Placement.AutoPlace.RecordNoFits"/>),
-    /// outside planning. A NoSource plan places up to <c>effMax</c> units as one entry (TD-130 item 2), so the loop is per id. The
+    /// into the call's one plan. After a refused plan the loop stops, and once <c>End</c> has sealed the Intake the failing plan's
+    /// no-fit facts are recorded at the sealed version (<see cref="Placement.AutoPlace.RecordNoFitsAtCurrentVersion"/>), outside
+    /// planning: the failing id was scanned after every earlier id was placed and the seal is the only later change, so the facts
+    /// still hold and a repeat into the unchanged Intake probes nothing (recording at the pre-seal version could never hit once
+    /// <c>Placed &gt; 0</c> bumped it). A NoSource plan places up to <c>effMax</c> units as one entry (TD-130 item 2), so the loop is per id. The
     /// Intake is consulted through <see cref="IntakeAccepting"/> first.
     /// </remarks>
     public SpawnResult Spawn(ContainerId c, DefIndex mailKind, uint addressId, byte flags, ReadOnlySpan<MailId> ids, MergePolicy p)
@@ -318,13 +321,15 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         _ = plan.Touch(slot);
         var extra = new InvReplyExtra();
         int placed = 0;
+        bool refused = false;
+        AutoPlacePlan ap = default;
         using (EventCallScope scope = _events.BeginCall())
         {
             _mutator.Begin(ref plan, ActorId.System, InvCause.System);
             for (; placed < ids.Length; placed++)
             {
                 var idPlan = new InvPlan();
-                ushort reason = _autoPlace.Plan(ref idPlan, in subject, 1, Placement.AutoPlace.NoSource, targets, policy, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+                ushort reason = _autoPlace.Plan(ref idPlan, in subject, 1, Placement.AutoPlace.NoSource, targets, policy, PlaceOrder.PassFirst, out ap);
                 if (reason == 0)
                 {
                     _ = idPlan.AddAcquiredBlock(1); // the new entry's one-unit block
@@ -333,7 +338,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
                 if (reason != 0)
                 {
-                    _autoPlace.RecordNoFits(in ap);
+                    refused = true; // ap is kept: its no-fit facts are recorded after the seal
                     break;
                 }
 
@@ -360,6 +365,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             }
 
             _mutator.End(ref plan, ref extra);
+        }
+
+        if (refused)
+        {
+            _autoPlace.RecordNoFitsAtCurrentVersion(in ap);
         }
 
         return new SpawnResult((ushort)placed, (ushort)(none - placed));
@@ -504,7 +514,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         return true;
     }
 
-    /// <summary>The live head of <paramref name="c"/>'s outfeed: false for a dead container, one without an outfeed, an unknown selector or an empty outfeed.</summary>
+    /// <summary>
+    /// The live head of <paramref name="c"/>'s outfeed: false for a dead container, one without an outfeed, an unknown selector or an
+    /// empty outfeed. A non-mail head is unreachable (the whitelist admits mail only) and asserts
+    /// <see cref="SimAssertCode.InventoryOutfeedHeadNotMail"/> under <c>INVENTORY_ASSERT</c>; Release returns false with nothing
+    /// popped or mutated, so the outfeed reads as empty until that entry leaves the Intake by another path.
+    /// </summary>
     private bool TryOutfeedHead(ContainerId c, Selector s, out ushort slot, out ushort entrySlot)
     {
         entrySlot = 0;
@@ -514,7 +529,14 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return false;
         }
 
-        return _mutator.Outfeed.TryPeekHead(slot, ref _containers[slot], out entrySlot) && _entries[entrySlot].IsMail;
+        if (!_mutator.Outfeed.TryPeekHead(slot, ref _containers[slot], out entrySlot))
+        {
+            return false;
+        }
+
+        bool isMail = _entries[entrySlot].IsMail;
+        InventoryAssert.That(isMail, SimAssertCode.InventoryOutfeedHeadNotMail);
+        return isMail;
     }
 
     /// <summary>The oldest unit of a live mail entry, with its StackKey.</summary>
