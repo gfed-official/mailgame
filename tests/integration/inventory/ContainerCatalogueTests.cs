@@ -314,8 +314,8 @@ public class ContainerCatalogueTests
         Assert.False(inventory.TryGetHeader(ContainerId.None, out _));
     }
 
-    /// <summary>One container record of the Inventory dump section (ADR-0006 section 4 fixed widths, little-endian): 24 bytes.</summary>
-    private const int DumpRecordBytes = 4 + 2 + 2 + 2 + 1 + 4 + 4 + 4 + 1;
+    /// <summary>One container record of the Inventory dump section (ADR-0006 section 4 fixed widths, little-endian): 28 bytes (story 012 added <c>nextArrivalSeq</c> after <c>statEpoch</c>).</summary>
+    private const int DumpRecordBytes = 4 + 2 + 2 + 2 + 1 + 4 + 4 + 4 + 4 + 1;
 
     /// <summary>The payload of the section with id <paramref name="id"/> in a whole-world dump (header, then id u16 / length u32 / payload).</summary>
     private static byte[] Section(byte[] dump, ushort id)
@@ -370,7 +370,8 @@ public class ContainerCatalogueTests
         Assert.Equal(7u, BitConverter.ToUInt32(section, 4));
         Assert.Equal(8 + 7 * DumpRecordBytes, section.Length);
 
-        // Records: ascending ids 1..7, owner 0xFF then slot 5 x3 then slot 1 x3, fields matching the live headers, versions 0
+        // Records: ascending ids 1..7, owner 0xFF then slot 5 x3 then slot 1 x3, fields matching the live headers, versions 0,
+        // nextArrivalSeq 1 (no outfeed insertion yet)
         byte[] expectedOwners = [ContainerHeader.NoOwner, 5, 5, 5, 1, 1, 1];
         for (int i = 0; i < 7; i++)
         {
@@ -385,7 +386,9 @@ public class ContainerCatalogueTests
             Assert.Equal(0u, BitConverter.ToUInt32(section, at + 11));
             Assert.Equal(0u, BitConverter.ToUInt32(section, at + 15));
             Assert.Equal(0u, BitConverter.ToUInt32(section, at + 19));
-            Assert.Equal(expectedOwners[i], section[at + 23]);
+            Assert.Equal(1u, BitConverter.ToUInt32(section, at + 23));
+            Assert.Equal(h.NextArrivalSeq, BitConverter.ToUInt32(section, at + 23));
+            Assert.Equal(expectedOwners[i], section[at + 27]);
         }
     }
 

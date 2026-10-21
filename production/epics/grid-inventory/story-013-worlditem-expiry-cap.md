@@ -49,7 +49,7 @@
 - Location: `src/PerformativeMail.Sim/Inventory/World/` — `WorldItemTable.cs` (struct array, `EntityId` class `WorldItem` via injected `EntityIds`), `ExpiryFifos.cs`, `Tombstones.cs`; `IInventoryApi.CreateWorldItem(entry, posMm, origin, onWater, createdTick)`.
 - Position is int32 (GDD: cm; Sim Core uses mm — store `Vec3Mm`, flag the GDD unit to its re-review). The **caller** supplies position and the water flag (Throwing's landing resolution, Drop's ground snap — both elsewhere); this story only stores them.
 - Origins at M-1a: `Dropped`, `Thrown`; `BeltLeak` (M-1b), `Spill` (M-1b, death), `Loot` (Mail R15 — exemption is a flag that keeps the item off every FIFO; build the flag, its Payday release is Mail's).
-- Mail return on expiry calls story 012's return-to-Intake API (enters whole, NoMerge, new `arrivalSeq`).
+- Mail return on expiry calls story 012's `InventorySystem.ReturnToIntake` (enters whole, NoMerge, new `arrivalSeq`).
 - `WorldItem{Spawned, Despawned, EntriesChanged}` events with `worldSeq` are `Replicated` (ADR-0008) — raise them through the mutator.
 
 ---

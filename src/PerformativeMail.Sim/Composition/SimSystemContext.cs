@@ -17,7 +17,7 @@ namespace PerformativeMail.Sim.Composition;
 /// </summary>
 /// <example>
 /// <code>
-/// var mail = new MailSystem(ctx.Events, ctx.MailIds, ctx.Rng, ctx.Api&lt;IGridInventoryApi&gt;(SystemId.GridInventory), ctx.Content);
+/// var mail = new MailSystem(ctx.Events, ctx.MailIds, ctx.Rng, ctx.Api&lt;IInventoryApi&gt;(SystemId.GridInventory), ctx.Content);
 /// </code>
 /// </example>
 internal sealed class SimSystemContext

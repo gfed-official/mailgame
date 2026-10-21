@@ -146,4 +146,10 @@ public enum CounterId : ushort
 
     /// <summary>Inventory AutoPlace PASS U / PASS R: one increment per cell examined (GDD H-PERF-6 "one integer increment per cell probe"; per cell per Evan 2026-10-21). A grid candidate anchor tests all <c>fh</c> of its footprint's occupancy row masks, each covering <c>fw</c> cells, so it adds <c>fw × fh</c>; a slots-layout candidate slot adds 1; a negative-fit cache hit examines nothing. A scan therefore costs (anchors visited) × area, which matches GDD D3's per-shape <c>C × a</c> term (GDD R8, ADR-0009 section 5; key <c>inventoryPlacementProbes</c>). A probe counter, compiled into Release, not in the canonical dump.</summary>
     InventoryPlacementProbes = 43,
+
+    /// <summary>Inventory outfeed: one per candidate visit = one FIFO node examined (GDD H-PERF-6 unit: one per cell probe or candidate visit; never per call, per anchor or per batch). <c>PeekOutfeed</c> / <c>TakeUnit</c> count the live head and each stale-head tombstone popped once; a compaction or a rebuild counts each node it walks; an append counts nothing; GDD R14, ADR-0009 section 5; key <c>inventoryOutfeedCandidates</c>). A probe counter (H-PERF-6a: at most 4 per call amortised), compiled into Release, not in the canonical dump.</summary>
+    InventoryOutfeedCandidates = 44,
+
+    /// <summary>A mutating <c>I…Api</c> method was called outside a tick phase (ADR-0003 section 5: legal only while <c>Stage == InPhase</c> and <c>Phase</c> is at most <c>RunStep</c>); the call was refused with nothing mutated and no event. Asserts under <c>SIM_ASSERT</c> (<c>TickGuard</c>).</summary>
+    MutatingApiOutOfPhase = 45,
 }

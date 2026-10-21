@@ -287,6 +287,67 @@ public class AutoPlaceTests
     }
 
     [Fact]
+    public void PassM_AStackInTwoTargetsLists_AssertsPlannedTwiceInAssertBuilds()
+    {
+        Assert.SkipUnless(TestBuildExpectation.SimAssertsExpected, "INVENTORY_ASSERT is compiled out of this build.");
+
+        // Arrange: one 5-letter stack heading both targets' lists (a corrupted index, unreachable through the mutator)
+        var rig = new InvAutoPlaceRig();
+        ushort second = rig.CreateGrid(8, 4);
+        ushort stack = LinkIntoTwoLists(rig, second);
+        PlacementSubject letter = rig.Mail("letter", Address2);
+        var plan = new InvPlan();
+
+        // Act + Assert
+        SimAssertException ex = Assert.Throws<SimAssertException>(() => rig.Inventory.AutoPlace.Plan(
+            ref plan, in letter, byte.MaxValue, AutoPlace.NoSource, new[] { rig.InventoryA, second }, MergePolicy.Merge, PlaceOrder.PassFirst, out _));
+        Assert.Equal(SimAssertCode.InventoryAutoPlaceStackPlannedTwice, ex.Code);
+        Assert.Equal(5, rig.Entries[stack].Count);
+    }
+
+    [Fact]
+    public void PassM_AStackInTwoTargetsLists_IsSkippedTheSecondTimeInRelease_NoSecondMergePlanned()
+    {
+        Assert.SkipWhen(TestBuildExpectation.SimAssertsExpected, "INVENTORY_ASSERT fires first in this build (see the assert-build twin).");
+
+        // Arrange: one 5-letter stack heading both targets' lists (a corrupted index, unreachable through the mutator)
+        var rig = new InvAutoPlaceRig();
+        ushort second = rig.CreateGrid(8, 4);
+        ushort stack = LinkIntoTwoLists(rig, second);
+        PlacementSubject letter = rig.Mail("letter", Address2);
+        var plan = new InvPlan();
+
+        // Act
+        ushort reason = rig.Inventory.AutoPlace.Plan(
+            ref plan, in letter, byte.MaxValue, AutoPlace.NoSource, new[] { rig.InventoryA, second }, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+
+        // Assert: one merge fills the stack to effMax; the second visit plans nothing (no overfill past effMax)
+        Assert.Equal(0, reason);
+        Assert.Equal(1, ap.MergeCount);
+        Assert.Equal(stack, ap.Merge(0).TargetEntrySlot);
+        Assert.Equal(letter.EffMax - 5, ap.Merge(0).Units);
+    }
+
+    /// <summary>
+    /// Places a 5-letter stack (#2) at (0,0) of the inventory and another in <paramref name="second"/>, then relinks the inventory
+    /// stack as <paramref name="second"/>'s list head while the inventory's list still starts at it. Returns the inventory stack.
+    /// </summary>
+    private static ushort LinkIntoTwoLists(InvAutoPlaceRig rig, ushort second)
+    {
+        ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 5));
+        _ = rig.PlaceMail(second, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(100, 5));
+        StackKey key = rig.Mail("letter", Address2).Key;
+        rig.Entries[stack].ContainerSlot = second;
+        rig.Index.Unlink(stack); // drops second's list (its head is looked up by the overwritten container)
+        rig.Index.Link(stack);   // the stack becomes second's head
+        rig.Entries[stack].ContainerSlot = rig.InventoryA;
+        Assert.Equal(stack, rig.Index.Head(rig.InventoryA, key));
+        Assert.Equal(stack, rig.Index.Head(second, key));
+        Assert.Equal(StackIndex.None, rig.Index.Next(stack));
+        return stack;
+    }
+
+    [Fact]
     public void Mediums_EffMaxOne_NeverMerge_ASecondMediumOfTheSameKeyGoesToFreeCells()
     {
         // Arrange
@@ -728,6 +789,38 @@ public class AutoPlaceTests
         Assert.Equal(2, visits);
     }
 
+    [Fact]
+    [Trait("Id", "H-R3-2")]
+    public void PassM_ALinkedItemStackFullAtTheOpTimeEffMax_IsSkippedAtOpTime_NotMergedInto_TheNextNodeTakesTheUnits()
+    {
+        // Arrange: a 15-plank stack at (0,0) and a 12-plank stack at (1,0), both linked at the def's effMax 20; the op reads a lower
+        // effMax (15) for the same key, so the 15-stack stays linked although it is full at op time (items read effMax per op too)
+        var rig = new InvAutoPlaceRig();
+        PlacementSubject plank = rig.Item("plank");
+        Assert.Equal(20, plank.EffMax);
+        ushort full = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 15);
+        ushort room = rig.PlaceItem(rig.InventoryA, "plank", 1, 0, 12);
+        Assert.Equal(new[] { full, room }, ListOf(rig, rig.InventoryA, plank.Key));
+        var opTime = new PlacementSubject(plank.Key, plank.W, plank.H, plank.Category, plank.CarryByHand, plank.WeightClass, effMax: 15);
+        ushort source = rig.DetachedItem("plank", 3);
+        long m0 = rig.Counters[CounterId.InventoryMergeCandidates];
+
+        // Act
+        ushort reason = rig.AutoPlace(in opTime, 3, source, MergePolicy.Merge, PlaceOrder.PassFirst, rig.InventoryA);
+        long visits = rig.Counters[CounterId.InventoryMergeCandidates] - m0;
+
+        // Assert: the full node is visited and skipped (count 15 >= effMax 15), the 12-stack takes all 3 (to 15, not past it)
+        Assert.Equal(0, reason);
+        Assert.Equal(1, rig.LastPlan.MergeCount);
+        Assert.Equal(room, rig.LastPlan.Merge(0).TargetEntrySlot);
+        Assert.Equal(3, rig.LastPlan.Merge(0).Units);
+        Assert.False(rig.LastPlan.Placement.IsSet);
+        Assert.Equal(15, rig.Entries[full].Count);
+        Assert.Equal(15, rig.Entries[room].Count);
+        Assert.False(rig.Entries[source].IsLive);
+        Assert.Equal(2, visits);
+    }
+
     // ---------------------------------------------------------------- TD-116 merge-count bound
 
     [Fact]
@@ -910,6 +1003,89 @@ public class AutoPlaceTests
         Assert.Equal(liveUnitsBefore, rig.Inventory.MailIds.LiveUnits);
         Assert.Equal(liveBlocksBefore - 1, rig.Inventory.MailIds.LiveBlocks);
         Assert.All(grids, g => Assert.Equal(StackIndex.None, rig.Index.Head(g, letter.Key)));
+    }
+
+    [Fact]
+    [Trait("Id", "TD-116")]
+    public void TwoHundredFiftyFiveSingleUnitMailMerges_TheArenaRunsOutPartway_IsCapacityExhaustedWhole_ThenExactlyTheReservableMergesCommit()
+    {
+        // Arrange: an arena of 256 class-32 blocks (budget 9 x 32 x 256; classes 64/128/256 get 128/64/32 blocks). 255 stacks of 19
+        // letters to #2 (room 1 each) over four 8 x 8 grids take 255 class-32 blocks and the 255-letter source one class-256 block, so
+        // the 20-unit union blocks can come from 1 + 128 + 64 + 31 = 224 free blocks: the 255-merge reservation runs out at merge 225.
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.ClassCount * 32 * 256);
+        ushort[] grids = { rig.CreateGrid(8, 8), rig.CreateGrid(8, 8), rig.CreateGrid(8, 8), rig.CreateGrid(8, 8) };
+        var stacks = new List<ushort>();
+        for (int i = 0; i < AutoPlacePlan.MaxMerges; i++)
+        {
+            stacks.Add(rig.PlaceMail(grids[i / 64], "letter", i % 8, (i % 64) / 8, Address2, InvAutoPlaceRig.Ids(10_000u + (uint)(i * 100), 19)));
+        }
+
+        ushort source = rig.DetachedMail("letter", Address2, InvAutoPlaceRig.Ids(1, byte.MaxValue));
+        PlacementSubject letter = rig.SubjectOf(source);
+        MailIdArena arena = rig.Inventory.MailIds;
+        const int Reservable = 224;
+        Assert.Equal(Reservable, FreeBlocksFrom(arena, MailIdArena.ClassFor(20)));
+        int liveUnitsBefore = arena.LiveUnits;
+        int liveBlocksBefore = arena.LiveBlocks;
+        uint[] versionsBefore = grids.Select(g => rig.Header(g).Version).ToArray();
+
+        // Act: the whole 255, then one more than the arena can reserve, then exactly what it can
+        ushort whole = rig.AutoPlace(letter, byte.MaxValue, source, MergePolicy.Merge, PlaceOrder.PassFirst, grids);
+        AutoPlacePlan wholePlan = rig.LastPlan;
+        EventEntry[] wholeLog = rig.LastLog;
+        ushort onePast = rig.AutoPlace(letter, Reservable + 1, source, MergePolicy.Merge, PlaceOrder.PassFirst, grids);
+
+        // Assert: both are refused whole with capacity_exhausted (85) although PASS M planned every merge; nothing is half-applied
+        Assert.Equal((ushort)InvReason.CapacityExhausted, whole);
+        Assert.Equal((ushort)InvReason.CapacityExhausted, onePast);
+        Assert.Equal(AutoPlacePlan.MaxMerges, wholePlan.MergeCount);
+        Assert.Equal(0, wholePlan.Unplaced);
+        Assert.DoesNotContain(wholeLog, e => e.Kind == InvEventKinds.Merged);
+        Assert.Equal(byte.MaxValue, rig.Entries[source].Count);
+        Assert.Equal(InvAutoPlaceRig.Ids(1, byte.MaxValue), rig.IdsOf(source));
+        for (int i = 0; i < stacks.Count; i++)
+        {
+            Assert.Equal(19, rig.Entries[stacks[i]].Count);
+            Assert.True(rig.Index.Contains(stacks[i]));
+        }
+
+        Assert.Equal(versionsBefore, grids.Select(g => rig.Header(g).Version).ToArray());
+        Assert.Equal(liveUnitsBefore, arena.LiveUnits);
+        Assert.Equal(liveBlocksBefore, arena.LiveBlocks);
+        Assert.Equal(Reservable, FreeBlocksFrom(arena, MailIdArena.ClassFor(20)));
+
+        // Act: exactly the reservable count
+        ushort fits = rig.AutoPlace(letter, Reservable, source, MergePolicy.Merge, PlaceOrder.PassFirst, grids);
+
+        // Assert: exactly 224 one-unit merges in PASS M order (oldest ids first), the other 31 stacks untouched, and the source keeps
+        // the 31 newest ids in place (a part of a stack goes only into merges)
+        Assert.Equal(0, fits);
+        Assert.Equal(Reservable, rig.LastPlan.MergeCount);
+        Assert.Equal(Reservable, rig.LastPlan.MergedUnits);
+        Assert.Equal(0, rig.LastPlan.Unplaced);
+        Assert.False(rig.LastPlan.Placement.IsSet);
+        for (int i = 0; i < stacks.Count; i++)
+        {
+            bool merged = i < Reservable;
+            Assert.Equal(merged ? 20 : 19, rig.Entries[stacks[i]].Count);
+            uint[] ids = rig.IdsOf(stacks[i]);
+            Assert.Equal(InvAutoPlaceRig.Ids(10_000u + (uint)(i * 100), 19), merged ? ids[1..] : ids);
+            if (merged)
+            {
+                Assert.Equal(1u + (uint)i, ids[0]);
+            }
+
+            Assert.Equal(!merged, rig.Index.Contains(stacks[i]));
+        }
+
+        Assert.True(rig.Entries[source].IsLive);
+        Assert.Equal(byte.MaxValue - Reservable, rig.Entries[source].Count);
+        Assert.Equal(InvAutoPlaceRig.Ids(1u + Reservable, byte.MaxValue - Reservable), rig.IdsOf(source));
+
+        // Assert: the arena — units conserved, no block gained or lost (each union replaced its stack's block), the same free total
+        Assert.Equal(liveUnitsBefore, arena.LiveUnits);
+        Assert.Equal(liveBlocksBefore, arena.LiveBlocks);
+        Assert.Equal(Reservable, FreeBlocksFrom(arena, MailIdArena.ClassFor(20)));
     }
 
     [Fact]
@@ -1166,33 +1342,74 @@ public class AutoPlaceTests
         Assert.Equal(25, sumArea);
         Assert.Equal(6_684, anchorsTimesArea);
         Assert.Equal(D3IntakeBound, ((long)cells * sumArea) + cells); // GDD D3: C x sum(a) + n x a, with n x a <= C
-        Assert.True(D3IntakeBound < PerfGateCellProbes);
 
+        // Act: the empty Intake (hand count: each kind fits its first anchor (0,0) unrotated, so letter 1 + small 2 + medium 4 +
+        // large 8 = 15 cell probes over 4 anchors; per-anchor counting would give 4)
+        (long emptySweep, long emptyAnchors) = SweepV1Kinds(new InvAutoPlaceRig());
+
+        // Act: the full Intake (no fit: every anchor of all six oriented shapes, 1,711 anchors, 6,684 cells - the hand count in
+        // ProbeCounters_FullIntake_EveryV1OrientedShapeScannedToNoFit_IsExactly6684CellProbes_WithinTheD3BoundAndTheGate)
+        var full = new InvAutoPlaceRig();
+        FillIntakeWithLarges(full);
+        (long fullSweep, long fullAnchors) = SweepV1Kinds(full);
+
+        // Act: six random occupancies; each sweep's exact cost is (anchors visited) x area per shape, the anchors read cell by cell
+        // from the occupancy grid (CountScanCells), independently of AutoPlace's row masks
         uint state = 0x2545_F491u;
-        var sweeps = new List<long>();
+        var sweeps = new List<(long Measured, long Anchors)>();
         for (int occupancy = 0; occupancy < 6; occupancy++)
         {
             var rig = new InvAutoPlaceRig();
             FillRandomly(rig, rig.Intake, attempts: 8 + (occupancy * 16), ref state);
-
-            // Act: one sweep - a pure NoMerge plan of every v1 kind into the Intake
-            long p = rig.Counters[CounterId.InventoryPlacementProbes];
-            foreach (string kind in _v1MailKinds)
-            {
-                PlacementSubject subject = rig.Mail(kind, Address2);
-                var plan = new InvPlan();
-                _ = rig.Inventory.AutoPlace.Plan(ref plan, in subject, 1, AutoPlace.NoSource, new[] { rig.Intake }, MergePolicy.NoMerge, PlaceOrder.PassFirst, out _);
-            }
-
-            sweeps.Add(rig.Counters[CounterId.InventoryPlacementProbes] - p);
+            sweeps.Add(SweepV1Kinds(rig));
         }
 
-        // Assert: every sweep is positive, within the per-cell maximum (6,684) and under the 8,500 gate
-        Assert.All(sweeps, total =>
+        // Assert: the hand-counted sweeps, each different from its anchor count (so the counter is per cell, not per anchor)
+        Assert.Equal((15, 4), (emptySweep, emptyAnchors));
+        Assert.Equal((anchorsTimesArea, 1_711), (fullSweep, fullAnchors));
+
+        // Assert: every random sweep visits at least one area > 1 anchor (the medium scans at least its first anchor), so it costs
+        // strictly more cells than anchors; the full Intake is the measured maximum, within the D3 bound and under the 8,500 gate
+        Assert.All(sweeps, s =>
         {
-            Assert.InRange(total, 1, anchorsTimesArea);
-            Assert.True(total < PerfGateCellProbes, $"{total} >= H-PERF-6 gate {PerfGateCellProbes}");
+            Assert.True(s.Measured > s.Anchors, $"{s.Measured} cell probes for {s.Anchors} anchors");
+            Assert.InRange(s.Measured, emptySweep, fullSweep);
         });
+        Assert.True(fullSweep <= D3IntakeBound, $"{fullSweep} > D3 bound {D3IntakeBound}");
+        Assert.True(fullSweep < PerfGateCellProbes, $"{fullSweep} >= H-PERF-6 gate {PerfGateCellProbes}");
+    }
+
+    [Fact]
+    [Trait("Id", "TR-inventory-007")]
+    public void ProbeCounters_ASmallThatFitsOnlyRotated_CountsPassUsFailedAnchorsThenPassRUpToTheHit_TwoCellsEach()
+    {
+        // Arrange: a 4 x 2 grid with letters at (1,0), (0,1), (2,1) and (3,1) - every column holds one, so the 1 x 2 Small does not
+        // fit upright; the free cells (0,0), (2,0), (3,0) leave one 2 x 1 hole at (2,0)
+        //   y=0  . L . .
+        //   y=1  L . L L
+        var rig = new InvAutoPlaceRig();
+        ushort grid = rig.CreateGrid(4, 2);
+        _ = rig.PlaceMail(grid, "letter", 1, 0, Address9, new uint[] { 1 });
+        _ = rig.PlaceMail(grid, "letter", 0, 1, Address9, new uint[] { 2 });
+        _ = rig.PlaceMail(grid, "letter", 2, 1, Address9, new uint[] { 3 });
+        _ = rig.PlaceMail(grid, "letter", 3, 1, Address9, new uint[] { 4 });
+        ushort small = rig.DetachedMail("small", Address2, new uint[] { 900 });
+        long p0 = rig.Counters[CounterId.InventoryPlacementProbes];
+
+        // Act
+        ushort reason = rig.AutoPlace(small, grid);
+        long cellProbes = rig.Counters[CounterId.InventoryPlacementProbes] - p0;
+
+        // Assert: hand count -
+        //   PASS U 1 x 2 (fw 1, fh 2): anchor row y = 0 only, x = 0..3 all blocked (by (0,1), (1,0), (2,1), (3,1)): 4 anchors x 2 = 8
+        //   PASS R 2 x 1 (fw 2, fh 1): (0,0) blocked by (1,0); (1,0) blocked by (1,0); (2,0) free -> the hit: 3 anchors x 2 = 6
+        //   total 8 + 6 = 14 cell probes (per-anchor counting would give 4 + 3 = 7)
+        Assert.Equal(0, reason);
+        Assert.Equal(1, rig.LastPlan.NoFitCount); // PASS U's no-fit fact
+        Assert.Equal(grid, rig.Entries[small].ContainerSlot);
+        Assert.Equal((2, 0), (rig.Entries[small].X, rig.Entries[small].Y));
+        Assert.True(rig.Entries[small].Rotated);
+        Assert.Equal(14, cellProbes);
     }
 
     [Fact]
@@ -1208,7 +1425,7 @@ public class AutoPlaceTests
         long p0 = rig.Counters[CounterId.InventoryPlacementProbes];
         byte[] before = DumpHash.Bytes(rig.Host.World);
 
-        // Act: pure plans (they raise only the two counters), then direct writes of both
+        // Act: pure plans (they raise only the two counters), then direct writes of both and of counters 44 and 45
         var a = new InvPlan();
         var b = new InvPlan();
         Assert.Equal(0, rig.Inventory.AutoPlace.Plan(ref a, in letter, 1, AutoPlace.NoSource, new[] { rig.InventoryA }, MergePolicy.Merge, PlaceOrder.PassFirst, out _));
@@ -1217,6 +1434,8 @@ public class AutoPlaceTests
         long p1 = rig.Counters[CounterId.InventoryPlacementProbes];
         rig.Counters.Add(CounterId.InventoryMergeCandidates, 1_000_000);
         rig.Counters.Set(CounterId.InventoryPlacementProbes, 123_456_789);
+        rig.Counters.Add(CounterId.InventoryOutfeedCandidates, 1_000_000);
+        rig.Counters.Add(CounterId.MutatingApiOutOfPhase, 7);
         byte[] after = DumpHash.Bytes(rig.Host.World);
 
         // Assert: both counters moved, the dump did not
@@ -1538,6 +1757,7 @@ public class AutoPlaceTests
     [Fact]
     public void TargetFirst_ANoSourceSpawnOfMoreThanEffMax_PlacesOneEffMaxEntryInTheFirstTarget_AndReportsTheRestUnplaced()
     {
+        // Pins current behaviour, not a confirmed rule: TD-130 item 8 (whether TargetFirst callers, story 014, intend this is open)
         // Arrange: 30 letters to #2 spawned (no source entry) into [hotbar (empty), inventory (a 15-stack with room 5)]; effMax 20
         var rig = new InvAutoPlaceRig();
         ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address2, InvAutoPlaceRig.Ids(1, 15));
@@ -1672,6 +1892,69 @@ public class AutoPlaceTests
         }
     }
 
+    /// <summary>
+    /// One sweep: a pure NoMerge plan of every v1 kind into the Intake. Returns the measured cell probes and the anchors the sweep
+    /// should visit, and asserts the measured probes of each kind equal <see cref="CountScanCells"/>'s count for the occupancy.
+    /// </summary>
+    private static (long Measured, long Anchors) SweepV1Kinds(InvAutoPlaceRig rig)
+    {
+        long measured = 0;
+        long anchors = 0;
+        foreach (string kind in _v1MailKinds)
+        {
+            MailKindDef def = rig.Content.MailKinds[rig.KindIndex(kind)];
+            (long expectedCells, long expectedAnchors) = CountScanCells(rig, rig.Intake, def.GridW, def.GridH);
+            PlacementSubject subject = rig.Mail(kind, Address2);
+            var plan = new InvPlan();
+            long p = rig.Counters[CounterId.InventoryPlacementProbes];
+            _ = rig.Inventory.AutoPlace.Plan(ref plan, in subject, 1, AutoPlace.NoSource, new[] { rig.Intake }, MergePolicy.NoMerge, PlaceOrder.PassFirst, out _);
+            long kindProbes = rig.Counters[CounterId.InventoryPlacementProbes] - p;
+            Assert.True(expectedCells == kindProbes, $"{kind}: {kindProbes} cell probes, expected {expectedCells} ({expectedAnchors} anchors)");
+            measured += kindProbes;
+            anchors += expectedAnchors;
+        }
+
+        return (measured, anchors);
+    }
+
+    /// <summary>
+    /// The reference count of a PASS U then (when w != h and U found nothing) PASS R scan of a grid: anchors row-major up to and
+    /// including the first whose footprint is free, each footprint read cell by cell via <see cref="Occupancy.OwnerAt"/>; every
+    /// visited anchor costs its area in cells.
+    /// </summary>
+    private static (long Cells, long Anchors) CountScanCells(InvAutoPlaceRig rig, ushort container, int w, int h)
+    {
+        ContainerHeader header = rig.Header(container);
+        long cells = 0;
+        long anchors = 0;
+        foreach ((int fw, int fh) in w == h ? new[] { (w, h) } : new[] { (w, h), (h, w) })
+        {
+            for (int y = 0; y <= header.H - fh; y++)
+            {
+                for (int x = 0; x <= header.W - fw; x++)
+                {
+                    anchors++;
+                    cells += fw * fh;
+                    bool free = true;
+                    for (int cy = y; cy < y + fh && free; cy++)
+                    {
+                        for (int cx = x; cx < x + fw && free; cx++)
+                        {
+                            free = rig.Inventory.Occupancy.OwnerAt(container, header.W, cx, cy) == Occupancy.Free;
+                        }
+                    }
+
+                    if (free)
+                    {
+                        return (cells, anchors);
+                    }
+                }
+            }
+        }
+
+        return (cells, anchors);
+    }
+
     private static uint Xorshift(ref uint state)
     {
         state ^= state << 13;
@@ -1735,6 +2018,18 @@ public class AutoPlaceTests
         }
 
         return values;
+    }
+
+    /// <summary>Free arena blocks in <paramref name="fromClass"/> and every larger class (the blocks a run of that class can borrow).</summary>
+    private static int FreeBlocksFrom(MailIdArena arena, int fromClass)
+    {
+        int free = 0;
+        for (int c = fromClass; c < MailIdArena.ClassCount; c++)
+        {
+            free += arena.FreeBlocks(c);
+        }
+
+        return free;
     }
 
     private static readonly ModifierSource _doubleStackSource = new(SourceKind.Perk, DefIndex.FromValue(0), 0, ModifierOwner.Team, 1, ModifierLifetime.Run);

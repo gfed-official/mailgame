@@ -28,6 +28,13 @@ public sealed record class InventorySettings
     /// <summary>Mail-ids arena unit budget across its nine size classes (story 003). Key <c>inventory.mailIdArenaUnits</c>, default 32768.</summary>
     public required int MailIdArenaUnits { get; init; }
 
+    /// <summary>
+    /// Nodes in the shared outfeed FIFO pool (story 012; Planner R7): derived, <c>2 x</c> <see cref="EntryPoolCapacity"/> (16,384 by
+    /// default), not a balance key. Compaction keeps each outfeed's tombstones at or below its live entries, so all outfeeds together
+    /// hold at most twice the live entries and the pool never runs out.
+    /// </summary>
+    public int OutfeedNodeCapacity => 2 * EntryPoolCapacity;
+
     /// <summary>Builds the settings from <paramref name="balance"/>.</summary>
     /// <param name="balance">The content set's <c>inventory.*</c> record.</param>
     /// <returns>The settings.</returns>
