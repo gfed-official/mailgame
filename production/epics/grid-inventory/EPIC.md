@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Run `/story-readiness production/epics/grid-inventory/story-001-inventory-module-containers.md`, then `/dev-story`. Stories 019–022 are Ready (ADRs Accepted 2026-10-16); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–006 are Complete (006 in PR #16). Next: run `/story-readiness production/epics/grid-inventory/story-009-autoplace-stackkey-index.md`, then implement it (009 builds on 006). Stories 019–022 are Ready (ADRs Accepted 2026-10-16); 023–024 wait on `/ux-design` for the inventory panel.
