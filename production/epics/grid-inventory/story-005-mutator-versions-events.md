@@ -1,12 +1,13 @@
 # Story 005: InventoryMutator, per-call versions, event records and InvVersion seals
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M–L (~1 day)
-> **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-21
+> **Depends on**: Story 004 (`InvReason`, `InvRequestCheck`) — Complete
 
 ## Context
 
@@ -35,11 +36,16 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R7-1** — GIVEN chest-like container C at v10 and A's inventory at v4, players A and B subscribed to C (B cannot see A's inventory), WHEN A's move transfers entry E C → inventory, THEN C = 11, inventory = 5; A receives C's `InvRemoved{E}` + seal v10→11 (`actorId = A`) and the inventory's `InvInserted{E}` + seal v4→5; B receives only C's records + seal; WHEN A's next move is rejected, THEN versions unchanged and B receives no event. (C is a test-fixture external container; chest proper is M-1b.)
-- [ ] **Seal test (ADR-0009 Validation Criteria)** — for every mutator call shape (single-container, cross-container, no-op), each touched container receives exactly one `InvVersion` after its records and before the `OpReply`; a no-op (move onto own cells) raises nothing and bumps nothing.
-- [ ] A 20-unit `InvInserted` carries its mailIds as ascending runs in `Continuation` entries of the same kind and `CallSeq` (8 runs per 48 B); `InvRemoved` carries no mailIds; every payload struct is padding-free (size test).
-- [ ] Panel (hotbar, player_inventory) and cursor events are `OwnerOnly` to the owning slot; an external container's events are `Targeted` to its subscriber set resolved at raise time (subscription = open set, story 011).
-- [ ] **Arena exhaustion → reason 85** — when the validator's arena reservation fails (`MailIdArena.CanReserve` false; the arena's `CheckCode.InventoryArenaExhausted` = 12), the op is rejected with `capacity_exhausted` (reason 85) and nothing is mutated (assert the full container state and the arena state unchanged). Caller rule: the validator passes `CanReserve` every block the op acquires, each sized at the moment it is acquired — including a union with a none input, a `TryAppend` on a none handle (= create), and chained unions (|a|+|b|, then |a|+|b|+|c|); omitting one is a false accept. (ADR-0009 §2/§5; source: story 003 scope note, TD-102.)
+- [x] **H-R7-1** — GIVEN chest-like container C at v10 and A's inventory at v4, players A and B subscribed to C (B cannot see A's inventory), WHEN A's move transfers entry E C → inventory, THEN C = 11, inventory = 5; A receives C's `InvRemoved{E}` + seal v10→11 (`actorId = A`) and the inventory's `InvInserted{E}` + seal v4→5; B receives only C's records + seal; WHEN A's next move is rejected, THEN versions unchanged and B receives no event. (C is a test-fixture external container; chest proper is M-1b.)
+- [x] **Seal test (ADR-0009 Validation Criteria)** — for every mutator call shape (single-container, cross-container, no-op), each touched container receives exactly one `InvVersion` after its records and before the `OpReply`; a no-op (move onto own cells) raises nothing and bumps nothing.
+- [x] A 20-unit `InvInserted` carries its mailIds as ascending runs in `Continuation` entries of the same kind and `CallSeq` (8 runs per 48 B); `InvRemoved` carries no mailIds; every payload struct is padding-free (size test).
+- [x] Panel (hotbar, player_inventory) and cursor events are `OwnerOnly` to the owning slot; an external container's events are `Targeted` to its subscriber set resolved at raise time (subscription = open set, story 011).
+  - *As built:* `Targeted` to the owner's slot behaves the same as `OwnerOnly` — only the owner ever receives these events (pinned by `PanelAndCursorEvents_GoOnlyToTheOwningSlot`); the ADR-0009 §4 / manifest erratum is tracked as TD-114.
+- [x] **Arena exhaustion → reason 85** — when the validator's arena reservation fails (`MailIdArena.CanReserve` false; the arena's `CheckCode.InventoryArenaExhausted` = 12), the op is rejected with `capacity_exhausted` (reason 85) and nothing is mutated (assert the full container state and the arena state unchanged). Caller rule: the validator passes `CanReserve` every block the op acquires, each sized at the moment it is acquired — including a union with a none input, a `TryAppend` on a none handle (= create), and chained unions (|a|+|b|, then |a|+|b|+|c|); omitting one is a false accept. (ADR-0009 §2/§5; source: story 003 scope note, TD-102.)
+  - *Clarified (Mail Lead readiness, 2026-10-20):* this story defines the **shared validation step** every handler's `Validate` calls once its plan is built: it takes the op's acquired block sizes (one entry per block the commit acquires, each sized at the moment it is acquired) and calls `MailIdArena.CanReserve(ReadOnlySpan<int>)`; on false it rejects with `InvReason.CapacityExhausted` (85) and makes no mutation. Until handlers exist (stories 007+), it is exercised through a **test-only fixture op**.
+  - `CanReserve` is a dry run and writes **no** check record; the `InventoryArenaExhausted` record (12) comes only from a real acquire failure. The AC asserts on the **reply** (reason 85), not on record 12 (the test asserts the check ring is unchanged).
+- [x] **Caller rule (test, not a note)** — a validator-path test over the three shapes the arena tests use (multi-block acquire, none-input union / `TryAppend` on a none handle, chained unions |a|+|b| then |a|+|b|+|c|): with the arena at exhaustion, passing every acquired block yields reason 85 with nothing mutated, and a deliberately under-sized request (one block omitted) passes `CanReserve` — the false accept the rule exists to prevent — while the real commit then fails to acquire.
+- [x] **Never alias `out` to an input (TD-104)** — `MailIdArena.TryUnion(in a, in b, tick, out result)` guards against `result` aliasing `a` or `b` with an `INVENTORY_ASSERT` trip carrying a new `SimAssertCode`, matching the existing assert conventions; a test pins the trip; TD-104 is closed (or narrowed) with a pointer to the guard and its test.
 
 ---
 
@@ -76,7 +82,7 @@
 **Required evidence**:
 - Logic: `tests/unit/inventory/InventoryEventsTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/inventory/InventoryEventsTests.cs` (+ fixture/test-only fixture op `tests/unit/inventory/InventoryEventRig.cs`), TD-104 tests in `tests/unit/inventory/MailIdArenaTests.cs`, `tests/unit/sim/Core/EventLogContinuationTests.cs`; 41 new test cases, 4788 total / 0 failed on net10.0 + net8.0 × Debug + Release (baseline 4747; skips unchanged 42 Debug / 2 Release)
 
 ---
 
@@ -85,3 +91,25 @@
 - Depends on: Story 002, Story 003
 - Depends on: `production/epics/simulation-core/story-015-event-log-call-scopes-delivery.md`, `production/epics/simulation-core/story-020-phase0-drain-prechecks-replies.md` (reply after events)
 - Unlocks: Story 007–018
+
+---
+
+## Completion Notes
+**Completed**: 2026-10-21
+**Criteria**: 7/7 passing (none deferred)
+- H-R7-1 — `InventoryEventsTests.HR71_ChestToInventoryTransfer_BumpsBothOnce_EachRecipientGetsItsContainers_RejectedNextMoveChangesNothing`
+- Seal test — `SealTest_EachTouchedContainerGetsOneSealAfterItsRecordsAndBeforeTheReply_NoOpRaisesAndBumpsNothing` (single-container, cross-container, no-op)
+- 20-unit runs / InvRemoved / padding — `Inserted20ConsecutiveUnits_OneRunInOneContinuationEntryOfTheSameKindAndCallSeq`, `Inserted20UnitsInTenRuns_EightRunsPer48BChunk_AscendingAndComplete_InvRemovedCarriesNoMailIds`, `EveryInventoryEventDescriptor_IsPaddingFreeWithinLimitsInTheInventoryBlock_AndBoundInTheWorld`, `PayloadSizes_ArePinned_AndTheRunChunkIsPaddingFree`; `EventLogContinuationTests` (4 methods)
+- Audiences — `PanelAndCursorEvents_GoOnlyToTheOwningSlot`, `ExternalContainerEvents_AreTargetedToTheSubscriberSetResolvedAtRaiseTime`
+- Reason 85 — `ArenaReservationFails_RejectsWithCapacityExhausted85_NothingMutated_NoCheckRecordWritten`, `CheckArenaReservation_EmptyPlanPasses_OverflowedPlanAssertsUnderInventoryAssert_OrIs85InRelease_NoRecordWritten` (shared step: `InvRequestCheck.CheckArenaReservation`; test-only fixture op `InvFixtureTransferHandler`)
+- Caller rule — `CallerRule_EveryAcquiredBlockPassed_AtExhaustion_Is85WithNothingMutated`, `CallerRule_OneBlockOmitted_PassesTheStep_FalseAccept_AndTheRealCommitFailsToAcquire` (multi-block, none-input, chained)
+- TD-104 — `MailIdArenaTests.TryUnion_ResultAliasesAnInput_AssertsUnderInventoryAssert_OrUnionsFromCopiesInRelease`, `TryUnion_ResultAliasesB_…`, `TryUnion_ResultAliasesAnInput_OnFailure_…` (`SimAssertCode.InventoryArenaOutAliasesInput` = 65); TD-104 Closed
+**Deviations** (advisory):
+- Panel/cursor records and seals use the `Targeted` class with exactly the owner's single audience bit, not the `OwnerOnly` class: ADR-0008 §3 gives each kind one class and the record kinds are shared with external containers (ADR-0009 §4 rule 1 conflict). Delivery is owner-only and tested; the class is pinned. Needs an ADR-0009 erratum — TD-114. No `InvCursor…` kinds yet; the cursor container uses the generic record kinds.
+- Outside the Inventory folder: Sim Core `EventLog.TryRaiseContinuation` + facade (no Continuation raise API existed; TD-115), `SimComposition` wiring, SimAssertCodes 65–68.
+- Plan limits: a full touched set is refused in `Validate` as `bad_request`; more than 8 planned blocks asserts (66) and Release rejects 85 (TD-116). `End` leaves `ByActorId` 0 (the contested actor, stories 013/014).
+- GDD H-R7-1 (line 697) lists `Removed{E, count, mailIds}` for B; ADR-0009 §4 and this story send no mailIds on `InvRemoved` — GDD conflict logged on TD-114.
+**Tech debt**: TD-104 Closed; TD-114–TD-118 added.
+**Test Evidence**: Logic — `tests/unit/inventory/InventoryEventsTests.cs` (present, passing on 4 legs)
+**Code Review**: Complete — /code-review CHANGES REQUIRED (5th-container unsealed mutation, `Place` Release guard) → fixed and re-reviewed; QL-TEST-COVERAGE ADEQUATE; LP-CODE-REVIEW APPROVE
+**Run result**: N/A — Sim-only Logic story with no rendered surface (no Godot code touched)

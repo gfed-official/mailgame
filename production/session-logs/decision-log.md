@@ -5963,3 +5963,17 @@ Granularity follows the orchestrator's one-session sizing, not `fine`. QL-STORY-
 **Chosen:** owner ruling — record it. ADR-0017 `## Errata` entry (accepted by Evan 2026-10-20) with inline markers on both Key Interfaces namespaces and the arch-test lines; the manifest's 2026-10-20 namespace errata line now covers both exceptions, and the Mail→Economy rule names the real namespace (version unchanged). Mail-destinations story 005's AC-2 arch test is keyed on `PerformativeMail.Sim.MailDestinations*` so it cannot pass vacuously; stories 005/010 cite the namespace. Module labels "Sim.Mail" (architecture.md, EPIC.md) unchanged. TD register not edited — TD-074 item 1 is resolved by this PR; marked resolved by a later register PR.
 **Reason:** Owner ruling; matches shipped code and the ADR-0015 precedent.
 **Category:** owner decision
+
+#### 2026-10-21 — TryRaiseContinuation on EventLog/EventLogFacade (owner decision, Evan, 02:07 PT; recorded with PR #11's merge of main, docs only)
+**Decision point:** grid-inventory story 005 (PR #11) adds `EventLog.TryRaiseContinuation` and its `EventLogFacade` pass-through in Sim Core so inventory events can carry mailId runs in `Continuation` chunks; ADR-0008 does not list this API (TD-115).
+**Options considered:** approve the Sim Core addition and record an ADR-0008 erratum / move chunking out of Sim Core.
+**Chosen:** Evan approved TryRaiseContinuation on EventLog/EventLogFacade (Sim Core); ADR-0008 erratum to follow (TD-115). The erratum text is left to a later PR; TD-115 stays open.
+**Reason:** Owner ruling; matches the shipped code in PR #11.
+**Category:** owner decision
+
+#### 2026-10-21 — ADR-0009 erratum: panel/cursor event audience (owner decision, Evan, 02:07 PT; recorded with PR #11's merge of main, docs only)
+**Decision point:** ADR-0009 §4 rule 1 says panel and cursor containers are `OwnerOnly`, but ADR-0008 §3 gives each `EventKind` one class and the inventory kinds serve panel and external containers, so story 005 (PR #11) declares them `Targeted` with only the owner's audience bit for panel/cursor containers (TD-114).
+**Options considered:** approve Targeted-to-owner-slot as equivalent to OwnerOnly and record an ADR-0009 erratum / split the event kinds per audience class.
+**Chosen:** Evan approved ADR-0009 erratum: panel/cursor events go Targeted to owner slot (TD-114). The erratum text is left to a later PR; TD-114 stays open.
+**Reason:** Owner ruling; Targeted with the owner's single slot bit delivers to the same audience as OwnerOnly.
+**Category:** owner decision

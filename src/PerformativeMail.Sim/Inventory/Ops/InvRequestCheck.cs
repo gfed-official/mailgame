@@ -13,7 +13,13 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// <item>the handler's own <c>not_open</c> step (placement and entry ops), or Player Character P13's chain for range-gated kinds
 /// (<c>Open</c>, <c>Pickup</c>) — stories 007-010;</item>
 /// <item><see cref="ResolveEntries"/>: <c>stale_entry</c> for the named entry ids (returns 0 or 67);</item>
-/// <item>the rest of the kind's chain (<c>stale_layout</c>, <c>reserved_slot</c>, ...).</item>
+/// <item>the rest of the kind's chain (<c>stale_layout</c>, <c>reserved_slot</c>, ...), which builds the <see cref="InvPlan"/>;</item>
+/// <item><see cref="CheckArenaReservation(in InvPlan)"/> last, once the plan is built (story 005; ADR-0009 sections 2 and 5, TD-102): the
+/// plan lists every mail-ids arena block the commit will acquire, each sized at the moment it is acquired (a union with a none input
+/// and a <c>TryAppend</c> on a none handle each acquire one; chained unions need <c>|a|+|b|</c> and then <c>|a|+|b|+|c|</c>; omitting
+/// one is a false accept), and the step returns <c>capacity_exhausted</c> (85) when <see cref="MailIdArena.CanReserve(ReadOnlySpan{int})"/>
+/// is false, so Commit never fails to acquire. It is a dry run: it writes no check record (the arena's
+/// <c>InventoryArenaExhausted</c> record comes only from a real acquire failure).</item>
 /// </list>
 /// <para><b>bad_request</b> (<see cref="CheckRequest"/>, all fields in payload order):</para>
 /// <list type="bullet">
@@ -52,21 +58,45 @@ public sealed class InvRequestCheck
     private const ushort Pass = 0;
     private const ushort Bad = CoreReason.BadRequest;
     private const ushort Stale = (ushort)InvReason.StaleEntry;
+    private const ushort Exhausted = (ushort)InvReason.CapacityExhausted;
 
     private readonly ContainerTable _containers;
     private readonly EntryPool _entries;
+    private readonly MailIdArena _mailIds;
 
-    /// <summary>Creates the check over the module's container table and entry pool.</summary>
+    /// <summary>Creates the check over the module's container table, entry pool and mail-ids arena.</summary>
     /// <param name="containers">The container table.</param>
     /// <param name="entries">The entry pool.</param>
+    /// <param name="mailIds">The mail-ids arena (the reservation step).</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    internal InvRequestCheck(ContainerTable containers, EntryPool entries)
+    internal InvRequestCheck(ContainerTable containers, EntryPool entries, MailIdArena mailIds)
     {
         ArgumentNullException.ThrowIfNull(containers);
         ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(mailIds);
         _containers = containers;
         _entries = entries;
+        _mailIds = mailIds;
     }
+
+    /// <summary>
+    /// The shared arena-reservation step (last step of every handler's <c>Validate</c>; see the class remarks): 0 when every block in
+    /// <paramref name="acquiredBlockUnits"/> can be acquired at once, else <c>capacity_exhausted</c> (85). Pure dry run: reserves,
+    /// mutates and records nothing; allocation-free.
+    /// </summary>
+    /// <param name="acquiredBlockUnits">One element per block the commit acquires, each sized at the moment it is acquired.</param>
+    /// <returns>0 or <see cref="InvReason.CapacityExhausted"/>.</returns>
+    public ushort CheckArenaReservation(ReadOnlySpan<int> acquiredBlockUnits) => _mailIds.CanReserve(acquiredBlockUnits) ? Pass : Exhausted;
+
+    /// <summary>
+    /// <see cref="CheckArenaReservation(ReadOnlySpan{int})"/> over the plan's <see cref="InvPlan.AcquiredBlocks"/>; a plan that planned
+    /// more than <see cref="InvPlan.MaxAcquiredBlocks"/> acquisitions (a handler programming error that asserted at
+    /// <see cref="InvPlan.AddAcquiredBlock"/> under <c>INVENTORY_ASSERT</c>) is <c>capacity_exhausted</c> in Release (conservative: never a false accept).
+    /// </summary>
+    /// <param name="plan">The built plan.</param>
+    /// <returns>0 or <see cref="InvReason.CapacityExhausted"/>.</returns>
+    public ushort CheckArenaReservation(in InvPlan plan) =>
+        plan.AcquiredBlocksOverflowed ? Exhausted : CheckArenaReservation(plan.AcquiredBlocks);
 
     /// <summary>Range check of a decoded count (a <c>u8</c> field, widened): 0 to 255 passes, anything else is <c>bad_request</c>.</summary>
     /// <param name="decoded">The count as decoded (for example -1).</param>
