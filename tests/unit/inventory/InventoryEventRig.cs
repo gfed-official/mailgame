@@ -1,6 +1,7 @@
 using System.Reflection;
 using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Events;
@@ -636,10 +637,11 @@ internal sealed class InvAutoPlaceRig
     private uint _reqId = 100;
 
     /// <summary>
-    /// Builds the rig; <paramref name="mailIdArenaUnits"/> overrides the arena budget of this test world only (the default is the
-    /// balance's); <paramref name="content"/> replaces the M-1a built-in set (story 012's perf fixture adds a container def).
+    /// Builds the rig; <paramref name="mailIdArenaUnits"/> and <paramref name="entryPoolCapacity"/> override the arena budget and the
+    /// entry pool of this test world only (the defaults are the balance's); <paramref name="content"/> replaces the M-1a built-in set
+    /// (story 012's perf fixture adds a container def).
     /// </summary>
-    public InvAutoPlaceRig(int? mailIdArenaUnits = null, ContentSet? content = null)
+    public InvAutoPlaceRig(int? mailIdArenaUnits = null, ContentSet? content = null, int? entryPoolCapacity = null)
     {
         Sink = new CaptureSink();
         _gate = new GatedSink(Sink);
@@ -650,9 +652,9 @@ internal sealed class InvAutoPlaceRig
             new SimSystemEntry(
                 SystemId.GridInventory,
                 ctx => new InventoryWithActionOp(
-                    mailIdArenaUnits is int units
-                        ? new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, InventorySettings.FromBalance(ctx.Content.Inventory) with { MailIdArenaUnits = units }, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots)
-                        : new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots),
+                    mailIdArenaUnits is null && entryPoolCapacity is null
+                        ? new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots)
+                        : new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, Settings(ctx.Content.Inventory, mailIdArenaUnits, entryPoolCapacity), ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots),
                     handler)));
         Host = SimComposition.Build(new SimBuildArgs(profile, content ?? BuiltInContent.CreateM1a(), 42) { EventSink = _gate });
         _system = (InventoryWithActionOp)Host.Systems.Single();
@@ -669,6 +671,16 @@ internal sealed class InvAutoPlaceRig
     public SimHost Host { get; }
 
     public CaptureSink Sink { get; }
+
+    private static InventorySettings Settings(InventoryBalance balance, int? mailIdArenaUnits, int? entryPoolCapacity)
+    {
+        InventorySettings s = InventorySettings.FromBalance(balance);
+        return s with
+        {
+            MailIdArenaUnits = mailIdArenaUnits ?? s.MailIdArenaUnits,
+            EntryPoolCapacity = entryPoolCapacity ?? s.EntryPoolCapacity,
+        };
+    }
 
     /// <summary>False stops the copy of each tick's log into <see cref="Sink"/> (which allocates), for the 0 B windows; true by default.</summary>
     public bool CaptureEvents

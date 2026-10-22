@@ -152,12 +152,18 @@ public class InventoryApiAllocationTests
                 _totals.Consumed += _inventory.ConsumeUnit(new EntryRef(_inventoryA, _rig.Entries[_resident].Id), ConsumeReason.Delivered, ActorId.System) ? 1 : 0;
 
                 var place = new UnitRef(new MailId(_nextMail++), default, letter, 9u, 0);
-                _totals.Placed += _inventory.TryInsert(_hotbar, in place, ActorId.System) ? 1 : 0;
-                ushort thrown = _rig.EntryAt(_hotbarSlot, 1, 0);
-                EntryId thrownId = _rig.Entries[thrown].Id;
-                _totals.Stale += _inventory.DetachForThrow(_a, thrownId, 2).Reason == InvReason.StaleEntry ? 1 : 0;
-                _totals.Detached += _inventory.DetachForThrow(_a, thrownId, 1).Reason == 0 ? 1 : 0;
-                _inventory.Mutator.DestroyDetached(thrown);
+                bool placed = _inventory.TryInsert(_hotbar, in place, ActorId.System);
+                _totals.Placed += placed ? 1 : 0;
+
+                // The empty hotbar has no matching stack, so a placing TryInsert allocated the newest entry id: look the entry up by
+                // that id rather than assume the cell AutoPlace chose. A miss leaves the Stale and Detached totals short.
+                EntryId thrownId = EntryId.Real(_rig.Entries.LastId);
+                if (placed && _rig.Entries.TryGetSlot(thrownId, out ushort thrown) && _rig.Entries[thrown].ContainerSlot == _hotbarSlot)
+                {
+                    _totals.Stale += _inventory.DetachForThrow(_a, thrownId, 2).Reason == InvReason.StaleEntry ? 1 : 0;
+                    _totals.Detached += _inventory.DetachForThrow(_a, thrownId, 1).Reason == 0 ? 1 : 0;
+                    _inventory.Mutator.DestroyDetached(thrown);
+                }
 
                 _totals.Refused += _inventory.TryInsert(_intake, in place, ActorId.System) ? 0 : 1;
                 _totals.Refused += _inventory.TryInsert(_rack, in place, ActorId.System) ? 0 : 1;

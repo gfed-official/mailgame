@@ -7,13 +7,14 @@ Task: /dev-story production/epics/simulation-core/story-001-build-config-sim-ass
 <!-- /STATUS -->
 
 <!-- CHECKPOINT -->
-**Updated:** 2026-10-19
-**Branch:** `feat/grid-inventory-003-mailid-arena`
-**Current task:** /story-done — production/epics/grid-inventory/story-003-mailids-arena.md closed: COMPLETE WITH NOTES
-**Next step:** /dev-story production/epics/content-data/story-018-schema-and-build-stages.md (In Progress, resume)
+**Updated:** 2026-10-21
+**Branch:** `feat/grid-inventory-015`
+**Current task:** /dev-story — production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md (IInventoryApi hooks) — slice 3 (review nits) uncommitted
+**Next step:** /story-done production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md (at full: /code-review the slice-3 files first)
 **Blocked on:** nothing
-**Files in progress:** none
-**Open questions:** tech debt logged: 1 item (TD-102)
+**Files in progress:** src/PerformativeMail.Sim/Inventory/Placement/ItemCountIndex.cs, src/PerformativeMail.Sim/Inventory/InventorySystem.cs, tests/unit/inventory/InventoryApiTests.cs, tests/unit/inventory/InventoryApiAllocationTests.cs, tests/unit/inventory/InventoryEventRig.cs, docs/tech-debt-register.md
+**Run result:** N/A — Logic story, plain-C# Sim; Debug + Release build 0 warnings, 5312 tests green (Debug 49 skipped, Release 3)
+**Open questions:** tech debt logged: 1 item (TD-146); ItemCountIndex.Home hash fixed (probe runs grew with keys); StackIndex uses the same middle-bits pattern (unreviewed)
 <!-- /CHECKPOINT -->
 
 - **Task**: Systems decomposition

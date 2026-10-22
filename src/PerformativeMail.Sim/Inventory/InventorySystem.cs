@@ -59,7 +59,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         public ContainerId Cursor;
 
         // The slot's player entity at its latest PlayerJoin: DetachForThrow's seal actor. Derived from the join ops (Sim Core's slot
-        // table holds it too), so it is not in the canonical dump.
+        // table holds it too), so it is not in the canonical dump; the load path must rebuild the whole struct (TD-146).
         public EntityId Player;
     }
 
@@ -179,7 +179,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         var outfeed = new OutfeedFifo(settings.OutfeedNodeCapacity, settings.ContainerCapacity, _entries, facade.Counters);
 
         // Story 015: the itemId -> units index CountItem reads (keys sized from the entry pool), maintained by the mutator's primitives.
-        var itemCounts = new ItemCountIndex(_entries.Capacity, facade.Counters);
+        var itemCounts = new ItemCountIndex(_entries.Capacity, _containers.Capacity, facade.Counters);
         _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, slots);
         _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
 

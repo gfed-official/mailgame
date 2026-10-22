@@ -30,27 +30,40 @@ internal sealed class ItemCountIndex
     private readonly uint[] _keys; // (containerSlot + 1) << 16 | itemId; 0 = empty table slot
     private readonly int[] _units;
     private readonly int _mask;
+    private readonly int _shift; // 64 - log2(table size): Home keeps the product's top bits
     private readonly SimCounters _counters;
     private int _keyCount;
 
-    /// <summary>Preallocates the table for an entry pool of <paramref name="entryCapacity"/> slots.</summary>
+    /// <summary>The most containers the key packs: <c>containerSlot + 1</c> takes the key's high 16 bits, and 0 marks an empty slot.</summary>
+    public const int MaxContainerCapacity = ushort.MaxValue;
+
+    /// <summary>
+    /// Preallocates the table for an entry pool of <paramref name="entryCapacity"/> slots over a container table of
+    /// <paramref name="containerCapacity"/> slots.
+    /// </summary>
     /// <param name="entryCapacity">The entry pool's capacity (the most keys that can be live at once).</param>
+    /// <param name="containerCapacity">The container table's capacity (every container slot is below it); at most <see cref="MaxContainerCapacity"/>.</param>
     /// <param name="counters">The world's counters (<see cref="CounterId.InventoryItemCountProbes"/>).</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="entryCapacity"/> is below 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="entryCapacity"/> or <paramref name="containerCapacity"/> is below 1, or <paramref name="containerCapacity"/> is above <see cref="MaxContainerCapacity"/> (a key would not fit its 16 bits).</exception>
     /// <exception cref="ArgumentNullException"><paramref name="counters"/> is null.</exception>
-    public ItemCountIndex(int entryCapacity, SimCounters counters)
+    public ItemCountIndex(int entryCapacity, int containerCapacity, SimCounters counters)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(entryCapacity, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(containerCapacity, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(containerCapacity, MaxContainerCapacity);
         ArgumentNullException.ThrowIfNull(counters);
         int size = 4;
+        int bits = 2;
         while (size < entryCapacity * 2)
         {
             size <<= 1;
+            bits++;
         }
 
         _keys = new uint[size];
         _units = new int[size];
         _mask = size - 1;
+        _shift = 64 - bits;
         _counters = counters;
     }
 
@@ -164,9 +177,10 @@ internal sealed class ItemCountIndex
 
     private static uint Key(ushort containerSlot, ushort itemId) => ((uint)(containerSlot + 1) << 16) | itemId;
 
-    // Fibonacci hashing; the multiply wraps by design, so it is unchecked explicitly (Debug builds compile with checked arithmetic).
-    // Never used for ordering (ADR-0006).
-    private int Home(uint key) => (int)(unchecked((ulong)key * 0x9E37_79B9_7F4A_7C15UL) >> 40) & _mask;
+    // Fibonacci hashing: the top log2(size) bits of the wrapped product (middle bits put keys a fixed stride apart, such as one item
+    // in successive containers, into a single run). The multiply wraps by design, so it is unchecked explicitly (Debug builds compile
+    // with checked arithmetic). Never used for ordering (ADR-0006).
+    private int Home(uint key) => (int)(unchecked((ulong)key * 0x9E37_79B9_7F4A_7C15UL) >> _shift);
 
     // Backward shift: walk the run after the hole; any key whose home is not cyclically within (hole, j] can fill it.
     private void RemoveAt(int hole)

@@ -29,6 +29,13 @@ public class InventoryApiTests
 {
     private const uint Address4 = 4u;
 
+    /// <summary>
+    /// The stated bound on table slots one <c>CountItem</c> lookup of one container reads (hit or miss, the empty slot that ends a
+    /// miss included): the table is at least twice the entry pool and holds at most one key per live item entry, so it is never more
+    /// than half full whatever the entry count. A constant; it is not scaled by entries or keys.
+    /// </summary>
+    private const int MaxProbesPerLookup = 8;
+
     [Fact]
     [Trait("Id", "H-R6-1")]
     public void ConsumeUnit_OnA_4_9_15_21_30_ConsumesTheOldest4_VersionPlusOne_OneRemovedThenOneConsumedSeal()
@@ -288,42 +295,102 @@ public class InventoryApiTests
 
     [Fact]
     [Trait("Id", "H-R17-1")]
-    public void CountItem_ProbeCount_DoesNotGrowWithTheEntryCount()
+    public void CountItem_ProbesPerLookup_StayUnderAConstantBound_AsKeysAndEntriesGrow_AtRealisticLoad()
     {
-        // Arrange: one plank stack in a 6 x 4 grid
+        // Arrange: the balance's entry pool (8,192 -> a 16,384-slot table); six 8 x 8 grids beside player A's panels
         var rig = new InvAutoPlaceRig();
-        ushort grid = rig.CreateGrid(6, 4);
-        ContainerId gridId = rig.Inventory.Containers[grid].Id;
-        DefIndex plank = rig.ItemIndex("plank");
-        DefIndex fiber = rig.ItemIndex("fiber");
-        _ = rig.PlaceItem(grid, "plank", 0, 0, 1);
-        long hitWithOne = Probes(rig, gridId, plank, out int unitsWithOne);
-        long missWithOne = Probes(rig, gridId, fiber, out _);
-
-        // Act: fill the other 23 cells with planks (and mail, which is not in the map)
-        for (int i = 1; i < 24; i++)
+        var grids = new List<ushort>();
+        for (int g = 0; g < 6; g++)
         {
-            if (i % 4 == 0)
+            grids.Add(rig.CreateGrid(8, 8));
+        }
+
+        ContainerId[] all = AllContainers(rig);
+        DefIndex[] items = ItemDefs(rig);
+        var stages = new List<(int Entries, int Keys, int MaxHit, int MaxMiss)>();
+
+        // Act: fill one grid per stage with all four item defs (one item per 1 x 2 column pair; 1 x 1 defs as two entries),
+        // measuring every (container, item) lookup of every live container after each stage
+        foreach (ushort grid in grids)
+        {
+            for (int x = 0; x < 8; x++)
             {
-                _ = rig.PlaceMail(grid, "letter", i % 6, i / 6, Address4, new[] { 100u + (uint)i });
+                for (int y = 0; y < 8; y += 2)
+                {
+                    FillPair(rig, grid, items[(grid + x + (y / 2)) % items.Length], x, y);
+                }
             }
-            else
+
+            (int maxHit, int maxMiss) = MaxProbes(rig, all, items);
+            stages.Add((rig.Entries.LiveCount, rig.Inventory.Mutator.ItemCounts.KeyCount, maxHit, maxMiss));
+        }
+
+        // Assert: entries and distinct keys grew sixfold; every lookup, hit or miss, read at most MaxProbesPerLookup slots
+        Assert.Equal(6 * 48, stages[^1].Entries);
+        Assert.Equal(6 * stages[0].Entries, stages[^1].Entries);
+        Assert.Equal(4, stages[0].Keys);
+        Assert.Equal(6 * 4, stages[^1].Keys);
+        Assert.All(stages, st => Assert.InRange(st.MaxHit, 1, MaxProbesPerLookup));
+        Assert.All(stages, st => Assert.InRange(st.MaxMiss, 1, MaxProbesPerLookup));
+    }
+
+    [Fact]
+    [Trait("Id", "H-R17-1")]
+    public void CountItem_ProbesPerLookup_StayUnderAConstantBound_AsKeysAndEntriesGrow_ToTheMapsMaxLoad()
+    {
+        // Arrange: a 64-entry pool (a 128-slot table) and sixteen 3 x 2 grids, each to hold all four item defs as one entry each,
+        // so the last stage has 64 entries and 64 distinct keys: the pool is full and the table at its maximum load of 1/2
+        var rig = new InvAutoPlaceRig(entryPoolCapacity: 64);
+        var grids = new List<ushort>();
+        for (int g = 0; g < 16; g++)
+        {
+            grids.Add(rig.CreateGrid(3, 2));
+        }
+
+        ContainerId[] all = AllContainers(rig);
+        DefIndex[] items = ItemDefs(rig);
+        var unknown = new[] { DefIndex.FromValue((ushort)items.Length), DefIndex.FromValue(200) }; // never a key: misses everywhere
+        var stages = new List<(int Entries, int Keys, int MaxHit, int MaxMiss)>();
+        Assert.Equal(128, rig.Inventory.Mutator.ItemCounts.TableSize);
+
+        // Act: fill four grids per stage (axe and log in the 1 x 2 columns, plank and fiber in the third), measuring after each
+        for (int g = 0; g < grids.Count; g++)
+        {
+            _ = rig.PlaceItem(grids[g], "axe", 0, 0, 1);
+            _ = rig.PlaceItem(grids[g], "log", 1, 0, 3);
+            _ = rig.PlaceItem(grids[g], "plank", 2, 0, 5);
+            _ = rig.PlaceItem(grids[g], "fiber", 2, 1, 7);
+            if (g % 4 == 3)
             {
-                _ = rig.PlaceItem(grid, "plank", i % 6, i / 6, 1);
+                (int maxHit, int maxMiss) = MaxProbes(rig, all, items.Concat(unknown).ToArray());
+                stages.Add((rig.Entries.LiveCount, rig.Inventory.Mutator.ItemCounts.KeyCount, maxHit, maxMiss));
             }
         }
 
-        long hitWithMany = Probes(rig, gridId, plank, out int unitsWithMany);
-        long missWithMany = Probes(rig, gridId, fiber, out _);
+        // Assert: entries and keys grew fourfold to the pool's capacity; every lookup stayed under the same constant bound
+        Assert.Equal(new[] { 16, 32, 48, 64 }, stages.Select(st => st.Entries));
+        Assert.Equal(new[] { 16, 32, 48, 64 }, stages.Select(st => st.Keys));
+        Assert.Equal(rig.Entries.Capacity, rig.Entries.LiveCount);
+        Assert.Equal(7 * 16, rig.Inventory.CountItem(all, rig.ItemIndex("fiber")));
+        Assert.All(stages, st => Assert.InRange(st.MaxHit, 1, MaxProbesPerLookup));
+        Assert.All(stages, st => Assert.InRange(st.MaxMiss, 1, MaxProbesPerLookup));
+    }
 
-        // Assert: 24 entries read with the same probes as 1; a lookup in the sparse table reads at most 2 slots
-        Assert.Equal(1, unitsWithOne);
-        Assert.Equal(19, unitsWithMany);
-        Assert.Equal(24, rig.Header(grid).EntryCount);
-        Assert.Equal(hitWithOne, hitWithMany);
-        Assert.Equal(missWithOne, missWithMany);
-        Assert.InRange(hitWithMany, 1, 2);
-        Assert.InRange(missWithMany, 1, 2);
+    [Fact]
+    public void ItemCountIndex_RefusesAtConstruction_AContainerCapacityWhoseSlotPlusOneWouldNotFitTheKeys16Bits()
+    {
+        // Arrange
+        var counters = new SimCounters();
+
+        // Act + Assert: 65,535 containers (slot + 1 at most 0xFFFF) builds, and its last slot keeps its own totals; one more, or none, throws
+        var widest = new ItemCountIndex(4, ItemCountIndex.MaxContainerCapacity, counters);
+        widest.Add(ushort.MaxValue - 1, 7, 3);
+        widest.Add(0, 7, 2);
+        Assert.Equal(3, widest.Units(ushort.MaxValue - 1, 7));
+        Assert.Equal(2, widest.Units(0, 7));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ItemCountIndex(4, ItemCountIndex.MaxContainerCapacity + 1, counters));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ItemCountIndex(4, 0, counters));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ItemCountIndex(0, 4, counters));
     }
 
     [Fact]
@@ -331,7 +398,7 @@ public class InventoryApiTests
     {
         // Arrange: a small table (entry capacity 16 -> 32 slots) so runs collide and wrap
         var counters = new SimCounters();
-        var index = new ItemCountIndex(16, counters);
+        var index = new ItemCountIndex(16, 4, counters);
         var expected = new Dictionary<(ushort, ushort), int>();
         uint state = 0xACE1u;
 
@@ -406,6 +473,36 @@ public class InventoryApiTests
         Assert.Equal(before.Version + 1, seal.VersionTo);
         Assert.Equal(rig.PlayerA.Value, seal.ActorId);
         Assert.Equal((byte)InvCause.None, seal.Cause);
+    }
+
+    [Fact]
+    [Trait("Id", "H-X-2")]
+    public void DetachForThrow_FromSlot1sHotbar_SealsWithPlayerBsActor()
+    {
+        // Arrange: player B joins slot 1; 3 letters at B's hotbar index 2
+        var rig = new InvAutoPlaceRig();
+        JoinSlot1(rig);
+        PlayerSlot b = PlayerSlot.FromValue(1);
+        ActorId playerB = ActorId.FromEntity(rig.Host.Services.Slots.Entry(b).PlayerId);
+        Assert.NotEqual(rig.PlayerA, playerB);
+        ContainerId hotbarB = rig.Inventory.HotbarOf(b);
+        ushort hotbarBSlot = rig.SlotOf(hotbarB);
+        ushort entry = rig.PlaceMail(hotbarBSlot, "letter", 2, 0, Address4, new uint[] { 1, 2, 3 });
+        EntryId id = rig.Entries[entry].Id;
+        uint version = rig.Header(hotbarBSlot).Version;
+
+        // Act
+        DetachResult r = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.DetachForThrow(b, id, 3));
+        EventEntry[] log = InventoryEvents(rig.Sink.Last);
+
+        // Assert: detached from B's hotbar; one InvRemoved then one seal on B's hotbar whose actor is player B
+        Assert.Equal(new DetachResult(default, id, 3), r);
+        Assert.Equal(EntryRecord.NoContainer, rig.Entries[entry].ContainerSlot);
+        Assert.Equal(new[] { InvEventKinds.Removed, InvEventKinds.Version }, log.Select(e => e.Kind));
+        InvVersionPayload seal = log[1].PayloadAs<InvVersionPayload>();
+        Assert.Equal(hotbarB.Value, seal.Container);
+        Assert.Equal(version + 1, seal.VersionTo);
+        Assert.Equal(playerB.Value, seal.ActorId);
     }
 
     [Fact]
@@ -685,6 +782,78 @@ public class InventoryApiTests
     }
 
     [Fact]
+    public void TryInsert_WithTheEntryPoolExhaustedAndNoMergeCandidate_ReturnsFalse_NothingChanges_NoEntryOrArenaLeak()
+    {
+        // Arrange: a 64-entry pool filled by 64 planks in an 8 x 8 grid; player A's inventory is empty, so the letter would need a new entry
+        var rig = new InvAutoPlaceRig(entryPoolCapacity: 64);
+        ushort grid = rig.CreateGrid(8, 8);
+        for (int i = 0; i < 64; i++)
+        {
+            _ = rig.PlaceItem(grid, "plank", i % 8, i / 8, 1);
+        }
+
+        Assert.Equal(rig.Entries.Capacity, rig.Entries.LiveCount);
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        UnitRef letter = Letter(rig, 501, Address4);
+        SimCheckRing ring = rig.Host.World.CheckRing;
+        int ringBefore = ring.Count;
+        List<long> before = State(rig);
+
+        // Act
+        bool inserted = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryInsert(inventoryA, in letter, rig.PlayerA));
+
+        // Assert: refused at the pool (its one InventoryEntryPoolExhausted record); entries, LastId, arena blocks, versions unchanged
+        Assert.False(inserted);
+        Assert.Equal(before, State(rig));
+        Assert.Equal(ringBefore + 1, ring.Count);
+        Assert.Equal(CheckCode.InventoryEntryPoolExhausted, ring[ring.Count - 1].Check);
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    public void TryInsert_WhenTheArenaReservationFails_ReturnsFalse_NothingChanges_NoEntryOrArenaLeak_NoCheckRecord()
+    {
+        // Arrange: a matching 2-letter stack in a grid (the merge path) and an empty player inventory (the new-entry path), then every
+        // free block of a minimum-size arena taken, so neither the union block nor a new one-unit block can be reserved (reason 85)
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.MinTotalUnits);
+        ushort grid = rig.CreateGrid(2, 1);
+        _ = rig.PlaceMail(grid, "letter", 0, 0, Address4, new uint[] { 10, 20 });
+        ContainerId gridId = rig.Header(grid).Id;
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        MailIdArena arena = rig.Inventory.MailIds;
+        uint filler = 1_000_000;
+        while (arena.CanReserve(1))
+        {
+            uint id = filler++;
+            Assert.True(arena.TryCreate(new ReadOnlySpan<uint>(in id), rig.Host.World.CurrentTick, out _));
+        }
+
+        UnitRef letter = Letter(rig, 15, Address4);
+        var plan = new InvPlan();
+        _ = plan.AddAcquiredBlock(1);
+        Assert.Equal((ushort)InvReason.CapacityExhausted, rig.Inventory.RequestCheck.CheckArenaReservation(in plan));
+        SimCheckRing ring = rig.Host.World.CheckRing;
+        int ringBefore = ring.Count;
+        List<long> before = State(rig);
+        var results = new List<bool>();
+
+        // Act
+        rig.Hook.Action = (in TickContext ctx) =>
+        {
+            results.Add(rig.Inventory.TryInsert(gridId, in letter, rig.PlayerA));     // merge pass: the union block
+            results.Add(rig.Inventory.TryInsert(inventoryA, in letter, rig.PlayerA)); // new entry: its one-unit block
+        };
+        rig.Host.World.Tick();
+        rig.Hook.Action = null;
+
+        // Assert: both refused by the dry-run reservation (no check record, no entry allocated); arena blocks and LastId unchanged
+        Assert.Equal(new[] { false, false }, results);
+        Assert.Equal(before, State(rig));
+        Assert.Equal(ringBefore, ring.Count);
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
     [Trait("Id", "R9")]
     public void TryInsert_OutsideATickPhase_IsRefused_CountsMutatingApiOutOfPhase_AndMutatesNothing()
     {
@@ -806,6 +975,56 @@ public class InventoryApiTests
         return units;
     }
 
+    /// <summary>Every live container's id (the panels, the Intake and the test's grids).</summary>
+    private static ContainerId[] AllContainers(InvAutoPlaceRig rig)
+    {
+        var ids = new ContainerId[rig.Inventory.Containers.LiveCount];
+        for (int s = 0; s < ids.Length; s++)
+        {
+            ids[s] = rig.Header((ushort)s).Id;
+        }
+
+        return ids;
+    }
+
+    private static DefIndex[] ItemDefs(InvAutoPlaceRig rig) =>
+        Enumerable.Range(0, rig.Content.Items.Count).Select(i => DefIndex.FromValue((ushort)i)).ToArray();
+
+    /// <summary>Places <paramref name="item"/> over cells (x, y) and (x, y + 1): one 1 x 2 entry, or two 1 x 1 entries.</summary>
+    private static void FillPair(InvAutoPlaceRig rig, ushort grid, DefIndex item, int x, int y)
+    {
+        ItemDef def = rig.Content.Items[item];
+        _ = rig.PlaceItem(grid, def.Id, x, y, 1);
+        if (def.GridH == 1)
+        {
+            _ = rig.PlaceItem(grid, def.Id, x, y + 1, 1);
+        }
+    }
+
+    /// <summary>The most probes one single-container <c>CountItem</c> read, over every container and item, split by hit and miss.</summary>
+    private static (int MaxHit, int MaxMiss) MaxProbes(InvAutoPlaceRig rig, ContainerId[] containers, DefIndex[] items)
+    {
+        int maxHit = 0;
+        int maxMiss = 0;
+        foreach (ContainerId c in containers)
+        {
+            foreach (DefIndex item in items)
+            {
+                int probes = (int)Probes(rig, c, item, out int units);
+                if (units > 0)
+                {
+                    maxHit = Math.Max(maxHit, probes);
+                }
+                else
+                {
+                    maxMiss = Math.Max(maxMiss, probes);
+                }
+            }
+        }
+
+        return (maxHit, maxMiss);
+    }
+
     private static long Probes(InvAutoPlaceRig rig, ContainerId c, DefIndex item, out int units)
     {
         long before = rig.Counters[CounterId.InventoryItemCountProbes];
@@ -816,7 +1035,7 @@ public class InventoryApiTests
     private static EventEntry[] InventoryEvents(EventEntry[] log) =>
         log.Where(e => e.Kind is >= InvEventKinds.Inserted and <= InvEventKinds.Version).ToArray();
 
-    /// <summary>Every container header and occupancy owner, the entry pool and the arena's counts, as one comparable list.</summary>
+    /// <summary>Every container header and occupancy owner, the entry pool (its LastId included), the arena's live units, live blocks and free blocks per class, and the index's key count, as one comparable list.</summary>
     private static List<long> State(InvAutoPlaceRig rig)
     {
         var values = new List<long>();
@@ -845,7 +1064,14 @@ public class InventoryApiTests
             }
         }
 
-        values.Add(rig.Inventory.MailIds.LiveUnits);
+        MailIdArena arena = rig.Inventory.MailIds;
+        values.Add(arena.LiveUnits);
+        values.Add(arena.LiveBlocks);
+        for (int c = 0; c < MailIdArena.ClassCount; c++)
+        {
+            values.Add(arena.FreeBlocks(c));
+        }
+
         values.Add(rig.Inventory.Mutator.ItemCounts.KeyCount);
         return values;
     }
