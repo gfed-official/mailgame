@@ -12,18 +12,27 @@ namespace PerformativeMail.Sim.Inventory.World;
 /// on append is compacted first (stale nodes dropped, order kept); every live item is on at most one FIFO and each ring holds the
 /// table's capacity, so a compaction always frees room. Not a timing wheel and not a heap (ADR-0009 Alternative 4).
 /// <para>
-/// <b>Head memo.</b> Each FIFO remembers whether its head node has been verified live since it last changed (a pop, or the removal of
-/// the head's item). <see cref="TryPeekHead"/> returns a verified head without reading the node again; otherwise it inspects nodes,
-/// popping stale ones, until it finds a live head. With <c>countVisits</c> (the cap-eviction path) every node it inspects adds one to
-/// <see cref="CounterId.InventoryWorldItemCapCandidates"/> (46, H-PERF-6d: one per candidate visit, compiled into Release); the expiry
-/// pass counts nothing. A head verified by the expiry pass is therefore not counted again by an eviction in the same tick.
+/// <b>Head memo.</b> Each FIFO remembers the tick its head node was last verified live; the memo is dropped when the head changes (a
+/// pop, the removal of the head's item, a compaction). <see cref="TryPeekHead"/> returns a head verified in the same tick without
+/// reading the node again; otherwise (a new head, or one last verified in an earlier tick) it inspects nodes, popping stale ones, until
+/// it finds a live head. With <c>countVisits</c> (the cap-eviction path) every node it inspects adds one to
+/// <see cref="CounterId.InventoryWorldItemCapCandidates"/> (46, H-PERF-6d, compiled into Release): one per FIFO node read on the
+/// cap-eviction path; a head already verified this tick is free; gate visits &lt;= created + 1 per H-PERF-6d (Evan 2026-10-21 7:22 PM
+/// PT). The expiry pass counts nothing, and it peeks every non-empty FIFO's head on its first pass each tick, so an eviction later in
+/// that tick does not count that head again; a creation before phase 1 (in <c>InputsApply</c>) re-reads, and counts, a head last
+/// verified in an earlier tick.
+/// </para>
+/// <para>
+/// <b>Open point (H-PERF-6d):</b> <see cref="Compact"/> reads every node of a full ring on <see cref="Append"/> (the creation path)
+/// and counts nothing in counter 46: it is amortised append-path maintenance, not a cap-candidate head read, and counting it would
+/// break the created + 1 gate in a compaction tick. Whether H-PERF-6d's bound should cover it is not ruled on.
 /// </para>
 /// Allocation-free after construction; never throws on the tick path. Not thread-safe: Sim tick thread only.
 /// </summary>
 /// <example>
 /// <code>
 /// fifos.Append(ExpiryFifo.MailWorldItem, table, id, slot, expiresTick);
-/// if (fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, countVisits: false, out ushort head)) { /* table[head] expires first */ }
+/// if (fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, now, countVisits: false, out ushort head)) { /* table[head] expires first */ }
 /// </code>
 /// </example>
 internal sealed class ExpiryFifos
@@ -37,6 +46,7 @@ internal sealed class ExpiryFifos
     private readonly int[] _head = new int[Count];
     private readonly int[] _count = new int[Count];
     private readonly bool[] _headVerified = new bool[Count];
+    private readonly uint[] _verifiedTick = new uint[Count];
     private readonly int _capacity;
     private readonly SimCounters _counters;
 
@@ -95,22 +105,24 @@ internal sealed class ExpiryFifos
     }
 
     /// <summary>
-    /// The live head of <paramref name="fifo"/>: a verified head is returned as is; otherwise nodes are inspected from the head, stale
-    /// ones popped, until a live one is found and marked verified. With <paramref name="countVisits"/> each inspected node counts one
-    /// <see cref="CounterId.InventoryWorldItemCapCandidates"/>.
+    /// The live head of <paramref name="fifo"/>: a head verified in tick <paramref name="now"/> is returned as is; otherwise nodes are
+    /// inspected from the head, stale ones popped, until a live one is found and marked verified at <paramref name="now"/>. With
+    /// <paramref name="countVisits"/> each inspected node counts one <see cref="CounterId.InventoryWorldItemCapCandidates"/> (one per
+    /// FIFO node read on the cap-eviction path; a head already verified this tick is free).
     /// </summary>
     /// <param name="fifo">The FIFO.</param>
     /// <param name="table">The WorldItem table.</param>
+    /// <param name="now">The tick being run (the memo holds for this tick only).</param>
     /// <param name="countVisits">True on the cap-eviction path.</param>
     /// <param name="slot">The head item's table slot when found.</param>
     /// <returns>True when the FIFO holds a live item.</returns>
-    public bool TryPeekHead(ExpiryFifo fifo, WorldItemTable table, bool countVisits, out ushort slot)
+    public bool TryPeekHead(ExpiryFifo fifo, WorldItemTable table, uint now, bool countVisits, out ushort slot)
     {
         int f = (int)fifo;
         while (_count[f] > 0)
         {
             int at = Index(f, 0);
-            if (_headVerified[f])
+            if (_headVerified[f] && _verifiedTick[f] == now)
             {
                 slot = _slots[at];
                 return true;
@@ -124,6 +136,7 @@ internal sealed class ExpiryFifos
             if (table.IsLiveAt(_slots[at], _ids[at]))
             {
                 _headVerified[f] = true;
+                _verifiedTick[f] = now;
                 slot = _slots[at];
                 return true;
             }
@@ -172,7 +185,10 @@ internal sealed class ExpiryFifos
         }
     }
 
-    /// <summary>Drops the stale nodes of <paramref name="fifo"/>, keeping the live ones in order (a full ring on append).</summary>
+    /// <summary>
+    /// Drops the stale nodes of <paramref name="fifo"/>, keeping the live ones in order (a full ring on append). Reads every node and
+    /// counts nothing in <see cref="CounterId.InventoryWorldItemCapCandidates"/> (append-path maintenance; open point, see the class).
+    /// </summary>
     /// <param name="fifo">The FIFO.</param>
     /// <param name="table">The WorldItem table.</param>
     public void Compact(ExpiryFifo fifo, WorldItemTable table)

@@ -112,11 +112,11 @@ public class WorldItemStorageTests
         fifos.OnRemoved(ExpiryFifo.NonMailWorldItem, Wi(2).Value);
 
         // Act 1: an eviction-path peek pops the two tombstones and verifies the third
-        bool found = fifos.TryPeekHead(ExpiryFifo.NonMailWorldItem, table, countVisits: true, out ushort head);
+        bool found = fifos.TryPeekHead(ExpiryFifo.NonMailWorldItem, table, now: 50, countVisits: true, out ushort head);
         long afterFirst = counters[CounterId.InventoryWorldItemCapCandidates];
 
         // Act 2: the verified head is returned again without a visit
-        bool again = fifos.TryPeekHead(ExpiryFifo.NonMailWorldItem, table, countVisits: true, out ushort head2);
+        bool again = fifos.TryPeekHead(ExpiryFifo.NonMailWorldItem, table, now: 50, countVisits: true, out ushort head2);
 
         // Assert
         Assert.True(found);
@@ -124,8 +124,8 @@ public class WorldItemStorageTests
         Assert.Equal(slots[2], head);
         Assert.Equal(slots[2], head2);
         Assert.Equal(10_002u, fifos.HeadExpiresTick(ExpiryFifo.NonMailWorldItem));
-        Assert.Equal(3, afterFirst);
-        Assert.Equal(3, counters[CounterId.InventoryWorldItemCapCandidates]);
+        Assert.Equal(3, afterFirst); // ruling (Evan 2026-10-21 7:22 PM PT): one per node read, two tombstones + the live head
+        Assert.Equal(3, counters[CounterId.InventoryWorldItemCapCandidates]); // the head verified this tick is free
         Assert.Equal(1, fifos.NodeCount(ExpiryFifo.NonMailWorldItem));
     }
 
@@ -140,11 +140,33 @@ public class WorldItemStorageTests
         Assert.True(fifos.Append(ExpiryFifo.MailWorldItem, table, Wi(1).Value, s, 9_000));
 
         // Act
-        Assert.True(fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, countVisits: false, out _));
-        Assert.True(fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, countVisits: true, out _));
+        Assert.True(fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, now: 50, countVisits: false, out _));
+        Assert.True(fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, now: 50, countVisits: true, out _));
 
-        // Assert
+        // Assert: the expiry pass counts nothing, and the head it verified this tick is free (Evan 2026-10-21 7:22 PM PT)
         Assert.Equal(0, counters[CounterId.InventoryWorldItemCapCandidates]);
+    }
+
+    [Fact]
+    public void Fifo_AHeadVerifiedInAnEarlierTick_IsReadAndCountedAgainOnTheEvictionPath_ThenFreeForTheRestOfThatTick()
+    {
+        // Arrange: the head is verified by the expiry pass at tick 50
+        var counters = new SimCounters();
+        var table = new WorldItemTable(4);
+        var fifos = new ExpiryFifos(4, counters);
+        Assert.True(table.TryAdd(Wi(1), out ushort s));
+        Assert.True(fifos.Append(ExpiryFifo.NonMailWorldItem, table, Wi(1).Value, s, 9_000));
+        Assert.True(fifos.TryPeekHead(ExpiryFifo.NonMailWorldItem, table, now: 50, countVisits: false, out _));
+
+        // Act: eviction-path peeks at tick 51 (a creation before phase 1, e.g. in InputsApply), twice
+        Assert.True(fifos.TryPeekHead(ExpiryFifo.NonMailWorldItem, table, now: 51, countVisits: true, out ushort head));
+        long afterFirst = counters[CounterId.InventoryWorldItemCapCandidates];
+        Assert.True(fifos.TryPeekHead(ExpiryFifo.NonMailWorldItem, table, now: 51, countVisits: true, out _));
+
+        // Assert: the head is not verified this tick, so it is one node read (Evan 2026-10-21 7:22 PM PT); then it is free
+        Assert.Equal(s, head);
+        Assert.Equal(1, afterFirst);
+        Assert.Equal(1, counters[CounterId.InventoryWorldItemCapCandidates]);
     }
 
     [Fact]
@@ -158,15 +180,15 @@ public class WorldItemStorageTests
         Assert.True(table.TryAdd(Wi(2), out ushort b));
         Assert.True(fifos.Append(ExpiryFifo.MailWorldItem, table, Wi(1).Value, a, 9_000));
         Assert.True(fifos.Append(ExpiryFifo.MailWorldItem, table, Wi(2).Value, b, 9_001));
-        Assert.True(fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, countVisits: true, out _));
+        Assert.True(fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, now: 50, countVisits: true, out _));
 
         // Act: the head is picked up; a slot reuse by a new id must not make its stale node look live
         table.Remove(a);
         fifos.OnRemoved(ExpiryFifo.MailWorldItem, Wi(1).Value);
         Assert.True(table.TryAdd(Wi(3), out ushort reused));
-        bool found = fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, countVisits: true, out ushort head);
+        bool found = fifos.TryPeekHead(ExpiryFifo.MailWorldItem, table, now: 50, countVisits: true, out ushort head);
 
-        // Assert: tombstone popped (visit 2), id 2 verified (visit 3)
+        // Assert: tombstone popped (visit 2), id 2 verified (visit 3): one per node read (Evan 2026-10-21 7:22 PM PT)
         Assert.Equal(a, reused);
         Assert.True(found);
         Assert.Equal(b, head);
@@ -198,7 +220,7 @@ public class WorldItemStorageTests
         Assert.True(appended);
         Assert.Equal(3, fifos.NodeCount(ExpiryFifo.NonMailWorldItem));
         Assert.Equal(new[] { Wi(1).Value, Wi(4).Value, Wi(5).Value }, Enumerable.Range(0, 3).Select(i => fifos.IdAt(ExpiryFifo.NonMailWorldItem, i)).ToArray());
-        Assert.Equal(0, counters[CounterId.InventoryWorldItemCapCandidates]);
+        Assert.Equal(0, counters[CounterId.InventoryWorldItemCapCandidates]); // compaction is append-path maintenance, not a cap-candidate read (open point)
     }
 
     [Fact]
@@ -207,9 +229,9 @@ public class WorldItemStorageTests
         var counters = new SimCounters();
         var fifos = new ExpiryFifos(2, counters);
 
-        Assert.False(fifos.TryPeekHead(ExpiryFifo.Bag, new WorldItemTable(2), countVisits: true, out ushort slot));
+        Assert.False(fifos.TryPeekHead(ExpiryFifo.Bag, new WorldItemTable(2), now: 50, countVisits: true, out ushort slot));
         Assert.Equal(WorldItemTable.NoSlot, slot);
-        Assert.Equal(0, counters[CounterId.InventoryWorldItemCapCandidates]);
+        Assert.Equal(0, counters[CounterId.InventoryWorldItemCapCandidates]); // no node to read (Evan 2026-10-21 7:22 PM PT)
     }
 
     // ---------------------------------------------------------------- Tombstones

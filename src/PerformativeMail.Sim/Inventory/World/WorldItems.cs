@@ -35,7 +35,8 @@ namespace PerformativeMail.Sim.Inventory.World;
 /// <see cref="CheckCode.InventoryWorldItemCapExceeded"/> record is written when the count first goes over (latched until it is back at
 /// or under the cap; the repo's always-on counter + check-record convention for runtime warnings), and each <c>ItemsExpire</c> re-runs
 /// the eviction while over, so the first item to qualify (e.g. the first young letter to reach 10 s) is evicted on that tick.
-/// <see cref="CounterId.InventoryWorldItemCapCandidates"/> counts the eviction path's candidate visits (see <see cref="ExpiryFifos"/>).</item>
+/// <see cref="CounterId.InventoryWorldItemCapCandidates"/> counts one per FIFO node read on the cap-eviction path; a head already
+/// verified this tick is free; gate visits &lt;= created + 1 per H-PERF-6d (Evan 2026-10-21 7:22 PM PT; see <see cref="ExpiryFifos"/>).</item>
 /// <item><b>Interim rule until story 021 (backlog):</b> when the Intake cannot take a returning mail entry (full, or not accepting),
 /// the mail WorldItem is <b>not</b> removed and nothing is lost: on expiry it stays at its FIFO head (the FIFO is skipped for the rest
 /// of that pass, so its order is kept) and is retried on the next <c>ItemsExpire</c>; as a cap candidate it is not evicted and the
@@ -261,7 +262,7 @@ internal sealed class WorldItems
             ushort bestSlot = WorldItemTable.NoSlot;
             for (int f = 0; f < ExpiryFifos.Count; f++)
             {
-                if ((blocked & (1 << f)) != 0 || !_fifos.TryPeekHead((ExpiryFifo)f, _table, countVisits: false, out ushort s))
+                if ((blocked & (1 << f)) != 0 || !_fifos.TryPeekHead((ExpiryFifo)f, _table, now, countVisits: false, out ushort s))
                 {
                     continue;
                 }
@@ -412,14 +413,14 @@ internal sealed class WorldItems
     /// </summary>
     private bool TryEvictOne(uint now, ushort exclude)
     {
-        if (_fifos.TryPeekHead(ExpiryFifo.MailWorldItem, _table, countVisits: true, out ushort mail) && mail != exclude
+        if (_fifos.TryPeekHead(ExpiryFifo.MailWorldItem, _table, now, countVisits: true, out ushort mail) && mail != exclude
             && now - _table[mail].CreatedTick >= _minAgeTicks && TryReturnMail(mail, ExpiryFifo.MailWorldItem, now))
         {
             return true; // lossless: back of the Intake queue
         }
 
-        bool hasA = _fifos.TryPeekHead(ExpiryFifo.NonMailWorldItem, _table, countVisits: true, out ushort a) && a != exclude;
-        bool hasB = _fifos.TryPeekHead(ExpiryFifo.WaterFloatNonMail, _table, countVisits: true, out ushort b) && b != exclude;
+        bool hasA = _fifos.TryPeekHead(ExpiryFifo.NonMailWorldItem, _table, now, countVisits: true, out ushort a) && a != exclude;
+        bool hasB = _fifos.TryPeekHead(ExpiryFifo.WaterFloatNonMail, _table, now, countVisits: true, out ushort b) && b != exclude;
         if (!hasA && !hasB)
         {
             return false;
