@@ -44,7 +44,8 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// (<see cref="EntryPool.LiveCount"/> below <see cref="EntryPool.Capacity"/>, <see cref="EntryPool.LastId"/> below
 /// <see cref="EntryPool.MaxRealId"/>; Mail Lead planning default pending Evan), then a mail split's k-unit block must pass the
 /// reservation. The code is ADR-0009's (section 2 reason codes, 85); refused, the entry stays where it is, on the cursor for a place
-/// (Evan 2026-10-22 5:11 AM PT for the arena half).</item>
+/// (Mail Lead planning default pending Evan, TD-152, for both halves; it follows the pattern of Evan's 2026-10-22 5:11 AM PT
+/// ruling, which covers only a leashed letter staying on the cursor when the mail-id arena is full).</item>
 /// </list>
 /// <c>container_gone</c> stays declared but is unreachable at M-1a (no container is freed; a dead id fails <c>not_open</c> first;
 /// TD-136). The commit, in one <c>Begin</c>/<c>End</c> bracket inside the drain's call scope, is one of: one
@@ -216,7 +217,7 @@ internal sealed class MoveHandler : IOpHandler
             _ = plan.AddAcquiredBlock(targetCount + units); // the union block; one block never overflows a fresh plan
         }
 
-        return check.CheckArenaReservation(in plan); // capacity_exhausted last (ADR-0009 section 2; Evan 2026-10-22 5:11 AM PT)
+        return check.CheckArenaReservation(in plan); // capacity_exhausted last (ADR-0009 section 2 reason precedence)
     }
 
     /// <summary>

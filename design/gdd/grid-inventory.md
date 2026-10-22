@@ -341,7 +341,7 @@ waterReturnTicks  = waterReturnSeconds × 30 = 300 (10 s)
 
 ### Zero, max and out-of-range
 - **If a `move` carries `count` equal to the entry's total**: it is a plain move — the entry keeps its `entryId`, no split, one version bump per touched container. `count = 0` or `count > total` → `bad_count`; `count < 0` or `> 255` → `bad_request` (R7); nothing changes.
-  *(Errata note 2026-10-22, pending Evan — a Mail Lead planning default, not a ruling: story 007 follows Accepted ADR-0009 §1, so `count = 0` is a whole-entry move like `count == total`; only `count > total` → `bad_count` (and `1 ≤ count < total` until story 008's split-and-place). The rule text here and in R7 is unchanged until Evan rules; TD-150, TD-105 item 3.)*
+  *(Errata note 2026-10-22, pending Evan — a Mail Lead planning default, not a ruling: story 007 follows Accepted ADR-0009 §1, so `count = 0` is a whole-entry move like `count == total`; only `count > total` → `bad_count` (`1 ≤ count < total` is story 008's split-and-place, now built). The rule text here and in R7 is unchanged until Evan rules; TD-150, TD-105 item 3.)*
 - **If `split` targets an entry with `effMax = 1`** (any package or tool): `unsplittable`, whatever `k` was sent; the fixed reason precedence (`not_open → stale_entry → cursor_busy → unsplittable → bad_count`) means the same bad request always returns the same code.
 - **If the panel and cursor are empty (`P = 0`)**: `speedPermille = 1000` — exactly `baseSpeed`; the division by 1000 is exact.
 - **If `P ≥ 40`**: `penalty0` clamps at 400 → 600; P = 41, 60 and the theoretical 112 all give 600 (800 with Strong Back). Weight past the floor is free; accepted, because PerEntry bounds hoarding by entry count.

@@ -25,8 +25,9 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// seal), and <see cref="SideEffects"/> unchanged (container headers with versions, occupancy row bitmaps, entries with their mail
 /// ids and StackKey-index membership, the pool's high-water and live count, the arena, the negative-fit cache, weight P,
 /// <c>CountItem</c>, subscriber masks, externals, check ring writes and the id allocators). The entry-pool refusal, the swap's
-/// per-container bump and the merge chain are Mail Lead planning defaults pending Evan; the arena refusal leaving the letter on the
-/// cursor is Evan's ruling of 2026-10-22 5:11 AM PT (the code, <c>capacity_exhausted</c>, is ADR-0009's).
+/// per-container bump, the merge chain and a refused split leaving the entry where it is (arena or pool) are Mail Lead planning
+/// defaults pending Evan (TD-152); Evan's 2026-10-22 5:11 AM PT ruling covers only a leashed letter staying on the cursor when the
+/// mail-id arena is full (the code, <c>capacity_exhausted</c>, is ADR-0009's).
 /// </summary>
 public class MoveSplitMergeTests
 {
@@ -495,7 +496,8 @@ public class MoveSplitMergeTests
     /// <summary>
     /// The mail-ids arena cannot reserve the new entry's block (a minimum arena, the Intake filled with single letters until
     /// <c>Spawn</c> is refused at its reservation): a split from the cursor to a free chest cell is <c>capacity_exhausted</c> and the
-    /// letters stay on the cursor (Evan 2026-10-22 5:11 AM PT; the code is ADR-0009's). The whole move to the same cell needs no block
+    /// letters stay on the cursor (Mail Lead planning default pending Evan, following the pattern of Evan's 5:11 AM PT leash ruling; the
+/// code is ADR-0009's). The whole move to the same cell needs no block
     /// and succeeds.
     /// </summary>
     [Theory]
