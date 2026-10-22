@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 11 Complete, 12 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-22 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 12 Complete, 11 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-22 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -124,7 +124,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 008 | [Move split-and-place, hotbar swap from the cursor, and the Merge op](story-008-move-split-swap-merge.md) | Logic | Ready | ADR-0009, ADR-0004 |
 | 009 | [AutoPlace (passes M/U/R, PassFirst/TargetFirst), StackKey non-full index and negative-fit cache](story-009-autoplace-stackkey-index.md) | Logic | Complete | ADR-0009, ADR-0006 |
 | 010 | [QuickMove (entry form), Return, and the R9 quick_move target order](story-010-quickmove-return-targets.md) | Logic | Ready | ADR-0009 |
-| 011 | [Open-set bookkeeping, Close op, leash put-away hook — and the Intake as the M-1a external](story-011-open-set-close-intake.md) | Logic | Ready | ADR-0009, ADR-0008 |
+| 011 | [Open-set bookkeeping, Close op, leash put-away hook — and the Intake as the M-1a external](story-011-open-set-close-intake.md) | Logic | Complete | ADR-0009, ADR-0008 |
 | 012 | [Spawn into the Intake (NoMerge, arrivalSeq) and the outfeed FIFO (PeekOutfeed / TakeUnit)](story-012-intake-spawn-outfeed.md) | Logic | Complete | ADR-0009, ADR-0003 |
 | 013 | [WorldItem entity, absolute-tick expiry FIFOs, water float, cap eviction and tombstones](story-013-worlditem-expiry-cap.md) | Logic | Complete | ADR-0009, ADR-0004, ADR-0003 |
 | 014 | [Pickup core (AutoPlace by the R9 pickup rows) and the TryCatch API with fumble](story-014-pickup-core-trycatch.md) | Logic | Ready | ADR-0009 |
@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–006, 009, 012, 013, 015 and 016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27; 016 in PR #29, open, not merged). Next: 011; 017 waits on 014 (Ready, unbuilt) (013 also unblocks 020, and 014 once 010 is Complete). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–006, 009, 011, 012, 013, 015 and 016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29; 011 in PR #30, open, not merged). Next: 007; 017 waits on 014 (Ready, unbuilt; 014 needs 010, which needs 007, 008 and 011) (013 also unblocks 020, and 014 once 010 is Complete). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
