@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 8 Complete, 15 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 9 Complete, 14 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -126,7 +126,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 010 | [QuickMove (entry form), Return, and the R9 quick_move target order](story-010-quickmove-return-targets.md) | Logic | Ready | ADR-0009 |
 | 011 | [Open-set bookkeeping, Close op, leash put-away hook — and the Intake as the M-1a external](story-011-open-set-close-intake.md) | Logic | Ready | ADR-0009, ADR-0008 |
 | 012 | [Spawn into the Intake (NoMerge, arrivalSeq) and the outfeed FIFO (PeekOutfeed / TakeUnit)](story-012-intake-spawn-outfeed.md) | Logic | Complete | ADR-0009, ADR-0003 |
-| 013 | [WorldItem entity, absolute-tick expiry FIFOs, water float, cap eviction and tombstones](story-013-worlditem-expiry-cap.md) | Logic | Ready | ADR-0009, ADR-0004, ADR-0003 |
+| 013 | [WorldItem entity, absolute-tick expiry FIFOs, water float, cap eviction and tombstones](story-013-worlditem-expiry-cap.md) | Logic | Complete | ADR-0009, ADR-0004, ADR-0003 |
 | 014 | [Pickup core (AutoPlace by the R9 pickup rows) and the TryCatch API with fumble](story-014-pickup-core-trycatch.md) | Logic | Ready | ADR-0009 |
 | 015 | [IInventoryApi hooks for feature epics — ConsumeUnit, DetachForThrow, TryInsert, CountItem](story-015-inventory-api-feature-hooks.md) | Logic | Ready | ADR-0009, ADR-0003 |
 | 016 | [Weight → speed (R16, D1): weightPoints and speedPermille](story-016-weight-speed.md) | Logic | Ready | ADR-0006, ADR-0009, ADR-0010 |
@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–006, 009 and 012 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21). Next: run `/story-readiness` on `story-013-worlditem-expiry-cap.md` (013 calls 012's `ReturnToIntake`), then implement it; then 015. Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–006, 009, 012 and 013 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26). Next: 015 (013 also unblocks 020, and 014 once 010 is Complete). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.

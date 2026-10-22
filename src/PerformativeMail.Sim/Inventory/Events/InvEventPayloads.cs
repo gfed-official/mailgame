@@ -247,3 +247,138 @@ public struct InvReserved36
     private uint _e0;
 #pragma warning restore CS0169
 }
+
+// World payloads (story grid-inventory/013; GDD Network table "WorldItems and bags"): Pack = 1, padding-free, at most 48 B. They start
+// with the WorldItem id (not a container id) and every WorldItem record carries the global worldSeq (u32) it was raised with, so a
+// client detects a gap and resyncs. ItemsLost carries no worldSeq (it is not a WorldItem state change).
+
+/// <summary>
+/// <see cref="InvEventKinds.WorldItemSpawned"/> (44 B): a WorldItem appeared with its one entry (GDD R12). Position in mm (the GDD's
+/// cm is flagged to its re-review). The key is the mail key (<see cref="MailKind"/>, <see cref="AddressId"/>, <see cref="MailFlags"/>)
+/// or the item key (<see cref="ItemId"/>), selected by bit 0 of <see cref="Bits"/>; bit 1 is the water flag.
+/// </summary>
+/// <example><code>var p = e.PayloadAs&lt;WorldItemSpawnedPayload&gt;(); bool floats = (p.Bits &amp; WorldItemSpawnedPayload.OnWaterBit) != 0;</code></example>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct WorldItemSpawnedPayload
+{
+    /// <summary><see cref="Bits"/>: the entry is mail.</summary>
+    public const byte IsMailBit = 1;
+
+    /// <summary><see cref="Bits"/>: the item landed on water (it floats, no pickup prompt).</summary>
+    public const byte OnWaterBit = 2;
+
+    /// <summary>The WorldItem id (raw <c>EntityId</c>, class <c>WorldItem</c>).</summary>
+    public uint WorldItemId;
+
+    /// <summary>The global <c>worldSeq</c> of this record.</summary>
+    public uint WorldSeq;
+
+    /// <summary>The entry's id.</summary>
+    public uint EntryId;
+
+    /// <summary>Mail key: the packed address; 0 for an item.</summary>
+    public uint AddressId;
+
+    /// <summary>X, mm.</summary>
+    public int X;
+
+    /// <summary>Y (up), mm.</summary>
+    public int Y;
+
+    /// <summary>Z, mm.</summary>
+    public int Z;
+
+    /// <summary>The creation (landing) tick.</summary>
+    public uint CreatedTick;
+
+    /// <summary>The expiry tick (0 for Loot: never).</summary>
+    public uint ExpiresTick;
+
+    /// <summary>Mail key: the mail kind; 0 for an item.</summary>
+    public ushort MailKind;
+
+    /// <summary>Item key: the item def ordinal; 0 for mail.</summary>
+    public ushort ItemId;
+
+    /// <summary>The entry's count.</summary>
+    public byte Count;
+
+    /// <summary>The origin (<c>WorldItemOrigin</c>).</summary>
+    public byte Origin;
+
+    /// <summary>Mail key: the mail flags; 0 for an item.</summary>
+    public byte MailFlags;
+
+    /// <summary><see cref="IsMailBit"/> | <see cref="OnWaterBit"/>.</summary>
+    public byte Bits;
+}
+
+/// <summary>
+/// <see cref="InvEventKinds.WorldItemDespawned"/> (16 B): a WorldItem left the world. <see cref="ByActorId"/> and <see cref="Cause"/>
+/// (<see cref="InvCause.Taken"/> picked up, <see cref="InvCause.Expired"/> mail returned to the Intake, <see cref="InvCause.Destroyed"/>
+/// non-mail destroyed) are what its tombstone answers later ops with.
+/// </summary>
+/// <example><code>var p = e.PayloadAs&lt;WorldItemDespawnedPayload&gt;();</code></example>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct WorldItemDespawnedPayload
+{
+    /// <summary>The WorldItem id.</summary>
+    public uint WorldItemId;
+
+    /// <summary>The global <c>worldSeq</c> of this record.</summary>
+    public uint WorldSeq;
+
+    /// <summary>The actor credited (raw <c>ActorId</c>; <c>System</c> for expiry and eviction).</summary>
+    public uint ByActorId;
+
+    /// <summary>The cause (<see cref="InvCause"/>).</summary>
+    public byte Cause;
+
+    /// <summary>Explicit padding, zero.</summary>
+    public byte Pad0;
+
+    /// <summary>Explicit padding, zero.</summary>
+    public ushort Pad1;
+}
+
+/// <summary><see cref="InvEventKinds.WorldItemEntriesChanged"/> (16 B): the WorldItem's entry now holds <see cref="Count"/> units (raised by story 014's partial pickup).</summary>
+/// <example><code>var p = e.PayloadAs&lt;WorldItemEntriesChangedPayload&gt;();</code></example>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct WorldItemEntriesChangedPayload
+{
+    /// <summary>The WorldItem id.</summary>
+    public uint WorldItemId;
+
+    /// <summary>The global <c>worldSeq</c> of this record.</summary>
+    public uint WorldSeq;
+
+    /// <summary>The entry's id.</summary>
+    public uint EntryId;
+
+    /// <summary>The entry's count now.</summary>
+    public byte Count;
+
+    /// <summary>Explicit padding, zero.</summary>
+    public byte Pad0;
+
+    /// <summary>Explicit padding, zero.</summary>
+    public ushort Pad1;
+}
+
+/// <summary><see cref="InvEventKinds.ItemsLost"/> (8 B): <see cref="Count"/> units of item <see cref="ItemId"/> were destroyed (GDD R12 <c>ItemsLost {itemDef, count}</c>), from WorldItem <see cref="WorldItemId"/>.</summary>
+/// <example><code>var p = e.PayloadAs&lt;ItemsLostPayload&gt;();   // {plank, 5}</code></example>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct ItemsLostPayload
+{
+    /// <summary>The WorldItem the units were in.</summary>
+    public uint WorldItemId;
+
+    /// <summary>The item def ordinal.</summary>
+    public ushort ItemId;
+
+    /// <summary>Units destroyed.</summary>
+    public byte Count;
+
+    /// <summary>The cause (<see cref="InvCause.Destroyed"/>).</summary>
+    public byte Cause;
+}

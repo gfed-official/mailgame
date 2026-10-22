@@ -136,7 +136,8 @@ internal static class GridMailRuleFixtures
         }))),
         Violation(GridRuleIds.Dimensions, "max_stack", () => V(ContentFixtures.MinimalValid().Replace(ContentFixtures.Plank with { MaxStack = 0 }))),
         Edge(GridRuleIds.Dimensions, "max_stack", () => V(ContentFixtures.MinimalValid().Replace(ContentFixtures.Plank with { MaxStack = 1 }))),
-        // CV-GRD-06 (Warning; the keys hold ms; edge: one ms below the despawn)
+        // CV-GRD-06 (Warning; the keys hold ms, compared in ticks; despawn 300 000 ms = 9000 ticks: 300 000 ms = 9000 ticks leaves
+        // no eviction window (9000 >= 9000), the edge 299 999 ms = 8999 ticks is the largest that leaves one: evictable at c + 8999)
         Violation(GridRuleIds.EvictAgeAtOrAboveDespawn, "evict_age_below_despawn", () => V(Inventory("capEvictMinAgeSeconds", 300_000))),
         Edge(GridRuleIds.EvictAgeAtOrAboveDespawn, "evict_age_below_despawn", () => V(Inventory("capEvictMinAgeSeconds", 299_999))),
         // CV-GRD-07 (Warning; edge: exactly 30 s passes, 29 s warns)

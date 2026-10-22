@@ -53,9 +53,9 @@ public sealed record class InventorySettings
             throw new SimBuildException(SimBuildErrorCode.InventorySettingsInvalid, "inventory.entryPoolCapacity must be 1 to 65535 (entry slots are ushort).");
         }
 
-        if (balance.WorldItemCapacity < 1)
+        if (balance.WorldItemCapacity < 1 || balance.WorldItemCapacity > World.WorldItemTable.MaxCapacity)
         {
-            throw new SimBuildException(SimBuildErrorCode.InventorySettingsInvalid, "inventory.worldItemCapacity must be at least 1.");
+            throw new SimBuildException(SimBuildErrorCode.InventorySettingsInvalid, "inventory.worldItemCapacity must be 1 to 65535 (WorldItem slots are ushort).");
         }
 
         if (balance.MailIdArenaUnits < Storage.MailIdArena.MinTotalUnits)

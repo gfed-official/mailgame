@@ -25,7 +25,7 @@ public static class GridRuleIds
     /// <remarks>Catalogue stage 2; runs at stage 4 through the runner (TD-063(1)).</remarks>
     public const string Dimensions = "CV-GRD-04";
 
-    /// <summary>CV-GRD-06 (Warning, stage 5): <c>capEvictMinAgeSeconds</c> at or above <c>worldItemDespawnSeconds</c>.</summary>
+    /// <summary>CV-GRD-06 (Warning, stage 5): <c>capEvictMinAgeSeconds</c> at or above <c>worldItemDespawnSeconds</c>, in ticks (no eviction window).</summary>
     public const string EvictAgeAtOrAboveDespawn = "CV-GRD-06";
 
     /// <summary>CV-GRD-07 (Warning, stage 2): <c>worldItemDespawnSeconds</c> below 30 s.</summary>

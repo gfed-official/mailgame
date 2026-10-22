@@ -30,15 +30,30 @@ public static class InvEventKinds
 
     /// <summary><c>InvVersion</c>: the per-container seal, once per touched container per call.</summary>
     public const EventKind Version = (EventKind)0x0085;
+
+    /// <summary><c>WorldItemSpawned</c>: a WorldItem appeared (story 013), with the next global <c>worldSeq</c>.</summary>
+    public const EventKind WorldItemSpawned = (EventKind)0x0086;
+
+    /// <summary><c>WorldItemDespawned</c>: a WorldItem left the world (picked up, expired, evicted), with the next <c>worldSeq</c>, who and why.</summary>
+    public const EventKind WorldItemDespawned = (EventKind)0x0087;
+
+    /// <summary><c>WorldItemEntriesChanged</c>: a WorldItem's entry count changed (a partial pickup, story 014), with the next <c>worldSeq</c>.</summary>
+    public const EventKind WorldItemEntriesChanged = (EventKind)0x0088;
+
+    /// <summary><c>ItemsLost</c>: non-mail units were destroyed (a WorldItem expired, floated or was evicted; GDD R12).</summary>
+    public const EventKind ItemsLost = (EventKind)0x0089;
 }
 
 /// <summary>
-/// The descriptors of <see cref="InvEventKinds"/> (ADR-0008 section 3), bound by <see cref="InventorySystem.Bind"/>. Every kind is
-/// <see cref="ReplicationClass.Targeted"/>: the raiser resolves the audience at raise time from the container — a panel or cursor
+/// The descriptors of <see cref="InvEventKinds"/> (ADR-0008 section 3), bound by <see cref="InventorySystem.Bind"/>. Every container kind
+/// (<c>0x0080-0x0085</c>) is <see cref="ReplicationClass.Targeted"/>: the raiser resolves the audience at raise time from the container — a panel or cursor
 /// container (one with an owner slot) gets exactly its owner's bit (owner-only delivery), an external container its subscriber set
 /// (ADR-0009 section 4 rule 1). A class is declared once per kind and these kinds serve both, so the owner-only rule is carried by the
 /// one-bit audience. Resync scope 1 (Inventory; ADR-0008 section 6 scope order Players 0, Inventory 1, …). Wire codec ids are 0 until
-/// the network-adapter-loopback epic assigns them. Only <c>InvRemoved</c> is coalescible (ADR-0009 section 4 rule 7).
+/// the network-adapter-loopback epic assigns them. Only <c>InvRemoved</c> is coalescible (ADR-0009 section 4 rule 7). The world kinds
+/// (<c>WorldItem{Spawned, Despawned, EntriesChanged}</c> and <c>ItemsLost</c>, story 013) are <see cref="ReplicationClass.Replicated"/>
+/// (GDD Network table: WorldItems replicate to every peer): the raiser supplies the connected-slot mask at raise time. Same resync
+/// scope; codec ids 0 like the container kinds (no wire codec is invented here).
 /// </summary>
 /// <example><code>foreach (EventDescriptor d in InvEventDescriptors.All) { builder.BindEventKind(d); }</code></example>
 public static class InvEventDescriptors
@@ -64,12 +79,29 @@ public static class InvEventDescriptors
     /// <summary><see cref="InvEventKinds.Version"/>: 20 B.</summary>
     public static EventDescriptor Version { get; } = Of<InvVersionPayload>(InvEventKinds.Version, false);
 
+    /// <summary><see cref="InvEventKinds.WorldItemSpawned"/>: 44 B, replicated.</summary>
+    public static EventDescriptor WorldItemSpawned { get; } = World<WorldItemSpawnedPayload>(InvEventKinds.WorldItemSpawned);
+
+    /// <summary><see cref="InvEventKinds.WorldItemDespawned"/>: 16 B, replicated.</summary>
+    public static EventDescriptor WorldItemDespawned { get; } = World<WorldItemDespawnedPayload>(InvEventKinds.WorldItemDespawned);
+
+    /// <summary><see cref="InvEventKinds.WorldItemEntriesChanged"/>: 16 B, replicated.</summary>
+    public static EventDescriptor WorldItemEntriesChanged { get; } = World<WorldItemEntriesChangedPayload>(InvEventKinds.WorldItemEntriesChanged);
+
+    /// <summary><see cref="InvEventKinds.ItemsLost"/>: 8 B, replicated.</summary>
+    public static EventDescriptor ItemsLost { get; } = World<ItemsLostPayload>(InvEventKinds.ItemsLost);
+
     /// <summary>Every inventory event descriptor, in ascending kind order.</summary>
-    public static ImmutableArray<EventDescriptor> All { get; } = ImmutableArray.Create(Inserted, Removed, Merged, Moved, SplitFrom, Version);
+    public static ImmutableArray<EventDescriptor> All { get; } = ImmutableArray.Create(
+        Inserted, Removed, Merged, Moved, SplitFrom, Version, WorldItemSpawned, WorldItemDespawned, WorldItemEntriesChanged, ItemsLost);
 
     private static EventDescriptor Of<T>(EventKind kind, bool coalescible)
         where T : unmanaged
         => EventDescriptor.For<T>(kind, ReplicationClass.Targeted, coalescible, ResyncScope, wireCodecId: 0, wireSize: 0);
+
+    private static EventDescriptor World<T>(EventKind kind)
+        where T : unmanaged
+        => EventDescriptor.For<T>(kind, ReplicationClass.Replicated, coalescible: false, ResyncScope, wireCodecId: 0, wireSize: 0);
 }
 
 /// <summary>

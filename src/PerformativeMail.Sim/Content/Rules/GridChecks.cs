@@ -161,16 +161,23 @@ internal sealed class GridChecks
         }
     }
 
-    /// <summary>CV-GRD-06, stage 5 (Warning): <c>capEvictMinAgeSeconds</c> at or above <c>worldItemDespawnSeconds</c> leaves nothing evictable.</summary>
+    /// <summary>
+    /// CV-GRD-06, stage 5 (Warning): no mail is ever cap-evictable. A mail WorldItem created at tick c expires (phase 1, before any
+    /// eviction that tick) at c + despawn ticks and qualifies for cap eviction from c + minAge ticks (age at least the min age, &gt;=);
+    /// so a window exists iff <c>minAge &lt; despawn</c>, and it warns when <c>minAge &gt;= despawn</c>, both in ticks converted as <c>WorldItems</c> does (see <see cref="MsToTicks"/>).
+    /// </summary>
     internal void CheckEvictAgeBelowDespawn(ContentValidationInput input, RuleContext ctx)
     {
         InventoryBalance inventory = input.Candidate.Inventory;
-        if (inventory.CapEvictMinAgeSeconds >= inventory.WorldItemDespawnSeconds)
+        long minAge = MsToTicks(inventory.CapEvictMinAgeSeconds);
+        long despawn = MsToTicks(inventory.WorldItemDespawnSeconds);
+        if (minAge >= despawn)
         {
             ctx.Report(
                 DefRef.None, SourceLocation.BuiltIn("builtin/balance/inventory"),
-                "inventory.capEvictMinAgeSeconds " + Num(inventory.CapEvictMinAgeSeconds) + " ms, inventory.worldItemDespawnSeconds " + Num(inventory.WorldItemDespawnSeconds) + " ms",
-                "inventory.capEvictMinAgeSeconds below inventory.worldItemDespawnSeconds");
+                "inventory.capEvictMinAgeSeconds " + Num(inventory.CapEvictMinAgeSeconds) + " ms (" + Num(minAge) + " ticks), inventory.worldItemDespawnSeconds "
+                    + Num(inventory.WorldItemDespawnSeconds) + " ms (" + Num(despawn) + " ticks)",
+                "inventory.capEvictMinAgeSeconds below inventory.worldItemDespawnSeconds (in ticks)");
         }
     }
 
@@ -185,6 +192,9 @@ internal sealed class GridChecks
                 "inventory.worldItemDespawnSeconds " + Num(despawn) + " ms", "at least " + Num(MinDespawnMs) + " ms (thrown mail must outlive a catch)");
         }
     }
+
+    /// <summary>Balance ms to ticks at 30 Hz, rounded down, negatives as 0: mirrors <c>WorldItems.MsToTicks</c> (Content does not reference Inventory).</summary>
+    private static long MsToTicks(int ms) => (long)Math.Max(0, ms) * SimSettings.TickRateHz / 1000L;
 
     private static string Num(long v) => v.ToString(CultureInfo.InvariantCulture);
 }

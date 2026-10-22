@@ -1,4 +1,6 @@
+using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory.Placement;
+using PerformativeMail.Sim.Inventory.World;
 using PerformativeMail.Sim.Primitives;
 
 namespace PerformativeMail.Sim.Inventory;
@@ -36,7 +38,7 @@ public readonly record struct UnitRef(MailId Mail, EntryId Entry, DefIndex MailK
 /// TR-sim-019): synchronous calls made by in-tick callers inside their own phase. Each mutating call is one atomic mutation through
 /// the shared <c>InventoryMutator</c>, with the same records and one <c>InvVersion</c> seal per changed container as an op, and no
 /// reply. Mutating calls are legal only inside a tick phase (<c>TickGuard</c>); an illegal call is refused with nothing mutated and
-/// no event. Story 015 adds <c>ConsumeUnit</c>, <c>DetachForThrow</c>, <c>TryInsert</c> and <c>CountItem</c>; story 021 the backlog
+/// no event. Story 013 adds <see cref="CreateWorldItem"/>; story 015 adds <c>ConsumeUnit</c>, <c>DetachForThrow</c>, <c>TryInsert</c> and <c>CountItem</c>; story 021 the backlog
 /// members. Allocation-free; never throws on the tick path. Not thread-safe: Sim tick thread only.
 /// </summary>
 /// <example>
@@ -87,4 +89,30 @@ public interface IInventoryApi
     /// <param name="u">The unit taken.</param>
     /// <returns>True when a unit was taken.</returns>
     bool TakeUnit(ContainerId c, Selector s, ActorId actor, out UnitRef u);
+
+    /// <summary>
+    /// Creates a WorldItem holding the detached entry <paramref name="entry"/> (story 013; GDD R12): the caller has already taken the entry
+    /// out of every container (Drop, story 020; Throwing's landing) and resolved the landing — this call only stores
+    /// <paramref name="posMm"/>, <paramref name="onWater"/> and <paramref name="createdTick"/> (the landing tick for a throw, which
+    /// starts the timer: <c>expiresTick = createdTick + seconds x 30</c>). Mail on ground expires after
+    /// <c>worldItemDespawnSeconds</c> back to the Intake, non-mail is then destroyed; on water both float <c>waterReturnSeconds</c> first.
+    /// <see cref="WorldItemOrigin.Loot"/> is on no expiry FIFO and never a cap candidate. Raises <c>WorldItemSpawned</c> (replicated, with
+    /// the next <c>worldSeq</c>) and, if the live count goes over <c>worldItemCap</c>, evicts one other WorldItem in the same call scope.
+    /// Returns the new id (class <c>WorldItem</c>, never reused), or none with nothing changed outside a tick phase, for a reserved
+    /// origin (<see cref="WorldItemOrigin.BeltLeak"/>, <see cref="WorldItemOrigin.Spill"/>: M-1b), a <paramref name="createdTick"/> after
+    /// the current tick, a <paramref name="createdTick"/> before the last creation's on the same expiry FIFO (Loot, on no FIFO, neither
+    /// checks nor moves that order; a programming error, which also trips <c>SimAssertCode.InventoryWorldItemCreatedOutOfOrder</c> under
+    /// <c>INVENTORY_ASSERT</c>), an entry that is not live and detached or already in a WorldItem, or a full WorldItem table.
+    /// <para>
+    /// Callers must handle <see cref="EntityId.None"/>: no WorldItem was created, the entry stays detached and is still the caller's
+    /// responsibility.
+    /// </para>
+    /// </summary>
+    /// <param name="entry">A live detached entry (in no container).</param>
+    /// <param name="posMm">The landing position, mm.</param>
+    /// <param name="origin">The origin.</param>
+    /// <param name="onWater">True when it landed on a non-ground tile (water float).</param>
+    /// <param name="createdTick">The creation or landing tick (at most the current tick).</param>
+    /// <returns>The WorldItem id, or <see cref="EntityId.None"/>.</returns>
+    EntityId CreateWorldItem(EntryId entry, Vec3Mm posMm, WorldItemOrigin origin, bool onWater, uint createdTick);
 }

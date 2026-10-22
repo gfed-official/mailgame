@@ -14,8 +14,10 @@ namespace PerformativeMail.Sim.Inventory.Intake;
 /// leaves or is restamped; a node is live while its entry slot still holds the same entry id, placed in this container, with the same
 /// <c>arrivalSeq</c> (a returned entry keeps its id but gets a new <c>arrivalSeq</c>, and so does a merged stack, so the old node is
 /// stale). <see cref="TryPeekHead"/> pops stale heads. When a list's tombstones (from leaves and restamps alike) exceed its live entries
-/// the mutator <see cref="Compact"/>s it, so every list holds at most twice its live entries and the pool (twice the entry pool, see
-/// <see cref="InventorySettings.OutfeedNodeCapacity"/>) never runs out. Peek and take are O(1) amortised: each node is appended once and
+/// the mutator <see cref="Compact"/>s it, so after compaction a list holds at most twice its live entries; a partial merge can briefly
+/// reach 2 × live + 1 nodes before its compaction. The pool is sized twice the entry pool (see
+/// <see cref="InventorySettings.OutfeedNodeCapacity"/>), so exhaustion is not expected; the Release behaviour if it ever happens is
+/// tracked in TD-132 item 3. Peek and take are O(1) amortised: each node is appended once and
 /// inspected live at most once per peek before it is popped or compacted away. <see cref="CounterId.InventoryOutfeedCandidates"/>
 /// (H-PERF-6a, in every build) counts one per candidate visit = one FIFO node examined (GDD H-PERF-6 unit: one per cell probe or
 /// candidate visit): the live head and each stale head popped by a peek, and each node walked by a compaction, a clear or a rebuild;

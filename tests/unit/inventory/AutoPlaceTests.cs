@@ -1319,7 +1319,7 @@ public class AutoPlaceTests
 
     [Fact]
     [Trait("Id", "H-PERF-6")]
-    public void ProbeCounters_RandomIntakeOccupancies_EveryV1Sweep_StaysWithinSumOfAnchorsTimesArea_AndUnderThe8500Gate()
+    public void ProbeCounters_RandomIntakeOccupancies_EveryV1Sweep_IsExactlyAnchorsTimesArea_AndUnderThe8500Gate()
     {
         // Arrange: the bound from content - the v1 kinds' oriented shapes on the Intake (C = 320, sum of areas 25)
         var probe = new InvAutoPlaceRig();
@@ -1414,7 +1414,7 @@ public class AutoPlaceTests
 
     [Fact]
     [Trait("Id", "TR-inventory-007")]
-    public void ProbeCounters42And43_AreNotInTheCanonicalDump_RaisingThemLeavesTheDumpBytesUnchanged()
+    public void ProbeCounters42To45_AreNotInTheCanonicalDump_RaisingThemLeavesTheDumpBytesUnchanged()
     {
         // Arrange: a 5-letter stack to #2 (a merge candidate) and a world dump before any probe
         var rig = new InvAutoPlaceRig();

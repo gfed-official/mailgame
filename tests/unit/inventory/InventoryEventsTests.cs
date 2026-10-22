@@ -268,7 +268,8 @@ public class InventoryEventsTests
 
         // Act + Assert: plain-integer, at most 48 B, size == PayloadLength, field sizes sum to the size (padding-free), inventory block
         EventDescriptorAssert.Check(d, OpKindBlock.Inventory);
-        Assert.Equal(ReplicationClass.Targeted, d.Class);
+        bool world = kind >= InvEventKinds.WorldItemSpawned; // story 013's world kinds replicate to every connected slot
+        Assert.Equal(world ? ReplicationClass.Replicated : ReplicationClass.Targeted, d.Class);
         Assert.Same(d, rig.Host.World.Events.DescriptorFor(kind));
     }
 
@@ -282,6 +283,10 @@ public class InventoryEventsTests
         Assert.Equal(12, Unsafe.SizeOf<InvMovedPayload>());
         Assert.Equal(16, Unsafe.SizeOf<InvSplitFromPayload>());
         Assert.Equal(20, Unsafe.SizeOf<InvVersionPayload>());
+        Assert.Equal(44, Unsafe.SizeOf<WorldItemSpawnedPayload>());
+        Assert.Equal(16, Unsafe.SizeOf<WorldItemDespawnedPayload>());
+        Assert.Equal(16, Unsafe.SizeOf<WorldItemEntriesChangedPayload>());
+        Assert.Equal(8, Unsafe.SizeOf<ItemsLostPayload>());
         Assert.Equal(InvMailIdRuns.RunBytes, Unsafe.SizeOf<InvMailIdRun>());
         Assert.Equal(EventPayload.Size, Unsafe.SizeOf<InvMailIdRuns>());
         Assert.Equal(InvMailIdRuns.Capacity * InvMailIdRuns.RunBytes, Unsafe.SizeOf<InvMailIdRuns>());

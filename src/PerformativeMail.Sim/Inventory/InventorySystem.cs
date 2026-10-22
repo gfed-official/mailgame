@@ -2,12 +2,14 @@ using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory.Events;
 using PerformativeMail.Sim.Inventory.Intake;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Rules;
 using PerformativeMail.Sim.Inventory.Storage;
+using PerformativeMail.Sim.Inventory.World;
 using PerformativeMail.Sim.Primitives;
 
 namespace PerformativeMail.Sim.Inventory;
@@ -19,8 +21,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// calls <see cref="IPlayerJoinListener"/>. A leave keeps the containers (disconnect handling is M0) and a rejoin of the same slot reuses
 /// them. Container dimensions are instance state: the def's width and <c>IStatSheet.Read(InventoryRows)</c> rows.
 /// <para>
-/// It binds the empty <c>ItemsExpire</c> and <c>IntakeDrain</c> phases, a no-op conservation check (story 017's), the state
-/// contributor, the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). It binds no op yet
+/// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the still
+/// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). It binds no op yet
 /// (handlers are stories 007-010) and no snapshot source (the builder has no <c>BindSnapshotSource</c> yet). Every container, entry and
 /// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
 /// <see cref="Subscribers"/> set. Storage is preallocated from
@@ -29,15 +31,20 @@ namespace PerformativeMail.Sim.Inventory;
 /// <para>
 /// It implements and publishes <see cref="IInventoryApi"/> (story 012; ADR-0009 Key Interfaces as implemented, ADR-0003 section 5) for
 /// the systems that declare Grid Inventory a dependency in <c>SystemGraph</c> (<c>context.Api&lt;IInventoryApi&gt;(SystemId.GridInventory)</c>):
-/// <see cref="Spawn"/>, <see cref="PeekOutfeed"/> and <see cref="TakeUnit"/>, plus the internal <see cref="ReturnToIntake"/> (callers
-/// story 013 and the backlog, story 021). The mutating calls check the tick guard (<see cref="TickGuard"/>, through the injected
+/// <see cref="Spawn"/>, <see cref="PeekOutfeed"/>, <see cref="TakeUnit"/> and <see cref="CreateWorldItem"/> (story 013), plus the
+/// internal <see cref="ReturnToIntake"/> (callers story 013 and the backlog, story 021). The mutating calls check the tick guard (<see cref="TickGuard"/>, through the injected
 /// <see cref="ITickReader"/>) and run through the same <see cref="Mutator"/> as the op handlers, each in its own call scope and
 /// <c>Begin</c>/<c>End</c> bracket. They allocate nothing and never throw on the tick path.
+/// </para>
+/// <para>
+/// Story 013: the WorldItems (<see cref="WorldItems"/>: table, expiry FIFOs, tombstones, <c>worldSeq</c>), whose ids come from the
+/// injected <see cref="EntityIds"/> (class <c>WorldItem</c>) and whose world records go to the connected slots of the injected
+/// <see cref="ISlotView"/>; the <c>ItemsExpire</c> phase runs their expiry and cap re-check.
 /// </para>
 /// </summary>
 /// <example>
 /// <code>
-/// // Composition: new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events, context.Tick)
+/// // Composition: new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events, context.Tick, context.EntityIds, context.Slots)
 /// ContainerId hotbar = inventory.HotbarOf(PlayerSlot.FromValue(0));   // none until the slot's PlayerJoin
 /// </code>
 /// </example>
@@ -74,6 +81,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly PanelIds[] _panels = new PanelIds[PlayerSlot.Count];
     private readonly ContainerId _intake;
     private readonly ushort _intakeSlot;
+    private readonly WorldItems _worldItems;
 
     /// <summary>Creates the module: settings from the content's <c>inventory.*</c> record, the four M-1a defs resolved once by id, and the <c>po_intake</c> container.</summary>
     /// <param name="content">The content set (container defs and the inventory balance).</param>
@@ -86,22 +94,26 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     {
     }
 
-    /// <summary>Creates the module with the world's event-log writer and tick reader (the composition root's constructor).</summary>
+    /// <summary>Creates the module with the world's event-log writer, tick reader, entity ids and slot view (the composition root's constructor).</summary>
     /// <param name="content">The content set (container defs and the inventory balance).</param>
     /// <param name="stats">The stat sheets (container rows).</param>
     /// <param name="checkRing">The world's check ring.</param>
     /// <param name="events">The world's event-log writer facade (records and seals are raised through it).</param>
     /// <param name="tick">The world's tick reader (the <see cref="IInventoryApi"/> tick guard, entry and arena check records).</param>
+    /// <param name="entityIds">The world's entity id allocator (WorldItem ids, story 013).</param>
+    /// <param name="slots">The slot view (the connected-slot audience of the replicated world records, story 013).</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException">As the three-argument constructor.</exception>
-    public InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing, EventLogFacade events, ITickReader tick)
+    public InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing, EventLogFacade events, ITickReader tick, EntityIds entityIds, ISlotView slots)
         : this(
             content,
             stats,
             checkRing,
             InventorySettings.FromBalance((content ?? throw new ArgumentNullException(nameof(content))).Inventory),
             events ?? throw new ArgumentNullException(nameof(events)),
-            tick ?? throw new ArgumentNullException(nameof(tick)))
+            tick ?? throw new ArgumentNullException(nameof(tick)),
+            entityIds ?? throw new ArgumentNullException(nameof(entityIds)),
+            slots ?? throw new ArgumentNullException(nameof(slots)))
     {
     }
 
@@ -112,9 +124,19 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <param name="settings">The settings.</param>
     /// <param name="events">The event-log writer; null gives an unattached facade of its own (a module that never mutates, e.g. catalogue tests: a raise through it is a misuse).</param>
     /// <param name="tick">The tick reader; null gives one that is always between ticks at tick 0, so every mutating <see cref="IInventoryApi"/> call is refused.</param>
+    /// <param name="entityIds">The entity id allocator; null means <see cref="CreateWorldItem"/> creates nothing.</param>
+    /// <param name="slots">The slot view; null gives the world records audience 0.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException"><c>InventorySettingsInvalid</c> when the settings cannot hold the intake container; <c>InventoryDefMissing</c> when an M-1a def is absent; <c>InventoryDefInvalid</c> when any container def is wider than 64 columns.</exception>
-    internal InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing, InventorySettings settings, EventLogFacade? events = null, ITickReader? tick = null)
+    internal InventorySystem(
+        ContentSet content,
+        IStatSheet stats,
+        SimCheckRing checkRing,
+        InventorySettings settings,
+        EventLogFacade? events = null,
+        ITickReader? tick = null,
+        EntityIds? entityIds = null,
+        ISlotView? slots = null)
     {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(stats);
@@ -150,8 +172,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         // Story 012: the outfeed FIFO memo; its node pool is 2 x the entry pool (InventorySettings.OutfeedNodeCapacity).
         var outfeed = new OutfeedFifo(settings.OutfeedNodeCapacity, settings.ContainerCapacity, _entries, facade.Counters);
-        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), noFit, outfeed);
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), noFit, outfeed, slots);
         _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
+
+        // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
+        _worldItems = new WorldItems(this, _mutator, _entries, content.Inventory, settings.WorldItemCapacity, facade, _tick, entityIds, checkRing, facade.Counters);
 
         DefIndex intakeDef = Resolve("po_intake");
         _hotbarDef = Resolve("hotbar");
@@ -206,6 +231,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// </summary>
     internal bool IntakeAccepting => true;
 
+    /// <summary>The Intake's version (story 013's interim return memo: a failed return is not retried against the same version in a tick).</summary>
+    internal uint IntakeVersion => _containers[_intakeSlot].Version;
+
+    /// <summary>The WorldItems (story 013): table, expiry FIFOs, tombstones and <c>worldSeq</c>; the pickup story's remove and resolve hooks.</summary>
+    internal WorldItems WorldItems => _worldItems;
+
     /// <summary>The hotbar of <paramref name="slot"/>, or none when the slot has no containers.</summary>
     /// <param name="slot">The player slot.</param>
     public ContainerId HotbarOf(PlayerSlot slot) => slot.IsNone ? default : _panels[slot.Value].Hotbar;
@@ -235,8 +266,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <summary>
-    /// Binds the empty <c>ItemsExpire</c> and <c>IntakeDrain</c> phases, the stub conservation check, the state contributor, the
-    /// join listener and every <see cref="InvEventDescriptors"/> kind. Binds no op (stories 007-010) or snapshot source.
+    /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the empty <c>IntakeDrain</c> phase, the stub
+    /// conservation check, the state contributor, the join listener and every <see cref="InvEventDescriptors"/> kind. Binds no op
+    /// (stories 007-010) or snapshot source.
     /// </summary>
     /// <param name="builder">The world's builder.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is null.</exception>
@@ -244,10 +276,10 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        builder.Bind(PhaseId.ItemsExpire, new ItemsExpirePhase());
+        builder.Bind(PhaseId.ItemsExpire, new ItemsExpirePhase(_worldItems));
         builder.Bind(PhaseId.IntakeDrain, new IntakeDrainPhase());
         builder.BindTickEnd(new InventoryConservationCheck());
-        builder.BindStateContributor(new InventoryStateContributor(_containers));
+        builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems));
         builder.BindPlayerJoinListener(this);
         foreach (EventDescriptor descriptor in InvEventDescriptors.All)
         {
@@ -410,6 +442,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             _mutator.End(ref plan, ref extra);
         }
 
+        // Unreachable (the head is a live placed mail entry and k = 1); kept so TakeUnit's contract does not rely on that invariant.
         if (took != 1)
         {
             return false;
@@ -419,13 +452,19 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         return true;
     }
 
+    /// <inheritdoc />
+    /// <remarks>Delegates to <see cref="World.WorldItems.Create"/> (story 013).</remarks>
+    public EntityId CreateWorldItem(EntryId entry, Vec3Mm posMm, WorldItemOrigin origin, bool onWater, uint createdTick)
+        => _worldItems.Create(entry, posMm, origin, onWater, createdTick);
+
     /// <summary>
     /// Returns a detached entry to the Intake whole (story 012, Planner R4; callers story 013's expiry and water returns, bags later,
     /// story 021's backlog branch): AutoPlace of its whole count with the entry as source, NoMerge, pass-first, into the Intake only, then
     /// the commit in one call scope and one bracket with <paramref name="actor"/> and <paramref name="cause"/>. The entry keeps its
     /// entryId and gets a new <c>arrivalSeq</c> (the mutator's <c>Place</c>). False with nothing changed when the entry is not a live
-    /// detached entry, the Intake refuses it (whitelist) or has no room (the plan's no-fit facts are recorded), the Intake is not
-    /// accepting (<see cref="IntakeAccepting"/>), or the call is outside a tick phase.
+    /// detached entry, is held by a WorldItem (story 013 returns those itself, through the same two steps), the Intake refuses it
+    /// (whitelist) or has no room (the plan's no-fit facts are recorded), the Intake is not accepting (<see cref="IntakeAccepting"/>), or
+    /// the call is outside a tick phase.
     /// </summary>
     /// <param name="detachedEntrySlot">The entry's pool slot (allocated, in no container).</param>
     /// <param name="actor">The actor written into the seal.</param>
@@ -433,12 +472,39 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <returns>True when the entry was placed in the Intake.</returns>
     internal bool ReturnToIntake(ushort detachedEntrySlot, ActorId actor, InvCause cause)
     {
-        if (!TickGuard.IsMutable(_tick, _events.Counters) || !IntakeAccepting)
+        if (!TickGuard.IsMutable(_tick, _events.Counters) || _worldItems.OwnsEntry(detachedEntrySlot))
         {
             return false;
         }
 
-        if (detachedEntrySlot >= _entries.Capacity || !_entries[detachedEntrySlot].IsLive || _entries[detachedEntrySlot].ContainerSlot != EntryRecord.NoContainer)
+        var plan = new InvPlan();
+        if (!TryPlanReturnToIntake(detachedEntrySlot, ref plan, out AutoPlacePlan ap))
+        {
+            return false;
+        }
+
+        using (EventCallScope scope = _events.BeginCall())
+        {
+            CommitReturnToIntake(ref plan, in ap, actor, cause);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The planning half of <see cref="ReturnToIntake"/> (pure but for the no-fit facts a refused plan records): false when the Intake is
+    /// not accepting, the entry is not a live detached entry, or the AutoPlace or arena reservation refuses it. The caller has checked the
+    /// tick guard.
+    /// </summary>
+    /// <param name="detachedEntrySlot">The entry's pool slot.</param>
+    /// <param name="plan">The call's plan (filled).</param>
+    /// <param name="ap">The placement to commit.</param>
+    /// <returns>True when the commit can run.</returns>
+    internal bool TryPlanReturnToIntake(ushort detachedEntrySlot, ref InvPlan plan, out AutoPlacePlan ap)
+    {
+        ap = default;
+        if (!IntakeAccepting || detachedEntrySlot >= _entries.Capacity || !_entries[detachedEntrySlot].IsLive
+            || _entries[detachedEntrySlot].ContainerSlot != EntryRecord.NoContainer)
         {
             return false;
         }
@@ -446,9 +512,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         ref EntryRecord e = ref _entries[detachedEntrySlot];
         PlacementSubject subject = PlacementSubject.Of(_content, _stats, in e);
         ushort intake = _intakeSlot;
-        var plan = new InvPlan();
         ushort reason = _autoPlace.Plan(
-            ref plan, in subject, e.Count, detachedEntrySlot, new ReadOnlySpan<ushort>(in intake), MergePolicy.NoMerge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+            ref plan, in subject, e.Count, detachedEntrySlot, new ReadOnlySpan<ushort>(in intake), MergePolicy.NoMerge, PlaceOrder.PassFirst, out ap);
         if (reason == 0)
         {
             reason = _requestCheck.CheckArenaReservation(in plan);
@@ -460,15 +525,20 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return false;
         }
 
-        var extra = new InvReplyExtra();
-        using (EventCallScope scope = _events.BeginCall())
-        {
-            _mutator.Begin(ref plan, actor, cause);
-            _autoPlace.Commit(ref plan, in ap);
-            _mutator.End(ref plan, ref extra);
-        }
-
         return true;
+    }
+
+    /// <summary>The commit half of <see cref="ReturnToIntake"/>: one <c>Begin</c>/<c>End</c> bracket in the caller's call scope.</summary>
+    /// <param name="plan">The plan <see cref="TryPlanReturnToIntake"/> filled.</param>
+    /// <param name="ap">Its placement.</param>
+    /// <param name="actor">The actor written into the seal.</param>
+    /// <param name="cause">The cause written into the seal.</param>
+    internal void CommitReturnToIntake(ref InvPlan plan, in AutoPlacePlan ap, ActorId actor, InvCause cause)
+    {
+        var extra = new InvReplyExtra();
+        _mutator.Begin(ref plan, actor, cause);
+        _autoPlace.Commit(ref plan, in ap);
+        _mutator.End(ref plan, ref extra);
     }
 
     /// <inheritdoc />
