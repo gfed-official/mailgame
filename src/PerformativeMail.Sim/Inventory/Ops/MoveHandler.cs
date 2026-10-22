@@ -217,7 +217,7 @@ internal sealed class MoveHandler : IOpHandler
             _ = plan.AddAcquiredBlock(targetCount + units); // the union block; one block never overflows a fresh plan
         }
 
-        return check.CheckArenaReservation(in plan); // capacity_exhausted last (ADR-0009 section 2 reason precedence)
+        return check.CheckArenaReservation(in plan); // capacity_exhausted (code 85, ADR-0009 section 2 reason codes; arena exhaustion, section 5) checked last: Mail Lead planning default pending Evan (TD-152)
     }
 
     /// <summary>
