@@ -5,9 +5,9 @@ namespace PerformativeMail.Sim.Inventory;
 /// <summary>
 /// The per-container subscriber set (ADR-0009 section 4 rule 1; GDD Network subscription table; story grid-inventory/005): one slot
 /// bitmask per container table slot, read by <see cref="InventoryMutator"/> at raise time as the <c>Targeted</c> audience of an external
-/// container's records and seals. Subscription is the open set: story 011's <c>Open</c>/<c>Close</c> maintain it; until then tests set it
-/// directly. Panel and cursor containers ignore it (their audience is the owner's bit). Preallocated; allocation-free; never throws on
-/// the tick path. Not thread-safe: Sim tick thread only.
+/// container's records and seals. Subscription is the open set: <c>InventorySystem</c>'s <c>TryOpenExternal</c>, <c>CloseExternal</c>
+/// and leave path maintain it (story 011; <see cref="OpenSet"/> holds each slot's external). Panel and cursor containers ignore it
+/// (their audience is the owner's bit). Preallocated; allocation-free; never throws on the tick path. Not thread-safe: Sim tick thread only.
 /// </summary>
 /// <example>
 /// <code>
