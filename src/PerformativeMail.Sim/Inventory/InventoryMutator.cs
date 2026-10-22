@@ -71,6 +71,7 @@ internal sealed class InventoryMutator
     private readonly NegativeFitCache _noFit;
     private readonly OutfeedFifo _outfeed;
     private readonly ISlotView? _slots;
+    private readonly Weight _weight;
     private readonly uint[] _movedIds = new uint[MailIdArena.MaxUnits];
 
     /// <summary>Creates the mutator over the module's storage.</summary>
@@ -86,6 +87,7 @@ internal sealed class InventoryMutator
     /// <param name="itemCounts">The <c>itemId → units</c> index the primitives maintain (story 015).</param>
     /// <param name="noFit">The negative-fit cache <see cref="RebuildIndex"/> clears.</param>
     /// <param name="outfeed">The outfeed FIFO memo the primitives maintain (story 012).</param>
+    /// <param name="weight">The per-slot weight points memo the primitives maintain (story 016).</param>
     /// <param name="slots">The slot table (the connected-slot audience of the world kinds, story 013); null gives audience 0.</param>
     /// <exception cref="ArgumentNullException">An argument other than <paramref name="slots"/> is null.</exception>
     internal InventoryMutator(
@@ -101,6 +103,7 @@ internal sealed class InventoryMutator
         ItemCountIndex itemCounts,
         NegativeFitCache noFit,
         OutfeedFifo outfeed,
+        Weight weight,
         ISlotView? slots = null)
     {
         ArgumentNullException.ThrowIfNull(containers);
@@ -115,6 +118,7 @@ internal sealed class InventoryMutator
         ArgumentNullException.ThrowIfNull(itemCounts);
         ArgumentNullException.ThrowIfNull(noFit);
         ArgumentNullException.ThrowIfNull(outfeed);
+        ArgumentNullException.ThrowIfNull(weight);
         _containers = containers;
         _entries = entries;
         _occupancy = occupancy;
@@ -127,6 +131,7 @@ internal sealed class InventoryMutator
         _itemCounts = itemCounts;
         _noFit = noFit;
         _outfeed = outfeed;
+        _weight = weight;
         _slots = slots;
     }
 
@@ -138,6 +143,9 @@ internal sealed class InventoryMutator
 
     /// <summary>The outfeed FIFO memo the primitives maintain (story 012; <c>PeekOutfeed</c> / <c>TakeUnit</c> read it).</summary>
     internal OutfeedFifo Outfeed => _outfeed;
+
+    /// <summary>The per-slot weight points memo the primitives maintain (story 016; <c>WeightPoints</c> / <c>SpeedPermille</c> read it).</summary>
+    internal Weight Weight => _weight;
 
     /// <summary>True when the container's def has an outfeed (<c>BeltAccess.OutfeedOnly</c>: the Intake at M-1a).</summary>
     /// <param name="containerSlot">The container's table slot.</param>
@@ -202,7 +210,8 @@ internal sealed class InventoryMutator
     /// <summary>
     /// Places a detached entry (<c>ContainerSlot == NoContainer</c>) at (<paramref name="x"/>, <paramref name="y"/>) of a container whose
     /// cells <c>Validate</c> proved free, and raises <c>InvInserted</c> plus its mailId runs. A square footprint, and every entry of a
-    /// slots layout (one 1 x 1 cell), is stored unrotated. Links the entry into the StackKey index when it is non-full. Into a container
+    /// slots layout (one 1 x 1 cell), is stored unrotated. Links the entry into the StackKey index when it is non-full and adds its class
+    /// points to the owner slot's weight (story 016; a container with no owner adds nothing). Into a container
     /// with an outfeed it first stamps the entry with the next <c>arrivalSeq</c> and appends its FIFO node (story 012). A free or
     /// already placed entry asserts under <c>INVENTORY_ASSERT</c>; Release returns with nothing changed.
     /// </summary>
@@ -228,6 +237,7 @@ internal sealed class InventoryMutator
         }
 
         ref ContainerHeader h = ref _containers[containerSlot];
+        int weight = _weight.PointsOf(h.OwnerSlot, in e); // before any change, so a Bulk assert leaves nothing half-placed
         Canonicalise(in h, in e, ref rotated);
         FootprintIn(in h, in e, rotated, out int fw, out int fh);
         _occupancy.Place(containerSlot, h.W, h.H, x, y, fw, fh, entrySlot);
@@ -240,6 +250,7 @@ internal sealed class InventoryMutator
         plan.MarkMutated(containerSlot);
         LinkIfNonFull(entrySlot);
         CountItemUnits(containerSlot, in e, e.Count);
+        _weight.Add(h.OwnerSlot, weight);
         if (HasOutfeed(containerSlot))
         {
             StampArrival(containerSlot, ref h, entrySlot, ref e);
@@ -250,7 +261,7 @@ internal sealed class InventoryMutator
 
     /// <summary>
     /// Takes a placed entry out of its container (the entry stays allocated and detached; it leaves the StackKey index) and raises
-    /// <c>InvRemoved{c, entry, count}</c>. An outfeed entry's <c>arrivalSeq</c> is reset to 0 and its FIFO node becomes a lazy
+    /// <c>InvRemoved{c, entry, count}</c>. Its class points leave the owner slot's weight (story 016). An outfeed entry's <c>arrivalSeq</c> is reset to 0 and its FIFO node becomes a lazy
     /// tombstone (the list is compacted when its tombstones exceed its live entries).
     /// </summary>
     /// <param name="plan">The call's plan.</param>
@@ -271,9 +282,11 @@ internal sealed class InventoryMutator
         }
 
         ref ContainerHeader h = ref _containers[containerSlot];
+        int weight = _weight.PointsOf(h.OwnerSlot, in e);
         FootprintIn(in h, in e, e.Rotated, out int fw, out int fh);
         _index.Unlink(entrySlot);
         CountItemUnits(containerSlot, in e, -e.Count);
+        _weight.Add(h.OwnerSlot, -weight);
         _occupancy.Clear(containerSlot, h.W, h.H, e.X, e.Y, fw, fh);
         h.EntryCount = (ushort)Math.Max(0, h.EntryCount - 1);
         h.FreeCells = (ushort)Math.Min(h.W * h.H, h.FreeCells + (fw * fh));
@@ -580,6 +593,19 @@ internal sealed class InventoryMutator
         }
 
         _noFit.Clear(containerSlot);
+    }
+
+    /// <summary>
+    /// Recounts <paramref name="slot"/>'s weight points from the entry pool (story 016: the load path, beside <see cref="RebuildIndex"/>;
+    /// TD-146). Changes no Sim state (a derived memo): no record, no version. O(entry pool); allocation-free.
+    /// </summary>
+    /// <param name="slot">The player slot.</param>
+    public void RebuildWeight(PlayerSlot slot)
+    {
+        if (!slot.IsNone && slot.Value < PlayerSlot.Count)
+        {
+            _weight.Rebuild(slot.Value, _containers, _entries);
+        }
     }
 
     /// <summary>The entry's <c>effMax</c> now: <c>MailMaxStack</c> of its kind for mail, its def's <c>maxStack</c> for an item (story 006's <see cref="PlacementSubject"/>).</summary>

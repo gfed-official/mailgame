@@ -28,6 +28,21 @@ public sealed record class InventorySettings
     /// <summary>Mail-ids arena unit budget across its nine size classes (story 003). Key <c>inventory.mailIdArenaUnits</c>, default 32768.</summary>
     public required int MailIdArenaUnits { get; init; }
 
+    /// <summary>D1 <c>classPts[light]</c> (story 016). Key <c>inventory.weightPoints.light</c>, default 1.</summary>
+    public required int WeightPointsLight { get; init; }
+
+    /// <summary>D1 <c>classPts[medium]</c> (story 016). Key <c>inventory.weightPoints.medium</c>, default 3.</summary>
+    public required int WeightPointsMedium { get; init; }
+
+    /// <summary>D1 <c>classPts[heavy]</c> (story 016). Key <c>inventory.weightPoints.heavy</c>, default 8.</summary>
+    public required int WeightPointsHeavy { get; init; }
+
+    /// <summary>D1 speed penalty per weight point, permille (story 016). Key <c>inventory.ptsPermille</c>, default 10.</summary>
+    public required int PtsPermille { get; init; }
+
+    /// <summary>D1 minimum speed share, permille (story 016). Key <c>inventory.weightSpeedFloor</c>, default 600.</summary>
+    public required int WeightSpeedFloor { get; init; }
+
     /// <summary>
     /// Nodes in the shared outfeed FIFO pool (story 012; Planner R7): derived, <c>2 x</c> <see cref="EntryPoolCapacity"/> (16,384 by
     /// default), not a balance key. Compaction keeps each outfeed's tombstones at or below its live entries, so all outfeeds together
@@ -69,6 +84,11 @@ public sealed record class InventorySettings
             EntryPoolCapacity = balance.EntryPoolCapacity,
             WorldItemCapacity = balance.WorldItemCapacity,
             MailIdArenaUnits = balance.MailIdArenaUnits,
+            WeightPointsLight = balance.WeightPointsLight,
+            WeightPointsMedium = balance.WeightPointsMedium,
+            WeightPointsHeavy = balance.WeightPointsHeavy,
+            PtsPermille = balance.PtsPermille,
+            WeightSpeedFloor = balance.WeightSpeedFloor,
         };
     }
 }

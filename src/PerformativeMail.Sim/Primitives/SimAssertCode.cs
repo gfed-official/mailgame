@@ -245,4 +245,10 @@ public static class SimAssertCode
 
     /// <summary><c>ItemCountIndex.Add</c> would take a container's <c>itemId → units</c> total below 0 (story grid-inventory/015): a primitive subtracted units it never added. Release deletes the key (the total reads 0). <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryItemCountNegative = 78;
+
+    /// <summary><c>IInventoryApi.WeightPoints</c> read a slot's weight points above <c>short.MaxValue</c> (story grid-inventory/016). Unreachable at the shipped knobs (25 counted entries x 8 = 200). Release returns <c>short.MaxValue</c>. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryWeightPointsSaturated = 79;
+
+    /// <summary>A Bulk entry was counted in a container with an owner slot (story grid-inventory/016; GDD D1 leaves <c>classPts[bulk]</c> undefined). Unreachable: content rule CV-GRD refuses a hand-carried container that admits a Bulk def (R5). Release counts it as 0 points. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryWeightBulkCounted = 80;
 }
