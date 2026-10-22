@@ -101,12 +101,12 @@
 
 ## Mail Lead planning defaults (pending Evan)
 
-These are **Mail Lead planning defaults, 2026-10-22, pending Evan's confirmation. None of them is an Evan ruling.** They are tracked in TD-150.
+Items 1–3 are **Mail Lead planning defaults, 2026-10-22, pending Evan's confirmation. None of them is an Evan ruling.** Item 4 is settled by an Evan ruling, relayed via Mail Review. All four are tracked in TD-150.
 
 1. `count = 0` and `count == total` both move the whole entry, which keeps its id. This follows Accepted ADR-0009 §1 (TD-105 item 3). `count > total` → `bad_count`. A GDD errata note is added at the edge cases; the GDD rule text is unchanged and the ADR is not edited.
 2. A partial-fit implicit merge moves `min(count, effMax − target.count)` units. The remainder stays at the source and keeps its id. A full target → `stack_full`.
 3. A cursor → chest move bumps both containers, once each. This settles the wording of H-R4-3 a.
-4. Existing behaviour from story 011, kept: on a full mail-id arena, a letter whose merge block can't be reserved stays on the cursor (`capacity_exhausted`), the same as AutoPlace and `TryInsert`.
+4. Existing behaviour from story 011, kept, and no longer a default — Evan ruling 2026-10-22 5:11 AM PT (in Mail Review chat), relayed via Mail Review: on a full mail-id arena, a letter whose merge block can't be reserved stays on the cursor (`capacity_exhausted`), the same as AutoPlace and `TryInsert`.
 
 ---
 
