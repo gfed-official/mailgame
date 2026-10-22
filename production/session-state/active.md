@@ -7,14 +7,14 @@ Task: /dev-story production/epics/simulation-core/story-001-build-config-sim-ass
 <!-- /STATUS -->
 
 <!-- CHECKPOINT -->
-**Updated:** 2026-10-21
+**Updated:** 2026-10-22
 **Branch:** `feat/grid-inventory-015`
-**Current task:** /story-done — production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md closed: COMPLETE WITH NOTES (PR #27 open, not merged; waiting on review)
-**Next step:** after PR #27 merges: grid-inventory 016 → 017, and 011
+**Current task:** Mail Review R1 fixes on PR #27 (story 015), head 58325bb, uncommitted. B1 done: `DetachForThrow` now answers `stale_entry` for a once-allocated entry id (≤ `EntryPool.LastId`) that is no longer live, and `bad_request` for id 0, a temp id, an id above `LastId`, or a live entry outside the slot's hotbar (same id classification as `InvRequestCheck`). A2: `TryInsert` returns `MergeUnitInto`'s result. A5: 10 new tests (B1 split, precedence, duplicate release, rejoin seal actor, ReturnedToSender, live RebuildIndex, SimAssert 78 + MergeUnitInto invalid assert, 19→20 merge, wrap-asserting backward shift). A1 story Completion notes, A3/A6 TD-144/TD-146 text updated.
+**Next step:** owner review and commit of the R1 fixes, then Mail Review round 2. A4 (decision-log entry for the Q1/Q2 defaults, Belt Logistics owner) and A7 (PR body 0 B overclaim) still open, out of this pass's scope.
 **Blocked on:** nothing
-**Files in progress:** none
-**Run result:** N/A — Logic story, plain-C# Sim; Debug + Release build 0 warnings, 5313 tests green on net10.0 and net8.0 (Debug 49 skipped, Release 3)
-**Open questions:** tech debt logged: TD-144…TD-147; Mail Lead to fold TD-144 into the next ADR-0009 errata pass before mail-destinations 005/007
+**Files in progress:** src/PerformativeMail.Sim/Inventory/InventorySystem.cs, src/PerformativeMail.Sim/Inventory/IInventoryApi.cs, tests/unit/inventory/InventoryApiTests.cs, production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md, docs/tech-debt-register.md
+**Run result:** N/A, a Logic story in the plain-C# Sim. Debug and Release net10.0 builds have 0 warnings; 5,323 tests each, 0 failed (Debug 49 skipped, Release 3); tools/ci scripts pass. net8.0 legs were not run this pass. Reverting the stale_entry branch fails 2 of the new tests.
+**Open questions:** TD-144…TD-147 (148 rows, 133×S + 15×M, unchanged); Mail Lead to fold TD-144 into the next ADR-0009 errata pass before mail-destinations 005/007
 <!-- /CHECKPOINT -->
 
 - **Task**: Systems decomposition
