@@ -1206,7 +1206,7 @@ requirements:
     source: "architecture.md Appendix A"
     added: 2026-10-16
   - id: TR-inventory-011
-    requirement: "Backlog drain ≤32 entries/tick, ≤8,000 probes, 0 when idle"
+    requirement: "Backlog drain ≤32 entries/tick, ≤8,500 probes, 0 when idle"
     system: inventory
     gdd: design/gdd/grid-inventory.md
     adr: "ADR-0009"

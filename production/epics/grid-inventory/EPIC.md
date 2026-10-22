@@ -24,7 +24,7 @@ Grid Inventory is where every piece of mail and every item lives between spawnin
 - **Ops** (R7), through the Sim Core op FIFO (one `OpKind` per op): `pick`, `move` (including a count-split place), `merge`, `quick_move` (own panel), `return`, `drop`, `pickup`, plus the sync `IInventoryApi` (`Spawn`, `TryInsert`, `TryExtract`, `TakeUnit`, `CountItem`, `TryCatch`). The orchestrated `deliver`/`deliver_matching` and `throw` handlers are owned here, but each is completed with its feature epic: `manual-delivery`, `throwing-catching` and `mail-destinations`.
 - **Placement and WorldItems:** AutoPlace M/U/R (PassFirst, plus TargetFirst for pickup and catch, R8); the quick_move target order for the own panel (R9); the cursor (R11); WorldItem with cap 512, expiry FIFOs and lossless mail eviction (R12); absolute-tick timers with expiry after `InputsApply` (D6).
 - **Weight → speed** (R16, D1): integer permille with one division; `weightPoints` int16.
-- **Conservation** (R19): the `UnitLedger` invariant and `INVENTORY_ASSERT`; the `Inserted`/`Removed`/`Merged`/`ContainerDelta`/`UnitsRemoved`/`ItemsLost` events; H-DET-1 (equal SHA-256 dumps after a 50 000-op log).
+- **Conservation** (R19): the `UnitLedger` invariant and `INVENTORY_ASSERT`; the `Inserted`/`Removed`/`Merged`/`ItemsLost` events (and the `ContainerDelta`/`UnitsRemoved` network batch forms, GDD l.599 / manifest l.380 — wire packing, not events); H-DET-1 (equal SHA-256 dumps after a 50 000-op log).
 - **The own-panel view** (Presentation): one custom-drawn grid `Control` (TR-inventory-027), the hotbar strip, and drag/pick/place/rotate/return/drop/quick-move through the router's Panel and Holding contexts.
 
 **M-1a access to the Intake (provisional, story-level).** The R10 open set allows one external container, but the UI phase tags put external containers at M0+. The solo greybox still needs a way to take spawned mail. The recommended path is to open `po_intake` as the single external container. Contention, `take_all` and the manifest view stay deferred. **Confirmed at /create-stories (2026-10-16), decision logged.** See story 011.
@@ -76,7 +76,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | TR-inventory-008 | Deterministic consolidating first-fit-decreasing sort, total-order comparator | ❌ No ADR (planned ADR-0025, not written) | M1 |
 | TR-inventory-009 | Intake sort ≤8,500 probes; memoised repeat O(1) | ❌ No ADR (planned ADR-0025, not written) | M1 |
 | TR-inventory-010 | Intake outfeed by arrivalSeq; PeekOutfeed/TakeUnit ≤4 entries amortised | ADR-0009 ✅ | M-1a (story 012) / M-1b (belt selectors) |
-| TR-inventory-011 | Backlog drain ≤32 entries/tick, ≤8,000 probes, 0 when idle | ADR-0009 ✅ | M-1a |
+| TR-inventory-011 | Backlog drain ≤32 entries/tick, ≤8,500 probes, 0 when idle | ADR-0009 ✅ | M-1a |
 | TR-inventory-012 | O(1) conservation counters checked each tick; INVENTORY_ASSERT compiled out of Release | ADR-0009 ✅ | M-1a |
 | TR-inventory-013 | WorldItem cap 512, expiry FIFOs, lossless mail eviction | ADR-0009 ✅ | M-1a |
 | TR-inventory-014 | Timers as absolute ticks (bag 900, WorldItem 9000, water 300); expiry after Inputs.Apply | ADR-0009 ✅ | M-1a |
