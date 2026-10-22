@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 12 Complete, 11 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-22 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 13 Complete, 10 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-22 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -120,7 +120,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 004 | [Inventory op kinds, padding-free payloads, reason codes and the 24 B reply extra](story-004-op-kinds-payloads-reasons.md) | Logic | Complete | ADR-0009, ADR-0007, ADR-0011 |
 | 005 | [InventoryMutator, per-call versions, event records and InvVersion seals](story-005-mutator-versions-events.md) | Logic | Complete | ADR-0009, ADR-0008, ADR-0003 |
 | 006 | [Placement validity, StackKey stacking with effMax at op time, and the insertion whitelist](story-006-placement-stacking-whitelist.md) | Logic | Complete | ADR-0009, ADR-0010 |
-| 007 | [Pick and Move ops — whole-entry moves, cross-container atomicity, no-op moves](story-007-pick-move-ops.md) | Logic | Ready | ADR-0009, ADR-0007 |
+| 007 | [Pick and Move ops — whole-entry moves, cross-container atomicity, no-op moves](story-007-pick-move-ops.md) | Logic | Complete | ADR-0009, ADR-0007 |
 | 008 | [Move split-and-place, hotbar swap from the cursor, and the Merge op](story-008-move-split-swap-merge.md) | Logic | Ready | ADR-0009, ADR-0004 |
 | 009 | [AutoPlace (passes M/U/R, PassFirst/TargetFirst), StackKey non-full index and negative-fit cache](story-009-autoplace-stackkey-index.md) | Logic | Complete | ADR-0009, ADR-0006 |
 | 010 | [QuickMove (entry form), Return, and the R9 quick_move target order](story-010-quickmove-return-targets.md) | Logic | Ready | ADR-0009 |
@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–006, 009, 011, 012, 013, 015 and 016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29; 011 in PR #30, open, not merged). Next: 007; 017 waits on 014 (Ready, unbuilt; 014 needs 010, which needs 007, 008 and 011) (013 also unblocks 020, and 014 once 010 is Complete). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–007, 009, 011, 012, 013, 015 and 016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30; 007 in PR #31, open, not merged). Next: 008; 017 waits on 014 (Ready, unbuilt; 014 needs 010, which needs 008) (013 also unblocks 020, and 014 once 010 is Complete). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
