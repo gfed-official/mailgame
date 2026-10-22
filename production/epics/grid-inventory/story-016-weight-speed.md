@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: S (~0.5 day)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (Complete, PR #29)
+> **Last Updated**: 2026-10-22 (Evan's approval of 2:24 PM PT, confirmed in scope 3:00 PM PT recorded, docs only: the Mail Lead planning defaults below are now Evan's rulings). Before that: 2026-10-22 (Complete, PR #29)
 
 ## Context
 
@@ -91,13 +91,13 @@
 
 ---
 
-## Mail Lead planning defaults (pending Evan)
+## Approved defaults (Evan, 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT)
 
-These are **Mail Lead planning defaults, 2026-10-22, open for Evan's confirmation — not Evan's rulings**. The story is built on them; TD-148 tracks them.
+These were Mail Lead planning defaults of 2026-10-22; **Evan approved them on 2026-10-22 at 2:24 PM PT, confirmed in scope 3:00 PM PT** ("to all recommended decisions", Mail Lead chat), so they are now Evan's rulings — except default 3's "no new content-validator rule", which was never shown to Evan and stays a **Mail Lead default, pending Evan** (Mail Review PR #37 r2). The story is built on them; TD-148 tracks them.
 
-1. `short WeightPoints(PlayerSlot)` and `int SpeedPermille(PlayerSlot)` are new `IInventoryApi` members outside the ADR-0009 Key Interfaces sketch: logged as TD-148 for the next ADR-0009 errata pass. No ADR edit.
+1. `short WeightPoints(PlayerSlot)` and `int SpeedPermille(PlayerSlot)` are new `IInventoryApi` members outside the ADR-0009 Key Interfaces sketch: now in ADR-0009 Key Interfaces (erratum 2026-10-22; TD-148 item 1). No ADR edit.
 2. Speed composition stays in Player Character's `CarrierSpeed.Final` (F1, one division); this story exposes `speedPermille` only (`MulPermilleChain` dropped).
-3. P saturates at `short.MaxValue` and trips `SimAssertCode.InventoryWeightPointsSaturated` (79); a Bulk entry in a counted container adds 0 and trips `InventoryWeightBulkCounted` (80). No new content-validator rule.
+3. P saturates at `short.MaxValue` and trips `SimAssertCode.InventoryWeightPointsSaturated` (79); a Bulk entry in a counted container adds 0 and trips `InventoryWeightBulkCounted` (80). No new content-validator rule (**Mail Lead default, pending Evan**: never shown to Evan, not covered by the approval; TD-148 item 3).
 
 ---
 
