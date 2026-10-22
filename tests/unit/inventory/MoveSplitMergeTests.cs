@@ -1812,7 +1812,7 @@ public class MoveSplitMergeTests
     private const string OutputOnlyDef = "output_only";
 
     /// <summary>The M-1a content plus <see cref="OutputOnlyDef"/> and a <c>bigstack</c> item (1 x 1, <c>maxStack</c> 300, above the u8 count).</summary>
-    private static ContentSet MergeContent()
+    internal static ContentSet MergeContent()
     {
         ContentSet m1a = BuiltInContent.CreateM1a();
         ContainerDef inventoryDef = m1a.Containers[PlacementFixture.Index(m1a.Containers, "player_inventory")];

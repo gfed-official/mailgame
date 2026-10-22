@@ -7,17 +7,20 @@ using PerformativeMail.Sim.Primitives;
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
-/// Story grid-inventory/010 AC "0 B" (ADR-0009 Implementation Guidelines; ADR-0006 0 B per tick), slice 1: the <c>QuickMove</c> op
-/// (<see cref="QuickMoveHandler"/>) allocates 0 B per op after warm-up, through the real phase-0 drain. One cycle is six ticks, one op
-/// each, by the player in the theory's slot (0 and 1, so a hard-coded slot cannot pass) with an open chest: a partial quick_move of 3 of
+/// Story grid-inventory/010 AC "0 B" (ADR-0009 Implementation Guidelines; ADR-0006 0 B per tick): the <c>QuickMove</c> op
+/// (<see cref="QuickMoveHandler"/>) and the <c>Return</c> op (<see cref="ReturnHandler"/>) allocate 0 B per op after warm-up, through
+/// the real phase-0 drain. One cycle is fourteen ticks, one op each, by the player in the theory's slot (0 and 1, so a hard-coded slot cannot pass) with an open chest: a partial quick_move of 3 of
 /// the inventory's 10 letters [1..10] into the chest (the R9 panel → external row; <see cref="PerformativeMail.Sim.Inventory.Placement.AutoPlace.CommitSplit"/>: a new
 /// entry and its arena block); a whole quick_move of that piece back (the external → [inventory, hotbar] row; it merges into the letters,
 /// the sorted union, and the piece is removed); a <c>bad_count</c> reject (count above the total; Mail Lead planning default pending
 /// Evan, TD-153); a whole quick_move of the hotbar Axe into the chest and back to hotbar slot 1; a <c>not_open</c> reject (the other
-/// player's inventory). The piece is named by the pool's high-water, so its payload is rewritten in the window (no allocation). The
-/// cycle ends as it began. Each op's outcome is checked from the state between ticks; the twin also runs one cycle with capture on and
+/// player's inventory); then the return ops: a <c>pick</c> of the Axe from hotbar slot 1 and a <c>return</c> to that origin (the origin
+/// leg); a <c>cursor_empty</c> reject (a <c>return</c> on the empty cursor); a <c>pick</c> of the Axe again, a <c>move</c> of the letters
+/// onto its hotbar slot, and a <c>return</c> that finds the origin blocked and puts the Axe in hotbar slot 2 (the panel leg, the cursor
+/// row); a <c>move</c> of the letters back to inventory (0,0) and of the Axe back to slot 1. The piece is named by the pool's high-water,
+/// so its payload is rewritten in the window (no allocation). The cycle ends as it began. Each op's outcome is checked from the state between ticks; the twin also runs one cycle with capture on and
 /// checks every reply's reason. The 0 B assertion runs in optimised builds only (TD-008 convention); its twin runs the same window in
-/// every build. The rig's event capture is off in the window. Slice 2 adds <c>return</c> to the cycle. Joins the non-parallel
+/// every build. The rig's event capture is off in the window. Joins the non-parallel
 /// collection (see <see cref="AllocAssert"/>).
 /// </summary>
 [Collection(NonParallelCollection.Name)]
@@ -30,7 +33,7 @@ public class QuickMoveReturnAllocationTests
     [Trait("Id", "TR-inventory-001")]
     [InlineData(0)]
     [InlineData(1)]
-    public void QuickMoveWholePartialAndRejects_Over500Cycles_AllocateNothing_InOptimisedBuilds(int slot)
+    public void QuickMoveReturnAndRejects_Over500Cycles_AllocateNothing_InOptimisedBuilds(int slot)
     {
         // Arrange
         SkipWhenUnoptimised();
@@ -38,7 +41,9 @@ public class QuickMoveReturnAllocationTests
         Totals totals = default;
 
         // Act
-        AllocAssert.Zero("1 partial + 3 whole quick_moves + 1 bad_count + 1 not_open x500 cycles", () => totals = w.Run(Cycles));
+        AllocAssert.Zero(
+            "1 partial + 3 whole quick_moves + 1 bad_count + 1 not_open + 2 picks + origin and panel returns + 1 cursor_empty + 3 moves x500 cycles",
+            () => totals = w.Run(Cycles));
 
         // Assert
         Workload.AssertTotals(in totals, Cycles);
@@ -48,7 +53,7 @@ public class QuickMoveReturnAllocationTests
     [Trait("Id", "TR-inventory-001")]
     [InlineData(0)]
     [InlineData(1)]
-    public void QuickMoveWholePartialAndRejects_TheMeasuredWindow_GivesTheExpectedResults_InEveryBuild(int slot)
+    public void QuickMoveReturnAndRejects_TheMeasuredWindow_GivesTheExpectedResults_InEveryBuild(int slot)
     {
         // Arrange: the same workload as the 0 B test (which is skipped in unoptimised builds), run without measuring
         var w = new Workload(slot);
@@ -74,13 +79,15 @@ public class QuickMoveReturnAllocationTests
             "Unoptimised Sim: the 0 B guardrail applies to optimised builds only (TD-008).");
     }
 
-    private record struct Totals(int Partials, int MergesBack, int CountRejects, int AxeOut, int AxeBack, int OpenRejects, int CycleRestored);
+    private record struct Totals(
+        int Partials, int MergesBack, int CountRejects, int AxeOut, int AxeBack, int OpenRejects, int Picks, int OriginReturns, int EmptyRejects,
+        int LettersOnSlot, int PanelReturns, int LettersBack, int AxeHome, int CycleRestored);
 
     /// <summary>The arranged world and the measured window.</summary>
     private sealed class Workload
     {
         private const uint Address3 = 3u;
-        private const int OpsPerCycle = 6;
+        private const int OpsPerCycle = 14;
 
         private static readonly uint[] _letterIds = InvAutoPlaceRig.Ids(1, 10);
 
@@ -90,6 +97,7 @@ public class QuickMoveReturnAllocationTests
         private readonly ushort _chest;
         private readonly ushort _inventory;
         private readonly ushort _hotbar;
+        private readonly ushort _cursor;
         private readonly ushort _letters;
         private readonly ushort _axe;
         private readonly short _points;
@@ -104,6 +112,7 @@ public class QuickMoveReturnAllocationTests
             Assert.True(_rig.Inventory.TryOpenExternal(_slot, _rig.IdOf(_chest)));
             _inventory = _rig.InventoryOf(slot);
             _hotbar = _rig.HotbarOf(slot);
+            _cursor = _rig.CursorOf(slot);
             _letters = _rig.PlaceMail(_inventory, "letter", 0, 0, Address3, _letterIds);
             _axe = _rig.PlaceItem(_hotbar, "axe", 1, 0, 1);
             _points = _rig.Inventory.WeightPoints(_slot);
@@ -113,21 +122,30 @@ public class QuickMoveReturnAllocationTests
             _ops[3] = QuickMove(_hotbar, _rig.Entries[_axe].Id.Value, 0);
             _ops[4] = QuickMove(_chest, _rig.Entries[_axe].Id.Value, 0);
             _ops[5] = QuickMove(_rig.InventoryOf(1 - slot), _rig.Entries[_letters].Id.Value, 0); // not_open: the other player's inventory
+            _ops[6] = Pick(_hotbar, _axe); // origin: hotbar slot 1
+            _ops[7] = new Op { Kind = InvOpKinds.Return, ReqId = 86 }; // the origin leg: back to slot 1
+            _ops[8] = _ops[7]; // cursor_empty
+            _ops[9] = _ops[6];
+            _ops[10] = Move(_inventory, _letters, _hotbar, 1); // the origin slot is now blocked
+            _ops[11] = _ops[7]; // the panel leg: hotbar slot 2 (a tool: hotbar first)
+            _ops[12] = Move(_hotbar, _letters, _inventory, 0);
+            _ops[13] = Move(_hotbar, _axe, _hotbar, 1);
         }
 
         /// <summary>Each op's reply reason in cycle order: 0 for ok, else the reject (<c>bad_count</c> and <c>not_open</c>, ADR-0009 section 2 codes).</summary>
-        public static ushort[] ExpectedReasons { get; } = { 0, 0, (ushort)InvReason.BadCount, 0, 0, (ushort)InvReason.NotOpen };
+        public static ushort[] ExpectedReasons { get; } =
+            { 0, 0, (ushort)InvReason.BadCount, 0, 0, (ushort)InvReason.NotOpen, 0, 0, (ushort)InvReason.CursorEmpty, 0, 0, 0, 0, 0 };
 
         /// <summary>The cycle's start state: the letters 10 [1..10] at inventory (0,0), the Axe in hotbar slot 1, the chest empty, P as arranged.</summary>
         public bool AtCycleStart =>
             At(_letters, _inventory, 0, 0) && _rig.Entries[_letters].Count == 10
             && _rig.Inventory.MailIds.Read(in _rig.Entries[_letters].MailIds).SequenceEqual(_letterIds)
-            && At(_axe, _hotbar, 1, 0) && _rig.Header(_chest).EntryCount == 0
+            && At(_axe, _hotbar, 1, 0) && _rig.Header(_chest).EntryCount == 0 && _rig.Header(_cursor).EntryCount == 0
             && _rig.Inventory.WeightPoints(_slot) == _points;
 
         public static void AssertTotals(in Totals t, int cycles)
         {
-            Assert.Equal(new Totals(cycles, cycles, cycles, cycles, cycles, cycles, cycles), t);
+            Assert.Equal(new Totals(cycles, cycles, cycles, cycles, cycles, cycles, 2 * cycles, cycles, cycles, cycles, cycles, cycles, cycles, cycles), t);
         }
 
         /// <summary>Runs one more cycle with event capture on (outside any measured window) and returns each op's reply reason.</summary>
@@ -199,8 +217,30 @@ public class QuickMoveReturnAllocationTests
                 case 4:
                     _totals.AxeBack += At(_axe, _hotbar, 1, 0) && !unchanged ? 1 : 0;
                     break;
-                default:
+                case 5:
                     _totals.OpenRejects += Units(_letters, _inventory) == 10 && !newId && unchanged ? 1 : 0;
+                    break;
+                case 6:
+                case 9:
+                    _totals.Picks += At(_axe, _cursor, 0, 0) && !unchanged ? 1 : 0;
+                    break;
+                case 7:
+                    _totals.OriginReturns += At(_axe, _hotbar, 1, 0) && _rig.Header(_cursor).EntryCount == 0 && !unchanged ? 1 : 0;
+                    break;
+                case 8:
+                    _totals.EmptyRejects += At(_axe, _hotbar, 1, 0) && !newId && unchanged ? 1 : 0;
+                    break;
+                case 10:
+                    _totals.LettersOnSlot += At(_letters, _hotbar, 1, 0) ? 1 : 0;
+                    break;
+                case 11:
+                    _totals.PanelReturns += At(_axe, _hotbar, 2, 0) && _rig.Header(_cursor).EntryCount == 0 && !unchanged ? 1 : 0;
+                    break;
+                case 12:
+                    _totals.LettersBack += At(_letters, _inventory, 0, 0) ? 1 : 0;
+                    break;
+                default:
+                    _totals.AxeHome += At(_axe, _hotbar, 1, 0) ? 1 : 0;
                     break;
             }
         }
@@ -213,7 +253,8 @@ public class QuickMoveReturnAllocationTests
             op.SetPayload(in p);
         }
 
-        private uint VersionSum() => _rig.Header(_inventory).Version + _rig.Header(_chest).Version + _rig.Header(_hotbar).Version;
+        private uint VersionSum() =>
+            _rig.Header(_inventory).Version + _rig.Header(_chest).Version + _rig.Header(_hotbar).Version + _rig.Header(_cursor).Version;
 
         private bool At(ushort entry, ushort container, int x, int y)
         {
@@ -231,6 +272,21 @@ public class QuickMoveReturnAllocationTests
         {
             ushort piece = _rig.EntryAt(container, x, y);
             return piece == Occupancy.Free ? -1 : _rig.Entries[piece].Count;
+        }
+
+        private Op Pick(ushort from, ushort entry)
+        {
+            var op = new Op { Kind = InvOpKinds.Pick, ReqId = 80 };
+            op.SetPayload(new PickPayload { From = _rig.IdOf(from).Value, EntryId = _rig.Entries[entry].Id.Value });
+            return op;
+        }
+
+        // baseVersion 0: no sort runs, so every lastReplaceVersion stays 0 and the payload stays valid.
+        private Op Move(ushort from, ushort entry, ushort to, int x)
+        {
+            var op = new Op { Kind = InvOpKinds.Move, ReqId = 81 };
+            op.SetPayload(new MovePayload { From = _rig.IdOf(from).Value, EntryId = _rig.Entries[entry].Id.Value, To = _rig.IdOf(to).Value, X = (short)x });
+            return op;
         }
 
         private Op QuickMove(ushort from, uint entry, byte count)

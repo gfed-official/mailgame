@@ -331,6 +331,50 @@ internal sealed class AutoPlace
         ReadOnlySpan<ushort> targets,
         MergePolicy policy,
         PlaceOrder order,
+        out AutoPlacePlan result) =>
+        PlanCore(ref plan, in subject, units, sourceSlot, remainder: false, NoSource, targets, policy, order, out result);
+
+    /// <summary>
+    /// <see cref="Plan"/> for the last <paramref name="units"/> units of the placed source <paramref name="sourceSlot"/>, after the
+    /// caller's own merge in the same plan takes the source's other (oldest) units into <paramref name="skipStack"/> (story
+    /// grid-inventory/010: <c>return</c>'s partial merge at the origin, then the panel leg, GDD R7 l.95). The units are planned as if they
+    /// were the source's whole count, so a free-cell placement moves the source entry itself with what the merges leave; PASS M skips
+    /// <paramref name="skipStack"/>, whose count here is the pre-plan one and which the caller's merge fills. Commit with
+    /// <see cref="Commit(ref InvPlan, in AutoPlacePlan)"/> after the caller's <see cref="InventoryMutator.MergeInto"/>. Pure, as
+    /// <see cref="Plan"/>.
+    /// </summary>
+    /// <param name="plan">The call's plan (holding the caller's merge and its touches).</param>
+    /// <param name="subject">What is placed, with <c>effMax</c> read at op time.</param>
+    /// <param name="units">The units left after the caller's merge, 1 to the source's count - 1.</param>
+    /// <param name="sourceSlot">The placed source entry's pool slot.</param>
+    /// <param name="skipStack">The stack the caller's merge fills (never planned here).</param>
+    /// <param name="targets">The target containers' table slots in order.</param>
+    /// <param name="policy">Whether PASS M runs.</param>
+    /// <param name="order">Pass-first or target-first.</param>
+    /// <param name="result">The plan to commit.</param>
+    /// <returns>As <see cref="Plan"/>.</returns>
+    public ushort PlanRemainder(
+        ref InvPlan plan,
+        in PlacementSubject subject,
+        int units,
+        ushort sourceSlot,
+        ushort skipStack,
+        ReadOnlySpan<ushort> targets,
+        MergePolicy policy,
+        PlaceOrder order,
+        out AutoPlacePlan result) =>
+        PlanCore(ref plan, in subject, units, sourceSlot, remainder: true, skipStack, targets, policy, order, out result);
+
+    private ushort PlanCore(
+        ref InvPlan plan,
+        in PlacementSubject subject,
+        int units,
+        ushort sourceSlot,
+        bool remainder,
+        ushort skipStack,
+        ReadOnlySpan<ushort> targets,
+        MergePolicy policy,
+        PlaceOrder order,
         out AutoPlacePlan result)
     {
         result = default;
@@ -354,8 +398,8 @@ internal sealed class AutoPlace
             return CoreReason.BadRequest;
         }
 
-        int sourceCount = sourceSlot == NoSource ? 0 : _entries[sourceSlot].Count;
-        var pass = new PassState(subject, units, sourceSlot, sourceCount, policy == MergePolicy.Merge && subject.EffMax > 1);
+        int sourceCount = sourceSlot == NoSource ? 0 : remainder ? units : _entries[sourceSlot].Count;
+        var pass = new PassState(subject, units, sourceSlot, skipStack, sourceCount, policy == MergePolicy.Merge && subject.EffMax > 1);
         ushort reason = order == PlaceOrder.TargetFirst
             ? RunTargetFirst(ref plan, ref result, ref pass, targets, admitted)
             : RunPassFirst(ref plan, ref result, ref pass, targets, admitted);
@@ -581,7 +625,7 @@ internal sealed class AutoPlace
         {
             _counters.Add(CounterId.InventoryMergeCandidates);
             ref EntryRecord stack = ref _entries[s];
-            if (s == pass.SourceSlot || stack.Count >= subject.EffMax
+            if (s == pass.SourceSlot || s == pass.SkipStack || stack.Count >= subject.EffMax
                 || !PlacementRules.CanMerge(subject.Key, StackKey.Of(in stack), subject.EffMax, def, subject.Category))
             {
                 continue;
@@ -734,15 +778,17 @@ internal sealed class AutoPlace
     {
         public readonly PlacementSubject Subject;
         public readonly ushort SourceSlot;
+        public readonly ushort SkipStack;
         public int Remaining;
         public bool Merging;
         private readonly int _units;
         private readonly int _sourceCount;
 
-        public PassState(in PlacementSubject subject, int units, ushort sourceSlot, int sourceCount, bool merging)
+        public PassState(in PlacementSubject subject, int units, ushort sourceSlot, ushort skipStack, int sourceCount, bool merging)
         {
             Subject = subject;
             SourceSlot = sourceSlot;
+            SkipStack = skipStack;
             Remaining = units;
             Merging = merging;
             _units = units;
