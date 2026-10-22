@@ -9,12 +9,12 @@ Task: /dev-story production/epics/simulation-core/story-001-build-config-sim-ass
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-21
 **Branch:** `feat/grid-inventory-015`
-**Current task:** /dev-story — production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md (IInventoryApi hooks) — slice 4 (slice-3 Sonnet review fixes) uncommitted
-**Next step:** /story-done production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md (at full: /code-review the slice-4 files first)
+**Current task:** /story-done — production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md closed: COMPLETE WITH NOTES (PR #27 open, not merged; waiting on review)
+**Next step:** after PR #27 merges: grid-inventory 016 → 017, and 011
 **Blocked on:** nothing
-**Files in progress:** tests/unit/inventory/InventoryApiTests.cs, docs/tech-debt-register.md
-**Run result:** N/A — Logic story, plain-C# Sim; Debug + Release build 0 warnings, 5313 tests green (Debug 49 skipped, Release 3)
-**Open questions:** tech debt logged: 1 item (TD-147, StackIndex middle-bits hash; StackIndex unchanged in story 015); new ItemCountIndex max-load stride test guards the Home hash fix (old hash: worst 31 hit / 33 miss probes)
+**Files in progress:** none
+**Run result:** N/A — Logic story, plain-C# Sim; Debug + Release build 0 warnings, 5313 tests green on net10.0 and net8.0 (Debug 49 skipped, Release 3)
+**Open questions:** tech debt logged: TD-144…TD-147; Mail Lead to fold TD-144 into the next ADR-0009 errata pass before mail-destinations 005/007
 <!-- /CHECKPOINT -->
 
 - **Task**: Systems decomposition

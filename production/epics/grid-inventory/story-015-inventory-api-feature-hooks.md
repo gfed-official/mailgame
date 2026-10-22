@@ -1,7 +1,7 @@
 # Story 015: IInventoryApi hooks for feature epics — ConsumeUnit, DetachForThrow, TryInsert, CountItem
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~1 day)
@@ -33,11 +33,11 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R6-1 c (API form)** — `ConsumeUnit` on A = `[4, 9, 15, 21, 30]` (Misdeliver path) → 4 consumed, A = `[9, 15, 21, 30]`, version +1; consuming the last unit removes the entry in the same call.
-- [ ] **H-X-2 (inventory half)** — hotbar index 3 holds 5 letters (entry 88): `DetachForThrow(slot, 88, 5)` → index 3 empty, hotbar version +1 (one `InvRemoved{hotbar, 88, 5}` then one `InvVersion` seal), entry 88 stays live and detached (`ContainerSlot == NoContainer`, in no container and in no WorldItem) with its 5 mailIds intact, and the result carries entry 88 and 5 units; naming the cursor entry or a non-hotbar entry → `bad_request`, nothing changes, no record; `units` ≠ the entry's count → `stale_entry`, nothing changes. *(The ledger clause "5 ids in FLIGHT" is checked in story 017; the weight clause "P drops by 1" in story 016.)*
-- [ ] **H-R5-1 / H-X-3 c (TryInsert path, mail form)** — `TryInsert(po_intake, letter, actor)` (outfeed_only) → returns `false`, no record, zero entries added, version unchanged; a letter into a container whose whitelist refuses it (test fixture container) → `false`, nothing changes; a letter into a container with a matching non-full stack merges into it first (AutoPlace merge pass), one `InvMerged` record, version +1. *(The Plank / item-form leg of H-R5-1 waits for an item-form `TryInsert` — see Out of Scope.)*
-- [ ] **CountItem index** — after each of 1 000 random item mutations driven through the `InventoryMutator` primitives (`Place`, `MergeInto`, `TakeOldest`, `Transfer`, `Remove`) `CountItem([panel], itemId)` equals a brute-force scan (H-R17-1 last clause).
-- [ ] **Perf / allocation** — `CountItem` is a map read whose probes do not grow with entry count; all four calls allocate 0 B on the tick path (allocation test as `WorldItemAllocationTests`/`IntakeAllocationTests` do).
+- [x] **H-R6-1 c (API form)** — `ConsumeUnit` on A = `[4, 9, 15, 21, 30]` (Misdeliver path) → 4 consumed, A = `[9, 15, 21, 30]`, version +1; consuming the last unit removes the entry in the same call.
+- [x] **H-X-2 (inventory half)** — hotbar index 3 holds 5 letters (entry 88): `DetachForThrow(slot, 88, 5)` → index 3 empty, hotbar version +1 (one `InvRemoved{hotbar, 88, 5}` then one `InvVersion` seal), entry 88 stays live and detached (`ContainerSlot == NoContainer`, in no container and in no WorldItem) with its 5 mailIds intact, and the result carries entry 88 and 5 units; naming the cursor entry or a non-hotbar entry → `bad_request`, nothing changes, no record; `units` ≠ the entry's count → `stale_entry`, nothing changes. *(The ledger clause "5 ids in FLIGHT" is checked in story 017; the weight clause "P drops by 1" in story 016.)*
+- [x] **H-R5-1 / H-X-3 c (TryInsert path, mail form)** — `TryInsert(po_intake, letter, actor)` (outfeed_only) → returns `false`, no record, zero entries added, version unchanged; a letter into a container whose whitelist refuses it (test fixture container) → `false`, nothing changes; a letter into a container with a matching non-full stack merges into it first (AutoPlace merge pass), one `InvMerged` record, version +1. *(The Plank / item-form leg of H-R5-1 waits for an item-form `TryInsert` — see Out of Scope.)*
+- [x] **CountItem index** — after each of 1 000 random item mutations driven through the `InventoryMutator` primitives (`Place`, `MergeInto`, `TakeOldest`, `Transfer`, `Remove`) `CountItem([panel], itemId)` equals a brute-force scan (H-R17-1 last clause).
+- [x] **Perf / allocation** — `CountItem` is a map read whose probes do not grow with entry count; all four calls allocate 0 B on the tick path (allocation test as `WorldItemAllocationTests`/`IntakeAllocationTests` do).
 
 ---
 
@@ -82,7 +82,19 @@
 **Required evidence**:
 - Logic: `tests/unit/inventory/InventoryApiTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/inventory/InventoryApiTests.cs`, `tests/unit/inventory/InventoryApiAllocationTests.cs`
+
+**Completion notes (2026-10-21, /story-done, headless; no build or test run by this review)**:
+- Evidence from the Mail Dev verify run on the working tree at 34bcd3b (`gi009-verify.sh`, all four legs and guards): net10.0 and net8.0, Debug and Release, 5,313 tests each, 0 failed (Debug 49 skipped, Release 3 skipped; the Release-only 0 B allocation test passes in Release); 0 build warnings; `tools/ci` guards and `check-game-build.sh` pass.
+- AC coverage (read against `src/PerformativeMail.Sim/Inventory/InventorySystem.cs` l.469–640):
+  - H-R6-1 c: `ConsumeUnit_OnA_4_9_15_21_30_…`, `ConsumeUnit_OfTheLastUnit_RemovesAndFreesTheEntryInTheSameCall`, plus the stale/empty/out-of-phase refusal tests.
+  - H-X-2: `DetachForThrow_Hotbar3Entry88Of5Letters_…`, `…_FromSlot1sHotbar_SealsWithPlayerBsActor`, `…_OfTheCursorEntryOrANonHotbarEntry_IsBadRequest_…`, `…_WithUnitsOtherThanTheEntryCount_IsStaleEntry_…`, `…_OutsideATickPhase_…`.
+  - H-R5-1 / H-X-3 c: `TryInsert_IntoPoIntake_OutfeedOnly_…`, `TryInsert_ALetterIntoAContainerWhoseWhitelistRefusesIt_…`, `TryInsert_ALetterWithAMatchingNonFullStack_MergesFirst_…`, plus placement, no-room, pool/arena-exhaustion no-leak tests.
+  - CountItem index: `OneThousandRandomItemMutations_CountItemEqualsABruteForceScan_AfterEveryMutation` (Place, MergeInto incl. detached source, TakeOldest, Transfer incl. cross-container, Remove), `RebuildIndex_…`, `ItemCountIndex_InsertsAndDeletesManyKeys_WithBackwardShift_…`.
+  - Perf / allocation: `CountItem_ProbesPerLookup_StayUnderAConstantBound_…` (realistic load and max load), `ItemCountIndex_OneItemInSuccessiveContainers_AtMaxLoad_…` (discriminates the top-bits Home fix); `InventoryApiAllocationTests.ConsumeDetachInsertAndCount_Over1000Cycles_AllocateNothing_InOptimisedBuilds` (and its every-build twin).
+- Deviations (none from the GDD): `DetachForThrow` seals with `InvCause.None` (no existing cause fits); `TryInsert` ignores `UnitRef.Entry` and does not detect duplicate mail ids (story 017's ledger). Logged as TD-144 (ADR-0009 as-implemented note), TD-145, TD-146 (`_panels` restore path), TD-147 (`StackIndex.Slot` hash).
+- Ledger crossings (PLACED→CONSUMED, PLACED→FLIGHT, into PLACED) and weight are marked as story 017/016 hooks in the code, per Out of Scope.
+- Lead-programmer gate skipped: the Sonnet /code-review of slices 1–3 already ran and its findings were fixed or logged.
 
 ---
 
