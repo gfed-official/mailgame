@@ -544,6 +544,35 @@ public class PickupCatchTests
         p.WorldItemHolding(flight);
     }
 
+    [Fact]
+    [Trait("Id", "H-R12-3")]
+    public void Catch_FumbleAtTheCapWithAFullIntake_EvictsTheOldLetterToTheBacklog_NoPlankDestroyed()
+    {
+        // Arrange (story 021, Q3 ends): an old letter WorldItem + 511 planks, the Intake full, A's panel full
+        var p = new PickupRig();
+        ushort old = p.R.DetachedMail("letter", Address, new[] { 900u });
+        EntityId[] letter = p.DropOnePerTick(10, 1, _ => old);
+        EntityId[] planks = p.DropOnePerTick(11, 511, _ => p.R.DetachedItem("plank", 4));
+        IntakeSpawnOutfeedTests.FillIntake(p.R, 320, 10_000);
+        p.R.PlaceMail(p.Inventory(0), "letter", 0, 0, Address, PickupRig.Ids(1, 20));
+        p.FillHotbar(0);
+        p.FillInventory(0, from: 1);
+        ushort flight = p.Letters(101, 5);
+
+        // Act
+        CatchResult r = p.Catch(0, flight);
+
+        // Assert: the fumble's WorldItem took the count to 513; the qualifying letter went to the backlog tail, no plank was destroyed
+        Assert.Equal(new CatchResult(0, 5, 0), r);
+        Assert.Equal(512, p.World.LiveCount);
+        Assert.False(p.World.Table.TryGetSlot(letter[0], out _));
+        Assert.True(p.World.Table.TryGetSlot(planks[0], out _));
+        Assert.Empty(WorldItemTests.Heads(p.R.Sink.Last, InvEventKinds.ItemsLost));
+        Assert.Single(WorldItemTests.Heads(p.R.Sink.Last, InvEventKinds.BacklogUnits));
+        Assert.True(p.R.Inventory.Backlog.Contains(old));
+        p.WorldItemHolding(flight);
+    }
+
     [Theory]
     [InlineData("detached-in-world")]
     [InlineData("placed")]

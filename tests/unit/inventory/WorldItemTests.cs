@@ -888,10 +888,11 @@ public class WorldItemTests
         Assert.Equal(CoreReason.BadRequest, r[2].Reason);
     }
 
-    // ---------------------------------------------------------------- interim full-Intake rule (until story 021)
+    // ---------------------------------------------------------------- full Intake: the backlog (story 021 retires story 013's interim rule, TD-138)
 
     [Fact]
-    public void Interim_IntakeFullAtExpiry_TheMailWorldItemStaysAtItsHead_NothingLost_RetriedEachTick_FifoOrderKept()
+    [Trait("Id", "H-R14-4")]
+    public void Backlog_IntakeFullAtExpiry_BothLettersAppendInFifoOrder_BothWorldItemsGone_DrainedAheadOfLaterArrivals()
     {
         // Arrange: letters 500 (dropped 1000) and 501 (dropped 1001) on the ground; a plank dropped 1002; the Intake is full
         var w = new WorldItemRig();
@@ -906,34 +907,20 @@ public class WorldItemTests
         // Act 1: ticks 10000..10004 with the Intake full
         w.AdvanceTo(10_005);
 
-        // Assert 1: both letters are still WorldItems with their mail, at the FIFO in order; the plank (another FIFO) expired on time;
-        // one retry per blocked attempt: 10000 (a), 10001 (a; b waits behind it), ... = 5
-        Assert.True(w.World.Table.TryGetSlot(a, out _));
-        Assert.True(w.World.Table.TryGetSlot(b, out _));
+        // Assert 1: each letter left at its own expiry, appended whole to the backlog tail in FIFO order (500, then 501); both
+        // WorldItems are gone; the plank expired on time; counter 47 is retired
+        Assert.False(w.World.Table.TryGetSlot(a, out _));
+        Assert.False(w.World.Table.TryGetSlot(b, out _));
         Assert.False(w.World.Table.TryGetSlot(plank, out _));
+        Assert.Equal(new[] { first, second }, IntakeDrainTests.Queue(w.R));
         Assert.Equal(new[] { 500u }, w.R.IdsOf(first));
         Assert.Equal(EntryRecord.NoContainer, w.R.Entries[first].ContainerSlot);
-        Assert.Equal(a.Value, w.World.Fifos.IdAt(ExpiryFifo.MailWorldItem, 0));
-        Assert.Equal(b.Value, w.World.Fifos.IdAt(ExpiryFifo.MailWorldItem, 1));
-        Assert.Equal(retriesBefore + 5, w.R.Counters[CounterId.InventoryWorldItemReturnRetries]);
+        Assert.Equal(retriesBefore, w.R.Counters[CounterId.InventoryWorldItemReturnRetries]);
 
-        // Act 2: one Intake cell frees in tick 10005 (a belt takes one unit); 10006 runs expiry
-        Assert.True(w.At(10_005, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
-        w.AdvanceTo(10_007);
-
-        // Assert 2: the head (500) returned first, 501 still waits; then a second cell frees and 501 follows
-        Assert.False(w.World.Table.TryGetSlot(a, out _));
-        Assert.Equal(w.R.Intake, w.R.Entries[first].ContainerSlot);
-        Assert.True(w.World.Table.TryGetSlot(b, out _));
-        Assert.True(w.At(10_007, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
-        w.AdvanceTo(10_009);
-        Assert.False(w.World.Table.TryGetSlot(b, out _));
-        Assert.Equal(w.R.Intake, w.R.Entries[second].ContainerSlot);
-        Assert.True(w.R.Entries[second].ArrivalSeq > w.R.Entries[first].ArrivalSeq);
     }
 
     [Fact]
-    public void Interim_IntakeFullAtCapEviction_AnOldLetterIsNotEvicted_TheLowestPlankIs_AndAllMailOverflowsTheCap()
+    public void Backlog_IntakeFullAtCapEviction_TheOldLetterIsEvictedToTheBacklog_TheLowestPlankSurvives_Count512()
     {
         // Arrange: one old letter (10) + 511 planks (11..521); the Intake is full
         var w = new WorldItemRig();
@@ -947,44 +934,45 @@ public class WorldItemTests
         w.Create(900, w.R.DetachedItem("plank", 1));
         EventEntry[] log = w.R.Sink.Last;
 
-        // Assert: the letter could not return, so the non-mail rule applied; one retry counted
-        Assert.True(w.World.Table.TryGetSlot(letter, out _));
-        Assert.False(w.World.Table.TryGetSlot(planks[0], out _));
-        Assert.Equal(planks[0].Value, Assert.Single(Heads(log, InvEventKinds.ItemsLost)).PayloadAs<ItemsLostPayload>().WorldItemId);
+        // Assert: the qualifying letter (age >= 300) went to the backlog tail; no non-mail item was destroyed in its place
+        Assert.False(w.World.Table.TryGetSlot(letter, out _));
+        Assert.True(w.World.Table.TryGetSlot(planks[0], out _));
+        Assert.Empty(Heads(log, InvEventKinds.ItemsLost));
+        Assert.Equal(new[] { letterEntry }, IntakeDrainTests.Queue(w.R));
+        Assert.Single(Heads(log, InvEventKinds.BacklogUnits));
         Assert.Equal(512, w.World.LiveCount);
-        Assert.Equal(retriesBefore + 1, w.R.Counters[CounterId.InventoryWorldItemReturnRetries]);
+        Assert.Equal(retriesBefore, w.R.Counters[CounterId.InventoryWorldItemReturnRetries]);
     }
 
     [Fact]
-    public void Interim_IntakeFull_512OldLetters_A513th_NothingQualifies_OverTheCap_UntilACellFrees_ThenTheHeadIsEvicted()
+    public void Backlog_IntakeFull_512OldLetters_A513th_TheHeadLetterGoesToTheBacklog_Count512_NoOverCapEpisode()
     {
         // Arrange: 512 old letters; the Intake is full
         var w = new WorldItemRig();
         EntityId[] letters = w.CreateOnePerTick(10, 512, i => w.R.DetachedMail("letter", Address, new[] { 2_000u + (uint)i }));
         IntakeSpawnOutfeedTests.FillIntake(w.R, 320, 1);
+        long exceeded = w.R.Counters[CounterId.InventoryWorldItemCapExceeded];
+        int records = w.R.Host.World.CheckRing.Count;
 
-        // Act 1
+        // Act
         w.Create(900, w.R.DetachedMail("letter", Address, new[] { 9_999u }));
         w.AdvanceTo(905);
 
-        // Assert 1: over the cap, re-checked each tick without effect, nothing lost
-        Assert.Equal(513, w.World.LiveCount);
-        Assert.True(w.World.Table.TryGetSlot(letters[0], out _));
-
-        // Act 2: a cell frees in 905; the re-check in 906 evicts the head losslessly
-        Assert.True(w.At(905, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
-        w.AdvanceTo(907);
-
-        // Assert 2
+        // Assert: the head letter was evicted to the backlog in the creation's call; never over the cap, no cap-exceeded record
         Assert.Equal(512, w.World.LiveCount);
         Assert.False(w.World.Table.TryGetSlot(letters[0], out _));
+        Assert.True(w.World.Table.TryGetSlot(letters[1], out _));
+        Assert.Equal(1, w.Inv.BacklogEntries);
+        Assert.Equal(new[] { 2_000u }, w.R.IdsOf(IntakeDrainTests.Queue(w.R)[0]));
+        Assert.Equal(exceeded, w.R.Counters[CounterId.InventoryWorldItemCapExceeded]);
+        Assert.Equal(records, w.R.Host.World.CheckRing.Count);
     }
 
     [Fact]
-    public void Interim_IntakeFull_BlockedGroundAndWaterMailHeads_OverTheCap_EachIsRetriedOncePerTick_NothingLostOrDuplicated()
+    public void Backlog_IntakeFull_GroundAndWaterMailHeads_AppendAtTheirExpiry_Counter47Unchanged_NothingDuplicated()
     {
         // Arrange: ground letter 700 dropped at 10 (expires 9010); 510 Loot planks at 11..520; the Intake is full; water letter 701
-        // lands at 8710 (expires 9010); a Loot plank at 8711 takes the count to 513 with no evictable item (the old letter cannot return)
+        // lands at 8710 (expires 9010); a Loot plank at 8711 would take the count to 513, so the old ground letter is evicted then
         var w = new WorldItemRig();
         ushort groundEntry = w.R.DetachedMail("letter", Address, new[] { 700u });
         ushort waterEntry = w.R.DetachedMail("letter", Address, new[] { 701u });
@@ -992,42 +980,25 @@ public class WorldItemTests
         _ = w.CreateOnePerTick(11, 510, _ => w.R.DetachedItem("plank", 1), WorldItemOrigin.Loot);
         IntakeSpawnOutfeedTests.FillIntake(w.R, 320, 1);
         EntityId water = w.Create(8_710, waterEntry, WorldItemOrigin.Thrown, onWater: true);
+        long retries = w.R.Counters[CounterId.InventoryWorldItemReturnRetries];
         w.Create(8_711, w.R.DetachedItem("plank", 1), WorldItemOrigin.Loot);
-        long r8712 = w.R.Counters[CounterId.InventoryWorldItemReturnRetries];
 
-        // Act 1: ticks 8712..9009 (only the cap re-check tries the ground letter), then 9010..9014 (both heads are due)
-        w.AdvanceTo(9_010);
-        long r9010 = w.R.Counters[CounterId.InventoryWorldItemReturnRetries];
-        w.AdvanceTo(9_015);
-        long r9015 = w.R.Counters[CounterId.InventoryWorldItemReturnRetries];
-
-        // Assert 1: 1 retry per tick before 9010; from 9010, 2 per tick (expiry: ground, water); the cap re-check of the ground head
-        // in the same tick and Intake version is not attempted again
-        Assert.Equal(298, r9010 - r8712);
-        Assert.Equal(10, r9015 - r9010);
-        Assert.Equal(513, w.World.LiveCount);
-        Assert.True(w.World.Table.TryGetSlot(ground, out _));
+        // Assert 1: the ground letter (age >= 300) was evicted to the backlog at 8711; the water letter is still floating
+        Assert.False(w.World.Table.TryGetSlot(ground, out _));
         Assert.True(w.World.Table.TryGetSlot(water, out _));
-        Assert.Equal(new[] { 700u }, w.R.IdsOf(groundEntry));
-        Assert.Equal(new[] { 701u }, w.R.IdsOf(waterEntry));
+        Assert.Equal(512, w.World.LiveCount);
+        Assert.Equal(new[] { groundEntry }, IntakeDrainTests.Queue(w.R));
+
+        // Act 2: ticks to 9015 (the water letter is due at 9010)
+        w.AdvanceTo(9_015);
+
+        // Assert 2: the water letter appended at its expiry behind the ground letter; counter 47 unchanged; each mail id in one entry
+        Assert.False(w.World.Table.TryGetSlot(water, out _));
+        Assert.Equal(new[] { groundEntry, waterEntry }, IntakeDrainTests.Queue(w.R));
+        Assert.Equal(511, w.World.LiveCount);
+        Assert.Equal(retries, w.R.Counters[CounterId.InventoryWorldItemReturnRetries]);
         Assert.Equal(EntryRecord.NoContainer, w.R.Entries[groundEntry].ContainerSlot);
         Assert.Equal(EntryRecord.NoContainer, w.R.Entries[waterEntry].ContainerSlot);
-        Assert.Equal(1, LiveEntriesHolding(w, 700));
-        Assert.Equal(1, LiveEntriesHolding(w, 701));
-
-        // Act 2: two Intake cells free in tick 9015 (after its ItemsExpire); 9016 runs expiry
-        Assert.True(w.At(9_015, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)
-            && w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
-        w.AdvanceTo(9_017);
-
-        // Assert 2: tick 9015 retried both once more; 9016 returned both, ground (lower id) first; each mail id is in one entry, in the Intake
-        Assert.Equal(12, w.R.Counters[CounterId.InventoryWorldItemReturnRetries] - r9010);
-        Assert.False(w.World.Table.TryGetSlot(ground, out _));
-        Assert.False(w.World.Table.TryGetSlot(water, out _));
-        Assert.Equal(511, w.World.LiveCount);
-        Assert.Equal(w.R.Intake, w.R.Entries[groundEntry].ContainerSlot);
-        Assert.Equal(w.R.Intake, w.R.Entries[waterEntry].ContainerSlot);
-        Assert.True(w.R.Entries[waterEntry].ArrivalSeq > w.R.Entries[groundEntry].ArrivalSeq);
         Assert.Equal(1, LiveEntriesHolding(w, 700));
         Assert.Equal(1, LiveEntriesHolding(w, 701));
     }
