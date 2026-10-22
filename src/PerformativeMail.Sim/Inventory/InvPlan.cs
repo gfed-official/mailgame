@@ -80,6 +80,59 @@ public struct InvMerge
     }
 }
 
+/// <summary>
+/// The split-and-place a handler's <c>Validate</c> decided and its <c>Commit</c> applies unchanged (story grid-inventory/008: a
+/// <c>move</c> with <c>1 ≤ count &lt; total</c> onto free cells, GDD R7 move row): <see cref="Units"/> of the plan's
+/// <see cref="InvPlan.Placement"/> entry become a new entry at the placement's position (<see cref="InventoryMutator.SplitAndPlace"/>).
+/// A plain value; <see cref="IsSet"/> false means "no split".
+/// </summary>
+/// <example><code>plan.Placement = new InvPlacement(entrySlot, toSlot, x, y, rotated); plan.Split = new InvSplit(3);</code></example>
+public struct InvSplit
+{
+    /// <summary>How many units are split off: 1 to the source's count − 1.</summary>
+    public byte Units;
+
+    /// <summary>True when a split was decided.</summary>
+    public bool IsSet;
+
+    /// <summary>Creates a decided split.</summary>
+    /// <param name="units">How many units are split off.</param>
+    public InvSplit(byte units)
+    {
+        Units = units;
+        IsSet = true;
+    }
+}
+
+/// <summary>
+/// The hotbar swap a handler's <c>Validate</c> decided and its <c>Commit</c> applies unchanged (story grid-inventory/008, GDD R4: a
+/// whole <c>move</c> from the cursor onto an occupied, non-mergeable slot): the entry at <see cref="DisplacedSlot"/> leaves the slot
+/// for cursor slot 0 of <see cref="CursorSlot"/> while the plan's <see cref="InvPlan.Placement"/> takes the slot. A plain value;
+/// <see cref="IsSet"/> false means "no swap".
+/// </summary>
+/// <example><code>plan.Swap = new InvSwap(displacedSlot, cursorSlot);</code></example>
+public struct InvSwap
+{
+    /// <summary>The displaced entry's pool slot.</summary>
+    public ushort DisplacedSlot;
+
+    /// <summary>The actor's cursor's table slot (the displaced entry's destination).</summary>
+    public ushort CursorSlot;
+
+    /// <summary>True when a swap was decided.</summary>
+    public bool IsSet;
+
+    /// <summary>Creates a decided swap.</summary>
+    /// <param name="displacedSlot">The displaced entry's pool slot.</param>
+    /// <param name="cursorSlot">The cursor's table slot.</param>
+    public InvSwap(ushort displacedSlot, ushort cursorSlot)
+    {
+        DisplacedSlot = displacedSlot;
+        CursorSlot = cursorSlot;
+        IsSet = true;
+    }
+}
+
 /// <summary>Up to <see cref="InvPlan.MaxTouched"/> container table slots.</summary>
 [InlineArray(InvPlan.MaxTouched)]
 internal struct InvSlotBuffer
@@ -110,7 +163,8 @@ internal struct InvBlockBuffer
 /// (a move onto its own cells) seals nothing even though it was touched;</item>
 /// <item>the <b>acquired blocks</b>: one element per mail-ids arena block the commit acquires, each sized at the moment it is
 /// acquired (the input of <see cref="Ops.InvRequestCheck.CheckArenaReservation(in InvPlan)"/>);</item>
-/// <item>the <see cref="Placement"/> result (or the <see cref="Merge"/> a placement onto a mergeable stack became, story 007) and
+/// <item>the <see cref="Placement"/> result (or the <see cref="Merge"/> a placement onto a mergeable stack became, story 007; with
+/// the <see cref="Split"/> or the <see cref="Swap"/> that goes with it, story 008) and
 /// the reply's primary source/destination containers (<c>ResultVersionA/B</c>);</item>
 /// <item>the call's actor and cause, set by <see cref="InventoryMutator.Begin"/> and written into every seal.</item>
 /// </list>
@@ -155,6 +209,12 @@ public struct InvPlan
 
     /// <summary>The merge decided by <c>Validate</c> instead of a placement (story 007).</summary>
     public InvMerge Merge;
+
+    /// <summary>The split that turns <see cref="Placement"/> into a split-and-place (story 008).</summary>
+    public InvSplit Split;
+
+    /// <summary>The swap that goes with <see cref="Placement"/> onto an occupied hotbar slot (story 008).</summary>
+    public InvSwap Swap;
 
     /// <summary>The call's actor (written into every seal; the reply's <c>ByActorId</c> is the contested actor, stories 013/014).</summary>
     public ActorId Actor;

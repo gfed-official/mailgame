@@ -158,7 +158,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         _checkRing = checkRing;
         _settings = settings;
         _containers = new ContainerTable(settings.ContainerCapacity);
-        _entries = new EntryPool(settings.EntryPoolCapacity, checkRing);
+        _entries = new EntryPool(settings.EntryPoolCapacity, checkRing, settings.EntryInitialLastId);
         _mailIds = new MailIdArena(settings.MailIdArenaUnits, checkRing);
         _requestCheck = new InvRequestCheck(_containers, _entries, _mailIds);
         _subscribers = new ContainerSubscribers(settings.ContainerCapacity);

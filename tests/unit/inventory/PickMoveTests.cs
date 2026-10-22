@@ -813,25 +813,35 @@ public class PickMoveTests
         AssertRejected(rig, log, InvReason.BadCount, before, slot);
     }
 
+    /// <summary>
+    /// Story 008 replaced 007's "until 008" <c>bad_count</c>: <c>1 ≤ count &lt; total</c> is a split-and-place — the k oldest units
+    /// move into a new entry at the cell, the remainder keeps its id and position (the arms in depth: <see cref="MoveSplitMergeTests"/>).
+    /// </summary>
     [Theory]
     [InlineData(0, 1)]
     [InlineData(1, 1)]
     [InlineData(0, 4)]
     [InlineData(1, 4)]
-    public void Count_BelowTheTotal_BadCount_Until008_NothingChanges(int slot, byte count)
+    public void Count_BelowTheTotal_IsASplitAndPlace_TheRemainderKeepsItsId(int slot, byte count)
     {
-        // Arrange: until 008 — story 008's split-and-place replaces this rejection
+        // Arrange
         var rig = NewRig();
         ushort chest = OpenChest(rig, slot);
         ushort inventory = rig.InventoryOf(slot);
         ushort e = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(100, 5));
-        List<long> before = SideEffects(rig);
+        EntryId id = rig.Entries[e].Id;
 
         // Act
         EventEntry[] log = rig.Run(rig.Player(slot), MoveOp(rig, inventory, e, chest, 4, 2, count: count));
 
         // Assert
-        AssertRejected(rig, log, InvReason.BadCount, before, slot);
+        AssertOk(log);
+        ushort piece = rig.EntryAt(chest, 4, 2);
+        Assert.NotEqual(Occupancy.Free, piece);
+        Assert.NotEqual(id, rig.Entries[piece].Id);
+        Assert.Equal(InvAutoPlaceRig.Ids(100, count), rig.IdsOf(piece));
+        Assert.Equal((id, inventory, (byte)(5 - count)), (rig.Entries[e].Id, rig.Entries[e].ContainerSlot, rig.Entries[e].Count));
+        Assert.Equal(InvAutoPlaceRig.Ids(100u + count, 5 - count), rig.IdsOf(e));
     }
 
     // ------------------------------------------------------------------ implicit merge fit (TD-150 (2)) and the arena reservation

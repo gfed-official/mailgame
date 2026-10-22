@@ -44,6 +44,14 @@ public sealed record class InventorySettings
     public required int WeightSpeedFloor { get; init; }
 
     /// <summary>
+    /// The last entry id already issued when the world is built, so the first new id is this + 1 (ADR-0004 section 3: entry ids only
+    /// rise and are never reused). Not a balance key: 0 (the default) for a fresh run; a resume restores the saved high-water, and the
+    /// story 008 tests set it near <see cref="Storage.EntryPool.MaxRealId"/> to reach id exhaustion without issuing two billion ids.
+    /// Above <see cref="Storage.EntryPool.MaxRealId"/> the world build throws (<see cref="Storage.EntryPool"/>'s constructor).
+    /// </summary>
+    public uint EntryInitialLastId { get; init; }
+
+    /// <summary>
     /// Nodes in the shared outfeed FIFO pool (story 012; Planner R7): derived, <c>2 x</c> <see cref="EntryPoolCapacity"/> (16,384 by
     /// default), not a balance key. Compaction keeps each outfeed's tombstones at or below its live entries, so all outfeeds together
     /// hold at most twice the live entries and the pool never runs out.
