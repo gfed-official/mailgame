@@ -34,6 +34,7 @@
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
 - [ ] The ledger is updated only in `InventoryMutator` primitives (an architecture/grep test finds no other writer); after any sequence of M-1a calls, `Σ live = spawned + granted − consumed − destroyed` for mail and per itemId.
+- [ ] **H-X-2 (ledger clause, moved from story 015)** — after `DetachForThrow(slot, 88, 5)` the ledger shows Placed −5, Flight +5 for mail; after `ConsumeUnit(ref, reason, actor)` Placed −1, Consumed +1 (the `ConsumeReason` is recorded with the crossing).
 - [ ] A deliberately corrupted counter (test seam) makes the tick-end check write one always-on `SimCheckRing` record naming the location state and delta, and the tick completes (no exception) in Debug and Release.
 - [ ] In Debug the `INVENTORY_ASSERT` full scan detects a seeded duplicated mailId and a lost unit (multiset vs ledger) and asserts; in Release the scan method is absent from the call site (IL/reflection check that the `[Conditional]` call is compiled out).
 - [ ] The inventory `ISimStateContributor` section writes containers (versions, `lastReplaceVersion`, `statEpoch`), entries by entryId, cursors, WorldItems, outfeed nodes, `arrivalSeq` counters, the entryId allocator and the tombstone ring, ascending ids; two worlds built and driven identically produce byte-identical sections.
