@@ -23,7 +23,8 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// every inventory handler calls, reached only by a direct call;</item>
 /// <item><c>cursor_empty</c> (70), after <c>bad_request</c> (Mail Lead default, TD-153): the actor's cursor holds no entry (the System
 /// actor and a joined slot whose join found the container table full have no cursor, so theirs is empty too);</item>
-/// <item>the origin leg, after <c>cursor_empty</c> (GDD l.95, "into its origin cells if they are still free (or mergeable)"): it runs only
+/// <item>the origin leg, after <c>cursor_empty</c> (Mail Lead default, TD-153: GDD l.95 does not mention <c>cursor_empty</c>; the leg
+/// itself and its order before the panel leg are GDD l.95, "into its origin cells if they are still free (or mergeable)"): it runs only
 /// when an origin is recorded for the cursor's entry (<see cref="InventorySystem.TryGetCursorOrigin"/>) and its container is in the
 /// actor's open set (<see cref="OpenSet.IsInOpenSet"/>, false for a dead id). It is the placement chain at the recorded cells
 /// (<see cref="PlacementRules.Validate"/> with <c>wholeMove: false</c>; ADR-0009 l.113, the "<c>Return</c> target"): a free fit places the

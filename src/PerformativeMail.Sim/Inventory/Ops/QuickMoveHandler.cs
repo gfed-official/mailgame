@@ -16,35 +16,36 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// partly (the newest units stay at the source with its id and cells); a non-stackable is all-or-nothing (R8). <see cref="Apply"/> is
 /// <see cref="Validate"/>, then on 0 <see cref="Commit"/>, then the reply. The whole chain, <c>bad_request → not_open → stale_entry →
 /// bad_count → not_carryable → not_allowed → no_room → capacity_exhausted</c>, is the Mail Lead planning default pending Evan
-/// (TD-153): ADR-0009 section 2 (l.113) does not list QuickMove among its placement ops (Move, MoveGroup, Return target, swap). Where a
-/// source does contain an adjacent pair it is cited below — the GDD's placement precedence ("for any placement", R7 l.103) and ADR-0009
-/// section 2's placement chain (l.113) give <c>bad_request → not_open → stale_entry</c> and <c>not_carryable → not_allowed</c>, and R8
-/// (l.115) gives <c>not_allowed</c> before <c>no_room</c>; the other pairs are "Mail Lead default (TD-153)". Every code is ADR-0009's
-/// (section 2 reason-code list, l.121):
+/// (TD-153). No source states a QuickMove precedence: ADR-0009 section 2's placement chain (l.113) lists Move, MoveGroup, Return target
+/// and swap, not QuickMove, and the GDD's precedence (R7 l.103) is "for any placement". The <c>bad_request → not_open → stale_entry</c>
+/// and <c>not_carryable → not_allowed</c> positions are therefore Mail Lead default (TD-153), by analogy with the placement chain (GDD
+/// l.103; ADR-0009 l.113 lists Move, MoveGroup, Return target, swap); only <c>not_allowed</c> before <c>no_room</c> is stated for
+/// AutoPlace (R8 l.115), and the other positions are Mail Lead default (TD-153). Every code is ADR-0009's (section 2 reason-code list,
+/// l.121):
 /// <list type="number">
-/// <item><c>bad_request</c> (Core's 8), the head (GDD l.103; ADR-0009 l.113): <see cref="InvRequestCheck.CheckRequest"/> with the actor's
-/// slot (from <see cref="Op.Actor"/>, never the payload);</item>
-/// <item><c>not_open</c> (64), after <c>bad_request</c> (GDD l.103; ADR-0009 l.113): <c>from</c> is not in the actor's open set
-/// (<see cref="OpenSet.IsInOpenSet"/>; the System actor has an empty set), or the actor's hotbar is not (a joined slot whose join found
-/// the container table full has no panel, which every R9 row but the panel → external one targets; as <see cref="PickHandler"/>'s
-/// cursor clause);</item>
-/// <item><c>stale_entry</c> (67), after <c>not_open</c> (GDD l.103; ADR-0009 l.113): <see cref="InvRequestCheck.ResolveEntries"/>, then a
-/// live entry that is not in <c>from</c>;</item>
+/// <item><c>bad_request</c> (Core's 8), the head (Mail Lead default (TD-153), by analogy with the placement chain):
+/// <see cref="InvRequestCheck.CheckRequest"/> with the actor's slot (from <see cref="Op.Actor"/>, never the payload);</item>
+/// <item><c>not_open</c> (64), after <c>bad_request</c> (Mail Lead default (TD-153), by analogy with the placement chain): <c>from</c> is
+/// not in the actor's open set (<see cref="OpenSet.IsInOpenSet"/>; the System actor has an empty set), or the actor's hotbar is not (a
+/// joined slot whose join found the container table full has no panel, which every R9 row but the panel → external one targets; as
+/// <see cref="PickHandler"/>'s cursor clause);</item>
+/// <item><c>stale_entry</c> (67), after <c>not_open</c> (Mail Lead default (TD-153), by analogy with the placement chain):
+/// <see cref="InvRequestCheck.ResolveEntries"/>, then a live entry that is not in <c>from</c>;</item>
 /// <item><c>bad_count</c> (78), after <c>stale_entry</c> (Mail Lead default, TD-153): <c>count</c> above the entry's total. <c>count</c> 0
-/// or the total is the whole entry (ADR-0009 section 1, "0 = whole"), <c>1 ≤ count &lt; total</c> splits the count oldest units off (R6;
-/// Mail Lead planning default pending Evan (TD-153), item 1, mirroring Move, TD-150);</item>
-/// <item><c>not_carryable</c> (74), after <c>bad_count</c> (Mail Lead default, TD-153), then <c>not_allowed</c> (73) (GDD l.103; ADR-0009
-/// l.113), then <c>no_room</c> (77) (R8 l.115 "Nothing moved: if no target admitted the entry's category → not_allowed; else →
-/// no_room"): one <see cref="AutoPlace.Plan"/> over the row, which answers <c>not_carryable</c> before <c>not_allowed</c> when no target
-/// admits the entry and <c>no_room</c> when nothing moved. <c>not_carryable</c> is dormant at M-1a: no v1 item is
-/// <c>carryByHand: false</c>, so the handler has no clause of its own for it and the code is undeclared on
+/// or the total is the whole entry (ADR-0009 l.347, the QuickMove payload erratum, "count u8 (0 = whole)"), <c>1 ≤ count &lt; total</c>
+/// splits the count oldest units off (R6; Mail Lead planning default pending Evan (TD-153), item 1, mirroring Move, TD-150);</item>
+/// <item><c>not_carryable</c> (74), after <c>bad_count</c> (Mail Lead default, TD-153), then <c>not_allowed</c> (73) (Mail Lead default
+/// (TD-153), by analogy with the placement chain), then <c>no_room</c> (77) (R8 l.115 "Nothing moved: if no target admitted the entry's
+/// category → not_allowed; else → no_room"): one <see cref="AutoPlace.Plan"/> over the row, which answers <c>not_carryable</c> before
+/// <c>not_allowed</c> when no target admits the entry and <c>no_room</c> when nothing moved. <c>not_carryable</c> is dormant at M-1a: no v1
+/// item is <c>carryByHand: false</c>, so the handler has no clause of its own for it and the code is undeclared on
 /// <see cref="InvOpDescriptors.QuickMove"/> (TD-105 item 4). An outfeed target (the Intake) is planned <see cref="MergePolicy.NoMerge"/>
 /// (R14 l.141, "every insertion into the Intake is NoMerge"), and the placement stamps a new <c>arrivalSeq</c>;</item>
 /// <item><c>capacity_exhausted</c> (85), after <c>no_room</c> (Mail Lead default, TD-153; last, as in <see cref="MoveHandler"/>): a split
-/// onto free cells needs a free pool slot and an unissued id, and every arena block the commit acquires (each mail merge's union, a
-/// mail split's k-unit block) must pass <see cref="InvRequestCheck.CheckArenaReservation(in InvPlan)"/>. Refused, the entry stays where
-/// it is (Mail Lead planning default pending Evan (TD-153); it follows the pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers
-/// only a leashed letter staying on the cursor when the mail-id arena is full, even with a free cell).</item>
+/// onto free cells needs a free pool slot and an unissued id, and every arena block the commit acquires (each mail merge's union, a mail
+/// split's k-unit block) must pass <see cref="InvRequestCheck.CheckArenaReservation(in InvPlan)"/>. Refused, the entry stays where it is
+/// (Mail Lead planning default pending Evan (TD-153); it follows the pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers only a
+/// leashed letter staying on the cursor when the mail-id arena is full, even with a free cell).</item>
 /// </list>
 /// <c>container_gone</c> stays declared but is unreachable at M-1a (no container is freed; a dead id fails <c>not_open</c> first, Move's
 /// order, TD-152; TD-136). The commit, in one <c>Begin</c>/<c>End</c> bracket inside the drain's call scope, is
@@ -115,7 +116,7 @@ internal sealed class QuickMoveHandler : IOpHandler
         decision = default;
         PlayerSlot actor = _owner.ActorSlot(op.Actor);
         InvRequestCheck check = _owner.RequestCheck;
-        ushort reason = check.CheckRequest(in op, actor); // bad_request (8): the chain head (GDD l.103; ADR-0009 l.113)
+        ushort reason = check.CheckRequest(in op, actor); // bad_request (8): the chain head (Mail Lead default, TD-153; by analogy with the placement chain)
         if (reason != 0)
         {
             return reason;
@@ -126,10 +127,10 @@ internal sealed class QuickMoveHandler : IOpHandler
         ContainerId hotbar = _owner.HotbarOf(actor);
         if (!_owner.OpenSet.IsInOpenSet(actor, from) || !_owner.OpenSet.IsInOpenSet(actor, hotbar))
         {
-            return (ushort)InvReason.NotOpen; // not_open (64) after bad_request (GDD l.103; ADR-0009 l.113); before container_gone, Move's order (TD-152)
+            return (ushort)InvReason.NotOpen; // not_open (64) after bad_request (Mail Lead default, TD-153; by analogy with the placement chain); before container_gone, Move's order (TD-152)
         }
 
-        reason = check.ResolveEntries(in op); // stale_entry (67) after not_open (GDD l.103; ADR-0009 l.113)
+        reason = check.ResolveEntries(in op); // stale_entry (67) after not_open (Mail Lead default, TD-153; by analogy with the placement chain)
         if (reason != 0)
         {
             return reason;
@@ -145,7 +146,7 @@ internal sealed class QuickMoveHandler : IOpHandler
         ref readonly EntryRecord e = ref entries[entrySlot];
         if (e.ContainerSlot != fromSlot)
         {
-            return (ushort)InvReason.StaleEntry; // stale_entry (67): a live entry not in from (GDD l.103; ADR-0009 l.113)
+            return (ushort)InvReason.StaleEntry; // stale_entry (67): a live entry not in from (Mail Lead default, TD-153; by analogy with the placement chain)
         }
 
         PlacementSubject subject = PlacementSubject.Of(_content, _stats, in e);
@@ -158,7 +159,7 @@ internal sealed class QuickMoveHandler : IOpHandler
             return (ushort)InvReason.BadCount; // bad_count (78) after stale_entry: Mail Lead default (TD-153); the code is TD-153 item 1
         }
 
-        bool whole = p.Count == 0 || p.Count == e.Count; // ADR-0009 section 1 "count u8 (0 = whole)"; TD-153 item 1
+        bool whole = p.Count == 0 || p.Count == e.Count; // ADR-0009 l.347 (QuickMove payload erratum) "count u8 (0 = whole)"; TD-153 item 1
         decision = new Decision(entrySlot, !whole, whole ? e.Count : p.Count);
         MergePolicy policy = HasOutfeedTarget(row) ? MergePolicy.NoMerge : MergePolicy.Merge; // R14 l.141: every Intake insertion is NoMerge
         if (!whole)
@@ -166,8 +167,9 @@ internal sealed class QuickMoveHandler : IOpHandler
             _ = plan.Touch(fromSlot); // the split's source changes first; a NoSource plan does not touch it (a fresh plan holds 4)
         }
 
-        // not_carryable (74) after bad_count: Mail Lead default (TD-153); not_allowed (73) after not_carryable (GDD l.103; ADR-0009
-        // l.113); no_room (77) after not_allowed (R8 l.115). A part is a NoSource plan of count units (AutoPlace places a source entry
+        // not_carryable (74) after bad_count: Mail Lead default (TD-153); not_allowed (73) after not_carryable: Mail Lead default
+        // (TD-153), by analogy with the placement chain (GDD l.103; ADR-0009 l.113 lists Move, MoveGroup, Return target, swap); no_room
+        // (77) after not_allowed (R8 l.115). A part is a NoSource plan of count units (AutoPlace places a source entry
         // only whole).
         reason = _owner.AutoPlace.Plan(
             ref plan, in subject, decision.Requested, whole ? entrySlot : AutoPlace.NoSource, row, policy, PlaceOrder.PassFirst, out ap);

@@ -2165,11 +2165,12 @@ public class MoveSplitMergeTests
 
     /// <summary>
     /// Everything a split or swap could change or record: every container header (version and lastReplaceVersion included), its
-    /// occupancy <b>row bitmaps</b>, subscriber mask and <c>CountItem</c> of every item def; every slot's external and weight P; every
-    /// live entry with its position, count, arrival seq, mail ids and StackKey-index membership; the pool's high-water and live count;
-    /// the arena's units, blocks and free and peak blocks per class; the negative-fit cache's private arrays (read by reflection, which
-    /// must find at least one non-empty array); the check ring's writes; the entity and mail id allocators; and the live WorldItem count
-    /// (story 010). Shared with <see cref="QuickMoveReturnTests"/>.
+    /// occupancy <b>row bitmaps</b>, subscriber mask and <c>CountItem</c> of every item def; every slot's external, weight P and cursor
+    /// origin (<see cref="InventorySystem.TryGetCursorOrigin"/>: present or not, and its entry, container, cells and rotation; story
+    /// 010); every live entry with its position, count, arrival seq, mail ids and StackKey-index membership; the pool's high-water and
+    /// live count; the arena's units, blocks and free and peak blocks per class; the negative-fit cache's private arrays (read by
+    /// reflection, which must find at least one non-empty array); the check ring's writes; the entity and mail id allocators; and the
+    /// live WorldItem count (story 010). Shared with <see cref="QuickMoveReturnTests"/>.
     /// </summary>
     internal static List<long> SideEffects(InvAutoPlaceRig rig)
     {
@@ -2195,6 +2196,14 @@ public class MoveSplitMergeTests
         {
             values.Add(rig.Inventory.OpenSet.ExternalOf(PlayerSlot.FromValue(slot)).Value);
             values.Add(rig.Inventory.WeightPoints(PlayerSlot.FromValue(slot)));
+            if (rig.Inventory.TryGetCursorOrigin(PlayerSlot.FromValue(slot), out InventorySystem.CursorOrigin o))
+            {
+                values.AddRange(new long[] { 1, o.Entry.Value, o.Container.Value, o.X, o.Y, o.Rotated ? 1 : 0 });
+            }
+            else
+            {
+                values.Add(0);
+            }
         }
 
         values.Add(rig.Entries.LastId);

@@ -752,6 +752,151 @@ public class QuickMoveReturnTests
         Assert.Equal((id, inventory, (byte)5), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
     }
 
+    /// <summary>
+    /// A partial quick_move that acquires two arena blocks of different size classes: the merge's union and the new entry's block
+    /// (QuickMoveHandler's reservation, last; <c>capacity_exhausted</c> is code 85 of ADR-0009 section 2, and its position and "the entry
+    /// stays where it is" are Mail Lead planning defaults pending Evan, TD-153). Chest A = 10 letters [1..10] to #3; inventory stack S =
+    /// 18 letters [100..117] to #3 at (0,0); <c>count 3</c> → [1, 2] merge into S (union 20, class 5) and [3] becomes a new entry
+    /// (1 unit, class 0). A minimum arena is exhausted through Intake spawns, then spare entries in the other player's inventory are
+    /// consumed through <see cref="IInventoryApi.ConsumeUnit"/> to free exactly: <c>exact</c> one class-5 and one class-0 block → ok;
+    /// <c>union_class_short</c> one class-4 block (one size class below the union's) and one class-0 block → <c>capacity_exhausted</c>;
+    /// <c>new_block_missing</c> one class-5 block only (the union fits, the new entry's block does not) → <c>capacity_exhausted</c>. A
+    /// refusal changes nothing.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-005")]
+    [InlineData(0, "exact")]
+    [InlineData(1, "exact")]
+    [InlineData(0, "union_class_short")]
+    [InlineData(1, "union_class_short")]
+    [InlineData(0, "new_block_missing")]
+    [InlineData(1, "new_block_missing")]
+    public void CapacityExhausted_PartialNeedsAUnionAndANewBlock_ExactArenaOk_OneClassOrOneBlockShortRefused(int slot, string row)
+    {
+        // Arrange
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.MinTotalUnits, joinPlayerB: true);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort otherInventory = rig.InventoryOf(1 - slot);
+        ushort s = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(100, 18));
+        ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 10));
+        ushort spare17 = rig.PlaceMail(otherInventory, "letter", 0, 0, Address5, InvAutoPlaceRig.Ids(500, 17));
+        ushort spare16 = rig.PlaceMail(otherInventory, "letter", 1, 0, Address5, InvAutoPlaceRig.Ids(600, 16));
+        ushort spare1 = rig.PlaceMail(otherInventory, "letter", 2, 0, Address5, new uint[] { 700 });
+        _ = rig.PlaceItem(inventory, "fiber", 0, 1, 1); // a second inventory bump: the reply's two versions differ
+        Assert.Equal((5, 0, 5, 4, 0), (MailIdArena.ClassFor(20), MailIdArena.ClassFor(1), MailIdArena.ClassFor(17), MailIdArena.ClassFor(16), MailIdArena.ClassFor(1)));
+        MoveSplitMergeTests.ExhaustArenaThroughIntakeSpawns(rig);
+        if (row != "union_class_short")
+        {
+            MoveSplitMergeTests.ConsumeUnits(rig, otherInventory, spare17, 17);
+        }
+        else
+        {
+            MoveSplitMergeTests.ConsumeUnits(rig, otherInventory, spare16, 16);
+        }
+
+        if (row != "new_block_missing")
+        {
+            MoveSplitMergeTests.ConsumeUnits(rig, otherInventory, spare1, 1);
+        }
+
+        int[] free = Enumerable.Range(0, MailIdArena.ClassCount).Select(c => rig.Inventory.MailIds.FreeBlocks(c)).ToArray();
+        int[] expectedFree = new int[MailIdArena.ClassCount];
+        expectedFree[row == "union_class_short" ? 4 : 5] = 1;
+        expectedFree[0] = row == "new_block_missing" ? 0 : 1;
+        Assert.Equal(expectedFree, free);
+        EntryId aId = rig.Entries[a].Id;
+        uint lastId = rig.Entries.LastId;
+        Assert.NotEqual(rig.Header(chest).Version, rig.Header(inventory).Version);
+        List<long> before = MoveSplitMergeTests.SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a, 3));
+
+        // Assert
+        if (row != "exact")
+        {
+            AssertRejected(rig, log, InvReason.CapacityExhausted, before, slot, (rig.Header(chest).Version, rig.Header(inventory).Version));
+            Assert.Equal((aId, chest, (byte)10), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
+            return;
+        }
+
+        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        Assert.Equal(((ushort)3, (ushort)3), (extra.RequestedUnits, extra.GotUnits));
+        Assert.Equal(new uint[] { 1, 2 }.Concat(InvAutoPlaceRig.Ids(100, 18)).ToArray(), rig.IdsOf(s));
+        Assert.Equal(5, rig.Entries[s].MailIds.ClassIndex);
+        ushort piece = rig.EntryAt(inventory, 1, 0);
+        Assert.Equal((lastId + 1, 0), (rig.Entries[piece].Id.Value, rig.Entries[piece].MailIds.ClassIndex));
+        Assert.Equal(new uint[] { 3 }, rig.IdsOf(piece));
+        Assert.Equal((aId, chest), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot));
+        Assert.Equal(InvAutoPlaceRig.Ids(4, 7), rig.IdsOf(a));
+        Assert.Equal(0, rig.Inventory.MailIds.FreeBlocks(0));
+        MoveSplitMergeTests.AssertEveryIdListAscendingNoDuplicate(rig);
+        MoveSplitMergeTests.AssertIndexesMatchARecount(rig);
+        MoveSplitMergeTests.AssertWeightAndCountsMatchRecount(rig);
+    }
+
+    /// <summary>
+    /// The entry-id pre-check of a partial quick_move onto free cells (QuickMoveHandler: <c>LastId</c> at <see cref="EntryPool.MaxRealId"/>
+    /// is <c>capacity_exhausted</c>, code 85 of ADR-0009 section 2; Mail Lead planning default pending Evan, TD-153, as MoveHandler's split
+    /// pre-check). Chest A = 5 planks at (2,1), a fiber in the actor's hotbar and one in the other player's inventory, the ids set through
+    /// <see cref="InventorySettings.EntryInitialLastId"/>: <c>last_issued</c> (the three take the last ids, <c>LastId</c> = MaxRealId) →
+    /// <c>count 2</c> is refused and nothing changes, and the whole quick_move (no new id) still works; <c>one_left</c> (<c>LastId</c> =
+    /// MaxRealId − 1) → <c>count 2</c> moves 2 planks to inventory (0,0) as a new entry with id MaxRealId (now the last id issued), A
+    /// keeps 3 with its id.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-005")]
+    [InlineData(0, "last_issued")]
+    [InlineData(1, "last_issued")]
+    [InlineData(0, "one_left")]
+    [InlineData(1, "one_left")]
+    public void CapacityExhausted_PartialWithTheLastRealIdIssued_Refused_OneIdLeft_TheSplitTakesIt(int slot, string row)
+    {
+        // Arrange
+        uint initial = EntryPool.MaxRealId - (row == "last_issued" ? 3u : 4u);
+        var rig = new InvAutoPlaceRig(tune: st => st with { EntryInitialLastId = initial }, joinPlayerB: true);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort a = rig.PlaceItem(chest, "plank", 2, 1, 5);
+        _ = rig.PlaceItem(rig.HotbarOf(slot), "fiber", 2, 0, 1);
+        _ = rig.PlaceItem(rig.InventoryOf(1 - slot), "fiber", 0, 0, 1);
+        Assert.Equal(row == "last_issued" ? EntryPool.MaxRealId : EntryPool.MaxRealId - 1, rig.Entries.LastId);
+        EntryId id = rig.Entries[a].Id;
+
+        if (row == "one_left")
+        {
+            // Act
+            InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a, 2))).ExtraAs<InvReplyExtra>();
+
+            // Assert
+            Assert.Equal(((ushort)2, (ushort)2), (extra.RequestedUnits, extra.GotUnits));
+            ushort piece = rig.EntryAt(inventory, 0, 0);
+            Assert.Equal((EntryPool.MaxRealId, (byte)2), (rig.Entries[piece].Id.Value, rig.Entries[piece].Count));
+            Assert.Equal((id, chest, (byte)3), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
+            Assert.Equal(EntryPool.MaxRealId, rig.Entries.LastId);
+            MoveSplitMergeTests.AssertWeightAndCountsMatchRecount(rig);
+            return;
+        }
+
+        Assert.NotEqual(rig.Header(chest).Version, rig.Header(inventory).Version);
+        List<long> before = MoveSplitMergeTests.SideEffects(rig);
+
+        // Act
+        EventEntry[] refused = rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a, 2));
+
+        // Assert
+        AssertRejected(rig, refused, InvReason.CapacityExhausted, before, slot, (rig.Header(chest).Version, rig.Header(inventory).Version));
+        Assert.Equal((id, chest, (byte)5), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
+
+        // Act
+        EventEntry[] whole = rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a));
+
+        // Assert
+        MoveSplitMergeTests.AssertOk(whole);
+        Assert.Equal((id, inventory, (byte)5), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
+    }
+
     // ------------------------------------------------------------------ precedence
 
     /// <summary>
@@ -1154,6 +1299,71 @@ public class QuickMoveReturnTests
         expected[cursor]++;
         expected[inventory]++;
         Assert.Equal(expected, MoveSplitMergeTests.Versions(rig));
+    }
+
+    /// <summary>
+    /// A free Intake origin (GDD l.95, "into its origin cells if they are still free"): a letter picked from the open Intake whose cell is
+    /// still free goes back there whole with its id and mail ids, inserted NoMerge (R14 l.141, "every insertion into the Intake is
+    /// NoMerge") beside a same-StackKey resident that is left unchanged, and stamped with a new <c>arrivalSeq</c> above every other Intake
+    /// entry's, so it leaves last (GDD l.400, "the inserted entry gets a new arrivalSeq, so it leaves last"). Only the cursor and the
+    /// Intake bump; <c>ResultVersionA</c> is the cursor, <c>ResultVersionB</c> the Intake.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-9")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Return_ToAFreeIntakeOrigin_BackThereNoMerge_NewArrivalSeq_LeavesLast(int slot)
+    {
+        // Arrange
+        var rig = NewRig();
+        ushort cursor = rig.CursorOf(slot);
+        DefIndex letter = rig.KindIndex("letter");
+        Assert.Equal(2, IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, Address3, 0, new[] { new MailId(500), new MailId(501) }, MergePolicy.NoMerge).Placed));
+        ushort picked = rig.EntryAt(rig.Intake, 0, 0);
+        ushort resident = rig.EntryAt(rig.Intake, 1, 0);
+        Assert.NotEqual(picked, resident);
+        Assert.Equal(StackKey.Of(in rig.Entries[resident]), StackKey.Of(in rig.Entries[picked]));
+        uint pickedSeq = rig.Entries[picked].ArrivalSeq;
+        Assert.True(pickedSeq < rig.Entries[resident].ArrivalSeq);
+        EntryId id = rig.Entries[picked].Id;
+        uint[] mailIds = rig.IdsOf(picked);
+        uint residentSeq = rig.Entries[resident].ArrivalSeq;
+        OpenIntake(rig, slot);
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, rig.Intake, picked)));
+        AssertOrigin(rig, PlayerSlot.FromValue((byte)slot), id, rig.Inventory.IntakeContainer, 0, 0, false);
+        Assert.Equal(Occupancy.Free, rig.EntryAt(rig.Intake, 0, 0));
+        uint[] versions = MoveSplitMergeTests.Versions(rig);
+        Assert.NotEqual(versions[cursor], versions[rig.Intake]);
+        int worldItems = rig.Inventory.WorldItems.LiveCount;
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), ReturnOp());
+
+        // Assert
+        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        Assert.Equal(picked, rig.EntryAt(rig.Intake, 0, 0));
+        Assert.Equal((id, rig.Intake, (byte)1), (rig.Entries[picked].Id, rig.Entries[picked].ContainerSlot, rig.Entries[picked].Count));
+        Assert.Equal(mailIds, rig.IdsOf(picked));
+        Assert.Equal(((byte)1, residentSeq, 2), (rig.Entries[resident].Count, rig.Entries[resident].ArrivalSeq, (int)rig.Header(rig.Intake).EntryCount));
+        Assert.DoesNotContain(MoveSplitMergeTests.RecordHeads(log), r => r.Kind == InvEventKinds.Merged);
+        uint newSeq = rig.Entries[picked].ArrivalSeq;
+        Assert.True(newSeq > pickedSeq);
+        for (int s = 0; s < rig.Entries.Capacity; s++)
+        {
+            EntryRecord r = rig.Entries[(ushort)s];
+            if (r.IsLive && r.ContainerSlot == rig.Intake && s != picked)
+            {
+                Assert.True(newSeq > r.ArrivalSeq);
+            }
+        }
+
+        uint[] expected = (uint[])versions.Clone();
+        expected[cursor]++;
+        expected[rig.Intake]++;
+        Assert.Equal(expected, MoveSplitMergeTests.Versions(rig));
+        Assert.Equal((versions[cursor] + 1, versions[rig.Intake] + 1), (extra.ResultVersionA, extra.ResultVersionB));
+        Assert.Equal(worldItems, rig.Inventory.WorldItems.LiveCount);
     }
 
     /// <summary>
