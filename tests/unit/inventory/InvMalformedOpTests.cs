@@ -712,6 +712,7 @@ internal sealed class InvOpRig
 
         pool.Free(slots[1]);
         pool.Free(slots[4]);
+        Inventory.Ledger.Recount(Inventory); // story 017: arranged outside the mutator
         LiveIds = new uint[] { 1, 3, 4, 6 };
         RemovedIds = new uint[] { 2, 5 };
     }

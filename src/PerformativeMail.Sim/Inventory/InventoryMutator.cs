@@ -3,6 +3,7 @@ using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory.Events;
 using PerformativeMail.Sim.Inventory.Intake;
+using PerformativeMail.Sim.Inventory.Ledger;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Rules;
@@ -82,6 +83,7 @@ internal sealed class InventoryMutator
     private readonly OutfeedFifo _outfeed;
     private readonly ISlotView? _slots;
     private readonly Weight _weight;
+    private readonly UnitLedger _ledger;
     private readonly uint[] _movedIds = new uint[MailIdArena.MaxUnits];
     private readonly uint[] _splitIds = new uint[MailIdArena.MaxUnits];
     private readonly DefIndex _cursorDef;
@@ -112,6 +114,7 @@ internal sealed class InventoryMutator
     /// <param name="outfeed">The outfeed FIFO memo the primitives maintain (story 012).</param>
     /// <param name="weight">The per-slot weight points memo the primitives maintain (story 016).</param>
     /// <param name="cursorDef">The cursor container def (story 010: <see cref="Place"/> and <see cref="Remove"/> keep the cursor origins).</param>
+    /// <param name="ledger">The conservation ledger the primitives write (story 017; the only writer).</param>
     /// <param name="slots">The slot table (the connected-slot audience of the world kinds, story 013); null gives audience 0.</param>
     /// <exception cref="ArgumentNullException">An argument other than <paramref name="slots"/> is null.</exception>
     internal InventoryMutator(
@@ -129,6 +132,7 @@ internal sealed class InventoryMutator
         OutfeedFifo outfeed,
         Weight weight,
         DefIndex cursorDef,
+        UnitLedger ledger,
         ISlotView? slots = null)
     {
         ArgumentNullException.ThrowIfNull(containers);
@@ -144,6 +148,7 @@ internal sealed class InventoryMutator
         ArgumentNullException.ThrowIfNull(noFit);
         ArgumentNullException.ThrowIfNull(outfeed);
         ArgumentNullException.ThrowIfNull(weight);
+        ArgumentNullException.ThrowIfNull(ledger);
         _containers = containers;
         _entries = entries;
         _occupancy = occupancy;
@@ -158,6 +163,7 @@ internal sealed class InventoryMutator
         _outfeed = outfeed;
         _weight = weight;
         _cursorDef = cursorDef;
+        _ledger = ledger;
         _slots = slots;
     }
 
@@ -172,6 +178,14 @@ internal sealed class InventoryMutator
 
     /// <summary>The per-slot weight points memo the primitives maintain (story 016; <c>WeightPoints</c> / <c>SpeedPermille</c> read it).</summary>
     internal Weight Weight => _weight;
+
+    /// <summary>The conservation ledger the primitives write (story 017; the tick-end check and the dump read it).</summary>
+    internal UnitLedger Ledger => _ledger;
+
+    /// <summary>True for a player's cursor container (story 017: the ledger's Cursor state; <see cref="UnitLedger.Recount"/> reads it).</summary>
+    /// <param name="containerSlot">The container's table slot.</param>
+    /// <returns>True when units there are in the Cursor state.</returns>
+    internal bool IsCursorSlot(ushort containerSlot) => IsCursor(in _containers[containerSlot]);
 
     /// <summary>True when the container's def has an outfeed (<c>BeltAccess.OutfeedOnly</c>: the Intake at M-1a).</summary>
     /// <param name="containerSlot">The container's table slot.</param>

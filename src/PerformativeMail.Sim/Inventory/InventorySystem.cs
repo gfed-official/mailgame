@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory.Backlog;
 using PerformativeMail.Sim.Inventory.Events;
 using PerformativeMail.Sim.Inventory.Intake;
+using PerformativeMail.Sim.Inventory.Ledger;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Rules;
@@ -240,7 +241,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         _hotbarDef = Resolve("hotbar");
         _playerInventoryDef = Resolve("player_inventory");
         _cursorDef = Resolve("cursor");
-        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, weight, _cursorDef, slots);
+        // Story 017: the conservation ledger, one row for mail plus one per item def, one holder byte per entry-pool slot.
+        var ledger = new UnitLedger(content.Items.Count, settings.EntryPoolCapacity);
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, weight, _cursorDef, ledger, slots);
         _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
 
         // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
@@ -283,6 +286,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <summary>The one mutation layer (story 005): handlers' <c>Commit</c> and <c>IInventoryApi</c> calls write state only through it.</summary>
     internal InventoryMutator Mutator => _mutator;
+
+    /// <summary>The conservation ledger (story 017), written only by the <see cref="Mutator"/>.</summary>
+    internal UnitLedger Ledger => _mutator.Ledger;
 
     /// <summary>AutoPlace (story 009): the shared placement passes of quick_move, spawn, return, inserter, belt, pickup, catch and grant.</summary>
     internal AutoPlace AutoPlace => _autoPlace;

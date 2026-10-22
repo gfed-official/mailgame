@@ -302,6 +302,7 @@ public class WeightSpeedTests
         e.ContainerSlot = cslot;
         header.EntryCount++;
         header.FreeCells -= (ushort)(w * h);
+        rig.Inventory.Ledger.Recount(rig.Inventory);
         return id;
     }
 
