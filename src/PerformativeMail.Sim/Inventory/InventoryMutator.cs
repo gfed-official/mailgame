@@ -457,7 +457,7 @@ internal sealed class InventoryMutator
         InventoryAssert.That(valid, SimAssertCode.InventoryMergeInvalid);
         if (!valid)
         {
-            return false;
+            return false; // returns before MarkMutated (in RaiseMerged), as do the two below: a refused merge bumps no version, End seals nothing
         }
 
         ushort to = dst.ContainerSlot;

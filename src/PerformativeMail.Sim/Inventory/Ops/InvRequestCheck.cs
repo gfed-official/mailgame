@@ -137,7 +137,7 @@ public sealed class InvRequestCheck
             InvOpKinds.Move => CheckMove(op.PayloadAs<MovePayload>(), actorSlot),
             InvOpKinds.Merge => CheckMerge(op.PayloadAs<MergePayload>(), actorSlot),
             InvOpKinds.QuickMove => CheckQuickMove(op.PayloadAs<QuickMovePayload>(), actorSlot),
-            InvOpKinds.Drop => CheckEntryNamespace(op.PayloadAs<DropPayload>().EntryId, actorSlot, false),
+            InvOpKinds.Drop => CheckEntryNamespace(_entries, op.PayloadAs<DropPayload>().EntryId, actorSlot, false),
             InvOpKinds.Pickup => CheckPickup(op.PayloadAs<PickupPayload>(), actorSlot),
             InvOpKinds.Open => CheckContainer(op.PayloadAs<OpenPayload>().Container),
             InvOpKinds.Close => CheckContainer(op.PayloadAs<ClosePayload>().Container),
@@ -146,14 +146,14 @@ public sealed class InvRequestCheck
     }
 
     private ushort CheckPick(in PickPayload p, PlayerSlot actorSlot) =>
-        Or(CheckContainer(p.From), CheckEntryNamespace(p.EntryId, actorSlot, false));
+        Or(CheckContainer(p.From), CheckEntryNamespace(_entries, p.EntryId, actorSlot, false));
 
     // X, Y (i16) and Count (u8) cannot hold an out-of-range decoded value: CheckCoordinate / CheckCount are the decode boundary's.
     private ushort CheckMove(in MovePayload p, PlayerSlot actorSlot)
     {
         ushort r = (p.Pad0 | p.Pad1) != 0 ? Bad : Pass;
         r = Or(r, CheckContainer(p.From));
-        r = Or(r, CheckEntryNamespace(p.EntryId, actorSlot, false));
+        r = Or(r, CheckEntryNamespace(_entries, p.EntryId, actorSlot, false));
         r = Or(r, CheckContainer(p.To));
         return Or(r, CheckRotated(p.To, p.Rotated));
     }
@@ -161,21 +161,21 @@ public sealed class InvRequestCheck
     private ushort CheckMerge(in MergePayload p, PlayerSlot actorSlot)
     {
         ushort r = CheckContainer(p.From);
-        r = Or(r, CheckEntryNamespace(p.EntryId, actorSlot, false));
+        r = Or(r, CheckEntryNamespace(_entries, p.EntryId, actorSlot, false));
         r = Or(r, CheckContainer(p.To));
-        return Or(r, CheckEntryNamespace(p.TargetEntryId, actorSlot, false));
+        return Or(r, CheckEntryNamespace(_entries, p.TargetEntryId, actorSlot, false));
     }
 
     private ushort CheckQuickMove(in QuickMovePayload p, PlayerSlot actorSlot)
     {
         ushort r = (p.Pad0 | p.Pad1 | p.Pad2) != 0 ? Bad : Pass;
         r = Or(r, CheckContainer(p.From));
-        return Or(r, CheckEntryNamespace(p.EntryId, actorSlot, false));
+        return Or(r, CheckEntryNamespace(_entries, p.EntryId, actorSlot, false));
     }
 
     // The WorldItem table (and its high-water) is a later story: only 0 is judged here. Claimed positions are any i32 (P13 range).
     private ushort CheckPickup(in PickupPayload p, PlayerSlot actorSlot) =>
-        Or(p.WorldItemId == 0u ? Bad : Pass, CheckEntryNamespace(p.EntryId, actorSlot, true));
+        Or(p.WorldItemId == 0u ? Bad : Pass, CheckEntryNamespace(_entries, p.EntryId, actorSlot, true));
 
     /// <summary>
     /// The <c>stale_entry</c> step: resolves every entry id the op names (<c>Merge</c>: <c>EntryId</c> then <c>TargetEntryId</c>;
@@ -196,23 +196,23 @@ public sealed class InvRequestCheck
         switch (op.Kind)
         {
             case InvOpKinds.Pick:
-                return ResolveEntry(op.PayloadAs<PickPayload>().EntryId);
+                return ResolveEntry(_entries, op.PayloadAs<PickPayload>().EntryId);
             case InvOpKinds.Move:
-                return ResolveEntry(op.PayloadAs<MovePayload>().EntryId);
+                return ResolveEntry(_entries, op.PayloadAs<MovePayload>().EntryId);
             case InvOpKinds.Merge:
             {
                 MergePayload p = op.PayloadAs<MergePayload>();
-                return Or(ResolveEntry(p.EntryId), ResolveEntry(p.TargetEntryId));
+                return Or(ResolveEntry(_entries, p.EntryId), ResolveEntry(_entries, p.TargetEntryId));
             }
 
             case InvOpKinds.QuickMove:
-                return ResolveEntry(op.PayloadAs<QuickMovePayload>().EntryId);
+                return ResolveEntry(_entries, op.PayloadAs<QuickMovePayload>().EntryId);
             case InvOpKinds.Drop:
-                return ResolveEntry(op.PayloadAs<DropPayload>().EntryId);
+                return ResolveEntry(_entries, op.PayloadAs<DropPayload>().EntryId);
             case InvOpKinds.Pickup:
             {
                 uint entry = op.PayloadAs<PickupPayload>().EntryId;
-                return entry == 0u ? Pass : ResolveEntry(entry);
+                return entry == 0u ? Pass : ResolveEntry(_entries, entry);
             }
 
             default:
@@ -259,8 +259,9 @@ public sealed class InvRequestCheck
         return _containers[slot].Layout == ContainerLayout.Slots ? Bad : Pass;
     }
 
-    // Raw-bit checks only: EntryId.FromValue / Real assert on malformed input, and a malformed request must never assert.
-    private ushort CheckEntryNamespace(uint raw, PlayerSlot actorSlot, bool allowNone)
+    // Raw-bit checks only: EntryId.FromValue / Real assert on malformed input, and a malformed request must never assert. Static and
+    // internal so IInventoryApi.DetachForThrow classifies its id with these same two steps (it passes the thrower's slot).
+    internal static ushort CheckEntryNamespace(EntryPool entries, uint raw, PlayerSlot actorSlot, bool allowNone)
     {
         if (raw == 0u)
         {
@@ -269,7 +270,7 @@ public sealed class InvRequestCheck
 
         if ((raw & EntryId.TempFlag) == 0u)
         {
-            return raw <= _entries.LastId ? Pass : Bad;
+            return raw <= entries.LastId ? Pass : Bad;
         }
 
         if ((raw & TempReservedMask) != 0u || actorSlot.IsNone)
@@ -281,13 +282,13 @@ public sealed class InvRequestCheck
     }
 
     // Called only after CheckEntryNamespace passed: a real id at/below the high-water or a temp id of the actor's own namespace.
-    private ushort ResolveEntry(uint raw)
+    internal static ushort ResolveEntry(EntryPool entries, uint raw)
     {
         if ((raw & EntryId.TempFlag) != 0u)
         {
             return Stale; // no temp id is mapped yet (the mapping arrives with the mutator story)
         }
 
-        return _entries.TryGetSlot(EntryId.Real(raw), out _) ? Pass : Stale;
+        return entries.TryGetSlot(EntryId.Real(raw), out _) ? Pass : Stale;
     }
 }

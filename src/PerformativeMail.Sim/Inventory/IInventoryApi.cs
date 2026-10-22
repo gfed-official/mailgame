@@ -172,8 +172,10 @@ public interface IInventoryApi
     /// <c>InvRemoved{hotbar, entry, units}</c> and one <c>InvVersion</c> seal with the slot's player as actor and cause <c>None</c>; the
     /// entry stays live and detached (in no container and in no WorldItem) with its mailIds, and becomes the caller's (the flight's).
     /// Refused with nothing changed and no record, checked in this order: <c>bad_request</c> outside a tick phase or for a slot without
-    /// a hotbar; <c>bad_request</c> for an id that is none, a temp id or above the allocator's high-water; <c>stale_entry</c> for an
-    /// id once allocated that is no longer live (consumed, merged away, retired or freed; ADR-0009 section 1, GDD H-R7-4);
+    /// a hotbar; then the id as an op's is classified, with <paramref name="slot"/> as the temp namespace: <c>bad_request</c> for an id
+    /// that is none, a real id above the allocator's high-water, a temp id with reserved bits set or a temp id of another slot's
+    /// namespace; <c>stale_entry</c> for a temp id of <paramref name="slot"/>'s own namespace (never mapped: no temp id is mapped yet)
+    /// or a real id once allocated that is no longer live (consumed, merged away, retired or freed; ADR-0009 section 1, GDD H-R7-4);
     /// <c>bad_request</c> for a live entry not in <paramref name="slot"/>'s hotbar (the cursor's entry, a panel or another slot's
     /// entry, an already detached entry); <c>stale_entry</c> when <paramref name="units"/> is not the entry's count.
     /// </summary>

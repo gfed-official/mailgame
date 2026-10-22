@@ -498,10 +498,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <inheritdoc />
     /// <remarks>
-    /// The tick guard; <c>bad_request</c> unless <paramref name="slot"/> has a hotbar; then a real id as <see cref="Ops.InvRequestCheck"/>
-    /// classifies an op's: <c>bad_request</c> for none, any temp id (none is ever placed) or a real id above <see cref="Storage.EntryPool.LastId"/>,
-    /// <c>stale_entry</c> for a real id at or below it that is not live (consumed, merged away, retired or freed; entry ids have no
-    /// tombstone, ADR-0009 l.116-117); then <c>bad_request</c> for a live entry not placed in this hotbar (the cursor's entry, a panel
+    /// The tick guard; <c>bad_request</c> unless <paramref name="slot"/> has a hotbar; then the id through <see cref="Ops.InvRequestCheck"/>'s
+    /// own entry-id steps with <paramref name="slot"/> as the temp namespace: <c>bad_request</c> for none, a real id above
+    /// <see cref="Storage.EntryPool.LastId"/>, a temp id with any of bits 23-30 set or a temp id of another slot's namespace;
+    /// <c>stale_entry</c> for a temp id of <paramref name="slot"/>'s own namespace (none is mapped yet, so it was "never mapped",
+    /// ADR-0009 l.78 and l.165) or a real id at or below the high-water that is not live (consumed, merged away, retired or freed; entry
+    /// ids have no tombstone, ADR-0009 l.116-117); then <c>bad_request</c> for a live entry not placed in this hotbar (the cursor's entry, a panel
     /// entry, another slot's hotbar entry, or a detached entry, i.e. a duplicate release); then <c>stale_entry</c> when
     /// <paramref name="units"/> is not the entry's count. Then
     /// <see cref="InventoryMutator.Remove"/> in one call scope and one bracket, actor the slot's player, so the records and seal are
@@ -522,17 +524,19 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return badRequest;
         }
 
-        // A real id is classified as InvRequestCheck classifies an op's: above the high-water is malformed, at or below it and not live
-        // is stale (entry ids have no tombstone, ADR-0009 l.116-117). None and any temp id are malformed here: no temp id is ever placed.
-        if (entryId.IsNone || entryId.IsTemp || entryId.Value > _entries.LastId)
+        // The id goes through the op path's own two steps, with the thrower's slot as the temp namespace (ADR-0009 l.78, l.116-117, l.165).
+        ushort reason = InvRequestCheck.CheckEntryNamespace(_entries, entryId.Value, slot, false);
+        if (reason == 0)
         {
-            return badRequest;
+            reason = InvRequestCheck.ResolveEntry(_entries, entryId.Value);
         }
 
-        if (!_entries.TryGetSlot(entryId, out ushort entrySlot))
+        if (reason != 0)
         {
-            return new DetachResult(InvReason.StaleEntry, default, 0);
+            return new DetachResult((InvReason)reason, default, 0);
         }
+
+        _ = _entries.TryGetSlot(entryId, out ushort entrySlot); // a live real id: ResolveEntry passed
 
         if (_entries[entrySlot].ContainerSlot != hotbar)
         {

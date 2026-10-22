@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Content.Validation;
@@ -21,7 +22,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// item primitives maintain, which equals a brute-force scan after every one of 1,000 seeded random mutations, with a probe count that
 /// does not grow with the entry count. <see cref="IInventoryApi.DetachForThrow"/> takes a whole hotbar entry out through <c>Remove</c>
 /// (one <c>InvRemoved</c>, one seal), leaving it live and detached, and refuses a malformed id or a live non-hotbar entry
-/// (<c>bad_request</c>), a once-allocated id that is no longer live or a wrong count (<c>stale_entry</c>) with nothing changed; <see cref="IInventoryApi.TryInsert"/> (mail form) refuses an outfeed container, a
+/// (<c>bad_request</c>), a once-allocated id that is no longer live, an unmapped temp id of the thrower's namespace or a wrong count
+/// (<c>stale_entry</c>) with nothing changed; <see cref="IInventoryApi.TryInsert"/> (mail form) refuses an outfeed container, a
 /// whitelist refusal and no room with nothing changed, and otherwise merges first (one <c>InvMerged</c>, no entry created) or places
 /// a new entry. The mutating calls run inside a real tick through the rig's <c>MailStep</c> hook.
 /// </summary>
@@ -618,6 +620,106 @@ public class InventoryApiTests
         Assert.Equal(0, plan.MutatedCount);
     }
 
+    [Theory]
+    [InlineData("target-not-live")]
+    [InlineData("target-not-mail")]
+    [InlineData("target-detached")]
+    [InlineData("none-mail-id")]
+    [InlineData("key-mismatch")]
+    public void MergeUnitInto_WithAnInvalidTargetIdOrKey_AssertsInventoryMergeInvalid_OrChangesNothingInRelease(string arm)
+    {
+        // Arrange: a 2-letter stack (address 4) in player A's inventory and the one input each arm makes invalid (the count-255 arm
+        // cannot be reached alone: a mail effMax is at most 255, so a 255 stack is already at its effMax, the effMax test's arm)
+        var rig = new InvAutoPlaceRig();
+        ushort letters = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 1, 2 });
+        StackKey key = StackKey.Of(in rig.Entries[letters]);
+        ushort target = letters;
+        var mail = new MailId(500);
+        switch (arm)
+        {
+            case "target-not-live":
+                Assert.True(rig.Entries.TryAllocate(rig.Host.World.CurrentTick, out target, out _));
+                rig.Entries.Free(target);
+                break;
+            case "target-not-mail":
+                target = rig.PlaceItem(rig.InventoryA, "plank", 3, 0, 2);
+                key = StackKey.Of(in rig.Entries[target]);
+                break;
+            case "target-detached":
+                target = rig.DetachedMail("letter", Address4, new uint[] { 3, 4 });
+                break;
+            case "none-mail-id":
+                mail = default;
+                break;
+            default:
+                key = rig.Mail("letter", Address4 + 1).Key;
+                break;
+        }
+
+        var plan = new InvPlan();
+        _ = plan.Touch(rig.InventoryA);
+        SimCheckRing ring = rig.Host.World.CheckRing;
+        int ringBefore = ring.Count;
+        List<long> before = State(rig);
+
+        // Act + Assert (between ticks: the assert fires before anything is changed or raised)
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException thrown = Assert.Throws<SimAssertException>(() => rig.Inventory.Mutator.MergeUnitInto(ref plan, target, key, mail));
+            Assert.Equal(SimAssertCode.InventoryMergeInvalid, thrown.Code);
+        }
+        else
+        {
+            Assert.False(rig.Inventory.Mutator.MergeUnitInto(ref plan, target, key, mail));
+        }
+
+        // Assert: nothing changed (versions, entries, arena), nothing marked mutated, no check record
+        Assert.Equal(new uint[] { 1, 2 }, rig.IdsOf(letters));
+        Assert.Equal(before, State(rig));
+        Assert.Equal(0, plan.MutatedCount);
+        Assert.Equal(ringBefore, ring.Count);
+    }
+
+    [Fact]
+    public void MergeUnitInto_ReturningFalseInsideABracket_BumpsNoVersion_RaisesNoRecordAndNoSeal()
+    {
+        // Arrange: a valid merge onto the 2-letter stack of a 1 x 1 grid whose arena is exhausted, so MergeUnitInto's union fails
+        // after its validity check (the false path that asserts in no build); the caller reserved nothing, as a test may
+        (InvAutoPlaceRig rig, ContainerId gridId, ushort stack) = ArenaRig(exhaustArena: true);
+        ushort grid = rig.SlotOf(gridId);
+        StackKey key = StackKey.Of(in rig.Entries[stack]);
+        uint version = rig.Header(grid).Version;
+        List<long> before = State(rig);
+        EventLogFacade events = rig.Host.Services.Events;
+        bool merged = true;
+        int mutated = -1;
+
+        // Act: one call scope and one bracket, as TryInsert's merge pass runs it
+        IntakeSpawnOutfeedTests.InPhase(rig, () =>
+        {
+            var plan = new InvPlan();
+            _ = plan.Touch(grid);
+            var extra = new InvReplyExtra();
+            using (EventCallScope scope = events.BeginCall())
+            {
+                rig.Inventory.Mutator.Begin(ref plan, rig.PlayerA, InvCause.None);
+                merged = rig.Inventory.Mutator.MergeUnitInto(ref plan, stack, key, new MailId(15));
+                mutated = plan.MutatedCount;
+                rig.Inventory.Mutator.End(ref plan, ref extra);
+            }
+
+            return merged;
+        });
+
+        // Assert: refused before MarkMutated, so End sealed nothing: the version is unchanged and no inventory record was raised
+        Assert.False(merged);
+        Assert.Equal(0, mutated);
+        Assert.Equal(version, rig.Header(grid).Version);
+        Assert.Equal(new uint[] { 10, 20 }, rig.IdsOf(stack));
+        Assert.Equal(before, State(rig));
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
     [Fact]
     [Trait("Id", "H-X-2")]
     public void DetachForThrow_Hotbar3Entry88Of5Letters_EmptiesIndex3_VersionPlusOne_OneRemovedThenOneSeal_EntryLiveAndDetached()
@@ -717,7 +819,8 @@ public class InventoryApiTests
             (a, rig.Entries[detached].Id, 1),                 // a live detached entry
             (a, EntryId.Real(rig.Entries.LastId + 1), 1),     // the next id, never allocated (above the high-water)
             (a, EntryId.Real(999_999), 1),                     // an unknown id far above the high-water
-            (a, EntryId.Temp(a, 1), 1),                       // a temp id (of the thrower's own namespace)
+            (a, EntryId.Temp(PlayerSlot.FromValue(1), 1), 1), // a temp id of slot B's namespace thrown from slot A
+            (a, RawEntryId(EntryId.Temp(a, 1).Value | (1u << 23)), 1), // a temp id of A's namespace with reserved bit 23 set
             (a, default, 1),                                  // no entry
             (PlayerSlot.FromValue(1), rig.Entries[inHotbarA].Id, 1), // A's hotbar entry named by slot B
             (PlayerSlot.FromValue(2), rig.Entries[inHotbarA].Id, 1), // a slot with no hotbar
@@ -745,9 +848,10 @@ public class InventoryApiTests
 
     [Fact]
     [Trait("Id", "H-R7-4")]
-    public void DetachForThrow_OfAnOnceAllocatedEntryIdThatIsNoLongerLive_IsStaleEntry_NothingChanges_NoRecord()
+    public void DetachForThrow_OfAnOnceAllocatedEntryIdThatIsNoLongerLiveOrAnUnmappedTempIdOfTheThrower_IsStaleEntry_NothingChanges_NoRecord()
     {
-        // Arrange: a hotbar entry consumed away (its last unit), and an id allocated and freed; both at or below the high-water
+        // Arrange: a hotbar entry consumed away (its last unit), and an id allocated and freed, both at or below the high-water; and
+        // temp ids of the thrower's own namespace, which no op has mapped (ADR-0009 l.78, l.165)
         var rig = new InvAutoPlaceRig();
         ushort consumed = rig.PlaceMail(rig.HotbarA, "letter", 4, 0, Address4, new uint[] { 7 });
         EntryId consumedId = rig.Entries[consumed].Id;
@@ -762,7 +866,10 @@ public class InventoryApiTests
         Assert.True(freedId.Value <= rig.Entries.LastId);
         List<long> before = State(rig);
         PlayerSlot a = PlayerSlot.FromValue(0);
-        var calls = new (EntryId Entry, byte Units)[] { (consumedId, 1), (freedId, 1) };
+        var calls = new (EntryId Entry, byte Units)[]
+        {
+            (consumedId, 1), (freedId, 1), (EntryId.Temp(a, 1), 1), (EntryId.Temp(a, EntryId.TempCounterMask), 1),
+        };
         var results = new List<DetachResult>();
 
         // Act
@@ -776,7 +883,7 @@ public class InventoryApiTests
         rig.Host.World.Tick();
         rig.Hook.Action = null;
 
-        // Assert: stale_entry at once (entry ids have no tombstone), nothing changed, no inventory event
+        // Assert: stale_entry at once (entry ids have no tombstone; a temp id is never mapped yet), nothing changed, no inventory event
         Assert.Equal(calls.Length, results.Count);
         Assert.All(results, r => Assert.Equal(new DetachResult(InvReason.StaleEntry, default, 0), r));
         Assert.Equal(before, State(rig));
@@ -828,6 +935,8 @@ public class InventoryApiTests
             (a, deadId, 0, stale),
             (a, rig.Entries[inHotbar].Id, 4, stale),          // in the hotbar, the wrong units
             (a, EntryId.Real(rig.Entries.LastId + 1), 5, bad), // above the high-water and the wrong units
+            (a, EntryId.Temp(a, 1), 5, stale),                // an unmapped temp id of A's namespace and the wrong units
+            (a, EntryId.Temp(PlayerSlot.FromValue(1), 1), 5, bad), // a temp id of B's namespace and the wrong units
             (PlayerSlot.FromValue(2), deadId, 1, bad),        // a slot with no hotbar naming a dead id: the slot first
         };
         var results = new List<DetachResult>();
@@ -1346,6 +1455,9 @@ public class InventoryApiTests
             rig.Entries.Free(slot);
         }
     }
+
+    /// <summary>An <see cref="EntryId"/> of any raw bits, as a wire decode yields it (<see cref="EntryId.FromValue"/> asserts on reserved bits).</summary>
+    private static EntryId RawEntryId(uint raw) => Unsafe.As<uint, EntryId>(ref raw);
 
     /// <summary>A brute-force scan of the container's placed item entries of <paramref name="item"/>.</summary>
     private static int ScanItem(InvAutoPlaceRig rig, ushort container, DefIndex item)
