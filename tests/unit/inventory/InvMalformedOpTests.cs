@@ -233,7 +233,7 @@ public class InvMalformedOpTests
             Assert.True(issued.Values.Count(k => k == bound) > 0, $"generator issued no {bound} op");
         }
 
-        // Every op reached a handler: the stubbed kinds the stub's helper, Pick, Move and Close their real handler (bad_request above).
+        // Every op reached a handler: the stubbed kinds the stub's helper, Pick, Move, Merge and Close their real handler (bad_request above).
         // A handler's reply carries its call scope's CallSeq; a Sim Core pre-check reject would carry 0.
         int boundOps = issued.Values.Count(k => Array.IndexOf(InventoryWithStubOps.BoundBySystem, k) >= 0);
         Assert.Equal(FuzzOps - boundOps, rig.StubCalls);
@@ -272,9 +272,10 @@ public class InvMalformedOpTests
 
     // ------------------------------------------------------------------ per-kind pass / stale_entry through the drain
 
-    // Pick, Move and Close are not here: InventorySystem binds their real handlers (stories 007 and 011), whose valid cases are in
-    // PickMoveTests and OpenSetTests (the rig's unplaced live entry is stale_entry to the real Pick and Move).
-    public static TheoryData<string> ValidCases => new() { "Merge", "QuickMove", "Drop", "Pickup", "PickupDefaultEntry", "Open", "Return" };
+    // Pick, Move, Merge and Close are not here: InventorySystem binds their real handlers (stories 007, 008 and 011), whose valid cases
+    // are in PickMoveTests, MoveSplitMergeTests and OpenSetTests (the rig's unplaced live entry is stale_entry to the real Pick, Move
+    // and Merge).
+    public static TheoryData<string> ValidCases => new() { "QuickMove", "Drop", "Pickup", "PickupDefaultEntry", "Open", "Return" };
 
     public static TheoryData<string> StaleCases => new() { "Pick", "Move", "Merge", "MergeTarget", "QuickMove", "Drop", "Pickup" };
 
@@ -635,8 +636,8 @@ internal sealed class InvValidateOnlyStub : IOpHandler
 /// </summary>
 internal sealed class InventoryWithStubOps : ISimSystem
 {
-    /// <summary>The kinds <see cref="InventorySystem.Bind"/> binds a production handler for (story 007: <c>Pick</c>, <c>Move</c>; story 011: <c>Close</c>).</summary>
-    public static readonly OpKind[] BoundBySystem = { InvOpKinds.Pick, InvOpKinds.Move, InvOpKinds.Close };
+    /// <summary>The kinds <see cref="InventorySystem.Bind"/> binds a production handler for (story 007: <c>Pick</c>, <c>Move</c>; story 008: <c>Merge</c>; story 011: <c>Close</c>).</summary>
+    public static readonly OpKind[] BoundBySystem = { InvOpKinds.Pick, InvOpKinds.Move, InvOpKinds.Merge, InvOpKinds.Close };
 
     private readonly ISlotView _slots;
 
@@ -670,7 +671,7 @@ internal sealed class InventoryWithStubOps : ISimSystem
 /// <summary>
 /// A composed M-1a world (real content, real <see cref="InventorySystem"/>, Sim Core's own <c>PlayerJoin</c>) with players in slots 0 and 1,
 /// six allocated (never placed) entries of which ids 2 and 5 are removed again (so the pool's high-water is 6), and the inventory kinds
-/// other than <c>Pick</c>, <c>Move</c> and <c>Close</c> bound to stubs. The system gets the world's slot view (the real handlers
+/// other than <c>Pick</c>, <c>Move</c>, <c>Merge</c> and <c>Close</c> bound to stubs. The system gets the world's slot view (the real handlers
 /// resolve the actor's slot through it).
 /// </summary>
 internal sealed class InvOpRig

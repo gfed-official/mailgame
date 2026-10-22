@@ -13,18 +13,20 @@ using PerformativeMail.Sim.Primitives;
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
-/// Story grid-inventory/008, slice 1: the <c>Move</c> handler's split-and-place and hotbar swap arms (<see cref="MoveHandler"/>,
-/// <see cref="InventoryMutator.SplitAndPlace"/>) through the real phase-0 drain of a composed world with players A (slot 0) and B
-/// (slot 1); GDD R4 (l.79), R6, R7 (l.90, l.103); H-R4-2 c/d; ADR-0009 sections 1-4; ADR-0004 (ids never reused). Every case runs from
-/// slot 0 and from slot 1. State is arranged only through real calls: the rig's mutator-backed <c>PlaceMail</c> / <c>PlaceItem</c>,
-/// <c>TryOpenExternal</c>, Intake <c>Spawn</c> in a tick phase (the arena exhaustion), the rig's documented settings overrides
-/// (<c>entryPoolCapacity</c>, and <see cref="InventorySettings.EntryInitialLastId"/> through <c>tune</c>) and the real ops. Every
+/// Story grid-inventory/008: the <c>Move</c> handler's split-and-place and hotbar swap arms (<see cref="MoveHandler"/>,
+/// <see cref="InventoryMutator.SplitAndPlace"/>) and the <c>Merge</c> op (<see cref="MergeHandler"/>) through the real phase-0 drain of
+/// a composed world with players A (slot 0) and B (slot 1); GDD R4 (l.79), R6, R7 (l.90, l.103), l.379 and H-X-4 (l.817); H-R4-2 c/d,
+/// H-R4-3 c, H-R6-1 b, H-R7-3; ADR-0009 sections 1-4; ADR-0004 (ids never reused). Every case runs from slot 0 and from slot 1. State is
+/// arranged only through real calls: the rig's mutator-backed <c>PlaceMail</c> / <c>PlaceItem</c>, <c>TryOpenExternal</c>, Intake
+/// <c>Spawn</c> and <c>DetachForThrow</c> in a tick phase (the arena exhaustion, an unplaced entry), the rig's documented settings
+/// overrides (<c>entryPoolCapacity</c>, and <see cref="InventorySettings.EntryInitialLastId"/> through <c>tune</c>), story 011's
+/// issued-but-dead container id seam (<see cref="SkipOneContainerId"/>) and the real ops. Every
 /// reject asserts the reply (reason and <c>ResultVersionA/B</c>), that the tick log holds the <c>OpReply</c> alone (no record, no
 /// seal), and <see cref="SideEffects"/> unchanged (container headers with versions, occupancy row bitmaps, entries with their mail
 /// ids and StackKey-index membership, the pool's high-water and live count, the arena, the negative-fit cache, weight P,
-/// <c>CountItem</c>, subscriber masks, externals, check ring writes and the id allocators). The entry-pool refusal and the swap's
-/// per-container bump are Mail Lead planning defaults pending Evan; the arena refusal leaving the letter on the cursor is Evan's ruling
-/// of 2026-10-22 5:11 AM PT.
+/// <c>CountItem</c>, subscriber masks, externals, check ring writes and the id allocators). The entry-pool refusal, the swap's
+/// per-container bump and the merge chain are Mail Lead planning defaults pending Evan; the arena refusal leaving the letter on the
+/// cursor is Evan's ruling of 2026-10-22 5:11 AM PT (the code, <c>capacity_exhausted</c>, is ADR-0009's).
 /// </summary>
 public class MoveSplitMergeTests
 {
@@ -718,7 +720,672 @@ public class MoveSplitMergeTests
         AssertIndexesMatchARecount(rig);
     }
 
+    // ------------------------------------------------------------------ H-R7-3: merge {S → T}
+
+    /// <summary>
+    /// T = 18 letters to #5 [100..117] in the chest, S = 5 letters to #5 [1..5] (in the actor's inventory, or in the chest too):
+    /// <c>merge {S → T}</c> moves the room, 2: T = 20 holding [1, 2, 100..117], S = 3 in place with its id and [3, 4, 5]; no entry id is
+    /// spent; records Removed{from, S, 2}, Merged{to, T, 2}, then one seal per touched container, the source's first; across two
+    /// containers both bump +1, inside one it bumps +1 once; the reply carries <c>from</c> then <c>to</c>. The same merge again is
+    /// <c>stack_full</c> and changes nothing.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-3")]
+    [InlineData(0, "inventory")]
+    [InlineData(1, "inventory")]
+    [InlineData(0, "chest")]
+    [InlineData(1, "chest")]
+    public void HR73_EighteenAndFiveTo5_MergeSOntoT_T20S3InPlace_EachTouchedContainerPlusOne_AgainStackFull(int slot, string sourceWhere)
+    {
+        // Arrange
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort from = Where(rig, slot, sourceWhere, chest);
+        ushort t = rig.PlaceMail(chest, "letter", 4, 2, Address5, InvAutoPlaceRig.Ids(100, 18));
+        ushort s = rig.PlaceMail(from, "letter", 1, 1, Address5, InvAutoPlaceRig.Ids(1, 5));
+        EntryId sId = rig.Entries[s].Id;
+        EntryId tId = rig.Entries[t].Id;
+        uint lastId = rig.Entries.LastId;
+        uint[] versions = Versions(rig);
+        bool cross = from != chest;
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), MergeOp(rig, from, s, chest, t));
+
+        // Assert: T 20, S 3 in place, ids moved oldest-first, no id spent
+        Reply reply = AssertOk(log);
+        Assert.Equal((tId, chest, (byte)4, (byte)2, (byte)20), (rig.Entries[t].Id, rig.Entries[t].ContainerSlot, rig.Entries[t].X, rig.Entries[t].Y, rig.Entries[t].Count));
+        Assert.Equal(InvAutoPlaceRig.Ids(1, 2).Concat(InvAutoPlaceRig.Ids(100, 18)).ToArray(), rig.IdsOf(t));
+        Assert.Equal((sId, from, (byte)1, (byte)1, (byte)3), (rig.Entries[s].Id, rig.Entries[s].ContainerSlot, rig.Entries[s].X, rig.Entries[s].Y, rig.Entries[s].Count));
+        Assert.Equal(new uint[] { 3, 4, 5 }, rig.IdsOf(s));
+        Assert.Equal(lastId, rig.Entries.LastId);
+
+        // Assert: records, seals, versions, reply
+        EventEntry[] heads = RecordHeads(log);
+        Assert.Equal(
+            cross
+                ? new[] { InvEventKinds.Removed, InvEventKinds.Merged, InvEventKinds.Version, InvEventKinds.Version }
+                : new[] { InvEventKinds.Removed, InvEventKinds.Merged, InvEventKinds.Version },
+            heads.Select(e => e.Kind).ToArray());
+        InvRemovedPayload removed = heads[0].PayloadAs<InvRemovedPayload>();
+        Assert.Equal((rig.IdOf(from).Value, sId.Value, (byte)2), (removed.Container, removed.EntryId, removed.Count));
+        InvMergedPayload merged = heads[1].PayloadAs<InvMergedPayload>();
+        Assert.Equal((rig.IdOf(chest).Value, tId.Value, (byte)2), (merged.Container, merged.TargetEntryId, merged.AddedCount));
+        Assert.All(InventoryRecords(log), e => Assert.Equal(1 << slot, e.Audience));
+        Assert.Equal(cross ? new[] { rig.IdOf(from).Value, rig.IdOf(chest).Value } : new[] { rig.IdOf(chest).Value }, Seals(log).Select(v => v.Container).ToArray());
+        uint[] expected = (uint[])versions.Clone();
+        expected[from]++;
+        expected[chest] = versions[chest] + 1;
+        Assert.Equal(expected, Versions(rig));
+        InvReplyExtra extra = reply.ExtraAs<InvReplyExtra>();
+        Assert.Equal((versions[from] + 1, versions[chest] + 1), (extra.ResultVersionA, extra.ResultVersionB));
+        Assert.False(extra.Unchanged);
+        AssertIndexesMatchARecount(rig);
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] again = rig.Run(rig.Player(slot), MergeOp(rig, from, s, chest, t));
+
+        // Assert
+        AssertRejected(rig, again, InvReason.StackFull, before, slot, from, chest);
+    }
+
+    /// <summary>T = 18 letters to #5 in the chest, S' = 5 letters to #6 in the actor's inventory: <c>merge {S' → T}</c> is <c>blocked</c> (StackKey mismatch).</summary>
+    [Theory]
+    [Trait("Id", "H-R7-3")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void HR73_FiveTo6OntoEighteenTo5_Blocked_NothingChanges(int slot)
+    {
+        // Arrange
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort t = rig.PlaceMail(chest, "letter", 4, 2, Address5, InvAutoPlaceRig.Ids(100, 18));
+        ushort s = rig.PlaceMail(inventory, "letter", 1, 1, 6u, InvAutoPlaceRig.Ids(1, 5));
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), MergeOp(rig, inventory, s, chest, t));
+
+        // Assert
+        AssertRejected(rig, log, InvReason.Blocked, before, slot, inventory, chest);
+    }
+
+    // ------------------------------------------------------------------ H-R4-3 c: merge {A → A}
+
+    /// <summary>H-R4-3's fixture (chest 8 x 4, A = 5 letters to #3 at (0,0)): <c>merge {A → A}</c> is <c>blocked</c>; A and the version are unchanged.</summary>
+    [Theory]
+    [Trait("Id", "H-R4-3")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void HR43c_MergeAOntoItself_Blocked_AAndTheVersionUnchanged(int slot)
+    {
+        // Arrange
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort a = rig.PlaceMail(chest, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 5));
+        uint version = rig.Header(chest).Version;
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), MergeOp(rig, chest, a, chest, a));
+
+        // Assert
+        AssertRejected(rig, log, InvReason.Blocked, before, slot, chest, chest);
+        Assert.Equal(version, rig.Header(chest).Version);
+        Assert.Equal((chest, (byte)5), (rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
+        Assert.Equal(InvAutoPlaceRig.Ids(1, 5), rig.IdsOf(a));
+    }
+
+    // ------------------------------------------------------------------ H-R6-1 b: the sorted union
+
+    /// <summary>
+    /// <c>merge {A [4,9,15,21,30] → B [2,50]}</c> (letters to #5; A in the actor's inventory or in the chest with B): B holds
+    /// [2,4,9,15,21,30,50], A is removed (its id no longer resolves, its cell is free), and every live entry's id list is ascending with
+    /// no id held twice.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R6-1")]
+    [InlineData(0, "inventory")]
+    [InlineData(1, "inventory")]
+    [InlineData(0, "chest")]
+    [InlineData(1, "chest")]
+    public void HR61b_MergeA4_9_15_21_30OntoB2_50_BIsTheSortedUnion_AIsRemoved(int slot, string sourceWhere)
+    {
+        // Arrange
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort from = Where(rig, slot, sourceWhere, chest);
+        ushort b = rig.PlaceMail(chest, "letter", 6, 3, Address5, new uint[] { 2, 50 });
+        ushort a = rig.PlaceMail(from, "letter", 1, 0, Address5, new uint[] { 4, 9, 15, 21, 30 });
+        EntryId aId = rig.Entries[a].Id;
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), MergeOp(rig, from, a, chest, b));
+
+        // Assert
+        AssertOk(log);
+        Assert.Equal(new uint[] { 2, 4, 9, 15, 21, 30, 50 }, rig.IdsOf(b));
+        Assert.Equal((byte)7, rig.Entries[b].Count);
+        Assert.False(rig.Entries.TryGetSlot(aId, out _));
+        Assert.Equal(Occupancy.Free, rig.Inventory.Occupancy.OwnerAt(from, rig.Header(from).W, 1, 0));
+        InvRemovedPayload removed = RecordHeads(log)[0].PayloadAs<InvRemovedPayload>();
+        Assert.Equal((rig.IdOf(from).Value, aId.Value, (byte)5), (removed.Container, removed.EntryId, removed.Count));
+        AssertEveryIdListAscendingNoDuplicate(rig);
+        AssertIndexesMatchARecount(rig);
+    }
+
+    /// <summary>
+    /// A merge whose union lands in another arena size class than either input (a block is <c>2^c</c> ids): target t letters, source s
+    /// letters (interleaved ids: the target's even, the source's odd) → the target's block is <see cref="MailIdArena.ClassFor"/>(t + s),
+    /// its list is the sorted union with no duplicate, the source is removed and the arena holds the same units.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R6-1")]
+    [InlineData(0, 1, 1)]
+    [InlineData(1, 1, 1)]
+    [InlineData(0, 2, 3)]
+    [InlineData(1, 2, 3)]
+    [InlineData(0, 4, 4)]
+    [InlineData(1, 4, 4)]
+    [InlineData(0, 8, 1)]
+    [InlineData(1, 8, 1)]
+    [InlineData(0, 16, 4)]
+    [InlineData(1, 16, 4)]
+    public void Merge_UnionCrossesArenaSizeClasses_TheTargetsBlockIsTheUnionsClass_TheSortedUnion(int slot, int targetCount, int sourceCount)
+    {
+        // Arrange
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        uint[] targetIds = Enumerable.Range(1, targetCount).Select(i => (uint)(2 * i)).ToArray();
+        uint[] sourceIds = Enumerable.Range(0, sourceCount).Select(i => (uint)((2 * i) + 1)).ToArray();
+        ushort t = rig.PlaceMail(chest, "letter", 2, 2, Address3, targetIds);
+        ushort s = rig.PlaceMail(inventory, "letter", 0, 1, Address3, sourceIds);
+        EntryId sId = rig.Entries[s].Id;
+        int union = targetCount + sourceCount;
+        Assert.NotEqual(MailIdArena.ClassFor(targetCount), MailIdArena.ClassFor(union));
+        Assert.NotEqual(MailIdArena.ClassFor(sourceCount), MailIdArena.ClassFor(union));
+        int liveUnits = rig.Inventory.MailIds.LiveUnits;
+
+        // Act
+        AssertOk(rig.Run(rig.Player(slot), MergeOp(rig, inventory, s, chest, t)));
+
+        // Assert
+        Assert.Equal(targetIds.Concat(sourceIds).OrderBy(id => id).ToArray(), rig.IdsOf(t));
+        Assert.Equal(MailIdArena.ClassFor(union), rig.Entries[t].MailIds.ClassIndex);
+        Assert.Equal(union, rig.Entries[t].Count);
+        Assert.False(rig.Entries.TryGetSlot(sId, out _));
+        Assert.Equal(liveUnits, rig.Inventory.MailIds.LiveUnits);
+        AssertEveryIdListAscendingNoDuplicate(rig);
+    }
+
+    // ------------------------------------------------------------------ room under the 255 cap
+
+    /// <summary>
+    /// A <c>bigstack</c> item (<c>maxStack</c> 300, above the u8 count): target 250 in the chest, source 4, 5 or 6 in the inventory. Room
+    /// is <c>min(300, 255) − 250 = 5</c>: 4 and 5 move whole (the source is removed), 6 moves 5 and leaves 1 in place with its id.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-3")]
+    [InlineData(0, 4, 4)]
+    [InlineData(1, 4, 4)]
+    [InlineData(0, 5, 5)]
+    [InlineData(1, 5, 5)]
+    [InlineData(0, 6, 5)]
+    [InlineData(1, 6, 5)]
+    public void Merge_ItemMaxStackAbove255_Target250_Source4Or5Or6_MovesUpToThe255Cap(int slot, byte sourceCount, int expectedMoved)
+    {
+        // Arrange
+        var rig = NewRig(MergeContent());
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort t = rig.PlaceItem(chest, "bigstack", 0, 0, 250);
+        ushort s = rig.PlaceItem(inventory, "bigstack", 2, 1, sourceCount);
+        EntryId sId = rig.Entries[s].Id;
+        DefIndex bigstack = rig.ItemIndex("bigstack");
+
+        // Act
+        AssertOk(rig.Run(rig.Player(slot), MergeOp(rig, inventory, s, chest, t)));
+
+        // Assert
+        Assert.Equal(250 + expectedMoved, rig.Entries[t].Count);
+        int left = sourceCount - expectedMoved;
+        Assert.Equal(left > 0, rig.Entries.TryGetSlot(sId, out _));
+        if (left > 0)
+        {
+            Assert.Equal((sId, inventory, (byte)2, (byte)1, (byte)left), (rig.Entries[s].Id, rig.Entries[s].ContainerSlot, rig.Entries[s].X, rig.Entries[s].Y, rig.Entries[s].Count));
+        }
+
+        Assert.Equal(250 + expectedMoved, rig.Inventory.CountItem(new[] { rig.IdOf(chest) }, bigstack));
+        Assert.Equal(left, rig.Inventory.CountItem(new[] { rig.IdOf(inventory) }, bigstack));
+        AssertWeightAndCountsMatchRecount(rig);
+    }
+
+    /// <summary>A <c>bigstack</c> target already at 255 (below its <c>maxStack</c> 300, at the u8 cap): <c>merge</c> is <c>stack_full</c> and changes nothing.</summary>
+    [Theory]
+    [Trait("Id", "H-R7-3")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Merge_ItemMaxStackAbove255_OntoA255Target_StackFull_NothingChanges(int slot)
+    {
+        // Arrange
+        var rig = NewRig(MergeContent());
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort t = rig.PlaceItem(chest, "bigstack", 0, 0, 255);
+        ushort s = rig.PlaceItem(inventory, "bigstack", 2, 1, 1);
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), MergeOp(rig, inventory, s, chest, t));
+
+        // Assert
+        AssertRejected(rig, log, InvReason.StackFull, before, slot, inventory, chest);
+    }
+
+    // ------------------------------------------------------------------ Merge precedence
+
+    /// <summary>
+    /// The merge chain (story 008 AC "Merge precedence", Mail Lead planning default pending Evan; GDD l.103 errata (2); TD-152), with
+    /// <c>container_gone</c> before <c>not_open</c> (GDD l.379, H-X-4 l.817): <c>bad_request → container_gone → not_open → stale_entry →
+    /// not_allowed → blocked → stack_full → capacity_exhausted</c>. Each row violates its step and every later one that can co-occur, and
+    /// the earliest code must win. The world: a minimum arena exhausted through Intake spawns after the fixture is placed (so every
+    /// mail union is refused), an output-only external O (<c>acceptsInsert: false</c>) holding a full plank stack, the actor's inventory
+    /// I with letters to #3 of 5, 20 (full) and 19, 20 letters to #5 and two Axes (<c>effMax</c> 1), a removed id (a cursor letter merged
+    /// away by a real <c>move</c>), the other player's inventory X (not in the actor's open set) and an issued id G that is no longer live
+    /// (the story 011 seam). A reject before <c>stale_entry</c> carries no versions; from <c>stale_entry</c> on, <c>from</c>'s then
+    /// <c>to</c>'s.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-3")]
+    [InlineData("bad_request", 0)]
+    [InlineData("bad_request", 1)]
+    [InlineData("container_gone_from", 0)]
+    [InlineData("container_gone_from", 1)]
+    [InlineData("container_gone_to", 0)]
+    [InlineData("container_gone_to", 1)]
+    [InlineData("not_open_from", 0)]
+    [InlineData("not_open_from", 1)]
+    [InlineData("not_open_to", 0)]
+    [InlineData("not_open_to", 1)]
+    [InlineData("stale_entry_removed", 0)]
+    [InlineData("stale_entry_removed", 1)]
+    [InlineData("stale_entry_target_removed", 0)]
+    [InlineData("stale_entry_target_removed", 1)]
+    [InlineData("stale_entry_not_in_from", 0)]
+    [InlineData("stale_entry_not_in_from", 1)]
+    [InlineData("stale_entry_target_not_in_to", 0)]
+    [InlineData("stale_entry_target_not_in_to", 1)]
+    [InlineData("not_allowed", 0)]
+    [InlineData("not_allowed", 1)]
+    [InlineData("blocked_self", 0)]
+    [InlineData("blocked_self", 1)]
+    [InlineData("blocked_key", 0)]
+    [InlineData("blocked_key", 1)]
+    [InlineData("blocked_effmax1", 0)]
+    [InlineData("blocked_effmax1", 1)]
+    [InlineData("stack_full", 0)]
+    [InlineData("stack_full", 1)]
+    [InlineData("capacity_exhausted", 0)]
+    [InlineData("capacity_exhausted", 1)]
+    public void Merge_Precedence_RequestViolatingThisStepAndEveryLaterOne_ReturnsThisStep(string row, int slot)
+    {
+        // Arrange
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.MinTotalUnits, content: MergeContent(), joinPlayerB: true);
+        ushort o = rig.CreateGrid(8, 4, OutputOnlyDef);
+        Assert.True(rig.Inventory.TryOpenExternal(PlayerSlot.FromValue((byte)slot), rig.IdOf(o)));
+        ushort i = rig.InventoryOf(slot);
+        ushort h = rig.HotbarOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        uint x = rig.IdOf(rig.InventoryOf(1 - slot)).Value;
+        ushort oPlanksFull = rig.PlaceItem(o, "plank", 0, 0, 20);
+        ushort iLetters = rig.PlaceMail(i, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 5));
+        ushort iFull = rig.PlaceMail(i, "letter", 1, 0, Address3, InvAutoPlaceRig.Ids(100, 20));
+        ushort iLetters19 = rig.PlaceMail(i, "letter", 2, 0, Address3, InvAutoPlaceRig.Ids(200, 19));
+        ushort iFull5 = rig.PlaceMail(i, "letter", 3, 0, Address5, InvAutoPlaceRig.Ids(300, 20));
+        ushort iAxe = rig.PlaceItem(i, "axe", 4, 0, 1);
+        ushort iAxe2 = rig.PlaceItem(i, "axe", 5, 0, 1);
+        _ = rig.PlaceMail(h, "letter", 2, 0, Address3, InvAutoPlaceRig.Ids(500, 2));
+        ushort mergedAway = rig.PlaceMail(cursor, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(502, 1));
+        uint gone = rig.Entries[mergedAway].Id.Value;
+        AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, mergedAway, h, 2, 0)));
+        Assert.False(rig.Entries.TryGetSlot(EntryId.Real(gone), out _));
+        ExhaustArenaThroughIntakeSpawns(rig);
+        uint g = SkipOneContainerId(rig);
+        uint iId = rig.IdOf(i).Value;
+        uint oId = rig.IdOf(o).Value;
+        uint hId = rig.IdOf(h).Value;
+        uint E(ushort entry) => rig.Entries[entry].Id.Value;
+        (uint from, uint entry, uint to, uint target, InvReason expected) = row switch
+        {
+            "bad_request" => (g, E(iFull), 0u, E(iFull), (InvReason)CoreReason.BadRequest),
+            "container_gone_from" => (g, E(iFull), iId, E(iFull), InvReason.ContainerGone),
+            "container_gone_to" => (iId, E(iFull), g, E(iFull), InvReason.ContainerGone),
+            "not_open_from" => (x, E(iFull), oId, E(iFull), InvReason.NotOpen),
+            "not_open_to" => (iId, E(iFull), x, E(iFull), InvReason.NotOpen),
+            "stale_entry_removed" => (iId, gone, oId, gone, InvReason.StaleEntry),
+            "stale_entry_target_removed" => (iId, E(iFull), oId, gone, InvReason.StaleEntry),
+            "stale_entry_not_in_from" => (hId, E(iFull), oId, E(oPlanksFull), InvReason.StaleEntry),
+            "stale_entry_target_not_in_to" => (iId, E(iFull), oId, E(iFull), InvReason.StaleEntry),
+            "not_allowed" => (iId, E(iFull), oId, E(oPlanksFull), InvReason.NotAllowed),
+            "blocked_self" => (iId, E(iFull), iId, E(iFull), InvReason.Blocked),
+            "blocked_key" => (iId, E(iFull), iId, E(iFull5), InvReason.Blocked),
+            "blocked_effmax1" => (iId, E(iAxe), iId, E(iAxe2), InvReason.Blocked),
+            "stack_full" => (iId, E(iLetters), iId, E(iFull), InvReason.StackFull),
+            "capacity_exhausted" => (iId, E(iLetters), iId, E(iLetters19), InvReason.CapacityExhausted),
+            _ => throw new ArgumentOutOfRangeException(nameof(row), row, null),
+        };
+        bool resolved = expected is not ((InvReason)CoreReason.BadRequest or InvReason.ContainerGone or InvReason.NotOpen);
+        (uint, uint) versions = resolved
+            ? (rig.Header(rig.SlotOf(new ContainerId(from))).Version, rig.Header(rig.SlotOf(new ContainerId(to))).Version)
+            : (0u, 0u);
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), MergeOpRaw(from, entry, to, target));
+
+        // Assert
+        AssertRejectedWithVersions(rig, log, expected, before, slot, versions);
+    }
+
+    /// <summary>
+    /// The real handler on an allocated but unplaced entry (a letter released from the actor's hotbar by <c>DetachForThrow</c>, live in
+    /// no container), as the entry or as the target: <c>stale_entry</c>, nothing changes (the stub rig's former <c>ValidCases</c> "Merge"
+    /// row, InvMalformedOpTests).
+    /// </summary>
+    [Theory]
+    [InlineData(0, "entry")]
+    [InlineData(1, "entry")]
+    [InlineData(0, "target")]
+    [InlineData(1, "target")]
+    public void Merge_AnAllocatedButUnplacedEntryOrTarget_StaleEntry_NothingChanges(int slot, string which)
+    {
+        // Arrange
+        var rig = NewRig();
+        ushort hotbar = rig.HotbarOf(slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort placed = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 3));
+        ushort e = rig.PlaceMail(hotbar, "letter", 2, 0, Address3, InvAutoPlaceRig.Ids(100, 1));
+        EntryId id = rig.Entries[e].Id;
+        DetachResult detached = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.DetachForThrow(PlayerSlot.FromValue((byte)slot), id, 1));
+        Assert.Equal((InvReason)0, detached.Reason);
+        Assert.True(rig.Entries[e].IsLive);
+        Assert.Equal(EntryRecord.NoContainer, rig.Entries[e].ContainerSlot);
+        uint placedId = rig.Entries[placed].Id.Value;
+        List<long> before = SideEffects(rig);
+        Op op = which == "entry"
+            ? MergeOpRaw(rig.IdOf(hotbar).Value, id.Value, rig.IdOf(inventory).Value, placedId)
+            : MergeOpRaw(rig.IdOf(inventory).Value, placedId, rig.IdOf(hotbar).Value, id.Value);
+        (ushort from, ushort to) = which == "entry" ? (hotbar, inventory) : (inventory, hotbar);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), op);
+
+        // Assert
+        AssertRejected(rig, log, InvReason.StaleEntry, before, slot, from, to);
+    }
+
+    // ------------------------------------------------------------------ Rejects raise nothing (merge)
+
+    /// <summary>
+    /// Every rejected merge leaves the <c>OpReply</c> alone in the tick log and changes nothing — P (both slots) and every
+    /// <c>CountItem</c> as before and equal to a recount, the StackKey index equal to a recount, and every other side effect unchanged.
+    /// Item and mail rows.
+    /// </summary>
+    [Theory]
+    [InlineData("self", 0)]
+    [InlineData("self", 1)]
+    [InlineData("key", 0)]
+    [InlineData("key", 1)]
+    [InlineData("effmax1", 0)]
+    [InlineData("effmax1", 1)]
+    [InlineData("item_full", 0)]
+    [InlineData("item_full", 1)]
+    [InlineData("mail_full", 0)]
+    [InlineData("mail_full", 1)]
+    [InlineData("not_open", 0)]
+    [InlineData("not_open", 1)]
+    [InlineData("not_in_from", 0)]
+    [InlineData("not_in_from", 1)]
+    public void Merge_Rejects_LeaveOnlyTheOpReply_PCountItemAndIndexesUnchanged(string row, int slot)
+    {
+        // Arrange: chest planks 20 (full) at (0,0) and 5 letters to #3 at (2,0); inventory planks 4, logs 3, two Axes and 20 letters
+        // to #3; the other player's inventory planks 6
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort other = rig.InventoryOf(1 - slot);
+        ushort chestPlanks = rig.PlaceItem(chest, "plank", 0, 0, 20);
+        ushort chestLetters = rig.PlaceMail(chest, "letter", 2, 0, Address3, InvAutoPlaceRig.Ids(1, 5));
+        ushort planks = rig.PlaceItem(inventory, "plank", 0, 0, 4);
+        ushort logs = rig.PlaceItem(inventory, "log", 1, 0, 3);
+        ushort axe = rig.PlaceItem(inventory, "axe", 2, 0, 1);
+        ushort axe2 = rig.PlaceItem(inventory, "axe", 3, 0, 1);
+        ushort letters = rig.PlaceMail(inventory, "letter", 4, 0, Address3, InvAutoPlaceRig.Ids(100, 20));
+        ushort otherPlanks = rig.PlaceItem(other, "plank", 0, 0, 6);
+        (Op op, ushort from, ushort to, InvReason expected) = row switch
+        {
+            "self" => (MergeOp(rig, inventory, planks, inventory, planks), inventory, inventory, InvReason.Blocked),
+            "key" => (MergeOp(rig, inventory, planks, inventory, logs), inventory, inventory, InvReason.Blocked),
+            "effmax1" => (MergeOp(rig, inventory, axe, inventory, axe2), inventory, inventory, InvReason.Blocked),
+            "item_full" => (MergeOp(rig, inventory, planks, chest, chestPlanks), inventory, chest, InvReason.StackFull),
+            "mail_full" => (MergeOp(rig, chest, chestLetters, inventory, letters), chest, inventory, InvReason.StackFull),
+            "not_open" => (MergeOp(rig, other, otherPlanks, inventory, planks), other, inventory, InvReason.NotOpen),
+            _ => (MergeOp(rig, chest, planks, inventory, planks), chest, inventory, InvReason.StaleEntry),
+        };
+        (int p0, int other0) = Points(rig, slot);
+        int[] counts = AllItemCounts(rig);
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), op);
+
+        // Assert
+        if (expected == InvReason.NotOpen)
+        {
+            AssertRejectedWithVersions(rig, log, expected, before, slot, (0u, 0u));
+        }
+        else
+        {
+            AssertRejected(rig, log, expected, before, slot, from, to);
+        }
+
+        Assert.Equal((p0, other0), Points(rig, slot));
+        Assert.Equal(counts, AllItemCounts(rig));
+        AssertWeightAndCountsMatchRecount(rig);
+        AssertIndexesMatchARecount(rig);
+    }
+
+    // ------------------------------------------------------------------ Indexes and weight (merge)
+
+    /// <summary>
+    /// A merge that empties its source removes an entry, so it lowers the source owner's P by the entry's <c>classPts</c> (PerEntry,
+    /// even inside one container or across two of the same player's counted containers); a partial merge removes no entry and leaves P;
+    /// a source drained out of the uncounted chest changes no P; the other slot's P never moves. <c>CountItem</c> and the StackKey index
+    /// equal a recount.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-015")]
+    [InlineData(0, "letter", "inventory", "inventory", 10, -1)]
+    [InlineData(1, "letter", "inventory", "inventory", 10, -1)]
+    [InlineData(0, "plank", "inventory", "inventory", 18, 0)]
+    [InlineData(1, "plank", "inventory", "inventory", 18, 0)]
+    [InlineData(0, "letter", "hotbar", "inventory", 10, -1)]
+    [InlineData(1, "letter", "hotbar", "inventory", 10, -1)]
+    [InlineData(0, "plank", "inventory", "chest", 10, -1)]
+    [InlineData(1, "plank", "inventory", "chest", 10, -1)]
+    [InlineData(0, "letter", "chest", "inventory", 10, 0)]
+    [InlineData(1, "letter", "chest", "inventory", 10, 0)]
+    [InlineData(0, "letter", "inventory", "chest", 18, 0)]
+    [InlineData(1, "letter", "inventory", "chest", 18, 0)]
+    public void Weight_Merge_DrainingLowersTheSourceOwnersPByClassPts_PartialDoesNot_CountItemAndIndexMatchARecount(
+        int slot, string kind, string fromWhere, string toWhere, byte targetCount, int entriesGained)
+    {
+        // Arrange: source 5 units at (1,0) of its container, target at (3,0) of its own
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort from = Where(rig, slot, fromWhere, chest);
+        ushort to = Where(rig, slot, toWhere, chest);
+        ushort s = PlaceUnits(rig, from, kind, 1, 0, 5, firstId: 1);
+        ushort t = PlaceUnits(rig, to, kind, 3, 0, targetCount, firstId: 100);
+        int pts = ClassPts(rig, s);
+        Assert.True(pts > 0);
+        (int p0, int other0) = Points(rig, slot);
+        int moved = Math.Min(5, 20 - targetCount);
+
+        // Act
+        AssertOk(rig.Run(rig.Player(slot), MergeOp(rig, from, s, to, t)));
+
+        // Assert
+        Assert.Equal(targetCount + moved, rig.Entries[t].Count);
+        Assert.Equal(moved < 5, rig.Entries[s].IsLive && rig.Entries[s].ContainerSlot == from);
+        Assert.Equal((p0 + (entriesGained * pts), other0), Points(rig, slot));
+        AssertWeightAndCountsMatchRecount(rig);
+        AssertIndexesMatchARecount(rig);
+    }
+
+    // ------------------------------------------------------------------ reply ResultVersionA / ResultVersionB order
+
+    /// <summary>
+    /// The reply's <c>ResultVersionA</c> is the source container's version and <c>ResultVersionB</c> the destination's, on an ok and on
+    /// a reject, for a split, a swap and a merge: the two containers' versions are made distinct first (extra placements), so an
+    /// exchanged pair cannot pass.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-002")]
+    [InlineData(0, "split")]
+    [InlineData(1, "split")]
+    [InlineData(0, "swap")]
+    [InlineData(1, "swap")]
+    [InlineData(0, "merge")]
+    [InlineData(1, "merge")]
+    [InlineData(0, "merge_reject")]
+    [InlineData(1, "merge_reject")]
+    [InlineData(0, "split_reject")]
+    [InlineData(1, "split_reject")]
+    public void Reply_ResultVersionAIsTheSourceAndBTheDestination_OnOkAndReject(int slot, string row)
+    {
+        // Arrange: the chest is bumped 3 times more than the actor's inventory; the hotbar 2 times more than the cursor
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort hotbar = rig.HotbarOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort chestT = rig.PlaceMail(chest, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(100, 18));
+        _ = rig.PlaceItem(chest, "plank", 7, 3, 1);
+        _ = rig.PlaceItem(chest, "plank", 6, 3, 1);
+        _ = rig.PlaceItem(chest, "plank", 5, 3, 1);
+        ushort invS = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 5));
+        _ = rig.PlaceItem(hotbar, "fiber", 3, 0, 1);
+        _ = rig.PlaceItem(hotbar, "axe", 1, 0, 1);
+        _ = rig.PlaceItem(hotbar, "fiber", 4, 0, 1);
+        ushort held = rig.PlaceItem(cursor, "plank", 0, 0, 3);
+        (Op op, ushort from, ushort to, bool ok) = row switch
+        {
+            "split" => (MoveOp(rig, inventory, invS, chest, 4, 2, count: 2), inventory, chest, true),
+            "swap" => (MoveOp(rig, cursor, held, hotbar, 1, 0), cursor, hotbar, true),
+            "merge" => (MergeOp(rig, inventory, invS, chest, chestT), inventory, chest, true),
+            "merge_reject" => (MergeOp(rig, inventory, invS, chest, invS), inventory, chest, false),
+            _ => (MoveOp(rig, inventory, invS, chest, 7, 3, count: 2), inventory, chest, false),
+        };
+        uint fromV = rig.Header(from).Version;
+        uint toV = rig.Header(to).Version;
+        Assert.NotEqual(fromV, toV);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), op);
+
+        // Assert
+        Reply reply = InvAutoPlaceRig.ReplyOf(log);
+        Assert.Equal(ok ? ReplyResult.Ok : ReplyResult.Rejected, reply.Result);
+        InvReplyExtra extra = reply.ExtraAs<InvReplyExtra>();
+        uint bump = ok ? 1u : 0u;
+        Assert.Equal((fromV + bump, toV + bump), (extra.ResultVersionA, extra.ResultVersionB));
+        Assert.Equal((rig.Header(from).Version, rig.Header(to).Version), (extra.ResultVersionA, extra.ResultVersionB));
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    /// <summary>The fixture container def <see cref="MergeContent"/> adds: an 8 x 4 grid with <c>acceptsInsert: false</c>.</summary>
+    private const string OutputOnlyDef = "output_only";
+
+    /// <summary>The M-1a content plus <see cref="OutputOnlyDef"/> and a <c>bigstack</c> item (1 x 1, <c>maxStack</c> 300, above the u8 count).</summary>
+    private static ContentSet MergeContent()
+    {
+        ContentSet m1a = BuiltInContent.CreateM1a();
+        ContainerDef inventoryDef = m1a.Containers[PlacementFixture.Index(m1a.Containers, "player_inventory")];
+        ImmutableArray<ContainerDef> containers = m1a.Containers.AsSpan().ToArray()
+            .Append(inventoryDef with { Id = OutputOnlyDef, GridW = 8, GridH = 4, AcceptsInsert = false })
+            .ToImmutableArray();
+        ItemDef plank = m1a.Items[PlacementFixture.Index(m1a.Items, "plank")];
+        ImmutableArray<ItemDef> items = m1a.Items.AsSpan().ToArray().Append(plank with { Id = "bigstack", MaxStack = 300 }).ToImmutableArray();
+        return new ContentSet(
+            m1a.Balance, m1a.ResolvedStatBounds, new DefTable<ContainerDef>(containers), new DefTable<ItemDef>(items), m1a.MailKinds, m1a.DestinationTypes, m1a.MailMixes);
+    }
+
+    /// <summary>
+    /// The story 011 seam for an issued-but-dead container id (no container is destroyed before M-1b): advances the container table's
+    /// private id counter by one through reflection, which must find the field and a non-zero high-water, so the skipped id is below
+    /// the high-water but not live. The map and every live container are untouched.
+    /// </summary>
+    private static uint SkipOneContainerId(InvAutoPlaceRig rig)
+    {
+        ContainerTable table = rig.Inventory.Containers;
+        uint skipped = table.NextId;
+        Assert.True(skipped > 0u);
+        FieldInfo? field = typeof(ContainerTable).GetField("_nextId", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(field);
+        Assert.Equal(skipped, Convert.ToUInt32(field.GetValue(table)));
+        field.SetValue(table, skipped + 1);
+        Assert.Equal(skipped + 1, table.NextId);
+        Assert.False(table.TryGetSlot(new ContainerId(skipped), out _));
+        return skipped;
+    }
+
+    /// <summary>Places <paramref name="units"/> of <paramref name="kind"/> (an item def, else letters of that mail kind to #3 with ids from <paramref name="firstId"/>).</summary>
+    private static ushort PlaceUnits(InvAutoPlaceRig rig, ushort container, string kind, int x, int y, byte units, uint firstId) =>
+        kind is "plank" or "fiber" or "log" or "axe"
+            ? rig.PlaceItem(container, kind, x, y, units)
+            : rig.PlaceMail(container, kind, x, y, Address3, InvAutoPlaceRig.Ids(firstId, units));
+
+    /// <summary>Every live mail entry's id list is strictly ascending, and no id is held by two entries (R6).</summary>
+    private static void AssertEveryIdListAscendingNoDuplicate(InvAutoPlaceRig rig)
+    {
+        var seen = new HashSet<uint>();
+        int lists = 0;
+        for (int s = 0; s < rig.Entries.Capacity; s++)
+        {
+            EntryRecord e = rig.Entries[(ushort)s];
+            if (!e.IsLive || !e.IsMail)
+            {
+                continue;
+            }
+
+            uint[] ids = rig.IdsOf((ushort)s);
+            Assert.Equal(e.Count, ids.Length);
+            for (int i = 1; i < ids.Length; i++)
+            {
+                Assert.True(ids[i - 1] < ids[i], $"entry {s}: ids not ascending at {i}");
+            }
+
+            Assert.All(ids, id => Assert.True(seen.Add(id), $"id {id} held twice"));
+            lists++;
+        }
+
+        Assert.True(lists > 0);
+    }
+
+    private static Op MergeOp(InvAutoPlaceRig rig, ushort from, ushort entry, ushort to, ushort target) =>
+        MergeOpRaw(rig.IdOf(from).Value, rig.Entries[entry].Id.Value, rig.IdOf(to).Value, rig.Entries[target].Id.Value);
+
+    private static Op MergeOpRaw(uint from, uint entry, uint to, uint target)
+    {
+        var op = new Op { Kind = InvOpKinds.Merge, ReqId = 83 };
+        op.SetPayload(new MergePayload { From = from, EntryId = entry, To = to, TargetEntryId = target });
+        return op;
+    }
 
     private static InvAutoPlaceRig NewRig(ContentSet? content = null) => new(content: content, joinPlayerB: true);
 
@@ -927,7 +1594,15 @@ public class MoveSplitMergeTests
     /// source's and the destination's current versions; the <c>OpReply</c> is the only entry in the tick log (no record, no seal) and
     /// is sent to the actor's slot alone; and every recorded side effect is as before.
     /// </summary>
-    private static void AssertRejected(InvAutoPlaceRig rig, EventEntry[] log, InvReason reason, List<long> before, int actorSlot, ushort from, ushort to)
+    private static void AssertRejected(InvAutoPlaceRig rig, EventEntry[] log, InvReason reason, List<long> before, int actorSlot, ushort from, ushort to) =>
+        AssertRejectedWithVersions(rig, log, reason, before, actorSlot, (rig.Header(from).Version, rig.Header(to).Version));
+
+    /// <summary>
+    /// <see cref="AssertRejected"/> with the expected <c>(ResultVersionA, ResultVersionB)</c> given: (0, 0) for a reject before the
+    /// containers are resolved (<c>bad_request</c>, <c>container_gone</c>, <c>not_open</c>).
+    /// </summary>
+    private static void AssertRejectedWithVersions(
+        InvAutoPlaceRig rig, EventEntry[] log, InvReason reason, List<long> before, int actorSlot, (uint A, uint B) versions)
     {
         EventEntry entry = Assert.Single(log);
         Assert.Equal(EventKind.OpReply, entry.Kind);
@@ -936,7 +1611,7 @@ public class MoveSplitMergeTests
         Assert.Equal(ReplyResult.Rejected, reply.Result);
         Assert.Equal((ushort)reason, reply.Reason);
         InvReplyExtra extra = reply.ExtraAs<InvReplyExtra>();
-        Assert.Equal((rig.Header(from).Version, rig.Header(to).Version), (extra.ResultVersionA, extra.ResultVersionB));
+        Assert.Equal(versions, (extra.ResultVersionA, extra.ResultVersionB));
         Assert.Equal(before, SideEffects(rig));
     }
 

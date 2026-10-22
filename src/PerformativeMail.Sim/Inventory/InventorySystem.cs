@@ -310,12 +310,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <summary>
     /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the empty <c>IntakeDrain</c> phase, the stub
     /// conservation check, the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
-    /// <see cref="InvOpDescriptors.Pick"/> and <see cref="InvOpDescriptors.Move"/> handlers (story 007) and the
-    /// <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds no other op (stories 008-010, 019) and no snapshot source.
+    /// <see cref="InvOpDescriptors.Pick"/> and <see cref="InvOpDescriptors.Move"/> handlers (story 007), the
+    /// <see cref="InvOpDescriptors.Merge"/> handler (story 008) and the <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds
+    /// no other op (stories 010, 019) and no snapshot source.
     /// </summary>
     /// <param name="builder">The world's builder.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is null.</exception>
-    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c>, <c>DuplicateEventKind</c> or <c>DuplicateOpHandler</c> (another <c>Pick</c>, <c>Move</c> or <c>Close</c> handler).</exception>
+    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c>, <c>DuplicateEventKind</c> or <c>DuplicateOpHandler</c> (another <c>Pick</c>, <c>Move</c>, <c>Merge</c> or <c>Close</c> handler).</exception>
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -331,6 +332,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         builder.BindOp(InvOpDescriptors.Pick, new PickHandler(this));
         builder.BindOp(InvOpDescriptors.Move, new MoveHandler(this, _content, _stats));
+        builder.BindOp(InvOpDescriptors.Merge, new MergeHandler(this, _content, _stats));
         builder.BindOp(InvOpDescriptors.Close, new CloseHandler(this));
     }
 
