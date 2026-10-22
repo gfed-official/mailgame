@@ -128,7 +128,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 012 | [Spawn into the Intake (NoMerge, arrivalSeq) and the outfeed FIFO (PeekOutfeed / TakeUnit)](story-012-intake-spawn-outfeed.md) | Logic | Complete | ADR-0009, ADR-0003 |
 | 013 | [WorldItem entity, absolute-tick expiry FIFOs, water float, cap eviction and tombstones](story-013-worlditem-expiry-cap.md) | Logic | Complete | ADR-0009, ADR-0004, ADR-0003 |
 | 014 | [Pickup core (AutoPlace by the R9 pickup rows) and the TryCatch API with fumble](story-014-pickup-core-trycatch.md) | Logic | Ready | ADR-0009 |
-| 015 | [IInventoryApi hooks for feature epics — ConsumeUnit, DetachForThrow, TryInsert, CountItem](story-015-inventory-api-feature-hooks.md) | Logic | Ready | ADR-0009, ADR-0003 |
+| 015 | [IInventoryApi hooks for feature epics — ConsumeUnit, DetachForThrow, TryInsert, CountItem](story-015-inventory-api-feature-hooks.md) | Logic | In Progress | ADR-0009, ADR-0003 |
 | 016 | [Weight → speed (R16, D1): weightPoints and speedPermille](story-016-weight-speed.md) | Logic | Ready | ADR-0006, ADR-0009, ADR-0010 |
 | 017 | [UnitLedger conservation counters, tick-end check, INVENTORY_ASSERT full scan and the canonical dump section](story-017-unitledger-conservation.md) | Logic | Ready | ADR-0009, ADR-0006, ADR-0003 |
 | 018 | [Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world determinism](story-018-conservation-fuzz-determinism.md) | Integration | Ready | ADR-0006, ADR-0009 |
@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–006, 009, 012 and 013 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26). Next: 015 (013 also unblocks 020, and 014 once 010 is Complete). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–006, 009, 012 and 013 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26). Next: 015 (In Progress, PR #27, not merged; 013 also unblocks 020, and 014 once 010 is Complete). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.

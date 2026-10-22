@@ -1,7 +1,7 @@
 # Story 015: IInventoryApi hooks for feature epics — ConsumeUnit, DetachForThrow, TryInsert, CountItem
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~1 day)
