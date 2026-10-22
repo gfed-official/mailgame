@@ -1105,8 +1105,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// Intake changed by something other than the drain's own seal, the backlog grew, or the last pass hit the cap (and always on the
     /// first tick of a world, the memo being undumped). A pass that would run checks the tick guard (<see cref="TickGuard"/>, as
     /// <see cref="AppendBacklog"/> and <see cref="ReturnToIntake"/> do; the phase binding only runs it in phase 2) after the idle exits.</item>
-    /// <item><b>The walk:</b> one <see cref="CounterId.InventoryBacklogVisits"/> per ring node read (at most entries walked + 1; Mail
-    /// Lead planning default pending Evan, TD-157 item 4); it stops at the cap or when the Intake has no free cell. An entry whose
+    /// <item><b>The walk:</b> one <see cref="CounterId.InventoryBacklogVisits"/> per ring node read (at most entries walked + 1); these
+    /// are candidate visits (ADR-0009 l.232), so H-PERF-6c's 8,500 bound counts them with the placement probes (TD-157 item 4); it stops at
+    /// the cap or when the Intake has no free cell. An entry whose
     /// footprint area exceeds the free-cell count is skipped in O(1) (no head-of-line blocking); a shape the negative-fit cache knows
     /// does not fit (recorded earlier in this pass at the unchanged version) is skipped with 0 probes; the grid scans resume at
     /// per-oriented-shape start anchors reset per pass (<see cref="Placement.AutoPlace.BeginStartAnchors"/>).</item>

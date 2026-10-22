@@ -439,7 +439,7 @@ public sealed class IntakeDrainTests
 
     [Fact]
     [Trait("Id", "H-PERF-6c")]
-    public void Drain_A2800EntryPass_IntoScattered1x1Holes_StaysWithin8500PlacementProbes_AndEntriesWalkedPlus1Visits()
+    public void Drain_A2800EntryPass_IntoScattered1x1Holes_StaysWithin8500ProbesMergesAndVisits_AndEntriesWalkedPlus1Visits()
     {
         // Arrange: a full Intake with 32 scattered one-cell holes (every 10th cell); a backlog of 2,768 Large (area 8) then 32 letters
         var rig = new InvAutoPlaceRig();
@@ -471,11 +471,13 @@ public sealed class IntakeDrainTests
         (long probes, long visits, _) = Tick(rig);
         long merges = rig.Counters[CounterId.InventoryMergeCandidates] - mergeBefore;
 
-        // Assert: 32 letters placed; placement probes (43, per cell) <= 8,500; merge candidates 0 under NoMerge; visits <= walked + 1
+        // Assert: 32 letters placed; merge candidates 0 under NoMerge. The H-PERF-6c gate (ADR-0009 l.57, l.232: every cell probe or
+        // candidate visit, a backlog node included): placement probes (43, per cell) + merge candidates + backlog visits (50) <= 8,500
+        // (measured 4,358 + 0 + 2,800). Second gate: visits <= entries walked + 1.
         Assert.Equal(2_768, rig.Inventory.BacklogEntries);
         Assert.Equal(0, rig.Header(rig.Intake).FreeCells);
         Assert.Equal(0, merges);
-        Assert.InRange(probes + merges, 1, 8_500);
+        Assert.InRange(probes + merges + visits, 1, 8_500);
         Assert.InRange(visits, 1, 2_800 + 1);
     }
 
