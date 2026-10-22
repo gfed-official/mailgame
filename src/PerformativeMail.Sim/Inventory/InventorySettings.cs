@@ -45,9 +45,10 @@ public sealed record class InventorySettings
 
     /// <summary>
     /// The last entry id already issued when the world is built, so the first new id is this + 1 (ADR-0004 section 3: entry ids only
-    /// rise and are never reused). Not a balance key: 0 (the default) for a fresh run; a resume restores the saved high-water, and the
-    /// story 008 tests set it near <see cref="Storage.EntryPool.MaxRealId"/> to reach id exhaustion without issuing two billion ids.
-    /// Above <see cref="Storage.EntryPool.MaxRealId"/> the world build throws (<see cref="Storage.EntryPool"/>'s constructor).
+    /// rise and are never reused). Not a balance key: 0 (the default) for a fresh run. No save/resume path sets it yet; the story 008
+    /// tests set it near <see cref="Storage.EntryPool.MaxRealId"/> to reach id exhaustion without issuing two billion ids. It must be
+    /// identical on every peer, or entry ids diverge. Above <see cref="Storage.EntryPool.MaxRealId"/> the world build throws the
+    /// <see cref="System.ArgumentOutOfRangeException"/> from <see cref="Storage.EntryPool"/>'s constructor.
     /// </summary>
     public uint EntryInitialLastId { get; init; }
 

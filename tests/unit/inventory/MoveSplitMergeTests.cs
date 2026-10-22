@@ -985,6 +985,64 @@ public class MoveSplitMergeTests
         AssertRejected(rig, log, InvReason.StackFull, before, slot, inventory, chest);
     }
 
+    /// <summary>
+    /// The <c>Move</c> split arm against the 255 cap: a <c>bigstack</c> target (<c>maxStack</c> 300) at 250 in the chest's (0,0), a source
+    /// of 10 in the inventory, <c>move {source, count k → (0,0)}</c>. Room is <c>min(300, 255) − 250 = 5</c>: k 4 and 5 move whole, k 6
+    /// moves 5 (a partial merge of <c>min(count, room)</c>); the source keeps its id and cell, no entry is created, and the inventory
+    /// and the chest each bump once. A target already at 255 with k 1 is <c>stack_full</c> and changes nothing.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-005")]
+    [InlineData(0, 250, 4)]
+    [InlineData(1, 250, 4)]
+    [InlineData(0, 250, 5)]
+    [InlineData(1, 250, 5)]
+    [InlineData(0, 250, 6)]
+    [InlineData(1, 250, 6)]
+    [InlineData(0, 255, 1)]
+    [InlineData(1, 255, 1)]
+    public void Split_ItemMaxStackAbove255_OntoTarget250Or255_MovesMinCountAndRoomUnderThe255Cap(int slot, byte targetCount, byte count)
+    {
+        // Arrange
+        var rig = NewRig(MergeContent());
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort t = rig.PlaceItem(chest, "bigstack", 0, 0, targetCount);
+        ushort s = rig.PlaceItem(inventory, "bigstack", 2, 1, 10);
+        EntryId tId = rig.Entries[t].Id;
+        EntryId sId = rig.Entries[s].Id;
+        DefIndex bigstack = rig.ItemIndex("bigstack");
+        int liveCount = rig.Entries.LiveCount;
+        uint lastId = rig.Entries.LastId;
+        uint chestV = rig.Header(chest).Version;
+        uint inventoryV = rig.Header(inventory).Version;
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), MoveOp(rig, inventory, s, chest, 0, 0, count: count));
+
+        // Assert
+        if (targetCount == byte.MaxValue)
+        {
+            AssertRejected(rig, log, InvReason.StackFull, before, slot, inventory, chest);
+            return;
+        }
+
+        int moved = Math.Min((int)count, byte.MaxValue - targetCount);
+        Reply reply = AssertOk(log);
+        Assert.Equal((tId, chest, targetCount + moved), (rig.Entries[t].Id, rig.Entries[t].ContainerSlot, (int)rig.Entries[t].Count));
+        Assert.Equal((sId, inventory, (byte)2, (byte)1, 10 - moved), (rig.Entries[s].Id, rig.Entries[s].ContainerSlot, rig.Entries[s].X, rig.Entries[s].Y, (int)rig.Entries[s].Count));
+        Assert.Equal((liveCount, lastId), (rig.Entries.LiveCount, rig.Entries.LastId));
+        Assert.DoesNotContain(RecordHeads(log), e => e.Kind == InvEventKinds.SplitFrom);
+        InvReplyExtra extra = reply.ExtraAs<InvReplyExtra>();
+        Assert.Equal((inventoryV + 1, chestV + 1), (extra.ResultVersionA, extra.ResultVersionB));
+        Assert.Equal((inventoryV + 1, chestV + 1), (rig.Header(inventory).Version, rig.Header(chest).Version));
+        Assert.Equal(targetCount + moved, rig.Inventory.CountItem(new[] { rig.IdOf(chest) }, bigstack));
+        Assert.Equal(10 - moved, rig.Inventory.CountItem(new[] { rig.IdOf(inventory) }, bigstack));
+        AssertWeightAndCountsMatchRecount(rig);
+        AssertIndexesMatchARecount(rig);
+    }
+
     // ------------------------------------------------------------------ Merge precedence
 
     /// <summary>
