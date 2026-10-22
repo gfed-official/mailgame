@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M–L (~1 day)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-21 (close-out: ACs ticked, Test Evidence, Completion Notes; review R1: Out of Scope drops the stale Blocked tags on 020/021, manifest re-stamped 2026-10-17.1, deferrals recorded)
+> **Last Updated**: 2026-10-21 (close-out: ACs ticked, Test Evidence, Completion Notes; review R1: Out of Scope drops the stale Blocked tags on 020/021, manifest re-stamped 2026-10-17.1, deferrals recorded; Q1–Q3 owner rulings recorded)
 
 ## Context
 
@@ -105,7 +105,7 @@
 4. `InventorySystem`'s public constructor gains `EntityIds` and `ISlotView`; composition root and test rigs updated.
 5. `createdTick` must be ≤ now and not earlier than the previous creation on the same expiry FIFO (Loot, on no FIFO, is exempt); otherwise `EntityId.None`, nothing changed, `SimAssertCode` 77 under `INVENTORY_ASSERT`. Callers must handle `None` (the entry stays detached and is theirs) — `IInventoryApi.CreateWorldItem` remarks.
 6. `BeltLeak` and `Spill` origins are refused until M-1b; `Loot` is on no FIFO and never a cap candidate.
-7. "Older than 10 s" is implemented as age ≥ 300 ticks (pinned at 1299/1300; Sonnet review item 3 reads it as > 300 — with Evan, Q2; a Mail Lead ruling for > 300 is on hold until Evan rules).
+7. "Older than 10 s" means strictly more than 300 ticks: a letter created at tick c is cap-evictable from c + 301, not c + 300 (**Q2 settled**, Evan 2026-10-21 8:01 PM PT via Mail Lead; Sonnet review item 3). Pins: the young-mail test keeps 513 at 1300 and evicts at 1301, and a boundary test pins age 300 not / 301 yes. Content rule CV-GRD-06 now warns exactly when no eviction window exists under the strict rule (min-age ticks + 1 ≥ despawn ticks).
 8. A tombstone answers `container_gone` up to 900 ticks after removal inclusive, `stale_entry` from 901; a full 256-ring overwrites the oldest whatever its age.
 9. Causes: mail returned to the Intake (expiry or eviction) is `expired`; destroyed non-mail is `destroyed`; a pickup is `taken`.
 10. Wrong-class or never-allocated ids resolve as `bad_request`.
@@ -115,8 +115,8 @@
 14. `Remove` opens no call scope of its own (it uses story 014's pickup handler's); `WorldItemEntriesChanged` is declared and bound but raised by 014's partial pickup.
 15. `worldItemCapacity` is validated to ≤ 65,535 (ushort slot), although the balance knob allows 65,536.
 16. `ReturnToIntake` is split into plan and commit steps so expiry runs one call scope per item; it now refuses an entry that a WorldItem holds.
-**Owner flags** (no GDD/ADR edited): (a) the interim full-Intake rule above, until story 021; (b) GDD position is cm, the Sim stores mm (`Vec3Mm`) — GDD re-review; (c) the four world event kinds carry codec id 0 — the network epic assigns wire codecs (TD-140); (d) ADR-0009 §5 erratum for the split water queues (and `ItemsLost` missing from its records list) — pending, see PR #26 review B1; (e) for Evan: "older than" = ≥ 300 vs > 300 ticks (Q2), and the interim cap path when the Intake is full (Q3); (f) readiness G2/G3 resolved in review R1: the Out of Scope Blocked tags are dropped and the Manifest Version is re-stamped 2026-10-17.1.
+**Owner flags** (no GDD/ADR edited): (a) the interim full-Intake rule above, until story 021 — **Q3 settled** (Evan 2026-10-21 8:01 PM PT via Mail Lead): while the Intake is full, cap eviction destroys the lowest non-mail item instead of the blocked mail, as coded, until story 021, which gets a backlog AC at its readiness check (TD-138); (b) GDD position is cm, the Sim stores mm (`Vec3Mm`) — Mail Lead fixes the GDD in a docs PR after the merge; (c) the four world event kinds carry codec id 0 — the network epic assigns wire codecs (TD-140); (d) ADR-0009 §5 erratum (five FIFOs, `ItemsLost`, the world record layouts and the Q1 visit definition) — waits on Evan's OK (B1, TD-139); (e) none open: Q1, Q2 and Q3 are settled (decision log 2026-10-21); (f) readiness G2/G3 resolved in review R1: the Out of Scope Blocked tags are dropped and the Manifest Version is re-stamped 2026-10-17.1.
 **New TD**: TD-135 (ledger hooks, story 017), TD-136 (container tombstones, M-1b), TD-137 (WorldItem load/rebuild and undumped derived state), TD-138 (interim rule → story 021), TD-139 (GDD/ADR errata), TD-140 (world event codecs), TD-141 (H-PERF-6d visit definition), TD-142 (small residuals).
-**Test Evidence**: Logic — see above; 5,278 tests per leg at 83c2c40, 0 failed (net10.0/net8.0 × Debug/Release; Debug 5,230 passed / 48 skipped, Release 5,275 passed / 3 skipped); guards all pass, `check-sim-access --self-check` 17 cases
+**Test Evidence**: Logic — see above; at the PR #26 head (PRHEAD): TOTALS tests per leg, 0 failed (net10.0/net8.0 × Debug/Release; Debug DPASS passed / 48 skipped, Release RPASS passed / 3 skipped); guards all pass, `check-sim-access --self-check` 17 cases
 **Run result**: N/A — Sim-only, no Godot surface (no smoke run)
-**Code Review**: read-only review (Sonnet): APPROVE, 0 blocking, 8 non-blocking; items 4–7 applied in 83c2c40 (per-FIFO creation order and retry memo, Loot cap tests, TODO(story-017)); 1–3 recorded as TD-137/TD-139/TD-141 owner questions; 8 applied here (Test Evidence, 014 hand-off)
+**Code Review**: read-only review (Sonnet): APPROVE, 0 blocking, 8 non-blocking; items 4–7 applied in 83c2c40 (per-FIFO creation order and retry memo, Loot cap tests, TODO(story-017)); 1–3 recorded as TD-141/TD-137/TD-139 owner questions (1 and 3 since settled as Q1/Q2); 8 applied here (Test Evidence, 014 hand-off)
