@@ -591,6 +591,63 @@ public sealed class IntakeDrainTests
         Assert.DoesNotContain(log, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
     }
 
+    [Theory]
+    [Trait("Id", "H-PERF-6c")]
+    [InlineData("take-unit")]
+    [InlineData("append")]
+    public void Drain_GatingMemo_AnUnplaceableEntryWithFreeCells_IdlesOnTheNextTick_AndReRunsAfterAnIntakeChangeOrAnAppend(string change)
+    {
+        // Arrange: a full Intake with two non-adjacent one-cell holes, (0,0) and (10,0); one Small (1x2) appended; the first pass runs
+        // (it plans the Small, finds no fit, places nothing)
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 320, 1_000);
+        foreach (int x in new[] { 0, 10 })
+        {
+            ushort entry = rig.EntryAt(rig.Intake, x, 0);
+            Reply r = rig.Step(
+                (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
+                (ref InvPlan p) => rig.Inventory.Mutator.Remove(ref p, entry));
+            Assert.True(r.IsOk);
+        }
+
+        Assert.True(Append(rig, "small", Address9, 9_000));
+        (long probes1, long visits1, _) = Tick(rig);
+        Assert.Equal(1, visits1);
+        Assert.True(probes1 > 0);
+
+        // Act 1: the next tick: free cells, a queued entry, but the Intake unchanged and no append since that pass
+        (long probes2, long visits2, EventEntry[] log2) = Tick(rig);
+
+        // Assert 1: the memo closes the pass: no probe, no visit, nothing raised
+        Assert.Equal(0, probes2);
+        Assert.Equal(0, visits2);
+        Assert.DoesNotContain(log2, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
+
+        // Act 2: change the Intake (a TakeUnit seals it) or append (AppendSeq moves), in one MailStep; then the next tick
+        if (change == "take-unit")
+        {
+            Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out _)));
+        }
+        else
+        {
+            Assert.True(Append(rig, "small", Address9, 9_001));
+        }
+
+        (long probes3, long visits3, _) = Tick(rig);
+
+        // Assert 2: the pass re-runs: an Intake change re-plans with probes (the no-fit facts were at the old version); an append walks
+        // both queued entries (the unchanged Intake's no-fit fact for the Small shape skips their scans)
+        if (change == "take-unit")
+        {
+            Assert.InRange(visits3, 1, 2);
+            Assert.True(probes3 > 0);
+        }
+        else
+        {
+            Assert.Equal(2, visits3);
+        }
+    }
+
     // ---------------------------------------------------------------- state and determinism
 
     [Fact]
