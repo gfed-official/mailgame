@@ -94,7 +94,7 @@ Files:
 
 ## Completion Notes
 
-**Completed**: 2026-10-22 — PR #33 (open, not merged), head 18cc838; Mail Review r1 fixes in the commit after 64f9ff6. The interactive lead-programmer gate was skipped: the review already ran (Sonnet `/code-review` 3e29e00..a75d131).
+**Completed**: 2026-10-22 — PR #33 (merged as main f504231), head 18cc838; Mail Review r1 fixes in the commit after 64f9ff6. The interactive lead-programmer gate was skipped: the review already ran (Sonnet `/code-review` 3e29e00..a75d131).
 
 **Credit**: Evan's 2026-10-22 5:11 AM PT ruling covers only that a leashed letter stays on the cursor when the mail-id arena is full, even with a free cell. Everything below is a Mail Lead planning default pending Evan (TD-153) unless it cites the ADR/GDD line that states it.
 

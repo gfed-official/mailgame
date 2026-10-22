@@ -120,6 +120,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly ContainerId _intake;
     private readonly ushort _intakeSlot;
     private readonly WorldItems _worldItems;
+    private readonly PickupCore _pickup;
     private readonly OpenSet _openSet;
     private readonly ISlotView? _slots;
 
@@ -229,6 +230,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
         _worldItems = new WorldItems(this, _mutator, _entries, content.Inventory, settings.WorldItemCapacity, facade, _tick, entityIds, checkRing, facade.Counters);
 
+        // Story 014: the pickup core (story 019's range-gated Pickup handler calls it; no Pickup handler is bound until then).
+        _pickup = new PickupCore(this, content, stats, _tick, facade.Counters);
+
         if (!TryCreate(intakeDef, ContainerHeader.NoOwner, null, out _intake))
         {
             throw new SimBuildException(SimBuildErrorCode.InventorySettingsInvalid, "The container table cannot hold the po_intake container.");
@@ -286,6 +290,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <summary>The WorldItems (story 013): table, expiry FIFOs, tombstones and <c>worldSeq</c>; the pickup story's remove and resolve hooks.</summary>
     internal WorldItems WorldItems => _worldItems;
 
+    /// <summary>The pickup core (story 014): everything a <c>pickup</c> does after Player Character's P13 chain; story 019's handler calls it.</summary>
+    internal PickupCore Pickup => _pickup;
+
     /// <summary>The hotbar of <paramref name="slot"/>, or none when the slot has no containers.</summary>
     /// <param name="slot">The player slot.</param>
     public ContainerId HotbarOf(PlayerSlot slot) => slot.IsNone ? default : _panels[slot.Value].Hotbar;
@@ -338,6 +345,24 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         }
 
         return _mutator.TryGetCursorOrigin(slot.Value, out origin);
+    }
+
+    /// <summary>The table slots of <paramref name="slot"/>'s hotbar and player_inventory (story 014: the pickup and catch rows).</summary>
+    /// <param name="slot">The player slot.</param>
+    /// <param name="hotbar">The hotbar's table slot.</param>
+    /// <param name="playerInventory">The player_inventory's table slot.</param>
+    /// <returns>False for a none or out-of-range slot, or a slot with no panel.</returns>
+    internal bool TryGetPanel(PlayerSlot slot, out ushort hotbar, out ushort playerInventory)
+    {
+        playerInventory = 0;
+        if (slot.IsNone || slot.Value >= PlayerSlot.Count || !_containers.TryGetSlot(_panels[slot.Value].Hotbar, out hotbar))
+        {
+            hotbar = 0;
+            return false;
+        }
+
+        // A panel's three containers are created together (OnPlayerJoined), so a live hotbar has a live player_inventory.
+        return _containers.TryGetSlot(_panels[slot.Value].PlayerInventory, out playerInventory);
     }
 
     /// <summary>Copies the header of <paramref name="id"/>.</summary>
@@ -761,6 +786,133 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         // story 017 ledger hook: the entry's units cross PLACED -> FLIGHT. Story 016's weight (WeightPoints) follows from Remove.
         return new DetachResult(default, entryId, units);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The tick guard (<c>bad_request</c>), then <see cref="ValidateCatch"/>; a refusal writes its always-on record outside Validate (the
+    /// arena's <see cref="CheckCode.InventoryArenaExhausted"/> for a refused merge block, ADR-0009 section 5; the WorldItem table's
+    /// <see cref="CheckCode.InventoryWorldItemCapacity"/> for a full table) and returns with nothing else changed; else
+    /// <see cref="CommitCatch"/>. A whole fumble records the refused AutoPlace's no-fit facts after the decision, as
+    /// <see cref="PutAwayCursor"/> does; a committed placement records them in its commit.
+    /// </remarks>
+    public CatchResult TryCatch(PlayerSlot slot, in FlightPayload flight)
+    {
+        if (!TickGuard.IsMutable(_tick, _events.Counters))
+        {
+            return new CatchResult(0, 0, (InvReason)InvReasons.BadRequest);
+        }
+
+        var plan = new InvPlan();
+        CatchResult result = ValidateCatch(slot, in flight, ref plan, out CatchPlan c);
+        if (c.Refused)
+        {
+            if (c.ArenaRefused)
+            {
+                _mailIds.RecordReservationRefusal(plan.AcquiredBlocks, _tick.CurrentTick);
+            }
+            else if (c.TableFull)
+            {
+                _worldItems.RecordCapacityRefusal(_tick.CurrentTick);
+            }
+
+            return result;
+        }
+
+        if (!c.Places)
+        {
+            _autoPlace.RecordNoFits(in c.Placement); // a whole fumble: the plan moved nothing (no_room)
+        }
+
+        CommitCatch(ref plan, in c, in flight);
+        return result;
+    }
+
+    /// <summary>
+    /// The pure half of <see cref="TryCatch"/> (story 014; ADR-0009 section 2): <c>bad_request</c> for a slot with no panel or an entry
+    /// that is not live and detached or is held by a WorldItem; then the panel AutoPlace (<see cref="PickupCore.PlanIntoPanel"/>, the
+    /// pickup rows): <c>no_room</c> (and the unreachable <c>not_allowed</c> / <c>not_carryable</c>, asserted there) is a whole fumble with
+    /// reason 0; a plan that moved units then takes the arena reservation of its mail merge union blocks, and a refusal there refuses the
+    /// whole catch with <c>capacity_exhausted</c>, <c>{0, 0}</c>, nothing mutated (ADR-0009 section 5 l.157; TD-154 item 7); last, any
+    /// fumble needs a creatable WorldItem (<see cref="World.WorldItems.CanCreate"/>), else the whole catch is refused with
+    /// <c>capacity_exhausted</c>, <c>{0, 0}</c>. Reads state only; writes nothing but <paramref name="plan"/> and <paramref name="c"/>.
+    /// </summary>
+    /// <param name="slot">The catcher's slot.</param>
+    /// <param name="flight">The flight.</param>
+    /// <param name="plan">The call's plan.</param>
+    /// <param name="c">The catch to commit.</param>
+    /// <returns>The result the commit will produce, or the refusal.</returns>
+    internal CatchResult ValidateCatch(PlayerSlot slot, in FlightPayload flight, ref InvPlan plan, out CatchPlan c)
+    {
+        c = default;
+        c.Refused = true;
+        var badRequest = new CatchResult(0, 0, (InvReason)InvReasons.BadRequest);
+        if (!TryGetPanel(slot, out ushort hotbar, out ushort playerInventory)
+            || !_entries.TryGetSlot(flight.Entry, out ushort entrySlot)
+            || _entries[entrySlot].ContainerSlot != EntryRecord.NoContainer || _worldItems.OwnsEntry(entrySlot))
+        {
+            return badRequest;
+        }
+
+        c.EntrySlot = entrySlot;
+        c.Actor = ActorId.FromEntity(_panels[slot.Value].Player);
+        plan.SetPrimary(hotbar, playerInventory);
+        byte units = _entries[entrySlot].Count;
+        ushort reason = _pickup.PlanIntoPanel(ref plan, entrySlot, hotbar, playerInventory, out c.Placement);
+        if (reason == CoreReason.BadRequest)
+        {
+            return badRequest; // unreachable: a live source, two live distinct targets, units = its count
+        }
+
+        if (reason == 0 && _requestCheck.CheckArenaReservation(in plan) != 0)
+        {
+            c.ArenaRefused = true; // ADR-0009 section 5: refused, nothing mutated (TD-154 item 7)
+            return new CatchResult(0, 0, InvReason.CapacityExhausted);
+        }
+
+        c.Places = reason == 0;
+        byte unitsIn = c.Places ? (byte)c.Placement.MovedUnits : (byte)0;
+        byte fumbled = (byte)(units - unitsIn);
+        if (fumbled > 0 && !_worldItems.CanCreate())
+        {
+            c.Places = false;
+            c.TableFull = _worldItems.TableFull;
+            return new CatchResult(0, 0, InvReason.CapacityExhausted);
+        }
+
+        c.Refused = false;
+        return new CatchResult(unitsIn, fumbled, 0);
+    }
+
+    /// <summary>
+    /// The mutating half of <see cref="TryCatch"/>: in one call scope, the panel commit when <see cref="CatchPlan.Places"/> (one bracket,
+    /// the catcher as actor, cause <see cref="InvCause.None"/>), then, if units are left on the entry, the fumble
+    /// (<see cref="World.WorldItems.Create"/>, <see cref="WorldItemOrigin.Thrown"/>, created now, in its own nested scope). Never fails:
+    /// Validate proved the WorldItem creatable (a None asserts <see cref="SimAssertCode.InventoryCatchFumbleNotCreated"/>).
+    /// </summary>
+    /// <param name="plan">The plan <see cref="ValidateCatch"/> passed.</param>
+    /// <param name="c">The catch <see cref="ValidateCatch"/> passed.</param>
+    /// <param name="flight">The flight (the fumble's position and water flag).</param>
+    internal void CommitCatch(ref InvPlan plan, in CatchPlan c, in FlightPayload flight)
+    {
+        using EventCallScope scope = _events.BeginCall();
+        if (c.Places)
+        {
+            var extra = new InvReplyExtra();
+            _mutator.Begin(ref plan, c.Actor, InvCause.None);
+            _autoPlace.Commit(ref plan, in c.Placement);
+            _mutator.End(ref plan, ref extra);
+
+            // story 017 ledger hook: the units in cross FLIGHT -> PLACED.
+        }
+
+        // A whole placement moved the entry itself and a full merge freed it; otherwise the newest units are still on the entry.
+        if (_entries[c.EntrySlot].IsLive && _entries[c.EntrySlot].Id == flight.Entry && _entries[c.EntrySlot].ContainerSlot == EntryRecord.NoContainer)
+        {
+            // Cannot be None: ValidateCatch proved a WorldItem creatable, createdTick is now and the entry is live, detached and unowned.
+            EntityId fumble = _worldItems.Create(flight.Entry, flight.CatcherPosMm, WorldItemOrigin.Thrown, flight.OnWater, _tick.CurrentTick);
+            InventoryAssert.That(!fumble.IsNone, SimAssertCode.InventoryCatchFumbleNotCreated);
+        }
     }
 
     /// <inheritdoc />

@@ -271,6 +271,7 @@ public class WorldItemTests
         // Arrange
         var w = new WorldItemRig();
         ushort letter = w.R.DetachedMail("letter", Address, new[] { 95u });
+        w.R.CaptureEvents = true; // the placement reads its own tick's reply; AdvanceTo turns capture off again
         ushort placed = w.R.PlaceMail(w.R.InventoryA, "letter", 0, 0, Address, new[] { 96u });
         EntryId id = w.R.Entries[letter].Id;
         w.AdvanceTo(200);

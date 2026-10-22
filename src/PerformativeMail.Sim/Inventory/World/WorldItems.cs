@@ -336,6 +336,45 @@ internal sealed class WorldItems
     }
 
     /// <summary>
+    /// Raises <c>WorldItemEntriesChanged {id, next worldSeq, entryId, count}</c> for the live WorldItem in <paramref name="slot"/> (story
+    /// 014's partial pickup: the WorldItem keeps its id, entry, <c>expiresTick</c>, position and FIFO node, and only its entry's count
+    /// changes; Mail Lead planning default pending Evan, TD-154 item 2). The pickup raises it before its panel commit, so the world record
+    /// leads the call (TD-154 item 8), which is why it carries the count the commit will leave, <paramref name="countAfter"/>, rather than
+    /// reading the entry. Replicated to every connected slot; no version, no tombstone. Runs in the caller's call scope, opening none.
+    /// </summary>
+    /// <param name="slot">The WorldItem's table slot (live).</param>
+    /// <param name="countAfter">The units its entry holds once the pickup's commit has run (1 to the entry's count - 1).</param>
+    public void RaiseEntriesChanged(ushort slot, byte countAfter)
+    {
+        ref WorldItemRecord r = ref _table[slot];
+        _worldSeq++;
+        var changed = new WorldItemEntriesChangedPayload
+        {
+            WorldItemId = r.Id.Value, WorldSeq = _worldSeq, EntryId = _entries[r.EntrySlot].Id.Value, Count = countAfter,
+        };
+        _mutator.RaiseWorld(InvEventKinds.WorldItemEntriesChanged, in changed);
+    }
+
+    /// <summary>
+    /// True when <see cref="Create"/> of a live detached entry at the current tick cannot be refused for want of room or an id: the
+    /// module has an id allocator, the table has a free slot and the <c>WorldItem</c> class has an unissued counter. <c>TryCatch</c>'s
+    /// Validate reads it before it commits a fumble (story 014). Pure.
+    /// </summary>
+    /// <returns>True when a WorldItem can be created now.</returns>
+    public bool CanCreate() =>
+        _ids is not null && _table.LiveCount < _table.Capacity && _ids.Peek(EntityClass.WorldItem) < EntityId.CounterMask;
+
+    /// <summary>True when every WorldItem table slot holds a live item (a creation now would be refused with a capacity record).</summary>
+    public bool TableFull => _table.LiveCount == _table.Capacity;
+
+    /// <summary>
+    /// Writes the <see cref="CheckCode.InventoryWorldItemCapacity"/> record a full table writes in <see cref="Create"/> (a = table
+    /// capacity, b = live count), for a caller that refused before calling it (story 014's <c>TryCatch</c>, table full).
+    /// </summary>
+    /// <param name="now">The current tick.</param>
+    public void RecordCapacityRefusal(uint now) => _checkRing.Record(CheckCode.InventoryWorldItemCapacity, now, _table.Capacity, _table.LiveCount);
+
+    /// <summary>
     /// Resolves a WorldItem id named by an op (the step a later pickup op's <c>Validate</c> calls; pure): 0 and its slot when live;
     /// <c>bad_request</c> (8) for an id that is not of class WorldItem or was never allocated; <c>container_gone</c> (82) with the
     /// tombstone's <paramref name="byActorId"/> and <paramref name="cause"/> within 30 s of its removal; else <c>stale_entry</c> (67).
