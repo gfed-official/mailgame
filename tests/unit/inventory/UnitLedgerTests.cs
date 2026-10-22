@@ -251,6 +251,8 @@ public sealed class UnitLedgerTests
         t.Step("CreateWorldItem Dropped after the caller's Remove", () => DropInOneCall(r, invA, dropped), (plank, S.Placed, -3), (plank, S.World, 3));
         EntityId droppedItem = p.World.Table[p.WorldItemHolding(dropped)].Id;
         t.Step("whole pickup", () => Assert.True(r.ReplyOfOk(p.Pickup(r.PlayerA, droppedItem))), (plank, S.World, -3), (plank, S.Placed, 3));
+        ushort cursorDrop = r.PlaceItem(curA, "plank", 0, 0, 2);
+        t.Step("CreateWorldItem Dropped from the cursor after the caller's Remove", () => DropInOneCall(r, curA, cursorDrop), (plank, S.Cursor, -2), (plank, S.World, 2));
 
         // Returns on a water float: to the Intake (a cell freed), then to the backlog (the Intake full); a floating plank destroyed
         Assert.True(InPhase(r, () => r.Inventory.TakeUnit(r.Inventory.IntakeContainer, Selector.Fifo, r.PlayerA, out _)));
@@ -261,15 +263,28 @@ public sealed class UnitLedgerTests
         at = Float(p, r.DetachedItem("plank", 4));
         t.Step("water float destroys a plank", () => p.W.RunTick(at), (plank, S.World, -4), (plank, S.Destroyed, 4));
 
-        // The cap: 512 live, then a 513th evicts the fumble's 2 letters (old enough) to the backlog, the Intake being full
-        Assert.Equal(2, p.World.LiveCount);
-        ushort[] fill = Enumerable.Range(0, 510).Select(_ => r.DetachedItem("plank", 1)).ToArray();
+        // The cap: 512 live, then a 513th evicts the fumble's 2 letters (old enough) to the backlog, the Intake being full; a 514th the
+        // other old mail (the second throw's 2 letters); a 515th, no mail left on the ground, destroys the lowest non-mail head, the
+        // cursor-dropped 2 planks (DestroyNonMail, TD-135); then the 509 fill planks reach their ground expiry together and are destroyed
+        // (the water-float plank above is the water FIFO's timer expiry)
+        Assert.Equal(3, p.World.LiveCount);
+        ushort[] fill = Enumerable.Range(0, 509).Select(_ => r.DetachedItem("plank", 1)).ToArray();
         uint now = p.W.Now;
-        Assert.Equal(510, p.W.At(now, () => p.W.CreateAll(fill, now)));
+        Assert.Equal(509, p.W.At(now, () => p.W.CreateAll(fill, now)));
         ushort last = r.DetachedItem("plank", 1);
         t.Step("cap eviction of a mail to the backlog", () => p.W.Create(p.W.Now, last), (plank, S.Flight, -1), (plank, S.World, 1), (Mail, S.World, -2), (Mail, S.Backlog, 2));
         Assert.False(p.World.OwnsEntry(thrown));
         Assert.True(r.Inventory.Backlog.Contains(thrown));
+        ushort next = r.DetachedItem("plank", 1);
+        t.Step("cap eviction of the second mail to the backlog", () => p.W.Create(p.W.Now, next), (plank, S.Flight, -1), (plank, S.World, 1), (Mail, S.World, -2), (Mail, S.Backlog, 2));
+        Assert.True(r.Inventory.Backlog.Contains(second));
+        ushort third = r.DetachedItem("plank", 1);
+        t.Step("cap eviction destroys a non-mail", () => p.W.Create(p.W.Now, third), (plank, S.Flight, -1), (plank, S.World, -1), (plank, S.Destroyed, 2));
+        Assert.False(p.World.OwnsEntry(cursorDrop));
+        Assert.Equal(512, p.World.LiveCount);
+        p.W.AdvanceTo(now + p.World.DurationTicks(ExpiryFifo.NonMailWorldItem));
+        t.Step("ground expiry destroys the fill planks", () => p.W.RunTick(p.W.Now), (plank, S.World, -509), (plank, S.Destroyed, 509));
+        Assert.Equal(3, p.World.LiveCount);
         Assert.True(t.Steps <= 50);
     }
 

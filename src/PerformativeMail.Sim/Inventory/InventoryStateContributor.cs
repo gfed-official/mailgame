@@ -29,7 +29,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// StackKey and item-count indexes, the weight memo and the ledger's per-slot holder bytes (rebuilt from storage). Between ticks only;
 /// allocation-free (the sort's buffers are preallocated).
 /// </summary>
-/// <example><code>builder.BindStateContributor(new InventoryStateContributor(containers, worldItems));</code></example>
+/// <example><code>builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems, _backlog, _entries, this)); // InventorySystem.Bind</code></example>
 internal sealed class InventoryStateContributor : ISimStateContributor
 {
     private readonly ContainerTable _containers;

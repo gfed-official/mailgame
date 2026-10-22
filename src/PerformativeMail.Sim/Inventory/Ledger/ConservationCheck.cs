@@ -11,8 +11,10 @@ namespace PerformativeMail.Sim.Inventory.Ledger;
 /// <c>Σ live = spawned + granted − consumed − destroyed</c> and that no live counter is negative; each finding writes one
 /// <see cref="CheckCode.InventoryConservationMismatch"/> record (a = the row, with the state ordinal + 1 in bits 24-31 for a negative
 /// counter; b = the Σ delta or the negative value) and adds one <see cref="CounterId.InventoryConservationMismatches"/> (the ring's
-/// per-code rate limit applies to the record, not the counter). It never throws, mutates nothing and raises nothing (ADR-0003
-/// section 2). The Release check is O(item defs), fixed at world build, and allocation-free.
+/// per-code rate limit applies to the record, not the counter). It mutates nothing and raises nothing (ADR-0003 section 1, the
+/// tick-end row, and Key Interfaces <c>ITickEndCheck</c>). It never throws in Release or in any build without <c>INVENTORY_ASSERT</c>;
+/// under <c>INVENTORY_ASSERT</c> a <see cref="Scan"/> finding asserts <see cref="SimAssertCode.InventoryConservationScan"/> (84). The
+/// Release check is O(item defs), fixed at world build, and allocation-free.
 /// <para>
 /// Under <c>INVENTORY_ASSERT</c> it then runs <see cref="Scan"/> (<see cref="ConditionalAttribute"/>, so the call is compiled out of
 /// Release): a recount of every entry-held state from storage against the ledger, each detached entry's holder state against where it
