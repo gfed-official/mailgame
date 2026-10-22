@@ -498,9 +498,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <inheritdoc />
     /// <remarks>
-    /// The tick guard; then <c>bad_request</c> unless <paramref name="slot"/> has a hotbar and <paramref name="entryId"/> is a live entry
-    /// placed in it (so the cursor's entry, a panel entry, another slot's hotbar entry, a detached, dead or unknown entry are all
-    /// <c>bad_request</c>); then <c>stale_entry</c> when <paramref name="units"/> is not the entry's count. Then
+    /// The tick guard; <c>bad_request</c> unless <paramref name="slot"/> has a hotbar; then a real id as <see cref="Ops.InvRequestCheck"/>
+    /// classifies an op's: <c>bad_request</c> for none, any temp id (none is ever placed) or a real id above <see cref="Storage.EntryPool.LastId"/>,
+    /// <c>stale_entry</c> for a real id at or below it that is not live (consumed, merged away, retired or freed; entry ids have no
+    /// tombstone, ADR-0009 l.116-117); then <c>bad_request</c> for a live entry not placed in this hotbar (the cursor's entry, a panel
+    /// entry, another slot's hotbar entry, or a detached entry, i.e. a duplicate release); then <c>stale_entry</c> when
+    /// <paramref name="units"/> is not the entry's count. Then
     /// <see cref="InventoryMutator.Remove"/> in one call scope and one bracket, actor the slot's player, so the records and seal are
     /// <c>Remove</c>'s and the entry is left live and detached. The seal's cause is <see cref="InvCause.None"/>: the closest existing
     /// cause, since the thrower changes their own hotbar ("an ordinary change by the actor"); <c>Taken</c> is another actor's take and
@@ -514,10 +517,26 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return badRequest; // out of phase: counted by the guard, nothing mutated
         }
 
-        if (slot.IsNone || slot.Value >= PlayerSlot.Count || !_containers.TryGetSlot(_panels[slot.Value].Hotbar, out ushort hotbar)
-            || !_entries.TryGetSlot(entryId, out ushort entrySlot) || _entries[entrySlot].ContainerSlot != hotbar)
+        if (slot.IsNone || slot.Value >= PlayerSlot.Count || !_containers.TryGetSlot(_panels[slot.Value].Hotbar, out ushort hotbar))
         {
             return badRequest;
+        }
+
+        // A real id is classified as InvRequestCheck classifies an op's: above the high-water is malformed, at or below it and not live
+        // is stale (entry ids have no tombstone, ADR-0009 l.116-117). None and any temp id are malformed here: no temp id is ever placed.
+        if (entryId.IsNone || entryId.IsTemp || entryId.Value > _entries.LastId)
+        {
+            return badRequest;
+        }
+
+        if (!_entries.TryGetSlot(entryId, out ushort entrySlot))
+        {
+            return new DetachResult(InvReason.StaleEntry, default, 0);
+        }
+
+        if (_entries[entrySlot].ContainerSlot != hotbar)
+        {
+            return badRequest; // the cursor's, a panel's or another slot's entry, or a live detached entry (a duplicate release)
         }
 
         if (_entries[entrySlot].Count != units)
@@ -606,13 +625,14 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         }
 
         var extra = new InvReplyExtra();
+        bool inserted = true;
         using (EventCallScope scope = _events.BeginCall())
         {
             _mutator.Begin(ref plan, actor, InvCause.None);
             if (merges)
             {
                 _autoPlace.RecordNoFits(in ap);
-                _ = _mutator.MergeUnitInto(ref plan, ap.Merge(0).TargetEntrySlot, subject.Key, u.Mail);
+                inserted = _mutator.MergeUnitInto(ref plan, ap.Merge(0).TargetEntrySlot, subject.Key, u.Mail);
             }
             else
             {
@@ -622,8 +642,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             _mutator.End(ref plan, ref extra);
         }
 
-        // story 017 ledger hook: the unit crosses into PLACED (from Belt, or wherever the caller took it from).
-        return true;
+        // story 017 ledger hook: on true only, the unit crosses into PLACED (from Belt, or wherever the caller took it from).
+        return inserted;
     }
 
     /// <inheritdoc />

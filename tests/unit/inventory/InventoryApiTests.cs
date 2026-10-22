@@ -20,8 +20,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// mutated; <see cref="IInventoryApi.CountItem"/> reads the <c>itemId → units</c> index (<see cref="ItemCountIndex"/>) the mutator's
 /// item primitives maintain, which equals a brute-force scan after every one of 1,000 seeded random mutations, with a probe count that
 /// does not grow with the entry count. <see cref="IInventoryApi.DetachForThrow"/> takes a whole hotbar entry out through <c>Remove</c>
-/// (one <c>InvRemoved</c>, one seal), leaving it live and detached, and refuses a non-hotbar entry (<c>bad_request</c>) or a wrong
-/// count (<c>stale_entry</c>) with nothing changed; <see cref="IInventoryApi.TryInsert"/> (mail form) refuses an outfeed container, a
+/// (one <c>InvRemoved</c>, one seal), leaving it live and detached, and refuses a malformed id or a live non-hotbar entry
+/// (<c>bad_request</c>), a once-allocated id that is no longer live or a wrong count (<c>stale_entry</c>) with nothing changed; <see cref="IInventoryApi.TryInsert"/> (mail form) refuses an outfeed container, a
 /// whitelist refusal and no room with nothing changed, and otherwise merges first (one <c>InvMerged</c>, no entry created) or places
 /// a new entry. The mutating calls run inside a real tick through the rig's <c>MailStep</c> hook.
 /// </summary>
@@ -123,6 +123,27 @@ public class InventoryApiTests
         Assert.True(consumed);
         Assert.Equal(4, rig.Entries[planks].Count);
         Assert.Equal(4, rig.Inventory.CountItem(new[] { hotbar }, plank));
+    }
+
+    [Fact]
+    public void ConsumeUnit_WithReturnedToSender_TheLastDefinedReason_Consumes_AndTheNextValueIsRefused()
+    {
+        // Arrange: 3 letters in player A's inventory
+        var rig = new InvAutoPlaceRig();
+        ushort a = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 1, 2, 3 });
+        var entry = new EntryRef(rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0)), rig.Entries[a].Id);
+
+        // Act
+        bool returned = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.ConsumeUnit(entry, ConsumeReason.ReturnedToSender, rig.PlayerA));
+        List<long> before = State(rig);
+        bool undefined = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.ConsumeUnit(entry, (ConsumeReason)3, rig.PlayerA));
+
+        // Assert: ReturnedToSender (2) consumed the oldest unit; 3 was refused with nothing changed and no record
+        Assert.True(returned);
+        Assert.Equal(new uint[] { 2, 3 }, rig.IdsOf(a));
+        Assert.False(undefined);
+        Assert.Equal(before, State(rig));
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
     }
 
     [Fact]
@@ -289,6 +310,30 @@ public class InventoryApiTests
         rig.Inventory.Mutator.RebuildIndex(rig.InventoryA);
 
         // Assert: the inventory's totals are back; the hotbar's were never touched
+        Assert.Equal(12, rig.Inventory.CountItem(new[] { inventoryA }, rig.ItemIndex("plank")));
+        Assert.Equal(4, rig.Inventory.CountItem(new[] { inventoryA }, rig.ItemIndex("log")));
+        Assert.Equal(2, rig.Inventory.CountItem(new[] { hotbar }, rig.ItemIndex("log")));
+        Assert.Equal(3, rig.Inventory.Mutator.ItemCounts.KeyCount);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R17-1")]
+    public void RebuildIndex_OnALiveIndex_ReplacesTheContainersTotals_WithoutDoublingThem()
+    {
+        // Arrange: planks and logs in player A's inventory, logs in the hotbar; the index is live and correct (nothing cleared)
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 12);
+        _ = rig.PlaceItem(rig.InventoryA, "log", 1, 0, 4);
+        _ = rig.PlaceItem(rig.HotbarA, "log", 1, 0, 2);
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        ContainerId hotbar = rig.Inventory.HotbarOf(PlayerSlot.FromValue(0));
+        Assert.Equal(12, rig.Inventory.CountItem(new[] { inventoryA }, rig.ItemIndex("plank")));
+
+        // Act: rebuild twice over the live totals
+        rig.Inventory.Mutator.RebuildIndex(rig.InventoryA);
+        rig.Inventory.Mutator.RebuildIndex(rig.InventoryA);
+
+        // Assert: the same totals, not 24 / 8 or 36 / 12; the hotbar's untouched; no key added
         Assert.Equal(12, rig.Inventory.CountItem(new[] { inventoryA }, rig.ItemIndex("plank")));
         Assert.Equal(4, rig.Inventory.CountItem(new[] { inventoryA }, rig.ItemIndex("log")));
         Assert.Equal(2, rig.Inventory.CountItem(new[] { hotbar }, rig.ItemIndex("log")));
@@ -474,6 +519,106 @@ public class InventoryApiTests
     }
 
     [Fact]
+    public void ItemCountIndex_ARunWrappingTheTableEnd_BackwardShiftsAcrossTheWrap_KeepingEveryTotal()
+    {
+        // Arrange: a 32-slot table; three keys whose home is the last slot (31) and two whose home is slot 0, so inserting the first
+        // three in order fills 31, 0 and 1 (the run wraps) and the home-0 keys land after them at 2 and 3
+        var counters = new SimCounters();
+        var index = new ItemCountIndex(16, 64, counters);
+        Assert.Equal(32, index.TableSize);
+        List<(ushort C, ushort I)> last = KeysWithHome(31, 3, index.TableSize);
+        List<(ushort C, ushort I)> first = KeysWithHome(0, 2, index.TableSize);
+        var keys = last.Concat(first).ToList();
+        var expected = new Dictionary<(ushort, ushort), int>();
+        for (int k = 0; k < keys.Count; k++)
+        {
+            index.Add(keys[k].C, keys[k].I, 10 + k);
+            expected[keys[k]] = 10 + k;
+        }
+
+        // Assert: the wrap happened. A home-31 key read in 2 probes sits in slot 0, in 3 in slot 1; the home-0 keys come after them
+        Assert.Equal(new long[] { 1, 2, 3, 3, 4 }, keys.Select(k => ProbesOf(index, counters, k)));
+
+        // Act + Assert: delete each key in insertion order, checking every total and the key count after each deletion. The first
+        // deletion empties slot 31, so the backward shift moves the run back across the table end: the second home-31 key returns to
+        // slot 31 (1 probe), the third to slot 0, the home-0 keys to slots 1 and 2
+        for (int k = 0; k < keys.Count; k++)
+        {
+            index.Add(keys[k].C, keys[k].I, -expected[keys[k]]);
+            expected[keys[k]] = 0;
+            if (k == 0)
+            {
+                Assert.Equal(new long[] { 1, 2, 2, 3 }, keys.Skip(1).Select(key => ProbesOf(index, counters, key)));
+            }
+
+            foreach (((ushort c, ushort i), int u) in expected)
+            {
+                Assert.Equal(u, index.Units(c, i));
+            }
+
+            Assert.Equal(keys.Count - k - 1, index.KeyCount);
+        }
+    }
+
+    [Fact]
+    public void ItemCountIndex_ATotalThatWouldGoNegative_AssertsInventoryItemCountNegative_OrDeletesTheKeyInRelease()
+    {
+        // Arrange: 3 units of item 7 in container 1; container 2 has no key
+        var counters = new SimCounters();
+        var index = new ItemCountIndex(4, 4, counters);
+        index.Add(1, 7, 3);
+
+        // Act + Assert: SIM_ASSERT builds assert before anything changes; Release deletes the key (and adds none for a missing one)
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException over = Assert.Throws<SimAssertException>(() => index.Add(1, 7, -5));
+            Assert.Equal(SimAssertCode.InventoryItemCountNegative, over.Code);
+            SimAssertException missing = Assert.Throws<SimAssertException>(() => index.Add(2, 7, -1));
+            Assert.Equal(SimAssertCode.InventoryItemCountNegative, missing.Code);
+            Assert.Equal(3, index.Units(1, 7));
+            Assert.Equal(1, index.KeyCount);
+        }
+        else
+        {
+            index.Add(1, 7, -5);
+            index.Add(2, 7, -1);
+            Assert.Equal(0, index.Units(1, 7));
+            Assert.Equal(0, index.Units(2, 7));
+            Assert.Equal(0, index.KeyCount);
+        }
+
+        Assert.Equal(78, SimAssertCode.InventoryItemCountNegative);
+    }
+
+    [Fact]
+    public void MergeUnitInto_OntoAStackAtItsEffMax_AssertsInventoryMergeInvalid_OrChangesNothingInRelease()
+    {
+        // Arrange: a full 20-letter stack (effMax 20)
+        var rig = new InvAutoPlaceRig();
+        ushort target = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, InvAutoPlaceRig.Ids(1, 20));
+        Assert.Equal(20, rig.SubjectOf(target).EffMax);
+        StackKey key = StackKey.Of(in rig.Entries[target]);
+        var plan = new InvPlan();
+        _ = plan.Touch(rig.InventoryA);
+        List<long> before = State(rig);
+
+        // Act + Assert (between ticks: the assert fires before anything is changed or raised)
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException thrown = Assert.Throws<SimAssertException>(() => rig.Inventory.Mutator.MergeUnitInto(ref plan, target, key, new MailId(500)));
+            Assert.Equal(SimAssertCode.InventoryMergeInvalid, thrown.Code);
+        }
+        else
+        {
+            Assert.False(rig.Inventory.Mutator.MergeUnitInto(ref plan, target, key, new MailId(500)));
+        }
+
+        Assert.Equal(InvAutoPlaceRig.Ids(1, 20), rig.IdsOf(target));
+        Assert.Equal(before, State(rig));
+        Assert.Equal(0, plan.MutatedCount);
+    }
+
+    [Fact]
     [Trait("Id", "H-X-2")]
     public void DetachForThrow_Hotbar3Entry88Of5Letters_EmptiesIndex3_VersionPlusOne_OneRemovedThenOneSeal_EntryLiveAndDetached()
     {
@@ -550,9 +695,9 @@ public class InventoryApiTests
 
     [Fact]
     [Trait("Id", "H-X-2")]
-    public void DetachForThrow_OfTheCursorEntryOrANonHotbarEntry_IsBadRequest_NothingChanges_NoRecord()
+    public void DetachForThrow_OfTheCursorEntryOrANonHotbarEntryOrAMalformedId_IsBadRequest_NothingChanges_NoRecord()
     {
-        // Arrange: player B joined; entries in A's cursor, A's inventory, B's hotbar, a detached one, a dead one; one in A's hotbar
+        // Arrange: player B joined; entries in A's cursor, A's inventory, B's hotbar, a detached one; one in A's hotbar
         var rig = new InvAutoPlaceRig();
         JoinSlot1(rig);
         ushort cursorA = rig.SlotOf(rig.Inventory.CursorOf(PlayerSlot.FromValue(0)));
@@ -562,10 +707,6 @@ public class InventoryApiTests
         ushort inHotbarB = rig.PlaceMail(hotbarB, "letter", 2, 0, Address4, new uint[] { 4 });
         ushort inHotbarA = rig.PlaceMail(rig.HotbarA, "letter", 2, 0, Address4, new uint[] { 5 });
         ushort detached = rig.DetachedMail("letter", Address4, new uint[] { 6 });
-        ushort dead = rig.PlaceMail(rig.HotbarA, "letter", 4, 0, Address4, new uint[] { 7 });
-        EntryId deadId = rig.Entries[dead].Id;
-        Assert.True(IntakeSpawnOutfeedTests.InPhase(
-            rig, () => rig.Inventory.ConsumeUnit(new EntryRef(rig.Inventory.HotbarOf(PlayerSlot.FromValue(0)), deadId), ConsumeReason.Delivered, rig.PlayerA)));
         List<long> before = State(rig);
         PlayerSlot a = PlayerSlot.FromValue(0);
         var calls = new (PlayerSlot Slot, EntryId Entry, byte Units)[]
@@ -573,9 +714,10 @@ public class InventoryApiTests
             (a, rig.Entries[inCursor].Id, 2),                 // the cursor's entry
             (a, rig.Entries[inPanel].Id, 1),                  // a player_inventory entry
             (a, rig.Entries[inHotbarB].Id, 1),                // another player's hotbar entry
-            (a, rig.Entries[detached].Id, 1),                 // a detached entry
-            (a, deadId, 1),                                   // a dead entry
-            (a, EntryId.Real(999_999), 1),                     // an unknown id
+            (a, rig.Entries[detached].Id, 1),                 // a live detached entry
+            (a, EntryId.Real(rig.Entries.LastId + 1), 1),     // the next id, never allocated (above the high-water)
+            (a, EntryId.Real(999_999), 1),                     // an unknown id far above the high-water
+            (a, EntryId.Temp(a, 1), 1),                       // a temp id (of the thrower's own namespace)
             (a, default, 1),                                  // no entry
             (PlayerSlot.FromValue(1), rig.Entries[inHotbarA].Id, 1), // A's hotbar entry named by slot B
             (PlayerSlot.FromValue(2), rig.Entries[inHotbarA].Id, 1), // a slot with no hotbar
@@ -599,6 +741,146 @@ public class InventoryApiTests
         Assert.All(results, r => Assert.Equal(new DetachResult((InvReason)InvReasons.BadRequest, default, 0), r));
         Assert.Equal(before, State(rig));
         Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "H-R7-4")]
+    public void DetachForThrow_OfAnOnceAllocatedEntryIdThatIsNoLongerLive_IsStaleEntry_NothingChanges_NoRecord()
+    {
+        // Arrange: a hotbar entry consumed away (its last unit), and an id allocated and freed; both at or below the high-water
+        var rig = new InvAutoPlaceRig();
+        ushort consumed = rig.PlaceMail(rig.HotbarA, "letter", 4, 0, Address4, new uint[] { 7 });
+        EntryId consumedId = rig.Entries[consumed].Id;
+        Assert.True(IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.ConsumeUnit(new EntryRef(rig.Inventory.HotbarOf(PlayerSlot.FromValue(0)), consumedId), ConsumeReason.Delivered, rig.PlayerA)));
+        Assert.True(rig.Entries.TryAllocate(rig.Host.World.CurrentTick, out ushort freed, out _));
+        EntryId freedId = rig.Entries[freed].Id;
+        rig.Entries.Free(freed);
+        _ = rig.PlaceMail(rig.HotbarA, "letter", 2, 0, Address4, new uint[] { 5 });
+        Assert.False(rig.Entries.TryGetSlot(consumedId, out _));
+        Assert.False(rig.Entries.TryGetSlot(freedId, out _));
+        Assert.True(freedId.Value <= rig.Entries.LastId);
+        List<long> before = State(rig);
+        PlayerSlot a = PlayerSlot.FromValue(0);
+        var calls = new (EntryId Entry, byte Units)[] { (consumedId, 1), (freedId, 1) };
+        var results = new List<DetachResult>();
+
+        // Act
+        rig.Hook.Action = (in TickContext ctx) =>
+        {
+            foreach ((EntryId e, byte u) in calls)
+            {
+                results.Add(rig.Inventory.DetachForThrow(a, e, u));
+            }
+        };
+        rig.Host.World.Tick();
+        rig.Hook.Action = null;
+
+        // Assert: stale_entry at once (entry ids have no tombstone), nothing changed, no inventory event
+        Assert.Equal(calls.Length, results.Count);
+        Assert.All(results, r => Assert.Equal(new DetachResult(InvReason.StaleEntry, default, 0), r));
+        Assert.Equal(before, State(rig));
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "H-X-2")]
+    public void DetachForThrow_TheSameEntryTwice_TheDuplicateReleaseIsBadRequest_NothingChanges_NoRecord()
+    {
+        // Arrange: 3 letters at hotbar index 1, detached once
+        var rig = new InvAutoPlaceRig();
+        ushort entry = rig.PlaceMail(rig.HotbarA, "letter", 1, 0, Address4, new uint[] { 1, 2, 3 });
+        EntryId id = rig.Entries[entry].Id;
+        PlayerSlot a = PlayerSlot.FromValue(0);
+        Assert.Equal(new DetachResult(default, id, 3), IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.DetachForThrow(a, id, 3)));
+        List<long> before = State(rig);
+
+        // Act: the same release again (the entry is live and detached)
+        DetachResult r = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.DetachForThrow(a, id, 3));
+
+        // Assert
+        Assert.Equal(new DetachResult((InvReason)InvReasons.BadRequest, default, 0), r);
+        Assert.Equal(before, State(rig));
+        Assert.Equal(EntryRecord.NoContainer, rig.Entries[entry].ContainerSlot);
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "H-X-2")]
+    public void DetachForThrow_WrongOnBothChecks_AnswersTheFirstFailingCheck_IdClassThenPlacementThenUnits()
+    {
+        // Arrange: a 2-letter cursor entry, a 5-letter hotbar entry, a consumed (dead) hotbar entry
+        var rig = new InvAutoPlaceRig();
+        PlayerSlot a = PlayerSlot.FromValue(0);
+        ushort inCursor = rig.PlaceMail(rig.SlotOf(rig.Inventory.CursorOf(a)), "letter", 0, 0, Address4, new uint[] { 1, 2 });
+        ushort inHotbar = rig.PlaceMail(rig.HotbarA, "letter", 3, 0, Address4, new uint[] { 3, 4, 5, 6, 7 });
+        ushort dead = rig.PlaceMail(rig.HotbarA, "letter", 4, 0, Address4, new uint[] { 8 });
+        EntryId deadId = rig.Entries[dead].Id;
+        Assert.True(IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.ConsumeUnit(new EntryRef(rig.Inventory.HotbarOf(a), deadId), ConsumeReason.Delivered, rig.PlayerA)));
+        List<long> before = State(rig);
+        var bad = new DetachResult((InvReason)InvReasons.BadRequest, default, 0);
+        var stale = new DetachResult(InvReason.StaleEntry, default, 0);
+        var calls = new (PlayerSlot Slot, EntryId Entry, byte Units, DetachResult Expected)[]
+        {
+            (a, rig.Entries[inCursor].Id, 5, bad),            // not in the hotbar and the wrong units: placement first
+            (a, deadId, 5, stale),                           // dead and the wrong units: stale either way
+            (a, deadId, 0, stale),
+            (a, rig.Entries[inHotbar].Id, 4, stale),          // in the hotbar, the wrong units
+            (a, EntryId.Real(rig.Entries.LastId + 1), 5, bad), // above the high-water and the wrong units
+            (PlayerSlot.FromValue(2), deadId, 1, bad),        // a slot with no hotbar naming a dead id: the slot first
+        };
+        var results = new List<DetachResult>();
+
+        // Act
+        rig.Hook.Action = (in TickContext ctx) =>
+        {
+            foreach ((PlayerSlot s, EntryId e, byte u, DetachResult _) in calls)
+            {
+                results.Add(rig.Inventory.DetachForThrow(s, e, u));
+            }
+        };
+        rig.Host.World.Tick();
+        rig.Hook.Action = null;
+
+        // Assert
+        Assert.Equal(calls.Select(c => c.Expected), results);
+        Assert.Equal(before, State(rig));
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "H-X-2")]
+    public void DetachForThrow_AfterTheSlotRejoinsWithANewPlayer_SealsWithTheNewPlayersActor()
+    {
+        // Arrange: player B joins slot 1, leaves, and slot 1 is joined again by a new player entity; 2 letters in slot 1's hotbar
+        var rig = new InvAutoPlaceRig();
+        PlayerSlot b = PlayerSlot.FromValue(1);
+        JoinSlot1(rig);
+        EntityId first = rig.Host.Services.Slots.Entry(b).PlayerId;
+        ContainerId hotbarB = rig.Inventory.HotbarOf(b);
+        var leave = new Op { Kind = OpKind.PlayerLeave, ReqId = 3 };
+        leave.SetPayload(new PlayerLeavePayload { PlayerId = first.Value });
+        Assert.True(rig.Host.World.EnqueueOp(ActorId.System, in leave));
+        rig.Host.World.Tick();
+        JoinSlot1(rig);
+        EntityId rejoined = rig.Host.Services.Slots.Entry(b).PlayerId;
+        Assert.NotEqual(first, rejoined);
+        Assert.Equal(hotbarB, rig.Inventory.HotbarOf(b));
+        ushort hotbarBSlot = rig.SlotOf(hotbarB);
+        ushort entry = rig.PlaceMail(hotbarBSlot, "letter", 0, 0, Address4, new uint[] { 1, 2 });
+        EntryId id = rig.Entries[entry].Id;
+
+        // Act
+        DetachResult r = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.DetachForThrow(b, id, 2));
+        EventEntry[] log = InventoryEvents(rig.Sink.Last);
+
+        // Assert: the seal's actor is the rejoined player, not the one that left
+        Assert.Equal(new DetachResult(default, id, 2), r);
+        Assert.Equal(new[] { InvEventKinds.Removed, InvEventKinds.Version }, log.Select(e => e.Kind));
+        InvVersionPayload seal = log[1].PayloadAs<InvVersionPayload>();
+        Assert.Equal(hotbarB.Value, seal.Container);
+        Assert.Equal(ActorId.FromEntity(rejoined).Value, seal.ActorId);
     }
 
     [Fact]
@@ -756,6 +1038,35 @@ public class InventoryApiTests
         InvVersionPayload seal = heads[1].PayloadAs<InvVersionPayload>();
         Assert.Equal(before.Version + 1, seal.VersionTo);
         Assert.Equal(rig.PlayerA.Value, seal.ActorId);
+    }
+
+    [Fact]
+    [Trait("Id", "H-X-3")]
+    public void TryInsert_OntoA19LetterStack_MergesTo20_ThenTheNextLetterDoesNotMergeOntoTheFullStack()
+    {
+        // Arrange: a 19-letter stack (address 4, effMax 20) at (0, 0) of player A's inventory
+        var rig = new InvAutoPlaceRig();
+        ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, InvAutoPlaceRig.Ids(1, 19));
+        Assert.Equal(20, rig.SubjectOf(stack).EffMax);
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        UnitRef twentieth = Letter(rig, 500, Address4);
+        UnitRef next = Letter(rig, 501, Address4);
+        int entries = rig.Header(rig.InventoryA).EntryCount;
+
+        // Act: effMax - 1 -> effMax
+        bool merged = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryInsert(inventoryA, in twentieth, rig.PlayerA));
+        EventKind[] mergeHeads = InventoryEvents(rig.Sink.Last).Where(e => (e.Flags & EventFlags.Continuation) == 0).Select(e => e.Kind).ToArray();
+        bool placed = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryInsert(inventoryA, in next, rig.PlayerA));
+        EventKind[] placeHeads = InventoryEvents(rig.Sink.Last).Where(e => (e.Flags & EventFlags.Continuation) == 0).Select(e => e.Kind).ToArray();
+
+        // Assert: the stack became full through one InvMerged; the next letter got a new entry and the full stack is unchanged
+        Assert.True(merged);
+        Assert.Equal(new[] { InvEventKinds.Merged, InvEventKinds.Version }, mergeHeads);
+        Assert.True(placed);
+        Assert.Equal(new[] { InvEventKinds.Inserted, InvEventKinds.Version }, placeHeads);
+        Assert.Equal(20, rig.Entries[stack].Count);
+        Assert.Equal(InvAutoPlaceRig.Ids(1, 19).Append(500u), rig.IdsOf(stack));
+        Assert.Equal(entries + 1, rig.Header(rig.InventoryA).EntryCount);
     }
 
     [Fact]
@@ -991,6 +1302,39 @@ public class InventoryApiTests
         join.SetPayload(new PlayerJoinPayload { Slot = 1 });
         Assert.True(rig.Host.World.EnqueueOp(ActorId.System, in join));
         rig.Host.World.Tick();
+    }
+
+    /// <summary>
+    /// The first <paramref name="count"/> (container, item) keys whose home slot in a <paramref name="tableSize"/>-slot
+    /// <see cref="ItemCountIndex"/> is <paramref name="home"/>: the index's own Fibonacci hash (top log2(size) bits of
+    /// <c>key * 0x9E3779B97F4A7C15</c>, key <c>(container + 1) &lt;&lt; 16 | item</c>), restated so a fixture can aim at the table's end.
+    /// A drift from the index's hash shows as the probe-count assertions failing.
+    /// </summary>
+    private static List<(ushort C, ushort I)> KeysWithHome(int home, int count, int tableSize)
+    {
+        int shift = 64 - System.Numerics.BitOperations.Log2((uint)tableSize);
+        var keys = new List<(ushort C, ushort I)>();
+        for (ushort c = 0; c < 64 && keys.Count < count; c++)
+        {
+            for (ushort i = 0; i < 64 && keys.Count < count; i++)
+            {
+                uint key = ((uint)(c + 1) << 16) | i;
+                if ((int)(unchecked((ulong)key * 0x9E37_79B9_7F4A_7C15UL) >> shift) == home)
+                {
+                    keys.Add((c, i));
+                }
+            }
+        }
+
+        Assert.Equal(count, keys.Count);
+        return keys;
+    }
+
+    private static long ProbesOf(ItemCountIndex index, SimCounters counters, (ushort C, ushort I) key)
+    {
+        long before = counters[CounterId.InventoryItemCountProbes];
+        Assert.NotEqual(0, index.Units(key.C, key.I));
+        return counters[CounterId.InventoryItemCountProbes] - before;
     }
 
     /// <summary>Spends entry ids between ticks (allocate and free) until the last id is <paramref name="lastId"/>.</summary>
