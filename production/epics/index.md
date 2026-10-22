@@ -1,6 +1,6 @@
 # Epics Index
 
-Last Updated: 2026-10-22 (counts from the story headers on main bf1d299 (PR #13–#29 merged) plus PR #30, `/workspace/scripts/count-story-status.sh`: 101 Complete, 1 In Progress (content-data 018), 6 Blocked, 99 Ready — 207 stories; godot-host-shell 003/004 (PR #17), grid-inventory 004/005, throwing-catching 001, manual-delivery 001 (PR #14), player-character 013 (PR #13) and grid-inventory 006 (PR #16) Complete; grid-inventory 009 Complete (PR #20); grid-inventory 012 Complete (PR #21); grid-inventory 013 Complete (PR #26); grid-inventory 015 Complete (PR #27); grid-inventory 016 Complete (PR #29); grid-inventory 011 Complete (PR #30, open, not merged))
+Last Updated: 2026-10-22 (counts from the story headers on main ffdf3c0 (PR #13–#30 merged) plus PR #31, `/workspace/scripts/count-story-status.sh`: 102 Complete, 1 In Progress (content-data 018), 6 Blocked, 98 Ready — 207 stories; godot-host-shell 003/004 (PR #17), grid-inventory 004/005, throwing-catching 001, manual-delivery 001 (PR #14), player-character 013 (PR #13) and grid-inventory 006 (PR #16) Complete; grid-inventory 009 Complete (PR #20); grid-inventory 012 Complete (PR #21); grid-inventory 013 Complete (PR #26); grid-inventory 015 Complete (PR #27); grid-inventory 016 Complete (PR #29); grid-inventory 011 Complete (PR #30); grid-inventory 007 Complete (PR #31, open, not merged))
 Engine: Godot 4.7.1 pinned (the box has Godot 4.7.2 mono at `~/.local/bin/godot` — see HANDOFF.md), C# (.NET 8 Sim / net10.0 tests)
 Scope: M-1a slice (solo greybox: delivery + throwing)
 
@@ -10,7 +10,7 @@ Scope: M-1a slice (solo greybox: delivery + throwing)
 | [content-data](content-data/EPIC.md) | Foundation | Content & Data Definitions (incl. StatSheet) | design/gdd/content-data-definitions.md | 19 stories (17 Complete, 1 In Progress, 1 Ready) | Ready |
 | [input-controls](input-controls/EPIC.md) | Foundation | Input & Controls | design/gdd/input-controls.md | 29 stories (6 Complete, 22 Ready, 1 Blocked) | Ready |
 | [godot-host-shell](godot-host-shell/EPIC.md) | Foundation | Godot host shell (Presentation half of Simulation Core + Content & Data) | design/gdd/simulation-core.md, design/gdd/content-data-definitions.md | 11 stories (4 Complete, 7 Ready) | Ready |
-| [grid-inventory](grid-inventory/EPIC.md) | Core | Grid Inventory & Containers (M-1a: hotbar + own panel) | design/gdd/grid-inventory.md | 24 stories (12 Complete, 11 Ready, 1 Blocked) | Ready |
+| [grid-inventory](grid-inventory/EPIC.md) | Core | Grid Inventory & Containers (M-1a: hotbar + own panel) | design/gdd/grid-inventory.md | 24 stories (13 Complete, 10 Ready, 1 Blocked) | Ready |
 | [world-stub](world-stub/EPIC.md) | Core | World Generation — M-1a hand-authored street stub (`IWorldQuery`) | none (consumer GDDs + architecture.md Sim.World) | 7 stories (7 Complete) | Complete (Provisional — no GDD; ADR-0026 Accepted) |
 | [network-adapter-loopback](network-adapter-loopback/EPIC.md) | Core | Network adapter core — loopback (Networking & Session seam) | design/gdd/simulation-core.md §Network (no Networking GDD) | 9 stories (7 Complete, 2 Ready) | Ready |
 | [mail-destinations](mail-destinations/EPIC.md) | Feature | Mail & Destinations (M-1a slice) | design/gdd/mail-destinations.md | 16 stories (6 Complete, 10 Ready) | Ready |

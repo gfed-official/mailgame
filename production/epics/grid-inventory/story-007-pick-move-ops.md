@@ -1,12 +1,12 @@
 # Story 007: Pick and Move ops — whole-entry moves, cross-container atomicity, no-op moves
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~1 day)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (readiness fixes; H-R10-2 move leg taken from story 011; TD-105 item 3 built on the Mail Lead default `count 0 = whole` per Accepted ADR-0009 §1, pending Evan)
+> **Last Updated**: 2026-10-22 (Complete, PR #31; readiness fixes; H-R10-2 move leg taken from story 011; TD-105 item 3 built on the Mail Lead default `count 0 = whole` per Accepted ADR-0009 §1, pending Evan)
 
 ## Context
 
@@ -34,17 +34,17 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R1-2** — GIVEN an empty hotbar and an Axe on the cursor, WHEN `move {to: hotbar, x: 0}` → `reserved_slot`, Axe stays on the cursor, hotbar version unchanged; `move {x: 1}` → `ok`, Axe at slot 1.
-- [ ] **Pick** — `pick {from, entryId}` lifts the whole entry onto an **empty** cursor (`cursor_busy` otherwise, cursor and source unchanged); picking an entry outside the actor's open set → `not_open`.
-- [ ] **H-R4-1 a–f (op form)** — the story 006 arrangement (chest 8×4, Medium at (6,2), 4 letters to #3 at (0,0)) rebuilt in an op-driven rig and driven through `move` from the cursor: a → implicit merge, stack 6, cursor empty, chest +1; b `out_of_bounds`, c `blocked`, d `out_of_bounds`, e `blocked`, f `blocked`; every rejection leaves the chest version and the cursor unchanged.
-- [ ] **H-R4-2 a/b** — a: a Large at (0,0) moved to (1,0) (overlapping its own cells) → `ok`, version +1; b: a cross-container move of chest Medium E to inventory (6,0), where an Axe covers (6,0),(6,1) → `blocked`, entry unmoved, **both** versions unchanged.
-- [ ] **H-R4-3 a/b** — fixture: chest 8×4, A = 5 letters to #3 at (0,0). a: a drag-place of 2 cursor letters to #3 onto free (4,2) never merges (new entry at (4,2), A still 5, the chest bumps once, and the cursor once as the other touched container); b: `move {A → its own (0,0), rotated: false}` → `ok:true`, no version bump, no event.
-- [ ] **Precedence test, full placement chain (ADR-0009 Implementation Guidelines; moved from story 006 on 2026-10-21)** — a parametrised test sends a `move`/`place` request that violates each step of `bad_request → not_open → stale_entry → stale_layout → reserved_slot → out_of_bounds → not_carryable → not_allowed → blocked / stack_full` **and every later one** and asserts the earliest code (story 006 covers the rule-level suffix from `reserved_slot`); `bad_count` (count > total) sits right after `stale_entry`. The `reserved_slot` row runs on the hotbar with a non-cursor source (no 008 swap branch); `out_of_bounds` cannot co-occur on a slots layout (story 006 advisory), and grid defs cannot carry `reservedSlots`. Rows that need a `carryByHand: false` item or an `acceptsInsert: false` def use a custom `ContentSet` passed to `InvAutoPlaceRig(content:)`.
-- [ ] **H-R10-2 (move leg, from story 011)** — players A and B joined, A's inventory holds E: B's `move {from: A.inventory, entryId: E, to: B.inventory, x: 0, y: 0}` → `ok:false, not_open`, nothing changes; B's `pick {from: A.inventory, E}` → `not_open`; A's own move passes `not_open`. `not_open` checks both `from` and `to` (`IsInOpenSet`, story 011); an actor with no slot (System) has an empty open set.
-- [ ] **Rejects raise nothing (TD-105 item 5)** — every rejected `pick`/`move` leaves only the `OpReply` in the tick log (no record, no `InvVersion` seal), and a non-actor subscriber receives nothing.
-- [ ] **Count** — `count` 0 or `count == total` → whole move, the entry keeps its id; `count > total` → `bad_count`, nothing changes; `1 ≤ count < total` → `bad_count` until story 008 adds split-and-place (test marked "until 008").
-- [ ] **Indexes and weight** — after a chest → inventory move P rises by the entry's classPts, inventory → chest it falls, an in-container move leaves it unchanged; `CountItem` matches a recount.
-- [ ] **0 B** — a pick / move / no-op / reject cycle allocates 0 B per op after warm-up.
+- [x] **H-R1-2** — GIVEN an empty hotbar and an Axe on the cursor, WHEN `move {to: hotbar, x: 0}` → `reserved_slot`, Axe stays on the cursor, hotbar version unchanged; `move {x: 1}` → `ok`, Axe at slot 1.
+- [x] **Pick** — `pick {from, entryId}` lifts the whole entry onto an **empty** cursor (`cursor_busy` otherwise, cursor and source unchanged); picking an entry outside the actor's open set → `not_open`.
+- [x] **H-R4-1 a–f (op form)** — the story 006 arrangement (chest 8×4, Medium at (6,2), 4 letters to #3 at (0,0)) rebuilt in an op-driven rig and driven through `move` from the cursor: a → implicit merge, stack 6, cursor empty, chest +1; b `out_of_bounds`, c `blocked`, d `out_of_bounds`, e `blocked`, f `blocked`; every rejection leaves the chest version and the cursor unchanged.
+- [x] **H-R4-2 a/b** — a: a Large at (0,0) moved to (1,0) (overlapping its own cells) → `ok`, version +1; b: a cross-container move of chest Medium E to inventory (6,0), where an Axe covers (6,0),(6,1) → `blocked`, entry unmoved, **both** versions unchanged.
+- [x] **H-R4-3 a/b** — fixture: chest 8×4, A = 5 letters to #3 at (0,0). a: a drag-place of 2 cursor letters to #3 onto free (4,2) never merges (new entry at (4,2), A still 5, the chest bumps once, and the cursor once as the other touched container); b: `move {A → its own (0,0), rotated: false}` → `ok:true`, no version bump, no event.
+- [x] **Precedence test, full placement chain (ADR-0009 Implementation Guidelines; moved from story 006 on 2026-10-21)** — a parametrised test sends a `move`/`place` request that violates each step of `bad_request → not_open → stale_entry → stale_layout → reserved_slot → out_of_bounds → not_carryable → not_allowed → blocked / stack_full` **and every later one** and asserts the earliest code (story 006 covers the rule-level suffix from `reserved_slot`); `bad_count` (count > total) sits right after `stale_entry`. The `reserved_slot` row runs on the hotbar with a non-cursor source (no 008 swap branch); `out_of_bounds` cannot co-occur on a slots layout (story 006 advisory), and grid defs cannot carry `reservedSlots`. Rows that need a `carryByHand: false` item or an `acceptsInsert: false` def use a custom `ContentSet` passed to `InvAutoPlaceRig(content:)`.
+- [x] **H-R10-2 (move leg, from story 011)** — players A and B joined, A's inventory holds E: B's `move {from: A.inventory, entryId: E, to: B.inventory, x: 0, y: 0}` → `ok:false, not_open`, nothing changes; B's `pick {from: A.inventory, E}` → `not_open`; A's own move passes `not_open`. `not_open` checks both `from` and `to` (`IsInOpenSet`, story 011); an actor with no slot (System) has an empty open set.
+- [x] **Rejects raise nothing (TD-105 item 5)** — every rejected `pick`/`move` leaves only the `OpReply` in the tick log (no record, no `InvVersion` seal), and a non-actor subscriber receives nothing.
+- [x] **Count** — `count` 0 or `count == total` → whole move, the entry keeps its id; `count > total` → `bad_count`, nothing changes; `1 ≤ count < total` → `bad_count` until story 008 adds split-and-place (test marked "until 008").
+- [x] **Indexes and weight** — after a chest → inventory move P rises by the entry's classPts, inventory → chest it falls, an in-container move leaves it unchanged; `CountItem` matches a recount.
+- [x] **0 B** — a pick / move / no-op / reject cycle allocates 0 B per op after warm-up.
 
 ---
 
@@ -88,7 +88,7 @@
 - Logic: `tests/unit/inventory/PickMoveTests.cs` — must exist and pass
 - Allocation: `tests/unit/inventory/PickMoveAllocationTests.cs` — `AllocAssert.Zero` plus the every-build twin (pattern: `IntakeAllocationTests.cs`)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing (4 legs green: net10.0/net8.0 × Debug/Release)
 
 ---
 
@@ -96,3 +96,62 @@
 
 - Depends on: Story 004, Story 005, Story 006, Story 009 (`MergeInto`, StackKey index; Complete), Story 011 (open-set predicate, `Close` bound first)
 - Unlocks: Story 008, Story 010, Story 018
+
+---
+
+## Mail Lead planning defaults (pending Evan)
+
+These are **Mail Lead planning defaults, 2026-10-22, pending Evan's confirmation. None of them is an Evan ruling.** They are tracked in TD-150.
+
+1. `count = 0` and `count == total` both move the whole entry, which keeps its id. This follows Accepted ADR-0009 §1 (TD-105 item 3). `count > total` → `bad_count`. A GDD errata note is added at the edge cases; the GDD rule text is unchanged and the ADR is not edited.
+2. A partial-fit implicit merge moves `min(count, effMax − target.count)` units. The remainder stays at the source and keeps its id. A full target → `stack_full`.
+3. A cursor → chest move bumps both containers, once each. This settles the wording of H-R4-3 a.
+4. Existing behaviour from story 011, kept: on a full mail-id arena, a letter whose merge block can't be reserved stays on the cursor (`capacity_exhausted`), the same as AutoPlace and `TryInsert`.
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-10-22 (PR #31, branch `feat/grid-inventory-007`, base main `ffdf3c0`)
+**Criteria**: 11/11 passing.
+
+**Handlers**
+- `Ops/PickHandler.cs` and `Ops/MoveHandler.cs` each have an explicit, named pure `Validate` and a separate `Commit` that never fails, as ADR-0009's Implementation Guidelines require. They do not follow 011's single-method `ApplyClose`.
+- `Validate` touches both containers and, for a merge, reserves its block (`plan.AddAcquiredBlock`).
+- `Commit` applies `Transfer` or `MergeInto` exactly as planned.
+- `InvPlan` gains an `InvMerge` field. The size pinned in `AutoPlaceTests` grows from 568 B to 572 B.
+- Pick and Move are bound beside `Close`. `InventorySystem.ActorSlot` now serves all three handlers.
+
+**Reason chains**
+- Pick: `bad_request → not_open → stale_entry → cursor_busy`.
+- Move: `bad_request → not_open → stale_entry → bad_count → stale_layout → reserved_slot → out_of_bounds → not_carryable → not_allowed → blocked / stack_full`, plus `capacity_exhausted` when a merge can't reserve its arena block.
+- `not_open` checks both `from` and `to`. Pick checks `from` and the actor's cursor.
+
+**Implementation choices beyond the defaults**
+- An entry count can't exceed 255, so merge room is capped there. A target already at 255 gets `stack_full`.
+- Picking the cursor's own entry gets `cursor_busy`.
+- `container_gone` stays unreachable at M-1a: a dead id fails `not_open` first.
+
+**Test rig**
+- `InventoryWithStubOps` now skips Pick, Move and Close. The malformed-op fuzz counts stub calls and real-handler calls exactly.
+- The Pick and Move rows left `ValidCases`. Unplaced-entry expectations became `stale_entry`.
+
+**New tests: 47 methods, 195 cases**
+- `PickMoveTests`: 45 methods, 193 cases. `PickMoveAllocationTests`: 2.
+- Every core theory runs from slot 0 and from slot 1.
+- Boundaries tested:
+  - count 0, 1, total−1, total, total+1 and 255;
+  - merge room exactly full, one short and one over, including the 255 cap;
+  - `stale_layout` at n−1 and n.
+- Every reject asserts the full side-effect snapshot:
+  - no record and no seal;
+  - headers, occupancy and entries;
+  - the arena, the check ring and the id allocators;
+  - the negative-fit cache;
+  - P and `CountItem`.
+- The suite grew from 5394 to 5586 (+192). Slice 1 removed one `InvMalformedOpTests` fact and the two Pick/Move `ValidCases` rows.
+
+**Code review** (`/code-review`, Sonnet): APPROVE, no blocking findings. Advisories not fixed here:
+1. R7 (l.103) has no pointer to the errata note at l.344.
+2. `MoveHandler` passes `wholeMove: true` on cross-container moves, but the `PlacementRules` doc says "in-container". This is harmless.
+3. The 572 B `InvPlan` size is pinned by a test.
