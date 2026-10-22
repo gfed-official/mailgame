@@ -1242,7 +1242,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <inheritdoc />
     /// <remarks>
-    /// The tick guard; the entry's checks (a known mail kind, 1 to 255 strictly ascending real ids); then the arena (a dry
+    /// The tick guard; the entry's checks (a known mail kind, 1 to 255 strictly ascending real ids, no more than the kind's effective
+    /// maxStack, <c>MailMaxStack</c>: the drain places an entry whole, so a larger one could never leave; Mail Lead planning default
+    /// pending Evan, TD-157 item 2); then the arena (a dry
     /// <see cref="MailIdArena.CanReserve(int)"/>; on refusal the real acquire runs only to write its always-on record and fails with
     /// nothing taken) and the entry pool (<see cref="EntryPool.TryAllocate"/>, which writes its own record on refusal), so a refusal
     /// mutates nothing; then the block, the entry's StackKey fields and the append, in one call scope raising <c>BacklogUnits</c>.
@@ -1256,6 +1258,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         ReadOnlySpan<MailId> ids = e.Ids;
         if (e.MailKind.IsNone || e.MailKind.Value >= _content.MailKinds.Count || !IsWellFormedIds(ids))
+        {
+            return false;
+        }
+
+        // More ids than the kind's effective maxStack could never drain: the drain places an entry whole, NoMerge (review r1).
+        PlacementSubject subject = PlacementSubject.ForMail(_content.MailKinds[e.MailKind], e.MailKind, e.AddressId, e.Flags, _stats);
+        if (ids.Length > subject.EffMax)
         {
             return false;
         }
@@ -1285,7 +1294,6 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return false;
         }
 
-        PlacementSubject subject = PlacementSubject.ForMail(_content.MailKinds[e.MailKind], e.MailKind, e.AddressId, e.Flags, _stats);
         entry.IsMail = true;
         entry.MailKind = e.MailKind.Value;
         entry.AddressId = e.AddressId;

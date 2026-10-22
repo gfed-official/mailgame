@@ -33,7 +33,7 @@ public sealed class IntakeDrainTests
         uint lastId = rig.Entries.LastId;
 
         // Act
-        bool ok = Append(rig, "small", Address9, 30, 31, 32);
+        bool ok = Append(rig, "letter", Address9, 30, 31, 32);
         EventEntry[] log = rig.Sink.Last;
 
         // Assert: one new detached count-3 entry with the StackKey and ids, at the tail; units 4, entries 2; one BacklogUnits record
@@ -44,10 +44,10 @@ public sealed class IntakeDrainTests
         Assert.Equal(lastId + 1, rig.Entries[tail].Id.Value);
         Assert.Equal(EntryRecord.NoContainer, rig.Entries[tail].ContainerSlot);
         Assert.Equal(3, rig.Entries[tail].Count);
-        Assert.Equal(rig.KindIndex("small").Value, rig.Entries[tail].MailKind);
+        Assert.Equal(rig.KindIndex("letter").Value, rig.Entries[tail].MailKind);
         Assert.Equal(Address9, rig.Entries[tail].AddressId);
         Assert.Equal(1, rig.Entries[tail].W);
-        Assert.Equal(2, rig.Entries[tail].H);
+        Assert.Equal(1, rig.Entries[tail].H);
         Assert.Equal(new uint[] { 30, 31, 32 }, rig.IdsOf(tail));
         Assert.Equal(version, rig.Header(rig.Intake).Version);
         EventEntry record = Assert.Single(log, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
@@ -58,7 +58,10 @@ public sealed class IntakeDrainTests
         Assert.Equal(2, p.Entries);
     }
 
-    public static TheoryData<string> Malformed => new() { "none-kind", "unknown-kind", "no-ids", "256-ids", "not-ascending", "duplicate", "none-id" };
+    public static TheoryData<string> Malformed => new()
+    {
+        "none-kind", "unknown-kind", "no-ids", "256-ids", "not-ascending", "duplicate", "none-id", "small-2-ids-over-max-stack-1", "letter-21-ids-over-max-stack-20",
+    };
 
     [Theory]
     [MemberData(nameof(Malformed))]
@@ -78,7 +81,9 @@ public sealed class IntakeDrainTests
             "256-ids" => (letter, IntakeSpawnOutfeedTests.Mail(InvAutoPlaceRig.Ids(1, 256))),
             "not-ascending" => (letter, IntakeSpawnOutfeedTests.Mail(5, 4)),
             "duplicate" => (letter, IntakeSpawnOutfeedTests.Mail(5, 5)),
-            _ => (letter, new[] { MailId.None, new MailId(2) }),
+            "none-id" => (letter, new[] { MailId.None, new MailId(2) }),
+            "small-2-ids-over-max-stack-1" => (rig.KindIndex("small"), IntakeSpawnOutfeedTests.Mail(5, 6)), // could never drain whole
+            _ => (letter, IntakeSpawnOutfeedTests.Mail(InvAutoPlaceRig.Ids(1, 21))),
         };
 
         // Act
@@ -146,8 +151,8 @@ public sealed class IntakeDrainTests
     [Fact]
     public void AppendBacklog_AnArenaRefusal_IsRefused_WithTheArenaRecord_AndNothingMutated()
     {
-        // Arrange: the smallest arena, its blocks taken until a 255-unit block no longer fits
-        var rig = new InvAutoPlaceRig(mailIdArenaUnits: 1024);
+        // Arrange: letter maxStack 255 (so only the arena refuses); the smallest arena, its blocks taken until a 255-unit block no longer fits
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: 1024, content: BacklogUnitsTests.LetterMaxStack255Content());
         for (uint first = 100_000; rig.Inventory.MailIds.CanReserve(255); first += 1_000)
         {
             Assert.True(rig.Inventory.MailIds.TryCreate(InvAutoPlaceRig.Ids(first, 255), 0, out _));
@@ -613,7 +618,7 @@ public sealed class IntakeDrainTests
             var rig = new InvAutoPlaceRig();
             IntakeSpawnOutfeedTests.FillIntake(rig, 320, 1_000);
             Assert.True(Append(rig, "letter", Address4, 50));
-            Assert.True(Append(rig, "large", Address9, 60, 61));
+            Assert.True(Append(rig, "letter", Address9, 60, 61));
             Assert.True(Append(rig, "small", Address4, 70));
             _ = Tick(rig);
             _ = Tick(rig);
