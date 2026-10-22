@@ -1,7 +1,7 @@
 # Story 010: QuickMove (entry form), Return, and the R9 quick_move target order
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M–L (~1–1.5 days)
@@ -34,15 +34,15 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R9-1 (M-1a rows)** — every container has space: inventory with an external open → external only; inventory, no external → hotbar; hotbar, no external → inventory; from an external: Axe → hotbar, Plank → inventory, letter → inventory; inventory with the external open but full → `no_room` (no fallback). The external for the item rows is an ownerless 8×4 `player_inventory`-def grid opened with `TryOpenExternal` (`InvAutoPlaceRig.CreateGrid` + the `OpenChest` helper): `po_intake` is mail-only and outfeed-only, so it cannot hold an Axe or a Plank. The letter rows also run against the Intake: a letter from the inventory with the Intake open → Intake, inserted NoMerge and stamped with a new `arrivalSeq`; an Axe from the inventory with the Intake open → `not_allowed`, no fallback. Every container not named stays unchanged (entry count and version). (Backpack rows apply once the backpack exists, M-1b.)
-- [ ] **H-R6-1 d** — A = letters `[4, 9, 15, 21, 30]` to #5 in the open chest; the inventory is full and the only room in the panel is one unit in a hotbar stack to #5 (19/20). `quick_move {A, count 0}` → exactly one unit, mailId 4 (the lowest), merges into the hotbar stack (19 → 20, ascending, no duplicate); A keeps its entryId and cells with `[9, 15, 21, 30]`; reply `ok` with requested 5 / got 1; chest +1 and hotbar +1, inventory and cursor unchanged. A second `quick_move {A}` → `no_room`, nothing changes.
-- [ ] **H-R7-9** — entry E picked from an external at (2,1): `return` with (2,1) still free → E back at (2,1), same entryId, chest +1 and cursor +1 (one bump per touched container, TD-150 item 3); with (2,1) filled meanwhile → E AutoPlaced into the panel; with the panel also full → `no_room`, E stays on the cursor; `return` never creates a WorldItem.
-- [ ] A `quick_move` naming an entry outside the actor's open set → `not_open`; `return` with an empty cursor → `cursor_empty`.
-- [ ] **QuickMove count and precedence** — `count` 0 or `== total` → the whole entry; `1 ≤ count < total` (stackables) → the k oldest units are split off and AutoPlaced; `count > total` → `bad_count`. Non-stackables are all-or-nothing (a Large with no 2×4 room in any target → `no_room`, nothing moved). Chain: `bad_request → not_open (from) → stale_entry → bad_count → not_carryable → not_allowed → no_room → capacity_exhausted`; `capacity_exhausted` is ADR-0009 §2 code 85; an arena refusal leaves the entry where it is (Mail Lead planning default pending Evan, TD-153; it follows the pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers only a leashed letter staying on the cursor when the mail-id arena is full, even with a free cell). The chain order is a Mail Lead default (TD-153). A parametrised test asserts the earliest code.
-- [ ] **Return fallbacks** — the origin leg runs only if an origin is recorded for the cursor's entry and its container is live and in the actor's open set; a free fit places the whole entry, a mergeable stack takes `min(count, room)`; anything else (blocked, full, not open) falls through to the panel leg (`TargetOrder.CursorRow`, merge pass first), never a reject. A remainder stays on the cursor; `ok` if any unit moved, else `no_room`. The WorldItem count never changes.
-- [ ] **Rejects raise nothing (TD-105 item 5)** — every rejected `quick_move`/`return` leaves only the `OpReply` (no record, no seal).
-- [ ] **Versions, weight, indexes** — each container that changed bumps exactly +1 (source and each target that received units), others unchanged; a chest → panel quick_move raises the owner's P by the moved entries' classPts; `CountItem` and the StackKey index match a recount.
-- [ ] **0 B** — a quick_move / return / reject cycle allocates 0 B per op after warm-up.
+- [x] **H-R9-1 (M-1a rows)** — every container has space: inventory with an external open → external only; inventory, no external → hotbar; hotbar, no external → inventory; from an external: Axe → hotbar, Plank → inventory, letter → inventory; inventory with the external open but full → `no_room` (no fallback). The external for the item rows is an ownerless 8×4 `player_inventory`-def grid opened with `TryOpenExternal` (`InvAutoPlaceRig.CreateGrid` + the `OpenChest` helper): `po_intake` is mail-only and outfeed-only, so it cannot hold an Axe or a Plank. The letter rows also run against the Intake: a letter from the inventory with the Intake open → Intake, inserted NoMerge and stamped with a new `arrivalSeq`; an Axe from the inventory with the Intake open → `not_allowed`, no fallback. Every container not named stays unchanged (entry count and version). (Backpack rows apply once the backpack exists, M-1b.)
+- [x] **H-R6-1 d** — A = letters `[4, 9, 15, 21, 30]` to #5 in the open chest; the inventory is full and the only room in the panel is one unit in a hotbar stack to #5 (19/20). `quick_move {A, count 0}` → exactly one unit, mailId 4 (the lowest), merges into the hotbar stack (19 → 20, ascending, no duplicate); A keeps its entryId and cells with `[9, 15, 21, 30]`; reply `ok` with requested 5 / got 1; chest +1 and hotbar +1, inventory and cursor unchanged. A second `quick_move {A}` → `no_room`, nothing changes.
+- [x] **H-R7-9** — entry E picked from an external at (2,1): `return` with (2,1) still free → E back at (2,1), same entryId, chest +1 and cursor +1 (one bump per touched container, TD-150 item 3); with (2,1) filled meanwhile → E AutoPlaced into the panel; with the panel also full → `no_room`, E stays on the cursor; `return` never creates a WorldItem.
+- [x] A `quick_move` naming an entry outside the actor's open set → `not_open`; `return` with an empty cursor → `cursor_empty`.
+- [x] **QuickMove count and precedence** — `count` 0 or `== total` → the whole entry; `1 ≤ count < total` (stackables) → the k oldest units are split off and AutoPlaced; `count > total` → `bad_count`. Non-stackables are all-or-nothing (a Large with no 2×4 room in any target → `no_room`, nothing moved). Chain: `bad_request → not_open (from) → stale_entry → bad_count → not_carryable → not_allowed → no_room → capacity_exhausted`; `capacity_exhausted` is ADR-0009 §2 code 85; an arena refusal leaves the entry where it is (Mail Lead planning default pending Evan, TD-153; it follows the pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers only a leashed letter staying on the cursor when the mail-id arena is full, even with a free cell). The chain order is a Mail Lead default (TD-153). A parametrised test asserts the earliest code.
+- [x] **Return fallbacks** — the origin leg runs only if an origin is recorded for the cursor's entry and its container is live and in the actor's open set; a free fit places the whole entry, a mergeable stack takes `min(count, room)`; anything else (blocked, full, not open) falls through to the panel leg (`TargetOrder.CursorRow`, merge pass first), never a reject. A remainder stays on the cursor; `ok` if any unit moved, else `no_room`. The WorldItem count never changes.
+- [x] **Rejects raise nothing (TD-105 item 5)** — every rejected `quick_move`/`return` leaves only the `OpReply` (no record, no seal).
+- [x] **Versions, weight, indexes** — each container that changed bumps exactly +1 (source and each target that received units), others unchanged; a chest → panel quick_move raises the owner's P by the moved entries' classPts; `CountItem` and the StackKey index match a recount.
+- [x] **0 B** — a quick_move / return / reject cycle allocates 0 B per op after warm-up.
 
 ---
 
@@ -83,7 +83,39 @@
 - Logic: `tests/unit/inventory/QuickMoveReturnTests.cs` — must exist and pass
 - Allocation: `tests/unit/inventory/QuickMoveReturnAllocationTests.cs` — `AllocAssert.Zero` plus the every-build twin (pattern: `PickMoveAllocationTests.cs`)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created; green on the current tree (head 18cc838) — net10.0 and net8.0, Debug and Release, 6,023 tests each, 0 failed (Debug 5,968 passed / 55 skipped; Release 6,020 passed / 3 skipped, the skips including the Release-only 0 B tests, which pass in Release); 0 build warnings; tools/ci guards pass. Evidence supplied by the run owner; `/story-done` did not run the suite.
+Files:
+- `tests/unit/inventory/QuickMoveReturnTests.cs` (origin, R9 rows, H-R9-1, H-R6-1 d, count, precedence, rejects raise nothing, versions/weight/indexes, H-R7-9, Return fallbacks)
+- `tests/unit/inventory/QuickMoveReturnAllocationTests.cs` (`AllocAssert.Zero` plus the every-build twin)
+- `tests/unit/inventory/InvMalformedOpTests.cs` (`BoundBySystem` now holds QuickMove and Return)
+- `tests/unit/inventory/MoveSplitMergeTests.cs` (shared `SideEffects` incl. CursorOrigin; Move union-block and mail-255 tests)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-10-22 — PR #33 (draft, open, not merged), head 18cc838. The interactive lead-programmer gate was skipped: the review already ran (Sonnet `/code-review` 3e29e00..a75d131).
+
+**Credit**: Evan's 2026-10-22 5:11 AM PT ruling covers only that a leashed letter stays on the cursor when the mail-id arena is full, even with a free cell. Everything below is a Mail Lead planning default pending Evan (TD-153) unless it cites the ADR/GDD line that states it.
+
+**Defaults pending Evan (TD-153)**:
+- `count > total` → `bad_count`; `count` 0 or `== total` is the whole entry (the 0 = whole form is ADR-0009 l.347's erratum).
+- QuickMove chain order `bad_request → not_open → stale_entry → bad_count → not_carryable → not_allowed → no_room → capacity_exhausted`. Only `not_allowed` before `no_room` is stated (GDD R8 l.115).
+- A QuickMove/Return arena refusal leaves the entry where it is (by analogy with the 5:11 ruling, not covered by it).
+- Return: the origin leg falls through to the panel leg on any blocked/full/not-open/gone origin and never answers `not_open`; `blocked`/`stack_full` stay declared but unreachable; the Return chain position of `cursor_empty` and `capacity_exhausted`.
+- A partial origin merge continues into the panel leg in the same op (`AutoPlace.PlanRemainder`); the remainder stays on the cursor; reply `ok`.
+- Return's origin leg never merges into an Intake stack (GDD R14 l.141 states Intake NoMerge); the panel leg maps any AutoPlace refusal with nothing moved to `no_room`.
+- `TargetOrder.QuickMoveRow` only; story 014 adds pickup/catch rows.
+
+**Review findings and handling** (Sonnet `/code-review`, fixed in slice 3, 18cc838):
+- B1 (blocking citation): QuickMove chain positions relabelled Mail Lead default (TD-153) by analogy with the placement chain.
+- A2: `count` 0 = whole cited to the ADR-0009 l.347 erratum. A6: Return origin-leg position after `cursor_empty` relabelled a Lead default.
+- T1–T4 (test gaps): partial quick_move union + new block arena boundary; MaxRealId pre-check; Return to a free Intake origin (NoMerge, new arrivalSeq); `CursorOrigin` in `MoveSplitMergeTests.SideEffects`. The Move union-block mutant (`targetCount + units` → `targetCount`) was re-run and killed on slots 0 and 1.
+- Advisories kept as notes: `container_gone` is declared but unreachable on QuickMove (as Pick/Move, TD-152/TD-153); Return's panel-leg `no_room` mapping (TD-153); `Validate` length is comparable to `MoveHandler`.
+
+**Untested criteria**: none.
+
+**Cursor origin**: not yet in the canonical dump (story 017).
 
 ---
 
