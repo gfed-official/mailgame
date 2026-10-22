@@ -16,6 +16,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// </example>
 public sealed record class InventorySettings
 {
+    private readonly uint _entryInitialLastId;
+
     /// <summary>Container table slots. Key <c>inventory.containerCapacity</c>, default 64.</summary>
     public required int ContainerCapacity { get; init; }
 
@@ -44,6 +46,28 @@ public sealed record class InventorySettings
     public required int WeightSpeedFloor { get; init; }
 
     /// <summary>
+    /// The last entry id already issued when the world is built, so the first new id is this + 1 (ADR-0004 section 3: entry ids only
+    /// rise and are never reused). Not a balance key: 0 (the default) for a fresh run. Internal: no save/resume path sets it yet; the
+    /// story 008 tests set it near <see cref="Storage.EntryPool.MaxRealId"/> to reach id exhaustion without issuing two billion ids. It
+    /// must be identical on every peer, or entry ids diverge. Checked when set (including through <c>with</c>), so a value above
+    /// <see cref="Storage.EntryPool.MaxRealId"/> fails as a build error before <see cref="Storage.EntryPool"/>'s constructor sees it.
+    /// </summary>
+    /// <exception cref="SimBuildException"><c>InventorySettingsInvalid</c>: the value is above <see cref="Storage.EntryPool.MaxRealId"/>.</exception>
+    internal uint EntryInitialLastId
+    {
+        get => _entryInitialLastId;
+        init
+        {
+            if (value > Storage.EntryPool.MaxRealId)
+            {
+                throw new SimBuildException(SimBuildErrorCode.InventorySettingsInvalid, $"EntryInitialLastId must be at most {Storage.EntryPool.MaxRealId}.");
+            }
+
+            _entryInitialLastId = value;
+        }
+    }
+
+    /// <summary>
     /// Nodes in the shared outfeed FIFO pool (story 012; Planner R7): derived, <c>2 x</c> <see cref="EntryPoolCapacity"/> (16,384 by
     /// default), not a balance key. Compaction keeps each outfeed's tombstones at or below its live entries, so all outfeeds together
     /// hold at most twice the live entries and the pool never runs out.
@@ -54,7 +78,7 @@ public sealed record class InventorySettings
     /// <param name="balance">The content set's <c>inventory.*</c> record.</param>
     /// <returns>The settings.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="balance"/> is null.</exception>
-    /// <exception cref="SimBuildException"><c>InventorySettingsInvalid</c>: a capacity below 1, the container or entry capacity above 65,535 (slots are <c>ushort</c>), or an arena budget below 1024 units.</exception>
+    /// <exception cref="SimBuildException"><c>InventorySettingsInvalid</c>: a capacity below 1, the container or entry capacity above 65,535 (slots are <c>ushort</c>), or an arena budget below 1024 units. <see cref="EntryInitialLastId"/> is not a balance key (0 here); its own setter rejects a value above <see cref="Storage.EntryPool.MaxRealId"/>.</exception>
     public static InventorySettings FromBalance(InventoryBalance balance)
     {
         ArgumentNullException.ThrowIfNull(balance);

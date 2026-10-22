@@ -17,8 +17,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// entry or occupancy state. One call is bracketed by <see cref="Begin"/> and <see cref="End"/> over the call's <see cref="InvPlan"/>:
 /// <list type="number">
 /// <item>the primitives (<see cref="Place"/>, <see cref="Remove"/>, <see cref="Transfer"/>, the count changes <see cref="MergeInto"/>
-/// (story 009), <see cref="TakeOldest"/> (story 012, which story 015's <c>ConsumeUnit</c> reuses) and <see cref="MergeUnitInto"/>
-/// (story 015's <c>TryInsert</c>), and
+/// (story 009), <see cref="TakeOldest"/> (story 012, which story 015's <c>ConsumeUnit</c> reuses), <see cref="MergeUnitInto"/>
+/// (story 015's <c>TryInsert</c>) and <see cref="SplitAndPlace"/> (story 008's split-and-place, raising <c>InvSplitFrom</c>), and
 /// <see cref="DestroyDetached"/> (story 013)) apply the change at
 /// once and raise its <b>records</b> (<c>InvInserted</c> / <c>InvMerged</c> + mailId-run <c>Continuation</c> chunks, <c>InvRemoved</c>,
 /// <c>InvMoved</c>), each with the container's audience resolved now, and mark the (already touched, see <see cref="InvPlan"/>)
@@ -73,6 +73,7 @@ internal sealed class InventoryMutator
     private readonly ISlotView? _slots;
     private readonly Weight _weight;
     private readonly uint[] _movedIds = new uint[MailIdArena.MaxUnits];
+    private readonly uint[] _splitIds = new uint[MailIdArena.MaxUnits];
 
     /// <summary>Creates the mutator over the module's storage.</summary>
     /// <param name="containers">The container table.</param>
@@ -544,6 +545,83 @@ internal sealed class InventoryMutator
         _ = _events.TryRaise(InvEventKinds.Removed, AudienceOf(containerSlot), in removed);
         LinkIfNonFull(entrySlot);
         return k;
+    }
+
+    /// <summary>
+    /// The split primitive (story grid-inventory/008: a <c>move</c> with <c>1 ≤ count &lt; total</c>, GDD R7 move row "atomic
+    /// split-and-place (new piece gets a new entryId; remainder keeps the old)"): splits the <paramref name="k"/> <b>oldest</b> units
+    /// of a placed entry off into a new entry placed at (<paramref name="x"/>, <paramref name="y"/>, <paramref name="rotated"/>) of
+    /// <paramref name="toSlot"/>. In order: the new entry is allocated (<see cref="EntryPool.TryAllocate"/>: the id is allocated here,
+    /// in <c>Commit</c>, never in <c>Validate</c>, ADR-0009 section 2) with the source's key and footprint; for mail its block is
+    /// created from the k lowest mailIds (<see cref="MailIdArena.TryCreate"/>) <b>before</b> they are taken, the order
+    /// <see cref="MergeInto"/> uses, so the take's re-home cannot claim the class <c>Validate</c> reserved; <see cref="TakeOldest"/>
+    /// takes them (mail and items; <c>InvRemoved{source container, source, k}</c>, R6); <c>InvSplitFrom{source container, source,
+    /// new, k}</c> is raised to the source container's audience; then <see cref="Place"/> places the new entry (<c>InvInserted</c>
+    /// plus its runs). The remainder keeps its id, position and <c>arrivalSeq</c>. Weight, the StackKey index and the item counts
+    /// follow from <see cref="TakeOldest"/> and <see cref="Place"/>: the new entry adds its class points to the destination owner's P
+    /// (PerEntry, even inside one container). Both containers must already be touched. Validate pre-checks the entry pool and the
+    /// arena reservation, so the two acquisitions cannot fail; if one does (unreachable), the pool or the arena has written its check
+    /// record and this returns false with nothing placed (an entry allocated before an arena refusal is freed; its id stays spent,
+    /// ADR-0004). An invalid split (a free or unplaced source, <paramref name="k"/> outside 1 to the count − 1, a mail run shorter than
+    /// <paramref name="k"/>) asserts <see cref="SimAssertCode.InventoryTakeInvalid"/> under <c>INVENTORY_ASSERT</c>; Release changes
+    /// nothing. Allocation-free (a preallocated id buffer). The ledger crossing is story 017's hook.
+    /// </summary>
+    /// <param name="plan">The call's plan.</param>
+    /// <param name="sourceSlot">The placed source entry's pool slot.</param>
+    /// <param name="k">How many units are split off, 1 to the source's count − 1.</param>
+    /// <param name="toSlot">The destination's table slot (may be the source's container).</param>
+    /// <param name="x">Top-left column.</param>
+    /// <param name="y">Top-left row.</param>
+    /// <param name="rotated">The rotation.</param>
+    /// <param name="tick">The current tick (for the pool's and the arena's check records).</param>
+    /// <returns>True when the new entry was placed.</returns>
+    public bool SplitAndPlace(ref InvPlan plan, ushort sourceSlot, int k, ushort toSlot, byte x, byte y, bool rotated, uint tick)
+    {
+        ref EntryRecord src = ref _entries[sourceSlot];
+        bool valid = src.IsLive && src.ContainerSlot != EntryRecord.NoContainer && k >= 1 && k < src.Count
+            && (!src.IsMail || src.MailIds.Count >= k);
+        InventoryAssert.That(valid, SimAssertCode.InventoryTakeInvalid);
+        if (!valid)
+        {
+            return false;
+        }
+
+        ushort from = src.ContainerSlot;
+        if (!plan.EnsureTouched(from) || !plan.EnsureTouched(toSlot))
+        {
+            return false; // Release: Validate broke the touch contract and the set is full, so nothing is changed unsealed
+        }
+
+        if (!_entries.TryAllocate(tick, out ushort pieceSlot, out EntryId pieceId))
+        {
+            return false; // unreachable after Validate's pool pre-check; the pool wrote its check record
+        }
+
+        ref EntryRecord piece = ref _entries[pieceSlot];
+        Span<uint> ids = _splitIds.AsSpan(0, src.IsMail ? k : 0);
+        if (src.IsMail)
+        {
+            _mailIds.Read(in src.MailIds)[..k].CopyTo(ids);
+            if (!_mailIds.TryCreate(ids, tick, out piece.MailIds))
+            {
+                _entries.Free(pieceSlot); // unreachable after Validate's reservation; the arena wrote its exhaustion record
+                return false;
+            }
+        }
+
+        piece.IsMail = src.IsMail;
+        piece.MailKind = src.MailKind;
+        piece.ItemId = src.ItemId;
+        piece.AddressId = src.AddressId;
+        piece.Flags = src.Flags;
+        piece.W = src.W;
+        piece.H = src.H;
+        _entries.SetCount(pieceSlot, (byte)k);
+        _ = TakeOldest(ref plan, sourceSlot, k, ids); // k < count: the source stays, with its id and position
+        var split = new InvSplitFromPayload { Container = _containers[from].Id.Value, EntryId = src.Id.Value, NewEntryId = pieceId.Value, Count = (byte)k };
+        _ = _events.TryRaise(InvEventKinds.SplitFrom, AudienceOf(from), in split);
+        Place(ref plan, pieceSlot, toSlot, x, y, rotated);
+        return true;
     }
 
     /// <summary>
