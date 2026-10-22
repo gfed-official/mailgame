@@ -317,8 +317,8 @@ public class ContainerCatalogueTests
     /// <summary>One container record of the Inventory dump section (ADR-0006 section 4 fixed widths, little-endian): 28 bytes (story 012 added <c>nextArrivalSeq</c> after <c>statEpoch</c>).</summary>
     private const int DumpRecordBytes = 4 + 2 + 2 + 2 + 1 + 4 + 4 + 4 + 4 + 1;
 
-    /// <summary>Story 013's WorldItem trailer with no WorldItem and no tombstone: worldSeq, live count, five FIFO counts, tombstone count.</summary>
-    private const int EmptyWorldItemTrailerBytes = 4 + 4 + (5 * 4) + 4;
+    /// <summary>Story 013's WorldItem trailer with no WorldItem and no tombstone: worldSeq, live count, five FIFO counts, tombstone count; then story 021's empty backlog ring count.</summary>
+    private const int EmptyWorldItemTrailerBytes = 4 + 4 + (5 * 4) + 4 + 4;
 
     /// <summary>The payload of the section with id <paramref name="id"/> in a whole-world dump (header, then id u16 / length u32 / payload).</summary>
     private static byte[] Section(byte[] dump, ushort id)

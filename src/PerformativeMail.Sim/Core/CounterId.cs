@@ -156,7 +156,7 @@ public enum CounterId : ushort
     /// <summary>Inventory WorldItem cap eviction: one per candidate visit = one expiry-FIFO node inspected by the eviction path (GDD H-PERF-6d; ADR-0009 section 5): a head read that was not already verified since it last changed, and each stale tombstone popped on the way. A head the <c>ItemsExpire</c> pass or an earlier eviction already verified is not read again and counts nothing; comparing two known heads counts nothing (story grid-inventory/013; key <c>inventoryWorldItemCapCandidates</c>). A probe counter (H-PERF-6d: at most items created + 1 per tick), compiled into Release, not in the canonical dump.</summary>
     InventoryWorldItemCapCandidates = 46,
 
-    /// <summary>Inventory WorldItem: a mail WorldItem due to return to the Intake (expiry, water float or cap eviction) could not, because the Intake has no room or is not accepting; it was kept, nothing lost, and is retried on the next <c>ItemsExpire</c> (interim rule until story grid-inventory/021's backlog; one per failed attempt, a repeat against the same Intake version in the same tick is not attempted; key <c>inventoryWorldItemReturnRetries</c>).</summary>
+    /// <summary>Retired by story grid-inventory/021 (TD-138): no longer incremented. It counted story 013's interim rule (a mail WorldItem due to return to a full or not-accepting Intake was kept and retried); the backlog now takes such an entry, so a mail WorldItem always leaves. The append-only id stays pinned and is never reused (key <c>inventoryWorldItemReturnRetries</c>).</summary>
     InventoryWorldItemReturnRetries = 47,
 
     /// <summary>Inventory WorldItem: a creation left the live WorldItem count over <c>inventory.worldItemCap</c> because no eviction candidate qualified (GDD R12 <c>worldItemCapExceeded</c>; one per such creation; the first one of an episode also writes <c>CheckCode.InventoryWorldItemCapExceeded</c>; key <c>inventoryWorldItemCapExceeded</c>).</summary>
@@ -164,4 +164,7 @@ public enum CounterId : ushort
 
     /// <summary>Inventory <c>CountItem</c>: one per table slot read in the per-container <c>itemId → units</c> map (GDD R17 "never a scan", H-R17-1; ADR-0009 section 5; story grid-inventory/015; key <c>inventoryItemCountProbes</c>): a hit counts the slots up to and including its key, a miss up to and including the empty slot that ends it. Depends on the map's collisions, never on how many entries a container holds. A probe counter, compiled into Release, not in the canonical dump.</summary>
     InventoryItemCountProbes = 49,
+
+    /// <summary>Inventory <c>IntakeDrain</c>: one per backlog ring node read by a drain pass (the H-PERF-6d visit unit; story grid-inventory/021; key <c>inventoryBacklogVisits</c>). A candidate visit under ADR-0009 l.232, so H-PERF-6c's drain gate counts it with the placement probes (<c>inventoryPlacementProbes</c> + merge candidates + these visits at most 8,500 per pass); kept as its own counter for diagnostics, with a second test gate of at most entries walked + 1 per pass (TD-157 item 4). An idle pass (empty backlog, full Intake, or no change since the last pass) reads no node. A probe counter, compiled into Release, not in the canonical dump.</summary>
+    InventoryBacklogVisits = 50,
 }

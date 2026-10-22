@@ -3,6 +3,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Geometry;
+using PerformativeMail.Sim.Inventory.Backlog;
 using PerformativeMail.Sim.Inventory.Events;
 using PerformativeMail.Sim.Inventory.Intake;
 using PerformativeMail.Sim.Inventory.Ops;
@@ -21,8 +22,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// calls <see cref="IPlayerJoinListener"/>. A leave keeps the containers (disconnect handling is M0) and a rejoin of the same slot reuses
 /// them. Container dimensions are instance state: the def's width and <c>IStatSheet.Read(InventoryRows)</c> rows.
 /// <para>
-/// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the still
-/// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
+/// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the
+/// <c>IntakeDrain</c> phase (the backlog drain, story 021: <see cref="DrainBacklog"/>), a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
 /// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>), <c>Merge</c> (story 008),
 /// <c>QuickMove</c> and <c>Return</c> (story 010; <see cref="QuickMoveHandler"/>, <see cref="ReturnHandler"/>) and <c>Close</c> (story
 /// 011); the other kinds' handlers are story 019's. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
@@ -37,7 +38,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// <see cref="Spawn"/>, <see cref="PeekOutfeed"/>, <see cref="TakeUnit"/>, <see cref="CreateWorldItem"/> (story 013),
 /// <see cref="ConsumeUnit"/>, <see cref="DetachForThrow"/>, <see cref="TryInsert"/> and <see cref="CountItem"/> (story 015),
 /// <see cref="WeightPoints"/> and <see cref="SpeedPermille"/> (story 016), plus the
-/// internal <see cref="ReturnToIntake"/> (callers story 013 and the backlog, story 021). The mutating calls check the tick guard (<see cref="TickGuard"/>, through the injected
+/// internal <see cref="ReturnToIntake"/> (callers story 013, with story 021's backlog branch), and <see cref="AppendBacklog"/>,
+/// <see cref="BacklogUnits"/> and <see cref="BacklogEntries"/> (story 021: the Intake backlog, <see cref="Backlog"/>). The mutating calls check the tick guard (<see cref="TickGuard"/>, through the injected
 /// <see cref="ITickReader"/>) and run through the same <see cref="Mutator"/> as the op handlers, each in its own call scope and
 /// <c>Begin</c>/<c>End</c> bracket. They allocate nothing and never throw on the tick path.
 /// </para>
@@ -123,6 +125,16 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly PickupCore _pickup;
     private readonly OpenSet _openSet;
     private readonly ISlotView? _slots;
+    private readonly BacklogRing _backlog;
+    private readonly int _drainPerTick;
+
+    // Story 021: the drain's gating memo (the Intake version after the last pass, the append count it saw, and whether it hit the
+    // per-tick cap) and the no-fit facts of the current pass. Not dumped: a world without it runs its first pass unconditionally.
+    private readonly AutoPlaceNoFit[] _drainNoFits = new AutoPlaceNoFit[Placement.AutoPlace.MaxStartAnchors];
+    private bool _drainMemoValid;
+    private uint _drainIntakeVersion;
+    private uint _drainAppendSeq;
+    private bool _drainHitCap;
 
     /// <summary>Creates the module: settings from the content's <c>inventory.*</c> record, the four M-1a defs resolved once by id, and the <c>po_intake</c> container.</summary>
     /// <param name="content">The content set (container defs and the inventory balance).</param>
@@ -195,6 +207,10 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         _subscribers = new ContainerSubscribers(settings.ContainerCapacity);
         _openSet = new OpenSet(_containers);
         _slots = slots;
+
+        // Story 021: the Intake backlog, one link per entry-pool slot (every queued entry is a live detached pool slot, so it never fills).
+        _backlog = new BacklogRing(settings.EntryPoolCapacity);
+        _drainPerTick = Math.Max(0, content.Inventory.BacklogDrainPerTick);
 
         // Rows are clamped to inventory.maxRows by the stat sheet; widths are bounded here for every def (the bitmaps hold 64 columns)
         // and the cellOwner array is sized by the widest def rather than the full 64 (ADR-0009 memory guidance).
@@ -278,14 +294,23 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     internal OpenSet OpenSet => _openSet;
 
     /// <summary>
-    /// The backlog seam (story 012, Planner R6; ADR-0017 section 6): whether the Intake accepts spawns and returns now. Always true at
-    /// M-1a; story 021 makes it false while the backlog holds entries (nothing overtakes the backlog), so <see cref="Spawn"/> into the
-    /// Intake and <see cref="ReturnToIntake"/> place nothing and probe nothing.
+    /// The backlog seam (story 012, Planner R6; ADR-0017 section 6): whether the Intake accepts spawns and returns now. False while the
+    /// backlog holds entries (story 021, GDD R14: nothing overtakes the backlog), so <see cref="Spawn"/> into the Intake places nothing
+    /// and probes nothing, and <see cref="ReturnToIntake"/> appends the returning entry to the backlog tail without a probe.
     /// </summary>
-    internal bool IntakeAccepting => true;
+    internal bool IntakeAccepting => _backlog.Count == 0;
 
-    /// <summary>The Intake's version (story 013's interim return memo: a failed return is not retried against the same version in a tick).</summary>
+    /// <summary>The Intake's version.</summary>
     internal uint IntakeVersion => _containers[_intakeSlot].Version;
+
+    /// <summary>The Intake backlog ring (story 021; the dump and tests).</summary>
+    internal BacklogRing Backlog => _backlog;
+
+    /// <inheritdoc />
+    public int BacklogUnits => _backlog.Units;
+
+    /// <inheritdoc />
+    public int BacklogEntries => _backlog.Count;
 
     /// <summary>The WorldItems (story 013): table, expiry FIFOs, tombstones and <c>worldSeq</c>; the pickup story's remove and resolve hooks.</summary>
     internal WorldItems WorldItems => _worldItems;
@@ -382,7 +407,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <summary>
-    /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the empty <c>IntakeDrain</c> phase, the stub
+    /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the <c>IntakeDrain</c> phase (story 021), the stub
     /// conservation check, the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
     /// <see cref="InvOpDescriptors.Pick"/> and <see cref="InvOpDescriptors.Move"/> handlers (story 007), the
     /// <see cref="InvOpDescriptors.Merge"/> handler (story 008), the <see cref="InvOpDescriptors.QuickMove"/> and
@@ -396,9 +421,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.Bind(PhaseId.ItemsExpire, new ItemsExpirePhase(_worldItems));
-        builder.Bind(PhaseId.IntakeDrain, new IntakeDrainPhase());
+        builder.Bind(PhaseId.IntakeDrain, new IntakeDrainPhase(this));
         builder.BindTickEnd(new InventoryConservationCheck());
-        builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems));
+        builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems, _backlog, _entries));
         builder.BindPlayerJoinListener(this);
         foreach (EventDescriptor descriptor in InvEventDescriptors.All)
         {
@@ -830,7 +855,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <summary>
     /// The pure half of <see cref="TryCatch"/> (story 014; ADR-0009 section 2): <c>bad_request</c> for a slot with no panel or an entry
-    /// that is not live and detached or is held by a WorldItem; then the panel AutoPlace (<see cref="PickupCore.PlanIntoPanel"/>, the
+    /// that is not live and detached, is held by a WorldItem or is queued on the backlog; then the panel AutoPlace (<see cref="PickupCore.PlanIntoPanel"/>, the
     /// pickup rows): <c>no_room</c> (and the unreachable <c>not_allowed</c> / <c>not_carryable</c>, asserted there) is a whole fumble with
     /// reason 0; a plan that moved units then takes the arena reservation of its mail merge union blocks, and a refusal there refuses the
     /// whole catch with <c>capacity_exhausted</c>, <c>{0, 0}</c>, nothing mutated (ADR-0009 section 5 l.157; TD-154 item 7); last, any
@@ -849,7 +874,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         var badRequest = new CatchResult(0, 0, (InvReason)InvReasons.BadRequest);
         if (!TryGetPanel(slot, out ushort hotbar, out ushort playerInventory)
             || !_entries.TryGetSlot(flight.Entry, out ushort entrySlot)
-            || _entries[entrySlot].ContainerSlot != EntryRecord.NoContainer || _worldItems.OwnsEntry(entrySlot))
+            || _entries[entrySlot].ContainerSlot != EntryRecord.NoContainer || _worldItems.OwnsEntry(entrySlot) || _backlog.Contains(entrySlot))
         {
             return badRequest;
         }
@@ -1030,21 +1055,22 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         => _worldItems.Create(entry, posMm, origin, onWater, createdTick);
 
     /// <summary>
-    /// Returns a detached entry to the Intake whole (story 012, Planner R4; callers story 013's expiry and water returns, bags later,
-    /// story 021's backlog branch): AutoPlace of its whole count with the entry as source, NoMerge, pass-first, into the Intake only, then
-    /// the commit in one call scope and one bracket with <paramref name="actor"/> and <paramref name="cause"/>. The entry keeps its
-    /// entryId and gets a new <c>arrivalSeq</c> (the mutator's <c>Place</c>). False with nothing changed when the entry is not a live
-    /// detached entry, is held by a WorldItem (story 013 returns those itself, through the same two steps), the Intake refuses it
-    /// (whitelist) or has no room (the plan's no-fit facts are recorded), the Intake is not accepting (<see cref="IntakeAccepting"/>), or
-    /// the call is outside a tick phase.
+    /// Returns a detached entry to the Intake whole (story 012, Planner R4; callers story 013's expiry and water returns, bags later):
+    /// AutoPlace of its whole count with the entry as source, NoMerge, pass-first, into the Intake only, then the commit in one call
+    /// scope and one bracket with <paramref name="actor"/> and <paramref name="cause"/>. The entry keeps its entryId and gets a new
+    /// <c>arrivalSeq</c> (the mutator's <c>Place</c>). The backlog branch (story 021, GDD R14): a mail entry the Intake cannot take now
+    /// (not accepting because the backlog is non-empty, with no probe; or no room, its no-fit facts recorded) is appended whole to the
+    /// backlog tail in its own call scope (<c>BacklogUnits</c> only), and the call returns true: the entry is no longer the caller's.
+    /// False with nothing changed when the entry is not a live detached entry, is held by a WorldItem (story 013 returns those itself),
+    /// is queued on the backlog (review r1 B1), the Intake refuses a non-mail entry (whitelist), or the call is outside a tick phase.
     /// </summary>
     /// <param name="detachedEntrySlot">The entry's pool slot (allocated, in no container).</param>
     /// <param name="actor">The actor written into the seal.</param>
     /// <param name="cause">The cause written into the seal.</param>
-    /// <returns>True when the entry was placed in the Intake.</returns>
+    /// <returns>True when the entry was placed in the Intake or queued on the backlog.</returns>
     internal bool ReturnToIntake(ushort detachedEntrySlot, ActorId actor, InvCause cause)
     {
-        if (!TickGuard.IsMutable(_tick, _events.Counters) || _worldItems.OwnsEntry(detachedEntrySlot))
+        if (!TickGuard.IsMutable(_tick, _events.Counters) || _worldItems.OwnsEntry(detachedEntrySlot) || !IsDetached(detachedEntrySlot))
         {
             return false;
         }
@@ -1052,7 +1078,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         var plan = new InvPlan();
         if (!TryPlanReturnToIntake(detachedEntrySlot, ref plan, out AutoPlacePlan ap))
         {
-            return false;
+            if (!_entries[detachedEntrySlot].IsMail)
+            {
+                return false;
+            }
+
+            using EventCallScope backlogScope = _events.BeginCall();
+            return TryAppendDetached(detachedEntrySlot);
         }
 
         using (EventCallScope scope = _events.BeginCall())
@@ -1061,6 +1093,216 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Phase 2 <c>IntakeDrain</c> (story 021; GDD R14; ADR-0003 section 1; ADR-0009 l.312): places backlog entries into the Intake in
+    /// append order, each whole, NoMerge, with a fresh <c>arrivalSeq</c> (the mutator's <c>Place</c>; Evan 2026-10-21 12:28 PM PT), at
+    /// most <c>inventory.backlogDrainPerTick</c> (32) per pass.
+    /// <list type="bullet">
+    /// <item><b>Idle exits, O(1), no probe and no node visit:</b> an empty backlog; an Intake with no free cell; or a pass whose Intake
+    /// version is the one the previous pass left, with no append since and the previous pass under the cap. So a pass runs only when the
+    /// Intake changed by something other than the drain's own seal, the backlog grew, or the last pass hit the cap (and always on the
+    /// first tick of a world, the memo being undumped). A pass that would run checks the tick guard (<see cref="TickGuard"/>, as
+    /// <see cref="AppendBacklog"/> and <see cref="ReturnToIntake"/> do; the phase binding only runs it in phase 2) after the idle exits.</item>
+    /// <item><b>The walk:</b> one <see cref="CounterId.InventoryBacklogVisits"/> per ring node read (at most entries walked + 1); these
+    /// are candidate visits (ADR-0009 l.232), so H-PERF-6c's 8,500 bound counts them with the placement probes (TD-157 item 4); it stops at
+    /// the cap or when the Intake has no free cell. An entry whose
+    /// footprint area exceeds the free-cell count is skipped in O(1) (no head-of-line blocking); a shape the negative-fit cache knows
+    /// does not fit (recorded earlier in this pass at the unchanged version) is skipped with 0 probes; the grid scans resume at
+    /// per-oriented-shape start anchors reset per pass (<see cref="Placement.AutoPlace.BeginStartAnchors"/>).</item>
+    /// <item><b>One call scope and one bracket per pass</b> (actor <c>System</c>, cause <c>System</c>), opened at the first planned
+    /// entry: one <c>InvInserted</c> per drained entry, one Intake seal (+1 per pass), then one <c>BacklogUnits</c>. A pass that places
+    /// nothing raises nothing and bumps nothing. The pass's no-fit facts are recorded again after the seal at the sealed version, as
+    /// <see cref="Spawn"/> does, so the next tick's unchanged Intake probes nothing for them.</item>
+    /// </list>
+    /// </summary>
+    internal void DrainBacklog()
+    {
+        if (_backlog.Count == 0)
+        {
+            return;
+        }
+
+        ref ContainerHeader intake = ref _containers[_intakeSlot];
+        if (intake.FreeCells == 0
+            || (_drainMemoValid && !_drainHitCap && intake.Version == _drainIntakeVersion && _backlog.AppendSeq == _drainAppendSeq)
+            || !TickGuard.IsMutable(_tick, _events.Counters))
+        {
+            return;
+        }
+
+        int placed = 0;
+        int noFits = 0;
+        bool open = false;
+        var plan = new InvPlan();
+        _ = plan.Touch(_intakeSlot);
+        var extra = new InvReplyExtra();
+        ReadOnlySpan<ushort> targets = new ReadOnlySpan<ushort>(in _intakeSlot);
+        _autoPlace.BeginStartAnchors(_intakeSlot);
+        using (EventCallScope scope = _events.BeginCall())
+        {
+            ushort node = _backlog.Head;
+            while (node != BacklogRing.None && placed < _drainPerTick && intake.FreeCells > 0)
+            {
+                _events.Counters.Add(CounterId.InventoryBacklogVisits);
+                ushort entrySlot = node;
+                node = _backlog.Next(node);
+                ref EntryRecord e = ref _entries[entrySlot];
+                if (e.W * e.H > intake.FreeCells)
+                {
+                    continue; // the skip rule: cannot fit whatever the layout, O(1)
+                }
+
+                PlacementSubject subject = PlacementSubject.Of(_content, _stats, in e);
+                var entryPlan = new InvPlan();
+                ushort reason = _autoPlace.Plan(
+                    ref entryPlan, in subject, e.Count, entrySlot, targets, MergePolicy.NoMerge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+                if (reason == 0)
+                {
+                    reason = _requestCheck.CheckArenaReservation(in entryPlan); // NoMerge of an entry that owns its block acquires none
+                }
+
+                if (reason != 0)
+                {
+                    // In-pass exhaustion: the facts hold at this (unchanged) version, so the same shape probes nothing again this pass.
+                    _autoPlace.RecordNoFits(in ap);
+                    for (int i = 0; i < ap.NoFitCount && noFits < _drainNoFits.Length; i++)
+                    {
+                        _drainNoFits[noFits++] = ap.NoFit(i);
+                    }
+
+                    continue;
+                }
+
+                if (!open)
+                {
+                    _mutator.Begin(ref plan, ActorId.System, InvCause.System);
+                    open = true;
+                }
+
+                // story 017 ledger hook: the entry's units cross Backlog -> Placed.
+                _backlog.Remove(entrySlot, e.Count);
+                _autoPlace.Commit(ref plan, in ap);
+                placed++;
+            }
+
+            if (open)
+            {
+                _mutator.End(ref plan, ref extra);
+                RaiseBacklogUnits();
+            }
+        }
+
+        _autoPlace.EndStartAnchors();
+        for (int i = 0; i < noFits; i++)
+        {
+            _autoPlace.RecordNoFitAtCurrentVersion(in _drainNoFits[i]);
+        }
+
+        _drainMemoValid = true;
+        _drainIntakeVersion = intake.Version;
+        _drainAppendSeq = _backlog.AppendSeq;
+        _drainHitCap = _drainPerTick > 0 && placed == _drainPerTick; // a 0 cap places nothing, so it never re-runs the pass
+    }
+
+    /// <summary>
+    /// The backlog branch of a return (story 021): appends the live detached mail entry in <paramref name="detachedEntrySlot"/> to the
+    /// backlog tail in the caller's call scope and raises <c>BacklogUnits</c>. The ring holds the entry pool's capacity, so it cannot be
+    /// full: that case asserts <see cref="SimAssertCode.InventoryBacklogRingFull"/> under <c>INVENTORY_ASSERT</c> and in Release returns
+    /// false with nothing changed (the caller keeps the entry). The caller checked the tick guard and that the entry is detached and
+    /// held by no WorldItem (or is releasing it in this call).
+    /// </summary>
+    /// <param name="detachedEntrySlot">The detached mail entry's pool slot.</param>
+    /// <returns>True when queued.</returns>
+    internal bool TryAppendDetached(ushort detachedEntrySlot)
+    {
+        bool can = _backlog.CanAppend(detachedEntrySlot);
+        InventoryAssert.That(can, SimAssertCode.InventoryBacklogRingFull);
+        if (!can)
+        {
+            return false;
+        }
+
+        // story 017 ledger hook: the entry's units cross Placed/World -> Backlog.
+        _backlog.Append(detachedEntrySlot, _entries[detachedEntrySlot].Count);
+        RaiseBacklogUnits();
+        return true;
+    }
+
+    /// <summary>True when the backlog ring can take <paramref name="detachedEntrySlot"/> now (story 021; the WorldItem returns check it before they release the item).</summary>
+    /// <param name="detachedEntrySlot">The entry's pool slot.</param>
+    /// <returns>True when appendable.</returns>
+    internal bool CanAppendDetached(ushort detachedEntrySlot) => _backlog.CanAppend(detachedEntrySlot);
+
+    /// <summary>True when <paramref name="entrySlot"/> is queued on the backlog (story 021 review r1 B1; <see cref="World.WorldItems.Create"/> refuses it).</summary>
+    /// <param name="entrySlot">An entry slot.</param>
+    /// <returns>True when queued.</returns>
+    internal bool IsQueued(ushort entrySlot) => _backlog.Contains(entrySlot);
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The tick guard; the entry's checks (a known mail kind, 1 to 255 strictly ascending real ids, no more than the kind's effective
+    /// maxStack, <c>MailMaxStack</c>: the drain places an entry whole, so a larger one could never leave; Mail Lead planning default
+    /// pending Evan, TD-157 item 2); then the arena (a dry
+    /// <see cref="MailIdArena.CanReserve(int)"/>; on refusal the real acquire runs only to write its always-on record and fails with
+    /// nothing taken) and the entry pool (<see cref="EntryPool.TryAllocate"/>, which writes its own record on refusal), so a refusal
+    /// mutates nothing; then the block, the entry's StackKey fields and the append, in one call scope raising <c>BacklogUnits</c>.
+    /// </remarks>
+    public bool AppendBacklog(in BacklogEntry e)
+    {
+        if (!TickGuard.IsMutable(_tick, _events.Counters))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<MailId> ids = e.Ids;
+        if (e.MailKind.IsNone || e.MailKind.Value >= _content.MailKinds.Count || !IsWellFormedIds(ids))
+        {
+            return false;
+        }
+
+        // More ids than the kind's effective maxStack could never drain: the drain places an entry whole, NoMerge (review r1).
+        PlacementSubject subject = PlacementSubject.ForMail(_content.MailKinds[e.MailKind], e.MailKind, e.AddressId, e.Flags, _stats);
+        if (ids.Length > subject.EffMax)
+        {
+            return false;
+        }
+
+        uint tick = _tick.CurrentTick;
+        Span<uint> raw = stackalloc uint[ids.Length];
+        for (int i = 0; i < ids.Length; i++)
+        {
+            raw[i] = ids[i].Value;
+        }
+
+        if (!_mailIds.CanReserve(ids.Length))
+        {
+            _ = _mailIds.TryCreate(raw, tick, out _); // refused: writes the arena's always-on record, takes nothing
+            return false;
+        }
+
+        if (!_entries.TryAllocate(tick, out ushort entrySlot, out _))
+        {
+            return false; // the pool wrote its check record; nothing mutated
+        }
+
+        ref EntryRecord entry = ref _entries[entrySlot];
+        if (!_mailIds.TryCreate(raw, tick, out entry.MailIds))
+        {
+            _entries.Free(entrySlot); // unreachable after CanReserve; the arena wrote its record
+            return false;
+        }
+
+        entry.IsMail = true;
+        entry.MailKind = e.MailKind.Value;
+        entry.AddressId = e.AddressId;
+        entry.Flags = e.Flags;
+        entry.W = subject.W;
+        entry.H = subject.H;
+        _entries.SetCount(entrySlot, (byte)ids.Length);
+        using EventCallScope scope = _events.BeginCall();
+        return TryAppendDetached(entrySlot); // cannot fail: the entry was free a moment ago, so it is not queued
     }
 
     /// <summary>
@@ -1075,8 +1317,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     internal bool TryPlanReturnToIntake(ushort detachedEntrySlot, ref InvPlan plan, out AutoPlacePlan ap)
     {
         ap = default;
-        if (!IntakeAccepting || detachedEntrySlot >= _entries.Capacity || !_entries[detachedEntrySlot].IsLive
-            || _entries[detachedEntrySlot].ContainerSlot != EntryRecord.NoContainer)
+        if (!IntakeAccepting || !IsDetached(detachedEntrySlot))
         {
             return false;
         }
@@ -1211,10 +1452,31 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <summary>The <see cref="Spawn"/> handler-limit checks: a live container, a known mail kind, 1 to 255 strictly ascending real ids.</summary>
-    private bool IsWellFormedSpawn(ContainerId c, DefIndex mailKind, ReadOnlySpan<MailId> ids, out ushort slot)
+    private bool IsWellFormedSpawn(ContainerId c, DefIndex mailKind, ReadOnlySpan<MailId> ids, out ushort slot) =>
+        _containers.TryGetSlot(c, out slot) && !mailKind.IsNone && mailKind.Value < _content.MailKinds.Count && IsWellFormedIds(ids);
+
+    /// <summary>
+    /// True for a live entry-pool slot in no container and not queued on the backlog (review r1 B1: a queued entry is in the Backlog
+    /// ledger location, ADR-0009 l.169-170, so no detached-entry path may take it).
+    /// </summary>
+    private bool IsDetached(ushort entrySlot) =>
+        entrySlot < _entries.Capacity && _entries[entrySlot].IsLive && _entries[entrySlot].ContainerSlot == EntryRecord.NoContainer
+        && !_backlog.Contains(entrySlot);
+
+    /// <summary>Raises <c>BacklogUnits {units, entries}</c> (saturating) to every connected slot, in the caller's call scope (story 021).</summary>
+    private void RaiseBacklogUnits()
     {
-        if (!_containers.TryGetSlot(c, out slot) || mailKind.IsNone || mailKind.Value >= _content.MailKinds.Count
-            || ids.Length < 1 || ids.Length > byte.MaxValue || ids[0].IsNone)
+        var payload = new BacklogUnitsPayload
+        {
+            Units = (ushort)Math.Min(_backlog.Units, ushort.MaxValue), Entries = (ushort)Math.Min(_backlog.Count, ushort.MaxValue),
+        };
+        _mutator.RaiseWorld(InvEventKinds.BacklogUnits, in payload);
+    }
+
+    /// <summary>1 to 255 strictly ascending ids, none of them none.</summary>
+    private static bool IsWellFormedIds(ReadOnlySpan<MailId> ids)
+    {
+        if (ids.Length < 1 || ids.Length > byte.MaxValue || ids[0].IsNone)
         {
             return false;
         }

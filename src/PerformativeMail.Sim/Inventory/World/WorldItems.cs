@@ -25,23 +25,20 @@ namespace PerformativeMail.Sim.Inventory.World;
 /// <item><b>Expiry</b> (phase 1, after <c>InputsApply</c>, so a pickup on the expiry tick wins): the FIFO heads with
 /// <c>expiresTick &lt;= now</c> are popped in ascending <c>(expiresTick, worldItemId)</c> across all FIFOs, one call scope each. Mail
 /// returns to the Intake whole (<c>InventorySystem</c>'s return: NoMerge, a new <c>arrivalSeq</c>, back of the outfeed queue; seal
-/// cause <c>Expired</c>); non-mail is destroyed with <c>ItemsLost{itemDef, count}</c>. Water floats are the same rule at 300 ticks.</item>
+/// cause <c>Expired</c>), or, when the Intake is full or the backlog is non-empty (nothing overtakes the backlog, GDD R14), the whole
+/// entry is appended to the backlog tail (story 021, <c>BacklogUnits</c>), so a mail WorldItem always leaves; non-mail is destroyed
+/// with <c>ItemsLost{itemDef, count}</c>. Water floats are the same rule at 300 ticks.</item>
 /// <item><b>Cap</b> (<c>inventory.worldItemCap</c>, 512; a WorldItem counts once): a creation that takes the live count over the cap
 /// evicts once, in the creation's call scope: the <c>mailWorldItem</c> head if at least <c>capEvictMinAgeSeconds</c> (300 ticks)
 /// old ("older than 10 s" means 10 s or more have elapsed, &gt;=; Evan's ruling 2026-10-21: a letter created at tick c qualifies from
-/// tick c + 300), returned to the Intake losslessly; otherwise the lower <c>(expiresTick, id)</c> of the two non-mail heads (<c>nonMailWorldItem</c>,
+/// tick c + 300), returned to the Intake losslessly, or to the backlog tail when the Intake cannot take it (GDD R12 "or backlog if
+/// full"; story 021 ends story 013's interim rule under owner ruling Q3, Evan 2026-10-21 9:17 PM PT); otherwise the lower <c>(expiresTick, id)</c> of the two non-mail heads (<c>nonMailWorldItem</c>,
 /// <c>waterFloat</c> non-mail), destroyed with <c>ItemsLost</c>. The new item is never the candidate. If nothing qualifies the count
 /// stays over the cap: <see cref="CounterId.InventoryWorldItemCapExceeded"/> counts the creation, one
 /// <see cref="CheckCode.InventoryWorldItemCapExceeded"/> record is written when the count first goes over (latched until it is back at
 /// or under the cap; the repo's always-on counter + check-record convention for runtime warnings), and each <c>ItemsExpire</c> re-runs
 /// the eviction while over, so the first item to qualify (e.g. the first young letter to reach 10 s) is evicted on that tick.
 /// <see cref="CounterId.InventoryWorldItemCapCandidates"/> counts the eviction path's candidate visits (see <see cref="ExpiryFifos"/>).</item>
-/// <item><b>Interim rule until story 021 (backlog):</b> when the Intake cannot take a returning mail entry (full, or not accepting),
-/// the mail WorldItem is <b>not</b> removed and nothing is lost: on expiry it stays at its FIFO head (the FIFO is skipped for the rest
-/// of that pass, so its order is kept) and is retried on the next <c>ItemsExpire</c>; as a cap candidate it is not evicted and the
-/// non-mail rule applies, else the cap is exceeded as above. Each failed return counts
-/// <see cref="CounterId.InventoryWorldItemReturnRetries"/>; a repeat of the same FIFO's head against the same Intake version in the
-/// same tick is not attempted (or counted) again. Story 021 replaces this with the backlog append.</item>
 /// <item><b>Tombstones</b>: every removal (picked up <c>Taken</c>, mail returned on expiry or eviction <c>Expired</c>, non-mail
 /// destroyed <c>Destroyed</c>) raises <c>WorldItemDespawned</c> and leaves <c>(id, byActorId, cause, worldSeq, tick)</c>;
 /// <see cref="Resolve"/> answers <c>container_gone</c> with them for 30 s, then <c>stale_entry</c>.</item>
@@ -76,10 +73,6 @@ internal sealed class WorldItems
     // restore it, or rebuild it from each FIFO's tail.
     private readonly uint[] _lastCreatedTick = new uint[ExpiryFifos.Count];
 
-    // Per FIFO: the failed-return memo (tick, Intake version, entry slot), interim until story 021.
-    private readonly uint[] _blockedTick = new uint[ExpiryFifos.Count];
-    private readonly uint[] _blockedIntakeVersion = new uint[ExpiryFifos.Count];
-    private readonly ushort[] _blockedEntry = new ushort[ExpiryFifos.Count];
     private uint _worldSeq;
     private bool _overCapLogged;
 
@@ -127,8 +120,6 @@ internal sealed class WorldItems
         _durationTicks[(int)ExpiryFifo.Bag] = BagDespawnTicks;
         _minAgeTicks = MsToTicks(balance.CapEvictMinAgeSeconds);
         _cap = balance.WorldItemCap;
-        Array.Fill(_blockedTick, uint.MaxValue);
-        Array.Fill(_blockedEntry, WorldItemTable.NoSlot);
     }
 
     /// <summary>The bag duration (30 s; M-1b adds <c>deathBagDespawnSeconds</c>).</summary>
@@ -165,7 +156,7 @@ internal sealed class WorldItems
     /// <summary>
     /// Creates a WorldItem holding the detached entry <paramref name="entry"/> (see <c>IInventoryApi.CreateWorldItem</c>). None, with
     /// nothing changed, outside a tick phase, without an id allocator, for a reserved origin, a <paramref name="createdTick"/> after
-    /// now, an entry that is not live and detached or already in a WorldItem, a <paramref name="createdTick"/> before the last
+    /// now, an entry that is not live and detached, already in a WorldItem or queued on the backlog, a <paramref name="createdTick"/> before the last
     /// creation's on the same FIFO (<see cref="SimAssertCode.InventoryWorldItemCreatedOutOfOrder"/> under <c>INVENTORY_ASSERT</c>; Loot,
     /// on no FIFO, neither checks nor moves it), a full table (one <see cref="CheckCode.InventoryWorldItemCapacity"/> record) or an id
     /// refusal.
@@ -181,7 +172,7 @@ internal sealed class WorldItems
         if ((origin != WorldItemOrigin.Dropped && origin != WorldItemOrigin.Thrown && origin != WorldItemOrigin.Loot)
             || createdTick > now
             || !_entries.TryGetSlot(entry, out ushort entrySlot) || _entries[entrySlot].ContainerSlot != EntryRecord.NoContainer
-            || OwnsEntry(entrySlot))
+            || OwnsEntry(entrySlot) || _system.IsQueued(entrySlot))
         {
             return EntityId.None;
         }
@@ -248,13 +239,13 @@ internal sealed class WorldItems
 
     /// <summary>
     /// Phase 1 <c>ItemsExpire</c> at <paramref name="now"/>: pops every due head in ascending <c>(expiresTick, id)</c> across the FIFOs
-    /// (one call scope per item; a mail head the Intake cannot take blocks its FIFO for this pass, interim until story 021), then, while
-    /// over the cap, evicts one qualifying candidate per call scope until none qualifies.
+    /// (one call scope per item; a mail head goes to the Intake or the backlog), then, while over the cap, evicts one qualifying
+    /// candidate per call scope until none qualifies.
     /// </summary>
     /// <param name="now">The tick being run.</param>
     public void Expire(uint now)
     {
-        int blocked = 0; // bit f: FIFO f's mail head could not return this pass
+        int blocked = 0; // bit f: FIFO f's mail head could not leave (the unreachable full backlog ring, Release only)
         while (true)
         {
             int best = -1;
@@ -290,7 +281,7 @@ internal sealed class WorldItems
             {
                 if (!TryReturnMail(bestSlot, (ExpiryFifo)best, now))
                 {
-                    blocked |= 1 << best; // interim until story 021: stays at its head, retried next ItemsExpire
+                    blocked |= 1 << best; // unreachable (SimAssertCode 82): the WorldItem is kept, retried next ItemsExpire
                 }
             }
             else
@@ -446,7 +437,7 @@ internal sealed class WorldItems
     private static uint MsToTicks(int ms) => (uint)((long)Math.Max(0, ms) * SimSettings.TickRateHz / 1000L);
 
     /// <summary>
-    /// One cap eviction (in the caller's call scope): the mail head if old enough and the Intake takes it, else the lower
+    /// One cap eviction (in the caller's call scope): the mail head if old enough (to the Intake or the backlog tail), else the lower
     /// <c>(expiresTick, id)</c> non-mail head; never <paramref name="exclude"/> (the item just created). False when nothing qualifies.
     /// </summary>
     private bool TryEvictOne(uint now, ushort exclude)
@@ -471,34 +462,34 @@ internal sealed class WorldItems
     }
 
     /// <summary>
-    /// Returns the mail WorldItem at the head of <paramref name="fifo"/> to the Intake (cause <c>Expired</c>) in the caller's call
-    /// scope, then removes it and pops its node. False, changing nothing, when the Intake cannot take it (interim until story 021: the
-    /// item stays; one <see cref="CounterId.InventoryWorldItemReturnRetries"/>, not repeated against the same Intake version this tick;
-    /// the memo is per FIFO, so each blocked mail head is tried at most once per tick and Intake version).
+    /// Returns the mail WorldItem at the head of <paramref name="fifo"/> (cause <c>Expired</c>) in the caller's call scope: it is removed
+    /// and its node popped, then its entry is placed in the Intake (NoMerge, a fresh <c>arrivalSeq</c>) or, when the Intake cannot take
+    /// it now (no room, or the backlog is non-empty: nothing overtakes it, with no probe), appended whole to the backlog tail (story 021;
+    /// <c>BacklogUnits</c>). False, changing nothing, only when the backlog ring cannot take the entry, which is unreachable
+    /// (<see cref="SimAssertCode.InventoryBacklogRingFull"/> under <c>INVENTORY_ASSERT</c>; Release keeps the WorldItem).
+    /// <see cref="CounterId.InventoryWorldItemReturnRetries"/> (story 013's interim rule) is no longer counted.
     /// </summary>
     private bool TryReturnMail(ushort slot, ExpiryFifo fifo, uint now)
     {
-        int f = (int)fifo;
         ushort entrySlot = _table[slot].EntrySlot;
-        uint intakeVersion = _system.IntakeVersion;
-        if (_blockedTick[f] == now && _blockedIntakeVersion[f] == intakeVersion && _blockedEntry[f] == entrySlot)
+        var plan = new InvPlan();
+        if (_system.TryPlanReturnToIntake(entrySlot, ref plan, out AutoPlacePlan ap))
         {
-            return false;
+            RemoveCore(slot, ActorId.System, InvCause.Expired, now);
+            _fifos.Pop(fifo);
+            _system.CommitReturnToIntake(ref plan, in ap, ActorId.System, InvCause.Expired);
+            return true;
         }
 
-        var plan = new InvPlan();
-        if (!_system.TryPlanReturnToIntake(entrySlot, ref plan, out AutoPlacePlan ap))
+        if (!_system.CanAppendDetached(entrySlot))
         {
-            _counters.Add(CounterId.InventoryWorldItemReturnRetries);
-            _blockedTick[f] = now;
-            _blockedIntakeVersion[f] = intakeVersion;
-            _blockedEntry[f] = entrySlot;
+            InventoryAssert.That(false, SimAssertCode.InventoryBacklogRingFull);
             return false;
         }
 
         RemoveCore(slot, ActorId.System, InvCause.Expired, now);
         _fifos.Pop(fifo);
-        _system.CommitReturnToIntake(ref plan, in ap, ActorId.System, InvCause.Expired);
+        _ = _system.TryAppendDetached(entrySlot); // cannot fail: checked above, and RemoveCore does not touch the ring
         return true;
     }
 
