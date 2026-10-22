@@ -917,6 +917,20 @@ public class WorldItemTests
         Assert.Equal(EntryRecord.NoContainer, w.R.Entries[first].ContainerSlot);
         Assert.Equal(retriesBefore, w.R.Counters[CounterId.InventoryWorldItemReturnRetries]);
 
+        // Act 2: two Intake cells free in tick 10005's MailStep; a later letter (9000) arrives in 10006's MailStep (Mail appends it,
+        // since the backlog is non-empty at that moment); the drain in phase 2 of 10006 runs before it
+        Assert.True(w.At(10_005, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)
+            && w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
+        DefIndex letter = w.R.KindIndex("letter");
+        SpawnResult later = w.At(10_006, () => w.Inv.Spawn(w.Inv.IntakeContainer, letter, Address, 0, IntakeSpawnOutfeedTests.Mail(9_000), MergePolicy.NoMerge));
+
+        // Assert 2: 500 then 501 drained into the freed cells at 10006 (fresh arrivalSeqs in that order); the later letter found the
+        // Intake full again and placed nothing
+        Assert.Equal(0, w.Inv.BacklogEntries);
+        Assert.Equal(w.R.Intake, w.R.Entries[first].ContainerSlot);
+        Assert.Equal(w.R.Intake, w.R.Entries[second].ContainerSlot);
+        Assert.True(w.R.Entries[second].ArrivalSeq > w.R.Entries[first].ArrivalSeq);
+        Assert.Equal(new SpawnResult(0, 1), later);
     }
 
     [Fact]

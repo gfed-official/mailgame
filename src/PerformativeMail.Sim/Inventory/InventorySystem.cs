@@ -22,8 +22,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// calls <see cref="IPlayerJoinListener"/>. A leave keeps the containers (disconnect handling is M0) and a rejoin of the same slot reuses
 /// them. Container dimensions are instance state: the def's width and <c>IStatSheet.Read(InventoryRows)</c> rows.
 /// <para>
-/// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the still
-/// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
+/// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the
+/// <c>IntakeDrain</c> phase (the backlog drain, story 021: <see cref="DrainBacklog"/>), a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
 /// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>), <c>Merge</c> (story 008),
 /// <c>QuickMove</c> and <c>Return</c> (story 010; <see cref="QuickMoveHandler"/>, <see cref="ReturnHandler"/>) and <c>Close</c> (story
 /// 011); the other kinds' handlers are story 019's. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
@@ -38,7 +38,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// <see cref="Spawn"/>, <see cref="PeekOutfeed"/>, <see cref="TakeUnit"/>, <see cref="CreateWorldItem"/> (story 013),
 /// <see cref="ConsumeUnit"/>, <see cref="DetachForThrow"/>, <see cref="TryInsert"/> and <see cref="CountItem"/> (story 015),
 /// <see cref="WeightPoints"/> and <see cref="SpeedPermille"/> (story 016), plus the
-/// internal <see cref="ReturnToIntake"/> (callers story 013 and the backlog, story 021). The mutating calls check the tick guard (<see cref="TickGuard"/>, through the injected
+/// internal <see cref="ReturnToIntake"/> (callers story 013, with story 021's backlog branch), and <see cref="AppendBacklog"/>,
+/// <see cref="BacklogUnits"/> and <see cref="BacklogEntries"/> (story 021: the Intake backlog, <see cref="Backlog"/>). The mutating calls check the tick guard (<see cref="TickGuard"/>, through the injected
 /// <see cref="ITickReader"/>) and run through the same <see cref="Mutator"/> as the op handlers, each in its own call scope and
 /// <c>Begin</c>/<c>End</c> bracket. They allocate nothing and never throw on the tick path.
 /// </para>
@@ -125,6 +126,15 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly OpenSet _openSet;
     private readonly ISlotView? _slots;
     private readonly BacklogRing _backlog;
+    private readonly int _drainPerTick;
+
+    // Story 021: the drain's gating memo (the Intake version after the last pass, the append count it saw, and whether it hit the
+    // per-tick cap) and the no-fit facts of the current pass. Not dumped: a world without it runs its first pass unconditionally.
+    private readonly AutoPlaceNoFit[] _drainNoFits = new AutoPlaceNoFit[Placement.AutoPlace.MaxStartAnchors];
+    private bool _drainMemoValid;
+    private uint _drainIntakeVersion;
+    private uint _drainAppendSeq;
+    private bool _drainHitCap;
 
     /// <summary>Creates the module: settings from the content's <c>inventory.*</c> record, the four M-1a defs resolved once by id, and the <c>po_intake</c> container.</summary>
     /// <param name="content">The content set (container defs and the inventory balance).</param>
@@ -200,6 +210,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         // Story 021: the Intake backlog, one link per entry-pool slot (every queued entry is a live detached pool slot, so it never fills).
         _backlog = new BacklogRing(settings.EntryPoolCapacity);
+        _drainPerTick = Math.Max(0, content.Inventory.BacklogDrainPerTick);
 
         // Rows are clamped to inventory.maxRows by the stat sheet; widths are bounded here for every def (the bitmaps hold 64 columns)
         // and the cellOwner array is sized by the widest def rather than the full 64 (ADR-0009 memory guidance).
@@ -396,7 +407,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <summary>
-    /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the empty <c>IntakeDrain</c> phase, the stub
+    /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the <c>IntakeDrain</c> phase (story 021), the stub
     /// conservation check, the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
     /// <see cref="InvOpDescriptors.Pick"/> and <see cref="InvOpDescriptors.Move"/> handlers (story 007), the
     /// <see cref="InvOpDescriptors.Merge"/> handler (story 008), the <see cref="InvOpDescriptors.QuickMove"/> and
@@ -410,7 +421,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.Bind(PhaseId.ItemsExpire, new ItemsExpirePhase(_worldItems));
-        builder.Bind(PhaseId.IntakeDrain, new IntakeDrainPhase());
+        builder.Bind(PhaseId.IntakeDrain, new IntakeDrainPhase(this));
         builder.BindTickEnd(new InventoryConservationCheck());
         builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems, _backlog, _entries));
         builder.BindPlayerJoinListener(this);
@@ -1076,6 +1087,114 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Phase 2 <c>IntakeDrain</c> (story 021; GDD R14; ADR-0003 section 1; ADR-0009 l.312): places backlog entries into the Intake in
+    /// append order, each whole, NoMerge, with a fresh <c>arrivalSeq</c> (the mutator's <c>Place</c>; Evan 2026-10-21 12:28 PM PT), at
+    /// most <c>inventory.backlogDrainPerTick</c> (32) per pass.
+    /// <list type="bullet">
+    /// <item><b>Idle exits, O(1), no probe and no node visit:</b> an empty backlog; an Intake with no free cell; or a pass whose Intake
+    /// version is the one the previous pass left, with no append since and the previous pass under the cap. So a pass runs only when the
+    /// Intake changed by something other than the drain's own seal, the backlog grew, or the last pass hit the cap (and always on the
+    /// first tick of a world, the memo being undumped).</item>
+    /// <item><b>The walk:</b> one <see cref="CounterId.InventoryBacklogVisits"/> per ring node read (at most entries walked + 1; Mail
+    /// Lead planning default pending Evan, TD-157 item 4); it stops at the cap or when the Intake has no free cell. An entry whose
+    /// footprint area exceeds the free-cell count is skipped in O(1) (no head-of-line blocking); a shape the negative-fit cache knows
+    /// does not fit (recorded earlier in this pass at the unchanged version) is skipped with 0 probes; the grid scans resume at
+    /// per-oriented-shape start anchors reset per pass (<see cref="Placement.AutoPlace.BeginStartAnchors"/>).</item>
+    /// <item><b>One call scope and one bracket per pass</b> (actor <c>System</c>, cause <c>System</c>), opened at the first planned
+    /// entry: one <c>InvInserted</c> per drained entry, one Intake seal (+1 per pass), then one <c>BacklogUnits</c>. A pass that places
+    /// nothing raises nothing and bumps nothing. The pass's no-fit facts are recorded again after the seal at the sealed version, as
+    /// <see cref="Spawn"/> does, so the next tick's unchanged Intake probes nothing for them.</item>
+    /// </list>
+    /// </summary>
+    internal void DrainBacklog()
+    {
+        if (_backlog.Count == 0)
+        {
+            return;
+        }
+
+        ref ContainerHeader intake = ref _containers[_intakeSlot];
+        if (intake.FreeCells == 0
+            || (_drainMemoValid && !_drainHitCap && intake.Version == _drainIntakeVersion && _backlog.AppendSeq == _drainAppendSeq))
+        {
+            return;
+        }
+
+        int placed = 0;
+        int noFits = 0;
+        bool open = false;
+        var plan = new InvPlan();
+        _ = plan.Touch(_intakeSlot);
+        var extra = new InvReplyExtra();
+        ReadOnlySpan<ushort> targets = new ReadOnlySpan<ushort>(in _intakeSlot);
+        _autoPlace.BeginStartAnchors(_intakeSlot);
+        using (EventCallScope scope = _events.BeginCall())
+        {
+            ushort node = _backlog.Head;
+            while (node != BacklogRing.None && placed < _drainPerTick && intake.FreeCells > 0)
+            {
+                _events.Counters.Add(CounterId.InventoryBacklogVisits);
+                ushort entrySlot = node;
+                node = _backlog.Next(node);
+                ref EntryRecord e = ref _entries[entrySlot];
+                if (e.W * e.H > intake.FreeCells)
+                {
+                    continue; // the skip rule: cannot fit whatever the layout, O(1)
+                }
+
+                PlacementSubject subject = PlacementSubject.Of(_content, _stats, in e);
+                var entryPlan = new InvPlan();
+                ushort reason = _autoPlace.Plan(
+                    ref entryPlan, in subject, e.Count, entrySlot, targets, MergePolicy.NoMerge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+                if (reason == 0)
+                {
+                    reason = _requestCheck.CheckArenaReservation(in entryPlan); // NoMerge of an entry that owns its block acquires none
+                }
+
+                if (reason != 0)
+                {
+                    // In-pass exhaustion: the facts hold at this (unchanged) version, so the same shape probes nothing again this pass.
+                    _autoPlace.RecordNoFits(in ap);
+                    for (int i = 0; i < ap.NoFitCount && noFits < _drainNoFits.Length; i++)
+                    {
+                        _drainNoFits[noFits++] = ap.NoFit(i);
+                    }
+
+                    continue;
+                }
+
+                if (!open)
+                {
+                    _mutator.Begin(ref plan, ActorId.System, InvCause.System);
+                    open = true;
+                }
+
+                // story 017 ledger hook: the entry's units cross Backlog -> Placed.
+                _backlog.Remove(entrySlot, e.Count);
+                _autoPlace.Commit(ref plan, in ap);
+                placed++;
+            }
+
+            if (open)
+            {
+                _mutator.End(ref plan, ref extra);
+                RaiseBacklogUnits();
+            }
+        }
+
+        _autoPlace.EndStartAnchors();
+        for (int i = 0; i < noFits; i++)
+        {
+            _autoPlace.RecordNoFitAtCurrentVersion(in _drainNoFits[i]);
+        }
+
+        _drainMemoValid = true;
+        _drainIntakeVersion = intake.Version;
+        _drainAppendSeq = _backlog.AppendSeq;
+        _drainHitCap = placed == _drainPerTick;
     }
 
     /// <summary>

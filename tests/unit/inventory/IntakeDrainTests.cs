@@ -249,7 +249,182 @@ public sealed class IntakeDrainTests
         Assert.Equal(0, rig.Inventory.BacklogEntries);
     }
 
+    // ---------------------------------------------------------------- the drain
+
+    [Fact]
+    [Trait("Id", "H-R14-2")]
+    public void Drain_IntakeFullExceptTheLastCell_BacklogLargeL1L2_PlacesL1_SkipsTheLarge_OneSeal_ThenAnIdleTickProbesNothing()
+    {
+        // Arrange: 319 letters fill the Intake except (19,15); the backlog [Large, L1, L2] is appended in one MailStep
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 319, 1_000);
+        DefIndex large = rig.KindIndex("large");
+        DefIndex letter = rig.KindIndex("letter");
+        _ = IntakeSpawnOutfeedTests.InPhase(rig, () =>
+            rig.Inventory.AppendBacklog(new BacklogEntry(large, Address4, 0, IntakeSpawnOutfeedTests.Mail(10)))
+            & rig.Inventory.AppendBacklog(new BacklogEntry(letter, Address4, 0, IntakeSpawnOutfeedTests.Mail(11)))
+            & rig.Inventory.AppendBacklog(new BacklogEntry(letter, Address9, 0, IntakeSpawnOutfeedTests.Mail(12))));
+        ushort[] before = Queue(rig);
+        uint version = rig.Header(rig.Intake).Version;
+
+        // Act 1: the next tick's phase 2
+        (long probes, long visits, EventEntry[] log) = Tick(rig);
+
+        // Assert 1: L1 at (19,15), backlog [Large, L2], 2 units, Intake +1; the Large was skipped in O(1) (area 8 > 1 free cell)
+        Assert.Equal(before[1], rig.EntryAt(rig.Intake, 19, 15));
+        Assert.Equal(new[] { before[0], before[2] }, Queue(rig));
+        Assert.Equal(2, rig.Inventory.BacklogUnits);
+        Assert.Equal(version + 1, rig.Header(rig.Intake).Version);
+        Assert.Equal(320, probes); // L1's one scan, 320 one-cell anchors; the Large made none
+        Assert.Equal(2, visits); // Large, L1; then no free cell
+        EventEntry[] inv = log.Where(e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits && (e.Flags & EventFlags.Continuation) == 0).ToArray();
+        Assert.Equal(new[] { InvEventKinds.Inserted, InvEventKinds.Version, InvEventKinds.BacklogUnits }, inv.Select(e => e.Kind).ToArray());
+        Assert.Equal((byte)InvCause.System, inv[1].PayloadAs<InvVersionPayload>().Cause);
+
+        // Act 2 + Assert 2: the next tick with no Intake change: no probe, no visit, nothing raised
+        (long probes2, long visits2, EventEntry[] log2) = Tick(rig);
+        Assert.Equal(0, probes2);
+        Assert.Equal(0, visits2);
+        Assert.DoesNotContain(log2, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
+        Assert.Equal(version + 1, rig.Header(rig.Intake).Version);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R14-2")]
+    public void Drain_100CellsFreedInTheMailStep_100BacklogLetters_Places32_32_32_4_OneSealPerPass_ThenIdle()
+    {
+        // Arrange: a full Intake and 100 backlog letters (Intake full, so the drain idles)
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 320, 1_000);
+        DefIndex letter = rig.KindIndex("letter");
+        _ = IntakeSpawnOutfeedTests.InPhase(rig, () =>
+        {
+            for (uint i = 0; i < 100; i++)
+            {
+                Assert.True(rig.Inventory.AppendBacklog(new BacklogEntry(letter, Address9, 0, new[] { new MailId(5_000 + i) })));
+            }
+
+            return 0;
+        });
+        Assert.Equal(100, rig.Inventory.BacklogEntries);
+
+        // Act: tick T-1's MailStep frees 100 cells (100 TakeUnit, standing in for the M1 sort); then ticks T..T+4
+        _ = IntakeSpawnOutfeedTests.InPhase(rig, () =>
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                Assert.True(rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out _));
+            }
+
+            return 0;
+        });
+        var placed = new List<int>();
+        var bumps = new List<uint>();
+        long lastProbes = 0;
+        long lastVisits = 0;
+        for (int t = 0; t < 5; t++)
+        {
+            int entries = rig.Inventory.BacklogEntries;
+            uint version = rig.Header(rig.Intake).Version;
+            (lastProbes, lastVisits, _) = Tick(rig);
+            placed.Add(entries - rig.Inventory.BacklogEntries);
+            bumps.Add(rig.Header(rig.Intake).Version - version);
+        }
+
+        // Assert
+        Assert.Equal(new[] { 32, 32, 32, 4, 0 }, placed);
+        Assert.Equal(new uint[] { 1, 1, 1, 1, 0 }, bumps);
+        Assert.Equal(0, lastProbes);
+        Assert.Equal(0, lastVisits);
+        Assert.Equal(0, rig.Inventory.BacklogUnits);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R14-3")]
+    public void Drain_PlaceCase_AnOlderMailIdFromTheBacklog_GetsArrivalSeq4_OneInsertedNoMerged_AndLeavesAfterAllThreeResidents()
+    {
+        // Arrange: residents 10, 20, 30 to three addresses (arrivalSeq 1, 2, 3); a backlog letter with the older id 5
+        var rig = new InvAutoPlaceRig();
+        DefIndex letter = rig.KindIndex("letter");
+        foreach ((uint id, uint address) in new[] { (10u, 1u), (20u, 2u), (30u, 3u) })
+        {
+            Assert.Equal(1, IntakeSpawnOutfeedTests.InPhase(
+                rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, address, 0, IntakeSpawnOutfeedTests.Mail(id), MergePolicy.NoMerge)).Placed);
+        }
+
+        ushort[] residents = { rig.EntryAt(rig.Intake, 0, 0), rig.EntryAt(rig.Intake, 1, 0), rig.EntryAt(rig.Intake, 2, 0) };
+        Assert.Equal(4u, rig.Header(rig.Intake).NextArrivalSeq);
+        Assert.True(Append(rig, "letter", 4u, 5));
+        ushort drained = Queue(rig)[0];
+
+        // Act: the drain (next tick), then four TakeUnit
+        (_, _, EventEntry[] log) = Tick(rig);
+        uint[] seqs = residents.Select(r => rig.Entries[r].ArrivalSeq).Append(rig.Entries[drained].ArrivalSeq).ToArray();
+        uint next = rig.Header(rig.Intake).NextArrivalSeq;
+        var order = new List<uint>();
+        for (int i = 0; i < 4; i++)
+        {
+            UnitRef u = default;
+            Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out u)));
+            order.Add(u.Mail.Value);
+        }
+
+        // Assert: a new count-1 entry with arrivalSeq 4 (NextArrivalSeq 5), one InvInserted, no InvMerged; it leaves last
+        Assert.Single(log, e => e.Kind == InvEventKinds.Inserted && (e.Flags & EventFlags.Continuation) == 0);
+        Assert.DoesNotContain(log, e => e.Kind == InvEventKinds.Merged);
+        Assert.Equal(new uint[] { 10, 20, 30, 5 }, order);
+        Assert.Equal(5u, next);
+        Assert.Equal(new uint[] { 1, 2, 3, 4 }, seqs);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R14-3")]
+    public void MergeCase_ALetterMergedOntoTheSecondResident_IsRestampedSeq4_TheOtherTwoLeaveAhead_ThenTheStackLowestIdFirst()
+    {
+        // Arrange: residents 10 (#1, seq 1), 20 (#9, seq 2), 30 (#3, seq 3); a detached letter to #9, id 15
+        var rig = new InvAutoPlaceRig();
+        DefIndex letter = rig.KindIndex("letter");
+        foreach ((uint id, uint address) in new[] { (10u, 1u), (20u, Address9), (30u, 3u) })
+        {
+            _ = IntakeSpawnOutfeedTests.InPhase(
+                rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, address, 0, IntakeSpawnOutfeedTests.Mail(id), MergePolicy.NoMerge));
+        }
+
+        ushort target = rig.EntryAt(rig.Intake, 1, 0);
+        uint[] seqsBefore = { rig.Entries[rig.EntryAt(rig.Intake, 0, 0)].ArrivalSeq, rig.Entries[target].ArrivalSeq, rig.Entries[rig.EntryAt(rig.Intake, 2, 0)].ArrivalSeq };
+        ushort source = rig.DetachedMail("letter", Address9, new[] { 15u });
+
+        // Act: MergeInto (the merging path; not a drain path at M-1a), then four TakeUnit
+        Reply merged = rig.Step(
+            (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
+            (ref InvPlan p) => rig.Inventory.Mutator.MergeInto(ref p, source, target, 1));
+        uint seqAfter = rig.Entries[target].ArrivalSeq;
+        var order = new List<uint>();
+        for (int i = 0; i < 4; i++)
+        {
+            UnitRef u = default;
+            Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out u)));
+            order.Add(u.Mail.Value);
+        }
+
+        // Assert: seq 4 (NextArrivalSeq 5); residents 1 and 3 leave ahead; then the merged stack, lowest mailId first; no seq decreased
+        Assert.True(merged.IsOk);
+        Assert.Equal(new uint[] { 1, 2, 3 }, seqsBefore);
+        Assert.Equal(4u, seqAfter);
+        Assert.Equal(5u, rig.Header(rig.Intake).NextArrivalSeq);
+        Assert.Equal(new uint[] { 10, 30, 15, 20 }, order);
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    /// <summary>Ticks once; returns the placement probes (43), the backlog visits (50) and the tick's log.</summary>
+    internal static (long Probes, long Visits, EventEntry[] Log) Tick(InvAutoPlaceRig rig)
+    {
+        long probes = rig.Counters[CounterId.InventoryPlacementProbes];
+        long visits = rig.Counters[CounterId.InventoryBacklogVisits];
+        rig.Host.World.Tick();
+        return (rig.Counters[CounterId.InventoryPlacementProbes] - probes, rig.Counters[CounterId.InventoryBacklogVisits] - visits, rig.Sink.Last);
+    }
 
     /// <summary><see cref="IInventoryApi.AppendBacklog"/> of one entry of <paramref name="kind"/> in its own tick's <c>MailStep</c>.</summary>
     internal static bool Append(InvAutoPlaceRig rig, string kind, uint address, params uint[] ids)

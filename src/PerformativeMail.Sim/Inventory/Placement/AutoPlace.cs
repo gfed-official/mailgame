@@ -277,6 +277,17 @@ internal sealed class AutoPlace
     private readonly NegativeFitCache _noFit;
     private readonly SimCounters _counters;
 
+    // Story 021 (TD-133 item 1): the per-oriented-shape start anchors of one drain pass; see BeginStartAnchors.
+    private readonly int[] _anchorShape = new int[MaxStartAnchors];
+    private readonly int[] _anchorStart = new int[MaxStartAnchors];
+    private int _anchorCount;
+    private ushort _anchorContainer = NoAnchorContainer;
+
+    /// <summary>The oriented shapes one pass keeps a start anchor for; a further shape scans from (0, 0), which is always correct.</summary>
+    public const int MaxStartAnchors = 16;
+
+    private const ushort NoAnchorContainer = ushort.MaxValue;
+
     /// <summary>Creates AutoPlace over the module's storage.</summary>
     /// <param name="containers">The container table.</param>
     /// <param name="defs">The container defs (whitelist, reserved slots).</param>
@@ -307,6 +318,39 @@ internal sealed class AutoPlace
 
     /// <summary>The negative-fit cache (tests disable it for the identical-run property).</summary>
     public NegativeFitCache NoFitCache => _noFit;
+
+    /// <summary>
+    /// Starts per-oriented-shape start anchors on <paramref name="containerSlot"/>'s grid scans (story 021's drain pass; TD-133 item 1;
+    /// GDD H-PERF-6c): each PASS U / PASS R scan of an oriented footprint <c>fw × fh</c> resumes at the anchor where the previous scan of
+    /// the same shape in this pass stopped (its hit, or past the end after a miss) instead of (0, 0). The result is the same first free
+    /// anchor in row-major order, because occupancy only grows until <see cref="EndStartAnchors"/> (the caller only places): every anchor
+    /// before the resume point was blocked before and still is. So 32 placements into scattered holes cost about one sweep per shape, not
+    /// 32. The caller must end it before anything frees a cell; a slots layout and the other containers are unaffected.
+    /// </summary>
+    /// <param name="containerSlot">The container whose scans use the anchors (the Intake).</param>
+    internal void BeginStartAnchors(ushort containerSlot)
+    {
+        _anchorContainer = containerSlot;
+        _anchorCount = 0;
+    }
+
+    /// <summary>Ends <see cref="BeginStartAnchors"/>: every scan starts at (0, 0) again.</summary>
+    internal void EndStartAnchors()
+    {
+        _anchorContainer = NoAnchorContainer;
+        _anchorCount = 0;
+    }
+
+    /// <summary>
+    /// Writes one no-fit fact at its container's <b>current</b> version (story 021: the drain keeps its pass's facts and records them
+    /// after its seal, as <see cref="RecordNoFitsAtCurrentVersion"/> does for <see cref="InventorySystem.Spawn"/>).
+    /// </summary>
+    /// <param name="f">The fact.</param>
+    internal void RecordNoFitAtCurrentVersion(in AutoPlaceNoFit f)
+    {
+        ref readonly ContainerHeader h = ref _containers[f.ContainerSlot];
+        _noFit.RecordNoFit(f.ContainerSlot, in h, f.W, f.H, f.Rotated, h.Version);
+    }
 
     /// <summary>
     /// Plans AutoPlacing <paramref name="units"/> of <paramref name="subject"/> into <paramref name="targets"/> (see the class summary).
@@ -719,9 +763,13 @@ internal sealed class AutoPlace
     {
         ulong mask = RowMask(fw);
         int area = fw * fh;
-        for (int y = 0; y <= h.H - fh; y++)
+        int anchor = containerSlot == _anchorContainer ? FindAnchor((fw << 8) | fh) : -1;
+        int columns = Math.Max(1, h.W - fw + 1);
+        int start = anchor >= 0 ? _anchorStart[anchor] : 0;
+        int startY = start / columns;
+        for (int y = startY; y <= h.H - fh; y++)
         {
-            for (int x = 0; x <= h.W - fw; x++)
+            for (int x = y == startY ? start % columns : 0; x <= h.W - fw; x++)
             {
                 // Every footprint row is tested (no early exit), so each anchor examines exactly fw x fh cells and counts that many.
                 _counters.Add(CounterId.InventoryPlacementProbes, area);
@@ -734,6 +782,11 @@ internal sealed class AutoPlace
 
                 if (blocked == 0UL)
                 {
+                    if (anchor >= 0)
+                    {
+                        _anchorStart[anchor] = (y * columns) + x; // resume here: the caller fills it, so the next scan re-tests it once
+                    }
+
                     foundX = x;
                     foundY = y;
                     return true;
@@ -741,9 +794,35 @@ internal sealed class AutoPlace
             }
         }
 
+        if (anchor >= 0)
+        {
+            _anchorStart[anchor] = int.MaxValue; // exhausted for the rest of the pass
+        }
+
         foundX = 0;
         foundY = 0;
         return false;
+    }
+
+    /// <summary>The start-anchor index of oriented shape <paramref name="shape"/> in the current pass (added at 0 when new), or -1 when the table is full.</summary>
+    private int FindAnchor(int shape)
+    {
+        for (int i = 0; i < _anchorCount; i++)
+        {
+            if (_anchorShape[i] == shape)
+            {
+                return i;
+            }
+        }
+
+        if (_anchorCount == MaxStartAnchors)
+        {
+            return -1;
+        }
+
+        _anchorShape[_anchorCount] = shape;
+        _anchorStart[_anchorCount] = 0;
+        return _anchorCount++;
     }
 
     private bool ScanSlots(ushort containerSlot, in ContainerHeader h, out int foundX, out int foundY)

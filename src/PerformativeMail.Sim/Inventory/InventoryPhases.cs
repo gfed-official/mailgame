@@ -19,12 +19,20 @@ internal sealed class ItemsExpirePhase : ISimPhase
     public void Run(in TickContext ctx) => _worldItems.Expire(ctx.Tick);
 }
 
-/// <summary>Grid Inventory's <c>IntakeDrain</c> phase (phase 2). Empty until the intake story fills it.</summary>
+/// <summary>
+/// Grid Inventory's <c>IntakeDrain</c> phase (phase 2, after <c>ItemsExpire</c>; ADR-0003 section 1; story 021): the backlog drain
+/// (<see cref="InventorySystem.DrainBacklog"/>).
+/// </summary>
 internal sealed class IntakeDrainPhase : ISimPhase
 {
-    public void Run(in TickContext ctx)
+    private readonly InventorySystem _system;
+
+    public IntakeDrainPhase(InventorySystem system)
     {
+        _system = system;
     }
+
+    public void Run(in TickContext ctx) => _system.DrainBacklog();
 }
 
 /// <summary>Grid Inventory's conservation check (ADR-0009). A no-op stub; story 017 gives it a body.</summary>
