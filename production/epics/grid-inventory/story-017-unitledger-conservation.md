@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: L (~2–3 days)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (close-out at `/story-done`: ACs 11/11 ticked with their tests, Completion Notes; draft PR #36, stacked on PR #35. Before that: readiness fixes against main c2d4a64, story 014 / PR #34 merged, checked against story 021 / PR #35 ab0ae6d: Manifest Version re-stamped; Decision Summary made precise (`spawned` / `granted`, the Cursor and holder states, sole writer); the crossing table covering 012–015 and 014's pickup/catch and 021's backlog append/drain; check record, counter, scan, IL, Recount seam, `TryInsert` duplicate (TD-145), dump field list, rejects, 0 B, determinism ACs; depends on 021; estimate M → L; Mail Lead planning defaults pending Evan, TD-160)
+> **Last Updated**: 2026-10-22 (close-out at `/story-done`: ACs 11/11 ticked with their tests, Completion Notes; PR #36, main c889f59 (PR #35 merged) merged in at e941cb4. Before that: readiness fixes against main c2d4a64, story 014 / PR #34 merged, checked against story 021 / PR #35 ab0ae6d: Manifest Version re-stamped; Decision Summary made precise (`spawned` / `granted`, the Cursor and holder states, sole writer); the crossing table covering 012–015 and 014's pickup/catch and 021's backlog append/drain; check record, counter, scan, IL, Recount seam, `TryInsert` duplicate (TD-145), dump field list, rejects, 0 B, determinism ACs; depends on 021; estimate M → L; Mail Lead planning defaults pending Evan, TD-160)
 
 ## Context
 
@@ -99,7 +99,7 @@
 
 ## Dependencies
 
-- Depends on: Story 005, Story 012–015 (all Complete; 014 merged in PR #34 as c2d4a64), Story 021 (PR #35, the Backlog append/drain crossings; open, not merged: this branch is stacked on it, PR 35's head 28a25e8 merged in at efc8ba2, no rebase)
+- Depends on: Story 005, Story 012–015 (all Complete; 014 merged in PR #34 as c2d4a64), Story 021 (PR #35, the Backlog append/drain crossings; merged as main c889f59, merged in at e941cb4, no rebase; PR 35's head 28a25e8 was merged in earlier at efc8ba2)
 - Depends on: `production/epics/simulation-core/story-007-simcounters-simcheckring.md`, `production/epics/simulation-core/story-019-canonical-state-dump.md`, `production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md` (`INVENTORY_ASSERT`)
 - Unlocks: Story 018
 
@@ -125,7 +125,7 @@
 ---
 
 ## Completion Notes
-**Completed**: 2026-10-22 (draft PR #36, stacked on PR #35 (story 021, open, not merged); PR 35's head 28a25e8 merged in at efc8ba2, no rebase)
+**Completed**: 2026-10-22 (PR #36; story 021's PR #35 merged as main c889f59, merged in at e941cb4, no rebase; PR 35's head 28a25e8 was merged in earlier at efc8ba2)
 **Criteria**: 11/11 passing (`UnitLedgerTests` unless named otherwise; all in `tests/unit/inventory/` or `tests/unit/architecture/`).
 - Ledger shape: `Ledger_AtWorldBuild_HasTheMailRowPlusOneRowPerItemDef_EveryCounterZero`, `RowOf_Mail_IsRowZero_AnItem_IsItsItemIdPlusOne`, `Consumed_IsTheSumOfItsThreeReasonCounters_AndExpectedSubtractsItAndDestroyed`, `Crossings_OnAnOutOfRangeRowOrReason_ChangeNothing`
 - Sole writer: `LedgerWriterRulesTests` — `SimAssembly_OnlyInventoryMutatorAndUnitLedgerWriteTheLedger`, `SimAssembly_InventoryMutator_IsTheLedgerWriter`, `UnitLedger_Writers_AreExactlyTheCrossingsAndTheTestSeams`, `RuleEngine_FixtureReader_IsClean`, and the seen-failing fixture `RuleEngine_BadFixture_ReportsExactlyTheExpectedViolations`
