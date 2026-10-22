@@ -47,6 +47,39 @@ public struct InvPlacement
     }
 }
 
+/// <summary>
+/// The merge a handler's <c>Validate</c> decided and its <c>Commit</c> applies unchanged (story grid-inventory/007: <c>move</c> onto a
+/// mergeable stack, GDD R7 merge row): <see cref="Units"/> of the source entry go onto the placed target stack. A plain value;
+/// <see cref="IsSet"/> false means "no merge".
+/// </summary>
+/// <example><code>plan.Merge = new InvMerge(entrySlot, targetSlot, units);</code></example>
+public struct InvMerge
+{
+    /// <summary>The source entry's pool slot.</summary>
+    public ushort SourceSlot;
+
+    /// <summary>The placed target stack's pool slot.</summary>
+    public ushort TargetSlot;
+
+    /// <summary>How many units move: <c>min(count, effMax − target.count)</c>, at least 1.</summary>
+    public byte Units;
+
+    /// <summary>True when a merge was decided.</summary>
+    public bool IsSet;
+
+    /// <summary>Creates a decided merge.</summary>
+    /// <param name="sourceSlot">The source entry's pool slot.</param>
+    /// <param name="targetSlot">The placed target stack's pool slot.</param>
+    /// <param name="units">How many units move.</param>
+    public InvMerge(ushort sourceSlot, ushort targetSlot, byte units)
+    {
+        SourceSlot = sourceSlot;
+        TargetSlot = targetSlot;
+        Units = units;
+        IsSet = true;
+    }
+}
+
 /// <summary>Up to <see cref="InvPlan.MaxTouched"/> container table slots.</summary>
 [InlineArray(InvPlan.MaxTouched)]
 internal struct InvSlotBuffer
@@ -77,7 +110,8 @@ internal struct InvBlockBuffer
 /// (a move onto its own cells) seals nothing even though it was touched;</item>
 /// <item>the <b>acquired blocks</b>: one element per mail-ids arena block the commit acquires, each sized at the moment it is
 /// acquired (the input of <see cref="Ops.InvRequestCheck.CheckArenaReservation(in InvPlan)"/>);</item>
-/// <item>the <see cref="Placement"/> result and the reply's primary source/destination containers (<c>ResultVersionA/B</c>);</item>
+/// <item>the <see cref="Placement"/> result (or the <see cref="Merge"/> a placement onto a mergeable stack became, story 007) and
+/// the reply's primary source/destination containers (<c>ResultVersionA/B</c>);</item>
 /// <item>the call's actor and cause, set by <see cref="InventoryMutator.Begin"/> and written into every seal.</item>
 /// </list>
 /// A default value is an empty plan. Not thread-safe (plain value).
@@ -118,6 +152,9 @@ public struct InvPlan
 
     /// <summary>The placement decided by <c>Validate</c>.</summary>
     public InvPlacement Placement;
+
+    /// <summary>The merge decided by <c>Validate</c> instead of a placement (story 007).</summary>
+    public InvMerge Merge;
 
     /// <summary>The call's actor (written into every seal; the reply's <c>ByActorId</c> is the contested actor, stories 013/014).</summary>
     public ActorId Actor;

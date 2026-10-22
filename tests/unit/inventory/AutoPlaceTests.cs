@@ -26,8 +26,8 @@ public class AutoPlaceTests
     private const uint Address2 = 2u;
     private const uint Address9 = 9u;
 
-    /// <summary>sizeof(InvPlan), measured: 4 x 2 B touched slots, 263 x 2 B block sizes, counts, primaries, placement, actor, cause.</summary>
-    private const int InvPlanSize = 568;
+    /// <summary>sizeof(InvPlan), measured: 4 x 2 B touched slots, 263 x 2 B block sizes, counts, primaries, placement, merge (story 007), actor, cause.</summary>
+    private const int InvPlanSize = 572;
 
     /// <summary>sizeof(AutoPlacePlan), measured: 255 x 2 B merge targets + 255 x 1 B merge units, 16 x 12 B no-fit facts, counts, placement, ints.</summary>
     private const int AutoPlacePlanSize = 988;

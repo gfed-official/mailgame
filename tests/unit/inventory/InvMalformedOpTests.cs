@@ -11,12 +11,14 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
 /// Story grid-inventory/004, GDD H-NET-5 (Sim half) and H-R7-4 (malformed half); TR-inventory-025, TR-inventory-006; ADR-0009 section 2;
-/// ADR-0007 sections 3 and 5. Until stories 007-010 and 019 bind the real handlers, every inventory kind the system does not bind itself
-/// (all but <c>Close</c>, story 011, whose real handler runs here and is covered by <c>OpenSetTests</c>) is bound (with its real
-/// descriptor) to a TEST-ONLY <see cref="InvValidateOnlyStub"/> whose whole body is the shared production steps
-/// (<see cref="InvRequestCheck.CheckRequest"/>, then — no <c>not_open</c> step exists yet — <see cref="InvRequestCheck.ResolveEntries"/>)
-/// and which never mutates; ops go through the real phase-0 drain of a composed world holding a real
-/// <see cref="InventorySystem"/> with live and removed entries. Out-of-range values that a narrow payload field cannot represent
+/// ADR-0007 sections 3 and 5. Until stories 008-010 and 019 bind the real handlers, every inventory kind the system does not bind itself
+/// (all but <c>Pick</c> and <c>Move</c>, story 007, and <c>Close</c>, story 011, whose real handlers run here and are covered by
+/// <c>PickMoveTests</c> and <c>OpenSetTests</c>) is bound (with its real descriptor) to a TEST-ONLY <see cref="InvValidateOnlyStub"/>
+/// whose whole body is the shared production steps (<see cref="InvRequestCheck.CheckRequest"/>, then — no <c>not_open</c> step exists
+/// for those kinds yet — <see cref="InvRequestCheck.ResolveEntries"/>) and which never mutates; ops go through the real phase-0 drain of
+/// a composed world holding a real <see cref="InventorySystem"/> (with the world's slot view, so the real handlers resolve the actor's
+/// slot) and live and removed entries. The rig's live entries are allocated but placed in no container, so the real <c>Pick</c> and
+/// <c>Move</c> answer a well-formed op on one with <c>stale_entry</c>. Out-of-range values that a narrow payload field cannot represent
 /// (<c>count = -1</c>, <c>x = 70000</c>) are checked at the helper's widened-<c>int</c> entry points (<see cref="InvRequestCheck.CheckCount"/>,
 /// <see cref="InvRequestCheck.CheckCoordinate"/>) that the codec decode boundary will call; byte-level decode itself is the
 /// network-adapter-loopback epic's.
@@ -89,16 +91,6 @@ public class InvMalformedOpTests
     }
 
     [Fact]
-    public void Move_LiveEntryWithInRangeFields_PassesTheSharedCheck_AndTheStubChangesNothing()
-    {
-        // Arrange
-        var rig = new InvOpRig();
-
-        // Act + Assert
-        rig.AssertSingleReply(rig.MoveOp(rig.LiveIds[0]), rig.PlayerA, CoreReason.Ok);
-    }
-
-    [Fact]
     public void Move_BadRequestPrecedesStaleEntry_WhenARemovedIdCarriesANonZeroPad()
     {
         // Arrange
@@ -117,7 +109,8 @@ public class InvMalformedOpTests
     [InlineData("QuickMove", 11, (byte)0xFF)]
     public void PaddedPayload_NonZeroByteInEachPadPosition_IsBadRequest_OnAnOtherwiseValidOp(string kind, int offset, byte value)
     {
-        // Arrange: a valid op on a live entry (Ok through the stub), then one pad byte set in place.
+        // Arrange: a well-formed op on a live entry (Ok through the stub; stale_entry through the real Move, the entry being
+        // unplaced), then one pad byte set in place.
         var rig = new InvOpRig();
         Op op = KindOp(rig, kind, rig.LiveIds[0], rig.LiveIds[1]);
         Assert.Equal(0, op.Payload[offset]);
@@ -128,7 +121,7 @@ public class InvMalformedOpTests
     }
 
     [Fact]
-    public void Move_RotatedOnASlotsLayout_IsBadRequest_ButOnAGridIsAccepted()
+    public void Move_RotatedOnASlotsLayout_IsBadRequest_ButOnAGridPassesTheRequestCheck()
     {
         // Arrange
         var rig = new InvOpRig();
@@ -136,9 +129,9 @@ public class InvMalformedOpTests
         Op ontoGrid = rig.MoveOp(rig.LiveIds[0], to: rig.InventoryA.Value, rotated: 1);
         Op rotatedTwo = rig.MoveOp(rig.LiveIds[0], to: rig.InventoryA.Value, rotated: 2);
 
-        // Act + Assert
+        // Act + Assert: past bad_request the real Move answers stale_entry (the live entry is in no container)
         rig.AssertSingleReply(ontoHotbar, rig.PlayerA, CoreReason.BadRequest);
-        rig.AssertSingleReply(ontoGrid, rig.PlayerA, CoreReason.Ok);
+        rig.AssertSingleReply(ontoGrid, rig.PlayerA, (ushort)InvReason.StaleEntry);
         rig.AssertSingleReply(rotatedTwo, rig.PlayerA, CoreReason.BadRequest);
     }
 
@@ -172,10 +165,11 @@ public class InvMalformedOpTests
         ushort coordinateGate = InvRequestCheck.CheckCoordinate(decodedX);
 
         // Assert: the decoded values are bad_request at the entry points; once narrowed (255, 4464) they are representable and in range,
-        // so the stub path cannot see them as malformed — this test pins that boundary rather than claiming otherwise.
+        // so the handler cannot see them as malformed (it passes bad_request and answers stale_entry for the unplaced entry) — this
+        // test pins that boundary rather than claiming otherwise.
         Assert.Equal(CoreReason.BadRequest, countGate);
         Assert.Equal(CoreReason.BadRequest, coordinateGate);
-        rig.AssertSingleReply(narrowed, rig.PlayerA, CoreReason.Ok);
+        rig.AssertSingleReply(narrowed, rig.PlayerA, (ushort)InvReason.StaleEntry);
     }
 
     [Theory]
@@ -234,9 +228,17 @@ public class InvMalformedOpTests
             Assert.Equal(CoreReason.BadRequest, r.Reason);
         });
         Assert.Equal(FuzzOps, replies.Select(r => r.ReqId).Distinct().Count());
-        int closeOps = issued.Values.Count(k => k == InvOpKinds.Close);
-        Assert.True(closeOps > 0, "generator issued no Close op");
-        Assert.Equal(FuzzOps - closeOps, rig.StubCalls); // every stubbed op reached the helper; Close ops reached the real handler (bad_request above)
+        foreach (OpKind bound in InventoryWithStubOps.BoundBySystem)
+        {
+            Assert.True(issued.Values.Count(k => k == bound) > 0, $"generator issued no {bound} op");
+        }
+
+        // Every op reached a handler: the stubbed kinds the stub's helper, Pick, Move and Close their real handler (bad_request above).
+        // A handler's reply carries its call scope's CallSeq; a Sim Core pre-check reject would carry 0.
+        int boundOps = issued.Values.Count(k => Array.IndexOf(InventoryWithStubOps.BoundBySystem, k) >= 0);
+        Assert.Equal(FuzzOps - boundOps, rig.StubCalls);
+        Assert.Equal(boundOps, rig.HandlerCallsSince(ticksBefore, InventoryWithStubOps.BoundBySystem));
+        Assert.Equal(FuzzOps, rig.HandlerCallsSince(ticksBefore, issued.Values.Distinct().ToArray()));
         Assert.True(gen.KindsSeen >= 8, $"generator covered only {gen.KindsSeen} kinds");
         Assert.Equal(before, rig.Snapshot());
         Assert.NotEqual(SimState.Faulted, rig.Host.World.State);
@@ -270,8 +272,9 @@ public class InvMalformedOpTests
 
     // ------------------------------------------------------------------ per-kind pass / stale_entry through the drain
 
-    // Close is not here: InventorySystem binds its real handler (story 011), whose valid cases are in OpenSetTests.
-    public static TheoryData<string> ValidCases => new() { "Pick", "Move", "Merge", "QuickMove", "Drop", "Pickup", "PickupDefaultEntry", "Open", "Return" };
+    // Pick, Move and Close are not here: InventorySystem binds their real handlers (stories 007 and 011), whose valid cases are in
+    // PickMoveTests and OpenSetTests (the rig's unplaced live entry is stale_entry to the real Pick and Move).
+    public static TheoryData<string> ValidCases => new() { "Merge", "QuickMove", "Drop", "Pickup", "PickupDefaultEntry", "Open", "Return" };
 
     public static TheoryData<string> StaleCases => new() { "Pick", "Move", "Merge", "MergeTarget", "QuickMove", "Drop", "Pickup" };
 
@@ -592,9 +595,9 @@ public class InvMalformedOpTests
 /// <summary>
 /// TEST-ONLY op handler (story grid-inventory/004): the whole body is the shared production steps of an inventory handler's
 /// <c>Validate</c> — <see cref="InvRequestCheck.CheckRequest"/> (bad_request), then <see cref="InvRequestCheck.ResolveEntries"/>
-/// (stale_entry), with no <c>not_open</c> / P13 step between them because none exists until stories 007-010 — with the actor's slot
+/// (stale_entry), with no <c>not_open</c> / P13 step between them because none exists until stories 008-010 — with the actor's slot
 /// resolved from <see cref="Op.Actor"/>. It never mutates,
-/// so a pass is <c>Ok</c> with nothing changed. Replaced by the real handlers of stories 007-010.
+/// so a pass is <c>Ok</c> with nothing changed. Replaced by the real handlers of stories 008-010.
 /// </summary>
 internal sealed class InvValidateOnlyStub : IOpHandler
 {
@@ -632,8 +635,8 @@ internal sealed class InvValidateOnlyStub : IOpHandler
 /// </summary>
 internal sealed class InventoryWithStubOps : ISimSystem
 {
-    /// <summary>The kinds <see cref="InventorySystem.Bind"/> binds a production handler for (story 011: <c>Close</c>).</summary>
-    public static readonly OpKind[] BoundBySystem = { InvOpKinds.Close };
+    /// <summary>The kinds <see cref="InventorySystem.Bind"/> binds a production handler for (story 007: <c>Pick</c>, <c>Move</c>; story 011: <c>Close</c>).</summary>
+    public static readonly OpKind[] BoundBySystem = { InvOpKinds.Pick, InvOpKinds.Move, InvOpKinds.Close };
 
     private readonly ISlotView _slots;
 
@@ -666,8 +669,9 @@ internal sealed class InventoryWithStubOps : ISimSystem
 
 /// <summary>
 /// A composed M-1a world (real content, real <see cref="InventorySystem"/>, Sim Core's own <c>PlayerJoin</c>) with players in slots 0 and 1,
-/// six allocated entries of which ids 2 and 5 are removed again (so the pool's high-water is 6), and the inventory kinds other than
-/// <c>Close</c> bound to stubs.
+/// six allocated (never placed) entries of which ids 2 and 5 are removed again (so the pool's high-water is 6), and the inventory kinds
+/// other than <c>Pick</c>, <c>Move</c> and <c>Close</c> bound to stubs. The system gets the world's slot view (the real handlers
+/// resolve the actor's slot through it).
 /// </summary>
 internal sealed class InvOpRig
 {
@@ -679,7 +683,10 @@ internal sealed class InvOpRig
         var profile = SimProfile.ForTest(
             "inventory-op-stubs",
             null,
-            new SimSystemEntry(SystemId.GridInventory, ctx => new InventoryWithStubOps(new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing), ctx.Slots)));
+            new SimSystemEntry(
+                SystemId.GridInventory,
+                ctx => new InventoryWithStubOps(
+                    new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, InventorySettings.FromBalance(ctx.Content.Inventory), slots: ctx.Slots), ctx.Slots)));
         Host = SimComposition.Build(new SimBuildArgs(profile, BuiltInContent.CreateM1a(), 42) { EventSink = Sink });
         _system = (InventoryWithStubOps)Host.Systems.Single();
         Join(0, 1);
@@ -753,6 +760,10 @@ internal sealed class InvOpRig
 
     public Reply[] RepliesSince(int tickIndex) => Sink.Ticks.Skip(tickIndex).SelectMany(t => t)
         .Where(e => e.Kind == EventKind.OpReply).Select(e => e.PayloadAs<Reply>()).ToArray();
+
+    /// <summary>The replies since <paramref name="tickIndex"/> of the given kinds that a handler produced (a non-zero call scope; a Sim Core pre-check reject has none).</summary>
+    public int HandlerCallsSince(int tickIndex, OpKind[] kinds) => Sink.Ticks.Skip(tickIndex).SelectMany(t => t)
+        .Count(e => e.Kind == EventKind.OpReply && e.CallSeq != 0 && Array.IndexOf(kinds, e.PayloadAs<Reply>().Kind) >= 0);
 
     /// <summary>The inventory canonical dump section, every container's occupancy counters, the entry pool and the id allocators, as bytes.</summary>
     public byte[] Snapshot()

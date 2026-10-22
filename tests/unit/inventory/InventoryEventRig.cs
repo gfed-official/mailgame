@@ -626,9 +626,10 @@ internal sealed class InventoryWithActionOp : ISimSystem
 
 /// <summary>
 /// The story grid-inventory/009 rig: a composed M-1a world (real content, stat sheet, <see cref="InventorySystem"/> and event log) with
-/// player A in slot 0, the <see cref="InvFixtureActionHandler"/>, and mutator-backed arrange helpers, so the StackKey index is maintained
-/// exactly as in production (Planner R8: the direct-write fixtures would leave it empty). Fixture grids are <c>player_inventory</c>-def
-/// instances with explicit dims (no chest/bike def at M-1a). Every mutation runs in its own tick.
+/// player A in slot 0 (and, on request, player B in slot 1: story 007), the <see cref="InvFixtureActionHandler"/>, and mutator-backed
+/// arrange helpers, so the StackKey index is maintained exactly as in production (Planner R8: the direct-write fixtures would leave it
+/// empty). Fixture grids are <c>player_inventory</c>-def instances with explicit dims (no chest/bike def at M-1a). Every mutation runs
+/// in its own tick; <see cref="Run"/> sends a real op (story 007's <c>Pick</c> / <c>Move</c>).
 /// </summary>
 internal sealed class InvAutoPlaceRig
 {
@@ -639,9 +640,11 @@ internal sealed class InvAutoPlaceRig
     /// <summary>
     /// Builds the rig; <paramref name="mailIdArenaUnits"/> and <paramref name="entryPoolCapacity"/> override the arena budget and the
     /// entry pool of this test world only (the defaults are the balance's); <paramref name="content"/> replaces the M-1a built-in set
-    /// (story 012's perf fixture adds a container def); <paramref name="tune"/> edits the built settings (story 016's synthetic weight knobs).
+    /// (story 012's perf fixture adds a container def); <paramref name="tune"/> edits the built settings (story 016's synthetic weight knobs);
+    /// <paramref name="joinPlayerB"/> also joins player B in slot 1 (story 007's two-player cases).
     /// </summary>
-    public InvAutoPlaceRig(int? mailIdArenaUnits = null, ContentSet? content = null, int? entryPoolCapacity = null, Func<InventorySettings, InventorySettings>? tune = null)
+    public InvAutoPlaceRig(
+        int? mailIdArenaUnits = null, ContentSet? content = null, int? entryPoolCapacity = null, Func<InventorySettings, InventorySettings>? tune = null, bool joinPlayerB = false)
     {
         Sink = new CaptureSink();
         _gate = new GatedSink(Sink);
@@ -662,9 +665,19 @@ internal sealed class InvAutoPlaceRig
         join.SetPayload(new PlayerJoinPayload { Slot = 0 });
         Assert.True(Host.World.EnqueueOp(ActorId.System, in join));
         Host.World.Tick();
+        if (joinPlayerB)
+        {
+            var joinB = new Op { Kind = OpKind.PlayerJoin, ReqId = 2 };
+            joinB.SetPayload(new PlayerJoinPayload { Slot = 1 });
+            Assert.True(Host.World.EnqueueOp(ActorId.System, in joinB));
+            Host.World.Tick();
+            PlayerB = ActorId.FromEntity(Host.Services.Slots.Entry(PlayerSlot.FromValue(1)).PlayerId);
+        }
+
         PlayerA = ActorId.FromEntity(Host.Services.Slots.Entry(PlayerSlot.FromValue(0)).PlayerId);
         InventoryA = SlotOf(Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0)));
         HotbarA = SlotOf(Inventory.HotbarOf(PlayerSlot.FromValue(0)));
+        CursorA = SlotOf(Inventory.CursorOf(PlayerSlot.FromValue(0)));
         Intake = SlotOf(Inventory.IntakeContainer);
     }
 
@@ -703,6 +716,12 @@ internal sealed class InvAutoPlaceRig
 
     public ActorId PlayerA { get; }
 
+    /// <summary>Player B (slot 1) when the rig joined them, else none.</summary>
+    public ActorId PlayerB { get; }
+
+    /// <summary>Player A's 1 x 1 slots cursor.</summary>
+    public ushort CursorA { get; }
+
     /// <summary>Player A's 8 x 2 player_inventory.</summary>
     public ushort InventoryA { get; }
 
@@ -717,6 +736,21 @@ internal sealed class InvAutoPlaceRig
     public StackIndex Index => Inventory.Mutator.StackIndex;
 
     public ref ContainerHeader Header(ushort slot) => ref Inventory.Containers[slot];
+
+    /// <summary>The player in <paramref name="slot"/> (0 = A, 1 = B).</summary>
+    public ActorId Player(int slot) => ActorId.FromEntity(Host.Services.Slots.Entry(PlayerSlot.FromValue((byte)slot)).PlayerId);
+
+    /// <summary>The table slot of <paramref name="slot"/>'s hotbar.</summary>
+    public ushort HotbarOf(int slot) => SlotOf(Inventory.HotbarOf(PlayerSlot.FromValue((byte)slot)));
+
+    /// <summary>The table slot of <paramref name="slot"/>'s player_inventory.</summary>
+    public ushort InventoryOf(int slot) => SlotOf(Inventory.PlayerInventoryOf(PlayerSlot.FromValue((byte)slot)));
+
+    /// <summary>The table slot of <paramref name="slot"/>'s cursor.</summary>
+    public ushort CursorOf(int slot) => SlotOf(Inventory.CursorOf(PlayerSlot.FromValue((byte)slot)));
+
+    /// <summary>The container id at table slot <paramref name="container"/>.</summary>
+    public ContainerId IdOf(ushort container) => Inventory.Containers[container].Id;
 
     public ushort SlotOf(ContainerId id)
     {
@@ -861,6 +895,14 @@ internal sealed class InvAutoPlaceRig
 
     /// <summary>The tick's log (between ticks only).</summary>
     public EventEntry[] LastLog => Sink.Last;
+
+    /// <summary>Enqueues <paramref name="op"/> (a real op) for <paramref name="actor"/>, ticks once and returns that tick's log.</summary>
+    public EventEntry[] Run(ActorId actor, in Op op)
+    {
+        Assert.True(Host.World.EnqueueOp(actor, in op));
+        Host.World.Tick();
+        return Sink.Last;
+    }
 
     /// <summary>Enqueues the fixture op for player A, ticks once and returns that tick's log.</summary>
     public EventEntry[] RunTick()

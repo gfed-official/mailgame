@@ -22,8 +22,9 @@ namespace PerformativeMail.Sim.Inventory;
 /// them. Container dimensions are instance state: the def's width and <c>IStatSheet.Read(InventoryRows)</c> rows.
 /// <para>
 /// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the still
-/// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its one op
-/// handler is <c>Close</c> (story 011; the other kinds' handlers are stories 007-010 and 019); it binds no snapshot source (the builder has no
+/// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
+/// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>) and <c>Close</c> (story 011);
+/// the other kinds' handlers are stories 008-010 and 019. It binds no snapshot source (the builder has no
 /// <c>BindSnapshotSource</c> yet). Every container, entry and
 /// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
 /// <see cref="Subscribers"/> set, which the open set (<see cref="OpenSet"/>, story 011) keeps in step. Storage is preallocated from
@@ -309,11 +310,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <summary>
     /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the empty <c>IntakeDrain</c> phase, the stub
     /// conservation check, the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
-    /// <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds no other op (stories 007-010, 019) and no snapshot source.
+    /// <see cref="InvOpDescriptors.Pick"/> and <see cref="InvOpDescriptors.Move"/> handlers (story 007) and the
+    /// <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds no other op (stories 008-010, 019) and no snapshot source.
     /// </summary>
     /// <param name="builder">The world's builder.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is null.</exception>
-    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c>, <c>DuplicateEventKind</c> or <c>DuplicateOpHandler</c> (another <c>Close</c> handler).</exception>
+    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c>, <c>DuplicateEventKind</c> or <c>DuplicateOpHandler</c> (another <c>Pick</c>, <c>Move</c> or <c>Close</c> handler).</exception>
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -327,6 +329,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             builder.BindEventKind(descriptor);
         }
 
+        builder.BindOp(InvOpDescriptors.Pick, new PickHandler(this));
+        builder.BindOp(InvOpDescriptors.Move, new MoveHandler(this, _content, _stats));
         builder.BindOp(InvOpDescriptors.Close, new CloseHandler(this));
     }
 
@@ -948,7 +952,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <returns>The reply.</returns>
     internal Reply ApplyClose(in Op op)
     {
-        PlayerSlot actor = op.Actor.IsSystem || _slots is null ? PlayerSlot.None : _slots.SlotOf(new EntityId(op.Actor.Value));
+        PlayerSlot actor = ActorSlot(op.Actor);
         ushort reason = _requestCheck.CheckRequest(in op, actor);
         if (reason != 0)
         {
@@ -973,6 +977,15 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         return Reply.Ok(in op);
     }
+
+    /// <summary>
+    /// The slot of an op's actor (from <see cref="Op.Actor"/> through the injected <see cref="ISlotView"/>, never the payload): none for
+    /// the System actor, an actor in no slot, or a module built without a slot view. A none slot has an empty open set.
+    /// </summary>
+    /// <param name="actor">The op's actor.</param>
+    /// <returns>The actor's slot, or none.</returns>
+    internal PlayerSlot ActorSlot(ActorId actor) =>
+        actor.IsSystem || _slots is null ? PlayerSlot.None : _slots.SlotOf(new EntityId(actor.Value));
 
     /// <summary>Clears <paramref name="slot"/>'s external and its bit in that container's subscriber mask (a dead external has no mask to clear).</summary>
     private void ClearExternal(PlayerSlot slot)
