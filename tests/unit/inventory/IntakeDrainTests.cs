@@ -1,4 +1,5 @@
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Hosting;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Backlog;
 using PerformativeMail.Sim.Inventory.Events;
@@ -415,6 +416,107 @@ public sealed class IntakeDrainTests
         Assert.Equal(new uint[] { 10, 30, 15, 20 }, order);
     }
 
+    // ---------------------------------------------------------------- H-PERF-6c and idle passes
+
+    [Fact]
+    [Trait("Id", "H-PERF-6c")]
+    public void Drain_A2800EntryPass_IntoScattered1x1Holes_StaysWithin8500PlacementProbes_AndEntriesWalkedPlus1Visits()
+    {
+        // Arrange: a full Intake with 32 scattered one-cell holes (every 10th cell); a backlog of 2,768 Large (area 8) then 32 letters
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 320, 1_000);
+        for (int i = 0; i < 32; i++)
+        {
+            ushort entry = rig.EntryAt(rig.Intake, (i * 10) % 20, (i * 10) / 20);
+            Reply r = rig.Step(
+                (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
+                (ref InvPlan p) => rig.Inventory.Mutator.Remove(ref p, entry));
+            Assert.True(r.IsOk);
+        }
+
+        DefIndex large = rig.KindIndex("large");
+        DefIndex letter = rig.KindIndex("letter");
+        _ = IntakeSpawnOutfeedTests.InPhase(rig, () =>
+        {
+            for (uint i = 0; i < 2_800; i++)
+            {
+                DefIndex kind = i < 2_768 ? large : letter;
+                Assert.True(rig.Inventory.AppendBacklog(new BacklogEntry(kind, Address4, 0, new[] { new MailId(10_000 + i) })));
+            }
+
+            return 0;
+        });
+
+        // Act: the next tick's pass (the appends changed the gating memo)
+        (long probes, long visits, _) = Tick(rig);
+
+        // Assert: 32 letters placed; placement probes (43, per cell) <= 8,500; merge candidates 0 under NoMerge; visits <= walked + 1
+        Assert.Equal(2_768, rig.Inventory.BacklogEntries);
+        Assert.Equal(0, rig.Header(rig.Intake).FreeCells);
+        Assert.InRange(probes, 1, 8_500);
+        Assert.InRange(visits, 1, 2_800 + 1);
+    }
+
+    [Fact]
+    [Trait("Id", "H-PERF-6c")]
+    public void Drain_AnEmptyBacklogOrAFullIntake_MakesNoProbeAndNoVisit_AndRaisesNothing()
+    {
+        // Arrange: an empty backlog with free cells; then a full Intake with a backlog
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 10, 1_000);
+
+        // Act + Assert 1: empty backlog
+        (long probes, long visits, EventEntry[] log) = Tick(rig);
+        Assert.Equal(0, probes);
+        Assert.Equal(0, visits);
+        Assert.DoesNotContain(log, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
+
+        // Act + Assert 2: full Intake, non-empty backlog (the append changed the memo, yet no free cell)
+        IntakeSpawnOutfeedTests.FillIntake(rig, 310, 2_000);
+        Assert.True(Append(rig, "letter", Address9, 9_000));
+        uint version = rig.Header(rig.Intake).Version;
+        (probes, visits, log) = Tick(rig);
+        Assert.Equal(0, probes);
+        Assert.Equal(0, visits);
+        Assert.Equal(version, rig.Header(rig.Intake).Version);
+        Assert.DoesNotContain(log, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
+    }
+
+    // ---------------------------------------------------------------- state and determinism
+
+    [Fact]
+    public void Dump_TheBacklogRingFollowsTheWorldItemsBlock_CountThenIdsInQueueOrder_IdenticalAcrossIdenticalWorlds()
+    {
+        // Arrange + Act: two identically driven worlds (a full Intake, three appends, a few ticks)
+        InvAutoPlaceRig a = Drive();
+        InvAutoPlaceRig b = Drive();
+        byte[] sa = Section(DumpHash.Bytes(a.Host.World), SectionIds.Inventory);
+        byte[] sb = Section(DumpHash.Bytes(b.Host.World), SectionIds.Inventory);
+
+        // Assert: byte-identical; the section ends with u32 3 and the three entry ids in queue order
+        Assert.Equal(sa, sb);
+        ushort[] queue = Queue(a);
+        Assert.Equal(3, queue.Length);
+        int at = sa.Length - 16;
+        Assert.Equal(3u, BitConverter.ToUInt32(sa, at));
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Equal(a.Entries[queue[i]].Id.Value, BitConverter.ToUInt32(sa, at + 4 + (4 * i)));
+        }
+
+        static InvAutoPlaceRig Drive()
+        {
+            var rig = new InvAutoPlaceRig();
+            IntakeSpawnOutfeedTests.FillIntake(rig, 320, 1_000);
+            Assert.True(Append(rig, "letter", Address4, 50));
+            Assert.True(Append(rig, "large", Address9, 60, 61));
+            Assert.True(Append(rig, "small", Address4, 70));
+            _ = Tick(rig);
+            _ = Tick(rig);
+            return rig;
+        }
+    }
+
     // ---------------------------------------------------------------- helpers
 
     /// <summary>Ticks once; returns the placement probes (43), the backlog visits (50) and the tick's log.</summary>
@@ -444,5 +546,24 @@ public sealed class IntakeDrainTests
         }
 
         return slots.ToArray();
+    }
+
+    private static byte[] Section(byte[] dump, ushort id)
+    {
+        int pos = 6;
+        while (pos < dump.Length)
+        {
+            ushort sectionId = BitConverter.ToUInt16(dump, pos);
+            int length = (int)BitConverter.ToUInt32(dump, pos + 2);
+            if (sectionId == id)
+            {
+                return dump.AsSpan(pos + 6, length).ToArray();
+            }
+
+            pos += 6 + length;
+        }
+
+        Assert.Fail($"Section {id} is not in the dump.");
+        return Array.Empty<byte>();
     }
 }
