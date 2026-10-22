@@ -83,7 +83,7 @@
 - Logic: `tests/unit/inventory/MoveSplitMergeTests.cs` — must exist and pass
 - Allocation: `tests/unit/inventory/MoveSplitMergeAllocationTests.cs` — `AllocAssert.Zero` plus the every-build twin (pattern: `PickMoveAllocationTests.cs`)
 
-**Status**: [x] Created and passing — `MoveSplitMergeTests.cs` 31 methods / 202 cases; `MoveSplitMergeAllocationTests.cs` 2 methods / 2 cases (the 0 B test runs in Release only; the twin runs in every build). Suite 5586 → 5789 on every leg (net10.0/net8.0 × Debug/Release: Debug 5736 passed / 53 skipped / 0 failed; Release 5786 / 3 / 0).
+**Status**: [x] Created and passing — `MoveSplitMergeTests.cs` 38 methods / 225 cases; `MoveSplitMergeAllocationTests.cs` 2 methods / 2 cases (the 0 B test runs in Release only; the twin runs in every build). Suite 5586 → 5812 on every leg (net10.0/net8.0 × Debug/Release: Debug 5759 passed / 53 skipped / 0 failed; Release 5809 / 3 / 0).
 
 ---
 
@@ -109,12 +109,14 @@ These are Mail Lead planning defaults, 2026-10-22, not Evan's rulings:
 **Completed**: 2026-10-22 (PR #32)
 **Criteria**: 9/9 passing.
 **Files**: `Ops/MoveHandler.cs` (three count arms, split-and-place, cursor → hotbar swap), new `Ops/MergeHandler.cs` (Validate / Commit, room cap `min(effMax, 255)`), `InventoryMutator.SplitAndPlace` (new primitive: new entryId allocated in Commit, k lowest mailIds, `InvSplitFrom`), `InvPlan` (`InvSplit` / `InvSwap`; pinned size 572 → 580), `InventorySystem.Bind` (Merge bound), `InventorySettings.EntryInitialLastId` (test seam, default 0), `InvMalformedOpTests` (Merge in `BoundBySystem`; its `ValidCases` row moved to `MoveSplitMergeTests`), `PickMoveTests` (the "until 008" `bad_count` test replaced by a 4-case split test).
-**Tests**: `MoveSplitMergeTests` 31 methods / 202 cases (slice 1: 18 / 94; slice 2: 12 / 100; slice 3: 1 / 8); `MoveSplitMergeAllocationTests` 2 / 2; one `InvMalformedOpTests` case removed. Every theory runs from slot 0 and slot 1.
+**Tests**: `MoveSplitMergeTests` 38 methods / 225 cases (slice 1: 18 / 94; slice 2: 12 / 100; slice 3: 1 / 8; Mail Review advisories: 7 / 23); `MoveSplitMergeAllocationTests` 2 / 2; one `InvMalformedOpTests` case removed. Every theory runs from slot 0 and slot 1.
 **Tech debt**: TD-150 corrected (GDD note l.344; item 4's `capacity_exhausted` is from ADR-0009; Evan's ruling covers only a leashed letter staying on the cursor when the mail-id arena is full), TD-151 added (AutoPlace has no 255 cap), TD-152 added (the defaults above).
 **Review advisories (Sonnet /code-review, 11285de..ae6af53)**:
 - B1 (pool-full case credited to Evan in the AC): the AC now credits `capacity_exhausted` to ADR-0009 and the stays-put behaviour on a split to a Mail Lead default pending Evan (Mail Review B1, PR #32).
 - A1 Move/Pick vs Merge `container_gone` order, A5 same-container merge into an `acceptsInsert: false` container answers `not_allowed`, A3 the `container_gone` test reflects on `ContainerTable._nextId` (guarded): recorded in TD-152.
-- A4 `EntryInitialLastId` doc: corrected (no resume path yet; identical on every peer; throws `ArgumentOutOfRangeException`). The seam itself is a production init-only setting, flagged for review. The `InventorySettings` class doc ("three keys", "capacities") is older wording, not touched.
+- A4 `EntryInitialLastId` doc: corrected (no resume path yet; identical on every peer). Mail Review A1 then made it `internal`, and its init accessor throws `SimBuildException(InventorySettingsInvalid)` above `EntryPool.MaxRealId` (control manifest l.109), tested at the boundary. The `InventorySettings` class doc ("three keys", "capacities") is older wording, not touched.
 - A6 the split arm against the 255 cap: covered by slice 3 (250 + 4 / 5 / 6, target at 255).
-- A7 Validate purity is shown through the reject snapshots only (no direct purity test).
+- A7 Validate purity is shown through the reject snapshots only (no direct purity test; Mail Review A4, skipped).
+
+**Mail Review advisories (PR #32, at 2479970)**: A1 above; A3 tests for a split with exactly one id or one pool slot left, an arena with room for 1 unit but not 2, and Merge's union block needing a larger size class; A6 tests for a mail stack at the 255 cap (test content with letter `maxStack` 255; the built-in mail kinds stop at 40), a whole move (count 0 and the total) onto a stack of 250, and a cursor swap with count equal to the total; `capacity_exhausted` and `container_gone` rejects added to the 0 B cycle (now 10 ops); `Id` traits on the three reject/stale theories. A4 skipped.
 
