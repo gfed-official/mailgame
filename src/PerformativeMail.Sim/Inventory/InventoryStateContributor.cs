@@ -14,8 +14,9 @@ namespace PerformativeMail.Sim.Inventory;
 /// are not written (rebuilt from the entries' <c>arrivalSeq</c>). Then (story 013, when built with the WorldItems) the WorldItem state
 /// (<see cref="WorldItems.Write"/>): <c>worldSeq</c>, the live items in ascending id, each expiry FIFO's live ids in queue order, and the
 /// tombstones. Then (story 021, when built with the backlog) the backlog ring (<see cref="BacklogRing.Write"/>): <c>u32 count</c>, then
-/// the queued entry ids in queue order (the entries themselves are the entry section's). The drain's gating memo is not written: the
-/// first pass after a load runs unconditionally, which changes nothing over an unchanged Intake. Between ticks only; allocation-free.
+/// the queued entry ids in queue order. The entries' own records are not dumped yet: no entry section exists (TD-132 item 1, the
+/// inventory load story). The drain's gating memo is not written: the first pass after a load runs unconditionally, which changes
+/// nothing over an unchanged Intake. Between ticks only; allocation-free.
 /// </summary>
 /// <example><code>builder.BindStateContributor(new InventoryStateContributor(containers, worldItems));</code></example>
 internal sealed class InventoryStateContributor : ISimStateContributor
