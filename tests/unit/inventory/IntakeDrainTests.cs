@@ -323,11 +323,13 @@ public sealed class IntakeDrainTests
         var bumps = new List<uint>();
         long lastProbes = 0;
         long lastVisits = 0;
+        EventEntry[] firstLog = Array.Empty<EventEntry>();
         for (int t = 0; t < 5; t++)
         {
             int entries = rig.Inventory.BacklogEntries;
             uint version = rig.Header(rig.Intake).Version;
-            (lastProbes, lastVisits, _) = Tick(rig);
+            (lastProbes, lastVisits, EventEntry[] log) = Tick(rig);
+            firstLog = t == 0 ? log : firstLog;
             placed.Add(entries - rig.Inventory.BacklogEntries);
             bumps.Add(rig.Header(rig.Intake).Version - version);
         }
@@ -335,6 +337,11 @@ public sealed class IntakeDrainTests
         // Assert
         Assert.Equal(new[] { 32, 32, 32, 4, 0 }, placed);
         Assert.Equal(new uint[] { 1, 1, 1, 1, 0 }, bumps);
+        EventKind[] kinds = firstLog
+            .Where(e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits && (e.Flags & EventFlags.Continuation) == 0)
+            .Select(e => e.Kind)
+            .ToArray();
+        Assert.Equal(Enumerable.Repeat(InvEventKinds.Inserted, 32).Append(InvEventKinds.Version).Append(InvEventKinds.BacklogUnits), kinds);
         Assert.Equal(0, lastProbes);
         Assert.Equal(0, lastVisits);
         Assert.Equal(0, rig.Inventory.BacklogUnits);
@@ -357,10 +364,14 @@ public sealed class IntakeDrainTests
         Assert.Equal(4u, rig.Header(rig.Intake).NextArrivalSeq);
         Assert.True(Append(rig, "letter", 4u, 5));
         ushort drained = Queue(rig)[0];
+        (EntryId Id, byte Count, uint Seq)[] residentsBefore = residents.Select(r => (rig.Entries[r].Id, rig.Entries[r].Count, rig.Entries[r].ArrivalSeq)).ToArray();
 
         // Act: the drain (next tick), then four TakeUnit
         (_, _, EventEntry[] log) = Tick(rig);
         uint[] seqs = residents.Select(r => rig.Entries[r].ArrivalSeq).Append(rig.Entries[drained].ArrivalSeq).ToArray();
+        (EntryId Id, byte Count, uint Seq)[] residentsAfter = residents.Select(r => (rig.Entries[r].Id, rig.Entries[r].Count, rig.Entries[r].ArrivalSeq)).ToArray();
+        EntryRecord placed = rig.Entries[drained];
+        uint[] placedIds = rig.IdsOf(drained);
         uint next = rig.Header(rig.Intake).NextArrivalSeq;
         var order = new List<uint>();
         for (int i = 0; i < 4; i++)
@@ -371,6 +382,12 @@ public sealed class IntakeDrainTests
         }
 
         // Assert: a new count-1 entry with arrivalSeq 4 (NextArrivalSeq 5), one InvInserted, no InvMerged; it leaves last
+        Assert.Equal(rig.Intake, placed.ContainerSlot);
+        Assert.Equal(1, placed.Count);
+        Assert.DoesNotContain(drained, residents);
+        Assert.Equal(new uint[] { 5 }, placedIds);
+        Assert.Equal(residentsBefore, residentsAfter); // the three residents: same entries, count 1 each, arrivalSeq 1, 2, 3
+        Assert.All(residentsAfter, r => Assert.Equal(1, r.Count));
         Assert.Single(log, e => e.Kind == InvEventKinds.Inserted && (e.Flags & EventFlags.Continuation) == 0);
         Assert.DoesNotContain(log, e => e.Kind == InvEventKinds.Merged);
         Assert.Equal(new uint[] { 10, 20, 30, 5 }, order);
@@ -400,6 +417,7 @@ public sealed class IntakeDrainTests
             (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
             (ref InvPlan p) => rig.Inventory.Mutator.MergeInto(ref p, source, target, 1));
         uint seqAfter = rig.Entries[target].ArrivalSeq;
+        uint[] othersAfter = { rig.Entries[rig.EntryAt(rig.Intake, 0, 0)].ArrivalSeq, rig.Entries[rig.EntryAt(rig.Intake, 2, 0)].ArrivalSeq };
         var order = new List<uint>();
         for (int i = 0; i < 4; i++)
         {
@@ -412,6 +430,7 @@ public sealed class IntakeDrainTests
         Assert.True(merged.IsOk);
         Assert.Equal(new uint[] { 1, 2, 3 }, seqsBefore);
         Assert.Equal(4u, seqAfter);
+        Assert.Equal(new uint[] { 1, 3 }, othersAfter); // the other two residents: no arrivalSeq decreased (nor changed)
         Assert.Equal(5u, rig.Header(rig.Intake).NextArrivalSeq);
         Assert.Equal(new uint[] { 10, 30, 15, 20 }, order);
     }
@@ -448,12 +467,15 @@ public sealed class IntakeDrainTests
         });
 
         // Act: the next tick's pass (the appends changed the gating memo)
+        long mergeBefore = rig.Counters[CounterId.InventoryMergeCandidates];
         (long probes, long visits, _) = Tick(rig);
+        long merges = rig.Counters[CounterId.InventoryMergeCandidates] - mergeBefore;
 
         // Assert: 32 letters placed; placement probes (43, per cell) <= 8,500; merge candidates 0 under NoMerge; visits <= walked + 1
         Assert.Equal(2_768, rig.Inventory.BacklogEntries);
         Assert.Equal(0, rig.Header(rig.Intake).FreeCells);
-        Assert.InRange(probes, 1, 8_500);
+        Assert.Equal(0, merges);
+        Assert.InRange(probes + merges, 1, 8_500);
         Assert.InRange(visits, 1, 2_800 + 1);
     }
 
@@ -478,6 +500,35 @@ public sealed class IntakeDrainTests
         (probes, visits, log) = Tick(rig);
         Assert.Equal(0, probes);
         Assert.Equal(0, visits);
+        Assert.Equal(version, rig.Header(rig.Intake).Version);
+        Assert.DoesNotContain(log, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
+    }
+
+    [Fact]
+    public void Drain_APassThatRunsButPlacesNothing_RaisesNothing_AndBumpsNothing()
+    {
+        // Arrange: a full Intake with two non-adjacent one-cell holes, (0,0) and (10,0); one Small (1x2, area 2) appended
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 320, 1_000);
+        foreach (int x in new[] { 0, 10 })
+        {
+            ushort entry = rig.EntryAt(rig.Intake, x, 0);
+            Reply r = rig.Step(
+                (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
+                (ref InvPlan p) => rig.Inventory.Mutator.Remove(ref p, entry));
+            Assert.True(r.IsOk);
+        }
+
+        Assert.True(Append(rig, "small", Address9, 9_000));
+        uint version = rig.Header(rig.Intake).Version;
+
+        // Act: the next tick's pass runs (the append changed the memo), plans the Small, finds no fit
+        (long probes, long visits, EventEntry[] log) = Tick(rig);
+
+        // Assert: the pass ran (a visit and probes) but placed nothing: no record, no seal, no version change
+        Assert.Equal(1, visits);
+        Assert.True(probes > 0);
+        Assert.Equal(1, rig.Inventory.BacklogEntries);
         Assert.Equal(version, rig.Header(rig.Intake).Version);
         Assert.DoesNotContain(log, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
     }

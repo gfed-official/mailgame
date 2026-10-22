@@ -14,7 +14,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <summary>
 /// Story grid-inventory/013 (GDD R12, R7, D6; ADR-0009 section 5; ADR-0004 <c>EntityClass.WorldItem</c>; ADR-0003 phase 1
 /// <c>ItemsExpire</c>): <see cref="IInventoryApi.CreateWorldItem"/>, absolute-tick expiry through the per-class FIFOs, the water float,
-/// the cap eviction, the tombstones and the interim full-Intake rule (until story 021). Creations run inside a real tick through the
+/// the cap eviction, the tombstones and, with the Intake full, the backlog (story 021: an expiring, floating or cap-evicted letter appends
+/// to the Intake backlog tail; story 013's interim full-Intake rule is retired). Creations run inside a real tick through the
 /// rig's <c>MailStep</c> hook (after <c>ItemsExpire</c>, as Drop and Throwing's landing will); expiry runs in the real phase 1. Every
 /// AC case is a test, named after its GDD id.
 /// </summary>
@@ -960,6 +961,29 @@ public class WorldItemTests
     }
 
     [Fact]
+    [Trait("Id", "H-R12-3")]
+    public void Backlog_IntakeFullAtCapEviction_A299TickOldLetterIsNoCandidate_TheLowestPlankIsDestroyed_TheBacklogStaysEmpty()
+    {
+        // Arrange: 511 planks (10..520) and a letter at 601; the Intake is full; the 513th (a plank) at 900 finds the letter 299 ticks old
+        var w = new WorldItemRig();
+        EntityId[] planks = w.CreateOnePerTick(10, 511, _ => w.R.DetachedItem("plank", 1));
+        EntityId letter = w.Create(601, w.R.DetachedMail("letter", Address, new[] { 650u }));
+        IntakeSpawnOutfeedTests.FillIntake(w.R, 320, 1);
+
+        // Act
+        w.Create(900, w.R.DetachedItem("plank", 1));
+        EventEntry[] log = w.R.Sink.Last;
+
+        // Assert: young mail (age <= 299) is never a candidate; story 013's non-mail rule applies unchanged; nothing reaches the backlog
+        Assert.Equal(512, w.World.LiveCount);
+        Assert.True(w.World.Table.TryGetSlot(letter, out _));
+        Assert.False(w.World.Table.TryGetSlot(planks[0], out _));
+        Assert.Equal(planks[0].Value, Assert.Single(Heads(log, InvEventKinds.ItemsLost)).PayloadAs<ItemsLostPayload>().WorldItemId);
+        Assert.Equal(0, w.Inv.BacklogEntries);
+        Assert.Empty(Heads(log, InvEventKinds.BacklogUnits));
+    }
+
+    [Fact]
     public void Backlog_IntakeFull_512OldLetters_A513th_TheHeadLetterGoesToTheBacklog_Count512_NoOverCapEpisode()
     {
         // Arrange: 512 old letters; the Intake is full
@@ -1064,10 +1088,12 @@ public class WorldItemTests
         Assert.Equal((EventKind)0x0087, InvEventKinds.WorldItemDespawned);
         Assert.Equal((EventKind)0x0088, InvEventKinds.WorldItemEntriesChanged);
         Assert.Equal((EventKind)0x0089, InvEventKinds.ItemsLost);
+        Assert.Equal((EventKind)0x008A, InvEventKinds.BacklogUnits);
         Assert.Equal(13, (int)CheckCode.InventoryWorldItemCapExceeded);
         Assert.Equal(14, (int)CheckCode.InventoryWorldItemCapacity);
         Assert.Equal(76, SimAssertCode.InventoryWorldItemFifoFull);
         Assert.Equal(77, SimAssertCode.InventoryWorldItemCreatedOutOfOrder);
+        Assert.Equal(82, SimAssertCode.InventoryBacklogRingFull);
         Assert.Equal((byte)0, (byte)WorldItemOrigin.Dropped);
         Assert.Equal((byte)1, (byte)WorldItemOrigin.Thrown);
         Assert.Equal((byte)2, (byte)WorldItemOrigin.BeltLeak);

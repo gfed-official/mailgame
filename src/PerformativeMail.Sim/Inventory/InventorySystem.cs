@@ -1103,7 +1103,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <item><b>Idle exits, O(1), no probe and no node visit:</b> an empty backlog; an Intake with no free cell; or a pass whose Intake
     /// version is the one the previous pass left, with no append since and the previous pass under the cap. So a pass runs only when the
     /// Intake changed by something other than the drain's own seal, the backlog grew, or the last pass hit the cap (and always on the
-    /// first tick of a world, the memo being undumped).</item>
+    /// first tick of a world, the memo being undumped). A pass that would run checks the tick guard (<see cref="TickGuard"/>, as
+    /// <see cref="AppendBacklog"/> and <see cref="ReturnToIntake"/> do; the phase binding only runs it in phase 2) after the idle exits.</item>
     /// <item><b>The walk:</b> one <see cref="CounterId.InventoryBacklogVisits"/> per ring node read (at most entries walked + 1; Mail
     /// Lead planning default pending Evan, TD-157 item 4); it stops at the cap or when the Intake has no free cell. An entry whose
     /// footprint area exceeds the free-cell count is skipped in O(1) (no head-of-line blocking); a shape the negative-fit cache knows
@@ -1124,7 +1125,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         ref ContainerHeader intake = ref _containers[_intakeSlot];
         if (intake.FreeCells == 0
-            || (_drainMemoValid && !_drainHitCap && intake.Version == _drainIntakeVersion && _backlog.AppendSeq == _drainAppendSeq))
+            || (_drainMemoValid && !_drainHitCap && intake.Version == _drainIntakeVersion && _backlog.AppendSeq == _drainAppendSeq)
+            || !TickGuard.IsMutable(_tick, _events.Counters))
         {
             return;
         }
@@ -1200,7 +1202,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         _drainMemoValid = true;
         _drainIntakeVersion = intake.Version;
         _drainAppendSeq = _backlog.AppendSeq;
-        _drainHitCap = placed == _drainPerTick;
+        _drainHitCap = _drainPerTick > 0 && placed == _drainPerTick; // a 0 cap places nothing, so it never re-runs the pass
     }
 
     /// <summary>

@@ -1597,8 +1597,8 @@ internal sealed class PickupRig
         Assert.DoesNotContain(dead, IsInventoryRecord);
     }
 
-    /// <summary>True for an inventory record or seal (kinds 0x0080-0x0089).</summary>
-    public static bool IsInventoryRecord(EventEntry e) => (ushort)e.Kind is >= 0x0080 and <= 0x0089;
+    /// <summary>True for an inventory record or seal (kinds 0x0080-0x008A).</summary>
+    public static bool IsInventoryRecord(EventEntry e) => (ushort)e.Kind is >= 0x0080 and <= 0x008A;
 
     /// <summary>The inventory kinds of <paramref name="log"/> in order, continuations excluded.</summary>
     public static EventKind[] InventoryKinds(EventEntry[] log) =>
