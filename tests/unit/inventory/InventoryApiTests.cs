@@ -31,8 +31,10 @@ public class InventoryApiTests
 
     /// <summary>
     /// The stated bound on table slots one <c>CountItem</c> lookup of one container reads (hit or miss, the empty slot that ends a
-    /// miss included): the table is at least twice the entry pool and holds at most one key per live item entry, so it is never more
-    /// than half full whatever the entry count. A constant; it is not scaled by entries or keys.
+    /// miss included). The table is at least twice the entry pool and holds at most one key per live item entry, so it is never more
+    /// than half full; at load 1/2 linear probing bounds only the <i>expected</i> probe length (about 1.5 for a hit, 2.5 for a miss),
+    /// not the worst case. So this is an empirical bound for these deterministic fixtures, with margin over the expected length. A
+    /// constant; it is not scaled by entries or keys.
     /// </summary>
     private const int MaxProbesPerLookup = 8;
 
@@ -325,7 +327,9 @@ public class InventoryApiTests
             stages.Add((rig.Entries.LiveCount, rig.Inventory.Mutator.ItemCounts.KeyCount, maxHit, maxMiss));
         }
 
-        // Assert: entries and distinct keys grew sixfold; every lookup, hit or miss, read at most MaxProbesPerLookup slots
+        // Assert: entries and distinct keys grew sixfold; every lookup, hit or miss, read at most MaxProbesPerLookup slots. This checks
+        // the bound at the balance's realistic load only: 24 keys in 16,384 slots read 1 slot under any reasonable hash, so it does not
+        // guard the hash itself (ItemCountIndex_OneItemInSuccessiveContainers_AtMaxLoad_StaysUnderTheProbeBound does)
         Assert.Equal(6 * 48, stages[^1].Entries);
         Assert.Equal(6 * stages[0].Entries, stages[^1].Entries);
         Assert.Equal(4, stages[0].Keys);
@@ -374,6 +378,45 @@ public class InventoryApiTests
         Assert.Equal(7 * 16, rig.Inventory.CountItem(all, rig.ItemIndex("fiber")));
         Assert.All(stages, st => Assert.InRange(st.MaxHit, 1, MaxProbesPerLookup));
         Assert.All(stages, st => Assert.InRange(st.MaxMiss, 1, MaxProbesPerLookup));
+    }
+
+    [Fact]
+    [Trait("Id", "H-R17-1")]
+    public void ItemCountIndex_OneItemInSuccessiveContainers_AtMaxLoad_StaysUnderTheProbeBound()
+    {
+        // Arrange: a 32-entry pool (a 64-slot table) holding item 7 in containers 0..31: 32 keys a fixed 1 << 16 apart in key space,
+        // the table at its maximum load of 1/2. The old middle-bits Home ((key * golden) >> 40 & mask) put these keys into one run:
+        // worst hit 31 and worst miss 33 probes; the top-bits Home reads at most 1 (hit) and 3 (miss)
+        var counters = new SimCounters();
+        var index = new ItemCountIndex(32, 96, counters);
+        ushort item = 7;
+        for (ushort c = 0; c < 32; c++)
+        {
+            index.Add(c, item, c + 1);
+        }
+
+        // Act: every hit, then misses in the next 64 containers and of the next item in the filled ones
+        long maxHit = 0;
+        long maxMiss = 0;
+        for (ushort c = 0; c < 32; c++)
+        {
+            long before = counters[CounterId.InventoryItemCountProbes];
+            Assert.Equal(c + 1, index.Units(c, item));
+            maxHit = Math.Max(maxHit, counters[CounterId.InventoryItemCountProbes] - before);
+        }
+
+        for (ushort c = 0; c < 96; c++)
+        {
+            long before = counters[CounterId.InventoryItemCountProbes];
+            Assert.Equal(0, index.Units(c, c < 32 ? (ushort)(item + 1) : item));
+            maxMiss = Math.Max(maxMiss, counters[CounterId.InventoryItemCountProbes] - before);
+        }
+
+        // Assert: the table is half full, and no lookup read more than the stated bound
+        Assert.Equal(64, index.TableSize);
+        Assert.Equal(32, index.KeyCount);
+        Assert.InRange(maxHit, 1, MaxProbesPerLookup);
+        Assert.InRange(maxMiss, 1, MaxProbesPerLookup);
     }
 
     [Fact]
@@ -813,21 +856,12 @@ public class InventoryApiTests
     [Fact]
     public void TryInsert_WhenTheArenaReservationFails_ReturnsFalse_NothingChanges_NoEntryOrArenaLeak_NoCheckRecord()
     {
-        // Arrange: a matching 2-letter stack in a grid (the merge path) and an empty player inventory (the new-entry path), then every
-        // free block of a minimum-size arena taken, so neither the union block nor a new one-unit block can be reserved (reason 85)
-        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.MinTotalUnits);
-        ushort grid = rig.CreateGrid(2, 1);
-        _ = rig.PlaceMail(grid, "letter", 0, 0, Address4, new uint[] { 10, 20 });
-        ContainerId gridId = rig.Header(grid).Id;
+        // Arrange: a matching 2-letter stack filling a 1 x 1 grid (no free cell, so the merge pass is the only way in) and an empty
+        // player inventory (the new-entry path), on a minimum-size arena; the control rig leaves the arena free, the test rig takes
+        // every free block, so neither the union block nor a new one-unit block can be reserved (reason 85)
+        (InvAutoPlaceRig control, ContainerId controlGrid, ushort controlStack) = ArenaRig(exhaustArena: false);
+        (InvAutoPlaceRig rig, ContainerId gridId, ushort stack) = ArenaRig(exhaustArena: true);
         ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
-        MailIdArena arena = rig.Inventory.MailIds;
-        uint filler = 1_000_000;
-        while (arena.CanReserve(1))
-        {
-            uint id = filler++;
-            Assert.True(arena.TryCreate(new ReadOnlySpan<uint>(in id), rig.Host.World.CurrentTick, out _));
-        }
-
         UnitRef letter = Letter(rig, 15, Address4);
         var plan = new InvPlan();
         _ = plan.AddAcquiredBlock(1);
@@ -837,7 +871,10 @@ public class InventoryApiTests
         List<long> before = State(rig);
         var results = new List<bool>();
 
-        // Act
+        // Act: the control first (its free arena lets the merge commit), then both calls on the exhausted rig
+        bool controlInserted = IntakeSpawnOutfeedTests.InPhase(
+            control, () => control.Inventory.TryInsert(controlGrid, in letter, control.PlayerA));
+        EventEntry[] controlHeads = InventoryEvents(control.Sink.Last).Where(e => (e.Flags & EventFlags.Continuation) == 0).ToArray();
         rig.Hook.Action = (in TickContext ctx) =>
         {
             results.Add(rig.Inventory.TryInsert(gridId, in letter, rig.PlayerA));     // merge pass: the union block
@@ -846,8 +883,15 @@ public class InventoryApiTests
         rig.Host.World.Tick();
         rig.Hook.Action = null;
 
+        // Assert: the control reached the grid only through the merge (InvMerged, ids unioned), so the test rig's grid call was
+        // refused at the merge's union-block reservation, not at the new-entry fallback (which has no free cell to reach)
+        Assert.True(controlInserted);
+        Assert.Equal(new[] { InvEventKinds.Merged, InvEventKinds.Version }, controlHeads.Select(e => e.Kind));
+        Assert.Equal(new uint[] { 10, 15, 20 }, control.IdsOf(controlStack));
+
         // Assert: both refused by the dry-run reservation (no check record, no entry allocated); arena blocks and LastId unchanged
         Assert.Equal(new[] { false, false }, results);
+        Assert.Equal(new uint[] { 10, 20 }, rig.IdsOf(stack));
         Assert.Equal(before, State(rig));
         Assert.Equal(ringBefore, ring.Count);
         Assert.Empty(InventoryEvents(rig.Sink.Last));
@@ -1023,6 +1067,24 @@ public class InventoryApiTests
         }
 
         return (maxHit, maxMiss);
+    }
+
+    /// <summary>A minimum-size arena rig with a 2-letter stack (address 4) filling a 1 x 1 grid; with <paramref name="exhaustArena"/>, every free arena block is then taken.</summary>
+    private static (InvAutoPlaceRig Rig, ContainerId Grid, ushort Stack) ArenaRig(bool exhaustArena)
+    {
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.MinTotalUnits);
+        ushort grid = rig.CreateGrid(1, 1);
+        ushort stack = rig.PlaceMail(grid, "letter", 0, 0, Address4, new uint[] { 10, 20 });
+        Assert.Equal(0, rig.Header(grid).FreeCells);
+        MailIdArena arena = rig.Inventory.MailIds;
+        uint filler = 1_000_000;
+        while (exhaustArena && arena.CanReserve(1))
+        {
+            uint id = filler++;
+            Assert.True(arena.TryCreate(new ReadOnlySpan<uint>(in id), rig.Host.World.CurrentTick, out _));
+        }
+
+        return (rig, rig.Header(grid).Id, stack);
     }
 
     private static long Probes(InvAutoPlaceRig rig, ContainerId c, DefIndex item, out int units)
