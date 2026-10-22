@@ -888,7 +888,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// The mutating half of <see cref="TryCatch"/>: in one call scope, the panel commit when <see cref="CatchPlan.Places"/> (one bracket,
     /// the catcher as actor, cause <see cref="InvCause.None"/>), then, if units are left on the entry, the fumble
     /// (<see cref="World.WorldItems.Create"/>, <see cref="WorldItemOrigin.Thrown"/>, created now, in its own nested scope). Never fails:
-    /// Validate proved the WorldItem creatable.
+    /// Validate proved the WorldItem creatable (a None asserts <see cref="SimAssertCode.InventoryCatchFumbleNotCreated"/>).
     /// </summary>
     /// <param name="plan">The plan <see cref="ValidateCatch"/> passed.</param>
     /// <param name="c">The catch <see cref="ValidateCatch"/> passed.</param>
@@ -910,7 +910,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         if (_entries[c.EntrySlot].IsLive && _entries[c.EntrySlot].Id == flight.Entry && _entries[c.EntrySlot].ContainerSlot == EntryRecord.NoContainer)
         {
             // Cannot be None: ValidateCatch proved a WorldItem creatable, createdTick is now and the entry is live, detached and unowned.
-            _ = _worldItems.Create(flight.Entry, flight.CatcherPosMm, WorldItemOrigin.Thrown, flight.OnWater, _tick.CurrentTick);
+            EntityId fumble = _worldItems.Create(flight.Entry, flight.CatcherPosMm, WorldItemOrigin.Thrown, flight.OnWater, _tick.CurrentTick);
+            InventoryAssert.That(!fumble.IsNone, SimAssertCode.InventoryCatchFumbleNotCreated);
         }
     }
 
