@@ -25,7 +25,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
 /// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>), <c>Merge</c> (story 008),
 /// <c>QuickMove</c> and <c>Return</c> (story 010; <see cref="QuickMoveHandler"/>, <see cref="ReturnHandler"/>) and <c>Close</c> (story
-/// 011); the other kinds' handlers are story 019's. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept beside the panel ids. It binds no snapshot source (the builder has no
+/// 011); the other kinds' handlers are story 019's. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
 /// <c>BindSnapshotSource</c> yet). Every container, entry and
 /// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
 /// <see cref="Subscribers"/> set, which the open set (<see cref="OpenSet"/>, story 011) keeps in step. Storage is preallocated from
@@ -70,12 +70,15 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private const int PanelContainerCount = 3;
 
     /// <summary>
-    /// Where the entry on a slot's cursor came from (story grid-inventory/010; GDD R7 <c>return</c> l.95, "into its origin cells"):
-    /// written by <see cref="PickHandler"/>'s commit (the entry's container and cells before the pick) and by
-    /// <see cref="MoveHandler"/>'s swap commit (the displaced entry's hotbar slot). Valid only while the cursor holds
-    /// <see cref="Entry"/> (<see cref="TryGetCursorOrigin"/> checks it), so a whole place, a swap-out, a leash put-away or a drop makes it
-    /// inert with no clearing hook, and a partial place (the entry keeps its id on the cursor) keeps it. Sim state that <c>return</c>
-    /// reads: story 017's dump section carries it; a load without it leaves origin none and <c>return</c> uses the panel leg.
+    /// Where the entry on a slot's cursor came from (story grid-inventory/010; GDD R7 <c>return</c> l.95, "into its origin cells"). It is
+    /// set and cleared at one choke point, the <see cref="InventoryMutator"/>: its <c>Place</c> into a cursor records the container,
+    /// cells and rotation the entry left earlier in the same call (a pick, a move or a swap onto the cursor), or for a split piece its
+    /// source entry's (a split onto the cursor), and its <c>Remove</c> from a cursor clears it (a whole place, a quick_move, a return,
+    /// a leash put-away, a merge out of the cursor or a consume). So an origin is present exactly while the cursor holds
+    /// <see cref="Entry"/>, the entry it was recorded for; a partial place or merge out keeps it (the entry keeps its id on the cursor),
+    /// and an entry that arrives from no container in that call has none. The origin of a move or split onto the cursor is a Mail Lead
+    /// planning default pending Evan (TD-153). Sim state that <c>return</c> reads: story 017's dump section carries it; a load without it
+    /// leaves origin none and <c>return</c> uses the panel leg.
     /// </summary>
     internal struct CursorOrigin
     {
@@ -114,7 +117,6 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly DefIndex _playerInventoryDef;
     private readonly DefIndex _cursorDef;
     private readonly PanelIds[] _panels = new PanelIds[PlayerSlot.Count];
-    private readonly CursorOrigin[] _cursorOrigins = new CursorOrigin[PlayerSlot.Count];
     private readonly ContainerId _intake;
     private readonly ushort _intakeSlot;
     private readonly WorldItems _worldItems;
@@ -217,16 +219,15 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         var itemCounts = new ItemCountIndex(_entries.Capacity, _containers.Capacity, facade.Counters);
         // Story 016: the per-slot weight points memo, its class points read once from the settings.
         var weight = new Weight(content, settings);
-        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, weight, slots);
-        _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
-
-        // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
-        _worldItems = new WorldItems(this, _mutator, _entries, content.Inventory, settings.WorldItemCapacity, facade, _tick, entityIds, checkRing, facade.Counters);
-
         DefIndex intakeDef = Resolve("po_intake");
         _hotbarDef = Resolve("hotbar");
         _playerInventoryDef = Resolve("player_inventory");
         _cursorDef = Resolve("cursor");
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, weight, _cursorDef, slots);
+        _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
+
+        // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
+        _worldItems = new WorldItems(this, _mutator, _entries, content.Inventory, settings.WorldItemCapacity, facade, _tick, entityIds, checkRing, facade.Counters);
 
         if (!TryCreate(intakeDef, ContainerHeader.NoOwner, null, out _intake))
         {
@@ -320,44 +321,23 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     public ContainerId CursorOf(PlayerSlot slot) => slot.IsNone ? default : _panels[slot.Value].Cursor;
 
     /// <summary>
-    /// Records <paramref name="origin"/> as the origin of the entry now on <paramref name="slot"/>'s cursor (story 010; the
-    /// <see cref="PickHandler"/> and swap commits call it). A none or out-of-range slot records nothing. Not a container write: no
-    /// record, no version.
-    /// </summary>
-    /// <param name="slot">The cursor's owner slot.</param>
-    /// <param name="origin">The entry and where it came from.</param>
-    internal void SetCursorOrigin(PlayerSlot slot, in CursorOrigin origin)
-    {
-        if (!slot.IsNone && slot.Value < PlayerSlot.Count)
-        {
-            _cursorOrigins[slot.Value] = origin;
-        }
-    }
-
-    /// <summary>
-    /// The origin of the entry on <paramref name="slot"/>'s cursor (story 010; <see cref="ReturnHandler"/> reads it): true only when an origin
-    /// was recorded and the cursor still holds that entry (same id), so a stale origin is never returned. Pure; allocation-free.
+    /// The origin of the entry on <paramref name="slot"/>'s cursor (story 010; <see cref="ReturnHandler"/> reads it), as the
+    /// <see cref="InventoryMutator"/> keeps it (see <see cref="CursorOrigin"/>): present exactly while the cursor holds the entry it was
+    /// recorded for. No per-read entry check is needed: the mutator's <c>Place</c> and <c>Remove</c> are the only writes of a cursor's
+    /// cells, and they record and clear it. Pure; allocation-free.
     /// </summary>
     /// <param name="slot">The player slot.</param>
-    /// <param name="origin">The origin when valid; default otherwise.</param>
-    /// <returns>True when the cursor holds the recorded entry.</returns>
+    /// <param name="origin">The origin when present; default otherwise.</param>
+    /// <returns>True when an origin is recorded for the entry on the cursor.</returns>
     internal bool TryGetCursorOrigin(PlayerSlot slot, out CursorOrigin origin)
     {
-        origin = default;
-        if (slot.IsNone || slot.Value >= PlayerSlot.Count || !_containers.TryGetSlot(_panels[slot.Value].Cursor, out ushort cursor))
+        if (slot.IsNone || slot.Value >= PlayerSlot.Count)
         {
+            origin = default;
             return false;
         }
 
-        CursorOrigin recorded = _cursorOrigins[slot.Value];
-        ushort held = _occupancy.OwnerAt(cursor, _containers[cursor].W, 0, 0);
-        if (recorded.Entry.IsNone || held == Occupancy.Free || _entries[held].Id != recorded.Entry)
-        {
-            return false;
-        }
-
-        origin = recorded;
-        return true;
+        return _mutator.TryGetCursorOrigin(slot.Value, out origin);
     }
 
     /// <summary>Copies the header of <paramref name="id"/>.</summary>

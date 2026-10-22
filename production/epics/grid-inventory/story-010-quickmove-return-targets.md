@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M–L (~1–1.5 days)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (readiness fixes against 007 as merged and the 008 fix patch)
+> **Last Updated**: 2026-10-22 (readiness fixes against 007 as merged and the 008 fix patch; Mail Review r1: cursor origin kept by `InventoryMutator`, advisories 2, 3, 4, 6)
 
 ## Context
 
@@ -53,7 +53,7 @@
 - Location: `src/PerformativeMail.Sim/Inventory/Ops/QuickMoveHandler.cs`, `ReturnHandler.cs`, and the quick_move rows in `Placement/TargetOrder.cs` (story 011 shipped `CursorRow` only; keep it unchanged for the leash put-away). Add `QuickMoveRow(source role, category, externalOpen, hotbar, inventory, external, Span<ushort> targets)` returning the row length (≤ 2 at M-1a). The source role comes from comparing `from` with the actor's `HotbarOf`/`PlayerInventoryOf`/`CursorOf`; any ownerless container is the external. `quick_move {from: cursor}` maps to `CursorRow`. Story 014 adds the mail pickup/catch row; correct the `TargetOrder.cs` header comment to say so.
 - Mail from an external → `[inventory, backpack, hotbar]` (CD D-C); tool/weapon/consumable → `[hotbar, inventory, backpack]`; with no backpack container the target is skipped. An outfeed target (the Intake) is planned NoMerge.
 - QuickMove Validate: whole entry → `AutoPlace.Plan(subject, e.Count, entrySlot, row, Merge or NoMerge, PassFirst)`; partial → plan with `NoSource` and `units = count`, and Commit splits the k oldest off with story 008's `InventoryMutator` split primitive (new entryId in Commit) and then `AutoPlace.Commit`. Arena reservation (`CheckArenaReservation`) is checked last, as in `MoveHandler`. Declare `bad_count` on `InvOpDescriptors.QuickMove`; `not_carryable` is dormant at M-1a (TD-105 item 4).
-- Cursor origin: a per-slot `CursorOrigin { EntryId Entry; ContainerId Container; byte X, Y; bool Rotated }` in `InventorySystem` beside `_panels`. `PickHandler.Commit` writes it (a 007 retrofit), and so does 008's swap commit for the displaced entry (its hotbar slot). It is valid only while the cursor holds `Entry`, so a whole place, swap-out, leash put-away or drop makes it inert without a clearing hook, and a partial place keeps it. It is Sim state, so story 017's dump section carries it; a load without it leaves origin none and `return` falls to the panel leg.
+- Cursor origin: a per-slot `CursorOrigin { EntryId Entry; ContainerId Container; byte X, Y; bool Rotated }` (type in `InventorySystem`), set and cleared at one choke point, `InventoryMutator` (Mail Review r1 B1; no handler writes it): its `Place` into a cursor records where the entry came from in that op — a `pick` or a `move` onto the cursor the cells it left, the swap's displaced entry its hotbar slot, a piece split onto the cursor its source entry's cells (the move/split rule is a Mail Lead planning default pending Evan, TD-153 item 5) — and its `Remove` from a cursor clears it (a whole place, quick_move, return, leash put-away, merge out, consume). So an origin is present iff the cursor holds the entry it was recorded for; a partial place or merge out keeps it (the entry keeps its id on the cursor), and an entry that arrives from no container gets none. It is Sim state, so story 017's dump section carries it; a load without it leaves origin none and `return` falls to the panel leg.
 - Return chain: `bad_request → cursor_empty → [origin leg] → [panel leg] → no_room → capacity_exhausted`. `blocked`/`stack_full` stay declared on `InvOpDescriptors.Return` but are unreachable (fall-through).
 - Bind `InvOpDescriptors.QuickMove` and `.Return` in `InventorySystem.Bind` beside Close/Pick/Move/Merge; add both to `BoundBySystem` in `tests/unit/inventory/InvMalformedOpTests.cs` and move their `ValidCases` rows into `QuickMoveReturnTests` (unplaced entry → `stale_entry`; empty cursor → `cursor_empty`); re-check `GoldenFuzzHash`.
 - Performance: Validate = one `AutoPlace.Plan` (per-cell probe counters unchanged, H-PERF-6) plus O(footprint) for the origin leg; Commit O(k) id copy.
@@ -83,7 +83,7 @@
 - Logic: `tests/unit/inventory/QuickMoveReturnTests.cs` — must exist and pass
 - Allocation: `tests/unit/inventory/QuickMoveReturnAllocationTests.cs` — `AllocAssert.Zero` plus the every-build twin (pattern: `PickMoveAllocationTests.cs`)
 
-**Status**: [x] Created; green on the current tree (head 18cc838) — net10.0 and net8.0, Debug and Release, 6,023 tests each, 0 failed (Debug 5,968 passed / 55 skipped; Release 6,020 passed / 3 skipped, the skips including the Release-only 0 B tests, which pass in Release); 0 build warnings; tools/ci guards pass. Evidence supplied by the run owner; `/story-done` did not run the suite.
+**Status**: [x] Created; green on the current tree (the Mail Review r1 commit on top of 64f9ff6) — net10.0 and net8.0, Debug and Release, 6,087 tests each (6,023 at 18cc838; +64 in r1), 0 failed (Debug 6,032 passed / 55 skipped, the Debug skips including the two Release-only 0 B tests, which pass in Release; Release 6,084 passed / 3 skipped, the assert-build tests); 0 build warnings; tools/ci guards and their self-checks, check-game-build and check-sim-access (with `--self-check`) pass. Evidence supplied by the run owner; `/story-done` did not run the suite.
 Files:
 - `tests/unit/inventory/QuickMoveReturnTests.cs` (origin, R9 rows, H-R9-1, H-R6-1 d, count, precedence, rejects raise nothing, versions/weight/indexes, H-R7-9, Return fallbacks)
 - `tests/unit/inventory/QuickMoveReturnAllocationTests.cs` (`AllocAssert.Zero` plus the every-build twin)
@@ -94,12 +94,12 @@ Files:
 
 ## Completion Notes
 
-**Completed**: 2026-10-22 — PR #33 (draft, open, not merged), head 18cc838. The interactive lead-programmer gate was skipped: the review already ran (Sonnet `/code-review` 3e29e00..a75d131).
+**Completed**: 2026-10-22 — PR #33 (open, not merged), head 18cc838; Mail Review r1 fixes in the commit after 64f9ff6. The interactive lead-programmer gate was skipped: the review already ran (Sonnet `/code-review` 3e29e00..a75d131).
 
 **Credit**: Evan's 2026-10-22 5:11 AM PT ruling covers only that a leashed letter stays on the cursor when the mail-id arena is full, even with a free cell. Everything below is a Mail Lead planning default pending Evan (TD-153) unless it cites the ADR/GDD line that states it.
 
 **Defaults pending Evan (TD-153)**:
-- `count > total` → `bad_count`; `count` 0 or `== total` is the whole entry (the 0 = whole form is ADR-0009 l.347's erratum).
+- `count > total` → `bad_count`; `count` 0 or `== total` is the whole entry (`count` 0 = whole is this Lead default, TD-153 item 1; ADR-0009 l.347 shows "(0 = whole)" in field notation only and leaves the GDD vs ADR ruling open).
 - QuickMove chain order `bad_request → not_open → stale_entry → bad_count → not_carryable → not_allowed → no_room → capacity_exhausted`. Only `not_allowed` before `no_room` is stated (GDD R8 l.115).
 - A QuickMove/Return arena refusal leaves the entry where it is (by analogy with the 5:11 ruling, not covered by it).
 - Return: the origin leg falls through to the panel leg on any blocked/full/not-open/gone origin and never answers `not_open`; `blocked`/`stack_full` stay declared but unreachable; the Return chain position of `cursor_empty` and `capacity_exhausted`.
@@ -109,9 +109,14 @@ Files:
 
 **Review findings and handling** (Sonnet `/code-review`, fixed in slice 3, 18cc838):
 - B1 (blocking citation): QuickMove chain positions relabelled Mail Lead default (TD-153) by analogy with the placement chain.
-- A2: `count` 0 = whole cited to the ADR-0009 l.347 erratum. A6: Return origin-leg position after `cursor_empty` relabelled a Lead default.
+- A2: `count` 0 = whole cited to the ADR-0009 l.347 erratum (superseded in Mail Review r1, advisory 2: now cited only as a Lead default, TD-153 item 1). A6: Return origin-leg position after `cursor_empty` relabelled a Lead default.
 - T1–T4 (test gaps): partial quick_move union + new block arena boundary; MaxRealId pre-check; Return to a free Intake origin (NoMerge, new arrivalSeq); `CursorOrigin` in `MoveSplitMergeTests.SideEffects`. The Move union-block mutant (`targetCount + units` → `targetCount`) was re-run and killed on slots 0 and 1.
 - Advisories kept as notes: `container_gone` is declared but unreachable on QuickMove (as Pick/Move, TD-152/TD-153); Return's panel-leg `no_room` mapping (TD-153); `Validate` length is comparable to `MoveHandler`.
+
+**Mail Review r1 (64f9ff6, BLOCKED) and handling** (code on Opus, claude-opus-5-5; review checks on Sonnet):
+- B1 (blocking, a stale cursor origin): fixed structurally. The origin table moved into `InventoryMutator`, the one writer of a cursor's cells: `Place` into a cursor records where the entry left in that call (a pick or move onto the cursor its source cells, the swap's displaced entry its hotbar slot, a split piece its source entry's cells) and `Remove` from a cursor clears it. The bespoke writes in `PickHandler` and the swap commit and `InventorySystem.SetCursorOrigin` are gone. The move/split origin rule is a Mail Lead planning default pending Evan (TD-153 item 5); GDD l.95 / l.178 say only "its origin cells". Tests: both repros (pick → move to inventory (3,0) → move back → `return` lands at inventory (3,0); leash put-away → move → move back), a different entry on the cursor, both players holding origins, every way an entry leaves the cursor, and move/split onto the cursor.
+- Advisory 2: `count` 0 = whole cited only as a Lead default (TD-153 item 1), not ADR-0009 l.347. Advisory 3: TD-153 item 2 names the tension with ADR-0009 l.113. Advisory 4: the Return union size-class test, the 0 B cycle (partial origin merge, Intake route, `no_room` and `capacity_exhausted` rejects; 14 → 24 ops), QuickMove one pool slot left, partial quick_move from the cursor and into the Intake, whole quick_move at the 255 cap. Advisory 6: `TargetOrder.cs` cites GDD R9 l.128; the PR-draft wording and the swapped skip description are fixed.
+- Advisories 1, 5 and 7 stay open as before (story 017 dump; TD-151; Validate purity).
 
 **Untested criteria**: none.
 

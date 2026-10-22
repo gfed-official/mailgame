@@ -44,8 +44,18 @@ namespace PerformativeMail.Sim.Inventory;
 /// way, before <c>InvMerged</c>, so it leaves last (owner ruling Evan 2026-10-21 12:28 PT; GDD R14 "no Intake entry's arrivalSeq ever
 /// decreases"), and its old node becomes a lazy tombstone; a move inside the container keeps the seq. An entry leaving it
 /// (<see cref="Remove"/>, a cross-container <see cref="Transfer"/>) gets <c>arrivalSeq</c> 0 and leaves a lazy tombstone (story 012,
-/// GDD R14). Allocation-free; never throws on the tick path (preconditions assert under
-/// <c>INVENTORY_ASSERT</c>). Not thread-safe: Sim tick thread only.
+/// GDD R14). It is also the one writer of each slot's <b>cursor origin</b> (story grid-inventory/010, Mail Review r1 B1; GDD R7
+/// <c>return</c> l.95, "into its origin cells"; read through <see cref="TryGetCursorOrigin"/>): <see cref="Place"/> into a cursor (a
+/// container of the cursor def with an owner slot) records where the entry came from in this call, and <see cref="Remove"/> from a
+/// cursor clears it, so an origin is present exactly while the cursor holds the entry it was recorded for. Every path onto or off a
+/// cursor (pick, move, split, swap, leash put-away, quick_move, return, merge, consume) ends in those two primitives, which are
+/// the only cursor occupancy writes (an in-container <see cref="Transfer"/> on the 1 x 1 cursor is a no-op), so no handler records or
+/// clears an origin itself. "Where it came from" is the container, cells and rotation the entry was <see cref="Remove"/>d from earlier
+/// in the same <see cref="Begin"/>/<see cref="End"/> call, or for a piece <see cref="SplitAndPlace"/> splits off, its source entry's
+/// container, cells and rotation; an entry that arrives with neither (a detached entry from no container this call) gets no origin.
+/// The origin of an entry moved or split onto the cursor is a Mail Lead planning default pending Evan (TD-153): GDD l.95 and the l.178
+/// cursor table name only "its origin cells", and ADR-0009 does not define them. Allocation-free; never throws on the tick path
+/// (preconditions assert under <c>INVENTORY_ASSERT</c>). Not thread-safe: Sim tick thread only.
 /// </summary>
 /// <example>
 /// <code>
@@ -74,6 +84,18 @@ internal sealed class InventoryMutator
     private readonly Weight _weight;
     private readonly uint[] _movedIds = new uint[MailIdArena.MaxUnits];
     private readonly uint[] _splitIds = new uint[MailIdArena.MaxUnits];
+    private readonly DefIndex _cursorDef;
+
+    // Story 010 (Mail Review r1 B1): each slot's cursor origin, written only by Place and Remove (see the class remarks).
+    private readonly InventorySystem.CursorOrigin[] _cursorOrigins = new InventorySystem.CursorOrigin[PlayerSlot.Count];
+
+    // Where entries left this call: a ring of the latest departures (Remove, and SplitAndPlace's piece), emptied by Begin (every
+    // bracket opens with it). A departure overwritten by a later one is lost, so a Place onto a cursor that finds none records no
+    // origin, never a stale one.
+    private readonly InventorySystem.CursorOrigin[] _departures = new InventorySystem.CursorOrigin[DepartureCapacity];
+    private int _departureCount;
+
+    private const int DepartureCapacity = 4;
 
     /// <summary>Creates the mutator over the module's storage.</summary>
     /// <param name="containers">The container table.</param>
@@ -89,6 +111,7 @@ internal sealed class InventoryMutator
     /// <param name="noFit">The negative-fit cache <see cref="RebuildIndex"/> clears.</param>
     /// <param name="outfeed">The outfeed FIFO memo the primitives maintain (story 012).</param>
     /// <param name="weight">The per-slot weight points memo the primitives maintain (story 016).</param>
+    /// <param name="cursorDef">The cursor container def (story 010: <see cref="Place"/> and <see cref="Remove"/> keep the cursor origins).</param>
     /// <param name="slots">The slot table (the connected-slot audience of the world kinds, story 013); null gives audience 0.</param>
     /// <exception cref="ArgumentNullException">An argument other than <paramref name="slots"/> is null.</exception>
     internal InventoryMutator(
@@ -105,6 +128,7 @@ internal sealed class InventoryMutator
         NegativeFitCache noFit,
         OutfeedFifo outfeed,
         Weight weight,
+        DefIndex cursorDef,
         ISlotView? slots = null)
     {
         ArgumentNullException.ThrowIfNull(containers);
@@ -133,6 +157,7 @@ internal sealed class InventoryMutator
         _noFit = noFit;
         _outfeed = outfeed;
         _weight = weight;
+        _cursorDef = cursorDef;
         _slots = slots;
     }
 
@@ -206,6 +231,7 @@ internal sealed class InventoryMutator
     {
         plan.Actor = actor;
         plan.Cause = cause;
+        _departureCount = 0; // a departure counts only within its own call (see the class remarks)
     }
 
     /// <summary>
@@ -257,6 +283,11 @@ internal sealed class InventoryMutator
             StampArrival(containerSlot, ref h, entrySlot, ref e);
         }
 
+        if (IsCursor(in h))
+        {
+            _cursorOrigins[h.OwnerSlot] = DepartureOf(e.Id); // the entry's origin, or none (story 010; see the class remarks)
+        }
+
         RaiseInserted(containerSlot, h.Id, in e);
     }
 
@@ -284,6 +315,12 @@ internal sealed class InventoryMutator
 
         ref ContainerHeader h = ref _containers[containerSlot];
         int weight = _weight.PointsOf(h.OwnerSlot, in e);
+        LogDeparture(e.Id, h.Id, e.X, e.Y, e.Rotated);
+        if (IsCursor(in h))
+        {
+            _cursorOrigins[h.OwnerSlot] = default; // the entry leaves the cursor, so its origin goes with it (story 010)
+        }
+
         FootprintIn(in h, in e, e.Rotated, out int fw, out int fh);
         _index.Unlink(entrySlot);
         CountItemUnits(containerSlot, in e, -e.Count);
@@ -620,6 +657,7 @@ internal sealed class InventoryMutator
         _ = TakeOldest(ref plan, sourceSlot, k, ids); // k < count: the source stays, with its id and position
         var split = new InvSplitFromPayload { Container = _containers[from].Id.Value, EntryId = src.Id.Value, NewEntryId = pieceId.Value, Count = (byte)k };
         _ = _events.TryRaise(InvEventKinds.SplitFrom, AudienceOf(from), in split);
+        LogDeparture(pieceId, _containers[from].Id, src.X, src.Y, src.Rotated); // the piece's origin is its source's cells (TD-153)
         Place(ref plan, pieceSlot, toSlot, x, y, rotated);
         return true;
     }
@@ -742,6 +780,20 @@ internal sealed class InventoryMutator
         }
     }
 
+    /// <summary>
+    /// The cursor origin of player slot <paramref name="slot"/> (story 010; see the class remarks): present exactly while that slot's
+    /// cursor holds the entry it was recorded for, because <see cref="Place"/> into the cursor records it and <see cref="Remove"/> from the
+    /// cursor clears it. Pure; allocation-free.
+    /// </summary>
+    /// <param name="slot">The player slot value (below <see cref="PlayerSlot.Count"/>).</param>
+    /// <param name="origin">The origin when present; default otherwise.</param>
+    /// <returns>True when an origin is recorded.</returns>
+    internal bool TryGetCursorOrigin(byte slot, out InventorySystem.CursorOrigin origin)
+    {
+        origin = _cursorOrigins[slot];
+        return !origin.Entry.IsNone;
+    }
+
     /// <summary>The number of ascending runs of consecutive ids in <paramref name="ids"/> (strictly ascending input).</summary>
     /// <param name="ids">The ids.</param>
     /// <returns>The run count.</returns>
@@ -757,6 +809,35 @@ internal sealed class InventoryMutator
         }
 
         return runs;
+    }
+
+    /// <summary>True for a player's cursor: a container of the cursor def with an owner slot.</summary>
+    private bool IsCursor(in ContainerHeader h) => h.DefIndex == _cursorDef && h.OwnerSlot < PlayerSlot.Count;
+
+    /// <summary>Appends where <paramref name="entry"/> left from in this call to the departure ring (the oldest is overwritten).</summary>
+    private void LogDeparture(EntryId entry, ContainerId container, byte x, byte y, bool rotated)
+    {
+        _departures[_departureCount % DepartureCapacity] = new InventorySystem.CursorOrigin
+        {
+            Entry = entry, Container = container, X = x, Y = y, Rotated = rotated,
+        };
+        _departureCount++;
+    }
+
+    /// <summary>The latest departure of <paramref name="entry"/> in this call, or default (no origin) when it left nothing this call.</summary>
+    private InventorySystem.CursorOrigin DepartureOf(EntryId entry)
+    {
+        int oldest = Math.Max(0, _departureCount - DepartureCapacity);
+        for (int i = _departureCount - 1; i >= oldest; i--)
+        {
+            ref readonly InventorySystem.CursorOrigin d = ref _departures[i % DepartureCapacity];
+            if (d.Entry == entry)
+            {
+                return d;
+            }
+        }
+
+        return default;
     }
 
     /// <summary>The footprint an entry covers in a container: 1 x 1 on a slots layout (one entry per slot whatever its size), else its effective <c>w x h</c>.</summary>

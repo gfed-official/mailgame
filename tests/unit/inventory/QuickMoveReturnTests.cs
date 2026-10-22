@@ -11,8 +11,8 @@ using PerformativeMail.Sim.Primitives;
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
-/// Story grid-inventory/010, slice 1: the cursor origin (<see cref="InventorySystem.TryGetCursorOrigin"/>, written by the
-/// <c>Pick</c> commit and the <c>Move</c> swap commit), the R9 quick_move rows (<see cref="TargetOrder.QuickMoveRow"/>; GDD l.120-128)
+/// Story grid-inventory/010, slice 1: the cursor origin (<see cref="InventorySystem.TryGetCursorOrigin"/>, recorded by the mutator's
+/// <c>Place</c> into a cursor and cleared by its <c>Remove</c> from one; Mail Review r1 B1), the R9 quick_move rows (<see cref="TargetOrder.QuickMoveRow"/>; GDD l.120-128)
 /// and the <c>QuickMove</c> op, entry form (<see cref="QuickMoveHandler"/>; GDD R7 l.93, R8, R9, H-R9-1, H-R6-1 d; ADR-0009 sections
 /// 1-3), through the real phase-0 drain of a composed world with players A (slot 0) and B (slot 1). Every world case runs from slot 0
 /// and from slot 1. State is arranged only through real calls: the rig's mutator-backed <c>PlaceMail</c> / <c>PlaceItem</c>,
@@ -106,14 +106,14 @@ public class QuickMoveReturnTests
     }
 
     /// <summary>
-    /// The origin is valid only while the cursor holds its entry: a partial place (the entry keeps its id on the cursor) keeps it, a
-    /// whole place makes it inert with no clearing hook, and the next pick replaces it.
+    /// The origin is present only while the cursor holds its entry: a partial place (the entry keeps its id on the cursor) keeps it, a
+    /// whole place clears it (the mutator's <c>Remove</c> from the cursor), and the next pick replaces it.
     /// </summary>
     [Theory]
     [Trait("Id", "H-R7-9")]
     [InlineData(0)]
     [InlineData(1)]
-    public void Origin_PartialPlaceKeepsIt_WholePlaceMakesItInert_TheNextPickReplacesIt(int slot)
+    public void Origin_PartialPlaceKeepsIt_WholePlaceClearsIt_TheNextPickReplacesIt(int slot)
     {
         // Arrange
         var rig = NewRig();
@@ -146,6 +146,433 @@ public class QuickMoveReturnTests
         // Assert
         Assert.True(rig.Inventory.TryGetCursorOrigin(ps, out InventorySystem.CursorOrigin next));
         Assert.Equal((rig.Entries[axe].Id, rig.IdOf(hotbar), (byte)2, (byte)0), (next.Entry, next.Container, next.X, next.Y));
+    }
+
+    // ------------------------------------------------------------------ cursor origin: one choke point (Mail Review r1 B1)
+
+    /// <summary>
+    /// The review repro (GDD R7 l.95, "into its origin cells"): planks 5 picked from chest (2,1), placed whole at inventory (3,0), then
+    /// moved from there back onto the cursor. The move records inventory (3,0) as the origin (the mutator's <c>Place</c> into the cursor;
+    /// Mail Lead planning default pending Evan, TD-153), so <c>return</c> puts the planks back at inventory (3,0) with their id, not at the
+    /// pick's chest (2,1); the chest is unchanged, the cursor and the inventory bump once each.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-9")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Return_PickPlaceThenMoveBackToTheCursor_GoesToTheInventoryCellItCameFrom_NotThePickOrigin(int slot)
+    {
+        // Arrange
+        var rig = NewRig();
+        PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort planks = rig.PlaceItem(chest, "plank", 2, 1, 5);
+        EntryId id = rig.Entries[planks].Id;
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, planks)));
+        AssertOrigin(rig, ps, id, rig.IdOf(chest), 2, 1, false);
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, planks, inventory, 3, 0)));
+        Assert.False(rig.Inventory.TryGetCursorOrigin(ps, out _));
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, inventory, planks, cursor, 0, 0)));
+        AssertOrigin(rig, ps, id, rig.IdOf(inventory), 3, 0, false);
+        uint[] versions = MoveSplitMergeTests.Versions(rig);
+        Assert.NotEqual(versions[cursor], versions[inventory]);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), ReturnOp());
+
+        // Assert
+        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        Assert.Equal((id, inventory, (byte)3, (byte)0, (byte)5), (rig.Entries[planks].Id, rig.Entries[planks].ContainerSlot, rig.Entries[planks].X, rig.Entries[planks].Y, rig.Entries[planks].Count));
+        Assert.Equal(Occupancy.Free, rig.EntryAt(chest, 2, 1));
+        uint[] expected = (uint[])versions.Clone();
+        expected[cursor]++;
+        expected[inventory]++;
+        Assert.Equal(expected, MoveSplitMergeTests.Versions(rig));
+        Assert.Equal((versions[cursor] + 1, versions[inventory] + 1), (extra.ResultVersionA, extra.ResultVersionB));
+        Assert.False(rig.Inventory.TryGetCursorOrigin(ps, out _));
+        MoveSplitMergeTests.AssertWeightAndCountsMatchRecount(rig);
+    }
+
+    /// <summary>
+    /// The review's second repro: planks 5 picked from chest (2,1); the leash put-away (<c>CloseExternal(Leash)</c> in phase) puts them at
+    /// inventory (0,0) and clears the origin; a real <c>move</c> takes them to inventory (4,1) and then back onto the cursor (origin
+    /// inventory (4,1)); the chest is opened again, so the pick's stale chest (2,1) would be both free and open. <c>return</c> puts them
+    /// at inventory (4,1) (the panel leg would have chosen (0,0)); the chest is unchanged.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-9")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Return_LeashPutAwayThenMoveBackToTheCursor_GoesWhereItCameFrom_NotThePickOrigin(int slot)
+    {
+        // Arrange
+        var rig = NewRig();
+        PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort planks = rig.PlaceItem(chest, "plank", 2, 1, 5);
+        EntryId id = rig.Entries[planks].Id;
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, planks)));
+        Leash(rig, ps);
+        Assert.Equal((inventory, (byte)0, (byte)0), (rig.Entries[planks].ContainerSlot, rig.Entries[planks].X, rig.Entries[planks].Y));
+        Assert.False(rig.Inventory.TryGetCursorOrigin(ps, out _));
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, inventory, planks, inventory, 4, 1)));
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, inventory, planks, cursor, 0, 0)));
+        Assert.True(rig.Inventory.TryOpenExternal(ps, rig.IdOf(chest)));
+        Assert.Equal(Occupancy.Free, rig.EntryAt(chest, 2, 1));
+        AssertOrigin(rig, ps, id, rig.IdOf(inventory), 4, 1, false);
+        uint[] versions = MoveSplitMergeTests.Versions(rig);
+
+        // Act
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp()));
+
+        // Assert
+        Assert.Equal((id, inventory, (byte)4, (byte)1), (rig.Entries[planks].Id, rig.Entries[planks].ContainerSlot, rig.Entries[planks].X, rig.Entries[planks].Y));
+        Assert.Equal(Occupancy.Free, rig.EntryAt(chest, 2, 1));
+        uint[] expected = (uint[])versions.Clone();
+        expected[cursor]++;
+        expected[inventory]++;
+        Assert.Equal(expected, MoveSplitMergeTests.Versions(rig));
+    }
+
+    /// <summary>
+    /// An origin recorded for one entry never serves another: planks X picked from chest (2,1) (origin X) and placed whole at inventory
+    /// (3,0), which clears it; then a different entry Y (3 letters) reaches the cursor. Rows: <c>placed_on_cursor</c> (the rig's
+    /// mutator-backed <c>PlaceMail</c> onto the cursor: an entry from no container, so no origin) → <c>return</c> takes the panel leg
+    /// (inventory (0,0), the mail cursor row's first free cell), never X's chest (2,1); <c>moved_to_cursor</c> (a real <c>move</c> from
+    /// hotbar slot 4: origin hotbar slot 4) → <c>return</c> puts Y back in slot 4. The chest stays unchanged either way.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-9")]
+    [InlineData(0, "placed_on_cursor")]
+    [InlineData(1, "placed_on_cursor")]
+    [InlineData(0, "moved_to_cursor")]
+    [InlineData(1, "moved_to_cursor")]
+    public void Return_ADifferentEntryOnTheCursorThanTheOneTheOriginWasRecordedFor_NeverUsesThatOrigin(int slot, string row)
+    {
+        // Arrange
+        var rig = NewRig();
+        PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort hotbar = rig.HotbarOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort x = rig.PlaceItem(chest, "plank", 2, 1, 5);
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, x)));
+        AssertOrigin(rig, ps, rig.Entries[x].Id, rig.IdOf(chest), 2, 1, false);
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, x, inventory, 3, 0)));
+        ushort y;
+        if (row == "placed_on_cursor")
+        {
+            y = rig.PlaceMail(cursor, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 3));
+            Assert.False(rig.Inventory.TryGetCursorOrigin(ps, out _));
+        }
+        else
+        {
+            y = rig.PlaceMail(hotbar, "letter", 4, 0, Address3, InvAutoPlaceRig.Ids(1, 3));
+            MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, hotbar, y, cursor, 0, 0)));
+            AssertOrigin(rig, ps, rig.Entries[y].Id, rig.IdOf(hotbar), 4, 0, false);
+        }
+
+        EntryId yId = rig.Entries[y].Id;
+        Assert.NotEqual(rig.Entries[x].Id, yId);
+        uint chestVersion = rig.Header(chest).Version;
+
+        // Act
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp()));
+
+        // Assert
+        (ushort to, byte tx) = row == "placed_on_cursor" ? (inventory, (byte)0) : (hotbar, (byte)4);
+        Assert.Equal((yId, to, tx, (byte)0), (rig.Entries[y].Id, rig.Entries[y].ContainerSlot, rig.Entries[y].X, rig.Entries[y].Y));
+        Assert.Equal((Occupancy.Free, chestVersion), (rig.EntryAt(chest, 2, 1), rig.Header(chest).Version));
+        Assert.Equal((inventory, (byte)3), (rig.Entries[x].ContainerSlot, rig.Entries[x].X));
+        Assert.Equal(0, (int)rig.Header(cursor).EntryCount);
+        Assert.False(rig.Inventory.TryGetCursorOrigin(ps, out _));
+    }
+
+    /// <summary>
+    /// A departure counts only within its own call (the mutator's <c>Begin</c> empties the departure ring): the Axe in hotbar slot 3 is
+    /// detached by <see cref="IInventoryApi.DetachForThrow"/> (a <c>Remove</c> from the hotbar), then placed on the cursor in a later tick
+    /// through the rig's mutator-backed <c>PlaceDetached</c>. It arrives from no container in that call, so it has no origin, and
+    /// <c>return</c> takes the panel leg (a tool: hotbar first, the lowest free slot 1), not slot 3.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-9")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Origin_AnEntryPlacedOnTheCursorInALaterCall_GetsNoOriginFromItsEarlierDeparture(int slot)
+    {
+        // Arrange
+        var rig = NewRig();
+        PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
+        ushort hotbar = rig.HotbarOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort axe = rig.PlaceItem(hotbar, "axe", 3, 0, 1);
+        EntryId id = rig.Entries[axe].Id;
+        DetachResult detached = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.DetachForThrow(ps, id, 1));
+        Assert.Equal((id, EntryRecord.NoContainer), (detached.Entry, rig.Entries[axe].ContainerSlot));
+
+        // Act
+        rig.PlaceDetached(axe, cursor, 0, 0);
+
+        // Assert
+        Assert.Equal(cursor, rig.Entries[axe].ContainerSlot);
+        Assert.False(rig.Inventory.TryGetCursorOrigin(ps, out _));
+
+        // Act
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp()));
+
+        // Assert
+        Assert.Equal((id, hotbar, (byte)1), (rig.Entries[axe].Id, rig.Entries[axe].ContainerSlot, rig.Entries[axe].X));
+    }
+
+    /// <summary>
+    /// Both players hold origins at once and neither write touches the other's: the actor picks planks from chest (2,1), the other player
+    /// letters from chest (5,3); each places whole into their own inventory ((3,0) and (6,1)) and moves them back onto their cursor, the
+    /// actor first. Each origin is the player's own inventory cell. The actor's <c>return</c> puts the planks back at (3,0) and leaves
+    /// the other player's cursor, origin and panel versions untouched; the other's <c>return</c> then puts the letters back at (6,1).
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-9")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Return_BothPlayersHoldOrigins_EachReturnGoesToItsOwnOrigin_NeitherInterferes(int slot)
+    {
+        // Arrange
+        var rig = NewRig();
+        int other = 1 - slot;
+        PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
+        PlayerSlot po = PlayerSlot.FromValue((byte)other);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        Assert.True(rig.Inventory.TryOpenExternal(po, rig.IdOf(chest)));
+        ushort inventory = rig.InventoryOf(slot);
+        ushort otherInventory = rig.InventoryOf(other);
+        ushort cursor = rig.CursorOf(slot);
+        ushort otherCursor = rig.CursorOf(other);
+        ushort planks = rig.PlaceItem(chest, "plank", 2, 1, 5);
+        ushort letters = rig.PlaceMail(chest, "letter", 5, 3, Address3, InvAutoPlaceRig.Ids(1, 4));
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, planks)));
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(other), PickOp(rig, chest, letters)));
+        AssertOrigin(rig, ps, rig.Entries[planks].Id, rig.IdOf(chest), 2, 1, false);
+        AssertOrigin(rig, po, rig.Entries[letters].Id, rig.IdOf(chest), 5, 3, false);
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, planks, inventory, 3, 0)));
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(other), MoveOp(rig, otherCursor, letters, otherInventory, 6, 1)));
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, inventory, planks, cursor, 0, 0)));
+        Assert.False(rig.Inventory.TryGetCursorOrigin(po, out _));
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(other), MoveOp(rig, otherInventory, letters, otherCursor, 0, 0)));
+        AssertOrigin(rig, ps, rig.Entries[planks].Id, rig.IdOf(inventory), 3, 0, false);
+        AssertOrigin(rig, po, rig.Entries[letters].Id, rig.IdOf(otherInventory), 6, 1, false);
+        uint[] versions = MoveSplitMergeTests.Versions(rig);
+
+        // Act
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp()));
+
+        // Assert
+        Assert.Equal((inventory, (byte)3, (byte)0), (rig.Entries[planks].ContainerSlot, rig.Entries[planks].X, rig.Entries[planks].Y));
+        Assert.False(rig.Inventory.TryGetCursorOrigin(ps, out _));
+        Assert.Equal(otherCursor, rig.Entries[letters].ContainerSlot);
+        AssertOrigin(rig, po, rig.Entries[letters].Id, rig.IdOf(otherInventory), 6, 1, false);
+        Assert.Equal((versions[otherCursor], versions[otherInventory], versions[chest]), (rig.Header(otherCursor).Version, rig.Header(otherInventory).Version, rig.Header(chest).Version));
+
+        // Act
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(other), ReturnOp()));
+
+        // Assert
+        Assert.Equal((otherInventory, (byte)6, (byte)1), (rig.Entries[letters].ContainerSlot, rig.Entries[letters].X, rig.Entries[letters].Y));
+        Assert.False(rig.Inventory.TryGetCursorOrigin(po, out _));
+        Assert.Equal((inventory, (byte)3), (rig.Entries[planks].ContainerSlot, rig.Entries[planks].X));
+        Assert.Equal(versions[chest], rig.Header(chest).Version);
+    }
+
+    /// <summary>
+    /// The origin is cleared by every way an entry leaves the cursor in code today and kept while part of it stays (the entry keeps its id
+    /// on the cursor). Letters X = [1..5] to #3 picked from chest (2,1). Cleared: <c>whole_place</c> (a <c>move</c> to inventory (3,0));
+    /// <c>merge_out_move</c> (a whole <c>move</c> onto a same-key inventory stack of 3); <c>merge_op</c> (a <c>merge</c> op into that
+    /// stack); <c>quick_move</c> (the cursor row); <c>return_origin</c>; <c>return_panel</c> (after a real <c>close</c> of the chest);
+    /// <c>leash</c> (the put-away); <c>consume</c> (five <c>ConsumeUnit</c> calls, the last removes it); <c>swap</c> (a <c>move</c> onto
+    /// the hotbar Axe's slot 2: the origin is now the Axe's, slot 2). Kept: <c>partial_place</c> (count 2), <c>partial_merge_out</c> (a
+    /// whole move onto a stack of 18 with room 2), <c>partial_quick_move</c> (count 2), <c>partial_consume</c> (one unit).
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-9")]
+    [InlineData(0, "whole_place")]
+    [InlineData(1, "whole_place")]
+    [InlineData(0, "merge_out_move")]
+    [InlineData(1, "merge_out_move")]
+    [InlineData(0, "merge_op")]
+    [InlineData(1, "merge_op")]
+    [InlineData(0, "quick_move")]
+    [InlineData(1, "quick_move")]
+    [InlineData(0, "return_origin")]
+    [InlineData(1, "return_origin")]
+    [InlineData(0, "return_panel")]
+    [InlineData(1, "return_panel")]
+    [InlineData(0, "leash")]
+    [InlineData(1, "leash")]
+    [InlineData(0, "consume")]
+    [InlineData(1, "consume")]
+    [InlineData(0, "swap")]
+    [InlineData(1, "swap")]
+    [InlineData(0, "partial_place")]
+    [InlineData(1, "partial_place")]
+    [InlineData(0, "partial_merge_out")]
+    [InlineData(1, "partial_merge_out")]
+    [InlineData(0, "partial_quick_move")]
+    [InlineData(1, "partial_quick_move")]
+    [InlineData(0, "partial_consume")]
+    [InlineData(1, "partial_consume")]
+    public void Origin_ClearedByEveryWayTheEntryLeavesTheCursor_KeptWhilePartOfItStays(int slot, string way)
+    {
+        // Arrange
+        var rig = NewRig();
+        PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort hotbar = rig.HotbarOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort x = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 5));
+        ushort axe = rig.PlaceItem(hotbar, "axe", 2, 0, 1);
+        ushort stack = way switch
+        {
+            "merge_out_move" or "merge_op" => rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(100, 3)),
+            "partial_merge_out" => rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(100, 18)),
+            _ => Occupancy.Free,
+        };
+        EntryId xId = rig.Entries[x].Id;
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, x)));
+        AssertOrigin(rig, ps, xId, rig.IdOf(chest), 2, 1, false);
+
+        // Act
+        switch (way)
+        {
+            case "whole_place":
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, x, inventory, 3, 0)));
+                break;
+            case "merge_out_move":
+            case "partial_merge_out":
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, x, inventory, 0, 0)));
+                break;
+            case "merge_op":
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MergeOp(rig, cursor, x, inventory, stack)));
+                break;
+            case "quick_move":
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, cursor, x)));
+                break;
+            case "partial_quick_move":
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, cursor, x, 2)));
+                break;
+            case "return_origin":
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp()));
+                Assert.Equal(chest, rig.Entries[x].ContainerSlot);
+                break;
+            case "return_panel":
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), CloseOp(rig, chest)));
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp()));
+                Assert.Equal(inventory, rig.Entries[x].ContainerSlot);
+                break;
+            case "leash":
+                Leash(rig, ps);
+                Assert.Equal(inventory, rig.Entries[x].ContainerSlot);
+                break;
+            case "consume":
+                MoveSplitMergeTests.ConsumeUnits(rig, cursor, x, 5);
+                break;
+            case "partial_consume":
+                var at = new EntryRef(rig.IdOf(cursor), xId);
+                Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.ConsumeUnit(at, ConsumeReason.Delivered, ActorId.System)));
+                break;
+            case "swap":
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, x, hotbar, 2, 0)));
+                break;
+            default:
+                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, x, inventory, 3, 0, count: 2)));
+                break;
+        }
+
+        // Assert
+        if (way.StartsWith("partial_", StringComparison.Ordinal))
+        {
+            Assert.Equal((xId, cursor), (rig.Entries[x].Id, rig.Entries[x].ContainerSlot));
+            Assert.True(rig.Entries[x].Count < 5);
+            AssertOrigin(rig, ps, xId, rig.IdOf(chest), 2, 1, false);
+            return;
+        }
+
+        if (way == "swap")
+        {
+            Assert.Equal((hotbar, cursor), (rig.Entries[x].ContainerSlot, rig.Entries[axe].ContainerSlot));
+            AssertOrigin(rig, ps, rig.Entries[axe].Id, rig.IdOf(hotbar), 2, 0, false);
+            return;
+        }
+
+        Assert.Equal(0, (int)rig.Header(cursor).EntryCount);
+        Assert.False(rig.Inventory.TryGetCursorOrigin(ps, out InventorySystem.CursorOrigin cleared));
+        Assert.Equal(default, cleared);
+    }
+
+    /// <summary>
+    /// A move or a split onto the cursor records where the entry or its source was (Mail Lead planning default pending Evan, TD-153: no
+    /// GDD or ADR line defines the origin of a move or split onto the cursor), and <c>return</c> uses it. Rows: <c>move_whole</c> (planks
+    /// 5 moved from inventory (3,0): origin inventory (3,0), back there with the same id); <c>split_item</c> (planks 5 at chest (2,1),
+    /// <c>move count 2</c> onto the cursor: the piece's new id with origin chest (2,1), the source's cells; <c>return</c> merges it back into
+    /// the source, 5 planks, the piece retired); <c>split_mail</c> (letters [1..5] the same way: piece [1, 2] merges back, [1..5]
+    /// ascending). The cursor and the receiver bump once each.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-9")]
+    [InlineData(0, "move_whole")]
+    [InlineData(1, "move_whole")]
+    [InlineData(0, "split_item")]
+    [InlineData(1, "split_item")]
+    [InlineData(0, "split_mail")]
+    [InlineData(1, "split_mail")]
+    public void Origin_MoveOrSplitOntoTheCursor_RecordsTheSourceCells_ReturnPutsItBack(int slot, string row)
+    {
+        // Arrange
+        var rig = NewRig();
+        PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort from = row == "move_whole" ? inventory : chest;
+        (byte fx, byte fy) = row == "move_whole" ? ((byte)3, (byte)0) : ((byte)2, (byte)1);
+        ushort source = row == "split_mail"
+            ? rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 5))
+            : rig.PlaceItem(from, "plank", fx, fy, 5);
+        EntryId sourceId = rig.Entries[source].Id;
+        uint lastId = rig.Entries.LastId;
+
+        // Act
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, from, source, cursor, 0, 0, count: row == "move_whole" ? (byte)0 : (byte)2)));
+
+        // Assert
+        ushort held = rig.EntryAt(cursor, 0, 0);
+        EntryId heldId = rig.Entries[held].Id;
+        Assert.Equal(row == "move_whole" ? sourceId : EntryId.Real(lastId + 1), heldId);
+        AssertOrigin(rig, ps, heldId, rig.IdOf(from), fx, fy, false);
+        uint[] versions = MoveSplitMergeTests.Versions(rig);
+
+        // Act
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp()));
+
+        // Assert
+        Assert.Equal(0, (int)rig.Header(cursor).EntryCount);
+        Assert.Equal((sourceId, from, fx, fy, (byte)5), (rig.Entries[source].Id, rig.Entries[source].ContainerSlot, rig.Entries[source].X, rig.Entries[source].Y, rig.Entries[source].Count));
+        Assert.Equal(row == "move_whole", rig.Entries.TryGetSlot(heldId, out _));
+        if (row == "split_mail")
+        {
+            Assert.Equal(InvAutoPlaceRig.Ids(1, 5), rig.IdsOf(source));
+            MoveSplitMergeTests.AssertEveryIdListAscendingNoDuplicate(rig);
+        }
+
+        uint[] expected = (uint[])versions.Clone();
+        expected[cursor]++;
+        expected[from]++;
+        Assert.Equal(expected, MoveSplitMergeTests.Versions(rig));
+        MoveSplitMergeTests.AssertWeightAndCountsMatchRecount(rig);
     }
 
     // ------------------------------------------------------------------ R9 quick_move rows (pure)
@@ -1876,6 +2303,279 @@ public class QuickMoveReturnTests
         MoveSplitMergeTests.AssertIndexesMatchARecount(rig);
     }
 
+    // ------------------------------------------------------------------ Mail Review r1 advisories: boundaries
+
+    /// <summary>
+    /// Return's origin-merge union block is planned at the union's size, <c>target.count + units</c> (ReturnHandler's origin leg; the
+    /// reservation and its last position are Mail Lead planning defaults pending Evan, TD-153; code 85 is ADR-0009 section 2's). A = 3
+    /// letters [1..3] picked from chest (2,1), which then holds a same-key stack O of 14 [100..113] (class 4); the union is 17 (class 5,
+    /// one class above O's block). A minimum arena is exhausted through Intake spawns, then exactly one spare block is freed through
+    /// <see cref="IInventoryApi.ConsumeUnit"/>: <c>exact</c> a class-5 block → ok, O = [1..3, 100..113] in a class-5 block, A retired,
+    /// cursor +1 and chest +1; <c>one_class_short</c> a class-4 block (enough for O's own class, not the union's) →
+    /// <c>capacity_exhausted</c>, nothing changes, A stays on the cursor with its origin.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-9")]
+    [InlineData(0, "exact")]
+    [InlineData(1, "exact")]
+    [InlineData(0, "one_class_short")]
+    [InlineData(1, "one_class_short")]
+    public void Return_OriginMergeUnionNeedsALargerClass_ThatClassFreeOk_OneClassShortCapacityExhausted(int slot, string row)
+    {
+        // Arrange
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.MinTotalUnits, joinPlayerB: true);
+        PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort otherInventory = rig.InventoryOf(1 - slot);
+        ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 3));
+        EntryId aId = rig.Entries[a].Id;
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+        ushort o = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(100, 14));
+        ushort spare17 = rig.PlaceMail(otherInventory, "letter", 0, 0, Address5, InvAutoPlaceRig.Ids(500, 17));
+        ushort spare16 = rig.PlaceMail(otherInventory, "letter", 1, 0, Address5, InvAutoPlaceRig.Ids(600, 16));
+        Assert.Equal((4, 5, 5, 4), (rig.Entries[o].MailIds.ClassIndex, MailIdArena.ClassFor(17), MailIdArena.ClassFor(17), MailIdArena.ClassFor(16)));
+        MoveSplitMergeTests.ExhaustArenaThroughIntakeSpawns(rig);
+        MoveSplitMergeTests.ConsumeUnits(rig, otherInventory, row == "exact" ? spare17 : spare16, row == "exact" ? 17 : 16);
+        int[] expectedFree = new int[MailIdArena.ClassCount];
+        expectedFree[row == "exact" ? 5 : 4] = 1;
+        Assert.Equal(expectedFree, Enumerable.Range(0, MailIdArena.ClassCount).Select(c => rig.Inventory.MailIds.FreeBlocks(c)).ToArray());
+        uint[] versions = MoveSplitMergeTests.Versions(rig);
+        Assert.NotEqual(versions[cursor], versions[inventory]);
+        Assert.NotEqual(versions[cursor], versions[chest]);
+        List<long> before = MoveSplitMergeTests.SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), ReturnOp());
+
+        // Assert
+        if (row == "one_class_short")
+        {
+            AssertRejected(rig, log, InvReason.CapacityExhausted, before, slot, (versions[cursor], versions[inventory]));
+            Assert.Equal((aId, cursor, (byte)3), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
+            AssertOrigin(rig, ps, aId, rig.IdOf(chest), 2, 1, false);
+            return;
+        }
+
+        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        Assert.Equal(InvAutoPlaceRig.Ids(1, 3).Concat(InvAutoPlaceRig.Ids(100, 14)).ToArray(), rig.IdsOf(o));
+        Assert.Equal(5, rig.Entries[o].MailIds.ClassIndex);
+        Assert.False(rig.Entries.TryGetSlot(aId, out _));
+        Assert.Equal(((ushort)3, (ushort)3), (extra.RequestedUnits, extra.GotUnits));
+        Assert.Equal((versions[cursor] + 1, versions[chest] + 1), (extra.ResultVersionA, extra.ResultVersionB));
+        uint[] expected = (uint[])versions.Clone();
+        expected[cursor]++;
+        expected[chest]++;
+        Assert.Equal(expected, MoveSplitMergeTests.Versions(rig));
+        MoveSplitMergeTests.AssertEveryIdListAscendingNoDuplicate(rig);
+    }
+
+    /// <summary>
+    /// The entry-pool boundary of a partial quick_move onto a free cell (QuickMoveHandler's pool pre-check; <c>capacity_exhausted</c> is
+    /// ADR-0009 section 2's code 85, its position and "the entry stays where it is" Mail Lead planning defaults pending Evan, TD-153).
+    /// Chest A = 5 planks at (2,1), a fiber in the actor's hotbar and one in the other player's inventory: three live entries.
+    /// <c>one_left</c> (pool capacity 4) → <c>count 2</c> splits 2 planks to inventory (0,0) as a new entry and fills the pool;
+    /// <c>none_left</c> (capacity 3) → <c>capacity_exhausted</c>, nothing changes.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-005")]
+    [InlineData(0, "one_left")]
+    [InlineData(1, "one_left")]
+    [InlineData(0, "none_left")]
+    [InlineData(1, "none_left")]
+    public void CapacityExhausted_PartialOntoAFreeCell_OnePoolSlotLeftOk_NoneLeftRefused(int slot, string row)
+    {
+        // Arrange
+        var rig = new InvAutoPlaceRig(entryPoolCapacity: row == "one_left" ? 4 : 3, joinPlayerB: true);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort a = rig.PlaceItem(chest, "plank", 2, 1, 5);
+        _ = rig.PlaceItem(rig.HotbarOf(slot), "fiber", 2, 0, 1);
+        _ = rig.PlaceItem(rig.InventoryOf(1 - slot), "fiber", 0, 0, 1);
+        Assert.Equal(row == "one_left" ? 1 : 0, rig.Entries.Capacity - rig.Entries.LiveCount);
+        EntryId id = rig.Entries[a].Id;
+        uint lastId = rig.Entries.LastId;
+        Assert.NotEqual(rig.Header(chest).Version, rig.Header(inventory).Version);
+        List<long> before = MoveSplitMergeTests.SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a, 2));
+
+        // Assert
+        if (row == "none_left")
+        {
+            AssertRejected(rig, log, InvReason.CapacityExhausted, before, slot, (rig.Header(chest).Version, rig.Header(inventory).Version));
+            Assert.Equal((id, chest, (byte)5), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
+            return;
+        }
+
+        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        Assert.Equal(((ushort)2, (ushort)2), (extra.RequestedUnits, extra.GotUnits));
+        ushort piece = rig.EntryAt(inventory, 0, 0);
+        Assert.Equal((lastId + 1, (byte)2), (rig.Entries[piece].Id.Value, rig.Entries[piece].Count));
+        Assert.Equal((id, chest, (byte)3), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
+        Assert.Equal(rig.Entries.Capacity, rig.Entries.LiveCount);
+        MoveSplitMergeTests.AssertWeightAndCountsMatchRecount(rig);
+    }
+
+    /// <summary>
+    /// A partial quick_move from the cursor (the cursor row, GDD R9 l.128): letters A = [1..10] to #3 picked from chest (2,1);
+    /// <c>count 3</c> splits [1, 2, 3] off as a new entry at inventory (0,0) (the mail cursor row's first target, no same-key stack);
+    /// A keeps [4..10], its id and its origin on the cursor; requested 3 / got 3; cursor +1 and inventory +1 (A = cursor, B = inventory),
+    /// every other container unchanged.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-005")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Partial_FromTheCursor_SplitsTheOldestIntoThePanel_TheRestKeepsItsIdAndOrigin(int slot)
+    {
+        // Arrange
+        var rig = NewRig();
+        PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 10));
+        EntryId aId = rig.Entries[a].Id;
+        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+        uint lastId = rig.Entries.LastId;
+        uint[] versions = MoveSplitMergeTests.Versions(rig);
+        Assert.NotEqual(versions[cursor], versions[inventory]);
+
+        // Act
+        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, cursor, a, 3))).ExtraAs<InvReplyExtra>();
+
+        // Assert
+        Assert.Equal(((ushort)3, (ushort)3), (extra.RequestedUnits, extra.GotUnits));
+        ushort piece = rig.EntryAt(inventory, 0, 0);
+        Assert.Equal(lastId + 1, rig.Entries[piece].Id.Value);
+        Assert.Equal(new uint[] { 1, 2, 3 }, rig.IdsOf(piece));
+        Assert.Equal((aId, cursor), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot));
+        Assert.Equal(InvAutoPlaceRig.Ids(4, 7), rig.IdsOf(a));
+        AssertOrigin(rig, ps, aId, rig.IdOf(chest), 2, 1, false);
+        uint[] expected = (uint[])versions.Clone();
+        expected[cursor]++;
+        expected[inventory]++;
+        Assert.Equal(expected, MoveSplitMergeTests.Versions(rig));
+        Assert.Equal((versions[cursor] + 1, versions[inventory] + 1), (extra.ResultVersionA, extra.ResultVersionB));
+        MoveSplitMergeTests.AssertEveryIdListAscendingNoDuplicate(rig);
+        MoveSplitMergeTests.AssertWeightAndCountsMatchRecount(rig);
+    }
+
+    /// <summary>
+    /// A partial quick_move into the Intake (H-R9-1's Intake row; GDD R14 l.141, every Intake insertion is NoMerge): the inventory's
+    /// letters A = [1..5] to #3 with the Intake open and a same-key Intake resident; <c>count 2</c> → [1, 2] become a new Intake entry
+    /// (never merged into the resident) stamped with a new <c>arrivalSeq</c> above the resident's; A keeps [3, 4, 5] and its id;
+    /// inventory +1 and Intake +1, no <c>InvMerged</c>.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R9-1")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Partial_IntoTheIntake_NoMerge_ANewEntryWithANewArrivalSeq(int slot)
+    {
+        // Arrange
+        var rig = NewRig();
+        ushort inventory = rig.InventoryOf(slot);
+        DefIndex letter = rig.KindIndex("letter");
+        Assert.Equal(1, IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, Address3, 0, new[] { new MailId(500) }, MergePolicy.NoMerge).Placed));
+        ushort resident = rig.EntryAt(rig.Intake, 0, 0);
+        OpenIntake(rig, slot);
+        ushort a = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 5));
+        _ = rig.PlaceItem(inventory, "fiber", 7, 1, 1); // a second inventory bump: the two versions differ
+        Assert.Equal(StackKey.Of(in rig.Entries[resident]), StackKey.Of(in rig.Entries[a]));
+        EntryId aId = rig.Entries[a].Id;
+        uint lastId = rig.Entries.LastId;
+        uint residentSeq = rig.Entries[resident].ArrivalSeq;
+        uint[] versions = MoveSplitMergeTests.Versions(rig);
+        Assert.NotEqual(versions[inventory], versions[rig.Intake]);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), QuickMoveOp(rig, inventory, a, 2));
+
+        // Assert
+        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        Assert.Equal(((ushort)2, (ushort)2), (extra.RequestedUnits, extra.GotUnits));
+        Assert.Equal(2, (int)rig.Header(rig.Intake).EntryCount);
+        Assert.True(rig.Entries.TryGetSlot(EntryId.Real(lastId + 1), out ushort piece));
+        Assert.Equal((rig.Intake, (byte)2), (rig.Entries[piece].ContainerSlot, rig.Entries[piece].Count));
+        Assert.Equal(new uint[] { 1, 2 }, rig.IdsOf(piece));
+        Assert.True(rig.Entries[piece].ArrivalSeq > residentSeq);
+        Assert.Equal(new uint[] { 500 }, rig.IdsOf(resident));
+        Assert.Equal((aId, inventory), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot));
+        Assert.Equal(new uint[] { 3, 4, 5 }, rig.IdsOf(a));
+        Assert.DoesNotContain(MoveSplitMergeTests.RecordHeads(log), e => e.Kind == InvEventKinds.Merged);
+        uint[] expected = (uint[])versions.Clone();
+        expected[inventory]++;
+        expected[rig.Intake]++;
+        Assert.Equal(expected, MoveSplitMergeTests.Versions(rig));
+        Assert.Equal((versions[inventory] + 1, versions[rig.Intake] + 1), (extra.ResultVersionA, extra.ResultVersionB));
+    }
+
+    /// <summary>
+    /// A whole quick_move merging at the 255 cap (content with <c>letter.maxStack</c> 255; GDD R2 count ≤ 255): inventory stack S = 250
+    /// letters [1001..1250] to #3 at (0,0), chest A = n letters [1..n]. <c>n</c> 4 → all merge (254), A retired; 5 → all merge (255), A
+    /// retired; 6 → the 5 oldest merge (255) and A keeps [6] and its id at inventory (1,0); <c>at255</c> (S already 255, A = 3) → S is
+    /// skipped and A lands whole at inventory (1,0) with its id. Requested n / got n; chest +1 and inventory +1.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-3")]
+    [InlineData(0, 4)]
+    [InlineData(1, 4)]
+    [InlineData(0, 5)]
+    [InlineData(1, 5)]
+    [InlineData(0, 6)]
+    [InlineData(1, 6)]
+    [InlineData(0, 255)]
+    [InlineData(1, 255)]
+    public void Whole_MailMergeAtThe255Cap_MergesUpToTheCap_TheRestKeepsTheEntryId(int slot, int n)
+    {
+        // Arrange
+        var rig = NewRig(MoveSplitMergeTests.MailStack255Content());
+        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        bool at255 = n == 255;
+        int units = at255 ? 3 : n;
+        uint[] sIds = InvAutoPlaceRig.Ids(1001, at255 ? 255 : 250);
+        ushort s = rig.PlaceMail(inventory, "letter", 0, 0, Address3, sIds);
+        ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, units));
+        _ = rig.PlaceItem(inventory, "fiber", 7, 1, 1); // a second inventory bump: the two versions differ
+        EntryId aId = rig.Entries[a].Id;
+        uint lastId = rig.Entries.LastId;
+        uint[] versions = MoveSplitMergeTests.Versions(rig);
+        Assert.NotEqual(versions[chest], versions[inventory]);
+
+        // Act
+        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a))).ExtraAs<InvReplyExtra>();
+
+        // Assert
+        Assert.Equal(((ushort)units, (ushort)units), (extra.RequestedUnits, extra.GotUnits));
+        int merged = at255 ? 0 : Math.Min(units, 5);
+        Assert.Equal(InvAutoPlaceRig.Ids(1, merged).Concat(sIds).ToArray(), rig.IdsOf(s));
+        Assert.Equal(lastId, rig.Entries.LastId);
+        if (units - merged == 0)
+        {
+            Assert.False(rig.Entries.TryGetSlot(aId, out _));
+            Assert.Equal(2, (int)rig.Header(inventory).EntryCount);
+        }
+        else
+        {
+            Assert.Equal((aId, inventory, (byte)1, (byte)0), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].X, rig.Entries[a].Y));
+            Assert.Equal(InvAutoPlaceRig.Ids((uint)(merged + 1), units - merged), rig.IdsOf(a));
+        }
+
+        Assert.Equal(0, (int)rig.Header(chest).EntryCount);
+        uint[] expected = (uint[])versions.Clone();
+        expected[chest]++;
+        expected[inventory]++;
+        Assert.Equal(expected, MoveSplitMergeTests.Versions(rig));
+        MoveSplitMergeTests.AssertEveryIdListAscendingNoDuplicate(rig);
+        MoveSplitMergeTests.AssertIndexesMatchARecount(rig);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private static InvAutoPlaceRig NewRig(ContentSet? content = null) => new(content: content, joinPlayerB: true);
@@ -1981,6 +2681,24 @@ public class QuickMoveReturnTests
     {
         Assert.True(rig.Inventory.TryGetCursorOrigin(ps, out InventorySystem.CursorOrigin o));
         Assert.Equal((entry, container, x, y, rotated), (o.Entry, o.Container, o.X, o.Y, o.Rotated));
+    }
+
+    /// <summary>The leash put-away: <c>CloseExternal(Leash)</c> for <paramref name="ps"/> inside a tick phase (story 011).</summary>
+    private static void Leash(InvAutoPlaceRig rig, PlayerSlot ps) =>
+        Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () =>
+        {
+            rig.Inventory.CloseExternal(ps, CloseCause.Leash);
+            return true;
+        }));
+
+    private static Op MergeOp(InvAutoPlaceRig rig, ushort from, ushort entry, ushort to, ushort target)
+    {
+        var op = new Op { Kind = InvOpKinds.Merge, ReqId = 83 };
+        op.SetPayload(new MergePayload
+        {
+            From = rig.IdOf(from).Value, EntryId = rig.Entries[entry].Id.Value, To = rig.IdOf(to).Value, TargetEntryId = rig.Entries[target].Id.Value,
+        });
+        return op;
     }
 
     private static Op PickOp(InvAutoPlaceRig rig, ushort from, ushort entry)

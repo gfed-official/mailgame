@@ -25,7 +25,8 @@ internal enum QuickMoveSource : byte
 /// <summary>
 /// The AutoPlace target lists of GDD R9 (l.120-128). Story grid-inventory/011 added the cursor row ("put away", the leash auto-close of
 /// R10); story 010 adds only the quick_move rows (<see cref="QuickMoveRow"/>); story 014 adds the mail pickup/catch row (Mail Lead
-/// planning default pending Evan (TD-153), item 4: non-mail pickup reuses the cursor row). The cursor row sends Tool, Weapon and
+/// planning default pending Evan (TD-153), item 4). A non-mail pickup or catch reuses the cursor row (GDD R9 l.128: the row "Cursor ("put
+/// away"); non-mail WorldItem pickup or catch" targets the "panel by the category order above"). The cursor row sends Tool, Weapon and
 /// Consumable to <c>[hotbar, player_inventory]</c> and every other category, mail included, to <c>[player_inventory, hotbar]</c>. There
 /// is no backpack at M-1a, so every row skips it and has at most two targets. The rows are run pass-first with the merge pass (R8: only
 /// mail catch and pickup run target-first). A pure static helper; allocation-free.

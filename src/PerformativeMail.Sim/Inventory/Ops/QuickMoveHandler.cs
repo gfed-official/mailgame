@@ -32,8 +32,9 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// <item><c>stale_entry</c> (67), after <c>not_open</c> (Mail Lead default (TD-153), by analogy with the placement chain):
 /// <see cref="InvRequestCheck.ResolveEntries"/>, then a live entry that is not in <c>from</c>;</item>
 /// <item><c>bad_count</c> (78), after <c>stale_entry</c> (Mail Lead default, TD-153): <c>count</c> above the entry's total. <c>count</c> 0
-/// or the total is the whole entry (ADR-0009 l.347, the QuickMove payload erratum, "count u8 (0 = whole)"), <c>1 ≤ count &lt; total</c>
-/// splits the count oldest units off (R6; Mail Lead planning default pending Evan (TD-153), item 1, mirroring Move, TD-150);</item>
+/// or the total is the whole entry (Mail Lead planning default pending Evan (TD-153), item 1, mirroring Move, TD-150; ADR-0009 l.347
+/// writes "(0 = whole)" in its field notation only and leaves the GDD vs ADR <c>count = 0</c> ruling open), <c>1 ≤ count &lt; total</c>
+/// splits the count oldest units off (R6; same default);</item>
 /// <item><c>not_carryable</c> (74), after <c>bad_count</c> (Mail Lead default, TD-153), then <c>not_allowed</c> (73) (Mail Lead default
 /// (TD-153), by analogy with the placement chain), then <c>no_room</c> (77) (R8 l.115 "Nothing moved: if no target admitted the entry's
 /// category → not_allowed; else → no_room"): one <see cref="AutoPlace.Plan"/> over the row, which answers <c>not_carryable</c> before
@@ -159,7 +160,7 @@ internal sealed class QuickMoveHandler : IOpHandler
             return (ushort)InvReason.BadCount; // bad_count (78) after stale_entry: Mail Lead default (TD-153); the code is TD-153 item 1
         }
 
-        bool whole = p.Count == 0 || p.Count == e.Count; // ADR-0009 l.347 (QuickMove payload erratum) "count u8 (0 = whole)"; TD-153 item 1
+        bool whole = p.Count == 0 || p.Count == e.Count; // Lead default (TD-153 item 1); l.347 notation only, the ruling stays open
         decision = new Decision(entrySlot, !whole, whole ? e.Count : p.Count);
         MergePolicy policy = HasOutfeedTarget(row) ? MergePolicy.NoMerge : MergePolicy.Merge; // R14 l.141: every Intake insertion is NoMerge
         if (!whole)
