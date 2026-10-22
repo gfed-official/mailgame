@@ -96,6 +96,9 @@ internal struct CatchPlan
 
     /// <summary>True when the refusal is a full WorldItem table (the caller writes the capacity record).</summary>
     public bool TableFull;
+
+    /// <summary>True when the refusal is the arena refusing the plan's merge blocks (the caller writes the arena's record).</summary>
+    public bool ArenaRefused;
 }
 
 /// <summary>

@@ -68,13 +68,14 @@ public readonly record struct FlightPayload(EntryId Entry, Vec3Mm CatcherPosMm, 
 /// <summary>
 /// The result of <see cref="IInventoryApi.TryCatch"/> (story 014; ADR-0009 Key Interfaces <c>{unitsIn, unitsFumbled}</c>, l.206; shape a
 /// Mail Lead planning default pending Evan, TD-154 item 6), on the <see cref="DetachResult"/> pattern: the units that went into the
-/// catcher's panel (the oldest, R6), the units that became the fumble WorldItem (the newest), and the reason. <c>UnitsIn = 0</c> with
-/// <c>UnitsFumbled &gt; 0</c> is a fumble; <c>{0, 0}</c> with a reason is a refusal (nothing changed, the entry is still the caller's).
+/// catcher's panel (the oldest, R6), the units that became the fumble WorldItem (the newest), and the reason. Exactly two forms: reason 0
+/// with <c>UnitsIn + UnitsFumbled</c> = the entry's count is a catch that mutated (<c>UnitsIn = 0</c> is a whole fumble, the entry now a
+/// WorldItem); <c>{0, 0}</c> with a non-zero reason is a refusal (nothing changed, the entry is still live, detached and the caller's).
 /// </summary>
 /// <param name="UnitsIn">Units placed or merged into the panel.</param>
 /// <param name="UnitsFumbled">Units in the fumble WorldItem.</param>
-/// <param name="Reason">0 on a catch or a completed fumble; <c>capacity_exhausted</c> on a fumble forced by the arena or a refusal for a full
-/// WorldItem table; <c>bad_request</c> (as <c>(InvReason)</c><see cref="InvReasons.BadRequest"/>) for a malformed call.</param>
+/// <param name="Reason">0 on a catch, partial or whole fumble included; on a refusal, <c>capacity_exhausted</c> (the arena refused the
+/// merge, or a fumble met a full WorldItem table) or <c>bad_request</c> (as <c>(InvReason)</c><see cref="InvReasons.BadRequest"/>).</param>
 /// <example><code>CatchResult r = inventory.TryCatch(slot, in flight); bool fumbled = r.UnitsIn == 0 &amp;&amp; r.UnitsFumbled &gt; 0;</code></example>
 public readonly record struct CatchResult(byte UnitsIn, byte UnitsFumbled, InvReason Reason);
 
@@ -220,11 +221,12 @@ public interface IInventoryApi
     /// <see cref="FlightPayload.CatcherPosMm"/>, created at the current tick so <c>expiresTick = now + 9000</c>, keeping its entry id).
     /// Never the cursor. One call scope; the panel records and one <c>InvVersion</c> seal per changed panel container (actor the slot's
     /// player, cause <c>None</c>) come first, then <c>WorldItemSpawned</c> in <see cref="CreateWorldItem"/>'s nested scope, which applies
-    /// story 013's cap eviction (TD-154 item 8). Mail Lead planning defaults pending Evan (TD-154 item 7): a mail merge whose union block
-    /// the arena refuses fumbles the whole entry (<c>{0, N}</c>, <c>capacity_exhausted</c>); a catch that would fumble units while the
-    /// WorldItem table is full is refused whole (<c>{0, 0}</c>, <c>capacity_exhausted</c>, one <c>CheckCode.InventoryWorldItemCapacity</c>
-    /// record, nothing changed, the entry still detached and the caller's). <c>bad_request</c>, changing nothing and raising nothing, outside
-    /// a tick phase, for a slot with no panel, or an entry that is not live and detached or is held by a WorldItem. No unit is ever lost.
+    /// story 013's cap eviction (TD-154 item 8). Refusals, each <c>{0, 0}</c> with nothing changed and nothing raised, the entry still
+    /// live, detached and the caller's: a mail merge whose union block the arena refuses (<c>capacity_exhausted</c> and one
+    /// <c>CheckCode.InventoryArenaExhausted</c> record, ADR-0009 section 5 l.157); a catch that would fumble units while the WorldItem
+    /// table is full (<c>capacity_exhausted</c> and one <c>CheckCode.InventoryWorldItemCapacity</c> record; Mail Lead planning default
+    /// pending Evan, TD-154 item 7); <c>bad_request</c> outside a tick phase, for a slot with no panel, or an entry that is not live and
+    /// detached or is held by a WorldItem. No unit is ever lost.
     /// </summary>
     /// <param name="slot">The catcher's slot.</param>
     /// <param name="flight">The flight's entry and the catcher's feet.</param>

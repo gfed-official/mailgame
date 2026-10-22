@@ -790,9 +790,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <inheritdoc />
     /// <remarks>
-    /// The tick guard (<c>bad_request</c>), then <see cref="ValidateCatch"/>; a refusal writes the capacity record for a full WorldItem
-    /// table (outside Validate) and returns with nothing changed; else <see cref="CommitCatch"/>. A whole fumble records the refused
-    /// AutoPlace's no-fit facts after the decision, as <see cref="PutAwayCursor"/> does; a committed placement records them in its commit.
+    /// The tick guard (<c>bad_request</c>), then <see cref="ValidateCatch"/>; a refusal writes its always-on record outside Validate (the
+    /// arena's <see cref="CheckCode.InventoryArenaExhausted"/> for a refused merge block, ADR-0009 section 5; the WorldItem table's
+    /// <see cref="CheckCode.InventoryWorldItemCapacity"/> for a full table) and returns with nothing else changed; else
+    /// <see cref="CommitCatch"/>. A whole fumble records the refused AutoPlace's no-fit facts after the decision, as
+    /// <see cref="PutAwayCursor"/> does; a committed placement records them in its commit.
     /// </remarks>
     public CatchResult TryCatch(PlayerSlot slot, in FlightPayload flight)
     {
@@ -805,7 +807,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         CatchResult result = ValidateCatch(slot, in flight, ref plan, out CatchPlan c);
         if (c.Refused)
         {
-            if (c.TableFull)
+            if (c.ArenaRefused)
+            {
+                _mailIds.RecordReservationRefusal(plan.AcquiredBlocks, _tick.CurrentTick);
+            }
+            else if (c.TableFull)
             {
                 _worldItems.RecordCapacityRefusal(_tick.CurrentTick);
             }
@@ -815,7 +821,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         if (!c.Places)
         {
-            _autoPlace.RecordNoFits(in c.Placement); // a whole fumble: the plan moved nothing (no_room) or the arena refused it
+            _autoPlace.RecordNoFits(in c.Placement); // a whole fumble: the plan moved nothing (no_room)
         }
 
         CommitCatch(ref plan, in c, in flight);
@@ -826,11 +832,10 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// The pure half of <see cref="TryCatch"/> (story 014; ADR-0009 section 2): <c>bad_request</c> for a slot with no panel or an entry
     /// that is not live and detached or is held by a WorldItem; then the panel AutoPlace (<see cref="PickupCore.PlanIntoPanel"/>, the
     /// pickup rows): <c>no_room</c> (and the unreachable <c>not_allowed</c> / <c>not_carryable</c>, asserted there) is a whole fumble with
-    /// reason 0; a plan that moved units then takes the arena reservation of its mail merge union blocks, and a refusal there is a whole
-    /// fumble with <c>capacity_exhausted</c> (the entry keeps its own block, so the WorldItem needs none; TD-154 item 7, following the
-    /// pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers only a leashed letter staying on the cursor); last, any fumble needs a
-    /// creatable WorldItem (<see cref="World.WorldItems.CanCreate"/>), else the whole catch is refused with <c>capacity_exhausted</c>,
-    /// <c>{0, 0}</c>. Reads state only; writes nothing but <paramref name="plan"/> and <paramref name="c"/>.
+    /// reason 0; a plan that moved units then takes the arena reservation of its mail merge union blocks, and a refusal there refuses the
+    /// whole catch with <c>capacity_exhausted</c>, <c>{0, 0}</c>, nothing mutated (ADR-0009 section 5 l.157; TD-154 item 7); last, any
+    /// fumble needs a creatable WorldItem (<see cref="World.WorldItems.CanCreate"/>), else the whole catch is refused with
+    /// <c>capacity_exhausted</c>, <c>{0, 0}</c>. Reads state only; writes nothing but <paramref name="plan"/> and <paramref name="c"/>.
     /// </summary>
     /// <param name="slot">The catcher's slot.</param>
     /// <param name="flight">The flight.</param>
@@ -854,7 +859,6 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         plan.SetPrimary(hotbar, playerInventory);
         byte units = _entries[entrySlot].Count;
         ushort reason = _pickup.PlanIntoPanel(ref plan, entrySlot, hotbar, playerInventory, out c.Placement);
-        InvReason outcome = 0;
         if (reason == CoreReason.BadRequest)
         {
             return badRequest; // unreachable: a live source, two live distinct targets, units = its count
@@ -862,10 +866,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         if (reason == 0 && _requestCheck.CheckArenaReservation(in plan) != 0)
         {
-            outcome = InvReason.CapacityExhausted; // the whole entry fumbles (TD-154 item 7)
+            c.ArenaRefused = true; // ADR-0009 section 5: refused, nothing mutated (TD-154 item 7)
+            return new CatchResult(0, 0, InvReason.CapacityExhausted);
         }
 
-        c.Places = reason == 0 && outcome == 0;
+        c.Places = reason == 0;
         byte unitsIn = c.Places ? (byte)c.Placement.MovedUnits : (byte)0;
         byte fumbled = (byte)(units - unitsIn);
         if (fumbled > 0 && !_worldItems.CanCreate())
@@ -876,7 +881,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         }
 
         c.Refused = false;
-        return new CatchResult(unitsIn, fumbled, outcome);
+        return new CatchResult(unitsIn, fumbled, 0);
     }
 
     /// <summary>
