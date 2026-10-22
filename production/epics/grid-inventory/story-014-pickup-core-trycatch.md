@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1 day)
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Last Updated**: 2026-10-22 (docs only: tombstone AC for ops naming an expired or destroyed WorldItem, Review advisory A5, matching `Tombstones.cs` on main)
 
 ## Context
 
@@ -36,6 +36,7 @@
 - [ ] **H-R9-2 a–e** — a caught 5 letters to #4 with an inventory stack of 3 to #4 at (0,0): a: hotbar slot 2 = 10 to #4 → merged into slot 2 (15), inventory untouched; b: no #4 hotbar stack, slots 1 and 3 free → new entry in slot 1 (never 0); c: hotbar full, no #4 stack → merged into the inventory stack (8); d: hotbar and inventory full and the inventory #4 stack at 20/20, cursor empty → one WorldItem `origin = Thrown` at the catcher's feet, `expiresTick = tick + 9000`, cursor stays empty, no unit lost, `{0, 5}`; e: room for 3 (one hotbar stack at 17/20) → the 3 oldest merge, the 2 newest become the WorldItem, `{3, 2}`. (Backpack rows apply once it exists.)
 - [ ] A caught Axe with room → hotbar then inventory (category order); a pickup of a mail WorldItem behaves as a–c, and returns `no_room` instead of d (the item stays).
 - [ ] A pickup of a floating (water) WorldItem → `unavailable`; on a heap with several entries `entryId` picks one (gone → `stale_entry`), default the lowest entryId (heaps first appear at M-1b; test with a fixture heap).
+- [ ] **Pickup naming an expired or destroyed WorldItem (tombstone; Review advisory A5)** — a WorldItem removed at tick T (mail expired to the Intake → cause `expired`; non-mail destroyed by expiry, water or cap eviction → cause `destroyed`; both by the system actor) and a pickup op naming its id: at T + 900 the tombstone is alive and the op gets `container_gone` with `byActorId` = system and that cause; at T + 901 it is dead and the op gets `stale_entry` (30 s = `Tombstones.LifetimeTicks` = 900 ticks, alive while `now − T ≤ 900`, as `Tombstones.TryResolve` on main does). Nothing is mutated and no version bumps in either case. Also a WorldItem picked up by A at T: B naming it at T + 900 gets `container_gone, byActorId = A`, cause `taken`; at T + 901 `stale_entry`.
 
 ---
 

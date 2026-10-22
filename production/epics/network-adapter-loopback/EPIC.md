@@ -103,6 +103,8 @@ Implementation order = story number (each story's `Depends on:` is authoritative
 
 **Formerly blocked:** 008 — payload conflict RESOLVED 2026-10-16 (/architecture-review: 24 B MATCH / 28 B MISDELIVER_ONE with claimed position; errata in ADR-0011/ADR-0009 GDD Impact); the Delivery-owned `DeliverMatching` descriptor + payload story now exists (`production/epics/manual-delivery/story-005-delivermatching-op-and-handler.md`), so 008 and 009 are Ready with it listed under Depends on (2026-10-16 story hygiene).
 
+**Unowned — inventory event codecs (TD-140, 2026-10-22):** all ten inventory event kinds 0x0080–0x0089 carry wire codec id 0. Grid-inventory story-004 (Out of Scope) says this epic owns the codecs; this epic's story-004 (Out of Scope) says the feature epics do. One story — a new story here or one in grid-inventory — must take ownership of the inventory event codecs before H-NET-7 (GDD grid-inventory, the BLOCKING inventory-bytes gate).
+
 ## Definition of Done
 
 This epic is complete when:
