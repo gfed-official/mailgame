@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: S–M (~0.5–1 day)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (Evan's approval of 2:24 PM PT recorded, docs only: the Mail Lead planning defaults below are now Evan's rulings). Before that: 2026-10-22 (Complete, PR #30)
+> **Last Updated**: 2026-10-22 (Evan's approval of 2:24 PM PT, confirmed in scope 3:00 PM PT recorded, docs only: the Mail Lead planning defaults below are now Evan's rulings). Before that: 2026-10-22 (Complete, PR #30)
 
 ## Context
 
@@ -98,10 +98,10 @@
 
 ---
 
-## Fix and approved defaults (Evan, 2026-10-22 2:24 PM PT)
+## Fix and approved defaults (Evan, 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT)
 
 - **Fix (matches the GDD and the shipped descriptor):** `Close` on a container that is not in the actor's open set → `not_open`, with nothing changed. This matches the GDD state table and `InvOpDescriptors.Close`. No ADR change.
-- **Formerly Mail Lead planning defaults of 2026-10-22; approved by Evan 2026-10-22 2:24 PM PT ("to all recommended decisions"), so now Evan's rulings:**
+- **Formerly Mail Lead planning defaults of 2026-10-22; approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT ("to all recommended decisions"), so now Evan's rulings:**
   - (a) `CloseExternal` stays internal, off `IInventoryApi`. It is promoted when the ADR-0014 §6 knockdown chain needs it. Logged as TD-149, with no ADR edit.
   - (b) In 011, a player leaving clears their open external and their subscriber bit (GDD l.194). The cursor on disconnect stays M0.
 
