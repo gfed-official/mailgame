@@ -267,7 +267,7 @@ public class WeightSpeedTests
     }
 
     /// <summary>A synthetic Strong Back: a Perk source owned by <paramref name="slot"/> with <c>WeightPenaltyPm Mul pm</c>.</summary>
-    private static bool PushStrongBack(SimHost host, PlayerSlot slot, int pm)
+    internal static bool PushStrongBack(SimHost host, PlayerSlot slot, int pm)
     {
         var src = new ModifierSource(SourceKind.Perk, DefIndex.FromValue(0), 0, ModifierOwner.ForSlot(slot), 1, ModifierLifetime.Run);
         var leg = new Modifier(src.Kind, src.Id, src.StackIndex, slot, Stat.WeightPenaltyPm, StatSheet.NoQualifier, ModifierOp.Mul, pm, src.Lifetime);
