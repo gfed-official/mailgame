@@ -362,23 +362,80 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <summary>
     /// Closes <paramref name="slot"/>'s external container (story 011; the <c>Close</c> op, and story 019's leash with
     /// <see cref="CloseCause.Leash"/>): the slot's external is cleared and its bit removed from that container's
-    /// <see cref="Subscribers"/> mask. No record, no version. A none slot or a slot with no external changes nothing. Stays off
-    /// <see cref="IInventoryApi"/> until the ADR-0014 section 6 knockdown chain needs it (TD-149). Allocation-free.
+    /// <see cref="Subscribers"/> mask, with no record and no version. With <see cref="CloseCause.Leash"/> the cursor entry is then put
+    /// away in the same call (GDD R10, H-R10-1; <see cref="PutAwayCursor"/>); <see cref="CloseCause.Close"/> leaves it on the cursor
+    /// (R11: the cursor survives a manual close), so the <c>Close</c> handler raises nothing in its op's scope. A none slot or a slot
+    /// with no external changes nothing (no put-away either). Stays off <see cref="IInventoryApi"/> until the ADR-0014 section 6
+    /// knockdown chain needs it (TD-149). Allocation-free.
     /// </summary>
     /// <param name="slot">The player slot.</param>
     /// <param name="cause">Why it closes.</param>
+    /// <exception cref="SimAssertException">A leash put-away outside a tick phase (SIM_ASSERT builds only; the external is closed first).</exception>
     internal void CloseExternal(PlayerSlot slot, CloseCause cause)
     {
-        if (slot.IsNone)
+        if (slot.IsNone || _openSet.ExternalOf(slot).IsNone)
         {
             return;
         }
 
         ClearExternal(slot);
+        if (cause == CloseCause.Leash)
+        {
+            PutAwayCursor(slot);
+        }
+    }
 
-        // SEAM (story 011 slice 2, AC 5): with cause Leash the cursor entry is put away here, in the same call, by the R9 cursor row
-        // (TargetOrder + AutoPlace), sealed with the slot's player as actor; outside an op that takes the tick guard, its own event
-        // scope and one Begin/End bracket. Slice 1 closes only.
+    /// <summary>
+    /// The leash put-away (GDD R10 and R9 cursor row; story 011 AC 5): the cursor entry of <paramref name="slot"/>, if any, is AutoPlaced
+    /// into the panel by <see cref="TargetOrder.CursorRow"/> (the entry as source, its whole count, <see cref="MergePolicy.Merge"/>,
+    /// pass-first), then the arena reservation. An empty cursor (or a slot with no panel) changes nothing and takes no tick guard. Else the
+    /// tick guard (<see cref="TickGuard"/>: out of phase counts, asserts under <c>SIM_ASSERT</c>, and in Release leaves the entry on the
+    /// cursor); then a refused plan (<c>no_room</c>, or <c>capacity_exhausted</c> for a mail merge's union block) records its no-fit facts
+    /// and leaves the entry on the cursor with no record; a stackable may go in partly, the rest staying on the cursor (R8). A plan that
+    /// passed commits in its own call scope and one <c>Begin</c>/<c>End</c> bracket, sealed with the slot's player as actor and cause
+    /// <see cref="InvCause.None"/> (as <see cref="DetachForThrow"/>), so the cursor and each target it touched bump once.
+    /// </summary>
+    private void PutAwayCursor(PlayerSlot slot)
+    {
+        ref PanelIds panel = ref _panels[slot.Value];
+        if (!_containers.TryGetSlot(panel.Cursor, out ushort cursor))
+        {
+            return;
+        }
+
+        ushort entrySlot = _occupancy.OwnerAt(cursor, _containers[cursor].W, 0, 0);
+        if (entrySlot == Occupancy.Free || !TickGuard.IsMutable(_tick, _events.Counters))
+        {
+            return;
+        }
+
+        // A panel's three containers are created together (OnPlayerJoined), so a live cursor has a live hotbar and player_inventory.
+        _ = _containers.TryGetSlot(panel.Hotbar, out ushort hotbar);
+        _ = _containers.TryGetSlot(panel.PlayerInventory, out ushort playerInventory);
+        ref EntryRecord e = ref _entries[entrySlot];
+        PlacementSubject subject = PlacementSubject.Of(_content, _stats, in e);
+        Span<ushort> targets = stackalloc ushort[TargetOrder.CursorRowLength];
+        TargetOrder.CursorRow(subject.Category, hotbar, playerInventory, targets);
+        var plan = new InvPlan();
+        ushort reason = _autoPlace.Plan(ref plan, in subject, e.Count, entrySlot, targets, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+        if (reason == 0)
+        {
+            reason = _requestCheck.CheckArenaReservation(in plan);
+        }
+
+        if (reason != 0)
+        {
+            _autoPlace.RecordNoFits(in ap);
+            return;
+        }
+
+        var extra = new InvReplyExtra();
+        using (EventCallScope scope = _events.BeginCall())
+        {
+            _mutator.Begin(ref plan, ActorId.FromEntity(panel.Player), InvCause.None);
+            _autoPlace.Commit(ref plan, in ap);
+            _mutator.End(ref plan, ref extra);
+        }
     }
 
     /// <summary>

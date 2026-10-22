@@ -14,7 +14,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <see cref="InventorySystem.CloseExternal"/>, the production <c>Close</c> handler and the leave path; GDD R10 and H-R10-2; ADR-0009
 /// section 4 rule 1. State is arranged only through those calls and real ops (<c>Close</c>, <c>PlayerJoin</c>, <c>PlayerLeave</c>) in a
 /// composed world; "nothing changed" compares every container header (versions included), entry, arena state, subscriber mask and
-/// per-slot external before and after.
+/// per-slot external before and after. AC 5 (the leash put-away and <c>TargetOrder</c>) is <see cref="OpenSetPutAwayTests"/>; AC 7 (0 B) is
+/// <see cref="OpenSetAllocationTests"/>.
 /// </summary>
 public class OpenSetTests
 {
