@@ -1,12 +1,12 @@
 # Story 014: Pickup core (AutoPlace by the R9 pickup rows) and the TryCatch API with fumble
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: L (~1.5–2 days)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (readiness fixes against main f504231, 007/008/010 merged: partial-pickup AC, M-1a `entryId` form (heap selection deferred, TD-143), `unavailable` as a core verdict, `FlightPayload`/`CatchResult` shapes and fumble refusals, rejects/versions/weight/0 B ACs; Mail Lead planning defaults pending Evan, TD-154. Before that: tombstone AC, Review advisory A5)
+> **Last Updated**: 2026-10-22 (story-done: Complete, slices 1–5; before that readiness fixes against main f504231, 007/008/010 merged: partial-pickup AC, M-1a `entryId` form (heap selection deferred, TD-143), `unavailable` as a core verdict, `FlightPayload`/`CatchResult` shapes and fumble refusals, rejects/versions/weight/0 B ACs; Mail Lead planning defaults pending Evan, TD-154. Before that: tombstone AC, Review advisory A5)
 
 ## Context
 
@@ -33,16 +33,16 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R12-1 (core form)** — one Small WorldItem, players A and B with room, both pickups applied in one tick, A first → A gains it, B gets `container_gone, byActorId = A`, cause `taken` (the tombstone A's removal wrote, age 0), exactly one copy exists.
-- [ ] **Partial pickup (GDD R12 l.137, edge case l.363)** — a 5-letter mail WorldItem and a panel with room for 3 (one hotbar stack to the same address at 17/20, nothing else free): the 3 oldest merge into the hotbar stack; the WorldItem survives under the same `worldItemId` and `entryId` with the 2 newest, `expiresTick`, position and FIFO node unchanged; one `WorldItemEntriesChanged {id, next worldSeq, entryId, count 2}` is raised (no `WorldItemDespawned`, no tombstone); hotbar +1 only; reply `ok`, requested 5 / got 3. A second pickup by B in the same tick takes the 2 and leaves the tombstone (`byActorId = B`, `taken`). 5 mailIds in total, none duplicated. On a whole pickup `WorldItems.Remove` runs before the AutoPlace commit (the mutator frees a merged-away source).
-- [ ] **H-R9-2 a–e** — a caught 5 letters to #4 with an inventory stack of 3 to #4 at (0,0): a: hotbar slot 2 = 10 to #4 → merged into slot 2 (15), inventory untouched; b: no #4 hotbar stack, slots 1 and 3 free → new entry in slot 1 (never 0); c: hotbar full, no #4 stack → merged into the inventory stack (8); d: hotbar and inventory full and the inventory #4 stack at 20/20, cursor empty → one WorldItem `origin = Thrown` at the catcher's feet, `expiresTick = tick + 9000`, cursor stays empty, no unit lost, `{0, 5}`; e: room for 3 (one hotbar stack at 17/20) → the 3 oldest merge, the 2 newest become the WorldItem, `{3, 2}`. (Backpack rows apply once it exists.)
-- [ ] A caught Axe with room → hotbar then inventory (category order, `TargetOrder.CursorRow`, PassFirst); a pickup of a mail WorldItem behaves as a–c, and returns `no_room` instead of d (the item stays, nothing bumps).
-- [ ] **Floating item and `entryId` (M-1a form)** — a pickup of a floating (water) WorldItem is refused by the core with a core-level verdict (no `InvReason`; story 019's anchor maps it to Player Character P13's `unavailable` before the core runs), nothing mutated, nothing bumped. `entryId` 0 or the WorldItem's own entry id → the pickup proceeds; a well-formed id that is not this WorldItem's entry (live elsewhere, or dead) → `stale_entry`, nothing mutated (namespace and high-water failures stay `bad_request`). Heap selection (several entries, default the lowest entryId, GDD l.101) is deferred to M-1b with `Spill` (TD-143 item 3): `WorldItemRecord` holds one entry, so no fixture heap at M-1a.
-- [ ] **Pickup naming an expired or destroyed WorldItem (tombstone; Review advisory A5)** — a WorldItem removed at tick T (mail expired to the Intake → cause `expired`; non-mail destroyed by expiry, water or cap eviction → cause `destroyed`; both by the system actor) and a pickup op naming its id: at T + 900 the tombstone is alive and the op gets `container_gone` with `byActorId` = system and that cause; at T + 901 it is dead and the op gets `stale_entry` (30 s = `Tombstones.LifetimeTicks` = 900 ticks, alive while `now − T ≤ 900`, as `Tombstones.TryResolve` on main does). Nothing is mutated and no version bumps in either case. Also a WorldItem picked up by A at T: B naming it at T + 900 gets `container_gone, byActorId = A`, cause `taken`; at T + 901 `stale_entry`.
-- [ ] **Catch refusals (Mail Lead planning default pending Evan, TD-154)** — (i) the plan leaves units unplaced and the WorldItem table is full → `TryCatch` refuses the whole catch in Validate with `Reason = capacity_exhausted`, `{0, 0}`, nothing mutated, the entry stays live and detached (Throwing's, as `CreateWorldItem`'s `None` contract), one `CheckCode.InventoryWorldItemCapacity` record; (ii) a mail merge's union block fails `CheckArenaReservation` → the whole catch is a fumble `{0, N}` with `Reason = capacity_exhausted` (the entry keeps its own block, so the WorldItem needs no new block); (iii) the fumble's WorldItem creation runs story 013's cap rule: at 512 live items exactly one eviction happens by 013's rules. Never the cursor; no unit lost in any case.
-- [ ] **Rejects raise nothing (TD-105 item 5)** — every refused pickup (`bad_request`, `container_gone`, `stale_entry`, floating, `no_room`, `capacity_exhausted`) and every refused catch leaves no record and no seal; versions unchanged.
-- [ ] **Versions, events, weight, indexes** — a pickup or catch bumps each panel container it changed by exactly +1, one `InvVersion` seal after that container's records (a WorldItem has no version). Event order: a pickup raises its world record (`WorldItemDespawned` or `WorldItemEntriesChanged`) first, then the panel records and seals; a fumbling catch raises the panel records and seals first, then `WorldItemSpawned` in `CreateWorldItem`'s nested call scope. Weight P (PerEntry) rises by classPts only when a new entry is placed in the panel; a merge and the fumble add nothing. After an Axe pickup `CountItem` and the StackKey index equal a recount.
-- [ ] **0 B** — pickup (whole, partial, `container_gone`, `stale_entry`) and catch (merge, place, fumble) cycles allocate 0 B per call after warm-up.
+- [x] **H-R12-1 (core form)** — one Small WorldItem, players A and B with room, both pickups applied in one tick, A first → A gains it, B gets `container_gone, byActorId = A`, cause `taken` (the tombstone A's removal wrote, age 0), exactly one copy exists.
+- [x] **Partial pickup (GDD R12 l.137, edge case l.363)** — a 5-letter mail WorldItem and a panel with room for 3 (one hotbar stack to the same address at 17/20, nothing else free): the 3 oldest merge into the hotbar stack; the WorldItem survives under the same `worldItemId` and `entryId` with the 2 newest, `expiresTick`, position and FIFO node unchanged; one `WorldItemEntriesChanged {id, next worldSeq, entryId, count 2}` is raised (no `WorldItemDespawned`, no tombstone); hotbar +1 only; reply `ok`, requested 5 / got 3. A second pickup by B in the same tick takes the 2 and leaves the tombstone (`byActorId = B`, `taken`). 5 mailIds in total, none duplicated. On a whole pickup `WorldItems.Remove` runs before the AutoPlace commit (the mutator frees a merged-away source).
+- [x] **H-R9-2 a–e** — a caught 5 letters to #4 with an inventory stack of 3 to #4 at (0,0): a: hotbar slot 2 = 10 to #4 → merged into slot 2 (15), inventory untouched; b: no #4 hotbar stack, slots 1 and 3 free → new entry in slot 1 (never 0); c: hotbar full, no #4 stack → merged into the inventory stack (8); d: hotbar and inventory full and the inventory #4 stack at 20/20, cursor empty → one WorldItem `origin = Thrown` at the catcher's feet, `expiresTick = tick + 9000`, cursor stays empty, no unit lost, `{0, 5}`; e: room for 3 (one hotbar stack at 17/20) → the 3 oldest merge, the 2 newest become the WorldItem, `{3, 2}`. (Backpack rows apply once it exists.)
+- [x] A caught Axe with room → hotbar then inventory (category order, `TargetOrder.CursorRow`, PassFirst); a pickup of a mail WorldItem behaves as a–c, and returns `no_room` instead of d (the item stays, nothing bumps).
+- [x] **Floating item and `entryId` (M-1a form)** — a pickup of a floating (water) WorldItem is refused by the core with a core-level verdict (no `InvReason`; story 019's anchor maps it to Player Character P13's `unavailable` before the core runs), nothing mutated, nothing bumped. `entryId` 0 or the WorldItem's own entry id → the pickup proceeds; a well-formed id that is not this WorldItem's entry (live elsewhere, or dead) → `stale_entry`, nothing mutated (namespace and high-water failures stay `bad_request`). Heap selection (several entries, default the lowest entryId, GDD l.101) is deferred to M-1b with `Spill` (TD-143 item 3): `WorldItemRecord` holds one entry, so no fixture heap at M-1a.
+- [x] **Pickup naming an expired or destroyed WorldItem (tombstone; Review advisory A5)** — a WorldItem removed at tick T (mail expired to the Intake → cause `expired`; non-mail destroyed by expiry, water or cap eviction → cause `destroyed`; both by the system actor) and a pickup op naming its id: at T + 900 the tombstone is alive and the op gets `container_gone` with `byActorId` = system and that cause; at T + 901 it is dead and the op gets `stale_entry` (30 s = `Tombstones.LifetimeTicks` = 900 ticks, alive while `now − T ≤ 900`, as `Tombstones.TryResolve` on main does). Nothing is mutated and no version bumps in either case. Also a WorldItem picked up by A at T: B naming it at T + 900 gets `container_gone, byActorId = A`, cause `taken`; at T + 901 `stale_entry`.
+- [x] **Catch refusals (Mail Lead planning default pending Evan, TD-154)** — (i) the plan leaves units unplaced and the WorldItem table is full → `TryCatch` refuses the whole catch in Validate with `Reason = capacity_exhausted`, `{0, 0}`, nothing mutated, the entry stays live and detached (Throwing's, as `CreateWorldItem`'s `None` contract), one `CheckCode.InventoryWorldItemCapacity` record; (ii) a mail merge's union block fails `CheckArenaReservation` → the whole catch is a fumble `{0, N}` with `Reason = capacity_exhausted` (the entry keeps its own block, so the WorldItem needs no new block); (iii) the fumble's WorldItem creation runs story 013's cap rule: at 512 live items exactly one eviction happens by 013's rules. Never the cursor; no unit lost in any case.
+- [x] **Rejects raise nothing (TD-105 item 5)** — every refused pickup (`bad_request`, `container_gone`, `stale_entry`, floating, `no_room`, `capacity_exhausted`) and every refused catch leaves no record and no seal; versions unchanged.
+- [x] **Versions, events, weight, indexes** — a pickup or catch bumps each panel container it changed by exactly +1, one `InvVersion` seal after that container's records (a WorldItem has no version). Event order: a pickup raises its world record (`WorldItemDespawned` or `WorldItemEntriesChanged`) first, then the panel records and seals; a fumbling catch raises the panel records and seals first, then `WorldItemSpawned` in `CreateWorldItem`'s nested call scope. Weight P (PerEntry) rises by classPts only when a new entry is placed in the panel; a merge and the fumble add nothing. After an Axe pickup `CountItem` and the StackKey index equal a recount.
+- [x] **0 B** — pickup (whole, partial, `container_gone`, `stale_entry`) and catch (merge, place, fumble) cycles allocate 0 B per call after warm-up.
 
 ---
 
@@ -85,7 +85,49 @@
 - Logic: `tests/unit/inventory/PickupCatchTests.cs` — must exist and pass
 - Allocation: `tests/unit/inventory/PickupCatchAllocationTests.cs` — `AllocAssert.Zero` plus the every-build twin (pattern: `PickMoveAllocationTests.cs`)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/inventory/PickupCatchTests.cs` (47 test cases incl. theory rows) and `tests/unit/inventory/PickupCatchAllocationTests.cs` (2: `AllocAssert.Zero`, skipped in unoptimised builds per TD-008, plus the every-build twin). The 0 B guard was seen failing with an injected allocation in `PickupCore.Apply`, and the event-order test with the world record moved after the panel commit.
+
+**AC → tests** (`PickupCatchTests` unless noted):
+1. H-R12-1: `HR121_OneSmallWorldItem_AAndBPickUpInOneTick_AFirst_AGainsIt_BGetsContainerGoneByA_Taken_OneCopy`.
+2. Partial pickup: `PartialPickup_5Letters_RoomFor3_The3OldestMerge_TheItemKeepsIdEntryTimerPositionAndNode_With2Newest_OneEntriesChanged`, `PartialPickup_ThenBInTheSameTick_TakesThe2Left_WritesTheTakenTombstoneByB_NoMailIdDuplicated`; whole pickup: `WholePickup_OfALetterWorldItem_IntoAnEmptyPanel_GoesToHotbarSlot1_RemovesTheItem_AndLeavesTheTakenTombstone`, `WholePickup_ThroughTheCoreInATickPhase_IsTheSameAsThroughTheHandler`.
+3. H-R9-2 a–e: `HR92a_…`, `HR92b_…`, `HR92c_…`, `HR92d_…`, `HR92e_…`.
+4. Axe and mail pickup: `CaughtAxe_WithRoom_GoesToTheHotbarFirst_ThenTheInventoryWhenTheHotbarIsFull`, `MailPickup_BehavesAsCatchAToC` (a, b, c), `MailPickup_WithThePanelOfD_AnswersNoRoom_TheItemStays_NothingBumps`.
+5. Floating and `entryId`: `FloatingWorldItem_IsRefusedByTheCore_WithTheFloatingVerdict_NoReason_NothingMutated_NothingRaised`, `EntryId_ZeroOrTheWorldItemsOwnEntry_ThePickupProceeds` (zero, own), `EntryId_NotTheWorldItemsEntry_StaleEntry_ButNamespaceAndHighWaterFailuresStayBadRequest_NothingMutated` (live elsewhere, dead, above high-water, other slot's temp).
+6. Tombstones: `Tombstone_LetterExpiredToTheIntakeAtT_…`, `Tombstone_PlankDestroyedByTheWaterFloatAtT_…`, `Tombstone_PickedUpByAAtT_…`.
+7. Catch refusals: `Catch_TableFullAndUnitsWouldFumble_RefusedWhole_CapacityExhausted_0And0_NothingMutated_EntryStaysDetached_OneCheckRecord`, `Catch_ArenaRefusesTheMailMergeUnionBlock_TheWholeCatchFumbles_0AndN_CapacityExhausted_NoUnitLost`, `Catch_FumbleAt512LivePlanks_EvictsExactlyOne_TheLowestExpiresTickPlank_By013Rules`; also `Catch_TableFull_ButEverythingFits_Catches`, `Catch_MalformedCall_IsBadRequest_NothingChanged`.
+8. Rejects raise nothing: `RefusedPickup_LeavesNoRecordAndNoSeal_VersionsUnchanged` (bad_request, container_gone, stale_entry, floating, no_room, capacity_exhausted), `RefusedCatch_BadRequestOrTableFull_LeavesNoRecordAndNoSeal`.
+9. Versions, events, weight, indexes: `WholePickup_IntoAnEmptyPanel_WorldRecordFirst_ThenInserted_ThenOneHotbarSeal_ActorThePicker_CauseNone_PRisesByClassPts`, `PartialPickup_EntriesChangedFirst_ThenMerged_ThenTheHotbarSeal_PUnchanged`, `FumblingCatch_PanelRecordsAndSealFirst_ThenWorldItemSpawnedInANestedCallScope_PUnchangedByMergeAndFumble`, `CatchPlacingANewEntry_RaisesInsertedAndOneSeal_PRisesByClassPts`, `AxePickup_CountItemAndTheStackKeyIndexEqualARecount`.
+10. 0 B: `PickupCatchAllocationTests.PickupAndCatch_Over500Cycles_AllocateNothing_InOptimisedBuilds` and `…_TheMeasuredWindow_GivesTheExpectedResults_InEveryBuild` (catch merge + fumble, whole, `container_gone`, `stale_entry`, partial, whole, catch place).
+
+**Verification** (2026-10-22, `DOTNET_ROOT=/home/box/.dotnet10`):
+- net10.0 Debug: 6136 total, 0 failed, 56 skipped; build 0 warnings.
+- net10.0 Release: 6136 total, 0 failed, 3 skipped; build 0 warnings.
+- net8.0 Debug: 6136 total, 0 failed, 56 skipped; build 0 warnings.
+- net8.0 Release: 6136 total, 0 failed, 3 skipped; build 0 warnings.
+- `bash tools/ci/check-sim-access.sh`: exit 0; `--self-check`: all cases PASS.
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-10-22 on branch `feat/grid-inventory-014` (from origin/main f504231; slices 1–5). Not pushed; no PR. No `/code-review` or lead-programmer gate was run in this session.
+
+**Credit**: Evan's 2026-10-22 5:11 AM PT ruling covers only that a leashed letter stays on the cursor when the mail-id arena is full. Everything 014 adds on top of it is a Mail Lead planning default pending Evan (TD-154, and TD-155 for the implementation calls below). The `capacity_exhausted` code (85) is ADR-0009 §2's reason-code list; the core chain order is TD-154 item 5 (no ADR/GDD line states it).
+
+**As built**:
+- `TargetOrder.PickupRow` `[hotbar, player_inventory]`; mail pickup/catch run `TargetFirst` + `Merge`, non-mail `CursorRow` + `PassFirst` (`PickupCore.PlanIntoPanel`, shared by `TryCatch`).
+- `PickupCore` (`Inventory/World/PickupCore.cs`): named pure `Validate` and a `Commit` that never fails; `Apply` = tick guard, Validate, Commit. Results are `PickupResult` with a `PickupVerdict` (`Taken`, `Refused`, `Floating`); `InventorySystem.Pickup` exposes it. No Pickup handler is bound in production (`InventorySystem.Bind`, `InventoryWithStubOps`, `BoundBySystem` and `InvMalformedOpTests` unchanged); the tests bind a test-only `PickupTestHandler` through a new optional `bindExtra` hook of `InvAutoPlaceRig`.
+- `IInventoryApi.TryCatch(PlayerSlot, in FlightPayload) → CatchResult`, with `InventorySystem.ValidateCatch` (pure) and `CommitCatch` (never fails). `FlightPayload`/`CatchResult` as TD-154 item 6.
+- `WorldItems`: `RaiseEntriesChanged(slot, countAfter)`, `CanCreate()`, `TableFull`, `RecordCapacityRefusal(now)`.
+- New id: `SimAssertCode.InventoryPickupNotAdmitted` = 81 (the unreachable `not_allowed`/`not_carryable`). No new CounterId (next free stays 50). New TD row: TD-155.
+- Ledger: none; `// story 017 ledger hook` comments at the World → Placed (pickup) and Flight → Placed (catch) crossings.
+
+**Deviations from the handoff** (TD-155):
+- `RaiseEntriesChanged` takes the post-commit count and is raised before the panel commit, so AC 9's "world record first" holds (the handoff sketched `RaiseEntriesChanged(slot)` after the commit).
+- The pickup reply's primaries are hotbar (A) and player_inventory (B).
+- `TryCatch` refuses a would-be fumble whenever no WorldItem can be created (full table — with the record — or no/exhausted WorldItem ids — without), so the commit cannot fail.
+
+**Out of scope, still open**: story 019 (range-gated handler, floating → P13 `unavailable`), M-1b heap selection (TD-143 item 3), story 017 ledger calls, the ADR-0009 amendment (TD-144/TD-154 item 6 shapes; §5 arena-record wording). EPIC.md, the epics index and HANDOFF were not edited here (orchestrator instruction); their counts move to 105 / 1 / 6 / 95 when that is done.
 
 ---
 
