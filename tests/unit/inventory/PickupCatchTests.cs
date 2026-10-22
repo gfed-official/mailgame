@@ -4,6 +4,7 @@ using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Events;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
+using PerformativeMail.Sim.Inventory.Rules;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Inventory.World;
 using PerformativeMail.Sim.Primitives;
@@ -575,6 +576,327 @@ public class PickupCatchTests
         Assert.Equal(before, p.Storage());
     }
 
+    // ---------------------------------------------------------------- floating item and entryId (M-1a form)
+
+    [Fact]
+    public void FloatingWorldItem_IsRefusedByTheCore_WithTheFloatingVerdict_NoReason_NothingMutated_NothingRaised()
+    {
+        // Arrange
+        var p = new PickupRig();
+        ushort letters = p.Letters(101, 5);
+        EntityId item = p.Drop(letters, onWater: true);
+        List<long> before = p.Storage();
+
+        // Act
+        PickupResult r = p.Core(p.A, item, 0, out InvReplyExtra extra);
+        EventEntry[] log = p.R.Sink.Last;
+
+        // Assert
+        Assert.Equal(PickupVerdict.Floating, r.Verdict);
+        Assert.Equal(0, r.Reason);
+        Assert.Equal(0, r.Got);
+        Assert.Equal(before, p.Storage());
+        Assert.DoesNotContain(log, PickupRig.IsInventoryRecord);
+        Assert.Equal(0, extra.GotUnits);
+    }
+
+    [Theory]
+    [InlineData("zero")]
+    [InlineData("own")]
+    public void EntryId_ZeroOrTheWorldItemsOwnEntry_ThePickupProceeds(string form)
+    {
+        // Arrange
+        var p = new PickupRig();
+        ushort letters = p.Letters(101, 5);
+        EntityId item = p.Drop(letters);
+        uint entry = form == "own" ? p.R.Entries[letters].Id.Value : 0u;
+
+        // Act
+        EventEntry[] log = p.Pickup(p.A, item, entry);
+
+        // Assert
+        Assert.True(InvAutoPlaceRig.ReplyOf(log).IsOk);
+        Assert.Equal(p.Hotbar(0), p.R.Entries[letters].ContainerSlot);
+    }
+
+    [Theory]
+    [InlineData("live-elsewhere", (ushort)InvReason.StaleEntry)]
+    [InlineData("dead", (ushort)InvReason.StaleEntry)]
+    [InlineData("above-high-water", CoreReason.BadRequest)]
+    [InlineData("other-slot-temp", CoreReason.BadRequest)]
+    public void EntryId_NotTheWorldItemsEntry_StaleEntry_ButNamespaceAndHighWaterFailuresStayBadRequest_NothingMutated(string form, ushort expected)
+    {
+        // Arrange: a live entry in A's hotbar, a freed entry, the WorldItem
+        var p = new PickupRig();
+        ushort other = p.R.PlaceMail(p.Hotbar(0), "letter", 3, 0, Address, PickupRig.Ids(1, 2));
+        ushort dead = p.Letters(50, 1);
+        uint deadId = p.R.Entries[dead].Id.Value;
+        p.R.FreeDetached(dead);
+        ushort letters = p.Letters(101, 5);
+        EntityId item = p.Drop(letters);
+        uint entry = form switch
+        {
+            "live-elsewhere" => p.R.Entries[other].Id.Value,
+            "dead" => deadId,
+            "above-high-water" => p.R.Entries.LastId + 10,
+            _ => EntryId.Temp(PlayerSlot.FromValue(1), 1).Value,
+        };
+        List<long> before = p.Storage();
+
+        // Act
+        EventEntry[] log = p.Pickup(p.A, item, entry);
+
+        // Assert
+        Assert.Equal(expected, InvAutoPlaceRig.ReplyOf(log).Reason);
+        Assert.Equal(before, p.Storage());
+        Assert.DoesNotContain(log, PickupRig.IsInventoryRecord);
+    }
+
+    // ---------------------------------------------------------------- tombstones (Review advisory A5)
+
+    [Fact]
+    public void Tombstone_LetterExpiredToTheIntakeAtT_AtTPlus900ContainerGoneBySystemExpired_AtTPlus901StaleEntry_NothingMutated()
+    {
+        // Arrange: a letter dropped at 100 expires to the Intake at T = 9100
+        var p = new PickupRig();
+        EntityId item = p.W.Create(100, p.Letters(101, 5));
+        const uint T = 9_100;
+        p.AdvanceTo(T + 1);
+        Assert.False(p.World.Table.TryGetSlot(item, out _));
+
+        // Act + Assert
+        p.AssertTombstoneAnswers(item, T, ActorId.System.Value, InvCause.Expired);
+    }
+
+    [Fact]
+    public void Tombstone_PlankDestroyedByTheWaterFloatAtT_AtTPlus900ContainerGoneBySystemDestroyed_AtTPlus901StaleEntry()
+    {
+        // Arrange: a plank landing on water at 100 is destroyed at T = 400
+        var p = new PickupRig();
+        EntityId item = p.W.Create(100, p.R.DetachedItem("plank", 3), WorldItemOrigin.Thrown, onWater: true);
+        const uint T = 400;
+        p.AdvanceTo(T + 1);
+        Assert.False(p.World.Table.TryGetSlot(item, out _));
+
+        // Act + Assert
+        p.AssertTombstoneAnswers(item, T, ActorId.System.Value, InvCause.Destroyed);
+    }
+
+    [Fact]
+    public void Tombstone_PickedUpByAAtT_BAtTPlus900ContainerGoneByATaken_AtTPlus901StaleEntry()
+    {
+        // Arrange
+        var p = new PickupRig();
+        EntityId item = p.Drop(p.Letters(101, 5));
+        uint t = p.W.Now;
+        Assert.True(InvAutoPlaceRig.ReplyOf(p.Pickup(p.A, item)).IsOk);
+
+        // Act + Assert (B asks)
+        p.AssertTombstoneAnswers(item, t, p.A.Value, InvCause.Taken, p.B);
+    }
+
+    // ---------------------------------------------------------------- rejects raise nothing (TD-105 item 5)
+
+    [Theory]
+    [InlineData("bad_request")]
+    [InlineData("container_gone")]
+    [InlineData("stale_entry")]
+    [InlineData("floating")]
+    [InlineData("no_room")]
+    [InlineData("capacity_exhausted")]
+    public void RefusedPickup_LeavesNoRecordAndNoSeal_VersionsUnchanged(string refusal)
+    {
+        // Arrange
+        var p = new PickupRig(mailIdArenaUnits: refusal == "capacity_exhausted" ? MailIdArena.MinTotalUnits : null);
+        EntityId item = refusal switch
+        {
+            "bad_request" => EntityId.Compose(EntityClass.WorldItem, 999),
+            "container_gone" or "stale_entry" => p.Drop(p.Letters(101, 1)),
+            "floating" => p.Drop(p.Letters(101, 1), onWater: true),
+            _ => default,
+        };
+        if (refusal == "container_gone" || refusal == "stale_entry")
+        {
+            Assert.True(InvAutoPlaceRig.ReplyOf(p.Pickup(p.B, item)).IsOk);
+            if (refusal == "stale_entry")
+            {
+                p.AdvanceTo(p.W.Now + Tombstones.LifetimeTicks + 1);
+            }
+        }
+        else if (refusal == "no_room")
+        {
+            p.FillHotbar(0);
+            p.FillInventory(0);
+            item = p.Drop(p.Letters(101, 1));
+        }
+        else if (refusal == "capacity_exhausted")
+        {
+            p.R.PlaceMail(p.Hotbar(0), "letter", 1, 0, Address, PickupRig.Ids(1, 10));
+            ushort letters = p.Letters(101, 5);
+            item = p.Drop(letters);
+            p.ExhaustArena();
+        }
+
+        List<long> before = p.Storage();
+        long cursorV = p.R.Header(p.Cursor(0)).Version;
+
+        // Act
+        EventEntry[] log = p.Pickup(p.A, item);
+
+        // Assert
+        Reply reply = InvAutoPlaceRig.ReplyOf(log);
+        Assert.False(reply.IsOk && refusal != "floating");
+        Assert.Equal(refusal == "floating" ? PickupVerdict.Floating : PickupVerdict.Refused, p.Handler.Last.Verdict);
+        Assert.Equal(PickupRig.ReasonOf(refusal), p.Handler.Last.Reason);
+        Assert.DoesNotContain(log, PickupRig.IsInventoryRecord);
+        Assert.Equal(before, p.Storage());
+        Assert.Equal(cursorV, p.R.Header(p.Cursor(0)).Version);
+    }
+
+    [Fact]
+    public void RefusedCatch_BadRequestOrTableFull_LeavesNoRecordAndNoSeal()
+    {
+        // Arrange: a 1-slot table, live; A's panel full
+        var p = new PickupRig(tune: s => s with { WorldItemCapacity = 1 });
+        p.Drop(p.R.DetachedItem("plank", 1));
+        p.FillHotbar(0);
+        p.FillInventory(0);
+        ushort flight = p.Letters(101, 5);
+        ushort placed = p.R.PlaceMail(p.Hotbar(1), "letter", 1, 0, Address, PickupRig.Ids(1, 2));
+
+        // Act
+        CatchResult full = p.Catch(0, flight);
+        EventEntry[] fullLog = p.R.Sink.Last;
+        CatchResult bad = p.Catch(0, placed);
+        EventEntry[] badLog = p.R.Sink.Last;
+
+        // Assert
+        Assert.Equal(InvReason.CapacityExhausted, full.Reason);
+        Assert.Equal((InvReason)InvReasons.BadRequest, bad.Reason);
+        Assert.DoesNotContain(fullLog, PickupRig.IsInventoryRecord);
+        Assert.DoesNotContain(badLog, PickupRig.IsInventoryRecord);
+    }
+
+    // ---------------------------------------------------------------- versions, events, weight, indexes
+
+    [Fact]
+    public void WholePickup_IntoAnEmptyPanel_WorldRecordFirst_ThenInserted_ThenOneHotbarSeal_ActorThePicker_CauseNone_PRisesByClassPts()
+    {
+        // Arrange
+        var p = new PickupRig();
+        EntityId item = p.Drop(p.Letters(101, 5));
+        uint hotbarV = p.R.Header(p.Hotbar(0)).Version;
+        uint inventoryV = p.R.Header(p.Inventory(0)).Version;
+        short weight = p.Inv.WeightPoints(PlayerSlot.FromValue(0));
+
+        // Act
+        EventEntry[] log = p.Pickup(p.A, item);
+
+        // Assert
+        Assert.Equal(new[] { InvEventKinds.WorldItemDespawned, InvEventKinds.Inserted, InvEventKinds.Version }, PickupRig.InventoryKinds(log));
+        InvVersionPayload seal = PickupRig.Seal(log, p.R.IdOf(p.Hotbar(0)));
+        Assert.Equal(hotbarV, seal.VersionFrom);
+        Assert.Equal(hotbarV + 1, seal.VersionTo);
+        Assert.Equal(p.A.Value, seal.ActorId);
+        Assert.Equal((byte)InvCause.None, seal.Cause);
+        Assert.Equal(hotbarV + 1, p.R.Header(p.Hotbar(0)).Version);
+        Assert.Equal(inventoryV, p.R.Header(p.Inventory(0)).Version);
+        Assert.Equal(weight + p.Inv.Settings.WeightPointsLight, p.Inv.WeightPoints(PlayerSlot.FromValue(0)));
+    }
+
+    [Fact]
+    public void PartialPickup_EntriesChangedFirst_ThenMerged_ThenTheHotbarSeal_PUnchanged()
+    {
+        // Arrange
+        var p = new PickupRig();
+        p.R.PlaceMail(p.Hotbar(0), "letter", 1, 0, Address, PickupRig.Ids(1, 17));
+        p.FillHotbar(0, from: 2);
+        p.FillInventory(0);
+        EntityId item = p.Drop(p.Letters(101, 5));
+        short weight = p.Inv.WeightPoints(PlayerSlot.FromValue(0));
+
+        // Act
+        EventEntry[] log = p.Pickup(p.A, item);
+
+        // Assert
+        Assert.Equal(new[] { InvEventKinds.WorldItemEntriesChanged, InvEventKinds.Merged, InvEventKinds.Version }, PickupRig.InventoryKinds(log));
+        Assert.Equal(weight, p.Inv.WeightPoints(PlayerSlot.FromValue(0)));
+    }
+
+    [Fact]
+    public void FumblingCatch_PanelRecordsAndSealFirst_ThenWorldItemSpawnedInANestedCallScope_PUnchangedByMergeAndFumble()
+    {
+        // Arrange: the H-R9-2 e panel
+        var p = new PickupRig();
+        p.R.PlaceMail(p.Hotbar(0), "letter", 1, 0, Address, PickupRig.Ids(1, 17));
+        p.FillHotbar(0, from: 2);
+        p.FillInventory(0);
+        ushort flight = p.Letters(101, 5);
+        short weight = p.Inv.WeightPoints(PlayerSlot.FromValue(0));
+        uint hotbarV = p.R.Header(p.Hotbar(0)).Version;
+
+        // Act
+        CatchResult r = p.Catch(0, flight);
+        EventEntry[] log = p.R.Sink.Last;
+
+        // Assert
+        Assert.Equal(new CatchResult(3, 2, 0), r);
+        Assert.Equal(new[] { InvEventKinds.Merged, InvEventKinds.Version, InvEventKinds.WorldItemSpawned }, PickupRig.InventoryKinds(log));
+        EventEntry merged = Assert.Single(WorldItemTests.Heads(log, InvEventKinds.Merged));
+        EventEntry spawned = Assert.Single(WorldItemTests.Heads(log, InvEventKinds.WorldItemSpawned));
+        Assert.NotEqual(merged.CallSeq, spawned.CallSeq);
+        Assert.True(spawned.CallSeq > merged.CallSeq);
+        InvVersionPayload seal = PickupRig.Seal(log, p.R.IdOf(p.Hotbar(0)));
+        Assert.Equal(p.A.Value, seal.ActorId);
+        Assert.Equal((byte)InvCause.None, seal.Cause);
+        Assert.Equal(hotbarV + 1, p.R.Header(p.Hotbar(0)).Version);
+        Assert.Equal(weight, p.Inv.WeightPoints(PlayerSlot.FromValue(0)));
+    }
+
+    [Fact]
+    public void CatchPlacingANewEntry_RaisesInsertedAndOneSeal_PRisesByClassPts()
+    {
+        // Arrange
+        var p = new PickupRig();
+        ushort flight = p.Letters(101, 5);
+        short weight = p.Inv.WeightPoints(PlayerSlot.FromValue(0));
+
+        // Act
+        CatchResult r = p.Catch(0, flight);
+        EventEntry[] log = p.R.Sink.Last;
+
+        // Assert
+        Assert.Equal(new CatchResult(5, 0, 0), r);
+        Assert.Equal(new[] { InvEventKinds.Inserted, InvEventKinds.Version }, PickupRig.InventoryKinds(log));
+        Assert.Equal(weight + p.Inv.Settings.WeightPointsLight, p.Inv.WeightPoints(PlayerSlot.FromValue(0)));
+    }
+
+    [Fact]
+    public void AxePickup_CountItemAndTheStackKeyIndexEqualARecount()
+    {
+        // Arrange: planks in A's inventory (a non-full stack in the index), an axe WorldItem, a mail stack to merge later
+        var p = new PickupRig();
+        p.R.PlaceItem(p.Inventory(0), "plank", 0, 0, 7);
+        p.R.PlaceMail(p.Hotbar(0), "letter", 2, 0, Address, PickupRig.Ids(1, 4));
+        EntityId axe = p.Drop(p.R.DetachedItem("axe", 1));
+        EntityId letters = p.Drop(p.Letters(101, 3));
+
+        // Act
+        Assert.True(InvAutoPlaceRig.ReplyOf(p.Pickup(p.A, axe)).IsOk);
+        Assert.True(InvAutoPlaceRig.ReplyOf(p.Pickup(p.A, letters)).IsOk);
+
+        // Assert: CountItem over the panel equals a scan, and the index equals a rebuild
+        ContainerId[] panel = { p.R.IdOf(p.Hotbar(0)), p.R.IdOf(p.Inventory(0)) };
+        Assert.Equal(1, p.Inv.CountItem(panel, p.R.ItemIndex("axe")));
+        Assert.Equal(p.ScanCount(p.R.ItemIndex("axe")), p.Inv.CountItem(panel, p.R.ItemIndex("axe")));
+        Assert.Equal(p.ScanCount(p.R.ItemIndex("plank")), p.Inv.CountItem(panel, p.R.ItemIndex("plank")));
+        List<ushort> before = p.IndexOf(p.Hotbar(0)).Concat(p.IndexOf(p.Inventory(0))).ToList();
+        p.Inv.Mutator.RebuildIndex(p.Hotbar(0));
+        p.Inv.Mutator.RebuildIndex(p.Inventory(0));
+        Assert.Equal(p.IndexOf(p.Hotbar(0)).Concat(p.IndexOf(p.Inventory(0))), before);
+        Assert.Equal(WeightRecountPropertyTests.Recount(p.R.Content, p.Inv, 0), p.Inv.WeightPoints(PlayerSlot.FromValue(0)));
+    }
+
     [Fact]
     public void PickupHandler_IsBoundOnlyByThisRig_NotByInventorySystemBind()
     {
@@ -882,6 +1204,100 @@ internal sealed class PickupRig
         values.Add(Inv.Mutator.Weight.Points(0));
         values.Add(Inv.Mutator.Weight.Points(1));
         return values;
+    }
+
+    /// <summary>Ticks (capture off) until <see cref="WorldItemRig.Now"/> is <paramref name="tick"/>, then turns capture back on.</summary>
+    public void AdvanceTo(uint tick)
+    {
+        W.AdvanceTo(tick);
+        R.CaptureEvents = true;
+    }
+
+    /// <summary>
+    /// For a WorldItem removed at <paramref name="t"/>: a pickup by <paramref name="asker"/> (A by default) at <c>t + 900</c> gets
+    /// <c>container_gone</c> with the tombstone's actor and cause, at <c>t + 901</c> <c>stale_entry</c>; nothing is mutated either time.
+    /// </summary>
+    public void AssertTombstoneAnswers(EntityId item, uint t, uint byActorId, InvCause cause, ActorId? asker = null)
+    {
+        ActorId who = asker ?? A;
+        AdvanceTo(t + Tombstones.LifetimeTicks);
+        List<long> before = Storage();
+        EventEntry[] alive = Pickup(who, item);
+        Reply gone = InvAutoPlaceRig.ReplyOf(alive);
+        Assert.Equal((ushort)InvReason.ContainerGone, gone.Reason);
+        Assert.Equal(byActorId, gone.ExtraAs<InvReplyExtra>().ByActorId);
+        Assert.Equal(cause, gone.ExtraAs<InvReplyExtra>().Cause);
+        Assert.Equal(before, Storage());
+        Assert.DoesNotContain(alive, IsInventoryRecord);
+
+        EventEntry[] dead = Pickup(who, item); // the next tick: t + 901
+        Assert.Equal((ushort)InvReason.StaleEntry, InvAutoPlaceRig.ReplyOf(dead).Reason);
+        Assert.Equal(before, Storage());
+        Assert.DoesNotContain(dead, IsInventoryRecord);
+    }
+
+    /// <summary>True for an inventory record or seal (kinds 0x0080-0x0089).</summary>
+    public static bool IsInventoryRecord(EventEntry e) => (ushort)e.Kind is >= 0x0080 and <= 0x0089;
+
+    /// <summary>The inventory kinds of <paramref name="log"/> in order, continuations excluded.</summary>
+    public static EventKind[] InventoryKinds(EventEntry[] log) =>
+        log.Where(e => IsInventoryRecord(e) && (e.Flags & EventFlags.Continuation) == 0).Select(e => e.Kind).ToArray();
+
+    /// <summary>The one seal of <paramref name="container"/> in <paramref name="log"/>.</summary>
+    public static InvVersionPayload Seal(EventEntry[] log, ContainerId container) =>
+        Assert.Single(WorldItemTests.Heads(log, InvEventKinds.Version), e => e.PayloadAs<InvVersionPayload>().Container == container.Value).PayloadAs<InvVersionPayload>();
+
+    /// <summary>The reason code a refusal name stands for.</summary>
+    public static ushort ReasonOf(string refusal) => refusal switch
+    {
+        "bad_request" => CoreReason.BadRequest,
+        "container_gone" => (ushort)InvReason.ContainerGone,
+        "stale_entry" => (ushort)InvReason.StaleEntry,
+        "no_room" => (ushort)InvReason.NoRoom,
+        "capacity_exhausted" => (ushort)InvReason.CapacityExhausted,
+        _ => 0,
+    };
+
+    /// <summary>The units of item <paramref name="item"/> in A's hotbar and player_inventory, by scanning the entry pool.</summary>
+    public int ScanCount(DefIndex item)
+    {
+        int units = 0;
+        for (ushort s = 0; s < R.Entries.Capacity; s++)
+        {
+            EntryRecord e = R.Entries[s];
+            if (e.IsLive && !e.IsMail && e.ItemId == item.Value && (e.ContainerSlot == Hotbar(0) || e.ContainerSlot == Inventory(0)))
+            {
+                units += e.Count;
+            }
+        }
+
+        return units;
+    }
+
+    /// <summary>The StackKey index lists of every key present in <paramref name="container"/>, in key-first-seen then list order.</summary>
+    public List<ushort> IndexOf(ushort container)
+    {
+        var keys = new List<StackKey>();
+        for (ushort s = 0; s < R.Entries.Capacity; s++)
+        {
+            if (R.Entries[s].IsLive && R.Entries[s].ContainerSlot == container && !keys.Contains(StackKey.Of(in R.Entries[s])))
+            {
+                keys.Add(StackKey.Of(in R.Entries[s]));
+            }
+        }
+
+        var lists = new List<ushort>();
+        foreach (StackKey k in keys)
+        {
+            for (ushort s = R.Index.Head(container, k); s != StackIndex.None; s = R.Index.Next(s))
+            {
+                lists.Add(s);
+            }
+
+            lists.Add(ushort.MaxValue);
+        }
+
+        return lists;
     }
 
     /// <summary>Live entries placed in <paramref name="container"/>.</summary>
