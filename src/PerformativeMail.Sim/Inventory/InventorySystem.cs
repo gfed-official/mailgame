@@ -22,10 +22,11 @@ namespace PerformativeMail.Sim.Inventory;
 /// them. Container dimensions are instance state: the def's width and <c>IStatSheet.Read(InventoryRows)</c> rows.
 /// <para>
 /// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the still
-/// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). It binds no op yet
-/// (handlers are stories 007-010) and no snapshot source (the builder has no <c>BindSnapshotSource</c> yet). Every container, entry and
+/// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its one op
+/// handler is <c>Close</c> (story 011; the other kinds' handlers are stories 007-010 and 019); it binds no snapshot source (the builder has no
+/// <c>BindSnapshotSource</c> yet). Every container, entry and
 /// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
-/// <see cref="Subscribers"/> set. Storage is preallocated from
+/// <see cref="Subscribers"/> set, which the open set (<see cref="OpenSet"/>, story 011) keeps in step. Storage is preallocated from
 /// <see cref="InventorySettings"/>; the join and leave paths allocate nothing and never throw. Not thread-safe: Sim tick thread only.
 /// </para>
 /// <para>
@@ -88,6 +89,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly ContainerId _intake;
     private readonly ushort _intakeSlot;
     private readonly WorldItems _worldItems;
+    private readonly OpenSet _openSet;
+    private readonly ISlotView? _slots;
 
     /// <summary>Creates the module: settings from the content's <c>inventory.*</c> record, the four M-1a defs resolved once by id, and the <c>po_intake</c> container.</summary>
     /// <param name="content">The content set (container defs and the inventory balance).</param>
@@ -158,6 +161,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         _mailIds = new MailIdArena(settings.MailIdArenaUnits, checkRing);
         _requestCheck = new InvRequestCheck(_containers, _entries, _mailIds);
         _subscribers = new ContainerSubscribers(settings.ContainerCapacity);
+        _openSet = new OpenSet(_containers);
+        _slots = slots;
 
         // Rows are clamped to inventory.maxRows by the stat sheet; widths are bounded here for every def (the bitmaps hold 64 columns)
         // and the cellOwner array is sized by the widest def rather than the full 64 (ADR-0009 memory guidance).
@@ -232,8 +237,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <summary>AutoPlace (story 009): the shared placement passes of quick_move, spawn, return, inserter, belt, pickup, catch and grant.</summary>
     internal AutoPlace AutoPlace => _autoPlace;
 
-    /// <summary>The per-container subscriber sets (the open set maintains them from story 011; tests set them directly until then).</summary>
+    /// <summary>The per-container subscriber sets, maintained by <see cref="TryOpenExternal"/>, <see cref="CloseExternal"/> and the leave path (story 011).</summary>
     internal ContainerSubscribers Subscribers => _subscribers;
+
+    /// <summary>The players' open sets (story 011): each slot's external and the <see cref="Inventory.OpenSet.IsInOpenSet"/> predicate of the <c>not_open</c> step.</summary>
+    internal OpenSet OpenSet => _openSet;
 
     /// <summary>
     /// The backlog seam (story 012, Planner R6; ADR-0017 section 6): whether the Intake accepts spawns and returns now. Always true at
@@ -300,12 +308,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <summary>
     /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the empty <c>IntakeDrain</c> phase, the stub
-    /// conservation check, the state contributor, the join listener and every <see cref="InvEventDescriptors"/> kind. Binds no op
-    /// (stories 007-010) or snapshot source.
+    /// conservation check, the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
+    /// <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds no other op (stories 007-010, 019) and no snapshot source.
     /// </summary>
     /// <param name="builder">The world's builder.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is null.</exception>
-    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c> or <c>DuplicateEventKind</c>.</exception>
+    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c>, <c>DuplicateEventKind</c> or <c>DuplicateOpHandler</c> (another <c>Close</c> handler).</exception>
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -317,6 +325,116 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         foreach (EventDescriptor descriptor in InvEventDescriptors.All)
         {
             builder.BindEventKind(descriptor);
+        }
+
+        builder.BindOp(InvOpDescriptors.Close, new CloseHandler(this));
+    }
+
+    /// <summary>
+    /// Makes <paramref name="c"/> <paramref name="slot"/>'s external container (GDD R10; story 011; called by story 019's range-gated
+    /// <c>Open</c> handler): an external that slot already had is closed for that slot only (its subscriber bit cleared; other slots'
+    /// bits are untouched), then <paramref name="c"/> is recorded and the slot's bit set in its <see cref="Subscribers"/> mask, so its
+    /// records reach the slot from the next raise. No record, no version, no tick guard (it changes no container). False with nothing
+    /// changed for a none slot, a dead or never-issued id, or a container with an owner slot (a panel or cursor is always in its owner's
+    /// set and never another's); true with nothing changed when <paramref name="c"/> is already the slot's external. Allocation-free.
+    /// </summary>
+    /// <param name="slot">The opening player's slot.</param>
+    /// <param name="c">The external container.</param>
+    /// <returns>True when <paramref name="c"/> is the slot's external afterwards.</returns>
+    internal bool TryOpenExternal(PlayerSlot slot, ContainerId c)
+    {
+        if (slot.IsNone || !_containers.TryGetSlot(c, out ushort containerSlot) || _containers[containerSlot].OwnerSlot != ContainerHeader.NoOwner)
+        {
+            return false;
+        }
+
+        if (_openSet.ExternalOf(slot) == c)
+        {
+            return true;
+        }
+
+        ClearExternal(slot);
+        _openSet.SetExternal(slot, c);
+        _subscribers.Add(containerSlot, slot);
+        return true;
+    }
+
+    /// <summary>
+    /// Closes <paramref name="slot"/>'s external container (story 011; the <c>Close</c> op, and story 019's leash with
+    /// <see cref="CloseCause.Leash"/>): the slot's external is cleared and its bit removed from that container's
+    /// <see cref="Subscribers"/> mask, with no record and no version. With <see cref="CloseCause.Leash"/> the cursor entry is then put
+    /// away in the same call (GDD R10, H-R10-1; <see cref="PutAwayCursor"/>); <see cref="CloseCause.Close"/> leaves it on the cursor
+    /// (R11: the cursor survives a manual close), so the <c>Close</c> handler raises nothing in its op's scope. A none slot or a slot
+    /// with no external changes nothing (no put-away either). Stays off <see cref="IInventoryApi"/> until the ADR-0014 section 6
+    /// knockdown chain needs it (TD-149). Allocation-free.
+    /// </summary>
+    /// <param name="slot">The player slot.</param>
+    /// <param name="cause">Why it closes.</param>
+    /// <exception cref="SimAssertException">A leash put-away outside a tick phase (SIM_ASSERT builds only; the external is closed first).</exception>
+    internal void CloseExternal(PlayerSlot slot, CloseCause cause)
+    {
+        if (slot.IsNone || _openSet.ExternalOf(slot).IsNone)
+        {
+            return;
+        }
+
+        ClearExternal(slot);
+        if (cause == CloseCause.Leash)
+        {
+            PutAwayCursor(slot);
+        }
+    }
+
+    /// <summary>
+    /// The leash put-away (GDD R10 and R9 cursor row; story 011 AC 5): the cursor entry of <paramref name="slot"/>, if any, is AutoPlaced
+    /// into the panel by <see cref="TargetOrder.CursorRow"/> (the entry as source, its whole count, <see cref="MergePolicy.Merge"/>,
+    /// pass-first), then the arena reservation. An empty cursor (or a slot with no panel) changes nothing and takes no tick guard. Else the
+    /// tick guard (<see cref="TickGuard"/>: out of phase counts, asserts under <c>SIM_ASSERT</c>, and in Release leaves the entry on the
+    /// cursor); then a refused plan (<c>no_room</c>, or <c>capacity_exhausted</c> for a mail merge's union block) records its no-fit facts
+    /// and leaves the entry on the cursor with no record; a stackable may go in partly, the rest staying on the cursor (R8). A plan that
+    /// passed commits in its own call scope and one <c>Begin</c>/<c>End</c> bracket, sealed with the slot's player as actor and cause
+    /// <see cref="InvCause.None"/> (as <see cref="DetachForThrow"/>), so the cursor and each target it touched bump once.
+    /// </summary>
+    private void PutAwayCursor(PlayerSlot slot)
+    {
+        ref PanelIds panel = ref _panels[slot.Value];
+        if (!_containers.TryGetSlot(panel.Cursor, out ushort cursor))
+        {
+            return;
+        }
+
+        ushort entrySlot = _occupancy.OwnerAt(cursor, _containers[cursor].W, 0, 0);
+        if (entrySlot == Occupancy.Free || !TickGuard.IsMutable(_tick, _events.Counters))
+        {
+            return;
+        }
+
+        // A panel's three containers are created together (OnPlayerJoined), so a live cursor has a live hotbar and player_inventory.
+        _ = _containers.TryGetSlot(panel.Hotbar, out ushort hotbar);
+        _ = _containers.TryGetSlot(panel.PlayerInventory, out ushort playerInventory);
+        ref EntryRecord e = ref _entries[entrySlot];
+        PlacementSubject subject = PlacementSubject.Of(_content, _stats, in e);
+        Span<ushort> targets = stackalloc ushort[TargetOrder.CursorRowLength];
+        TargetOrder.CursorRow(subject.Category, hotbar, playerInventory, targets);
+        var plan = new InvPlan();
+        ushort reason = _autoPlace.Plan(ref plan, in subject, e.Count, entrySlot, targets, MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+        if (reason == 0)
+        {
+            reason = _requestCheck.CheckArenaReservation(in plan);
+        }
+
+        if (reason != 0)
+        {
+            _autoPlace.RecordNoFits(in ap);
+            return;
+        }
+
+        var extra = new InvReplyExtra();
+        using (EventCallScope scope = _events.BeginCall())
+        {
+            _mutator.Begin(ref plan, ActorId.FromEntity(panel.Player), InvCause.None);
+            _autoPlace.Commit(ref plan, in ap);
+            _mutator.End(ref plan, ref extra);
         }
     }
 
@@ -811,9 +929,66 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <inheritdoc />
-    void IPlayerJoinListener.OnPlayerLeft(PlayerSlot slot, EntityId player)
+    /// <remarks>
+    /// Clears the slot's external and its subscriber bit (GDD l.194; story 011), so the slot's next player starts with no external and
+    /// receives none of its records. No record, no version; allocation-free. Containers stay, and the cursor entry stays on the cursor
+    /// (disconnect handling is M0).
+    /// </remarks>
+    void IPlayerJoinListener.OnPlayerLeft(PlayerSlot slot, EntityId player) => ClearExternal(slot);
+
+    /// <summary>
+    /// The <c>Close</c> op (story 011; ADR-0009 section 2): <see cref="InvRequestCheck.CheckRequest"/> first (<c>bad_request</c> for
+    /// container 0 or at/above the high-water), then <c>container_gone</c> for an issued id that is no longer live (no container is
+    /// destroyed before M-1b, whose tombstones add <c>byActorId</c>), then <c>not_open</c> when the container is not in the actor's open
+    /// set (the System actor has none). A pass closes the actor's external through <see cref="CloseExternal"/> with
+    /// <see cref="CloseCause.Close"/>; closing the actor's own panel or cursor (always in their set, never closable) is <c>Ok</c> with
+    /// nothing changed. No range gate, no record, no version on any path. Allocation-free.
+    /// </summary>
+    /// <param name="op">The drained op.</param>
+    /// <returns>The reply.</returns>
+    internal Reply ApplyClose(in Op op)
     {
-        // Containers stay (disconnect handling is M0).
+        PlayerSlot actor = op.Actor.IsSystem || _slots is null ? PlayerSlot.None : _slots.SlotOf(new EntityId(op.Actor.Value));
+        ushort reason = _requestCheck.CheckRequest(in op, actor);
+        if (reason != 0)
+        {
+            return Reply.Reject(in op, reason);
+        }
+
+        var c = new ContainerId(op.PayloadAs<ClosePayload>().Container);
+        if (!_containers.TryGetSlot(c, out _))
+        {
+            return Reply.Reject(in op, (ushort)InvReason.ContainerGone);
+        }
+
+        if (!_openSet.IsInOpenSet(actor, c))
+        {
+            return Reply.Reject(in op, (ushort)InvReason.NotOpen);
+        }
+
+        if (_openSet.ExternalOf(actor) == c)
+        {
+            CloseExternal(actor, CloseCause.Close);
+        }
+
+        return Reply.Ok(in op);
+    }
+
+    /// <summary>Clears <paramref name="slot"/>'s external and its bit in that container's subscriber mask (a dead external has no mask to clear).</summary>
+    private void ClearExternal(PlayerSlot slot)
+    {
+        ContainerId current = _openSet.ExternalOf(slot);
+        if (current.IsNone)
+        {
+            return;
+        }
+
+        if (_containers.TryGetSlot(current, out ushort containerSlot))
+        {
+            _subscribers.Remove(containerSlot, slot);
+        }
+
+        _openSet.SetExternal(slot, default);
     }
 
     /// <summary>The <see cref="Spawn"/> handler-limit checks: a live container, a known mail kind, 1 to 255 strictly ascending real ids.</summary>
@@ -911,6 +1086,21 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         _occupancy.Reset(slot, d.GridW, rows);
         _mutator.Outfeed.ResetSlot(slot);
         return true;
+    }
+
+    /// <summary>The production <c>Close</c> handler (story 011): <see cref="ApplyClose"/>.</summary>
+    private sealed class CloseHandler : IOpHandler
+    {
+        private readonly InventorySystem _owner;
+
+        public CloseHandler(InventorySystem owner)
+        {
+            _owner = owner;
+        }
+
+        public OpKind Kind => InvOpKinds.Close;
+
+        public Reply Apply(in Op op, in TickContext ctx) => _owner.ApplyClose(in op);
     }
 
     /// <summary>The tick reader of a module built without one (tests): always between ticks at tick 0.</summary>

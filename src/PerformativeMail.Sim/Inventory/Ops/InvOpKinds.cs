@@ -61,8 +61,9 @@ public static class InvOpKinds
 }
 
 /// <summary>
-/// The descriptors of the M-1a inventory kinds (ADR-0007 section 4; ADR-0009 sections 1-2). Not bound by <see cref="InventorySystem"/> yet:
-/// a declared kind without a handler fails <c>Freeze</c> (<c>MissingOpHandler</c>), and the handlers are stories 007-010. Wire codec ids
+/// The descriptors of the M-1a inventory kinds (ADR-0007 section 4; ADR-0009 sections 1-2). <see cref="InventorySystem"/> binds
+/// <see cref="Close"/> (story 011); the others are not bound yet: a declared kind without a handler fails <c>Freeze</c>
+/// (<c>MissingOpHandler</c>), and their handlers are stories 007-010 and 019. Wire codec ids
 /// and sizes are 0 (unassigned) until the network-adapter-loopback epic assigns them. Reasons are the inventory codes each kind's ADR-0009
 /// chain can return (the precedence chains themselves are the handler stories'); every block-acquiring kind (<c>Move</c>, <c>Merge</c>,
 /// <c>QuickMove</c>, <c>Pickup</c>, <c>Return</c>) declares <c>(kind, 85) capacity_exhausted</c>. <c>bad_request</c> is Core's 8 and is

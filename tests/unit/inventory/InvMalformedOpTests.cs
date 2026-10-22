@@ -11,7 +11,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
 /// Story grid-inventory/004, GDD H-NET-5 (Sim half) and H-R7-4 (malformed half); TR-inventory-025, TR-inventory-006; ADR-0009 section 2;
-/// ADR-0007 sections 3 and 5. No real inventory handler exists until stories 007-010, so every inventory kind is bound (with its real
+/// ADR-0007 sections 3 and 5. Until stories 007-010 and 019 bind the real handlers, every inventory kind the system does not bind itself
+/// (all but <c>Close</c>, story 011, whose real handler runs here and is covered by <c>OpenSetTests</c>) is bound (with its real
 /// descriptor) to a TEST-ONLY <see cref="InvValidateOnlyStub"/> whose whole body is the shared production steps
 /// (<see cref="InvRequestCheck.CheckRequest"/>, then — no <c>not_open</c> step exists yet — <see cref="InvRequestCheck.ResolveEntries"/>)
 /// and which never mutates; ops go through the real phase-0 drain of a composed world holding a real
@@ -233,7 +234,9 @@ public class InvMalformedOpTests
             Assert.Equal(CoreReason.BadRequest, r.Reason);
         });
         Assert.Equal(FuzzOps, replies.Select(r => r.ReqId).Distinct().Count());
-        Assert.Equal(FuzzOps, rig.StubCalls); // every op reached the helper (none was pre-rejected by the drain)
+        int closeOps = issued.Values.Count(k => k == InvOpKinds.Close);
+        Assert.True(closeOps > 0, "generator issued no Close op");
+        Assert.Equal(FuzzOps - closeOps, rig.StubCalls); // every stubbed op reached the helper; Close ops reached the real handler (bad_request above)
         Assert.True(gen.KindsSeen >= 8, $"generator covered only {gen.KindsSeen} kinds");
         Assert.Equal(before, rig.Snapshot());
         Assert.NotEqual(SimState.Faulted, rig.Host.World.State);
@@ -267,7 +270,8 @@ public class InvMalformedOpTests
 
     // ------------------------------------------------------------------ per-kind pass / stale_entry through the drain
 
-    public static TheoryData<string> ValidCases => new() { "Pick", "Move", "Merge", "QuickMove", "Drop", "Pickup", "PickupDefaultEntry", "Open", "Close", "Return" };
+    // Close is not here: InventorySystem binds its real handler (story 011), whose valid cases are in OpenSetTests.
+    public static TheoryData<string> ValidCases => new() { "Pick", "Move", "Merge", "QuickMove", "Drop", "Pickup", "PickupDefaultEntry", "Open", "Return" };
 
     public static TheoryData<string> StaleCases => new() { "Pick", "Move", "Merge", "MergeTarget", "QuickMove", "Drop", "Pickup" };
 
@@ -387,7 +391,6 @@ public class InvMalformedOpTests
             case "Pickup": op.Kind = InvOpKinds.Pickup; op.SetPayload(new PickupPayload { WorldItemId = 7, EntryId = entry, ClaimedX = 1000, ClaimedZ = -2500 }); break;
             case "PickupDefaultEntry": op.Kind = InvOpKinds.Pickup; op.SetPayload(new PickupPayload { WorldItemId = 7, EntryId = 0 }); break;
             case "Open": op.Kind = InvOpKinds.Open; op.SetPayload(new OpenPayload { Container = rig.IntakeContainer.Value, ClaimedX = 5 }); break;
-            case "Close": op.Kind = InvOpKinds.Close; op.SetPayload(new ClosePayload { Container = inv }); break;
             default: op.Kind = InvOpKinds.Return; break;
         }
 
@@ -623,9 +626,15 @@ internal sealed class InvValidateOnlyStub : IOpHandler
     }
 }
 
-/// <summary>TEST-ONLY system: the real <see cref="InventorySystem"/> plus a <see cref="InvValidateOnlyStub"/> for every M-1a inventory descriptor.</summary>
+/// <summary>
+/// TEST-ONLY system: the real <see cref="InventorySystem"/> plus a <see cref="InvValidateOnlyStub"/> for every M-1a inventory descriptor
+/// the system does not bind itself (<see cref="BoundBySystem"/>; binding a second handler throws <c>DuplicateOpHandler</c>).
+/// </summary>
 internal sealed class InventoryWithStubOps : ISimSystem
 {
+    /// <summary>The kinds <see cref="InventorySystem.Bind"/> binds a production handler for (story 011: <c>Close</c>).</summary>
+    public static readonly OpKind[] BoundBySystem = { InvOpKinds.Close };
+
     private readonly ISlotView _slots;
 
     public InventoryWithStubOps(InventorySystem inner, ISlotView slots)
@@ -643,6 +652,11 @@ internal sealed class InventoryWithStubOps : ISimSystem
         Inner.Bind(builder);
         foreach (OpDescriptor d in InvOpDescriptors.All)
         {
+            if (Array.IndexOf(BoundBySystem, d.Kind) >= 0)
+            {
+                continue;
+            }
+
             var stub = new InvValidateOnlyStub(d.Kind, Inner.RequestCheck, _slots);
             Stubs.Add(stub);
             builder.BindOp(d, stub);
@@ -652,7 +666,8 @@ internal sealed class InventoryWithStubOps : ISimSystem
 
 /// <summary>
 /// A composed M-1a world (real content, real <see cref="InventorySystem"/>, Sim Core's own <c>PlayerJoin</c>) with players in slots 0 and 1,
-/// six allocated entries of which ids 2 and 5 are removed again (so the pool's high-water is 6), and the inventory kinds bound to stubs.
+/// six allocated entries of which ids 2 and 5 are removed again (so the pool's high-water is 6), and the inventory kinds other than
+/// <c>Close</c> bound to stubs.
 /// </summary>
 internal sealed class InvOpRig
 {
