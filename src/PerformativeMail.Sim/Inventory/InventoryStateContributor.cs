@@ -1,4 +1,6 @@
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory.Backlog;
+using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Inventory.World;
 using PerformativeMail.Sim.Primitives;
 
@@ -11,18 +13,24 @@ namespace PerformativeMail.Sim.Inventory;
 /// container that never took an outfeed insertion) and the owner slot (u8, 0xFF none). The outfeed FIFO nodes are a derived memo and
 /// are not written (rebuilt from the entries' <c>arrivalSeq</c>). Then (story 013, when built with the WorldItems) the WorldItem state
 /// (<see cref="WorldItems.Write"/>): <c>worldSeq</c>, the live items in ascending id, each expiry FIFO's live ids in queue order, and the
-/// tombstones. Between ticks only; allocation-free.
+/// tombstones. Then (story 021, when built with the backlog) the backlog ring (<see cref="BacklogRing.Write"/>): <c>u32 count</c>, then
+/// the queued entry ids in queue order (the entries themselves are the entry section's). The drain's gating memo is not written: the
+/// first pass after a load runs unconditionally, which changes nothing over an unchanged Intake. Between ticks only; allocation-free.
 /// </summary>
 /// <example><code>builder.BindStateContributor(new InventoryStateContributor(containers, worldItems));</code></example>
 internal sealed class InventoryStateContributor : ISimStateContributor
 {
     private readonly ContainerTable _containers;
     private readonly WorldItems? _worldItems;
+    private readonly BacklogRing? _backlog;
+    private readonly EntryPool? _entries;
 
-    public InventoryStateContributor(ContainerTable containers, WorldItems? worldItems = null)
+    public InventoryStateContributor(ContainerTable containers, WorldItems? worldItems = null, BacklogRing? backlog = null, EntryPool? entries = null)
     {
         _containers = containers;
         _worldItems = worldItems;
+        _backlog = backlog;
+        _entries = entries;
     }
 
     public ushort SectionId => SectionIds.Inventory;
@@ -47,5 +55,9 @@ internal sealed class InventoryStateContributor : ISimStateContributor
         }
 
         _worldItems?.Write(ref w);
+        if (_backlog is not null && _entries is not null)
+        {
+            _backlog.Write(ref w, _entries); // story 021: after the WorldItems block
+        }
     }
 }

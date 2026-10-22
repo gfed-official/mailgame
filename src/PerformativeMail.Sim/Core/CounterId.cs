@@ -164,4 +164,7 @@ public enum CounterId : ushort
 
     /// <summary>Inventory <c>CountItem</c>: one per table slot read in the per-container <c>itemId → units</c> map (GDD R17 "never a scan", H-R17-1; ADR-0009 section 5; story grid-inventory/015; key <c>inventoryItemCountProbes</c>): a hit counts the slots up to and including its key, a miss up to and including the empty slot that ends it. Depends on the map's collisions, never on how many entries a container holds. A probe counter, compiled into Release, not in the canonical dump.</summary>
     InventoryItemCountProbes = 49,
+
+    /// <summary>Inventory <c>IntakeDrain</c>: one per backlog ring node read by a drain pass (the H-PERF-6d visit unit; story grid-inventory/021; key <c>inventoryBacklogVisits</c>). Gated at most entries walked + 1 per pass, separately from the placement probes (Mail Lead planning default pending Evan, TD-157 item 4). An idle pass (empty backlog, full Intake, or no change since the last pass) reads no node. A probe counter, compiled into Release, not in the canonical dump.</summary>
+    InventoryBacklogVisits = 50,
 }

@@ -95,13 +95,47 @@ public enum ConsumeReason : byte
 }
 
 /// <summary>
+/// One whole backlog entry for <see cref="IInventoryApi.AppendBacklog"/> (story grid-inventory/021; ADR-0017 section 6 names the call,
+/// the shape is a Mail Lead planning default pending Evan, TD-157 item 2): the units of one StackKey that <see cref="IInventoryApi.Spawn"/>
+/// did not place, <c>ids[r.Placed..]</c>.
+/// </summary>
+/// <example><code>inventory.AppendBacklog(new BacklogEntry(letter, address, 0, ids[r.Placed..]));</code></example>
+public readonly ref struct BacklogEntry
+{
+    /// <summary>Creates the entry.</summary>
+    /// <param name="mailKind">The units' mail kind.</param>
+    /// <param name="addressId">The units' packed address.</param>
+    /// <param name="flags">The units' mail flags.</param>
+    /// <param name="ids">1 to 255 strictly ascending mail ids.</param>
+    public BacklogEntry(DefIndex mailKind, uint addressId, byte flags, ReadOnlySpan<MailId> ids)
+    {
+        MailKind = mailKind;
+        AddressId = addressId;
+        Flags = flags;
+        Ids = ids;
+    }
+
+    /// <summary>The units' mail kind.</summary>
+    public DefIndex MailKind { get; }
+
+    /// <summary>The units' packed address.</summary>
+    public uint AddressId { get; }
+
+    /// <summary>The units' mail flags.</summary>
+    public byte Flags { get; }
+
+    /// <summary>1 to 255 strictly ascending mail ids.</summary>
+    public ReadOnlySpan<MailId> Ids { get; }
+}
+
+/// <summary>
 /// What Grid Inventory provides to the systems above it (ADR-0009 Key Interfaces, as implemented 2026-10-21; ADR-0003 section 5,
 /// TR-sim-019): synchronous calls made by in-tick callers inside their own phase. Each mutating call is one atomic mutation through
 /// the shared <c>InventoryMutator</c>, with the same records and one <c>InvVersion</c> seal per changed container as an op, and no
 /// reply. Mutating calls are legal only inside a tick phase (<c>TickGuard</c>); an illegal call is refused with nothing mutated and
 /// no event. Story 013 adds <see cref="CreateWorldItem"/>; story 015 adds <see cref="ConsumeUnit"/>, <see cref="DetachForThrow"/>,
 /// <see cref="TryInsert"/> (mail form) and <see cref="CountItem"/>; story 014 <see cref="TryCatch"/>; story 016 <see cref="WeightPoints"/> and <see cref="SpeedPermille"/>
-/// (not in the ADR-0009 sketch: TD-148); story 021 the backlog members. Allocation-free; never throws on the tick path. Not
+/// (not in the ADR-0009 sketch: TD-148); story 021 <see cref="AppendBacklog"/>, <see cref="BacklogUnits"/> and <see cref="BacklogEntries"/>. Allocation-free; never throws on the tick path. Not
 /// thread-safe: Sim tick thread only.
 /// </summary>
 /// <example>
@@ -276,4 +310,23 @@ public interface IInventoryApi
     /// <param name="slot">The player slot.</param>
     /// <returns>The speed share, the floor to 1000 (1000 for a none slot).</returns>
     int SpeedPermille(PlayerSlot slot);
+
+    /// <summary>
+    /// Appends one whole mail entry to the tail of the Intake backlog (story 021; ADR-0017 section 6; GDD R14): Mail calls it in phase 8
+    /// for the ids <see cref="Spawn"/> left unplaced. A new detached entry of <c>Ids.Length</c> units and its mailIds block are taken
+    /// (as <see cref="Spawn"/> takes them) and queued; the <c>IntakeDrain</c> phase places it later, whole, NoMerge, with a fresh
+    /// <c>arrivalSeq</c>. One call scope raising only <c>BacklogUnits</c>; no container changes, no seal. False with nothing mutated and
+    /// nothing raised for a malformed entry (a none or unknown kind, 0 or more than 255 ids, ids none or not strictly ascending), a
+    /// call outside a tick phase (counted by <c>TickGuard</c>), or an entry-pool or arena refusal, which writes the existing always-on
+    /// record (<c>InventoryEntryPoolExhausted</c> / <c>InventoryArenaExhausted</c>); the units stay Mail's.
+    /// </summary>
+    /// <param name="e">The entry.</param>
+    /// <returns>True when queued.</returns>
+    bool AppendBacklog(in BacklogEntry e);
+
+    /// <summary>The units in the Intake backlog (story 021): an O(1) memo, read-only, legal between ticks.</summary>
+    int BacklogUnits { get; }
+
+    /// <summary>The entries in the Intake backlog (story 021): an O(1) memo, read-only, legal between ticks. While it is not 0 nothing overtakes the backlog: <see cref="Spawn"/> into the Intake places nothing.</summary>
+    int BacklogEntries { get; }
 }

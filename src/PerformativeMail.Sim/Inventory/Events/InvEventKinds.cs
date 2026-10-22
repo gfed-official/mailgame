@@ -42,6 +42,9 @@ public static class InvEventKinds
 
     /// <summary><c>ItemsLost</c>: non-mail units were destroyed (a WorldItem expired, floated or was evicted; GDD R12).</summary>
     public const EventKind ItemsLost = (EventKind)0x0089;
+
+    /// <summary><c>BacklogUnits</c>: the Intake backlog's units and entries changed (an append or a drain pass, story 021), raised once per call scope after the Intake seal.</summary>
+    public const EventKind BacklogUnits = (EventKind)0x008A;
 }
 
 /// <summary>
@@ -91,9 +94,12 @@ public static class InvEventDescriptors
     /// <summary><see cref="InvEventKinds.ItemsLost"/>: 8 B, replicated.</summary>
     public static EventDescriptor ItemsLost { get; } = World<ItemsLostPayload>(InvEventKinds.ItemsLost);
 
+    /// <summary><see cref="InvEventKinds.BacklogUnits"/>: 4 B, replicated (codec id 0, TD-140).</summary>
+    public static EventDescriptor BacklogUnits { get; } = World<BacklogUnitsPayload>(InvEventKinds.BacklogUnits);
+
     /// <summary>Every inventory event descriptor, in ascending kind order.</summary>
     public static ImmutableArray<EventDescriptor> All { get; } = ImmutableArray.Create(
-        Inserted, Removed, Merged, Moved, SplitFrom, Version, WorldItemSpawned, WorldItemDespawned, WorldItemEntriesChanged, ItemsLost);
+        Inserted, Removed, Merged, Moved, SplitFrom, Version, WorldItemSpawned, WorldItemDespawned, WorldItemEntriesChanged, ItemsLost, BacklogUnits);
 
     private static EventDescriptor Of<T>(EventKind kind, bool coalescible)
         where T : unmanaged

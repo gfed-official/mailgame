@@ -1057,7 +1057,9 @@ public class WorldItemTests
         at += 3 * 4; // the three other FIFOs: empty
         Assert.Equal(1u, U32(sa, ref at)); // one tombstone: the picked-up letter
         Assert.Equal(ids[0].Value, U32(sa, ref at));
-        Assert.Equal(sa.Length, at + 4 + 1 + 4 + 4);
+        at += 4 + 1 + 4 + 4; // the tombstone's byActorId, cause, worldSeq, tick
+        Assert.Equal(0u, U32(sa, ref at)); // story 021: the backlog ring, empty
+        Assert.Equal(sa.Length, at);
 
         static (WorldItemRig, EntityId[]) History()
         {

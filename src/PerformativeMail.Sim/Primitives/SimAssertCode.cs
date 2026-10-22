@@ -254,4 +254,7 @@ public static class SimAssertCode
 
     /// <summary>The AutoPlace of a WorldItem pickup (<c>PickupCore</c>) or a catch (<c>IInventoryApi.TryCatch</c>) into the panel answered <c>not_allowed</c> or <c>not_carryable</c> (story grid-inventory/014). Unreachable at M-1a: every WorldItem or flight entry came from a hand-carried container or a mail spawn, and the hotbar and player_inventory admit both. Release treats it as no room: a pickup answers <c>no_room</c> with nothing changed, a catch fumbles the whole entry. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryPickupNotAdmitted = 81;
+
+    /// <summary>An Inventory return (expiry, water float or cap eviction) found the Intake backlog ring unable to take its detached mail entry (story grid-inventory/021). Unreachable: the ring's capacity is the entry pool's and every queued entry is a live detached pool slot. Release drops nothing: the WorldItem is kept. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryBacklogRingFull = 82;
 }
