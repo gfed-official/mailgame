@@ -11,8 +11,10 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <summary>
 /// Story grid-inventory/021 AC "Ring capacity": the backlog ring is preallocated at world build with capacity =
 /// <c>inventory.entryPoolCapacity</c>, the entry pool refuses before the ring can fill, and the unreachable full-ring case is
-/// <see cref="SimAssertCode.InventoryBacklogRingFull"/> (82) under <c>INVENTORY_ASSERT</c> while Release drops nothing and keeps the
-/// WorldItem. The full ring is reached through the test-only <see cref="BacklogRing.LimitForTests"/>. The 2,800-entry H-PERF fixture
+/// <see cref="SimAssertCode.InventoryBacklogRingFull"/> (82) under <c>INVENTORY_ASSERT</c>. Release queues nothing: an expiry keeps the
+/// WorldItem, a cap eviction keeps the letter's WorldItem and destroys the lowest plank instead (TD-158 item 8a), and a return keeps the
+/// entry the caller's. The full ring is reached through the test-only <see cref="BacklogRing.LimitForTests"/>; a queued entry offered
+/// again is refused before the append (<see cref="BacklogQueuedEntryTests"/>). The 2,800-entry H-PERF fixture
 /// fitting is <see cref="IntakeDrainTests.Drain_A2800EntryPass_IntoScattered1x1Holes_StaysWithin8500PlacementProbes_AndEntriesWalkedPlus1Visits"/>
 /// (every one of its 2,800 appends must succeed).
 /// </summary>

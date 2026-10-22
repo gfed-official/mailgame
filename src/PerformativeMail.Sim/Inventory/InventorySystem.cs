@@ -855,7 +855,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <summary>
     /// The pure half of <see cref="TryCatch"/> (story 014; ADR-0009 section 2): <c>bad_request</c> for a slot with no panel or an entry
-    /// that is not live and detached or is held by a WorldItem; then the panel AutoPlace (<see cref="PickupCore.PlanIntoPanel"/>, the
+    /// that is not live and detached, is held by a WorldItem or is queued on the backlog; then the panel AutoPlace (<see cref="PickupCore.PlanIntoPanel"/>, the
     /// pickup rows): <c>no_room</c> (and the unreachable <c>not_allowed</c> / <c>not_carryable</c>, asserted there) is a whole fumble with
     /// reason 0; a plan that moved units then takes the arena reservation of its mail merge union blocks, and a refusal there refuses the
     /// whole catch with <c>capacity_exhausted</c>, <c>{0, 0}</c>, nothing mutated (ADR-0009 section 5 l.157; TD-154 item 7); last, any
@@ -874,7 +874,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         var badRequest = new CatchResult(0, 0, (InvReason)InvReasons.BadRequest);
         if (!TryGetPanel(slot, out ushort hotbar, out ushort playerInventory)
             || !_entries.TryGetSlot(flight.Entry, out ushort entrySlot)
-            || _entries[entrySlot].ContainerSlot != EntryRecord.NoContainer || _worldItems.OwnsEntry(entrySlot))
+            || _entries[entrySlot].ContainerSlot != EntryRecord.NoContainer || _worldItems.OwnsEntry(entrySlot) || _backlog.Contains(entrySlot))
         {
             return badRequest;
         }
@@ -1062,7 +1062,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// (not accepting because the backlog is non-empty, with no probe; or no room, its no-fit facts recorded) is appended whole to the
     /// backlog tail in its own call scope (<c>BacklogUnits</c> only), and the call returns true: the entry is no longer the caller's.
     /// False with nothing changed when the entry is not a live detached entry, is held by a WorldItem (story 013 returns those itself),
-    /// the Intake refuses a non-mail entry (whitelist), or the call is outside a tick phase.
+    /// is queued on the backlog (review r1 B1), the Intake refuses a non-mail entry (whitelist), or the call is outside a tick phase.
     /// </summary>
     /// <param name="detachedEntrySlot">The entry's pool slot (allocated, in no container).</param>
     /// <param name="actor">The actor written into the seal.</param>
@@ -1233,6 +1233,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <param name="detachedEntrySlot">The entry's pool slot.</param>
     /// <returns>True when appendable.</returns>
     internal bool CanAppendDetached(ushort detachedEntrySlot) => _backlog.CanAppend(detachedEntrySlot);
+
+    /// <summary>True when <paramref name="entrySlot"/> is queued on the backlog (story 021 review r1 B1; <see cref="World.WorldItems.Create"/> refuses it).</summary>
+    /// <param name="entrySlot">An entry slot.</param>
+    /// <returns>True when queued.</returns>
+    internal bool IsQueued(ushort entrySlot) => _backlog.Contains(entrySlot);
 
     /// <inheritdoc />
     /// <remarks>
@@ -1441,9 +1446,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private bool IsWellFormedSpawn(ContainerId c, DefIndex mailKind, ReadOnlySpan<MailId> ids, out ushort slot) =>
         _containers.TryGetSlot(c, out slot) && !mailKind.IsNone && mailKind.Value < _content.MailKinds.Count && IsWellFormedIds(ids);
 
-    /// <summary>True for a live entry-pool slot in no container.</summary>
+    /// <summary>
+    /// True for a live entry-pool slot in no container and not queued on the backlog (review r1 B1: a queued entry is in the Backlog
+    /// ledger location, ADR-0009 l.169-170, so no detached-entry path may take it).
+    /// </summary>
     private bool IsDetached(ushort entrySlot) =>
-        entrySlot < _entries.Capacity && _entries[entrySlot].IsLive && _entries[entrySlot].ContainerSlot == EntryRecord.NoContainer;
+        entrySlot < _entries.Capacity && _entries[entrySlot].IsLive && _entries[entrySlot].ContainerSlot == EntryRecord.NoContainer
+        && !_backlog.Contains(entrySlot);
 
     /// <summary>Raises <c>BacklogUnits {units, entries}</c> (saturating) to every connected slot, in the caller's call scope (story 021).</summary>
     private void RaiseBacklogUnits()

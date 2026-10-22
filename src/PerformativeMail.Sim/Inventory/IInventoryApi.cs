@@ -200,7 +200,8 @@ public interface IInventoryApi
     /// origin (<see cref="WorldItemOrigin.BeltLeak"/>, <see cref="WorldItemOrigin.Spill"/>: M-1b), a <paramref name="createdTick"/> after
     /// the current tick, a <paramref name="createdTick"/> before the last creation's on the same expiry FIFO (Loot, on no FIFO, neither
     /// checks nor moves that order; a programming error, which also trips <c>SimAssertCode.InventoryWorldItemCreatedOutOfOrder</c> under
-    /// <c>INVENTORY_ASSERT</c>), an entry that is not live and detached or already in a WorldItem, or a full WorldItem table.
+    /// <c>INVENTORY_ASSERT</c>), an entry that is not live and detached, already in a WorldItem or queued on the Intake backlog, or a
+    /// full WorldItem table.
     /// <para>
     /// Callers must handle <see cref="EntityId.None"/>: no WorldItem was created, the entry stays detached and is still the caller's
     /// responsibility.
@@ -260,7 +261,7 @@ public interface IInventoryApi
     /// <c>CheckCode.InventoryArenaExhausted</c> record, ADR-0009 section 5 l.157); a catch that would fumble units while the WorldItem
     /// table is full (<c>capacity_exhausted</c> and one <c>CheckCode.InventoryWorldItemCapacity</c> record; Mail Lead planning default
     /// pending Evan, TD-154 item 7); <c>bad_request</c> outside a tick phase, for a slot with no panel, or an entry that is not live and
-    /// detached or is held by a WorldItem. No unit is ever lost.
+    /// detached, is held by a WorldItem or is queued on the Intake backlog (story 021). No unit is ever lost.
     /// </summary>
     /// <param name="slot">The catcher's slot.</param>
     /// <param name="flight">The flight's entry and the catcher's feet.</param>

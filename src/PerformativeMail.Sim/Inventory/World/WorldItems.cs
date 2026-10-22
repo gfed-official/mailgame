@@ -156,7 +156,7 @@ internal sealed class WorldItems
     /// <summary>
     /// Creates a WorldItem holding the detached entry <paramref name="entry"/> (see <c>IInventoryApi.CreateWorldItem</c>). None, with
     /// nothing changed, outside a tick phase, without an id allocator, for a reserved origin, a <paramref name="createdTick"/> after
-    /// now, an entry that is not live and detached or already in a WorldItem, a <paramref name="createdTick"/> before the last
+    /// now, an entry that is not live and detached, already in a WorldItem or queued on the backlog, a <paramref name="createdTick"/> before the last
     /// creation's on the same FIFO (<see cref="SimAssertCode.InventoryWorldItemCreatedOutOfOrder"/> under <c>INVENTORY_ASSERT</c>; Loot,
     /// on no FIFO, neither checks nor moves it), a full table (one <see cref="CheckCode.InventoryWorldItemCapacity"/> record) or an id
     /// refusal.
@@ -172,7 +172,7 @@ internal sealed class WorldItems
         if ((origin != WorldItemOrigin.Dropped && origin != WorldItemOrigin.Thrown && origin != WorldItemOrigin.Loot)
             || createdTick > now
             || !_entries.TryGetSlot(entry, out ushort entrySlot) || _entries[entrySlot].ContainerSlot != EntryRecord.NoContainer
-            || OwnsEntry(entrySlot))
+            || OwnsEntry(entrySlot) || _system.IsQueued(entrySlot))
         {
             return EntityId.None;
         }
