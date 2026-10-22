@@ -133,7 +133,7 @@ Per unit, oldest first, inside the caller's phase:
 
 ### 6. Backlog (R11, TR-mail-009): Mail feeds, Inventory stores and drains
 
-- The queue's **storage** is Inventory's (`Sim/Inventory/Backlog`): an append-ordered ring of whole entries, O(1) append, with ADR-0025's per-footprint sub-queues inside.
+- The queue's **storage** is Inventory's (`Sim/Inventory/Backlog`): an append-ordered ring of whole entries, O(1) append, with ADR-0025's per-footprint sub-queues inside once that ADR is written; M-1a ships one ring with the drain's skip rule (erratum 2026-10-22).
 - Mail appends whole entries in manifest order through a downward call, `IInventoryApi.AppendBacklog(in BacklogEntry)`, in phase 8 at the batch tick, for units that did not fit the Intake. Units cross into the ledger's `Backlog` state there (ADR-0009).
 - The drain is Inventory's phase 2 (≤ 32 per tick, append order, 0 probes when idle; ADR-0009).
 - Mail reads `BacklogUnits`/`BacklogEntries` through `IInventoryApi` and publishes `backlogUnits` (u16, saturating) in `MailShiftStats` for HUD.
@@ -228,6 +228,13 @@ public interface IMailApi
     void SetDeliveriesState(bool open, uint closeTick, ulong unlockedDistrictMask); // Run only
     bool TryGetDestinationFacts(EntityId dest, out DestinationFacts f);
 }
+
+// Inventory side of §6 (namespace PerformativeMail.Sim.Inventory, members of ADR-0009's IInventoryApi); erratum 2026-10-22
+public readonly ref struct BacklogEntry      // 1–255 strictly ascending ids of one mail kind, address and flags
+{ public BacklogEntry(DefIndex mailKind, uint addressId, byte flags, ReadOnlySpan<MailId> ids); }
+//  bool AppendBacklog(in BacklogEntry e);   // phase 8; false + nothing mutated on malformed input, out of phase, or a pool/arena refusal (units stay Mail's)
+//  int BacklogUnits { get; }                // units in the backlog
+//  int BacklogEntries { get; }              // entries in the backlog
 ```
 
 ### Implementation Guidelines
@@ -338,3 +345,4 @@ Feeders at M-1b; Economy replaces the stub when its GDD and ADR land.
 - 2026-10-17 — Key Interfaces and §4 helper list: the sketch omitted `MailPay.Timeliness`, `LateValueRatioPm`, `HintPayout`, `HintPenalty` and the `HintRun` struct; now listed with their shipped signatures; source TD-096 item 1.
 - 2026-10-17 — Key Interfaces: `DestinationFacts` lacked `ulong AcceptsMask` and `bool RequiresUnit` (and its public ctor); `UnitFacts.Flags` was `byte`, shipped as `MailFlags`; `DeliveriesStateRules.Effective(districtUnlocked, openNow, closeTick, actionStartTick?, applyTick, closeGraceTicks)` was missing; now listed. `MailRules.Evaluate` already matched; source TD-096, TD-092.
 - 2026-10-20 — Key Interfaces and Implementation Guidelines: the namespace was `PerformativeMail.Sim.Mail` (and `PerformativeMail.Sim.Mail.Ports`); now **`PerformativeMail.Sim.MailDestinations`** (tests `PerformativeMail.Sim.Tests.Unit.MailDestinations`), as shipped by mail-destinations story 001, because a `Sim.Mail` namespace shadows `Content.Rules.Mail` / `BalanceKeys.Mail`; the folder stays `src/PerformativeMail.Sim/Mail/`. The not-yet-built ports namespace follows suit: `PerformativeMail.Sim.MailDestinations.Ports` (mail-destinations story 005). The "Mail never references Economy" arch test keys on `PerformativeMail.Sim.MailDestinations*` (or the `Mail/` folder) so it cannot pass vacuously. **Accepted by Evan 2026-10-20** (owner ruling in chat, 22:49 PT); source TD-074 item 1.
+- 2026-10-22 — §6 and Key Interfaces (owner-approved by Evan 2026-10-22 2:24 PM PT, "to all recommended decisions"; text only, no Decision change, ADR stays Accepted): §6 l.136 "with ADR-0025's per-footprint sub-queues inside" now reads "… inside once that ADR is written; M-1a ships one ring with the drain's skip rule". Key Interfaces gain the backlog shapes §6 names but never defined, as built by grid-inventory 021: `readonly ref struct BacklogEntry(DefIndex MailKind, uint AddressId, byte Flags, ReadOnlySpan<MailId> Ids)` (1–255 strictly ascending ids), `bool AppendBacklog(in BacklogEntry)`, `int BacklogUnits`, `int BacklogEntries` (members of ADR-0009's `IInventoryApi`); source TD-157 items 1–2.

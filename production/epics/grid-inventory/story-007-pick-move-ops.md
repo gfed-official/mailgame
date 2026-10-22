@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1 day)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (Complete, PR #31; readiness fixes; H-R10-2 move leg taken from story 011; TD-105 item 3 built on the Mail Lead default `count 0 = whole` per Accepted ADR-0009 §1, pending Evan)
+> **Last Updated**: 2026-10-22 (Evan's approval of 2:24 PM PT recorded, docs only: the Mail Lead planning defaults below are now Evan's rulings). Before that: 2026-10-22 (Complete, PR #31; readiness fixes; H-R10-2 move leg taken from story 011; TD-105 item 3 built on the Mail Lead default `count 0 = whole` per Accepted ADR-0009 §1, pending Evan)
 
 ## Context
 
@@ -53,7 +53,7 @@
 *Derived from the governing ADR(s) Decision / Implementation Guidelines:*
 
 - Location: `src/PerformativeMail.Sim/Inventory/Ops/PickHandler.cs`, `MoveHandler.cs`.
-- `Move` with `count = 0` or `count == total` (whole) is this story (ADR-0009 §1 "0 = whole"; GDD l.103/l.343 say `count = 0` → `bad_count`: GDD errata pending Evan, TD-105 item 3); `count < total` (split-and-place) and the hotbar swap are story 008 — keep one `MoveHandler` and add those branches there.
+- `Move` with `count = 0` or `count == total` (whole) is this story (ADR-0009 §1 "0 = whole"; GDD l.103/l.343 say `count = 0` → `bad_count`: GDD errata approved by Evan 2026-10-22 2:24 PM PT, rule-text fold pending, TD-105 item 3); `count < total` (split-and-place) and the hotbar swap are story 008 — keep one `MoveHandler` and add those branches there.
 - "Place" is `move` from the cursor; there is no `place` kind. A `move` whose `to` is the cursor is an ordinary slots destination.
 - Pick chain: `bad_request → not_open → stale_entry → cursor_busy`; commit `Transfer(entry, cursorSlot, 0, 0, false)`. A bulk / `carryByHand: false` pick is dormant at M-1a and undeclared on Pick (TD-105 item 4).
 - Commit uses the existing primitives: cross-container = `InventoryMutator.Transfer` (Remove then Place), in-container = `Transfer`'s same-container path (it treats the source's own cells as free, so H-R4-2 a works, and returns before marking a no-op). Onto a mergeable stack = `MergeInto(min(count, effMax − target.count))`, with the block reserved in Validate (`plan.AddAcquiredBlock`); the remainder stays at the source with its id, a full target → `stack_full`. Weight, `StackIndex` and `ItemCountIndex` are kept inside the primitives; the handlers add nothing for them.
@@ -99,9 +99,9 @@
 
 ---
 
-## Mail Lead planning defaults (pending Evan)
+## Approved defaults (Evan, 2026-10-22 2:24 PM PT)
 
-Items 1–3 are **Mail Lead planning defaults, 2026-10-22, pending Evan's confirmation. None of them is an Evan ruling.** Item 4 is settled by an Evan ruling, relayed via Mail Review. All four are tracked in TD-150.
+Items 1–3 were Mail Lead planning defaults of 2026-10-22; **Evan approved them on 2026-10-22 at 2:24 PM PT** ("to all recommended decisions", Mail Lead chat), so they are now Evan's rulings. Item 4 is settled by an Evan ruling, relayed via Mail Review. All four are tracked in TD-150.
 
 1. `count = 0` and `count == total` both move the whole entry, which keeps its id. This follows Accepted ADR-0009 §1 (TD-105 item 3). `count > total` → `bad_count`. A GDD errata note is added at the edge cases; the GDD rule text is unchanged and the ADR is not edited.
 2. A partial-fit implicit merge moves `min(count, effMax − target.count)` units. The remainder stays at the source and keeps its id. A full target → `stack_full`.

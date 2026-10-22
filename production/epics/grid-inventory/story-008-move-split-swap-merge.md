@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1 day)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (implemented, PR #32; readiness fixes against story 007 as merged)
+> **Last Updated**: 2026-10-22 (Evan's approval of 2:24 PM PT recorded, docs only: the Mail Lead planning defaults below are now Evan's rulings). Before that: 2026-10-22 (implemented, PR #32; readiness fixes against story 007 as merged)
 
 ## Context
 
@@ -35,7 +35,7 @@
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
 - [x] **H-R4-2 c/d** — c: A = 10 letters at (0,0), `move {A, count: 4 → (0,0)}` (split onto own cells) → `blocked`; d (swap): hotbar slot 1 = Axe, cursor = 3 letters, `move {cursor → hotbar, x: 1}` → `ok`, slot 1 = the letters, cursor = the Axe, hotbar +1 and cursor +1 (one bump per touched container, the story 007 / TD-150 item 3 pattern), no other container; the same onto an occupied **grid** cell → `blocked` (no grid swap); slot 1 = 20 letters to #3 and the cursor 2 letters to #3 → `stack_full`, no swap.
-- [x] **Split-and-place** — `move {A (7 letters [ids 1..7]), count 3 → free cell}` → a new entry with a new entryId holding `[1,2,3]`, A keeps its id with `[4..7]`, one version bump per touched container; `count > total` → `bad_count`; `count` 0 or `== total` stays story 007's whole move and keeps its id (replace 007's "until 008" `bad_count` test). A split onto a mergeable stack is a partial merge of `min(count, room)` with no new entry. If the mail-id arena cannot reserve the new block, or the entry pool is full / out of ids, → `capacity_exhausted` (reason code from ADR-0009 §2) and the entry stays where it is (on the cursor for a place, as AutoPlace and `TryInsert`). The entry staying put on a refused split, for the arena and for the pool, is a Mail Lead planning default pending Evan (TD-152); it follows the pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers only a leashed letter staying on the cursor when the mail-id arena is full.
+- [x] **Split-and-place** — `move {A (7 letters [ids 1..7]), count 3 → free cell}` → a new entry with a new entryId holding `[1,2,3]`, A keeps its id with `[4..7]`, one version bump per touched container; `count > total` → `bad_count`; `count` 0 or `== total` stays story 007's whole move and keeps its id (replace 007's "until 008" `bad_count` test). A split onto a mergeable stack is a partial merge of `min(count, room)` with no new entry. If the mail-id arena cannot reserve the new block, or the entry pool is full / out of ids, → `capacity_exhausted` (reason code from ADR-0009 §2) and the entry stays where it is (on the cursor for a place, as AutoPlace and `TryInsert`). The entry staying put on a refused split, for the arena and for the pool, is approved by Evan 2026-10-22 2:24 PM PT (formerly a Mail Lead planning default, TD-152); it follows the pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers only a leashed letter staying on the cursor when the mail-id arena is full.
 - [x] **H-R7-3** — T = 18 letters to #5, S = 5 to #5: `merge {S → T}` → T 20, S 3 in place, both versions +1 (same container: +1 once); again → `stack_full`; S' = 5 to #6 onto T → `blocked`.
 - [x] **H-R4-3 c** — `merge {A → A}` → `blocked`, A unchanged, version unchanged.
 - [x] **H-R6-1 b (op form)** — `merge {A [4,9,15,21,30] → B [2,50]}` → B `[2,4,9,15,21,30,50]`, A removed; every destination list ascending, no duplicate id.
@@ -94,13 +94,13 @@
 
 ---
 
-## Mail Lead defaults (pending Evan — to be settled with Evan; TD-152)
+## Approved defaults (Evan, 2026-10-22 2:24 PM PT; TD-152)
 
-These are Mail Lead planning defaults, 2026-10-22, not Evan's rulings:
+These were Mail Lead planning defaults of 2026-10-22; **Evan approved them on 2026-10-22 at 2:24 PM PT** ("to all recommended decisions", Mail Lead chat), so they are now Evan's rulings:
 
 1. **Merge precedence** uses the declared-reasons chain `bad_request → container_gone → not_open (from and to) → stale_entry (entry, then target) → not_allowed → blocked → stack_full → capacity_exhausted`, with a GDD errata note at `design/gdd/grid-inventory.md` l.103. `container_gone` sits before `not_open` per GDD l.379 / H-X-4 l.817; the Merge precedence AC above matches. Move, Pick and QuickMove keep `not_open` first (unchanged; logged follow-up in TD-152).
 2. **A swap bumps each touched container once** (hotbar +1, cursor +1).
-3. **A refused split (entry pool full / out of ids, or the mail-id arena cannot reserve the new block) → `capacity_exhausted`** (code from ADR-0009 §2), the entry stays put. Evan's 2026-10-22 5:11 AM PT ruling covers only a leashed letter staying on the cursor when the mail-id arena is full; a split follows the same pattern, but as a Mail Lead default pending Evan.
+3. **A refused split (entry pool full / out of ids, or the mail-id arena cannot reserve the new block) → `capacity_exhausted`** (code from ADR-0009 §2), the entry stays put. Evan's 2026-10-22 5:11 AM PT ruling covers only a leashed letter staying on the cursor when the mail-id arena is full; a split follows the same pattern, as a default approved by Evan 2026-10-22 2:24 PM PT.
 
 ---
 
