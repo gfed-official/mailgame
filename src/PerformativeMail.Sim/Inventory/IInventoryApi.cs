@@ -75,7 +75,8 @@ public enum ConsumeReason : byte
 /// the shared <c>InventoryMutator</c>, with the same records and one <c>InvVersion</c> seal per changed container as an op, and no
 /// reply. Mutating calls are legal only inside a tick phase (<c>TickGuard</c>); an illegal call is refused with nothing mutated and
 /// no event. Story 013 adds <see cref="CreateWorldItem"/>; story 015 adds <see cref="ConsumeUnit"/>, <see cref="DetachForThrow"/>,
-/// <see cref="TryInsert"/> (mail form) and <see cref="CountItem"/>; story 021 the backlog members. Allocation-free; never throws on the tick path. Not
+/// <see cref="TryInsert"/> (mail form) and <see cref="CountItem"/>; story 016 <see cref="WeightPoints"/> and <see cref="SpeedPermille"/>
+/// (not in the ADR-0009 sketch: TD-148); story 021 the backlog members. Allocation-free; never throws on the tick path. Not
 /// thread-safe: Sim tick thread only.
 /// </summary>
 /// <example>
@@ -210,4 +211,24 @@ public interface IInventoryApi
     /// <param name="itemId">The item def.</param>
     /// <returns>The total units (0 for a none def).</returns>
     int CountItem(ReadOnlySpan<ContainerId> cs, DefIndex itemId);
+
+    /// <summary>
+    /// The weight points <c>P</c> of <paramref name="slot"/>'s counted containers (story 016; GDD R16, D1): the class points of every
+    /// entry in a container the slot owns (hotbar, player_inventory, cursor), once per entry whatever its count. Maintained by the
+    /// mutator in O(1) per mutation; a detached entry does not count. Saturates at <see cref="short.MaxValue"/> (unreachable at the
+    /// shipped knobs), which asserts <c>SimAssertCode.InventoryWeightPointsSaturated</c> (79) under <c>INVENTORY_ASSERT</c>. Read-only:
+    /// legal between ticks. A derived memo, not in the canonical dump.
+    /// </summary>
+    /// <param name="slot">The player slot.</param>
+    /// <returns>The points (0 for a none slot).</returns>
+    short WeightPoints(PlayerSlot slot);
+
+    /// <summary>
+    /// D1's carrier speed share of <paramref name="slot"/> in permille (story 016): <c>1000 - min(ptsPermille x P, 1000 - floor) x
+    /// WeightPenaltyPm / 1000</c>, one truncating division, with <c>WeightPenaltyPm</c> read through the stat sheet for the slot (Strong
+    /// Back). Player Character applies it (<c>CarrierSpeed.Final</c>). Read-only: legal between ticks.
+    /// </summary>
+    /// <param name="slot">The player slot.</param>
+    /// <returns>The speed share, the floor to 1000 (1000 for a none slot).</returns>
+    int SpeedPermille(PlayerSlot slot);
 }

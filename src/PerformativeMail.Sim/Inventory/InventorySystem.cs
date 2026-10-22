@@ -32,7 +32,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// It implements and publishes <see cref="IInventoryApi"/> (story 012; ADR-0009 Key Interfaces as implemented, ADR-0003 section 5) for
 /// the systems that declare Grid Inventory a dependency in <c>SystemGraph</c> (<c>context.Api&lt;IInventoryApi&gt;(SystemId.GridInventory)</c>):
 /// <see cref="Spawn"/>, <see cref="PeekOutfeed"/>, <see cref="TakeUnit"/>, <see cref="CreateWorldItem"/> (story 013),
-/// <see cref="ConsumeUnit"/>, <see cref="DetachForThrow"/>, <see cref="TryInsert"/> and <see cref="CountItem"/> (story 015), plus the
+/// <see cref="ConsumeUnit"/>, <see cref="DetachForThrow"/>, <see cref="TryInsert"/> and <see cref="CountItem"/> (story 015),
+/// <see cref="WeightPoints"/> and <see cref="SpeedPermille"/> (story 016), plus the
 /// internal <see cref="ReturnToIntake"/> (callers story 013 and the backlog, story 021). The mutating calls check the tick guard (<see cref="TickGuard"/>, through the injected
 /// <see cref="ITickReader"/>) and run through the same <see cref="Mutator"/> as the op handlers, each in its own call scope and
 /// <c>Begin</c>/<c>End</c> bracket. They allocate nothing and never throw on the tick path.
@@ -180,7 +181,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         // Story 015: the itemId -> units index CountItem reads (keys sized from the entry pool), maintained by the mutator's primitives.
         var itemCounts = new ItemCountIndex(_entries.Capacity, _containers.Capacity, facade.Counters);
-        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, slots);
+        // Story 016: the per-slot weight points memo, its class points read once from the settings.
+        var weight = new Weight(content, settings);
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, weight, slots);
         _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
 
         // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
@@ -248,6 +251,28 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <summary>The hotbar of <paramref name="slot"/>, or none when the slot has no containers.</summary>
     /// <param name="slot">The player slot.</param>
     public ContainerId HotbarOf(PlayerSlot slot) => slot.IsNone ? default : _panels[slot.Value].Hotbar;
+
+    /// <inheritdoc />
+    /// <remarks>Reads the mutator's per-slot memo (<see cref="Weight.Points"/>); 0 for a none or out-of-range slot.</remarks>
+    public short WeightPoints(PlayerSlot slot) => slot.IsNone || slot.Value >= PlayerSlot.Count ? (short)0 : _mutator.Weight.Points(slot.Value);
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// D1 (<see cref="Weight.SpeedPermille(int, int, int, int, ref SimCounterSink)"/>) over the memo's <see cref="int"/>
+    /// accumulator (not the saturated <see cref="WeightPoints"/>), the settings' <c>ptsPermille</c> and floor, and
+    /// <c>IStatSheet.Read(Stat.WeightPenaltyPm, slot: slot)</c>; 1000 for a none or out-of-range slot.
+    /// </remarks>
+    public int SpeedPermille(PlayerSlot slot)
+    {
+        if (slot.IsNone || slot.Value >= PlayerSlot.Count)
+        {
+            return Weight.Unit;
+        }
+
+        int penaltyPm = _stats.Read(Stat.WeightPenaltyPm, slot: slot);
+        SimCounterSink sink = _events.Counters.PrimitiveSink();
+        return Weight.SpeedPermille(_mutator.Weight.RawPoints(slot.Value), _settings.PtsPermille, _settings.WeightSpeedFloor, penaltyPm, ref sink);
+    }
 
     /// <summary>The player inventory of <paramref name="slot"/>, or none when the slot has no containers.</summary>
     /// <param name="slot">The player slot.</param>
