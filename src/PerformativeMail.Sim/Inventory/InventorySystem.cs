@@ -436,7 +436,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         builder.Bind(PhaseId.ItemsExpire, new ItemsExpirePhase(_worldItems));
         builder.Bind(PhaseId.IntakeDrain, new IntakeDrainPhase(this));
         builder.BindTickEnd(_conservation);
-        builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems, _backlog, _entries));
+        builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems, _backlog, _entries, this));
         builder.BindPlayerJoinListener(this);
         foreach (EventDescriptor descriptor in InvEventDescriptors.All)
         {
