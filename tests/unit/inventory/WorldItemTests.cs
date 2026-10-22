@@ -626,8 +626,9 @@ public class WorldItemTests
         Assert.Equal(513, record.A);
         Assert.Equal(512, record.B);
 
-        // Act 2: tick 1300 (the first letters are exactly 300 ticks old, not yet older than 10 s), then tick 1301 (301 ticks old:
-        // strictly older than 10 s, Mail Lead ruling 2026-10-21)
+        // Act 2: AdvanceTo(1301) runs tick 1300, where the head letters (created at 1000) are exactly 300 ticks old: not a cap
+        // candidate (age must be strictly greater than 300, Mail Lead ruling 2026-10-21) and no non-mail exists, so the count stays
+        // 513; then tick 1301, age 301: evicted to the Intake. This pins the boundary (age 300 not, 301 yes) exactly.
         w.AdvanceTo(1301);
         int at1300 = w.World.LiveCount;
         EventEntry[] log = w.RunTick(1301);

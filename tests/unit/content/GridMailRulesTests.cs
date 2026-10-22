@@ -384,10 +384,13 @@ public class GridMailRulesTests
 
     [Theory]
     [Trait("Id", "CDD-VAL-1")]
-    [InlineData(300_000, 1)]
     [InlineData(300_001, 1)]
-    [InlineData(299_999, 0)]
-    public void Grd06_EvictAgeAtOrAboveTheDespawn_Warns(int evictMs, int warnings)
+    [InlineData(300_000, 1)]
+    [InlineData(299_999, 1)] // 8999 ticks: eligible from c + 9000, the tick it expires (phase 1 first)
+    [InlineData(299_967, 1)] // 8999 ticks: the smallest that warns
+    [InlineData(299_966, 0)] // 8998 ticks: evictable at c + 8999, the largest that does not warn
+    [InlineData(10_000, 0)]
+    public void Grd06_NoEvictionWindow_MinAgeTicksPlus1AtOrAboveTheDespawnTicks_Warns(int evictMs, int warnings)
     {
         ValidationResult r = Run(ContentFixtures.MinimalValid().WithBalance("inventory.capEvictMinAgeSeconds", evictMs));
 
