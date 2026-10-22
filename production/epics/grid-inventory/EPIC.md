@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–013, 015 and 016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32; 010 in PR #33, open, not merged). Next: 014; 017 waits on 014 (Ready, unbuilt) (013 also unblocks 020). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–013, 015 and 016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33). Next: 014; 017 waits on 014 (Ready, unbuilt) (013 also unblocks 020). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
