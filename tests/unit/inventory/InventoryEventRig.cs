@@ -911,15 +911,19 @@ internal sealed class InvAutoPlaceRig
     /// <summary>Enqueues <paramref name="op"/> (a real op) for <paramref name="actor"/>, ticks once and returns that tick's log.</summary>
     public EventEntry[] Run(ActorId actor, in Op op)
     {
+        int before = Sink.Ticks.Count;
         Assert.True(Host.World.EnqueueOp(actor, in op));
         Host.World.Tick();
+        Assert.Equal(before + 1, Sink.Ticks.Count); // capture was on: the log is this tick's, not an older one (Review r1 advisory 6)
         return Sink.Last;
     }
 
-    /// <summary>Enqueues the fixture op for player A, ticks once and returns that tick's log.</summary>
+    /// <summary>Enqueues the fixture op for player A, ticks once and returns that tick's log (capture must be on).</summary>
     public EventEntry[] RunTick()
     {
+        int before = Sink.Ticks.Count;
         TickOnce();
+        Assert.Equal(before + 1, Sink.Ticks.Count); // capture was on: the log is this tick's, not an older one (Review r1 advisory 6)
         return Sink.Last;
     }
 

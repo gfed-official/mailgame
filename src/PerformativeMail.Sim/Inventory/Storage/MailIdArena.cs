@@ -196,6 +196,26 @@ public sealed class MailIdArena
     /// <returns>True when all of them can be acquired.</returns>
     public bool CanReserve(ReadOnlySpan<ushort> runUnits) => CanReserveCore(runUnits);
 
+    /// <summary>
+    /// Writes the one <see cref="CheckCode.InventoryArenaExhausted"/> record an API caller refused by a
+    /// <see cref="CanReserve(ReadOnlySpan{ushort})"/> dry run gets (ADR-0009 section 5: "<c>false</c> plus an always-on record"; story
+    /// grid-inventory/014's <c>TryCatch</c>), with a real acquire failure's payload: a = the largest block of <paramref name="runUnits"/>,
+    /// b = its fitting class (<see cref="ClassCount"/> when it is over <see cref="MaxUnits"/>). Reserves and mutates nothing else, subject
+    /// to the ring's rate limit, allocation-free. The caller writes it after its Validate refused, outside Validate.
+    /// </summary>
+    /// <param name="runUnits">The refused reservation's block sizes.</param>
+    /// <param name="tick">The current tick (for the check record).</param>
+    public void RecordReservationRefusal(ReadOnlySpan<ushort> runUnits, uint tick)
+    {
+        int units = 0;
+        for (int i = 0; i < runUnits.Length; i++)
+        {
+            units = Math.Max(units, runUnits[i]);
+        }
+
+        _ring.Record(CheckCode.InventoryArenaExhausted, tick, units, units > MaxUnits ? ClassCount : ClassFor(units));
+    }
+
     private bool CanReserveCore<T>(ReadOnlySpan<T> runUnits)
         where T : struct, IBinaryInteger<T>
     {

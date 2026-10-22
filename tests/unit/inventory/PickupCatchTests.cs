@@ -496,27 +496,45 @@ public class PickupCatchTests
     }
 
     [Fact]
-    public void Catch_ArenaRefusesTheMailMergeUnionBlock_TheWholeCatchFumbles_0AndN_CapacityExhausted_NoUnitLost()
+    public void Catch_ArenaRefusesTheMailMergeUnionBlock_RefusedWhole_CapacityExhausted_0And0_NothingMutated_EntryStaysDetached_OneArenaRecord()
     {
-        // Arrange: a minimum arena; a 10-letter #4 stack on hotbar slot 1; the flight entry of 5; then the arena exhausted
+        // Arrange: a minimum arena; a 10-letter #4 stack on hotbar slot 1; the flight entry of 5; then the arena exhausted, and the
+        // arena record's rate-limit window left behind so the catch's record is stored
         var p = new PickupRig(mailIdArenaUnits: MailIdArena.MinTotalUnits);
         ushort stack = p.R.PlaceMail(p.Hotbar(0), "letter", 1, 0, Address, PickupRig.Ids(1, 10));
         ushort flight = p.Letters(101, 5);
         EntryId id = p.R.Entries[flight].Id;
         p.ExhaustArena();
+        SimCheckRing ring = p.R.Host.World.CheckRing;
+        p.AdvanceTo(p.W.Now + (uint)ring.RateLimitTicks);
+        List<long> before = p.Storage();
         uint hotbarV = p.R.Header(p.Hotbar(0)).Version;
+        uint inventoryV = p.R.Header(p.Inventory(0)).Version;
+        long writes = ring.Count + (long)ring.Overwritten;
 
         // Act
         CatchResult r = p.Catch(0, flight);
+        uint tick = p.W.Now - 1;
 
-        // Assert: nothing went in, the entry (its own block, same id) is the fumble WorldItem
-        Assert.Equal(new CatchResult(0, 5, InvReason.CapacityExhausted), r);
+        // Assert: ADR-0009 section 5, nothing mutated and an always-on record: no WorldItem, no worldSeq bump, no event, the entry
+        // still live, detached, unowned, with its id and ids
+        Assert.Equal(new CatchResult(0, 0, InvReason.CapacityExhausted), r);
+        Assert.Equal(before, p.Storage());
         Assert.Equal(10, p.R.Entries[stack].Count);
         Assert.Equal(hotbarV, p.R.Header(p.Hotbar(0)).Version);
-        ushort ws = p.WorldItemHolding(flight);
-        Assert.Equal(WorldItemOrigin.Thrown, p.World.Table[ws].Origin);
+        Assert.Equal(inventoryV, p.R.Header(p.Inventory(0)).Version);
+        Assert.True(p.R.Entries[flight].IsLive);
+        Assert.Equal(EntryRecord.NoContainer, p.R.Entries[flight].ContainerSlot);
+        Assert.False(p.World.OwnsEntry(flight));
         Assert.Equal(id, p.R.Entries[flight].Id);
         Assert.Equal(PickupRig.Ids(101, 5), p.R.IdsOf(flight));
+        Assert.DoesNotContain(p.R.Sink.Last, PickupRig.IsInventoryRecord);
+        Assert.Equal(writes + 1, ring.Count + (long)ring.Overwritten);
+        SimCheckRecord record = p.LastCheck();
+        Assert.Equal((ushort)CheckCode.InventoryArenaExhausted, record.Code);
+        Assert.Equal(tick, record.Tick);
+        Assert.Equal(15, record.A); // the union block: 10 + 5 units
+        Assert.Equal(MailIdArena.ClassFor(15), record.B);
     }
 
     [Fact]
@@ -774,7 +792,8 @@ public class PickupCatchTests
 
         // Assert
         Reply reply = InvAutoPlaceRig.ReplyOf(log);
-        Assert.False(reply.IsOk && refusal != "floating");
+        Assert.False(reply.IsOk);
+        Assert.Equal(refusal == "floating" ? CoreReason.BadRequest : PickupRig.ReasonOf(refusal), reply.Reason); // TD-155 item 5
         Assert.Equal(refusal == "floating" ? PickupVerdict.Floating : PickupVerdict.Refused, p.Handler.Last.Verdict);
         Assert.Equal(PickupRig.ReasonOf(refusal), p.Handler.Last.Reason);
         Assert.DoesNotContain(log, PickupRig.IsInventoryRecord);
@@ -806,6 +825,315 @@ public class PickupCatchTests
         Assert.DoesNotContain(badLog, PickupRig.IsInventoryRecord);
     }
 
+    // ---------------------------------------------------------------- precedence (ADR-0009 Implementation Guidelines l.226)
+
+    /// <summary>
+    /// The core chain (TD-154 item 5, Mail Lead planning default pending Evan) answers the earliest step when a request violates it and
+    /// every later step that can co-occur, on slots 0 and 1, through the test handler and through <see cref="PickupCore.Apply"/>
+    /// directly (which also reaches the core's own namespace check, shadowed in the handler by <c>CheckRequest</c>). Every row but
+    /// <c>capacity_exhausted</c> has the asker's panel full (<c>no_room</c>) and the arena exhausted (a refused plan reserves nothing, so
+    /// <c>no_room</c> and <c>capacity_exhausted</c> cannot both answer; the exhausted arena kills a reservation checked before the plan):
+    /// <c>bad_request</c> (the other slot's temp entry id on a live-tombstoned WorldItem); <c>container_gone</c> (a live tombstone, a
+    /// foreign live <c>entryId</c>); <c>stale_entry</c> (a foreign live <c>entryId</c> on a floating WorldItem); floating; <c>no_room</c>;
+    /// <c>capacity_exhausted</c> (a letter merge). The handler replies <c>bad_request</c> for the floating verdict (TD-155 item 5).
+    /// </summary>
+    [Theory]
+    [InlineData("bad_request", 0)]
+    [InlineData("bad_request", 1)]
+    [InlineData("container_gone", 0)]
+    [InlineData("container_gone", 1)]
+    [InlineData("stale_entry", 0)]
+    [InlineData("stale_entry", 1)]
+    [InlineData("floating", 0)]
+    [InlineData("floating", 1)]
+    [InlineData("no_room", 0)]
+    [InlineData("no_room", 1)]
+    [InlineData("capacity_exhausted", 0)]
+    [InlineData("capacity_exhausted", 1)]
+    public void Pickup_Precedence_RequestViolatingThisStepAndEveryLaterOne_ReturnsThisStep(string row, int slot)
+    {
+        // Arrange
+        var p = new PickupRig(mailIdArenaUnits: MailIdArena.MinTotalUnits);
+        ActorId asker = slot == 0 ? p.A : p.B;
+        ActorId other = slot == 0 ? p.B : p.A;
+        EntityId item = p.Drop(p.Letters(101, 5), onWater: row is "stale_entry" or "floating");
+        if (row is "bad_request" or "container_gone")
+        {
+            Assert.True(InvAutoPlaceRig.ReplyOf(p.Pickup(other, item)).IsOk);
+        }
+
+        uint foreign;
+        if (row == "capacity_exhausted")
+        {
+            foreign = p.R.Entries[p.R.PlaceMail(p.Hotbar(slot), "letter", 1, 0, Address, PickupRig.Ids(1, 10))].Id.Value;
+        }
+        else
+        {
+            foreign = p.R.Entries[p.R.PlaceItem(p.Hotbar(slot), "axe", 1, 0, 1)].Id.Value;
+            p.FillHotbar(slot, from: 2);
+            p.FillInventory(slot);
+        }
+
+        p.ExhaustArena();
+        uint entry = row switch
+        {
+            "bad_request" => EntryId.Temp(PlayerSlot.FromValue((byte)(1 - slot)), 1).Value,
+            "container_gone" or "stale_entry" => foreign,
+            _ => 0u,
+        };
+        PickupVerdict verdict = row == "floating" ? PickupVerdict.Floating : PickupVerdict.Refused;
+        ushort reason = PickupRig.ReasonOf(row);
+        List<long> before = p.Storage();
+
+        // Act
+        EventEntry[] log = p.Pickup(asker, item, entry);
+        PickupResult handled = p.Handler.Last;
+        PickupResult core = p.Core(asker, item, entry, out _);
+        EventEntry[] coreLog = p.R.Sink.Last;
+
+        // Assert
+        Reply reply = InvAutoPlaceRig.ReplyOf(log);
+        Assert.False(reply.IsOk);
+        Assert.Equal(row == "floating" ? CoreReason.BadRequest : reason, reply.Reason);
+        Assert.Equal(verdict, handled.Verdict);
+        Assert.Equal(reason, handled.Reason);
+        Assert.Equal(verdict, core.Verdict);
+        Assert.Equal(reason, core.Reason);
+        if (row == "container_gone")
+        {
+            Assert.Equal(other.Value, reply.ExtraAs<InvReplyExtra>().ByActorId);
+            Assert.Equal(other.Value, core.ByActorId);
+        }
+
+        Assert.DoesNotContain(log, PickupRig.IsInventoryRecord);
+        Assert.DoesNotContain(coreLog, PickupRig.IsInventoryRecord);
+        Assert.Equal(before, p.Storage());
+    }
+
+    // ---------------------------------------------------------------- Review r1 advisories (test gaps)
+
+    /// <summary>
+    /// TD-155 item 2 (Mail Lead planning default pending Evan): a pickup reply names the picker's hotbar as <c>ResultVersionA</c> and
+    /// player_inventory as <c>ResultVersionB</c>. A pickup split across both (3 merge into a hotbar stack at 17/20, the hotbar otherwise
+    /// full; 2 into a player_inventory stack), the two versions made different first: two seals, each +1, both before the reply.
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void SplitPickup_IntoHotbarAndPlayerInventory_TwoSealsBeforeTheReply_ResultVersionAIsTheHotbar_BThePlayerInventory(int slot)
+    {
+        // Arrange
+        var p = new PickupRig();
+        ActorId picker = slot == 0 ? p.A : p.B;
+        ushort hotbar = p.Hotbar(slot);
+        ushort inventory = p.Inventory(slot);
+        ushort hotbarStack = p.R.PlaceMail(hotbar, "letter", 1, 0, Address, PickupRig.Ids(1, 17));
+        p.FillHotbar(slot, from: 2);
+        ushort inventoryStack = p.R.PlaceMail(inventory, "letter", 0, 0, Address, PickupRig.Ids(50, 3));
+        EntityId item = p.Drop(p.Letters(101, 5));
+        uint hotbarV = p.R.Header(hotbar).Version;
+        uint inventoryV = p.R.Header(inventory).Version;
+        Assert.NotEqual(hotbarV, inventoryV);
+
+        // Act
+        EventEntry[] log = p.Pickup(picker, item);
+
+        // Assert
+        Reply reply = InvAutoPlaceRig.ReplyOf(log);
+        Assert.True(reply.IsOk);
+        InvReplyExtra extra = reply.ExtraAs<InvReplyExtra>();
+        Assert.Equal((hotbarV + 1, inventoryV + 1), (extra.ResultVersionA, extra.ResultVersionB));
+        Assert.Equal((5, 5), ((int)extra.RequestedUnits, (int)extra.GotUnits));
+        Assert.Equal((20, 5), ((int)p.R.Entries[hotbarStack].Count, (int)p.R.Entries[inventoryStack].Count));
+        Assert.Equal(hotbarV + 1, p.R.Header(hotbar).Version);
+        Assert.Equal(inventoryV + 1, p.R.Header(inventory).Version);
+        foreach (ushort c in new[] { hotbar, inventory })
+        {
+            InvVersionPayload seal = PickupRig.Seal(log, p.R.IdOf(c));
+            Assert.Equal(seal.VersionFrom + 1, seal.VersionTo);
+            Assert.Equal(picker.Value, seal.ActorId);
+            Assert.True(PickupRig.ReplyIndex(log) > PickupRig.SealIndex(log, p.R.IdOf(c)));
+        }
+
+        Assert.Equal(2, WorldItemTests.Heads(log, InvEventKinds.Version).Length);
+    }
+
+    [Fact]
+    public void TryCatchAndPickup_OutsideATickPhase_AreRefused_CountMutatingApiOutOfPhase_NothingMutated()
+    {
+        // Arrange: between ticks, a detached flight entry and a WorldItem
+        var p = new PickupRig();
+        EntryId flight = p.R.Entries[p.Letters(101, 5)].Id;
+        EntityId item = p.Drop(p.Letters(201, 2));
+        List<long> before = p.Storage();
+        long outOfPhase = p.R.Counters[CounterId.MutatingApiOutOfPhase];
+        Func<CatchResult> doCatch = () => p.Inv.TryCatch(PlayerSlot.FromValue(0), new FlightPayload(flight, PickupRig.Feet, false));
+        Func<EntityId, PickupResult> doPickup = id =>
+        {
+            var extra = new InvReplyExtra();
+            return p.Inv.Pickup.Apply(p.A, id, 0, ref extra);
+        };
+        EntityId never = EntityId.Compose(EntityClass.WorldItem, 999); // refused in Validate, so only the core's own guard can fire
+
+        // Act + Assert: SIM_ASSERT builds assert; Release refuses with bad_request
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            Assert.Equal(SimAssertCode.MutatingApiOutOfPhase, Assert.Throws<SimAssertException>(() => doCatch()).Code);
+            Assert.Equal(SimAssertCode.MutatingApiOutOfPhase, Assert.Throws<SimAssertException>(() => doPickup(item)).Code);
+            Assert.Equal(SimAssertCode.MutatingApiOutOfPhase, Assert.Throws<SimAssertException>(() => doPickup(never)).Code);
+        }
+        else
+        {
+            Assert.Equal(new CatchResult(0, 0, (InvReason)InvReasons.BadRequest), doCatch());
+            Assert.Equal(PickupResult.Refuse(CoreReason.BadRequest), doPickup(item));
+            Assert.Equal(PickupResult.Refuse(CoreReason.BadRequest), doPickup(never));
+        }
+
+        Assert.Equal(outOfPhase + 3, p.R.Counters[CounterId.MutatingApiOutOfPhase]);
+        Assert.Equal(before, p.Storage());
+    }
+
+    [Fact]
+    public void Catch_WholeFumbleOnWater_TheThrownWorldItemFloats_ExpiringAfterTheWaterFloat300Ticks()
+    {
+        // Arrange: A's panel full (as H-R9-2 d)
+        var p = new PickupRig();
+        p.R.PlaceMail(p.Inventory(0), "letter", 0, 0, Address, PickupRig.Ids(1, 20));
+        p.FillHotbar(0);
+        p.FillInventory(0, from: 1);
+        ushort flight = p.Letters(101, 5);
+
+        // Act
+        CatchResult r = p.Catch(0, flight, onWater: true);
+        uint tick = p.W.Now - 1;
+
+        // Assert
+        Assert.Equal(new CatchResult(0, 5, 0), r);
+        ushort ws = p.WorldItemHolding(flight);
+        Assert.True(p.World.Table[ws].OnWater);
+        Assert.Equal(WorldItemOrigin.Thrown, p.World.Table[ws].Origin);
+        Assert.Equal(tick + 300, p.World.Table[ws].ExpiresTick);
+    }
+
+    /// <summary>
+    /// GDD R8 l.118 (TD-154 item 1): a non-mail pickup runs <see cref="TargetOrder.CursorRow"/> pass-first, so a plank (Material:
+    /// <c>[player_inventory, hotbar]</c>) merges into a plank stack in the second target before it takes a free cell in the first; a
+    /// target-first plan would put it in the empty player_inventory.
+    /// </summary>
+    [Fact]
+    public void NonMailPickup_RunsPassFirst_MergesIntoTheSecondTargetsStack_BeforeAFreeCellOfTheFirst()
+    {
+        // Arrange
+        var p = new PickupRig();
+        ushort stack = p.R.PlaceItem(p.Hotbar(0), "plank", 1, 0, 5);
+        EntityId item = p.Drop(p.R.DetachedItem("plank", 3));
+        uint inventoryV = p.R.Header(p.Inventory(0)).Version;
+
+        // Act
+        EventEntry[] log = p.Pickup(p.A, item);
+
+        // Assert
+        Assert.True(InvAutoPlaceRig.ReplyOf(log).IsOk);
+        Assert.Equal(8, p.R.Entries[stack].Count);
+        Assert.Equal(0, p.EntriesIn(p.Inventory(0)));
+        Assert.Equal(inventoryV, p.R.Header(p.Inventory(0)).Version);
+    }
+
+    /// <summary>
+    /// The negative-fit cache after a refusal decided outside Validate: a <c>no_room</c> pickup and a whole <c>{0, N}</c> fumble record
+    /// the refused AutoPlace's no-fit fact at the unchanged version, so a repeat probes nothing. A Medium (2 x 2) letter against a
+    /// player_inventory whose free cells are its odd columns only (no 2 x 2 hole) and a full hotbar.
+    /// </summary>
+    [Theory]
+    [InlineData("pickup")]
+    [InlineData("catch")]
+    public void NoRoomPickup_AndWholeFumble_RecordTheNoFitFact_AtTheUnchangedVersion(string call)
+    {
+        // Arrange
+        var p = new PickupRig();
+        p.FillHotbar(0);
+        ushort inventory = p.Inventory(0);
+        for (int x = 0; x < p.R.Header(inventory).W; x += 2)
+        {
+            for (int y = 0; y < p.R.Header(inventory).H; y++)
+            {
+                p.R.PlaceItem(inventory, "plank", x, y, 20);
+            }
+        }
+
+        ushort medium = p.R.DetachedMail("medium", Address, PickupRig.Ids(101, 1));
+        EntityId item = call == "pickup" ? p.Drop(medium) : default;
+        uint inventoryV = p.R.Header(inventory).Version;
+        Assert.False(p.KnownNoFit(inventory, 2, 2));
+
+        // Act
+        if (call == "pickup")
+        {
+            Assert.Equal((ushort)InvReason.NoRoom, InvAutoPlaceRig.ReplyOf(p.Pickup(p.A, item)).Reason);
+        }
+        else
+        {
+            Assert.Equal(new CatchResult(0, 1, 0), p.Catch(0, medium));
+        }
+
+        // Assert
+        Assert.Equal(inventoryV, p.R.Header(inventory).Version);
+        Assert.True(p.KnownNoFit(inventory, 2, 2));
+    }
+
+    /// <summary>
+    /// Every <c>TryCatch</c> is its own call scope (<c>CommitCatch</c>'s <c>BeginCall</c>), even when one in-tick caller makes two:
+    /// each catch's panel record and seal share one <c>CallSeq</c>, and the two catches' differ.
+    /// </summary>
+    [Fact]
+    public void TwoCatchesByOneInTickCaller_EachIsOneCallScope_ItsRecordAndSealShareIt()
+    {
+        // Arrange
+        var p = new PickupRig();
+        EntryId a = p.R.Entries[p.Letters(101, 5)].Id;
+        EntryId b = p.R.Entries[p.Letters(201, 5)].Id;
+
+        // Act
+        (CatchResult ra, CatchResult rb) = p.InTick(() => (
+            p.Inv.TryCatch(PlayerSlot.FromValue(0), new FlightPayload(a, PickupRig.Feet, false)),
+            p.Inv.TryCatch(PlayerSlot.FromValue(1), new FlightPayload(b, PickupRig.Feet, false))));
+        EventEntry[] log = p.R.Sink.Last;
+
+        // Assert
+        Assert.Equal(new CatchResult(5, 0, 0), ra);
+        Assert.Equal(new CatchResult(5, 0, 0), rb);
+        EventEntry[] inserted = WorldItemTests.Heads(log, InvEventKinds.Inserted);
+        EventEntry[] seals = WorldItemTests.Heads(log, InvEventKinds.Version);
+        Assert.Equal(2, inserted.Length);
+        Assert.Equal(2, seals.Length);
+        Assert.NotEqual(inserted[0].CallSeq, inserted[1].CallSeq);
+        Assert.Equal(inserted[0].CallSeq, seals[0].CallSeq);
+        Assert.Equal(inserted[1].CallSeq, seals[1].CallSeq);
+    }
+
+    /// <summary>GDD edge case l.363: a pickup that arrives on the WorldItem's expiry tick wins (the op drain, phase 0, runs before phase 1 <c>ItemsExpire</c>).</summary>
+    [Fact]
+    public void Pickup_OnTheItemsExpiryTick_Wins_TheLetterIsTaken_NotReturnedToTheIntake()
+    {
+        // Arrange: a letter dropped at 100 expires at 9100; the next tick to run is 9100
+        var p = new PickupRig();
+        ushort letters = p.Letters(101, 5);
+        EntityId item = p.W.Create(100, letters);
+        p.AdvanceTo(9_100);
+        Assert.True(p.World.Table.TryGetSlot(item, out ushort ws));
+        Assert.Equal(9_100u, p.World.Table[ws].ExpiresTick);
+
+        // Act
+        EventEntry[] log = p.Pickup(p.A, item);
+
+        // Assert
+        Assert.True(InvAutoPlaceRig.ReplyOf(log).IsOk);
+        Assert.Equal(p.Hotbar(0), p.R.Entries[letters].ContainerSlot);
+        Assert.Equal(PickupRig.Ids(101, 5), p.R.IdsOf(letters));
+        Assert.Equal((ushort)InvReason.ContainerGone, p.World.Resolve(item, out _, out uint by, out InvCause cause));
+        Assert.Equal((p.A.Value, InvCause.Taken), (by, cause));
+    }
+
     // ---------------------------------------------------------------- versions, events, weight, indexes
 
     [Fact]
@@ -821,7 +1149,9 @@ public class PickupCatchTests
         // Act
         EventEntry[] log = p.Pickup(p.A, item);
 
-        // Assert
+        // Assert: the reply is ok and follows the seal (ADR-0009 section 4 rule 5)
+        Assert.True(InvAutoPlaceRig.ReplyOf(log).IsOk);
+        Assert.True(PickupRig.ReplyIndex(log) > PickupRig.SealIndex(log, p.R.IdOf(p.Hotbar(0))));
         Assert.Equal(new[] { InvEventKinds.WorldItemDespawned, InvEventKinds.Inserted, InvEventKinds.Version }, PickupRig.InventoryKinds(log));
         InvVersionPayload seal = PickupRig.Seal(log, p.R.IdOf(p.Hotbar(0)));
         Assert.Equal(hotbarV, seal.VersionFrom);
@@ -847,7 +1177,9 @@ public class PickupCatchTests
         // Act
         EventEntry[] log = p.Pickup(p.A, item);
 
-        // Assert
+        // Assert: the reply is ok and follows the seal (ADR-0009 section 4 rule 5)
+        Assert.True(InvAutoPlaceRig.ReplyOf(log).IsOk);
+        Assert.True(PickupRig.ReplyIndex(log) > PickupRig.SealIndex(log, p.R.IdOf(p.Hotbar(0))));
         Assert.Equal(new[] { InvEventKinds.WorldItemEntriesChanged, InvEventKinds.Merged, InvEventKinds.Version }, PickupRig.InventoryKinds(log));
         Assert.Equal(weight, p.Inv.WeightPoints(PlayerSlot.FromValue(0)));
     }
@@ -1276,6 +1608,18 @@ internal sealed class PickupRig
     public static InvVersionPayload Seal(EventEntry[] log, ContainerId container) =>
         Assert.Single(WorldItemTests.Heads(log, InvEventKinds.Version), e => e.PayloadAs<InvVersionPayload>().Container == container.Value).PayloadAs<InvVersionPayload>();
 
+    /// <summary>The index in <paramref name="log"/> of its one <c>OpReply</c>.</summary>
+    public static int ReplyIndex(EventEntry[] log) => Array.FindIndex(log, e => e.Kind == EventKind.OpReply);
+
+    /// <summary>The index in <paramref name="log"/> of the one seal of <paramref name="container"/>.</summary>
+    public static int SealIndex(EventEntry[] log, ContainerId container)
+    {
+        Seal(log, container);
+        return Array.FindIndex(
+            log,
+            e => e.Kind == InvEventKinds.Version && (e.Flags & EventFlags.Continuation) == 0 && e.PayloadAs<InvVersionPayload>().Container == container.Value);
+    }
+
     /// <summary>The reason code a refusal name stands for.</summary>
     public static ushort ReasonOf(string refusal) => refusal switch
     {
@@ -1327,6 +1671,13 @@ internal sealed class PickupRig
         }
 
         return lists;
+    }
+
+    /// <summary>True when the negative-fit cache knows a <paramref name="w"/> x <paramref name="h"/> shape (either orientation) does not fit <paramref name="container"/> at its current version.</summary>
+    public bool KnownNoFit(ushort container, byte w, byte h)
+    {
+        NegativeFitCache cache = Inv.AutoPlace.NoFitCache;
+        return cache.IsNoFit(container, in R.Header(container), w, h, rotated: false) || cache.IsNoFit(container, in R.Header(container), w, h, rotated: true);
     }
 
     /// <summary>Live entries placed in <paramref name="container"/>.</summary>

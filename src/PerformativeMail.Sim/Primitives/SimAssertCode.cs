@@ -257,4 +257,7 @@ public static class SimAssertCode
 
     /// <summary>An Inventory return (expiry, water float or cap eviction) found the Intake backlog ring unable to take its detached mail entry (story grid-inventory/021). Unreachable: the ring's capacity is the entry pool's and every queued entry is a live detached pool slot. Release drops nothing: the WorldItem is kept. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryBacklogRingFull = 82;
+
+    /// <summary><c>IInventoryApi.TryCatch</c>'s commit got <c>EntityId.None</c> from the fumble's <c>WorldItems.Create</c> (story grid-inventory/014). Unreachable: Validate proved a WorldItem creatable (<c>WorldItems.CanCreate</c>), the entry live, detached and unowned, and <c>createdTick</c> is now. Release leaves the entry live and detached (no unit destroyed) and the result unchanged. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryCatchFumbleNotCreated = 83;
 }

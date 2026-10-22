@@ -34,7 +34,7 @@
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
 - [ ] **H-R10-1** — chest-point claim 3000 mm from the anchor (2.5 m + 0.5 m slack) → `open` ok; 3001 mm → `out_of_range`; no transform for 30 ticks → `position_stale`; open and newest chest point at 2.99 m → stays open; at 3.01 m → closed that tick (story 011's `CloseExternal(leash)`, cursor put away), next op `not_open`; a stale position never closes it; the Intake console anchor at 2.0 m while 9 m from the building centre → `ok`. (Mounted-cargo clauses: M-1b.)
-- [ ] The `Pickup` OpKind handler runs the P13 chain then story 014's `PickupCore`; `pickup` within 2.5 m (+ slack) succeeds, beyond → `out_of_range`; a floating item → `unavailable` (allowed while swimming).
+- [ ] The `Pickup` OpKind handler runs the P13 chain then story 014's `PickupCore`; `pickup` within 2.5 m (+ slack) succeeds, beyond → `out_of_range`; a floating item → `unavailable` (allowed while swimming), mapped in the P13 chain **before** the core runs (the core checks floating only after `container_gone` / `stale_entry`; TD-154 item 4).
 - [ ] The `Open` OpKind handler runs the P13 chain then story 011's `TryOpenExternal`; opening `po_intake` at its console anchor adds it to the open set (the M-1a Intake path).
 
 ---
