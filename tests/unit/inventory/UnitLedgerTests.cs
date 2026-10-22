@@ -1,7 +1,11 @@
+using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Ledger;
+using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Storage;
+using PerformativeMail.Sim.Inventory.World;
 using PerformativeMail.Sim.Primitives;
 
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
@@ -105,7 +109,7 @@ public sealed class UnitLedgerTests
     public void Recount_ArrangedStorage_CountsEachLiveStateAndHolder_AndSetsGrantedSoTheSumHolds()
     {
         // Arrange: a full Intake (320 letters), one queued backlog entry of 3 letters, a 4-letter stack in player A's inventory, 7 planks
-        // on A's cursor, a 2-plank WorldItem and a detached 5-letter entry (in flight), all made without the ledger's crossings
+        // on A's cursor, a 2-plank WorldItem and a detached 5-letter entry (in flight); the rig-made entries bypass the crossings
         var rig = new InvAutoPlaceRig();
         rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, InvAutoPlaceRig.Ids(10, 4));
         rig.PlaceItem(rig.CursorA, "plank", 0, 0, 7);
@@ -118,7 +122,6 @@ public sealed class UnitLedgerTests
         ushort flying = rig.DetachedMail("letter", Address4, InvAutoPlaceRig.Ids(20, 5));
         UnitLedger ledger = rig.Inventory.Ledger;
         int plank = UnitLedger.RowOf(in rig.Entries[ground]);
-        ledger.AddSpawned(UnitLedger.MailRow, 100); // kept by Recount: granted absorbs the difference
         ledger.AddConsumed(UnitLedger.MailRow, ConsumeReason.Delivered, 2);
 
         // Act
@@ -134,9 +137,9 @@ public sealed class UnitLedgerTests
         Assert.Equal(7, ledger.Live(plank, LedgerState.Cursor));
         Assert.Equal(2, ledger.Live(plank, LedgerState.World));
         Assert.Equal(0, ledger.Live(plank, LedgerState.Placed));
-        Assert.Equal(100, ledger.Spawned(UnitLedger.MailRow));
+        Assert.Equal(320 + 3, ledger.Spawned(UnitLedger.MailRow)); // the spawns and the append: kept by Recount
         Assert.Equal(2, ledger.Consumed(UnitLedger.MailRow));
-        Assert.Equal(332 + 2 - 100, ledger.Granted(UnitLedger.MailRow));
+        Assert.Equal(332 + 2 - 323, ledger.Granted(UnitLedger.MailRow)); // the rig-made 4 + 5 letters, plus the 2 consumed
         Assert.Equal(9, ledger.Granted(plank));
         for (int row = 0; row < ledger.Rows; row++)
         {
@@ -166,5 +169,372 @@ public sealed class UnitLedgerTests
         Assert.Equal(0, ledger.Live(plank, LedgerState.Flight));
         Assert.Equal(UnitLedger.NoHolder, ledger.HolderOf(flying));
         Assert.Equal(ledger.Expected(plank), ledger.LiveSum(plank));
+    }
+
+    // ---------------------------------------------------------------- crossing table
+
+    [Fact]
+    [Trait("Id", "H-R19-1")]
+    public void CrossingTable_AFixedScriptOverEveryRow_EachStepMovesExactlyItsDeltas_AndTheSumHoldsAfterEveryStep()
+    {
+        // Arrange: players A (slot 0) and B (slot 1); A: 3 letters at inventory (0,0) (the TryInsert merge target), 10 planks at
+        // inventory (4,0) (P), 18 planks at inventory (0,1) (room for 2) and 5 letters at hotbar 3 (T); a fixture chest;
+        // B: an 18-letter stack at hotbar 1 and every other panel cell full of fiber, so a 5-letter catch merges 2 and fumbles 3
+        var p = new PickupRig();
+        InvAutoPlaceRig r = p.R;
+        var t = new LedgerScript(r.Inventory.Ledger);
+        int plank = 1 + r.ItemIndex("plank").Value;
+        const int Mail = UnitLedger.MailRow;
+        DefIndex letter = r.KindIndex("letter");
+        PlayerSlot slotA = PlayerSlot.FromValue(0);
+        ushort invA = p.Inventory(0);
+        ushort hotA = p.Hotbar(0);
+        ushort curA = p.Cursor(0);
+        ushort letters = r.PlaceMail(invA, "letter", 0, 0, Address4, InvAutoPlaceRig.Ids(400, 3));
+        ushort planks = r.PlaceItem(invA, "plank", 4, 0, 10);
+        ushort nearlyFull = r.PlaceItem(invA, "plank", 0, 1, 18);
+        ushort thrown = r.PlaceMail(hotA, "letter", 3, 0, Address4, InvAutoPlaceRig.Ids(500, 5));
+        ushort chest = r.CreateGrid(4, 4);
+        ushort stackB = r.PlaceMail(p.Hotbar(1), "letter", 1, 0, Address4, InvAutoPlaceRig.Ids(700, 18));
+        FillPanel(r, 1, "fiber");
+
+        // Act / Assert: spawn placement, the backlog append, a spawn the backlog-blocked Intake leaves to Mail
+        t.Step("spawn 3 letters into the Intake", () => Assert.Equal(new SpawnResult(3, 0), r.InPhaseSpawn(letter, 1, 2, 3)), (Mail, S.Spawned, 3), (Mail, S.Placed, 3));
+        IntakeSpawnOutfeedTests.FillIntake(r, 317, 1_000);
+        t.Step("AppendBacklog 2 letters", () => Assert.True(InPhase(r, () => r.Inventory.AppendBacklog(new BacklogEntry(letter, Address4, 0, IntakeSpawnOutfeedTests.Mail(50, 51))))), (Mail, S.Spawned, 2), (Mail, S.Backlog, 2));
+        t.Step("spawn overflow left to Mail", () => Assert.Equal(new SpawnResult(0, 2), r.InPhaseSpawn(letter, 60, 61)));
+
+        // TakeUnit (a whole 1-letter entry), the drain the freed cell lets run next tick, TryInsert (a merge), ConsumeUnit (a partial take)
+        UnitRef unit = default;
+        t.Step("TakeUnit", () => Assert.True(InPhase(r, () => r.Inventory.TakeUnit(r.Inventory.IntakeContainer, Selector.Fifo, r.PlayerA, out unit))), (Mail, S.Placed, -1), (Mail, S.Belt, 1));
+        t.Step("drain", () => r.Host.World.Tick(), (Mail, S.Backlog, -2), (Mail, S.Placed, 2));
+        t.Step("TryInsert", () => Assert.True(InPhase(r, () => r.Inventory.TryInsert(r.IdOf(invA), in unit, r.PlayerA))), (Mail, S.Belt, -1), (Mail, S.Placed, 1));
+        Assert.Equal(4, r.Entries[letters].Count);
+        var insertedRef = new EntryRef(r.IdOf(invA), r.Entries[letters].Id);
+        t.Step("ConsumeUnit Delivered", () => Assert.True(InPhase(r, () => r.Inventory.ConsumeUnit(insertedRef, ConsumeReason.Delivered, r.PlayerA))), (Mail, S.Placed, -1), (Mail, S.Delivered, 1));
+
+        // The player ops: pick, place, split, merge, an in-container move, quick_move, return, the leash put-away
+        t.Step("pick onto the cursor", () => Ok(r, r.PlayerA, PickOp(r, invA, planks)), (plank, S.Placed, -10), (plank, S.Cursor, 10));
+        t.Step("place from the cursor", () => Ok(r, r.PlayerA, MoveOp(r, curA, planks, invA, 5, 0)), (plank, S.Cursor, -10), (plank, S.Placed, 10));
+        t.Step("split onto the cursor", () => Ok(r, r.PlayerA, MoveOp(r, invA, planks, curA, 0, 0, 4)), (plank, S.Placed, -4), (plank, S.Cursor, 4));
+        ushort piece = r.EntryAt(curA, 0, 0);
+        t.Step("merge part of the cursor piece", () => Ok(r, r.PlayerA, MergeOp(r, curA, piece, invA, nearlyFull)), (plank, S.Cursor, -2), (plank, S.Placed, 2));
+        Assert.Equal(2, r.Entries[piece].Count);
+        t.Step("merge the rest of the cursor piece", () => Ok(r, r.PlayerA, MergeOp(r, curA, piece, invA, planks)), (plank, S.Cursor, -2), (plank, S.Placed, 2));
+        t.Step("move inside one container", () => Ok(r, r.PlayerA, MoveOp(r, invA, planks, invA, 6, 0)));
+        t.Step("quick_move to the hotbar", () => Ok(r, r.PlayerA, QuickMoveReturnTests.QuickMoveOp(r, invA, planks)));
+        Assert.Equal(hotA, r.Entries[planks].ContainerSlot);
+        int n = r.Entries[planks].Count; // what of P's 12 the hotbar slot holds after quick_move's merges
+        t.Step("pick from the hotbar", () => Ok(r, r.PlayerA, PickOp(r, hotA, planks)), (plank, S.Placed, -n), (plank, S.Cursor, n));
+        t.Step("return", () => Ok(r, r.PlayerA, new Op { Kind = InvOpKinds.Return, ReqId = 86 }), (plank, S.Cursor, -n), (plank, S.Placed, n));
+        Assert.True(r.Inventory.TryOpenExternal(slotA, r.IdOf(chest)));
+        t.Step("pick for the leash", () => Ok(r, r.PlayerA, PickOp(r, hotA, planks)), (plank, S.Placed, -n), (plank, S.Cursor, n));
+        t.Step("leash put-away", () => Assert.True(InPhase(r, () => Leash(r, slotA))), (plank, S.Cursor, -n), (plank, S.Placed, n));
+
+        // Flight: DetachForThrow, then B's catch merges 2 and fumbles 3; B consumes 1 and picks the fumble up partly
+        t.Step("DetachForThrow", () => Assert.Equal(new DetachResult(default, r.Entries[thrown].Id, 5), InPhase(r, () => r.Inventory.DetachForThrow(slotA, r.Entries[thrown].Id, 5))), (Mail, S.Placed, -5), (Mail, S.Flight, 5));
+        t.Step("TryCatch in and fumble", () => Assert.Equal(new CatchResult(2, 3, 0), p.Catch(1, thrown)), (Mail, S.Flight, -5), (Mail, S.Placed, 2), (Mail, S.World, 3));
+        r.CaptureEvents = true;
+        EntityId fumble = p.World.Table[p.WorldItemHolding(thrown)].Id;
+        var stackRef = new EntryRef(r.IdOf(p.Hotbar(1)), r.Entries[stackB].Id);
+        t.Step("ConsumeUnit Misdelivered", () => Assert.True(InPhase(r, () => r.Inventory.ConsumeUnit(stackRef, ConsumeReason.Misdelivered, r.PlayerB))), (Mail, S.Placed, -1), (Mail, S.Misdelivered, 1));
+        t.Step("partial pickup", () => Assert.True(r.ReplyOfOk(p.Pickup(r.PlayerB, fumble))), (Mail, S.World, -1), (Mail, S.Placed, 1));
+        Assert.True(p.World.OwnsEntry(thrown));
+        Assert.Equal(2, r.Entries[thrown].Count);
+
+        // CreateWorldItem: Thrown from Flight; Dropped from Placed in the caller's own call (its Remove); a whole pickup
+        ushort second = r.PlaceMail(hotA, "letter", FreeX(r, hotA), 0, Address4, InvAutoPlaceRig.Ids(800, 2));
+        t.Step("DetachForThrow again", () => Assert.Equal(2, InPhase(r, () => r.Inventory.DetachForThrow(slotA, r.Entries[second].Id, 2)).Units), (Mail, S.Placed, -2), (Mail, S.Flight, 2));
+        t.Step("CreateWorldItem Thrown", () => p.W.Create(p.W.Now, second, WorldItemOrigin.Thrown), (Mail, S.Flight, -2), (Mail, S.World, 2));
+        r.CaptureEvents = true;
+        ushort dropped = r.PlaceItem(invA, "plank", FreeX(r, invA), 0, 3);
+        t.Step("CreateWorldItem Dropped after the caller's Remove", () => DropInOneCall(r, invA, dropped), (plank, S.Placed, -3), (plank, S.World, 3));
+        EntityId droppedItem = p.World.Table[p.WorldItemHolding(dropped)].Id;
+        t.Step("whole pickup", () => Assert.True(r.ReplyOfOk(p.Pickup(r.PlayerA, droppedItem))), (plank, S.World, -3), (plank, S.Placed, 3));
+
+        // Returns on a water float: to the Intake (a cell freed), then to the backlog (the Intake full); a floating plank destroyed
+        Assert.True(InPhase(r, () => r.Inventory.TakeUnit(r.Inventory.IntakeContainer, Selector.Fifo, r.PlayerA, out _)));
+        uint at = Float(p, r.DetachedMail("letter", Address4, InvAutoPlaceRig.Ids(900, 2)));
+        t.Step("water return to the Intake", () => p.W.RunTick(at), (Mail, S.World, -2), (Mail, S.Placed, 2));
+        at = Float(p, r.DetachedMail("letter", Address4, InvAutoPlaceRig.Ids(910, 2)));
+        t.Step("water return to the backlog", () => p.W.RunTick(at), (Mail, S.World, -2), (Mail, S.Backlog, 2));
+        at = Float(p, r.DetachedItem("plank", 4));
+        t.Step("water float destroys a plank", () => p.W.RunTick(at), (plank, S.World, -4), (plank, S.Destroyed, 4));
+
+        // The cap: 512 live, then a 513th evicts the fumble's 2 letters (old enough) to the backlog, the Intake being full
+        Assert.Equal(2, p.World.LiveCount);
+        ushort[] fill = Enumerable.Range(0, 510).Select(_ => r.DetachedItem("plank", 1)).ToArray();
+        uint now = p.W.Now;
+        Assert.Equal(510, p.W.At(now, () => p.W.CreateAll(fill, now)));
+        ushort last = r.DetachedItem("plank", 1);
+        t.Step("cap eviction of a mail to the backlog", () => p.W.Create(p.W.Now, last), (plank, S.Flight, -1), (plank, S.World, 1), (Mail, S.World, -2), (Mail, S.Backlog, 2));
+        Assert.False(p.World.OwnsEntry(thrown));
+        Assert.True(r.Inventory.Backlog.Contains(thrown));
+        Assert.True(t.Steps <= 50);
+    }
+
+    // ---------------------------------------------------------------- H-X-2 (ledger clause) and rejects
+
+    [Fact]
+    [Trait("Id", "H-X-2")]
+    public void HX2_DetachForThrowOfEntry88Of5_PlacedMinus5FlightPlus5_ThenConsumeUnitDelivered_PlacedMinus1ConsumedPlus1()
+    {
+        // Arrange: hotbar index 3 holds 5 letters as entry 88; 2 letters in the inventory to consume from
+        var rig = new InvAutoPlaceRig();
+        while (rig.Entries.LastId < 87)
+        {
+            Assert.True(rig.Entries.TryAllocate(rig.Host.World.CurrentTick, out ushort burnt, out _));
+            rig.Entries.Free(burnt);
+        }
+
+        ushort slot88 = rig.PlaceMail(rig.HotbarA, "letter", 3, 0, Address4, new uint[] { 11, 12, 13, 14, 15 });
+        Assert.Equal(88u, rig.Entries[slot88].Id.Value);
+        ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 30, 31 });
+        var t = new LedgerScript(rig.Inventory.Ledger);
+        var stackRef = new EntryRef(rig.IdOf(rig.InventoryA), rig.Entries[stack].Id);
+
+        // Act / Assert
+        t.Step(
+            "DetachForThrow(slot, 88, 5)",
+            () => Assert.Equal(5, InPhase(rig, () => rig.Inventory.DetachForThrow(PlayerSlot.FromValue(0), EntryId.Real(88), 5)).Units),
+            (UnitLedger.MailRow, S.Placed, -5),
+            (UnitLedger.MailRow, S.Flight, 5));
+        t.Step(
+            "ConsumeUnit(ref, Delivered, actor)",
+            () => Assert.True(InPhase(rig, () => rig.Inventory.ConsumeUnit(stackRef, ConsumeReason.Delivered, rig.PlayerA))),
+            (UnitLedger.MailRow, S.Placed, -1),
+            (UnitLedger.MailRow, S.Delivered, 1));
+        Assert.Equal(1, rig.Inventory.Ledger.Consumed(UnitLedger.MailRow));
+        Assert.Equal(1, rig.Inventory.Ledger.Consumed(UnitLedger.MailRow, ConsumeReason.Delivered));
+    }
+
+    [Fact]
+    public void Rejects_ARefusedOp_FalseApiCalls_ARefusedPutAway_ADrainSkip_AndARefusedCatch_LeaveEveryCounterUnchanged()
+    {
+        // Arrange: a 2-slot WorldItem table, both live; A's panel full (20 letters at inventory (0,0), axes, full plank stacks); 5 planks
+        // on A's cursor with a chest open; a 5-letter flight; the Intake full but one cell
+        var p = new PickupRig(tune: s => s with { WorldItemCapacity = 2 });
+        InvAutoPlaceRig r = p.R;
+        p.Drop(r.DetachedItem("plank", 1));
+        p.Drop(r.DetachedItem("plank", 1));
+        ushort letters = r.PlaceMail(p.Inventory(0), "letter", 0, 0, Address4, InvAutoPlaceRig.Ids(1, 20));
+        p.FillHotbar(0);
+        p.FillInventory(0, from: 1);
+        ushort axe = r.EntryAt(p.Hotbar(0), 1, 0);
+        _ = r.PlaceItem(p.Cursor(0), "plank", 0, 0, 5);
+        Assert.True(r.Inventory.TryOpenExternal(PlayerSlot.FromValue(0), r.IdOf(r.CreateGrid(2, 2))));
+        ushort flight = p.Letters(101, 5);
+        IntakeSpawnOutfeedTests.FillIntake(r, 319, 1_000);
+        DefIndex large = r.KindIndex("large");
+        DefIndex letter = r.KindIndex("letter");
+        Assert.True(InPhase(r, () => r.Inventory.AppendBacklog(new BacklogEntry(large, Address4, 0, IntakeSpawnOutfeedTests.Mail(900)))));
+        var t = new LedgerScript(r.Inventory.Ledger);
+        var unit = new UnitRef(new MailId(5_000), default, letter, Address4, 0);
+        var staleRef = new EntryRef(r.IdOf(p.Hotbar(0)), r.Entries[letters].Id);
+
+        // Act / Assert: every step leaves every counter unchanged
+        t.Step("a drain skip (the Large does not fit the one free cell)", () => r.Host.World.Tick());
+        Assert.Equal(1, r.Inventory.BacklogEntries);
+        t.Step("a refused op (out_of_bounds)", () => Assert.False(r.ReplyOfOk(r.Run(r.PlayerA, MoveOp(r, p.Inventory(0), letters, p.Inventory(0), 99, 0)))));
+        t.Step("TryInsert into the Intake (outfeed only)", () => Assert.False(InPhase(r, () => r.Inventory.TryInsert(r.Inventory.IntakeContainer, in unit, r.PlayerA))));
+        t.Step("TryInsert with no room", () => Assert.False(InPhase(r, () => r.Inventory.TryInsert(r.IdOf(p.Hotbar(0)), in unit, r.PlayerA))));
+        t.Step("AppendBacklog of descending ids", () => Assert.False(InPhase(r, () => r.Inventory.AppendBacklog(new BacklogEntry(letter, Address4, 0, IntakeSpawnOutfeedTests.Mail(9, 8))))));
+        t.Step("ConsumeUnit of a stale ref", () => Assert.False(InPhase(r, () => r.Inventory.ConsumeUnit(staleRef, ConsumeReason.Delivered, r.PlayerA))));
+        t.Step("DetachForThrow of the wrong count", () => Assert.Equal(InvReason.StaleEntry, InPhase(r, () => r.Inventory.DetachForThrow(PlayerSlot.FromValue(0), r.Entries[axe].Id, 2)).Reason));
+        t.Step("a refused leash put-away", () => Assert.True(InPhase(r, () => Leash(r, PlayerSlot.FromValue(0)))));
+        Assert.NotEqual(Occupancy.Free, r.EntryAt(p.Cursor(0), 0, 0));
+        t.Step("a refused catch {0, 0}", () => Assert.Equal(new CatchResult(0, 0, InvReason.CapacityExhausted), p.Catch(0, flight)));
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    /// <summary>The counters a <see cref="LedgerScript"/> step names: the six live states, then Consumed by reason, Destroyed, spawned, granted.</summary>
+    internal enum S
+    {
+        Placed = 0,
+        Cursor = 1,
+        World = 2,
+        Flight = 3,
+        Belt = 4,
+        Backlog = 5,
+        Delivered = 6,
+        Misdelivered = 7,
+        ReturnedToSender = 8,
+        Destroyed = 9,
+        Spawned = 10,
+        Granted = 11,
+    }
+
+    private static T InPhase<T>(InvAutoPlaceRig rig, Func<T> call) => IntakeSpawnOutfeedTests.InPhase(rig, call);
+
+    private static void Ok(InvAutoPlaceRig rig, ActorId actor, Op op) => MoveSplitMergeTests.AssertOk(rig.Run(actor, in op));
+
+    private static bool Leash(InvAutoPlaceRig rig, PlayerSlot slot)
+    {
+        rig.Inventory.CloseExternal(slot, CloseCause.Leash);
+        return true;
+    }
+
+    /// <summary>Creates a WorldItem on water of the detached entry now; returns the tick it floats back on (300 ticks later).</summary>
+    private static uint Float(PickupRig p, ushort entry)
+    {
+        uint created = p.W.Now;
+        _ = p.W.Create(created, entry, WorldItemOrigin.Dropped, onWater: true);
+        p.R.CaptureEvents = true;
+        return created + p.World.DurationTicks(ExpiryFifo.WaterFloatNonMail);
+    }
+
+    /// <summary>One fixture op that removes the placed entry through the mutator and then creates a Dropped WorldItem of it, in one call.</summary>
+    private static void DropInOneCall(InvAutoPlaceRig rig, ushort container, ushort entry)
+    {
+        EntityId created = EntityId.None;
+        Reply reply = rig.Step(
+            (ref InvPlan plan) => plan.Touch(container) < 0 ? CoreReason.BadRequest : (ushort)0,
+            (ref InvPlan plan) =>
+            {
+                rig.Inventory.Mutator.Remove(ref plan, entry);
+                created = rig.Inventory.CreateWorldItem(rig.Entries[entry].Id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, rig.Host.World.CurrentTick);
+            });
+        Assert.True(reply.IsOk);
+        Assert.False(created.IsNone);
+    }
+
+    /// <summary>The first free cell of row 0 of a container (a slots hotbar skips its reserved slot 0).</summary>
+    private static int FreeX(InvAutoPlaceRig rig, ushort container)
+    {
+        ContainerHeader h = rig.Header(container);
+        for (int x = h.Layout == ContainerLayout.Slots ? 1 : 0; x < h.W; x++)
+        {
+            if (rig.Inventory.Occupancy.OwnerAt(container, h.W, x, 0) == Occupancy.Free)
+            {
+                return x;
+            }
+        }
+
+        throw new InvalidOperationException("no free cell in row 0");
+    }
+
+    /// <summary>One <paramref name="item"/> (1 unit) on every free usable cell of <paramref name="player"/>'s hotbar and player_inventory.</summary>
+    private static void FillPanel(InvAutoPlaceRig rig, int player, string item)
+    {
+        foreach (ushort c in new[] { rig.HotbarOf(player), rig.InventoryOf(player) })
+        {
+            ContainerHeader h = rig.Header(c);
+            bool slots = h.Layout == ContainerLayout.Slots;
+            for (int y = 0; y < h.H; y++)
+            {
+                for (int x = slots && y == 0 ? 1 : 0; x < h.W; x++)
+                {
+                    if (rig.Inventory.Occupancy.OwnerAt(c, h.W, x, y) == Occupancy.Free)
+                    {
+                        _ = rig.PlaceItem(c, item, x, y, 1);
+                    }
+                }
+            }
+        }
+    }
+
+    private static Op PickOp(InvAutoPlaceRig rig, ushort from, ushort entry)
+    {
+        var op = new Op { Kind = InvOpKinds.Pick, ReqId = 80 };
+        op.SetPayload(new PickPayload { From = rig.IdOf(from).Value, EntryId = rig.Entries[entry].Id.Value });
+        return op;
+    }
+
+    private static Op MoveOp(InvAutoPlaceRig rig, ushort from, ushort entry, ushort to, int x, int y, byte count = 0)
+    {
+        var op = new Op { Kind = InvOpKinds.Move, ReqId = 81 };
+        op.SetPayload(new MovePayload
+        {
+            From = rig.IdOf(from).Value, EntryId = rig.Entries[entry].Id.Value, To = rig.IdOf(to).Value, BaseVersion = rig.Header(to).Version,
+            X = (short)x, Y = (short)y, Count = count,
+        });
+        return op;
+    }
+
+    private static Op MergeOp(InvAutoPlaceRig rig, ushort from, ushort entry, ushort to, ushort target)
+    {
+        var op = new Op { Kind = InvOpKinds.Merge, ReqId = 83 };
+        op.SetPayload(new MergePayload
+        {
+            From = rig.IdOf(from).Value, EntryId = rig.Entries[entry].Id.Value, To = rig.IdOf(to).Value, TargetEntryId = rig.Entries[target].Id.Value,
+        });
+        return op;
+    }
+
+    /// <summary>
+    /// A crossing-table script over one ledger: each <see cref="Step"/> snapshots every counter of every row, runs its action, and asserts
+    /// that exactly the named counters moved by exactly the named deltas, and that <c>Σ live = spawned + granted − consumed − destroyed</c>
+    /// holds for every row afterwards.
+    /// </summary>
+    internal sealed class LedgerScript
+    {
+        private const int Counters = 12;
+        private readonly UnitLedger _ledger;
+
+        public LedgerScript(UnitLedger ledger)
+        {
+            _ledger = ledger;
+            AssertSumHolds("before the script");
+        }
+
+        public int Steps { get; private set; }
+
+        public long[] Snapshot()
+        {
+            var v = new long[_ledger.Rows * Counters];
+            for (int row = 0; row < _ledger.Rows; row++)
+            {
+                int b = row * Counters;
+                for (int s = 0; s < UnitLedger.LiveStateCount; s++)
+                {
+                    v[b + s] = _ledger.Live(row, (LedgerState)s);
+                }
+
+                for (int c = 0; c < UnitLedger.ConsumeReasonCount; c++)
+                {
+                    v[b + (int)S.Delivered + c] = _ledger.Consumed(row, (ConsumeReason)c);
+                }
+
+                v[b + (int)S.Destroyed] = _ledger.Destroyed(row);
+                v[b + (int)S.Spawned] = _ledger.Spawned(row);
+                v[b + (int)S.Granted] = _ledger.Granted(row);
+            }
+
+            return v;
+        }
+
+        public void Step(string name, Action act, params (int Row, S Counter, long Delta)[] expected)
+        {
+            Steps++;
+            long[] before = Snapshot();
+            act();
+            long[] after = Snapshot();
+            var want = new long[before.Length];
+            foreach ((int row, S counter, long delta) in expected)
+            {
+                want[(row * Counters) + (int)counter] += delta;
+            }
+
+            var wrong = new List<string>();
+            for (int i = 0; i < before.Length; i++)
+            {
+                if (after[i] - before[i] != want[i])
+                {
+                    wrong.Add($"row {i / Counters} {(S)(i % Counters)}: moved {after[i] - before[i]}, expected {want[i]}");
+                }
+            }
+
+            Assert.True(wrong.Count == 0, $"step {Steps} '{name}': " + string.Join("; ", wrong));
+            AssertSumHolds($"step {Steps} '{name}'");
+        }
+
+        public void AssertSumHolds(string when)
+        {
+            for (int row = 0; row < _ledger.Rows; row++)
+            {
+                Assert.True(_ledger.LiveSum(row) == _ledger.Expected(row), $"{when}: row {row} Σ live {_ledger.LiveSum(row)} != expected {_ledger.Expected(row)}");
+            }
+        }
     }
 }

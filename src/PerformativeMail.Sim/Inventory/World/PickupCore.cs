@@ -277,7 +277,8 @@ internal sealed class PickupCore
         InventoryMutator m = _owner.Mutator;
         int requested = pickup.Placement.Requested;
 
-        // story 017 ledger hook: the moved units cross WORLD -> PLACED.
+        // Ledger (story 017): the moved units cross World to Placed. A whole pickup's WorldItem removal takes them all out of World; on
+        // a partial one the commit's merges take the moved units out of World, the remainder staying there.
         if (pickup.Whole)
         {
             _ = _owner.WorldItems.Remove(pickup.WorldItem, pickup.Actor, InvCause.Taken, out _); // the guard passed in Apply; the id is live

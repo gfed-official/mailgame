@@ -847,6 +847,16 @@ internal sealed class InvAutoPlaceRig
         return slot;
     }
 
+    /// <summary>Spawns one letter-kind unit per id into the Intake (NoMerge, address 4) inside the next tick's <c>MailStep</c> (story 017).</summary>
+    public SpawnResult InPhaseSpawn(DefIndex kind, params uint[] ids)
+    {
+        MailId[] mail = ids.Select(i => new MailId(i)).ToArray();
+        return IntakeSpawnOutfeedTests.InPhase(this, () => Inventory.Spawn(Inventory.IntakeContainer, kind, 4u, 0, mail, MergePolicy.NoMerge));
+    }
+
+    /// <summary>True when <paramref name="log"/> holds exactly one <c>OpReply</c> and it is ok.</summary>
+    public bool ReplyOfOk(EventEntry[] log) => ReplyOf(log).IsOk;
+
     /// <summary>
     /// Recounts the conservation ledger from storage (story 017's <see cref="Sim.Inventory.Ledger.UnitLedger.Recount"/> seam): every
     /// helper that arranges or frees an entry outside the mutator calls it once afterwards, as <c>RebuildIndex</c> is called.

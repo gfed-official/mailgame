@@ -31,8 +31,20 @@ namespace PerformativeMail.Sim.Inventory;
 /// Sim Core appends the <c>OpReply</c> after the handler returns, so every record and seal precedes it (ADR-0009 section 4 rule 5). An
 /// <c>IInventoryApi</c> call opens its own call scope (<see cref="EventLogFacade.BeginCall"/>) around the bracket. Audience
 /// (<see cref="AudienceOf"/>): a container with an owner slot (hotbar, player_inventory, cursor) goes to exactly that slot's bit; any
-/// other container to its <see cref="ContainerSubscribers"/> mask at raise time. Records and seals carry no <c>reqId</c>. The ledger
-/// hooks are story 017's. The primitives also maintain the <see cref="Placement.StackIndex"/> (story 009, ADR-0009 section 5: the
+/// other container to its <see cref="ContainerSubscribers"/> mask at raise time. Records and seals carry no <c>reqId</c>. The
+/// primitives are also the one writer of the conservation <see cref="UnitLedger"/> (story 017; ADR-0009 section 6): <see cref="Place"/>
+/// adds an entry's units to the Cursor state (a player's cursor, <see cref="IsCursor"/>) or the Placed state of its destination and
+/// <see cref="Remove"/> subtracts them, so a cross-container <see cref="Transfer"/> moves them and a move inside one container moves
+/// nothing; <see cref="MergeInto"/>, <see cref="MergeUnitInto"/> and <see cref="TakeOldest"/>'s partial path move the units they
+/// count; <see cref="SplitAndPlace"/> follows from <see cref="TakeOldest"/> and <see cref="Place"/>; <see cref="DestroyDetached"/>
+/// crosses to Destroyed and <see cref="ConsumeOldest"/> to Consumed by reason; and the holder states (World, Flight, Belt, Backlog)
+/// are entered and left only through <see cref="EnterHolder(LedgerState, ushort)"/> / <see cref="LeaveHolder(ushort, int)"/> and their
+/// unit forms, which the <c>IInventoryApi</c> calls, <c>WorldItems</c> and <c>PickupCore</c> call at their holder crossings, and
+/// <see cref="CountSpawned"/> counts a unit's first entry into custody (Mail Lead planning defaults pending Evan, TD-160 items 1-4). A
+/// detached source's holder state is the source state of the primitive that consumes it: <see cref="Place"/> takes the entry's units
+/// out of the holder it is in (Flight for a catch or a flying return, Backlog for the drain, none after a WorldItem's removal) and
+/// <see cref="MergeInto"/> the merged units (World for a partial pickup, Flight for a partial catch), so no caller leaves a holder
+/// before a placement and a partial merge is never counted twice. The primitives also maintain the <see cref="Placement.StackIndex"/> (story 009, ADR-0009 section 5: the
 /// placed entries whose count is below their <c>effMax</c>, read at the primitive's time); <see cref="RebuildIndex"/> rebuilds a
 /// container's lists and clears its negative-fit cache when its <c>statEpoch</c> bumps. They maintain the
 /// <see cref="Placement.ItemCountIndex"/> too (story 015, ADR-0009 section 5: a container's <c>itemId → units</c>, which
@@ -216,7 +228,8 @@ internal sealed class InventoryMutator
     /// The destroy primitive for a detached entry (story 013: a non-mail WorldItem that expired, floated or was evicted; ADR-0009
     /// section 6 lists <c>Destroy</c> among the lowest primitives): frees its mailIds block (if any) and its pool slot; the id is gone for
     /// ever. The entry is in no container, so no <see cref="Placement.ItemCountIndex"/> total changes. Raises nothing (the caller
-    /// raises <c>ItemsLost</c>); the ledger crossing to Destroyed is story 017's hook. A free or placed entry asserts <see cref="SimAssertCode.InventoryEntrySlotFree"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing.
+    /// raises <c>ItemsLost</c>). Ledger (story 017, TD-135): the entry leaves any holder state it is still in and its units cross to
+    /// Destroyed. A free or placed entry asserts <see cref="SimAssertCode.InventoryEntrySlotFree"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing.
     /// </summary>
     /// <param name="entrySlot">The detached entry's pool slot.</param>
     public void DestroyDetached(ushort entrySlot)
@@ -229,12 +242,112 @@ internal sealed class InventoryMutator
             return;
         }
 
+        LeaveHolder(entrySlot, e.Count);
+        _ledger.AddDestroyed(UnitLedger.RowOf(in e), e.Count);
         if (e.IsMail)
         {
             _mailIds.Free(in e.MailIds);
         }
 
         _entries.Free(entrySlot);
+    }
+
+    /// <summary>
+    /// The holder-entry primitive (story 017; Mail Lead planning default pending Evan, TD-160 item 1): the live detached entry in
+    /// <paramref name="entrySlot"/> and all its units enter <paramref name="holder"/> (<see cref="LedgerState.World"/>,
+    /// <see cref="LedgerState.Flight"/> or <see cref="LedgerState.Backlog"/>), leaving the holder state it was in first, if any (a
+    /// flying entry returned to the backlog crosses Flight to Backlog). Called by <c>DetachForThrow</c> (Flight), <c>WorldItems</c>'s
+    /// creation (World) and the backlog append (Backlog). Touches no container, version or record. A free or placed entry asserts
+    /// <see cref="SimAssertCode.InventoryEntrySlotFree"/> under <c>INVENTORY_ASSERT</c>; Release, and a state that is not an entry
+    /// holder, change nothing. O(1).
+    /// </summary>
+    /// <param name="holder">The holder state.</param>
+    /// <param name="entrySlot">The detached entry's pool slot.</param>
+    public void EnterHolder(LedgerState holder, ushort entrySlot)
+    {
+        ref EntryRecord e = ref _entries[entrySlot];
+        bool valid = e.IsLive && e.ContainerSlot == EntryRecord.NoContainer;
+        InventoryAssert.That(valid, SimAssertCode.InventoryEntrySlotFree);
+        if (!valid || (holder != LedgerState.World && holder != LedgerState.Flight && holder != LedgerState.Backlog))
+        {
+            return;
+        }
+
+        LeaveHolder(entrySlot, e.Count);
+        _ledger.AddLive(UnitLedger.RowOf(in e), holder, e.Count);
+        _ledger.SetHolder(entrySlot, (byte)holder);
+    }
+
+    /// <summary>
+    /// The holder-exit primitive (story 017, TD-160 item 1): <paramref name="units"/> of the live detached entry in
+    /// <paramref name="entrySlot"/> leave the holder state it is in (all of them when <paramref name="units"/> is at least its count,
+    /// after which it is in no state until a primitive places it or enters it into a holder). An entry in no holder state (detached
+    /// earlier in this call, e.g. by a WorldItem's removal) changes nothing. <see cref="Place"/>, <see cref="MergeInto"/> (a detached
+    /// source), <see cref="EnterHolder(LedgerState, ushort)"/> and <see cref="DestroyDetached"/> call it for their source, and
+    /// <c>WorldItems</c> calls it when a WorldItem is removed (its entry is then in no state until its caller moves it). Touches no
+    /// container, version or record. O(1).
+    /// </summary>
+    /// <param name="entrySlot">The detached entry's pool slot.</param>
+    /// <param name="units">The units that leave (1 to its count).</param>
+    public void LeaveHolder(ushort entrySlot, int units)
+    {
+        ref EntryRecord e = ref _entries[entrySlot];
+        byte holder = _ledger.HolderOf(entrySlot);
+        if (!e.IsLive || e.ContainerSlot != EntryRecord.NoContainer || holder == UnitLedger.NoHolder)
+        {
+            return;
+        }
+
+        _ledger.AddLive(UnitLedger.RowOf(in e), (LedgerState)holder, -units);
+        if (units >= e.Count)
+        {
+            _ledger.SetHolder(entrySlot, UnitLedger.NoHolder);
+        }
+    }
+
+    /// <summary>
+    /// The holder-entry primitive for a unit no entry holds (story 017, TD-160 item 1): one mail unit enters
+    /// <paramref name="holder"/>, which is <see cref="LedgerState.Belt"/> at M-1a (<c>TakeUnit</c>; a <see cref="UnitRef"/> is mail);
+    /// any other state changes nothing. O(1).
+    /// </summary>
+    /// <param name="holder">The holder state (<see cref="LedgerState.Belt"/>).</param>
+    /// <param name="unit">The unit (mail).</param>
+    public void EnterHolder(LedgerState holder, in UnitRef unit)
+    {
+        if (holder == LedgerState.Belt && !unit.Mail.IsNone)
+        {
+            _ledger.AddLive(UnitLedger.MailRow, LedgerState.Belt, 1);
+        }
+    }
+
+    /// <summary>
+    /// The holder-exit primitive for a unit no entry holds (story 017, TD-160 items 1, 7): one mail unit leaves
+    /// <paramref name="holder"/> (<see cref="LedgerState.Belt"/>; <c>TryInsert</c>, on true only). Counters cannot refuse a unit that
+    /// was never taken: such an insert drives Belt negative, which the tick-end check reports (TD-145, narrowed). O(1).
+    /// </summary>
+    /// <param name="holder">The holder state (<see cref="LedgerState.Belt"/>).</param>
+    /// <param name="unit">The unit (mail).</param>
+    public void LeaveHolder(LedgerState holder, in UnitRef unit)
+    {
+        if (holder == LedgerState.Belt && !unit.Mail.IsNone)
+        {
+            _ledger.AddLive(UnitLedger.MailRow, LedgerState.Belt, -1);
+        }
+    }
+
+    /// <summary>
+    /// Counts the units of the live entry in <paramref name="entrySlot"/> as entering Inventory custody (story 017; ADR-0017 section 6
+    /// l.137; TD-160 item 2): <c>spawned</c> += its count. <c>Spawn</c> calls it per placed unit before its placement commits, and
+    /// <c>AppendBacklog</c> once its append succeeded; units a spawn leaves unplaced are Mail's and never counted. O(1).
+    /// </summary>
+    /// <param name="entrySlot">The new entry's pool slot.</param>
+    public void CountSpawned(ushort entrySlot)
+    {
+        ref EntryRecord e = ref _entries[entrySlot];
+        if (e.IsLive)
+        {
+            _ledger.AddSpawned(UnitLedger.RowOf(in e), e.Count);
+        }
     }
 
     /// <summary>Opens a call over <paramref name="plan"/>: records the actor and cause every seal and the reply carry.</summary>
@@ -253,7 +366,8 @@ internal sealed class InventoryMutator
     /// cells <c>Validate</c> proved free, and raises <c>InvInserted</c> plus its mailId runs. A square footprint, and every entry of a
     /// slots layout (one 1 x 1 cell), is stored unrotated. Links the entry into the StackKey index when it is non-full and adds its class
     /// points to the owner slot's weight (story 016; a container with no owner adds nothing). Into a container
-    /// with an outfeed it first stamps the entry with the next <c>arrivalSeq</c> and appends its FIFO node (story 012). A free or
+    /// with an outfeed it first stamps the entry with the next <c>arrivalSeq</c> and appends its FIFO node (story 012). Its units leave
+    /// the holder state the entry is in, if any, and enter the ledger's Cursor or Placed state (story 017). A free or
     /// already placed entry asserts under <c>INVENTORY_ASSERT</c>; Release returns with nothing changed.
     /// </summary>
     /// <param name="plan">The call's plan.</param>
@@ -279,6 +393,7 @@ internal sealed class InventoryMutator
 
         ref ContainerHeader h = ref _containers[containerSlot];
         int weight = _weight.PointsOf(h.OwnerSlot, in e); // before any change, so a Bulk assert leaves nothing half-placed
+        LeaveHolder(entrySlot, e.Count); // story 017: Flight, Backlog or World -count (none after a WorldItem's removal)
         Canonicalise(in h, in e, ref rotated);
         FootprintIn(in h, in e, rotated, out int fw, out int fh);
         _occupancy.Place(containerSlot, h.W, h.H, x, y, fw, fh, entrySlot);
@@ -291,6 +406,7 @@ internal sealed class InventoryMutator
         plan.MarkMutated(containerSlot);
         LinkIfNonFull(entrySlot);
         CountItemUnits(containerSlot, in e, e.Count);
+        _ledger.AddLive(UnitLedger.RowOf(in e), StateOf(in h), e.Count);
         _weight.Add(h.OwnerSlot, weight);
         if (HasOutfeed(containerSlot))
         {
@@ -307,7 +423,8 @@ internal sealed class InventoryMutator
 
     /// <summary>
     /// Takes a placed entry out of its container (the entry stays allocated and detached; it leaves the StackKey index) and raises
-    /// <c>InvRemoved{c, entry, count}</c>. Its class points leave the owner slot's weight (story 016). An outfeed entry's <c>arrivalSeq</c> is reset to 0 and its FIFO node becomes a lazy
+    /// <c>InvRemoved{c, entry, count}</c>. Its class points leave the owner slot's weight (story 016) and its units the ledger's Cursor
+    /// or Placed state (story 017; the entry is in no state until a primitive places it or enters it into a holder). An outfeed entry's <c>arrivalSeq</c> is reset to 0 and its FIFO node becomes a lazy
     /// tombstone (the list is compacted when its tombstones exceed its live entries).
     /// </summary>
     /// <param name="plan">The call's plan.</param>
@@ -338,6 +455,7 @@ internal sealed class InventoryMutator
         FootprintIn(in h, in e, e.Rotated, out int fw, out int fh);
         _index.Unlink(entrySlot);
         CountItemUnits(containerSlot, in e, -e.Count);
+        _ledger.AddLive(UnitLedger.RowOf(in e), StateOf(in h), -e.Count);
         _weight.Add(h.OwnerSlot, -weight);
         _occupancy.Clear(containerSlot, h.W, h.H, e.X, e.Y, fw, fh);
         h.EntryCount = (ushort)Math.Max(0, h.EntryCount - 1);
@@ -431,8 +549,10 @@ internal sealed class InventoryMutator
     /// already be touched (<see cref="InvPlan.EnsureTouched"/>). An invalid merge (free or unplaced target, a self-merge, different
     /// <c>StackKey</c>s, <paramref name="units"/> outside 1 to the source's count, a target over 255 or over its <c>effMax</c> read now
     /// (<see cref="EffMaxOf"/>, the value the index uses)) asserts
-    /// <see cref="SimAssertCode.InventoryMergeInvalid"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing. The ledger hook is story
-    /// 017's (a Placed-to-Placed merge crosses no ledger state, ADR-0009 section 6).
+    /// <see cref="SimAssertCode.InventoryMergeInvalid"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing. Ledger (story 017): the
+    /// units leave a placed source's state (Cursor or Placed; the whole-source path through <see cref="Remove"/>) and enter the
+    /// target's, so a Placed-to-Placed merge nets nothing; a detached source's merged units leave the holder state it is in, if any
+    /// (<see cref="LeaveHolder(ushort, int)"/>; the remainder stays there).
     /// </summary>
     /// <param name="plan">The call's plan.</param>
     /// <param name="sourceSlot">The source entry's pool slot (placed or detached).</param>
@@ -470,9 +590,15 @@ internal sealed class InventoryMutator
             _ = _mailIds.Take(ref src.MailIds, units, moved, 0);
         }
 
+        if (from == EntryRecord.NoContainer)
+        {
+            LeaveHolder(sourceSlot, units); // story 017: before the count changes, so a whole source leaves its holder entirely
+        }
+
         _index.Unlink(targetSlot);
         _entries.SetCount(targetSlot, (byte)(dst.Count + units));
         CountItemUnits(to, in dst, units);
+        _ledger.AddLive(UnitLedger.RowOf(in dst), StateOf(in _containers[to]), units);
         if (units == src.Count)
         {
             if (from != EntryRecord.NoContainer)
@@ -480,6 +606,7 @@ internal sealed class InventoryMutator
                 Remove(ref plan, sourceSlot); // InvRemoved carries the whole count, which is units
             }
 
+            _ledger.SetHolder(sourceSlot, UnitLedger.NoHolder); // the slot is free: no later entry inherits a holder
             _entries.Free(sourceSlot);
         }
         else
@@ -489,6 +616,7 @@ internal sealed class InventoryMutator
             if (from != EntryRecord.NoContainer)
             {
                 CountItemUnits(from, in src, -units);
+                _ledger.AddLive(UnitLedger.RowOf(in src), StateOf(in _containers[from]), -units);
                 plan.MarkMutated(from);
                 var removed = new InvRemovedPayload { Container = _containers[from].Id.Value, EntryId = src.Id.Value, Count = (byte)units };
                 _ = _events.TryRaise(InvEventKinds.Removed, AudienceOf(from), in removed);
@@ -507,7 +635,8 @@ internal sealed class InventoryMutator
     /// StackKey re-link and outfeed restamp. No source entry is created, so no entry id is spent. The container must already be
     /// touched. An invalid merge (a free, unplaced or non-mail target, a none id, a <paramref name="key"/> other than the target's, a
     /// target at 255 or at its <c>effMax</c> read now) asserts <see cref="SimAssertCode.InventoryMergeInvalid"/> under
-    /// <c>INVENTORY_ASSERT</c>; Release changes nothing. The ledger crossing is story 017's hook.
+    /// <c>INVENTORY_ASSERT</c>; Release changes nothing. Ledger (story 017): the unit enters the target's state (Cursor or Placed); the
+    /// caller makes its source crossing (<c>TryInsert</c>: Belt, through <see cref="LeaveHolder(LedgerState, in UnitRef)"/>).
     /// </summary>
     /// <param name="plan">The call's plan.</param>
     /// <param name="targetSlot">The placed target stack's pool slot.</param>
@@ -540,6 +669,7 @@ internal sealed class InventoryMutator
 
         _index.Unlink(targetSlot);
         _entries.SetCount(targetSlot, (byte)(dst.Count + 1));
+        _ledger.AddLive(UnitLedger.MailRow, StateOf(in _containers[to]), 1);
         RaiseMerged(ref plan, targetSlot, to, 1, moved);
         return true;
     }
@@ -551,8 +681,10 @@ internal sealed class InventoryMutator
     /// the whole count, which is <paramref name="k"/>) and freed; otherwise its count is set, it is re-linked in the StackKey index and
     /// <c>InvRemoved{c, entry, k}</c> is raised (take-k removes the k lowest, ADR-0009 section 4). The container must already be touched.
     /// An invalid take (a free or unplaced entry, <paramref name="k"/> outside 1 to the count, a short <paramref name="taken"/> for mail)
-    /// asserts <see cref="SimAssertCode.InventoryTakeInvalid"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing. The ledger
-    /// crossing is story 017's hook.
+    /// asserts <see cref="SimAssertCode.InventoryTakeInvalid"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing. Ledger (story
+    /// 017): the k units leave the entry's state (Cursor or Placed; the whole-entry path through <see cref="Remove"/>, so they are not
+    /// counted twice) and are in no state: the caller makes their target crossing (<see cref="ConsumeOldest"/>, <c>TakeUnit</c>'s Belt,
+    /// <see cref="SplitAndPlace"/>'s <see cref="Place"/>).
     /// </summary>
     /// <param name="plan">The call's plan.</param>
     /// <param name="entrySlot">The placed entry's pool slot.</param>
@@ -591,11 +723,34 @@ internal sealed class InventoryMutator
         _index.Unlink(entrySlot);
         _entries.SetCount(entrySlot, (byte)(e.Count - k));
         CountItemUnits(containerSlot, in e, -k);
+        _ledger.AddLive(UnitLedger.RowOf(in e), StateOf(in _containers[containerSlot]), -k);
         plan.MarkMutated(containerSlot);
         var removed = new InvRemovedPayload { Container = _containers[containerSlot].Id.Value, EntryId = e.Id.Value, Count = (byte)k };
         _ = _events.TryRaise(InvEventKinds.Removed, AudienceOf(containerSlot), in removed);
         LinkIfNonFull(entrySlot);
         return k;
+    }
+
+    /// <summary>
+    /// The consume primitive (story 015's <c>ConsumeUnit</c>, story 017's ledger crossing): <see cref="TakeOldest"/> of 1 (its records,
+    /// the last-unit removal and the source state's −1), then the unit crosses to Consumed for <paramref name="reason"/>. The container
+    /// must already be touched. A refused take changes nothing (as <see cref="TakeOldest"/>).
+    /// </summary>
+    /// <param name="plan">The call's plan.</param>
+    /// <param name="entrySlot">The placed entry's pool slot.</param>
+    /// <param name="reason">Why the unit is consumed.</param>
+    /// <param name="taken">Receives the taken mailId (mail only).</param>
+    /// <returns>The units taken: 1, or 0 when refused.</returns>
+    public int ConsumeOldest(ref InvPlan plan, ushort entrySlot, ConsumeReason reason, Span<uint> taken)
+    {
+        int row = UnitLedger.RowOf(in _entries[entrySlot]); // read first: a last unit frees the entry
+        int took = TakeOldest(ref plan, entrySlot, 1, taken);
+        if (took == 1)
+        {
+            _ledger.AddConsumed(row, reason, 1);
+        }
+
+        return took;
     }
 
     /// <summary>
@@ -615,7 +770,8 @@ internal sealed class InventoryMutator
     /// record and this returns false with nothing placed (an entry allocated before an arena refusal is freed; its id stays spent,
     /// ADR-0004). An invalid split (a free or unplaced source, <paramref name="k"/> outside 1 to the count − 1, a mail run shorter than
     /// <paramref name="k"/>) asserts <see cref="SimAssertCode.InventoryTakeInvalid"/> under <c>INVENTORY_ASSERT</c>; Release changes
-    /// nothing. Allocation-free (a preallocated id buffer). The ledger crossing is story 017's hook.
+    /// nothing. Allocation-free (a preallocated id buffer). The ledger crossing (story 017) follows from <see cref="TakeOldest"/> and
+    /// <see cref="Place"/>: the k units leave the source's state and enter the destination's.
     /// </summary>
     /// <param name="plan">The call's plan.</param>
     /// <param name="sourceSlot">The placed source entry's pool slot.</param>
@@ -827,6 +983,9 @@ internal sealed class InventoryMutator
 
     /// <summary>True for a player's cursor: a container of the cursor def with an owner slot.</summary>
     private bool IsCursor(in ContainerHeader h) => h.DefIndex == _cursorDef && h.OwnerSlot < PlayerSlot.Count;
+
+    /// <summary>The ledger state of units placed in the container: <see cref="LedgerState.Cursor"/> on a player's cursor, else <see cref="LedgerState.Placed"/>.</summary>
+    private LedgerState StateOf(in ContainerHeader h) => IsCursor(in h) ? LedgerState.Cursor : LedgerState.Placed;
 
     /// <summary>Appends where <paramref name="entry"/> left from in this call to the departure ring (the oldest is overwritten).</summary>
     private void LogDeparture(EntryId entry, ContainerId container, byte x, byte y, bool rotated)
