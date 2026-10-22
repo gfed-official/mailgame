@@ -730,7 +730,7 @@ public class WorldItemTests
         Assert.All(loot, id => Assert.True(w.World.Table.TryGetSlot(id, out _)));
         Assert.Equal(exceededBefore + 3, w.R.Counters[CounterId.InventoryWorldItemCapExceeded]);
         Assert.Equal(ringBefore + 1, w.R.Host.World.CheckRing.Count);
-        Assert.Equal(candidatesBefore + 1, w.R.Counters[CounterId.InventoryWorldItemCapCandidates]); // one node read: the dropped plank's head at 701; at 702 phase 1 verified it this tick, so the eviction is free (Evan 2026-10-21 7:22 PM PT)
+        Assert.Equal(candidatesBefore + 1, w.R.Counters[CounterId.InventoryWorldItemCapCandidates]); // the dropped plank's head check at 701
     }
 
     // ---------------------------------------------------------------- H-PERF-6d
@@ -753,7 +753,7 @@ public class WorldItemTests
         // Assert
         Assert.Equal(400, created);
         Assert.True(visits <= created + 1, $"visits {visits} > created + 1 ({created + 1})");
-        Assert.Equal(399, visits); // exact per the ruling (one per FIFO node read on the eviction path; a head verified this tick is free — Evan 2026-10-21 7:22 PM PT): phase 1 verified the first head this tick; each later eviction reads the new head once
+        Assert.Equal(399, visits); // exact: the first head was verified by phase 1; each later eviction reads the new head once
         Assert.Equal(400, Heads(w.R.Sink.Last, InvEventKinds.ItemsLost).Length);
         Assert.Equal(512, w.World.LiveCount);
     }
@@ -782,7 +782,7 @@ public class WorldItemTests
         // Assert: 400 evictions, the 12 water planks first (lowest expiresTick, 9000), no letter touched
         Assert.Equal(400, created);
         Assert.True(visits <= created + 1, $"visits {visits} > created + 1 ({created + 1})");
-        Assert.Equal(11 + 387, visits); // exact per the ruling (Evan 2026-10-21 7:22 PM PT): phase 1 verified all three heads this tick; then 11 new water heads, then 387 new plank heads (the mail head stays verified this tick and young)
+        Assert.Equal(11 + 387, visits); // exact: 11 new water heads, then 387 new plank heads (the mail head stays verified and young)
         Assert.Equal(400, lost.Length);
         Assert.Equal(water.Select(x => x.Value).ToArray(), lost.Take(12).Select(e => e.PayloadAs<ItemsLostPayload>().WorldItemId).ToArray());
         Assert.Empty(Heads(w.R.Sink.Last, InvEventKinds.Version));
@@ -806,7 +806,7 @@ public class WorldItemTests
 
         // Assert
         Assert.Equal(400, created);
-        Assert.Equal(0, w.R.Counters[CounterId.InventoryWorldItemCapCandidates] - before); // exact per the ruling (Evan 2026-10-21 7:22 PM PT): phase 1 verified the young mail head this tick; no other FIFO holds a node
+        Assert.Equal(0, w.R.Counters[CounterId.InventoryWorldItemCapCandidates] - before); // the young mail head is known: nothing visited
         Assert.Equal(912, w.World.LiveCount);
         Assert.Equal(exceededBefore + 400, w.R.Counters[CounterId.InventoryWorldItemCapExceeded]);
     }
