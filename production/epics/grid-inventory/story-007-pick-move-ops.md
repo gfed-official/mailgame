@@ -101,12 +101,12 @@
 
 ## Approved defaults (Evan, 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT)
 
-Items 1–3 were Mail Lead planning defaults of 2026-10-22; **Evan approved them on 2026-10-22 at 2:24 PM PT, confirmed in scope 3:00 PM PT** ("to all recommended decisions", Mail Lead chat), so they are now Evan's rulings. Item 4 is settled by an Evan ruling (his own answer in the Mail Review chat). All four are tracked in TD-150.
+Items 1–3 were Mail Lead planning defaults of 2026-10-22; **Evan approved them on 2026-10-22 at 2:24 PM PT, confirmed in scope 3:00 PM PT** ("to all recommended decisions", Mail Lead chat), so they are now Evan's rulings. Item 4's leash case is settled by an Evan ruling (his own answer in the Mail Review chat); the rest of item 4 is existing behaviour that follows its pattern. All four are tracked in TD-150.
 
 1. `count = 0` and `count == total` both move the whole entry, which keeps its id. This follows Accepted ADR-0009 §1 (TD-105 item 3). `count > total` → `bad_count`. A GDD errata note is added at the edge cases; the GDD rule text is unchanged and the ADR is not edited.
 2. A partial-fit implicit merge moves `min(count, effMax − target.count)` units. The remainder stays at the source and keeps its id. A full target → `stack_full`.
 3. A cursor → chest move bumps both containers, once each. This settles the wording of H-R4-3 a.
-4. Existing behaviour from story 011, kept, and no longer a default — Evan ruling 2026-10-22 5:11 AM PT (Evan's answer to Mail Review in the Mail Review chat): on a full mail-id arena, a letter whose merge block can't be reserved stays on the cursor (`capacity_exhausted`), the same as AutoPlace and `TryInsert`.
+4. Existing behaviour from story 011, kept. Evan's 2026-10-22 5:11 AM PT ruling (his answer to Mail Review in the Mail Review chat) covers only that a leashed letter stays on the cursor when the mail-id arena is full, even with a free cell in the panel. A move refused because the arena can't reserve a merge block (`capacity_exhausted`, the same as AutoPlace and `TryInsert`) follows the pattern of that ruling; the ruling does not cover it.
 
 ---
 
