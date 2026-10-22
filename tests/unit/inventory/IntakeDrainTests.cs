@@ -348,6 +348,57 @@ public sealed class IntakeDrainTests
     }
 
     [Fact]
+    public void Drain_MultiIdEntries_BacklogUnitsPayloadAndProperties_CountUnitsNotEntries_AfterAPartialAndAFullPass()
+    {
+        // Arrange: 319 letters leave (19,15) free; the backlog [letter x3 ids, letter x4 ids, Large x1] (8 units, 3 entries), one MailStep
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 319, 1_000);
+        DefIndex letter = rig.KindIndex("letter");
+        DefIndex large = rig.KindIndex("large");
+        Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () =>
+            rig.Inventory.AppendBacklog(new BacklogEntry(letter, Address4, 0, IntakeSpawnOutfeedTests.Mail(50, 51, 52)))
+            & rig.Inventory.AppendBacklog(new BacklogEntry(letter, Address9, 0, IntakeSpawnOutfeedTests.Mail(60, 61, 62, 63)))
+            & rig.Inventory.AppendBacklog(new BacklogEntry(large, Address4, 0, IntakeSpawnOutfeedTests.Mail(70)))));
+        ushort[] queue = Queue(rig);
+        Assert.Equal(8, rig.Inventory.BacklogUnits);
+        Assert.Equal(3, rig.Inventory.BacklogEntries);
+
+        // Act 1: the next pass places the 3-id letter in the one free cell, then stops
+        (_, _, EventEntry[] log1) = Tick(rig);
+
+        // Assert 1 (partial pass): one BacklogUnits record after the pass, {units 5, entries 2}, and the properties agree
+        Assert.Equal(new[] { queue[1], queue[2] }, Queue(rig));
+        Assert.Equal(rig.Intake, rig.Entries[queue[0]].ContainerSlot);
+        BacklogUnitsPayload p1 = Assert.Single(log1, e => e.Kind == InvEventKinds.BacklogUnits).PayloadAs<BacklogUnitsPayload>();
+        Assert.Equal(5, p1.Units);
+        Assert.Equal(2, p1.Entries);
+        Assert.Equal(5, rig.Inventory.BacklogUnits);
+        Assert.Equal(2, rig.Inventory.BacklogEntries);
+
+        // Act 2: the MailStep frees rows 0 and 1 (40 TakeUnit, oldest first); the next pass places the 4-id letter and the Large
+        _ = IntakeSpawnOutfeedTests.InPhase(rig, () =>
+        {
+            for (int i = 0; i < 40; i++)
+            {
+                Assert.True(rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out _));
+            }
+
+            return 0;
+        });
+        (_, _, EventEntry[] log2) = Tick(rig);
+
+        // Assert 2 (the pass that empties the backlog): {0, 0}, and the properties agree
+        Assert.Equal(rig.Intake, rig.Entries[queue[1]].ContainerSlot);
+        Assert.Equal(4, rig.Entries[queue[1]].Count);
+        Assert.Equal(rig.Intake, rig.Entries[queue[2]].ContainerSlot);
+        BacklogUnitsPayload p2 = Assert.Single(log2, e => e.Kind == InvEventKinds.BacklogUnits).PayloadAs<BacklogUnitsPayload>();
+        Assert.Equal(0, p2.Units);
+        Assert.Equal(0, p2.Entries);
+        Assert.Equal(0, rig.Inventory.BacklogUnits);
+        Assert.Equal(0, rig.Inventory.BacklogEntries);
+    }
+
+    [Fact]
     [Trait("Id", "H-R14-3")]
     public void Drain_PlaceCase_AnOlderMailIdFromTheBacklog_GetsArrivalSeq4_OneInsertedNoMerged_AndLeavesAfterAllThreeResidents()
     {
