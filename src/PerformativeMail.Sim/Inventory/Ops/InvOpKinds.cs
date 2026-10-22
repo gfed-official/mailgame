@@ -62,8 +62,9 @@ public static class InvOpKinds
 
 /// <summary>
 /// The descriptors of the M-1a inventory kinds (ADR-0007 section 4; ADR-0009 sections 1-2). <see cref="InventorySystem"/> binds
-/// <see cref="Pick"/> and <see cref="Move"/> (story 007) and <see cref="Close"/> (story 011); the others are not bound yet: a declared
-/// kind without a handler fails <c>Freeze</c> (<c>MissingOpHandler</c>), and their handlers are stories 008-010 and 019. Wire codec ids
+/// <see cref="Pick"/> and <see cref="Move"/> (story 007), <see cref="Merge"/> (story 008), <see cref="QuickMove"/> and
+/// <see cref="Return"/> (story 010) and <see cref="Close"/> (story 011); the others are not bound yet: a declared kind without a handler
+/// fails <c>Freeze</c> (<c>MissingOpHandler</c>), and their handlers are story 019's. Wire codec ids
 /// and sizes are 0 (unassigned) until the network-adapter-loopback epic assigns them. Reasons are the inventory codes each kind's ADR-0009
 /// chain can return (the precedence chains themselves are the handler stories'); every block-acquiring kind (<c>Move</c>, <c>Merge</c>,
 /// <c>QuickMove</c>, <c>Pickup</c>, <c>Return</c>) declares <c>(kind, 85) capacity_exhausted</c>. <c>bad_request</c> is Core's 8 and is
@@ -90,13 +91,13 @@ public static class InvOpDescriptors
         R(InvReason.NotOpen), R(InvReason.StaleEntry), R(InvReason.NotAllowed), R(InvReason.Blocked), R(InvReason.StackFull),
         R(InvReason.ContainerGone), R(InvReason.CapacityExhausted));
 
-    /// <summary><see cref="InvOpKinds.QuickMove"/>: 12 B; not_open, stale_entry, not_allowed, no_room, container_gone, capacity_exhausted.</summary>
+    /// <summary><see cref="InvOpKinds.QuickMove"/>: 12 B; not_open, stale_entry, not_allowed, no_room, container_gone, capacity_exhausted, bad_count (count above the entry's total, story 010; Mail Lead planning default pending Evan (TD-153)).</summary>
     public static OpDescriptor QuickMove { get; } = OpDescriptor.For<QuickMovePayload>(
         InvOpKinds.QuickMove, false, 0, 0,
         R(InvReason.NotOpen), R(InvReason.StaleEntry), R(InvReason.NotAllowed), R(InvReason.NoRoom), R(InvReason.ContainerGone),
-        R(InvReason.CapacityExhausted));
+        R(InvReason.CapacityExhausted), R(InvReason.BadCount));
 
-    /// <summary><see cref="InvOpKinds.Return"/>: payload-free (<see cref="OpDescriptor.Empty"/>); cursor_empty, blocked, stack_full, no_room, capacity_exhausted.</summary>
+    /// <summary><see cref="InvOpKinds.Return"/>: payload-free (<see cref="OpDescriptor.Empty"/>); cursor_empty, blocked, stack_full, no_room, capacity_exhausted. blocked and stack_full are declared but unreachable: an origin that is blocked or full falls through to the panel leg (story 010, <see cref="ReturnHandler"/>; Mail Lead planning default pending Evan (TD-153)).</summary>
     public static OpDescriptor Return { get; } = OpDescriptor.Empty(
         InvOpKinds.Return, false, 0, 0,
         R(InvReason.CursorEmpty), R(InvReason.Blocked), R(InvReason.StackFull), R(InvReason.NoRoom), R(InvReason.CapacityExhausted));

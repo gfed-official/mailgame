@@ -20,7 +20,9 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// <c>container_gone</c> stays declared but is unreachable at M-1a: no container is freed, and a dead id fails <c>not_open</c> first
 /// (the container tombstones are M-1b, TD-136). A <c>carryByHand: false</c> pick is dormant at M-1a and undeclared (TD-105 item 4).
 /// The commit is one <see cref="InventoryMutator.Transfer"/> to cursor slot 0 in one <c>Begin</c>/<c>End</c> bracket inside the
-/// drain's call scope, so the source and the cursor bump once each. A reject mutates and raises nothing; once the containers are
+/// drain's call scope, so the source and the cursor bump once each; the transfer's <c>Place</c> into the cursor records the entry's
+/// container and cells as the actor's cursor origin (<see cref="InventorySystem.CursorOrigin"/>, kept by the mutator, story 010:
+/// <c>return</c> puts it back there, GDD R7 l.95). A reject mutates and raises nothing; once the containers are
 /// resolved its reply carries their current versions. Allocation-free; never throws. Not thread-safe: Sim tick thread only.
 /// </summary>
 /// <example><code>builder.BindOp(InvOpDescriptors.Pick, new PickHandler(inventory));</code></example>
@@ -117,7 +119,8 @@ internal sealed class PickHandler : IOpHandler
 
     /// <summary>
     /// The mutating half: applies <paramref name="plan"/>'s placement unchanged through <see cref="InventoryMutator.Transfer"/> in one
-    /// <c>Begin</c>/<c>End</c> bracket (cause <see cref="InvCause.None"/>). Never fails, never recomputes.
+    /// <c>Begin</c>/<c>End</c> bracket (cause <see cref="InvCause.None"/>); the mutator records the cursor origin (story 010). Never
+    /// fails, never recomputes.
     /// </summary>
     /// <param name="plan">The plan <see cref="Validate"/> passed.</param>
     /// <param name="actor">The acting actor (written into every seal).</param>

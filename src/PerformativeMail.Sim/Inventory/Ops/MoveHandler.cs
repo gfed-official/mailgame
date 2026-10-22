@@ -54,8 +54,11 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// <c>ok</c> with no bump and no event); one <see cref="InventoryMutator.MergeInto"/>; one <see cref="InventoryMutator.SplitAndPlace"/>
 /// (the new entry's id is allocated there); or the swap's <c>Remove(displaced)</c>, <c>Transfer(cursor entry → slot)</c>,
 /// <c>Place(displaced → cursor slot 0)</c>, in that order (<see cref="Occupancy"/> asserts on an occupied cell, so the slot is
-/// cleared first). Every changed container bumps exactly once (a cursor → chest move bumps both; a swap bumps the cursor and the
-/// hotbar once each: Mail Lead planning default pending Evan, the TD-150 item 3 reading of "one version bump"). Weight, the StackKey
+/// cleared first). The mutator keeps the actor's cursor origin (story 010, <see cref="InventorySystem.CursorOrigin"/>): a move or split
+/// onto the cursor records where the entry or its source was, the swap the displaced entry's hotbar slot, and any move off it clears
+/// it. Every changed container bumps exactly once (a cursor → chest move bumps both; a
+/// swap bumps the cursor and the hotbar once each: Mail Lead planning default pending Evan, the TD-150 item 3 reading of "one version
+/// bump"). Weight, the StackKey
 /// index and the item counts are kept by those primitives. A reject mutates and raises nothing; once the containers are resolved its
 /// reply carries their current versions. Allocation-free; never throws. Not thread-safe: Sim tick thread only.
 /// </summary>
@@ -217,7 +220,7 @@ internal sealed class MoveHandler : IOpHandler
             _ = plan.AddAcquiredBlock(targetCount + units); // the union block; one block never overflows a fresh plan
         }
 
-        return check.CheckArenaReservation(in plan); // capacity_exhausted last (ADR-0009 section 2 reason precedence)
+        return check.CheckArenaReservation(in plan); // capacity_exhausted (code 85, ADR-0009 section 2 reason codes; arena exhaustion, section 5) checked last: Mail Lead planning default pending Evan (TD-152)
     }
 
     /// <summary>

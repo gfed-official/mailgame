@@ -11,14 +11,16 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
 /// Story grid-inventory/004, GDD H-NET-5 (Sim half) and H-R7-4 (malformed half); TR-inventory-025, TR-inventory-006; ADR-0009 section 2;
-/// ADR-0007 sections 3 and 5. Until stories 008-010 and 019 bind the real handlers, every inventory kind the system does not bind itself
-/// (all but <c>Pick</c> and <c>Move</c>, story 007, and <c>Close</c>, story 011, whose real handlers run here and are covered by
-/// <c>PickMoveTests</c> and <c>OpenSetTests</c>) is bound (with its real descriptor) to a TEST-ONLY <see cref="InvValidateOnlyStub"/>
+/// ADR-0007 sections 3 and 5. Until story 019 binds the real handlers, every inventory kind the system does not bind itself (all but
+/// <c>Pick</c> and <c>Move</c>, story 007, <c>Merge</c>, story 008, <c>QuickMove</c> and <c>Return</c>, story 010, and <c>Close</c>,
+/// story 011, whose real handlers run here and are covered by <c>PickMoveTests</c>, <c>MoveSplitMergeTests</c>,
+/// <c>QuickMoveReturnTests</c> and <c>OpenSetTests</c>) is bound (with its real descriptor) to a TEST-ONLY <see cref="InvValidateOnlyStub"/>
 /// whose whole body is the shared production steps (<see cref="InvRequestCheck.CheckRequest"/>, then — no <c>not_open</c> step exists
 /// for those kinds yet — <see cref="InvRequestCheck.ResolveEntries"/>) and which never mutates; ops go through the real phase-0 drain of
 /// a composed world holding a real <see cref="InventorySystem"/> (with the world's slot view, so the real handlers resolve the actor's
-/// slot) and live and removed entries. The rig's live entries are allocated but placed in no container, so the real <c>Pick</c> and
-/// <c>Move</c> answer a well-formed op on one with <c>stale_entry</c>. Out-of-range values that a narrow payload field cannot represent
+/// slot) and live and removed entries. The rig's live entries are allocated but placed in no container, so the real <c>Pick</c>,
+/// <c>Move</c>, <c>Merge</c> and <c>QuickMove</c> answer a well-formed op on one with <c>stale_entry</c>, and the real <c>Return</c> answers the
+/// rig's empty cursor with <c>cursor_empty</c>. Out-of-range values that a narrow payload field cannot represent
 /// (<c>count = -1</c>, <c>x = 70000</c>) are checked at the helper's widened-<c>int</c> entry points (<see cref="InvRequestCheck.CheckCount"/>,
 /// <see cref="InvRequestCheck.CheckCoordinate"/>) that the codec decode boundary will call; byte-level decode itself is the
 /// network-adapter-loopback epic's.
@@ -228,12 +230,14 @@ public class InvMalformedOpTests
             Assert.Equal(CoreReason.BadRequest, r.Reason);
         });
         Assert.Equal(FuzzOps, replies.Select(r => r.ReqId).Distinct().Count());
-        foreach (OpKind bound in InventoryWithStubOps.BoundBySystem)
+        // Return is payload-free: a structurally valid Return has no field only the Sim can judge, so the generator issues none (its one
+        // bad_request, a non-zero payload length, is CheckRequest_ReturnWithANonZeroPayloadLength_IsBadRequest).
+        foreach (OpKind bound in InventoryWithStubOps.BoundBySystem.Where(k => k != InvOpKinds.Return))
         {
             Assert.True(issued.Values.Count(k => k == bound) > 0, $"generator issued no {bound} op");
         }
 
-        // Every op reached a handler: the stubbed kinds the stub's helper, Pick, Move, Merge and Close their real handler (bad_request above).
+        // Every op reached a handler: the stubbed kinds the stub's helper, Pick, Move, Merge, QuickMove, Return and Close their real handler (bad_request above).
         // A handler's reply carries its call scope's CallSeq; a Sim Core pre-check reject would carry 0.
         int boundOps = issued.Values.Count(k => Array.IndexOf(InventoryWithStubOps.BoundBySystem, k) >= 0);
         Assert.Equal(FuzzOps - boundOps, rig.StubCalls);
@@ -272,10 +276,11 @@ public class InvMalformedOpTests
 
     // ------------------------------------------------------------------ per-kind pass / stale_entry through the drain
 
-    // Pick, Move, Merge and Close are not here: InventorySystem binds their real handlers (stories 007, 008 and 011), whose valid cases
-    // are in PickMoveTests, MoveSplitMergeTests and OpenSetTests (the rig's unplaced live entry is stale_entry to the real Pick, Move
-    // and Merge).
-    public static TheoryData<string> ValidCases => new() { "QuickMove", "Drop", "Pickup", "PickupDefaultEntry", "Open", "Return" };
+    // Pick, Move, Merge, QuickMove, Return and Close are not here: InventorySystem binds their real handlers (stories 007, 008, 010 and
+    // 011), whose valid cases are in PickMoveTests, MoveSplitMergeTests, QuickMoveReturnTests and OpenSetTests (the rig's unplaced live
+    // entry is stale_entry to the real Pick, Move, Merge and QuickMove, QuickMoveReturnTests.QuickMove_OnTheStubRigsUnplacedLiveEntry_IsStaleEntry;
+    // the rig's empty cursor is cursor_empty to the real Return, QuickMoveReturnTests.Return_OnTheStubRigsEmptyCursor_IsCursorEmpty).
+    public static TheoryData<string> ValidCases => new() { "Drop", "Pickup", "PickupDefaultEntry", "Open" };
 
     public static TheoryData<string> StaleCases => new() { "Pick", "Move", "Merge", "MergeTarget", "QuickMove", "Drop", "Pickup" };
 
@@ -636,8 +641,8 @@ internal sealed class InvValidateOnlyStub : IOpHandler
 /// </summary>
 internal sealed class InventoryWithStubOps : ISimSystem
 {
-    /// <summary>The kinds <see cref="InventorySystem.Bind"/> binds a production handler for (story 007: <c>Pick</c>, <c>Move</c>; story 008: <c>Merge</c>; story 011: <c>Close</c>).</summary>
-    public static readonly OpKind[] BoundBySystem = { InvOpKinds.Pick, InvOpKinds.Move, InvOpKinds.Merge, InvOpKinds.Close };
+    /// <summary>The kinds <see cref="InventorySystem.Bind"/> binds a production handler for (story 007: <c>Pick</c>, <c>Move</c>; story 008: <c>Merge</c>; story 010: <c>QuickMove</c>, <c>Return</c>; story 011: <c>Close</c>).</summary>
+    public static readonly OpKind[] BoundBySystem = { InvOpKinds.Pick, InvOpKinds.Move, InvOpKinds.Merge, InvOpKinds.QuickMove, InvOpKinds.Return, InvOpKinds.Close };
 
     private readonly ISlotView _slots;
 
@@ -671,7 +676,7 @@ internal sealed class InventoryWithStubOps : ISimSystem
 /// <summary>
 /// A composed M-1a world (real content, real <see cref="InventorySystem"/>, Sim Core's own <c>PlayerJoin</c>) with players in slots 0 and 1,
 /// six allocated (never placed) entries of which ids 2 and 5 are removed again (so the pool's high-water is 6), and the inventory kinds
-/// other than <c>Pick</c>, <c>Move</c>, <c>Merge</c> and <c>Close</c> bound to stubs. The system gets the world's slot view (the real handlers
+/// other than <c>Pick</c>, <c>Move</c>, <c>Merge</c>, <c>QuickMove</c>, <c>Return</c> and <c>Close</c> bound to stubs. The system gets the world's slot view (the real handlers
 /// resolve the actor's slot through it).
 /// </summary>
 internal sealed class InvOpRig

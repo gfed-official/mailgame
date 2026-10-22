@@ -23,8 +23,9 @@ namespace PerformativeMail.Sim.Inventory;
 /// <para>
 /// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the still
 /// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
-/// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>) and <c>Close</c> (story 011);
-/// the other kinds' handlers are stories 008-010 and 019. It binds no snapshot source (the builder has no
+/// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>), <c>Merge</c> (story 008),
+/// <c>QuickMove</c> and <c>Return</c> (story 010; <see cref="QuickMoveHandler"/>, <see cref="ReturnHandler"/>) and <c>Close</c> (story
+/// 011); the other kinds' handlers are story 019's. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
 /// <c>BindSnapshotSource</c> yet). Every container, entry and
 /// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
 /// <see cref="Subscribers"/> set, which the open set (<see cref="OpenSet"/>, story 011) keeps in step. Storage is preallocated from
@@ -67,6 +68,35 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     private const int PanelContainerCount = 3;
+
+    /// <summary>
+    /// Where the entry on a slot's cursor came from (story grid-inventory/010; GDD R7 <c>return</c> l.95, "into its origin cells"). It is
+    /// set and cleared at one choke point, the <see cref="InventoryMutator"/>: its <c>Place</c> into a cursor records the container,
+    /// cells and rotation the entry left earlier in the same call (a pick, a move or a swap onto the cursor), or for a split piece its
+    /// source entry's (a split onto the cursor), and its <c>Remove</c> from a cursor clears it (a whole place, a quick_move, a return,
+    /// a leash put-away, a merge out of the cursor or a consume). So an origin is present exactly while the cursor holds
+    /// <see cref="Entry"/>, the entry it was recorded for; a partial place or merge out keeps it (the entry keeps its id on the cursor),
+    /// and an entry that arrives from no container in that call has none. The origin of a move or split onto the cursor is a Mail Lead
+    /// planning default pending Evan (TD-153). Sim state that <c>return</c> reads: story 017's dump section carries it; a load without it
+    /// leaves origin none and <c>return</c> uses the panel leg.
+    /// </summary>
+    internal struct CursorOrigin
+    {
+        /// <summary>The entry that was put on the cursor.</summary>
+        public EntryId Entry;
+
+        /// <summary>The container it came from.</summary>
+        public ContainerId Container;
+
+        /// <summary>Its top-left column there.</summary>
+        public byte X;
+
+        /// <summary>Its top-left row there.</summary>
+        public byte Y;
+
+        /// <summary>Its rotation there.</summary>
+        public bool Rotated;
+    }
 
     private readonly ContentSet _content;
     private readonly DefTable<ContainerDef> _defs;
@@ -189,16 +219,15 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         var itemCounts = new ItemCountIndex(_entries.Capacity, _containers.Capacity, facade.Counters);
         // Story 016: the per-slot weight points memo, its class points read once from the settings.
         var weight = new Weight(content, settings);
-        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, weight, slots);
-        _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
-
-        // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
-        _worldItems = new WorldItems(this, _mutator, _entries, content.Inventory, settings.WorldItemCapacity, facade, _tick, entityIds, checkRing, facade.Counters);
-
         DefIndex intakeDef = Resolve("po_intake");
         _hotbarDef = Resolve("hotbar");
         _playerInventoryDef = Resolve("player_inventory");
         _cursorDef = Resolve("cursor");
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, weight, _cursorDef, slots);
+        _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
+
+        // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
+        _worldItems = new WorldItems(this, _mutator, _entries, content.Inventory, settings.WorldItemCapacity, facade, _tick, entityIds, checkRing, facade.Counters);
 
         if (!TryCreate(intakeDef, ContainerHeader.NoOwner, null, out _intake))
         {
@@ -291,6 +320,26 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <param name="slot">The player slot.</param>
     public ContainerId CursorOf(PlayerSlot slot) => slot.IsNone ? default : _panels[slot.Value].Cursor;
 
+    /// <summary>
+    /// The origin of the entry on <paramref name="slot"/>'s cursor (story 010; <see cref="ReturnHandler"/> reads it), as the
+    /// <see cref="InventoryMutator"/> keeps it (see <see cref="CursorOrigin"/>): present exactly while the cursor holds the entry it was
+    /// recorded for. No per-read entry check is needed: the mutator's <c>Place</c> and <c>Remove</c> are the only writes of a cursor's
+    /// cells, and they record and clear it. Pure; allocation-free.
+    /// </summary>
+    /// <param name="slot">The player slot.</param>
+    /// <param name="origin">The origin when present; default otherwise.</param>
+    /// <returns>True when an origin is recorded for the entry on the cursor.</returns>
+    internal bool TryGetCursorOrigin(PlayerSlot slot, out CursorOrigin origin)
+    {
+        if (slot.IsNone || slot.Value >= PlayerSlot.Count)
+        {
+            origin = default;
+            return false;
+        }
+
+        return _mutator.TryGetCursorOrigin(slot.Value, out origin);
+    }
+
     /// <summary>Copies the header of <paramref name="id"/>.</summary>
     /// <param name="id">The container id.</param>
     /// <param name="header">The header when found.</param>
@@ -311,12 +360,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the empty <c>IntakeDrain</c> phase, the stub
     /// conservation check, the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
     /// <see cref="InvOpDescriptors.Pick"/> and <see cref="InvOpDescriptors.Move"/> handlers (story 007), the
-    /// <see cref="InvOpDescriptors.Merge"/> handler (story 008) and the <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds
-    /// no other op (stories 010, 019) and no snapshot source.
+    /// <see cref="InvOpDescriptors.Merge"/> handler (story 008), the <see cref="InvOpDescriptors.QuickMove"/> and
+    /// <see cref="InvOpDescriptors.Return"/> handlers (story 010) and the <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds no
+    /// other op (story 019) and no snapshot source.
     /// </summary>
     /// <param name="builder">The world's builder.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is null.</exception>
-    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c>, <c>DuplicateEventKind</c> or <c>DuplicateOpHandler</c> (another <c>Pick</c>, <c>Move</c>, <c>Merge</c> or <c>Close</c> handler).</exception>
+    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c>, <c>DuplicateEventKind</c> or <c>DuplicateOpHandler</c> (another <c>Pick</c>, <c>Move</c>, <c>Merge</c>, <c>QuickMove</c>, <c>Return</c> or <c>Close</c> handler).</exception>
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -333,6 +383,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         builder.BindOp(InvOpDescriptors.Pick, new PickHandler(this));
         builder.BindOp(InvOpDescriptors.Move, new MoveHandler(this, _content, _stats));
         builder.BindOp(InvOpDescriptors.Merge, new MergeHandler(this, _content, _stats));
+        builder.BindOp(InvOpDescriptors.QuickMove, new QuickMoveHandler(this, _content, _stats));
+        builder.BindOp(InvOpDescriptors.Return, new ReturnHandler(this, _content, _stats));
         builder.BindOp(InvOpDescriptors.Close, new CloseHandler(this));
     }
 
