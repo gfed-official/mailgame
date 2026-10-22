@@ -287,6 +287,7 @@ public class InventoryEventsTests
         Assert.Equal(16, Unsafe.SizeOf<WorldItemDespawnedPayload>());
         Assert.Equal(16, Unsafe.SizeOf<WorldItemEntriesChangedPayload>());
         Assert.Equal(8, Unsafe.SizeOf<ItemsLostPayload>());
+        Assert.Equal(4, Unsafe.SizeOf<BacklogUnitsPayload>());
         Assert.Equal(InvMailIdRuns.RunBytes, Unsafe.SizeOf<InvMailIdRun>());
         Assert.Equal(EventPayload.Size, Unsafe.SizeOf<InvMailIdRuns>());
         Assert.Equal(InvMailIdRuns.Capacity * InvMailIdRuns.RunBytes, Unsafe.SizeOf<InvMailIdRuns>());

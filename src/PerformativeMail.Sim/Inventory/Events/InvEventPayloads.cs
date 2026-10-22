@@ -382,3 +382,19 @@ public struct ItemsLostPayload
     /// <summary>The cause (<see cref="InvCause.Destroyed"/>).</summary>
     public byte Cause;
 }
+
+/// <summary>
+/// <see cref="InvEventKinds.BacklogUnits"/> (4 B, padding-free): the Intake backlog now holds <see cref="Units"/> units in
+/// <see cref="Entries"/> entries (story 021; both saturate at <see cref="ushort.MaxValue"/>). Mail reads the same values through
+/// <c>IInventoryApi.BacklogUnits</c> / <c>BacklogEntries</c>.
+/// </summary>
+/// <example><code>var p = e.PayloadAs&lt;BacklogUnitsPayload&gt;();   // {2, 1}</code></example>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct BacklogUnitsPayload
+{
+    /// <summary>Units queued (saturating).</summary>
+    public ushort Units;
+
+    /// <summary>Entries queued (saturating).</summary>
+    public ushort Entries;
+}

@@ -164,7 +164,8 @@ public class SimCountersTests
         Assert.Equal(47, (int)CounterId.InventoryWorldItemReturnRetries);
         Assert.Equal(48, (int)CounterId.InventoryWorldItemCapExceeded);
         Assert.Equal(49, (int)CounterId.InventoryItemCountProbes);
-        Assert.Equal(50, new SimCounters().Length);
+        Assert.Equal(50, (int)CounterId.InventoryBacklogVisits);
+        Assert.Equal(51, new SimCounters().Length);
         Assert.Equal(typeof(ushort), Enum.GetUnderlyingType(typeof(CounterId)));
     }
 

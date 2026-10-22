@@ -122,22 +122,26 @@ public class IntakeSpawnOutfeedTests
 
     [Fact]
     [Trait("Id", "H-R14-4")]
-    public void ReturnToIntake_NoRoom_ReturnsFalse_AndChangesNothing()
+    public void ReturnToIntake_NoRoom_AppendsTheMailEntryToTheBacklog_TheIntakeUnchanged()
     {
         // Arrange: a full Intake (320 count-1 entries) and a detached letter
         var rig = new InvAutoPlaceRig();
         FillIntake(rig, 320, 1_000);
         ushort detached = rig.DetachedMail("letter", Address9, new[] { 7u });
-        List<long> before = State(rig);
+        uint version = rig.Header(rig.Intake).Version;
 
         // Act
         bool ok = InPhase(rig, () => rig.Inventory.ReturnToIntake(detached, ActorId.System, InvCause.Expired));
 
-        // Assert: refused, nothing changed, the entry still detached, no inventory event
-        Assert.False(ok);
-        Assert.Equal(before, State(rig));
+        // Assert: story 021's backlog branch: true, the entry queued whole and still detached, the Intake untouched, no container record
+        Assert.True(ok);
+        Assert.Equal(version, rig.Header(rig.Intake).Version);
         Assert.Equal(EntryRecord.NoContainer, rig.Entries[detached].ContainerSlot);
+        Assert.True(rig.Inventory.Backlog.Contains(detached));
+        Assert.Equal(1, rig.Inventory.BacklogEntries);
+        Assert.Equal(1, rig.Inventory.BacklogUnits);
         Assert.Empty(InventoryEvents(rig.Sink.Last));
+        Assert.Single(rig.Sink.Last, e => e.Kind == InvEventKinds.BacklogUnits);
     }
 
     [Fact]

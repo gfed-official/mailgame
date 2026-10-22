@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 16 Complete, 7 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-22 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 17 Complete, 6 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-22 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -134,7 +134,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 018 | [Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world determinism](story-018-conservation-fuzz-determinism.md) | Integration | Ready | ADR-0006, ADR-0009 |
 | 019 | [Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 range)](story-019-range-gated-open-pickup-leash.md) | Logic | Ready | ADR-0014, ADR-0009, ADR-0013 |
 | 020 | [Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped; swimming refused](story-020-drop-op.md) | Logic | Ready | ADR-0026, ADR-0013, ADR-0009 |
-| 021 | [Backlog append and the IntakeDrain phase (≤ 32 entries/tick, idle exit O(1))](story-021-backlog-intake-drain.md) | Logic | Ready | ADR-0017, ADR-0009 |
+| 021 | [Backlog append and the IntakeDrain phase (≤ 32 entries/tick, idle exit O(1))](story-021-backlog-intake-drain.md) | Logic | Complete | ADR-0017, ADR-0009 |
 | 022 | [DeliverMatching handler — the one deliver hold (matches across cursor/panel; one-unit misdeliver fallback)](story-022-deliver-matching-handler.md) | Integration | Blocked (re-scope, ADR-0009 erratum 2026-10-16) | ADR-0017, ADR-0014, ADR-0009 |
 | 023 | [Own-panel grid view and hotbar strip — one custom-drawn Control, 0 B/frame](story-023-panel-grid-view-hotbar.md) | UI | Ready | ADR-0019, ADR-0009 |
 | 024 | [Panel interactions through the Panel/Holding input contexts, and the M-1a feedback cues](story-024-panel-interactions-feedback.md) | UI | Ready | ADR-0019, ADR-0012, ADR-0009 |
@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33; 014 in PR #34, open, not merged). Next: 017 (Ready, unbuilt; 014 was its last blocker) (013 also unblocks 020). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–016 and 021 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33, 014 in PR #34; 021 in PR #35, open, not merged). Next: 017 (Ready, unbuilt; 014 was its last blocker) (013 also unblocks 020). Stories 019–020 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
