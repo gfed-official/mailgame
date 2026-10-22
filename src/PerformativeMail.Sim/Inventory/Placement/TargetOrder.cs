@@ -23,12 +23,13 @@ internal enum QuickMoveSource : byte
 }
 
 /// <summary>
-/// The AutoPlace target lists of GDD R9 (l.120-128). Story grid-inventory/011 added the cursor row ("put away", the leash auto-close of
-/// R10); story 010 adds only the quick_move rows (<see cref="QuickMoveRow"/>); story 014 adds the mail pickup/catch row (Mail Lead
-/// planning default pending Evan (TD-153), item 4). A non-mail pickup or catch reuses the cursor row (GDD R9 l.128: the row "Cursor ("put
-/// away"); non-mail WorldItem pickup or catch" targets the "panel by the category order above"). The cursor row sends Tool, Weapon and
-/// Consumable to <c>[hotbar, player_inventory]</c> and every other category, mail included, to <c>[player_inventory, hotbar]</c>. There
-/// is no backpack at M-1a, so every row skips it and has at most two targets. The rows are run pass-first with the merge pass (R8: only
+/// The AutoPlace target lists of GDD R9 (l.120-129). Story grid-inventory/011 added the cursor row ("put away", the leash auto-close of
+/// R10); story 010 adds only the quick_move rows (<see cref="QuickMoveRow"/>); story 014 adds the mail pickup/catch row
+/// (<see cref="PickupRow"/>, l.129; Mail Lead planning default pending Evan, TD-153 item 4 and TD-154 item 1). A non-mail pickup or
+/// catch reuses the cursor row (GDD R9 l.128: the row "Cursor ("put away"); non-mail WorldItem pickup or catch" targets the "panel by
+/// the category order above"). The cursor row sends Tool, Weapon and Consumable to <c>[hotbar, player_inventory]</c> and every other
+/// category, mail included, to <c>[player_inventory, hotbar]</c>. There is no backpack at M-1a, so every row skips it and has at most
+/// two targets. The rows are run pass-first with the merge pass, except the mail pickup/catch row, which is run target-first (R8: only
 /// mail catch and pickup run target-first). A pure static helper; allocation-free.
 /// </summary>
 /// <example>
@@ -42,7 +43,10 @@ internal static class TargetOrder
     /// <summary>The targets in the M-1a cursor row (hotbar and player_inventory; no backpack).</summary>
     public const int CursorRowLength = 2;
 
-    /// <summary>The longest M-1a row (the cursor and external rows: hotbar and player_inventory; no backpack).</summary>
+    /// <summary>The targets in the M-1a mail pickup/catch row (hotbar and player_inventory; no backpack).</summary>
+    public const int PickupRowLength = 2;
+
+    /// <summary>The longest M-1a row (the cursor, external and pickup rows: hotbar and player_inventory; no backpack).</summary>
     public const int MaxRowLength = 2;
 
     /// <summary>True for the categories R9 puts on the hotbar first: Tool, Weapon and Consumable.</summary>
@@ -64,6 +68,21 @@ internal static class TargetOrder
         bool hotbarFirst = IsHotbarFirst(category);
         targets[0] = hotbarFirst ? hotbar : playerInventory;
         targets[1] = hotbarFirst ? playerInventory : hotbar;
+    }
+
+    /// <summary>
+    /// Writes the R9 <b>mail</b> WorldItem pickup or catch row (GDD R9 l.129, CD D-C) into <paramref name="targets"/>:
+    /// <c>[hotbar, player_inventory]</c> (the backpack is skipped at M-1a), run with <see cref="PlaceOrder.TargetFirst"/> and
+    /// <see cref="MergePolicy.Merge"/>, so a matching hotbar stack is merged first, then the lowest free hotbar slot ≥ 1, then the
+    /// inventory (Mail Lead planning default pending Evan, TD-154 item 1). A non-mail pickup or catch uses <see cref="CursorRow"/>.
+    /// </summary>
+    /// <param name="hotbar">The player's hotbar table slot.</param>
+    /// <param name="playerInventory">The player's player_inventory table slot.</param>
+    /// <param name="targets">At least <see cref="PickupRowLength"/> elements; the first two are written.</param>
+    public static void PickupRow(ushort hotbar, ushort playerInventory, Span<ushort> targets)
+    {
+        targets[0] = hotbar;
+        targets[1] = playerInventory;
     }
 
     /// <summary>

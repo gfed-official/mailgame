@@ -251,4 +251,7 @@ public static class SimAssertCode
 
     /// <summary>A Bulk entry was counted in a container with an owner slot (story grid-inventory/016; GDD D1 leaves <c>classPts[bulk]</c> undefined). Unreachable: content rule CV-GRD refuses a hand-carried container that admits a Bulk def (R5). Release counts it as 0 points. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryWeightBulkCounted = 80;
+
+    /// <summary>The AutoPlace of a WorldItem pickup (<c>PickupCore</c>) or a catch (<c>IInventoryApi.TryCatch</c>) into the panel answered <c>not_allowed</c> or <c>not_carryable</c> (story grid-inventory/014). Unreachable at M-1a: every WorldItem or flight entry came from a hand-carried container or a mail spawn, and the hotbar and player_inventory admit both. Release treats it as no room: a pickup answers <c>no_room</c> with nothing changed, a catch fumbles the whole entry. <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryPickupNotAdmitted = 81;
 }

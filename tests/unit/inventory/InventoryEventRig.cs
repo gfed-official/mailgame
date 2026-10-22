@@ -603,11 +603,15 @@ internal sealed class InvPhaseHook : ISimPhase
 /// <summary>TEST-ONLY system: the real <see cref="InventorySystem"/> plus the <see cref="InvFixtureActionHandler"/> and an <see cref="InvPhaseHook"/>.</summary>
 internal sealed class InventoryWithActionOp : ISimSystem
 {
-    public InventoryWithActionOp(InventorySystem inner, InvFixtureActionHandler handler)
+    private readonly Action<SimWorldBuilder, InventorySystem>? _bindExtra;
+
+    /// <param name="bindExtra">Binds a further test-only op (story 014: the Pickup test handler, never in <see cref="InventorySystem.Bind"/>).</param>
+    public InventoryWithActionOp(InventorySystem inner, InvFixtureActionHandler handler, Action<SimWorldBuilder, InventorySystem>? bindExtra = null)
     {
         Inner = inner;
         Handler = handler;
         handler.System = inner;
+        _bindExtra = bindExtra;
     }
 
     public InventorySystem Inner { get; }
@@ -621,6 +625,7 @@ internal sealed class InventoryWithActionOp : ISimSystem
         Inner.Bind(builder);
         builder.BindOp(InvFixtureActionHandler.Descriptor, Handler);
         builder.Bind(PhaseId.MailStep, Hook);
+        _bindExtra?.Invoke(builder, Inner);
     }
 }
 
@@ -641,10 +646,16 @@ internal sealed class InvAutoPlaceRig
     /// Builds the rig; <paramref name="mailIdArenaUnits"/> and <paramref name="entryPoolCapacity"/> override the arena budget and the
     /// entry pool of this test world only (the defaults are the balance's); <paramref name="content"/> replaces the M-1a built-in set
     /// (story 012's perf fixture adds a container def); <paramref name="tune"/> edits the built settings (story 016's synthetic weight knobs);
-    /// <paramref name="joinPlayerB"/> also joins player B in slot 1 (story 007's two-player cases).
+    /// <paramref name="joinPlayerB"/> also joins player B in slot 1 (story 007's two-player cases); <paramref name="bindExtra"/> binds a further
+    /// test-only op (story 014's Pickup test handler).
     /// </summary>
     public InvAutoPlaceRig(
-        int? mailIdArenaUnits = null, ContentSet? content = null, int? entryPoolCapacity = null, Func<InventorySettings, InventorySettings>? tune = null, bool joinPlayerB = false)
+        int? mailIdArenaUnits = null,
+        ContentSet? content = null,
+        int? entryPoolCapacity = null,
+        Func<InventorySettings, InventorySettings>? tune = null,
+        bool joinPlayerB = false,
+        Action<SimWorldBuilder, InventorySystem>? bindExtra = null)
     {
         Sink = new CaptureSink();
         _gate = new GatedSink(Sink);
@@ -658,7 +669,8 @@ internal sealed class InvAutoPlaceRig
                     mailIdArenaUnits is null && entryPoolCapacity is null && tune is null
                         ? new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots)
                         : new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, Settings(ctx.Content.Inventory, mailIdArenaUnits, entryPoolCapacity, tune), ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots),
-                    handler)));
+                    handler,
+                    bindExtra)));
         Host = SimComposition.Build(new SimBuildArgs(profile, content ?? BuiltInContent.CreateM1a(), 42) { EventSink = _gate });
         _system = (InventoryWithActionOp)Host.Systems.Single();
         var join = new Op { Kind = OpKind.PlayerJoin, ReqId = 1 };

@@ -120,6 +120,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly ContainerId _intake;
     private readonly ushort _intakeSlot;
     private readonly WorldItems _worldItems;
+    private readonly PickupCore _pickup;
     private readonly OpenSet _openSet;
     private readonly ISlotView? _slots;
 
@@ -229,6 +230,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
         _worldItems = new WorldItems(this, _mutator, _entries, content.Inventory, settings.WorldItemCapacity, facade, _tick, entityIds, checkRing, facade.Counters);
 
+        // Story 014: the pickup core (story 019's range-gated Pickup handler calls it; no Pickup handler is bound until then).
+        _pickup = new PickupCore(this, content, stats, _tick, facade.Counters);
+
         if (!TryCreate(intakeDef, ContainerHeader.NoOwner, null, out _intake))
         {
             throw new SimBuildException(SimBuildErrorCode.InventorySettingsInvalid, "The container table cannot hold the po_intake container.");
@@ -286,6 +290,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <summary>The WorldItems (story 013): table, expiry FIFOs, tombstones and <c>worldSeq</c>; the pickup story's remove and resolve hooks.</summary>
     internal WorldItems WorldItems => _worldItems;
 
+    /// <summary>The pickup core (story 014): everything a <c>pickup</c> does after Player Character's P13 chain; story 019's handler calls it.</summary>
+    internal PickupCore Pickup => _pickup;
+
     /// <summary>The hotbar of <paramref name="slot"/>, or none when the slot has no containers.</summary>
     /// <param name="slot">The player slot.</param>
     public ContainerId HotbarOf(PlayerSlot slot) => slot.IsNone ? default : _panels[slot.Value].Hotbar;
@@ -338,6 +345,24 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         }
 
         return _mutator.TryGetCursorOrigin(slot.Value, out origin);
+    }
+
+    /// <summary>The table slots of <paramref name="slot"/>'s hotbar and player_inventory (story 014: the pickup and catch rows).</summary>
+    /// <param name="slot">The player slot.</param>
+    /// <param name="hotbar">The hotbar's table slot.</param>
+    /// <param name="playerInventory">The player_inventory's table slot.</param>
+    /// <returns>False for a none or out-of-range slot, or a slot with no panel.</returns>
+    internal bool TryGetPanel(PlayerSlot slot, out ushort hotbar, out ushort playerInventory)
+    {
+        playerInventory = 0;
+        if (slot.IsNone || slot.Value >= PlayerSlot.Count || !_containers.TryGetSlot(_panels[slot.Value].Hotbar, out hotbar))
+        {
+            hotbar = 0;
+            return false;
+        }
+
+        // A panel's three containers are created together (OnPlayerJoined), so a live hotbar has a live player_inventory.
+        return _containers.TryGetSlot(_panels[slot.Value].PlayerInventory, out playerInventory);
     }
 
     /// <summary>Copies the header of <paramref name="id"/>.</summary>
