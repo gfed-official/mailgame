@@ -242,4 +242,7 @@ public static class SimAssertCode
 
     /// <summary><c>IInventoryApi.CreateWorldItem</c> was given a <c>createdTick</c> before the last creation's on the same expiry FIFO (Loot, on no FIFO, is exempt), which would break the FIFO's <c>expiresTick</c> order. Release returns <c>EntityId.None</c> with nothing changed; the entry stays detached and is the caller's. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryWorldItemCreatedOutOfOrder = 77;
+
+    /// <summary><c>ItemCountIndex.Add</c> would take a container's <c>itemId → units</c> total below 0 (story grid-inventory/015): a primitive subtracted units it never added. Release deletes the key (the total reads 0). <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryItemCountNegative = 78;
 }

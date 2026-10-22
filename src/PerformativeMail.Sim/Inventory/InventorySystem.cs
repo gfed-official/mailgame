@@ -31,7 +31,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// <para>
 /// It implements and publishes <see cref="IInventoryApi"/> (story 012; ADR-0009 Key Interfaces as implemented, ADR-0003 section 5) for
 /// the systems that declare Grid Inventory a dependency in <c>SystemGraph</c> (<c>context.Api&lt;IInventoryApi&gt;(SystemId.GridInventory)</c>):
-/// <see cref="Spawn"/>, <see cref="PeekOutfeed"/>, <see cref="TakeUnit"/> and <see cref="CreateWorldItem"/> (story 013), plus the
+/// <see cref="Spawn"/>, <see cref="PeekOutfeed"/>, <see cref="TakeUnit"/>, <see cref="CreateWorldItem"/> (story 013),
+/// <see cref="ConsumeUnit"/> and <see cref="CountItem"/> (story 015), plus the
 /// internal <see cref="ReturnToIntake"/> (callers story 013 and the backlog, story 021). The mutating calls check the tick guard (<see cref="TickGuard"/>, through the injected
 /// <see cref="ITickReader"/>) and run through the same <see cref="Mutator"/> as the op handlers, each in its own call scope and
 /// <c>Begin</c>/<c>End</c> bracket. They allocate nothing and never throw on the tick path.
@@ -172,7 +173,10 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         // Story 012: the outfeed FIFO memo; its node pool is 2 x the entry pool (InventorySettings.OutfeedNodeCapacity).
         var outfeed = new OutfeedFifo(settings.OutfeedNodeCapacity, settings.ContainerCapacity, _entries, facade.Counters);
-        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), noFit, outfeed, slots);
+
+        // Story 015: the itemId -> units index CountItem reads (keys sized from the entry pool), maintained by the mutator's primitives.
+        var itemCounts = new ItemCountIndex(_entries.Capacity, facade.Counters);
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, slots);
         _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
 
         // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
@@ -450,6 +454,63 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         u = unit;
         return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The tick guard, then the ref's checks (a live container, a live entry whose <c>ContainerSlot</c> is that container, a count of at
+    /// least 1, a defined reason), then <see cref="InventoryMutator.TakeOldest"/> of 1 in one call scope and one bracket with cause
+    /// <see cref="InvCause.Consumed"/>, so the records, the seal and the last-unit removal are <c>TakeOldest</c>'s (story 012).
+    /// </remarks>
+    public bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor)
+    {
+        if (!TickGuard.IsMutable(_tick, _events.Counters) || reason > ConsumeReason.ReturnedToSender
+            || !_containers.TryGetSlot(entry.Container, out ushort slot) || !_entries.TryGetSlot(entry.Entry, out ushort entrySlot))
+        {
+            return false;
+        }
+
+        ref EntryRecord e = ref _entries[entrySlot];
+        if (e.ContainerSlot != slot || e.Count < 1)
+        {
+            return false; // stale ref (the entry moved, or is detached) or an empty entry: nothing mutated, no event
+        }
+
+        Span<uint> taken = stackalloc uint[1];
+        var plan = new InvPlan();
+        _ = plan.Touch(slot);
+        var extra = new InvReplyExtra();
+        int took;
+        using (EventCallScope scope = _events.BeginCall())
+        {
+            _mutator.Begin(ref plan, actor, InvCause.Consumed);
+            took = _mutator.TakeOldest(ref plan, entrySlot, 1, taken);
+            _mutator.End(ref plan, ref extra);
+        }
+
+        // story 017 ledger hook: the taken unit (taken[0] for mail) crosses PLACED -> CONSUMED with reason.
+        return took == 1;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Sums <see cref="ItemCountIndex.Units"/> over the live containers of <paramref name="cs"/>.</remarks>
+    public int CountItem(ReadOnlySpan<ContainerId> cs, DefIndex itemId)
+    {
+        if (itemId.IsNone)
+        {
+            return 0;
+        }
+
+        int units = 0;
+        for (int i = 0; i < cs.Length; i++)
+        {
+            if (_containers.TryGetSlot(cs[i], out ushort slot))
+            {
+                units += _mutator.ItemCounts.Units(slot, itemId.Value);
+            }
+        }
+
+        return units;
     }
 
     /// <inheritdoc />

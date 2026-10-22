@@ -1,4 +1,5 @@
 using PerformativeMail.Sim.Geometry;
+using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.World;
 using PerformativeMail.Sim.Primitives;
@@ -34,12 +35,48 @@ public readonly record struct SpawnResult(ushort Placed, ushort Unplaced);
 public readonly record struct UnitRef(MailId Mail, EntryId Entry, DefIndex MailKind, uint AddressId, byte Flags);
 
 /// <summary>
+/// An entry named by its container and id (story 015; ADR-0009 Key Interfaces name, shape a planning default): the target of
+/// <see cref="IInventoryApi.ConsumeUnit"/>. The ref is stale when the entry is not live or is not in <see cref="Container"/>.
+/// </summary>
+/// <param name="Container">The container the caller believes holds the entry.</param>
+/// <param name="Entry">The entry.</param>
+/// <example><code>bool ok = inventory.ConsumeUnit(new EntryRef(hotbar, entry), ConsumeReason.Delivered, actor);</code></example>
+public readonly record struct EntryRef(ContainerId Container, EntryId Entry);
+
+/// <summary>
+/// The result of <c>DetachForThrow</c> (story 015; ADR-0009 Key Interfaces name, shape a planning default): the refusal reason (none,
+/// 0, on success), the detached entry and its units.
+/// </summary>
+/// <param name="Reason">0 on success, else the refusal (<c>bad_request</c> as <c>(InvReason)</c><see cref="InvReasons.BadRequest"/>, or <see cref="InvReason.StaleEntry"/>).</param>
+/// <param name="Entry">The detached entry (none when refused).</param>
+/// <param name="Units">The detached entry's units (0 when refused).</param>
+/// <example><code>DetachResult r = default; bool detached = r.Reason == 0;</code></example>
+public readonly record struct DetachResult(InvReason Reason, EntryId Entry, byte Units);
+
+/// <summary>
+/// Why <see cref="IInventoryApi.ConsumeUnit"/> consumed a unit (story 015; ADR-0009 Key Interfaces name). Carried to the
+/// <c>UnitLedger</c>'s PLACED to CONSUMED crossing (story 017); the inventory records and seal are the same for every reason.
+/// </summary>
+public enum ConsumeReason : byte
+{
+    /// <summary>Delivered to its destination.</summary>
+    Delivered = 0,
+
+    /// <summary>Delivered to the wrong destination (the Misdeliver path).</summary>
+    Misdelivered = 1,
+
+    /// <summary>Returned to its sender.</summary>
+    ReturnedToSender = 2,
+}
+
+/// <summary>
 /// What Grid Inventory provides to the systems above it (ADR-0009 Key Interfaces, as implemented 2026-10-21; ADR-0003 section 5,
 /// TR-sim-019): synchronous calls made by in-tick callers inside their own phase. Each mutating call is one atomic mutation through
 /// the shared <c>InventoryMutator</c>, with the same records and one <c>InvVersion</c> seal per changed container as an op, and no
 /// reply. Mutating calls are legal only inside a tick phase (<c>TickGuard</c>); an illegal call is refused with nothing mutated and
-/// no event. Story 013 adds <see cref="CreateWorldItem"/>; story 015 adds <c>ConsumeUnit</c>, <c>DetachForThrow</c>, <c>TryInsert</c> and <c>CountItem</c>; story 021 the backlog
-/// members. Allocation-free; never throws on the tick path. Not thread-safe: Sim tick thread only.
+/// no event. Story 013 adds <see cref="CreateWorldItem"/>; story 015 adds <see cref="ConsumeUnit"/> and <see cref="CountItem"/> (and
+/// <c>DetachForThrow</c> and <c>TryInsert</c> next); story 021 the backlog members. Allocation-free; never throws on the tick path. Not
+/// thread-safe: Sim tick thread only.
 /// </summary>
 /// <example>
 /// <code>
@@ -115,4 +152,28 @@ public interface IInventoryApi
     /// <param name="createdTick">The creation or landing tick (at most the current tick).</param>
     /// <returns>The WorldItem id, or <see cref="EntityId.None"/>.</returns>
     EntityId CreateWorldItem(EntryId entry, Vec3Mm posMm, WorldItemOrigin origin, bool onWater, uint createdTick);
+
+    /// <summary>
+    /// Consumes the oldest unit of the entry (story 015; GDD R6 oldest-first, H-R6-1; Mail and Throwing call it per unit): for mail the
+    /// lowest mailId. One call scope, one <c>InvRemoved{c, entry, 1}</c> and one <c>InvVersion</c> seal with <paramref name="actor"/>
+    /// and cause <c>Consumed</c>; consuming the last unit removes and frees the entry in the same call. <paramref name="reason"/> is the
+    /// ledger's (story 017); no other record is raised. False, mutating nothing, on a stale ref (a dead container, an entry that is
+    /// not live or not in that container), an empty entry, an undefined reason, or a call outside a tick phase.
+    /// </summary>
+    /// <param name="entry">The container and entry.</param>
+    /// <param name="reason">Why the unit is consumed.</param>
+    /// <param name="actor">The acting actor (written into the seal).</param>
+    /// <returns>True when a unit was consumed.</returns>
+    bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor);
+
+    /// <summary>
+    /// The units of item def <paramref name="itemId"/> over the containers in <paramref name="cs"/> (story 015; GDD R17): a read of each
+    /// container's <c>itemId → units</c> index, never a scan, so its probes do not grow with the containers' entry counts. Mail is
+    /// never counted. A dead container contributes 0; a container listed twice is counted twice. Read-only: legal between ticks, no
+    /// call scope, no version change; it counts <c>CounterId.InventoryItemCountProbes</c> (49), which is not in the canonical dump.
+    /// </summary>
+    /// <param name="cs">The containers.</param>
+    /// <param name="itemId">The item def.</param>
+    /// <returns>The total units (0 for a none def).</returns>
+    int CountItem(ReadOnlySpan<ContainerId> cs, DefIndex itemId);
 }

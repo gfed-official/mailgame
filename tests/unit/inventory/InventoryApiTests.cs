@@ -1,0 +1,726 @@
+using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Inventory.Events;
+using PerformativeMail.Sim.Inventory.Ops;
+using PerformativeMail.Sim.Inventory.Placement;
+using PerformativeMail.Sim.Inventory.Rules;
+using PerformativeMail.Sim.Inventory.Storage;
+using PerformativeMail.Sim.Primitives;
+
+namespace PerformativeMail.Sim.Tests.Unit.Inventory;
+
+/// <summary>
+/// Story grid-inventory/015 (GDD R6, R17; ADR-0009 Key Interfaces and section 5; ADR-0003 section 5): the feature-epic hooks of
+/// <see cref="IInventoryApi"/>. <see cref="IInventoryApi.ConsumeUnit"/> takes the oldest unit through <c>TakeOldest</c> with one
+/// <c>InvRemoved</c> and one <c>InvVersion</c> seal (cause <c>Consumed</c>), and refuses a stale ref or an out-of-phase call with nothing
+/// mutated; <see cref="IInventoryApi.CountItem"/> reads the <c>itemId → units</c> index (<see cref="ItemCountIndex"/>) the mutator's
+/// item primitives maintain, which equals a brute-force scan after every one of 1,000 seeded random mutations, with a probe count that
+/// does not grow with the entry count. The mutating calls run inside a real tick through the rig's <c>MailStep</c> hook.
+/// </summary>
+public class InventoryApiTests
+{
+    private const uint Address4 = 4u;
+
+    [Fact]
+    [Trait("Id", "H-R6-1")]
+    public void ConsumeUnit_OnA_4_9_15_21_30_ConsumesTheOldest4_VersionPlusOne_OneRemovedThenOneConsumedSeal()
+    {
+        // Arrange: A = [4, 9, 15, 21, 30] in player A's inventory (the Misdeliver path)
+        var rig = new InvAutoPlaceRig();
+        ushort a = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 4, 9, 15, 21, 30 });
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        EntryId id = rig.Entries[a].Id;
+        uint version = rig.Header(rig.InventoryA).Version;
+
+        // Act
+        bool consumed = IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.ConsumeUnit(new EntryRef(inventoryA, id), ConsumeReason.Misdelivered, rig.PlayerA));
+        EventEntry[] log = InventoryEvents(rig.Sink.Last);
+
+        // Assert: 4 consumed, A = [9, 15, 21, 30], same entry and cell, version + 1
+        Assert.True(consumed);
+        Assert.Equal(new uint[] { 9, 15, 21, 30 }, rig.IdsOf(a));
+        Assert.Equal(4, rig.Entries[a].Count);
+        Assert.Equal(id, rig.Entries[a].Id);
+        Assert.Equal(a, rig.EntryAt(rig.InventoryA, 0, 0));
+        Assert.Equal(version + 1, rig.Header(rig.InventoryA).Version);
+
+        // Assert: exactly InvRemoved{inventoryA, A, 1} then one InvVersion seal by player A with cause Consumed
+        Assert.Equal(2, log.Length);
+        Assert.Equal(InvEventKinds.Removed, log[0].Kind);
+        InvRemovedPayload removed = log[0].PayloadAs<InvRemovedPayload>();
+        Assert.Equal(inventoryA.Value, removed.Container);
+        Assert.Equal(id.Value, removed.EntryId);
+        Assert.Equal(1, removed.Count);
+        Assert.Equal(InvEventKinds.Version, log[1].Kind);
+        InvVersionPayload seal = log[1].PayloadAs<InvVersionPayload>();
+        Assert.Equal(inventoryA.Value, seal.Container);
+        Assert.Equal(version, seal.VersionFrom);
+        Assert.Equal(version + 1, seal.VersionTo);
+        Assert.Equal(rig.PlayerA.Value, seal.ActorId);
+        Assert.Equal((byte)InvCause.Consumed, seal.Cause);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R6-1")]
+    public void ConsumeUnit_OfTheLastUnit_RemovesAndFreesTheEntryInTheSameCall()
+    {
+        // Arrange: a one-unit letter at (2, 1) of player A's inventory
+        var rig = new InvAutoPlaceRig();
+        ushort a = rig.PlaceMail(rig.InventoryA, "letter", 2, 1, Address4, new uint[] { 30 });
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        EntryId id = rig.Entries[a].Id;
+        ContainerHeader before = rig.Header(rig.InventoryA);
+
+        // Act
+        bool consumed = IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.ConsumeUnit(new EntryRef(inventoryA, id), ConsumeReason.Delivered, rig.PlayerA));
+        EventEntry[] log = InventoryEvents(rig.Sink.Last);
+
+        // Assert: the entry is gone (id not live, cell free, entry count - 1), one InvRemoved{1} and one Consumed seal
+        Assert.True(consumed);
+        Assert.False(rig.Entries.TryGetSlot(id, out _));
+        Assert.Equal(Occupancy.Free, rig.Inventory.Occupancy.OwnerAt(rig.InventoryA, before.W, 2, 1));
+        Assert.Equal(before.EntryCount - 1, rig.Header(rig.InventoryA).EntryCount);
+        Assert.Equal(before.FreeCells + 1, rig.Header(rig.InventoryA).FreeCells);
+        Assert.Equal(before.Version + 1, rig.Header(rig.InventoryA).Version);
+        Assert.Equal(new[] { InvEventKinds.Removed, InvEventKinds.Version }, log.Select(e => e.Kind));
+        Assert.Equal(1, log[0].PayloadAs<InvRemovedPayload>().Count);
+        Assert.Equal((byte)InvCause.Consumed, log[1].PayloadAs<InvVersionPayload>().Cause);
+    }
+
+    [Fact]
+    public void ConsumeUnit_OnAnItemStack_TakesOneUnit_AndCountItemFollows()
+    {
+        // Arrange: 5 planks in the hotbar
+        var rig = new InvAutoPlaceRig();
+        ushort planks = rig.PlaceItem(rig.HotbarA, "plank", 3, 0, 5);
+        ContainerId hotbar = rig.Inventory.HotbarOf(PlayerSlot.FromValue(0));
+        DefIndex plank = rig.ItemIndex("plank");
+
+        // Act
+        bool consumed = IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.ConsumeUnit(new EntryRef(hotbar, rig.Entries[planks].Id), ConsumeReason.Delivered, rig.PlayerA));
+
+        // Assert
+        Assert.True(consumed);
+        Assert.Equal(4, rig.Entries[planks].Count);
+        Assert.Equal(4, rig.Inventory.CountItem(new[] { hotbar }, plank));
+    }
+
+    [Fact]
+    public void ConsumeUnit_OnAStaleRefAnEmptyEntryOrAnUndefinedReason_ReturnsFalse_AndMutatesNothing()
+    {
+        // Arrange: a 3-letter entry in player A's inventory, a consumed (gone) entry, and a dead container id
+        var rig = new InvAutoPlaceRig();
+        ushort a = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 1, 2, 3 });
+        ushort gone = rig.PlaceMail(rig.InventoryA, "letter", 1, 0, Address4, new uint[] { 9 });
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        ContainerId hotbar = rig.Inventory.HotbarOf(PlayerSlot.FromValue(0));
+        EntryId id = rig.Entries[a].Id;
+        EntryId goneId = rig.Entries[gone].Id;
+        Assert.True(IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.ConsumeUnit(new EntryRef(inventoryA, goneId), ConsumeReason.Delivered, rig.PlayerA)));
+        List<long> before = State(rig);
+        var refs = new[]
+        {
+            (new EntryRef(hotbar, id), ConsumeReason.Delivered),             // the entry is not in that container
+            (new EntryRef(inventoryA, goneId), ConsumeReason.Delivered),     // the entry is no longer live
+            (new EntryRef(new ContainerId(999), id), ConsumeReason.Delivered), // a dead container
+            (new EntryRef(inventoryA, default), ConsumeReason.Delivered),    // no entry
+            (new EntryRef(inventoryA, id), (ConsumeReason)3),                // an undefined reason
+        };
+        var results = new List<bool>();
+
+        // Act: every refusal in one tick
+        rig.Hook.Action = (in TickContext ctx) =>
+        {
+            foreach ((EntryRef r, ConsumeReason reason) in refs)
+            {
+                results.Add(rig.Inventory.ConsumeUnit(r, reason, rig.PlayerA));
+            }
+        };
+        rig.Host.World.Tick();
+        rig.Hook.Action = null;
+
+        // Assert: all false, nothing changed, no inventory event
+        Assert.Equal(refs.Length, results.Count);
+        Assert.All(results, Assert.False);
+        Assert.Equal(before, State(rig));
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    public void ConsumeUnit_OnAnEmptyEntry_ReturnsFalse_AndRaisesNothing()
+    {
+        // Arrange: an item entry whose count was forced to 0 outside the mutator (an invariant break the guard must not act on)
+        var rig = new InvAutoPlaceRig();
+        ushort planks = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 2);
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        EntryId id = rig.Entries[planks].Id;
+        rig.Entries[planks].Count = 0;
+        uint version = rig.Header(rig.InventoryA).Version;
+
+        // Act
+        bool consumed = IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.ConsumeUnit(new EntryRef(inventoryA, id), ConsumeReason.Delivered, rig.PlayerA));
+
+        // Assert
+        Assert.False(consumed);
+        Assert.True(rig.Entries[planks].IsLive);
+        Assert.Equal(version, rig.Header(rig.InventoryA).Version);
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "R9")]
+    public void ConsumeUnit_OutsideATickPhase_IsRefused_CountsMutatingApiOutOfPhase_AndMutatesNothing()
+    {
+        // Arrange: between ticks, a 2-letter entry
+        var rig = new InvAutoPlaceRig();
+        ushort a = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 5, 6 });
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        var entry = new EntryRef(inventoryA, rig.Entries[a].Id);
+        List<long> before = State(rig);
+        long refusedBefore = rig.Counters[CounterId.MutatingApiOutOfPhase];
+        long outsideBefore = rig.Counters[CounterId.EventsOutsideTick];
+
+        // Act + Assert: SIM_ASSERT builds assert; Release refuses
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException ex = Assert.Throws<SimAssertException>(() => rig.Inventory.ConsumeUnit(entry, ConsumeReason.Delivered, rig.PlayerA));
+            Assert.Equal(SimAssertCode.MutatingApiOutOfPhase, ex.Code);
+        }
+        else
+        {
+            Assert.False(rig.Inventory.ConsumeUnit(entry, ConsumeReason.Delivered, rig.PlayerA));
+        }
+
+        // Assert: nothing mutated, counter 45 + 1, no event raised then or flushed by the next tick
+        Assert.Equal(before, State(rig));
+        Assert.Equal(new uint[] { 5, 6 }, rig.IdsOf(a));
+        Assert.Equal(refusedBefore + 1, rig.Counters[CounterId.MutatingApiOutOfPhase]);
+        Assert.Equal(outsideBefore, rig.Counters[CounterId.EventsOutsideTick]);
+        rig.Host.World.Tick();
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    public void CountItem_SumsTheListedContainers_IgnoresMailAndDeadContainers_AndIsLegalBetweenTicks()
+    {
+        // Arrange: planks in two containers, an axe (item def 0) and mail (whose ItemId field is also 0) beside them
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 7);
+        _ = rig.PlaceItem(rig.InventoryA, "plank", 1, 0, 20);
+        _ = rig.PlaceItem(rig.HotbarA, "plank", 2, 0, 3);
+        _ = rig.PlaceItem(rig.InventoryA, "axe", 2, 0, 1);
+        _ = rig.PlaceMail(rig.InventoryA, "letter", 3, 0, Address4, new uint[] { 1, 2, 3 });
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        ContainerId hotbar = rig.Inventory.HotbarOf(PlayerSlot.FromValue(0));
+        DefIndex plank = rig.ItemIndex("plank");
+        DefIndex axe = rig.ItemIndex("axe");
+        Assert.Equal(0, axe.Value);
+
+        // Act + Assert (between ticks: a read)
+        Assert.Equal(27, rig.Inventory.CountItem(new[] { inventoryA }, plank));
+        Assert.Equal(3, rig.Inventory.CountItem(new[] { hotbar }, plank));
+        Assert.Equal(30, rig.Inventory.CountItem(new[] { inventoryA, hotbar, new ContainerId(999) }, plank));
+        Assert.Equal(1, rig.Inventory.CountItem(new[] { inventoryA, hotbar }, axe));
+        Assert.Equal(0, rig.Inventory.CountItem(new[] { hotbar }, axe));
+        Assert.Equal(0, rig.Inventory.CountItem(new[] { inventoryA }, rig.ItemIndex("log")));
+        Assert.Equal(0, rig.Inventory.CountItem(new[] { inventoryA }, DefIndex.None));
+        Assert.Equal(0, rig.Inventory.CountItem(ReadOnlySpan<ContainerId>.Empty, plank));
+    }
+
+    [Fact]
+    [Trait("Id", "H-R17-1")]
+    public void OneThousandRandomItemMutations_CountItemEqualsABruteForceScan_AfterEveryMutation()
+    {
+        // Arrange
+        var driver = new CountDriver(new InvAutoPlaceRig(), 0x2545_F491u);
+
+        // Act
+        driver.Run(1000);
+
+        // Assert: every primitive ran often enough to matter (the per-mutation checks ran inside Run)
+        Assert.Equal(1000, driver.Mutations);
+        Assert.True(driver.Places >= 100, $"places {driver.Places}");
+        Assert.True(driver.Removes >= 50, $"removes {driver.Removes}");
+        Assert.True(driver.Transfers >= 100, $"transfers {driver.Transfers}");
+        Assert.True(driver.CrossTransfers >= 50, $"cross-container transfers {driver.CrossTransfers}");
+        Assert.True(driver.Merges >= 50, $"merges {driver.Merges}");
+        Assert.True(driver.DetachedMerges >= 10, $"detached-source merges {driver.DetachedMerges}");
+        Assert.True(driver.Takes >= 100, $"takes {driver.Takes}");
+        Assert.True(driver.MaxUnitsSeen >= 40, $"max units {driver.MaxUnitsSeen}");
+    }
+
+    [Fact]
+    [Trait("Id", "H-R17-1")]
+    public void RebuildIndex_RestoresTheItemTotals_AfterTheyWereCleared()
+    {
+        // Arrange: planks and logs in player A's inventory; drop the container's totals as a load starts without them
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 12);
+        _ = rig.PlaceItem(rig.InventoryA, "log", 1, 0, 4);
+        _ = rig.PlaceItem(rig.HotbarA, "log", 1, 0, 2);
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        ContainerId hotbar = rig.Inventory.HotbarOf(PlayerSlot.FromValue(0));
+        rig.Inventory.Mutator.ItemCounts.ClearContainer(rig.InventoryA);
+        Assert.Equal(0, rig.Inventory.CountItem(new[] { inventoryA }, rig.ItemIndex("plank")));
+
+        // Act
+        rig.Inventory.Mutator.RebuildIndex(rig.InventoryA);
+
+        // Assert: the inventory's totals are back; the hotbar's were never touched
+        Assert.Equal(12, rig.Inventory.CountItem(new[] { inventoryA }, rig.ItemIndex("plank")));
+        Assert.Equal(4, rig.Inventory.CountItem(new[] { inventoryA }, rig.ItemIndex("log")));
+        Assert.Equal(2, rig.Inventory.CountItem(new[] { hotbar }, rig.ItemIndex("log")));
+        Assert.Equal(3, rig.Inventory.Mutator.ItemCounts.KeyCount);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R17-1")]
+    public void CountItem_ProbeCount_DoesNotGrowWithTheEntryCount()
+    {
+        // Arrange: one plank stack in a 6 x 4 grid
+        var rig = new InvAutoPlaceRig();
+        ushort grid = rig.CreateGrid(6, 4);
+        ContainerId gridId = rig.Inventory.Containers[grid].Id;
+        DefIndex plank = rig.ItemIndex("plank");
+        DefIndex fiber = rig.ItemIndex("fiber");
+        _ = rig.PlaceItem(grid, "plank", 0, 0, 1);
+        long hitWithOne = Probes(rig, gridId, plank, out int unitsWithOne);
+        long missWithOne = Probes(rig, gridId, fiber, out _);
+
+        // Act: fill the other 23 cells with planks (and mail, which is not in the map)
+        for (int i = 1; i < 24; i++)
+        {
+            if (i % 4 == 0)
+            {
+                _ = rig.PlaceMail(grid, "letter", i % 6, i / 6, Address4, new[] { 100u + (uint)i });
+            }
+            else
+            {
+                _ = rig.PlaceItem(grid, "plank", i % 6, i / 6, 1);
+            }
+        }
+
+        long hitWithMany = Probes(rig, gridId, plank, out int unitsWithMany);
+        long missWithMany = Probes(rig, gridId, fiber, out _);
+
+        // Assert: 24 entries read with the same probes as 1; a lookup in the sparse table reads at most 2 slots
+        Assert.Equal(1, unitsWithOne);
+        Assert.Equal(19, unitsWithMany);
+        Assert.Equal(24, rig.Header(grid).EntryCount);
+        Assert.Equal(hitWithOne, hitWithMany);
+        Assert.Equal(missWithOne, missWithMany);
+        Assert.InRange(hitWithMany, 1, 2);
+        Assert.InRange(missWithMany, 1, 2);
+    }
+
+    [Fact]
+    public void ItemCountIndex_InsertsAndDeletesManyKeys_WithBackwardShift_KeepingEveryTotal()
+    {
+        // Arrange: a small table (entry capacity 16 -> 32 slots) so runs collide and wrap
+        var counters = new SimCounters();
+        var index = new ItemCountIndex(16, counters);
+        var expected = new Dictionary<(ushort, ushort), int>();
+        uint state = 0xACE1u;
+
+        // Act + Assert: 2,000 random adds and subtractions over 16 keys, checked against a dictionary after each
+        for (int step = 0; step < 2000; step++)
+        {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            ushort container = (ushort)(state % 4);
+            ushort item = (ushort)((state >> 8) % 4);
+            expected.TryGetValue((container, item), out int units);
+            int delta = units > 0 && (state >> 16) % 2 == 0 ? -(int)(1 + ((state >> 20) % (uint)units)) : (int)(1 + ((state >> 20) % 5));
+            index.Add(container, item, delta);
+            expected[(container, item)] = units + delta;
+            foreach (((ushort c, ushort i), int u) in expected)
+            {
+                Assert.Equal(u, index.Units(c, i));
+            }
+
+            Assert.Equal(expected.Count(kv => kv.Value > 0), index.KeyCount);
+        }
+
+        // Clearing one container drops only its keys
+        index.ClearContainer(2);
+        foreach (((ushort c, ushort i), int u) in expected)
+        {
+            Assert.Equal(c == 2 ? 0 : u, index.Units(c, i));
+        }
+    }
+
+    private static long Probes(InvAutoPlaceRig rig, ContainerId c, DefIndex item, out int units)
+    {
+        long before = rig.Counters[CounterId.InventoryItemCountProbes];
+        units = rig.Inventory.CountItem(new[] { c }, item);
+        return rig.Counters[CounterId.InventoryItemCountProbes] - before;
+    }
+
+    private static EventEntry[] InventoryEvents(EventEntry[] log) =>
+        log.Where(e => e.Kind is >= InvEventKinds.Inserted and <= InvEventKinds.Version).ToArray();
+
+    /// <summary>Every container header and occupancy owner, the entry pool and the arena's counts, as one comparable list.</summary>
+    private static List<long> State(InvAutoPlaceRig rig)
+    {
+        var values = new List<long>();
+        ContainerTable containers = rig.Inventory.Containers;
+        for (int s = 0; s < containers.LiveCount; s++)
+        {
+            ContainerHeader h = containers[(ushort)s];
+            values.AddRange(new long[] { h.Version, h.EntryCount, h.FreeCells, h.NextArrivalSeq });
+            for (int y = 0; y < h.H; y++)
+            {
+                for (int x = 0; x < h.W; x++)
+                {
+                    values.Add(rig.Inventory.Occupancy.OwnerAt((ushort)s, h.W, x, y));
+                }
+            }
+        }
+
+        values.Add(rig.Entries.LastId);
+        values.Add(rig.Entries.LiveCount);
+        for (int s = 0; s < rig.Entries.Capacity; s++)
+        {
+            EntryRecord r = rig.Entries[(ushort)s];
+            if (r.IsLive)
+            {
+                values.AddRange(new long[] { s, r.Id.Value, r.Count, r.ContainerSlot, r.X, r.Y, r.MailIds.Raw });
+            }
+        }
+
+        values.Add(rig.Inventory.MailIds.LiveUnits);
+        values.Add(rig.Inventory.Mutator.ItemCounts.KeyCount);
+        return values;
+    }
+
+    /// <summary>
+    /// The seeded mutation generator of the CountItem property test: <c>Place</c>, <c>Remove</c>, <c>Transfer</c> (within and across
+    /// containers), <c>MergeInto</c> (placed and detached sources) and <c>TakeOldest</c> through the mutator, one per tick, on player A's
+    /// inventory and hotbar and a 6 x 4 grid; items mostly, some mail. After each mutation <c>CountItem</c> of each container alone and
+    /// of all three is checked against a scan of the entry pool for every item def. A fixed xorshift, so a failure reproduces from its
+    /// seed and mutation number.
+    /// </summary>
+    private sealed class CountDriver
+    {
+        private static readonly string[] _items = { "axe", "plank", "fiber", "log", "plank" };
+
+        private readonly InvAutoPlaceRig _rig;
+        private readonly ushort[] _containers;
+        private readonly ContainerId[] _ids;
+        private readonly DefIndex[] _defs;
+        private readonly uint[] _taken = new uint[256];
+        private uint _state;
+        private uint _nextMailId = 1;
+
+        public CountDriver(InvAutoPlaceRig rig, uint seed)
+        {
+            _rig = rig;
+            _state = seed;
+            _containers = new[] { rig.InventoryA, rig.HotbarA, rig.CreateGrid(6, 4) };
+            _ids = _containers.Select(c => rig.Inventory.Containers[c].Id).ToArray();
+            _defs = Enumerable.Range(0, rig.Content.Items.Count).Select(i => DefIndex.FromValue((ushort)i)).ToArray();
+        }
+
+        public int Mutations { get; private set; }
+
+        public int Places { get; private set; }
+
+        public int Removes { get; private set; }
+
+        public int Transfers { get; private set; }
+
+        public int CrossTransfers { get; private set; }
+
+        public int Merges { get; private set; }
+
+        public int DetachedMerges { get; private set; }
+
+        public int Takes { get; private set; }
+
+        public int MaxUnitsSeen { get; private set; }
+
+        public void Run(int mutations)
+        {
+            while (Mutations < mutations)
+            {
+                int roll = Next(100);
+                bool done = roll switch
+                {
+                    < 30 => DoPlace(),
+                    < 42 => DoRemove(),
+                    < 62 => DoTransfer(),
+                    < 80 => DoMerge(),
+                    _ => DoTake(),
+                };
+
+                if (!done)
+                {
+                    continue; // nothing to do this roll (no fit, no candidate): not a mutation
+                }
+
+                Mutations++;
+                AssertCountsMatchScan();
+            }
+        }
+
+        private uint NextRaw()
+        {
+            uint x = _state;
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            _state = x;
+            return x;
+        }
+
+        private int Next(int bound) => (int)(NextRaw() % (uint)bound);
+
+        private ushort NewDetached()
+        {
+            if (Next(6) == 0)
+            {
+                int count = 1 + Next(5);
+                uint[] ids = InvAutoPlaceRig.Ids(_nextMailId, count);
+                _nextMailId += (uint)count;
+                return _rig.DetachedMail("letter", Address4, ids);
+            }
+
+            string item = _items[Next(_items.Length)];
+            return _rig.DetachedItem(item, (byte)(1 + Next(_rig.Item(item).EffMax)));
+        }
+
+        private bool DoPlace()
+        {
+            ushort entry = NewDetached();
+            ushort container = _containers[Next(_containers.Length)];
+            if (!TryFindFit(entry, container, out int x, out int y))
+            {
+                _rig.FreeDetached(entry);
+                return false;
+            }
+
+            _rig.PlaceDetached(entry, container, x, y);
+            Places++;
+            return true;
+        }
+
+        private bool DoRemove()
+        {
+            if (!TryPickPlaced(out ushort entry))
+            {
+                return false;
+            }
+
+            ushort from = _rig.Entries[entry].ContainerSlot;
+            Run(
+                (ref InvPlan p) => p.Touch(from) < 0 ? CoreReason.BadRequest : (ushort)0,
+                (ref InvPlan p) => _rig.Inventory.Mutator.Remove(ref p, entry));
+            _rig.FreeDetached(entry);
+            Removes++;
+            return true;
+        }
+
+        private bool DoTransfer()
+        {
+            if (!TryPickPlaced(out ushort entry))
+            {
+                return false;
+            }
+
+            ushort from = _rig.Entries[entry].ContainerSlot;
+            ushort to = _containers[Next(_containers.Length)];
+            if (!TryFindFit(entry, to, out int x, out int y))
+            {
+                return false;
+            }
+
+            Run(
+                (ref InvPlan p) => p.Touch(from) < 0 || p.Touch(to) < 0 ? CoreReason.BadRequest : (ushort)0,
+                (ref InvPlan p) => _rig.Inventory.Mutator.Transfer(ref p, entry, to, (byte)x, (byte)y, false));
+            Transfers++;
+            CrossTransfers += from != to ? 1 : 0;
+            return true;
+        }
+
+        private bool DoMerge()
+        {
+            bool detachedSource = Next(4) == 0;
+            ushort source;
+            if (detachedSource)
+            {
+                source = NewDetached();
+            }
+            else if (!TryPickPlaced(out source))
+            {
+                return false;
+            }
+
+            StackKey key = StackKey.Of(in _rig.Entries[source]);
+            int effMax = _rig.Inventory.Mutator.EffMaxOf(in _rig.Entries[source]);
+            ushort s = source;
+            List<ushort> targets = Placed().Where(t => t != s && StackKey.Of(in _rig.Entries[t]) == key && _rig.Entries[t].Count < effMax).ToList();
+            if (targets.Count == 0)
+            {
+                if (detachedSource)
+                {
+                    _rig.FreeDetached(source);
+                }
+
+                return false;
+            }
+
+            ushort target = targets[Next(targets.Count)];
+            int units = 1 + Next(Math.Min(effMax - _rig.Entries[target].Count, _rig.Entries[source].Count));
+            ushort from = _rig.Entries[source].ContainerSlot;
+            ushort to = _rig.Entries[target].ContainerSlot;
+            Run(
+                (ref InvPlan p) => (from != EntryRecord.NoContainer && p.Touch(from) < 0) || p.Touch(to) < 0 ? CoreReason.BadRequest : (ushort)0,
+                (ref InvPlan p) => _rig.Inventory.Mutator.MergeInto(ref p, s, target, units));
+            if (detachedSource && _rig.Entries[source].IsLive)
+            {
+                _rig.FreeDetached(source); // the unmerged rest of a detached source leaves the test
+            }
+
+            Merges++;
+            DetachedMerges += detachedSource ? 1 : 0;
+            return true;
+        }
+
+        private bool DoTake()
+        {
+            if (!TryPickPlaced(out ushort entry))
+            {
+                return false;
+            }
+
+            int k = 1 + Next(_rig.Entries[entry].Count);
+            ushort from = _rig.Entries[entry].ContainerSlot;
+            int took = 0;
+            Run(
+                (ref InvPlan p) => p.Touch(from) < 0 ? CoreReason.BadRequest : (ushort)0,
+                (ref InvPlan p) => took = _rig.Inventory.Mutator.TakeOldest(ref p, entry, k, _taken));
+            Assert.Equal(k, took);
+            Takes++;
+            return true;
+        }
+
+        private void Run(InvPlanStep validate, InvCommitStep commit) => Assert.True(_rig.Step(validate, commit).IsOk);
+
+        private void AssertCountsMatchScan()
+        {
+            foreach (DefIndex def in _defs)
+            {
+                int total = 0;
+                for (int c = 0; c < _containers.Length; c++)
+                {
+                    int scan = Scan(_containers[c], def);
+                    total += scan;
+                    int read = _rig.Inventory.CountItem(new[] { _ids[c] }, def);
+                    Assert.True(read == scan, $"mutation {Mutations}: CountItem({c}, {def.Value}) = {read}, scan {scan}");
+                }
+
+                Assert.Equal(total, _rig.Inventory.CountItem(_ids, def));
+                MaxUnitsSeen = Math.Max(MaxUnitsSeen, total);
+            }
+        }
+
+        /// <summary>The brute force: every live item entry of the def whose container is <paramref name="container"/>.</summary>
+        private int Scan(ushort container, DefIndex def)
+        {
+            int units = 0;
+            for (int s = 0; s < _rig.Entries.Capacity; s++)
+            {
+                ref EntryRecord e = ref _rig.Entries[(ushort)s];
+                if (e.IsLive && !e.IsMail && e.ContainerSlot == container && e.ItemId == def.Value)
+                {
+                    units += e.Count;
+                }
+            }
+
+            return units;
+        }
+
+        private List<ushort> Placed()
+        {
+            var list = new List<ushort>();
+            foreach (ushort c in _containers)
+            {
+                ContainerHeader h = _rig.Header(c);
+                for (int y = 0; y < h.H; y++)
+                {
+                    for (int x = 0; x < h.W; x++)
+                    {
+                        ushort e = _rig.EntryAt(c, x, y);
+                        if (e != Occupancy.Free)
+                        {
+                            list.Add(e);
+                        }
+                    }
+                }
+            }
+
+            return list;
+        }
+
+        private bool TryPickPlaced(out ushort entry)
+        {
+            List<ushort> placed = Placed();
+            entry = placed.Count == 0 ? (ushort)0 : placed[Next(placed.Count)];
+            return placed.Count > 0;
+        }
+
+        private bool TryFindFit(ushort entry, ushort container, out int foundX, out int foundY)
+        {
+            ContainerHeader h = _rig.Header(container);
+            EntryRecord e = _rig.Entries[entry];
+            bool slots = h.Layout == ContainerLayout.Slots;
+            int fw = slots ? 1 : e.W;
+            int fh = slots ? 1 : e.H;
+            ushort self = e.ContainerSlot == container ? entry : Occupancy.Free;
+            int start = Next(h.W * h.H);
+            for (int k = 0; k < h.W * h.H; k++)
+            {
+                int i = (start + k) % (h.W * h.H);
+                if (CellsFree(container, in h, i % h.W, i / h.W, fw, fh, self))
+                {
+                    foundX = i % h.W;
+                    foundY = i / h.W;
+                    return true;
+                }
+            }
+
+            foundX = 0;
+            foundY = 0;
+            return false;
+        }
+
+        private bool CellsFree(ushort container, in ContainerHeader h, int x, int y, int fw, int fh, ushort self)
+        {
+            if (x + fw > h.W || y + fh > h.H)
+            {
+                return false;
+            }
+
+            for (int r = 0; r < fh; r++)
+            {
+                for (int c = 0; c < fw; c++)
+                {
+                    ushort owner = _rig.Inventory.Occupancy.OwnerAt(container, h.W, x + c, y + r);
+                    if (owner != Occupancy.Free && owner != self)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+    }
+}
