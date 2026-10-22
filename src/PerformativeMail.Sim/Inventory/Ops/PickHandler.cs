@@ -20,7 +20,8 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// <c>container_gone</c> stays declared but is unreachable at M-1a: no container is freed, and a dead id fails <c>not_open</c> first
 /// (the container tombstones are M-1b, TD-136). A <c>carryByHand: false</c> pick is dormant at M-1a and undeclared (TD-105 item 4).
 /// The commit is one <see cref="InventoryMutator.Transfer"/> to cursor slot 0 in one <c>Begin</c>/<c>End</c> bracket inside the
-/// drain's call scope, so the source and the cursor bump once each. A reject mutates and raises nothing; once the containers are
+/// drain's call scope, so the source and the cursor bump once each; it first records the entry's container and cells as the actor's
+/// cursor origin (<see cref="InventorySystem.SetCursorOrigin"/>, story 010's retrofit: <c>return</c> puts it back there, GDD R7 l.95). A reject mutates and raises nothing; once the containers are
 /// resolved its reply carries their current versions. Allocation-free; never throws. Not thread-safe: Sim tick thread only.
 /// </summary>
 /// <example><code>builder.BindOp(InvOpDescriptors.Pick, new PickHandler(inventory));</code></example>
@@ -116,8 +117,10 @@ internal sealed class PickHandler : IOpHandler
     }
 
     /// <summary>
-    /// The mutating half: applies <paramref name="plan"/>'s placement unchanged through <see cref="InventoryMutator.Transfer"/> in one
-    /// <c>Begin</c>/<c>End</c> bracket (cause <see cref="InvCause.None"/>). Never fails, never recomputes.
+    /// The mutating half: records the entry's current container and cells as the actor's cursor origin (story 010; read before the
+    /// transfer moves it, so it is where the entry came from), then applies <paramref name="plan"/>'s placement unchanged through
+    /// <see cref="InventoryMutator.Transfer"/> in one <c>Begin</c>/<c>End</c> bracket (cause <see cref="InvCause.None"/>). Never fails,
+    /// never recomputes.
     /// </summary>
     /// <param name="plan">The plan <see cref="Validate"/> passed.</param>
     /// <param name="actor">The acting actor (written into every seal).</param>
@@ -126,6 +129,12 @@ internal sealed class PickHandler : IOpHandler
     {
         InventoryMutator m = _owner.Mutator;
         InvPlacement to = plan.Placement;
+        ref readonly EntryRecord e = ref _owner.Entries[to.EntrySlot];
+        var origin = new InventorySystem.CursorOrigin
+        {
+            Entry = e.Id, Container = _owner.Containers[e.ContainerSlot].Id, X = e.X, Y = e.Y, Rotated = e.Rotated,
+        };
+        _owner.SetCursorOrigin(_owner.ActorSlot(actor), in origin);
         m.Begin(ref plan, actor, InvCause.None);
         m.Transfer(ref plan, to.EntrySlot, to.ContainerSlot, to.X, to.Y, to.Rotated);
         m.End(ref plan, ref extra);

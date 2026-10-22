@@ -408,6 +408,39 @@ internal sealed class AutoPlace
     }
 
     /// <summary>
+    /// Applies a <see cref="NoSource"/> plan of <c>k</c> units (<paramref name="result"/>, planned with <c>units = k</c>) as a split of
+    /// the k <b>oldest</b> units of the placed entry <paramref name="sourceSlot"/> (story grid-inventory/010: a partial <c>quick_move</c>,
+    /// GDD R7 l.93 "partial allowed for stackables"; R6 oldest first). Records the no-fit facts; each merge takes its units straight from
+    /// the source through <see cref="InventoryMutator.MergeInto"/> (oldest first, the source keeps its id and cells); then the free-cell
+    /// placement, if any, is story 008's split primitive <see cref="InventoryMutator.SplitAndPlace"/> of
+    /// <see cref="AutoPlacePlan.PlacementUnits"/> (the new entry's id is allocated there, in <c>Commit</c>). The units each target gets
+    /// are the ones a split-off piece AutoPlaced in the same order would give it, but a split whose units all merge allocates no entry id
+    /// and raises no <c>InvSplitFrom</c> for a piece that would never be placed. Precondition (the caller's <c>Validate</c>): the plan's
+    /// units are below the source's count, so the split leaves a remainder; with a placement the pool has a free slot and id, and a mail
+    /// split's block is in the plan's reservation. Never recomputes and never fails.
+    /// </summary>
+    /// <param name="plan">The call's plan (between <see cref="InventoryMutator.Begin"/> and <see cref="InventoryMutator.End"/>; the
+    /// source's container touched first).</param>
+    /// <param name="result">The <see cref="NoSource"/> plan <see cref="Plan"/> returned 0 for.</param>
+    /// <param name="sourceSlot">The placed source entry's pool slot.</param>
+    /// <param name="tick">The current tick (the split's check records).</param>
+    public void CommitSplit(ref InvPlan plan, in AutoPlacePlan result, ushort sourceSlot, uint tick)
+    {
+        RecordNoFits(in result);
+        for (int i = 0; i < result.MergeCount; i++)
+        {
+            AutoPlaceMerge m = result.Merge(i);
+            _mutator.MergeInto(ref plan, sourceSlot, m.TargetEntrySlot, m.Units);
+        }
+
+        InvPlacement p = result.Placement;
+        if (p.IsSet)
+        {
+            _ = _mutator.SplitAndPlace(ref plan, sourceSlot, result.PlacementUnits, p.ContainerSlot, p.X, p.Y, p.Rotated, tick);
+        }
+    }
+
+    /// <summary>
     /// Writes <paramref name="result"/>'s no-fit facts to the negative-fit cache, each at the version it was scanned at. The
     /// <c>Commit</c> path calls it; an <c>IInventoryApi</c>-style caller may call it after a rejected plan (outside <c>Validate</c>,
     /// ADR-0009 section 2), so a repeat at the same version probes nothing.

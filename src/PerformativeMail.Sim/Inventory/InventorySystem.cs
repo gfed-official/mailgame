@@ -23,8 +23,9 @@ namespace PerformativeMail.Sim.Inventory;
 /// <para>
 /// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the still
 /// empty <c>IntakeDrain</c> phase, a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
-/// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>) and <c>Close</c> (story 011);
-/// the other kinds' handlers are stories 008-010 and 019. It binds no snapshot source (the builder has no
+/// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>), <c>Merge</c> (story 008),
+/// <c>QuickMove</c> (story 010; <see cref="QuickMoveHandler"/>) and <c>Close</c> (story 011); the other kinds' handlers are story 010's
+/// <c>Return</c> and story 019. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept beside the panel ids. It binds no snapshot source (the builder has no
 /// <c>BindSnapshotSource</c> yet). Every container, entry and
 /// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
 /// <see cref="Subscribers"/> set, which the open set (<see cref="OpenSet"/>, story 011) keeps in step. Storage is preallocated from
@@ -68,6 +69,32 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     private const int PanelContainerCount = 3;
 
+    /// <summary>
+    /// Where the entry on a slot's cursor came from (story grid-inventory/010; GDD R7 <c>return</c> l.95, "into its origin cells"):
+    /// written by <see cref="PickHandler"/>'s commit (the entry's container and cells before the pick) and by
+    /// <see cref="MoveHandler"/>'s swap commit (the displaced entry's hotbar slot). Valid only while the cursor holds
+    /// <see cref="Entry"/> (<see cref="TryGetCursorOrigin"/> checks it), so a whole place, a swap-out, a leash put-away or a drop makes it
+    /// inert with no clearing hook, and a partial place (the entry keeps its id on the cursor) keeps it. Sim state that <c>return</c>
+    /// reads: story 017's dump section carries it; a load without it leaves origin none and <c>return</c> uses the panel leg.
+    /// </summary>
+    internal struct CursorOrigin
+    {
+        /// <summary>The entry that was put on the cursor.</summary>
+        public EntryId Entry;
+
+        /// <summary>The container it came from.</summary>
+        public ContainerId Container;
+
+        /// <summary>Its top-left column there.</summary>
+        public byte X;
+
+        /// <summary>Its top-left row there.</summary>
+        public byte Y;
+
+        /// <summary>Its rotation there.</summary>
+        public bool Rotated;
+    }
+
     private readonly ContentSet _content;
     private readonly DefTable<ContainerDef> _defs;
     private readonly IStatSheet _stats;
@@ -87,6 +114,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly DefIndex _playerInventoryDef;
     private readonly DefIndex _cursorDef;
     private readonly PanelIds[] _panels = new PanelIds[PlayerSlot.Count];
+    private readonly CursorOrigin[] _cursorOrigins = new CursorOrigin[PlayerSlot.Count];
     private readonly ContainerId _intake;
     private readonly ushort _intakeSlot;
     private readonly WorldItems _worldItems;
@@ -291,6 +319,47 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <param name="slot">The player slot.</param>
     public ContainerId CursorOf(PlayerSlot slot) => slot.IsNone ? default : _panels[slot.Value].Cursor;
 
+    /// <summary>
+    /// Records <paramref name="origin"/> as the origin of the entry now on <paramref name="slot"/>'s cursor (story 010; the
+    /// <see cref="PickHandler"/> and swap commits call it). A none or out-of-range slot records nothing. Not a container write: no
+    /// record, no version.
+    /// </summary>
+    /// <param name="slot">The cursor's owner slot.</param>
+    /// <param name="origin">The entry and where it came from.</param>
+    internal void SetCursorOrigin(PlayerSlot slot, in CursorOrigin origin)
+    {
+        if (!slot.IsNone && slot.Value < PlayerSlot.Count)
+        {
+            _cursorOrigins[slot.Value] = origin;
+        }
+    }
+
+    /// <summary>
+    /// The origin of the entry on <paramref name="slot"/>'s cursor (story 010; slice 2's <c>return</c> reads it): true only when an origin
+    /// was recorded and the cursor still holds that entry (same id), so a stale origin is never returned. Pure; allocation-free.
+    /// </summary>
+    /// <param name="slot">The player slot.</param>
+    /// <param name="origin">The origin when valid; default otherwise.</param>
+    /// <returns>True when the cursor holds the recorded entry.</returns>
+    internal bool TryGetCursorOrigin(PlayerSlot slot, out CursorOrigin origin)
+    {
+        origin = default;
+        if (slot.IsNone || slot.Value >= PlayerSlot.Count || !_containers.TryGetSlot(_panels[slot.Value].Cursor, out ushort cursor))
+        {
+            return false;
+        }
+
+        CursorOrigin recorded = _cursorOrigins[slot.Value];
+        ushort held = _occupancy.OwnerAt(cursor, _containers[cursor].W, 0, 0);
+        if (recorded.Entry.IsNone || held == Occupancy.Free || _entries[held].Id != recorded.Entry)
+        {
+            return false;
+        }
+
+        origin = recorded;
+        return true;
+    }
+
     /// <summary>Copies the header of <paramref name="id"/>.</summary>
     /// <param name="id">The container id.</param>
     /// <param name="header">The header when found.</param>
@@ -311,12 +380,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the empty <c>IntakeDrain</c> phase, the stub
     /// conservation check, the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
     /// <see cref="InvOpDescriptors.Pick"/> and <see cref="InvOpDescriptors.Move"/> handlers (story 007), the
-    /// <see cref="InvOpDescriptors.Merge"/> handler (story 008) and the <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds
-    /// no other op (stories 010, 019) and no snapshot source.
+    /// <see cref="InvOpDescriptors.Merge"/> handler (story 008), the <see cref="InvOpDescriptors.QuickMove"/> handler (story 010) and the
+    /// <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds no other op (story 010's <c>Return</c>, story 019) and no snapshot
+    /// source.
     /// </summary>
     /// <param name="builder">The world's builder.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is null.</exception>
-    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c>, <c>DuplicateEventKind</c> or <c>DuplicateOpHandler</c> (another <c>Pick</c>, <c>Move</c>, <c>Merge</c> or <c>Close</c> handler).</exception>
+    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>PlayerJoinListenerLimit</c>, <c>DuplicateSection</c>, <c>DuplicateEventKind</c> or <c>DuplicateOpHandler</c> (another <c>Pick</c>, <c>Move</c>, <c>Merge</c>, <c>QuickMove</c> or <c>Close</c> handler).</exception>
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -333,6 +403,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         builder.BindOp(InvOpDescriptors.Pick, new PickHandler(this));
         builder.BindOp(InvOpDescriptors.Move, new MoveHandler(this, _content, _stats));
         builder.BindOp(InvOpDescriptors.Merge, new MergeHandler(this, _content, _stats));
+        builder.BindOp(InvOpDescriptors.QuickMove, new QuickMoveHandler(this, _content, _stats));
         builder.BindOp(InvOpDescriptors.Close, new CloseHandler(this));
     }
 
