@@ -1,4 +1,7 @@
+using System.Collections.Immutable;
 using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Content.Balance;
+using PerformativeMail.Sim.Content.Validation;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Events;
@@ -16,7 +19,11 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <c>InvRemoved</c> and one <c>InvVersion</c> seal (cause <c>Consumed</c>), and refuses a stale ref or an out-of-phase call with nothing
 /// mutated; <see cref="IInventoryApi.CountItem"/> reads the <c>itemId → units</c> index (<see cref="ItemCountIndex"/>) the mutator's
 /// item primitives maintain, which equals a brute-force scan after every one of 1,000 seeded random mutations, with a probe count that
-/// does not grow with the entry count. The mutating calls run inside a real tick through the rig's <c>MailStep</c> hook.
+/// does not grow with the entry count. <see cref="IInventoryApi.DetachForThrow"/> takes a whole hotbar entry out through <c>Remove</c>
+/// (one <c>InvRemoved</c>, one seal), leaving it live and detached, and refuses a non-hotbar entry (<c>bad_request</c>) or a wrong
+/// count (<c>stale_entry</c>) with nothing changed; <see cref="IInventoryApi.TryInsert"/> (mail form) refuses an outfeed container, a
+/// whitelist refusal and no room with nothing changed, and otherwise merges first (one <c>InvMerged</c>, no entry created) or places
+/// a new entry. The mutating calls run inside a real tick through the rig's <c>MailStep</c> hook.
 /// </summary>
 public class InventoryApiTests
 {
@@ -354,6 +361,449 @@ public class InventoryApiTests
         {
             Assert.Equal(c == 2 ? 0 : u, index.Units(c, i));
         }
+    }
+
+    [Fact]
+    [Trait("Id", "H-X-2")]
+    public void DetachForThrow_Hotbar3Entry88Of5Letters_EmptiesIndex3_VersionPlusOne_OneRemovedThenOneSeal_EntryLiveAndDetached()
+    {
+        // Arrange: hotbar index 3 holds 5 letters as entry 88 (earlier ids spent between ticks)
+        var rig = new InvAutoPlaceRig();
+        BurnEntryIdsTo(rig, 87);
+        ushort slot88 = rig.PlaceMail(rig.HotbarA, "letter", 3, 0, Address4, new uint[] { 11, 12, 13, 14, 15 });
+        EntryId id = rig.Entries[slot88].Id;
+        Assert.Equal(88u, id.Value);
+        ContainerId hotbar = rig.Inventory.HotbarOf(PlayerSlot.FromValue(0));
+        ContainerHeader before = rig.Header(rig.HotbarA);
+
+        // Act
+        DetachResult r = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.DetachForThrow(PlayerSlot.FromValue(0), id, 5));
+        EventEntry[] log = InventoryEvents(rig.Sink.Last);
+
+        // Assert: the result is (none, 88, 5); index 3 empty; version + 1
+        Assert.Equal(new DetachResult(default, id, 5), r);
+        Assert.Equal(Occupancy.Free, rig.Inventory.Occupancy.OwnerAt(rig.HotbarA, before.W, 3, 0));
+        Assert.Equal(before.EntryCount - 1, rig.Header(rig.HotbarA).EntryCount);
+        Assert.Equal(before.Version + 1, rig.Header(rig.HotbarA).Version);
+
+        // Assert: entry 88 live and detached, in no WorldItem, with its 5 mailIds
+        Assert.True(rig.Entries.TryGetSlot(id, out ushort still));
+        Assert.Equal(slot88, still);
+        Assert.Equal(EntryRecord.NoContainer, rig.Entries[slot88].ContainerSlot);
+        Assert.False(rig.Inventory.WorldItems.OwnsEntry(slot88));
+        Assert.Equal(5, rig.Entries[slot88].Count);
+        Assert.Equal(new uint[] { 11, 12, 13, 14, 15 }, rig.IdsOf(slot88));
+
+        // Assert: exactly InvRemoved{hotbar, 88, 5} then one InvVersion seal by player A, cause None
+        Assert.Equal(new[] { InvEventKinds.Removed, InvEventKinds.Version }, log.Select(e => e.Kind));
+        InvRemovedPayload removed = log[0].PayloadAs<InvRemovedPayload>();
+        Assert.Equal(hotbar.Value, removed.Container);
+        Assert.Equal(88u, removed.EntryId);
+        Assert.Equal(5, removed.Count);
+        InvVersionPayload seal = log[1].PayloadAs<InvVersionPayload>();
+        Assert.Equal(hotbar.Value, seal.Container);
+        Assert.Equal(before.Version, seal.VersionFrom);
+        Assert.Equal(before.Version + 1, seal.VersionTo);
+        Assert.Equal(rig.PlayerA.Value, seal.ActorId);
+        Assert.Equal((byte)InvCause.None, seal.Cause);
+    }
+
+    [Fact]
+    [Trait("Id", "H-X-2")]
+    public void DetachForThrow_OfTheCursorEntryOrANonHotbarEntry_IsBadRequest_NothingChanges_NoRecord()
+    {
+        // Arrange: player B joined; entries in A's cursor, A's inventory, B's hotbar, a detached one, a dead one; one in A's hotbar
+        var rig = new InvAutoPlaceRig();
+        JoinSlot1(rig);
+        ushort cursorA = rig.SlotOf(rig.Inventory.CursorOf(PlayerSlot.FromValue(0)));
+        ushort hotbarB = rig.SlotOf(rig.Inventory.HotbarOf(PlayerSlot.FromValue(1)));
+        ushort inCursor = rig.PlaceMail(cursorA, "letter", 0, 0, Address4, new uint[] { 1, 2 });
+        ushort inPanel = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 3 });
+        ushort inHotbarB = rig.PlaceMail(hotbarB, "letter", 2, 0, Address4, new uint[] { 4 });
+        ushort inHotbarA = rig.PlaceMail(rig.HotbarA, "letter", 2, 0, Address4, new uint[] { 5 });
+        ushort detached = rig.DetachedMail("letter", Address4, new uint[] { 6 });
+        ushort dead = rig.PlaceMail(rig.HotbarA, "letter", 4, 0, Address4, new uint[] { 7 });
+        EntryId deadId = rig.Entries[dead].Id;
+        Assert.True(IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.ConsumeUnit(new EntryRef(rig.Inventory.HotbarOf(PlayerSlot.FromValue(0)), deadId), ConsumeReason.Delivered, rig.PlayerA)));
+        List<long> before = State(rig);
+        PlayerSlot a = PlayerSlot.FromValue(0);
+        var calls = new (PlayerSlot Slot, EntryId Entry, byte Units)[]
+        {
+            (a, rig.Entries[inCursor].Id, 2),                 // the cursor's entry
+            (a, rig.Entries[inPanel].Id, 1),                  // a player_inventory entry
+            (a, rig.Entries[inHotbarB].Id, 1),                // another player's hotbar entry
+            (a, rig.Entries[detached].Id, 1),                 // a detached entry
+            (a, deadId, 1),                                   // a dead entry
+            (a, EntryId.Real(999_999), 1),                     // an unknown id
+            (a, default, 1),                                  // no entry
+            (PlayerSlot.FromValue(1), rig.Entries[inHotbarA].Id, 1), // A's hotbar entry named by slot B
+            (PlayerSlot.FromValue(2), rig.Entries[inHotbarA].Id, 1), // a slot with no hotbar
+            (PlayerSlot.None, rig.Entries[inHotbarA].Id, 1),  // no slot
+        };
+        var results = new List<DetachResult>();
+
+        // Act: every refusal in one tick
+        rig.Hook.Action = (in TickContext ctx) =>
+        {
+            foreach ((PlayerSlot s, EntryId e, byte u) in calls)
+            {
+                results.Add(rig.Inventory.DetachForThrow(s, e, u));
+            }
+        };
+        rig.Host.World.Tick();
+        rig.Hook.Action = null;
+
+        // Assert: every call bad_request with no entry, nothing changed, no inventory event
+        Assert.Equal(calls.Length, results.Count);
+        Assert.All(results, r => Assert.Equal(new DetachResult((InvReason)InvReasons.BadRequest, default, 0), r));
+        Assert.Equal(before, State(rig));
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "H-X-2")]
+    public void DetachForThrow_WithUnitsOtherThanTheEntryCount_IsStaleEntry_NothingChanges_NoRecord()
+    {
+        // Arrange: 5 letters at hotbar index 3
+        var rig = new InvAutoPlaceRig();
+        ushort entry = rig.PlaceMail(rig.HotbarA, "letter", 3, 0, Address4, new uint[] { 1, 2, 3, 4, 5 });
+        EntryId id = rig.Entries[entry].Id;
+        List<long> before = State(rig);
+        var results = new List<DetachResult>();
+
+        // Act: 4, 6 and 0 units in one tick
+        rig.Hook.Action = (in TickContext ctx) =>
+        {
+            foreach (byte units in new byte[] { 4, 6, 0 })
+            {
+                results.Add(rig.Inventory.DetachForThrow(PlayerSlot.FromValue(0), id, units));
+            }
+        };
+        rig.Host.World.Tick();
+        rig.Hook.Action = null;
+
+        // Assert
+        Assert.Equal(3, results.Count);
+        Assert.All(results, r => Assert.Equal(new DetachResult(InvReason.StaleEntry, default, 0), r));
+        Assert.Equal(before, State(rig));
+        Assert.Equal(rig.HotbarA, rig.Entries[entry].ContainerSlot);
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "R9")]
+    public void DetachForThrow_OutsideATickPhase_IsRefused_CountsMutatingApiOutOfPhase_AndMutatesNothing()
+    {
+        // Arrange: between ticks, 5 letters at hotbar index 3
+        var rig = new InvAutoPlaceRig();
+        ushort entry = rig.PlaceMail(rig.HotbarA, "letter", 3, 0, Address4, new uint[] { 1, 2, 3, 4, 5 });
+        EntryId id = rig.Entries[entry].Id;
+        List<long> before = State(rig);
+        long refusedBefore = rig.Counters[CounterId.MutatingApiOutOfPhase];
+
+        // Act + Assert: SIM_ASSERT builds assert; Release refuses with bad_request
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException ex = Assert.Throws<SimAssertException>(() => rig.Inventory.DetachForThrow(PlayerSlot.FromValue(0), id, 5));
+            Assert.Equal(SimAssertCode.MutatingApiOutOfPhase, ex.Code);
+        }
+        else
+        {
+            Assert.Equal(new DetachResult((InvReason)InvReasons.BadRequest, default, 0), rig.Inventory.DetachForThrow(PlayerSlot.FromValue(0), id, 5));
+        }
+
+        // Assert: nothing mutated, counter 45 + 1, nothing flushed by the next tick
+        Assert.Equal(before, State(rig));
+        Assert.Equal(refusedBefore + 1, rig.Counters[CounterId.MutatingApiOutOfPhase]);
+        rig.Host.World.Tick();
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    public void DetachForThrow_OfAnItemStack_CountItemDropsByTheStack_AndEqualsAScan()
+    {
+        // Arrange: 5 planks at hotbar index 3, 2 at index 4
+        var rig = new InvAutoPlaceRig();
+        ushort planks = rig.PlaceItem(rig.HotbarA, "plank", 3, 0, 5);
+        _ = rig.PlaceItem(rig.HotbarA, "plank", 4, 0, 2);
+        ContainerId hotbar = rig.Inventory.HotbarOf(PlayerSlot.FromValue(0));
+        DefIndex plank = rig.ItemIndex("plank");
+        Assert.Equal(7, rig.Inventory.CountItem(new[] { hotbar }, plank));
+
+        // Act
+        DetachResult r = IntakeSpawnOutfeedTests.InPhase(
+            rig, () => rig.Inventory.DetachForThrow(PlayerSlot.FromValue(0), rig.Entries[planks].Id, 5));
+
+        // Assert: the detached stack no longer counts; the index equals a scan of the hotbar
+        Assert.Equal(0, (int)r.Reason);
+        Assert.Equal(2, rig.Inventory.CountItem(new[] { hotbar }, plank));
+        Assert.Equal(ScanItem(rig, rig.HotbarA, plank), rig.Inventory.CountItem(new[] { hotbar }, plank));
+    }
+
+    [Fact]
+    [Trait("Id", "H-R5-1")]
+    public void TryInsert_IntoPoIntake_OutfeedOnly_ReturnsFalse_NoRecord_NoEntry_VersionUnchanged()
+    {
+        // Arrange
+        var rig = new InvAutoPlaceRig();
+        UnitRef letter = Letter(rig, 501, Address4);
+        List<long> before = State(rig);
+        uint version = rig.Header(rig.Intake).Version;
+
+        // Act
+        bool inserted = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryInsert(rig.Inventory.IntakeContainer, in letter, rig.PlayerA));
+
+        // Assert: refused; no entry (pool and last id unchanged), no arena block, no record, version unchanged
+        Assert.False(inserted);
+        Assert.Equal(before, State(rig));
+        Assert.Equal(version, rig.Header(rig.Intake).Version);
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "H-R5-1")]
+    public void TryInsert_ALetterIntoAContainerWhoseWhitelistRefusesIt_ReturnsFalse_NothingChanges()
+    {
+        // Arrange: an empty fixture tool rack (allowedCategories [tool])
+        var rig = new InvAutoPlaceRig(content: RefusingContent());
+        ushort rack = rig.CreateGrid(4, 2, ToolRackDef);
+        ContainerId rackId = rig.Header(rack).Id;
+        UnitRef letter = Letter(rig, 501, Address4);
+        List<long> before = State(rig);
+
+        // Act
+        bool inserted = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryInsert(rackId, in letter, rig.PlayerA));
+
+        // Assert
+        Assert.False(inserted);
+        Assert.Equal(before, State(rig));
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "H-X-3")]
+    public void TryInsert_ALetterWithAMatchingNonFullStack_MergesFirst_OneMergedRecord_VersionPlusOne_NoEntryCreated()
+    {
+        // Arrange: a 2-letter stack (address 4) at (5, 1) of player A's inventory, free cells before it
+        var rig = new InvAutoPlaceRig();
+        ushort stack = rig.PlaceMail(rig.InventoryA, "letter", 5, 1, Address4, new uint[] { 10, 20 });
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        UnitRef letter = Letter(rig, 15, Address4);
+        ContainerHeader before = rig.Header(rig.InventoryA);
+        uint lastId = rig.Entries.LastId;
+        int liveEntries = rig.Entries.LiveCount;
+
+        // Act
+        bool inserted = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryInsert(inventoryA, in letter, rig.PlayerA));
+        EventEntry[] heads = InventoryEvents(rig.Sink.Last).Where(e => (e.Flags & EventFlags.Continuation) == 0).ToArray();
+
+        // Assert: merged into the stack (ids sorted), no entry created, version + 1
+        Assert.True(inserted);
+        Assert.Equal(new uint[] { 10, 15, 20 }, rig.IdsOf(stack));
+        Assert.Equal(lastId, rig.Entries.LastId);
+        Assert.Equal(liveEntries, rig.Entries.LiveCount);
+        Assert.Equal(before.EntryCount, rig.Header(rig.InventoryA).EntryCount);
+        Assert.Equal(before.FreeCells, rig.Header(rig.InventoryA).FreeCells);
+        Assert.Equal(before.Version + 1, rig.Header(rig.InventoryA).Version);
+
+        // Assert: exactly one InvMerged{inventoryA, stack, 1} then one InvVersion seal by player A
+        Assert.Equal(new[] { InvEventKinds.Merged, InvEventKinds.Version }, heads.Select(e => e.Kind));
+        InvMergedPayload merged = heads[0].PayloadAs<InvMergedPayload>();
+        Assert.Equal(inventoryA.Value, merged.Container);
+        Assert.Equal(rig.Entries[stack].Id.Value, merged.TargetEntryId);
+        Assert.Equal(1, merged.AddedCount);
+        InvVersionPayload seal = heads[1].PayloadAs<InvVersionPayload>();
+        Assert.Equal(before.Version + 1, seal.VersionTo);
+        Assert.Equal(rig.PlayerA.Value, seal.ActorId);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R5-1")]
+    public void TryInsert_ALetterWithNoMatchingStack_PlacesANewEntryInTheFirstFreeCell_OneInsertedRecord()
+    {
+        // Arrange: a full 20-letter stack (address 4) at (0, 0) and a 1-letter stack of another address at (1, 0)
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, InvAutoPlaceRig.Ids(100, 20));
+        _ = rig.PlaceMail(rig.InventoryA, "letter", 1, 0, 5u, new uint[] { 300 });
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        UnitRef letter = Letter(rig, 501, Address4);
+        ContainerHeader before = rig.Header(rig.InventoryA);
+
+        // Act
+        bool inserted = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryInsert(inventoryA, in letter, rig.PlayerA));
+        EventEntry[] heads = InventoryEvents(rig.Sink.Last).Where(e => (e.Flags & EventFlags.Continuation) == 0).ToArray();
+
+        // Assert: a new one-unit entry at (2, 0) with the unit's StackKey, version + 1, one InvInserted then one seal
+        Assert.True(inserted);
+        ushort placed = rig.EntryAt(rig.InventoryA, 2, 0);
+        Assert.NotEqual(Occupancy.Free, placed);
+        Assert.Equal(new uint[] { 501 }, rig.IdsOf(placed));
+        Assert.Equal(Address4, rig.Entries[placed].AddressId);
+        Assert.Equal(before.EntryCount + 1, rig.Header(rig.InventoryA).EntryCount);
+        Assert.Equal(before.Version + 1, rig.Header(rig.InventoryA).Version);
+        Assert.Equal(new[] { InvEventKinds.Inserted, InvEventKinds.Version }, heads.Select(e => e.Kind));
+    }
+
+    [Fact]
+    public void TryInsert_WithNoRoomOrAMalformedUnitOrADeadContainer_ReturnsFalse_NothingChanges_NoEntryOrArenaLeak()
+    {
+        // Arrange: a 1 x 1 grid holding a full stack of another address
+        var rig = new InvAutoPlaceRig();
+        ushort tiny = rig.CreateGrid(1, 1);
+        _ = rig.PlaceMail(tiny, "letter", 0, 0, 5u, InvAutoPlaceRig.Ids(100, 20));
+        ContainerId tinyId = rig.Header(tiny).Id;
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        UnitRef ok = Letter(rig, 501, Address4);
+        var calls = new (ContainerId C, UnitRef U)[]
+        {
+            (tinyId, ok),                                                       // no room (and no matching stack)
+            (inventoryA, ok with { Mail = MailId.None }),                       // no mail id
+            (inventoryA, ok with { MailKind = DefIndex.None }),                 // no mail kind
+            (inventoryA, ok with { MailKind = DefIndex.FromValue((ushort)rig.Content.MailKinds.Count) }), // unknown kind
+            (new ContainerId(999), ok),                                         // a dead container
+        };
+        List<long> before = State(rig);
+        var results = new List<bool>();
+
+        // Act
+        rig.Hook.Action = (in TickContext ctx) =>
+        {
+            foreach ((ContainerId c, UnitRef u) in calls)
+            {
+                results.Add(rig.Inventory.TryInsert(c, in u, rig.PlayerA));
+            }
+        };
+        rig.Host.World.Tick();
+        rig.Hook.Action = null;
+
+        // Assert
+        Assert.Equal(calls.Length, results.Count);
+        Assert.All(results, Assert.False);
+        Assert.Equal(before, State(rig));
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    [Trait("Id", "R9")]
+    public void TryInsert_OutsideATickPhase_IsRefused_CountsMutatingApiOutOfPhase_AndMutatesNothing()
+    {
+        // Arrange: between ticks, a matching 2-letter stack
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 1, 2 });
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        UnitRef letter = Letter(rig, 3, Address4);
+        List<long> before = State(rig);
+        long refusedBefore = rig.Counters[CounterId.MutatingApiOutOfPhase];
+
+        // Act + Assert: SIM_ASSERT builds assert; Release refuses
+        if (TestBuildExpectation.SimAssertsExpected)
+        {
+            SimAssertException ex = Assert.Throws<SimAssertException>(() => rig.Inventory.TryInsert(inventoryA, in letter, rig.PlayerA));
+            Assert.Equal(SimAssertCode.MutatingApiOutOfPhase, ex.Code);
+        }
+        else
+        {
+            Assert.False(rig.Inventory.TryInsert(inventoryA, in letter, rig.PlayerA));
+        }
+
+        // Assert
+        Assert.Equal(before, State(rig));
+        Assert.Equal(refusedBefore + 1, rig.Counters[CounterId.MutatingApiOutOfPhase]);
+        rig.Host.World.Tick();
+        Assert.Empty(InventoryEvents(rig.Sink.Last));
+    }
+
+    [Fact]
+    public void TryInsert_OfMail_LeavesCountItemUnchanged_AndEqualToAScan()
+    {
+        // Arrange: planks and an axe (item def 0, the value a mail entry's ItemId field also holds) beside a letter stack
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 7);
+        _ = rig.PlaceItem(rig.InventoryA, "axe", 1, 0, 1);
+        _ = rig.PlaceMail(rig.InventoryA, "letter", 2, 0, Address4, new uint[] { 1 });
+        ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
+        DefIndex plank = rig.ItemIndex("plank");
+        DefIndex axe = rig.ItemIndex("axe");
+        UnitRef merge = Letter(rig, 2, Address4);
+        UnitRef place = Letter(rig, 3, 5u);
+
+        // Act: one merge, one new entry
+        Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryInsert(inventoryA, in merge, rig.PlayerA)));
+        Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryInsert(inventoryA, in place, rig.PlayerA)));
+
+        // Assert
+        Assert.Equal(7, rig.Inventory.CountItem(new[] { inventoryA }, plank));
+        Assert.Equal(1, rig.Inventory.CountItem(new[] { inventoryA }, axe));
+        Assert.Equal(ScanItem(rig, rig.InventoryA, plank), rig.Inventory.CountItem(new[] { inventoryA }, plank));
+        Assert.Equal(ScanItem(rig, rig.InventoryA, axe), rig.Inventory.CountItem(new[] { inventoryA }, axe));
+    }
+
+    /// <summary>The fixture def <see cref="RefusingContent"/> adds.</summary>
+    internal const string ToolRackDef = "tool_rack";
+
+    /// <summary>The M-1a content plus <see cref="ToolRackDef"/>: a grid with <c>allowedCategories [tool]</c>, which refuses mail (none at M-1a).</summary>
+    internal static ContentSet RefusingContent()
+    {
+        RuleRegistry rules = RuleRegistry.CreateDefault();
+        BalanceBuildResult balance = BalanceTable.Build(BalanceKeys.CreateRegistry(), BalanceKeys.CreateDefaultEntries(), rules);
+        Assert.NotNull(balance.Table);
+        ImmutableArray<ContainerDef> containers = BuiltInContent.M1aContainers().Add(new ContainerDef
+        {
+            Id = ToolRackDef,
+            Layout = ContainerLayout.Grid,
+            HasGrid = true,
+            GridW = 4,
+            GridH = 2,
+            View = ContainerView.Grid,
+            BeltAccess = BeltAccess.None,
+            AcceptsInsert = true,
+            HasAllowedCategories = true,
+            AllowedCategories = ImmutableArray.Create(ItemCategory.Tool),
+        });
+        ContentBuildResult built = BuiltInContent.Build(
+            balance.Table!, containers, BuiltInContent.M1aItems(), BuiltInContent.M1aMailKinds(), BuiltInContent.M1aDestinationTypes(), rules);
+        Assert.True(built.Set is not null, BuiltInContent.Describe(built.Validation, rules));
+        return built.Set!;
+    }
+
+    /// <summary>A one-letter <see cref="UnitRef"/> (its entry field unused by <c>TryInsert</c>).</summary>
+    internal static UnitRef Letter(InvAutoPlaceRig rig, uint mailId, uint address) =>
+        new(new MailId(mailId), default, rig.KindIndex("letter"), address, 0);
+
+    /// <summary>Joins player slot 1 (one tick).</summary>
+    internal static void JoinSlot1(InvAutoPlaceRig rig)
+    {
+        var join = new Op { Kind = OpKind.PlayerJoin, ReqId = 2 };
+        join.SetPayload(new PlayerJoinPayload { Slot = 1 });
+        Assert.True(rig.Host.World.EnqueueOp(ActorId.System, in join));
+        rig.Host.World.Tick();
+    }
+
+    /// <summary>Spends entry ids between ticks (allocate and free) until the last id is <paramref name="lastId"/>.</summary>
+    private static void BurnEntryIdsTo(InvAutoPlaceRig rig, uint lastId)
+    {
+        while (rig.Entries.LastId < lastId)
+        {
+            Assert.True(rig.Entries.TryAllocate(rig.Host.World.CurrentTick, out ushort slot, out _));
+            rig.Entries.Free(slot);
+        }
+    }
+
+    /// <summary>A brute-force scan of the container's placed item entries of <paramref name="item"/>.</summary>
+    private static int ScanItem(InvAutoPlaceRig rig, ushort container, DefIndex item)
+    {
+        int units = 0;
+        for (int s = 0; s < rig.Entries.Capacity; s++)
+        {
+            EntryRecord r = rig.Entries[(ushort)s];
+            if (r.IsLive && !r.IsMail && r.ContainerSlot == container && r.ItemId == item.Value)
+            {
+                units += r.Count;
+            }
+        }
+
+        return units;
     }
 
     private static long Probes(InvAutoPlaceRig rig, ContainerId c, DefIndex item, out int units)

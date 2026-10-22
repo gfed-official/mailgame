@@ -216,7 +216,7 @@ public static class SimAssertCode
     /// <summary><c>EventLog.TryRaiseContinuation</c> was called with no open call scope, or not directly after an entry of the same kind and <c>CallSeq</c> (an orphan chunk). Release appends it anyway (nothing is lost; the adapter attaches it to whatever precedes it). <c>SIM_ASSERT</c>.</summary>
     public const ushort EventContinuationOrphan = 68;
 
-    /// <summary><c>InventoryMutator.MergeInto</c> was called with an invalid merge: a free or unplaced target, the source as its own target, different <c>StackKey</c>s, <c>units</c> outside 1 to the source's count, or a target count that would exceed 255. Release changes nothing and raises nothing. <c>INVENTORY_ASSERT</c>.</summary>
+    /// <summary><c>InventoryMutator.MergeInto</c> was called with an invalid merge: a free or unplaced target, the source as its own target, different <c>StackKey</c>s, <c>units</c> outside 1 to the source's count, or a target count that would exceed 255; or <c>InventoryMutator.MergeUnitInto</c> (story 015) with a free, unplaced or non-mail target, a none id, another <c>StackKey</c>, or a full target. Release changes nothing and raises nothing. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryMergeInvalid = 69;
 
     /// <summary><c>AutoPlace.Plan</c> reached <c>AutoPlacePlan.MaxMerges</c> (255) merges with units still to merge. Unreachable: one AutoPlace moves at most 255 units and every merge takes at least one (TD-116). Release refuses the op with <c>bad_request</c> before any mutation. <c>INVENTORY_ASSERT</c>.</summary>

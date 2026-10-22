@@ -17,7 +17,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// entry or occupancy state. One call is bracketed by <see cref="Begin"/> and <see cref="End"/> over the call's <see cref="InvPlan"/>:
 /// <list type="number">
 /// <item>the primitives (<see cref="Place"/>, <see cref="Remove"/>, <see cref="Transfer"/>, the count changes <see cref="MergeInto"/>
-/// (story 009) and <see cref="TakeOldest"/> (story 012, which story 015's <c>ConsumeUnit</c> reuses), and
+/// (story 009), <see cref="TakeOldest"/> (story 012, which story 015's <c>ConsumeUnit</c> reuses) and <see cref="MergeUnitInto"/>
+/// (story 015's <c>TryInsert</c>), and
 /// <see cref="DestroyDetached"/> (story 013)) apply the change at
 /// once and raise its <b>records</b> (<c>InvInserted</c> / <c>InvMerged</c> + mailId-run <c>Continuation</c> chunks, <c>InvRemoved</c>,
 /// <c>InvMoved</c>), each with the container's audience resolved now, and mark the (already touched, see <see cref="InvPlan"/>)
@@ -430,22 +431,52 @@ internal sealed class InventoryMutator
             }
         }
 
-        plan.MarkMutated(to);
-        LinkIfNonFull(targetSlot);
-        if (HasOutfeed(to))
+        RaiseMerged(ref plan, targetSlot, to, units, moved);
+    }
+
+    /// <summary>
+    /// The count-change primitive for one mail unit that has no entry (story 015: <c>IInventoryApi.TryInsert</c>'s AutoPlace merge
+    /// pass): unions <paramref name="mail"/> into the placed target mail stack's run (one arena block acquired, which the caller
+    /// reserved through <see cref="InvPlan.AddAcquiredBlock"/> with the union's size, <c>target.count + 1</c>), sets its count and
+    /// raises <c>InvMerged{c, target, 1}</c> plus the one-id run, as <see cref="MergeInto"/> does for its target, with the same
+    /// StackKey re-link and outfeed restamp. No source entry is created, so no entry id is spent. The container must already be
+    /// touched. An invalid merge (a free, unplaced or non-mail target, a none id, a <paramref name="key"/> other than the target's, a
+    /// target at 255 or at its <c>effMax</c> read now) asserts <see cref="SimAssertCode.InventoryMergeInvalid"/> under
+    /// <c>INVENTORY_ASSERT</c>; Release changes nothing. The ledger crossing is story 017's hook.
+    /// </summary>
+    /// <param name="plan">The call's plan.</param>
+    /// <param name="targetSlot">The placed target stack's pool slot.</param>
+    /// <param name="key">The unit's StackKey (the one the plan matched).</param>
+    /// <param name="mail">The unit's mail id.</param>
+    /// <returns>True when the unit was merged.</returns>
+    public bool MergeUnitInto(ref InvPlan plan, ushort targetSlot, StackKey key, MailId mail)
+    {
+        ref EntryRecord dst = ref _entries[targetSlot];
+        bool valid = dst.IsLive && dst.IsMail && dst.ContainerSlot != EntryRecord.NoContainer && !mail.IsNone && dst.Count < byte.MaxValue
+            && dst.Count + 1 <= EffMaxOf(in dst) && StackKey.Of(in dst) == key;
+        InventoryAssert.That(valid, SimAssertCode.InventoryMergeInvalid);
+        if (!valid)
         {
-            ref ContainerHeader th = ref _containers[to];
-            StampArrival(to, ref th, targetSlot, ref dst); // its old node is now stale: a tombstone
-            _outfeed.OnTombstoned(to, ref th, th.EntryCount);
+            return false;
         }
 
-        byte audience = AudienceOf(to);
-        var merged = new InvMergedPayload
+        ushort to = dst.ContainerSlot;
+        if (!plan.EnsureTouched(to))
         {
-            Container = _containers[to].Id.Value, TargetEntryId = dst.Id.Value, AddedCount = (byte)units, RunCount = (ushort)CountRuns(moved),
-        };
-        _ = _events.TryRaise(InvEventKinds.Merged, audience, in merged);
-        RaiseRuns(InvEventKinds.Merged, audience, moved);
+            return false; // Release: the set is full, so nothing is changed unsealed
+        }
+
+        Span<uint> moved = _movedIds.AsSpan(0, 1);
+        moved[0] = mail.Value;
+        if (!_mailIds.TryAppend(ref dst.MailIds, moved, 0))
+        {
+            return false; // unreachable after the caller's reservation; the arena wrote its exhaustion record
+        }
+
+        _index.Unlink(targetSlot);
+        _entries.SetCount(targetSlot, (byte)(dst.Count + 1));
+        RaiseMerged(ref plan, targetSlot, to, 1, moved);
+        return true;
     }
 
     /// <summary>
@@ -665,6 +696,31 @@ internal sealed class InventoryMutator
         {
             _itemCounts.Add(containerSlot, e.ItemId, delta);
         }
+    }
+
+    /// <summary>
+    /// The target half of a merge whose units are already in the target's count and run: marks the container mutated, re-links the
+    /// stack, restamps it on an outfeed container, then raises <c>InvMerged</c> and the moved ids' runs.
+    /// </summary>
+    private void RaiseMerged(ref InvPlan plan, ushort targetSlot, ushort to, int units, ReadOnlySpan<uint> moved)
+    {
+        ref EntryRecord dst = ref _entries[targetSlot];
+        plan.MarkMutated(to);
+        LinkIfNonFull(targetSlot);
+        if (HasOutfeed(to))
+        {
+            ref ContainerHeader th = ref _containers[to];
+            StampArrival(to, ref th, targetSlot, ref dst); // its old node is now stale: a tombstone
+            _outfeed.OnTombstoned(to, ref th, th.EntryCount);
+        }
+
+        byte audience = AudienceOf(to);
+        var merged = new InvMergedPayload
+        {
+            Container = _containers[to].Id.Value, TargetEntryId = dst.Id.Value, AddedCount = (byte)units, RunCount = (ushort)CountRuns(moved),
+        };
+        _ = _events.TryRaise(InvEventKinds.Merged, audience, in merged);
+        RaiseRuns(InvEventKinds.Merged, audience, moved);
     }
 
     private void LinkIfNonFull(ushort entrySlot)

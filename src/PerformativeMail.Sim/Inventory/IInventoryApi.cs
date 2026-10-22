@@ -44,13 +44,13 @@ public readonly record struct UnitRef(MailId Mail, EntryId Entry, DefIndex MailK
 public readonly record struct EntryRef(ContainerId Container, EntryId Entry);
 
 /// <summary>
-/// The result of <c>DetachForThrow</c> (story 015; ADR-0009 Key Interfaces name, shape a planning default): the refusal reason (none,
+/// The result of <see cref="IInventoryApi.DetachForThrow"/> (story 015; ADR-0009 Key Interfaces name, shape a planning default): the refusal reason (none,
 /// 0, on success), the detached entry and its units.
 /// </summary>
 /// <param name="Reason">0 on success, else the refusal (<c>bad_request</c> as <c>(InvReason)</c><see cref="InvReasons.BadRequest"/>, or <see cref="InvReason.StaleEntry"/>).</param>
 /// <param name="Entry">The detached entry (none when refused).</param>
 /// <param name="Units">The detached entry's units (0 when refused).</param>
-/// <example><code>DetachResult r = default; bool detached = r.Reason == 0;</code></example>
+/// <example><code>DetachResult r = inventory.DetachForThrow(slot, entry, units); bool detached = r.Reason == 0;</code></example>
 public readonly record struct DetachResult(InvReason Reason, EntryId Entry, byte Units);
 
 /// <summary>
@@ -74,8 +74,8 @@ public enum ConsumeReason : byte
 /// TR-sim-019): synchronous calls made by in-tick callers inside their own phase. Each mutating call is one atomic mutation through
 /// the shared <c>InventoryMutator</c>, with the same records and one <c>InvVersion</c> seal per changed container as an op, and no
 /// reply. Mutating calls are legal only inside a tick phase (<c>TickGuard</c>); an illegal call is refused with nothing mutated and
-/// no event. Story 013 adds <see cref="CreateWorldItem"/>; story 015 adds <see cref="ConsumeUnit"/> and <see cref="CountItem"/> (and
-/// <c>DetachForThrow</c> and <c>TryInsert</c> next); story 021 the backlog members. Allocation-free; never throws on the tick path. Not
+/// no event. Story 013 adds <see cref="CreateWorldItem"/>; story 015 adds <see cref="ConsumeUnit"/>, <see cref="DetachForThrow"/>,
+/// <see cref="TryInsert"/> (mail form) and <see cref="CountItem"/>; story 021 the backlog members. Allocation-free; never throws on the tick path. Not
 /// thread-safe: Sim tick thread only.
 /// </summary>
 /// <example>
@@ -165,6 +165,36 @@ public interface IInventoryApi
     /// <param name="actor">The acting actor (written into the seal).</param>
     /// <returns>True when a unit was consumed.</returns>
     bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor);
+
+    /// <summary>
+    /// Detaches a whole hotbar entry for a throw (story 015; ADR-0009 section 1, ADR-0015 section 1: Throwing's <c>ThrowRelease</c>
+    /// handler calls it after its own checks, including the selected-slot check, which is not read here). One call scope, one
+    /// <c>InvRemoved{hotbar, entry, units}</c> and one <c>InvVersion</c> seal with the slot's player as actor and cause <c>None</c>; the
+    /// entry stays live and detached (in no container and in no WorldItem) with its mailIds, and becomes the caller's (the flight's).
+    /// Refused with nothing changed and no record: <c>bad_request</c> when the entry is not a live entry of
+    /// <paramref name="slot"/>'s hotbar (the cursor's entry, a panel or another slot's entry, a detached, dead or unknown entry, a slot
+    /// without a hotbar) or the call is outside a tick phase; <c>stale_entry</c> when <paramref name="units"/> is not the entry's count.
+    /// </summary>
+    /// <param name="slot">The thrower's slot.</param>
+    /// <param name="entryId">The hotbar entry.</param>
+    /// <param name="units">The entry's whole count, as the client saw it.</param>
+    /// <returns>Reason 0 with the entry and its units, or the refusal.</returns>
+    DetachResult DetachForThrow(PlayerSlot slot, EntryId entryId, byte units);
+
+    /// <summary>
+    /// Inserts one mail unit (story 015, the ADR-0009 sketch's mail form; story 012's <see cref="UnitRef"/>: its id and StackKey) into
+    /// <paramref name="c"/> by AutoPlace, merge pass first (GDD R5, H-R5-1, H-X-3): onto a matching non-full stack (one
+    /// <c>InvMerged</c>, no entry created), else into the first free cell as a new entry (one <c>InvInserted</c>). One call scope and
+    /// one <c>InvVersion</c> seal with <paramref name="actor"/> and cause <c>None</c>. False, with nothing changed (no record, no entry,
+    /// no arena block, no version), for a container with an outfeed (<c>outfeed_only</c>: the Intake), a container that is not live, a
+    /// whitelist refusal, no room, an arena or entry pool refusal, a none id or unknown mail kind, or a call outside a tick phase. The
+    /// item form (a Plank) is not here (Belt Logistics).
+    /// </summary>
+    /// <param name="c">The container.</param>
+    /// <param name="u">The unit (its <see cref="UnitRef.Entry"/> is ignored).</param>
+    /// <param name="actor">The acting actor (written into the seal).</param>
+    /// <returns>True when the unit was inserted.</returns>
+    bool TryInsert(ContainerId c, in UnitRef u, ActorId actor);
 
     /// <summary>
     /// The units of item def <paramref name="itemId"/> over the containers in <paramref name="cs"/> (story 015; GDD R17): a read of each
