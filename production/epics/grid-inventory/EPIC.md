@@ -127,7 +127,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 011 | [Open-set bookkeeping, Close op, leash put-away hook — and the Intake as the M-1a external](story-011-open-set-close-intake.md) | Logic | Complete | ADR-0009, ADR-0008 |
 | 012 | [Spawn into the Intake (NoMerge, arrivalSeq) and the outfeed FIFO (PeekOutfeed / TakeUnit)](story-012-intake-spawn-outfeed.md) | Logic | Complete | ADR-0009, ADR-0003 |
 | 013 | [WorldItem entity, absolute-tick expiry FIFOs, water float, cap eviction and tombstones](story-013-worlditem-expiry-cap.md) | Logic | Complete | ADR-0009, ADR-0004, ADR-0003 |
-| 014 | [Pickup core (AutoPlace by the R9 pickup rows) and the TryCatch API with fumble](story-014-pickup-core-trycatch.md) | Logic | Ready | ADR-0009 |
+| 014 | [Pickup core (AutoPlace by the R9 pickup rows) and the TryCatch API with fumble](story-014-pickup-core-trycatch.md) | Logic | Complete | ADR-0009 |
 | 015 | [IInventoryApi hooks for feature epics — ConsumeUnit, DetachForThrow, TryInsert, CountItem](story-015-inventory-api-feature-hooks.md) | Logic | Complete | ADR-0009, ADR-0003 |
 | 016 | [Weight → speed (R16, D1): weightPoints and speedPermille](story-016-weight-speed.md) | Logic | Complete | ADR-0006, ADR-0009, ADR-0010 |
 | 017 | [UnitLedger conservation counters, tick-end check, INVENTORY_ASSERT full scan and the canonical dump section](story-017-unitledger-conservation.md) | Logic | Ready | ADR-0009, ADR-0006, ADR-0003 |
@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–013, 015 and 016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33). Next: 014; 017 waits on 014 (Ready, unbuilt) (013 also unblocks 020). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33; 014 in PR #34, open, not merged). Next: 017 (Ready, unbuilt; 014 was its last blocker) (013 also unblocks 020). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
