@@ -5,15 +5,15 @@
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~1 day)
-> **Manifest Version**: 2026-10-16
-> **Last Updated**: 2026-10-22 (docs only: cap-eviction-to-backlog and interim-rule retirement ACs added from TD-138 / owner ruling Q3; re-derive the rest at `/story-readiness`)
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-22 (docs only: cap-eviction-to-backlog and interim-rule retirement ACs added from TD-138 / owner ruling Q3; fresh-`arrivalSeq` merge AC (Evan 12:28 PM PT); TR-inventory-011 probe bound 8,500 to match GDD H-PERF-6c / ADR-0009 l.57; Manifest Version re-stamped 2026-10-17.1; re-derive the rest at `/story-readiness`)
 
 > **Unblocked 2026-10-16**: ADR-0017 is Accepted. **Note:** ADR-0017 §6 puts the backlog queue's *storage* and drain in Inventory (`Sim/Inventory/Backlog`). Mail appends through `IInventoryApi.AppendBacklog`. The decision summary below predates that, so re-derive it at `/story-readiness`.
 
 ## Context
 
 **GDD**: `design/gdd/grid-inventory.md`
-**Requirement**: `TR-inventory-011` (backlog drain ≤ 32 entries/tick, ≤ 8 000 probes, 0 when idle)
+**Requirement**: `TR-inventory-011` (backlog drain ≤ 32 entries/tick, ≤ 8,500 probes, 0 when idle)
 *(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0017: Mail table, destination registry & IWalletGate — Accepted 2026-10-16 (primary); ADR-0009: InventoryOp Pipeline and Inventory Storage Layout
@@ -39,6 +39,7 @@
 - [ ] **H-PERF-6c** — one drain pass with a 2 800-entry backlog ≤ 8 500 probes; a pass with an empty backlog or a full Intake = 0 probes.
 - [ ] Expiry/water returns (story 013) and spawn overflow (story 012 `SpawnResult`) append to the backlog when the Intake is full or the backlog is non-empty.
 - [ ] **Cap eviction to the backlog (TD-138; owner ruling Q3, decision log 2026-10-21)** — with the Intake full, a qualifying mail cap candidate (age ≥ 300 ticks, lowest `(expiresTick, worldItemId)`) is evicted and appended to the backlog tail (GDD R12 "or backlog if full"), the WorldItem count drops by one, and no non-mail item is destroyed in its place; this replaces story 013's interim rule (the mail stays at its FIFO head and the lowest non-mail item is destroyed instead).
+- [ ] **Drained units leave last (owner ruling, Evan, 2026-10-21 12:28 PM PT; GDD R14, H-R14-3, l.399)** — every unit the drain places into the Intake gets a fresh `arrivalSeq` (the next per-Intake value), so it leaves after everything already there; and if a drained unit merges onto an existing Intake stack, that stack is given a fresh `arrivalSeq`, so it leaves last (an entry's `arrivalSeq` never decreases and merged-in units never leave from the target's older position). GDD R14 makes the drain NoMerge first-fit, so the merge clause pins the rule for any drain path that does merge. Test: Intake holding entries with `arrivalSeq` 1–3, a drained letter (merged or placed) → `PeekOutfeed`/`TakeUnit` return it after the three resident entries.
 - [ ] **Retire the interim full-Intake rule (TD-138)** — `CounterId.InventoryWorldItemReturnRetries` (47) is retired (no longer incremented; the append-only id stays reserved, not reused) and story 013's `Interim_*` tests in `tests/unit/inventory/WorldItemTests.cs` are removed or rewritten to the backlog behaviour; TD-138 closes with this story.
 
 ---

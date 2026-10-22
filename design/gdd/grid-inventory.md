@@ -5,7 +5,7 @@
 > **Creative Director Review (CD-GDD-ALIGN)**: CONCERNS → REVISED 2026-10-16 (Intake-sort upkeep → OQ15; Pillar 3 cascade + OQ16; loser beat; OQ2 option B). Art bible §5 carry poses vs Game Feel: OQ18 (art-director).
 > **Reconciled 2026-10-16** with consumer GDDs (hand-backs: 43 adopted, 2 adapted, 1 rejected — log: `design/gdd/reviews/grid-inventory-review-log.md`).
 > **Author**: user + agents (systems-designer, creative-director, ux-designer, gameplay-programmer, engine-programmer, qa-lead; revisions: game-designer, network-programmer, performance-analyst, godot-specialist findings)
-> **Last Updated**: 2026-10-22 (R12 `position` is `Vec3Mm` int32 mm, not cm; cap-eviction min age "older than 10 s" = age ≥ 300 ticks in R12, the raid edge case and H-R12-3 — owner ruling 2026-10-21 9:16 PM PT, TD-139 items 2–3). Before that: 2026-10-21 (ContainerDef defaults note on R1: `acceptsInsert` default false, `view` required — owner ruling, Content & Data CD10)
+> **Last Updated**: 2026-10-22 (R12 `position` is `Vec3Mm` int32 mm, not cm — aligned to Accepted ADR-0006 §1 (int mm, stored and on the wire) and simulation-core.md:347; text-only, by Mail Lead (TD-139 item 2). Cap-eviction min age "older than 10 s" = age ≥ 300 ticks in R12, the raid edge case and H-R12-3 — owner ruling, Evan, 2026-10-21 9:16 PM PT (TD-139 item 3)). Before that: 2026-10-21 (ContainerDef defaults note on R1: `acceptsInsert` default false, `view` required — owner ruling, Content & Data CD10)
 > **Last Verified**: 2026-10-16
 > **Implements Pillar**: Pillar 1 — The mail must flow; Pillar 3 — Hands beat machines, until they don't
 > **Retrofit source**: design/spec/03-mail-inventory-economy.md §3 (chapter 13 wins on conflict); schemas design/spec/08-data-schemas.md §2.5, §3.4
