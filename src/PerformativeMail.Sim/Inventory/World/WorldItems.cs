@@ -364,6 +364,9 @@ internal sealed class WorldItems
     public bool CanCreate() =>
         _ids is not null && _table.LiveCount < _table.Capacity && _ids.Peek(EntityClass.WorldItem) < EntityId.CounterMask;
 
+    /// <summary>True when every WorldItem table slot holds a live item (a creation now would be refused with a capacity record).</summary>
+    public bool TableFull => _table.LiveCount == _table.Capacity;
+
     /// <summary>
     /// Writes the <see cref="CheckCode.InventoryWorldItemCapacity"/> record a full table writes in <see cref="Create"/> (a = table
     /// capacity, b = live count), for a caller that refused before calling it (story 014's <c>TryCatch</c>, table full).

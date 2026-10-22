@@ -54,6 +54,31 @@ public readonly record struct EntryRef(ContainerId Container, EntryId Entry);
 public readonly record struct DetachResult(InvReason Reason, EntryId Entry, byte Units);
 
 /// <summary>
+/// What a flight hands <see cref="IInventoryApi.TryCatch"/> (story 014; ADR-0009 Key Interfaces name, l.206, which the ADR never defines:
+/// shape a Mail Lead planning default pending Evan, TD-154 item 6): the flight's entry, which is the live detached entry
+/// <see cref="IInventoryApi.DetachForThrow"/> left (its mailIds still in the arena, so the payload carries no ids or units), and where a
+/// fumble lands, the catcher's feet.
+/// </summary>
+/// <param name="Entry">The flight's live detached entry.</param>
+/// <param name="CatcherPosMm">The catcher's feet, mm (a fumble's WorldItem position).</param>
+/// <param name="OnWater">True when the catcher stands on a non-ground tile (a fumble floats).</param>
+/// <example><code>CatchResult r = inventory.TryCatch(catcher, new FlightPayload(entry, feetMm, false));</code></example>
+public readonly record struct FlightPayload(EntryId Entry, Vec3Mm CatcherPosMm, bool OnWater);
+
+/// <summary>
+/// The result of <see cref="IInventoryApi.TryCatch"/> (story 014; ADR-0009 Key Interfaces <c>{unitsIn, unitsFumbled}</c>, l.206; shape a
+/// Mail Lead planning default pending Evan, TD-154 item 6), on the <see cref="DetachResult"/> pattern: the units that went into the
+/// catcher's panel (the oldest, R6), the units that became the fumble WorldItem (the newest), and the reason. <c>UnitsIn = 0</c> with
+/// <c>UnitsFumbled &gt; 0</c> is a fumble; <c>{0, 0}</c> with a reason is a refusal (nothing changed, the entry is still the caller's).
+/// </summary>
+/// <param name="UnitsIn">Units placed or merged into the panel.</param>
+/// <param name="UnitsFumbled">Units in the fumble WorldItem.</param>
+/// <param name="Reason">0 on a catch or a completed fumble; <c>capacity_exhausted</c> on a fumble forced by the arena or a refusal for a full
+/// WorldItem table; <c>bad_request</c> (as <c>(InvReason)</c><see cref="InvReasons.BadRequest"/>) for a malformed call.</param>
+/// <example><code>CatchResult r = inventory.TryCatch(slot, in flight); bool fumbled = r.UnitsIn == 0 &amp;&amp; r.UnitsFumbled &gt; 0;</code></example>
+public readonly record struct CatchResult(byte UnitsIn, byte UnitsFumbled, InvReason Reason);
+
+/// <summary>
 /// Why <see cref="IInventoryApi.ConsumeUnit"/> consumed a unit (story 015; ADR-0009 Key Interfaces name). Carried to the
 /// <c>UnitLedger</c>'s PLACED to CONSUMED crossing (story 017); the inventory records and seal are the same for every reason.
 /// </summary>
@@ -75,7 +100,7 @@ public enum ConsumeReason : byte
 /// the shared <c>InventoryMutator</c>, with the same records and one <c>InvVersion</c> seal per changed container as an op, and no
 /// reply. Mutating calls are legal only inside a tick phase (<c>TickGuard</c>); an illegal call is refused with nothing mutated and
 /// no event. Story 013 adds <see cref="CreateWorldItem"/>; story 015 adds <see cref="ConsumeUnit"/>, <see cref="DetachForThrow"/>,
-/// <see cref="TryInsert"/> (mail form) and <see cref="CountItem"/>; story 016 <see cref="WeightPoints"/> and <see cref="SpeedPermille"/>
+/// <see cref="TryInsert"/> (mail form) and <see cref="CountItem"/>; story 014 <see cref="TryCatch"/>; story 016 <see cref="WeightPoints"/> and <see cref="SpeedPermille"/>
 /// (not in the ADR-0009 sketch: TD-148); story 021 the backlog members. Allocation-free; never throws on the tick path. Not
 /// thread-safe: Sim tick thread only.
 /// </summary>
@@ -185,6 +210,26 @@ public interface IInventoryApi
     /// <param name="units">The entry's whole count, as the client saw it.</param>
     /// <returns>Reason 0 with the entry and its units, or the refusal.</returns>
     DetachResult DetachForThrow(PlayerSlot slot, EntryId entryId, byte units);
+
+    /// <summary>
+    /// Catches a flight's entry into <paramref name="slot"/>'s panel (story 014; GDD R9 l.129, edge case l.362, H-R9-2, H-X-2; ADR-0009
+    /// Key Interfaces): Throwing's flight resolution calls it with the live detached entry <see cref="DetachForThrow"/> left. The entry's
+    /// whole count is AutoPlaced into the panel with the entry as source and <c>Merge</c>: mail by <c>TargetOrder.PickupRow</c>
+    /// <c>[hotbar, player_inventory]</c> target-first, non-mail by <c>TargetOrder.CursorRow</c> pass-first (TD-154 item 1). The oldest
+    /// units go in; the newest that fit nowhere stay on the entry, which becomes one WorldItem (<see cref="WorldItemOrigin.Thrown"/>, at
+    /// <see cref="FlightPayload.CatcherPosMm"/>, created at the current tick so <c>expiresTick = now + 9000</c>, keeping its entry id).
+    /// Never the cursor. One call scope; the panel records and one <c>InvVersion</c> seal per changed panel container (actor the slot's
+    /// player, cause <c>None</c>) come first, then <c>WorldItemSpawned</c> in <see cref="CreateWorldItem"/>'s nested scope, which applies
+    /// story 013's cap eviction (TD-154 item 8). Mail Lead planning defaults pending Evan (TD-154 item 7): a mail merge whose union block
+    /// the arena refuses fumbles the whole entry (<c>{0, N}</c>, <c>capacity_exhausted</c>); a catch that would fumble units while the
+    /// WorldItem table is full is refused whole (<c>{0, 0}</c>, <c>capacity_exhausted</c>, one <c>CheckCode.InventoryWorldItemCapacity</c>
+    /// record, nothing changed, the entry still detached and the caller's). <c>bad_request</c>, changing nothing and raising nothing, outside
+    /// a tick phase, for a slot with no panel, or an entry that is not live and detached or is held by a WorldItem. No unit is ever lost.
+    /// </summary>
+    /// <param name="slot">The catcher's slot.</param>
+    /// <param name="flight">The flight's entry and the catcher's feet.</param>
+    /// <returns>The units in and fumbled, and the reason.</returns>
+    CatchResult TryCatch(PlayerSlot slot, in FlightPayload flight);
 
     /// <summary>
     /// Inserts one mail unit (story 015, the ADR-0009 sketch's mail form; story 012's <see cref="UnitRef"/>: its id and StackKey) into

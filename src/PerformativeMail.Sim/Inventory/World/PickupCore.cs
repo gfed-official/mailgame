@@ -74,6 +74,31 @@ internal struct PickupPlan
 }
 
 /// <summary>
+/// What <c>InventorySystem.ValidateCatch</c> decided and <c>CommitCatch</c> applies unchanged (story 014; ADR-0009 section 2): the panel
+/// AutoPlace (committed only when <see cref="Places"/>), the flight's entry, the units in and fumbled, and whether the catch was refused.
+/// </summary>
+internal struct CatchPlan
+{
+    /// <summary>The AutoPlace of the flight's entry into the catcher's panel.</summary>
+    public AutoPlacePlan Placement;
+
+    /// <summary>The flight entry's pool slot.</summary>
+    public ushort EntrySlot;
+
+    /// <summary>The catcher (the seals' actor).</summary>
+    public ActorId Actor;
+
+    /// <summary>True when <see cref="Placement"/> is committed (some units go in).</summary>
+    public bool Places;
+
+    /// <summary>True when the catch is refused whole: nothing is committed.</summary>
+    public bool Refused;
+
+    /// <summary>True when the refusal is a full WorldItem table (the caller writes the capacity record).</summary>
+    public bool TableFull;
+}
+
+/// <summary>
 /// The pickup core (story grid-inventory/014; GDD R9 l.128-129, R12 l.137, edge cases l.362-363, H-R9-2, H-R12-1; ADR-0009 sections 1,
 /// 2 and 5; TR-inventory-007, TR-inventory-013): everything a <c>pickup {worldItemId, entryId}</c> does after Player Character's P13
 /// range chain, which is story 019's range-gated <c>Pickup</c> handler (production binds no Pickup handler until then; tests bind a

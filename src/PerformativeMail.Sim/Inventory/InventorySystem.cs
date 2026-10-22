@@ -790,6 +790,127 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <inheritdoc />
     /// <remarks>
+    /// The tick guard (<c>bad_request</c>), then <see cref="ValidateCatch"/>; a refusal writes the capacity record for a full WorldItem
+    /// table (outside Validate) and returns with nothing changed; else <see cref="CommitCatch"/>. A whole fumble records the refused
+    /// AutoPlace's no-fit facts after the decision, as <see cref="PutAwayCursor"/> does; a committed placement records them in its commit.
+    /// </remarks>
+    public CatchResult TryCatch(PlayerSlot slot, in FlightPayload flight)
+    {
+        if (!TickGuard.IsMutable(_tick, _events.Counters))
+        {
+            return new CatchResult(0, 0, (InvReason)InvReasons.BadRequest);
+        }
+
+        var plan = new InvPlan();
+        CatchResult result = ValidateCatch(slot, in flight, ref plan, out CatchPlan c);
+        if (c.Refused)
+        {
+            if (c.TableFull)
+            {
+                _worldItems.RecordCapacityRefusal(_tick.CurrentTick);
+            }
+
+            return result;
+        }
+
+        if (!c.Places)
+        {
+            _autoPlace.RecordNoFits(in c.Placement); // a whole fumble: the plan moved nothing (no_room) or the arena refused it
+        }
+
+        CommitCatch(ref plan, in c, in flight);
+        return result;
+    }
+
+    /// <summary>
+    /// The pure half of <see cref="TryCatch"/> (story 014; ADR-0009 section 2): <c>bad_request</c> for a slot with no panel or an entry
+    /// that is not live and detached or is held by a WorldItem; then the panel AutoPlace (<see cref="PickupCore.PlanIntoPanel"/>, the
+    /// pickup rows): <c>no_room</c> (and the unreachable <c>not_allowed</c> / <c>not_carryable</c>, asserted there) is a whole fumble with
+    /// reason 0; a plan that moved units then takes the arena reservation of its mail merge union blocks, and a refusal there is a whole
+    /// fumble with <c>capacity_exhausted</c> (the entry keeps its own block, so the WorldItem needs none; TD-154 item 7, following the
+    /// pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers only a leashed letter staying on the cursor); last, any fumble needs a
+    /// creatable WorldItem (<see cref="World.WorldItems.CanCreate"/>), else the whole catch is refused with <c>capacity_exhausted</c>,
+    /// <c>{0, 0}</c>. Reads state only; writes nothing but <paramref name="plan"/> and <paramref name="c"/>.
+    /// </summary>
+    /// <param name="slot">The catcher's slot.</param>
+    /// <param name="flight">The flight.</param>
+    /// <param name="plan">The call's plan.</param>
+    /// <param name="c">The catch to commit.</param>
+    /// <returns>The result the commit will produce, or the refusal.</returns>
+    internal CatchResult ValidateCatch(PlayerSlot slot, in FlightPayload flight, ref InvPlan plan, out CatchPlan c)
+    {
+        c = default;
+        c.Refused = true;
+        var badRequest = new CatchResult(0, 0, (InvReason)InvReasons.BadRequest);
+        if (!TryGetPanel(slot, out ushort hotbar, out ushort playerInventory)
+            || !_entries.TryGetSlot(flight.Entry, out ushort entrySlot)
+            || _entries[entrySlot].ContainerSlot != EntryRecord.NoContainer || _worldItems.OwnsEntry(entrySlot))
+        {
+            return badRequest;
+        }
+
+        c.EntrySlot = entrySlot;
+        c.Actor = ActorId.FromEntity(_panels[slot.Value].Player);
+        plan.SetPrimary(hotbar, playerInventory);
+        byte units = _entries[entrySlot].Count;
+        ushort reason = _pickup.PlanIntoPanel(ref plan, entrySlot, hotbar, playerInventory, out c.Placement);
+        InvReason outcome = 0;
+        if (reason == CoreReason.BadRequest)
+        {
+            return badRequest; // unreachable: a live source, two live distinct targets, units = its count
+        }
+
+        if (reason == 0 && _requestCheck.CheckArenaReservation(in plan) != 0)
+        {
+            outcome = InvReason.CapacityExhausted; // the whole entry fumbles (TD-154 item 7)
+        }
+
+        c.Places = reason == 0 && outcome == 0;
+        byte unitsIn = c.Places ? (byte)c.Placement.MovedUnits : (byte)0;
+        byte fumbled = (byte)(units - unitsIn);
+        if (fumbled > 0 && !_worldItems.CanCreate())
+        {
+            c.Places = false;
+            c.TableFull = _worldItems.TableFull;
+            return new CatchResult(0, 0, InvReason.CapacityExhausted);
+        }
+
+        c.Refused = false;
+        return new CatchResult(unitsIn, fumbled, outcome);
+    }
+
+    /// <summary>
+    /// The mutating half of <see cref="TryCatch"/>: in one call scope, the panel commit when <see cref="CatchPlan.Places"/> (one bracket,
+    /// the catcher as actor, cause <see cref="InvCause.None"/>), then, if units are left on the entry, the fumble
+    /// (<see cref="World.WorldItems.Create"/>, <see cref="WorldItemOrigin.Thrown"/>, created now, in its own nested scope). Never fails:
+    /// Validate proved the WorldItem creatable.
+    /// </summary>
+    /// <param name="plan">The plan <see cref="ValidateCatch"/> passed.</param>
+    /// <param name="c">The catch <see cref="ValidateCatch"/> passed.</param>
+    /// <param name="flight">The flight (the fumble's position and water flag).</param>
+    internal void CommitCatch(ref InvPlan plan, in CatchPlan c, in FlightPayload flight)
+    {
+        using EventCallScope scope = _events.BeginCall();
+        if (c.Places)
+        {
+            var extra = new InvReplyExtra();
+            _mutator.Begin(ref plan, c.Actor, InvCause.None);
+            _autoPlace.Commit(ref plan, in c.Placement);
+            _mutator.End(ref plan, ref extra);
+
+            // story 017 ledger hook: the units in cross FLIGHT -> PLACED.
+        }
+
+        // A whole placement moved the entry itself and a full merge freed it; otherwise the newest units are still on the entry.
+        if (_entries[c.EntrySlot].IsLive && _entries[c.EntrySlot].Id == flight.Entry && _entries[c.EntrySlot].ContainerSlot == EntryRecord.NoContainer)
+        {
+            // Cannot be None: ValidateCatch proved a WorldItem creatable, createdTick is now and the entry is live, detached and unowned.
+            _ = _worldItems.Create(flight.Entry, flight.CatcherPosMm, WorldItemOrigin.Thrown, flight.OnWater, _tick.CurrentTick);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
     /// The tick guard; a live container without an outfeed (<c>outfeed_only</c> admits no insertion), a real mail id and a known mail
     /// kind; then <see cref="Placement.AutoPlace.Plan"/> of 1 unit with no source, <see cref="MergePolicy.Merge"/>, pass-first, into
     /// <paramref name="c"/> only (the whitelist, PASS M, then a free cell), and the arena reservation (the merge's union block, or the new
