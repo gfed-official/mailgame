@@ -152,6 +152,49 @@ public class MoveSplitMergeTests
     }
 
     /// <summary>The same move onto an occupied <b>grid</b> cell (the actor's inventory) is <c>blocked</c>: no grid swap in v1.</summary>
+    /// <summary>
+    /// The swap with <c>count</c> equal to the cursor entry's total is the whole move (story 008 AC Split-and-place: <c>count</c> 0 or
+    /// <c>== total</c> stays the whole move), so it swaps exactly as <c>count</c> 0 does: in two identical worlds, one sending each
+    /// count, both reply ok with the same versions and leave the same records and the same side effects. Rows: 3 letters onto the Axe
+    /// (count 3), the Axe onto 4 letters to #5 (count 1).
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R4-2")]
+    [InlineData(0, "letters3", "axe")]
+    [InlineData(1, "letters3", "axe")]
+    [InlineData(0, "axe", "letters5")]
+    [InlineData(1, "axe", "letters5")]
+    public void HR42d_CursorSwapWithCountEqualToTheTotal_IsTheWholeMove_SwapsExactlyAsCountZero(int slot, string held, string inSlot)
+    {
+        // Arrange: two identical worlds
+        var rigs = new[] { NewRig(), NewRig() };
+        var movers = new ushort[2];
+        var displaced = new ushort[2];
+        for (int i = 0; i < 2; i++)
+        {
+            displaced[i] = PlaceNamed(rigs[i], rigs[i].HotbarOf(slot), inSlot, 1, 0, firstId: 100);
+            movers[i] = PlaceNamed(rigs[i], rigs[i].CursorOf(slot), held, 0, 0, firstId: 1);
+        }
+
+        Assert.Equal(SideEffects(rigs[0]), SideEffects(rigs[1]));
+        byte total = rigs[0].Entries[movers[0]].Count;
+        ushort hotbar = rigs[0].HotbarOf(slot);
+        ushort cursor = rigs[0].CursorOf(slot);
+
+        // Act
+        EventEntry[] whole = rigs[0].Run(rigs[0].Player(slot), MoveOp(rigs[0], cursor, movers[0], hotbar, 1, 0, count: total));
+        EventEntry[] zero = rigs[1].Run(rigs[1].Player(slot), MoveOp(rigs[1], cursor, movers[1], hotbar, 1, 0));
+
+        // Assert
+        InvReplyExtra wholeExtra = AssertOk(whole).ExtraAs<InvReplyExtra>();
+        InvReplyExtra zeroExtra = AssertOk(zero).ExtraAs<InvReplyExtra>();
+        Assert.Equal((zeroExtra.ResultVersionA, zeroExtra.ResultVersionB), (wholeExtra.ResultVersionA, wholeExtra.ResultVersionB));
+        Assert.Equal((hotbar, cursor), (rigs[0].Entries[movers[0]].ContainerSlot, rigs[0].Entries[displaced[0]].ContainerSlot));
+        Assert.Equal(total, rigs[0].Entries[movers[0]].Count);
+        Assert.Equal(RecordHeads(zero).Select(e => (e.Kind, e.Audience)), RecordHeads(whole).Select(e => (e.Kind, e.Audience)));
+        Assert.Equal(SideEffects(rigs[1]), SideEffects(rigs[0]));
+    }
+
     [Theory]
     [Trait("Id", "H-R4-2")]
     [InlineData(0)]
@@ -578,6 +621,130 @@ public class MoveSplitMergeTests
         Assert.Equal((id, chest, (byte)3), (rig.Entries[source].Id, rig.Entries[source].ContainerSlot, rig.Entries[source].Count));
     }
 
+    /// <summary>
+    /// Exactly one new entry left: a 4-slot pool with 3 live (one free slot), or the last id issued one below
+    /// <see cref="EntryPool.MaxRealId"/> (through <see cref="InventorySettings.EntryInitialLastId"/>). A split of 1 from the cursor
+    /// (letters) or the inventory (planks) to a free chest cell takes it (the piece's id is <see cref="EntryPool.MaxRealId"/> in the id
+    /// rows); the next split of 1 is <c>capacity_exhausted</c> (ADR-0009 section 2's code; MoveHandler's pool-and-id check) and the
+    /// entry stays where it is (Mail Lead planning default pending Evan, TD-152).
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-005")]
+    [InlineData(0, "pool", "cursor")]
+    [InlineData(1, "pool", "cursor")]
+    [InlineData(0, "ids", "cursor")]
+    [InlineData(1, "ids", "cursor")]
+    [InlineData(0, "pool", "inventory")]
+    [InlineData(1, "pool", "inventory")]
+    [InlineData(0, "ids", "inventory")]
+    [InlineData(1, "ids", "inventory")]
+    public void Split_ExactlyOneEntrySlotOrIdLeft_TheSplitTakesIt_TheNextSplitIsCapacityExhausted(int slot, string limit, string fromWhere)
+    {
+        // Arrange: the source and two more entries, which leave one free slot of a 4-slot pool, or one id below MaxRealId
+        var rig = limit == "pool"
+            ? new InvAutoPlaceRig(entryPoolCapacity: 4, joinPlayerB: true)
+            : new InvAutoPlaceRig(tune: s => s with { EntryInitialLastId = EntryPool.MaxRealId - 4 }, joinPlayerB: true);
+        ushort chest = OpenChest(rig, slot);
+        ushort from = Where(rig, slot, fromWhere, chest);
+        ushort source = fromWhere == "cursor"
+            ? rig.PlaceMail(from, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 3))
+            : rig.PlaceItem(from, "plank", 0, 0, 3);
+        _ = rig.PlaceItem(rig.HotbarOf(slot), "fiber", 2, 0, 1);
+        _ = rig.PlaceItem(rig.InventoryOf(1 - slot), "fiber", 0, 0, 1);
+        Assert.True(limit == "pool" ? rig.Entries.LiveCount == rig.Entries.Capacity - 1 : rig.Entries.LastId == EntryPool.MaxRealId - 1);
+        EntryId id = rig.Entries[source].Id;
+
+        // Act
+        EventEntry[] first = rig.Run(rig.Player(slot), MoveOp(rig, from, source, chest, 5, 3, count: 1));
+
+        // Assert
+        AssertOk(first);
+        ushort piece = rig.EntryAt(chest, 5, 3);
+        Assert.NotEqual(Occupancy.Free, piece);
+        Assert.Equal((byte)1, rig.Entries[piece].Count);
+        Assert.Equal((id, from, (byte)2), (rig.Entries[source].Id, rig.Entries[source].ContainerSlot, rig.Entries[source].Count));
+        Assert.True(limit == "pool" ? rig.Entries.LiveCount == rig.Entries.Capacity : rig.Entries[piece].Id.Value == EntryPool.MaxRealId);
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] second = rig.Run(rig.Player(slot), MoveOp(rig, from, source, chest, 7, 3, count: 1));
+
+        // Assert
+        AssertRejected(rig, second, InvReason.CapacityExhausted, before, slot, from, chest);
+        Assert.Equal((id, from, (byte)2), (rig.Entries[source].Id, rig.Entries[source].ContainerSlot, rig.Entries[source].Count));
+    }
+
+    /// <summary>
+    /// The mail-ids arena has room for exactly one unit: a minimum arena filled with single Intake letters until <c>Spawn</c> is refused
+    /// at its reservation, then a spare single letter in the actor's inventory consumed through <see cref="IInventoryApi.ConsumeUnit"/>
+    /// (story 015), which frees its class-0 block and nothing else. A split of 2 of the cursor's 3 letters to a free chest cell needs a
+    /// 2-unit block and is <c>capacity_exhausted</c> (ADR-0009 section 2; MoveHandler's arena reservation after the pool check), the
+    /// letters staying on the cursor (Mail Lead planning default pending Evan, TD-152); a split of 1 takes the one block: a new entry
+    /// holding [1], the letters keep their id with [2, 3].
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-005")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Split_ArenaHasRoomForOneUnit_SplitOfTwoCapacityExhausted_SplitOfOneTakesIt(int slot)
+    {
+        // Arrange
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.MinTotalUnits, joinPlayerB: true);
+        ushort chest = OpenChest(rig, slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort letters = rig.PlaceMail(cursor, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 3));
+        ushort spare = rig.PlaceMail(inventory, "letter", 0, 0, Address5, InvAutoPlaceRig.Ids(500, 1));
+        ExhaustArenaThroughIntakeSpawns(rig);
+        ConsumeUnits(rig, inventory, spare, 1);
+        Assert.True(rig.Inventory.MailIds.CanReserve(1));
+        Assert.False(rig.Inventory.MailIds.CanReserve(2));
+        EntryId id = rig.Entries[letters].Id;
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] two = rig.Run(rig.Player(slot), MoveOp(rig, cursor, letters, chest, 5, 3, count: 2));
+
+        // Assert
+        AssertRejected(rig, two, InvReason.CapacityExhausted, before, slot, cursor, chest);
+        Assert.Equal((id, cursor, (byte)3), (rig.Entries[letters].Id, rig.Entries[letters].ContainerSlot, rig.Entries[letters].Count));
+
+        // Act
+        EventEntry[] one = rig.Run(rig.Player(slot), MoveOp(rig, cursor, letters, chest, 5, 3, count: 1));
+
+        // Assert
+        AssertOk(one);
+        ushort piece = rig.EntryAt(chest, 5, 3);
+        Assert.NotEqual(Occupancy.Free, piece);
+        Assert.Equal(new uint[] { 1 }, rig.IdsOf(piece));
+        Assert.Equal((id, cursor), (rig.Entries[letters].Id, rig.Entries[letters].ContainerSlot));
+        Assert.Equal(new uint[] { 2, 3 }, rig.IdsOf(letters));
+        Assert.False(rig.Inventory.MailIds.CanReserve(1));
+    }
+
+    /// <summary>
+    /// <see cref="InventorySettings.EntryInitialLastId"/> is checked when set: <see cref="EntryPool.MaxRealId"/> is accepted (a world
+    /// built with it has issued every real id), <see cref="EntryPool.MaxRealId"/> + 1 throws <see cref="SimBuildException"/> with
+    /// <c>InventorySettingsInvalid</c> (control manifest l.109: build errors throw <c>SimBuildException { Code }</c>), so
+    /// <see cref="EntryPool"/>'s constructor never sees it.
+    /// </summary>
+    [Fact]
+    [Trait("Id", "TR-inventory-005")]
+    public void EntryInitialLastId_MaxRealIdIsAccepted_OneAboveThrowsInventorySettingsInvalid()
+    {
+        // Arrange
+        InventorySettings settings = InventorySettings.FromBalance(BuiltInContent.CreateM1a().Inventory);
+
+        // Act
+        var rig = new InvAutoPlaceRig(tune: s => s with { EntryInitialLastId = EntryPool.MaxRealId });
+        SimBuildException e = Assert.Throws<SimBuildException>(() => settings with { EntryInitialLastId = EntryPool.MaxRealId + 1 });
+
+        // Assert
+        Assert.Equal(EntryPool.MaxRealId, rig.Entries.LastId);
+        Assert.Equal(SimBuildErrorCode.InventorySettingsInvalid, e.Code);
+        Assert.Equal(0u, settings.EntryInitialLastId);
+    }
+
     // ------------------------------------------------------------------ Rejects raise nothing (TD-105 item 5)
 
     /// <summary>
@@ -585,6 +752,8 @@ public class MoveSplitMergeTests
     /// <c>CountItem</c> as before and equal to a recount, the StackKey index equal to a recount, and every other side effect unchanged.
     /// </summary>
     [Theory]
+    [Trait("Id", "H-R4-2")]
+    [Trait("Id", "TR-inventory-005")]
     [InlineData("split_own_cells", 0)]
     [InlineData("split_own_cells", 1)]
     [InlineData("split_onto_other", 0)]
@@ -923,6 +1092,57 @@ public class MoveSplitMergeTests
         AssertEveryIdListAscendingNoDuplicate(rig);
     }
 
+    /// <summary>
+    /// Merge's union block (<c>target.count + units</c>) needs a larger arena size class than either input: target 2 letters [2, 4] and
+    /// source 2 letters [1, 3], class 1 each, need one 4-unit block, class 2. A minimum arena filled with single Intake letters, then a
+    /// spare 2-letter entry consumed through <see cref="IInventoryApi.ConsumeUnit"/> (its class-1 block freed): only the smaller class
+    /// fits and the merge is <c>capacity_exhausted</c> (ADR-0009 section 2, last in the merge chain), nothing changes. A spare 3-letter
+    /// entry consumed the same way frees a class-2 block, and the same merge is ok: the target holds [1..4] in a class-2 block and the
+    /// source is removed.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R6-1")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Merge_UnionNeedsALargerClassThanEitherInput_CapacityExhaustedWhenOnlyTheSmallerFits_OkWhenItFits(int slot)
+    {
+        // Arrange
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.MinTotalUnits, joinPlayerB: true);
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort t = rig.PlaceMail(chest, "letter", 2, 2, Address3, new uint[] { 2, 4 });
+        ushort s = rig.PlaceMail(inventory, "letter", 0, 1, Address3, new uint[] { 1, 3 });
+        ushort spare2 = rig.PlaceMail(inventory, "letter", 4, 0, Address5, InvAutoPlaceRig.Ids(500, 2));
+        ushort spare3 = rig.PlaceMail(inventory, "letter", 6, 0, Address5, InvAutoPlaceRig.Ids(600, 3));
+        EntryId sId = rig.Entries[s].Id;
+        Assert.Equal((1, 1, 2), (rig.Entries[t].MailIds.ClassIndex, rig.Entries[s].MailIds.ClassIndex, MailIdArena.ClassFor(4)));
+        ExhaustArenaThroughIntakeSpawns(rig);
+        ConsumeUnits(rig, inventory, spare2, 2);
+        Assert.True(rig.Inventory.MailIds.CanReserve(2));
+        Assert.False(rig.Inventory.MailIds.CanReserve(3));
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] refused = rig.Run(rig.Player(slot), MergeOp(rig, inventory, s, chest, t));
+
+        // Assert
+        AssertRejected(rig, refused, InvReason.CapacityExhausted, before, slot, inventory, chest);
+
+        // Arrange
+        ConsumeUnits(rig, inventory, spare3, 3);
+        Assert.True(rig.Inventory.MailIds.CanReserve(4));
+
+        // Act
+        EventEntry[] merged = rig.Run(rig.Player(slot), MergeOp(rig, inventory, s, chest, t));
+
+        // Assert
+        AssertOk(merged);
+        Assert.Equal(new uint[] { 1, 2, 3, 4 }, rig.IdsOf(t));
+        Assert.Equal(2, rig.Entries[t].MailIds.ClassIndex);
+        Assert.False(rig.Entries.TryGetSlot(sId, out _));
+        AssertEveryIdListAscendingNoDuplicate(rig);
+    }
+
     // ------------------------------------------------------------------ room under the 255 cap
 
     /// <summary>
@@ -1045,6 +1265,93 @@ public class MoveSplitMergeTests
         AssertIndexesMatchARecount(rig);
     }
 
+    /// <summary>
+    /// The whole move (<c>count</c> 0, and <c>count</c> equal to the total, the same move) of a <c>bigstack</c> source of 10 in the
+    /// inventory onto a <c>bigstack</c> target of 250 at the chest's (0,0): room is <c>min(300, 255) − 250 = 5</c>, so it is a partial
+    /// merge of the room (MoveHandler's <c>min(requested, room)</c>, the total requested): the target holds 255, the source keeps 5 with
+    /// its id and cell, no entry is created, and the inventory and the chest each bump once.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-005")]
+    [InlineData(0, 0)]
+    [InlineData(1, 0)]
+    [InlineData(0, 10)]
+    [InlineData(1, 10)]
+    public void WholeMove_ItemMaxStackAbove255_OntoTarget250_PartialMergeOfTheRoom_TheSourceKeepsTheRest(int slot, byte count)
+    {
+        // Arrange
+        var rig = NewRig(MergeContent());
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort t = rig.PlaceItem(chest, "bigstack", 0, 0, 250);
+        ushort s = rig.PlaceItem(inventory, "bigstack", 2, 1, 10);
+        EntryId tId = rig.Entries[t].Id;
+        EntryId sId = rig.Entries[s].Id;
+        DefIndex bigstack = rig.ItemIndex("bigstack");
+        int liveCount = rig.Entries.LiveCount;
+        uint lastId = rig.Entries.LastId;
+        uint chestV = rig.Header(chest).Version;
+        uint inventoryV = rig.Header(inventory).Version;
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), MoveOp(rig, inventory, s, chest, 0, 0, count: count));
+
+        // Assert
+        Reply reply = AssertOk(log);
+        Assert.Equal((tId, chest, 255), (rig.Entries[t].Id, rig.Entries[t].ContainerSlot, (int)rig.Entries[t].Count));
+        Assert.Equal((sId, inventory, (byte)2, (byte)1, 5), (rig.Entries[s].Id, rig.Entries[s].ContainerSlot, rig.Entries[s].X, rig.Entries[s].Y, (int)rig.Entries[s].Count));
+        Assert.Equal((liveCount, lastId), (rig.Entries.LiveCount, rig.Entries.LastId));
+        Assert.DoesNotContain(RecordHeads(log), e => e.Kind == InvEventKinds.SplitFrom);
+        InvReplyExtra extra = reply.ExtraAs<InvReplyExtra>();
+        Assert.Equal((inventoryV + 1, chestV + 1), (extra.ResultVersionA, extra.ResultVersionB));
+        Assert.Equal((inventoryV + 1, chestV + 1), (rig.Header(inventory).Version, rig.Header(chest).Version));
+        Assert.Equal(255, rig.Inventory.CountItem(new[] { rig.IdOf(chest) }, bigstack));
+        Assert.Equal(5, rig.Inventory.CountItem(new[] { rig.IdOf(inventory) }, bigstack));
+        AssertWeightAndCountsMatchRecount(rig);
+        AssertIndexesMatchARecount(rig);
+    }
+
+    /// <summary>
+    /// Mail at the 255 cap. The built-in kinds stop at 40 (<c>postcard</c>; <c>letter</c> 20), so <see cref="MailStack255Content"/>
+    /// raises <c>letter</c>'s <c>maxStack</c> to 255 (the <c>MailMaxStack</c> stat's upper bound and CV-GRD-01's limit). Target 250 letters
+    /// [1..250] in the chest, source 10 letters [1001..1010] in the inventory: <c>merge</c> moves the room, 5, which are the source's 5
+    /// lowest ids (TR-inventory-005), so the target holds 255 in a class-8 block and the source keeps [1006..1010] in place with its id;
+    /// again → <c>stack_full</c> (GDD l.103), nothing changes.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "H-R7-3")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Merge_MailAtThe255Cap_Target250_Source10_MovesFive_AgainStackFull(int slot)
+    {
+        // Arrange
+        var rig = NewRig(MailStack255Content());
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort t = rig.PlaceMail(chest, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 250));
+        ushort s = rig.PlaceMail(inventory, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1001, 10));
+        EntryId sId = rig.Entries[s].Id;
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), MergeOp(rig, inventory, s, chest, t));
+
+        // Assert
+        AssertOk(log);
+        Assert.Equal(InvAutoPlaceRig.Ids(1, 250).Concat(InvAutoPlaceRig.Ids(1001, 5)).ToArray(), rig.IdsOf(t));
+        Assert.Equal((byte)255, rig.Entries[t].Count);
+        Assert.Equal(MailIdArena.ClassCount - 1, rig.Entries[t].MailIds.ClassIndex);
+        Assert.Equal((sId, inventory, (byte)2, (byte)1), (rig.Entries[s].Id, rig.Entries[s].ContainerSlot, rig.Entries[s].X, rig.Entries[s].Y));
+        Assert.Equal(InvAutoPlaceRig.Ids(1006, 5), rig.IdsOf(s));
+        AssertEveryIdListAscendingNoDuplicate(rig);
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] again = rig.Run(rig.Player(slot), MergeOp(rig, inventory, s, chest, t));
+
+        // Assert
+        AssertRejected(rig, again, InvReason.StackFull, before, slot, inventory, chest);
+    }
+
     // ------------------------------------------------------------------ Merge precedence
 
     /// <summary>
@@ -1156,6 +1463,7 @@ public class MoveSplitMergeTests
     /// row, InvMalformedOpTests).
     /// </summary>
     [Theory]
+    [Trait("Id", "H-R7-3")]
     [InlineData(0, "entry")]
     [InlineData(1, "entry")]
     [InlineData(0, "target")]
@@ -1195,6 +1503,8 @@ public class MoveSplitMergeTests
     /// Item and mail rows.
     /// </summary>
     [Theory]
+    [Trait("Id", "H-R7-3")]
+    [Trait("Id", "H-R4-3")]
     [InlineData("self", 0)]
     [InlineData("self", 1)]
     [InlineData("key", 0)]
@@ -1385,12 +1695,23 @@ public class MoveSplitMergeTests
             m1a.Balance, m1a.ResolvedStatBounds, new DefTable<ContainerDef>(containers), new DefTable<ItemDef>(items), m1a.MailKinds, m1a.DestinationTypes, m1a.MailMixes);
     }
 
+    /// <summary>The M-1a content with <c>letter</c>'s <c>maxStack</c> raised from 20 to 255 (mail's cap: the u8 count and the <c>MailMaxStack</c> bound).</summary>
+    private static ContentSet MailStack255Content()
+    {
+        ContentSet m1a = BuiltInContent.CreateM1a();
+        ImmutableArray<MailKindDef> kinds = m1a.MailKinds.AsSpan().ToArray()
+            .Select(k => k.Id == "letter" ? k with { MaxStack = 255 } : k)
+            .ToImmutableArray();
+        return new ContentSet(
+            m1a.Balance, m1a.ResolvedStatBounds, m1a.Containers, m1a.Items, new DefTable<MailKindDef>(kinds), m1a.DestinationTypes, m1a.MailMixes);
+    }
+
     /// <summary>
     /// The story 011 seam for an issued-but-dead container id (no container is destroyed before M-1b): advances the container table's
     /// private id counter by one through reflection, which must find the field and a non-zero high-water, so the skipped id is below
     /// the high-water but not live. The map and every live container are untouched.
     /// </summary>
-    private static uint SkipOneContainerId(InvAutoPlaceRig rig)
+    internal static uint SkipOneContainerId(InvAutoPlaceRig rig)
     {
         ContainerTable table = rig.Inventory.Containers;
         uint skipped = table.NextId;
@@ -1526,6 +1847,21 @@ public class MoveSplitMergeTests
         Assert.True(placed > 0);
         Assert.True(rig.Header(rig.Intake).FreeCells > 0); // refused at the arena, not for room
         Assert.False(rig.Inventory.MailIds.CanReserve(1));
+    }
+
+    /// <summary>
+    /// Consumes <paramref name="units"/> of the entry through <see cref="IInventoryApi.ConsumeUnit"/> (story 015's real API), one per
+    /// tick; the last unit's removal frees its arena block.
+    /// </summary>
+    private static void ConsumeUnits(InvAutoPlaceRig rig, ushort container, ushort entry, int units)
+    {
+        var at = new EntryRef(rig.IdOf(container), rig.Entries[entry].Id);
+        for (int i = 0; i < units; i++)
+        {
+            Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.ConsumeUnit(at, ConsumeReason.Delivered, ActorId.System)));
+        }
+
+        Assert.False(rig.Entries.TryGetSlot(at.Entry, out _));
     }
 
     /// <summary>D1's <c>classPts</c> of the entry's def, from the balance knobs (not from the module under test).</summary>

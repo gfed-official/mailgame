@@ -9,16 +9,20 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <summary>
 /// Story grid-inventory/008 AC "0 B" (ADR-0009 Implementation Guidelines; ADR-0006 0 B per tick): the <c>Move</c> split-and-place and
 /// swap arms (<see cref="MoveHandler"/>, <see cref="InventoryMutator.SplitAndPlace"/>) and the <c>Merge</c> op
-/// (<see cref="MergeHandler"/>) allocate 0 B per op after warm-up, through the real phase-0 drain. One cycle is eight ticks, one op
-/// each, all by player B (slot 1, so a hard-coded slot 0 cannot pass) with an open chest: split 3 of the inventory's 10 letters
-/// [1..10] to a free chest cell (a new entry, a k-unit arena block through
-/// <see cref="InvRequestCheck.CheckArenaReservation(in InvPlan)"/>); merge that piece back onto the letters (the sorted union, the
-/// piece removed); swap the cursor's planks with the Axe in hotbar slot 1, and swap back; a <c>blocked</c> merge of the letters onto
-/// themselves; a <c>bad_count</c> split (count above the total); split 4 of the chest's 10 planks into the inventory; merge them back.
-/// The two merges name the piece the split just made, by the pool's high-water, so their payloads are rewritten in the window (no
-/// allocation). The cycle ends as it began. Every op's outcome is checked from the state between ticks (no reply capture). The 0 B
-/// assertion runs in optimised builds only (TD-008 convention); its twin runs the same window in every build and asserts the results.
-/// The rig's event capture is off in the window. Joins the non-parallel collection (see <see cref="AllocAssert"/>).
+/// (<see cref="MergeHandler"/>) allocate 0 B per op after warm-up, through the real phase-0 drain. One cycle is ten ticks, one op
+/// each, all by player B (slot 1, so a hard-coded slot 0 cannot pass) with an open chest and a 5-slot entry pool (four entries live
+/// at the cycle start): split 3 of the inventory's 10 letters [1..10] to a free chest cell (a new entry, a k-unit arena block through
+/// <see cref="InvRequestCheck.CheckArenaReservation(in InvPlan)"/>), which fills the pool; a <c>capacity_exhausted</c> split of the
+/// chest planks (the pool is full; ADR-0009 section 2's code, the pool refusal a Mail Lead planning default pending Evan, TD-152);
+/// merge the piece back onto the letters (the sorted union, the piece removed); swap the cursor's planks with the Axe in hotbar slot
+/// 1, and swap back; a <c>blocked</c> merge of the letters onto themselves; a <c>bad_count</c> split (count above the total); a
+/// <c>container_gone</c> merge from an issued-but-dead container id (GDD l.379, H-X-4 l.817; story 011's seam,
+/// <see cref="MoveSplitMergeTests.SkipOneContainerId"/>, used in the arrange only); split 4 of the chest's 10 planks into the
+/// inventory; merge them back. The two merges name the piece the split just made, by the pool's high-water, so their payloads are
+/// rewritten in the window (no allocation). The cycle ends as it began. Every op's outcome is checked from the state between ticks (no
+/// reply capture); the twin also runs one cycle with capture on and checks every reply's reason. The 0 B assertion runs in optimised
+/// builds only (TD-008 convention); its twin runs the same window in every build and asserts the results. The rig's event capture is
+/// off in the window. Joins the non-parallel collection (see <see cref="AllocAssert"/>).
 /// </summary>
 [Collection(NonParallelCollection.Name)]
 public class MoveSplitMergeAllocationTests
@@ -36,7 +40,7 @@ public class MoveSplitMergeAllocationTests
         Totals totals = default;
 
         // Act
-        AllocAssert.Zero("4 split/merge (mail and item) + 2 swaps + 1 blocked merge + 1 bad_count split x500 cycles", () => totals = w.Run(Cycles));
+        AllocAssert.Zero("4 split/merge (mail and item) + 2 swaps + 1 blocked merge + 1 bad_count split + 1 capacity_exhausted split + 1 container_gone merge x500 cycles", () => totals = w.Run(Cycles));
 
         // Assert
         Workload.AssertTotals(in totals, Cycles);
@@ -57,6 +61,8 @@ public class MoveSplitMergeAllocationTests
         Workload.AssertTotals(in first, Cycles);
         Assert.Equal(first, second);
         Assert.True(w.AtCycleStart);
+        Assert.Equal(Workload.ExpectedReasons, w.OneCycleReasons());
+        Assert.True(w.AtCycleStart);
     }
 
     private static void SkipWhenUnoptimised()
@@ -68,18 +74,19 @@ public class MoveSplitMergeAllocationTests
             "Unoptimised Sim: the 0 B guardrail applies to optimised builds only (TD-008).");
     }
 
-    private record struct Totals(int MailSplits, int MailMerges, int Swaps, int MergeRejects, int SplitRejects, int ItemSplits, int ItemMerges, int CycleRestored);
+    private record struct Totals(
+        int MailSplits, int MailMerges, int Swaps, int MergeRejects, int SplitRejects, int CapacityRejects, int GoneRejects, int ItemSplits, int ItemMerges, int CycleRestored);
 
     /// <summary>The arranged world and the measured window.</summary>
     private sealed class Workload
     {
         private const uint Address3 = 3u;
-        private const int OpsPerCycle = 8;
+        private const int OpsPerCycle = 10;
 
         private static readonly PlayerSlot _slotB = PlayerSlot.FromValue(1);
         private static readonly uint[] _letterIds = InvAutoPlaceRig.Ids(1, 10);
 
-        private readonly InvAutoPlaceRig _rig = new(joinPlayerB: true);
+        private readonly InvAutoPlaceRig _rig = new(entryPoolCapacity: 5, joinPlayerB: true);
         private readonly ActorId _playerB;
         private readonly ushort _chest;
         private readonly ushort _inventory;
@@ -106,15 +113,29 @@ public class MoveSplitMergeAllocationTests
             _axe = _rig.PlaceItem(_hotbar, "axe", 1, 0, 1);
             _heldPlanks = _rig.PlaceItem(_cursor, "plank", 0, 0, 3);
             _points = _rig.Inventory.WeightPoints(_slotB);
+            Assert.Equal(_rig.Entries.Capacity - 1, _rig.Entries.LiveCount);
+            uint gone = MoveSplitMergeTests.SkipOneContainerId(_rig);
             _ops[0] = Move(_inventory, _letters, _chest, 5, 3, 3);
-            _ops[1] = MergeOfPiece(_chest, _inventory, _letters);  // payload rewritten in the window with the piece's id
-            _ops[2] = Move(_cursor, _heldPlanks, _hotbar, 1, 0, 0); // swap
-            _ops[3] = Move(_cursor, _axe, _hotbar, 1, 0, 0);        // swap back
-            _ops[4] = Merge(_inventory, _letters, _inventory, _letters); // blocked: onto itself
-            _ops[5] = Move(_inventory, _letters, _chest, 5, 3, 11); // bad_count: above the total
-            _ops[6] = Move(_chest, _chestPlanks, _inventory, 7, 1, 4);
-            _ops[7] = MergeOfPiece(_inventory, _chest, _chestPlanks);
+            _ops[1] = Move(_chest, _chestPlanks, _inventory, 7, 1, 4); // capacity_exhausted: the piece filled the pool
+            _ops[2] = MergeOfPiece(_chest, _inventory, _letters);  // payload rewritten in the window with the piece's id
+            _ops[3] = Move(_cursor, _heldPlanks, _hotbar, 1, 0, 0); // swap
+            _ops[4] = Move(_cursor, _axe, _hotbar, 1, 0, 0);        // swap back
+            _ops[5] = Merge(_inventory, _letters, _inventory, _letters); // blocked: onto itself
+            _ops[6] = Move(_inventory, _letters, _chest, 5, 3, 11); // bad_count: above the total
+            _ops[7] = Merge(_inventory, _letters, _inventory, _letters);
+            _ops[7].SetPayload(_ops[7].PayloadAs<MergePayload>() with { From = gone }); // container_gone: an issued id no longer live
+            _ops[8] = Move(_chest, _chestPlanks, _inventory, 7, 1, 4);
+            _ops[9] = MergeOfPiece(_inventory, _chest, _chestPlanks);
         }
+
+        /// <summary>
+        /// Each op's reply reason in cycle order: 0 for ok, else the reject (<c>capacity_exhausted</c> ADR-0009 section 2;
+        /// <c>blocked</c> merge onto itself H-R4-3 c; <c>bad_count</c> story 008 AC Split-and-place; <c>container_gone</c> GDD l.379).
+        /// </summary>
+        public static ushort[] ExpectedReasons { get; } =
+        {
+            0, (ushort)InvReason.CapacityExhausted, 0, 0, 0, (ushort)InvReason.Blocked, (ushort)InvReason.BadCount, (ushort)InvReason.ContainerGone, 0, 0,
+        };
 
         /// <summary>
         /// The cycle's start state: the letters 10 [1..10] at inventory (0,0), the chest planks 10 at (0,0), the Axe in hotbar slot 1, the
@@ -130,7 +151,24 @@ public class MoveSplitMergeAllocationTests
 
         public static void AssertTotals(in Totals t, int cycles)
         {
-            Assert.Equal(new Totals(cycles, cycles, 2 * cycles, cycles, cycles, cycles, cycles, cycles), t);
+            Assert.Equal(new Totals(cycles, cycles, 2 * cycles, cycles, cycles, cycles, cycles, cycles, cycles, cycles), t);
+        }
+
+        /// <summary>Runs one more cycle with event capture on (outside any measured window) and returns each op's reply reason.</summary>
+        public ushort[] OneCycleReasons()
+        {
+            var reasons = new ushort[OpsPerCycle];
+            for (int i = 0; i < OpsPerCycle; i++)
+            {
+                if (i is 2 or 9)
+                {
+                    RetargetPiece(ref _ops[i]);
+                }
+
+                reasons[i] = InvAutoPlaceRig.ReplyOf(_rig.Run(_playerB, in _ops[i])).Reason;
+            }
+
+            return reasons;
         }
 
         public Totals Run(int cycles)
@@ -143,7 +181,7 @@ public class MoveSplitMergeAllocationTests
                 {
                     for (int i = 0; i < OpsPerCycle; i++)
                     {
-                        if (i is 1 or 7)
+                        if (i is 2 or 9)
                         {
                             RetargetPiece(ref _ops[i]);
                         }
@@ -175,21 +213,28 @@ public class MoveSplitMergeAllocationTests
                     _totals.MailSplits += Units(_letters, _inventory) == 7 && PieceUnits(_chest, 5, 3) == 3 && newId && !unchanged ? 1 : 0;
                     break;
                 case 1:
-                    _totals.MailMerges += Units(_letters, _inventory) == 10 && _rig.EntryAt(_chest, 5, 3) == Occupancy.Free && !unchanged ? 1 : 0;
+                    _totals.CapacityRejects += Units(_chestPlanks, _chest) == 10 && _rig.EntryAt(_inventory, 7, 1) == Occupancy.Free
+                        && _rig.Entries.LiveCount == _rig.Entries.Capacity && !newId && unchanged ? 1 : 0;
                     break;
                 case 2:
-                    _totals.Swaps += At(_heldPlanks, _hotbar, 1, 0) && At(_axe, _cursor, 0, 0) && !unchanged ? 1 : 0;
+                    _totals.MailMerges += Units(_letters, _inventory) == 10 && _rig.EntryAt(_chest, 5, 3) == Occupancy.Free && !unchanged ? 1 : 0;
                     break;
                 case 3:
-                    _totals.Swaps += At(_axe, _hotbar, 1, 0) && At(_heldPlanks, _cursor, 0, 0) && !unchanged ? 1 : 0;
+                    _totals.Swaps += At(_heldPlanks, _hotbar, 1, 0) && At(_axe, _cursor, 0, 0) && !unchanged ? 1 : 0;
                     break;
                 case 4:
-                    _totals.MergeRejects += Units(_letters, _inventory) == 10 && unchanged ? 1 : 0;
+                    _totals.Swaps += At(_axe, _hotbar, 1, 0) && At(_heldPlanks, _cursor, 0, 0) && !unchanged ? 1 : 0;
                     break;
                 case 5:
-                    _totals.SplitRejects += Units(_letters, _inventory) == 10 && _rig.EntryAt(_chest, 5, 3) == Occupancy.Free && !newId && unchanged ? 1 : 0;
+                    _totals.MergeRejects += Units(_letters, _inventory) == 10 && unchanged ? 1 : 0;
                     break;
                 case 6:
+                    _totals.SplitRejects += Units(_letters, _inventory) == 10 && _rig.EntryAt(_chest, 5, 3) == Occupancy.Free && !newId && unchanged ? 1 : 0;
+                    break;
+                case 7:
+                    _totals.GoneRejects += Units(_letters, _inventory) == 10 && !newId && unchanged ? 1 : 0;
+                    break;
+                case 8:
                     _totals.ItemSplits += Units(_chestPlanks, _chest) == 6 && PieceUnits(_inventory, 7, 1) == 4 && newId && !unchanged ? 1 : 0;
                     break;
                 default:
