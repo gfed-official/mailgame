@@ -34,6 +34,7 @@ internal sealed class BacklogRing
     private int _count;
     private int _units;
     private uint _appendSeq;
+    private int _limit;
 
     /// <summary>Creates an empty ring for an entry pool of <paramref name="capacity"/> slots.</summary>
     /// <param name="capacity">The entry pool's capacity (1 to 65535).</param>
@@ -42,6 +43,7 @@ internal sealed class BacklogRing
         _next = new ushort[capacity];
         _prev = new ushort[capacity];
         _linked = new bool[capacity];
+        _limit = capacity;
     }
 
     /// <summary>The entry slots the ring can hold.</summary>
@@ -72,7 +74,15 @@ internal sealed class BacklogRing
     /// <summary>True when <see cref="Append"/> of <paramref name="slot"/> would succeed: in range, not queued, and the ring not full.</summary>
     /// <param name="slot">An entry slot.</param>
     /// <returns>True when appendable.</returns>
-    public bool CanAppend(ushort slot) => slot < _linked.Length && !_linked[slot] && _count < _linked.Length;
+    public bool CanAppend(ushort slot) => slot < _linked.Length && !_linked[slot] && _count < _limit;
+
+    /// <summary>
+    /// TEST-ONLY seam (story 021 AC "Ring capacity"): caps the queue at <paramref name="limit"/> entries, so a test can reach the
+    /// unreachable full-ring path (<see cref="SimAssertCode.InventoryBacklogRingFull"/>). Production never calls it: the limit is
+    /// <see cref="Capacity"/> from construction.
+    /// </summary>
+    /// <param name="limit">The entries the ring takes before <see cref="CanAppend"/> refuses (0 to <see cref="Capacity"/>).</param>
+    internal void LimitForTests(int limit) => _limit = limit;
 
     /// <summary>Appends <paramref name="slot"/> (holding <paramref name="units"/>) at the tail. The caller checked <see cref="CanAppend"/>.</summary>
     /// <param name="slot">The detached entry's slot.</param>
