@@ -894,7 +894,7 @@ public class WorldItemTests
 
     [Fact]
     [Trait("Id", "H-R14-4")]
-    public void Backlog_IntakeFullAtExpiry_BothLettersAppendInFifoOrder_BothWorldItemsGone_DrainedAheadOfLaterArrivals()
+    public void Backlog_IntakeFullAtExpiry_BothLettersAppendInFifoOrder_BothWorldItemsGone_ThenDrainIntoFreedCellsBeforeALaterSpawnFindsTheIntakeFull()
     {
         // Arrange: letters 500 (dropped 1000) and 501 (dropped 1001) on the ground; a plank dropped 1002; the Intake is full
         var w = new WorldItemRig();
@@ -919,15 +919,15 @@ public class WorldItemTests
         Assert.Equal(EntryRecord.NoContainer, w.R.Entries[first].ContainerSlot);
         Assert.Equal(retriesBefore, w.R.Counters[CounterId.InventoryWorldItemReturnRetries]);
 
-        // Act 2: two Intake cells free in tick 10005's MailStep; a later letter (9000) arrives in 10006's MailStep (Mail appends it,
-        // since the backlog is non-empty at that moment); the drain in phase 2 of 10006 runs before it
+        // Act 2: two Intake cells free in tick 10005's MailStep; a later letter (9000) is spawned in 10006's MailStep, after that
+        // tick's phase 2 drain has already placed both backlog letters (the backlog is empty again when the spawn runs)
         Assert.True(w.At(10_005, () => w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)
             && w.Inv.TakeUnit(w.Inv.IntakeContainer, Selector.Fifo, ActorId.System, out _)));
         DefIndex letter = w.R.KindIndex("letter");
         SpawnResult later = w.At(10_006, () => w.Inv.Spawn(w.Inv.IntakeContainer, letter, Address, 0, IntakeSpawnOutfeedTests.Mail(9_000), MergePolicy.NoMerge));
 
-        // Assert 2: 500 then 501 drained into the freed cells at 10006 (fresh arrivalSeqs in that order); the later letter found the
-        // Intake full again and placed nothing
+        // Assert 2: 500 then 501 drained into the freed cells at 10006 (fresh arrivalSeqs in that order); the later spawn found the
+        // Intake full again and placed nothing (Mail would append its remainder behind any backlog)
         Assert.Equal(0, w.Inv.BacklogEntries);
         Assert.Equal(w.R.Intake, w.R.Entries[first].ContainerSlot);
         Assert.Equal(w.R.Intake, w.R.Entries[second].ContainerSlot);
@@ -1008,7 +1008,7 @@ public class WorldItemTests
     }
 
     [Fact]
-    public void Backlog_IntakeFull_GroundAndWaterMailHeads_AppendAtTheirExpiry_Counter47Unchanged_NothingDuplicated()
+    public void Backlog_IntakeFull_TheGroundLetterGoesByCapEviction_TheWaterLetterAppendsAtItsExpiryBehindIt_Counter47Unchanged_NothingDuplicated()
     {
         // Arrange: ground letter 700 dropped at 10 (expires 9010); 510 Loot planks at 11..520; the Intake is full; water letter 701
         // lands at 8710 (expires 9010); a Loot plank at 8711 would take the count to 513, so the old ground letter is evicted then

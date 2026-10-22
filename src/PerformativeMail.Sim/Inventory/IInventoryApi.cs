@@ -97,17 +97,19 @@ public enum ConsumeReason : byte
 
 /// <summary>
 /// One whole backlog entry for <see cref="IInventoryApi.AppendBacklog"/> (story grid-inventory/021; ADR-0017 section 6 names the call,
-/// the shape is a Mail Lead planning default pending Evan, TD-157 item 2): the units of one StackKey that <see cref="IInventoryApi.Spawn"/>
-/// did not place, <c>ids[r.Placed..]</c>.
+/// the shape is a Mail Lead planning default pending Evan, TD-157 item 2): units of one StackKey. A spawn remainder (the ids
+/// <see cref="IInventoryApi.Spawn"/> did not place) is appended one unit per call, GDD R14 "spawns are one unit per entry" and
+/// mail-destinations story 014; multi-unit backlog entries come from Inventory's own returns (an expiry, water float or cap eviction of
+/// a multi-unit entry). The call accepts 1 to the kind's effective maxStack ids.
 /// </summary>
-/// <example><code>inventory.AppendBacklog(new BacklogEntry(letter, address, 0, ids[r.Placed..]));</code></example>
+/// <example><code>foreach (MailId id in ids[r.Placed..]) { inventory.AppendBacklog(new BacklogEntry(letter, address, 0, new[] { id })); }</code></example>
 public readonly ref struct BacklogEntry
 {
     /// <summary>Creates the entry.</summary>
     /// <param name="mailKind">The units' mail kind.</param>
     /// <param name="addressId">The units' packed address.</param>
     /// <param name="flags">The units' mail flags.</param>
-    /// <param name="ids">1 to 255 strictly ascending mail ids.</param>
+    /// <param name="ids">1 to 255 (and at most the kind's effective maxStack) strictly ascending mail ids.</param>
     public BacklogEntry(DefIndex mailKind, uint addressId, byte flags, ReadOnlySpan<MailId> ids)
     {
         MailKind = mailKind;
@@ -200,7 +202,8 @@ public interface IInventoryApi
     /// origin (<see cref="WorldItemOrigin.BeltLeak"/>, <see cref="WorldItemOrigin.Spill"/>: M-1b), a <paramref name="createdTick"/> after
     /// the current tick, a <paramref name="createdTick"/> before the last creation's on the same expiry FIFO (Loot, on no FIFO, neither
     /// checks nor moves that order; a programming error, which also trips <c>SimAssertCode.InventoryWorldItemCreatedOutOfOrder</c> under
-    /// <c>INVENTORY_ASSERT</c>), an entry that is not live and detached or already in a WorldItem, or a full WorldItem table.
+    /// <c>INVENTORY_ASSERT</c>), an entry that is not live and detached, already in a WorldItem or queued on the Intake backlog, or a
+    /// full WorldItem table.
     /// <para>
     /// Callers must handle <see cref="EntityId.None"/>: no WorldItem was created, the entry stays detached and is still the caller's
     /// responsibility.
@@ -260,7 +263,7 @@ public interface IInventoryApi
     /// <c>CheckCode.InventoryArenaExhausted</c> record, ADR-0009 section 5 l.157); a catch that would fumble units while the WorldItem
     /// table is full (<c>capacity_exhausted</c> and one <c>CheckCode.InventoryWorldItemCapacity</c> record; Mail Lead planning default
     /// pending Evan, TD-154 item 7); <c>bad_request</c> outside a tick phase, for a slot with no panel, or an entry that is not live and
-    /// detached or is held by a WorldItem. No unit is ever lost.
+    /// detached, is held by a WorldItem or is queued on the Intake backlog (story 021). No unit is ever lost.
     /// </summary>
     /// <param name="slot">The catcher's slot.</param>
     /// <param name="flight">The flight's entry and the catcher's feet.</param>
@@ -315,12 +318,13 @@ public interface IInventoryApi
 
     /// <summary>
     /// Appends one whole mail entry to the tail of the Intake backlog (story 021; ADR-0017 section 6; GDD R14): Mail calls it in phase 8
-    /// for the ids <see cref="Spawn"/> left unplaced. A new detached entry of <c>Ids.Length</c> units and its mailIds block are taken
-    /// (as <see cref="Spawn"/> takes them) and queued; the <c>IntakeDrain</c> phase places it later, whole, NoMerge, with a fresh
-    /// <c>arrivalSeq</c>. One call scope raising only <c>BacklogUnits</c>; no container changes, no seal. False with nothing mutated and
-    /// nothing raised for a malformed entry (a none or unknown kind, 0 or more than 255 ids, ids none or not strictly ascending), a
-    /// call outside a tick phase (counted by <c>TickGuard</c>), or an entry-pool or arena refusal, which writes the existing always-on
-    /// record (<c>InventoryEntryPoolExhausted</c> / <c>InventoryArenaExhausted</c>); the units stay Mail's.
+    /// for the ids <see cref="Spawn"/> left unplaced, one unit per call (GDD R14). A new detached entry of <c>Ids.Length</c> units and
+    /// its mailIds block are taken (as <see cref="Spawn"/> takes them) and queued; the <c>IntakeDrain</c> phase places it later, whole,
+    /// NoMerge, with a fresh <c>arrivalSeq</c>. One call scope raising only <c>BacklogUnits</c>; no container changes, no seal. False
+    /// with nothing mutated and nothing raised for a malformed entry (a none or unknown kind; 0 or more than 255 ids; more ids than the
+    /// kind's effective maxStack, which the whole-entry drain could never place; ids none or not strictly ascending), a call outside a
+    /// tick phase (counted by <c>TickGuard</c>), or an entry-pool or arena refusal, which writes the existing always-on record
+    /// (<c>InventoryEntryPoolExhausted</c> / <c>InventoryArenaExhausted</c>); the units stay Mail's.
     /// </summary>
     /// <param name="e">The entry.</param>
     /// <returns>True when queued.</returns>

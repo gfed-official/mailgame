@@ -33,7 +33,7 @@ public sealed class IntakeDrainTests
         uint lastId = rig.Entries.LastId;
 
         // Act
-        bool ok = Append(rig, "small", Address9, 30, 31, 32);
+        bool ok = Append(rig, "letter", Address9, 30, 31, 32);
         EventEntry[] log = rig.Sink.Last;
 
         // Assert: one new detached count-3 entry with the StackKey and ids, at the tail; units 4, entries 2; one BacklogUnits record
@@ -44,10 +44,10 @@ public sealed class IntakeDrainTests
         Assert.Equal(lastId + 1, rig.Entries[tail].Id.Value);
         Assert.Equal(EntryRecord.NoContainer, rig.Entries[tail].ContainerSlot);
         Assert.Equal(3, rig.Entries[tail].Count);
-        Assert.Equal(rig.KindIndex("small").Value, rig.Entries[tail].MailKind);
+        Assert.Equal(rig.KindIndex("letter").Value, rig.Entries[tail].MailKind);
         Assert.Equal(Address9, rig.Entries[tail].AddressId);
         Assert.Equal(1, rig.Entries[tail].W);
-        Assert.Equal(2, rig.Entries[tail].H);
+        Assert.Equal(1, rig.Entries[tail].H);
         Assert.Equal(new uint[] { 30, 31, 32 }, rig.IdsOf(tail));
         Assert.Equal(version, rig.Header(rig.Intake).Version);
         EventEntry record = Assert.Single(log, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
@@ -58,7 +58,10 @@ public sealed class IntakeDrainTests
         Assert.Equal(2, p.Entries);
     }
 
-    public static TheoryData<string> Malformed => new() { "none-kind", "unknown-kind", "no-ids", "256-ids", "not-ascending", "duplicate", "none-id" };
+    public static TheoryData<string> Malformed => new()
+    {
+        "none-kind", "unknown-kind", "no-ids", "256-ids", "not-ascending", "duplicate", "none-id", "small-2-ids-over-max-stack-1", "letter-21-ids-over-max-stack-20",
+    };
 
     [Theory]
     [MemberData(nameof(Malformed))]
@@ -78,7 +81,9 @@ public sealed class IntakeDrainTests
             "256-ids" => (letter, IntakeSpawnOutfeedTests.Mail(InvAutoPlaceRig.Ids(1, 256))),
             "not-ascending" => (letter, IntakeSpawnOutfeedTests.Mail(5, 4)),
             "duplicate" => (letter, IntakeSpawnOutfeedTests.Mail(5, 5)),
-            _ => (letter, new[] { MailId.None, new MailId(2) }),
+            "none-id" => (letter, new[] { MailId.None, new MailId(2) }),
+            "small-2-ids-over-max-stack-1" => (rig.KindIndex("small"), IntakeSpawnOutfeedTests.Mail(5, 6)), // could never drain whole
+            _ => (letter, IntakeSpawnOutfeedTests.Mail(InvAutoPlaceRig.Ids(1, 21))),
         };
 
         // Act
@@ -146,8 +151,8 @@ public sealed class IntakeDrainTests
     [Fact]
     public void AppendBacklog_AnArenaRefusal_IsRefused_WithTheArenaRecord_AndNothingMutated()
     {
-        // Arrange: the smallest arena, its blocks taken until a 255-unit block no longer fits
-        var rig = new InvAutoPlaceRig(mailIdArenaUnits: 1024);
+        // Arrange: letter maxStack 255 (so only the arena refuses); the smallest arena, its blocks taken until a 255-unit block no longer fits
+        var rig = new InvAutoPlaceRig(mailIdArenaUnits: 1024, content: BacklogUnitsTests.LetterMaxStack255Content());
         for (uint first = 100_000; rig.Inventory.MailIds.CanReserve(255); first += 1_000)
         {
             Assert.True(rig.Inventory.MailIds.TryCreate(InvAutoPlaceRig.Ids(first, 255), 0, out _));
@@ -348,6 +353,57 @@ public sealed class IntakeDrainTests
     }
 
     [Fact]
+    public void Drain_MultiIdEntries_BacklogUnitsPayloadAndProperties_CountUnitsNotEntries_AfterAPartialAndAFullPass()
+    {
+        // Arrange: 319 letters leave (19,15) free; the backlog [letter x3 ids, letter x4 ids, Large x1] (8 units, 3 entries), one MailStep
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 319, 1_000);
+        DefIndex letter = rig.KindIndex("letter");
+        DefIndex large = rig.KindIndex("large");
+        Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () =>
+            rig.Inventory.AppendBacklog(new BacklogEntry(letter, Address4, 0, IntakeSpawnOutfeedTests.Mail(50, 51, 52)))
+            & rig.Inventory.AppendBacklog(new BacklogEntry(letter, Address9, 0, IntakeSpawnOutfeedTests.Mail(60, 61, 62, 63)))
+            & rig.Inventory.AppendBacklog(new BacklogEntry(large, Address4, 0, IntakeSpawnOutfeedTests.Mail(70)))));
+        ushort[] queue = Queue(rig);
+        Assert.Equal(8, rig.Inventory.BacklogUnits);
+        Assert.Equal(3, rig.Inventory.BacklogEntries);
+
+        // Act 1: the next pass places the 3-id letter in the one free cell, then stops
+        (_, _, EventEntry[] log1) = Tick(rig);
+
+        // Assert 1 (partial pass): one BacklogUnits record after the pass, {units 5, entries 2}, and the properties agree
+        Assert.Equal(new[] { queue[1], queue[2] }, Queue(rig));
+        Assert.Equal(rig.Intake, rig.Entries[queue[0]].ContainerSlot);
+        BacklogUnitsPayload p1 = Assert.Single(log1, e => e.Kind == InvEventKinds.BacklogUnits).PayloadAs<BacklogUnitsPayload>();
+        Assert.Equal(5, p1.Units);
+        Assert.Equal(2, p1.Entries);
+        Assert.Equal(5, rig.Inventory.BacklogUnits);
+        Assert.Equal(2, rig.Inventory.BacklogEntries);
+
+        // Act 2: the MailStep frees rows 0 and 1 (40 TakeUnit, oldest first); the next pass places the 4-id letter and the Large
+        _ = IntakeSpawnOutfeedTests.InPhase(rig, () =>
+        {
+            for (int i = 0; i < 40; i++)
+            {
+                Assert.True(rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out _));
+            }
+
+            return 0;
+        });
+        (_, _, EventEntry[] log2) = Tick(rig);
+
+        // Assert 2 (the pass that empties the backlog): {0, 0}, and the properties agree
+        Assert.Equal(rig.Intake, rig.Entries[queue[1]].ContainerSlot);
+        Assert.Equal(4, rig.Entries[queue[1]].Count);
+        Assert.Equal(rig.Intake, rig.Entries[queue[2]].ContainerSlot);
+        BacklogUnitsPayload p2 = Assert.Single(log2, e => e.Kind == InvEventKinds.BacklogUnits).PayloadAs<BacklogUnitsPayload>();
+        Assert.Equal(0, p2.Units);
+        Assert.Equal(0, p2.Entries);
+        Assert.Equal(0, rig.Inventory.BacklogUnits);
+        Assert.Equal(0, rig.Inventory.BacklogEntries);
+    }
+
+    [Fact]
     [Trait("Id", "H-R14-3")]
     public void Drain_PlaceCase_AnOlderMailIdFromTheBacklog_GetsArrivalSeq4_OneInsertedNoMerged_AndLeavesAfterAllThreeResidents()
     {
@@ -439,7 +495,7 @@ public sealed class IntakeDrainTests
 
     [Fact]
     [Trait("Id", "H-PERF-6c")]
-    public void Drain_A2800EntryPass_IntoScattered1x1Holes_StaysWithin8500PlacementProbes_AndEntriesWalkedPlus1Visits()
+    public void Drain_A2800EntryPass_IntoScattered1x1Holes_StaysWithin8500ProbesMergesAndVisits_AndEntriesWalkedPlus1Visits()
     {
         // Arrange: a full Intake with 32 scattered one-cell holes (every 10th cell); a backlog of 2,768 Large (area 8) then 32 letters
         var rig = new InvAutoPlaceRig();
@@ -471,11 +527,13 @@ public sealed class IntakeDrainTests
         (long probes, long visits, _) = Tick(rig);
         long merges = rig.Counters[CounterId.InventoryMergeCandidates] - mergeBefore;
 
-        // Assert: 32 letters placed; placement probes (43, per cell) <= 8,500; merge candidates 0 under NoMerge; visits <= walked + 1
+        // Assert: 32 letters placed; merge candidates 0 under NoMerge. The H-PERF-6c gate (ADR-0009 l.57, l.232: every cell probe or
+        // candidate visit, a backlog node included): placement probes (43, per cell) + merge candidates + backlog visits (50) <= 8,500
+        // (measured 4,358 + 0 + 2,800). Second gate: visits <= entries walked + 1.
         Assert.Equal(2_768, rig.Inventory.BacklogEntries);
         Assert.Equal(0, rig.Header(rig.Intake).FreeCells);
         Assert.Equal(0, merges);
-        Assert.InRange(probes + merges, 1, 8_500);
+        Assert.InRange(probes + merges + visits, 1, 8_500);
         Assert.InRange(visits, 1, 2_800 + 1);
     }
 
@@ -533,6 +591,63 @@ public sealed class IntakeDrainTests
         Assert.DoesNotContain(log, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
     }
 
+    [Theory]
+    [Trait("Id", "H-PERF-6c")]
+    [InlineData("take-unit")]
+    [InlineData("append")]
+    public void Drain_GatingMemo_AnUnplaceableEntryWithFreeCells_IdlesOnTheNextTick_AndReRunsAfterAnIntakeChangeOrAnAppend(string change)
+    {
+        // Arrange: a full Intake with two non-adjacent one-cell holes, (0,0) and (10,0); one Small (1x2) appended; the first pass runs
+        // (it plans the Small, finds no fit, places nothing)
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 320, 1_000);
+        foreach (int x in new[] { 0, 10 })
+        {
+            ushort entry = rig.EntryAt(rig.Intake, x, 0);
+            Reply r = rig.Step(
+                (ref InvPlan p) => p.Touch(rig.Intake) < 0 ? CoreReason.BadRequest : (ushort)0,
+                (ref InvPlan p) => rig.Inventory.Mutator.Remove(ref p, entry));
+            Assert.True(r.IsOk);
+        }
+
+        Assert.True(Append(rig, "small", Address9, 9_000));
+        (long probes1, long visits1, _) = Tick(rig);
+        Assert.Equal(1, visits1);
+        Assert.True(probes1 > 0);
+
+        // Act 1: the next tick: free cells, a queued entry, but the Intake unchanged and no append since that pass
+        (long probes2, long visits2, EventEntry[] log2) = Tick(rig);
+
+        // Assert 1: the memo closes the pass: no probe, no visit, nothing raised
+        Assert.Equal(0, probes2);
+        Assert.Equal(0, visits2);
+        Assert.DoesNotContain(log2, e => e.Kind >= InvEventKinds.Inserted && e.Kind <= InvEventKinds.BacklogUnits);
+
+        // Act 2: change the Intake (a TakeUnit seals it) or append (AppendSeq moves), in one MailStep; then the next tick
+        if (change == "take-unit")
+        {
+            Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TakeUnit(rig.Inventory.IntakeContainer, Selector.Fifo, rig.PlayerA, out _)));
+        }
+        else
+        {
+            Assert.True(Append(rig, "small", Address9, 9_001));
+        }
+
+        (long probes3, long visits3, _) = Tick(rig);
+
+        // Assert 2: the pass re-runs: an Intake change re-plans with probes (the no-fit facts were at the old version); an append walks
+        // both queued entries (the unchanged Intake's no-fit fact for the Small shape skips their scans)
+        if (change == "take-unit")
+        {
+            Assert.InRange(visits3, 1, 2);
+            Assert.True(probes3 > 0);
+        }
+        else
+        {
+            Assert.Equal(2, visits3);
+        }
+    }
+
     // ---------------------------------------------------------------- state and determinism
 
     [Fact]
@@ -560,7 +675,7 @@ public sealed class IntakeDrainTests
             var rig = new InvAutoPlaceRig();
             IntakeSpawnOutfeedTests.FillIntake(rig, 320, 1_000);
             Assert.True(Append(rig, "letter", Address4, 50));
-            Assert.True(Append(rig, "large", Address9, 60, 61));
+            Assert.True(Append(rig, "letter", Address9, 60, 61));
             Assert.True(Append(rig, "small", Address4, 70));
             _ = Tick(rig);
             _ = Tick(rig);

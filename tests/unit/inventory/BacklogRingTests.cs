@@ -11,9 +11,11 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <summary>
 /// Story grid-inventory/021 AC "Ring capacity": the backlog ring is preallocated at world build with capacity =
 /// <c>inventory.entryPoolCapacity</c>, the entry pool refuses before the ring can fill, and the unreachable full-ring case is
-/// <see cref="SimAssertCode.InventoryBacklogRingFull"/> (82) under <c>INVENTORY_ASSERT</c> while Release drops nothing and keeps the
-/// WorldItem. The full ring is reached through the test-only <see cref="BacklogRing.LimitForTests"/>. The 2,800-entry H-PERF fixture
-/// fitting is <see cref="IntakeDrainTests.Drain_A2800EntryPass_IntoScattered1x1Holes_StaysWithin8500PlacementProbes_AndEntriesWalkedPlus1Visits"/>
+/// <see cref="SimAssertCode.InventoryBacklogRingFull"/> (82) under <c>INVENTORY_ASSERT</c>. Release queues nothing: an expiry keeps the
+/// WorldItem, a cap eviction keeps the letter's WorldItem and destroys the lowest plank instead (TD-158 item 8a), and a return keeps the
+/// entry the caller's. The full ring is reached through the test-only <see cref="BacklogRing.LimitForTests"/>; a queued entry offered
+/// again is refused before the append (<see cref="BacklogQueuedEntryTests"/>). The 2,800-entry H-PERF fixture
+/// fitting is <see cref="IntakeDrainTests.Drain_A2800EntryPass_IntoScattered1x1Holes_StaysWithin8500ProbesMergesAndVisits_AndEntriesWalkedPlus1Visits"/>
 /// (every one of its 2,800 appends must succeed).
 /// </summary>
 public sealed class BacklogRingTests
@@ -204,6 +206,54 @@ public sealed class BacklogRingTests
         rig.Inventory.Backlog.LimitForTests(rig.Inventory.Backlog.Capacity);
         Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.ReturnToIntake(detached, ActorId.System, InvCause.Expired)));
         Assert.Equal(detached, IntakeDrainTests.Queue(rig)[^1]);
+    }
+
+    [Fact]
+    public void Remove_OfTheTailWithEntriesBeforeIt_ThenAppend_KeepsAppendOrder_HeadAndLinks()
+    {
+        // Arrange: a ring [2, 5, 9]
+        var ring = new BacklogRing(16);
+        ring.Append(2, 1);
+        ring.Append(5, 3);
+        ring.Append(9, 2);
+
+        // Act: remove the tail, then append 7
+        ring.Remove(9, 2);
+        ring.Append(7, 4);
+
+        // Assert: [2, 5, 7]: 7 follows 5 and ends the queue; 9 is out; counts and units follow
+        Assert.Equal((ushort)2, ring.Head);
+        Assert.Equal((ushort)5, ring.Next(2));
+        Assert.Equal((ushort)7, ring.Next(5));
+        Assert.Equal(BacklogRing.None, ring.Next(7));
+        Assert.False(ring.Contains(9));
+        Assert.Equal(3, ring.Count);
+        Assert.Equal(8, ring.Units);
+
+        // Act + Assert 2: remove the new tail and the head; append 9 again: [5, 9]
+        ring.Remove(7, 4);
+        ring.Remove(2, 1);
+        ring.Append(9, 1);
+        Assert.Equal((ushort)5, ring.Head);
+        Assert.Equal((ushort)9, ring.Next(5));
+        Assert.Equal(BacklogRing.None, ring.Next(9));
+        Assert.Equal(2, ring.Count);
+        Assert.Equal(4, ring.Units);
+    }
+
+    [Fact]
+    public void CanAppend_IsFalseForAQueuedSlot_AndTrueAgainOnceItIsRemoved_OutOfRangeIsFalse()
+    {
+        // Arrange: a 4-slot ring holding slot 1 (well under its limit)
+        var ring = new BacklogRing(4);
+        ring.Append(1, 1);
+
+        // Act + Assert: a queued slot cannot be appended twice; a free one can; out of range cannot
+        Assert.False(ring.CanAppend(1));
+        Assert.True(ring.CanAppend(2));
+        Assert.False(ring.CanAppend(4));
+        ring.Remove(1, 1);
+        Assert.True(ring.CanAppend(1));
     }
 
     /// <summary>In-phase body: runs <paramref name="call"/>; under INVENTORY_ASSERT an assert trip is caught and reported as (false, its code).</summary>
