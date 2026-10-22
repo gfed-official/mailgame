@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Reflection;
 using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Events;
@@ -12,7 +13,7 @@ using PerformativeMail.Sim.Primitives;
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
-/// Story grid-inventory/007 slice 1 (ACs 1-9): the production <c>Pick</c> and <c>Move</c> handlers (<see cref="PickHandler"/>,
+/// Story grid-inventory/007 (ACs 1-10): the production <c>Pick</c> and <c>Move</c> handlers (<see cref="PickHandler"/>,
 /// <see cref="MoveHandler"/>) through the real phase-0 drain of a composed world with players A (slot 0) and B (slot 1); GDD R4, R7,
 /// R10; H-R1-2, H-R4-1 a–f, H-R4-2 a/b, H-R4-3 a/b, H-R10-2 (move leg); TD-105 items 3 and 5; ADR-0009 sections 2-3. Every core case
 /// runs from slot 0 and from slot 1, so a hard-coded slot index cannot pass. State is arranged only through real calls: the rig's
@@ -22,7 +23,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// alone in its call and sent to the actor alone, and <see cref="SideEffects"/> unchanged (containers with versions, occupancy, entries
 /// and mail ids, the StackKey index, the arena, weight P, <c>CountItem</c>, the negative-fit cache, subscriber masks, externals, check
 /// ring writes and the id allocators). The count, merge-fit and arena rules are the Mail Lead planning defaults pending Evan (TD-150).
-/// AC 10 (indexes and weight) and AC 11 (0 B) are slice 2.
+/// AC 10 (indexes and weight) checks weight P and <c>CountItem</c> against brute-force recounts after each move; AC 11 (0 B) is
+/// <see cref="PickMoveAllocationTests"/>.
 /// </summary>
 public class PickMoveTests
 {
@@ -1058,6 +1060,272 @@ public class PickMoveTests
         AssertRejected(rig, rig.Run(rig.Player(slot), MoveOpRaw(chestId, temp, chestId, 3, 0, false, 0, 0)), InvReason.StaleEntry, before, slot);
     }
 
+    // ------------------------------------------------------------------ a move to the cursor is an ordinary slots destination
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Move_ToTheEmptyCursor_Ok_BothPlusOne_ThenToTheBusyCursor_Blocked_NothingChanges(int slot)
+    {
+        // Arrange: letters to #3 and an Axe in the actor's inventory
+        var rig = NewRig();
+        ushort inventory = rig.InventoryOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort letters = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(100, 3));
+        ushort axe = rig.PlaceItem(inventory, "axe", 2, 0, 1);
+        uint inventoryV = rig.Header(inventory).Version;
+        uint cursorV = rig.Header(cursor).Version;
+
+        // Act
+        EventEntry[] moved = rig.Run(rig.Player(slot), MoveOp(rig, inventory, axe, cursor, 0, 0));
+
+        // Assert
+        AssertOk(moved);
+        Assert.Equal((cursor, (byte)0, (byte)0), (rig.Entries[axe].ContainerSlot, rig.Entries[axe].X, rig.Entries[axe].Y));
+        Assert.Equal((inventoryV + 1, cursorV + 1), (rig.Header(inventory).Version, rig.Header(cursor).Version));
+
+        // Act: the cursor holds the Axe; letters are a different key
+        List<long> before = SideEffects(rig);
+        EventEntry[] busy = rig.Run(rig.Player(slot), MoveOp(rig, inventory, letters, cursor, 0, 0));
+
+        // Assert
+        AssertRejected(rig, busy, InvReason.Blocked, before, slot);
+        Assert.Equal(inventory, rig.Entries[letters].ContainerSlot);
+    }
+
+    // ------------------------------------------------------------------ AC 10: indexes and weight (GDD D1, R16; TR-inventory-015)
+
+    /// <summary>
+    /// A <paramref name="kind"/> entry in the actor's open (unowned, so uncounted) chest at (0,0) moved into a counted panel raises the
+    /// actor's P by exactly its <c>classPts</c> (Light, Medium and Heavy; mail and items), and moved back to (0,0) lowers it by exactly
+    /// that; the other slot's P never moves. <c>CountItem</c> equals a brute-force recount after each.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-015")]
+    [InlineData(0, "medium", "inventory", 4, 0)]
+    [InlineData(1, "medium", "inventory", 4, 0)]
+    [InlineData(0, "log", "inventory", 6, 0)]
+    [InlineData(1, "log", "inventory", 6, 0)]
+    [InlineData(0, "large", "hotbar", 1, 0)]
+    [InlineData(1, "large", "hotbar", 1, 0)]
+    [InlineData(0, "axe", "hotbar", 7, 0)]
+    [InlineData(1, "axe", "hotbar", 7, 0)]
+    public void Weight_ChestToAPanel_PRisesByTheEntrysClassPts_BackToTheChest_PFallsByIt_CountItemMatchesARecount(
+        int slot, string kind, string panel, int x, int y)
+    {
+        // Arrange: a 3-unit log stack, else one unit; a plank in the panel so CountItem has a resident too
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort to = PanelOf(rig, slot, panel);
+        _ = rig.PlaceItem(to, "plank", panel == "hotbar" ? 3 : 0, panel == "hotbar" ? 0 : 1, 2);
+        ushort e = PlaceKind(rig, chest, kind, 0, 0, kind == "log" ? (byte)3 : (byte)1);
+        int pts = ClassPts(rig, e);
+        Assert.True(pts > 0);
+        (int p0, int other0) = Points(rig, slot);
+
+        // Act
+        AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, chest, e, to, x, y)));
+
+        // Assert
+        Assert.Equal(to, rig.Entries[e].ContainerSlot);
+        Assert.Equal((p0 + pts, other0), Points(rig, slot));
+        AssertWeightAndCountsMatchRecount(rig);
+
+        // Act
+        AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, to, e, chest, 0, 0)));
+
+        // Assert
+        Assert.Equal(chest, rig.Entries[e].ContainerSlot);
+        Assert.Equal((p0, other0), Points(rig, slot));
+        AssertWeightAndCountsMatchRecount(rig);
+    }
+
+    /// <summary>A move inside one container (each counted panel, and the uncounted chest) leaves P unchanged; the counts match a recount.</summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-015")]
+    [InlineData(0, "medium", "inventory", 0, 0, 6, 0)]
+    [InlineData(1, "medium", "inventory", 0, 0, 6, 0)]
+    [InlineData(0, "log", "inventory", 2, 0, 7, 0)]
+    [InlineData(1, "log", "inventory", 2, 0, 7, 0)]
+    [InlineData(0, "axe", "hotbar", 1, 0, 7, 0)]
+    [InlineData(1, "axe", "hotbar", 1, 0, 7, 0)]
+    [InlineData(0, "log", "chest", 0, 0, 5, 2)]
+    [InlineData(1, "log", "chest", 0, 0, 5, 2)]
+    public void Weight_InContainerMove_LeavesPUnchanged_CountItemMatchesARecount(int slot, string kind, string where, int x0, int y0, int x1, int y1)
+    {
+        // Arrange
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort c = where == "chest" ? chest : PanelOf(rig, slot, where);
+        ushort e = PlaceKind(rig, c, kind, x0, y0, kind == "log" ? (byte)3 : (byte)1);
+        (int p0, int other0) = Points(rig, slot);
+        uint v = rig.Header(c).Version;
+
+        // Act
+        AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, c, e, c, x1, y1)));
+
+        // Assert
+        Assert.Equal((c, (byte)x1, (byte)y1), (rig.Entries[e].ContainerSlot, rig.Entries[e].X, rig.Entries[e].Y));
+        Assert.Equal(v + 1, rig.Header(c).Version);
+        Assert.Equal((p0, other0), Points(rig, slot));
+        AssertWeightAndCountsMatchRecount(rig);
+    }
+
+    /// <summary>
+    /// A pick from a counted panel (inventory or hotbar) to the counted cursor leaves P unchanged; a pick from the uncounted chest raises
+    /// it by exactly the entry's <c>classPts</c>. The counts match a recount.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-015")]
+    [InlineData(0, "inventory", "medium", 0)]
+    [InlineData(1, "inventory", "medium", 0)]
+    [InlineData(0, "inventory", "log", 0)]
+    [InlineData(1, "inventory", "log", 0)]
+    [InlineData(0, "hotbar", "large", 0)]
+    [InlineData(1, "hotbar", "large", 0)]
+    [InlineData(0, "chest", "medium", 1)]
+    [InlineData(1, "chest", "medium", 1)]
+    [InlineData(0, "chest", "log", 1)]
+    [InlineData(1, "chest", "log", 1)]
+    public void Weight_PickToTheCursor_FromACountedPanel_PUnchanged_FromTheChest_PRisesByClassPts(int slot, string where, string kind, int entriesGained)
+    {
+        // Arrange: the entry at (2,0) of the source (a non-reserved hotbar slot)
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort from = where == "chest" ? chest : PanelOf(rig, slot, where);
+        ushort e = PlaceKind(rig, from, kind, 2, 0, kind == "log" ? (byte)3 : (byte)1);
+        int pts = ClassPts(rig, e);
+        (int p0, int other0) = Points(rig, slot);
+
+        // Act
+        AssertOk(rig.Run(rig.Player(slot), PickOp(rig, from, e)));
+
+        // Assert
+        Assert.Equal(rig.CursorOf(slot), rig.Entries[e].ContainerSlot);
+        Assert.Equal((p0 + (entriesGained * pts), other0), Points(rig, slot));
+        AssertWeightAndCountsMatchRecount(rig);
+    }
+
+    /// <summary>
+    /// An implicit merge move (target T = 15 at (2,1), room 5; source S of 5 = exactly the room, drained and freed, or 6, a 1-unit
+    /// remainder that keeps its entry): P is per entry, so it changes only when a counted container gains or loses an entry — a drained
+    /// counted source loses one (−classPts), a drained uncounted source or any remainder changes nothing. Planks (an item, so
+    /// <c>CountItem</c> moves by the units) and letters. The counts match a recount.
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-015")]
+    [InlineData(0, "plank", "chest", "inventory", 5, 0)]
+    [InlineData(1, "plank", "chest", "inventory", 5, 0)]
+    [InlineData(0, "plank", "chest", "inventory", 6, 0)]
+    [InlineData(1, "plank", "chest", "inventory", 6, 0)]
+    [InlineData(0, "plank", "inventory", "chest", 5, -1)]
+    [InlineData(1, "plank", "inventory", "chest", 5, -1)]
+    [InlineData(0, "plank", "inventory", "chest", 6, 0)]
+    [InlineData(1, "plank", "inventory", "chest", 6, 0)]
+    [InlineData(0, "plank", "cursor", "inventory", 5, -1)]
+    [InlineData(1, "plank", "cursor", "inventory", 5, -1)]
+    [InlineData(0, "plank", "cursor", "inventory", 6, 0)]
+    [InlineData(1, "plank", "cursor", "inventory", 6, 0)]
+    [InlineData(0, "letter", "inventory", "chest", 5, -1)]
+    [InlineData(1, "letter", "inventory", "chest", 5, -1)]
+    [InlineData(0, "letter", "chest", "inventory", 6, 0)]
+    [InlineData(1, "letter", "chest", "inventory", 6, 0)]
+    public void Weight_MergeMove_SourceDrainedOrPartialRemainder_PChangesByTheCountedEntriesLost_CountItemMatchesARecount(
+        int slot, string kind, string sourceWhere, string targetWhere, byte sourceUnits, int entriesGained)
+    {
+        // Arrange: T at (2,1) of the target container, S at (5,0) of the source (cursor: (0,0))
+        var rig = NewRig();
+        ushort chest = OpenChest(rig, slot);
+        ushort targetC = targetWhere == "chest" ? chest : PanelOf(rig, slot, targetWhere);
+        ushort sourceC = sourceWhere == "chest" ? chest : PanelOf(rig, slot, sourceWhere);
+        ushort target = PlaceKind(rig, targetC, kind, 2, 1, 15, firstId: 100);
+        ushort source = PlaceKind(rig, sourceC, kind, sourceWhere == "cursor" ? 0 : 5, 0, sourceUnits, firstId: 1);
+        EntryId sourceId = rig.Entries[source].Id;
+        int pts = ClassPts(rig, source);
+        (int p0, int other0) = Points(rig, slot);
+
+        // Act
+        AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, sourceC, source, targetC, 2, 1)));
+
+        // Assert
+        Assert.Equal(20, rig.Entries[target].Count);
+        if (sourceUnits == 5)
+        {
+            Assert.False(rig.Entries.TryGetSlot(sourceId, out _));
+        }
+        else
+        {
+            Assert.Equal((sourceC, (byte)1), (rig.Entries[source].ContainerSlot, rig.Entries[source].Count));
+        }
+
+        Assert.Equal((p0 + (entriesGained * pts), other0), Points(rig, slot));
+        AssertWeightAndCountsMatchRecount(rig);
+    }
+
+    /// <summary>
+    /// Rejected picks and moves — across the counted / uncounted boundary both ways, within a panel and onto a full stack — leave P
+    /// (both slots) and every <c>CountItem</c> exactly as before, still equal to a recount (and every other side effect unchanged).
+    /// </summary>
+    [Theory]
+    [Trait("Id", "TR-inventory-015")]
+    [InlineData("blocked", 0)]
+    [InlineData("blocked", 1)]
+    [InlineData("out_of_bounds", 0)]
+    [InlineData("out_of_bounds", 1)]
+    [InlineData("stack_full", 0)]
+    [InlineData("stack_full", 1)]
+    [InlineData("bad_count", 0)]
+    [InlineData("bad_count", 1)]
+    [InlineData("cursor_busy", 0)]
+    [InlineData("cursor_busy", 1)]
+    [InlineData("stale_layout", 0)]
+    [InlineData("stale_layout", 1)]
+    [InlineData("not_open", 0)]
+    [InlineData("not_open", 1)]
+    public void Weight_Rejects_LeavePAndCountItemUnchanged_AndEqualToARecount(string reason, int slot)
+    {
+        // Arrange: chest Log x3 at (0,0) and a full Plank 20 at (2,0); inventory Axe at (6,0) and Plank 4 at (0,0); cursor Fiber x2;
+        // the other player's inventory Log x2
+        var rig = NewRig();
+        int other = 1 - slot;
+        ushort chest = OpenChest(rig, slot);
+        ushort inventory = rig.InventoryOf(slot);
+        ushort cursor = rig.CursorOf(slot);
+        ushort chestLogs = rig.PlaceItem(chest, "log", 0, 0, 3);
+        _ = rig.PlaceItem(chest, "plank", 2, 0, 20);
+        _ = rig.PlaceItem(inventory, "axe", 6, 0, 1);
+        ushort planks = rig.PlaceItem(inventory, "plank", 0, 0, 4);
+        _ = rig.PlaceItem(cursor, "fiber", 0, 0, 2);
+        ushort othersLogs = rig.PlaceItem(rig.InventoryOf(other), "log", 0, 0, 2);
+        if (reason == "stale_layout")
+        {
+            rig.Header(inventory).LastReplaceVersion = rig.Header(inventory).Version + 1;
+        }
+
+        Op op = reason switch
+        {
+            "blocked" => MoveOp(rig, chest, chestLogs, inventory, 6, 0),         // chest -> inventory, onto the Axe
+            "out_of_bounds" => MoveOp(rig, inventory, planks, chest, 8, 0),      // inventory -> chest, off the grid
+            "stack_full" => MoveOp(rig, inventory, planks, chest, 2, 0),         // inventory -> chest, onto the full stack
+            "bad_count" => MoveOp(rig, chest, chestLogs, inventory, 3, 0, count: 4),
+            "cursor_busy" => PickOp(rig, chest, chestLogs),
+            "stale_layout" => MoveOp(rig, chest, chestLogs, inventory, 3, 0, baseVersion: rig.Header(inventory).Version),
+            _ => MoveOp(rig, rig.InventoryOf(other), othersLogs, chest, 5, 0),
+        };
+        (int p0, int other0) = Points(rig, slot);
+        int[] counts = AllItemCounts(rig);
+        List<long> before = SideEffects(rig);
+
+        // Act
+        EventEntry[] log = rig.Run(rig.Player(slot), op);
+
+        // Assert
+        AssertRejected(rig, log, ReasonNamed(reason), before, slot);
+        Assert.Equal((p0, other0), Points(rig, slot));
+        Assert.Equal(counts, AllItemCounts(rig));
+        AssertWeightAndCountsMatchRecount(rig);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private static InvAutoPlaceRig NewRig(ContentSet? content = null) => new(content: content, joinPlayerB: true);
@@ -1220,6 +1488,111 @@ public class PickMoveTests
         Assert.True(placed > 0);
         Assert.True(rig.Header(rig.Intake).FreeCells > 0); // refused at the arena, not for room
         Assert.False(rig.Inventory.MailIds.CanReserve(1));
+    }
+
+    /// <summary>The slot's counted panel named <paramref name="panel"/> (<c>inventory</c>, <c>hotbar</c> or <c>cursor</c>).</summary>
+    private static ushort PanelOf(InvAutoPlaceRig rig, int slot, string panel) => panel switch
+    {
+        "inventory" => rig.InventoryOf(slot),
+        "hotbar" => rig.HotbarOf(slot),
+        "cursor" => rig.CursorOf(slot),
+        _ => throw new ArgumentOutOfRangeException(nameof(panel), panel, null),
+    };
+
+    /// <summary>Places <paramref name="units"/> of <paramref name="kind"/> (an item def, else a mail kind to #99 with ids from <paramref name="firstId"/>).</summary>
+    private static ushort PlaceKind(InvAutoPlaceRig rig, ushort container, string kind, int x, int y, byte units, uint firstId = 500)
+    {
+        bool isItem = false;
+        for (int i = 0; i < rig.Content.Items.Count; i++)
+        {
+            isItem |= rig.Content.Items[DefIndex.FromValue((ushort)i)].Id == kind;
+        }
+
+        return isItem
+            ? rig.PlaceItem(container, kind, x, y, units)
+            : rig.PlaceMail(container, kind, x, y, Address99, InvAutoPlaceRig.Ids(firstId, units));
+    }
+
+    /// <summary>D1's <c>classPts</c> of the entry's def, from the balance knobs (not from the module under test).</summary>
+    private static int ClassPts(InvAutoPlaceRig rig, ushort entry)
+    {
+        EntryRecord e = rig.Entries[entry];
+        WeightClass c = e.IsMail
+            ? rig.Content.MailKinds[DefIndex.FromValue(e.MailKind)].WeightClass
+            : rig.Content.Items[DefIndex.FromValue(e.ItemId)].WeightClass;
+        InventoryBalance k = rig.Content.Inventory;
+        return c switch
+        {
+            WeightClass.Light => k.WeightPointsLight,
+            WeightClass.Medium => k.WeightPointsMedium,
+            WeightClass.Heavy => k.WeightPointsHeavy,
+            _ => throw new InvalidOperationException($"entry {entry}: class {c}"),
+        };
+    }
+
+    /// <summary><see cref="IInventoryApi.WeightPoints"/> of <paramref name="slot"/> and of the other joined slot.</summary>
+    private static (int Actor, int Other) Points(InvAutoPlaceRig rig, int slot) =>
+        (rig.Inventory.WeightPoints(PlayerSlot.FromValue((byte)slot)), rig.Inventory.WeightPoints(PlayerSlot.FromValue((byte)(1 - slot))));
+
+    /// <summary><c>CountItem</c> of every item def in every live container, in table order.</summary>
+    private static int[] AllItemCounts(InvAutoPlaceRig rig)
+    {
+        ContainerTable containers = rig.Inventory.Containers;
+        var counts = new List<int>();
+        for (int s = 0; s < containers.LiveCount; s++)
+        {
+            for (int i = 0; i < rig.Content.Items.Count; i++)
+            {
+                counts.Add(rig.Inventory.CountItem(new[] { containers[(ushort)s].Id }, DefIndex.FromValue((ushort)i)));
+            }
+        }
+
+        return counts.ToArray();
+    }
+
+    /// <summary>
+    /// <see cref="IInventoryApi.WeightPoints"/> of every slot equals the brute-force recount (<see cref="WeightRecountPropertyTests.Recount"/>),
+    /// and <c>CountItem</c> of every item def equals the sum of the live entries' units, per container and over each joined slot's three
+    /// panels together.
+    /// </summary>
+    private static void AssertWeightAndCountsMatchRecount(InvAutoPlaceRig rig)
+    {
+        for (int s = 0; s < PlayerSlot.Count; s++)
+        {
+            Assert.Equal(WeightRecountPropertyTests.Recount(rig.Content, rig.Inventory, s), rig.Inventory.WeightPoints(PlayerSlot.FromValue((byte)s)));
+        }
+
+        ContainerTable containers = rig.Inventory.Containers;
+        for (int i = 0; i < rig.Content.Items.Count; i++)
+        {
+            DefIndex item = DefIndex.FromValue((ushort)i);
+            for (int s = 0; s < containers.LiveCount; s++)
+            {
+                Assert.Equal(RecountItem(rig, item, (ushort)s), rig.Inventory.CountItem(new[] { containers[(ushort)s].Id }, item));
+            }
+
+            for (int slot = 0; slot < 2; slot++)
+            {
+                ushort[] panels = { rig.InventoryOf(slot), rig.HotbarOf(slot), rig.CursorOf(slot) };
+                Assert.Equal(panels.Sum(p => RecountItem(rig, item, p)), rig.Inventory.CountItem(panels.Select(rig.IdOf).ToArray(), item));
+            }
+        }
+    }
+
+    /// <summary>The units of <paramref name="item"/> in container <paramref name="container"/>, by a walk over the entry pool.</summary>
+    private static int RecountItem(InvAutoPlaceRig rig, DefIndex item, ushort container)
+    {
+        int units = 0;
+        for (int s = 0; s < rig.Entries.Capacity; s++)
+        {
+            EntryRecord e = rig.Entries[(ushort)s];
+            if (e.IsLive && !e.IsMail && e.ContainerSlot == container && e.ItemId == item.Value)
+            {
+                units += e.Count;
+            }
+        }
+
+        return units;
     }
 
     private static InvReason ReasonNamed(string name) => name == "bad_request"
