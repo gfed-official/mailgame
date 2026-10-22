@@ -27,14 +27,14 @@ namespace PerformativeMail.Sim.Inventory.World;
 /// returns to the Intake whole (<c>InventorySystem</c>'s return: NoMerge, a new <c>arrivalSeq</c>, back of the outfeed queue; seal
 /// cause <c>Expired</c>); non-mail is destroyed with <c>ItemsLost{itemDef, count}</c>. Water floats are the same rule at 300 ticks.</item>
 /// <item><b>Cap</b> (<c>inventory.worldItemCap</c>, 512; a WorldItem counts once): a creation that takes the live count over the cap
-/// evicts once, in the creation's call scope: the <c>mailWorldItem</c> head if strictly more than <c>capEvictMinAgeSeconds</c> (300 ticks)
-/// old ("older than 10 s" is strictly greater, Mail Lead ruling 2026-10-21: a letter created at tick c qualifies from tick c + 301), returned to the
-/// Intake losslessly; otherwise the lower <c>(expiresTick, id)</c> of the two non-mail heads (<c>nonMailWorldItem</c>,
+/// evicts once, in the creation's call scope: the <c>mailWorldItem</c> head if at least <c>capEvictMinAgeSeconds</c> (300 ticks)
+/// old ("older than 10 s" means 10 s or more have elapsed, &gt;=; Evan's ruling 2026-10-21: a letter created at tick c qualifies from
+/// tick c + 300), returned to the Intake losslessly; otherwise the lower <c>(expiresTick, id)</c> of the two non-mail heads (<c>nonMailWorldItem</c>,
 /// <c>waterFloat</c> non-mail), destroyed with <c>ItemsLost</c>. The new item is never the candidate. If nothing qualifies the count
 /// stays over the cap: <see cref="CounterId.InventoryWorldItemCapExceeded"/> counts the creation, one
 /// <see cref="CheckCode.InventoryWorldItemCapExceeded"/> record is written when the count first goes over (latched until it is back at
 /// or under the cap; the repo's always-on counter + check-record convention for runtime warnings), and each <c>ItemsExpire</c> re-runs
-/// the eviction while over, so the first item to qualify (e.g. the first young letter to pass 10 s) is evicted on that tick.
+/// the eviction while over, so the first item to qualify (e.g. the first young letter to reach 10 s) is evicted on that tick.
 /// <see cref="CounterId.InventoryWorldItemCapCandidates"/> counts the eviction path's candidate visits (see <see cref="ExpiryFifos"/>).</item>
 /// <item><b>Interim rule until story 021 (backlog):</b> when the Intake cannot take a returning mail entry (full, or not accepting),
 /// the mail WorldItem is <b>not</b> removed and nothing is lost: on expiry it stays at its FIFO head (the FIFO is skipped for the rest
@@ -413,7 +413,7 @@ internal sealed class WorldItems
     private bool TryEvictOne(uint now, ushort exclude)
     {
         if (_fifos.TryPeekHead(ExpiryFifo.MailWorldItem, _table, countVisits: true, out ushort mail) && mail != exclude
-            && now - _table[mail].CreatedTick > _minAgeTicks && TryReturnMail(mail, ExpiryFifo.MailWorldItem, now))
+            && now - _table[mail].CreatedTick >= _minAgeTicks && TryReturnMail(mail, ExpiryFifo.MailWorldItem, now))
         {
             return true; // lossless: back of the Intake queue
         }

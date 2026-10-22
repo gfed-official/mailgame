@@ -163,21 +163,21 @@ internal sealed class GridChecks
 
     /// <summary>
     /// CV-GRD-06, stage 5 (Warning): no mail is ever cap-evictable. A mail WorldItem created at tick c expires (phase 1, before any
-    /// eviction that tick) at c + despawn ticks and qualifies for cap eviction strictly after the min age, from c + minAge + 1 ticks;
-    /// so it warns when <c>minAge + 1 &gt;= despawn</c>, both in ticks converted as <c>WorldItems</c> does (see <see cref="MsToTicks"/>).
+    /// eviction that tick) at c + despawn ticks and qualifies for cap eviction from c + minAge ticks (age at least the min age, &gt;=);
+    /// so a window exists iff <c>minAge &lt; despawn</c>, and it warns when <c>minAge &gt;= despawn</c>, both in ticks converted as <c>WorldItems</c> does (see <see cref="MsToTicks"/>).
     /// </summary>
     internal void CheckEvictAgeBelowDespawn(ContentValidationInput input, RuleContext ctx)
     {
         InventoryBalance inventory = input.Candidate.Inventory;
         long minAge = MsToTicks(inventory.CapEvictMinAgeSeconds);
         long despawn = MsToTicks(inventory.WorldItemDespawnSeconds);
-        if (minAge + 1 >= despawn)
+        if (minAge >= despawn)
         {
             ctx.Report(
                 DefRef.None, SourceLocation.BuiltIn("builtin/balance/inventory"),
                 "inventory.capEvictMinAgeSeconds " + Num(inventory.CapEvictMinAgeSeconds) + " ms (" + Num(minAge) + " ticks), inventory.worldItemDespawnSeconds "
                     + Num(inventory.WorldItemDespawnSeconds) + " ms (" + Num(despawn) + " ticks)",
-                "inventory.capEvictMinAgeSeconds at least 2 ticks below inventory.worldItemDespawnSeconds");
+                "inventory.capEvictMinAgeSeconds below inventory.worldItemDespawnSeconds (in ticks)");
         }
     }
 

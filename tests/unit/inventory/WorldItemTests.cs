@@ -604,7 +604,7 @@ public class WorldItemTests
 
     [Fact]
     [Trait("Id", "H-R12-3")]
-    public void HR123_512YoungMail_A513thLands_NothingEvicted_Count513_CapExceededLogged_TheFirstToAgePast10sIsEvictedThatTick()
+    public void HR123_512YoungMail_A513thLands_NothingEvicted_Count513_CapExceededLogged_TheFirstToReach10sIsEvictedThatTick()
     {
         // Arrange: 512 letters, 2 per tick at ticks 1000..1255 (all younger than 10 s at 1256)
         var w = new WorldItemRig();
@@ -626,15 +626,15 @@ public class WorldItemTests
         Assert.Equal(513, record.A);
         Assert.Equal(512, record.B);
 
-        // Act 2: AdvanceTo(1301) runs tick 1300, where the head letters (created at 1000) are exactly 300 ticks old: not a cap
-        // candidate (age must be strictly greater than 300, Mail Lead ruling 2026-10-21) and no non-mail exists, so the count stays
-        // 513; then tick 1301, age 301: evicted to the Intake. This pins the boundary (age 300 not, 301 yes) exactly.
-        w.AdvanceTo(1301);
-        int at1300 = w.World.LiveCount;
-        EventEntry[] log = w.RunTick(1301);
+        // Act 2: AdvanceTo(1300) runs tick 1299, where the head letters (created at 1000) are 299 ticks old: not a cap candidate
+        // and no non-mail exists, so the count stays 513; then tick 1300, age 300: evicted to the Intake (the min age is 300 ticks
+        // or more, >=, Evan's ruling 2026-10-21 9:16 PM PT). This pins the boundary (age 299 not, 300 yes) exactly.
+        w.AdvanceTo(1300);
+        int at1299 = w.World.LiveCount;
+        EventEntry[] log = w.RunTick(1300);
 
-        // Assert 2: the re-check on 1301 evicts exactly the first one (lowest id) to the Intake; the 513th stays
-        Assert.Equal(513, at1300);
+        // Assert 2: the re-check on 1300 evicts exactly the first one (lowest id) to the Intake; the 513th stays
+        Assert.Equal(513, at1299);
         Assert.Equal(512, w.World.LiveCount);
         Assert.Equal(young[0].Value, Assert.Single(Heads(log, InvEventKinds.WorldItemDespawned)).PayloadAs<WorldItemDespawnedPayload>().WorldItemId);
         Assert.True(w.World.Table.TryGetSlot(young[1], out _));

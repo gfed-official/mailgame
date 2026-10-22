@@ -385,18 +385,29 @@ public class GridMailRulesTests
     [Theory]
     [Trait("Id", "CDD-VAL-1")]
     [InlineData(300_001, 1)]
-    [InlineData(300_000, 1)]
-    [InlineData(299_999, 1)] // 8999 ticks: eligible from c + 9000, the tick it expires (phase 1 first)
-    [InlineData(299_967, 1)] // 8999 ticks: the smallest that warns
-    [InlineData(299_966, 0)] // 8998 ticks: evictable at c + 8999, the largest that does not warn
+    [InlineData(300_000, 1)] // 9000 ticks, equal to the despawn: eligible from c + 9000, the tick it expires (phase 1 first)
+    [InlineData(299_999, 0)] // 8999 ticks: evictable at c + 8999, the largest that does not warn
+    [InlineData(299_967, 0)] // 8999 ticks: the smallest ms with 8999 ticks
     [InlineData(10_000, 0)]
-    public void Grd06_NoEvictionWindow_MinAgeTicksPlus1AtOrAboveTheDespawnTicks_Warns(int evictMs, int warnings)
+    public void Grd06_NoEvictionWindow_MinAgeTicksAtOrAboveTheDespawnTicks_Warns(int evictMs, int warnings)
     {
         ValidationResult r = Run(ContentFixtures.MinimalValid().WithBalance("inventory.capEvictMinAgeSeconds", evictMs));
 
         Assert.Equal(warnings, Of(r, GridRuleIds.EvictAgeAtOrAboveDespawn).Length);
         Assert.Equal(0, r.ErrorCount);
         Assert.True(r.CanBuild);
+    }
+
+    [Fact]
+    [Trait("Id", "CDD-VAL-1")]
+    public void Grd06_ComparesTicksNotMs_AMinAgeBelowTheDespawnInMsButEqualInTicks_Warns()
+    {
+        // 300 010 ms and 300 020 ms both round down to 9000 ticks: below in ms, equal in ticks, so no eviction window
+        ValidationResult r = Run(ContentFixtures.MinimalValid()
+            .WithBalance("inventory.worldItemDespawnSeconds", 300_020).WithBalance("inventory.capEvictMinAgeSeconds", 300_010));
+
+        Assert.Single(Of(r, GridRuleIds.EvictAgeAtOrAboveDespawn));
+        Assert.Equal(0, r.ErrorCount);
     }
 
     [Fact]
