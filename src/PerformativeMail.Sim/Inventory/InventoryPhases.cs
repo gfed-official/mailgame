@@ -34,11 +34,3 @@ internal sealed class IntakeDrainPhase : ISimPhase
 
     public void Run(in TickContext ctx) => _system.DrainBacklog();
 }
-
-/// <summary>Grid Inventory's conservation check (ADR-0009). A no-op stub; story 017 gives it a body.</summary>
-internal sealed class InventoryConservationCheck : ITickEndCheck
-{
-    public void Check(uint tick)
-    {
-    }
-}

@@ -199,6 +199,7 @@ public class InventoryApiTests
         ContainerId inventoryA = rig.Inventory.PlayerInventoryOf(PlayerSlot.FromValue(0));
         EntryId id = rig.Entries[planks].Id;
         rig.Entries[planks].Count = 0;
+        rig.Recount(); // story 017: arranged outside the mutator
         uint version = rig.Header(rig.InventoryA).Version;
 
         // Act

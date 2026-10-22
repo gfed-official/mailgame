@@ -260,4 +260,7 @@ public static class SimAssertCode
 
     /// <summary><c>IInventoryApi.TryCatch</c>'s commit got <c>EntityId.None</c> from the fumble's <c>WorldItems.Create</c> (story grid-inventory/014). Unreachable: Validate proved a WorldItem creatable (<c>WorldItems.CanCreate</c>), the entry live, detached and unowned, and <c>createdTick</c> is now. Release leaves the entry live and detached (no unit destroyed) and the result unchanged. <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryCatchFumbleNotCreated = 83;
+
+    /// <summary>The <c>INVENTORY_ASSERT</c> conservation scan (story grid-inventory/017; ADR-0009 section 6), run from the tick-end check every tick, found the storage disagreeing with the ledger: a live state's recount from the entry pool, WorldItems and the backlog differs from its counter, a detached entry's holder state differs from where it is held, or a mailId is held twice (the check's <c>ScanFinding</c> names it). Unreachable while every unit crosses through <c>InventoryMutator</c>. Release does not scan; its Σ and negative-counter checks still record (Mail Lead planning default pending Evan, TD-160 item 6). <c>INVENTORY_ASSERT</c>.</summary>
+    public const ushort InventoryConservationScan = 84;
 }

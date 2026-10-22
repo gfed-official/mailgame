@@ -24,7 +24,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// them. Container dimensions are instance state: the def's width and <c>IStatSheet.Read(InventoryRows)</c> rows.
 /// <para>
 /// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the
-/// <c>IntakeDrain</c> phase (the backlog drain, story 021: <see cref="DrainBacklog"/>), a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
+/// <c>IntakeDrain</c> phase (the backlog drain, story 021: <see cref="DrainBacklog"/>), the tick-end conservation check (story 017: <see cref="ConservationCheck"/>), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
 /// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>), <c>Merge</c> (story 008),
 /// <c>QuickMove</c> and <c>Return</c> (story 010; <see cref="QuickMoveHandler"/>, <see cref="ReturnHandler"/>) and <c>Close</c> (story
 /// 011); the other kinds' handlers are story 019's. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
@@ -113,6 +113,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly InvRequestCheck _requestCheck;
     private readonly ContainerSubscribers _subscribers;
     private readonly InventoryMutator _mutator;
+    private readonly InventoryConservationCheck _conservation;
     private readonly AutoPlace _autoPlace;
     private readonly EventLogFacade _events;
     private readonly ITickReader _tick;
@@ -258,6 +259,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         }
 
         _ = _containers.TryGetSlot(_intake, out _intakeSlot);
+
+        // Story 017: the tick-end conservation check over the ledger (its INVENTORY_ASSERT scan reads this module's storage).
+        _conservation = new InventoryConservationCheck(ledger, this, checkRing, facade.Counters);
     }
 
     /// <summary>The settings the tables were allocated from.</summary>
@@ -289,6 +293,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <summary>The conservation ledger (story 017), written only by the <see cref="Mutator"/>.</summary>
     internal UnitLedger Ledger => _mutator.Ledger;
+
+    /// <summary>The tick-end conservation check over <see cref="Ledger"/> (story 017), bound by <see cref="Bind"/>.</summary>
+    internal InventoryConservationCheck ConservationCheck => _conservation;
 
     /// <summary>AutoPlace (story 009): the shared placement passes of quick_move, spawn, return, inserter, belt, pickup, catch and grant.</summary>
     internal AutoPlace AutoPlace => _autoPlace;
@@ -413,8 +420,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <summary>
-    /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the <c>IntakeDrain</c> phase (story 021), the stub
-    /// conservation check, the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
+    /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the <c>IntakeDrain</c> phase (story 021), the
+    /// conservation check (story 017), the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
     /// <see cref="InvOpDescriptors.Pick"/> and <see cref="InvOpDescriptors.Move"/> handlers (story 007), the
     /// <see cref="InvOpDescriptors.Merge"/> handler (story 008), the <see cref="InvOpDescriptors.QuickMove"/> and
     /// <see cref="InvOpDescriptors.Return"/> handlers (story 010) and the <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds no
@@ -428,7 +435,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         ArgumentNullException.ThrowIfNull(builder);
         builder.Bind(PhaseId.ItemsExpire, new ItemsExpirePhase(_worldItems));
         builder.Bind(PhaseId.IntakeDrain, new IntakeDrainPhase(this));
-        builder.BindTickEnd(new InventoryConservationCheck());
+        builder.BindTickEnd(_conservation);
         builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems, _backlog, _entries));
         builder.BindPlayerJoinListener(this);
         foreach (EventDescriptor descriptor in InvEventDescriptors.All)

@@ -365,6 +365,299 @@ public sealed class UnitLedgerTests
         Granted = 11,
     }
 
+    // ---------------------------------------------------------------- tick-end check
+
+    [Fact]
+    public void Ids_CheckCode15_CounterId51_SimAssertCode84_ArePinned()
+    {
+        // Arrange / Act / Assert: append-only values (story 017; next free CheckCode 16)
+        Assert.Equal(15, (int)CheckCode.InventoryConservationMismatch);
+        Assert.Equal(51, (int)CounterId.InventoryConservationMismatches);
+        Assert.Equal(84, SimAssertCode.InventoryConservationScan);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R19-2")]
+    public void Check_ABalancedWorldDrivenThroughCrossings_WritesNoRecord_AndCountsNoMismatch()
+    {
+        // Arrange: spawns, a placed stack, a pick onto the cursor and a throw, each tick ending in the check
+        var rig = new InvAutoPlaceRig();
+        DefIndex letter = rig.KindIndex("letter");
+        _ = rig.InPhaseSpawn(letter, 1, 2, 3);
+        ushort planks = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 6);
+        ushort letters = rig.PlaceMail(rig.HotbarA, "letter", 0, 0, Address4, InvAutoPlaceRig.Ids(40, 4));
+        Ok(rig, rig.PlayerA, PickOp(rig, rig.InventoryA, planks));
+
+        // Act
+        DetachResult thrown = InPhase(rig, () => rig.Inventory.DetachForThrow(PlayerSlot.FromValue(0), rig.Entries[letters].Id, 4));
+        rig.Host.World.Tick();
+
+        // Assert
+        Assert.Equal(4, thrown.Units);
+        Assert.Equal((byte)LedgerState.Flight, rig.Inventory.Ledger.HolderOf(letters));
+        Assert.Equal(0, CheckRecords(rig));
+        Assert.Equal(0, rig.Counters[CounterId.InventoryConservationMismatches]);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R19-2")]
+    public void Check_ACorruptedSpawned_WritesOneRecordPerRow_ACountsEveryTick_AndTheTickCompletes_InEveryBuild()
+    {
+        // Arrange: a recounted world; the mail row's spawned +3 and the plank row's spawned -2 (the seam touches only spawned, which
+        // only the Σ check reads, so the INVENTORY_ASSERT scan does not trip in Debug)
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 6);
+        _ = rig.InPhaseSpawn(rig.KindIndex("letter"), 1, 2);
+        int plank = 1 + rig.ItemIndex("plank").Value;
+        UnitLedger ledger = rig.Inventory.Ledger;
+        ledger.CorruptSpawnedForTests(UnitLedger.MailRow, 3);
+        ledger.CorruptSpawnedForTests(plank, -2);
+        long before = rig.Counters[CounterId.InventoryConservationMismatches];
+
+        // Act: two ticks, inside the ring's 30-tick per-code window
+        rig.Host.World.Tick();
+        rig.Host.World.Tick();
+
+        // Assert: one record (the first finding; the rest suppressed by the rate limit), a = row, b = Σ live − expected; the counter
+        // counts all four findings
+        SimCheckRecord[] records = Records(rig, CheckCode.InventoryConservationMismatch);
+        SimCheckRecord only = Assert.Single(records);
+        Assert.Equal(UnitLedger.MailRow, only.A);
+        Assert.Equal(-3, only.B);
+        Assert.Equal(4, rig.Counters[CounterId.InventoryConservationMismatches] - before);
+    }
+
+    [Fact]
+    public void Check_DirectlyOnACorruptedItemRow_RecordsTheRowAndTheDelta()
+    {
+        // Arrange
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 6);
+        int plank = 1 + rig.ItemIndex("plank").Value;
+        rig.Inventory.Ledger.CorruptSpawnedForTests(plank, -2);
+
+        // Act
+        rig.Inventory.ConservationCheck.Check(rig.Host.World.CurrentTick);
+
+        // Assert
+        SimCheckRecord only = Assert.Single(Records(rig, CheckCode.InventoryConservationMismatch));
+        Assert.Equal(plank, only.A);
+        Assert.Equal(2, only.B);
+        Assert.Equal(1, rig.Counters[CounterId.InventoryConservationMismatches]);
+    }
+
+    [Fact]
+    [Trait("Id", "H-R19-2")]
+    public void Check_ANegativeBeltFromAnInsertNeverTaken_RecordsTheStateInBits24To31AndTheValue_InEveryBuild()
+    {
+        // Arrange: a fresh letter no entry holds and no TakeUnit took (TryInsert crosses Belt -1, Placed +1: Σ holds, Belt is -1)
+        var rig = new InvAutoPlaceRig();
+        var unit = new UnitRef(new MailId(7_000), default, rig.KindIndex("letter"), Address4, 0);
+
+        // Act
+        bool inserted = InPhase(rig, () => rig.Inventory.TryInsert(rig.IdOf(rig.InventoryA), in unit, rig.PlayerA));
+
+        // Assert: a = mail row | (Belt ordinal + 1) << 24, b = the counter
+        Assert.True(inserted);
+        SimCheckRecord only = Assert.Single(Records(rig, CheckCode.InventoryConservationMismatch));
+        Assert.Equal(((long)LedgerState.Belt + 1) << 24, only.A);
+        Assert.Equal(-1, only.B);
+        Assert.Equal(1, rig.Counters[CounterId.InventoryConservationMismatches]);
+    }
+
+    // ---------------------------------------------------------------- duplicate TryInsert (TD-145, narrowed)
+
+    [Fact]
+    public void DuplicateTryInsert_Release_ShowsANegativeBeltRecord_AndTheTickCompletes()
+    {
+        Assert.SkipWhen(TestBuildExpectation.SimAssertsExpected, "Release only: an INVENTORY_ASSERT build's scan asserts (its Debug twin).");
+
+        // Arrange: letter 400 is in A's inventory; a belt re-inserts it without having taken it
+        var rig = new InvAutoPlaceRig();
+        (ushort _, UnitRef dup) = ArrangeDuplicateInsert(rig);
+
+        // Act
+        bool inserted = InPhase(rig, () => rig.Inventory.TryInsert(rig.IdOf(rig.HotbarA), in dup, rig.PlayerA));
+
+        // Assert
+        Assert.True(inserted);
+        SimCheckRecord only = Assert.Single(Records(rig, CheckCode.InventoryConservationMismatch));
+        Assert.Equal(((long)LedgerState.Belt + 1) << 24, only.A);
+        Assert.Equal(-1, only.B);
+        Assert.Equal(ScanFindingKind.None, rig.Inventory.ConservationCheck.ScanFinding.Kind); // no scan in Release
+    }
+
+    [Fact]
+    public void DuplicateTryInsert_Debug_TheScanNamesTheDuplicatedMailId_AfterTheNegativeBeltRecord()
+    {
+        Assert.SkipUnless(TestBuildExpectation.SimAssertsExpected, "INVENTORY_ASSERT is compiled out of this build (its Release twin runs).");
+
+        // Arrange
+        var rig = new InvAutoPlaceRig();
+        (ushort _, UnitRef dup) = ArrangeDuplicateInsert(rig);
+
+        // Act: the check runs at the end of the insert's tick
+        SimAssertException thrown = Assert.Throws<SimAssertException>(
+            () => InPhase(rig, () => rig.Inventory.TryInsert(rig.IdOf(rig.HotbarA), in dup, rig.PlayerA)));
+
+        // Assert
+        Assert.Equal(SimAssertCode.InventoryConservationScan, thrown.Code);
+        ScanFindingRecord finding = rig.Inventory.ConservationCheck.ScanFinding;
+        Assert.Equal(ScanFindingKind.DuplicateMailId, finding.Kind);
+        Assert.Equal(400, finding.A);
+        SimCheckRecord only = Assert.Single(Records(rig, CheckCode.InventoryConservationMismatch));
+        Assert.Equal(((long)LedgerState.Belt + 1) << 24, only.A);
+    }
+
+    // ---------------------------------------------------------------- INVENTORY_ASSERT scan
+
+    [Fact]
+    public void Scan_Debug_ASeededLostUnit_AssertsWithTheRowAndState()
+    {
+        Assert.SkipUnless(TestBuildExpectation.SimAssertsExpected, "INVENTORY_ASSERT is compiled out of this build (its Release twin runs).");
+
+        // Arrange: 6 planks placed through the mutator, then one unit lost outside it (the ledger still says 6)
+        var rig = new InvAutoPlaceRig();
+        ushort planks = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 6);
+        int plank = 1 + rig.ItemIndex("plank").Value;
+        rig.Entries.SetCount(planks, 5);
+
+        // Act
+        SimAssertException thrown = Assert.Throws<SimAssertException>(() => rig.Inventory.ConservationCheck.Check(rig.Host.World.CurrentTick));
+
+        // Assert: the Σ check saw nothing (the ledger is self-consistent); the scan's recount did
+        Assert.Equal(SimAssertCode.InventoryConservationScan, thrown.Code);
+        ScanFindingRecord finding = rig.Inventory.ConservationCheck.ScanFinding;
+        Assert.Equal(ScanFindingKind.Recount, finding.Kind);
+        Assert.Equal(plank, finding.A);
+        Assert.Equal((long)LedgerState.Placed, finding.B);
+        Assert.Empty(Records(rig, CheckCode.InventoryConservationMismatch));
+    }
+
+    [Fact]
+    public void Scan_Release_ASeededLostUnit_IsNotScanned_TheTickCompletes_AndNothingIsRecorded()
+    {
+        Assert.SkipWhen(TestBuildExpectation.SimAssertsExpected, "Release only: an INVENTORY_ASSERT build's scan asserts (its Debug twin).");
+
+        // Arrange
+        var rig = new InvAutoPlaceRig();
+        ushort planks = rig.PlaceItem(rig.InventoryA, "plank", 0, 0, 6);
+        rig.Entries.SetCount(planks, 5);
+
+        // Act
+        rig.Host.World.Tick();
+
+        // Assert
+        Assert.Equal(ScanFindingKind.None, rig.Inventory.ConservationCheck.ScanFinding.Kind);
+        Assert.Empty(Records(rig, CheckCode.InventoryConservationMismatch));
+    }
+
+    [Fact]
+    public void Scan_Debug_ASeededDuplicatedMailId_AssertsThroughTheTick_AndNamesTheId()
+    {
+        Assert.SkipUnless(TestBuildExpectation.SimAssertsExpected, "INVENTORY_ASSERT is compiled out of this build (its Release twin runs).");
+
+        // Arrange: letter 900 held by two entries (arranged outside the mutator, then recounted, so every counter agrees)
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 899, 900 });
+
+        // Act: the second placement's tick ends in the check
+        SimAssertException thrown = Assert.Throws<SimAssertException>(
+            () => rig.PlaceMail(rig.HotbarA, "letter", 0, 0, Address4, new uint[] { 900, 901 }));
+
+        // Assert
+        Assert.Equal(SimAssertCode.InventoryConservationScan, thrown.Code);
+        ScanFindingRecord finding = rig.Inventory.ConservationCheck.ScanFinding;
+        Assert.Equal(ScanFindingKind.DuplicateMailId, finding.Kind);
+        Assert.Equal(900, finding.A);
+    }
+
+    [Fact]
+    public void Scan_Release_ASeededDuplicatedMailId_IsNotScanned_AndTheTickCompletes()
+    {
+        Assert.SkipWhen(TestBuildExpectation.SimAssertsExpected, "Release only: an INVENTORY_ASSERT build's scan asserts (its Debug twin).");
+
+        // Arrange
+        var rig = new InvAutoPlaceRig();
+        _ = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 899, 900 });
+
+        // Act
+        _ = rig.PlaceMail(rig.HotbarA, "letter", 0, 0, Address4, new uint[] { 900, 901 });
+
+        // Assert
+        Assert.Equal(ScanFindingKind.None, rig.Inventory.ConservationCheck.ScanFinding.Kind);
+        Assert.Empty(Records(rig, CheckCode.InventoryConservationMismatch));
+    }
+
+    [Fact]
+    public void Scan_Debug_ADetachedEntryWhoseHolderIsNotWhereItIsHeld_Asserts_AndAnUnheldDetachedEntryDoesNot()
+    {
+        Assert.SkipUnless(TestBuildExpectation.SimAssertsExpected, "INVENTORY_ASSERT is compiled out of this build (its Release twin runs).");
+
+        // Arrange: a recounted flying entry (holder Flight), then one in no holder state (its caller's), then a holder byte that names
+        // World for an entry no WorldItem holds
+        var rig = new InvAutoPlaceRig();
+        ushort flying = rig.DetachedMail("letter", Address4, InvAutoPlaceRig.Ids(30, 2));
+        rig.Inventory.ConservationCheck.Check(rig.Host.World.CurrentTick);
+        rig.Inventory.Mutator.LeaveHolder(flying, 2);
+        rig.Inventory.ConservationCheck.Check(rig.Host.World.CurrentTick); // in no state: not counted, no scan finding (Σ records it)
+        rig.Inventory.Mutator.EnterHolder(LedgerState.Flight, flying);
+        rig.Inventory.Ledger.SetHolder(flying, (byte)LedgerState.World);
+
+        // Act
+        SimAssertException thrown = Assert.Throws<SimAssertException>(() => rig.Inventory.ConservationCheck.Check(rig.Host.World.CurrentTick));
+
+        // Assert
+        Assert.Equal(SimAssertCode.InventoryConservationScan, thrown.Code);
+        ScanFindingRecord finding = rig.Inventory.ConservationCheck.ScanFinding;
+        Assert.Equal(ScanFindingKind.Holder, finding.Kind);
+        Assert.Equal(flying, finding.A);
+        Assert.Equal((long)LedgerState.Flight, finding.B);
+    }
+
+    [Fact]
+    public void Scan_Release_AHolderMismatch_IsNotScanned()
+    {
+        Assert.SkipWhen(TestBuildExpectation.SimAssertsExpected, "Release only: an INVENTORY_ASSERT build's scan asserts (its Debug twin).");
+
+        // Arrange
+        var rig = new InvAutoPlaceRig();
+        ushort flying = rig.DetachedMail("letter", Address4, InvAutoPlaceRig.Ids(30, 2));
+        rig.Inventory.Ledger.SetHolder(flying, (byte)LedgerState.World);
+
+        // Act
+        rig.Inventory.ConservationCheck.Check(rig.Host.World.CurrentTick);
+
+        // Assert
+        Assert.Equal(ScanFindingKind.None, rig.Inventory.ConservationCheck.ScanFinding.Kind);
+    }
+
+    /// <summary>Letter 400 placed in A's inventory and a <see cref="UnitRef"/> naming it again that no <c>TakeUnit</c> took.</summary>
+    private static (ushort Entry, UnitRef Unit) ArrangeDuplicateInsert(InvAutoPlaceRig rig)
+    {
+        ushort held = rig.PlaceMail(rig.InventoryA, "letter", 0, 0, Address4, new uint[] { 400 });
+        return (held, new UnitRef(new MailId(400), default, rig.KindIndex("letter"), Address4, 0));
+    }
+
+    /// <summary>The check-ring records of <paramref name="code"/>, oldest first.</summary>
+    private static SimCheckRecord[] Records(InvAutoPlaceRig rig, CheckCode code)
+    {
+        SimCheckRing ring = rig.Host.World.CheckRing;
+        var found = new List<SimCheckRecord>();
+        for (int i = 0; i < ring.Count; i++)
+        {
+            if (ring[i].Check == code)
+            {
+                found.Add(ring[i]);
+            }
+        }
+
+        return found.ToArray();
+    }
+
+    /// <summary>The conservation records written so far.</summary>
+    private static int CheckRecords(InvAutoPlaceRig rig) => Records(rig, CheckCode.InventoryConservationMismatch).Length;
+
     private static T InPhase<T>(InvAutoPlaceRig rig, Func<T> call) => IntakeSpawnOutfeedTests.InPhase(rig, call);
 
     private static void Ok(InvAutoPlaceRig rig, ActorId actor, Op op) => MoveSplitMergeTests.AssertOk(rig.Run(actor, in op));

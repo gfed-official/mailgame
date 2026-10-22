@@ -52,4 +52,7 @@ public enum CheckCode : ushort
 
     /// <summary>Grid Inventory: a WorldItem could not be created because the WorldItem table (<c>inventory.worldItemCapacity</c>) is full (story grid-inventory/013); the entry stays with the caller. a = table capacity, b = live count.</summary>
     InventoryWorldItemCapacity = 14,
+
+    /// <summary>Grid Inventory: the tick-end conservation check found a ledger row out of balance (story grid-inventory/017; ADR-0009 section 6; GDD R19). a = the ledger row (0 = mail, itemId + 1 for an item) with, for a negative live counter, the state ordinal + 1 (<c>LedgerState</c>) in bits 24-31 (0 for the Σ check); b = Σ live − (spawned + granted − consumed − destroyed), or the negative counter's value. One record per finding, subject to the ring's per-code rate limit; <c>CounterId.InventoryConservationMismatches</c> counts every finding (Mail Lead planning default pending Evan, TD-160 item 5).</summary>
+    InventoryConservationMismatch = 15,
 }
