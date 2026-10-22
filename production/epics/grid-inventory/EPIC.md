@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 10 Complete, 13 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 11 Complete, 12 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-22 from the story headers) — see the Stories table below
 
 ## Overview
 
@@ -129,7 +129,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 013 | [WorldItem entity, absolute-tick expiry FIFOs, water float, cap eviction and tombstones](story-013-worlditem-expiry-cap.md) | Logic | Complete | ADR-0009, ADR-0004, ADR-0003 |
 | 014 | [Pickup core (AutoPlace by the R9 pickup rows) and the TryCatch API with fumble](story-014-pickup-core-trycatch.md) | Logic | Ready | ADR-0009 |
 | 015 | [IInventoryApi hooks for feature epics — ConsumeUnit, DetachForThrow, TryInsert, CountItem](story-015-inventory-api-feature-hooks.md) | Logic | Complete | ADR-0009, ADR-0003 |
-| 016 | [Weight → speed (R16, D1): weightPoints and speedPermille](story-016-weight-speed.md) | Logic | Ready | ADR-0006, ADR-0009, ADR-0010 |
+| 016 | [Weight → speed (R16, D1): weightPoints and speedPermille](story-016-weight-speed.md) | Logic | Complete | ADR-0006, ADR-0009, ADR-0010 |
 | 017 | [UnitLedger conservation counters, tick-end check, INVENTORY_ASSERT full scan and the canonical dump section](story-017-unitledger-conservation.md) | Logic | Ready | ADR-0009, ADR-0006, ADR-0003 |
 | 018 | [Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world determinism](story-018-conservation-fuzz-determinism.md) | Integration | Ready | ADR-0006, ADR-0009 |
 | 019 | [Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 range)](story-019-range-gated-open-pickup-leash.md) | Logic | Ready | ADR-0014, ADR-0009, ADR-0013 |
@@ -161,4 +161,4 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–006, 009, 012, 013 and 015 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26; 015 in PR #27, open, not merged). Next: 016 → 017, and 011 (013 also unblocks 020, and 014 once 010 is Complete). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–006, 009, 012, 013, 015 and 016 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27; 016 in PR #29, open, not merged). Next: 011; 017 waits on 014 (Ready, unbuilt) (013 also unblocks 020, and 014 once 010 is Complete). Stories 019–021 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
