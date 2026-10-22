@@ -256,5 +256,5 @@ public static class SimAssertCode
     public const ushort InventoryPickupNotAdmitted = 81;
 
     /// <summary><c>IInventoryApi.TryCatch</c>'s commit got <c>EntityId.None</c> from the fumble's <c>WorldItems.Create</c> (story grid-inventory/014). Unreachable: Validate proved a WorldItem creatable (<c>WorldItems.CanCreate</c>), the entry live, detached and unowned, and <c>createdTick</c> is now. Release leaves the entry live and detached (no unit destroyed) and the result unchanged. <c>INVENTORY_ASSERT</c>.</summary>
-    public const ushort InventoryCatchFumbleNotCreated = 82;
+    public const ushort InventoryCatchFumbleNotCreated = 83;
 }
