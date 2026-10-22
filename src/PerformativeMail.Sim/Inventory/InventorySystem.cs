@@ -31,7 +31,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// <para>
 /// It implements and publishes <see cref="IInventoryApi"/> (story 012; ADR-0009 Key Interfaces as implemented, ADR-0003 section 5) for
 /// the systems that declare Grid Inventory a dependency in <c>SystemGraph</c> (<c>context.Api&lt;IInventoryApi&gt;(SystemId.GridInventory)</c>):
-/// <see cref="Spawn"/>, <see cref="PeekOutfeed"/>, <see cref="TakeUnit"/> and <see cref="CreateWorldItem"/> (story 013), plus the
+/// <see cref="Spawn"/>, <see cref="PeekOutfeed"/>, <see cref="TakeUnit"/>, <see cref="CreateWorldItem"/> (story 013),
+/// <see cref="ConsumeUnit"/>, <see cref="DetachForThrow"/>, <see cref="TryInsert"/> and <see cref="CountItem"/> (story 015), plus the
 /// internal <see cref="ReturnToIntake"/> (callers story 013 and the backlog, story 021). The mutating calls check the tick guard (<see cref="TickGuard"/>, through the injected
 /// <see cref="ITickReader"/>) and run through the same <see cref="Mutator"/> as the op handlers, each in its own call scope and
 /// <c>Begin</c>/<c>End</c> bracket. They allocate nothing and never throw on the tick path.
@@ -56,6 +57,10 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         public ContainerId Hotbar;
         public ContainerId PlayerInventory;
         public ContainerId Cursor;
+
+        // The slot's player entity at its latest PlayerJoin: DetachForThrow's seal actor. Derived from the join ops (Sim Core's slot
+        // table holds it too), so it is not in the canonical dump; the load path must rebuild the whole struct (TD-146).
+        public EntityId Player;
     }
 
     private const int PanelContainerCount = 3;
@@ -172,7 +177,10 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         // Story 012: the outfeed FIFO memo; its node pool is 2 x the entry pool (InventorySettings.OutfeedNodeCapacity).
         var outfeed = new OutfeedFifo(settings.OutfeedNodeCapacity, settings.ContainerCapacity, _entries, facade.Counters);
-        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), noFit, outfeed, slots);
+
+        // Story 015: the itemId -> units index CountItem reads (keys sized from the entry pool), maintained by the mutator's primitives.
+        var itemCounts = new ItemCountIndex(_entries.Capacity, _containers.Capacity, facade.Counters);
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, slots);
         _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
 
         // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
@@ -453,6 +461,217 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The tick guard, then the ref's checks (a live container, a live entry whose <c>ContainerSlot</c> is that container, a count of at
+    /// least 1, a defined reason), then <see cref="InventoryMutator.TakeOldest"/> of 1 in one call scope and one bracket with cause
+    /// <see cref="InvCause.Consumed"/>, so the records, the seal and the last-unit removal are <c>TakeOldest</c>'s (story 012).
+    /// </remarks>
+    public bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor)
+    {
+        if (!TickGuard.IsMutable(_tick, _events.Counters) || reason > ConsumeReason.ReturnedToSender
+            || !_containers.TryGetSlot(entry.Container, out ushort slot) || !_entries.TryGetSlot(entry.Entry, out ushort entrySlot))
+        {
+            return false;
+        }
+
+        ref EntryRecord e = ref _entries[entrySlot];
+        if (e.ContainerSlot != slot || e.Count < 1)
+        {
+            return false; // stale ref (the entry moved, or is detached) or an empty entry: nothing mutated, no event
+        }
+
+        Span<uint> taken = stackalloc uint[1];
+        var plan = new InvPlan();
+        _ = plan.Touch(slot);
+        var extra = new InvReplyExtra();
+        int took;
+        using (EventCallScope scope = _events.BeginCall())
+        {
+            _mutator.Begin(ref plan, actor, InvCause.Consumed);
+            took = _mutator.TakeOldest(ref plan, entrySlot, 1, taken);
+            _mutator.End(ref plan, ref extra);
+        }
+
+        // story 017 ledger hook: the taken unit (taken[0] for mail) crosses PLACED -> CONSUMED with reason.
+        return took == 1;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The tick guard; <c>bad_request</c> unless <paramref name="slot"/> has a hotbar; then the id through <see cref="Ops.InvRequestCheck"/>'s
+    /// own entry-id steps with <paramref name="slot"/> as the temp namespace: <c>bad_request</c> for none, a real id above
+    /// <see cref="Storage.EntryPool.LastId"/>, a temp id with any of bits 23-30 set or a temp id of another slot's namespace;
+    /// <c>stale_entry</c> for a temp id of <paramref name="slot"/>'s own namespace (none is mapped yet, so it was "never mapped",
+    /// ADR-0009 l.78 and l.165) or a real id at or below the high-water that is not live (consumed, merged away, retired or freed; entry
+    /// ids have no tombstone, ADR-0009 l.116-117); then <c>bad_request</c> for a live entry not placed in this hotbar (the cursor's entry, a panel
+    /// entry, another slot's hotbar entry, or a detached entry, i.e. a duplicate release); then <c>stale_entry</c> when
+    /// <paramref name="units"/> is not the entry's count. Then
+    /// <see cref="InventoryMutator.Remove"/> in one call scope and one bracket, actor the slot's player, so the records and seal are
+    /// <c>Remove</c>'s and the entry is left live and detached. The seal's cause is <see cref="InvCause.None"/>: the closest existing
+    /// cause, since the thrower changes their own hotbar ("an ordinary change by the actor"); <c>Taken</c> is another actor's take and
+    /// <c>Consumed</c> would mislabel units that are still live. A refusal raises nothing and changes nothing.
+    /// </remarks>
+    public DetachResult DetachForThrow(PlayerSlot slot, EntryId entryId, byte units)
+    {
+        var badRequest = new DetachResult((InvReason)InvReasons.BadRequest, default, 0);
+        if (!TickGuard.IsMutable(_tick, _events.Counters))
+        {
+            return badRequest; // out of phase: counted by the guard, nothing mutated
+        }
+
+        if (slot.IsNone || slot.Value >= PlayerSlot.Count || !_containers.TryGetSlot(_panels[slot.Value].Hotbar, out ushort hotbar))
+        {
+            return badRequest;
+        }
+
+        // The id goes through the op path's own two steps, with the thrower's slot as the temp namespace (ADR-0009 l.78, l.116-117, l.165).
+        ushort reason = InvRequestCheck.CheckEntryNamespace(_entries, entryId.Value, slot, false);
+        if (reason == 0)
+        {
+            reason = InvRequestCheck.ResolveEntry(_entries, entryId.Value);
+        }
+
+        if (reason != 0)
+        {
+            return new DetachResult((InvReason)reason, default, 0);
+        }
+
+        _ = _entries.TryGetSlot(entryId, out ushort entrySlot); // a live real id: ResolveEntry passed
+
+        if (_entries[entrySlot].ContainerSlot != hotbar)
+        {
+            return badRequest; // the cursor's, a panel's or another slot's entry, or a live detached entry (a duplicate release)
+        }
+
+        if (_entries[entrySlot].Count != units)
+        {
+            return new DetachResult(InvReason.StaleEntry, default, 0);
+        }
+
+        var plan = new InvPlan();
+        _ = plan.Touch(hotbar);
+        var extra = new InvReplyExtra();
+        using (EventCallScope scope = _events.BeginCall())
+        {
+            _mutator.Begin(ref plan, ActorId.FromEntity(_panels[slot.Value].Player), InvCause.None);
+            _mutator.Remove(ref plan, entrySlot);
+            _mutator.End(ref plan, ref extra);
+        }
+
+        // story 017 ledger hook: the entry's units cross PLACED -> FLIGHT. Story 016's weight (WeightPoints) follows from Remove.
+        return new DetachResult(default, entryId, units);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The tick guard; a live container without an outfeed (<c>outfeed_only</c> admits no insertion), a real mail id and a known mail
+    /// kind; then <see cref="Placement.AutoPlace.Plan"/> of 1 unit with no source, <see cref="MergePolicy.Merge"/>, pass-first, into
+    /// <paramref name="c"/> only (the whitelist, PASS M, then a free cell), and the arena reservation (the merge's union block, or the new
+    /// entry's one-unit block). A merge commits through <see cref="InventoryMutator.MergeUnitInto"/> with no entry created; a free-cell
+    /// placement allocates the entry and its block, then commits through <see cref="Placement.AutoPlace.Commit(ref InvPlan, in AutoPlacePlan, ushort)"/>,
+    /// as <see cref="Spawn"/> does. One call scope, one bracket with <paramref name="actor"/> and cause <see cref="InvCause.None"/>. A
+    /// refused plan records its no-fit facts and nothing else; no entry or arena block is taken before the plan and reservation pass.
+    /// <see cref="UnitRef.Entry"/> is ignored (the unit's old entry, e.g. a belt's <see cref="TakeUnit"/>). Duplicate-id detection is
+    /// the ledger's (story 017).
+    /// </remarks>
+    public bool TryInsert(ContainerId c, in UnitRef u, ActorId actor)
+    {
+        if (!TickGuard.IsMutable(_tick, _events.Counters) || !_containers.TryGetSlot(c, out ushort slot) || _mutator.HasOutfeed(slot)
+            || u.Mail.IsNone || u.MailKind.IsNone || u.MailKind.Value >= _content.MailKinds.Count)
+        {
+            return false;
+        }
+
+        PlacementSubject subject = PlacementSubject.ForMail(_content.MailKinds[u.MailKind], u.MailKind, u.AddressId, u.Flags, _stats);
+        var plan = new InvPlan();
+        ushort reason = _autoPlace.Plan(
+            ref plan, in subject, 1, Placement.AutoPlace.NoSource, new ReadOnlySpan<ushort>(in slot), MergePolicy.Merge, PlaceOrder.PassFirst, out AutoPlacePlan ap);
+        bool merges = ap.MergeCount > 0;
+        if (reason == 0 && !merges)
+        {
+            _ = plan.AddAcquiredBlock(1); // the new entry's one-unit block
+        }
+
+        if (reason == 0)
+        {
+            reason = _requestCheck.CheckArenaReservation(in plan);
+        }
+
+        if (reason != 0)
+        {
+            _autoPlace.RecordNoFits(in ap);
+            return false;
+        }
+
+        ushort entrySlot = 0;
+        if (!merges)
+        {
+            uint tick = _tick.CurrentTick;
+            if (!_entries.TryAllocate(tick, out entrySlot, out _))
+            {
+                return false; // the pool wrote its check record; nothing mutated
+            }
+
+            ref EntryRecord e = ref _entries[entrySlot];
+            uint id = u.Mail.Value;
+            if (!_mailIds.TryCreate(new ReadOnlySpan<uint>(in id), tick, out e.MailIds))
+            {
+                _entries.Free(entrySlot); // unreachable after the reservation; the arena wrote its record
+                return false;
+            }
+
+            e.IsMail = true;
+            e.MailKind = u.MailKind.Value;
+            e.AddressId = u.AddressId;
+            e.Flags = u.Flags;
+            e.W = subject.W;
+            e.H = subject.H;
+        }
+
+        var extra = new InvReplyExtra();
+        bool inserted = true;
+        using (EventCallScope scope = _events.BeginCall())
+        {
+            _mutator.Begin(ref plan, actor, InvCause.None);
+            if (merges)
+            {
+                _autoPlace.RecordNoFits(in ap);
+                inserted = _mutator.MergeUnitInto(ref plan, ap.Merge(0).TargetEntrySlot, subject.Key, u.Mail);
+            }
+            else
+            {
+                _autoPlace.Commit(ref plan, in ap, entrySlot);
+            }
+
+            _mutator.End(ref plan, ref extra);
+        }
+
+        // story 017 ledger hook: on true only, the unit crosses into PLACED (from Belt, or wherever the caller took it from).
+        return inserted;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Sums <see cref="ItemCountIndex.Units"/> over the live containers of <paramref name="cs"/>.</remarks>
+    public int CountItem(ReadOnlySpan<ContainerId> cs, DefIndex itemId)
+    {
+        if (itemId.IsNone)
+        {
+            return 0;
+        }
+
+        int units = 0;
+        for (int i = 0; i < cs.Length; i++)
+        {
+            if (_containers.TryGetSlot(cs[i], out ushort slot))
+            {
+                units += _mutator.ItemCounts.Units(slot, itemId.Value);
+            }
+        }
+
+        return units;
+    }
+
+    /// <inheritdoc />
     /// <remarks>Delegates to <see cref="World.WorldItems.Create"/> (story 013).</remarks>
     public EntityId CreateWorldItem(EntryId entry, Vec3Mm posMm, WorldItemOrigin origin, bool onWater, uint createdTick)
         => _worldItems.Create(entry, posMm, origin, onWater, createdTick);
@@ -545,6 +764,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     void IPlayerJoinListener.OnPlayerJoined(PlayerSlot slot, EntityId player, uint tick)
     {
         ref PanelIds panel = ref _panels[slot.Value];
+        panel.Player = player;
         if (!panel.PlayerInventory.IsNone)
         {
             return; // rejoin of a slot that kept its containers across a leave

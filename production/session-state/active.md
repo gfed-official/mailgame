@@ -7,13 +7,14 @@ Task: /dev-story production/epics/simulation-core/story-001-build-config-sim-ass
 <!-- /STATUS -->
 
 <!-- CHECKPOINT -->
-**Updated:** 2026-10-19
-**Branch:** `feat/grid-inventory-003-mailid-arena`
-**Current task:** /story-done — production/epics/grid-inventory/story-003-mailids-arena.md closed: COMPLETE WITH NOTES
-**Next step:** /dev-story production/epics/content-data/story-018-schema-and-build-stages.md (In Progress, resume)
+**Updated:** 2026-10-22
+**Branch:** `feat/grid-inventory-015`
+**Current task:** Mail Review R2 fixes on PR #27 (story 015), head c7accdc, uncommitted. B2 done: `DetachForThrow` classifies its id through `InvRequestCheck`'s own `CheckEntryNamespace`/`ResolveEntry` (now `internal static`, shared, the slot as temp namespace): a temp id of the thrower's own namespace is `stale_entry` (never mapped; ADR-0009 l.78, l.117, l.165); id 0, a real id above `LastId`, a reserved-bit temp id or another slot's temp id stay `bad_request`. A8: the redundant `IsTemp` clause is gone; temp rows (own → stale, foreign and reserved-bit → bad, precedence) added. A9: `MergeUnitInto` invalid-input theory (not live, not mail, detached, none id, key mismatch). A10: a failed merge inside a bracket bumps no version and raises no seal (test + comment). A11 and docs (remarks, interface doc, Completion notes, TD-144) updated.
+**Next step:** owner review and commit of the R2 fixes, then Mail Review round 3. A4 (decision-log entry for the Q1/Q2 defaults, Belt Logistics owner) still open, out of this pass's scope.
 **Blocked on:** nothing
-**Files in progress:** none
-**Open questions:** tech debt logged: 1 item (TD-102)
+**Files in progress:** src/PerformativeMail.Sim/Inventory/InventorySystem.cs, src/PerformativeMail.Sim/Inventory/Ops/InvRequestCheck.cs, src/PerformativeMail.Sim/Inventory/InventoryMutator.cs, src/PerformativeMail.Sim/Inventory/IInventoryApi.cs, tests/unit/inventory/InventoryApiTests.cs, production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md, docs/tech-debt-register.md
+**Run result:** N/A, a Logic story in the plain-C# Sim. At c7accdc (R1 fixes) all four legs, net10.0 and net8.0, Debug and Release, ran in Mail Review's worktree and in CI run 39740074900: 5,323 tests each, 0 failed. This R2 pass: all four legs (net10.0 and net8.0, Debug and Release) ran locally (`gi009-verify.sh`): 5,329 tests each, 0 failed (Debug 49 skipped, Release 3), 0 build warnings; all tools/ci guards and their --self-check pass, including check-sim-access; CI runs the same four legs on push. Mutation checks: each new temp row, `MergeUnitInto` arm (except the shadowed not-live and count-255 arms) and the no-version test fail under their own mutation.
+**Open questions:** TD-144…TD-147 (148 rows, 133×S + 15×M, unchanged); Mail Lead to fold TD-144 into the next ADR-0009 errata pass before mail-destinations 005/007
 <!-- /CHECKPOINT -->
 
 - **Task**: Systems decomposition

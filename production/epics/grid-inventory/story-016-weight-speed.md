@@ -35,6 +35,7 @@
 - [ ] **H-D1-1** — `classPts {1,3,8}`, `ptsPermille` 10, floor 600: P ∈ {0, 2, 8, 12, 39, 40, 41, 112} → `speedPermille` {1000, 980, 920, 880, 610, 600, 600, 600}; with a synthetic `WeightPenaltyPm` Mul 500 source (Strong Back) → {1000, 990, 960, 940, 805, 800, 800, 800}.
 - [ ] **H-D1-2** — P = 39 with Strong Back (805‰): walk 5000 → 4025, sprint 7500 → 6037; with a second 1500‰ multiplier the composed helper returns `7500 × 805 × 1500 / 1 000 000 = 9056` (one division) — a two-division implementation (9055) fails.
 - [ ] **H-R16-1 a/b** — hotbar: Large (8); inventory: a 20-letter stack (1) and a 1-letter stack (1); cursor: Medium (3); a non-counted external holding 2 Large → P = 13, `speedPermille` 870; moving the Medium into the external → P = 10, 900. (c mounted / d swimming are applied by Player Character — weight exposes the permille only.)
+- [ ] **H-X-2 (weight clause)** — removing a 5-letter hotbar entry with the mutator's `Remove` primitive (the one story 015's `DetachForThrow` uses) drops P by 1 (letters PerEntry, class 1); if story 015 has landed, also assert it through `DetachForThrow`.
 - [ ] `WeightPoints(slot)` is maintained incrementally by the mutator (O(1) per mutation, int16) and equals a brute-force recount after 10 000 random mutations.
 
 ---

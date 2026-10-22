@@ -17,8 +17,9 @@ namespace PerformativeMail.Sim.Inventory;
 /// entry or occupancy state. One call is bracketed by <see cref="Begin"/> and <see cref="End"/> over the call's <see cref="InvPlan"/>:
 /// <list type="number">
 /// <item>the primitives (<see cref="Place"/>, <see cref="Remove"/>, <see cref="Transfer"/>, the count changes <see cref="MergeInto"/>
-/// (story 009) and <see cref="TakeOldest"/> (story 012); <c>ConsumeUnit</c>, <c>DetachForThrow</c>, <c>Destroy</c> arrive with their
-/// stories) apply the change at
+/// (story 009), <see cref="TakeOldest"/> (story 012, which story 015's <c>ConsumeUnit</c> reuses) and <see cref="MergeUnitInto"/>
+/// (story 015's <c>TryInsert</c>), and
+/// <see cref="DestroyDetached"/> (story 013)) apply the change at
 /// once and raise its <b>records</b> (<c>InvInserted</c> / <c>InvMerged</c> + mailId-run <c>Continuation</c> chunks, <c>InvRemoved</c>,
 /// <c>InvMoved</c>), each with the container's audience resolved now, and mark the (already touched, see <see cref="InvPlan"/>)
 /// container mutated in the plan. They never touch a version;</item>
@@ -32,7 +33,10 @@ namespace PerformativeMail.Sim.Inventory;
 /// other container to its <see cref="ContainerSubscribers"/> mask at raise time. Records and seals carry no <c>reqId</c>. The ledger
 /// hooks are story 017's. The primitives also maintain the <see cref="Placement.StackIndex"/> (story 009, ADR-0009 section 5: the
 /// placed entries whose count is below their <c>effMax</c>, read at the primitive's time); <see cref="RebuildIndex"/> rebuilds a
-/// container's lists and clears its negative-fit cache when its <c>statEpoch</c> bumps. A slots-layout container holds every entry
+/// container's lists and clears its negative-fit cache when its <c>statEpoch</c> bumps. They maintain the
+/// <see cref="Placement.ItemCountIndex"/> too (story 015, ADR-0009 section 5: a container's <c>itemId → units</c>, which
+/// <c>CountItem</c> reads): every unit of an item entry entering a container is added, every unit leaving it subtracted, here and
+/// nowhere else. A slots-layout container holds every entry
 /// as a 1 x 1 unrotated footprint (GDD R1; story 009). A container whose def has an outfeed (<c>BeltAccess.OutfeedOnly</c>, the
 /// Intake) stamps every entry it receives through <see cref="Place"/> or <see cref="Transfer"/> with the next <c>arrivalSeq</c>
 /// (<see cref="ContainerHeader.NextArrivalSeq"/>, before <c>InvInserted</c>, which carries it) and appends it to the
@@ -63,6 +67,7 @@ internal sealed class InventoryMutator
     private readonly ContentSet _content;
     private readonly IStatSheet _stats;
     private readonly StackIndex _index;
+    private readonly ItemCountIndex _itemCounts;
     private readonly NegativeFitCache _noFit;
     private readonly OutfeedFifo _outfeed;
     private readonly ISlotView? _slots;
@@ -78,6 +83,7 @@ internal sealed class InventoryMutator
     /// <param name="content">The content set (an entry's def for its <c>effMax</c>).</param>
     /// <param name="stats">The stat sheet (mail <c>effMax</c> is <c>MailMaxStack</c>, read at the primitive's time).</param>
     /// <param name="index">The StackKey non-full index the primitives maintain.</param>
+    /// <param name="itemCounts">The <c>itemId → units</c> index the primitives maintain (story 015).</param>
     /// <param name="noFit">The negative-fit cache <see cref="RebuildIndex"/> clears.</param>
     /// <param name="outfeed">The outfeed FIFO memo the primitives maintain (story 012).</param>
     /// <param name="slots">The slot table (the connected-slot audience of the world kinds, story 013); null gives audience 0.</param>
@@ -92,6 +98,7 @@ internal sealed class InventoryMutator
         ContentSet content,
         IStatSheet stats,
         StackIndex index,
+        ItemCountIndex itemCounts,
         NegativeFitCache noFit,
         OutfeedFifo outfeed,
         ISlotView? slots = null)
@@ -105,6 +112,7 @@ internal sealed class InventoryMutator
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(stats);
         ArgumentNullException.ThrowIfNull(index);
+        ArgumentNullException.ThrowIfNull(itemCounts);
         ArgumentNullException.ThrowIfNull(noFit);
         ArgumentNullException.ThrowIfNull(outfeed);
         _containers = containers;
@@ -116,6 +124,7 @@ internal sealed class InventoryMutator
         _content = content;
         _stats = stats;
         _index = index;
+        _itemCounts = itemCounts;
         _noFit = noFit;
         _outfeed = outfeed;
         _slots = slots;
@@ -123,6 +132,9 @@ internal sealed class InventoryMutator
 
     /// <summary>The StackKey non-full index the primitives maintain (AutoPlace's PASS M reads it).</summary>
     internal StackIndex StackIndex => _index;
+
+    /// <summary>The <c>itemId → units</c> index the primitives maintain (story 015; <c>CountItem</c> reads it).</summary>
+    internal ItemCountIndex ItemCounts => _itemCounts;
 
     /// <summary>The outfeed FIFO memo the primitives maintain (story 012; <c>PeekOutfeed</c> / <c>TakeUnit</c> read it).</summary>
     internal OutfeedFifo Outfeed => _outfeed;
@@ -155,8 +167,8 @@ internal sealed class InventoryMutator
     /// <summary>
     /// The destroy primitive for a detached entry (story 013: a non-mail WorldItem that expired, floated or was evicted; ADR-0009
     /// section 6 lists <c>Destroy</c> among the lowest primitives): frees its mailIds block (if any) and its pool slot; the id is gone for
-    /// ever. Raises nothing (the caller raises <c>ItemsLost</c>); the ledger crossing to Destroyed is story 017's hook. A free or placed
-    /// entry asserts <see cref="SimAssertCode.InventoryEntrySlotFree"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing.
+    /// ever. The entry is in no container, so no <see cref="Placement.ItemCountIndex"/> total changes. Raises nothing (the caller
+    /// raises <c>ItemsLost</c>); the ledger crossing to Destroyed is story 017's hook. A free or placed entry asserts <see cref="SimAssertCode.InventoryEntrySlotFree"/> under <c>INVENTORY_ASSERT</c>; Release changes nothing.
     /// </summary>
     /// <param name="entrySlot">The detached entry's pool slot.</param>
     public void DestroyDetached(ushort entrySlot)
@@ -227,6 +239,7 @@ internal sealed class InventoryMutator
         h.FreeCells = (ushort)Math.Max(0, h.FreeCells - (fw * fh));
         plan.MarkMutated(containerSlot);
         LinkIfNonFull(entrySlot);
+        CountItemUnits(containerSlot, in e, e.Count);
         if (HasOutfeed(containerSlot))
         {
             StampArrival(containerSlot, ref h, entrySlot, ref e);
@@ -260,6 +273,7 @@ internal sealed class InventoryMutator
         ref ContainerHeader h = ref _containers[containerSlot];
         FootprintIn(in h, in e, e.Rotated, out int fw, out int fh);
         _index.Unlink(entrySlot);
+        CountItemUnits(containerSlot, in e, -e.Count);
         _occupancy.Clear(containerSlot, h.W, h.H, e.X, e.Y, fw, fh);
         h.EntryCount = (ushort)Math.Max(0, h.EntryCount - 1);
         h.FreeCells = (ushort)Math.Min(h.W * h.H, h.FreeCells + (fw * fh));
@@ -393,6 +407,7 @@ internal sealed class InventoryMutator
 
         _index.Unlink(targetSlot);
         _entries.SetCount(targetSlot, (byte)(dst.Count + units));
+        CountItemUnits(to, in dst, units);
         if (units == src.Count)
         {
             if (from != EntryRecord.NoContainer)
@@ -408,6 +423,7 @@ internal sealed class InventoryMutator
             _entries.SetCount(sourceSlot, (byte)(src.Count - units));
             if (from != EntryRecord.NoContainer)
             {
+                CountItemUnits(from, in src, -units);
                 plan.MarkMutated(from);
                 var removed = new InvRemovedPayload { Container = _containers[from].Id.Value, EntryId = src.Id.Value, Count = (byte)units };
                 _ = _events.TryRaise(InvEventKinds.Removed, AudienceOf(from), in removed);
@@ -415,22 +431,52 @@ internal sealed class InventoryMutator
             }
         }
 
-        plan.MarkMutated(to);
-        LinkIfNonFull(targetSlot);
-        if (HasOutfeed(to))
+        RaiseMerged(ref plan, targetSlot, to, units, moved);
+    }
+
+    /// <summary>
+    /// The count-change primitive for one mail unit that has no entry (story 015: <c>IInventoryApi.TryInsert</c>'s AutoPlace merge
+    /// pass): unions <paramref name="mail"/> into the placed target mail stack's run (one arena block acquired, which the caller
+    /// reserved through <see cref="InvPlan.AddAcquiredBlock"/> with the union's size, <c>target.count + 1</c>), sets its count and
+    /// raises <c>InvMerged{c, target, 1}</c> plus the one-id run, as <see cref="MergeInto"/> does for its target, with the same
+    /// StackKey re-link and outfeed restamp. No source entry is created, so no entry id is spent. The container must already be
+    /// touched. An invalid merge (a free, unplaced or non-mail target, a none id, a <paramref name="key"/> other than the target's, a
+    /// target at 255 or at its <c>effMax</c> read now) asserts <see cref="SimAssertCode.InventoryMergeInvalid"/> under
+    /// <c>INVENTORY_ASSERT</c>; Release changes nothing. The ledger crossing is story 017's hook.
+    /// </summary>
+    /// <param name="plan">The call's plan.</param>
+    /// <param name="targetSlot">The placed target stack's pool slot.</param>
+    /// <param name="key">The unit's StackKey (the one the plan matched).</param>
+    /// <param name="mail">The unit's mail id.</param>
+    /// <returns>True when the unit was merged.</returns>
+    public bool MergeUnitInto(ref InvPlan plan, ushort targetSlot, StackKey key, MailId mail)
+    {
+        ref EntryRecord dst = ref _entries[targetSlot];
+        bool valid = dst.IsLive && dst.IsMail && dst.ContainerSlot != EntryRecord.NoContainer && !mail.IsNone && dst.Count < byte.MaxValue
+            && dst.Count + 1 <= EffMaxOf(in dst) && StackKey.Of(in dst) == key;
+        InventoryAssert.That(valid, SimAssertCode.InventoryMergeInvalid);
+        if (!valid)
         {
-            ref ContainerHeader th = ref _containers[to];
-            StampArrival(to, ref th, targetSlot, ref dst); // its old node is now stale: a tombstone
-            _outfeed.OnTombstoned(to, ref th, th.EntryCount);
+            return false; // returns before MarkMutated (in RaiseMerged), as do the two below: a refused merge bumps no version, End seals nothing
         }
 
-        byte audience = AudienceOf(to);
-        var merged = new InvMergedPayload
+        ushort to = dst.ContainerSlot;
+        if (!plan.EnsureTouched(to))
         {
-            Container = _containers[to].Id.Value, TargetEntryId = dst.Id.Value, AddedCount = (byte)units, RunCount = (ushort)CountRuns(moved),
-        };
-        _ = _events.TryRaise(InvEventKinds.Merged, audience, in merged);
-        RaiseRuns(InvEventKinds.Merged, audience, moved);
+            return false; // Release: the set is full, so nothing is changed unsealed
+        }
+
+        Span<uint> moved = _movedIds.AsSpan(0, 1);
+        moved[0] = mail.Value;
+        if (!_mailIds.TryAppend(ref dst.MailIds, moved, 0))
+        {
+            return false; // unreachable after the caller's reservation; the arena wrote its exhaustion record
+        }
+
+        _index.Unlink(targetSlot);
+        _entries.SetCount(targetSlot, (byte)(dst.Count + 1));
+        RaiseMerged(ref plan, targetSlot, to, 1, moved);
+        return true;
     }
 
     /// <summary>
@@ -479,6 +525,7 @@ internal sealed class InventoryMutator
 
         _index.Unlink(entrySlot);
         _entries.SetCount(entrySlot, (byte)(e.Count - k));
+        CountItemUnits(containerSlot, in e, -k);
         plan.MarkMutated(containerSlot);
         var removed = new InvRemovedPayload { Container = _containers[containerSlot].Id.Value, EntryId = e.Id.Value, Count = (byte)k };
         _ = _events.TryRaise(InvEventKinds.Removed, AudienceOf(containerSlot), in removed);
@@ -495,17 +542,19 @@ internal sealed class InventoryMutator
 
     /// <summary>
     /// Rebuilds the container's StackKey lists from its entries (every placed entry whose count is below its <c>effMax</c> read now,
-    /// row-major) and clears its negative-fit cache. Every entry linked under the container is unlinked first
-    /// (<see cref="Placement.StackIndex.ClearContainer"/>), so a stale link whose cells were cleared outside the mutator does not
-    /// survive. Called when the container's <c>statEpoch</c> bumps (a <c>MailMaxStack</c> or <c>InventoryRows</c> change, R15; nothing
+    /// row-major) and its <c>itemId → units</c> totals (story 015), and clears its negative-fit cache. Every entry linked under the
+    /// container is unlinked first (<see cref="Placement.StackIndex.ClearContainer"/>) and its item totals deleted
+    /// (<see cref="Placement.ItemCountIndex.ClearContainer"/>), so a stale link or total whose cells were cleared outside the mutator
+    /// does not survive. Called when the container's <c>statEpoch</c> bumps (a <c>MailMaxStack</c> or <c>InventoryRows</c> change, R15; nothing
     /// bumps it at M-1a, tests call it), after a load, and by tests that arranged entries outside the mutator. Changes no Sim state
-    /// (both are derived memos): no record, no version. O(entry pool + cells); allocation-free.
+    /// (all three are derived memos): no record, no version. O(entry pool + item table + cells); allocation-free.
     /// </summary>
     /// <param name="containerSlot">The container's table slot.</param>
     public void RebuildIndex(ushort containerSlot)
     {
         ref ContainerHeader h = ref _containers[containerSlot];
         _index.ClearContainer(containerSlot);
+        _itemCounts.ClearContainer(containerSlot);
         for (int y = 0; y < h.H; y++)
         {
             if (_occupancy.RowBits(containerSlot, y) == 0UL)
@@ -525,6 +574,7 @@ internal sealed class InventoryMutator
                 if (e.ContainerSlot == containerSlot && e.X == x && e.Y == y)
                 {
                     LinkIfNonFull(owner); // the entry's top-left cell
+                    CountItemUnits(containerSlot, in e, e.Count);
                 }
             }
         }
@@ -637,6 +687,40 @@ internal sealed class InventoryMutator
         e.ArrivalSeq = h.NextArrivalSeq;
         h.NextArrivalSeq = unchecked(h.NextArrivalSeq + 1u); // u32 per container; never wraps within a run
         _ = _outfeed.Append(containerSlot, ref h, e.ArrivalSeq, entrySlot, e.Id.Value);
+    }
+
+    /// <summary>Adds <paramref name="delta"/> units of an item entry's def to the container's <c>itemId → units</c> total; mail counts nothing.</summary>
+    private void CountItemUnits(ushort containerSlot, in EntryRecord e, int delta)
+    {
+        if (!e.IsMail)
+        {
+            _itemCounts.Add(containerSlot, e.ItemId, delta);
+        }
+    }
+
+    /// <summary>
+    /// The target half of a merge whose units are already in the target's count and run: marks the container mutated, re-links the
+    /// stack, restamps it on an outfeed container, then raises <c>InvMerged</c> and the moved ids' runs.
+    /// </summary>
+    private void RaiseMerged(ref InvPlan plan, ushort targetSlot, ushort to, int units, ReadOnlySpan<uint> moved)
+    {
+        ref EntryRecord dst = ref _entries[targetSlot];
+        plan.MarkMutated(to);
+        LinkIfNonFull(targetSlot);
+        if (HasOutfeed(to))
+        {
+            ref ContainerHeader th = ref _containers[to];
+            StampArrival(to, ref th, targetSlot, ref dst); // its old node is now stale: a tombstone
+            _outfeed.OnTombstoned(to, ref th, th.EntryCount);
+        }
+
+        byte audience = AudienceOf(to);
+        var merged = new InvMergedPayload
+        {
+            Container = _containers[to].Id.Value, TargetEntryId = dst.Id.Value, AddedCount = (byte)units, RunCount = (ushort)CountRuns(moved),
+        };
+        _ = _events.TryRaise(InvEventKinds.Merged, audience, in merged);
+        RaiseRuns(InvEventKinds.Merged, audience, moved);
     }
 
     private void LinkIfNonFull(ushort entrySlot)

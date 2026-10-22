@@ -161,4 +161,7 @@ public enum CounterId : ushort
 
     /// <summary>Inventory WorldItem: a creation left the live WorldItem count over <c>inventory.worldItemCap</c> because no eviction candidate qualified (GDD R12 <c>worldItemCapExceeded</c>; one per such creation; the first one of an episode also writes <c>CheckCode.InventoryWorldItemCapExceeded</c>; key <c>inventoryWorldItemCapExceeded</c>).</summary>
     InventoryWorldItemCapExceeded = 48,
+
+    /// <summary>Inventory <c>CountItem</c>: one per table slot read in the per-container <c>itemId → units</c> map (GDD R17 "never a scan", H-R17-1; ADR-0009 section 5; story grid-inventory/015; key <c>inventoryItemCountProbes</c>): a hit counts the slots up to and including its key, a miss up to and including the empty slot that ends it. Depends on the map's collisions, never on how many entries a container holds. A probe counter, compiled into Release, not in the canonical dump.</summary>
+    InventoryItemCountProbes = 49,
 }
