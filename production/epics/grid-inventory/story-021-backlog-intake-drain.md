@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M–L (~1.5–2 days)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (close-out at `/story-done` on Sonnet, PR #35, stacked on PR #34 (merged PR 34 round-1 head 09804ab at 417a8ad): 13/13 ACs ticked, Test Evidence, Completion Notes; completion-review fixes — drain tick guard, a 0 drain cap no longer re-runs the pass, tightened H-R14-3 asserts, a full-Intake young-mail cap test, 0x008A and assert 82 pinned, TD-138 closed, TD-158 item 8. Before that: readiness fixes against main f504231, independent of story 014 / PR #34: Decision Summary re-derived from ADR-0017 §6; `AppendBacklog`/`BacklogEntry`/`BacklogUnits`/`BacklogEntries` shapes, ring capacity, drain gating, start hints and probe accounting, both fresh-`arrivalSeq` cases, the 013 interim-rule retirement, versions/events/rejects/0 B/dump ACs; Mail Lead planning defaults pending Evan, TD-157. Before that, docs only: cap-eviction-to-backlog and interim-rule retirement ACs added from TD-138 / owner ruling Q3; fresh-`arrivalSeq` merge AC (Evan 12:28 PM PT); TR-inventory-011 probe bound 8,500 to match GDD H-PERF-6c / ADR-0009 l.57; Manifest Version re-stamped 2026-10-17.1; re-derive the rest at `/story-readiness`)
+> **Last Updated**: 2026-10-22 (close-out at `/story-done` on Sonnet, PR #35, open, not merged; was stacked on PR #34 (merged PR 34 round-1 head 09804ab at 417a8ad) until PR #34 merged into main c2d4a64, which the branch merged in at 5e9fe8d (no rebase): 13/13 ACs ticked, Test Evidence, Completion Notes; completion-review fixes — drain tick guard, a 0 drain cap no longer re-runs the pass, tightened H-R14-3 asserts, a full-Intake young-mail cap test, 0x008A and assert 82 pinned, TD-138 closed, TD-158 item 8. Before that: readiness fixes against main f504231, independent of story 014 / PR #34: Decision Summary re-derived from ADR-0017 §6; `AppendBacklog`/`BacklogEntry`/`BacklogUnits`/`BacklogEntries` shapes, ring capacity, drain gating, start hints and probe accounting, both fresh-`arrivalSeq` cases, the 013 interim-rule retirement, versions/events/rejects/0 B/dump ACs; Mail Lead planning defaults pending Evan, TD-157. Before that, docs only: cap-eviction-to-backlog and interim-rule retirement ACs added from TD-138 / owner ruling Q3; fresh-`arrivalSeq` merge AC (Evan 12:28 PM PT); TR-inventory-011 probe bound 8,500 to match GDD H-PERF-6c / ADR-0009 l.57; Manifest Version re-stamped 2026-10-17.1; re-derive the rest at `/story-readiness`)
 
 > **Unblocked 2026-10-16**: ADR-0017 is Accepted; the Decision Summary was re-derived from its §6 on 2026-10-22 at `/story-readiness` (Inventory stores and drains the backlog; Mail appends through `IInventoryApi.AppendBacklog`).
 
@@ -98,7 +98,7 @@
 
 ## Dependencies
 
-- Depends on: Story 012, Story 013 (both Complete). Stacked on story 014 (PR #34): the branch merged PR 34's round-1 head 09804ab in at 417a8ad (no rebase), resolving the file overlap in `InventorySystem.cs`, `IInventoryApi.cs`, `World/WorldItems.cs`, `SimAssertCode.cs` and `tests/unit/inventory/InventoryEventRig.cs`; PR #35 merges after PR #34.
+- Depends on: Story 012, Story 013 (both Complete). Was stacked on story 014 (PR #34): the branch merged PR 34's round-1 head 09804ab in at 417a8ad (no rebase), resolving the file overlap in `InventorySystem.cs`, `IInventoryApi.cs`, `World/WorldItems.cs`, `SimAssertCode.cs` and `tests/unit/inventory/InventoryEventRig.cs`. PR #34 has merged (main c2d4a64, contains 09804ab); the branch merged main c2d4a64 in at 5e9fe8d (no rebase), so PR #35 is no longer stacked.
 - Unlocks: Story 017 (`Backlog` ledger crossings at the mutator hooks), Story 018 (fuzz covers the backlog); mail-destinations epic — `production/epics/mail-destinations/story-014-batch-firing-intake-backlog.md` (Mail appends through `IInventoryApi.AppendBacklog`). *(2026-10-16 hygiene: the former "Depends on: mail-destinations backlog story (not yet created)" is reversed — ADR-0017 §6 puts the backlog storage and drain in Inventory, and that story already depends on this one.)*
 
 ---
@@ -121,7 +121,7 @@ These are **Mail Lead planning defaults, 2026-10-22, open for Evan's confirmatio
 ---
 
 ## Completion Notes
-**Completed**: 2026-10-22 (PR #35, open, stacked on PR #34; PR 34's round-1 head 09804ab merged in at 417a8ad)
+**Completed**: 2026-10-22 (PR #35, open, not merged; was stacked on PR #34 (round-1 head 09804ab merged in at 417a8ad) until PR #34 merged as main c2d4a64, merged in at 5e9fe8d — no longer stacked)
 **Criteria**: 13/13 passing (all in `tests/unit/inventory/`; `IntakeDrainTests` unless named otherwise).
 - H-R14-2: `Drain_IntakeFullExceptTheLastCell_BacklogLargeL1L2_PlacesL1_SkipsTheLarge_OneSeal_ThenAnIdleTickProbesNothing` (320 probes, 2 visits, then 0/0), `Drain_100CellsFreedInTheMailStep_100BacklogLetters_Places32_32_32_4_OneSealPerPass_ThenIdle` (32/32/32/4/0, Intake +1 per pass, T+4 0 probes and 0 visits)
 - H-R14-4 (backlog half): `Spawn_WithANonEmptyBacklogAndFreeCells_PlacesNothing_MakesNoProbe_AndTheLetterGoesToTheBacklogTail`, `AppendBacklog_AWellFormedEntry_QueuesOneDetachedEntryAtTheTail_AndRaisesOnlyBacklogUnits`
