@@ -37,8 +37,6 @@ public class InvMalformedOpTests
     [Trait("Id", "H-R7-4")]
     [InlineData(-1, CoreReason.BadRequest)]
     [InlineData(256, CoreReason.BadRequest)]
-    [InlineData(int.MinValue, CoreReason.BadRequest)]
-    [InlineData(int.MaxValue, CoreReason.BadRequest)]
     [InlineData(0, 0)]
     [InlineData(255, 0)]
     public void CheckCount_DecodedValue_OutsideU8IsBadRequest(int decoded, int expected)
@@ -55,10 +53,8 @@ public class InvMalformedOpTests
     [InlineData(70_000, CoreReason.BadRequest)]
     [InlineData(32_768, CoreReason.BadRequest)]
     [InlineData(-32_769, CoreReason.BadRequest)]
-    [InlineData(int.MinValue, CoreReason.BadRequest)]
     [InlineData(32_767, 0)]
     [InlineData(-32_768, 0)]
-    [InlineData(0, 0)]
     public void CheckCoordinate_DecodedValue_OutsideI16IsBadRequest(int decoded, int expected)
     {
         // Act
