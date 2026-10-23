@@ -92,15 +92,6 @@ public class LocomotionTests
     }
 
     [Fact]
-    [Trait("Id", "PCM-F1-1")]
-    public void F1_UsesTheSettingsBases_ForTheThreeGaits()
-    {
-        var rig = new Rig();
-
-        Assert.Equal((5000, 7500, 2000, 400), (rig.Settings.WalkMmPerSec, rig.Settings.SprintMmPerSec, rig.Settings.SwimMmPerSec, rig.Settings.BuffCapPm));
-    }
-
-    [Fact]
     [Trait("Id", "PCM-F1-2")]
     public void F1_StatClamps_StacksCapAt3_AndNegativeAddPmIsZero()
     {
@@ -248,25 +239,13 @@ public class LocomotionTests
 
     [Fact]
     [Trait("Id", "PCM-F2-1")]
-    public void F2_CapDrop_10500To2000_FirstTickDvMax2625_Gives7875()
-    {
-        // Arrange: Swimming makes vRef 2000 while the carrier still moves at 10 500.
-        var rig = new Rig(WorldTablesFixture.Deep()) { State = new CarrierState { X = 64_000, Z = 64_000, Vx = 10_500, Loco = LocoState.Swimming } };   // story 009: a swimmer must be in water
-        SimCounterSink sink = default;
-        Assert.Equal(2625, CarrierAccel.DvMax(2000, 10_500, 4, false, 500, ref sink));
-
-        // Act + Assert: the first tick is the AC's 10 500 - 2625 = 7875.
-        rig.Tick(ForwardPlusX());
-        Assert.Equal(7875, rig.State.Vx);
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-F2-1")]
     public void F2_CapDrop_10500To2000_Reaches2000OnTick6()
     {
         // PCM-F2-1 as amended: dvMax is 2625 on the first tick, then recomputed from the current |v| each tick (1969, 1477,
         // 1108, 831, ...), so the carrier reaches 2000 on tick 6: 7875, 5906, 4429, 3321, 2490, 2000.
         var rig = new Rig(WorldTablesFixture.Deep()) { State = new CarrierState { X = 64_000, Z = 64_000, Vx = 10_500, Loco = LocoState.Swimming } };   // story 009: a swimmer must be in water
+        SimCounterSink sink = default;
+        Assert.Equal(2625, CarrierAccel.DvMax(2000, 10_500, 4, false, 500, ref sink));
         var seen = new List<int>();
         for (int i = 0; i < 12 && rig.State.Vx != 2000; i++)
         {

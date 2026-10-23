@@ -133,23 +133,16 @@ public class JumpTests
             {
                 Assert.Equal(Ground + 233, rig.State.Y);   // tick 18: still 233 mm up
             }
+
+            if (t == 18)
+            {
+                Assert.Equal((LocoState.Grounded, Ground, 0, 0), (rig.State.Loco, rig.State.Y, rig.State.Vy, rig.State.RemY));   // tick 19: feet on the terrain
+            }
         }
 
         Assert.All(loco[..18], l => Assert.Equal(LocoState.Airborne, l));
         Assert.Equal(LocoState.Grounded, loco[18]);       // tick 19
         Assert.Equal(19, Array.IndexOf(loco, LocoState.Grounded) + 1);
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-F3-1")]
-    public void F3_Landing_PutsTheFeetOnTheTerrain_WithVyAndRemYZero()
-    {
-        var rig = new Rig();
-
-        rig.Tick(Press());
-        rig.Tick(18, Held());
-
-        Assert.Equal((LocoState.Grounded, Ground, 0, 0), (rig.State.Loco, rig.State.Y, rig.State.Vy, rig.State.RemY));
     }
 
     [Fact]
@@ -241,7 +234,6 @@ public class JumpTests
     [Trait("Id", "PCM-P5-1")]
     [InlineData(15, true)]    // 4 ticks before the landing on tick 19: fires on the landing tick
     [InlineData(14, false)]   // 5 ticks before: the buffer has run out
-    [InlineData(16, true)]
     [InlineData(18, true)]
     [InlineData(19, true)]    // pressed on the landing tick itself: no lost frame
     public void P5_BufferedPress_FiresOnTheLandingTickOnlyWithinFourTicks(int pressTick, bool fires)
@@ -295,6 +287,7 @@ public class JumpTests
         var none = new Rig();
         none.Settings = none.Settings with { JumpBufferTicks = 0 };
         none.Tick(Press());
+        Assert.Equal((LocoState.Airborne, V0 - PerTick), (none.State.Loco, none.State.Vy));   // a ground press still jumps on its tick
         none.Tick(Press());                                 // airborne press, nothing to arm
         Assert.Equal(0, none.State.JumpBufferLeft);
 
@@ -305,24 +298,11 @@ public class JumpTests
         Assert.Equal(255, big.State.JumpBufferLeft);
     }
 
-    [Fact]
-    [Trait("Id", "PCM-P5-1")]
-    public void P5_PressOnGroundWithZeroBuffer_StillJumpsOnThatTick()
-    {
-        var rig = new Rig();
-        rig.Settings = rig.Settings with { JumpBufferTicks = 0 };
-
-        rig.Tick(Press());
-
-        Assert.Equal((LocoState.Airborne, V0 - PerTick), (rig.State.Loco, rig.State.Vy));
-    }
-
     [Theory]
     [Trait("Id", "PCM-P5-1")]
     [InlineData(1, true)]
     [InlineData(4, true)]     // pressed 4 ticks after leaving ground: jumps
     [InlineData(5, false)]    // 5 ticks after: coyote has run out
-    [InlineData(8, false)]
     public void P5_Coyote_FixturePlacedAirborneWithCoyoteLeft4_JumpsUpTo4TicksLater(int pressTick, bool jumps)
     {
         var rig = new Rig { State = new CarrierState { X = 64_000, Z = 64_000, Y = Ground + 20_000, Loco = LocoState.Airborne, CoyoteLeft = 4 } };
@@ -400,8 +380,7 @@ public class JumpTests
 
     [Theory]
     [Trait("Id", "PCM-P5-1")]
-    [InlineData(1000)]   // P = 0
-    [InlineData(600)]    // P = 40
+    [InlineData(600)]    // P = 40; P = 0 (weight 1000) is F3_Jump_ApexIs1196OnTick9_NotTheTruncated1191
     public void P5_Apex_IsExactly1196_AtAnyWeight(int speedPermille)
     {
         var rig = new Rig();

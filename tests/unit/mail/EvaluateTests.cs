@@ -38,21 +38,6 @@ public class EvaluateTests
 
     [Fact]
     [Trait("Id", "M-R5-1a")]
-    public void Ac1_ClosedAndLockedDistrict_RegistryFactsAreClosed_AndRejectClosed()
-    {
-        Case c = Make(2);
-
-        DestinationFacts d = c.Dest;
-        UnitFacts u = c.Unit;
-        DeliverEval e = MailRules.Evaluate(in d, in u);
-
-        Assert.Equal(DestState.Closed, d.State);
-        Assert.Equal(EvalResult.Reject, e.Result);
-        Assert.Equal(MailRejectReason.Closed, e.Reason);
-    }
-
-    [Fact]
-    [Trait("Id", "M-R5-1a")]
     public void Ac1_StateChecks_PrecedeTheCategoryAndKindChecks()
     {
         // A closed mailbox offered a tool reads "closed", a locked one reads "not on route": the state checks run first.

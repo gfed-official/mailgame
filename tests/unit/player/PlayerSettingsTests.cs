@@ -70,17 +70,6 @@ public class PlayerSettingsTests
             MaxCarrierCandidates = 64,
     };
 
-    public static TheoryData<string> PlayerKeyNames()
-    {
-        var data = new TheoryData<string>();
-        foreach (BalanceRow row in BalanceKeys.Player.Rows)
-        {
-            data.Add(row.Key);
-        }
-
-        return data;
-    }
-
     public static TheoryData<string> BuildCriticalProperties() => new()
     {
         nameof(PlayerSettings.TerminalMmS), nameof(PlayerSettings.SubStepMm), nameof(PlayerSettings.MaxSubStepsPerTick),
@@ -192,21 +181,26 @@ public class PlayerSettingsTests
         Assert.Contains(char.ToLowerInvariant(property[0]) + property[1..], ex.Message);
     }
 
-    [Theory]
-    [MemberData(nameof(PlayerKeyNames))]
-    public void MissingPlayerKey_IsABuildError_NotADefault(string key)
+    [Fact]
+    public void MissingPlayerKey_IsABuildError_NotADefault()
     {
-        // Arrange: a registry and entry set without one player row.
-        string name = "player." + key;
-        ImmutableArray<BalanceRow> rows = BalanceKeys.CreateRegistry().Rows.Where(r => r.Owner + "." + r.Key != name).ToImmutableArray();
-        BalanceRegistry registry = BalanceKeys.Compose(rows);
-        ImmutableArray<BalanceEntry> entries = BalanceKeys.CreateDefaultEntries().Where(e => e.Name != name).ToImmutableArray();
-        BalanceBuildResult built = BalanceTable.Build(registry, entries);
-        Assert.NotNull(built.Table);
+        Assert.NotEmpty(BalanceKeys.Player.Rows);
+        foreach (BalanceRow playerRow in BalanceKeys.Player.Rows)
+        {
+            // Arrange: a registry and entry set without one player row.
+            string name = "player." + playerRow.Key;
+            ImmutableArray<BalanceRow> rows = BalanceKeys.CreateRegistry().Rows.Where(r => r.Owner + "." + r.Key != name).ToImmutableArray();
+            BalanceRegistry registry = BalanceKeys.Compose(rows);
+            ImmutableArray<BalanceEntry> entries = BalanceKeys.CreateDefaultEntries().Where(e => e.Name != name).ToImmutableArray();
+            BalanceBuildResult built = BalanceTable.Build(registry, entries);
+            Assert.True(built.Table is not null, $"{name}: the table did not build");
 
-        // Act + Assert: the handles cannot be resolved, so no PlayerBalance (and no PlayerSettings) comes out of the table.
-        Assert.Throws<ArgumentException>(() => BalanceKeys.Player.Resolve(registry));
-        Assert.Throws<ArgumentException>(() => PlayerBalance.FromTable(built.Table!));
+            // Act + Assert: the handles cannot be resolved, so no PlayerBalance (and no PlayerSettings) comes out of the table.
+            Exception? resolve = Record.Exception(() => BalanceKeys.Player.Resolve(registry));
+            Assert.True(resolve?.GetType() == typeof(ArgumentException), $"{name}: Resolve threw {resolve?.GetType().Name ?? "nothing"}, not ArgumentException");
+            Exception? fromTable = Record.Exception(() => PlayerBalance.FromTable(built.Table!));
+            Assert.True(fromTable?.GetType() == typeof(ArgumentException), $"{name}: FromTable threw {fromTable?.GetType().Name ?? "nothing"}, not ArgumentException");
+        }
     }
 
     [Fact]

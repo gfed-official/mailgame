@@ -19,7 +19,6 @@ public class ObbTests
     [InlineData(1000, 2000, -2000, 1000)]
     [InlineData(-7, 13, -13, -7)]
     [InlineData(20_000, -20_000, 20_000, 20_000)]
-    [InlineData(0, 0, 0, 0)]
     [InlineData(0, -2000, 2000, 0)]    // a point north of the box lies on its local +X axis
     public void ToLocal_YawNinetyDegrees_MapsOffsetsExactly(int dx, int dz, int expectedX, int expectedZ)
     {

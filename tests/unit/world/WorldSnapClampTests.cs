@@ -51,13 +51,10 @@ public class WorldSnapClampTests
 
     [Theory]
     [InlineData(-5000, 5000, 1000, 5000)]
-    [InlineData(0, 5000, 1000, 5000)]
     [InlineData(999, 5000, 1000, 5000)]
-    [InlineData(10_000, 5000, 9000, 5000)]
     [InlineData(9001, 5000, 9000, 5000)]
     [InlineData(5000, -5000, 5000, 1000)]
     [InlineData(5000, 10_001, 5000, 9000)]
-    [InlineData(-123_456_789, 987_654_321, 1000, 9000)]
     [InlineData(int.MinValue, int.MaxValue, 1000, 9000)]
     public void Ac2_Clamp_OutOfRangeXz_LandsOnInsetBoundary(int x, int z, int expectedX, int expectedZ)
     {

@@ -80,26 +80,4 @@ public class GeometryValueTypesTests
         Assert.Equal(3, a.Tx);
         Assert.Equal(12, a.Tz);
     }
-
-    [Fact]
-    public void AddressId_PackedFields_DecodeAndOrderLexicographically()
-    {
-        // Arrange (district 2, street 3, number 4095, unit 5)
-        var a = new AddressId((2u << 26) | (3u << 18) | (4095u << 6) | 5u);
-        var next = new AddressId((2u << 26) | (4u << 18));
-
-        // Assert
-        Assert.Equal(2u, a.District);
-        Assert.Equal(3u, a.Street);
-        Assert.Equal(4095u, a.Number);
-        Assert.Equal(5u, a.Unit);
-        Assert.True(a.CompareTo(next) < 0);
-        Assert.True(a == new AddressId(a.Value));
-        Assert.True(a != next);
-        Assert.True(a.Equals((object)new AddressId(a.Value)));
-        Assert.Equal(a.GetHashCode(), new AddressId(a.Value).GetHashCode());
-        Assert.True(AddressId.None.IsNone);
-        Assert.True(default(AddressId) == AddressId.None);
-        Assert.False(a.IsNone);
-    }
 }

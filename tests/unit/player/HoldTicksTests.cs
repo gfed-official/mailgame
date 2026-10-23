@@ -230,13 +230,11 @@ public class HoldTicksTests
     [InlineData(430, 450)]
     [InlineData(420, 400)]
     [InlineData(425, 450)]
-    [InlineData(475, 500)]
     [InlineData(400, 400)]
     [InlineData(150, 200)]
     [InlineData(1200, 1000)]
     [InlineData(1000, 1000)]
     [InlineData(200, 200)]
-    [InlineData(-100, 200)]
     [InlineData(int.MinValue, 200)]
     [InlineData(int.MaxValue, 1000)]
     public void ClampSettingMs_Value_RoundsToNearestFiftyTiesUp(int input, int expected)

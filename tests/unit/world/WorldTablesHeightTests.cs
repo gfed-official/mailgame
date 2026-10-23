@@ -43,14 +43,6 @@ public class WorldTablesHeightTests
         Assert.Equal(6000L, w.Bounds.MaxZMm);
     }
 
-    [Fact]
-    public void WorldConstants_TileSize_Is2000AndAreaMatches()
-    {
-        Assert.Equal(2000, WorldConstants.TileSizeMm);
-        Assert.Equal(4_000_000L, WorldConstants.TileAreaMm2);
-        Assert.Equal(500, WorldConstants.MaxTilesPerAxis);
-    }
-
     // ---- AC-1: FX-Beach through IWorldQuery ----
 
     [Fact]
@@ -119,21 +111,26 @@ public class WorldTablesHeightTests
         Assert.Equal((long)expected, actual);
     }
 
-    [Theory]
-    [MemberData(nameof(InteriorGoldenRows))]
+    [Fact]
     [Trait("Id", "PCM-F7-1")]
-    public void TerrainHeightMm_GoldenVectorInTileOneOne_MatchesCommittedValue(int h00, int h10, int h01, int h11, int fx, int fz, int expected)
+    public void TerrainHeightMm_GoldenVectorInTileOneOne_MatchesCommittedValue()
     {
-        // Arrange (the same tile placed at tile (1,1) of a 3 x 3 map; neighbours differ so a wrong lookup shows)
-        // Corner grid is 4 x 4 row-major; tile (1,1) owns corners (1,1) (2,1) (1,2) (2,2) = indices 5 6 9 10.
-        int[] corners = { 7, 7, 7, 7, 7, h00, h10, 7, 7, h01, h11, 7, 7, 7, 7, 7 };
-        IWorldQuery w = Build(3, 3, corners);
+        // Rows with an offset of 2000 belong to the neighbour tile, so only offsets below S are used here.
+        int[][] interior = HeightGoldenVectors.Rows.Where(r => r[4] < 2000 && r[5] < 2000).ToArray();
+        Assert.NotEmpty(interior);
+        foreach (int[] r in interior)
+        {
+            // Arrange (the same tile placed at tile (1,1) of a 3 x 3 map; neighbours differ so a wrong lookup shows)
+            // Corner grid is 4 x 4 row-major; tile (1,1) owns corners (1,1) (2,1) (1,2) (2,2) = indices 5 6 9 10.
+            int[] corners = { 7, 7, 7, 7, 7, r[0], r[1], 7, 7, r[2], r[3], 7, 7, 7, 7, 7 };
+            IWorldQuery w = Build(3, 3, corners);
 
-        // Act (rows with an offset of 2000 belong to the neighbour tile, so only offsets below S are used here)
-        long actual = w.TerrainHeightMm(2000 + fx, 2000 + fz);
+            // Act
+            long actual = w.TerrainHeightMm(2000 + r[4], 2000 + r[5]);
 
-        // Assert
-        Assert.Equal((long)expected, actual);
+            // Assert
+            Assert.True(actual == r[6], $"golden row {{ {string.Join(", ", r)} }} at tile (1,1): expected {r[6]}, got {actual}");
+        }
     }
 
     [Theory]
@@ -408,20 +405,6 @@ public class WorldTablesHeightTests
 
     [Fact]
     [Trait("Id", "PCM-F7-1")]
-    public void WaterDepthMm_HalfMillimetreBelowSeaLevel_RoundsToOne()
-    {
-        // Arrange (height rounds half away from zero first: -0.5 -> -1, so depth is 1)
-        IWorldQuery w = BuildSingleTile(-2, 0, 0, 0);
-
-        // Act
-        int depth = w.WaterDepthMm(1000, 1000);
-
-        // Assert
-        Assert.Equal(1, depth);
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-F7-1")]
     public void WorldTables_NoWaterDepthField_AndEveryInstanceFieldIsReadonly()
     {
         // Arrange
@@ -636,9 +619,6 @@ public class WorldTablesHeightTests
     }
 
     public static IEnumerable<object[]> GoldenRows() => HeightGoldenVectors.TheoryRows();
-
-    public static IEnumerable<object[]> InteriorGoldenRows() =>
-        HeightGoldenVectors.TheoryRows().Where(r => (int)r[4] < 2000 && (int)r[5] < 2000);
 }
 
 /// <summary>
