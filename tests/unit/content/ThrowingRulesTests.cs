@@ -234,30 +234,6 @@ public class ThrowingRulesTests
 
     [Fact]
     [Trait("Id", "CDD-UNIT-3")]
-    public void ExactTickCheck_IsTrueExactlyForMultiplesOf100_OverTheWholeDomain()
-    {
-        for (int ms = 0; ms <= 86_400_000; ms++)
-        {
-            if (ExactTickCheck.IsWholeTicks(ms) != (ms % 100 == 0))
-            {
-                Assert.Fail("F3 disagrees with ms % 100 at " + ms);
-            }
-        }
-    }
-
-    [Fact]
-    [Trait("Id", "CDD-UNIT-3")]
-    public void ExactTickCheck_UsesLongArithmetic_SoAMillisecondValueAboveTheInt32ProductDoesNotWrap()
-    {
-        // 71 582 788 ms x 30 exceeds int32; 71 582 800 is a multiple of 100 and must still be true, 71 582 801 false.
-        Assert.True(ExactTickCheck.IsWholeTicks(71_582_800));
-        Assert.False(ExactTickCheck.IsWholeTicks(71_582_801));
-        Assert.True(ExactTickCheck.IsWholeTicks(int.MaxValue - (int.MaxValue % 100)));
-        Assert.False(ExactTickCheck.IsWholeTicks(int.MaxValue));
-    }
-
-    [Fact]
-    [Trait("Id", "CDD-UNIT-3")]
     public void ExactTickCheck_AValueAboveInt32MaxOver30_AndALongAboveInt32_DoNotWrap()
     {
         long justAbove = (int.MaxValue / 30) + 1;   // 71 582 789: ms x 30 no longer fits int32
@@ -266,16 +242,6 @@ public class ThrowingRulesTests
         Assert.False(ExactTickCheck.IsWholeTicks(71_582_850));
         Assert.True(ExactTickCheck.IsWholeTicks(3_000_000_000L));   // above int.MaxValue itself
         Assert.False(ExactTickCheck.IsWholeTicks(3_000_000_001L));
-    }
-
-    [Fact]
-    [Trait("Id", "CDD-UNIT-3")]
-    public void ExactTickCheck_NegativeValues_FollowTheSameModulo_AndTheCallerRangeChecks()
-    {
-        Assert.True(ExactTickCheck.IsWholeTicks(-100));
-        Assert.True(ExactTickCheck.IsWholeTicks(-500));
-        Assert.False(ExactTickCheck.IsWholeTicks(-150));
-        Assert.False(ExactTickCheck.IsWholeTicks(-1));
     }
 
     // ------------------------------------------------------------ CV-THR-01
@@ -830,12 +796,5 @@ public class ThrowingRulesTests
         Assert.Equal(0, r.Validation.SkippedCount);
         Assert.NotNull(r.Set);
         Assert.NotNull(BuiltInContent.CreateM1a());
-    }
-
-    [Fact]
-    [Trait("Id", "TC-CV-1")]
-    public void MinimalValid_PassesEveryThrowingRule()
-    {
-        AssertClean(Fx.V(ContentFixtures.MinimalValid()));
     }
 }

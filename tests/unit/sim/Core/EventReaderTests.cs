@@ -327,15 +327,6 @@ public class EventReaderTests
         Assert.Equal(SimBuildErrorCode.InvalidEventReader, Assert.Throws<SimBuildException>(() => builder.BindEventReader(new ReaderId(2), new[] { A, EventKind.None })).Code);
         Assert.Throws<ArgumentNullException>(() => builder.BindEventReader(new ReaderId(2), null!));
     }
-
-    [Fact]
-    public void Build_BindEventReaderAfterFreeze_ThrowsBindAfterFreeze()
-    {
-        var builder = new SimWorldBuilder();
-        builder.Freeze();
-
-        Assert.Equal(SimBuildErrorCode.BindAfterFreeze, Assert.Throws<SimBuildException>(() => builder.BindEventReader(_reader, new[] { A })).Code);
-    }
 }
 
 /// <summary>

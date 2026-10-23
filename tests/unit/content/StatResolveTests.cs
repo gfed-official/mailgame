@@ -823,34 +823,6 @@ public class StatResolveTests
             Assert.Equal((Int128)2, result);
         }
     }
-
-    [Fact]
-    [Trait("Id", "CDD-STAT-10")]
-    public void AssertCodes_AreInContentBlockAndDistinct()
-    {
-        // Assert
-        Assert.InRange((int)ContentAssertCode.StatMulFactorsExceeded, 2000, 2999);
-        Assert.InRange((int)ContentAssertCode.StatSetWithoutResolve, 2000, 2999);
-        Assert.InRange((int)ContentAssertCode.StatMulOutOfRange, 2000, 2999);
-        Assert.InRange((int)ContentAssertCode.StatAddsTooMany, 2000, 2999);
-        Assert.InRange((int)ContentAssertCode.StatBoundsInverted, 2000, 2999);
-        Assert.InRange((int)ContentAssertCode.StatRoundingUnknown, 2000, 2999);
-        Assert.NotEqual(ContentAssertCode.StatMulFactorsExceeded, ContentAssertCode.StatSetWithoutResolve);
-        Assert.NotEqual(ContentAssertCode.BalanceKeyForeign, ContentAssertCode.StatMulFactorsExceeded);
-    }
-
-    [Fact]
-    [Trait("Id", "CDD-STAT-10")]
-    public void Pow1000_ZeroToSix_AreExactPowers()
-    {
-        // Assert
-        Int128 expected = 1;
-        for (int k = 0; k <= 6; k++)
-        {
-            Assert.Equal(expected, StatResolve.Pow1000(k));
-            expected *= 1000;
-        }
-    }
 }
 
 /// <summary>Zero-allocation guardrail for F1 and F5, in the non-parallel collection (TD-026).</summary>

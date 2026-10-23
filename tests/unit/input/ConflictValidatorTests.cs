@@ -407,27 +407,29 @@ public class ConflictValidatorTests
         return live;
     }
 
-    [Theory]
-    [InlineData("FIELD", ValidationCodes.Field)]
-    [InlineData("CONFLICT_COLIVE", ValidationCodes.ConflictColive)]
-    [InlineData("TAP_HOLD_SHARE", ValidationCodes.TapHoldShare)]
-    [InlineData("CHORD_SHAPE", ValidationCodes.ChordShape)]
-    [InlineData("RESERVED_INPUT", ValidationCodes.ReservedInput)]
-    [InlineData("MOVE_CURSOR_SHARE", ValidationCodes.MoveCursorShare)]
-    [InlineData("LADDER_STEP", ValidationCodes.LadderStep)]
-    [InlineData("GRAMMAR_TARGET", ValidationCodes.GrammarTarget)]
-    [InlineData("PAD_PATH", ValidationCodes.PadPath)]
-    [InlineData("SHARED_DISJOINT", ValidationCodes.SharedDisjoint)]
-    public void ValidationCodes_AreStableLiterals(string expected, string actual)
-    {
-        Assert.Equal(expected, actual);
-    }
-
     [Fact]
-    public void ValidationCodes_EveryConstantIsPinned()
+    public void ValidationCodes_EveryConstantIsPinnedToItsStableLiteral()
     {
-        int count = typeof(ValidationCodes).GetFields().Count(f => f.IsLiteral);
+        (string Name, string Literal)[] expected =
+        [
+            ("ChordShape", "CHORD_SHAPE"),
+            ("ConflictColive", "CONFLICT_COLIVE"),
+            ("Field", "FIELD"),
+            ("GrammarTarget", "GRAMMAR_TARGET"),
+            ("LadderStep", "LADDER_STEP"),
+            ("MoveCursorShare", "MOVE_CURSOR_SHARE"),
+            ("PadPath", "PAD_PATH"),
+            ("ReservedInput", "RESERVED_INPUT"),
+            ("SharedDisjoint", "SHARED_DISJOINT"),
+            ("TapHoldShare", "TAP_HOLD_SHARE"),
+        ];
 
-        Assert.Equal(10, count);
+        (string Name, string Literal)[] actual = typeof(ValidationCodes).GetFields()
+            .Where(f => f.IsLiteral)
+            .Select(f => (f.Name, (string)f.GetRawConstantValue()!))
+            .OrderBy(t => t.Name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expected, actual);
     }
 }

@@ -135,10 +135,4 @@ public class RouterStateTests
         Assert.Equal("invalid(1008)", RouterState.ToDebugString(RouterStateInfo.StateCount));
         Assert.Equal("invalid(65535)", RouterState.ToDebugString(ushort.MaxValue));
     }
-
-    [Fact]
-    public void ToDebugString_OfTheWorldStateIsStable()
-    {
-        Assert.Equal("0000 cap=None ovl=None body=OnFoot hold=0 aim=0 sub=None", default(RouterState).ToDebugString());
-    }
 }

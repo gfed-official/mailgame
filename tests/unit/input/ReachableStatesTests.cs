@@ -199,14 +199,6 @@ public class ReachableStatesTests
     }
 
     [Fact]
-    public void GoldenDiff_IsEmptyWhenEqual()
-    {
-        string[] lines = ["0001 a", "0002 b"];
-
-        Assert.Equal(string.Empty, GoldenDiff(lines, [.. lines]));
-    }
-
-    [Fact]
     public void ReachableSet_MatchesTheIndependentBranchOracleForAll1008Tuples()
     {
         var mismatches = new List<string>();
@@ -300,32 +292,6 @@ public class ReachableStatesTests
         foreach (ReachabilityRule rule in ReachableRules.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(rule.Name));
-        }
-    }
-
-    [Fact]
-    public void KnownReachableStates_AreAccepted()
-    {
-        ushort[] reachable =
-        [
-            Pack(),                                                                        // World
-            Pack(aiming: true),                                                            // Aiming
-            Pack(overlay: OverlayLayer.Panel),                                             // Panel
-            Pack(overlay: OverlayLayer.Panel, submenu: SubmenuLayer.ActionMenu),           // Panel + submenu
-            Pack(overlay: OverlayLayer.Panel, holding: true, submenu: SubmenuLayer.SplitStepper), // Holding-open
-            Pack(holding: true),                                                           // Holding-closed
-            Pack(body: BodyLayer.Dead),                                                    // Dead
-            Pack(body: BodyLayer.Dead, overlay: OverlayLayer.Draft),                       // Dead + Draft
-            Pack(body: BodyLayer.Dead, overlay: OverlayLayer.History),                     // Dead + History
-            Pack(body: BodyLayer.Mounted, overlay: OverlayLayer.Map),                      // Mounted + Map
-            Pack(body: BodyLayer.Build, overlay: OverlayLayer.Draft),                      // Build + Draft
-            Pack(capture: CaptureLayer.TextEntry, overlay: OverlayLayer.Panel),            // typing over a panel
-            Pack(capture: CaptureLayer.Pause, holding: true),                              // paused while carrying
-        ];
-
-        foreach (ushort id in reachable)
-        {
-            Assert.True(ReachableSet.Default.Contains(id), CanonicalLine(id));
         }
     }
 

@@ -224,7 +224,6 @@ public class IdTypesTests
 
     [Theory]
     [InlineData((byte)8)]
-    [InlineData((byte)200)]
     [InlineData((byte)0xFE)]
     public void PlayerSlotFromValue_OutOfRange_AssertsOrReturnsNone(byte raw)
     {

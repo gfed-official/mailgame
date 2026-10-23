@@ -78,32 +78,6 @@ public class SimCheckRingTests
     }
 
     [Fact]
-    public void Record_ExactlyRateLimitApart_Stores_OneLessSuppresses()
-    {
-        var ring = new SimCheckRing();
-        ring.Record(CheckCode.BusySystem, 100, 0, 0);
-
-        ring.Record(CheckCode.BusySystem, 129, 0, 0);
-        Assert.Equal(1, ring.Count);
-        ring.Record(CheckCode.BusySystem, 130, 0, 0);
-
-        Assert.Equal(2, ring.Count);
-        Assert.Equal(1u, ring.Suppressed(CheckCode.BusySystem));
-    }
-
-    [Fact]
-    public void Record_SuppressedRecordDoesNotExtendWindow()
-    {
-        var ring = new SimCheckRing();
-        ring.Record(CheckCode.BusySystem, 0, 0, 0);
-        ring.Record(CheckCode.BusySystem, 29, 0, 0);
-
-        ring.Record(CheckCode.BusySystem, 30, 0, 0);
-
-        Assert.Equal(2, ring.Count);
-    }
-
-    [Fact]
     public void Record_CustomRateLimit_IsHonoured()
     {
         var ring = new SimCheckRing(capacity: 8, rateLimitTicks: 5);

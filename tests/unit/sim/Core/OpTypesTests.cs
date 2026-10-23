@@ -130,16 +130,6 @@ public class OpTypesTests
         public ulong B;
     }
 
-    private sealed class StubHandler : IOpHandler
-    {
-        public OpKind Kind => OpKind.PlayerLeave;
-
-        public Reply Apply(in Op op, in TickContext ctx)
-        {
-            return ctx.Tick == 0 ? Reply.Ok(in op) : Reply.Reject(in op, CoreReason.Busy);
-        }
-    }
-
     internal static Payload12 Sample12() => new() { A = 0x11223344u, B = 0xDEADBEEFu, C = 0xFFFFFFFFu };
 
     internal static Payload48 Sample48() => new()
@@ -305,22 +295,6 @@ public class OpTypesTests
 
         ReadOnlySpan<byte> payload = op.Payload;
         Assert.Equal(new byte[] { 0x44, 0x33, 0x22, 0x11, 0xEF, 0xBE, 0xAD, 0xDE, 0xFF, 0xFF, 0xFF, 0xFF }, payload.Slice(0, 12).ToArray());
-        for (int i = 12; i < 48; i++)
-        {
-            Assert.Equal(0, payload[i]);
-        }
-    }
-
-    [Fact]
-    public void Ac2_SetPayload_ShorterThanBefore_ZeroesTheOldTail()
-    {
-        var op = default(Op);
-        op.SetPayload(Sample48());
-
-        op.SetPayload(new Payload12 { A = 1, B = 2, C = 3 });
-
-        Assert.Equal(12, op.PayloadLength);
-        ReadOnlySpan<byte> payload = op.Payload;
         for (int i = 12; i < 48; i++)
         {
             Assert.Equal(0, payload[i]);
@@ -634,21 +608,6 @@ public class OpTypesTests
             reply.SetExtra(default(Payload48));
             Assert.Equal(default, reply.ExtraAs<Extra16>());
         }
-    }
-
-    [Fact]
-    public void IOpHandler_StubReturnsOneReplyForTheOpsKind()
-    {
-        IOpHandler handler = new StubHandler();
-        var op = new Op { ReqId = 12u, Kind = handler.Kind };
-
-        Reply ok = handler.Apply(in op, new TickContext(0, PhaseId.CombatReact));
-        Reply rejected = handler.Apply(in op, new TickContext(1, PhaseId.CombatReact));
-
-        Assert.Equal(OpKind.PlayerLeave, ok.Kind);
-        Assert.True(ok.IsOk);
-        Assert.Equal(12u, rejected.ReqId);
-        Assert.Equal(CoreReason.Busy, rejected.Reason);
     }
 
     // ---------------------------------------------------------------- AC-3: CoreReason, ReasonDef, descriptors

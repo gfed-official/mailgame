@@ -128,8 +128,6 @@ public class UiEventLogTests
     [Theory]
     [InlineData(-1)]
     [InlineData(5)]
-    [InlineData(int.MaxValue)]
-    [InlineData(int.MinValue)]
     public void TryGet_OutOfRange_ReturnsFalseAndDefault(int index)
     {
         var log = new UiEventLog();

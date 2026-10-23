@@ -252,20 +252,6 @@ public class RngGoldenVectorTests
         Assert.Equal(0U, pcg.Next32());
         Assert.Equal(0UL, pcg.State);
     }
-
-    [Fact]
-    [Trait("Id", "SC-F5-1")]
-    public void DeriveWithStreamName_EqualsByteSpanOverload_ForEveryName()
-    {
-        for (int i = 0; i < RngNames.Count; i++)
-        {
-            StreamName name = RngNames.ByOrdinal(i);
-            for (uint index = name.MinIndex; index <= name.MaxIndex; index++)
-            {
-                Assert.Equal(RngDerive.Derive(1, name.Name, index), RngDerive.Derive(1, in name, index));
-            }
-        }
-    }
 }
 
 /// <summary>

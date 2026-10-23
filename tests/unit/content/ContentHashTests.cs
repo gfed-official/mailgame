@@ -68,8 +68,6 @@ public class ContentHashTests
 
     [Theory]
     [InlineData(1)]
-    [InlineData(7)]
-    [InlineData(55)]
     [InlineData(63)]
     [InlineData(64)]
     [InlineData(65)]

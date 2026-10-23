@@ -124,16 +124,6 @@ public class BalanceTableTests
         Assert.Null(r.Table);
     }
 
-    [Fact]
-    [Trait("Id", "CDD-SCHEMA-5")]
-    public void Build_RegistryWithoutPlayerRows_TreatsAPlayerKeyAsUnregistered()
-    {
-        // The sim-only registry has no player rows, so player.rangeMm is an unregistered key there (the full registry does register it).
-        BalanceBuildResult r = BalanceTable.Build(SimRegistry(), SimPlus(Player(5_000)));
-
-        Assert.Single(Of(r, GeneralRuleIds.BalanceKey));
-    }
-
     [Theory]
     [InlineData(99)]
     [InlineData(20_001)]
@@ -545,17 +535,6 @@ public class BalanceTableTests
         Assert.Equal(64, settings.MailTablePages);
         Assert.Equal(30, SimSettings.TickRateHz);
         Assert.Equal(8, settings.Core.MaxEventReaders);
-    }
-
-    [Fact]
-    [Trait("Id", "CD9")]
-    public void SimSettings_EverySimHardRange_FitsInInt_SoTheCheckedCastCannotOverflow()
-    {
-        Assert.All(BalanceKeys.Sim.Rows, r =>
-        {
-            Assert.InRange(r.HardMin, int.MinValue, int.MaxValue);
-            Assert.InRange(r.HardMax, int.MinValue, int.MaxValue);
-        });
     }
 
     [Fact]

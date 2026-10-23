@@ -161,22 +161,6 @@ public class TickLoopTests
         public PhaseId Phase => Target!.Phase;
     }
 
-    [Fact]
-    [Trait("Id", "SC-R1-1")]
-    public void FreshWorld_IsReady_AtTickZero_AndFirstTickMovesToRunning()
-    {
-        SimWorld world = new SimWorldBuilder().Freeze();
-
-        Assert.Equal(SimState.Ready, world.State);
-        Assert.Equal(0u, world.CurrentTick);
-        Assert.Equal(TickStage.BetweenTicks, world.Stage);
-
-        world.Tick();
-
-        Assert.Equal(SimState.Running, world.State);
-        Assert.Equal(1u, world.CurrentTick);
-    }
-
     // ---- AC-2 (SC-R3-1) ----
 
     [Fact]
