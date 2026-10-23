@@ -35,13 +35,14 @@ public sealed class FocusStep : IClientStep
     private readonly PlayerSettings _settings;
     private readonly SimCounters _counters;
     private FocusState _state;
+    private FocusCounters _probes;
 
     /// <summary>Creates the step.</summary>
     /// <param name="source">The local carrier's feet and status.</param>
     /// <param name="anchors">The anchor registry (read only).</param>
     /// <param name="gate">The framework context gate.</param>
     /// <param name="settings">The focus knobs (<c>ChestMm</c>, <c>IncumbentSlackMm</c>, <c>NearMm</c>, <c>NearAxisMm</c>, weights, dwell).</param>
-    /// <param name="counters">The ClientLayer's counters (arithmetic counts).</param>
+    /// <param name="counters">The ClientLayer's counters (arithmetic counts and the <see cref="FocusCounters"/> maxima).</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public FocusStep(ICarrierFocusSource source, AnchorRegistry anchors, InteractionGate gate, PlayerSettings settings, SimCounters counters)
     {
@@ -60,6 +61,9 @@ public sealed class FocusStep : IClientStep
     /// <summary>The focus after the last <see cref="Step"/>; story 017 sets <see cref="FocusState.Latched"/> through it.</summary>
     public ref FocusState State => ref _state;
 
+    /// <summary>The last <see cref="Step"/>'s budget probes.</summary>
+    public ref readonly FocusCounters Probes => ref _probes;
+
     /// <inheritdoc />
     public void Step(in ClientStepContext ctx)
     {
@@ -73,7 +77,8 @@ public sealed class FocusStep : IClientStep
         SimCounterSink sink = _counters.PrimitiveSink();
 
         Span<int> found = stackalloc int[CandidateCapacity];
-        int n = _anchors.QueryCells(in chest, found);
+        int n = _anchors.QueryCells(in chest, found, out int cellsVisited);
+        int candidates = 0;
         int incumbentIndex = -1;
         GateResult incumbentGate = default;
         bool incumbentEligible = false;
@@ -104,8 +109,13 @@ public sealed class FocusStep : IClientStep
             }
 
             FocusGeometry g = FocusScore.Measure(in chest, in def.Point, fx, fz, _settings.NearAxisMm, ref sink);
-            if (!FocusScore.InRange(g.D, def.RangeMm, isIncumbent, _settings.IncumbentSlackMm)
-                || !FocusScore.InCone(g.D, g.CosPm, frame.FocusCosMinPm, _settings.NearMm))
+            if (!FocusScore.InRange(g.D, def.RangeMm, isIncumbent, _settings.IncumbentSlackMm))
+            {
+                continue;
+            }
+
+            candidates++;
+            if (!FocusScore.InCone(g.D, g.CosPm, frame.FocusCosMinPm, _settings.NearMm))
             {
                 continue;
             }
@@ -121,6 +131,9 @@ public sealed class FocusStep : IClientStep
             }
         }
 
+        _probes.Candidates = candidates;
+        _probes.CellsVisited = cellsVisited;
+        _probes.RaiseInto(_counters);
         if (latched)
         {
             // D2 (TD-164): the incumbent is kept unconditionally and the dwell is held at zero; an unregistered ref is kept, not read.

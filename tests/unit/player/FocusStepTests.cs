@@ -105,6 +105,15 @@ internal sealed class FocusRig
         return d.Ref;
     }
 
+    /// <summary>2 000 anchors at chest height on a 1 m lattice (50 × 40, RangeMm 2500) centred on <see cref="Feet"/>, cell-aligned.</summary>
+    public void AddLattice()
+    {
+        for (uint i = 0; i < 2000; i++)
+        {
+            Add(i + 1, new Vec3Mm(Feet.X - 25_000 + ((int)(i % 50) * 1000), 1000, Feet.Z - 20_000 + ((int)(i / 50) * 1000)));
+        }
+    }
+
     public AnchorRef Tick()
     {
         Layer.Step(true);
@@ -300,6 +309,23 @@ public class FocusStepTests
             // Act + Assert
             Assert.Equal(FocusRig.Ref(3, 0), rig.Tick());
         }
+    }
+
+    [Fact]
+    public void Budget_2000AnchorLattice_Visits25Cells_ScoresOnlyTheInRangeAnchors()
+    {
+        // Arrange: QueryRadiusCells = CeilDiv(2500 + 400, 2000) = 2, so 5 × 5 cells of 2 m hold 100 lattice points (< 128).
+        var rig = new FocusRig(maxAnchors: 2048);
+        rig.AddLattice();
+
+        // Act
+        rig.Tick();
+
+        // Assert: 21 lattice points lie within 2500 mm of the chest (x² + z² ≤ 6.25 in metres).
+        Assert.Equal(2, rig.Anchors.QueryRadiusCells);
+        Assert.Equal((21, 25), (rig.Focus.Probes.Candidates, rig.Focus.Probes.CellsVisited));
+        Assert.Equal((21L, 25L), (rig.Counters[CounterId.FocusCandidates], rig.Counters[CounterId.FocusCellsVisited]));
+        Assert.Equal(0L, rig.Counters[CounterId.AnchorQueryOverflow]);
     }
 
     [Fact]

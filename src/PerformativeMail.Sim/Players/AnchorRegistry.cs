@@ -258,7 +258,7 @@ public sealed class AnchorRegistry
     }
 
     /// <summary>The stored definition at a live <paramref name="index"/> (the resolved reach, never 0).</summary>
-    /// <param name="index">An index from <see cref="TryGet(AnchorRef, out int)"/> or <see cref="QueryCells"/>.</param>
+    /// <param name="index">An index from <see cref="TryGet(AnchorRef, out int)"/> or <see cref="QueryCells(in Vec3Mm, Span{int})"/>.</param>
     /// <returns>A reference into the fixed entry array; valid until the slot is unregistered.</returns>
     /// <exception cref="IndexOutOfRangeException"><paramref name="index"/> is outside 0 to <see cref="Capacity"/> - 1.</exception>
     /// <example><code>int range = registry.DefAt(i).RangeMm;</code></example>
@@ -287,9 +287,20 @@ public sealed class AnchorRegistry
     /// <param name="results">The destination; its length caps the result.</param>
     /// <returns>The number of indices written.</returns>
     /// <example><code>Span&lt;int&gt; found = stackalloc int[128]; int n = registry.QueryCells(chest, found);</code></example>
-    public int QueryCells(in Vec3Mm point, Span<int> results)
+    public int QueryCells(in Vec3Mm point, Span<int> results) => QueryCells(in point, results, out _);
+
+    /// <summary>
+    /// As <see cref="QueryCells(in Vec3Mm, Span{int})"/>, also reporting how many grid cells were walked (the focus budget probe,
+    /// at most <c>(2 · QueryRadiusCells + 1)²</c>; Mail Lead planning default D3, pending Evan, TD-164).
+    /// </summary>
+    /// <param name="point">The query point (the chest), mm.</param>
+    /// <param name="results">The destination; its length caps the result.</param>
+    /// <param name="cellsVisited">The cells entered, the one a truncation stops in included.</param>
+    /// <returns>The number of indices written.</returns>
+    /// <example><code>Span&lt;int&gt; found = stackalloc int[128]; int n = registry.QueryCells(chest, found, out int cells);</code></example>
+    public int QueryCells(in Vec3Mm point, Span<int> results, out int cellsVisited)
     {
-        int n = _grid.Query(in point, QueryRadiusCells, results, out bool truncated);
+        int n = _grid.Query(in point, QueryRadiusCells, results, out bool truncated, out cellsVisited);
         if (truncated)
         {
             _counters.Add(CounterId.AnchorQueryOverflow);

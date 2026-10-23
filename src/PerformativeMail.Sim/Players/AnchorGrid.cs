@@ -110,9 +110,15 @@ internal sealed class AnchorGrid
     /// (a square, clamped to the grid), ascending cell then ascending anchor index. Stops at <c>results.Length</c>.
     /// </summary>
     /// <returns>The number written; <paramref name="truncated"/> is set when more existed.</returns>
-    public int Query(in Vec3Mm point, int radiusCells, Span<int> results, out bool truncated)
+    public int Query(in Vec3Mm point, int radiusCells, Span<int> results, out bool truncated) =>
+        Query(in point, radiusCells, results, out truncated, out _);
+
+    /// <summary>As <see cref="Query(in Vec3Mm, int, Span{int}, out bool)"/>, also reporting the cells whose lists were walked.</summary>
+    /// <returns>The number written; <paramref name="cellsVisited"/> counts each cell entered, the one a truncation stops in included.</returns>
+    public int Query(in Vec3Mm point, int radiusCells, Span<int> results, out bool truncated, out int cellsVisited)
     {
         truncated = false;
+        cellsVisited = 0;
         int cx = ClampCell(point.X - _minXMm, CellsX);
         int cz = ClampCell(point.Z - _minZMm, CellsZ);
         int x0 = Math.Max(0, cx - radiusCells);
@@ -125,6 +131,7 @@ internal sealed class AnchorGrid
             int row = z * CellsX;
             for (int x = x0; x <= x1; x++)
             {
+                cellsVisited++;
                 for (int i = _cellHead[row + x]; i >= 0; i = _next[i])
                 {
                     if (count == results.Length)
