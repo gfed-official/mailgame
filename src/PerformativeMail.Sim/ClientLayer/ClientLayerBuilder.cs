@@ -9,7 +9,8 @@ namespace PerformativeMail.Sim.ClientLayer;
 /// <para>
 /// <see cref="ClientStepId.Previews"/> runs the <see cref="PreviewSubStep"/> rows bound with <see cref="BindPreview"/> in enum
 /// order, then the plain <c>Bind(ClientStepId.Previews, …)</c> steps (ADR-0016 section 2; D4, Approved by Evan 2026-10-22
-/// 8:24 PM PT (Mail Lead chat), TD-164). <see cref="Build"/> flattens them into one row, so the layer's step loop is unchanged.
+/// 8:24 PM PT (Mail Lead chat), TD-164). <see cref="Build"/> flattens them into one row, so the layer's step loop is unchanged
+/// (TD-170 item 6, Mail Lead planning default, pending Evan).
 /// </para>
 /// </summary>
 /// <example>

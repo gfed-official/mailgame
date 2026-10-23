@@ -22,7 +22,7 @@ internal sealed class ScriptedFocusSource : ICarrierFocusSource
     public void SetStatus(CarrierStatus status) => _status = status;
 }
 
-/// <summary>A pure owner double that counts <c>IsAvailable</c> calls.</summary>
+/// <summary>A pure owner double that counts <c>IsAvailable</c> calls and keeps the last context it was given.</summary>
 internal sealed class CountingInteractable : IInteractable
 {
     public bool Available { get; init; } = true;
@@ -31,9 +31,12 @@ internal sealed class CountingInteractable : IInteractable
 
     public int AvailabilityCalls { get; private set; }
 
+    public InteractionContext LastContext { get; private set; }
+
     public bool IsAvailable(in InteractionContext c, out StringId reason)
     {
         AvailabilityCalls++;
+        LastContext = c;
         reason = Available ? StringId.None : UnavailableReason;
         return Available;
     }
@@ -141,13 +144,18 @@ public class FocusStepTests
     [Trait("Id", "PCM-P11-2a")]
     public void Challenger_TakesFocusOnItsFourthLeadingTick_NoIncumbentIsImmediate()
     {
-        // Arrange: A alone (incumbent score 260 at 2000 mm); then B dead ahead at 1000 mm (160) out-scores it.
+        // Arrange: A alone (incumbent score 260 at 2000 mm); B at 1800 mm (288) beats only A's un-bonused 320, so it never leads.
         var rig = new FocusRig();
         AnchorRef a = rig.Add(1, FocusRig.Ahead(2000));
         Assert.Equal(a, rig.Tick());   // no incumbent: focused on its first tick
-        AnchorRef b = rig.Add(2, FocusRig.Ahead(1000));
+        AnchorRef b = rig.Add(2, FocusRig.Ahead(1800));
+        for (int t = 0; t < 5; t++)
+        {
+            Assert.Equal((a, AnchorRef.None), (rig.Tick(), rig.State.LeaderRef));
+        }
 
-        // Act
+        // Act: B dead ahead at 1000 mm (160) out-scores it.
+        rig.Anchors.Move(b, FocusRig.Ahead(1000));
         AnchorRef[] focused = { rig.Tick(), rig.Tick(), rig.Tick(), rig.Tick() };
 
         // Assert
@@ -203,18 +211,20 @@ public class FocusStepTests
     [Trait("Id", "PCM-P11-2c")]
     public void Latch_HoldsTheIncumbentAgainstChallengersRangeAndContext_ThenTheDwellRestarts()
     {
-        // Arrange: A focused, then a better B.
+        // Arrange: A focused, then a better B already 2 ticks into its lead when the latch is set.
         var rig = new FocusRig();
         AnchorRef a = rig.Add(1, FocusRig.Ahead(2000));
         rig.Tick();
         AnchorRef b = rig.Add(2, FocusRig.Ahead(1000));
+        rig.Tick();
+        rig.Tick();
+        Assert.Equal((b, 2), (rig.State.LeaderRef, rig.State.LeadTicks));
         rig.State.Latched = true;
 
-        // Act + Assert: a 30-tick challenger lead never counts.
+        // Act + Assert: the lead is dropped and a 30-tick challenger lead never counts.
         for (int t = 0; t < 30; t++)
         {
-            Assert.Equal(a, rig.Tick());
-            Assert.Equal(0, rig.State.LeadTicks);
+            Assert.Equal((a, AnchorRef.None, 0), (rig.Tick(), rig.State.LeaderRef, rig.State.LeadTicks));
         }
 
         // Act + Assert: latch clear, B needs 4 fresh leading ticks.
@@ -250,6 +260,11 @@ public class FocusStepTests
         rig.Source.SetStatus(Status(BodyContext.Build));
         Assert.Equal(a, rig.Tick());
         Assert.Equal((false, StringId.None), (rig.State.Available, rig.State.Reason));
+
+        // Act + Assert: the panel's gate reason wins without asking the owner.
+        rig.Source.SetStatus(Status(panel: true));
+        Assert.Equal(a, rig.Tick());
+        Assert.Equal((false, FocusRig.ClosePanel, 2), (rig.State.Available, rig.State.Reason, owner.AvailabilityCalls));
 
         // Act + Assert: back on foot, then unregistered while latched.
         rig.Source.SetStatus(Status());
@@ -310,6 +325,36 @@ public class FocusStepTests
     }
 
     [Fact]
+    [Trait("Id", "PCM-P11-2d")]
+    public void Dwell_TheKeptIncumbentsOwnerIsAskedWithItsContext_NotTheLeadersOwner()
+    {
+        // Arrange: Deliver A (hold 400 ms) at 2400 mm (124) focused; then Open B at 1000 mm (60), whose owner says no, leads.
+        var notNow = new StringId(StringNamespace.Run, 951);
+        var aOwner = new CountingInteractable();
+        var bOwner = new CountingInteractable { Available = false, UnavailableReason = notNow };
+        var rig = new FocusRig();
+        AnchorRef a = rig.Add(1, FocusRig.Ahead(2400), aOwner, Verb.Deliver);
+        rig.Tick();
+        AnchorRef b = rig.Add(2, FocusRig.Ahead(1000), bOwner);
+
+        // Act
+        rig.Tick();
+        rig.Tick();
+
+        // Assert: mid-dwell, A's availability from A's owner, with the hold fields zero and IsHost 0.
+        Assert.Equal((a, b, 2), (rig.State.Focused, rig.State.LeaderRef, rig.State.LeadTicks));
+        Assert.Equal((true, StringId.None, 0), (rig.State.Available, rig.State.Reason, bOwner.AvailabilityCalls));
+        InteractionContext c = aOwner.LastContext;
+        Assert.Equal((a, Verb.Deliver, 400, 0, (byte)0), (c.Anchor, c.Verb, c.HoldBaseMs, c.HoldSettingMs, c.IsHost));
+        Assert.Equal(default(HoldSettings), c.HoldSettings);
+
+        // Act + Assert: B wins on its fourth leading tick and its owner is asked about B.
+        rig.Tick();
+        Assert.Equal(b, rig.Tick());
+        Assert.Equal((false, notNow, b), (rig.State.Available, rig.State.Reason, bOwner.LastContext.Anchor));
+    }
+
+    [Fact]
     public void TieBreak_LowestEntityThenSlot_Over32ShuffledRegistrationOrders()
     {
         // Arrange: 8 refs at one point (equal scores); the winner is entity 3, slot 0.
@@ -337,6 +382,12 @@ public class FocusStepTests
             // Act + Assert
             Assert.Equal(FocusRig.Ref(3, 0), rig.Tick());
         }
+
+        // Act + Assert: entity before slot, so (3, 1) beats (4, 0).
+        var pair = new FocusRig();
+        pair.Add(4, FocusRig.Ahead(1200));
+        pair.Add(3, FocusRig.Ahead(1200), slot: 1);
+        Assert.Equal(FocusRig.Ref(3, 1), pair.Tick());
     }
 
     [Fact]
@@ -354,6 +405,32 @@ public class FocusStepTests
         Assert.Equal((21, 25), (rig.Focus.Probes.Candidates, rig.Focus.Probes.CellsVisited));
         Assert.Equal((21L, 25L), (rig.Counters[CounterId.FocusCandidates], rig.Counters[CounterId.FocusCellsVisited]));
         Assert.Equal(0L, rig.Counters[CounterId.AnchorQueryOverflow]);
+
+        // Act + Assert: a second pass, then one at the lattice corner (8 in range): the counters keep the maxima.
+        rig.Tick();
+        rig.Source.Feet = new Vec3Mm(FocusRig.Feet.X - 25_000, 0, FocusRig.Feet.Z - 20_000);
+        rig.Tick();
+        Assert.Equal((8, 25), (rig.Focus.Probes.Candidates, rig.Focus.Probes.CellsVisited));
+        Assert.Equal((21L, 25L), (rig.Counters[CounterId.FocusCandidates], rig.Counters[CounterId.FocusCellsVisited]));
+    }
+
+    [Fact]
+    public void Truncation_150AnchorsInOneCell_KeepsTheFirst128_FocusesTheirLowestRef()
+    {
+        // Arrange: refs 150 down to 1 at one point, registered in that order: the cell list keeps registry order, so refs 150..23 fit.
+        var rig = new FocusRig(maxAnchors: 256);
+        for (uint n = 150; n >= 1; n--)
+        {
+            rig.Add(n, FocusRig.Ahead(1200));
+        }
+
+        // Act
+        AnchorRef focused = rig.Tick();
+
+        // Assert
+        Assert.True(rig.Counters[CounterId.AnchorQueryOverflow] > 0);
+        Assert.Equal(FocusStep.CandidateCapacity, rig.Focus.Probes.Candidates);
+        Assert.Equal(FocusRig.Ref(23), focused);
     }
 
     [Fact]

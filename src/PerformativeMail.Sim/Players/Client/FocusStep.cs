@@ -42,7 +42,7 @@ public sealed class FocusStep : IClientStep
     /// <param name="anchors">The anchor registry (read only).</param>
     /// <param name="gate">The framework context gate.</param>
     /// <param name="settings">The focus knobs (<c>ChestMm</c>, <c>IncumbentSlackMm</c>, <c>NearMm</c>, <c>NearAxisMm</c>, weights, dwell).</param>
-    /// <param name="counters">The ClientLayer's counters (arithmetic counts and the <see cref="FocusCounters"/> maxima).</param>
+    /// <param name="counters">The ClientLayer's counters (arithmetic counts and the <see cref="FocusCounters"/> maxima (TD-170 items 1-2, Mail Lead planning default, pending Evan)).</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public FocusStep(ICarrierFocusSource source, AnchorRegistry anchors, InteractionGate gate, PlayerSettings settings, SimCounters counters)
     {

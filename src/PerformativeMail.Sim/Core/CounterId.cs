@@ -171,9 +171,9 @@ public enum CounterId : ushort
     /// <summary>Inventory tick-end conservation check: one per finding, a ledger row whose Σ live differs from spawned + granted − consumed − destroyed or a negative live counter (story grid-inventory/017; ADR-0009 section 6; GDD R19, H-R19-2 reads it; key <c>inventoryConservationMismatches</c>). Unthrottled, unlike its <c>CheckCode.InventoryConservationMismatch</c> record (Mail Lead planning default pending Evan, TD-160 item 5). Zero in a correct world.</summary>
     InventoryConservationMismatches = 51,
 
-    /// <summary>Focus (player-character story 014; ADR-0014 section 2): the most candidates one client-tick focus pass scored, i.e. anchors past the context filter and within reach; a running maximum, not a sum (key <c>focusCandidates</c>; D3, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164). A probe counter on the ClientLayer's counters, not in the canonical dump.</summary>
+    /// <summary>Focus (player-character story 014; ADR-0014 section 2): the most candidates one client-tick focus pass scored (key <c>focusCandidates</c>; D3, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164), i.e. anchors past the context filter and within reach; a running maximum, not a sum (Mail Lead planning default, pending Evan (TD-170 item 2)). A probe counter on the ClientLayer's counters, not in the canonical dump.</summary>
     FocusCandidates = 52,
 
-    /// <summary>Focus: the most anchor-grid cells one client-tick focus pass walked (budget 25 at the default reach, ADR-0014 l.62); a running maximum, not a sum (key <c>focusCellsVisited</c>; D3, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164). A probe counter on the ClientLayer's counters, not in the canonical dump.</summary>
+    /// <summary>Focus: the most anchor-grid cells one client-tick focus pass walked (budget 25 at the default reach, ADR-0014 l.62) (key <c>focusCellsVisited</c>; D3, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164); a running maximum, not a sum (Mail Lead planning default, pending Evan (TD-170 item 2)). A probe counter on the ClientLayer's counters, not in the canonical dump.</summary>
     FocusCellsVisited = 53,
 }
