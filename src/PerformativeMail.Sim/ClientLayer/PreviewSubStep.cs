@@ -3,7 +3,8 @@ namespace PerformativeMail.Sim.ClientLayer;
 /// <summary>
 /// The fixed sub-order of <see cref="ClientStepId.Previews"/> (ADR-0016 section 2 and Key Interfaces). The numeric values are the
 /// run order. Bind with <see cref="ClientLayerBuilder.BindPreview"/>; steps bound with plain
-/// <c>Bind(ClientStepId.Previews, …)</c> run after <see cref="HoldAdvance"/> (Mail Lead planning default D4, pending Evan, TD-164).
+/// <c>Bind(ClientStepId.Previews, …)</c> run after <see cref="HoldAdvance"/> (D4, Approved by Evan 2026-10-22 8:24 PM PT
+/// (Mail Lead chat), TD-164).
 /// </summary>
 /// <example><code>builder.BindPreview(PreviewSubStep.Focus, focusStep);</code></example>
 public enum PreviewSubStep : byte

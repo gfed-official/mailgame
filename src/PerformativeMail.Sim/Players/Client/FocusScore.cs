@@ -57,7 +57,7 @@ public static class FocusScore
     /// <summary>
     /// <c>d = ISqrt(Δx² + Δy² + Δz²)</c>, <c>dh = ISqrt(Δx² + Δz²)</c> and
     /// <c>cosPm = dh &lt; nearAxisMm ? 1000 : MulDiv(dot(fwdQ10, Δxz), 1000, 1024·dh)</c>, clamped to [−1000, 1000] because the
-    /// shifted forward is not exactly 1024 long (Mail Lead planning default D6, pending Evan, TD-164).
+    /// shifted forward is not exactly 1024 long (D6, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164).
     /// </summary>
     /// <param name="chest">The chest point, mm.</param>
     /// <param name="point">The anchor point, mm.</param>

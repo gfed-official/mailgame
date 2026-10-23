@@ -129,8 +129,8 @@ internal sealed class FocusRig
 }
 
 /// <summary>
-/// Player Character story 014 (ADR-0014 section 2; GDD P11, F4): <see cref="FocusStep"/>'s dwell, latch (Mail Lead planning default
-/// D2, pending Evan, TD-164), context filter, tie-break and determinism.
+/// Player Character story 014 (ADR-0014 section 2; GDD P11, F4): <see cref="FocusStep"/>'s dwell, latch (D2, Approved by Evan
+/// 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164), context filter, tie-break and determinism.
 /// </summary>
 public class FocusStepTests
 {

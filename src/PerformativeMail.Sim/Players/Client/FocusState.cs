@@ -27,7 +27,8 @@ public struct FocusState
 
     /// <summary>
     /// True while an interaction holds the focus (a hold or channel in progress, or toggle-armed; ADR-0014 l.71). While set, focus
-    /// does not re-evaluate the incumbent and no challenger leads (Mail Lead planning default D2, pending Evan, TD-164).
+    /// does not re-evaluate the incumbent and no challenger leads (D2, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat),
+    /// TD-164).
     /// </summary>
     public bool Latched { get; internal set; }
 }

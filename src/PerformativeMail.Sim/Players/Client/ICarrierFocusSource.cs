@@ -3,9 +3,9 @@ using PerformativeMail.Sim.Geometry;
 namespace PerformativeMail.Sim.Players.Client;
 
 /// <summary>
-/// The local carrier facts <see cref="FocusStep"/> reads each client tick (Mail Lead planning default D1, pending Evan, TD-164;
-/// ADR-0016 l.238: client steps read only mirrors or ports, never <c>SimWorld</c>). Sim-defined; tests supply a scripted double and
-/// story 020's <c>CarrierView</c> implements it from the owned carrier after <c>ClientStepId.CarrierStep</c>.
+/// The local carrier facts <see cref="FocusStep"/> reads each client tick (D1, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead
+/// chat), TD-164; ADR-0016 l.238: client steps read only mirrors or ports, never <c>SimWorld</c>). Sim-defined; tests supply a
+/// scripted double and story 020's <c>CarrierView</c> implements it from the owned carrier after <c>ClientStepId.CarrierStep</c>.
 /// </summary>
 /// <example>
 /// <code>

@@ -291,7 +291,7 @@ public sealed class AnchorRegistry
 
     /// <summary>
     /// As <see cref="QueryCells(in Vec3Mm, Span{int})"/>, also reporting how many grid cells were walked (the focus budget probe,
-    /// at most <c>(2 · QueryRadiusCells + 1)²</c>; Mail Lead planning default D3, pending Evan, TD-164).
+    /// at most <c>(2 · QueryRadiusCells + 1)²</c>; D3, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164).
     /// </summary>
     /// <param name="point">The query point (the chest), mm.</param>
     /// <param name="results">The destination; its length caps the result.</param>

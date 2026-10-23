@@ -6,8 +6,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Sim.ClientLayerTests;
 
 /// <summary>
 /// Player Character story 014 (ADR-0016 section 2, Key Interfaces): <see cref="ClientLayerBuilder.BindPreview"/> runs the
-/// <see cref="PreviewSubStep"/> rows in enum order, each in bind order, then the plain <c>Previews</c> binds (Mail Lead planning
-/// default D4, pending Evan, TD-164), with the same guards as <see cref="ClientLayerBuilder.Bind"/>.
+/// <see cref="PreviewSubStep"/> rows in enum order, each in bind order, then the plain <c>Previews</c> binds (D4, Approved by Evan
+/// 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164), with the same guards as <see cref="ClientLayerBuilder.Bind"/>.
 /// </summary>
 public class PreviewSubStepOrderTests
 {

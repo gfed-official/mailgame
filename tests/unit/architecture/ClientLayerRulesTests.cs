@@ -13,10 +13,10 @@ namespace PerformativeMail.Sim.Tests.Unit.Architecture;
 /// (e.g. Mail's evaluation, the carrier's held-effect maths) in gameplay namespaces and lets both roles call them, so a body
 /// call into a gameplay namespace is allowed.
 /// <para>
-/// Plus the per-system client steps (player-character story 014; Mail Lead planning default D5, pending Evan, TD-164; ADR-0016
-/// l.332): no type in a namespace ending in <c>.Client</c> (<c>PerformativeMail.Sim.&lt;System&gt;.Client</c>, ADR-0016 section 1)
-/// names <see cref="SimWorld"/> in a signature or a method body. The gameplay-type signature ban does not apply to them: they live
-/// in their system's folder and read its ports (<c>FocusStep</c> holds the <see cref="AnchorRegistry"/>).
+/// Plus the per-system client steps (player-character story 014; D5, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164;
+/// ADR-0016 l.332): no type in a namespace ending in <c>.Client</c> (<c>PerformativeMail.Sim.&lt;System&gt;.Client</c>, ADR-0016
+/// section 1) names <see cref="SimWorld"/> in a signature or a method body. The gameplay-type signature ban does not apply to them:
+/// they live in their system's folder and read its ports (<c>FocusStep</c> holds the <see cref="AnchorRegistry"/>).
 /// </para>
 /// </summary>
 [Trait("Id", "SC-ARCH-1")]

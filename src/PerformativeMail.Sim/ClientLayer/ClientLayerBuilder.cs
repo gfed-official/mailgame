@@ -8,8 +8,8 @@ namespace PerformativeMail.Sim.ClientLayer;
 /// binds to one id run in bind order. Errors are <see cref="SimBuildException"/>s. Not thread-safe.
 /// <para>
 /// <see cref="ClientStepId.Previews"/> runs the <see cref="PreviewSubStep"/> rows bound with <see cref="BindPreview"/> in enum
-/// order, then the plain <c>Bind(ClientStepId.Previews, …)</c> steps (ADR-0016 section 2; Mail Lead planning default D4, pending
-/// Evan, TD-164). <see cref="Build"/> flattens them into one row, so the layer's step loop is unchanged.
+/// order, then the plain <c>Bind(ClientStepId.Previews, …)</c> steps (ADR-0016 section 2; D4, Approved by Evan 2026-10-22
+/// 8:24 PM PT (Mail Lead chat), TD-164). <see cref="Build"/> flattens them into one row, so the layer's step loop is unchanged.
 /// </para>
 /// </summary>
 /// <example>

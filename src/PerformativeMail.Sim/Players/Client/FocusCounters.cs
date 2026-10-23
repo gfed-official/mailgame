@@ -3,8 +3,8 @@ using PerformativeMail.Sim.Core;
 namespace PerformativeMail.Sim.Players.Client;
 
 /// <summary>
-/// One focus pass's budget probes (Mail Lead planning default D3, pending Evan, TD-164): the test seam story 015 extends by
-/// <c>ref</c>. <see cref="FocusStep"/> overwrites it every tick and raises <see cref="CounterId.FocusCandidates"/> and
+/// One focus pass's budget probes (D3, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164): the test seam story 015
+/// extends by <c>ref</c>. <see cref="FocusStep"/> overwrites it every tick and raises <see cref="CounterId.FocusCandidates"/> and
 /// <see cref="CounterId.FocusCellsVisited"/> to it (running maxima, the <c>CarrierCounterFlush</c> pattern).
 /// </summary>
 /// <example><code>ref readonly FocusCounters c = ref focusStep.Probes; Assert.True(c.CellsVisited &lt;= 25);</code></example>
