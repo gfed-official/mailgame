@@ -234,6 +234,34 @@ public class FocusStepTests
     }
 
     [Fact]
+    [Trait("Id", "PCM-P11-2c")]
+    public void Latch_IncumbentNotFoundInThisContextOrUnregistered_KeepsTheRef_ClearsAvailability()
+    {
+        // Arrange: World-only A focused, available, then latched.
+        var owner = new CountingInteractable();
+        var rig = new FocusRig();
+        AnchorRef a = rig.Add(1, FocusRig.Ahead(1000), owner);
+        rig.Tick();
+        rig.State.Latched = true;
+        Assert.Equal(a, rig.Tick());
+        Assert.Equal((true, StringId.None), (rig.State.Available, rig.State.Reason));
+
+        // Act + Assert: in Build, the World registration is not A's in this context.
+        rig.Source.SetStatus(Status(BodyContext.Build));
+        Assert.Equal(a, rig.Tick());
+        Assert.Equal((false, StringId.None), (rig.State.Available, rig.State.Reason));
+
+        // Act + Assert: back on foot, then unregistered while latched.
+        rig.Source.SetStatus(Status());
+        rig.Tick();
+        Assert.True(rig.State.Available);
+        rig.Anchors.Unregister(a);
+        Assert.Equal(a, rig.Tick());
+        Assert.Equal((false, StringId.None), (rig.State.Available, rig.State.Reason));
+        Assert.Equal(3, owner.AvailabilityCalls);
+    }
+
+    [Fact]
     [Trait("Id", "PCM-P11-2d")]
     public void ContextFilter_NoCandidateExcludes_DeadMountedOwnSeatBuildOnly()
     {

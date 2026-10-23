@@ -136,10 +136,11 @@ public sealed class FocusStep : IClientStep
         _probes.RaiseInto(_counters);
         if (latched)
         {
-            // D2 (TD-164): the incumbent is kept unconditionally and the dwell is held at zero; an unregistered ref is kept, not read.
+            // D2 (TD-164): the incumbent is kept unconditionally and the dwell is held at zero; a ref not registered in this
+            // tick's context (unregistered, or only in the other context) is kept, not read, and shows as unavailable (TD-170).
             _state.LeaderRef = AnchorRef.None;
             _state.LeadTicks = 0;
-            if (!incumbent.IsNone && incumbentIndex < 0 && _anchors.TryGet(incumbent, out incumbentIndex))
+            if (!incumbent.IsNone && incumbentIndex < 0 && _anchors.TryGet(incumbent, mask, out incumbentIndex))
             {
                 // Outside the queried cells or the kept prefix: the rare O(maxAnchors) lookup.
                 incumbentGate = _gate.Evaluate(in _anchors.DefAt(incumbentIndex), in status);
@@ -148,6 +149,11 @@ public sealed class FocusStep : IClientStep
             if (incumbentIndex >= 0)
             {
                 WriteAvailability(incumbentIndex, incumbentGate, in chest, in ctx);
+            }
+            else
+            {
+                _state.Available = false;
+                _state.Reason = StringId.None;
             }
 
             return;
