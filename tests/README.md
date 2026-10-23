@@ -54,10 +54,13 @@ xUnit v3. Exit code **0** = all passed; **2** = at least one test failed;
 Filter by class or method: `dotnet test -- --filter-class "*GridPlacementTests"`
 or `-- --filter-method "*H_R4_1a*"`.
 
-Quiet runs: `tools/ci/test-quiet.sh [--expect-skipped N] [--log-dir DIR] -- <dotnet test args>`
+Quiet runs: `tools/ci/test-quiet.sh [--expect-skipped N] [--expect-skipped-names FILE] [--log-dir DIR] -- <dotnet test args>`
 writes the full log and a TRX to `TestResults/quiet/<timestamp>-<pid>/` and prints
 only the summary and, per failed test, its name, message head and stack top, e.g.
 `tools/ci/test-quiet.sh -- --solution PerformativeMail.sln -c Debug --no-build -- --filter-class "*PickMoveTests"`.
+`--expect-skipped N` checks the skipped count; `--expect-skipped-names FILE` (one fully-qualified
+name per line) also checks which tests were skipped, so a skip swapped for another at the same count
+exits 3 with the missing / unexpected names.
 `--self-check` proves its parsing without running dotnet.
 
 ## Build rules that affect tests
