@@ -168,33 +168,10 @@ public class FrameRunnerTests
             new[] { "Pump", "Client", "Sim(0)", "Flush(0)", "Client", "Sim(1)", "Flush(1)", "Client", "Sim(2)", "Flush(2)" },
             rig.Log);
         Assert.Equal(3u, rig.World!.CurrentTick);
-    }
-
-    [Fact]
-    [Trait("Id", "SC-R2-1")]
-    public void Ac1_IsFirstTickInBatch_IsTrueOnlyForTheFirstTick()
-    {
-        Rig rig = Build();
-        rig.Clock.Now = ThreeTicks;
-
-        rig.Runner.RunFrame();
-
         Assert.Equal(new[] { true, false, false }, rig.FirstFlags);
-    }
-
-    [Fact]
-    [Trait("Id", "SC-R2-1")]
-    public void Ac1_EachFlush_RunsAfterItsTickReturned_AndCarriesThatTicksNumber()
-    {
-        Rig rig = Build();
-        rig.Clock.Now = ThreeTicks;
-
-        rig.Runner.RunFrame();
 
         // CurrentTick has already advanced past the tick when the flush runs, and the flush carries the tick that ran.
         Assert.Equal(new uint[] { 1, 2, 3 }, rig.WorldTickAtFlush);
-        Assert.Equal("Flush(2)", rig.Log[^1]);
-        Assert.Equal("Sim(2)", rig.Log[^2]);
     }
 
     [Fact]

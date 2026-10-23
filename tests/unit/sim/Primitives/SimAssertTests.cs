@@ -44,35 +44,6 @@ public class SimAssertTests
     }
 
     [Fact]
-    public void That_FalseCondition_ThrowsWithCodeOnlyWhenAssertsEnabled()
-    {
-        // Arrange
-        const ushort Code = 1234;
-        SimAssertException? thrown = null;
-
-        // Act
-        try
-        {
-            SimAssertProbe.That(() => false, Code);
-        }
-        catch (SimAssertException e)
-        {
-            thrown = e;
-        }
-
-        // Assert
-        if (TestBuildExpectation.SimAssertsExpected)
-        {
-            Assert.NotNull(thrown);
-            Assert.Equal(Code, thrown.Code);
-        }
-        else
-        {
-            Assert.Null(thrown);
-        }
-    }
-
-    [Fact]
     public void Fail_Called_ThrowsWithCodeOnlyWhenAssertsEnabled()
     {
         // Arrange
@@ -119,21 +90,27 @@ public class SimAssertTests
     public void That_FalseArgumentWithSideEffect_ThrowsOnlyWhenAssertsEnabledAndEvaluatesOnce()
     {
         // Arrange
+        const ushort Code = 1234;
         _sideEffects = 0;
-        bool threw = false;
+        SimAssertException? thrown = null;
 
         // Act
         try
         {
-            SimAssertProbe.That(CountedFalse, 11);
+            SimAssertProbe.That(CountedFalse, Code);
         }
-        catch (SimAssertException)
+        catch (SimAssertException e)
         {
-            threw = true;
+            thrown = e;
         }
 
         // Assert
-        Assert.Equal(TestBuildExpectation.SimAssertsExpected, threw);
+        Assert.Equal(TestBuildExpectation.SimAssertsExpected, thrown is not null);
+        if (thrown is not null)
+        {
+            Assert.Equal(Code, thrown.Code);
+        }
+
         Assert.Equal(TestBuildExpectation.SimAssertsExpected ? 1 : 0, _sideEffects);
     }
 

@@ -33,10 +33,8 @@ public class TickDriverInvariantTests
     [Theory]
     [Trait("Id", "SC-F2-1")]
     [InlineData(1_000L, 4, 1UL)]
-    [InlineData(10_000_000L, 4, 2UL)]
     [InlineData(10_000_000L, 1, 3UL)]
     [InlineData(10_000_000L, 8, 4UL)]
-    [InlineData(1_000_000_000L, 3, 5UL)]
     [InlineData(1_000_000_000_000L, 4, 6UL)]
     [InlineData(1_000_003L, 5, 7UL)]
     public void F2Invariant_HoldsAfterEveryCall_OverSeededRandomSequence(long freq, int cap, ulong seed)

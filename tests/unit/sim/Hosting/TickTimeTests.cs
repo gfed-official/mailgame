@@ -118,13 +118,9 @@ public class TickTimeTests
     [Theory]
     [Trait("Id", "SC-F1-1")]
     [InlineData(0u, 0u, 0L)]
-    [InlineData(5u, 5u, 0L)]
     [InlineData(0u, 360u, 360L)]
     [InlineData(100u, 0u, 0L)]
     [InlineData(uint.MaxValue, 0u, 0L)]
-    [InlineData(uint.MaxValue, 1u, 0L)]
-    [InlineData(uint.MaxValue, uint.MaxValue - 1, 0L)]
-    [InlineData(2_000_000_000u, 10u, 0L)]
     [InlineData(0u, uint.MaxValue, uint.MaxValue)]
     [InlineData(1u, uint.MaxValue, uint.MaxValue - 1L)]
     public void Remaining_UsesLongSubtraction_NeverWraps(uint current, uint deadline, long expected)

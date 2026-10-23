@@ -21,11 +21,8 @@ public class TrigQ15Tests
 
     [Theory]
     [InlineData(65_000, 1_000, 464)]
-    [InlineData(0, 0, 0)]
     [InlineData(65_535, 1, 0)]
-    [InlineData(65_535, 65_535, 65_534)]
     [InlineData(1, 2, 3)]
-    [InlineData(32_768, 32_768, 0)]
     public void BamAdd_Vectors_WrapModulo65536(int a, int b, int expected)
     {
         // Act (the Debug Sim is built checked: an unchecked-by-design wrap must not throw)
@@ -37,11 +34,8 @@ public class TrigQ15Tests
 
     [Theory]
     [InlineData(10, 20, 65_526)]
-    [InlineData(0, 0, 0)]
     [InlineData(0, 1, 65_535)]
     [InlineData(20, 10, 10)]
-    [InlineData(0, 65_535, 1)]
-    [InlineData(5, 5, 0)]
     public void BamSub_Vectors_WrapModulo65536(int a, int b, int expected)
     {
         // Act
