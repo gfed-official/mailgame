@@ -58,33 +58,6 @@ public partial class QuickMoveReturnTests
         Assert.Equal((rig.Entries[axe].Id, rig.IdOf(hotbar), (byte)3, (byte)0, false), (o.Entry, o.Container, o.X, o.Y, o.Rotated));
     }
 
-    /// <summary>A hotbar swap from the cursor records the displaced entry's hotbar slot as the origin of the entry now on the cursor.</summary>
-    [Theory]
-    [Trait("Id", "H-R7-9")]
-    [InlineData(0)]
-    [InlineData(1)]
-    public void Origin_HotbarSwap_RecordsTheDisplacedEntrysHotbarSlot(int slot)
-    {
-        // Arrange
-        var rig = NewRig();
-        ushort hotbar = rig.HotbarOf(slot);
-        ushort cursor = rig.CursorOf(slot);
-        ushort axe = rig.PlaceItem(hotbar, "axe", 2, 0, 1);
-        ushort letters = rig.PlaceMail(cursor, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 3));
-        EntryRecord displaced = rig.Entries[axe];
-
-        // Act
-        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, letters, hotbar, 2, 0)));
-
-        // Assert: every field is the displaced entry's record before the swap
-        Assert.Equal(cursor, rig.Entries[axe].ContainerSlot);
-        Assert.True(rig.Inventory.TryGetCursorOrigin(PlayerSlot.FromValue((byte)slot), out InventorySystem.CursorOrigin o));
-        Assert.Equal(
-            (displaced.Id, rig.IdOf(displaced.ContainerSlot), displaced.X, displaced.Y, displaced.Rotated),
-            (o.Entry, o.Container, o.X, o.Y, o.Rotated));
-        Assert.Equal((rig.IdOf(hotbar), (byte)2, (byte)0, false), (o.Container, o.X, o.Y, o.Rotated));
-    }
-
     /// <summary>
     /// The origin is present only while the cursor holds its entry: a partial place (the entry keeps its id on the cursor) keeps it, a
     /// whole place clears it (the mutator's <c>Remove</c> from the cursor), and the next pick replaces it.

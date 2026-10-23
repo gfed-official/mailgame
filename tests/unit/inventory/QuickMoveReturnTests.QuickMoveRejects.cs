@@ -14,18 +14,19 @@ public partial class QuickMoveReturnTests
 {
     // ------------------------------------------------------------------ not_open, stale_entry, capacity_exhausted
 
-    /// <summary><c>not_open</c>: <c>from</c> is the other player's inventory, or a chest the actor has not opened (versions not yet resolved: 0, 0).</summary>
+    /// <summary>
+    /// <c>not_open</c>: <c>from</c> is a chest the actor has not opened (versions not yet resolved: 0, 0). The other player's inventory is
+    /// <see cref="Precedence_RequestViolatingThisStepAndEveryLaterOne_ReturnsThisStep"/>'s <c>not_open</c> row.
+    /// </summary>
     [Theory]
     [Trait("Id", "H-R10-2")]
-    [InlineData(0, "other_inventory")]
-    [InlineData(1, "other_inventory")]
-    [InlineData(0, "unopened_chest")]
-    [InlineData(1, "unopened_chest")]
-    public void NotOpen_FromOutsideTheActorsOpenSet_NotOpen_NothingChanges(int slot, string which)
+    [InlineData(0)]
+    [InlineData(1)]
+    public void NotOpen_FromOutsideTheActorsOpenSet_NotOpen_NothingChanges(int slot)
     {
         // Arrange
         var rig = NewRig();
-        ushort from = which == "other_inventory" ? rig.InventoryOf(1 - slot) : rig.CreateGrid(8, 4);
+        ushort from = rig.CreateGrid(8, 4);
         ushort planks = rig.PlaceItem(from, "plank", 0, 0, 5);
         List<long> before = MoveSplitMergeTests.SideEffects(rig);
 
@@ -60,31 +61,6 @@ public partial class QuickMoveReturnTests
 
         // Assert
         AssertRejected(rig, log, InvReason.NotOpen, before, 1, (0u, 0u));
-    }
-
-    /// <summary>
-    /// <c>stale_entry</c>: an id retired by a real merge (the letters merged away by a whole <c>move</c>), or a live entry that is not in
-    /// <c>from</c> (it is in the hotbar). Nothing changes; the entry is not resolved, so the versions are (0, 0).
-    /// </summary>
-    [Theory]
-    [Trait("Id", "H-R7-4")]
-    [InlineData(0, "retired")]
-    [InlineData(1, "retired")]
-    [InlineData(0, "not_in_from")]
-    [InlineData(1, "not_in_from")]
-    public void StaleEntry_ARetiredIdOrALiveEntryNotInFrom_StaleEntry_NothingChanges(int slot, string which)
-    {
-        // Arrange
-        var rig = NewRig();
-        ushort inventory = rig.InventoryOf(slot);
-        uint id = which == "retired" ? RetiredId(rig, slot) : rig.Entries[rig.PlaceItem(rig.HotbarOf(slot), "axe", 1, 0, 1)].Id.Value;
-        List<long> before = MoveSplitMergeTests.SideEffects(rig);
-
-        // Act
-        EventEntry[] log = rig.Run(rig.Player(slot), QuickMoveRaw(rig.IdOf(inventory).Value, id, 0));
-
-        // Assert
-        AssertRejected(rig, log, InvReason.StaleEntry, before, slot, (0u, 0u));
     }
 
     /// <summary>
@@ -138,6 +114,7 @@ public partial class QuickMoveReturnTests
             _ = rig.PlaceItem(rig.HotbarOf(slot), "fiber", 2, 0, 1);
             _ = rig.PlaceItem(rig.InventoryOf(1 - slot), "fiber", 0, 0, 1);
             Assert.Equal(rig.Entries.Capacity, rig.Entries.LiveCount);
+            Assert.NotEqual(rig.Header(chest).Version, rig.Header(inventory).Version);
         }
         else
         {

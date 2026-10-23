@@ -83,42 +83,31 @@ public partial class QuickMoveReturnTests
     /// <summary>
     /// The entry-pool boundary of a partial quick_move onto a free cell (QuickMoveHandler's pool pre-check; <c>capacity_exhausted</c> is
     /// ADR-0009 section 2's code 85, its position and "the entry stays where it is" Mail Lead planning defaults pending Evan, TD-153).
-    /// Chest A = 5 planks at (2,1), a fiber in the actor's hotbar and one in the other player's inventory: three live entries.
-    /// <c>one_left</c> (pool capacity 4) → <c>count 2</c> splits 2 planks to inventory (0,0) as a new entry and fills the pool;
-    /// <c>none_left</c> (capacity 3) → <c>capacity_exhausted</c>, nothing changes.
+    /// Chest A = 5 planks at (2,1), a fiber in the actor's hotbar and one in the other player's inventory: three live entries. With pool
+    /// capacity 4 (one slot left), <c>count 2</c> splits 2 planks to inventory (0,0) as a new entry and fills the pool. No slot left
+    /// (capacity 3) is <see cref="CapacityExhausted_ArenaOrPoolRefusal_LeavesTheEntryWhereItIs"/>'s <c>partial_pool</c> row.
     /// </summary>
     [Theory]
     [Trait("Id", "TR-inventory-005")]
-    [InlineData(0, "one_left")]
-    [InlineData(1, "one_left")]
-    [InlineData(0, "none_left")]
-    [InlineData(1, "none_left")]
-    public void CapacityExhausted_PartialOntoAFreeCell_OnePoolSlotLeftOk_NoneLeftRefused(int slot, string row)
+    [InlineData(0)]
+    [InlineData(1)]
+    public void CapacityExhausted_PartialOntoAFreeCell_OnePoolSlotLeft_SplitsAndFillsThePool(int slot)
     {
         // Arrange
-        var rig = new InvAutoPlaceRig(entryPoolCapacity: row == "one_left" ? 4 : 3, joinPlayerB: true);
+        var rig = new InvAutoPlaceRig(entryPoolCapacity: 4, joinPlayerB: true);
         ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
         ushort inventory = rig.InventoryOf(slot);
         ushort a = rig.PlaceItem(chest, "plank", 2, 1, 5);
         _ = rig.PlaceItem(rig.HotbarOf(slot), "fiber", 2, 0, 1);
         _ = rig.PlaceItem(rig.InventoryOf(1 - slot), "fiber", 0, 0, 1);
-        Assert.Equal(row == "one_left" ? 1 : 0, rig.Entries.Capacity - rig.Entries.LiveCount);
+        Assert.Equal(1, rig.Entries.Capacity - rig.Entries.LiveCount);
         EntryId id = rig.Entries[a].Id;
         uint lastId = rig.Entries.LastId;
-        Assert.NotEqual(rig.Header(chest).Version, rig.Header(inventory).Version);
-        List<long> before = MoveSplitMergeTests.SideEffects(rig);
 
         // Act
         EventEntry[] log = rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a, 2));
 
         // Assert
-        if (row == "none_left")
-        {
-            AssertRejected(rig, log, InvReason.CapacityExhausted, before, slot, (rig.Header(chest).Version, rig.Header(inventory).Version));
-            Assert.Equal((id, chest, (byte)5), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
-            return;
-        }
-
         InvReplyExtra extra = InvOpTestHelpers.AssertOk(log).ExtraAs<InvReplyExtra>();
         Assert.Equal(((ushort)2, (ushort)2), (extra.RequestedUnits, extra.GotUnits));
         ushort piece = rig.EntryAt(inventory, 0, 0);

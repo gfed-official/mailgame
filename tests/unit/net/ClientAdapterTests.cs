@@ -599,6 +599,14 @@ public class ClientAdapterTests
     public void BareReply_CarriesTheLastBatchTick()
     {
         var rig = new Rig();
+        ushort first = rig.Send();
+
+        rig.HostRepliesBare(Rp(first)); // before any batch: tick 0
+
+        ClientInboxRecord record = Assert.Single(rig.Drain());
+        Assert.Equal(0u, record.Tick);
+        Assert.False(rig.Adapter.Clock.IsValid);
+
         ushort id = rig.Send();
         rig.Host(Batch(12));
         rig.Pump();
@@ -606,20 +614,6 @@ public class ClientAdapterTests
         rig.HostRepliesBare(Rp(id));
 
         Assert.Equal(12u, Assert.Single(rig.Drain()).Tick);
-    }
-
-    [Fact]
-    [Trait("Id", "AC-2")]
-    public void BareReply_BeforeAnyBatch_CarriesTickZero()
-    {
-        var rig = new Rig();
-        ushort id = rig.Send();
-
-        rig.HostRepliesBare(Rp(id));
-
-        ClientInboxRecord record = Assert.Single(rig.Drain());
-        Assert.Equal(0u, record.Tick);
-        Assert.False(rig.Adapter.Clock.IsValid);
     }
 
     public static IEnumerable<object[]> MalformedMessages()

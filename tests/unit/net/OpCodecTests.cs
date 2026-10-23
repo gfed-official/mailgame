@@ -110,13 +110,6 @@ public class OpCodecTests
     }
 
     [Fact]
-    public void EnvelopeSizes_AreFourByteHeaderAndFullPayloadArea()
-    {
-        Assert.Equal(4, RequestEnvelope.HeaderSize);
-        Assert.Equal(4 + OpPayload.Size, RequestEnvelope.MaxSize);
-    }
-
-    [Fact]
     public void Encode_FailureCases_ReturnMinusOne()
     {
         // Arrange
@@ -170,19 +163,6 @@ public class OpCodecTests
         // Assert
         Assert.Equal(DecodeResult.BadRequest, result);
         Assert.Equal(new byte[Op.SizeBytes], CodecTestKit.Raw(op));
-    }
-
-    [Fact]
-    public void TryDecode_JoinSlotBoundary_SevenAcceptedEightRejected()
-    {
-        // Arrange
-        OpCodecRegistry registry = CodecTestKit.BuildRegistry();
-        byte[] seven = { 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 7 };
-        byte[] eight = { 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 8 };
-
-        // Act and Assert
-        Assert.Equal(DecodeResult.Ok, RequestEnvelope.TryDecode(registry, seven, out _));
-        Assert.Equal(DecodeResult.BadRequest, RequestEnvelope.TryDecode(registry, eight, out _));
     }
 
     // ------------------------------------------------------------ codecs

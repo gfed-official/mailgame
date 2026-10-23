@@ -581,40 +581,26 @@ public partial class QuickMoveReturnTests
     // ------------------------------------------------------------------ Return: capacity_exhausted, cursor_empty, precedence
 
     /// <summary>
-    /// <c>capacity_exhausted</c> (code 85, ADR-0009 section 2), checked last, leaves the entry on the cursor with its origin (Mail Lead
-    /// planning default pending Evan (TD-153); it follows the pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers only a leashed
-    /// letter staying on the cursor when the mail-id arena is full, even with a free cell). Rows, each with free inventory cells under an
-    /// exhausted minimum arena: <c>origin_merge</c> (letters picked from chest (2,1), which then holds a same-key stack, so the origin
-    /// merge needs a union block); <c>panel_merge</c> (letters placed straight on the cursor, no origin, with a same-key stack in the
-    /// inventory).
+    /// <c>capacity_exhausted</c> (code 85, ADR-0009 section 2), checked last, leaves the entry on the cursor (Mail Lead planning default
+    /// pending Evan (TD-153); it follows the pattern of Evan's 2026-10-22 5:11 AM PT ruling, which covers only a leashed letter staying on
+    /// the cursor when the mail-id arena is full, even with a free cell). Letters placed straight on the cursor (no origin) with a same-key
+    /// stack in the inventory and free inventory cells, under an exhausted minimum arena: the panel merge needs a union block. The origin
+    /// merge is <see cref="Return_Precedence_RequestViolatingThisStepAndEveryLaterOne_ReturnsThisStep"/>'s <c>capacity_exhausted</c> row.
     /// </summary>
     [Theory]
     [Trait("Id", "H-R7-9")]
-    [InlineData(0, "origin_merge")]
-    [InlineData(1, "origin_merge")]
-    [InlineData(0, "panel_merge")]
-    [InlineData(1, "panel_merge")]
-    public void Return_ArenaRefusal_CapacityExhausted_TheEntryStaysOnTheCursor(int slot, string row)
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Return_ArenaRefusal_CapacityExhausted_TheEntryStaysOnTheCursor(int slot)
     {
         // Arrange
         var rig = new InvAutoPlaceRig(mailIdArenaUnits: MailIdArena.MinTotalUnits, joinPlayerB: true);
         PlayerSlot ps = PlayerSlot.FromValue((byte)slot);
-        ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
+        _ = MoveSplitMergeTests.OpenChest(rig, slot);
         ushort inventory = rig.InventoryOf(slot);
         ushort cursor = rig.CursorOf(slot);
-        ushort a;
-        if (row == "origin_merge")
-        {
-            a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 3));
-            InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
-            _ = rig.PlaceMail(chest, "letter", 2, 1, Address3, new uint[] { 10, 11 });
-        }
-        else
-        {
-            a = rig.PlaceMail(cursor, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 3));
-            _ = rig.PlaceMail(inventory, "letter", 0, 0, Address3, new uint[] { 10, 11 });
-        }
-
+        ushort a = rig.PlaceMail(cursor, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 3));
+        _ = rig.PlaceMail(inventory, "letter", 0, 0, Address3, new uint[] { 10, 11 });
         InvOpTestHelpers.ExhaustArenaThroughIntakeSpawns(rig);
         Assert.True(rig.Header(inventory).FreeCells > 0);
         EntryId id = rig.Entries[a].Id;
@@ -626,7 +612,7 @@ public partial class QuickMoveReturnTests
         // Assert
         AssertRejected(rig, log, InvReason.CapacityExhausted, before, slot, (rig.Header(cursor).Version, rig.Header(inventory).Version));
         Assert.Equal((id, cursor, (byte)3), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
-        Assert.Equal(row == "origin_merge", rig.Inventory.TryGetCursorOrigin(ps, out _));
+        Assert.False(rig.Inventory.TryGetCursorOrigin(ps, out _));
     }
 
     /// <summary>

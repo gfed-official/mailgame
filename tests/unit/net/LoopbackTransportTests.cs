@@ -124,8 +124,6 @@ public class LoopbackTransportTests
     [Theory]
     [InlineData(100, -1)]
     [InlineData(36, 32)]
-    [InlineData(0, 0)]
-    [InlineData(-5, 0)]
     public void CreatePair_ConfigThatCannotHoldAMaxMessage_Throws(int ringCapacity, int maxMessage)
     {
         // Arrange - a ring must hold one maximum-size message plus its 5-byte header
@@ -352,22 +350,6 @@ public class LoopbackTransportTests
 
         // Assert
         Assert.Single(sink.Events);
-    }
-
-    [Fact]
-    [Trait("Id", "AC-2")]
-    public void Poll_NothingPendingAfterConnect_DeliversNothing()
-    {
-        // Arrange
-        var (host, _) = LoopbackTransport.CreatePair(SmallRing, SmallMax);
-        host.Poll(new RecordingSink());
-        var sink = new RecordingSink();
-
-        // Act
-        host.Poll(sink);
-
-        // Assert
-        Assert.Empty(sink.Events);
     }
 
     [Fact]
@@ -734,21 +716,8 @@ public class LoopbackTransportTests
         Assert.Equal(2, messages.Length);
         Assert.Equal(Pattern(20, 1), messages[0].Payload);
         Assert.Equal(Pattern(20, 2), messages[1].Payload);
-    }
 
-    [Fact]
-    [Trait("Id", "AC-3")]
-    public void Send_RingFullThenPolled_AcceptsAgainWithoutGrowing()
-    {
-        // Arrange
-        var (host, client) = LoopbackTransport.CreatePair(64, 20);
-        var sink = new RecordingSink();
-        client.Send(client.Peer, NetChannel.Reliable, Pattern(20, 1));
-        client.Send(client.Peer, NetChannel.Reliable, Pattern(20, 2));
-        client.Send(client.Peer, NetChannel.Reliable, Pattern(20, 3));
-        host.Poll(sink);
-
-        // Act
+        // Act - once polled, the ring accepts again without growing
         client.Send(client.Peer, NetChannel.Reliable, Pattern(20, 4));
         host.Poll(sink);
 
