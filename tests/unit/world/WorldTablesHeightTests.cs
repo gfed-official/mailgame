@@ -96,19 +96,30 @@ public class WorldTablesHeightTests
 
     // ---- AC-2: golden vectors through the tables, clamp, edge rule ----
 
-    [Theory]
-    [MemberData(nameof(GoldenRows))]
+    // The two derived golden pins loop the table in one test each and report every failing row by index.
+    [Fact]
     [Trait("Id", "PCM-F7-1")]
-    public void TerrainHeightMm_GoldenVector_MatchesCommittedValue(int h00, int h10, int h01, int h11, int fx, int fz, int expected)
+    public void TerrainHeightMm_GoldenVector_MatchesCommittedValue()
     {
-        // Arrange
-        IWorldQuery w = BuildSingleTile(h00, h10, h01, h11);
+        Assert.NotEmpty(HeightGoldenVectors.Rows);
+        var failures = new List<string>();
+        for (int i = 0; i < HeightGoldenVectors.Rows.Length; i++)
+        {
+            // Arrange
+            int[] r = HeightGoldenVectors.Rows[i];
+            IWorldQuery w = BuildSingleTile(r[0], r[1], r[2], r[3]);
 
-        // Act
-        long actual = w.TerrainHeightMm(fx, fz);
+            // Act
+            long actual = w.TerrainHeightMm(r[4], r[5]);
 
-        // Assert
-        Assert.Equal((long)expected, actual);
+            // Assert (collected)
+            if (actual != r[6])
+            {
+                failures.Add($"golden row {i} {{ {string.Join(", ", r)} }}: expected {r[6]}, got {actual}");
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     [Fact]
@@ -369,21 +380,31 @@ public class WorldTablesHeightTests
 
     // ---- AC-4: water is derived, never stored ----
 
-    [Theory]
-    [MemberData(nameof(GoldenRows))]
+    [Fact]
     [Trait("Id", "PCM-F7-1")]
-    public void WaterDepthMm_GoldenVector_EqualsMaxOfZeroAndNegatedHeight(int h00, int h10, int h01, int h11, int fx, int fz, int expected)
+    public void WaterDepthMm_GoldenVector_EqualsMaxOfZeroAndNegatedHeight()
     {
-        // Arrange
-        IWorldQuery w = BuildSingleTile(h00, h10, h01, h11);
+        Assert.NotEmpty(HeightGoldenVectors.Rows);
+        var failures = new List<string>();
+        for (int i = 0; i < HeightGoldenVectors.Rows.Length; i++)
+        {
+            // Arrange
+            int[] r = HeightGoldenVectors.Rows[i];
+            IWorldQuery w = BuildSingleTile(r[0], r[1], r[2], r[3]);
 
-        // Act
-        int depth = w.WaterDepthMm(fx, fz);
+            // Act
+            int depth = w.WaterDepthMm(r[4], r[5]);
 
-        // Assert
-        Assert.Equal((int)Math.Max(0L, -(long)expected), depth);
-        Assert.Equal((int)Math.Max(0L, -w.TerrainHeightMm(fx, fz)), depth);
-        Assert.True(depth >= 0);
+            // Assert (collected)
+            int expected = (int)Math.Max(0L, -(long)r[6]);
+            int derived = (int)Math.Max(0L, -w.TerrainHeightMm(r[4], r[5]));
+            if (depth != expected || depth != derived || depth < 0)
+            {
+                failures.Add($"golden row {i} {{ {string.Join(", ", r)} }}: depth {depth}, expected {expected}, max(0, -TerrainHeightMm) {derived}");
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     [Fact]
@@ -617,8 +638,6 @@ public class WorldTablesHeightTests
         Assert.Equal(0, (int)TileFlags.None);
         Assert.Equal(31, (int)(TileFlags.Blocked | TileFlags.Water | TileFlags.Walkable | TileFlags.Road | TileFlags.Lot));
     }
-
-    public static IEnumerable<object[]> GoldenRows() => HeightGoldenVectors.TheoryRows();
 }
 
 /// <summary>
