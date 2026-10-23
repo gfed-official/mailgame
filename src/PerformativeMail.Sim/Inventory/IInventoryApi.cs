@@ -55,9 +55,9 @@ public readonly record struct DetachResult(InvReason Reason, EntryId Entry, byte
 
 /// <summary>
 /// What a flight hands <see cref="IInventoryApi.TryCatch"/> (story 014; ADR-0009 Key Interfaces name, l.206, which the ADR never defines:
-/// shape a Mail Lead planning default pending Evan, TD-154 item 6): the flight's entry, which is the live detached entry
-/// <see cref="IInventoryApi.DetachForThrow"/> left (its mailIds still in the arena, so the payload carries no ids or units), and where a
-/// fumble lands, the catcher's feet.
+/// shape Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT, TD-154 item 6; advisory fix, Mail Review PR #38 r1): the
+/// flight's entry, which is the live detached entry <see cref="IInventoryApi.DetachForThrow"/> left (its mailIds still in the arena, so
+/// the payload carries no ids or units), and where a fumble lands, the catcher's feet.
 /// </summary>
 /// <param name="Entry">The flight's live detached entry.</param>
 /// <param name="CatcherPosMm">The catcher's feet, mm (a fumble's WorldItem position).</param>
@@ -66,11 +66,12 @@ public readonly record struct DetachResult(InvReason Reason, EntryId Entry, byte
 public readonly record struct FlightPayload(EntryId Entry, Vec3Mm CatcherPosMm, bool OnWater);
 
 /// <summary>
-/// The result of <see cref="IInventoryApi.TryCatch"/> (story 014; ADR-0009 Key Interfaces <c>{unitsIn, unitsFumbled}</c>, l.206; shape a
-/// Mail Lead planning default pending Evan, TD-154 item 6), on the <see cref="DetachResult"/> pattern: the units that went into the
-/// catcher's panel (the oldest, R6), the units that became the fumble WorldItem (the newest), and the reason. Exactly two forms: reason 0
-/// with <c>UnitsIn + UnitsFumbled</c> = the entry's count is a catch that mutated (<c>UnitsIn = 0</c> is a whole fumble, the entry now a
-/// WorldItem); <c>{0, 0}</c> with a non-zero reason is a refusal (nothing changed, the entry is still live, detached and the caller's).
+/// The result of <see cref="IInventoryApi.TryCatch"/> (story 014; ADR-0009 Key Interfaces <c>{unitsIn, unitsFumbled}</c>, l.206; shape
+/// Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT, TD-154 item 6; advisory fix, Mail Review PR #38 r1), on the
+/// <see cref="DetachResult"/> pattern: the units that went into the catcher's panel (the oldest, R6), the units that became the fumble
+/// WorldItem (the newest), and the reason. Exactly two forms: reason 0 with <c>UnitsIn + UnitsFumbled</c> = the entry's count is a catch
+/// that mutated (<c>UnitsIn = 0</c> is a whole fumble, the entry now a WorldItem); <c>{0, 0}</c> with a non-zero reason is a refusal
+/// (nothing changed, the entry is still live, detached and the caller's).
 /// </summary>
 /// <param name="UnitsIn">Units placed or merged into the panel.</param>
 /// <param name="UnitsFumbled">Units in the fumble WorldItem.</param>
@@ -97,10 +98,10 @@ public enum ConsumeReason : byte
 
 /// <summary>
 /// One whole backlog entry for <see cref="IInventoryApi.AppendBacklog"/> (story grid-inventory/021; ADR-0017 section 6 names the call,
-/// the shape is a Mail Lead planning default pending Evan, TD-157 item 2): units of one StackKey. A spawn remainder (the ids
-/// <see cref="IInventoryApi.Spawn"/> did not place) is appended one unit per call, GDD R14 "spawns are one unit per entry" and
-/// mail-destinations story 014; multi-unit backlog entries come from Inventory's own returns (an expiry, water float or cap eviction of
-/// a multi-unit entry). The call accepts 1 to the kind's effective maxStack ids.
+/// the shape is Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT, TD-157 item 2; advisory fix, Mail Review PR #38
+/// r1): units of one StackKey. A spawn remainder (the ids <see cref="IInventoryApi.Spawn"/> did not place) is appended one unit per call,
+/// GDD R14 "spawns are one unit per entry" and mail-destinations story 014; multi-unit backlog entries come from Inventory's own returns
+/// (an expiry, water float or cap eviction of a multi-unit entry). The call accepts 1 to the kind's effective maxStack ids.
 /// </summary>
 /// <example><code>foreach (MailId id in ids[r.Placed..]) { inventory.AppendBacklog(new BacklogEntry(letter, address, 0, new ReadOnlySpan<MailId>(in id))); }</code></example>
 public readonly ref struct BacklogEntry
@@ -261,8 +262,9 @@ public interface IInventoryApi
     /// story 013's cap eviction (TD-154 item 8). Refusals, each <c>{0, 0}</c> with nothing changed and nothing raised, the entry still
     /// live, detached and the caller's: a mail merge whose union block the arena refuses (<c>capacity_exhausted</c> and one
     /// <c>CheckCode.InventoryArenaExhausted</c> record, ADR-0009 section 5 l.157); a catch that would fumble units while the WorldItem
-    /// table is full (<c>capacity_exhausted</c> and one <c>CheckCode.InventoryWorldItemCapacity</c> record; Mail Lead planning default
-    /// pending Evan, TD-154 item 7); <c>bad_request</c> outside a tick phase, for a slot with no panel, or an entry that is not live and
+    /// table is full (<c>capacity_exhausted</c> and one <c>CheckCode.InventoryWorldItemCapacity</c> record; Approved by Evan 2026-10-22
+    /// 2:24 PM PT, confirmed in scope 3:00 PM PT, TD-154 item 7; refuse vs fumble for an arena-refused catch stays open to Evan; advisory
+    /// fix, Mail Review PR #38 r1); <c>bad_request</c> outside a tick phase, for a slot with no panel, or an entry that is not live and
     /// detached, is held by a WorldItem or is queued on the Intake backlog (story 021). No unit is ever lost.
     /// </summary>
     /// <param name="slot">The catcher's slot.</param>

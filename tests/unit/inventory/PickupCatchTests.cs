@@ -13,11 +13,12 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
 /// Story grid-inventory/014 (GDD R8, R9 l.128-129, R12 l.137, edge cases l.362-363, H-R9-2, H-R12-1; ADR-0009 sections 1, 2 and 5;
-/// TD-154 Mail Lead planning defaults pending Evan): the pickup core (<see cref="PickupCore"/>) and <see cref="IInventoryApi.TryCatch"/>
-/// with its fumble. Pickups run both through a test-only <c>Pickup</c> handler (<see cref="PickupTestHandler"/>, bound only in this
-/// rig: production binds Pickup in story 019) in the real phase-0 drain, and through the core directly inside a tick phase; catches run
-/// inside a tick phase, as Throwing's flight resolution will. State is arranged through real calls (the mutator-backed
-/// <c>PlaceMail</c> / <c>PlaceItem</c>, <c>CreateWorldItem</c>, <c>DetachForThrow</c>).
+/// TD-154 defaults, Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT; refuse vs fumble for an arena-refused catch,
+/// TD-154 item 7, stays open to Evan; advisory fix, Mail Review PR #38 r1): the pickup core (<see cref="PickupCore"/>) and
+/// <see cref="IInventoryApi.TryCatch"/> with its fumble. Pickups run both through a test-only <c>Pickup</c> handler
+/// (<see cref="PickupTestHandler"/>, bound only in this rig: production binds Pickup in story 019) in the real phase-0 drain, and through
+/// the core directly inside a tick phase; catches run inside a tick phase, as Throwing's flight resolution will. State is arranged
+/// through real calls (the mutator-backed <c>PlaceMail</c> / <c>PlaceItem</c>, <c>CreateWorldItem</c>, <c>DetachForThrow</c>).
 /// </summary>
 public class PickupCatchTests
 {
@@ -892,9 +893,10 @@ public class PickupCatchTests
     // ---------------------------------------------------------------- precedence (ADR-0009 Implementation Guidelines l.226)
 
     /// <summary>
-    /// The core chain (TD-154 item 5, Mail Lead planning default pending Evan) answers the earliest step when a request violates it and
-    /// every later step that can co-occur, on slots 0 and 1, through the test handler and through <see cref="PickupCore.Apply"/>
-    /// directly (which also reaches the core's own namespace check, shadowed in the handler by <c>CheckRequest</c>). Every row but
+    /// The core chain (TD-154 item 5, Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT; advisory fix, Mail Review
+    /// PR #38 r1) answers the earliest step when a request violates it and every later step that can co-occur, on slots 0 and 1, through
+    /// the test handler and through <see cref="PickupCore.Apply"/> directly (which also reaches the core's own namespace check, shadowed
+    /// in the handler by <c>CheckRequest</c>). Every row but
     /// <c>capacity_exhausted</c> has the asker's panel full (<c>no_room</c>) and the arena exhausted (a refused plan reserves nothing, so
     /// <c>no_room</c> and <c>capacity_exhausted</c> cannot both answer; the exhausted arena kills a reservation checked before the plan):
     /// <c>bad_request</c> (the other slot's temp entry id on a live-tombstoned WorldItem); <c>container_gone</c> (a live tombstone, a
@@ -983,9 +985,10 @@ public class PickupCatchTests
     // ---------------------------------------------------------------- Review r1 advisories (test gaps)
 
     /// <summary>
-    /// TD-155 item 2 (Mail Lead planning default pending Evan): a pickup reply names the picker's hotbar as <c>ResultVersionA</c> and
-    /// player_inventory as <c>ResultVersionB</c>. A pickup split across both (3 merge into a hotbar stack at 17/20, the hotbar otherwise
-    /// full; 2 into a player_inventory stack), the two versions made different first: two seals, each +1, both before the reply.
+    /// TD-155 item 2 (Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT; advisory fix, Mail Review PR #38 r1): a
+    /// pickup reply names the picker's hotbar as <c>ResultVersionA</c> and player_inventory as <c>ResultVersionB</c>. A pickup split
+    /// across both (3 merge into a hotbar stack at 17/20, the hotbar otherwise full; 2 into a player_inventory stack), the two versions
+    /// made different first: two seals, each +1, both before the reply.
     /// </summary>
     [Theory]
     [InlineData(0)]
@@ -1332,6 +1335,8 @@ public class PickupCatchTests
         Assert.Equal(new[] { InvEventKinds.Merged, InvEventKinds.Version, InvEventKinds.WorldItemSpawned }, PickupRig.InventoryKinds(log));
         EventEntry merged = Assert.Single(WorldItemTests.Heads(log, InvEventKinds.Merged));
         EventEntry spawned = Assert.Single(WorldItemTests.Heads(log, InvEventKinds.WorldItemSpawned));
+        // Weak: a sibling call scope also passes != and >; a real nested-scope assert needs the capture to expose the parent scope
+        // (TD-165; advisory fix, Mail Review PR #38 r1 advisory 6)
         Assert.NotEqual(merged.CallSeq, spawned.CallSeq);
         Assert.True(spawned.CallSeq > merged.CallSeq);
         InvVersionPayload seal = PickupRig.Seal(log, p.R.IdOf(p.Hotbar(0)));
