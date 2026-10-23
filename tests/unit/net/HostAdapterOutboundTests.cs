@@ -629,6 +629,22 @@ public class HostAdapterOutboundTests
     }
 
     [Fact]
+    public void RepeatedFlushTick_FromAStoppedWorld_SendsNothing()
+    {
+        var rig = new Rig();
+        rig.AdmitLoopbackAtSlot0();
+        rig.World.Tick();
+        rig.Adapter.FlushOutbound(rig.World.CurrentTick);
+        rig.ClientMessages();
+
+        rig.Adapter.FlushOutbound(rig.World.CurrentTick);
+        rig.Adapter.FlushOutbound(rig.World.CurrentTick);
+
+        Assert.Empty(rig.ClientMessages());
+        Assert.Equal(2, rig.Adapter.RepeatedFlushTickCount);
+    }
+
+    [Fact]
     public void Overflow_IsStoredOnly()
     {
         var rig = new Rig();

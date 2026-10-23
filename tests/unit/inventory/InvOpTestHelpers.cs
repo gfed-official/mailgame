@@ -93,4 +93,5 @@ internal static class InvOpTestHelpers
         InventoryRecords(log).Where(e => (e.Flags & EventFlags.Continuation) == 0).ToArray();
 
     internal static InvVersionPayload[] Seals(EventEntry[] log) =>
-        log.Where(e => e.Kind == InvEventKinds.Version).Select(e => e.PayloadAs<InvVersionPayload>()).ToArray();}
+        log.Where(e => e.Kind == InvEventKinds.Version).Select(e => e.PayloadAs<InvVersionPayload>()).ToArray();
+}

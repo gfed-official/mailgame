@@ -173,6 +173,9 @@ public class ContentEnumTests
     [InlineData("ligh")]         // no prefix match
     [InlineData("lightt")]
     [InlineData("light\0")]      // no terminator tolerance
+    [InlineData("Medium")]
+    [InlineData("MEDIUM")]
+    [InlineData("Bulk")]
     public void WeightClass_NonSpellings_AreNotFound_WithNoNumericOrCaseInsensitiveFallback(string text)
     {
         Assert.False(WeightClassSpelling.TryParse(Utf8(text), out WeightClass value));

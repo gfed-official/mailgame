@@ -176,6 +176,7 @@ public class FakeClockTests
 
     [Theory]
     [InlineData(PhysicalInput.PadLeftStickX)]
+    [InlineData(PhysicalInput.PadRightTrigger)]
     public void PressOrRelease_OfAnAxisInput_ThrowsAndPointsToAxis(PhysicalInput axis)
     {
         var h = new InputTestHarness();

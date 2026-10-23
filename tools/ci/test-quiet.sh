@@ -4,7 +4,7 @@
 # the first lines of its message and the top of its stack. Skipped-test blocks are never
 # printed. Meant for agent / local dev runs, where a full log costs context; CI is unchanged.
 #
-# Usage:  tools/ci/test-quiet.sh [--self-check] [--expect-skipped N] [--log-dir DIR] -- <dotnet test args>
+# Usage:  tools/ci/test-quiet.sh [--self-check] [--expect-skipped N] [--expect-skipped-names FILE] [--log-dir DIR] -- <dotnet test args>
 #   tools/ci/test-quiet.sh -- --solution PerformativeMail.sln -c Debug --no-build -- --filter-class "*PickMoveTests"
 #   tools/ci/test-quiet.sh --expect-skipped 7 -- --solution PerformativeMail.sln -c Release -p:PmTestTfm=net8.0 --no-build
 #   Everything after the first `--` goes to `dotnet test` verbatim; the wrapper adds
@@ -12,6 +12,10 @@
 #   (xUnit v3's MTP TRX options) before the caller's inner `--`, or at the end if there is none.
 #   --expect-skipped N  warn when the skipped count is not N; exits 3 if dotnet passed,
 #                       otherwise keeps dotnet's exit code.
+#   --expect-skipped-names FILE  FILE lists the fully-qualified skipped test names (TRX outcome
+#                       NotExecuted), one per line; warn with the missing / unexpected names when
+#                       the run's set differs (catches a skip swapped for another at the same
+#                       count). Same exit rule as --expect-skipped.
 #   --log-dir DIR       per-run directory (default: <repo>/TestResults/quiet/<timestamp>-<pid>/,
 #                       gitignored and hidden from Godot by TestResults/.gdignore).
 #   --self-check        runs the wrapper against a fake DOTNET stub and planted logs/TRX under
@@ -20,7 +24,7 @@
 # Env:    DOTNET overrides the dotnet command (default: dotnet), e.g.
 #   DOTNET="mise exec dotnet@10.0.402 -- dotnet" tools/ci/test-quiet.sh -- --solution PerformativeMail.sln
 # Exit:   dotnet's exit code (0 pass, 2 test failure, 8 zero tests ran); 3 on --expect-skipped
-#         mismatch after a passing run; 64 on bad usage.
+#         or --expect-skipped-names mismatch after a passing run; 64 on bad usage.
 set -u
 
 script_path="${BASH_SOURCE[0]}"
@@ -108,6 +112,12 @@ EOF
   verify_mismatch() { local o="$1"; rc_is "$o" 3 && has "$o" 'WARNING: skipped 1, expected 5'; }
   verify_mismatch_on_fail() { local o="$1"; rc_is "$o" 2 && has "$o" 'WARNING: skipped 1, expected 5' && has "$o" 'FAILED TEST'; }
   verify_match()    { local o="$1"; rc_is "$o" 0 && ! has "$o" 'WARNING'; }
+  verify_names_match() { local o="$1"; rc_is "$o" 0 && ! has "$o" 'WARNING'; }
+  verify_names_swap()  { local o="$1"; rc_is "$o" 3 && has "$o" 'WARNING: skipped test names differ from' \
+                           && has "$o" 'missing:    Pm.Tests.AlphaTests.OtherSkip' \
+                           && has "$o" 'unexpected: Pm.Tests.AlphaTests.SkippedInDebugOnly'; }
+  verify_names_swap_on_fail() { local o="$1"; rc_is "$o" 2 && has "$o" 'WARNING: skipped test names differ from' \
+                           && has "$o" 'missing:    Pm.Tests.AlphaTests.OtherSkip' && has "$o" 'FAILED TEST'; }
   verify_broken()   { local o="$1"; rc_is "$o" 1 && has "$o" 'Build FAILED.' && has "$o" 'no test summary'; }
   verify_zero()     { local o="$1"; rc_is "$o" 8; }
 
@@ -116,11 +126,16 @@ EOF
   run_case mismatch "$tmp/pass.log"   "$tmp/pass.trx" 0 --expect-skipped 5
   run_case mismatch_on_fail "$tmp/fail.log" "$tmp/fail.trx" 2 --expect-skipped 5
   run_case match    "$tmp/pass.log"   "$tmp/pass.trx" 0 --expect-skipped 1
+  printf 'Pm.Tests.AlphaTests.SkippedInDebugOnly\n' > "$tmp/names-ok.txt"
+  printf 'Pm.Tests.AlphaTests.OtherSkip\n' > "$tmp/names-swapped.txt"
+  run_case names_match "$tmp/pass.log" "$tmp/pass.trx" 0 --expect-skipped 1 --expect-skipped-names "$tmp/names-ok.txt"
+  run_case names_swap  "$tmp/pass.log" "$tmp/pass.trx" 0 --expect-skipped 1 --expect-skipped-names "$tmp/names-swapped.txt"
+  run_case names_swap_on_fail "$tmp/fail.log" "$tmp/fail.trx" 2 --expect-skipped-names "$tmp/names-swapped.txt"
   run_case broken   "$tmp/broken.log" -               1
   run_case zero     "$tmp/pass.log"   "$tmp/pass.trx" 8
 
   bad=0
-  cases=(pass fail mismatch mismatch_on_fail match broken zero)
+  cases=(pass fail mismatch mismatch_on_fail match names_match names_swap names_swap_on_fail broken zero)
   for c in "${cases[@]}"; do
     if "verify_$c" "$tmp/$c.out"; then
       echo "PASS  self-check: $c case parsed and exit code propagated"
@@ -129,8 +144,9 @@ EOF
     fi
   done
   # Negative controls: each verifier must be seen FAILING on another case's output.
-  for pair in "pass fail" "pass mismatch" "fail pass" "mismatch match" "mismatch_on_fail fail" "match mismatch" \
-              "broken pass" "zero pass"; do
+  pairs=("pass fail" "pass mismatch" "fail pass" "mismatch match" "mismatch_on_fail fail" "match mismatch" \
+         "names_match names_swap" "names_swap names_match" "names_swap_on_fail names_swap" "broken pass" "zero pass")
+  for pair in "${pairs[@]}"; do
     read -r v o <<< "$pair"
     if "verify_$v" "$tmp/$o.out"; then
       echo "FAIL  self-check: verify_$v accepted the $o output"; bad=$((bad + 1))
@@ -156,23 +172,28 @@ EOF
   fi
 
   if [ "$bad" -ne 0 ]; then echo "test-quiet --self-check: $bad failure(s)"; exit 1; fi
-  echo "test-quiet --self-check: ${#cases[@]} cases parsed, 8 negative controls and the argument check seen failing on wrong output"
+  echo "test-quiet --self-check: ${#cases[@]} cases parsed, ${#pairs[@]} negative controls and the argument check seen failing on wrong output"
   exit 0
 fi
 
 # -------------------------------------------------------------------- options
 usage() { sed -n '7,8p' "$script_path" | sed 's/^# //' >&2; exit 64; }
 expect_skipped=""
+expect_names=""
 run_dir=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --expect-skipped) [ $# -ge 2 ] || usage; expect_skipped="$2"; shift 2 ;;
+    --expect-skipped-names) [ $# -ge 2 ] || usage; expect_names="$2"; shift 2 ;;
     --log-dir)        [ $# -ge 2 ] || usage; run_dir="$2"; shift 2 ;;
     --)               shift; break ;;
     *)                echo "test-quiet: unknown option '$1' (dotnet test args go after --)" >&2; usage ;;
   esac
 done
 case "$expect_skipped" in ""|*[!0-9]*) [ -z "$expect_skipped" ] || usage ;; esac
+if [ -n "$expect_names" ] && [ ! -r "$expect_names" ]; then
+  echo "test-quiet: --expect-skipped-names file '$expect_names' is not readable" >&2; usage
+fi
 [ $# -gt 0 ] || usage
 
 if [ -z "$run_dir" ]; then
@@ -232,6 +253,10 @@ for r in failed[:MAX_TESTS]:
         print(f"    {line.strip()}")
 if len(failed) > MAX_TESTS:
     print(f"... {len(failed) - MAX_TESTS} more failed tests (see TRX)")
+with open(sys.argv[1] + ".skipped-names", "w") as f:
+    for r in root.iterfind(".//t:UnitTestResult", ns):
+        if r.get("outcome") == "NotExecuted":
+            f.write(f"{r.get('testName')}\n")
 c = root.find(".//t:ResultSummary/t:Counters", ns)
 if c is not None:
     with open(sys.argv[1] + ".skipped", "w") as f:
@@ -245,6 +270,21 @@ if [ -n "$expect_skipped" ]; then
   [ -n "$skipped" ] || skipped="$(printf '%s\n' "$summary" | sed -n 's/^ *skipped: *\([0-9]*\).*/\1/p')"
   if [ "$skipped" != "$expect_skipped" ]; then
     echo "WARNING: skipped ${skipped:-<unknown>}, expected $expect_skipped"
+    [ "$rc" -eq 0 ] && rc=3
+  fi
+fi
+
+if [ -n "$expect_names" ]; then
+  if [ -f "$trx.skipped-names" ]; then
+    names_diff="$(LC_ALL=C comm -3 <(grep -v '^[[:space:]]*$' "$expect_names" | LC_ALL=C sort -u) \
+                                    <(LC_ALL=C sort -u "$trx.skipped-names"))"
+    if [ -n "$names_diff" ]; then
+      echo "WARNING: skipped test names differ from $expect_names"
+      printf '%s\n' "$names_diff" | sed -e 's/^\t/  unexpected: /' -e t -e 's/^/  missing:    /'
+      [ "$rc" -eq 0 ] && rc=3
+    fi
+  else
+    echo "WARNING: skipped test names unknown (no readable TRX), expected the list in $expect_names"
     [ "$rc" -eq 0 ] && rc=3
   fi
 fi

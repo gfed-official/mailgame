@@ -489,6 +489,17 @@ public class RecorderTests
         Assert.Equal(0, rig.Recorder.LostRecords);
     }
 
+    [Fact]
+    public void Overflow_IsRecordedEvenWithNoSinkBound()
+    {
+        RecRig? rig = null;
+        rig = new RecRig(eventLog: 8, configure: b => b.Bind(PhaseId.MailStep, new ActionBinder(_ => rig!.RaiseEvents(9))));
+
+        rig.World.Tick();
+
+        Assert.Equal(0u, Assert.Single(rig.Recorder.Overflows.ToArray()).Tick);
+    }
+
     // ------------------------------------------------------------ interleaving across kinds
 
     [Fact]
