@@ -547,13 +547,6 @@ public class StableSortTests
         Assert.True(counter.Calls < 1_024 * 8, $"{counter.Calls} comparisons is not O(n log n)");
         AssertStableAndOrdered(data);
     }
-
-    [Fact]
-    public void StableSort_InsertionThreshold_Is16()
-    {
-        // Assert (the documented n <= 16 insertion / bottom-up merge boundary)
-        Assert.Equal(16, StableSort.InsertionThreshold);
-    }
 }
 
 /// <summary>

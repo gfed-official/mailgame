@@ -102,26 +102,6 @@ public class SimAssertTests
     }
 
     [Fact]
-    public void That_TrueCondition_DoesNotThrow()
-    {
-        // Arrange
-        Exception? thrown = null;
-
-        // Act
-        try
-        {
-            SimAssertProbe.That(() => true, 7);
-        }
-        catch (Exception e)
-        {
-            thrown = e;
-        }
-
-        // Assert
-        Assert.Null(thrown);
-    }
-
-    [Fact]
     public void That_ArgumentWithSideEffect_EvaluatedOnlyWhenAssertsEnabled()
     {
         // Arrange

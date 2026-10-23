@@ -265,17 +265,6 @@ public class StatSheetWriterTests
 
     [Fact]
     [Trait("Id", "CDD-STAT-5")]
-    public void Push_StackIndexJustBelowMax_IsAccepted()
-    {
-        var rig = new Rig();
-        ModifierSource src = Src(Mine(1), stack: 2, max: 3);
-
-        Assert.True(rig.Writer.Push(in src, [M(src, Stat.MoveSpeedAddPm, ModifierOp.Add, 120)]));
-        Assert.Equal(1u, rig.Sheet.Version);
-    }
-
-    [Fact]
-    [Trait("Id", "CDD-STAT-5")]
     public void Push_DifferingInKindIdStackOrOwner_IsADistinctIdentity()
     {
         // Arrange

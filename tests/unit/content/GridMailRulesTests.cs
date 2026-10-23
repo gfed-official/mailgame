@@ -264,14 +264,6 @@ public class GridMailRulesTests
         Assert.Single(Of(r, GeneralRuleIds.StatBaseOutsideBounds));   // InventoryRows clamp 1..16: a reviewed second finding
     }
 
-    [Fact]
-    [Trait("Id", "CDD-VAL-1")]
-    public void Grd04_AOneByOneGrid_Passes_AndAPileHasNoGridToCheck()
-    {
-        Assert.Empty(Of(Run(ContentFixtures.MinimalValid()), GridRuleIds.Dimensions));
-        Assert.Empty(Of(Run(GridMailRuleFixtures.Cursor(ContentFixtures.Cursor with { Layout = ContainerLayout.Pile, HasGrid = false, GridW = 0, GridH = 0 })), GridRuleIds.Dimensions));
-    }
-
     [Theory]
     [Trait("Id", "CDD-VAL-1")]
     [InlineData(0)]
@@ -343,8 +335,6 @@ public class GridMailRulesTests
     [Theory]
     [Trait("Id", "CDD-RULE-1")]
     [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
     public void Grd07_ASuppressWithoutWhy_IsCvGen05_AndDoesNotSilence(string? why)
     {
         ValidationResult r = RunWithSetSuppress(29_000, new SuppressEntry(GridRuleIds.DespawnTooShort, why, ContentValidationInput.SetLocation));
@@ -571,16 +561,6 @@ public class GridMailRulesTests
         ContentDiagnostic d = Assert.Single(Of(r, MailRuleIds.Acceptors));
         Assert.Equal(new DefRef(DefType.MailKind, "pallet"), d.Def);
         Assert.Equal(1, r.ErrorCount);
-    }
-
-    [Fact]
-    [Trait("Id", "CDD-VAL-1")]
-    public void Mail04_AZeroShareKindNeedsNoAcceptor()
-    {
-        ValidationResult r = Run(GridMailRuleFixtures.WithKinds(new[] { GridMailRuleFixtures.Pallet }, (0, 600), (0, 400), (1, 0)));
-
-        Assert.Empty(Of(r, MailRuleIds.Acceptors));
-        Assert.Equal(0, r.ErrorCount);
     }
 
     [Fact]

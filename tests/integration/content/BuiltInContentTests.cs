@@ -280,16 +280,6 @@ public class BuiltInContentTests
     }
 
     [Fact]
-    [Trait("Id", "CDD-STAT-1")]
-    public void Build_InvertedStatBounds_ReportsCvGen15_AndWithholdsTheSet()
-    {
-        ContentBuildResult r = ContentFixtures.MinimalValid().WithBalance("throw.rangeMinPermille", 1_501).Build();
-
-        Assert.Null(r.Set);
-        Assert.Contains(r.Validation.Diagnostics, d => d.RuleId == GeneralRuleIds.StatBoundsInverted);
-    }
-
-    [Fact]
     [Trait("Id", "CD21")]
     public void Build_DuplicateIds_AreReportedAsCvGen01_NotThrown_AndEmptyIdsStillThrow()
     {

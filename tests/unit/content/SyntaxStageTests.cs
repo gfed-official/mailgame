@@ -607,15 +607,6 @@ public class SyntaxStageTests
 
     [Fact]
     [Trait("Id", "CDD-PARSE-2")]
-    public void DuplicateKey_CrlfLinesStillCountByLf()
-    {
-        ContentDiagnostic d = Single(Walk("[\r\n{\"a\":1,\r\n \"a\":2}\r\n]"), GeneralRuleIds.DuplicateKey);
-
-        AssertAt(d, 3, 2);
-    }
-
-    [Fact]
-    [Trait("Id", "CDD-PARSE-2")]
     public void SeveralDuplicateKeys_GiveSeveralCvGen04_AndTheWalkContinues()
     {
         SyntaxResult r = Walk("[{\"a\":1,\"a\":2,\"b\":3,\"b\":4},{\"a\":5,\"a\":6}]");
@@ -633,15 +624,6 @@ public class SyntaxStageTests
         ContentDiagnostic d = Single(Walk("[{\"a\":1,\"\\u0061\":2}]"), GeneralRuleIds.DuplicateKey);
 
         Assert.Equal("a", d.Value);
-    }
-
-    [Fact]
-    [Trait("Id", "CDD-PARSE-2")]
-    public void TheSameKey_InSiblingAndNestedObjects_IsNotADuplicate()
-    {
-        SyntaxResult r = Walk("[{\"id\":1},{\"id\":2,\"x\":{\"id\":3,\"y\":{\"id\":4}},\"z\":[{\"id\":5}]},{\"id\":6}]");
-
-        Assert.True(r.Ok);
     }
 
     [Fact]

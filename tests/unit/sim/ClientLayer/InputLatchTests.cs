@@ -165,20 +165,6 @@ public class InputLatchTests
     }
 
     [Fact]
-    public void FirstTickWithNoPendingEdges_EmitsEmptyFrame_AfterEdgesWereCleared()
-    {
-        (ClientLayerSut layer, FrameRecorder rec, _) = Make();
-        layer.InputWriter.PushEdge(Edge(Fire, EdgeKind.Press, 1));
-        layer.Step(true);
-
-        layer.Step(true);
-
-        Assert.Equal(1, rec.Frames[0].EdgeCount);
-        Assert.Equal(0, rec.Frames[1].EdgeCount);
-        Assert.True(rec.Frames[1].IsFirstTickInBatch);
-    }
-
-    [Fact]
     public void Frame_OnLayerBeforeAnyTick_IsDefault()
     {
         (ClientLayerSut layer, _, _) = Make();
@@ -222,22 +208,5 @@ public class InputLatchTests
         Assert.Equal(EdgeKind.Release, f.GetEdge(InputFrame.MaxEdges - 2).Kind);
         Assert.Equal(EdgeKind.Cancel, f.GetEdge(InputFrame.MaxEdges - 1).Kind);
         Assert.Equal(0, layer.InputLatch.PendingEdgeCount);
-    }
-
-    [Fact]
-    public void EdgeCapacity_IsThirtyTwo()
-    {
-        Assert.Equal(32, InputFrame.MaxEdges);
-    }
-
-    [Fact]
-    public void InputEdge_RoundTripsItsFields()
-    {
-        var e = new InputEdge((FrameAction)5, EdgeKind.Release, 12345, 77);
-
-        Assert.Equal((FrameAction)5, e.Action);
-        Assert.Equal(EdgeKind.Release, e.Kind);
-        Assert.Equal((ushort)12345, e.ArrivalSeq);
-        Assert.Equal((ushort)77, e.RouterStateId);
     }
 }

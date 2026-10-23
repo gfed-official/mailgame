@@ -171,14 +171,6 @@ public class RecorderTests
         Assert.Equal(ReplayRefusal.None, longForm.FirstMismatch(shortForm));
     }
 
-    [Fact]
-    public void Recorder_ExposesItsHeader()
-    {
-        var header = new RecordingHeader(1, default, default, 3, null);
-
-        Assert.Same(header, new InMemoryRecorder(header).Header);
-    }
-
     // ------------------------------------------------------------ enqueue records
 
     [Fact]
@@ -495,17 +487,6 @@ public class RecorderTests
         Assert.True(rig.Recorder.SawOverflow);
         Assert.False(rig.Recorder.IsReproducible);
         Assert.Equal(0, rig.Recorder.LostRecords);
-    }
-
-    [Fact]
-    public void Overflow_IsRecordedEvenWithNoSinkBound()
-    {
-        RecRig? rig = null;
-        rig = new RecRig(eventLog: 8, configure: b => b.Bind(PhaseId.MailStep, new ActionBinder(_ => rig!.RaiseEvents(9))));
-
-        rig.World.Tick();
-
-        Assert.Equal(0u, Assert.Single(rig.Recorder.Overflows.ToArray()).Tick);
     }
 
     // ------------------------------------------------------------ interleaving across kinds

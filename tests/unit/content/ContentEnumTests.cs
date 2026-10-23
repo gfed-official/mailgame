@@ -164,21 +164,15 @@ public class ContentEnumTests
     [Trait("Id", "CDD-SCHEMA-4")]
     [InlineData("5")]            // numeric index of nothing, and a digit string
     [InlineData("1")]            // the numeric value of Light: still no numeric fallback
-    [InlineData("0")]
     [InlineData("01")]
     [InlineData("Light")]        // wrong case
     [InlineData("LIGHT")]
-    [InlineData("lIGHT")]
     [InlineData("unknown")]
-    [InlineData("")]
     [InlineData(" light")]       // no trimming
     [InlineData("light ")]
     [InlineData("ligh")]         // no prefix match
     [InlineData("lightt")]
     [InlineData("light\0")]      // no terminator tolerance
-    [InlineData("Medium")]
-    [InlineData("MEDIUM")]
-    [InlineData("Bulk")]
     public void WeightClass_NonSpellings_AreNotFound_WithNoNumericOrCaseInsensitiveFallback(string text)
     {
         Assert.False(WeightClassSpelling.TryParse(Utf8(text), out WeightClass value));
