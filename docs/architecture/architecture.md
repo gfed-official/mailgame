@@ -540,9 +540,9 @@ The Technical Requirements Baseline (Appendix A) holds **250 requirements from 1
 
 | Covered by an Accepted ADR | Partial | Gaps | Deferred |
 |---|---|---|---|
-| **211** | **0** | **38** | **1** |
+| **210** | **0** | **38** | **2** |
 
-*Updated 2026-10-23 (m1a-replan, PR #47) from `docs/architecture/tr-registry.yaml`: 250 = 211 covered + 0 partial + 38 gap + 1 deferred. Accepted ADRs are 0001–0017, 0019, 0026, the ADR-0024 M-1a stats-file slice (Evan 2026-10-23) and the ADR-0018 minimal HUD slice (Evan 2026-10-23 8:10 AM PT, "approve all"). The 38 gaps belong to ADR-0018 (13 rows its M-1a slice defers to the M0+ amendment), 0020 (7), 0021 (5), 0022 (2), 0024 (TR-hud-019, M1), 0025 (4), 0029 (2) and `perf-budget.md` (4). TR-delivery-019 is covered (ADR-0018 render half, ADR-0014 data half). The deferred row is TR-delivery-021 (ADR-0006; manual-delivery 008 Deferred to M0). The matrix is `docs/architecture/requirements-traceability.md`. Originally (2026-10-16, `/architecture-review`): 203 covered, 47 gaps.*
+*Updated 2026-10-23 (m1a-replan, PR #47) from `docs/architecture/tr-registry.yaml`: 250 = 210 covered + 0 partial + 38 gap + 2 deferred. Accepted ADRs are 0001–0017, 0019, 0026, the ADR-0024 M-1a stats-file slice (Evan 2026-10-23) and the ADR-0018 minimal HUD slice (Evan 2026-10-23 8:10 AM PT, "approve all"). The 38 gaps belong to ADR-0018 (13 rows its M-1a slice defers to the M0+ amendment), 0020 (7), 0021 (5), 0022 (2), 0024 (TR-hud-019, M1), 0025 (4), 0029 (2) and `perf-budget.md` (4). TR-delivery-019 is covered (ADR-0018 render half, ADR-0014 data half). The deferred rows are TR-delivery-021 (ADR-0006; manual-delivery 008 Deferred to M0) and TR-sim-036 (ADR-0006; simulation-core 029 Deferred to M0). The matrix is `docs/architecture/requirements-traceability.md`. Originally (2026-10-16, `/architecture-review`): 203 covered, 47 gaps.*
 
 Every requirement is mapped below to a planned ADR, so no requirement is orphaned. Each gap closes when its ADR is written and Accepted.
 

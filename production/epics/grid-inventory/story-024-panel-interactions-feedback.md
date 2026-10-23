@@ -19,7 +19,7 @@
 *(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0019: Godot presentation scene architecture — Accepted 2026-10-16 (primary); ADR-0012: Input router core & Godot input adapter — Accepted 2026-10-16; ADR-0009: InventoryOp Pipeline and Inventory Storage Layout
-**ADR Decision Summary**: Pick/place/drag/rotate/return/drop/quick-move are issued as inventory ops from the Panel and Holding contexts that Input & Controls' router owns (ADR-0012, Accepted 2026-10-16); the panel scene is ADR-0019's (Accepted 2026-10-16); toasts route through HUD composition (ADR-0018, not written); every reachable rejection has a visible revert and a non-colour cue (GDD UI Requirements feedback table).
+**ADR Decision Summary**: Pick/place/drag/rotate/return/drop/quick-move are issued as inventory ops from the Panel and Holding contexts that Input & Controls' router owns (ADR-0012, Accepted 2026-10-16); the panel scene is ADR-0019's (Accepted 2026-10-16); toasts route through HUD composition (ADR-0018, Accepted 2026-10-23; its M-1a slice defers the toast queue to the M0+ amendment, §6); every reachable rejection has a visible revert and a non-colour cue (GDD UI Requirements feedback table).
 **ADR Version**: ADR-0019 2026-10-16; ADR-0012 2026-10-16; ADR-0009 2026-10-16
 
 **Engine**: Godot 4.7.1 | **Risk**: HIGH (Godot 4.7.1 input + UI; NEEDS VERIFICATION)
@@ -79,5 +79,5 @@
 ## Dependencies
 
 - Depends on: Story 023, Story 019, Story 020
-- Depends on: `production/epics/input-controls/story-007-router-shell-press-machines-mute.md`, `production/epics/input-controls/story-010-steps-auto-repeat-drag-resolver.md` (router, ADR-0012; input-controls 011 panel cursor navigation is Deferred and not needed for the mouse-driven M-1a panel); HUD toast queue (ADR-0018 — not written; no HUD epic exists)
+- Depends on: `production/epics/input-controls/story-007-router-shell-press-machines-mute.md`, `production/epics/input-controls/story-010-steps-auto-repeat-drag-resolver.md` (router, ADR-0012; input-controls 011 panel cursor navigation is Deferred and not needed for the mouse-driven M-1a panel). Not a dependency: the HUD toast queue — ADR-0018 is Accepted (2026-10-23 8:10 AM PT), but its minimal M-1a slice defers the queue to the M0+ amendment (§6), and this story's ACs do not need it.
 - Unlocks: Epic DoD UI evidence; Story 025 (Deferred, M1)

@@ -63,9 +63,9 @@ Authority: Evan, Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: r
 | [player-character/027](player-character/story-027-movement-rulings-extra-jump-slide-td-091.md) | M1 | Evan 7:13 AM PT ("the deferrals") |
 | [input-controls/011](input-controls/story-011-panel-cursor-navigation.md) | M1 | E1, Evan 8:10 AM PT |
 | [input-controls/022](input-controls/story-022-replay-corpus-zero-unauthored-verbs.md) | M0 | E1, Evan 8:10 AM PT |
-| [input-controls/024](input-controls/story-024-router-core-zero-allocation-gate.md) | M0 | E1/E2, Evan 8:10 AM PT |
-| [input-controls/025](input-controls/story-025-ci-lint-no-direct-input-reads.md) | M0 | E1, Evan 8:10 AM PT |
-| [simulation-core/029](simulation-core/story-029-zero-alloc-tick-timing-advisory.md) | M0 | E2, Evan 8:10 AM PT |
+| [input-controls/024](input-controls/story-024-router-core-zero-allocation-gate.md) | M0 | Evan 7:13 AM PT (m0-scope §6a item 6; errata E1/E2 8:10 AM PT) |
+| [input-controls/025](input-controls/story-025-ci-lint-no-direct-input-reads.md) | M0 | Evan 7:13 AM PT (m0-scope §6a item 6; erratum E1 8:10 AM PT) |
+| [simulation-core/029](simulation-core/story-029-zero-alloc-tick-timing-advisory.md) | M0 | Evan 7:13 AM PT (m0-scope §6a item 6; erratum E2 8:10 AM PT) |
 | [input-controls/030](input-controls/story-030-glyph-state-last-used-device.md) | M1 | E1 split from 017/029, Evan 8:54 AM PT |
 | [input-controls/031](input-controls/story-031-pad-hotplug-router-and-adapter-delivery.md) | M0 | E1 split from 018/027/029, Evan 8:54 AM PT |
 | [input-controls/032](input-controls/story-032-settings-input-overrides-writer-bindings-migrations.md) | M1 | E1 split from 019, Evan 8:54 AM PT |

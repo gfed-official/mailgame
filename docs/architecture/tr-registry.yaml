@@ -16,7 +16,7 @@
 version: 1
 last_updated: 2026-10-23
 source_baseline: docs/architecture/architecture.md#appendix-a
-counts: {total: 250, covered: 211, partial: 0, gap: 38, deferred: 1}
+counts: {total: 250, covered: 210, partial: 0, gap: 38, deferred: 2}
 requirements:
   - id: TR-sim-001
     requirement: "Whole fixed ticks of 1/30 s; TickRateHz=30 code constant; no variable step"
@@ -514,7 +514,7 @@ requirements:
     gdd: design/gdd/simulation-core.md
     adr: "ADR-0006"
     adr_status: "Accepted"
-    coverage: covered
+    coverage: deferred
     status: active
     domain: Core
     side: S
@@ -522,6 +522,8 @@ requirements:
     stories: [production/epics/simulation-core/story-029-zero-alloc-tick-timing-advisory.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
+    note: "ADR-0006 addresses it, but its only story (simulation-core 029) is Deferred to M0 (Evan 2026-10-23 7:13 AM PT, m0-scope §6a item 6); not done at M-1a"
   - id: TR-sim-037
     requirement: "Host tick p99 5.0 / max 8.0 / median 3.0 ms; ClientLayer p99 0.3 ms; advisory until reference machine"
     system: sim
@@ -2461,7 +2463,7 @@ requirements:
     source: "architecture.md Appendix A"
     added: 2026-10-16
     revised: 2026-10-23
-    note: "ADR-0006 addresses it, but its only story (manual-delivery 008) is Deferred to M0 (Evan 2026-10-23 7:13 AM PT); not done at M-1a"
+    note: "ADR-0006 addresses it, but its only story (manual-delivery 008) is Deferred to M0 (Evan 2026-10-23 8:54 AM PT); not done at M-1a"
   - id: TR-delivery-022
     requirement: "Telemetry latchedBranch; handShare ≥20%"
     system: delivery

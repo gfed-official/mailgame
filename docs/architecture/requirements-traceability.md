@@ -5,17 +5,17 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 
 ## Coverage Summary
 - Total requirements: 250 (10 GDDs; belt-logistics, building-system, health-damage not yet extracted)
-- Covered: 211 (84%)
+- Covered: 210 (84%)
 - Partial: 0
 - Gaps: 38
-- Deferred: 1 (an Accepted ADR addresses it; every implementing story is Deferred out of M-1a by Evan 2026-10-23)
+- Deferred: 2 (an Accepted ADR addresses each; every implementing story is Deferred out of M-1a by Evan 2026-10-23)
 - TR-IDs cited by stories: 95 (all resolve in the registry)
 
 ## Per-system coverage
 
 | System | GDD | Total | Covered | Partial | Gaps | Deferred |
 |---|---|---|---|---|---|---|
-| sim | design/gdd/simulation-core.md | 45 | 42 | 0 | 3 | 0 |
+| sim | design/gdd/simulation-core.md | 45 | 41 | 0 | 3 | 1 |
 | content | design/gdd/content-data-definitions.md | 30 | 30 | 0 | 0 | 0 |
 | inventory | design/gdd/grid-inventory.md | 28 | 22 | 0 | 6 | 0 |
 | input | design/gdd/input-controls.md | 24 | 24 | 0 | 0 | 0 |
@@ -65,7 +65,7 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-sim-033 | simulation-core.md | T1: identical canonical dump hash per tick given same inputs and logs | ADR-0006 + ADR-0026 | ✅ | 1 |
 | TR-sim-034 | simulation-core.md | T2: Windows+Linux x64 bit-identical carrier step, RNG, hashes, shared pure functions | ADR-0006 | ✅ | 3 |
 | TR-sim-035 | simulation-core.md | Canonical dump via ISimStateContributor (fixed order, LE); SHA-256 in tests only | ADR-0006 | ✅ | 1 |
-| TR-sim-036 | simulation-core.md | Tick() allocates 0 B after 300 warm-up ticks; blocking from M0 | ADR-0006 | ✅ | 1 |
+| TR-sim-036 | simulation-core.md | Tick() allocates 0 B after 300 warm-up ticks; blocking from M0 | ADR-0006 | ⏸ DEFERRED | 1 |
 | TR-sim-037 | simulation-core.md | Host tick p99 5.0 / max 8.0 / median 3.0 ms; ClientLayer p99 0.3 ms; advisory until reference machine | perf-budget.md (not an ADR) | ❌ GAP | 1 |
 | TR-sim-038 | simulation-core.md | Per-phase p99 slices summing 4.50 ms + 0.50 reserve | perf-budget.md (not an ADR) | ❌ GAP | 1 |
 | TR-sim-039 | simulation-core.md | CI perf gate: p99 rank, N≥18,000, fail at 2× calibrated baseline | perf-budget.md (not an ADR) | ❌ GAP | 1 |
