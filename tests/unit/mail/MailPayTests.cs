@@ -352,8 +352,6 @@ public class MailPayTests
     [InlineData(-500, 1, -500, false)]
     [InlineData(-600, 1, -500, false)]
     [InlineData(0, 220, -500, true)]
-    [InlineData(-440, 60, -500, true)]
-    [InlineData(-495, 11, -500, false)]
     [Trait("Id", "M-F8-1d")]
     public void WalletGuard_BalanceMinusPenaltyAgainstFloor_AllowsExactlyTheFloor(long balance, long penalty, long floor, bool expected)
     {

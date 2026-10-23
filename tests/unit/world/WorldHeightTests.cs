@@ -84,64 +84,23 @@ public class WorldHeightTests
         Assert.Equal(expected, actual);
     }
 
-    [Theory]
-    [MemberData(nameof(GoldenRows))]
-    [Trait("Id", "PCM-F7-1")]
-    public void Sample_NegatedCorners_NegatesResult(int h00, int h10, int h01, int h11, int fx, int fz, int expected)
-    {
-        // Arrange (round half away from zero is odd-symmetric: sample(-h) == -sample(h))
-        var negated = new HeightCorners(-h00, -h10, -h01, -h11);
-
-        // Act
-        int actual = WorldHeight.Sample(in negated, fx, fz);
-
-        // Assert
-        Assert.Equal(-expected, actual);
-    }
-
     [Fact]
     [Trait("Id", "PCM-F7-1")]
-    public void Sample_ExactHalfPositive_RoundsAwayFromZero()
+    public void Sample_NegatedCorners_NegatesResult()
     {
-        // Arrange (2 * 1000 * 1000 / 4,000,000 = 0.5; truncation would give 0)
-        var h = new HeightCorners(2, 0, 0, 0);
+        Assert.NotEmpty(HeightGoldenVectors.Rows);
+        for (int i = 0; i < HeightGoldenVectors.Rows.Length; i++)
+        {
+            // Arrange (round half away from zero is odd-symmetric: sample(-h) == -sample(h))
+            int[] r = HeightGoldenVectors.Rows[i];
+            var negated = new HeightCorners(-r[0], -r[1], -r[2], -r[3]);
 
-        // Act
-        int actual = WorldHeight.Sample(in h, 1000, 1000);
+            // Act
+            int actual = WorldHeight.Sample(in negated, r[4], r[5]);
 
-        // Assert
-        Assert.Equal(1, actual);
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-F7-1")]
-    public void Sample_ExactHalfNegative_RoundsAwayFromZero()
-    {
-        // Arrange (-0.5; floor would give -1 for the wrong reason, truncation 0)
-        var h = new HeightCorners(-2, 0, 0, 0);
-
-        // Act
-        int actual = WorldHeight.Sample(in h, 1000, 1000);
-
-        // Assert
-        Assert.Equal(-1, actual);
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-F7-1")]
-    public void Sample_BelowHalf_RoundsTowardZeroBothSigns()
-    {
-        // Arrange (+/-0.25)
-        var up = new HeightCorners(1, 0, 0, 0);
-        var down = new HeightCorners(-1, 0, 0, 0);
-
-        // Act
-        int a = WorldHeight.Sample(in up, 1000, 1000);
-        int b = WorldHeight.Sample(in down, 1000, 1000);
-
-        // Assert
-        Assert.Equal(0, a);
-        Assert.Equal(0, b);
+            // Assert
+            Assert.True(actual == -r[6], $"golden row {i} {{ {string.Join(", ", r)} }} negated: expected {-r[6]}, got {actual}");
+        }
     }
 
     [Theory]

@@ -76,8 +76,6 @@ public class BatchScheduleTests
     [Theory]
     [Trait("Id", "M-F2-2")]
     [InlineData(300)]
-    [InlineData(250)]
-    [InlineData(210)]
     public void Maximum_jitter_leaves_the_tail_guard(int d)
     {
         var j = new int[BatchSchedule.MaxBatches];

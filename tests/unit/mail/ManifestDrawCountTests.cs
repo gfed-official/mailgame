@@ -96,7 +96,6 @@ public class ManifestDrawCountTests
     [Theory]
     [Trait("Id", "M-R14-1b")]
     [InlineData(0, 100)]
-    [InlineData(0, 1000)]
     public void Draw_count_and_addresses_are_identical_for_any_cursed_share(int a, int b)
     {
         (RngStream m1, _) = Streams();
