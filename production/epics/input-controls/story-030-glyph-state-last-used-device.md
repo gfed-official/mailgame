@@ -1,7 +1,7 @@
 # Story 030: Glyph state — the last-used device, F9 flip rules and `router.Glyphs` (H-F9-1, H-EC-12 logic half)
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Deferred (Evan 2026-10-23 8:10 AM PT)
+> **Status**: Deferred (Evan 2026-10-23 8:54 AM PT)
 > **Deferred to**: M1 (glyph sets, Glyph style and prompt rendering) (out of the M-1a slice; split from story 017)
 > **Layer**: Foundation
 > **Type**: Logic
@@ -9,7 +9,7 @@
 > **Manifest Version**: 2026-10-17.1
 > **Last Updated**: 2026-10-23 (split by the m1a-replan PR)
 
-> **DEFERRED 2026-10-23 by Evan, not deleted.** Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". 8:10 AM PT, approving errata E1–E6 and E9 (decision log 2026-10-23): "approve all". This story is freed by **E1 (ADR-0012 — glyph switching, H-EC-12)**. Reason: the glyph set only matters once the HUD renders device-specific prompts (PlayStation / Neutral sets and Glyph style are M1, H-R9-3); the OR-across-devices, hold-ownership and duplicate-pad-edge rules that core play needs stay in story 017. The ACs below were moved verbatim from story 017. Re-run `/story-readiness` when M1 planning starts.
+> **DEFERRED 2026-10-23, not deleted. Approved by Evan 2026-10-23 8:54 AM PT, Mail Lead chat: "Approve the ADR-0024 additions and the extra deferrals (md-008, tc-025, md-010 localisation to md-012, and the split-off hardening stories)".** Earlier context (not the approval of this story): Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". 8:10 AM PT, approving errata E1–E6 and E9 (decision log 2026-10-23): "approve all". This story is freed by **E1 (ADR-0012 — glyph switching, H-EC-12)**. Reason: the glyph set only matters once the HUD renders device-specific prompts (PlayStation / Neutral sets and Glyph style are M1, H-R9-3); the OR-across-devices, hold-ownership and duplicate-pad-edge rules that core play needs stay in story 017. The ACs below were moved verbatim from story 017. Re-run `/story-readiness` when M1 planning starts.
 
 ## Context
 

@@ -1,7 +1,7 @@
 # Story 028: The host leaky-bucket throw cooldown (`TAT`) — check 7 `throw_cooldown` and the `TAT` commit
 
 > **Epic**: Throwing & Catching
-> **Status**: Deferred (Evan 2026-10-23 8:10 AM PT)
+> **Status**: Deferred (Evan 2026-10-23 8:54 AM PT)
 > **Deferred to**: M0 (out of the M-1a slice; split from story 009)
 > **Layer**: Feature
 > **Type**: Logic
@@ -9,7 +9,7 @@
 > **Manifest Version**: 2026-10-17.1
 > **Last Updated**: 2026-10-23 (split by the m1a-replan PR)
 
-> **DEFERRED 2026-10-23 by Evan, not deleted.** Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". 8:10 AM PT, approving errata E1–E6 and E9 (decision log 2026-10-23): "approve all". This story is freed by **E5 (ADR-0015 §6: the leaky-bucket cooldown (anti-spam) moves to M0; the validation chain stays)**. Story 009 keeps the ordered check chain and claim-and-corroborate origin; check 7 keeps its slot and its `throw_cooldown` reason code there but accepts unconditionally at M-1a. The ACs below moved verbatim from story 009. Re-run `/story-readiness` when M0 planning starts (ADR-0021, the owner of `TR-throwing-011`, is planned for M0 and adds the team cap ≤ 48 flights/s).
+> **DEFERRED 2026-10-23, not deleted. Approved by Evan 2026-10-23 8:54 AM PT, Mail Lead chat: "Approve the ADR-0024 additions and the extra deferrals (md-008, tc-025, md-010 localisation to md-012, and the split-off hardening stories)".** Earlier context (not the approval of this story): Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". 8:10 AM PT, approving errata E1–E6 and E9 (decision log 2026-10-23): "approve all". This story is freed by **E5 (ADR-0015 §6: the leaky-bucket cooldown (anti-spam) moves to M0; the validation chain stays)**. Story 009 keeps the ordered check chain and claim-and-corroborate origin; check 7 keeps its slot and its `throw_cooldown` reason code there but accepts unconditionally at M-1a. The ACs below moved verbatim from story 009. Re-run `/story-readiness` when M0 planning starts (ADR-0021, the owner of `TR-throwing-011`, is planned for M0 and adds the team cap ≤ 48 flights/s).
 
 ## Context
 

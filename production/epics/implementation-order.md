@@ -14,7 +14,7 @@
 
 ## Dependency-cycle check
 
-- **Depends-on graph: 0 cycles** (Tarjan SCC over 1058 edges, 220 nodes). None found.
+- **Depends-on graph: 0 cycles** (Tarjan SCC over 1063 edges, 220 nodes). None found.
 - **Ready stories depending on a Deferred story: 0.**
 
 ## Track A — playable greybox (76 stories, 16 waves)
@@ -187,7 +187,7 @@
 | [grid-inventory/018](grid-inventory/story-018-conservation-fuzz-determinism.md) | Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world… | Ready | — |
 | [grid-inventory/024](grid-inventory/story-024-panel-interactions-feedback.md) | Panel interactions through the Panel/Holding input contexts, and the M-1a fee… | Ready | grid-inventory/019, grid-inventory/020, grid-inventory/023, input-controls/007, input-controls/010 |
 | [network-adapter-loopback/008](network-adapter-loopback/story-008-deliver-matching-wire-codec.md) | deliver_matching wire codec (24 B MATCH / 28 B MISDELIVER_ONE) | Ready | manual-delivery/005 |
-| [manual-delivery/009](manual-delivery/story-009-telemetry-latched-branch-handshare.md) | Telemetry — `latchedBranch` per hold start and the `handShare` metric (sessio… | Ready | manual-delivery/004, manual-delivery/006 |
+| [manual-delivery/009](manual-delivery/story-009-telemetry-latched-branch-handshare.md) | Telemetry — `latchedBranch` per hold start and the `handShare` metric (sessio… | Ready | godot-host-shell/005, godot-host-shell/006, mail-destinations/007, manual-delivery/004, manual-delivery/006 |
 | [throwing-catching/014](throwing-catching/story-014-preview-equals-host-fuzz-and-determinism-goldens.md) | Preview = host over 10 000 throws and the no-dice replay | Ready | mail-destinations/010, throwing-catching/002, throwing-catching/003, throwing-catching/004, throwing-catching/010, throwing-catching/011, throwing-catching/012 |
 
 ### B wave 2 (5)

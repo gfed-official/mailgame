@@ -45,7 +45,7 @@ def parse(key, raw):
         if m.group(1): ctx = m.group(1)
         else: out.append(f'{ctx}/{m.group(2)}')
     ctx = own
-    toks = re.finditer(r'([\w-]+)\s+Stor(?:y|ies)\s+([\d,\s–\-and]+)|Stor(?:y|ies)\s+([\d,\s–\-and]+)', raw2)
+    toks = re.finditer(r'([\w-]+)\s+[Ss]tor(?:y|ies)\s+([\d,\s–\-and]+)|[Ss]tor(?:y|ies)\s+([\d,\s–\-and]+)', raw2)
     for m in toks:
         if m.group(1) and m.group(1) in epics: ctx = m.group(1); nums = m.group(2)
         elif m.group(1): ctx = own; nums = m.group(2)

@@ -126,7 +126,7 @@ Source: architecture.md v1.1 Appendix A; coverage per `docs/architecture/tr-regi
 | 022 | [`CatchArm` — OpKind, host arm window, eligibility clears, client `ICatchArmSender` (Sim-side catch 1/3)](story-022-catcharm-op-arm-window-and-sender.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0015 |
 | 023 | [Armed-catcher receiver — F5 contact over position history, rank 0, CAUGHT / FUMBLE via `TryCatch` (Sim-side catch 2/3)](story-023-catcher-receiver-contact-trycatch-terminals.md) | Integration | Deferred (Evan 2026-10-23) | ADR-0015 |
 | 024 | [Catch end to end — two carriers over the real host position-history ring (Sim-side catch 3/3)](story-024-catch-end-to-end-two-carriers-history-ring.md) | Integration | Deferred (Evan 2026-10-23) | ADR-0015 |
-| 025 | [Throw accessibility — the polite live-region lines for the arc label, and label/marker con](story-025-deferred-throw-accessibility.md) | UI | Deferred (Mail Lead default, pending Evan) | — |
+| 025 | [Throw accessibility — the polite live-region lines for the arc label, and label/marker con](story-025-deferred-throw-accessibility.md) | UI | Deferred (Evan 2026-10-23 8:54 AM PT) | — |
 | 026 | [`Throwing.Step` budget — TC-P-2 timing report, 0 B gate and the SC-FIX-WORST throw case](story-026-deferred-throwing-step-budget-zero-alloc.md) | Integration | Deferred (Evan 2026-10-23) | — |
 | 027 | [T2 cross-platform goldens for `LaunchMath` / `Ballistic` / `FlightSweep` (Windows + Linux)](story-027-deferred-t2-cross-platform-goldens.md) | Integration | Deferred (Evan 2026-10-23) | — |
 | 028 | [The host leaky-bucket throw cooldown (`TAT`) — check 7 `throw_cooldown` and the `TAT` comm](story-028-deferred-leaky-bucket-cooldown-tat.md) | Logic | Deferred (Evan 2026-10-23) | — |
