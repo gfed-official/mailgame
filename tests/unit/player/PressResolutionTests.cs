@@ -131,7 +131,7 @@ internal sealed class PressOwner : IInteractable
 
     public int GetHoldTicks(in InteractionLatch latch, in InteractionContext c)
     {
-        Order = (Order * 10) + 2;
+        Order = (Order % 100_000_000_000L * 10) + 2;
         HoldCalls++;
         HoldSettings s = c.HoldSettings;
         return Hold.HoldTicks(c.HoldBaseMs, _stats.Read(Stat.DeliverInsertPm, slot: c.Actor), c.HoldSettingMs, in s);
@@ -149,7 +149,7 @@ internal sealed class PressOwner : IInteractable
 
     public bool TryBuildRequest(in InteractionLatch latch, in InteractionContext c, ref Op op)
     {
-        Order = (Order * 10) + 3;
+        Order = (Order % 100_000_000_000L * 10) + 3;
         BuiltFrom = latch;
         op.Kind = InvOpKinds.Open;
         op.SetPayload(new OpenPayload { Container = latch.Anchor.Entity.Value, ClaimedX = latch.Claimed.X, ClaimedY = latch.Claimed.Y, ClaimedZ = latch.Claimed.Z });
@@ -158,7 +158,7 @@ internal sealed class PressOwner : IInteractable
 
     public void OnPress(in InteractionContext c, ref InteractionLatch latch)
     {
-        Order = (Order * 10) + 1;
+        Order = (Order % 100_000_000_000L * 10) + 1;
         latch.OwnerPayload[0] = PayloadMark;
         latch.OwnerPayload[1] = (byte)Branch;
     }
@@ -179,6 +179,7 @@ internal sealed class PressRig
     public static readonly AnchorRef Unregistered = FocusRig.Ref(99);
     public static readonly StringId ClosedReason = new(StringNamespace.Run, 903);
     public static readonly PlayerSlot Self = PlayerSlot.FromValue(1);
+    private static readonly AnchorRef[] _scriptTargets = { Container, Mailbox, AnchorRef.None, Closed, Unregistered };
 
     private ushort _seq;
 
@@ -272,6 +273,34 @@ internal sealed class PressRig
         uint t = Layer.ClientTick;
         Layer.Step(true);
         return t;
+    }
+
+    /// <summary>
+    /// One tick of the mixed 300-tick press script (the determinism twin and the 0 B test): a press every other tick cycling the
+    /// container (Tap), the mailbox (Hold), no target, the unavailable anchor and an unregistered ref, a second press now and then
+    /// (ignored during a hold), a lob every 7th tick, a busy sink every 11th, the panel every 50th tick and a swim spell. Every
+    /// third tick a held interaction returns to Idle, standing in for story 017's release.
+    /// </summary>
+    public void ScriptTick(int t)
+    {
+        Source.SetStatus(Status(panel: t % 50 == 49, swimming: t % 70 >= 60));
+        Predictor.Next = t % 7 == 0 ? Lob() : default;
+        Requests.Accept = t % 11 != 0;
+        if (t % 3 == 0)
+        {
+            Interaction.State = InteractState.Idle;
+        }
+
+        if (t % 2 == 0)
+        {
+            Press(_scriptTargets[t / 2 % _scriptTargets.Length]);
+            if (t % 10 == 4)
+            {
+                Press(Mailbox);
+            }
+        }
+
+        Tick();
     }
 
     private sealed class NoClock : IHostClock
@@ -570,5 +599,34 @@ public class PressResolutionTests
         Assert.True((0, 0, 0L) == (rig.Requests.Attempts, rig.CatchArm.Downs, rig.ContainerOwner.Order), row);
         Assert.Equal((InteractState.Idle, 0L), (rig.Interaction.State, rig.Counters[CounterId.InteractPressIgnored]));
         Assert.Equal(expected, (rig.Interaction.LastCancel, rig.Interaction.LastCancelReason));
+    }
+
+    // ---------------------------------------------------------------- determinism
+
+    [Fact]
+    public void TwoFreshSteps_OverTheSame300TickScript_GiveIdenticalStateLatchAndCallsPerTick()
+    {
+        (InteractState, AnchorRef, uint, int, CancelReason, int, int, long)[] first = Run();
+        (InteractState, AnchorRef, uint, int, CancelReason, int, int, long)[] second = Run();
+
+        Assert.Equal(first, second);
+        var last = first[^1];
+        Assert.True(last.Item6 > 0 && last.Item7 > 0 && last.Item8 > 0, "the script should send requests, arm catches and ignore presses");
+        Assert.Contains(first, s => s.Item5 == CancelReason.Unavailable);
+        Assert.Contains(first, s => s.Item5 == CancelReason.Busy);
+    }
+
+    private static (InteractState, AnchorRef, uint, int, CancelReason, int, int, long)[] Run()
+    {
+        var rig = new PressRig();
+        var seen = new (InteractState, AnchorRef, uint, int, CancelReason, int, int, long)[300];
+        for (int t = 0; t < seen.Length; t++)
+        {
+            rig.ScriptTick(t);
+            ref InteractionStatus s = ref rig.Interaction;
+            seen[t] = (s.State, s.Latch.Anchor, s.Latch.PressTick, s.Latch.HoldTicks, s.LastCancel, rig.Requests.Sent, rig.CatchArm.Downs, rig.Counters[CounterId.InteractPressIgnored]);
+        }
+
+        return seen;
     }
 }
