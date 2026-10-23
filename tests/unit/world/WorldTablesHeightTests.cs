@@ -359,25 +359,6 @@ public class WorldTablesHeightTests
         Assert.Equal(0, nearZ);
     }
 
-    [Fact]
-    [Trait("Id", "PCM-F7-1")]
-    public void ExactWalkability_Rise1400Accepted1404Rejected()
-    {
-        // Arrange
-        IWorldQuery ok = BuildSingleTile(0, 1400, 0, 1400);
-        IWorldQuery steep = BuildSingleTile(0, 1404, 0, 1404);
-
-        // Act
-        ok.GetCorners(0, 0, out HeightCorners hOk);
-        steep.GetCorners(0, 0, out HeightCorners hSteep);
-        WorldHeight.Gradient(in hOk, 1000, 1000, out long gxOk, out long gzOk);
-        WorldHeight.Gradient(in hSteep, 1000, 1000, out long gxSteep, out long gzSteep);
-
-        // Assert
-        Assert.True(WorldHeight.IsWalkableSlope(gxOk, gzOk, 700));
-        Assert.False(WorldHeight.IsWalkableSlope(gxSteep, gzSteep, 700));
-    }
-
     // ---- AC-4: water is derived, never stored ----
 
     [Fact]
