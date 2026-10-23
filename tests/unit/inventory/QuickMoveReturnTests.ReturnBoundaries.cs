@@ -40,12 +40,12 @@ public partial class QuickMoveReturnTests
         ushort otherInventory = rig.InventoryOf(1 - slot);
         ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 3));
         EntryId aId = rig.Entries[a].Id;
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
         ushort o = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(100, 14));
         ushort spare17 = rig.PlaceMail(otherInventory, "letter", 0, 0, Address5, InvAutoPlaceRig.Ids(500, 17));
         ushort spare16 = rig.PlaceMail(otherInventory, "letter", 1, 0, Address5, InvAutoPlaceRig.Ids(600, 16));
         Assert.Equal((4, 5, 5, 4), (rig.Entries[o].MailIds.ClassIndex, MailIdArena.ClassFor(17), MailIdArena.ClassFor(17), MailIdArena.ClassFor(16)));
-        MoveSplitMergeTests.ExhaustArenaThroughIntakeSpawns(rig);
+        InvOpTestHelpers.ExhaustArenaThroughIntakeSpawns(rig);
         MoveSplitMergeTests.ConsumeUnits(rig, otherInventory, row == "exact" ? spare17 : spare16, row == "exact" ? 17 : 16);
         int[] expectedFree = new int[MailIdArena.ClassCount];
         expectedFree[row == "exact" ? 5 : 4] = 1;
@@ -67,7 +67,7 @@ public partial class QuickMoveReturnTests
             return;
         }
 
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(log).ExtraAs<InvReplyExtra>();
         Assert.Equal(InvAutoPlaceRig.Ids(1, 3).Concat(InvAutoPlaceRig.Ids(100, 14)).ToArray(), rig.IdsOf(o));
         Assert.Equal(5, rig.Entries[o].MailIds.ClassIndex);
         Assert.False(rig.Entries.TryGetSlot(aId, out _));
@@ -119,7 +119,7 @@ public partial class QuickMoveReturnTests
             return;
         }
 
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(log).ExtraAs<InvReplyExtra>();
         Assert.Equal(((ushort)2, (ushort)2), (extra.RequestedUnits, extra.GotUnits));
         ushort piece = rig.EntryAt(inventory, 0, 0);
         Assert.Equal((lastId + 1, (byte)2), (rig.Entries[piece].Id.Value, rig.Entries[piece].Count));
@@ -148,13 +148,13 @@ public partial class QuickMoveReturnTests
         ushort cursor = rig.CursorOf(slot);
         ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 10));
         EntryId aId = rig.Entries[a].Id;
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
         uint lastId = rig.Entries.LastId;
         uint[] versions = MoveSplitMergeTests.Versions(rig);
         Assert.NotEqual(versions[cursor], versions[inventory]);
 
         // Act
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, cursor, a, 3))).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, cursor, a, 3))).ExtraAs<InvReplyExtra>();
 
         // Assert
         Assert.Equal(((ushort)3, (ushort)3), (extra.RequestedUnits, extra.GotUnits));
@@ -206,7 +206,7 @@ public partial class QuickMoveReturnTests
         EventEntry[] log = rig.Run(rig.Player(slot), QuickMoveOp(rig, inventory, a, 2));
 
         // Assert
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(log).ExtraAs<InvReplyExtra>();
         Assert.Equal(((ushort)2, (ushort)2), (extra.RequestedUnits, extra.GotUnits));
         Assert.Equal(2, (int)rig.Header(rig.Intake).EntryCount);
         Assert.True(rig.Entries.TryGetSlot(EntryId.Real(lastId + 1), out ushort piece));
@@ -216,7 +216,7 @@ public partial class QuickMoveReturnTests
         Assert.Equal(new uint[] { 500 }, rig.IdsOf(resident));
         Assert.Equal((aId, inventory), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot));
         Assert.Equal(new uint[] { 3, 4, 5 }, rig.IdsOf(a));
-        Assert.DoesNotContain(MoveSplitMergeTests.RecordHeads(log), e => e.Kind == InvEventKinds.Merged);
+        Assert.DoesNotContain(InvOpTestHelpers.RecordHeads(log), e => e.Kind == InvEventKinds.Merged);
         uint[] expected = (uint[])versions.Clone();
         expected[inventory]++;
         expected[rig.Intake]++;
@@ -258,7 +258,7 @@ public partial class QuickMoveReturnTests
         Assert.NotEqual(versions[chest], versions[inventory]);
 
         // Act
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a))).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a))).ExtraAs<InvReplyExtra>();
 
         // Assert
         Assert.Equal(((ushort)units, (ushort)units), (extra.RequestedUnits, extra.GotUnits));

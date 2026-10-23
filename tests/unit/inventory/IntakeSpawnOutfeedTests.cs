@@ -8,6 +8,7 @@ using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Rules;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
+using static PerformativeMail.Sim.Tests.Unit.Inventory.DumpSections;
 
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
@@ -884,24 +885,5 @@ public class IntakeSpawnOutfeedTests
         values.Add(rig.Inventory.MailIds.LiveBlocks);
         values.Add(rig.Inventory.MailIds.LiveUnits);
         return values;
-    }
-
-    private static byte[] Section(byte[] dump, ushort id)
-    {
-        int pos = 6;
-        while (pos < dump.Length)
-        {
-            ushort sectionId = BitConverter.ToUInt16(dump, pos);
-            int length = (int)BitConverter.ToUInt32(dump, pos + 2);
-            if (sectionId == id)
-            {
-                return dump.AsSpan(pos + 6, length).ToArray();
-            }
-
-            pos += 6 + length;
-        }
-
-        Assert.Fail($"Section {id} is not in the dump.");
-        return Array.Empty<byte>();
     }
 }

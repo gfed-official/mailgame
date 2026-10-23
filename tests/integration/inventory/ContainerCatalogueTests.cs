@@ -7,6 +7,7 @@ using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
 using PerformativeMail.Sim.Tests.Unit.Inventory;
+using static PerformativeMail.Sim.Tests.Unit.Inventory.DumpSections;
 
 namespace PerformativeMail.Sim.Tests.Integration.Inventory;
 
@@ -320,26 +321,6 @@ public class ContainerCatalogueTests
 
     /// <summary>Story 013's WorldItem trailer with no WorldItem and no tombstone: worldSeq, live count, five FIFO counts, tombstone count; then story 021's empty backlog ring count.</summary>
     private const int EmptyWorldItemTrailerBytes = 4 + 4 + (5 * 4) + 4 + 4;
-
-    /// <summary>The payload of the section with id <paramref name="id"/> in a whole-world dump (header, then id u16 / length u32 / payload).</summary>
-    private static byte[] Section(byte[] dump, ushort id)
-    {
-        int pos = 6;
-        while (pos < dump.Length)
-        {
-            ushort sectionId = BitConverter.ToUInt16(dump, pos);
-            int length = (int)BitConverter.ToUInt32(dump, pos + 2);
-            if (sectionId == id)
-            {
-                return dump.AsSpan(pos + 6, length).ToArray();
-            }
-
-            pos += 6 + length;
-        }
-
-        Assert.Fail($"Section {id} is not in the dump.");
-        return Array.Empty<byte>();
-    }
 
     private static SimHost BuildWithJoins(params byte[] slots)
     {

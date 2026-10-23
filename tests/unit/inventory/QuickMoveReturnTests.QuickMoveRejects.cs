@@ -147,7 +147,7 @@ public partial class QuickMoveReturnTests
                 _ = rig.PlaceMail(inventory, "letter", 0, 0, Address3, new uint[] { 10, 11 });
             }
 
-            MoveSplitMergeTests.ExhaustArenaThroughIntakeSpawns(rig);
+            InvOpTestHelpers.ExhaustArenaThroughIntakeSpawns(rig);
         }
 
         Assert.True(rig.Header(inventory).FreeCells > 0);
@@ -169,7 +169,7 @@ public partial class QuickMoveReturnTests
         EventEntry[] whole = rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a));
 
         // Assert
-        MoveSplitMergeTests.AssertOk(whole);
+        InvOpTestHelpers.AssertOk(whole);
         Assert.Equal((id, inventory, (byte)5), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
     }
 
@@ -206,7 +206,7 @@ public partial class QuickMoveReturnTests
         ushort spare1 = rig.PlaceMail(otherInventory, "letter", 2, 0, Address5, new uint[] { 700 });
         _ = rig.PlaceItem(inventory, "fiber", 0, 1, 1); // a second inventory bump: the reply's two versions differ
         Assert.Equal((5, 0, 5, 4, 0), (MailIdArena.ClassFor(20), MailIdArena.ClassFor(1), MailIdArena.ClassFor(17), MailIdArena.ClassFor(16), MailIdArena.ClassFor(1)));
-        MoveSplitMergeTests.ExhaustArenaThroughIntakeSpawns(rig);
+        InvOpTestHelpers.ExhaustArenaThroughIntakeSpawns(rig);
         if (row != "union_class_short")
         {
             MoveSplitMergeTests.ConsumeUnits(rig, otherInventory, spare17, 17);
@@ -242,7 +242,7 @@ public partial class QuickMoveReturnTests
             return;
         }
 
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(log).ExtraAs<InvReplyExtra>();
         Assert.Equal(((ushort)3, (ushort)3), (extra.RequestedUnits, extra.GotUnits));
         Assert.Equal(new uint[] { 1, 2 }.Concat(InvAutoPlaceRig.Ids(100, 18)).ToArray(), rig.IdsOf(s));
         Assert.Equal(5, rig.Entries[s].MailIds.ClassIndex);
@@ -288,7 +288,7 @@ public partial class QuickMoveReturnTests
         if (row == "one_left")
         {
             // Act
-            InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a, 2))).ExtraAs<InvReplyExtra>();
+            InvReplyExtra extra = InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a, 2))).ExtraAs<InvReplyExtra>();
 
             // Assert
             Assert.Equal(((ushort)2, (ushort)2), (extra.RequestedUnits, extra.GotUnits));
@@ -314,7 +314,7 @@ public partial class QuickMoveReturnTests
         EventEntry[] whole = rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a));
 
         // Assert
-        MoveSplitMergeTests.AssertOk(whole);
+        InvOpTestHelpers.AssertOk(whole);
         Assert.Equal((id, inventory, (byte)5), (rig.Entries[a].Id, rig.Entries[a].ContainerSlot, rig.Entries[a].Count));
     }
 
@@ -406,7 +406,7 @@ public partial class QuickMoveReturnTests
                 ushort full = OpenGrid(rig, slot, 1, 1);
                 _ = rig.PlaceItem(full, "fiber", 0, 0, 20);
                 ushort letters = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 3));
-                MoveSplitMergeTests.ExhaustArenaThroughIntakeSpawns(rig);
+                InvOpTestHelpers.ExhaustArenaThroughIntakeSpawns(rig);
                 op = QuickMoveOp(rig, inventory, letters);
                 reason = InvReason.NoRoom;
                 versions = () => (rig.Header(inventory).Version, rig.Header(full).Version);
@@ -418,7 +418,7 @@ public partial class QuickMoveReturnTests
                 ushort chest = MoveSplitMergeTests.OpenChest(rig, slot);
                 ushort letters = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 3));
                 _ = rig.PlaceMail(inventory, "letter", 0, 0, Address3, new uint[] { 10, 11 });
-                MoveSplitMergeTests.ExhaustArenaThroughIntakeSpawns(rig);
+                InvOpTestHelpers.ExhaustArenaThroughIntakeSpawns(rig);
                 op = QuickMoveOp(rig, chest, letters);
                 reason = InvReason.CapacityExhausted;
                 versions = () => (rig.Header(chest).Version, rig.Header(inventory).Version);
@@ -457,7 +457,7 @@ public partial class QuickMoveReturnTests
         ushort axe = rig.PlaceItem(chest, "axe", 0, 0, 1);
         for (int x = 1; x <= 3; x++)
         {
-            MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, chest, axe, chest, x, 0)));
+            InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, chest, axe, chest, x, 0)));
         }
 
         _ = rig.PlaceItem(inventory, "fiber", 7, 1, 1);
@@ -467,7 +467,7 @@ public partial class QuickMoveReturnTests
         Assert.Equal(3, new[] { chestV, hotbarV, inventoryV }.Distinct().Count());
 
         // Act
-        InvReplyExtra ok = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, axe))).ExtraAs<InvReplyExtra>();
+        InvReplyExtra ok = InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, axe))).ExtraAs<InvReplyExtra>();
 
         // Assert
         Assert.Equal((chestV + 1, hotbarV + 1), (ok.ResultVersionA, ok.ResultVersionB));
@@ -506,13 +506,13 @@ public partial class QuickMoveReturnTests
         short theirs = rig.Inventory.WeightPoints(PlayerSlot.FromValue((byte)(1 - slot)));
 
         // Act
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a, count)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), QuickMoveOp(rig, chest, a, count)));
 
         // Assert
         ushort moved = rig.EntryAt(inventory, 0, 0);
         Assert.NotEqual(Occupancy.Free, moved);
         Assert.Equal(count == 0 ? 10 : count, (int)rig.Entries[moved].Count);
-        Assert.Equal(mine + MoveSplitMergeTests.ClassPts(rig, moved), rig.Inventory.WeightPoints(PlayerSlot.FromValue((byte)slot)));
+        Assert.Equal(mine + InvOpTestHelpers.ClassPts(rig, moved), rig.Inventory.WeightPoints(PlayerSlot.FromValue((byte)slot)));
         Assert.Equal(theirs, rig.Inventory.WeightPoints(PlayerSlot.FromValue((byte)(1 - slot))));
         MoveSplitMergeTests.AssertWeightAndCountsMatchRecount(rig);
         MoveSplitMergeTests.AssertIndexesMatchARecount(rig);

@@ -60,7 +60,7 @@ public partial class QuickMoveReturnTests
         };
         EntryId id = rig.Entries[e].Id;
         byte count = rig.Entries[e].Count;
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, e)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, e)));
         if (leg != "origin_free")
         {
             FillOriginByTheOtherPlayer(rig, slot, chest, 2, 1);
@@ -89,7 +89,7 @@ public partial class QuickMoveReturnTests
             return;
         }
 
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(log).ExtraAs<InvReplyExtra>();
         ushort to = leg == "origin_free" ? chest : inventory;
         (byte x, byte y) = leg == "origin_free" ? ((byte)2, (byte)1) : ((byte)0, (byte)0);
         Assert.Equal((id, to, x, y, count), (rig.Entries[e].Id, rig.Entries[e].ContainerSlot, rig.Entries[e].X, rig.Entries[e].Y, rig.Entries[e].Count));
@@ -145,10 +145,10 @@ public partial class QuickMoveReturnTests
         else
         {
             planks = rig.PlaceItem(chest, "plank", 2, 1, 5);
-            MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, planks)));
+            InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, planks)));
             if (row == "closed")
             {
-                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), CloseOp(rig, chest)));
+                InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), CloseOp(rig, chest)));
             }
             else
             {
@@ -167,7 +167,7 @@ public partial class QuickMoveReturnTests
         EventEntry[] log = rig.Run(rig.Player(slot), ReturnOp());
 
         // Assert
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(log).ExtraAs<InvReplyExtra>();
         Assert.Equal((id, inventory, (byte)0, (byte)0, (byte)5), (rig.Entries[planks].Id, rig.Entries[planks].ContainerSlot, rig.Entries[planks].X, rig.Entries[planks].Y, rig.Entries[planks].Count));
         uint[] expected = (uint[])versions.Clone();
         expected[cursor]++;
@@ -196,7 +196,7 @@ public partial class QuickMoveReturnTests
             rig, () => rig.Inventory.Spawn(rig.Inventory.IntakeContainer, letter, Address3, 0, new[] { new MailId(500) }, MergePolicy.NoMerge).Placed));
         ushort picked = rig.EntryAt(rig.Intake, 0, 0);
         OpenIntake(rig, slot);
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, rig.Intake, picked)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, rig.Intake, picked)));
         ushort resident = rig.PlaceMail(rig.Intake, "letter", 0, 0, Address3, new uint[] { 600 });
         Assert.Equal(StackKey.Of(in rig.Entries[resident]), StackKey.Of(in rig.Entries[picked]));
         uint[] versions = MoveSplitMergeTests.Versions(rig);
@@ -205,11 +205,11 @@ public partial class QuickMoveReturnTests
         EventEntry[] log = rig.Run(rig.Player(slot), ReturnOp());
 
         // Assert
-        MoveSplitMergeTests.AssertOk(log);
+        InvOpTestHelpers.AssertOk(log);
         Assert.Equal(inventory, rig.Entries[picked].ContainerSlot);
         Assert.Equal(new uint[] { 500 }, rig.IdsOf(picked));
         Assert.Equal(new uint[] { 600 }, rig.IdsOf(resident));
-        Assert.DoesNotContain(MoveSplitMergeTests.RecordHeads(log), r => r.Kind == InvEventKinds.Merged);
+        Assert.DoesNotContain(InvOpTestHelpers.RecordHeads(log), r => r.Kind == InvEventKinds.Merged);
         uint[] expected = (uint[])versions.Clone();
         expected[cursor]++;
         expected[inventory]++;
@@ -245,7 +245,7 @@ public partial class QuickMoveReturnTests
         uint[] mailIds = rig.IdsOf(picked);
         uint residentSeq = rig.Entries[resident].ArrivalSeq;
         OpenIntake(rig, slot);
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, rig.Intake, picked)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, rig.Intake, picked)));
         AssertOrigin(rig, PlayerSlot.FromValue((byte)slot), id, rig.Inventory.IntakeContainer, 0, 0, false);
         Assert.Equal(Occupancy.Free, rig.EntryAt(rig.Intake, 0, 0));
         uint[] versions = MoveSplitMergeTests.Versions(rig);
@@ -256,12 +256,12 @@ public partial class QuickMoveReturnTests
         EventEntry[] log = rig.Run(rig.Player(slot), ReturnOp());
 
         // Assert
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(log).ExtraAs<InvReplyExtra>();
         Assert.Equal(picked, rig.EntryAt(rig.Intake, 0, 0));
         Assert.Equal((id, rig.Intake, (byte)1), (rig.Entries[picked].Id, rig.Entries[picked].ContainerSlot, rig.Entries[picked].Count));
         Assert.Equal(mailIds, rig.IdsOf(picked));
         Assert.Equal(((byte)1, residentSeq, 2), (rig.Entries[resident].Count, rig.Entries[resident].ArrivalSeq, (int)rig.Header(rig.Intake).EntryCount));
-        Assert.DoesNotContain(MoveSplitMergeTests.RecordHeads(log), r => r.Kind == InvEventKinds.Merged);
+        Assert.DoesNotContain(InvOpTestHelpers.RecordHeads(log), r => r.Kind == InvEventKinds.Merged);
         uint newSeq = rig.Entries[picked].ArrivalSeq;
         Assert.True(newSeq > pickedSeq);
         for (int s = 0; s < rig.Entries.Capacity; s++)
@@ -309,7 +309,7 @@ public partial class QuickMoveReturnTests
         ushort cursor = rig.CursorOf(slot);
         ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 10));
         EntryId aId = rig.Entries[a].Id;
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
         int originCount = row == "whole_at_origin" ? 5 : 18;
         ushort origin = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(100, originCount));
         ushort stack = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(200, 15));
@@ -325,7 +325,7 @@ public partial class QuickMoveReturnTests
         EventEntry[] log = rig.Run(rig.Player(slot), ReturnOp());
 
         // Assert
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(log).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(log).ExtraAs<InvReplyExtra>();
         uint[] expected = (uint[])versions.Clone();
         expected[cursor]++;
         expected[chest]++;
@@ -390,14 +390,14 @@ public partial class QuickMoveReturnTests
         ushort cursor = rig.CursorOf(slot);
         ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 10));
         EntryId aId = rig.Entries[a].Id;
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
         ushort origin = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(100, 18));
         FillPanelWithFiber(rig, slot);
         uint[] versions = MoveSplitMergeTests.Versions(rig);
         Assert.NotEqual(versions[cursor], versions[chest]);
 
         // Act
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
 
         // Assert
         Assert.Equal(new uint[] { 1, 2 }.Concat(InvAutoPlaceRig.Ids(100, 18)).ToArray(), rig.IdsOf(origin));
@@ -438,12 +438,12 @@ public partial class QuickMoveReturnTests
         ushort cursor = rig.CursorOf(slot);
         ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, n));
         EntryId aId = rig.Entries[a].Id;
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
         ushort origin = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1001, originCount));
         uint[] versions = MoveSplitMergeTests.Versions(rig);
 
         // Act
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
 
         // Assert
         int merged = Math.Min(n, 255 - originCount);
@@ -484,12 +484,12 @@ public partial class QuickMoveReturnTests
         ushort inventory = rig.InventoryOf(slot);
         ushort a = rig.PlaceItem(chest, "bigstack", 2, 1, 10);
         EntryId aId = rig.Entries[a].Id;
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
         ushort origin = rig.PlaceItem(chest, "bigstack", 2, 1, 250);
         Assert.True(rig.SubjectOf(origin).EffMax > byte.MaxValue);
 
         // Act
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
 
         // Assert
         Assert.Equal((byte)255, rig.Entries[origin].Count);
@@ -515,12 +515,12 @@ public partial class QuickMoveReturnTests
         ushort cursor = rig.CursorOf(slot);
         ushort a = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 10));
         EntryId aId = rig.Entries[a].Id;
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, inventory, a)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, inventory, a)));
         ushort origin = rig.PlaceMail(inventory, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(100, 18));
         uint[] versions = MoveSplitMergeTests.Versions(rig);
 
         // Act
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
 
         // Assert
         Assert.Equal(new uint[] { 1, 2 }.Concat(InvAutoPlaceRig.Ids(100, 18)).ToArray(), rig.IdsOf(origin));
@@ -556,17 +556,17 @@ public partial class QuickMoveReturnTests
         ushort cursor = rig.CursorOf(slot);
         ushort axe = rig.PlaceItem(hotbar, "axe", 2, 0, 1);
         ushort letters = rig.PlaceMail(cursor, "letter", 0, 0, Address3, InvAutoPlaceRig.Ids(1, 3));
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, letters, hotbar, 2, 0)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, cursor, letters, hotbar, 2, 0)));
         Assert.Equal(cursor, rig.Entries[axe].ContainerSlot);
         if (row == "slot_free")
         {
-            MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, hotbar, letters, inventory, 0, 0)));
+            InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, hotbar, letters, inventory, 0, 0)));
         }
 
         uint[] versions = MoveSplitMergeTests.Versions(rig);
 
         // Act
-        InvReplyExtra extra = MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
+        InvReplyExtra extra = InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), ReturnOp())).ExtraAs<InvReplyExtra>();
 
         // Assert
         byte x = row == "slot_free" ? (byte)2 : (byte)1;
@@ -606,7 +606,7 @@ public partial class QuickMoveReturnTests
         if (row == "origin_merge")
         {
             a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 3));
-            MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+            InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
             _ = rig.PlaceMail(chest, "letter", 2, 1, Address3, new uint[] { 10, 11 });
         }
         else
@@ -615,7 +615,7 @@ public partial class QuickMoveReturnTests
             _ = rig.PlaceMail(inventory, "letter", 0, 0, Address3, new uint[] { 10, 11 });
         }
 
-        MoveSplitMergeTests.ExhaustArenaThroughIntakeSpawns(rig);
+        InvOpTestHelpers.ExhaustArenaThroughIntakeSpawns(rig);
         Assert.True(rig.Header(inventory).FreeCells > 0);
         EntryId id = rig.Entries[a].Id;
         List<long> before = MoveSplitMergeTests.SideEffects(rig);
@@ -715,7 +715,7 @@ public partial class QuickMoveReturnTests
             default:
             {
                 ushort a = rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 3));
-                MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+                InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
                 if (row == "no_room")
                 {
                     _ = rig.PlaceItem(chest, "fiber", 2, 1, 3);
@@ -732,7 +732,7 @@ public partial class QuickMoveReturnTests
             }
         }
 
-        MoveSplitMergeTests.ExhaustArenaThroughIntakeSpawns(rig);
+        InvOpTestHelpers.ExhaustArenaThroughIntakeSpawns(rig);
         if (row is "no_room" or "capacity_exhausted")
         {
             versions = (rig.Header(cursor).Version, rig.Header(inventory).Version);
@@ -774,18 +774,18 @@ public partial class QuickMoveReturnTests
         ushort a = kind == "plank" ? rig.PlaceItem(chest, "plank", 2, 1, 10) : rig.PlaceMail(chest, "letter", 2, 1, Address3, InvAutoPlaceRig.Ids(1, 10));
         short beforePick = rig.Inventory.WeightPoints(ps);
         short theirs = rig.Inventory.WeightPoints(other);
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), PickOp(rig, chest, a)));
         if (leg == "panel")
         {
-            MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), CloseOp(rig, chest)));
+            InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), CloseOp(rig, chest)));
         }
 
         // Act
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), ReturnOp()));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), ReturnOp()));
 
         // Assert
         Assert.Equal(leg == "origin" ? chest : rig.InventoryOf(slot), rig.Entries[a].ContainerSlot);
-        Assert.Equal(beforePick + (leg == "origin" ? 0 : MoveSplitMergeTests.ClassPts(rig, a)), rig.Inventory.WeightPoints(ps));
+        Assert.Equal(beforePick + (leg == "origin" ? 0 : InvOpTestHelpers.ClassPts(rig, a)), rig.Inventory.WeightPoints(ps));
         Assert.Equal(theirs, rig.Inventory.WeightPoints(other));
         MoveSplitMergeTests.AssertWeightAndCountsMatchRecount(rig);
         MoveSplitMergeTests.AssertIndexesMatchARecount(rig);

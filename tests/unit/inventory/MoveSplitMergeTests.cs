@@ -181,32 +181,6 @@ public partial class MoveSplitMergeTests
             m1a.Balance, m1a.ResolvedStatBounds, new DefTable<ContainerDef>(containers), m1a.Items, m1a.MailKinds, m1a.DestinationTypes, m1a.MailMixes);
     }
 
-    /// <summary>Spawns single letters into the Intake (one tick) until <see cref="IInventoryApi.Spawn"/> places none.</summary>
-    internal static void ExhaustArenaThroughIntakeSpawns(InvAutoPlaceRig rig)
-    {
-        DefIndex letter = rig.KindIndex("letter");
-        ContainerId intake = rig.Inventory.IntakeContainer;
-        var one = new MailId[1];
-        uint next = 1_000_000;
-        int placed = IntakeSpawnOutfeedTests.InPhase(rig, () =>
-        {
-            int n = 0;
-            while (true)
-            {
-                one[0] = new MailId(next++);
-                if (rig.Inventory.Spawn(intake, letter, 9, 0, one, MergePolicy.NoMerge).Placed != 1)
-                {
-                    return n;
-                }
-
-                n++;
-            }
-        });
-        Assert.True(placed > 0);
-        Assert.True(rig.Header(rig.Intake).FreeCells > 0); // refused at the arena, not for room
-        Assert.False(rig.Inventory.MailIds.CanReserve(1));
-    }
-
     /// <summary>
     /// Consumes <paramref name="units"/> of the entry through <see cref="IInventoryApi.ConsumeUnit"/> (story 015's real API), one per
     /// tick; the last unit's removal frees its arena block.
@@ -220,23 +194,6 @@ public partial class MoveSplitMergeTests
         }
 
         Assert.False(rig.Entries.TryGetSlot(at.Entry, out _));
-    }
-
-    /// <summary>D1's <c>classPts</c> of the entry's def, from the balance knobs (not from the module under test).</summary>
-    internal static int ClassPts(InvAutoPlaceRig rig, ushort entry)
-    {
-        EntryRecord e = rig.Entries[entry];
-        WeightClass c = e.IsMail
-            ? rig.Content.MailKinds[DefIndex.FromValue(e.MailKind)].WeightClass
-            : rig.Content.Items[DefIndex.FromValue(e.ItemId)].WeightClass;
-        InventoryBalance k = rig.Content.Inventory;
-        return c switch
-        {
-            WeightClass.Light => k.WeightPointsLight,
-            WeightClass.Medium => k.WeightPointsMedium,
-            WeightClass.Heavy => k.WeightPointsHeavy,
-            _ => throw new InvalidOperationException($"entry {entry}: class {c}"),
-        };
     }
 
     /// <summary><see cref="IInventoryApi.WeightPoints"/> of <paramref name="slot"/> and of the other joined slot.</summary>
@@ -254,22 +211,6 @@ public partial class MoveSplitMergeTests
         }
 
         return versions;
-    }
-
-    /// <summary><c>CountItem</c> of every item def in every live container, in table order.</summary>
-    private static int[] AllItemCounts(InvAutoPlaceRig rig)
-    {
-        ContainerTable containers = rig.Inventory.Containers;
-        var counts = new List<int>();
-        for (int s = 0; s < containers.LiveCount; s++)
-        {
-            for (int i = 0; i < rig.Content.Items.Count; i++)
-            {
-                counts.Add(rig.Inventory.CountItem(new[] { containers[(ushort)s].Id }, DefIndex.FromValue((ushort)i)));
-            }
-        }
-
-        return counts.ToArray();
     }
 
     /// <summary>
@@ -335,14 +276,6 @@ public partial class MoveSplitMergeTests
         return op;
     }
 
-    internal static Reply AssertOk(EventEntry[] log)
-    {
-        Reply reply = InvAutoPlaceRig.ReplyOf(log);
-        Assert.Equal(ReplyResult.Ok, reply.Result);
-        Assert.Equal(CoreReason.Ok, reply.Reason);
-        return reply;
-    }
-
     /// <summary>
     /// The reject contract (TD-105 item 5; ADR-0007 l.128; ADR-0009 section 3): the reason; the reply's <c>ResultVersionA/B</c> are the
     /// source's and the destination's current versions; the <c>OpReply</c> is the only entry in the tick log (no record, no seal) and
@@ -380,16 +313,6 @@ public partial class MoveSplitMergeTests
         InvInsertedPayload p = e.PayloadAs<InvInsertedPayload>();
         return (p.Container, p.EntryId);
     }
-
-    internal static EventEntry[] InventoryRecords(EventEntry[] log) =>
-        log.Where(e => e.Kind is >= InvEventKinds.Inserted and <= InvEventKinds.ItemsLost).ToArray();
-
-    /// <summary>The inventory records and seals that start a record (mail-id run continuations dropped), in log order.</summary>
-    internal static EventEntry[] RecordHeads(EventEntry[] log) =>
-        InventoryRecords(log).Where(e => (e.Flags & EventFlags.Continuation) == 0).ToArray();
-
-    internal static InvVersionPayload[] Seals(EventEntry[] log) =>
-        log.Where(e => e.Kind == InvEventKinds.Version).Select(e => e.PayloadAs<InvVersionPayload>()).ToArray();
 
     /// <summary>
     /// Everything a split or swap could change or record: every container header (version and lastReplaceVersion included), its

@@ -9,6 +9,7 @@ using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
+using static PerformativeMail.Sim.Tests.Unit.Inventory.InvOpTestHelpers;
 
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
@@ -1474,32 +1475,6 @@ public class PickMoveTests
             m1a.Balance, m1a.ResolvedStatBounds, new DefTable<ContainerDef>(containers), new DefTable<ItemDef>(items), m1a.MailKinds, m1a.DestinationTypes, m1a.MailMixes);
     }
 
-    /// <summary>Spawns single letters into the Intake (one tick) until <see cref="IInventoryApi.Spawn"/> places none.</summary>
-    private static void ExhaustArenaThroughIntakeSpawns(InvAutoPlaceRig rig)
-    {
-        DefIndex letter = rig.KindIndex("letter");
-        ContainerId intake = rig.Inventory.IntakeContainer;
-        var one = new MailId[1];
-        uint next = 1_000_000;
-        int placed = IntakeSpawnOutfeedTests.InPhase(rig, () =>
-        {
-            int n = 0;
-            while (true)
-            {
-                one[0] = new MailId(next++);
-                if (rig.Inventory.Spawn(intake, letter, 9, 0, one, MergePolicy.NoMerge).Placed != 1)
-                {
-                    return n;
-                }
-
-                n++;
-            }
-        });
-        Assert.True(placed > 0);
-        Assert.True(rig.Header(rig.Intake).FreeCells > 0); // refused at the arena, not for room
-        Assert.False(rig.Inventory.MailIds.CanReserve(1));
-    }
-
     /// <summary>The slot's counted panel named <paramref name="panel"/> (<c>inventory</c>, <c>hotbar</c> or <c>cursor</c>).</summary>
     private static ushort PanelOf(InvAutoPlaceRig rig, int slot, string panel) => panel switch
     {
@@ -1523,42 +1498,9 @@ public class PickMoveTests
             : rig.PlaceMail(container, kind, x, y, Address99, InvAutoPlaceRig.Ids(firstId, units));
     }
 
-    /// <summary>D1's <c>classPts</c> of the entry's def, from the balance knobs (not from the module under test).</summary>
-    private static int ClassPts(InvAutoPlaceRig rig, ushort entry)
-    {
-        EntryRecord e = rig.Entries[entry];
-        WeightClass c = e.IsMail
-            ? rig.Content.MailKinds[DefIndex.FromValue(e.MailKind)].WeightClass
-            : rig.Content.Items[DefIndex.FromValue(e.ItemId)].WeightClass;
-        InventoryBalance k = rig.Content.Inventory;
-        return c switch
-        {
-            WeightClass.Light => k.WeightPointsLight,
-            WeightClass.Medium => k.WeightPointsMedium,
-            WeightClass.Heavy => k.WeightPointsHeavy,
-            _ => throw new InvalidOperationException($"entry {entry}: class {c}"),
-        };
-    }
-
     /// <summary><see cref="IInventoryApi.WeightPoints"/> of <paramref name="slot"/> and of the other joined slot.</summary>
     private static (int Actor, int Other) Points(InvAutoPlaceRig rig, int slot) =>
         (rig.Inventory.WeightPoints(PlayerSlot.FromValue((byte)slot)), rig.Inventory.WeightPoints(PlayerSlot.FromValue((byte)(1 - slot))));
-
-    /// <summary><c>CountItem</c> of every item def in every live container, in table order.</summary>
-    private static int[] AllItemCounts(InvAutoPlaceRig rig)
-    {
-        ContainerTable containers = rig.Inventory.Containers;
-        var counts = new List<int>();
-        for (int s = 0; s < containers.LiveCount; s++)
-        {
-            for (int i = 0; i < rig.Content.Items.Count; i++)
-            {
-                counts.Add(rig.Inventory.CountItem(new[] { containers[(ushort)s].Id }, DefIndex.FromValue((ushort)i)));
-            }
-        }
-
-        return counts.ToArray();
-    }
 
     /// <summary>
     /// <see cref="IInventoryApi.WeightPoints"/> of every slot equals the brute-force recount (<see cref="WeightRecountPropertyTests.Recount"/>),
@@ -1634,14 +1576,6 @@ public class PickMoveTests
         return op;
     }
 
-    private static Reply AssertOk(EventEntry[] log)
-    {
-        Reply reply = InvAutoPlaceRig.ReplyOf(log);
-        Assert.Equal(ReplyResult.Ok, reply.Result);
-        Assert.Equal(CoreReason.Ok, reply.Reason);
-        return reply;
-    }
-
     /// <summary>
     /// The reject contract (TD-105 item 5; ADR-0007 l.128; ADR-0009 section 3): the reason; no inventory record and no <c>InvVersion</c>
     /// seal anywhere in the tick; the reply alone in its (handler's) call scope and sent to the actor's slot alone; and every recorded
@@ -1660,16 +1594,6 @@ public class PickMoveTests
         Assert.Equal(before, SideEffects(rig));
         return reply;
     }
-
-    private static EventEntry[] InventoryRecords(EventEntry[] log) =>
-        log.Where(e => e.Kind is >= InvEventKinds.Inserted and <= InvEventKinds.ItemsLost).ToArray();
-
-    /// <summary>The inventory records and seals that start a record (mail-id run continuations dropped), in log order.</summary>
-    private static EventEntry[] RecordHeads(EventEntry[] log) =>
-        InventoryRecords(log).Where(e => (e.Flags & EventFlags.Continuation) == 0).ToArray();
-
-    private static InvVersionPayload[] Seals(EventEntry[] log) =>
-        log.Where(e => e.Kind == InvEventKinds.Version).Select(e => e.PayloadAs<InvVersionPayload>()).ToArray();
 
     /// <summary>
     /// Everything a pick or move could change or record: every container header (version and lastReplaceVersion included), occupancy

@@ -9,6 +9,7 @@ using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
+using static PerformativeMail.Sim.Tests.Unit.Inventory.InvOpTestHelpers;
 
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 

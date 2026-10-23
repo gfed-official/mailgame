@@ -54,7 +54,7 @@ public partial class QuickMoveReturnTests
         _ = rig.PlaceMail(inventory, "letter", 6, 1, Address5, InvAutoPlaceRig.Ids(900, 3));
         ushort gone = rig.PlaceMail(inventory, "letter", 7, 1, Address5, InvAutoPlaceRig.Ids(910, 2));
         uint id = rig.Entries[gone].Id.Value;
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, inventory, gone, inventory, 6, 1)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(slot), MoveOp(rig, inventory, gone, inventory, 6, 1)));
         Assert.False(rig.Entries.TryGetSlot(EntryId.Real(id), out _));
         return id;
     }
@@ -98,7 +98,7 @@ public partial class QuickMoveReturnTests
         ushort otherInventory = rig.InventoryOf(other);
         Assert.True(rig.Inventory.TryOpenExternal(PlayerSlot.FromValue((byte)other), rig.IdOf(chest)));
         ushort fiber = rig.PlaceItem(otherInventory, "fiber", 0, 0, 3);
-        MoveSplitMergeTests.AssertOk(rig.Run(rig.Player(other), MoveOp(rig, otherInventory, fiber, chest, x, y)));
+        InvOpTestHelpers.AssertOk(rig.Run(rig.Player(other), MoveOp(rig, otherInventory, fiber, chest, x, y)));
         Assert.Equal(fiber, rig.EntryAt(chest, x, y));
     }
 

@@ -4,6 +4,7 @@ using PerformativeMail.Client.Core.Net;
 using PerformativeMail.Client.Core.Net.Codec;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Primitives;
+using static PerformativeMail.Sim.Tests.Unit.Net.NetTestKit;
 
 namespace PerformativeMail.Sim.Tests.Unit.Net;
 
@@ -27,47 +28,6 @@ public class ReplyCacheTests
 
     // ------------------------------------------------------------ fixtures
 
-    private sealed class U32Codec : IOpCodec
-    {
-        public ushort CodecId => ProbeCodecId;
-
-        public byte WireSize => 4;
-
-        public int SampleCount => 1;
-
-        public bool TryDecode(ReadOnlySpan<byte> payload, ref OpPayload dst, out byte payloadLength)
-        {
-            payloadLength = 0;
-            if (payload.Length != 4)
-            {
-                return false;
-            }
-
-            Span<byte> target = dst;
-            payload.CopyTo(target);
-            payloadLength = 4;
-            return true;
-        }
-
-        public int Encode(in Op src, Span<byte> dst)
-        {
-            if (src.PayloadLength != 4 || dst.Length < 4)
-            {
-                return -1;
-            }
-
-            BinaryPrimitives.WriteUInt32LittleEndian(dst, src.PayloadAs<uint>());
-            return 4;
-        }
-
-        public Op GetSample(int index)
-        {
-            var op = default(Op);
-            op.SetPayload(1u);
-            return op;
-        }
-    }
-
     private sealed class Relay : IEventSink
     {
         public IEventSink? Target { get; set; }
@@ -75,9 +35,6 @@ public class ReplyCacheTests
         public void Deliver(uint tick, ReadOnlySpan<EventEntry> entries, in OverflowInfo overflow) =>
             Target?.Deliver(tick, entries, in overflow);
     }
-
-    /// <summary>A header-only batch (tag 2, count 0): the host's quiet-tick heartbeat (TD-068 item 1), ignored by these tests; see HostLoopbackSessionTests for its own coverage.</summary>
-    private static bool IsHeartbeat(ReadOnlySpan<byte> bytes) => bytes.Length == 7 && bytes[0] == 0x02 && bytes[5] == 0 && bytes[6] == 0;
 
     /// <summary>A remote transport whose inbox is delivered on Poll and whose sends are recorded.</summary>
     private sealed class QueueTransport : ITransport
@@ -173,7 +130,7 @@ public class ReplyCacheTests
                 opCapacity: opCapacity,
                 instrument: false);
             IOpCodec[] core = SimCoreCodecs.Create();
-            Registry = new OpCodecRegistry(World.OpDescriptors, new IOpCodec[] { core[0], core[1], new U32Codec() });
+            Registry = new OpCodecRegistry(World.OpDescriptors, new IOpCodec[] { core[0], core[1], new U32Codec(ProbeCodecId) });
             (HostEnd, ClientEnd) = LoopbackTransport.CreatePair();
             Adapter = new HostAdapter(World, Registry, HostEnd, Remote, new AdapterSettings(), new InMemoryRoster());
             _relay.Target = Adapter;

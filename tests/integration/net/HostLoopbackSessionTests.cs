@@ -8,6 +8,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Hosting;
 using PerformativeMail.Sim.Primitives;
+using static PerformativeMail.Sim.Tests.Unit.Net.NetTestKit;
 
 namespace PerformativeMail.Sim.Tests.Integration.Net;
 
@@ -41,47 +42,6 @@ public class HostLoopbackSessionTests
         public long Timestamp => Now;
 
         public long Frequency => Freq;
-    }
-
-    private sealed class U32Codec : IOpCodec
-    {
-        public ushort CodecId => OpCodecId;
-
-        public byte WireSize => 4;
-
-        public int SampleCount => 1;
-
-        public bool TryDecode(ReadOnlySpan<byte> payload, ref OpPayload dst, out byte payloadLength)
-        {
-            payloadLength = 0;
-            if (payload.Length != 4)
-            {
-                return false;
-            }
-
-            Span<byte> target = dst;
-            payload.CopyTo(target);
-            payloadLength = 4;
-            return true;
-        }
-
-        public int Encode(in Op src, Span<byte> dst)
-        {
-            if (src.PayloadLength != 4 || dst.Length < 4)
-            {
-                return -1;
-            }
-
-            BinaryPrimitives.WriteUInt32LittleEndian(dst, src.PayloadAs<uint>());
-            return 4;
-        }
-
-        public Op GetSample(int index)
-        {
-            var op = default(Op);
-            op.SetPayload(1u);
-            return op;
-        }
     }
 
     /// <summary>Test-profile system: one fixture op whose handler raises one event to slot 0 and replies Ok.</summary>
@@ -304,7 +264,7 @@ public class HostLoopbackSessionTests
             Session = new HostSession(
                 args,
                 Clock,
-                new IOpCodec[] { new U32Codec() },
+                new IOpCodec[] { new U32Codec(OpCodecId) },
                 new IEventCodec[] { new FixedLengthEventCodec(EventCodecId, 4) },
                 options);
             Session.AddEventSink(Spy);

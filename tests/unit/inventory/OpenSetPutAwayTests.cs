@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
+using static PerformativeMail.Sim.Tests.Unit.Inventory.InvOpTestHelpers;
 
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
@@ -558,32 +559,6 @@ public class OpenSetPutAwayTests
         }
 
         Assert.Equal(freeCells, rig.Header(rig.InventoryA).FreeCells);
-    }
-
-    /// <summary>Spawns single letters into the Intake (one tick) until <see cref="IInventoryApi.Spawn"/> places none.</summary>
-    private static void ExhaustArenaThroughIntakeSpawns(InvAutoPlaceRig rig)
-    {
-        DefIndex letter = rig.KindIndex("letter");
-        ContainerId intake = rig.Inventory.IntakeContainer;
-        var one = new MailId[1];
-        uint next = 1_000_000;
-        int placed = IntakeSpawnOutfeedTests.InPhase(rig, () =>
-        {
-            int n = 0;
-            while (true)
-            {
-                one[0] = new MailId(next++);
-                if (rig.Inventory.Spawn(intake, letter, 9, 0, one, MergePolicy.NoMerge).Placed != 1)
-                {
-                    return n;
-                }
-
-                n++;
-            }
-        });
-        Assert.True(placed > 0);
-        Assert.True(rig.Header(rig.Intake).FreeCells > 0); // refused at the arena, not for room
-        Assert.False(rig.Inventory.MailIds.CanReserve(1));
     }
 
     /// <summary>Every container header and occupancy owner, the live entries, the arena's units and blocks per class.</summary>
