@@ -5,9 +5,9 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 
 ## Coverage Summary
 - Total requirements: 250 (10 GDDs; belt-logistics, building-system, health-damage not yet extracted)
-- Covered: 204 (82%)
-- Partial: 1
-- Gaps: 44
+- Covered: 211 (84%)
+- Partial: 0
+- Gaps: 38
 - Deferred: 1 (an Accepted ADR addresses it; every implementing story is Deferred out of M-1a by Evan 2026-10-23)
 - TR-IDs cited by stories: 95 (all resolve in the registry)
 
@@ -20,10 +20,10 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | inventory | design/gdd/grid-inventory.md | 28 | 22 | 0 | 6 | 0 |
 | input | design/gdd/input-controls.md | 24 | 24 | 0 | 0 | 0 |
 | movement | design/gdd/player-character-movement.md | 26 | 16 | 0 | 10 | 0 |
-| delivery | design/gdd/manual-delivery.md | 24 | 21 | 1 | 1 | 1 |
+| delivery | design/gdd/manual-delivery.md | 24 | 22 | 0 | 1 | 1 |
 | mail | design/gdd/mail-destinations.md | 23 | 23 | 0 | 0 | 0 |
 | throwing | design/gdd/throwing-catching.md | 21 | 16 | 0 | 5 | 0 |
-| hud | design/gdd/hud-notifications.md | 21 | 4 | 0 | 17 | 0 |
+| hud | design/gdd/hud-notifications.md | 21 | 10 | 0 | 11 | 0 |
 | comms | design/gdd/comms.md | 8 | 6 | 0 | 2 | 0 |
 
 ## Full Matrix
@@ -201,7 +201,7 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-delivery-016 | manual-delivery.md | No host state, no replicated state; JoinState 0 B | ADR-0011 | ✅ | 0 |
 | TR-delivery-017 | manual-delivery.md | Hand beat once per hold keyed (actor,dest,applyTick) from DeliveryOutcome | ADR-0016 | ✅ | 0 |
 | TR-delivery-018 | manual-delivery.md | Reach echo starts only when Sim-published canStartHoldNext was true | ADR-0016 | ✅ | 0 |
-| TR-delivery-019 | manual-delivery.md | Prompt content as data from Sim; HUD renders; localisation keys, no concatenation | ADR-0018 + ADR-0014 | ⚠️ PARTIAL | 3 |
+| TR-delivery-019 | manual-delivery.md | Prompt content as data from Sim; HUD renders; localisation keys, no concatenation | ADR-0018 + ADR-0014 | ✅ | 3 |
 | TR-delivery-020 | manual-delivery.md | Live-region announcements policy; accessibility_live API unsourced | ADR-0018 | ❌ GAP | 1 |
 | TR-delivery-021 | manual-delivery.md | Race suite: no misdeliver for MATCH-latched hold across ticks ±2 and RTTs; 10,000-seed soak | ADR-0006 | ⏸ DEFERRED | 1 |
 | TR-delivery-022 | manual-delivery.md | Telemetry latchedBranch; handShare ≥20% | ADR-0024 | ✅ | 1 |
@@ -251,22 +251,22 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-throwing-019 | throwing-catching.md | ThrowDef/BalanceConfig knobs with validator rules | ADR-0010 | ✅ | 0 |
 | TR-throwing-020 | throwing-catching.md | Telemetry to session stats file only | ADR-0024 | ✅ | 1 |
 | TR-throwing-021 | throwing-catching.md | Spin from flightId; MultiMesh bundles; hidden beyond 35 m | ADR-0019 | ✅ | 0 |
-| TR-hud-001 | hud-notifications.md | HUD Presentation-only; no gameplay state; Sim has no reference to it | ADR-0018 | ❌ GAP | 1 |
-| TR-hud-002 | hud-notifications.md | Plain-C# UI core xUnit-testable via IUiClock/IRoster/IHudState/IMoneyFormatter + Godot view | ADR-0018 | ❌ GAP | 1 |
+| TR-hud-001 | hud-notifications.md | HUD Presentation-only; no gameplay state; Sim has no reference to it | ADR-0018 | ✅ | 1 |
+| TR-hud-002 | hud-notifications.md | Plain-C# UI core xUnit-testable via IUiClock/IRoster/IHudState/IMoneyFormatter + Godot view | ADR-0018 | ✅ | 1 |
 | TR-hud-003 | hud-notifications.md | HUD reads only via IHudState ordered by (sourceTick, opId); loopback from M-1a | ADR-0016 | ✅ | 0 |
 | TR-hud-004 | hud-notifications.md | Timer from IHostClock.renderSimTimeMs; HUD runs no clock | ADR-0016 | ✅ | 0 |
-| TR-hud-005 | hud-notifications.md | Timer monotone within (phaseId, deadlineTick); text written on change only | ADR-0018 | ❌ GAP | 2 |
+| TR-hud-005 | hud-notifications.md | Timer monotone within (phaseId, deadlineTick); text written on change only | ADR-0018 | ✅ | 2 |
 | TR-hud-006 | hud-notifications.md | Every notification is a cue record with id/int args, never preformatted strings | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-007 | hud-notifications.md | Cue table validated at load (CV-HUD-01..05); missing key is load error | ADR-0010 | ✅ | 0 |
 | TR-hud-008 | hud-notifications.md | CI: every pill/toast cue has a paired world cue | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-009 | hud-notifications.md | Toast lane: M-1a 1 slot; M0+ 2 visible + 4 queued, deterministic eviction | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-010 | hud-notifications.md | Merge predicate on UI-clock windows; raw events always logged | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-011 | hud-notifications.md | UI event log ring 1024 (M0), plain list M-1a; shared records | ADR-0018 | ❌ GAP | 0 |
-| TR-hud-012 | hud-notifications.md | All money text via one IMoneyFormatter; lint bans currency literals | ADR-0018 | ❌ GAP | 2 |
+| TR-hud-012 | hud-notifications.md | All money text via one IMoneyFormatter; lint bans currency literals | ADR-0018 | ✅ | 2 |
 | TR-hud-013 | hud-notifications.md | Screen-space MarkerLayer above post-processing; 41 markers at roster 8 | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-014 | hud-notifications.md | Flash governor ≤3/s real clock, ≤2 Hz per element; one animator | ADR-0018 | ❌ GAP | 0 |
-| TR-hud-015 | hud-notifications.md | 1080-reference px scaled by height; text ≥18 px up to 200%; min 1280×720; stretch undecided | ADR-0018 | ❌ GAP | 2 |
-| TR-hud-016 | hud-notifications.md | 0 alloc over 10,000 idle frames, pooled rows, atlas, no DrawLine; ≤0.8 ms, ≤60 draws (proposed) | ADR-0018 | ❌ GAP | 2 |
+| TR-hud-015 | hud-notifications.md | 1080-reference px scaled by height; text ≥18 px up to 200%; min 1280×720; stretch undecided | ADR-0018 | ✅ | 2 |
+| TR-hud-016 | hud-notifications.md | 0 alloc over 10,000 idle frames, pooled rows, atlas, no DrawLine; ≤0.8 ms, ≤60 draws (proposed) | ADR-0018 | ✅ | 2 |
 | TR-hud-017 | hud-notifications.md | Two live-region Controls; schema M-1a, announcer M4 | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-018 | hud-notifications.md | History ring 50 raw events with snapshots | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-019 | hud-notifications.md | Settings consumed from Persistence; HUD owns no persistence | ADR-0024 | ❌ GAP | 0 |
@@ -285,7 +285,7 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 
 | Planned ADR | TR-IDs | Suggested action |
 |---|---|---|
-| ADR-0018 | TR-delivery-019, TR-delivery-020, TR-hud-001, TR-hud-002, TR-hud-005, TR-hud-006, TR-hud-008, TR-hud-009, TR-hud-010, TR-hud-011, TR-hud-012, TR-hud-013, TR-hud-014, TR-hud-015, TR-hud-016, TR-hud-017, TR-hud-018, TR-hud-021, TR-comms-007, TR-comms-008 | `/architecture-decision HUD composition` |
+| ADR-0018 | TR-delivery-020, TR-hud-006, TR-hud-008, TR-hud-009, TR-hud-010, TR-hud-011, TR-hud-013, TR-hud-014, TR-hud-017, TR-hud-018, TR-hud-021, TR-comms-007, TR-comms-008 | `/architecture-decision HUD composition` |
 | ADR-0020 | TR-movement-003, TR-movement-008, TR-movement-009, TR-movement-010, TR-movement-015, TR-movement-023, TR-movement-026 | `/architecture-decision Transforms & Teleport` |
 | ADR-0021 | TR-throwing-010, TR-throwing-011, TR-throwing-012, TR-throwing-014, TR-throwing-015 | `/architecture-decision Flight protocol & catch` |
 | ADR-0022 | TR-inventory-023, TR-inventory-024 | `/architecture-decision JoinState & resync` |

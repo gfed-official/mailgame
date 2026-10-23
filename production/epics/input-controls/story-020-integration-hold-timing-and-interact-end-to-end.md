@@ -6,7 +6,9 @@
 > **Type**: Integration
 > **Estimate**: M–L (~1 day; ~150 lines harness + ~400 lines of table-driven tests; no new production code beyond the harness)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-23 (dependencies re-pointed by the m1a-replan PR)
+
+> **Dependencies re-pointed 2026-10-23 (E1 / E2, Evan 8:10 AM PT "approve all").** Stories 022 (replay corpus), 023 (fantasy-test scripts) and 024 (zero-allocation gate) are Deferred (M0 / M1 / M0); they were downstream only, so nothing this story depends on changed. The 0 B guardrail is advisory until M0 (E2).
 
 > **Integration story (1 of 2).** Stories 007–019 test the router in isolation; the grammar rules G1–G6 are only *true* once a router edge crosses the `InputLatch` into Player Character's press resolution and hold counter (`HoldAdvance`), because ADR-0014 puts hold timing Sim-side. This story builds the headless harness and asserts those rules end to end. It is the first place the GDD's tick-numbered ACs (fire on tick 12, cancel on tick 11 / 12) can be asserted honestly.
 
@@ -26,7 +28,7 @@
 **Control Manifest Rules (Foundation)**:
 - Required: headless hosts call `ClientLayer.Step()` / `SimWorld.Tick()` in a plain loop; `InputLatch` never dispatches a verb; edges resolve only in `PreviewSubStep.EdgeResolve`; holds counted only by `HoldAdvance` (ADR-0016 §2, ADR-0014 §4)
 - Forbidden: re-implementing `Hold.HoldTicks`, the hold counter or press resolution in the test harness (the test must exercise the real Player Character / Manual Delivery code)
-- Guardrail: the harness allocates freely (tests are not tick-path code); the 0-alloc gate is story 024
+- Guardrail: the harness allocates freely (tests are not tick-path code); the 0-alloc gate is story 024 (Deferred to M0; advisory until then, E2)
 
 ---
 
@@ -61,7 +63,7 @@
 
 *Handled by neighbouring stories — do not implement here:*
 
-- Story 021: the cancel-cause table (H-G2-1), Interact resolution rows (H-R4-2), Toggle, aim, commit and request-schema checks. Story 022: replay corpus. Story 024: allocation.
+- Story 021: the cancel-cause table (H-G2-1), Interact resolution rows (H-R4-2), Toggle, aim, commit and request-schema checks. Story 022 (Deferred, M0): replay corpus. Story 024 (Deferred, M0): allocation.
 - M0 rows: catch (H-R4-2 (a), H-R4-3), TextEntry.
 
 ---
@@ -85,4 +87,4 @@
 ## Dependencies
 
 - Depends on: Stories 002, 007, 008, 009, 012, 013, 014, 016, 017, 019 (the router as a whole); `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md`, `story-024-framerunner.md`, `story-025-composition-root-reflection-test.md`; `production/epics/player-character/story-011-hold-ticks-holdeff.md`, `story-014-focus-scoring-dwell-preview-binding.md`, `story-016-press-resolution-tap-catch-armed.md`, `story-017-hold-counter-cancels-channel-focus-latch.md`, `story-018-interaction-snapshot-iinteractionquery.md`, `story-020-carrierstep-clientlayer-integration.md` (all under `production/epics/player-character/`); `production/epics/manual-delivery/story-001-deliver-anchors-hold-ticks.md`, `story-004-press-latch-cancels-request.md`; `production/epics/world-stub/story-006-m1a-street-and-fixtures.md`
-- Unlocks: Story 021, 022, 023
+- Unlocks: Story 021; Deferred: 022 (M0), 023 (M1)

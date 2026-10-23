@@ -267,3 +267,6 @@ No code exists. Stories create `Sim/Players/{AnchorRegistry, Focus, Interaction,
 ## Related
 - ADR-0013 (solver, chest point, `Sim/Geometry`); ADR-0012 (router, `InputFrame`, presented snapshot on edges, one-commit rule); ADR-0015 (`ICatchPredictor`, catch arming); ADR-0016 (ClientLayer timing, previews, presented snapshot); ADR-0017 (Deliver anchors per destination); ADR-0009 (range-gated ops call `CheckInteraction`); ADR-0020 (F5 ring, `Teleport` protocol); ADR-0018 (prompt and ring rendering).
 - `design/gdd/player-character-movement.md`, `design/gdd/input-controls.md`, `design/gdd/manual-delivery.md`, `design/gdd/throwing-catching.md`.
+
+## Errata
+- 2026-10-23 — accepted by owner — **E2** (l.250): the per-tick 0 B rule for interaction hooks is reported, not blocking, until M0. Evan, Mail Lead chat, 2026-10-23 8:10 AM PT, approving draft errata E1–E6 and E9 (decision log 2026-10-23, m1a-replan): "approve all". Context: 7:15 AM PT "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example".

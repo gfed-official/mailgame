@@ -1,12 +1,15 @@
 # Story 029: Godot adapter integration suite and the MANUAL evidence runs (real pad, focus, AZERTY)
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Blocked
+> **Status**: Deferred (Evan 2026-10-23 8:10 AM PT)
+> **Deferred to**: M0 (out of the M-1a slice; was Blocked)
 > **Layer**: Presentation
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~300 lines of smoke harness + a hands-on evidence session)
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: 2026-10-16
+
+> **DEFERRED 2026-10-23 by Evan, not deleted.** Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". 8:10 AM PT, approving errata E1–E6 and E9 (decision log 2026-10-23): "approve all". This story is freed by **E1 (ADR-0012 l.281: H-EC-5/6/11 pad hot-plug, AZERTY and the MANUAL rows)**. Reason: real-pad, AZERTY and manual evidence runs; the adapter stories 026–028 stay. Re-run `/story-readiness` when M0 planning starts; the text below is unchanged from the last Ready/Blocked version.
 
 > **BLOCKED: awaits implementation of stories 026–028.** The OQ-IC-9 spike gate is satisfied (story 001 Complete 2026-10-16, verdict GO-WITH-DELTAS; apply ADR-0012 deltas D-1..D-8, TD-021). Remaining blocker (this story's own unblock condition): stories 026, 027 and 028 implemented. Flip to Ready when they are. This story owns the MANUAL rows M-1..M-9 under the spike report's `## MANUAL / NOT RUN`, including M-8 / TD-022 (S-25 retention follow-up, which also gates story 026 Done), and the S-08 GUI mouse-click check.
 

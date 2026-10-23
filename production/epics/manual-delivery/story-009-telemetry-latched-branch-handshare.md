@@ -42,7 +42,7 @@
 ## Implementation Notes
 
 - Compute `handShare` from `DeliveryOutcome.via` (Mail OQ26 instrument) over units with pay > 0, excluding dead letters, as M-FX-4 defines. Read the GDD's fantasy test 3 text before implementing.
-- Files (Mail Lead planning default, pending Evan): `src/PerformativeMail.Client.Core/Telemetry/SessionStatsWriter.cs`, `ISessionStatsSink.cs`, `IStatsFile.cs`; `src/Game/Telemetry/UserStatsFile.cs` (`IStatsFile` over `FileAccess`, wired at boot step 3 in the godot-host-shell composition). Record type here: `{"type":"delivery_hold_start","latchedBranch":"MATCH"|"MISDELIVER_ONE",…}` and `{"type":"delivery_outcome","via":…,"pay":…,"dead":…}`. The `handShare` analyser is a pure function over parsed records (tools assembly or Client.Core).
+- Files (Mail Lead planning default, approved by Evan 2026-10-23 8:10 AM PT (TD-173)): `src/PerformativeMail.Client.Core/Telemetry/SessionStatsWriter.cs`, `ISessionStatsSink.cs`, `IStatsFile.cs`; `src/Game/Telemetry/UserStatsFile.cs` (`IStatsFile` over `FileAccess`, wired at boot step 3 in the godot-host-shell composition). Record type here: `{"type":"delivery_hold_start","latchedBranch":"MATCH"|"MISDELIVER_ONE",…}` and `{"type":"delivery_outcome","via":…,"pay":…,"dead":…}`. The `handShare` analyser is a pure function over parsed records (tools assembly or Client.Core).
 - Records come from published client state and `PresentationEventStream` (ADR-0016), never from `Tick()`.
 
 ---

@@ -8,7 +8,7 @@
 > **Manifest Version**: 2026-10-17.1
 > **Last Updated**: 2026-10-23. Narrowed and unblocked by Evan. 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". The story keeps only the prompt-data half, whose transport ADR-0014 already fixes (owner-supplied 32 B `PromptArgs`, l.115, `WritePrompt` l.144). The screen-reader settle gate (M-MD4-1e), the localisation test locale, the no-concatenation lint and the `a11y.deliver.*` keys moved to `story-012-deferred-prompt-accessibility-localisation.md`, which is **Deferred**. The HUD prompt display is `production/epics/hud-notifications/story-003-deliver-prompt-display.md`.
 
-> **History — BLOCKED 2026-10-16 to 2026-10-23: ADR-0018 not written.** The undecided parts were the HUD-facing key set, the argument layout, the strip lifetime and the announcement events. The first two are Manual Delivery's to fix, because ADR-0014 makes `PromptArgs` owner-supplied; they are below, as Mail Lead planning defaults pending Evan. The last two are HUD or deferred work.
+> **History — BLOCKED 2026-10-16 to 2026-10-23: ADR-0018 not written.** The undecided parts were the HUD-facing key set, the argument layout, the strip lifetime and the announcement events. The first two are Manual Delivery's to fix, because ADR-0014 makes `PromptArgs` owner-supplied; they are below, as Mail Lead planning defaults, approved by Evan 2026-10-23 8:10 AM PT (TD-173). The last two are HUD or deferred work.
 
 ## Context
 
@@ -39,7 +39,7 @@
 
 ## Implementation Notes
 
-- **`PromptArgs` layout (Mail Lead planning default, pending Evan).** All values are little-endian; bytes not listed are 0.
+- **`PromptArgs` layout (Mail Lead planning default, approved by Evan 2026-10-23 8:10 AM PT (TD-173)).** All values are little-endian; bytes not listed are 0.
 
   | Offset | Size | Field |
   |---|---|---|

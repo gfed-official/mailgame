@@ -18,7 +18,7 @@ Scope: M-1a slice (solo greybox: delivery + throwing)
 | [player-character](player-character/EPIC.md) | Feature | Player Character & Movement (M-1a slice) | design/gdd/player-character-movement.md | 27 stories (14 Complete, 12 Ready, 1 Deferred) | Ready |
 | [manual-delivery](manual-delivery/EPIC.md) | Feature | Manual Delivery | design/gdd/manual-delivery.md | 12 stories (1 Complete, 9 Ready, 2 Deferred) | Ready |
 | [throwing-catching](throwing-catching/EPIC.md) | Feature | Throwing & Catching (M-1a slice + Sim-side catch pull-forward) | design/gdd/throwing-catching.md | 25 stories (1 Complete, 20 Ready, 4 Deferred) | Ready |
-| [hud-notifications](hud-notifications/EPIC.md) | Presentation | HUD & Notifications (M-1a minimal: wallet, time-only timer, deliver prompt) | design/gdd/hud-notifications.md | 3 stories (3 Blocked: ADR-0018 Proposed, awaiting Evan) | Blocked |
+| [hud-notifications](hud-notifications/EPIC.md) | Presentation | HUD & Notifications (M-1a minimal: wallet, time-only timer, deliver prompt) | design/gdd/hud-notifications.md | 3 stories (3 Ready: ADR-0018 Accepted by Evan 2026-10-23 8:10 AM PT) | Ready |
 
 ## M-1a dependency / implementation order
 
@@ -31,7 +31,7 @@ Scope: M-1a slice (solo greybox: delivery + throwing)
 5. `player-character` (Sim half: solver + interaction framework)
 6. `manual-delivery`
 7. `throwing-catching`
-8. `input-controls` router core (Client.Core) — the minimal HUD is now the `hud-notifications` epic (2026-10-23; Blocked on ADR-0018)
+8. `input-controls` router core (Client.Core) — the minimal HUD is now the `hud-notifications` epic (2026-10-23; ADR-0018 Accepted 8:10 AM PT)
 9. `godot-host-shell`, then each epic's presentation stories (panel view, PlayerView/camera, mailbox views, aim ribbon) and the Godot input adapter
 
 ## ADRs to write before the matching `/create-stories` (untraced M-1a requirements)
@@ -46,7 +46,7 @@ Scope: M-1a slice (solo greybox: delivery + throwing)
 | ADR-0017 Mail table, registry & IWalletGate | mail-destinations |
 | ADR-0019 Godot presentation scene architecture | godot-host-shell, all presentation stories |
 | ADR-0026 (stub section) `IWorldQuery` | world-stub |
-| ADR-0018 HUD composition, minimal M-1a slice — **Proposed 2026-10-23, awaiting Evan** | hud-notifications 001–003 |
+| ADR-0018 HUD composition, minimal M-1a slice — **Accepted by Evan 2026-10-23 8:10 AM PT** (no longer blocking) | hud-notifications 001–003 (now Ready) |
 | ADR-0024 session stats file (M-1a slice) — **Accepted 2026-10-23 (Evan)** | manual-delivery 009, throwing-catching 016 (both Ready) |
 
 ## Deferred — out of the M-1a slice (Evan, 2026-10-23)

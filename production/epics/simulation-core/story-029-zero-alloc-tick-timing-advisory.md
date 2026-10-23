@@ -1,12 +1,15 @@
 # Story 029: Zero-allocation tick probe and tick-timing report (advisory at M-1a)
 
 > **Epic**: Simulation Core
-> **Status**: Ready
+> **Status**: Deferred (Evan 2026-10-23 8:10 AM PT)
+> **Deferred to**: M0 (out of the M-1a slice; was Ready)
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: M (≈ 0.5–1 day; ≈ 300 lines: probe tool, CI step, no-growth test)
 > **Manifest Version**: 2026-10-16
 > **Last Updated**: —
+
+> **DEFERRED 2026-10-23 by Evan, not deleted.** Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". 8:10 AM PT, approving errata E1–E6 and E9 (decision log 2026-10-23): "approve all". This story is freed by **E2 (0 B gates advisory until M0)**. Reason: advisory zero-alloc tick probe; its dependents input-controls 024 and the throwing-catching 015 budget half are deferred with it. Re-run `/story-readiness` when M0 planning starts; the text below is unchanged from the last Ready/Blocked version.
 
 ## Context
 

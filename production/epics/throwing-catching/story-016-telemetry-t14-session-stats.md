@@ -44,7 +44,7 @@
 
 ## Implementation Notes
 
-- Record types (Mail Lead planning default, pending Evan): `throw_launch` (`seq`, `flightId`, `units`, `entryKind`, `class`, `hop`, `originClamped`, `redAgeAtReleaseMs`) and `throw_terminal` (`flightId`, `terminal`, `distanceMm`, `flightTicks`), plus reserved, unpopulated M0 fields per TC-T14-1. The file itself is ADR-0024's; do not add another path.
+- Record types (Mail Lead planning default, approved by Evan 2026-10-23 8:10 AM PT (TD-173)): `throw_launch` (`seq`, `flightId`, `units`, `entryKind`, `class`, `hop`, `originClamped`, `redAgeAtReleaseMs`) and `throw_terminal` (`flightId`, `terminal`, `distanceMm`, `flightTicks`), plus reserved, unpopulated M0 fields per TC-T14-1. The file itself is ADR-0024's; do not add another path.
 - "Log incomplete" = no `session_end` line, or the writer's `DroppedBuffers` > 0 recorded in `session_end`.
 - `redAgeAtReleaseMs` is a **client-side** metric (the host never learns the preview's colour history); in solo it lives in the same process as the host. It rides on `ReleaseRecord`, not on the wire.
 - The analyser is a pure function over parsed records and can live in the tools assembly.

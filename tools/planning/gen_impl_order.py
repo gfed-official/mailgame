@@ -7,7 +7,7 @@ EPICS = ['simulation-core','content-data','input-controls','godot-host-shell','g
          'network-adapter-loopback','mail-destinations','player-character','manual-delivery','throwing-catching','hud-notifications']
 epics = [e for e in EPICS if os.path.isdir(os.path.join(E, e))] + sorted(
     d for d in os.listdir(E) if os.path.isdir(os.path.join(E, d)) and d not in EPICS)
-# Playable-first leaves (Mail Lead planning default, pending Evan): the visible greybox path.
+# Playable-first leaves (Mail Lead planning default, approved by Evan 2026-10-23 8:10 AM PT (TD-173)): the visible greybox path.
 PLAYABLE_LEAVES = ['godot-host-shell/010','godot-host-shell/009','input-controls/028','player-character/022',
   'player-character/023','player-character/024','player-character/026','mail-destinations/016','manual-delivery/011',
   'manual-delivery/010','throwing-catching/018','throwing-catching/019','throwing-catching/020','throwing-catching/021',
@@ -115,7 +115,7 @@ L.append(f"> **Scope**: {len(S)} stories in {len(epics)} epics — " + ', '.join
 L.append('> **Authority for the playable-first order and the deferrals**: Evan, Mail Lead chat, 2026-10-23 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"; 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it \'production ready\' is not needed. Accessibility for example". See `production/session-logs/decision-log.md` 2026-10-23.')
 L.append('> **Regenerate** whenever a story\'s Depends on or Status changes. The order is advisory; `/story-readiness` still gates each story.\n')
 L.append('## How to read this\n')
-L.append('- **Track A — playable greybox first.** Every not-yet-done story that the visible greybox path needs: the Godot host shell, input wiring, the player view and camera, deliver, throw, the mailbox view and the minimal HUD. It is the transitive dependency closure of these leaves (Mail Lead planning default, pending Evan): ' + ', '.join(f'`{l}`' for l in PLAYABLE_LEAVES) + '.')
+L.append('- **Track A — playable greybox first.** Every not-yet-done story that the visible greybox path needs: the Godot host shell, input wiring, the player view and camera, deliver, throw, the mailbox view and the minimal HUD. It is the transitive dependency closure of these leaves (Mail Lead planning default, approved by Evan 2026-10-23 8:10 AM PT (TD-173)): ' + ', '.join(f'`{l}`' for l in PLAYABLE_LEAVES) + '.')
 L.append('- **Track B — everything else that is still M-1a.** Infrastructure-only, test-only and ADR-required hardening stories that the playable path does not need. They start after Track A, or in parallel when an implementer is idle.')
 L.append('- **Wave N** = stories whose dependencies are all in earlier waves (or Complete / In Progress). Stories inside one wave can run in parallel; check declared files for overlaps before running two at once.')
 L.append('- **Gated** = Ready, but depends (transitively) on a Blocked story. **Deferred** = moved out of M-1a by Evan on 2026-10-23; not scheduled.\n')
