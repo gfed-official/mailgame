@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.Primitives;
+using PerformativeMail.Sim.Tests.Unit.Inventory;
 
 namespace PerformativeMail.Sim.Tests.Integration.Inventory;
 
@@ -359,7 +360,8 @@ public class ContainerCatalogueTests
         SimHost a = BuildWithJoins(5, 1);
         SimHost b = BuildWithJoins(5, 1);
         InventorySystem inventory = InventoryOf(a);
-        byte[] empty = Section(DumpHash.Bytes(Build().World), SectionIds.Inventory);
+        SimHost emptyHost = Build();
+        byte[] empty = Section(DumpHash.Bytes(emptyHost.World), SectionIds.Inventory);
 
         // Act
         byte[] section = Section(DumpHash.Bytes(a.World), SectionIds.Inventory);
@@ -368,10 +370,10 @@ public class ContainerCatalogueTests
         // Assert: identical bytes across worlds; a join changed the section; header = nextId, liveCount
         Assert.Equal(section, other);
         Assert.NotEqual(empty, section);
-        Assert.Equal(8 + 1 * DumpRecordBytes + EmptyWorldItemTrailerBytes, empty.Length);
+        Assert.Equal(8 + 1 * DumpRecordBytes + EmptyWorldItemTrailerBytes + InventoryStateContributorTests.TailBytes(InventoryOf(emptyHost)), empty.Length); // story 017's block last
         Assert.Equal(8u, BitConverter.ToUInt32(section, 0));
         Assert.Equal(7u, BitConverter.ToUInt32(section, 4));
-        Assert.Equal(8 + 7 * DumpRecordBytes + EmptyWorldItemTrailerBytes, section.Length);
+        Assert.Equal(8 + 7 * DumpRecordBytes + EmptyWorldItemTrailerBytes + InventoryStateContributorTests.TailBytes(inventory), section.Length);
 
         // Records: ascending ids 1..7, owner 0xFF then slot 5 x3 then slot 1 x3, fields matching the live headers, versions 0,
         // nextArrivalSeq 1 (no outfeed insertion yet)

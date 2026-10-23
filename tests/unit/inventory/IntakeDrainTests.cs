@@ -659,11 +659,11 @@ public sealed class IntakeDrainTests
         byte[] sa = Section(DumpHash.Bytes(a.Host.World), SectionIds.Inventory);
         byte[] sb = Section(DumpHash.Bytes(b.Host.World), SectionIds.Inventory);
 
-        // Assert: byte-identical; the section ends with u32 3 and the three entry ids in queue order
+        // Assert: byte-identical; the 021 block (before story 017's appended block) ends with u32 3 and the three entry ids in queue order
         Assert.Equal(sa, sb);
         ushort[] queue = Queue(a);
         Assert.Equal(3, queue.Length);
-        int at = sa.Length - 16;
+        int at = sa.Length - InventoryStateContributorTests.TailBytes(a.Inventory) - 16;
         Assert.Equal(3u, BitConverter.ToUInt32(sa, at));
         for (int i = 0; i < 3; i++)
         {

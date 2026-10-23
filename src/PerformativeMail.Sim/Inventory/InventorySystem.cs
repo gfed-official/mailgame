@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory.Backlog;
 using PerformativeMail.Sim.Inventory.Events;
 using PerformativeMail.Sim.Inventory.Intake;
+using PerformativeMail.Sim.Inventory.Ledger;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Rules;
@@ -23,7 +24,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// them. Container dimensions are instance state: the def's width and <c>IStatSheet.Read(InventoryRows)</c> rows.
 /// <para>
 /// It binds the <c>ItemsExpire</c> phase (WorldItem expiry, water float and the over-cap re-check, story 013; see below), the
-/// <c>IntakeDrain</c> phase (the backlog drain, story 021: <see cref="DrainBacklog"/>), a no-op conservation check (story 017's), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
+/// <c>IntakeDrain</c> phase (the backlog drain, story 021: <see cref="DrainBacklog"/>), the tick-end conservation check (story 017: <see cref="ConservationCheck"/>), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
 /// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>), <c>Merge</c> (story 008),
 /// <c>QuickMove</c> and <c>Return</c> (story 010; <see cref="QuickMoveHandler"/>, <see cref="ReturnHandler"/>) and <c>Close</c> (story
 /// 011); the other kinds' handlers are story 019's. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
@@ -112,6 +113,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly InvRequestCheck _requestCheck;
     private readonly ContainerSubscribers _subscribers;
     private readonly InventoryMutator _mutator;
+    private readonly InventoryConservationCheck _conservation;
     private readonly AutoPlace _autoPlace;
     private readonly EventLogFacade _events;
     private readonly ITickReader _tick;
@@ -240,7 +242,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         _hotbarDef = Resolve("hotbar");
         _playerInventoryDef = Resolve("player_inventory");
         _cursorDef = Resolve("cursor");
-        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, weight, _cursorDef, slots);
+        // Story 017: the conservation ledger, one row for mail plus one per item def, one holder byte per entry-pool slot.
+        var ledger = new UnitLedger(content.Items.Count, settings.EntryPoolCapacity);
+        _mutator = new InventoryMutator(_containers, _entries, _occupancy, _mailIds, _subscribers, facade, content, stats, new StackIndex(_entries), itemCounts, noFit, outfeed, weight, _cursorDef, ledger, slots);
         _autoPlace = new AutoPlace(_containers, _defs, _entries, _occupancy, _mutator, noFit, facade.Counters);
 
         // Story 013: the WorldItems, sized from inventory.worldItemCapacity; durations and the cap are read from the balance once here.
@@ -255,6 +259,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         }
 
         _ = _containers.TryGetSlot(_intake, out _intakeSlot);
+
+        // Story 017: the tick-end conservation check over the ledger (its INVENTORY_ASSERT scan reads this module's storage).
+        _conservation = new InventoryConservationCheck(ledger, this, checkRing, facade.Counters);
     }
 
     /// <summary>The settings the tables were allocated from.</summary>
@@ -283,6 +290,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <summary>The one mutation layer (story 005): handlers' <c>Commit</c> and <c>IInventoryApi</c> calls write state only through it.</summary>
     internal InventoryMutator Mutator => _mutator;
+
+    /// <summary>The conservation ledger (story 017), written only by the <see cref="Mutator"/>.</summary>
+    internal UnitLedger Ledger => _mutator.Ledger;
+
+    /// <summary>The tick-end conservation check over <see cref="Ledger"/> (story 017), bound by <see cref="Bind"/>.</summary>
+    internal InventoryConservationCheck ConservationCheck => _conservation;
 
     /// <summary>AutoPlace (story 009): the shared placement passes of quick_move, spawn, return, inserter, belt, pickup, catch and grant.</summary>
     internal AutoPlace AutoPlace => _autoPlace;
@@ -407,8 +420,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <summary>
-    /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the <c>IntakeDrain</c> phase (story 021), the stub
-    /// conservation check, the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
+    /// Binds the <c>ItemsExpire</c> phase (WorldItem expiry and cap re-check, story 013), the <c>IntakeDrain</c> phase (story 021), the
+    /// conservation check (story 017), the state contributor, the join listener, every <see cref="InvEventDescriptors"/> kind and the
     /// <see cref="InvOpDescriptors.Pick"/> and <see cref="InvOpDescriptors.Move"/> handlers (story 007), the
     /// <see cref="InvOpDescriptors.Merge"/> handler (story 008), the <see cref="InvOpDescriptors.QuickMove"/> and
     /// <see cref="InvOpDescriptors.Return"/> handlers (story 010) and the <see cref="InvOpDescriptors.Close"/> handler (story 011). Binds no
@@ -422,8 +435,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         ArgumentNullException.ThrowIfNull(builder);
         builder.Bind(PhaseId.ItemsExpire, new ItemsExpirePhase(_worldItems));
         builder.Bind(PhaseId.IntakeDrain, new IntakeDrainPhase(this));
-        builder.BindTickEnd(new InventoryConservationCheck());
-        builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems, _backlog, _entries));
+        builder.BindTickEnd(_conservation);
+        builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems, _backlog, _entries, this));
         builder.BindPlayerJoinListener(this);
         foreach (EventDescriptor descriptor in InvEventDescriptors.All)
         {
@@ -652,6 +665,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
                 e.Flags = flags;
                 e.W = subject.W;
                 e.H = subject.H;
+                _mutator.CountSpawned(entrySlot); // story 017: the unit enters custody (its placement adds Placed; a merge frees the entry)
                 _autoPlace.Commit(ref plan, in ap, entrySlot);
             }
 
@@ -707,6 +721,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return false;
         }
 
+        _mutator.EnterHolder(LedgerState.Belt, in unit); // story 017: Placed -1 (TakeOldest), Belt +1
         u = unit;
         return true;
     }
@@ -714,7 +729,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <inheritdoc />
     /// <remarks>
     /// The tick guard, then the ref's checks (a live container, a live entry whose <c>ContainerSlot</c> is that container, a count of at
-    /// least 1, a defined reason), then <see cref="InventoryMutator.TakeOldest"/> of 1 in one call scope and one bracket with cause
+    /// least 1, a defined reason), then <see cref="InventoryMutator.ConsumeOldest"/> (<see cref="InventoryMutator.TakeOldest"/> of 1 and
+    /// the ledger's crossing to Consumed by reason, story 017) in one call scope and one bracket with cause
     /// <see cref="InvCause.Consumed"/>, so the records, the seal and the last-unit removal are <c>TakeOldest</c>'s (story 012).
     /// </remarks>
     public bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor)
@@ -739,11 +755,10 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         using (EventCallScope scope = _events.BeginCall())
         {
             _mutator.Begin(ref plan, actor, InvCause.Consumed);
-            took = _mutator.TakeOldest(ref plan, entrySlot, 1, taken);
+            took = _mutator.ConsumeOldest(ref plan, entrySlot, reason, taken); // story 017: source state -1, Consumed[reason] +1
             _mutator.End(ref plan, ref extra);
         }
 
-        // story 017 ledger hook: the taken unit (taken[0] for mail) crosses PLACED -> CONSUMED with reason.
         return took == 1;
     }
 
@@ -806,10 +821,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         {
             _mutator.Begin(ref plan, ActorId.FromEntity(_panels[slot.Value].Player), InvCause.None);
             _mutator.Remove(ref plan, entrySlot);
+            _mutator.EnterHolder(LedgerState.Flight, entrySlot); // story 017: Placed -units (Remove), Flight +units
             _mutator.End(ref plan, ref extra);
         }
 
-        // story 017 ledger hook: the entry's units cross PLACED -> FLIGHT. Story 016's weight (WeightPoints) follows from Remove.
+        // Story 016's weight (WeightPoints) follows from Remove.
         return new DetachResult(default, entryId, units);
     }
 
@@ -912,7 +928,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <summary>
     /// The mutating half of <see cref="TryCatch"/>: in one call scope, the panel commit when <see cref="CatchPlan.Places"/> (one bracket,
     /// the catcher as actor, cause <see cref="InvCause.None"/>), then, if units are left on the entry, the fumble
-    /// (<see cref="World.WorldItems.Create"/>, <see cref="WorldItemOrigin.Thrown"/>, created now, in its own nested scope). Never fails:
+    /// (<see cref="World.WorldItems.Create"/>, <see cref="WorldItemOrigin.Thrown"/>, created now, in its own nested scope). Ledger (story
+    /// 017): the units in cross Flight to Placed (the mutator's merge and placement take them from the flight entry's holder), the
+    /// fumbled ones Flight to World (the creation's holder crossing). Never fails:
     /// Validate proved the WorldItem creatable (a None asserts <see cref="SimAssertCode.InventoryCatchFumbleNotCreated"/>).
     /// </summary>
     /// <param name="plan">The plan <see cref="ValidateCatch"/> passed.</param>
@@ -927,8 +945,6 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             _mutator.Begin(ref plan, c.Actor, InvCause.None);
             _autoPlace.Commit(ref plan, in c.Placement);
             _mutator.End(ref plan, ref extra);
-
-            // story 017 ledger hook: the units in cross FLIGHT -> PLACED.
         }
 
         // A whole placement moved the entry itself and a full merge freed it; otherwise the newest units are still on the entry.
@@ -949,8 +965,9 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// placement allocates the entry and its block, then commits through <see cref="Placement.AutoPlace.Commit(ref InvPlan, in AutoPlacePlan, ushort)"/>,
     /// as <see cref="Spawn"/> does. One call scope, one bracket with <paramref name="actor"/> and cause <see cref="InvCause.None"/>. A
     /// refused plan records its no-fit facts and nothing else; no entry or arena block is taken before the plan and reservation pass.
-    /// <see cref="UnitRef.Entry"/> is ignored (the unit's old entry, e.g. a belt's <see cref="TakeUnit"/>). Duplicate-id detection is
-    /// the ledger's (story 017).
+    /// <see cref="UnitRef.Entry"/> is ignored (the unit's old entry, e.g. a belt's <see cref="TakeUnit"/>). On true the unit crosses
+    /// the ledger's Belt to Placed (story 017); a unit that was never taken drives Belt negative, which the tick-end check reports,
+    /// and the <c>INVENTORY_ASSERT</c> scan names a duplicated mailId (TD-145, narrowed; TD-160 item 7).
     /// </remarks>
     public bool TryInsert(ContainerId c, in UnitRef u, ActorId actor)
     {
@@ -1021,10 +1038,14 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
                 _autoPlace.Commit(ref plan, in ap, entrySlot);
             }
 
+            if (inserted)
+            {
+                _mutator.LeaveHolder(LedgerState.Belt, in u); // story 017: Belt -1 (negative for a unit never taken, TD-145); Placed +1
+            }
+
             _mutator.End(ref plan, ref extra);
         }
 
-        // story 017 ledger hook: on true only, the unit crosses into PLACED (from Belt, or wherever the caller took it from).
         return inserted;
     }
 
@@ -1181,8 +1202,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
                     open = true;
                 }
 
-                // story 017 ledger hook: the entry's units cross Backlog -> Placed.
-                _backlog.Remove(entrySlot, e.Count);
+                _backlog.Remove(entrySlot, e.Count); // story 017: the commit's Place moves the units Backlog -> Placed
                 _autoPlace.Commit(ref plan, in ap);
                 placed++;
             }
@@ -1224,7 +1244,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return false;
         }
 
-        // story 017 ledger hook: the entry's units cross Placed/World -> Backlog.
+        _mutator.EnterHolder(LedgerState.Backlog, detachedEntrySlot); // story 017: from its holder (Flight) or none, Backlog +units
         _backlog.Append(detachedEntrySlot, _entries[detachedEntrySlot].Count);
         RaiseBacklogUnits();
         return true;
@@ -1302,7 +1322,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         entry.H = subject.H;
         _entries.SetCount(entrySlot, (byte)ids.Length);
         using EventCallScope scope = _events.BeginCall();
-        return TryAppendDetached(entrySlot); // cannot fail: the entry was free a moment ago, so it is not queued
+        if (!TryAppendDetached(entrySlot))
+        {
+            return false; // unreachable: the entry was free a moment ago, so it is not queued
+        }
+
+        _mutator.CountSpawned(entrySlot); // story 017: spawned +units on success only (TD-157 item 3, TD-158 item 3)
+        return true;
     }
 
     /// <summary>

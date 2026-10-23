@@ -400,6 +400,7 @@ internal sealed class InvEventRig
         e.ContainerSlot = cslot;
         header.EntryCount++;
         header.FreeCells -= (ushort)(w * h);
+        Inventory.Ledger.Recount(Inventory); // story 017: arranged outside the mutator, so the ledger is recounted (as RebuildIndex)
         return id;
     }
 
@@ -827,6 +828,7 @@ internal sealed class InvAutoPlaceRig
         e.H = (byte)def.GridH;
         Entries.SetCount(slot, (byte)ids.Length);
         Assert.True(Inventory.MailIds.TryCreate(ids, 0, out e.MailIds));
+        Recount();
         return slot;
     }
 
@@ -841,8 +843,25 @@ internal sealed class InvAutoPlaceRig
         e.W = (byte)def.GridW;
         e.H = (byte)def.GridH;
         Entries.SetCount(slot, count);
+        Recount();
         return slot;
     }
+
+    /// <summary>Spawns one letter-kind unit per id into the Intake (NoMerge, address 4) inside the next tick's <c>MailStep</c> (story 017).</summary>
+    public SpawnResult InPhaseSpawn(DefIndex kind, params uint[] ids)
+    {
+        MailId[] mail = ids.Select(i => new MailId(i)).ToArray();
+        return IntakeSpawnOutfeedTests.InPhase(this, () => Inventory.Spawn(Inventory.IntakeContainer, kind, 4u, 0, mail, MergePolicy.NoMerge));
+    }
+
+    /// <summary>True when <paramref name="log"/> holds exactly one <c>OpReply</c> and it is ok.</summary>
+    public bool ReplyOfOk(EventEntry[] log) => ReplyOf(log).IsOk;
+
+    /// <summary>
+    /// Recounts the conservation ledger from storage (story 017's <see cref="Sim.Inventory.Ledger.UnitLedger.Recount"/> seam): every
+    /// helper that arranges or frees an entry outside the mutator calls it once afterwards, as <c>RebuildIndex</c> is called.
+    /// </summary>
+    public void Recount() => Inventory.Ledger.Recount(Inventory);
 
     /// <summary>Places a mail entry through <see cref="InventoryMutator.Place"/> (one tick).</summary>
     public ushort PlaceMail(ushort container, string kind, int x, int y, uint address, uint[] ids, bool rotated = false, byte flags = 0)
@@ -943,6 +962,7 @@ internal sealed class InvAutoPlaceRig
         Assert.Equal(EntryRecord.NoContainer, e.ContainerSlot);
         Inventory.MailIds.Free(in e.MailIds);
         Entries.Free(entry);
+        Recount();
     }
 
     public static Reply ReplyOf(EventEntry[] log) => Assert.Single(log, e => e.Kind == EventKind.OpReply).PayloadAs<Reply>();

@@ -167,4 +167,7 @@ public enum CounterId : ushort
 
     /// <summary>Inventory <c>IntakeDrain</c>: one per backlog ring node read by a drain pass (the H-PERF-6d visit unit; story grid-inventory/021; key <c>inventoryBacklogVisits</c>). A candidate visit under ADR-0009 l.232, so H-PERF-6c's drain gate counts it with the placement probes (<c>inventoryPlacementProbes</c> + merge candidates + these visits at most 8,500 per pass); kept as its own counter for diagnostics, with a second test gate of at most entries walked + 1 per pass (TD-157 item 4). An idle pass (empty backlog, full Intake, or no change since the last pass) reads no node. A probe counter, compiled into Release, not in the canonical dump.</summary>
     InventoryBacklogVisits = 50,
+
+    /// <summary>Inventory tick-end conservation check: one per finding, a ledger row whose Σ live differs from spawned + granted − consumed − destroyed or a negative live counter (story grid-inventory/017; ADR-0009 section 6; GDD R19, H-R19-2 reads it; key <c>inventoryConservationMismatches</c>). Unthrottled, unlike its <c>CheckCode.InventoryConservationMismatch</c> record (Mail Lead planning default pending Evan, TD-160 item 5). Zero in a correct world.</summary>
+    InventoryConservationMismatches = 51,
 }

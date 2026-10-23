@@ -1069,7 +1069,7 @@ public class WorldItemTests
         Assert.Equal(ids[0].Value, U32(sa, ref at));
         at += 4 + 1 + 4 + 4; // the tombstone's byActorId, cause, worldSeq, tick
         Assert.Equal(0u, U32(sa, ref at)); // story 021: the backlog ring, empty
-        Assert.Equal(sa.Length, at);
+        Assert.Equal(sa.Length - InventoryStateContributorTests.TailBytes(a.Inv), at); // story 017's block follows
 
         static (WorldItemRig, EntityId[]) History()
         {

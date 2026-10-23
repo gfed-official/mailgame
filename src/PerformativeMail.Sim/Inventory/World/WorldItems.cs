@@ -3,6 +3,7 @@ using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory.Events;
+using PerformativeMail.Sim.Inventory.Ledger;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
 using PerformativeMail.Sim.Inventory.Storage;
@@ -209,6 +210,7 @@ internal sealed class WorldItems
         w.IsMail = isMail;
         w.Fifo = fifo;
         _worldSlotOfEntry[entrySlot] = slot;
+        _mutator.EnterHolder(LedgerState.World, entrySlot); // story 017: World +units, from Flight (a throw or fumble) or none (a drop)
         if (fifo != ExpiryFifo.None)
         {
             _lastCreatedTick[(int)fifo] = createdTick;
@@ -501,14 +503,14 @@ internal sealed class WorldItems
         ref EntryRecord e = ref _entries[entrySlot];
         var lost = new ItemsLostPayload { WorldItemId = id, ItemId = e.ItemId, Count = e.Count, Cause = (byte)InvCause.Destroyed };
 
-        // TODO(story-017): the conservation ledger hook for destroyed non-mail items.
+        // Ledger (story 017, TD-135): RemoveCore takes the units out of World, DestroyDetached puts them in Destroyed.
         RemoveCore(slot, ActorId.System, InvCause.Destroyed, now);
         _fifos.Pop(fifo);
         _mutator.RaiseWorld(InvEventKinds.ItemsLost, in lost);
         _mutator.DestroyDetached(entrySlot);
     }
 
-    /// <summary>Raises <c>WorldItemDespawned</c> with the next <c>worldSeq</c>, leaves the tombstone and frees the table slot (the entry stays allocated).</summary>
+    /// <summary>Raises <c>WorldItemDespawned</c> with the next <c>worldSeq</c>, leaves the tombstone and frees the table slot (the entry stays allocated, its units out of the ledger's World state).</summary>
     private void RemoveCore(ushort slot, ActorId actor, InvCause cause, uint now)
     {
         ref WorldItemRecord r = ref _table[slot];
@@ -518,6 +520,7 @@ internal sealed class WorldItems
         _mutator.RaiseWorld(InvEventKinds.WorldItemDespawned, in despawned);
         _tombstones.Add(id, actor.Value, cause, _worldSeq, now);
         _fifos.OnRemoved(r.Fifo, id);
+        _mutator.LeaveHolder(r.EntrySlot, _entries[r.EntrySlot].Count); // story 017: World -units; the entry is in no state until its caller moves it
         _worldSlotOfEntry[r.EntrySlot] = WorldItemTable.NoSlot;
         _table.Remove(slot);
     }

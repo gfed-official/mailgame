@@ -115,7 +115,7 @@
 
 ## Completion Notes
 
-**Completed**: 2026-10-22 on branch `feat/grid-inventory-014` (from origin/main f504231; slices 1–5), opened as PR #34 at 7560950 (open, not merged). Mail Review r1 (BLOCKED: B1, B2) is fixed by the r1 commits on the branch; they were not pushed in the fix session. No `/code-review` or lead-programmer gate was run in this session.
+**Completed**: 2026-10-22 on branch `feat/grid-inventory-014` (from origin/main f504231; slices 1–5), opened as PR #34 at 7560950 (merged as main c2d4a64). Mail Review r1 (BLOCKED: B1, B2) is fixed by the r1 commits on the branch; they were not pushed in the fix session. No `/code-review` or lead-programmer gate was run in this session.
 
 **Credit**: Evan's 2026-10-22 5:11 AM PT ruling covers only that a leashed letter stays on the cursor when the mail-id arena is full; 014 does not build on it. Everything 014 decides that no ADR or GDD line states was a Mail Lead planning default and is approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT (TD-154, TD-155 for the implementation calls below, TD-159 for the deferred tests). The `capacity_exhausted` code (85) is ADR-0009 l.121's reason-code list; the arena-refused catch failing with nothing mutated plus an always-on record is ADR-0009 §5 l.157; the core chain order is TD-154 item 5 (no ADR/GDD line states it).
 
