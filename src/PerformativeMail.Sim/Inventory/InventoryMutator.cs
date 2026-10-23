@@ -40,7 +40,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// crosses to Destroyed and <see cref="ConsumeOldest"/> to Consumed by reason; and the holder states (World, Flight, Belt, Backlog)
 /// are entered and left only through <see cref="EnterHolder(LedgerState, ushort)"/> / <see cref="LeaveHolder(ushort, int)"/> and their
 /// unit forms, which the <c>IInventoryApi</c> calls, <c>WorldItems</c> and <c>PickupCore</c> call at their holder crossings, and
-/// <see cref="CountSpawned"/> counts a unit's first entry into custody (Mail Lead planning defaults pending Evan, TD-160 items 1-4). A
+/// <see cref="CountSpawned"/> counts a unit's first entry into custody (TD-160 item 1: Approved by Evan 2026-10-22 6:41 PM PT, the ADR-0009 §6 l.170 erratum; items 2-4: Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT; advisory fix, Mail Review PR #36 A11). A
 /// detached source's holder state is the source state of the primitive that consumes it: <see cref="Place"/> takes the entry's units
 /// out of the holder it is in (Flight for a catch or a flying return, Backlog for the drain, none after a WorldItem's removal) and
 /// <see cref="MergeInto"/> the merged units (World for a partial pickup, Flight for a partial catch), so no caller leaves a holder
@@ -66,7 +66,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// clears an origin itself. "Where it came from" is the container, cells and rotation the entry was <see cref="Remove"/>d from earlier
 /// in the same <see cref="Begin"/>/<see cref="End"/> call, or for a piece <see cref="SplitAndPlace"/> splits off, its source entry's
 /// container, cells and rotation; an entry that arrives with neither (a detached entry from no container this call) gets no origin.
-/// The origin of an entry moved or split onto the cursor is a Mail Lead planning default pending Evan (TD-153): GDD l.95 and the l.178
+/// The origin of an entry moved or split onto the cursor is TD-153 item 5, Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT (advisory fix, Mail Review PR #36 A11): GDD l.95 and the l.178
 /// cursor table name only "its origin cells", and ADR-0009 does not define them. Allocation-free; never throws on the tick path
 /// (preconditions assert under <c>INVENTORY_ASSERT</c>). Not thread-safe: Sim tick thread only.
 /// </summary>
@@ -79,6 +79,9 @@ namespace PerformativeMail.Sim.Inventory;
 /// return Reply.Ok(in op, in extra);
 /// </code>
 /// </example>
+// EnterHolder, LeaveHolder and CountSpawned are internal, but that restricts nothing beyond the class itself: InventoryMutator is
+// already internal sealed. The real guard is the IL scan in HolderPrimitiveCallerTests and LedgerWriterRulesTests (advisory fix,
+// Mail Review PR #36 A10).
 internal sealed class InventoryMutator
 {
     private readonly ContainerTable _containers;
@@ -253,7 +256,7 @@ internal sealed class InventoryMutator
     }
 
     /// <summary>
-    /// The holder-entry primitive (story 017; Mail Lead planning default pending Evan, TD-160 item 1): the live detached entry in
+    /// The holder-entry primitive (story 017; TD-160 item 1, Approved by Evan 2026-10-22 6:41 PM PT (ADR-0009 §6 l.170 erratum); advisory fix, Mail Review PR #36 A11): the live detached entry in
     /// <paramref name="entrySlot"/> and all its units enter <paramref name="holder"/> (<see cref="LedgerState.World"/>,
     /// <see cref="LedgerState.Flight"/> or <see cref="LedgerState.Backlog"/>), leaving the holder state it was in first, if any (a
     /// flying entry returned to the backlog crosses Flight to Backlog). Called by <c>DetachForThrow</c> (Flight), <c>WorldItems</c>'s

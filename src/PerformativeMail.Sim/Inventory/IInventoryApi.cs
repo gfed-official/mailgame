@@ -102,7 +102,7 @@ public enum ConsumeReason : byte
 /// mail-destinations story 014; multi-unit backlog entries come from Inventory's own returns (an expiry, water float or cap eviction of
 /// a multi-unit entry). The call accepts 1 to the kind's effective maxStack ids.
 /// </summary>
-/// <example><code>foreach (MailId id in ids[r.Placed..]) { inventory.AppendBacklog(new BacklogEntry(letter, address, 0, new[] { id })); }</code></example>
+/// <example><code>foreach (MailId id in ids[r.Placed..]) { inventory.AppendBacklog(new BacklogEntry(letter, address, 0, new ReadOnlySpan<MailId>(in id))); }</code></example>
 public readonly ref struct BacklogEntry
 {
     /// <summary>Creates the entry.</summary>

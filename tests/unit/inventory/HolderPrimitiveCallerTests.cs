@@ -21,7 +21,8 @@ public sealed class HolderPrimitiveCallerTests
     [Fact]
     public void SimAssembly_OnlyTheAllowedTypesCallTheHolderPrimitives()
     {
-        // Arrange
+        // Arrange: the ADR-0009 §6 l.170 erratum names PickupCore as a caller through WorldItems; it makes no direct call today, so its
+        // entry also admits a future direct call, which the erratum's caller list allows (advisory fix, Mail Review PR #36 A9)
         Type[] allowed = { typeof(InventoryMutator), typeof(InventorySystem), typeof(WorldItems), typeof(PickupCore) };
 
         // Act

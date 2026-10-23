@@ -13,8 +13,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 /// <summary>
 /// Story grid-inventory/017: the <see cref="UnitLedger"/> (TR-inventory-012; ADR-0009 section 6; GDD R19): its shape (the mail row
 /// plus one row per item def, six live states, Consumed split by <see cref="ConsumeReason"/>, Destroyed, spawned, granted) and the
-/// <see cref="UnitLedger.Recount"/> test seam the rigs call after arranging entries outside the mutator (Mail Lead planning defaults
-/// pending Evan, TD-160 items 2-4, 8).
+/// <see cref="UnitLedger.Recount"/> test seam the rigs call after arranging entries outside the mutator (Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT,
+/// TD-160 items 2-4, 8; advisory fix, Mail Review PR #36 A11).
 /// </summary>
 public sealed class UnitLedgerTests
 {

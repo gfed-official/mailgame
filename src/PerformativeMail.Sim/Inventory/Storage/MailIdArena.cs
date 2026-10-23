@@ -199,9 +199,11 @@ public sealed class MailIdArena
     /// <summary>
     /// Writes the one <see cref="CheckCode.InventoryArenaExhausted"/> record an API caller refused by a
     /// <see cref="CanReserve(ReadOnlySpan{ushort})"/> dry run gets (ADR-0009 section 5: "<c>false</c> plus an always-on record"; story
-    /// grid-inventory/014's <c>TryCatch</c>), with a real acquire failure's payload: a = the largest block of <paramref name="runUnits"/>,
-    /// b = its fitting class (<see cref="ClassCount"/> when it is over <see cref="MaxUnits"/>). Reserves and mutates nothing else, subject
-    /// to the ring's rate limit, allocation-free. The caller writes it after its Validate refused, outside Validate.
+    /// grid-inventory/014's <c>TryCatch</c>). The payload is a = the largest block of <paramref name="runUnits"/>, b = its fitting class
+    /// (<see cref="ClassCount"/> when it is over <see cref="MaxUnits"/>); a real acquire failure records the block that failed, which can
+    /// differ for a multi-block plan (and an overflowed plan passes a truncated list). The record is subject to the ring's per-code rate
+    /// limit (30 ticks by default), so "one record" holds once per window (advisory fix, Mail Review PR #34 r2 advisory 5). Reserves and
+    /// mutates nothing else, allocation-free. The caller writes it after its Validate refused, outside Validate.
     /// </summary>
     /// <param name="runUnits">The refused reservation's block sizes.</param>
     /// <param name="tick">The current tick (for the check record).</param>
