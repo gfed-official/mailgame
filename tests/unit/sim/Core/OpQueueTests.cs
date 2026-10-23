@@ -635,6 +635,7 @@ public class OpQueueTests
 
     [Theory]
     [InlineData(0, 1)]
+    [InlineData(-5, 1)]
     [InlineData(3, 4)]
     [InlineData(4097, 8192)]
     public void Queue_NonPowerOfTwoCapacity_AssertsUnderSimAssertAndRoundsUpOtherwise(int capacity, int rounded)
