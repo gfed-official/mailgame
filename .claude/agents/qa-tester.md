@@ -240,6 +240,9 @@ After a bug fix or hotfix, produce a **targeted** regression checklist, not a fu
 - Label the checklist: "Regression: [BUG-ID] — [system] — [date]"
 - Full-game regression is reserved for milestone gates and release candidates — do not run it
   for individual bug fixes
+- Running the automated suite follows "Running tests" in `.claude/rules/test-standards.md`:
+  the affected test classes only via `tools/ci/test-quiet.sh`, never a green suite re-run
+  without a code change
 
 ### Bug Report Format
 
