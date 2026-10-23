@@ -41,6 +41,24 @@ paths:
   > fixture, not the assertion, is what makes it useless, and only running it
   > against the unfixed code exposes that.
 
+## Running tests (this project: C#, xUnit v3)
+
+Run through `tools/ci/test-quiet.sh` (log + TRX on disk; prints the summary and
+failures only). Build once, then `--no-build`.
+
+- **During development:** run only the story's own test classes, on net10.0
+  Debug: `tools/ci/test-quiet.sh -- --solution PerformativeMail.sln -c Debug --no-build -- --filter-class "*FooTests"`
+  (or `--filter-namespace` / `--filter-trait`).
+- **At story close:** run the full suite once on net10.0 Debug and once on net8.0
+  Release (`-c Release -p:PmTestTfm=net8.0`). That pair covers every axis value,
+  and every Debug-skipped test runs in Release. CI runs all four legs as the PR
+  gate; that satisfies ADR-0001 §7, so don't run the other two locally.
+- **Re-runs:** never re-run a green suite without a code change. In fix rounds,
+  re-run only the failing classes, then the covering pair once at the end.
+- **Reading tests:** index big test files and rigs with
+  `rg -n '\[Fact\]|\[Theory\]|public void|static .*\(' <file>` and read only the
+  range you need. Never cat or Read a test file over 500 lines whole.
+
 ## Examples
 
 **Correct** (proper naming + Arrange/Act/Assert) — Godot, gdUnit4:

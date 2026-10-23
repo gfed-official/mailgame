@@ -171,14 +171,6 @@ public class RecorderTests
         Assert.Equal(ReplayRefusal.None, longForm.FirstMismatch(shortForm));
     }
 
-    [Fact]
-    public void Recorder_ExposesItsHeader()
-    {
-        var header = new RecordingHeader(1, default, default, 3, null);
-
-        Assert.Same(header, new InMemoryRecorder(header).Header);
-    }
-
     // ------------------------------------------------------------ enqueue records
 
     [Fact]

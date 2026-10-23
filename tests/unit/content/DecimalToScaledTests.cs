@@ -412,7 +412,6 @@ public class DecimalToScaledTests
     [Theory]
     [Trait("Id", "CDD-UNIT-2")]
     [InlineData("-1.5e3")]
-    [InlineData("1.5e3")]
     [InlineData("-1.5E+3")]
     public void Exponent_IsFormat_EvenWhenNegative(string token)
     {

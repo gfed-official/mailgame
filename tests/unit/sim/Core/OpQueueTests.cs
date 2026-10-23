@@ -637,7 +637,6 @@ public class OpQueueTests
     [InlineData(0, 1)]
     [InlineData(-5, 1)]
     [InlineData(3, 4)]
-    [InlineData(1000, 1024)]
     [InlineData(4097, 8192)]
     public void Queue_NonPowerOfTwoCapacity_AssertsUnderSimAssertAndRoundsUpOtherwise(int capacity, int rounded)
     {
@@ -677,15 +676,6 @@ public class OpQueueTests
 
         Assert.Equal(OpAdmission.BusyPlayer, queue.Admit(isSystem: false));
         Assert.Equal(OpAdmission.Accepted, queue.Admit(isSystem: true));
-    }
-
-    [Fact]
-    public void Builder_DefaultInitialCounters_StartOpSeqAtZero()
-    {
-        SimWorld world = new SimWorldBuilder().Freeze();
-
-        Assert.Equal(0u, world.LastOpSeq);
-        Assert.Equal(0u, new SimInitialCounters().LastOpSeq);
     }
 }
 

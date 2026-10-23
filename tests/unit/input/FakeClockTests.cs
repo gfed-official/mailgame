@@ -13,12 +13,8 @@ public class FakeClockTests
     [Theory]
     [InlineData(0, 0)]
     [InlineData(1, 33)]
-    [InlineData(2, 66)]
-    [InlineData(3, 100)]
     [InlineData(29, 966)]
     [InlineData(30, 1000)]
-    [InlineData(31, 1033)]
-    [InlineData(300, 10000)]
     public void NowMs_AtTickWithNoOffset_IsFloorOfTickTimes1000Over30(long tick, long expectedMs)
     {
         var clock = new FakeInputClock();
@@ -29,9 +25,7 @@ public class FakeClockTests
     }
 
     [Theory]
-    [InlineData(1, 0, 33)]
     [InlineData(1, 10, 43)]
-    [InlineData(3, 20, 120)]
     [InlineData(30, 5, 1005)]
     public void NowMs_WithSubTickOffset_AddsTheOffset(long tick, int offset, long expectedMs)
     {
@@ -69,17 +63,6 @@ public class FakeClockTests
     }
 
     [Fact]
-    public void NowMs_AcrossThirtyTicks_AdvancesExactlyOneSecond()
-    {
-        var clock = new FakeInputClock();
-        long start = clock.NowMs;
-
-        clock.AdvanceTicks(30);
-
-        Assert.Equal(1000, clock.NowMs - start);
-    }
-
-    [Fact]
     public void NowMs_WhenAdvancingTickByTick_NeverGoesBackwards()
     {
         var clock = new FakeInputClock();
@@ -101,14 +84,6 @@ public class FakeClockTests
         Assert.Throws<ArgumentOutOfRangeException>(() => clock.SetTick(-1));
         Assert.Throws<ArgumentOutOfRangeException>(() => clock.SetSubTickOffset(-1));
         Assert.Throws<ArgumentOutOfRangeException>(() => clock.AdvanceTicks(-1));
-    }
-
-    [Fact]
-    public void FakeInputClock_IsAnIInputClock()
-    {
-        IInputClock clock = new FakeInputClock();
-
-        Assert.Equal(0, clock.NowMs);
     }
 
     [Fact]

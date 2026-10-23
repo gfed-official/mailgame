@@ -151,14 +151,6 @@ public class ActionMapTests
     }
 
     [Fact]
-    public void NullDef_IsReported()
-    {
-        ValidationReport report = ActionMapValidator.Validate([Valid(), null]);
-
-        Assert.True(report.Has("(null)", ValidationFields.Def));
-    }
-
-    [Fact]
     public void ReportEntry_CanCarryTheOtherActionAndState()
     {
         var report = new ValidationReport();

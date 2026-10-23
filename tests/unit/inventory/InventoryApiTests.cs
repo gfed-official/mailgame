@@ -621,13 +621,24 @@ public class InventoryApiTests
         Assert.Equal(0, plan.MutatedCount);
     }
 
-    [Theory]
-    [InlineData("target-not-live")]
-    [InlineData("target-not-mail")]
-    [InlineData("target-detached")]
-    [InlineData("none-mail-id")]
-    [InlineData("key-mismatch")]
-    public void MergeUnitInto_WithAnInvalidTargetIdOrKey_AssertsInventoryMergeInvalid_OrChangesNothingInRelease(string arm)
+    [Fact]
+    public void MergeUnitInto_WithAnInvalidTargetIdOrKey_AssertsInventoryMergeInvalid_OrChangesNothingInRelease()
+    {
+        // One fresh rig per arm; a failure names its arm
+        foreach (string arm in new[] { "target-not-live", "target-not-mail", "target-detached", "none-mail-id", "key-mismatch" })
+        {
+            try
+            {
+                AssertMergeUnitIntoRefused(arm);
+            }
+            catch (Exception e)
+            {
+                throw new Xunit.Sdk.XunitException("arm " + arm + ": " + e.Message, e);
+            }
+        }
+    }
+
+    private static void AssertMergeUnitIntoRefused(string arm)
     {
         // Arrange: a 2-letter stack (address 4) in player A's inventory and the one input each arm makes invalid (the count-255 arm
         // cannot be reached alone: a mail effMax is at most 255, so a 255 stack is already at its effMax, the effMax test's arm)

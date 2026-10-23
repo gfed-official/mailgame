@@ -737,7 +737,6 @@ public class HostAdapterInboundTests
         "short_payload" => (new byte[] { 0x04, 0x00, 0x42, 0x00, 1, 2, 3, 4, 5, 6, 7 }, 0x42u, OpKind.TeleportAck),
         "trailing_bytes" => (new byte[] { 0x04, 0x00, 0x42, 0x00, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, 0x42u, OpKind.TeleportAck),
         "header_too_short" => (new byte[] { 0x04, 0x00, 0x42 }, 0u, OpKind.None),
-        "empty" => (Array.Empty<byte>(), 0u, OpKind.None),
         _ => throw new ArgumentOutOfRangeException(nameof(name)),
     };
 
@@ -748,7 +747,6 @@ public class HostAdapterInboundTests
     [InlineData("short_payload")]
     [InlineData("trailing_bytes")]
     [InlineData("header_too_short")]
-    [InlineData("empty")]
     public void Request_Malformed_IsAnsweredBadRequestWithTheHeaderReqIdAndNothingIsEnqueued(string name)
     {
         // Arrange

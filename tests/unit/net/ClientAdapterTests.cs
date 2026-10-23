@@ -6,6 +6,7 @@ using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Primitives;
 using ClientLayerType = PerformativeMail.Sim.ClientLayer.ClientLayer;
+using static PerformativeMail.Sim.Tests.Unit.Net.NetTestKit;
 
 namespace PerformativeMail.Sim.Tests.Unit.Net;
 
@@ -45,21 +46,6 @@ public class ClientAdapterTests
         }
 
         public void OnMessage(PeerHandle peer, NetChannel channel, ReadOnlySpan<byte> payload) => Messages.Add((channel, payload.ToArray()));
-    }
-
-    private sealed class CountingSink : ITransportSink
-    {
-        public long Messages;
-
-        public void OnConnected(PeerHandle peer)
-        {
-        }
-
-        public void OnDisconnected(PeerHandle peer, DisconnectReason reason)
-        {
-        }
-
-        public void OnMessage(PeerHandle peer, NetChannel channel, ReadOnlySpan<byte> payload) => Messages++;
     }
 
     /// <summary>A transport that delivers scripted messages on Poll (any peer, any channel) and records sends.</summary>
@@ -613,6 +599,14 @@ public class ClientAdapterTests
     public void BareReply_CarriesTheLastBatchTick()
     {
         var rig = new Rig();
+        ushort first = rig.Send();
+
+        rig.HostRepliesBare(Rp(first)); // before any batch: tick 0
+
+        ClientInboxRecord record = Assert.Single(rig.Drain());
+        Assert.Equal(0u, record.Tick);
+        Assert.False(rig.Adapter.Clock.IsValid);
+
         ushort id = rig.Send();
         rig.Host(Batch(12));
         rig.Pump();
@@ -620,20 +614,6 @@ public class ClientAdapterTests
         rig.HostRepliesBare(Rp(id));
 
         Assert.Equal(12u, Assert.Single(rig.Drain()).Tick);
-    }
-
-    [Fact]
-    [Trait("Id", "AC-2")]
-    public void BareReply_BeforeAnyBatch_CarriesTickZero()
-    {
-        var rig = new Rig();
-        ushort id = rig.Send();
-
-        rig.HostRepliesBare(Rp(id));
-
-        ClientInboxRecord record = Assert.Single(rig.Drain());
-        Assert.Equal(0u, record.Tick);
-        Assert.False(rig.Adapter.Clock.IsValid);
     }
 
     public static IEnumerable<object[]> MalformedMessages()
@@ -1149,47 +1129,6 @@ public class ClientAdapterTests
 
     // ------------------------------------------------------------ end to end against the real HostAdapter
 
-    private sealed class U32Codec : IOpCodec
-    {
-        public ushort CodecId => 920;
-
-        public byte WireSize => 4;
-
-        public int SampleCount => 1;
-
-        public bool TryDecode(ReadOnlySpan<byte> payload, ref OpPayload dst, out byte payloadLength)
-        {
-            payloadLength = 0;
-            if (payload.Length != 4)
-            {
-                return false;
-            }
-
-            Span<byte> target = dst;
-            payload.CopyTo(target);
-            payloadLength = 4;
-            return true;
-        }
-
-        public int Encode(in Op src, Span<byte> dst)
-        {
-            if (src.PayloadLength != 4 || dst.Length < 4)
-            {
-                return -1;
-            }
-
-            BinaryPrimitives.WriteUInt32LittleEndian(dst, src.PayloadAs<uint>());
-            return 4;
-        }
-
-        public Op GetSample(int index)
-        {
-            var op = default(Op);
-            op.SetPayload(1u);
-            return op;
-        }
-    }
-
     private sealed class Relay : IEventSink
     {
         public IEventSink? Target { get; set; }
@@ -1211,7 +1150,7 @@ public class ClientAdapterTests
                 },
                 instrument: false);
             IOpCodec[] core = SimCoreCodecs.Create();
-            var registry = new OpCodecRegistry(Drain.World.OpDescriptors, new IOpCodec[] { core[0], core[1], new U32Codec() });
+            var registry = new OpCodecRegistry(Drain.World.OpDescriptors, new IOpCodec[] { core[0], core[1], new U32Codec(920) });
             (LoopbackTransport hostEnd, LoopbackTransport clientEnd) = LoopbackTransport.CreatePair();
             var events = new EventCodecRegistry(Drain.World.EventDescriptors, Array.Empty<IEventCodec>());
             Host = new HostAdapter(Drain.World, registry, hostEnd, null, new AdapterSettings(), new InMemoryRoster(), events);

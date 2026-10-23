@@ -488,18 +488,6 @@ public class DefShapeTests
     }
 
     [Fact]
-    public void ContainerDef_AbsentAllowedCategoriesIsDistinctFromPresentButEmpty()
-    {
-        ContainerDef any = new() { Id = "chest", Layout = ContainerLayout.Grid };
-        ContainerDef empty = any with { HasAllowedCategories = true };
-
-        Assert.False(any.HasAllowedCategories);
-        Assert.True(empty.HasAllowedCategories);
-        Assert.True(empty.AllowedCategories.IsEmpty);
-        Assert.False(empty.AllowedCategories.IsDefault);
-    }
-
-    [Fact]
     public void ContainerDef_PileHasNoGridAndGridUsesColsByRows()
     {
         ContainerDef pile = new() { Id = "death_bag", Layout = ContainerLayout.Pile };

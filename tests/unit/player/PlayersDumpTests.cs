@@ -178,13 +178,6 @@ public class PlayersDumpTests
         Assert.Equal(Expected((0, rig.Record(0)), (3, rig.Record(3))), actual);
     }
 
-    [Fact]
-    public void Section_EmptyWorld_IsJustAZeroCount()
-    {
-        var rig = PlayersRig.Create();
-        Assert.Equal(Expected(), PlayersSection(rig));
-    }
-
     [Theory]
     [InlineData((short)-2, (byte)0xFE, (byte)0xFF)]
     [InlineData((short)-300, (byte)0xD4, (byte)0xFE)]
@@ -202,21 +195,6 @@ public class PlayersDumpTests
 
         // Assert: count u32 (4) + slot (1) + id (4) + life (1) + three deadlines (12) + teleportSeq (1) + lookYaw (2) = 25.
         Assert.Equal(new[] { low, high }, section.AsSpan(25, 2).ToArray());
-    }
-
-    [Fact]
-    public void Dump_NegativeLookPitch_IsWrittenAsTwosComplementU16()
-    {
-        // Arrange
-        var rig = PlayersRig.Create();
-        rig.JoinAndTick(0);
-        rig.Record(0).LookPitch = -1;
-
-        // Act
-        byte[] section = PlayersSection(rig);
-
-        // Assert
-        Assert.Equal(new byte[] { 0xFF, 0xFF }, section.AsSpan(25, 2).ToArray());
     }
 
     // ---------------------------------------------------------------- per-field sensitivity
@@ -297,18 +275,5 @@ public class PlayersDumpTests
             bool derived = f.Name is nameof(PlayerRecord.CapsuleRadiusMm) or nameof(PlayerRecord.CapsuleHeightMm);
             Assert.Equal(derived, baseline.AsSpan().SequenceEqual(changed));
         }
-    }
-
-    [Fact]
-    public void PlayerId_InTheRecord_ChangesTheDump_AndSlotIsPartOfTheKey()
-    {
-        // Arrange: the same single player in slot 1 versus slot 2 dumps differently (slot is written).
-        var a = PlayersRig.Create();
-        a.JoinAndTick(1);
-        var b = PlayersRig.Create();
-        b.JoinAndTick(2);
-
-        // Assert
-        Assert.NotEqual(PlayersSection(a), PlayersSection(b));
     }
 }

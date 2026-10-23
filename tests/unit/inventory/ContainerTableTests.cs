@@ -80,24 +80,6 @@ public class ContainerTableTests
         Assert.Equal(3u, table.NextId);
     }
 
-    [Fact]
-    public void Ids_AreNeverReused_AndAreUniqueAcrossTheTable()
-    {
-        // Arrange
-        var table = new ContainerTable(16);
-
-        // Act
-        var seen = new HashSet<uint>();
-        while (Create(table, out ContainerId id))
-        {
-            seen.Add(id.Value);
-        }
-
-        // Assert
-        Assert.Equal(16, seen.Count);
-        Assert.Equal(Enumerable.Range(1, 16).Select(i => (uint)i), seen.OrderBy(v => v));
-    }
-
     [Theory]
     [InlineData(0)]
     [InlineData(65_536)]

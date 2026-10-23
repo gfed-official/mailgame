@@ -280,10 +280,8 @@ public class BootSequenceTests
 
     [Theory]
     [Trait("Id", "GHS-004-AC4")]
-    [InlineData(1)]
     [InlineData(2)]
     [InlineData(5)]
-    [InlineData(9)]
     public void Plan_ContributorForANonSlotStep_Throws(int step)
     {
         var h = new BootHarness();

@@ -4,6 +4,7 @@ using PerformativeMail.Client.Core.Net;
 using PerformativeMail.Client.Core.Net.Codec;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Primitives;
+using static PerformativeMail.Sim.Tests.Unit.Net.NetTestKit;
 
 namespace PerformativeMail.Sim.Tests.Unit.Net;
 
@@ -30,47 +31,6 @@ public class HostAdapterOutboundTests
 
     // ------------------------------------------------------------ fixtures
 
-    private sealed class U32Codec : IOpCodec
-    {
-        public ushort CodecId => ProbeCodecId;
-
-        public byte WireSize => 4;
-
-        public int SampleCount => 1;
-
-        public bool TryDecode(ReadOnlySpan<byte> payload, ref OpPayload dst, out byte payloadLength)
-        {
-            payloadLength = 0;
-            if (payload.Length != 4)
-            {
-                return false;
-            }
-
-            Span<byte> target = dst;
-            payload.CopyTo(target);
-            payloadLength = 4;
-            return true;
-        }
-
-        public int Encode(in Op src, Span<byte> dst)
-        {
-            if (src.PayloadLength != 4 || dst.Length < 4)
-            {
-                return -1;
-            }
-
-            BinaryPrimitives.WriteUInt32LittleEndian(dst, src.PayloadAs<uint>());
-            return 4;
-        }
-
-        public Op GetSample(int index)
-        {
-            var op = default(Op);
-            op.SetPayload(1u);
-            return op;
-        }
-    }
-
     /// <summary>The world needs its sink at build time and the adapter needs the world: the relay closes the loop.</summary>
     private sealed class Relay : IEventSink
     {
@@ -93,9 +53,6 @@ public class HostAdapterOutboundTests
             Target?.Deliver(tick, entries, in overflow);
         }
     }
-
-    /// <summary>A header-only batch (tag 2, count 0): the host's quiet-tick heartbeat (TD-068 item 1), ignored by these tests; see HostLoopbackSessionTests for its own coverage.</summary>
-    private static bool IsHeartbeat(ReadOnlySpan<byte> bytes) => bytes.Length == 7 && bytes[0] == 0x02 && bytes[5] == 0 && bytes[6] == 0;
 
     private sealed class RemoteSpy : ITransport
     {
@@ -153,21 +110,6 @@ public class HostAdapterOutboundTests
         }
     }
 
-    private sealed class CountingSink : ITransportSink
-    {
-        public long Messages;
-
-        public void OnConnected(PeerHandle peer)
-        {
-        }
-
-        public void OnDisconnected(PeerHandle peer, DisconnectReason reason)
-        {
-        }
-
-        public void OnMessage(PeerHandle peer, NetChannel channel, ReadOnlySpan<byte> payload) => Messages++;
-    }
-
     private readonly record struct Rec(EventKind Kind, bool Continuation, uint Value, Reply Reply);
 
     private sealed class Rig
@@ -191,7 +133,7 @@ public class HostAdapterOutboundTests
                 },
                 instrument: false);
             IOpCodec[] core = SimCoreCodecs.Create();
-            Registry = new OpCodecRegistry(World.OpDescriptors, new IOpCodec[] { core[0], core[1], new U32Codec() });
+            Registry = new OpCodecRegistry(World.OpDescriptors, new IOpCodec[] { core[0], core[1], new U32Codec(ProbeCodecId) });
             Events = new EventCodecRegistry(World.EventDescriptors, new IEventCodec[] { new FixedLengthEventCodec(910, 4), new FixedLengthEventCodec(911, 4) });
             (HostEnd, ClientEnd) = LoopbackTransport.CreatePair();
             Adapter = new HostAdapter(World, Registry, HostEnd, Remote, new AdapterSettings { MaxBatchBytes = maxBatchBytes }, Roster, Events);

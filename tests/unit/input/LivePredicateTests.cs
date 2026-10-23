@@ -79,29 +79,26 @@ public class LivePredicateTests
         Assert.False(p.IsLive(Pack(overlay: OverlayLayer.Panel, body: BodyLayer.Mounted)));
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    [InlineData(3)]
-    [InlineData(4)]
-    [InlineData(5)]
-    public void EachMask_GatesLivenessOnItsOwnLayerAlone(int layer)
+    [Fact]
+    public void EachMask_GatesLivenessOnItsOwnLayerAlone()
     {
         // World with the layer's mask emptied: nothing is live, whatever the other layers hold.
-        LivePredicate p = layer switch
-        {
-            0 => LivePredicate.Any with { CaptureMask = 0 },
-            1 => LivePredicate.Any with { OverlayMask = 0 },
-            2 => LivePredicate.Any with { BodyMask = 0 },
-            3 => LivePredicate.Any with { HoldingMask = 0 },
-            4 => LivePredicate.Any with { AimingMask = 0 },
-            _ => LivePredicate.Any with { SubmenuMask = 0 },
-        };
+        (string Layer, LivePredicate P)[] emptied =
+        [
+            ("capture", LivePredicate.Any with { CaptureMask = 0 }),
+            ("overlay", LivePredicate.Any with { OverlayMask = 0 }),
+            ("body", LivePredicate.Any with { BodyMask = 0 }),
+            ("holding", LivePredicate.Any with { HoldingMask = 0 }),
+            ("aiming", LivePredicate.Any with { AimingMask = 0 }),
+            ("submenu", LivePredicate.Any with { SubmenuMask = 0 }),
+        ];
 
-        for (int i = 0; i < RouterStateInfo.StateCount; i++)
+        foreach ((string layer, LivePredicate p) in emptied)
         {
-            Assert.False(p.IsLive((ushort)i));
+            for (int i = 0; i < RouterStateInfo.StateCount; i++)
+            {
+                Assert.False(p.IsLive((ushort)i), layer + " mask emptied, state " + i);
+            }
         }
     }
 

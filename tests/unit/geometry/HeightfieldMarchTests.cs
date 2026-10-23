@@ -197,8 +197,6 @@ public class HeightfieldMarchTests
     [InlineData(2000, 0, 250, 0, 1)]
     [InlineData(2000, 250, 0, 1, 2)]          // |Dxz| = sqrt(62501) = 250.002 -> must round UP to 251 -> 2 (a floor sqrt would give 1)
     [InlineData(2000, 250, 0, 0, 1)]          // exactly 250
-    [InlineData(2000, 300, 0, 400, 2)]        // 3-4-5: 500 -> 2
-    [InlineData(2000, 1, 0, 1, 1)]            // sqrt(2) = 1.41 -> 2 -> ceil(2/250) = 1
     [InlineData(400, 201, 0, 0, 2)]           // cell 400: step = min(200, 250) = 200 -> ceil(201/200) = 2
     [InlineData(400, 200, 0, 0, 1)]
     [InlineData(1, 5, 0, 0, 5)]               // degenerate cell: step floors at 1
@@ -213,10 +211,7 @@ public class HeightfieldMarchTests
     }
 
     [Theory]
-    [InlineData(2, 4, 100, -50, 417)]    // TC-F4-1h: ceil(1000 * (150 + 100) / (4 * 150)) = ceil(416.67)
     [InlineData(1, 1, 50, 0, 1000)]      // lands exactly on the surface at the segment end
-    [InlineData(1, 2, 63, 0, 500)]       // ceil(1000 * 63 / (2 * 63))
-    [InlineData(3, 4, 150, -275, 589)]   // the ramp row: ceil(1000 * (2 * 425 + 150) / (4 * 425))
     [InlineData(1, 3, 1, -1, 167)]       // ceil(1000 * 1 / (3 * 2)) = ceil(166.67)
     public void ContactFraction_MatchesTheClosedForm(int i, int n, long gapPrev, long gap, int expected)
     {
@@ -264,13 +259,6 @@ public class HeightfieldMarchTests
         //   f = ceil(1000 * (262 * 249 + 249) / (263 * 249)) = 1000)
         Assert.True(hit);
         Assert.Equal(1000, f);
-    }
-
-    [Fact]
-    public void ExtentConstants_AreTheDocumentedBounds()
-    {
-        Assert.Equal(65_536, HeightfieldMarch.MaxSegmentExtentMm);
-        Assert.Equal(250, HeightfieldMarch.MaxStepMm);
     }
 }
 

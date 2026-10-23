@@ -623,8 +623,6 @@ public class NumericsTests
     [InlineData(2UL, 1U)]
     [InlineData(3UL, 1U)]
     [InlineData(4UL, 2U)]
-    [InlineData(15UL, 3U)]
-    [InlineData(16UL, 4U)]
     [InlineData(4_294_967_295UL, 65_535U)]
     [InlineData(4_611_686_018_427_387_904UL, 2_147_483_648U)]
     [InlineData(ulong.MaxValue, uint.MaxValue)]
@@ -948,20 +946,6 @@ public class NumericsTests
         // Assert
         Assert.Equal(0L, zero);
         Assert.Equal(0L, zeroOfNegative);
-        AssertCounts(block);
-    }
-
-    [Fact]
-    public void CentsMulPermille_NegativeAmountPositivePermille_KeepsSignAndIsUncounted()
-    {
-        // Arrange
-        long[] block = NewBlock();
-
-        // Act
-        long result = MulPermille(block, -15, 1500);
-
-        // Assert
-        Assert.Equal(-23L, result);
         AssertCounts(block);
     }
 

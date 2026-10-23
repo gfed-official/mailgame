@@ -73,29 +73,27 @@ public class ThrowingRulesTests
         Assert.True(hits.Count == 0, string.Join(Environment.NewLine, hits));
     }
 
-    [Theory]
-    [Trait("Id", "TR-throwing-002")]
-    [InlineData("RngStream stream = streams.Get(name);", "RngStream")]
-    [InlineData("void Draw(IRngSource source) { }", "IRngSource")]
-    [InlineData("ulong seed = RngDerive.Seed(root, id);", "RngDerive")]
-    public void ForbiddenTokens_MatchEachRngStreamType(string line, string expected)
-    {
-        // Act
-        string[] found = _forbiddenTokens.Matches(line).Select(m => m.Value).ToArray();
-
-        // Assert
-        Assert.Equal(new[] { expected }, found);
-    }
-
     [Fact]
     [Trait("Id", "TR-throwing-002")]
-    public void ForbiddenTokens_DoNotMatchTheSplitMixPureHash()
+    public void ForbiddenTokens_MatchEachRngStreamType_AndNotTheSplitMixPureHash()
     {
-        // Act
-        bool matched = _forbiddenTokens.IsMatch("ulong h = SplitMix.Mix64(a ^ b);");
+        (string Line, string Expected)[] rows =
+        [
+            ("RngStream stream = streams.Get(name);", "RngStream"),
+            ("void Draw(IRngSource source) { }", "IRngSource"),
+            ("ulong seed = RngDerive.Seed(root, id);", "RngDerive"),
+        ];
 
-        // Assert
-        Assert.False(matched);
+        foreach ((string line, string expected) in rows)
+        {
+            // Act
+            string[] found = _forbiddenTokens.Matches(line).Select(m => m.Value).ToArray();
+
+            // Assert
+            Assert.True(found.SequenceEqual(new[] { expected }), line + " matched [" + string.Join(", ", found) + "], expected [" + expected + "]");
+        }
+
+        Assert.DoesNotMatch(_forbiddenTokens, "ulong h = SplitMix.Mix64(a ^ b);");
     }
 
     [Fact]

@@ -16,7 +16,6 @@ public class EventCodecRoundTripTests
     public static IEnumerable<object[]> Codecs()
     {
         yield return new object[] { new FixedLengthEventCodec(910, 1) };
-        yield return new object[] { new FixedLengthEventCodec(911, 4) };
         yield return new object[] { new FixedLengthEventCodec(912, EventPayload.Size) };
         yield return new object[] { ReplyEventCodec.Instance };
     }

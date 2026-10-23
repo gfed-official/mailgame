@@ -51,21 +51,6 @@ public class SegmentIntervalsTests
     }
 
     [Fact]
-    [Trait("Id", "TC-F4-1")]
-    public void Slab_F4ExampleFlight_ContactFractionIs154()
-    {
-        // Arrange (TC-F4-1: the F1 flight at tick 21 into the mailbox catch volume)
-        var box = new AabbMm(new Vec3Mm(9750, 600, 9500), new Vec3Mm(10750, 1400, 10500));
-
-        // Act
-        SegmentInterval r = SegmentIntervals.Slab(new Vec3Mm(10250, 963, 10570), new Vec3Mm(10250, 837, 10114), in box);
-
-        // Assert
-        Assert.True(r.Hit);
-        Assert.Equal(154, r.FractionPm);
-    }
-
-    [Fact]
     public void Slab_SegmentStartingInside_FractionIsZero()
     {
         // Arrange

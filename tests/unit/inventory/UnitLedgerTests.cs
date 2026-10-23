@@ -693,7 +693,7 @@ public sealed class UnitLedgerTests
 
     private static T InPhase<T>(InvAutoPlaceRig rig, Func<T> call) => IntakeSpawnOutfeedTests.InPhase(rig, call);
 
-    private static void Ok(InvAutoPlaceRig rig, ActorId actor, Op op) => MoveSplitMergeTests.AssertOk(rig.Run(actor, in op));
+    private static void Ok(InvAutoPlaceRig rig, ActorId actor, Op op) => InvOpTestHelpers.AssertOk(rig.Run(actor, in op));
 
     private static bool Leash(InvAutoPlaceRig rig, PlayerSlot slot)
     {

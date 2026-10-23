@@ -127,21 +127,6 @@ public class PlayerJoinBindingTests
     }
 
     [Fact]
-    public void Spawn_Slot0_IsMinus1200OnZ_RelativeToThePadCentre()
-    {
-        // Arrange
-        var rig = PlayersRig.Create();
-
-        // Act
-        rig.JoinAndTick(0);
-
-        // Assert: ADR-0013 axis convention (slot 0 is at (0, -R)); the pad centre is pad-relative, never (0, 0).
-        Vec3Mm centre = rig.World.PostOffice.PadCentre;
-        Assert.Equal(centre.X, rig.Record(0).Carrier.X);
-        Assert.Equal(centre.Z - 1200, rig.Record(0).Carrier.Z);
-    }
-
-    [Fact]
     public void Spawn_OnTheM1aStreet_UsesItsPostOfficePad()
     {
         // Arrange

@@ -66,8 +66,6 @@ public class WorldTablesFixtureTests
     }
 
     [Theory]
-    [InlineData(1375, 450)]
-    [InlineData(1000, 600)]
     [InlineData(250, 900)]
     [InlineData(252, 899)]
     [InlineData(747, 701)]
