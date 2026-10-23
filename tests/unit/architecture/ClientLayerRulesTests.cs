@@ -12,6 +12,12 @@ namespace PerformativeMail.Sim.Tests.Unit.Architecture;
 /// references, lambdas included). Gameplay types are banned at signature level only: ADR-0003 section 6 places pure functions
 /// (e.g. Mail's evaluation, the carrier's held-effect maths) in gameplay namespaces and lets both roles call them, so a body
 /// call into a gameplay namespace is allowed.
+/// <para>
+/// Plus the per-system client steps (player-character story 014; Mail Lead planning default D5, pending Evan, TD-164; ADR-0016
+/// l.332): no type in a namespace ending in <c>.Client</c> (<c>PerformativeMail.Sim.&lt;System&gt;.Client</c>, ADR-0016 section 1)
+/// names <see cref="SimWorld"/> in a signature or a method body. The gameplay-type signature ban does not apply to them: they live
+/// in their system's folder and read its ports (<c>FocusStep</c> holds the <see cref="AnchorRegistry"/>).
+/// </para>
 /// </summary>
 [Trait("Id", "SC-ARCH-1")]
 public class ClientLayerRulesTests
@@ -32,6 +38,37 @@ public class ClientLayerRulesTests
         // Assert
         Assert.NotEmpty(clientLayer);
         Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void SimAssembly_ClientNamespaceTypes_NameNoSimWorld()
+    {
+        // Arrange
+        Type[] client = _sim.GetTypes()
+            .Where(t => t.Namespace is { } ns && ns.EndsWith(ClientLayerRules.ClientSuffix, StringComparison.Ordinal))
+            .ToArray();
+
+        // Act
+        List<ArchViolation> violations = ClientLayerRules.Check(client, banGameplay: false);
+
+        // Assert
+        Assert.Contains(typeof(PerformativeMail.Sim.Players.Client.FocusStep), client);
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void RuleEngine_ClientNamespaceFixture_ReportsSimWorldInSignatureAndBody_NotTheGameplayType()
+    {
+        // Arrange
+        Type[] universe = ArchitectureScan.WithNested(typeof(Client.SystemClientStepWorldFixture)).ToArray();
+
+        // Act
+        List<ArchViolation> violations = ClientLayerRules.Check(universe, banGameplay: false);
+
+        // Assert: the AnchorRegistry field is allowed; SimWorld is reported in the property and in the body.
+        Assert.Equal(new[] { "SystemClientStepWorldFixture: SimWorld" }, violations.Select(v => v.Key).Distinct());
+        Assert.Contains(violations, v => v.Where.StartsWith("body of", StringComparison.Ordinal));
+        Assert.Contains(violations, v => !v.Where.StartsWith("body of", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -85,6 +122,9 @@ internal static class ClientLayerRules
     /// <summary>The client layer namespace.</summary>
     public const string Namespace = "PerformativeMail.Sim.ClientLayer";
 
+    /// <summary>The suffix of the per-system client step namespaces (<c>PerformativeMail.Sim.&lt;System&gt;.Client</c>).</summary>
+    public const string ClientSuffix = ".Client";
+
     private const string SimRoot = "PerformativeMail.Sim";
 
     // Sim Core and content folders (ADR-0001 section 1); every other PerformativeMail.Sim.<Folder> is a gameplay system folder.
@@ -105,8 +145,8 @@ internal static class ClientLayerRules
         return !_nonGameplay.Contains(folder);
     }
 
-    /// <summary>Checks the signatures and method bodies of each given type.</summary>
-    public static List<ArchViolation> Check(IReadOnlyList<Type> types)
+    /// <summary>Checks the signatures and method bodies of each given type; <paramref name="banGameplay"/> false bans <see cref="SimWorld"/> only.</summary>
+    public static List<ArchViolation> Check(IReadOnlyList<Type> types, bool banGameplay = true)
     {
         var violations = new List<ArchViolation>();
         foreach (Type t in types)
@@ -114,7 +154,7 @@ internal static class ClientLayerRules
             string owner = ArchitectureScan.NameOf(ArchitectureScan.OwnerOf(t));
             foreach ((string where, Type type) in ArchitectureScan.SignatureTypes(t))
             {
-                AddBanned(violations, owner, type, $"{ArchitectureScan.NameOf(t)} {where}");
+                AddBanned(violations, owner, type, $"{ArchitectureScan.NameOf(t)} {where}", banGameplay);
             }
 
             foreach (MethodBase m in ArchitectureScan.MethodsWithBodies(t))
@@ -133,7 +173,7 @@ internal static class ClientLayerRules
         return violations;
     }
 
-    private static void AddBanned(List<ArchViolation> violations, string owner, Type type, string where)
+    private static void AddBanned(List<ArchViolation> violations, string owner, Type type, string where, bool banGameplay)
     {
         foreach (Type c in ArchitectureScan.Constituents(type).Where(c => !c.HasElementType))
         {
@@ -141,7 +181,7 @@ internal static class ClientLayerRules
             {
                 violations.Add(new ArchViolation(owner, nameof(SimWorld), where));
             }
-            else if (IsGameplay(c))
+            else if (banGameplay && IsGameplay(c))
             {
                 violations.Add(new ArchViolation(owner, c.FullName ?? c.Name, where));
             }
