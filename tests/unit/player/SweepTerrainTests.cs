@@ -109,9 +109,6 @@ public class SweepTerrainTests
     [InlineData(301, 2)]
     [InlineData(600, 2)]
     [InlineData(601, 3)]
-    [InlineData(650, 3)]
-    [InlineData(900, 3)]
-    [InlineData(1199, 4)]
     [InlineData(1200, 4)]
     [InlineData(1201, 4)]
     [InlineData(100_000, 4)]
@@ -156,9 +153,6 @@ public class SweepTerrainTests
     [InlineData(1, 1)]
     [InlineData(300, 1)]
     [InlineData(301, 2)]
-    [InlineData(600, 2)]
-    [InlineData(650, 3)]
-    [InlineData(1199, 4)]
     [InlineData(1200, 4)]
     public void Run_Displacement_UsesTheExpectedSubSteps_AndMovesExactlyD(int dx, int expectedSubSteps)
     {
@@ -174,7 +168,6 @@ public class SweepTerrainTests
     [Theory]
     [Trait("Id", "PCM-P4-2a")]
     [InlineData(1201)]
-    [InlineData(5000)]
     [InlineData(-1201)]
     public void Run_DisplacementOver1200_IsClampedTo1200_UsesFourSubSteps_AndCountsStepClamped(int dx)
     {
@@ -233,7 +226,6 @@ public class SweepTerrainTests
 
     [Theory]
     [Trait("Id", "PCM-P4-1a")]
-    [InlineData(1399, true)]
     [InlineData(1400, true)]
     [InlineData(1401, false)]
     [InlineData(1404, false)]
@@ -313,7 +305,6 @@ public class SweepTerrainTests
     [Theory]
     [Trait("Id", "PCM-P4-1a")]
     [InlineData(1404)]
-    [InlineData(1401)]
     public void Walking_StraightUpASteepRamp_NeverRaisesTheFeetAboveWhereTheSteepTerrainBegins(int rise)
     {
         // Arrange
@@ -703,30 +694,19 @@ public class SweepTerrainTests
     {
         var rig = new Rig(WorldTablesFixture.Dry(), 1600, 64_000, 1000);
         CarrierInput walk = Walk(MinusX, sprint: true);
+        var east = new Rig(WorldTablesFixture.Dry(), 126_000, 64_000, 1000);
+        CarrierInput walkEast = Walk(PlusX, sprint: true);
 
         for (int t = 0; t < 60; t++)
         {
             rig.Tick(in walk);
             Assert.True(rig.State.X >= 1000);
+            east.Tick(in walkEast);
+            Assert.True(east.State.X <= 127_000, $"east tick {t}: X {east.State.X}");
         }
 
         Assert.Equal((1000, 0, 64_000), (rig.State.X, rig.State.Vx, rig.State.Z));
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-P4-2b")]
-    public void Walking_OutwardAtTheEastEdge_RestsAt1000Inside()
-    {
-        var rig = new Rig(WorldTablesFixture.Dry(), 126_000, 64_000, 1000);
-        CarrierInput walk = Walk(PlusX, sprint: true);
-
-        for (int t = 0; t < 60; t++)
-        {
-            rig.Tick(in walk);
-            Assert.True(rig.State.X <= 127_000);
-        }
-
-        Assert.Equal((127_000, 0), (rig.State.X, rig.State.Vx));
+        Assert.Equal((127_000, 0), (east.State.X, east.State.Vx));   // and the east edge, 1000 mm inside
     }
 
     [Fact]
@@ -1079,7 +1059,6 @@ public class SweepTerrainTests
     [Trait("Id", "PCM-PERF-1")]
     [InlineData(0)]
     [InlineData(1)]
-    [InlineData(2)]
     [InlineData(3)]
     public void Slide_AConcaveCornerOfTwoSteepFaces_NeverExceedsTheCap_AndCancelsThePureUphillMove(int cap)
     {

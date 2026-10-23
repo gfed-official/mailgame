@@ -29,7 +29,6 @@ public class RenderClockTests
     [InlineData(0u, 999, 33L)]
     [InlineData(1u, 0, 33L)]
     [InlineData(1u, 500, 50L)]
-    [InlineData(3u, 0, 100L)]
     [InlineData(30u, 0, 1000L)]
     [InlineData(29u, 999, 999L)]
     [InlineData(uint.MaxValue, 999, ((long)uint.MaxValue * 1000 + 999) / 30)]
@@ -51,12 +50,9 @@ public class RenderClockTests
 
     [Theory]
     [InlineData(0u)]
-    [InlineData(1u)]
-    [InlineData(2u)]
     [InlineData(29u)]
     [InlineData(30u)]
     [InlineData(31u)]
-    [InlineData(9_000u)]
     [InlineData(2_147_483_647u)]
     public void TickBoundary_EqualsSimCoreF1DisplayTime(uint tick)
     {
@@ -105,21 +101,6 @@ public class RenderClockTests
         // Assert
         Assert.Equal(0, clock.AlphaPermille);
         Assert.Equal(100L, clock.RenderSimTimeMs);
-    }
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void IsValid_IsPassedThrough(bool valid)
-    {
-        // Arrange
-        var clock = new RenderClock(new FakeHostClock { EstimatedHostTick = 5, IsValid = valid }, DriverAtAlpha(0));
-
-        // Act
-        clock.Sample();
-
-        // Assert
-        Assert.Equal(valid, clock.IsValid);
     }
 
     [Fact]

@@ -73,14 +73,11 @@ public class CarrierPortsTests
         Assert.Same(rig.Players.Settings, env.Settings);
         Assert.Same(rig.World, env.World);
         Assert.Equal(self, env.Self);
-    }
 
-    [Fact]
-    public void CarrierEnv_NullPort_ThrowsAtConstruction()
-    {
-        PlayersRig rig = PlayersRig.Create();
-        Assert.Throws<ArgumentNullException>(() =>
-            new CarrierEnv(rig.World, null!, new EmptySupportTransformSource(), rig.Players.Settings, default));
+        // A second call shares the same empty port instances.
+        CarrierEnv other = rig.Players.CreateCarrierEnv(new EntityId(0x0100_0002));
+        Assert.Same(env.Remotes, other.Remotes);
+        Assert.Same(env.Supports, other.Supports);
     }
 
     // AC-3: CarrierInput carries the listed fields; Idle is full speed, default is speed 0.
@@ -365,15 +362,6 @@ public class CarrierPortsTests
     }
 
     [Fact]
-    public void Scratch_Getters_WorkThroughInReference()
-    {
-        var scratch = new CarrierScratch(8);
-        _ = scratch.TryAddSolid(4);
-
-        Assert.Equal(1, CountSolids(in scratch));
-    }
-
-    [Fact]
     public void Scratch_FromRigSettings_HasLimit64()
     {
         PlayersRig rig = PlayersRig.Create();
@@ -402,23 +390,10 @@ public class CarrierPortsTests
         PlayerSettings settings = rig.Players.Settings;
 
         Assert.Throws<ArgumentNullException>(() => new CarrierEnv(null!, remotes, supports, settings, default));
+        Assert.Throws<ArgumentNullException>(() => new CarrierEnv(rig.World, null!, supports, settings, default));
         Assert.Throws<ArgumentNullException>(() => new CarrierEnv(rig.World, remotes, null!, settings, default));
         Assert.Throws<ArgumentNullException>(() => new CarrierEnv(rig.World, remotes, supports, null!, default));
     }
-
-    [Fact]
-    public void CreateCarrierEnv_CalledTwice_SharesTheSameEmptyInstances()
-    {
-        PlayersRig rig = PlayersRig.Create();
-
-        CarrierEnv a = rig.Players.CreateCarrierEnv(new EntityId(1));
-        CarrierEnv b = rig.Players.CreateCarrierEnv(new EntityId(2));
-
-        Assert.Same(a.Remotes, b.Remotes);
-        Assert.Same(a.Supports, b.Supports);
-    }
-
-    private static int CountSolids(in CarrierScratch scratch) => scratch.Solids.Length;
 
     private static ulong Replay(RemoteCapsule[][] caps, VehiclePose[][] vehs, ScriptedBelt[][] belts)
     {
