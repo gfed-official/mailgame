@@ -24,17 +24,17 @@ public class CarrierPurityTests
         typeof(EmptyRemoteCapsuleSource), typeof(EmptySupportTransformSource), typeof(IRemoteCapsuleSource), typeof(ISupportTransformSource),
     ];
 
-    public static TheoryData<Type> DataTypeCases() => new(_dataTypes);
-
     public static TheoryData<Type> SolverSurfaceCases() => new(_solverSurface);
 
-    [Theory]
-    [MemberData(nameof(DataTypeCases))]
-    public void DataTypes_HaveNoFloatingPointSimWorldOrGodotMember(Type type)
+    // The two member scans loop their type lists in one test each; every offence names its type.
+    [Fact]
+    public void DataTypes_HaveNoFloatingPointSimWorldOrGodotMember()
     {
-        var visited = new HashSet<Type>();
         List<string> bad = [];
-        Visit(type, type.Name, visited, bad);
+        foreach (Type type in _dataTypes)
+        {
+            Visit(type, type.Name, new HashSet<Type>(), bad);
+        }
 
         Assert.True(bad.Count == 0, string.Join("; ", bad));
     }
@@ -51,15 +51,17 @@ public class CarrierPurityTests
         Assert.Empty(offenders);
     }
 
-    [Theory]
-    [MemberData(nameof(SolverSurfaceCases))]
-    public void SolverSurface_MethodsAndPropertiesDoNotMentionFloatingPoint(Type type)
+    [Fact]
+    public void SolverSurface_MethodsAndPropertiesDoNotMentionFloatingPoint()
     {
         List<string> bad = [];
-        foreach (MethodInfo m in type.GetMethods(AllFields | BindingFlags.Instance | BindingFlags.Static))
+        foreach (Type type in _solverSurface)
         {
-            Type[] used = [m.ReturnType, .. m.GetParameters().Select(p => p.ParameterType)];
-            bad.AddRange(used.Where(IsForbiddenLeaf).Select(t => $"{type.Name}.{m.Name} uses {t.Name}"));
+            foreach (MethodInfo m in type.GetMethods(AllFields | BindingFlags.Instance | BindingFlags.Static))
+            {
+                Type[] used = [m.ReturnType, .. m.GetParameters().Select(p => p.ParameterType)];
+                bad.AddRange(used.Where(IsForbiddenLeaf).Select(t => $"{type.Name}.{m.Name} uses {t.Name}"));
+            }
         }
 
         Assert.True(bad.Count == 0, string.Join("; ", bad));
