@@ -78,6 +78,14 @@ jobs:
       - name: Guard - build-configuration table (ADR-0001 section 4)
         run: bash tools/ci/check-build-config.sh
 
+      # Story godot-host-shell/003 (ADR-0002 section 3): only Hosting/ and Boot/ name the Sim's
+      # frame pump, and GameLoop never reads the frame delta. Runs on every matrix leg.
+      # Exit codes: 0 = clean, 1 = violation, other = error. The self-check proves both checks fire.
+      - name: Guard - Sim access from the host shell (ADR-0002 section 3)
+        run: |
+          bash tools/ci/check-sim-access.sh --self-check
+          bash tools/ci/check-sim-access.sh
+
       - name: Restore
         run: dotnet restore PerformativeMail.sln -p:PmTestTfm=${{ matrix.tfm }}
 
