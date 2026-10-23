@@ -23,10 +23,10 @@
 
 **Control Manifest Rules (Core layer unless noted)**:
 - Required: op handlers and `IInventoryApi` calls share one internal mutation layer, `InventoryMutator`; no system writes container, entry or ledger state directly (ADR-0009)
-- Required: conservation via `UnitLedger` touched only by the lowest mutator primitives; tick-end Σ check in every build, always-on record on mismatch, never throws; full scan behind `[Conditional("INVENTORY_ASSERT")]` (ADR-0009 §6)
+- Required: conservation via a `UnitLedger` of O(1) counters written only by `InventoryMutator`'s primitives (ADR-0009 §6 erratum 2026-10-22); tick-end Σ check in every build, always-on record on mismatch, never throws; full scan behind `[Conditional("INVENTORY_ASSERT")]` (ADR-0009 §6, manifest l.350; quote updated to the post-erratum manifest — advisory fix, Mail Review PR #36 A12)
 - Required (Foundation, ADR-0006 §4): `ISimStateContributor` writes fields one by one, little-endian, collections ascending by id, unique never-reused `SectionId`
 - Required (Foundation, ADR-0001 §4): build-dependent behaviour only via `SIM_ASSERT`/`INVENTORY_ASSERT`
-- Required: inventory interaction goes only through `IInventoryApi`, boundary crossings into Flight, Belt and Backlog included (ADR-0009 §6, manifest l.430); `Validate` never touches the ledger (ADR-0009 §2, manifest l.339)
+- Required: inventory interaction goes only through `IInventoryApi` (boundary crossings into Flight, Belt, Backlog included) — for systems outside Inventory; Inventory's own `WorldItems` and `TryAppendDetached` are internal (ADR-0009 §6 erratum 2026-10-22, manifest l.432; quote updated to the post-erratum manifest — advisory fix, Mail Review PR #36 A12); `Validate` never touches the ledger (ADR-0009 §2, manifest l.339)
 - Re-checked against manifest 2026-10-17.1: current (revision .1 changes no rule this story cites).
 
 ---
@@ -141,6 +141,6 @@
 **New values** (append-only): `CheckCode` 15 `InventoryConservationMismatch`; `CounterId` 51 `InventoryConservationMismatches`; `SimAssertCode` 84 `InventoryConservationScan`; TD-160. No new EventKind (0x008B stays free); TD-156 untouched.
 **Deviations** (TD-160 items 2–11 approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT; items 1, 13 and 14 Approved by Evan 2026-10-22 6:41 PM PT (ADR-0009 §6 l.170 erratum, Review B1); items 12 and 15 Approved by Evan 2026-10-22 7:12 PM PT ("I approve all")): see "Planning defaults" above; as built, holder exits live inside the consuming primitive (`Place` whole, `MergeInto` merged units; item 12), the primitive set also has `CountSpawned` and `ConsumeOldest` (item 13), the WorldItem return into the backlog uses the internal `TryAppendDetached` (seen by the ledger through `EnterHolder`; item 14), and an out-of-range ledger row is ignored by the ledger and the scan alike (accepted advisory, item 15).
 **Register**: TD-163 added (Mail Review r1 A3: the holder bytes must be rebuilt on load); TD-135 closed (`DestroyNonMail`/`DestroyDetached` and `CreateWorldItem` report to the ledger); TD-145 closed as narrowed (TD-160 item 8); TD-144 note names the as-built primitives.
-**Test Evidence**: 6,244 tests per leg, 0 failed, all four legs (net10.0/net8.0 × Debug/Release): Debug 6,182 passed / 62 skipped, Release 6,237 passed / 7 skipped; every guard (each with `--self-check`), the game build and `tools/ci/check-sim-access.sh` pass.
+**Test Evidence**: 6,249 tests per leg, 0 failed, all four legs (net10.0/net8.0 × Debug/Release): Debug 6,187 passed / 62 skipped, Release 6,242 passed / 7 skipped (at 03525d7, after Mail Review r1 A1–A6; was 6,244 / 6,182 / 6,237 before them — advisory fix, Mail Review PR #36 A12); every guard (each with `--self-check`), the game build and `tools/ci/check-sim-access.sh` pass.
 **Run result**: N/A — Sim-only, no Godot surface (no smoke run)
 **Code Review**: completion review (Sonnet, read-only): COMPLETE WITH NOTES, no BLOCKING; advisories A1–A9 fixed on Opus (A1 custody 0 B workload, A2/A3 `ConservationCheck` doc, A4 `PlacementFixture` dropped from the Recount AC, A5 accepted as TD-160 item 15, A6/A9 register rows, A7 crossing steps, A8 contributor example).
