@@ -5,8 +5,9 @@ namespace PerformativeMail.Sim.Players;
 /// <summary>
 /// Why a hold or channel was cancelled (ADR-0014 sections 4 and 7: <c>InteractionSnapshot.LastCancel</c>; a cancel is recorded
 /// with a reason, never silent). A <c>byte</c>; values are APPEND-ONLY and never renumbered or reused. Story 013 declares
-/// <see cref="None"/> plus the five context-change cases; story 017 appends release, range, unregistered, unavailable and the
-/// owner's <c>ShouldCancel</c>.
+/// <see cref="None"/> plus the five context-change cases; story 016 appends the two press refusals <see cref="Unavailable"/> and
+/// <see cref="Busy"/> (D4 — Mail Lead default, pending Evan (TD-171)); story 017 appends release, range, unregistered and the
+/// owner's <c>ShouldCancel</c> after them.
 /// </summary>
 /// <example><code>CancelReason r = InteractionGate.ContextCancelReason(in before, in after);   // None while walking</code></example>
 public enum CancelReason : byte
@@ -28,6 +29,12 @@ public enum CancelReason : byte
 
     /// <summary>The carrier was knocked down (life state Alive to Dead).</summary>
     Knockdown = 5,
+
+    /// <summary>A press on a registered, in-range target whose <c>IsAvailable</c> was false: nothing fired (ADR-0014 l.81; the prompt pulse).</summary>
+    Unavailable = 6,
+
+    /// <summary>A Tap request was built but <c>IRequestSink.TrySend</c> returned false (local busy): nothing was sent.</summary>
+    Busy = 7,
 }
 
 /// <summary>The kind of an <see cref="GateResult"/>. <c>default</c> is <see cref="NoCandidate"/>, the safe value.</summary>
