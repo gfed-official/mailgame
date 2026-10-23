@@ -13,11 +13,11 @@
 ## Context
 
 **GDD**: `design/gdd/throwing-catching.md` (T2 what launches; T4 "Launch tick", "The host creates the `FlightRecord`", "Then, in the same tick …", "A release can never strand an entry"; Edge Cases "If a release is applied on the thrower's knockdown tick", "If a throw is released in Prep, Payday or Draft")
-**Requirement**: `TR-throwing-001` (host launches at the apply tick, no back-dating), `TR-throwing-009` (`FlightRecord` fields, snapshotted `thrownPm`), `TR-throwing-013` (the entry moves PLACED → FLIGHT through `IInventoryApi` only), `TR-throwing-011` (the `TAT` update)
+**Requirement**: `TR-throwing-001` (host launches at the apply tick, no back-dating), `TR-throwing-009` (`FlightRecord` fields, snapshotted `thrownPm`), `TR-throwing-013` (the entry moves PLACED → FLIGHT through `IInventoryApi` only); `TR-throwing-011` (the `TAT` update) moved with the bucket to story 028 (Deferred, M0; erratum E5)
 *(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time. Acceptance ids: TC-T2-1, TC-T4-1 c, TC-N-1 (ordering half), TC-E-4 (launch half), TC-F1-1 b (`thrownPm` snapshot, Later vector).)*
 
 **ADR Governing Implementation**: ADR-0015: Shared Integer Ballistic, Sweep and Flight Resolution (§1 "Launch at the apply tick `T`" order of effects) — Accepted 2026-10-16 (primary); ADR-0009 (`DetachForThrow`, Flight ledger, one version seal per touched container), ADR-0008 (event ordering: handler events precede its reply) and ADR-0010 (StatSheet latch at op start, `ThrowRangePermille`, `ThrownCorrectPayMult`) secondary — Accepted
-**ADR Decision Summary**: Launch is at the apply tick `T` (no back-dating): F1 → `TAT ← max(TAT, T) + throwCooldownTicks` → `IInventoryApi.DetachForThrow(slot, entryId, units)` (PLACED → FLIGHT, its `Removed` event) → append the `FlightRecord` → raise `ThrowLaunched` → reply `ok`. `Validate` is pure; `Commit` never fails and never recomputes. For the thrower the log order is Grid `Removed` → `ThrowLaunched` → `ok`.
+**ADR Decision Summary**: Launch is at the apply tick `T` (no back-dating): F1 → `tat'` carried unchanged at M-1a (the `TAT ← max(TAT, T) + throwCooldownTicks` bucket update is story 028, Deferred, erratum E5) → `IInventoryApi.DetachForThrow(slot, entryId, units)` (PLACED → FLIGHT, its `Removed` event) → append the `FlightRecord` → raise `ThrowLaunched` → reply `ok`. `Validate` is pure; `Commit` never fails and never recomputes. For the thrower the log order is Grid `Removed` → `ThrowLaunched` → `ok`.
 **ADR Version**: ADR-0015 2026-10-16; ADR-0009 2026-10-16; ADR-0008 2026-10-16; ADR-0010 2026-10-16
 
 **Engine**: Godot 4.7.1 .NET (Godot-free `net8.0` Sim code) | **Risk**: LOW

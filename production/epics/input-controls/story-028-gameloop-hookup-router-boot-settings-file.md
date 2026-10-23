@@ -10,7 +10,7 @@
 
 > **Unblocked 2026-10-16 (story 001 Complete, OQ-IC-9 spike verdict GO-WITH-DELTAS — satisfies the ADR-0012 §7 "spike recorded under `prototypes/`" gate):** apply ADR-0012 deltas D-1..D-8 (TD-021) — 026 not Done until the S-25 retention follow-up (TD-022). Read `prototypes/spike-oq-ic-9-input/REPORT.md` `## ADR-0012 §7 deltas` and the `## Consumed by` row for this story before implementing; `/story-readiness` still recommended. Its second unblock condition (stories 026 / 027 Ready) is met by the same change. Also verify D-1's root-last re-assertion (`ChildEnteredTree` → `MoveChild`, likely `CallDeferred`; spike H-1). Still needs `production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md` and `story-004-boot-sequence-error-screen-content-step.md` (dependencies).
 
-> **Dependencies re-pointed 2026-10-23 (E1, Evan 8:10 AM PT "approve all").** Story 029 (integration suite and MANUAL evidence) is Deferred to M0 and story 025 (CI lint) likewise; neither was a dependency of this story. Story 019 was split: the parser, defaults and clamping this story boots with stay in 019 (Ready); the overrides-only writer, `bindings` and migrations are story 032 (Deferred, M1) — this story never writes `user://input.json`. The headless boot/run log below is recorded by this story itself in `production/qa/evidence/input-adapter-evidence.md`.
+> **Dependencies re-pointed 2026-10-23 (E1, Evan 8:10 AM PT "approve all").** Story 025 (CI lint) is Deferred to M0 and was not a dependency of this story; story 029 (integration suite and MANUAL evidence) stays Ready and depends on this story. Story 019 was split: the parser, defaults and clamping this story boots with stay in 019 (Ready); the overrides-only writer, `bindings` and migrations are story 032 (Deferred, M1) — this story never writes `user://input.json`. The headless boot/run log below is recorded by this story itself in `production/qa/evidence/input-adapter-evidence.md`.
 
 ## Context
 
@@ -86,4 +86,4 @@
 ## Dependencies
 
 - Depends on: **Story 001 (spike verdict)**, Stories 026, 027, 016 (pause requests), 012 (`PresentedPromptLatch`), 013 (sinks), 015 (`ReplyObserved`), 019 (settings); `production/epics/simulation-core/story-024-framerunner.md`, `story-023-clientlayer-shell-inputlatch.md`; `production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md` (`GameLoop`, hook points, pause), `production/epics/godot-host-shell/story-004-boot-sequence-error-screen-content-step.md` (boot order, error screen), `production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md` (`Main.tscn` scene root)
-- Unlocks: every presentation story that needs live input (panel view, camera rig, aim ribbon, mailbox prompt); Deferred: 029 (M0)
+- Unlocks: every presentation story that needs live input (panel view, camera rig, aim ribbon, mailbox prompt); Story 029

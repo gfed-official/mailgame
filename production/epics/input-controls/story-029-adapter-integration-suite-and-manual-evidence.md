@@ -15,7 +15,7 @@
 
 ## Context
 
-**GDD**: `design/gdd/input-controls.md` (ACs H-R9-2, H-R11-3, H-EC-5, H-EC-6, H-EC-11 (MANUAL), H-EC-12, H-EC-13 prompt half (MANUAL), H-R6-2 (f), H-G4-1 integration, H-R12-1 boot; "Open flags from the qa-lead pass")
+**GDD**: `design/gdd/input-controls.md` (ACs H-R9-2, H-R11-3, H-EC-5, H-EC-11 (MANUAL), H-EC-13 prompt half (MANUAL), H-R6-2 (f), H-G4-1 integration, H-R12-1 boot; "Open flags from the qa-lead pass")
 **Requirement**: `TR-input-007`, `TR-input-015`, `TR-input-016`, `TR-input-022` (the adapter rows, end to end); `TR-input-014` solo-pause clause
 *(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time.)*
 

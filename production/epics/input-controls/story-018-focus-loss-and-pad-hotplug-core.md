@@ -57,7 +57,7 @@
 
 *Handled by neighbouring stories — do not implement here:*
 
-- Story 031 (Deferred, M0): `OnPadConnection`, H-EC-6, the `DeviceLost` row, the controller banner and the `JoyConnectionChanged` delivery. Story 027: receiving `NotificationApplicationFocusOut/In`, re-applying mouse capture, the project setting. Story 029 (Deferred, M0): the Godot-hosted integration run (H-EC-5 full) and MANUAL evidence. Story 028: calling `TickDriver.Pause()` on `PauseRequested`.
+- Story 031 (Deferred, M0): `OnPadConnection`, H-EC-6, the `DeviceLost` row, the controller banner and the `JoyConnectionChanged` delivery. Story 027: receiving `NotificationApplicationFocusOut/In`, re-applying mouse capture, the project setting. Story 029 (Ready, Track B): the Godot-hosted integration run (H-EC-5 full) and MANUAL evidence. Story 028: calling `TickDriver.Pause()` on `PauseRequested`.
 - M0: TextEntry capture, mic latch, "Reconnecting" capture state (OQ-IC-18).
 
 ---
