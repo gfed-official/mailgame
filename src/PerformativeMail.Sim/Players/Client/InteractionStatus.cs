@@ -18,9 +18,12 @@ public struct InteractionStatus
     /// <summary>The latch while <see cref="State"/> is Holding or Channel (a Tap's latch is transient and never stored here).</summary>
     public InteractionLatch Latch { get; internal set; }
 
-    /// <summary>The last cancel or press refusal (<see cref="CancelReason.Unavailable"/>, <see cref="CancelReason.Busy"/>; story 017's cancels).</summary>
+    /// <summary>
+    /// The last cancel or press refusal (<see cref="CancelReason.Unavailable"/>, <see cref="CancelReason.Busy"/>; story 017's cancels).
+    /// Held until overwritten; stories 017/018 own clearing and publication.
+    /// </summary>
     public CancelReason LastCancel { get; internal set; }
 
-    /// <summary>The reason key of <see cref="LastCancel"/> (the unavailable target's, for the prompt pulse); <see cref="StringId.None"/> otherwise.</summary>
+    /// <summary>The reason key of <see cref="LastCancel"/> (the unavailable target's, for the prompt pulse); <see cref="StringId.None"/> otherwise. Held with <see cref="LastCancel"/> until overwritten.</summary>
     public StringId LastCancelReason { get; internal set; }
 }

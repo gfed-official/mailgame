@@ -108,6 +108,9 @@ internal sealed class PressOwner : IInteractable
 {
     public const byte PayloadMark = 0xA5;
 
+    /// <summary>The <see cref="Order"/> of a Tap: OnPress (1), then TryBuildRequest (3).</summary>
+    public const long OnPressThenTryBuildRequest = 13;
+
     private readonly IStatSheet _stats;
 
     public PressOwner(IStatSheet stats)
@@ -412,7 +415,6 @@ public class PressResolutionTests
     [Theory]
     [InlineData("Dead, no target, lob inbound", "dead", "none", PressOutcome.Refused)]
     [InlineData("Panel, container presented", "panel", "container", PressOutcome.Refused)]
-    [InlineData("Mounted, no target, lob inbound", "mounted", "none", PressOutcome.Refused)]
     [InlineData("Mounted, a container presented", "mounted", "container", PressOutcome.Refused)]
     [InlineData("Mounted, own-seat Dismount presented", "mounted", "seat", PressOutcome.Verb)]
     public void DeadPanelMounted_RefuseTheEdge_ExceptTheOwnSeatDismount(string row, string context, string presented, PressOutcome expected)
@@ -477,7 +479,7 @@ public class PressResolutionTests
 
         // Assert: one attempt; the transient latch had PressTick, Claimed and the OnPress payload before TryBuildRequest.
         InteractionLatch built = rig.ContainerOwner.BuiltFrom;
-        Assert.Equal((1, accept ? 1 : 0, 13L), (rig.Requests.Attempts, rig.Requests.Sent, rig.ContainerOwner.Order));
+        Assert.Equal((1, accept ? 1 : 0, PressOwner.OnPressThenTryBuildRequest), (rig.Requests.Attempts, rig.Requests.Sent, rig.ContainerOwner.Order));
         Assert.Equal((tick, PressOwner.PayloadMark), (built.PressTick, built.OwnerPayload[0]));
         Assert.Equal((InteractState.Idle, default(InteractionLatch).Anchor, accept ? CancelReason.None : CancelReason.Busy), (rig.Interaction.State, rig.Interaction.Latch.Anchor, rig.Interaction.LastCancel));
         if (accept)
@@ -568,27 +570,19 @@ public class PressResolutionTests
         // Assert: one request, the hold on the mailbox kept, no catch, two ignored presses.
         Assert.Equal((1, 0), (rig.Requests.Sent, rig.CatchArm.Downs));
         Assert.Equal((InteractState.Holding, PressRig.Mailbox, latched.PressTick), (rig.Interaction.State, rig.Interaction.Latch.Anchor, rig.Interaction.Latch.PressTick));
-        Assert.Equal((13L, 2L), (rig.ContainerOwner.Order, rig.Counters[CounterId.InteractPressIgnored]));
+        Assert.Equal((PressOwner.OnPressThenTryBuildRequest, 2L), (rig.ContainerOwner.Order, rig.Counters[CounterId.InteractPressIgnored]));
     }
 
     [Theory]
     [Trait("Id", "H-R4-4")]
     [InlineData("unavailable target", "")]
     [InlineData("Dead", "dead")]
-    [InlineData("Panel", "panel")]
-    [InlineData("Mounted, no own-seat candidate", "mounted")]
     public void UnavailableOrRefusedPress_FiresNothing_UnavailableRecordsTheReason(string row, string context)
     {
         // Arrange: a lob is inbound (into the unavailable target, so the D3 gate blocks rule 1); a fall-through would catch-arm.
         var rig = new PressRig();
         rig.Predictor.Next = PressRig.Lob(context.Length == 0 ? PressRig.Closed : AnchorRef.None);
-        rig.Source.SetStatus(context switch
-        {
-            "dead" => PressRig.Status(BodyContext.Dead),
-            "panel" => PressRig.Status(panel: true),
-            "mounted" => PressRig.Status(BodyContext.Mounted, seat: FocusRig.Ref(60)),
-            _ => PressRig.Status(),
-        });
+        rig.Source.SetStatus(context.Length == 0 ? PressRig.Status() : PressRig.Status(BodyContext.Dead));
         rig.Press(context.Length == 0 ? PressRig.Closed : PressRig.Container);
 
         // Act

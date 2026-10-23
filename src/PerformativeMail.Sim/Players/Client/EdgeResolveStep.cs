@@ -146,6 +146,7 @@ public sealed class EdgeResolveStep : IClientStep
                 }
                 else
                 {
+                    // Busy here is a Mail Dev build call (the story specifies Busy for Tap only), pending Evan via TD-171's as-built note.
                     Cancel(CancelReason.Busy, StringId.None);
                 }
 
@@ -171,6 +172,8 @@ public sealed class EdgeResolveStep : IClientStep
         {
             case InteractMode.Tap:
                 Op op = default;
+
+                // TryBuildRequest false: nothing is sent and no cancel is recorded (not specified by the story; the owner declined to build).
                 if (impl.TryBuildRequest(in latch, in c, ref op) && !_requests.TrySend(in op))
                 {
                     Cancel(CancelReason.Busy, StringId.None);

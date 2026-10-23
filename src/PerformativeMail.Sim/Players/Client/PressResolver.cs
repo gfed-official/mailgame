@@ -167,6 +167,9 @@ public sealed class PressResolver
         }
 
         InteractionContext c = ForAnchor(in press, in _anchors.DefAt(index), _anchors.ContextMaskAt(index));
+
+        // IsAvailable is the only owner refusal at press; OnPress returns void and cannot refuse (D3 — Mail Lead default,
+        // pending Evan (TD-171); ADR-0014 l.146).
         return _anchors.ImplAt(index).IsAvailable(in c, out StringId reason)
             ? new PressResolution(PressOutcome.Verb, index, StringId.None)
             : new PressResolution(PressOutcome.Unavailable, -1, reason);
