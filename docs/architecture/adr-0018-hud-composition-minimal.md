@@ -280,3 +280,6 @@ No HUD code exists. hud-notifications stories, in order:
 
 ## Amendments
 - *(none — the M0+ amendment is planned in §6)*
+
+## Errata
+- 2026-10-23 — §4.4 glyph source: §4.4 said `{glyph}` uses the physical-input name "until input-controls story 017's `router.Glyphs` lands". `router.Glyphs` moved to **input-controls story 030 (Deferred, M1)** when 017 was split under erratum E1. Until 030 lands, the HUD renders `{glyph}` as keyboard text: the Interact binding's physical-input name from `BuiltInActionMap` (input-controls 005; ADR-0012 l.136), e.g. `[E]`. Approved by Evan, Mail Lead chat, 2026-10-23 9:08 AM PT: "Approve the E1 label fix, the ADR-0018 glyph-source fix, the ADR-0004 Reason enum erratum, and the new planning defaults" (decision log 2026-10-23).
