@@ -60,6 +60,23 @@ public sealed class UnitLedgerTests
     }
 
     [Fact]
+    public void LiveStateCount_AndConsumeReasonCount_AreTheMemberCountsOfTheirEnums_ValuedZeroToCountMinusOne()
+    {
+        // Arrange: every LedgerState member is a live state (the enum has no non-live or sentinel member; "no holder" is the separate
+        // byte UnitLedger.NoHolder) and every ConsumeReason member is a consume reason (no sentinel either). The ledger indexes its row
+        // by (int)state and ConsumedBase + (int)reason, so each enum must also be exactly 0..count-1.
+        int[] states = Enum.GetValues<LedgerState>().Select(s => (int)s).Order().ToArray();
+        int[] reasons = Enum.GetValues<ConsumeReason>().Select(r => (int)r).Order().ToArray();
+
+        // Act / Assert
+        Assert.Equal(UnitLedger.LiveStateCount, states.Length);
+        Assert.Equal(Enumerable.Range(0, UnitLedger.LiveStateCount), states);
+        Assert.Equal(UnitLedger.ConsumeReasonCount, reasons.Length);
+        Assert.Equal(Enumerable.Range(0, UnitLedger.ConsumeReasonCount), reasons);
+        Assert.False(Enum.IsDefined(typeof(LedgerState), UnitLedger.NoHolder));
+    }
+
+    [Fact]
     public void Consumed_IsTheSumOfItsThreeReasonCounters_AndExpectedSubtractsItAndDestroyed()
     {
         // Arrange
@@ -416,7 +433,7 @@ public sealed class UnitLedgerTests
 
     [Fact]
     [Trait("Id", "H-R19-2")]
-    public void Check_ACorruptedSpawned_WritesOneRecordPerRow_ACountsEveryTick_AndTheTickCompletes_InEveryBuild()
+    public void Check_ACorruptedSpawned_WritesOneRateLimitedRecord_ACountsEveryTick_AndTheTickCompletes_InEveryBuild()
     {
         // Arrange: a recounted world; the mail row's spawned +3 and the plank row's spawned -2 (the seam touches only spawned, which
         // only the Σ check reads, so the INVENTORY_ASSERT scan does not trip in Debug)

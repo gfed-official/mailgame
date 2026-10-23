@@ -22,6 +22,14 @@ public sealed class InventoryStateContributorTests
     /// <summary>One ledger row: six live states, three consume reasons, destroyed, spawned, granted (i64 each).</summary>
     private const int LedgerRowBytes = 12 * 8;
 
+    // A dumped ledger row's field indices after its live states (each field is one i64).
+    private const int LedgerDelivered = UnitLedger.LiveStateCount;
+    private const int LedgerMisdelivered = LedgerDelivered + 1;
+    private const int LedgerReturnedToSender = LedgerDelivered + 2;
+    private const int LedgerDestroyed = LedgerReturnedToSender + 1;
+    private const int LedgerSpawned = LedgerDestroyed + 1;
+    private const int LedgerGranted = LedgerSpawned + 1;
+
     /// <summary>One live entry before its mailIds: id, container, x, y, rotated, count, isMail, kind, addressId, flags, W, H, arrivalSeq.</summary>
     private const int EntryFixedBytes = 4 + 4 + 1 + 1 + 1 + 1 + 1 + 2 + 4 + 1 + 1 + 1 + 4;
 
@@ -63,29 +71,31 @@ public sealed class InventoryStateContributorTests
         InvAutoPlaceRig rig = Drive();
         InventorySystem inv = rig.Inventory;
         UnitLedger ledger = inv.Ledger;
+        Assert.Equal(2, ledger.Consumed(UnitLedger.MailRow, ConsumeReason.Delivered) + ledger.Consumed(UnitLedger.MailRow, ConsumeReason.Misdelivered));
+
+        // Then every ledger counter of every row is set to its own distinct non-zero value, so a dump that swapped any two fields fails
+        SetEveryLedgerCounterDistinct(rig);
 
         // Act
         byte[] s = SectionOf(rig);
 
-        // Assert: the ledger
+        // Assert: the ledger, each field its exact value at its offset
         int at = s.Length - TailBytes(inv);
         Assert.Equal((uint)ledger.Rows, U32(s, ref at));
         for (int row = 0; row < ledger.Rows; row++)
         {
             for (int st = 0; st < UnitLedger.LiveStateCount; st++)
             {
-                Assert.Equal(ledger.Live(row, (LedgerState)st), I64(s, ref at));
+                Assert.Equal(LedgerTarget(row, st), I64(s, ref at));
             }
 
-            Assert.Equal(ledger.Consumed(row, ConsumeReason.Delivered), I64(s, ref at));
-            Assert.Equal(ledger.Consumed(row, ConsumeReason.Misdelivered), I64(s, ref at));
-            Assert.Equal(ledger.Consumed(row, ConsumeReason.ReturnedToSender), I64(s, ref at));
-            Assert.Equal(ledger.Destroyed(row), I64(s, ref at));
-            Assert.Equal(ledger.Spawned(row), I64(s, ref at));
-            Assert.Equal(ledger.Granted(row), I64(s, ref at));
+            Assert.Equal(LedgerTarget(row, LedgerDelivered), I64(s, ref at));
+            Assert.Equal(LedgerTarget(row, LedgerMisdelivered), I64(s, ref at));
+            Assert.Equal(LedgerTarget(row, LedgerReturnedToSender), I64(s, ref at));
+            Assert.Equal(LedgerTarget(row, LedgerDestroyed), I64(s, ref at));
+            Assert.Equal(LedgerTarget(row, LedgerSpawned), I64(s, ref at));
+            Assert.Equal(LedgerTarget(row, LedgerGranted), I64(s, ref at));
         }
-
-        Assert.Equal(2, ledger.Consumed(UnitLedger.MailRow, ConsumeReason.Delivered) + ledger.Consumed(UnitLedger.MailRow, ConsumeReason.Misdelivered));
 
         // The entry-id allocator, then the live entries ascending by entryId (a pool slot was reused, so slot order differs)
         Assert.Equal(inv.Entries.LastId, U32(s, ref at));
@@ -284,6 +294,59 @@ public sealed class InventoryStateContributorTests
         Assert.True(IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.ConsumeUnit(new EntryRef(inventoryA, stackId), ConsumeReason.Misdelivered, rig.PlayerA)));
         return rig;
     }
+
+    /// <summary>
+    /// The value <see cref="SetEveryLedgerCounterDistinct"/> gives <paramref name="row"/>'s field <paramref name="field"/> (its index in
+    /// the dumped row: the live states, then the three consume reasons, destroyed, spawned, granted): distinct and non-zero across
+    /// every field of every row.
+    /// </summary>
+    private static long LedgerTarget(int row, int field) => (1000L * (row + 1)) + field + 1;
+
+    /// <summary>
+    /// Sets every counter of every ledger row to its <see cref="LedgerTarget"/>. The crossings write all but <c>granted</c>, which only
+    /// the Recount seam sets (to Σ live − (spawned − consumed − destroyed), live recounted from storage), so spawned is first set to
+    /// give the target granted on a recount and then moved to its own target, after which the live states are moved to theirs.
+    /// </summary>
+    private static void SetEveryLedgerCounterDistinct(InvAutoPlaceRig rig)
+    {
+        UnitLedger ledger = rig.Inventory.Ledger;
+        rig.Recount();
+        for (int row = 0; row < ledger.Rows; row++)
+        {
+            ledger.AddConsumed(row, ConsumeReason.Delivered, (int)(LedgerTarget(row, LedgerDelivered) - ledger.Consumed(row, ConsumeReason.Delivered)));
+            ledger.AddConsumed(row, ConsumeReason.Misdelivered, (int)(LedgerTarget(row, LedgerMisdelivered) - ledger.Consumed(row, ConsumeReason.Misdelivered)));
+            ledger.AddConsumed(row, ConsumeReason.ReturnedToSender, (int)(LedgerTarget(row, LedgerReturnedToSender) - ledger.Consumed(row, ConsumeReason.ReturnedToSender)));
+            ledger.AddDestroyed(row, (int)(LedgerTarget(row, LedgerDestroyed) - ledger.Destroyed(row)));
+            long spawnedForGranted = ledger.LiveSum(row) + ledger.Consumed(row) + ledger.Destroyed(row) - LedgerTarget(row, LedgerGranted);
+            ledger.AddSpawned(row, (int)(spawnedForGranted - ledger.Spawned(row)));
+        }
+
+        rig.Recount();
+        for (int row = 0; row < ledger.Rows; row++)
+        {
+            ledger.AddSpawned(row, (int)(LedgerTarget(row, LedgerSpawned) - ledger.Spawned(row)));
+            for (int st = 0; st < UnitLedger.LiveStateCount; st++)
+            {
+                ledger.AddLive(row, (LedgerState)st, (int)(LedgerTarget(row, st) - ledger.Live(row, (LedgerState)st)));
+            }
+
+            for (int field = 0; field < LedgerRowBytes / 8; field++)
+            {
+                Assert.Equal(LedgerTarget(row, field), LedgerField(ledger, row, field));
+            }
+        }
+    }
+
+    private static long LedgerField(UnitLedger ledger, int row, int field) => field switch
+    {
+        < UnitLedger.LiveStateCount => ledger.Live(row, (LedgerState)field),
+        LedgerDelivered => ledger.Consumed(row, ConsumeReason.Delivered),
+        LedgerMisdelivered => ledger.Consumed(row, ConsumeReason.Misdelivered),
+        LedgerReturnedToSender => ledger.Consumed(row, ConsumeReason.ReturnedToSender),
+        LedgerDestroyed => ledger.Destroyed(row),
+        LedgerSpawned => ledger.Spawned(row),
+        _ => ledger.Granted(row),
+    };
 
     private static ushort LettersInChest(InvAutoPlaceRig rig)
     {

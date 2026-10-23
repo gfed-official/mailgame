@@ -26,7 +26,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// its mailIds ascending (u32 each; their number is the count); (4) per player slot in slot order the cursor origin (story 010: entry
 /// id, container id (u32), x, y, rotated (u8); all 0 when none); (5) per player slot in slot order the open external's id (story 011,
 /// u32, 0 none). Derived state is not written: the outfeed nodes (TD-132 item 1), <c>PanelIds</c> and the subscriber masks (TD-146), the
-/// StackKey and item-count indexes, the weight memo and the ledger's per-slot holder bytes (rebuilt from storage). Between ticks only;
+/// StackKey and item-count indexes, the weight memo and the ledger's per-slot holder bytes (not dumped; no production rebuild exists yet, so the load path must rebuild them from storage — TD-163). Between ticks only;
 /// allocation-free (the sort's buffers are preallocated).
 /// </summary>
 /// <example><code>builder.BindStateContributor(new InventoryStateContributor(_containers, _worldItems, _backlog, _entries, this)); // InventorySystem.Bind</code></example>

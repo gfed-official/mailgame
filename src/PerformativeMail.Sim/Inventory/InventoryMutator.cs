@@ -263,7 +263,7 @@ internal sealed class InventoryMutator
     /// </summary>
     /// <param name="holder">The holder state.</param>
     /// <param name="entrySlot">The detached entry's pool slot.</param>
-    public void EnterHolder(LedgerState holder, ushort entrySlot)
+    internal void EnterHolder(LedgerState holder, ushort entrySlot)
     {
         ref EntryRecord e = ref _entries[entrySlot];
         bool valid = e.IsLive && e.ContainerSlot == EntryRecord.NoContainer;
@@ -289,7 +289,7 @@ internal sealed class InventoryMutator
     /// </summary>
     /// <param name="entrySlot">The detached entry's pool slot.</param>
     /// <param name="units">The units that leave (1 to its count).</param>
-    public void LeaveHolder(ushort entrySlot, int units)
+    internal void LeaveHolder(ushort entrySlot, int units)
     {
         ref EntryRecord e = ref _entries[entrySlot];
         byte holder = _ledger.HolderOf(entrySlot);
@@ -312,7 +312,7 @@ internal sealed class InventoryMutator
     /// </summary>
     /// <param name="holder">The holder state (<see cref="LedgerState.Belt"/>).</param>
     /// <param name="unit">The unit (mail).</param>
-    public void EnterHolder(LedgerState holder, in UnitRef unit)
+    internal void EnterHolder(LedgerState holder, in UnitRef unit)
     {
         if (holder == LedgerState.Belt && !unit.Mail.IsNone)
         {
@@ -327,7 +327,7 @@ internal sealed class InventoryMutator
     /// </summary>
     /// <param name="holder">The holder state (<see cref="LedgerState.Belt"/>).</param>
     /// <param name="unit">The unit (mail).</param>
-    public void LeaveHolder(LedgerState holder, in UnitRef unit)
+    internal void LeaveHolder(LedgerState holder, in UnitRef unit)
     {
         if (holder == LedgerState.Belt && !unit.Mail.IsNone)
         {
@@ -341,7 +341,7 @@ internal sealed class InventoryMutator
     /// <c>AppendBacklog</c> once its append succeeded; units a spawn leaves unplaced are Mail's and never counted. O(1).
     /// </summary>
     /// <param name="entrySlot">The new entry's pool slot.</param>
-    public void CountSpawned(ushort entrySlot)
+    internal void CountSpawned(ushort entrySlot)
     {
         ref EntryRecord e = ref _entries[entrySlot];
         if (e.IsLive)
