@@ -9,7 +9,7 @@ using static PerformativeMail.Sim.Tests.Unit.Inventory.DumpSections;
 namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
-/// Story grid-inventory/017 AC "Dump" (ADR-0006 section 4; Mail Lead planning default pending Evan, TD-160 item 9): the block
+/// Story grid-inventory/017 AC "Dump" (ADR-0006 section 4; Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT, TD-160 item 10; advisory fix, Mail Review PR #36 A11): the block
 /// <see cref="InventoryStateContributor"/> appends to section 4 after story 021's backlog ring, in order: the ledger, the entry-id
 /// allocator, the live entries ascending by entryId, the per-slot cursor origin and the per-slot open external. Two identically built
 /// and driven worlds give byte-identical sections, and for each appended field class a world that differs only in it gives a section

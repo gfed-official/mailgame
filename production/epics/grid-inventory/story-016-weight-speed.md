@@ -93,11 +93,11 @@
 
 ## Approved defaults (Evan, 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT)
 
-These were Mail Lead planning defaults of 2026-10-22; **Evan approved them on 2026-10-22 at 2:24 PM PT, confirmed in scope 3:00 PM PT** ("to all recommended decisions", Mail Lead chat), so they are now Evan's rulings — default 3's "no new content-validator rule", not covered by that approval (Mail Review PR #37 r2), is **Approved by Evan 2026-10-22 6:37 PM PT** ("do the recommended options", Mail Lead chat, answering Mail Lead's 4:29 PM PT question). The story is built on them; TD-148 tracks them.
+These were Mail Lead planning defaults of 2026-10-22; **Evan approved them on 2026-10-22 at 2:24 PM PT, confirmed in scope 3:00 PM PT** ("to all recommended decisions", Mail Lead chat), so they are now Evan's rulings — default 3's "no new content-validator rule", not covered by that approval (Mail Review PR #37 r2), is **Approved by Evan 2026-10-22 6:37 PM PT** ("do the recommended options", Mail Lead chat, answering Mail Lead's widget question (4:29 PM PT, per Mail Lead's record; advisory fix, Mail Review PR #36 A13)). The story is built on them; TD-148 tracks them.
 
 1. `short WeightPoints(PlayerSlot)` and `int SpeedPermille(PlayerSlot)` are new `IInventoryApi` members outside the ADR-0009 Key Interfaces sketch: now in ADR-0009 Key Interfaces (erratum 2026-10-22; TD-148 item 1). No ADR edit.
 2. Speed composition stays in Player Character's `CarrierSpeed.Final` (F1, one division); this story exposes `speedPermille` only (`MulPermilleChain` dropped).
-3. P saturates at `short.MaxValue` and trips `SimAssertCode.InventoryWeightPointsSaturated` (79); a Bulk entry in a counted container adds 0 and trips `InventoryWeightBulkCounted` (80). No new content-validator rule (**Approved by Evan 2026-10-22 6:37 PM PT** ("do the recommended options", Mail Lead chat, answering Mail Lead's 4:29 PM PT question); TD-148 item 3).
+3. P saturates at `short.MaxValue` and trips `SimAssertCode.InventoryWeightPointsSaturated` (79); a Bulk entry in a counted container adds 0 and trips `InventoryWeightBulkCounted` (80). No new content-validator rule (**Approved by Evan 2026-10-22 6:37 PM PT** ("do the recommended options", Mail Lead chat, answering Mail Lead's widget question (4:29 PM PT, per Mail Lead's record; advisory fix, Mail Review PR #36 A13)); TD-148 item 3).
 
 ---
 

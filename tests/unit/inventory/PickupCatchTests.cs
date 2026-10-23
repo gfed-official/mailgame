@@ -13,11 +13,12 @@ namespace PerformativeMail.Sim.Tests.Unit.Inventory;
 
 /// <summary>
 /// Story grid-inventory/014 (GDD R8, R9 l.128-129, R12 l.137, edge cases l.362-363, H-R9-2, H-R12-1; ADR-0009 sections 1, 2 and 5;
-/// TD-154 Mail Lead planning defaults pending Evan): the pickup core (<see cref="PickupCore"/>) and <see cref="IInventoryApi.TryCatch"/>
-/// with its fumble. Pickups run both through a test-only <c>Pickup</c> handler (<see cref="PickupTestHandler"/>, bound only in this
-/// rig: production binds Pickup in story 019) in the real phase-0 drain, and through the core directly inside a tick phase; catches run
-/// inside a tick phase, as Throwing's flight resolution will. State is arranged through real calls (the mutator-backed
-/// <c>PlaceMail</c> / <c>PlaceItem</c>, <c>CreateWorldItem</c>, <c>DetachForThrow</c>).
+/// TD-154 defaults, Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT; refuse vs fumble for an arena-refused catch,
+/// TD-154 item 7, stays open to Evan; advisory fix, Mail Review PR #38 r1): the pickup core (<see cref="PickupCore"/>) and
+/// <see cref="IInventoryApi.TryCatch"/> with its fumble. Pickups run both through a test-only <c>Pickup</c> handler
+/// (<see cref="PickupTestHandler"/>, bound only in this rig: production binds Pickup in story 019) in the real phase-0 drain, and through
+/// the core directly inside a tick phase; catches run inside a tick phase, as Throwing's flight resolution will. State is arranged
+/// through real calls (the mutator-backed <c>PlaceMail</c> / <c>PlaceItem</c>, <c>CreateWorldItem</c>, <c>DetachForThrow</c>).
 /// </summary>
 public class PickupCatchTests
 {
@@ -537,6 +538,70 @@ public class PickupCatchTests
         Assert.Equal(MailIdArena.ClassFor(15), record.B);
     }
 
+    /// <summary>
+    /// The arena refuses a partial merge plus a fumble (3 merge into a hotbar stack at 17/20, 2 would fumble), with the WorldItem
+    /// table free or full: the arena check runs first, so the catch is <c>{0, 0}</c>, <c>capacity_exhausted</c>, nothing mutated, and
+    /// the one record is the arena's, never the table's (advisory fix, Mail Review PR #34 r2 advisory 6 a, b).
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Catch_ArenaRefusesAPartialMergeWithAFumble_TableFreeOrFull_ArenaWins_0And0_NothingMutated_OneArenaRecord(bool tableFull)
+    {
+        // Arrange: the H-R9-2 e panel; a 1-slot WorldItem table, live when tableFull; then the arena exhausted and its window left behind
+        var p = new PickupRig(mailIdArenaUnits: MailIdArena.MinTotalUnits, tune: s => s with { WorldItemCapacity = 1 });
+        p.R.PlaceMail(p.Hotbar(0), "letter", 1, 0, Address, PickupRig.Ids(1, 17));
+        p.FillHotbar(0, from: 2);
+        p.FillInventory(0);
+        ushort flight = p.Letters(101, 5);
+        if (tableFull)
+        {
+            p.Drop(p.R.DetachedItem("plank", 1));
+        }
+
+        p.ExhaustArena();
+        SimCheckRing ring = p.R.Host.World.CheckRing;
+        p.AdvanceTo(p.W.Now + (uint)ring.RateLimitTicks);
+        List<long> before = p.Storage();
+        long writes = ring.Count + (long)ring.Overwritten;
+
+        // Act
+        CatchResult r = p.Catch(0, flight);
+
+        // Assert
+        Assert.Equal(new CatchResult(0, 0, InvReason.CapacityExhausted), r);
+        Assert.Equal(before, p.Storage());
+        Assert.Equal(EntryRecord.NoContainer, p.R.Entries[flight].ContainerSlot);
+        Assert.DoesNotContain(p.R.Sink.Last, PickupRig.IsInventoryRecord);
+        Assert.Equal(writes + 1, ring.Count + (long)ring.Overwritten);
+        SimCheckRecord record = p.LastCheck();
+        Assert.Equal((ushort)CheckCode.InventoryArenaExhausted, record.Code);
+        Assert.Equal(20, record.A); // the union block: 17 + 3 units
+    }
+
+    /// <summary>
+    /// With the arena exhausted, a catch that acquires no arena block still succeeds: a letter placed whole into a free cell keeps its
+    /// own block, and a plank has none (advisory fix, Mail Review PR #34 r2 advisory 6 c: kills a refusal whenever the arena cannot
+    /// reserve one unit).
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Catch_ArenaExhausted_ButTheCatchNeedsNoNewBlock_Catches(bool mail)
+    {
+        // Arrange
+        var p = new PickupRig(mailIdArenaUnits: MailIdArena.MinTotalUnits);
+        ushort flight = mail ? p.Letters(101, 5) : p.R.DetachedItem("plank", 5);
+        p.ExhaustArena();
+
+        // Act
+        CatchResult r = p.Catch(0, flight);
+
+        // Assert
+        Assert.Equal(new CatchResult(5, 0, 0), r);
+        Assert.NotEqual(EntryRecord.NoContainer, p.R.Entries[flight].ContainerSlot);
+    }
+
     [Fact]
     [Trait("Id", "H-R12-3")]
     public void Catch_FumbleAt512LivePlanks_EvictsExactlyOne_TheLowestExpiresTickPlank_By013Rules()
@@ -828,9 +893,10 @@ public class PickupCatchTests
     // ---------------------------------------------------------------- precedence (ADR-0009 Implementation Guidelines l.226)
 
     /// <summary>
-    /// The core chain (TD-154 item 5, Mail Lead planning default pending Evan) answers the earliest step when a request violates it and
-    /// every later step that can co-occur, on slots 0 and 1, through the test handler and through <see cref="PickupCore.Apply"/>
-    /// directly (which also reaches the core's own namespace check, shadowed in the handler by <c>CheckRequest</c>). Every row but
+    /// The core chain (TD-154 item 5, Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT; advisory fix, Mail Review
+    /// PR #38 r1) answers the earliest step when a request violates it and every later step that can co-occur, on slots 0 and 1, through
+    /// the test handler and through <see cref="PickupCore.Apply"/> directly (which also reaches the core's own namespace check, shadowed
+    /// in the handler by <c>CheckRequest</c>). Every row but
     /// <c>capacity_exhausted</c> has the asker's panel full (<c>no_room</c>) and the arena exhausted (a refused plan reserves nothing, so
     /// <c>no_room</c> and <c>capacity_exhausted</c> cannot both answer; the exhausted arena kills a reservation checked before the plan):
     /// <c>bad_request</c> (the other slot's temp entry id on a live-tombstoned WorldItem); <c>container_gone</c> (a live tombstone, a
@@ -896,9 +962,15 @@ public class PickupCatchTests
         Assert.False(reply.IsOk);
         Assert.Equal(row == "floating" ? CoreReason.BadRequest : reason, reply.Reason);
         Assert.Equal(verdict, handled.Verdict);
-        Assert.Equal(reason, handled.Reason);
         Assert.Equal(verdict, core.Verdict);
-        Assert.Equal(reason, core.Reason);
+
+        // The floating row's reason is the constant 0 PickupCore writes for Floating (0 == 0), so the verdicts above pin that row
+        // (advisory fix, Mail Review PR #34 r2 advisory 6 g)
+        if (verdict == PickupVerdict.Refused)
+        {
+            Assert.Equal(reason, handled.Reason);
+            Assert.Equal(reason, core.Reason);
+        }
         if (row == "container_gone")
         {
             Assert.Equal(other.Value, reply.ExtraAs<InvReplyExtra>().ByActorId);
@@ -913,9 +985,10 @@ public class PickupCatchTests
     // ---------------------------------------------------------------- Review r1 advisories (test gaps)
 
     /// <summary>
-    /// TD-155 item 2 (Mail Lead planning default pending Evan): a pickup reply names the picker's hotbar as <c>ResultVersionA</c> and
-    /// player_inventory as <c>ResultVersionB</c>. A pickup split across both (3 merge into a hotbar stack at 17/20, the hotbar otherwise
-    /// full; 2 into a player_inventory stack), the two versions made different first: two seals, each +1, both before the reply.
+    /// TD-155 item 2 (Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT; advisory fix, Mail Review PR #38 r1): a
+    /// pickup reply names the picker's hotbar as <c>ResultVersionA</c> and player_inventory as <c>ResultVersionB</c>. A pickup split
+    /// across both (3 merge into a hotbar stack at 17/20, the hotbar otherwise full; 2 into a player_inventory stack), the two versions
+    /// made different first: two seals, each +1, both before the reply.
     /// </summary>
     [Theory]
     [InlineData(0)]
@@ -956,6 +1029,43 @@ public class PickupCatchTests
         }
 
         Assert.Equal(2, WorldItemTests.Heads(log, InvEventKinds.Version).Length);
+    }
+
+    /// <summary>
+    /// The single-container and refused twins of the test above (advisory fix, Mail Review PR #34 r2 advisory 6 e). <c>TryCatch</c>
+    /// returns a <see cref="CatchResult"/> with no result versions, so these are pickup replies: a pickup into the hotbar alone names
+    /// the sealed hotbar as A and the untouched player_inventory as B; a <c>no_room</c> reply names both unchanged versions.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Pickup_IntoTheHotbarAlone_OrRefused_ResultVersionAIsTheHotbar_BThePlayerInventory(bool refused)
+    {
+        // Arrange: the two versions made different first; for the refusal, a full panel
+        var p = new PickupRig();
+        ushort hotbar = p.Hotbar(0);
+        ushort inventory = p.Inventory(0);
+        p.R.PlaceMail(inventory, "letter", 0, 0, Address, PickupRig.Ids(1, 20));
+        if (refused)
+        {
+            p.FillHotbar(0);
+            p.FillInventory(0, from: 1);
+        }
+
+        EntityId item = p.Drop(p.Letters(101, 5));
+        uint hotbarV = p.R.Header(hotbar).Version;
+        uint inventoryV = p.R.Header(inventory).Version;
+        Assert.NotEqual(hotbarV, inventoryV);
+
+        // Act
+        EventEntry[] log = p.Pickup(p.A, item);
+
+        // Assert
+        Reply reply = InvAutoPlaceRig.ReplyOf(log);
+        Assert.Equal(refused ? (ushort)InvReason.NoRoom : (ushort)0, reply.Reason);
+        InvReplyExtra extra = reply.ExtraAs<InvReplyExtra>();
+        Assert.Equal((refused ? hotbarV : hotbarV + 1, inventoryV), (extra.ResultVersionA, extra.ResultVersionB));
+        Assert.Equal(refused ? 0 : 1, WorldItemTests.Heads(log, InvEventKinds.Version).Length);
     }
 
     [Fact]
@@ -1034,6 +1144,26 @@ public class PickupCatchTests
 
         // Assert
         Assert.True(InvAutoPlaceRig.ReplyOf(log).IsOk);
+        Assert.Equal(8, p.R.Entries[stack].Count);
+        Assert.Equal(0, p.EntriesIn(p.Inventory(0)));
+        Assert.Equal(inventoryV, p.R.Header(p.Inventory(0)).Version);
+    }
+
+    /// <summary>The catch twin of the test above: a plank catch runs pass-first too (advisory fix, Mail Review PR #34 r2 advisory 6 d).</summary>
+    [Fact]
+    public void NonMailCatch_RunsPassFirst_MergesIntoTheSecondTargetsStack_BeforeAFreeCellOfTheFirst()
+    {
+        // Arrange
+        var p = new PickupRig();
+        ushort stack = p.R.PlaceItem(p.Hotbar(0), "plank", 1, 0, 5);
+        ushort flight = p.R.DetachedItem("plank", 3);
+        uint inventoryV = p.R.Header(p.Inventory(0)).Version;
+
+        // Act
+        CatchResult r = p.Catch(0, flight);
+
+        // Assert
+        Assert.Equal(new CatchResult(3, 0, 0), r);
         Assert.Equal(8, p.R.Entries[stack].Count);
         Assert.Equal(0, p.EntriesIn(p.Inventory(0)));
         Assert.Equal(inventoryV, p.R.Header(p.Inventory(0)).Version);
@@ -1205,6 +1335,8 @@ public class PickupCatchTests
         Assert.Equal(new[] { InvEventKinds.Merged, InvEventKinds.Version, InvEventKinds.WorldItemSpawned }, PickupRig.InventoryKinds(log));
         EventEntry merged = Assert.Single(WorldItemTests.Heads(log, InvEventKinds.Merged));
         EventEntry spawned = Assert.Single(WorldItemTests.Heads(log, InvEventKinds.WorldItemSpawned));
+        // Weak: a sibling call scope also passes != and >; a real nested-scope assert needs the capture to expose the parent scope
+        // (TD-165; advisory fix, Mail Review PR #38 r1 advisory 6)
         Assert.NotEqual(merged.CallSeq, spawned.CallSeq);
         Assert.True(spawned.CallSeq > merged.CallSeq);
         InvVersionPayload seal = PickupRig.Seal(log, p.R.IdOf(p.Hotbar(0)));
@@ -1430,9 +1562,11 @@ internal sealed class PickupRig
     {
         Op opA = PickupOp(a);
         Op opB = PickupOp(b);
+        int before = R.Sink.Ticks.Count;
         Assert.True(R.Host.World.EnqueueOp(first, in opA));
         Assert.True(R.Host.World.EnqueueOp(second, in opB));
         R.Host.World.Tick();
+        Assert.Equal(before + 1, R.Sink.Ticks.Count); // capture was on: the log is this tick's (advisory fix, Mail Review PR #34 r2 advisory 7)
         return R.Sink.Last;
     }
 

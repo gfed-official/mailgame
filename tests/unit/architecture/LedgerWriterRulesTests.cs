@@ -5,8 +5,8 @@ using PerformativeMail.Sim.Inventory.Ledger;
 namespace PerformativeMail.Sim.Tests.Unit.Architecture;
 
 /// <summary>
-/// Story grid-inventory/017 AC "Sole writer" (ADR-0009 section 6, "UnitLedger touched only by the lowest mutator primitives"; Mail
-/// Lead planning default pending Evan, TD-160 item 1): no method body in the Sim assembly (nested and compiler-generated types
+/// Story grid-inventory/017 AC "Sole writer" (ADR-0009 section 6, "UnitLedger touched only by the lowest mutator primitives";
+/// Approved by Evan 2026-10-22 6:41 PM PT (ADR-0009 §6 l.170 erratum), TD-160 item 1; advisory fix, Mail Review PR #36 A11): no method body in the Sim assembly (nested and compiler-generated types
 /// included) calls a <see cref="UnitLedger"/> writer except <see cref="InventoryMutator"/> and <see cref="UnitLedger"/> itself (its
 /// <c>Recount</c> and corruption test seams). A writer is every <see cref="UnitLedger"/> method that is not one of its named readers,
 /// so a method added later counts as a writer until it is listed as a reader. The engine is checked against fixtures in this test

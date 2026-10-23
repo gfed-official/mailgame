@@ -536,6 +536,7 @@ public sealed class IntakeDrainTests
         Assert.Equal(0, merges);
         Assert.InRange(probes + merges + visits, 1, 8_500);
         Assert.InRange(visits, 1, 2_800 + 1);
+        Assert.Equal(2_800, visits); // pins the visit count (advisory fix, Mail Review PR #35 r2 A4)
     }
 
     [Fact]

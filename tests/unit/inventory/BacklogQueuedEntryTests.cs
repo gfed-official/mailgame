@@ -92,6 +92,48 @@ public sealed class BacklogQueuedEntryTests
         Assert.Equal(0, w.World.LiveCount);
     }
 
+    /// <summary>
+    /// The refusal is per entry, not per non-empty backlog (advisory fix, Mail Review PR #35 r2 A1): with a letter queued, a second,
+    /// unqueued detached letter is caught into the panel (and, in the next test, gets a WorldItem).
+    /// </summary>
+    [Fact]
+    public void TryCatch_OfAnUnqueuedDetachedLetter_WhileAnotherIsQueued_CatchesIt()
+    {
+        // Arrange: a full Intake, one queued letter (id 9000), and a second detached letter (id 9100) not on the backlog
+        var rig = new InvAutoPlaceRig();
+        IntakeSpawnOutfeedTests.FillIntake(rig, 320, 1_000);
+        Assert.True(IntakeDrainTests.Append(rig, "letter", Address4, 9_000));
+        ushort second = rig.DetachedMail("letter", Address4, new[] { 9_100u });
+        EntryId id = rig.Entries[second].Id;
+
+        // Act
+        CatchResult r = IntakeSpawnOutfeedTests.InPhase(rig, () => rig.Inventory.TryCatch(PlayerSlot.FromValue(0), new FlightPayload(id, default, false)));
+
+        // Assert: the unit is in, nothing fumbled, reason ok; the queued letter is still queued
+        Assert.Equal(new CatchResult(1, 0, 0), r);
+        Assert.Equal(1, rig.Inventory.BacklogEntries);
+    }
+
+    [Fact]
+    public void CreateWorldItem_OfAnUnqueuedDetachedLetter_WhileAnotherIsQueued_CreatesIt()
+    {
+        // Arrange: a full Intake, one queued letter, and a second detached letter not on the backlog (advisory fix, Mail Review PR #35 r2 A1)
+        var w = new WorldItemRig();
+        IntakeSpawnOutfeedTests.FillIntake(w.R, 320, 1_000);
+        Assert.True(IntakeDrainTests.Append(w.R, "letter", Address4, 9_000));
+        ushort second = w.R.DetachedMail("letter", Address4, new[] { 9_100u });
+        EntryId id = w.R.Entries[second].Id;
+        uint tick = w.Now;
+
+        // Act
+        EntityId created = w.At(tick, () => w.Inv.CreateWorldItem(id, WorldItemRig.Pos, WorldItemOrigin.Dropped, false, tick));
+
+        // Assert
+        Assert.NotEqual(EntityId.None, created);
+        Assert.True(w.World.OwnsEntry(second));
+        Assert.Equal(1, w.Inv.BacklogEntries);
+    }
+
     [Fact]
     public void ReturnToIntake_OfAQueuedBacklogEntry_ReturnsFalse_MutatesNothing_AndTheNextDrainPlacesItIntoTheIntake()
     {
