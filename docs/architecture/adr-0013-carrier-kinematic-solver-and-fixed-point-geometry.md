@@ -296,3 +296,5 @@ No code exists. Stories create `Sim/Primitives/TrigQ15` atan extension + `tools/
 ## Errata
 - 2026-10-17 — §2 F2: said `|Δ| = ISqrt(Δx²+Δz²)` and that truncation guarantees the step never exceeds `dvMax` (false with a floored `|Δ|`); now `|Δ|` is the ceiling square root and a final `|v'| ≤ max(vRef, |v|)` clamp follows, as shipped in `CarrierAccel.Apply`; source TD-071 item 1.
 - 2026-10-17 — §3: the `AtanQ15` `ReadOnlySpan<ushort>` literal was presented without the `RuntimeHelpers.CreateSpan` Tier-0 allocation caveat; now notes the `AggressiveOptimization` getter and refers to ADR-0006 §6; source TD-008.
+- 2026-10-23 — erratum **E3** (l.29 (1)): the PCM-P2-1 cross-OS golden moves to M0. Approved by Evan, Mail Lead chat, 2026-10-23 8:10 AM PT: "approve all" (decision log 2026-10-23).
+- 2026-10-23 — erratum **E2** (l.29 (2)): "per-tick and per-frame zero-allocation checks are reported, not blocking, until M0." Approved by Evan, Mail Lead chat, 2026-10-23 8:10 AM PT: "approve all" (decision log 2026-10-23).

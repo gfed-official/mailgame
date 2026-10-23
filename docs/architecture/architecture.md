@@ -538,11 +538,11 @@ There is one pre-ADR artefact: `docs/architecture/simulation-core-adr-inputs.md`
 
 The Technical Requirements Baseline (Appendix A) holds **250 requirements from 10 GDDs**.
 
-| Covered by an Accepted ADR | Gaps |
-|---|---|
-| **203** | **47** |
+| Covered by an Accepted ADR | Partial | Gaps | Deferred |
+|---|---|---|---|
+| **211** | **0** | **38** | **1** |
 
-*Updated 2026-10-16 by `/architecture-review`: 19 ADRs are Accepted (0001–0017, 0019, 0026). The stable registry is `docs/architecture/tr-registry.yaml`, and the matrix is `docs/architecture/requirements-traceability.md`. The 47 gaps belong to ADR-0018, 0020, 0021, 0022, 0024, 0025, 0029 and `perf-budget.md`, none of which is written yet.*
+*Updated 2026-10-23 (m1a-replan, PR #47) from `docs/architecture/tr-registry.yaml`: 250 = 211 covered + 0 partial + 38 gap + 1 deferred. Accepted ADRs are 0001–0017, 0019, 0026, the ADR-0024 M-1a stats-file slice (Evan 2026-10-23) and the ADR-0018 minimal HUD slice (Evan 2026-10-23 8:10 AM PT, "approve all"). The 38 gaps belong to ADR-0018 (13 rows its M-1a slice defers to the M0+ amendment), 0020 (7), 0021 (5), 0022 (2), 0024 (TR-hud-019, M1), 0025 (4), 0029 (2) and `perf-budget.md` (4). TR-delivery-019 is covered (ADR-0018 render half, ADR-0014 data half). The deferred row is TR-delivery-021 (ADR-0006; manual-delivery 008 Deferred to M0). The matrix is `docs/architecture/requirements-traceability.md`. Originally (2026-10-16, `/architecture-review`): 203 covered, 47 gaps.*
 
 Every requirement is mapped below to a planned ADR, so no requirement is orphaned. Each gap closes when its ADR is written and Accepted.
 
@@ -619,13 +619,13 @@ The first sprint is Godot-free: the plain C# Sim plus xUnit, built and tested wi
 | ADR-0015 | Shared integer ballistic, sweep & flight resolution | M-1a | closed-form F2; sweep F4 on ADR-0013's `Sim/Geometry` primitives; static 4 m receiver grid (world solids via ADR-0026 `QueryStaticSolids`); receiver ordering; terminal states; preview calls the same function | — |
 | ADR-0016 | ClientLayer, shared pure functions & presentation timing | M-1a | ClientLayer steps (`InputLatch`, `CarrierStep`, `Previews` with sub-steps Focus → DeliverPreview → ThrowPreview → EdgeResolve → HoldAdvance); `Evaluate`/F10/ballistic compiled once and used by host and client; "outcome never before domain event"; launch ghost; reach echo from `canStartHoldNext` | — |
 | ADR-0017 | Mail table, destination registry & `IWalletGate` | M-1a | SoA mail table, `AddressId` packing, Mail-owned wallet port (implemented by Economy, a stub at M-1a), backlog queue shared with Inventory's drain | — |
-| ADR-0018 | HUD composition, Client.Core.Ui seams & notification queue | M-1a (minimal) | `IHudState`/`IUiClock`/`IRoster`/`IMoneyFormatter`; cue record + table validated at load; CanvasLayer stack + MarkerLayer; two live-region Controls; dirty flags / pooling; no `DrawLine` | AccessKit checks (M4); Godot .NET build |
+| ADR-0018 | HUD composition, Client.Core.Ui seams & notification queue | M-1a (minimal) — **minimal slice `docs/architecture/adr-0018-hud-composition-minimal.md`, Accepted by Evan 2026-10-23 8:10 AM PT** (wallet, time-only timer, deliver prompt; the rest and all accessibility deferred, Evan 2026-10-23) | `IHudState`/`IUiClock`/`IRoster`/`IMoneyFormatter`; cue record + table validated at load; CanvasLayer stack + MarkerLayer; two live-region Controls; dirty flags / pooling; no `DrawLine` | AccessKit checks (M4); Godot .NET build |
 | ADR-0019 | Godot presentation scene architecture | M-1a (after the Godot .NET build) | `GameLoop` placement (autoload vs root), `ViewCatalog` keyed by def id, view-per-entity pooling, stretch mode/aspect + min window 1280×720 (HUD HN-18), Upgrade Project Files policy | OQ1, S4 |
 | ADR-0020 | Transform replication, Teleport & host position history | M0 | client-authoritative movement; 15 Hz batched `Transforms[]`; `Teleport{seq}` reliable + ack; 9+3 tick ring; claim-and-corroborate; remote interpolation delay of 160 ms | multiplayer spike |
 | ADR-0021 | Flight protocol & catch validation | M0 | `ThrowRelease`/`ThrowLaunched`/`FlightResolved`/`CatchArm` layouts and channels; `flightId` wrap; catch under client-authoritative movement; `FlightBatch` decision | multiplayer spike |
 | ADR-0022 | JoinState, rejoin & resync | M0 | envelope, ≤64 KB chunks, per-system blocks, `ContainerChecksum` (order-independent, never `GetHashCode`), resync-pending high-water, `outcomeSeq` drop rule | multiplayer spike |
 | ADR-0023 | Steam integration path | M0 | C# (Steamworks.NET / Facepunch) vs GDScript transport layer (spec 13 §3), lobby, relay, voice | Steam spike |
-| ADR-0024 | Profile & settings persistence | M1 (minimal `user://input.json` at M-1a) | `user://` stores, schema versions + migration, ids as strings, input settings per machine vs roaming (OQ-IC-2), session stats/telemetry file | — |
+| ADR-0024 | Profile & settings persistence | M1 (minimal `user://input.json` at M-1a) — **M-1a session stats file slice Accepted 2026-10-23 by Evan: `docs/architecture/adr-0024-session-stats-file-m1a.md`** (the rest stays M1) | `user://` stores, schema versions + migration, ids as strings, input settings per machine vs roaming (OQ-IC-2), session stats/telemetry file | — |
 | ADR-0025 | Inventory sort & backlog structures (narrowed by ADR-0009) | M1 | D3 sort algorithm, hints and memo; backlog per-footprint sub-queues; perf-budget verification. *(`mailIds` arena, outfeed head index, StackKey index and WorldItem expiry FIFOs — replacing the timing wheel — are decided in ADR-0009.)* | — |
 | ADR-0026 | World generation pipeline, tile grid & routing graph | M1 (stub interface `IWorldQuery` + `M1aStreet` at M-1a: **Accepted** 2026-10-16) | server-generates-once + tables in JoinState (spec 13 §3), height field, lots/addresses | — |
 

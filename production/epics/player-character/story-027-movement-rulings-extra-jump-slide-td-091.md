@@ -1,12 +1,15 @@
 # Story 027: Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, and the story 009 carry-forwards (TD-091)
 
 > **Epic**: Player Character & Movement (M-1a slice)
-> **Status**: Ready
+> **Status**: Deferred (Evan 2026-10-23 7:13 AM PT)
+> **Deferred to**: M1 (out of the M-1a slice; was Ready)
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~2 days; ~350 lines prod + ~600 lines tests, mostly re-derived expected values)
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: 2026-10-17
+
+> **DEFERRED 2026-10-23 by Evan, not deleted.** Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". Reason: movement-rule polish (extra jump, steep slide, the TD-091 carry-forwards), not needed for the greybox fun test; it was already not startable (HANDOFF.md 'Not startable'). Re-run `/story-readiness` when M1 planning starts; the text below is unchanged from the last Ready/Blocked version. When this story lands, re-capture `story-010-golden-transform-hash-p2-1.md`'s goldens (pc-010 no longer waits for it).
 
 ## Context
 

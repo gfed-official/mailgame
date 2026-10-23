@@ -342,3 +342,6 @@ No code exists. Order:
 ## Related
 - ADR-0002, 0003, 0008, 0009, 0011 (Accepted dependencies); ADR-0012, 0013, 0014, 0015, 0017 (sibling decisions); ADR-0018 (HUD), ADR-0019 (views), ADR-0020/0021 (remote timelines).
 - `design/gdd/manual-delivery.md` MD3–MD7, F1, Game Feel; `throwing-catching.md` T3/T4, Game Feel, Network; `mail-destinations.md` R5/R6, Game Feel; `hud-notifications.md` H30, F3; `simulation-core.md` R2, N1/N2.
+
+## Errata
+- Erratum 2026-10-23 (grid-inventory 022 re-scope; text only, no Decision change): l.71 — ports are implemented in Client.Core, in test doubles, or on the host by the owning Sim system where this ADR names a host use (the `deliver_matching` scan over authoritative containers, l.117). Approved by Evan, Mail Lead chat, 2026-10-23 8:20 AM PT: "Approve D4–D6, the D3 details and the ADR-0009/ADR-0016 errata" (TD-172 D1 approved 7:56 AM PT; decision log 2026-10-23).

@@ -1,12 +1,15 @@
 # Story 024: Catch end to end — two simulated carriers over the real host position-history ring, the loopback host-catch rule and the catch race suite
 
 > **Epic**: Throwing & Catching (M-1a slice) — **Sim-side catch pull-forward (optional for the M-1a gate)**
-> **Status**: Blocked
+> **Status**: Deferred (Evan 2026-10-23 7:13 AM PT)
+> **Deferred to**: M0 (out of the M-1a slice; was Blocked)
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: M (~1 day once unblocked; ~300 lines of harness + tests)
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: —
+
+> **DEFERRED 2026-10-23 by Evan, not deleted.** Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". Reason: the Sim-side catch is optional for the M-1a gate (EPIC.md l.32), it needs ADR-0020's M0 history ring, and Evan 7:13 deferred 022–024. Re-run `/story-readiness` when M0 planning starts; the text below is unchanged from the last Ready/Blocked version.
 
 > **BLOCKED: this story needs the M0 host position-history ring, and ADR-0020 is not written.** The F5 history (the 9+3-tick ring of reported positions, dead-reckoned sample, `Teleport` history clearing and `seq` discard, transform replication) is ADR-0020's, deferred to M0 by the Player Character epic with **no story** (`production/epics/player-character/EPIC.md` "Deferred out-of-milestone rules"; `production/epics/player-character/story-019-host-checkinteraction-position-ingest.md` implements only a newest-sample `IPositionHistory`). Without the ring, "the host tests the sphere at every position that catcher reported in the last 300 ms" (T7, TC-N-4) cannot be exercised against production code: stories 022 and 023 prove the algorithm against a multi-sample test double, but not against the real feed. Write ADR-0020 (`/architecture-decision`), accept it, add the Player Character ring story, then run `/story-readiness` on this story. Stories 001–023 do not depend on it.
 

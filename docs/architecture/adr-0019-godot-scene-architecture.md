@@ -356,3 +356,5 @@ public sealed class NodePool<T> where T : Node { public NodePool(PackedScene s, 
 
 ## Errata
 - 2026-10-17 — §3 step 4: input-adapter placement was implied by OQ1's autoload-first / `ProcessPriority` ordering; now the adapter is the last child of the root window, re-asserted on `ChildEnteredTree` (input runs in reverse tree order; `ProcessPriority` has no effect) — consequence of the owner-accepted ADR-0012 §7 D-1; source TD-021.
+- 2026-10-23 — erratum **E6** (l.313): TR-inventory-027 live-region feedback moves to the M1 accessibility pass. Approved by Evan, Mail Lead chat, 2026-10-23 8:10 AM PT: "approve all" (decision log 2026-10-23).
+- 2026-10-23 — erratum **E2** (l.342): "per-tick and per-frame zero-allocation checks are reported, not blocking, until M0." Approved by Evan, Mail Lead chat, 2026-10-23 8:10 AM PT: "approve all" (decision log 2026-10-23).

@@ -1,12 +1,15 @@
 # Story 022: `CatchArm` — OpKind, host arm window (`armedUntil`), eligibility clears and the client `ICatchArmSender` (Sim-side catch, part 1)
 
 > **Epic**: Throwing & Catching (M-1a slice) — **Sim-side catch pull-forward (optional for the M-1a gate)**
-> **Status**: Ready
+> **Status**: Deferred (Evan 2026-10-23 7:13 AM PT)
+> **Deferred to**: M0 (out of the M-1a slice; was Ready)
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~400 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: —
+
+> **DEFERRED 2026-10-23 by Evan, not deleted.** Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". Reason: the Sim-side catch is optional for the M-1a gate (EPIC.md l.32; solo has no catcher) and the GDD tags T7 as M0; Evan 7:13 deferred 022–024. Re-run `/story-readiness` when M0 planning starts; the text below is unchanged from the last Ready/Blocked version.
 
 > **Catch pull-forward (1 of 3, numbered last by design).** T7 catching is an **M0** feature in the GDD; the orchestrator pulled the *Sim-side* arm/validation/`TryCatch` forward. Solo has no catcher, so nothing in stories 001–021 depends on this one. It is fully testable headless with simulated carriers. The catch **prompt** (`CatchPredictor`, carets, edge chevron), **Toggle** catch, the **bonk**, **relay hops** and the **network protocol** stay M0 (see EPIC.md deferred list).
 

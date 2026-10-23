@@ -6,14 +6,17 @@
 # status: deprecated; split/replaced -> status: "superseded-by: TR-x-NNN" (quoted).
 # Fields: requirement = source of truth for /dev-story; adr = primary governing ADR;
 # adr_status = that ADR's state; coverage = covered (primary ADR Accepted) | partial
-# (primary ADR not written, an Accepted ADR addresses part) | gap (no Accepted ADR);
+# (primary ADR not written or not Accepted, an Accepted ADR addresses part) | gap (no Accepted ADR) |
+# deferred (an Accepted ADR addresses it, but every implementing story is Deferred out of the
+# current milestone; added 2026-10-23, m1a-replan);
+# revised/note = date and reason of the last change (2026-10-23: ADR-0018 / ADR-0024 slices, deferrals);
 # also_addressed_by = other ADRs citing it in "GDD Requirements Addressed";
 # stories = story files citing the TR-ID. GDDs with no baseline TRs yet (extraction
 # deferred): belt-logistics.md, building-system.md, health-damage.md.
 version: 1
-last_updated: 2026-10-16
+last_updated: 2026-10-23
 source_baseline: docs/architecture/architecture.md#appendix-a
-counts: {total: 250, covered: 203, partial: 0, gap: 47}
+counts: {total: 250, covered: 211, partial: 0, gap: 38, deferred: 1}
 requirements:
   - id: TR-sim-001
     requirement: "Whole fixed ticks of 1/30 s; TickRateHz=30 code constant; no variable step"
@@ -2416,57 +2419,65 @@ requirements:
     system: delivery
     gdd: design/gdd/manual-delivery.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
-    coverage: gap
+    adr_status: "Accepted 2026-10-23 8:10 AM PT by Evan (minimal M-1a slice, docs/architecture/adr-0018-hud-composition-minimal.md)"
+    coverage: covered
     status: active
     domain: UI
     side: B
-    also_addressed_by: []
-    stories: []
+    also_addressed_by: ["ADR-0014"]
+    stories: [production/epics/manual-delivery/story-010-prompt-content-as-data.md, production/epics/hud-notifications/story-001-hud-read-model-money-formatter.md, production/epics/hud-notifications/story-003-deliver-prompt-display.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
+    note: "data half (PromptArgs key + typed args) is ADR-0014 §7, Accepted (manual-delivery 010, Ready); render half is ADR-0018 §2.3/§4.4, Accepted 2026-10-23 8:10 AM PT (hud-notifications 003, Ready)"
   - id: TR-delivery-020
     requirement: "Live-region announcements policy; accessibility_live API unsourced"
     system: delivery
     gdd: design/gdd/manual-delivery.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: UI
     side: P
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/manual-delivery/story-012-deferred-prompt-accessibility-localisation.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
+    note: "accessibility deferred (Evan 2026-10-23 7:13 AM PT; 7:15 AM PT)"
   - id: TR-delivery-021
     requirement: "Race suite: no misdeliver for MATCH-latched hold across ticks ±2 and RTTs; 10,000-seed soak"
     system: delivery
     gdd: design/gdd/manual-delivery.md
     adr: "ADR-0006"
     adr_status: "Accepted"
-    coverage: covered
+    coverage: deferred
     status: active
     domain: Core
     side: S
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/manual-delivery/story-008-race-suite-bell-fuzz-soak.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
+    note: "ADR-0006 addresses it, but its only story (manual-delivery 008) is Deferred to M0 (Evan 2026-10-23 7:13 AM PT); not done at M-1a"
   - id: TR-delivery-022
     requirement: "Telemetry latchedBranch; handShare ≥20%"
     system: delivery
     gdd: design/gdd/manual-delivery.md
     adr: "ADR-0024"
-    adr_status: "Planned — not written (Persistence)"
-    coverage: gap
+    adr_status: "Accepted (M-1a session stats file slice, docs/architecture/adr-0024-session-stats-file-m1a.md)"
+    coverage: covered
     status: active
     domain: Data
     side: S
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/manual-delivery/story-009-telemetry-latched-branch-handshare.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
+    note: "ADR-0024 M-1a slice Accepted (Evan 2026-10-23 7:13 AM PT); m1a-replan PR #47"
   - id: TR-delivery-023
     requirement: "Mailbox flap separate node within 150-tri budget; reach layer scrubbed by hold progress"
     system: delivery
@@ -3088,15 +3099,17 @@ requirements:
     system: throwing
     gdd: design/gdd/throwing-catching.md
     adr: "ADR-0024"
-    adr_status: "Planned — not written (Persistence)"
-    coverage: gap
+    adr_status: "Accepted (M-1a session stats file slice, docs/architecture/adr-0024-session-stats-file-m1a.md)"
+    coverage: covered
     status: active
     domain: Save
     side: S
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/throwing-catching/story-016-telemetry-t14-session-stats.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
+    note: "ADR-0024 M-1a slice Accepted (Evan 2026-10-23 7:13 AM PT); m1a-replan PR #47"
   - id: TR-throwing-021
     requirement: "Spin from flightId; MultiMesh bundles; hidden beyond 35 m"
     system: throwing
@@ -3116,29 +3129,31 @@ requirements:
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
-    coverage: gap
+    adr_status: "Accepted 2026-10-23 8:10 AM PT by Evan (minimal M-1a slice, docs/architecture/adr-0018-hud-composition-minimal.md)"
+    coverage: covered
     status: active
     domain: UI
     side: P
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/hud-notifications/story-001-hud-read-model-money-formatter.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-002
     requirement: "Plain-C# UI core xUnit-testable via IUiClock/IRoster/IHudState/IMoneyFormatter + Godot view"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
-    coverage: gap
+    adr_status: "Accepted 2026-10-23 8:10 AM PT by Evan (minimal M-1a slice, docs/architecture/adr-0018-hud-composition-minimal.md)"
+    coverage: covered
     status: active
     domain: UI
     side: P
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/hud-notifications/story-001-hud-read-model-money-formatter.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-003
     requirement: "HUD reads only via IHudState ordered by (sourceTick, opId); loopback from M-1a"
     system: hud
@@ -3172,21 +3187,22 @@ requirements:
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
-    coverage: gap
+    adr_status: "Accepted 2026-10-23 8:10 AM PT by Evan (minimal M-1a slice, docs/architecture/adr-0018-hud-composition-minimal.md)"
+    coverage: covered
     status: active
     domain: UI
     side: P
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/hud-notifications/story-001-hud-read-model-money-formatter.md, production/epics/hud-notifications/story-002-wallet-readout-shift-timer-view.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-006
     requirement: "Every notification is a cue record with id/int args, never preformatted strings"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: UI
@@ -3195,6 +3211,7 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-007
     requirement: "Cue table validated at load (CV-HUD-01..05); missing key is load error"
     system: hud
@@ -3214,7 +3231,7 @@ requirements:
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: UI
@@ -3223,12 +3240,13 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-009
     requirement: "Toast lane: M-1a 1 slot; M0+ 2 visible + 4 queued, deterministic eviction"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: UI
@@ -3237,12 +3255,13 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-010
     requirement: "Merge predicate on UI-clock windows; raw events always logged"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: UI
@@ -3251,12 +3270,13 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-011
     requirement: "UI event log ring 1024 (M0), plain list M-1a; shared records"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: UI
@@ -3265,26 +3285,28 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-012
     requirement: "All money text via one IMoneyFormatter; lint bans currency literals"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
-    coverage: gap
+    adr_status: "Accepted 2026-10-23 8:10 AM PT by Evan (minimal M-1a slice, docs/architecture/adr-0018-hud-composition-minimal.md)"
+    coverage: covered
     status: active
     domain: UI
     side: P
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/hud-notifications/story-001-hud-read-model-money-formatter.md, production/epics/hud-notifications/story-002-wallet-readout-shift-timer-view.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-013
     requirement: "Screen-space MarkerLayer above post-processing; 41 markers at roster 8"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: Rendering
@@ -3293,12 +3315,13 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-014
     requirement: "Flash governor ≤3/s real clock, ≤2 Hz per element; one animator"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: UI
@@ -3307,40 +3330,43 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-015
     requirement: "1080-reference px scaled by height; text ≥18 px up to 200%; min 1280×720; stretch undecided"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
-    coverage: gap
+    adr_status: "Accepted 2026-10-23 8:10 AM PT by Evan (minimal M-1a slice, docs/architecture/adr-0018-hud-composition-minimal.md)"
+    coverage: covered
     status: active
     domain: UI
     side: P
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/hud-notifications/story-002-wallet-readout-shift-timer-view.md, production/epics/hud-notifications/story-003-deliver-prompt-display.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-016
     requirement: "0 alloc over 10,000 idle frames, pooled rows, atlas, no DrawLine; ≤0.8 ms, ≤60 draws (proposed)"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
-    coverage: gap
+    adr_status: "Accepted 2026-10-23 8:10 AM PT by Evan (minimal M-1a slice, docs/architecture/adr-0018-hud-composition-minimal.md)"
+    coverage: covered
     status: active
     domain: Rendering
     side: P
     also_addressed_by: []
-    stories: []
+    stories: [production/epics/hud-notifications/story-002-wallet-readout-shift-timer-view.md, production/epics/hud-notifications/story-003-deliver-prompt-display.md]
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-017
     requirement: "Two live-region Controls; schema M-1a, announcer M4"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: UI
@@ -3349,12 +3375,13 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-018
     requirement: "History ring 50 raw events with snapshots"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: Save
@@ -3363,12 +3390,13 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-hud-019
     requirement: "Settings consumed from Persistence; HUD owns no persistence"
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0024"
-    adr_status: "Planned — not written (Persistence)"
+    adr_status: "Not covered by the Accepted M-1a slice (docs/architecture/adr-0024-session-stats-file-m1a.md is the stats file only); M1 amendment not written (Persistence)"
     coverage: gap
     status: active
     domain: Save
@@ -3377,6 +3405,8 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
+    note: "settings persistence stays M1 (ADR-0024 §6)"
   - id: TR-hud-020
     requirement: "hud.tuning data, hot-reload in debug; cue table in shared validator library"
     system: hud
@@ -3396,7 +3426,7 @@ requirements:
     system: hud
     gdd: design/gdd/hud-notifications.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: UI
@@ -3405,6 +3435,7 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-comms-001
     requirement: "Dedicated reliable-ordered channel 3 (channel count fixed at connect; spike)"
     system: comms
@@ -3494,7 +3525,7 @@ requirements:
     system: comms
     gdd: design/gdd/comms.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: Core
@@ -3503,12 +3534,13 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23
   - id: TR-comms-008
     requirement: "Local per-player mute by account id; TypingState on ch3"
     system: comms
     gdd: design/gdd/comms.md
     adr: "ADR-0018"
-    adr_status: "Planned — not written (HUD composition)"
+    adr_status: "Accepted slice defers it (docs/architecture/adr-0018-hud-composition-minimal.md §5–§6); M0+ amendment not written"
     coverage: gap
     status: active
     domain: Data
@@ -3517,3 +3549,4 @@ requirements:
     stories: []
     source: "architecture.md Appendix A"
     added: 2026-10-16
+    revised: 2026-10-23

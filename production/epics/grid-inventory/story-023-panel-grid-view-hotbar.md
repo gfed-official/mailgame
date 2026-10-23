@@ -6,18 +6,20 @@
 > **Type**: UI
 > **Estimate**: M (~1 day)
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Last Updated**: 2026-10-23 (split by the m1a-replan PR)
+
+> **Split 2026-10-23.** The TR-inventory-027 live-region feedback half — the live-region `Control` for feedback text named in the Decision Summary below (ADR-0019 l.313, erratum E6) — moved to `story-025-deferred-live-region-feedback.md` (Deferred to the M1 accessibility pass). Evan, Mail Lead chat 2026-10-23 8:10 AM PT, approving errata E1–E6 and E9: "approve all". No acceptance criterion left this story; the custom-drawn grid `Control`, the hotbar strip, the 0 B/frame check and the Intake grid view all stay.
 
 > **UNBLOCKED** (2026-10-16): the inventory panel UX spec now exists — cite `design/ux/inventory-panel.md` (layout, cell anatomy, hotbar strip; OQ14 dimensions in Layout Zones); `/ux-review` of the spec is recommended before implementation.
 
 ## Context
 
 **GDD**: `design/gdd/grid-inventory.md`
-**Requirement**: `TR-inventory-027` (grid panel one custom-drawn `Control`; 0 B/frame; feedback via a live-region `Control`)
+**Requirement**: `TR-inventory-027` (grid panel one custom-drawn `Control`; 0 B/frame — the "feedback via a live-region `Control`" half is story 025's, M1 accessibility pass)
 *(Requirement text: `docs/architecture/tr-registry.yaml` (mirrored in the epic's GDD Requirements table).)*
 
 **ADR Governing Implementation**: ADR-0019: Godot presentation scene architecture — Accepted 2026-10-16 (primary); ADR-0009: InventoryOp Pipeline and Inventory Storage Layout
-**ADR Decision Summary**: The panel is one custom-drawn grid `Control` (`_Draw`, cached text) plus a live-region `Control` for feedback text (TR-inventory-027); scene placement, view pooling, `ViewCatalog` (icons by def id) and stretch/aspect are ADR-0019's — Accepted 2026-10-16; the panel reads the client mirror of own containers (OwnerOnly events, ADR-0009 §4).
+**ADR Decision Summary**: The panel is one custom-drawn grid `Control` (`_Draw`, cached text); the live-region `Control` for feedback text (TR-inventory-027) is story 025's (E6); scene placement, view pooling, `ViewCatalog` (icons by def id) and stretch/aspect are ADR-0019's — Accepted 2026-10-16; the panel reads the client mirror of own containers (OwnerOnly events, ADR-0009 §4).
 **ADR Version**: ADR-0019 2026-10-16; ADR-0009 2026-10-16
 
 **Engine**: Godot 4.7.1 | **Risk**: HIGH (Godot 4.7.1 UI: `Control._Draw`, `DrawString` caching, 4.7 CanvasItem line antialias change — NEEDS VERIFICATION)
@@ -54,6 +56,7 @@
 *Handled by neighbouring stories — do not implement here:*
 
 - Story 024: interactions and feedback.
+- Story 025 (Deferred, M1 accessibility pass): the live-region `Control` and live-region feedback text.
 - M1: manifest view (R18), sort buttons.
 
 ---
@@ -78,4 +81,4 @@
 
 - Depends on: `production/epics/godot-host-shell/story-001-game-csproj-solution-gdignore-build-mapping.md` (Godot project), `production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md` (`GameLoop`), `production/epics/godot-host-shell/story-006-presenters-deps-injection-event-stream.md` (presenter slot, event stream), `production/epics/godot-host-shell/story-008-viewcatalog-resolver-placeholder-uid-check.md` (item icons by def id); ADR-0019 (Accepted)
 - Depends on: Story 001–011 (Sim state to draw)
-- Unlocks: Story 024
+- Unlocks: Story 024; Story 025 (Deferred, M1)

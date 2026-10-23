@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 18 Complete, 6 Ready, 0 Blocked; 022 re-scoped 2026-10-23 to the host `IPanelView` scan primitive and Ready (counts refreshed 2026-10-23 from the story headers) — see the Stories table below
+> **Stories**: 25 stories — 18 Complete, 6 Ready, 1 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -138,6 +138,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 022 | [Host panel view — Inventory's read-only scan primitive for `deliver_matching`](story-022-deliver-matching-handler.md) | Logic | Ready | ADR-0016, ADR-0009, ADR-0017 |
 | 023 | [Own-panel grid view and hotbar strip — one custom-drawn Control, 0 B/frame](story-023-panel-grid-view-hotbar.md) | UI | Ready | ADR-0019, ADR-0009 |
 | 024 | [Panel interactions through the Panel/Holding input contexts, and the M-1a feedback cues](story-024-panel-interactions-feedback.md) | UI | Ready | ADR-0019, ADR-0012, ADR-0009 |
+| 025 | [Inventory panel live-region feedback (TR-inventory-027) — the live-region `Control` and th](story-025-deferred-live-region-feedback.md) | UI | Deferred (Evan 2026-10-23) | — |
 
 **Blocked stories and the ADR each waits on.** Each reserved ADR is listed in `production/epics/index.md`.
 
@@ -161,4 +162,6 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001–017 and 021 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33, 014 in PR #34, merged as main c2d4a64; 021 in PR #35, merged as main c889f59; 017 in PR #36, merged as main eda1efd). Next: 018 (Ready; depends on 017) and 020 (013 unblocks it). Stories 019–020 are Ready (ADRs Accepted 2026-10-16); 022 is Ready (re-scoped 2026-10-23 to the host panel view; its API and `CursorSlot` are TD-172 D1/D2, Approved by Evan 2026-10-23 7:56 AM PT (Mail Lead chat); TD-172 D4/D5 stay Mail Lead defaults, pending Evan); 023–024 are Ready (`design/ux/inventory-panel.md` authored 2026-10-16).
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 020 (A1), 019 (A3), 022 (A7), 023 (A10); then Track B: 018 (B1), 024 (B1); Deferred by Evan 2026-10-23 (not scheduled): 025. Earlier notes below are history.
+
+Stories 001–017 and 021 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33, 014 in PR #34, merged as main c2d4a64; 021 in PR #35, merged as main c889f59; 017 in PR #36, merged as main eda1efd). Next: 018 (Ready; depends on 017) and 020 (013 unblocks it). Stories 019–020 are Ready (ADRs Accepted 2026-10-16); 022 is Ready (re-scoped 2026-10-23 to the host panel view; its API and `CursorSlot` are TD-172 D1/D2, Approved by Evan 2026-10-23 7:56 AM PT (Mail Lead chat); TD-172 D4/D5 Approved by Evan 2026-10-23 8:20 AM PT); 023–024 are Ready (`design/ux/inventory-panel.md` authored 2026-10-16).

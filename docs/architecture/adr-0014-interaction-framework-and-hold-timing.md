@@ -267,3 +267,6 @@ No code exists. Stories create `Sim/Players/{AnchorRegistry, Focus, Interaction,
 ## Related
 - ADR-0013 (solver, chest point, `Sim/Geometry`); ADR-0012 (router, `InputFrame`, presented snapshot on edges, one-commit rule); ADR-0015 (`ICatchPredictor`, catch arming); ADR-0016 (ClientLayer timing, previews, presented snapshot); ADR-0017 (Deliver anchors per destination); ADR-0009 (range-gated ops call `CheckInteraction`); ADR-0020 (F5 ring, `Teleport` protocol); ADR-0018 (prompt and ring rendering).
 - `design/gdd/player-character-movement.md`, `design/gdd/input-controls.md`, `design/gdd/manual-delivery.md`, `design/gdd/throwing-catching.md`.
+
+## Errata
+- 2026-10-23 — erratum **E2** (l.250): "per-tick and per-frame zero-allocation checks are reported, not blocking, until M0." Approved by Evan, Mail Lead chat, 2026-10-23 8:10 AM PT: "approve all" (decision log 2026-10-23).
