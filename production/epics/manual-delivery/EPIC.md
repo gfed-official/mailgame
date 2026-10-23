@@ -110,7 +110,7 @@ This epic is complete when:
 
 ## Stories
 
-*ADR-0014 and ADR-0016 are now Accepted (2026-10-16), which resolves risk (1) for TR-delivery-001…007 and 012…018. The 2026-10-16 `/architecture-review` moved the `DeliverMatching` OpKind and handler from Inventory to Delivery (ADR-0009 erratum: block `0x0100–0x013F`, handler in `Sim/Delivery`; ADR-0011 erratum: 24 B MATCH / 28 B MISDELIVER_ONE on the wire, including the claimed position). That is story 005. `production/epics/network-adapter-loopback/story-008-deliver-matching-wire-codec.md` and `production/epics/grid-inventory/story-022-deliver-matching-handler.md` now depend on it.*
+*ADR-0014 and ADR-0016 are now Accepted (2026-10-16), which resolves risk (1) for TR-delivery-001…007 and 012…018. The 2026-10-16 `/architecture-review` moved the `DeliverMatching` OpKind and handler from Inventory to Delivery (ADR-0009 erratum: block `0x0100–0x013F`, handler in `Sim/Delivery`; ADR-0011 erratum: 24 B MATCH / 28 B MISDELIVER_ONE on the wire, including the claimed position). That is story 005. `production/epics/network-adapter-loopback/story-008-deliver-matching-wire-codec.md` depends on it. Story 005 uses grid-inventory 022's `HostPanelView` (`production/epics/grid-inventory/story-022-deliver-matching-handler.md`; TD-172 D1, Approved by Evan 2026-10-23 7:56 AM PT (Mail Lead chat)), so the order is 002 → 022 → 005 (corrected 2026-10-23, Mail Review PR #46 r1 B1).*
 
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
@@ -130,7 +130,7 @@ This epic is complete when:
 
 **Untraced / blocked requirements:** TR-delivery-019, 020 (ADR-0018 not written, story 010); TR-delivery-022 (ADR-0024 not written, story 009). No new requirement was needed. The GDD's M-NET-1 "12 B / 16 B" is superseded by TR-delivery-008 (revised; story 007 AC-4 asserts 24/28 B). HUD rendering ACs (M-MD2-3, M-MD2-4, M-UI-2, M-UI-3) have no home until a HUD epic exists (risk 2).
 
-**Notes for `/architecture-review`:** grid-inventory R7's "one version bump per touched container" conflicts with per-unit `ConsumeUnit` (ADR-0017 §5 + ADR-0009 §3); story 005 asserts the ADR behaviour. If grid-inventory exposes no read-only panel view, story 005 adds a minimal read-only `IInventoryApi` accessor for the host-side `DeliverScan`, rather than waiting on the grid-inventory story 022 re-scope (which now depends on story 005).
+**Notes for `/architecture-review`:** grid-inventory R7's "one version bump per touched container" conflicts with per-unit `ConsumeUnit` (ADR-0017 §5 + ADR-0009 §3); story 005 asserts the ADR behaviour. Story 005 uses `IInventoryApi.HostPanelView` from grid-inventory 022 (re-scoped 2026-10-23; the API is TD-172 D1, Approved by Evan 2026-10-23 7:56 AM PT (Mail Lead chat)); it adds no accessor of its own.
 
 ## Open Questions
 

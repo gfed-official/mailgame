@@ -64,7 +64,7 @@
 - Story 016: weight points (H-X-2's "P drops by 1").
 - Story 017: `UnitLedger` crossings (H-X-2's "ids in FLIGHT", ConsumeReason → CONSUMED).
 - Item-form `TryInsert` (H-R5-1's Plank leg, H-X-3 b): Belt Logistics / owner question on an ADR-0009 as-implemented note.
-- Story 022: `DeliverMatching` (Blocked).
+- Story 022: `HostPanelView(PlayerSlot)`, the read-only scan view (the handler is manual-delivery 005).
 - M1: `Grant`, `ConsumeItems`.
 - M-1b: `SpillToBag`, inserter selectors.
 
