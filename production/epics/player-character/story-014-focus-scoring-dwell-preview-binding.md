@@ -91,7 +91,7 @@
 **Required evidence**:
 - Logic: `tests/unit/player/FocusScoreTests.cs` (`[Trait("Id", "PCM-F4-1")]`, `PCM-P11-1`, `PCM-P11-2a`), `tests/unit/player/FocusStepTests.cs` (dwell, latch, context filter, tie-break shuffle, determinism, budget), `tests/unit/player/FocusAllocationTests.cs`, and `tests/unit/sim/ClientLayer/PreviewSubStepOrderTests.cs` (sub-order, `BindPreview` guards) plus the `ClientLayerRulesTests` `.Client` rule — must exist and pass on net10.0 and net8.0, Debug and Release. Owner skip rule (decision log 2026-10-19): a test skipped in one configuration must run and pass in the other.
 
-**Status**: [x] Created and passing — `FocusScoreTests`, `FocusStepTests`, `FocusAllocationTests` (tests/unit/player/), `PreviewSubStepOrderTests` (tests/unit/sim/ClientLayer/), the `.Client` rule and its seen-failing fixture in `ClientLayerRulesTests` / `ClientNamespaceFixtures`, and `SimCountersTests` (52/53, Length 54). Full suite on all four legs (net10.0/net8.0 × Debug/Release): 6,268 total, 0 failed; skipped 63 Debug / 7 Release. Owner skip rule holds: the 0 B tests skip in Debug only and run and pass in Release; no test is skipped in both.
+**Status**: [x] Created and passing — `FocusScoreTests`, `FocusStepTests`, `FocusAllocationTests` (tests/unit/player/), `PreviewSubStepOrderTests` (tests/unit/sim/ClientLayer/), the `.Client` rule and its seen-failing fixture in `ClientLayerRulesTests` / `ClientNamespaceFixtures`, and `SimCountersTests` (52/53, Length 54). Full suite on all four legs (net10.0/net8.0 × Debug/Release): 6,280 total, 0 failed (after Mail Review r1); skipped 63 Debug / 7 Release. Owner skip rule holds: the 0 B tests skip in Debug only and run and pass in Release; no test is skipped in both.
 
 ---
 
