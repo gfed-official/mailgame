@@ -91,7 +91,7 @@
 - Logic: `tests/unit/player/PressResolutionTests.cs` (`[Trait("Id", "PCM-P11-2b")]`, `H-R4-2`, `H-R4-4`, `H-R4-6`, `H-F2-1`, `PCM-P12-1`, `PC016-SWIM-CATCH`, `M-MD9-1` — the latch-immutability clause of Latch contents; plus determinism) and `tests/unit/player/EdgeResolveAllocationTests.cs`; `SimCountersTests` length pin 54 → 55; `ClientLayerRulesTests` l.55.
 - Test policy (`.claude/rules/test-standards.md` l.49–55, after PR #39): during development run only this story's test classes on net10.0 Debug; at story close run the full suite once on net10.0 Debug and once on net8.0 Release; CI runs all four legs and must be green. Owner skip rule (decision log 2026-10-19): a test skipped in one configuration must run and pass in the other (the allocation test may skip in Debug only).
 
-**Status**: [x] Created and passing — `PressResolutionTests` (15 methods, 41 cases) and `EdgeResolveAllocationTests` (tests/unit/player/), `PureHookGuard` in `PlayersTestKit`, `SimCountersTests` (Length 55), `ClientLayerRulesTests` (`EdgeResolveStep` in the `.Client` set). Full suite 2026-10-23 (main 41efdc3 merged in, after Mail Review r1): net10.0 Debug 5,966 total, 0 failed, 64 skipped; net8.0 Release 5,966 total, 0 failed, 7 skipped; the other two legs run in CI. Owner skip rule holds: the 0 B test skips in Debug only and runs and passes in Release.
+**Status**: [x] Created and passing — `PressResolutionTests` (15 methods, 41 cases) and `EdgeResolveAllocationTests` (tests/unit/player/), `PureHookGuard` in `PlayersTestKit`, `SimCountersTests` (Length 55), `ClientLayerRulesTests` (`EdgeResolveStep` in the `.Client` set). Full suite 2026-10-23 (main a0d8fee merged in, after Mail Review r1): net10.0 Debug 5,759 total, 0 failed, 64 skipped; net8.0 Release 5,759 total, 0 failed, 7 skipped; the other two legs run in CI. Owner skip rule holds: the 0 B test skips in Debug only and runs and passes in Release.
 
 ---
 
@@ -105,7 +105,7 @@
 
 ## Completion Notes
 
-**Completed**: 2026-10-23 (PR #42, branch `feat/player-character-016`; main 41efdc3 merged in)
+**Completed**: 2026-10-23 (PR #42, branch `feat/player-character-016`; main a0d8fee merged in)
 **Criteria**: 14/14 met (Budget by inspection; every other AC has a named test above; key ACs proven with mutants, `/workspace/repos/logs/pc016-mutants.txt`: 12 of 13 killed at first close, the survivor M11 (`TargetSlot` ignored) was Mail Review r1 B1; after the r1 delta all 12 r1 mutants (B1–B3, A1, A3, A4) are killed).
 **Built**: ports `IRequestSink` (ClientLayer/Ports), `ICatchPredictor`/`CatchPrediction`/`CatchQuery`/`NullCatchPredictor`/`ICatchArmSender` (Players/); `InteractState`, `InteractionStatus` (state, latch, `LastCancel`, `LastCancelReason`), the pure `PressResolver` and `EdgeResolveStep` (bound at `PreviewSubStep.EdgeResolve` in tests; production wiring is story 020 / godot-host-shell 005); `CancelReason.Unavailable = 6` / `Busy = 7`; `CounterId.InteractPressIgnored = 54`.
 **Planning defaults**: D1–D6 (TD-171) are Mail Lead defaults, pending Evan — implemented as written and labelled so in code comments.

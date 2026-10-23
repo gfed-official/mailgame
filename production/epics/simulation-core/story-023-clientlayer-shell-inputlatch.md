@@ -72,7 +72,7 @@
 **Required evidence**:
 - `tests/unit/sim/ClientLayer/InputLatchTests.cs` (`[Trait("Id", "SC-R17-1")]`), `tests/unit/sim/ClientLayer/ClientLayerStepOrderTests.cs` — must exist and pass
 
-**Status**: [x] Created and passing — InputLatchTests.cs (11 tests, 5 tagged SC-R17-1), ClientLayerStepOrderTests.cs (13 tests incl. NonParallel 0 B AllocAssert)
+**Status**: [x] Created and passing — InputLatchTests.cs (7 tests, 5 tagged SC-R17-1), ClientLayerStepOrderTests.cs (13 tests incl. NonParallel 0 B AllocAssert)
 
 ---
 

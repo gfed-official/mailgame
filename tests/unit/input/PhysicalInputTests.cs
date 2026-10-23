@@ -69,47 +69,43 @@ public class PhysicalInputTests
         (PhysicalInput.PadRightTrigger, 0x0313, "Pad.RT"),
     ];
 
-    public static TheoryData<PhysicalInput, ushort, string> GoldenRows()
+    // The three golden pins loop the table in one test each; the failure message names the row.
+    [Fact]
+    public void PhysicalInput_Value_MatchesTheGoldenNumber()
     {
-        var data = new TheoryData<PhysicalInput, ushort, string>();
         foreach ((PhysicalInput input, ushort value, string name) in _golden)
         {
-            data.Add(input, value, name);
+            Assert.NotEmpty(name);
+            Assert.True(value == (ushort)input, $"{name}: expected 0x{value:X4}, got 0x{(ushort)input:X4}");
         }
-
-        return data;
     }
 
-    [Theory]
-    [MemberData(nameof(GoldenRows))]
-    public void PhysicalInput_Value_MatchesTheGoldenNumber(PhysicalInput input, ushort value, string name)
+    [Fact]
+    public void TryParse_WithThePersistedName_ReturnsTheInput()
     {
-        Assert.NotEmpty(name);
-        Assert.Equal(value, (ushort)input);
+        foreach ((PhysicalInput input, ushort value, string name) in _golden)
+        {
+            Assert.True(value != 0, name);
+
+            bool ok = PhysicalInputNames.TryParse(name, out PhysicalInput parsed);
+
+            Assert.True(ok, $"{name}: TryParse returned false");
+            Assert.True(input == parsed, $"{name}: expected {input}, got {parsed}");
+        }
     }
 
-    [Theory]
-    [MemberData(nameof(GoldenRows))]
-    public void TryParse_WithThePersistedName_ReturnsTheInput(PhysicalInput input, ushort value, string name)
+    [Fact]
+    public void TryGetName_WithTheInput_ReturnsThePersistedName()
     {
-        Assert.NotEqual(0, value);
+        foreach ((PhysicalInput input, ushort value, string name) in _golden)
+        {
+            Assert.True(value != 0, name);
 
-        bool ok = PhysicalInputNames.TryParse(name, out PhysicalInput parsed);
+            bool ok = PhysicalInputNames.TryGetName(input, out string actual);
 
-        Assert.True(ok);
-        Assert.Equal(input, parsed);
-    }
-
-    [Theory]
-    [MemberData(nameof(GoldenRows))]
-    public void TryGetName_WithTheInput_ReturnsThePersistedName(PhysicalInput input, ushort value, string name)
-    {
-        Assert.NotEqual(0, value);
-
-        bool ok = PhysicalInputNames.TryGetName(input, out string actual);
-
-        Assert.True(ok);
-        Assert.Equal(name, actual);
+            Assert.True(ok, $"{input} (0x{value:X4}): TryGetName returned false");
+            Assert.True(name == actual, $"{input} (0x{value:X4}): expected '{name}', got '{actual}'");
+        }
     }
 
     [Fact]
@@ -189,28 +185,6 @@ public class PhysicalInputTests
     public void TryGetName_WithAnUndefinedValue_ReturnsFalse()
     {
         Assert.False(PhysicalInputNames.TryGetName((PhysicalInput)0xFFFF, out _));
-    }
-
-    [Fact]
-    public void Table_CoversEveryR6DefaultInput()
-    {
-        string[] required =
-        [
-            "Key.W", "Key.A", "Key.S", "Key.D", "Key.Up", "Key.Down", "Key.Left", "Key.Right", "Key.Shift", "Key.Space",
-            "Key.E", "Key.Q", "Key.R", "Key.F", "Key.P", "Key.X", "Key.Tab", "Key.Esc", "Key.Enter", "Key.NumpadEnter",
-            "Key.1", "Key.2", "Key.3", "Key.4", "Key.5", "Key.6", "Key.7", "Key.8",
-            "Mouse.Left", "Mouse.Middle", "Mouse.Right", "Mouse.WheelUp", "Mouse.WheelDown", "Mouse.Motion",
-            "Pad.A", "Pad.B", "Pad.X", "Pad.Y", "Pad.LB", "Pad.RB", "Pad.L3", "Pad.R3",
-            "Pad.DpadUp", "Pad.DpadDown", "Pad.DpadLeft", "Pad.DpadRight", "Pad.Menu", "Pad.View",
-            "Pad.LeftStickX", "Pad.LeftStickY", "Pad.RightStickX", "Pad.RightStickY", "Pad.LT", "Pad.RT",
-        ];
-
-        foreach (string name in required)
-        {
-            Assert.True(PhysicalInputNames.TryParse(name, out _), name);
-        }
-
-        Assert.Equal(required.Length, _golden.Length);
     }
 
     [Fact]

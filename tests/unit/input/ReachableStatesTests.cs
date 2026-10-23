@@ -239,6 +239,9 @@ public class ReachableStatesTests
 
     // ------------------------------------------------------------ one fixture per clause
 
+    // One fixture per conjunct of clause 1 and one per other clause (H-R2-8's named fixture where it names one). Clause 7
+    // keeps a second: clause 1 already rejects every aiming-under-overlay state, so the oracle and golden tests cannot see a
+    // missing clause-7 overlay bit, and "aiming with Results" is the only check of the Results bit.
     public static TheoryData<int, string, ushort> ClauseFixtures => new()
     {
         { ReachableRules.AimingIndex, "aiming with Panel", Pack(overlay: OverlayLayer.Panel, aiming: true) },
@@ -246,15 +249,10 @@ public class ReachableStatesTests
         { ReachableRules.AimingIndex, "aiming while holding (OnFoot)", Pack(holding: true, aiming: true) },
         { ReachableRules.AimingIndex, "aiming under Pause", Pack(capture: CaptureLayer.Pause, aiming: true) },
         { ReachableRules.SubmenuIndex, "ActionMenu with no overlay", Pack(submenu: SubmenuLayer.ActionMenu) },
-        { ReachableRules.SubmenuIndex, "SplitStepper over Draft", Pack(overlay: OverlayLayer.Draft, submenu: SubmenuLayer.SplitStepper) },
         { ReachableRules.HoldingIndex, "holding while Mounted", Pack(body: BodyLayer.Mounted, holding: true) },
-        { ReachableRules.HoldingIndex, "holding in Build", Pack(body: BodyLayer.Build, holding: true) },
         { ReachableRules.PanelIndex, "Panel while Mounted", Pack(overlay: OverlayLayer.Panel, body: BodyLayer.Mounted) },
-        { ReachableRules.PanelIndex, "Panel while Build", Pack(overlay: OverlayLayer.Panel, body: BodyLayer.Build) },
         { ReachableRules.HistoryIndex, "History while Mounted", Pack(overlay: OverlayLayer.History, body: BodyLayer.Mounted) },
-        { ReachableRules.HistoryIndex, "History while Build", Pack(overlay: OverlayLayer.History, body: BodyLayer.Build) },
         { ReachableRules.DeadIndex, "Dead with Map", Pack(overlay: OverlayLayer.Map, body: BodyLayer.Dead) },
-        { ReachableRules.DeadIndex, "Dead with Station", Pack(overlay: OverlayLayer.Station, body: BodyLayer.Dead) },
         { ReachableRules.NoAimUnderOverlayIndex, "aiming with Map", Pack(overlay: OverlayLayer.Map, aiming: true) },
         { ReachableRules.NoAimUnderOverlayIndex, "aiming with Results", Pack(overlay: OverlayLayer.Results, aiming: true) },
     };

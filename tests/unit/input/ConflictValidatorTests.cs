@@ -85,25 +85,6 @@ public class ConflictValidatorTests
     // ------------------------------------------------------------------ planted conflicts
 
     [Fact]
-    public void DropBoundToE_ReportsWorldEInteractDrop()
-    {
-        ValidationReport report = Validate(Edited(ActionId.Drop, d => d with { KbmPrimary = S(KeyE) }));
-
-        Assert.False(report.IsValid);
-        Assert.Contains(report.ErrorsWith(ValidationCodes.ConflictColive), e =>
-            e.StateId == WorldId && e.Input == KeyE && e.Modifiers == ModifierMask.None && e.Actions.SequenceEqual(["interact", "drop"]));
-    }
-
-    [Fact]
-    public void PickPlaceSecondaryEnter_WithAChatLikeTapOnEnterInACoLiveState_IsReported()
-    {
-        ValidationReport report = Validate(Edited(ActionId.PickPlace, d => d, ChatLike(S(KeyEnter))));
-
-        Assert.Contains(report.ErrorsWith(ValidationCodes.ConflictColive), e =>
-            e.StateId == PanelId && e.Input == KeyEnter && e.Actions.SequenceEqual(["pick_place", "chat_like"]));
-    }
-
-    [Fact]
     public void SpaceOnJumpAndPickPlace_IsLegal_WithAnInfoLine()
     {
         ValidationReport report = Validate(Edited(ActionId.PickPlace, d => d with { KbmSecondary = S(KeySpace) }));
@@ -155,14 +136,6 @@ public class ConflictValidatorTests
         Assert.Equal(ReachableSet.Default.Count, esc.Count);
         Assert.All(esc, e => Assert.Equal(["pause", "back"], e.Actions));
         Assert.Contains(esc, e => e.StateId == TextEntryWorldId);
-    }
-
-    [Fact]
-    public void ACoLiveConflictInACapturedState_IsReported()
-    {
-        ValidationReport report = Validate(Edited(ActionId.Back, d => d with { KbmSecondary = S(KeyP) }));
-
-        Assert.Contains(report.ErrorsWith(ValidationCodes.ConflictColive), e => e.StateId == TextEntryWorldId && e.Input == KeyP);
     }
 
     [Fact]
@@ -241,8 +214,14 @@ public class ConflictValidatorTests
     [Fact]
     public void Report_SerialisesToText_WithCodeStateInputAndActions()
     {
+        // Drop bound to E: Validate also asserts that the load fails and yields no map.
         ValidationReport report = Validate(Edited(ActionId.Drop, d => d with { KbmPrimary = S(KeyE) }));
         string text = report.ToString();
+
+        Assert.False(report.IsValid);
+        Assert.Contains(report.ErrorsWith(ValidationCodes.ConflictColive), e =>
+            e.StateId == WorldId && e.Input == KeyE && e.Modifiers == ModifierMask.None && e.Actions.SequenceEqual(["interact", "drop"]));
+        Assert.True(report.HasError(ValidationCodes.ConflictColive, "drop"));
 
         Assert.Contains("ERROR CONFLICT_COLIVE interact.Bindings:", text, StringComparison.Ordinal);
         Assert.Contains("[interact, drop]", text, StringComparison.Ordinal);
@@ -328,7 +307,8 @@ public class ConflictValidatorTests
         // binding on Enter without the alias flag does not take NumpadEnter, so Pick / place keeps it alone.
         ValidationReport report = Validate(Edited(ActionId.PickPlace, d => d, ChatLike(S(KeyEnter))));
 
-        Assert.Contains(report.ErrorsWith(ValidationCodes.ConflictColive), e => e.Input == KeyEnter);
+        Assert.Contains(report.ErrorsWith(ValidationCodes.ConflictColive), e =>
+            e.StateId == PanelId && e.Input == KeyEnter && e.Actions.SequenceEqual(["pick_place", "chat_like"]));
         Assert.DoesNotContain(report.Errors, e => e.Input == KeyNumpadEnter);
     }
 
@@ -339,16 +319,6 @@ public class ConflictValidatorTests
 
         Assert.Contains(report.ErrorsWith(ValidationCodes.ConflictColive), e =>
             e.StateId == PanelId && e.Input == KeyNumpadEnter && e.Actions.SequenceEqual(["pick_place", "chat_like"]));
-    }
-
-    [Fact]
-    public void ConflictFixture_NeverYieldsAMap()
-    {
-        bool ok = ActionMap.TryLoad(Edited(ActionId.Drop, d => d with { KbmPrimary = S(KeyE) }), out ActionMap? map, out ValidationReport report);
-
-        Assert.False(ok);
-        Assert.Null(map);
-        Assert.True(report.HasError(ValidationCodes.ConflictColive, "drop"));
     }
 
     [Fact]

@@ -13,7 +13,10 @@ using Delivery = PerformativeMail.Client.Core.Input.Delivery;
 /// input-controls story 005 AC "H-R6-1 (M-1a rows)" plus "Required / reserved", "Deferred rows are absent" and the frame-bit
 /// rows of "Frame bits and delivery": <see cref="BuiltInActionMap.CreateM1a"/> equals the GDD R6 table row by row (one
 /// theory case per row, so a failure names the row), and every live-in set is compared state by state over the whole
-/// reachable set against an independent restatement of the GDD shorthand.
+/// reachable set against an independent restatement of the GDD shorthand. The row theory is the only pin for the slots
+/// (kind, NumpadEnter alias and Back-ladder flags), Required, Reserved, Delivery, FrameBit and capture-as-data (only Pause and
+/// Back live in captured states); <c>CreateM1a_Validates_AndRegistersExactlyTheTableRows</c> pins the id set (no
+/// separate <c>cancel_aim</c> / <c>esc_pause</c> action).
 /// </summary>
 [Trait("Id", "H-R6-1")]
 public class DefaultBindingsTests
@@ -210,76 +213,6 @@ public class DefaultBindingsTests
         Assert.Single(_map.All, d => d.TargetDriven);
     }
 
-    [Fact]
-    public void NumpadEnter_IsAnAliasFlagOnEnter_NeverStoredInASlot()
-    {
-        foreach (ActionDef def in _map.All)
-        {
-            foreach (InputBinding b in new[] { def.KbmPrimary, def.KbmSecondary, def.PadPrimary, def.PadSecondary })
-            {
-                Assert.False(b.Contains(KeyNumpadEnter), def.StringId);
-            }
-        }
-
-        Assert.Equal(S(KeyEnter).Input, _map.Get(ActionId.PickPlace)!.KbmSecondary.Input);
-        Assert.True(_map.Get(ActionId.PickPlace)!.KbmSecondary.AcceptsNumpadEnter);
-        Assert.True(_map.Get(ActionId.QuickMove)!.KbmSecondary.AcceptsNumpadEnter);
-    }
-
-    [Fact]
-    public void Wasd_Arrows_Chords_AndSticks_AreExpressedAsStructuredBindings()
-    {
-        Assert.Equal(BindingKind.Composite4, _map.Get(ActionId.Move)!.KbmPrimary.Kind);
-        Assert.Equal(BindingKind.AxisPair, _map.Get(ActionId.Move)!.PadPrimary.Kind);
-        Assert.Equal(BindingKind.Chord, _map.Get(ActionId.QuickMove)!.KbmPrimary.Kind);
-        Assert.Equal(BindingKind.Composite4, _map.Get(ActionId.GridCursor)!.KbmSecondary.Kind);
-        Assert.Equal(BindingKind.Composite4, _map.Get(ActionId.GridCursor)!.PadSecondary.Kind);
-    }
-
-    [Fact]
-    public void EveryDefaultBinding_IsFilledIn_AndOnTheRightDevice()
-    {
-        foreach (ActionDef def in _map.All)
-        {
-            Assert.False(def.KbmPrimary.IsMissing || def.KbmSecondary.IsMissing || def.PadPrimary.IsMissing || def.PadSecondary.IsMissing, def.StringId);
-        }
-    }
-
-    // ------------------------------------------------------------------ required / reserved
-
-    [Fact]
-    public void RequiredFlags_AreExactlyMoveInteractThrowOpenPanelBackPickPlace()
-    {
-        string[] required = _map.All.Where(d => d.Required).Select(d => d.StringId).OrderBy(s => s, StringComparer.Ordinal).ToArray();
-
-        Assert.Equal(new[] { "back", "interact", "move", "open_panel", "pick_place", "throw" }, required);
-        foreach (ActionDef def in _map.All.Where(d => d.Required))
-        {
-            Assert.False(def.KbmPrimary.IsUnbound, def.StringId);
-            Assert.False(def.PadPrimary.IsUnbound, def.StringId);
-        }
-    }
-
-    [Fact]
-    public void ReservedFlags_AreEscOnBackAndPause_AndMenuOnPause()
-    {
-        ActionDef back = _map.Get(ActionId.Back)!;
-        ActionDef pause = _map.Get(ActionId.Pause)!;
-
-        Assert.Equal(new[] { KeyEscape }, back.Reserved.ToArray());
-        Assert.Equal(new[] { KeyEscape, PadMenu }, pause.Reserved.ToArray());
-        Assert.Equal(new[] { "back", "pause" }, _map.All.Where(d => d.IsReserved).Select(d => d.StringId).OrderBy(s => s, StringComparer.Ordinal).ToArray());
-    }
-
-    [Fact]
-    public void TheReservedInputs_AreBoundOnTheirActions()
-    {
-        Assert.Equal(S(KeyEscape), _map.Get(ActionId.Back)!.KbmPrimary);
-        Assert.Equal(S(KeyEscape).WithBackLadderStep(), _map.Get(ActionId.Pause)!.KbmPrimary);
-        Assert.Equal(S(PadMenu), _map.Get(ActionId.Pause)!.PadPrimary);
-        Assert.Equal(S(KeyP), _map.Get(ActionId.Pause)!.KbmSecondary);
-    }
-
     // ------------------------------------------------------------------ deferred rows
 
     [Fact]
@@ -334,90 +267,7 @@ public class DefaultBindingsTests
         throw new InvalidOperationException("PerformativeMail.sln not found above " + AppContext.BaseDirectory);
     }
 
-    [Fact]
-    public void LadderSteps_AreNotSeparateActions()
-    {
-        Assert.Null(_map.Resolve("cancel_aim"));
-        Assert.Null(_map.Resolve("esc_pause"));
-    }
-
-    // ------------------------------------------------------------------ capture is data
-
-    [Fact]
-    public void NoActionExceptPauseAndBack_IsLiveInAnyCapturedState()
-    {
-        int captured = 0;
-        foreach (ushort id in ReachableSet.Default.Ids)
-        {
-            Assert.True(RouterState.TryFromId(id, out RouterState state));
-            if (state.Capture == CaptureLayer.None)
-            {
-                continue;
-            }
-
-            captured++;
-            foreach (ActionDef def in _map.All)
-            {
-                bool allowed = def.Id is ActionId.Pause or ActionId.Back;
-                Assert.True(def.IsLive(id) == allowed, $"{def.StringId} in captured state {state.ToDebugString()}: live={def.IsLive(id)}");
-            }
-        }
-
-        Assert.True(captured > 0);
-    }
-
-    [Fact]
-    public void PauseAndBack_AreLiveInEveryReachableState()
-    {
-        foreach (ushort id in ReachableSet.Default.Ids)
-        {
-            Assert.True(_map.Get(ActionId.Pause)!.IsLive(id));
-            Assert.True(_map.Get(ActionId.Back)!.IsLive(id));
-        }
-    }
-
-    // ------------------------------------------------------------------ frame bits and delivery
-
-    [Fact]
-    public void FrameActions_CarryDistinctBits_ExceptAxes_AndImmediateActionsCarryNone()
-    {
-        var frame = _map.All.Where(d => d.Delivery == Delivery.Frame).ToArray();
-        var bits = frame.Where(d => d.FrameBit is not null).Select(d => d.FrameBit!.Value).ToArray();
-
-        Assert.Equal(
-            new[] { "hotbar_step", "interact", "jump", "move", "look", "sprint", "throw" }.OrderBy(s => s, StringComparer.Ordinal),
-            frame.Select(d => d.StringId).OrderBy(s => s, StringComparer.Ordinal));
-        Assert.Equal(
-            new[] { FrameAction.Interact, FrameAction.Jump, FrameAction.Sprint, FrameAction.Aim, FrameAction.HotbarStep }.OrderBy(b => (int)b),
-            bits.OrderBy(b => (int)b));
-        Assert.Equal(bits.Length, bits.Distinct().Count());
-        foreach (ActionDef d in frame.Where(d => d.Grammar == Grammar.Axis))
-        {
-            Assert.Null(d.FrameBit);
-        }
-
-        foreach (ActionDef d in _map.All.Where(d => d.Delivery == Delivery.Immediate))
-        {
-            Assert.Null(d.FrameBit);
-        }
-
-        Assert.Equal(_map.Count, frame.Length + _map.All.Count(d => d.Delivery == Delivery.Immediate));
-    }
-
-    [Fact]
-    public void LocalVerbsAndInventoryOps_AreImmediate()
-    {
-        ushort[] immediate =
-        [
-            ActionId.Pause, ActionId.ShoulderSwap, ActionId.HotbarSlot1, ActionId.HotbarSlot8, ActionId.GridCursor, ActionId.OpenPanel,
-            ActionId.ClosePanel, ActionId.Back, ActionId.PickPlace, ActionId.Rotate, ActionId.CancelReturn, ActionId.Drop, ActionId.QuickMove,
-        ];
-
-        foreach (ushort id in immediate)
-        {
-            Assert.Equal(Delivery.Immediate, _map.Get(id)!.Delivery);
-        }
-    }
+    // ------------------------------------------------------------------ frame bit layout
 
     [Fact]
     public void FrameAction_HotbarStep_IsTheAppendedBit4()

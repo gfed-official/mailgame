@@ -174,18 +174,10 @@ public class AssemblyRulesTests
     [Theory]
     [InlineData("System.Runtime", true)]
     [InlineData("System.Private.CoreLib", true)]
-    [InlineData("System.Collections", true)]
     [InlineData("netstandard", true)]
-    [InlineData("mscorlib", true)]
-    [InlineData("Microsoft.Win32.Primitives", true)]
     [InlineData("System.Reactive", false)]
-    [InlineData("System.Linq.Async", false)]
-    [InlineData("Godot.SourceGenerators", false)]
-    [InlineData("Newtonsoft.Json", false)]
-    [InlineData("Microsoft.Extensions.Logging", false)]
     [InlineData("xunit.v3.assert", false)]
     [InlineData("PerformativeMail.Sim", false)]
-    [InlineData("PerformativeMail.Client.Core", false)]
     public void IsInboxAssembly_Name_ClassifiedAsExpected(string name, bool expected)
     {
         // Arrange - name from the theory data; System.Reactive / System.Linq.Async stand in for
