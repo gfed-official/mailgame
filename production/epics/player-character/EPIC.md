@@ -125,7 +125,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 011 | [`Hold.HoldTicks` — the single shared `holdEff`](story-011-hold-ticks-holdeff.md) | Logic | Complete | ADR-0014 |
 | 012 | [Anchor registry — `IInteractable`, `RegisterAnchor`, verb catalogue, dense 2 m grid](story-012-anchor-registry-iinteractable-spatial-grid.md) | Logic | Complete | ADR-0014 |
 | 013 | [Input contexts, verb × context table (P14 router declarations), framework availability gate](story-013-contexts-verbs-availability-gate-router-declarations.md) | Logic | Complete | ADR-0014 |
-| 014 | [Focus — F4 score, tie-break, 4-tick dwell, `PreviewSubStep.Focus` binding](story-014-focus-scoring-dwell-preview-binding.md) | Logic | Ready | ADR-0014 |
+| 014 | [Focus — F4 score, tie-break, 4-tick dwell, `PreviewSubStep.Focus` binding](story-014-focus-scoring-dwell-preview-binding.md) | Logic | Ready | ADR-0014, ADR-0016 |
 | 015 | [Focus occlusion — lazy, score-ordered](story-015-focus-occlusion-lazy-score-order.md) | Logic | Ready | ADR-0014 |
 | 016 | [Press resolution — Catch → presented target verb → catch-armed, latch, Tap requests](story-016-press-resolution-tap-catch-armed.md) | Logic | Ready | ADR-0014 |
 | 017 | [Hold counter — completion, cancel list, catch channel, focus latch](story-017-hold-counter-cancels-channel-focus-latch.md) | Logic | Ready | ADR-0014 |
