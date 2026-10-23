@@ -7,7 +7,7 @@ namespace PerformativeMail.Sim.Inventory.Ledger;
 /// other than a cursor, <see cref="Cursor"/> on a player's cursor (its own state, <c>InventoryMutator.IsCursor</c>), and the four
 /// holder states <see cref="World"/> (a WorldItem's entry), <see cref="Flight"/> (an entry <c>DetachForThrow</c> released),
 /// <see cref="Belt"/> (a unit <c>TakeUnit</c> took, held by no entry) and <see cref="Backlog"/> (an entry queued on the Intake
-/// backlog). An entry detached inside one call is in no state. Mail Lead planning default pending Evan (TD-160 item 4).
+/// backlog). An entry detached inside one call is in no state. Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT (TD-160 item 4; advisory fix, Mail Review PR #36 A11).
 /// </summary>
 internal enum LedgerState : byte
 {
@@ -40,7 +40,7 @@ internal enum LedgerState : byte
 /// <c>Σ live = spawned + granted − consumed − destroyed</c> per row. It also keeps, per entry-pool slot, the holder state a detached
 /// entry is in (World, Flight or Backlog; none for a placed entry or one detached mid-call), so a holder crossing knows its source.
 /// <para>
-/// Only <c>InventoryMutator</c> writes it (the sole-writer architecture test; Mail Lead planning default pending Evan, TD-160 item 1);
+/// Only <c>InventoryMutator</c> writes it (the sole-writer architecture test; Approved by Evan 2026-10-22 6:41 PM PT (ADR-0009 §6 l.170 erratum), TD-160 item 1; advisory fix, Mail Review PR #36 A11);
 /// its test seams (<see cref="Recount"/>, <see cref="CorruptSpawnedForTests"/>) are the only other writers. Counters are
 /// <see cref="long"/>, so no crossing overflows; a crossing never checks a counter (a negative one is the tick-end check's finding).
 /// Allocation-free after construction; every crossing is O(1). Not thread-safe: Sim tick thread only.
@@ -213,7 +213,7 @@ internal sealed class UnitLedger
     }
 
     /// <summary>
-    /// TEST-ONLY seam (story 017 AC "Recount seam"; Mail Lead planning default pending Evan, TD-160 item 3): recounts every row's
+    /// TEST-ONLY seam (story 017 AC "Recount seam"; Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT, TD-160 item 3; advisory fix, Mail Review PR #36 A11): recounts every row's
     /// live states and every slot's holder from storage, the way <c>RebuildIndex</c> rebuilds the derived memos after a test arranged
     /// entries outside the mutator. A live entry in a container counts as Cursor (a player's cursor) or Placed; a detached one as
     /// World (held by a WorldItem), Backlog (queued) or else Flight; Belt is 0 (no entry holds a belt unit). Consumed, Destroyed and
