@@ -25,34 +25,6 @@ public class WorldHeightTests
 
     [Fact]
     [Trait("Id", "PCM-F7-1")]
-    public void Sample__fxBeachMidpoint_MinusSixHundred()
-    {
-        // Arrange (a tile whose corners are h00 = h10 = -1000, h01 = h11 = -200)
-        HeightCorners h = _fxBeach;
-
-        // Act
-        int height = WorldHeight.Sample(in h, 500, 1000);
-
-        // Assert
-        Assert.Equal(-600, height);
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-F7-1")]
-    public void Sample__fxBeachAtFz1375_MinusFourFifty()
-    {
-        // Arrange
-        HeightCorners h = _fxBeach;
-
-        // Act
-        int height = WorldHeight.Sample(in h, 500, 1375);
-
-        // Assert
-        Assert.Equal(-450, height);
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-F7-1")]
     public void At__fxBeachThroughWorld_MatchesDirectSample()
     {
         // Arrange

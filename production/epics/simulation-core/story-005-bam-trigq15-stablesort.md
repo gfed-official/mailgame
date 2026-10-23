@@ -85,6 +85,6 @@
 **Completed**: 2026-10-16
 **Criteria**: 3/3 passing (AC-1 anchors + Cos/Sin all 65 536 + SHA-256 pin `70A52019…1BC7`; AC-2 BAM wrap in checked Debug; AC-3 1 000-record stability vs reference merge sort, 0 B warmed, GetHashCode trap struct)
 **Deviations**: ADVISORY — (1) table stored as `ReadOnlySpan<short>` property per ADR-0003 §4 (story-planned; ADR-0006 §6 erratum candidate); (2) `RuntimeHelpers.CreateSpan` allocates (~64 B) at Tier-0 / in unoptimised builds — generated getter uses `[MethodImpl(AggressiveOptimization)]`; TrigQ15 0-B test skips on Debug legs (TD-008); (3) `StableSort.Sort` throws `ArgumentException` on short/overlapping scratch; extra constants `Bam.Turn/Quarter/Half/ThreeQuarters`, `TrigQ15.TableLength/One` (accepted by review).
-**Test Evidence**: Logic — tests/unit/sim/Primitives/TrigQ15Tests.cs (14 methods / 23 cases), StableSortTests.cs (20 methods / 39 cases); suite 288: net10.0/net8.0 Release 288/288, Debug 287 + 1 skipped; Release build 0 warnings; analyzer fixtures 80/0.
+**Test Evidence**: Logic — tests/unit/sim/Primitives/TrigQ15Tests.cs (14 methods / 24 cases), StableSortTests.cs (20 methods / 40 cases); suite 288: net10.0/net8.0 Release 288/288, Debug 287 + 1 skipped; Release build 0 warnings; analyzer fixtures 80/0.
 **Run result**: N/A — Godot-free Sim primitives; nothing renders.
 **Code Review**: Complete — LP-CODE-REVIEW CONCERNS (revised: Sort split ≤ 40 lines/CC ≤ 10; Debug skip made visible); QL-TEST-COVERAGE ADEQUATE.

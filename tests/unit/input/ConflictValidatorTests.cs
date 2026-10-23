@@ -139,6 +139,24 @@ public class ConflictValidatorTests
     }
 
     [Fact]
+    public void ACoLiveConflictOnANonReservedSecondarySlot_IsReportedInEveryStateIncludingCaptured()
+    {
+        // Arrange (P is Pause's KBM secondary and not reserved; Back takes it as its KBM secondary too)
+        ActionDef pause = BuiltInActionMap.CreateM1a().Get(ActionId.Pause)!;
+        Assert.Equal(S(KeyP), pause.KbmSecondary);
+        Assert.DoesNotContain(KeyP, pause.Reserved);
+
+        // Act
+        ValidationReport report = Validate(Edited(ActionId.Back, d => d with { KbmSecondary = S(KeyP) }));
+
+        // Assert
+        List<ValidationEntry> p = report.ErrorsWith(ValidationCodes.ConflictColive).Where(e => e.Input == KeyP).ToList();
+        Assert.Equal(ReachableSet.Default.Count, p.Count);
+        Assert.All(p, e => Assert.Equal(["pause", "back"], e.Actions));
+        Assert.Contains(p, e => e.StateId == TextEntryWorldId);
+    }
+
+    [Fact]
     public void LadderStepFlag_OnAnInputThatIsNotBacks_IsRejected()
     {
         ValidationReport report = Validate(Edited(ActionId.Drop, d => d with { KbmPrimary = S(KeyQ).WithBackLadderStep() }));
