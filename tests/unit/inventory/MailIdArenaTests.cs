@@ -1387,6 +1387,27 @@ public class MailIdArenaTests
     }
 
     [Fact]
+    public void RecordReservationRefusal_ThreeBlocksLargestNotLast_WritesOneRecord_ATheLargestBlock_BItsClass_MutatesNothing()
+    {
+        // Arrange: a three-block plan whose largest block is in the middle; its sum (48) and last block (5) differ from it (advisory
+        // fix, Mail Review PR #34 r2 advisory 5)
+        var ring = NewRing();
+        var arena = new MailIdArena(MinBudget, ring);
+        var before = new ArenaState(arena);
+
+        // Act
+        arena.RecordReservationRefusal(new ushort[] { 3, 40, 5 }, 7);
+
+        // Assert: one InventoryArenaExhausted record, a = 40, b = ClassFor(40); the arena unchanged
+        Assert.Equal(1, Records(ring));
+        Assert.Equal(CheckCode.InventoryArenaExhausted, ring[0].Check);
+        Assert.Equal(7u, ring[0].Tick);
+        Assert.Equal(40L, ring[0].A);
+        Assert.Equal((long)MailIdArena.ClassFor(40), ring[0].B);
+        new ArenaState(arena).AssertEqual(before);
+    }
+
+    [Fact]
     public void EdgePaths_EmptySpansNoneInputsAndPeak_BehaveAsDocumented()
     {
         // Arrange
