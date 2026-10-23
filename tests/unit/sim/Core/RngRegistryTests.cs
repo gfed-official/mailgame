@@ -481,6 +481,7 @@ public class RngRegistryTests
 
     [Theory]
     [Trait("Id", "SC-R24-1")]
+    [Trait("Id", "SC-F5-1")]
     [InlineData(0UL)]
     [InlineData(1UL)]
     [InlineData(0xdeadbeefcafef00dUL)]
