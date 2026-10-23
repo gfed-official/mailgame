@@ -7,8 +7,10 @@ namespace PerformativeMail.Sim.ClientLayer;
 /// (the freeze pattern of <see cref="SimWorldBuilder"/>). Owning systems bind their steps by <see cref="ClientStepId"/>;
 /// binds to one id run in bind order. Errors are <see cref="SimBuildException"/>s. Not thread-safe.
 /// <para>
-/// Previews storage is a per-id list so a later additive <c>BindPreview(PreviewSubStep, IClientStep)</c>
-/// (ADR-0016, player-character story 014) can sit beside <see cref="Bind"/> without changing it.
+/// <see cref="ClientStepId.Previews"/> runs the <see cref="PreviewSubStep"/> rows bound with <see cref="BindPreview"/> in enum
+/// order, then the plain <c>Bind(ClientStepId.Previews, …)</c> steps (ADR-0016 section 2; D4, Approved by Evan 2026-10-22
+/// 8:24 PM PT (Mail Lead chat), TD-164). <see cref="Build"/> flattens them into one row, so the layer's step loop is unchanged
+/// (TD-170 item 6, Mail Lead planning default, pending Evan).
 /// </para>
 /// </summary>
 /// <example>
@@ -22,10 +24,12 @@ namespace PerformativeMail.Sim.ClientLayer;
 public sealed class ClientLayerBuilder
 {
     private const int StepIdCount = 4;
+    private const int PreviewSubStepCount = 5;
 
     private readonly IHostClock _hostClock;
     private readonly SimCounters _counters;
     private readonly List<IClientStep>[] _steps = new List<IClientStep>[StepIdCount];
+    private readonly List<IClientStep>[] _previews = new List<IClientStep>[PreviewSubStepCount];
     private readonly SimCheckRing? _checks;
     private ulong _levelActionMask;
     private bool _built;
@@ -46,6 +50,11 @@ public sealed class ClientLayerBuilder
         {
             _steps[i] = new List<IClientStep>();
         }
+
+        for (int i = 0; i < PreviewSubStepCount; i++)
+        {
+            _previews[i] = new List<IClientStep>();
+        }
     }
 
     /// <summary>Binds <paramref name="step"/> to run at <paramref name="id"/>, after earlier binds of the same id.</summary>
@@ -65,6 +74,28 @@ public sealed class ClientLayerBuilder
         }
 
         _steps[(int)id].Add(step);
+    }
+
+    /// <summary>
+    /// Binds <paramref name="step"/> to run at <paramref name="subStep"/> of <see cref="ClientStepId.Previews"/>, after earlier
+    /// binds of the same sub-step (ADR-0016 Key Interfaces).
+    /// </summary>
+    /// <param name="subStep">The sub-step slot.</param>
+    /// <param name="step">The work to run.</param>
+    /// <exception cref="SimBuildException"><c>BindAfterFreeze</c> after <see cref="Build"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="step"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="subStep"/> is not a defined <see cref="PreviewSubStep"/>.</exception>
+    /// <example><code>builder.BindPreview(PreviewSubStep.Focus, focusStep);</code></example>
+    public void BindPreview(PreviewSubStep subStep, IClientStep step)
+    {
+        ThrowIfBuilt();
+        ArgumentNullException.ThrowIfNull(step);
+        if ((byte)subStep >= PreviewSubStepCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(subStep));
+        }
+
+        _previews[(int)subStep].Add(step);
     }
 
     /// <summary>
@@ -95,10 +126,27 @@ public sealed class ClientLayerBuilder
         for (int i = 0; i < StepIdCount; i++)
         {
             int offset = i == (int)ClientStepId.InputLatch ? 1 : 0;
+            if (i == (int)ClientStepId.Previews)
+            {
+                for (int s = 0; s < PreviewSubStepCount; s++)
+                {
+                    offset += _previews[s].Count;
+                }
+            }
+
             var row = new IClientStep[_steps[i].Count + offset];
-            if (offset == 1)
+            if (i == (int)ClientStepId.InputLatch)
             {
                 row[0] = latch;
+            }
+            else if (i == (int)ClientStepId.Previews)
+            {
+                int at = 0;
+                for (int s = 0; s < PreviewSubStepCount; s++)
+                {
+                    _previews[s].CopyTo(row, at);
+                    at += _previews[s].Count;
+                }
             }
 
             _steps[i].CopyTo(row, offset);

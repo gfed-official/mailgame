@@ -16,6 +16,6 @@ public enum ClientStepId : byte
     /// <summary>The owned carrier's step (client prediction of the local carrier).</summary>
     CarrierStep = 2,
 
-    /// <summary>Previews composite (focus, deliver and throw previews, edge resolve, hold advance). Several binds run in bind order.</summary>
+    /// <summary>Previews composite (focus, deliver and throw previews, edge resolve, hold advance). Runs the <see cref="PreviewSubStep"/> rows in enum order, then plain binds in bind order.</summary>
     Previews = 3,
 }

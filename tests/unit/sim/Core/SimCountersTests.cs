@@ -166,7 +166,9 @@ public class SimCountersTests
         Assert.Equal(49, (int)CounterId.InventoryItemCountProbes);
         Assert.Equal(50, (int)CounterId.InventoryBacklogVisits);
         Assert.Equal(51, (int)CounterId.InventoryConservationMismatches);
-        Assert.Equal(52, new SimCounters().Length);
+        Assert.Equal(52, (int)CounterId.FocusCandidates);
+        Assert.Equal(53, (int)CounterId.FocusCellsVisited);
+        Assert.Equal(54, new SimCounters().Length);
         Assert.Equal(typeof(ushort), Enum.GetUnderlyingType(typeof(CounterId)));
     }
 

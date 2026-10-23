@@ -4,7 +4,8 @@ namespace PerformativeMail.Sim.ClientLayer;
 
 /// <summary>
 /// The client-side shell (ADR-0003 section 6): runs the bound <see cref="IClientStep"/>s once per client tick in
-/// <see cref="ClientStepId"/> order (<c>MirrorDrain</c>, <c>InputLatch</c>, <c>CarrierStep</c>, <c>Previews</c>).
+/// <see cref="ClientStepId"/> order (<c>MirrorDrain</c>, <c>InputLatch</c>, <c>CarrierStep</c>, <c>Previews</c>); the
+/// <c>Previews</c> row is already in <see cref="PreviewSubStep"/> order, then the plain <c>Previews</c> binds (the builder flattens it).
 /// It reads only its mirror and ports, never a <c>SimWorld</c>, even on the host. Created by
 /// <see cref="ClientLayerBuilder.Build"/>. <see cref="Step"/> allocates 0 B. Not thread-safe: step it on the thread
 /// that owns the client.
