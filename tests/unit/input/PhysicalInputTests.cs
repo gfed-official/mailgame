@@ -69,43 +69,86 @@ public class PhysicalInputTests
         (PhysicalInput.PadRightTrigger, 0x0313, "Pad.RT"),
     ];
 
-    // The three golden pins loop the table in one test each; the failure message names the row.
+    /// <summary>
+    /// The R6 default inputs, written independently from story 003 AC-2's list and the GDD R6 tables (not from
+    /// <see cref="_golden"/>): Look's "mouse" is <c>Mouse.Motion</c>; MMB / R3 (quick ping) and View (Map) are R6 inputs the
+    /// M-1a map does not bind yet, so this list is their only pin outside the golden table.
+    /// </summary>
+    private static readonly string[] _r6Inputs =
+    [
+        "Key.W", "Key.A", "Key.S", "Key.D", "Key.Up", "Key.Down", "Key.Left", "Key.Right", "Key.Shift", "Key.Space",
+        "Key.E", "Key.Q", "Key.R", "Key.F", "Key.P", "Key.X", "Key.Tab", "Key.Esc", "Key.Enter", "Key.NumpadEnter",
+        "Key.1", "Key.2", "Key.3", "Key.4", "Key.5", "Key.6", "Key.7", "Key.8",
+        "Mouse.Left", "Mouse.Middle", "Mouse.Right", "Mouse.WheelUp", "Mouse.WheelDown", "Mouse.Motion",
+        "Pad.A", "Pad.B", "Pad.X", "Pad.Y", "Pad.LB", "Pad.RB", "Pad.L3", "Pad.R3",
+        "Pad.DpadUp", "Pad.DpadDown", "Pad.DpadLeft", "Pad.DpadRight", "Pad.Menu", "Pad.View",
+        "Pad.LeftStickX", "Pad.LeftStickY", "Pad.RightStickX", "Pad.RightStickY", "Pad.LT", "Pad.RT",
+    ];
+
+    // The three golden pins loop the table in one test each and report every failing row in one message.
     [Fact]
     public void PhysicalInput_Value_MatchesTheGoldenNumber()
     {
+        var failures = new List<string>();
         foreach ((PhysicalInput input, ushort value, string name) in _golden)
         {
-            Assert.NotEmpty(name);
-            Assert.True(value == (ushort)input, $"{name}: expected 0x{value:X4}, got 0x{(ushort)input:X4}");
+            if (name.Length == 0 || value != (ushort)input)
+            {
+                failures.Add($"{name}: expected 0x{value:X4}, got 0x{(ushort)input:X4}");
+            }
         }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     [Fact]
     public void TryParse_WithThePersistedName_ReturnsTheInput()
     {
+        var failures = new List<string>();
         foreach ((PhysicalInput input, ushort value, string name) in _golden)
         {
-            Assert.True(value != 0, name);
-
             bool ok = PhysicalInputNames.TryParse(name, out PhysicalInput parsed);
 
-            Assert.True(ok, $"{name}: TryParse returned false");
-            Assert.True(input == parsed, $"{name}: expected {input}, got {parsed}");
+            if (value == 0)
+            {
+                failures.Add($"{name}: golden value is 0");
+            }
+            else if (!ok)
+            {
+                failures.Add($"{name}: TryParse returned false");
+            }
+            else if (input != parsed)
+            {
+                failures.Add($"{name}: expected {input}, got {parsed}");
+            }
         }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     [Fact]
     public void TryGetName_WithTheInput_ReturnsThePersistedName()
     {
+        var failures = new List<string>();
         foreach ((PhysicalInput input, ushort value, string name) in _golden)
         {
-            Assert.True(value != 0, name);
-
             bool ok = PhysicalInputNames.TryGetName(input, out string actual);
 
-            Assert.True(ok, $"{input} (0x{value:X4}): TryGetName returned false");
-            Assert.True(name == actual, $"{input} (0x{value:X4}): expected '{name}', got '{actual}'");
+            if (value == 0)
+            {
+                failures.Add($"{input}: golden value is 0");
+            }
+            else if (!ok)
+            {
+                failures.Add($"{input} (0x{value:X4}): TryGetName returned false");
+            }
+            else if (name != actual)
+            {
+                failures.Add($"{input} (0x{value:X4}): expected '{name}', got '{actual}'");
+            }
         }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     [Fact]
@@ -134,6 +177,24 @@ public class PhysicalInputTests
                 Assert.Contains(_golden, g => g.Input == input);
             }
         }
+
+        // The independent R6 list: each entry is a defined input whose persisted name round-trips, and the list is every member.
+        var failures = new List<string>();
+        foreach (string name in _r6Inputs)
+        {
+            if (!PhysicalInputNames.TryParse(name, out PhysicalInput input) || !Enum.IsDefined(input))
+            {
+                failures.Add($"{name}: not a defined PhysicalInput");
+            }
+            else if (!PhysicalInputNames.TryGetName(input, out string persisted) || persisted != name)
+            {
+                failures.Add($"{name}: {input} persists as '{persisted}'");
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+        Assert.Equal(_r6Inputs.Length, _r6Inputs.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(defined.Length - 1, _r6Inputs.Length);
     }
 
     [Fact]

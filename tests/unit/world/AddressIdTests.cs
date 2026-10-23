@@ -10,37 +10,38 @@ namespace PerformativeMail.Sim.Tests.Unit.World;
 /// </summary>
 public class AddressIdTests
 {
-    public static IEnumerable<object[]> BoundaryTuples()
+    // The 2^4 boundary tuples run in one test; every failing tuple is reported.
+    [Fact]
+    public void Pack_BoundaryValues_RoundTripThroughComponents()
     {
-        foreach (int d in new[] { 1, 63 })
+        var failures = new List<string>();
+        int count = 0;
+        foreach (int district in new[] { 1, 63 })
         {
-            foreach (int s in new[] { 0, 255 })
+            foreach (int street in new[] { 0, 255 })
             {
-                foreach (int n in new[] { 0, 4095 })
+                foreach (int number in new[] { 0, 4095 })
                 {
-                    foreach (int u in new[] { 0, 63 })
+                    foreach (int unit in new[] { 0, 63 })
                     {
-                        yield return new object[] { d, s, n, u };
+                        // Act
+                        AddressId a = AddressId.Pack(district, street, number, unit);
+                        count++;
+
+                        // Assert (collected)
+                        uint value = ((uint)district << 26) | ((uint)street << 18) | ((uint)number << 6) | (uint)unit;
+                        if (a.District != (uint)district || a.Street != (uint)street || a.Number != (uint)number
+                            || a.Unit != (uint)unit || a.Value != value || a.IsNone)
+                        {
+                            failures.Add($"({district}, {street}, {number}, {unit}): got ({a.District}, {a.Street}, {a.Number}, {a.Unit}) value 0x{a.Value:X8} (expected 0x{value:X8}) IsNone {a.IsNone}");
+                        }
                     }
                 }
             }
         }
-    }
 
-    [Theory]
-    [MemberData(nameof(BoundaryTuples))]
-    public void Pack_BoundaryValues_RoundTripThroughComponents(int district, int street, int number, int unit)
-    {
-        // Act
-        AddressId a = AddressId.Pack(district, street, number, unit);
-
-        // Assert
-        Assert.Equal((uint)district, a.District);
-        Assert.Equal((uint)street, a.Street);
-        Assert.Equal((uint)number, a.Number);
-        Assert.Equal((uint)unit, a.Unit);
-        Assert.Equal(((uint)district << 26) | ((uint)street << 18) | ((uint)number << 6) | (uint)unit, a.Value);
-        Assert.False(a.IsNone);
+        Assert.Equal(16, count);
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     [Fact]
