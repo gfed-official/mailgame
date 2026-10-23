@@ -134,7 +134,7 @@ This epic is complete when:
 
 ## Open Questions
 
-- **OQ-MD001-1 (owner, non-blocking — pending Evan):** does "priority read from Player Character's data" (GDD / control manifest) mean the Players verb catalogue (`VerbCatalogue`) code table? No content field holds a priority, so story 001 takes it from the catalogue via `AnchorDef.For(..., Verb.Deliver)` (Deliver = `VerbCatalogue.DefaultPriority(Verb.PickUp) + 1`) and its test asserts that. Raised in story 001's Completion Notes (PR #14). If the answer is a content field, story 001's anchor registration and test change.
+- **OQ-MD001-1 — Resolved 2026-10-22 (Evan, 2026-10-22 7:13 PM PT, Mail Dev chat: "Keep the verb catalogue as the source (recommended)"; decision log 2026-10-22, "Deliver's priority comes from the Players `VerbCatalogue`"): Deliver's priority comes from the `VerbCatalogue` code table, as story 001 built it; no content field.** Originally: does "priority read from Player Character's data" (GDD / control manifest) mean the Players verb catalogue (`VerbCatalogue`) code table? No content field holds a priority, so story 001 takes it from the catalogue via `AnchorDef.For(..., Verb.Deliver)` (Deliver = `VerbCatalogue.DefaultPriority(Verb.PickUp) + 1`) and its test asserts that. Raised in story 001's Completion Notes (PR #14). If the answer is a content field, story 001's anchor registration and test change.
 - **OQ-MD005-1:** see story 005 AC-7 (registry access) — open.
 
 ## Next Step
