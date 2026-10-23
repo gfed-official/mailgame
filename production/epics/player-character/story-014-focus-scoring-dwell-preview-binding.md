@@ -65,6 +65,7 @@
 - The cone-cos conversion from FOV/aspect is the Presentation's (player-character Story 023, `CameraRig`, via `IFocusConeSink`), delivered via the router in `InputFrame.FocusCosMinPm`.
 
 - **Mail Lead planning defaults, pending Evan (TD-164; not rulings, none contradicts an Accepted ADR):** D1 the `ICarrierFocusSource` port; D2 the latch semantics above; D3 `FocusCounters` + `CounterId` 52/53 + the `QueryCells` overload + the 128-slot candidate span; D4 `Previews` sub-rows with plain `Bind(Previews)` running after `HoldAdvance`; D5 the `.Client` namespace architecture rule; D6 the `cosPm` clamp.
+- **Build calls on top of D1–D6** (TD-170, Mail Lead planning defaults, pending Evan): the `SimCounters` constructor argument, running-maximum focus counters, gate-reason-first availability (also under the latch), the winner's `InteractionContext` fields, the latched-incumbent `TryGet` fallback, and `BindPreview` flattened into the `Previews` row at `Build`.
 
 ---
 
