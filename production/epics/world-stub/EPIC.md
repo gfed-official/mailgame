@@ -8,7 +8,7 @@
 > **Est. size**: S — 4–6 stories
 > **Implementation priority**: between 3 and 4. Mail needs the address table; Player Character and Throwing need the height field, water and AABBs.
 > **Status**: Complete (Provisional — no GDD)
-> **Stories**: 7 stories — 7 Complete (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
+> **Stories**: 7 stories — 7 Complete (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -82,5 +82,7 @@ This epic is complete when:
 **Cross-epic ownership decided here:** story 001 creates `Sim/Geometry` `WorldHeight`/`HeightCorners` (ADR-0013 §6) and `Vec3Mm`/`AabbMm`/`TileCoord` if they are absent. Story 004 creates `Sim/Primitives/AddressId` (ADR-0017 §1). player-character, throwing-catching, mail-destinations and grid-inventory reuse them.
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): all stories Complete. Earlier notes below are history.
 
 `/story-readiness production/epics/world-stub/story-001-iworldquery-height-field-kernel.md`, then `/dev-story` in order 001 → 007.

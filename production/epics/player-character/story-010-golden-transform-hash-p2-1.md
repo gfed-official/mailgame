@@ -82,5 +82,5 @@
 
 ## Dependencies
 
-- Depends on: Stories 005, 006, 007, 008, 009, 027 (all solver paths; 027 lands the 2026-10-16 movement rulings — goldens must be captured after it), Story 002 (scripted sources), `production/epics/simulation-core/story-019-canonical-state-dump.md` (`CanonicalWriter`), `production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md` (net8.0 leg), `production/epics/simulation-core/story-028-architecture-rules-sc-arch-1.md` (arch-test rule set), `production/epics/simulation-core/story-026-inmemory-recorder-replay.md` (replay check)
+- Depends on: Stories 005, 006, 007, 008, 009 (all solver paths. Story 027's movement rulings are **Deferred** to M1 by Evan 2026-10-23 7:13 AM PT, so capture the goldens on the current solver and re-capture them, as a reviewed golden change, when 027 lands), Story 002 (scripted sources), `production/epics/simulation-core/story-019-canonical-state-dump.md` (`CanonicalWriter`), `production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md` (net8.0 leg), `production/epics/simulation-core/story-028-architecture-rules-sc-arch-1.md` (arch-test rule set), `production/epics/simulation-core/story-026-inmemory-recorder-replay.md` (replay check)
 - Unlocks: Story 020 (the client step may be integrated against a locked solver); `/gate-check` evidence for TR-movement-022

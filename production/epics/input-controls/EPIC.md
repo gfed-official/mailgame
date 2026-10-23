@@ -8,7 +8,7 @@
 > **Est. size**: L — 29 stories (1 spike, 18 router-core / Sim stories, 2 integration, 4 corpus / fantasy / perf / lint, 4 Godot-adapter stories); sized to one `/dev-story` session each (≤ ~1 day, ≤ ~600 lines prod + tests)
 > **Implementation priority**: 8 of 9 (router core in Client.Core, stories 002–025); the Godot adapter (026–029) goes with priority 9, after the spike (story 001) and `godot-host-shell`
 > **Status**: Ready
-> **Stories**: 29 stories — 6 Complete, 22 Ready, 1 Blocked; blocked: 029 awaits 026–028 (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
+> **Stories**: 29 stories — 6 Complete, 21 Ready, 1 Blocked, 1 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -111,7 +111,7 @@ Source: architecture.md v1.1 Appendix A / `docs/architecture/tr-registry.yaml`. 
 | 020 | [Headless router → Sim integration (A) — grammar fire ticks, hold timing, latch rules](story-020-integration-hold-timing-and-interact-end-to-end.md) | Integration | Ready | ADR-0012, ADR-0014 |
 | 021 | [Headless router → Sim integration (B) — cancel-cause table, resolution rows, Toggle / aim / commit, request schemas](story-021-integration-cancels-toggle-commit-end-to-end.md) | Integration | Ready | ADR-0012, ADR-0014 |
 | 022 | [Input replay corpus (200 + 10) and the zero-unauthored-verbs oracle](story-022-replay-corpus-zero-unauthored-verbs.md) | Integration | Ready | ADR-0006, ADR-0012 |
-| 023 | [Fantasy scripts — hold-free shift, route parity, per-class Toggle coverage](story-023-fantasy-scripts-toggle-run-route-parity-a11y.md) | Logic | Ready | ADR-0012 |
+| 023 | [Fantasy scripts — hold-free shift, route parity, per-class Toggle coverage](story-023-fantasy-scripts-toggle-run-route-parity-a11y.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0012 |
 | 024 | [Router-core zero-allocation gate (H-PERF-3) and advisory timing probe](story-024-router-core-zero-allocation-gate.md) | Logic | Ready | ADR-0012, ADR-0001 |
 | 025 | [CI lint — no direct `Input.*` reads outside `src/Game/Input/`](story-025-ci-lint-no-direct-input-reads.md) | Integration | Ready | ADR-0012 |
 | 026 | [Godot `InputAdapter` node — `_Input` gathering, arrival stamps, `DEVICE_ID_*`, axis cache](story-026-godot-input-adapter-node.md) | Integration | Ready | ADR-0012, ADR-0019 |
@@ -199,5 +199,7 @@ This epic is complete when:
 - Glyph switching and hold-ring screenshots are HUD-epic evidence (no HUD epic yet); this epic has no Visual/Feel or UI stories
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 019 (A1), 025 (A1), 007 (A4), 008 (A5), 009 (A6), 010 (A7), 012 (A7), 026 (A7), 013 (A8), 017 (A8), 014 (A9), 015 (A10), 016 (A11), 018 (A12), 027 (A13), 028 (A14); then Track B: 011 (B1), 020 (B1), 021 (B2), 022 (B3), 024 (B4); Blocked: 029; Deferred by Evan 2026-10-23 (not scheduled): 023. Earlier notes below are history.
 
 Run `/story-readiness production/epics/input-controls/story-001-oq-ic-9-input-spike.md` then `/dev-story` (the spike gates 026–029), and in parallel `/story-readiness` story 002 → 003 for the router core. Stories 002 and 003 need `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md` and `production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md` first.

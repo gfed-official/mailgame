@@ -8,7 +8,7 @@
 > **Est. size**: L — 24 stories (22 Ready, 2 Blocked)
 > **Implementation priority**: 7 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 1 Complete, 21 Ready, 2 Blocked; blocked: 016 ADR-0024, 024 ADR-0020 (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
+> **Stories**: 25 stories — 1 Complete, 20 Ready, 4 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -117,15 +117,16 @@ Source: architecture.md v1.1 Appendix A; coverage per `docs/architecture/tr-regi
 | 013 | [Flight lifecycle — run-end `FlushAllAsTimeout`, disconnect continuity, solo pause](story-013-run-end-flush-disconnect-pause-lifecycle.md) | Integration | Ready | ADR-0015 |
 | 014 | [Preview = host over 10 000 throws, T2 goldens and the no-dice replay](story-014-preview-equals-host-fuzz-and-determinism-goldens.md) | Integration | Ready | ADR-0015 |
 | 015 | [Exactly-one-terminal conservation fuzz (8 players, 18 000 ticks), dump / replay and the `Throwing.Step` budget](story-015-conservation-fuzz-replay-and-step-budget.md) | Integration | Ready | ADR-0015 |
-| 016 | [T14 telemetry — per-launch / per-terminal records, `redAgeAtReleaseMs`, throw-share analyser (session stats file)](story-016-telemetry-t14-session-stats.md) | Logic | **Blocked** (ADR-0024 not written) | ADR-0024 |
+| 016 | [T14 telemetry — per-launch / per-terminal records, `redAgeAtReleaseMs`, throw-share analyser (session stats file)](story-016-telemetry-t14-session-stats.md) | Logic | Ready | ADR-0024 |
 | 017 | [`FlightMirror`, flight render timeline (`hostTick − 3`) and the launch-ghost reconciliation model](story-017-flight-mirror-timeline-and-launch-ghost-model.md) | Logic | Ready | ADR-0016 |
 | 018 | [`AimRibbonView` (Godot) — solid / dashed / dotted arc, end markers, crosshair](story-018-aim-ribbon-view.md) | Visual/Feel | Ready | ADR-0019 |
-| 019 | [Arc label pill, throw reason strip lines and live-region line (UI)](story-019-arc-label-pill-and-reason-strip.md) | UI | Ready (UX spec `design/ux/throwing-catching.md`, 2026-10-16) | ADR-0019 |
+| 019 | [Arc label pill and throw reason strip lines (UI)](story-019-arc-label-pill-and-reason-strip.md) | UI | Ready (UX spec `design/ux/throwing-catching.md`, 2026-10-16) | ADR-0019 |
 | 020 | [`FlightView` (Godot) — MultiMesh bundle, spin, ×N tag, blob shadow, launch-verdict trail](story-020-flight-view-multimesh-trail-shadow.md) | Visual/Feel | Ready | ADR-0019 |
 | 021 | [Launch-ghost view, strain face and release snap, whoosh, ground / water landing beats (`[OutcomeBeat]`)](story-021-launch-ghost-release-snap-landing-beats.md) | Visual/Feel | Ready | ADR-0016 |
-| 022 | [`CatchArm` — OpKind, host arm window, eligibility clears, client `ICatchArmSender` (Sim-side catch 1/3)](story-022-catcharm-op-arm-window-and-sender.md) | Logic | Ready | ADR-0015 |
-| 023 | [Armed-catcher receiver — F5 contact over position history, rank 0, CAUGHT / FUMBLE via `TryCatch` (Sim-side catch 2/3)](story-023-catcher-receiver-contact-trycatch-terminals.md) | Integration | Ready | ADR-0015 |
-| 024 | [Catch end to end — two carriers over the real host position-history ring (Sim-side catch 3/3)](story-024-catch-end-to-end-two-carriers-history-ring.md) | Integration | **Blocked** (ADR-0020 / M0 history ring not written) | ADR-0015 |
+| 022 | [`CatchArm` — OpKind, host arm window, eligibility clears, client `ICatchArmSender` (Sim-side catch 1/3)](story-022-catcharm-op-arm-window-and-sender.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0015 |
+| 023 | [Armed-catcher receiver — F5 contact over position history, rank 0, CAUGHT / FUMBLE via `TryCatch` (Sim-side catch 2/3)](story-023-catcher-receiver-contact-trycatch-terminals.md) | Integration | Deferred (Evan 2026-10-23) | ADR-0015 |
+| 024 | [Catch end to end — two carriers over the real host position-history ring (Sim-side catch 3/3)](story-024-catch-end-to-end-two-carriers-history-ring.md) | Integration | Deferred (Evan 2026-10-23) | ADR-0015 |
+| 025 | [Throw accessibility — the polite live-region lines for the arc label, and label/marker con](story-025-deferred-throw-accessibility.md) | UI | Deferred (Evan 2026-10-23) | — |
 
 **24 stories: 12 Logic, 8 Integration, 3 Visual/Feel, 1 UI — 22 Ready, 2 Blocked (refreshed 2026-10-20).**
 
@@ -190,5 +191,7 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (aim ribbon green/red patterns, ×N tag, landing squash), with a lead sign-off for Visual/Feel
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 002 (A1), 006 (A1), 008 (A1), 003 (A2), 009 (A3), 010 (A5), 011 (A6), 004 (A7), 012 (A7), 005 (A8), 007 (A8), 013 (A8), 017 (A10), 018 (A14), 019 (A15), 020 (A15), 021 (A16); then Track B: 014 (B1), 015 (B2), 016 (B2); Deferred by Evan 2026-10-23 (not scheduled): 022, 023, 024, 025. Earlier notes below are history.
 
 Run `/story-readiness production/epics/throwing-catching/story-001-throw-rh-launch-f1-ballistic-f2.md`, then `/dev-story`. Work the stories in the suggested order; each story's `Depends on:` says what must be DONE first. Unblock 016 (ADR-0024) and 024 (ADR-0020 + a Player Character ring story) when their inputs exist.

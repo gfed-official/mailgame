@@ -8,7 +8,7 @@
 > **Est. size**: L — 27 stories (Sim first; views after `godot-host-shell`)
 > **Implementation priority**: 5 of 9
 > **Status**: Ready
-> **Stories**: 27 stories — 14 Complete, 13 Ready (counts refreshed 2026-10-23 from the story headers; story 016 Complete, PR #42, not merged; story 014 Complete, PR #40, merged) — see the Stories table below
+> **Stories**: 27 stories — 14 Complete, 12 Ready, 1 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -138,7 +138,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 024 | [Greybox rig, `AnimationTree` state machine, gait playback, squash — and the AnimationTree spike](story-024-animationtree-greybox-rig-gait-spike.md) | Visual/Feel | Ready | ADR-0019 |
 | 025 | [Carry pose by held item class, whole-body load blend, idle doze](story-025-carry-pose-weight-blend-idle-doze.md) | Visual/Feel | Ready | ADR-0019 |
 | 026 | [Interaction prompt anchor — projected anchor and bounds, HUD focus feed](story-026-interaction-prompt-anchor-projection.md) | Integration | Ready | ADR-0019 |
-| 027 | [Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, story 009 carry-forwards (TD-091)](story-027-movement-rulings-extra-jump-slide-td-091.md) | Logic | Ready | ADR-0013 |
+| 027 | [Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, story 009 carry-forwards (TD-091)](story-027-movement-rulings-extra-jump-slide-td-091.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0013 |
 
 **27 stories (story 027 added 2026-10-17): 19 Logic, 3 Integration, 4 Visual/Feel as written 2026-10-16, plus 027 (Logic) — 14 Complete, 0 In Progress, 13 Ready, 0 Blocked (refreshed 2026-10-23 from the story headers; story 016 Complete, PR #42, not merged; story 014 Complete, PR #40, merged).**
 
@@ -197,5 +197,7 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (locomotion, carry pose, interaction prompt anchor), with a lead sign-off for Visual/Feel
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 010 (A1), 015 (A1), 021 (A1), 017 (A2), 019 (A2), 018 (A3), 020 (A6), 022 (A11), 023 (A12), 024 (A12), 025 (A13), 026 (A13); Deferred by Evan 2026-10-23 (not scheduled): 027. Earlier notes below are history.
 
 **2026-10-23:** 001–009, 011–014 and 016 are Complete (014: PR #40, merged; 016: PR #42, not merged). Next: story 015 (occlusion) and 017 → 018; 020 after 019 (→ 010 → 027) and input-controls 008; 021; 010 waits on 027 (TD-091). Originally: run `/story-readiness production/epics/player-character/story-001-players-module-carrier-state-join-binding.md`, then `/dev-story`. Work the Sim stories in order; start the Godot-side stories (022–026) after the `godot-host-shell` epic's scene/view-registry stories exist (`production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md`, `production/epics/godot-host-shell/story-009-entity-view-registry-pools-destination-views.md`).

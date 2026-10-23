@@ -61,6 +61,8 @@
 
 ---
 
+- **Catch sender at M-1a (2026-10-23, Mail Lead planning default, pending Evan).** throwing-catching 022, which builds the real `ICatchArmSender`, is **Deferred** to M0 (Evan, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"). When this story wires `EdgeResolveStep`, bind a `NullCatchArmSender` (a sealed class in `Sim/Players/Client/` whose `Send` does nothing). A Catch press then enters Channel exactly as player-character 016 specifies, with no host effect. throwing-catching 022 replaces the binding.
+
 ## Out of Scope
 
 *Handled by neighbouring stories — do not implement here:*

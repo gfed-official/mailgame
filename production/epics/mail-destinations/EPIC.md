@@ -8,7 +8,7 @@
 > **Est. size**: M/L — 12–14 stories
 > **Implementation priority**: 4 of 9
 > **Status**: Ready
-> **Stories**: 16 stories — 6 Complete, 10 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
+> **Stories**: 16 stories — 6 Complete, 10 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -141,5 +141,7 @@ This epic is complete when:
 - Untraced requirements: none. Every M-1a story cites an existing TR. The `DeliveryOutcome` wire layout (story 015) is a story-level layout within ADR-0017's ≤ 19 B bound.
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 005 (A1), 006 (A2), 007 (A3), 008 (A4), 009 (A4), 010 (A5), 013 (A5), 014 (A6), 015 (A7), 016 (A11). Earlier notes below are history.
 
 `/story-readiness production/epics/mail-destinations/story-001-mail-table-paged-soa.md`, then `/dev-story` in the order above.

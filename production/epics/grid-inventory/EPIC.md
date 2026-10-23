@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 24 stories — 18 Complete, 5 Ready, 1 Blocked; blocked: 022 needs re-scope (ADR-0009 erratum / ADR-0017) (counts refreshed 2026-10-22 from the story headers) — see the Stories table below
+> **Stories**: 24 stories — 18 Complete, 5 Ready, 1 Blocked (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -160,5 +160,7 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (hotbar, own panel, Holding, drop)
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 019 (A1), 020 (A1), 023 (A10); then Track B: 018 (B1), 024 (B1); Blocked: 022. Earlier notes below are history.
 
 Stories 001–017 and 021 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33, 014 in PR #34, merged as main c2d4a64; 021 in PR #35, merged as main c889f59; 017 in PR #36, open, main 43c5348 (PR #37) merged in at 454125d). Next: 018 (Ready; depends on 017) and 020 (013 unblocks it). Stories 019–020 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.

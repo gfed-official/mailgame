@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (`story_granularity: fine`)
 > **Implementation priority**: 1 of 9 (first; everything else builds on it)
 > **Status**: Ready
-> **Stories**: 30 stories — 28 Complete, 2 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
+> **Stories**: 30 stories — 28 Complete, 2 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -177,5 +177,7 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (none are expected in this epic)
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): then Track B: 029 (B1), 030 (B1). Earlier notes below are history.
 
 Run `/story-readiness production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md`, then `/dev-story` on it. Work through stories in order — each story's `Depends on:` field tells you what must be DONE first.

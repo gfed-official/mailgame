@@ -1,14 +1,14 @@
 # Story 016: T14 telemetry — per-launch and per-terminal records, `redAgeAtReleaseMs` and the throw-share analyser (session stats file)
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Blocked
+> **Status**: Ready
 > **Layer**: Feature (Client.Core / tooling; never the Sim tick path)
 > **Type**: Logic
-> **Estimate**: S (~0.5 day once unblocked)
-> **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Estimate**: S (~0.5 day; reuses the manual-delivery 009 writer)
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-23 (unblocked against ADR-0024 slice)
 
-> **BLOCKED: ADR-0024 (persistence and telemetry, session stats file) is not written.** `TR-throwing-020`'s governing ADR is ADR-0024 (registry coverage: gap; "Planned — not written (Persistence)"). The session stats file's location, format, flush policy and write path are undecided, so the sink half of this story cannot be implemented. Write it with `/architecture-decision` (ADR-0024), accept it, then run `/story-readiness`. The record model and analyser below can be developed against an in-memory sink in the meantime, but the story is not Ready until the file contract exists. (Same precedent: `production/epics/manual-delivery/story-009-telemetry-latched-branch-handshare.md`.)
+> **UNBLOCKED 2026-10-23.** ADR-0024 (the M-1a session stats file slice, `docs/architecture/adr-0024-session-stats-file-m1a.md`) is Accepted (Evan, Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"). The writer, port and Godot shim are built by manual-delivery story 009; this story adds only its record types, the collector and the analyser.
 
 ## Context
 
@@ -16,12 +16,12 @@
 **Requirement**: `TR-throwing-020` (telemetry to the session stats file only; never shown to players)
 *(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time. Acceptance ids: TC-T14-1 (M-1a fields), TC-FE-3.)*
 
-**ADR Governing Implementation**: ADR-0024 (planned, **not written**): persistence & telemetry. Secondary: ADR-0016 (telemetry is fed from published client state and `PresentationEventStream`, never from the Sim tick path) and ADR-0015 (the events it reads) — Accepted
-**ADR Decision Summary**: — (pending ADR-0024). From ADR-0016: telemetry consumers read the published preview/release state and domain-event cursors; nothing in the Sim writes a file or reads a clock.
-**ADR Version**: ADR-0024 unversioned (not written); ADR-0016 2026-10-16; ADR-0015 2026-10-16
+**ADR Governing Implementation**: ADR-0024: Session Stats File (M-1a slice) — Accepted 2026-10-23. Secondary: ADR-0016 (telemetry is fed from published client state and `PresentationEventStream`, never from the Sim tick path) and ADR-0015 (the events it reads) — Accepted
+**ADR Decision Summary**: ADR-0024: producers call `ISessionStatsSink.Append(in record)` (allocation-free after warm-up); one JSONL line per record `{"v":1,"type":…,"tick":…}` in `user://stats/session-<UTC>.jsonl`; flush at run end, on quit and every 60 s; a failure warns, counts and drops; a missing `session_end` line or a drop count means "log incomplete". From ADR-0016: telemetry consumers read the published preview/release state and domain-event cursors; nothing in the Sim writes a file or reads a clock.
+**ADR Version**: ADR-0024 2026-10-23; ADR-0016 2026-10-16; ADR-0015 2026-10-16
 
 **Engine**: Godot 4.7.1 (.NET) | **Risk**: LOW (Client.Core; file IO path per ADR-0024)
-**Engine Notes**: Re-derive once ADR-0024 exists. No Godot API is expected; if the file path uses `OS.GetUserDataDir()` or `FileAccess`, the Godot-side shim belongs to the godot-host-shell epic.
+**Engine Notes**: None. No Godot API here; the `FileAccess` shim is manual-delivery story 009's.
 
 **Control Manifest Rules (Global)**:
 - Required: the Sim reads no clock and writes no file; telemetry lives outside the Sim (Global rules)
@@ -44,7 +44,8 @@
 
 ## Implementation Notes
 
-- Wait for ADR-0024 for everything about the file. Do not guess a path or format.
+- Record types (Mail Lead planning default, pending Evan): `throw_launch` (`seq`, `flightId`, `units`, `entryKind`, `class`, `hop`, `originClamped`, `redAgeAtReleaseMs`) and `throw_terminal` (`flightId`, `terminal`, `distanceMm`, `flightTicks`), plus reserved, unpopulated M0 fields per TC-T14-1. The file itself is ADR-0024's; do not add another path.
+- "Log incomplete" = no `session_end` line, or the writer's `DroppedBuffers` > 0 recorded in `session_end`.
 - `redAgeAtReleaseMs` is a **client-side** metric (the host never learns the preview's colour history); in solo it lives in the same process as the host. It rides on `ReleaseRecord`, not on the wire.
 - The analyser is a pure function over parsed records and can live in the tools assembly.
 
@@ -52,13 +53,13 @@
 
 ## Out of Scope
 
-- Catch / no-catch-cause / bonk / fumble / hop-chain telemetry (M0). The playtest protocols (producer, qa-lead). The stats file writer itself until ADR-0024.
+- Catch / no-catch-cause / bonk / fumble / hop-chain telemetry (M0). The playtest protocols (producer, qa-lead). The stats file writer itself (manual-delivery story 009).
 
 ---
 
 ## QA Test Cases
 
-*N/A — no qa-lead specs at this tier; implement against the Acceptance Criteria above.* (QL-STORY-READY skipped — Lean mode.)
+*N/A — no qa-lead specs at this tier; implement against the Acceptance Criteria above.* QL-STORY-READY: `/story-readiness` 2026-10-23 (m1a-replan).
 
 ---
 
@@ -74,5 +75,5 @@
 
 ## Dependencies
 
-- Depends on: ADR-0024 accepted; Stories 007, 010, 011, 017 (data sources); `production/epics/manual-delivery/story-009-telemetry-latched-branch-handshare.md` (hand-share definition, also Blocked on ADR-0024)
+- Depends on: ADR-0024 (Accepted 2026-10-23); Stories 007, 010, 011, 017 (data sources); `production/epics/manual-delivery/story-009-telemetry-latched-branch-handshare.md` (the writer and the hand-share definition)
 - Unlocks: playtest instruments for fantasy tests 3 and 4 (no story depends on it)

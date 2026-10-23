@@ -8,7 +8,7 @@
 > **Est. size**: M — 10–12 stories
 > **Implementation priority**: 6 of 9
 > **Status**: Ready
-> **Stories**: 11 stories — 1 Complete (001), 8 Ready, 2 Blocked; blocked: 009 ADR-0024, 010 ADR-0018 (counts refreshed 2026-10-21 from the story headers) — see the Stories table below
+> **Stories**: 12 stories — 1 Complete, 9 Ready, 2 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -121,10 +121,11 @@ This epic is complete when:
 | 005 | [**`DeliverMatching` op (24 B; wire 24/28 B) + host handler**](story-005-delivermatching-op-and-handler.md) | Integration | Ready | ADR-0009 (errata), ADR-0017, ADR-0014, ADR-0011 |
 | 006 | [Reply/verdict table + once-per-hold hand-beat key (MD7)](story-006-reply-verdict-hand-beat-keys.md) | Logic | Ready | ADR-0016 |
 | 007 | [End-to-end over loopback: parity, network, edge cases](story-007-integration-loopback-parity-edge-cases.md) | Integration | Ready | ADR-0016, ADR-0011 |
-| 008 | [Race suite, bell fuzz, 10,000-seed soak](story-008-race-suite-bell-fuzz-soak.md) | Integration | Ready | ADR-0006 |
-| 009 | [Telemetry `latchedBranch` / `handShare`](story-009-telemetry-latched-branch-handshare.md) | Logic | Blocked (ADR-0024 not written) | ADR-0024 (planned) |
-| 010 | [Prompt content as data (keys, args, SR settle gate)](story-010-prompt-content-as-data.md) | Logic | Blocked (ADR-0018 not written) | ADR-0018 (planned), ADR-0014 |
+| 008 | [Race suite, bell fuzz, 10,000-seed soak](story-008-race-suite-bell-fuzz-soak.md) | Integration | Deferred (Evan 2026-10-23) | ADR-0006 |
+| 009 | [Telemetry `latchedBranch` / `handShare`](story-009-telemetry-latched-branch-handshare.md) | Logic | Ready | ADR-0024 (M-1a slice) |
+| 010 | [Prompt content as data (`PromptArgs` key + typed args; narrowed 2026-10-23)](story-010-prompt-content-as-data.md) | Logic | Ready | ADR-0014 |
 | 011 | [Hand presentation: flap, reach, lunge, echo, riffle, stance](story-011-hand-presentation-flap-reach-lunge-stance.md) | Visual/Feel | Ready | ADR-0019, ADR-0016 |
+| 012 | [Deliver prompt accessibility and localisation — the screen-reader settle gate (M-MD4-1e), ](story-012-deferred-prompt-accessibility-localisation.md) | Logic | Deferred (Evan 2026-10-23) | — |
 
 **Recommended order:** 001 → 002 → 005 → 003 → 004 → 006 → 007 → 008; → 011 (after the godot-host-shell stories, `production/epics/player-character/story-022-playerview-scene-render-pose.md` and `production/epics/mail-destinations/story-016-mailbox-greybox-view-outcome-beats.md`); 009/010 when their ADRs are written.
 
@@ -138,5 +139,7 @@ This epic is complete when:
 - **OQ-MD005-1:** see story 005 AC-7 (registry access) — open.
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 002 (A6), 003 (A7), 005 (A7), 004 (A8), 006 (A9), 010 (A9), 011 (A12); then Track B: 009 (B1), 007 (B2); Deferred by Evan 2026-10-23 (not scheduled): 008, 012. Earlier notes below are history.
 
 Story 001 is Complete (PR #14; its Completion Notes' open question is tagged OQ-MD001-1). Next: `/story-readiness` then `/dev-story` on the next story in the recommended order whose dependencies are Complete (002 waits on mail-destinations 010).

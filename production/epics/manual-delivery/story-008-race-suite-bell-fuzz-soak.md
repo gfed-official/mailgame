@@ -1,12 +1,15 @@
 # Story 008: Race suite (no misdeliver for a MATCH-latched hold), closing-bell fuzz and the 10,000-seed soak
 
 > **Epic**: Manual Delivery
-> **Status**: Ready
+> **Status**: Deferred (Evan 2026-10-23 7:13 AM PT)
+> **Deferred to**: M0 (out of the M-1a slice; was Ready)
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~400 lines tests + harness glue)
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: —
+
+> **DEFERRED 2026-10-23 by Evan, not deleted.** Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". Reason: a race suite, a closing-bell fuzz and a 10,000-seed soak are hardening (Evan 7:15); none is in an Accepted ADR's Validation Criteria (ADR-0006 l.443–449, ADR-0014 l.245–250, ADR-0017 l.319–325). Coverage note: ADR-0006 lists `TR-delivery-021` (race suite and 10,000-seed soak) as addressed (l.92, l.430), and `docs/architecture/tr-registry.yaml` marks it covered. That coverage is satisfied only once this story lands at M0; `/architecture-review` should mark it deferred. Re-run `/story-readiness` when M0 planning starts; the text below is unchanged from the last Ready/Blocked version.
 
 ## Context
 
