@@ -200,4 +200,4 @@ This epic is complete when:
 
 ## Next Step
 
-Run `/story-readiness production/epics/input-controls/story-001-oq-ic-9-input-spike.md` then `/dev-story` (the spike gates 026–029), and in parallel `/story-readiness` story 002 → 003 for the router core. Stories 002 and 003 need `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md` and `production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md` first.
+Run `/story-readiness production/epics/input-controls/story-001-oq-ic-9-input-spike.md` then `/dev-story` (the spike gated 026–029; it is Complete, GO-WITH-DELTAS, and 029 now also waits on 026–028 Complete), and in parallel `/story-readiness` story 002 → 003 for the router core. Stories 002 and 003 need `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md` and `production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md` first.
