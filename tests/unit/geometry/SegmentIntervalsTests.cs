@@ -46,24 +46,10 @@ public class SegmentIntervalsTests
         // Act
         SegmentInterval r = SegmentIntervals.Slab(v.P0, v.P1, v.Box);
 
-        // Assert
+        // Assert (f = max(enter, 0): the start-inside vectors give f = 0)
         AssertInterval(r, v.Enter, v.Exit, v.Hit, v.Name);
-    }
-
-    [Fact]
-    public void Slab_SegmentStartingInside_FractionIsZero()
-    {
-        // Arrange
-        var box = new AabbMm(new Vec3Mm(-10, -10, -10), new Vec3Mm(10, 10, 10));
-
-        // Act
-        SegmentInterval r = SegmentIntervals.Slab(new Vec3Mm(0, 0, 0), new Vec3Mm(1000, 0, 0), in box);
-
-        // Assert (x: enter = ceil(-10000/1000) = -10, exit = floor(10000/1000) = 10)
-        Assert.True(r.Hit);
-        Assert.Equal(-10, r.EnterPm);
-        Assert.Equal(10, r.ExitPm);
-        Assert.Equal(0, r.FractionPm);
+        int fraction = v.Enter > 0 ? v.Enter : 0;
+        Assert.True(fraction == r.FractionPm, $"{v.Name}: FractionPm expected {fraction}, got {r.FractionPm}");
     }
 
     [Fact]

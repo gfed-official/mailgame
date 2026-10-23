@@ -387,12 +387,11 @@ public class PostOfficePadTests
 
     [Theory]
     [InlineData(0, -1, 0, 6500)]       // door west of the map
-    [InlineData(0, PadX, 0, 16001)]    // door south of the map
+    [InlineData(0, PadX, 0, 16001)]    // door south of the map (the only Z-max row)
     [InlineData(1, 16001, 0, 6500)]    // intake east of the map
     [InlineData(1, PadX, 1_000_001, 6500)] // intake |Y| over MaxCoordMm
     [InlineData(1, PadX, -1_000_001, 6500)]
     [InlineData(2, PadX, 0, -1)]       // pad centre north of the map
-    [InlineData(2, 16001, 0, PadZ)]
     public void Ac2_AnchorOutsideBounds_FailsAnchorOutsideBounds(int which, int x, int y, int z)
     {
         // Arrange

@@ -180,8 +180,8 @@ public class AssemblyRulesTests
     [InlineData("PerformativeMail.Sim", false)]
     public void IsInboxAssembly_Name_ClassifiedAsExpected(string name, bool expected)
     {
-        // Arrange - name from the theory data; System.Reactive / System.Linq.Async stand in for
-        // a runtime package that merely borrows a System.* name (TD-002)
+        // Arrange - name from the theory data; System.Reactive stands in for a runtime package
+        // that merely borrows a System.* name (TD-002)
         var assemblyName = new AssemblyName(name);
 
         // Act
