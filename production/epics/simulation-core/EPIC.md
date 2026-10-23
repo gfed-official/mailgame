@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (`story_granularity: fine`)
 > **Implementation priority**: 1 of 9 (first; everything else builds on it)
 > **Status**: Ready
-> **Stories**: 30 stories — 28 Complete, 2 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 30 stories — 28 Complete, 1 Ready, 1 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -160,7 +160,7 @@ Implementation order = story number (each story's `Depends on:` is authoritative
 | 026 | [In-memory recorder (ops and samples) and ReplayDriver](story-026-inmemory-recorder-replay.md) | Logic | Complete | ADR-0006, ADR-0007 |
 | 027 | [SC-DET-1 — same-machine determinism harness (T1)](story-027-sc-det-1-determinism-harness.md) | Logic | Complete | ADR-0006 |
 | 028 | [Architecture rules suite — SC-ARCH-1](story-028-architecture-rules-sc-arch-1.md) | Logic | Complete | ADR-0003, ADR-0001, ADR-0002, ADR-0005 |
-| 029 | [Zero-allocation tick probe and tick-timing report (advisory at M-1a)](story-029-zero-alloc-tick-timing-advisory.md) | Logic | Ready | ADR-0006 (TR-sim-037: none — advisory) |
+| 029 | [Zero-allocation tick probe and tick-timing report (advisory at M-1a)](story-029-zero-alloc-tick-timing-advisory.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0006 (TR-sim-037: none — advisory) |
 | 030 | [SC-X-1 — cross-system batch order with real Grid and Throw ops](story-030-sc-x-1-cross-system-batch-order.md) | Integration | Ready | ADR-0007, ADR-0008 (+ ADR-0015 Accepted 2026-10-16) |
 
 **Formerly blocked:** 030 is Ready (2026-10-16 story hygiene). It depends on `production/epics/grid-inventory/story-007-pick-move-ops.md` (first real container-op handler) and `production/epics/throwing-catching/story-010-throwrelease-handler-launch-commit.md` (real `throw` handler); ADR-0015 is Accepted.
@@ -178,6 +178,6 @@ This epic is complete when:
 
 ## Next Step
 
-**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): then Track B: 029 (B1), 030 (B1). Earlier notes below are history.
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): then Track B: 030 (B1); Deferred by Evan 2026-10-23 (not scheduled): 029. Earlier notes below are history.
 
 Run `/story-readiness production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md`, then `/dev-story` on it. Work through stories in order — each story's `Depends on:` field tells you what must be DONE first.

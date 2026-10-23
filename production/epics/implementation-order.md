@@ -1,7 +1,7 @@
 # Implementation Order — all epics (M-1a, playable-first)
 
 > **Generated**: 2026-10-23 (m1a-replan) by `python3 tools/planning/gen_impl_order.py .` from every story's `## Dependencies` → `- Depends on:` line in `production/epics/*/story-*.md`.
-> **Scope**: 212 stories in 12 epics — 109 Complete, 89 Ready, 8 Deferred, 5 Blocked, 1 In Progress.
+> **Scope**: 220 stories in 12 epics — 109 Complete, 89 Ready, 21 Deferred, 1 In Progress.
 > **Authority for the playable-first order and the deferrals**: Evan, Mail Lead chat, 2026-10-23 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"; 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". See `production/session-logs/decision-log.md` 2026-10-23.
 > **Regenerate** whenever a story's Depends on or Status changes. The order is advisory; `/story-readiness` still gates each story.
 
@@ -14,22 +14,20 @@
 
 ## Dependency-cycle check
 
-- **Depends-on graph: 0 cycles** (Tarjan SCC over 997 edges, 212 nodes). None found.
+- **Depends-on graph: 0 cycles** (Tarjan SCC over 1058 edges, 220 nodes). None found.
 - **Ready stories depending on a Deferred story: 0.**
 
-## Track A — playable greybox (73 stories, 16 waves)
+## Track A — playable greybox (76 stories, 16 waves)
 
-### A wave 1 (12)
+### A wave 1 (10)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
 | [content-data/019](content-data/story-019-content-loader-and-builtin-equality.md) | ContentLoader.Load — balance files, five-stage orchestration, shipped JSONC e… | Ready | — |
-| [input-controls/019](input-controls/story-019-settings-input-codec-and-validation.md) | `settings.input` — integer-unit `InputSettings`, the versioned overrides-only… | Ready | — |
-| [input-controls/025](input-controls/story-025-ci-lint-no-direct-input-reads.md) | CI lint — no direct `Input.*` reads or `InputMap` mutation outside `src/Game/… | Ready | — |
-| [grid-inventory/019](grid-inventory/story-019-range-gated-open-pickup-leash.md) | Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 … | Ready | — |
+| [input-controls/019](input-controls/story-019-settings-input-codec-and-validation.md) | `settings.input` — integer-unit `InputSettings`, defaults, the `user://input.… | Ready | — |
 | [grid-inventory/020](grid-inventory/story-020-drop-op.md) | Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped;… | Ready | — |
 | [mail-destinations/005](mail-destinations/story-005-walletgate-stubwallet-mail-system.md) | `IWalletGate` port, the M-1a `StubWallet` (`WalletChanged`, dump), and the Ma… | Ready | — |
-| [player-character/010](player-character/story-010-golden-transform-hash-p2-1.md) | PCM-P2-1 — the 600-tick golden per-tick transform hash and the solver determi… | Ready | — |
+| [player-character/010](player-character/story-010-golden-transform-hash-p2-1.md) | PCM-P2-1 — the 600-tick golden per-tick transform hash (single-platform Linux… | Ready | — |
 | [player-character/015](player-character/story-015-focus-occlusion-lazy-score-order.md) | Focus occlusion — lazy, score-ordered line-of-sight against terrain and stati… | Ready | — |
 | [player-character/021](player-character/story-021-camera-boom-solver-config.md) | Camera rig profiles and the boom solver against the Sim geometry (Godot-free,… | Ready | — |
 | [throwing-catching/002](throwing-catching/story-002-flightsweep-contact-ranks-winner.md) | `FlightSweep.FirstContact` — F4 swept contact, receiver ranks, descending-ent… | Ready | — |
@@ -46,13 +44,14 @@
 | [player-character/019](player-character/story-019-host-checkinteraction-position-ingest.md) | Host side — `PlayersStep` (phase 3) sample ingest, `IPlayersApi.CheckInteract… | Ready | player-character/010 |
 | [throwing-catching/003](throwing-catching/story-003-receiver-view-static-grid-solids-chest-probe.md) | Receiver gathering — static 4 m grid of catch volumes, `QueryStaticSolids`, m… | Ready | throwing-catching/002 |
 
-### A wave 3 (3)
+### A wave 3 (4)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
+| [grid-inventory/019](grid-inventory/story-019-range-gated-open-pickup-leash.md) | Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 … | Ready | player-character/019 |
 | [mail-destinations/007](mail-destinations/story-007-consume-routine-hand-path-outcomes.md) | One consume routine (`MailConsumer.Consume`) and the hand path (`IMailApi.Con… | Ready | mail-destinations/005, mail-destinations/006 |
 | [player-character/018](player-character/story-018-interaction-snapshot-iinteractionquery.md) | `InteractionSnapshot` publication and `IInteractionQuery` | Ready | player-character/017 |
-| [throwing-catching/009](throwing-catching/story-009-throwrelease-validation-chain-and-leaky-bucket.md) | `ThrowRelease` host validation — the ordered check chain, claim-and-corrobora… | Ready | player-character/019, throwing-catching/006, throwing-catching/008 |
+| [throwing-catching/009](throwing-catching/story-009-throwrelease-validation-chain-and-leaky-bucket.md) | `ThrowRelease` host validation — the ordered check chain and claim-and-corrob… | Ready | player-character/019, throwing-catching/006, throwing-catching/008 |
 
 ### A wave 4 (3)
 
@@ -87,11 +86,11 @@
 |---|---|---|---|
 | [input-controls/010](input-controls/story-010-steps-auto-repeat-drag-resolver.md) | Stepped verbs — F5 auto-repeat and stick-as-direction, F6 saturating step cou… | Ready | input-controls/007, input-controls/008, input-controls/009 |
 | [input-controls/012](input-controls/story-012-interact-latch-toggle-translation-sprint.md) | Interact — the presented-target latch, Toggle-mode translation (G7), Sprint H… | Ready | input-controls/007, input-controls/008, input-controls/009, player-character/018 |
-| [input-controls/026](input-controls/story-026-godot-input-adapter-node.md) | The Godot `InputAdapter` node — `_Input` gathering, arrival stamping, `DEVICE… | Ready | input-controls/007, input-controls/009, input-controls/025 |
+| [input-controls/026](input-controls/story-026-godot-input-adapter-node.md) | The Godot `InputAdapter` node — `_Input` gathering, arrival stamping, `DEVICE… | Ready | input-controls/007, input-controls/009 |
 | [godot-host-shell/005](godot-host-shell/story-005-host-session-composition-ports-render-clock.md) | Host session wiring — `SimComposition.Build` over the loopback session, `Clie… | Ready | player-character/019, player-character/020 |
+| [grid-inventory/022](grid-inventory/story-022-deliver-matching-handler.md) | Host panel view — Inventory's read-only scan primitive for `deliver_matching`… | Ready | manual-delivery/002 |
 | [mail-destinations/015](mail-destinations/story-015-mail-event-wire-codecs.md) | Wire codecs for Mail/Run/Wallet events — `DeliveryOutcome` ≤ 19 B with ordina… | Ready | mail-destinations/005, mail-destinations/006, mail-destinations/007, mail-destinations/009, mail-destinations/014 |
 | [manual-delivery/003](manual-delivery/story-003-availability-preview-step-tracker.md) | Availability (MD2), the `DeliverPreview` client step (4b) and the `DeliverPre… | Ready | mail-destinations/010, manual-delivery/002 |
-| [manual-delivery/005](manual-delivery/story-005-delivermatching-op-and-handler.md) | `DeliverMatching` — the Delivery-owned OpKind, descriptor, 24 B payload (24 B… | Ready | mail-destinations/005, mail-destinations/007, manual-delivery/002, player-character/019 |
 | [throwing-catching/004](throwing-catching/story-004-throw-aim-quantiser-and-preview-step.md) | Throw aim quantiser and the `ThrowPreview` client step (4c) — the honest arc,… | Ready | mail-destinations/010, player-character/020, throwing-catching/002, throwing-catching/003 |
 | [throwing-catching/012](throwing-catching/story-012-mailbox-terminals-landing-handoff-f8.md) | Mailbox terminals — `ResolveThrownLanding` hand-off, MAILBOX_ACCEPT / MISDELI… | Ready | mail-destinations/005, mail-destinations/008, mail-destinations/009, throwing-catching/003, throwing-catching/008, throwing-catching/010, throwing-catching/011 |
 
@@ -100,32 +99,32 @@
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
 | [input-controls/013](input-controls/story-013-immediate-verbs-queue-sinks-dispatch.md) | Immediate verbs — `ImmediateAction` queue, `IImmediateActionSink` registry an… | Ready | input-controls/007, input-controls/008, input-controls/010 |
-| [input-controls/017](input-controls/story-017-devices-glyph-state-or-across-devices.md) | Devices — OR across keyboard / mouse / pads, hold ownership, duplicate-pad-ed… | Ready | input-controls/007, input-controls/009, input-controls/010, input-controls/012 |
+| [input-controls/017](input-controls/story-017-devices-glyph-state-or-across-devices.md) | Devices — OR across keyboard / mouse / pads, hold ownership and duplicate-pad… | Ready | input-controls/007, input-controls/010, input-controls/012 |
 | [godot-host-shell/006](godot-host-shell/story-006-presenters-deps-injection-event-stream.md) | Presentation plumbing — `PresenterDeps`, `Initialize(deps)` subtree injection… | Ready | godot-host-shell/005 |
-| [manual-delivery/004](manual-delivery/story-004-press-latch-cancels-request.md) | Press, latch and hold (MD4) and the request (MD5, client side) — settle refus… | Ready | manual-delivery/002, manual-delivery/003, manual-delivery/005, player-character/017 |
+| [manual-delivery/005](manual-delivery/story-005-delivermatching-op-and-handler.md) | `DeliverMatching` — the Delivery-owned OpKind, descriptor, 24 B payload (24 B… | Ready | grid-inventory/022, mail-destinations/005, mail-destinations/007, manual-delivery/002, player-character/019 |
 | [throwing-catching/005](throwing-catching/story-005-preview-label-model-f7-money-and-settle.md) | Preview label data — F7 stake money, the two-line label model, the 100 ms lab… | Ready | mail-destinations/010, throwing-catching/004 |
 | [throwing-catching/007](throwing-catching/story-007-throw-release-builder-client-cooldown-reply.md) | `ThrowReleaseBuilder` — the release request from the last drawn preview, the … | Ready | throwing-catching/004, throwing-catching/006 |
 | [throwing-catching/013](throwing-catching/story-013-run-end-flush-disconnect-pause-lifecycle.md) | Flight lifecycle — run-end `FlushAllAsTimeout`, disconnect continuity, solo p… | Ready | throwing-catching/008, throwing-catching/010, throwing-catching/011, throwing-catching/012 |
 
-### A wave 9 (4)
+### A wave 9 (3)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
 | [input-controls/014](input-controls/story-014-throw-aim-release-min-aim-toggle.md) | Throw aim-release — router-owned `aiming`, F11 minimum aim on the ms clock, T… | Ready | input-controls/007, input-controls/008, input-controls/009, input-controls/012, input-controls/013, throwing-catching/004 |
 | [godot-host-shell/008](godot-host-shell/story-008-viewcatalog-resolver-placeholder-uid-check.md) | `ViewCatalog` resource, `ViewCatalogResolver`, the placeholder view with a wa… | Ready | godot-host-shell/006 |
-| [manual-delivery/006](manual-delivery/story-006-reply-verdict-hand-beat-keys.md) | Reply and verdict on the client (MD7) — the reply → hand-response table, the … | Ready | mail-destinations/015, manual-delivery/003, manual-delivery/004, manual-delivery/005 |
-| [manual-delivery/010](manual-delivery/story-010-prompt-content-as-data.md) | Deliver prompt content as data — `WritePrompt` fills ADR-0014's 32 B `PromptA… | Ready | manual-delivery/002, manual-delivery/003, manual-delivery/004, player-character/018 |
+| [manual-delivery/004](manual-delivery/story-004-press-latch-cancels-request.md) | Press, latch and hold (MD4) and the request (MD5, client side) — settle refus… | Ready | manual-delivery/002, manual-delivery/003, manual-delivery/005, player-character/017 |
 
-### A wave 10 (4)
+### A wave 10 (5)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
 | [input-controls/015](input-controls/story-015-one-commit-gate-g9.md) | The one-commit gate (G9) — in-progress / pending commits, "Busy", "Release to… | Ready | input-controls/012, input-controls/013, input-controls/014, player-character/018 |
 | [godot-host-shell/009](godot-host-shell/story-009-entity-view-registry-pools-destination-views.md) | `EntityViewRegistry`, `EntityViewHost`, `NodePool<T>` with the ADR-0019 caps,… | Ready | godot-host-shell/005, godot-host-shell/006, godot-host-shell/008 |
 | [grid-inventory/023](grid-inventory/story-023-panel-grid-view-hotbar.md) | Own-panel grid view and hotbar strip — one custom-drawn Control, 0 B/frame | Ready | godot-host-shell/006, godot-host-shell/008 |
-| [throwing-catching/017](throwing-catching/story-017-flight-mirror-timeline-and-launch-ghost-model.md) | `FlightMirror`, the flight render timeline (`hostTick − 3`, fast-forward by F… | Ready | manual-delivery/006, throwing-catching/006, throwing-catching/007, throwing-catching/010, throwing-catching/011 |
+| [manual-delivery/006](manual-delivery/story-006-reply-verdict-hand-beat-keys.md) | Reply and verdict on the client (MD7) — the reply → hand-response table, the … | Ready | mail-destinations/015, manual-delivery/003, manual-delivery/004, manual-delivery/005 |
+| [manual-delivery/010](manual-delivery/story-010-prompt-content-as-data.md) | Deliver prompt content as data — `WritePrompt` fills ADR-0014's 32 B `PromptA… | Ready | manual-delivery/002, manual-delivery/003, manual-delivery/004, player-character/018 |
 
-### A wave 11 (4)
+### A wave 11 (6)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
@@ -133,31 +132,35 @@
 | [godot-host-shell/010](godot-host-shell/story-010-greybox-street-terrain-view.md) | Greybox street — `TerrainView` from `IWorldQuery` (untextured ground, water p… | Ready | godot-host-shell/005, godot-host-shell/006, godot-host-shell/009 |
 | [mail-destinations/016](mail-destinations/story-016-mailbox-greybox-view-outcome-beats.md) | Greybox `MailboxView` and house — flag pop and wobble outcome beats keyed fro… | Ready | godot-host-shell/006, godot-host-shell/008, godot-host-shell/009, mail-destinations/007, mail-destinations/008, mail-destinations/015 |
 | [player-character/022](player-character/story-022-playerview-scene-render-pose.md) | `PlayerView` greybox scene and the local carrier's render pose (≤ 1-tick extr… | Ready | godot-host-shell/006, godot-host-shell/009, player-character/010, player-character/020 |
+| [throwing-catching/017](throwing-catching/story-017-flight-mirror-timeline-and-launch-ghost-model.md) | `FlightMirror`, the flight render timeline (`hostTick − 3`, fast-forward by F… | Ready | manual-delivery/006, throwing-catching/006, throwing-catching/007, throwing-catching/010, throwing-catching/011 |
+| [hud-notifications/001](hud-notifications/story-001-hud-read-model-money-formatter.md) | `IHudState` read model — wallet cents, F3 time-only shift timer, focused deli… | Ready | godot-host-shell/005, mail-destinations/009, mail-destinations/010, manual-delivery/010, player-character/018 |
 
 ### A wave 12 (5)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
-| [input-controls/018](input-controls/story-018-focus-loss-and-pad-hotplug-core.md) | Focus loss and pad hot-plug in the router core — release-with-cancel, mute, s… | Ready | input-controls/007, input-controls/012, input-controls/013, input-controls/014, input-controls/016, input-controls/017 |
+| [input-controls/018](input-controls/story-018-focus-loss-and-pad-hotplug-core.md) | Focus loss in the router core — release-with-cancel, mute, swallowed recaptur… | Ready | input-controls/007, input-controls/012, input-controls/013, input-controls/014, input-controls/016, input-controls/017 |
 | [godot-host-shell/011](godot-host-shell/story-011-headless-smoke-300-ticks-ci-critical-paths.md) | Headless smoke — boot the greybox, ≥ 300 ticks, exit 0 — with the smoke wrapp… | Ready | godot-host-shell/005, godot-host-shell/006, godot-host-shell/007, godot-host-shell/008, godot-host-shell/009, godot-host-shell/010 |
 | [player-character/023](player-character/story-023-camera-rig-node-focus-cone.md) | `CameraRig` node — follow spring, look, aim/swim profiles and the focus-cone … | Ready | godot-host-shell/006, input-controls/009, player-character/020, player-character/021, player-character/022 |
 | [player-character/024](player-character/story-024-animationtree-greybox-rig-gait-spike.md) | Greybox rig, one `AnimationTree` state machine, gait playback and jump/land s… | Ready | godot-host-shell/009, player-character/020, player-character/022 |
 | [manual-delivery/011](manual-delivery/story-011-hand-presentation-flap-reach-lunge-stance.md) | Hand-side presentation — mailbox flap node, reach scrubbed by hold progress, … | Ready | godot-host-shell/006, godot-host-shell/008, godot-host-shell/009, mail-destinations/016, manual-delivery/003, manual-delivery/006, player-character/022 |
 
-### A wave 13 (3)
+### A wave 13 (4)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
-| [input-controls/027](input-controls/story-027-adapter-mouse-mode-gui-focus-hotplug-project-setting.md) | Adapter — mouse mode, GUI-focus policy, focus-loss and hot-plug delivery, and… | Ready | godot-host-shell/006, input-controls/008, input-controls/016, input-controls/018, input-controls/026 |
+| [input-controls/027](input-controls/story-027-adapter-mouse-mode-gui-focus-hotplug-project-setting.md) | Adapter — mouse mode, GUI-focus policy, focus-loss delivery and the joypad pr… | Ready | godot-host-shell/006, input-controls/008, input-controls/016, input-controls/018, input-controls/026 |
 | [player-character/025](player-character/story-025-carry-pose-weight-blend-idle-doze.md) | Carry pose by held item class, whole-body load blend and idle doze (P20) | Ready | grid-inventory/023, player-character/010, player-character/020, player-character/022, player-character/024 |
 | [player-character/026](player-character/story-026-interaction-prompt-anchor-projection.md) | Interaction prompt anchor — projecting the focused anchor and its bounds to s… | Ready | godot-host-shell/006, player-character/018, player-character/022, player-character/023 |
+| [hud-notifications/002](hud-notifications/story-002-wallet-readout-shift-timer-view.md) | `Main/Hud/Persistent` layer, `HudLayer` refresh, the wallet readout (`WalletV… | Ready | godot-host-shell/005, godot-host-shell/006, godot-host-shell/011, hud-notifications/001 |
 
-### A wave 14 (2)
+### A wave 14 (3)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
 | [input-controls/028](input-controls/story-028-gameloop-hookup-router-boot-settings-file.md) | `GameLoop` hook-up — router construction at boot step 4, the per-frame call o… | Ready | input-controls/012, input-controls/013, input-controls/015, input-controls/016, input-controls/019, input-controls/026, input-controls/027 |
 | [throwing-catching/018](throwing-catching/story-018-aim-ribbon-view.md) | `AimRibbonView` (Godot) — the screen-space solid / dashed / dotted arc, end m… | Ready | godot-host-shell/006, player-character/023, player-character/026, throwing-catching/004, throwing-catching/005 |
+| [hud-notifications/003](hud-notifications/story-003-deliver-prompt-display.md) | `DeliverPromptView` — the deliver prompt rendered from manual-delivery 010's … | Ready | godot-host-shell/006, hud-notifications/001, hud-notifications/002, manual-delivery/010, player-character/018, player-character/026 |
 
 ### A wave 15 (2)
 
@@ -172,21 +175,20 @@
 |---|---|---|---|
 | [throwing-catching/021](throwing-catching/story-021-launch-ghost-release-snap-landing-beats.md) | Launch-ghost view, strain face and release snap, the whoosh, and the ground /… | Ready | godot-host-shell/006, manual-delivery/006, player-character/022, player-character/024, throwing-catching/007, throwing-catching/017, throwing-catching/020 |
 
-## Track B — remaining M-1a (16 stories, 4 waves)
+## Track B — remaining M-1a (13 stories, 2 waves)
 
-### B wave 1 (9)
+### B wave 1 (8)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
-| [simulation-core/029](simulation-core/story-029-zero-alloc-tick-timing-advisory.md) | Zero-allocation tick probe and tick-timing report (advisory at M-1a) | Ready | — |
 | [simulation-core/030](simulation-core/story-030-sc-x-1-cross-system-batch-order.md) | SC-X-1 — cross-system batch order with real Grid and Throw ops | Ready | throwing-catching/010 |
-| [input-controls/011](input-controls/story-011-panel-cursor-navigation.md) | Panel navigation without a mouse (R8) — grid cursor stepping, origin landing,… | Ready | input-controls/008, input-controls/010 |
 | [input-controls/020](input-controls/story-020-integration-hold-timing-and-interact-end-to-end.md) | Headless router → `InputLatch` → interaction integration (A) — grammar fire t… | Ready | input-controls/007, input-controls/008, input-controls/009, input-controls/012, input-controls/013, input-controls/014, input-controls/016, input-controls/017, input-controls/019, manual-delivery/004, player-character/017, player-character/018, player-character/020 |
+| [input-controls/029](input-controls/story-029-adapter-integration-suite-and-manual-evidence.md) | Godot adapter integration suite and the MANUAL evidence runs (real pad, focus… | Ready | godot-host-shell/011, input-controls/026, input-controls/027, input-controls/028 |
 | [grid-inventory/018](grid-inventory/story-018-conservation-fuzz-determinism.md) | Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world… | Ready | — |
-| [grid-inventory/024](grid-inventory/story-024-panel-interactions-feedback.md) | Panel interactions through the Panel/Holding input contexts, and the M-1a fee… | Ready | grid-inventory/019, grid-inventory/020, grid-inventory/023 |
+| [grid-inventory/024](grid-inventory/story-024-panel-interactions-feedback.md) | Panel interactions through the Panel/Holding input contexts, and the M-1a fee… | Ready | grid-inventory/019, grid-inventory/020, grid-inventory/023, input-controls/007, input-controls/010 |
 | [network-adapter-loopback/008](network-adapter-loopback/story-008-deliver-matching-wire-codec.md) | deliver_matching wire codec (24 B MATCH / 28 B MISDELIVER_ONE) | Ready | manual-delivery/005 |
 | [manual-delivery/009](manual-delivery/story-009-telemetry-latched-branch-handshare.md) | Telemetry — `latchedBranch` per hold start and the `handShare` metric (sessio… | Ready | manual-delivery/004, manual-delivery/006 |
-| [throwing-catching/014](throwing-catching/story-014-preview-equals-host-fuzz-and-determinism-goldens.md) | Preview = host over 10 000 throws, the T2 cross-platform goldens and the no-d… | Ready | mail-destinations/010, throwing-catching/002, throwing-catching/003, throwing-catching/004, throwing-catching/010, throwing-catching/011, throwing-catching/012 |
+| [throwing-catching/014](throwing-catching/story-014-preview-equals-host-fuzz-and-determinism-goldens.md) | Preview = host over 10 000 throws and the no-dice replay | Ready | mail-destinations/010, throwing-catching/002, throwing-catching/003, throwing-catching/004, throwing-catching/010, throwing-catching/011, throwing-catching/012 |
 
 ### B wave 2 (5)
 
@@ -195,50 +197,46 @@
 | [input-controls/021](input-controls/story-021-integration-cancels-toggle-commit-end-to-end.md) | Headless router → Sim integration (B) — the cancel-cause table, Interact reso… | Ready | input-controls/012, input-controls/013, input-controls/014, input-controls/015, input-controls/016, input-controls/017, input-controls/018, input-controls/020, manual-delivery/005, network-adapter-loopback/008, throwing-catching/004, throwing-catching/006, throwing-catching/007 |
 | [network-adapter-loopback/009](network-adapter-loopback/story-009-sc-x-2-manual-delivery-over-loopback.md) | SC-X-2 — a real Manual Delivery request from the host's own client over loopb… | Ready | manual-delivery/004, manual-delivery/005, network-adapter-loopback/008 |
 | [manual-delivery/007](manual-delivery/story-007-integration-loopback-parity-edge-cases.md) | End-to-end over loopback — focus vs Pick-up, preview order = host order, clie… | Ready | mail-destinations/009, mail-destinations/015, manual-delivery/002, manual-delivery/003, manual-delivery/004, manual-delivery/005, manual-delivery/006, network-adapter-loopback/008, player-character/020 |
-| [throwing-catching/015](throwing-catching/story-015-conservation-fuzz-replay-and-step-budget.md) | Exactly-one-terminal conservation fuzz (8 players, 18 000 ticks), canonical d… | Ready | grid-inventory/018, simulation-core/029, simulation-core/030, throwing-catching/008, throwing-catching/011, throwing-catching/012, throwing-catching/013, throwing-catching/014 |
+| [throwing-catching/015](throwing-catching/story-015-conservation-fuzz-replay-and-step-budget.md) | Exactly-one-terminal conservation fuzz (8 players, 18 000 ticks) and canonica… | Ready | grid-inventory/018, simulation-core/030, throwing-catching/008, throwing-catching/011, throwing-catching/012, throwing-catching/013, throwing-catching/014 |
 | [throwing-catching/016](throwing-catching/story-016-telemetry-t14-session-stats.md) | T14 telemetry — per-launch and per-terminal records, `redAgeAtReleaseMs` and … | Ready | manual-delivery/009, throwing-catching/007, throwing-catching/010, throwing-catching/011, throwing-catching/017 |
 
-### B wave 3 (1)
-
-| Story | Title | Status | Open dependencies (earlier waves) |
-|---|---|---|---|
-| [input-controls/022](input-controls/story-022-replay-corpus-zero-unauthored-verbs.md) | Input replay corpus — 200 seeded + 10 adversarial traces and the "zero unauth… | Ready | grid-inventory/020, input-controls/020, input-controls/021, manual-delivery/004, throwing-catching/007 |
-
-### B wave 4 (1)
-
-| Story | Title | Status | Open dependencies (earlier waves) |
-|---|---|---|---|
-| [input-controls/024](input-controls/story-024-router-core-zero-allocation-gate.md) | Router-core zero-allocation gate (H-PERF-3, blocking) and the advisory frame-… | Ready | input-controls/007, input-controls/008, input-controls/009, input-controls/010, input-controls/011, input-controls/012, input-controls/013, input-controls/014, input-controls/015, input-controls/016, input-controls/017, input-controls/018, input-controls/019, input-controls/022, simulation-core/029 |
-
-## Blocked (5)
+## Blocked (0)
 
 | Story | Title | Story deps |
 |---|---|---|
-| [input-controls/029](input-controls/story-029-adapter-integration-suite-and-manual-evidence.md) | Godot adapter integration suite and the MANUAL evidence runs (real pad, focus… | godot-host-shell/002, godot-host-shell/011, input-controls/001, input-controls/026, input-controls/027, input-controls/028 |
-| [grid-inventory/022](grid-inventory/story-022-deliver-matching-handler.md) | DeliverMatching handler — the one deliver hold (matches across cursor/panel; … | grid-inventory/015, grid-inventory/019 |
-| [hud-notifications/001](hud-notifications/story-001-hud-read-model-money-formatter.md) | `IHudState` read model — wallet cents, F3 time-only shift timer, focused deli… | godot-host-shell/005, mail-destinations/009, mail-destinations/010, manual-delivery/010, player-character/012, player-character/018, simulation-core/006, world-stub/004 |
-| [hud-notifications/002](hud-notifications/story-002-wallet-readout-shift-timer-view.md) | `Main/Hud/Persistent` layer, `HudLayer` refresh, the wallet readout (`WalletV… | godot-host-shell/002, godot-host-shell/005, godot-host-shell/006, godot-host-shell/011, hud-notifications/001 |
-| [hud-notifications/003](hud-notifications/story-003-deliver-prompt-display.md) | `DeliverPromptView` — the deliver prompt rendered from manual-delivery 010's … | godot-host-shell/006, hud-notifications/001, hud-notifications/002, input-controls/005, input-controls/006, manual-delivery/010, player-character/018, player-character/026 |
 
 ## Ready but gated behind a Blocked story (0)
 
 | Story | Track | Gated by |
 |---|---|---|
 
-## Deferred — out of the M-1a slice (8)
+## Deferred — out of the M-1a slice (21)
 
 Each story file carries the "Deferred (Evan 2026-10-23 7:13 AM PT)" status, both of Evan's quotes and its target milestone. Nothing was deleted.
 
 | Story | Title | Deferred to |
 |---|---|---|
+| [simulation-core/029](simulation-core/story-029-zero-alloc-tick-timing-advisory.md) | Zero-allocation tick probe and tick-timing report (advisory at M-1a) | M0 (out of the M-1a slice; was Ready) |
+| [input-controls/011](input-controls/story-011-panel-cursor-navigation.md) | Panel navigation without a mouse (R8) — grid cursor stepping, origin landing,… | M1 (accessibility pass) (out of the M-1a slice; was Ready) |
+| [input-controls/022](input-controls/story-022-replay-corpus-zero-unauthored-verbs.md) | Input replay corpus — 200 seeded + 10 adversarial traces and the "zero unauth… | M0 (out of the M-1a slice; was Ready) |
 | [input-controls/023](input-controls/story-023-fantasy-scripts-toggle-run-route-parity-a11y.md) | Fantasy-test scripts — the hold-free shift (H-FX-4), route input-count parity… | M1 (accessibility pass) (out of the M-1a slice; was Ready) |
+| [input-controls/024](input-controls/story-024-router-core-zero-allocation-gate.md) | Router-core zero-allocation gate (H-PERF-3, blocking) and the advisory frame-… | M0 (out of the M-1a slice; was Ready) |
+| [input-controls/025](input-controls/story-025-ci-lint-no-direct-input-reads.md) | CI lint — no direct `Input.*` reads or `InputMap` mutation outside `src/Game/… | M0 (out of the M-1a slice; was Ready) |
+| [input-controls/030](input-controls/story-030-glyph-state-last-used-device.md) | Glyph state — the last-used device, F9 flip rules and `router.Glyphs` (H-F9-1… | M1 (glyph sets, Glyph style and prompt rendering) (out of the M-1a slice; split from story 017) |
+| [input-controls/031](input-controls/story-031-pad-hotplug-router-and-adapter-delivery.md) | Pad hot-plug — router `OnPadConnection` (cancel-never-commit, reconnect mute,… | M0 (out of the M-1a slice; split from stories 018 and 027) |
+| [input-controls/032](input-controls/story-032-settings-input-overrides-writer-bindings-migrations.md) | `settings.input` rebinding support — the overrides-only writer, the `bindings… | M1 (Controls settings screen and remap) (out of the M-1a slice; split from story 019) |
+| [grid-inventory/025](grid-inventory/story-025-deferred-live-region-feedback.md) | Inventory panel live-region feedback (TR-inventory-027) — the live-region `Co… | M1 accessibility pass (out of the M-1a slice; split from stories 023 and 024) |
 | [player-character/027](player-character/story-027-movement-rulings-extra-jump-slide-td-091.md) | Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-sl… | M1 (out of the M-1a slice; was Ready) |
+| [player-character/028](player-character/story-028-deferred-golden-cross-os-equality-and-blocking-counters.md) | PCM-P2-1 cross-OS golden equality (Windows + Linux) and the blocking PCM-PERF… | M0 (out of the M-1a slice; split from story 010) |
 | [manual-delivery/008](manual-delivery/story-008-race-suite-bell-fuzz-soak.md) | Race suite (no misdeliver for a MATCH-latched hold), closing-bell fuzz and th… | M0 (out of the M-1a slice; was Ready) |
 | [manual-delivery/012](manual-delivery/story-012-deferred-prompt-accessibility-localisation.md) | Deliver prompt accessibility and localisation — the screen-reader settle gate… | M1 or later (accessibility and localisation pass; out of the M-1a slice) |
 | [throwing-catching/022](throwing-catching/story-022-catcharm-op-arm-window-and-sender.md) | `CatchArm` — OpKind, host arm window (`armedUntil`), eligibility clears and t… | M0 (out of the M-1a slice; was Ready) |
 | [throwing-catching/023](throwing-catching/story-023-catcher-receiver-contact-trycatch-terminals.md) | The armed-catcher receiver — F5 contact over the position history, rank-0 rac… | M0 (out of the M-1a slice; was Ready) |
 | [throwing-catching/024](throwing-catching/story-024-catch-end-to-end-two-carriers-history-ring.md) | Catch end to end — two simulated carriers over the real host position-history… | M0 (out of the M-1a slice; was Blocked) |
 | [throwing-catching/025](throwing-catching/story-025-deferred-throw-accessibility.md) | Throw accessibility — the polite live-region lines for the arc label, and lab… | M1 or later (accessibility pass; out of the M-1a slice) |
+| [throwing-catching/026](throwing-catching/story-026-deferred-throwing-step-budget-zero-alloc.md) | `Throwing.Step` budget — TC-P-2 timing report, 0 B gate and the SC-FIX-WORST … | M0 (out of the M-1a slice; split from story 015) |
+| [throwing-catching/027](throwing-catching/story-027-deferred-t2-cross-platform-goldens.md) | T2 cross-platform goldens for `LaunchMath` / `Ballistic` / `FlightSweep` (Win… | M0 (out of the M-1a slice; split from story 014) |
+| [throwing-catching/028](throwing-catching/story-028-deferred-leaky-bucket-cooldown-tat.md) | The host leaky-bucket throw cooldown (`TAT`) — check 7 `throw_cooldown` and t… | M0 (out of the M-1a slice; split from story 009) |
 
 ## Wave 0 — Complete / In Progress (110)
 

@@ -8,7 +8,7 @@
 > **Est. size**: S — 3 stories
 > **Implementation priority**: after `godot-host-shell` 005/006 and the feature epics' Sim stories it reads (see Stories)
 > **Status**: Ready — ADR-0018 Accepted by Evan 2026-10-23 8:10 AM PT ("approve all", Mail Lead chat)
-> **Stories**: 3 stories — 3 Blocked (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 3 stories — 3 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -97,6 +97,6 @@ This epic's M-1a slice is complete when:
 
 ## Next Step
 
-**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Blocked: 001, 002, 003. Earlier notes below are history.
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 001 (A11), 002 (A13), 003 (A14). Earlier notes below are history.
 
 Evan accepts ADR-0018 (`docs/architecture/adr-0018-hud-composition-minimal.md`; `technical-director` sets `Accepted` on his confirmation). Then `/story-readiness production/epics/hud-notifications/story-001-hud-read-model-money-formatter.md` and `/dev-story` in the recommended order once its Sim dependencies (mail-destinations 010, player-character 018) are Complete.

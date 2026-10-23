@@ -5,10 +5,10 @@
 > **Architecture Module**: Sim.Throwing (`src/PerformativeMail.Sim/Throwing/`; throw preview in Sim.ClientLayer `Previews`) + aim ribbon, launch ghost and bundle mesh (Godot)
 > **Milestone slice**: M-1a per the GDD's milestone slice (T1–T6 with ground, water, solid, timeout and mailbox receivers; T3 preview; T11; T12; T14; the release snap, whoosh, landing squash and trail; one bundle mesh). The **Sim-side catch** (T7, F5) is pulled forward from M0 at the orchestrator's request (see Overview).
 > **Engine Risk**: LOW (Sim ballistic). MEDIUM for the presentation (screen-space dashed ribbon with no `DrawLine`, since line AA was removed in 4.7; `MultiMeshInstance3D`).
-> **Est. size**: L — 24 stories (22 Ready, 2 Blocked)
+> **Est. size**: L — 28 stories (1 Complete, 20 Ready, 7 Deferred; refreshed 2026-10-23, m1a-replan)
 > **Implementation priority**: 7 of 9
 > **Status**: Ready
-> **Stories**: 25 stories — 1 Complete, 20 Ready, 4 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 28 stories — 1 Complete, 20 Ready, 7 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -126,9 +126,12 @@ Source: architecture.md v1.1 Appendix A; coverage per `docs/architecture/tr-regi
 | 022 | [`CatchArm` — OpKind, host arm window, eligibility clears, client `ICatchArmSender` (Sim-side catch 1/3)](story-022-catcharm-op-arm-window-and-sender.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0015 |
 | 023 | [Armed-catcher receiver — F5 contact over position history, rank 0, CAUGHT / FUMBLE via `TryCatch` (Sim-side catch 2/3)](story-023-catcher-receiver-contact-trycatch-terminals.md) | Integration | Deferred (Evan 2026-10-23) | ADR-0015 |
 | 024 | [Catch end to end — two carriers over the real host position-history ring (Sim-side catch 3/3)](story-024-catch-end-to-end-two-carriers-history-ring.md) | Integration | Deferred (Evan 2026-10-23) | ADR-0015 |
-| 025 | [Throw accessibility — the polite live-region lines for the arc label, and label/marker con](story-025-deferred-throw-accessibility.md) | UI | Deferred (Evan 2026-10-23) | — |
+| 025 | [Throw accessibility — the polite live-region lines for the arc label, and label/marker con](story-025-deferred-throw-accessibility.md) | UI | Deferred (Mail Lead default, pending Evan) | — |
+| 026 | [`Throwing.Step` budget — TC-P-2 timing report, 0 B gate and the SC-FIX-WORST throw case](story-026-deferred-throwing-step-budget-zero-alloc.md) | Integration | Deferred (Evan 2026-10-23) | — |
+| 027 | [T2 cross-platform goldens for `LaunchMath` / `Ballistic` / `FlightSweep` (Windows + Linux)](story-027-deferred-t2-cross-platform-goldens.md) | Integration | Deferred (Evan 2026-10-23) | — |
+| 028 | [The host leaky-bucket throw cooldown (`TAT`) — check 7 `throw_cooldown` and the `TAT` comm](story-028-deferred-leaky-bucket-cooldown-tat.md) | Logic | Deferred (Evan 2026-10-23) | — |
 
-**24 stories: 12 Logic, 8 Integration, 3 Visual/Feel, 1 UI — 22 Ready, 2 Blocked (refreshed 2026-10-20).**
+**28 stories: 13 Logic, 10 Integration, 3 Visual/Feel, 2 UI — 1 Complete, 20 Ready, 7 Deferred (refreshed 2026-10-23 from the story headers, m1a-replan).**
 
 **Suggested order:** 001 → 002 → 003 (primitives; 002 needs 001, 003 needs both) → 004, 005 (preview, owner side) in parallel with 006, 008 (declarations, state) → 007 (needs 004, 006) → 009 → 010 → 011 → 012 → 013 → 014 → 015 (host and resolution) → 017 → 018, 020, 021 (Godot-side; after `production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md`, the scene-root story) → 022 → 023 (catch pull-forward, last; optional for the M-1a gate). Blocked: 016 (ADR-0024), 024 (ADR-0020). 019 (UI) is Ready since 2026-10-16 — after 005, 007, 018.
 
@@ -192,6 +195,6 @@ This epic is complete when:
 
 ## Next Step
 
-**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 002 (A1), 006 (A1), 008 (A1), 003 (A2), 009 (A3), 010 (A5), 011 (A6), 004 (A7), 012 (A7), 005 (A8), 007 (A8), 013 (A8), 017 (A10), 018 (A14), 019 (A15), 020 (A15), 021 (A16); then Track B: 014 (B1), 015 (B2), 016 (B2); Deferred by Evan 2026-10-23 (not scheduled): 022, 023, 024, 025. Earlier notes below are history.
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 002 (A1), 006 (A1), 008 (A1), 003 (A2), 009 (A3), 010 (A5), 011 (A6), 004 (A7), 012 (A7), 005 (A8), 007 (A8), 013 (A8), 017 (A11), 018 (A14), 019 (A15), 020 (A15), 021 (A16); then Track B: 014 (B1), 015 (B2), 016 (B2); Deferred by Evan 2026-10-23 (not scheduled): 022, 023, 024, 025, 026, 027, 028. Earlier notes below are history.
 
 Run `/story-readiness production/epics/throwing-catching/story-001-throw-rh-launch-f1-ballistic-f2.md`, then `/dev-story`. Work the stories in the suggested order; each story's `Depends on:` says what must be DONE first. Unblock 016 (ADR-0024) and 024 (ADR-0020 + a Player Character ring story) when their inputs exist.

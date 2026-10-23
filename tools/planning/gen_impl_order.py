@@ -21,13 +21,19 @@ for e in epics:
         st = st.group(1) if st else '?'
         if st.startswith('In') and 'Progress' not in st: st = 'In Progress' if 'In Progress' in t[:600] else st
         title = re.match(r'# Story \d+: (.*)', t.splitlines()[0]); title = title.group(1) if title else ''
-        dep = re.search(r'^- Depends on:(.*)$', t, re.M)
-        S[f'{e}/{n}'] = dict(file=os.path.relpath(f, E), status=st, title=title, deps_raw=dep.group(1) if dep else '')
+        deps = re.findall(r'^- Depends on:(.*)$', t, re.M)  # every Depends on line (Mail Review PR #47 B3: 15 stories have two)
+        S[f'{e}/{n}'] = dict(file=os.path.relpath(f, E), status=st, title=title, deps_raw=deps)
 def strip_paren(s):
     prev = None
     while prev != s: prev, s = s, re.sub(r'\([^()]*\)', '', s)
     return s
 def parse(key, raw):
+    if isinstance(raw, list):  # one parse per Depends on line, so each line's 'not a dependency' cut stays local
+        out = []
+        for r in raw:
+            for d in parse(key, r):
+                if d not in out: out.append(d)
+        return out
     own = key.split('/')[0]; out = []
     raw = re.split(r'(?i)not a dependency', raw)[0]
     for m in re.finditer(r'production/epics/([\w-]+)/story-(\d+)', raw): out.append(f'{m.group(1)}/{m.group(2)}')
