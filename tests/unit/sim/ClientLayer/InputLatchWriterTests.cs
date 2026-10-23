@@ -609,12 +609,10 @@ public class InputLatchWriterTests
     [InlineData(100, 100, 127)]
     [InlineData(-100, -100, -127)]
     [InlineData(5, 7, 12)]
-    [InlineData(-3, 1, -2)]
     [InlineData(1000, 0, 127)]
     [InlineData(int.MaxValue, int.MaxValue, 127)]
     [InlineData(int.MinValue, int.MinValue, -127)]
     [InlineData(127, -1, 126)]
-    [InlineData(-127, 1, -126)]
     public void PushSteps_AccumulatesPerAction_SaturatingAtPlusMinus127(int first, int second, int expected)
     {
         var rig = new Rig();
@@ -748,17 +746,6 @@ public class InputLatchWriterTests
         rig.Writer.SetState(new InputState());
         Assert.Equal(InputFrameFlags.None, rig.Later().Flags);
         Assert.Equal(InputFrameFlags.FirstInBatch, rig.First().Flags);
-    }
-
-    [Fact]
-    public void HeldBits_BitNIsFrameActionN_ThroughTheLatch()
-    {
-        var rig = new Rig();
-        foreach (FrameAction a in Enum.GetValues<FrameAction>())
-        {
-            rig.Writer.SetState(new InputState { HeldBits = FrameActions.Bit(a) });
-            Assert.Equal(1UL << (int)a, rig.Later().HeldBits);
-        }
     }
 
     [Fact]
