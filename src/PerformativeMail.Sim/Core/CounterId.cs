@@ -176,4 +176,7 @@ public enum CounterId : ushort
 
     /// <summary>Focus: the most anchor-grid cells one client-tick focus pass walked (budget 25 at the default reach, ADR-0014 l.62) (key <c>focusCellsVisited</c>; D3, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164); a running maximum, not a sum (Mail Lead planning default, pending Evan (TD-170 item 2)). A probe counter on the ClientLayer's counters, not in the canonical dump.</summary>
     FocusCellsVisited = 53,
+
+    /// <summary>Press resolution (player-character story 016; ADR-0014 section 3, input-controls H-R4-6): one per Interact press edge ignored because a hold or channel was already in progress (no second latch) (key <c>interactPressIgnored</c>; D5 — Mail Lead default, pending Evan (TD-171)). On the ClientLayer's counters, not in the canonical dump.</summary>
+    InteractPressIgnored = 54,
 }
