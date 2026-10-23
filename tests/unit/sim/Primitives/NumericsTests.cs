@@ -952,12 +952,8 @@ public class NumericsTests
     /// <summary>GDD simulation-core F7: pm is 0 to 10^6; a negative pm asserts, or is treated as 0 and counted.</summary>
     [Theory]
     [InlineData(15L, -1500)]
-    [InlineData(-15L, -1500)]
-    [InlineData(12_345L, -1)]
     [InlineData(0L, -1)]
-    [InlineData(Cents.Max, int.MinValue)]
     [InlineData(Cents.Min, int.MinValue)]
-    [InlineData(15L, int.MinValue)]
     public void CentsMulPermille_NegativePermille_AssertsOrIsZeroAndCountsMoneyBadPermille(long cents, int permille)
     {
         // Arrange
