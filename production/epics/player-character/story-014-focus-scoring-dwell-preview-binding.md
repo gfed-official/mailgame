@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1.5 days; ~700 lines prod + tests — readiness 2026-10-22: the port, the `BindPreview` builder change, a registry overload, two counters and an architecture rule)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-22 (story done, PR #PC014: 12/12 ACs met, Sonnet story-done check "VERDICT: ALL MET"; Test Evidence and Completion Notes filled). Before that: 2026-10-22 (D1–D6 and the ADR-0014 l.66 erratum Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), "Approve the ADR-0014 l.66 erratum and all six 014 defaults as recommended"; TD-170 stays pending Evan). Before that: 2026-10-22 (readiness fixes on main eda1efd: names matched to the code, the carrier-source port instead of reading story 020's output, `BindPreview` made unconditional, latch semantics, counters, determinism / 0 B / architecture ACs; Mail Lead planning defaults in TD-164)
+> **Last Updated**: 2026-10-22 (story done, PR #40: 12/12 ACs met, Sonnet story-done check "VERDICT: ALL MET"; Test Evidence and Completion Notes filled). Before that: 2026-10-22 (D1–D6 and the ADR-0014 l.66 erratum Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), "Approve the ADR-0014 l.66 erratum and all six 014 defaults as recommended"; TD-170 stays pending Evan). Before that: 2026-10-22 (readiness fixes on main eda1efd: names matched to the code, the carrier-source port instead of reading story 020's output, `BindPreview` made unconditional, latch semantics, counters, determinism / 0 B / architecture ACs; Mail Lead planning defaults in TD-164)
 
 > **Interaction-framework story (4 of 9).** Produces the focused anchor that Input & Controls latches at press (its G1) and Manual Delivery previews against.
 
@@ -104,7 +104,7 @@
 
 ## Completion Notes
 
-**Completed**: 2026-10-22 (PR #PC014, branch `feat/player-character-014`)
+**Completed**: 2026-10-22 (PR #40, branch `feat/player-character-014`)
 **Criteria**: 12/12 met (Sonnet story-done check, `/workspace/repos/logs/pc014-done.log`: "VERDICT: ALL MET").
 **Built**: `PreviewSubStep` + `ClientLayerBuilder.BindPreview` (D4); `FocusScore` (F4, D6 clamp); `FocusState`, `FocusStep`, `ICarrierFocusSource` (D1), latch (D2); `FocusCounters`, `CounterId.FocusCandidates = 52` / `FocusCellsVisited = 53`, the `QueryCells(…, out int cellsVisited)` overload (D3); the SC-ARCH-1 `.Client` rule (D5). D1–D6: Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat); TD-164 closed. The ADR-0014 l.66 erratum is applied (same approval).
 **Review**: Sonnet review (`/workspace/repos/logs/pc014-review.log`): (1) stale availability under the latch when the incumbent is not found — fixed in 20d9d8c; (2) the latched fallback lookup ignored the context — fixed in 20d9d8c with the context-aware `TryGet`; (3) truncation can drop an unlatched incumbent — behaviour kept, TD-170 item 8; (4) counters are running maxima — TD-170 item 2. Regression test `Latch_IncumbentNotFoundInThisContextOrUnregistered_KeepsTheRef_ClearsAvailability`, seen failing on the unfixed code.
