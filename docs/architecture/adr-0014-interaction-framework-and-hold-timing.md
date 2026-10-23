@@ -269,4 +269,4 @@ No code exists. Stories create `Sim/Players/{AnchorRegistry, Focus, Interaction,
 - `design/gdd/player-character-movement.md`, `design/gdd/input-controls.md`, `design/gdd/manual-delivery.md`, `design/gdd/throwing-catching.md`.
 
 ## Errata
-- 2026-10-23 — accepted by owner — **E2** (l.250): the per-tick 0 B rule for interaction hooks is reported, not blocking, until M0. Evan, Mail Lead chat, 2026-10-23 8:10 AM PT, approving draft errata E1–E6 and E9 (decision log 2026-10-23, m1a-replan): "approve all". Context: 7:15 AM PT "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example".
+- 2026-10-23 — erratum **E2** (l.250): "per-tick and per-frame zero-allocation checks are reported, not blocking, until M0." Approved by Evan, Mail Lead chat, 2026-10-23 8:10 AM PT: "approve all" (decision log 2026-10-23).

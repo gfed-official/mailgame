@@ -21,7 +21,7 @@ Grid Inventory is where every piece of mail and every item lives between spawnin
   - `cursor`;
   - `po_intake` as the mail spawn and return target (R14 `Spawn` with NoMerge).
 - **Entries and stacking:** `entryId`, `count`, ascending `mailIds`, footprint and rotation (R2); StackKey stacking with `effMax` read from `IStatSheet` at op time (R3); placement validity (R4); the insertion whitelist (R5); oldest-first take-k (R6).
-- **Ops** (R7), through the Sim Core op FIFO (one `OpKind` per op): `pick`, `move` (including a count-split place), `merge`, `quick_move` (own panel), `return`, `drop`, `pickup`, plus the sync `IInventoryApi` (`Spawn`, `TryInsert`, `TryExtract`, `TakeUnit`, `CountItem`, `TryCatch`). The orchestrated `deliver`/`deliver_matching` and `throw` handlers are owned here, but each is completed with its feature epic: `manual-delivery`, `throwing-catching` and `mail-destinations`.
+- **Ops** (R7), through the Sim Core op FIFO (one `OpKind` per op): `pick`, `move` (including a count-split place), `merge`, `quick_move` (own panel), `return`, `drop`, `pickup`, plus the sync `IInventoryApi` (`Spawn`, `TryInsert`, `TryExtract`, `TakeUnit`, `CountItem`, `TryCatch`). The orchestrated `deliver` and `throw` handlers are owned here, but each is completed with its feature epic: `manual-delivery`, `throwing-catching` and `mail-destinations`. The `deliver_matching` handler is Delivery's (ADR-0009 erratum 2026-10-16, Risk 4 below); Inventory supplies the read-only scan (story 022's `HostPanelView`), `ConsumeUnit` and seals.
 - **Placement and WorldItems:** AutoPlace M/U/R (PassFirst, plus TargetFirst for pickup and catch, R8); the quick_move target order for the own panel (R9); the cursor (R11); WorldItem with cap 512, expiry FIFOs and lossless mail eviction (R12); absolute-tick timers with expiry after `InputsApply` (D6).
 - **Weight → speed** (R16, D1): integer permille with one division; `weightPoints` int16.
 - **Conservation** (R19): the `UnitLedger` invariant and `INVENTORY_ASSERT`; the `Inserted`/`Removed`/`Merged`/`ItemsLost` events (and the `ContainerDelta`/`UnitsRemoved` network batch forms, GDD l.599 / manifest l.380 — wire packing, not events); H-DET-1 (equal SHA-256 dumps after a 50 000-op log).
@@ -45,7 +45,7 @@ Grid Inventory is where every piece of mail and every item lives between spawnin
 - (1) Seven TRs are untraced. Sort and backlog structures (TR-inventory-008, 009, 016, 018 → ADR-0025) and JoinState (023, 024 → ADR-0022) fall outside M-1a. The **panel view** (TR-inventory-027 → ADR-0019) is in the M-1a slice, so its stories carry `ADR: N/A` until ADR-0019 lands.
 - (2) The GDD awaits a targeted check of 21 contract/fixture fixes. Op payload shapes could move, so stories must cite ADR-0009 payload layouts (padding-free).
 - (3) Intake access at M-1a is not explicitly specified (see above).
-- (4) **Superseded for `deliver_matching` 2026-10-16 (/architecture-review, ADR-0009 erratum):** the `DeliverMatching` OpKind and handler are Delivery-owned (`Sim/Delivery`, block `0x0100–0x013F`) because ADR-0017 forbids Inventory → Mail calls. Inventory provides the match scan, `ConsumeUnit` and seals, and story 022 is Blocked pending re-scope. Original text: the `deliver_matching` and `throw` handlers span epics. Ownership: the handler lives in Sim.Inventory, while Mail's `Evaluate`/consume and Throwing's flight creation are called through their `I…Api` in the same phase (ADR-0003 §5).
+- (4) **Superseded for `deliver_matching` 2026-10-16 (/architecture-review, ADR-0009 erratum):** the `DeliverMatching` OpKind and handler are Delivery-owned (`Sim/Delivery`, block `0x0100–0x013F`) because ADR-0017 forbids Inventory → Mail calls. Inventory provides the match scan, `ConsumeUnit` and seals, and story 022 was re-scoped 2026-10-23 to the host `IPanelView` scan primitive (Ready). Original text: the `deliver_matching` and `throw` handlers span epics. Ownership: the handler lives in Sim.Inventory, while Mail's `Evaluate`/consume and Throwing's flight creation are called through their `I…Api` in the same phase (ADR-0003 §5).
 
 ## Governing ADRs
 
@@ -135,7 +135,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 019 | [Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 range)](story-019-range-gated-open-pickup-leash.md) | Logic | Ready | ADR-0014, ADR-0009, ADR-0013 |
 | 020 | [Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped; swimming refused](story-020-drop-op.md) | Logic | Ready | ADR-0026, ADR-0013, ADR-0009 |
 | 021 | [Backlog append and the IntakeDrain phase (≤ 32 entries/tick, idle exit O(1))](story-021-backlog-intake-drain.md) | Logic | Complete | ADR-0017, ADR-0009 |
-| 022 | [DeliverMatching handler — the one deliver hold (matches across cursor/panel; one-unit misdeliver fallback)](story-022-deliver-matching-handler.md) | Integration | Blocked (re-scope, ADR-0009 erratum 2026-10-16) | ADR-0017, ADR-0014, ADR-0009 |
+| 022 | [Host panel view — Inventory's read-only scan primitive for `deliver_matching`](story-022-deliver-matching-handler.md) | Logic | Ready | ADR-0016, ADR-0009, ADR-0017 |
 | 023 | [Own-panel grid view and hotbar strip — one custom-drawn Control, 0 B/frame](story-023-panel-grid-view-hotbar.md) | UI | Ready | ADR-0019, ADR-0009 |
 | 024 | [Panel interactions through the Panel/Holding input contexts, and the M-1a feedback cues](story-024-panel-interactions-feedback.md) | UI | Ready | ADR-0019, ADR-0012, ADR-0009 |
 
@@ -143,7 +143,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 
 | Story | Waits on |
 |---|---|
-| 022 | re-scope to the Inventory primitives (match scan, `ConsumeUnit`, seals): the handler half moved to `production/epics/manual-delivery/story-005-delivermatching-op-and-handler.md` (ADR-0009 erratum; ADR-0017 forbids Inventory → Mail) |
+| — | None. 022 was re-scoped 2026-10-23 to the read-only match scan (`IInventoryApi.HostPanelView`). `ConsumeUnit` and seals were already Complete in 015/017, and the handler half is `production/epics/manual-delivery/story-005-delivermatching-op-and-handler.md` (ADR-0009 erratum; ADR-0017 forbids Inventory → Mail) |
 
 **Not storied at M-1a:**
 - sort (D3, ADR-0025);
@@ -163,4 +163,4 @@ This epic is complete when:
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 019 (A1), 020 (A1), 023 (A10); then Track B: 018 (B1), 024 (B1); Blocked: 022. Earlier notes below are history.
 
-Stories 001–017 and 021 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33, 014 in PR #34, merged as main c2d4a64; 021 in PR #35, merged as main c889f59; 017 in PR #36, open, main 43c5348 (PR #37) merged in at 454125d). Next: 018 (Ready; depends on 017) and 020 (013 unblocks it). Stories 019–020 are Ready (ADRs Accepted 2026-10-16) and 022 is Blocked (re-scope); 023–024 wait on `/ux-design` for the inventory panel.
+Stories 001–017 and 021 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33, 014 in PR #34, merged as main c2d4a64; 021 in PR #35, merged as main c889f59; 017 in PR #36, merged as main eda1efd). Next: 018 (Ready; depends on 017) and 020 (013 unblocks it). Stories 019–020 are Ready (ADRs Accepted 2026-10-16); 022 is Ready (re-scoped 2026-10-23 to the host panel view; its API and `CursorSlot` are TD-172 D1/D2, Approved by Evan 2026-10-23 7:56 AM PT (Mail Lead chat); TD-172 D4/D5 Approved by Evan 2026-10-23 8:20 AM PT); 023–024 are Ready (`design/ux/inventory-panel.md` authored 2026-10-16).

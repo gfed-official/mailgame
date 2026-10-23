@@ -38,6 +38,7 @@
 - [ ] **H-EC-12 (logic half)** (from story 017). A `RawKind.Synthetic` / `DeviceClass.Synthetic` record never changes the last-used device: with last-used KBM, a synthetic action event (device id 0) leaves the glyph set KBM. Records with `DeviceClass.Mouse` include the emulation id (−1) mapping done by the adapter.
 - [ ] **H-F9-1 (flip rules)** (from story 017). `flipToKbm` = any key / mouse-button press OR the sum of `|mouseRel|` over a 250 ms window ≥ `mouseFlipPx` (12); `flipToPad` = any pad button press (triggers via F4) OR `|stickOut| ≥ 0.5` continuously for ≥ 100 ms (3 ticks of fake time): stick 0.6 for 50 ms → no flip, for 100 ms → flip; mouse 5 px → no flip, 30 px → flip to KBM; the flip is **deferred to release** while a hold, aim, action menu or stepper is active; `apply` also needs `now − lastFlip ≥ glyphFlipCooldown` (400 ms): a second flip 0.3 s after the first applies at 0.4 s. `GlyphSet { Kbm, Xbox }`; `router.Glyphs` changes only through this machine; any pad → Xbox at M-1a.
 - [ ] **Last-used device consumers** (split from story 017's "Pad identity" / story 018's H-EC-6 wording). `router.LastUsedDevice` (`DeviceClass` + `PadIndex`) is published alongside `router.Glyphs`; story 031's "solo auto-pause if that pad was the last-used device" reads it once this story lands (until then story 031 keeps a minimal local marker).
+- [ ] **H-EC-12 (from story 029).** A synthetic `InputEventAction` (device 0) while the last-used device is KBM leaves the glyph set KBM.
 
 ---
 
