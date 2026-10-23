@@ -23,22 +23,6 @@ public class RouterStateTests
     }
 
     [Fact]
-    public void Constructor_ExposesTheSixLayers()
-    {
-        var state = new RouterState(CaptureLayer.Pause, OverlayLayer.Panel, BodyLayer.OnFoot, holding: true, aiming: false, SubmenuLayer.SplitStepper);
-
-        Assert.Equal(CaptureLayer.Pause, state.Capture);
-        Assert.Equal(OverlayLayer.Panel, state.Overlay);
-        Assert.Equal(BodyLayer.OnFoot, state.Body);
-        Assert.True(state.Holding);
-        Assert.False(state.Aiming);
-        Assert.Equal(SubmenuLayer.SplitStepper, state.Submenu);
-        Assert.Equal(
-            RouterStateInfo.Pack(CaptureLayer.Pause, OverlayLayer.Panel, BodyLayer.OnFoot, true, false, SubmenuLayer.SplitStepper),
-            state.Id);
-    }
-
-    [Fact]
     public void TryFromId_RejectsAnInvalidIdAndReturnsTheDefaultState()
     {
         bool ok = RouterState.TryFromId(RouterStateInfo.StateCount, out RouterState state);

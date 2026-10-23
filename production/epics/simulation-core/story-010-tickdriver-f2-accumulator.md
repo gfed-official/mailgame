@@ -104,6 +104,6 @@
 **Completed**: 2026-10-16
 **Criteria**: 3/3 passing (AC-1 every SC-F2-1 row asserted verbatim incl. ctor bounds 999 / 10^12+1; AC-2 F2 invariant over 7 seeded Pcg32 runs × 20 000 ops incl. negatives, >freq, DropRemaining, Pause/Resume/Resync; AC-3 Idle/Paused return 0, Resume no-burst, idempotent Pause/Resume, Resync in Running clears acc30, outside Running asserts (`SimAssertCode.TickDriverResyncState = 17`) or is ignored)
 **Deviations**: None blocking. Decisions: `DropRemaining` asserts outside 0..TicksRunTotal (`TickDriverDropRange = 18`), clamps otherwise; `Start` legal from any state, keeps counters; `Stop` clears acc30; `Last`/`Acc30` internal. Forward-looking items logged as TD-012 (per-frame DropRemaining check for story 024, focus-regain Resync vs Paused for GameLoop/ADR-0002, trait IDs, invariant lacks Start/Stop, counters doc nit).
-**Test Evidence**: Logic — TickDriverTests.cs (29 methods / 44 cases), TickDriverInvariantTests.cs (2 methods / 8 cases); suite 587/leg: Release 587/587, Debug 585 + 2 skipped (0-B tests, TD-008), net10.0 and net8.0.
+**Test Evidence**: Logic — TickDriverTests.cs (29 methods / 44 cases), TickDriverInvariantTests.cs (2 methods / 6 cases); suite 587/leg: Release 587/587, Debug 585 + 2 skipped (0-B tests, TD-008), net10.0 and net8.0.
 **Run result**: N/A — Godot-free integer accumulator; nothing renders.
 **Code Review**: Complete — LP-CODE-REVIEW APPROVE (6 non-blocking; .NET idiom review folded in); QL-TEST-COVERAGE ADEQUATE.

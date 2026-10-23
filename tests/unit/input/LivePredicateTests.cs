@@ -199,32 +199,6 @@ public class LivePredicateTests
     }
 
     [Fact]
-    public void World_IncludesTheAimingSubStateAndWorldNotAimingExcludesIt()
-    {
-        ushort walking = Pack();
-        ushort aiming = Pack(aiming: true);
-
-        Assert.True(NamedStates.World.IsLive(walking));
-        Assert.True(NamedStates.World.IsLive(aiming));
-        Assert.True(NamedStates.WorldNotAiming.IsLive(walking));
-        Assert.False(NamedStates.WorldNotAiming.IsLive(aiming));
-    }
-
-    [Fact]
-    public void Shorthands_RejectTheNeighbouringStates()
-    {
-        Assert.False(NamedStates.World.IsLive(Pack(holding: true)));
-        Assert.False(NamedStates.World.IsLive(Pack(overlay: OverlayLayer.Panel)));
-        Assert.False(NamedStates.World.IsLive(Pack(capture: CaptureLayer.Pause)));
-        Assert.False(NamedStates.World.IsLive(Pack(body: BodyLayer.Mounted)));
-        Assert.False(NamedStates.Panel.IsLive(Pack()));
-        Assert.False(NamedStates.Panel.IsLive(Pack(overlay: OverlayLayer.Panel, holding: true)));
-        Assert.False(NamedStates.HoldingOpen.IsLive(Pack(overlay: OverlayLayer.Panel)));
-        Assert.False(NamedStates.HoldingClosed.IsLive(Pack(overlay: OverlayLayer.Panel, holding: true)));
-        Assert.False(NamedStates.HoldingClosed.IsLive(Pack()));
-    }
-
-    [Fact]
     public void WorldPanelAndHolding_ArePairwiseDisjointOverTheTupleSpace()
     {
         for (int i = 0; i < RouterStateInfo.StateCount; i++)

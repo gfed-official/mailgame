@@ -73,7 +73,7 @@
 **Required evidence**:
 - `tests/unit/sim/Hosting/FrameRunnerTests.cs` (`[Trait("Id", "SC-R2-1")]`) — must exist and pass
 
-**Status**: [x] Created and passing — FrameRunnerTests.cs (16 tests, 4 tagged SC-R2-1, NonParallel 0 B over 1 000 frames)
+**Status**: [x] Created and passing — FrameRunnerTests.cs (14 tests, 2 tagged SC-R2-1, NonParallel 0 B over 1 000 frames)
 
 ---
 
