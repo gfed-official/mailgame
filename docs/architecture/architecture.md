@@ -538,11 +538,11 @@ There is one pre-ADR artefact: `docs/architecture/simulation-core-adr-inputs.md`
 
 The Technical Requirements Baseline (Appendix A) holds **250 requirements from 10 GDDs**.
 
-| Covered by an Accepted ADR | Gaps |
-|---|---|
-| **203** | **47** |
+| Covered by an Accepted ADR | Partial | Gaps | Deferred |
+|---|---|---|---|
+| **204** | **1** | **44** | **1** |
 
-*Updated 2026-10-16 by `/architecture-review`: 19 ADRs are Accepted (0001–0017, 0019, 0026). The stable registry is `docs/architecture/tr-registry.yaml`, and the matrix is `docs/architecture/requirements-traceability.md`. The 47 gaps belong to ADR-0018, 0020, 0021, 0022, 0024, 0025, 0029 and `perf-budget.md`, none of which is written yet.*
+*Updated 2026-10-23 (m1a-replan, PR #47) from `docs/architecture/tr-registry.yaml`: 250 = 204 covered + 1 partial + 44 gap + 1 deferred. Accepted ADRs are 0001–0017, 0019, 0026 and the ADR-0024 M-1a stats-file slice (Evan 2026-10-23); ADR-0018's minimal slice is Proposed. The 44 gaps belong to ADR-0018 (19 rows, Proposed or deferred by its slice), 0020, 0021, 0022, 0024 (TR-hud-019, M1), 0025, 0029 and `perf-budget.md`. The partial row is TR-delivery-019 (data half via ADR-0014). The deferred row is TR-delivery-021 (ADR-0006; manual-delivery 008 Deferred to M0). The matrix is `docs/architecture/requirements-traceability.md`. Originally (2026-10-16, `/architecture-review`): 203 covered, 47 gaps.*
 
 Every requirement is mapped below to a planned ADR, so no requirement is orphaned. Each gap closes when its ADR is written and Accepted.
 
