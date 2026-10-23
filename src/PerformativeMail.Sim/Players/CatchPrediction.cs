@@ -23,6 +23,6 @@ public readonly struct CatchPrediction
     /// <summary>The units in flight.</summary>
     public byte Units { get; init; }
 
-    /// <summary>The static receiver the flight would land in uncaught, or <see cref="AnchorRef.None"/> (the D3 gate compares it with the presented target).</summary>
+    /// <summary>The static receiver the flight would land in uncaught, or <see cref="AnchorRef.None"/> (the ADR-0014 §3 catch gate, Throwing T7 D3, compares it with the presented target).</summary>
     public AnchorRef PredictedStaticReceiver { get; init; }
 }

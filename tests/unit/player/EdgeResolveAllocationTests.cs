@@ -2,7 +2,10 @@ using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Sim.Tests.Unit.PlayerCharacter;
 
-/// <summary>Player Character story 016: <c>EdgeResolveStep.Step</c> allocates 0 B over mixed press edges (ADR-0016 l.192).</summary>
+/// <summary>
+/// Player Character story 016: <c>EdgeResolveStep.Step</c> allocates 0 B over mixed press edges (ADR-0016 l.192). It times the whole
+/// <c>ClientLayer.Step</c> (the focus pass at 4a included), so it is stricter than the AC, which covers the edge resolve only.
+/// </summary>
 [Collection(NonParallelCollection.Name)]
 public sealed class EdgeResolveAllocationTests
 {

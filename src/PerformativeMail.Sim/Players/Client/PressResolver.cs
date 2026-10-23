@@ -14,7 +14,7 @@ public enum PressOutcome : byte
     /// <summary>A hold or channel is already in progress: no second latch (H-R4-6; counted <see cref="CounterId.InteractPressIgnored"/>).</summary>
     Ignored = 1,
 
-    /// <summary>Rule 1: a predicted catch passes the D3 gate; a <c>Channel</c> start with <c>CatchArm{down}</c>.</summary>
+    /// <summary>Rule 1: a predicted catch passes the ADR-0014 §3 catch gate (Throwing T7 D3); a <c>Channel</c> start with <c>CatchArm{down}</c>.</summary>
     Catch = 2,
 
     /// <summary>Rule 2: the presented target's verb (<see cref="PressResolution.Index"/>); Tap sends, Hold latches, Channel starts.</summary>
@@ -42,7 +42,7 @@ public readonly record struct PressResolution(PressOutcome Outcome, int Index, S
 /// <see cref="GateKind.NoCandidate"/> is a refusal there, not "no valid target"), and then only rule 2 applies (D6 — Mail Lead
 /// default, pending Evan (TD-171); ADR-0015 section 7 "Alive, on foot").</item>
 /// <item>A hold or channel in progress ignores the press.</item>
-/// <item>Catch iff the predictor predicts and the predicted static receiver is not the presented target (the D3 gate).</item>
+/// <item>Catch iff the predictor predicts and the predicted static receiver is not the presented target (the ADR-0014 §3 catch gate, Throwing T7 D3).</item>
 /// <item>The presented target (the edge's snapshot, never the focus) if registered in this context, within its <c>RangeMm</c>
 /// from the chest (<see cref="FocusScore.Measure"/>, <see cref="FocusScore.InRange"/> with <c>incumbent: false</c>) and not a
 /// <see cref="GateKind.NoCandidate"/>: a gate <see cref="GateKind.Unavailable"/> or an owner <c>IsAvailable == false</c> is
@@ -168,7 +168,7 @@ public sealed class PressResolver
 
         InteractionContext c = ForAnchor(in press, in _anchors.DefAt(index), _anchors.ContextMaskAt(index));
 
-        // IsAvailable is the only owner refusal at press; OnPress returns void and cannot refuse (D3 — Mail Lead default,
+        // IsAvailable is the only owner refusal at press; OnPress returns void and cannot refuse (TD-171 D3 — Mail Lead default,
         // pending Evan (TD-171); ADR-0014 l.146).
         return _anchors.ImplAt(index).IsAvailable(in c, out StringId reason)
             ? new PressResolution(PressOutcome.Verb, index, StringId.None)
