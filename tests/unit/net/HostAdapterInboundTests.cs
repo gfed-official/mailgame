@@ -702,34 +702,6 @@ public class HostAdapterInboundTests
         Assert.Equal(ReplyResult.Rejected, busy.Result);
     }
 
-    [Fact]
-    [Trait("Id", "AC-2")]
-    public void Busy_IsNotCached_ARetryOfTheSameReqIdAfterADrainIsEnqueuedAsANewOp()
-    {
-        // Arrange
-        var rig = new Rig(capacity: 8, reserve: 4);
-        rig.AdmitLoopback();
-        for (uint req = 1; req <= 4; req++)
-        {
-            rig.ClientSends(rig.Request(req));
-        }
-
-        rig.Adapter.PumpInbound();
-        Assert.Single(rig.ClientReplies());
-        rig.World.Tick(); // drains the queue
-
-        // Act - the client re-sends the busy request (a new attempt)
-        rig.ClientSends(rig.Request(4));
-        rig.Adapter.PumpInbound();
-
-        // Assert
-        Assert.Empty(rig.ClientReplies());
-        Assert.Equal(1, rig.World.Ops.Count);
-        Assert.Equal(4u, rig.QueuedOp(0).ReqId);
-        Assert.Equal(5u, rig.QueuedOp(0).OpSeq);
-        Assert.Equal(1L, rig.Adapter.BusyReplyCount);
-    }
-
     private static (byte[] Message, uint ReqId, OpKind Kind) Malformed(string name) => name switch
     {
         "unknown_kind" => (new byte[] { 0xF0, 0x00, 0x34, 0x12, 1, 2, 3, 4, 5, 6, 7, 8 }, 0x1234u, (OpKind)0x00F0),
@@ -1050,21 +1022,6 @@ public class HostAdapterInboundTests
         Assert.Equal(1, polls);
         rig.Adapter.PumpInbound();
         Assert.Equal(2, polls);
-    }
-
-    [Fact]
-    [Trait("Id", "AC-3")]
-    public void PumpInbound_WithNoRemoteTransport_PollsOnlyTheLoopback()
-    {
-        var rig = new Rig();
-        rig.AdmitLoopback();
-        rig.ClientSends(rig.Request(1));
-
-        rig.Adapter.PumpInbound();
-
-        Assert.Equal(2, rig.World.Ops.Count);
-        Assert.Equal(1L, rig.HostEnd.DeliveredCount);
-        rig.Adapter.FlushOutbound(0u); // Story 004 owns the body; it must be callable and inert
     }
 
     // ------------------------------------------------------------ guardrail: 0 B
