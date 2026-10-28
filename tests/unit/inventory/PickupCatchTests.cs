@@ -656,36 +656,56 @@ public class PickupCatchTests
         p.WorldItemHolding(flight);
     }
 
-    [Theory]
-    [InlineData("detached-in-world")]
-    [InlineData("placed")]
-    [InlineData("dead")]
-    [InlineData("no-panel")]
-    public void Catch_MalformedCall_IsBadRequest_NothingChanged(string kind)
+    // The four malformed calls run in one test, each on a fresh rig; every failing call is reported in one message.
+    [Fact]
+    public void Catch_MalformedCall_IsBadRequest_NothingChanged()
     {
-        // Arrange
-        var p = new PickupRig();
-        ushort entry = kind == "placed" ? p.R.PlaceMail(p.Hotbar(0), "letter", 1, 0, Address, PickupRig.Ids(1, 2)) : p.Letters(101, 2);
-        if (kind == "detached-in-world")
+        string[] kinds = { "detached-in-world", "placed", "dead", "no-panel" };
+        var failures = new List<string>();
+        for (int i = 0; i < kinds.Length; i++)
         {
-            p.Drop(entry);
+            string kind = kinds[i];
+            try
+            {
+                // Arrange
+                var p = new PickupRig();
+                ushort entry = kind == "placed" ? p.R.PlaceMail(p.Hotbar(0), "letter", 1, 0, Address, PickupRig.Ids(1, 2)) : p.Letters(101, 2);
+                if (kind == "detached-in-world")
+                {
+                    p.Drop(entry);
+                }
+
+                EntryId id = p.R.Entries[entry].Id;
+                if (kind == "dead")
+                {
+                    p.R.FreeDetached(entry);
+                }
+
+                List<long> before = p.Storage();
+                byte slot = kind == "no-panel" ? (byte)5 : (byte)0;
+
+                // Act
+                CatchResult r = p.InTick(() => p.Inv.TryCatch(PlayerSlot.FromValue(slot), new FlightPayload(id, PickupRig.Feet, false)));
+
+                // Assert (collected)
+                if (!r.Equals(new CatchResult(0, 0, (InvReason)InvReasons.BadRequest)))
+                {
+                    failures.Add($"row {i} ({kind}): expected bad_request {{0, 0}}, got {r}");
+                }
+
+                if (!before.SequenceEqual(p.Storage()))
+                {
+                    failures.Add($"row {i} ({kind}): Storage() changed");
+                }
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"row {i} ({kind}): {ex.GetType().Name}: {ex.Message}");
+            }
         }
 
-        EntryId id = p.R.Entries[entry].Id;
-        if (kind == "dead")
-        {
-            p.R.FreeDetached(entry);
-        }
-
-        List<long> before = p.Storage();
-        byte slot = kind == "no-panel" ? (byte)5 : (byte)0;
-
-        // Act
-        CatchResult r = p.InTick(() => p.Inv.TryCatch(PlayerSlot.FromValue(slot), new FlightPayload(id, PickupRig.Feet, false)));
-
-        // Assert
-        Assert.Equal(new CatchResult(0, 0, (InvReason)InvReasons.BadRequest), r);
-        Assert.Equal(before, p.Storage());
+        Assert.Equal(4, kinds.Length);
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     // ---------------------------------------------------------------- floating item and entryId (M-1a form)
