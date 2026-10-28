@@ -5,8 +5,8 @@ using PerformativeMail.Sim.Content.Parsing;
 namespace PerformativeMail.Sim.Content;
 
 /// <summary>
-/// The five M-1a def tables in <see cref="DefType"/> order, and their startup self-check (TD-090). The content loader calls
-/// <see cref="SelfCheck"/> before it reads any file, so a table defect is reported once as a code defect rather than as a
+/// The five M-1a def tables in <see cref="DefType"/> order, and their startup self-check (TD-090). The content loader
+/// (<see cref="SchemaStage"/>) calls <see cref="SelfCheck()"/> when it is constructed, before it reads any file, so a table defect is reported once as a code defect rather than as a
 /// content error on every token. Each call builds fresh tables (no static state). Thread-safe.
 /// </summary>
 /// <example>
@@ -45,10 +45,13 @@ public static class ContentSchema
     /// <summary>Runs <see cref="FieldSpecTable.SelfCheck"/> over every table.</summary>
     /// <returns>The issues, each field name prefixed with its type name (<c>ItemDef.grid</c>); empty when every table is clean.</returns>
     /// <example><code>if (!ContentSchema.SelfCheck().IsEmpty) { /* a code defect: stop before reading content */ }</code></example>
-    public static ImmutableArray<FieldSpecIssue> SelfCheck()
+    public static ImmutableArray<FieldSpecIssue> SelfCheck() => SelfCheck(Tables);
+
+    /// <summary>Runs <see cref="FieldSpecTable.SelfCheck"/> over <paramref name="tables"/> (a seam for the loader-construction test).</summary>
+    internal static ImmutableArray<FieldSpecIssue> SelfCheck(ImmutableArray<SchemaTable> tables)
     {
         ImmutableArray<FieldSpecIssue>.Builder all = ImmutableArray.CreateBuilder<FieldSpecIssue>();
-        foreach (SchemaTable table in Tables)
+        foreach (SchemaTable table in tables)
         {
             foreach (FieldSpecIssue issue in FieldSpecTable.SelfCheck(table.Rows))
             {

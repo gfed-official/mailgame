@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using PerformativeMail.Sim.Content.Parsing;
+using PerformativeMail.Sim.Content.Rules;
 
 namespace PerformativeMail.Sim.Content.Defs;
 
@@ -7,7 +8,7 @@ namespace PerformativeMail.Sim.Content.Defs;
 /// The <see cref="ContainerDef"/> field table (content-data CD10, story 018), in canonical encode order. <c>grid</c> is a
 /// variant of <c>layout</c> (required for <c>grid</c> and <c>slots</c>, forbidden for <c>pile</c>: CV-GEN-14) and
 /// <c>reservedSlots</c> is for the <c>slots</c> layout only. <c>allowedCategories</c> omitted means any; present and empty is
-/// CV-GRD-03. <c>grid</c> elements allow 0 so CV-GRD-04 (not CV-GEN-12) reports a dimension below 1. Defaults are neutral
+/// CV-GRD-03, raised by the schema walker at stage 2 (TD-063(1)). <c>grid</c> elements allow 0 so CV-GRD-04 (not CV-GEN-12) reports a dimension below 1. Defaults are neutral
 /// (<c>acceptsInsert</c> false) and <c>view</c> is required with no default (CD10 owner rulings 2026-10-21). Built fresh on each call.
 /// </summary>
 /// <example>
@@ -25,7 +26,7 @@ public static class ContainerDefFieldSpec
             .WithVariant("layout", new[] { "grid", "slots" }, new[] { "pile" }),
         FieldSpec.Enumeration("view", "ContainerView"),
         FieldSpec.Enumeration("beltAccess", "BeltAccess", required: false, defaultSpelling: "none"),
-        FieldSpec.EnumList("allowedCategories", "ItemCategory", required: false),
+        FieldSpec.EnumList("allowedCategories", "ItemCategory", required: false).WithEmptyListRule(GridRuleIds.EmptyAllowedCategories),
         FieldSpec.Bool("handCarried", defaultValue: false),
         FieldSpec.Bool("acceptsInsert", defaultValue: false),
         FieldSpec.IntList("reservedSlots", FieldUnit.Count, required: false, min: 0, max: 65_535)

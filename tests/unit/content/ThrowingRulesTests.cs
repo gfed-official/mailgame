@@ -531,14 +531,14 @@ public class ThrowingRulesTests
 
     [Fact]
     [Trait("Id", "TC-CV-1")]
-    public void Thr08_CurrentBehaviour_OnlyAFailedMailKindTableSkipsTheRule_PendingCddSchema3()
+    public void Thr08_AFailedItemOrMailKindTable_SkipsTheRule_CddSchema3()
     {
-        // Pins the CURRENT behaviour, not the spec'd one: CDD-SCHEMA-3 says a failed item table skips CV-THR-08, but the item table is
-        // read and not declared (TD-059, as CV-GRD-02/04; see TD-069(2)), so only a failed mail-kind table skips the rule today.
-        // When CDD-SCHEMA-3 is implemented, flip the first assertion.
+        // CDD-SCHEMA-3 (story 018, TD-069(2)): the rule declares the item table, so a failed item table skips it (counted).
         ContentValidationInput itemsFailed = Fx.Plank(WeightClass.Bulk, true).Input(
             ImmutableArray.Create(new FailedInput(ContentInputKeys.Items, DefRef.None, "items/")));
-        Assert.Single(Of(ContentValidationRunner.Run(RuleRegistry.CreateDefault(), itemsFailed), ThrowingRuleIds.WeightClasses));
+        ValidationResult skipped = ContentValidationRunner.Run(RuleRegistry.CreateDefault(), itemsFailed);
+        Assert.Empty(Of(skipped, ThrowingRuleIds.WeightClasses));
+        Assert.Contains(skipped.Skipped, s => s.RuleId == ThrowingRuleIds.WeightClasses);
 
         ContentValidationInput input = Fx.Plank(WeightClass.Bulk, true).Input(
             ImmutableArray.Create(new FailedInput(ContentInputKeys.MailKinds, DefRef.None, "mail_kinds/")));
