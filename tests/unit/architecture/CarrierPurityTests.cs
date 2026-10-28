@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
 using PerformativeMail.Sim.Players;
 
@@ -6,10 +8,17 @@ namespace PerformativeMail.Sim.Tests.Unit.Architecture;
 
 /// <summary>
 /// Reflection guards for the carrier solver surface (ADR-0013; TR-movement-001, TR-movement-004): no floating point, no
-/// <c>SimWorld</c> or Godot-typed member, blittable where the story says so, and no static mutable state.
+/// <c>SimWorld</c> or Godot-typed member, blittable where the story says so, and no static mutable state. Story 010 (PCM-P2-1 "No Godot")
+/// adds the physics-name rule: the solver is Sim-only, so nothing it can reach is named after an engine physics type.
 /// </summary>
 public class CarrierPurityTests
 {
+    /// <summary>
+    /// Engine physics type names the carrier solver must never reference (story 010; the list approved by Evan 2026-10-27 10:47 PM PT,
+    /// Mail Lead chat: "Approve both player-character 010 defaults: the no-physics-types list and the position-and-velocity-only hash").
+    /// </summary>
+    private static readonly string[] _physicsNames = ["CharacterBody", "PhysicsBody", "PhysicsServer", "RigidBody", "CollisionShape", "Jolt"];
+
     private const BindingFlags AllFields = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
     private static readonly Type[] _dataTypes =
@@ -97,6 +106,34 @@ public class CarrierPurityTests
         string[] names = typeof(CarrierEnv).GetFields(AllFields).Where(f => !f.IsStatic).Select(f => f.Name).Order().ToArray();
 
         Assert.Equal(new[] { "Remotes", "Self", "Settings", "Supports", "World" }, names);
+    }
+
+    /// <summary>
+    /// PCM-P2-1 "No Godot", physics half: no type the Sim assembly defines or references by metadata (every <c>TypeDef</c> and
+    /// <c>TypeRef</c>, so method bodies, locals and generic arguments count, not only signatures) has a physics name. That is stricter
+    /// than the story's <c>PerformativeMail.Sim/Players</c> scope and implies it. The Godot-assembly half is <c>AssemblyRulesTests</c>.
+    /// </summary>
+    [Fact]
+    [Trait("Id", "PCM-P2-1")]
+    public void SimAssembly_DefinesAndReferencesNoPhysicsNamedType()
+    {
+        // Arrange
+        using var pe = new PEReader(File.OpenRead(typeof(OwnedCarrier).Assembly.Location));
+        MetadataReader md = pe.GetMetadataReader();
+
+        // Act
+        IEnumerable<string> defined = md.TypeDefinitions.Select(h => md.GetTypeDefinition(h))
+            .Select(d => md.GetString(d.Namespace) + "." + md.GetString(d.Name));
+        IEnumerable<string> referenced = md.TypeReferences.Select(h => md.GetTypeReference(h))
+            .Select(r => md.GetString(r.Namespace) + "." + md.GetString(r.Name));
+        string[] offenders = defined.Concat(referenced)
+            .Where(name => _physicsNames.Any(p => name.Contains(p, StringComparison.OrdinalIgnoreCase)))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        // Assert
+        Assert.True(md.TypeDefinitions.Any(h => md.GetString(md.GetTypeDefinition(h).Name) == nameof(OwnedCarrier)), "the scan did not read the Sim's Players types");
+        Assert.Empty(offenders);
     }
 
     private static bool IsForbiddenLeaf(Type t)
