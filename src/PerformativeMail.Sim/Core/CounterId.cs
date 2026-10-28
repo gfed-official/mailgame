@@ -182,4 +182,10 @@ public enum CounterId : ushort
 
     /// <summary>Focus occlusion (player-character story 015; ADR-0014 section 2): the most chest-to-anchor occlusion tests one client-tick focus pass ran (key <c>focusOcclusionTests</c>; PCM-PERF-1 "occlusion tests &lt;= candidates in range"); a running maximum like <see cref="FocusCandidates"/>, never above it (TD-175 item 2, approved by Evan 2026-10-28 7:26 AM PT). A probe counter on the ClientLayer's counters, not in the canonical dump.</summary>
     FocusOcclusionTests = 55,
+
+    /// <summary>Mail <c>MailStep</c> (phase 8): one per mail-table row visited by the step (key <c>mailRowsVisited</c>; mail-destinations story 005, TD-177 item 4; M-PERF-1c: an idle tick visits 0). A test seam: at M-1a the step has no row-visiting path, so it stays 0.</summary>
+    MailRowsVisited = 56,
+
+    /// <summary>Mail <c>MailStep</c> (phase 8): one per complaint bucket visited by the step (key <c>mailBucketsVisited</c>; mail-destinations story 005, TD-177 item 4; M-PERF-1c: an idle tick visits 0; buckets refill lazily on touch, ADR-0017 section 7). A test seam: at M-1a the step visits no bucket, so it stays 0.</summary>
+    MailBucketsVisited = 57,
 }

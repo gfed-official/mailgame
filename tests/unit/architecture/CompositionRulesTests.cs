@@ -5,6 +5,7 @@ using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.MailDestinations.Ports;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Sim.Tests.Unit.Architecture;
@@ -103,6 +104,7 @@ public class CompositionRulesTests
         { typeof(BadTakesSimWorld), Array.Empty<Type>(), "BadTakesSimWorld(SimWorld world): SimWorld" + NotOnList },
         { typeof(BadThrowingTakesRunControl), Array.Empty<Type>(), "BadThrowingTakesRunControl(IRunControl stop): " + NotFor("IRunControl", "IRunControl (Run Structure only)", SystemId.Throwing) },
         { typeof(BadGridTakesMailIds), Array.Empty<Type>(), "BadGridTakesMailIds(MailIds mailIds): " + NotFor("MailIds", "MailIds (Mail only)", SystemId.GridInventory) },
+        { typeof(BadThrowingTakesWalletGate), Array.Empty<Type>(), "BadThrowingTakesWalletGate(IWalletGate wallet): " + NotFor("IWalletGate", "IWalletGate (Mail only, ADR-0017 section 8)", SystemId.Throwing) },
         { typeof(BadThrowingTakesRng), Array.Empty<Type>(), "BadThrowingTakesRng(IRngStreams streams): " + NotFor("IRngStreams", "own IRngStreams view (stream owners only)", SystemId.Throwing) },
         { typeof(BadTakesRngRegistry), Array.Empty<Type>(), "BadTakesRngRegistry(RngRegistry registry): RngRegistry" + NotOnList },
         { typeof(BadTakesSlotTable), Array.Empty<Type>(), "BadTakesSlotTable(SlotTable slots): SlotTable" + NotOnList },
@@ -226,7 +228,7 @@ public class CompositionRulesTests
     [SimSystem(SystemId.MailDestinations)]
     public sealed class GoodMail : FixtureSystem, IFixtureMailApi
     {
-        public GoodMail(EventLogFacade events, MailIds mailIds, IRngStreams ownStreams, IFixtureGridApi grid, IFixtureWorldApi world, MailBalance mail, DefTable<MailKindDef> kinds)
+        public GoodMail(EventLogFacade events, MailIds mailIds, IRngStreams ownStreams, IFixtureGridApi grid, IFixtureWorldApi world, MailBalance mail, DefTable<MailKindDef> kinds, IWalletGate wallet)
         {
         }
     }
@@ -419,6 +421,14 @@ public class CompositionRulesTests
         }
     }
 
+    [SimSystem(SystemId.Throwing)]
+    public sealed class BadThrowingTakesWalletGate : FixtureSystem
+    {
+        public BadThrowingTakesWalletGate(IWalletGate wallet)
+        {
+        }
+    }
+
     [SimSystem(SystemId.GridInventory)]
     public sealed class BadTakesInt : FixtureSystem
     {
@@ -469,6 +479,7 @@ internal static class CompositionRules
             new("EventLog writer facade", Is<EventLogFacade>, Any),
             new("EntityIds", Is<EntityIds>, Any),
             new("MailIds (Mail only)", Is<MailIds>, id => id == SystemId.MailDestinations),
+            new("IWalletGate (Mail only, ADR-0017 section 8)", Is<IWalletGate>, id => id == SystemId.MailDestinations),
             new("ISlotView (read-only slot table)", Is<ISlotView>, Any),
             new("own IRngStreams view (stream owners only)", Is<IRngStreams>, streamOwners.Contains),
             new("ITickReader", Is<ITickReader>, Any),

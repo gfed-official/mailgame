@@ -833,6 +833,15 @@ constants:
       - design/gdd/manual-delivery.md (F1 floorRefusal prediction — advisory; the host decides)
       - "design/gdd/hud-notifications.md (H10 wallet rendered by the single IMoneyFormatter — format owned by Economy, HN-6; floor outline flash via the governor)"
       - "design/gdd/throwing-catching.md (F7 label headroom; T6 floor stop)"
+  - name: startingWalletCents
+    source: production/epics/mail-destinations/story-005-walletgate-stubwallet-mail-system.md
+    registered: 2026-10-28
+    value: 0
+    unit: "cents; balance key sim.startingWalletCents (int, BalanceUnit.Cents), read as SimSettings.StartingWalletCents by the M-1a StubWallet (ADR-0017 §8). Default 0: TD-177 item 2, Approved by Evan 2026-10-28. Hard range 0..100000: Mail Lead planning default, pending Evan (TD-180). The −500 floor is not a key (walletFloor above; passed as a Cents argument)"
+    owner_override: "Economy, Wallet & Shop GDD owns the value once the Economy replaces the StubWallet"
+    referenced_by:
+      - docs/architecture/adr-0017-mail-table-destination-registry-and-wallet-port.md (§8 M-1a StubWallet)
+      - "src/PerformativeMail.Sim/Content/Balance/BalanceKeys.cs (BalanceKeys.Sim.Rows)"
   - name: mailboxPhaseRule
     source: design/gdd/mail-destinations.md
     registered: 2026-10-16

@@ -30,4 +30,7 @@ public static class SectionIds
     /// <c>LotRecord</c> field in declaration order) and the Post Office record. Immutable, so it is encoded once at build.
     /// </summary>
     public const ushort World = 5;
+
+    /// <summary>The M-1a <c>StubWallet</c>'s section (ADR-0017 section 8; mail-destinations story 005, TD-177 item 4): <c>balance i64</c>. Bound by the composition root after the World section and before the systems' sections.</summary>
+    public const ushort Wallet = 6;
 }

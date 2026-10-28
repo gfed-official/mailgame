@@ -110,6 +110,9 @@ public static partial class BalanceKeys
         /// <summary>Key: mail table pages preallocated at world build (1,024 rows each; ADR-0017 section 2).</summary>
         public const string MailTablePagesKey = "mailTablePages";
 
+        /// <summary>Key: the M-1a <c>StubWallet</c>'s starting balance in cents (ADR-0017 section 8; mail-destinations story 005, TD-177 item 2).</summary>
+        public const string StartingWalletCentsKey = "startingWalletCents";
+
         /// <summary>The <c>sim.*</c> rows (a new array per call).</summary>
         public static ImmutableArray<BalanceRow> Rows => ImmutableArray.Create(
             Row(OpQueueCapacityKey, BalanceUnit.Count, 8, 1 << 20),
@@ -122,7 +125,10 @@ public static partial class BalanceKeys
             Row(WarmupTicksKey, BalanceUnit.Ticks, 0, 100_000),
             Row(ModifierPoolPerTeamKey, BalanceUnit.Count, 1, 1 << 16),
             Row(ModifierPoolPerPlayerKey, BalanceUnit.Count, 1, 1 << 16),
-            Row(MailTablePagesKey, BalanceUnit.Count, 1, 1024));
+            Row(MailTablePagesKey, BalanceUnit.Count, 1, 1024),
+
+            // Hard range 0..100000: Mail Lead planning default, pending Evan (TD-180).
+            Row(StartingWalletCentsKey, BalanceUnit.Cents, 0, 100_000));
 
         /// <summary>
         /// Resolves the handles of every <c>sim.*</c> row against <paramref name="registry"/> in one pass. Call it once, at
@@ -145,7 +151,8 @@ public static partial class BalanceKeys
                 Handle(registry, WarmupTicksKey),
                 Handle(registry, ModifierPoolPerTeamKey),
                 Handle(registry, ModifierPoolPerPlayerKey),
-                Handle(registry, MailTablePagesKey));
+                Handle(registry, MailTablePagesKey),
+                Handle(registry, StartingWalletCentsKey));
         }
 
         private static BalanceRow Row(string key, BalanceUnit unit, long hardMin, long hardMax) =>

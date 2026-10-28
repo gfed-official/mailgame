@@ -1,6 +1,7 @@
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.MailDestinations.Ports;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Sim.Composition;
@@ -9,7 +10,7 @@ namespace PerformativeMail.Sim.Composition;
 /// The closed injectable list (ADR-0003 section 4) as the composition root holds it while one system is being constructed.
 /// Used only by construction code in <see cref="SimComposition"/> and by per-test factories; it is never a constructor
 /// parameter of a system (that would make it a service locator, which the reflection test forbids). The guarded members
-/// enforce the list at run time: <see cref="MailIds"/> only for Mail &amp; Destinations, <see cref="RunControl"/> only for Run
+/// enforce the list at run time: <see cref="MailIds"/> and <see cref="WalletGate"/> only for Mail &amp; Destinations, <see cref="RunControl"/> only for Run
 /// Structure, and <see cref="Api{TApi}"/> only for a provider that <see cref="SystemGraph"/> declares and that is already
 /// built; anything else throws <see cref="SimBuildException"/> with <c>UndeclaredDependency</c>. The context is closed when
 /// <c>Build</c> finishes constructing; any later use throws <see cref="InvalidOperationException"/>.
@@ -31,12 +32,14 @@ internal sealed class SimSystemContext
     private readonly ITickReader _tick;
     private readonly IRunControl _runControl;
     private readonly IWorldQuery? _world;
+    private readonly IWalletGate? _wallet;
     private bool _closed;
     private SystemId _consumer;
 
-    internal SimSystemContext(SystemGraph graph, ContentSet content, SimCoreServices services, ITickReader tick, IRunControl runControl, IWorldQuery? world = null)
+    internal SimSystemContext(SystemGraph graph, ContentSet content, SimCoreServices services, ITickReader tick, IRunControl runControl, IWorldQuery? world = null, IWalletGate? wallet = null)
     {
         _world = world;
+        _wallet = wallet;
         _graph = graph;
         _content = content;
         _services = services;
@@ -62,6 +65,22 @@ internal sealed class SimSystemContext
             Open();
             Require(_consumer == SystemId.MailDestinations, "MailIds");
             return _services.MailIds;
+        }
+    }
+
+    /// <summary>
+    /// The wallet port (ADR-0017 section 8; ADR-0003 section 4 erratum 2026-10-28): Mail &amp; Destinations only. At M-1a it is the
+    /// <c>StubWallet</c> the composition root built before the systems; it is not a <see cref="SystemGraph"/> edge.
+    /// </summary>
+    /// <exception cref="SimBuildException"><c>UndeclaredDependency</c> for any other consumer.</exception>
+    /// <exception cref="InvalidOperationException">The build made no wallet (it does for every profile that includes Mail &amp; Destinations).</exception>
+    public IWalletGate WalletGate
+    {
+        get
+        {
+            Open();
+            Require(_consumer == SystemId.MailDestinations, "WalletGate");
+            return _wallet ?? throw new InvalidOperationException("The composition built no wallet for this profile.");
         }
     }
 

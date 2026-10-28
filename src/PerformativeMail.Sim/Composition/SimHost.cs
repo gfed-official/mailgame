@@ -1,6 +1,7 @@
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Economy;
 
 namespace PerformativeMail.Sim.Composition;
 
@@ -18,8 +19,9 @@ namespace PerformativeMail.Sim.Composition;
 /// </example>
 public sealed class SimHost
 {
-    internal SimHost(SimWorld world, ClientLayer.ClientLayer client, ContentSet content, SimCoreServices services, SystemId[] order, ISimSystem[] systems)
+    internal SimHost(SimWorld world, ClientLayer.ClientLayer client, ContentSet content, SimCoreServices services, SystemId[] order, ISimSystem[] systems, StubWallet? wallet = null)
     {
+        Wallet = wallet;
         World = world;
         Client = client;
         Content = content;
@@ -48,6 +50,9 @@ public sealed class SimHost
 
     /// <summary>The systems actually constructed, in construction order.</summary>
     internal ISimSystem[] Systems { get; }
+
+    /// <summary>The M-1a wallet the composition built for Mail &amp; Destinations (null when the profile does not include Mail).</summary>
+    internal StubWallet? Wallet { get; }
 }
 
 /// <summary>The Sim Core services <see cref="SimComposition.Build"/> creates for one world (test and dump access).</summary>

@@ -838,7 +838,7 @@ public class OpTypesTests
     public void OpKindBlocks_All_ListsEveryBlockAscending()
     {
         Assert.Equal(
-            [OpKindBlock.Core, OpKindBlock.Players, OpKindBlock.Inventory, OpKindBlock.MailDelivery, OpKindBlock.Throwing],
+            [OpKindBlock.Core, OpKindBlock.Players, OpKindBlock.Inventory, OpKindBlock.MailDelivery, OpKindBlock.Throwing, OpKindBlock.Economy],
             OpKindBlock.All.ToArray());
     }
 
@@ -854,7 +854,9 @@ public class OpTypesTests
 
         Assert.False(OpKindBlock.TryOwnerOf(OpKind.None, out OpKindBlock none));
         Assert.Equal(default, none);
-        Assert.False(OpKindBlock.TryOwnerOf((OpKind)0x0180, out _));
+        Assert.True(OpKindBlock.TryOwnerOf((OpKind)0x0180, out OpKindBlock economy));
+        Assert.Equal(OpKindBlock.Economy, economy);
+        Assert.False(OpKindBlock.TryOwnerOf((OpKind)0x01C0, out _));
         Assert.False(OpKindBlock.TryOwnerOf((OpKind)0xFFFF, out _));
     }
 
@@ -866,6 +868,7 @@ public class OpTypesTests
         Assert.Equal(((ushort)0x0080, (ushort)0x00FF), (OpKindBlock.Inventory.First, OpKindBlock.Inventory.Last));
         Assert.Equal(((ushort)0x0100, (ushort)0x013F), (OpKindBlock.MailDelivery.First, OpKindBlock.MailDelivery.Last));
         Assert.Equal(((ushort)0x0140, (ushort)0x017F), (OpKindBlock.Throwing.First, OpKindBlock.Throwing.Last));
+        Assert.Equal(((ushort)0x0180, (ushort)0x01BF), (OpKindBlock.Economy.First, OpKindBlock.Economy.Last));
         Assert.Equal("SimCore", OpKindBlock.Core.Name);
         Assert.True(OpKindBlock.Core.Contains((OpKind)0x0001));
         Assert.True(OpKindBlock.Core.Contains((OpKind)0x003F));
