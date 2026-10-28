@@ -1,0 +1,18 @@
+# carrier-600 golden (player-character story 010, PCM-P2-1): the transform hash chain of carrier-600.script.csv over FX-Golden.
+# h_0 = 32 zero bytes; h_t = SHA-256(h_(t-1) || SHA-256(X Y Z RemX RemZ RemY Vx Vz Vy i32, BodyYaw u16, Loco u8, Flags u16,
+# CoyoteLeft JumpBufferLeft HaulOutTicks u8, little-endian)). Regenerate with PM_UPDATE_GOLDEN=1, never in CI (CarrierGoldenHashTests).
+chain 1 6ca42c923a13310978c81b390a8ffd23e2957f35c36a144d91d349a959a4a954
+chain 50 6774cf31b65cf5cd232d04329361c551c9120d3def064351c365487903eefd0e
+chain 100 20a6773e504467fba07555c5c9860c075fa889463ae0eb03377e02e45e4db525
+chain 150 ef5925258a155635cc5a1f2c3155bc49550f2ad59047d427c49bf2b1dab885f5
+chain 200 4f4973b1bb697541d13dbd40406d389b704efc756602c9d080b99027d9fa9886
+chain 250 f045ca183fde94c266eb370ace26dc309aa69ff6ae6f2638bce88e50a60e41c5
+chain 300 3a7239a9ea72f6b3013502170101f154beb256b5780e235f612f9751aa206449
+chain 350 28ccc660f559583d0aa80078888b456c96fd6e5eb248009554ca6b82ae73587e
+chain 400 4eebc8fbe978b18a8d94f8a976982d30a54397f4aa15010a0b02fb7a4535985b
+chain 450 cb701aa15c6a351440e30145b89e1dddcacad44a7c3f8bc25126f113ec484f40
+chain 500 69f7373766397b2349a945752c0c1d8609d16a8c142e37f7fabf2d07f820672f
+chain 550 c2c7ec2a6b1959c9914a38f096b870929f344c7ee1ccc834596b533b0f4e3109
+chain 600 6ebc77e48081645329c3237b1263f954be813a1ced8ab146dd1cf648d1b432ca
+final 6ebc77e48081645329c3237b1263f954be813a1ced8ab146dd1cf648d1b432ca
+state 600 X=97990 Y=1000 Z=7618 RemX=25 RemZ=27 RemY=0 Vx=-5303 Vz=-5303 Vy=0 BodyYaw=8192 Loco=Grounded Flags=Sprinting CoyoteLeft=0 JumpBufferLeft=0 HaulOutTicks=0
