@@ -92,7 +92,7 @@ Coverage target: every AC bullet maps to at least one `[Trait("Id", …)]` test.
 **Required evidence**:
 - Logic: `tests/unit/throwing/FlightSweepTests.cs` (`[Trait("Id", "TC-F4-1")]`, `TC-T6-1`, `TC-T6-2`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [x] Created — `tests/unit/throwing/FlightSweepTests.cs` (17 test methods, 45 cases); passing on net10.0 Debug (2026-10-28). net8.0 Release not yet run (story close).
+**Status**: [x] Created — `tests/unit/throwing/FlightSweepTests.cs` (18 test methods, 41 cases); FlightSweepTests passing on net10.0 Debug and net8.0 Release (2026-10-28, after the review fixes). Full-suite pair not yet run (story close).
 
 ---
 

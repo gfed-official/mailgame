@@ -15,8 +15,8 @@ public enum ReceiverMask : byte
     All = 0,
 
     /// <summary>
-    /// Mailbox volumes, world solids, the map sides, terrain and water only: <see cref="ReceiverView.Catchers"/>,
-    /// <see cref="ReceiverView.Cylinders"/> and <see cref="ReceiverView.Belts"/> are skipped (the story 002 AC).
+    /// Mailbox volumes, world solids, belt lanes, the map sides, terrain and water only: <see cref="ReceiverView.Catchers"/>
+    /// and <see cref="ReceiverView.Cylinders"/> are skipped; belts are static and stay (ADR-0015 section 8).
     /// </summary>
     StaticOnly = 1,
 }

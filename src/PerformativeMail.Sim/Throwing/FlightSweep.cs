@@ -30,7 +30,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// dist² is measured from the contact point to the receiver centre (box centre, sphere centre, cylinder axis at mid-height)
 /// in doubled coordinates, i.e. 4 x dist², so half-millimetre box centres stay exact with no division; receivers without a
 /// centre use 0 (Evan 2026-10-28, TD-179). Only receivers of one rank are ever compared on it, so the scale never mixes
-/// (Mail Dev default, pending Evan: the doubled scale, and the cylinder's mid-height axis point as its centre).
+/// (Mail Dev default, pending Evan: the cylinder's mid-height axis point as its centre).
 /// Coordinates are assumed inside the ADR-0026 map (|coord| up to 1 000 000 mm). Pure, static, integer-only,
 /// allocation-free, reads nothing but its arguments.
 /// </para>
@@ -85,6 +85,11 @@ public static class FlightSweep
             s.OfferBox(ReceiverKind.Solid, SegmentIntervals.Slab(in p0, in p1, in solid.Box), solid.Key, in solid.Box);
         }
 
+        foreach (ref readonly LaneReceiver lane in v.Belts)
+        {
+            s.OfferBox(ReceiverKind.Belt, SegmentIntervals.Slab(in p0, in p1, in lane.TopFace), lane.Key, in lane.TopFace);
+        }
+
         MapSides(ref s, in p0, in p1, in v);
 
         if (HeightfieldMarch.FirstContact(v.World, in p0, in p1, out int groundPm))
@@ -92,8 +97,9 @@ public static class FlightSweep
             s.OfferPlain(ReceiverKind.Ground, groundPm, 0);
         }
 
-        // Mail Dev default, pending Evan: the Tile(tx, tz).Water hint is not consulted; WaterDepthMm (the authority) is
-        // read once, at the y = 0 crossing, and only for a segment that reaches y <= 0.
+        // Per AC, WaterDepthMm (the authority) decides water, read at the y = 0 crossing. Mail Dev default, pending Evan: the
+        // Tile(tx, tz).Water hint is not consulted. Mail Dev default, pending Evan: water is tested only at the first y <= 0
+        // crossing, so a segment that crosses y = 0 over dry land and ends over water gets Water one tick later.
         SegmentInterval water = SegmentIntervals.SlabAxis(p0.Y, p1.Y, int.MinValue, 0);
         if (water.Hit)
         {
@@ -135,7 +141,7 @@ public static class FlightSweep
         }
     }
 
-    // Mail Dev default, pending Evan: the cylinder and belt-lane loops are written here (on SegmentIntervals) although their
+    // Mail Dev default, pending Evan: the cylinder loop here and the belt-lane loop in FirstContact are written although their
     // spans stay empty until M-1b, so TC-T6-1 and the ReceiverMask AC run through FirstContact on stub receivers.
     private static void Dynamic(ref Sweep s, in Vec3Mm p0, in Vec3Mm p1, in ReceiverView v)
     {
@@ -173,13 +179,6 @@ public static class FlightSweep
 
             SegmentInterval r = SegmentIntervals.Cylinder(in p0, in p1, in y.BaseCentre, y.RadiusMm, y.HeightMm);
             s.OfferCentre(y.Kind, r, y.Key, cx, cy, cz);
-        }
-
-        // Belts are static geometry, but the story 002 ReceiverMask AC skips them under StaticOnly; ADR-0015 l.141 and the
-        // story's Implementation Notes put belts in the preview's static view. Mail Dev default, pending Evan: follow the AC.
-        foreach (ref readonly LaneReceiver lane in v.Belts)
-        {
-            s.OfferBox(ReceiverKind.Belt, SegmentIntervals.Slab(in p0, in p1, in lane.TopFace), lane.Key, in lane.TopFace);
         }
     }
 

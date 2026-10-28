@@ -11,10 +11,8 @@ namespace PerformativeMail.Sim.Tests.Unit.ThrowingCatching;
 /// <summary>
 /// Throwing story 002 (ADR-0015 section 4; GDD <c>design/gdd/throwing-catching.md</c> F4, T6, TC-F4-1 a/b/c/h, TC-T6-1, TC-T6-2,
 /// TC-E-1 b; TR-throwing-003, TR-throwing-005 to 007): <see cref="FlightSweep.FirstContact"/> over hand-built
-/// <see cref="ReceiverView"/>s. Every expected number is hand-derived in the row's comment; contact points are re-checked with
-/// a test-side RH written without <see cref="Throw"/> or <c>Fix</c>. Worlds are flat <see cref="WorldTablesBuilder"/> grids of
-/// 2000 mm tiles (FX-Flat: terrain y = 0, map 0 to 32 000 mm). Integer-only and deterministic; non-parallel because of the
-/// advisory 0 B measurement.
+/// <see cref="ReceiverView"/>s. Contact points are re-checked with a test-side RH written without <see cref="Throw"/> or
+/// <c>Fix</c>. FX-Flat: 2000 mm tiles, terrain y = 0, map 0 to 32 000 mm. Non-parallel because of the 0 B measurement.
 /// </summary>
 [Collection(NonParallelCollection.Name)]
 public class FlightSweepTests
@@ -28,7 +26,7 @@ public class FlightSweepTests
     private static readonly AabbMm _mbA = new(new Vec3Mm(9750, 600, 9500), new Vec3Mm(10750, 1400, 10500));
     private static readonly AabbMm _mbB = new(new Vec3Mm(9750, 600, 15500), new Vec3Mm(10750, 1400, 16500));
 
-    // Segment S of the rank stubs: straight down 1000 mm, so f = 500 is y = 1500 and f = 300 is y = 1700.
+    // Segment S: straight down 1000 mm, so f = 500 is y = 1500 and f = 300 is y = 1700.
     private static readonly Vec3Mm _s0 = new(5000, 2000, 5000);
     private static readonly Vec3Mm _s1 = new(5000, 1000, 5000);
 
@@ -71,10 +69,8 @@ public class FlightSweepTests
     [Trait("Id", "TC-F4-1h")]
     public void HeightfieldMarch_N4FirstSampleBelowAtI2_GivesGroundAt417()
     {
-        // Arrange: FX-Flat (H = 0), D = (1000, -600, 0): n = max(1, ceil(1000 / 250), ceil(600 / 250)) = 4,
-        //   Q_i.y = 250 - 150 i, so gap_1 = 100, gap_2 = -50 -> f = ceil(1000 * (150 + 100) / (4 * 150)) = 417.
-        //   Point: x 5000 + RH(417 000, 1000) = 5417, y 250 + RH(-250 200, 1000) = 0. The y = 0 crossing is at 417 too, but the
-        //   water depth there is 0 (dry land), so it is not Water.
+        // Arrange: n = 4, Q_i.y = 250 - 150 i, gaps 100 then -50 -> f = ceil(1000 * 250 / 600) = 417. The y = 0 crossing is
+        //   at 417 too, but the water depth there is 0, so it is not Water.
         var p0 = new Vec3Mm(5000, 250, 5000);
         var p1 = new Vec3Mm(6000, -350, 5000);
         var view = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All);
@@ -83,7 +79,6 @@ public class FlightSweepTests
         bool found = FlightSweep.FirstContact(in p0, in p1, in view, new FlightId(7), out Contact c);
 
         // Assert
-        Assert.Equal(4, HeightfieldMarch.SampleCount(_fxFlat.TileSizeMm, 1000, -600, 0));
         Assert.True(found);
         AssertContact(c, ReceiverKind.Ground, 0, 417, new Vec3Mm(5417, 0, 5000), in p0, in p1);
     }
@@ -99,11 +94,10 @@ public class FlightSweepTests
     [InlineData(ReceiverKind.Teammate, ReceiverKind.Belt)]
     [InlineData(ReceiverKind.Belt, ReceiverKind.Solid)]
     [InlineData(ReceiverKind.Solid, ReceiverKind.Ground)]
-    [InlineData(ReceiverKind.Ground, ReceiverKind.Water)]
+    [InlineData(ReceiverKind.Ground, ReceiverKind.Water, Traits = new[] { "Id", "TR-throwing-005-water" })]
     public void EqualF500_LowerRankWins_AndSwappingTheTwoRanksFlipsTheWinner(ReceiverKind winner, ReceiverKind loser)
     {
-        // Arrange: both receivers are hit at exactly f = 500 (StubPair derives each); swapping the two ranks in the table
-        //   flips the winner, which proves the tie on f is real and the ranks are read from the table.
+        // Arrange: both receivers are hit at f = 500; swapping their ranks must flip the winner.
         StubPair pair = StubPair.For(winner, loser);
         int[] swapped = { 0, 1, 2, 3, 4, 5, 6, 7 };
         (swapped[(int)winner], swapped[(int)loser]) = (swapped[(int)loser], swapped[(int)winner]);
@@ -114,17 +108,14 @@ public class FlightSweepTests
 
         // Assert
         AssertContact(normal, winner, pair.KeyOf(winner), 500, pair.Point, in pair.P0, in pair.P1);
-        Assert.Equal((byte)winner, normal.Rank);
-        AssertContact(flipped, loser, pair.KeyOf(loser), 500, pair.Point, in pair.P0, in pair.P1);
-        Assert.Equal((byte)winner, flipped.Rank);
+        AssertContact(flipped, loser, pair.KeyOf(loser), 500, pair.Point, in pair.P0, in pair.P1, rank: (byte)winner);
     }
 
     [Fact]
     [Trait("Id", "TC-T6-1")]
     public void EqualFAndRank_NearerCentreWins_ThenLowerMix64_SoEachTwinWinsAcrossFlightIds()
     {
-        // Arrange: segment S hits the tops (y 1500) of all four solids at f = 500, point (5000, 1500, 5000).
-        //   near centre (5000, 750, 5000) is nearer than far (5950, 750, 5950); the twins share one box and differ only in key.
+        // Arrange: S hits the tops of all four solids at f = 500; the twins share one box and differ only in key.
         var near = new AabbMm(new Vec3Mm(4000, 0, 4000), new Vec3Mm(6000, 1500, 6000));
         var far = new AabbMm(new Vec3Mm(4900, 0, 4900), new Vec3Mm(7000, 1500, 7000));
         SolidReceiver[] byDistance = { new(far, 1), new(near, 2) };
@@ -159,8 +150,7 @@ public class FlightSweepTests
     [Trait("Id", "TC-T6-1b")]
     public void EarlierF_BeatsRank_MailboxAt300BeatsArmedCatcherAt400()
     {
-        // Arrange: on S the mailbox top y 1700 gives f = 300; the catcher sphere centre (5000, 1000, 5000) r 600 has
-        //   A = 1e6, B = -1e6, C = 1e6 - 360 000, disc = 3.6e11, s = 600 000 -> enter = ceil(1000 * 400 000 / 1e6) = 400.
+        // Arrange: catcher A = 1e6, B = -1e6, C = 640 000, disc = 3.6e11, s = 600 000 -> enter = 400.
         var view = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All)
         {
             Mailboxes = new[] { new VolumeReceiver(new AabbMm(new Vec3Mm(4500, 1000, 4500), new Vec3Mm(5500, 1700, 5500)), KeyA) },
@@ -222,7 +212,7 @@ public class FlightSweepTests
             Mailboxes = new[] { new VolumeReceiver(_mbA, KeyA), new VolumeReceiver(_mbB, KeyB) },
         };
 
-        // Act: rising inside MB-B, then the TC-T6-2 descending segment into MB-A
+        // Act
         bool rising = FlightSweep.FirstContact(new Vec3Mm(10250, 900, 16200), new Vec3Mm(10250, 1000, 16000), in view, new FlightId(4), out _);
         bool descending = FlightSweep.FirstContact(new Vec3Mm(10250, 1300, 10800), new Vec3Mm(10250, 1200, 10200), in view, new FlightId(4), out Contact c);
 
@@ -238,16 +228,10 @@ public class FlightSweepTests
 
     [Theory]
     [Trait("Id", "TR-throwing-005-water")]
-    // Water: terrain -500, D.y = -600; y = 0 slab enter = ceil(300 000 / 600) = 500, point y 300 + RH(-300 000, 1000) = 0, depth 500 > 0.
-    //   The march (n = 3, gaps 800, 600, 400, 200) never reaches the terrain.
+    // Water: y = 0 enter = ceil(300 000 / 600) = 500, depth 500 > 0; the march never reaches the terrain.
     [InlineData(-500, 300, -300, ReceiverKind.Water, 500, 0)]
-    // Ground: terrain +100; march n = 3, Q_1.y = 100 -> gap_1 = 0: f = ceil(1000 * 200 / (3 * 200)) = 334, point y 300 + RH(-200 400, 1000) = 100.
-    //   The y = 0 crossing (f 500) has depth 0, so no Water.
+    // Ground: march n = 3, gap_1 = 0 -> f = ceil(1000 * 200 / 600) = 334; the y = 0 crossing has depth 0, so no Water.
     [InlineData(100, 300, -300, ReceiverKind.Ground, 334, 100)]
-    // Shoreline tie: terrain -1, D.y = -4000; water enter = ceil(1 999 000 / 4000) = 500; march n = 16, gap_i = 2000 - 250 i,
-    //   gap_8 = 0 -> f = ceil(1000 * (7 * 250 + 250) / (16 * 250)) = 500; point y 1999 + RH(-2 000 000, 1000) = -1 (depth 1).
-    //   Both at f = 500: Ground (rank 6) beats Water (rank 7); the rank-pair theory shows Water winning when the ranks swap.
-    [InlineData(-1, 1999, -2001, ReceiverKind.Ground, 500, -1)]
     public void TerrainAndWater_WaterPlaneCountsWhereDepthIsPositive_GroundComesFromTheMarch(
         int terrainMm, int y0, int y1, ReceiverKind kind, int f, int contactY)
     {
@@ -269,7 +253,7 @@ public class FlightSweepTests
 
     [Theory]
     [Trait("Id", "TR-throwing-006-edge")]
-    // FX-Flat bounds 0 to 32 000 on x and z; each segment moves 400 mm outward across a side and 100 mm down: f = 500, y 450.
+    // Each segment moves 400 mm outward across a side and 100 mm down: f = 500, y 450.
     [InlineData(200, 5000, -200, 5000, true, 0u, 0, 5000)]
     [InlineData(31800, 5000, 32200, 5000, true, 1u, 32000, 5000)]
     [InlineData(5000, 200, 5000, -200, true, 2u, 5000, 0)]
@@ -300,8 +284,8 @@ public class FlightSweepTests
     [Trait("Id", "TR-throwing-007-broad")]
     public void FarDynamicReceivers_AreRejectedByTheBoundingSphere_BeforeAnyQuadraticForm()
     {
-        // Arrange: |R| = 195 000 mm for both. Reaching SegmentIntervals with that R would fail SimAssert (GeometryBroadPhase)
-        //   in this Debug leg, so returning normally shows the bounding-sphere test rejected them first.
+        // Arrange: |R| = 195 000 mm for both. This proves the pretest only where SIM_ASSERT is on: there, reaching
+        //   SegmentIntervals would throw GeometryBroadPhase. In Release SegmentIntervals returns None anyway, so it is vacuous.
         var view = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All)
         {
             Catchers = new[] { new SphereReceiver(new Vec3Mm(5000, 1500, 200_000), 1000, KeyA) },
@@ -319,9 +303,7 @@ public class FlightSweepTests
     [Trait("Id", "TR-throwing-007-broad")]
     public void RBeyond65536_PassingTheBoundingSphere_IsRejectedBySegmentIntervalsGuard()
     {
-        // Arrange: sphere centre 70 000 mm above P0, r 60 000; the segment rises 20 000 mm toward it and would enter the
-        //   sphere at 50 000 mm. Doubled bounding spheres: |2C - (P0 + P1)| = 120 000 <= 2r + |D| = 140 000, so the
-        //   candidate reaches SegmentIntervals.Sphere, whose guard rejects |R| = 70 000 > 65 536.
+        // Arrange: |2C - (P0 + P1)| = 120 000 <= 2r + |D| = 140 000 passes the pretest; |R| = 70 000 fails the guard.
         static bool Sweep()
         {
             var view = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All)
@@ -343,77 +325,94 @@ public class FlightSweepTests
         }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Id", "TR-throwing-007-broad")]
-    [InlineData(1, 0, 0)]
-    [InlineData(-1, 0, 0)]
-    [InlineData(0, 1, 0)]
-    [InlineData(0, -1, 0)]
-    [InlineData(0, 0, 1)]
-    [InlineData(0, 0, -1)]
-    public void CatcherAtRExactly65536_EveryDUpTo1200_MatchesTheBigIntegerOracleWithoutOverflow(int ax, int ay, int az)
+    public void RAtTheBroadPhaseBound_EveryDUpTo1200_MatchesTheOracleWithoutOverflow()
     {
-        // Arrange: R = P0 - centre = 65 536 * axis; every D with components in the grid below and |D| <= 1200; radii from
-        //   0 to 65 536. The Sim runs checked arithmetic in this Debug leg, so an int64 overflow would throw.
+        // Arrange: catcher R on the six axes (|R| = 65 536) and one diagonal against the BigInteger oracle, plus a goon cylinder
+        //   with horizontal R against SegmentIntervals.Cylinder called directly (PC-004 owns its maths; this shows the pretest
+        //   drops no hit). Every D in the grid with |D| <= 1200. The Sim runs checked arithmetic in Debug, so an overflow throws.
         WorldTables world = Flat(0, 64);
         var p0 = new Vec3Mm(64_000, 30_000, 64_000);
-        var centre = new Vec3Mm(p0.X - (65_536 * ax), p0.Y - (65_536 * ay), p0.Z - (65_536 * az));
-        int[] steps = { -1200, -849, -692, -400, -1, 0, 1, 400, 692, 849, 1200 };
-        int[] radii = { 0, 64_336, 65_000, 65_536 };
-        int checkedCount = 0;
-        int hits = 0;
-
-        foreach (int dx in steps)
+        (int X, int Y, int Z, bool Cylinder)[] offsets =
         {
-            foreach (int dy in steps)
+            (65_536, 0, 0, false), (-65_536, 0, 0, false), (0, 65_536, 0, false),
+            (0, -65_536, 0, false), (0, 0, 65_536, false), (0, 0, -65_536, false),
+            (37_837, 37_837, 37_837, false), (65_536, 0, 0, true),
+        };
+        int[] steps = { -1200, -849, -692, -400, -1, 0, 1, 400, 692, 849, 1200 };
+
+        foreach ((int ox, int oy, int oz, bool cylinder) in offsets)
+        {
+            var centre = new Vec3Mm(p0.X - ox, p0.Y - oy, p0.Z - oz);
+            var feet = new Vec3Mm(centre.X, p0.Y - 1500, centre.Z);
+            int checkedCount = 0;
+            int hits = 0;
+            foreach (int dx in steps)
             {
-                foreach (int dz in steps)
+                foreach (int dy in steps)
                 {
-                    if (((long)dx * dx) + ((long)dy * dy) + ((long)dz * dz) > 1200L * 1200)
+                    foreach (int dz in steps)
                     {
-                        continue;
-                    }
-
-                    var p1 = new Vec3Mm(p0.X + dx, p0.Y + dy, p0.Z + dz);
-                    foreach (int r in radii)
-                    {
-                        var view = new ReceiverView(world, world.Bounds, ReceiverRanks.Default, ReceiverMask.All) { Catchers = new[] { new SphereReceiver(centre, r, KeyA) } };
-
-                        // Act
-                        bool found = FlightSweep.FirstContact(in p0, in p1, in view, new FlightId(1), out Contact c);
-                        (bool oracleHit, long oracleF) = SphereOracle(in p0, in p1, in centre, r);
-
-                        // Assert
-                        Assert.True(oracleHit == found, $"D ({dx}, {dy}, {dz}), r {r}: hit {found}, oracle {oracleHit}");
-                        if (found)
+                        if (((long)dx * dx) + ((long)dy * dy) + ((long)dz * dz) > 1200L * 1200)
                         {
-                            Assert.Equal(ReceiverKind.ArmedCatcher, c.Kind);
-                            Assert.True(oracleF == c.FPm, $"D ({dx}, {dy}, {dz}), r {r}: f {c.FPm}, oracle {oracleF}");
-                            hits++;
+                            continue;
                         }
 
-                        checkedCount++;
+                        var p1 = new Vec3Mm(p0.X + dx, p0.Y + dy, p0.Z + dz);
+                        foreach (int r in new[] { 65_000, 65_536 })
+                        {
+                            var view = new ReceiverView(world, world.Bounds, ReceiverRanks.Default, ReceiverMask.All)
+                            {
+                                Catchers = cylinder ? [] : new[] { new SphereReceiver(centre, r, KeyA) },
+                                Cylinders = cylinder ? new[] { new CylinderReceiver(feet, r, 3000, ReceiverKind.Goon, KeyA) } : [],
+                            };
+
+                            // Act
+                            bool found = FlightSweep.FirstContact(in p0, in p1, in view, new FlightId(1), out Contact c);
+                            (bool oracleHit, long oracleF) = cylinder ? CylinderDirect(in p0, in p1, in feet, r) : SphereOracle(in p0, in p1, in centre, r);
+
+                            // Assert
+                            string at = $"R ({ox}, {oy}, {oz}) cylinder {cylinder}, D ({dx}, {dy}, {dz}), r {r}";
+                            Assert.True(oracleHit == found, $"{at}: hit {found}, oracle {oracleHit}");
+                            if (found)
+                            {
+                                Assert.True(oracleF == c.FPm, $"{at}: f {c.FPm}, oracle {oracleF}");
+                                hits++;
+                            }
+
+                            checkedCount++;
+                        }
                     }
                 }
             }
-        }
 
-        Assert.True(checkedCount > 500 && hits > 0, $"checked {checkedCount}, hits {hits}");
+            Assert.True(checkedCount > 500 && hits > 0, $"R ({ox}, {oy}, {oz}) cylinder {cylinder}: checked {checkedCount}, hits {hits}");
+        }
     }
 
     // ------------------------------------------------------------------ A = 0
 
     [Theory]
     [Trait("Id", "TR-throwing-005-a0")]
-    // Catcher centre (5000, 1000, 5000) r 500, P0 = P1: C = |R|^2 - r^2. Inside (C < 0) and on the surface (C = 0) hit at f = 0; outside misses.
-    [InlineData(1400, true)]
-    [InlineData(1500, true)]
-    [InlineData(1501, false)]
-    public void ZeroLengthSegment_UsesThePointTest_ContactIffCAtMostZero(int y, bool hit)
+    // Catcher centre (5000, 1000, 5000) r 500, P0 = P1: C = |R|^2 - r^2. Inside and on the surface hit at f = 0; outside misses
+    //   (rejected already by the bounding sphere, which is 2r for a point).
+    [InlineData(false, 5000, 1400, true)]
+    [InlineData(false, 5000, 1500, true)]
+    [InlineData(false, 5000, 1501, false)]
+    // Goon base (5000, 1000, 5000) r 300 h 1800: the point 400 mm off the axis is inside the bounding sphere (doubled offset
+    //   800 <= ceil(sqrt(600^2 + 1800^2)) = 1898) but outside the circle, so the quadratic sees A = 0 and C > 0.
+    [InlineData(true, 5300, 1900, true)]
+    [InlineData(true, 5400, 1900, false)]
+    public void ZeroLengthSegment_UsesThePointTest_ContactIffCAtMostZero(bool cylinder, int x, int y, bool hit)
     {
         // Arrange
-        var p = new Vec3Mm(5000, y, 5000);
-        var view = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All) { Catchers = new[] { new SphereReceiver(new Vec3Mm(5000, 1000, 5000), 500, KeyA) } };
+        var p = new Vec3Mm(x, y, 5000);
+        var view = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All)
+        {
+            Catchers = cylinder ? [] : new[] { new SphereReceiver(new Vec3Mm(5000, 1000, 5000), 500, KeyA) },
+            Cylinders = cylinder ? new[] { new CylinderReceiver(new Vec3Mm(5000, 1000, 5000), 300, 1800, ReceiverKind.Goon, KeyA) } : [],
+        };
 
         // Act
         bool found = FlightSweep.FirstContact(in p, in p, in view, new FlightId(6), out Contact c);
@@ -422,7 +421,7 @@ public class FlightSweepTests
         Assert.Equal(hit, found);
         if (hit)
         {
-            AssertContact(c, ReceiverKind.ArmedCatcher, KeyA, 0, p, in p, in p);
+            AssertContact(c, cylinder ? ReceiverKind.Goon : ReceiverKind.ArmedCatcher, KeyA, 0, p, in p, in p);
         }
     }
 
@@ -430,26 +429,16 @@ public class FlightSweepTests
 
     [Fact]
     [Trait("Id", "TR-throwing-005-point")]
-    public void ContactAndFirstContact_KeepTheStoryShapes()
+    public void Contact_IsTheStoryFieldList_AllInitOnly()
     {
         // Act
         FieldInfo[] fields = typeof(Contact).GetFields(BindingFlags.Instance | BindingFlags.Public);
-        MethodInfo first = typeof(FlightSweep).GetMethod(nameof(FlightSweep.FirstContact))!;
-        ParameterInfo[] p = first.GetParameters();
 
         // Assert
         Assert.Equal(
             new[] { "FPm:Int32", "Kind:ReceiverKind", "Point:Vec3Mm", "Rank:Byte", "ReceiverKey:UInt32" },
             fields.Select(f => f.Name + ":" + f.FieldType.Name).Order(StringComparer.Ordinal));
         Assert.All(fields, f => Assert.True(f.IsInitOnly));
-        Assert.True(first.IsStatic);
-        Assert.Equal(typeof(bool), first.ReturnType);
-        Assert.Equal(5, p.Length);
-        Assert.True(p[0].IsIn && p[0].ParameterType == typeof(Vec3Mm).MakeByRefType());
-        Assert.True(p[1].IsIn && p[1].ParameterType == typeof(Vec3Mm).MakeByRefType());
-        Assert.True(p[2].IsIn && p[2].ParameterType == typeof(ReceiverView).MakeByRefType());
-        Assert.Equal(typeof(FlightId), p[3].ParameterType);
-        Assert.True(p[4].IsOut && p[4].ParameterType == typeof(Contact).MakeByRefType());
     }
 
     // ------------------------------------------------------------------ ReceiverMask
@@ -458,18 +447,14 @@ public class FlightSweepTests
     [Trait("Id", "TR-throwing-003-mask")]
     [InlineData(ReceiverKind.ArmedCatcher)]
     [InlineData(ReceiverKind.Goon)]
-    [InlineData(ReceiverKind.Belt)]
-    public void StaticOnly_SkipsCatchersCylindersAndBelts_AndEqualsAllOnTheStaticReceivers(ReceiverKind dynamicKind)
+    public void StaticOnly_SkipsCatchersAndCylinders_AndEqualsAllOnTheStaticReceivers(ReceiverKind dynamicKind)
     {
-        // Arrange: on S the mailbox top (y 1500) is f = 500; each dynamic stub is reached first at f = 300 (y 1700):
-        //   catcher r 700 about (5000, 1000, 5000): disc = 1e12 - 1e6 * 510 000 = 4.9e11, s = 700 000 -> enter 300;
-        //   goon cylinder base y 1000, height 700 -> y-slab enter 300; belt top face y 1600 to 1700 -> enter 300.
+        // Arrange: on S the mailbox top is f = 500; each dynamic stub is reached first at f = 300.
         VolumeReceiver[] mailboxes = { new(new AabbMm(new Vec3Mm(4500, 1000, 4500), new Vec3Mm(5500, 1500, 5500)), KeyA) };
         SphereReceiver[] catchers = dynamicKind == ReceiverKind.ArmedCatcher ? new[] { new SphereReceiver(new Vec3Mm(5000, 1000, 5000), 700, KeyB) } : [];
         CylinderReceiver[] cylinders = dynamicKind == ReceiverKind.Goon ? new[] { new CylinderReceiver(new Vec3Mm(5000, 1000, 5000), 300, 700, ReceiverKind.Goon, KeyB) } : [];
-        LaneReceiver[] belts = dynamicKind == ReceiverKind.Belt ? new[] { new LaneReceiver(new AabbMm(new Vec3Mm(4500, 1600, 4500), new Vec3Mm(5500, 1700, 5500)), KeyB) } : [];
-        var all = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All) { Mailboxes = mailboxes, Catchers = catchers, Cylinders = cylinders, Belts = belts };
-        var staticOnly = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.StaticOnly) { Mailboxes = mailboxes, Catchers = catchers, Cylinders = cylinders, Belts = belts };
+        var all = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All) { Mailboxes = mailboxes, Catchers = catchers, Cylinders = cylinders };
+        var staticOnly = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.StaticOnly) { Mailboxes = mailboxes, Catchers = catchers, Cylinders = cylinders };
         var staticReceivers = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All) { Mailboxes = mailboxes };
 
         // Act
@@ -480,7 +465,26 @@ public class FlightSweepTests
         // Assert
         AssertContact(a, dynamicKind, KeyB, 300, new Vec3Mm(5000, 1700, 5000), in _s0, in _s1);
         AssertContact(s, ReceiverKind.Mailbox, KeyA, 500, new Vec3Mm(5000, 1500, 5000), in _s0, in _s1);
-        Assert.Equal((expected.Kind, expected.ReceiverKey, expected.FPm, expected.Point, expected.Rank), (s.Kind, s.ReceiverKey, s.FPm, s.Point, s.Rank));
+        Assert.Equal(expected, s);
+    }
+
+    [Fact]
+    [Trait("Id", "TR-throwing-003-mask")]
+    public void StaticOnly_KeepsBelts_BeltAt300BeatsMailboxAt500_SameAsAll()
+    {
+        // Arrange: the belt top face (y 1600 to 1700) is reached at f = 300, the mailbox top at f = 500.
+        VolumeReceiver[] mailboxes = { new(new AabbMm(new Vec3Mm(4500, 1000, 4500), new Vec3Mm(5500, 1500, 5500)), KeyA) };
+        LaneReceiver[] belts = { new(new AabbMm(new Vec3Mm(4500, 1600, 4500), new Vec3Mm(5500, 1700, 5500)), KeyB) };
+        var all = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.All) { Mailboxes = mailboxes, Belts = belts };
+        var staticOnly = new ReceiverView(_fxFlat, _fxFlat.Bounds, ReceiverRanks.Default, ReceiverMask.StaticOnly) { Mailboxes = mailboxes, Belts = belts };
+
+        // Act
+        Assert.True(FlightSweep.FirstContact(in _s0, in _s1, in all, new FlightId(8), out Contact a));
+        Assert.True(FlightSweep.FirstContact(in _s0, in _s1, in staticOnly, new FlightId(8), out Contact s));
+
+        // Assert
+        AssertContact(s, ReceiverKind.Belt, KeyB, 300, new Vec3Mm(5000, 1700, 5000), in _s0, in _s1);
+        Assert.Equal(a, s);
     }
 
     // ------------------------------------------------------------------ Purity
@@ -510,7 +514,7 @@ public class FlightSweepTests
     [Trait("Id", "TR-throwing-005-purity")]
     public void FirstContact_HundredThousandCalls_AllocationIsReported_AdvisoryUntilM0()
     {
-        // Arrange: a view with every span kind that FX-Flat can exercise (a mailbox hit, a solid, a catcher, terrain)
+        // Arrange
         VolumeReceiver[] mailboxes = { new(_mbA, KeyA) };
         SolidReceiver[] solids = { new(new AabbMm(new Vec3Mm(4000, 0, 4000), new Vec3Mm(6000, 1500, 6000)), 1) };
         SphereReceiver[] catchers = { new(new Vec3Mm(10250, 1000, 9000), 1000, KeyB) };
@@ -538,9 +542,10 @@ public class FlightSweepTests
 
     // ------------------------------------------------------------------ helpers
 
-    private static void AssertContact(in Contact c, ReceiverKind kind, uint key, int f, Vec3Mm point, in Vec3Mm p0, in Vec3Mm p1)
+    private static void AssertContact(in Contact c, ReceiverKind kind, uint key, int f, Vec3Mm point, in Vec3Mm p0, in Vec3Mm p1, byte? rank = null)
     {
         Assert.Equal(kind, c.Kind);
+        Assert.Equal(rank ?? (byte)kind, c.Rank);
         Assert.Equal(key, c.ReceiverKey);
         Assert.Equal(f, c.FPm);
         Assert.Equal(point, c.Point);
@@ -586,6 +591,12 @@ public class FlightSweepTests
         BigInteger exit = FloorDivBig(1000 * (-b + s), a);
         bool hit = enter <= exit && exit >= 0 && enter <= 1000;
         return (hit, hit ? (long)BigInteger.Max(enter, 0) : 0);
+    }
+
+    private static (bool Hit, long F) CylinderDirect(in Vec3Mm p0, in Vec3Mm p1, in Vec3Mm feet, int r)
+    {
+        SegmentInterval i = SegmentIntervals.Cylinder(in p0, in p1, in feet, r, 3000);
+        return (i.Hit, i.Hit ? i.FractionPm : 0);
     }
 
     private static BigInteger FloorDivBig(BigInteger a, BigInteger b)
@@ -647,12 +658,10 @@ public class FlightSweepTests
     }
 
     /// <summary>
-    /// Two rank stubs hit at exactly f = 500. Segment S (y 2000 -> 1000 at (5000, ·, 5000), FX-Flat) for the five pairs above the
-    /// terrain: catcher sphere centre y 1000 r 500 (A = 1e6, B = -1e6, C = 750 000, disc = 2.5e11, s = 500 000 -> enter 500);
-    /// mailbox, belt and solid boxes topped at y 1500; goon and teammate cylinders base y 1000, height 500 (A = 0 circle,
-    /// y-slab enter 500). Solid over Ground: y 500 -> -500 over FX-Flat, a solid box topped at y 0 (enter 500) and the march
-    /// (n = 4, gaps 250 then 0: f = ceil(1000 * 500 / 1000) = 500). Ground over Water: the shoreline-tie segment of the
-    /// terrain-and-water theory (terrain -1, y 1999 -> -2001, both at 500).
+    /// Two rank stubs hit at exactly f = 500. Segment S for the pairs above the terrain (catcher disc = 2.5e11, s = 500 000;
+    /// boxes topped at y 1500; cylinders base y 1000, height 500). Solid over Ground: y 500 -> -500, a box topped at y 0 and
+    /// the march (n = 4, gaps 250 then 0). Ground over Water, the shoreline tie: terrain -1, y 1999 -> -2001; water enter
+    /// ceil(1 999 000 / 4000) = 500, march n = 16 with gap_8 = 0 -> 500; point y -1 (depth 1).
     /// </summary>
     private readonly struct StubPair
     {

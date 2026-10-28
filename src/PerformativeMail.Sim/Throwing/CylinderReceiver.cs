@@ -24,7 +24,10 @@ public readonly struct CylinderReceiver
     /// <summary>The height above <see cref="BaseCentre"/>.</summary>
     public readonly int HeightMm;
 
-    /// <summary><see cref="ReceiverKind.Goon"/> or <see cref="ReceiverKind.Teammate"/>.</summary>
+    /// <summary>
+    /// <see cref="ReceiverKind.Goon"/> or <see cref="ReceiverKind.Teammate"/>. Mail Dev default, pending Evan: not validated;
+    /// <see cref="FlightSweep.FirstContact"/> ranks the cylinder as whatever kind it carries.
+    /// </summary>
     public readonly ReceiverKind Kind;
 
     /// <summary>The receiver key hashed by the tie-break.</summary>

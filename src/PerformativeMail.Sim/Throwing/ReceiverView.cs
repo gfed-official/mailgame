@@ -49,7 +49,7 @@ public readonly ref struct ReceiverView
     /// <summary>Goon and teammate cylinders (dynamic; skipped under <see cref="ReceiverMask.StaticOnly"/>).</summary>
     public ReadOnlySpan<CylinderReceiver> Cylinders { get; init; }
 
-    /// <summary>Belt-lane top faces (skipped under <see cref="ReceiverMask.StaticOnly"/>).</summary>
+    /// <summary>Belt-lane top faces (static; kept under <see cref="ReceiverMask.StaticOnly"/>).</summary>
     public ReadOnlySpan<LaneReceiver> Belts { get; init; }
 
     /// <summary>The map rectangle; its four vertical sides are rank-Solid receivers.</summary>
