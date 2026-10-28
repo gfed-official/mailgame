@@ -612,7 +612,7 @@ tick,moveX,moveY,lookYaw,flags
 579,0,32767,8192,1
 580,0,32767,8192,1
 581,0,32767,8192,1
-# t582: a last jump: the run ends in the air
+# t582: a last jump, landing on t600: the run ends grounded
 582,0,32767,8192,3
 583,0,32767,8192,1
 584,0,32767,8192,1

@@ -235,14 +235,15 @@ public class CarrierGoldenHashTests
             Count("landing", s0.Loco == LocoState.Airborne && s1.Loco == LocoState.Grounded);
             Count("700 permille ramp climb", grounded && s1.X > RampMinX && s1.X < RampMaxX && s1.Y > s0.Y);
             Count("702 permille slide", s1.Loco == LocoState.Airborne && s1.X > SteepMinX && s1.X < SteepMaxX
-                && s1.Y == world.TerrainHeightMm(s1.X, s1.Z) && s1.Y < s0.Y);
+                && s1.Y == world.TerrainHeightMm(s1.X, s1.Z) && s1.Y < s0.Y
+                && !row.HasMove && s1.X != s0.X && c.Slides > 0);   // the downhill run moves x with no move input
             Count("400 mm step-up", grounded && s1.Y - s0.Y == settings.StepUpMm);
             Count("401 mm block", grounded && row.HasMove && s1.X == BlockMaxX + Radius && s1.Y == WorldTablesFixture.DryHeightMm);
             Count("ceiling hit", s1.Loco == LocoState.Airborne && s1.Vy == 0 && s1.Y + settings.CapsuleHeightMm == CeilingBottomMm);
             Count("thin-wall tunnel attempt", c.StepClamped > 0 && s1.X == ThinWallMinX - Radius);
             Count("wading", Has(s1, CarrierFlags.Wading));
             Count("swim entry", s0.Loco != LocoState.Swimming && s1.Loco == LocoState.Swimming);
-            Count("swim exit", s0.Loco == LocoState.Swimming && s1.Loco == LocoState.Grounded);
+            Count("swim exit", s0.Loco == LocoState.Swimming && s1.Loco == LocoState.Grounded && s0.HaulOutTicks == 0);
             Count("haul-out", s1.HaulOutTicks > 0);
             Count("map-edge clamp", row.HasMove && s1.X == MapMaxMm - CarrierBounds.InsetMm && s1.Vx == 0);
             Count("depenetration", c.Depenetrations > 0);
