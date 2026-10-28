@@ -52,7 +52,7 @@ All stories are Sim / Client.Core (`net8.0`, headless xUnit); none touches Godot
 
 Must Have total: **3.75 days** (available capacity 4.0 d; 0.25 d slack after the player-character 010 split, which went from 1.0 d to 0.75 d).
 
-Readiness and review tier for the S–M rows (S001-001, S001-005): take the full `/story-readiness` pass and the full Mail Review loop, i.e. treat S–M as M (Mail Lead planning default, pending Evan). S001-002 (S) uses the lighter process approved 8:10 AM PT.
+Readiness and review tier for the S–M rows (S001-001, S001-005): take the full `/story-readiness` pass and the full Mail Review loop, i.e. treat S–M as M (Mail Lead planning default; for S001-001 Approved by Evan 2026-10-28 2:35 AM PT (Mail Lead chat): "Approve all seven TD-174 defaults for player-character 010: the FX-Golden world, Boost with buffCapPm 4000, the spawn-crate start, the named ticks, the mutation ticks, the perf fixture, and treating its S–M estimate as M"; TD-174, closed; for S001-005 still pending Evan). S001-002 (S) uses the lighter process approved 8:10 AM PT.
 
 ### Should Have
 
