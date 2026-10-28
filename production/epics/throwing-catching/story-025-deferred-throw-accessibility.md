@@ -9,7 +9,7 @@
 > **Manifest Version**: 2026-10-17.1
 > **Last Updated**: 2026-10-23 (split from stories 005 and 019 by the m1a-replan PR)
 
-> **DEFERRED 2026-10-23, not deleted. Approved by Evan 2026-10-23 8:54 AM PT, Mail Lead chat: "Approve the ADR-0024 additions and the extra deferrals (md-008, tc-025, md-010 localisation to md-012, and the split-off hardening stories)".** Earlier context (not the approval of this story): Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". The ACs below moved verbatim from stories 005 and 019. Re-run `/story-readiness` when the accessibility pass is planned; it needs the HUD live-region seam (ADR-0018, Proposed).
+> **DEFERRED 2026-10-23, not deleted. Approved by Evan 2026-10-23 8:54 AM PT, Mail Lead chat: "Approve the ADR-0024 additions and the extra deferrals (md-008, tc-025, md-010 localisation to md-012, and the split-off hardening stories)".** Earlier context (not the approval of this story): Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it “production ready” is not needed. Accessibility for example". The ACs below moved verbatim from stories 005 and 019. Re-run `/story-readiness` when the accessibility pass is planned; it needs the HUD live-region seam (ADR-0018, Proposed).
 
 ## Context
 

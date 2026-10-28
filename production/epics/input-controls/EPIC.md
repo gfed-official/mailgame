@@ -8,7 +8,7 @@
 > **Est. size**: L — 32 stories (6 Complete, 20 Ready, 6 Deferred; refreshed 2026-10-27, m1a-replan); sized to one `/dev-story` session each (≤ ~1 day, ≤ ~600 lines prod + tests)
 > **Implementation priority**: 8 of 9 (router core in Client.Core, stories 002–025); the Godot adapter (026–029) goes with priority 9, after the spike (story 001) and `godot-host-shell`
 > **Status**: Ready
-> **Stories**: 32 stories — 6 Complete, 20 Ready, 6 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 32 stories — 6 Complete, 20 Ready, 6 Deferred (counts refreshed 2026-10-27 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 

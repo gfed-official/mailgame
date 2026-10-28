@@ -12,7 +12,7 @@
 
 ## Overview
 
-HUD & Notifications owns every screen-space widget and the notification pipeline (GDD H1 l.84), and owns no gameplay state. At M-1a this epic ships the **minimal** slice Evan approved on 2026-10-23: three persistent widgets, as ADR-0018 (Accepted) decides. Accessibility is deferred (Evan, 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example").
+HUD & Notifications owns every screen-space widget and the notification pipeline (GDD H1 l.84), and owns no gameplay state. At M-1a this epic ships the **minimal** slice Evan approved on 2026-10-23: three persistent widgets, as ADR-0018 (Accepted) decides. Accessibility is deferred (Evan, 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it “production ready” is not needed. Accessibility for example").
 
 **In scope (M-1a minimal):**
 - **`IHudState` read model (pull half of H30)** in `PerformativeMail.Client.Core.Ui`: wallet cents from `WalletMirror`, the F3 shift timer (time-only) from `RunMirror` + `IRenderClock.RenderSimTimeMs`, and the focused deliver prompt (key + typed arguments decoded from ADR-0014's 32 B `PromptArgs` through manual-delivery story 010's `DeliverPromptArgs` helper); dirty flags; 0 B per frame in steady state (ADR-0018 §2).
