@@ -92,6 +92,8 @@ public static class FlightSweep
             s.OfferPlain(ReceiverKind.Ground, groundPm, 0);
         }
 
+        // Mail Dev default, pending Evan: the Tile(tx, tz).Water hint is not consulted; WaterDepthMm (the authority) is
+        // read once, at the y = 0 crossing, and only for a segment that reaches y <= 0.
         SegmentInterval water = SegmentIntervals.SlabAxis(p0.Y, p1.Y, int.MinValue, 0);
         if (water.Hit)
         {
@@ -137,8 +139,9 @@ public static class FlightSweep
     // spans stay empty until M-1b, so TC-T6-1 and the ReceiverMask AC run through FirstContact on stub receivers.
     private static void Dynamic(ref Sweep s, in Vec3Mm p0, in Vec3Mm p1, in ReceiverView v)
     {
-        // The segment's bounding sphere in doubled coordinates: centre P0 + P1, radius ceil(|D|). A segment longer than the
-        // broad-phase bound on any axis skips the pre-test so that SegmentIntervals' own guard rejects it (and asserts).
+        // The segment's bounding sphere in doubled coordinates: centre P0 + P1, radius ceil(|D|). Mail Dev default, pending
+        // Evan: a segment longer than the broad-phase bound on any axis (or a radius the test cannot square) skips the
+        // pre-test, so SegmentIntervals' own guard rejects it and asserts instead of the candidate vanishing silently.
         bool fits = Within(s.Dx) && Within(s.Dy) && Within(s.Dz);
         long length = fits ? CeilSqrt((s.Dx * s.Dx) + (s.Dy * s.Dy) + (s.Dz * s.Dz)) : 0;
         long mx = (long)p0.X + p1.X;
