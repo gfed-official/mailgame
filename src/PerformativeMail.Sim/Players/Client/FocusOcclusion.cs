@@ -20,7 +20,8 @@ namespace PerformativeMail.Sim.Players.Client;
 /// </list>
 /// Every hit uses <see cref="SegmentInterval.IsHit"/> (<c>enter &lt;= exit</c>, <c>exit &gt;= 0</c>, <c>enter &lt;= 1000</c>), so a
 /// segment touching a box face exactly at the anchor end (<c>t = 1000</c>) is occluded. Solids past the scratch length are not
-/// tested (the query keeps the lowest indices and counts <c>WorldSolidQueryOverflow</c>). Pure, allocation-free, non-throwing.
+/// tested (the query keeps the lowest indices and counts <c>WorldSolidQueryOverflow</c>; Mail Dev default, pending Evan (TD-182
+/// item 2)). Pure, allocation-free, non-throwing.
 /// </summary>
 /// <example>
 /// <code>
@@ -55,7 +56,8 @@ public static class FocusOcclusion
 
     private static bool CrossesBlockedTile(IWorldQuery w, in Vec3Mm chest, in Vec3Mm anchor, in AabbMm region)
     {
-        // Tiles of the map only (as CarrierColliders.Gather): IWorldQuery.Tile reports off-map tiles Blocked.
+        // Mail Dev default, pending Evan (TD-182 item 1): tiles of the map only (as CarrierColliders.Gather); IWorldQuery.Tile
+        // reports off-map tiles Blocked, but they do not occlude.
         int size = Math.Max(1, w.TileSizeMm);
         int tx0 = Math.Max(0, FloorTile(region.Min.X, size));
         int tx1 = Math.Min(w.TilesX - 1, FloorTile(region.Max.X, size));
@@ -85,6 +87,7 @@ public static class FocusOcclusion
 
     private static bool CrossesSolid(IWorldQuery w, in Vec3Mm chest, in Vec3Mm anchor, in AabbMm region, EntityId anchorEntity, Span<ushort> scratch)
     {
+        // Mail Dev default, pending Evan (TD-182 item 2): solids past the scratch are not tested, so a dense area can read as clear.
         int count = w.QueryStaticSolids(in region, scratch);
         ReadOnlySpan<StaticSolid> solids = w.StaticSolids;
         for (int i = 0; i < count; i++)
