@@ -52,7 +52,7 @@ Scope: M-1a slice (solo greybox: delivery + throwing)
 
 ## Deferred — out of the M-1a slice (2026-10-23)
 
-Authority: Evan, Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"; 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example"; 8:10 AM PT, approving errata E1–E6 and E9 (E7, E8 declined): "approve all". Each story keeps its text. 8:54 AM PT: "Approve the ADR-0024 additions and the extra deferrals (md-008, tc-025, md-010 localisation to md-012, and the split-off hardening stories)" (Mail Review PR #47 B2 cleared). 21 stories.
+Authority: Evan, Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"; 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example"; 8:10 AM PT, approving errata E1–E6 and E9 (E7, E8 declined): "approve all". Each story keeps its text. 8:54 AM PT: "Approve the ADR-0024 additions and the extra deferrals (md-008, tc-025, md-010 localisation to md-012, and the split-off hardening stories)" (Mail Review PR #47 B2 cleared); 2026-10-27 9:29 PM PT: "Defer input-controls 011 and 022" (r2 B1). 21 stories.
 
 | Story | Deferred to | Basis |
 |---|---|---|
@@ -61,8 +61,8 @@ Authority: Evan, Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: r
 | [throwing-catching/024](throwing-catching/story-024-catch-end-to-end-two-carriers-history-ring.md) | M0 | Evan 7:13 AM PT (named) |
 | [input-controls/023](input-controls/story-023-fantasy-scripts-toggle-run-route-parity-a11y.md) | M1 (accessibility) | Evan 7:13 AM PT ("the deferrals") |
 | [player-character/027](player-character/story-027-movement-rulings-extra-jump-slide-td-091.md) | M1 | Evan 7:13 AM PT ("the deferrals") |
-| [input-controls/011](input-controls/story-011-panel-cursor-navigation.md) | M1 | E1, Evan 8:10 AM PT |
-| [input-controls/022](input-controls/story-022-replay-corpus-zero-unauthored-verbs.md) | M0 | E1, Evan 8:10 AM PT |
+| [input-controls/011](input-controls/story-011-panel-cursor-navigation.md) | M1 | Evan 2026-10-27 9:29 PM PT ("Defer input-controls 011 and 022"; erratum E1) |
+| [input-controls/022](input-controls/story-022-replay-corpus-zero-unauthored-verbs.md) | M0 | Evan 2026-10-27 9:29 PM PT ("Defer input-controls 011 and 022"; erratum E1) |
 | [input-controls/024](input-controls/story-024-router-core-zero-allocation-gate.md) | M0 | Evan 7:13 AM PT (m0-scope §6a item 6; errata E1/E2 8:10 AM PT) |
 | [input-controls/025](input-controls/story-025-ci-lint-no-direct-input-reads.md) | M0 | Evan 7:13 AM PT (m0-scope §6a item 6; erratum E1 8:10 AM PT) |
 | [simulation-core/029](simulation-core/story-029-zero-alloc-tick-timing-advisory.md) | M0 | Evan 7:13 AM PT (m0-scope §6a item 6; erratum E2 8:10 AM PT) |
