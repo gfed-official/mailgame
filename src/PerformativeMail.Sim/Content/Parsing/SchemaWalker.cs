@@ -59,6 +59,7 @@ public static class SchemaWalker
     {
         ArgumentNullException.ThrowIfNull(syntax);
         ArgumentNullException.ThrowIfNull(table);
+        // Mail Dev default, pending Evan: a file with any stage 1 Error (a CV-GEN-04 duplicate key included) is not walked at stage 2.
         if (!syntax.Ok || syntax.Tokens.IsEmpty)
         {
             return new SchemaResult(syntax.Path, table.Type, ImmutableArray<ParsedDef>.Empty, syntax.Diagnostics) { SyntaxFailed = true };
