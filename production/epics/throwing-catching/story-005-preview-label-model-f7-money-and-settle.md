@@ -8,7 +8,7 @@
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: —
 
-> **2026-10-23 (m1a-replan, Evan 7:13/7:15 AM PT):** the live-region line AC moved to `story-025-deferred-throw-accessibility.md` (**Deferred**). Evan, 7:15: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example".
+> **2026-10-23 (m1a-replan, Evan 7:13/7:15 AM PT):** the live-region line AC moved to `story-025-deferred-throw-accessibility.md` (**Deferred**). Evan, 7:15: "This is a game among friends, so a lot of the extra work to make it “production ready” is not needed. Accessibility for example".
 
 > **Owner-side story (2 of 3).** The *data* behind the arc label: what it says, what the throw is worth, and when it may change. The Charcoal pill that draws it is story 019 (UX spec `design/ux/throwing-catching.md`); this story is complete and testable without any UI.
 
