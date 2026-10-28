@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: S–M (~0.75 day; ~300 lines tests/tooling + a committed golden file)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-27 (readiness pass: manifest re-check, mechanical AC fixes; the Replay AC is open for Evan)
+> **Last Updated**: 2026-10-27 (readiness pass: manifest re-check, mechanical AC fixes; the Replay AC moved to story 020 by Evan 10:46 PM PT)
 
 > **Split 2026-10-23.** The cross-OS half of PCM-P2-1 (Windows + Linux equality, the Windows CI job; ADR-0013 l.29 (1), erratum E3) and the blocking PCM-PERF-1 counters / 0 B gate (ADR-0013 l.29 (2), erratum E2) moved verbatim to `story-028-deferred-golden-cross-os-equality-and-blocking-counters.md` (Deferred to M0). Evan, Mail Lead chat 2026-10-23 8:10 AM PT, approving errata E1–E6 and E9: "approve all". What stays here is the 600-tick golden on the CI's Linux leg as a single-platform regression guard, and the golden script that stories 019, 020, 022 and 025 reuse.
 
@@ -43,7 +43,7 @@
 - [ ] **Mutation check.** Each of at least three named single-unit perturbations, each on a tick where that input is read (for example `moveX` +1 on a walking tick, `lookYaw` +1 on a tick with move input, `JumpPressed` added on a grounded tick), changes the final hash; the test lists them. (Input clamping, mid-air jump presses with no extra jump left and look yaw without move input are not read, so "any input" is not claimed; no rounding test seam is added.)
 - [ ] **PCM-PERF-1 microbenchmark (ADVISORY).** A `[Trait("Category","Perf")]` test in `[Collection(NonParallelCollection.Name)]` runs the worst-case fixture (1 carrier, 4 sub-steps, 64 candidates) 10 000× in Release and reports p99 per call; it logs, never fails, until the M1 reference machine exists (TR-movement-021 has no ADR coverage). The 8-player / 2 000-anchor fixture is owned by Story 018/020 (focus) and stays BLOCKED on the tick-driver spike (GDD OQ6).
 - [ ] **No Godot.** The Sim assembly references no `Godot.*` assembly and `PerformativeMail.Sim/Players` references no physics-named type — a type whose name contains `CharacterBody`, `PhysicsBody`, `PhysicsServer`, `RigidBody`, `CollisionShape` or `Jolt` (architecture test, extending sim-core story 028's SC-ARCH-1 rule set; the Godot-assembly half already exists in `AssemblyRulesTests` / `CarrierPurityTests`; the name list is a Mail Lead planning default, pending Evan).
-- [ ] **Replay.** *(OPEN — needs Evan, readiness 2026-10-27: sim-core 026 is Complete, but `ReplayDriver` replays `SimWorld` ops and transform samples, and `OwnedCarrier.Step` has no production caller until story 020 binds `CarrierStep`, so this AC cannot pass or skip as written. Do not start this AC until Evan rules.)* The same script replayed through the sim-core recorder/replay path (`production/epics/simulation-core/story-026-inmemory-recorder-replay.md`) yields the identical chain (skip with a clear `Skip` reason only if story 026 is not yet implemented — never silently pass).
+*Replay check: moved to player-character 020 (AC "Replay"). Evan 2026-10-27 10:46 PM PT, Mail Lead chat, answering the widget "Player-character 010's replay check: where should it go?": "Move player-character 010's replay check (AC 7) to player-character 020".*
 
 ---
 
@@ -86,5 +86,5 @@
 
 ## Dependencies
 
-- Depends on: Stories 005, 006, 007, 008, 009 (all solver paths. Story 027's movement rulings are **Deferred** to M1 by Evan 2026-10-23 7:13 AM PT, so capture the goldens on the current solver and re-capture them, as a reviewed golden change, when 027 lands), Story 002 (scripted sources), `production/epics/simulation-core/story-019-canonical-state-dump.md` (`CanonicalWriter`), `production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md` (net8.0 leg), `production/epics/simulation-core/story-028-architecture-rules-sc-arch-1.md` (arch-test rule set), `production/epics/simulation-core/story-026-inmemory-recorder-replay.md` (replay check)
-- Unlocks: Story 020 (the client step may be integrated against a locked solver); Stories 019, 022, 025 (the golden script); `/gate-check` evidence for TR-movement-022 (single-platform half); Story 028 (Deferred, M0)
+- Depends on: Stories 005, 006, 007, 008, 009 (all solver paths. Story 027's movement rulings are **Deferred** to M1 by Evan 2026-10-23 7:13 AM PT, so capture the goldens on the current solver and re-capture them, as a reviewed golden change, when 027 lands), Story 002 (scripted sources), `production/epics/simulation-core/story-019-canonical-state-dump.md` (`CanonicalWriter`), `production/epics/simulation-core/story-001-build-config-sim-assert-ci-scaffold.md` (net8.0 leg), `production/epics/simulation-core/story-028-architecture-rules-sc-arch-1.md` (arch-test rule set)
+- Unlocks: Story 020 (the client step may be integrated against a locked solver; it also owns the replay check moved from this story); Stories 019, 022, 025 (the golden script); `/gate-check` evidence for TR-movement-022 (single-platform half); Story 028 (Deferred, M0)
