@@ -80,7 +80,7 @@ Each check is an Error. Each violating fixture yields exactly one diagnostic of 
 **Required evidence**:
 - Logic: `tests/unit/content/PlayerRulesTests.cs` — must exist and pass
 
-**Status**: [x] Created — `tests/unit/content/PlayerRulesTests.cs` (52 cases) + `PlayerRuleFixtures.cs`
+**Status**: [x] Created — `tests/unit/content/PlayerRulesTests.cs` (44 cases) + `PlayerRuleFixtures.cs`
 
 ---
 

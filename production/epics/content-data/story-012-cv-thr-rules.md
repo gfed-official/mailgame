@@ -78,7 +78,7 @@
 **Required evidence**:
 - Logic: `tests/unit/content/ThrowingRulesTests.cs` — must exist and pass
 
-**Status**: [x] Created — `tests/unit/content/ThrowingRulesTests.cs` (122 cases) + `ThrowingRuleFixtures.cs`
+**Status**: [x] Created — `tests/unit/content/ThrowingRulesTests.cs` (98 cases) + `ThrowingRuleFixtures.cs`
 
 ---
 

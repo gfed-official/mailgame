@@ -82,7 +82,7 @@
 **Required evidence**:
 - Logic: `tests/unit/content/GridMailRulesTests.cs` — must exist and pass
 
-**Status**: [x] Created — `tests/unit/content/GridMailRulesTests.cs` (71 cases) + `GridMailRuleFixtures.cs`
+**Status**: [x] Created — `tests/unit/content/GridMailRulesTests.cs` (62 cases) + `GridMailRuleFixtures.cs`
 
 ---
 

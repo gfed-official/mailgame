@@ -111,7 +111,7 @@
 **Required evidence**:
 - Logic: `tests/unit/content/StatSheetReadTests.cs` — must exist and pass
 
-**Status**: [x] Created — tests/unit/content/StatSheetReadTests.cs (46 methods / ~54 cases), passing on four legs
+**Status**: [x] Created — tests/unit/content/StatSheetReadTests.cs (45 methods / ~53 cases), passing on four legs
 
 ---
 
