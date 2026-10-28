@@ -196,6 +196,9 @@ public class CarrierGoldenHashTests
         PlayerSettings settings = Settings();
         int launchTick1 = CarrierJump.LaunchSpeed(settings) - CarrierGravity.PerTickMmS(settings);   // Vy after a ground or coyote launch tick
 
+        // "swim exit" skips the haul-out lift by its s0.HaulOutTicks > 0; with haulOutTicks 1 the lift tick's s0 reads 0 and is counted again.
+        Assert.True(settings.HaulOutTicks > 1, $"haulOutTicks {settings.HaulOutTicks}: the swim-exit count needs > 1");
+
         // Act
         RunResult run = Run(script);
         var counts = new SortedDictionary<string, int>(StringComparer.Ordinal);
@@ -237,7 +240,7 @@ public class CarrierGoldenHashTests
             Count("700 permille ramp climb", grounded && s1.X > RampMinX && s1.X < RampMaxX && s1.Y > s0.Y);
             Count("702 permille slide", s1.Loco == LocoState.Airborne && s1.X > SteepMinX && s1.X < SteepMaxX
                 && s1.Y == world.TerrainHeightMm(s1.X, s1.Z) && s1.Y < s0.Y
-                && !row.HasMove && s1.X != s0.X && c.Slides > 0);   // the downhill run moves x with no move input
+                && !row.HasMove && s1.X != s0.X && c.Slides > 0);   // proven only by mutation: disabling the slide-off (CarrierSweep.cs:423, PressIntoWall) makes this count zero and the test fail
             Count("400 mm step-up", grounded && s1.Y - s0.Y == settings.StepUpMm);
             Count("401 mm block", grounded && row.HasMove && s1.X == BlockMaxX + Radius && s1.Y == WorldTablesFixture.DryHeightMm);
             Count("ceiling hit", s1.Loco == LocoState.Airborne && s1.Vy == 0 && s1.Y + settings.CapsuleHeightMm == CeilingBottomMm);
