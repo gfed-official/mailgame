@@ -515,26 +515,35 @@ public class CanonicalDumpTests
         Assert.NotEqual(baseline.Hash(), ticked.Hash());
     }
 
-    [Theory]
-    [InlineData((byte)1)]
-    [InlineData((byte)2)]
-    [InlineData((byte)3)]
-    [InlineData((byte)4)]
-    [InlineData((byte)5)]
-    [InlineData((byte)6)]
-    [InlineData((byte)7)]
-    [InlineData((byte)8)]
-    public void Ac2_EachEntityClassCounter_ChangesTheHash_AndEncodesAtItsPosition(byte cls)
+    // Classes 1 to 8 run in one test; every failing class is reported, an exception included.
+    [Fact]
+    public void Ac2_EachEntityClassCounter_ChangesTheHash_AndEncodesAtItsPosition()
     {
-        string baseline = new Rig().Hash();
-        var rig = new Rig(Classes(cls, 3));
-
-        Assert.NotEqual(baseline, rig.Hash());
-        Core core = Parse(rig.World);
-        for (int i = 0; i < 8; i++)
+        byte[] classes = [1, 2, 3, 4, 5, 6, 7, 8];
+        Assert.Equal(8, classes.Length);
+        var failures = new List<string>();
+        foreach (byte cls in classes)
         {
-            Assert.Equal(i == cls - 1 ? 3u : 0u, core.Classes[i]);
+            try
+            {
+                string baseline = new Rig().Hash();
+                var rig = new Rig(Classes(cls, 3));
+
+                Assert.NotEqual(baseline, rig.Hash());
+                Core core = Parse(rig.World);
+                for (int i = 0; i < 8; i++)
+                {
+                    uint expected = i == cls - 1 ? 3u : 0u;
+                    Assert.True(core.Classes[i] == expected, $"position {i}: expected {expected}, got {core.Classes[i]}");
+                }
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"class {cls}: {ex.GetType().Name}: {ex.Message}");
+            }
         }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     [Fact]

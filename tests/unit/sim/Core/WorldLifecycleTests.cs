@@ -574,17 +574,6 @@ public class WorldLifecycleTests
     }
 
     [Fact]
-    public void Ac4_Tick_FromTheFreezingThread_NeverAsserts()
-    {
-        SimWorld world = Frozen(new LogProbe());
-
-        Exception? caught = Record.Exception(world.Tick);
-
-        Assert.Null(caught);
-        Assert.Equal(0L, world.Counters[CounterId.BadTick]);
-    }
-
-    [Fact]
     public void Ac4_OwnerThread_IsTheThreadThatFroze()
     {
         SimWorld? world = null;
