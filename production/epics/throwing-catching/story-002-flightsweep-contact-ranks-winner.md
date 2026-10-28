@@ -48,7 +48,7 @@
 - [x] **Broad phase.** Dynamic spans (sphere/cylinder candidates) are rejected by a bounding-sphere test against the segment before any quadratic form; a guard rejects |R| > 65 536 mm: `SegmentIntervals` returns `SegmentInterval.None`, the form is not evaluated, and `SimAssertCode.GeometryBroadPhase` (40) fires under `SIM_ASSERT` (no counter; `FirstContact` takes no counter sink — Evan 2026-10-28 7:24 AM PT, TD-179); an int64 property test with |R| = 65 536 and |D| up to 1 200 mm never overflows.
 - [x] **A = 0.** A zero-length segment uses the point test (contact iff `C ≤ 0`) with no division.
 - [x] **Contact point.** `contact = P0 + Throw.RH(D·f, 1000)` for every kind; the result struct is `(Kind, ReceiverKey, FPm, Point, Rank)`.
-- [x] **ReceiverMask.** With `ReceiverMask.StaticOnly`, Catchers, Cylinders and Belts are skipped, and the static results equal the `All` result on the same view.
+- [x] **ReceiverMask.** With `ReceiverMask.StaticOnly`, Catchers and Cylinders are skipped (belts stay: they are static receivers in the preview's view, ADR-0015 §8, GDD l.167), and the static results equal the `All` result on the same view. *(Corrected 2026-10-28: the readiness handoff listed Belts among the skipped spans, contradicting ADR-0015 §8 and this story's ReceiverMask note.)*
 - [x] Purity: `FirstContact` is `static`, uses no `float`, and reads nothing but its arguments (an architecture test: no `float`/`double` token and no static fields in `FlightSweep.cs`); it allocates 0 B over 100 000 calls, measured by the `GC.GetAllocatedBytesForCurrentThread()` delta — **advisory, not blocking, until M0 (ADR-0015 erratum E2)**.
 
 Coverage target: every AC bullet maps to at least one `[Trait("Id", …)]` test.
