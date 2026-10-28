@@ -12,8 +12,8 @@ namespace PerformativeMail.Sim.Content;
 /// <code>
 /// var chest = new ContainerDef
 /// {
-///     Id = "chest", Layout = ContainerLayout.Grid, HasGrid = true, GridW = 8, GridH = 4,
-///     BeltAccess = BeltAccess.InserterOnly,
+///     Id = "chest", Layout = ContainerLayout.Grid, HasGrid = true, GridW = 8, GridH = 4, View = ContainerView.Grid,
+///     BeltAccess = BeltAccess.InserterOnly, AcceptsInsert = true,
 /// };
 /// </code>
 /// </example>
@@ -34,8 +34,8 @@ public sealed record class ContainerDef : IDef
     /// <summary>Rows; read only when <see cref="HasGrid"/> (default 0).</summary>
     public int GridH { get; init; }
 
-    /// <summary>View hint (default <see cref="ContainerView.Auto"/>: the runtime D7 rule decides).</summary>
-    public ContainerView View { get; init; } = ContainerView.Auto;
+    /// <summary>View hint (required, no default: CD10 2026-10-21 ruling; <see cref="ContainerView.Auto"/> lets the runtime D7 rule decide).</summary>
+    public required ContainerView View { get; init; }
 
     /// <summary>Belt access (default <see cref="Content.BeltAccess.None"/>).</summary>
     public BeltAccess BeltAccess { get; init; } = BeltAccess.None;
@@ -49,8 +49,8 @@ public sealed record class ContainerDef : IDef
     /// <summary>True when the container is carried in the hands (default false).</summary>
     public bool HandCarried { get; init; }
 
-    /// <summary>False = no player, inserter or belt op may add an entry (default true, CD10).</summary>
-    public bool AcceptsInsert { get; init; } = true;
+    /// <summary>False = no player, inserter or belt op may add an entry (default false: neutral, CD10 2026-10-21 ruling).</summary>
+    public bool AcceptsInsert { get; init; }
 
     /// <summary>Slot indices reserved (slots layout only; default empty).</summary>
     public ImmutableArray<int> ReservedSlots { get; init; } = ImmutableArray<int>.Empty;

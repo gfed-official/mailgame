@@ -49,8 +49,8 @@ public sealed record class ItemDef : IDef
     /// <summary>Buy price in cents; read only when <see cref="HasBuyPrice"/> (default 0).</summary>
     public long BuyPriceCents { get; init; }
 
-    /// <summary>True when the item can be carried in the hands (default true, CD10 / Grid R5).</summary>
-    public bool CarryByHand { get; init; } = true;
+    /// <summary>True when the item can be carried in the hands (default false: neutral, CD10 2026-10-21 ruling; Grid R5).</summary>
+    public bool CarryByHand { get; init; }
 
     /// <summary>Equipment slot (default <see cref="Content.EquipSlot.None"/>).</summary>
     public EquipSlot EquipSlot { get; init; } = EquipSlot.None;

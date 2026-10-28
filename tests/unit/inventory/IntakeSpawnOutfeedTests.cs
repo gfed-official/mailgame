@@ -307,7 +307,7 @@ public class IntakeSpawnOutfeedTests
     [Trait("Id", "R8")]
     public void Whitelist_PoIntakeOfTheM1aContent_AcceptsMail_AndRefusesAPlankWithNothingMutated()
     {
-        // Arrange: the M-1a built-in po_intake (AcceptsInsert defaults true until content-data 018 spells it out)
+        // Arrange: the M-1a built-in po_intake (BuiltInContent spells out AcceptsInsert = true; the record default is false)
         var rig = new InvAutoPlaceRig();
         ContainerDef intakeDef = rig.Content.Containers[rig.Header(rig.Intake).DefIndex];
         ushort plank = rig.DetachedItem("plank", 3);

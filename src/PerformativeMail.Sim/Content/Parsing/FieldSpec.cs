@@ -67,6 +67,12 @@ public sealed record FieldSpec
     /// <summary>The presence rule that depends on a sibling enum row (CV-GEN-14), or <c>null</c> when the row has none.</summary>
     public FieldVariant? Variant { get; init; }
 
+    /// <summary>
+    /// The rule the schema walker raises when this list row is present but empty (<c>allowedCategories: []</c> is CV-GRD-03,
+    /// TD-063(1)), or <c>null</c> when an empty list is legal.
+    /// </summary>
+    public string? EmptyListRule { get; init; }
+
     /// <summary>Creates a number row. <paramref name="unit"/> may be left undeclared; the table self-check then reports it.</summary>
     /// <param name="name">The JSON field name.</param>
     /// <param name="unit">The declared unit.</param>
@@ -210,6 +216,12 @@ public sealed record FieldSpec
     /// <example><code>FieldSpec g = FieldSpec.IntList("grid", FieldUnit.Count, 2, false).WithVariant("layout", new[] { "grid" }, new[] { "pile" });</code></example>
     public FieldSpec WithVariant(string on, string[] requiredFor, string[] forbiddenFor) =>
         this with { Variant = new FieldVariant(on, ImmutableArray.Create(requiredFor), ImmutableArray.Create(forbiddenFor)) };
+
+    /// <summary>Returns a copy of this list row on which present-but-empty is the finding <paramref name="ruleId"/>.</summary>
+    /// <param name="ruleId">The rule raised by the schema walker for an empty list.</param>
+    /// <returns>The row with <see cref="EmptyListRule"/> set.</returns>
+    /// <example><code>FieldSpec s = FieldSpec.EnumList("allowedCategories", "ItemCategory", false).WithEmptyListRule("CV-GRD-03");</code></example>
+    public FieldSpec WithEmptyListRule(string ruleId) => this with { EmptyListRule = ruleId };
 
     /// <summary>Reads a number token under this row's unit and range (duration rows use the duration cap clamped by the row's own range).</summary>
     /// <param name="token">The raw number token bytes.</param>

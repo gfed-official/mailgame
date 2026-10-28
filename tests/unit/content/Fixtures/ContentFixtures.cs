@@ -166,7 +166,7 @@ internal static class ContentFixtures
     public static MailKindDef Letter => new()
     {
         Id = "letter", Name = "mail.letter", GridW = 1, GridH = 1, MaxStack = 20, BaseValueCents = 8, WeightClass = WeightClass.Light,
-        BeltLanes = 1, BeltLengthMm = 500, AcceptedBy = ImmutableArray.Create(DefIndex.FromValue(0)),
+        CarryByHand = true, BeltLanes = 1, BeltLengthMm = 500, AcceptedBy = ImmutableArray.Create(DefIndex.FromValue(0)),
         ComplaintOnMisdeliveryMilliPoints = 5_000, UnlockShift = 1,
     };
 
@@ -180,13 +180,15 @@ internal static class ContentFixtures
     /// <summary>The one container of <see cref="MinimalValid"/> (id <c>cursor</c>).</summary>
     public static ContainerDef Cursor => new()
     {
-        Id = "cursor", Layout = ContainerLayout.Slots, HasGrid = true, GridW = 1, GridH = 1, HandCarried = true,
+        Id = "cursor", Layout = ContainerLayout.Slots, HasGrid = true, GridW = 1, GridH = 1, View = ContainerView.Auto, HandCarried = true,
+        AcceptsInsert = true,
     };
 
     /// <summary>The one item of <see cref="MinimalValid"/> (id <c>plank</c>).</summary>
     public static ItemDef Plank => new()
     {
         Id = "plank", Name = "item.plank", Category = ItemCategory.Material, GridW = 1, GridH = 1, MaxStack = 20, WeightClass = WeightClass.Light,
+        CarryByHand = true,
     };
 
     /// <summary>The one mix of <see cref="MinimalValid"/>: shift 1 is all letters (600 + 400 permille).</summary>

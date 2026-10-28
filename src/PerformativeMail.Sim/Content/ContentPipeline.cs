@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using PerformativeMail.Sim.Content.Balance;
+using PerformativeMail.Sim.Content.Parsing;
 using PerformativeMail.Sim.Content.Rules;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Content.Validation;
@@ -71,23 +72,59 @@ public static class ContentPipeline
         ImmutableArray<MailMixDef> mailMixes,
         RuleRegistry rules,
         ImmutableArray<PendingReference> references = default,
-        ImmutableArray<VerbDeclaration> verbDeclarations = default)
+        ImmutableArray<VerbDeclaration> verbDeclarations = default) =>
+        Build(balance, new Defs(containers, items, mailKinds, destinationTypes, mailMixes), rules, references, verbDeclarations, default, default);
+
+    /// <summary>
+    /// Builds the defs that loaded content produced (stage 3, <see cref="Builder"/>): the same path as the list overload, with
+    /// the stage 1 to 3 findings merged into the result (any Error among them withholds the set) and the types the builder did
+    /// not build passed on as failed inputs, so the rules that declare them are skipped and counted.
+    /// </summary>
+    /// <param name="balance">A built balance table over <c>BalanceKeys.CreateRegistry()</c>.</param>
+    /// <param name="defs">The builder's output.</param>
+    /// <param name="rules">The rule registry whose stage 3 to 5 rules apply.</param>
+    /// <returns>The merged findings of stages 1 to 5 and, when there is no Error, the set.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <example><code>ContentBuildResult r = ContentPipeline.Build(balance, Builder.Build(files), RuleRegistry.CreateDefault());</code></example>
+    public static ContentBuildResult Build(BalanceTable balance, BuiltDefs defs, RuleRegistry rules)
+    {
+        ArgumentNullException.ThrowIfNull(defs);
+        return Build(
+            balance, new Defs(defs.Containers, defs.Items, defs.MailKinds, defs.DestinationTypes, defs.MailMixes), rules,
+            defs.References, default, defs.Failed, defs.Diagnostics);
+    }
+
+    private readonly record struct Defs(
+        ImmutableArray<ContainerDef> Containers,
+        ImmutableArray<ItemDef> Items,
+        ImmutableArray<MailKindDef> MailKinds,
+        ImmutableArray<DestinationTypeDef> DestinationTypes,
+        ImmutableArray<MailMixDef> MailMixes);
+
+    private static ContentBuildResult Build(
+        BalanceTable balance,
+        Defs defs,
+        RuleRegistry rules,
+        ImmutableArray<PendingReference> references,
+        ImmutableArray<VerbDeclaration> verbDeclarations,
+        ImmutableArray<FailedInput> priorFailures,
+        ImmutableArray<ContentDiagnostic> priorFindings)
     {
         ArgumentNullException.ThrowIfNull(balance);
         ArgumentNullException.ThrowIfNull(rules);
         StatBoundsResult bounds = StatDefs.ResolveBounds(balance, rules);
         RuleSeverity dup = SeverityOf(rules, GeneralRuleIds.IdsAndReferences);
         RuleSeverity many = SeverityOf(rules, GeneralRuleIds.TooManyDefs);
-        var found = new List<ContentDiagnostic>();
-        var failed = new List<FailedInput>();
+        var found = new List<ContentDiagnostic>(priorFindings.IsDefault ? ImmutableArray<ContentDiagnostic>.Empty : priorFindings);
+        var failed = new List<FailedInput>(priorFailures.IsDefault ? ImmutableArray<FailedInput>.Empty : priorFailures);
         var candidate = new ContentSet(
             balance,
             bounds.Bounds,
-            ContentIdChecks.Prepare(DefType.Container, "containers", ContentInputKeys.Containers, containers, dup, many, found, failed),
-            ContentIdChecks.Prepare(DefType.Item, "items", ContentInputKeys.Items, items, dup, many, found, failed),
-            ContentIdChecks.Prepare(DefType.MailKind, "mail_kinds", ContentInputKeys.MailKinds, mailKinds, dup, many, found, failed),
-            ContentIdChecks.Prepare(DefType.DestinationType, "destination_types", ContentInputKeys.DestinationTypes, destinationTypes, dup, many, found, failed),
-            ContentIdChecks.Prepare(DefType.MailMix, "mail_mixes", ContentInputKeys.MailMixes, mailMixes, dup, many, found, failed));
+            ContentIdChecks.Prepare(DefType.Container, "containers", ContentInputKeys.Containers, defs.Containers, dup, many, found, failed),
+            ContentIdChecks.Prepare(DefType.Item, "items", ContentInputKeys.Items, defs.Items, dup, many, found, failed),
+            ContentIdChecks.Prepare(DefType.MailKind, "mail_kinds", ContentInputKeys.MailKinds, defs.MailKinds, dup, many, found, failed),
+            ContentIdChecks.Prepare(DefType.DestinationType, "destination_types", ContentInputKeys.DestinationTypes, defs.DestinationTypes, dup, many, found, failed),
+            ContentIdChecks.Prepare(DefType.MailMix, "mail_mixes", ContentInputKeys.MailMixes, defs.MailMixes, dup, many, found, failed));
         ValidationResult runner = ContentValidationRunner.Run(
             rules, new ContentValidationInput(candidate, failed.ToImmutableArray(), references, default, verbDeclarations));
         ValidationResult merged = Merge(bounds.Validation.Diagnostics.AddRange(found), runner);
