@@ -35,21 +35,21 @@
 
 *From GDD `design/gdd/throwing-catching.md` (TC-F4-1, TC-T6-1, TC-T6-2, TC-E-1 b), scoped to this story. The goon (d, f, g) and catcher (e) vectors of TC-F4-1 are M-1b / story 023 and are not failed here:*
 
-- [ ] **TC-F4-1 (FX-Flat).** P0 (10250, 963, 10570) → P1 (10250, 837, 10114) against MB-A (catch volume x 9750–10750, y 600–1400, z 9500–10500): f = 154, contact (10250, 944, 10500), kind Mailbox.
-- [ ] **TC-F4-1 b.** From the TC-F4-1 P0 (10250, 963, 10570): D = (0, −126, −70) → f = 1000 hit; D = (0, −126, −69) → no hit (the exact `CeilDiv`/`FloorDiv` edge).
-- [ ] **TC-F4-1 c.** P0 (10250, 1000, 10200) inside the volume with D (0, −100, −50) → f = 0.
-- [ ] **TC-F4-1 h.** Heightfield march, n = 4, first sample at or below H at i = 2 with gaps 100 and −50 → f = 417.
-- [ ] **TC-T6-1 (parametrised).** Stub receivers at equal f = 500: rank decides for the 7 adjacent rank pairs (catcher over mailbox, mailbox over goon, goon over teammate, teammate over belt, belt over solid, solid over ground, ground over water). Equal rank → the smaller `dist²` to the receiver centre → the lower `Mix64(flightId << 32 | receiverKey)`: across 1 000 `FlightId`s two otherwise-identical receivers each win at least once.
-- [ ] **TC-T6-1 b.** An earlier f beats rank: a mailbox at f = 300 beats an armed-catcher stub at f = 400.
-- [ ] **TC-T6-2 (descending only).** MB-A: (10250, 1300, 10800) → (10250, 1200, 10200) lands (descending). The same segment with start y 1100 (rising) or y 1000 → 1000 (flat) does not. First qualifying volume wins, as two `FirstContact` calls on one view holding MB-A and MB-B (FX-Flat, GDD `throwing-catching.md` l.1132; MB-B is at z 16000, so the full flight is multi-tick stepping, story 011): a rising segment inside MB-B gives no hit, and a descending segment into MB-A returns kind Mailbox with MB-A's key.
-- [ ] **TC-E-1 b (sweep half).** An origin inside MB-A's volume: a descending first segment yields f = 0 at T+1; an upward one produces no hit.
-- [ ] **Terrain and water.** A segment that crosses terrain above dry land yields kind Ground at the `HeightfieldMarch` contact. The water plane is a slab against y = 0 where `TerrainHeightMm < 0`: the y = 0 crossing fraction is computed, and `WaterDepthMm` at the contact is the authority (`Tile(tx, tz).Water` is only a broad-phase hint, ADR-0026 §3); it yields Water. Water ranks 7 and Ground 6, so a shoreline tie goes to Ground. Vectors (a `WorldTablesBuilder` world): with flat terrain at −500 mm, P0 (5000, 300, 5000) → P1 (5000, −300, 5000) gives Water at f = 500, contact (5000, 0, 5000); over flat terrain at +100 mm the same segment gives Ground via `HeightfieldMarch`.
-- [ ] **Map edge.** A segment leaving `Bounds` yields kind Solid at the boundary crossing (the map's vertical sides are rank-5 solids, T6). `FirstContact` tests the four side planes of `v.Bounds` itself; story 003 only supplies the value.
-- [ ] **Broad phase.** Dynamic spans (sphere/cylinder candidates) are rejected by a bounding-sphere test against the segment before any quadratic form; a guard rejects |R| > 65 536 mm: `SegmentIntervals` returns `SegmentInterval.None`, the form is not evaluated, and `SimAssertCode.GeometryBroadPhase` (40) fires under `SIM_ASSERT` (no counter; `FirstContact` takes no counter sink — Evan 2026-10-28 7:24 AM PT, TD-179); an int64 property test with |R| = 65 536 and |D| up to 1 200 mm never overflows.
-- [ ] **A = 0.** A zero-length segment uses the point test (contact iff `C ≤ 0`) with no division.
-- [ ] **Contact point.** `contact = P0 + Throw.RH(D·f, 1000)` for every kind; the result struct is `(Kind, ReceiverKey, FPm, Point, Rank)`.
-- [ ] **ReceiverMask.** With `ReceiverMask.StaticOnly`, Catchers, Cylinders and Belts are skipped, and the static results equal the `All` result on the same view.
-- [ ] Purity: `FirstContact` is `static`, uses no `float`, and reads nothing but its arguments (an architecture test: no `float`/`double` token and no static fields in `FlightSweep.cs`); it allocates 0 B over 100 000 calls, measured by the `GC.GetAllocatedBytesForCurrentThread()` delta — **advisory, not blocking, until M0 (ADR-0015 erratum E2)**.
+- [x] **TC-F4-1 (FX-Flat).** P0 (10250, 963, 10570) → P1 (10250, 837, 10114) against MB-A (catch volume x 9750–10750, y 600–1400, z 9500–10500): f = 154, contact (10250, 944, 10500), kind Mailbox.
+- [x] **TC-F4-1 b.** From the TC-F4-1 P0 (10250, 963, 10570): D = (0, −126, −70) → f = 1000 hit; D = (0, −126, −69) → no hit (the exact `CeilDiv`/`FloorDiv` edge).
+- [x] **TC-F4-1 c.** P0 (10250, 1000, 10200) inside the volume with D (0, −100, −50) → f = 0.
+- [x] **TC-F4-1 h.** Heightfield march, n = 4, first sample at or below H at i = 2 with gaps 100 and −50 → f = 417.
+- [x] **TC-T6-1 (parametrised).** Stub receivers at equal f = 500: rank decides for the 7 adjacent rank pairs (catcher over mailbox, mailbox over goon, goon over teammate, teammate over belt, belt over solid, solid over ground, ground over water). Equal rank → the smaller `dist²` to the receiver centre → the lower `Mix64(flightId << 32 | receiverKey)`: across 1 000 `FlightId`s two otherwise-identical receivers each win at least once.
+- [x] **TC-T6-1 b.** An earlier f beats rank: a mailbox at f = 300 beats an armed-catcher stub at f = 400.
+- [x] **TC-T6-2 (descending only).** MB-A: (10250, 1300, 10800) → (10250, 1200, 10200) lands (descending). The same segment with start y 1100 (rising) or y 1000 → 1000 (flat) does not. First qualifying volume wins, as two `FirstContact` calls on one view holding MB-A and MB-B (FX-Flat, GDD `throwing-catching.md` l.1132; MB-B is at z 16000, so the full flight is multi-tick stepping, story 011): a rising segment inside MB-B gives no hit, and a descending segment into MB-A returns kind Mailbox with MB-A's key.
+- [x] **TC-E-1 b (sweep half).** An origin inside MB-A's volume: a descending first segment yields f = 0 at T+1; an upward one produces no hit.
+- [x] **Terrain and water.** A segment that crosses terrain above dry land yields kind Ground at the `HeightfieldMarch` contact. The water plane is a slab against y = 0 where `TerrainHeightMm < 0`: the y = 0 crossing fraction is computed, and `WaterDepthMm` at the contact is the authority (`Tile(tx, tz).Water` is only a broad-phase hint, ADR-0026 §3); it yields Water. Water ranks 7 and Ground 6, so a shoreline tie goes to Ground. Vectors (a `WorldTablesBuilder` world): with flat terrain at −500 mm, P0 (5000, 300, 5000) → P1 (5000, −300, 5000) gives Water at f = 500, contact (5000, 0, 5000); over flat terrain at +100 mm the same segment gives Ground via `HeightfieldMarch`.
+- [x] **Map edge.** A segment leaving `Bounds` yields kind Solid at the boundary crossing (the map's vertical sides are rank-5 solids, T6). `FirstContact` tests the four side planes of `v.Bounds` itself; story 003 only supplies the value.
+- [x] **Broad phase.** Dynamic spans (sphere/cylinder candidates) are rejected by a bounding-sphere test against the segment before any quadratic form; a guard rejects |R| > 65 536 mm: `SegmentIntervals` returns `SegmentInterval.None`, the form is not evaluated, and `SimAssertCode.GeometryBroadPhase` (40) fires under `SIM_ASSERT` (no counter; `FirstContact` takes no counter sink — Evan 2026-10-28 7:24 AM PT, TD-179); an int64 property test with |R| = 65 536 and |D| up to 1 200 mm never overflows.
+- [x] **A = 0.** A zero-length segment uses the point test (contact iff `C ≤ 0`) with no division.
+- [x] **Contact point.** `contact = P0 + Throw.RH(D·f, 1000)` for every kind; the result struct is `(Kind, ReceiverKey, FPm, Point, Rank)`.
+- [x] **ReceiverMask.** With `ReceiverMask.StaticOnly`, Catchers, Cylinders and Belts are skipped, and the static results equal the `All` result on the same view.
+- [x] Purity: `FirstContact` is `static`, uses no `float`, and reads nothing but its arguments (an architecture test: no `float`/`double` token and no static fields in `FlightSweep.cs`); it allocates 0 B over 100 000 calls, measured by the `GC.GetAllocatedBytesForCurrentThread()` delta — **advisory, not blocking, until M0 (ADR-0015 erratum E2)**.
 
 Coverage target: every AC bullet maps to at least one `[Trait("Id", …)]` test.
 
@@ -92,7 +92,7 @@ Coverage target: every AC bullet maps to at least one `[Trait("Id", …)]` test.
 **Required evidence**:
 - Logic: `tests/unit/throwing/FlightSweepTests.cs` (`[Trait("Id", "TC-F4-1")]`, `TC-T6-1`, `TC-T6-2`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/unit/throwing/FlightSweepTests.cs` (17 test methods, 45 cases); passing on net10.0 Debug (2026-10-28). net8.0 Release not yet run (story close).
 
 ---
 
