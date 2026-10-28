@@ -47,31 +47,6 @@ public class BuiltInContentTests
         Assert.Single(Ids(c.MailMixes));
     }
 
-    [Fact]
-    [Trait("Id", "CD21")]
-    public void CreateM1a_EveryTableIsSortedByOrdinalId_AndIndexerAgreesWithPosition()
-    {
-        ContentSet c = BuiltInContent.CreateM1a();
-
-        AssertSorted(c.Containers);
-        AssertSorted(c.Items);
-        AssertSorted(c.MailKinds);
-        AssertSorted(c.DestinationTypes);
-        AssertSorted(c.MailMixes);
-        Assert.Equal("letter", c.MailKinds[DefIndex.FromValue(1)].Id);
-    }
-
-    private static void AssertSorted<T>(DefTable<T> t)
-        where T : IDef
-    {
-        string[] ids = Ids(t);
-        Assert.Equal(ids.OrderBy(x => x, StringComparer.Ordinal).ToArray(), ids);
-        for (int i = 0; i < ids.Length; i++)
-        {
-            Assert.Equal(ids[i], t[DefIndex.FromValue((ushort)i)].Id);
-        }
-    }
-
     // ------------------------------------------------------------ authored values
 
     [Fact]

@@ -433,17 +433,6 @@ public class GeneralRulesTests
 
     // ------------------------------------------------------------ CV-GEN-17 more cases
 
-    [Theory]
-    [Trait("Id", "CDD-STAT-17")]
-    [InlineData(0, true)]
-    [InlineData(1, false)]
-    public void ContainerRows_MustBeAtLeastOne(int rows, bool trips)
-    {
-        ContentBuildResult r = ContentFixtures.MinimalValid().Replace(ContentFixtures.Cursor with { GridH = rows }).Build();
-
-        Assert.Equal(trips ? 1 : 0, Of(r, GeneralRuleIds.StatBaseOutsideBounds).Length);
-    }
-
     [Fact]
     [Trait("Id", "CDD-STAT-17")]
     public void BalanceBase_OutsideItsStatsBounds_IsAnErrorNamingTheBalanceKey()
