@@ -6,7 +6,7 @@ namespace PerformativeMail.Sim.Content.Defs;
 /// <summary>
 /// The <see cref="ItemDef"/> field table (content-data CD10, story 018): the JSON fields in canonical encode order
 /// (<c>DefCanonical.WriteCanonical(ItemDef)</c>). Built fresh on each call, so the class holds no static state.
-/// Defaults are neutral (0, false, none) except <c>carryByHand</c>, which defaults to true by the GDD (CD10 Grid R5).
+/// Defaults are neutral (0, false, none), <c>carryByHand</c> included (false; CD10 owner ruling 2026-10-21).
 /// <c>buyPrice</c> has no default: absent means the item has no buy price. <c>maxStack</c> allows 0 so CV-GRD-04 (not CV-GEN-12)
 /// reports a stack below 1.
 /// </summary>
@@ -27,7 +27,7 @@ public static class ItemDefFieldSpec
         FieldSpec.Enumeration("weightClass", "WeightClass"),
         FieldSpec.Number("sellPrice", FieldUnit.Cents, required: false, min: 0, defaultValue: 0),
         FieldSpec.Number("buyPrice", FieldUnit.Cents, required: false, min: 0),
-        FieldSpec.Bool("carryByHand", defaultValue: true), // GDD exception to neutral defaults: carryByHand defaults to true (CD10, Grid R5).
+        FieldSpec.Bool("carryByHand", defaultValue: false),
         FieldSpec.Enumeration("equipSlot", "EquipSlot", required: false, defaultSpelling: "none"),
         FieldSpec.TextList("tags", required: false));
 }

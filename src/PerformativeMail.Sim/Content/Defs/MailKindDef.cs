@@ -41,8 +41,8 @@ public sealed record class MailKindDef : IDef
     /// <summary>Throw/weight class. Required with no default (CD7).</summary>
     public required WeightClass WeightClass { get; init; }
 
-    /// <summary>True when the kind can be carried in the hands (default true; false for cargo).</summary>
-    public bool CarryByHand { get; init; } = true;
+    /// <summary>True when the kind can be carried in the hands (default false: neutral, CD10 2026-10-21 ruling; false for cargo).</summary>
+    public bool CarryByHand { get; init; }
 
     /// <summary>Belt lanes occupied, 1 or 2 (required).</summary>
     public required int BeltLanes { get; init; }

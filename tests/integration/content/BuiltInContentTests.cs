@@ -92,7 +92,7 @@ public class BuiltInContentTests
             Assert.Equal((e.Cat, e.W, e.H, e.Stack, WeightClass.Light), (d.Category, d.GridW, d.GridH, d.MaxStack, d.WeightClass));
             Assert.False(d.HasBuyPrice);
             Assert.Equal(0, d.BuyPriceCents);
-            Assert.True(d.CarryByHand);
+            Assert.True(d.CarryByHand);   // spelled out by BuiltInContent: the record default is false (CD10 ruling 2026-10-21)
             Assert.Equal(EquipSlot.None, d.EquipSlot);
         }
     }
@@ -118,6 +118,7 @@ public class BuiltInContentTests
             Assert.Equal(0, k.DeadlineOffsetShifts);
             Assert.Equal(new[] { DefIndex.FromValue(0) }, k.AcceptedBy);   // house
             Assert.Equal((1, 500), (k.BeltLanes, k.BeltLengthMm));
+            Assert.True(k.CarryByHand);   // spelled out: the record default is false
             Assert.True(k.FallbackKind.IsNone);
         }
 
@@ -595,6 +596,7 @@ public class BuiltInContentTests
             Assert.False(d.AllowedCategories.IsDefault || d.ReservedSlots.IsDefault);
             Assert.Equal(d.HasAllowedCategories, !d.AllowedCategories.IsEmpty);
             Assert.True(d.HasGrid == (d.GridW > 0 && d.GridH > 0));
+            Assert.True(d.AcceptsInsert);   // spelled out on every M-1a container: the record default is false (CD10 ruling 2026-10-21)
             Assert.False(string.IsNullOrEmpty(d.Id));
         }
 

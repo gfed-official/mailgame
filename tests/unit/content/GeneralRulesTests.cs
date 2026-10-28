@@ -356,14 +356,8 @@ public class GeneralRulesTests
         Assert.Equal(TypeOf(folder), d.Def.Type);
         Assert.StartsWith("builtin/" + folder + "/", d.Location.Path, StringComparison.Ordinal);
         Assert.Null(r.Set);
-        if (folder == "items")
-        {
-            Assert.Empty(r.Validation.Skipped);   // no rule declares the item table as an input (CV-GRD-02 and 04 read it but tolerate a partial table)
-        }
-        else
-        {
-            Assert.Contains(r.Validation.Skipped, s => s.BlockingInput == key && s.BlockingFile == "builtin/" + folder);
-        }
+        // Every type's key is declared by some rule (the item table by CV-THR-08 since story 018, TD-069(2)).
+        Assert.Contains(r.Validation.Skipped, s => s.BlockingInput == key && s.BlockingFile == "builtin/" + folder);
     }
 
     [Fact]
@@ -405,15 +399,8 @@ public class GeneralRulesTests
         Assert.Equal(GeneralRuleIds.TooManyDefs, d.RuleId);
         Assert.Equal("builtin/" + folder, d.Location.Path);
         Assert.Null(r.Set);
-        if (folder == "items")
-        {
-            Assert.Empty(r.Validation.Skipped);
-        }
-        else
-        {
-            Assert.All(r.Validation.Skipped, s => Assert.Equal(key, s.BlockingInput));
-            Assert.NotEmpty(r.Validation.Skipped);
-        }
+        Assert.All(r.Validation.Skipped, s => Assert.Equal(key, s.BlockingInput));
+        Assert.NotEmpty(r.Validation.Skipped);
     }
 
     [Fact]

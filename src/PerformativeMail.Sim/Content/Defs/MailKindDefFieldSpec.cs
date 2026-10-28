@@ -6,8 +6,8 @@ namespace PerformativeMail.Sim.Content.Defs;
 /// <summary>
 /// The <see cref="MailKindDef"/> field table (content-data CD10, story 018), in canonical encode order. Money is Cents,
 /// <c>beltLengthMetres</c> Metres, <c>complaintOnMisdeliveryPoints</c> Points. <c>fallbackKind</c> is optional (absent = none).
-/// <c>maxStack</c> allows 0 so CV-GRD-04 reports a stack below 1. Defaults are neutral except the GDD-stated
-/// <c>carryByHand</c> true (CD10, Grid R5). Built fresh on each call.
+/// <c>maxStack</c> allows 0 so CV-GRD-04 reports a stack below 1. Defaults are neutral, <c>carryByHand</c> included (false;
+/// CD10 owner ruling 2026-10-21). Built fresh on each call.
 /// </summary>
 /// <example>
 /// <code>
@@ -24,7 +24,7 @@ public static class MailKindDefFieldSpec
         FieldSpec.Number("maxStack", FieldUnit.Count, min: 0, max: 65_535),
         FieldSpec.Number("baseValue", FieldUnit.Cents, min: 0),
         FieldSpec.Enumeration("weightClass", "WeightClass"),
-        FieldSpec.Bool("carryByHand", defaultValue: true), // GDD exception to neutral defaults: carryByHand defaults to true (CD10, Grid R5).
+        FieldSpec.Bool("carryByHand", defaultValue: false),
         FieldSpec.Number("beltLanes", FieldUnit.Count, min: 0),
         FieldSpec.Number("beltLengthMetres", FieldUnit.Metres, min: 0),
         FieldSpec.Number("deadlineOffsetShifts", FieldUnit.Count, required: false, min: 0, defaultValue: 0),

@@ -399,7 +399,7 @@ public class DefShapeTests
         ["ContainerDef"] = new[]
         {
             "Id:string:R", "Layout:ContainerLayout:R", "HasGrid:bool:D", "GridW:int:D", "GridH:int:D",
-            "View:ContainerView:D", "BeltAccess:BeltAccess:D", "HasAllowedCategories:bool:D",
+            "View:ContainerView:R", "BeltAccess:BeltAccess:D", "HasAllowedCategories:bool:D",
             "AllowedCategories:ImmutableArray<ItemCategory>:D", "HandCarried:bool:D", "AcceptsInsert:bool:D",
             "ReservedSlots:ImmutableArray<int>:D",
         },
@@ -493,8 +493,8 @@ public class DefShapeTests
     [Fact]
     public void ContainerDef_PileHasNoGridAndGridUsesColsByRows()
     {
-        ContainerDef pile = new() { Id = "death_bag", Layout = ContainerLayout.Pile };
-        ContainerDef chest = new() { Id = "chest", Layout = ContainerLayout.Grid, HasGrid = true, GridW = 8, GridH = 4 };
+        ContainerDef pile = new() { Id = "death_bag", Layout = ContainerLayout.Pile, View = ContainerView.Manifest };
+        ContainerDef chest = new() { Id = "chest", Layout = ContainerLayout.Grid, HasGrid = true, GridW = 8, GridH = 4, View = ContainerView.Grid };
 
         Assert.False(pile.HasGrid);
         Assert.Equal((8, 4), (chest.GridW, chest.GridH));
@@ -507,7 +507,6 @@ public class DefShapeTests
         Zero,
         False,
         None,
-        Any,
         EmptyList,
     }
 
@@ -518,20 +517,19 @@ public class DefShapeTests
         new(typeof(ItemDef), "SellPriceCents", 0L, Neutral.Zero),
         new(typeof(ItemDef), "HasBuyPrice", false, Neutral.False),
         new(typeof(ItemDef), "BuyPriceCents", 0L, Neutral.Zero),
-        new(typeof(ItemDef), "CarryByHand", true, Neutral.Any),
+        new(typeof(ItemDef), "CarryByHand", false, Neutral.False),
         new(typeof(ItemDef), "EquipSlot", EquipSlot.None, Neutral.None),
         new(typeof(ItemDef), "Tags", ImmutableArray<string>.Empty, Neutral.EmptyList),
         new(typeof(ContainerDef), "HasGrid", false, Neutral.False),
         new(typeof(ContainerDef), "GridW", 0, Neutral.Zero),
         new(typeof(ContainerDef), "GridH", 0, Neutral.Zero),
-        new(typeof(ContainerDef), "View", ContainerView.Auto, Neutral.Any),
         new(typeof(ContainerDef), "BeltAccess", BeltAccess.None, Neutral.None),
         new(typeof(ContainerDef), "HasAllowedCategories", false, Neutral.False),
         new(typeof(ContainerDef), "AllowedCategories", ImmutableArray<ItemCategory>.Empty, Neutral.EmptyList),
         new(typeof(ContainerDef), "HandCarried", false, Neutral.False),
-        new(typeof(ContainerDef), "AcceptsInsert", true, Neutral.Any),
+        new(typeof(ContainerDef), "AcceptsInsert", false, Neutral.False),
         new(typeof(ContainerDef), "ReservedSlots", ImmutableArray<int>.Empty, Neutral.EmptyList),
-        new(typeof(MailKindDef), "CarryByHand", true, Neutral.Any),
+        new(typeof(MailKindDef), "CarryByHand", false, Neutral.False),
         new(typeof(MailKindDef), "DeadlineOffsetShifts", 0, Neutral.Zero),
         new(typeof(MailKindDef), "FallbackKind", DefIndex.None, Neutral.None),
         new(typeof(DestinationTypeDef), "RequiresUnit", false, Neutral.False),
@@ -546,7 +544,7 @@ public class DefShapeTests
             Id = "axe", Name = "item.axe", Category = ItemCategory.Tool, GridW = 1, GridH = 2, MaxStack = 1,
             WeightClass = WeightClass.Light,
         },
-        [typeof(ContainerDef)] = () => new ContainerDef { Id = "chest", Layout = ContainerLayout.Grid },
+        [typeof(ContainerDef)] = () => new ContainerDef { Id = "chest", Layout = ContainerLayout.Grid, View = ContainerView.Grid },
         [typeof(MailKindDef)] = () => new MailKindDef
         {
             Id = "letter", Name = "mail.letter", GridW = 1, GridH = 1, MaxStack = 20, BaseValueCents = 8,
@@ -570,8 +568,6 @@ public class DefShapeTests
     {
         Neutral.Zero => Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture) == 0,
         Neutral.False => value is false,
-        // "any" for a flag is the permissive value (true); for an enum the "auto"/"any" member.
-        Neutral.Any => value is true || (value.GetType().IsEnum && value.ToString() == "Auto"),
         Neutral.None => value is DefIndex d ? d.IsNone : value.GetType().IsEnum && value.ToString() == "None",
         // The caller has already asserted Equals(ImmutableArray<T>.Empty), which a default (uninitialised) array fails.
         Neutral.EmptyList => value is System.Collections.ICollection c && c.Count == 0,
