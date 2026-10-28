@@ -31,6 +31,8 @@ public sealed class SchemaStage
     /// <exception cref="InvalidOperationException">A table fails the self-check; the message lists every issue.</exception>
     internal SchemaStage(ImmutableArray<SchemaTable> tables)
     {
+        // "Loader construction" for the TD-090 SelfCheck is this constructor (Mail Dev default, pending Evan (TD-176)); story 019's
+        // ContentLoader must construct SchemaStage.
         ImmutableArray<FieldSpecIssue> issues = ContentSchema.SelfCheck(tables);
         if (!issues.IsEmpty)
         {

@@ -256,7 +256,7 @@ public class SchemaStageTests
     [Trait("Id", "CD21")]
     [InlineData("empty", null)]                               // `[]` passes stage 2 with no defs
     [InlineData("midWalk", GeneralRuleIds.ValueOutOfRange)]   // a def failing mid-walk leaks nothing into stage 3
-    [InlineData("duplicate", GeneralRuleIds.EnumSpelling)]    // Mail Dev default, pending Evan: no CV-GEN-01 until the copy is clean
+    [InlineData("duplicate", GeneralRuleIds.EnumSpelling)]    // Mail Dev default, pending Evan (TD-176): no CV-GEN-01 until the copy is clean
     public void Build_RunsForATypeOnlyWhenAllItsFilesAreClean(string what, string? rule)
     {
         SchemaResult[] files = what switch
@@ -273,19 +273,21 @@ public class SchemaStageTests
         Assert.Equal(rule is not null, built.Failed.Any(f => f.Input == ContentInputKeys.Items));
     }
 
-    [Fact]
+    [Theory]
     [Trait("Id", "CD21")]
-    public void Build_TooManyDefsInOneType_IsCvGen09_AndTheTypeIsLeftEmpty()
+    [InlineData(0, false)]   // exactly MaxDefsPerType builds
+    [InlineData(1, true)]
+    public void Build_TooManyDefsInOneType_IsCvGen09_AndTheTypeIsLeftEmpty(int over, bool tooMany)
     {
-        ImmutableArray<ParsedDef> defs = Enumerable.Range(0, DefIdAssigner.MaxDefsPerType + 1)
+        ImmutableArray<ParsedDef> defs = Enumerable.Range(0, DefIdAssigner.MaxDefsPerType + over)
             .Select(i => new ParsedDef(DefType.MailMix, "m" + i.ToString(System.Globalization.CultureInfo.InvariantCulture), new SourceLocation("mail/mix.jsonc", i + 2, 3), ImmutableArray<ParsedField>.Empty, ImmutableArray<SuppressEntry>.Empty, false))
             .ToImmutableArray();
 
         BuiltDefs built = Builder.Build(new[] { new SchemaResult("mail/mix.jsonc", DefType.MailMix, defs, ImmutableArray<ContentDiagnostic>.Empty) });
 
-        Assert.Equal(GeneralRuleIds.TooManyDefs, Assert.Single(built.Diagnostics).RuleId);
-        Assert.Empty(built.MailMixes);
-        Assert.Contains(built.Failed, f => f.Input == ContentInputKeys.MailMixes);
+        Assert.Equal(tooMany ? new[] { GeneralRuleIds.TooManyDefs } : Array.Empty<string>(), built.Diagnostics.Select(d => d.RuleId));
+        Assert.Equal(tooMany ? 0 : DefIdAssigner.MaxDefsPerType, built.MailMixes.Length);
+        Assert.Equal(tooMany, built.Failed.Any(f => f.Input == ContentInputKeys.MailMixes));
     }
 
     [Theory]

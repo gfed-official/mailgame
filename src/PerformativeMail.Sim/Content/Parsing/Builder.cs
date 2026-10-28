@@ -91,7 +91,7 @@ public static class Builder
                     continue;
                 }
 
-                // Mail Dev default, pending Evan: this returns before DropDuplicates, so a duplicate id where either copy also has
+                // Mail Dev default, pending Evan (TD-176): this returns before DropDuplicates, so a duplicate id where either copy also has
                 // a schema error shows only that error; its CV-GEN-01 appears once the type is clean.
                 if (!file.Ok)
                 {
@@ -126,7 +126,7 @@ public static class Builder
         private void TooMany(DefType type, List<ParsedDef> defs)
         {
             DefAssignment verdict = DefIdAssigner.Assign(IdsOf(defs));   // count-only TooManyDefs, the single source of the limit
-            ParsedDef first = defs[DefIdAssigner.MaxDefsPerType];       // Mail Dev default, pending Evan: located at the first def over the limit
+            ParsedDef first = defs[DefIdAssigner.MaxDefsPerType];       // Mail Dev default, pending Evan (TD-176): located at the first def over the limit
             _found.Add(new ContentDiagnostic(
                 GeneralRuleIds.TooManyDefs, RuleSeverity.Error, first.Start, DefRef.None,
                 verdict.Count.ToString(CultureInfo.InvariantCulture) + " defs",
@@ -167,7 +167,7 @@ public static class Builder
             return defs.FindAll(d => copies[d.Id!].Count == 1);
         }
 
-        // Mail Dev default, pending Evan: the location form for file-backed findings is `path:line` (the line of each copy's '{').
+        // Mail Dev default, pending Evan (TD-176): the location form for file-backed findings is `path:line` (the line of each copy's '{').
         private static ContentDiagnostic DuplicateFinding(DefType type, string id, List<ParsedDef> copies)
         {
             var where = new string[copies.Count];
@@ -343,7 +343,7 @@ public static class Builder
         /// </summary>
         private DefIndex Resolve(DefRef from, SourceLocation where, string field, DefType target, string id)
         {
-            // Mail Dev default, pending Evan: an unresolved target is stored as DefIndex.None, so stage 4's CV-GEN-01 can report one bad
+            // Mail Dev default, pending Evan (TD-176): an unresolved target is stored as DefIndex.None, so stage 4's CV-GEN-01 can report one bad
             // list reference twice (the pending clause naming the id, and the index clause naming "none").
             _refs.Add(new PendingReference(from, where, field, target, id));
             return _index.TryGetValue(target, out Dictionary<string, DefIndex>? ids) && ids.TryGetValue(id, out DefIndex at)
