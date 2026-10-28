@@ -1,12 +1,12 @@
 # Story 002: `FlightSweep.FirstContact` — F4 swept contact, receiver ranks, descending-entry mailbox rule and the `(f, rank, dist², Mix64)` winner
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + ~400 lines tests)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-28 (readiness doc fixes, `/workspace/repos/logs/tc002-handoff.md`: manifest stamp re-checked against 2026-10-17.1 (ADR-0026 far-edge sampling, which the march follows); Evan's three defaults and the ADR-0015 §2/§4 errata, Approved by Evan 2026-10-28 7:24 AM PT (Mail Lead chat): "Approve all three throwing-catching 002 defaults and the ADR-0015 §2 and §4 errata: keep Fix.MulDivRH, an uncounted far-segment guard, and fixed receiver keys" (TD-179); "counted" dropped from Broad phase; Terrain and water vectors; TC-T6-2's last clause as two calls; a `ReceiverMask` AC; the 0 B clause advisory per E2; namespace, `Fix` restriction, story 023 Deferred, `IWorldQuery.Tile`)
+> **Last Updated**: 2026-10-28 (Complete, PR #55: all 15 ACs met, Sonnet code review r2 APPROVED; full suites 5,602 per leg, 0 failed. Before that: readiness doc fixes, `/workspace/repos/logs/tc002-handoff.md`: manifest stamp re-checked against 2026-10-17.1 (ADR-0026 far-edge sampling, which the march follows); Evan's three defaults and the ADR-0015 §2/§4 errata, Approved by Evan 2026-10-28 7:24 AM PT (Mail Lead chat): "Approve all three throwing-catching 002 defaults and the ADR-0015 §2 and §4 errata: keep Fix.MulDivRH, an uncounted far-segment guard, and fixed receiver keys" (TD-179); "counted" dropped from Broad phase; Terrain and water vectors; TC-T6-2's last clause as two calls; a `ReceiverMask` AC; the 0 B clause advisory per E2; namespace, `Fix` restriction, story 023 Deferred, `IWorldQuery.Tile`)
 
 > **Primitives story (2 of 3).** The one swept-segment test used by the host's `Throwing.Step`, the aim preview and (later) the catch prompt predictor. It works on a `ReceiverView` of spans handed to it; story 003 builds that view from the world and Mail.
 
@@ -92,7 +92,7 @@ Coverage target: every AC bullet maps to at least one `[Trait("Id", …)]` test.
 **Required evidence**:
 - Logic: `tests/unit/throwing/FlightSweepTests.cs` (`[Trait("Id", "TC-F4-1")]`, `TC-T6-1`, `TC-T6-2`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [x] Created — `tests/unit/throwing/FlightSweepTests.cs` (18 test methods, 41 cases); FlightSweepTests passing on net10.0 Debug and net8.0 Release (2026-10-28, after the review fixes). Full-suite pair not yet run (story close).
+**Status**: [x] Created — `tests/unit/throwing/FlightSweepTests.cs` (18 test methods, 41 cases); passing; full suites run 2026-10-28 at story close: 5,602 tests per leg (5,561 + 41), 0 failed — net10.0 Debug 5,538 passed / 64 skipped, net8.0 Release 5,595 passed / 7 skipped; CI on the pushed head is recorded in the PR #55 body. The purity 0 B probe is advisory until M0 (E2).
 
 ---
 
