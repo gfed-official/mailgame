@@ -30,10 +30,11 @@ namespace PerformativeMail.Sim.Tests.Integration.PlayerCharacter;
 /// in the z 6000-10 000 band (a 1400 mm / 700 permille tile up to a 2400 mm plateau, then a 1404 mm / 702 permille face), an FX-Beach
 /// strip falling 1000 mm per tile from z 20 000 into FX-Deep (-2000 mm), and static boxes: a spawn crate the carrier starts inside
 /// (a static world's only way to reach depenetration), a 400 mm step, a 401 mm block, a ceiling slab 1.5 m above the ground, a 50 mm
-/// thin wall and a pier with a 1200 mm top in the deep water (the haul-out ledge). The course lies against the far X edge, so the
-/// map-edge clamp leg runs against ADR-0026's far-edge sampling rule. Settings are the M-1a defaults except <c>buffCapPm</c> 4000: the
-/// script's Boost flag sets <c>BuffAddPm</c> 4000, the only input that moves a tick more than <c>subStepMm x maxSubStepsPerTick</c>
-/// (1200 mm), so the only way to reach <c>carrierStepClamped</c>.
+/// thin wall and a pier with a 1200 mm top in the deep water (the haul-out ledge). The map-edge clamp leg stops the carrier at
+/// x 127 000 with Vx 0 (<c>MapMaxMm</c> 128 000 minus <see cref="CarrierBounds.InsetMm"/>); no tick samples x = TilesX x S, so it does
+/// not exercise ADR-0026's far-edge sampling rule. Settings are the M-1a defaults except <c>buffCapPm</c> 4000: the script's Boost flag
+/// sets <c>BuffAddPm</c> 4000, the only input that moves a tick more than <c>subStepMm x maxSubStepsPerTick</c> (1200 mm), so the only
+/// way to reach <c>carrierStepClamped</c>.
 /// </para>
 /// <para>
 /// Script: one row per tick (<c>tick,moveX,moveY,lookYaw,flags</c>; flags 1 Sprint, 2 Jump, 4 Aim, 8 Boost; '#' lines name the legs);
