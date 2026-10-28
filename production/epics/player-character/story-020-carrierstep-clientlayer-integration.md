@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~500 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-21 08:40 PT (Mail Review: input-controls 008 alone appends `PanelOpen`; dependency on 008 added). 2026-10-21 (docs: the Panel source is decided — `CarrierStatus.PanelOpen` comes from the tick's `InputFrameFlags.PanelOpen`, owner ruling per the ADR-0012/ADR-0014 errata 2026-10-21; the panel-mirror fallback is removed; stamp unchanged, the errata change no manifest rule). 2026-10-20 (docs: `CarrierStatus.OccupiedSeat` is published as `AnchorRef.None` at M-1a — ADR-0014 erratum 2026-10-20; stamp unchanged, the erratum changes no manifest rule)
+> **Last Updated**: 2026-10-27 (Replay AC moved here from story 010 by Evan 10:46 PM PT; depends on simulation-core 026). 2026-10-21 08:40 PT (Mail Review: input-controls 008 alone appends `PanelOpen`; dependency on 008 added). 2026-10-21 (docs: the Panel source is decided — `CarrierStatus.PanelOpen` comes from the tick's `InputFrameFlags.PanelOpen`, owner ruling per the ADR-0012/ADR-0014 errata 2026-10-21; the panel-mirror fallback is removed; stamp unchanged, the errata change no manifest rule). 2026-10-20 (docs: `CarrierStatus.OccupiedSeat` is published as `AnchorRef.None` at M-1a — ADR-0014 erratum 2026-10-20; stamp unchanged, the erratum changes no manifest rule)
 
 ## Context
 
@@ -16,7 +16,7 @@
 
 **ADR Governing Implementation**: ADR-0016: ClientLayer previews and presentation timing (§1 ports, §2 step order, §6 own-carrier timeline) — Accepted 2026-10-16 (primary); ADR-0013 (§1 owner role: `ClientStepId.CarrierStep` calls `OwnedCarrier.Step` once per client tick with the tick's `InputFrame` translated into `CarrierInput`), ADR-0003 (§6 `ClientLayer`, "never reads `SimWorld`"), ADR-0012 (`InputFrame`) secondary — Accepted
 **ADR Decision Summary**: Order per tick is `MirrorDrain → InputLatch → CarrierStep → Previews`. `CarrierStep` is Players' `IClientStep`: it translates the tick's `InputFrame` (Q15 move on the unit disc, absolute look, held bits, ordered edges on the first tick of a catch-up batch only) into `CarrierInput`, builds `CarrierEnv` from the ClientLayer's views (world tables, remote-capsule and support sources, settings), calls `OwnedCarrier.Step` and reports the result as the authoritative transform through the transform stream. Role differences are inputs, never branches on "am I the host". The own carrier's timeline is "present, ≤ 1-tick interpolation by `AlphaPermille`".
-**ADR Version**: ADR-0016 2026-10-16; ADR-0013 2026-10-16; ADR-0003 2026-10-16; ADR-0012 2026-10-16
+**ADR Version**: ADR-0016 2026-10-16; ADR-0013 2026-10-16 (l.147 and l.226: recorded inputs and snapshots replay bit-identically); ADR-0006 2026-10-16 (§7 recorder and replay); ADR-0003 2026-10-16; ADR-0012 2026-10-16
 
 **Engine**: Godot 4.7.1 .NET (Godot-free `net8.0` Sim code) | **Risk**: LOW
 **Engine Notes**: None.
@@ -42,6 +42,7 @@
 - [ ] **Published state.** `ICarrierView` exposes, read-only, the current and previous tick's `CarrierState` (feet, BodyYaw, `Loco`, flags, velocity, `RemX/RemZ`), the aim (look yaw + pitch), `CarrierStatus` (Story 013; its `OccupiedSeat` is `AnchorRef.None` at M-1a — Vehicles' client mount state fills it at M1, ADR-0014 erratum 2026-10-20) and the swept result of the last tick — everything Story 022 needs to render the pose without touching the solver — plus the `CarrierInput` of the last step (`LastInput`, read-only) so Story 022 can run its presentation-only one-tick probe on a copy of the state.
 - [ ] **Counters and budget.** The solver counters are flushed to `SimCounters` each tick (Story 002); 600 warmed ticks of the golden script (Story 010) through the ClientLayer allocate 0 B; a `[Trait("Category","Perf")]` advisory test logs `CarrierStep` + focus p99 for the worst-case fixture and never fails (PCM-PERF-1 wall-clock is advisory; the 8-player/2 000-anchor fixture stays BLOCKED on the tick-driver spike).
 - [ ] **OQ23 measurement.** On the world-stub M-1a street, a scripted walk from the Post Office pad reaches within 2500 mm (chest to anchor, unoccluded) of every lot's mailbox `Anchor` and of `po_intake`'s `IntakeAnchor`, and the 300/1400 capsule passes the Post Office entrance/approach geometry; any obstruction is recorded as a finding for GDD OQ23 in this story's evidence note (not silently adjusted).
+- [ ] **Replay (moved from story 010, PCM-P2-1 replay half).** *Evan 2026-10-27 10:46 PM PT, Mail Lead chat, answering the widget "Player-character 010's replay check: where should it go?": "Move player-character 010's replay check (AC 7) to player-character 020".* With `OwnedCarrier.Step` now driven by `CarrierStep`, the replay path is real. In the in-memory harness: (1) run story 010's committed 600-tick script (`tests/unit/player/golden/carrier-600.script.csv`, with its scripted remote-capsule and support snapshots) through `ClientLayer.Step`, with `ITransformSampleSink` wired to `SimWorld.TryWriteSample` on a world built with an `InMemoryRecorder` (sim-core 026); (2) `ReplayDriver.Run` on that recording returns `ReplayOutcome.Reproduced` with `SampleMismatches = 0` (every carrier `TransformSample` replays bit-identically, ADR-0013 l.147 / l.226, ADR-0006 §7); (3) the per-tick transform hash chain of the ClientLayer run equals story 010's committed golden (`carrier-600.golden.txt`), so the binder changes nothing the raw solver produced. The recorder does not log `InputFrame`s or the remote-capsule / support spans at M-1a (solo: empty and inert, ADR-0013 l.146), so the client side of the replay is the committed script itself; never silently pass.
 
 ---
 
@@ -83,7 +84,7 @@
 
 **Story Type**: Integration
 **Required evidence**:
-- Integration: `tests/integration/player/CarrierStepClientLayerTests.cs` (`[Trait("Id", "PCM-FEEL-1")]`, `PCM-P3-3`) and `tests/integration/player/StreetReachabilityTests.cs` (OQ23 measurement) — must exist and pass on net10.0 and net8.0
+- Integration: `tests/integration/player/CarrierStepClientLayerTests.cs` (`[Trait("Id", "PCM-FEEL-1")]`, `PCM-P3-3`) and `tests/integration/player/StreetReachabilityTests.cs` (OQ23 measurement); the Replay AC lives in `CarrierStepClientLayerTests.cs` (`[Trait("Id", "PCM-P2-1")]`, replay half) — must exist and pass on net10.0 and net8.0
 
 **Status**: [ ] Not yet created
 
@@ -91,5 +92,5 @@
 
 ## Dependencies
 
-- Depends on: Stories 001, 002, 005–010 (the locked solver), 013 (`CarrierStatus`), 014 (Focus order test), 019 (host ingest to pair with the sink); `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md` (`ClientLayer`, `InputFrame`, `ClientStepId.CarrierStep`); `production/epics/input-controls/story-008-router-state-transitions-and-passthrough.md` (appends and sets `InputFrameFlags.PanelOpen`); `production/epics/simulation-core/story-021-transform-sample-ring-latch.md` (`TransformSample`, `TryWriteSample`); `production/epics/grid-inventory/story-016-weight-speed.md` (weight function); `production/epics/content-data/story-014-statsheet-build-read-explain.md` (`IStatSheet.Read`); `production/epics/world-stub/story-006-m1a-street-and-fixtures.md` (M-1a street for the OQ23 measurement)
+- Depends on: Stories 001, 002, 005–010 (the locked solver), 013 (`CarrierStatus`), 014 (Focus order test), 019 (host ingest to pair with the sink); `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md` (`ClientLayer`, `InputFrame`, `ClientStepId.CarrierStep`); `production/epics/input-controls/story-008-router-state-transitions-and-passthrough.md` (appends and sets `InputFrameFlags.PanelOpen`); `production/epics/simulation-core/story-021-transform-sample-ring-latch.md` (`TransformSample`, `TryWriteSample`); `production/epics/grid-inventory/story-016-weight-speed.md` (weight function); `production/epics/content-data/story-014-statsheet-build-read-explain.md` (`IStatSheet.Read`); `production/epics/world-stub/story-006-m1a-street-and-fixtures.md` (M-1a street for the OQ23 measurement); `production/epics/simulation-core/story-026-inmemory-recorder-replay.md` (`InMemoryRecorder`, `ReplayDriver`; the Replay AC moved from story 010, Evan 2026-10-27 10:46 PM PT)
 - Unlocks: Stories 022, 023, 024 (published `ICarrierView`); manual-delivery / throwing-catching end-to-end tests (a real moving, interacting carrier)
