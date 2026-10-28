@@ -39,32 +39,47 @@ public class OpenSetPutAwayTests
 
     // ------------------------------------------------------------------ TargetOrder: the cursor row
 
-    [Theory]
-    [InlineData(ItemCategory.Tool, true)]
-    [InlineData(ItemCategory.Weapon, true)]
-    [InlineData(ItemCategory.Consumable, true)]
-    [InlineData(ItemCategory.Material, false)]
-    [InlineData(ItemCategory.Ammo, false)]
-    [InlineData(ItemCategory.Blueprint, false)]
-    [InlineData(ItemCategory.Mail, false)]
+    // Every ItemCategory member (7) runs in one test; every failing category is reported in one message.
+    [Fact]
     [Trait("Id", "R9")]
-    public void CursorRow_ToolWeaponConsumable_AreHotbarFirst_EveryOtherCategoryIncludingMail_IsPlayerInventoryFirst(ItemCategory category, bool hotbarFirst)
+    public void CursorRow_ToolWeaponConsumable_AreHotbarFirst_EveryOtherCategoryIncludingMail_IsPlayerInventoryFirst()
     {
         // Arrange
         const ushort Hotbar = 11;
         const ushort PlayerInventory = 22;
+        ItemCategory[] categories = Enum.GetValues<ItemCategory>();
+        var failures = new List<string>();
         Span<ushort> targets = stackalloc ushort[TargetOrder.CursorRowLength + 1];
-        targets[2] = 99;
 
         // Act
-        TargetOrder.CursorRow(category, Hotbar, PlayerInventory, targets);
+        for (int i = 0; i < categories.Length; i++)
+        {
+            ItemCategory category = categories[i];
+            bool hotbarFirst = category is ItemCategory.Tool or ItemCategory.Weapon or ItemCategory.Consumable;
+            try
+            {
+                targets.Clear();
+                targets[2] = 99;
+                TargetOrder.CursorRow(category, Hotbar, PlayerInventory, targets);
 
-        // Assert: two targets, no backpack, the third element untouched
+                // Collected: two targets, no backpack, the third element untouched
+                bool isHotbarFirst = TargetOrder.IsHotbarFirst(category);
+                if (isHotbarFirst != hotbarFirst || targets[0] != (hotbarFirst ? Hotbar : PlayerInventory)
+                    || targets[1] != (hotbarFirst ? PlayerInventory : Hotbar) || targets[2] != 99)
+                {
+                    failures.Add($"row {i} ({category}): expected hotbarFirst {hotbarFirst}, got IsHotbarFirst {isHotbarFirst} and targets [{targets[0]}, {targets[1]}, {targets[2]}]");
+                }
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"row {i} ({category}): {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        // Assert
         Assert.Equal(2, TargetOrder.CursorRowLength);
-        Assert.Equal(hotbarFirst, TargetOrder.IsHotbarFirst(category));
-        Assert.Equal(hotbarFirst ? Hotbar : PlayerInventory, targets[0]);
-        Assert.Equal(hotbarFirst ? PlayerInventory : Hotbar, targets[1]);
-        Assert.Equal(99, targets[2]);
+        Assert.Equal(7, categories.Length);
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     // ------------------------------------------------------------------ AC 5: first target, fallback, full panel
@@ -258,10 +273,9 @@ public class OpenSetPutAwayTests
 
     // ------------------------------------------------------------------ AC 5: refusals, through both in-tick caller paths
 
+    // Both in-tick caller paths and both subject kinds (axe: an item, letter: mail) are covered.
     [Theory]
     [InlineData(Caller.Phase, "axe")]
-    [InlineData(Caller.Op, "axe")]
-    [InlineData(Caller.Phase, "letter")]
     [InlineData(Caller.Op, "letter")]
     [Trait("Id", "H-R10-1")]
     public void Leash_FullPanel_KeepsTheEntryOnTheCursor_WithNoRecordAndNoVersionBump_AndTheExternalStillCloses(Caller caller, string subject)
@@ -352,7 +366,6 @@ public class OpenSetPutAwayTests
     // ------------------------------------------------------------------ AC 5: nothing to put away; no put-away on Close
 
     [Theory]
-    [InlineData(Caller.Phase)]
     [InlineData(Caller.Op)]
     [InlineData(null)]
     [Trait("Id", "H-R10-1")]

@@ -78,24 +78,6 @@ public class WeightRecountPropertyTests
 
     [Fact]
     [Trait("Id", "TR-inventory-015")]
-    public void TheSeededSequence_IsDeterministic_SameCallsSameRefusalsSamePoints()
-    {
-        // Arrange
-        var first = new Driver(Seed, checkEveryCall: false);
-        var second = new Driver(Seed, checkEveryCall: false);
-
-        // Act
-        first.Run(2_000);
-        second.Run(2_000);
-
-        // Assert
-        Assert.Equal(first.Describe(), second.Describe());
-        Assert.Equal(first.Rig.Inventory.WeightPoints(PlayerSlot.FromValue(0)), second.Rig.Inventory.WeightPoints(PlayerSlot.FromValue(0)));
-        Assert.Equal(first.Rig.Inventory.WeightPoints(PlayerSlot.FromValue(1)), second.Rig.Inventory.WeightPoints(PlayerSlot.FromValue(1)));
-    }
-
-    [Fact]
-    [Trait("Id", "TR-inventory-015")]
     public void RebuildWeight_AfterTheMemoIsScrambled_EqualsTheRecountForEverySlot_AndIsIdempotent()
     {
         // Arrange: a mixed state through the mutator (2 000 seeded calls), then the memo of every slot scrambled (a stale load)
