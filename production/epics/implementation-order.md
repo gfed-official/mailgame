@@ -1,7 +1,7 @@
 # Implementation Order — all epics (M-1a, playable-first)
 
 > **Generated**: 2026-10-23 (m1a-replan) by `python3 tools/planning/gen_impl_order.py .` from every story's `## Dependencies` → `- Depends on:` line in `production/epics/*/story-*.md`.
-> **Scope**: 220 stories in 12 epics — 109 Complete, 89 Ready, 21 Deferred, 1 In Progress.
+> **Scope**: 220 stories in 12 epics — 109 Complete, 91 Ready, 19 Deferred, 1 In Progress.
 > **Authority for the playable-first order and the deferrals**: Evan, Mail Lead chat, 2026-10-23 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"; 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". See `production/session-logs/decision-log.md` 2026-10-23.
 > **Regenerate** whenever a story's Depends on or Status changes. The order is advisory; `/story-readiness` still gates each story.
 
@@ -14,7 +14,7 @@
 
 ## Dependency-cycle check
 
-- **Depends-on graph: 0 cycles** (Tarjan SCC over 1063 edges, 220 nodes). None found.
+- **Depends-on graph: 0 cycles** (Tarjan SCC over 1064 edges, 220 nodes). None found.
 - **Ready stories depending on a Deferred story: 0.**
 
 ## Track A — playable greybox (76 stories, 16 waves)
@@ -175,30 +175,37 @@
 |---|---|---|---|
 | [throwing-catching/021](throwing-catching/story-021-launch-ghost-release-snap-landing-beats.md) | Launch-ghost view, strain face and release snap, the whoosh, and the ground /… | Ready | godot-host-shell/006, manual-delivery/006, player-character/022, player-character/024, throwing-catching/007, throwing-catching/017, throwing-catching/020 |
 
-## Track B — remaining M-1a (13 stories, 2 waves)
+## Track B — remaining M-1a (15 stories, 3 waves)
 
 ### B wave 1 (8)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
 | [simulation-core/030](simulation-core/story-030-sc-x-1-cross-system-batch-order.md) | SC-X-1 — cross-system batch order with real Grid and Throw ops | Ready | throwing-catching/010 |
+| [input-controls/011](input-controls/story-011-panel-cursor-navigation.md) | Panel navigation without a mouse (R8) — grid cursor stepping, origin landing,… | Ready | input-controls/008, input-controls/010, input-controls/017 |
 | [input-controls/020](input-controls/story-020-integration-hold-timing-and-interact-end-to-end.md) | Headless router → `InputLatch` → interaction integration (A) — grammar fire t… | Ready | input-controls/007, input-controls/008, input-controls/009, input-controls/012, input-controls/013, input-controls/014, input-controls/016, input-controls/017, input-controls/019, manual-delivery/004, player-character/017, player-character/018, player-character/020 |
 | [input-controls/029](input-controls/story-029-adapter-integration-suite-and-manual-evidence.md) | Godot adapter integration suite and the MANUAL evidence runs (real pad, focus… | Ready | godot-host-shell/011, input-controls/026, input-controls/027, input-controls/028 |
 | [grid-inventory/018](grid-inventory/story-018-conservation-fuzz-determinism.md) | Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world… | Ready | — |
-| [grid-inventory/024](grid-inventory/story-024-panel-interactions-feedback.md) | Panel interactions through the Panel/Holding input contexts, and the M-1a fee… | Ready | grid-inventory/019, grid-inventory/020, grid-inventory/023, input-controls/007, input-controls/010 |
 | [network-adapter-loopback/008](network-adapter-loopback/story-008-deliver-matching-wire-codec.md) | deliver_matching wire codec (24 B MATCH / 28 B MISDELIVER_ONE) | Ready | manual-delivery/005 |
 | [manual-delivery/009](manual-delivery/story-009-telemetry-latched-branch-handshare.md) | Telemetry — `latchedBranch` per hold start and the `handShare` metric (sessio… | Ready | godot-host-shell/005, godot-host-shell/006, mail-destinations/007, manual-delivery/004, manual-delivery/006 |
 | [throwing-catching/014](throwing-catching/story-014-preview-equals-host-fuzz-and-determinism-goldens.md) | Preview = host over 10 000 throws and the no-dice replay | Ready | mail-destinations/010, throwing-catching/002, throwing-catching/003, throwing-catching/004, throwing-catching/010, throwing-catching/011, throwing-catching/012 |
 
-### B wave 2 (5)
+### B wave 2 (6)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
 | [input-controls/021](input-controls/story-021-integration-cancels-toggle-commit-end-to-end.md) | Headless router → Sim integration (B) — the cancel-cause table, Interact reso… | Ready | input-controls/012, input-controls/013, input-controls/014, input-controls/015, input-controls/016, input-controls/017, input-controls/018, input-controls/020, manual-delivery/005, network-adapter-loopback/008, throwing-catching/004, throwing-catching/006, throwing-catching/007 |
+| [grid-inventory/024](grid-inventory/story-024-panel-interactions-feedback.md) | Panel interactions through the Panel/Holding input contexts, and the M-1a fee… | Ready | grid-inventory/019, grid-inventory/020, grid-inventory/023, input-controls/007, input-controls/010, input-controls/011 |
 | [network-adapter-loopback/009](network-adapter-loopback/story-009-sc-x-2-manual-delivery-over-loopback.md) | SC-X-2 — a real Manual Delivery request from the host's own client over loopb… | Ready | manual-delivery/004, manual-delivery/005, network-adapter-loopback/008 |
 | [manual-delivery/007](manual-delivery/story-007-integration-loopback-parity-edge-cases.md) | End-to-end over loopback — focus vs Pick-up, preview order = host order, clie… | Ready | mail-destinations/009, mail-destinations/015, manual-delivery/002, manual-delivery/003, manual-delivery/004, manual-delivery/005, manual-delivery/006, network-adapter-loopback/008, player-character/020 |
 | [throwing-catching/015](throwing-catching/story-015-conservation-fuzz-replay-and-step-budget.md) | Exactly-one-terminal conservation fuzz (8 players, 18 000 ticks) and canonica… | Ready | grid-inventory/018, simulation-core/030, throwing-catching/008, throwing-catching/011, throwing-catching/012, throwing-catching/013, throwing-catching/014 |
 | [throwing-catching/016](throwing-catching/story-016-telemetry-t14-session-stats.md) | T14 telemetry — per-launch and per-terminal records, `redAgeAtReleaseMs` and … | Ready | manual-delivery/009, throwing-catching/007, throwing-catching/010, throwing-catching/011, throwing-catching/017 |
+
+### B wave 3 (1)
+
+| Story | Title | Status | Open dependencies (earlier waves) |
+|---|---|---|---|
+| [input-controls/022](input-controls/story-022-replay-corpus-zero-unauthored-verbs.md) | Input replay corpus — 200 seeded + 10 adversarial traces and the "zero unauth… | Ready | grid-inventory/020, input-controls/020, input-controls/021, manual-delivery/004, throwing-catching/007 |
 
 ## Blocked (0)
 
@@ -210,15 +217,13 @@
 | Story | Track | Gated by |
 |---|---|---|
 
-## Deferred — out of the M-1a slice (21)
+## Deferred — out of the M-1a slice (19)
 
 Each story file carries the "Deferred (Evan 2026-10-23 7:13 AM PT)" status, both of Evan's quotes and its target milestone. Nothing was deleted.
 
 | Story | Title | Deferred to |
 |---|---|---|
 | [simulation-core/029](simulation-core/story-029-zero-alloc-tick-timing-advisory.md) | Zero-allocation tick probe and tick-timing report (advisory at M-1a) | M0 (out of the M-1a slice; was Ready) |
-| [input-controls/011](input-controls/story-011-panel-cursor-navigation.md) | Panel navigation without a mouse (R8) — grid cursor stepping, origin landing,… | M1 (accessibility pass) (out of the M-1a slice; was Ready) |
-| [input-controls/022](input-controls/story-022-replay-corpus-zero-unauthored-verbs.md) | Input replay corpus — 200 seeded + 10 adversarial traces and the "zero unauth… | M0 (out of the M-1a slice; was Ready) |
 | [input-controls/023](input-controls/story-023-fantasy-scripts-toggle-run-route-parity-a11y.md) | Fantasy-test scripts — the hold-free shift (H-FX-4), route input-count parity… | M1 (accessibility pass) (out of the M-1a slice; was Ready) |
 | [input-controls/024](input-controls/story-024-router-core-zero-allocation-gate.md) | Router-core zero-allocation gate (H-PERF-3, blocking) and the advisory frame-… | M0 (out of the M-1a slice; was Ready) |
 | [input-controls/025](input-controls/story-025-ci-lint-no-direct-input-reads.md) | CI lint — no direct `Input.*` reads or `InputMap` mutation outside `src/Game/… | M0 (out of the M-1a slice; was Ready) |

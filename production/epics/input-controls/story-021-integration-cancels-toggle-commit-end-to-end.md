@@ -8,7 +8,7 @@
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: 2026-10-23 (dependencies re-pointed by the m1a-replan PR)
 
-> **Dependencies re-pointed 2026-10-23 (E1, Evan 8:10 AM PT "approve all").** Stories 022 and 023 are Deferred (M0 / M1); they were downstream only. Its "Stories 012–018" dependency range contains no Deferred story (011 is outside it); the H-EC-6 disconnect row that story 018 used to own is now story 031 (Deferred, M0) and is **not** asserted here — the cancel-cause table covers the focus-loss row and the Sim-originated causes.
+> **Dependencies re-pointed 2026-10-23 (E1, Evan 8:10 AM PT "approve all").** Story 023 is Deferred (M1) and story 022 is Ready (kept Ready by Evan 2026-10-27 9:42 PM PT); both are downstream only. Its "Stories 012–018" dependency range contains no Deferred story (011 is outside it); the H-EC-6 disconnect row that story 018 used to own is now story 031 (Deferred, M0) and is **not** asserted here — the cancel-cause table covers the focus-loss row and the Sim-originated causes.
 
 > **Integration story (2 of 2).** Uses the `InputToSimHarness` from story 020. Asserts the rules whose truth spans the router and the Sim: every G2 cancel cause, the R4.3 resolution rows, Toggle completion with the button up, aim-release through Throwing's real sink, and the one-commit rule with the real hold counter.
 
@@ -64,7 +64,7 @@
 
 *Handled by neighbouring stories — do not implement here:*
 
-- Story 020: grammar fire ticks and latch rules. Story 022 (Deferred, M0): replay corpus. Story 031 (Deferred, M0): the `DeviceLost` cancel row. M0: catch rows, TextEntry, MP pause rows.
+- Story 020: grammar fire ticks and latch rules. Story 022: replay corpus. Story 031 (Deferred, M0): the `DeviceLost` cancel row. M0: catch rows, TextEntry, MP pause rows.
 
 ---
 
@@ -87,4 +87,4 @@
 ## Dependencies
 
 - Depends on: Story 020 (harness), Stories 012–018 (none Deferred; 018 is the focus-loss story after its 2026-10-23 split); `production/epics/throwing-catching/story-004-throw-aim-quantiser-and-preview-step.md`, `story-007-throw-release-builder-client-cooldown-reply.md`, `story-006-throw-op-event-declarations-and-wire-codecs.md`; `production/epics/manual-delivery/story-005-delivermatching-op-and-handler.md` (Delivery-owned `DeliverMatching` op + handler since the ADR-0009 erratum; formerly grid-inventory story 022), `production/epics/grid-inventory/story-011-open-set-close-intake.md`; `production/epics/network-adapter-loopback/story-006-clientadapter-requests-inbox-hostclock.md`, `story-008-deliver-matching-wire-codec.md`
-- Unlocks: — (022 and 023 are Deferred, M0 / M1)
+- Unlocks: Story 022; Deferred: 023 (M1)

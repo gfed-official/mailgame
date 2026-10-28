@@ -63,7 +63,7 @@
 
 *Handled by neighbouring stories — do not implement here:*
 
-- Story 021: the cancel-cause table (H-G2-1), Interact resolution rows (H-R4-2), Toggle, aim, commit and request-schema checks. Story 022 (Deferred, M0): replay corpus. Story 024 (Deferred, M0): allocation.
+- Story 021: the cancel-cause table (H-G2-1), Interact resolution rows (H-R4-2), Toggle, aim, commit and request-schema checks. Story 022: replay corpus. Story 024 (Deferred, M0): allocation.
 - M0 rows: catch (H-R4-2 (a), H-R4-3), TextEntry.
 
 ---
@@ -87,4 +87,4 @@
 ## Dependencies
 
 - Depends on: Stories 002, 007, 008, 009, 012, 013, 014, 016, 017, 019 (the router as a whole); `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md`, `story-024-framerunner.md`, `story-025-composition-root-reflection-test.md`; `production/epics/player-character/story-011-hold-ticks-holdeff.md`, `story-014-focus-scoring-dwell-preview-binding.md`, `story-016-press-resolution-tap-catch-armed.md`, `story-017-hold-counter-cancels-channel-focus-latch.md`, `story-018-interaction-snapshot-iinteractionquery.md`, `story-020-carrierstep-clientlayer-integration.md` (all under `production/epics/player-character/`); `production/epics/manual-delivery/story-001-deliver-anchors-hold-ticks.md`, `story-004-press-latch-cancels-request.md`; `production/epics/world-stub/story-006-m1a-street-and-fixtures.md`
-- Unlocks: Story 021; Deferred: 022 (M0), 023 (M1)
+- Unlocks: Stories 021, 022; Deferred: 023 (M1)

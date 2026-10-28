@@ -1,15 +1,14 @@
 # Story 011: Panel navigation without a mouse (R8) — grid cursor stepping, origin landing, edge bump / cross, per-panel memory and pointer hand-off
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Deferred (Evan 2026-10-27 9:29 PM PT)
-> **Deferred to**: M1 (accessibility pass) (out of the M-1a slice; was Ready)
+> **Status**: Ready
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: —
 
-> **DEFERRED, not deleted. Approved by Evan 2026-10-27 9:29 PM PT, Mail Lead chat, answering the widget "Defer input-controls 011 and 022 to a later milestone?" (Mail Review PR #47 r2 B1): "Defer input-controls 011 and 022".** Earlier context (deferred 2026-10-23 under erratum E1; not the approval of this story): Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example". 8:10 AM PT, approving errata E1–E6 and E9 (decision log 2026-10-23): "approve all". This story is freed by **E1 (ADR-0012)**. Reason: R8 mouse-free panel navigation is an accessibility feature; mouse and keyboard panel use stays in input-controls 010/016. Re-run `/story-readiness` when M1 (accessibility pass) planning starts; the text below is unchanged from the last Ready/Blocked version.
+> **Kept Ready 2026-10-27 by Evan.** Evan 2026-10-27 9:42 PM PT, Mail Lead chat, answering the widget "Defer input-controls 011 (mouse-free panel navigation) and 022 (input replay test corpus)?": "Keep input-controls 011 and 022 Ready" (supersedes his 9:29 PM PT "Defer input-controls 011 and 022", which answered a widget that described the two stories wrongly). This story was Deferred 2026-10-23 to 2026-10-27 under erratum E1 (ADR-0012) and is back in the M-1a order; its text is the last Ready version.
 
 ## Context
 

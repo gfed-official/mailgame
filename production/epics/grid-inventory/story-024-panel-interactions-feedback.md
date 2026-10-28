@@ -8,7 +8,7 @@
 > **Manifest Version**: 2026-10-16
 > **Last Updated**: 2026-10-23 (split by the m1a-replan PR)
 
-> **Split 2026-10-23.** The live-region arm of H-UI-1 (each feedback row's exact text in the live region; TR-inventory-027, ADR-0019 l.313, erratum E6) moved verbatim to `story-025-deferred-live-region-feedback.md` (Deferred to the M1 accessibility pass). Evan, Mail Lead chat 2026-10-23 8:10 AM PT, approving errata E1–E6 and E9: "approve all". What stays here is every interaction, every reachable rejection's visible revert, cue id and exact text in the UI event log, and the Holding rules. The dependency on input-controls 011 (mouse-free panel cursor navigation, Deferred by E1) is dropped: the M-1a panel is mouse-driven.
+> **Split 2026-10-23.** The live-region arm of H-UI-1 (each feedback row's exact text in the live region; TR-inventory-027, ADR-0019 l.313, erratum E6) moved verbatim to `story-025-deferred-live-region-feedback.md` (Deferred to the M1 accessibility pass). Evan, Mail Lead chat 2026-10-23 8:10 AM PT, approving errata E1–E6 and E9: "approve all". What stays here is every interaction, every reachable rejection's visible revert, cue id and exact text in the UI event log, and the Holding rules. The dependency on input-controls 011 (mouse-free panel cursor navigation) was dropped 2026-10-23 and restored 2026-10-27, when Evan kept 011 Ready (9:42 PM PT, "Keep input-controls 011 and 022 Ready").
 
 > **UNBLOCKED** (2026-10-16): the inventory panel UX spec now exists — cite `design/ux/inventory-panel.md` (Interaction Map and its M-1a feedback-row table, IP-AC-8…13); Story 023 remains an ordinary Depends-on.
 
@@ -45,7 +45,7 @@
 
 *Derived from the governing ADR(s) Decision / Implementation Guidelines:*
 
-- Contexts: World / Panel / Holding-open / Holding-closed per GDD UI Requirements; concrete bindings, remap and the Back ladder are Input & Controls'. Mouse-free panel cursor navigation (input-controls 011) is Deferred to M0/M1 (E1): tap, drag and the keyboard verbs (R, Esc, Q, Shift-click, 1–8) are all the panel needs at M-1a, so build no cursor-navigation helper here.
+- Contexts: World / Panel / Holding-open / Holding-closed per GDD UI Requirements; concrete bindings, remap and the Back ladder are Input & Controls'. Mouse-free panel cursor navigation is input-controls 011 (Ready; this story depends on it).
 - Contention cues, partial-result toasts, sort/take-all/split controls are M0/M1.
 
 ---
@@ -56,7 +56,7 @@
 
 - Story 023: the view.
 - Story 025 (Deferred, M1 accessibility pass): the live-region `Control` and the live-region arm of H-UI-1.
-- M0/M1: contention, manifest, sort, split, take_all controls; mouse-free panel cursor navigation (input-controls 011).
+- M0/M1: contention, manifest, sort, split, take_all controls.
 
 ---
 
@@ -79,5 +79,5 @@
 ## Dependencies
 
 - Depends on: Story 023, Story 019, Story 020
-- Depends on: `production/epics/input-controls/story-007-router-shell-press-machines-mute.md`, `production/epics/input-controls/story-010-steps-auto-repeat-drag-resolver.md` (router, ADR-0012; input-controls 011 panel cursor navigation is Deferred and not needed for the mouse-driven M-1a panel). Not a dependency: the HUD toast queue — ADR-0018 is Accepted (2026-10-23 8:10 AM PT), but its minimal M-1a slice defers the queue to the M0+ amendment (§6), and this story's ACs do not need it.
+- Depends on: `production/epics/input-controls/story-007-router-shell-press-machines-mute.md`, `production/epics/input-controls/story-010-steps-auto-repeat-drag-resolver.md`, `production/epics/input-controls/story-011-panel-cursor-navigation.md` (router, ADR-0012; 011 kept Ready by Evan 2026-10-27 9:42 PM PT). Not a dependency: the HUD toast queue — ADR-0018 is Accepted (2026-10-23 8:10 AM PT), but its minimal M-1a slice defers the queue to the M0+ amendment (§6), and this story's ACs do not need it.
 - Unlocks: Epic DoD UI evidence; Story 025 (Deferred, M1)

@@ -162,6 +162,6 @@ This epic is complete when:
 
 ## Next Step
 
-**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 020 (A1), 019 (A3), 022 (A7), 023 (A10); then Track B: 018 (B1), 024 (B1); Deferred by Evan 2026-10-23 (not scheduled): 025. Earlier notes below are history.
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 020 (A1), 019 (A3), 022 (A7), 023 (A10); then Track B: 018 (B1), 024 (B2); Deferred by Evan 2026-10-23 (not scheduled): 025. Earlier notes below are history.
 
 Stories 001–017 and 021 are Complete (006 merged in PR #16, 009 in PR #20, 012 in PR #21, 013 in PR #26, 015 in PR #27, 016 in PR #29, 011 in PR #30, 007 in PR #31, 008 in PR #32, 010 in PR #33, 014 in PR #34, merged as main c2d4a64; 021 in PR #35, merged as main c889f59; 017 in PR #36, merged as main eda1efd). Next: 018 (Ready; depends on 017) and 020 (013 unblocks it). Stories 019–020 are Ready (ADRs Accepted 2026-10-16); 022 is Ready (re-scoped 2026-10-23 to the host panel view; its API and `CursorSlot` are TD-172 D1/D2, Approved by Evan 2026-10-23 7:56 AM PT (Mail Lead chat); TD-172 D4/D5 Approved by Evan 2026-10-23 8:20 AM PT); 023–024 are Ready (`design/ux/inventory-panel.md` authored 2026-10-16).
