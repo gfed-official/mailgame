@@ -6165,7 +6165,7 @@ Applied in this PR: the TD rows, story files and GDD errata notes are relabelled
 
 **Authority (Evan, project owner, verbatim):**
 - 2026-10-23 7:13 AM PT, Mail Lead chat, widget answer, approving `/workspace/repos/logs/m0-scope.md` and `/workspace/repos/logs/unblock-six.md`: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"
-- 2026-10-23 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example"
+- 2026-10-23 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it “production ready” is not needed. Accessibility for example"
 
 Mail Lead's reading of the 7:15 message: defer, don't delete, every story whose main purpose is production hardening rather than friends playing together. That covers accessibility (all of it), localisation and keyboard layouts, pad hot-plug, rebinding polish, telemetry beyond the ADR-0024 stats slice, zero-allocation, perf and CI gates, golden and fuzz work that no Accepted ADR requires, and anti-cheat or abuse hardening. Where an Accepted ADR requires such a story at M-1a, it is **not** deferred; it is flagged below with a draft erratum for Evan. Evan also approved TD-170 and TD-171 at 6:46 AM PT ("approve all"). PR #44 (bcafd00) already credits that on main.
 
@@ -6291,7 +6291,7 @@ Follow-on edits: throwing-catching 021 no longer depends on manual-delivery 008 
 **Reason:** Owner approval.
 **Category:** owner decision (ADR-0012, ADR-0018, ADR-0004 text-only errata; TD-119 narrowed; story labels; no code change)
 
-#### 2026-10-27 — input-controls 011 and 022 stay Deferred (owner approval, Evan, 2026-10-27 9:29 PM PT, in his own words in the Mail Lead chat, answering the widget "Defer input-controls 011 and 022 to a later milestone?": "Defer input-controls 011 and 022"; recorded in PR #47, docs only)
+#### 2026-10-27 — **SUPERSEDED by 9:42 PM PT entry (widget described the stories wrongly).** input-controls 011 and 022 stay Deferred (owner approval, Evan, 2026-10-27 9:29 PM PT, in his own words in the Mail Lead chat, answering the widget "Defer input-controls 011 and 022 to a later milestone?": "Defer input-controls 011 and 022"; recorded in PR #47, docs only)
 **Decision point:** Mail Review PR #47 r2 B1: input-controls 011 (R8 mouse-free panel navigation) and 022 (H-FX-1 replay corpus) were deferred under erratum E1 and credited to the 8:10 AM PT "approve all", which approved the erratum text but did not name the two stories.
 **Options considered:** keep both Deferred; restore both to Ready (and restore grid-inventory 024's dependency on 011).
 **Chosen:** keep both Deferred, as quoted: 011 → M1, 022 → M0. Each story's Status reads "Deferred (Evan 2026-10-27 9:29 PM PT)"; the stories index and HANDOFF credit the same quote. grid-inventory 024 keeps no dependency on 011.

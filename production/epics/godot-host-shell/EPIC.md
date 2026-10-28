@@ -158,6 +158,6 @@ This epic is complete when:
 
 ## Next Step
 
-**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 007 (A2), 005 (A7), 006 (A8), 008 (A9), 009 (A10), 010 (A11), 011 (A12). Earlier notes below are history.
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 007 (A3), 005 (A7), 006 (A8), 008 (A9), 009 (A10), 010 (A11), 011 (A12). Earlier notes below are history.
 
 Stories 001–004 are Complete (004 in PR #17). Next in this epic is 005, which needs player-character 019/020; 006–010 chain from 005, and 007 also needs content-data 019. Run `/story-readiness` on 005 once those are Complete. Stories 001–003 need only simulation-core 001/010/024 and network-adapter-loopback 001; stories 005 onward need the loopback session (network-adapter-loopback 007), `BuiltInContent` (content-data 008) and the world-stub street (world-stub 006/007) to be Done first (epics index order 1–7).

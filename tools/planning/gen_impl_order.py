@@ -59,7 +59,7 @@ missing = []
 for k, v in S.items():
     v['deps'] = [d for d in parse(k, v['deps_raw']) if d in S]
     missing += [(k, d) for d in parse(k, v['deps_raw']) if d not in S]
-DONE = {'Complete', 'Done', 'In Progress'}
+DONE = {'Complete', 'Done'}  # In Progress is not done: it is scheduled in its wave and its dependants wait for it
 # cycle check (Tarjan)
 idx, low, on, stack, sccs, c = {}, {}, set(), [], [], [0]
 sys.setrecursionlimit(10000)
@@ -96,7 +96,7 @@ def ancestors_status(k, seen=None):
         if S[d]['status'] in ('Blocked', 'Deferred'): res.add(d)
         res |= ancestors_status(d, seen)
     return res
-sched = [k for k in S if S[k]['status'] not in DONE | {'Blocked', 'Deferred'}]
+sched = [k for k in S if S[k]['status'] not in DONE | {'Blocked', 'Deferred'}]  # includes In Progress
 gated = {k: ancestors_status(k) for k in sched}; gated = {k: v for k, v in gated.items() if v}
 order = {k: i for i, k in enumerate(S)}
 def waves(keys, base_done):
@@ -118,13 +118,13 @@ L = []
 L.append('# Implementation Order — all epics (M-1a, playable-first)\n')
 L.append(f"> **Generated**: 2026-10-23 (m1a-replan) by `python3 tools/planning/gen_impl_order.py .` from every story's `## Dependencies` → `- Depends on:` line in `production/epics/*/story-*.md`.")
 L.append(f"> **Scope**: {len(S)} stories in {len(epics)} epics — " + ', '.join(f'{cnt[s]} {s}' for s in sorted(cnt, key=lambda s: -cnt[s])) + '.')
-L.append('> **Authority for the playable-first order and the deferrals**: Evan, Mail Lead chat, 2026-10-23 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"; 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it \'production ready\' is not needed. Accessibility for example". See `production/session-logs/decision-log.md` 2026-10-23.')
+L.append('> **Authority for the playable-first order and the deferrals**: Evan, Mail Lead chat, 2026-10-23 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"; 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it “production ready” is not needed. Accessibility for example". See `production/session-logs/decision-log.md` 2026-10-23.')
 L.append('> **Regenerate** whenever a story\'s Depends on or Status changes. The order is advisory; `/story-readiness` still gates each story.\n')
 L.append('## How to read this\n')
 L.append('- **Track A — playable greybox first.** Every not-yet-done story that the visible greybox path needs: the Godot host shell, input wiring, the player view and camera, deliver, throw, the mailbox view and the minimal HUD. It is the transitive dependency closure of these leaves (Mail Lead planning default, approved by Evan 2026-10-23 8:10 AM PT (TD-173)): ' + ', '.join(f'`{l}`' for l in PLAYABLE_LEAVES) + '.')
 L.append('- **Track B — everything else that is still M-1a.** Infrastructure-only, test-only and ADR-required hardening stories that the playable path does not need. They start after Track A, or in parallel when an implementer is idle.')
-L.append('- **Wave N** = stories whose dependencies are all in earlier waves (or Complete / In Progress). Stories inside one wave can run in parallel; check declared files for overlaps before running two at once.')
-L.append('- **Gated** = Ready, but depends (transitively) on a Blocked story. **Deferred** = moved out of M-1a by Evan on 2026-10-23; not scheduled.\n')
+L.append('- **Wave N** = stories whose dependencies are all in earlier waves (or Complete). An In Progress story sits in its wave with Status In Progress, and its dependants wait for it. Stories inside one wave can run in parallel; check declared files for overlaps before running two at once.')
+L.append('- **Gated** = Ready or In Progress, but depends (transitively) on a Blocked story. **Deferred** = moved out of M-1a by Evan on 2026-10-23; not scheduled.\n')
 L.append('## Dependency-cycle check\n')
 L.append(f'- **Depends-on graph: {len(sccs)} cycles** (Tarjan SCC over {edges} edges, {len(S)} nodes).' + (' None found.' if not sccs else ' ' + '; '.join(', '.join(c) for c in sccs)))
 if missing: L.append(f'- Unresolved references ({len(missing)}): ' + ', '.join(f'{a}→{b}' for a, b in missing[:20]))
@@ -153,8 +153,8 @@ L.append('| Story | Title | Deferred to |'); L.append('|---|---|---|')
 for k in deferred:
     t = open(os.path.join(E, S[k]['file'])).read(); m = re.search(r'^> \*\*Deferred to\*\*: (.*)$', t, re.M)
     L.append(f"| {link(k)} | {short(S[k]['title'])} | {m.group(1) if m else '?'} |")
-L.append(f'\n## Wave 0 — Complete / In Progress ({len(base)})\n')
-L.append(', '.join(f'{link(k)}' + (' (In Progress)' if S[k]['status'] == 'In Progress' else '') for k in sorted(base, key=order.get)))
+L.append(f'\n## Wave 0 — Complete ({len(base)})\n')
+L.append(', '.join(link(k) for k in sorted(base, key=order.get)))
 open(os.path.join(E, 'implementation-order.md'), 'w').write('\n'.join(L) + '\n')
 print(f'stories={len(S)} edges={edges} cycles={len(sccs)} missing={len(missing)} trackA={sum(map(len,WA))}/{len(WA)}w trackB={sum(map(len,WB))}/{len(WB)}w blocked={len(blocked)} gated={len(gated)} deferred={len(deferred)} unsched={len(remA+remB)}')
 print('bad_dep', bad_dep); print('missing', missing[:30]); print('gated', gated)
