@@ -23,7 +23,7 @@ Scope: M-1a slice (solo greybox: delivery + throwing)
 
 ## M-1a dependency / implementation order
 
-> **Story-level order:** see [implementation-order.md](implementation-order.md), regenerated 2026-10-23 (m1a-replan) **playable-first**: Track A (the visible greybox path, 77 stories in 16 waves, including the In Progress content-data 018) before Track B (15 stories in 3 waves), 0 dependency cycles; every `- Depends on:` line is read (Mail Review PR #47 B3). Authority: Evan, 2026-10-23 7:13 AM PT, "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". The epic-level list below is the original coarse plan (history).
+> **Story-level order:** see [implementation-order.md](implementation-order.md), regenerated 2026-10-23 (m1a-replan; regenerated again 2026-10-28, PR #50, after player-character 010 Complete) **playable-first**: Track A (the visible greybox path, 76 stories in 16 waves, including the In Progress content-data 018) before Track B (15 stories in 3 waves), 0 dependency cycles; every `- Depends on:` line is read (Mail Review PR #47 B3). Authority: Evan, 2026-10-23 7:13 AM PT, "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". The epic-level list below is the original coarse plan (history).
 
 1. `simulation-core` (+ `network-adapter-loopback` alongside — `FrameRunner` needs the loopback transport)
 2. `content-data`
