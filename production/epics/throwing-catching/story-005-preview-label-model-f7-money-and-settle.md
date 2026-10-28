@@ -8,6 +8,8 @@
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: —
 
+> **2026-10-23 (m1a-replan, Evan 7:13/7:15 AM PT):** the live-region line AC moved to `story-025-deferred-throw-accessibility.md` (**Deferred**). Evan, 7:15: "This is a game among friends, so a lot of the extra work to make it 'production ready' is not needed. Accessibility for example".
+
 > **Owner-side story (2 of 3).** The *data* behind the arc label: what it says, what the throw is worth, and when it may change. The Charcoal pill that draws it is story 019 (UX spec `design/ux/throwing-catching.md`); this story is complete and testable without any UI.
 
 > **UX spec addendum (2026-10-16):** `design/ux/throwing-catching.md` (label catalogue, OQ-TC-4) adds line-1 keys `throw.label.locked`, `throw.label.wontfit`, `throw.label.blocked`, `throw.label.pending` and line-2 keys `throw.label.money.accept_dead`, `throw.label.count` — the "every end class maps to a line-1 key" test must include them.
@@ -44,7 +46,6 @@
 - [ ] **Label structure (data half of TC-U-1).** The model has exactly two lines. Line 1 = glyph id + place key with arguments (`ok.address`, `wrong.address + wrong-house`, `closed.opens-at-delivery`, `ground`, `water.floats`, `belt.joins`, `timeout.drops`) — localisation keys with args, never concatenated strings. Line 2 = `×N` (N ≥ 1) + the money/state key. Every end class from story 004 maps to a line-1 key; a table-driven test asserts none is missing.
 - [ ] **TC-T3-1 d (settle, virtual clock).** On a class change at render time t0, the model's *line style / marker / glyph* output switches on the same frame, while the label **text** switches at t0 + 100 ms and not at t0 + 99. The label's first appearance (aim start) is immediate. With `previewSettleMs` = 250 the model reports `PendingMarker = true` from t0 to t0 + 250 (never the previous verdict), then the new class. A release at t0 + 50 reads the **new** class from the state (story 007 gives the trail the new class).
 - [ ] **TC-VA-2 (sound edge).** The class becoming Accept or Misdeliver and holding 100 ms emits exactly one `PreviewSoundCue` (`Hit` / `Miss`); 99 ms emits none; cues are ≥ 200 ms apart (a flick back and forth emits at most one per 200 ms); Reject emits the neutral `Blocked` cue; Ground and Water emit none; the cue is thrower-only data (no event reaches other peers) and the setting `previewSoundEnabled` (default on) suppresses it.
-- [ ] **Live-region line.** The same 100 ms stability gate emits at most one live-region line per second (superseded lines dropped); the line is built from the label keys.
 - [ ] **TC-P-1.** 600 ticks of aiming while walking with a pad (no cache hits), measured scope = story 004's query + `Evaluate` + label build: p95 ≤ 0.3 ms and max ≤ 0.5 ms (recorded, ADVISORY); 0 allocations per tick (BLOCKING).
 
 ---

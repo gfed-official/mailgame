@@ -13,7 +13,7 @@
 ## Context
 
 **GDD**: `design/gdd/throwing-catching.md` (T1 cooldown "The client checks its own `throwCooldownTicks` = 5 at release"; T4 Release; Core Rules "What you throw"; Edge Cases "If the entry changed between aim and host apply"; AC TC-T1-1 b, TC-T1-2 b, TC-X-3, TC-E-5)
-**Requirement**: `TR-throwing-011` (the client leaky-bucket half; the host half is story 009 and the team cap ≤ 48/s is M0), `TR-throwing-010` (claimed origin + last-drawn dir in the request), `TR-throwing-003` (what you saw is what is sent)
+**Requirement**: `TR-throwing-011` (the client cooldown hold; the host leaky-bucket half is story 028, Deferred to M0, and the team cap ≤ 48/s is M0), `TR-throwing-010` (claimed origin + last-drawn dir in the request), `TR-throwing-003` (what you saw is what is sent)
 *(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time.)*
 
 **ADR Governing Implementation**: ADR-0012: Input Router Core and Godot Input Adapter (§6 Immediate verbs: `IImmediateActionSink`, `DispatchImmediates()` immediately before `RunFrame`; aim-release is router-owned on the ms clock, F11) — Accepted 2026-10-16 (primary for the hand-over); ADR-0015 §1 (payload, `ReqId` carries `seq`, no tick field) and ADR-0016 §1 (`IRequestSink`, `IPanelView`) secondary — Accepted
@@ -53,7 +53,7 @@
 
 - Files in `src/PerformativeMail.Sim/Throwing/Client/`: `ThrowReleaseBuilder.cs` (the pure builder `(in ThrowPreviewState, side, out ThrowReleasePayload)`), `ThrowReleaseSender.cs` (holds the pending release, cooldown arithmetic in host ticks, `TrySend`), `ThrowSendStep.cs` (`IClientStep` bound at `PreviewSubStep.EdgeResolve` that flushes a held release once the cooldown has elapsed; it runs after 4c so it sees the same tick's state but sends the **captured** payload), `ReleaseRecord.cs`, `ThrowReplyPart.cs`. The `IImmediateActionSink` adapter class lives in `src/PerformativeMail.Client.Core/Throwing/ThrowImmediateSink.cs` (Client.Core references the Sim; the router is in Client.Core) and only forwards to the Sim-side sender.
 - `IRequestSink.TrySend` returns false on a local "busy"; then nothing is sent, the release is *not* held, and the router's commit is reported as not sent (so G9 does not arm). Document this branch with a test.
-- The cooldown uses the host-tick domain (`IHostClock.EstimatedHostTick`) so the client's check mirrors the host's `TAT` arithmetic; on loopback they agree exactly. `throwCooldownTicks` and `throwBurstTicks` come from `ThrowBalance`.
+- The cooldown uses the host-tick domain (`IHostClock.EstimatedHostTick`) so the client's check mirrors the host's `TAT` arithmetic once story 028 (M0) lands; on loopback they will agree exactly. At M-1a the host has no bucket (story 009 check 7 always accepts), so the hold is purely client-side pacing and never produces a `throw_cooldown` reply. `throwCooldownTicks` and `throwBurstTicks` come from `ThrowBalance`.
 - Keep payload byte flags as `byte`; `side` from the player profile port (default +1; left-handed −1, TC-F1-1 c is story 001's vector).
 - Spawn-protection, Cannon Arm and `thrownPm` are host concerns (story 010); the client sends nothing about them.
 
@@ -63,7 +63,7 @@
 
 *Handled by neighbouring stories — do not implement here:*
 
-- Story 004: the state and `EntryStale`. Story 009/010: host validation, cooldown bucket, launch. Story 017/021: the launch ghost that reads `ReleaseRecord`.
+- Story 004: the state and `EntryStale`. Story 009/010: host validation, launch. Story 028 (Deferred, M0): the host cooldown bucket. Story 017/021: the launch ghost that reads `ReleaseRecord`.
 - Input-controls: Throw action declaration, aim state, `throwMinAim` (F11), Toggle translation, the one-commit gate and its "Busy" strings, aim-cancel on `EntryStale`.
 - Story 019: the "Couldn't throw" / "Select mail to throw" / "Nothing to throw" / "Put it away first" strings.
 

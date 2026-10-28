@@ -1,29 +1,30 @@
 # Architecture Traceability Index
-Last Updated: 2026-10-16
+Last Updated: 2026-10-23
 Engine: Godot 4.7.1 (.NET / C#)
 Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-review, lean, 2026-10-16)
 
 ## Coverage Summary
 - Total requirements: 250 (10 GDDs; belt-logistics, building-system, health-damage not yet extracted)
-- Covered: 203 (81%)
+- Covered: 210 (84%)
 - Partial: 0
-- Gaps: 47
+- Gaps: 38
+- Deferred: 2 (an Accepted ADR addresses each; every implementing story is Deferred out of M-1a by Evan 2026-10-23)
 - TR-IDs cited by stories: 95 (all resolve in the registry)
 
 ## Per-system coverage
 
-| System | GDD | Total | Covered | Gaps |
-|---|---|---|---|---|
-| sim | design/gdd/simulation-core.md | 45 | 42 | 3 |
-| content | design/gdd/content-data-definitions.md | 30 | 30 | 0 |
-| inventory | design/gdd/grid-inventory.md | 28 | 22 | 6 |
-| input | design/gdd/input-controls.md | 24 | 24 | 0 |
-| movement | design/gdd/player-character-movement.md | 26 | 16 | 10 |
-| delivery | design/gdd/manual-delivery.md | 24 | 21 | 3 |
-| mail | design/gdd/mail-destinations.md | 23 | 23 | 0 |
-| throwing | design/gdd/throwing-catching.md | 21 | 15 | 6 |
-| hud | design/gdd/hud-notifications.md | 21 | 4 | 17 |
-| comms | design/gdd/comms.md | 8 | 6 | 2 |
+| System | GDD | Total | Covered | Partial | Gaps | Deferred |
+|---|---|---|---|---|---|---|
+| sim | design/gdd/simulation-core.md | 45 | 41 | 0 | 3 | 1 |
+| content | design/gdd/content-data-definitions.md | 30 | 30 | 0 | 0 | 0 |
+| inventory | design/gdd/grid-inventory.md | 28 | 22 | 0 | 6 | 0 |
+| input | design/gdd/input-controls.md | 24 | 24 | 0 | 0 | 0 |
+| movement | design/gdd/player-character-movement.md | 26 | 16 | 0 | 10 | 0 |
+| delivery | design/gdd/manual-delivery.md | 24 | 22 | 0 | 1 | 1 |
+| mail | design/gdd/mail-destinations.md | 23 | 23 | 0 | 0 | 0 |
+| throwing | design/gdd/throwing-catching.md | 21 | 16 | 0 | 5 | 0 |
+| hud | design/gdd/hud-notifications.md | 21 | 10 | 0 | 11 | 0 |
+| comms | design/gdd/comms.md | 8 | 6 | 0 | 2 | 0 |
 
 ## Full Matrix
 
@@ -41,7 +42,7 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-sim-010 | simulation-core.md | Exactly 14 PhaseIds 0–13 in fixed order; ITickEndCheck between 12 and 13 | ADR-0003 | ✅ | 1 |
 | TR-sim-011 | simulation-core.md | Unbound phase is a no-op; same-phase binders in composition order; new phases need R3 amendment | ADR-0003 | ✅ | 1 |
 | TR-sim-012 | simulation-core.md | SimWorldBuilder binds phases/ops/events/readers/contributors pre-Freeze; violations throw SimBuildException | ADR-0003 | ✅ | 2 |
-| TR-sim-013 | simulation-core.md | Composition root in Composition/; constructor injection only; reflection test on deps | ADR-0003 | ✅ | 2 |
+| TR-sim-013 | simulation-core.md | Composition root in Composition/; constructor injection only; reflection test on deps | ADR-0003 + ADR-0001 | ✅ | 2 |
 | TR-sim-014 | simulation-core.md | SimWorld (host) and ClientLayer (client shell) separate; host loopback uses same encoder | ADR-0003 | ✅ | 6 |
 | TR-sim-015 | simulation-core.md | Op = 64 B blittable: 16 B header (opSeq, actor, kind, reqId) + ≤48 B payload | ADR-0007 | ✅ | 1 |
 | TR-sim-016 | simulation-core.md | Actor stamped by adapter from peer; System=0x00000001; opSeq monotonic, never reused | ADR-0007 | ✅ | 3 |
@@ -61,10 +62,10 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-sim-030 | simulation-core.md | Committed golden vectors (pcg32, Mix64, Fnv1a64, Derive) | ADR-0005 | ✅ | 1 |
 | TR-sim-031 | simulation-core.md | Integer-only numerics (mm, permille, ticks, Cents, Fx16, BAM+Q15); float/double/decimal banned | ADR-0006 | ✅ | 3 |
 | TR-sim-032 | simulation-core.md | Determinism checklist: no Dictionary iteration, stable sort, no Random/Guid/hash codes/time/threads/statics | ADR-0006 | ✅ | 4 |
-| TR-sim-033 | simulation-core.md | T1: identical canonical dump hash per tick given same inputs and logs | ADR-0006 | ✅ | 1 |
+| TR-sim-033 | simulation-core.md | T1: identical canonical dump hash per tick given same inputs and logs | ADR-0006 + ADR-0026 | ✅ | 1 |
 | TR-sim-034 | simulation-core.md | T2: Windows+Linux x64 bit-identical carrier step, RNG, hashes, shared pure functions | ADR-0006 | ✅ | 3 |
 | TR-sim-035 | simulation-core.md | Canonical dump via ISimStateContributor (fixed order, LE); SHA-256 in tests only | ADR-0006 | ✅ | 1 |
-| TR-sim-036 | simulation-core.md | Tick() allocates 0 B after 300 warm-up ticks; blocking from M0 | ADR-0006 | ✅ | 1 |
+| TR-sim-036 | simulation-core.md | Tick() allocates 0 B after 300 warm-up ticks; blocking from M0 | ADR-0006 | ⏸ DEFERRED | 1 |
 | TR-sim-037 | simulation-core.md | Host tick p99 5.0 / max 8.0 / median 3.0 ms; ClientLayer p99 0.3 ms; advisory until reference machine | perf-budget.md (not an ADR) | ❌ GAP | 1 |
 | TR-sim-038 | simulation-core.md | Per-phase p99 slices summing 4.50 ms + 0.50 reserve | perf-budget.md (not an ADR) | ❌ GAP | 1 |
 | TR-sim-039 | simulation-core.md | CI perf gate: p99 rank, N≥18,000, fail at 2× calibrated baseline | perf-budget.md (not an ADR) | ❌ GAP | 1 |
@@ -80,9 +81,9 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-content-004 | content-data-definitions.md | Three data classes: Sim content (hashed), Presentation content, Player data (Persistence) | ADR-0010 | ✅ | 1 |
 | TR-content-005 | content-data-definitions.md | Unit-suffix convention; decimals stored as ms/mm/permille; money integer cents | ADR-0010 | ✅ | 1 |
 | TR-content-006 | content-data-definitions.md | Every numeric field declares a unit via code-side FieldSpec | ADR-0010 | ✅ | 2 |
-| TR-content-007 | content-data-definitions.md | Def id regex; sorted ordinal into DefIndex ushort (0xFFFF none) | ADR-0004 | ✅ | 2 |
-| TR-content-008 | content-data-definitions.md | DefIndex never persisted; on the wire only after hash match | ADR-0004 | ✅ | 1 |
-| TR-content-009 | content-data-definitions.md | StringId = (namespace, DefIndex); run-time strings interned per run | ADR-0004 | ✅ | 1 |
+| TR-content-007 | content-data-definitions.md | Def id regex; sorted ordinal into DefIndex ushort (0xFFFF none) | ADR-0004 + ADR-0010 | ✅ | 2 |
+| TR-content-008 | content-data-definitions.md | DefIndex never persisted; on the wire only after hash match | ADR-0004 + ADR-0010 | ✅ | 1 |
+| TR-content-009 | content-data-definitions.md | StringId = (namespace, DefIndex); run-time strings interned per run | ADR-0004 + ADR-0010 | ✅ | 1 |
 | TR-content-010 | content-data-definitions.md | Defs immutable sealed record class in Sim/Content; no floats; no Godot Resource | ADR-0010 | ✅ | 1 |
 | TR-content-011 | content-data-definitions.md | Defaults always neutral; weightClass required on ItemDef and MailKindDef | ADR-0010 | ✅ | 2 |
 | TR-content-012 | content-data-definitions.md | Closed enums with explicit never-reused values; hand-written parse tables | ADR-0010 | ✅ | 2 |
@@ -98,8 +99,8 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-content-022 | content-data-definitions.md | Validator catalogue 84 active rules (CV-<AREA>-NN); errors block the build | ADR-0010 | ✅ | 5 |
 | TR-content-023 | content-data-definitions.md | tools/ContentValidator console; flags, exit codes 0–3, fixture per rule | ADR-0010 | ✅ | 2 |
 | TR-content-024 | content-data-definitions.md | ContentHash = SHA-256 over canonical encoding; encoder and managed SHA-256 both in the Sim, at load time (ADR-0010 §6, ADR-0006) | ADR-0010 | ✅ | 1 |
-| TR-content-025 | content-data-definitions.md | Join handshake compares 32-byte hash with refusal precedence; content never transferred | ADR-0010 | ✅ | 2 |
-| TR-content-026 | content-data-definitions.md | Debug hot reload (F6): errors keep old set; M0 reload-and-restart; in-place swap M4 | ADR-0010 | ✅ | 1 |
+| TR-content-025 | content-data-definitions.md | Join handshake compares 32-byte hash with refusal precedence; content never transferred | ADR-0010 + ADR-0011 | ✅ | 2 |
+| TR-content-026 | content-data-definitions.md | Debug hot reload (F6): errors keep old set; M0 reload-and-restart; in-place swap M4 | ADR-0010 + ADR-0019 | ✅ | 1 |
 | TR-content-027 | content-data-definitions.md | Presentation ViewCatalog keyed by def id → DefIndex arrays; placeholder on missing view | ADR-0010 + ADR-0019 | ✅ | 0 |
 | TR-content-028 | content-data-definitions.md | Boot parse+validate+hash ≤100 ms CPU; bind ≤25 ms; sheet rebuild ≤0.2 ms; Read 0 B | ADR-0010 | ✅ | 1 |
 | TR-content-029 | content-data-definitions.md | No mod support; hash is a mismatch detector, not security | ADR-0010 | ✅ | 0 |
@@ -160,7 +161,7 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-movement-002 | player-character-movement.md | mm int32, mm/s, permille, ticks; int64 before first multiply; one final division | ADR-0006 | ✅ | 0 |
 | TR-movement-003 | player-character-movement.md | Client-authoritative movement; host authors Dead/Frozen bodies only | ADR-0020 | ❌ GAP | 0 |
 | TR-movement-004 | player-character-movement.md | Tick-time inputs only via IRemoteCapsuleSource/ISupportTransformSource | ADR-0013 | ✅ | 0 |
-| TR-movement-005 | player-character-movement.md | Fixed-point trig LUT; terrain from World Gen height field (2 m, bilinear, int64) | ADR-0013 | ✅ | 0 |
+| TR-movement-005 | player-character-movement.md | Fixed-point trig LUT; terrain from World Gen height field (2 m, bilinear, int64) | ADR-0013 + ADR-0026 | ✅ | 0 |
 | TR-movement-006 | player-character-movement.md | Sub-steps ≤300 mm, ≤3 slides, step-up/snap 400 mm, slope 700‰, ≤4 sub-steps/tick | ADR-0013 | ✅ | 0 |
 | TR-movement-007 | player-character-movement.md | Fixed-step driver with catch-up cap; local extrapolation ≤1 tick; no engine physics interpolation | ADR-0002 | ✅ | 0 |
 | TR-movement-008 | player-character-movement.md | Transforms 16 B up, 17 B/entry batched down; 15 Hz/4 Hz; ≤19 kbps down, ≤6.7 kbps up | ADR-0020 | ❌ GAP | 0 |
@@ -173,7 +174,7 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-movement-015 | player-character-movement.md | Frozen on disconnect 120 s; reconnect via account→peer map | ADR-0020 | ❌ GAP | 0 |
 | TR-movement-016 | player-character-movement.md | PvP push: own capsule only, half overlap, cap 60 mm/tick | ADR-0013 | ✅ | 0 |
 | TR-movement-017 | player-character-movement.md | Support carry ≤12,000 mm/s; roof position in vehicle-local frame | ADR-0013 | ✅ | 0 |
-| TR-movement-018 | player-character-movement.md | Water depth from height field; swim hysteresis 900/700 mm | ADR-0013 | ✅ | 0 |
+| TR-movement-018 | player-character-movement.md | Water depth from height field; swim hysteresis 900/700 mm | ADR-0013 + ADR-0026 | ✅ | 0 |
 | TR-movement-019 | player-character-movement.md | ContentValidator enforces 12 cross-key movement rules | ADR-0010 | ✅ | 0 |
 | TR-movement-020 | player-character-movement.md | Balance keys and StatSheet stats for movement; KitDef.standardIssueItem | ADR-0010 | ✅ | 0 |
 | TR-movement-021 | player-character-movement.md | Owner CarrierStep+focus p99 ≤0.10 ms; host ≤0.20 ms/tick; 0 B/tick | perf-budget.md (not an ADR) | ❌ GAP | 0 |
@@ -200,10 +201,10 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-delivery-016 | manual-delivery.md | No host state, no replicated state; JoinState 0 B | ADR-0011 | ✅ | 0 |
 | TR-delivery-017 | manual-delivery.md | Hand beat once per hold keyed (actor,dest,applyTick) from DeliveryOutcome | ADR-0016 | ✅ | 0 |
 | TR-delivery-018 | manual-delivery.md | Reach echo starts only when Sim-published canStartHoldNext was true | ADR-0016 | ✅ | 0 |
-| TR-delivery-019 | manual-delivery.md | Prompt content as data from Sim; HUD renders; localisation keys, no concatenation | ADR-0018 | ❌ GAP | 0 |
-| TR-delivery-020 | manual-delivery.md | Live-region announcements policy; accessibility_live API unsourced | ADR-0018 | ❌ GAP | 0 |
-| TR-delivery-021 | manual-delivery.md | Race suite: no misdeliver for MATCH-latched hold across ticks ±2 and RTTs; 10,000-seed soak | ADR-0006 | ✅ | 0 |
-| TR-delivery-022 | manual-delivery.md | Telemetry latchedBranch; handShare ≥20% | ADR-0024 | ❌ GAP | 0 |
+| TR-delivery-019 | manual-delivery.md | Prompt content as data from Sim; HUD renders; localisation keys, no concatenation | ADR-0018 + ADR-0014 | ✅ | 3 |
+| TR-delivery-020 | manual-delivery.md | Live-region announcements policy; accessibility_live API unsourced | ADR-0018 | ❌ GAP | 1 |
+| TR-delivery-021 | manual-delivery.md | Race suite: no misdeliver for MATCH-latched hold across ticks ±2 and RTTs; 10,000-seed soak | ADR-0006 | ⏸ DEFERRED | 1 |
+| TR-delivery-022 | manual-delivery.md | Telemetry latchedBranch; handShare ≥20% | ADR-0024 | ✅ | 1 |
 | TR-delivery-023 | manual-delivery.md | Mailbox flap separate node within 150-tri budget; reach layer scrubbed by hold progress | ADR-0019 | ✅ | 0 |
 | TR-delivery-024 | manual-delivery.md | Visual-only lunge ≤0.8 m via rig offset, never feeds Sim | ADR-0019 | ✅ | 0 |
 | TR-mail-001 | mail-destinations.md | All money/permille/tick math integer; int64 intermediates; one RH per formula | ADR-0006 | ✅ | 0 |
@@ -211,7 +212,7 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-mail-003 | mail-destinations.md | Fixed RNG draw count; NextInt without rejection loop | ADR-0005 | ✅ | 0 |
 | TR-mail-004 | mail-destinations.md | Separate mail.special stream so re-rolls never move Lost Parcels | ADR-0005 | ✅ | 0 |
 | TR-mail-005 | mail-destinations.md | Evaluate pure, 0-alloc, same code compiled into client for prompt and arc colour | ADR-0016 | ✅ | 0 |
-| TR-mail-006 | mail-destinations.md | Server-only SoA mail table keyed by mailId; packed AddressId | ADR-0017 | ✅ | 0 |
+| TR-mail-006 | mail-destinations.md | Server-only SoA mail table keyed by mailId; packed AddressId | ADR-0017 + ADR-0026 | ✅ | 0 |
 | TR-mail-007 | mail-destinations.md | Wallet via Mail-owned IWalletGate; no Mail→Economy assembly/namespace reference | ADR-0017 | ✅ | 0 |
 | TR-mail-008 | mail-destinations.md | One consume routine for hand/throw/feeder/NPC in fixed tick order | ADR-0017 | ✅ | 0 |
 | TR-mail-009 | mail-destinations.md | Backlog ordered queue O(1) append; drain owned by Inventory; backlogUnits u16 | ADR-0017 | ✅ | 0 |
@@ -233,9 +234,9 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-throwing-002 | throwing-catching.md | No RNG in throwing; future randomness via registered stream by launch ordinal | ADR-0005 | ✅ | 0 |
 | TR-throwing-003 | throwing-catching.md | Preview calls same Sim function as host; identical over 10,000 throws | ADR-0015 | ✅ | 0 |
 | TR-throwing-004 | throwing-catching.md | Floor-based RH, CeilDiv/FloorDiv, isqrt; never truncating / on signed values | ADR-0006 | ✅ | 1 |
-| TR-throwing-005 | throwing-catching.md | Swept segment test per tick per flight (≤90 ticks); slab/circle/cylinder/sphere/heightfield | ADR-0015 | ✅ | 0 |
+| TR-throwing-005 | throwing-catching.md | Swept segment test per tick per flight (≤90 ticks); slab/circle/cylinder/sphere/heightfield | ADR-0015 + ADR-0026 | ✅ | 0 |
 | TR-throwing-006 | throwing-catching.md | Receiver resolution ordering; flights in creation order | ADR-0015 | ✅ | 0 |
-| TR-throwing-007 | throwing-catching.md | Broad phase bounds \|R\|≤65536 mm; static 4 m grid | ADR-0015 | ✅ | 0 |
+| TR-throwing-007 | throwing-catching.md | Broad phase bounds \|R\|≤65536 mm; static 4 m grid | ADR-0015 + ADR-0026 | ✅ | 0 |
 | TR-throwing-008 | throwing-catching.md | Throwing.Step phase 4; 0.15 ms p99; 0 alloc; 16 flights + 8 catchers | ADR-0015 | ✅ | 0 |
 | TR-throwing-009 | throwing-catching.md | FlightRecord snapshot fields; flightId wrap-safe u16 | ADR-0004 | ✅ | 0 |
 | TR-throwing-010 | throwing-catching.md | Fixed 9-check host validation; claim-and-corroborate origin | ADR-0021 | ❌ GAP | 0 |
@@ -248,24 +249,24 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 | TR-throwing-017 | throwing-catching.md | Aim preview ≤0.3 ms/frame, 0 alloc, screen-space dashed ribbon | ADR-0019 | ✅ | 0 |
 | TR-throwing-018 | throwing-catching.md | Launch ghost on release frame; outcome beats never before domain event | ADR-0016 | ✅ | 0 |
 | TR-throwing-019 | throwing-catching.md | ThrowDef/BalanceConfig knobs with validator rules | ADR-0010 | ✅ | 0 |
-| TR-throwing-020 | throwing-catching.md | Telemetry to session stats file only | ADR-0024 | ❌ GAP | 0 |
+| TR-throwing-020 | throwing-catching.md | Telemetry to session stats file only | ADR-0024 | ✅ | 1 |
 | TR-throwing-021 | throwing-catching.md | Spin from flightId; MultiMesh bundles; hidden beyond 35 m | ADR-0019 | ✅ | 0 |
-| TR-hud-001 | hud-notifications.md | HUD Presentation-only; no gameplay state; Sim has no reference to it | ADR-0018 | ❌ GAP | 0 |
-| TR-hud-002 | hud-notifications.md | Plain-C# UI core xUnit-testable via IUiClock/IRoster/IHudState/IMoneyFormatter + Godot view | ADR-0018 | ❌ GAP | 0 |
+| TR-hud-001 | hud-notifications.md | HUD Presentation-only; no gameplay state; Sim has no reference to it | ADR-0018 | ✅ | 1 |
+| TR-hud-002 | hud-notifications.md | Plain-C# UI core xUnit-testable via IUiClock/IRoster/IHudState/IMoneyFormatter + Godot view | ADR-0018 | ✅ | 1 |
 | TR-hud-003 | hud-notifications.md | HUD reads only via IHudState ordered by (sourceTick, opId); loopback from M-1a | ADR-0016 | ✅ | 0 |
 | TR-hud-004 | hud-notifications.md | Timer from IHostClock.renderSimTimeMs; HUD runs no clock | ADR-0016 | ✅ | 0 |
-| TR-hud-005 | hud-notifications.md | Timer monotone within (phaseId, deadlineTick); text written on change only | ADR-0018 | ❌ GAP | 0 |
+| TR-hud-005 | hud-notifications.md | Timer monotone within (phaseId, deadlineTick); text written on change only | ADR-0018 | ✅ | 2 |
 | TR-hud-006 | hud-notifications.md | Every notification is a cue record with id/int args, never preformatted strings | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-007 | hud-notifications.md | Cue table validated at load (CV-HUD-01..05); missing key is load error | ADR-0010 | ✅ | 0 |
 | TR-hud-008 | hud-notifications.md | CI: every pill/toast cue has a paired world cue | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-009 | hud-notifications.md | Toast lane: M-1a 1 slot; M0+ 2 visible + 4 queued, deterministic eviction | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-010 | hud-notifications.md | Merge predicate on UI-clock windows; raw events always logged | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-011 | hud-notifications.md | UI event log ring 1024 (M0), plain list M-1a; shared records | ADR-0018 | ❌ GAP | 0 |
-| TR-hud-012 | hud-notifications.md | All money text via one IMoneyFormatter; lint bans currency literals | ADR-0018 | ❌ GAP | 0 |
+| TR-hud-012 | hud-notifications.md | All money text via one IMoneyFormatter; lint bans currency literals | ADR-0018 | ✅ | 2 |
 | TR-hud-013 | hud-notifications.md | Screen-space MarkerLayer above post-processing; 41 markers at roster 8 | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-014 | hud-notifications.md | Flash governor ≤3/s real clock, ≤2 Hz per element; one animator | ADR-0018 | ❌ GAP | 0 |
-| TR-hud-015 | hud-notifications.md | 1080-reference px scaled by height; text ≥18 px up to 200%; min 1280×720; stretch undecided | ADR-0018 | ❌ GAP | 0 |
-| TR-hud-016 | hud-notifications.md | 0 alloc over 10,000 idle frames, pooled rows, atlas, no DrawLine; ≤0.8 ms, ≤60 draws (proposed) | ADR-0018 | ❌ GAP | 0 |
+| TR-hud-015 | hud-notifications.md | 1080-reference px scaled by height; text ≥18 px up to 200%; min 1280×720; stretch undecided | ADR-0018 | ✅ | 2 |
+| TR-hud-016 | hud-notifications.md | 0 alloc over 10,000 idle frames, pooled rows, atlas, no DrawLine; ≤0.8 ms, ≤60 draws (proposed) | ADR-0018 | ✅ | 2 |
 | TR-hud-017 | hud-notifications.md | Two live-region Controls; schema M-1a, announcer M4 | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-018 | hud-notifications.md | History ring 50 raw events with snapshots | ADR-0018 | ❌ GAP | 0 |
 | TR-hud-019 | hud-notifications.md | Settings consumed from Persistence; HUD owns no persistence | ADR-0024 | ❌ GAP | 0 |
@@ -284,11 +285,11 @@ Source: generated from `docs/architecture/tr-registry.yaml` (/architecture-revie
 
 | Planned ADR | TR-IDs | Suggested action |
 |---|---|---|
-| ADR-0018 | TR-delivery-019, TR-delivery-020, TR-hud-001, TR-hud-002, TR-hud-005, TR-hud-006, TR-hud-008, TR-hud-009, TR-hud-010, TR-hud-011, TR-hud-012, TR-hud-013, TR-hud-014, TR-hud-015, TR-hud-016, TR-hud-017, TR-hud-018, TR-hud-021, TR-comms-007, TR-comms-008 | `/architecture-decision HUD composition` |
+| ADR-0018 | TR-delivery-020, TR-hud-006, TR-hud-008, TR-hud-009, TR-hud-010, TR-hud-011, TR-hud-013, TR-hud-014, TR-hud-017, TR-hud-018, TR-hud-021, TR-comms-007, TR-comms-008 | `/architecture-decision HUD composition` |
 | ADR-0020 | TR-movement-003, TR-movement-008, TR-movement-009, TR-movement-010, TR-movement-015, TR-movement-023, TR-movement-026 | `/architecture-decision Transforms & Teleport` |
 | ADR-0021 | TR-throwing-010, TR-throwing-011, TR-throwing-012, TR-throwing-014, TR-throwing-015 | `/architecture-decision Flight protocol & catch` |
 | ADR-0022 | TR-inventory-023, TR-inventory-024 | `/architecture-decision JoinState & resync` |
-| ADR-0024 | TR-delivery-022, TR-throwing-020, TR-hud-019 | `/architecture-decision Persistence` |
+| ADR-0024 | TR-hud-019 | `/architecture-decision Persistence` |
 | ADR-0025 | TR-inventory-008, TR-inventory-009, TR-inventory-016, TR-inventory-018 | `/architecture-decision Inventory indexing` |
 | ADR-0029 | TR-movement-024, TR-movement-025 | `/architecture-decision Animation & camera` |
 | perf-budget.md (not an ADR) | TR-sim-037, TR-sim-038, TR-sim-039, TR-movement-021 | `author docs/architecture/perf-budget.md` |

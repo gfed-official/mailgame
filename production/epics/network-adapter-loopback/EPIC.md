@@ -8,7 +8,7 @@
 > **Est. size**: M — 6–8 stories
 > **Implementation priority**: alongside 1–2 (Simulation Core's `FrameRunner` needs an `IFrameTransport`; every feature op crosses this codec)
 > **Status**: Ready
-> **Stories**: 9 stories — 7 Complete, 2 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
+> **Stories**: 9 stories — 7 Complete, 2 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -115,5 +115,7 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (none expected)
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): then Track B: 008 (B1), 009 (B2). Earlier notes below are history.
 
 Run `/story-readiness` on Story 001 once simulation-core Stories 001 and 004 are DONE, then `/dev-story`. Work through stories in order — each story's `Depends on:` field tells you what must be DONE first.

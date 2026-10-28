@@ -57,7 +57,7 @@
 *Handled by neighbouring stories — do not implement here:*
 
 - Story 005: the host handler and the clamp. Story 006: reply handling. Network story 008: the wire codec.
-- M-MD4-1e (screen-reader settle) → story 010 (needs ADR-0018's announcement events).
+- M-MD4-1e (screen-reader settle) → story 012 (**Deferred**, Evan 2026-10-23; needs ADR-0018's announcement events).
 
 ---
 

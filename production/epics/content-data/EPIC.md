@@ -8,7 +8,7 @@
 > **Est. size**: M — 10–12 stories
 > **Implementation priority**: 2 of 9
 > **Status**: Ready
-> **Stories**: 19 stories — 17 Complete, 1 In Progress, 1 Ready (counts refreshed 2026-10-20 from the story headers) — see the Stories table below
+> **Stories**: 19 stories — 17 Complete, 1 In Progress, 1 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -135,5 +135,7 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (none are expected in this epic)
 
 ## Next Step
+
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 019 (A1). Earlier notes below are history.
 
 Run `/story-readiness production/epics/content-data/story-001-defindex-stringid-deftable.md`, then `/dev-story`.

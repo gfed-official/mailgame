@@ -8,6 +8,8 @@
 > **Manifest Version**: 2026-10-16.2
 > **Last Updated**: —
 
+> **Kept Ready 2026-10-27 by Evan.** Evan 2026-10-27 9:42 PM PT, Mail Lead chat, answering the widget "Defer input-controls 011 (mouse-free panel navigation) and 022 (input replay test corpus)?": "Keep input-controls 011 and 022 Ready" (supersedes his 9:29 PM PT "Defer input-controls 011 and 022", which answered a widget that described the two stories wrongly). This story was Deferred 2026-10-23 to 2026-10-27 under erratum E1 (ADR-0012) and is back in the M-1a order; its text is the last Ready version. E1 itself was amended to drop the H-FX-1 replay corpus from the deferral: Evan 2026-10-27 9:54 PM PT, Mail Lead chat, answering the widget "Amend the ADR-0012 E1 erratum so mouse-free panel navigation and the replay test corpus are no longer deferred?": "Approve the ADR-0012 E1 amendment: drop R8 mouse-free panel navigation and the H-FX-1 replay corpus from the deferral".
+
 ## Context
 
 **GDD**: `design/gdd/input-controls.md` (Player Fantasy → Fantasy test 1 "Zero unauthored verbs"; AC H-FX-1; Edge Cases; G1–G9)
