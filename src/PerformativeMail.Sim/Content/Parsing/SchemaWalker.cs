@@ -8,8 +8,11 @@ using PerformativeMail.Sim.Content.Validation;
 namespace PerformativeMail.Sim.Content.Parsing;
 
 /// <summary>
-/// Stage 2 of the content load (ADR-0010 section 2, GDD CD3.3 to CD10): a forward, non-recursive-in-the-file walk over one
-/// def file's stage 1 token side table, driven by the def type's <see cref="FieldSpec"/> table. For each element of the
+/// Stage 2 of the content load (ADR-0010 section 2, GDD CD3.3 to CD10): a forward walk over one def file's stage 1 token side
+/// table, driven by the def type's <see cref="FieldSpec"/> table. It is non-recursive in the file dimension (one pass, no
+/// re-reads); the value reads recurse through the table's nested rows only, so their depth is bounded by the field table
+/// (at most 3 levels: a def, a <c>shifts</c> entry, its <c>shares</c> map), never by the input, and stage 1 already caps
+/// nesting at <see cref="SyntaxWalker.MaxDepth"/> (32). For each element of the
 /// top-level array it looks every key up by ordinal compare and reports:
 /// <list type="bullet">
 /// <item>CV-GEN-02: an <c>id</c> failing the <see cref="IdLint"/> byte scan, or written with an escape;</item>

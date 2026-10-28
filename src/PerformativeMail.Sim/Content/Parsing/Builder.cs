@@ -91,6 +91,8 @@ public static class Builder
                     continue;
                 }
 
+                // Mail Dev default, pending Evan: this returns before DropDuplicates, so a duplicate id where either copy also has
+                // a schema error shows only that error; its CV-GEN-01 appears once the type is clean.
                 if (!file.Ok)
                 {
                     _failed.Add(new FailedInput(KeyOf(type), DefRef.None, file.Path));

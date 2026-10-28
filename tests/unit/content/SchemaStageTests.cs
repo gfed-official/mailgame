@@ -203,12 +203,15 @@ public class SchemaStageTests
     [InlineData("list", SchemaWalker.MaxListLength + 1, true)]
     [InlineData("string", SchemaWalker.MaxStringBytes, false)]
     [InlineData("string", SchemaWalker.MaxStringBytes + 1, true)]
+    [InlineData("utf8", SchemaWalker.MaxStringBytes, false)]       // 32,767 x 'é' + 'a': bytes, not chars
+    [InlineData("utf8", SchemaWalker.MaxStringBytes + 1, true)]    // 32,768 x 'é'
     public void OverStorageWidth_IsCvGen12AtStage2_SoTheEncoderNeverThrowsForLoadedContent(string what, int size, bool fails)
     {
         string text = what switch
         {
             "int" => J.File(J.Plank(("maxStack", size.ToString(System.Globalization.CultureInfo.InvariantCulture)))),
             "list" => SchemaRuleFixtures.Tags(size),
+            "utf8" => J.File(J.Plank(("name", "\"" + new string('é', size / 2) + (size % 2 == 1 ? "a" : "") + "\""))),
             _ => SchemaRuleFixtures.Name(size),
         };
 
@@ -217,7 +220,8 @@ public class SchemaStageTests
         Assert.Equal(fails ? new[] { GeneralRuleIds.ValueOutOfRange } : Array.Empty<string>(), r.Diagnostics.Select(d => d.RuleId));
         if (!fails)
         {
-            Assert.NotNull(Load(J.MinimalFiles((DefType.Item, text))).Set);   // the edge encodes (ContentHash) without throwing
+            ContentSet set = Assert.IsType<ContentSet>(Load(J.MinimalFiles((DefType.Item, text))).Set);
+            Assert.Null(Record.Exception(() => ContentHash.Compute(set)));   // the edge runs the canonical encoder without throwing
         }
     }
 
@@ -246,6 +250,27 @@ public class SchemaStageTests
         Assert.Equal((0L, false, EquipSlot.None, 0), (plank.SellPriceCents, plank.HasBuyPrice, plank.EquipSlot, plank.Tags.Length));
         ContainerDef cursor = Assert.Single(built.Containers);
         Assert.Equal((BeltAccess.None, false, ContainerView.Auto), (cursor.BeltAccess, cursor.HasAllowedCategories, cursor.View));
+    }
+
+    [Theory]
+    [Trait("Id", "CD21")]
+    [InlineData("empty", null)]                               // `[]` passes stage 2 with no defs
+    [InlineData("midWalk", GeneralRuleIds.ValueOutOfRange)]   // a def failing mid-walk leaks nothing into stage 3
+    [InlineData("duplicate", GeneralRuleIds.EnumSpelling)]    // Mail Dev default, pending Evan: no CV-GEN-01 until the copy is clean
+    public void Build_RunsForATypeOnlyWhenAllItsFilesAreClean(string what, string? rule)
+    {
+        SchemaResult[] files = what switch
+        {
+            "empty" => new[] { J.Walk(DefType.Item, "[]") },
+            "midWalk" => new[] { J.Walk(DefType.Item, J.File(J.Plank(("maxStack", "65536")), J.Plank(("id", "\"fiber\"")))) },
+            _ => new[] { J.Walk(DefType.Item, J.File(J.Plank()), "items/a.jsonc"), J.Walk(DefType.Item, J.File(J.Plank(("weightClass", "\"LIGHT\""))), "items/b.jsonc") },
+        };
+
+        BuiltDefs built = Builder.Build(files);
+
+        Assert.Equal(rule is null ? Array.Empty<string>() : new[] { rule }, built.Diagnostics.Select(d => d.RuleId));
+        Assert.Empty(built.Items);
+        Assert.Equal(rule is not null, built.Failed.Any(f => f.Input == ContentInputKeys.Items));
     }
 
     [Fact]
