@@ -186,6 +186,6 @@ public enum CounterId : ushort
     /// <summary>Mail <c>MailStep</c> (phase 8): one per mail-table row visited by the step (key <c>mailRowsVisited</c>; mail-destinations story 005, TD-177 item 4; M-PERF-1c: an idle tick visits 0). A test seam: at M-1a the step has no row-visiting path, so it stays 0.</summary>
     MailRowsVisited = 56,
 
-    /// <summary>Mail <c>MailStep</c> (phase 8): one per complaint bucket visited by the step (key <c>mailBucketsVisited</c>; mail-destinations story 005, TD-177 item 4; M-PERF-1c: an idle tick visits 0; buckets refill lazily on touch, ADR-0017 section 7). A test seam: at M-1a the step visits no bucket, so it stays 0.</summary>
+    /// <summary>Mail <c>MailStep</c> (phase 8): one per complaint bucket visited by the step (key <c>mailBucketsVisited</c>; mail-destinations story 005, TD-177 item 4; M-PERF-1c: an idle tick visits 0; buckets refill lazily on touch, ADR-0017 section 7). A test seam: at M-1a the step visits no bucket, so it stays 0. Like <see cref="MailRowsVisited"/>, written to no dump section: counters are excluded from the canonical dump (<see cref="SimCoreStateContributor"/>), so TD-177 item 4's "both in the canonical dump" is read as "both canonical <c>CounterId</c>s" (Mail Dev default, pending Evan (TD-183 item 4)).</summary>
     MailBucketsVisited = 57,
 }
