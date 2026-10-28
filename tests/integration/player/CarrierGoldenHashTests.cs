@@ -26,15 +26,17 @@ namespace PerformativeMail.Sim.Tests.Integration.PlayerCharacter;
 /// and WadeSlowPm"); chain <c>h_t = SHA-256(h_(t-1) || tickHash_t)</c> with <c>h_0</c> = 32 zero bytes.
 /// </para>
 /// <para>
-/// FX-Golden (Mail Lead default, pending Evan) extends the GDD's FX-Dry: 64 x 64 tiles of dry ground at +1000 mm with an FX-Ramp pair
-/// in the z 6000-10 000 band (a 1400 mm / 700 permille tile up to a 2400 mm plateau, then a 1404 mm / 702 permille face), an FX-Beach
-/// strip falling 1000 mm per tile from z 20 000 into FX-Deep (-2000 mm), and static boxes: a spawn crate the carrier starts inside
-/// (a static world's only way to reach depenetration), a 400 mm step, a 401 mm block, a ceiling slab 1.5 m above the ground, a 50 mm
-/// thin wall and a pier with a 1200 mm top in the deep water (the haul-out ledge). The map-edge clamp leg stops the carrier at
-/// x 127 000 with Vx 0 (<c>MapMaxMm</c> 128 000 minus <see cref="CarrierBounds.InsetMm"/>); no tick samples x = TilesX x S, so it does
-/// not exercise ADR-0026's far-edge sampling rule. Settings are the M-1a defaults except <c>buffCapPm</c> 4000: the script's Boost flag
-/// sets <c>BuffAddPm</c> 4000, the only input that moves a tick more than <c>subStepMm x maxSubStepsPerTick</c> (1200 mm), so the only
-/// way to reach <c>carrierStepClamped</c>.
+/// FX-Golden (Approved by Evan 2026-10-28 2:35 AM PT (Mail Lead chat): "Approve all seven TD-174 defaults for player-character 010: the
+/// FX-Golden world, Boost with buffCapPm 4000, the spawn-crate start, the named ticks, the mutation ticks, the perf fixture, and
+/// treating its S–M estimate as M") extends the GDD's FX-Dry: 64 x 64 tiles of dry ground at +1000 mm with an FX-Ramp pair in the z
+/// 6000-10 000 band (a 1400 mm / 700 permille tile up to a 2400 mm plateau, then a 1404 mm / 702 permille face), an FX-Beach strip
+/// falling 1000 mm per tile from z 20 000 into FX-Deep (-2000 mm), and static boxes: a spawn crate the carrier starts inside (a static
+/// world's only way to reach depenetration), a 400 mm step, a 401 mm block, a ceiling slab 1.5 m above the ground, a 50 mm thin wall and
+/// a pier with a 1200 mm top in the deep water (the haul-out ledge). The map-edge clamp leg stops the carrier at x 127 000 with Vx 0
+/// (<c>MapMaxMm</c> 128 000 minus <see cref="CarrierBounds.InsetMm"/>); no tick samples x = TilesX x S, so it does not exercise
+/// ADR-0026's far-edge sampling rule. Settings are the M-1a defaults except <c>buffCapPm</c> 4000: the script's Boost flag sets
+/// <c>BuffAddPm</c> 4000, the only input that moves a tick more than <c>subStepMm x maxSubStepsPerTick</c> (1200 mm), so the only way to
+/// reach <c>carrierStepClamped</c>.
 /// </para>
 /// <para>
 /// Script: one row per tick (<c>tick,moveX,moveY,lookYaw,flags</c>; flags 1 Sprint, 2 Jump, 4 Aim, 8 Boost; '#' lines name the legs);
@@ -70,7 +72,9 @@ public class CarrierGoldenHashTests
     private const int SteepMinX = 88_000;         // 702 permille tile, x 88 000-90 000
     private const int SteepMaxX = 90_000;
 
-    // The scripted ticks of the paths that have no counter or flag (read off the run; Mail Lead default, pending Evan).
+    // The scripted ticks of the paths that have no counter or flag (read off the run; Approved by Evan 2026-10-28 2:35 AM PT (Mail Lead
+    // chat): "Approve all seven TD-174 defaults for player-character 010: the FX-Golden world, Boost with buffCapPm 4000, the
+    // spawn-crate start, the named ticks, the mutation ticks, the perf fixture, and treating its S–M estimate as M").
     private const int MapClampTick = 14;          // walking +X reaches x 127 000 and is held there
     private const int BlockTick = 85;             // sprinting -X into the 401 mm block stops at its face
     private const int CoyoteTick = 133;           // a press one tick after walking off the block top
@@ -292,8 +296,10 @@ public class CarrierGoldenHashTests
     /// <summary>
     /// Single-unit perturbations of inputs the solver reads on that tick (input clamping, mid-air presses with no extra jump left and
     /// look yaw without move input are not read, so "any input" is not claimed). A 1 BAM look-yaw change while walking without aim is
-    /// absorbed by the heading quantisation, so the look-yaw case uses an aiming tick, where the body yaw is the look yaw. Ticks are
-    /// Mail Lead defaults, pending Evan.
+    /// absorbed by the heading quantisation, so the look-yaw case uses an aiming tick, where the body yaw is the look yaw. Ticks:
+    /// Approved by Evan 2026-10-28 2:35 AM PT (Mail Lead chat): "Approve all seven TD-174 defaults for player-character 010: the
+    /// FX-Golden world, Boost with buffCapPm 4000, the spawn-crate start, the named ticks, the mutation ticks, the perf fixture, and
+    /// treating its S–M estimate as M".
     /// </summary>
     [Theory]
     [InlineData(Mutation.MoveX, 10)]      // walking
@@ -558,7 +564,9 @@ public class CarrierGoldenHashTests
 /// sub-steps (a boosted 1250 mm tick, clamped to 1200) among 64 static candidates (an 8 x 8 grid of slabs just above the head, inside the
 /// swept region but clear of the capsule), stepped 10 000 times from the same start; the p99 per call is written to the output against
 /// the 0.10 ms target and never asserted until the M1 reference machine exists (the blocking form is story 028). The 8-player /
-/// 2000-anchor fixture is story 018/020's. The fixture shape is a Mail Lead default, pending Evan.
+/// 2000-anchor fixture is story 018/020's. The fixture shape: Approved by Evan 2026-10-28 2:35 AM PT (Mail Lead chat): "Approve all
+/// seven TD-174 defaults for player-character 010: the FX-Golden world, Boost with buffCapPm 4000, the spawn-crate start, the named
+/// ticks, the mutation ticks, the perf fixture, and treating its S–M estimate as M".
 /// </summary>
 [Collection(NonParallelCollection.Name)]
 [Trait("Category", "Perf")]
