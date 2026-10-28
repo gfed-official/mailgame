@@ -18,7 +18,10 @@ public static class GridRuleIds
     public const string HandCarriedBulk = "CV-GRD-02";
 
     /// <summary>CV-GRD-03 (Error, stage 2): <c>allowedCategories</c> present but empty.</summary>
-    /// <remarks>Catalogue stage 2; runs at stage 4 through the runner (TD-063(1)).</remarks>
+    /// <remarks>
+    /// Catalogue stage 2. For loaded content the schema walker raises it at stage 2 (the row's <c>FieldSpec.EmptyListRule</c>), so
+    /// the def never reaches stage 4; the registered body runs at stage 4 for built-in content (TD-063(1), story 018).
+    /// </remarks>
     public const string EmptyAllowedCategories = "CV-GRD-03";
 
     /// <summary>CV-GRD-04 (Error, stage 2): a grid or slots container with W or H below 1, or any <c>maxStack</c> below 1.</summary>
@@ -40,7 +43,8 @@ public static class GridRuleIds
 /// <para>
 /// Stage: the catalogue puts CV-GRD-03, 04 and 07 at stage 2 (schema), but the stage 2 rule bodies of M-1a read the built
 /// set and the runner executes only stages 4 and 5, so they are registered at stage 4 (<see cref="ValidationStage.References"/>),
-/// ahead of every stage 5 rule; story 018 moves them if its schema walker takes them over. Aliases are unique per row
+/// ahead of every stage 5 rule ("2 (runs at 4)"). Story 018's schema walker also raises CV-GRD-03 at stage 2 for loaded content;
+/// CV-GRD-04 and 07 stay at stage 4 (decision log 2026-10-17). Aliases are unique per row
 /// (the registry rejects shared ones), so the two R12 rows carry a key suffix.
 /// </para>
 /// </summary>

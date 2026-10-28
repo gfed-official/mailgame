@@ -31,8 +31,11 @@ public class GridMailRulesTests
 
     [Fact]
     [Trait("Id", "CDD-RULE-2")]
-    public void Rows_AreRegisteredWithTheCatalogueSeverityAndStage()
+    public void Rows_AreRegisteredWithTheCatalogueSeverity_AndTheStageTheRunnerExecutesThemAt()
     {
+        // TD-063(1): the catalogue puts CV-GRD-03/04/07 and CV-MAIL-03 at stage 2, but their bodies read the built set, so they are
+        // registered at stage 4 ("2 (runs at 4)"; see Grid and Mail). For loaded content the schema walker raises CV-GRD-03 itself
+        // at stage 2 (story 018), so an empty allowedCategories never reaches stage 4.
         RuleRegistry registry = RuleRegistry.CreateDefault();
         (string Id, RuleSeverity Severity, ValidationStage Stage, string Owner)[] expected =
         {
