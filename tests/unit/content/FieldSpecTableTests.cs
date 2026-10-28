@@ -125,7 +125,7 @@ public class FieldSpecTableTests
             {
                 "id:Text R", "name:Text R", "category:Enum R ->ItemCategory", "grid:IntList/Count#2[1..255] R",
                 "maxStack:Number/Count[0..65535] R", "weightClass:Enum R ->WeightClass", "sellPrice:Number/Cents[0..2147483647] O=0",
-                "buyPrice:Number/Cents[0..2147483647] O", "carryByHand:Bool O=1", "equipSlot:Enum O=none ->EquipSlot", "tags:TextList O",
+                "buyPrice:Number/Cents[0..2147483647] O", "carryByHand:Bool O=0", "equipSlot:Enum O=none ->EquipSlot", "tags:TextList O",
             },
             ItemDefFieldSpec.Rows.Select(Describe).ToArray());
     }
@@ -138,8 +138,8 @@ public class FieldSpecTableTests
             {
                 "id:Text R", "layout:Enum R ->ContainerLayout",
                 "grid:IntList/Count#2[0..255] O {layout req:grid/slots forbid:pile}",
-                "view:Enum O=auto ->ContainerView", "beltAccess:Enum O=none ->BeltAccess", "allowedCategories:EnumList O ->ItemCategory",
-                "handCarried:Bool O=0", "acceptsInsert:Bool O=1",
+                "view:Enum R ->ContainerView", "beltAccess:Enum O=none ->BeltAccess", "allowedCategories:EnumList O ->ItemCategory",
+                "handCarried:Bool O=0", "acceptsInsert:Bool O=0",
                 "reservedSlots:IntList/Count[0..65535] O {layout req: forbid:grid/pile}",
             },
             ContainerDefFieldSpec.Rows.Select(Describe).ToArray());
@@ -152,7 +152,7 @@ public class FieldSpecTableTests
             new[]
             {
                 "id:Text R", "name:Text R", "grid:IntList/Count#2[1..255] R", "maxStack:Number/Count[0..65535] R",
-                "baseValue:Number/Cents[0..2147483647] R", "weightClass:Enum R ->WeightClass", "carryByHand:Bool O=1",
+                "baseValue:Number/Cents[0..2147483647] R", "weightClass:Enum R ->WeightClass", "carryByHand:Bool O=0",
                 "beltLanes:Number/Count[0..2147483647] R", "beltLengthMetres:Number/Metres[0..2147483647] R",
                 "deadlineOffsetShifts:Number/Count[0..2147483647] O=0", "acceptedBy:RefList R ->DestinationTypeDef",
                 "complaintOnMisdeliveryPoints:Number/Points[0..2147483647] R", "unlockShift:Number/Count[0..2147483647] R",
@@ -267,14 +267,9 @@ public class FieldSpecTableTests
 
     // ------------------------------------------------------------ defaults
 
-    // GDD-stated exceptions to "defaults are neutral" (CD10): these defaults are NOT in {any, 0, false, none, 1000}.
-    private static readonly string[] _gddDefaultExceptions =
-    {
-        "ItemDef.carryByHand=1", "MailKindDef.carryByHand=1", "ContainerDef.acceptsInsert=1", "ContainerDef.view=auto",
-    };
-
+    // No exceptions to "defaults are neutral" (CD10 owner ruling 2026-10-21): every default is in {any, 0, false, none, 1000}.
     [Fact]
-    public void EveryDefault_IsNeutral_ExceptTheGddStatedOnes()
+    public void EveryDefault_IsNeutral_WithNoExceptions()
     {
         List<string> exceptions = new();
         foreach ((string path, FieldSpec row) in EveryRow())
@@ -294,11 +289,11 @@ public class FieldSpecTableTests
             }
         }
 
-        Assert.Equal(_gddDefaultExceptions.OrderBy(x => x, StringComparer.Ordinal), exceptions.OrderBy(x => x, StringComparer.Ordinal));
+        Assert.Empty(exceptions);
     }
 
     [Fact]
-    public void RequiredRows_CarryNoDefault_AndTheGddDefaultsAreWhatCd10States()
+    public void RequiredRows_CarryNoDefault_AndTheDefaultsAreWhatCd10States()
     {
         foreach ((string path, FieldSpec row) in EveryRow().Where(x => x.Row.Required))
         {
@@ -309,12 +304,12 @@ public class FieldSpecTableTests
         foreach (FieldSpec row in carry)
         {
             Assert.Equal("carryByHand", row.Name);
-            Assert.Equal(1L, row.Default);
+            Assert.Equal(0L, row.Default);
         }
 
-        Assert.Equal(1L, ContainerDefFieldSpec.Rows.Single(r => r.Name == "acceptsInsert").Default);
+        Assert.Equal(0L, ContainerDefFieldSpec.Rows.Single(r => r.Name == "acceptsInsert").Default);
         Assert.Equal(0L, ContainerDefFieldSpec.Rows.Single(r => r.Name == "handCarried").Default);
-        Assert.Equal("auto", ContainerDefFieldSpec.Rows.Single(r => r.Name == "view").DefaultSpelling);
+        Assert.True(ContainerDefFieldSpec.Rows.Single(r => r.Name == "view").Required);   // required, no default (OQ-018-2)
         Assert.Equal("none", ContainerDefFieldSpec.Rows.Single(r => r.Name == "beltAccess").DefaultSpelling);
         Assert.Equal("none", ItemDefFieldSpec.Rows.Single(r => r.Name == "equipSlot").DefaultSpelling);
         Assert.Null(ItemDefFieldSpec.Rows.Single(r => r.Name == "buyPrice").Default);   // absent = no buy price

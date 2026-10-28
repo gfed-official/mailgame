@@ -81,24 +81,24 @@ public static class BuiltInContent
         new ContainerDef
         {
             Id = "hotbar", Layout = ContainerLayout.Slots, HasGrid = true, GridW = 8, GridH = 1, View = ContainerView.Grid,
-            BeltAccess = BeltAccess.None, HandCarried = true, ReservedSlots = ImmutableArray.Create(0),
+            BeltAccess = BeltAccess.None, HandCarried = true, AcceptsInsert = true, ReservedSlots = ImmutableArray.Create(0),
         },
         new ContainerDef
         {
             Id = "player_inventory", Layout = ContainerLayout.Grid, HasGrid = true, GridW = 8, GridH = 2, View = ContainerView.Grid,
-            BeltAccess = BeltAccess.None, HandCarried = true,
+            BeltAccess = BeltAccess.None, HandCarried = true, AcceptsInsert = true,
         },
         new ContainerDef
         {
             Id = "po_intake", Layout = ContainerLayout.Grid, HasGrid = true, GridW = 20, GridH = 16, View = ContainerView.Manifest,
-            BeltAccess = BeltAccess.OutfeedOnly, HasAllowedCategories = true,
+            BeltAccess = BeltAccess.OutfeedOnly, AcceptsInsert = true, HasAllowedCategories = true,
             AllowedCategories = ImmutableArray.Create(ItemCategory.Mail),
         },
         new ContainerDef
         {
             // GDD R1: the cursor accepts "any hand-carryable", so HandCarried is true (the story's table showed "-").
             Id = "cursor", Layout = ContainerLayout.Slots, HasGrid = true, GridW = 1, GridH = 1, View = ContainerView.Auto,
-            BeltAccess = BeltAccess.None, HandCarried = true,
+            BeltAccess = BeltAccess.None, HandCarried = true, AcceptsInsert = true,
         });
 
     /// <summary>The M-1a items (grid-inventory fixture table). No buy price; sell price 0 (Economy owns prices).</summary>
@@ -111,7 +111,7 @@ public static class BuiltInContent
     private static ItemDef Item(string id, ItemCategory category, int w, int h, int maxStack) => new()
     {
         Id = id, Name = "item." + id, Category = category, GridW = w, GridH = h, MaxStack = maxStack,
-        WeightClass = WeightClass.Light,
+        WeightClass = WeightClass.Light, CarryByHand = true,
     };
 
     /// <summary>The M-1a mail kinds (Mail R1). Every kind is accepted by <c>house</c>, which is the only destination type, DefIndex 0.</summary>
@@ -126,7 +126,7 @@ public static class BuiltInContent
     private static MailKindDef Kind(string id, int w, int h, int maxStack, long cents, WeightClass weight, int complaint, int unlockShift) => new()
     {
         Id = id, Name = "mail." + id, GridW = w, GridH = h, MaxStack = maxStack, BaseValueCents = cents, WeightClass = weight,
-        BeltLanes = 1, BeltLengthMm = 500, DeadlineOffsetShifts = 0,
+        CarryByHand = true, BeltLanes = 1, BeltLengthMm = 500, DeadlineOffsetShifts = 0,
         AcceptedBy = ImmutableArray.Create(DefIndex.FromValue(0)),
         ComplaintOnMisdeliveryMilliPoints = complaint, UnlockShift = unlockShift,
     };
