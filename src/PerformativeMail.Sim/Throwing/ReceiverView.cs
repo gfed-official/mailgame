@@ -59,7 +59,7 @@ public readonly ref struct ReceiverView
     public IWorldQuery World { get; }
 
     /// <summary>
-    /// The rank table. Mail Dev default, pending Evan: the story's view lists no rank member, but <c>FirstContact</c> reads
+    /// The rank table. Mail Dev default, pending Evan (TD-181): the story's view lists no rank member, but <c>FirstContact</c> reads
     /// nothing but its arguments and the ranks are content (THROW-CV-05), so the view carries them.
     /// </summary>
     public ReceiverRanks Ranks { get; }
