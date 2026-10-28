@@ -8,7 +8,7 @@
 > **Est. size**: M — 10–12 stories
 > **Implementation priority**: 2 of 9
 > **Status**: Ready
-> **Stories**: 19 stories — 17 Complete, 1 In Progress, 1 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 19 stories — 18 Complete, 1 Ready (counts refreshed 2026-10-28 from the story headers, content-data 018 Complete, PR #53; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -112,7 +112,7 @@ The numeric order is a valid implementation order. Each story's `Depends on:` fi
 | 015 | [IStatWriter, source identity and versioning, lifetimes, RuleFlags, composition wiring](story-015-statwriter-sources-lifetimes-wiring.md) | Integration | Complete | ADR-0010, ADR-0003 |
 | 016 | [DecimalToScaled reader, FieldSpec units and ExactTickCheck](story-016-decimal-to-scaled-fieldspec-units.md) | Logic | Complete | ADR-0010, ADR-0006 |
 | 017 | [IContentSource, InMemory/Directory sources and the stage-1 syntax walk](story-017-content-sources-syntax-stage.md) | Logic | Complete | ADR-0010 |
-| 018 | [Schema and build stages for M-1a def files](story-018-schema-and-build-stages.md) | Logic | In Progress | ADR-0010, ADR-0004 |
+| 018 | [Schema and build stages for M-1a def files](story-018-schema-and-build-stages.md) | Logic | Complete | ADR-0010, ADR-0004 |
 | 019 | [ContentLoader.Load — balance files, five stages, shipped JSONC equals BuiltInContent](story-019-content-loader-and-builtin-equality.md) | Integration | Ready | ADR-0010 |
 
 These are not stories at M-1a. Each decision is logged in `production/session-logs/decision-log.md`:
@@ -136,6 +136,6 @@ This epic is complete when:
 
 ## Next Step
 
-**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 018 (A1), 019 (A2). Earlier notes below are history.
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 018 (A1), 019 (A2). **2026-10-28 (PR #53):** 018 Complete; next is 019 (now wave A1). Earlier notes below are history.
 
 Run `/story-readiness production/epics/content-data/story-001-defindex-stringid-deftable.md`, then `/dev-story`.
