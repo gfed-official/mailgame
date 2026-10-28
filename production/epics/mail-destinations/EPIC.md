@@ -8,7 +8,7 @@
 > **Est. size**: M/L — 12–14 stories
 > **Implementation priority**: 4 of 9
 > **Status**: Ready
-> **Stories**: 16 stories — 6 Complete, 10 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 16 stories — 7 Complete, 9 Ready (counts refreshed 2026-10-28 from the story headers, story 005 Complete, branch `story/mail-destinations-005`; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -118,7 +118,7 @@ This epic is complete when:
 | 002 | [Destination registry from `IWorldQuery.Lots`](story-002-destination-registry.md) | Logic | Complete | ADR-0017, ADR-0026 |
 | 003 | [`MailRules.Evaluate` + effective state / closing grace](story-003-evaluate-and-effective-state.md) | Logic | Complete | ADR-0017, ADR-0016 |
 | 004 | [`MailPay` F5–F8, F10](story-004-mailpay-f5-f8-f10.md) | Logic | Complete | ADR-0017, ADR-0006 |
-| 005 | [`IWalletGate`, `StubWallet`, Mail system shell](story-005-walletgate-stubwallet-mail-system.md) | Integration | Ready | ADR-0017, ADR-0003 |
+| 005 | [`IWalletGate`, `StubWallet`, Mail system shell](story-005-walletgate-stubwallet-mail-system.md) | Integration | Complete | ADR-0017, ADR-0003 |
 | 006 | [Complaint buckets (F9), `ComplaintRaised`](story-006-complaint-buckets-f9.md) | Logic | Ready | ADR-0017 |
 | 007 | [Consume routine + hand path (`ConsumeHand`), outcomes](story-007-consume-routine-hand-path-outcomes.md) | Integration | Ready | ADR-0017, ADR-0008 |
 | 008 | [Thrown landings + hand → landing tick order](story-008-thrown-landing-and-tick-order.md) | Integration | Ready | ADR-0017, ADR-0015 |
@@ -142,6 +142,6 @@ This epic is complete when:
 
 ## Next Step
 
-**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 005 (A1), 006 (A2), 007 (A3), 008 (A4), 009 (A4), 010 (A5), 013 (A5), 014 (A6), 015 (A7), 016 (A11). Earlier notes below are history.
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 005 (A1; Complete 2026-10-28, branch `story/mail-destinations-005`), 006 (A2), 007 (A3), 008 (A4), 009 (A4), 010 (A5), 013 (A5), 014 (A6), 015 (A7), 016 (A11). Earlier notes below are history.
 
 `/story-readiness production/epics/mail-destinations/story-001-mail-table-paged-soa.md`, then `/dev-story` in the order above.
