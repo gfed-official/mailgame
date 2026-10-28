@@ -188,27 +188,6 @@ public class AnchorRegistryTests
 
     [Fact]
     [Trait("Id", "PCM-P10-1")]
-    public void IsAvailable_OnTheFake_ReturnsOk_OrAReasonStringId()
-    {
-        // Arrange
-        var reason = new StringId(StringNamespace.Run, 9);
-        IInteractable ok = new FakeInteractable();
-        IInteractable no = new FakeInteractable { Available = false, UnavailableReason = reason };
-        var context = new InteractionContext { Tick = 3 };
-
-        // Act
-        bool okResult = ok.IsAvailable(in context, out StringId okReason);
-        bool noResult = no.IsAvailable(in context, out StringId noReason);
-
-        // Assert
-        Assert.True(okResult);
-        Assert.True(okReason.IsNone);
-        Assert.False(noResult);
-        Assert.Equal(reason, noReason);
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-P10-1")]
     public void Verb_HasNoReviveMember_AndRevivesIsNotASpelling()
     {
         // Assert

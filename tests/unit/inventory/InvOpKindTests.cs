@@ -29,28 +29,12 @@ public class InvOpKindTests
         { (ushort)InvOpKinds.Close, 4, typeof(ClosePayload) },
     };
 
-    public static TheoryData<ushort> AllKinds => new(InvOpDescriptors.All.Select(d => (ushort)d.Kind));
-
     private static OpDescriptor DescriptorOf(ushort kind) => InvOpDescriptors.All.Single(d => d.Kind == (OpKind)kind);
 
     // ------------------------------------------------------------------ AC 1: kinds and payloads
 
-    [Theory]
-    [MemberData(nameof(AllKinds))]
-    public void EveryDescriptor_PassesTheSharedDescriptorCheck_AndFitsThe32ByteCeiling(ushort kind)
-    {
-        // Arrange
-        OpDescriptor d = DescriptorOf(kind);
-
-        // Act
-        DescriptorAssert.Check(d, OpKindBlock.Inventory);
-
-        // Assert
-        Assert.True(d.PayloadLength <= InventoryPayloadCeiling, $"{d.Kind} is {d.PayloadLength} B");
-        Assert.True(d.PayloadLength <= DescriptorAssert.MaxPayloadBytes);
-        Assert.False(d.SystemOnly);
-    }
-
+    // The 9 SizeTable rows name 9 distinct kinds, DescriptorOf finds each in InvOpDescriptors.All, and
+    // KindValues_RegisteredAndReserved_AreDistinctAndInsideTheInventoryBlock pins All to 9 kinds, so every descriptor runs here.
     [Theory]
     [MemberData(nameof(SizeTable))]
     public void EveryDescriptor_MatchesTheStorySizeTable_FieldSumSizeOfAndPayloadLength(ushort kind, int size, Type? payload)
@@ -68,6 +52,12 @@ public class InvOpKindTests
         Assert.Equal(size, sizeOf);
         Assert.Equal(size, fieldSum);
         Assert.Equal(0, size % 4);
+
+        // Assert: the shared descriptor check, the 32 B inventory ceiling, the Sim Core payload limit, and not system-only
+        DescriptorAssert.Check(d, OpKindBlock.Inventory);
+        Assert.True(d.PayloadLength <= InventoryPayloadCeiling, $"{d.Kind} is {d.PayloadLength} B");
+        Assert.True(d.PayloadLength <= DescriptorAssert.MaxPayloadBytes);
+        Assert.False(d.SystemOnly);
     }
 
     [Fact]
@@ -108,33 +98,45 @@ public class InvOpKindTests
             reserved.Order());
     }
 
-    [Theory]
-    [InlineData((ushort)InvOpKinds.Move)]
-    [InlineData((ushort)InvOpKinds.Merge)]
-    [InlineData((ushort)InvOpKinds.QuickMove)]
-    [InlineData((ushort)InvOpKinds.Pickup)]
-    [InlineData((ushort)InvOpKinds.Return)]
-    public void BlockAcquiringKinds_DeclareCapacityExhausted85(ushort kind)
+    // One row per descriptor of InvOpDescriptors.All; every failing row is reported in one message.
+    [Fact]
+    public void OnlyTheBlockAcquiringKinds_DeclareCapacityExhausted85()
     {
+        // Arrange: the block-acquiring kinds are Move, Merge, QuickMove, Pickup and Return
+        (string Name, OpKind Kind, bool Acquiring)[] rows =
+        {
+            ("Pick", InvOpKinds.Pick, false), ("Move", InvOpKinds.Move, true), ("Merge", InvOpKinds.Merge, true),
+            ("QuickMove", InvOpKinds.QuickMove, true), ("Return", InvOpKinds.Return, true), ("Drop", InvOpKinds.Drop, false),
+            ("Pickup", InvOpKinds.Pickup, true), ("Open", InvOpKinds.Open, false), ("Close", InvOpKinds.Close, false),
+        };
+        var failures = new List<string>();
+
         // Act
-        OpDescriptor d = DescriptorOf(kind);
+        for (int i = 0; i < rows.Length; i++)
+        {
+            (string name, OpKind kind, bool acquiring) = rows[i];
+            try
+            {
+                OpDescriptor d = DescriptorOf((ushort)kind);
+                if (acquiring && !d.Reasons.Contains(new ReasonDef(85, "capacity_exhausted")))
+                {
+                    failures.Add($"row {i} ({name}): block-acquiring but does not declare (85, capacity_exhausted)");
+                }
+                else if (!acquiring && d.Reasons.Any(r => r.Code == 85))
+                {
+                    failures.Add($"row {i} ({name}): not block-acquiring but declares reason 85");
+                }
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"row {i} ({name}): {ex.GetType().Name}: {ex.Message}");
+            }
+        }
 
-        // Assert
-        Assert.Contains(new ReasonDef(85, "capacity_exhausted"), d.Reasons);
-    }
-
-    [Theory]
-    [InlineData((ushort)InvOpKinds.Pick)]
-    [InlineData((ushort)InvOpKinds.Drop)]
-    [InlineData((ushort)InvOpKinds.Open)]
-    [InlineData((ushort)InvOpKinds.Close)]
-    public void NonAcquiringKinds_DoNotDeclareCapacityExhausted(ushort kind)
-    {
-        // Act
-        OpDescriptor d = DescriptorOf(kind);
-
-        // Assert
-        Assert.DoesNotContain(d.Reasons, r => r.Code == 85);
+        // Assert: the table is every descriptor, in InvOpDescriptors.All order
+        Assert.Equal(9, rows.Length);
+        Assert.Equal(InvOpDescriptors.All.Select(d => d.Kind), rows.Select(r => r.Kind));
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     [Fact]

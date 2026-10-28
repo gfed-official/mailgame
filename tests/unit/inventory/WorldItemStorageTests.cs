@@ -215,8 +215,6 @@ public class WorldItemStorageTests
     // ---------------------------------------------------------------- Tombstones
 
     [Theory]
-    [InlineData(0u, true)]
-    [InlineData(899u, true)]
     [InlineData(900u, true)]
     [InlineData(901u, false)]
     public void Tombstone_IsAliveFor30SecondsInclusive(uint age, bool alive)

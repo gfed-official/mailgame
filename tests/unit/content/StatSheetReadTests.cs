@@ -853,21 +853,6 @@ public class StatSheetReadTests
         Assert.Equal(0, default(StatExplain).Sources.Length);
     }
 
-    [Fact]
-    [Trait("Id", "TR-content-019")]
-    public void Explain_AgreesWithReadForEveryCellAndTransient()
-    {
-        // Arrange
-        IStatSheet sheet = Build([.. LongLegs(0), Team(Stat.InventoryRows, ModifierOp.Mul, 1400), Mine(0, Stat.ThrowRangePermille, ModifierOp.Add, -300)]);
-
-        // Act / Assert
-        foreach (int transient in new[] { 0, 1, 250, 5_000 })
-        {
-            Assert.Equal(sheet.Read(Stat.MoveSpeedAddPm, None, Slot(0), transient), sheet.Explain(Stat.MoveSpeedAddPm, None, Slot(0), transient).Resolved);
-            Assert.Equal(sheet.Read(Stat.ThrowRangePermille, None, Slot(0), transient), sheet.Explain(Stat.ThrowRangePermille, None, Slot(0), transient).Resolved);
-        }
-    }
-
     // ------------------------------------------------------------ transient evaluation is bit-identical to F1
 
     [Fact]

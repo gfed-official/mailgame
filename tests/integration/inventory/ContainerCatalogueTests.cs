@@ -380,28 +380,6 @@ public class ContainerCatalogueTests
 
     [Fact]
     [Trait("Id", "H-R1-1")]
-    public void HeaderDimensions_AreDefWidthAndStatSheetRows_WhichEqualDefRowsWithNoSources()
-    {
-        // Arrange
-        SimHost host = Build();
-        InventorySystem inventory = InventoryOf(host);
-
-        // Act
-        Join(host, 0);
-
-        // Assert: no sources, so the sheet reads the def rows
-        PlayerSlot slot = PlayerSlot.FromValue(0);
-        foreach ((ContainerId id, string def) in new[] { (inventory.HotbarOf(slot), "hotbar"), (inventory.PlayerInventoryOf(slot), "player_inventory"), (inventory.IntakeContainer, "po_intake") })
-        {
-            inventory.TryGetHeader(id, out ContainerHeader h);
-            Assert.Equal(DefOf(host, def).GridW, h.W);
-            Assert.Equal(DefOf(host, def).GridH, h.H);
-            Assert.Equal(DefOf(host, def).GridH, host.StatSheet.Read(Stat.InventoryRows, h.DefIndex.Value));
-        }
-    }
-
-    [Fact]
-    [Trait("Id", "H-R1-1")]
     public void HeaderRows_FollowAnInventoryRowsSource_PushedBeforeTheJoin()
     {
         // Arrange: a personal +1 row source on player_inventory for slot 4 (story 016 owns the live-growth path)

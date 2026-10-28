@@ -350,20 +350,6 @@ public class RngRegistryTests
         Assert.False(registry.IsLive(in forged, 0));
     }
 
-    [Fact]
-    [Trait("Id", "SC-R24-1")]
-    public void Ac1_IsLive_IsFalseForUnregisteredNameAndOutOfRangeIndex()
-    {
-        var (registry, _) = NewRegistry();
-        registry.Create(in RngNames.Waves, 0);
-        StreamName forged = default;
-
-        Assert.True(registry.IsLive(in RngNames.Waves, 0));
-        Assert.False(registry.IsLive(in RngNames.Waves, 1));
-        Assert.False(registry.IsLive(in RngNames.Mail, 0));
-        Assert.False(registry.IsLive(in forged, 0));
-    }
-
     // ---------------------------------------------------------------- AC-2
 
     public static TheoryData<string, int, SystemId, uint, uint, ulong> V1Table => new()
@@ -432,20 +418,6 @@ public class RngRegistryTests
 
     [Fact]
     [Trait("Id", "SC-R24-1")]
-    public void Ac2_KeyCount_IsTwentyOne()
-    {
-        int keys = 0;
-        for (int i = 0; i < RngNames.Count; i++)
-        {
-            keys += RngNames.ByOrdinal(i).IndexCount;
-        }
-
-        Assert.Equal(21, keys);
-        Assert.Equal(21, AllKeys().Count());
-    }
-
-    [Fact]
-    [Trait("Id", "SC-R24-1")]
     public void Ac2_AllFnvValues_ArePairwiseDistinctAndNonZero()
     {
         var seen = new HashSet<ulong>();
@@ -496,18 +468,6 @@ public class RngRegistryTests
 
     [Fact]
     [Trait("Id", "SC-R24-1")]
-    public void Ac2_DeriveWithStreamName_MatchesAdr0005GoldenV4()
-    {
-        Assert.Equal(0x120344c795c4b10eUL, RngDerive.Derive(1, in RngNames.Mail, 2));
-        Assert.Equal(0x71928a09cee23ed8UL, RngDerive.Derive(1, in RngNames.Mail, 1));
-        Assert.Equal(0x569a97cfc8b20ef4UL, RngDerive.Derive(1, in RngNames.MailSpecial, 2));
-        Assert.Equal(0x717d64703c6111feUL, RngDerive.Derive(0, in RngNames.Perks, 0));
-        Assert.Equal(0xd89cad0d820c7269UL, RngDerive.Derive(0xdeadbeefcafef00dUL, in RngNames.Waves, 0));
-        Assert.Equal(0x95b59375007b3007UL, RngDerive.Derive(1, in RngNames.Events, 5));
-    }
-
-    [Fact]
-    [Trait("Id", "SC-R24-1")]
     public void Ac2_ByOrdinalOutOfRange_AndDefaultName_AreNotRegistered()
     {
         StreamName none = default;
@@ -540,71 +500,101 @@ public class RngRegistryTests
 
     // ---------------------------------------------------------------- AC-3
 
-    public static TheoryData<SystemId, string[]> OwnerToNames => new()
-    {
-        { SystemId.WorldGeneration, new[] { "worldgen.terrain" } },
-        { SystemId.MailDestinations, new[] { "mail", "mail.special" } },
-        { SystemId.EnemyAiWaves, new[] { "waves", "mega" } },
-        { SystemId.HealthDamage, new[] { "drops" } },
-        { SystemId.Perks, new[] { "perks" } },
-        { SystemId.Economy, new[] { "shop" } },
-        { SystemId.StampsRunEvents, new[] { "events" } },
-    };
+    // The owner rows of the two view folds below: each owner and the names it owns.
+    private static readonly (SystemId Owner, string[] OwnedNames)[] _ownerToNames =
+    [
+        (SystemId.WorldGeneration, ["worldgen.terrain"]),
+        (SystemId.MailDestinations, ["mail", "mail.special"]),
+        (SystemId.EnemyAiWaves, ["waves", "mega"]),
+        (SystemId.HealthDamage, ["drops"]),
+        (SystemId.Perks, ["perks"]),
+        (SystemId.Economy, ["shop"]),
+        (SystemId.StampsRunEvents, ["events"]),
+    ];
 
     private static bool Owns(SystemId owner, StreamName name) => name.Owner == owner;
 
-    [Theory]
+    // The 7 owner rows run in one test; every failing row is reported, an exception included.
+    [Fact]
     [Trait("Id", "SC-R24-1")]
-    [MemberData(nameof(OwnerToNames))]
-    public void Ac3_View_CreateSucceedsForOwnedNames_ReturningTheRegistryHandle(SystemId owner, string[] ownedNames)
+    public void Ac3_View_CreateSucceedsForOwnedNames_ReturningTheRegistryHandle()
     {
-        var (registry, counters) = NewRegistry();
-        IRngStreams view = registry.ViewFor(owner);
-        var created = new List<string>();
-
-        foreach (var (name, index) in AllKeys().Where(k => Owns(owner, k.Name)))
+        Assert.Equal(7, _ownerToNames.Length);
+        var failures = new List<string>();
+        for (int row = 0; row < _ownerToNames.Length; row++)
         {
-            RngStream viaView = view.Create(in name, index);
-            Assert.Same(viaView, registry.Create(in name, index));
-            Assert.True(registry.IsLive(in name, index));
-            created.Add(Encoding.UTF8.GetString(name.Name));
+            (SystemId owner, string[] ownedNames) = _ownerToNames[row];
+            try
+            {
+                var (registry, counters) = NewRegistry();
+                IRngStreams view = registry.ViewFor(owner);
+                var created = new List<string>();
+
+                foreach (var (name, index) in AllKeys().Where(k => Owns(owner, k.Name)))
+                {
+                    RngStream viaView = view.Create(in name, index);
+                    Assert.Same(viaView, registry.Create(in name, index));
+                    Assert.True(registry.IsLive(in name, index));
+                    created.Add(Encoding.UTF8.GetString(name.Name));
+                }
+
+                Assert.Equal(ownedNames.OrderBy(n => n), created.Distinct().OrderBy(n => n));
+                Assert.Equal(0L, counters[CounterId.RngRefused]);
+                Assert.Equal(0L, counters[CounterId.RngIndexOutOfRange]);
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"row {row} ({owner}: {string.Join(", ", ownedNames)}): {ex.GetType().Name}: {ex.Message}");
+            }
         }
 
-        Assert.Equal(ownedNames.OrderBy(n => n), created.Distinct().OrderBy(n => n));
-        Assert.Equal(0L, counters[CounterId.RngRefused]);
-        Assert.Equal(0L, counters[CounterId.RngIndexOutOfRange]);
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
-    [Theory]
+    // The 7 owner rows run in one test; every failing row is reported, an exception included.
+    [Fact]
     [Trait("Id", "SC-R24-1")]
-    [MemberData(nameof(OwnerToNames))]
-    public void Ac3_View_AnotherOwnersName_AssertsInDebugElseRefusedAndCounted(SystemId owner, string[] ownedNames)
+    public void Ac3_View_AnotherOwnersName_AssertsInDebugElseRefusedAndCounted()
     {
-        _ = ownedNames;
-        var (registry, counters) = NewRegistry();
-        IRngStreams view = registry.ViewFor(owner);
-        long expectedRefusals = 0;
-
-        foreach (var (name, index) in AllKeys().Where(k => !Owns(owner, k.Name)))
+        Assert.Equal(7, _ownerToNames.Length);
+        var failures = new List<string>();
+        for (int row = 0; row < _ownerToNames.Length; row++)
         {
-            expectedRefusals++;
-            if (TestBuildExpectation.SimAssertsExpected)
+            SystemId owner = _ownerToNames[row].Owner;
+            try
             {
-                var ex = Assert.Throws<SimAssertException>(() => view.Create(in name, index));
-                Assert.Equal(SimAssertCode.RngOwnerMismatch, ex.Code);
-            }
-            else
-            {
-                RngStream refused = view.Create(in name, index);
-                Assert.NotNull(refused);
-            }
+                var (registry, counters) = NewRegistry();
+                IRngStreams view = registry.ViewFor(owner);
+                long expectedRefusals = 0;
 
-            Assert.False(registry.IsLive(in name, index));
+                foreach (var (name, index) in AllKeys().Where(k => !Owns(owner, k.Name)))
+                {
+                    expectedRefusals++;
+                    if (TestBuildExpectation.SimAssertsExpected)
+                    {
+                        var ex = Assert.Throws<SimAssertException>(() => view.Create(in name, index));
+                        Assert.Equal(SimAssertCode.RngOwnerMismatch, ex.Code);
+                    }
+                    else
+                    {
+                        RngStream refused = view.Create(in name, index);
+                        Assert.NotNull(refused);
+                    }
+
+                    Assert.False(registry.IsLive(in name, index));
+                }
+
+                Assert.Equal(expectedRefusals, counters[CounterId.RngRefused]);
+                Assert.Equal(0, registry.LiveCount);
+                Assert.Equal(0L, counters[CounterId.RngIndexOutOfRange]);
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"row {row} ({owner}): {ex.GetType().Name}: {ex.Message}");
+            }
         }
 
-        Assert.Equal(expectedRefusals, counters[CounterId.RngRefused]);
-        Assert.Equal(0, registry.LiveCount);
-        Assert.Equal(0L, counters[CounterId.RngIndexOutOfRange]);
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     [Fact]

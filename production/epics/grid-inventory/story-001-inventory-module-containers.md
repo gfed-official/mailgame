@@ -76,7 +76,7 @@
 **Required evidence**:
 - Integration: `tests/integration/inventory/ContainerCatalogueTests.cs` — must exist and pass
 
-**Status**: [x] `tests/integration/inventory/ContainerCatalogueTests.cs` (ContainerCatalogueTests 13 methods incl. 4-row H-R1-1 theory + ContainerAllocationTests 1, Release-only), `tests/unit/inventory/ContainerTableTests.cs` (5), listener fan-out tests in `tests/unit/sim/Core/PlayerJoinTests.cs`
+**Status**: [x] `tests/integration/inventory/ContainerCatalogueTests.cs` (ContainerCatalogueTests 12 methods incl. 4-row H-R1-1 theory + ContainerAllocationTests 1, Release-only), `tests/unit/inventory/ContainerTableTests.cs` (5), listener fan-out tests in `tests/unit/sim/Core/PlayerJoinTests.cs`
 
 ---
 

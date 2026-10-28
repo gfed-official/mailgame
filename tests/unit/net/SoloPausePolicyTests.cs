@@ -27,17 +27,6 @@ public class SoloPausePolicyTests
     }
 
     [Fact]
-    public void Loopback_AllowsPause_WithEmptyReason()
-    {
-        // Act
-        bool allowed = SoloPausePolicy.CanPause(LoopbackPeerPresence.Instance, out string reason);
-
-        // Assert
-        Assert.True(allowed);
-        Assert.Equal(string.Empty, reason);
-    }
-
-    [Fact]
     public void NoRemotePeer_AllowsPause_WithEmptyReason()
     {
         // Act

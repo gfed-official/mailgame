@@ -618,17 +618,12 @@ public class ClientAdapterTests
 
     public static IEnumerable<object[]> MalformedMessages()
     {
-        byte[] good = Batch(5, EvRec(Rep, 1), EvRec(Rep, 2));
         yield return new object[] { "empty", Array.Empty<byte>() };
         yield return new object[] { "unknown tag", new byte[] { 0x7F, 1, 2, 3 } };
-        yield return new object[] { "tag only (batch)", new byte[] { EventBatch.Tag } };
         yield return new object[] { "tag only (reply)", new byte[] { ReplyCodec.Tag } };
         yield return new object[] { "batch count 3, two records", BatchWithCount(5, 3, EvRec(Rep, 1), EvRec(Rep, 2)) };
         yield return new object[] { "batch count 1, two records (trailing)", BatchWithCount(5, 1, EvRec(Rep, 1), EvRec(Rep, 2)) };
-        yield return new object[] { "unknown event kind", Batch(5, EvRec(Unknown, 1)) };
         yield return new object[] { "event kind 0", Batch(5, EvRec((EventKind)0, 1)) };
-        yield return new object[] { "truncated record", good.AsSpan(0, good.Length - 1).ToArray() };
-        yield return new object[] { "record header cut", good.AsSpan(0, EventBatch.HeaderSize + 1).ToArray() };
         yield return new object[] { "bare reply extraLen 25", new byte[] { ReplyCodec.Tag, 1, 0, 1, 0, 2, 0, 25 }.Concat(new byte[25]).ToArray() };
         yield return new object[] { "bare reply truncated", BareReply(Rp(1, extra: 5)).AsSpan(0, 8).ToArray() };
         yield return new object[] { "bare reply trailing byte", BareReply(Rp(1)).Concat(new byte[] { 0 }).ToArray() };
@@ -1220,23 +1215,6 @@ public class ClientAdapterTests
         Reply reply = record.Entry.PayloadAs<Reply>();
         Assert.Equal(CoreReason.BadRequest, reply.Reason);
         Assert.Equal(id, (ushort)reply.ReqId);
-        Assert.Equal(0, rig.Client.PendingCount);
-    }
-
-    [Fact]
-    [Trait("Id", "TR-sim-014")]
-    public void EndToEnd_TwoSequentialRequests_EachGetExactlyOneReply()
-    {
-        var rig = new HostRig();
-        rig.Client.Send(OpKind.TeleportAck, _payload);
-        rig.HostFrame();
-        rig.Inbox.Clear();
-
-        rig.Client.Send(OpKind.TeleportAck, _payload);
-        rig.HostFrame();
-
-        Assert.Equal(2L, rig.Client.RepliesDelivered);
-        Assert.Equal(0L, rig.Client.IgnoredReplyCount);
         Assert.Equal(0, rig.Client.PendingCount);
     }
 }

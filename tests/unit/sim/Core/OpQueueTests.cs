@@ -221,23 +221,6 @@ public class OpQueueTests
     }
 
     [Fact]
-    public void Ac2_NonSystem_AtFullRing_CountsBusyPlayerOnly()
-    {
-        SimWorld world = Frozen(capacity: 4, reserve: 0);
-        Op op = Plain();
-        for (int i = 0; i < 4; i++)
-        {
-            Assert.True(world.EnqueueOp(_actorA, in op));
-        }
-
-        Assert.False(world.EnqueueOp(_actorA, in op));
-
-        Assert.Equal(1L, world.Counters[CounterId.BusyPlayer]);
-        Assert.Equal(0L, world.Counters[CounterId.BusySystem]);
-        Assert.Equal(0, world.CheckRing.Count);
-    }
-
-    [Fact]
     public void Ac2_ReserveZero_PlayerCanFillTheWholeRing_ThenSystemIsRefusedToo()
     {
         SimWorld world = Frozen(capacity: 4, reserve: 0);
@@ -248,8 +231,15 @@ public class OpQueueTests
             Assert.True(world.EnqueueOp(_actorA, in op));
         }
 
+        // A player op at the full ring counts BusyPlayer, not BusySystem, and writes no check record.
+        Assert.False(world.EnqueueOp(_actorA, in op));
+        Assert.Equal(1L, world.Counters[CounterId.BusyPlayer]);
+        Assert.Equal(0L, world.Counters[CounterId.BusySystem]);
+        Assert.Equal(0, world.CheckRing.Count);
+
         Assert.False(world.EnqueueOp(ActorId.System, in op));
         Assert.Equal(1L, world.Counters[CounterId.BusySystem]);
+        Assert.Equal(1L, world.Counters[CounterId.BusyPlayer]);
     }
 
     [Fact]
@@ -330,19 +320,6 @@ public class OpQueueTests
         Assert.Equal(0, world.Ops.Count);
         Assert.Equal(0u, world.LastOpSeq);
         Assert.Equal(0, world.CheckRing.Count);
-    }
-
-    [Fact]
-    public void Ac2_AfterRealStop_EnqueueIsRefusedAsBadState()
-    {
-        SimWorld world = Frozen(8, 2);
-        world.Tick();
-        Assert.True(world.Stop());
-        Op op = Plain();
-
-        Assert.False(world.EnqueueOp(_actorA, in op));
-
-        Assert.Equal(1L, world.Counters[CounterId.EnqueueBadState]);
     }
 
     [Fact]

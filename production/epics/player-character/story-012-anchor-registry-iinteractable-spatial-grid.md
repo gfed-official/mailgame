@@ -81,7 +81,7 @@
 **Required evidence**:
 - Logic: `tests/unit/player/AnchorRegistryTests.cs` (`[Trait("Id", "PCM-P10-1")]`, `PCM-P10-2`) and `tests/unit/content/PlayerVerbRuleTests.cs` (CV-PLR-13) — must exist and pass on net10.0 and net8.0
 
-**Status**: [x] Created — `tests/unit/player/AnchorRegistryTests.cs` (31 methods / 45 cases; `PCM-P10-1`, `PCM-P10-2`; Release-only 0-B guard) + `tests/unit/content/PlayerVerbRuleTests.cs` (11 methods / 25 cases; `PCM-P10-1`, `H-R4-5`), green on net10.0 + net8.0 Release and Debug
+**Status**: [x] Created — `tests/unit/player/AnchorRegistryTests.cs` (30 methods / 44 cases; `PCM-P10-1`, `PCM-P10-2`; Release-only 0-B guard) + `tests/unit/content/PlayerVerbRuleTests.cs` (11 methods / 25 cases; `PCM-P10-1`, `H-R4-5`), green on net10.0 + net8.0 Release and Debug
 
 ---
 
