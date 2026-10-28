@@ -79,7 +79,7 @@
 **Required evidence**:
 - `tests/unit/sim/Core/WorldLifecycleTests.cs` (`[Trait("Id", "SC-ST-1")]`) — must exist and pass (Debug + Release)
 
-**Status**: [x] Created — `tests/unit/sim/Core/WorldLifecycleTests.cs` (27 test methods, Trait SC-ST-1), green on all 4 legs
+**Status**: [x] Created — `tests/unit/sim/Core/WorldLifecycleTests.cs` (26 test methods, Trait SC-ST-1), green on all 4 legs
 
 ---
 

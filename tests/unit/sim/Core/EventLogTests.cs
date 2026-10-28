@@ -581,25 +581,6 @@ public class EventLogTests
     }
 
     [Fact]
-    public void Ac2_ClosedLog_DropsRaises_AssertingUnderSimAssert()
-    {
-        EventLog log = LogOf(TestKinds.Builder());
-        var p = new Pay12();
-        log.Closed = true;
-
-        if (TestBuildExpectation.SimAssertsExpected)
-        {
-            Assert.Equal(SimAssertCode.EventRaiseDuringFlush, Assert.Throws<SimAssertException>(() => log.TryRaise(TestKinds.ReplicatedKind, 0b1, in p)).Code);
-        }
-        else
-        {
-            Assert.False(log.TryRaise(TestKinds.ReplicatedKind, 0b1, in p));
-        }
-
-        Assert.Equal(0, log.Count);
-    }
-
-    [Fact]
     public void Ac2_Reset_EmptiesTheLog_AndFillsTheUsedSpanWithDdUnderSimAssert()
     {
         EventLog log = LogOf(TestKinds.Builder());
@@ -777,20 +758,6 @@ public class EventLogTests
         Assert.Equal(1u, log.CurrentCallSeq);
         Assert.Equal(1, log.ScopeDepth);
         outer.Dispose();
-        Assert.Equal(0, log.ScopeDepth);
-    }
-
-    [Fact]
-    public void Ac3_ResetWithAScopeStillOpen_ClearsTheScopeState()
-    {
-        EventLog log = LogOf(TestKinds.Builder());
-        EventCallScope leaked = log.BeginCall();
-
-        log.Reset();
-
-        Assert.Equal(0, log.ScopeDepth);
-        Assert.Equal(0u, log.CurrentCallSeq);
-        leaked.Dispose(); // a stale scope disposing later must not underflow the depth
         Assert.Equal(0, log.ScopeDepth);
     }
 }

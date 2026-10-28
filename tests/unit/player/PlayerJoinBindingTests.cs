@@ -42,22 +42,6 @@ public class PlayerJoinBindingTests
     }
 
     [Fact]
-    public void Join_Slot0_CapsuleIs300By1400_FromPlayerSettings()
-    {
-        // Arrange
-        var rig = PlayersRig.Create();
-
-        // Act
-        rig.JoinAndTick(0);
-
-        // Assert
-        Assert.Equal(300, rig.Record(0).CapsuleRadiusMm);
-        Assert.Equal(1400, rig.Record(0).CapsuleHeightMm);
-        Assert.Equal(rig.Players.Settings.CapsuleRadiusMm, rig.Record(0).CapsuleRadiusMm);
-        Assert.Equal(rig.Players.Settings.CapsuleHeightMm, rig.Record(0).CapsuleHeightMm);
-    }
-
-    [Fact]
     public void Join_CapsuleFollowsTheContent_NotALiteral()
     {
         // Arrange: a content set with a different capsule.

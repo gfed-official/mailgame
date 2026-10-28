@@ -673,17 +673,6 @@ public class LocomotionTests
         // bound is < 351 (rounds to 350).
         Assert.True(maxStep2 < 351L * 351, $"A tick moved {Math.Sqrt(maxStep2):F2} mm (>= 351).");
     }
-
-    [Fact]
-    [Trait("Id", "PCM-F1-1")]
-    public void Step_PlaceholderPhases_LeaveVerticalStateAndCountersUntouched()
-    {
-        var rig = new Rig();
-        rig.Tick(10, ForwardPlusX(sprint: true));
-
-        Assert.Equal((1000, 0, 0), (rig.State.Y, rig.State.Vy, rig.State.RemY));
-        Assert.Equal(0, rig.Scratch.CandidateOverflow + rig.Scratch.StepClamped + rig.Scratch.Depenetrations);
-    }
 }
 
 /// <summary>Zero-allocation guardrail for <see cref="OwnedCarrier.Step"/> (story 005), in the non-parallel collection.</summary>

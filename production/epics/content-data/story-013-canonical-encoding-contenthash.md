@@ -98,7 +98,7 @@
 **Required evidence**:
 - Logic: `tests/unit/content/ContentHashTests.cs` — must exist and pass
 
-**Status**: [x] Created — `tests/unit/content/ContentHashTests.cs` (49 cases)
+**Status**: [x] Created — `tests/unit/content/ContentHashTests.cs` (45 cases)
 
 ---
 

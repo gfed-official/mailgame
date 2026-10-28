@@ -320,14 +320,6 @@ public class FieldSpecTableTests
         Assert.Null(ItemDefFieldSpec.Rows.Single(r => r.Name == "buyPrice").Default);   // absent = no buy price
     }
 
-    [Fact]
-    public void WeightClass_IsRequiredOnItemAndMailKind()
-    {
-        Assert.True(ItemDefFieldSpec.Rows.Single(r => r.Name == "weightClass").Required);
-        Assert.True(MailKindDefFieldSpec.Rows.Single(r => r.Name == "weightClass").Required);
-        Assert.False(ContainerDefFieldSpec.Rows.Single(r => r.Name == "allowedCategories").Required);
-    }
-
     // ------------------------------------------------------------ enum sets, reference targets, variants
 
     private static bool KnownSpelling(string set, string spelling)

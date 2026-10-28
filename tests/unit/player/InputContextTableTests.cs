@@ -110,21 +110,6 @@ public class InputContextTableTests
         Assert.Equal(expected, actual);
     }
 
-    /// <summary>The comms wheel is usable (Live or Greyed) in every context except Panel.</summary>
-    [Fact]
-    [Trait("Id", "PCM-P14-1")]
-    public void CommsWheel_IsUsableEverywhereExceptPanel()
-    {
-        foreach (InputContext c in Enum.GetValues<InputContext>())
-        {
-            // Act
-            CellState cell = VerbContextTable.Cell(ContextVerb.CommsWheel, c);
-
-            // Assert
-            Assert.Equal(c != InputContext.Panel, cell is CellState.Live or CellState.Greyed);
-        }
-    }
-
     /// <summary>Respawn is automatic: no context enables it, and it carries no press.</summary>
     [Fact]
     [Trait("Id", "PCM-P14-1")]

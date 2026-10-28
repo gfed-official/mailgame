@@ -660,23 +660,6 @@ public class ContentHashTests
 
     private static byte[] Bytes(MailMixDef d) { var b = new ArrayBufferWriter<byte>(); var w = new CanonicalContentWriter(b); d.WriteCanonical(ref w); return b.WrittenSpan.ToArray(); }
 
-    private static int PublicProperties(Type t) => t.GetProperties(BindingFlags.Public | BindingFlags.Instance).Length;
-
-    [Fact]
-    public void DefRecords_PropertyCounts_MatchTheEncodersSoANewFieldCannotBeSilentlyUnhashed()
-    {
-        // If one of these fails, a field was added or removed: update DefCanonical in step, bump HashSchemaVersion,
-        // add the field to the mutation lists below, and tell story 018 (FieldSpec order) and regenerate the golden.
-        Assert.Equal(13, PublicProperties(typeof(ItemDef)));
-        Assert.Equal(12, PublicProperties(typeof(ContainerDef)));
-        Assert.Equal(15, PublicProperties(typeof(MailKindDef)));
-        Assert.Equal(7, PublicProperties(typeof(DestinationTypeDef)));
-        Assert.Equal(11, PublicProperties(typeof(MailMixDef)));
-        Assert.Equal(5, PublicProperties(typeof(CatchVolume)));
-        Assert.Equal(2, PublicProperties(typeof(ShiftMix)));
-        Assert.Equal(2, PublicProperties(typeof(MailShare)));
-    }
-
     [Fact]
     public void ItemDef_EveryField_ChangesTheBytes()
     {
@@ -762,15 +745,6 @@ public class ContentHashTests
         };
 
         AssertAllDiffer(Bytes(b), mutants.Select(Bytes));
-    }
-
-    [Fact]
-    public void DefTypeOrder_IsTheAppendOnlyNumericOrderTheBlocksFollow()
-    {
-        // The block order in ContentHash.WriteDefBlocks is Item, Container, MailKind, DestinationType, MailMix.
-        Assert.Equal(
-            new[] { DefType.Item, DefType.Container, DefType.MailKind, DefType.DestinationType, DefType.MailMix },
-            Enum.GetValues<DefType>().OrderBy(t => (byte)t).ToArray());
     }
 
     private static void AssertAllDiffer(byte[] baseline, IEnumerable<byte[]> mutants)

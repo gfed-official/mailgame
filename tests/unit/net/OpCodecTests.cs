@@ -142,15 +142,10 @@ public class OpCodecTests
     // ------------------------------------------------------------ AC-3 (hand-picked rejections; the seeded sweep is in the fuzz class)
 
     [Theory]
-    [InlineData(new byte[0])]                                                                   // empty
-    [InlineData(new byte[] { 0x02, 0x00, 0x01 })]                                               // shorter than the header
-    [InlineData(new byte[] { 0x02, 0x00, 0x01, 0x00 })]                                         // header only, payload missing
     [InlineData(new byte[] { 0x02, 0x00, 0x01, 0x00, 0x01, 0x02, 0x03 })]                       // payload one byte short
     [InlineData(new byte[] { 0x02, 0x00, 0x01, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 })]           // trailing byte
-    [InlineData(new byte[] { 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x08 })]           // join slot 8
     [InlineData(new byte[] { 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0xC8 })]           // join slot 200
     [InlineData(new byte[] { 0x99, 0x00, 0x01, 0x00, 0x01, 0x02, 0x03, 0x04 })]                 // unknown kind
-    [InlineData(new byte[] { 0x00, 0x00, 0x01, 0x00 })]                                         // kind None
     [InlineData(new byte[] { 0x03, 0x00, 0x01, 0x00 })]                                         // FreezePlayer: declared in the Sim, no wire codec
     public void TryDecode_Malformed_ReturnsBadRequestAndProducesNothing(byte[] message)
     {

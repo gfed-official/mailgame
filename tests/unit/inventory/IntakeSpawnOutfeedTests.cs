@@ -245,7 +245,10 @@ public class IntakeSpawnOutfeedTests
         Assert.Equal(1, rig.Header(rig.Intake).EntryCount);
     }
 
-    public static TheoryData<string> MalformedSpawns() => new() { "empty", "256 ids", "descending", "duplicate", "id 0", "unknown kind", "none kind", "dead container" };
+    // The empty, descending and id-0 id lists are refused by the IsWellFormedIds check that AppendBacklog shares
+    // (IntakeDrainTests.AppendBacklog_AMalformedEntry_…: no-ids, not-ascending, none-id); "duplicate" shows Spawn calls that check.
+    // "256 ids" stays: AppendBacklog's 256-ids shape is also refused by its max-stack check, so it does not pin the 255-id maximum.
+    public static TheoryData<string> MalformedSpawns() => new() { "256 ids", "duplicate", "unknown kind", "none kind", "dead container" };
 
     [Theory]
     [MemberData(nameof(MalformedSpawns))]
@@ -258,11 +261,8 @@ public class IntakeSpawnOutfeedTests
         MailId[] ids = Mail(1, 2, 3);
         switch (shape)
         {
-            case "empty": ids = Array.Empty<MailId>(); break;
             case "256 ids": ids = InvAutoPlaceRig.Ids(1, 256).Select(i => new MailId(i)).ToArray(); break;
-            case "descending": ids = Mail(3, 2, 1); break;
             case "duplicate": ids = Mail(1, 1, 2); break;
-            case "id 0": ids = Mail(0, 1, 2); break;
             case "unknown kind": kind = DefIndex.FromValue((ushort)rig.Content.MailKinds.Count); break;
             case "none kind": kind = default; break;
             case "dead container": target = new ContainerId(999); break;

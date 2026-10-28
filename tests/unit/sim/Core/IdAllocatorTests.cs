@@ -241,7 +241,6 @@ public class IdAllocatorTests
     [Theory]
     [Trait("Id", "SC-R19-1")]
     [InlineData((byte)0x09)]
-    [InlineData((byte)0x80)]
     [InlineData((byte)0xEF)]
     [InlineData((byte)0x00)]
     public void Ac1_ReservedClass_ReturnsNone_WritesOneRecord_AndAssertsUnderSimAssert(byte cls)

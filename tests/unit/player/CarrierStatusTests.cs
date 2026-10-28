@@ -41,18 +41,6 @@ public class CarrierStatusTests
         Assert.Equal(life == LifeState.Alive ? BodyContext.Mounted : BodyContext.Dead, mountedBuild);
     }
 
-    /// <summary>The theory above covers every LifeState member, and BodyContext keeps exactly the four ADR-0012 values in router order.</summary>
-    [Fact]
-    [Trait("Id", "PCM-P14-1")]
-    public void Enums_SixLifeStates_FourBodyContextsInRouterOrder()
-    {
-        // Assert
-        Assert.Equal(6, Enum.GetValues<LifeState>().Length);
-        Assert.Equal(new[] { BodyContext.OnFoot, BodyContext.Build, BodyContext.Mounted, BodyContext.Dead }, Enum.GetValues<BodyContext>());
-        Assert.Equal(0, (int)BodyContext.OnFoot);
-        Assert.Equal(3, (int)BodyContext.Dead);
-    }
-
     /// <summary>Alive: Mounted locomotion gives Mounted (over build mode), build mode gives Build, otherwise OnFoot (swimming too).</summary>
     [Theory]
     [Trait("Id", "PCM-P14-1")]

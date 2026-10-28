@@ -459,6 +459,9 @@ public class DefShapeTests
     [Fact]
     public void M1aDefs_ExposeExactlyTheDocumentedFieldsWithUnitsAndReferenceTypes()
     {
+        // If this fails because a field was added or removed, the canonical encoding must follow: update DefCanonical in step,
+        // bump HashSchemaVersion, add the field to the ContentHashTests *_EveryField_ChangesTheBytes lists, tell story 018
+        // (FieldSpec order) and regenerate the golden.
         foreach (KeyValuePair<string, string[]> expected in _fields)
         {
             Type t = AllMarked().Single(x => x.Name == expected.Key);
