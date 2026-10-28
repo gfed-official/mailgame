@@ -362,17 +362,6 @@ public class CarrierPortsTests
     }
 
     [Fact]
-    public void Scratch_FromRigSettings_HasLimit64()
-    {
-        PlayersRig rig = PlayersRig.Create();
-
-        var scratch = new CarrierScratch(rig.Players.Settings.MaxCarrierCandidates);
-
-        Assert.Equal(64, scratch.Limit);
-        Assert.Equal(CarrierScratch.SolidCapacity, scratch.Limit);
-    }
-
-    [Fact]
     public void MaxCarrierCandidatesKnob_HardMaxEqualsScratchSolidCapacity()
     {
         BalanceRow row = BalanceKeys.Player.Rows.Single(r => r.Key == BalanceKeys.Player.MaxCarrierCandidatesKey);

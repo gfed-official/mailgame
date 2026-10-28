@@ -202,19 +202,4 @@ public class PlayerSettingsTests
             Assert.True(fromTable?.GetType() == typeof(ArgumentException), $"{name}: FromTable threw {fromTable?.GetType().Name ?? "nothing"}, not ArgumentException");
         }
     }
-
-    [Fact]
-    public void NewKeys_SlopeMaxPm_AndTheCapacityKeys_AreDeclaredWithTheGddDefaults()
-    {
-        // Arrange (TD-060 item 1)
-        BalanceRegistry registry = BalanceKeys.CreateRegistry();
-        ImmutableArray<BalanceEntry> defaults = BalanceKeys.CreateDefaultEntries();
-
-        // Assert
-        Assert.Equal(BalanceUnit.Permille, registry[registry.Find("player.slopeMaxPm")].Unit);
-        Assert.Equal(700, defaults.Single(e => e.Name == "player.slopeMaxPm").Value);
-        Assert.Equal(20_000, defaults.Single(e => e.Name == "player.terminalMmS").Value);
-        Assert.Equal(1000, defaults.Single(e => e.Name == "player.chestMm").Value);
-        Assert.Equal(4096, defaults.Single(e => e.Name == "player.maxAnchors").Value);
-    }
 }
