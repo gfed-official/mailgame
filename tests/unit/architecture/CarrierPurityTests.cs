@@ -16,6 +16,7 @@ public class CarrierPurityTests
     /// <summary>
     /// Engine physics type names the carrier solver must never reference (story 010; the list approved by Evan 2026-10-27 10:47 PM PT,
     /// Mail Lead chat: "Approve both player-character 010 defaults: the no-physics-types list and the position-and-velocity-only hash").
+    /// Cited only for the no-physics-types list: its hash half was superseded by Evan's 2026-10-27 11:09 PM PT answer (the 15-field hash).
     /// </summary>
     private static readonly string[] _physicsNames = ["CharacterBody", "PhysicsBody", "PhysicsServer", "RigidBody", "CollisionShape", "Jolt"];
 

@@ -291,25 +291,46 @@ public class CarrierGoldenHashTests
     /// Mail Lead defaults, pending Evan.
     /// </summary>
     [Theory]
-    [InlineData("moveX +1 on walking tick 10", 10)]
-    [InlineData("lookYaw +1 on aiming tick 470 (strafing on the pier)", 470)]
-    [InlineData("JumpPressed added on grounded tick 45 (sprinting)", 45)]
-    public void Mutation_ASingleUnitPerturbationOfAReadInput_ChangesTheFinalHash(string name, int tick)
+    [InlineData(Mutation.MoveX, 10)]      // walking
+    [InlineData(Mutation.LookYaw, 470)]   // aiming, strafing on the pier
+    [InlineData(Mutation.Jump, 45)]       // grounded, sprinting
+    public void Mutation_ASingleUnitPerturbationOfAReadInput_ChangesTheFinalHash(Mutation mutation, int tick)
     {
-        // Arrange
+        // Arrange: the baseline run must read the perturbed input on that tick, so a script edit that moves the tick fails here
         ScriptRow[] script = LoadScript();
-        Hash256 baseline = Run(script).Final;
+        RunResult baselineRun = Run(script);
+        Hash256 baseline = baselineRun.Final;
         ScriptRow row = script[tick - 1];
-        Assert.True(row.HasMove, name);
-        script[tick - 1] = name.StartsWith("moveX", StringComparison.Ordinal) ? row with { MoveX = row.MoveX + 1 }
-            : name.StartsWith("lookYaw", StringComparison.Ordinal) ? row with { LookYaw = (ushort)(row.LookYaw + 1) }
-            : row with { Flags = row.Flags | ScriptFlags.Jump };
+        bool grounded = baselineRun.States[tick - 1].Loco == LocoState.Grounded;
+        switch (mutation)
+        {
+            case Mutation.MoveX:
+                Assert.True(row.HasMove && (row.Flags & ScriptFlags.Sprint) == 0 && grounded, $"tick {tick}: not walking ({row}, {baselineRun.States[tick - 1].Loco})");
+                script[tick - 1] = row with { MoveX = row.MoveX + 1 };
+                break;
+            case Mutation.LookYaw:
+                Assert.True(row.HasMove && (row.Flags & ScriptFlags.Aim) != 0, $"tick {tick}: not aiming with move input ({row})");
+                script[tick - 1] = row with { LookYaw = (ushort)(row.LookYaw + 1) };
+                break;
+            default:
+                Assert.True(grounded && (row.Flags & ScriptFlags.Jump) == 0, $"tick {tick}: not grounded without a press ({row}, {baselineRun.States[tick - 1].Loco})");
+                script[tick - 1] = row with { Flags = row.Flags | ScriptFlags.Jump };
+                break;
+        }
 
         // Act
         Hash256 mutated = Run(script).Final;
 
         // Assert
         Assert.NotEqual(baseline, mutated);
+    }
+
+    /// <summary>The input a mutation-check row perturbs by one unit.</summary>
+    public enum Mutation
+    {
+        MoveX,
+        LookYaw,
+        Jump,
     }
 
     // ------------------------------------------------------------------ FX-Golden
