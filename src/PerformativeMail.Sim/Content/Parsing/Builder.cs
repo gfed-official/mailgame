@@ -30,8 +30,8 @@ namespace PerformativeMail.Sim.Content.Parsing;
 /// </example>
 public static class Builder
 {
-    private static readonly DefType[] _typeOrder =
-        { DefType.Item, DefType.Container, DefType.MailKind, DefType.DestinationType, DefType.MailMix };
+    private static readonly ImmutableArray<DefType> _typeOrder = ImmutableArray.Create(
+        DefType.Item, DefType.Container, DefType.MailKind, DefType.DestinationType, DefType.MailMix);
 
     /// <summary>Builds every def type present in <paramref name="files"/>; a type with no file is empty and not failed.</summary>
     /// <param name="files">The stage 2 results, in manifest order.</param>
