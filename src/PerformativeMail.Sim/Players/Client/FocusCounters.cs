@@ -5,7 +5,7 @@ namespace PerformativeMail.Sim.Players.Client;
 /// <summary>
 /// One focus pass's budget probes (D3, Approved by Evan 2026-10-22 8:24 PM PT (Mail Lead chat), TD-164): the test seam story 015
 /// extends by <c>ref</c>. <see cref="FocusStep"/> overwrites it every tick and raises <see cref="CounterId.FocusCandidates"/> and
-/// <see cref="CounterId.FocusCellsVisited"/> to it (running maxima, the <c>CarrierCounterFlush</c> pattern; Mail Lead planning default,
+/// <see cref="CounterId.FocusCellsVisited"/> and <see cref="CounterId.FocusOcclusionTests"/> to it (running maxima, the <c>CarrierCounterFlush</c> pattern; Mail Lead planning default,
 /// pending Evan (TD-170 item 2)).
 /// </summary>
 /// <example><code>ref readonly FocusCounters c = ref focusStep.Probes; Assert.True(c.CellsVisited &lt;= 25);</code></example>
@@ -17,7 +17,10 @@ public struct FocusCounters
     /// <summary>Anchor-grid cells walked.</summary>
     public int CellsVisited;
 
-    /// <summary>Raises the two counters in <paramref name="counters"/> to these values.</summary>
+    /// <summary>Chest-to-anchor occlusion tests run (<see cref="FocusOcclusion.IsOccluded"/> calls); at most <see cref="Candidates"/> (PCM-PERF-1).</summary>
+    public int OcclusionTests;
+
+    /// <summary>Raises the three counters in <paramref name="counters"/> to these values.</summary>
     /// <param name="counters">The ClientLayer's counters.</param>
     internal readonly void RaiseInto(SimCounters counters)
     {
@@ -29,6 +32,11 @@ public struct FocusCounters
         if (CellsVisited > counters[CounterId.FocusCellsVisited])
         {
             counters.Set(CounterId.FocusCellsVisited, CellsVisited);
+        }
+
+        if (OcclusionTests > counters[CounterId.FocusOcclusionTests])
+        {
+            counters.Set(CounterId.FocusOcclusionTests, OcclusionTests);
         }
     }
 }

@@ -5,6 +5,7 @@ using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Players.Client;
 using PerformativeMail.Sim.Primitives;
+using PerformativeMail.Sim.Tests.Unit.World;
 using PerformativeMail.Sim.World;
 using ClientLayerSut = PerformativeMail.Sim.ClientLayer.ClientLayer;
 
@@ -61,7 +62,8 @@ internal sealed class CountingInteractable : IInteractable
 /// <summary>
 /// A ClientLayer with one <see cref="FocusStep"/> bound at <see cref="PreviewSubStep.Focus"/>. The carrier stands at
 /// <see cref="Feet"/> (chest 1000 mm up) looking down −Z (yaw 0) with the FOV 80 cone (635), so <see cref="Ahead"/> places an
-/// anchor at chest height <c>distance</c> mm in front, <c>side</c> mm to the right.
+/// anchor at chest height <c>distance</c> mm in front, <c>side</c> mm to the right. The world is <see cref="FlatWorld"/> (story 015's
+/// occlusion port), plus whatever <c>world</c> adds.
 /// </summary>
 internal sealed class FocusRig
 {
@@ -69,12 +71,13 @@ internal sealed class FocusRig
     public static readonly StringId DryLand = new(StringNamespace.Run, 901);
     public static readonly StringId ClosePanel = new(StringNamespace.Run, 902);
 
-    public FocusRig(int maxAnchors = 64)
+    public FocusRig(int maxAnchors = 64, Action<WorldTablesBuilder>? world = null)
     {
         Counters = new SimCounters();
+        World = FlatWorld(world);
         Anchors = new AnchorRegistry(new MapBounds(0, 0, 80_000, 80_000), maxAnchors, 2500, 400, new SimCheckRing(), Counters);
         Source = new ScriptedFocusSource { Feet = Feet };
-        Focus = new FocusStep(Source, Anchors, new InteractionGate(new FrameworkReasons(DryLand, ClosePanel)), PlayerSettings.FromBalance(BuiltInContent.CreateM1a().Player), Counters);
+        Focus = new FocusStep(Source, World, Anchors, new InteractionGate(new FrameworkReasons(DryLand, ClosePanel)), PlayerSettings.FromBalance(BuiltInContent.CreateM1a().Player), Counters);
         var builder = new ClientLayerBuilder(new NoClock(), Counters);
         builder.BindPreview(PreviewSubStep.Focus, Focus);
         Layer = builder.Build();
@@ -82,6 +85,8 @@ internal sealed class FocusRig
     }
 
     public SimCounters Counters { get; }
+
+    public WorldTables World { get; }
 
     public AnchorRegistry Anchors { get; }
 
@@ -92,6 +97,16 @@ internal sealed class FocusRig
     public ClientLayerSut Layer { get; }
 
     public ref FocusState State => ref Focus.State;
+
+    /// <summary>A flat 40 × 40-tile world at height 0 (x/z 0 to 80 000, the registry's map), then <paramref name="extra"/>.</summary>
+    public static WorldTables FlatWorld(Action<WorldTablesBuilder>? extra = null)
+    {
+        const int Tiles = 40;
+        var b = new WorldTablesBuilder();
+        b.SetCorners(Tiles, Tiles, new int[(Tiles + 1) * (Tiles + 1)]);
+        extra?.Invoke(b);
+        return b.Build(WorldTablesFixture.SlopeMaxPm, WorldTablesFixture.SwimEnterMm);
+    }
 
     public static AnchorRef Ref(uint n, byte slot = 0) => new(new EntityId(0x0100_0000u + n), slot);
 
