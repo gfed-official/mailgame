@@ -261,6 +261,7 @@ public static class SimComposition
             return null;
         }
 
+        // Built (with its Wallet section) for any profile with Mail, even when no world is bound and Mail itself is not constructed (TD-183 item 2).
         var wallet = new StubWallet(content.Settings.StartingWalletCents, services.Events, services.Slots, services.Counters);
         wallet.Bind(builder);
         return wallet;

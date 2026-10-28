@@ -33,6 +33,8 @@ namespace PerformativeMail.Sim.MailDestinations;
 [SimSystem(SystemId.MailDestinations)]
 public sealed class MailSystem : ISimSystem, IMailApi
 {
+    // _events, _rng, _tick, _inventory, _stats and _counters are assigned but not read yet: the story prescribes this
+    // constructor shape for stories 006-009, which read them. Kept deliberately; do not remove as unused.
     private readonly EventLogFacade _events;
     private readonly IRngStreams _rng;
     private readonly ITickReader _tick;
@@ -145,7 +147,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
         {
             return new DestinationRegistry(world, content);
         }
-        catch (ArgumentException e)
+        catch (ArgumentException e) when (e is not ArgumentNullException)
         {
             throw new SimBuildException(SimBuildErrorCode.MailRegistryInvalid, "Mail & Destinations: " + e.Message);
         }
