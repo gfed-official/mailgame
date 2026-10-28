@@ -148,7 +148,8 @@ At the start of phase 0, the queue captures `n = min(count, maxOpsDrainedPerTick
   | `0x0080`–`0x00FF` | Inventory |
   | `0x0100`–`0x013F` | Mail and Delivery |
   | `0x0140`–`0x017F` | Throwing |
-  | `0x0180`+ | Later systems, 64-wide blocks, allocated by amending this table |
+  | `0x0180`–`0x01BF` | Economy (`OpKindBlock.Economy`; amendment 2026-10-28 — first kind `WalletChanged` 0x0180, mail-destinations 005) |
+  | `0x01C0`+ | Later systems, 64-wide blocks, allocated by amending this table |
 
 - **Descriptor contents.** Each kind's descriptor (`OpDescriptor`, registered at build by the owning system, ADR-0003) declares:
   - `PayloadLength`;
@@ -389,3 +390,6 @@ No code exists.
 - ADR-0011 (adapter codec, `busy`, dedupe; must adopt §6).
 - ADR-0009 (InventoryOp kinds and codes).
 - `design/gdd/simulation-core.md` R6–R10, F8. `design/gdd/grid-inventory.md` R7 and Network rule 8. `design/gdd/manual-delivery.md` MD5 and M-NET-2. Seed §1 and §3.1 (consumed by this ADR).
+
+## Errata
+- 2026-10-28 — §4 block table amendment: the Economy block `0x0180`–`0x01BF` is allocated (`OpKindBlock.Economy`, appended to `OpKindBlockTable.Blocks`; the "later systems" row now starts at `0x01C0`). The block table is shared by `OpKind` and `EventKind` descriptors; its first kind is the `WalletChanged` event, `EconEventKinds.WalletChanged = (EventKind)0x0180`, raised by the M-1a `StubWallet` (mail-destinations story 005; ADR-0017 §8). Approved by Evan 2026-10-28 7:26 AM PT, in his own words in the Mail Lead chat, card 'Mail-destinations 005 decisions': "Approve all six TD-177 defaults for mail-destinations 005, including the ADR-0007 §4 economy event block row"; source TD-177 item 3. Table amendment only; the Decision is unchanged and the ADR stays Accepted.

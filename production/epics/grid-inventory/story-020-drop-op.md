@@ -4,9 +4,9 @@
 > **Status**: Ready
 > **Layer**: Core
 > **Type**: Logic
-> **Estimate**: S–M (~0.5 day)
+> **Estimate**: M (~0.5 day of implementation; was S–M — ruled M by Evan 2026-10-28 7:26 AM PT, Mail Lead chat, card 'Two approvals for sprint 001': "Treat grid-inventory 020's S–M estimate as M, with full readiness and the full review loop")
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Last Updated**: 2026-10-28 (estimate S–M → M: Evan 2026-10-28 7:26 AM PT, Mail Lead chat, card 'Two approvals for sprint 001': "Treat grid-inventory 020's S–M estimate as M, with full readiness and the full review loop". As an M story it takes the full `/story-readiness` pass before `/dev-story` and the full Mail Review loop (not the one-round S-story review of the lighter process, 2026-10-23 8:10 AM PT). Sprint 001 row S001-005; no AC change; readiness not yet run — the manifest stamp and the Engine Notes are re-derived there.)
 
 > **Unblocked 2026-10-16**: ADR-0026 (`IWorldQuery` + M-1a street stub) and ADR-0013 are Accepted. Use `IWorldQuery.TrySnapWalkable`/`WaterDepthMm` (ADR-0026 §3–§4) for snap and water. Re-derive at `/story-readiness`.
 
