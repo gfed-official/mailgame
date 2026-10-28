@@ -5,10 +5,10 @@
 > **Architecture Module**: Sim.Players (`src/PerformativeMail.Sim/Players/`; owner-role `CarrierStep` and focus in Sim.ClientLayer) + PlayerView, camera boom and prompt anchor (Godot)
 > **Milestone slice**: M-1a → M1 (GDD Quick reference). The M-1a set is chosen from the rule list (see Overview).
 > **Engine Risk**: LOW (Sim solver, plain C#). MEDIUM for the presentation (AnimationTree, `AnimationPlayer` StringName members, `Animation.length` double; remote interpolation must be our own).
-> **Est. size**: L — 28 stories (15 Complete, 11 Ready, 2 Deferred; refreshed 2026-10-27, story 010 Complete, PR #50)
+> **Est. size**: L — 28 stories (16 Complete, 10 Ready, 2 Deferred; refreshed 2026-10-28, story 015 Complete, this PR)
 > **Implementation priority**: 5 of 9
 > **Status**: Ready
-> **Stories**: 28 stories — 15 Complete, 11 Ready, 2 Deferred (counts refreshed 2026-10-27 from the story headers, story 010 Complete, PR #50; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 28 stories — 16 Complete, 10 Ready, 2 Deferred (counts refreshed 2026-10-28 from the story headers, story 015 Complete, branch `story/player-character-015`; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -126,7 +126,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 012 | [Anchor registry — `IInteractable`, `RegisterAnchor`, verb catalogue, dense 2 m grid](story-012-anchor-registry-iinteractable-spatial-grid.md) | Logic | Complete | ADR-0014 |
 | 013 | [Input contexts, verb × context table (P14 router declarations), framework availability gate](story-013-contexts-verbs-availability-gate-router-declarations.md) | Logic | Complete | ADR-0014 |
 | 014 | [Focus — F4 score, tie-break, 4-tick dwell, `PreviewSubStep.Focus` binding](story-014-focus-scoring-dwell-preview-binding.md) | Logic | Complete | ADR-0014, ADR-0016 |
-| 015 | [Focus occlusion — lazy, score-ordered](story-015-focus-occlusion-lazy-score-order.md) | Logic | Ready | ADR-0014 |
+| 015 | [Focus occlusion — lazy, score-ordered](story-015-focus-occlusion-lazy-score-order.md) | Logic | Complete | ADR-0014 |
 | 016 | [Press resolution — Catch → presented target verb → catch-armed, latch, Tap requests](story-016-press-resolution-tap-catch-armed.md) | Logic | Complete | ADR-0014 |
 | 017 | [Hold counter — completion, cancel list, catch channel, focus latch](story-017-hold-counter-cancels-channel-focus-latch.md) | Logic | Ready | ADR-0014 |
 | 018 | [`InteractionSnapshot` publication and `IInteractionQuery`](story-018-interaction-snapshot-iinteractionquery.md) | Logic | Ready | ADR-0014 |
@@ -141,7 +141,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 027 | [Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, story 009 carry-forwards (TD-091)](story-027-movement-rulings-extra-jump-slide-td-091.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0013 |
 | 028 | [PCM-P2-1 cross-OS golden equality (Windows + Linux) and the blocking PCM-PERF-1 counters /](story-028-deferred-golden-cross-os-equality-and-blocking-counters.md) | Integration | Deferred (Evan 2026-10-23) | — |
 
-**28 stories: 20 Logic, 4 Integration, 4 Visual/Feel — 15 Complete, 11 Ready, 2 Deferred (refreshed 2026-10-27 from the story headers, story 010 Complete, PR #50).**
+**28 stories: 20 Logic, 4 Integration, 4 Visual/Feel — 16 Complete, 10 Ready, 2 Deferred (refreshed 2026-10-28 from the story headers, story 015 Complete, branch `story/player-character-015`).**
 
 **Suggested order:** 001–010 (solver, in this order; 003 and 004 can run in parallel with 002/005) → 011–019 (interaction framework; 011, then 012/013, then 014–018, 019 any time after 012/013) → 020 → 021 → 022–026 (Godot-side, after the godot-host-shell epic's scene/view-registry stories).
 
@@ -199,6 +199,6 @@ This epic is complete when:
 
 ## Next Step
 
-**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 010 (A1; Complete 2026-10-27, PR #50), 015 (A1), 021 (A1), 017 (A2), 019 (A1 since the 2026-10-28 regeneration, PR #50), 018 (A3), 020 (A6), 022 (A11), 023 (A12), 024 (A12), 025 (A13), 026 (A13); Deferred by Evan 2026-10-23 (not scheduled): 027, 028. Earlier notes below are history.
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 010 (A1; Complete 2026-10-27, PR #50), 015 (A1; Complete 2026-10-28, branch `story/player-character-015`), 021 (A1), 017 (A2), 019 (A1 since the 2026-10-28 regeneration, PR #50), 018 (A3), 020 (A6), 022 (A11), 023 (A12), 024 (A12), 025 (A13), 026 (A13); Deferred by Evan 2026-10-23 (not scheduled): 027, 028. Earlier notes below are history.
 
 **2026-10-23:** 001–009, 011–014 and 016 are Complete (014: PR #40, merged; 016: PR #42, merged as main c201e87). Next: story 015 (occlusion) and 017 → 018; 020 after 019 (→ 010 → 027) and input-controls 008; 021; 010 waits on 027 (TD-091). Originally: run `/story-readiness production/epics/player-character/story-001-players-module-carrier-state-join-binding.md`, then `/dev-story`. Work the Sim stories in order; start the Godot-side stories (022–026) after the `godot-host-shell` epic's scene/view-registry stories exist (`production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md`, `production/epics/godot-host-shell/story-009-entity-view-registry-pools-destination-views.md`).

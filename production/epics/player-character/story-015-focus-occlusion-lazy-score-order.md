@@ -1,7 +1,7 @@
 # Story 015: Focus occlusion — lazy, score-ordered line-of-sight against terrain and static solids
 
 > **Epic**: Player Character & Movement (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: S (~0.5 day; ~250 lines prod + tests)
