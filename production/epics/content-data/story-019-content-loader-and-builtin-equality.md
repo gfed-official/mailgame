@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day, including authoring `content/**/*.jsonc` for the M-1a set)
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: 2026-10-21 08:08 PT (Implementation Notes: `view` required, so the explicit-fields rule is a load requirement for it; time fields stay ms — owner rulings 08:08 PT, ADR-0010 Errata 2026-10-21; no AC changes). 2026-10-21 (Implementation Note: shipped files and clean fixtures spell out `carryByHand`, `acceptsInsert` and `view` — owner ruling on the ADR-0010 defaults, GDD CD10 note 2026-10-21; no AC changes)
+> **Last Updated**: 2026-10-28 (PR #53 Mail Review r1 B1: the hand-offs from story 018 recorded in Implementation Notes; the `shares` half of the Hash-invariance key-order variant marked blocked on Evan (TD-075(3)); AC text otherwise unchanged). 2026-10-21 08:08 PT (Implementation Notes: `view` required, so the explicit-fields rule is a load requirement for it; time fields stay ms — owner rulings 08:08 PT, ADR-0010 Errata 2026-10-21; no AC changes). 2026-10-21 (Implementation Note: shipped files and clean fixtures spell out `carryByHand`, `acceptsInsert` and `view` — owner ruling on the ADR-0010 defaults, GDD CD10 note 2026-10-21; no AC changes)
 
 ## Context
 
@@ -41,7 +41,7 @@
 - [ ] **Stage gating.** A stage-1 syntax error in one file stops stages 3–5 and returns no `ContentSet`. The fixture file also holds a CV-GRD-01 input. The result lists at least one skipped (rule, def) pair naming the blocking file, and a second, clean file is still parsed. (CDD-LOAD-3)
 - [ ] **Hash invariance.** One fixture is varied by:
   - line endings (LF, CRLF), a BOM, comments, whitespace;
-  - key order within an object;
+  - key order within an object (**the `shares` map part is blocked on Evan (TD-075(3))**: story 018 hashes MailMix `shares` in authored order, so swapping two `shares` keys changes the hash today; this variant can't be written for `shares` until Evan rules whether map-key order counts as "key order" — field-key order is unaffected);
   - the order of a set-valued list.
 
   Every variant yields the same `ContentHash`. Changing `price` 400 → 401, any balance key, or an optional field's presence changes it. (CDD-PARSE-1, CDD-HASH-1)
@@ -68,6 +68,11 @@
 
   Any other `.jsonc` path is CV-GEN-16, an unknown content file. This is an implementation choice; flag it for the GDD re-review.
 - **Stage order.** Run stages 1–2 per file. Run stage 3 per def type only if that type's files are clean. Run stages 4–5 through the story 003 runner, the same one `BuiltInContent` uses.
+- **Hand-off from story 018 (story 018 l.110; PR #53 Mail Review r1 B1).**
+  - **`suppress` reaches stages 4–5.** Story 018's walker parses each def's `suppress: [{rule, why}]` into `ParsedDef.Suppress`, but `BuiltDefs` does not carry it and `ContentValidationInput.BuildRecords` sets every def's suppress to empty. The loader must pass the parsed entries to the story 003 runner so a loaded def can waive a Warning (never hashed, never on the record). See also TD-063(3) (set-level suppress).
+  - **File locations for stage 4–5 findings.** Stage 4–5 findings on loaded defs still carry the synthesised `builtin/<folder>/<id>` locations, which breaks GDD `content-data-definitions.md:72` ("Every error carries `path:line:column`") until this story replaces them with each def's real `SourceLocation` (stage 1–3 findings already use `path:line`, TD-176 item 1).
+  - **`shares` order (TD-075(3), pending Evan).** MailMix `shares` keep authored order into the canonical bytes (`DefCanonical.cs:139-141`); the Hash-invariance AC's key-order variant is blocked on Evan for `shares` (see the AC).
+  - **SelfCheck at loader construction.** `ContentLoader` must construct `SchemaStage`; its constructor is where every `FieldSpec` table's `SelfCheck` runs (TD-090; TD-176 item 10, Mail Dev default, pending Evan).
 - **`ContentSet` construction.** Build via the same constructor that `BuiltInContent` uses, so equal inputs give equal canonical bytes.
 - **Authoring `content/`.**
   - Author the JSONC files to mirror story 008's values in **authored units**: seconds, metres and ratios as decimals where the key's unit is decimal.
