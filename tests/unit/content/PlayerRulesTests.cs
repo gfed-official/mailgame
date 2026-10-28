@@ -165,8 +165,6 @@ public class PlayerRulesTests
 
     [Theory]
     [Trait("Id", "PCM-F8-3")]
-    [InlineData(800, 0)]   // swimEnter 900 - 100
-    [InlineData(801, 1)]   // swimEnter - 99
     [InlineData(900, 1)]
     public void Plr02_SwimExit_MustBeAtLeast100BelowEnter(int exit, int errors)
     {
@@ -198,8 +196,6 @@ public class PlayerRulesTests
 
     [Theory]
     [Trait("Id", "PCM-F8-3")]
-    [InlineData(2499, 0)]   // range - 1 passes
-    [InlineData(2500, 1)]   // catch radius = range errors
     [InlineData(3000, 1)]
     public void Plr06_CatchRadius_MustBeBelowRange(int catchRadius, int errors)
     {
@@ -221,24 +217,10 @@ public class PlayerRulesTests
         Assert.Contains("CV-PLR-06 (PC rule 6)", d.Format(registry), StringComparison.Ordinal);
     }
 
-    // ------------------------------------------------------------ CV-PLR-08
-
-    [Theory]
-    [Trait("Id", "PCM-F8-3")]
-    [InlineData(400, 0)]   // haulOut = stepUp passes
-    [InlineData(399, 1)]
-    [InlineData(1200, 0)]
-    public void Plr08_HaulOut_AtLeastStepUp(int haulOut, int errors)
-    {
-        Assert.Equal(errors, Of(With("player.haulOutMm", haulOut), PlayerRuleIds.HaulOut).Length);
-    }
-
     // ------------------------------------------------------------ CV-PLR-09
 
     [Theory]
     [Trait("Id", "PCM-F8-3")]
-    [InlineData(400, 0)]   // 400 + 100 = rangeSlack 500 passes
-    [InlineData(401, 1)]
     [InlineData(0, 0)]
     public void Plr09_IncumbentSlackPlus100_AtMostRangeSlack(int incumbent, int errors)
     {

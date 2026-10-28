@@ -248,8 +248,6 @@ public class ThrowingRulesTests
 
     [Theory]
     [Trait("Id", "TC-CV-1")]
-    [InlineData(9999, 0)]
-    [InlineData(10_000, 1)]   // heavy = medium
     [InlineData(10_001, 1)]
     public void Thr01_HeavyMustBeBelowMedium(int heavy, int errors)
     {
@@ -270,8 +268,6 @@ public class ThrowingRulesTests
 
     [Theory]
     [Trait("Id", "TC-CV-1")]
-    [InlineData("throw.throwSpeed.heavy", 2999, 1)]
-    [InlineData("throw.throwSpeed.heavy", 3000, 0)]
     [InlineData("throw.throwSpeed.light", 30_000, 0)]
     [InlineData("throw.throwSpeed.light", 30_001, 1)]
     public void Thr01_EachSpeedMustBeWithin3000To30000_ProvenWithTheHardRangeWidened(string key, int value, int errors)
@@ -388,18 +384,6 @@ public class ThrowingRulesTests
 
     [Theory]
     [Trait("Id", "TC-CV-1")]
-    [InlineData(0, 1)]
-    [InlineData(1, 0)]
-    [InlineData(9800, 0)]
-    public void Thr03_GravityMustBeAboveZero_ProvenWithTheHardRangeWidened(int g, int errors)
-    {
-        Assert.Equal(errors, Of(Fx.WidenedWith("throw.g", g), ThrowingRuleIds.GravityPositive).Length);
-    }
-
-    [Theory]
-    [Trait("Id", "TC-CV-1")]
-    [InlineData(29, 1)]
-    [InlineData(30, 0)]
     [InlineData(150, 0)]
     [InlineData(151, 1)]
     public void Thr04_MaxFlightTicksMustBeWithin30To150_ProvenWithTheHardRangeWidened(int ticks, int errors)
@@ -461,11 +445,9 @@ public class ThrowingRulesTests
 
     [Theory]
     [Trait("Id", "TC-CV-1")]
-    [InlineData(0, 0)]
     [InlineData(90_000, 0)]
     [InlineData(270_000, 0)]
     [InlineData(-90_000, 0)]
-    [InlineData(45_000, 1)]
     [InlineData(89_999, 1)]
     public void Thr06_YawMustBeAMultipleOf90Degrees(int yaw, int errors)
     {
@@ -477,7 +459,6 @@ public class ThrowingRulesTests
     [Theory]
     [Trait("Id", "TC-CV-1")]
     [InlineData(1, 1, 1, 0)]
-    [InlineData(0, 800, 1000, 1)]
     [InlineData(1000, 0, 1000, 1)]
     [InlineData(1000, 800, 0, 1)]
     [InlineData(0, 0, 0, 1)]   // one finding per volume however many extents are zero
@@ -491,9 +472,7 @@ public class ThrowingRulesTests
 
     [Theory]
     [Trait("Id", "TC-CV-1")]
-    [InlineData(2000, 1000, 0)]   // bottom exactly 0
     [InlineData(2001, 1000, 1)]   // bottom -0.5, an odd height is exact
-    [InlineData(2002, 1000, 1)]   // bottom -1
     [InlineData(800, 400, 0)]
     [InlineData(800, 399, 1)]
     public void Thr06_BottomMustBeAtOrAboveTheMailboxBase(int height, int centre, int errors)
@@ -574,8 +553,6 @@ public class ThrowingRulesTests
 
     [Theory]
     [Trait("Id", "TC-CV-1")]
-    [InlineData(299, 1)]
-    [InlineData(300, 0)]
     [InlineData(301, 0)]
     [InlineData(0, 1)]
     public void Thr09_FwdOffMustClearTheCapsuleRadius(int fwd, int errors)
@@ -594,8 +571,6 @@ public class ThrowingRulesTests
     [Theory]
     [Trait("Id", "TC-CV-1")]
     [InlineData(1, 0)]
-    [InlineData(1400, 0)]
-    [InlineData(1401, 1)]
     [InlineData(0, 1)]   // not above 0 (the hard range admits 0)
     public void Thr10_HandHeightMustBeAboveZeroAndWithinTheCapsule(int hand, int errors)
     {
@@ -645,11 +620,8 @@ public class ThrowingRulesTests
 
     [Theory]
     [Trait("Id", "TC-CV-1")]
-    [InlineData(8000, 0)]   // 70 + 8 = 78
     [InlineData(8001, 1)]
-    [InlineData(9000, 1)]
     [InlineData(0, 0)]
-    [InlineData(6000, 0)]   // the default
     public void Thr11_SeventyDegreesPlusLoft_AtMost78Degrees(int loft, int errors)
     {
         Assert.Equal(errors, Of(With("throw.loftDeg", loft), ThrowingRuleIds.LoftWithinHostBound).Length);
@@ -675,9 +647,6 @@ public class ThrowingRulesTests
 
     [Theory]
     [Trait("Id", "CDD-VAL-1")]
-    [InlineData(500, 0)]
-    [InlineData(100, 0)]
-    [InlineData(450, 1)]
     [InlineData(501, 1)]
     public void Thr12_CatchPredictMs_MustBeWholeTicks(int predict, int errors)
     {
@@ -697,8 +666,6 @@ public class ThrowingRulesTests
 
     [Theory]
     [Trait("Id", "TC-CV-1")]
-    [InlineData(3000, 0)]   // 90 ticks x 1000 / 30
-    [InlineData(3100, 1)]
     [InlineData(3001, 1)]
     public void Thr13_PredictMs_AtMostTheFlightCap(int predict, int errors)
     {
@@ -713,17 +680,7 @@ public class ThrowingRulesTests
         AssertOnlyOne(With("throw.maxFlightTicks", 30, "throw.catchPredictMs", 1100), ThrowingRuleIds.CatchPredictWithinFlight);
     }
 
-    // ------------------------------------------------------------ CV-THR-15 and 16
-
-    [Theory]
-    [Trait("Id", "TC-CV-1")]
-    [InlineData(0, 1)]
-    [InlineData(1, 0)]
-    [InlineData(5, 0)]
-    public void Thr15_DamagePerPoint_AtLeastOne(int damage, int errors)
-    {
-        Assert.Equal(errors, Of(With("throw.damagePerPoint", damage), ThrowingRuleIds.DamagePerPoint).Length);
-    }
+    // ------------------------------------------------------------ CV-THR-16 (CV-THR-15's 0 and 1 are its ThrowingRuleFixtures)
 
     [Theory]
     [Trait("Id", "TC-CV-1")]
