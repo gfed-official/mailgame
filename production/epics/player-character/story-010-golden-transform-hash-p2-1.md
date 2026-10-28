@@ -26,7 +26,7 @@
 **Control Manifest Rules (Feature layer)**:
 - Required: Sim references no Godot assembly; the net8.0 test leg is mandatory for T2 claims (ADR-0001 §7)
 - Required: hashing is field-by-field, never a struct blit (ADR-0006 §4)
-- Required (ADR-0026 §2, manifest 2026-10-17.1): corner heights lie within ±1,000,000 mm (`WorldConstants.MaxCornerHeightMm`; `SetCorners` rejects others). At the far map edge (x = TilesX·S or z = TilesZ·S) sampling uses the last tile with offset exactly S — the script's map-edge clamp leg runs against this rule
+- Required (ADR-0026 §2, manifest 2026-10-17.1): corner heights lie within ±1,000,000 mm (`WorldConstants.MaxCornerHeightMm`; `SetCorners` rejects others). At the far map edge (x = TilesX·S or z = TilesZ·S) sampling uses the last tile with offset exactly S. This story does not exercise that rule: the script's map-edge clamp leg stops the carrier at x = 127 000 (`CarrierBounds.InsetMm` 1000 mm short of the 128 000 mm edge, `Vx` = 0), so no tick samples x = TilesX·S
 - Derived from ADR-0026 §7 (manifest 2026-10-17.1 l.365): `Build(EntityIds, slopeMaxPm, swimEnterMm)` is the composition overload and requires a Post Office (it throws, code 37, without one), and `Build(int, int)` keeps the Post Office optional. FX-Golden is a test world with no Post Office, so this story builds it with `WorldTablesBuilder.Build(slopeMaxPm, swimEnterMm)`, as `WorldTablesFixture` does; this is a consequence of the rule, not a manifest rule of its own
 - Required (ADR-0001 §7): perf-trait tests run in the non-parallel collection (`[Collection(NonParallelCollection.Name)]`)
 - Guardrail: owner `CarrierStep` + focus p99 ≤ 0.10 ms (advisory M-1a); 0 B per tick after 300 warm-up ticks and the probe counters are **reported, not gated** at M-1a (E2; the blocking form is story 028)
@@ -86,7 +86,7 @@
 - `tests/unit/architecture/CarrierPurityTests.cs`: `SimAssembly_DefinesAndReferencesNoPhysicsNamedType` (AC 6; every TypeDef and TypeRef of the Sim assembly, which implies the `Players` scope).
 - `tests/unit/player/golden/carrier-600.golden.txt` and `carrier-600.script.csv` (LF; read through `FindRepoRoot()`). Regenerate with `PM_UPDATE_GOLDEN=1`; the test fails instead when `CI` is set.
 - Advisory output (net8.0 Release): carrierSubSteps max 4, carrierSlideIterations max 2, carrierCandidateOverflow 0, carrierStepClamped 13, carrierDepenetrations 1; 0 B allocated by `Step` over ticks 301-600; worst-case p99 0.0346 ms per call (target 0.10 ms). Debug builds allocate (TD-008) and say so in the output.
-- Mail Lead defaults, pending Evan: the FX-Golden geometry; `buffCapPm` 4000 with a Boost input (`BuffAddPm` 4000), because no default-settings input moves a tick past 1200 mm, so `carrierStepClamped` is unreachable otherwise; the spawn crate the carrier starts inside, because a static world has no other path to depenetration; the named ticks; the mutation ticks; the perf fixture (64 slabs just above the head, a boosted 1250 mm tick).
+- Mail Lead defaults, pending Evan (batched in TD-174): the FX-Golden geometry; `buffCapPm` 4000 with a Boost input (`BuffAddPm` 4000), because no default-settings input moves a tick past 1200 mm, so `carrierStepClamped` is unreachable otherwise; the spawn crate the carrier starts inside, because a static world has no other path to depenetration; the named ticks; the mutation ticks; the perf fixture (64 slabs just above the head, a boosted 1250 mm tick).
 
 ---
 
