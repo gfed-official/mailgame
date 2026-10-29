@@ -24,6 +24,13 @@ public enum StringNamespace : byte
     /// <summary>Mail-mix defs; equals <c>DefType.MailMix</c>.</summary>
     MailMix = 5,
 
+    /// <summary>
+    /// Framework and owner UI reason and prompt keys (ADR-0004 section 6 erratum 2026-10-23; indices 0 to 15 are the framework's
+    /// <c>reason.*</c> keys). Mail Dev default, pending Evan (TD-194 item 1): appended here by player-character 019 for
+    /// <c>PlayerReasons</c> rather than waiting for manual-delivery 010 AC-4.
+    /// </summary>
+    Reason = 6,
+
     /// <summary>Per-run interned strings.</summary>
     Run = 0xFF,
 }

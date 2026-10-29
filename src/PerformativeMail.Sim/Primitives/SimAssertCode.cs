@@ -266,4 +266,7 @@ public static class SimAssertCode
 
     /// <summary>An <c>IMailApi</c> member whose story has not landed was called (mail-destinations story 005, TD-177 items 4 and 6): <c>ConsumeHand</c> (story 007) or <c>SetDeliveriesState</c> (story 009). Unreachable at M-1a: nothing calls them yet. Release does nothing (no row, wallet, bucket or state change). <c>SIM_ASSERT</c>.</summary>
     public const ushort MailApiNotImplemented = 85;
+
+    /// <summary><c>PlayersStep</c> (phase 3; player-character story 019) found a latched transform sample for a slot that holds no player and was not freed this tick. A sample for a slot freed this tick (its <c>PlayerLeave</c> ran in phase 0 after the prologue latched the sample) is a legal race and is dropped without this assert. Unreachable while the adapter writes samples only for joined peers. Release drops the sample. <c>SIM_ASSERT</c>.</summary>
+    public const ushort PlayersSampleForEmptySlot = 87;
 }

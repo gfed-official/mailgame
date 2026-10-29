@@ -188,4 +188,15 @@ public enum CounterId : ushort
 
     /// <summary>Mail <c>MailStep</c> (phase 8): one per complaint bucket visited by the step (key <c>mailBucketsVisited</c>; mail-destinations story 005, TD-177 item 4; M-PERF-1c: an idle tick visits 0; buckets refill lazily on touch, ADR-0017 section 7). A test seam: at M-1a the step visits no bucket, so it stays 0. Like <see cref="MailRowsVisited"/>, written to no dump section: counters are excluded from the canonical dump (<see cref="SimCoreStateContributor"/>), so TD-177 item 4's "both in the canonical dump" is read as "both canonical <c>CounterId</c>s" (Evan approved 2026-10-28 (TD-183 item 3)).</summary>
     MailBucketsVisited = 57,
+
+    // 58 to 60 are reserved for player-character 017.
+
+    /// <summary>Players <c>PlayersStep</c> (phase 3, host role; player-character story 019, ADR-0013 section 1): one per host-role <c>OwnedCarrier.Step</c> call, made only for a body the host authors (any non-Alive player). An Alive remote player is never stepped on the host, so over any run of Alive reports it stays 0 (PCM-P2-2; key <c>hostCarrierSteps</c>). Evan approved 2026-10-29 (TD-188 item 6).</summary>
+    HostCarrierSteps = 61,
+
+    /// <summary>Players <c>PlayersStep</c> (phase 3): one per latched <c>TransformSample</c> of an Alive player stored as its host position (key <c>samplesIngested</c>; player-character story 019). Evan approved 2026-10-29 (TD-188 item 6).</summary>
+    SamplesIngested = 62,
+
+    /// <summary>Players <c>PlayersStep</c> (phase 3): one per latched <c>TransformSample</c> ignored because the host authors that body (Dead, Frozen or another non-Alive state; key <c>samplesIgnoredAuthored</c>; player-character story 019). Evan approved 2026-10-29 (TD-188 item 6).</summary>
+    SamplesIgnoredAuthored = 63,
 }
