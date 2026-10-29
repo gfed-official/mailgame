@@ -106,7 +106,7 @@ public sealed class HoldAdvanceStep : IClientStep
         _previous = now;
 
         // The press tick's context is the one the press was resolved against, so context cancels compare from the next tick on
-        // (a catch armed on the tick swimming starts is kept). Mail Dev default, pending Evan (TD-191 item 5).
+        // (a catch armed on the tick swimming starts is kept). Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 5).
         CancelReason context = s.Latch.PressTick == ctx.ClientTick ? CancelReason.None : InteractionGate.ContextCancelReason(in previous, in now);
         switch (s.State)
         {
@@ -114,7 +114,7 @@ public sealed class HoldAdvanceStep : IClientStep
                 AdvanceHold(ref s, context, in now, in ctx);
                 break;
             case InteractState.Channel when context != CancelReason.None:
-                // A channel has no anchor-side cancels at M-1a: only the context ends it (Mail Dev default, pending Evan (TD-191 item 6)).
+                // A channel has no anchor-side cancels at M-1a: only the context ends it (Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 6)).
                 if (s.Latch.Verb == Verb.Catch)
                 {
                     _ = _catchArm.Send(down: false);
@@ -134,7 +134,7 @@ public sealed class HoldAdvanceStep : IClientStep
         InteractionLatch latch = s.Latch;
 
         // The current context's registration, as at press: entering build mode mid-hold reads as unregistered.
-        // Mail Dev default, pending Evan (TD-191 item 7).
+        // Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 7).
         byte mask = now.Body == BodyContext.Build ? AnchorRegistry.ContextBuild : AnchorRegistry.ContextWorld;
         if (!_anchors.TryGet(latch.Anchor, mask, out int index))
         {
@@ -190,7 +190,7 @@ public sealed class HoldAdvanceStep : IClientStep
         }
 
         // One commit. TryBuildRequest false sends nothing and still completes, as a declined Tap records no cancel.
-        // Mail Dev default, pending Evan (TD-191 item 8).
+        // Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 8).
         Op op = default;
         if (impl.TryBuildRequest(in latch, in c, ref op) && !_requests.TrySend(in op))
         {

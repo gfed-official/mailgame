@@ -6395,3 +6395,10 @@ Follow-on edits: throwing-catching 021 no longer depends on manual-delivery 008 
 **Chosen:** as quoted. TD-183 closed ("Evan approved"); the code labels read "Evan approved 2026-10-28 (TD-183 item N)" (comment-only). Evan is credited only for these three behaviours; the row's review advisories (counters 56/57 never incremented at M-1a, `StubWallet` negative amounts) are not part of the approval.
 **Reason:** Owner decision.
 **Category:** owner decision (as-built defaults approved; TD-183 closed; no ADR or behaviour change)
+
+#### 2026-10-29 — player-character 017's eight as-built defaults (TD-191) approved and closed (owner decision, Evan 2026-10-29 8:26 AM PT, in his own words answering the TD-191 card in the Mail Lead chat: "Approve all eight TD-191 defaults for player-character 017")
+**Decision point:** player-character 017 (PR #60) batched eight as-built Mail Dev defaults in TD-191: (1) hold transitions counted where they happen (4d starts and edge cancels, 4e the rest; `EdgeResolveStep.cs:140`); (2) Channels not counted as holds (`CounterId.cs:192`); (3) a refused `CatchArm{up}` is not retried and records nothing (`EdgeResolveStep.cs:146`); (4) a router Cancel edge ends the interaction as a Release (`EdgeResolveStep.cs:125`); (5) no context cancel on the press tick (`HoldAdvanceStep.cs:109`); (6) a Channel ends only on a context change at M-1a (`HoldAdvanceStep.cs:117`); (7) the unregistered check uses the current context's registration (`HoldAdvanceStep.cs:137`); (8) `TryBuildRequest` false at completion sends nothing and still completes (`HoldAdvanceStep.cs:193`).
+**Options considered:** approve the eight as batched; change any item in a follow-up code PR.
+**Chosen:** as quoted. TD-191 closed ("Evan approved"); the code labels read "Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item N)" (comment-only). Evan is credited only for these eight behaviours.
+**Reason:** Owner decision.
+**Category:** owner decision (as-built defaults approved; TD-191 closed; no ADR or behaviour change)

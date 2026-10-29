@@ -189,7 +189,7 @@ public enum CounterId : ushort
     /// <summary>Mail <c>MailStep</c> (phase 8): one per complaint bucket visited by the step (key <c>mailBucketsVisited</c>; mail-destinations story 005, TD-177 item 4; M-PERF-1c: an idle tick visits 0; buckets refill lazily on touch, ADR-0017 section 7). A test seam: at M-1a the step visits no bucket, so it stays 0. Like <see cref="MailRowsVisited"/>, written to no dump section: counters are excluded from the canonical dump (<see cref="SimCoreStateContributor"/>), so TD-177 item 4's "both in the canonical dump" is read as "both canonical <c>CounterId</c>s" (Evan approved 2026-10-28 (TD-183 item 3)).</summary>
     MailBucketsVisited = 57,
 
-    /// <summary>Hold counter (player-character story 017; ADR-0014 section 4): one per Hold-mode latch (key <c>holdsStarted</c>; Evan approved 2026-10-29 (TD-186 item 4)). Channels are not holds and are not counted (Mail Dev default, pending Evan (TD-191 item 2)). On the ClientLayer's counters, not in the canonical dump.</summary>
+    /// <summary>Hold counter (player-character story 017; ADR-0014 section 4): one per Hold-mode latch (key <c>holdsStarted</c>; Evan approved 2026-10-29 (TD-186 item 4)). Channels are not holds and are not counted (Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 2)). On the ClientLayer's counters, not in the canonical dump.</summary>
     HoldsStarted = 58,
 
     /// <summary>Hold counter: one per hold that reached its completion tick and sent its request, or whose owner declined to build one (key <c>holdsCompleted</c>; Evan approved 2026-10-29 (TD-186 item 4)). On the ClientLayer's counters, not in the canonical dump.</summary>

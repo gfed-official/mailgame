@@ -94,7 +94,7 @@
 - `tests/unit/player/HoldAdvanceAllocationTests.cs` (`PC017-COUNTERS`): `Step_Over10000FuzzedPresses_AllocatesZeroBytesAfterWarmUp` — 0 B, advisory until M0 (ADR-0014 erratum E2); skipped on Debug, passes on Release
 - Edited pins: `PressResolutionTests.OnlyInteractPressEdgesResolve_ReleaseCancelAndOtherActionsResolveNothing` gains the Hold row (`PCM-P12-2`); `SimCountersTests` length 58 → 61 and the 58–60 id pins; `InteractionGateTests` `CancelReason` value pins 6–11; `ClientLayerRulesTests` covers `HoldAdvanceStep`. `EdgeResolveAllocationTests` (0 B) and the `PressResolutionTests` `Latched == false` pin stay green.
 - A mutation check during dev-story (the strict `>` range compare flipped; the 4d release handling removed) failed 19 tests, including the 2900 mm keep row and the A9 case.
-- Eight further as-built calls are labelled 'Mail Dev default, pending Evan (TD-191 item N)' (register row TD-191, open).
+- Eight further as-built calls are labelled 'Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item N)' (register row TD-191, closed; Evan's words, answering the TD-191 card: "Approve all eight TD-191 defaults for player-character 017").
 
 ---
 
