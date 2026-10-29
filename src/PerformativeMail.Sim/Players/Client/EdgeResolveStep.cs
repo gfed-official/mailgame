@@ -122,7 +122,7 @@ public sealed class EdgeResolveStep : IClientStep
             }
             else
             {
-                // A router Cancel edge ends the interaction exactly as a Release does (Mail Dev default, pending Evan (TD-190 item 4)).
+                // A router Cancel edge ends the interaction exactly as a Release does (Mail Dev default, pending Evan (TD-191 item 4)).
                 Release();
             }
         }
@@ -137,13 +137,13 @@ public sealed class EdgeResolveStep : IClientStep
                 _interaction.State = InteractState.Idle;
                 Cancel(CancelReason.Released, StringId.None);
 
-                // Each hold transition is counted where it happens: 4d counts starts and edge cancels, 4e the rest (Mail Dev default, pending Evan (TD-190 item 1)).
+                // Each hold transition is counted where it happens: 4d counts starts and edge cancels, 4e the rest (Mail Dev default, pending Evan (TD-191 item 1)).
                 _counters.Add(CounterId.HoldsCancelled);
                 break;
             case InteractState.Channel:
                 if (_interaction.Latch.Verb == Verb.Catch)
                 {
-                    // A refused CatchArm{up} is not retried and records nothing; the channel ends anyway (Mail Dev default, pending Evan (TD-190 item 3)).
+                    // A refused CatchArm{up} is not retried and records nothing; the channel ends anyway (Mail Dev default, pending Evan (TD-191 item 3)).
                     _ = _catchArm.Send(down: false);
                 }
 
