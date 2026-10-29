@@ -1,0 +1,7 @@
+// Balance keys owned by design/gdd/manual-delivery.md (Tuning Knobs); file content/balance/delivery.jsonc holds delivery.*
+// (content-data CD9). Registry units and hard ranges: BalanceKeys (code). A value is a number in the key's authored unit (CD4:
+// ...Seconds in seconds, ...Metres/Meters in metres, a ratio as a decimal, ...Pm/...Ms/...Mm/...Ticks as integers);
+// { "value": v, "safe": [min, max] } adds the taste range (leaving it is CV-GEN-20, a Warning).
+{
+  "insertPmMax": 750,
+}

@@ -1,0 +1,21 @@
+// M-1a containers (design/gdd/grid-inventory.md R1, AC H-R1-1). acceptsInsert and view are always spelled out
+// (content-data CD10 note, owner ruling 2026-10-21; view is required).
+[
+  {
+    "id": "hotbar", "layout": "slots", "grid": [8, 1], "view": "grid", "beltAccess": "none",
+    "handCarried": true, "acceptsInsert": true, "reservedSlots": [0],
+  },
+  {
+    "id": "player_inventory", "layout": "grid", "grid": [8, 2], "view": "grid", "beltAccess": "none",
+    "handCarried": true, "acceptsInsert": true,
+  },
+  {
+    "id": "po_intake", "layout": "grid", "grid": [20, 16], "view": "manifest", "beltAccess": "outfeed_only",
+    "allowedCategories": ["mail"], "handCarried": false, "acceptsInsert": true,
+  },
+  {
+    // Grid R1: the cursor accepts "any hand-carryable", so handCarried is true.
+    "id": "cursor", "layout": "slots", "grid": [1, 1], "view": "auto", "beltAccess": "none",
+    "handCarried": true, "acceptsInsert": true,
+  },
+]
