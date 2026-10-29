@@ -350,7 +350,7 @@ public class PlayerJoinBindingTests
     }
 
     [Fact]
-    public void Bind_BindsTheJoinListenerOnce_AndBindsNoPhase()
+    public void Bind_BindsTheJoinListenerOnce()
     {
         // Arrange
         var counters = new SimCounters();
@@ -361,7 +361,7 @@ public class PlayerJoinBindingTests
         // Act
         players.Bind(builder);
 
-        // Assert: a second listener bind is refused, and the world freezes and ticks with no phase from Players.
+        // Assert: a second listener bind is refused, and the world freezes and ticks (phase 3 is PlayersStepTests').
         SimBuildException ex = Assert.Throws<SimBuildException>(() => builder.BindPlayerJoinListener(players));
         Assert.Equal(SimBuildErrorCode.PlayerJoinListenerAlreadyBound, ex.Code);
         SimWorld world = builder.Freeze();

@@ -197,4 +197,13 @@ public enum CounterId : ushort
 
     /// <summary>Hold counter: one per hold cancelled before it sent, a refused send at completion included (key <c>holdsCancelled</c>; one flat counter, the reason is <c>InteractionStatus.LastCancel</c>: Evan approved 2026-10-29 (TD-186 item 4)). <see cref="HoldsStarted"/> = completed + cancelled + the hold in progress. On the ClientLayer's counters, not in the canonical dump.</summary>
     HoldsCancelled = 60,
+
+    /// <summary>Players <c>PlayersStep</c> (phase 3, host role; player-character story 019, ADR-0013 section 1): one per host-role <c>OwnedCarrier.Step</c> call, made only for a body the host authors. An Alive remote player is never stepped on the host, so over any run of Alive reports it stays 0 (PCM-P2-2; key <c>hostCarrierSteps</c>). Id 61: Evan approved 2026-10-29 (TD-188 item 6). Host-authored = any non-Alive present player: Evan approved (TD-194 item 3), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".</summary>
+    HostCarrierSteps = 61,
+
+    /// <summary>Players <c>PlayersStep</c> (phase 3): one per latched <c>TransformSample</c> of an Alive player stored as its host position (key <c>samplesIngested</c>; player-character story 019). Id 62: Evan approved 2026-10-29 (TD-188 item 6).</summary>
+    SamplesIngested = 62,
+
+    /// <summary>Players <c>PlayersStep</c> (phase 3): one per latched <c>TransformSample</c> ignored because the host authors that body (key <c>samplesIgnoredAuthored</c>; player-character story 019). Id 63: Evan approved 2026-10-29 (TD-188 item 6). Host-authored = any non-Alive present player: Evan approved (TD-194 item 3), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".</summary>
+    SamplesIgnoredAuthored = 63,
 }

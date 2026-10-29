@@ -150,7 +150,9 @@ public static class SimComposition
         StubWallet? wallet = BindWallet(profile, builder, services, content);
 
         // Systems, in construction order; each binds right after construction.
-        var context = new SimSystemContext(profile.Graph, content, services, tick, runControl, worldQuery, wallet);
+        // The sample latch seam (Evan approved 2026-10-29 (ADR-0003 §4 erratum)): attached to the world's latch after freeze.
+        var samples = new SampleLatchForwarder();
+        var context = new SimSystemContext(profile.Graph, content, services, tick, runControl, worldQuery, wallet, samples);
         var systems = new List<ISimSystem>(order.Length);
         for (int i = 0; i < order.Length; i++)
         {
@@ -176,6 +178,7 @@ public static class SimComposition
         // Freeze on the calling thread (owner thread), then point the late-bound ports at the world.
         SimWorld world = builder.Freeze();
         tick.Attach(world);
+        samples.Attach(world.Samples);
         services.Events.Attach(world.Events);
         runControl.Attach(world.RunControl);
         return new SimHost(world, client, content, services, order, systems.ToArray(), wallet);
@@ -190,7 +193,9 @@ public static class SimComposition
         {
             case SystemId.PlayerCharacter:
                 // Players reads the world only through IWorldQuery; without one the system is left unbuilt (story player-character/001).
-                return context.World is { } world ? new PlayersSystem(world, context.Content, context.CheckRing, context.Counters) : null;
+                return context.World is { } world
+                    ? new PlayersSystem(world, context.Content, context.Samples, context.Slots, context.Tick, context.CheckRing, context.Counters)
+                    : null;
             case SystemId.GridInventory:
                 return new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events, context.Tick, context.EntityIds, context.Slots);
             case SystemId.MailDestinations:

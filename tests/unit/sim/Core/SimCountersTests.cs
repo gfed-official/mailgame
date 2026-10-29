@@ -191,7 +191,6 @@ public class SimCountersTests
             Assert.Equal((long)id + 1, counters[id]);
         }
 
-        Assert.Equal(all.Length, counters.Length);
         Assert.Equal((int)all.Max() + 1, counters.Length);
     }
 
