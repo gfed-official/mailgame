@@ -172,7 +172,10 @@ public class SimCountersTests
         Assert.Equal(55, (int)CounterId.FocusOcclusionTests);
         Assert.Equal(56, (int)CounterId.MailRowsVisited);
         Assert.Equal(57, (int)CounterId.MailBucketsVisited);
-        Assert.Equal(58, new SimCounters().Length);
+        Assert.Equal(58, (int)CounterId.HoldsStarted);
+        Assert.Equal(59, (int)CounterId.HoldsCompleted);
+        Assert.Equal(60, (int)CounterId.HoldsCancelled);
+        Assert.Equal(61, new SimCounters().Length);
         Assert.Equal(typeof(ushort), Enum.GetUnderlyingType(typeof(CounterId)));
     }
 
