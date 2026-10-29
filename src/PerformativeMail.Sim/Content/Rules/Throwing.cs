@@ -140,7 +140,7 @@ public static class Throwing
         RuleSpec.Create<ContentValidationInput>(
             ThrowingRuleIds.WeightClasses, Owner, "THROW-CV-08", RuleSeverity.Error, ValidationStage.References,
             // CDD-SCHEMA-3 (story 018, TD-069(2)): an ItemDef without weightClass fails stage 2, its type is not built, and the rule
-            // is skipped and counted, so the item table is declared. Mail Dev default, pending Evan (TD-176): declaring `items` (not a
+            // is skipped and counted, so the item table is declared. Approved by Evan 2026-10-28 6:09 AM PT (TD-176): declaring `items` (not a
             // field-level key) also skips the rule's mail-kind half when the item table failed (TD-059(1) granularity).
             ImmutableArray.Create(ContentInputKeys.Items, ContentInputKeys.MailKinds),
             c.CheckWeightClasses,

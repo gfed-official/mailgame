@@ -1,0 +1,18 @@
+// Balance keys owned by design/gdd/simulation-core.md (Tuning Knobs); file content/balance/sim.jsonc holds sim.*
+// (content-data CD9). Registry units and hard ranges: BalanceKeys (code). A value is a number in the key's authored unit (CD4:
+// ...Seconds in seconds, ...Metres/Meters in metres, a ratio as a decimal, ...Pm/...Ms/...Mm/...Ticks as integers);
+// { "value": v, "safe": [min, max] } adds the taste range (leaving it is CV-GEN-20, a Warning).
+{
+  "opQueueCapacity": { "value": 4096, "safe": [4096, 16384] },
+  "systemOpReserve": { "value": 64, "safe": [32, 256] },
+  "maxOpsDrainedPerTick": { "value": 64, "safe": [32, 256] },
+  "eventLogCapacity": { "value": 4096, "safe": [4096, 16384] },
+  "eventLogReserve": { "value": 256, "safe": [64, 4096] },
+  "maxCatchUpTicksPerFrame": { "value": 4, "safe": [3, 8] },
+  "checkRingCapacity": 256,
+  "warmupTicks": { "value": 300, "safe": [150, 900] },
+  "modifierPoolPerTeam": 128,
+  "modifierPoolPerPlayer": 64,
+  "mailTablePages": 64,
+  "startingWalletCents": 0,
+}

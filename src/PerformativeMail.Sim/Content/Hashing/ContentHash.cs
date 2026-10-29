@@ -26,7 +26,11 @@ namespace PerformativeMail.Sim.Content.Hashing;
 public static class ContentHash
 {
     /// <summary>The layout version byte at the start of the canonical stream; bump whenever any encoding here or in <see cref="DefCanonical"/> changes.</summary>
-    public const byte HashSchemaVersion = 1;
+    /// <remarks>
+    /// 2: MailMix <c>shares</c> are sorted by kind index before encoding (content-data 019, TD-075(3)). Evan 2026-10-28 7:24 AM PT, Mail Lead chat,
+    /// card 'Content-data 019 and throwing-catching 002': "Approve bumping hashSchemaVersion 1 to 2 with the shares sort and regenerating the golden hash in the same commit".
+    /// </remarks>
+    public const byte HashSchemaVersion = 2;
 
     /// <summary>Hashes the whole content set.</summary>
     /// <param name="content">The accepted set.</param>

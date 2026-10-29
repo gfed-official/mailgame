@@ -73,12 +73,14 @@ public static class ContentPipeline
         RuleRegistry rules,
         ImmutableArray<PendingReference> references = default,
         ImmutableArray<VerbDeclaration> verbDeclarations = default) =>
-        Build(balance, new Defs(containers, items, mailKinds, destinationTypes, mailMixes), rules, references, verbDeclarations, default, default);
+        Build(balance, new Defs(containers, items, mailKinds, destinationTypes, mailMixes), rules, references, verbDeclarations, default, default, default);
 
     /// <summary>
     /// Builds the defs that loaded content produced (stage 3, <see cref="Builder"/>): the same path as the list overload, with
     /// the stage 1 to 3 findings merged into the result (any Error among them withholds the set) and the types the builder did
-    /// not build passed on as failed inputs, so the rules that declare them are skipped and counted.
+    /// not build passed on as failed inputs, so the rules that declare them are skipped and counted. Each built def's
+    /// <see cref="BuiltDefs.Records"/> entry replaces its synthesised <c>builtin/&lt;folder&gt;/&lt;id&gt;</c> record, so stage 4 to 5
+    /// findings carry its real <c>path:line:column</c> and its parsed <c>suppress</c> entries reach the runner (TD-178 item 1).
     /// </summary>
     /// <param name="balance">A built balance table over <c>BalanceKeys.CreateRegistry()</c>.</param>
     /// <param name="defs">The builder's output.</param>
@@ -91,7 +93,7 @@ public static class ContentPipeline
         ArgumentNullException.ThrowIfNull(defs);
         return Build(
             balance, new Defs(defs.Containers, defs.Items, defs.MailKinds, defs.DestinationTypes, defs.MailMixes), rules,
-            defs.References, default, defs.Failed, defs.Diagnostics);
+            defs.References, default, defs.Failed, defs.Diagnostics, defs.Records);
     }
 
     private readonly record struct Defs(
@@ -108,7 +110,8 @@ public static class ContentPipeline
         ImmutableArray<PendingReference> references,
         ImmutableArray<VerbDeclaration> verbDeclarations,
         ImmutableArray<FailedInput> priorFailures,
-        ImmutableArray<ContentDiagnostic> priorFindings)
+        ImmutableArray<ContentDiagnostic> priorFindings,
+        ImmutableArray<DefRecord> loadedRecords)
     {
         ArgumentNullException.ThrowIfNull(balance);
         ArgumentNullException.ThrowIfNull(rules);
@@ -117,16 +120,17 @@ public static class ContentPipeline
         RuleSeverity many = SeverityOf(rules, GeneralRuleIds.TooManyDefs);
         var found = new List<ContentDiagnostic>(priorFindings.IsDefault ? ImmutableArray<ContentDiagnostic>.Empty : priorFindings);
         var failed = new List<FailedInput>(priorFailures.IsDefault ? ImmutableArray<FailedInput>.Empty : priorFailures);
+        Dictionary<DefRef, SourceLocation>? at = ContentValidationInput.LocationIndex(loadedRecords);
         var candidate = new ContentSet(
             balance,
             bounds.Bounds,
-            ContentIdChecks.Prepare(DefType.Container, "containers", ContentInputKeys.Containers, defs.Containers, dup, many, found, failed),
-            ContentIdChecks.Prepare(DefType.Item, "items", ContentInputKeys.Items, defs.Items, dup, many, found, failed),
-            ContentIdChecks.Prepare(DefType.MailKind, "mail_kinds", ContentInputKeys.MailKinds, defs.MailKinds, dup, many, found, failed),
-            ContentIdChecks.Prepare(DefType.DestinationType, "destination_types", ContentInputKeys.DestinationTypes, defs.DestinationTypes, dup, many, found, failed),
-            ContentIdChecks.Prepare(DefType.MailMix, "mail_mixes", ContentInputKeys.MailMixes, defs.MailMixes, dup, many, found, failed));
-        ValidationResult runner = ContentValidationRunner.Run(
-            rules, new ContentValidationInput(candidate, failed.ToImmutableArray(), references, default, verbDeclarations));
+            ContentIdChecks.Prepare(DefType.Container, "containers", ContentInputKeys.Containers, defs.Containers, dup, many, found, failed, at),
+            ContentIdChecks.Prepare(DefType.Item, "items", ContentInputKeys.Items, defs.Items, dup, many, found, failed, at),
+            ContentIdChecks.Prepare(DefType.MailKind, "mail_kinds", ContentInputKeys.MailKinds, defs.MailKinds, dup, many, found, failed, at),
+            ContentIdChecks.Prepare(DefType.DestinationType, "destination_types", ContentInputKeys.DestinationTypes, defs.DestinationTypes, dup, many, found, failed, at),
+            ContentIdChecks.Prepare(DefType.MailMix, "mail_mixes", ContentInputKeys.MailMixes, defs.MailMixes, dup, many, found, failed, at));
+        var input = new ContentValidationInput(candidate, failed.ToImmutableArray(), references, default, verbDeclarations, loadedRecords);
+        ValidationResult runner = input.Relocate(ContentValidationRunner.Run(rules, input));
         ValidationResult merged = Merge(bounds.Validation.Diagnostics.AddRange(found), runner);
         return new ContentBuildResult(merged, merged.AcceptedSet(candidate));
     }
