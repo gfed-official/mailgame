@@ -5,10 +5,10 @@
 > **Architecture Module**: Sim.Throwing (`src/PerformativeMail.Sim/Throwing/`; throw preview in Sim.ClientLayer `Previews`) + aim ribbon, launch ghost and bundle mesh (Godot)
 > **Milestone slice**: M-1a per the GDD's milestone slice (T1–T6 with ground, water, solid, timeout and mailbox receivers; T3 preview; T11; T12; T14; the release snap, whoosh, landing squash and trail; one bundle mesh). The **Sim-side catch** (T7, F5) is pulled forward from M0 at the orchestrator's request (see Overview).
 > **Engine Risk**: LOW (Sim ballistic). MEDIUM for the presentation (screen-space dashed ribbon with no `DrawLine`, since line AA was removed in 4.7; `MultiMeshInstance3D`).
-> **Est. size**: L — 28 stories (1 Complete, 20 Ready, 7 Deferred; refreshed 2026-10-23, m1a-replan)
+> **Est. size**: L — 28 stories (2 Complete, 19 Ready, 7 Deferred; refreshed 2026-10-28, throwing-catching 002 Complete, PR #55)
 > **Implementation priority**: 7 of 9
 > **Status**: Ready
-> **Stories**: 28 stories — 1 Complete, 20 Ready, 7 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 28 stories — 2 Complete, 19 Ready, 7 Deferred (counts refreshed 2026-10-28 from the story headers, throwing-catching 002 Complete, PR #55; before that 1 / 20 / 7, 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -103,7 +103,7 @@ Source: architecture.md v1.1 Appendix A; coverage per `docs/architecture/tr-regi
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
 | 001 | [`Throw.RH`, the F1 launch (`LaunchMath`) and the closed-form F2 ballistic (`Ballistic.PositionAt`)](story-001-throw-rh-launch-f1-ballistic-f2.md) | Logic | Complete | ADR-0015 |
-| 002 | [`FlightSweep.FirstContact` — F4 swept contact, receiver ranks, descending-entry mailbox rule, `(f, rank, dist², Mix64)` winner](story-002-flightsweep-contact-ranks-winner.md) | Logic | Ready | ADR-0015 |
+| 002 | [`FlightSweep.FirstContact` — F4 swept contact, receiver ranks, descending-entry mailbox rule, `(f, rank, dist², Mix64)` winner](story-002-flightsweep-contact-ranks-winner.md) | Logic | Complete | ADR-0015 |
 | 003 | [Receiver gathering — static 4 m grid, `QueryStaticSolids`, map edges, chest → origin probe, surface-below](story-003-receiver-view-static-grid-solids-chest-probe.md) | Logic | Ready | ADR-0015 |
 | 004 | [Throw aim quantiser and the `ThrowPreview` client step (4c): the honest arc, end class, published `ThrowPreviewState`](story-004-throw-aim-quantiser-and-preview-step.md) | Logic | Ready | ADR-0016 |
 | 005 | [Preview label data — F7 stake money, two-line label model, 100 ms settle, `previewSettleMs`, preview sound edge](story-005-preview-label-model-f7-money-and-settle.md) | Logic | Ready | ADR-0016 |
