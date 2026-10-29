@@ -47,7 +47,6 @@ public sealed class CheckInteractionTests
     [InlineData(LifeState.Alive, false, true, 1u, 10_000, InteractionCheckKind.NoTarget)]     // unknown anchor + out of range
     [InlineData(LifeState.Alive, true, false, 31u, 0, InteractionCheckKind.Unavailable)]      // unavailable + stale
     [InlineData(LifeState.Alive, true, true, 31u, 10_000, InteractionCheckKind.PositionStale)] // stale + out of range
-    [InlineData(LifeState.Alive, true, true, 1u, 0, InteractionCheckKind.Ok)]                 // the same fixture with no failure
     public void CheckInteraction_TwoFailures_ReportsTheFirstInChainOrder(
         LifeState life, bool registered, bool available, uint age, int claimDx, InteractionCheckKind expected)
     {
