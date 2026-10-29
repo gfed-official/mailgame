@@ -143,7 +143,7 @@ public sealed class ContentLoader
 
     /// <summary>
     /// The balance findings without the CV-GEN-05 "absent" of a key whose owner's file failed stage 1 or 2: that file's own
-    /// finding already explains it. Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item 4).
+    /// finding already explains it. Approved by Evan 2026-10-29 7:44 AM PT (TD-189 item 1).
     /// </summary>
     private static IEnumerable<ContentDiagnostic> WithoutCascade(ImmutableArray<ContentDiagnostic> findings, HashSet<string> failedOwners)
     {
