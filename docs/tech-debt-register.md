@@ -1,7 +1,6 @@
 ## Technical Debt Register
 Last updated: 2026-10-29
 Total items: 191 | Estimated total effort: 176×S + 15×M
-Total items: 190 | Estimated total effort: 175×S + 15×M
 
 | ID | Category | Description | Files | Effort | Impact | Priority | Status | Added | Sprint |
 |----|----------|-------------|-------|--------|--------|----------|--------|-------|--------|
