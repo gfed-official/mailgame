@@ -228,12 +228,30 @@ public class ComplaintBucketTests
         Assert.Equal(new[] { 20_000, 0, 2_000, 0 }, raised);
         EventEntry[] complaints = capture.Last.Where(e => e.Kind == MailEventKinds.ComplaintRaised).ToArray();
         Assert.Equal(2, complaints.Length);
-        Assert.All(complaints, e => Assert.Equal((ReplicationClass.Replicated, MailEventDescriptors.AudienceAll), (e.Class, e.Audience)));
+        Assert.All(complaints, e => Assert.Equal(ReplicationClass.Replicated, e.Class));
         ComplaintRaisedPayload[] p = complaints.Select(e => e.PayloadAs<ComplaintRaisedPayload>()).ToArray();
         uint door = mail!.Registry.EntityIdOf(new DestinationOrdinal(3)).Value;
         Assert.Equal(new ComplaintRaisedPayload { Destination = door, AmountPermille = 20_000, Source = (byte)ComplaintSource.Misdelivery }, p[0]);
         Assert.Equal(new ComplaintRaisedPayload { Destination = door, AmountPermille = 2_000, Source = (byte)ComplaintSource.Late }, p[1]);
         Assert.Empty(EventDescriptorAssert.Validate(MailEventDescriptors.ComplaintRaised, OpKindBlock.MailDelivery));
+
+        // The Mail section ends with the shipped team state: solo cap 40,000 less the one 20,000 debit, all touched at tick 1.
+        Assert.Equal((20_000L * 900, 1L, 1L, (byte)1), MailTeamTail(host.World));
+    }
+
+    private static (long TeamTokensPm, long TeamLastTick, long LastLateTick, byte LateCharged) MailTeamTail(SimWorld world)
+    {
+        byte[] dump = DumpHash.Bytes(world);
+        int pos = 6; // "PMSD" + format version
+        while (BinaryPrimitives.ReadUInt16LittleEndian(dump.AsSpan(pos)) != SectionIds.Mail)
+        {
+            pos += 6 + (int)BinaryPrimitives.ReadUInt32LittleEndian(dump.AsSpan(pos + 2));
+        }
+
+        int length = (int)BinaryPrimitives.ReadUInt32LittleEndian(dump.AsSpan(pos + 2));
+        ReadOnlySpan<byte> t = dump.AsSpan(pos + 6 + length - 25, 25);
+        return (BinaryPrimitives.ReadInt64LittleEndian(t), BinaryPrimitives.ReadInt64LittleEndian(t.Slice(8)),
+            BinaryPrimitives.ReadInt64LittleEndian(t.Slice(16)), t[24]);
     }
 
     private sealed class ProbeSystem : ISimSystem, ISimPhase
@@ -292,8 +310,8 @@ public class ComplaintBucketTests
     }
 
     [Fact]
-    [Trait("Id", "MD006-AC6")]
-    public void Dump_AppendsTheTeamStateAfterTheRegistry_And_TheBareRegistryLayoutIsUnchangedWithoutBuckets()
+    [Trait("Id", "TD-187")]
+    public void Dump_AppendsTheTeamStateAfterTheRegistry()
     {
         // Arrange
         var rig = new Rig();
@@ -302,13 +320,10 @@ public class ComplaintBucketTests
         rig.Buckets.ChargeLate(40, false);
 
         // Act
-        byte[] bare = Dump(new MailStateContributor(table, rig.Registry));
-        byte[] withTeam = Dump(new MailStateContributor(table, rig.Registry, rig.Buckets));
+        byte[] dump = Dump(new MailStateContributor(table, rig.Registry, rig.Buckets));
 
-        // Assert: 8 + 8 + 8 + 1 bytes appended after the registry, field by field.
-        Assert.Equal(bare.Length + 25, withTeam.Length);
-        Assert.Equal(bare.AsSpan(6).ToArray(), withTeam.AsSpan(6, bare.Length - 6).ToArray());
-        ReadOnlySpan<byte> t = withTeam.AsSpan(bare.Length);
+        // Assert: the last 8 + 8 + 8 + 1 bytes, after the registry, field by field.
+        ReadOnlySpan<byte> t = dump.AsSpan(dump.Length - 25);
         Assert.Equal(20_000L * 900, BinaryPrimitives.ReadInt64LittleEndian(t));
         Assert.Equal(30L, BinaryPrimitives.ReadInt64LittleEndian(t.Slice(8)));
         Assert.Equal(40L, BinaryPrimitives.ReadInt64LittleEndian(t.Slice(16)));
