@@ -7,6 +7,11 @@
 - **Build System**: .NET SDK + Godot Export Templates
 - **Asset Pipeline**: Godot Import System + custom resource pipeline
 
+## Testing
+
+Test business logic, not boilerplate. Before writing or reviewing a test, follow:
+@.claude/rules/lean-testing.md
+
 ## Engine Version Reference
 
 <!-- ENGINE-REFERENCE-IMPORT -->

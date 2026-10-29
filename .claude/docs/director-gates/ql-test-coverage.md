@@ -16,7 +16,10 @@ each story before marking it Complete
 > "Review the test coverage for these implementation stories. Are all Logic stories
 > covered by passing unit tests? Are Integration stories covered by integration
 > tests or documented playtests? Are the GDD acceptance criteria each mapped to at
-> least one test? Are there untested edge cases from the GDD Edge Cases section?
+> least one test? Are there untested GDD edge cases where a bug would reach players
+> and no existing test would catch it? Judge by `.claude/rules/lean-testing.md`:
+> AC coverage and bug risk, never test count or mutation score on trivial code;
+> list tests from its "Don't write" list as removable, not as gaps.
 > Return ADEQUATE (coverage meets standards), GAPS [specific missing tests], or
 > INADEQUATE [critical logic is untested — do not advance]."
 
