@@ -17,7 +17,7 @@ public class ThrowingDumpTests
 
     public static TheoryData<string> StoredFields => new()
     {
-        "flightId", "entry", "units", "kindDef", "thrower", "classPts", "origin", "vel",
+        "serial", "flightId", "entry", "units", "kindDef", "thrower", "classPts", "originX", "originY", "originZ", "velX", "velY", "velZ",
         "launchTick", "thrownPm", "releaseTick", "openAtRelease", "hop", "originClamped", "tat",
     };
 
@@ -27,7 +27,8 @@ public class ThrowingDumpTests
     public void ChangingOneStoredField_ChangesTheThrowingSection(string field)
     {
         // Arrange: the flight under test plus a filler flight that is resolved and compacted away. Launching the filler first gives
-        // the same flight the next FlightId while the serial (2) and every other byte stay the same.
+        // the same flight the next FlightId while the serial (2) and every other byte stay the same; launching and resolving a second
+        // filler after it moves only the serial (3).
         FlightInit baseline = FlightTableTests.Init(3);
         Mutation change = field switch
         {
@@ -36,8 +37,12 @@ public class ThrowingDumpTests
             "kindDef" => f => f with { KindDef = (ushort)(f.KindDef + 1) },
             "thrower" => f => f with { Thrower = PlayerSlot.FromValue((byte)(f.Thrower.Value + 1)) },
             "classPts" => f => f with { ClassPts = f.ClassPts + 1 },
-            "origin" => f => f with { Origin = new Vec3Mm(f.Origin.X, f.Origin.Y, f.Origin.Z + 1) },
-            "vel" => f => f with { Vel = new Vec3Mm(f.Vel.X, f.Vel.Y, f.Vel.Z + 1) },
+            "originX" => f => f with { Origin = new Vec3Mm(f.Origin.X + 1, f.Origin.Y, f.Origin.Z) },
+            "originY" => f => f with { Origin = new Vec3Mm(f.Origin.X, f.Origin.Y + 1, f.Origin.Z) },
+            "originZ" => f => f with { Origin = new Vec3Mm(f.Origin.X, f.Origin.Y, f.Origin.Z + 1) },
+            "velX" => f => f with { Vel = new Vec3Mm(f.Vel.X + 1, f.Vel.Y, f.Vel.Z) },
+            "velY" => f => f with { Vel = new Vec3Mm(f.Vel.X, f.Vel.Y + 1, f.Vel.Z) },
+            "velZ" => f => f with { Vel = new Vec3Mm(f.Vel.X, f.Vel.Y, f.Vel.Z + 1) },
             "launchTick" => f => f with { LaunchTick = f.LaunchTick + 1 },
             "thrownPm" => f => f with { ThrownPm = f.ThrownPm + 1 },
             "releaseTick" => f => f with { ReleaseTick = f.ReleaseTick + 1 },
@@ -48,8 +53,8 @@ public class ThrowingDumpTests
         };
 
         // Act
-        byte[] before = Section(baseline, fillerFirst: false, tat5: 0);
-        byte[] after = Section(change(baseline), fillerFirst: field == "flightId", tat5: field == "tat" ? 90u : 0u);
+        byte[] before = Section(baseline, fillerFirst: false, fillerAfter: false, tat5: 0);
+        byte[] after = Section(change(baseline), fillerFirst: field == "flightId", fillerAfter: field == "serial", tat5: field == "tat" ? 90u : 0u);
 
         // Assert
         Assert.Equal(before.Length, after.Length);
@@ -98,7 +103,7 @@ public class ThrowingDumpTests
 
     // ---------------------------------------------------------------- helpers
 
-    private static byte[] Section(FlightInit flight, bool fillerFirst, uint tat5)
+    private static byte[] Section(FlightInit flight, bool fillerFirst, bool fillerAfter, uint tat5)
     {
         var table = new FlightTable(160, new SimCounters());
         FlightInit filler = FlightTableTests.Init(40);
@@ -108,6 +113,13 @@ public class ThrowingDumpTests
         Assert.True(table.TryAppend(in second, out _));
         table.Remove(fillerFirst ? 0 : 1);
         table.Compact();
+        if (fillerAfter)
+        {
+            Assert.True(table.TryAppend(in filler, out int index));
+            table.Remove(index);
+            table.Compact();
+        }
+
         var tat = new uint[PlayerSlot.Count];
         tat[5] = tat5;
         return Write(new ThrowingStateContributor(table, tat));

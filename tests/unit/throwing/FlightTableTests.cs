@@ -192,6 +192,28 @@ public class FlightTableTests
         Assert.Equal((-1L, 1L, rig.Sim.CurrentTick - 1), (record.A, record.B, record.Tick));
     }
 
+    [Fact]
+    [Trait("Id", "TR-throwing-013")]
+    public void AFlightDroppedWithoutResolving_FiresTheTickEndCheck_CounterAndRingEntry()
+    {
+        // Arrange: two flights (ids 0 and 1); flight 1 leaves the live list through the internal table without being resolved.
+        var rig = PlayersRig.Create();
+        FlightTable flights = Throwing(rig).Flights;
+        FlightInit a = Init(0);
+        FlightInit b = Init(1);
+        Assert.True(flights.TryAppend(in a, out _));
+        Assert.True(flights.TryAppend(in b, out _));
+        flights.DropForTests(1);
+
+        // Act
+        rig.TickEmpty(1);
+
+        // Assert: launched 2 - resolved 0 - live 1 = 1; no flight resolved twice, so b = 0.
+        Assert.Equal(1L, rig.Sim.Counters[CounterId.ThrowingConservationMismatches]);
+        SimCheckRecord record = Assert.Single(Records(rig.Sim.CheckRing, CheckCode.ThrowingConservationMismatch));
+        Assert.Equal((1L, 0L, rig.Sim.CurrentTick - 1), (record.A, record.B, record.Tick));
+    }
+
     // ---------------------------------------------------------------- helpers
 
     internal static FlightInit Init(int i) => new()

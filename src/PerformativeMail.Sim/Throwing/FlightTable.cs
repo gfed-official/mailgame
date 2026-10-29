@@ -169,6 +169,17 @@ internal sealed class FlightTable
         }
     }
 
+    /// <summary>
+    /// Test seam for the tick-end check's test only: drops the live flight at <paramref name="index"/> from the live list without
+    /// resolving it (no <see cref="Resolved"/> count; its id stays allocated in the serial), so <c>launched - resolved - live</c> is 1.
+    /// </summary>
+    /// <param name="index">A live position below <see cref="Count"/>.</param>
+    internal void DropForTests(int index)
+    {
+        _dead[index] = true;
+        _deadCount++;
+    }
+
     /// <summary>Closes the dead slots stably: the live flights move down in their launch order and <see cref="Count"/> becomes <see cref="LiveFlights"/>.</summary>
     public void Compact()
     {
