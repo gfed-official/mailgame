@@ -6,7 +6,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// <summary>
 /// The immutable view of the <see cref="ThrowBalance"/> knobs that F1 and F2 read (ADR-0015 section 3, ADR-0010;
 /// GDD <c>design/gdd/throwing-catching.md</c> Tuning Knobs): <c>baseSpeed[class]</c>, <c>g</c>, <c>maxFlightTicks</c>,
-/// <c>handHeightMm</c>, <c>fwdOffMm</c>, <c>sideOffMm</c>. Built once from the content set's <see cref="ThrowBalance"/>
+/// <c>handHeightMm</c>, <c>fwdOffMm</c>, <c>sideOffMm</c>, plus the flight capacity <see cref="MaxFlights"/> (not a knob). Built once from the content set's <see cref="ThrowBalance"/>
 /// record; every value is a plain copy (no code literal), so designers tune through <c>balance/throw.jsonc</c>.
 /// The receiver rank table is story 002's and is not copied here. Immutable; safe from any thread.
 /// </summary>
@@ -25,8 +25,21 @@ public sealed class ThrowSettings
     /// <param name="balance">The <c>throw.*</c> values (for example <c>ContentSet.Throw</c>).</param>
     /// <exception cref="ArgumentNullException"><paramref name="balance"/> is null.</exception>
     public ThrowSettings(ThrowBalance balance)
+        : this(balance, DefaultMaxFlights)
+    {
+    }
+
+    /// <summary>Creates the view with a chosen flight capacity (tests; 16 is the perf fixture).</summary>
+    /// <param name="balance">The <c>throw.*</c> values.</param>
+    /// <param name="maxFlights">The flight table capacity, 1 to 65 535.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="balance"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxFlights"/> is below 1 or above 65 535.</exception>
+    internal ThrowSettings(ThrowBalance balance, int maxFlights)
     {
         ArgumentNullException.ThrowIfNull(balance);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxFlights, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maxFlights, ushort.MaxValue);
+        MaxFlights = maxFlights;
         SpeedLight = balance.ThrowSpeedLight;
         SpeedMedium = balance.ThrowSpeedMedium;
         SpeedHeavy = balance.ThrowSpeedHeavy;
@@ -36,6 +49,19 @@ public sealed class ThrowSettings
         FwdOffMm = balance.FwdOffMm;
         SideOffMm = balance.SideOffMm;
     }
+
+    /// <summary>
+    /// The shipped flight capacity, <c>maxFlights</c> (ADR-0015 section 9: 8 players x 6/s x 3 s = 144, plus slack).
+    /// Mail Lead planning default, pending Evan (TD-195 item 1): set by the constructor, not a balance key, so content and its
+    /// hash are unchanged (the <c>InventorySettings.EntryInitialLastId</c> precedent).
+    /// </summary>
+    public const int DefaultMaxFlights = 160;
+
+    /// <summary>
+    /// The flight table capacity (<see cref="DefaultMaxFlights"/> unless a test chose another). At most 65 535, so a live
+    /// <see cref="Primitives.FlightId"/> is never reused while its flight is in the air.
+    /// </summary>
+    public int MaxFlights { get; }
 
     /// <summary>Light throw speed, mm/s (<c>throw.throwSpeed.light</c>, default 14 000).</summary>
     public int SpeedLight { get; }

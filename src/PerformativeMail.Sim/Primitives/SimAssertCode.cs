@@ -267,6 +267,11 @@ public static class SimAssertCode
     /// <summary>An <c>IMailApi</c> member whose story has not landed was called (mail-destinations story 005, TD-177 items 4 and 6): <c>ConsumeHand</c> (story 007) or <c>SetDeliveriesState</c> (story 009). Unreachable at M-1a: nothing calls them yet. Release does nothing (no row, wallet, bucket or state change). <c>SIM_ASSERT</c>.</summary>
     public const ushort MailApiNotImplemented = 85;
 
+    // 86 is reserved for mail-destinations 006.
+
     /// <summary><c>PlayersStep</c> (phase 3; player-character story 019) found a latched transform sample for a slot that holds no player and was not freed this tick. A sample for a slot freed this tick (its <c>PlayerLeave</c> ran in phase 0 after the prologue latched the sample) is a legal race and is dropped without this assert. Unreachable while the adapter writes samples only for joined peers. Release drops the sample. <c>SIM_ASSERT</c>.</summary>
     public const ushort PlayersSampleForEmptySlot = 87;
+
+    /// <summary>The Throwing <c>FlightId</c> allocator reached an id whose flight is still live (throwing-catching story 008; ADR-0004: a <c>FlightId</c> is never live twice). Unreachable below 65 536 launches while one flight stays in the air (<c>maxFlights</c> is at most 65 535). Release skips to the next free id. Id 88: Mail Lead planning default, pending Evan (TD-195 item 3). <c>SIM_ASSERT</c>.</summary>
+    public const ushort ThrowingFlightIdStillLive = 88;
 }

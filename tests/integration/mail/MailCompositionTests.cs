@@ -55,9 +55,9 @@ public class MailCompositionTests
         Assert.False(SystemGraph.Shipped.Declares(SystemId.MailDestinations, SystemId.Economy));
         Assert.True(SystemGraph.Shipped.Declares(SystemId.Economy, SystemId.MailDestinations));
 
-        // Section order: SimCore, World, Wallet (balance i64), then the systems in construction order (Inventory, Players, Mail).
+        // Section order: SimCore, World, Wallet (balance i64), then the systems in construction order (Inventory, Players, Mail, Throwing).
         Assert.Equal(
-            new[] { SectionIds.SimCore, SectionIds.World, SectionIds.Wallet, SectionIds.Inventory, SectionIds.Players, SectionIds.Mail },
+            new[] { SectionIds.SimCore, SectionIds.World, SectionIds.Wallet, SectionIds.Inventory, SectionIds.Players, SectionIds.Mail, SectionIds.Throwing },
             sections.Select(s => s.Id).ToArray());
         Assert.Equal(new byte[8], sections[2].Payload);
 
