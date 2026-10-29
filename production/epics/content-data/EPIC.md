@@ -8,7 +8,7 @@
 > **Est. size**: M — 10–12 stories
 > **Implementation priority**: 2 of 9
 > **Status**: Ready
-> **Stories**: 19 stories — 18 Complete, 1 Ready (counts refreshed 2026-10-28 from the story headers, content-data 018 Complete, PR #53; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 19 stories — 19 Complete (counts refreshed 2026-10-28 from the story headers, content-data 019 Complete, branch `story/content-data-019`; before that 18 Complete, 1 Ready, content-data 018 Complete, PR #53; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -113,7 +113,7 @@ The numeric order is a valid implementation order. Each story's `Depends on:` fi
 | 016 | [DecimalToScaled reader, FieldSpec units and ExactTickCheck](story-016-decimal-to-scaled-fieldspec-units.md) | Logic | Complete | ADR-0010, ADR-0006 |
 | 017 | [IContentSource, InMemory/Directory sources and the stage-1 syntax walk](story-017-content-sources-syntax-stage.md) | Logic | Complete | ADR-0010 |
 | 018 | [Schema and build stages for M-1a def files](story-018-schema-and-build-stages.md) | Logic | Complete | ADR-0010, ADR-0004 |
-| 019 | [ContentLoader.Load — balance files, five stages, shipped JSONC equals BuiltInContent](story-019-content-loader-and-builtin-equality.md) | Integration | Ready | ADR-0010 |
+| 019 | [ContentLoader.Load — balance files, five stages, shipped JSONC equals BuiltInContent](story-019-content-loader-and-builtin-equality.md) | Integration | Complete | ADR-0010 |
 
 These are not stories at M-1a. Each decision is logged in `production/session-logs/decision-log.md`:
 - `KitDef` (its readers are M-1b and M1).
