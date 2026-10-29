@@ -27,10 +27,10 @@ namespace PerformativeMail.Sim.Tests.Unit.Content;
 /// </summary>
 public class ContentHashTests
 {
-    /// <summary>The golden SHA-256 of <c>BuiltInContent.CreateM1a()</c> at <c>hashSchemaVersion</c> 1. See the class remarks to regenerate.</summary>
-    private const string GoldenM1aDigest = "54158f0916409080cc6fa0cd55f5ecf8839e83bd98419acbce5fc0f1b73b8244";
+    /// <summary>The golden SHA-256 of <c>BuiltInContent.CreateM1a()</c> at <c>hashSchemaVersion</c> 2. See the class remarks to regenerate.</summary>
+    private const string GoldenM1aDigest = "10d2358bc8fa64d66a96d280ed3ca21e340536b093695d4677cb5daa2c5281be";
 
-    private const string GoldenM1aDisplay = "54158f09";
+    private const string GoldenM1aDisplay = "10d2358b";
 
     // ------------------------------------------------------------ SHA-256 (NIST FIPS 180-2)
 
@@ -572,6 +572,7 @@ public class ContentHashTests
             "The M-1a ContentHash changed. Actual digest: " + actual.ToHexString() + " (display " + actual.ToDisplayString()
             + "). If the content change is intentional, paste it into GoldenM1aDigest and GoldenM1aDisplay (see this class's remarks).");
         Assert.Equal(GoldenM1aDisplay, actual.ToDisplayString());
+        Assert.Equal(2, ContentHash.HashSchemaVersion);   // the shares sort (content-data 019)
         Assert.Equal(8, actual.ToDisplayString().Length);
         Assert.Matches("^[0-9a-f]{8}$", actual.ToDisplayString());
     }
@@ -584,7 +585,7 @@ public class ContentHashTests
         ContentHash.WriteCanonical(set, buffer);
 
         Assert.Equal(ContentHash.Compute(set), Sha256.Hash(buffer.WrittenSpan));
-        Assert.Equal(1, buffer.WrittenSpan[0]);   // hashSchemaVersion
+        Assert.Equal(ContentHash.HashSchemaVersion, buffer.WrittenSpan[0]);
     }
 
     // ------------------------------------------------------------ ComputeSettings (ADR-0006 section 7 header)
@@ -610,7 +611,7 @@ public class ContentHashTests
         ContentHash.WriteSettings(BuiltInContent.CreateM1a().Settings, buffer);
         ReadOnlySpan<byte> bytes = buffer.WrittenSpan;
 
-        Assert.Equal(1, bytes[0]);
+        Assert.Equal(ContentHash.HashSchemaVersion, bytes[0]);
         Assert.Equal(12, bytes[1] | (bytes[2] << 8));
         string first = Encoding.UTF8.GetString(bytes.Slice(5, bytes[3] | (bytes[4] << 8)));
         Assert.Equal("sim.checkRingCapacity", first);

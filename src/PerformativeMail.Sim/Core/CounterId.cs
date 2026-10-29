@@ -192,7 +192,7 @@ public enum CounterId : ushort
     /// <summary>Hold counter (player-character story 017; ADR-0014 section 4): one per Hold-mode latch (key <c>holdsStarted</c>; Evan approved 2026-10-29 (TD-186 item 4)). Channels are not holds and are not counted (Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 2)). On the ClientLayer's counters, not in the canonical dump.</summary>
     HoldsStarted = 58,
 
-    /// <summary>Hold counter: one per hold that reached its completion tick and sent its request, or whose owner declined to build one (key <c>holdsCompleted</c>; Evan approved 2026-10-29 (TD-186 item 4)). On the ClientLayer's counters, not in the canonical dump.</summary>
+    /// <summary>Hold counter: one per hold that reached its completion tick and sent its request, or whose owner declined to build one (key <c>holdsCompleted</c>; Evan approved 2026-10-29 (TD-186 item 4); a declined build counts as completed: Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 8)). On the ClientLayer's counters, not in the canonical dump.</summary>
     HoldsCompleted = 59,
 
     /// <summary>Hold counter: one per hold cancelled before it sent, a refused send at completion included (key <c>holdsCancelled</c>; one flat counter, the reason is <c>InteractionStatus.LastCancel</c>: Evan approved 2026-10-29 (TD-186 item 4)). <see cref="HoldsStarted"/> = completed + cancelled + the hold in progress. On the ClientLayer's counters, not in the canonical dump.</summary>

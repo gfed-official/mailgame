@@ -33,6 +33,9 @@ public static class Builder
     private static readonly ImmutableArray<DefType> _typeOrder = ImmutableArray.Create(
         DefType.Item, DefType.Container, DefType.MailKind, DefType.DestinationType, DefType.MailMix);
 
+    private static readonly ImmutableArray<DefType> _recordOrder = ImmutableArray.Create(
+        DefType.Container, DefType.Item, DefType.MailKind, DefType.DestinationType, DefType.MailMix);
+
     /// <summary>Builds every def type present in <paramref name="files"/>; a type with no file is empty and not failed.</summary>
     /// <param name="files">The stage 2 results, in manifest order.</param>
     /// <returns>The records, references, failed inputs and the findings of stages 1 to 3.</returns>
@@ -77,7 +80,26 @@ public static class Builder
                 Records(DefType.MailMix, Mix),
                 _refs.ToImmutableArray(),
                 _failed.ToImmutableArray(),
-                _found.ToImmutableArray());
+                _found.ToImmutableArray(),
+                DefRecords());
+        }
+
+        /// <summary>The built defs' records, in the order <c>ContentValidationInput</c> lists built-in defs (type, then DefIndex).</summary>
+        private ImmutableArray<DefRecord> DefRecords()
+        {
+            ImmutableArray<DefRecord>.Builder b = ImmutableArray.CreateBuilder<DefRecord>();
+            foreach (DefType type in _recordOrder)
+            {
+                if (_kept.TryGetValue(type, out List<ParsedDef>? defs))
+                {
+                    foreach (ParsedDef d in defs)
+                    {
+                        b.Add(new DefRecord(new DefRef(type, d.Id!), d.Start, d.Suppress));
+                    }
+                }
+            }
+
+            return b.ToImmutable();
         }
 
         /// <summary>Gates the type on stages 1 and 2, checks the count and duplicates, and pre-assigns the ordinals.</summary>
@@ -91,7 +113,7 @@ public static class Builder
                     continue;
                 }
 
-                // Mail Dev default, pending Evan (TD-176): this returns before DropDuplicates, so a duplicate id where either copy also has
+                // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): this returns before DropDuplicates, so a duplicate id where either copy also has
                 // a schema error shows only that error; its CV-GEN-01 appears once the type is clean.
                 if (!file.Ok)
                 {
@@ -126,7 +148,7 @@ public static class Builder
         private void TooMany(DefType type, List<ParsedDef> defs)
         {
             DefAssignment verdict = DefIdAssigner.Assign(IdsOf(defs));   // count-only TooManyDefs, the single source of the limit
-            ParsedDef first = defs[DefIdAssigner.MaxDefsPerType];       // Mail Dev default, pending Evan (TD-176): located at the first def over the limit
+            ParsedDef first = defs[DefIdAssigner.MaxDefsPerType];       // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): located at the first def over the limit
             _found.Add(new ContentDiagnostic(
                 GeneralRuleIds.TooManyDefs, RuleSeverity.Error, first.Start, DefRef.None,
                 verdict.Count.ToString(CultureInfo.InvariantCulture) + " defs",
@@ -167,7 +189,7 @@ public static class Builder
             return defs.FindAll(d => copies[d.Id!].Count == 1);
         }
 
-        // Mail Dev default, pending Evan (TD-176): the location form for file-backed findings is `path:line` (the line of each copy's '{').
+        // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): the location form for file-backed findings is `path:line` (the line of each copy's '{').
         private static ContentDiagnostic DuplicateFinding(DefType type, string id, List<ParsedDef> copies)
         {
             var where = new string[copies.Count];
@@ -343,7 +365,7 @@ public static class Builder
         /// </summary>
         private DefIndex Resolve(DefRef from, SourceLocation where, string field, DefType target, string id)
         {
-            // Mail Dev default, pending Evan (TD-176): an unresolved target is stored as DefIndex.None, so stage 4's CV-GEN-01 can report one bad
+            // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): an unresolved target is stored as DefIndex.None, so stage 4's CV-GEN-01 can report one bad
             // list reference twice (the pending clause naming the id, and the index clause naming "none").
             _refs.Add(new PendingReference(from, where, field, target, id));
             return _index.TryGetValue(target, out Dictionary<string, DefIndex>? ids) && ids.TryGetValue(id, out DefIndex at)

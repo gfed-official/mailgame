@@ -135,6 +135,8 @@ public sealed class HoldAdvanceStep : IClientStep
 
         // The current context's registration, as at press: entering build mode mid-hold reads as unregistered.
         // Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 7).
+        // Leaving build mode, dying or mounting mid-hold on a build-mode-only anchor also reads as unregistered and cancels with
+        // reason Unregistered. Mail Dev default, pending Evan (TD-191 item 10).
         byte mask = now.Body == BodyContext.Build ? AnchorRegistry.ContextBuild : AnchorRegistry.ContextWorld;
         if (!_anchors.TryGet(latch.Anchor, mask, out int index))
         {
@@ -184,6 +186,8 @@ public sealed class HoldAdvanceStep : IClientStep
         }
 
         uint held = ctx.ClientTick - latch.PressTick;
+        // An owner override that makes the hold length 0 or less completes the hold on the press tick.
+        // Mail Dev default, pending Evan (TD-191 item 9).
         if (held < (long)latch.HoldTicks)
         {
             return;

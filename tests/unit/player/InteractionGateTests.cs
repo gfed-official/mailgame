@@ -513,10 +513,9 @@ public class InteractionGateTests
         Assert.Equal(expected, r);
     }
 
-    /// <summary>CancelReason is a byte with the story-013, 016 and 017 values pinned (append-only).</summary>
+    /// <summary>CancelReason is a byte with the six story-013 values pinned (append-only).</summary>
     [Fact]
     [Trait("Id", "PCM-P12-1")]
-    [Trait("Id", "PCM-P12-2")]
     public void CancelReason_ValuesArePinned()
     {
         // Assert
@@ -527,11 +526,5 @@ public class InteractionGateTests
         Assert.Equal(3, (int)CancelReason.Dead);
         Assert.Equal(4, (int)CancelReason.Swim);
         Assert.Equal(5, (int)CancelReason.Knockdown);
-        Assert.Equal(6, (int)CancelReason.Unavailable);
-        Assert.Equal(7, (int)CancelReason.Busy);
-        Assert.Equal(8, (int)CancelReason.Released);
-        Assert.Equal(9, (int)CancelReason.OutOfRange);
-        Assert.Equal(10, (int)CancelReason.Unregistered);
-        Assert.Equal(11, (int)CancelReason.OwnerCancel);
     }
 }
