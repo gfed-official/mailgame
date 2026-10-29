@@ -5,8 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
-> **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-10-29 — readiness pass (Mail Lead): yaw/pitch are BAM; terrain-floor, allocation and parity ACs rewritten to one test each; review-only clauses moved to a PR checklist; planning defaults batched in TD-198 (pending Evan).
 
 ## Context
 
@@ -14,15 +14,18 @@
 **Requirement**: `TR-movement-024` (camera boom solved in C# against the Sim height field / AABBs — M-1a minimal boom; **dither fade is M1**; the registry shows a coverage gap because ADR-0029 is planned, not written)
 *(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time. Acceptance id: PCM-P9-1.)*
 
-**ADR Governing Implementation**: ADR-0019: Godot presentation scene architecture (§2 scene tree: `CameraRig → Boom → Camera3D` as a `World` child; "No Presentation value (rig offset, camera, animation time) may feed the Sim") — Accepted 2026-10-16 (primary); ADR-0013 (§6 `Sim/Geometry` primitives and the "presentation colliders" parity risk) and ADR-0016 (§6 `IRenderClock`) secondary — Accepted. **ADR-0029 (camera boom, animation LOD) is planned and not written; this story's solver is the M-1a minimum and feeds it.**
+ADR-0029 (camera boom, animation LOD) is planned and not written; this story's solver is the M-1a minimum and feeds it.
+
+**ADR Governing Implementation**: ADR-0019: Godot presentation scene architecture (§2 scene tree: `CameraRig → Boom → Camera3D` as a `World` child; "No Presentation value (rig offset, camera, animation time) may feed the Sim") — Accepted 2026-10-16 (primary); ADR-0013 (§6 `Sim/Geometry` primitives; the presentation-collider parity risk, Consequences l.234 and Risks l.285) and ADR-0016 (§6 `IRenderClock`) secondary — Accepted.
 **ADR Decision Summary**: The scene tree places the camera rig under `World`. The boom is solved in C# against the same height field and construct AABBs the Sim uses — no terrain colliders in Godot, and no second geometry copy: Presentation colliders that copy `IWorldQuery` geometry drift, so the boom queries `IWorldQuery` through the shared `Sim/Geometry` primitives (ADR-0013 §6). Presentation time comes from `IRenderClock`, never `delta`.
 **ADR Version**: ADR-0019 2026-10-16; ADR-0013 2026-10-16; ADR-0016 2026-10-16
 
 **Engine**: Godot 4.7.1 .NET (this story is Godot-free, in `PerformativeMail.Client.Core`) | **Risk**: LOW (pure maths). The Godot-facing node is Story 023 (MEDIUM).
 **Engine Notes**: `Camera3D.Fov` semantics (vertical by default via `KeepAspect = Height`) are VERIFY-IN-ENGINE in Story 023; this story only emits integer degrees.
+**Performance**: no impact expected; one `Solve` per rendered frame, ≤ 64 slab tests and ≤ 12 height samples (`HeightfieldMarch.SampleCount`, 250 mm step over a 3000 mm boom), 0 B.
 
 **Control Manifest Rules (Presentation layer)**:
-- Required: presentation colliders (camera boom, picking) are not a second copy — they read `IWorldQuery`/`StaticSolids`; if any Godot-side mesh copy exists it needs a parity test against `StaticSolids` (ADR-0013 Risks)
+- Required: presentation colliders (camera boom, picking) that copy `IWorldQuery` geometry need a parity test against `StaticSolids` (ADR-0013 Risks l.285, assigned to ADR-0019's scope). This solver keeps no copy: it queries `IWorldQuery` per call, so the copy-parity test belongs to the Godot view that holds a copy (Story 023 / terrain view).
 - Required: presentation time comes from `IRenderClock`; `delta` and `Time.GetTicksMsec` are banned for gameplay-facing timing (ADR-0016)
 - Forbidden: feeding any Presentation value (camera, rig offset) into the Sim; reimplementing a Sim rule in Client.Core (ADR-0019, ADR-0016)
 
@@ -30,15 +33,14 @@
 
 ## Acceptance Criteria
 
-*From GDD `design/gdd/player-character-movement.md` (PCM-P9-1, P9), scoped to this story:*
+*From GDD `design/gdd/player-character-movement.md` (PCM-P9-1, P9), scoped to this story. Values marked "TD-198 item n" are Mail Lead planning defaults, pending Evan (`docs/tech-debt-register.md` TD-198).*
 
-- [ ] **PCM-P9-1 (profiles).** Default settings give pivot **1600** mm above the feet, boom **3000** mm, shoulder **+600** mm (swappable: the sign flips on a shoulder-swap request), pitch clamped **−60°…+70°**, vertical FOV **80°** (59 → 60, 101 → 100, 80 stays 80); aim held: shoulder **+750**, boom **2400**, look sensitivity multiplier **600 ‰** (`aimCamMult`), FOV unchanged by default (the optional −10° is a setting, off); swimming: pivot **1100** (lowered 0.5 m) and the camera's world `y ≥ 0` (never below the water plane). Profile blends (aim ease-in over 0.1 s) are a pure function of elapsed ms.
-- [ ] **Boom solve.** `BoomSolver.Solve(IWorldQuery, pivot, yaw/pitch (Q15 direction), shoulderMm, desiredBoomMm, radiusMm = 250)` returns the longest safe boom length ≥ a floor of 300 mm: a static box between pivot and camera shortens the boom to just in front of it (box inflated by the 250 mm radius, `SegmentIntervals.Slab`); a terrain ridge shortens it (terrain raised by the radius via `HeightfieldMarch`); a clear path returns the full boom; a pivot inside a box returns the floor length, never NaN/negative; players, items and props never influence the result (the solver takes no such input).
-- [ ] **Smoothing (integer, time-based).** `BoomSmoother.Step(currentMm, targetMm, dtMs)` pulls in to a shorter target within **50 ms** (reaches ≤ target after 50 ms of continuous obstruction) and eases out to a longer target over **400 ms** (within 5 % of the target after 400 ms, monotonic, no overshoot); `dtMs` is a difference of `IRenderClock.RenderSimTimeMs`, and a zero or negative dt changes nothing.
-- [ ] **Terrain floor.** The final camera position is never below `TerrainHeightMm(x, z) + 250` nor, while swimming, below `y = 0` (checked over a sweep of 2 000 random pivots/yaws/pitches on the M-1a street fixture and FX-Beach).
-- [ ] **Parity.** The solid set the boom tests for a region equals `IWorldQuery.QueryStaticSolids` for that region (random-region property test); the solver holds no cached geometry of its own.
-- [ ] **Determinism/allocation.** The solver and smoother use only integer maths (`checked` arithmetic per ADR-0001), allocate 0 B over 10 000 calls, and are pure functions of their arguments.
-- [ ] **Not in scope check.** The code contains no dither fade, no player/prop/item colliders and no sprint-FOV kick/landing dip (those are M1/Accessibility); a code-review checklist item.
+- [ ] **PCM-P9-1 (profiles).** Default settings give pivot **1600** mm above the feet, boom **3000** mm, shoulder **+600** mm (swappable: the sign flips on a shoulder-swap request), pitch clamped **−60°…+70°** (−10 923…+12 743 BAM, `CameraSettings.ClampPitch(short)`), vertical FOV **80°** (59 → 60, 101 → 100, 80 stays 80); aim held: shoulder **+750**, boom **2400**, look sensitivity multiplier **600 ‰** (`aimCamMult`), FOV unchanged by default (the optional −10° is a setting, off); swimming: pivot **1100** (lowered 0.5 m) and the camera's world `y ≥ 0` (never below the water plane). The aim blend is linear in elapsed ms over 100 ms: 0 ms → Default, 50 ms → shoulder 675 / boom 2700, ≥ 100 ms → Aim (Mail Lead planning default, pending Evan (TD-198 item 5)).
+- [ ] **Boom solve.** `BoomSolver.Solve(IWorldQuery w, in Vec3Mm pivot, ushort yawBam, short pitchBam, int shoulderMm, int desiredBoomMm, int radiusMm = 250)` returns the longest safe boom length ≥ a floor of 300 mm (Mail Lead planning default, pending Evan (TD-198 item 1)): a static box between pivot and camera shortens the boom to just in front of it (box inflated by the 250 mm radius, `SegmentIntervals.Slab`; a box whose inflated face lies 2000 mm along a 3000 mm desired boom gives 2000 ± 3 mm, permille resolution of the segment fraction); a terrain ridge shortens it (segment lowered by the radius via `HeightfieldMarch.FirstContact`); a clear path returns the full boom; a pivot inside a box returns the floor length, never negative; players, items and props never influence the result (the solver takes no such input). One parameterised test.
+- [ ] **Smoothing (integer, time-based).** `BoomSmoother.Step(currentMm, targetMm, dtMs)` pulls in linearly to a shorter target within **50 ms** (≤ target after 50 ms of continuous obstruction) and eases out linearly to a longer target over **400 ms** (within 5 % of the target after 400 ms, monotonic, no overshoot) (Mail Lead planning default, pending Evan (TD-198 item 4)); `dtMs` is a difference of `IRenderClock.RenderSimTimeMs`, and a zero or negative dt changes nothing.
+- [ ] **Terrain floor.** `BoomSolver.Solve` never returns a length that puts the camera below `TerrainHeightMm(x, z) + 250`, and `CameraPose.Compose` clamps the composed (smoothed) position to that floor and to `y ≥ 0` while swimming (Mail Lead planning default, pending Evan (TD-198 item 4)). One parameterised test with three rows: the M-1a street beside a house wall (pivot 1600 above ground, yaw facing the house, world built with `M1aStreet.Author` as in `tests/unit/world/M1aStreetTests.cs:16-21`), the FX-Beach slope looking downhill (`WorldTablesFixture.Beach()`), and a swimmer at pivot 1100 with pitch +70° (expected `y = 0`).
+- [ ] **Solid set is the world's.** With a stub `IWorldQuery` whose `QueryStaticSolids` returns one box across the boom, `Solve` shortens the boom; with the same stub returning no index for the same pivot, `Solve` returns the full boom.
+- [ ] **Determinism/allocation (advisory until M0, erratum E2).** `Solve` and `Step` use only integer maths (no float: PMSIM001 is on for Client.Core; `checked` arithmetic per ADR-0001); one `AllocAssert.Zero` window over one `Solve` on the street plus one `Step` (`tests/PerformativeMail.Sim.Tests/AllocAssert.cs:61`, in a `NonParallelCollection` class) reports 0 B.
 
 ---
 
@@ -46,11 +48,13 @@
 
 *Derived from GDD P9 and ADR-0013 §6, ADR-0019 §2, ADR-0016 §6:*
 
-- Files in `src/PerformativeMail.Client.Core/Camera/` (the assembly is created by `production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md`): `CameraProfile.cs` (`Default`, `Aim`, `Swim`, readonly structs of ints), `CameraSettings.cs` (FOV clamp 60–100, shoulder side), `BoomSolver.cs`, `BoomSmoother.cs`, `CameraBlend.cs`.
-- The boom is a swept sphere approximated as: segment from pivot to desired camera position tested against each `StaticSolid` AABB inflated by `radius` (`SegmentIntervals.Slab`, ascending index, ≤ 64 candidates from `QueryStaticSolids` over the segment AABB) and against the height field with the segment lowered by `radius` (`HeightfieldMarch.FirstContact`); take the minimum `f` in ‰, `boom = max(floor, desired × f / 1000)` with `Fix.MulDiv`-style integer rounding. Client.Core may reference `PerformativeMail.Sim` (ADR-0001), so reuse Sim `Fix` and `Geometry`.
-- Direction from yaw/pitch: horizontal back vector `(sin yaw, cos yaw)` in Q15 (ADR-0013 §3 axis convention) times `cos(pitch)`, vertical `−sin(pitch)`; pitch in degrees × 100 index → use a small Q15 sine lookup built from `TrigQ15` by degree (do not add a second table: convert degrees to BAM and call `TrigQ15.Sin`). Shoulder offset is applied along the camera's right vector.
+- Files in `src/PerformativeMail.Client.Core/Camera/` (the assembly is created by `production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md`): `CameraProfile.cs` (`Default`, `Aim`, `Swim`, readonly structs of ints), `CameraSettings.cs` (FOV clamp 60–100, shoulder side, `ClampPitch`), `BoomSolver.cs`, `BoomSmoother.cs`, `CameraBlend.cs`, `CameraPose.cs` (`Compose`: pivot + direction × smoothed boom + shoulder, then the hard floor clamp).
+- The boom is a swept sphere approximated as (Mail Lead planning default, pending Evan (TD-198 item 2)): the segment from pivot to desired camera position tested against each `StaticSolid` AABB inflated by `radius` (`SegmentIntervals.Slab`, ascending index) and against the height field with the segment lowered by `radius` (`HeightfieldMarch.FirstContact`); take the smallest `f` in ‰, `boom = max(floor, Fix.MulDiv(desired, f, 1000, ref sink))` (a local `SimCounterSink`; `Fix.cs:38`); a shortened boom scales the whole pivot-to-camera vector, shoulder included. Candidates come from `QueryStaticSolids` over the segment's AABB into a 64-entry buffer; on overflow the lowest-index hits are kept and no counter is raised in Client.Core (Mail Lead planning default, pending Evan (TD-198 item 3)). Client.Core may reference `PerformativeMail.Sim` (ADR-0001), so reuse Sim `Fix` and `Geometry`.
+- Direction from BAM: back = `(TrigQ15.Sin(yaw), TrigQ15.Cos(yaw)) × TrigQ15.Cos(pitch)` in x/z, vertical `−TrigQ15.Sin(pitch)` (pitch passed as `(ushort)pitchBam`; `TrigQ15.Sin/Cos` take `ushort`); right = `(Cos yaw, −Sin yaw)` (ADR-0013 §3 axis convention). No degree table and no second lookup. Shoulder offset is applied along the right vector.
 - The 0.08 s critically-damped *follow spring* and the rotation (never smoothed) live in the Godot node (Story 023): they are float Presentation maths and never reach the Sim.
-- Look/aim/shoulder-swap inputs arrive from the router (input-controls epic: `LookState`, `SetLook`, shoulder-swap tap); this story accepts them as plain arguments.
+- Look/aim/shoulder-swap inputs arrive from the router (input-controls epic: `LookState`, `SetLook`, shoulder-swap tap); `InputFrame.LookYaw` is `ushort` BAM and `LookPitch` signed BAM `short` (`src/PerformativeMail.Sim/ClientLayer/InputFrame.cs:45,48`); this story accepts them as plain arguments.
+- Parity reading (Mail Lead planning default, pending Evan (TD-198 item 6)): the solver keeps no copy of the geometry, so the manifest's copy-parity test stays with the Godot view that holds a copy (Story 023); this story shows the solver reads the world with the stub-world AC.
+- Registry trace (advisory): `docs/architecture/tr-registry.yaml:2134` has `stories: []` for TR-movement-024; add 021 and 023 at the next `/architecture-review`.
 
 ---
 
@@ -58,14 +62,15 @@
 
 *Handled by neighbouring stories — do not implement here:*
 
-- Story 023: the `CameraRig` node, follow spring, FOV/`FocusCosMinPm`, applying the result to `Camera3D`.
+- Story 023: the `CameraRig` node, follow spring, FOV/`FocusCosMinPm`, applying the result to `Camera3D`, and any copy-parity test.
 - Dither fade of the carrier and screen-door dither of houses (M1, technical-artist; VERIFY-IN-ENGINE). Mounted per-vehicle orbit profiles (Vehicles, M1). Knocked-down orbit camera (M-1b, P16). Comfort options (Accessibility epic).
+- **Review checklist (PR body, not tests):** no dither fade, no player/prop/item colliders, no sprint-FOV kick or landing dip; `BoomSolver` and `BoomSmoother` hold no fields and read no clock; no float.
 
 ---
 
 ## QA Test Cases
 
-*N/A — no qa-lead specs at this tier; implement against the Acceptance Criteria above.* (QL-STORY-READY skipped — Lean mode.)
+*N/A — no qa-lead specs at this tier; implement against the Acceptance Criteria above.* (QL-STORY-READY 2026-10-29: GAPS, folded into the ACs above.)
 
 ---
 
@@ -81,5 +86,5 @@
 
 ## Dependencies
 
-- Depends on: Story 004 (`SegmentIntervals`, `HeightfieldMarch`), `production/epics/world-stub/story-003-static-solids-4m-query.md` (`QueryStaticSolids`), `production/epics/world-stub/story-001-iworldquery-height-field-kernel.md` (`TerrainHeightMm`), `production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md` (Client.Core assembly), `production/epics/simulation-core/story-005-bam-trigq15-stablesort.md` (`TrigQ15`)
+- Depends on: Story 004 (`SegmentIntervals`, `HeightfieldMarch`), `production/epics/world-stub/story-003-static-solids-4m-query.md` (`QueryStaticSolids`), `production/epics/world-stub/story-001-iworldquery-height-field-kernel.md` (`TerrainHeightMm`), `production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md` (Client.Core assembly), `production/epics/simulation-core/story-005-bam-trigq15-stablesort.md` (`TrigQ15`) — all Complete on main.
 - Unlocks: Story 023 (camera rig node); throwing-catching aim-camera values reuse `CameraProfile.Aim`

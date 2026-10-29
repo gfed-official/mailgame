@@ -1,7 +1,7 @@
 # Implementation Order — all epics (M-1a, playable-first)
 
 > **Generated**: 2026-10-23 (m1a-replan) by `python3 tools/planning/gen_impl_order.py .` from every story's `## Dependencies` → `- Depends on:` line in `production/epics/*/story-*.md`.
-> **Scope**: 220 stories in 12 epics — 116 Complete, 85 Ready, 19 Deferred.
+> **Scope**: 220 stories in 12 epics — 116 Complete, 84 Ready, 19 Deferred, 1 Blocked.
 > **Authority for the playable-first order and the deferrals**: Evan, Mail Lead chat, 2026-10-23 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024"; 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it “production ready” is not needed. Accessibility for example". See `production/session-logs/decision-log.md` 2026-10-23.
 > **Regenerate** whenever a story's Depends on or Status changes. The order is advisory; `/story-readiness` still gates each story.
 
@@ -17,16 +17,15 @@
 - **Depends-on graph: 0 cycles** (Tarjan SCC over 1064 edges, 220 nodes). None found.
 - **Ready stories depending on a Deferred story: 0.**
 
-## Track A — playable greybox (70 stories, 15 waves)
+## Track A — playable greybox (69 stories, 15 waves)
 
-### A wave 1 (10)
+### A wave 1 (9)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
 | [input-controls/019](input-controls/story-019-settings-input-codec-and-validation.md) | `settings.input` — integer-unit `InputSettings`, defaults, the `user://input.… | Ready | — |
 | [godot-host-shell/007](godot-host-shell/story-007-contenthost-minimal-iconentsource.md) | Minimal `ContentHost : IContentSource` over `res://content/` and the opt-in h… | Ready | — |
 | [grid-inventory/019](grid-inventory/story-019-range-gated-open-pickup-leash.md) | Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 … | Ready | — |
-| [grid-inventory/020](grid-inventory/story-020-drop-op.md) | Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped;… | Ready | — |
 | [mail-destinations/006](mail-destinations/story-006-complaint-buckets-f9.md) | Complaint deltas (F9) — lazy door and team token buckets, late-complaint wind… | Ready | — |
 | [player-character/017](player-character/story-017-hold-counter-cancels-channel-focus-latch.md) | Hold counter — `heldTicks = tick − PressTick`, completion, the cancel list, c… | Ready | — |
 | [player-character/021](player-character/story-021-camera-boom-solver-config.md) | Camera rig profiles and the boom solver against the Sim geometry (Godot-free,… | Ready | — |
@@ -164,7 +163,7 @@
 |---|---|---|---|
 | [throwing-catching/021](throwing-catching/story-021-launch-ghost-release-snap-landing-beats.md) | Launch-ghost view, strain face and release snap, the whoosh, and the ground /… | Ready | godot-host-shell/006, manual-delivery/006, player-character/022, player-character/024, throwing-catching/007, throwing-catching/017, throwing-catching/020 |
 
-## Track B — remaining M-1a (15 stories, 3 waves)
+## Track B — remaining M-1a (13 stories, 2 waves)
 
 ### B wave 1 (8)
 
@@ -179,32 +178,28 @@
 | [manual-delivery/009](manual-delivery/story-009-telemetry-latched-branch-handshare.md) | Telemetry — `latchedBranch` per hold start and the `handShare` metric (sessio… | Ready | godot-host-shell/005, godot-host-shell/006, mail-destinations/007, manual-delivery/004, manual-delivery/006 |
 | [throwing-catching/014](throwing-catching/story-014-preview-equals-host-fuzz-and-determinism-goldens.md) | Preview = host over 10 000 throws and the no-dice replay | Ready | mail-destinations/010, throwing-catching/003, throwing-catching/004, throwing-catching/010, throwing-catching/011, throwing-catching/012 |
 
-### B wave 2 (6)
+### B wave 2 (5)
 
 | Story | Title | Status | Open dependencies (earlier waves) |
 |---|---|---|---|
 | [input-controls/021](input-controls/story-021-integration-cancels-toggle-commit-end-to-end.md) | Headless router → Sim integration (B) — the cancel-cause table, Interact reso… | Ready | input-controls/012, input-controls/013, input-controls/014, input-controls/015, input-controls/016, input-controls/017, input-controls/018, input-controls/020, manual-delivery/005, network-adapter-loopback/008, throwing-catching/004, throwing-catching/006, throwing-catching/007 |
-| [grid-inventory/024](grid-inventory/story-024-panel-interactions-feedback.md) | Panel interactions through the Panel/Holding input contexts, and the M-1a fee… | Ready | grid-inventory/019, grid-inventory/020, grid-inventory/023, input-controls/007, input-controls/010, input-controls/011 |
 | [network-adapter-loopback/009](network-adapter-loopback/story-009-sc-x-2-manual-delivery-over-loopback.md) | SC-X-2 — a real Manual Delivery request from the host's own client over loopb… | Ready | manual-delivery/004, manual-delivery/005, network-adapter-loopback/008 |
 | [manual-delivery/007](manual-delivery/story-007-integration-loopback-parity-edge-cases.md) | End-to-end over loopback — focus vs Pick-up, preview order = host order, clie… | Ready | mail-destinations/009, mail-destinations/015, manual-delivery/002, manual-delivery/003, manual-delivery/004, manual-delivery/005, manual-delivery/006, network-adapter-loopback/008, player-character/020 |
 | [throwing-catching/015](throwing-catching/story-015-conservation-fuzz-replay-and-step-budget.md) | Exactly-one-terminal conservation fuzz (8 players, 18 000 ticks) and canonica… | Ready | grid-inventory/018, simulation-core/030, throwing-catching/008, throwing-catching/011, throwing-catching/012, throwing-catching/013, throwing-catching/014 |
 | [throwing-catching/016](throwing-catching/story-016-telemetry-t14-session-stats.md) | T14 telemetry — per-launch and per-terminal records, `redAgeAtReleaseMs` and … | Ready | manual-delivery/009, throwing-catching/007, throwing-catching/010, throwing-catching/011, throwing-catching/017 |
 
-### B wave 3 (1)
-
-| Story | Title | Status | Open dependencies (earlier waves) |
-|---|---|---|---|
-| [input-controls/022](input-controls/story-022-replay-corpus-zero-unauthored-verbs.md) | Input replay corpus — 200 seeded + 10 adversarial traces and the "zero unauth… | Ready | grid-inventory/020, input-controls/020, input-controls/021, manual-delivery/004, throwing-catching/007 |
-
-## Blocked (0)
+## Blocked (1)
 
 | Story | Title | Story deps |
 |---|---|---|
+| [grid-inventory/020](grid-inventory/story-020-drop-op.md) | Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped;… | grid-inventory/013, player-character/001, player-character/009, world-stub/001, world-stub/002, world-stub/003 |
 
-## Ready but gated behind a Blocked story (0)
+## Ready but gated behind a Blocked story (2)
 
 | Story | Track | Gated by |
 |---|---|---|
+| [input-controls/022](input-controls/story-022-replay-corpus-zero-unauthored-verbs.md) | B | grid-inventory/020 |
+| [grid-inventory/024](grid-inventory/story-024-panel-interactions-feedback.md) | B | grid-inventory/020 |
 
 ## Deferred — out of the M-1a slice (19)
 
