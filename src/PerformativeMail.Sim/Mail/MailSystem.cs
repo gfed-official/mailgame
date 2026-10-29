@@ -12,13 +12,15 @@ namespace PerformativeMail.Sim.MailDestinations;
 /// <summary>
 /// Mail &amp; Destinations' Sim module (ADR-0017; ADR-0003 section 4; mail-destinations story 005). At construction, while the world
 /// is <c>Constructed</c>, it builds the mail table (<see cref="MailTable"/>, sized from <c>content.Settings.MailTablePages</c>; there
-/// is no <c>MailSettings</c> at M-1a, TD-177 item 1) and the destination registry (<see cref="DestinationRegistry"/>, one row per
-/// lot of the injected <see cref="IWorldQuery"/>). It reaches the wallet only through the injected <see cref="IWalletGate"/>
+/// is no <c>MailSettings</c> at M-1a, TD-177 item 1), the destination registry (<see cref="DestinationRegistry"/>, one row per
+/// lot of the injected <see cref="IWorldQuery"/>) and, over it, the F9 complaint buckets (<see cref="ComplaintBuckets"/>, story 006).
+/// It reaches the wallet only through the injected <see cref="IWalletGate"/>
 /// (the <c>StubWallet</c> at M-1a) and never references the Economy.
 /// <para>
 /// It binds the <c>MailStep</c> phase (phase 8, <see cref="Step"/>: the feeder credits, 0 at M-1a, and nothing else when idle;
-/// manifest batch firing hooks in with stories 012 to 014) and the <see cref="SectionIds.Mail"/> dump section (the table rows, then
-/// the registry). It implements and publishes <see cref="IMailApi"/>.
+/// manifest batch firing hooks in with stories 012 to 014), the <see cref="MailEventKinds.ComplaintRaised"/> kind, and the
+/// <see cref="SectionIds.Mail"/> dump section (the table rows, the registry, then the team complaint state). It implements and
+/// publishes <see cref="IMailApi"/>.
 /// </para>
 /// Not thread-safe: Sim tick thread only.
 /// </summary>
@@ -33,8 +35,8 @@ namespace PerformativeMail.Sim.MailDestinations;
 [SimSystem(SystemId.MailDestinations)]
 public sealed class MailSystem : ISimSystem, IMailApi
 {
-    // _events, _rng, _tick, _inventory, _stats and _counters are assigned but not read yet: the story prescribes this
-    // constructor shape for stories 006-009, which read them. Kept deliberately; do not remove as unused.
+    // _rng, _tick, _inventory and _stats are assigned but not read yet: the story prescribes this constructor shape for
+    // stories 006-009, which read them. Kept deliberately; do not remove as unused.
     private readonly EventLogFacade _events;
     private readonly IRngStreams _rng;
     private readonly ITickReader _tick;
@@ -44,6 +46,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
     private readonly SimCounters _counters;
     private readonly MailTable _table;
     private readonly DestinationRegistry _registry;
+    private readonly ComplaintBuckets _complaints;
 
     // F11 feeder credits, one per placed feeder in ascending construct id (ADR-0017 section 7). M-1a has no feeders.
     private readonly int[] _feederCredits = Array.Empty<int>();
@@ -95,7 +98,14 @@ public sealed class MailSystem : ISimSystem, IMailApi
         _counters = counters;
         _table = new MailTable(content.Settings, mailIds, tick, checkRing);
         _registry = BuildRegistry(world, content);
+
+        // playerScale arrives with the deliveries/shift input (story 009); until then the buckets are built solo, 1000 permille.
+        // Mail Dev default, pending Evan (TD-193 item 4).
+        _complaints = new ComplaintBuckets(_registry, content.Mail, SoloPlayerScalePm, counters);
     }
+
+    /// <summary>The <c>playerScale</c> the complaint buckets are built with until story 009 passes Run Structure's (n = 1).</summary>
+    internal const int SoloPlayerScalePm = 1000;
 
     /// <summary>The wallet port this module was given (tests: the composition root's injection).</summary>
     internal IWalletGate WalletGate => _wallet;
@@ -106,14 +116,18 @@ public sealed class MailSystem : ISimSystem, IMailApi
     /// <summary>The mail table.</summary>
     internal MailTable Table => _table;
 
+    /// <summary>The F9 complaint buckets (stories 007 and 008 charge them, then call <see cref="RaiseComplaint"/>).</summary>
+    internal ComplaintBuckets Complaints => _complaints;
+
     /// <inheritdoc />
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.Bind(PhaseId.MailStep, new MailStepPhase(this));
+        builder.BindEventKind(MailEventDescriptors.ComplaintRaised);
 
         // The dump section moved here from MailTable.BindDump (TD-074 item 4).
-        builder.BindStateContributor(new MailStateContributor(_table, _registry));
+        builder.BindStateContributor(new MailStateContributor(_table, _registry, _complaints));
     }
 
     /// <inheritdoc />
@@ -126,6 +140,31 @@ public sealed class MailSystem : ISimSystem, IMailApi
 
     /// <inheritdoc />
     public bool TryGetDestinationFacts(EntityId dest, out DestinationFacts f) => _registry.TryGetDestinationFacts(dest, out f);
+
+    /// <summary>
+    /// Emits one <see cref="MailEventKinds.ComplaintRaised"/> at door <paramref name="d"/> when <paramref name="amountPm"/> is above 0,
+    /// and nothing otherwise (M-R9-2a; Evan approved 2026-10-29 (TD-187 item 1)). An amount above <see cref="ushort.MaxValue"/> (only a
+    /// multiplier far above the shipped 2000 permille bound) is raised as <see cref="ushort.MaxValue"/>:
+    /// Mail Dev default, pending Evan (TD-193 item 5). Inside a tick only. 0 B.
+    /// </summary>
+    /// <param name="d">The door the complaint is filed at.</param>
+    /// <param name="source">Misdelivery or late.</param>
+    /// <param name="amountPm">The amount, permille (a <see cref="ComplaintBuckets"/> charge's result).</param>
+    internal void RaiseComplaint(DestinationOrdinal d, ComplaintSource source, int amountPm)
+    {
+        if (amountPm <= 0)
+        {
+            return;
+        }
+
+        var payload = new ComplaintRaisedPayload
+        {
+            Destination = _registry.EntityIdOf(d).Value,
+            AmountPermille = (ushort)Math.Min(amountPm, ushort.MaxValue),
+            Source = (byte)source,
+        };
+        _ = _events.TryRaise(MailEventKinds.ComplaintRaised, MailEventDescriptors.AudienceAll, in payload);
+    }
 
     /// <summary>
     /// Phase 8 (ADR-0017 section 7; M-PERF-1c): updates every feeder credit and touches nothing else when idle, so an idle tick visits

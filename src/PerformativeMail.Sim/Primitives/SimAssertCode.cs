@@ -267,6 +267,9 @@ public static class SimAssertCode
     /// <summary>An <c>IMailApi</c> member whose story has not landed was called (mail-destinations story 005, TD-177 items 4 and 6): <c>ConsumeHand</c> (story 007) or <c>SetDeliveriesState</c> (story 009). Unreachable at M-1a: nothing calls them yet. Release does nothing (no row, wallet, bucket or state change). <c>SIM_ASSERT</c>.</summary>
     public const ushort MailApiNotImplemented = 85;
 
+    /// <summary>A complaint bucket was touched at a tick before its <c>lastTick</c> (<c>ComplaintBuckets</c>, mail-destinations story 006): the door or team bucket's, or the team's <c>lastLateTick</c>. Unreachable: time only enters as the tick argument and ticks only advance. Release treats the elapsed time as 0, so nothing refills and no late complaint is charged (Evan approved 2026-10-29 (TD-187 item 5)); the stored tick is kept, never moved back (Mail Dev default, pending Evan (TD-193 item 1)). <c>SIM_ASSERT</c>.</summary>
+    public const ushort MailComplaintTickRegressed = 86;
+
     /// <summary><c>PlayersStep</c> (phase 3; player-character story 019) found a latched transform sample for a slot that holds no player and was not freed this tick. A sample for a slot freed this tick (its <c>PlayerLeave</c> ran in phase 0 after the prologue latched the sample) is a legal race and is dropped without this assert. Unreachable while the adapter writes samples only for joined peers. Release drops the sample. <c>SIM_ASSERT</c>.</summary>
     public const ushort PlayersSampleForEmptySlot = 87;
 }
