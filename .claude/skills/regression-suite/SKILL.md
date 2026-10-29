@@ -117,8 +117,12 @@ scope the scan by each system's workflow tier (resolved above):
 
 For each in-scope MVP-tier system's GDD, extract:
 - Acceptance Criteria (these define the critical paths)
-- Formulas section (formulas must have regression tests)
-- Edge Cases section (known edge cases should have regression tests)
+- Formulas section (a formula that is part of an acceptance criterion is covered
+  by that AC's test; no separate formula test)
+- Edge Cases section (an edge case gets a test only where a bug would reach
+  players and no existing test catches it, per `.claude/rules/lean-testing.md`)
+- Regression tests are one per real bug fixed (Step 2d), not one per formula or
+  edge case
 
 For `update` mode: skip full GDD scan. Instead read the current sprint plan
 and story files to find stories with Status: Complete this sprint.

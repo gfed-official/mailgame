@@ -12,7 +12,8 @@ model: sonnet
 # Smoke Check
 
 This skill is the gate between "implementation done" and "ready for QA
-hand-off". It runs the automated test suite, checks for test coverage gaps,
+hand-off". It runs the automated test suite, checks for missing test evidence
+(a missing acceptance-criterion or regression test, per `.claude/rules/lean-testing.md`),
 batch-verifies critical paths with the developer, and produces a PASS/FAIL
 report.
 

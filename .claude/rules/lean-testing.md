@@ -25,13 +25,20 @@ another system relies on. This rule decides **whether** to write a test;
   code first (`test-standards.md`).
 - Tests where a silent break would reach players: sim determinism, rules and
   economy math, netcode / state sync, save/load and content loading.
+- **Tests an Accepted ADR or `docs/architecture/control-manifest.md` requires**,
+  including the 0-alloc tests (`AllocAssert`, reported not blocking until M0 per
+  the 2026-10-23 E2 errata) and `[PERF]` tests with their thresholds. These and
+  the other ADR/manifest tests — goldens and determinism hashes, descriptor and
+  `Unsafe.SizeOf` checks (`DescriptorAssert`), `RngNames` ownership rules — are
+  **never removable** under this rule; changing them needs an approved erratum.
 
 ## Don't write
 
 - Tests of constants, enum values, counter or block counts, or config defaults.
 - Tests of getters, setters, constructors, or "not null after `new`".
 - Tests that restate the implementation (same formula in the assert as in the code).
-- Tests for code nothing calls yet.
+- Tests for code nothing calls yet. (The story's own acceptance-criterion entry
+  points are exempt: test them even before a caller exists.)
 - The same behaviour tested again at another layer (unit **and** integration
   **and** composition).
 - `[Theory]` rows past the boundaries: min, max, one inside, one outside, one
@@ -48,15 +55,16 @@ another system relies on. This rule decides **whether** to write a test;
 - Golden and determinism-hash tests: keep them, but **one per subsystem**, not
   one per story. Extend the existing golden instead of adding a new one.
 
-## Before adding a test, ask
+## Before adding a test beyond Required, ask
 
 Would a real bug here reach players **and** slip past every existing test?
-If not, skip it.
+If not, skip it. (Required tests above are not subject to this question.)
 
 ## Deleting tests
 
 Removing a duplicate, hollow or dead-code test is allowed and encouraged in the
-same PR that touches it. Name each deleted test and the reason in the PR body.
+same PR that touches it — never a Required test (AC, regression, or ADR /
+control-manifest). Name each deleted test and the reason in the PR body.
 
 ## Reviewers (QL-TEST-COVERAGE, `/code-review`, Mail Review)
 
