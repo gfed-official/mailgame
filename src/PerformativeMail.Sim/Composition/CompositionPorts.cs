@@ -52,6 +52,34 @@ internal sealed class RunControlForwarder : IRunControl
     }
 }
 
+/// <summary>
+/// The <see cref="ISampleLatch"/> handed to Player Character at construction (the ADR-0003 section 4 <c>ISampleLatch</c> row, Player
+/// Character only; <see cref="SystemGraph"/> unchanged. Evan approved 2026-10-29 (ADR-0003 §4 erratum)). The world's latch exists only
+/// after <see cref="SimWorldBuilder.Freeze"/>, so until <see cref="Attach"/> it reads as an empty latch (no sample, received tick 0);
+/// afterwards it forwards to the world's latch. A Sim Core service, not a system. Allocation-free; Sim thread only.
+/// </summary>
+internal sealed class SampleLatchForwarder : ISampleLatch
+{
+    private ISampleLatch? _target;
+
+    public int Count => _target?.Count ?? 0;
+
+    public uint ReceivedTick => _target?.ReceivedTick ?? 0;
+
+    public ref readonly TransformSample this[int index] =>
+        ref _target is null ? ref ThrowEmpty(index) : ref _target[index];
+
+    public uint LastSeq(Primitives.PlayerSlot slot) => _target?.LastSeq(slot) ?? 0;
+
+    public void Attach(ISampleLatch target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        _target = target;
+    }
+
+    private static ref readonly TransformSample ThrowEmpty(int index) => throw new ArgumentOutOfRangeException(nameof(index));
+}
+
 /// <summary>The client layer's clock when the host supplied none: never valid, estimate 0.</summary>
 internal sealed class UnsyncedHostClock : IHostClock
 {

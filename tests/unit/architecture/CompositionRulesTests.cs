@@ -105,6 +105,7 @@ public class CompositionRulesTests
         { typeof(BadThrowingTakesRunControl), Array.Empty<Type>(), "BadThrowingTakesRunControl(IRunControl stop): " + NotFor("IRunControl", "IRunControl (Run Structure only)", SystemId.Throwing) },
         { typeof(BadGridTakesMailIds), Array.Empty<Type>(), "BadGridTakesMailIds(MailIds mailIds): " + NotFor("MailIds", "MailIds (Mail only)", SystemId.GridInventory) },
         { typeof(BadThrowingTakesWalletGate), Array.Empty<Type>(), "BadThrowingTakesWalletGate(IWalletGate wallet): " + NotFor("IWalletGate", "IWalletGate (Mail only, ADR-0017 section 8)", SystemId.Throwing) },
+        { typeof(BadThrowingTakesSampleLatch), Array.Empty<Type>(), "BadThrowingTakesSampleLatch(ISampleLatch samples): " + NotFor("ISampleLatch", "ISampleLatch (Player Character only)", SystemId.Throwing) },
         { typeof(BadThrowingTakesRng), Array.Empty<Type>(), "BadThrowingTakesRng(IRngStreams streams): " + NotFor("IRngStreams", "own IRngStreams view (stream owners only)", SystemId.Throwing) },
         { typeof(BadTakesRngRegistry), Array.Empty<Type>(), "BadTakesRngRegistry(RngRegistry registry): RngRegistry" + NotOnList },
         { typeof(BadTakesSlotTable), Array.Empty<Type>(), "BadTakesSlotTable(SlotTable slots): SlotTable" + NotOnList },
@@ -429,6 +430,14 @@ public class CompositionRulesTests
         }
     }
 
+    [SimSystem(SystemId.Throwing)]
+    public sealed class BadThrowingTakesSampleLatch : FixtureSystem
+    {
+        public BadThrowingTakesSampleLatch(ISampleLatch samples)
+        {
+        }
+    }
+
     [SimSystem(SystemId.GridInventory)]
     public sealed class BadTakesInt : FixtureSystem
     {
@@ -481,6 +490,7 @@ internal static class CompositionRules
             new("MailIds (Mail only)", Is<MailIds>, id => id == SystemId.MailDestinations),
             new("IWalletGate (Mail only, ADR-0017 section 8)", Is<IWalletGate>, id => id == SystemId.MailDestinations),
             new("ISlotView (read-only slot table)", Is<ISlotView>, Any),
+            new("ISampleLatch (Player Character only)", Is<ISampleLatch>, id => id == SystemId.PlayerCharacter),   // Evan approved 2026-10-29 (ADR-0003 §4 erratum)
             new("own IRngStreams view (stream owners only)", Is<IRngStreams>, streamOwners.Contains),
             new("ITickReader", Is<ITickReader>, Any),
             new("IWorldQuery (read-only world, ADR-0026)", Is<IWorldQuery>, Any),

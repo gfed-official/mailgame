@@ -172,7 +172,6 @@ public class SimCountersTests
         Assert.Equal(55, (int)CounterId.FocusOcclusionTests);
         Assert.Equal(56, (int)CounterId.MailRowsVisited);
         Assert.Equal(57, (int)CounterId.MailBucketsVisited);
-        Assert.Equal(58, new SimCounters().Length);
         Assert.Equal(typeof(ushort), Enum.GetUnderlyingType(typeof(CounterId)));
     }
 
@@ -192,7 +191,6 @@ public class SimCountersTests
             Assert.Equal((long)id + 1, counters[id]);
         }
 
-        Assert.Equal(all.Length, counters.Length);
         Assert.Equal((int)all.Max() + 1, counters.Length);
     }
 

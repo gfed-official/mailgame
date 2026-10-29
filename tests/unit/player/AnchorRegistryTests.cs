@@ -850,6 +850,7 @@ public class AnchorRegistryTests
             w.WriteU8((byte)d.Flags);
         }
 
+        w.WriteU32(0);   // story 019: no host positions (no players joined)
         w.EndSection();
         return output.WrittenSpan[6..].ToArray();
     }

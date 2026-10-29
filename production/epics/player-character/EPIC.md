@@ -5,10 +5,10 @@
 > **Architecture Module**: Sim.Players (`src/PerformativeMail.Sim/Players/`; owner-role `CarrierStep` and focus in Sim.ClientLayer) + PlayerView, camera boom and prompt anchor (Godot)
 > **Milestone slice**: M-1a → M1 (GDD Quick reference). The M-1a set is chosen from the rule list (see Overview).
 > **Engine Risk**: LOW (Sim solver, plain C#). MEDIUM for the presentation (AnimationTree, `AnimationPlayer` StringName members, `Animation.length` double; remote interpolation must be our own).
-> **Est. size**: L — 28 stories (16 Complete, 10 Ready, 2 Deferred; refreshed 2026-10-28, story 015 Complete, PR #56)
+> **Est. size**: L — 28 stories (17 Complete, 9 Ready, 2 Deferred; refreshed 2026-10-29, story 019 Complete, branch `story/player-character-019`)
 > **Implementation priority**: 5 of 9
 > **Status**: Ready
-> **Stories**: 28 stories — 16 Complete, 10 Ready, 2 Deferred (counts refreshed 2026-10-28 from the story headers, story 015 Complete, PR #56; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 28 stories — 17 Complete, 9 Ready, 2 Deferred (counts refreshed 2026-10-29 from the story headers, story 019 Complete, branch `story/player-character-019`; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -130,7 +130,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 016 | [Press resolution — Catch → presented target verb → catch-armed, latch, Tap requests](story-016-press-resolution-tap-catch-armed.md) | Logic | Complete | ADR-0014 |
 | 017 | [Hold counter — completion, cancel list, catch channel, focus latch](story-017-hold-counter-cancels-channel-focus-latch.md) | Logic | Ready | ADR-0014 |
 | 018 | [`InteractionSnapshot` publication and `IInteractionQuery`](story-018-interaction-snapshot-iinteractionquery.md) | Logic | Ready | ADR-0014 |
-| 019 | [Host `PlayersStep` ingest, `IPlayersApi.CheckInteraction` and the leash query](story-019-host-checkinteraction-position-ingest.md) | Logic | Ready | ADR-0014 |
+| 019 | [Host `PlayersStep` ingest, `IPlayersApi.CheckInteraction` and the leash query](story-019-host-checkinteraction-position-ingest.md) | Logic | Complete | ADR-0014 |
 | 020 | [Owner-role `CarrierStep` in the ClientLayer — frame → input, sample emission, published state](story-020-carrierstep-clientlayer-integration.md) | Integration | Ready | ADR-0016 |
 | 021 | [Camera profiles and boom solver against the Sim geometry (`Client.Core`)](story-021-camera-boom-solver-config.md) | Logic | Ready | ADR-0019 |
 | 022 | [`PlayerView` greybox scene and the local carrier's render pose](story-022-playerview-scene-render-pose.md) | Visual/Feel | Ready | ADR-0019 |

@@ -51,13 +51,13 @@ public class PlayersDumpTests
     }
 
     /// <summary>The expected Players section for the record <paramref name="r"/> in slot 0 only, written field by field.</summary>
-    private static byte[] Expected(params (byte Slot, PlayerRecord Record)[] players)
+    private static byte[] Expected(params (byte Slot, PlayerRecord Record, HostPosition Host)[] players)
     {
         var output = new ArrayBufferWriter<byte>();
         var w = new CanonicalWriter(output, new CanonicalBuffer());
         w.BeginSection(1);
         w.WriteU32((uint)players.Length);
-        foreach ((byte slot, PlayerRecord r) in players)
+        foreach ((byte slot, PlayerRecord r, _) in players)
         {
             w.WriteU8(slot);
             w.WriteU32(r.PlayerId.Value);
@@ -101,9 +101,22 @@ public class PlayersDumpTests
         }
 
         w.WriteU32(0);   // story 012: the anchor registry tail (an empty registry is a zero count)
+        w.WriteU32((uint)players.Length);   // story 019: the host position table, after the anchor block: count, then entries
+        foreach ((_, _, HostPosition h) in players)
+        {
+            w.WriteI32(h.Feet.X);
+            w.WriteI32(h.Feet.Y);
+            w.WriteI32(h.Feet.Z);
+            w.WriteU16(h.Yaw);
+            w.WriteU8((byte)h.Flags);
+            w.WriteU32(h.LastReceivedTick);
+        }
+
         w.EndSection();
         return output.WrittenSpan[6..].ToArray();
     }
+
+    private static HostPosition Host(PlayersRig rig, byte slot) => rig.Players.HostPositions[PlayerSlot.FromValue(slot)];
 
     private static object MarkerFor(Type t) =>
         t == typeof(EntityId) ? new EntityId(Marker) : t.IsEnum ? Enum.ToObject(t, Marker) : Convert.ChangeType(Marker, t);
@@ -134,7 +147,7 @@ public class PlayersDumpTests
         byte[] after = PlayersSection(rig);
 
         // Assert
-        Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, before);   // zero players, zero anchors
+        Assert.Equal(new byte[12], before);   // zero players, zero anchors, zero host positions
         Assert.NotEqual(before, after);
         Assert.Equal(SectionIds.Players, new PlayersStateContributor(rig.Players).SectionId);
         Assert.NotEqual(SectionIds.SimCore, SectionIds.Players);
@@ -151,7 +164,7 @@ public class PlayersDumpTests
         rig.LeaveAndTick(2);
 
         // Assert
-        Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, PlayersSection(rig));
+        Assert.Equal(new byte[12], PlayersSection(rig));
     }
 
     // ---------------------------------------------------------------- layout
@@ -175,7 +188,7 @@ public class PlayersDumpTests
         byte[] actual = PlayersSection(rig);
 
         // Assert
-        Assert.Equal(Expected((0, rig.Record(0)), (3, rig.Record(3))), actual);
+        Assert.Equal(Expected((0, rig.Record(0), Host(rig, 0)), (3, rig.Record(3), Host(rig, 3))), actual);
     }
 
     [Theory]
