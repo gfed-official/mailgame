@@ -31,6 +31,18 @@ public class FocusOcclusionTests
         return Box(x - 40, 960, z - 40, x + 40, 1040, z + 40);
     }
 
+    /// <summary><see cref="FocusRig.FlatWorld"/>'s 40 × 40 tiles with every corner at <paramref name="groundMm"/>, then <paramref name="extra"/>.</summary>
+    private static WorldTables LevelWorld(int groundMm, Action<WorldTablesBuilder> extra)
+    {
+        const int Tiles = 40;
+        int[] corners = new int[(Tiles + 1) * (Tiles + 1)];
+        Array.Fill(corners, groundMm);
+        var b = new WorldTablesBuilder();
+        b.SetCorners(Tiles, Tiles, corners);
+        extra(b);
+        return b.Build(WorldTablesFixture.SlopeMaxPm, WorldTablesFixture.SwimEnterMm);
+    }
+
     private static bool Occluded(IWorldQuery w, Vec3Mm anchor, out FocusCounters c)
     {
         c = default;
@@ -75,6 +87,7 @@ public class FocusOcclusionTests
     [InlineData(2000, 1000, true)]  // a ridge (corner row z = 40 000 at 2 000 mm) between chest and anchor
     [InlineData(0, 0, false)]       // anchor resting on flat ground: first contact at fPm = 1000 (TD-175 item 3)
     [InlineData(0, -10, true)]      // anchor 10 mm under the ground: contact before the anchor end
+    [InlineData(0, -1, true)]       // anchor 1 mm under the ground: contact at fPm = 999, still before the anchor end
     public void IsOccluded_Terrain_OccludesUnlessTheContactIsAtTheAnchorEnd(int ridgeMm, int anchorY, bool expected)
     {
         // Arrange: chest and anchor 200 mm either side of the ridge tiles' outer corners (terrain 200 mm under both on the ridge).
@@ -104,6 +117,129 @@ public class FocusOcclusionTests
 
         // Act + Assert
         Assert.True(Occluded(w, _anchor, out _));
+    }
+
+    [Theory]
+    [Trait("Id", "PCM-P11-1")]
+    [InlineData(0, 50_000, true)]           // far above the ground: the tile has no top
+    [InlineData(0, 50_000, false)]
+    [InlineData(-100_000, -60_000, true)]   // below y = 0 over deep ground: the tile has no bottom
+    [InlineData(-100_000, -60_000, false)]
+    public void IsOccluded_BlockedTileFarFromYZero_OccludesOnlyWhenBlocked(int groundMm, int chestY, bool blocked)
+    {
+        // Arrange: the _chest/_anchor x/z through tile (20, 20), rising 10 m, on level ground at groundMm.
+        WorldTables w = LevelWorld(groundMm, b =>
+        {
+            if (blocked)
+            {
+                b.MarkBlocked(20, 20);
+            }
+        });
+        Vec3Mm chest = new(_chest.X, chestY, _chest.Z);
+        Vec3Mm anchor = new(_anchor.X, chestY + 10_000, _anchor.Z);
+        var c = default(FocusCounters);
+
+        // Act
+        bool occluded = FocusOcclusion.IsOccluded(w, in chest, in anchor, _target, stackalloc ushort[CarrierScratch.SolidCapacity], ref c);
+
+        // Assert
+        Assert.Equal(blocked, occluded);
+    }
+
+    [Theory]
+    [Trait("Id", "PCM-P11-1")]
+    [InlineData(41_000, 9_000, 41_000, 10_500, true)]   // into the tile from tz 4: the tile is in the last z row (tz1)
+    [InlineData(40_000, 10_500, 40_000, 11_500, true)]  // along the tile's min-x edge: the closed footprint is hit
+    [InlineData(39_999, 10_500, 39_999, 11_500, false)] // 1 mm outside it
+    [InlineData(40_500, 10_000, 41_500, 10_000, true)]  // along the tile's min-z edge
+    [InlineData(40_500, 9_999, 41_500, 9_999, false)]   // 1 mm outside it
+    public void IsOccluded_OffDiagonalBlockedTile_HitsItsClosedFootprintOnly(int x0, int z0, int x1, int z1, bool expected)
+    {
+        // Arrange: tile (20, 5) is x 40 000 to 42 000, z 10 000 to 12 000 (off the tx = tz diagonal).
+        WorldTables w = FocusRig.FlatWorld(b => b.MarkBlocked(20, 5));
+        Vec3Mm chest = new(x0, 1000, z0);
+        Vec3Mm anchor = new(x1, 1000, z1);
+        var c = default(FocusCounters);
+
+        // Act
+        bool occluded = FocusOcclusion.IsOccluded(w, in chest, in anchor, _target, stackalloc ushort[CarrierScratch.SolidCapacity], ref c);
+
+        // Assert
+        Assert.Equal(expected, occluded);
+    }
+
+    [Theory]
+    [Trait("Id", "PCM-P11-1")]
+    [InlineData(1_000, 41_000, -1_000, 41_000)]   // past x = 0
+    [InlineData(79_000, 41_000, 81_000, 41_000)]  // past the last tile column (x = 80 000)
+    [InlineData(41_000, 1_000, 41_000, -1_000)]   // past z = 0
+    [InlineData(41_000, 79_000, 41_000, 81_000)]  // past the last tile row (z = 80 000)
+    public void IsOccluded_SegmentRunningOffTheMap_IsNotOccludedByOffMapTiles(int x0, int z0, int x1, int z1)
+    {
+        // Evan approved 2026-10-28 (TD-182 item 1), 7:30 PM PT: "Approve all three TD-182 defaults for player-character 015:
+        // off-map tiles dont occlude, solids past the scratch capacity go untested, and the world port is FocusSteps second
+        // constructor parameter". Arrange: flat clear terrain (off-map heights clamp to the edge corners, so 0 mm), no solids.
+        WorldTables w = FocusRig.FlatWorld();
+        Vec3Mm chest = new(x0, 1000, z0);
+        Vec3Mm anchor = new(x1, 1000, z1);
+        var c = default(FocusCounters);
+
+        // Act
+        bool occluded = FocusOcclusion.IsOccluded(w, in chest, in anchor, _target, stackalloc ushort[CarrierScratch.SolidCapacity], ref c);
+
+        // Assert: the world reports the off-map tiles Blocked, yet they do not occlude.
+        Assert.Equal(TileFlags.Blocked, w.Tile(w.TilesX, 0) & TileFlags.Blocked);
+        Assert.Equal(TileFlags.Blocked, w.Tile(-1, -1) & TileFlags.Blocked);
+        Assert.False(occluded);
+    }
+
+    [Theory]
+    [Trait("Id", "PCM-P11-1")]
+    [InlineData(2, false)]  // the occluder is the third solid in the region: past the scratch, untested
+    [InlineData(3, true)]
+    public void IsOccluded_OccluderPastTheScratch_IsNotTested(int scratchLength, bool expected)
+    {
+        // Evan approved 2026-10-28 (TD-182 item 2), 7:30 PM PT: "Approve all three TD-182 defaults for player-character 015:
+        // off-map tiles dont occlude, solids past the scratch capacity go untested, and the world port is FocusSteps second
+        // constructor parameter". Arrange: a diagonal segment (x + z = 83 000); solids 0 and 1 lie in its AABB but off the
+        // line, solid 2 sits on it (the query returns the lowest indices first).
+        WorldTables w = FocusRig.FlatWorld(b =>
+        {
+            b.AddSolid(_other, Box(41_000, 0, 40_000, 41_400, 3000, 40_400), SolidKind.Prop);
+            b.AddSolid(_other, Box(41_400, 0, 40_000, 41_800, 3000, 40_400), SolidKind.Prop);
+            b.AddSolid(_other, Box(41_900, 0, 40_900, 42_100, 3000, 41_100), SolidKind.Prop);
+        });
+        Vec3Mm anchor = new(43_000, 1000, 40_000);
+        var c = default(FocusCounters);
+        Span<ushort> solids = stackalloc ushort[scratchLength];
+
+        // Act
+        bool occluded = FocusOcclusion.IsOccluded(w, in _chest, in anchor, _target, solids, ref c);
+
+        // Assert
+        Assert.Equal(expected, occluded);
+    }
+
+    [Fact]
+    [Trait("Id", "PCM-P11-1")]
+    public void QueryStaticSolids_SegmentRegion_WritesOnlyIndicesIntoStaticSolids()
+    {
+        // Arrange: the precondition IsOccluded's solids[scratch[i]] read relies on; four solids, three in the region.
+        WorldTables w = FocusRig.FlatWorld(b =>
+        {
+            b.AddSolid(_other, Box(41_000, 0, 40_000, 41_400, 3000, 40_400), SolidKind.Prop);
+            b.AddSolid(_other, Box(60_000, 0, 60_000, 61_000, 3000, 61_000), SolidKind.Prop);
+            b.AddSolid(_other, Box(41_400, 0, 40_000, 41_800, 3000, 40_400), SolidKind.Prop);
+            b.AddSolid(_other, Box(41_900, 0, 40_900, 42_100, 3000, 41_100), SolidKind.Prop);
+        });
+        Span<ushort> scratch = stackalloc ushort[CarrierScratch.SolidCapacity];
+
+        // Act
+        int count = w.QueryStaticSolids(Box(41_000, 1000, 40_000, 43_000, 1000, 42_000), scratch);
+
+        // Assert
+        Assert.Equal(new ushort[] { 0, 2, 3 }, scratch[..count].ToArray());
+        Assert.All(scratch[..count].ToArray(), i => Assert.True(i < w.StaticSolids.Length));
     }
 
     [Fact]
@@ -159,6 +295,25 @@ public class FocusOcclusionTests
         Assert.Equal(5, rig.Focus.Probes.Candidates);
         Assert.Equal(expectedTests, rig.Focus.Probes.OcclusionTests);
         Assert.True(rig.Counters[CounterId.FocusOcclusionTests] <= rig.Counters[CounterId.FocusCandidates]);
+    }
+
+    [Fact]
+    [Trait("Id", "PCM-PERF-1")]
+    public void Step_TwoOcclusionTests_RaisesTheFocusOcclusionTestsCounterToTheProbe()
+    {
+        // Arrange: the best of five is occluded, so the pass runs two tests.
+        var rig = new FocusRig(world: b => b.AddSolid(EntityId.None, BlockerFor(Fan(0)), SolidKind.Prop));
+        for (int k = 0; k < 5; k++)
+        {
+            rig.Add((uint)(k + 1), Fan(k));
+        }
+
+        // Act
+        rig.Tick();
+
+        // Assert
+        Assert.Equal(2, rig.Focus.Probes.OcclusionTests);
+        Assert.Equal(2L, rig.Counters[CounterId.FocusOcclusionTests]);
     }
 
     [Fact]
