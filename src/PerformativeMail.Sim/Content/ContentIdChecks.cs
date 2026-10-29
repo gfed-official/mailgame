@@ -35,6 +35,10 @@ internal static class ContentIdChecks
     /// <param name="tooManySeverity">The CV-GEN-09 row's severity.</param>
     /// <param name="found">Receives the findings.</param>
     /// <param name="failed">Receives the type's key when the type has duplicates or too many defs.</param>
+    /// <param name="locations">
+    /// Loaded defs' real locations (TD-178 item 1), used for the CV-GEN-01 and CV-GEN-09 findings in place of
+    /// <c>builtin/&lt;folder&gt;</c>; null for built-in content.
+    /// </param>
     /// <exception cref="ArgumentException">A surviving id is empty in a type within the limit (CV-GEN-02 is the loader's).</exception>
     internal static DefTable<T> Prepare<T>(
         DefType type,
@@ -44,12 +48,13 @@ internal static class ContentIdChecks
         RuleSeverity duplicateSeverity,
         RuleSeverity tooManySeverity,
         List<ContentDiagnostic> found,
-        List<FailedInput> failed)
+        List<FailedInput> failed,
+        IReadOnlyDictionary<DefRef, SourceLocation>? locations = null)
         where T : IDef
     {
         ImmutableArray<T> list = defs.IsDefault ? ImmutableArray<T>.Empty : defs;
         string path = "builtin/" + folder;
-        ImmutableArray<T> kept = DropDuplicates(type, folder, list, duplicateSeverity, found, out bool hadDuplicates);
+        ImmutableArray<T> kept = DropDuplicates(type, folder, list, duplicateSeverity, found, locations, out bool hadDuplicates);
         bool tooMany = list.Length > DefIdAssigner.MaxDefsPerType;
         if (hadDuplicates || tooMany)
         {
@@ -61,7 +66,13 @@ internal static class ContentIdChecks
             return ContentPipeline.Sorted(kept);
         }
 
-        found.Add(TooManyFinding(list, path, tooManySeverity));
+        SourceLocation where = SourceLocation.BuiltIn(path);
+        if (locations is not null && list.Length > 0 && locations.TryGetValue(new DefRef(type, list[0].Id), out SourceLocation first))
+        {
+            where = first;
+        }
+
+        found.Add(TooManyFinding(list, where, tooManySeverity));
         return new DefTable<T>(ImmutableArray<T>.Empty);
     }
 
@@ -69,7 +80,7 @@ internal static class ContentIdChecks
     /// The CV-GEN-09 finding. The assigner's count-only verdict (story 001) is the single source of the limit; it returns
     /// TooManyDefs before it sorts or inspects an id.
     /// </summary>
-    private static ContentDiagnostic TooManyFinding<T>(ImmutableArray<T> list, string path, RuleSeverity severity)
+    private static ContentDiagnostic TooManyFinding<T>(ImmutableArray<T> list, SourceLocation where, RuleSeverity severity)
         where T : IDef
     {
         string[] ids = new string[list.Length];
@@ -82,14 +93,20 @@ internal static class ContentIdChecks
         return new ContentDiagnostic(
             GeneralRuleIds.TooManyDefs,
             severity,
-            SourceLocation.BuiltIn(path),
+            where,
             DefRef.None,
             verdict.Count.ToString(CultureInfo.InvariantCulture) + " defs",
             "at most " + DefIdAssigner.MaxDefsPerType.ToString(CultureInfo.InvariantCulture) + " defs per type");
     }
 
     private static ImmutableArray<T> DropDuplicates<T>(
-        DefType type, string folder, ImmutableArray<T> list, RuleSeverity severity, List<ContentDiagnostic> found, out bool hadDuplicates)
+        DefType type,
+        string folder,
+        ImmutableArray<T> list,
+        RuleSeverity severity,
+        List<ContentDiagnostic> found,
+        IReadOnlyDictionary<DefRef, SourceLocation>? locations,
+        out bool hadDuplicates)
         where T : IDef
     {
         Dictionary<string, List<int>> dupes = FindDuplicates(list, out List<string> order);
@@ -101,7 +118,8 @@ internal static class ContentIdChecks
 
         foreach (string id in order)
         {
-            found.Add(DuplicateFinding(type, folder, id, dupes[id], severity));
+            ContentDiagnostic finding = DuplicateFinding(type, folder, id, dupes[id], severity);
+            found.Add(locations is not null && locations.TryGetValue(finding.Def, out SourceLocation real) ? finding with { Location = real } : finding);
         }
 
         ImmutableArray<T>.Builder survivors = ImmutableArray.CreateBuilder<T>(list.Length);

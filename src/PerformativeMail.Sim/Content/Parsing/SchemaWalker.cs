@@ -62,7 +62,7 @@ public static class SchemaWalker
     {
         ArgumentNullException.ThrowIfNull(syntax);
         ArgumentNullException.ThrowIfNull(table);
-        // Mail Dev default, pending Evan (TD-176): a file with any stage 1 Error (a CV-GEN-04 duplicate key included) is not walked at stage 2.
+        // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): a file with any stage 1 Error (a CV-GEN-04 duplicate key included) is not walked at stage 2.
         if (!syntax.Ok || syntax.Tokens.IsEmpty)
         {
             return new SchemaResult(syntax.Path, table.Type, ImmutableArray<ParsedDef>.Empty, syntax.Diagnostics) { SyntaxFailed = true };
@@ -106,7 +106,7 @@ public static class SchemaWalker
             return new SchemaResult(_syntax.Path, _table.Type, defs.ToImmutable(), _syntax.Diagnostics.AddRange(_all));
         }
 
-        // Mail Dev default, pending Evan (TD-176): an array element that is not an object is CV-GEN-16 (shape) at stage 2.
+        // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): an array element that is not an object is CV-GEN-16 (shape) at stage 2.
         private ParsedDef NotADef()
         {
             SyntaxToken t = Tok;
@@ -514,7 +514,7 @@ public static class SchemaWalker
             }
             else if (row.FixedLength > 0 && count != row.FixedLength)
             {
-                // Mail Dev default, pending Evan (TD-176): a fixed-length list (grid [w, h]) of another length is CV-GEN-12.
+                // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): a fixed-length list (grid [w, h]) of another length is CV-GEN-12.
                 Report(GeneralRuleIds.ValueOutOfRange, open, n, "exactly " + row.FixedLength.ToString(CultureInfo.InvariantCulture) + " elements");
             }
             else if (count == 0 && row.EmptyListRule is string rule)
@@ -533,7 +533,7 @@ public static class SchemaWalker
                 return true;
             }
 
-            // Mail Dev default, pending Evan (TD-176): a value of the wrong JSON kind is reported by the row kind's own rule where one exists
+            // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): a value of the wrong JSON kind is reported by the row kind's own rule where one exists
             // (CV-GEN-06 for a number, CV-GEN-08 for an enum), else as CV-GEN-16 (shape).
             Report(ruleId, Tok, Describe(Tok), allowed);
             SkipValue();
@@ -550,7 +550,7 @@ public static class SchemaWalker
                 return true;
             }
 
-            // Mail Dev default, pending Evan (TD-176): an unpaired surrogate escape in a string value is CV-GEN-16, as stage 1 treats one in a key.
+            // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): an unpaired surrogate escape in a string value is CV-GEN-16, as stage 1 treats one in a key.
             Report(GeneralRuleIds.SyntaxShape, t, "unpaired surrogate escape", "valid JSON (comments and trailing commas allowed)");
             return false;
         }

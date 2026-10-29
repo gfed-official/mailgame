@@ -256,7 +256,7 @@ public class SchemaStageTests
     [Trait("Id", "CD21")]
     [InlineData("empty", null)]                               // `[]` passes stage 2 with no defs
     [InlineData("midWalk", GeneralRuleIds.ValueOutOfRange)]   // a def failing mid-walk leaks nothing into stage 3
-    [InlineData("duplicate", GeneralRuleIds.EnumSpelling)]    // Mail Dev default, pending Evan (TD-176): no CV-GEN-01 until the copy is clean
+    [InlineData("duplicate", GeneralRuleIds.EnumSpelling)]    // Approved by Evan 2026-10-28 6:09 AM PT (TD-176): no CV-GEN-01 until the copy is clean
     public void Build_RunsForATypeOnlyWhenAllItsFilesAreClean(string what, string? rule)
     {
         SchemaResult[] files = what switch

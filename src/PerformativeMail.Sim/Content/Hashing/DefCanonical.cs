@@ -12,7 +12,10 @@ namespace PerformativeMail.Sim.Content.Hashing;
 /// optional fields (<c>HasXxx</c> flag plus value) as a u8 presence byte then the value only when present, so a stale value
 /// behind a false flag never reaches the bytes; localisation keys as u16 len + UTF-8. A default (uninitialised) immutable
 /// array encodes as an empty list. <c>CatchVolume</c> has no presence byte (making it optional requires a schema bump).
-/// <c>Tags</c>, <c>ReservedSlots</c> and <c>Shares</c> are hashed in authored order, deliberately. Records are never hashed through their synthesised Equals/GetHashCode (TD-044 item 4).
+/// <c>Shares</c> are sorted by <c>Kind.Value</c> ascending (the ordinal kind-id order), so the order of a shift's <c>shares</c>
+/// entries never changes the hash (TD-075(3), Evan 2026-10-28 6:09 AM PT, Mail Lead chat: "Order of shares entries must not
+/// change the hash: sort them, per ADR-0010"; <see cref="ContentHash.HashSchemaVersion"/> 2). <c>Tags</c> and
+/// <c>ReservedSlots</c> are hashed in authored order, deliberately. Records are never hashed through their synthesised Equals/GetHashCode (TD-044 item 4).
 /// </summary>
 /// <example>
 /// <code>
@@ -126,7 +129,7 @@ public static class DefCanonical
         w.WriteI32(d.CatchVolume.YawMilliDeg);
     }
 
-    /// <summary>Writes a mail-mix def: id, shifts (each: shift, shares list of kind + sharePm; order as authored), then batchIntervalMs, batchJitterMs, tailGuardMs, openingRampBatches, spawnOverheadPm, streetStreakRatioPm, raidSpawnRateRatioPm, distanceStepRatioPm, shiftStepRatioPm.</summary>
+    /// <summary>Writes a mail-mix def: id, shifts (each: shift, shares list of kind + sharePm, sorted by <c>Kind.Value</c> ascending), then batchIntervalMs, batchJitterMs, tailGuardMs, openingRampBatches, spawnOverheadPm, streetStreakRatioPm, raidSpawnRateRatioPm, distanceStepRatioPm, shiftStepRatioPm.</summary>
     /// <example><code>mix.WriteCanonical(ref w);</code></example>
     public static void WriteCanonical(this MailMixDef d, ref CanonicalContentWriter w)
     {
@@ -136,7 +139,9 @@ public static class DefCanonical
         foreach (ShiftMix shift in shifts)
         {
             w.WriteI32(shift.Shift);
-            ImmutableArray<MailShare> shares = shift.Shares.IsDefault ? ImmutableArray<MailShare>.Empty : shift.Shares;
+            ImmutableArray<MailShare> authored = shift.Shares.IsDefault ? ImmutableArray<MailShare>.Empty : shift.Shares;
+            MailShare[] shares = authored.AsSpan().ToArray();
+            StableSort.Sort(shares.AsSpan(), new MailShare[shares.Length], new ByKind());
             w.WriteCount(shares.Length);
             foreach (MailShare share in shares)
             {
@@ -154,6 +159,12 @@ public static class DefCanonical
         w.WriteI32(d.RaidSpawnRateRatioPm);
         w.WriteI32(d.DistanceStepRatioPm);
         w.WriteI32(d.ShiftStepRatioPm);
+    }
+
+    /// <summary>Orders shares by kind index (a duplicate kind keeps its authored order; CV-GEN-04 rejects one in a file).</summary>
+    private readonly struct ByKind : IComparer<MailShare>
+    {
+        public int Compare(MailShare x, MailShare y) => x.Kind.Value.CompareTo(y.Kind.Value);
     }
 
     private static void WriteDefIndexSet(ref CanonicalContentWriter w, ImmutableArray<DefIndex> set)

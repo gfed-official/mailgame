@@ -17,6 +17,10 @@ namespace PerformativeMail.Sim.Content.Parsing;
 /// <param name="References">Every by-id reference, resolved (or reported as CV-GEN-01) at stage 4.</param>
 /// <param name="Failed">The table keys of the types that were not built, or were built without their duplicate ids.</param>
 /// <param name="Diagnostics">The findings of stages 1 and 2 (from the files) and stage 3 (CV-GEN-01 duplicates, CV-GEN-09).</param>
+/// <param name="Records">
+/// One record per built def (its <see cref="DefRef"/>, the <c>path:line:column</c> of its opening brace and its parsed
+/// <c>suppress</c> entries), so stage 4 to 5 findings point at the file and a loaded def can waive a Warning (TD-178 item 1).
+/// </param>
 /// <example>
 /// <code>
 /// BuiltDefs defs = Builder.Build(files);
@@ -31,4 +35,5 @@ public sealed record BuiltDefs(
     ImmutableArray<MailMixDef> MailMixes,
     ImmutableArray<PendingReference> References,
     ImmutableArray<FailedInput> Failed,
-    ImmutableArray<ContentDiagnostic> Diagnostics);
+    ImmutableArray<ContentDiagnostic> Diagnostics,
+    ImmutableArray<DefRecord> Records);

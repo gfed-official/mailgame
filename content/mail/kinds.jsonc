@@ -1,0 +1,29 @@
+// M-1a mail kinds (design/gdd/mail-destinations.md R1). Every kind takes one 0.5 m slot of one belt lane (only cargo,
+// deferred to M0, takes two). carryByHand is always spelled out (content-data CD10 note, owner ruling 2026-10-21).
+[
+  {
+    "id": "postcard", "name": "mail.postcard", "grid": [1, 1], "maxStack": 40, "baseValue": 4, "weightClass": "light",
+    "carryByHand": true, "beltLanes": 1, "beltLengthMetres": 0.5, "deadlineOffsetShifts": 0, "acceptedBy": ["house"],
+    "complaintOnMisdeliveryPoints": 3, "unlockShift": 2,
+  },
+  {
+    "id": "letter", "name": "mail.letter", "grid": [1, 1], "maxStack": 20, "baseValue": 8, "weightClass": "light",
+    "carryByHand": true, "beltLanes": 1, "beltLengthMetres": 0.5, "deadlineOffsetShifts": 0, "acceptedBy": ["house"],
+    "complaintOnMisdeliveryPoints": 5, "unlockShift": 1,
+  },
+  {
+    "id": "small", "name": "mail.small", "grid": [1, 2], "maxStack": 1, "baseValue": 30, "weightClass": "light",
+    "carryByHand": true, "beltLanes": 1, "beltLengthMetres": 0.5, "deadlineOffsetShifts": 0, "acceptedBy": ["house"],
+    "complaintOnMisdeliveryPoints": 8, "unlockShift": 1,
+  },
+  {
+    "id": "medium", "name": "mail.medium", "grid": [2, 2], "maxStack": 1, "baseValue": 70, "weightClass": "medium",
+    "carryByHand": true, "beltLanes": 1, "beltLengthMetres": 0.5, "deadlineOffsetShifts": 0, "acceptedBy": ["house"],
+    "complaintOnMisdeliveryPoints": 12, "unlockShift": 1,
+  },
+  {
+    "id": "large", "name": "mail.large", "grid": [2, 4], "maxStack": 1, "baseValue": 160, "weightClass": "heavy",
+    "carryByHand": true, "beltLanes": 1, "beltLengthMetres": 0.5, "deadlineOffsetShifts": 0, "acceptedBy": ["house"],
+    "complaintOnMisdeliveryPoints": 16, "unlockShift": 2,
+  },
+]

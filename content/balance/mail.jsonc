@@ -1,0 +1,20 @@
+// Balance keys owned by design/gdd/mail-destinations.md (Tuning Knobs); file content/balance/mail.jsonc holds mail.*
+// (content-data CD9). Registry units and hard ranges: BalanceKeys (code). A value is a number in the key's authored unit (CD4:
+// ...Seconds in seconds, ...Metres/Meters in metres, a ratio as a decimal, ...Pm/...Ms/...Mm/...Ticks as integers);
+// { "value": v, "safe": [min, max] } adds the taste range (leaving it is CV-GEN-20, a Warning).
+{
+  "payMultMaxPm": 5000,
+  "penaltyMultMaxPm": 2000,
+  "lateValueRatio": { "value": 0.5, "safe": [0.25, 0.75] },
+  "misdeliveryPenaltyRatio": { "value": 0.5, "safe": [0.3, 0.75] },
+  "deadLetterShifts": { "value": 2, "safe": [1, 3] },
+  "minPenaltyCents": { "value": 1, "safe": [1, 2] },
+  "doorComplaintCap": { "value": 20, "safe": [16, 30] },
+  "doorComplaintWindowSeconds": { "value": 30, "safe": [15, 60] },
+  "lateComplaint": { "value": 2, "safe": [1, 3] },
+  "lateComplaintWindowSeconds": { "value": 30, "safe": [20, 60] },
+  "teamComplaintCap": { "value": 40, "safe": [30, 60] },
+  "closeGraceTicks": { "value": 90, "safe": [30, 150] },
+  "distanceStepPm": { "value": 250, "safe": [150, 350] },
+  "shiftStepPm": { "value": 100, "safe": [50, 150] },
+}
