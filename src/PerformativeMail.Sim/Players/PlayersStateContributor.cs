@@ -7,9 +7,9 @@ namespace PerformativeMail.Sim.Players;
 /// Players' canonical dump section (ADR-0006 section 4, ADR-0013 section 2): a <c>u32</c> count of present players, then for each
 /// in ascending slot order the slot, <c>playerId</c>, life state and deadlines, <c>TeleportSeq</c>, aim, and every
 /// <see cref="CarrierState"/> field written one by one (never a struct blit), the seven push pairs, then <c>WadeSlowPm</c> (story 009, appended); then the anchor registry (story 012, appended: <c>u32</c> count and the anchors in
-/// ascending index, see <see cref="AnchorRegistry.Dump"/>); then (story 019, appended; Evan approved 2026-10-29 (TD-188 item 1)) for each
-/// present player in ascending slot order its host position: feet X, Y, Z <c>i32</c>, yaw <c>u16</c>, <see cref="SampleFlags"/>
-/// <c>u8</c>, <c>LastReceivedTick</c> <c>u32</c> (an empty section stays 8 bytes). The capsule size is not
+/// ascending index, see <see cref="AnchorRegistry.Dump"/>); then (story 019, appended; Evan approved 2026-10-29 (TD-188 item 1)) a <c>u32</c>
+/// count of present players and for each in ascending slot order its host position: feet X, Y, Z <c>i32</c>, yaw <c>u16</c>, <see cref="SampleFlags"/>
+/// <c>u8</c>, <c>LastReceivedTick</c> <c>u32</c> (an empty section is 12 bytes). The capsule size is not
 /// written (derived from the settings). Between ticks only; allocation-free.
 /// </summary>
 /// <example><code>builder.BindStateContributor(new PlayersStateContributor(players));</code></example>
@@ -58,7 +58,10 @@ internal sealed class PlayersStateContributor : ISimStateContributor
 
         _players.Anchors.Dump(ref w);   // story 012: the anchor registry, appended after the per-player block
 
-        // Story 019: the host position table, appended after the anchor block. Evan approved 2026-10-29 (TD-188 item 1).
+        // Story 019: the host position table, appended after the anchor block, as a u32 count then one entry per present slot
+        // in ascending slot order (ADR-0006 l.234). Evan approved 2026-10-29 (TD-188 item 1) for the block's contents; the count
+        // is a fix for Mail Review PR #64 r1 A1, per Mail Lead's 10:55 AM PT ruling.
+        w.WriteU32(count);
         for (byte s = 0; s < PlayerSlot.Count; s++)
         {
             PlayerSlot slot = PlayerSlot.FromValue(s);

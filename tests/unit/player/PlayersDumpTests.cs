@@ -101,9 +101,9 @@ public class PlayersDumpTests
         }
 
         w.WriteU32(0);   // story 012: the anchor registry tail (an empty registry is a zero count)
+        w.WriteU32((uint)players.Length);   // story 019: the host position table, after the anchor block: count, then entries
         foreach ((_, _, HostPosition h) in players)
         {
-            // story 019: the host position table, after the anchor block
             w.WriteI32(h.Feet.X);
             w.WriteI32(h.Feet.Y);
             w.WriteI32(h.Feet.Z);
@@ -147,7 +147,7 @@ public class PlayersDumpTests
         byte[] after = PlayersSection(rig);
 
         // Assert
-        Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, before);   // zero players, zero anchors
+        Assert.Equal(new byte[12], before);   // zero players, zero anchors, zero host positions
         Assert.NotEqual(before, after);
         Assert.Equal(SectionIds.Players, new PlayersStateContributor(rig.Players).SectionId);
         Assert.NotEqual(SectionIds.SimCore, SectionIds.Players);
@@ -164,7 +164,7 @@ public class PlayersDumpTests
         rig.LeaveAndTick(2);
 
         // Assert
-        Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, PlayersSection(rig));
+        Assert.Equal(new byte[12], PlayersSection(rig));
     }
 
     // ---------------------------------------------------------------- layout
