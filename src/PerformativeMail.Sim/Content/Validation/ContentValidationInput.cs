@@ -21,17 +21,21 @@ namespace PerformativeMail.Sim.Content.Validation;
 /// </example>
 public sealed class ContentValidationInput : IValidationInput
 {
+    private readonly Dictionary<DefRef, SourceLocation>? _loaded;
+
     internal ContentValidationInput(
         ContentSet candidate,
         ImmutableArray<FailedInput> priorFailures = default,
         ImmutableArray<PendingReference> references = default,
         ImmutableArray<SuppressEntry> setSuppress = default,
-        ImmutableArray<VerbDeclaration> verbDeclarations = default)
+        ImmutableArray<VerbDeclaration> verbDeclarations = default,
+        ImmutableArray<DefRecord> loadedRecords = default)
     {
         References = references.IsDefault ? ImmutableArray<PendingReference>.Empty : references;
         Candidate = candidate;
         PriorFailures = priorFailures.IsDefault ? ImmutableArray<FailedInput>.Empty : priorFailures;
-        Defs = BuildRecords(candidate, setSuppress.IsDefault ? ImmutableArray<SuppressEntry>.Empty : setSuppress);
+        _loaded = LocationIndex(loadedRecords);
+        Defs = BuildRecords(candidate, setSuppress.IsDefault ? ImmutableArray<SuppressEntry>.Empty : setSuppress, loadedRecords);
         VerbDeclarations = verbDeclarations.IsDefault ? ImmutableArray<VerbDeclaration>.Empty : verbDeclarations;
     }
 
@@ -65,14 +69,86 @@ public sealed class ContentValidationInput : IValidationInput
     /// </summary>
     public static SourceLocation SetLocation => SourceLocation.BuiltIn("builtin/balance");
 
-    private static ImmutableArray<DefRecord> BuildRecords(ContentSet set, ImmutableArray<SuppressEntry> setSuppress)
+    /// <summary>
+    /// The runner's findings with every synthesised <c>builtin/&lt;folder&gt;/&lt;id&gt;</c> location of a loaded def replaced by
+    /// that def's real <c>path:line:column</c> (from its record). Rule bodies locate findings through <see cref="LocationOf"/>,
+    /// so the swap happens once here rather than in every rule. Built-in content (no loaded records) is returned unchanged.
+    /// Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item 3): the swap is a post-run relocation keyed on (def, synthesised path), not
+    /// a per-rule lookup.
+    /// </summary>
+    /// <param name="result">The runner's result over this input.</param>
+    internal ValidationResult Relocate(ValidationResult result)
+    {
+        if (_loaded is null || result.Diagnostics.IsEmpty)
+        {
+            return result;
+        }
+
+        ImmutableArray<ContentDiagnostic>.Builder b = ImmutableArray.CreateBuilder<ContentDiagnostic>(result.Diagnostics.Length);
+        bool moved = false;
+        foreach (ContentDiagnostic d in result.Diagnostics)
+        {
+            if (!d.Def.IsNone && _loaded.TryGetValue(d.Def, out SourceLocation real)
+                && d.Location == LocationOf(FolderOf(d.Def.Type), d.Def.Id))
+            {
+                b.Add(d with { Location = real });
+                moved = true;
+            }
+            else
+            {
+                b.Add(d);
+            }
+        }
+
+        return moved
+            ? new ValidationResult(DiagnosticOrder.Sorted(b.MoveToImmutable()), result.Skipped, result.SuppressedCount, result.UnmatchedSuppressCount)
+            : result;
+    }
+
+    /// <summary>The synthesised location folder of a def type (<c>builtin/&lt;folder&gt;/&lt;id&gt;</c>).</summary>
+    internal static string FolderOf(DefType type) => type switch
+    {
+        DefType.Container => "containers",
+        DefType.Item => "items",
+        DefType.MailKind => "mail_kinds",
+        DefType.DestinationType => "destination_types",
+        _ => "mail_mixes",
+    };
+
+    /// <summary>Each loaded def's location by its ref; null when there are no loaded records (built-in content).</summary>
+    internal static Dictionary<DefRef, SourceLocation>? LocationIndex(ImmutableArray<DefRecord> loaded)
+    {
+        if (loaded.IsDefault)
+        {
+            return null;
+        }
+
+        var index = new Dictionary<DefRef, SourceLocation>(loaded.Length);
+        foreach (DefRecord r in loaded)
+        {
+            index[r.Def] = r.Location;
+        }
+
+        return index;
+    }
+
+    private static ImmutableArray<DefRecord> BuildRecords(ContentSet set, ImmutableArray<SuppressEntry> setSuppress, ImmutableArray<DefRecord> loaded)
     {
         ImmutableArray<DefRecord>.Builder b = ImmutableArray.CreateBuilder<DefRecord>();
-        Add(b, DefType.Container, "containers", set.Containers);
-        Add(b, DefType.Item, "items", set.Items);
-        Add(b, DefType.MailKind, "mail_kinds", set.MailKinds);
-        Add(b, DefType.DestinationType, "destination_types", set.DestinationTypes);
-        Add(b, DefType.MailMix, "mail_mixes", set.MailMixes);
+        if (!loaded.IsDefault)
+        {
+            // Loaded content (TD-178 item 1): each def's real location and parsed suppress entries, instead of builtin/<folder>/<id>.
+            b.AddRange(loaded);
+        }
+        else
+        {
+            Add(b, DefType.Container, FolderOf(DefType.Container), set.Containers);
+            Add(b, DefType.Item, FolderOf(DefType.Item), set.Items);
+            Add(b, DefType.MailKind, FolderOf(DefType.MailKind), set.MailKinds);
+            Add(b, DefType.DestinationType, FolderOf(DefType.DestinationType), set.DestinationTypes);
+            Add(b, DefType.MailMix, FolderOf(DefType.MailMix), set.MailMixes);
+        }
+
         if (!setSuppress.IsEmpty)
         {
             b.Add(new DefRecord(DefRef.None, SetLocation, setSuppress));

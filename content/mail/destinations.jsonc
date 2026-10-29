@@ -1,0 +1,8 @@
+// M-1a destination types (design/gdd/mail-destinations.md R3): house, the only type, accepts all five kinds.
+[
+  {
+    "id": "house", "accepts": ["large", "letter", "medium", "postcard", "small"],
+    "insertRate": 2, "manualInsertHoldSeconds": 0.4, "maxAutomatedFeeders": 1, "requiresUnit": false,
+    "catchVolume": { "widthMetres": 1, "heightMetres": 0.8, "depthMetres": 1, "centreHeightMetres": 1, "yawDeg": 0 },
+  },
+]

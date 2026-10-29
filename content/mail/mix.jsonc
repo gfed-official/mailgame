@@ -1,0 +1,13 @@
+// The single M-1a mail mix (design/gdd/mail-destinations.md F3, spec 08 section 2.3). Shares are ratios (0.6 = 600
+// permille); their order never changes the hash (TD-075(3)). ...Seconds values load as ms (ADR-0010 Errata 2026-10-21).
+[
+  {
+    "id": "default",
+    "shifts": [
+      { "shift": 1, "shares": { "letter": 0.6, "small": 0.3, "medium": 0.1 } },
+      { "shift": 2, "shares": { "postcard": 0.1, "letter": 0.4, "small": 0.3, "medium": 0.15, "large": 0.05 } },
+    ],
+    "batchIntervalSeconds": 15, "batchJitterSeconds": 3, "tailGuardSeconds": 9, "openingRampBatches": 0,
+    "spawnOverhead": 1.6, "streetStreakRatio": 0.3, "raidSpawnRateRatio": 0.5, "distanceStepRatio": 0.25, "shiftStepRatio": 0.1,
+  },
+]

@@ -1,0 +1,8 @@
+// M-1a items (grid-inventory fixture table; design/gdd/grid-inventory.md R1). Economy owns prices: no sellPrice (0) and
+// no buyPrice yet. carryByHand is always spelled out (content-data CD10 note, owner ruling 2026-10-21).
+[
+  { "id": "axe", "name": "item.axe", "category": "tool", "grid": [1, 2], "maxStack": 1, "weightClass": "light", "carryByHand": true },
+  { "id": "plank", "name": "item.plank", "category": "material", "grid": [1, 1], "maxStack": 20, "weightClass": "light", "carryByHand": true },
+  { "id": "fiber", "name": "item.fiber", "category": "material", "grid": [1, 1], "maxStack": 20, "weightClass": "light", "carryByHand": true },
+  { "id": "log", "name": "item.log", "category": "material", "grid": [1, 2], "maxStack": 10, "weightClass": "light", "carryByHand": true },
+]
