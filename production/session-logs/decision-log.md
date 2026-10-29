@@ -6381,3 +6381,10 @@ Follow-on edits: throwing-catching 021 no longer depends on manual-delivery 008 
 **Chosen:** as quoted. TD-179, 7:24 AM PT: "Approve all three throwing-catching 002 defaults and the ADR-0015 §2 and §4 errata: keep Fix.MulDivRH, an uncounted far-segment guard, and fixed receiver keys". TD-181, 7:30 PM PT: "Approve all eight TD-181 defaults for throwing-catching 002". TD-182, 7:30 PM PT: "Approve all three TD-182 defaults for player-character 015: off-map tiles dont occlude, solids past the scratch capacity go untested, and the world port is FocusSteps second constructor parameter"; on the same card, the blocked-tile advisory: "Keep it: an anchor on a blocked tile is always occluded". TD-179 and TD-181 were closed in PR #55; TD-182 is closed in PR #56, whose code labels now read "Evan approved 2026-10-28 (TD-182 item N)" (comment-only). Evan is credited only for these items and the blocked-tile rule.
 **Reason:** Owner decision.
 **Category:** owner decision (as-built and planning defaults approved; TD-179, TD-181, TD-182 closed; blocked-tile occlusion rule kept; no ADR or behaviour change)
+
+#### 2026-10-28 — `sim.startingWalletCents` range 0..100000 cents, default 0 (TD-180) approved and closed (owner decision, Evan 2026-10-28 7:30 PM PT, in his own words in the Mail Lead chat, answering Mail Lead's card: "Approve TD-180: sim.startingWalletCents range 0 to 100,000 cents, default 0")
+**Decision point:** mail-destinations 005's new `sim.startingWalletCents` key needs a hard min/max in `BalanceKeys.Sim.Rows`; TD-177 item 2 as approved said only "int, default 0", so the range 0..100000 was a Mail Lead planning default (TD-180, PR #54 Mail Review r1 B3).
+**Options considered:** approve 0..100000 with default 0; pick another range.
+**Chosen:** as quoted. TD-180 closed ("Evan approved"); the `BalanceKeys.cs` row comment reads "Evan approved 2026-10-28 (TD-180)" (mail-destinations 005, branch `story/mail-destinations-005`). Evan is credited only for the range and the default.
+**Reason:** Owner decision.
+**Category:** owner decision (balance-key range approved; TD-180 closed; no ADR change)
