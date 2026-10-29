@@ -12,8 +12,11 @@ namespace PerformativeMail.Sim.Players.Client;
 /// <item><description>Terrain: <see cref="HeightfieldMarch.FirstContact"/>; a contact occludes unless it is at the anchor end
 /// (<c>fPm == 1000</c>), so an anchor resting on the ground is not hidden by the ground under it (TD-175 item 3, approved by
 /// Evan 2026-10-28 7:26 AM PT).</description></item>
-/// <item><description>Blocked tiles: every <see cref="TileFlags.Blocked"/> tile of the map under the segment's x/z AABB, as an
-/// <see cref="AabbMm"/> over its closed footprint with <c>Y</c> from <see cref="int.MinValue"/> to <see cref="int.MaxValue"/>.</description></item>
+/// <item><description>Blocked tiles: every <see cref="TileFlags.Blocked"/> map tile in the floor-tile range of the segment's x/z AABB
+/// (<c>FloorTile(min)</c> to <c>FloorTile(max)</c>, as <c>CarrierColliders.Gather</c>), each tested as a closed <see cref="AabbMm"/>
+/// over its footprint with <c>Y</c> from <see cref="int.MinValue"/> to <see cref="int.MaxValue"/>. So a segment lying along a tile's
+/// max-x or max-z edge does not test that tile (it is outside the range) and reads clear, while a segment that only touches a tile's
+/// max corner still hits it when the AABB's other extent brings the tile into the range.</description></item>
 /// <item><description>Static solids: one <see cref="IWorldQuery.QueryStaticSolids"/> call over the segment's AABB (expanded by 0 mm)
 /// into the caller's scratch; each solid whose <see cref="StaticSolid.Owner"/> is not the anchor entity is tested with
 /// <see cref="SegmentIntervals.Slab"/>.</description></item>
@@ -92,7 +95,13 @@ public static class FocusOcclusion
         ReadOnlySpan<StaticSolid> solids = w.StaticSolids;
         for (int i = 0; i < count; i++)
         {
-            ref readonly StaticSolid s = ref solids[scratch[i]];
+            ushort index = scratch[i];
+            if (index >= solids.Length)
+            {
+                continue;   // out-of-range index: skipped, never dereferenced (as CarrierColliders.Gather)
+            }
+
+            ref readonly StaticSolid s = ref solids[index];
             if (s.Owner != anchorEntity && SegmentIntervals.Slab(in chest, in anchor, in s.Box).Hit)
             {
                 return true;
