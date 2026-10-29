@@ -7,7 +7,7 @@
 > **Engine Risk**: LOW (Sim half). The HIGH half (export filter, PCK enumeration, `[Export]` tracking; spikes S1–S4) is deferred to `ContentHost`.
 > **Est. size**: M — 10–12 stories
 > **Implementation priority**: 2 of 9
-> **Status**: Ready
+> **Status**: Complete
 > **Stories**: 19 stories — 19 Complete (counts refreshed 2026-10-28 from the story headers, content-data 019 Complete, branch `story/content-data-019`; before that 18 Complete, 1 Ready, content-data 018 Complete, PR #53; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview

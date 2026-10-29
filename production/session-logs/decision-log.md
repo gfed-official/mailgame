@@ -6395,3 +6395,10 @@ Follow-on edits: throwing-catching 021 no longer depends on manual-delivery 008 
 **Chosen:** as quoted. TD-183 closed ("Evan approved"); the code labels read "Evan approved 2026-10-28 (TD-183 item N)" (comment-only). Evan is credited only for these three behaviours; the row's review advisories (counters 56/57 never incremented at M-1a, `StubWallet` negative amounts) are not part of the approval.
 **Reason:** Owner decision.
 **Category:** owner decision (as-built defaults approved; TD-183 closed; no ADR or behaviour change)
+
+#### 2026-10-28 — content-data 019's six as-built defaults (TD-185) approved and closed (owner decision, Evan 2026-10-28 10:55 PM PT, in his own words answering the TD-185 card: "Approve all six TD-185 defaults for content-data 019")
+**Decision point:** content-data 019 (PR #59) batched six as-built Mail Dev defaults in TD-185: (1) a balance key's authored unit comes from its stored `BalanceUnit` plus its name (`BalanceWalker.cs:96`); (2) malformed balance entries reuse the def rules CV-GEN-03/05/06/12/16, `$schema` skipped (`BalanceWalker.cs:124`); (3) real stage 4–5 locations by one post-run relocation, rule bodies unchanged (`ContentValidationInput.cs:76`); (4) a failed balance table withholds the set and skips stages 4–5, and a failed balance file drops that owner's missing-key CV-GEN-05s (`ContentLoader.cs:134`, `:146`); (5) `items/*` and `balance/*` are one folder deep, subfolders are CV-GEN-16 (`ContentLoader.cs:162`); (6) a key registered for exactly one other owner is assigned to it, one CV-GEN-13 and no extra CV-GEN-05 (`BalanceWalker.cs:176`).
+**Options considered:** approve the six as batched; change any item in a follow-up code PR.
+**Chosen:** as quoted. TD-185 closed ("Evan approved"); the code labels read "Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item N)" (comment-only). Evan is credited only for these six behaviours; the row's review advisory (the loaded `ContentSet` keeps `shares` in authored order) is not part of the approval.
+**Reason:** Owner decision.
+**Category:** owner decision (as-built defaults approved; TD-185 closed; no ADR or behaviour change)

@@ -18,7 +18,7 @@ Land the four Sim-side roots of the playable greybox path — the locked carrier
 
 - **Current Milestone**: M-1a (owner-directed; no milestone definition file)
 - **Milestone Deadline**: not defined
-- **Sprints Remaining**: not defined. Track A is 72 stories in 15 waves (75 before throwing-catching 002 went Complete, PR #55, player-character 015 went Complete, PR #56, and mail-destinations 005 went Complete, branch `story/mail-destinations-005`; regenerated order, 2026-10-23, regenerated 2026-10-27 and 2026-10-28 (player-character 010 Complete, PR #50; content-data 018 Complete, PR #53; throwing-catching 002 Complete, PR #55; player-character 015 Complete, PR #56; mail-destinations 005 Complete, branch `story/mail-destinations-005`), after the approved errata E1–E6/E9 deferrals and splits); at this capacity (~4–5 stories per sprint) the greybox path is roughly 15 sprints of serial work.
+- **Sprints Remaining**: not defined. Track A is 71 stories in 15 waves (72 before content-data 019 went Complete, branch `story/content-data-019`; 75 before throwing-catching 002 went Complete, PR #55, player-character 015 went Complete, PR #56, and mail-destinations 005 went Complete, branch `story/mail-destinations-005`; regenerated order, 2026-10-23, regenerated 2026-10-27 and 2026-10-28 (player-character 010 Complete, PR #50; content-data 018 Complete, PR #53; throwing-catching 002 Complete, PR #55; player-character 015 Complete, PR #56; mail-destinations 005 Complete, branch `story/mail-destinations-005`), after the approved errata E1–E6/E9 deferrals and splits); at this capacity (~4–5 stories per sprint) the greybox path is roughly 15 sprints of serial work.
 
 ## Capacity
 

@@ -73,7 +73,7 @@ public sealed class ContentValidationInput : IValidationInput
     /// The runner's findings with every synthesised <c>builtin/&lt;folder&gt;/&lt;id&gt;</c> location of a loaded def replaced by
     /// that def's real <c>path:line:column</c> (from its record). Rule bodies locate findings through <see cref="LocationOf"/>,
     /// so the swap happens once here rather than in every rule. Built-in content (no loaded records) is returned unchanged.
-    /// Mail Dev default, pending Evan (TD-185 item 3): the swap is a post-run relocation keyed on (def, synthesised path), not
+    /// Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item 3): the swap is a post-run relocation keyed on (def, synthesised path), not
     /// a per-rule lookup.
     /// </summary>
     /// <param name="result">The runner's result over this input.</param>

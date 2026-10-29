@@ -131,7 +131,7 @@ public sealed class ContentLoader
         found.AddRange(WithoutCascade(balance.Validation.Diagnostics, failedOwners));
         if (balance.Table is null)
         {
-            // Mail Dev default, pending Evan (TD-185 item 4): stages 4 and 5 read the balance table, so they do not run when it
+            // Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item 4): stages 4 and 5 read the balance table, so they do not run when it
             // cannot be built; the set is withheld and the stage 1 to 3 and balance findings are returned.
             ValidationResult early = new(DiagnosticOrder.Sorted(defs.Diagnostics.AddRange(found)), ImmutableArray<SkippedPair>.Empty, 0, 0);
             return new ContentLoadResult(early, null);
@@ -143,7 +143,7 @@ public sealed class ContentLoader
 
     /// <summary>
     /// The balance findings without the CV-GEN-05 "absent" of a key whose owner's file failed stage 1 or 2: that file's own
-    /// finding already explains it. Mail Dev default, pending Evan (TD-185 item 4).
+    /// finding already explains it. Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item 4).
     /// </summary>
     private static IEnumerable<ContentDiagnostic> WithoutCascade(ImmutableArray<ContentDiagnostic> findings, HashSet<string> failedOwners)
     {
@@ -159,7 +159,7 @@ public sealed class ContentLoader
     }
 
     /// <summary>
-    /// The fixed path to def-type table (CD2). Mail Dev default, pending Evan (TD-185 item 5): <c>items/*</c> and
+    /// The fixed path to def-type table (CD2). Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item 5): <c>items/*</c> and
     /// <c>balance/*</c> match files directly in those folders only, so a file in a subfolder is an unknown content file.
     /// </summary>
     private static FileKind Classify(string path, out DefType type)

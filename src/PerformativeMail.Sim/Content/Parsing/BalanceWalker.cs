@@ -93,7 +93,7 @@ public static class BalanceWalker
 
     /// <summary>
     /// The unit a balance key is authored in (GDD CD4: the stored unit and the key's suffix decide it, so <c>…Seconds</c> is a
-    /// decimal stored as ms and <c>…Pm</c> an integer). Mail Dev default, pending Evan (TD-185 item 1): <c>Ms</c> keys ending
+    /// decimal stored as ms and <c>…Pm</c> an integer). Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item 1): <c>Ms</c> keys ending
     /// <c>Seconds</c> are authored as decimal seconds, <c>Mm</c> keys ending <c>Metres</c> or <c>Meters</c> as decimal metres,
     /// <c>Permille</c> keys without <c>Pm</c> or <c>Permille</c> in the name as decimal ratios, milli-points as decimal points
     /// and milli-degrees as decimal degrees; every other unit (counts, ticks, cents, mm/s, mm/s², deg/s) as an integer.
@@ -121,7 +121,7 @@ public static class BalanceWalker
         };
     }
 
-    // Mail Dev default, pending Evan (TD-185 item 2): the balance-file shape findings reuse the def walk's rules: an unknown key
+    // Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item 2): the balance-file shape findings reuse the def walk's rules: an unknown key
     // inside { value, safe } is CV-GEN-03, a missing "value" CV-GEN-05, a value that is not a number CV-GEN-06, a safe range
     // that is not a [min, max] pair of numbers CV-GEN-16 (shape) or CV-GEN-12 (length, or min above max); "$schema" is skipped.
     private sealed class Pass
@@ -173,7 +173,7 @@ public static class BalanceWalker
         }
 
         /// <summary>
-        /// The full name of <paramref name="key"/>: <c>&lt;owner&gt;.&lt;key&gt;</c>. Mail Dev default, pending Evan (TD-185 item 6): when
+        /// The full name of <paramref name="key"/>: <c>&lt;owner&gt;.&lt;key&gt;</c>. Approved by Evan 2026-10-28 10:55 PM PT (TD-185 item 6): when
         /// that is unregistered but exactly one other owner registers the key, the entry is addressed to that owner, so a key in
         /// the wrong owner's file is BalanceTable's one CV-GEN-13 ("in &lt;file&gt;, owner file &lt;owner&gt;") and still counts as
         /// supplied (no CV-GEN-05 for it in its own file).
