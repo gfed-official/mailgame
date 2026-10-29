@@ -226,7 +226,7 @@ public class FocusOcclusionTests
     [Trait("Id", "PCM-P11-1")]
     public void QueryStaticSolids_SegmentRegion_WritesOnlyIndicesIntoStaticSolids()
     {
-        // Arrange: the precondition IsOccluded's solids[scratch[i]] read relies on; four solids, three in the region.
+        // Arrange: the query contract (indices into StaticSolids); IsOccluded also skips any index past the end. Four solids, three in the region.
         WorldTables w = FocusRig.FlatWorld(b =>
         {
             b.AddSolid(_other, Box(41_000, 0, 40_000, 41_400, 3000, 40_400), SolidKind.Prop);
