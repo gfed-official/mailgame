@@ -402,7 +402,7 @@ public interface IPhaseProbe { void Before(PhaseId phase); void After(PhaseId ph
 ### Negative
 - **Explicit maths.** Every formula must be written with the helpers. This is more verbose than `*` and `/`.
 - **Dictionary iteration.** It stays a review rule until the custom analyzer exists.
-- **Contributor upkeep.** Each system's `ISimStateContributor` is extra code that must stay in sync with its state. A forgotten field silently weakens T1. *Mitigation:* SC-R30-1 mutation tests per included item.
+- **Contributor upkeep.** Each system's `ISimStateContributor` is extra code that must stay in sync with its state. A forgotten field silently weakens T1. *Mitigation:* one parameterised SC-R30-1 test with a row per included item. *(Erratum 2026-10-29, lean testing; text only: was "SC-R30-1 mutation tests per included item".)*
 - **Dedicated process.** The 0-alloc gate needs its own test process, which adds CI time.
 
 ## Risks
@@ -496,3 +496,4 @@ No code exists. Primitives stories create `src/PerformativeMail.Sim/Primitives/{
 - 2026-10-17 — §7 header: listed an initial tick among the initial counters; the shipped `RecordingHeader` has no initial-tick field (replay starts at tick 0) and carries `LastOpSeq`/`LastMailId`/`LastEntityCounters`; source TD-080 item 2.
 - 2026-10-17 — §2 table: `ISqrt` method was "bitwise Newton"; now "bitwise digit-by-digit" (matches `Fix.ISqrt`). Key Interfaces: `IPhaseProbe` was `Enter/Exit(ProbeScope)`; now `Before/After(PhaseId)` as shipped and as ADR-0003 §2 states; source: errata pass review.
 - 2026-10-23 — erratum **E2** (§8): "per-tick and per-frame zero-allocation checks are reported, not blocking, until M0." Approved by Evan, Mail Lead chat, 2026-10-23 8:10 AM PT: "approve all" (decision log 2026-10-23).
+- 2026-10-29 — erratum (Risks, l.405; lean-testing rule, docs PR #62; text only, no Decision change): "SC-R30-1 mutation tests per included item" now reads "one parameterised SC-R30-1 test with a row per included item". Approved by Evan 2026-10-29 8:36 AM PT: "Approve the three lean-testing ADR errata in PR 62: ADR-0009 l.78 and l.295, and ADR-0006 l.405" (decision log 2026-10-29).
