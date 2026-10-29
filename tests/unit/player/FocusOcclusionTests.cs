@@ -149,11 +149,13 @@ public class FocusOcclusionTests
     [Theory]
     [Trait("Id", "PCM-P11-1")]
     [InlineData(41_000, 9_000, 41_000, 10_500, true)]   // into the tile from tz 4: the tile is in the last z row (tz1)
-    [InlineData(40_000, 10_500, 40_000, 11_500, true)]  // along the tile's min-x edge: the closed footprint is hit
+    [InlineData(40_000, 10_500, 40_000, 11_500, true)]  // along the tile's min-x edge: the half-open footprint (min edge inclusive) is hit
     [InlineData(39_999, 10_500, 39_999, 11_500, false)] // 1 mm outside it
     [InlineData(40_500, 10_000, 41_500, 10_000, true)]  // along the tile's min-z edge
     [InlineData(40_500, 9_999, 41_500, 9_999, false)]   // 1 mm outside it
-    public void IsOccluded_OffDiagonalBlockedTile_HitsItsClosedFootprintOnly(int x0, int z0, int x1, int z1, bool expected)
+    [InlineData(42_000, 10_500, 42_000, 11_500, false)] // along the tile's max-x edge: max-x edge is exclusive
+    [InlineData(40_500, 12_000, 41_500, 12_000, false)] // along the tile's max-z edge: max-z edge is exclusive
+    public void IsOccluded_OffDiagonalBlockedTile_HitsItsHalfOpenFootprintOnly(int x0, int z0, int x1, int z1, bool expected)
     {
         // Arrange: tile (20, 5) is x 40 000 to 42 000, z 10 000 to 12 000 (off the tx = tz diagonal).
         WorldTables w = FocusRig.FlatWorld(b => b.MarkBlocked(20, 5));
@@ -260,6 +262,31 @@ public class FocusOcclusionTests
         Assert.Equal(1, w.SolidQueries);
         Assert.Equal(Box(40_500, 1000, 40_000, 41_000, 1200, 42_000), w.LastRegion);
         Assert.Equal(48, w.LastScratchLength);
+    }
+
+    [Theory]
+    [Trait("Id", "PCM-P11-1")]
+    [InlineData(true, true)]    // the bad index comes first: skipped, and the occluder after it is still tested
+    [InlineData(false, false)]  // only the bad index on a clear segment
+    public void IsOccluded_QueryWritesAnIndexPastStaticSolids_SkipsItWithoutThrowing(bool withOccluder, bool expected)
+    {
+        // Arrange: a contract-breaking query that reports index StaticSolids.Length (then solid 0, when it exists).
+        WorldTables inner = FocusRig.FlatWorld(b =>
+        {
+            if (withOccluder)
+            {
+                b.AddSolid(_other, Box(40_500, 0, 40_800, 41_500, 3000, 41_200), SolidKind.House);
+            }
+        });
+        ushort bad = (ushort)inner.StaticSolids.Length;
+        var w = new CountingWorld(inner, withOccluder ? [bad, 0] : [bad]);
+
+        // Act: an IndexOutOfRangeException fails the test.
+        bool occluded = Occluded(w, _anchor, out _);
+
+        // Assert
+        Assert.Equal(expected, occluded);
+        Assert.Equal(1, w.SolidQueries);
     }
 
     // ---- Lazy order (PCM-PERF-1) ----
@@ -389,12 +416,20 @@ public class FocusOcclusionTests
         Assert.Equal(before, rig.Counters[CounterId.FocusOcclusionTests]);
     }
 
-    /// <summary>Delegates to a <see cref="WorldTables"/> and records the <see cref="QueryStaticSolids"/> calls.</summary>
+    /// <summary>
+    /// Delegates to a <see cref="WorldTables"/> and records the <see cref="QueryStaticSolids"/> calls; with <c>indices</c>, the
+    /// query writes those instead (which may break its contract).
+    /// </summary>
     private sealed class CountingWorld : IWorldQuery
     {
         private readonly WorldTables _inner;
+        private readonly ushort[]? _indices;
 
-        public CountingWorld(WorldTables inner) => _inner = inner;
+        public CountingWorld(WorldTables inner, ushort[]? indices = null)
+        {
+            _inner = inner;
+            _indices = indices;
+        }
 
         public int SolidQueries { get; private set; }
 
@@ -437,6 +472,12 @@ public class FocusOcclusionTests
             SolidQueries++;
             LastRegion = region;
             LastScratchLength = indices.Length;
+            if (_indices is not null)
+            {
+                _indices.CopyTo(indices);
+                return _indices.Length;
+            }
+
             return _inner.QueryStaticSolids(in region, indices);
         }
     }

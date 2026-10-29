@@ -92,7 +92,13 @@ public static class FocusOcclusion
         ReadOnlySpan<StaticSolid> solids = w.StaticSolids;
         for (int i = 0; i < count; i++)
         {
-            ref readonly StaticSolid s = ref solids[scratch[i]];
+            ushort index = scratch[i];
+            if (index >= solids.Length)
+            {
+                continue;   // out-of-range index: skipped, never dereferenced (as CarrierColliders.Gather)
+            }
+
+            ref readonly StaticSolid s = ref solids[index];
             if (s.Owner != anchorEntity && SegmentIntervals.Slab(in chest, in anchor, in s.Box).Hit)
             {
                 return true;
