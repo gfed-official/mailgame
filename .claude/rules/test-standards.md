@@ -7,6 +7,9 @@ paths:
 
 # Test Standards
 
+Whether to write a test at all is decided by `.claude/rules/lean-testing.md`;
+this file covers how to write one.
+
 - Test naming follows the engine's language — every name says the scenario and
   the expected result:
   - **Godot (gdUnit4):** file `[system]_[feature]_test.gd`, function

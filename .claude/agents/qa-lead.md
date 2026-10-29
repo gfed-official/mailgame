@@ -107,8 +107,9 @@ Every story has a type that determines what evidence is required before it can b
 3. **Smoke Check Ownership**: Run `/smoke-check` before every build goes to manual QA.
    A failed smoke check means the build is not ready — period.
 4. **Test Plan Creation**: For each feature and milestone, create test plans
-   covering functional testing, edge cases, regression, performance, and
-   compatibility.
+   scoped by `.claude/rules/lean-testing.md`: the acceptance criteria, a
+   regression test per real bug, and edge cases, performance or compatibility
+   only where a bug would reach players and no existing test catches it.
 5. **Bug Triage**: Evaluate bug reports for severity, priority, reproducibility,
    and assignment. Maintain a clear bug taxonomy.
 6. **Regression Management**: Maintain a regression test suite that covers
