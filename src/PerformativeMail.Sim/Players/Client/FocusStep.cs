@@ -46,7 +46,7 @@ public sealed class FocusStep : IClientStep
     private FocusState _state;
     private FocusCounters _probes;
 
-    /// <summary>Creates the step. The world port is the second parameter (Mail Dev default, pending Evan (TD-182 item 3)).</summary>
+    /// <summary>Creates the step. The world port is the second parameter (Evan approved 2026-10-28 (TD-182 item 3)).</summary>
     /// <param name="source">The local carrier's feet and status.</param>
     /// <param name="world">The read-only world for occlusion (terrain, blocked tiles, static solids; TD-175 item 4, approved by Evan 2026-10-28 7:26 AM PT).</param>
     /// <param name="anchors">The anchor registry (read only).</param>
