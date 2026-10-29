@@ -14,7 +14,8 @@ namespace PerformativeMail.Sim.MailDestinations;
 /// <para>
 /// Struct-of-arrays columns, all sized to the lot count at build and frozen thereafter (no growth, no Dictionary): entity id,
 /// address, type index, district, interaction anchor, catch volume (world AABB), feeder slot (empty at M-1a; M-1b feeders),
-/// and the per-door complaint state <c>tokensPm</c> / <c>lastTick</c> (initialised 0; story 006 defines the bucket).
+/// and the per-door complaint state <c>tokensPm</c> / <c>lastTick</c> (initialised 0 here; <see cref="ComplaintBuckets"/>, story 006,
+/// fills every row's <c>tokensPm</c> at construction, Evan approved 2026-10-29 (TD-187 item 2)).
 /// </para>
 /// <para>
 /// Lookups: <see cref="TryGetOrdinal(EntityId, out DestinationOrdinal)"/> is O(1) when the World allocated contiguous
@@ -181,12 +182,12 @@ internal sealed class DestinationRegistry
     /// <returns>The slot.</returns>
     public ushort FeederSlotOf(DestinationOrdinal o) => _feederSlot[o.Value];
 
-    /// <summary>The complaint bucket tokens of a row, in permille (story 006 defines and writes it; 0 until then).</summary>
+    /// <summary>The door complaint bucket tokens of a row, permille-ticks (×window; <see cref="ComplaintBuckets"/> fills and writes it; 0 in a bare registry).</summary>
     /// <param name="o">The ordinal.</param>
     /// <returns>A reference to the column cell.</returns>
     public ref long TokensPm(DestinationOrdinal o) => ref _tokensPm[o.Value];
 
-    /// <summary>The tick of the last complaint-bucket touch of a row (story 006).</summary>
+    /// <summary>The tick of the last door complaint-bucket touch of a row (<see cref="ComplaintBuckets"/>; 0 until the first touch).</summary>
     /// <param name="o">The ordinal.</param>
     /// <returns>A reference to the column cell.</returns>
     public ref long LastTick(DestinationOrdinal o) => ref _lastTick[o.Value];
