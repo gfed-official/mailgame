@@ -12,7 +12,8 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// relative order. Iterate <c>0 .. Count - 1</c> and skip <see cref="IsDead"/>. Flights are never ordered by <see cref="FlightId"/>.
 /// <para>
 /// It keeps the run's conservation record for the tick-end check: <see cref="Launched"/> appends, <see cref="Resolved"/> removals,
-/// and the first <see cref="FlightId"/> resolved twice (a <see cref="Remove"/> of a flight already resolved). In a correct run
+/// and the first <see cref="FlightId"/> of a flight resolved twice in its lifetime (a <see cref="Remove"/> of a flight already
+/// resolved; an id reused after the u16 wrap is a new flight). In a correct run
 /// <c>Launched == Resolved + LiveFlights</c>. O(1) per append and remove, O(Count) per compaction; allocation-free after
 /// construction. Not thread-safe: used on the Sim tick thread.
 /// </para>
@@ -92,7 +93,7 @@ internal sealed class FlightTable
     /// <summary>Removals in the run, a second removal of one flight included.</summary>
     public long Resolved { get; private set; }
 
-    /// <summary>True once some <see cref="FlightId"/> has been resolved twice in the run.</summary>
+    /// <summary>True once some flight has been resolved twice in its lifetime (a reused <see cref="FlightId"/> is a new flight).</summary>
     public bool HasResolvedTwice { get; private set; }
 
     /// <summary>The first <see cref="FlightId"/> resolved twice (meaningful when <see cref="HasResolvedTwice"/>).</summary>

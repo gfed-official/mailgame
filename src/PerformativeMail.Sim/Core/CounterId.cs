@@ -200,7 +200,7 @@ public enum CounterId : ushort
     /// <summary>Players <c>PlayersStep</c> (phase 3): one per latched <c>TransformSample</c> ignored because the host authors that body (key <c>samplesIgnoredAuthored</c>; player-character story 019). Id 63: Evan approved 2026-10-29 (TD-188 item 6). Host-authored = any non-Alive present player: Evan approved (TD-194 item 3), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".</summary>
     SamplesIgnoredAuthored = 63,
 
-    /// <summary>Throwing tick-end conservation check: one per tick on which <c>launched != resolved + live</c> or a <c>FlightId</c> has been resolved twice (throwing-catching story 008; ADR-0015 section 5). Unthrottled, unlike its <c>CheckCode.ThrowingConservationMismatch</c> record. Zero in a correct world. Id 64: Mail Lead planning default, pending Evan (TD-195 item 3).</summary>
+    /// <summary>Throwing tick-end conservation check: one per tick on which <c>launched != resolved + live</c> or a flight has been resolved twice in its lifetime (a <c>FlightId</c> reused after the u16 wrap is a new flight) (throwing-catching story 008; ADR-0015 section 5). Unthrottled, unlike its <c>CheckCode.ThrowingConservationMismatch</c> record. Zero in a correct world. Id 64: Mail Lead planning default, pending Evan (TD-195 item 3).</summary>
     ThrowingConservationMismatches = 64,
 
     /// <summary>Throwing <c>FlightTable.TryAppend</c>: one per append refused because <c>maxFlights</c> flights are live (the caller's <c>flight_cap</c> path, ADR-0015 section 1 row 10; throwing-catching story 008). Unreachable under the leaky bucket. Id 65: Mail Lead planning default, pending Evan (TD-195 item 3).</summary>

@@ -4,9 +4,10 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 
 /// <summary>
 /// Throwing's tick-end conservation record (ADR-0015 section 5; GDD T6 "Every flight ends in exactly one terminal state";
-/// TR-throwing-013), run after phase 12 in every build: <c>launched == resolved + live</c> and no <c>FlightId</c> resolved twice in
-/// the run. A finding writes one <see cref="CheckCode.ThrowingConservationMismatch"/> record (a = launched − resolved − live, b = the
-/// twice-resolved <c>FlightId</c> value or 0) and adds one <see cref="CounterId.ThrowingConservationMismatches"/>, on every tick it
+/// TR-throwing-013), run after phase 12 in every build: <c>launched == resolved + live</c> and no flight resolved twice in its
+/// lifetime (a <c>FlightId</c> reused after the u16 wrap is a new flight). A finding writes one
+/// <see cref="CheckCode.ThrowingConservationMismatch"/> record (a = launched − resolved − live, b = the twice-resolved <c>FlightId</c>
+/// value or 0) and adds one <see cref="CounterId.ThrowingConservationMismatches"/>, on every tick it
 /// holds (the ring's per-code rate limit applies to the record, not the counter). Always on; it reads the table only, mutates nothing,
 /// raises nothing and never throws (the pattern of Grid Inventory's conservation check). Allocation-free.
 /// </summary>

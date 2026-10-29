@@ -12,7 +12,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// <summary>
 /// Throwing &amp; Catching's host-side module shell (GDD <c>design/gdd/throwing-catching.md</c> T4-T6; ADR-0015 sections 5 and 9;
 /// throwing-catching story 008). It holds the live flights in creation order (<see cref="FlightTable"/>, sized by
-/// <see cref="ThrowSettings.MaxFlights"/>), the per-slot cooldown clock <c>Tat</c> (absolute tick, 0 until story 009 writes it,
+/// <see cref="ThrowSettings.MaxFlights"/>), the per-slot cooldown clock <c>Tat</c> (absolute tick, 0 until story 028 writes it,
 /// cleared on every join and leave of the slot), the always-on tick-end conservation record and the canonical dump section. It binds
 /// the join listener, <see cref="PhaseId.ThrowingStep"/> (empty here; story 011 steps the flights), the tick-end check and the state
 /// contributor, and no op or event (stories 006 and 010). No RNG stream. Allocation-free once constructed. Not thread-safe: used on
@@ -136,7 +136,7 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
         builder.BindStateContributor(new ThrowingStateContributor(Flights, _tat));
     }
 
-    /// <summary>The slot's leaky-bucket clock <c>Tat</c> (ADR-0015 section 1; story 009 reads and writes it).</summary>
+    /// <summary>The slot's leaky-bucket clock <c>Tat</c> (ADR-0015 section 1; story 028 reads and writes it).</summary>
     /// <param name="slot">The slot (not none).</param>
     /// <returns>A reference into the module's fixed slot array.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="slot"/> is <see cref="PlayerSlot.None"/>.</exception>

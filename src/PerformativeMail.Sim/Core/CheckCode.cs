@@ -58,6 +58,6 @@ public enum CheckCode : ushort
 
     // 16 is reserved for player-character 017.
 
-    /// <summary>Throwing: the tick-end conservation check found <c>launched != resolved + live</c> or a <c>FlightId</c> resolved twice in the run (throwing-catching story 008; ADR-0015 section 5). a = launched − resolved − live; b = the twice-resolved <c>FlightId</c> value, or 0. Recorded on every tick the finding holds, subject to the ring's per-code rate limit; <c>CounterId.ThrowingConservationMismatches</c> counts every one. Id 17: Mail Lead planning default, pending Evan (TD-195 item 3).</summary>
+    /// <summary>Throwing: the tick-end conservation check found <c>launched != resolved + live</c> or a flight resolved twice in its lifetime (a <c>FlightId</c> reused after the u16 wrap is a new flight) (throwing-catching story 008; ADR-0015 section 5). a = launched − resolved − live; b = the twice-resolved <c>FlightId</c> value, or 0. Recorded on every tick the finding holds, subject to the ring's per-code rate limit; <c>CounterId.ThrowingConservationMismatches</c> counts every one. Id 17: Mail Lead planning default, pending Evan (TD-195 item 3).</summary>
     ThrowingConservationMismatch = 17,
 }
