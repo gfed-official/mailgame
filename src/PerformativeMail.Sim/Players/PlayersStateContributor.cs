@@ -60,7 +60,8 @@ internal sealed class PlayersStateContributor : ISimStateContributor
 
         // Story 019: the host position table, appended after the anchor block, as a u32 count then one entry per present slot
         // in ascending slot order (ADR-0006 l.234). Evan approved 2026-10-29 (TD-188 item 1) for the block's contents; the count
-        // is a fix for Mail Review PR #64 r1 A1, per Mail Lead's 10:55 AM PT ruling.
+        // is a fix for Mail Review PR #64 r1 A1, per Mail Lead's 10:55 AM PT ruling. The resulting 12-byte empty section (not 8):
+        // Mail Dev default, pending Evan (TD-194 item 10).
         w.WriteU32(count);
         for (byte s = 0; s < PlayerSlot.Count; s++)
         {
