@@ -71,6 +71,12 @@ public sealed record class SimSettings
     /// <summary>Mail table pages (1,024 rows each) preallocated at world build (default <see cref="DefaultMailTablePages"/>); exhaustion grows the pool and records a check.</summary>
     public int MailTablePages { get; init; } = DefaultMailTablePages;
 
+    /// <summary>The default starting wallet: the single source for the property and the built-in <c>sim.jsonc</c> entry (TD-177 item 2).</summary>
+    public const int DefaultStartingWalletCents = 0;
+
+    /// <summary>The M-1a <c>StubWallet</c>'s starting balance in cents (<c>sim.startingWalletCents</c>, default <see cref="DefaultStartingWalletCents"/>; ADR-0017 section 8). The −500 floor is not a key: Mail passes it as a <c>Cents</c> argument.</summary>
+    public int StartingWalletCents { get; init; } = DefaultStartingWalletCents;
+
     /// <summary>
     /// Builds the record from a validated table. Reads each value by name through the table's own registry, once, at
     /// composition.
@@ -102,6 +108,7 @@ public sealed record class SimSettings
                 ModifierPoolPerPlayer = Read(table, k.ModifierPoolPerPlayer),
             },
             MailTablePages = Read(table, k.MailTablePages),
+            StartingWalletCents = Read(table, k.StartingWalletCents),
         };
     }
 
@@ -128,7 +135,8 @@ public sealed record class SimSettings
             Entry(BalanceKeys.Sim.WarmupTicksKey, DefaultWarmupTicks, 150, 900),
             Entry(BalanceKeys.Sim.ModifierPoolPerTeamKey, StatsSettings.DefaultModifierPoolPerTeam),
             Entry(BalanceKeys.Sim.ModifierPoolPerPlayerKey, StatsSettings.DefaultModifierPoolPerPlayer),
-            Entry(BalanceKeys.Sim.MailTablePagesKey, DefaultMailTablePages));
+            Entry(BalanceKeys.Sim.MailTablePagesKey, DefaultMailTablePages),
+            Entry(BalanceKeys.Sim.StartingWalletCentsKey, DefaultStartingWalletCents));
     }
 
     private static BalanceEntry Entry(string key, long value) =>

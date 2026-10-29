@@ -2,7 +2,9 @@ using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Economy;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.MailDestinations;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.World;
 
@@ -96,7 +98,8 @@ public static class SimComposition
     /// <see cref="SimCounters"/>, <see cref="SimCheckRing"/>, the <see cref="SimWorldBuilder"/>, <see cref="EntityIds"/>,
     /// <see cref="MailIds"/>, <see cref="SlotTable"/>, <see cref="RngRegistry"/> (seeded with <see cref="SimBuildArgs.RunSeed"/>),
     /// the <see cref="EventLogFacade"/> and the <see cref="ITickReader"/>; bind them as Sim Core state; build and bind the world
-    /// tables (<see cref="BindWorld"/>); construct and bind each system in <see cref="ConstructionOrder"/>; build the <see cref="ClientLayer"/>; <see cref="SimWorldBuilder.Freeze"/>.
+    /// tables (<see cref="BindWorld"/>); when the profile includes Mail &amp; Destinations, construct and bind the M-1a
+    /// <see cref="StubWallet"/> (<see cref="BindWallet"/>); construct and bind each system in <see cref="ConstructionOrder"/>; build the <see cref="ClientLayer"/>; <see cref="SimWorldBuilder.Freeze"/>.
     /// </summary>
     /// <param name="args">Profile, content, run seed, optional counters and host clock.</param>
     /// <returns>The host: a <see cref="SimState.Ready"/> world at tick 0 and a client layer at client tick 0.</returns>
@@ -143,8 +146,11 @@ public static class SimComposition
         // The world tables (ADR-0026 section 9): built while Constructed, bound before the systems, injected by constructor only.
         IWorldQuery? worldQuery = BindWorld(in args, builder, services.EntityIds, counters, content);
 
+        // The wallet port's implementation (ADR-0017 section 8 erratum 2026-10-28): after the world, before the systems; not a system.
+        StubWallet? wallet = BindWallet(profile, builder, services, content);
+
         // Systems, in construction order; each binds right after construction.
-        var context = new SimSystemContext(profile.Graph, content, services, tick, runControl, worldQuery);
+        var context = new SimSystemContext(profile.Graph, content, services, tick, runControl, worldQuery, wallet);
         var systems = new List<ISimSystem>(order.Length);
         for (int i = 0; i < order.Length; i++)
         {
@@ -172,14 +178,12 @@ public static class SimComposition
         tick.Attach(world);
         services.Events.Attach(world.Events);
         runControl.Attach(world.RunControl);
-        return new SimHost(world, client, content, services, order, systems.ToArray());
+        return new SimHost(world, client, content, services, order, systems.ToArray(), wallet);
     }
 
     // The explicit construction code of the shipped systems, one case per system in ShippedOrder. Each gameplay epic adds its
-    // case here (and its row in SystemGraph), e.g.:
-    //   case SystemId.MailDestinations:
-    //       return new MailSystem(context.Events, context.MailIds, context.Rng, context.Api<IInventoryApi>(SystemId.GridInventory), context.Content);
-    // A system whose epic has not landed yet returns null and its phases stay no-ops (GridInventory and PlayerCharacter are built).
+    // case here (and its row in SystemGraph). A system whose epic has not landed yet returns null and its phases stay no-ops
+    // (GridInventory, PlayerCharacter and MailDestinations are built).
     private static ISimSystem? ConstructShipped(SystemId id, SimSystemContext context)
     {
         switch (id)
@@ -189,6 +193,22 @@ public static class SimComposition
                 return context.World is { } world ? new PlayersSystem(world, context.Content, context.CheckRing, context.Counters) : null;
             case SystemId.GridInventory:
                 return new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events, context.Tick, context.EntityIds, context.Slots);
+            case SystemId.MailDestinations:
+                // Mail builds its destination registry from IWorldQuery; without one the system is left unbuilt, like Players.
+                return context.World is { } mailWorld
+                    ? new MailSystem(
+                        context.Events,
+                        context.MailIds,
+                        context.Rng,
+                        context.Tick,
+                        context.Api<IInventoryApi>(SystemId.GridInventory),
+                        context.WalletGate,
+                        mailWorld,
+                        context.Content,
+                        context.StatSheet,
+                        context.CheckRing,
+                        context.Counters)
+                    : null;
             default:
                 return null;
         }
@@ -225,6 +245,26 @@ public static class SimComposition
         WorldTables tables = worldBuilder.Build(ids, content.Player.SlopeMaxPm, content.Player.SwimEnterMm);
         builder.BindStateContributor(tables);
         return tables;
+    }
+
+    /// <summary>
+    /// The wallet step of <see cref="Build"/> (ADR-0017 section 8 and ADR-0003 section 4 errata 2026-10-28; mail-destinations story 005):
+    /// the M-1a <see cref="StubWallet"/>, from <c>sim.startingWalletCents</c>, bound after the World section and before the systems' sections
+    /// (section order SimCore, World, Wallet, then the systems), and injected into Mail only (<see cref="SimSystemContext.WalletGate"/>).
+    /// Built only for a profile that includes Mail &amp; Destinations, its only consumer, so other profiles' dumps carry no Wallet section
+    /// (Evan approved 2026-10-28 (TD-183 item 1)).
+    /// </summary>
+    private static StubWallet? BindWallet(SimProfile profile, SimWorldBuilder builder, SimCoreServices services, ContentSet content)
+    {
+        if (!profile.Includes(SystemId.MailDestinations))
+        {
+            return null;
+        }
+
+        // Built (with its Wallet section) for any profile with Mail, even when no world is bound and Mail itself is not constructed (Evan approved 2026-10-28 (TD-183 item 1)).
+        var wallet = new StubWallet(content.Settings.StartingWalletCents, services.Events, services.Slots, services.Counters);
+        wallet.Bind(builder);
+        return wallet;
     }
 
     private static void ThrowIfDuplicate(SystemId[] order)

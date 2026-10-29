@@ -100,6 +100,7 @@ public static class ContentHash
             new(Prefix + BalanceKeys.Sim.ModifierPoolPerTeamKey, settings.Stats.ModifierPoolPerTeam),
             new(Prefix + BalanceKeys.Sim.ModifierPoolPerPlayerKey, settings.Stats.ModifierPoolPerPlayer),
             new(Prefix + BalanceKeys.Sim.MailTablePagesKey, settings.MailTablePages),
+            new(Prefix + BalanceKeys.Sim.StartingWalletCentsKey, settings.StartingWalletCents),
         };
         StableSort.Sort<NamedValue, ByName>(pairs.AsSpan(), new NamedValue[pairs.Length].AsSpan(), new ByName());
         string[] names = new string[pairs.Length];

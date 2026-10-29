@@ -83,6 +83,8 @@ BOOT 9 start ok
 SMOKE RESULT name=boot-order pass=77 fail=0 exit=0
 ```
 
+- **2026-10-28 (mail-destinations story 005): the `hash=018735cb` on the `BOOT 2 content` line above is stale.** The story adds the `sim.startingWalletCents` balance key, which enters the content hash's BalanceBlock, so the M-1a `ContentHash` is now `54158f09` (`54158f0916409080cc6fa0cd55f5ecf8839e83bd98419acbce5fc0f1b73b8244`, `ContentHashTests.GoldenM1aDigest`). `hashSchemaVersion` stays 1 (a value change, not a layout change). The boot log above was not re-run; it records the run as it was.
+
 - **Observed headless `MinSize` read-back: `1280x720`.** `GetWindow().MinSize` read back equal to the value set under `--headless` (DisplayServer `headless`) on 4.7.2. `boot-order` therefore took the "equal" branch: `GetWindow().MinSize read back 1280x720 == 1280x720 (headless=headless)`, and no `BOOT 1 window min-size readback` mismatch line was logged. The windowed (X11) runs below also read back `1280x720`. 4.7.1, Wayland and hiDPI remain UNVERIFIED (ADR-0019 V4).
 - The headless window size logged after the guard is `1280x720`, not the project's 1600×900 override. Why the headless DisplayServer reports this size was not investigated (UNVERIFIED), and the value is recorded as observed.
 - `Sim.AssertsEnabled == OS.IsDebugBuild()` was asserted, because the smoke ran an unoptimised Debug game build: `SMOKE boot-order PASS Sim.AssertsEnabled == OS.IsDebugBuild() (unoptimised Debug game build) == True`.

@@ -263,4 +263,7 @@ public static class SimAssertCode
 
     /// <summary>The <c>INVENTORY_ASSERT</c> conservation scan (story grid-inventory/017; ADR-0009 section 6), run from the tick-end check every tick, found the storage disagreeing with the ledger: a live state's recount from the entry pool, WorldItems and the backlog differs from its counter, a detached entry's holder state differs from where it is held, or a mailId is held twice (the check's <c>ScanFinding</c> names it). Unreachable while every unit crosses through <c>InventoryMutator</c>. Release does not scan; its Σ and negative-counter checks still record (Approved by Evan 2026-10-22 2:24 PM PT, confirmed in scope 3:00 PM PT, TD-160 item 6; advisory fix, Mail Review PR #38 r1). <c>INVENTORY_ASSERT</c>.</summary>
     public const ushort InventoryConservationScan = 84;
+
+    /// <summary>An <c>IMailApi</c> member whose story has not landed was called (mail-destinations story 005, TD-177 items 4 and 6): <c>ConsumeHand</c> (story 007) or <c>SetDeliveriesState</c> (story 009). Unreachable at M-1a: nothing calls them yet. Release does nothing (no row, wallet, bucket or state change). <c>SIM_ASSERT</c>.</summary>
+    public const ushort MailApiNotImplemented = 85;
 }
