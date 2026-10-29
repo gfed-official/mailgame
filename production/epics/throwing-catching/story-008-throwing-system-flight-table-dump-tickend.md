@@ -1,7 +1,7 @@
 # Story 008: `ThrowingSystem` shell, the `FlightTable` (SoA, 160 slots, wrap-safe `FlightId`), the canonical dump section and the tick-end conservation record
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
