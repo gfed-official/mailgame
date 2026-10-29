@@ -1,6 +1,7 @@
 using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Primitives;
 using PerformativeMail.Sim.Tests.Unit.World;
@@ -16,6 +17,7 @@ namespace PerformativeMail.Sim.Tests.Unit.PlayerCharacter;
 internal sealed class PlayersRig
 {
     private uint _req;
+    private readonly uint[] _seq = new uint[PlayerSlot.Count];
 
     private PlayersRig(SimHost host, WorldTables world)
     {
@@ -68,6 +70,25 @@ internal sealed class PlayersRig
     }
 
     public ref PlayerRecord Record(byte slot) => ref Players.RecordRef(PlayerSlot.FromValue(slot));
+
+    /// <summary>The actor of the player in <paramref name="slot"/> (story 019).</summary>
+    public ActorId Actor(byte slot) => ActorId.FromEntity(Host.Services.Slots.Entry(PlayerSlot.FromValue(slot)).PlayerId);
+
+    /// <summary>The pad spawn point of <paramref name="slot"/> (the join seeds the host position here).</summary>
+    public Vec3Mm Spawn(byte slot) => PadSlots.Position(World, World.PostOffice, slot);
+
+    /// <summary>The stored host position of <paramref name="slot"/> (story 019).</summary>
+    public HostPosition HostPosition(byte slot) => Players.HostPositions[PlayerSlot.FromValue(slot)];
+
+    /// <summary>Writes a transform sample for <paramref name="slot"/> (next sequence number); it is latched by the next tick.</summary>
+    public void Report(byte slot, Vec3Mm feet, SampleFlags flags = SampleFlags.None, ushort yaw = 0)
+    {
+        var s = new TransformSample { Seq = ++_seq[slot], PosXMm = feet.X, PosYMm = feet.Y, PosZMm = feet.Z, YawBam = yaw, Flags = (byte)flags };
+        Assert.True(Sim.TryWriteSample(PlayerSlot.FromValue(slot), in s));
+    }
+
+    /// <summary>Ticks empty until <c>CurrentTick - LastReceivedTick</c> of <paramref name="slot"/> is <paramref name="age"/> (GDD F5 <c>nowTick - lastReceivedTick</c>).</summary>
+    public void AgeTo(byte slot, uint age) => TickEmpty((int)(HostPosition(slot).LastReceivedTick + age - Sim.CurrentTick));
 }
 
 /// <summary>
