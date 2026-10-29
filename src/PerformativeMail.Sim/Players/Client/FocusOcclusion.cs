@@ -13,7 +13,9 @@ namespace PerformativeMail.Sim.Players.Client;
 /// (<c>fPm == 1000</c>), so an anchor resting on the ground is not hidden by the ground under it (TD-175 item 3, approved by
 /// Evan 2026-10-28 7:26 AM PT).</description></item>
 /// <item><description>Blocked tiles: every <see cref="TileFlags.Blocked"/> tile of the map under the segment's x/z AABB, as an
-/// <see cref="AabbMm"/> over its closed footprint with <c>Y</c> from <see cref="int.MinValue"/> to <see cref="int.MaxValue"/>.</description></item>
+/// <see cref="AabbMm"/> over its footprint, half-open in x and z like <c>CarrierColliders.Gather</c> (min edges inclusive, max edges
+/// exclusive: the tile range starts at the floor tile, so a segment lying on a tile's max-x or max-z edge does not test that tile),
+/// with <c>Y</c> from <see cref="int.MinValue"/> to <see cref="int.MaxValue"/>.</description></item>
 /// <item><description>Static solids: one <see cref="IWorldQuery.QueryStaticSolids"/> call over the segment's AABB (expanded by 0 mm)
 /// into the caller's scratch; each solid whose <see cref="StaticSolid.Owner"/> is not the anchor entity is tested with
 /// <see cref="SegmentIntervals.Slab"/>.</description></item>
