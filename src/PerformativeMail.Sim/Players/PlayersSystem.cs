@@ -40,7 +40,7 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
     private readonly ITickReader _tick;
     private readonly SimCounters _counters;
     private readonly IPositionHistory _history;
-    private readonly InteractionGate _gate = new(PlayerReasons.Framework);   // Evan approved 2026-10-29 (TD-188 item 4)
+    private readonly InteractionGate _gate = new(PlayerReasons.Framework);   // reason ids from PlayerReasons: Mail Dev default, pending Evan (TD-194 item 9)
     private readonly HoldSettings _hold;
 
     /// <summary>

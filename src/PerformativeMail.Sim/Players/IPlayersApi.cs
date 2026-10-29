@@ -59,7 +59,8 @@ public interface IPlayersApi
     /// <summary>
     /// GDD F5 <c>leash(p, anchor)</c> (Grid Inventory R10 auto-close): true iff the player's position is not stale and its newest
     /// chest point is strictly farther than <paramref name="leashMm"/> from <paramref name="anchorPoint"/>. False for a stale
-    /// position (an open panel is kept through a lag spike) and for an empty slot. Read-only. Evan approved 2026-10-29 (TD-188 item 2).
+    /// position (an open panel is kept through a lag spike): Evan approved 2026-10-29 (TD-188 item 2). False for an empty slot: Mail Dev
+    /// default, pending Evan (TD-194 item 7). Read-only.
     /// </summary>
     /// <param name="slot">The player's slot.</param>
     /// <param name="anchorPoint">The anchor point, mm.</param>

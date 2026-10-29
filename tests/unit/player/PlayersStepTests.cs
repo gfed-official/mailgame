@@ -135,7 +135,8 @@ public sealed class PlayersStepTests
 /// <summary>
 /// Story 019 Counters / budget, ADVISORY (E2; TR-movement-021 has no ADR coverage): <see cref="PlayersStep"/> for 8 players with 2 000
 /// registered anchors (none stepped) against the 0.20 ms p99 <c>players.hostStep</c> target, and <c>CheckInteraction</c>'s bytes against
-/// 0 B. Both are written to the output and never asserted until M0 (Evan approved 2026-10-29 (TD-188 item 6)).
+/// 0 B. Both are written to the output and never asserted: the 0 B half is advisory until M0 under erratum E2 (2026-10-23), and the
+/// p99 is logged only per the story's Counters / budget AC ("logged only — TR-movement-021 has no ADR coverage").
 /// </summary>
 [Collection(NonParallelCollection.Name)]
 [Trait("Category", "Perf")]
