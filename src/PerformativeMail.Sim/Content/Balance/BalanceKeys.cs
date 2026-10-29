@@ -127,7 +127,7 @@ public static partial class BalanceKeys
             Row(ModifierPoolPerPlayerKey, BalanceUnit.Count, 1, 1 << 16),
             Row(MailTablePagesKey, BalanceUnit.Count, 1, 1024),
 
-            // Hard range 0..100000: Mail Lead planning default, pending Evan (TD-180).
+            // Hard range 0..100000: Evan approved 2026-10-28 (TD-180).
             Row(StartingWalletCentsKey, BalanceUnit.Cents, 0, 100_000));
 
         /// <summary>

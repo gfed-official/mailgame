@@ -252,7 +252,7 @@ public static class SimComposition
     /// the M-1a <see cref="StubWallet"/>, from <c>sim.startingWalletCents</c>, bound after the World section and before the systems' sections
     /// (section order SimCore, World, Wallet, then the systems), and injected into Mail only (<see cref="SimSystemContext.WalletGate"/>).
     /// Built only for a profile that includes Mail &amp; Destinations, its only consumer, so other profiles' dumps carry no Wallet section
-    /// (Mail Dev default, pending Evan (TD-183 item 2)).
+    /// (Mail Dev default, pending Evan (TD-183 item 1)).
     /// </summary>
     private static StubWallet? BindWallet(SimProfile profile, SimWorldBuilder builder, SimCoreServices services, ContentSet content)
     {
@@ -261,7 +261,7 @@ public static class SimComposition
             return null;
         }
 
-        // Built (with its Wallet section) for any profile with Mail, even when no world is bound and Mail itself is not constructed (TD-183 item 2).
+        // Built (with its Wallet section) for any profile with Mail, even when no world is bound and Mail itself is not constructed (TD-183 item 1).
         var wallet = new StubWallet(content.Settings.StartingWalletCents, services.Events, services.Slots, services.Counters);
         wallet.Bind(builder);
         return wallet;
