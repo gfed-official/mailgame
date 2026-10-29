@@ -30,7 +30,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// dist² is measured from the contact point to the receiver centre (box centre, sphere centre, cylinder axis at mid-height)
 /// in doubled coordinates, i.e. 4 x dist², so half-millimetre box centres stay exact with no division; receivers without a
 /// centre use 0 (Evan 2026-10-28, TD-179). Only receivers of one rank are ever compared on it, so the scale never mixes
-/// (Mail Dev default, pending Evan (TD-181): the cylinder's mid-height axis point as its centre).
+/// (Evan approved 2026-10-28 (TD-181): the cylinder's mid-height axis point as its centre).
 /// Coordinates are assumed inside the ADR-0026 map (|coord| up to 1 000 000 mm). Pure, static, integer-only,
 /// allocation-free, reads nothing but its arguments.
 /// </para>
@@ -97,8 +97,8 @@ public static class FlightSweep
             s.OfferPlain(ReceiverKind.Ground, groundPm, 0);
         }
 
-        // Per AC, WaterDepthMm (the authority) decides water, read at the y = 0 crossing. Mail Dev default, pending Evan (TD-181): the
-        // Tile(tx, tz).Water hint is not consulted. Mail Dev default, pending Evan (TD-181): water is tested only at the first y <= 0
+        // Per AC, WaterDepthMm (the authority) decides water, read at the y = 0 crossing. Evan approved 2026-10-28 (TD-181): the
+        // Tile(tx, tz).Water hint is not consulted. Evan approved 2026-10-28 (TD-181): water is tested only at the first y <= 0
         // crossing, so a segment that crosses y = 0 over dry land and ends over water gets Water one tick later.
         SegmentInterval water = SegmentIntervals.SlabAxis(p0.Y, p1.Y, int.MinValue, 0);
         if (water.Hit)
@@ -120,7 +120,7 @@ public static class FlightSweep
 
     private static void MapSides(ref Sweep s, in Vec3Mm p0, in Vec3Mm p1, in ReceiverView v)
     {
-        // Mail Dev default, pending Evan (TD-181): a side counts only for a segment moving outward across it (D toward the outside),
+        // Evan approved 2026-10-28 (TD-181): a side counts only for a segment moving outward across it (D toward the outside),
         // as the closed half-space beyond the side, so a flight on the edge moving inward is not stopped by it.
         if (s.Dx < 0)
         {
@@ -141,12 +141,12 @@ public static class FlightSweep
         }
     }
 
-    // Mail Dev default, pending Evan (TD-181): the cylinder loop here and the belt-lane loop in FirstContact are written although their
+    // Evan approved 2026-10-28 (TD-181): the cylinder loop here and the belt-lane loop in FirstContact are written although their
     // spans stay empty until M-1b, so TC-T6-1 and the ReceiverMask AC run through FirstContact on stub receivers.
     private static void Dynamic(ref Sweep s, in Vec3Mm p0, in Vec3Mm p1, in ReceiverView v)
     {
-        // The segment's bounding sphere in doubled coordinates: centre P0 + P1, radius ceil(|D|). Mail Dev default, pending
-        // Evan (TD-181): a segment longer than the broad-phase bound on any axis (or a radius the test cannot square) skips the
+        // The segment's bounding sphere in doubled coordinates: centre P0 + P1, radius ceil(|D|). Evan approved
+        // 2026-10-28 (TD-181): a segment longer than the broad-phase bound on any axis (or a radius the test cannot square) skips the
         // pre-test, so SegmentIntervals' own guard rejects it and asserts instead of the candidate vanishing silently.
         bool fits = Within(s.Dx) && Within(s.Dy) && Within(s.Dz);
         long length = fits ? CeilSqrt((s.Dx * s.Dx) + (s.Dy * s.Dy) + (s.Dz * s.Dz)) : 0;

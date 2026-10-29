@@ -25,7 +25,7 @@ public readonly struct CylinderReceiver
     public readonly int HeightMm;
 
     /// <summary>
-    /// <see cref="ReceiverKind.Goon"/> or <see cref="ReceiverKind.Teammate"/>. Mail Dev default, pending Evan (TD-181): not validated;
+    /// <see cref="ReceiverKind.Goon"/> or <see cref="ReceiverKind.Teammate"/>. Evan approved 2026-10-28 (TD-181): not validated;
     /// <see cref="FlightSweep.FirstContact"/> ranks the cylinder as whatever kind it carries.
     /// </summary>
     public readonly ReceiverKind Kind;

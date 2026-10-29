@@ -258,7 +258,7 @@ public class FlightSweepTests
     [InlineData(31800, 5000, 32200, 5000, true, 1u, 32000, 5000)]
     [InlineData(5000, 200, 5000, -200, true, 2u, 5000, 0)]
     [InlineData(5000, 31800, 5000, 32200, true, 3u, 5000, 32000)]
-    // On the -X side moving inward: not stopped (Mail Dev default, pending Evan (TD-181): sides count only on outward motion)
+    // On the -X side moving inward: not stopped (Evan approved 2026-10-28 (TD-181): sides count only on outward motion)
     [InlineData(0, 5000, 400, 5000, false, 0u, 0, 0)]
     public void SegmentLeavingBounds_HitsTheMapSideAsSolidAtTheCrossing(int x0, int z0, int x1, int z1, bool hit, uint side, int cx, int cz)
     {
