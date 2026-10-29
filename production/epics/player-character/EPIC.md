@@ -141,7 +141,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 027 | [Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, story 009 carry-forwards (TD-091)](story-027-movement-rulings-extra-jump-slide-td-091.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0013 |
 | 028 | [PCM-P2-1 cross-OS golden equality (Windows + Linux) and the blocking PCM-PERF-1 counters /](story-028-deferred-golden-cross-os-equality-and-blocking-counters.md) | Integration | Deferred (Evan 2026-10-23) | — |
 
-**28 stories: 20 Logic, 4 Integration, 4 Visual/Feel — 17 Complete, 9 Ready, 2 Deferred (refreshed 2026-10-29 from the story headers, story 017 Complete, branch `story/player-character-017`).**
+**28 stories: 20 Logic, 4 Integration, 4 Visual/Feel — 18 Complete, 8 Ready, 2 Deferred (refreshed 2026-10-29 from the story headers, story 017 Complete, branch `story/player-character-017`, with story 019 Complete on main 310afef, PR #64).**
 
 **Suggested order:** 001–010 (solver, in this order; 003 and 004 can run in parallel with 002/005) → 011–019 (interaction framework; 011, then 012/013, then 014–018, 019 any time after 012/013) → 020 → 021 → 022–026 (Godot-side, after the godot-host-shell epic's scene/view-registry stories).
 
