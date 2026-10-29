@@ -143,6 +143,7 @@ Tick():
 | its owner-filtered `IRngStreams` view (names it owns) | stream owners only; Throwing gets none | ADR-0005 |
 | `ITickReader` (current tick, phase) | any system | this ADR |
 | `IWorldQuery` (read-only world) | any system | ADR-0026 |
+| `IWalletGate` (ADR-0017 §8 port) | Mail & Destinations only | ADR-0017 |
 | `IRunControl` | **Run Structure only** | this ADR |
 | `I<System>Api` of a **declared** dependency | per `SystemGraph` | each system's ADR |
 | `ContentSet` (or a sub-table of it) | any system | ADR-0010 |
@@ -369,3 +370,4 @@ New code. In the Sim Core "builder/phases/composition" story:
 - 2026-10-17 — §4 injectable table: had no `IWorldQuery` row; now `IWorldQuery` (read-only world, any system, ADR-0026), as allowed by `CompositionRulesTests`; source TD-064 item 2.
 - 2026-10-17 — §4 no-statics rule: `ReadOnlySpan<T>` literal tables were presented as allocation-free unconditionally; now notes the `RuntimeHelpers.CreateSpan` Tier-0/unoptimised allocation and the `AggressiveOptimization` getter used by shipped tables; source TD-008.
 - 2026-10-17 — §4 injectable table: "`SlotTable` (read-only view)" was the row name; now `ISlotView`, the interface the composition rule test actually checks; source: errata pass review.
+- 2026-10-28 — §4 injectable table: had no row for the Mail-owned wallet port, so ADR-0017 §8's "the composition root injects `IWalletGate` into Mail's constructor" had no legal implementation (`CompositionRulesTests.CheckParameter` rejects any parameter not on the table and not an `I…Api`); now the row "`IWalletGate` (ADR-0017 §8 port) | Mail & Destinations only | ADR-0017". The port is injected by the composition root (`SimSystemContext.WalletGate`, guarded to `SystemId.MailDestinations`), not declared as a `SystemGraph` edge; `SystemGraph` is unchanged. `CompositionRulesTests.Table()` gains the matching rule — that test change is mail-destinations story 005's code work. Approved by Evan 2026-10-28 7:26 AM PT, in his own words in the Mail Lead chat, card 'Mail-destinations 005 decisions': "Approve the ADR-0003 §4 and ADR-0017 §8 errata: the composition root injects IWalletGate into Mail only, and SystemGraph is unchanged"; source: mail-destinations 005 readiness (gap 1 item 5), TD-177.
