@@ -55,4 +55,7 @@ public enum CheckCode : ushort
 
     /// <summary>Grid Inventory: the tick-end conservation check found a ledger row out of balance (story grid-inventory/017; ADR-0009 section 6; GDD R19). a = the ledger row (0 = mail, itemId + 1 for an item) with, for a negative live counter, the state ordinal + 1 (<c>LedgerState</c>) in bits 24-31 (0 for the Σ check); b = Σ live − (spawned + granted − consumed − destroyed), or the negative counter's value. One record per finding, subject to the ring's per-code rate limit; <c>CounterId.InventoryConservationMismatches</c> counts every finding (Mail Lead planning default pending Evan, TD-160 item 5).</summary>
     InventoryConservationMismatch = 15,
+
+    /// <summary>Players: a Channel-mode anchor was pressed at M-1a; the channel latched and nothing was sent, because <c>IInteractable</c> declares no channel start/stop builder (ADR-0014 gap, M-1b; player-character story 017; Evan approved 2026-10-29 (TD-186 item 3)). a = entity id, b = slot. Recorded with the client tick.</summary>
+    ChannelAnchorNoBuilder = 16,
 }
