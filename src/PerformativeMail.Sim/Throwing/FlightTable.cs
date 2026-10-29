@@ -151,7 +151,11 @@ internal sealed class FlightTable
         }
 
         Resolved++;
-        if (!_serial.Release(_id[index]) && !HasResolvedTwice)
+
+        // A dead slot is this flight's second resolve; its id is not released again, so an id reused after the u16 wrap (a later
+        // flight, live again in the serial) is never cleared or counted by it. A live slot's id is always live in the serial.
+        bool twice = _dead[index] || !_serial.Release(_id[index]);
+        if (twice && !HasResolvedTwice)
         {
             HasResolvedTwice = true;
             ResolvedTwiceId = _id[index];

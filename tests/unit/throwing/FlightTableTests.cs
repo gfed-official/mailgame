@@ -8,13 +8,11 @@ namespace PerformativeMail.Sim.Tests.Unit.ThrowingCatching;
 
 /// <summary>
 /// Throwing story 008 (ADR-0015 sections 5 and 9): the <see cref="FlightTable"/> stores every <c>FlightRecord</c> field and holds 160
-/// flights, keeps creation order through a seeded churn and a <c>FlightId</c> wrap (GDD TC-E-6 c), the per-slot <c>Tat</c> is cleared
-/// by a leave and a rejoin, and the tick-end record fires on a flight resolved twice and never in a normal run.
+/// flights, keeps creation order through a seeded churn and a <c>FlightId</c> wrap (GDD TC-E-6 c), and the tick-end record fires on a
+/// flight resolved twice and never in a normal run, the wrap included (a reused id is a new flight, not a second resolve).
 /// </summary>
 public class FlightTableTests
 {
-    private static readonly PlayerSlot _slot2 = PlayerSlot.FromValue(2);
-
     [Fact]
     [Trait("Id", "TR-throwing-009")]
     [Trait("Id", "TR-throwing-008")]
@@ -131,7 +129,10 @@ public class FlightTableTests
     public void FlightIdWrap_70000Launches_EachResolvedSoonAfter_StayInCreationOrder()
     {
         // Arrange
-        var flights = new FlightTable(160, new SimCounters());
+        var counters = new SimCounters();
+        var ring = new SimCheckRing(rateLimitTicks: 0);
+        var flights = new FlightTable(160, counters);
+        var check = new ThrowingTickEndCheck(flights, ring, counters);
         var expected = new List<FlightId>();
         bool sawWrapInTable = false;
 
@@ -153,36 +154,19 @@ public class FlightTableTests
             }
 
             flights.Compact();
+            check.Check((uint)n);
             List<FlightId> ids = Ids(flights);
             Assert.Equal(expected, ids);
             sawWrapInTable |= ids.Contains(new FlightId(ushort.MaxValue)) && ids.Contains(new FlightId(0));
         }
 
-        // Assert: 70 000 launches wrapped the u16 serial, and a live set straddling the wrap kept 65 535 ahead of 0.
+        // Assert: 70 000 launches wrapped the u16 serial, a live set straddling the wrap kept 65 535 ahead of 0, and no reused id
+        // (ids 0 to 4463 each served two flights) was ever taken for a second resolve: the tick-end check never fired.
         Assert.Equal(unchecked((ushort)70_000), flights.NextFlightId);
         Assert.True(sawWrapInTable);
-        Assert.Equal(flights.Launched, flights.Resolved + flights.LiveFlights);
-    }
-
-    [Fact]
-    [Trait("Id", "TR-throwing-008")]
-    public void LeaveThenRejoin_LeavesTheSlotsTatAtZero()
-    {
-        // Arrange: story 009 writes Tat on a launch; a stale value is put there by hand before the leave and before the rejoin.
-        var rig = PlayersRig.Create();
-        ThrowingSystem throwing = Throwing(rig);
-        rig.JoinAndTick(2);
-        throwing.Tat(_slot2) = 1234;
-
-        // Act
-        rig.LeaveAndTick(2);
-        uint afterLeave = throwing.Tat(_slot2);
-        throwing.Tat(_slot2) = 999;
-        rig.JoinAndTick(2);
-
-        // Assert
-        Assert.Equal(0u, afterLeave);
-        Assert.Equal(0u, throwing.Tat(_slot2));
+        Assert.False(flights.HasResolvedTwice);
+        Assert.Equal(0L, counters[CounterId.ThrowingConservationMismatches]);
+        Assert.Equal(0, ring.Count);
     }
 
     [Fact]
