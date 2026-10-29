@@ -37,22 +37,22 @@
 
 *From GDD `design/gdd/content-data-definitions.md`, scoped to this story:*
 
-- [ ] **Shipped files load.** `ContentLoader.Load(new DirectorySource("content/"))` over the shipped M-1a files returns zero Errors and a `ContentSet`. That set's canonical bytes (story 013) are **identical** to `BuiltInContent.CreateM1a()`'s. (Epic DoD equality test; ADR-0010 Validation Criteria, M-1a form)
-- [ ] **Stage gating.** A stage-1 syntax error in one file means the failed type is not built, the set is withheld (`ContentSet` is null) and the stage 4–5 runner's skipped (rule, def) pairs name the blocking file (the runner still runs over the `FailedInput`s, `ContentPipeline.cs:128-131`; clean types are still built, per the Stage order note). The fixture file also holds a CV-GRD-01 input, so the result lists at least one skipped pair for it, and a second, clean file of another type is still parsed and built. (CDD-LOAD-3)
-- [ ] **Hash invariance.** One fixture is varied by:
+- [x] **Shipped files load.** `ContentLoader.Load(new DirectorySource("content/"))` over the shipped M-1a files returns zero Errors and a `ContentSet`. That set's canonical bytes (story 013) are **identical** to `BuiltInContent.CreateM1a()`'s. (Epic DoD equality test; ADR-0010 Validation Criteria, M-1a form)
+- [x] **Stage gating.** A stage-1 syntax error in one file means the failed type is not built, the set is withheld (`ContentSet` is null) and the stage 4–5 runner's skipped (rule, def) pairs name the blocking file (the runner still runs over the `FailedInput`s, `ContentPipeline.cs:128-131`; clean types are still built, per the Stage order note). The fixture file also holds a CV-GRD-01 input, so the result lists at least one skipped pair for it, and a second, clean file of another type is still parsed and built. (CDD-LOAD-3)
+- [x] **Hash invariance.** One fixture is varied by:
   - line endings (LF, CRLF), a BOM, comments, whitespace;
   - key order within an object, **including the MailMix `shares` map**: each shift's `shares` are sorted by `MailShare.Kind.Value` ascending before the canonical encode — this equals ordinal kind-id order because `DefIdAssigner` assigns ordinals in `StringComparer.Ordinal` id order, and the encoder never sees the string key; a `DefIndex.None` share never reaches the encoder because CV-GEN-01 withholds the set — so swapping two `shares` keys does not change the hash. (Evan 2026-10-28 6:09 AM PT, Mail Lead chat, answering Mail Lead's card, TD-075(3): "Order of shares entries must not change the hash: sort them, per ADR-0010". Story 018 hashes `shares` in authored order today; this story adds the sort, and the AC below bumps the schema version with it.)
   - the order of a set-valued list.
 
   Every variant yields the same `ContentHash`. Changing an ItemDef `sellPrice` 400 → 401 (or a MailKindDef `baseValue`), any balance key, or the presence of an optional field (`buyPrice`; `grid` or `allowedCategories` would also do — `carryByHand`, `acceptsInsert` and `view` are always spelled out, so they are not presence variants) changes it. (CDD-PARSE-1, CDD-HASH-1)
-- [ ] **Hash schema version.** `ContentHash.HashSchemaVersion` is bumped 1 → 2 (`ContentHash.cs:29`) in the same commit as the `shares` sort, as ADR-0010 l.158 requires ("must change `hashSchemaVersion` whenever its layout changes"; GDD F6 variables table). In that commit: `GoldenM1aDigest` and `GoldenM1aDisplay` (`ContentHashTests.cs:31, 33`) are regenerated — they change anyway, because `BuiltInContent`'s shift 1 shares are authored (letter, small, medium) while ordinal order is (letter, medium, small) (`BuiltInContent.cs:154-158`); the literal `1` assert at `ContentHashTests.cs:587` uses the constant; the `DefCanonical.cs` doc comments at l.15 ("`Shares` are hashed in authored order, deliberately") and l.129 ("order as authored") say sorted by `Kind.Value`; the canonical bytes of the shipped files and `BuiltInContent.CreateM1a()` still match (first AC). The regenerated digest must match on every CI leg. (Evan 2026-10-28 7:24 AM PT, Mail Lead chat, card 'Content-data 019 and throwing-catching 002': "Approve bumping hashSchemaVersion 1 to 2 with the shares sort and regenerating the golden hash in the same commit"; ADR-0010 l.158, Validation Criteria)
-- [ ] **Balance files.**
+- [x] **Hash schema version.** `ContentHash.HashSchemaVersion` is bumped 1 → 2 (`ContentHash.cs:29`) in the same commit as the `shares` sort, as ADR-0010 l.158 requires ("must change `hashSchemaVersion` whenever its layout changes"; GDD F6 variables table). In that commit: `GoldenM1aDigest` and `GoldenM1aDisplay` (`ContentHashTests.cs:31, 33`) are regenerated — they change anyway, because `BuiltInContent`'s shift 1 shares are authored (letter, small, medium) while ordinal order is (letter, medium, small) (`BuiltInContent.cs:154-158`); the literal `1` assert at `ContentHashTests.cs:587` uses the constant; the `DefCanonical.cs` doc comments at l.15 ("`Shares` are hashed in authored order, deliberately") and l.129 ("order as authored") say sorted by `Kind.Value`; the canonical bytes of the shipped files and `BuiltInContent.CreateM1a()` still match (first AC). The regenerated digest must match on every CI leg. (Evan 2026-10-28 7:24 AM PT, Mail Lead chat, card 'Content-data 019 and throwing-catching 002': "Approve bumping hashSchemaVersion 1 to 2 with the shares sort and regenerating the golden hash in the same commit"; ADR-0010 l.158, Validation Criteria)
+- [x] **Balance files.**
   - Each `content/balance/<owner>.jsonc` is an object of `key: value` or `key: { value, safe: [min, max] }`.
   - The owner is the file name, so `player.jsonc` holds `player.*`.
   - The story 004 checks apply to parsed files: a key in the wrong owner's file, a key in two files, or an unregistered key each give one CV-GEN-13, and a value outside `safe` gives CV-GEN-20.
 
   (CDD-SCHEMA-5, file form)
-- [ ] **Presentation exclusion.** Files under `content/presentation/` are excluded from Sim loading and from the hash; changing a value there leaves `ContentHash` unchanged. The fixture (its file, and whether it is in-memory or shipped) is an implementation detail Mail Dev picks. No player-data type (MetaProfile, settings, input bindings) appears in any `FieldSpec` set (architecture test). (CDD-SCHEMA-1)
+- [x] **Presentation exclusion.** Files under `content/presentation/` are excluded from Sim loading and from the hash; changing a value there leaves `ContentHash` unchanged. The fixture (its file, and whether it is in-memory or shipped) is an implementation detail Mail Dev picks. No player-data type (MetaProfile, settings, input bindings) appears in any `FieldSpec` set (architecture test). (CDD-SCHEMA-1)
 
 ---
 
@@ -122,7 +122,18 @@ One batched row per PR (lighter process, decision log 2026-10-23). All three App
 - Edited: `tests/unit/content/ContentHashTests.cs` (`GoldenM1aDigest`, `GoldenM1aDisplay` regenerated; l.587 uses the constant)
 - Legs: dev loop net10.0 Debug; close net10.0 Debug and net8.0 Release in full; CI all four Sim legs (net10.0/net8.0 × Debug/Release) plus "Game project build (no editor)". Baseline on main 51b68cd is 5,561 tests per leg. The content digest golden changes in this story and must match on every leg. Ordering: mail-destinations 005 lands before this story and regenerates the golden first (its `sim.startingWalletCents` key); this story regenerates it again.
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing (2026-10-28, Mail Dev, `/dev-story`)
+
+| AC | Test (`tests/integration/content/ContentLoaderTests.cs` unless noted) |
+|---|---|
+| Shipped files load | `Load_ShippedFiles_HasNoFindings_AndTheCanonicalBytesOfBuiltInContent` (also: no `content/manifest.txt`) |
+| Stage gating | `Load_SyntaxErrorInOneFile_WithholdsTheSet_SkipsItsRules_AndStillBuildsTheCleanFile`; real locations and `suppress` pass-through (TD-178 item 1): `Load_StageFiveFindingOnALoadedDef_PointsAtItsFile_AndItsSuppressReachesTheRunner` |
+| Hash invariance | `ContentHash_IgnoresTheFileForm_AndChangesWithLoadedValues` (CRLF, BOM, comments and whitespace, key order, `shares` order, `accepts` order; `sellPrice` 400 → 401, `baseValue`, `sim.warmupTicks`, `buyPrice` presence) |
+| Hash schema version | `tests/unit/content/ContentHashTests.cs`: `ContentHash_M1a_MatchesTheGoldenDigest` (golden `54158f09…` → `10d2358bc8fa64d66a96d280ed3ca21e340536b093695d4677cb5daa2c5281be`, display `10d2358b`; pins `HashSchemaVersion` 2), `ContentHash_IsTheSha256OfTheCanonicalStream` and `ComputeSettings_Stream_IsVersionThenOrdinalSortedSimKeys` (the literal `1` asserts now use the constant) |
+| Balance files | `Load_BalanceFiles_GiveOneFindingPerMistake` (unregistered key, `mail.lateValueRatio` moved into `player.jsonc`, the same key in both files: one CV-GEN-13 each; outside `safe`: CV-GEN-20, set still built; malformed values, a one-element `safe` and an unknown content file: one finding each, no CV-GEN-05 cascade) |
+| Presentation exclusion | `Load_PresentationFiles_AreNeitherLoadedNorHashed` (in-memory `presentation/hud.tuning.jsonc`, two values and a non-JSON body); architecture: `FieldSpecSets_HoldOnlySimDefTypes_AndNoPlayerData` |
+
+Runs (2026-10-28, net10.0 Debug): `ContentLoaderTests` 17/17; dev loop (`ContentLoaderTests`, `ContentHashTests`, `BuiltInContentTests`, `SchemaStageTests`, `BalanceTableTests`, `GeneralRulesTests`, `SyntaxStageTests`) 336/336; `Unit.Architecture` namespace 109/109; full suite 5,644 total, 5,580 passed, 0 failed, 64 skipped. Mutation checks: removing the `shares` sort, the stage 4 to 5 relocation, or the loaded records each fails the matching test. Not run locally: net8.0 Release (story close) and the four CI legs.
 
 ---
 
