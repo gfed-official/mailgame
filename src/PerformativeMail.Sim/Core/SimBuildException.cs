@@ -160,7 +160,7 @@ public enum SimBuildErrorCode : byte
     /// <summary>A container def is unusable by the inventory storage (for example wider than the 64-column occupancy bitmap).</summary>
     InventoryDefInvalid = 52,
 
-    /// <summary>Mail &amp; Destinations: the destination registry rejected the world's lots or the content at construction (more than 65,535 lots, a duplicate address or destination id, no <c>house</c> def, or an unusable <c>house</c> catch volume; TD-079 item 5). Mail Dev default, pending Evan (TD-183 item 2).</summary>
+    /// <summary>Mail &amp; Destinations: the destination registry rejected the world's lots or the content at construction (more than 65,535 lots, a duplicate address or destination id, no <c>house</c> def, or an unusable <c>house</c> catch volume; TD-079 item 5). Evan approved 2026-10-28 (TD-183 item 2).</summary>
     MailRegistryInvalid = 53,
 }
 

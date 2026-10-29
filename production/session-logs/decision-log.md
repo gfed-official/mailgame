@@ -6388,3 +6388,10 @@ Follow-on edits: throwing-catching 021 no longer depends on manual-delivery 008 
 **Chosen:** as quoted. TD-180 closed ("Evan approved"); the `BalanceKeys.cs` row comment reads "Evan approved 2026-10-28 (TD-180)" (mail-destinations 005, branch `story/mail-destinations-005`). Evan is credited only for the range and the default.
 **Reason:** Owner decision.
 **Category:** owner decision (balance-key range approved; TD-180 closed; no ADR change)
+
+#### 2026-10-28 — mail-destinations 005's three as-built defaults (TD-183) approved and closed (owner decision, Evan 2026-10-28 9:47 PM PT, in his own words answering the TD-183 card: "Approve all three TD-183 defaults for mail-destinations 005: wallet only for Mail profiles, MailRegistryInvalid = 53, and counters 56 and 57 kept out of the canonical dump")
+**Decision point:** mail-destinations 005 (PR #57) batched three as-built Mail Dev defaults in TD-183: (1) the `StubWallet` and its `Wallet` section are built only for profiles that include Mail & Destinations (`SimComposition.cs:255-268`); (2) registry rejections map to the new `SimBuildErrorCode.MailRegistryInvalid = 53` (`SimBuildException.cs:163-164`, `MailSystem.cs:144-154`); (3) counters 56/57 are canonical `CounterId`s written to no dump section (`CounterId.cs:189`).
+**Options considered:** approve the three as batched; change any item in a follow-up code PR.
+**Chosen:** as quoted. TD-183 closed ("Evan approved"); the code labels read "Evan approved 2026-10-28 (TD-183 item N)" (comment-only). Evan is credited only for these three behaviours; the row's review advisories (counters 56/57 never incremented at M-1a, `StubWallet` negative amounts) are not part of the approval.
+**Reason:** Owner decision.
+**Category:** owner decision (as-built defaults approved; TD-183 closed; no ADR or behaviour change)
