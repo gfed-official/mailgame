@@ -81,6 +81,8 @@ exits 3 with the missing / unexpected names.
 
 ## Test Naming
 
+What to test (and what not to): `.claude/rules/lean-testing.md`.
+
 C# (xUnit), following `.claude/rules/test-standards.md` (Unity/NUnit C# form):
 - class `[System]Tests` or `[Rule]Tests` in a file of the same name, namespace
   `PerformativeMail.Sim.Tests.Unit.[System]` / `.Integration.[System]`

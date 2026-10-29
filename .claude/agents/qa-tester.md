@@ -185,7 +185,9 @@ bool F[System][Scenario]Test::RunTest(const FString& Parameters)
    test cases. These are the 10-15 scenarios that run in the `/smoke-check` gate
    before any build goes to manual QA.
 7. **Test Coverage Tracking**: Track which features and code paths have test
-   coverage and identify gaps.
+   coverage and identify gaps. A gap is what `.claude/rules/lean-testing.md`
+   calls one (missing AC test, missing regression test, player-facing bug risk),
+   not a low test count.
 
 ### Test Case Format
 

@@ -6395,3 +6395,10 @@ Follow-on edits: throwing-catching 021 no longer depends on manual-delivery 008 
 **Chosen:** as quoted. TD-183 closed ("Evan approved"); the code labels read "Evan approved 2026-10-28 (TD-183 item N)" (comment-only). Evan is credited only for these three behaviours; the row's review advisories (counters 56/57 never incremented at M-1a, `StubWallet` negative amounts) are not part of the approval.
 **Reason:** Owner decision.
 **Category:** owner decision (as-built defaults approved; TD-183 closed; no ADR or behaviour change)
+
+#### 2026-10-29 — Evan asked for lean testing focused on business logic (owner direction, Evan 2026-10-29 8:19 AM PT, in his own words: "Please also write something up for claude that lets us avoid frivolous testing, we should be focused on writing business logic")
+**Decision point:** about 59 % of the C# lines are tests (108k of 183k) and each CI leg runs ~5,650 cases; the per-story gates (QL-TEST-COVERAGE edge-case gaps, pin tests, mutation-survivor tests) keep adding tests that protect no player-facing behaviour. Earlier direction: friends-only game, no production hardening, playable-first (2026-10-23).
+**Options considered:** a new always-loaded rule plus pointers from the testing skills, gates and agents; changing `qa.level` / `modes.rigor` (not done: it would also waive the AC and regression tests Evan still wants).
+**Chosen:** `.claude/rules/lean-testing.md` (imported from `CLAUDE.md`): one behaviour test per acceptance criterion, one regression test per real bug, a "don't write" list, one golden per subsystem, deleting hollow tests encouraged, reviewers judge by AC coverage and bug risk. Pointers added to `test-standards.md`, `gameplay-code.md`, `gameplay-programmer`, `qa-tester`, QL-TEST-COVERAGE, `/code-review`, `/dev-story` and `tests/README.md`. ADR text unchanged; the ADR errata the rule implies are listed in PR "docs: lean-testing rule for Claude Code", pending Evan's approval.
+**Reason:** Owner direction.
+**Category:** owner direction (process rule; no ADR or behaviour change)
