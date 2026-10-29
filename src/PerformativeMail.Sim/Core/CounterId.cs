@@ -179,4 +179,7 @@ public enum CounterId : ushort
 
     /// <summary>Press resolution (player-character story 016; ADR-0014 section 3, input-controls H-R4-6): one per Interact press edge ignored because a hold or channel was already in progress (no second latch) (key <c>interactPressIgnored</c>; D5 — Mail Lead default, pending Evan (TD-171)). On the ClientLayer's counters, not in the canonical dump.</summary>
     InteractPressIgnored = 54,
+
+    /// <summary>Focus occlusion (player-character story 015; ADR-0014 section 2): the most chest-to-anchor occlusion tests one client-tick focus pass ran (key <c>focusOcclusionTests</c>; PCM-PERF-1 "occlusion tests &lt;= candidates in range"); a running maximum like <see cref="FocusCandidates"/>, never above it (TD-175 item 2, approved by Evan 2026-10-28 7:26 AM PT). A probe counter on the ClientLayer's counters, not in the canonical dump.</summary>
+    FocusOcclusionTests = 55,
 }

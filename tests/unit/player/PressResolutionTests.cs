@@ -199,7 +199,7 @@ internal sealed class PressRig
         Predictor = new FakeCatchPredictor();
         Resolver = new PressResolver(Anchors, Gate, Predictor, Settings);
         Source = new ScriptedFocusSource { Feet = FocusRig.Feet };
-        Focus = new FocusStep(Source, Anchors, Gate, Settings, Counters);
+        Focus = new FocusStep(Source, FocusRig.FlatWorld(), Anchors, Gate, Settings, Counters);
         Step = new EdgeResolveStep(Source, Anchors, Gate, Settings, Input, Predictor, CatchArm, Requests, Counters, Self);
         var builder = new ClientLayerBuilder(Clock, Counters);
         builder.BindPreview(PreviewSubStep.Focus, Focus);
