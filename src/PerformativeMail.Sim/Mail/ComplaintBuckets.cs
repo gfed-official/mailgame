@@ -105,7 +105,7 @@ internal sealed class ComplaintBuckets
     /// Misdeliver and calls once per op). Refills the door and team buckets at <paramref name="now"/>, then
     /// <c>allowed = min(raw, doorTokens / window, teamTokens / window)</c> and debits <c>allowed × window</c> from both. The raised value
     /// is <c>allowed</c> scaled by <see cref="Stat.MisdeliveryComplaintMultPm"/> after the cap, so the buckets are still debited the full
-    /// <c>allowed</c> (M-R9-2c; Evan approved 2026-10-29 (TD-187 item 1)). 0 B.
+    /// <c>allowed</c> (M-R9-2c; Mail Dev default, pending Evan (TD-193 item 7)). 0 B.
     /// </summary>
     /// <param name="d">The door.</param>
     /// <param name="now">The current tick.</param>

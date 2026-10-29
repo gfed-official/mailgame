@@ -150,7 +150,7 @@ public class ComplaintBucketTests
         Assert.False(graced.Buckets.LateCharged);
         Assert.Equal(2_000, graced.Buckets.ChargeLate(T + 1, graceSuppresses: false));
 
-        // The caller's c/d/e contract (story 007; Evan approved 2026-10-29 (TD-187 item 1)): a dead-letter-only Accept and a
+        // The caller's c/d/e contract (story 007; Mail Dev default, pending Evan (TD-193 item 7)): a dead-letter-only Accept and a
         // Misdeliver op make no call, so the window is unchanged; two late entries in one hold make one call, so +2,000 once.
     }
 
