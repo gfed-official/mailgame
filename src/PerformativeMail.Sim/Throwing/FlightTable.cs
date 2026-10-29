@@ -101,9 +101,9 @@ internal sealed class FlightTable
 
     /// <summary>
     /// Stores <paramref name="init"/> as a new flight with the next <see cref="FlightId"/>, after the flights already stored. The table
-    /// assigns the id, so a refused append consumes none: Mail Dev default, pending Evan (TD-197 item 2). It never compacts, so the
+    /// assigns the id, so a refused append consumes none: Evan approved (TD-197 item 2), 2026-10-29 3:24 PM PT: "Approve all four TD-197 defaults for throwing-catching 008". It never compacts, so the
     /// positions a caller holds stay valid: a dead slot awaiting <see cref="Compact"/> still occupies capacity (the step compacts at its
-    /// end, before the next phase-0 launch): Mail Dev default, pending Evan (TD-197 item 3).
+    /// end, before the next phase-0 launch): Evan approved (TD-197 item 3), 2026-10-29 3:24 PM PT: "Approve all four TD-197 defaults for throwing-catching 008".
     /// </summary>
     /// <param name="init">The launch snapshot.</param>
     /// <param name="index">The new flight's position, or -1 when refused.</param>

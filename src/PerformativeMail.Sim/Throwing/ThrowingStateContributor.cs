@@ -11,7 +11,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// kindDef <c>u16</c>, thrower slot <c>u8</c>, classPts <c>i32</c>, origin 3 x <c>i32</c>, vel 3 x <c>i32</c>, launchTick <c>u32</c>,
 /// thrownPm <c>i32</c>, releaseTick <c>u32</c>, openAtRelease <c>u8</c>, hop <c>u8</c>, originClamped <c>u8</c>; then <c>Tat</c> for
 /// each of the 8 slots (<c>u32</c>, ascending slot); then the reserved catch-arm block, a <c>u32</c> count that is 0 until the catch
-/// stories write arm state there (Mail Dev default, pending Evan (TD-197 item 4)). Dead slots awaiting compaction and the run's
+/// stories write arm state there (Evan approved (TD-197 item 4), 2026-10-29 3:24 PM PT: "Approve all four TD-197 defaults for throwing-catching 008"). Dead slots awaiting compaction and the run's
 /// conservation counts are not written, so two tables with the same live flights dump the same bytes whatever their history.
 /// Between ticks only; allocation-free.
 /// </summary>

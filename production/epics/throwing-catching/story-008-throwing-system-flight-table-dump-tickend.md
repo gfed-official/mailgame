@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-29 (full `/story-readiness`, docs PR `docs/next-readiness-tc008-tc006`, main 310afef: NEEDS WORK → doc fixes applied; one batched row of Mail Lead planning defaults, **TD-195, approved by Evan 2026-10-29 1:52 PM PT** (formerly pending Evan); log `/workspace/repos/logs/tc008-readiness.txt`)
+> **Last Updated**: 2026-10-29 (full `/story-readiness`, docs PR `docs/next-readiness-tc008-tc006`, main 310afef: NEEDS WORK → doc fixes applied; one batched row of Mail Lead planning defaults, **TD-195, approved by Evan 2026-10-29 1:52 PM PT** (formerly pending Evan); log `/workspace/repos/logs/tc008-readiness.txt`; as built, one batched row of Mail Dev defaults, **TD-197, approved by Evan 2026-10-29 3:24 PM PT** ("Approve all four TD-197 defaults for throwing-catching 008"; formerly pending Evan), labelled in code 'Evan approved (TD-197 item N), 2026-10-29 3:24 PM PT: …')
 
 > **Op/host story (2 of 5).** The host-side state every other host story mutates: the live flights in creation order, the per-slot cooldown clock, and the always-on record that proves each flight resolved exactly once. No behaviour yet — launch is story 010, stepping is story 011.
 

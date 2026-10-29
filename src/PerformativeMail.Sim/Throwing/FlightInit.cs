@@ -33,7 +33,7 @@ internal readonly struct FlightInit
 
     /// <summary>
     /// <c>classPts</c> of the entry's class (F6 damage reads it). <see cref="ClassPts"/> and <see cref="ThrownPm"/> are i32, the width of
-    /// <c>Weight.ClassPoints</c> and of a stat value, in the record and the dump: Mail Dev default, pending Evan (TD-197 item 1).
+    /// <c>Weight.ClassPoints</c> and of a stat value, in the record and the dump: Evan approved (TD-197 item 1), 2026-10-29 3:24 PM PT: "Approve all four TD-197 defaults for throwing-catching 008".
     /// </summary>
     public int ClassPts { get; init; }
 
