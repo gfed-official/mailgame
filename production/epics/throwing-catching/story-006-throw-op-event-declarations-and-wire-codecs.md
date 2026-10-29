@@ -84,7 +84,7 @@
 - Unit: `tests/unit/net/ThrowingCodecTests.cs` (codec semantic rejections, round-trips, the event fuzz loop), `tests/unit/throwing/ThrowDeclarationTests.cs` (namespace `PerformativeMail.Sim.Tests.Unit.ThrowingCatching`; sizeof/offset/descriptor checks); edits: `tests/unit/net/CodecTestKit.cs` (two lines), `tests/unit/net/EventCodecRoundTripTests.cs` (rows plus sample factory)
 - Lean testing (`.claude/rules/lean-testing.md`): one behaviour test per AC plus the ADR/manifest-required `Unsafe.SizeOf`/descriptor checks and the H-NET-5 fuzz; no constant, enum-value or reason-list tests
 
-**Status**: [x] Created and passing: `tests/unit/net/ThrowingCodecTests.cs`, `tests/unit/throwing/ThrowDeclarationTests.cs`, `tests/integration/throwing/ThrowLoopbackTests.cs` (5,738 tests per leg; branch `story/throwing-catching-006`)
+**Status**: [x] Created and passing: `tests/unit/net/ThrowingCodecTests.cs`, `tests/unit/throwing/ThrowDeclarationTests.cs`, `tests/integration/throwing/ThrowLoopbackTests.cs` (5,739 tests per leg; branch `story/throwing-catching-006`)
 
 ---
 
