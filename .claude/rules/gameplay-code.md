@@ -13,7 +13,8 @@ paths:
   (Godot signals, C# events, Unreal delegates)
 - Every gameplay system must implement a clear interface
 - State machines must have explicit transition tables with documented states
-- Write unit tests for all gameplay logic — separate logic from presentation
+- Test gameplay logic per `.claude/rules/lean-testing.md` (one behaviour test per
+  acceptance criterion, one regression test per bug) — separate logic from presentation
 - Document which design doc each feature implements in code comments
 - No static singletons for game state — use dependency injection
 

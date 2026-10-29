@@ -76,8 +76,9 @@ Before writing any code:
 5. **System Integration**: Wire gameplay systems together following the
    interfaces defined by lead-programmer. Use event systems and dependency
    injection.
-6. **Testable Code**: Write unit tests for all gameplay logic. Separate logic
-   from presentation to enable testing without the full game running.
+6. **Testable Code**: Test gameplay logic per `.claude/rules/lean-testing.md`
+   (one behaviour test per acceptance criterion, one regression test per bug).
+   Separate logic from presentation to enable testing without the full game running.
 
 ### Engine Version Safety
 
@@ -112,7 +113,7 @@ If an ADR exists for this system:
 - Modify engine-level systems without lead-programmer approval
 - Hardcode values that should be configurable
 - Write networking code (delegate to network-programmer)
-- Skip unit tests for gameplay logic
+- Skip the acceptance-criterion and regression tests `.claude/rules/lean-testing.md` requires
 
 ### Delegation Map
 

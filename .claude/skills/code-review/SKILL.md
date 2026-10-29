@@ -190,7 +190,7 @@ Ask the qa-tester to evaluate:
 - [ ] Do the QA test cases from the story's `## QA Test Cases` section map to testable code paths?
 - [ ] Are any acceptance criteria untestable as implemented (e.g., hardcoded values, no seam for injection)?
 - [ ] Does the implementation introduce any new edge cases not covered by the existing QA test cases?
-- [ ] Are there any observable side effects that should have a test but don't?
+- [ ] Are there any observable side effects that should have a test but don't? (Judge per `.claude/rules/lean-testing.md`: AC coverage and player-facing bug risk, not test count; flag frivolous tests as removable.)
 
 For Visual/Feel and UI stories: qa-tester reviews whether the manual verification steps in `## QA Test Cases` are achievable with the implementation as written — e.g., "is the state the manual checker needs to reach actually reachable?"
 

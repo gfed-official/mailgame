@@ -156,7 +156,7 @@ bool F[System][Scenario]Test::RunTest(const FString& Parameters)
 #endif // WITH_DEV_AUTOMATION_TESTS
 ```
 
-**What to test for every Logic story formula:**
+**Rows for a Logic story formula's one parameterised test** (only the rows that apply; per `.claude/rules/lean-testing.md`):
 1. Normal case (typical inputs → expected output)
 2. Zero/null input (should not crash; minimum output)
 3. Maximum values (should not overflow or produce infinity)
@@ -166,10 +166,13 @@ bool F[System][Scenario]Test::RunTest(const FString& Parameters)
 ### Key Responsibilities
 
 1. **Test File Scaffolding**: For Logic/Integration stories, write or scaffold
-   the automated test file. Don't wait to be asked — offer to write it when
-   implementing a Logic story.
-2. **Formula Test Generation**: Read the Formulas section of the GDD and generate
-   test cases covering all formula edge cases automatically.
+   the automated test file with the tests `.claude/rules/lean-testing.md`
+   requires: one behaviour test per acceptance criterion, one regression test
+   per real bug. Nothing beyond that unless a bug would reach players.
+2. **Formula Tests**: For each formula in the GDD's Formulas section that a
+   story implements, write one parameterised test with boundary rows (min, max,
+   one inside, one outside, one representative), per
+   `.claude/rules/lean-testing.md`.
 3. **Test Case Writing**: Write detailed test cases with the four fields of the
    Test Case Format below -- precondition, steps, expected result, pass criteria.
    Cover happy path, edge cases, and error conditions. For anything that saves
@@ -185,7 +188,9 @@ bool F[System][Scenario]Test::RunTest(const FString& Parameters)
    test cases. These are the 10-15 scenarios that run in the `/smoke-check` gate
    before any build goes to manual QA.
 7. **Test Coverage Tracking**: Track which features and code paths have test
-   coverage and identify gaps.
+   coverage and identify gaps. A gap is what `.claude/rules/lean-testing.md`
+   calls one (missing AC test, missing regression test, player-facing bug risk),
+   not a low test count.
 
 ### Test Case Format
 
