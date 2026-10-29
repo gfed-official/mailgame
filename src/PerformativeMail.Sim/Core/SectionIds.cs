@@ -37,7 +37,7 @@ public static class SectionIds
     /// <summary>
     /// Throwing's section (ADR-0015 section 9; throwing-catching story 008): the <c>FlightId</c> serial <c>u16</c>, the live flights
     /// (<c>u32</c> count, then each in creation order field by field), per-slot <c>Tat</c> (8 x <c>u32</c>) and the reserved catch-arm
-    /// block (<c>u32</c> count, 0 until the catch stories). Id 7: Mail Lead planning default, pending Evan (TD-195 item 3).
+    /// block (<c>u32</c> count, 0 until the catch stories). Id 7: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006".
     /// </summary>
     public const ushort Throwing = 7;
 }

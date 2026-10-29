@@ -272,6 +272,6 @@ public static class SimAssertCode
     /// <summary><c>PlayersStep</c> (phase 3; player-character story 019) found a latched transform sample for a slot that holds no player and was not freed this tick. A sample for a slot freed this tick (its <c>PlayerLeave</c> ran in phase 0 after the prologue latched the sample) is a legal race and is dropped without this assert. Unreachable while the adapter writes samples only for joined peers. Release drops the sample. <c>SIM_ASSERT</c>.</summary>
     public const ushort PlayersSampleForEmptySlot = 87;
 
-    /// <summary>The Throwing <c>FlightId</c> allocator reached an id whose flight is still live (throwing-catching story 008; ADR-0004: a <c>FlightId</c> is never live twice). Unreachable below 65 536 launches while one flight stays in the air (<c>maxFlights</c> is at most 65 535). Release skips to the next free id. Id 88: Mail Lead planning default, pending Evan (TD-195 item 3). <c>SIM_ASSERT</c>.</summary>
+    /// <summary>The Throwing <c>FlightId</c> allocator reached an id whose flight is still live (throwing-catching story 008; ADR-0004: a <c>FlightId</c> is never live twice). Unreachable below 65 536 launches while one flight stays in the air (<c>maxFlights</c> is at most 65 535). Release skips to the next free id. Id 88: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006". <c>SIM_ASSERT</c>.</summary>
     public const ushort ThrowingFlightIdStillLive = 88;
 }

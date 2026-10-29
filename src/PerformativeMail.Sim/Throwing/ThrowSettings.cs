@@ -52,7 +52,7 @@ public sealed class ThrowSettings
 
     /// <summary>
     /// The shipped flight capacity, <c>maxFlights</c> (ADR-0015 section 9: 8 players x 6/s x 3 s = 144, plus slack).
-    /// Mail Lead planning default, pending Evan (TD-195 item 1): set by the constructor, not a balance key, so content and its
+    /// Evan approved (TD-195 item 1), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006": set by the constructor, not a balance key, so content and its
     /// hash are unchanged (the <c>InventorySettings.EntryInitialLastId</c> precedent).
     /// </summary>
     public const int DefaultMaxFlights = 160;

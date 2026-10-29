@@ -8,7 +8,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// <c>design/gdd/throwing-catching.md</c> T4 "The host creates the <c>FlightRecord</c>"; TR-throwing-009): every field but the
 /// <see cref="FlightId"/>, which the table assigns. The entry reference is the <see cref="EntryId"/> and <see cref="Units"/> of
 /// <c>IInventoryApi.DetachForThrow</c>'s <c>DetachResult</c>: the mailIds stay in Inventory's arena under that live detached entry,
-/// so the record holds them by reference and no Throwing-side unit list exists (Mail Lead planning default, pending Evan (TD-195 item 2)).
+/// so the record holds them by reference and no Throwing-side unit list exists (Evan approved (TD-195 item 2), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006").
 /// Immutable.
 /// </summary>
 /// <example>
