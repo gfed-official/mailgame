@@ -41,7 +41,7 @@ internal sealed class PlayersStep : ISimPhase
 
     /// <summary>
     /// Every non-Alive present player is host-authored: Dead and Frozen per GDD P2, and DeadAway (and the transient Joining) with
-    /// them. Mail Dev default, pending Evan (TD-194 item 3).
+    /// them. Evan approved (TD-194 item 3), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".
     /// </summary>
     private static bool IsHostAuthored(in PlayerRecord r) => r.Life != LifeState.Alive;
 
@@ -56,7 +56,7 @@ internal sealed class PlayersStep : ISimPhase
             if (r.IsEmpty)
             {
                 // A slot freed this tick (PlayerLeave in phase 0, after the prologue latched the sample) is a legal race: drop it.
-                // Only a slot that was already free is a bug. Mail Dev default, pending Evan (TD-194 item 4).
+                // Only a slot that was already free is a bug. Evan approved (TD-194 item 4), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".
                 SimAssert.That(!_slots.CanAssign(slot, tick), SimAssertCode.PlayersSampleForEmptySlot);
                 continue;
             }
@@ -92,7 +92,7 @@ internal sealed class PlayersStep : ISimPhase
             CarrierCounterFlush.Flush(_counters, ref _scratch);
             _counters.Add(CounterId.HostCarrierSteps);
 
-            // The host authored this transform, so it is the stored position and it is fresh. Mail Dev default, pending Evan (TD-194 item 5).
+            // The host authored this transform, so it is the stored position and it is fresh. Evan approved (TD-194 item 5), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".
             ref HostPosition p = ref _players.HostPositions[slot];
             p.Feet = new Vec3Mm(r.Carrier.X, r.Carrier.Y, r.Carrier.Z);
             p.Yaw = r.Carrier.BodyYaw;

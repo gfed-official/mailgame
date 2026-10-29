@@ -40,7 +40,7 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
     private readonly ITickReader _tick;
     private readonly SimCounters _counters;
     private readonly IPositionHistory _history;
-    private readonly InteractionGate _gate = new(PlayerReasons.Framework);   // reason ids from PlayerReasons: Mail Dev default, pending Evan (TD-194 item 9)
+    private readonly InteractionGate _gate = new(PlayerReasons.Framework);   // reason ids from PlayerReasons: Evan approved (TD-194 item 9), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019"
     private readonly HoldSettings _hold;
 
     /// <summary>
@@ -222,7 +222,7 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
         GateResult gate = _gate.Evaluate(in def, in status);
         if (gate.Kind == GateKind.NoCandidate)
         {
-            // Not eligible in the actor's body context, as if no such anchor. Mail Dev default, pending Evan (TD-194 item 6).
+            // Not eligible in the actor's body context, as if no such anchor. Evan approved (TD-194 item 6), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".
             return InteractionCheck.Of(InteractionCheckKind.NoTarget);
         }
 
@@ -273,7 +273,7 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
     public bool LeashExceeded(PlayerSlot slot, in Vec3Mm anchorPoint, int leashMm)
     {
         // GDD F5 leash(p, anchor), read-only. Evan approved 2026-10-29 (TD-188 item 2).
-        // No player in the slot: nothing to close. Mail Dev default, pending Evan (TD-194 item 7).
+        // No player in the slot: nothing to close. Evan approved (TD-194 item 7), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".
         if (slot.IsNone || _records[slot.Value].IsEmpty)
         {
             return false;
@@ -290,7 +290,7 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
     }
 
     // GDD F5 stale(p): nowTick - lastReceivedTick[p] > positionStaleTicks, with nowTick = ITickReader.CurrentTick (the tick in progress;
-    // between ticks, the next one). Mail Dev default, pending Evan (TD-194 item 8).
+    // between ticks, the next one). Evan approved (TD-194 item 8), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".
     private bool IsStale(in HostPosition host) => (long)_tick.CurrentTick - host.LastReceivedTick > _settings.PositionStaleTicks;
 
     // The hook context's chest point; the feet come from a client sample, so an absurd Y wraps instead of throwing.
