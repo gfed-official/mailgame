@@ -149,13 +149,15 @@ public class FocusOcclusionTests
     [Theory]
     [Trait("Id", "PCM-P11-1")]
     [InlineData(41_000, 9_000, 41_000, 10_500, true)]   // into the tile from tz 4: the tile is in the last z row (tz1)
-    [InlineData(40_000, 10_500, 40_000, 11_500, true)]  // along the tile's min-x edge: the half-open footprint (min edge inclusive) is hit
+    [InlineData(40_000, 10_500, 40_000, 11_500, true)]  // along the tile's min-x edge: in the floor-tile range, closed box hit
     [InlineData(39_999, 10_500, 39_999, 11_500, false)] // 1 mm outside it
     [InlineData(40_500, 10_000, 41_500, 10_000, true)]  // along the tile's min-z edge
     [InlineData(40_500, 9_999, 41_500, 9_999, false)]   // 1 mm outside it
-    [InlineData(42_000, 10_500, 42_000, 11_500, false)] // along the tile's max-x edge: max-x edge is exclusive
-    [InlineData(40_500, 12_000, 41_500, 12_000, false)] // along the tile's max-z edge: max-z edge is exclusive
-    public void IsOccluded_OffDiagonalBlockedTile_HitsItsHalfOpenFootprintOnly(int x0, int z0, int x1, int z1, bool expected)
+    [InlineData(42_000, 10_500, 42_000, 11_500, false)] // along the tile's max-x edge: tx 21 only, the tile is outside the floor-tile range
+    [InlineData(40_500, 12_000, 41_500, 12_000, false)] // along the tile's max-z edge: tz 6 only, the tile is outside the floor-tile range
+    [InlineData(41_000, 12_500, 43_000, 11_500, true)]  // touches only the corner (42 000, 12 000): the tile is in range, closed box hit
+    [InlineData(41_000, 9_500, 43_000, 10_500, true)]   // touches only the corner (42 000, 10 000)
+    public void IsOccluded_OffDiagonalBlockedTile_HitsItsFloorTileRangeAsClosedBoxes(int x0, int z0, int x1, int z1, bool expected)
     {
         // Arrange: tile (20, 5) is x 40 000 to 42 000, z 10 000 to 12 000 (off the tx = tz diagonal).
         WorldTables w = FocusRig.FlatWorld(b => b.MarkBlocked(20, 5));
@@ -340,6 +342,28 @@ public class FocusOcclusionTests
 
         // Assert
         Assert.Equal(2, rig.Focus.Probes.OcclusionTests);
+        Assert.Equal(2L, rig.Counters[CounterId.FocusOcclusionTests]);
+    }
+
+    [Fact]
+    [Trait("Id", "PCM-PERF-1")]
+    public void Step_FewerOcclusionTestsOnTheNextTick_KeepsTheFocusOcclusionTestsCounterAtTheMaximum()
+    {
+        // Arrange: the first tick runs two tests (the best of five is occluded).
+        var rig = new FocusRig(world: b => b.AddSolid(EntityId.None, BlockerFor(Fan(0)), SolidKind.Prop));
+        for (int k = 0; k < 5; k++)
+        {
+            rig.Add((uint)(k + 1), Fan(k));
+        }
+
+        rig.Tick();
+        Assert.Equal(2, rig.Focus.Probes.OcclusionTests);
+
+        // Act: the clear incumbent now scores best (its incumbent term), so the next tick runs one test.
+        rig.Tick();
+
+        // Assert: a running maximum, not the last probe or the sum.
+        Assert.Equal(1, rig.Focus.Probes.OcclusionTests);
         Assert.Equal(2L, rig.Counters[CounterId.FocusOcclusionTests]);
     }
 
