@@ -233,19 +233,6 @@ internal sealed class MailTable
         }
     }
 
-    /// <summary>
-    /// Binds the table's dump section (<see cref="SectionIds.Mail"/>). A minimal hook until the Mail system (story 005) owns
-    /// the composition wiring.
-    /// </summary>
-    /// <param name="builder">The world builder, before <c>Freeze</c>.</param>
-    /// <param name="registry">The destination registry dumped after the rows (story 002).</param>
-    public void BindDump(SimWorldBuilder builder, DestinationRegistry registry)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(registry);
-        builder.BindStateContributor(new MailStateContributor(this, registry));
-    }
-
     private bool TryLocate(MailId id, [NotNullWhen(true)] out MailPage? page, out int slot)
     {
         page = null;

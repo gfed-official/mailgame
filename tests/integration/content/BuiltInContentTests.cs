@@ -496,6 +496,7 @@ public class BuiltInContentTests
         ("sim.modifierPoolPerTeam", BalanceUnit.Count, 128),
         ("sim.modifierPoolPerPlayer", BalanceUnit.Count, 64),
         ("sim.mailTablePages", BalanceUnit.Count, 64),
+        ("sim.startingWalletCents", BalanceUnit.Cents, 0),
     };
 
     [Fact]

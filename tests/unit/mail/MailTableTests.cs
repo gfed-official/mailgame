@@ -608,7 +608,7 @@ public class MailTableTests
         var table = new MailTable(new PerformativeMail.Sim.Content.SimSettings { MailTablePages = 2 }, ids, holder, ring);
         var builder = new SimWorldBuilder(new SimCoreSettings(), counters, ring);
         builder.Bind(PhaseId.PlayersStep, new CreatePhase(() => table));
-        table.BindDump(builder, DestinationRegistry.CreateEmpty());
+        builder.BindStateContributor(new MailStateContributor(table, DestinationRegistry.CreateEmpty()));
         SimWorld world = builder.Freeze();
         holder.Target = world;
 

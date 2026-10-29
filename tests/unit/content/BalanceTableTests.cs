@@ -391,13 +391,13 @@ public class BalanceTableTests
         BalanceRegistry prod = SimRegistry();
         BalanceRegistry withPlayer = TestRegistry();
 
-        // Ordinal order of the eleven sim keys: checkRingCapacity, eventLogCapacity, eventLogReserve, mailTablePages, maxCatchUpTicksPerFrame,
-        // maxOpsDrainedPerTick, modifierPoolPerPlayer, modifierPoolPerTeam, opQueueCapacity, systemOpReserve, warmupTicks.
+        // Ordinal order of the twelve sim keys: checkRingCapacity, eventLogCapacity, eventLogReserve, mailTablePages, maxCatchUpTicksPerFrame,
+        // maxOpsDrainedPerTick, modifierPoolPerPlayer, modifierPoolPerTeam, opQueueCapacity, startingWalletCents, systemOpReserve, warmupTicks.
         Assert.Equal(0, prod.Find("sim.checkRingCapacity").Index);
-        Assert.Equal(10, prod.Find("sim.warmupTicks").Index);
+        Assert.Equal(11, prod.Find("sim.warmupTicks").Index);
         Assert.Equal(0, withPlayer.Find("player.rangeMm").Index);
         Assert.Equal(1, withPlayer.Find("sim.checkRingCapacity").Index);
-        Assert.Equal(11, withPlayer.Find("sim.warmupTicks").Index);
+        Assert.Equal(12, withPlayer.Find("sim.warmupTicks").Index);
         Assert.Equal(withPlayer.Count, prod.Count + 1);
     }
 
@@ -502,7 +502,7 @@ public class BalanceTableTests
         BalanceRegistry registry = SimRegistry();
         BalanceRegistry production = BalanceKeys.CreateRegistry();
 
-        Assert.Equal(11, registry.Count);
+        Assert.Equal(12, registry.Count);
         Assert.True(production.Count > registry.Count);
         Assert.Equal(
             new[] { "delivery", "inventory", "mail", "player", "sim", "throw" },

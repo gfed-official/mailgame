@@ -332,6 +332,24 @@ public class SimCompositionTests : IClassFixture<CompositionOwner>
     }
 
     [Fact]
+    public void Ac3_WalletGateOutsideMail_ThrowsUndeclaredDependency()
+    {
+        // Arrange
+        var log = new List<string>();
+        SimProfile bad = SimProfile.ForTest("wallet-grid", null, Entry(SystemId.GridInventory, c =>
+        {
+            _ = c.WalletGate;
+            return new ProbeSystem(SystemId.GridInventory, log);
+        }));
+
+        // Act
+        SimBuildException e = BuildThrows(_owner, bad);
+
+        // Assert
+        Assert.Equal(SimBuildErrorCode.UndeclaredDependency, e.Code);
+    }
+
+    [Fact]
     public void Ac1_RunControlOutsideRunStructure_ThrowsUndeclaredDependency_AndRunStructureCanStopInPhase12()
     {
         // Arrange

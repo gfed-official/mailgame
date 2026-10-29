@@ -16,6 +16,7 @@ namespace PerformativeMail.Sim.Content.Balance;
 /// <param name="ModifierPoolPerTeam"><c>sim.modifierPoolPerTeam</c>.</param>
 /// <param name="ModifierPoolPerPlayer"><c>sim.modifierPoolPerPlayer</c>.</param>
 /// <param name="MailTablePages"><c>sim.mailTablePages</c>.</param>
+/// <param name="StartingWalletCents"><c>sim.startingWalletCents</c>.</param>
 /// <example>
 /// <code>
 /// SimKeys keys = BalanceKeys.Sim.Resolve(table.Registry);
@@ -33,4 +34,5 @@ public readonly record struct SimKeys(
     BalanceKey WarmupTicks,
     BalanceKey ModifierPoolPerTeam,
     BalanceKey ModifierPoolPerPlayer,
-    BalanceKey MailTablePages);
+    BalanceKey MailTablePages,
+    BalanceKey StartingWalletCents);
