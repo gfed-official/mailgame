@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~400 lines prod + ~350 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-10-29 — owner AC added for the `ThrowingSystem.Bind` wiring (op handler; event declarations if 006 has not added them) (docs PR `docs/next-readiness-pc021-tc003`).
 
 > **Op/host story (4 of 5).** The phase-0 handler that turns a validated release into a flight. After this story a throw leaves the hotbar and a `FlightRecord` exists; nothing sweeps it yet (story 011).
 
@@ -45,6 +45,7 @@
 - [ ] **Cooldown carried (M-1a).** `Commit` writes the `ThrowPlan.tat'` that story 009 computed, unchanged (no bucket at M-1a, erratum E5); two valid releases by one thrower applied at ticks 100 and 101 both launch end to end through the op ring with the real handler, and no reply carries `throw_cooldown`. The bucket form of this AC moved to story 028 (Deferred to M0).
 - [ ] **TC-E-4 (launch half).** A release applied on the tick the thrower is (fixture) knocked down launches if the life state is still Alive at the handler (`Inputs.Apply` precedes damage resolution); the entry is in FLIGHT, not in the pile, and the flight continues. One tick later → `dead`.
 - [ ] **Commit never fails.** If `DetachForThrow` reports anything but success after a passing validation, the handler records a fault (`SimCheckRing`, counter `throwCommitFault`) and replies `bad_request` without appending a record or raising `ThrowLaunched`; a test injects a failing inventory double. In normal operation this path is unreachable.
+- [ ] **Owner: binding in `ThrowingSystem.Bind`.** This story adds `builder.BindOp(ThrowRelease descriptor, handler)` for the `ThrowRelease` handler in `ThrowingSystem.Bind` (`SimWorldBuilder.BindOp`, `Core/SimWorldBuilder.cs:157`), and the `builder.BindEventKind` declarations for `ThrowLaunched`/`FlightResolved` (`:114`) if story 006 has not already added them there; one composition test shows a built world accepts a `ThrowRelease` op and declares both event kinds.
 - [ ] **Hop and relay.** `hop = 0` for every flight at M-1a (T13 relay hops are M0 and deferred).
 - [ ] 1 000 launches allocate 0 B in `Commit`.
 
