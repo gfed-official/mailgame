@@ -1,7 +1,8 @@
 # Story 020: Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped; swimming refused
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: Blocked
+> **Blocked (2026-10-29)**: Validate can't check not_open/stale_entry/container_gone without a read-only IInventoryApi query; that decision is pending Evan.
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: M (~0.5 day of implementation; was S–M — ruled M by Evan 2026-10-28 7:26 AM PT, Mail Lead chat, card 'Two approvals for sprint 001': "Treat grid-inventory 020's S–M estimate as M, with full readiness and the full review loop")
