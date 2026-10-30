@@ -1,12 +1,12 @@
 # Story 021: Camera rig profiles and the boom solver against the Sim geometry (Godot-free, `Client.Core`)
 
 > **Epic**: Player Character & Movement (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-29 — readiness pass (Mail Lead): yaw/pitch are BAM; terrain-floor, allocation and parity ACs rewritten to one test each; review-only clauses moved to a PR checklist; planning defaults batched in TD-198, approved by Evan 2026-10-29 7:54 PM PT.
+> **Last Updated**: 2026-10-29 — Complete (branch `story/player-character-021`, Mail Dev): all six ACs met, `tests/unit/player/CameraBoomTests.cs`; eight as-built judgment calls batched in TD-201 (Mail Dev defaults, approved by Evan 2026-10-29 11:10 PM PT: items 1–8 as listed in message t205s987, card t205s988; TD-201 Resolved). Before that: readiness pass (Mail Lead): yaw/pitch are BAM; terrain-floor, allocation and parity ACs rewritten to one test each; review-only clauses moved to a PR checklist; planning defaults batched in TD-198, approved by Evan 2026-10-29 7:54 PM PT.
 
 ## Context
 
@@ -35,12 +35,12 @@ ADR-0029 (camera boom, animation LOD) is planned and not written; this story's s
 
 *From GDD `design/gdd/player-character-movement.md` (PCM-P9-1, P9), scoped to this story. Values marked "TD-198 item n" are Mail Lead planning defaults, approved by Evan 2026-10-29 7:54 PM PT (card 'PR 68: approve the eight items listed above (TD-198 items 1–6 for player-character 021, TD-199 items 1–2 for throwing-catching 003)?', t197s951, after message t197s950 (7:51 PM PT) listed all eight items in the register's plain wording just before the card: "Approve TD-198 items 1-6 for player-character 021 and TD-199 items 1-2 for throwing-catching 003, as listed in your message above"; `docs/tech-debt-register.md` TD-198).*
 
-- [ ] **PCM-P9-1 (profiles).** Default settings give pivot **1600** mm above the feet, boom **3000** mm, shoulder **+600** mm (swappable: the sign flips on a shoulder-swap request), pitch clamped **−60°…+70°** (−10 923…+12 743 BAM, `CameraSettings.ClampPitch(short)`), vertical FOV **80°** (59 → 60, 101 → 100, 80 stays 80); aim held: shoulder **+750**, boom **2400**, look sensitivity multiplier **600 ‰** (`aimCamMult`), FOV unchanged by default (the optional −10° is a setting, off); swimming: pivot **1100** (lowered 0.5 m) and the camera's world `y ≥ 0` (never below the water plane). The aim blend is linear in elapsed ms over 100 ms: 0 ms → Default, 50 ms → shoulder 675 / boom 2700, ≥ 100 ms → Aim (Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-198 item 5)).
-- [ ] **Boom solve.** `BoomSolver.Solve(IWorldQuery w, in Vec3Mm pivot, ushort yawBam, short pitchBam, int shoulderMm, int desiredBoomMm, int radiusMm = 250)` returns the longest safe boom length ≥ a floor of 300 mm (Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-198 item 1)): a static box between pivot and camera shortens the boom to just in front of it (box inflated by the 250 mm radius, `SegmentIntervals.Slab`; a box whose inflated face lies 2000 mm along a 3000 mm desired boom gives 2000 ± 3 mm, permille resolution of the segment fraction); a terrain ridge shortens it (segment lowered by the radius via `HeightfieldMarch.FirstContact`); a clear path returns the full boom; a pivot inside a box returns the floor length, never negative; players, items and props never influence the result (the solver takes no such input). One parameterised test.
-- [ ] **Smoothing (integer, time-based).** `BoomSmoother.Step(currentMm, targetMm, dtMs)` pulls in linearly to a shorter target within **50 ms** (≤ target after 50 ms of continuous obstruction) and eases out linearly to a longer target over **400 ms** (within 5 % of the target after 400 ms, monotonic, no overshoot) (Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-198 item 4)); `dtMs` is a difference of `IRenderClock.RenderSimTimeMs`, and a zero or negative dt changes nothing.
-- [ ] **Terrain floor.** `BoomSolver.Solve` never returns a length that puts the camera below `TerrainHeightMm(x, z) + 250`, and `CameraPose.Compose` clamps the composed (smoothed) position to that floor and to `y ≥ 0` while swimming (Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-198 item 4)). One parameterised test with three rows: the M-1a street beside a house wall (pivot 1600 above ground, yaw facing the house, world built with `M1aStreet.Author` as in `tests/unit/world/M1aStreetTests.cs:16-21`), the FX-Beach slope looking downhill (`WorldTablesFixture.Beach()`), and a swimmer at pivot 1100 with pitch +70° (expected `y = 0`).
-- [ ] **Solid set is the world's.** With a stub `IWorldQuery` whose `QueryStaticSolids` returns one box across the boom, `Solve` shortens the boom; with the same stub returning no index for the same pivot, `Solve` returns the full boom.
-- [ ] **Determinism/allocation (advisory until M0, erratum E2).** `Solve` and `Step` use only integer maths (no float: PMSIM001 is on for Client.Core; `checked` arithmetic per ADR-0001); one `AllocAssert.Zero` window over one `Solve` on the street plus one `Step` (`tests/PerformativeMail.Sim.Tests/AllocAssert.cs:61`, in a `NonParallelCollection` class) reports 0 B.
+- [x] **PCM-P9-1 (profiles).** Default settings give pivot **1600** mm above the feet, boom **3000** mm, shoulder **+600** mm (swappable: the sign flips on a shoulder-swap request), pitch clamped **−60°…+70°** (−10 923…+12 743 BAM, `CameraSettings.ClampPitch(short)`), vertical FOV **80°** (59 → 60, 101 → 100, 80 stays 80); aim held: shoulder **+750**, boom **2400**, look sensitivity multiplier **600 ‰** (`aimCamMult`), FOV unchanged by default (the optional −10° is a setting, off); swimming: pivot **1100** (lowered 0.5 m) and the camera's world `y ≥ 0` (never below the water plane). The aim blend is linear in elapsed ms over 100 ms: 0 ms → Default, 50 ms → shoulder 675 / boom 2700, ≥ 100 ms → Aim (Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-198 item 5)).
+- [x] **Boom solve.** `BoomSolver.Solve(IWorldQuery w, in Vec3Mm pivot, ushort yawBam, short pitchBam, int shoulderMm, int desiredBoomMm, int radiusMm = 250)` returns the longest safe boom length ≥ a floor of 300 mm (Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-198 item 1)): a static box between pivot and camera shortens the boom to just in front of it (box inflated by the 250 mm radius, `SegmentIntervals.Slab`; a box whose inflated face lies 2000 mm along a 3000 mm desired boom gives 2000 ± 3 mm, permille resolution of the segment fraction); a terrain ridge shortens it (segment lowered by the radius via `HeightfieldMarch.FirstContact`); a clear path returns the full boom; a pivot inside a box returns the floor length, never negative; players, items and props never influence the result (the solver takes no such input). One parameterised test.
+- [x] **Smoothing (integer, time-based).** `BoomSmoother.Step(currentMm, targetMm, dtMs)` pulls in linearly to a shorter target within **50 ms** (≤ target after 50 ms of continuous obstruction) and eases out linearly to a longer target over **400 ms** (within 5 % of the target after 400 ms, monotonic, no overshoot) (Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-198 item 4)); `dtMs` is a difference of `IRenderClock.RenderSimTimeMs`, and a zero or negative dt changes nothing.
+- [x] **Terrain floor.** `BoomSolver.Solve` never returns a length that puts the camera below `TerrainHeightMm(x, z) + 250`, and `CameraPose.Compose` clamps the composed (smoothed) position to that floor and to `y ≥ 0` while swimming (Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-198 item 4)). One parameterised test with three rows: the M-1a street beside a house wall (pivot 1600 above ground, yaw facing the house, world built with `M1aStreet.Author` as in `tests/unit/world/M1aStreetTests.cs:16-21`), the FX-Beach slope looking downhill (`WorldTablesFixture.Beach()`), and a swimmer at pivot 1100 with pitch +70° (expected `y = 0`).
+- [x] **Solid set is the world's.** With a stub `IWorldQuery` whose `QueryStaticSolids` returns one box across the boom, `Solve` shortens the boom; with the same stub returning no index for the same pivot, `Solve` returns the full boom.
+- [x] **Determinism/allocation (advisory until M0, erratum E2).** `Solve` and `Step` use only integer maths (no float: PMSIM001 is on for Client.Core; `checked` arithmetic per ADR-0001); one `AllocAssert.Zero` window over one `Solve` on the street plus one `Step` (`tests/PerformativeMail.Sim.Tests/AllocAssert.cs:61`, in a `NonParallelCollection` class) reports 0 B.
 
 ---
 
@@ -80,7 +80,7 @@ ADR-0029 (camera boom, animation LOD) is planned and not written; this story's s
 **Required evidence**:
 - Logic: `tests/unit/player/CameraBoomTests.cs` (`[Trait("Id", "PCM-P9-1")]`) — must exist and pass on net10.0 and net8.0 (the test project must reference `PerformativeMail.Client.Core`; ADR-0001 §3 lists it)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — 2026-10-29, branch `story/player-character-021` (main 099637a): `CameraBoomTests` (5 methods, 10 cases) and `CameraBoomAllocationTests` (1). Full suite, every leg 5,777 total, 0 failed: net10.0 Debug 5,712 passed / 65 skipped; net10.0 Release 5,770 / 7; net8.0 Debug 5,712 / 65; net8.0 Release 5,770 / 7 (the allocation window skips on Debug builds, TD-008, and reports 0 B on Release).
 
 ---
 
@@ -88,3 +88,19 @@ ADR-0029 (camera boom, animation LOD) is planned and not written; this story's s
 
 - Depends on: Story 004 (`SegmentIntervals`, `HeightfieldMarch`), `production/epics/world-stub/story-003-static-solids-4m-query.md` (`QueryStaticSolids`), `production/epics/world-stub/story-001-iworldquery-height-field-kernel.md` (`TerrainHeightMm`), `production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md` (Client.Core assembly), `production/epics/simulation-core/story-005-bam-trigq15-stablesort.md` (`TrigQ15`) — all Complete on main.
 - Unlocks: Story 023 (camera rig node); throwing-catching aim-camera values reuse `CameraProfile.Aim`
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-10-29 (branch `story/player-character-021`, Mail Dev; `/dev-story` on Opus, `/code-review` on Sonnet: no required changes, suggestions S1 and S2 applied)
+**Criteria**: 6/6 met.
+- Profiles: `ProfilesSettingsAndAimBlend_GiveTheP9Values`.
+- Boom solve: `Solve_Scenario_ReturnsLongestSafeBoom` (rows box 2000 ± 3, ridge, clear, pivot inside a box → 300).
+- Smoothing: `Step_PullsInWithin50Ms_EasesOutOver400Ms_IgnoresNonPositiveDt`.
+- Terrain floor: `SolveAndCompose_AtPitchPlus70_KeepCameraAboveTerrainFloorAndWater` (street, beach, swimmer; the street and beach rows hand `Compose` the unsmoothed full boom, so they reach its clamp — shown failing with the clamp removed).
+- Solid set is the world's: `Solve_UsesTheWorldQuerysSolidSet`.
+- Allocation (advisory, E2): `CameraBoomAllocationTests.SolveOnStreetPlusStep_AllocatesZeroBytes` (0 B on Release; skips on Debug, TD-008).
+**Bug fixed in review**: with the optional aim FOV cut on, FOV 60 gave 50; `FovDeg` now re-clamps to 60–100 (one assertion in the profiles test, seen failing first).
+**Deviations**: eight as-built judgment calls, labelled in code and batched in **TD-201** (Mail Dev defaults, approved by Evan 2026-10-29 11:10 PM PT, items 1–8 as listed in message t205s987, card t205s988; TD-201 Resolved): terrain hit one permille early; an over-long segment falls back to the 300 mm floor; the 300 mm floor wins over terrain + 250 inside `Solve` (the `Compose` clamp is the hard guarantee; a wall closer than 300 mm is not covered); fixed smoothing rates from the 3000 mm span; a mutable `CameraSettings` class; the aim FOV cut re-clamped; unstated profile values (look 1000 ‰ outside aim, Swim = Default with pivot 1100); the aim blend also blends pivot and look multiplier.
+**For story 023**: call `Solve` on the thread that ticks the Sim, between ticks (the world query writes Sim counters); seed the smoothed boom from a solved length, not 0.
