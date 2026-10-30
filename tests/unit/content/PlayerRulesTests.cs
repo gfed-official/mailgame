@@ -9,7 +9,7 @@ namespace PerformativeMail.Sim.Tests.Unit.Content;
 /// <summary>
 /// Covers content-data story 011 (TR-content-022, M-1a subset; GDD PCM-F8-3, CDD-RULE-2): the Player Character rules
 /// CV-PLR-01, 02, 04, 06, 08, 09, 10 and 11 through the production pipeline, the deferred ids, the alias
-/// <c>Throwing rule 14</c>, the cross-owner skip, and the shipped content. The per-clause fixtures live in
+/// <c>Throwing rule 14</c> and the cross-owner skip (the shipped content is checked in <see cref="GeneralRulesTests"/>). The per-clause fixtures live in
 /// <see cref="PlayerRuleFixtures"/> and are checked by the meta-test in <c>RuleRegistryTests</c>.
 /// </summary>
 public class PlayerRulesTests
@@ -298,7 +298,7 @@ public class PlayerRulesTests
         Assert.Equal(errors, Of(With("player.positionStaleTicks", ticks), PlayerRuleIds.PositionStale).Length);
     }
 
-    // ------------------------------------------------------------ skipping, severity, shipped content
+    // ------------------------------------------------------------ skipping, severity
 
     [Fact]
     [Trait("Id", "CDD-LOAD-3")]
@@ -363,17 +363,5 @@ public class PlayerRulesTests
     {
         // Hard ranges are 0..max (CV-GEN-13), so a negative value stops the build at the balance table; zero is the rule's case.
         Assert.Throws<InvalidOperationException>(() => With(key, -1));
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-F8-3")]
-    public void CreateM1a_PassesEveryPlayerRule_WithNoDiagnosticsAndNoSkips()
-    {
-        ContentBuildResult r = BuiltInContent.BuildM1a(RuleRegistry.CreateDefault());
-
-        Assert.Empty(r.Validation.Diagnostics);
-        Assert.Equal(0, r.Validation.SkippedCount);
-        Assert.NotNull(r.Set);
-        Assert.NotNull(BuiltInContent.CreateM1a());
     }
 }

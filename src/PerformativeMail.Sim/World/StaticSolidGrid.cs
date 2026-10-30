@@ -58,15 +58,6 @@ internal sealed class StaticSolidGrid
         _bucketItems = bucketItems;
     }
 
-    /// <summary>Buckets along X.</summary>
-    internal int BucketsX => _bucketsX;
-
-    /// <summary>Buckets along Z.</summary>
-    internal int BucketsZ => _bucketsZ;
-
-    /// <summary>Total bucket entries (for tests).</summary>
-    internal int EntryCount => _bucketItems.Length;
-
     /// <summary>
     /// The single closed-interval overlap test shared by the query and the brute-force test oracle: true iff the
     /// intersection of the two closed boxes is non-empty on every axis (<c>max(min) &lt;= min(max)</c>), so touching

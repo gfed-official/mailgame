@@ -49,9 +49,6 @@ internal sealed class SimSystemContext
         _runControl = runControl;
     }
 
-    /// <summary>The system being constructed.</summary>
-    public SystemId Consumer => Open()._consumer;
-
     /// <summary>The event-log writer facade (any system).</summary>
     public EventLogFacade Events => Open()._services.Events;
 

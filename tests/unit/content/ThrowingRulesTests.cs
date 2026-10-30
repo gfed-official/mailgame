@@ -11,7 +11,7 @@ namespace PerformativeMail.Sim.Tests.Unit.Content;
 /// <summary>
 /// Covers content-data story 012 (TR-content-022, M-1a subset; GDD TC-CV-1, CDD-RULE-2, CDD-VAL-1, CDD-STAT-11, CDD-UNIT-3): the
 /// Throwing rules CV-THR-01 to 06, 08 to 13, 15, 16 and 18 through the production pipeline, the deferred ids CV-THR-07 and 17, the
-/// retired CV-THR-14, the F3 helper, the cross-owner skip, the id-plus-alias message and the shipped content. The per-clause
+/// retired CV-THR-14, the F3 helper, the cross-owner skip and the id-plus-alias message (shipped content: <see cref="GeneralRulesTests"/>). The per-clause
 /// fixtures live in <see cref="ThrowingRuleFixtures"/> and are checked by the meta-test in <c>RuleRegistryTests</c>.
 /// </summary>
 public class ThrowingRulesTests
@@ -739,19 +739,5 @@ public class ThrowingRulesTests
         AssertClean(PlayerRuleFixtures.WithCatchRadius(2499));
         // With the default offset the same radius trips both, which is the interplay the fixture avoids.
         Assert.Equal(2, With("throw.catchRadiusMm", 2500).Diagnostics.Length);
-    }
-
-    // ------------------------------------------------------------ shipped content
-
-    [Fact]
-    [Trait("Id", "TC-CV-1")]
-    public void CreateM1a_PassesEveryThrowingRule_WithNoDiagnosticsAndNoSkips()
-    {
-        ContentBuildResult r = BuiltInContent.BuildM1a(RuleRegistry.CreateDefault());
-
-        Assert.Empty(r.Validation.Diagnostics);
-        Assert.Equal(0, r.Validation.SkippedCount);
-        Assert.NotNull(r.Set);
-        Assert.NotNull(BuiltInContent.CreateM1a());
     }
 }

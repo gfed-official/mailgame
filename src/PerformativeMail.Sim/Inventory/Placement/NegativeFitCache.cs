@@ -13,7 +13,7 @@ namespace PerformativeMail.Sim.Inventory.Placement;
 /// derived memo: never in the canonical dump, empty after load, never changes a result (a cache-disabled run is identical).
 /// </para>
 /// <para>
-/// Layout: <see cref="Ways"/> records per container (the content's distinct footprint shapes times two rotations, rounded up to a
+/// Layout: a fixed number of ways (records) per container (the content's distinct footprint shapes times two rotations, rounded up to a
 /// power of two), probed linearly from the shape's home way; a full set overwrites the home way (a memo may forget). Allocates
 /// nothing after construction; never throws on the tick path. Not thread-safe: Sim tick thread only.
 /// </para>
@@ -54,9 +54,6 @@ internal sealed class NegativeFitCache
         _epochs = new uint[containerCapacity];
         _rows = new ushort[containerCapacity];
     }
-
-    /// <summary>Records per container (a power of two).</summary>
-    public int Ways => _ways;
 
     /// <summary>
     /// False disables the cache (every read misses, every write is dropped): the property test's "cache disabled" run, which must give

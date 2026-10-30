@@ -11,7 +11,7 @@ namespace PerformativeMail.Sim.Tests.Unit.Content;
 /// the Grid rules CV-GRD-01 to 04, 06, 07 and the Mail rules CV-MAIL-01 to 06, through the production pipeline
 /// (<see cref="ContentDraft.Build"/>). The per-clause violation and valid-edge fixtures live in
 /// <see cref="GridMailRuleFixtures"/> and are checked by the meta-test in <c>RuleRegistryTests</c>; these tests add the
-/// exact-content assertions, the extra edges and the shipped-content check.
+/// exact-content assertions and the extra edges (the shipped-content check is in <see cref="GeneralRulesTests"/>).
 /// </summary>
 public class GridMailRulesTests
 {
@@ -673,20 +673,7 @@ public class GridMailRulesTests
         }
     }
 
-    // ------------------------------------------------------------ shipped content and determinism
-
-    [Fact]
-    [Trait("Id", "CDD-VAL-1")]
-    public void CreateM1a_ReportsZeroErrorsAndZeroUnsuppressedWarnings_UnderEveryGridAndMailRule()
-    {
-        ContentBuildResult r = BuiltInContent.BuildM1a(RuleRegistry.CreateDefault());
-
-        Assert.Equal(0, r.Validation.ErrorCount);
-        Assert.Equal(0, r.Validation.WarningCount);
-        Assert.Empty(r.Validation.Diagnostics);
-        Assert.NotNull(r.Set);
-        Assert.NotNull(BuiltInContent.CreateM1a());   // does not throw
-    }
+    // ------------------------------------------------------------ determinism
 
     [Fact]
     [Trait("Id", "CDD-VAL-1")]

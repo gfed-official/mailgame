@@ -36,11 +36,6 @@ public static class EnumSets
         }
     }
 
-    /// <summary>True when <paramref name="set"/> names a known set.</summary>
-    /// <param name="set">The set name.</param>
-    /// <example><code>bool known = EnumSets.IsKnown("WeightClass");</code></example>
-    public static bool IsKnown(string set) => set is "ItemCategory" or "WeightClass" or "EquipSlot" or "ContainerLayout" or "ContainerView" or "BeltAccess";
-
     /// <summary>The set's spellings joined by <c>|</c>, from the <c>ToSpelling</c> tables (the <c>Allowed</c> text of CV-GEN-08).</summary>
     /// <param name="set">The set name.</param>
     /// <returns>The joined spellings, or an empty string for an unknown set.</returns>
