@@ -55,7 +55,7 @@ public sealed class ValidationResult
     /// <summary>
     /// Wraps findings produced outside the stage 4 to 5 runner (a stage 1 syntax walk, a builder) as a result: sorted by
     /// <see cref="DiagnosticOrder"/>, nothing skipped or suppressed. Lets a fixture check a stage 1 rule with
-    /// the test project's <c>FixtureChecker</c>.
+    /// <see cref="FixtureChecker"/>.
     /// </summary>
     /// <param name="diagnostics">The findings; a default array reads as empty.</param>
     /// <example>
