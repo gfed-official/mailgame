@@ -34,6 +34,7 @@ public static class CameraBlend
             return to;
         }
 
+        // Mail Dev default, pending Evan (TD-201 item 8): the aim blend also blends pivot height and the look multiplier linearly.
         return new CameraProfile(
             Mix(from.PivotHeightMm, to.PivotHeightMm, elapsedMs),
             Mix(from.BoomMm, to.BoomMm, elapsedMs),

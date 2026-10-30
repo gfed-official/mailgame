@@ -26,6 +26,7 @@ public readonly struct CameraProfile
     }
 
     /// <summary>On foot: pivot 1600, boom 3000, shoulder +600, sensitivity 1000 permille.</summary>
+    // Mail Dev default, pending Evan (TD-201 item 7): non-aim look multiplier 1000 permille; Swim is Default with pivot 1100 (boom 3000, shoulder 600).
     public static CameraProfile Default => new(1600, 3000, 600, 1000);
 
     /// <summary>Throwing's aim held: shoulder +750, boom 2400, sensitivity 600 permille (<c>aimCamMult</c>).</summary>
