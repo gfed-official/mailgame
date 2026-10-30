@@ -1,4 +1,5 @@
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Primitives;
 
@@ -42,4 +43,23 @@ public interface IMailApi
     /// <param name="f">The facts when found.</param>
     /// <returns>True when registered.</returns>
     bool TryGetDestinationFacts(EntityId dest, out DestinationFacts f);
+
+    /// <summary>
+    /// The number of registered destinations (registry rows; ordinals 0 to <c>DestinationCount - 1</c>). Read by Throwing's catch-volume
+    /// adapter at run start (throwing-catching story 003). Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-199 item 1).
+    /// Mail Dev default, pending Evan (TD-202 item 6): the three member names, and an out-of-range ordinal throws (run start only, never the tick path).
+    /// </summary>
+    int DestinationCount { get; }
+
+    /// <summary>The destination entity of registry row <paramref name="ordinal"/> (lot order, so ascending ids). 0 B (TD-199 item 1).</summary>
+    /// <param name="ordinal">The row, 0 to <see cref="DestinationCount"/> - 1.</param>
+    /// <returns>The destination's entity id.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ordinal"/> is outside the registry.</exception>
+    EntityId DestinationAt(int ordinal);
+
+    /// <summary>The world catch box of registry row <paramref name="ordinal"/> (inclusive corners). 0 B (TD-199 item 1).</summary>
+    /// <param name="ordinal">The row, 0 to <see cref="DestinationCount"/> - 1.</param>
+    /// <returns>The catch volume as a world AABB.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ordinal"/> is outside the registry.</exception>
+    AabbMm CatchVolumeAt(int ordinal);
 }

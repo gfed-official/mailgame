@@ -58,6 +58,13 @@ public sealed class ThrowSettings
     public const int DefaultMaxFlights = 160;
 
     /// <summary>
+    /// The capacity of each candidate span a <see cref="ReceiverScratch"/> holds (mailbox volumes, world solids) for one swept
+    /// segment (GDD F4 estimates about 20). Overflow is counted, never grown. Mail Lead planning default, approved by Evan
+    /// 2026-10-29 7:54 PM PT (TD-199 item 2): a fixed constant, not a balance key, so content and its hash are unchanged.
+    /// </summary>
+    public const int MaxReceiverCandidates = 64;
+
+    /// <summary>
     /// The flight table capacity (<see cref="DefaultMaxFlights"/> unless a test chose another). At most 65 535, so a live
     /// <see cref="Primitives.FlightId"/> is never reused while its flight is in the air.
     /// </summary>
