@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Economy;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.MailDestinations;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.ThrowingCatching;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Sim.Composition;
@@ -186,7 +187,7 @@ public static class SimComposition
 
     // The explicit construction code of the shipped systems, one case per system in ShippedOrder. Each gameplay epic adds its
     // case here (and its row in SystemGraph). A system whose epic has not landed yet returns null and its phases stay no-ops
-    // (GridInventory, PlayerCharacter and MailDestinations are built).
+    // (GridInventory, PlayerCharacter, MailDestinations and Throwing are built).
     private static ISimSystem? ConstructShipped(SystemId id, SimSystemContext context)
     {
         switch (id)
@@ -211,6 +212,20 @@ public static class SimComposition
                         mailWorld,
                         context.Content,
                         context.StatSheet,
+                        context.CheckRing,
+                        context.Counters)
+                    : null;
+            case SystemId.Throwing:
+                // Throwing reads the world through IWorldQuery and needs Players and Mail, which are built only with a world.
+                return context.World is { } throwWorld
+                    ? new ThrowingSystem(
+                        context.Events,
+                        context.Slots,
+                        context.Api<IInventoryApi>(SystemId.GridInventory),
+                        context.Api<IMailApi>(SystemId.MailDestinations),
+                        context.Api<IPlayersApi>(SystemId.PlayerCharacter),
+                        throwWorld,
+                        context.Content.Throw,
                         context.CheckRing,
                         context.Counters)
                     : null;
