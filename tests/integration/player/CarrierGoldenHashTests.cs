@@ -567,11 +567,6 @@ public class CarrierGoldenHashTests
 /// 2000-anchor fixture is story 018/020's. The fixture shape: Approved by Evan 2026-10-28 2:35 AM PT (Mail Lead chat): "Approve all
 /// seven TD-174 defaults for player-character 010: the FX-Golden world, Boost with buffCapPm 4000, the spawn-crate start, the named
 /// ticks, the mutation ticks, the perf fixture, and treating its S–M estimate as M".
-/// The test is explicit (it asserts nothing, so it stays out of the default pass/fail run). Run it on demand after
-/// <c>dotnet build PerformativeMail.sln -c Release</c>, either through the test assembly, which prints the p99 line:
-/// <c>dotnet exec tests/PerformativeMail.Sim.Tests/bin/Release/net10.0/PerformativeMail.Sim.Tests.dll -class "PerformativeMail.Sim.Tests.Integration.PlayerCharacter.CarrierStepPerfTests" -explicit only -showliveoutput</c>,
-/// or through <c>dotnet test</c>, which writes the line to the TRX only:
-/// <c>dotnet test --project tests/PerformativeMail.Sim.Tests -c Release --no-build -- --filter-class "*CarrierStepPerfTests" --explicit only --report-xunit-trx</c>.
 /// </summary>
 [Collection(NonParallelCollection.Name)]
 [Trait("Category", "Perf")]
@@ -580,7 +575,7 @@ public class CarrierStepPerfTests
 {
     private const int Calls = 10_000;
 
-    [Fact(Explicit = true)]
+    [Fact]
     public void CarrierStep_WorstCaseFixture_P99PerCall_IsReported_Advisory()
     {
         // Arrange
