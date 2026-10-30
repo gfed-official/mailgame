@@ -5,10 +5,10 @@
 > **Architecture Module**: Sim.Throwing (`src/PerformativeMail.Sim/Throwing/`; throw preview in Sim.ClientLayer `Previews`) + aim ribbon, launch ghost and bundle mesh (Godot)
 > **Milestone slice**: M-1a per the GDD's milestone slice (T1–T6 with ground, water, solid, timeout and mailbox receivers; T3 preview; T11; T12; T14; the release snap, whoosh, landing squash and trail; one bundle mesh). The **Sim-side catch** (T7, F5) is pulled forward from M0 at the orchestrator's request (see Overview).
 > **Engine Risk**: LOW (Sim ballistic). MEDIUM for the presentation (screen-space dashed ribbon with no `DrawLine`, since line AA was removed in 4.7; `MultiMeshInstance3D`).
-> **Est. size**: L — 28 stories (3 Complete, 18 Ready, 7 Deferred; refreshed 2026-10-29, throwing-catching 008 Complete, branch `story/throwing-catching-008`; before that 2 / 19 / 7, 2026-10-28, throwing-catching 002 Complete, PR #55)
+> **Est. size**: L — 28 stories (4 Complete, 17 Ready, 7 Deferred; refreshed 2026-10-29, throwing-catching 006 Complete, branch `story/throwing-catching-006` with main 9f75723 (PR #66) merged in; before that 3 / 18 / 7, 2026-10-29, throwing-catching 008 Complete, PR #66 (and 006 alone on its branch); before that 2 / 19 / 7, 2026-10-28, throwing-catching 002 Complete, PR #55)
 > **Implementation priority**: 7 of 9
 > **Status**: Ready
-> **Stories**: 28 stories — 3 Complete, 18 Ready, 7 Deferred (counts refreshed 2026-10-29 from the story headers, throwing-catching 008 Complete, branch `story/throwing-catching-008`; before that 2 / 19 / 7, 2026-10-28, throwing-catching 002 Complete, PR #55; before that 1 / 20 / 7, 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 28 stories — 4 Complete, 17 Ready, 7 Deferred (counts refreshed 2026-10-29 from the story headers, throwing-catching 006 Complete, branch `story/throwing-catching-006` with main 9f75723 (PR #66) merged in; before that 3 / 18 / 7, 2026-10-29, throwing-catching 008 Complete, PR #66 (and 006 alone on its branch); before that 2 / 19 / 7, 2026-10-28, throwing-catching 002 Complete, PR #55; before that 1 / 20 / 7, 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -107,7 +107,7 @@ Source: architecture.md v1.1 Appendix A; coverage per `docs/architecture/tr-regi
 | 003 | [Receiver gathering — static 4 m grid, `QueryStaticSolids`, map edges, chest → origin probe, surface-below](story-003-receiver-view-static-grid-solids-chest-probe.md) | Logic | Ready | ADR-0015 |
 | 004 | [Throw aim quantiser and the `ThrowPreview` client step (4c): the honest arc, end class, published `ThrowPreviewState`](story-004-throw-aim-quantiser-and-preview-step.md) | Logic | Ready | ADR-0016 |
 | 005 | [Preview label data — F7 stake money, two-line label model, 100 ms settle, `previewSettleMs`, preview sound edge](story-005-preview-label-model-f7-money-and-settle.md) | Logic | Ready | ADR-0016 |
-| 006 | [`ThrowRelease` OpKind, `ThrowLaunched` / `FlightResolved` events — declarations, reasons and loopback wire codecs](story-006-throw-op-event-declarations-and-wire-codecs.md) | Integration | Ready | ADR-0015 |
+| 006 | [`ThrowRelease` OpKind, `ThrowLaunched` / `FlightResolved` events — declarations, reasons and loopback wire codecs](story-006-throw-op-event-declarations-and-wire-codecs.md) | Integration | Complete | ADR-0015 |
 | 007 | [`ThrowReleaseBuilder` — request from the last drawn preview, client cooldown hold, reply part](story-007-throw-release-builder-client-cooldown-reply.md) | Logic | Ready | ADR-0012 |
 | 008 | [`ThrowingSystem` shell, `FlightTable` (160 slots, wrap-safe `FlightId`), dump section, tick-end conservation record](story-008-throwing-system-flight-table-dump-tickend.md) | Logic | Complete | ADR-0015 |
 | 009 | [`ThrowRelease` host validation — ordered checks, claim-and-corroborate origin, leaky bucket (`TAT`)](story-009-throwrelease-validation-chain-and-leaky-bucket.md) | Logic | Ready | ADR-0015 |
@@ -194,6 +194,8 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (aim ribbon green/red patterns, ×N tag, landing squash), with a lead sign-off for Visual/Feel
 
 ## Next Step
+
+**2026-10-29 (001, 002, 006 and 008 Complete; `gen_impl_order.py` after main 9f75723 merged into branch `story/throwing-catching-006`; unchanged after main 1c6f955):** Next, in `production/epics/implementation-order.md` order: Track A: 003 (A1), 009 (A1), 010 (A4), 011 (A5), 004 (A6), 012 (A6), 005 (A7), 007 (A7), 013 (A7), 017 (A10), 018 (A13), 019 (A14), 020 (A14), 021 (A15); then Track B: 014 (B1), 015 (B2), 016 (B2); Deferred: 022–028. The 2026-10-23 list below is history.
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 002 (A1), 006 (A1), 008 (A1), 003 (A2), 009 (A3), 010 (A5), 011 (A6), 004 (A7), 012 (A7), 005 (A8), 007 (A8), 013 (A8), 017 (A11), 018 (A14), 019 (A15), 020 (A15), 021 (A16); then Track B: 014 (B1), 015 (B2), 016 (B2); Deferred by Evan 2026-10-23 (not scheduled): 022, 023, 024, 025, 026, 027, 028. Earlier notes below are history.
 

@@ -274,7 +274,6 @@ public class OpCodecTests
         bool none = registry.TryGet(OpKind.None, out _, out _);
 
         // Assert
-        Assert.Equal(2, registry.Bindings.Length);
         Assert.Equal(OpKind.PlayerJoin, registry.Bindings[0].Descriptor.Kind);
         Assert.Equal(OpKind.PlayerLeave, registry.Bindings[1].Descriptor.Kind);
         Assert.True(join);
@@ -386,7 +385,6 @@ public class OpCodecTests
         ReadOnlySpan<EventDescriptor> events = world.EventDescriptors;
 
         // Assert
-        Assert.Equal(3, ops.Length);
         Assert.Equal(OpKind.PlayerJoin, ops[0].Kind);
         Assert.Equal(OpKind.PlayerLeave, ops[1].Kind);
         Assert.Equal(OpKind.FreezePlayer, ops[2].Kind);

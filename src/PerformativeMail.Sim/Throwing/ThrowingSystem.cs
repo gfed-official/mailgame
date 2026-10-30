@@ -15,8 +15,8 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// <see cref="ThrowSettings.MaxFlights"/>), the per-slot cooldown clock <c>Tat</c> (absolute tick, 0 until story 028 writes it,
 /// cleared on every join and leave of the slot), the always-on tick-end conservation record and the canonical dump section. It binds
 /// the join listener, <see cref="PhaseId.ThrowingStep"/> (empty here; story 011 steps the flights), the tick-end check and the state
-/// contributor, and no op or event (stories 006 and 010). No RNG stream. Allocation-free once constructed. Not thread-safe: used on
-/// the Sim tick thread.
+/// contributor, also declares the <c>ThrowLaunched</c> and <c>FlightResolved</c> event kinds (story 006), and binds no op until
+/// story 010. No RNG stream. Allocation-free once constructed. Not thread-safe: used on the Sim tick thread.
 /// </summary>
 /// <example>
 /// <code>
@@ -124,9 +124,14 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
         // Story 013 writes the flush; until then nothing is in the air to end.
     }
 
-    /// <summary>Binds the join/leave listener, phase 4 (an empty step until story 011), the tick-end check and the dump section.</summary>
+    /// <summary>
+    /// Binds the join/leave listener, phase 4 (an empty step until story 011), the tick-end check and the dump section, and declares
+    /// the <c>ThrowLaunched</c> and <c>FlightResolved</c> event kinds (story 006).
+    /// </summary>
     /// <param name="builder">The world's builder.</param>
-    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c> or <c>DuplicateSection</c>.</exception>
+    /// <exception cref="SimBuildException">
+    /// <c>PlayerJoinListenerAlreadyBound</c>, <c>DuplicateSection</c> or <c>DuplicateEventKind</c>.
+    /// </exception>
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -134,6 +139,8 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
         builder.Bind(PhaseId.ThrowingStep, new ThrowingStep());
         builder.BindTickEnd(new ThrowingTickEndCheck(Flights, _checks, _counters));
         builder.BindStateContributor(new ThrowingStateContributor(Flights, _tat));
+        builder.BindEventKind(ThrowEventDescriptors.ThrowLaunched);
+        builder.BindEventKind(ThrowEventDescriptors.FlightResolved);
     }
 
     /// <summary>The slot's leaky-bucket clock <c>Tat</c> (ADR-0015 section 1; story 028 reads and writes it).</summary>
