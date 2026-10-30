@@ -6,7 +6,7 @@
 #
 # Usage:  tools/ci/test-quiet.sh [--self-check] [--expect-skipped N] [--expect-skipped-names FILE] [--log-dir DIR] -- <dotnet test args>
 #   tools/ci/test-quiet.sh -- --solution PerformativeMail.sln -c Debug --no-build -- --filter-class "*PickMoveTests"
-#   tools/ci/test-quiet.sh --expect-skipped 8 -- --solution PerformativeMail.sln -c Release -p:PmTestTfm=net8.0 --no-build
+#   tools/ci/test-quiet.sh --expect-skipped 7 -- --solution PerformativeMail.sln -c Release -p:PmTestTfm=net8.0 --no-build
 #   Everything after the first `--` goes to `dotnet test` verbatim; the wrapper adds
 #   `--report-xunit-trx --report-xunit-trx-filename quiet.trx --results-directory <run dir>`
 #   (xUnit v3's MTP TRX options) before the caller's inner `--`, or at the end if there is none.
