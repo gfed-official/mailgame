@@ -64,7 +64,7 @@ public static class BoomSolver
 
         var sink = default(SimCounterSink);
         long boom = f >= FullPm ? desiredBoomMm : Fix.MulDiv(desiredBoomMm, f, FullPm, ref sink);
-        // Mail Dev default, pending Evan (TD-201 item 3): the 300 mm floor wins over terrain+250 here; Compose's clamp is the hard terrain guarantee; a wall closer than the floor is not covered.
+        // Mail Dev default, approved by Evan 2026-10-29 (TD-201 item 3): the 300 mm floor wins over terrain+250 here; Compose's clamp is the hard terrain guarantee; a wall closer than the floor is not covered.
         return boom < MinBoomMm ? MinBoomMm : (int)boom;
     }
 
@@ -103,7 +103,7 @@ public static class BoomSolver
     {
         if (!HeightfieldMarch.IsWithinExtent((long)p1.X - p0.X, (long)p1.Y - p0.Y, (long)p1.Z - p0.Z))
         {
-            // Mail Dev default, pending Evan (TD-201 item 2): a segment outside the march extent fails closed to fraction 0 (the 300 mm floor).
+            // Mail Dev default, approved by Evan 2026-10-29 (TD-201 item 2): a segment outside the march extent fails closed to fraction 0 (the 300 mm floor).
             return 0;   // outside the march contract: fail closed to the floor length
         }
 
@@ -116,7 +116,7 @@ public static class BoomSolver
 
         // The march rounds the contact fraction up (CeilDiv), up to 1 permille past its interpolated crossing; one permille
         // back cancels that. The interpolation between samples can still miss a crease, so Compose clamps to the floor.
-        // Mail Dev default, pending Evan (TD-201 item 1): terrain hit taken one permille before the march contact.
+        // Mail Dev default, approved by Evan 2026-10-29 (TD-201 item 1): terrain hit taken one permille before the march contact.
         return fPm > 0 ? fPm - 1 : 0;
     }
 

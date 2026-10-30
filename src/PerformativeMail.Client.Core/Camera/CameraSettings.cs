@@ -13,7 +13,7 @@ namespace PerformativeMail.Client.Core.Camera;
 /// short pitch = CameraSettings.ClampPitch(look.Pitch);
 /// </code>
 /// </example>
-// Mail Dev default, pending Evan (TD-201 item 5): a mutable sealed class holding FOV, shoulder side and the aim-FOV toggle.
+// Mail Dev default, approved by Evan 2026-10-29 (TD-201 item 5): a mutable sealed class holding FOV, shoulder side and the aim-FOV toggle.
 public sealed class CameraSettings
 {
     /// <summary>Lowest vertical FOV setting, degrees.</summary>
@@ -69,6 +69,6 @@ public sealed class CameraSettings
     /// <summary>The vertical FOV to show: unchanged while aiming unless <see cref="AimFovReduction"/> is on.</summary>
     /// <param name="aiming">Whether Throwing's aim is held.</param>
     /// <returns>FOV in whole degrees.</returns>
-    // Mail Dev default, pending Evan (TD-201 item 6): the optional aim -10 degrees is re-clamped to 60-100.
+    // Mail Dev default, approved by Evan 2026-10-29 (TD-201 item 6): the optional aim -10 degrees is re-clamped to 60-100.
     public int FovDeg(bool aiming) => aiming && AimFovReduction ? ClampFov(VerticalFovDeg - AimFovReductionDeg) : VerticalFovDeg;
 }

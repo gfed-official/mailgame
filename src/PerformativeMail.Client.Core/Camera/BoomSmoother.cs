@@ -19,7 +19,7 @@ namespace PerformativeMail.Client.Core.Camera;
 public static class BoomSmoother
 {
     /// <summary>The span the rates are set by: the default boom, mm.</summary>
-    // Mail Dev default, pending Evan (TD-201 item 4): fixed rates from the 3000 mm span (60 mm/ms pull-in, 7.5 mm/ms ease-out), not per-transition timing.
+    // Mail Dev default, approved by Evan 2026-10-29 (TD-201 item 4): fixed rates from the 3000 mm span (60 mm/ms pull-in, 7.5 mm/ms ease-out), not per-transition timing.
     public const int ReferenceBoomMm = 3000;
 
     /// <summary>Time to pull in across the reference span, ms.</summary>
