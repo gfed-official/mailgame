@@ -5,10 +5,10 @@
 > **Architecture Module**: Sim.Throwing (`src/PerformativeMail.Sim/Throwing/`; throw preview in Sim.ClientLayer `Previews`) + aim ribbon, launch ghost and bundle mesh (Godot)
 > **Milestone slice**: M-1a per the GDD's milestone slice (T1–T6 with ground, water, solid, timeout and mailbox receivers; T3 preview; T11; T12; T14; the release snap, whoosh, landing squash and trail; one bundle mesh). The **Sim-side catch** (T7, F5) is pulled forward from M0 at the orchestrator's request (see Overview).
 > **Engine Risk**: LOW (Sim ballistic). MEDIUM for the presentation (screen-space dashed ribbon with no `DrawLine`, since line AA was removed in 4.7; `MultiMeshInstance3D`).
-> **Est. size**: L — 28 stories (2 Complete, 19 Ready, 7 Deferred; refreshed 2026-10-28, throwing-catching 002 Complete, PR #55)
+> **Est. size**: L — 28 stories (3 Complete, 18 Ready, 7 Deferred; refreshed 2026-10-29, throwing-catching 008 Complete, branch `story/throwing-catching-008`; before that 2 / 19 / 7, 2026-10-28, throwing-catching 002 Complete, PR #55)
 > **Implementation priority**: 7 of 9
 > **Status**: Ready
-> **Stories**: 28 stories — 2 Complete, 19 Ready, 7 Deferred (counts refreshed 2026-10-28 from the story headers, throwing-catching 002 Complete, PR #55; before that 1 / 20 / 7, 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 28 stories — 3 Complete, 18 Ready, 7 Deferred (counts refreshed 2026-10-29 from the story headers, throwing-catching 008 Complete, branch `story/throwing-catching-008`; before that 2 / 19 / 7, 2026-10-28, throwing-catching 002 Complete, PR #55; before that 1 / 20 / 7, 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -109,7 +109,7 @@ Source: architecture.md v1.1 Appendix A; coverage per `docs/architecture/tr-regi
 | 005 | [Preview label data — F7 stake money, two-line label model, 100 ms settle, `previewSettleMs`, preview sound edge](story-005-preview-label-model-f7-money-and-settle.md) | Logic | Ready | ADR-0016 |
 | 006 | [`ThrowRelease` OpKind, `ThrowLaunched` / `FlightResolved` events — declarations, reasons and loopback wire codecs](story-006-throw-op-event-declarations-and-wire-codecs.md) | Integration | Ready | ADR-0015 |
 | 007 | [`ThrowReleaseBuilder` — request from the last drawn preview, client cooldown hold, reply part](story-007-throw-release-builder-client-cooldown-reply.md) | Logic | Ready | ADR-0012 |
-| 008 | [`ThrowingSystem` shell, `FlightTable` (160 slots, wrap-safe `FlightId`), dump section, tick-end conservation record](story-008-throwing-system-flight-table-dump-tickend.md) | Logic | Ready | ADR-0015 |
+| 008 | [`ThrowingSystem` shell, `FlightTable` (160 slots, wrap-safe `FlightId`), dump section, tick-end conservation record](story-008-throwing-system-flight-table-dump-tickend.md) | Logic | Complete | ADR-0015 |
 | 009 | [`ThrowRelease` host validation — ordered checks, claim-and-corroborate origin, leaky bucket (`TAT`)](story-009-throwrelease-validation-chain-and-leaky-bucket.md) | Logic | Ready | ADR-0015 |
 | 010 | [`ThrowReleaseHandler` Commit — F1 launch at the apply tick, `DetachForThrow`, `FlightRecord`, `ThrowLaunched`, `ok`](story-010-throwrelease-handler-launch-commit.md) | Integration | Ready | ADR-0015 |
 | 011 | [`ThrowingStep` (phase 4) — sweep, GROUND / WATER / solid / TIMEOUT terminals, WorldItem placement, `FlightResolved`](story-011-throwingstep-sweep-ground-water-solid-timeout.md) | Logic | Ready | ADR-0015 |
