@@ -35,9 +35,6 @@ public enum ModifierMask : byte
 /// </example>
 public static class ModifierMasks
 {
-    /// <summary>Every modifier bit defined at M-1a.</summary>
-    public const ModifierMask All = ModifierMask.Shift;
-
     /// <summary>The modifier bit of <paramref name="input"/>, or <see cref="ModifierMask.None"/> when it is not a modifier.</summary>
     /// <param name="input">The physical input.</param>
     /// <returns>The single bit, or None.</returns>

@@ -30,9 +30,6 @@ public sealed class RuleContext
         _blocked = blocked;
     }
 
-    /// <summary>The rule being run.</summary>
-    public RuleSpec Rule => _rule;
-
     /// <summary>
     /// True when one of this rule's declared inputs failed an earlier stage for <paramref name="def"/>. A per-def rule
     /// must skip such a def (the runner has already counted the skipped pair).

@@ -9,7 +9,7 @@ namespace PerformativeMail.Sim.Tests.Unit.Content;
 /// <summary>
 /// Covers player-character story 012 AC 2 (PCM-P10-1, input-controls H-R4-5): CV-PLR-13 errors when a content definition names
 /// a verb outside the closed <see cref="Verb"/> catalogue or declares other than exactly one verb for one interactable, a single
-/// known verb passes, and <c>BuiltInContent.CreateM1a()</c> passes with no declarations. The rule reads
+/// known verb passes (<c>BuiltInContent.CreateM1a()</c> passing with no declarations is checked in <see cref="GeneralRulesTests"/>). The rule reads
 /// <see cref="ContentValidationInput.VerbDeclarations"/> (no def type carries a verb field at M-1a), so every case here is a
 /// fixture declaration on the <c>house</c> destination type. The per-clause fixtures live in <see cref="PlayerRuleFixtures"/>.
 /// </summary>
@@ -172,20 +172,7 @@ public class PlayerVerbRuleTests
         Assert.Contains(skipped.Skipped, s => s.RuleId == PlayerRuleIds.UnknownVerb);
     }
 
-    // ------------------------------------------------------------ shipped content
-
-    [Fact]
-    [Trait("Id", "PCM-P10-1")]
-    public void CreateM1a_PassesCvPlr13_WithNoDeclarations_AndNoSkip()
-    {
-        ContentBuildResult r = BuiltInContent.BuildM1a(RuleRegistry.CreateDefault());
-        var input = new ContentValidationInput(BuiltInContent.CreateM1a());
-
-        Assert.Empty(Of(r.Validation));
-        Assert.DoesNotContain(r.Validation.Skipped, s => s.RuleId == PlayerRuleIds.UnknownVerb);
-        Assert.NotNull(r.Set);
-        Assert.Empty(input.VerbDeclarations);
-    }
+    // ------------------------------------------------------------ adapter defaults
 
     [Fact]
     [Trait("Id", "PCM-P10-1")]

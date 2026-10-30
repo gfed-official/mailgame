@@ -26,21 +26,4 @@ public sealed record ParsedDef(
     SourceLocation Start,
     ImmutableArray<ParsedField> Fields,
     ImmutableArray<SuppressEntry> Suppress,
-    bool Failed)
-{
-    /// <summary>The field matching <paramref name="row"/>, or <c>null</c> when the def did not write it.</summary>
-    /// <param name="row">The row index in the type's table.</param>
-    /// <example><code>ParsedField? grid = def.Field(3);</code></example>
-    public ParsedField? Field(int row)
-    {
-        foreach (ParsedField f in Fields)
-        {
-            if (f.Row == row)
-            {
-                return f;
-            }
-        }
-
-        return null;
-    }
-}
+    bool Failed);

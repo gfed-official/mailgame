@@ -138,17 +138,6 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private uint _drainAppendSeq;
     private bool _drainHitCap;
 
-    /// <summary>Creates the module: settings from the content's <c>inventory.*</c> record, the four M-1a defs resolved once by id, and the <c>po_intake</c> container.</summary>
-    /// <param name="content">The content set (container defs and the inventory balance).</param>
-    /// <param name="stats">The stat sheets (container rows).</param>
-    /// <param name="checkRing">The world's check ring (a full container table is recorded here).</param>
-    /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    /// <exception cref="SimBuildException"><c>InventorySettingsInvalid</c> for an unusable capacity; <c>InventoryDefMissing</c> when an M-1a def is absent; <c>InventoryDefInvalid</c> when any container def is wider than 64 columns.</exception>
-    internal InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing)
-        : this(content, stats, checkRing, InventorySettings.FromBalance((content ?? throw new ArgumentNullException(nameof(content))).Inventory), null)
-    {
-    }
-
     /// <summary>Creates the module with the world's event-log writer, tick reader, entity ids and slot view (the composition root's constructor).</summary>
     /// <param name="content">The content set (container defs and the inventory balance).</param>
     /// <param name="stats">The stat sheets (container rows).</param>
@@ -158,7 +147,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// <param name="entityIds">The world's entity id allocator (WorldItem ids, story 013).</param>
     /// <param name="slots">The slot view (the connected-slot audience of the replicated world records, story 013).</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    /// <exception cref="SimBuildException">As the three-argument constructor.</exception>
+    /// <exception cref="SimBuildException"><c>InventorySettingsInvalid</c> for an unusable capacity; <c>InventoryDefMissing</c> when an M-1a def is absent; <c>InventoryDefInvalid</c> when any container def is wider than 64 columns.</exception>
     public InventorySystem(ContentSet content, IStatSheet stats, SimCheckRing checkRing, EventLogFacade events, ITickReader tick, EntityIds entityIds, ISlotView slots)
         : this(
             content,
@@ -312,9 +301,6 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// and probes nothing, and <see cref="ReturnToIntake"/> appends the returning entry to the backlog tail without a probe.
     /// </summary>
     internal bool IntakeAccepting => _backlog.Count == 0;
-
-    /// <summary>The Intake's version.</summary>
-    internal uint IntakeVersion => _containers[_intakeSlot].Version;
 
     /// <summary>The Intake backlog ring (story 021; the dump and tests).</summary>
     internal BacklogRing Backlog => _backlog;
