@@ -328,25 +328,6 @@ public class FocusOcclusionTests
 
     [Fact]
     [Trait("Id", "PCM-PERF-1")]
-    public void Step_TwoOcclusionTests_RaisesTheFocusOcclusionTestsCounterToTheProbe()
-    {
-        // Arrange: the best of five is occluded, so the pass runs two tests.
-        var rig = new FocusRig(world: b => b.AddSolid(EntityId.None, BlockerFor(Fan(0)), SolidKind.Prop));
-        for (int k = 0; k < 5; k++)
-        {
-            rig.Add((uint)(k + 1), Fan(k));
-        }
-
-        // Act
-        rig.Tick();
-
-        // Assert
-        Assert.Equal(2, rig.Focus.Probes.OcclusionTests);
-        Assert.Equal(2L, rig.Counters[CounterId.FocusOcclusionTests]);
-    }
-
-    [Fact]
-    [Trait("Id", "PCM-PERF-1")]
     public void Step_FewerOcclusionTestsOnTheNextTick_KeepsTheFocusOcclusionTestsCounterAtTheMaximum()
     {
         // Arrange: the first tick runs two tests (the best of five is occluded).
