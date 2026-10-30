@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-29 — Complete (branch `story/player-character-021`, Mail Dev): all six ACs met, `tests/unit/player/CameraBoomTests.cs`; eight as-built judgment calls batched in TD-201 (Mail Dev defaults, pending Evan). Before that: readiness pass (Mail Lead): yaw/pitch are BAM; terrain-floor, allocation and parity ACs rewritten to one test each; review-only clauses moved to a PR checklist; planning defaults batched in TD-198, approved by Evan 2026-10-29 7:54 PM PT.
+> **Last Updated**: 2026-10-29 — Complete (branch `story/player-character-021`, Mail Dev): all six ACs met, `tests/unit/player/CameraBoomTests.cs`; eight as-built judgment calls batched in TD-201 (Mail Dev defaults, approved by Evan 2026-10-29 11:10 PM PT: items 1–8 as listed in message t205s987, card t205s988; TD-201 Resolved). Before that: readiness pass (Mail Lead): yaw/pitch are BAM; terrain-floor, allocation and parity ACs rewritten to one test each; review-only clauses moved to a PR checklist; planning defaults batched in TD-198, approved by Evan 2026-10-29 7:54 PM PT.
 
 ## Context
 
@@ -102,5 +102,5 @@ ADR-0029 (camera boom, animation LOD) is planned and not written; this story's s
 - Solid set is the world's: `Solve_UsesTheWorldQuerysSolidSet`.
 - Allocation (advisory, E2): `CameraBoomAllocationTests.SolveOnStreetPlusStep_AllocatesZeroBytes` (0 B on Release; skips on Debug, TD-008).
 **Bug fixed in review**: with the optional aim FOV cut on, FOV 60 gave 50; `FovDeg` now re-clamps to 60–100 (one assertion in the profiles test, seen failing first).
-**Deviations**: eight as-built judgment calls, labelled in code and batched in **TD-201** (Mail Dev defaults, pending Evan): terrain hit one permille early; an over-long segment falls back to the 300 mm floor; the 300 mm floor wins over terrain + 250 inside `Solve` (the `Compose` clamp is the hard guarantee; a wall closer than 300 mm is not covered); fixed smoothing rates from the 3000 mm span; a mutable `CameraSettings` class; the aim FOV cut re-clamped; unstated profile values (look 1000 ‰ outside aim, Swim = Default with pivot 1100); the aim blend also blends pivot and look multiplier.
+**Deviations**: eight as-built judgment calls, labelled in code and batched in **TD-201** (Mail Dev defaults, approved by Evan 2026-10-29 11:10 PM PT, items 1–8 as listed in message t205s987, card t205s988; TD-201 Resolved): terrain hit one permille early; an over-long segment falls back to the 300 mm floor; the 300 mm floor wins over terrain + 250 inside `Solve` (the `Compose` clamp is the hard guarantee; a wall closer than 300 mm is not covered); fixed smoothing rates from the 3000 mm span; a mutable `CameraSettings` class; the aim FOV cut re-clamped; unstated profile values (look 1000 ‰ outside aim, Swim = Default with pivot 1100); the aim blend also blends pivot and look multiplier.
 **For story 023**: call `Solve` on the thread that ticks the Sim, between ticks (the world query writes Sim counters); seed the smoothed boom from a solved length, not 0.
