@@ -17,6 +17,7 @@ namespace PerformativeMail.Sim.Tests.Integration.Inventory.Fuzz;
 internal sealed class InventoryFuzzWorld
 {
     /// <summary>Columns and rows of each fixture external container (a GDD chest is 8 x 6).</summary>
+    // Mail Dev default, pending Evan (TD-206 item 7): each fixture chest is 8 x 6 (the GDD chest example) with no owner (ContainerHeader.NoOwner).
     public const int ExternalW = 8;
 
     /// <inheritdoc cref="ExternalW"/>
@@ -76,8 +77,9 @@ internal sealed class InventoryFuzzWorld
     public ActorId ActorOf(int slot) => ActorId.FromEntity(Host.Services.Slots.Entry(PlayerSlot.FromValue((byte)slot)).PlayerId);
 
     /// <summary>
-    /// The two fixture external containers: Mail Lead default, approved by Evan 2026-11-01 (TD-204 item 8). M-1a ships no chest def, so both are
-    /// created with the internal <see cref="InventorySystem.TryCreateContainer"/> from an existing M-1a def that accepts both mail and
+    /// The two fixture external containers: Mail Lead planning default, approved by Evan 2026-11-01 12:05 PM PT by card click (card t222s1054),
+    /// in his words "Approve TD-204 items 1-8 exactly as spelled out in your message above" (TD-204 item 8). M-1a ships no chest def, so both
+    /// are created with the internal <see cref="InventorySystem.TryCreateContainer"/> from an existing M-1a def that accepts both mail and
     /// items: <c>player_inventory</c> (no allowed-category list), with explicit chest dimensions and no owner. Change the fixture's
     /// containers here only.
     /// </summary>
@@ -117,6 +119,7 @@ internal sealed class InventoryFuzzWorld
             }
         }
 
+        // Mail Dev default, pending Evan (TD-206 item 1): item units are arranged as detached entries and counted as granted through the story-017 UnitLedger.Recount seam, as M-1a has no item faucet.
         inventory.Ledger.Recount(inventory);
         return (ids.ToArray(), units);
     }

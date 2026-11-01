@@ -21,6 +21,7 @@ public sealed class ConservationFuzzRun
     /// <c>INVENTORY_ASSERT</c> scan every tick, run a fifth with the same seed, ops per tick and checks, so every CI leg still runs
     /// the AC evidence inside the suite's time (story 018 Completion Notes).
     /// </summary>
+    // Mail Dev default, pending Evan (TD-206 item 6): Debug runs one fifth of the AC numbers (3 600 ticks) with the same seeds and checks; Release runs the AC numbers.
 #if DEBUG
     public const int Ticks = 3_600;
 #else

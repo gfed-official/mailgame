@@ -30,6 +30,7 @@ internal sealed class InventoryFuzzGenerator
     public const int Addresses = 60;
 
     /// <summary>Live mail units above which a drawn <c>Spawn</c> becomes a <c>Consume</c> (keeps the run near the fixture's 400 units, the scale the arena's 50 % peak is asserted on).</summary>
+    // Mail Dev default, pending Evan (TD-206 item 4): a drawn spawn at 600 or more live mail units becomes a consume, keeping the run near the fixture's 400 units.
     public const int MailCeiling = 600;
 
     // Draw weights (percent) of the fuzz op types; the rest of the 100 is malformed ops.
@@ -183,6 +184,7 @@ internal sealed class InventoryFuzzGenerator
             FuzzOpType.Return => PlayerOp(slot, InvOpKinds.Return, FuzzOpType.Return),
             FuzzOpType.Open => Open(slot),
             FuzzOpType.Close => Command(FuzzOpType.Close, new FuzzCommandPayload { Verb = (byte)FuzzVerb.Close, Slot = (byte)slot, A = (byte)(Roll(5) < 2 ? 1 : 0) }),
+            // Mail Dev default, pending Evan (TD-206 item 4): a drawn spawn at 600 or more live mail units becomes a consume, keeping the run near the fixture's 400 units.
             FuzzOpType.Spawn when MailLive() < MailCeiling => SpawnCommand(FuzzOpType.Spawn, Roll(2) == 0 ? _w.Inventory.IntakeContainer : _w.Shared, (int)Roll(Addresses), 1 + (int)Roll(3)),
             FuzzOpType.Spawn => Consume(slot), // above the ceiling the faucet pauses, so the units stay near the fixture's scale
             FuzzOpType.Detach => Detach(slot),
