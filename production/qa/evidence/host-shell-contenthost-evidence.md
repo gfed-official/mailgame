@@ -1,7 +1,7 @@
 # Evidence: godot-host-shell story 007 — minimal `ContentHost : IContentSource` and the opt-in host content mode
 
 **Story**: `production/epics/godot-host-shell/story-007-contenthost-minimal-iconentsource.md` · **Type**: Integration
-**Date**: 2026-11-01 (Mail Dev, `/dev-story`). Every run below is from the final working tree.
+**Date**: 2026-11-01 (Mail Dev, `/dev-story`; smoke table and the loader-`Failed` section rerun 2026-11-01 for Mail Review r1 B1 on commit 28e5c33, all 7 scenarios plus `list` with the same results except `content-host-read`, 26 → 38). Every run below is from the final working tree.
 **Engine used for these runs**: `Godot Engine v4.7.2.stable.mono.official.ed1daf0bf` (`~/.local/bin/godot`, headless). The project pins 4.7.1; the owner approved 4.7.2 for local runs. **4.7.1 behaviour is UNVERIFIED**, and so is the exported-PCK C# read (ADR-0019 V1, export story): these runs read `res://` and `user://` from the editor binary only.
 **.NET**: SDK 10.0.402 (`~/.dotnet/dotnet`) for the builds and test legs; `smoke.sh` builds the game with `~/.dotnet10`; the Godot process ran on .NET runtime 10.0.13 (`BOOT env dotnet_version`).
 **Procedure**: `bash /workspace/repos/logs/smoke.sh <worktree> content-host-read content-host-missing-manifest boot-order boot-failure boot-failure-exit4 selftest-needs-boot main-tree list` imports the project headless (the import also wrote the new scripts' `.uid` files), builds `PerformativeMail.Game.csproj` Debug, runs each `--smoke=<name>` headless (`godot --headless --path . -- --smoke=<name>`) and reverts the 4.7.2 csproj rewrite. The direct runs below are separate commands from the same tree.
@@ -10,7 +10,7 @@
 
 | Scenario | Expected exit | Actual | Result line |
 |---|---|---|---|
-| `content-host-read` (new) | 0 | 0 | `SMOKE RESULT name=content-host-read pass=26 fail=0 exit=0` |
+| `content-host-read` (new; 38 checks, 12 of them the corrupt-fixture case added in Mail Review r1 B1) | 0 | 0 | `SMOKE RESULT name=content-host-read pass=38 fail=0 exit=0` |
 | `content-host-missing-manifest` (new; its sub-run exits 4) | 0 | 0 | `SMOKE RESULT name=content-host-missing-manifest pass=23 fail=0 exit=0` |
 | `boot-order` (regression: default source unchanged) | 0 | 0 | `SMOKE RESULT name=boot-order pass=77 fail=0 exit=0` |
 | `boot-failure` | 0 | 0 | `SMOKE RESULT name=boot-failure pass=112 fail=0 exit=0` |
@@ -36,6 +36,34 @@ Env opt-in: `PM_CONTENT=host ~/.local/bin/godot --headless --path . -- --smoke=s
 
 Default unchanged: `~/.local/bin/godot --headless --path . -- --smoke=boot-order` (exit 0) logs
 `BOOT 2 content: source=BuiltInContent containers=4 items=4 mail_kinds=5 destination_types=1 mail_mixes=1 hash=10d2358b load_ms=49.6 (advisory budget 100)`.
+
+## Loader-`Failed` arm (AC 2, Mail Review r1 B1)
+
+`content-host-read` copies `content/**` a second time to `user://content-host-fixture-corrupt/` and changes `"rank.water": 7,` to `9` in `balance/throw.jsonc` (hard range 0..7). The file reads and parses; the loader rejects it with an Error and returns no set.
+
+```
+SMOKE content-host-read PASS corrupt fixture: Load() ends == Failed
+SMOKE content-host-read PASS corrupt fixture: State == Failed
+SMOKE content-host-read PASS corrupt fixture: Set is null == True
+SMOKE content-host-read PASS corrupt fixture: Result present == True
+SMOKE content-host-read PASS corrupt fixture: Result.Set is null == True
+SMOKE content-host-read PASS corrupt fixture: diagnostics present (balance/throw.jsonc:36:3: error CV-GEN-13: value 9, allowed 0..7) == True
+SMOKE content-host-read PASS corrupt fixture: a diagnostic line names balance/throw.jsonc == True
+SMOKE content-host-read PASS corrupt fixture: load line '[ContentHost] load user://content-host-fixture-corrupt: Failed in 2.3 ms (advisory budget 100 ms), 1 diagnostic(s)' logs Failed == True
+SMOKE content-host-read PASS corrupt boot source: Load() throws InvalidOperationException == True
+SMOKE content-host-read PASS corrupt boot source: message 'The host content in user://content-host-fixture-corrupt did not load (1 diagnostic(s)): balance/throw.jsonc:36:3: error CV-GEN-13: value 9, allowed 0..7' counts 1 diagnostic(s) == True
+SMOKE content-host-read PASS corrupt boot source: message carries the line naming balance/throw.jsonc == True
+SMOKE content-host-read PASS corrupt boot source: host Set stays null (no built-in fallback) == True
+```
+
+Mutation proof (each applied alone on 70d8c44, the game rebuilt, `content-host-read` rerun, then reverted with `git checkout`; `git diff src/Game/Content/ContentHost.cs` empty afterwards):
+
+| Mutation | Result |
+|---|---|
+| `Diagnostics = ImmutableArray<string>.Empty;` (the diagnostics line, `:170` before the TD-207 labels) | killed: pass=34 fail=4 exit=1 |
+| `State = ContentHostState.Valid;` (the state line, `:172` before the labels) | killed: pass=35 fail=3 exit=1 |
+
+The cold fixture load in this rerun logged 149.9 ms (`OVER`), advisory only (TD-207 item 7).
 
 ## Load time against the 100 ms advisory (TR-content-028, logged, not gated)
 
