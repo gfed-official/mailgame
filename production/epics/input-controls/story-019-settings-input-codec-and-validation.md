@@ -1,7 +1,7 @@
 # Story 019: `settings.input` — integer-unit `InputSettings`, defaults, the `user://input.json` parser and load-time clamping
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: S–M (~0.5–1 day; ~350 lines prod + tests)
@@ -86,3 +86,13 @@
 
 - Depends on: Stories 002 (`IClientInputSettings`), 003 (log); `production/epics/content-data/story-004-balance-registry-simsettings.md` (settings conventions; this is *player* input settings, not `SimSettings`). Story 005 is no longer needed here (binding-shape validation moved to story 032).
 - Unlocks: Stories 009–018 (switch from defaults), 028; Deferred: 032 (M1); `production/epics/player-character/story-017-hold-counter-cancels-channel-focus-latch.md` and `production/epics/manual-delivery/story-001-deliver-anchors-hold-ticks.md` (a real `holdSettingMs` source)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-11-01 (branch `story/input-controls-019`; built to the readiness wording at debfb77, docs PR 73 — that wording is not copied into this branch)
+**Criteria**: 5/5 passing, all covered by automated tests in `tests/unit/input/InputSettingsCodecTests.cs` (10 tests, 38 cases): schema and defaults (`Parse_UntouchedProfile_EqualsDefaultsWithNoNotes`), parse (`Parse_Version_MissingIsOneAndOtherValuesLoadWithOneWarning`, `Parse_BindingsKey_IsSkippedAndLoggedOnce`), H-R12-1 (`Parse_HoldSetting600AndDeliverToggle_BothApply`, `Parse_MalformedFile_LoadsDefaultsWithExactlyOneWarningInReportAndLog`), clamping incl. H-F3-1 (`Parse_DzInner900_ClampsTo400WithDzOuterUnchangedAndLogs`, `Parse_OutOfRangeOrOffStep_StoresNearestValidValueAndLogs`, `Parse_UnknownKeysAndModeNames_DropOncePerKeyAndKeepClassDefaults`, the one boundary theory `Parse_EachClampedField_KeepsMinMaxAndInsideAndClampsOutside`), supply (`Holder_ChangeCount_RisesOnlyWhenAFieldChanges`). The `dzOuter − dzInner ≥ 100‰` rule is implemented (dzOuter raised) but no file can reach it with today's ranges (inner ≤ 400, outer ≥ 700), so it has no test.
+**Decisions**: TD-204 items 1–3 approved by Evan 2026-11-01 10:11 AM PT ("Approve TD-204 items 1-8 as listed in your message above"), labelled "Approved by Evan 2026-11-01 (TD-204 item n)" in code. Mail Dev choices the story does not settle: TD-205 items 1–12 (pending Evan). `Parse` stays pure; the caller writes the report with `SettingsLoadReport.WriteTo(UiEventLog, timeMs)` (one `LogKind.Config` entry per note).
+**Test Evidence**: Logic — `tests/unit/input/InputSettingsCodecTests.cs` (`[Trait("Id", "H-R12-1")]`, `[Trait("Id", "H-F3-1")]`). Full suite 5,809 per leg: net10.0 / net8.0 Debug 5,744 passed + 65 skipped; net10.0 / net8.0 Release 5,802 passed + 7 skipped; 0 failed.
+**Code Review**: read-only review on Sonnet (claude-sonnet-5-5): no blockers; advisories noted in the PR.
