@@ -41,6 +41,7 @@ public class ReceiverViewTests
         { "touching a box face", new Vec3Mm(36_000, 2000, 25_300), new Vec3Mm(34_500, 2000, 25_300), [0] },
         { "no overlap", new Vec3Mm(36_000, 2000, 25_300), new Vec3Mm(34_501, 2000, 25_300), [] },
         { "map corner", new Vec3Mm(126_000, 3000, 62_000), new Vec3Mm(128_000, 1000, 64_000), [] },
+        { "off the map edge", new Vec3Mm(-2000, 2000, -2000), new Vec3Mm(1000, 2000, 1000), [] },
     };
 
     /// <summary>TC-E-1 a worlds; all are flat at y = 0 around the FX-T feet (10 000, 0, 20 000) except the slope.</summary>
