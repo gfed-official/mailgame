@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 25 stories — 19 Complete, 4 Ready, 1 Blocked, 1 Deferred (counts refreshed 2026-11-01 from the story headers, `count-story-status.sh`, branch `story/grid-inventory-018` off main 56c9446, main 70a5766 (PR #72) merged in: story 018 Ready → Complete; before that 18 Complete, 5 Ready, 1 Blocked, 1 Deferred, refreshed 2026-10-29 from the story headers, `count-story-status.sh`, branch `chore/test-audit-cleanup` with main 4f30c32 merged: story 020 went Ready → Blocked in docs PR #68; before that 18 Complete, 6 Ready, 1 Deferred, refreshed 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 25 stories — 19 Complete, 4 Ready, 1 Blocked, 1 Deferred (counts refreshed 2026-11-01 from the story headers, `count-story-status.sh`, branch `story/grid-inventory-018` off main 56c9446, main 70a5766 (PR #72), main 8d0398f (PR #71) and main 251e07a (docs PR #73) merged in, recounted after the 251e07a merge: story 018 Ready → Complete; before that 18 Complete, 5 Ready, 1 Blocked, 1 Deferred, refreshed 2026-10-29 from the story headers, `count-story-status.sh`, branch `chore/test-audit-cleanup` with main 4f30c32 merged: story 020 went Ready → Blocked in docs PR #68; before that 18 Complete, 6 Ready, 1 Deferred, refreshed 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
