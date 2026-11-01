@@ -1,6 +1,7 @@
 using Godot;
 using PerformativeMail.Client.Core.Net;
 using PerformativeMail.Game.Boot;
+using PerformativeMail.Game.Content;
 using PerformativeMail.Game.Screens;
 using PerformativeMail.Game.Smoke;
 using PerformativeMail.Sim.Hosting;
@@ -20,6 +21,8 @@ namespace PerformativeMail.Game.Hosting;
 /// again. Boot (story 004) is <see cref="RequestBoot"/>: once per loop it runs the nine ADR-0019 section 3 steps of
 /// <see cref="BuildBootPlan"/> after handing faults to the <c>Main/Screens</c> error panels, and a step that throws ends
 /// the session through <see cref="FaultBoot"/> exactly like a frame fault. Story 005 installs the real sequence.
+/// Step 2 reads <see cref="BuiltInContentSource"/> unless the process opts into host content (story 007,
+/// <see cref="SelectContentSource"/>).
 /// Deliberately no static instance, no lookups beyond its own direct children, no scene changes.
 /// Main thread only.
 /// </summary>
@@ -36,6 +39,9 @@ namespace PerformativeMail.Game.Hosting;
 public partial class GameLoop : Node
 {
     private const string SmokeArgPrefix = "--smoke=";
+    private const string ContentArgPrefix = "--content=";
+    private const string ContentEnvVar = "PM_CONTENT";
+    private const string HostContentMode = "host";
 
     private FrameSequence? _sequence;
     private int _bootThreadId;
@@ -196,7 +202,8 @@ public partial class GameLoop : Node
     }
 
     /// <summary>The production plan: <see cref="BootPlan.Create"/> over this loop's window and <see cref="ArmStart"/>.</summary>
-    /// <param name="content">Step 2's source; null for <see cref="BuiltInContentSource"/> (M-1a).</param>
+    /// <param name="content">Step 2's source; null for <see cref="SelectContentSource"/> over this process's user arguments
+    /// and environment (<see cref="BuiltInContentSource"/> unless host content is opted into).</param>
     /// <param name="contributors">Steps 3 and 4's contributors; null for <see cref="BootPlan.CreateContributors"/>.</param>
     /// <returns>The nine steps.</returns>
     public IReadOnlyList<IBootStep> BuildBootPlan(
@@ -205,9 +212,38 @@ public partial class GameLoop : Node
         BootPlan.Create(
             new GodotBootWindow(GetWindow()),
             OS.IsDebugBuild(),
-            content ?? new BuiltInContentSource(),
+            content ?? SelectContentSource(OS.GetCmdlineUserArgs(), OS.GetEnvironment(ContentEnvVar)),
             contributors ?? BootPlan.CreateContributors(),
             ArmStart);
+
+    /// <summary>
+    /// Step 2's source for a process (story 007): a <see cref="HostContentBootSource"/> over a new
+    /// <see cref="ContentHost"/> at <c>res://content</c> when the first <c>--content=</c> user argument is <c>host</c>, or, when
+    /// there is no <c>--content=</c> argument, when <c>PM_CONTENT</c> is <c>host</c>; otherwise <see cref="BuiltInContentSource"/>,
+    /// the M-1a default. Any other value selects the default (step 2's <c>source=</c> field shows which one ran). A host that
+    /// fails to load fails boot; it never falls back to built-in content.
+    /// </summary>
+    /// <param name="userArgs">The user arguments (after <c>--</c>).</param>
+    /// <param name="environmentValue">The value of <c>PM_CONTENT</c>; null or empty when unset.</param>
+    /// <returns>The source for boot step 2.</returns>
+    internal static IContentBootSource SelectContentSource(IReadOnlyList<string> userArgs, string? environmentValue)
+    {
+        ArgumentNullException.ThrowIfNull(userArgs);
+        // TD-207 item 2: Mail Dev default, pending Evan: --content= wins over PM_CONTENT, only exact lowercase "host" opts in, and it works in release builds.
+        string? mode = environmentValue;
+        foreach (string arg in userArgs)
+        {
+            if (arg.StartsWith(ContentArgPrefix, StringComparison.Ordinal))
+            {
+                mode = arg[ContentArgPrefix.Length..];
+                break;
+            }
+        }
+
+        return string.Equals(mode, HostContentMode, StringComparison.Ordinal)
+            ? new HostContentBootSource(new ContentHost())
+            : new BuiltInContentSource();
+    }
 
     /// <summary>
     /// Ends the session because boot failed; <see cref="BootSequence"/> calls it once, after it has told the error display
