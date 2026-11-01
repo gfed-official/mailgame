@@ -1,12 +1,12 @@
 # Story 018: Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world determinism
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Estimate**: M (~1 day)
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Last Updated**: 2026-11-01
 
 ## Context
 
@@ -71,7 +71,7 @@
 **Required evidence**:
 - Integration: `tests/integration/inventory/ConservationFuzzTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/integration/inventory/ConservationFuzzTests.cs` (H-R19-1) and `tests/integration/inventory/InventoryDeterminismTests.cs` (H-DET-1), generator and fixture in `tests/integration/inventory/Fuzz/`; all pass on the four legs (net10.0/net8.0 × Debug/Release); Release runs the AC numbers, Debug a fifth (see Completion Notes)
 
 ---
 
@@ -80,3 +80,19 @@
 - Depends on: Story 007–017
 - Depends on: `production/epics/simulation-core/story-019-canonical-state-dump.md`, `production/epics/simulation-core/story-022-playerjoin-playerleave-handlers.md`
 - Unlocks: Epic DoD (R19, H-DET-1)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-11-01 (branch `story/grid-inventory-018` off main 56c9446, code commit 3aa8d3e; not pushed). Built to the readiness wording in debfb77 (docs PR 73, stacked on PR 72), whose doc changes — including this file's re-stamped Manifest Version and the added `InventoryDeterminismTests.cs` evidence line — are not on this branch.
+**Criteria**: 3/3 passing. No Sim code changed.
+- **H-R19-1 (M-1a subset)** — `ConservationFuzzTests` over the class fixture `ConservationFuzzRun`: `FuzzRun_KeepsInvariantsAToEAndH_AfterEveryOpAndEveryHundredOps`, `FuzzRun_AcceptsAtLeastFivePercentOfEachWellFormedOpType_AndAimsHalfItsOpsAtTheSharedChest`. 8 players joined by `PlayerJoin` System ops (`ContainerCatalogueTests.JoinOp`'s shape), the Intake and the two fixture chests; 400 mail units (60 addresses; postcard / letter / small; addresses with `a % 10 == 9` Cursed, 40 units) spawned through `Spawn`, 200 item units caught into the panels with `TryCatch`; then 18 000 ticks × 4 ops × 8 slots (576 000 ops) through `EnqueueOp` + `Tick`. The `InventoryInvariantChecker` (the world's `IOpRecorder`, so it runs after each drained op inside the drain, and the automation stand-in's observer, after each call) checks the ledger rows against its own model after every op (a, b), the brute-force full check every 100 ops and at the end (a multiset of mailIds, b units per item def, c `1 ≤ count ≤ effMax`, d no-overlap against the occupancy grid and header counts, e in-bounds, h `PeekOutfeed` / `CountItem` / StackKey index vs brute force), the `ItemsLost` records against the ledger's destroyed units every tick, and coverage at the end (i: every well-formed type ≥ 5 % accepted — lowest Merge 7.5 %; 51.9 % of ops name the shared chest; 1 742 WorldItems expired; malformed ops all `bad_request`).
+- **Budget** — fixed seeds (generator `0x0018F0225EED0001`, run `0x5EED0018`); every failure prints `seed=… op=… tick=… invariant <letter> (<name>)`, including failures raised inside a tick (Release's `Tick` swallows them, so the run loop re-raises the first). Run wall time (advisory ≤ 60 s): Release 1.5–2.4 s for 18 000 ticks; Debug 1.7–2.1 s for 3 600. `FuzzRun_KeepsEveryMailIdArenaClassBelowHalfItsBlocks`: observed peaks (Release, full run) class 0 268/3640 (7.4 %), 1 74/1820 (4.1 %), 2 75/910 (8.2 %), 3 44/455 (9.7 %), 4 15/227 (6.6 %), 5 4/113 (3.5 %), 6–8 0; story 003's capacities need no retune.
+- **H-DET-1** — `InventoryDeterminismTests` over `InventoryDeterminismRun`: `TwoWorlds_SameContentSeedAndLog_HaveEqualWholeDumpHashAfterEveryOp`, `WorldWithAnotherRunSeed_DivergesAtTheFirstRngDraw`. World R records a 50 000-op log (one op per tick: joins, pre-population, then the generator) with `InMemoryRecorder`; A, B (same run seed) and C (another) are each built and replayed on their own thread through SC-DET-1's `DeterminismRun.ReplayInto` (extracted from `DeterminismRun.Replay` in test code; no second runner), which SHA-256s the whole `TryWriteDump` before the first tick and after every tick; the final hashes also match `DumpHash.Sha256`. No hash constant is committed. C diverges exactly after the first Land command, whose landing position is the world's first RNG draw. The log has accepted ops of every well-formed type. Known limit (TD-146): the open set is not in the dump.
+**Fixture chests**: Mail Lead default pending Evan (TD-204 item 8) — no shipped M-1a def is a chest, so both are `TryCreateContainer` instances (8 × 6, no owner) of `player_inventory`, an existing M-1a def that accepts mail and items; one helper, `InventoryFuzzWorld.CreateFixtureExternals`.
+**Mail Dev defaults pending Evan (TD-206)**: item units arranged through the story-017 Recount seam (no M-1a faucet); the automation set as a test-only command op stashed and executed in `MailStep`; c, d, e, h in the full check only (no O(1) counter at M-1a); a 600-unit spawn ceiling to keep the fixture's scale; the other-seed divergence through an RNG-drawn landing position; and the Debug scaling below.
+**Debug scaling**: Release runs the AC numbers. The unoptimised Debug legs (`#if DEBUG`; they also run the `INVENTORY_ASSERT` scan every tick) run a fifth — 3 600 fuzz ticks, a 10 000-op log — with the same seeds and checks, so the AC evidence runs on every CI leg (nothing Explicit or skipped). Class times (incl. runner start): fuzz Debug 3.5–5.5 s, Release 3.1–4.9 s; H-DET-1 Debug 10–15 s, Release 6–8 s. Full suite here: Debug net10.0 43 s, net8.0 53 s; Release net10.0 37 s, net8.0 37 s.
+**Seen failing**: the checker was run against four seeded Sim bugs (with an earlier tuning of the op weights), each reverted: a consume not counted for mail (a, op 122), items not linked in the StackKey index (h, op 100), a one-column out-of-bounds placement (e, op 2 700), a partial overlap placed as free (d, op 400).
+**Tests**: 5,776 per leg (5 new), 0 failed; skipped 65 Debug / 7 Release.
+**Review**: a review subagent on Sonnet: nothing serious; applied — the first fuzz test no longer restates loop counts, the shared-chest metric reads a command's container only for Spawn / Open / Consume and never counts malformed ops, the checker sizes its per-container lists from the table capacity, and the tick-end mismatch letter comes from the newest ring record.
