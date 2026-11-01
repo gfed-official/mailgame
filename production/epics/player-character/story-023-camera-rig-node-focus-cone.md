@@ -6,7 +6,7 @@
 > **Type**: Visual/Feel
 > **Estimate**: M (~1 day; ~350 lines prod + evidence)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-01 (docs branch `docs/lead-cleanups-2026-11-01`, off main 56c9446): implementation note added — place the camera from `CameraPose.Compose`'s output (Story 021 as built; TD-201 item 3).
 
 ## Context
 
@@ -50,6 +50,7 @@
 - Files under `src/Game/Camera/`: `CameraRig.cs` (`Node3D`, `Initialize(deps)`, `Present(int alphaPermille)`), `FollowSpring.cs` (critically damped, semi-implicit, float; `dt` from `IRenderClock.RenderSimTimeMs` differences), `FocusCone.cs`. `CameraRig` is a child of `Main/World` in `Main.tscn`; the scene file itself is created by the godot-host-shell epic's scene story (`production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md`) — add the three nodes there or in a `CameraRig.tscn` instanced by it. Run **Project > Tools > Upgrade Project Files** policy per ADR-0019 §8 if the scene format needs it; commit `.uid` files.
 - Camera yaw/pitch come from the router's look adapter (input-controls epic — `production/epics/input-controls/story-009-analog-input-deadzone-trigger-move-look.md`); until it exists, drive the rig from a debug mouse-look in the Debug subtree only.
 - The aim state (profile blend) comes from `CarrierStatus.Aiming` (Story 013/020); swimming from `CarrierStatus.Swimming`.
+- **Camera placement (Mail Lead note, 2026-11-01):** place `Camera3D` from `CameraPose.Compose`'s output, never from the solver's boom length alone. Per rendered frame: `pivot = CameraPose.Pivot(in feet, in profile)` on the spring-followed rendered feet, then `cam = CameraPose.Compose(world, in pivot, yawBam, pitchBam, shoulderMm, profile.BoomMm, smoothedBoomMm, swimming)` (`src/PerformativeMail.Client.Core/Camera/CameraPose.cs:68-69`; `smoothedBoomMm` from `BoomSmoother.Step`, seeded from a solved length, not 0 — HANDOFF 2026-10-29). `Compose` scales the full offset by `smoothedBoomMm / desiredBoomMm`, then clamps the result to `TerrainHeightMm(x, z) + FloorClearanceMm` (250 mm; `CameraPose.cs:24`, clamp at `:84-85`) and, while swimming, to the water plane (`:27`, `:86-89`). That clamp is the camera's only ground guarantee: TD-201 item 3 (Story 021 AC "Terrain floor", `production/epics/player-character/story-021-camera-boom-solver-config.md:41-42`) lets `BoomSolver.Solve` return its 300 mm floor below terrain + 250, so a rig that composes its own position from `Solve`'s length can clip into the ground and fail the "Boom collision" and PCM-P2-3 ACs above. Convert the mm vector to metres once at the `Camera3D` transform; look yaw/pitch is applied as rotation separately (never smoothed), and nothing read from Godot feeds back into `Compose`.
 - Tell the router the cone: `IFocusConeSink.SetFocusCosMinPm(int)` — a one-method Client.Core interface the input-controls epic's router implements (cite: `production/epics/input-controls/story-009-analog-input-deadzone-trigger-move-look.md`, which declares `IFocusConeSink`). Until then the sink is a stub holding the value for tests.
 - Test the rig with a scripted `ICarrierView` stub (no Sim) under `godot-mono --headless` for the numeric trace; screenshots need a render driver.
 
