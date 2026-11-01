@@ -15,7 +15,10 @@
 #   R9  presenters/views that override _Ready do no node/tree lookups (inert until Initialize)
 #   R8a exactly one .tscn under src/Game/ references GameLoop.cs as an ext_resource script
 #   R8b exactly one .cs under src/Game/ declares "partial class GameLoop"
-# Rules 2, 5 and 6 ignore lines that are wholly a comment (leading //, /*, *, # or ;), so
+#   R10 no GetAsText / GetFileAsString / DirAccess (or GDScript spellings) under src/Game/Content/:
+#       ContentHost reads bytes with FileAccess.GetFileAsBytes and never enumerates the PCK
+#       (ADR-0019 section 4; approved by Evan 2026-11-01 (TD-204 item 6))
+# Rules 2, 5, 6 and 10 ignore lines that are wholly a comment (leading //, /*, *, # or ;), so
 # a doc comment may name a forbidden API; a trailing comment on a code line is still scanned.
 #
 # Usage:  tools/ci/check-scene-rules.sh [--self-check]
@@ -62,6 +65,9 @@ EOF
     # Clean control: comment-only mentions, reads and "==" comparisons must not trip R2/R5/R6.
     mkdir -p "$tmp/repo/src/Game/Presentation"
     printf 'using Godot;\n// Inert: no _Ready; GetNode is only mentioned in this comment.\npublic partial class WorldPresenter : Node3D { public bool IsInitialized => false; }\n' > "$tmp/repo/src/Game/Presentation/WorldPresenter.cs"
+    # Clean control for R10: comment-only mentions and GetFileAsBytes are fine under src/Game/Content/.
+    mkdir -p "$tmp/repo/src/Game/Content"
+    printf 'using Godot;\n// Never GetAsText, GetFileAsString or DirAccess here.\nclass ContentHost { byte[] F(string p) => FileAccess.GetFileAsBytes(p); }\n' > "$tmp/repo/src/Game/Content/ContentHost.cs"
     cat > "$tmp/repo/src/Game/Hosting/GameLoop.cs" <<'EOF'
 using Godot;
 namespace PerformativeMail.Game.Hosting;
@@ -127,6 +133,11 @@ EOF
   plant_check R9  "view GetTree in _Ready"                'printf "using Godot;\npublic partial class PlayerView : Node3D { public override void _Ready() { var t = GetTree(); } }\n" > src/Game/PlayerView.cs'
   plant_check R1  "[autoload_prepend] section"            'printf "\n[autoload_prepend]\n\nFoo=\"*res://foo.gd\"\n" >> project.godot'
   plant_check R2  "src/Game/ absent"                     'rm -rf src/Game'
+  plant_check R10 "GetAsText in src/Game/Content/"        'printf "class H { string F(Godot.FileAccess f) => f.GetAsText(); }\n" > src/Game/Content/Text.cs'
+  plant_check R10 "GetFileAsString in src/Game/Content/"  'printf "class H { string F() => Godot.FileAccess.GetFileAsString(\"res://a\"); }\n" > src/Game/Content/Text.cs'
+  plant_check R10 "DirAccess in src/Game/Content/"        'printf "class H { void F() { using var d = Godot.DirAccess.Open(\"res://content\"); } }\n" > src/Game/Content/Dir.cs'
+  plant_check R10 "get_as_text in a .gd under src/Game/Content/" 'printf "func f(f):\n\treturn f.get_as_text()\n" > src/Game/Content/text.gd'
+  plant_check R10 "src/Game/Content/ absent"             'rm -rf src/Game/Content'
 
   # src/Game/Smoke/ is excluded from R6 only: a Smoke assignment alone must be accepted.
   make_clean
@@ -136,6 +147,15 @@ EOF
     echo "PASS  self-check: src/Game/Smoke/ Paused assignment does not trip R6"
   else
     echo "FAIL  self-check: src/Game/Smoke/ Paused assignment tripped R6 or the run failed"; cat "$tmp/out.txt"; bad=$((bad + 1))
+  fi
+  # R10 is scoped to src/Game/Content/: DirAccess elsewhere (a smoke fixture) must be accepted.
+  make_clean
+  mkdir -p "$tmp/repo/src/Game/Smoke"
+  printf 'class S { void F() { using var d = Godot.DirAccess.Open("user://x"); } }\n' > "$tmp/repo/src/Game/Smoke/FixtureSmoke.cs"
+  if run_child && grep -q '^PASS  \[R10\]' "$tmp/out.txt"; then
+    echo "PASS  self-check: DirAccess outside src/Game/Content/ does not trip R10"
+  else
+    echo "FAIL  self-check: DirAccess outside src/Game/Content/ tripped R10 or the run failed"; cat "$tmp/out.txt"; bad=$((bad + 1))
   fi
   # ...but the exclusion is R6 only: a Smoke _PhysicsProcess still trips R5.
   plant_check R5  "_PhysicsProcess override in src/Game/Smoke/" 'mkdir -p src/Game/Smoke && printf "partial class Y : Node { public override void _PhysicsProcess(double d) { } }\n" > src/Game/Smoke/Phys.cs'
@@ -174,16 +194,19 @@ project_has() {
   project_normalised | grep -Eq -e "$1"; proj_rc=$?
 }
 
-# src_scan <id> <description> <ERE> <include glob>... : fails on any non-comment hit under src/Game/.
-# If $scan_exclude is non-empty, hits in files under that directory prefix are ignored.
+# src_scan <id> <description> <ERE> <include glob>... : fails on any non-comment hit under src/Game/
+# (or under $scan_root when it is set). If $scan_exclude is non-empty, hits in files under that
+# directory prefix are ignored.
 scan_exclude=""
+scan_root=""
 src_scan() {
   local id="$1" desc="$2" pat="$3"; shift 3
-  if [ ! -d "$game" ]; then fail "[$id] $desc: src/Game/ is missing"; return; fi
+  local dir="${scan_root:-$game}"
+  if [ ! -d "$dir" ]; then fail "[$id] $desc: ${dir#"$root"/}/ is missing"; return; fi
   local inc=() g
   for g in "$@"; do inc+=("--include=$g"); done
   local raw rc hits
-  raw="$(grep -rnE "${inc[@]}" -e "$pat" "$game" 2>&1)"; rc=$?
+  raw="$(grep -rnE "${inc[@]}" -e "$pat" "$dir" 2>&1)"; rc=$?
   if [ "$rc" -gt 1 ]; then fail "[$id] $desc: grep error: $raw"; return; fi
   hits="$(printf '%s\n' "$raw" | grep -vE "$comment_line" | grep -v '^$')"
   if [ -n "$scan_exclude" ] && [ -n "$hits" ]; then
@@ -276,6 +299,12 @@ else
   if [ -z "$r9_bad" ]; then pass "[R9] no node/tree lookups in a presenter or view _Ready (inert until Initialize(deps))"
   else fail "[R9] presenter/view overrides _Ready and looks nodes up:$r9_bad"; fi
 fi
+
+# R10 - ContentHost reads bytes only and never enumerates the PCK (ADR-0019 section 4).
+scan_root="$game/Content"
+src_scan R10 "no GetAsText/GetFileAsString/DirAccess under src/Game/Content/ (ADR-0019 section 4)" \
+  'GetAsText|get_as_text|GetFileAsString|get_file_as_string|DirAccess' '*.cs' '*.gd'
+scan_root=""
 
 if [ "$failures" -ne 0 ]; then
   echo "check-scene-rules: $failures of $rules rules FAILED"
