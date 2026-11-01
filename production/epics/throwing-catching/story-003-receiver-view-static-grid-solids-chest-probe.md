@@ -82,7 +82,7 @@
 **Required evidence**:
 - Logic: `tests/unit/throwing/ReceiverViewTests.cs` (`[Trait("Id", "TC-E-1")]`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [x] Created and passing — 2026-10-29, branch `story/throwing-catching-003` (main 099637a; re-verified 2026-11-01 after merging main 56c9446, PR #69 and PR #70): `ReceiverViewTests` (7 methods, 18 cases) plus `ThrowingRulesTests.OnlyReceiverGrid_StoresIndicesPerCell_AndItsBuildTakesCatchVolumesOnly`. Full suite on main 56c9446 + this branch: 5,790 tests per leg, 0 failed: net10 Debug 5,724 passed / 66 skipped, net10 Release 5,783 / 7, net8 Debug 5,724 / 66, net8 Release 5,783 / 7.
+**Status**: [x] Created and passing — 2026-10-29, branch `story/throwing-catching-003` (main 099637a; re-verified 2026-11-01 after merging main 56c9446, PR #69 and PR #70): `ReceiverViewTests` (7 methods, 19 cases; r2 2026-11-01 adds the off-map `GridCases` row) plus `ThrowingRulesTests.OnlyReceiverGrid_StoresIndicesPerCell_AndItsBuildTakesCatchVolumesOnly`. Full suite on main 70a5766 + this branch (r2): 5,791 tests per leg, 0 failed: net10 Debug 5,725 passed / 66 skipped, net10 Release 5,784 / 7, net8 Debug 5,725 / 66, net8 Release 5,784 / 7.
 
 ---
 
@@ -97,7 +97,7 @@
 
 **Completed**: 2026-10-29 (branch `story/throwing-catching-003`, Mail Dev; `/dev-story` on Opus with no review subagents; `/code-review` on Sonnet, no subagents: no required changes; the pass-through `Mask` assertion removed, the allocation window switched to the AC's `AllocAssert.Zero`)
 **Criteria**: 9/9 met (the bounding-sphere AC is inherited from story 002, no new test, as written).
-- Grid equals brute force: `GridCandidates_EqualTheBruteForceOverlapScan_InAscendingKeyWithoutDuplicates` (inside one cell, several cells, cell edge, face touch, no overlap, map corner).
+- Grid equals brute force: `GridCandidates_EqualTheBruteForceOverlapScan_InAscendingKeyWithoutDuplicates` (inside one cell, several cells, cell edge, face touch, no overlap, map corner, off the map edge).
 - Volumes come from Mail: `Mailboxes_AreMailsRegistryRows_CatchBoxAndDestinationIdAsKey`.
 - Solids via the world query only: `ThrowingRulesTests.OnlyReceiverGrid_StoresIndicesPerCell_AndItsBuildTakesCatchVolumesOnly`; counter 66: `MailboxCandidatesPastCapacity_KeepTheLowest64_AndCountThrowingCandidateOverflowOnce`.
 - Map edges and static-only mask: `Build_CarriesTheWorldAndItsBounds_AndPassesTheCatchersOnlyUnderAll` (All, StaticOnly).
@@ -105,4 +105,5 @@
 - Surface-below: `SurfaceBelow_IsWaterAtSeaLevel_ElseTheGroundUnderThePoint_NeverARoof` (water, street, roof).
 - Allocation (advisory, E2): `Build_OnTheStreet_AThousandCalls_AllocateZeroBytes` (`AllocAssert.Zero`, 0 B on Release; skips on Debug, TD-008).
 **Deviations**: eight as-built judgment calls, labelled in code and batched in **TD-202** (Mail Dev defaults, pending Evan).
+**Departs from AC 6**: TD-202 item 2 checks the age-1 contact on a 1 cm ledge instead of an arm's-length wall, which departs from AC 6 (l.43) and GDD l.745 (`design/gdd/throwing-catching.md`), which require f ≈ 0 (AC 6: ≤ 100 ‰). On the AC's own 200 mm wall the age-1 segment meets the wall at f = 439 ‰; the 10 mm ledge gives 22 ‰. Pending Evan's TD-202 ruling.
 **Wiring**: the builder is not yet bound in `ThrowingSystem`; that is story 011's.
