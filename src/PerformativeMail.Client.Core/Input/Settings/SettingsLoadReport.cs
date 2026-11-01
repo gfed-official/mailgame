@@ -23,6 +23,9 @@ public enum SettingsNoteKind : byte
 
     /// <summary>A mode or style name is not valid for its field; the field default was kept.</summary>
     UnknownValue = 6,
+
+    /// <summary>A value had the wrong JSON type or was not a 64-bit integer; the field default was kept (<c>version</c>: 1, named by Key).</summary>
+    WrongType = 7,
 }
 
 /// <summary>One line of a <see cref="SettingsLoadReport"/>.</summary>

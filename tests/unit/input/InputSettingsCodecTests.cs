@@ -103,10 +103,8 @@ public class InputSettingsCodecTests
     [InlineData("")]
     [InlineData("{\"holdSettingMs\":600")]
     [InlineData("{\"bindings\":{\"a\":1}")]
-    [InlineData("{\"holdSettingMs\":\"600\"}")]
-    [InlineData("{\"holdSettingMs\":600.5}")]
     [InlineData("[1]")]
-    [InlineData("{\"version\":2,\"foo\":1,\"dzInnerPm\":900,\"invertMouseX\":1}")]
+    [InlineData("{\"holdSettingMs\":600} {}")]
     public void Parse_MalformedFile_LoadsDefaultsWithExactlyOneWarningInReportAndLog(string json)
     {
         // Arrange
@@ -124,6 +122,68 @@ public class InputSettingsCodecTests
         Assert.True(log.TryGet(0, out UiEventEntry entry));
         Assert.Equal(LogKind.Config, entry.Kind);
         Assert.Equal((byte)SettingsNoteKind.Malformed, entry.Reason);
+    }
+
+    [Theory]
+    [Trait("Id", "H-R12-1")]
+    [InlineData("holdSettingMs", "600.5")]
+    [InlineData("holdSettingMs", "1e3")]
+    [InlineData("holdSettingMs", "99999999999999999999")]
+    [InlineData("holdSettingMs", "\"600\"")]
+    [InlineData("holdSettingMs", "{\"a\":[1,{\"b\":2}]}")]
+    [InlineData("invertMouseX", "1")]
+    public void Parse_WrongTypedValue_FallsBackForThatFieldOnlyAndLoadsTheRest(string key, string value)
+    {
+        // Arrange - the wrong-typed key sits between two good ones
+        string json = "{\"dzInnerPm\":300,\"" + key + "\":" + value + ",\"trigOnPm\":400}";
+
+        // Act
+        InputSettings settings = Parse(json, out SettingsLoadReport rep);
+
+        // Assert
+        SettingsRange row = default;
+        foreach (SettingsRange candidate in SettingsRanges.All)
+        {
+            if (candidate.Key == key)
+            {
+                row = candidate;
+            }
+        }
+
+        SettingsField field = row.Field;
+        Assert.Equal(300, settings.DzInnerPm);
+        Assert.Equal(400, settings[SettingsField.TriggerOnPm]);
+        Assert.Equal(row.Default, settings[field]);
+        SettingsNote note = Assert.Single(rep.Notes);
+        Assert.Equal(SettingsNoteKind.WrongType, note.Kind);
+        Assert.Equal(field, note.Field);
+        Assert.Equal(0, rep.WarningCount);
+        Assert.False(rep.IsMalformed);
+    }
+
+    [Fact]
+    public void Parse_WrongTypedVersion_FallsBackToVersionOneWithNoteAndLoadsTheRest()
+    {
+        // Act
+        InputSettings settings = Parse("{\"version\":2.5,\"holdSettingMs\":600}", out SettingsLoadReport rep);
+
+        // Assert
+        Assert.Equal(600, settings.HoldSettingMs);
+        Assert.Equal(1, rep.FileVersion);
+        Assert.Equal(SettingsNoteKind.WrongType, Assert.Single(rep.Notes).Kind);
+        Assert.Equal(0, rep.WarningCount);
+    }
+
+    [Fact]
+    public void Parse_DuplicateVersionKey_GivesExactlyOneWarning()
+    {
+        // Act
+        _ = Parse("{\"version\":2,\"version\":3}", out SettingsLoadReport rep);
+
+        // Assert - last wins, one warning
+        Assert.Equal(3, rep.FileVersion);
+        Assert.Equal(1, rep.WarningCount);
+        Assert.Equal(3, Assert.Single(rep.Notes).Read);
     }
 
     // ------------------------------------------------------------ clamping and validation

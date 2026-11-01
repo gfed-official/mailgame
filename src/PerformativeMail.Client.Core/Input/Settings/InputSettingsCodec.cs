@@ -40,8 +40,10 @@ public static class InputSettingsCodec
     /// <see cref="SettingsNoteKind.UnsupportedVersion"/> warning. A missing field takes its default, an out-of-range value
     /// clamps to the nearest bound (the hold time also rounds to 50 ms), an unknown key (including <c>bindings</c>) is skipped
     /// and noted once per key name, and an unknown mode name keeps the class default. A malformed file (empty, truncated,
-    /// not an object, a value of the wrong type, a number with a fraction) returns <see cref="InputSettings.Defaults"/> and a
-    /// report holding only the <see cref="SettingsNoteKind.Malformed"/> warning.
+    /// not an object, trailing content) returns <see cref="InputSettings.Defaults"/> and a report holding only the
+    /// <see cref="SettingsNoteKind.Malformed"/> warning. A value of the wrong type (a fraction, an exponent, a number past
+    /// 64 bits, a string for a number, a number for a bool, an object or array) is malformed for its field only: the field
+    /// keeps its default with a <see cref="SettingsNoteKind.WrongType"/> note and the rest of the file loads.
     /// </summary>
     /// <param name="utf8">The file bytes. A missing file is not an error: the caller uses <see cref="InputSettings.Defaults"/> without parsing.</param>
     /// <param name="rep">What was clamped, dropped or warned about, in file order.</param>
@@ -65,7 +67,9 @@ public static class InputSettingsCodec
         if (!ok)
         {
             // Mail Dev default pending Evan (TD-205 item 8): a malformed file keeps no other note, so the report and the
-            // log both hold exactly the one warning; a wrong-typed value anywhere makes the whole file malformed.
+            // log both hold exactly the one warning. Only unparseable JSON gets here; a wrong-typed value (fraction,
+            // exponent, out of 64 bits, wrong JSON type) is malformed for that field alone: it keeps its default, gets an
+            // informational WrongType note, and the rest of the file loads.
             rep = new SettingsLoadReport(SettingsRanges.CurrentVersion, [new SettingsNote(SettingsNoteKind.Malformed, null, 0, 0, null)]);
             return InputSettings.Defaults;
         }
@@ -95,6 +99,7 @@ public static class InputSettingsCodec
         }
 
         List<string>? skippedKeys = null;
+        int versionNote = -1;
         while (true)
         {
             if (!reader.Read())
@@ -110,14 +115,22 @@ public static class InputSettingsCodec
 
             if (reader.ValueTextEquals(VersionKey))
             {
-                if (!reader.Read() || reader.TokenType != JsonTokenType.Number || !reader.TryGetInt32(out fileVersion))
+                if (!reader.Read())
                 {
                     return false;
                 }
 
-                if (fileVersion != SettingsRanges.CurrentVersion)
+                if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out int declared))
                 {
-                    notes.Add(new SettingsNote(SettingsNoteKind.UnsupportedVersion, null, fileVersion, SettingsRanges.CurrentVersion, null));
+                    fileVersion = declared;
+                    SetVersionNote(notes, ref versionNote, declared == SettingsRanges.CurrentVersion ? null
+                        : new SettingsNote(SettingsNoteKind.UnsupportedVersion, null, declared, SettingsRanges.CurrentVersion, null));
+                }
+                else
+                {
+                    fileVersion = SettingsRanges.CurrentVersion;
+                    SetVersionNote(notes, ref versionNote, new SettingsNote(SettingsNoteKind.WrongType, null, 0, SettingsRanges.CurrentVersion, VersionKey));
+                    reader.Skip();
                 }
 
                 continue;
@@ -125,16 +138,24 @@ public static class InputSettingsCodec
 
             if (TryFindRow(ref reader, out SettingsRange row))
             {
-                if (!reader.Read() || !TryReadValue(ref reader, row, values, notes))
+                if (!reader.Read())
                 {
                     return false;
+                }
+
+                if (!TryReadValue(ref reader, row, values, notes))
+                {
+                    reader.Skip();
+                    values[(int)row.Field] = row.Default;
+                    notes.Add(new SettingsNote(SettingsNoteKind.WrongType, row.Field, 0, row.Default, null));
                 }
 
                 continue;
             }
 
             // Mail Dev default pending Evan (TD-205 item 9): unknown keys are deduplicated by exact name across the file
-            // (a duplicate known key is last-wins); bindings gets its own note kind.
+            // (a duplicate known key is last-wins); bindings gets its own note kind. A repeated version key is last-wins too
+            // and leaves at most one version note, so a doubled key never doubles the warning.
             string key = reader.GetString()!;
             reader.Skip();
             skippedKeys ??= [];
@@ -144,6 +165,25 @@ public static class InputSettingsCodec
                 var kind = string.Equals(key, BindingsKey, StringComparison.Ordinal) ? SettingsNoteKind.BindingsSkipped : SettingsNoteKind.UnknownKey;
                 notes.Add(new SettingsNote(kind, null, 0, 0, key));
             }
+        }
+    }
+
+    // Keeps the one note a version key may leave: the latest key replaces the earlier one, and null (version 1) removes it.
+    private static void SetVersionNote(List<SettingsNote> notes, ref int index, SettingsNote? note)
+    {
+        if (index >= 0 && note is { } replacement)
+        {
+            notes[index] = replacement;
+        }
+        else if (index >= 0)
+        {
+            notes.RemoveAt(index);
+            index = -1;
+        }
+        else if (note is { } added)
+        {
+            index = notes.Count;
+            notes.Add(added);
         }
     }
 
