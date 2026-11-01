@@ -186,6 +186,18 @@ public class InputSettingsCodecTests
         Assert.Equal(3, Assert.Single(rep.Notes).Read);
     }
 
+    [Fact]
+    public void Parse_UnsupportedVersionThenVersionOne_ClearsTheVersionNote()
+    {
+        // Act
+        _ = Parse("{\"version\":2,\"version\":1}", out SettingsLoadReport rep);
+
+        // Assert - the later version 1 wins and removes the earlier note
+        Assert.Equal(1, rep.FileVersion);
+        Assert.Equal(0, rep.WarningCount);
+        Assert.Empty(rep.Notes);
+    }
+
     // ------------------------------------------------------------ clamping and validation
 
     [Fact]
