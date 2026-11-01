@@ -5,8 +5,8 @@
 > **Layer**: Core
 > **Type**: Integration
 > **Estimate**: M (~1 day)
-> **Manifest Version**: 2026-10-16
-> **Last Updated**: —
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-11-01 (readiness doc fixes, TD-204 approved by Evan 2026-11-01 12:05 PM PT by card click (card t222s1054, listing t222s1053); manifest re-stamped 2026-10-16 → 2026-10-17.1 — the .2 revision adds ADR-0012–0017/0019/0026 rules and the .1 revision the input-adapter and `WorldTablesBuilder` rules, none concerning this test-only inventory story)
 
 ## Context
 
@@ -32,9 +32,9 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] **H-R19-1 (M-1a subset)** — a seeded Sim with 8 simulated slots, the Intake and 2 fixture external containers plus each panel and cursor, pre-populated with 400 mail units across 60 addresses (3 kinds, 10 % Cursed) and 200 item units; 18 000 ticks with 4 random ops per slot per tick from the **M-1a set** {pick, move (whole / split-and-place / swap), merge, quick_move, return, open/close via the internal open-set API, spawn into the Intake, WorldItem create (drop/throw-land stand-in incl. water) and expiry, pickup core, TryCatch, ConsumeUnit, DetachForThrow, malformed ops}, ≥ 50 % targeting one shared container; separately named assertions after every op (O(1) counters) and every 100 ops (full check): **a** conservation-mail, **b** conservation-items, **c** bounds `1 ≤ count ≤ effMax`, **d** no-overlap, **e** in-bounds, **h** index consistency (`PeekOutfeed`, `CountItem`, StackKey index vs brute force), **i** coverage ≥ 5 % accepted per well-formed op type. (f/g sort invariants and the take_all/split/sort/bag/disconnect ops join at M1/M-1b/M0.)
+- [ ] **H-R19-1 (M-1a subset)** — a seeded Sim with 8 simulated slots, the Intake and 2 fixture external containers plus each panel and cursor (the two external containers use an existing M-1a container definition that accepts both mail and items, or, if none exists, a new chest definition loaded through `ContentLoader`; Mail Lead planning default, approved by Evan 2026-11-01 12:05 PM PT by card click (TD-204 item 8); today M-1a `BuiltInContent` defines only `hotbar`, `player_inventory`, `po_intake` and `cursor`, `src/PerformativeMail.Sim/Content/BuiltInContent.cs:83-100`), pre-populated with 400 mail units across 60 addresses (3 kinds, 10 % Cursed) and 200 item units; 18 000 ticks with 4 random ops per slot per tick from the **M-1a set** {pick, move (whole / split-and-place / swap), merge, quick_move, return, open/close via the internal open-set API, spawn into the Intake, WorldItem create (drop/throw-land stand-in incl. water) and expiry, pickup core, TryCatch, ConsumeUnit, DetachForThrow, malformed ops}, ≥ 50 % targeting one shared container; separately named assertions after every op (O(1) counters) and every 100 ops (full check): **a** conservation-mail, **b** conservation-items, **c** bounds `1 ≤ count ≤ effMax`, **d** no-overlap, **e** in-bounds, **h** index consistency (`PeekOutfeed`, `CountItem`, StackKey index vs brute force), **i** coverage ≥ 5 % accepted per well-formed op type. (f/g sort invariants and the take_all/split/sort/bag/disconnect ops join at M1/M-1b/M0.)
 - [ ] Budget: fixed seed in CI (advisory ≤ 60 s wall); failures print seed, op index and invariant letter; the arena classes peak < 50 % on this fixture (ADR-0009 §5 assertion, retune story 003's PROPOSED capacities if needed).
-- [ ] **H-DET-1** — two Sim instances from the same content and seed apply the same 50 000-op log (from the fuzz generator); after each op (one op per tick) the SHA-256 of the canonical state dump (inventory section + Sim Core sections) is equal; a third world with another seed diverges.
+- [ ] **H-DET-1** — two Sim instances from the same content and seed apply the same 50 000-op log (from the fuzz generator); after each op (one op per tick) the SHA-256 of the whole canonical dump is equal (the shipped `DumpHash.Bytes` hashes every section, `tests/PerformativeMail.Sim.Tests/DumpHash.cs:14`; no section subset); a third world with another seed diverges. Known limit: the open set is not in the dump yet (TD-146, `src/PerformativeMail.Sim/Inventory/OpenSet.cs:20`), so an open-set divergence is invisible to H-DET-1 until TD-146 closes.
 
 ---
 
@@ -42,7 +42,8 @@
 
 *Derived from the governing ADR(s) Decision / Implementation Guidelines:*
 
-- Location: `tests/integration/inventory/ConservationFuzzTests.cs`, `InventoryDeterminismTests.cs`; generator in `tests/integration/inventory/Fuzz/` (PCG32 from `production/epics/simulation-core/story-008-rng-primitives-golden-vectors.md`).
+- Location: `tests/integration/inventory/ConservationFuzzTests.cs`, `InventoryDeterminismTests.cs`; generator in `tests/integration/inventory/Fuzz/` (PCG32 from `production/epics/simulation-core/story-008-rng-primitives-golden-vectors.md`, shipped as `src/PerformativeMail.Sim/Primitives/Pcg32.cs`).
+- Harness reuse (lean-testing, readiness 2026-11-01): H-DET-1 reuses the SC-DET-1 two-world harness (`DeterminismRun` in `tests/integration/sim/DeterminismT1Tests.cs`) and `DumpHash` rather than a second two-world runner; one op per tick for H-DET-1, 32 ops per tick (4 × 8 slots) for H-R19-1; players join through `ContainerCatalogueTests.JoinOp`'s shape (`tests/integration/inventory/ContainerCatalogueTests.cs:20`). The arena peak is already public as `MailIdArena.PeakLiveBlocks(int)` (`src/PerformativeMail.Sim/Inventory/Storage/MailIdArena.cs:118`). No hash constant is committed: the comparison is between live worlds.
 - Drive ops through `EnqueueOp` + `Tick()` (the real FIFO), automation-style calls (`IInventoryApi`) from a test system bound to a later phase — never by poking state.
 - Players join through Sim Core's `PlayerJoin` System op.
 - 20-seed nightly runs (H-R19-1 budget) are a CI-config follow-up for devops; not required to close this story.
@@ -69,7 +70,7 @@
 
 **Story Type**: Integration
 **Required evidence**:
-- Integration: `tests/integration/inventory/ConservationFuzzTests.cs` — must exist and pass
+- Integration: `tests/integration/inventory/ConservationFuzzTests.cs` (H-R19-1) and `tests/integration/inventory/InventoryDeterminismTests.cs` (H-DET-1) — must exist and pass
 
 **Status**: [ ] Not yet created
 
