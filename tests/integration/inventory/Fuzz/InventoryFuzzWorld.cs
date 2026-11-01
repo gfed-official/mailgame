@@ -76,7 +76,7 @@ internal sealed class InventoryFuzzWorld
     public ActorId ActorOf(int slot) => ActorId.FromEntity(Host.Services.Slots.Entry(PlayerSlot.FromValue((byte)slot)).PlayerId);
 
     /// <summary>
-    /// The two fixture external containers: Mail Lead default pending Evan (TD-204 item 8). M-1a ships no chest def, so both are
+    /// The two fixture external containers: Mail Lead default, approved by Evan 2026-11-01 (TD-204 item 8). M-1a ships no chest def, so both are
     /// created with the internal <see cref="InventorySystem.TryCreateContainer"/> from an existing M-1a def that accepts both mail and
     /// items: <c>player_inventory</c> (no allowed-category list), with explicit chest dimensions and no owner. Change the fixture's
     /// containers here only.
