@@ -140,8 +140,9 @@ public sealed class MailSystem : ISimSystem, IMailApi
 
     /// <summary>
     /// Emits one <see cref="MailEventKinds.ComplaintRaised"/> at door <paramref name="d"/> when <paramref name="amountPm"/> is above 0,
-    /// and nothing otherwise (M-R9-2a; Evan approved 2026-10-29 (TD-187 item 1)). An amount above <see cref="ushort.MaxValue"/> (only a
-    /// multiplier far above the shipped 2000 permille bound) is raised as <see cref="ushort.MaxValue"/>:
+    /// and nothing otherwise (M-R9-2a; Evan approved 2026-10-29 (TD-187 item 1)). An amount above <see cref="ushort.MaxValue"/> (a door
+    /// complaint cap above 32,767 permille at the 2000 permille (2.0) multiplier, or a late complaint above 65,535 permille, since late
+    /// complaints skip the multiplier; the shipped defaults peak at 40,000 (20,000 x 2.0)) is raised as <see cref="ushort.MaxValue"/>:
     /// Mail Dev default, pending Evan (TD-193 item 5). Inside a tick only. 0 B.
     /// </summary>
     /// <param name="d">The door the complaint is filed at.</param>
@@ -160,6 +161,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
             AmountPermille = (ushort)Math.Min(amountPm, ushort.MaxValue),
             Source = (byte)source,
         };
+        // The TryRaise result is ignored, so if the event log is full the complaint is lost with nothing recorded; Mail Dev default, pending Evan (TD-193 item 8).
         _ = _events.TryRaise(MailEventKinds.ComplaintRaised, MailEventDescriptors.AudienceAll, in payload);
     }
 
