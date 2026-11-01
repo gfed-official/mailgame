@@ -8,7 +8,7 @@
 > **Est. size**: M — 11 stories (planning estimate was 8–10; the extra story splits boot from session wiring)
 > **Implementation priority**: 9 of 9 (last; uses `~/.local/bin/godot-mono`)
 > **Status**: Ready
-> **Stories**: 11 stories — 4 Complete, 7 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 11 stories — 5 Complete, 6 Ready (counts refreshed 2026-11-01 from the story headers, 007 Complete on branch `story/godot-host-shell-007`; before that 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -103,13 +103,13 @@ This epic is complete when:
 | 004 | [Boot sequence (nine steps), error screen, window guard, `BuiltInContent` step, extension slots](story-004-boot-sequence-error-screen-content-step.md) | Integration | Complete | ADR-0019 |
 | 005 | [Host session wiring: `SimComposition.Build` over loopback, `ClientLayer.Attach(ports)`, sample sink, local join, render clock](story-005-host-session-composition-ports-render-clock.md) | Integration | Ready | ADR-0019 |
 | 006 | [Presentation plumbing: `PresenterDeps`, `Initialize(deps)` injection, World/Hud/Audio registration seams, `PresentationEventStream` feed](story-006-presenters-deps-injection-event-stream.md) | Integration | Ready | ADR-0019 |
-| 007 | [Minimal `ContentHost : IContentSource` over `res://content/` and the opt-in host content mode](story-007-contenthost-minimal-iconentsource.md) | Integration | Ready | ADR-0019 |
+| 007 | [Minimal `ContentHost : IContentSource` over `res://content/` and the opt-in host content mode](story-007-contenthost-minimal-iconentsource.md) | Integration | Complete | ADR-0019 |
 | 008 | [`ViewCatalog`, `ViewCatalogResolver`, placeholder view + warning, editor-saved catalogs, uid CI check](story-008-viewcatalog-resolver-placeholder-uid-check.md) | Integration | Ready | ADR-0019 |
 | 009 | [`EntityViewRegistry`, `NodePool<T>` + caps, one view per lot under `World/Destinations`](story-009-entity-view-registry-pools-destination-views.md) | Integration | Ready | ADR-0019 |
 | 010 | [Greybox street: `TerrainView` from `IWorldQuery` (ground, water, solids, pad, light, fallback camera)](story-010-greybox-street-terrain-view.md) | Visual/Feel | Ready | ADR-0019 |
 | 011 | [Headless smoke (boot, ≥ 300 ticks, exit 0), smoke wrapper, CI wiring, `critical-paths.md`](story-011-headless-smoke-300-ticks-ci-critical-paths.md) | Integration | Ready | ADR-0019 |
 
-**11 stories: 10 Integration, 1 Visual/Feel — 4 Complete, 7 Ready, 0 Blocked (refreshed 2026-10-21; 004 Complete in PR #17).** Every governing ADR (0001, 0002, 0003, 0010, 0011, 0012, 0016, 0019, 0026) is Accepted. Stories depend on other stories, not on missing decisions, so none is Blocked.
+**11 stories: 10 Integration, 1 Visual/Feel — 5 Complete, 6 Ready, 0 Blocked (refreshed 2026-11-01; 007 Complete on branch `story/godot-host-shell-007`; 004 Complete in PR #17).** Every governing ADR (0001, 0002, 0003, 0010, 0011, 0012, 0016, 0019, 0026) is Accepted. Stories depend on other stories, not on missing decisions, so none is Blocked.
 
 **Suggested order:** 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011. 007 may run any time after 004. Stories 001–004 can start as soon as simulation-core 001/010/024/025, network-adapter-loopback 001 and content-data 008 exist; 005 needs network-adapter-loopback 007 and player-character 019/020; 009–010 need the world-stub street (006/007).
 
@@ -160,4 +160,4 @@ This epic is complete when:
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 007 (A3), 005 (A7), 006 (A8), 008 (A9), 009 (A10), 010 (A11), 011 (A12). Earlier notes below are history.
 
-Stories 001–004 are Complete (004 in PR #17). Next in this epic is 005, which needs player-character 019/020; 006–010 chain from 005. (007's content-data 019 dependency is met: 019 is Complete, and 007 is in Track A wave A1, 2026-10-29.) Run `/story-readiness` on 005 once those are Complete. Stories 001–003 need only simulation-core 001/010/024 and network-adapter-loopback 001; stories 005 onward need the loopback session (network-adapter-loopback 007), `BuiltInContent` (content-data 008) and the world-stub street (world-stub 006/007) to be Done first (epics index order 1–7).
+Stories 001–004 and 007 are Complete (004 in PR #17; 007 on branch `story/godot-host-shell-007`, 2026-11-01). Next in this epic is 005, which needs player-character 019/020; 006–010 chain from 005. (007's content-data 019 dependency is met: 019 is Complete, and 007 is in Track A wave A1, 2026-10-29.) Run `/story-readiness` on 005 once those are Complete. Stories 001–003 need only simulation-core 001/010/024 and network-adapter-loopback 001; stories 005 onward need the loopback session (network-adapter-loopback 007), `BuiltInContent` (content-data 008) and the world-stub street (world-stub 006/007) to be Done first (epics index order 1–7).
