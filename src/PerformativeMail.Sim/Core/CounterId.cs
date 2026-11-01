@@ -205,4 +205,7 @@ public enum CounterId : ushort
 
     /// <summary>Throwing <c>FlightTable.TryAppend</c>: one per append refused because <c>maxFlights</c> flights are live (the caller's <c>flight_cap</c> path, ADR-0015 section 1 row 10; throwing-catching story 008). Unreachable under the leaky bucket. Id 65: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006".</summary>
     ThrowingFlightCapRefusals = 65,
+
+    /// <summary>Throwing <c>ReceiverViewBuilder.Build</c>: one per segment whose mailbox catch-volume candidates did not fit the <c>ThrowSettings.MaxReceiverCandidates</c> (64) scratch span; the lowest-ordinal volumes are kept and the buffer never grows (throwing-catching story 003; ADR-0015 Implementation Guidelines). The world-solid span's overflow is World's <see cref="WorldSolidQueryOverflow"/>. Id 66: Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-199 item 2).</summary>
+    ThrowingCandidateOverflow = 66,
 }

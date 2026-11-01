@@ -2,6 +2,7 @@ using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.MailDestinations.Ports;
 using PerformativeMail.Sim.Primitives;
@@ -124,6 +125,15 @@ public sealed class MailSystem : ISimSystem, IMailApi
     /// <inheritdoc />
     public bool TryGetDestinationFacts(EntityId dest, out DestinationFacts f) => _registry.TryGetDestinationFacts(dest, out f);
 
+    /// <inheritdoc />
+    public int DestinationCount => _registry.Count;
+
+    /// <inheritdoc />
+    public EntityId DestinationAt(int ordinal) => _registry.EntityIdOf(Row(ordinal));
+
+    /// <inheritdoc />
+    public AabbMm CatchVolumeAt(int ordinal) => _registry.CatchVolumeOf(Row(ordinal));
+
     /// <summary>
     /// Phase 8 (ADR-0017 section 7; M-PERF-1c): updates every feeder credit and touches nothing else when idle, so an idle tick visits
     /// no mail row and no complaint bucket (<see cref="CounterId.MailRowsVisited"/>, <see cref="CounterId.MailBucketsVisited"/>).
@@ -136,6 +146,13 @@ public sealed class MailSystem : ISimSystem, IMailApi
         {
             // F11 (test, add insertRateMilli, cap at 30,000) lands with the M-1b feeders; M-1a has none.
         }
+    }
+
+    private DestinationOrdinal Row(int ordinal)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(ordinal);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(ordinal, _registry.Count);
+        return new DestinationOrdinal((ushort)ordinal);
     }
 
     private static DestinationRegistry BuildRegistry(IWorldQuery world, ContentSet content)
