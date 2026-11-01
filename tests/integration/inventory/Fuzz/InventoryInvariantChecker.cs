@@ -22,7 +22,7 @@ namespace PerformativeMail.Sim.Tests.Integration.Inventory.Fuzz;
 internal sealed class InventoryInvariantChecker : IOpRecorder, IFuzzObserver, IEventSink
 {
     /// <summary>Ops between two full checks.</summary>
-    // Mail Dev default, pending Evan (TD-206 item 3): invariants c, d, e, h (no O(1) counter at M-1a) are checked only in the full check every 100 ops and at the end; a and b after every op.
+    // Mail Dev default, approved by Evan 2026-11-01 1:48 PM PT by card click (TD-206 item 3): invariants c, d, e, h (no O(1) counter at M-1a) are checked only in the full check every 100 ops and at the end; a and b after every op.
     public const int FullCheckEvery = 100;
 
     private readonly ulong _seed;

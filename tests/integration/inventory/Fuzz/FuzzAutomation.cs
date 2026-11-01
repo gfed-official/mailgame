@@ -106,7 +106,7 @@ internal interface IFuzzObserver
 internal sealed class FuzzAutomationSystem : ISimSystem
 {
     /// <summary>The command op kind (inventory block, test-only, like the 0x00F8/0x00F9 fixtures; never registered by production).</summary>
-    // Mail Dev default, pending Evan (TD-206 item 2): the M-1a calls with no player op travel the FIFO as the test-only System command op 0x00FA.
+    // Mail Dev default, approved by Evan 2026-11-01 1:48 PM PT by card click (TD-206 item 2): the M-1a calls with no player op travel the FIFO as the test-only System command op 0x00FA.
     public const OpKind CommandKind = (OpKind)0x00FA;
 
     private const int MaxPending = 256;
@@ -150,7 +150,7 @@ internal sealed class FuzzAutomationSystem : ISimSystem
     public void Bind(SimWorldBuilder builder)
     {
         builder.BindOp(OpDescriptor.For<FuzzCommandPayload>(CommandKind, true, 0, 0), new StashHandler(this));
-        // Mail Dev default, pending Evan (TD-206 item 2): the M-1a calls with no player op are made in MailStep (phase 8).
+        // Mail Dev default, approved by Evan 2026-11-01 1:48 PM PT by card click (TD-206 item 2): the M-1a calls with no player op are made in MailStep (phase 8).
         builder.Bind(PhaseId.MailStep, new RunPhase(this));
     }
 
@@ -200,7 +200,7 @@ internal sealed class FuzzAutomationSystem : ISimSystem
 
             case FuzzVerb.Land:
             {
-                // Mail Dev default, pending Evan (TD-206 item 5): landing positions are drawn from the world's RngNames.Mail stream (index 1), so another run seed diverges at the first Land command.
+                // Mail Dev default, approved by Evan 2026-11-01 1:48 PM PT by card click (TD-206 item 5): landing positions are drawn from the world's RngNames.Mail stream (index 1), so another run seed diverges at the first Land command.
                 _rng ??= _rngView.Create(in RngNames.Mail, 1);
                 FirstDrawTick = Math.Min(FirstDrawTick, _tick.CurrentTick);
                 var pos = new Vec3Mm((int)_rng.NextInt(200_000) - 100_000, 0, (int)_rng.NextInt(200_000) - 100_000);

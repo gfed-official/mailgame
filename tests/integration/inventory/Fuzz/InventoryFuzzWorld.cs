@@ -17,7 +17,7 @@ namespace PerformativeMail.Sim.Tests.Integration.Inventory.Fuzz;
 internal sealed class InventoryFuzzWorld
 {
     /// <summary>Columns and rows of each fixture external container (a GDD chest is 8 x 6).</summary>
-    // Mail Dev default, pending Evan (TD-206 item 7): each fixture chest is 8 x 6 (the GDD chest example) with no owner (ContainerHeader.NoOwner).
+    // Mail Dev default, approved by Evan 2026-11-01 1:48 PM PT by card click (TD-206 item 7): each fixture chest is 8 x 6 (the GDD chest example) with no owner (ContainerHeader.NoOwner).
     public const int ExternalW = 8;
 
     /// <inheritdoc cref="ExternalW"/>
@@ -119,7 +119,7 @@ internal sealed class InventoryFuzzWorld
             }
         }
 
-        // Mail Dev default, pending Evan (TD-206 item 1): item units are arranged as detached entries and counted as granted through the story-017 UnitLedger.Recount seam, as M-1a has no item faucet.
+        // Mail Dev default, approved by Evan 2026-11-01 1:48 PM PT by card click (TD-206 item 1): item units are arranged as detached entries and counted as granted through the story-017 UnitLedger.Recount seam, as M-1a has no item faucet.
         inventory.Ledger.Recount(inventory);
         return (ids.ToArray(), units);
     }

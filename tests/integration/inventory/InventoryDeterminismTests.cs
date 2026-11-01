@@ -21,7 +21,7 @@ public sealed class InventoryDeterminismRun
     /// Ops in the log, one per tick. Release runs the AC's 50 000. The unoptimised Debug legs replay a fifth with the same generator
     /// and seeds, so every CI leg still runs the AC evidence inside the suite's time (story 018 Completion Notes).
     /// </summary>
-    // Mail Dev default, pending Evan (TD-206 item 6): Debug runs one fifth of the AC numbers (10 000 ops) with the same seeds and checks; Release runs the AC numbers.
+    // Mail Dev default, approved by Evan 2026-11-01 1:48 PM PT by card click (TD-206 item 6): Debug runs one fifth of the AC numbers (10 000 ops) with the same seeds and checks; Release runs the AC numbers.
 #if DEBUG
     public const int Ops = 10_000;
 #else
