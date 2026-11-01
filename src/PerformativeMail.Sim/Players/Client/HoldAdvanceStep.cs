@@ -58,7 +58,7 @@ public sealed class HoldAdvanceStep : IClientStep
     /// <param name="anchors">The anchor registry (read only).</param>
     /// <param name="settings">The players settings (<c>ChestMm</c>, <c>IncumbentSlackMm</c>, the hold constants).</param>
     /// <param name="input">The client input settings (<c>HoldSettingMs</c> for the hook context only; the hold length is latched).</param>
-    /// <param name="catchArm">Throwing's <c>CatchArm</c> sender (<c>NullCatchArmSender</c> at M-1a).</param>
+    /// <param name="catchArm">Throwing's <c>CatchArm</c> sender (no production sender exists yet; story 020 binds one, and tests use a fake).</param>
     /// <param name="requests">The ClientLayer's request port.</param>
     /// <param name="counters">The ClientLayer's counters.</param>
     /// <param name="self">The local player's slot, for <see cref="InteractionContext.Actor"/>.</param>
@@ -117,6 +117,7 @@ public sealed class HoldAdvanceStep : IClientStep
                 // A channel has no anchor-side cancels at M-1a: only the context ends it (Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 6)).
                 if (s.Latch.Verb == Verb.Catch)
                 {
+                    // A refused CatchArm{up} is not retried; the channel still ends with the context reason (Mail Dev default, pending Evan (TD-191 item 3)).
                     _ = _catchArm.Send(down: false);
                 }
 
