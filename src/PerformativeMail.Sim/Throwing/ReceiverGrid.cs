@@ -31,7 +31,7 @@ internal sealed class ReceiverGrid
 
     /// <summary>
     /// Most cells a query merges with stack cursors (4 x 4); a flight segment, under 4 m per axis, touches at most 2 x 2. A larger
-    /// region scans every volume. Mail Dev default, pending Evan (TD-202 item 3): the cap and the scan fallback (World's grid uses 32).
+    /// region scans every volume. Mail Dev default, approved by Evan 2026-11-01 12:05 PM PT (TD-202 item 3): the cap and the scan fallback (World's grid uses 32).
     /// </summary>
     internal const int MaxMergeCells = 16;
 
@@ -46,7 +46,7 @@ internal sealed class ReceiverGrid
     private ushort[] _cellItems = [];
 
     /// <summary>
-    /// Creates an empty grid over the map. Mail Dev default, pending Evan (TD-202 item 4): the bounds come in here so that
+    /// Creates an empty grid over the map. Mail Dev default, approved by Evan 2026-11-01 12:05 PM PT (TD-202 item 4): the bounds come in here so that
     /// <see cref="Build"/> keeps the story's one-parameter <c>Build(ReadOnlySpan&lt;VolumeReceiver&gt;)</c> shape and can be re-run.
     /// </summary>
     /// <param name="bounds">The map bounds (normally <c>IWorldQuery.Bounds</c>).</param>

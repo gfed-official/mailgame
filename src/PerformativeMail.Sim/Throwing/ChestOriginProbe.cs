@@ -8,7 +8,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// solids and the heightfield", Edge Cases "If the chest → origin sweep is blocked"; TC-E-1 a). It gathers the world solids
 /// around the segment through <see cref="IWorldQuery.QueryStaticSolids"/> and runs the one sweep,
 /// <see cref="FlightSweep.FirstContact"/>, under <see cref="ReceiverMask.StaticOnly"/> with no mailboxes: any contact
-/// (<c>f &lt;= 1000</c>) is blocked. Mail Dev default, pending Evan (TD-202 item 1): the sweep also tests what it always tests
+/// (<c>f &lt;= 1000</c>) is blocked. Mail Dev default, approved by Evan 2026-11-01 12:05 PM PT (TD-202 item 1): the sweep also tests what it always tests
 /// besides solids and terrain, so an origin across a map side or below the water plane counts as blocked too.
 /// Pure: the candidate buffers are on the stack, so it is safe from any thread and allocates 0 B.
 /// </summary>

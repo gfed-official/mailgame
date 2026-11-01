@@ -166,7 +166,7 @@ public class ReceiverViewTests
         Assert.Equal(blocked ? _chest : G.FxTOrigin, l.Origin);
         if (row == "ledge")
         {
-            // Mail Dev default, pending Evan (TD-202 item 2): the ledge row (face 10 mm ahead of the chest) carries the age-1 check; the
+            // Mail Dev default, approved by Evan 2026-11-01 12:05 PM PT (TD-202 item 2): the ledge row (face 10 mm ahead of the chest) carries the age-1 check; the
             // wall 200 mm ahead is met at f about 439 on the age-1 segment, so the GDD's f about 0 holds only for a solid at the chest.
             Vec3Mm p1 = Ballistic.PositionAt(in l, 1);
             var builder = new ReceiverViewBuilder(world, new Volumes([]), new SimCounters());

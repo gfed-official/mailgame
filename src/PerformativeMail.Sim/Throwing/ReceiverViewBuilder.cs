@@ -35,7 +35,7 @@ public sealed class ReceiverViewBuilder
     /// <summary>
     /// The static-receiver version the preview's cache key includes (ADR-0015 section 8): 0 at M-1a, where nothing static changes
     /// during a run; M-1b's construct and belt registry versions replace it (ADR-0026: <c>IWorldQuery</c> has no version). Mail Dev
-    /// default, pending Evan (TD-202 item 8): it lives here, on the builder the preview shares.
+    /// default, approved by Evan 2026-11-01 12:05 PM PT (TD-202 item 8): it lives here, on the builder the preview shares.
     /// </summary>
     public const int StaticVersion = 0;
 
@@ -49,7 +49,7 @@ public sealed class ReceiverViewBuilder
 
     /// <summary>
     /// Creates the builder and builds the mailbox grid from <paramref name="volumes"/> (run start; allocates). Mail Dev default,
-    /// pending Evan (TD-202 item 5): the story fixes only <see cref="Build"/>'s signature; the world, the source and the counters
+    /// approved by Evan 2026-11-01 12:05 PM PT (TD-202 item 5): the story fixes only <see cref="Build"/>'s signature; the world, the source and the counters
     /// are constructor arguments, and an overflowing build counts once.
     /// </summary>
     /// <param name="world">The world: solids, terrain, water and bounds.</param>

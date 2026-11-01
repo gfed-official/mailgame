@@ -246,7 +246,7 @@ public class ThrowingRulesTests
     public void OnlyReceiverGrid_StoresIndicesPerCell_AndItsBuildTakesCatchVolumesOnly()
     {
         // Arrange: throwing-catching 003 — world solids come from IWorldQuery.QueryStaticSolids, never a second grid (ADR-0026 section 5).
-        // Mail Dev default, pending Evan (TD-202 item 7): "stores indices per cell" is read as any code token naming a cell.
+        // Mail Dev default, approved by Evan 2026-11-01 12:05 PM PT (TD-202 item 7): "stores indices per cell" is read as any code token naming a cell.
         var cellToken = new Regex(@"\b\w*[Cc]ell\w*", RegexOptions.CultureInvariant);
         List<string> hits = [];
 

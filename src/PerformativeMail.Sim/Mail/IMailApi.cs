@@ -47,7 +47,7 @@ public interface IMailApi
     /// <summary>
     /// The number of registered destinations (registry rows; ordinals 0 to <c>DestinationCount - 1</c>). Read by Throwing's catch-volume
     /// adapter at run start (throwing-catching story 003). Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-199 item 1).
-    /// Mail Dev default, pending Evan (TD-202 item 6): the three member names, and an out-of-range ordinal throws (run start only, never the tick path).
+    /// Mail Dev default, approved by Evan 2026-11-01 12:05 PM PT (TD-202 item 6): the three member names, and an out-of-range ordinal throws (run start only, never the tick path).
     /// </summary>
     int DestinationCount { get; }
 
