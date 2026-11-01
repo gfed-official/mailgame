@@ -56,9 +56,6 @@ internal sealed class ExpiryFifos
         _counters = counters;
     }
 
-    /// <summary>Nodes per ring.</summary>
-    public int CapacityPerFifo => _capacity;
-
     /// <summary>The nodes held by <paramref name="fifo"/>, live and stale.</summary>
     /// <param name="fifo">The FIFO.</param>
     /// <returns>The node count.</returns>

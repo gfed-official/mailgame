@@ -16,9 +16,6 @@ public interface IPlayersApi
     /// <returns>The life state; <see cref="LifeState.Despawned"/> for an empty (or none) slot.</returns>
     LifeState GetLifeState(PlayerSlot slot);
 
-    /// <summary>Anchors currently registered.</summary>
-    int AnchorCount { get; }
-
     /// <summary>
     /// Registers an interaction anchor and its owner (ADR-0014 section 1; legal in phases 0 to 12 and at world build). One verb per
     /// anchor per context: a second one returns <see cref="RegisterResult.DuplicateVerb"/> in every build.

@@ -140,7 +140,7 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
     /// <summary>The host's newest transform per slot (story 019): seeded on join, written by <see cref="PlayersStep"/>, read by the range checks.</summary>
     internal HostPositionTable HostPositions { get; } = new();
 
-    /// <inheritdoc />
+    /// <summary>Anchors currently registered.</summary>
     public int AnchorCount => Anchors.Count;
 
     /// <inheritdoc />

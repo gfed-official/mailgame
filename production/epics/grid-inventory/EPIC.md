@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 25 stories — 18 Complete, 6 Ready, 1 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 25 stories — 18 Complete, 5 Ready, 1 Blocked, 1 Deferred (counts refreshed 2026-10-29 from the story headers, `count-story-status.sh`, branch `chore/test-audit-cleanup` with main 4f30c32 merged: story 020 went Ready → Blocked in docs PR #68; before that 18 Complete, 6 Ready, 1 Deferred, refreshed 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
