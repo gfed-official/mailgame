@@ -52,7 +52,8 @@ public sealed class InputSettingsHolder : IClientInputSettings
         return true;
     }
 
-    // Mail Dev default pending Evan (TD-205 item 10): Set clamps and steps silently (no Config entry); only a file load logs.
+    // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 10): Set clamps and steps
+    // silently (no Config entry); only a file load logs.
     /// <summary>Changes one field, normalized by its <see cref="SettingsRanges"/> row (see <see cref="InputSettings.With"/>).</summary>
     /// <param name="field">The field.</param>
     /// <param name="value">The new stored integer (bools as 0 / 1, enums as their value).</param>

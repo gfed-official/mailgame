@@ -21,14 +21,14 @@ public static class InputSettingsCodec
     private const string VersionKey = "version";
     private const string BindingsKey = "bindings";
 
-    // Mail Dev default pending Evan (TD-205 item 6): mode and style names are the enum names, matched ordinal and
-    // case-sensitive ("Hold", "Toggle", "Auto"); Auto is valid only for the two Sprint classes, elsewhere it is an unknown
-    // value and the class default is kept.
+    // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 6): mode and style names are
+    // the enum names, matched ordinal and case-sensitive ("Hold", "Toggle", "Auto"); Auto is valid only for the two Sprint classes,
+    // elsewhere it is an unknown value and the class default is kept.
     private static readonly string[] _holdModeNames = ["Hold", "Toggle", "Auto"];
     private static readonly string[] _glyphStyleNames = ["Auto"];
 
-    // Mail Dev default pending Evan (TD-205 item 7): the ADR-0010 content reader stance for a hand-edited file: comments
-    // skipped, trailing commas allowed, a UTF-8 BOM stripped.
+    // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 7): the ADR-0010 content
+    // reader stance for a hand-edited file: comments skipped, trailing commas allowed, a UTF-8 BOM stripped.
     private static readonly JsonReaderOptions _readerOptions = new()
     {
         CommentHandling = JsonCommentHandling.Skip,
@@ -66,10 +66,10 @@ public static class InputSettingsCodec
 
         if (!ok)
         {
-            // Mail Dev default pending Evan (TD-205 item 8): a malformed file keeps no other note, so the report and the
-            // log both hold exactly the one warning. Only unparseable JSON gets here; a wrong-typed value (fraction,
-            // exponent, out of 64 bits, wrong JSON type) is malformed for that field alone: it keeps its default, gets an
-            // informational WrongType note, and the rest of the file loads.
+            // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 8): a malformed file
+            // keeps no other note, so the report and the log both hold exactly the one warning. Only unparseable JSON gets here;
+            // a wrong-typed value (fraction, exponent, out of 64 bits, wrong JSON type) is malformed for that field alone: it
+            // keeps its default, gets an informational WrongType note, and the rest of the file loads.
             rep = new SettingsLoadReport(SettingsRanges.CurrentVersion, [new SettingsNote(SettingsNoteKind.Malformed, null, 0, 0, null)]);
             return InputSettings.Defaults;
         }
@@ -153,9 +153,10 @@ public static class InputSettingsCodec
                 continue;
             }
 
-            // Mail Dev default pending Evan (TD-205 item 9): unknown keys are deduplicated by exact name across the file
-            // (a duplicate known key is last-wins); bindings gets its own note kind. A repeated version key is last-wins too
-            // and leaves at most one version note, so a doubled key never doubles the warning.
+            // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 9): unknown keys are
+            // deduplicated by exact name across the file (a duplicate known key is last-wins); bindings gets its own note kind.
+            // A repeated version key is last-wins too and leaves at most one version note, so a doubled key never doubles the
+            // warning.
             string key = reader.GetString()!;
             reader.Skip();
             skippedKeys ??= [];

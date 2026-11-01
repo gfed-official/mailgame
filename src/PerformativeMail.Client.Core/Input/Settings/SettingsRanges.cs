@@ -47,11 +47,12 @@ public static class SettingsRanges
     /// <summary>The smallest gap between the outer and inner deadzone, in permille (GDD F3).</summary>
     public const int MinDeadzoneGapPm = 100;
 
-    // Mail Dev default pending Evan (TD-205 item 1): JSON keys are flat camelCase, one key per row, using ADR-0012 section 5's
-    // integer-unit names where it gives one (holdSettingMs, dzInnerPm, trigOnPm, ...) and the InputSettings property name
-    // otherwise; the GDD R10 nested groups (holdMode{}, sensitivity{}, invert{}, deadzone{}, repeat{}) are not used.
-    // Mail Dev default pending Evan (TD-205 item 11): faceLayout and swapSticks (GDD M4) have no row yet; in a file they are
-    // unknown keys, dropped and logged.
+    // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 1): JSON keys are flat
+    // camelCase, one key per row, using ADR-0012 section 5's integer-unit names where it gives one (holdSettingMs, dzInnerPm,
+    // trigOnPm, ...) and the InputSettings property name otherwise; the GDD R10 nested groups (holdMode{}, sensitivity{},
+    // invert{}, deadzone{}, repeat{}) are not used.
+    // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 11): faceLayout and
+    // swapSticks (GDD M4) have no row yet; in a file they are unknown keys, dropped and logged.
     private static readonly SettingsRange[] _rows =
     [
         new(SettingsField.HoldSettingMs, "holdSettingMs", SettingsValueKind.Int, 200, 1000, DefaultClientInputSettings.DefaultHoldSettingMs, Step: 50),
@@ -86,8 +87,8 @@ public static class SettingsRanges
         new(SettingsField.PendingCommitTimeoutMs, "pendingCommitTimeoutMs", SettingsValueKind.Int, 300, 1000, 500),
         new(SettingsField.PadEdgeCollapseMs, "padEdgeCollapseMs", SettingsValueKind.Int, 10, 50, 20),
 
-        // Mail Dev default pending Evan (TD-205 item 2): catchArmSeconds is clamped 1-3; the GDD gives only the default 3,
-        // which is also the 90-tick cap Throwing T7 puts on any arm.
+        // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 2): catchArmSeconds is
+        // clamped 1-3; the GDD gives only the default 3, which is also the 90-tick cap Throwing T7 puts on any arm.
         new(SettingsField.CatchArmSeconds, "catchArmSeconds", SettingsValueKind.Int, 1, 3, 3),
     ];
 
@@ -127,7 +128,8 @@ public static class SettingsRanges
             return value >= row.Min && value <= row.Max ? (int)value : row.Default;
         }
 
-        // Mail Dev default pending Evan (TD-205 item 3): clamp first, then round half up to the step (425 -> 450).
+        // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 3): clamp first, then round
+        // half up to the step (425 -> 450).
         int clamped = (int)Math.Clamp(value, row.Min, row.Max);
         return (clamped + (row.Step / 2)) / row.Step * row.Step;
     }

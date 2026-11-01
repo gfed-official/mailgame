@@ -132,8 +132,8 @@ public sealed class InputSettings : IEquatable<InputSettings>
     /// <summary>Every field at its <see cref="SettingsRange.Default"/>.</summary>
     public static InputSettings Defaults { get; } = new(SettingsRanges.CreateDefaultValues());
 
-    // Mail Dev default pending Evan (TD-205 item 4): Version is the schema this object follows, always 1; the version a file
-    // declared is SettingsLoadReport.FileVersion.
+    // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 4): Version is the schema this
+    // object follows, always 1; the version a file declared is SettingsLoadReport.FileVersion.
 
     /// <summary>The settings schema version (<see cref="SettingsRanges.CurrentVersion"/>).</summary>
     public int Version => SettingsRanges.CurrentVersion;

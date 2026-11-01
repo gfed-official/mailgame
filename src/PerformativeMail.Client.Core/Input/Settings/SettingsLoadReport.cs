@@ -6,7 +6,7 @@ namespace PerformativeMail.Client.Core.Input.Settings;
 /// </summary>
 public enum SettingsNoteKind : byte
 {
-    /// <summary>Warning: the file is not a JSON object of the expected types; defaults were loaded.</summary>
+    /// <summary>Warning: the file can't be read as JSON at all (empty, truncated, bad syntax, a root that is not an object, or content after the root object); defaults were loaded. A wrong-typed value is not malformed: see <see cref="WrongType"/>.</summary>
     Malformed = 1,
 
     /// <summary>Warning: the file declares a <c>version</c> other than 1; what could be read was loaded.</summary>
@@ -24,7 +24,7 @@ public enum SettingsNoteKind : byte
     /// <summary>A mode or style name is not valid for its field; the field default was kept.</summary>
     UnknownValue = 6,
 
-    /// <summary>A value had the wrong JSON type or was not a 64-bit integer; the field default was kept (<c>version</c>: 1, named by Key).</summary>
+    /// <summary>A value had the wrong JSON type (a fraction, an exponent, a number too big for 64 bits, text, null, a list or an object); that field kept its default and the rest of the file loaded. A <c>version</c> that is not a whole number within 32 bits falls back to 1, with Key = <c>version</c> and no Field.</summary>
     WrongType = 7,
 }
 
@@ -33,7 +33,7 @@ public enum SettingsNoteKind : byte
 /// <param name="Field">The field concerned, or null for a whole-file note or an unknown key.</param>
 /// <param name="Read">The value read (the file version for <see cref="SettingsNoteKind.UnsupportedVersion"/>; 0 otherwise when there is no number).</param>
 /// <param name="Stored">The value stored (0 when nothing was stored).</param>
-/// <param name="Key">The key name for <see cref="SettingsNoteKind.UnknownKey"/> and <see cref="SettingsNoteKind.BindingsSkipped"/>; null otherwise.</param>
+/// <param name="Key">The key name for <see cref="SettingsNoteKind.UnknownKey"/>, <see cref="SettingsNoteKind.BindingsSkipped"/> and a <see cref="SettingsNoteKind.WrongType"/> note on <c>version</c>; null otherwise.</param>
 /// <example><code>var note = new SettingsNote(SettingsNoteKind.Clamped, SettingsField.DzInnerPm, 900, 400, null);</code></example>
 public readonly record struct SettingsNote(SettingsNoteKind Kind, SettingsField? Field, long Read, int Stored, string? Key);
 
@@ -58,8 +58,9 @@ public sealed class SettingsLoadReport
         FileVersion = fileVersion;
         _notes = notes;
 
-        // Mail Dev default pending Evan (TD-205 item 12): only Malformed and UnsupportedVersion count as warnings; clamps,
-        // drops and unknown names are informational Config entries.
+        // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 12): only Malformed and
+        // UnsupportedVersion count as warnings; everything else (clamps, drops, unknown names and wrong-typed values) is an
+        // informational Config entry.
         foreach (SettingsNote note in notes)
         {
             if (note.Kind is SettingsNoteKind.Malformed or SettingsNoteKind.UnsupportedVersion)
@@ -93,8 +94,8 @@ public sealed class SettingsLoadReport
     /// <example><code>report.WriteTo(log, clock.NowMs);</code></example>
     public void WriteTo(UiEventLog log, long timeMs)
     {
-        // Mail Dev default pending Evan (TD-205 item 5): the Config entry layout above (reason = note kind, IdA = field,
-        // IdB = stored, IdC = read).
+        // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 5): the Config entry layout
+        // above (reason = note kind, IdA = field, IdB = stored, IdC = read).
         foreach (SettingsNote note in _notes)
         {
             ushort field = note.Field is { } f ? (ushort)f : ushort.MaxValue;
