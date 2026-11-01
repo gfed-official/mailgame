@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~400 lines prod + ~350 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-29 — owner AC added for the `ThrowingSystem.Bind` wiring (op handler; event declarations if 006 has not added them) (docs PR `docs/next-readiness-pc021-tc003`).
+> **Last Updated**: 2026-11-01 (docs branch `docs/lead-cleanups-2026-11-01`, off main 56c9446): AC added so a test guards the two `ThrowingSystem.Bind` event declarations (`ThrowingSystem.cs:142-143`, landed by story 006, untested); codec-asymmetry planning note (`ThrowLaunched.flags`). Before that: 2026-10-29 — owner AC added for the `ThrowingSystem.Bind` wiring (op handler; event declarations if 006 has not added them) (docs PR `docs/next-readiness-pc021-tc003`).
 
 > **Op/host story (4 of 5).** The phase-0 handler that turns a validated release into a flight. After this story a throw leaves the hotbar and a `FlightRecord` exists; nothing sweeps it yet (story 011).
 
@@ -46,6 +46,7 @@
 - [ ] **TC-E-4 (launch half).** A release applied on the tick the thrower is (fixture) knocked down launches if the life state is still Alive at the handler (`Inputs.Apply` precedes damage resolution); the entry is in FLIGHT, not in the pile, and the flight continues. One tick later → `dead`.
 - [ ] **Commit never fails.** If `DetachForThrow` reports anything but success after a passing validation, the handler records a fault (`SimCheckRing`, counter `throwCommitFault`) and replies `bad_request` without appending a record or raising `ThrowLaunched`; a test injects a failing inventory double. In normal operation this path is unreachable.
 - [ ] **Owner: binding in `ThrowingSystem.Bind`.** This story adds `builder.BindOp(ThrowRelease descriptor, handler)` for the `ThrowRelease` handler in `ThrowingSystem.Bind` (`SimWorldBuilder.BindOp`, `Core/SimWorldBuilder.cs:157`), and the `builder.BindEventKind` declarations for `ThrowLaunched`/`FlightResolved` (`:114`) if story 006 has not already added them there; one composition test shows a built world accepts a `ThrowRelease` op and declares both event kinds.
+- [ ] **Owner: the event declarations are guarded by a test.** Story 006 landed the two declarations (`src/PerformativeMail.Sim/Throwing/ThrowingSystem.cs:142-143`, `builder.BindEventKind(ThrowEventDescriptors.ThrowLaunched)` / `FlightResolved`), but no test reaches them: `tests/integration/throwing/ThrowLoopbackTests.cs:68-69` binds the same descriptors on its own builder. This story adds one test on a world built through `SimComposition.Build` with the shipped Throwing (the `PlayersRig` fixture, `tests/unit/player/PlayersTestKit.cs:41-42`, as `tests/unit/throwing/FlightTableTests.cs:236` uses it) that raises one `ThrowLaunched` and one `FlightResolved` from inside a tick and asserts both flushed entries carry `ReplicationClass.Replicated` and the descriptors' wire codec ids (4 and 5, `ThrowEventDescriptors`). A kind with no descriptor is appended as `ReplicationClass.Internal` (`src/PerformativeMail.Sim/Core/EventLog.cs:221`) and never reaches a peer, so deleting either line at `ThrowingSystem.cs:142-143` must fail this test; it is seen failing with those two lines commented out before the story closes (`test-standards.md`).
 - [ ] **Hop and relay.** `hop = 0` for every flight at M-1a (T13 relay hops are M0 and deferred).
 - [ ] 1 000 launches allocate 0 B in `Commit`.
 
@@ -61,6 +62,7 @@
 - Stat reads: `StatKey` constants from `production/epics/content-data/story-006-stat-statdef-ruleflag.md`; the latch-at-op-start rule is CD20 (`production/epics/content-data/story-014-statsheet-build-read-explain.md` note).
 - `ThrowLaunched` fields (story 006): `kindDef` = the entry's def ordinal; `units` u8 (an entry never exceeds `maxStack` ≤ 255, CV-GRD-01).
 - Keep `Commit` branch-free of validation; all reply codes other than `ok` come from story 009.
+- **Codec asymmetry (Mail Lead planning note, 2026-11-01):** `ThrowLaunchedCodec.Encode` writes `Flags` as given (`src/PerformativeMail.Client.Core/Net/Codec/ThrowingCodecs.cs:183`), while `TryMeasure`/`TryDecode` reject any `flags` byte with a bit other than bit 0 (`originClamped`) set (`:201`, `(payload[3] & ~ThrowLaunched.OriginClampedBit) == 0`). So a `ThrowLaunched` raised with an undefined flag bit encodes on the host and is dropped as malformed by every client. `Commit` must raise `ThrowLaunched` with `Flags` equal to 0 or `ThrowLaunched.OriginClampedBit` only; include one `ThrowLaunchTests` row that encodes the raised entry through `ThrowLaunchedCodec` and decodes it back (`TryDecode` true), so an undefined bit cannot slip into the wire format. The `FlightResolved` half (terminal and pad) is story 011's.
 
 ---
 
