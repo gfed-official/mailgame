@@ -29,6 +29,7 @@ public sealed class HostContentBootSource(ContentHost host) : IContentBootSource
             return set;
         }
 
+        // TD-207 item 5: Mail Dev default, pending Evan: the boot failure message names the root and the diagnostic count, then lists every line.
         throw new InvalidOperationException(
             $"The host content in {Host.Root} did not load ({Host.Diagnostics.Length} diagnostic(s)):\n" + string.Join("\n", Host.Diagnostics));
     }

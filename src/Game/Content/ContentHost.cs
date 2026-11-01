@@ -39,6 +39,7 @@ public sealed class ContentHost : IContentSource
     /// <summary>The advisory load budget in milliseconds (TR-content-028): logged, not enforced.</summary>
     public const double AdvisoryBudgetMs = 100;
 
+    // TD-207 item 4: Mail Dev default, pending Evan: the manifest is strict UTF-8, blank lines are skipped, and there is no BOM strip, no sort and no path rejection.
     private static readonly UTF8Encoding _utf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private readonly string _prefix;
@@ -131,6 +132,7 @@ public sealed class ContentHost : IContentSource
         }
 
         bytes = ReadOnlyMemory<byte>.Empty;
+        // TD-207 item 3: Mail Dev default, pending Evan: only FileNotFound returns false; every other open error throws.
         if (error != Error.FileNotFound)
         {
             throw new ContentHostReadException(full, error);
@@ -152,6 +154,7 @@ public sealed class ContentHost : IContentSource
     /// <see cref="ContentHostState.Failed"/>; nothing changes.</exception>
     public ContentHostState Load()
     {
+        // TD-207 item 1: Mail Dev default, pending Evan: a Valid or Loading host refuses the load; a Failed host may retry.
         if (State is not (ContentHostState.Unloaded or ContentHostState.Failed))
         {
             throw new InvalidOperationException($"ContentHost {Root} is {State}; the load is refused (no re-parse, CDD-LOAD-4).");
@@ -167,6 +170,7 @@ public sealed class ContentHost : IContentSource
             var rules = RuleRegistry.CreateDefault();
             ContentLoadResult result = new ContentLoader(rules).Load(this);
             Result = result;
+            // TD-207 item 5: Mail Dev default, pending Evan: formatted lines plus the raw Result; a code defect ends Failed and rethrows.
             Diagnostics = result.Diagnostics.Select(d => d.Format(rules)).ToImmutableArray();
             Set = result.Set;
             State = result.Set is null ? ContentHostState.Failed : ContentHostState.Valid;
@@ -185,6 +189,8 @@ public sealed class ContentHost : IContentSource
         {
             LoadTime = Stopwatch.GetElapsedTime(start);
             double ms = LoadTime.TotalMilliseconds;
+
+            // TD-207 item 7: Mail Dev default, pending Evan: a load over 100 ms is only logged as OVER and never fails.
             _log($"[ContentHost] load {Root}: {State} in {ms.ToString("0.0", CultureInfo.InvariantCulture)} ms " +
                 $"(advisory budget {AdvisoryBudgetMs.ToString(CultureInfo.InvariantCulture)} ms{(ms > AdvisoryBudgetMs ? ", OVER" : string.Empty)}), " +
                 $"{Diagnostics.Length} diagnostic(s)");

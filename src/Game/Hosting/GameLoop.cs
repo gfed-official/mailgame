@@ -229,6 +229,7 @@ public partial class GameLoop : Node
     internal static IContentBootSource SelectContentSource(IReadOnlyList<string> userArgs, string? environmentValue)
     {
         ArgumentNullException.ThrowIfNull(userArgs);
+        // TD-207 item 2: Mail Dev default, pending Evan: --content= wins over PM_CONTENT, only exact lowercase "host" opts in, and it works in release builds.
         string? mode = environmentValue;
         foreach (string arg in userArgs)
         {

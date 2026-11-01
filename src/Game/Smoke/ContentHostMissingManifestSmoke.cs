@@ -96,6 +96,7 @@ public sealed class ContentHostMissingManifestSmoke : SmokeScenario
     {
         string[] args = ["--headless", "--path", ProjectSettings.GlobalizePath("res://"), "--", $"--smoke={SubRunScenario}", "--content=host"];
         var output = new Godot.Collections.Array();
+        // TD-207 item 6: Mail Dev default, pending Evan: a blocking OS.Execute, bounded only by the child's watchdog.
         int exit = OS.Execute(OS.GetExecutablePath(), args, output, readStderr: true);
         string[] lines = string.Concat(output.Select(o => o.AsString())).Split('\n');
         string? failLine = lines.FirstOrDefault(l => l.StartsWith($"SMOKE {SubRunScenario} FAIL boot failed: ", StringComparison.Ordinal));
