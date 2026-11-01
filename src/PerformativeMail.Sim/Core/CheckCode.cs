@@ -58,4 +58,7 @@ public enum CheckCode : ushort
 
     /// <summary>Players: a Channel-mode anchor was pressed at M-1a; the channel latched and nothing was sent, because <c>IInteractable</c> declares no channel start/stop builder (ADR-0014 gap, M-1b; player-character story 017; Evan approved 2026-10-29 (TD-186 item 3)). a = entity id, b = slot. Recorded with the client tick.</summary>
     ChannelAnchorNoBuilder = 16,
+
+    /// <summary>Throwing: the tick-end conservation check found <c>launched != resolved + live</c> or a flight resolved twice in its lifetime (a <c>FlightId</c> reused after the u16 wrap is a new flight) (throwing-catching story 008; ADR-0015 section 5). a = launched − resolved − live; b = the twice-resolved <c>FlightId</c> value, or 0. Recorded on every tick the finding holds, subject to the ring's per-code rate limit; <c>CounterId.ThrowingConservationMismatches</c> counts every one. Id 17: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006".</summary>
+    ThrowingConservationMismatch = 17,
 }

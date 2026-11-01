@@ -141,9 +141,6 @@ internal sealed class WorldItems
     /// <summary>The live WorldItem count (what the cap counts).</summary>
     public int LiveCount => _table.LiveCount;
 
-    /// <summary>The soft cap.</summary>
-    public int Cap => _cap;
-
     /// <summary>The duration of <paramref name="fifo"/>, ticks.</summary>
     /// <param name="fifo">The FIFO.</param>
     /// <returns>Ticks.</returns>

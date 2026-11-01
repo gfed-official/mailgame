@@ -196,9 +196,6 @@ public sealed partial class HostAdapter : IFrameTransport, IEventSink
         }
     }
 
-    /// <summary>The sink the adapter registers with the loopback transport (internal: tests drive callbacks directly).</summary>
-    internal ITransportSink LoopbackSink => _loopbackSink;
-
     /// <summary>The sink the adapter registers with the remote transport (internal: tests drive callbacks directly).</summary>
     internal ITransportSink RemoteSink => _remoteSink;
 

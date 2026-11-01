@@ -114,15 +114,26 @@ public class GeneralRulesTests
         Assert.Empty(Of(ContentFixtures.MinimalValid().Build(), GeneralRuleIds.IdsAndReferences));   // FallbackKind defaults to None
     }
 
+    // Replaces GeneralRulesTests.BuiltInContent_ValidatesWithZeroErrorsAndZeroWarnings, GridMailRulesTests.CreateM1a_ReportsZeroErrorsAndZeroUnsuppressedWarnings_UnderEveryGridAndMailRule, ThrowingRulesTests.CreateM1a_PassesEveryThrowingRule_WithNoDiagnosticsAndNoSkips, PlayerRulesTests.CreateM1a_PassesEveryPlayerRule_WithNoDiagnosticsAndNoSkips and PlayerVerbRuleTests.CreateM1a_PassesCvPlr13_WithNoDeclarations_AndNoSkip.
     [Fact]
     [Trait("Id", "CDD-ID-1")]
-    public void BuiltInContent_ValidatesWithZeroErrorsAndZeroWarnings()
+    [Trait("Id", "CDD-VAL-1")]
+    [Trait("Id", "TC-CV-1")]
+    [Trait("Id", "PCM-F8-3")]
+    [Trait("Id", "PCM-P10-1")]
+    public void BuiltInM1a_PassesEveryRule_WithNoDiagnosticsNoSkipsAndNoVerbDeclarations()
     {
         ContentBuildResult r = BuiltInContent.BuildM1a(RuleRegistry.CreateDefault());
+        ContentSet m1a = BuiltInContent.CreateM1a();   // does not throw
+        var input = new ContentValidationInput(m1a);
 
+        Assert.NotNull(m1a);
+        Assert.Empty(r.Validation.Diagnostics);
         Assert.Equal(0, r.Validation.ErrorCount);
         Assert.Equal(0, r.Validation.WarningCount);
+        Assert.Equal(0, r.Validation.SkippedCount);
         Assert.NotNull(r.Set);
+        Assert.Empty(input.VerbDeclarations);
     }
 
     // ------------------------------------------------------------ CV-GEN-09 (CDD-ID-3)

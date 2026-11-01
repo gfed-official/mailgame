@@ -96,13 +96,6 @@ public readonly struct MailIdsHandle : IEquatable<MailIdsHandle>
     /// <summary>The packed handle; 0 is "no run".</summary>
     public readonly uint Raw;
 
-    /// <summary>Wraps a packed handle.</summary>
-    /// <param name="raw">The packed value.</param>
-    public MailIdsHandle(uint raw)
-    {
-        Raw = raw;
-    }
-
     /// <summary>Packs a run. Fields outside their widths assert under <c>INVENTORY_ASSERT</c>; Release masks them.</summary>
     /// <param name="classIndex">The size class, 0 to 8.</param>
     /// <param name="block">The block in the class, 0 to 4095.</param>

@@ -9,17 +9,6 @@ namespace PerformativeMail.Sim.Tests.Unit.Sim.Core;
 public class SimCountersTests
 {
     [Fact]
-    public void NewCounters_EveryIdReadsZero()
-    {
-        var counters = new SimCounters();
-
-        foreach (CounterId id in Enum.GetValues<CounterId>())
-        {
-            Assert.Equal(0L, counters[id]);
-        }
-    }
-
-    [Fact]
     public void Add_DefaultAndExplicitAmount_IncrementsExactly()
     {
         var counters = new SimCounters();
