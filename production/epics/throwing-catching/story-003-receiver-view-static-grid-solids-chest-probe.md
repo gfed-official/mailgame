@@ -82,7 +82,7 @@
 **Required evidence**:
 - Logic: `tests/unit/throwing/ReceiverViewTests.cs` (`[Trait("Id", "TC-E-1")]`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [x] Created and passing — 2026-10-29, branch `story/throwing-catching-003` (main 099637a): `ReceiverViewTests` (7 methods, 18 cases) plus `ThrowingRulesTests.OnlyReceiverGrid_StoresIndicesPerCell_AndItsBuildTakesCatchVolumesOnly`. Full suite, every leg LEGCOUNTS
+**Status**: [x] Created and passing — 2026-10-29, branch `story/throwing-catching-003` (main 099637a; re-verified 2026-11-01 after merging main 56c9446, PR #69 and PR #70): `ReceiverViewTests` (7 methods, 18 cases) plus `ThrowingRulesTests.OnlyReceiverGrid_StoresIndicesPerCell_AndItsBuildTakesCatchVolumesOnly`. Full suite on main 56c9446 + this branch: 5,790 tests per leg, 0 failed: net10 Debug 5,724 passed / 66 skipped, net10 Release 5,783 / 7, net8 Debug 5,724 / 66, net8 Release 5,783 / 7.
 
 ---
 
