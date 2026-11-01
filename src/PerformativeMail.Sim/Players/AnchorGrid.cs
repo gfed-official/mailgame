@@ -107,14 +107,13 @@ internal sealed class AnchorGrid
 
     /// <summary>
     /// Writes the anchor indices of every cell within <paramref name="radiusCells"/> of the cell containing <paramref name="point"/>
-    /// (a square, clamped to the grid), ascending cell then ascending anchor index. Stops at <c>results.Length</c>.
+    /// (a square, clamped to the grid), ascending cell then ascending anchor index. Stops at <c>results.Length</c>, and reports
+    /// the cells whose lists were walked.
     /// </summary>
-    /// <returns>The number written; <paramref name="truncated"/> is set when more existed.</returns>
-    public int Query(in Vec3Mm point, int radiusCells, Span<int> results, out bool truncated) =>
-        Query(in point, radiusCells, results, out truncated, out _);
-
-    /// <summary>As <see cref="Query(in Vec3Mm, int, Span{int}, out bool)"/>, also reporting the cells whose lists were walked.</summary>
-    /// <returns>The number written; <paramref name="cellsVisited"/> counts each cell entered, the one a truncation stops in included.</returns>
+    /// <returns>
+    /// The number written; <paramref name="truncated"/> is set when more existed, and <paramref name="cellsVisited"/> counts each
+    /// cell entered, the one a truncation stops in included.
+    /// </returns>
     public int Query(in Vec3Mm point, int radiusCells, Span<int> results, out bool truncated, out int cellsVisited)
     {
         truncated = false;

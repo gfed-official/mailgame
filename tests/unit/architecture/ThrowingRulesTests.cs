@@ -11,7 +11,7 @@ namespace PerformativeMail.Sim.Tests.Unit.Architecture;
 /// TR-throwing-001, TR-throwing-002, TR-throwing-004): <c>src/PerformativeMail.Sim/Throwing/</c> (namespace
 /// <c>PerformativeMail.Sim.ThrowingCatching</c>) references no RNG type (the pure hash <c>SplitMix.Mix64</c> is allowed) and
 /// no <c>Fix.MulDivRH</c>, mentions no
-/// <c>float</c>/<c>double</c>, rounds only through <see cref="Throw.RH"/> (no <c>/</c> or <c>%</c> operator anywhere in its
+/// <c>float</c>/<c>double</c> and no <c>CompareTo</c>/<c>Sort</c> (story 008: a wrapping <c>FlightId</c> is never ordered), rounds only through <see cref="Throw.RH"/> (no <c>/</c> or <c>%</c> operator anywhere in its
 /// code), declares no mutable static, and <see cref="Ballistic"/> holds no state. Checked both on the source text (comments
 /// stripped) and on the compiled IL.
 /// </summary>
@@ -25,8 +25,10 @@ public class ThrowingRulesTests
     // The F7 story must exempt its label file here and in ThrowingIl_CallsNoFixHelperOtherThanFloorDivAndISqrt.
     // SplitMix is deliberately absent from both lists: ADR-0015/ADR-0005 treat SplitMix.Mix64 as a pure hash and require it
     // for the section 4 catch tie-break (TieHash); the guard bans RNG streams only.
+    // CompareTo and Sort (throwing-catching story 008, TC-E-6 c): FlightIds wrap, so nothing here orders or sorts them (FlightId
+    // itself has no relational operator); flights are processed in table (creation) order and FlightIds compared for equality only.
     private static readonly Regex _forbiddenTokens = new(
-        @"\b(Random|Pcg32|RngStream|IRngSource|RngDerive|IRngStreams|RngNames|RngOwnerView|RngRegistry|StreamName|MulDivRH|MulDiv|float|double|decimal|Half|Single|Double|Math|MathF)\b",
+        @"\b(Random|Pcg32|RngStream|IRngSource|RngDerive|IRngStreams|RngNames|RngOwnerView|RngRegistry|StreamName|MulDivRH|MulDiv|float|double|decimal|Half|Single|Double|Math|MathF|CompareTo|Sort)\b",
         RegexOptions.CultureInvariant);
 
     private static readonly string[] _rngTypeNames = { "Random", "Pcg32", "RngStream", "IRngSource", "RngDerive", "IRngStreams", "RngOwnerView", "RngRegistry", "StreamName", "RngNames" };

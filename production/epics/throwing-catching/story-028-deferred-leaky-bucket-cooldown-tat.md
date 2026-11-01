@@ -7,7 +7,7 @@
 > **Type**: Logic
 > **Estimate**: S (~0.5 day; ~120 lines prod + tests)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-23 (split by the m1a-replan PR)
+> **Last Updated**: 2026-10-29 — `TAT` leave/rejoin AC added (from the story 008 note, which said story 009 would test it; 009 writes no `TAT` at M-1a, so the first non-zero `TAT` writer, this story, owns the test). Earlier: 2026-10-23 (split by the m1a-replan PR)
 
 > **DEFERRED 2026-10-23, not deleted. Approved by Evan 2026-10-23 8:54 AM PT, Mail Lead chat: "Approve the ADR-0024 additions and the extra deferrals (md-008, tc-025, md-010 localisation to md-012, and the split-off hardening stories)".** Earlier context (not the approval of this story): Mail Lead chat, 7:13 AM PT: "Approve all the recommendations: reorder playable-first, add a minimal HUD, the deferrals, the one-page telemetry ADR, narrow manual-delivery 010, defer throwing-catching 022–024". 7:15 AM PT: "This is a game among friends, so a lot of the extra work to make it “production ready” is not needed. Accessibility for example". 8:10 AM PT, approving errata E1–E6 and E9 (decision log 2026-10-23): "approve all". This story is freed by **E5 (ADR-0015 §6: the leaky-bucket cooldown (anti-spam) moves to M0; the validation chain stays)**. Story 009 keeps the ordered check chain and claim-and-corroborate origin; check 7 keeps its slot and its `throw_cooldown` reason code there but accepts unconditionally at M-1a. The ACs below moved verbatim from story 009. Re-run `/story-readiness` when M0 planning starts (ADR-0021, the owner of `TR-throwing-011`, is planned for M0 and adds the team cap ≤ 48 flights/s).
 
@@ -38,6 +38,7 @@
 - [ ] **Check 7 precedence (from story 009 TC-T4-1).** A request violating check 7 **and** check 8 gets `throw_cooldown` (the N = 7 case of story 009's parametrised precedence test, re-enabled here); a request violating only 8 still gets `bad_direction`.
 - [ ] **`ThrowCooldown` (from story 009 Implementation Notes).** `ThrowCooldown.cs` (`bool TryAccept(uint T, ref uint tat, int burst, int cooldown)`; `CommitTat` used by story 010) replaces story 009's always-accept stub; `throwCooldownTicks`/`throwBurstTicks` (5/5) come from `ThrowBalance`; per-slot `TAT` is in Throwing's dump section (story 008) and `ThrowPlan.tat'` carries the new value to the commit.
 - [ ] **Cooldown commit (from story 010).** After a launch at `T` the bucket state is `TAT = max(TAT, T) + throwCooldownTicks`; TC-T1-2 (100, 100, 104 → launch, launch, `throw_cooldown`; 105 launches) passes end to end through the op ring with the real handler.
+- [ ] **`TAT` cleared on leave/rejoin.** After a launch moves `Tat[slot]` above 0, that slot leaving and rejoining leaves `Tat[slot] == 0` (story 008's `IPlayerJoinListener` clear; this story is the first non-zero writer, so its test lives here).
 
 ---
 

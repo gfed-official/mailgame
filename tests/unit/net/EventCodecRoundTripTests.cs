@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using PerformativeMail.Client.Core.Net.Codec;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.ThrowingCatching;
 
 namespace PerformativeMail.Sim.Tests.Unit.Net;
 
@@ -18,6 +19,8 @@ public class EventCodecRoundTripTests
         yield return new object[] { new FixedLengthEventCodec(910, 1) };
         yield return new object[] { new FixedLengthEventCodec(912, EventPayload.Size) };
         yield return new object[] { ReplyEventCodec.Instance };
+        yield return new object[] { new ThrowLaunchedCodec() };
+        yield return new object[] { new FlightResolvedCodec() };
     }
 
     private static EventEntry SampleFor(IEventCodec codec, int variant)
@@ -44,6 +47,18 @@ public class EventCodecRoundTripTests
         for (int i = 0; i < codec.MaxWireSize; i++)
         {
             payload[i] = (byte)random.Next(256);
+        }
+
+        // Throwing's codecs refuse undefined flag bits, an out-of-range terminal and a non-zero pad: keep the samples in range.
+        if (codec is ThrowLaunchedCodec)
+        {
+            payload[3] &= ThrowLaunched.OriginClampedBit;
+        }
+        else if (codec is FlightResolvedCodec)
+        {
+            payload[2] = (byte)(payload[2] % ((int)Terminal.Timeout + 1));
+            payload[30] = 0;
+            payload[31] = 0;
         }
 
         return plain;

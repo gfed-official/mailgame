@@ -72,9 +72,6 @@ internal sealed class StackIndex
     /// <summary>The number of linked entries over all containers.</summary>
     public int LinkedCount => _linkedCount;
 
-    /// <summary>The head table's size (a power of two, at least twice the entry pool).</summary>
-    public int TableSize => _keys.Length;
-
     /// <summary>True when the entry in <paramref name="entrySlot"/> is linked.</summary>
     /// <param name="entrySlot">The entry's pool slot.</param>
     /// <returns>True when linked.</returns>

@@ -69,9 +69,6 @@ public sealed class ChordResolver
     /// <summary>Every physical input some binding presses, ascending. Allocation-free view.</summary>
     public ReadOnlySpan<PhysicalInput> Keys => _keys;
 
-    /// <summary>The number of indexed bindings (a NumpadEnter alias counts as its own entry).</summary>
-    public int EntryCount => _entries.Length;
-
     /// <summary>
     /// Builds the index over <paramref name="defs"/> (ascending id). Malformed bindings and chords that break the shape rules
     /// (pad chords, a non-modifier as the modifier, a modifier as the pressed input) are not indexed; the validator reports

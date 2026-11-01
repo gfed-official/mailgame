@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 25 stories — 18 Complete, 6 Ready, 1 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 25 stories — 18 Complete, 5 Ready, 1 Blocked, 1 Deferred (counts refreshed 2026-10-29 from the story headers, `count-story-status.sh`, branch `chore/test-audit-cleanup` with main 4f30c32 merged: story 020 went Ready → Blocked in docs PR #68; before that 18 Complete, 6 Ready, 1 Deferred, refreshed 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -133,7 +133,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 017 | [UnitLedger conservation counters, tick-end check, INVENTORY_ASSERT full scan and the canonical dump section](story-017-unitledger-conservation.md) | Logic | Complete | ADR-0009, ADR-0006, ADR-0003 |
 | 018 | [Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world determinism](story-018-conservation-fuzz-determinism.md) | Integration | Ready | ADR-0006, ADR-0009 |
 | 019 | [Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 range)](story-019-range-gated-open-pickup-leash.md) | Logic | Ready | ADR-0014, ADR-0009, ADR-0013 |
-| 020 | [Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped; swimming refused](story-020-drop-op.md) | Logic | Ready | ADR-0026, ADR-0013, ADR-0009 |
+| 020 | [Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped; swimming refused](story-020-drop-op.md) | Logic | Blocked (read-only `IInventoryApi` query pending Evan) | ADR-0026, ADR-0013, ADR-0009 |
 | 021 | [Backlog append and the IntakeDrain phase (≤ 32 entries/tick, idle exit O(1))](story-021-backlog-intake-drain.md) | Logic | Complete | ADR-0017, ADR-0009 |
 | 022 | [Host panel view — Inventory's read-only scan primitive for `deliver_matching`](story-022-deliver-matching-handler.md) | Logic | Ready | ADR-0016, ADR-0009, ADR-0017 |
 | 023 | [Own-panel grid view and hotbar strip — one custom-drawn Control, 0 B/frame](story-023-panel-grid-view-hotbar.md) | UI | Ready | ADR-0019, ADR-0009 |

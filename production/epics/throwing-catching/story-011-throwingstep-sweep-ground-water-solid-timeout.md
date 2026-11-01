@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~550 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-01 (docs branch `docs/lead-cleanups-2026-11-01`, off main 56c9446): codec-asymmetry planning note (`FlightResolved.terminal` and `pad`).
 
 > **Flight resolution story (1 of 3).** After this story every flight that does not hit a mailbox or a catcher ends correctly: it lands on the ground, floats on water, stops on a house or the map edge, or times out — exactly once, conserving its units. Mailbox landings are story 012; catchers are story 023.
 
@@ -60,6 +60,8 @@
 - `CreateWorldItem(entry, posMm, origin = Thrown, onWater, createdTick)` is `production/epics/grid-inventory/story-013-worlditem-expiry-cap.md`'s API; the entry argument is the Flight-held handle from story 008 (`FlightEntryRef`). The water return and the 300 s expiry are Grid's, not re-implemented here.
 - `FlightResolved` fields (story 006): terminal, `rank` of the winning receiver, `receiver` (destination/solid index/player slot as a raw id or 0), `contact`, `tick`, `unitsIn/unitsFumbled` (0 here), `worldItem`.
 - Run-end teardown is story 013; do not add a flush shortcut here.
+- **Codec asymmetry (Mail Lead planning note, 2026-11-01):** `FlightResolvedCodec.Encode` writes `(byte)Terminal` and `Pad` as given (`src/PerformativeMail.Client.Core/Net/Codec/ThrowingCodecs.cs:266`, `:276`), while `TryMeasure`/`TryDecode` reject a terminal byte above `Terminal.Timeout` (10) and a non-zero `pad` (`:284-286`, TD-196 item 5). So a `FlightResolved` raised with an undefined terminal value or with non-zero pad bytes encodes on the host and is dropped as malformed by every client. `TerminalResolver` must set `Terminal` only to a defined member (here `Ground` 8, `Water` 9, `Timeout` 10; values are append-only, `src/PerformativeMail.Sim/Throwing/Events/ThrowEvents.cs:140-146`) and leave `Pad` 0 (an object initialiser does); include one `ThrowingStepTests` row that encodes a raised entry through `FlightResolvedCodec` and decodes it back (`TryDecode` true). The `ThrowLaunched` half (`flags`) is story 010's.
+- **Receiver wiring (Mail Lead planning note, 2026-11-01):** throwing-catching 003 (PR #71) ships `ReceiverViewBuilder` (`src/PerformativeMail.Sim/Throwing/ReceiverViewBuilder.cs`) standalone; this story must wire it into `ThrowingSystem` (the per-tick sweep builds the receiver view through it), so 011 owns the `ThrowingSystem.cs` / `ReceiverViewBuilder.cs` integration and should not run in parallel with another story editing either file.
 - Keep the step free of allocation by taking all `Span<>` scratch from `ReceiverScratch` (story 003).
 
 ---

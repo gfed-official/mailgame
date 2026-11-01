@@ -113,9 +113,6 @@ public sealed class MailSystem : ISimSystem, IMailApi
     /// <summary>The destination registry built at construction.</summary>
     internal DestinationRegistry Registry => _registry;
 
-    /// <summary>The mail table.</summary>
-    internal MailTable Table => _table;
-
     /// <summary>The F9 complaint buckets (stories 007 and 008 charge them, then call <see cref="RaiseComplaint"/>).</summary>
     internal ComplaintBuckets Complaints => _complaints;
 

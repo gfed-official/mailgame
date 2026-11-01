@@ -55,4 +55,9 @@ public enum CheckCode : ushort
 
     /// <summary>Grid Inventory: the tick-end conservation check found a ledger row out of balance (story grid-inventory/017; ADR-0009 section 6; GDD R19). a = the ledger row (0 = mail, itemId + 1 for an item) with, for a negative live counter, the state ordinal + 1 (<c>LedgerState</c>) in bits 24-31 (0 for the Σ check); b = Σ live − (spawned + granted − consumed − destroyed), or the negative counter's value. One record per finding, subject to the ring's per-code rate limit; <c>CounterId.InventoryConservationMismatches</c> counts every finding (Mail Lead planning default pending Evan, TD-160 item 5).</summary>
     InventoryConservationMismatch = 15,
+
+    // 16 is reserved for player-character 017.
+
+    /// <summary>Throwing: the tick-end conservation check found <c>launched != resolved + live</c> or a flight resolved twice in its lifetime (a <c>FlightId</c> reused after the u16 wrap is a new flight) (throwing-catching story 008; ADR-0015 section 5). a = launched − resolved − live; b = the twice-resolved <c>FlightId</c> value, or 0. Recorded on every tick the finding holds, subject to the ring's per-code rate limit; <c>CounterId.ThrowingConservationMismatches</c> counts every one. Id 17: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006".</summary>
+    ThrowingConservationMismatch = 17,
 }
