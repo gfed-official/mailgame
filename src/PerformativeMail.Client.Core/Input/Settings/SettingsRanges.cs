@@ -47,10 +47,10 @@ public static class SettingsRanges
     /// <summary>The smallest gap between the outer and inner deadzone, in permille (GDD F3).</summary>
     public const int MinDeadzoneGapPm = 100;
 
-    // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 1): JSON keys are flat
-    // camelCase, one key per row, using ADR-0012 section 5's integer-unit names where it gives one (holdSettingMs, dzInnerPm,
-    // trigOnPm, ...) and the InputSettings property name otherwise; the GDD R10 nested groups (holdMode{}, sensitivity{},
-    // invert{}, deadzone{}, repeat{}) are not used.
+    // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 1): "Settings-file keys
+    // are simple flat names, one per setting, instead of the GDD's nested groups."
+    // Implementation detail (Mail Dev, not part of Evan's ruling): the keys are camelCase, ADR-0012 section 5's integer-unit
+    // names where it gives one (holdSettingMs, dzInnerPm, trigOnPm, ...), otherwise the InputSettings property name.
     // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 11): faceLayout and
     // swapSticks (GDD M4) have no row yet; in a file they are unknown keys, dropped and logged.
     private static readonly SettingsRange[] _rows =
