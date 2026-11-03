@@ -66,10 +66,14 @@ public static class InputSettingsCodec
 
         if (!ok)
         {
-            // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 8): a malformed file
-            // keeps no other note, so the report and the log both hold exactly the one warning. Only unparseable JSON gets here;
-            // a wrong-typed value (fraction, exponent, out of 64 bits, wrong JSON type) is malformed for that field alone: it
-            // keeps its default, gets an informational WrongType note, and the rest of the file loads.
+            // Mail Dev default, approved by Evan 2026-11-01 (recorded 1:48 PM PT) by card click (TD-205 item 8): "If a value
+            // has the wrong type (a fraction, even 1.0, an exponent, a number too big, text, null, a list or an object), only
+            // that setting falls back to its default, with an informational note, and the rest still loads. A version that
+            // isn't a whole number up to about 2.1 billion falls back to 1. Only a file that can't be read as JSON at all falls
+            // back entirely, with one warning."
+            // Implementation detail (Mail Dev, not part of Evan's ruling): only unparseable JSON gets here, including trailing
+            // content and a valid non-object root such as [1]; the report and the log then hold exactly the one warning. A
+            // wrong-typed value gets a WrongType note; "too big" means past 64 bits, and a smaller out-of-range number clamps.
             rep = new SettingsLoadReport(SettingsRanges.CurrentVersion, [new SettingsNote(SettingsNoteKind.Malformed, null, 0, 0, null)]);
             return InputSettings.Defaults;
         }
