@@ -121,6 +121,8 @@ public sealed class HoldAdvanceStep : IClientStep
                     // server to lower the catch arm is refused, it isn't retried and the catch ends anyway; if something else ended the catch
                     // (swimming, dying, knockdown, mounting or a panel), only that reason is logged. No effect in the real game until
                     // story 020 adds the real sender.
+                    // Correction (Mail Dev, not part of Evan's ruling): story 020 binds a no-op NullCatchArmSender; the real sender is
+                    // throwing-catching 022, Deferred to M0.
                     // Implementation detail (Mail Dev, not part of Evan's ruling): that message is CatchArm{up} (Send(down: false)), and
                     // its result is discarded.
                     _ = _catchArm.Send(down: false);
@@ -197,7 +199,8 @@ public sealed class HoldAdvanceStep : IClientStep
         // If an object's own code sets its hold time to 0 ticks or less, the hold finishes on the same tick you press, after the
         // usual checks. Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-191 item 9).
         // Implementation detail (Mail Dev, not part of Evan's ruling): "the usual checks" are the registration, range,
-        // availability, ShouldCancel and context checks above; the shared hold formula never goes below minHoldTicks.
+        // availability, ShouldCancel and context checks above; the shared hold formula never goes below minHoldTicks while
+        // minHoldTicks is at most the ceiling (Hold.cs:109).
         if (held < (long)latch.HoldTicks)
         {
             return;
