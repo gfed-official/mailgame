@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: L-ish M (~1 day; ~350 lines prod + ~300 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-03 (branch `story/mail-destinations-006`, PR #63): AC-8–AC-10 (M-F9-3 c/d/e) added — TD-193 item 7b, approved by Evan 2026-11-03 9:15 PM PT by card click (card t257s1188, listing t257s1187). No other change.
 
 ## Context
 
@@ -41,6 +41,14 @@
 - [ ] **AC-5 (M-R16-1b/d, R16 floor broadcast)** `DeliveryOutcome.actor` = the requesting player; `via` = hand. A zero-unit floor stop is broadcast with `stoppedAtFloor`, at most once per (destination, actor) per 30 ticks. `misdeliveriesThisShift` increments once per op that consumed ≥ 1 Misdeliver unit.
 - [ ] **AC-6 (M-R6-4, M-R4-2c hand)** Two players' `ConsumeHand` calls at one mailbox in one tick both succeed sequentially in call order, each against their own entries. A hold started at T − 1 (before close at T) and applied at T + 90 is accepted; applied at T + 91 it is Rejected `closed`.
 - [ ] **AC-7 (M-PERF-1b)** A 40-unit Accept entry makes exactly 40 `ConsumeUnit` calls, 40 `Credit` calls and 1 outcome, and the hand path allocates 0 B after warm-up.
+
+*M-F9-3 c/d/e, moved here from story 006 by TD-193 item 7b — approved by Evan 2026-11-03 9:15 PM PT by card click (card t257s1188, listing t257s1187): "Approve TD-193 item 7b: move the three late-complaint rules to story 007, as listed in your message above". The three rules, as the listing gave them, are the caller's side of story 006's `ChargeLate` contract:*
+
+- [ ] **AC-8 (M-F9-3c)** An Accept with only dead letters makes no late complaint.
+- [ ] **AC-9 (M-F9-3d)** A misdelivery makes no late complaint.
+- [ ] **AC-10 (M-F9-3e)** Two late letters in one hold count once.
+
+*Uncredited implementation detail (Mail Dev, not part of Evan's ruling): in story 006's terms (AC-3; `tests/unit/mail/ComplaintBucketTests.cs:153-157`) a dead-letter-only Accept makes no `ChargeLate` call (0, `lastLateTick` unchanged); a Misdeliver op with late units makes no late call (0 late complaint); two late entries in one hold make one call (+2,000 ‰ once). Story 006 tests `ChargeLate` itself; these three are tested here, through `ConsumeHand`.*
 
 ---
 

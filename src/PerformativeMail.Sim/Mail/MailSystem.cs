@@ -13,13 +13,15 @@ namespace PerformativeMail.Sim.MailDestinations;
 /// <summary>
 /// Mail &amp; Destinations' Sim module (ADR-0017; ADR-0003 section 4; mail-destinations story 005). At construction, while the world
 /// is <c>Constructed</c>, it builds the mail table (<see cref="MailTable"/>, sized from <c>content.Settings.MailTablePages</c>; there
-/// is no <c>MailSettings</c> at M-1a, TD-177 item 1) and the destination registry (<see cref="DestinationRegistry"/>, one row per
-/// lot of the injected <see cref="IWorldQuery"/>). It reaches the wallet only through the injected <see cref="IWalletGate"/>
+/// is no <c>MailSettings</c> at M-1a, TD-177 item 1), the destination registry (<see cref="DestinationRegistry"/>, one row per
+/// lot of the injected <see cref="IWorldQuery"/>) and, over it, the F9 complaint buckets (<see cref="ComplaintBuckets"/>, story 006).
+/// It reaches the wallet only through the injected <see cref="IWalletGate"/>
 /// (the <c>StubWallet</c> at M-1a) and never references the Economy.
 /// <para>
 /// It binds the <c>MailStep</c> phase (phase 8, <see cref="Step"/>: the feeder credits, 0 at M-1a, and nothing else when idle;
-/// manifest batch firing hooks in with stories 012 to 014) and the <see cref="SectionIds.Mail"/> dump section (the table rows, then
-/// the registry). It implements and publishes <see cref="IMailApi"/>.
+/// manifest batch firing hooks in with stories 012 to 014), the <see cref="MailEventKinds.ComplaintRaised"/> kind, and the
+/// <see cref="SectionIds.Mail"/> dump section (the table rows, the registry, then the team complaint state). It implements and
+/// publishes <see cref="IMailApi"/>.
 /// </para>
 /// Not thread-safe: Sim tick thread only.
 /// </summary>
@@ -34,8 +36,8 @@ namespace PerformativeMail.Sim.MailDestinations;
 [SimSystem(SystemId.MailDestinations)]
 public sealed class MailSystem : ISimSystem, IMailApi
 {
-    // _events, _rng, _tick, _inventory, _stats and _counters are assigned but not read yet: the story prescribes this
-    // constructor shape for stories 006-009, which read them. Kept deliberately; do not remove as unused.
+    // _rng, _tick, _inventory and _stats are assigned but not read yet: the story prescribes this constructor shape for
+    // stories 006-009, which read them. Kept deliberately; do not remove as unused.
     private readonly EventLogFacade _events;
     private readonly IRngStreams _rng;
     private readonly ITickReader _tick;
@@ -45,6 +47,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
     private readonly SimCounters _counters;
     private readonly MailTable _table;
     private readonly DestinationRegistry _registry;
+    private readonly ComplaintBuckets _complaints;
 
     // F11 feeder credits, one per placed feeder in ascending construct id (ADR-0017 section 7). M-1a has no feeders.
     private readonly int[] _feederCredits = Array.Empty<int>();
@@ -96,7 +99,16 @@ public sealed class MailSystem : ISimSystem, IMailApi
         _counters = counters;
         _table = new MailTable(content.Settings, mailIds, tick, checkRing);
         _registry = BuildRegistry(world, content);
+
+        // Until story 009 adds player scaling, the team cap is the solo value of 40 points at any player count; with 8 players the
+        // formula would give 155. Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-193 item 4).
+        // Implementation detail (Mail Dev, not part of Evan's ruling): playerScale arrives with the deliveries/shift input (story 009);
+        // until then the buckets are built with 1000 permille.
+        _complaints = new ComplaintBuckets(_registry, content.Mail, SoloPlayerScalePm, counters);
     }
+
+    /// <summary>The <c>playerScale</c> the complaint buckets are built with until story 009 passes Run Structure's (n = 1).</summary>
+    internal const int SoloPlayerScalePm = 1000;
 
     /// <summary>The wallet port this module was given (tests: the composition root's injection).</summary>
     internal IWalletGate WalletGate => _wallet;
@@ -104,14 +116,18 @@ public sealed class MailSystem : ISimSystem, IMailApi
     /// <summary>The destination registry built at construction.</summary>
     internal DestinationRegistry Registry => _registry;
 
+    /// <summary>The F9 complaint buckets (stories 007 and 008 charge them, then call <see cref="RaiseComplaint"/>).</summary>
+    internal ComplaintBuckets Complaints => _complaints;
+
     /// <inheritdoc />
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.Bind(PhaseId.MailStep, new MailStepPhase(this));
+        builder.BindEventKind(MailEventDescriptors.ComplaintRaised);
 
         // The dump section moved here from MailTable.BindDump (TD-074 item 4).
-        builder.BindStateContributor(new MailStateContributor(_table, _registry));
+        builder.BindStateContributor(new MailStateContributor(_table, _registry, _complaints));
     }
 
     /// <inheritdoc />
@@ -133,6 +149,40 @@ public sealed class MailSystem : ISimSystem, IMailApi
 
     /// <inheritdoc />
     public AabbMm CatchVolumeAt(int ordinal) => _registry.CatchVolumeOf(Row(ordinal));
+
+    /// <summary>
+    /// Emits one <see cref="MailEventKinds.ComplaintRaised"/> at door <paramref name="d"/> when <paramref name="amountPm"/> is above 0,
+    /// and nothing otherwise (M-R9-2a; Evan approved 2026-10-29 (TD-187 item 1)). One complaint is capped at 65.535 points because the
+    /// event stores it in 16 bits. Shipped defaults max out at 40 points. Only raised settings hit the cap: a door cap above 32.767 at the
+    /// 2.0 multiplier, a raised multiplier bound above about 3.3x at the default door cap, or a late complaint above 65.535 (Mail Dev
+    /// default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-193 item 5)). Implementation detail (Mail Dev, not part of
+    /// Evan's ruling): in permille, an amount above <see cref="ushort.MaxValue"/> (65,535) is raised as <see cref="ushort.MaxValue"/>;
+    /// late complaints skip the multiplier; the defaults peak at 40,000 (20,000 x 2.0); a <c>penaltyMultMaxPm</c> bound above 3,276
+    /// permille can reach the cut at the default 20,000 permille door cap. Inside a tick only. 0 B.
+    /// </summary>
+    /// <param name="d">The door the complaint is filed at.</param>
+    /// <param name="source">Misdelivery or late.</param>
+    /// <param name="amountPm">The amount, permille (a <see cref="ComplaintBuckets"/> charge's result).</param>
+    internal void RaiseComplaint(DestinationOrdinal d, ComplaintSource source, int amountPm)
+    {
+        if (amountPm <= 0)
+        {
+            return;
+        }
+
+        var payload = new ComplaintRaisedPayload
+        {
+            Destination = _registry.EntityIdOf(d).Value,
+            AmountPermille = (ushort)Math.Min(amountPm, ushort.MaxValue),
+            Source = (byte)source,
+        };
+        // If the event log is full, the complaint event is dropped with nothing recorded (Mail Dev default, approved by Evan
+        // 2026-11-03 9:15 PM PT by card click (TD-193 item 8)). Implementation detail (Mail Dev, not part of Evan's ruling): the
+        // TryRaise result is ignored.
+        // Correction (Mail Dev, not part of Evan's ruling): the event log still counts the drop (EventsDropped, OverflowInfo via
+        // RecordDrop) and calls IOpRecorder.OnOverflow; only Mail records nothing itself.
+        _ = _events.TryRaise(MailEventKinds.ComplaintRaised, MailEventDescriptors.AudienceAll, in payload);
+    }
 
     /// <summary>
     /// Phase 8 (ADR-0017 section 7; M-PERF-1c): updates every feeder credit and touches nothing else when idle, so an idle tick visits
