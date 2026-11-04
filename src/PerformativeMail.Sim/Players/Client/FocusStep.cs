@@ -25,7 +25,7 @@ namespace PerformativeMail.Sim.Players.Client;
 /// </para>
 /// <para>
 /// Too-far search (story 018; ADR-0014 erratum 2026-11-04, l.115, l.237; TD-209 item 4, approved by Evan 2026-11-04 9:23 AM PT,
-/// and open point (ii), approved 9:56 AM PT): on a tick that starts with nothing focused the query widens to
+/// and open point (ii), approved 9:56 AM PT): on a tick that starts with nothing in focus the query widens to
 /// max(<see cref="BeyondRadiusCells"/>, <c>QueryRadiusCells</c>) cells (7 × 7 = 49 today) and <see cref="FocusState.NearestBeyond"/>
 /// is the nearest anchor that passes the context, gate and cone but lies beyond its <c>RangeMm</c>, within
 /// <see cref="NearestBeyondMm"/>; line of sight is tested nearest first, at most <see cref="MaxBeyondOcclusionTests"/> times. That
@@ -108,7 +108,8 @@ public sealed class FocusStep : IClientStep
         bool latched = _state.Latched;
         SimCounterSink sink = _counters.PrimitiveSink();
 
-        // The too-far search runs on every tick that starts with nothing focused, latched or not (TD-209 item 4, open point (ii)).
+        // The too-far search runs on a tick that starts with nothing in focus (TD-209 item 4, open point (ii)); this includes a
+        // latched tick such as a catch (uncredited implementation detail).
         bool wide = incumbent.IsNone;
         _state.NearestBeyond = AnchorRef.None;
         _state.NearestBeyondRangeMm = 0;
