@@ -5,10 +5,10 @@
 > **Architecture Module**: Client.Core.Input (router core, Godot-free, `src/PerformativeMail.Client.Core/Input/`) + `InputFrame`/`holdEff` in the Sim + the Godot input adapter (`src/Game/`)
 > **Milestone slice**: M-1a (GDD R12 Phasing)
 > **Engine Risk**: HIGH. The Godot adapter covers `_Input` ordering, `joy_connection_changed`, `ignore_joypad_on_unfocused_application` and C# names (NEEDS VERIFICATION — story 001 is the OQ-IC-9 spike). `DEVICE_ID_*` is VERIFIED for 4.7. The router core is LOW.
-> **Est. size**: L — 32 stories (6 Complete, 20 Ready, 6 Deferred; refreshed 2026-10-27, m1a-replan); sized to one `/dev-story` session each (≤ ~1 day, ≤ ~600 lines prod + tests)
+> **Est. size**: L — 32 stories (7 Complete, 19 Ready, 6 Deferred; refreshed 2026-11-01, input-controls 019); sized to one `/dev-story` session each (≤ ~1 day, ≤ ~600 lines prod + tests)
 > **Implementation priority**: 8 of 9 (router core in Client.Core, stories 002–025); the Godot adapter (026–029) goes with priority 9, after the spike (story 001) and `godot-host-shell`
 > **Status**: Ready
-> **Stories**: 32 stories — 6 Complete, 20 Ready, 6 Deferred (counts refreshed 2026-10-27 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 32 stories — 7 Complete, 19 Ready, 6 Deferred (counts refreshed 2026-11-01 from the story headers, input-controls 019 Complete; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -107,7 +107,7 @@ Source: architecture.md v1.1 Appendix A / `docs/architecture/tr-registry.yaml`. 
 | 016 | [Back ladder (R5), `no_room` skip (F13) and the Pause capture state](story-016-back-ladder-pause-capture.md) | Logic | Ready | ADR-0012, ADR-0002 |
 | 017 | [Devices — OR across devices, hold ownership, pad-edge collapse, last-used glyph (F9)](story-017-devices-glyph-state-or-across-devices.md) | Logic | Ready | ADR-0012 |
 | 018 | [Focus loss and pad hot-plug in the router core](story-018-focus-loss-and-pad-hotplug-core.md) | Logic | Ready | ADR-0012 |
-| 019 | [`settings.input` — integer-unit `InputSettings` and the `user://input.json` codec](story-019-settings-input-codec-and-validation.md) | Logic | Ready | ADR-0012, ADR-0010 |
+| 019 | [`settings.input` — integer-unit `InputSettings` and the `user://input.json` codec](story-019-settings-input-codec-and-validation.md) | Logic | Complete | ADR-0012, ADR-0010 |
 | 020 | [Headless router → Sim integration (A) — grammar fire ticks, hold timing, latch rules](story-020-integration-hold-timing-and-interact-end-to-end.md) | Integration | Ready | ADR-0012, ADR-0014 |
 | 021 | [Headless router → Sim integration (B) — cancel-cause table, resolution rows, Toggle / aim / commit, request schemas](story-021-integration-cancels-toggle-commit-end-to-end.md) | Integration | Ready | ADR-0012, ADR-0014 |
 | 022 | [Input replay corpus (200 + 10) and the zero-unauthored-verbs oracle](story-022-replay-corpus-zero-unauthored-verbs.md) | Integration | Ready | ADR-0006, ADR-0012 |
@@ -122,7 +122,7 @@ Source: architecture.md v1.1 Appendix A / `docs/architecture/tr-registry.yaml`. 
 | 031 | [Pad hot-plug — router `OnPadConnection` (cancel-never-commit, reconnect mute, disconnect b](story-031-pad-hotplug-router-and-adapter-delivery.md) | Logic | Deferred (Evan 2026-10-23) | — |
 | 032 | [`settings.input` rebinding support — the overrides-only writer, the `bindings` map (R12) a](story-032-settings-input-overrides-writer-bindings-migrations.md) | Logic | Deferred (Evan 2026-10-23) | — |
 
-**32 stories: 23 Logic, 9 Integration — 6 Complete, 20 Ready, 6 Deferred (refreshed 2026-10-27 from the story headers, m1a-replan).** The hold ring, prompts and glyph art are HUD's — see Notes.
+**32 stories: 23 Logic, 9 Integration — 7 Complete, 19 Ready, 6 Deferred (refreshed 2026-11-01 from the story headers, input-controls 019 Complete, PR #75).** The hold ring, prompts and glyph art are HUD's — see Notes.
 
 **Blocked (0).** 029 is Ready since 2026-10-23, and 026–028 must be Complete before it starts (Depends on). The spike gate is satisfied. *History:* 026–029 were `BLOCKED: awaits OQ-IC-9 spike (story 001) outcome per ADR-0012 §7`; story 001 closed 2026-10-16 with **GO-WITH-DELTAS**, so 026–028 are Ready with the note "apply ADR-0012 deltas D-1..D-8 (TD-021) — 026 not Done until the S-25 retention follow-up (TD-022)". ADR-0012 states the adapter half is *provisional until the OQ-IC-9 spike is recorded under `prototypes/`* and (Decision Makers, ADR Dependencies → Blocks, manifest Presentation) that adapter stories wait for it. Unblock rule: story 001 Done with a `REPORT.md` verdict of GO or GO-WITH-DELTAS; each blocked story re-reads the report's deltas, then flips to Ready at `/story-readiness`. They also depend on the godot-host-shell epic (`production/epics/godot-host-shell/story-001-game-csproj-solution-gdignore-build-mapping.md`, `production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md`, `production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md`, `production/epics/godot-host-shell/story-004-boot-sequence-error-screen-content-step.md`) — a dependency, not a block. **Story 025 (CI lint) is Ready**: ADR §8 fixes its rules and carries no UNVERIFIED row, so it is not spike-conditional even though ADR-0012's Migration Plan lists it after the spike.
 

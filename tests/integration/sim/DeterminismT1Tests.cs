@@ -139,6 +139,24 @@ public sealed class DeterminismRun
         SimHost host = SimComposition.Build(new SimBuildArgs(fixture.Profile, content, seed, Counters));
         SimWorld world = host.World;
         fixture.World = world;
+        ReplayInto(world, input, ticks, hashes);
+        string finalHex = DumpHash.Sha256(world);
+        string lastHex = Convert.ToHexString(hashes.AsSpan(ticks * HashSize, HashSize));
+        return new WorldResult(Environment.CurrentManagedThreadId, world.CurrentTick, finalHex == lastHex, fixture.System!.Stats);
+    }
+
+    /// <summary>
+    /// Replays <paramref name="input"/> on an already built <paramref name="world"/> on the calling thread, one op per tick, writing
+    /// the SHA-256 of the dump into <paramref name="hashes"/> before the first tick and after every tick (the loop of
+    /// <see cref="Replay"/>, shared with grid-inventory story 018's H-DET-1, whose worlds carry the inventory fuzz fixture). Allocates
+    /// the dump buffer once, outside the loop.
+    /// </summary>
+    /// <param name="world">A freshly built world (no tick run yet).</param>
+    /// <param name="input">The op and sample log.</param>
+    /// <param name="ticks">How many ticks to run.</param>
+    /// <param name="hashes">Preallocated, at least <c>(ticks + 1) * HashSize</c> bytes.</param>
+    internal static void ReplayInto(SimWorld world, ReplayInput input, int ticks, byte[] hashes)
+    {
         var dump = new ArrayBufferWriter<byte>(1 << 16);
         HashInto(world, dump, hashes, 0);
 
@@ -168,10 +186,6 @@ public sealed class DeterminismRun
             world.Tick();
             HashInto(world, dump, hashes, t + 1);
         }
-
-        string finalHex = DumpHash.Sha256(world);
-        string lastHex = Convert.ToHexString(hashes.AsSpan(ticks * HashSize, HashSize));
-        return new WorldResult(Environment.CurrentManagedThreadId, world.CurrentTick, finalHex == lastHex, fixture.System!.Stats);
     }
 
     private static void HashInto(SimWorld world, ArrayBufferWriter<byte> dump, byte[] hashes, int index)
