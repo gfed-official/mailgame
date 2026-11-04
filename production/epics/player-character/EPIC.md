@@ -5,10 +5,10 @@
 > **Architecture Module**: Sim.Players (`src/PerformativeMail.Sim/Players/`; owner-role `CarrierStep` and focus in Sim.ClientLayer) + PlayerView, camera boom and prompt anchor (Godot)
 > **Milestone slice**: M-1a → M1 (GDD Quick reference). The M-1a set is chosen from the rule list (see Overview).
 > **Engine Risk**: LOW (Sim solver, plain C#). MEDIUM for the presentation (AnimationTree, `AnimationPlayer` StringName members, `Animation.length` double; remote interpolation must be our own).
-> **Est. size**: L — 28 stories (19 Complete, 7 Ready, 2 Deferred; refreshed 2026-11-01, story 017 Complete, branch `story/player-character-017`, with main 70a5766 (PR #72) merged in, no rebase; story 021 Complete on main, PR #70)
+> **Est. size**: L — 28 stories (19 Complete, 7 Ready, 2 Deferred; refreshed 2026-11-03, story 017 Complete, branch `story/player-character-017`, with main 7f1bc73 (PR #75) merged in, no rebase; story 021 Complete on main, PR #70)
 > **Implementation priority**: 5 of 9
 > **Status**: Ready
-> **Stories**: 28 stories — 19 Complete, 7 Ready, 2 Deferred (counts refreshed 2026-11-01 from the story headers, story 017 Complete, branch `story/player-character-017`, with main 70a5766 (PR #72) merged in, no rebase; story 021 Complete on main, PR #70; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 28 stories — 19 Complete, 7 Ready, 2 Deferred (counts refreshed 2026-11-03 from the story headers, story 017 Complete, branch `story/player-character-017`, with main 7f1bc73 (PR #75) merged in, no rebase; story 021 Complete on main, PR #70; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -141,7 +141,7 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 027 | [Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, story 009 carry-forwards (TD-091)](story-027-movement-rulings-extra-jump-slide-td-091.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0013 |
 | 028 | [PCM-P2-1 cross-OS golden equality (Windows + Linux) and the blocking PCM-PERF-1 counters /](story-028-deferred-golden-cross-os-equality-and-blocking-counters.md) | Integration | Deferred (Evan 2026-10-23) | — |
 
-**28 stories: 20 Logic, 4 Integration, 4 Visual/Feel — 19 Complete, 7 Ready, 2 Deferred (refreshed 2026-11-01 from the story headers, story 017 Complete, branch `story/player-character-017`, with main 70a5766 (PR #72) merged in, no rebase; story 021 Complete on main, PR #70).**
+**28 stories: 20 Logic, 4 Integration, 4 Visual/Feel — 19 Complete, 7 Ready, 2 Deferred (refreshed 2026-11-03 from the story headers, story 017 Complete, branch `story/player-character-017`, with main 7f1bc73 (PR #75) merged in, no rebase; story 021 Complete on main, PR #70).**
 
 **Suggested order:** 001–010 (solver, in this order; 003 and 004 can run in parallel with 002/005) → 011–019 (interaction framework; 011, then 012/013, then 014–018, 019 any time after 012/013) → 020 → 021 → 022–026 (Godot-side, after the godot-host-shell epic's scene/view-registry stories).
 
