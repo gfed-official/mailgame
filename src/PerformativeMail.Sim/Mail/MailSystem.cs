@@ -179,6 +179,8 @@ public sealed class MailSystem : ISimSystem, IMailApi
         // If the event log is full, the complaint event is dropped with nothing recorded (Mail Dev default, approved by Evan
         // 2026-11-03 9:15 PM PT by card click (TD-193 item 8)). Implementation detail (Mail Dev, not part of Evan's ruling): the
         // TryRaise result is ignored.
+        // Correction (Mail Dev, not part of Evan's ruling): the event log still counts the drop (EventsDropped, OverflowInfo via
+        // RecordDrop) and calls IOpRecorder.OnOverflow; only Mail records nothing itself.
         _ = _events.TryRaise(MailEventKinds.ComplaintRaised, MailEventDescriptors.AudienceAll, in payload);
     }
 
