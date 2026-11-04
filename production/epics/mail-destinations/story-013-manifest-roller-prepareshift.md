@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~250 lines prod + ~250 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-04 (branch `docs/rulings-td208-td209`): AC-5 added — TD-208 item 8, approved by Evan 2026-11-04 9:23 AM PT by card click (card t271s1234, listing t271s1233).
 
 ## Context
 
@@ -37,6 +37,7 @@
 - [ ] **AC-2 (M-R10-1b, c, d)** Changing V and restoring it re-rolls to a manifest hash identical to the first; three profile changes in one tick cause exactly one re-roll. A profile change on or after the Delivery-start tick is ignored (locked). The forecast equals the manifest's counts by kind × district and sums to N.
 - [ ] **AC-3 (M-R10-1a, M-PERF-1e)** `PrepareShift` and re-rolls allocate no mailId (the counter is unchanged after 100 Prep ticks with no special spawns). A shift-5 roll makes exactly K draws (story 012's counter) and allocates 0 B after warm-up (the manifest buffers are preallocated from `SimSettings`).
 - [ ] **AC-4 Stub wiring.** The M-1a shift stub (story 009) calls `PrepareShift` in Prep with `{shift 1, V, D, raidWindowSeconds 0, cursedShare 0, playerCount 1}`. On the M-1a street, the roll produces a non-empty manifest with every address in District 1 and every batch tick inside Delivery.
+- [ ] **AC-5 Current shift (from mail-destinations 007, TD-208 item 8).** `PrepareShift` sets Mail's current shift at shift start: after `PrepareShift` with profile shift N, Mail's current shift is N. *Approved by Evan 2026-11-04 9:23 AM PT by card click (card 'Stories 007 and 018: which of the items listed above do you approve?', card t271s1234, listing message t271s1233): "Approve TD-208 item 8 (mail code keeps its own shift number starting at 1; adds a step to story 013), as listed in your message above" — the listing's step: "set the current shift at shift start (`PrepareShift`)". Uncredited detail (Mail Lead planning default, TD-208 item 8): it writes story 007's `internal int CurrentShift` on `MailSystem` (starts at 1, not dumped) from `SpawnProfile`'s shift; whichever of story 007 and this story lands first adds the property. TD-208 item 10's 'zero `misdeliveriesThisShift`' step is not approved and is not part of this story.*
 
 ---
 
