@@ -189,7 +189,14 @@ public enum CounterId : ushort
     /// <summary>Mail <c>MailStep</c> (phase 8): one per complaint bucket visited by the step (key <c>mailBucketsVisited</c>; mail-destinations story 005, TD-177 item 4; M-PERF-1c: an idle tick visits 0; buckets refill lazily on touch, ADR-0017 section 7). A test seam: at M-1a the step visits no bucket, so it stays 0. Like <see cref="MailRowsVisited"/>, written to no dump section: counters are excluded from the canonical dump (<see cref="SimCoreStateContributor"/>), so TD-177 item 4's "both in the canonical dump" is read as "both canonical <c>CounterId</c>s" (Evan approved 2026-10-28 (TD-183 item 3)).</summary>
     MailBucketsVisited = 57,
 
-    // 58 to 60 are reserved for player-character 017.
+    /// <summary>Hold counter (player-character story 017; ADR-0014 section 4): one per Hold-mode latch (key <c>holdsStarted</c>; Evan approved 2026-10-29 (TD-186 item 4)). Channels are not holds and are not counted (Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 2)). On the ClientLayer's counters, not in the canonical dump.</summary>
+    HoldsStarted = 58,
+
+    /// <summary>Hold counter: one per hold that reached its completion tick and sent its request, or whose owner declined to build one (key <c>holdsCompleted</c>; Evan approved 2026-10-29 (TD-186 item 4); a declined build counts as completed: Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 8)). On the ClientLayer's counters, not in the canonical dump.</summary>
+    HoldsCompleted = 59,
+
+    /// <summary>Hold counter: one per hold cancelled before it sent, a refused send at completion included (key <c>holdsCancelled</c>; one flat counter, the reason is <c>InteractionStatus.LastCancel</c>: Evan approved 2026-10-29 (TD-186 item 4)). <see cref="HoldsStarted"/> = completed + cancelled + the hold in progress. On the ClientLayer's counters, not in the canonical dump.</summary>
+    HoldsCancelled = 60,
 
     /// <summary>Players <c>PlayersStep</c> (phase 3, host role; player-character story 019, ADR-0013 section 1): one per host-role <c>OwnedCarrier.Step</c> call, made only for a body the host authors. An Alive remote player is never stepped on the host, so over any run of Alive reports it stays 0 (PCM-P2-2; key <c>hostCarrierSteps</c>). Id 61: Evan approved 2026-10-29 (TD-188 item 6). Host-authored = any non-Alive present player: Evan approved (TD-194 item 3), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019".</summary>
     HostCarrierSteps = 61,
