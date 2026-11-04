@@ -103,7 +103,8 @@ internal sealed class StubInsertSheet : IStatSheet
 /// The owner fixture: <c>OnPress</c> writes <see cref="PayloadMark"/> into the payload; <c>GetHoldTicks</c> reads the stat and the
 /// hold setting on every call (as <c>DeliverInteractable</c> does); <c>TryBuildRequest</c> builds an <see cref="InvOpKinds.Open"/>
 /// with the latch's claim. <see cref="Order"/> logs the hook calls as digits (1 OnPress, 2 GetHoldTicks, 3 TryBuildRequest).
-/// <see cref="Branch"/> is the owner state <see cref="PureHookGuard"/> watches; no hook writes it.
+/// <see cref="Branch"/> is the owner state <see cref="PureHookGuard"/> watches; no hook writes it. Story 017's switches:
+/// <see cref="Unavailable"/> (<c>IsAvailable</c> false with that key) and <see cref="CancelWith"/> (<c>ShouldCancel</c> true with that key).
 /// </summary>
 internal sealed class PressOwner : IInteractable
 {
@@ -129,10 +130,16 @@ internal sealed class PressOwner : IInteractable
 
     public InteractionContext Pressed { get; private set; }
 
+    public StringId Unavailable { get; set; }
+
+    public StringId CancelWith { get; set; }
+
+    public int Builds { get; private set; }
+
     public bool IsAvailable(in InteractionContext c, out StringId reason)
     {
-        reason = StringId.None;
-        return true;
+        reason = Unavailable;
+        return Unavailable.IsNone;
     }
 
     public int GetHoldTicks(in InteractionLatch latch, in InteractionContext c)
@@ -145,8 +152,8 @@ internal sealed class PressOwner : IInteractable
 
     public bool ShouldCancel(in InteractionLatch latch, in InteractionContext c, out StringId reason)
     {
-        reason = StringId.None;
-        return false;
+        reason = CancelWith;
+        return !CancelWith.IsNone;
     }
 
     public void WritePrompt(in InteractionContext c, ref PromptArgs args)
@@ -156,6 +163,7 @@ internal sealed class PressOwner : IInteractable
     public bool TryBuildRequest(in InteractionLatch latch, in InteractionContext c, ref Op op)
     {
         Order = (Order % 100_000_000_000L * 10) + 3;
+        Builds++;
         BuiltFrom = latch;
         op.Kind = InvOpKinds.Open;
         op.SetPayload(new OpenPayload { Container = latch.Anchor.Entity.Value, ClaimedX = latch.Claimed.X, ClaimedY = latch.Claimed.Y, ClaimedZ = latch.Claimed.Z });
@@ -174,8 +182,8 @@ internal sealed class PressOwner : IInteractable
 /// <summary>
 /// The press fixture: the <see cref="FocusRig"/> geometry (feet at <see cref="FocusRig.Feet"/>, chest 1000 mm up, anchors at chest
 /// height <c>d</c> mm ahead) with a mailbox (Deliver, Hold), a container (Open, Tap), an unavailable anchor and a Dismount seat
-/// behind the carrier, a <see cref="FocusStep"/> at 4a and the <see cref="EdgeResolveStep"/> at 4d. The two <see cref="PressOwner"/>s
-/// are wrapped in <see cref="PureHookGuard"/>.
+/// behind the carrier, a <see cref="FocusStep"/> at 4a and the <see cref="EdgeResolveStep"/> at 4d, plus story 017's
+/// <see cref="HoldAdvanceStep"/> at 4e when <c>withHold</c>. The two <see cref="PressOwner"/>s are wrapped in <see cref="PureHookGuard"/>.
 /// </summary>
 internal sealed class PressRig
 {
@@ -190,20 +198,26 @@ internal sealed class PressRig
 
     private ushort _seq;
 
-    public PressRig()
+    public PressRig(bool withHold = false)
     {
         Counters = new SimCounters();
         Settings = PlayerSettings.FromBalance(BuiltInContent.CreateM1a().Player);
-        Anchors = new AnchorRegistry(new MapBounds(0, 0, 80_000, 80_000), 64, 2500, 400, new SimCheckRing(), Counters);
+        Anchors = new AnchorRegistry(new MapBounds(0, 0, 80_000, 80_000), 64, 2500, 400, Checks, Counters);
         Gate = new InteractionGate(new FrameworkReasons(FocusRig.DryLand, FocusRig.ClosePanel));
         Predictor = new FakeCatchPredictor();
         Resolver = new PressResolver(Anchors, Gate, Predictor, Settings);
         Source = new ScriptedFocusSource { Feet = FocusRig.Feet };
         Focus = new FocusStep(Source, FocusRig.FlatWorld(), Anchors, Gate, Settings, Counters);
-        Step = new EdgeResolveStep(Source, Anchors, Gate, Settings, Input, Predictor, CatchArm, Requests, Counters, Self);
+        Step = new EdgeResolveStep(Source, Anchors, Gate, Settings, Input, Predictor, CatchArm, Requests, Counters, Checks, Self);
         var builder = new ClientLayerBuilder(Clock, Counters);
         builder.BindPreview(PreviewSubStep.Focus, Focus);
         builder.BindPreview(PreviewSubStep.EdgeResolve, Step);
+        if (withHold)
+        {
+            Hold = new HoldAdvanceStep(Step, Focus, Source, Anchors, Settings, Input, CatchArm, Requests, Counters, Self);
+            builder.BindPreview(PreviewSubStep.HoldAdvance, Hold);
+        }
+
         Layer = builder.Build();
         Layer.InputWriter.SetState(new InputState { FocusCosMinPm = 635 });
         MailboxOwner = new PressOwner(Stats);
@@ -231,6 +245,10 @@ internal sealed class PressRig
     public FocusStep Focus { get; }
 
     public EdgeResolveStep Step { get; }
+
+    public HoldAdvanceStep? Hold { get; }
+
+    public SimCheckRing Checks { get; } = new();
 
     public ClientLayerSut Layer { get; }
 
@@ -277,8 +295,11 @@ internal sealed class PressRig
     public void Press(AnchorRef target) => Edge(FrameAction.Interact, EdgeKind.Press, target);
 
     /// <summary>Latches one edge of any action and kind carrying <paramref name="target"/>.</summary>
-    public void Edge(FrameAction action, EdgeKind kind, AnchorRef target) =>
-        Layer.InputWriter.PushEdge(new InputEdge(action, kind, ++_seq, 1, targetEntity: target.Entity.Value, targetSlot: target.Slot));
+    public void Edge(FrameAction action, EdgeKind kind, AnchorRef target, EdgeReason reason = EdgeReason.None) =>
+        Layer.InputWriter.PushEdge(new InputEdge(action, kind, ++_seq, 1, reason, targetEntity: target.Entity.Value, targetSlot: target.Slot));
+
+    /// <summary>Latches one Interact release edge (<see cref="EdgeReason.ToggleSecondPress"/> is the router's hold-as-toggle second press).</summary>
+    public void Release(EdgeReason reason = EdgeReason.None) => Edge(FrameAction.Interact, EdgeKind.Release, AnchorRef.None, reason);
 
     /// <summary>Runs one client tick (the first of its batch); returns the tick it ran.</summary>
     public uint Tick()
@@ -627,21 +648,51 @@ public class PressResolutionTests
 
     [Theory]
     [Trait("Id", "PCM-P12-1")]
-    [InlineData("Interact: Press(container), Release, Cancel", FrameAction.Interact, 1)]
-    [InlineData("Aim: Press(container)", FrameAction.Aim, 0)]
-    public void OnlyInteractPressEdgesResolve_ReleaseCancelAndOtherActionsResolveNothing(string row, FrameAction action, int sent)
+    [InlineData("Interact: Press(container), Release, Cancel", FrameAction.Interact, "container", 1, CancelReason.None)]
+    [InlineData("Aim: Press(container)", FrameAction.Aim, "container", 0, CancelReason.None)]
+    [InlineData("Interact: Press(mailbox) Hold, Release, Cancel (story 017)", FrameAction.Interact, "mailbox", 0, CancelReason.Released)]
+    public void OnlyInteractPressEdgesResolve_ReleaseCancelAndOtherActionsResolveNothing(string row, FrameAction action, string target, int sent, CancelReason cancel)
     {
-        // Arrange: release and cancel are story 017's; every edge names the container, so resolving one would send.
+        // Arrange: after a Tap the release and cancel find Idle and do nothing; after a Hold the release cancels it at 4d (story
+        // 017, Evan approved 2026-10-29 (TD-186 item 1)) and the cancel edge then finds Idle. Resolving a press again would send.
         var rig = new PressRig();
-        rig.Edge(action, EdgeKind.Press, PressRig.Container);
-        rig.Edge(action, EdgeKind.Release, PressRig.Container);
-        rig.Edge(action, EdgeKind.Cancel, PressRig.Container);
+        AnchorRef a = target == "mailbox" ? PressRig.Mailbox : PressRig.Container;
+        rig.Edge(action, EdgeKind.Press, a);
+        rig.Edge(action, EdgeKind.Release, a);
+        rig.Edge(action, EdgeKind.Cancel, a);
 
         // Act
         rig.Tick();
 
         // Assert
-        Assert.True((sent, 0, InteractState.Idle) == (rig.Requests.Attempts, rig.CatchArm.Downs, rig.Interaction.State), row);
+        Assert.True((sent, 0, InteractState.Idle, cancel) == (rig.Requests.Attempts, rig.CatchArm.Downs, rig.Interaction.State, rig.Interaction.LastCancel), row);
+    }
+
+    [Theory]
+    [Trait("Id", "H-R4-6")]
+    [Trait("Id", "PC017-ONE-COMMIT")]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PressReleasePress_InOneFrame_EndsTheHoldBeforeTheSecondPressResolves(bool release)
+    {
+        // Arrange: TD-171 A9, closed by Evan approved 2026-10-29 (TD-186 item 1): "Press A, Release, Press B" in arrival order.
+        // Without the release, B is ignored behind the hold.
+        var rig = new PressRig();
+        rig.Press(PressRig.Mailbox);
+        if (release)
+        {
+            rig.Release();
+        }
+
+        rig.Press(PressRig.Container);
+
+        // Act
+        rig.Tick();
+
+        // Assert: with the release the Tap sends (and clears the hold's Released: Evan approved 2026-10-29 (TD-186 item 5)); without it the hold stays.
+        Assert.Equal(release ? (1, InteractState.Idle, 0L, CancelReason.None) : (0, InteractState.Holding, 1L, CancelReason.None),
+            (rig.Requests.Sent, rig.Interaction.State, rig.Counters[CounterId.InteractPressIgnored], rig.Interaction.LastCancel));
+        Assert.Equal((1L, release ? 1L : 0L), (rig.Counters[CounterId.HoldsStarted], rig.Counters[CounterId.HoldsCancelled]));
     }
 
     [Theory]

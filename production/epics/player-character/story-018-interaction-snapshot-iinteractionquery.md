@@ -6,7 +6,7 @@
 > **Type**: Logic
 > **Estimate**: S (~0.5 day; ~250 lines prod + tests)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-11-01 (readiness against PR #60's API)
+> **Last Updated**: 2026-11-04 (readiness against PR #60's API, now on main as 84ff4ee; cites re-checked on main 579319a). Earlier: 2026-11-01 (readiness against PR #60's API)
 
 > **Interaction-framework story (8 of 9) — the `IInteractionQuery` story.** Input & Controls' router reads `IInteractionQuery.Current` (the latest published snapshot; the *presented* copy is input-controls 012's `PresentedPromptLatch`, G1) and the HUD renders the prompt, hold ring and focus bracket from it. Cite this path from `input-controls` and `manual-delivery`.
 
@@ -51,7 +51,7 @@
 
 *Derived from ADR-0014 §7 and ADR-0016 §2/Key Interfaces:*
 
-- Files: `InteractionSnapshot.cs`, `IInteractionQuery.cs` in `src/PerformativeMail.Sim/Players/`; `InteractionSnapshotPublisher.cs` in `Players/Client/` (ADR-0016 l.238; `ClientLayerRulesTests.cs:54-57` must list it). The double-buffer is two struct fields swapped per publication (the reader holds a `ref readonly` for at most one frame; Presentation reads between ticks).
+- Files: `InteractionSnapshot.cs`, `IInteractionQuery.cs` in `src/PerformativeMail.Sim/Players/`; `InteractionSnapshotPublisher.cs` in `Players/Client/` (ADR-0016 l.238; `ClientLayerRulesTests.cs:55-57` must list it). The double-buffer is two struct fields swapped per publication (the reader holds a `ref readonly` for at most one frame; Presentation reads between ticks).
 - The "Presented" snapshot bookkeeping (what the HUD last drew) is ADR-0016/ADR-0018's; this story only guarantees a monotonically changing `Seq` the router can echo in `InputEdge.PresentedSeq`.
 - `WritePrompt` is called once per tick for the focused anchor only (Manual Delivery's ≤ 26-entry scan runs in its 4b preview, not here; this story just copies the already-computed `PromptArgs`). Do not call `WritePrompt` for unfocused anchors.
 - `NearestBeyond` / `NearestBeyondRangeMm`: reuse Story 014's candidate pass — track the nearest anchor that fails only the range test, within `6000 mm`, inside the cone and unoccluded; this widens the grid query to a 6 m radius (7 × 7 = 49 cells at 2 m) **only on ticks with no focus**; when something is focused no extra cells are visited. Update Story 014's `focusCellsVisited` probe to allow ≤ 49 on no-focus ticks.
@@ -88,5 +88,5 @@
 
 ## Dependencies
 
-- Depends on: Stories 014, 016, 017 (state sources), 011 (`ProgressPm`, `Players/Hold.cs:84`), 013 (`reason.close_panel`), `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md`; 017 is in PR #60 (`origin/story/player-character-017`): `HoldAdvanceStep`, `EdgeResolveStep.Interaction`, `CancelReason` 8–11
+- Depends on: Stories 014, 016, 017 (state sources), 011 (`ProgressPm`, `Players/Hold.cs:84`), 013 (`reason.close_panel`), `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md`; 017 is Complete (PR #60, merged as main 84ff4ee): `HoldAdvanceStep`, `EdgeResolveStep.Interaction`, `CancelReason` 8–11
 - Unlocks: input-controls epic (router reads `IInteractionQuery`: `production/epics/input-controls/story-007-router-shell-press-machines-mute.md`, `production/epics/input-controls/story-012-interact-latch-toggle-translation-sprint.md`); manual-delivery epic (prompt `WritePrompt`); HUD prompt/ring/bracket (hud-notifications 001, 003); Story 025

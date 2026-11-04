@@ -6,7 +6,7 @@
 > **Type**: Integration
 > **Estimate**: L-ish M (~1 day; ~350 lines prod + ~300 lines tests)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-11-01 (readiness: API as shipped by PR #63; TD-208 items)
+> **Last Updated**: 2026-11-04 (readiness branch `docs/readiness-md007-pc018` with main 579319a merged in: API as shipped by PR #63, now on main; TD-208 items). Earlier: 2026-11-03 (branch `story/mail-destinations-006`, PR #63): AC-8–AC-10 (M-F9-3 c/d/e) added — TD-193 item 7b, approved by Evan 2026-11-03 9:15 PM PT by card click (card t257s1188, listing t257s1187).
 
 ## Context
 
@@ -32,7 +32,7 @@
 
 ## Acceptance Criteria
 
-> **Pending Evan (TD-208):** readiness 2026-11-01 found open values and ADR questions; see the TD-208 row. Do not build until it is resolved.
+> **Pending Evan (TD-208):** readiness 2026-11-01 found open values and ADR questions; see the TD-208 row. Do not build until it is resolved. AC-8–AC-10 below are not part of TD-208: they come from TD-193 item 7b (Resolved), and TD-208 item 11's draft AC-8 is withdrawn in their favour.
 
 *From GDD `design/gdd/mail-destinations.md`, scoped to the hand path (fixture: FX-W stub wallet, FX-L letter 8 ¢ / penalty 4 ¢, an `IInventoryApi` stub or the real Inventory):*
 
@@ -44,17 +44,25 @@
 - [ ] **AC-6 (M-R6-4, M-R4-2c hand)** Two players' `ConsumeHand` calls at one mailbox in one tick both succeed sequentially in call order, each against their own entries. A hold started at T − 1 (before close at T) and applied at T + 90 is accepted; applied at T + 91 it is Rejected `closed`.
 - [ ] **AC-7 (M-PERF-1b)** A 40-unit Accept entry makes exactly 40 `ConsumeUnit` calls, 40 `Credit` calls and 1 outcome, and the hand path allocates 0 B after warm-up.
 
+*M-F9-3 c/d/e, moved here from story 006 by TD-193 item 7b — approved by Evan 2026-11-03 9:15 PM PT by card click (card t257s1188, listing t257s1187): "Approve TD-193 item 7b: move the three late-complaint rules to story 007, as listed in your message above". The three rules, as the listing gave them, are the caller's side of story 006's `ChargeLate` contract:*
+
+- [ ] **AC-8 (M-F9-3c)** An Accept with only dead letters makes no late complaint.
+- [ ] **AC-9 (M-F9-3d)** A misdelivery makes no late complaint.
+- [ ] **AC-10 (M-F9-3e)** Two late letters in one hold count once.
+
+*Uncredited implementation detail (Mail Dev, not part of Evan's ruling): in story 006's terms (AC-3; `tests/unit/mail/ComplaintBucketTests.cs:153-157`) a dead-letter-only Accept makes no `ChargeLate` call (0, `lastLateTick` unchanged); a Misdeliver op with late units makes no late call (0 late complaint); two late entries in one hold make one call (+2,000 ‰ once). Story 006 tests `ChargeLate` itself; these three are tested here, through `ConsumeHand`.*
+
 ---
 
 ## Implementation Notes
 
 *Derived from ADR-0017 §5, §9 and Implementation Guidelines:*
 
-- **Files:** `src/PerformativeMail.Sim/Mail/MailConsumer.cs` (internal; the one routine), `ConsumeCall.cs` (`readonly ref struct` or struct: path, destination ordinal, entry ref, actor, `actionStartTick?`, `thrownPm`, apply tick), `Events/DeliveryOutcomePayload.cs`, `Events/MailConsumedPayload.cs`, kinds and descriptors in `Events/MailEventKinds.cs` (PR #63).
+- **Files:** `src/PerformativeMail.Sim/Mail/MailConsumer.cs` (internal; the one routine), `ConsumeCall.cs` (`readonly ref struct` or struct: path, destination ordinal, entry ref, actor, `actionStartTick?`, `thrownPm`, apply tick), `Events/DeliveryOutcomePayload.cs`, `Events/MailConsumedPayload.cs`, kinds and descriptors in `Events/MailEventKinds.cs` (PR #63, on main since 579319a; `MailEventDescriptors` l.23-37).
 - **Hand misdeliver = exactly one unit per op** (GDD R6 table, OQ4); Accept = the whole entry; Reject = nothing. `ConsumeHand` needs no mode flag: a MATCH entry evaluates to Accept (same address), and the single `MISDELIVER_ONE` entry evaluates to Misdeliver.
 - **Return value (story-level, flagged):** ADR-0017 Key Interfaces declares `void ConsumeHand(...)`, but Delivery's handler needs `requested`/`got`, the first reject reason and `stoppedAtFloor` to build its reply. Return a `HandConsumeSummary` readonly struct (`EntriesGot`, `UnitsConsumed`, `FirstReject`, `StoppedAtFloor`, `CentsDelta`). This is a return-type addition, not a semantic change. It is recorded in the decision log for an ADR-0017 erratum at the next `/architecture-review`.
 - **Facts:** host `DestinationFacts` come from the registry + `DeliveriesState` (`src/PerformativeMail.Sim/Mail/DeliveriesState.cs`, via `DestinationRegistry.Deliveries`; closed by default, tests open it with its internal `Set`; story 009 adds `SetDeliveriesState`) through story 003's `Effective(..., actionStartTick: holdStartTick, applyTick: now)`. Host `UnitFacts` come from the mail table row (story 001) for the entry's lowest mailId. All units of one entry share kind and address, so `Evaluate` runs once per entry and pay/penalty run per unit (spawn values can differ by spawn shift).
-- **Per-unit loop (oldest first):** read the entry's lowest mailId (from the `EntryRef`'s inventory view; `ConsumeUnit` removes exactly that unit). Misdeliver: `penalty = MailPay.UnitPenalty`; `if (!wallet.TryDebitPenalty(penalty, walletFloor)) { stoppedAtFloor = true; break; }`; then `ConsumeUnit`, retire the row, add the unit's `complaintOnMisdelivery` to the op's raw sum. Accept: `pay = MailPay.UnitPay(u, Timeliness(...), stats, actor)` with `thrownPm = 1000`; `ConsumeUnit`; `Credit`; retire. After the loop, call `_complaints.ChargeMisdelivery(d, now, rawSum, _stats, ref sink)` once when `rawSum > 0` and `_complaints.ChargeLate(now, _stats.Has(RuleFlag.SuppressLateComplaint))` once per Accept with ≥ 1 late unit, pass each result to `RaiseComplaint(d, ComplaintSource.Misdelivery | Late, amountPm)` (which emits only when > 0, PR #63 `MailSystem.cs:153`), then raise `DeliveryOutcome` (one per entry) (as shipped by PR #63, not yet on main).
+- **Per-unit loop (oldest first):** read the entry's lowest mailId (from the `EntryRef`'s inventory view; `ConsumeUnit` removes exactly that unit). Misdeliver: `penalty = MailPay.UnitPenalty`; `if (!wallet.TryDebitPenalty(penalty, walletFloor)) { stoppedAtFloor = true; break; }`; then `ConsumeUnit`, retire the row, add the unit's `complaintOnMisdelivery` to the op's raw sum. Accept: `pay = MailPay.UnitPay(u, Timeliness(...), stats, actor)` with `thrownPm = 1000`; `ConsumeUnit`; `Credit`; retire. After the loop, call `_complaints.ChargeMisdelivery(d, now, rawSum, _stats, ref sink)` once when `rawSum > 0` and `_complaints.ChargeLate(now, _stats.Has(RuleFlag.SuppressLateComplaint))` once per Accept with ≥ 1 late unit, pass each result to `RaiseComplaint(d, ComplaintSource.Misdelivery | Late, amountPm)` (which emits only when > 0, `MailSystem.cs:166-171`), then raise `DeliveryOutcome` (one per entry) (as shipped by PR #63, merged as main 579319a).
 - **Event order within the call:** Inventory's removal records/seals (raised inside `ConsumeUnit`), then `MailConsumed` per unit, then `ComplaintRaised`, then `DeliveryOutcome`. The Delivery handler's reply comes last (ADR-0008: events before the reply; M-NET-1b "after the entries' Removed events").
 - **`DeliveryOutcome` payload (ADR-0017 §9, 34 B Sim):** `outcomeSeq u32, destination u32, actor u8, via u8, result u8, kind u16, units u16, cents i64, lateUnits u16, deadUnits u16, complaintPermille u16, flags u8, intendedAddress u32`. Order the fields so that no implicit padding remains, or add explicit zeroed pads (ADR-0008). `outcomeSeq` is a Mail-owned u32 counter in the dump.
 - **Floor-stop broadcast throttle:** a per-(destination ordinal, PlayerSlot) `lastZeroFloorTick` array (lots × 8 longs, preallocated), dumped.
@@ -91,5 +99,5 @@
 
 ## Dependencies
 
-- Depends on: Stories 001–005 and 006 (001–005 on main; 006 in PR #63, branch story/mail-destinations-006, not on main); `production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md` (`ConsumeUnit`, `EntryRef`)
+- Depends on: Stories 001–005 and 006 (all Complete on main; 006 merged by PR #63 as main 579319a); `production/epics/grid-inventory/story-015-inventory-api-feature-hooks.md` (`ConsumeUnit`, `EntryRef`)
 - Unlocks: Story 008; `production/epics/manual-delivery/story-005-delivermatching-op-and-handler.md`

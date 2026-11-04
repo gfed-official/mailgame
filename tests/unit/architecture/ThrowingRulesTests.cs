@@ -241,6 +241,36 @@ public class ThrowingRulesTests
         Assert.All(typeof(Launch).GetFields(BindingFlags.Instance | BindingFlags.Public), f => Assert.True(f.IsInitOnly));
     }
 
+    [Fact]
+    [Trait("Id", "TR-throwing-007")]
+    public void OnlyReceiverGrid_StoresIndicesPerCell_AndItsBuildTakesCatchVolumesOnly()
+    {
+        // Arrange: throwing-catching 003 — world solids come from IWorldQuery.QueryStaticSolids, never a second grid (ADR-0026 section 5).
+        // Mail Dev default, approved by Evan 2026-11-01 12:05 PM PT (TD-202 item 7): "stores indices per cell" is read as any code token naming a cell.
+        var cellToken = new Regex(@"\b\w*[Cc]ell\w*", RegexOptions.CultureInvariant);
+        List<string> hits = [];
+
+        // Act
+        foreach (string file in SourceFiles().Where(f => Path.GetFileName(f) != "ReceiverGrid.cs"))
+        {
+            string[] lines = File.ReadAllLines(file);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                foreach (Match m in cellToken.Matches(StripComment(lines[i])))
+                {
+                    hits.Add($"{Path.GetFileName(file)}:{i + 1}: {m.Value}");
+                }
+            }
+        }
+
+        MethodInfo[] builds = typeof(ReceiverGrid).GetMethods(AllDeclared).Where(m => m.Name == nameof(ReceiverGrid.Build)).ToArray();
+
+        // Assert
+        Assert.True(hits.Count == 0, string.Join(Environment.NewLine, hits));
+        MethodInfo build = Assert.Single(builds);
+        Assert.Equal(new[] { typeof(ReadOnlySpan<VolumeReceiver>) }, build.GetParameters().Select(p => p.ParameterType));
+    }
+
     private static string StripComment(string line)
     {
         int at = line.IndexOf("//", StringComparison.Ordinal);

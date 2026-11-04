@@ -6,8 +6,9 @@ namespace PerformativeMail.Sim.Players;
 /// Why a hold or channel was cancelled (ADR-0014 sections 4 and 7: <c>InteractionSnapshot.LastCancel</c>; a cancel is recorded
 /// with a reason, never silent). A <c>byte</c>; values are APPEND-ONLY and never renumbered or reused. Story 013 declares
 /// <see cref="None"/> plus the five context-change cases; story 016 appends the two press refusals <see cref="Unavailable"/> and
-/// <see cref="Busy"/> (D4 — Mail Lead default, pending Evan (TD-171)); story 017 appends release, range, unregistered and the
-/// owner's <c>ShouldCancel</c> after them.
+/// <see cref="Busy"/> (D4 — Mail Lead default, pending Evan (TD-171)); story 017 appends <see cref="Released"/>,
+/// <see cref="OutOfRange"/>, <see cref="Unregistered"/> and <see cref="OwnerCancel"/> after them. Context changes reuse the five
+/// story-013 values; an owner's reason key travels in <c>InteractionStatus.LastCancelReason</c>, not in this enum.
 /// </summary>
 /// <example><code>CancelReason r = InteractionGate.ContextCancelReason(in before, in after);   // None while walking</code></example>
 public enum CancelReason : byte
@@ -30,11 +31,23 @@ public enum CancelReason : byte
     /// <summary>The carrier was knocked down (life state Alive to Dead).</summary>
     Knockdown = 5,
 
-    /// <summary>A press on a registered, in-range target whose <c>IsAvailable</c> was false: nothing fired (ADR-0014 l.81; the prompt pulse).</summary>
+    /// <summary>A press on a registered, in-range target whose <c>IsAvailable</c> was false: nothing fired (ADR-0014 l.81; the prompt pulse). Story 017 reuses it when the held target's <c>IsAvailable</c> turns false.</summary>
     Unavailable = 6,
 
-    /// <summary>A Tap request was built but <c>IRequestSink.TrySend</c> returned false (local busy): nothing was sent.</summary>
+    /// <summary>A request was built but <c>IRequestSink.TrySend</c> returned false (local busy): nothing was sent and nothing retries (a Tap, or a hold's completion: Evan approved 2026-10-29 (TD-186 item 2)).</summary>
     Busy = 7,
+
+    /// <summary>A release or cancel edge ended a hold before its completion tick (ADR-0014 section 4; H-R3-1, H-R4-4).</summary>
+    Released = 8,
+
+    /// <summary>The chest-to-anchor distance went strictly past <c>RangeMm + incumbentSlackMm</c> during a hold (H-F2-1).</summary>
+    OutOfRange = 9,
+
+    /// <summary>The held anchor is no longer registered (with the latched verb) during a hold.</summary>
+    Unregistered = 10,
+
+    /// <summary>The owner's <c>ShouldCancel</c> ended the hold; its reason key is <c>LastCancelReason</c>, unchanged. (<c>IsAvailable</c> false during a hold reuses <see cref="Unavailable"/>.)</summary>
+    OwnerCancel = 11,
 }
 
 /// <summary>The kind of an <see cref="GateResult"/>. <c>default</c> is <see cref="NoCandidate"/>, the safe value.</summary>
