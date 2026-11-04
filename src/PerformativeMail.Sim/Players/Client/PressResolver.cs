@@ -27,12 +27,19 @@ public enum PressOutcome : byte
     CatchArmed = 5,
 }
 
-/// <summary>The result of <see cref="PressResolver.Resolve"/>: the outcome, the anchor index for <see cref="PressOutcome.Verb"/> and the unavailable reason.</summary>
+/// <summary>
+/// The result of <see cref="PressResolver.Resolve"/>: the outcome, the anchor index for <see cref="PressOutcome.Verb"/>, the
+/// unavailable reason and the catch prediction the press made.
+/// </summary>
 /// <param name="Outcome">The outcome.</param>
 /// <param name="Index">The registry index of the presented anchor for <see cref="PressOutcome.Verb"/>, else -1.</param>
 /// <param name="Reason">The gate's or owner's reason key for <see cref="PressOutcome.Unavailable"/>, else <see cref="StringId.None"/>.</param>
+/// <param name="Prediction">
+/// The <see cref="ICatchPredictor"/> result this press evaluated, kept for the interaction snapshot (story 018; TD-209 item 3,
+/// approved by Evan 2026-11-04 9:23 AM PT); <c>default</c> when the predictor was not called (refused, ignored or mounted).
+/// </param>
 /// <example><code>PressResolution r = resolver.Resolve(state, in status, in query, in press, ref sink);</code></example>
-public readonly record struct PressResolution(PressOutcome Outcome, int Index, StringId Reason);
+public readonly record struct PressResolution(PressOutcome Outcome, int Index, StringId Reason, CatchPrediction Prediction = default);
 
 /// <summary>
 /// Interact press resolution (ADR-0014 section 3; input-controls R4.3, G1, H-R4-2/4/6; GDD P11, P12; TR-movement-012). Pure: it
@@ -130,10 +137,10 @@ public sealed class PressResolver
         CatchPrediction p = _predictor.Evaluate(in query);
         if (p.Predicted != 0 && (presented.IsNone || p.PredictedStaticReceiver != presented))
         {
-            return new PressResolution(PressOutcome.Catch, -1, StringId.None);
+            return new PressResolution(PressOutcome.Catch, -1, StringId.None, p);
         }
 
-        return index < 0 ? new PressResolution(PressOutcome.CatchArmed, -1, StringId.None) : TargetVerb(index, gate, in press);
+        return index < 0 ? new PressResolution(PressOutcome.CatchArmed, -1, StringId.None, p) : TargetVerb(index, gate, in press) with { Prediction = p };
     }
 
     /// <summary>The presented anchor's index when registered in this context, within its start range and a gate candidate; else -1.</summary>

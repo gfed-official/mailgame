@@ -23,6 +23,15 @@ namespace PerformativeMail.Sim.Players.Client;
 /// Reads only its constructor ports and <see cref="ClientStepContext.Input"/> (<c>LookYaw</c>, <c>FocusCosMinPm</c>), never
 /// <c>SimWorld</c>. Allocation free; not thread-safe.
 /// </para>
+/// <para>
+/// Too-far search (story 018; ADR-0014 erratum 2026-11-04, l.115, l.237; TD-209 item 4, approved by Evan 2026-11-04 9:23 AM PT,
+/// and open point (ii), approved 9:56 AM PT): on an unlatched tick that starts with nothing focused the query widens to
+/// max(<see cref="BeyondRadiusCells"/>, <c>QueryRadiusCells</c>) cells (7 × 7 = 49 today) and <see cref="FocusState.NearestBeyond"/>
+/// is the nearest anchor that passes the context, gate and cone but lies beyond its <c>RangeMm</c>, within
+/// <see cref="NearestBeyondMm"/>; line of sight is tested nearest first, at most <see cref="MaxBeyondOcclusionTests"/> times. Equal
+/// distances fall back to the <see cref="AnchorRef.CompareTo"/> order (uncredited implementation detail). Other ticks keep the
+/// normal radius and leave it empty.
+/// </para>
 /// </summary>
 /// <example>
 /// <code>
@@ -34,7 +43,16 @@ namespace PerformativeMail.Sim.Players.Client;
 public sealed class FocusStep : IClientStep
 {
     /// <summary>The candidate span length; more anchors in the queried cells count <see cref="CounterId.AnchorQueryOverflow"/>.</summary>
-    public const int CandidateCapacity = 128;
+    public const int CandidateCapacity = 256;
+
+    /// <summary>The too-far search limit, mm (a fixed number, not a <see cref="PlayerSettings"/> member; TD-209 item 4).</summary>
+    public const int NearestBeyondMm = 6000;
+
+    /// <summary>The too-far search's grid radius in cells: <c>CeilDiv(NearestBeyondMm, 2000)</c> = 3.</summary>
+    public const int BeyondRadiusCells = (NearestBeyondMm + AnchorGrid.CellSizeMm - 1) / AnchorGrid.CellSizeMm;
+
+    /// <summary>The most line-of-sight tests the too-far search runs per tick (the A5 listing's "at most 4 extra").</summary>
+    public const int MaxBeyondOcclusionTests = 4;
 
     private readonly ICarrierFocusSource _source;
     private readonly IWorldQuery _world;
@@ -89,9 +107,17 @@ public sealed class FocusStep : IClientStep
         bool latched = _state.Latched;
         SimCounterSink sink = _counters.PrimitiveSink();
 
+        // The too-far search runs only on an unlatched tick that starts with nothing focused (TD-209 item 4, open point (ii)).
+        bool wide = incumbent.IsNone && !latched;
+        _state.NearestBeyond = AnchorRef.None;
+        _state.NearestBeyondRangeMm = 0;
+        Span<Beyond> beyond = stackalloc Beyond[MaxBeyondOcclusionTests];
+        int beyondCount = 0;
+
         Span<int> found = stackalloc int[CandidateCapacity];
         Span<Candidate> scored = stackalloc Candidate[CandidateCapacity];
-        int n = _anchors.QueryCells(in chest, found, out int cellsVisited);
+        int radius = wide ? Math.Max(BeyondRadiusCells, _anchors.QueryRadiusCells) : _anchors.QueryRadiusCells;
+        int n = _anchors.QueryCells(in chest, radius, found, out int cellsVisited);
         int candidates = 0;
         int eligible = 0;
         int incumbentIndex = -1;
@@ -122,6 +148,11 @@ public sealed class FocusStep : IClientStep
             FocusGeometry g = FocusScore.Measure(in chest, in def.Point, fx, fz, _settings.NearAxisMm, ref sink);
             if (!FocusScore.InRange(g.D, def.RangeMm, isIncumbent, _settings.IncumbentSlackMm))
             {
+                if (wide && g.D <= NearestBeyondMm && FocusScore.InCone(g.D, g.CosPm, frame.FocusCosMinPm, _settings.NearMm))
+                {
+                    beyondCount = KeepNearest(beyond, beyondCount, new Beyond(g.D, def.Ref, i));
+                }
+
                 continue;
             }
 
@@ -139,6 +170,7 @@ public sealed class FocusStep : IClientStep
         _probes.Candidates = candidates;
         _probes.CellsVisited = cellsVisited;
         _probes.OcclusionTests = 0;
+        _probes.BeyondOcclusionTests = 0;
         if (latched)
         {
             _probes.RaiseInto(_counters);
@@ -152,6 +184,7 @@ public sealed class FocusStep : IClientStep
                 incumbentGate = _gate.Evaluate(in _anchors.DefAt(incumbentIndex), in status);
             }
 
+            _state.FocusedIndex = incumbentIndex;
             if (incumbentIndex >= 0)
             {
                 WriteAvailability(incumbentIndex, incumbentGate, in chest, in ctx);
@@ -201,6 +234,7 @@ public sealed class FocusStep : IClientStep
             incumbentEligible = false;
         }
 
+        FindNearestBeyond(beyond[..beyondCount], in chest, solids);
         _probes.RaiseInto(_counters);
         if (incumbent.IsNone || !incumbentEligible)
         {
@@ -224,17 +258,66 @@ public sealed class FocusStep : IClientStep
 
         if (_state.Focused.IsNone)
         {
+            _state.FocusedIndex = -1;
             _state.Available = false;
             _state.Reason = StringId.None;
         }
         else if (_state.Focused == best)
         {
+            _state.FocusedIndex = bestIndex;
             WriteAvailability(bestIndex, bestGate, in chest, in ctx);
         }
         else
         {
+            _state.FocusedIndex = incumbentIndex;
             WriteAvailability(incumbentIndex, incumbentGate, in chest, in ctx);
         }
+    }
+
+    /// <summary>One too-far candidate: its chest distance, ref and registry index.</summary>
+    private readonly record struct Beyond(long D, AnchorRef Ref, int Index);
+
+    /// <summary>Inserts <paramref name="b"/> into the ascending (distance, ref) list, keeping only the nearest <c>kept.Length</c>.</summary>
+    private static int KeepNearest(Span<Beyond> kept, int count, Beyond b)
+    {
+        int at = count;
+        while (at > 0 && (kept[at - 1].D > b.D || (kept[at - 1].D == b.D && kept[at - 1].Ref.CompareTo(b.Ref) > 0)))
+        {
+            at--;
+        }
+
+        if (at == kept.Length)
+        {
+            return count;
+        }
+
+        int last = Math.Min(count, kept.Length - 1);
+        for (int k = last; k > at; k--)
+        {
+            kept[k] = kept[k - 1];
+        }
+
+        kept[at] = b;
+        return Math.Min(count + 1, kept.Length);
+    }
+
+    /// <summary>Tests the kept too-far candidates nearest first; the first one in line of sight becomes <see cref="FocusState.NearestBeyond"/>.</summary>
+    private void FindNearestBeyond(ReadOnlySpan<Beyond> kept, in Vec3Mm chest, Span<ushort> solids)
+    {
+        // A separate probe: these tests are not FocusOcclusionTests, which stays at most FocusCandidates (TD-175 item 2).
+        FocusCounters los = default;
+        for (int k = 0; k < kept.Length; k++)
+        {
+            ref readonly Beyond b = ref kept[k];
+            if (!FocusOcclusion.IsOccluded(_world, in chest, in _anchors.DefAt(b.Index).Point, b.Ref.Entity, solids, ref los))
+            {
+                _state.NearestBeyond = b.Ref;
+                _state.NearestBeyondRangeMm = (int)b.D;
+                break;
+            }
+        }
+
+        _probes.BeyondOcclusionTests = los.OcclusionTests;
     }
 
     /// <summary>One scored, eligible anchor: its score, ref, registry index and gate verdict.</summary>

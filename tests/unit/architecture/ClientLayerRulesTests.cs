@@ -55,6 +55,7 @@ public class ClientLayerRulesTests
         Assert.Contains(typeof(PerformativeMail.Sim.Players.Client.FocusStep), client);
         Assert.Contains(typeof(PerformativeMail.Sim.Players.Client.EdgeResolveStep), client);
         Assert.Contains(typeof(PerformativeMail.Sim.Players.Client.HoldAdvanceStep), client);
+        Assert.Contains(typeof(PerformativeMail.Sim.Players.Client.InteractionSnapshotPublisher), client);
         Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
     }
 

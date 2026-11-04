@@ -18,12 +18,15 @@ internal sealed class FakeCatchPredictor : ICatchPredictor
 {
     public CatchPrediction Next { get; set; }
 
+    /// <summary>Results returned first, one per call, before falling back to <see cref="Next"/> (story 018's two-presses rows).</summary>
+    public Queue<CatchPrediction> Then { get; } = new();
+
     public int Calls { get; private set; }
 
     public CatchPrediction Evaluate(in CatchQuery q)
     {
         Calls++;
-        return Next;
+        return Then.Count > 0 ? Then.Dequeue() : Next;
     }
 }
 
@@ -110,6 +113,9 @@ internal sealed class PressOwner : IInteractable
 {
     public const byte PayloadMark = 0xA5;
 
+    /// <summary>The first byte <c>WritePrompt</c> writes (story 018); the second is <see cref="Branch"/>.</summary>
+    public const byte PromptMark = 0x5A;
+
     /// <summary>The <see cref="Order"/> of a Tap: OnPress (1), then TryBuildRequest (3).</summary>
     public const long OnPressThenTryBuildRequest = 13;
 
@@ -136,6 +142,8 @@ internal sealed class PressOwner : IInteractable
 
     public int Builds { get; private set; }
 
+    public int PromptCalls { get; private set; }
+
     public bool IsAvailable(in InteractionContext c, out StringId reason)
     {
         reason = Unavailable;
@@ -158,6 +166,9 @@ internal sealed class PressOwner : IInteractable
 
     public void WritePrompt(in InteractionContext c, ref PromptArgs args)
     {
+        PromptCalls++;
+        args[0] = PromptMark;
+        args[1] = (byte)Branch;
     }
 
     public bool TryBuildRequest(in InteractionLatch latch, in InteractionContext c, ref Op op)
@@ -183,7 +194,7 @@ internal sealed class PressOwner : IInteractable
 /// The press fixture: the <see cref="FocusRig"/> geometry (feet at <see cref="FocusRig.Feet"/>, chest 1000 mm up, anchors at chest
 /// height <c>d</c> mm ahead) with a mailbox (Deliver, Hold), a container (Open, Tap), an unavailable anchor and a Dismount seat
 /// behind the carrier, a <see cref="FocusStep"/> at 4a and the <see cref="EdgeResolveStep"/> at 4d, plus story 017's
-/// <see cref="HoldAdvanceStep"/> at 4e when <c>withHold</c>. The two <see cref="PressOwner"/>s are wrapped in <see cref="PureHookGuard"/>.
+/// <see cref="HoldAdvanceStep"/> at 4e when <c>withHold</c>, followed there by story 018's <see cref="InteractionSnapshotPublisher"/>. The two <see cref="PressOwner"/>s are wrapped in <see cref="PureHookGuard"/>.
 /// </summary>
 internal sealed class PressRig
 {
@@ -216,6 +227,8 @@ internal sealed class PressRig
         {
             Hold = new HoldAdvanceStep(Step, Focus, Source, Anchors, Settings, Input, CatchArm, Requests, Counters, Self);
             builder.BindPreview(PreviewSubStep.HoldAdvance, Hold);
+            Publisher = new InteractionSnapshotPublisher(Focus, Step, Source, Anchors, Settings, Input, Self);
+            builder.BindPreview(PreviewSubStep.HoldAdvance, Publisher);
         }
 
         Layer = builder.Build();
@@ -247,6 +260,8 @@ internal sealed class PressRig
     public EdgeResolveStep Step { get; }
 
     public HoldAdvanceStep? Hold { get; }
+
+    public InteractionSnapshotPublisher? Publisher { get; }
 
     public SimCheckRing Checks { get; } = new();
 

@@ -55,6 +55,7 @@ public sealed class EdgeResolveStep : IClientStep
     private readonly HoldSettings _hold;
     private readonly PressResolver _resolver;
     private InteractionStatus _interaction;
+    private CatchPrediction _lastPrediction;
 
     /// <summary>Creates the step.</summary>
     /// <param name="source">The local carrier's feet and status.</param>
@@ -104,9 +105,17 @@ public sealed class EdgeResolveStep : IClientStep
     /// <summary>The interaction after the last <see cref="Step"/>; <see cref="HoldAdvanceStep"/> advances and ends it through this reference.</summary>
     public ref InteractionStatus Interaction => ref _interaction;
 
+    /// <summary>
+    /// The catch prediction this tick's last press made (<see cref="PressResolution.Prediction"/>), for
+    /// <see cref="InteractionSnapshotPublisher"/>; cleared at the start of every <see cref="Step"/>, so it is <c>default</c> on a tick
+    /// with no press. Two presses in one tick: the last one's wins (open point (iii), approved by Evan 2026-11-04 9:56 AM PT).
+    /// </summary>
+    public CatchPrediction LastPrediction => _lastPrediction;
+
     /// <inheritdoc />
     public void Step(in ClientStepContext ctx)
     {
+        _lastPrediction = default;
         ReadOnlySpan<InputEdge> edges = ctx.Input.Edges;
         for (int i = 0; i < edges.Length; i++)
         {
@@ -180,6 +189,7 @@ public sealed class EdgeResolveStep : IClientStep
         };
         SimCounterSink sink = _counters.PrimitiveSink();
         PressResolution r = _resolver.Resolve(_interaction.State, in status, in query, in press, ref sink);
+        _lastPrediction = r.Prediction;
         var latch = new InteractionLatch { PressTick = ctx.ClientTick, Claimed = new ClaimedPosition(feet.X, feet.Y, feet.Z) };
         switch (r.Outcome)
         {
