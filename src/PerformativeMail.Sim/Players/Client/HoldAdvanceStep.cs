@@ -117,7 +117,12 @@ public sealed class HoldAdvanceStep : IClientStep
                 // A channel has no anchor-side cancels at M-1a: only the context ends it (Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 6)).
                 if (s.Latch.Verb == Verb.Catch)
                 {
-                    // A refused CatchArm{up} is not retried; the channel still ends with the context reason (Mail Dev default, pending Evan (TD-191 item 3)).
+                    // Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-191 item 3): if the message telling the
+                    // server to lower the catch arm is refused, it isn't retried and the catch ends anyway; if something else ended the catch
+                    // (swimming, dying, knockdown, mounting or a panel), only that reason is logged. No effect in the real game until
+                    // story 020 adds the real sender.
+                    // Implementation detail (Mail Dev, not part of Evan's ruling): that message is CatchArm{up} (Send(down: false)), and
+                    // its result is discarded.
                     _ = _catchArm.Send(down: false);
                 }
 
@@ -136,8 +141,10 @@ public sealed class HoldAdvanceStep : IClientStep
 
         // The current context's registration, as at press: entering build mode mid-hold reads as unregistered.
         // Approved by Evan 2026-10-29 8:26 AM PT (TD-191 item 7).
-        // Leaving build mode, dying or mounting mid-hold on a build-mode-only anchor also reads as unregistered and cancels with
-        // reason Unregistered. Mail Dev default, pending Evan (TD-191 item 10).
+        // Leaving build mode, dying, getting knocked down or mounting partway through a hold on a build-mode-only anchor cancels
+        // the hold with reason Unregistered, which replaces Dead, Knockdown or Mounted as the reported reason; swimming or opening
+        // a panel while still in build mode still reports Swim or Panel. Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT
+        // by card click (TD-191 item 10).
         byte mask = now.Body == BodyContext.Build ? AnchorRegistry.ContextBuild : AnchorRegistry.ContextWorld;
         if (!_anchors.TryGet(latch.Anchor, mask, out int index))
         {
@@ -187,8 +194,10 @@ public sealed class HoldAdvanceStep : IClientStep
         }
 
         uint held = ctx.ClientTick - latch.PressTick;
-        // An owner override that makes the hold length 0 or less completes the hold on the press tick.
-        // Mail Dev default, pending Evan (TD-191 item 9).
+        // If an object's own code sets its hold time to 0 ticks or less, the hold finishes on the same tick you press, after the
+        // usual checks. Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-191 item 9).
+        // Implementation detail (Mail Dev, not part of Evan's ruling): "the usual checks" are the registration, range,
+        // availability, ShouldCancel and context checks above; the shared hold formula never goes below minHoldTicks.
         if (held < (long)latch.HoldTicks)
         {
             return;

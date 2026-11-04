@@ -143,7 +143,10 @@ public sealed class EdgeResolveStep : IClientStep
             case InteractState.Channel:
                 if (_interaction.Latch.Verb == Verb.Catch)
                 {
-                    // A refused CatchArm{up} is not retried and records nothing; the channel ends anyway (Mail Dev default, pending Evan (TD-191 item 3)).
+                    // Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-191 item 3): if the message telling the
+                    // server to lower the catch arm is refused, it isn't retried and the catch ends anyway; if you let go, nothing is logged.
+                    // Implementation detail (Mail Dev, not part of Evan's ruling): that message is CatchArm{up} (Send(down: false)), and
+                    // its result is discarded.
                     _ = _catchArm.Send(down: false);
                 }
 
