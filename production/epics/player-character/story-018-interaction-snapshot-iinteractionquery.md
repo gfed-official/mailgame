@@ -32,7 +32,7 @@
 
 ## Acceptance Criteria
 
-> **Partly resolved 2026-11-04 (TD-209):** the ADR questions are settled — F1 (A5) approved by Evan 2026-11-04 6:47 AM PT by card click (card 'Stories 007 and 018: which of the items listed above do you approve?', listing message t265s1213; ADR-0014 erratum of that date), and F2 / item 3 (A6) settled by Accepted ADR-0015 §8 l.142 and ADR-0014 §7 l.114, not an Evan ruling. **Still pending Evan (TD-209 item 1's offsets, item 2, item 3's `LastPrediction` exposure, item 4 beyond the A5 listing, items 5–10): do not build until they are resolved.**
+> **Partly resolved 2026-11-04 (TD-209):** the ADR questions are settled — F1 (A5) approved by Evan 2026-11-04 6:47 AM PT by card click (card 'Stories 007 and 018: which of the items listed above do you approve?', listing message t265s1213; ADR-0014 erratum of that date), and F2 / item 3 (A6) settled by Accepted ADR-0015 §8 l.142 and ADR-0014 §7 l.114, not an Evan ruling. Item 10 (no cancel-reason key in the snapshot) is settled by Accepted ADR-0014 l.115, not an Evan item. **Still pending Evan (TD-209 item 1's offsets, item 2, item 3's `LastPrediction` exposure, item 4 beyond the A5 listing, items 5–9, and the two open points in items 3 and 4): do not build until they are resolved.**
 
 *From ADR-0014 §7 and GDD P11 / UI Requirements, scoped to this story (data only — widgets are HUD's):*
 
