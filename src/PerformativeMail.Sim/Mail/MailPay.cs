@@ -43,13 +43,27 @@ public static class MailPay
     /// </example>
     public static int Timeliness(int currentShift, int deadlineShift, int lateValueRatioPm, int deadLetterShifts)
     {
-        int lateness = Math.Max(0, currentShift - deadlineShift);
-        if (lateness == 0)
-        {
-            return 1000;
-        }
+        Overdue(currentShift, deadlineShift, deadLetterShifts, out bool late, out bool dead);
+        return dead ? 0 : late ? lateValueRatioPm : 1000;
+    }
 
-        return lateness < deadLetterShifts ? lateValueRatioPm : 0;
+    /// <summary>
+    /// The F5 lateness class that <see cref="Timeliness"/> prices: late when 1 &lt;= L &lt; <paramref name="deadLetterShifts"/>,
+    /// dead at or past it, neither when L is 0. Callers that count late and dead units use this so the counts match the pay.
+    /// </summary>
+    /// <param name="currentShift">The shift at the apply tick.</param>
+    /// <param name="deadlineShift">The unit's deadline shift.</param>
+    /// <param name="deadLetterShifts">The lateness at which mail is a dead letter.</param>
+    /// <param name="late">True when the unit is late but not dead.</param>
+    /// <param name="dead">True when the unit is a dead letter.</param>
+    /// <example>
+    /// <code>MailPay.Overdue(4, 2, 2, out bool late, out bool dead);   // late false, dead true</code>
+    /// </example>
+    public static void Overdue(int currentShift, int deadlineShift, int deadLetterShifts, out bool late, out bool dead)
+    {
+        int lateness = Math.Max(0, currentShift - deadlineShift);
+        dead = lateness != 0 && lateness >= deadLetterShifts;
+        late = lateness != 0 && !dead;
     }
 
     /// <summary>

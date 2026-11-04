@@ -173,7 +173,7 @@ public class PlayerJoinTests
             Assert.True(m.IsAssembly, $"SlotTable.{name} must be internal");
         }
 
-        string[] readOnly = { "Entry", "IsPresent", "SlotOf", "CanAssign", "get_ConnectedMask" };
+        string[] readOnly = { "Entry", "IsPresent", "SlotOf", "PlayerOf", "CanAssign", "get_ConnectedMask" };
         string[] publicMethods = typeof(SlotTable)
             .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
             .Select(m => m.Name)

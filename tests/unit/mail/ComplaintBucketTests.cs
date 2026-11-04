@@ -219,7 +219,7 @@ public class ComplaintBucketTests
             null,
             new SimSystemEntry(SystemId.GridInventory, ctx => new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots)),
             new SimSystemEntry(SystemId.MailDestinations, ctx => mail = new MailSystem(
-                ctx.Events, ctx.MailIds, ctx.Rng, ctx.Tick, ctx.Api<IInventoryApi>(SystemId.GridInventory), ctx.WalletGate, ctx.World!, ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Counters)),
+                ctx.Events, ctx.MailIds, ctx.Rng, ctx.Tick, ctx.Api<IInventoryApi>(SystemId.GridInventory), ctx.WalletGate, ctx.World!, ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Counters, ctx.Slots)),
             new SimSystemEntry(SystemId.RunStructure, _ => probe));
         var capture = new CaptureSink();
         SimHost host = SimComposition.Build(new SimBuildArgs(profile, _content, 6) { WorldSource = M1aWorldSource.Instance, EventSink = capture });
@@ -239,10 +239,11 @@ public class ComplaintBucketTests
         Assert.Empty(EventDescriptorAssert.Validate(MailEventDescriptors.ComplaintRaised, OpKindBlock.MailDelivery));
 
         // The Mail section ends with the shipped team state: solo cap 40,000 less the one 20,000 debit, all touched at tick 1.
-        Assert.Equal((20_000L * 900, 1L, 1L, (byte)1), MailTeamTail(host.World));
+        Assert.Equal((20_000L * 900, 1L, 1L, (byte)1), MailTeamTail(host.World, mail!.Consumer.CanonicalBytes));
     }
 
-    private static (long TeamTokensPm, long TeamLastTick, long LastLateTick, byte LateCharged) MailTeamTail(SimWorld world)
+    // The team state is followed by story 007's outcome state (consumeBytes long).
+    private static (long TeamTokensPm, long TeamLastTick, long LastLateTick, byte LateCharged) MailTeamTail(SimWorld world, int consumeBytes)
     {
         byte[] dump = DumpHash.Bytes(world);
         int pos = 6; // "PMSD" + format version
@@ -252,7 +253,7 @@ public class ComplaintBucketTests
         }
 
         int length = (int)BinaryPrimitives.ReadUInt32LittleEndian(dump.AsSpan(pos + 2));
-        ReadOnlySpan<byte> t = dump.AsSpan(pos + 6 + length - 25, 25);
+        ReadOnlySpan<byte> t = dump.AsSpan(pos + 6 + length - consumeBytes - 25, 25);
         return (BinaryPrimitives.ReadInt64LittleEndian(t), BinaryPrimitives.ReadInt64LittleEndian(t.Slice(8)),
             BinaryPrimitives.ReadInt64LittleEndian(t.Slice(16)), t[24]);
     }

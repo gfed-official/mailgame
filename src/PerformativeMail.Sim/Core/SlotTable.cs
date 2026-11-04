@@ -55,6 +55,15 @@ public interface ISlotView
     /// <summary>One bit per occupied slot (bit n = slot n).</summary>
     byte ConnectedMask { get; }
 
+    /// <summary>
+    /// The player in <paramref name="slot"/>, or <see cref="EntityId.None"/> for an empty, none or out-of-range slot (TD-208 item 2, A2
+    /// option (a); mail-destinations story 007: Mail names the delivering player in the inventory's removal record). The name is
+    /// uncredited (Mail Lead planning default, TD-208 item 2).
+    /// </summary>
+    /// <param name="slot">The slot.</param>
+    /// <returns>The occupying player entity or None.</returns>
+    EntityId PlayerOf(PlayerSlot slot);
+
     /// <summary>True when <paramref name="slot"/> is free and was not freed in <paramref name="currentTick"/> or later (freed in T is reusable from T + 1).</summary>
     /// <param name="slot">The slot.</param>
     /// <param name="currentTick">The tick being processed.</param>
@@ -130,6 +139,10 @@ public sealed class SlotTable : ISlotView
 
         return PlayerSlot.None;
     }
+
+    /// <inheritdoc />
+    public EntityId PlayerOf(PlayerSlot slot) =>
+        slot.IsNone || slot.Value >= _entries.Length || !_entries[slot.Value].Occupied ? EntityId.None : _entries[slot.Value].PlayerId;
 
     /// <inheritdoc />
     public bool CanAssign(PlayerSlot slot, uint currentTick)

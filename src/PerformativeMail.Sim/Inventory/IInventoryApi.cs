@@ -44,6 +44,18 @@ public readonly record struct UnitRef(MailId Mail, EntryId Entry, DefIndex MailK
 public readonly record struct EntryRef(ContainerId Container, EntryId Entry);
 
 /// <summary>
+/// One mail stack as <see cref="IInventoryApi.TryReadEntry"/> reads it (ADR-0009 erratum 2026-11-04, TD-208 item 1, A1): its mail kind,
+/// address, flags, letter count and oldest letter id. The name and shape are uncredited (Mail Lead planning default, TD-208 item 1).
+/// </summary>
+/// <param name="MailKind">The entry's mail kind.</param>
+/// <param name="AddressId">The entry's packed address.</param>
+/// <param name="Flags">The entry's mail flags.</param>
+/// <param name="Units">The entry's unit count (1 to 255).</param>
+/// <param name="LowestMailId">The entry's oldest unit, the one <see cref="IInventoryApi.ConsumeUnit"/> takes next.</param>
+/// <example><code>if (inventory.TryReadEntry(entry, out EntryView v)) { MailId next = v.LowestMailId; }</code></example>
+public readonly record struct EntryView(DefIndex MailKind, uint AddressId, byte Flags, byte Units, MailId LowestMailId);
+
+/// <summary>
 /// The result of <see cref="IInventoryApi.DetachForThrow"/> (story 015; ADR-0009 Key Interfaces name, shape a planning default): the refusal reason (none,
 /// 0, on success), the detached entry and its units.
 /// </summary>
@@ -230,6 +242,18 @@ public interface IInventoryApi
     /// <param name="actor">The acting actor (written into the seal).</param>
     /// <returns>True when a unit was consumed.</returns>
     bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor);
+
+    /// <summary>
+    /// Reads one mail stack without changing it (ADR-0009 erratum 2026-11-04, TD-208 item 1, A1; mail-destinations story 007): its
+    /// mail kind, address, flags, letter count and oldest letter id. Changes nothing and allocates nothing; no call scope, no tick
+    /// guard, so it is legal between ticks. False and <c>default</c> on a stale ref, the same refs <see cref="ConsumeUnit"/> refuses (a
+    /// dead container, an entry that is not live or not in that container, an empty entry); also false for an item entry (uncredited
+    /// implementation detail: it is a mail read).
+    /// </summary>
+    /// <param name="entry">The container and entry.</param>
+    /// <param name="v">The stack when read.</param>
+    /// <returns>True when the ref names a live mail entry in that container.</returns>
+    bool TryReadEntry(EntryRef entry, out EntryView v);
 
     /// <summary>
     /// Detaches a whole hotbar entry for a throw (story 015; ADR-0009 section 1, ADR-0015 section 1: Throwing's <c>ThrowRelease</c>
