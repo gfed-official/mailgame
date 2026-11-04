@@ -14,7 +14,7 @@
 
 ## Dependency-cycle check
 
-- **Depends-on graph: 0 cycles** (Tarjan SCC over 1064 edges, 220 nodes). None found.
+- **Depends-on graph: 0 cycles** (Tarjan SCC over 1063 edges, 220 nodes). None found.
 - **Ready stories depending on a Deferred story: 0.**
 
 ## Track A — playable greybox (62 stories, 14 waves)
