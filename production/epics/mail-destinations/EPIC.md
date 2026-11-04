@@ -8,7 +8,7 @@
 > **Est. size**: M/L — 12–14 stories
 > **Implementation priority**: 4 of 9
 > **Status**: Ready
-> **Stories**: 16 stories — 8 Complete, 8 Ready (counts refreshed 2026-10-29 from the story headers, story 006 Complete, branch `story/mail-destinations-006`; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 16 stories — 8 Complete, 8 Ready (counts refreshed 2026-11-03 from the story headers, story 006 Complete, branch `story/mail-destinations-006` with main 7f1bc73 (PR #75) merged in, no rebase; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 

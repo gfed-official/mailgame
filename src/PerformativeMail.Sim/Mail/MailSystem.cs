@@ -2,6 +2,7 @@ using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.MailDestinations.Ports;
 using PerformativeMail.Sim.Primitives;
@@ -140,6 +141,15 @@ public sealed class MailSystem : ISimSystem, IMailApi
     /// <inheritdoc />
     public bool TryGetDestinationFacts(EntityId dest, out DestinationFacts f) => _registry.TryGetDestinationFacts(dest, out f);
 
+    /// <inheritdoc />
+    public int DestinationCount => _registry.Count;
+
+    /// <inheritdoc />
+    public EntityId DestinationAt(int ordinal) => _registry.EntityIdOf(Row(ordinal));
+
+    /// <inheritdoc />
+    public AabbMm CatchVolumeAt(int ordinal) => _registry.CatchVolumeOf(Row(ordinal));
+
     /// <summary>
     /// Emits one <see cref="MailEventKinds.ComplaintRaised"/> at door <paramref name="d"/> when <paramref name="amountPm"/> is above 0,
     /// and nothing otherwise (M-R9-2a; Evan approved 2026-10-29 (TD-187 item 1)). One complaint is capped at 65.535 points because the
@@ -184,6 +194,13 @@ public sealed class MailSystem : ISimSystem, IMailApi
         {
             // F11 (test, add insertRateMilli, cap at 30,000) lands with the M-1b feeders; M-1a has none.
         }
+    }
+
+    private DestinationOrdinal Row(int ordinal)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(ordinal);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(ordinal, _registry.Count);
+        return new DestinationOrdinal((ushort)ordinal);
     }
 
     private static DestinationRegistry BuildRegistry(IWorldQuery world, ContentSet content)

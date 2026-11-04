@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 25 stories — 18 Complete, 5 Ready, 1 Blocked, 1 Deferred (counts refreshed 2026-10-29 from the story headers, `count-story-status.sh`, branch `chore/test-audit-cleanup` with main 4f30c32 merged: story 020 went Ready → Blocked in docs PR #68; before that 18 Complete, 6 Ready, 1 Deferred, refreshed 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 25 stories — 19 Complete, 4 Ready, 1 Blocked, 1 Deferred (counts refreshed 2026-11-01 from the story headers, `count-story-status.sh`, branch `story/grid-inventory-018` off main 56c9446, main 70a5766 (PR #72), main 8d0398f (PR #71) and main 251e07a (docs PR #73) merged in, recounted after the 251e07a merge: story 018 Ready → Complete; before that 18 Complete, 5 Ready, 1 Blocked, 1 Deferred, refreshed 2026-10-29 from the story headers, `count-story-status.sh`, branch `chore/test-audit-cleanup` with main 4f30c32 merged: story 020 went Ready → Blocked in docs PR #68; before that 18 Complete, 6 Ready, 1 Deferred, refreshed 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -131,7 +131,7 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 015 | [IInventoryApi hooks for feature epics — ConsumeUnit, DetachForThrow, TryInsert, CountItem](story-015-inventory-api-feature-hooks.md) | Logic | Complete | ADR-0009, ADR-0003 |
 | 016 | [Weight → speed (R16, D1): weightPoints and speedPermille](story-016-weight-speed.md) | Logic | Complete | ADR-0006, ADR-0009, ADR-0010 |
 | 017 | [UnitLedger conservation counters, tick-end check, INVENTORY_ASSERT full scan and the canonical dump section](story-017-unitledger-conservation.md) | Logic | Complete | ADR-0009, ADR-0006, ADR-0003 |
-| 018 | [Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world determinism](story-018-conservation-fuzz-determinism.md) | Integration | Ready | ADR-0006, ADR-0009 |
+| 018 | [Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world determinism](story-018-conservation-fuzz-determinism.md) | Integration | Complete | ADR-0006, ADR-0009 |
 | 019 | [Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 range)](story-019-range-gated-open-pickup-leash.md) | Logic | Ready | ADR-0014, ADR-0009, ADR-0013 |
 | 020 | [Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped; swimming refused](story-020-drop-op.md) | Logic | Blocked (read-only `IInventoryApi` query pending Evan) | ADR-0026, ADR-0013, ADR-0009 |
 | 021 | [Backlog append and the IntakeDrain phase (≤ 32 entries/tick, idle exit O(1))](story-021-backlog-intake-drain.md) | Logic | Complete | ADR-0017, ADR-0009 |

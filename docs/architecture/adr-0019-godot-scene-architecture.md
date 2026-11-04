@@ -132,7 +132,7 @@ Any exception goes to the error screen and `RunFrame` stops (ADR-0002/0003).
 - `src/Game/Content/ContentHost.cs` is a **plain C# class implementing `IContentSource`**, not a Node and not an autoload. `GameLoop` constructs it and passes it to `ContentLoader`.
 - It exposes `ContentHostState { Unloaded, Loading, Valid, Failed, Reloading }` (CD state table).
 - **Synchronous** load at boot: the advisory budget is ≤ 100 ms (ADR-0010). There are no threads and no `CallDeferred` marshalling (ADR-0002 bans Sim-adjacent threads). This answers C&D L792's "async load marshalled back with `CallDeferred`": not needed.
-- `ListManifest()` reads `res://content/manifest.txt`. `Read(path)` returns `FileAccess.GetFileAsBytes("res://content/" + path)` and checks `FileAccess.GetOpenError()` on every read; an error becomes a loader error with the path. **Never** `GetAsText`.
+- `ListManifest()` reads `res://content/manifest.txt`. `Read(path)` returns `FileAccess.GetFileAsBytes("res://content/" + path)` and checks `FileAccess.GetOpenError()` on every read; an error becomes a loader error with the path. **Never** `GetAsText`. *As-implemented note 2026-11-01 (text only, no design change; approved by Evan 2026-11-01 12:05 PM PT, card t222s1054 after listing t222s1053, by card click): the shipped `IContentSource` read is `bool TryRead(string path, out ReadOnlyMemory<byte> bytes)`, which returns false for a missing file. `ContentHost` will implement `TryRead` (godot-host-shell 007), with the `GetOpenError()` check above on every open.*
 - The `EmbeddedResource` fallback (ADR-0010 Risks) is kept behind the same interface, used only if V1 shows the C# PCK read fails.
 - `DirAccess` enumeration of the PCK (S1's optional question) is **not used**. The manifest stays mandatory (ADR-0010).
 - **F6 reload** is handled by `Debug/ContentReloadKey`. It exists only when `OS.IsDebugBuild()`. Directory resolution order:
@@ -244,7 +244,7 @@ The aspect hint values (`ignore,keep,keep_width,keep_height,expand`) and stretch
 public partial class GameLoop : Node { /* ADR-0002 body; root of Main.tscn; composes children in boot order */ }
 public sealed class PresentationRoot : IPresentationRoot { public void Present(int alphaPermille); } // World → Hud → Audio
 public sealed class ContentHost : IContentSource
-{ public ContentHostState State { get; } public IEnumerable<string> ListManifest(); public ReadOnlyMemory<byte> Read(string path); }
+{ public ContentHostState State { get; } public IEnumerable<string> ListManifest(); public ReadOnlyMemory<byte> Read(string path); } // Note 2026-11-01 (no design change): ContentHost will implement TryRead (godot-host-shell 007) — bool TryRead(string path, out ReadOnlyMemory<byte> bytes), false for a missing file — in place of Read
 public enum ContentHostState : byte { Unloaded, Loading, Valid, Failed, Reloading }
 [GlobalClass] public partial class ViewCatalog : Resource { /* DefIds, Scenes, Placeholder */ }
 public static class ViewCatalogResolver { public static ResolvedViews Resolve(ViewCatalog c, ContentSet set, DefTableId table, bool release); }
