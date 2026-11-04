@@ -26,8 +26,9 @@ public static class MailEventDescriptors
     public const byte ResyncScope = 2;
 
     /// <summary>
-    /// The audience of <c>ComplaintRaised</c>: every slot (the story's "audience all"; Mail holds no slot view, and the log keeps the mask
-    /// as given for a replicated kind). Mail Dev default, pending Evan (TD-193 item 2).
+    /// The audience of <c>ComplaintRaised</c>: complaint events go to all 8 player slots, because the mail code doesn't know who's
+    /// connected (Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-193 item 2)). Implementation detail (Mail
+    /// Dev, not part of Evan's ruling): this is the story's "audience all", and the log keeps the mask as given for a replicated kind.
     /// </summary>
     public const byte AudienceAll = 0xFF;
 

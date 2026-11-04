@@ -104,8 +104,10 @@ internal sealed class ComplaintBuckets
     /// Charges one op's misdelivery complaint at a door (the caller sums <c>complaintOnMisdelivery</c> over the units the op consumed as
     /// Misdeliver and calls once per op). Refills the door and team buckets at <paramref name="now"/>, then
     /// <c>allowed = min(raw, doorTokens / window, teamTokens / window)</c> and debits <c>allowed × window</c> from both. The raised value
-    /// is <c>allowed</c> scaled by <see cref="Stat.MisdeliveryComplaintMultPm"/> after the cap, so the buckets are still debited the full
-    /// <c>allowed</c> (M-R9-2c; Mail Dev default, pending Evan (TD-193 item 7)). 0 B.
+    /// is <c>allowed</c> scaled after the cap: the Fragile Handling multiplier (default 1.0, max 2.0) takes the full allowed amount out
+    /// of both the door and team buckets and scales only the reported number, rounding halves up (M-R9-2c; Mail Dev default, approved
+    /// by Evan 2026-11-03 9:15 PM PT by card click (TD-193 item 7a)). Implementation detail (Mail Dev, not part of Evan's ruling): the
+    /// multiplier is <see cref="Stat.MisdeliveryComplaintMultPm"/>, and its max is <c>penaltyMultMaxPm</c> (default 2000 permille). 0 B.
     /// </summary>
     /// <param name="d">The door.</param>
     /// <param name="now">The current tick.</param>
@@ -172,8 +174,10 @@ internal sealed class ComplaintBuckets
         long elapsed = Math.Min(Elapsed(now, lastTick), _window);
         tokens = Math.Min(cap * _window, tokens + (elapsed * cap));
 
-        // A regressed tick is kept, never moved back, so the next touch does not refill the same ticks twice
-        // (Mail Dev default, pending Evan (TD-193 item 1)).
+        // If a complaint bucket gets a timestamp earlier than its last one, no refill happens and the stored time stays put.
+        // Debug builds stop with error 86. Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-193 item 1).
+        // Implementation detail (Mail Dev, not part of Evan's ruling): keeping the stored time means the next touch does not refill
+        // the same ticks twice.
         lastTick = Math.Max(lastTick, now);
         _counters.Add(CounterId.MailBucketsVisited);
     }

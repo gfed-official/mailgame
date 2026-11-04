@@ -99,8 +99,10 @@ public sealed class MailSystem : ISimSystem, IMailApi
         _table = new MailTable(content.Settings, mailIds, tick, checkRing);
         _registry = BuildRegistry(world, content);
 
-        // playerScale arrives with the deliveries/shift input (story 009); until then the buckets are built solo, 1000 permille.
-        // Mail Dev default, pending Evan (TD-193 item 4).
+        // Until story 009 adds player scaling, the team cap is the solo value of 40 points at any player count; with 8 players the
+        // formula would give 155. Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-193 item 4).
+        // Implementation detail (Mail Dev, not part of Evan's ruling): playerScale arrives with the deliveries/shift input (story 009);
+        // until then the buckets are built with 1000 permille.
         _complaints = new ComplaintBuckets(_registry, content.Mail, SoloPlayerScalePm, counters);
     }
 
@@ -140,10 +142,13 @@ public sealed class MailSystem : ISimSystem, IMailApi
 
     /// <summary>
     /// Emits one <see cref="MailEventKinds.ComplaintRaised"/> at door <paramref name="d"/> when <paramref name="amountPm"/> is above 0,
-    /// and nothing otherwise (M-R9-2a; Evan approved 2026-10-29 (TD-187 item 1)). An amount above <see cref="ushort.MaxValue"/> (a door
-    /// complaint cap above 32,767 permille at the 2000 permille (2.0) multiplier, or a late complaint above 65,535 permille, since late
-    /// complaints skip the multiplier; the shipped defaults peak at 40,000 (20,000 x 2.0)) is raised as <see cref="ushort.MaxValue"/>:
-    /// Mail Dev default, pending Evan (TD-193 item 5). Inside a tick only. 0 B.
+    /// and nothing otherwise (M-R9-2a; Evan approved 2026-10-29 (TD-187 item 1)). One complaint is capped at 65.535 points because the
+    /// event stores it in 16 bits. Shipped defaults max out at 40 points. Only raised settings hit the cap: a door cap above 32.767 at the
+    /// 2.0 multiplier, a raised multiplier bound above about 3.3x at the default door cap, or a late complaint above 65.535 (Mail Dev
+    /// default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-193 item 5)). Implementation detail (Mail Dev, not part of
+    /// Evan's ruling): in permille, an amount above <see cref="ushort.MaxValue"/> (65,535) is raised as <see cref="ushort.MaxValue"/>;
+    /// late complaints skip the multiplier; the defaults peak at 40,000 (20,000 x 2.0); a <c>penaltyMultMaxPm</c> bound above 3,276
+    /// permille can reach the cut at the default 20,000 permille door cap. Inside a tick only. 0 B.
     /// </summary>
     /// <param name="d">The door the complaint is filed at.</param>
     /// <param name="source">Misdelivery or late.</param>
@@ -161,7 +166,9 @@ public sealed class MailSystem : ISimSystem, IMailApi
             AmountPermille = (ushort)Math.Min(amountPm, ushort.MaxValue),
             Source = (byte)source,
         };
-        // The TryRaise result is ignored, so if the event log is full the complaint is lost with nothing recorded; Mail Dev default, pending Evan (TD-193 item 8).
+        // If the event log is full, the complaint event is dropped with nothing recorded (Mail Dev default, approved by Evan
+        // 2026-11-03 9:15 PM PT by card click (TD-193 item 8)). Implementation detail (Mail Dev, not part of Evan's ruling): the
+        // TryRaise result is ignored.
         _ = _events.TryRaise(MailEventKinds.ComplaintRaised, MailEventDescriptors.AudienceAll, in payload);
     }
 

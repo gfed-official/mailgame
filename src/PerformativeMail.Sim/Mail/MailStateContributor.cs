@@ -21,8 +21,10 @@ internal sealed class MailStateContributor : ISimStateContributor
     /// <param name="table">The mail table to dump.</param>
     /// <param name="registry">The destination registry, dumped after the rows.</param>
     /// <param name="complaints">
-    /// The complaint buckets, dumped after the registry; null writes no team state (the table and registry tests' layout).
-    /// Mail Dev default, pending Evan (TD-193 item 6).
+    /// The complaint buckets, dumped after the registry. The save/compare dump includes the 25 bytes of team complaint data only when
+    /// it's given the buckets; the real game always gives them (Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click
+    /// (TD-193 item 6)). Implementation detail (Mail Dev, not part of Evan's ruling): null writes no team state (the table and
+    /// registry tests' layout).
     /// </param>
     public MailStateContributor(MailTable table, DestinationRegistry registry, ComplaintBuckets? complaints = null)
     {
