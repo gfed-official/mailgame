@@ -255,10 +255,10 @@ public class InteractionSnapshotTests
     [InlineData("past 6 m", 6001, false, 0)]
     [InlineData("4 m behind", -4000, false, 0)]
     [InlineData("tick starting focused", 4000, true, 0)]
+    [InlineData("held catch started with nothing focused", 4000, false, 4000)]
     public void TooFar_NearestVisibleOutOfReachAnchorWithin6m_OnlyOnATickStartingUnfocused(string row, int distance, bool focusFirst, int expectedMm)
     {
         // Arrange: TD-209 item 4's example: a mailbox (reach 2500 mm) 4 m ahead with nothing in reach.
-        _ = row;
         var rig = new PressRig(withHold: true);
         rig.Anchors.Unregister(PressRig.Closed);
         if (focusFirst)
@@ -272,6 +272,15 @@ public class InteractionSnapshotTests
         }
 
         rig.Anchors.Move(PressRig.Mailbox, FocusRig.Ahead(distance));
+        bool held = row.StartsWith("held", StringComparison.Ordinal);
+        if (held)
+        {
+            // A catch latches with nothing focused; the next tick starts latched and still unfocused.
+            rig.Predictor.Next = PressRig.Lob();
+            rig.Press(AnchorRef.None);
+            rig.Tick();
+            rig.Predictor.Next = default;
+        }
 
         // Act
         rig.Tick();
@@ -280,6 +289,7 @@ public class InteractionSnapshotTests
         InteractionSnapshot s = Snap(rig);
         AnchorRef expected = expectedMm == 0 ? default : PressRig.Mailbox;
         Assert.Equal((expected, expectedMm), (s.NearestBeyond, s.NearestBeyondRangeMm));
+        Assert.Equal((focusFirst ? 25 : 49, held), (rig.Focus.Probes.CellsVisited, rig.Focus.State.Latched && s.State == InteractState.Channel));
     }
 
     [Theory]
@@ -287,9 +297,12 @@ public class InteractionSnapshotTests
     [InlineData("no prediction", 0, 0)]
     [InlineData("two presses, the last predicts nothing", 0, 0)]
     [InlineData("two presses, the last predicts", 1, 9)]
+    [InlineData("unusable press", 0, 0)]
+    [InlineData("busy catch press", 0, 0)]
     public void CatchPrompt_CopiesThisTicksLastPressPrediction_EmptyOnTheNextTick(string row, byte predicted, ushort flight)
     {
-        // Arrange: Tap presses on the container (a predicted receiver equal to the presented target is no catch, so both resolve).
+        // Arrange: Tap presses on the container (a predicted receiver equal to the presented target is no catch, so both resolve),
+        // an unusable press on the closed anchor, or a catch whose arm send fails.
         var rig = new PressRig(withHold: true);
         var ownLob = new CatchPrediction { Predicted = 1, FlightId = 9, Units = 1, PredictedStaticReceiver = PressRig.Container };
         switch (row)
@@ -307,6 +320,16 @@ public class InteractionSnapshotTests
                 rig.Press(PressRig.Container);
                 rig.Press(PressRig.Container);
                 break;
+            case "unusable press":
+                // TD-209 item 8's "a press refused as unusable or busy": item 3 keeps the catch prompt empty on it.
+                rig.Predictor.Next = PressRig.Lob(PressRig.Closed);
+                rig.Press(PressRig.Closed);
+                break;
+            case "busy catch press":
+                rig.Predictor.Next = PressRig.Lob();
+                rig.CatchArm.Accept = false;
+                rig.Press(AnchorRef.None);
+                break;
             default:
                 rig.Predictor.Then.Enqueue(default);
                 rig.Predictor.Then.Enqueue(ownLob);
@@ -323,6 +346,8 @@ public class InteractionSnapshotTests
 
         // Assert
         Assert.Equal((predicted, flight), (pressTick.CatchPredicted, pressTick.CatchFlightId));
+        CancelReason cancel = row switch { "unusable press" => CancelReason.Unavailable, "busy catch press" => CancelReason.Busy, _ => CancelReason.None };
+        Assert.Equal(cancel, pressTick.LastCancel);
         Assert.Equal(((byte)0, (ushort)0), (Snap(rig).CatchPredicted, Snap(rig).CatchFlightId));
     }
 }

@@ -36,7 +36,9 @@ public enum PressOutcome : byte
 /// <param name="Reason">The gate's or owner's reason key for <see cref="PressOutcome.Unavailable"/>, else <see cref="StringId.None"/>.</param>
 /// <param name="Prediction">
 /// The <see cref="ICatchPredictor"/> result this press evaluated, kept for the interaction snapshot (story 018; TD-209 item 3,
-/// approved by Evan 2026-11-04 9:23 AM PT); <c>default</c> when the predictor was not called (refused, ignored or mounted).
+/// approved by Evan 2026-11-04 9:23 AM PT); <c>default</c> when the predictor was not called (refused, ignored or mounted) and on
+/// an <see cref="PressOutcome.Unavailable"/> press, whose guess is dropped so the catch prompt is empty (item 3: "empty on a press
+/// that was refused"; item 8: "a press refused as unusable or busy").
 /// </param>
 /// <example><code>PressResolution r = resolver.Resolve(state, in status, in query, in press, ref sink);</code></example>
 public readonly record struct PressResolution(PressOutcome Outcome, int Index, StringId Reason, CatchPrediction Prediction = default);
@@ -140,7 +142,14 @@ public sealed class PressResolver
             return new PressResolution(PressOutcome.Catch, -1, StringId.None, p);
         }
 
-        return index < 0 ? new PressResolution(PressOutcome.CatchArmed, -1, StringId.None, p) : TargetVerb(index, gate, in press) with { Prediction = p };
+        if (index < 0)
+        {
+            return new PressResolution(PressOutcome.CatchArmed, -1, StringId.None, p);
+        }
+
+        // Only a usable press keeps its guess; an unusable one publishes an empty catch prompt.
+        PressResolution r = TargetVerb(index, gate, in press);
+        return r.Outcome == PressOutcome.Verb ? r with { Prediction = p } : r;
     }
 
     /// <summary>The presented anchor's index when registered in this context, within its start range and a gate candidate; else -1.</summary>

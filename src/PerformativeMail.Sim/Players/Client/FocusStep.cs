@@ -25,12 +25,13 @@ namespace PerformativeMail.Sim.Players.Client;
 /// </para>
 /// <para>
 /// Too-far search (story 018; ADR-0014 erratum 2026-11-04, l.115, l.237; TD-209 item 4, approved by Evan 2026-11-04 9:23 AM PT,
-/// and open point (ii), approved 9:56 AM PT): on an unlatched tick that starts with nothing focused the query widens to
+/// and open point (ii), approved 9:56 AM PT): on a tick that starts with nothing focused the query widens to
 /// max(<see cref="BeyondRadiusCells"/>, <c>QueryRadiusCells</c>) cells (7 × 7 = 49 today) and <see cref="FocusState.NearestBeyond"/>
 /// is the nearest anchor that passes the context, gate and cone but lies beyond its <c>RangeMm</c>, within
-/// <see cref="NearestBeyondMm"/>; line of sight is tested nearest first, at most <see cref="MaxBeyondOcclusionTests"/> times. Equal
-/// distances fall back to the <see cref="AnchorRef.CompareTo"/> order (uncredited implementation detail). Other ticks keep the
-/// normal radius and leave it empty.
+/// <see cref="NearestBeyondMm"/>; line of sight is tested nearest first, at most <see cref="MaxBeyondOcclusionTests"/> times. That
+/// includes a latched tick, such as a catch started with nothing focused, whose focus choice is otherwise unchanged; equal
+/// distances fall back to the <see cref="AnchorRef.CompareTo"/> order (uncredited implementation details). Ticks that start
+/// focused keep the normal radius and leave it empty.
 /// </para>
 /// </summary>
 /// <example>
@@ -107,8 +108,8 @@ public sealed class FocusStep : IClientStep
         bool latched = _state.Latched;
         SimCounterSink sink = _counters.PrimitiveSink();
 
-        // The too-far search runs only on an unlatched tick that starts with nothing focused (TD-209 item 4, open point (ii)).
-        bool wide = incumbent.IsNone && !latched;
+        // The too-far search runs on every tick that starts with nothing focused, latched or not (TD-209 item 4, open point (ii)).
+        bool wide = incumbent.IsNone;
         _state.NearestBeyond = AnchorRef.None;
         _state.NearestBeyondRangeMm = 0;
         Span<Beyond> beyond = stackalloc Beyond[MaxBeyondOcclusionTests];
@@ -140,7 +141,7 @@ public sealed class FocusStep : IClientStep
                 incumbentGate = gate;
             }
 
-            if (latched || gate.Kind == GateKind.NoCandidate)
+            if ((latched && !wide) || gate.Kind == GateKind.NoCandidate)
             {
                 continue;
             }
@@ -153,6 +154,12 @@ public sealed class FocusStep : IClientStep
                     beyondCount = KeepNearest(beyond, beyondCount, new Beyond(g.D, def.Ref, i));
                 }
 
+                continue;
+            }
+
+            if (latched)
+            {
+                // A latched tick only collects too-far candidates; it scores nothing.
                 continue;
             }
 
@@ -171,8 +178,11 @@ public sealed class FocusStep : IClientStep
         _probes.CellsVisited = cellsVisited;
         _probes.OcclusionTests = 0;
         _probes.BeyondOcclusionTests = 0;
+        Span<ushort> solids = stackalloc ushort[CarrierScratch.SolidCapacity];
+        solids = solids[.._solidLimit];
         if (latched)
         {
+            FindNearestBeyond(beyond[..beyondCount], in chest, solids);
             _probes.RaiseInto(_counters);
             // D2 (TD-164): the incumbent is kept unconditionally and the dwell is held at zero; a ref not registered in this
             // tick's context (unregistered, or only in the other context) is kept, not read, and shows as unavailable (TD-170).
@@ -202,8 +212,6 @@ public sealed class FocusStep : IClientStep
         Span<Candidate> ordered = scored[..eligible];
         Span<Candidate> sortScratch = stackalloc Candidate[CandidateCapacity];
         StableSort.Sort(ordered, sortScratch[..eligible], default(CandidateOrder));
-        Span<ushort> solids = stackalloc ushort[CarrierScratch.SolidCapacity];
-        solids = solids[.._solidLimit];
         int bestIndex = -1;
         AnchorRef best = AnchorRef.None;
         GateResult bestGate = default;

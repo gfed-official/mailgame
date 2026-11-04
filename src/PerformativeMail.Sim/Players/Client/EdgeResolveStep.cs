@@ -108,7 +108,8 @@ public sealed class EdgeResolveStep : IClientStep
     /// <summary>
     /// The catch prediction this tick's last press made (<see cref="PressResolution.Prediction"/>), for
     /// <see cref="InteractionSnapshotPublisher"/>; cleared at the start of every <see cref="Step"/>, so it is <c>default</c> on a tick
-    /// with no press. Two presses in one tick: the last one's wins (open point (iii), approved by Evan 2026-11-04 9:56 AM PT).
+    /// with no press. Two presses in one tick: the last one's wins (open point (iii), approved by Evan 2026-11-04 9:56 AM PT). A press
+    /// turned down as busy (its catch arm or Tap send refused) clears it, as an unusable press carries none (TD-209 items 3 and 8).
     /// </summary>
     public CatchPrediction LastPrediction => _lastPrediction;
 
@@ -211,6 +212,7 @@ public sealed class EdgeResolveStep : IClientStep
                 {
                     // Busy here is a Mail Dev build call (the story specifies Busy for Tap only), pending Evan via TD-171's as-built note.
                     Cancel(CancelReason.Busy, StringId.None);
+                    _lastPrediction = default;
                 }
 
                 break;
@@ -246,6 +248,7 @@ public sealed class EdgeResolveStep : IClientStep
                     else
                     {
                         Cancel(CancelReason.Busy, StringId.None);
+                        _lastPrediction = default;
                     }
                 }
 

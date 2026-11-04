@@ -35,8 +35,8 @@ public struct FocusState
 
     /// <summary>
     /// The nearest anchor that fails only the range test (context, gate, cone and line of sight pass) within
-    /// <see cref="FocusStep.NearestBeyondMm"/> of the chest, or <see cref="AnchorRef.None"/>. Searched only on an unlatched tick
-    /// that starts with nothing focused; empty on every other tick (TD-209 item 4 and open point (ii)).
+    /// <see cref="FocusStep.NearestBeyondMm"/> of the chest, or <see cref="AnchorRef.None"/>. Searched on every tick that starts
+    /// with nothing focused, latched or not; empty on a tick that starts focused (TD-209 item 4 and open point (ii)).
     /// </summary>
     public AnchorRef NearestBeyond { get; internal set; }
 
