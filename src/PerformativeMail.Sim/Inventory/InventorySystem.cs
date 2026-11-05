@@ -749,6 +749,27 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <inheritdoc />
+    /// <remarks>The same ref checks as <see cref="ConsumeUnit"/>, without the tick guard; the oldest id is the first of the entry's ascending run.</remarks>
+    public bool TryReadEntry(EntryRef entry, out EntryView v)
+    {
+        if (!_containers.TryGetSlot(entry.Container, out ushort slot) || !_entries.TryGetSlot(entry.Entry, out ushort entrySlot))
+        {
+            v = default;
+            return false;
+        }
+
+        ref EntryRecord e = ref _entries[entrySlot];
+        if (e.ContainerSlot != slot || e.Count < 1 || !e.IsMail || e.MailIds.IsNone)
+        {
+            v = default;
+            return false;
+        }
+
+        v = new EntryView(DefIndex.FromValue(e.MailKind), e.AddressId, e.Flags, e.Count, new MailId(_mailIds.Read(in e.MailIds)[0]));
+        return true;
+    }
+
+    /// <inheritdoc />
     /// <remarks>
     /// The tick guard; <c>bad_request</c> unless <paramref name="slot"/> has a hotbar; then the id through <see cref="Ops.InvRequestCheck"/>'s
     /// own entry-id steps with <paramref name="slot"/> as the temp namespace: <c>bad_request</c> for none, a real id above

@@ -9,13 +9,16 @@ namespace PerformativeMail.Sim.MailDestinations;
 /// each <c>mailId u32, kind u16, addressId u32, spawnValue u16, spawnShift u8, deadlineShift u8, flags u8</c>).
 /// Then <see cref="DestinationRegistry.WriteCanonical"/> (story 002: <c>u16 destinationCount</c> and the per-destination columns), then,
 /// when built with the complaint buckets, <see cref="ComplaintBuckets.WriteCanonical"/> (story 006: <c>teamTokensPm i64, teamLastTick i64,
-/// lastLateTick i64, lateCharged u8</c>; Evan approved 2026-10-29 (TD-187 item 3)). Later stories only append; never reorder what is here.
+/// lastLateTick i64, lateCharged u8</c>; Evan approved 2026-10-29 (TD-187 item 3)), then, when built with the consume routine,
+/// <see cref="MailConsumer.WriteCanonical"/> (story 007: <c>outcomeSeq u32</c>, <c>lastZeroFloorTick i64 × lots × 8</c>,
+/// <c>misdeliveriesThisShift u16</c>; TD-208 item 10). Later stories only append; never reorder what is here.
 /// </summary>
 internal sealed class MailStateContributor : ISimStateContributor
 {
     private readonly MailTable _table;
     private readonly DestinationRegistry _registry;
     private readonly ComplaintBuckets? _complaints;
+    private readonly MailConsumer? _consumer;
 
     /// <summary>Creates the contributor for one table, its destination registry and, optionally, the complaint buckets.</summary>
     /// <param name="table">The mail table to dump.</param>
@@ -26,13 +29,15 @@ internal sealed class MailStateContributor : ISimStateContributor
     /// (TD-193 item 6)). Implementation detail (Mail Dev, not part of Evan's ruling): null writes no team state (the table and
     /// registry tests' layout).
     /// </param>
-    public MailStateContributor(MailTable table, DestinationRegistry registry, ComplaintBuckets? complaints = null)
+    /// <param name="consumer">The consume routine, whose outcome state is dumped after the team complaint state; null writes none.</param>
+    public MailStateContributor(MailTable table, DestinationRegistry registry, ComplaintBuckets? complaints = null, MailConsumer? consumer = null)
     {
         ArgumentNullException.ThrowIfNull(table);
         ArgumentNullException.ThrowIfNull(registry);
         _table = table;
         _registry = registry;
         _complaints = complaints;
+        _consumer = consumer;
     }
 
     /// <inheritdoc />
@@ -48,6 +53,10 @@ internal sealed class MailStateContributor : ISimStateContributor
 
         // Story 006: the team bucket and late window, after the registry (Evan approved 2026-10-29 (TD-187 item 3)).
         _complaints?.WriteCanonical(ref w);
-        // Story 009 appends the deliveries state here, after the team complaint state.
+
+        // Story 007: the outcome state, after the team complaint state (TD-208 item 10: "the number first, then the floor times, then
+        // the count").
+        _consumer?.WriteCanonical(ref w);
+        // Story 009 appends the deliveries state here, after the outcome state.
     }
 }

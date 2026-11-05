@@ -20,8 +20,9 @@ namespace PerformativeMail.Sim.MailDestinations;
 /// <para>
 /// It binds the <c>MailStep</c> phase (phase 8, <see cref="Step"/>: the feeder credits, 0 at M-1a, and nothing else when idle;
 /// manifest batch firing hooks in with stories 012 to 014), the <see cref="MailEventKinds.ComplaintRaised"/> kind, and the
-/// <see cref="SectionIds.Mail"/> dump section (the table rows, the registry, then the team complaint state). It implements and
-/// publishes <see cref="IMailApi"/>.
+/// <see cref="SectionIds.Mail"/> dump section (the table rows, the registry, the team complaint state, then the consume routine's outcome
+/// state). It implements and publishes <see cref="IMailApi"/>; its hand path runs the one consume routine, <see cref="MailConsumer"/>
+/// (story 007), which also binds <see cref="MailEventKinds.DeliveryOutcome"/> and <see cref="MailEventKinds.MailConsumed"/>.
 /// </para>
 /// Not thread-safe: Sim tick thread only.
 /// </summary>
@@ -29,15 +30,15 @@ namespace PerformativeMail.Sim.MailDestinations;
 /// <code>
 /// // Composition: new MailSystem(context.Events, context.MailIds, context.Rng, context.Tick,
 /// //     context.Api&lt;IInventoryApi&gt;(SystemId.GridInventory), context.WalletGate, world, context.Content, context.StatSheet,
-/// //     context.CheckRing, context.Counters)
+/// //     context.CheckRing, context.Counters, context.Slots)
 /// bool found = mail.TryGetDestinationFacts(lot.Destination, out DestinationFacts f);
 /// </code>
 /// </example>
 [SimSystem(SystemId.MailDestinations)]
 public sealed class MailSystem : ISimSystem, IMailApi
 {
-    // _rng, _tick, _inventory and _stats are assigned but not read yet: the story prescribes this constructor shape for
-    // stories 006-009, which read them. Kept deliberately; do not remove as unused.
+    // _rng is assigned but not read yet: the story prescribes this constructor shape for stories 006-009, which read it. Kept
+    // deliberately; do not remove as unused.
     private readonly EventLogFacade _events;
     private readonly IRngStreams _rng;
     private readonly ITickReader _tick;
@@ -48,6 +49,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
     private readonly MailTable _table;
     private readonly DestinationRegistry _registry;
     private readonly ComplaintBuckets _complaints;
+    private readonly MailConsumer _consumer;
 
     // F11 feeder credits, one per placed feeder in ascending construct id (ADR-0017 section 7). M-1a has no feeders.
     private readonly int[] _feederCredits = Array.Empty<int>();
@@ -64,6 +66,11 @@ public sealed class MailSystem : ISimSystem, IMailApi
     /// <param name="stats">The world's stat sheet.</param>
     /// <param name="checkRing">The world's check ring (mail table growth is recorded here).</param>
     /// <param name="counters">The world's counters.</param>
+    /// <param name="slots">
+    /// The player slot view: the consume routine names the delivering player in the inventory's removal record (TD-208 item 2 (A2)
+    /// option (a), approved by Evan 2026-11-04 6:47 AM PT by card click (card t265s1214): "Approve A2 (TD-208 item 2) option (a):
+    /// slot-to-player lookup, no ADR change, as listed in your message above"; the parameter is uncredited Mail Lead planning detail).
+    /// </param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException"><c>MailRegistryInvalid</c> when the destination registry rejects the world's lots or the content (TD-079 item 5).</exception>
     public MailSystem(
@@ -77,7 +84,8 @@ public sealed class MailSystem : ISimSystem, IMailApi
         ContentSet content,
         IStatSheet stats,
         SimCheckRing checkRing,
-        SimCounters counters)
+        SimCounters counters,
+        ISlotView slots)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(mailIds);
@@ -90,6 +98,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
         ArgumentNullException.ThrowIfNull(stats);
         ArgumentNullException.ThrowIfNull(checkRing);
         ArgumentNullException.ThrowIfNull(counters);
+        ArgumentNullException.ThrowIfNull(slots);
         _events = events;
         _rng = rng;
         _tick = tick;
@@ -105,7 +114,48 @@ public sealed class MailSystem : ISimSystem, IMailApi
         // Implementation detail (Mail Dev, not part of Evan's ruling): playerScale arrives with the deliveries/shift input (story 009);
         // until then the buckets are built with 1000 permille.
         _complaints = new ComplaintBuckets(_registry, content.Mail, SoloPlayerScalePm, counters);
+        _consumer = new MailConsumer(
+            this, events, inventory, wallet, stats, slots, counters, checkRing, _table, _registry, _complaints, content);
     }
+
+    /// <summary>
+    /// The wallet floor of a misdelivery penalty, cents. TD-208 item 9, approved by Evan 2026-11-04 9:56 AM PT by card click (card
+    /// t271s1241): "Approve TD-208 item 9 as listed: a fixed −500¢ in the mail code until the Economy design adds a setting". The const's
+    /// name and placement are uncredited (Mail Lead planning detail); a data key waits for the Economy ADR.
+    /// </summary>
+    public const int WalletFloorCents = -500;
+
+    /// <summary>
+    /// The zero-unit floor-stop throttle, ticks: a refused-at-the-floor <see cref="MailEventKinds.DeliveryOutcome"/> goes out at most once
+    /// per (destination, player) per this many ticks (TD-208 item 10, approved by Evan 2026-11-04 9:56 AM PT by card click (card t271s1241):
+    /// "Approve TD-208 item 10 as listed, including the story 013 zeroing step"; the listing: "The 30 is fixed in code, not a tuning
+    /// setting"). The name is uncredited.
+    /// </summary>
+    public const int ZeroFloorBroadcastTicks = 30;
+
+    /// <summary>
+    /// The shift number pay and lateness are read against (TD-208 item 8, approved by Evan 2026-11-04 9:23 AM PT by card click (card
+    /// t271s1234): "Approve TD-208 item 8 (mail code keeps its own shift number starting at 1; adds a step to story 013), as listed in
+    /// your message above"). Starts at 1, not dumped; tests set it, and story 013 writes it at shift start. The member is uncredited
+    /// Mail Lead planning detail.
+    /// </summary>
+    internal int CurrentShift { get; set; } = 1;
+
+    /// <summary>
+    /// The shift's wrong-delivery count: +1 per op that consumed at least one Misdeliver unit, stopping at 65,535 (TD-208 item 10).
+    /// Dumped; story 013 zeroes it at shift start (its AC-6). The member is uncredited Mail Lead planning detail.
+    /// </summary>
+    internal ushort MisdeliveriesThisShift
+    {
+        get => _consumer.MisdeliveriesThisShift;
+        set => _consumer.MisdeliveriesThisShift = value;
+    }
+
+    /// <summary>The consume routine (its outcome state for the dump round-trip and tests).</summary>
+    internal MailConsumer Consumer => _consumer;
+
+    /// <summary>The mail table (tests create rows through it).</summary>
+    internal MailTable Table => _table;
 
     /// <summary>The <c>playerScale</c> the complaint buckets are built with until story 009 passes Run Structure's (n = 1).</summary>
     internal const int SoloPlayerScalePm = 1000;
@@ -125,14 +175,54 @@ public sealed class MailSystem : ISimSystem, IMailApi
         ArgumentNullException.ThrowIfNull(builder);
         builder.Bind(PhaseId.MailStep, new MailStepPhase(this));
         builder.BindEventKind(MailEventDescriptors.ComplaintRaised);
+        builder.BindEventKind(MailEventDescriptors.DeliveryOutcome);
+        builder.BindEventKind(MailEventDescriptors.MailConsumed);
 
         // The dump section moved here from MailTable.BindDump (TD-074 item 4).
-        builder.BindStateContributor(new MailStateContributor(_table, _registry, _complaints));
+        builder.BindStateContributor(new MailStateContributor(_table, _registry, _complaints, _consumer));
     }
 
     /// <inheritdoc />
-    public void ConsumeHand(EntityId dest, ReadOnlySpan<EntryRef> inScanOrder, PlayerSlot actor, uint holdStartTick)
-        => SimAssert.Fail(SimAssertCode.MailApiNotImplemented); // story 007
+    public HandConsumeSummary ConsumeHand(EntityId dest, ReadOnlySpan<EntryRef> inScanOrder, PlayerSlot actor, uint holdStartTick)
+    {
+        if (!TickGuard.IsMutable(_tick, _counters) || !_registry.TryGetOrdinal(dest, out DestinationOrdinal d))
+        {
+            return default;
+        }
+
+        using EventCallScope scope = _events.BeginCall();
+        uint now = _tick.CurrentTick;
+        int entriesGot = 0;
+        int units = 0;
+        long cents = 0;
+        bool stopped = false;
+        bool lateCharged = false;
+        MailRejectReason firstReject = MailRejectReason.None;
+        for (int i = 0; i < inScanOrder.Length; i++)
+        {
+            var call = new ConsumeCall(DeliveryVia.Hand, d, inScanOrder[i], actor, holdStartTick, MailConsumer.HandThrownPm, now, lateCharged);
+            ConsumeResult r = _consumer.Consume(in call);
+            if (r.Result == EvalResult.Reject && firstReject == MailRejectReason.None)
+            {
+                firstReject = r.Reason;
+            }
+
+            entriesGot += r.Units > 0 ? 1 : 0;
+            units += r.Units;
+            cents += r.CentsDelta;
+            lateCharged |= r.LateCharged;
+
+            // A floor stop or a refused removal ends the hand-over (ADR-0017 section 5 step 4; TD-208 item 12, asserts off).
+            if (r.StoppedAtFloor || r.Aborted)
+            {
+                stopped = r.StoppedAtFloor;
+                break;
+            }
+        }
+
+        return new HandConsumeSummary(
+            (ushort)Math.Min(entriesGot, ushort.MaxValue), (ushort)Math.Min(units, ushort.MaxValue), firstReject, stopped, cents);
+    }
 
     /// <inheritdoc />
     public void SetDeliveriesState(bool open, uint closeTick, ulong unlockedDistrictMask)

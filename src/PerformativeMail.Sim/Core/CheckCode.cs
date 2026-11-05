@@ -61,4 +61,7 @@ public enum CheckCode : ushort
 
     /// <summary>Throwing: the tick-end conservation check found <c>launched != resolved + live</c> or a flight resolved twice in its lifetime (a <c>FlightId</c> reused after the u16 wrap is a new flight) (throwing-catching story 008; ADR-0015 section 5). a = launched − resolved − live; b = the twice-resolved <c>FlightId</c> value, or 0. Recorded on every tick the finding holds, subject to the ring's per-code rate limit; <c>CounterId.ThrowingConservationMismatches</c> counts every one. Id 17: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006".</summary>
     ThrowingConservationMismatch = 17,
+
+    /// <summary>Mail: the consume routine's <c>IInventoryApi.ConsumeUnit</c> refused a unit it had just read (mail-destinations story 007; TD-208 item 12, open point (iv), approved by Evan 2026-11-04 9:56 AM PT by card click (card t271s1241): "Approve TD-208 item 12 and open points (i) and (iv) as listed"); written before <c>SimAssertCode.MailConsumeUnitRefused</c> (89), so it is present in every configuration. a = the destination's entity id, b = the refused unit's mail id (uncredited implementation detail).</summary>
+    MailConsumeUnitRefused = 18,
 }

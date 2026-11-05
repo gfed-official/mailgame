@@ -213,7 +213,8 @@ public static class SimComposition
                         context.Content,
                         context.StatSheet,
                         context.CheckRing,
-                        context.Counters)
+                        context.Counters,
+                        context.Slots)
                     : null;
             case SystemId.Throwing:
                 // Throwing reads the world through IWorldQuery and needs Players and Mail, which are built only with a world.

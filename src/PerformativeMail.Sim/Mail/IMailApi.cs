@@ -7,7 +7,7 @@ namespace PerformativeMail.Sim.MailDestinations;
 
 /// <summary>
 /// What Mail &amp; Destinations provides to the systems above it (ADR-0017 Key Interfaces; ADR-0003 section 5): synchronous calls made
-/// by in-tick callers inside their own phase. At story 005 it declares only <see cref="ConsumeHand"/>, <see cref="SetDeliveriesState"/>
+/// by in-tick callers inside their own phase. At story 005 it declared only <see cref="ConsumeHand"/>, <see cref="SetDeliveriesState"/>
 /// and <see cref="TryGetDestinationFacts"/> (TD-177 item 6): <c>ResolveThrownLanding</c> arrives with story 008 and <c>ConsumeFed</c>
 /// with M-1b. Allocation-free; never throws on the tick path. Not thread-safe: Sim tick thread only.
 /// </summary>
@@ -20,14 +20,21 @@ namespace PerformativeMail.Sim.MailDestinations;
 public interface IMailApi
 {
     /// <summary>
-    /// The hand path into the consume routine (ADR-0017 section 5): Delivery's <c>deliver_matching</c> handler, phase 0. Story 007
-    /// implements it; until then it is a no-op that asserts <see cref="SimAssertCode.MailApiNotImplemented"/>.
+    /// The hand path into the consume routine (ADR-0017 section 5; mail-destinations story 007): Delivery's <c>deliver_matching</c>
+    /// handler, phase 0, in <c>opSeq</c> order, with <c>actionStartTick = holdStartTick</c>. Each entry in turn goes through
+    /// <c>MailConsumer.Consume</c>: an Accept consumes the whole entry, a Misdeliver exactly one unit, a Reject nothing. One call scope;
+    /// the events (Inventory's records, <c>MailConsumed</c> per unit, <c>ComplaintRaised</c>, one <c>DeliveryOutcome</c> per entry) come
+    /// before the handler's reply. A wallet-floor stop, or a refused removal with asserts off, ends the hand-over. Returns the receipt
+    /// (ADR-0017 Key Interfaces erratum 2026-11-04, TD-208 item 3); <c>default</c> for an unregistered destination or a call outside a
+    /// tick phase (counted by <c>TickGuard</c>), with nothing changed. 0 B after warm-up.
     /// </summary>
     /// <param name="dest">The destination entity.</param>
     /// <param name="inScanOrder">The candidate entries, in scan order.</param>
     /// <param name="actor">The delivering player.</param>
     /// <param name="holdStartTick">The tick the hold started.</param>
-    void ConsumeHand(EntityId dest, ReadOnlySpan<EntryRef> inScanOrder, PlayerSlot actor, uint holdStartTick);
+    /// <returns>The receipt.</returns>
+    /// <exception cref="SimAssertException"><see cref="SimAssertCode.MailConsumeUnitRefused"/> under <c>SIM_ASSERT</c> when Inventory refuses a unit Mail has just read.</exception>
+    HandConsumeSummary ConsumeHand(EntityId dest, ReadOnlySpan<EntryRef> inScanOrder, PlayerSlot actor, uint holdStartTick);
 
     /// <summary>
     /// Run Structure's downward call that sets the deliveries state (ADR-0017 section 3). Story 009 implements it; until then it is a
