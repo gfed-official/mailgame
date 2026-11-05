@@ -6,7 +6,9 @@ namespace PerformativeMail.Sim.Tests.Unit.PlayerCharacter;
 /// <summary>
 /// Player Character story 017: <c>HoldAdvanceStep.Step</c> allocates 0 B over the seeded <see cref="HoldFuzz"/> (ADR-0016 l.192).
 /// Advisory until M0 (ADR-0014 erratum E2). Like <see cref="EdgeResolveAllocationTests"/> it times the whole <c>ClientLayer.Step</c>
-/// (4a focus and 4d edges included), so it is stricter than the AC.
+/// (4a focus and 4d edges included), so it is stricter than the AC. Since story 018 the rig also binds
+/// <see cref="PerformativeMail.Sim.Players.Client.InteractionSnapshotPublisher"/> after the hold step, so this is also the
+/// "0 B per tick to publish" check of the <c>IInteractionQuery</c> AC (WritePrompt included).
 /// </summary>
 [Collection(NonParallelCollection.Name)]
 public sealed class HoldAdvanceAllocationTests
