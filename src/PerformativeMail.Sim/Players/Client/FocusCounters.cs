@@ -8,7 +8,7 @@ namespace PerformativeMail.Sim.Players.Client;
 /// <see cref="CounterId.FocusCellsVisited"/> and <see cref="CounterId.FocusOcclusionTests"/> to it (running maxima, the <c>CarrierCounterFlush</c> pattern; Mail Lead planning default,
 /// pending Evan (TD-170 item 2)).
 /// </summary>
-/// <example><code>ref readonly FocusCounters c = ref focusStep.Probes; Assert.True(c.CellsVisited &lt;= 25);</code></example>
+/// <example><code>ref readonly FocusCounters c = ref focusStep.Probes; Assert.True(c.CellsVisited &lt;= 49);</code></example>
 public struct FocusCounters
 {
     /// <summary>Anchors past the context filter and within reach (the ones whose cone and score were evaluated; Mail Lead planning default, pending Evan (TD-170 item 2)).</summary>
@@ -19,6 +19,13 @@ public struct FocusCounters
 
     /// <summary>Chest-to-anchor occlusion tests run (<see cref="FocusOcclusion.IsOccluded"/> calls); at most <see cref="Candidates"/> (PCM-PERF-1).</summary>
     public int OcclusionTests;
+
+    /// <summary>
+    /// Occlusion tests the too-far search ran (at most <see cref="FocusStep.MaxBeyondOcclusionTests"/>; TD-209 item 4). Not part of
+    /// <see cref="OcclusionTests"/>, so <see cref="CounterId.FocusOcclusionTests"/> stays at most <see cref="Candidates"/>
+    /// (TD-175 item 2).
+    /// </summary>
+    public int BeyondOcclusionTests;
 
     /// <summary>Raises the three counters in <paramref name="counters"/> to these values.</summary>
     /// <param name="counters">The ClientLayer's counters.</param>

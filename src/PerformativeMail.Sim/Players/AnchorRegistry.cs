@@ -298,9 +298,22 @@ public sealed class AnchorRegistry
     /// <param name="cellsVisited">The cells entered, the one a truncation stops in included.</param>
     /// <returns>The number of indices written.</returns>
     /// <example><code>Span&lt;int&gt; found = stackalloc int[128]; int n = registry.QueryCells(chest, found, out int cells);</code></example>
-    public int QueryCells(in Vec3Mm point, Span<int> results, out int cellsVisited)
+    public int QueryCells(in Vec3Mm point, Span<int> results, out int cellsVisited) =>
+        QueryCells(in point, QueryRadiusCells, results, out cellsVisited);
+
+    /// <summary>
+    /// As <see cref="QueryCells(in Vec3Mm, Span{int}, out int)"/> over <paramref name="radiusCells"/> cells instead of
+    /// <see cref="QueryRadiusCells"/> (story 018's too-far search: <c>(2 · radiusCells + 1)²</c> cells at most).
+    /// </summary>
+    /// <param name="point">The query point (the chest), mm.</param>
+    /// <param name="radiusCells">The square's half-width in cells; 0 is the point's cell only.</param>
+    /// <param name="results">The destination; its length caps the result.</param>
+    /// <param name="cellsVisited">The cells entered, the one a truncation stops in included.</param>
+    /// <returns>The number of indices written.</returns>
+    /// <example><code>int n = registry.QueryCells(chest, 3, found, out int cells);   // up to 7 × 7 cells</code></example>
+    public int QueryCells(in Vec3Mm point, int radiusCells, Span<int> results, out int cellsVisited)
     {
-        int n = _grid.Query(in point, QueryRadiusCells, results, out bool truncated, out cellsVisited);
+        int n = _grid.Query(in point, radiusCells, results, out bool truncated, out cellsVisited);
         if (truncated)
         {
             _counters.Add(CounterId.AnchorQueryOverflow);

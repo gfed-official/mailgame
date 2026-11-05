@@ -406,9 +406,10 @@ public class FocusStepTests
     }
 
     [Fact]
-    public void Budget_2000AnchorLattice_Visits25Cells_ScoresOnlyTheInRangeAnchors()
+    public void Budget_2000AnchorLattice_Visits49CellsWithNoFocusThen25_ScoresOnlyTheInRangeAnchors()
     {
-        // Arrange: QueryRadiusCells = CeilDiv(2500 + 400, 2000) = 2, so 5 × 5 cells of 2 m hold 100 lattice points (< 128).
+        // Arrange: QueryRadiusCells = CeilDiv(2500 + 400, 2000) = 2 (5 × 5 cells, 100 lattice points); a tick starting with nothing
+        // focused widens to the 6 m too-far radius, 3 cells (7 × 7, 196 points < 256; story 018, TD-209 item 4).
         var rig = new FocusRig(maxAnchors: 2048);
         rig.AddLattice();
 
@@ -417,24 +418,55 @@ public class FocusStepTests
 
         // Assert: 21 lattice points lie within 2500 mm of the chest (x² + z² ≤ 6.25 in metres).
         Assert.Equal(2, rig.Anchors.QueryRadiusCells);
-        Assert.Equal((21, 25), (rig.Focus.Probes.Candidates, rig.Focus.Probes.CellsVisited));
-        Assert.Equal((21L, 25L), (rig.Counters[CounterId.FocusCandidates], rig.Counters[CounterId.FocusCellsVisited]));
+        Assert.Equal((21, 49), (rig.Focus.Probes.Candidates, rig.Focus.Probes.CellsVisited));
+        Assert.Equal((21L, 49L), (rig.Counters[CounterId.FocusCandidates], rig.Counters[CounterId.FocusCellsVisited]));
         Assert.Equal(0L, rig.Counters[CounterId.AnchorQueryOverflow]);
 
-        // Act + Assert: a second pass, then one at the lattice corner (8 in range): the counters keep the maxima.
+        // Act + Assert: a second pass starts focused (25 cells), then one at the lattice corner (8 in range): the counters keep the maxima.
         rig.Tick();
+        Assert.Equal((21, 25), (rig.Focus.Probes.Candidates, rig.Focus.Probes.CellsVisited));
         rig.Source.Feet = new Vec3Mm(FocusRig.Feet.X - 25_000, 0, FocusRig.Feet.Z - 20_000);
         rig.Tick();
         Assert.Equal((8, 25), (rig.Focus.Probes.Candidates, rig.Focus.Probes.CellsVisited));
-        Assert.Equal((21L, 25L), (rig.Counters[CounterId.FocusCandidates], rig.Counters[CounterId.FocusCellsVisited]));
+        Assert.Equal((21L, 49L), (rig.Counters[CounterId.FocusCandidates], rig.Counters[CounterId.FocusCellsVisited]));
+    }
+
+    [Theory]
+    [InlineData(2, 3, 3200)]
+    [InlineData(4, 4, 0)]
+    public void TooFar_OccludedNearestFallsThroughNearestFirst_AtMostFourLineOfSightTests(int occluded, int expectedTests, int expectedMm)
+    {
+        // Arrange: five out-of-reach anchors 3000-3400 mm ahead, 300 mm apart sideways; a post just in front of each of the nearest
+        // `occluded` hides it (story 018, TD-209 item 4: line of sight nearest first, at most 4 tests, else empty).
+        var other = new EntityId(0x0200_0001u);
+        var rig = new FocusRig(world: b =>
+        {
+            for (int i = 0; i < occluded; i++)
+            {
+                Vec3Mm a = FocusRig.Ahead(3000 + (i * 100), (i - 2) * 300);
+                b.AddSolid(other, new AabbMm(new Vec3Mm(a.X - 100, 0, a.Z + 100), new Vec3Mm(a.X + 100, 3000, a.Z + 200)), SolidKind.Prop);
+            }
+        });
+        for (int i = 0; i < 5; i++)
+        {
+            rig.Add((uint)(i + 1), FocusRig.Ahead(3000 + (i * 100), (i - 2) * 300));
+        }
+
+        // Act
+        rig.Tick();
+
+        // Assert
+        AnchorRef expected = expectedMm == 0 ? AnchorRef.None : FocusRig.Ref((uint)(occluded + 1));
+        Assert.Equal((expected, expectedMm, expectedTests), (rig.State.NearestBeyond, rig.State.NearestBeyondRangeMm, rig.Focus.Probes.BeyondOcclusionTests));
+        Assert.Equal(0, rig.Focus.Probes.OcclusionTests);   // not counted in FocusOcclusionTests (TD-175 item 2)
     }
 
     [Fact]
-    public void Truncation_150AnchorsInOneCell_KeepsTheFirst128_FocusesTheirLowestRef()
+    public void Truncation_300AnchorsInOneCell_KeepsTheFirst256_FocusesTheirLowestRef()
     {
-        // Arrange: refs 150 down to 1 at one point, registered in that order: the cell list keeps registry order, so refs 150..23 fit.
-        var rig = new FocusRig(maxAnchors: 256);
-        for (uint n = 150; n >= 1; n--)
+        // Arrange: refs 300 down to 1 at one point, registered in that order: the cell list keeps registry order, so refs 300..45 fit.
+        var rig = new FocusRig(maxAnchors: 512);
+        for (uint n = 300; n >= 1; n--)
         {
             rig.Add(n, FocusRig.Ahead(1200));
         }
@@ -445,7 +477,7 @@ public class FocusStepTests
         // Assert
         Assert.True(rig.Counters[CounterId.AnchorQueryOverflow] > 0);
         Assert.Equal(FocusStep.CandidateCapacity, rig.Focus.Probes.Candidates);
-        Assert.Equal(FocusRig.Ref(23), focused);
+        Assert.Equal(FocusRig.Ref(45), focused);
     }
 
     [Fact]
