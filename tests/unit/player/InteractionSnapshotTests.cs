@@ -299,10 +299,11 @@ public class InteractionSnapshotTests
     [InlineData("two presses, the last predicts", 1, 9)]
     [InlineData("unusable press", 0, 0)]
     [InlineData("busy catch press", 0, 0)]
+    [InlineData("busy Tap press", 0, 0)]
     public void CatchPrompt_CopiesThisTicksLastPressPrediction_EmptyOnTheNextTick(string row, byte predicted, ushort flight)
     {
         // Arrange: Tap presses on the container (a predicted receiver equal to the presented target is no catch, so both resolve),
-        // an unusable press on the closed anchor, or a catch whose arm send fails.
+        // an unusable press on the closed anchor, a catch whose arm send fails, or a Tap send the request sink refuses.
         var rig = new PressRig(withHold: true);
         var ownLob = new CatchPrediction { Predicted = 1, FlightId = 9, Units = 1, PredictedStaticReceiver = PressRig.Container };
         switch (row)
@@ -330,6 +331,11 @@ public class InteractionSnapshotTests
                 rig.CatchArm.Accept = false;
                 rig.Press(AnchorRef.None);
                 break;
+            case "busy Tap press":
+                rig.Predictor.Next = PressRig.Lob(PressRig.Container);
+                rig.Requests.Accept = false;
+                rig.Press(PressRig.Container);
+                break;
             default:
                 rig.Predictor.Then.Enqueue(default);
                 rig.Predictor.Then.Enqueue(ownLob);
@@ -346,7 +352,7 @@ public class InteractionSnapshotTests
 
         // Assert
         Assert.Equal((predicted, flight), (pressTick.CatchPredicted, pressTick.CatchFlightId));
-        CancelReason cancel = row switch { "unusable press" => CancelReason.Unavailable, "busy catch press" => CancelReason.Busy, _ => CancelReason.None };
+        CancelReason cancel = row switch { "unusable press" => CancelReason.Unavailable, "busy catch press" or "busy Tap press" => CancelReason.Busy, _ => CancelReason.None };
         Assert.Equal(cancel, pressTick.LastCancel);
         Assert.Equal(((byte)0, (ushort)0), (Snap(rig).CatchPredicted, Snap(rig).CatchFlightId));
     }
