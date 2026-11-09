@@ -3,11 +3,13 @@ using PerformativeMail.Sim.Primitives;
 namespace PerformativeMail.Client.Core.Input;
 
 /// <summary>
-/// Movement axis state (story 008's minimum; story 009 adds the F3 deadzone and response curve). Axes are state, not edges
-/// (GDD G3): the digital contribution is read from raw held keys of the Move action's composite bindings, and each pad's left
-/// stick from its last <see cref="RawKind.PadAxis"/> sample, so no press machine or mute touches them. The frame's
-/// <c>moveIntent</c> is the device vector with the largest magnitude (R9), Q15 on the unit disc. The router zeroes it outside
-/// <see cref="Kept"/>. Preallocated; 0 B per call.
+/// Movement axis state (story 008; F3 and the sign convention, story 009). Axes are state, not edges (GDD G3): the digital
+/// contribution is read from raw held keys of the Move action's composite bindings, and each pad's left stick from its last
+/// <see cref="RawKind.PadAxis"/> sample, so no press machine or mute touches them. A stick goes through the F3 deadzone with the
+/// move curve fixed at 1.0 and its Y is negated (Godot's stick Y is positive down); the digital vector is pulled onto the unit
+/// disc with <see cref="Fix.ISqrt"/> (W+D is (23170, 23170)). The frame's <c>moveIntent</c> is the device vector with the
+/// largest magnitude (R9), Q15 on the unit disc, x right, y forward; camera-relative conversion is Player Character's. The
+/// router zeroes it outside <see cref="Kept"/>. Preallocated; 0 B per call.
 /// </summary>
 internal sealed class MoveAxes
 {
@@ -23,19 +25,16 @@ internal sealed class MoveAxes
         BodyMask = BodyMask.OnFoot | BodyMask.Build,
     };
 
-    private const int Q15One = 32767;
+    private const int Q15One = TrigQ15.One;
 
     private readonly int[] _upDownLeftRight = new int[8];
-    private readonly short[] _stickX = new short[DeviceSlots.PadCount];
-    private readonly short[] _stickY = new short[DeviceSlots.PadCount];
-    private readonly PhysicalInput _stickXInput;
-    private readonly PhysicalInput _stickYInput;
     private readonly int _compositeCount;
 
     /// <summary>Reads the composite (digital) and axis-pair (stick) bindings of <paramref name="move"/>.</summary>
     /// <param name="move">The Move action.</param>
     public MoveAxes(ActionDef move)
     {
+        Stick = new StickSamples(move);
         ReadOnlySpan<InputBinding> bindings = [move.KbmPrimary, move.KbmSecondary, move.PadPrimary, move.PadSecondary];
         foreach (InputBinding b in bindings)
         {
@@ -48,64 +47,39 @@ internal sealed class MoveAxes
                 _upDownLeftRight[o + 3] = DeviceSlots.IndexOf(b.Right, 0);
                 _compositeCount++;
             }
-            else if (b.Kind == BindingKind.AxisPair && _stickXInput == PhysicalInput.None)
-            {
-                _stickXInput = b.AxisX;
-                _stickYInput = b.AxisY;
-            }
         }
     }
 
-    /// <summary>Stores a pad axis sample when it is one of Move's stick axes.</summary>
-    /// <param name="r">A <see cref="RawKind.PadAxis"/> record.</param>
-    public void Sample(in RawInputRecord r)
-    {
-        if (r.PadIndex >= DeviceSlots.PadCount || r.Input == PhysicalInput.None)
-        {
-            return;
-        }
-
-        if (r.Input == _stickXInput)
-        {
-            _stickX[r.PadIndex] = r.Value;
-        }
-        else if (r.Input == _stickYInput)
-        {
-            _stickY[r.PadIndex] = r.Value;
-        }
-    }
+    /// <summary>The left-stick samples per pad.</summary>
+    public StickSamples Stick { get; }
 
     /// <summary>The device vector with the largest magnitude; the digital keys win a tie, then the lower pad.</summary>
     /// <param name="held">The raw held table.</param>
+    /// <param name="dzInnerPm">Inner deadzone, permille.</param>
+    /// <param name="dzOuterPm">Outer deadzone, permille.</param>
     /// <param name="x">Q15 x (right).</param>
-    /// <param name="y">Q15 y (forward, as the record carries it).</param>
-    public void Intent(HeldTable held, out short x, out short y)
+    /// <param name="y">Q15 y (forward).</param>
+    public void Intent(HeldTable held, int dzInnerPm, int dzOuterPm, out short x, out short y)
     {
         Digital(held, out int bx, out int by);
         long best = ((long)bx * bx) + ((long)by * by);
         for (int p = 0; p < DeviceSlots.PadCount; p++)
         {
-            long m = ((long)_stickX[p] * _stickX[p]) + ((long)_stickY[p] * _stickY[p]);
+            Deadzone.Apply(Stick.X(p), Stick.Y(p), dzInnerPm, dzOuterPm, ResponseCurveTable.Linear, out short sx, out short sy);
+            long m = ((long)sx * sx) + ((long)sy * sy);
             if (m > best)
             {
                 best = m;
-                bx = _stickX[p];
-                by = _stickY[p];
+                bx = sx;
+                by = -sy;
             }
-        }
-
-        // A stick corner past the unit disc is pulled back onto it.
-        if (best > (long)Q15One * Q15One)
-        {
-            int len = (int)Fix.ISqrt((ulong)best);
-            bx = bx * Q15One / len;
-            by = by * Q15One / len;
         }
 
         x = (short)bx;
         y = (short)by;
     }
 
+    // The keys' vector: each axis -1, 0 or +1, a diagonal pulled back onto the unit disc.
     private void Digital(HeldTable held, out int x, out int y)
     {
         x = 0;
@@ -119,6 +93,12 @@ internal sealed class MoveAxes
 
         x = Math.Sign(x) * Q15One;
         y = Math.Sign(y) * Q15One;
+        if (x != 0 && y != 0)
+        {
+            int len = (int)Fix.ISqrt((ulong)(((long)x * x) + ((long)y * y)));
+            x = x * Q15One / len;
+            y = y * Q15One / len;
+        }
     }
 
     private static int Down(HeldTable held, int index) => index >= 0 && held.IsRawHeld(index) ? 1 : 0;

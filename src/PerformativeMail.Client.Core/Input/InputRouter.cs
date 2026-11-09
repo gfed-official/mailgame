@@ -11,7 +11,7 @@ namespace PerformativeMail.Client.Core.Input;
 /// Edge kinds per grammar: a <see cref="Delivery.Frame"/> Tap (Jump) emits a Press only; a HeldState action (Sprint) sets and
 /// clears its bit in <c>HeldBits</c> (OR across devices) and emits no edge; Hold (Interact) and Aim-release (Throw, which also
 /// holds the Aim bit while down) emit Press and Release, and Cancel on a state change. Immediate actions latch and log but
-/// queue nothing yet (story 013). Wheel and step records are story 010's; analog look and the deadzone story 009's.
+/// queue nothing yet (story 013). Wheel and step records are story 010's. Analog input (story 009) is in the Analog part.
 /// </para>
 /// <para>
 /// State (story 008): a fired action may move the router-owned layers through <see cref="TransitionTable"/>; <c>body</c> and
@@ -72,6 +72,9 @@ public sealed partial class InputRouter
         ActionDef move = map.Get(ActionId.Move) ?? throw new ArgumentException("The map has no Move action.", nameof(map));
         _look = map.Get(ActionId.Look) ?? throw new ArgumentException("The map has no Look action.", nameof(map));
         _moveAxes = new MoveAxes(move);
+        _lookStick = new StickSamples(_look);
+        _lookCurve = ResponseCurveTable.Build(settings.CurvePm);
+        _lastFlushMs = clock.NowMs;
         MouseModeRequest = MouseModeOf(_state);
         foreach (ActionDef d in map.All)
         {
@@ -89,7 +92,7 @@ public sealed partial class InputRouter
     internal uint ClientTick => _ticks.ClientTick;
 
     /// <summary>The settings the router applies.</summary>
-    internal InputSettings Settings { get; }
+    internal InputSettings Settings { get; private set; }
 
     /// <summary>Press edges dropped because the edge ring was full, since construction.</summary>
     internal long DroppedEdges => _edges.Dropped;
@@ -97,29 +100,37 @@ public sealed partial class InputRouter
     /// <summary>
     /// Feeds one raw record. The carrier status is re-read first; raw held state is updated from every button record; then a
     /// press is resolved and latched against the current state (and may fire a transition), a release closes its machine, and an
-    /// OS echo does nothing more. A pad axis sample updates the move axes.
+    /// OS echo does nothing more. A pad axis sample updates a stick or, for a trigger, goes through F4 to the button path;
+    /// mouse motion turns the look.
     /// </summary>
     /// <param name="r">The record.</param>
     public void Feed(in RawInputRecord r)
     {
         SyncCarrierStatus(r.ArrivalMs);
-        if (r.Kind == RawKind.PadAxis)
+        switch (r.Kind)
         {
-            _moveAxes.Sample(in r);
-            return;
-        }
-
-        if (r.Kind is RawKind.MouseMotion or RawKind.Wheel)
-        {
-            return;
+            case RawKind.PadAxis:
+                FeedAxis(in r);
+                return;
+            case RawKind.MouseMotion:
+                FeedMouseMotion(in r);
+                return;
+            case RawKind.Wheel:
+                return;
+            default:
+                break;
         }
 
         int index = DeviceSlots.IndexOf(r.Input, r.PadIndex);
-        if (index < 0)
+        if (index >= 0)
         {
-            return;
+            FeedButton(index, in r);
         }
+    }
 
+    // Raw held state, then a press latches and a release closes its machine; an OS echo does nothing more.
+    private void FeedButton(int index, in RawInputRecord r)
+    {
         _held.SetRaw(index, r.Pressed);
         if (!r.Pressed)
         {
@@ -134,29 +145,43 @@ public sealed partial class InputRouter
     /// <summary>
     /// Re-reads the carrier status, pushes every edge queued since the last flush, in arrival order (same-action level presses
     /// coalesced), then the current state through <see cref="IInputLatchWriter.SetState"/>, then clears the queue. The state
-    /// carries the move intent (zeroed where <see cref="MoveAxes.Kept"/> says so) and <see cref="InputFrameFlags.PanelOpen"/> while the overlay is Panel.
+    /// carries the move intent (zeroed where <see cref="MoveAxes.Kept"/> says so), the absolute look after this frame's stick
+    /// integration, the focus cone, <see cref="InputFrameFlags.PanelOpen"/> while the overlay is Panel and
+    /// <see cref="InputFrameFlags.LookReseeded"/> on the first flush after <see cref="SetLook"/>.
     /// </summary>
     /// <param name="latch">The Sim latch writer.</param>
     /// <exception cref="ArgumentNullException"><paramref name="latch"/> is null.</exception>
     public void FlushToLatch(IInputLatchWriter latch)
     {
         ArgumentNullException.ThrowIfNull(latch);
-        SyncCarrierStatus(_clock.NowMs);
+        long nowMs = _clock.NowMs;
+        SyncCarrierStatus(nowMs);
         _edges.PushTo(latch, _levelPressBits);
         short moveX = 0;
         short moveY = 0;
         if (MoveAxes.Kept.IsLive(_state))
         {
-            _moveAxes.Intent(_held, out moveX, out moveY);
+            _moveAxes.Intent(_held, Settings.DzInnerPm, Settings.DzOuterPm, out moveX, out moveY);
+        }
+
+        IntegrateStickLook(nowMs);
+        InputFrameFlags flags = RouterStateInfo.IsPanel(_state) ? InputFrameFlags.PanelOpen : InputFrameFlags.None;
+        if (_lookReseeded)
+        {
+            flags |= InputFrameFlags.LookReseeded;
+            _lookReseeded = false;
         }
 
         var state = new InputState
         {
             MoveX = moveX,
             MoveY = moveY,
+            LookYaw = _lookAcc.Yaw,
+            LookPitch = _lookAcc.Pitch,
             HeldBits = _held.ActionBits,
+            FocusCosMinPm = _focusCosMinPm,
             RouterStateId = _state,
-            Flags = RouterStateInfo.IsPanel(_state) ? InputFrameFlags.PanelOpen : InputFrameFlags.None,
+            Flags = flags,
         };
         latch.SetState(in state);
         _edges.Clear();

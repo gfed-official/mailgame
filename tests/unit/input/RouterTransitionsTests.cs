@@ -99,7 +99,7 @@ public class RouterTransitionsTests
         Feed(_h.Release(KeyW));
         Feed(_h.Release(KeyShift));
         Feed(_h.Press(PadLeftStickClick));
-        Feed(_h.Axis(PadLeftStickX, 20000));
+        Feed(_h.Axis(PadLeftStickX, short.MaxValue));
         _router.FlushToLatch(_h.Latch);
         InputState stick = _h.Latch.LastState;
 
@@ -119,7 +119,7 @@ public class RouterTransitionsTests
 
         ulong sprint = FrameActions.Bit(FrameAction.Sprint);
         Assert.Equal(((short)0, short.MaxValue, 0UL), (keys.MoveX, keys.MoveY, keys.HeldBits & sprint));
-        Assert.Equal(((short)20000, (short)0, 0UL), (stick.MoveX, stick.MoveY, stick.HeldBits & sprint));
+        Assert.Equal((short.MaxValue, (short)0, 0UL), (stick.MoveX, stick.MoveY, stick.HeldBits & sprint));
         Assert.Equal(((ushort)0, (short)0), (_h.Latch.LastState.LookYaw, _h.Latch.LastState.LookPitch));
         Assert.Empty(_h.Latch.Edges);
         Assert.Empty(_h.Latch.Steps);
@@ -159,7 +159,7 @@ public class RouterTransitionsTests
     public void LeftStickMove_PersistsThroughPanelAndHolding_AndCaptureZeroesIt()
     {
         var seen = new List<(ushort State, short MoveX)>();
-        Feed(_h.Axis(PadLeftStickX, 20000));
+        Feed(_h.Axis(PadLeftStickX, short.MaxValue));
         Flush();
         seen.Add(Last());
         Tap(KeyTab);
@@ -175,7 +175,7 @@ public class RouterTransitionsTests
         seen.Add(Last());
 
         Assert.Equal(
-            [(WorldId, (short)20000), (PanelId, (short)20000), (HoldingOpenId, (short)20000), (HoldingClosedId, (short)20000), (_pauseHoldingId, (short)0)],
+            [(WorldId, short.MaxValue), (PanelId, short.MaxValue), (HoldingOpenId, short.MaxValue), (HoldingClosedId, short.MaxValue), (_pauseHoldingId, (short)0)],
             seen);
     }
 
