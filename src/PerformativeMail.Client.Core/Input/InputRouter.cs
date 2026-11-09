@@ -1,0 +1,260 @@
+using PerformativeMail.Client.Core.Input.Settings;
+using PerformativeMail.Sim.ClientLayer;
+
+namespace PerformativeMail.Client.Core.Input;
+
+/// <summary>
+/// The router core (ADR-0012 sections 3 and 4): fed only <see cref="RawInputRecord"/>s, it resolves each press once against the
+/// router state at event time, latches it in a <see cref="PressMachine"/> until release (G1), mutes it when a state change makes
+/// it non-live (G3), and queues ordered, arrival-stamped edges that <see cref="FlushToLatch"/> hands to the Sim latch.
+/// <para>
+/// Edge kinds per grammar: a <see cref="Delivery.Frame"/> Tap (Jump) emits a Press only; a HeldState action (Sprint) sets and
+/// clears its bit in <c>HeldBits</c> (OR across devices) and emits no edge; Hold (Interact) and Aim-release (Throw, which also
+/// holds the Aim bit while down) emit Press and Release, and Cancel on a state change. Immediate actions latch and log but
+/// queue nothing yet (story 013). Analog, wheel and step records are later stories' (009, 010).
+/// </para>
+/// <para>Single-threaded (the Godot main thread). 0 B per <see cref="Feed"/> and <see cref="FlushToLatch"/> after construction.</para>
+/// </summary>
+/// <example>
+/// <code>
+/// var router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, clock, log);
+/// router.Feed(in record);          // from the adapter's _Input
+/// router.FlushToLatch(latch);      // GameLoop, once per frame before RunFrame
+/// </code>
+/// </example>
+public sealed partial class InputRouter
+{
+    private static readonly ushort _initialState =
+        RouterStateInfo.Pack(CaptureLayer.None, OverlayLayer.None, BodyLayer.OnFoot, false, false, SubmenuLayer.None);
+
+    private readonly ActionMap _map;
+    private readonly IInputClock _clock;
+    private readonly UiEventLog _log;
+    private readonly PressMachine[] _machines = new PressMachine[DeviceSlots.MachineCount];
+    private readonly HeldTable _held = new();
+    private readonly EdgeQueue _edges = new();
+    private readonly ulong _levelPressBits;
+    private ushort _state = _initialState;
+
+    /// <summary>Creates a router over a validated map. Allocates its tables here, once.</summary>
+    /// <param name="map">The validated action map.</param>
+    /// <param name="settings">The input settings.</param>
+    /// <param name="clock">The monotonic ms clock.</param>
+    /// <param name="log">The shared event log every gate decision and drop is written to.</param>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    public InputRouter(ActionMap map, InputSettings settings, IInputClock clock, UiEventLog log)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(log);
+        _map = map;
+        Settings = settings;
+        _clock = clock;
+        _log = log;
+        foreach (ActionDef d in map.All)
+        {
+            if (d.Grammar == Grammar.Tap && d.Delivery == Delivery.Frame && d.FrameBit is FrameAction bit)
+            {
+                _levelPressBits |= FrameActions.Bit(bit);
+            }
+        }
+    }
+
+    /// <summary>The current router state id (starts in World; story 008 drives the transitions).</summary>
+    public ushort State => _state;
+
+    /// <summary>The settings the router applies.</summary>
+    internal InputSettings Settings { get; }
+
+    /// <summary>Press edges dropped because the edge ring was full, since construction.</summary>
+    internal long DroppedEdges => _edges.Dropped;
+
+    /// <summary>
+    /// Feeds one raw record. Raw held state is updated from every button record first; then a press is resolved and latched
+    /// against the current state, a release closes its machine, and an OS echo does nothing more.
+    /// </summary>
+    /// <param name="r">The record.</param>
+    public void Feed(in RawInputRecord r)
+    {
+        if (r.Kind is RawKind.MouseMotion or RawKind.PadAxis or RawKind.Wheel)
+        {
+            return;
+        }
+
+        int index = DeviceSlots.IndexOf(r.Input, r.PadIndex);
+        if (index < 0)
+        {
+            return;
+        }
+
+        _held.SetRaw(index, r.Pressed);
+        if (!r.Pressed)
+        {
+            Release(index, in r);
+        }
+        else if (!r.Echo && _machines[index].Phase == PressPhase.Idle)
+        {
+            Press(index, in r);
+        }
+    }
+
+    /// <summary>
+    /// Pushes every edge queued since the last flush, in arrival order (same-action level presses coalesced), then the current
+    /// state through <see cref="IInputLatchWriter.SetState"/>, then clears the queue.
+    /// </summary>
+    /// <param name="latch">The Sim latch writer.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="latch"/> is null.</exception>
+    public void FlushToLatch(IInputLatchWriter latch)
+    {
+        ArgumentNullException.ThrowIfNull(latch);
+        _edges.PushTo(latch, _levelPressBits);
+        var state = new InputState { HeldBits = _held.ActionBits, RouterStateId = _state };
+        latch.SetState(in state);
+        _edges.Clear();
+    }
+
+    /// <summary>Test hook until story 008's transitions: sets the router state and runs <see cref="OnStateChanged"/>.</summary>
+    /// <param name="stateId">The new state id.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="stateId"/> is not a packed state id.</exception>
+    internal void ForceState(ushort stateId)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(stateId, (ushort)RouterStateInfo.StateCount);
+        ushort old = _state;
+        _state = stateId;
+        OnStateChanged(old, stateId);
+    }
+
+    /// <summary>
+    /// G3: re-evaluates every down machine after a state change. One whose latched action is not live in
+    /// <paramref name="newState"/> becomes muted: a Hold or Aim machine queues <c>Cancel(StateChange)</c>, a held bit clears,
+    /// and the later release is swallowed. Machines are visited in table order.
+    /// </summary>
+    /// <param name="oldState">The state before the change.</param>
+    /// <param name="newState">The state after the change.</param>
+    internal void OnStateChanged(ushort oldState, ushort newState)
+    {
+        if (oldState == newState)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _machines.Length; i++)
+        {
+            ref PressMachine m = ref _machines[i];
+            if (m.Phase is PressPhase.Idle or PressPhase.Muted || _map.Get(m.Match.Action)!.IsLive(newState))
+            {
+                continue;
+            }
+
+            if (m.Phase is PressPhase.Active or PressPhase.Aiming)
+            {
+                _held.RemoveAction(m.Bit);
+            }
+
+            if (m.OwesClosingEdge)
+            {
+                _edges.PushClosing(m.Bit, EdgeKind.Cancel, EdgeReason.StateChange, newState, m.Device);
+            }
+
+            m.Phase = PressPhase.Muted;
+            Log(_clock.NowMs, LogKind.GateMuted, in m, DeviceSlots.InputOf(i), newState);
+        }
+    }
+
+    private void Press(int index, in RawInputRecord r)
+    {
+        ref PressMachine m = ref _machines[index];
+        m = default;
+        m.Device = r.Device;
+        m.StateId = _state;
+        if (!_map.Chords.TryResolve(_held.Modifiers, r.Input, _state, out ChordMatch match))
+        {
+            m.Phase = PressPhase.Muted;
+            Log(r.ArrivalMs, LogKind.GateNotLive, in m, r.Input, _state);
+            return;
+        }
+
+        ActionDef def = _map.Get(match.Action)!;
+        m.Match = match;
+        m.Grammar = def.Grammar;
+        if (def.Delivery == Delivery.Frame && def.FrameBit is FrameAction bit)
+        {
+            m.HasBit = true;
+            m.Bit = bit;
+        }
+
+        m.Phase = Begin(in m, out bool dropped);
+        Log(r.ArrivalMs, LogKind.GateFired, in m, r.Input, _state);
+        if (dropped)
+        {
+            _log.Write(r.ArrivalMs, LogKind.Dropped, (byte)EdgeKind.Press, (ushort)m.Bit, (ushort)r.Input, _state);
+        }
+    }
+
+    // The phase a live press enters. A Hold or Aim press whose edge is dropped is muted, so its release is swallowed too.
+    private PressPhase Begin(in PressMachine m, out bool dropped)
+    {
+        dropped = false;
+        if (!m.HasBit)
+        {
+            return PressPhase.Fired;
+        }
+
+        switch (m.Grammar)
+        {
+            case Grammar.Tap:
+                dropped = !_edges.TryPushPress(m.Bit, m.StateId, m.Device, opensClosingEdge: false);
+                return PressPhase.Fired;
+            case Grammar.HeldState:
+                _held.AddAction(m.Bit);
+                return PressPhase.Active;
+            case Grammar.Hold:
+                dropped = !_edges.TryPushPress(m.Bit, m.StateId, m.Device, opensClosingEdge: true);
+                return dropped ? PressPhase.Muted : PressPhase.HoldActive;
+            case Grammar.AimRelease:
+                dropped = !_edges.TryPushPress(m.Bit, m.StateId, m.Device, opensClosingEdge: true);
+                if (dropped)
+                {
+                    return PressPhase.Muted;
+                }
+
+                _held.AddAction(m.Bit);
+                return PressPhase.Aiming;
+            default:
+                return PressPhase.Fired;
+        }
+    }
+
+    private void Release(int index, in RawInputRecord r)
+    {
+        ref PressMachine m = ref _machines[index];
+        switch (m.Phase)
+        {
+            case PressPhase.Idle:
+                return;
+            case PressPhase.Muted:
+                Log(r.ArrivalMs, LogKind.GateSwallowed, in m, r.Input, _state);
+                break;
+            case PressPhase.Active:
+                _held.RemoveAction(m.Bit);
+                break;
+            case PressPhase.Aiming:
+                _held.RemoveAction(m.Bit);
+                _edges.PushClosing(m.Bit, EdgeKind.Release, EdgeReason.None, _state, m.Device);
+                break;
+            case PressPhase.HoldActive:
+                _edges.PushClosing(m.Bit, EdgeKind.Release, EdgeReason.None, _state, m.Device);
+                break;
+            default:
+                break;
+        }
+
+        m = default;
+    }
+
+    // Gate entries: Reason = device class, IdA = latched action (None when nothing was live), IdB = physical input,
+    // IdC = router state, Flags = latched chord modifiers.
+    private void Log(long timeMs, LogKind kind, in PressMachine m, PhysicalInput input, ushort stateId) =>
+        _log.Write(timeMs, kind, (byte)m.Device, m.Match.Action, (ushort)input, stateId, (byte)m.Match.Modifiers);
+}
