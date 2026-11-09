@@ -408,4 +408,20 @@ public interface IInventoryApi
     void CommitOpenExternal(PlayerSlot slot, ContainerId c)
     {
     }
+
+    /// <summary>
+    /// Reads the def facts of a live entry (throwing-catching story 010; ADR-0015 section 1 "F1" and section 9 <c>FlightRecord</c>): whether
+    /// it is mail, its def ordinal, its weight class and that class's weight points. Throwing's <c>ThrowRelease</c> commit reads the hotbar
+    /// entry once, before <see cref="DetachForThrow"/>, for F1's <c>baseSpeed[class]</c>, the record's <c>classPts</c> and
+    /// <c>ThrowLaunched.kindDef</c>. Read-only: legal between ticks, no record, no allocation. False and <c>default</c> for a none, temp or
+    /// not-live id. The default body (false) serves test doubles that hold no entries.
+    /// </summary>
+    /// <param name="entry">The entry.</param>
+    /// <param name="t">The facts when read.</param>
+    /// <returns>True when the entry is live.</returns>
+    bool TryReadThrowable(EntryId entry, out ThrowableEntry t)
+    {
+        t = default;
+        return false;
+    }
 }
