@@ -12,7 +12,7 @@ namespace PerformativeMail.Game.Views.Terrain;
 /// <c>Ground</c> (<see cref="TerrainMeshBuilder"/>, vertex colour as albedo), the translucent <c>Water</c> quad at y = 0 over the map
 /// bounds (the Sim's water plane, not the tile hint), one box per <see cref="IWorldQuery.StaticSolids"/> entry under <c>Solids</c>
 /// (named by index, extents exactly the solid's box, coloured by <see cref="SolidKindColors"/>), the spawn-pad markers
-/// (<see cref="PadMarkerBuilder"/>), one <see cref="DirectionalLight3D"/> and one <see cref="WorldEnvironment"/>, and sets the
+/// (<see cref="PadMarkerBuilder"/>), the map-edge fence and the ground skirt past it (<see cref="MapEdgeBuilder"/>), one <see cref="DirectionalLight3D"/> and one <see cref="WorldEnvironment"/>, and sets the
 /// <see cref="FallbackCamera"/> current at a pose behind the pad, once (the camera rig takes over by writing its own transform).
 /// No colliders, no image textures, no per-frame work (not a presented view). Main thread only.
 /// </summary>
@@ -70,6 +70,7 @@ public partial class TerrainView : Node3D, IInjectable<PresenterDeps>, IWorldBui
         });
         AddChild(BuildWater(world.Bounds));
         AddChild(BuildSolids(world.StaticSolids));
+        AddChild(MapEdgeBuilder.Build(world));
         if (PadMarkerBuilder.Build(world) is { } pad)
         {
             AddChild(pad);
