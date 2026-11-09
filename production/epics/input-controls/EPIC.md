@@ -5,10 +5,10 @@
 > **Architecture Module**: Client.Core.Input (router core, Godot-free, `src/PerformativeMail.Client.Core/Input/`) + `InputFrame`/`holdEff` in the Sim + the Godot input adapter (`src/Game/`)
 > **Milestone slice**: M-1a (GDD R12 Phasing)
 > **Engine Risk**: HIGH. The Godot adapter covers `_Input` ordering, `joy_connection_changed`, `ignore_joypad_on_unfocused_application` and C# names (NEEDS VERIFICATION — story 001 is the OQ-IC-9 spike). `DEVICE_ID_*` is VERIFIED for 4.7. The router core is LOW.
-> **Est. size**: L — 32 stories (7 Complete, 19 Ready, 6 Deferred; refreshed 2026-11-01, input-controls 019); sized to one `/dev-story` session each (≤ ~1 day, ≤ ~600 lines prod + tests)
+> **Est. size**: L — 32 stories (8 Complete, 18 Ready, 6 Deferred; refreshed 2026-11-08, input-controls 007); sized to one `/dev-story` session each (≤ ~1 day, ≤ ~600 lines prod + tests)
 > **Implementation priority**: 8 of 9 (router core in Client.Core, stories 002–025); the Godot adapter (026–029) goes with priority 9, after the spike (story 001) and `godot-host-shell`
 > **Status**: Ready
-> **Stories**: 32 stories — 7 Complete, 19 Ready, 6 Deferred (counts refreshed 2026-11-01 from the story headers, input-controls 019 Complete; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 32 stories — 8 Complete, 18 Ready, 6 Deferred (counts refreshed 2026-11-08 from the story headers, `/workspace/scripts/count-story-status.sh`, input-controls 007 Complete, branch `feat/input-controls-007` off main c2e3fbb, no rebase; before that 2026-11-01: 7 Complete, 19 Ready, 6 Deferred, input-controls 019 Complete; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -95,7 +95,7 @@ Source: architecture.md v1.1 Appendix A / `docs/architecture/tr-registry.yaml`. 
 | 004 | [`RouterState` tuple, live predicates as data, reachable-state golden list](story-004-routerstate-predicates-reachable-states.md) | Logic | Complete | ADR-0012 |
 | 005 | [Action map — `ActionDef`, aliases, M-1a `BuiltInActionMap` and default bindings](story-005-action-map-builtin-m1a-defaults.md) | Logic | Complete | ADR-0012 |
 | 006 | [Conflict validator, most-specific-chord resolution, verb-grammar table](story-006-conflict-validator-chord-resolution.md) | Logic | Complete | ADR-0012 |
-| 007 | [`InputRouter` shell — `Feed`, press machines, ordered edges, mute until release, `FlushToLatch`](story-007-router-shell-press-machines-mute.md) | Logic | Ready | ADR-0012 |
+| 007 | [`InputRouter` shell — `Feed`, press machines, ordered edges, mute until release, `FlushToLatch`](story-007-router-shell-press-machines-mute.md) | Logic | Complete | ADR-0012 |
 | 008 | [Router state transitions, `holding` / `body` from the carrier status, pass-through, mouse-mode request](story-008-router-state-transitions-and-passthrough.md) | Logic | Ready | ADR-0012 |
 | 009 | [Analog input — F3 deadzone / curve, F4 trigger hysteresis, move across devices, absolute look](story-009-analog-input-deadzone-trigger-move-look.md) | Logic | Ready | ADR-0012 |
 | 010 | [Stepped verbs — F5 auto-repeat, F6 saturating steps, F7 click-or-drag](story-010-steps-auto-repeat-drag-resolver.md) | Logic | Ready | ADR-0012 |
@@ -122,7 +122,7 @@ Source: architecture.md v1.1 Appendix A / `docs/architecture/tr-registry.yaml`. 
 | 031 | [Pad hot-plug — router `OnPadConnection` (cancel-never-commit, reconnect mute, disconnect b](story-031-pad-hotplug-router-and-adapter-delivery.md) | Logic | Deferred (Evan 2026-10-23) | — |
 | 032 | [`settings.input` rebinding support — the overrides-only writer, the `bindings` map (R12) a](story-032-settings-input-overrides-writer-bindings-migrations.md) | Logic | Deferred (Evan 2026-10-23) | — |
 
-**32 stories: 23 Logic, 9 Integration — 7 Complete, 19 Ready, 6 Deferred (refreshed 2026-11-01 from the story headers, input-controls 019 Complete, PR #75).** The hold ring, prompts and glyph art are HUD's — see Notes.
+**32 stories: 23 Logic, 9 Integration — 8 Complete, 18 Ready, 6 Deferred (refreshed 2026-11-08 from the story headers, input-controls 007 Complete, branch `feat/input-controls-007`; before that 2026-11-01: 7 Complete, 19 Ready, 6 Deferred, input-controls 019 Complete, PR #75).** The hold ring, prompts and glyph art are HUD's — see Notes.
 
 **Blocked (0).** 029 is Ready since 2026-10-23, and 026–028 must be Complete before it starts (Depends on). The spike gate is satisfied. *History:* 026–029 were `BLOCKED: awaits OQ-IC-9 spike (story 001) outcome per ADR-0012 §7`; story 001 closed 2026-10-16 with **GO-WITH-DELTAS**, so 026–028 are Ready with the note "apply ADR-0012 deltas D-1..D-8 (TD-021) — 026 not Done until the S-25 retention follow-up (TD-022)". ADR-0012 states the adapter half is *provisional until the OQ-IC-9 spike is recorded under `prototypes/`* and (Decision Makers, ADR Dependencies → Blocks, manifest Presentation) that adapter stories wait for it. Unblock rule: story 001 Done with a `REPORT.md` verdict of GO or GO-WITH-DELTAS; each blocked story re-reads the report's deltas, then flips to Ready at `/story-readiness`. They also depend on the godot-host-shell epic (`production/epics/godot-host-shell/story-001-game-csproj-solution-gdignore-build-mapping.md`, `production/epics/godot-host-shell/story-002-main-scene-tree-project-settings-smoke-harness.md`, `production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md`, `production/epics/godot-host-shell/story-004-boot-sequence-error-screen-content-step.md`) — a dependency, not a block. **Story 025 (CI lint) is Ready**: ADR §8 fixes its rules and carries no UNVERIFIED row, so it is not spike-conditional even though ADR-0012's Migration Plan lists it after the spike.
 
@@ -203,6 +203,6 @@ This epic is complete when:
 
 ## Next Step
 
-**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 019 (A1), 007 (A4), 008 (A5), 009 (A6), 010 (A7), 012 (A7), 026 (A7), 013 (A8), 017 (A8), 014 (A9), 015 (A10), 016 (A11), 018 (A12), 027 (A13), 028 (A14); then Track B: 011 (B1), 020 (B1), 029 (B1), 021 (B2), 022 (B3); Deferred by Evan 2026-10-23 (not scheduled): 023, 024, 025, 030, 031, 032. Earlier notes below are history.
+**2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 019 (Complete 2026-11-01, PR #75), 007 (Complete 2026-11-08, branch `feat/input-controls-007`), 008 (A1), 009 (A2), 010 (A3), 012 (A3), 026 (A3), 013 (A4), 017 (A4), 014 (A5), 015 (A6), 016 (A7), 018 (A8), 027 (A9), 028 (A10); then Track B: 011 (B1), 020 (B1), 029 (B1), 021 (B2), 022 (B2) (waves from the 2026-11-08 regeneration, branch `feat/input-controls-007`); Deferred by Evan 2026-10-23 (not scheduled): 023, 024, 025, 030, 031, 032. Earlier notes below are history.
 
 Run `/story-readiness production/epics/input-controls/story-001-oq-ic-9-input-spike.md` then `/dev-story` (the spike gated 026–029; it is Complete, GO-WITH-DELTAS, and 029 now also waits on 026–028 Complete), and in parallel `/story-readiness` story 002 → 003 for the router core. Stories 002 and 003 need `production/epics/simulation-core/story-023-clientlayer-shell-inputlatch.md` and `production/epics/network-adapter-loopback/story-001-client-core-assembly-loopback-transport.md` first.
