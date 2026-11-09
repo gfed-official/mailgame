@@ -115,7 +115,7 @@ This epic is complete when:
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
 | 001 | [Deliver anchors (MD1) + `GetHoldTicks` via `holdEff` (F2, MD9)](story-001-deliver-anchors-hold-ticks.md) | Logic | Complete | ADR-0014 |
-| 002 | [`DeliverScan` + pure preview (MD3) + F1 figures](story-002-deliver-scan-preview-f1.md) | Logic | Complete | ADR-0016, ADR-0017 |
+| 002 | [`DeliverScan` + pure preview (MD3) + F1 figures](story-002-deliver-scan-preview-f1.md) | Logic | Ready | ADR-0016, ADR-0017 |
 | 003 | [Availability (MD2), `DeliverPreview` step, settle tracker](story-003-availability-preview-step-tracker.md) | Logic | Ready | ADR-0016, ADR-0014 |
 | 004 | [Press, latch, cancels, request build (MD4, MD5 client)](story-004-press-latch-cancels-request.md) | Logic | Ready | ADR-0014, ADR-0016 |
 | 005 | [**`DeliverMatching` op (24 B; wire 24/28 B) + host handler**](story-005-delivermatching-op-and-handler.md) | Integration | Ready | ADR-0009 (errata), ADR-0017, ADR-0014, ADR-0011 |

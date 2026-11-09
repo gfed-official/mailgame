@@ -1,12 +1,12 @@
 # Story 022: Host panel view — Inventory's read-only scan primitive for `deliver_matching` (the authoritative `IPanelView`)
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Complete
+> **Status**: Ready
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: S (~0.5 day; ~120 lines prod + ~200 lines tests)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-11-08 (implemented with manual-delivery 002 in one PR; see Completion Notes). Previously 2026-10-23 (re-scoped to unblock it, per the 2026-10-16 `/architecture-review` block note. The old title was "DeliverMatching handler — the one deliver hold (matches across cursor/panel; one-unit misdeliver fallback)". The handler, its ACs H-R7-6, H-R7-7, H-R7-11 and H-X-1 a–c, and the wallet cases are already in `production/epics/manual-delivery/story-005-delivermatching-op-and-handler.md` ("moved from grid-inventory story 022"). This story keeps only the Inventory primitive that ADR-0009's 2026-10-16 ownership erratum assigns to Inventory: the read-only match scan over the actor's authoritative containers. `ConsumeUnit`, version bumps and seals are already Complete in stories 005, 015 and 017.)
+> **Last Updated**: 2026-10-23 (re-scoped to unblock it, per the 2026-10-16 `/architecture-review` block note. The old title was "DeliverMatching handler — the one deliver hold (matches across cursor/panel; one-unit misdeliver fallback)". The handler, its ACs H-R7-6, H-R7-7, H-R7-11 and H-X-1 a–c, and the wallet cases are already in `production/epics/manual-delivery/story-005-delivermatching-op-and-handler.md` ("moved from grid-inventory story 022"). This story keeps only the Inventory primitive that ADR-0009's 2026-10-16 ownership erratum assigns to Inventory: the read-only match scan over the actor's authoritative containers. `ConsumeUnit`, version bumps and seals are already Complete in stories 005, 015 and 017.)
 
 > **History — BLOCKED 2026-10-16 (/architecture-review): re-scope needed.** The handler as first written ("Inventory owns the handler", calling Mail's Evaluate/consume) violated ADR-0017: Inventory **must never** call Mail. **Resolved 2026-10-23** by the re-scope above. Nothing in this story calls Mail.
 
@@ -32,14 +32,14 @@
 
 ## Acceptance Criteria
 
-- [x] **Scan order (TR-delivery-014, Inventory half).** The actor's state is a cursor entry, hotbar slots 0–7 with slot 2 and slot 5 filled, and inventory entries placed out of row-major order (1×1 entries, anchors written `(x, y)`: (3,1), (0,0), (5,0); `player_inventory` is 8×2, `BuiltInContent.cs` l.88). `DeliverScan.Enumerate(view)` over the host view yields the cursor, then hotbar 2, hotbar 5, then inventory (0,0), (5,0), (3,1). Row-major means by anchor row, then column. This order matches the order an in-memory client `IPanelView` built from the same fixture yields (manual-delivery story 002's test double). If manual-delivery 002 has not landed, assert the section contents through `EntryCount`/`Entry` directly, add the `DeliverScan.Enumerate` parity assertion when 002 lands, and say so in the completion notes.
-- [x] **Facts.** Each `PanelEntryFacts` carries the authoritative entry's kind key — `EntryRecord.MailKind` when `EntryRecord.IsMail`, else `EntryRecord.ItemId` (`src/PerformativeMail.Sim/Inventory/Storage/EntryRecord.cs` l.44–47; Approved by Evan 2026-10-23 8:20 AM PT (TD-172 D4); manual-delivery 002 mirrors it) — and its category, `AddressId`, flags, unit count and `entryId`. Value-hint runs are left **empty** on the host, because money is Mail's `ConsumeHand` (ADR-0017) and Inventory never reads Mail. Flags are the raw `byte` of `EntryRecord.Flags`, and category is derived from `EntryRecord.IsMail`. `PanelEntryFacts` uses no `MailDestinations` type.
-- [x] **Cursor slot.** A cursor entry picked from hotbar 5 → `CursorSlot == 5`. Picked from inventory (2,0) → −1. Empty cursor → −1.
-- [x] **Backpack.** `EntryCount(Backpack) == 0` at M-1a (the backpack is M-1b). Before the slot's first `PlayerJoin`, every section reports 0.
-- [x] **Read-only.** A full enumeration leaves every container `version`, the `UnitLedger` counts, the event log length and the entry-pool free count unchanged.
-- [x] **Live view.** After `ConsumeUnit` removes the last unit of an inventory entry, the next enumeration no longer yields it, and it does so without rebuilding the view: `HostPanelView(slot)` returns the same reference before and after (`Assert.Same`).
-- [x] *(simplified per M-1a regroup plan §3: the `AllocAssert.Zero` test was dropped; the view is preallocated per slot and the code is allocation-free)* **Allocation.** Getting the view and enumerating a full M-1a slot allocates 0 B after warm-up (`AllocAssert.Zero`; Release-only skip allowed per the owner skip rule). The slot's capacity is 25 cells: cursor 1×1 + hotbar 8×1 + `player_inventory` 8×2 (`BuiltInContent.cs` l.83, l.88, l.100; grid-inventory GDD l.57–58), with the backpack at 0 at M-1a (AC Backpack). Hotbar slot 0 is reserved for hands (`ReservedSlots`, `BuiltInContent.cs` l.84; `PlacementRules.IsReservedSlot`; GDD l.57 "usable slots 1–7"), so the full fixture is 24 1×1 entries: the cursor, hotbar slots 1–7 and the 16 inventory cells. Both are within the ≤ 26-entry guardrail (ADR-0016 l.58) (Approved by Evan 2026-10-23 8:20 AM PT (TD-172 D5)).
-- [x] *(simplified per M-1a regroup plan §3: the new `HostPanelViewTests` reflection test was dropped; `SystemIsolationRulesTests` and `CompositionRulesTests` pass, and `HostPanelView` references no `MailDestinations` or `Delivery` type)* **Isolation.** `SystemIsolationRulesTests` and `CompositionRulesTests` still pass. A reflection test in `HostPanelViewTests` asserts that no field, property, parameter or return type of `HostPanelView` (nested types included) is in `PerformativeMail.Sim.MailDestinations` or `PerformativeMail.Sim.Delivery`.
+- [ ] **Scan order (TR-delivery-014, Inventory half).** The actor's state is a cursor entry, hotbar slots 0–7 with slot 2 and slot 5 filled, and inventory entries placed out of row-major order (1×1 entries, anchors written `(x, y)`: (3,1), (0,0), (5,0); `player_inventory` is 8×2, `BuiltInContent.cs` l.88). `DeliverScan.Enumerate(view)` over the host view yields the cursor, then hotbar 2, hotbar 5, then inventory (0,0), (5,0), (3,1). Row-major means by anchor row, then column. This order matches the order an in-memory client `IPanelView` built from the same fixture yields (manual-delivery story 002's test double). If manual-delivery 002 has not landed, assert the section contents through `EntryCount`/`Entry` directly, add the `DeliverScan.Enumerate` parity assertion when 002 lands, and say so in the completion notes.
+- [ ] **Facts.** Each `PanelEntryFacts` carries the authoritative entry's kind key — `EntryRecord.MailKind` when `EntryRecord.IsMail`, else `EntryRecord.ItemId` (`src/PerformativeMail.Sim/Inventory/Storage/EntryRecord.cs` l.44–47; Approved by Evan 2026-10-23 8:20 AM PT (TD-172 D4); manual-delivery 002 mirrors it) — and its category, `AddressId`, flags, unit count and `entryId`. Value-hint runs are left **empty** on the host, because money is Mail's `ConsumeHand` (ADR-0017) and Inventory never reads Mail. Flags are the raw `byte` of `EntryRecord.Flags`, and category is derived from `EntryRecord.IsMail`. `PanelEntryFacts` uses no `MailDestinations` type.
+- [ ] **Cursor slot.** A cursor entry picked from hotbar 5 → `CursorSlot == 5`. Picked from inventory (2,0) → −1. Empty cursor → −1.
+- [ ] **Backpack.** `EntryCount(Backpack) == 0` at M-1a (the backpack is M-1b). Before the slot's first `PlayerJoin`, every section reports 0.
+- [ ] **Read-only.** A full enumeration leaves every container `version`, the `UnitLedger` counts, the event log length and the entry-pool free count unchanged.
+- [ ] **Live view.** After `ConsumeUnit` removes the last unit of an inventory entry, the next enumeration no longer yields it, and it does so without rebuilding the view: `HostPanelView(slot)` returns the same reference before and after (`Assert.Same`).
+- [ ] **Allocation.** Getting the view and enumerating a full M-1a slot allocates 0 B after warm-up (`AllocAssert.Zero`; Release-only skip allowed per the owner skip rule). The slot's capacity is 25 cells: cursor 1×1 + hotbar 8×1 + `player_inventory` 8×2 (`BuiltInContent.cs` l.83, l.88, l.100; grid-inventory GDD l.57–58), with the backpack at 0 at M-1a (AC Backpack). Hotbar slot 0 is reserved for hands (`ReservedSlots`, `BuiltInContent.cs` l.84; `PlacementRules.IsReservedSlot`; GDD l.57 "usable slots 1–7"), so the full fixture is 24 1×1 entries: the cursor, hotbar slots 1–7 and the 16 inventory cells. Both are within the ≤ 26-entry guardrail (ADR-0016 l.58) (Approved by Evan 2026-10-23 8:20 AM PT (TD-172 D5)).
+- [ ] **Isolation.** `SystemIsolationRulesTests` and `CompositionRulesTests` still pass. A reflection test in `HostPanelViewTests` asserts that no field, property, parameter or return type of `HostPanelView` (nested types included) is in `PerformativeMail.Sim.MailDestinations` or `PerformativeMail.Sim.Delivery`.
 
 ---
 
@@ -74,7 +74,7 @@
 - Logic: `tests/unit/inventory/HostPanelViewTests.cs` (scan order, facts, cursor slot, backpack, read-only, live view, allocation, isolation) must exist and pass.
 - Test policy (`.claude/rules/test-standards.md`): during development run only this story's test classes on net10.0 Debug. At close, run the full suite once on net10.0 Debug and once on net8.0 Release. CI must be green on all four legs.
 
-**Status**: [x] Created and passing — `tests/unit/inventory/HostPanelViewTests.cs` (scan order + `DeliverScan.Enumerate` parity, facts, cursor slot, backpack, read-only, live view). Allocation and isolation tests: simplified per the M-1a regroup plan §3 (see Completion Notes).
+**Status**: [ ] Not yet created
 
 ---
 
@@ -82,35 +82,3 @@
 
 - Depends on: Story 015 (`IInventoryApi`, `ConsumeUnit`: Complete), Story 017 (`UnitLedger`: Complete); `production/epics/manual-delivery/story-002-deliver-scan-preview-f1.md` (`IPanelView`, `PanelEntryFacts`, `DeliverScan`: Ready)
 - Unlocks: `production/epics/manual-delivery/story-005-delivermatching-op-and-handler.md` (the host scan input)
-
----
-
-## Completion Notes
-
-**Completed**: 2026-11-08 (with `production/epics/manual-delivery/story-002-deliver-scan-preview-f1.md`, same PR, so `IPanelView`, `PanelSection`, `PanelEntryFacts` and `DeliverScan` come from 002 and the `DeliverScan.Enumerate` parity assertion is included)
-
-**Files**
-- Added `src/PerformativeMail.Sim/Inventory/HostPanelView.cs`: `internal sealed class HostPanelView : IPanelView`. It reads the slot's cursor, hotbar and `player_inventory` live through `InventorySystem`'s existing accessors (`CursorOf`, `HotbarOf`, `PlayerInventoryOf`, `Containers`, `Entries`, `Occupancy`, `TryGetCursorOrigin`). The inventory section keeps a small preallocated ordered index of entry slots in row-major anchor order. It is rebuilt only when the container slot or its `Version` changes. The backpack is always 0, and an external container is never read.
-- `src/PerformativeMail.Sim/Inventory/IInventoryApi.cs`: `IPanelView HostPanelView(PlayerSlot slot)` appended at the end of the interface (ADR-0009 erratum 2026-10-23).
-- `src/PerformativeMail.Sim/Inventory/InventorySystem.cs` (minimal): one `IPanelView[] _hostPanels` field, filled once at construction (one view per `PlayerSlot.Count`), and the `HostPanelView(PlayerSlot)` accessor. A none or out-of-range slot throws `ArgumentOutOfRangeException`. Nothing is created at join or released at leave.
-- `tests/integration/mail/ConsumeHandTests.cs`: its `TestInventory : IInventoryApi` wrapper gains a forwarding `HostPanelView` member (needed to compile; no test changed).
-
-**Tests added** (all `PerformativeMail.Sim.Tests.Unit.Inventory.HostPanelViewTests.*`)
-- `Enumerate_OverTheHostView_YieldsCursorHotbarThenInventoryRowMajor_AsTheClientViewDoes`: AC Scan order, including parity with manual-delivery 002's `InMemoryPanelView` over the same fixture.
-- `Entry_CarriesTheAuthoritativeKindKeyCategoryAddressFlagsUnitsAndId_WithNoHintRuns`: AC Facts.
-- `CursorSlot_IsTheSourceHotbarSlot_ElseMinusOne` (3 rows: hotbar 5 → 5, inventory (2,0) → −1, empty → −1): AC Cursor slot.
-- `EntryCount_BackpackIsEmptyAtM1a_AndEverySectionIsEmptyBeforeTheFirstJoin`: AC Backpack.
-- `Enumerate_ChangesNoVersionLedgerCountEventOrPoolSlot`: AC Read-only.
-- `Enumerate_AfterConsumeUnitTakesTheLastUnit_NoLongerYieldsIt_ThroughTheSameView`: AC Live view (`Assert.Same`).
-- Also used by manual-delivery 002: `DeliverScanTests.Preview_OverTheHostView_MatchingMailOnlyInAnOpenChest_IsNothing` (an open external chest is never scanned).
-
-**Decisions (uncredited; Mail Dev, not owner rulings)**
-- **Hotbar indexing.** The hotbar section is indexed by slot (`EntryCount` = hotbar width, 8 once joined), as manual-delivery 002 documents on `IPanelView`. The cursor and inventory sections are dense.
-- **Category.** `ItemCategory.Mail` when `EntryRecord.IsMail`. Otherwise it is the item def's own `Category` from content, rather than a fixed non-mail value.
-- **Flags** is the raw `EntryRecord.Flags` byte. `Address` is `AddressId.None` for an item. The value-hint runs are empty.
-
-**Simplifications (M-1a regroup plan §3)**
-- AC Allocation: no `AllocAssert.Zero` test (E2: 0 B gates are advisory until M0). The code is allocation-free after construction.
-- AC Isolation: no new reflection test. The existing `SystemIsolationRulesTests` and `CompositionRulesTests` pass. `HostPanelView` names only `ClientLayer`, `Content`, `Inventory` and `Primitives` types.
-
-**Test evidence (2026-11-08, local, warning-clean builds):** 5,971 tests per leg, 0 failures. net10.0 Debug 5,904 passed / 67 skipped; net10.0 Release 5,964 / 7; net8.0 Debug 5,904 / 67; net8.0 Release 5,964 / 7. `tools/ci/check-sim-access.sh` clean; `tools/ci/check-analyzer-fixtures.sh` 128 fixtures, 0 failures.
