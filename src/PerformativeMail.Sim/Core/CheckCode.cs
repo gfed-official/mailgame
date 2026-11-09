@@ -64,4 +64,10 @@ public enum CheckCode : ushort
 
     /// <summary>Mail: the consume routine's <c>IInventoryApi.ConsumeUnit</c> refused a unit it had just read (mail-destinations story 007; TD-208 item 12, open point (iv), approved by Evan 2026-11-04 9:56 AM PT by card click (card t271s1241): "Approve TD-208 item 12 and open points (i) and (iv) as listed"); written before <c>SimAssertCode.MailConsumeUnitRefused</c> (89), so it is present in every configuration. a = the destination's entity id, b = the refused unit's mail id (uncredited implementation detail).</summary>
     MailConsumeUnitRefused = 18,
+
+    /// <summary>Throwing: a validated <c>ThrowRelease</c> could not be committed and was answered <c>bad_request</c> (throwing-catching story 010; ADR-0015 section 1 "Commit never fails"). a = the commit step that refused (1 the entry's facts, 2 F1, 3 <c>DetachForThrow</c>, 4 the flight append), b = the entry id. <c>CounterId.ThrowingCommitFaults</c> counts every one. Id 19: a story 010 implementation default, not yet reviewed.</summary>
+    ThrowingCommitFault = 19,
+
+    /// <summary>Throwing: a resolved flight's landing WorldItem was not created as its <c>FlightResolved</c> announced (throwing-catching story 011). a = the flight id, b = the id <c>CreateWorldItem</c> returned (0 for none). <c>CounterId.ThrowingLandingFaults</c> counts every one. Id 20: a story 011 implementation default, not yet reviewed.</summary>
+    ThrowingLandingFault = 20,
 }

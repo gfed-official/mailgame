@@ -233,7 +233,9 @@ public static class SimComposition
                         context.Api<IMailApi>(SystemId.MailDestinations),
                         context.Api<IPlayersApi>(SystemId.PlayerCharacter),
                         throwWorld,
-                        context.Content.Throw,
+                        context.Content,
+                        context.StatSheet,
+                        context.EntityIds,
                         context.CheckRing,
                         context.Counters)
                     : null;

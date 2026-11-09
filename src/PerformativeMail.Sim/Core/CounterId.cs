@@ -218,4 +218,10 @@ public enum CounterId : ushort
 
     /// <summary>Throwing <c>ThrowValidator.Validate</c>: one per <c>ThrowRelease</c> refused by its validation chain, whatever the reason (ADR-0015 section 1; GDD TC-E-5 "a counter ticks"; throwing-catching story 009). A diagnostic, not in the canonical dump. Id 67: a story 009 implementation default, not yet reviewed.</summary>
     ThrowingReleaseRejections = 67,
+
+    /// <summary>Throwing <c>ThrowReleaseHandler</c> commit: one per validated <c>ThrowRelease</c> whose commit could not launch (the entry's facts unreadable, F1 refused, or <c>IInventoryApi.DetachForThrow</c> refused after a passing validation), answered <c>bad_request</c> with no flight and no <c>ThrowLaunched</c> (key <c>throwCommitFault</c>; throwing-catching story 010). Unreachable in a correct world; each one also writes <c>CheckCode.ThrowingCommitFault</c>. Id 68: a story 010 implementation default, not yet reviewed.</summary>
+    ThrowingCommitFaults = 68,
+
+    /// <summary>Throwing <c>Throwing.Step</c>: one per resolved flight whose landing WorldItem was not created as announced (<c>IInventoryApi.CreateWorldItem</c> returned none, or another id than the one <c>FlightResolved</c> carried), so its units stay in the Flight column (key <c>throwLandingFault</c>; throwing-catching story 011). Unreachable below the WorldItem table capacity; each one also writes <c>CheckCode.ThrowingLandingFault</c>. Id 69: a story 011 implementation default, not yet reviewed.</summary>
+    ThrowingLandingFaults = 69,
 }

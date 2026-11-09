@@ -90,4 +90,13 @@ public interface IMailApi
     /// <returns>What was consumed and what remains on the entry.</returns>
     /// <exception cref="SimAssertException"><see cref="SimAssertCode.MailConsumeUnitRefused"/> under <c>SIM_ASSERT</c> when Inventory refuses a unit Mail has just read.</exception>
     LandingResult ResolveThrownLanding(EntityId dest, in EntryRef e, PlayerSlot thrower, int thrownPm, uint releaseTick);
+
+    /// <summary>
+    /// The deliveries state Run last set through <see cref="SetDeliveriesState"/> (mail-destinations story 009 stores it), read-only:
+    /// whether deliveries are open and the tick they last closed. Throwing's <c>ThrowRelease</c> commit records <c>open</c> as the flight's
+    /// <c>openAtRelease</c> (throwing-catching story 010); Mail judges closing grace itself from the release tick. Legal between ticks; 0 B.
+    /// </summary>
+    /// <param name="open">True when deliveries are open.</param>
+    /// <param name="closeTick">The tick they last closed (0 when never).</param>
+    void GetDeliveriesState(out bool open, out uint closeTick);
 }
