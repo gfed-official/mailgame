@@ -72,7 +72,7 @@ The ClientLayer reads and writes the outside world only through **ports defined 
 
 | Port (Sim-defined) | Implemented by (Client.Core) | Used by |
 |---|---|---|
-| `IClientInbox` — `Drain(IMirrorSink sink)` applies every decoded batch received since the last drain, in host order (tick, ordinal), and replies in stream order | `ClientAdapter` inbox (ADR-0011) | `MirrorDrain` |
+| `IClientInbox` — `Drain(IMirrorSink sink)` applies every decoded batch received since the last drain, in host order (tick, ordinal), and replies in stream order | `ClientAdapter` inbox (ADR-0011) | `MirrorDrain` *(Erratum 2026-11-09: not a port — there is no `IClientInbox` in `ClientPorts`; the drain is Client.Core's `MirrorDrainStep` over the `ClientAdapter` inbox. See Errata.)* |
 | `IMirrorPart` — `Apply(in EventEntry e, ReadOnlySpan<byte> blob)`, `ApplyReply(in Reply r)` | `ContainerMirror` (ADR-0009, Client.Core); Sim-side parts below | `MirrorDrain` dispatch by event kind |
 | `IPanelView` — the displayed own containers (confirmed + replayed pending), read-only, enumerated in scan order | `ContainerMirror` / `PendingQueue` (ADR-0009) | deliver preview (MD3), throw preview (selected entry) |
 | `IRequestSink` — `bool TrySend(in Op op)`; the adapter assigns the `reqId` | `ClientAdapter` request encoder | edge resolution (§2 step 4d) |
@@ -93,7 +93,7 @@ The host shell attaches the ports once, after `SimComposition.Build` and before 
 
 | Order | Step (ADR-0003 id) | What runs |
 |---|---|---|
-| 1 | `MirrorDrain` | `IClientInbox.Drain`. Every received entry is applied to its mirror part. Replies retire pending ops (ADR-0009: only a reply retires). This covers MD3's "apply own container events and replies" first. |
+| 1 | `MirrorDrain` | `IClientInbox.Drain` *(erratum 2026-11-09: Client.Core's `MirrorDrainStep` drains the `ClientAdapter` inbox; no Sim port — see Errata)*. Every received entry is applied to its mirror part. Replies retire pending ops (ADR-0009: only a reply retires). This covers MD3's "apply own container events and replies" first. |
 | 2 | `InputLatch` | Latches this tick's `InputFrame` (ADR-0012). Edges are present on the first tick of a catch-up batch only. **No verb resolves an edge here.** |
 | 3 | `CarrierStep` | Owned carrier step (ADR-0013), client-authoritative (PC P2). |
 | 4 | `Previews` | One composite step owned by ClientLayer, with fixed `PreviewSubStep` order:<br>**4a `Focus`**: the interaction focus and 4-tick dwell (ADR-0014; PC P11).<br>**4b `DeliverPreview`**: MD3 `Preview(...)` for the focused Deliver anchor, then `DeliverPreviewTracker.Update` (§4).<br>**4c `ThrowPreview`**: T3, the same F2/F4 functions (ADR-0015), keyed cache, colour from `Evaluate`.<br>**4d `EdgeResolve`**: walks the latched edges in arrival order. Each Interact/Throw/Catch edge goes to its verb using **this tick's** 4a–4c state. That state is the press-tick recompute of the owner's **branch** (MD4, TR-delivery-006). The **target** stays the anchor named by the edge's presented snapshot (Input G1, ADR-0014 §3). *(Clarified 2026-10-16: the draft said the recompute "overrides" the presented snapshot, which contradicted ADR-0014 §3 and G1.)* Requests go out through `IRequestSink`.<br>**4e `HoldAdvance`**: hold counters accrue after edges (Input R11) and are cancelled by `ShouldCancel(latch)` (ADR-0014). |
@@ -212,10 +212,12 @@ After RunFrame:  RenderClock.Sample() → IPresentationRoot.Present(alpha)
 ```csharp
 namespace PerformativeMail.Sim.ClientLayer;
 public enum PreviewSubStep : byte { Focus, DeliverPreview, ThrowPreview, EdgeResolve, HoldAdvance }
-public readonly struct ClientPorts { public readonly IClientInbox Inbox; public readonly IPanelView Panel;
-                                     public readonly IRequestSink Requests; public readonly IHostClock HostClock; }
-public interface IClientInbox { void Drain(IMirrorSink sink); }
-public interface IMirrorSink  { void OnEntry(in EventEntry e, ReadOnlySpan<byte> blob); void OnReply(in Reply r); }
+// Erratum 2026-11-09 (card t300s1357): as built in PR 85 — no Inbox (MirrorDrain is Client.Core's MirrorDrainStep), init properties,
+// three carrier ports; IPanelView joins with the HUD package. IClientInbox / IMirrorSink are not built. See Errata.
+public readonly struct ClientPorts { public IRequestSink Requests { get; init; }  public IHostClock HostClock { get; init; }
+                                     public ITransformSampleSink TransformSamples { get; init; }   // bool TryWrite(in TransformSample s)
+                                     public ICarrierLoadSource CarrierLoad { get; init; }           // int SpeedPermille, int WeightPoints
+                                     public ILocalPlayer LocalPlayer { get; init; } }               // PlayerSlot Slot, EntityId Id, bool IsKnown
 public interface IMirrorPart  { void Apply(in EventEntry e, ReadOnlySpan<byte> blob); void ApplyReply(in Reply r); }
 public interface IPanelView   { int EntryCount(PanelSection s); PanelEntryFacts Entry(PanelSection s, int i); int CursorSlot { get; } }
 public interface IRequestSink { bool TrySend(in Op op); }   // false → local "busy" (no op sent)
@@ -345,3 +347,4 @@ No code exists. Order:
 
 ## Errata
 - Erratum 2026-10-23 (grid-inventory 022 re-scope; text only, no Decision change): l.71 — ports are implemented in Client.Core, in test doubles, or on the host by the owning Sim system where this ADR names a host use (the `deliver_matching` scan over authoritative containers, l.117). Approved by Evan, Mail Lead chat, 2026-10-23 8:20 AM PT: "Approve D4–D6, the D3 details and the ADR-0009/ADR-0016 errata" (TD-172 D1 approved 7:56 AM PT; decision log 2026-10-23).
+- **Erratum 2026-11-09 (WP-A, PR 85 item 1) — `ClientPorts` as built.** Approved by Evan 2026-11-09 2:14 AM PT by card click on Mail Lead's card 'PR 85: approve the three ADR changes listed above?' (card t300s1357; listing message t300s1356): "Approve PR 85 item 1: update ADR-0016's client ports to match the code (no inbox, panel later, carrier ports), as listed in your message above". `ClientPorts` matches the code merged in PR 85 (`src/PerformativeMail.Sim/ClientLayer/Ports/ClientPorts.cs`): (1) no `Inbox` / `IClientInbox` port — the drain stays with Client.Core's `MirrorDrainStep`, which drains the `ClientAdapter` inbox and dispatches to the mirror parts (§1 table row and §2 step 1 marked); (2) `Panel` (`IPanelView`) is not yet a member — it joins `ClientPorts` with the HUD package; (3) members are init properties (`{ get; init; }`), not readonly fields; (4) three carrier ports, merged in PR 85: `ITransformSampleSink TransformSamples`, `ICarrierLoadSource CarrierLoad` and `ILocalPlayer LocalPlayer`, beside `IRequestSink Requests` and `IHostClock HostClock`. Key Interfaces updated to match. Text only, no other Decision change; the ADR stays Accepted. Uncredited Mail Dev detail (not part of the ruling): the member names and comments in the sketch, dropping the `IMirrorSink` line with `IClientInbox`, and the §1/§2 markers. Decision log 2026-11-09.
