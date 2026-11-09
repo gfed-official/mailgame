@@ -114,6 +114,14 @@ internal sealed class FakeBootClock : IMonotonicClock
     public long Frequency => TicksPerSecond;
 }
 
+/// <summary>Step 7's presenters without Godot: counts the hand-overs.</summary>
+internal sealed class StubPresenters : IPresentersBoot
+{
+    public int Calls { get; private set; }
+
+    public void Initialize(PresentationInputs inputs, BootLog log) => Calls++;
+}
+
 /// <summary>A boot harness: context with recording fault entry and display, and the full plan over doubles.</summary>
 internal sealed class BootHarness
 {
@@ -128,6 +136,7 @@ internal sealed class BootHarness
         }, Display)
         {
             Options = new BootOptions { Clock = new FakeBootClock() },   // story 005: steps 5-6 build a real session over a fake clock
+            Presenters = new StubPresenters(),                            // story 006: step 7 hands the world to the presenters
         };
     }
 

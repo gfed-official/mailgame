@@ -56,8 +56,9 @@ public sealed class SessionBootStep : IBootStep
         IWorldSource worldSource = M1aWorldSource.Instance;
 
         // The client's carrier step reads its own world copy, settings and static stat sheet; never the host world.
+        WorldTables clientWorld = ClientWorldTables.Build(worldSource, content);
         CarrierStepBinder carrier = new(
-            ClientWorldTables.Build(worldSource, content),
+            clientWorld,
             PlayerSettings.FromBalance(content.Player),
             StatSheet.Build(content, new StatSources([])),
             new EmptyRemoteCapsuleSource(),
@@ -76,7 +77,7 @@ public sealed class SessionBootStep : IBootStep
 
         // HostSession starts its driver; GameLoop starts it on the first _Process instead, so boot time never becomes ticks (F12).
         session.Driver.Stop();
-        ctx.Session = new BootSession(session, carrier, clock, seed);
+        ctx.Session = new BootSession(session, clientWorld, carrier, clock, seed);
         return BootStepResult.Ok;
     }
 

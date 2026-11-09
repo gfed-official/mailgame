@@ -21,7 +21,7 @@ public class BootSequenceTests
         "BOOT 4 input ok",
         "BOOT 5 session ok",
         "BOOT 6 sim ok",
-        "BOOT 7 world NOT WIRED (story 006)",
+        "BOOT 7 world ok",
         "BOOT 8 views NOT WIRED (story 008)",
         "BOOT 9 start ok",
     ];
@@ -66,7 +66,7 @@ public class BootSequenceTests
             ["window", "content", "persistence", "input", "session", "sim", "world", "views", "start"],
             plan.Select(s => s.Name));
         Assert.Equal(
-            [BootPlan.WorldStep, BootPlan.ViewsStep],
+            [BootPlan.ViewsStep],
             plan.OfType<UnwiredBootStep>().Select(s => s.Number));
         Assert.Empty(BootPlan.CreateContributors());
     }

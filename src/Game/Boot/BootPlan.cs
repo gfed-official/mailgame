@@ -13,7 +13,7 @@ namespace PerformativeMail.Game.Boot;
 /// <item><term>4 input</term><description>Slot (<see cref="IBootContributor"/>, <see cref="InputStep"/>): input-controls 028 <c>InputBoot</c> (validate <c>BuiltInActionMap</c>, read <c>user://input.json</c>, build the router, wire sinks; the adapter node's placement is 028's).</description></item>
 /// <item><term>5 session</term><description>godot-host-shell 005: <see cref="SessionBootStep"/>, <c>HostSession</c> (loopback, ADR-0011; <c>SimComposition.Build</c> runs inside it).</description></item>
 /// <item><term>6 sim</term><description>godot-host-shell 005: <see cref="AttachPortsBootStep"/>, the <see cref="IPortContributor"/>s of <see cref="CreatePortContributors"/>, then <c>ClientLayer.Attach(ports)</c> and the render clock; a <c>SimBuildException</c> fails the step (ADR-0003).</description></item>
-/// <item><term>7 world</term><description>godot-host-shell 006 / 010: world tables, <c>Terrain</c> / <c>Destinations</c>, <c>Initialize(deps)</c>.</description></item>
+/// <item><term>7 world</term><description>godot-host-shell 006: <see cref="PresentersBootStep"/> (the event stream on the client adapter, then <see cref="IPresentersBoot"/>: <c>Initialize(deps)</c> World, Hud, Audio and the world-build steps stories 009 / 010 register).</description></item>
 /// <item><term>8 views</term><description>godot-host-shell 008 / 009: <c>ViewCatalogResolver.Resolve(ContentSet)</c>, pools pre-instantiated.</description></item>
 /// <item><term>9 start</term><description>godot-host-shell 004: <see cref="StartGateStep"/> (<c>GameLoop.ArmStart</c> only; the driver starts on the first <c>_Process</c>, ADR-0002).</description></item>
 /// </list>
@@ -99,7 +99,7 @@ public static class BootPlan
             new ContributorSlotStep(InputStep, "input", contributors),
             new SessionBootStep(),
             new AttachPortsBootStep(portContributors ?? CreatePortContributors()),
-            new UnwiredBootStep(WorldStep, "world", "story 006"),
+            new PresentersBootStep(),
             new UnwiredBootStep(ViewsStep, "views", "story 008"),
             new StartGateStep(armStart),
         ];

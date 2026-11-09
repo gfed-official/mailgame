@@ -517,8 +517,16 @@ public partial class GameLoop : Node
         FaultSink = BootErrorPanel;
     }
 
+    // Story 006: step 7 initialises this loop's own World, Hud and Audio children (null when one is missing; step 7 then fails).
     private BootContext NewBootContext() =>
-        new(new BootLog(GD.Print), _bootThreadId, FaultBoot, _faultSink as IBootFailureDisplay) { Options = NewBootOptions() };
+        new(new BootLog(GD.Print), _bootThreadId, FaultBoot, _faultSink as IBootFailureDisplay) { Options = NewBootOptions(), Presenters = NewPresentersBoot() };
+
+    private Presentation.PresentersBoot? NewPresentersBoot() =>
+        GetNodeOrNull<Presentation.WorldPresenter>("World") is { } world
+        && GetNodeOrNull<Presentation.HudPresenter>("Hud") is { } hud
+        && GetNodeOrNull<Presentation.AudioPresenter>("Audio") is { } audio
+            ? new Presentation.PresentersBoot(world, hud, audio)
+            : null;
 
     // Steps 5-6's inputs: the Stopwatch clock and the user args, unless a smoke installed its own.
     private BootOptions NewBootOptions()
@@ -534,7 +542,7 @@ public partial class GameLoop : Node
     }
 
     // Story 005: after a successful boot this loop holds the session and runs it through a frame sequence over the World, Hud and
-    // Audio presenters (ADR-0019 section 2 order; they stay inert until story 006 initialises them). A sequence a smoke installed
+    // Audio presenters (ADR-0019 section 2 order; boot step 7 initialised them, story 006). A sequence a smoke installed
     // before boot is kept, so its doubles stay in charge.
     private void InstallBootedSession(BootContext ctx)
     {

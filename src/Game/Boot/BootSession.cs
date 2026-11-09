@@ -1,9 +1,11 @@
 using PerformativeMail.Client.Core.Net;
+using PerformativeMail.Client.Core.Presentation;
 using PerformativeMail.Client.Core.Timing;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Hosting;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Players.Client;
+using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Game.Boot;
 
@@ -23,9 +25,10 @@ namespace PerformativeMail.Game.Boot;
 /// </example>
 public sealed class BootSession
 {
-    internal BootSession(HostSession session, CarrierStepBinder carrier, IMonotonicClock clock, ulong seed)
+    internal BootSession(HostSession session, IWorldQuery world, CarrierStepBinder carrier, IMonotonicClock clock, ulong seed)
     {
         Session = session;
+        World = world;
         Carrier = carrier;
         Clock = clock;
         Seed = seed;
@@ -33,6 +36,9 @@ public sealed class BootSession
 
     /// <summary>The host session (world, client layer, adapters, frame runner, tick driver).</summary>
     public HostSession Session { get; }
+
+    /// <summary>The client's own immutable copy of the world tables (<see cref="ClientWorldTables"/>); the carrier step and Presentation read it, never the host world.</summary>
+    public IWorldQuery World { get; }
 
     /// <summary>The owned-carrier step bound at <c>CarrierStep</c> (its <see cref="CarrierStepBinder.View"/> is the published carrier).</summary>
     public CarrierStepBinder Carrier { get; }
@@ -45,6 +51,9 @@ public sealed class BootSession
 
     /// <summary>The render clock (ADR-0016 section 6) over the host clock and the driver; set by step 6.</summary>
     public RenderClock? RenderClock { get; internal set; }
+
+    /// <summary>The outcome-beat feed step 7 set as the client adapter's <see cref="ClientAdapter.DecodedEvents"/>; null before step 7.</summary>
+    public PresentationEventStream? Events { get; internal set; }
 
     /// <summary>The local-player port the carrier contributor attached; null before step 6.</summary>
     public HostLocalPlayer? LocalPlayer { get; internal set; }
