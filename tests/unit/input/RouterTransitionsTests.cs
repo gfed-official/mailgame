@@ -249,6 +249,27 @@ public class RouterTransitionsTests
             modes);
     }
 
+    [Fact]
+    public void StateChanged_IsRaisedOncePerChangeWithTheNewModeSet_AndInGameContextIsFalseOnlyUnderACapture()
+    {
+        // Arrange: record what the adapter (story 027) would read in each StateChanged.
+        var seen = new List<(ushort State, MouseModeRequest Mode, bool Game)>();
+        _router.StateChanged += () => seen.Add((_router.State, _router.MouseModeRequest, _router.InGameContext));
+        bool initialGame = _router.InGameContext;
+
+        // Act: open the panel, feed a key that changes nothing, pause, return to World.
+        Tap(KeyTab);
+        Tap(KeyR);
+        _router.ForceState(_pauseHoldingId);
+        _router.ForceState(HoldingClosedId);
+
+        // Assert
+        Assert.True(initialGame);
+        Assert.Equal(
+            [(PanelId, MouseModeRequest.Visible, true), (_pauseHoldingId, MouseModeRequest.Visible, false), (HoldingClosedId, MouseModeRequest.Captured, true)],
+            seen);
+    }
+
     private void SetStatus(bool holding = false, BodyContext body = BodyContext.OnFoot, bool aimingEcho = false) =>
         _h.Carrier.Set(new CarrierStatus { Body = body, CursorHolding = holding, Aiming = aimingEcho });
 

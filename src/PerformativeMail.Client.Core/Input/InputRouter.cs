@@ -108,6 +108,7 @@ public sealed partial class InputRouter
         _lookCurve = ResponseCurveTable.Build(settings.CurvePm);
         _lastFlushMs = clock.NowMs;
         MouseModeRequest = MouseModeOf(_state);
+        InGameContext = IsGameContext(_state);
         foreach (ActionDef d in map.All)
         {
             if (d.Grammar == Grammar.Tap && d.Delivery == Delivery.Frame && d.FrameBit is FrameAction bit)
@@ -122,6 +123,15 @@ public sealed partial class InputRouter
 
     /// <summary>The settings the router applies.</summary>
     internal InputSettings Settings { get; private set; }
+
+    /// <summary>
+    /// True when the last <see cref="Feed"/> record was consumed by a game action, so the adapter marks the Godot event handled
+    /// (ADR-0012 section 7). A press is consumed when it resolves to an action live in the state at event time; its OS echoes
+    /// and its release report what the press reported, even if a state change muted it since (D-3: consume a press, consume
+    /// its release). Mouse motion is consumed where Look is live. Wheel notches, pad axis samples and synthetic records are
+    /// never consumed.
+    /// </summary>
+    public bool LastFeedConsumed { get; private set; }
 
     /// <summary>Press edges dropped because the edge ring was full, since construction.</summary>
     internal long DroppedEdges => _edges.Dropped;
@@ -138,6 +148,7 @@ public sealed partial class InputRouter
         SyncCarrierStatus(r.ArrivalMs);
         SyncInteraction(r.ArrivalMs);
         SyncAim(r.ArrivalMs);
+        LastFeedConsumed = false;
         switch (r.Kind)
         {
             case RawKind.PadAxis:
@@ -147,6 +158,7 @@ public sealed partial class InputRouter
                 FeedMouseMotion(in r);
                 return;
             case RawKind.Wheel:
+            case RawKind.Synthetic:
                 return;
             default:
                 break;
@@ -155,7 +167,12 @@ public sealed partial class InputRouter
         int index = DeviceSlots.IndexOf(r.Input, r.PadIndex);
         if (index >= 0)
         {
+            LastFeedConsumed = _machines[index].Consumed;
             FeedButton(index, in r);
+            if (r.Pressed)
+            {
+                LastFeedConsumed = _machines[index].Consumed;
+            }
         }
     }
 
@@ -298,6 +315,7 @@ public sealed partial class InputRouter
         }
 
         ActionDef def = _map.Get(match.Action)!;
+        m.Consumed = true;
         m.Match = match;
         m.Grammar = def.Grammar;
         if (def.Delivery == Delivery.Frame && def.FrameBit is FrameAction bit)

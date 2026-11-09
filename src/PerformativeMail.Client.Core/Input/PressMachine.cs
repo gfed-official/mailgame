@@ -61,6 +61,12 @@ internal struct PressMachine
     /// <summary>The chord match latched at press (action, modifiers, Back-ladder owner).</summary>
     public ChordMatch Match;
 
+    /// <summary>
+    /// True when the press resolved to a live action (story 026): the adapter marks the press handled, and its echoes and its
+    /// release too, even after a state change has muted the machine (ADR-0012 section 7, D-3).
+    /// </summary>
+    public bool Consumed;
+
     /// <summary>True when the machine still owes one Release or Cancel edge.</summary>
     public readonly bool OwesClosingEdge => Phase is PressPhase.HoldActive or PressPhase.Aiming;
 }
