@@ -197,7 +197,7 @@ public static class SimComposition
             case SystemId.PlayerCharacter:
                 // Players reads the world only through IWorldQuery; without one the system is left unbuilt (story player-character/001).
                 return context.World is { } world
-                    ? new PlayersSystem(world, context.Content, context.Samples, context.Slots, context.Tick, context.CheckRing, context.Counters)
+                    ? new PlayersSystem(world, context.Content, context.Samples, context.Slots, context.Tick, context.CheckRing, context.Counters, context.Api<IInventoryApi>(SystemId.GridInventory))
                     : null;
             case SystemId.GridInventory:
                 return new InventorySystem(context.Content, context.StatSheet, context.CheckRing, context.Events, context.Tick, context.EntityIds, context.Slots);
@@ -236,7 +236,9 @@ public static class SimComposition
                         context.Api<IMailApi>(SystemId.MailDestinations),
                         context.Api<IPlayersApi>(SystemId.PlayerCharacter),
                         throwWorld,
-                        context.Content.Throw,
+                        context.Content,
+                        context.StatSheet,
+                        context.EntityIds,
                         context.CheckRing,
                         context.Counters)
                     : null;

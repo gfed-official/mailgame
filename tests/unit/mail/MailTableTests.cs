@@ -485,7 +485,7 @@ public class MailTableTests
 
         Assert.Equal(3u, BinaryPrimitives.ReadUInt32LittleEndian(p));   // liveCount
         const int RowBytes = 4 + 2 + 4 + 2 + 1 + 1 + 1;
-        Assert.Equal(4 + (3 * RowBytes) + 2 + 13, p.Length);   // rows, the empty registry's u16 count, the 13-byte deliveries state (story 009)
+        Assert.Equal(4 + (3 * RowBytes) + 2 + 17, p.Length);   // rows, the empty registry's u16 count, the 17-byte deliveries state (story 009, openSinceTick)
         Assert.Equal((ushort)0, BinaryPrimitives.ReadUInt16LittleEndian(p.Slice(4 + (3 * RowBytes))));
 
         ReadOnlySpan<byte> r0 = p.Slice(4, RowBytes);
@@ -561,7 +561,7 @@ public class MailTableTests
 
         byte[] bytes = DumpSection(rig.Table);
 
-        Assert.Equal(6 + 4 + 2 + 13, bytes.Length);   // liveCount, the empty registry's u16 count, the 13-byte deliveries state (story 009)
+        Assert.Equal(6 + 4 + 2 + 17, bytes.Length);   // liveCount, the empty registry's u16 count, the 17-byte deliveries state (story 009, openSinceTick)
         Assert.Equal(0u, BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(6)));
     }
 
