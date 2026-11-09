@@ -38,10 +38,10 @@ public class HandBeatControllerTests
 
         // Act
         rig.Batch(Completed + 3, own ? Self : Other, k, reply: own ? OkReply(k) : null);
-        rig.Hand.Update(Completed + 4);
+        rig.Update(Completed + 4);
         int firstUpdate = rig.Hand.Started.Count;
         HandBeatStart started = firstUpdate == 1 ? rig.Hand.Started[0] : default;
-        rig.Hand.Update(Completed + 5);
+        rig.Update(Completed + 5);
 
         // Assert
         Assert.True(firstUpdate == 1, row + ": " + firstUpdate + " beats");
@@ -92,7 +92,7 @@ public class HandBeatControllerTests
 
         // Act
         rig.Batch(Completed + replyTick - 1, Self, 1, OkReply(1));
-        rig.Hand.Update(Completed + replyTick);
+        rig.Update(Completed + replyTick);
 
         // Assert
         Assert.True(beats == rig.Hand.Started.Count, row + ": " + rig.Hand.Started.Count + " beats");
@@ -166,14 +166,20 @@ public class HandBeatControllerTests
     {
         public Rig()
         {
-            Hand = new HandBeatController(Events, new FakeRenderClock(), new FakeReach(this), Self);
+            Events = new PresentationEventStream();
+            Hand = new HandBeatController(Events, Self);
+            Driver = new HandBeatDriver(Hand, new FakeRenderClock(), new FakeReach(this));
         }
 
-        public PresentationEventStream Events { get; } = new();
+        public PresentationEventStream Events { get; }
 
         public HandBeatController Hand { get; }
 
+        public HandBeatDriver Driver { get; }
+
         public bool WithinReach { get; init; } = true;
+
+        public void Update(uint clientTick) => Driver.Update(clientTick);
 
         // One host batch as the client adapter publishes it: the hold's k outcomes, then the own reply (Sim Core appends it last).
         public void Batch(uint tick, PlayerSlot actor, int k, Reply? reply)

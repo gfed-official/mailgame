@@ -1,4 +1,3 @@
-using PerformativeMail.Client.Core.Timing;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Delivery;
 using PerformativeMail.Sim.Inventory.Ops;
@@ -17,7 +16,7 @@ namespace PerformativeMail.Client.Core.Presentation.Delivery;
 /// <param name="Response">The hand response; a late reply's <see cref="HandResponse.SlotIn"/> is false (MD7).</param>
 /// <param name="Riffle">GDD F4 for the entries posted (<see cref="RiffleTiming.Stacks"/> 0 for none).</param>
 /// <param name="AttachedToPrompt">False for another player's hold and for a mailbox the carrier has walked beyond 2.9 m from.</param>
-/// <param name="StartMs">The <see cref="IRenderClock.RenderSimTimeMs"/> the beat starts at.</param>
+/// <param name="StartMs">The render-sim time (ms) the beat starts at, passed in by the caller each frame.</param>
 public readonly record struct HandBeatStart(
     PlayerSlot Actor, EntityId Destination, uint ApplyTick, HandResponse Response, RiffleTiming Riffle, bool AttachedToPrompt, long StartMs);
 
@@ -38,12 +37,14 @@ public interface IDeliverReachRead
 /// outcomes the hold produced. Another player's hold starts on its first outcome; an own hold starts on its reply, read after the
 /// hold's outcomes in the same batch, and maps it through <see cref="HandResponseTable"/>. <see cref="OnHoldCompleted"/> and
 /// <see cref="OnResync"/> never start a beat: with no reply the hand goes idle 30 ticks (1 s) after completion, a reply read after
-/// that plays without the slot-in, and a reply after a resync plays none. Main thread only.
+/// that plays without the slot-in, and a reply after a resync plays none. Frame context (render time, in-reach) arrives as plain
+/// <see cref="Update"/> arguments from a non-<c>[OutcomeBeat]</c> caller (<see cref="HandBeatDriver"/>); this type holds no clock or
+/// reach ports. Main thread only.
 /// </summary>
 /// <example>
 /// <code>
-/// var hand = new HandBeatController(deps.Events, renderClock, reach, self);
-/// hand.Update(clientTick);
+/// var hand = new HandBeatController(deps.Events, self);
+/// hand.Update(clientTick, renderSimTimeMs, withinHoldReach);
 /// foreach (HandBeatStart beat in hand.Started) { view.Play(in beat); }
 /// </code>
 /// </example>
@@ -57,8 +58,6 @@ public sealed class HandBeatController
     public const uint HandIdleTicks = 30;
 
     private readonly EventCursor _cursor;
-    private readonly IRenderClock _clock;
-    private readonly IDeliverReachRead _reach;
     private readonly PlayerSlot _self;
     private readonly HoldKey[] _ring = new HoldKey[RingSize];
     private readonly List<HandBeatStart> _started = [];
@@ -71,26 +70,25 @@ public sealed class HandBeatController
     private bool _ownMisdelivered;
     private HoldKey _remote;
     private int _remoteK;
+    private long _renderSimTimeMs;
+    private bool _withinHoldReach;
 
     /// <summary>Creates the controller and opens its cursor (it sees only events published from now on).</summary>
     /// <param name="events">The outcome-beat feed.</param>
-    /// <param name="clock">The render clock (beat start times).</param>
-    /// <param name="reach">The carrier's hold reach to an anchor.</param>
     /// <param name="self">The local player's slot.</param>
-    /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public HandBeatController(PresentationEventStream events, IRenderClock clock, IDeliverReachRead reach, PlayerSlot self)
+    /// <exception cref="ArgumentNullException"><paramref name="events"/> is null.</exception>
+    public HandBeatController(PresentationEventStream events, PlayerSlot self)
     {
         ArgumentNullException.ThrowIfNull(events);
-        ArgumentNullException.ThrowIfNull(clock);
-        ArgumentNullException.ThrowIfNull(reach);
         _cursor = events.OpenCursor(EventKindSet.Of(MailEventKinds.DeliveryOutcome, EventKind.OpReply));
-        _clock = clock;
-        _reach = reach;
         _self = self;
     }
 
     /// <summary>The beats the last <see cref="Update"/> started, in stream order.</summary>
     public IReadOnlyList<HandBeatStart> Started => _started;
+
+    /// <summary>The destination of the own hold awaiting a reply, or default when none.</summary>
+    public EntityId AwaitedDestination => _awaiting ? _awaitedDestination : EntityId.None;
 
     /// <summary>True when no own hold is in the slot: no reply awaited, or <see cref="HandIdleTicks"/> passed since completion.</summary>
     /// <param name="clientTick">The current client tick.</param>
@@ -110,10 +108,18 @@ public sealed class HandBeatController
     /// <summary>A resync snapshot cleared the pending queue: a reply for the cleared request plays no hand beat.</summary>
     public void OnResync() => _awaiting = false;
 
-    /// <summary>Reads every event published since the last call and replaces <see cref="Started"/> with the beats they start.</summary>
+    /// <summary>
+    /// Reads every event published since the last call and replaces <see cref="Started"/> with the beats they start.
+    /// <paramref name="renderSimTimeMs"/> and <paramref name="withinHoldReach"/> are this frame's plain context from the caller
+    /// (clock and reach ports live outside this <c>[OutcomeBeat]</c> type).
+    /// </summary>
     /// <param name="clientTick">The current client tick.</param>
-    public void Update(uint clientTick)
+    /// <param name="renderSimTimeMs">This frame's render-sim time in ms (beat <see cref="HandBeatStart.StartMs"/>).</param>
+    /// <param name="withinHoldReach">True when the local carrier is within hold reach of the awaited destination (own-reply attach).</param>
+    public void Update(uint clientTick, long renderSimTimeMs, bool withinHoldReach)
     {
+        _renderSimTimeMs = renderSimTimeMs;
+        _withinHoldReach = withinHoldReach;
         _started.Clear();
         _remoteK = 0;
         while (_cursor.TryRead(out PresentedEvent e))
@@ -165,7 +171,7 @@ public sealed class HandBeatController
             : new HandResponse(misdelivered ? HandBeat.CarefulHandover : HandBeat.SlotIn, StringId.None, true);
         _remote = key;
         _remoteK = floor ? 0 : 1;
-        _started.Add(new HandBeatStart(key.Actor, key.Destination, key.ApplyTick, response, RiffleTiming.For(_remoteK), false, _clock.RenderSimTimeMs));
+        _started.Add(new HandBeatStart(key.Actor, key.Destination, key.ApplyTick, response, RiffleTiming.For(_remoteK), false, _renderSimTimeMs));
     }
 
     private void OnReply(in PresentedEvent e, uint clientTick)
@@ -200,8 +206,8 @@ public sealed class HandBeatController
             e.SourceTick,
             late ? response with { SlotIn = false } : response,
             RiffleTiming.For(k),
-            _reach.IsWithinHoldReach(destination),
-            _clock.RenderSimTimeMs));
+            _withinHoldReach,
+            _renderSimTimeMs));
     }
 
     // False when the key already fired; otherwise records it, overwriting the oldest of the 16.
