@@ -40,4 +40,7 @@ public static class SectionIds
     /// block (<c>u32</c> count, 0 until the catch stories). Id 7: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006".
     /// </summary>
     public const ushort Throwing = 7;
+
+    /// <summary>The M-1a shift stub's section (mail-destinations story 009): phase, <c>phaseEndTick</c>, open, <c>closeTick</c>, <c>deadlineTick</c>, mask. Replaced by Run Structure's section at M1. Id 8: uncredited Mail Dev detail (TD-211).</summary>
+    public const ushort Run = 8;
 }
