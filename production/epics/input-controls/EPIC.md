@@ -96,7 +96,7 @@ Source: architecture.md v1.1 Appendix A / `docs/architecture/tr-registry.yaml`. 
 | 005 | [Action map — `ActionDef`, aliases, M-1a `BuiltInActionMap` and default bindings](story-005-action-map-builtin-m1a-defaults.md) | Logic | Complete | ADR-0012 |
 | 006 | [Conflict validator, most-specific-chord resolution, verb-grammar table](story-006-conflict-validator-chord-resolution.md) | Logic | Complete | ADR-0012 |
 | 007 | [`InputRouter` shell — `Feed`, press machines, ordered edges, mute until release, `FlushToLatch`](story-007-router-shell-press-machines-mute.md) | Logic | Complete | ADR-0012 |
-| 008 | [Router state transitions, `holding` / `body` from the carrier status, pass-through, mouse-mode request](story-008-router-state-transitions-and-passthrough.md) | Logic | Ready | ADR-0012 |
+| 008 | [Router state transitions, `holding` / `body` from the carrier status, pass-through, mouse-mode request](story-008-router-state-transitions-and-passthrough.md) | Logic | Complete | ADR-0012 |
 | 009 | [Analog input — F3 deadzone / curve, F4 trigger hysteresis, move across devices, absolute look](story-009-analog-input-deadzone-trigger-move-look.md) | Logic | Ready | ADR-0012 |
 | 010 | [Stepped verbs — F5 auto-repeat, F6 saturating steps, F7 click-or-drag](story-010-steps-auto-repeat-drag-resolver.md) | Logic | Ready | ADR-0012 |
 | 011 | [Panel navigation without a mouse (R8)](story-011-panel-cursor-navigation.md) | Logic | Ready | ADR-0012 |
