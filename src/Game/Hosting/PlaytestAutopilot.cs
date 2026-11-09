@@ -12,11 +12,13 @@ namespace PerformativeMail.Game.Hosting;
 /// <summary>
 /// <c>--playtest-at-mailbox</c> (WP-G, debug builds only): walks the local carrier to the Intake with synthetic W/A/S/D and mouse-look
 /// events (the production input adapter and router, as a player would), and once Delivery starts taps E until the first batch is in hand,
-/// then walks to the selected letter's mailbox, faces it and frees itself. It reads only client state (the owned carrier's view, the
-/// own-panel mirror, the run mirror, the client's world tables). Keep hands off the keyboard until the <c>[Playtest] ready</c> line.
-/// Main thread only.
+/// then walks to the selected letter's mailbox, faces it and frees itself. With <c>--playtest-park-next</c> (WP-I) it stays: whenever the
+/// selected hotbar letter is for another house (a throw or a delivery staged the next one, or a hotbar key chose it), it walks to that
+/// letter's mailbox again and prints <c>[Playtest] ready</c> once more, so a playtest throws and delivers letter after letter without
+/// walking. It reads only client state (the owned carrier's view, the own-panel mirror, the run mirror, the client's world tables). Keep
+/// hands off the keyboard until each <c>[Playtest] ready</c> line. Main thread only.
 /// </summary>
-/// <example><code>loop.AddChild(new PlaytestAutopilot(session));   // GameLoop, after boot, when PlaytestArgs.AtMailbox</code></example>
+/// <example><code>loop.AddChild(new PlaytestAutopilot(session, parkNext: false));   // GameLoop, after boot, when PlaytestArgs.AtMailbox</code></example>
 public sealed partial class PlaytestAutopilot : Node
 {
     private const int StandOffMm = 1500;
@@ -27,18 +29,22 @@ public sealed partial class PlaytestAutopilot : Node
     private const ulong PressEveryMs = 1500;
 
     private readonly BootSession _session;
+    private readonly bool _parkNext;
     private readonly HashSet<Key> _down = [];
     private Step _step;
     private ulong _startMs;
     private ulong _lastPressMs;
     private Vec3Mm _target;
     private ushort _face;
+    private AddressId _parked;
 
     /// <summary>Creates the autopilot over the booted session.</summary>
     /// <param name="session">The session.</param>
-    public PlaytestAutopilot(BootSession session)
+    /// <param name="parkNext">Stay on and re-park at each next letter's mailbox (<c>--playtest-park-next</c>).</param>
+    public PlaytestAutopilot(BootSession session, bool parkNext)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _parkNext = parkNext;
         Name = "PlaytestAutopilot";
     }
 
@@ -48,6 +54,7 @@ public sealed partial class PlaytestAutopilot : Node
         ToIntake,
         Take,
         ToMailbox,
+        Parked,
         Done,
     }
 
@@ -63,7 +70,7 @@ public sealed partial class PlaytestAutopilot : Node
         }
 
         ulong now = Time.GetTicksMsec();
-        if (now - _startMs > GiveUpMs)
+        if (_step != Step.Parked && now - _startMs > GiveUpMs)
         {
             Finish($"gave up in {_step} after {GiveUpMs / 1000} s (feet {_session.Carrier.View.Current.X},{_session.Carrier.View.Current.Z}, target {_target.X},{_target.Z})");
             return;
@@ -79,14 +86,7 @@ public sealed partial class PlaytestAutopilot : Node
                 _step = Step.Take;
                 break;
             case Step.Take when client.Pickup.Pickups > 0 && client.Panel.TryGet(out SelectedEntryFacts held):
-                if (!TryLot(held.Unit.Address, out LotRecord lot))
-                {
-                    Finish($"no lot for address {held.Unit.Address.Value}");
-                    break;
-                }
-
-                bool north = lot.Anchor.Z < M1aStreet.StreetCentreZMm;
-                Go(new Vec3Mm(lot.Anchor.X, lot.Anchor.Y, lot.Anchor.Z + (north ? StandOffMm : -StandOffMm)), north ? FaceNorth : FaceSouth, Step.ToMailbox);
+                ToMailboxOf(held.Unit.Address);
                 break;
             case Step.Take when mirrors.Run.Phase != ShiftPhase.Delivery:
                 break;
@@ -101,9 +101,27 @@ public sealed partial class PlaytestAutopilot : Node
             case Step.ToMailbox when Arrived():
                 Finish($"at the mailbox ({_target.X},{_target.Z}) with {client.Panel.Inventory.EntryCount + 1} letter entries, slot {client.Panel.SelectedIndex} selected");
                 break;
+            case Step.Parked when client.Panel.TryGet(out SelectedEntryFacts next) && next.IsMail && next.Unit.Address != _parked:
+                _startMs = now;
+                ToMailboxOf(next.Unit.Address);
+                break;
             default:
                 break;
         }
+    }
+
+    // Walks to the mailbox of the address: 1.5 m in front of it on the street side, facing it.
+    private void ToMailboxOf(AddressId address)
+    {
+        _parked = address;
+        if (!TryLot(address, out LotRecord lot))
+        {
+            Finish($"no lot for address {address.Value}");
+            return;
+        }
+
+        bool north = lot.Anchor.Z < M1aStreet.StreetCentreZMm;
+        Go(new Vec3Mm(lot.Anchor.X, lot.Anchor.Y, lot.Anchor.Z + (north ? StandOffMm : -StandOffMm)), north ? FaceNorth : FaceSouth, Step.ToMailbox);
     }
 
     private void Go(Vec3Mm target, ushort face, Step step)
@@ -156,8 +174,14 @@ public sealed partial class PlaytestAutopilot : Node
     private void Finish(string what)
     {
         ReleaseKeys();
-        _step = Step.Done;
         GD.Print($"[Playtest] ready: {what}; input is yours");
+        if (_parkNext)
+        {
+            _step = Step.Parked;
+            return;
+        }
+
+        _step = Step.Done;
         QueueFree();
     }
 

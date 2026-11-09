@@ -14,7 +14,8 @@ namespace PerformativeMail.Sim.Tests.Unit.Boot;
 /// WP-F's playable loop through the real boot steps 5-6 and the loopback session, with the router's output written straight into the
 /// client latch (the Godot router and adapter are the loop smoke's): E at the Intake puts mail in the own-panel mirror (the inventory
 /// panel's source and <c>ClientPorts.Panel</c>) with a letter selected on the hotbar; holding E at that mail's mailbox pays; a release
-/// aimed until the preview turns Accept lands in the mailbox and pays, and the next player_inventory letter is then in hand.
+/// aimed until the preview turns Accept lands in the mailbox and pays, and the next player_inventory letter is then in hand; a release
+/// into another house's mailbox consumes the letter and charges the penalty (GDD throwing-catching T6, WP-I).
 /// </summary>
 public class ClientLoopBootTests
 {
@@ -73,6 +74,31 @@ public class ClientLoopBootTests
         Assert.Equal(1, loop.Client.Pickup.Pickups);
     }
 
+    [Fact]
+    public void Loop_ReleaseAimedIntoAnotherHousesMailbox_ConsumesTheLetterAndCharges_AndLogsAMisdelivery()
+    {
+        // Arrange: picked up, standing 4 m in front of the next house's mailbox (WP-I playtest: logged "result rejected", read as a bounce).
+        var loop = new LoopDriver();
+        Assert.True(loop.Pickup());
+        Assert.True(loop.Client.Panel.TryGet(out SelectedEntryFacts held));
+        AddressId wrong = loop.Session.World.Lots.ToArray().First(l => l.Address != held.Unit.Address).Address;
+        loop.GoInFront(wrong, ThrowStandOffMm);
+        long before = loop.Wallet;
+
+        // Act
+        bool red = loop.AimUntil(() => loop.Client.Aim.End == AimEnd.Misdeliver);
+        ThrowSendResult sent = loop.Client.Release!.Commit(loop.Session.Session.Client.ClientTick);
+        loop.Idle(90, () => loop.Wallet != before);
+
+        // Assert: MAILBOX_MISDELIVER consumes every unit and charges; the thrown entry is gone, and the log says so.
+        Assert.True(red);
+        Assert.Equal(ThrowSendResult.Sent, sent);
+        Assert.True(loop.Wallet < before, $"wallet {before} -> {loop.Wallet}");
+        Assert.Equal(AddressId.None, loop.Client.Panel.AddressOf(held.Entry));
+        Assert.Contains(loop.Echoed, l => l.StartsWith("[Throw] result misdelivered MailboxMisdeliver", StringComparison.Ordinal));
+        Assert.Contains($"[Throw] outcome misdeliver units={held.Units} cents={loop.Wallet - before}", loop.Echoed);
+    }
+
     // Boots the session (steps 1-9 over a fake clock, Prep cut short) and drives it frame by frame through the client latch.
     private sealed class LoopDriver
     {
@@ -83,6 +109,7 @@ public class ClientLoopBootTests
         public LoopDriver()
         {
             var h = new BootHarness();
+            Echoed = h.Echoed;
             h.Context.Options = new BootOptions
             {
                 Clock = h.Context.Options.Clock,
@@ -100,6 +127,8 @@ public class ClientLoopBootTests
         public BootSession Session { get; }
 
         public ClientLoop Client { get; }
+
+        public List<string> Echoed { get; }
 
         public long Wallet => Session.Mirrors!.Wallet.BalanceCents;
 

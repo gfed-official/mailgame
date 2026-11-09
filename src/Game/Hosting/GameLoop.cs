@@ -606,7 +606,7 @@ public partial class GameLoop : Node
 
         if (ctx.Options.Playtest.AtMailbox && OS.IsDebugBuild())
         {
-            AddChild(new PlaytestAutopilot(booted));
+            AddChild(new PlaytestAutopilot(booted, ctx.Options.Playtest.ParkNext));
         }
     }
 
