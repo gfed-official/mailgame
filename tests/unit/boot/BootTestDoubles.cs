@@ -172,7 +172,7 @@ internal sealed class BootHarness
     public int ArmCalls { get; private set; }
 
     public IReadOnlyList<IBootStep> Plan(IContentBootSource? content = null, IReadOnlyList<IBootContributor>? contributors = null) =>
-        BootPlan.Create(Window, isDebugBuild: true, content ?? Content, contributors ?? BootPlan.CreateContributors(), () =>
+        BootPlan.Create(Window, isDebugBuild: true, content ?? Content, contributors ?? [], () =>
         {
             ArmCalls++;
             Record.Add("arm");

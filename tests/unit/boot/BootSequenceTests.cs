@@ -83,7 +83,6 @@ public class BootSequenceTests
             ["window", "content", "persistence", "input", "session", "sim", "world", "views", "start"],
             plan.Select(s => s.Name));
         Assert.Empty(plan.OfType<UnwiredBootStep>());
-        Assert.Empty(BootPlan.CreateContributors());
     }
 
     [Fact]

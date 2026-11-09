@@ -63,6 +63,9 @@ public sealed class BootSession
     /// <summary>The transform-sample adapter the carrier contributor attached; null before step 6.</summary>
     public HostSampleSink? Samples { get; internal set; }
 
+    /// <summary>The client mirrors step 5 bound (wallet, run, flights).</summary>
+    public ClientMirrors? Mirrors { get; internal init; }
+
     /// <summary>The tick driver.</summary>
     public TickDriver Driver => Session.Driver;
 

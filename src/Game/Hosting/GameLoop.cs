@@ -1,6 +1,7 @@
 using Godot;
 using PerformativeMail.Client.Core.Net;
 using PerformativeMail.Game.Boot;
+using PerformativeMail.Game.Input;
 using PerformativeMail.Game.Screens;
 using PerformativeMail.Game.Smoke;
 using PerformativeMail.Sim.Hosting;
@@ -48,6 +49,7 @@ public partial class GameLoop : Node
     private IReadOnlyList<IBootStep>? _smokeBootSteps;
     private BootOptions? _smokeBootOptions;
     private BootSession? _session;
+    private InputBoot? _inputBoot;
 
     /// <summary>
     /// Test seam: when false, <see cref="_Ready"/> does not call <see cref="RequestBoot"/>.
@@ -69,6 +71,9 @@ public partial class GameLoop : Node
 
     /// <summary>The boot outcome: null until <see cref="RequestBoot"/> runs, then true (all steps ok or NOT WIRED) or false.</summary>
     public bool? BootResult => _boot.Result;
+
+    /// <summary>The production step-4 input boot <see cref="BuildBootPlan"/> created; null when a caller passed its own contributors.</summary>
+    public InputBoot? InputBoot => _inputBoot;
 
     /// <summary>The <c>BOOT</c> lines of this loop's own boot (empty before it); a smoke-run sequence keeps its own context's log.</summary>
     public IReadOnlyList<string> BootLines => _boot.Log?.Lines ?? [];
@@ -211,17 +216,21 @@ public partial class GameLoop : Node
 
     /// <summary>The production plan: <see cref="BootPlan.Create"/> over this loop's window and <see cref="ArmStart"/>.</summary>
     /// <param name="content">Step 2's source; null for <see cref="BuiltInContentSource"/> (M-1a).</param>
-    /// <param name="contributors">Steps 3 and 4's contributors; null for <see cref="BootPlan.CreateContributors"/>.</param>
+    /// <param name="contributors">Steps 3 and 4's contributors; null for <see cref="BootPlan.CreateContributors"/> over a new
+    /// <see cref="Input.InputBoot"/>, which <see cref="RequestBoot"/> attaches once the frame sequence is installed.</param>
     /// <returns>The nine steps.</returns>
     public IReadOnlyList<IBootStep> BuildBootPlan(
         IContentBootSource? content = null,
-        IReadOnlyList<IBootContributor>? contributors = null) =>
-        BootPlan.Create(
-            new GodotBootWindow(GetWindow()),
-            OS.IsDebugBuild(),
-            content ?? new BuiltInContentSource(),
-            contributors ?? BootPlan.CreateContributors(),
-            ArmStart);
+        IReadOnlyList<IBootContributor>? contributors = null)
+    {
+        if (contributors is null)
+        {
+            _inputBoot = new InputBoot(this);
+            contributors = BootPlan.CreateContributors(_inputBoot);
+        }
+
+        return BootPlan.Create(new GodotBootWindow(GetWindow()), OS.IsDebugBuild(), content ?? new BuiltInContentSource(), contributors, ArmStart);
+    }
 
     /// <summary>
     /// Ends the session because boot failed; <see cref="BootSequence"/> calls it once, after it has told the error display
@@ -570,6 +579,12 @@ public partial class GameLoop : Node
         var presentation = new PresentationRoot(
             GetNode<Presentation.WorldPresenter>("World"), GetNode<Presentation.HudPresenter>("Hud"), GetNode<Presentation.AudioPresenter>("Audio"));
         _sequence = new FrameSequence(booted.Clock, booted.Driver, new SessionFrameRun(booted.Session), new RenderClockSampler(renderClock), presentation);
+
+        // The input adapter's hook must be the first pre-frame hook (input-controls 028).
+        if (_inputBoot is { Router: not null } input)
+        {
+            input.AttachToLoop(this);
+        }
     }
 
     private static string? FindSmokeName()

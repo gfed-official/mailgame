@@ -13,8 +13,9 @@ namespace PerformativeMail.Game.Presentation;
 
 /// <summary>
 /// Boot steps 7 and 8's Godot half (godot-host-shell stories 006, 008, 009). Step 7 (<see cref="Initialize"/>) builds the one
-/// <see cref="PresenterDeps"/> from the step's inputs (with an empty <see cref="ResolvedViewTables"/> and the
-/// <see cref="EntityViewRegistry"/>), registers the <see cref="DestinationsHost"/> over <c>World/Destinations</c> as a world-build step
+/// <see cref="PresenterDeps"/> from the step's inputs (with an empty <see cref="ResolvedViewTables"/>, the
+/// <see cref="EntityViewRegistry"/> and the HUD state), installs the shift's HUD, inventory and throw layers (<see cref="ShiftViews"/>),
+/// registers the <see cref="DestinationsHost"/> over <c>World/Destinations</c> as a world-build step
 /// and the <see cref="PlayerPresenter"/> over <c>World/Entities</c> as a presented view (player-character 022; when the local player and
 /// the carrier view are published),
 /// calls <c>Initialize(deps)</c> on the World, Hud and Audio presenters in that order (ADR-0019 section 2), then runs the World presenter's
@@ -51,8 +52,10 @@ public sealed class PresentersBoot(WorldPresenter world, HudPresenter hud, Audio
             Audio = audio,
             Views = new ResolvedViewTables(),
             Entities = new EntityViewRegistry(PresentationCaps.EntityViews),
+            HudState = ShiftViews.ComposeHud(inputs),
         };
         _deps = deps;
+        string shift = ShiftViews.Install(world, hud, inputs);
         if (world.GetNodeOrNull<Node3D>("Destinations") is { } destinations)
         {
             _destinations = new DestinationsHost(destinations, deps, world.Register);
@@ -87,6 +90,7 @@ public sealed class PresentersBoot(WorldPresenter world, HudPresenter hud, Audio
         }
 
         audio.Initialize(deps);
+        log.Write($"BOOT 7 world: shift views {shift}");
         log.Write($"BOOT 7 world: presenters World,Hud,Audio initialized views={world.ViewCount},{hud.ViewCount},{audio.ViewCount}");
         int built = world.BuildWorld(inputs.World);
         log.Write(built == 0 ? "BOOT 7 world: no world-build steps" : $"BOOT 7 world: world-build steps ran={built}");

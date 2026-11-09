@@ -10,6 +10,8 @@ using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Hosting;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Players.Client;
+using PerformativeMail.Sim.Primitives;
+using PerformativeMail.Sim.ThrowingCatching;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Game.Boot;
@@ -20,7 +22,7 @@ namespace PerformativeMail.Game.Boot;
 /// <see cref="ContentSet"/> by reference, the run seed), the loopback transport pair, the host and client adapters, the tick driver
 /// (the clock's frequency, <c>SimSettings</c>' catch-up cap) and the frame runner (<c>CatchUpGuardMs = 0</c>), and admits the local peer
 /// into slot 0. The host client's layer gets the owned-carrier step (<see cref="CarrierStepBinder"/>, player-character 020) over the
-/// client's own copy of the world tables. The driver is stopped again so that <c>GameLoop</c> starts it on the first <c>_Process</c>
+/// client's own copy of the world tables, and the <see cref="ClientMirrors"/> (wallet, run, flights) are bound and published for step 7. The driver is stopped again so that <c>GameLoop</c> starts it on the first <c>_Process</c>
 /// (ADR-0002). The run seed is <see cref="M1aRunSeed"/> unless <c>--seed=&lt;n&gt;</c> is in the user args (or a smoke sets
 /// <see cref="BootOptions.Seed"/>); it is logged. Product: <see cref="BootContext.Session"/>.
 /// </summary>
@@ -67,7 +69,17 @@ public sealed class SessionBootStep : IBootStep
         ctx.Log.Write(string.Create(
             CultureInfo.InvariantCulture,
             $"BOOT 5 session: loopback HostSession profile={profile.Name} seed={seed} ({seedSource}) world_source={worldSource.Kind}v{worldSource.Version} clock_frequency={clock.Frequency} catch_up_cap={content.Settings.Core.MaxCatchUpTicksPerFrame} catch_up_guard_ms={FrameRunnerSettings.Default.CatchUpGuardMs}"));
-        var options = new HostSessionOptions { Frame = FrameRunnerSettings.Default, ConfigureClient = carrier.BindTo };
+        // The local peer is admitted into slot 0 (HostSession), so its own launches take the local verdict.
+        var mirrors = new ClientMirrors(new ThrowSettings(content.Throw), PlayerSlot.FromValue(0));
+        var options = new HostSessionOptions
+        {
+            Frame = FrameRunnerSettings.Default,
+            ConfigureClient = b =>
+            {
+                carrier.BindTo(b);
+                mirrors.BindTo(b);
+            },
+        };
         var session = new HostSession(
             new SimBuildArgs(profile, content, seed) { WorldSource = worldSource },
             clock,
@@ -75,9 +87,14 @@ public sealed class SessionBootStep : IBootStep
             [.. ThrowingCodecs.CreateEvents(), .. MailEventCodecs.Create(new WorldIdMaps(clientWorld))],
             options);
 
+        mirrors.Register(session.MirrorDrain);
+        ctx.Published.Add(mirrors.Wallet);
+        ctx.Published.Add(mirrors.Run);
+        ctx.Published.Add(mirrors.Flights);
+
         // HostSession starts its driver; GameLoop starts it on the first _Process instead, so boot time never becomes ticks (F12).
         session.Driver.Stop();
-        ctx.Session = new BootSession(session, clientWorld, carrier, clock, seed);
+        ctx.Session = new BootSession(session, clientWorld, carrier, clock, seed) { Mirrors = mirrors };
         return BootStepResult.Ok;
     }
 
