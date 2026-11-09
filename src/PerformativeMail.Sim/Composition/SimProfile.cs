@@ -46,7 +46,7 @@ public sealed class SimProfile
 
     /// <summary>
     /// The M-1a shift stub's greybox settings (mail-destinations story 009): composition-profile data, not a balance key and not content
-    /// (proposed, pending Evan, TD-211). Also supplies Mail's <c>playerScalePm</c>.
+    /// (uncredited Mail Dev note, TD-211 item 2). Also supplies Mail's <c>playerScalePm</c>.
     /// </summary>
     public ShiftStubSettings ShiftStub { get; }
 

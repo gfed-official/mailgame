@@ -114,7 +114,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
         // Until story 009 adds player scaling, the team cap is the solo value of 40 points at any player count; with 8 players the
         // formula would give 155. Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-193 item 4).
         // Implementation detail (Mail Dev, not part of Evan's ruling): story 009 now passes the composition profile's playerScalePm
-        // (ShiftStubSettings.PlayerScalePm, 1000 permille by default; placement pending Evan, TD-211); 1000 when none is passed.
+        // (ShiftStubSettings.PlayerScalePm, 1000 permille by default; placement an uncredited Mail Dev note, TD-211 item 2; the constructor row is the ADR-0003 section 4 erratum 2026-11-08, TD-211 item 3); 1000 when none is passed.
         _complaints = new ComplaintBuckets(_registry, content.Mail, playerScale?.Permille ?? SoloPlayerScalePm, counters);
         _consumer = new MailConsumer(
             this, events, inventory, wallet, stats, slots, counters, checkRing, _table, _registry, _complaints, content);

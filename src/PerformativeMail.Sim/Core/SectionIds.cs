@@ -41,6 +41,6 @@ public static class SectionIds
     /// </summary>
     public const ushort Throwing = 7;
 
-    /// <summary>The M-1a shift stub's section (mail-destinations story 009): phase, <c>phaseEndTick</c>, open, <c>closeTick</c>, <c>deadlineTick</c>, mask. Replaced by Run Structure's section at M1. Id 8: proposed, pending Evan (TD-211).</summary>
+    /// <summary>The M-1a shift stub's section (mail-destinations story 009): phase, <c>phaseEndTick</c>, open, <c>closeTick</c>, <c>deadlineTick</c>, mask. Replaced by Run Structure's section at M1. Id 8: uncredited Mail Dev detail (TD-211).</summary>
     public const ushort Run = 8;
 }
