@@ -39,7 +39,7 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
     /// The composition constructor (the one public constructor; ADR-0003 section 4): the event-log writer, the slot view, Grid
     /// Inventory's, Mail's and Players' APIs, the world's read interface, the content set (its <c>throw.*</c> record builds
     /// <see cref="ThrowSettings"/> and the ranks; <c>player.claimToleranceMm</c>), the StatSheet, the id allocator, and the world's check
-    /// ring and counters. The selected hotbar slot is <see cref="UnsetHotbarSelection"/> until the <c>HotbarSelect</c> op lands.
+    /// ring and counters. The selected hotbar slot is <see cref="PlayersHotbarSelection"/> over Players' API (the <c>HotbarSelect</c> op).
     /// </summary>
     /// <param name="events">The event-log writer facade.</param>
     /// <param name="slots">The read-only slot table.</param>
@@ -82,7 +82,7 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
     {
     }
 
-    /// <summary>Creates the module with ready settings and optional test seams for the two ports that have no production owner yet.</summary>
+    /// <summary>Creates the module with ready settings and optional test seams for the hotbar selection and mailbox ports.</summary>
     /// <param name="events">The event-log writer facade.</param>
     /// <param name="slots">The read-only slot table.</param>
     /// <param name="inventory">Grid Inventory's API.</param>
@@ -96,7 +96,7 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
     /// <param name="ids">The world's id allocator (read only).</param>
     /// <param name="checks">The world's always-on check ring.</param>
     /// <param name="counters">The world's always-on counters.</param>
-    /// <param name="hotbar">The selected hotbar slot; null is <see cref="UnsetHotbarSelection"/>.</param>
+    /// <param name="hotbar">The selected hotbar slot; null is <see cref="PlayersHotbarSelection"/> over <paramref name="players"/>.</param>
     /// <param name="mailbox">The mailbox port; null is <see cref="MailboxLanding"/> over <paramref name="mail"/> (story 012).</param>
     /// <exception cref="ArgumentNullException">A required argument is null.</exception>
     internal ThrowingSystem(
@@ -139,7 +139,7 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
             Mail = mail,
             Players = players,
             Stats = stats,
-            Hotbar = hotbar ?? UnsetHotbarSelection.Instance,
+            Hotbar = hotbar ?? new PlayersHotbarSelection(players),
             Corroborator = new PlayersClaimCorroborator(players),
             ClaimToleranceMm = claimToleranceMm,
             ChestProbe = new ChestOriginProbe(world),

@@ -5,7 +5,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 
 /// <summary>
 /// The production <see cref="IHotbarSelection"/>: an adapter over Players' <see cref="IPlayersApi.SelectedHotbarIndex"/>, which the
-/// <c>HotbarSelect</c> op writes. Story 010's handler builds it into <see cref="ThrowHostFacts"/>. Stateless beyond the API;
+/// <c>HotbarSelect</c> op writes. <see cref="ThrowingSystem"/> hands it to story 010's handler for <see cref="ThrowHostFacts"/>. Stateless beyond the API;
 /// allocation-free.
 /// </summary>
 /// <example><code>IHotbarSelection hotbar = new PlayersHotbarSelection(players);</code></example>

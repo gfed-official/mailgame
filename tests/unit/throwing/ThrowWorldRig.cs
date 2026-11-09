@@ -8,6 +8,7 @@ using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.MailDestinations;
 using PerformativeMail.Sim.MailDestinations.Ports;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Players.Ops;
 using PerformativeMail.Sim.Primitives;
 using PerformativeMail.Sim.Tests.Unit.Inventory;
 using PerformativeMail.Sim.Tests.Unit.World;
@@ -19,7 +20,8 @@ namespace PerformativeMail.Sim.Tests.Unit.ThrowingCatching;
 /// <summary>
 /// Throwing stories 010 and 011: a world built through <see cref="SimComposition.Build"/> with the real Grid Inventory, Player Character,
 /// Mail and the shipped <see cref="ThrowingSystem"/> (its own <c>Bind</c>), over a supplied <see cref="WorldTables"/>, with a capture
-/// sink. Two test-only seams: the selected hotbar slot is <see cref="Selection"/> (no production owner yet), and Inventory carries
+/// sink. Two test-only seams: the selected hotbar slot is <see cref="Selection"/> (unless built with the production
+/// <see cref="PlayersHotbarSelection"/>, which the <c>HotbarSelect</c> op writes), and Inventory carries
 /// story grid-inventory/009's fixture op and phase-8 hook, so hotbar entries are placed through the real mutator and flights can be
 /// injected through the real <see cref="IInventoryApi.DetachForThrow"/>. The Throwing system may get a wrapped inventory or a mailbox
 /// port double, and Mail a test wallet in place of the composed <c>StubWallet</c>. Players join on construction.
@@ -36,7 +38,8 @@ internal sealed class ThrowWorldRig
         int players = 1,
         Func<IInventoryApi, IInventoryApi>? wrapInventory = null,
         IMailboxLanding? mailbox = null,
-        IWalletGate? wallet = null)
+        IWalletGate? wallet = null,
+        bool productionSelection = false)
     {
         World = world;
         InventoryWithActionOp? inv = null;
@@ -65,7 +68,7 @@ internal sealed class ThrowWorldRig
                 ctx.EntityIds,
                 ctx.CheckRing,
                 ctx.Counters,
-                Selection,
+                productionSelection ? null : Selection,
                 mailbox)));
         Host = SimComposition.Build(new SimBuildArgs(profile, BuiltInContent.CreateM1a(), 11) { World = world, EventSink = _sink });
         _inv = inv!;
@@ -178,6 +181,18 @@ internal sealed class ThrowWorldRig
         return (reply, LastLog, tick);
     }
 
+    /// <summary>Enqueues one <c>HotbarSelect</c> of <paramref name="index"/> from slot <paramref name="s"/>, ticks once and returns its reply.</summary>
+    public Reply Select(int s, uint index)
+    {
+        var op = new Op { Kind = PlayerOpKinds.HotbarSelect, ReqId = ++_req };
+        op.SetPayload(new HotbarSelectPayload { Index = index });
+        Assert.True(Sim.EnqueueOp(Actor(s), in op));
+        Sim.Tick();
+        Reply reply = Assert.Single(LastLog, e => e.Kind == EventKind.OpReply).PayloadAs<Reply>();
+        Assert.Equal(op.ReqId, reply.ReqId);
+        return reply;
+    }
+
     /// <summary>A valid release of <paramref name="entry"/> from <paramref name="feet"/> along <paramref name="dir"/>, right-handed.</summary>
     public static ThrowReleasePayload Payload(EntryId entry, byte units, Vec3Mm feet, short dx, short dy, short dz, sbyte side = 1) => new()
     {
@@ -267,7 +282,7 @@ internal sealed class ThrowWorldRig
         return Inventory.Entries[entry].Id;
     }
 
-    /// <summary>The selected hotbar index per slot, settable (the <c>HotbarSelect</c> op has no production owner yet).</summary>
+    /// <summary>The selected hotbar index per slot, settable without a <c>HotbarSelect</c> op.</summary>
     internal sealed class HotbarDouble : IHotbarSelection
     {
         private readonly byte[] _index = new byte[PlayerSlot.Count];

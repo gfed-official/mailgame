@@ -270,6 +270,34 @@ public class ThrowLaunchTests
         Assert.Contains(Enumerable.Range(0, rig.Sim.CheckRing.Count), i => rig.Sim.CheckRing[i].Check == CheckCode.ThrowingCommitFault && rig.Sim.CheckRing[i].A == 3);
     }
 
+    // ---------------------------------------------------------------- Owner: the production hotbar selection
+
+    /// <summary>
+    /// The shipped Throwing reads the selection the <c>HotbarSelect</c> op wrote: selecting the entry's slot launches it; left on the hands
+    /// slot (0, the join default) with the entry at index 3, check 2 answers <c>stale_entry</c>.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void HotbarSelectThenRelease_ThroughTheOpRing_LaunchesOnlyTheSelectedSlotsEntry(bool select)
+    {
+        // Arrange
+        var rig = new ThrowWorldRig(ThrowFixtureWorld.Build(), productionSelection: true);
+        rig.Stand(0, _feet);
+        EntryId entry = rig.PlaceMail(0, Index, "letter", 7);
+        if (select)
+        {
+            Assert.True(rig.Select(0, Index).IsOk);
+        }
+
+        // Act
+        (Reply reply, _, _) = rig.Release(0, Release(entry, 1));
+
+        // Assert
+        Assert.Equal(select ? (ushort)0 : (ushort)ThrowReason.StaleEntry, reply.Reason);
+        Assert.Equal(select ? 1 : 0, rig.Flights.LiveFlights);
+    }
+
     // ---------------------------------------------------------------- Owner: the production binding
 
     [Fact]

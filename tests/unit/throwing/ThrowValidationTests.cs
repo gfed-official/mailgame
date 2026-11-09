@@ -16,7 +16,8 @@ namespace PerformativeMail.Sim.Tests.Unit.ThrowingCatching;
 /// at M-1a (E5), check 9 never rejects, and a rejection changes no Grid or Throwing state and raises no event. The facts come from two
 /// real fixtures that share slot 0: the full M-1a world (<see cref="PlayersRig"/>: Players, the Throwing flight table, <c>Tat</c> and
 /// counters) and an Inventory rig (<see cref="InvAutoPlaceRig"/>, which can place hotbar entries in a tick). The selected slot and the
-/// position history are doubles (story 009: the selection seam has no production owner yet; the history double holds several samples).
+/// position history are doubles (the production selection, <see cref="PlayersHotbarSelection"/>, is driven by the <c>HotbarSelect</c> op in
+/// <c>HotbarSelectTests</c>; the history double holds several samples).
 /// </summary>
 public class ThrowValidationTests
 {
@@ -530,7 +531,7 @@ public class ThrowValidationTests
         }
     }
 
-    /// <summary>The selected hotbar slot (story 009: the seam's only implementation).</summary>
+    /// <summary>The selected hotbar slot, settable without a <c>HotbarSelect</c> op.</summary>
     private sealed class FixedSelection : IHotbarSelection
     {
         public byte Index { get; set; }
