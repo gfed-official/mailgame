@@ -3,6 +3,8 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Geometry;
+using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Players.Ops;
 using PerformativeMail.Sim.Primitives;
 using PerformativeMail.Sim.World;
 
@@ -17,17 +19,19 @@ namespace PerformativeMail.Sim.Players;
 /// <c>ClockInTick</c> = the join tick and <c>ProtectedUntilTick</c> = 0. The module reads the world only through
 /// <see cref="IWorldQuery"/> and takes every constant from <see cref="PlayerSettings"/>. Story 019 adds the host side: phase 3
 /// <see cref="PlayersStep"/> ingests the latched transform samples into a per-slot host position (seeded at the pad on join), and
-/// <see cref="CheckInteraction"/> and <see cref="LeashExceeded"/> read it. It binds the join listener, phase 3 and its state
-/// contributor, and no op. Allocation-free once constructed. Not thread-safe: used on the Sim tick thread.
+/// <see cref="CheckInteraction"/> and <see cref="LeashExceeded"/> read it. Grid-inventory story 019 adds the range-gated <c>Open</c> op
+/// (<see cref="OpenHandler"/>, Players block, ADR-0009 erratum 2026-11-08) and the <c>po_intake</c> console's Open anchor, both bound only
+/// when the module has Grid Inventory's <see cref="IInventoryApi"/>. It binds the join listener, phase 3, its state contributor and
+/// that op. Allocation-free once constructed. Not thread-safe: used on the Sim tick thread.
 /// </summary>
 /// <example>
 /// <code>
-/// // Composition: new PlayersSystem(world, content, samples, slots, tick, checkRing, counters)
+/// // Composition: new PlayersSystem(world, content, samples, slots, tick, checkRing, counters, inventory)
 /// LifeState life = players.GetLifeState(PlayerSlot.FromValue(0));   // Alive after the slot's PlayerJoin
 /// </code>
 /// </example>
 [SimSystem(SystemId.PlayerCharacter)]
-public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
+public sealed partial class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
 {
     private readonly IWorldQuery _world;
     private readonly PlayerSettings _settings;
@@ -41,6 +45,8 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
     private readonly IPositionHistory _history;
     private readonly InteractionGate _gate = new(PlayerReasons.Framework);   // reason ids from PlayerReasons: Evan approved (TD-194 item 9), 2026-10-29 by 11:34 AM PT: "Approve all nine TD-194 defaults for player-character 019"
     private readonly HoldSettings _hold;
+    private readonly IInventoryApi? _inventory;
+    private readonly OpenInteractable _openHooks = new();
 
     /// <summary>
     /// Creates the module with a private check ring and counter set (tests and tools; the
@@ -67,10 +73,19 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
     /// <param name="tick">The tick reader (staleness is measured against <see cref="ITickReader.CurrentTick"/>).</param>
     /// <param name="checks">The world's always-on check ring.</param>
     /// <param name="counters">The world's always-on counters.</param>
+    /// <param name="inventory">Grid Inventory's API (a declared dependency): the open-set primitives of the <c>Open</c> op and the Intake.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException"><c>PlayersWorldHasNoPostOffice</c> when the world has no spawn pad; <c>PlayerSettingsInvalid</c> for an unusable value.</exception>
-    public PlayersSystem(IWorldQuery world, ContentSet content, ISampleLatch samples, ISlotView slots, ITickReader tick, SimCheckRing checks, SimCounters counters)
-        : this(world, PlayerSettings.FromBalance((content ?? throw new ArgumentNullException(nameof(content))).Player), samples, slots, tick, checks, counters)
+    public PlayersSystem(IWorldQuery world, ContentSet content, ISampleLatch samples, ISlotView slots, ITickReader tick, SimCheckRing checks, SimCounters counters, IInventoryApi inventory)
+        : this(
+            world,
+            PlayerSettings.FromBalance((content ?? throw new ArgumentNullException(nameof(content))).Player),
+            samples,
+            slots,
+            tick,
+            checks,
+            counters,
+            inventory ?? throw new ArgumentNullException(nameof(inventory)))
     {
     }
 
@@ -104,9 +119,10 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
     /// <param name="tick">The tick reader.</param>
     /// <param name="checks">The world's always-on check ring.</param>
     /// <param name="counters">The world's always-on counters.</param>
+    /// <param name="inventory">Grid Inventory's API, or null (tests): then no <c>Open</c> op or Intake anchor is bound.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException"><c>PlayersWorldHasNoPostOffice</c> when the world has no spawn pad.</exception>
-    internal PlayersSystem(IWorldQuery world, PlayerSettings settings, ISampleLatch samples, ISlotView slots, ITickReader tick, SimCheckRing checks, SimCounters counters)
+    internal PlayersSystem(IWorldQuery world, PlayerSettings settings, ISampleLatch samples, ISlotView slots, ITickReader tick, SimCheckRing checks, SimCounters counters, IInventoryApi? inventory = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(settings);
@@ -128,6 +144,7 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
         _tick = tick;
         _counters = counters;
         _hold = HoldSettings.FromPlayerSettings(settings);
+        _inventory = inventory;
         _history = new NewestSamplePositionHistory(HostPositions);
         Anchors = new AnchorRegistry(world.Bounds, settings.MaxAnchors, settings.RangeMm, settings.IncumbentSlackMm, checks, counters);
     }
@@ -167,17 +184,32 @@ public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
         slot.IsNone || _records[slot.Value].IsEmpty ? LifeState.Despawned : _records[slot.Value].Life;
 
     /// <summary>
-    /// Binds the join/leave listener, phase 3 (<see cref="PlayersStep"/>, story 019) and the canonical dump section; binds no op or
-    /// event.
+    /// Binds the join/leave listener, phase 3 (<see cref="PlayersStep"/>, story 019), the canonical dump section and the
+    /// <see cref="PlayerOpKinds.HotbarSelect"/> handler; with Grid
+    /// Inventory's API, also the <see cref="PlayerOpKinds.Open"/> handler and the <c>po_intake</c> console's Open anchor (grid-inventory
+    /// story 019; GDD R10: the console is the anchor, at <see cref="PostOfficeRecord.IntakeAnchor"/>, default reach). Binds no event.
     /// </summary>
     /// <param name="builder">The world's builder.</param>
-    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c> or <c>DuplicateSection</c>.</exception>
+    /// <exception cref="SimBuildException"><c>PlayerJoinListenerAlreadyBound</c>, <c>DuplicateSection</c> or <c>DuplicateOpHandler</c>.</exception>
     public void Bind(SimWorldBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.BindPlayerJoinListener(this);
         builder.Bind(PhaseId.PlayersStep, new PlayersStep(this, _samples, _slots, _counters));
         builder.BindStateContributor(new PlayersStateContributor(this));
+        builder.BindOp(HotbarSelectOp.Descriptor, new HotbarSelectHandler(this, _slots));
+        if (_inventory is null)
+        {
+            return;
+        }
+
+        builder.BindOp(OpenOp.Descriptor, new OpenHandler(this, _inventory, _slots));
+        ContainerId intake = _inventory.IntakeContainer;
+        if (!intake.IsNone)
+        {
+            // A fresh registry with capacity player.maxAnchors (>= 1) and a non-none ref: the registration cannot fail.
+            _ = Anchors.Register(AnchorDef.For(OpenOp.AnchorOf(intake), _world.PostOffice.IntakeAnchor, Verb.Open), _openHooks);
+        }
     }
 
     /// <inheritdoc />

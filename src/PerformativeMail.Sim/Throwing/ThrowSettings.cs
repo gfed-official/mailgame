@@ -48,6 +48,7 @@ public sealed class ThrowSettings
         HandHeightMm = balance.HandHeightMm;
         FwdOffMm = balance.FwdOffMm;
         SideOffMm = balance.SideOffMm;
+        DropPushbackMm = balance.DropPushbackMm;
     }
 
     /// <summary>
@@ -93,6 +94,9 @@ public sealed class ThrowSettings
 
     /// <summary>Launch side offset toward the throwing hand, mm (<c>throw.sideOffMm</c>, default 250).</summary>
     public int SideOffMm { get; }
+
+    /// <summary>How far a mailbox bounce is pushed back along the flight, mm (<c>throw.dropPushbackMm</c>, default 500; GDD F8).</summary>
+    public int DropPushbackMm { get; }
 
     /// <summary>
     /// <c>baseSpeed[class]</c> in mm/s: Light, Medium and Heavy map to their <c>throw.throwSpeed.*</c> knob. Bulk and any

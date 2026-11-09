@@ -53,7 +53,7 @@ public class DeliveryCompositionTests
             new SimSystemEntry(SystemId.GridInventory, ctx => new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots)),
             new SimSystemEntry(SystemId.PlayerCharacter, ctx =>
             {
-                var players = new PlayersSystem(ctx.World!, ctx.Content, ctx.Samples, ctx.Slots, ctx.Tick, ctx.CheckRing, ctx.Counters);
+                var players = new PlayersSystem(ctx.World!, ctx.Content, ctx.Samples, ctx.Slots, ctx.Tick, ctx.CheckRing, ctx.Counters, ctx.Api<IInventoryApi>(SystemId.GridInventory));
                 var registry = new DestinationRegistry(ctx.World!, ctx.Content);
                 var row3 = new DestinationOrdinal(3);
                 AnchorDef taken = AnchorDef.For(new AnchorRef(registry.EntityIdOf(row3), 0), registry.AnchorOf(row3), Verb.Deliver);

@@ -355,4 +355,29 @@ internal sealed class MailConsumer
         };
         _ = _events.TryRaise(MailEventKinds.DeliveryOutcome, MailEventDescriptors.AudienceAll, in payload);
     }
+
+    /// <summary>
+    /// What <see cref="Consume"/> would decide for <paramref name="c"/> now, read-only (throwing-catching story 012, through
+    /// <see cref="IMailApi.JudgeThrownLanding"/>): the effective state, then <see cref="MailRules.Evaluate"/> once on the oldest unit, as
+    /// <see cref="Consume"/> does before it consumes. An entry that cannot be read is <see cref="EvalResult.Reject"/>. Nothing changes,
+    /// nothing is raised. 0 B.
+    /// </summary>
+    /// <param name="c">The call.</param>
+    /// <returns>Accept, Misdeliver or Reject.</returns>
+    public EvalResult Judge(in ConsumeCall c)
+    {
+        DestinationFacts d = EffectiveFacts(in c);
+        if (d.State != DestState.Open)
+        {
+            return EvalResult.Reject;
+        }
+
+        if (!_inventory.TryReadEntry(c.Entry, out EntryView view) || !_table.TryGetRow(view.LowestMailId, out MailRow row))
+        {
+            return EvalResult.Reject;
+        }
+
+        UnitFacts u = FactsOf(in row);
+        return MailRules.Evaluate(in d, in u).Result;
+    }
 }

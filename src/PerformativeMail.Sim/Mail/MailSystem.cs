@@ -35,7 +35,7 @@ namespace PerformativeMail.Sim.MailDestinations;
 /// </code>
 /// </example>
 [SimSystem(SystemId.MailDestinations)]
-public sealed class MailSystem : ISimSystem, IMailApi
+public sealed partial class MailSystem : ISimSystem, IMailApi
 {
     // _rng is assigned but not read yet: the story prescribes this constructor shape for stories 006-009, which read it. Kept
     // deliberately; do not remove as unused.
@@ -246,7 +246,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
             return;
         }
 
-        _registry.Deliveries.Set(open, closeTick, unlockedDistrictMask);
+        _registry.Deliveries.Set(open, closeTick, unlockedDistrictMask, _tick.CurrentTick + 1);
         _spawner.OnDeliveriesState(open);
     }
 

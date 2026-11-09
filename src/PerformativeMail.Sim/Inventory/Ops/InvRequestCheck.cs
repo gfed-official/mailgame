@@ -11,7 +11,7 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// <list type="number">
 /// <item><see cref="CheckRequest"/> first: the <c>bad_request</c> judgments only the Sim can make (returns 0 or 8, never 67);</item>
 /// <item>the handler's own <c>not_open</c> step (placement and entry ops), or Player Character P13's chain for range-gated kinds
-/// (<c>Open</c>, <c>Pickup</c>) — stories 007-010;</item>
+/// (<c>Pickup</c>; <c>Open</c> is Player Character's since story 019) — stories 007-010;</item>
 /// <item><see cref="ResolveEntries"/>: <c>stale_entry</c> for the named entry ids (returns 0 or 67);</item>
 /// <item>the rest of the kind's chain (<c>stale_layout</c>, <c>reserved_slot</c>, ...), which builds the <see cref="InvPlan"/>;</item>
 /// <item><see cref="CheckArenaReservation(in InvPlan)"/> last, once the plan is built (story 005; ADR-0009 sections 2 and 5, TD-102): the
@@ -139,7 +139,6 @@ public sealed class InvRequestCheck
             InvOpKinds.QuickMove => CheckQuickMove(op.PayloadAs<QuickMovePayload>(), actorSlot),
             InvOpKinds.Drop => CheckEntryNamespace(_entries, op.PayloadAs<DropPayload>().EntryId, actorSlot, false),
             InvOpKinds.Pickup => CheckPickup(op.PayloadAs<PickupPayload>(), actorSlot),
-            InvOpKinds.Open => CheckContainer(op.PayloadAs<OpenPayload>().Container),
             InvOpKinds.Close => CheckContainer(op.PayloadAs<ClosePayload>().Container),
             _ => Bad,
         };
@@ -216,7 +215,7 @@ public sealed class InvRequestCheck
             }
 
             default:
-                return Pass; // Return, Open, Close name no entry
+                return Pass; // Return and Close name no entry
         }
     }
 
@@ -234,7 +233,6 @@ public sealed class InvRequestCheck
             InvOpKinds.QuickMove => InvOpDescriptors.QuickMove.PayloadLength,
             InvOpKinds.Drop => InvOpDescriptors.Drop.PayloadLength,
             InvOpKinds.Pickup => InvOpDescriptors.Pickup.PayloadLength,
-            InvOpKinds.Open => InvOpDescriptors.Open.PayloadLength,
             InvOpKinds.Close => InvOpDescriptors.Close.PayloadLength,
             InvOpKinds.Return => InvOpDescriptors.Return.PayloadLength,
             _ => -1,
