@@ -163,7 +163,7 @@ public class UiEventLogTests
         string[] names =
         [
             "RawInput", "GateFired", "GateNotLive", "GateMuted", "GateSwallowed", "Transition",
-            "HoldStart", "HoldComplete", "HoldCancel", "Cue", "Dropped", "Config",
+            "HoldStart", "HoldComplete", "HoldCancel", "Cue", "Dropped", "Config", "Immediate",
         ];
 
         Assert.Equal(0, (byte)LogKind.None);

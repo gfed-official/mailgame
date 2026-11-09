@@ -46,4 +46,7 @@ public enum LogKind : byte
 
     /// <summary>A configuration load or change was applied or rejected.</summary>
     Config = 12,
+
+    /// <summary>An immediate action was dispatched to its sink (story 013); the ids carry the issuing client tick.</summary>
+    Immediate = 13,
 }
