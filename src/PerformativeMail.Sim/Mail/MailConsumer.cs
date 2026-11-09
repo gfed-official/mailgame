@@ -288,18 +288,10 @@ internal sealed class MailConsumer
     /// <summary>The length of the <see cref="WriteCanonical"/> block, bytes.</summary>
     public int CanonicalBytes => 4 + (_lastZeroFloorTick.Length * 8) + 2;
 
-    private DestinationFacts EffectiveFacts(in ConsumeCall c)
-    {
-        DestinationOrdinal o = c.Destination;
-        _ = _registry.TryGetDestinationFacts(_registry.EntityIdOf(o), out DestinationFacts raw);
-        DeliveriesState s = _registry.Deliveries;
-        DestState state = DeliveriesStateRules.Effective(
-            s.IsDistrictUnlocked(_registry.DistrictOf(o)), s.Open, s.CloseTick, c.ActionStartTick, c.ApplyTick, _balance.CloseGraceTicks);
-        return new DestinationFacts(raw.Id, raw.Address, raw.Type, state, raw.AcceptsMask, raw.RequiresUnit);
-    }
+    private DestinationFacts EffectiveFacts(in ConsumeCall c) =>
+        MailHostFacts.Destination(_registry, c.Destination, c.ActionStartTick, c.ApplyTick, _balance.CloseGraceTicks);
 
-    private static UnitFacts FactsOf(in MailRow row) =>
-        new(row.Kind, ItemCategory.Mail, row.Address, row.SpawnValue, row.DeadlineShift, row.Flags);
+    private static UnitFacts FactsOf(in MailRow row) => MailHostFacts.Unit(in row);
 
     private bool FloorBroadcastDue(DestinationOrdinal d, PlayerSlot actor, uint now)
     {

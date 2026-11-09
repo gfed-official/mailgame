@@ -17,8 +17,8 @@ public static class EconEventKinds
 /// <summary>
 /// The descriptors of <see cref="EconEventKinds"/>, bound with the <see cref="StubWallet"/>. <c>WalletChanged</c> is
 /// <see cref="ReplicationClass.Replicated"/> (audience: the connected slots), not coalescible, resync scope 2 (Mail's scope in ADR-0008's
-/// order Players 0, Inventory 1, Mail 2: at M-1a the wallet lives with Mail and there is no Economy system), wire codec 0 until
-/// story 015 assigns one.
+/// order Players 0, Inventory 1, Mail 2: at M-1a the wallet lives with Mail and there is no Economy system), wire codec 10
+/// (mail-destinations story 015, a 24 B passthrough).
 /// </summary>
 /// <example><code>builder.BindEventKind(EconEventDescriptors.WalletChanged);</code></example>
 public static class EconEventDescriptors
@@ -26,7 +26,10 @@ public static class EconEventDescriptors
     /// <summary>The resync scope bit of <c>WalletChanged</c>.</summary>
     public const byte ResyncScope = 2;
 
+    /// <summary>Codec id of the <c>WalletChanged</c> wire codec (mail-destinations story 015).</summary>
+    public const ushort WalletChangedCodecId = 10;
+
     /// <summary><see cref="EconEventKinds.WalletChanged"/>: 24 B, replicated.</summary>
     public static EventDescriptor WalletChanged { get; } = EventDescriptor.For<WalletChangedPayload>(
-        EconEventKinds.WalletChanged, ReplicationClass.Replicated, coalescible: false, ResyncScope, wireCodecId: 0, wireSize: 0);
+        EconEventKinds.WalletChanged, ReplicationClass.Replicated, coalescible: false, ResyncScope, WalletChangedCodecId, wireSize: 24);
 }

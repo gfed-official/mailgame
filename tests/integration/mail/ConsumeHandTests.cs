@@ -470,8 +470,8 @@ public class ConsumeHandTests
         int lots = rig.Mail.Registry.Count;
         byte[] section = MailSection(rig.Host.World);
         int blockBytes = 4 + (lots * 8 * 8) + 2;
-        // Story 009's deliveries state (13 B) ends the section after the outcome block.
-        const int DeliveriesBytes = 13;
+        // Story 009's deliveries state (13 B) follows the outcome block, then story 013's shift spawner (53 B) ends the section.
+        const int DeliveriesBytes = 13 + 53;
         ReadOnlySpan<byte> block = section.AsSpan(section.Length - DeliveriesBytes - blockBytes, blockBytes);
         ReadOnlySpan<byte> team = section.AsSpan(section.Length - DeliveriesBytes - blockBytes - 25, 25);
         Assert.Equal((long)lastTick, BinaryPrimitives.ReadInt64LittleEndian(team.Slice(8)));   // teamLastTick
@@ -707,6 +707,8 @@ public class ConsumeHandTests
         public int BacklogUnits => _inner.BacklogUnits;
 
         public int BacklogEntries => _inner.BacklogEntries;
+
+        public ContainerId IntakeContainer => _inner.IntakeContainer;
 
         public bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor)
         {
