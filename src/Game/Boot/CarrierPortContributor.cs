@@ -6,7 +6,8 @@ namespace PerformativeMail.Game.Boot;
 /// <summary>
 /// Player-character 020's ports for the host client (godot-host-shell story 005): the local player (<see cref="HostLocalPlayer"/>,
 /// slot 0 once the loopback join is answered) and the owned carrier's samples to the host world (<see cref="HostSampleSink"/>). The
-/// carrier load is left unset, so step 6 binds the constant full-speed source and logs it as the default. It also publishes the owned
+/// carrier load is left unset, so step 6 binds the constant full-speed source and logs it as the default. The panel is the host's
+/// authoritative view of the local slot when the profile built Grid Inventory. It also publishes the owned
 /// carrier's <see cref="ICarrierView"/> and the local player (<see cref="ILocalPlayerView"/>) into <see cref="BootContext.Published"/> for player-character
 /// 022/023's views (story 006; 022's player presenter spawns the view once the local player is known).
 /// </summary>
@@ -24,6 +25,14 @@ public sealed class CarrierPortContributor : IPortContributor
         var samples = new HostSampleSink(session.Session.World, local);
         b.LocalPlayer = local;
         b.TransformSamples = samples;
+        if (session.Session.Host.Inventory is { } inventory)
+        {
+            // Stand-in: the host client reads the host's authoritative panel until the H-MIRROR package (TD-140) builds the client
+            // ContainerMirror and retires HostPanelView on the client. The local slot is fixed at 0 before the join reply (the view
+            // reads empty until the join creates the containers), so no forwarding view is needed.
+            b.Panel = inventory.HostPanelView(local.Slot);
+        }
+
         session.LocalPlayer = local;
         session.Samples = samples;
         ctx.Published.Add<ICarrierView>(session.Carrier.View);

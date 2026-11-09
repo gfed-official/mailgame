@@ -30,13 +30,13 @@ public interface IPortContributor
 /// <summary>
 /// Assembles the <see cref="ClientPorts"/> step 6 attaches. Step 6 sets <see cref="Requests"/> and <see cref="HostClock"/> from the
 /// session, then the <see cref="IPortContributor"/>s set theirs. <see cref="Build"/> binds every port still unset to a named null object
-/// (or, for the carrier load, to the constant full-speed source) and reports each choice in the boot log line, never a silent default.
+/// (an empty panel, or for the carrier load the constant full-speed source) and reports each choice in the boot log line, never a silent default.
 /// Boot-time only; main thread.
 /// </summary>
 /// <example>
 /// <code>
 /// var b = new ClientPortsBuilder { Requests = requests, HostClock = clock };
-/// ClientPorts ports = b.Build(out string line);   // "panel=Null(...) requests=ClientAdapterRequestSink ..."
+/// ClientPorts ports = b.Build(out string line);   // "panel=HostPanelView requests=ClientAdapterRequestSink ..."
 /// </code>
 /// </example>
 public sealed class ClientPortsBuilder
@@ -56,15 +56,18 @@ public sealed class ClientPortsBuilder
     /// <summary>The local player (player-character 020: <see cref="HostLocalPlayer"/>).</summary>
     public ILocalPlayer? LocalPlayer { get; set; }
 
+    /// <summary>The local player's own panel (<see cref="CarrierPortContributor"/>: the host's view of the local slot); unset binds an empty view.</summary>
+    public IPanelView? Panel { get; set; }
+
     /// <summary>Fills the unset ports and builds the struct.</summary>
     /// <param name="summary">One <c>name=Type</c> entry per port, for the <c>BOOT 6 sim: ports: …</c> line.</param>
     /// <returns>The ports, every member non-null.</returns>
     /// <exception cref="InvalidOperationException"><see cref="HostClock"/> is unset (it has no null object).</exception>
     public ClientPorts Build(out string summary)
     {
-        // The panel port (IPanelView) is declared by manual-delivery 002 and implemented by the own-container mirror; until then it
-        // is not a member of ClientPorts at all, and the line says so.
-        var line = new StringBuilder("panel=Null(IPanelView not declared yet)");
+        var line = new StringBuilder();
+        IPanelView panel = Panel ?? EmptyPanelView.Instance;
+        Append(line, "panel", panel, Panel is null);
         IRequestSink requests = Requests ?? NullRequestSink.Instance;
         Append(line, "requests", requests, Requests is null);
         IHostClock clock = HostClock ?? throw new InvalidOperationException("ClientPortsBuilder.HostClock is unset; step 6 sets it from the session.");
@@ -76,11 +79,11 @@ public sealed class ClientPortsBuilder
         ILocalPlayer local = LocalPlayer ?? UnknownLocalPlayer.Instance;
         Append(line, "localPlayer", local, LocalPlayer is null);
         summary = line.ToString();
-        return new ClientPorts { Requests = requests, HostClock = clock, TransformSamples = samples, CarrierLoad = load, LocalPlayer = local };
+        return new ClientPorts { Requests = requests, HostClock = clock, TransformSamples = samples, CarrierLoad = load, LocalPlayer = local, Panel = panel };
     }
 
     private static void Append(StringBuilder line, string name, object port, bool isDefault) =>
-        line.Append(' ').Append(name).Append('=').Append(port.GetType().Name).Append(isDefault ? "(default)" : string.Empty);
+        line.Append(line.Length == 0 ? string.Empty : " ").Append(name).Append('=').Append(port.GetType().Name).Append(isDefault ? "(default)" : string.Empty);
 
     /// <summary>The null request sink: every send is the local "busy".</summary>
     private sealed class NullRequestSink : IRequestSink
@@ -96,6 +99,18 @@ public sealed class ClientPortsBuilder
         public static readonly NullTransformSampleSink Instance = new();
 
         public bool TryWrite(in TransformSample s) => false;
+    }
+
+    /// <summary>The null panel: every section is empty and the cursor came from no hotbar slot.</summary>
+    private sealed class EmptyPanelView : IPanelView
+    {
+        public static readonly EmptyPanelView Instance = new();
+
+        public int CursorSlot => -1;
+
+        public int EntryCount(PanelSection s) => 0;
+
+        public PanelEntryFacts Entry(PanelSection s, int i) => default;
     }
 
     /// <summary>The null local player: never known, so the carrier step never seeds.</summary>
