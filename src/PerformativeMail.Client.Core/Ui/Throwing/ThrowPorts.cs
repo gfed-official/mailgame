@@ -1,5 +1,4 @@
 using PerformativeMail.Sim.Geometry;
-using PerformativeMail.Sim.ThrowingCatching;
 
 namespace PerformativeMail.Client.Core.Ui.Throwing;
 
@@ -57,19 +56,4 @@ public interface IFlightSource
     /// <param name="i">The index.</param>
     /// <returns>The flight.</returns>
     FlightRender Flight(int i);
-}
-
-/// <summary>Samples a launch with the Sim's F2 integer ballistic, for adapters and doubles that hold a <see cref="Launch"/> rather than points.</summary>
-public static class ArcSampler
-{
-    /// <summary>Fills <paramref name="points"/> with <c>Ballistic.PositionAt(launch, k)</c> for k = 0..n-1.</summary>
-    /// <param name="launch">The launch.</param>
-    /// <param name="points">Destination; its length is the sample count (at most <c>Ballistic.MaxAgeTicks + 1</c>).</param>
-    public static void Fill(in Launch launch, Span<Vec3Mm> points)
-    {
-        for (int k = 0; k < points.Length; k++)
-        {
-            points[k] = Ballistic.PositionAt(in launch, k);
-        }
-    }
 }

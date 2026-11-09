@@ -1,3 +1,4 @@
+using PerformativeMail.Client.Core.Input;
 using PerformativeMail.Client.Core.Ui;
 using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Content;
@@ -61,6 +62,14 @@ public class PanelControllerTests
         public InteractionCheckKind Check() => kind;
     }
 
+    private static ImmediateAction Press(ushort actionId) => new(actionId, EdgeKind.Press, 0, 0, 0, ImmediateFlags.None);
+
+    private static void ShiftClick(PanelController c, (int X, int Y) at)
+    {
+        c.SetPointer(at.X, at.Y);
+        c.OnImmediate(Press(ActionId.QuickMove));
+    }
+
     private static (int X, int Y) CellCentre(int cx, int cy)
     {
         PxRect b = _layout.IntakeBounds(20, 16);
@@ -72,9 +81,9 @@ public class PanelControllerTests
     {
         var actions = new Actions();
         var c = new PanelController(new Source(), actions, new Gate(InteractionCheckKind.Ok), _layout);
-        (int x, int y) = CellCentre(4, 2);   // second cell of the 2x1 entry at (3,2)
 
-        Assert.Equal(PanelClickResult.Sent, c.OnShiftClick(x, y));
+        ShiftClick(c, CellCentre(4, 2));   // second cell of the 2x1 entry at (3,2)
+
         Assert.Equal(["qm 9 77"], actions.Sent);
     }
 
@@ -83,14 +92,14 @@ public class PanelControllerTests
     {
         var actions = new Actions();
         var source = new Source();
-        (int x, int y) = CellCentre(3, 2);
-        (int ex, int ey) = CellCentre(10, 10);
-
-        Assert.Equal(PanelClickResult.OutOfRange, new PanelController(source, actions, new Gate(InteractionCheckKind.OutOfRange), _layout).OnShiftClick(x, y));
+        var far = new PanelController(source, actions, new Gate(InteractionCheckKind.OutOfRange), _layout);
         var open = new PanelController(source, actions, new Gate(InteractionCheckKind.Ok), _layout);
-        Assert.Equal(PanelClickResult.Ignored, open.OnShiftClick(ex, ey));
+
+        ShiftClick(far, CellCentre(3, 2));
+        ShiftClick(open, CellCentre(10, 10));
         source.IsOpen = false;
-        Assert.Equal(PanelClickResult.Ignored, open.OnShiftClick(x, y));
+        ShiftClick(open, CellCentre(3, 2));
+
         Assert.Empty(actions.Sent);
     }
 
@@ -101,7 +110,7 @@ public class PanelControllerTests
         var source = new Source { SelectedSlot = 0 };
         var c = new PanelController(source, actions, new Gate(InteractionCheckKind.Ok), _layout);
 
-        Assert.True(c.OnHotbarKey(3));
+        c.OnImmediate(Press(ActionId.HotbarSlot3));
         Assert.Equal(2, c.SelectedSlot);       // before the mirror echoes
         source.SelectedSlot = 2;
         Assert.Equal(2, c.SelectedSlot);
@@ -116,8 +125,8 @@ public class PanelControllerTests
         var actions = new Actions { Accept = false };
         var c = new PanelController(new Source { SelectedSlot = 1 }, actions, new Gate(InteractionCheckKind.Ok), _layout);
 
-        Assert.False(c.OnHotbarKey(4));
+        c.OnImmediate(Press(ActionId.HotbarSlot4));
+
         Assert.Equal(1, c.SelectedSlot);
-        Assert.False(c.OnHotbarKey(9));
     }
 }

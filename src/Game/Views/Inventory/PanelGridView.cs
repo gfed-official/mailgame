@@ -8,7 +8,7 @@ namespace PerformativeMail.Game.Views.Inventory;
 
 /// <summary>
 /// The one custom-drawn inventory <c>Control</c> (grid-inventory 023/024, greybox): hotbar strip (always), own 8x2 grid and the open
-/// Intake 20x16 grid (while the panel is open). Shift-click quick-moves an Intake entry, keys 1 to 8 select a slot. All logic lives in
+/// Intake 20x16 grid (while the panel is open). Shift-click quick-moves an Intake entry, keys 1 to 8 select a slot, both through the router's immediates. All logic lives in
 /// <see cref="PanelController"/>; this node draws filled rects and strings only (no line primitives: 4.7 removed the feathering).
 /// </summary>
 public partial class PanelGridView : Control, IPresentedView
@@ -20,10 +20,12 @@ public partial class PanelGridView : Control, IPresentedView
     private static readonly Color _item = new(0.45f, 0.65f, 0.85f, 1f);
     private static readonly Color _ink = new(0.05f, 0.05f, 0.05f, 1f);
 
+    private static readonly string[] _slotNumbers = ["1", "2", "3", "4", "5", "6", "7", "8"];
+    private static readonly Dictionary<int, string> _labels = [];
+    private static readonly string[] _units = new string[256];
+
     private readonly IInventoryPanelSource _source;
-    private readonly IInventoryActions _actions;
-    private readonly IIntakeRangeGate _gate;
-    private PanelController _controller;
+    private readonly PanelController _controller;
     private PanelLayout _layout = new(1920, 1080);
     private Vector2I _viewSize;
 
@@ -34,14 +36,15 @@ public partial class PanelGridView : Control, IPresentedView
     public PanelGridView(IInventoryPanelSource source, IInventoryActions actions, IIntakeRangeGate gate)
     {
         _source = source;
-        _actions = actions;
-        _gate = gate;
         _controller = new PanelController(source, actions, gate, _layout);
         Name = "PanelGridView";
         FocusMode = FocusModeEnum.None;
         MouseFilter = MouseFilterEnum.Ignore;
         SetAnchorsPreset(LayoutPreset.FullRect);
     }
+
+    /// <summary>The panel logic; the boot assembly registers it as the router's hotbar-slot and Quick move sink.</summary>
+    public PanelController Controller => _controller;
 
     /// <inheritdoc />
     public void Present(int alphaPermille)
@@ -51,27 +54,12 @@ public partial class PanelGridView : Control, IPresentedView
         {
             _viewSize = size;
             _layout = new PanelLayout(size.X, size.Y);
-            _controller = new PanelController(_source, _actions, _gate, _layout);
+            _controller.Layout = _layout;
         }
 
+        Vector2 pointer = GetLocalMousePosition();
+        _controller.SetPointer((int)pointer.X, (int)pointer.Y);
         QueueRedraw();
-    }
-
-    /// <inheritdoc />
-    public override void _UnhandledInput(InputEvent @event)
-    {
-        if (@event is InputEventKey { Pressed: true, Echo: false } key && key.Keycode is >= Key.Key1 and <= Key.Key8)
-        {
-            if (_controller.OnHotbarKey((int)(key.Keycode - Key.Key1) + 1))
-            {
-                GetViewport().SetInputAsHandled();
-            }
-        }
-        else if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left, ShiftPressed: true } mouse
-            && _controller.OnShiftClick((int)mouse.Position.X, (int)mouse.Position.Y) != PanelClickResult.Ignored)
-        {
-            GetViewport().SetInputAsHandled();
-        }
     }
 
     /// <inheritdoc />
@@ -100,7 +88,7 @@ public partial class PanelGridView : Control, IPresentedView
         {
             PxRect r = _layout.HotbarSlot(i);
             Frame(r, i == selected ? _selected : _border, i == selected ? 3 : 2);
-            DrawString(font, new Vector2(r.X + 3, r.Y + 12), (i + 1).ToString(), HorizontalAlignment.Left, -1, 10, _border);
+            DrawString(font, new Vector2(r.X + 3, r.Y + 12), _slotNumbers[i], HorizontalAlignment.Left, -1, 10, _border);
             if (i == 0)
             {
                 DrawString(font, new Vector2(r.X + 4, r.Y + 30), "hands", HorizontalAlignment.Left, -1, 10, _border);
@@ -137,12 +125,18 @@ public partial class PanelGridView : Control, IPresentedView
     private void Glyph(PxRect r, ItemCategory category, ushort kind, byte units)
     {
         DrawRect(new Rect2(r.X + 2, r.Y + 2, r.W - 4, r.H - 4), category == ItemCategory.Mail ? _mail : _item);
-        string label = category == ItemCategory.Mail ? "L" + kind : "#" + kind;
+        int labelKey = ((category == ItemCategory.Mail ? 1 : 0) << 16) | kind;
+        if (!_labels.TryGetValue(labelKey, out string? label))
+        {
+            label = (category == ItemCategory.Mail ? "L" : "#") + kind;
+            _labels[labelKey] = label;
+        }
+
         Font font = ThemeDB.FallbackFont;
         DrawString(font, new Vector2(r.X + 6, r.Y + 20), label, HorizontalAlignment.Left, -1, 14, _ink);
         if (units > 1)
         {
-            DrawString(font, new Vector2(r.X + 6, r.Y + r.H - 6), "x" + units, HorizontalAlignment.Left, -1, 11, _ink);
+            DrawString(font, new Vector2(r.X + 6, r.Y + r.H - 6), _units[units] ??= "x" + units, HorizontalAlignment.Left, -1, 11, _ink);
         }
     }
 

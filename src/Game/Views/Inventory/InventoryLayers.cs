@@ -1,4 +1,5 @@
 using Godot;
+using PerformativeMail.Client.Core.Input;
 using PerformativeMail.Client.Core.Ui;
 using PerformativeMail.Game.Presentation;
 
@@ -30,10 +31,17 @@ public static class InventoryLayers
     /// <param name="source">The panel read model.</param>
     /// <param name="actions">The op sender.</param>
     /// <param name="gate">The Intake range gate.</param>
+    /// <param name="router">The input router: the panel becomes the sink of keys 1 to 8 and Quick move; null leaves them unsunk.</param>
     /// <returns>The layer.</returns>
-    public static InventoryLayer Install(HudPresenter hud, IInventoryPanelSource source, IInventoryActions actions, IIntakeRangeGate gate)
+    public static InventoryLayer Install(HudPresenter hud, IInventoryPanelSource source, IInventoryActions actions, IIntakeRangeGate gate, InputRouter? router)
     {
-        var layer = new InventoryLayer(new PanelGridView(source, actions, gate));
+        var view = new PanelGridView(source, actions, gate);
+        if (router is not null)
+        {
+            view.Controller.RegisterSinks(router);
+        }
+
+        var layer = new InventoryLayer(view);
         hud.AddLayer(layer, InventoryOrder);
         return layer;
     }

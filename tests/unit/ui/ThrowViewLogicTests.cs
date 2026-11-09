@@ -1,6 +1,5 @@
 using PerformativeMail.Client.Core.Ui.Throwing;
 using PerformativeMail.Sim.Geometry;
-using PerformativeMail.Sim.ThrowingCatching;
 
 namespace PerformativeMail.Sim.Tests.Unit.Ui;
 
@@ -8,16 +7,6 @@ namespace PerformativeMail.Sim.Tests.Unit.Ui;
 public class ThrowViewLogicTests
 {
     private static Px[] Line(int n) => Enumerable.Range(0, n).Select(i => new Px(i * 10, 0)).ToArray();
-
-    [Fact]
-    public void ArcSampler_matches_the_sim_ballistic_at_every_tick()
-    {
-        var launch = new Launch(new Vec3Mm(10000, 1500, 10000), new Vec3Mm(8000, 6000, 3000), 9800);
-        var pts = new Vec3Mm[31];
-        ArcSampler.Fill(in launch, pts);
-        Assert.Equal(Ballistic.PositionAt(in launch, 20), pts[20]);
-        Assert.Equal(launch.Origin, pts[0]);
-    }
 
     [Fact]
     public void Solid_stroke_is_continuous_dashed_stroke_has_gaps()

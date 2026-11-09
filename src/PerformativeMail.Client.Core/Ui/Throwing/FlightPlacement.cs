@@ -1,4 +1,4 @@
-using PerformativeMail.Sim.Geometry;
+using PerformativeMail.Sim.Hosting;
 
 namespace PerformativeMail.Client.Core.Ui.Throwing;
 
@@ -26,7 +26,7 @@ public static class FlightPlacements
         long y = f.From.Y + ((f.To.Y - f.From.Y) * a / 1000);
         long z = f.From.Z + ((f.To.Z - f.From.Z) * a / 1000);
         long ticksE3 = (renderTick * 1000L) + a;
-        long turnsE5 = ((f.FlightId * 7919L % 100_000) + (ticksE3 * 2 * 100_000 / 30_000)) % 100_000;
+        long turnsE5 = ((f.FlightId * 7919L % 100_000) + (ticksE3 * 2 * 100_000 / (TickRate.Hz * 1000L))) % 100_000;
         return new FlightPlacement((int)x, (int)y, (int)z, (int)turnsE5);
     }
 

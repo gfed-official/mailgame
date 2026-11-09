@@ -1,3 +1,5 @@
+using PerformativeMail.Client.Core.Input;
+using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Client.Core.Ui;
@@ -21,16 +23,19 @@ public enum PanelClickResult : byte
 /// <summary>
 /// The panel's interaction logic (grid-inventory 024, minimal): Shift-click quick-moves an Intake entry to the panel behind the
 /// <c>CheckInteraction</c> range gate, and keys 1 to 8 select a hotbar slot, shown at once and reconciled with the mirror. No drag, rotate or drop.
+/// Both arrive as the router's immediates (<see cref="ActionId.HotbarSlot1"/> to <see cref="ActionId.HotbarSlot8"/>, <see cref="ActionId.QuickMove"/>),
+/// so the action map's bindings and context gates apply (ADR-0012 section 6); the view only supplies the pointer.
 /// </summary>
-/// <example><code>var c = new PanelController(src, actions, gate, new PanelLayout(w, h)); c.OnShiftClick(x, y); c.OnHotbarKey(3);</code></example>
-public sealed class PanelController
+/// <example><code>var c = new PanelController(src, actions, gate, new PanelLayout(w, h)); c.RegisterSinks(router); c.SetPointer(x, y);</code></example>
+public sealed class PanelController : IImmediateActionSink
 {
     private readonly IInventoryPanelSource _source;
     private readonly IInventoryActions _actions;
     private readonly IIntakeRangeGate _gate;
-    private readonly PanelLayout _layout;
     private int _predicted = -1;
     private int _lastMirror = -1;
+    private int _pointerX = -1;
+    private int _pointerY = -1;
 
     /// <summary>Creates the controller.</summary>
     /// <param name="source">The panel read model.</param>
@@ -42,8 +47,11 @@ public sealed class PanelController
         _source = source;
         _actions = actions;
         _gate = gate;
-        _layout = layout;
+        Layout = layout;
     }
+
+    /// <summary>The current layout; the view replaces it when the viewport size changes.</summary>
+    public PanelLayout Layout { get; set; }
 
     /// <summary>The slot to highlight: the key just pressed until the mirror changes, else the mirror's.</summary>
     public int SelectedSlot
@@ -58,6 +66,45 @@ public sealed class PanelController
             }
 
             return _predicted >= 0 ? _predicted : mirror;
+        }
+    }
+
+    /// <summary>Registers this controller as the sink of the eight hotbar-slot actions and of Quick move.</summary>
+    /// <param name="router">The input router.</param>
+    public void RegisterSinks(InputRouter router)
+    {
+        for (ushort id = ActionId.HotbarSlot1; id <= ActionId.HotbarSlot8; id++)
+        {
+            router.RegisterSink(id, this);
+        }
+
+        router.RegisterSink(ActionId.QuickMove, this);
+    }
+
+    /// <summary>The pointer in panel pixels, sampled by the view each frame; Quick move hit-tests it.</summary>
+    /// <param name="x">Pointer x.</param>
+    /// <param name="y">Pointer y.</param>
+    public void SetPointer(int x, int y)
+    {
+        _pointerX = x;
+        _pointerY = y;
+    }
+
+    /// <inheritdoc />
+    public void OnImmediate(in ImmediateAction a)
+    {
+        if (a.EdgeKind != EdgeKind.Press)
+        {
+            return;
+        }
+
+        if (a.ActionId == ActionId.QuickMove)
+        {
+            _ = OnShiftClick(_pointerX, _pointerY);
+        }
+        else if (a.ActionId is >= ActionId.HotbarSlot1 and <= ActionId.HotbarSlot8)
+        {
+            _ = OnHotbarKey(a.ActionId - ActionId.HotbarSlot1 + 1);
         }
     }
 
@@ -93,7 +140,7 @@ public sealed class PanelController
             return PanelClickResult.Ignored;
         }
 
-        uint entry = PanelLayout.EntryAt(intake, _layout.IntakeBounds(intake.Width, intake.Height), px, py);
+        uint entry = PanelLayout.EntryAt(intake, Layout.IntakeBounds(intake.Width, intake.Height), px, py);
         if (entry == 0)
         {
             return PanelClickResult.Ignored;
