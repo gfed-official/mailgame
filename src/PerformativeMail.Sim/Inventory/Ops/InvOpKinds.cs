@@ -8,7 +8,7 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// grid-inventory/004). Values follow ADR-0009 section 1's table order, are append-only and never reused. The M-1a kinds have a
 /// descriptor in <see cref="InvOpDescriptors"/>; <c>MoveGroup</c>, <c>QuickMoveGroup</c>, <c>Split</c>, <c>TakeAll</c> and <c>Sort</c> are
 /// reserved here and registered at M1. <c>DeliverMatching</c> is Delivery's (block <c>0x0100-0x013F</c>, ADR-0009 erratum 2026-10-16);
-/// the throw op is Throwing's <c>ThrowRelease</c>. Kept in the owning module (as <see cref="CorePlayerOps"/> keeps Sim Core's
+/// the throw op is Throwing's <c>ThrowRelease</c>; <c>Open</c> is Player Character's (<c>PlayerOpKinds.Open</c>, story 019). Kept in the owning module (as <see cref="CorePlayerOps"/> keeps Sim Core's
 /// descriptors) so Sim Core's enum never names a system's ops; <c>0x00F0</c> stays unassigned (Sim Core tests use it as "unregistered").
 /// </summary>
 /// <example><code>var op = new Op { Kind = InvOpKinds.Move, ReqId = 7 };</code></example>
@@ -50,8 +50,8 @@ public static class InvOpKinds
     /// <summary>Pick up a world item (range-gated).</summary>
     public const OpKind Pickup = (OpKind)0x008B;
 
-    /// <summary>Open a container (range-gated).</summary>
-    public const OpKind Open = (OpKind)0x008C;
+    // 0x008C (Open) is retired, never reused: the range-gated Open moved to the Players block as PlayerOpKinds.Open (grid-inventory
+    // story 019, proposed ADR-0009 erratum), as the approved erratum of 2026-10-29 moves Drop.
 
     /// <summary>Close a container.</summary>
     public const OpKind Close = (OpKind)0x008D;
@@ -64,7 +64,7 @@ public static class InvOpKinds
 /// The descriptors of the M-1a inventory kinds (ADR-0007 section 4; ADR-0009 sections 1-2). <see cref="InventorySystem"/> binds
 /// <see cref="Pick"/> and <see cref="Move"/> (story 007), <see cref="Merge"/> (story 008), <see cref="QuickMove"/> and
 /// <see cref="Return"/> (story 010) and <see cref="Close"/> (story 011); the others are not bound yet: a declared kind without a handler
-/// fails <c>Freeze</c> (<c>MissingOpHandler</c>), and their handlers are story 019's. Wire codec ids
+/// fails <c>Freeze</c> (<c>MissingOpHandler</c>); <c>Drop</c> waits on story 020 and <c>Pickup</c> on the rest of story 019. Wire codec ids
 /// and sizes are 0 (unassigned) until the network-adapter-loopback epic assigns them. Reasons are the inventory codes each kind's ADR-0009
 /// chain can return (the precedence chains themselves are the handler stories'); every block-acquiring kind (<c>Move</c>, <c>Merge</c>,
 /// <c>QuickMove</c>, <c>Pickup</c>, <c>Return</c>) declares <c>(kind, 85) capacity_exhausted</c>. <c>bad_request</c> is Core's 8 and is
@@ -113,18 +113,13 @@ public static class InvOpDescriptors
         R(InvReason.OutOfRange), R(InvReason.PositionStale), R(InvReason.StaleEntry), R(InvReason.NoRoom), R(InvReason.NoTarget),
         R(InvReason.ContainerGone), R(InvReason.CapacityExhausted));
 
-    /// <summary><see cref="InvOpKinds.Open"/>: 16 B; the P13 range chain (no_target, out_of_range, position_stale) and container_gone.</summary>
-    public static OpDescriptor Open { get; } = OpDescriptor.For<OpenPayload>(
-        InvOpKinds.Open, false, 0, 0,
-        R(InvReason.OutOfRange), R(InvReason.PositionStale), R(InvReason.ContainerGone), R(InvReason.NoTarget));
-
     /// <summary><see cref="InvOpKinds.Close"/>: 4 B; not_open, container_gone.</summary>
     public static OpDescriptor Close { get; } = OpDescriptor.For<ClosePayload>(
         InvOpKinds.Close, false, 0, 0,
         R(InvReason.NotOpen), R(InvReason.ContainerGone));
 
     /// <summary>Every M-1a inventory descriptor, in ascending kind order.</summary>
-    public static ImmutableArray<OpDescriptor> All { get; } = ImmutableArray.Create(Pick, Move, Merge, QuickMove, Return, Drop, Pickup, Open, Close);
+    public static ImmutableArray<OpDescriptor> All { get; } = ImmutableArray.Create(Pick, Move, Merge, QuickMove, Return, Drop, Pickup, Close);
 
     private static ReasonDef R(InvReason reason) => InvReasons.Def(reason);
 }

@@ -1,9 +1,9 @@
 using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Geometry;
-using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Players.Client;
+using PerformativeMail.Sim.Players.Ops;
 using PerformativeMail.Sim.Primitives;
 
 namespace PerformativeMail.Sim.Tests.Unit.PlayerCharacter;

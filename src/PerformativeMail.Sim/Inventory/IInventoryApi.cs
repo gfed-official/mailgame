@@ -376,4 +376,36 @@ public interface IInventoryApi
     /// <returns>The decision.</returns>
     /// <example><code>DetachCheck c = inventory.CheckDetachForThrow(slot, payload.EntryId, payload.Units, out byte index);</code></example>
     DetachCheck CheckDetachForThrow(PlayerSlot slot, uint rawEntryId, byte units, out byte hotbarIndex);
+
+    /// <summary>
+    /// The Post Office Intake container (<c>po_intake</c>), created with the module (story 019: Player Character registers its console
+    /// anchor). Read-only. The default body (none) serves test doubles that have no Intake.
+    /// </summary>
+    ContainerId IntakeContainer => ContainerId.None;
+
+    /// <summary>
+    /// The pure half of opening <paramref name="c"/> as <paramref name="slot"/>'s external container (story 019; the Validate/Commit split
+    /// of story 011's <c>TryOpenExternal</c> decision, for Player Character's range-gated <c>Open</c> handler; proposed ADR-0009 erratum).
+    /// Returns 0 when <see cref="CommitOpenExternal"/> would open it, else the first of: <c>bad_request</c> (as <c>(InvReason)</c>
+    /// <see cref="InvReasons.BadRequest"/>) for a none id or one never issued; <see cref="InvReason.ContainerGone"/> for an issued
+    /// container that is no longer live; <c>bad_request</c> for a none slot or a container with an owner slot (a panel or cursor is never
+    /// another's external, and always its owner's). Reads state only; legal between ticks. The default body (<c>bad_request</c>) serves
+    /// test doubles that cannot open anything.
+    /// </summary>
+    /// <param name="slot">The opening player's slot.</param>
+    /// <param name="c">The container.</param>
+    /// <returns>0 or the refusal.</returns>
+    InvReason ValidateOpenExternal(PlayerSlot slot, ContainerId c) => (InvReason)InvReasons.BadRequest;
+
+    /// <summary>
+    /// Opens <paramref name="c"/> as <paramref name="slot"/>'s external container (story 019, the commit half of
+    /// <see cref="ValidateOpenExternal"/>, which must have returned 0 in the same op): the slot's previous external is closed for that slot
+    /// only, then <paramref name="c"/> is recorded and the slot subscribed to it (story 011). No record, no version, no tick guard (it
+    /// changes no container). Never fails after a passing validate. Allocation-free.
+    /// </summary>
+    /// <param name="slot">The opening player's slot.</param>
+    /// <param name="c">The container.</param>
+    void CommitOpenExternal(PlayerSlot slot, ContainerId c)
+    {
+    }
 }

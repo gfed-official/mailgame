@@ -27,7 +27,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// <c>IntakeDrain</c> phase (the backlog drain, story 021: <see cref="DrainBacklog"/>), the tick-end conservation check (story 017: <see cref="ConservationCheck"/>), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
 /// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>), <c>Merge</c> (story 008),
 /// <c>QuickMove</c> and <c>Return</c> (story 010; <see cref="QuickMoveHandler"/>, <see cref="ReturnHandler"/>) and <c>Close</c> (story
-/// 011); the other kinds' handlers are story 019's. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
+/// 011); <c>Open</c> is Player Character's handler over <see cref="ValidateOpenExternal"/> and <see cref="CommitOpenExternal"/> (story
+/// 019), and <c>Pickup</c>'s is the rest of story 019. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
 /// <c>BindSnapshotSource</c> yet). Every container, entry and
 /// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
 /// <see cref="Subscribers"/> set, which the open set (<see cref="OpenSet"/>, story 011) keeps in step. Storage is preallocated from
@@ -438,8 +439,8 @@ public sealed partial class InventorySystem : ISimSystem, IPlayerJoinListener, I
     }
 
     /// <summary>
-    /// Makes <paramref name="c"/> <paramref name="slot"/>'s external container (GDD R10; story 011; called by story 019's range-gated
-    /// <c>Open</c> handler): an external that slot already had is closed for that slot only (its subscriber bit cleared; other slots'
+    /// Makes <paramref name="c"/> <paramref name="slot"/>'s external container (GDD R10; story 011; reached through <see cref="CommitOpenExternal"/>
+    /// by Player Character's range-gated <c>Open</c> handler, story 019): an external that slot already had is closed for that slot only (its subscriber bit cleared; other slots'
     /// bits are untouched), then <paramref name="c"/> is recorded and the slot's bit set in its <see cref="Subscribers"/> mask, so its
     /// records reach the slot from the next raise. No record, no version, no tick guard (it changes no container). False with nothing
     /// changed for a none slot, a dead or never-issued id, or a container with an owner slot (a panel or cursor is always in its owner's
@@ -464,6 +465,30 @@ public sealed partial class InventorySystem : ISimSystem, IPlayerJoinListener, I
         _openSet.SetExternal(slot, c);
         _subscribers.Add(containerSlot, slot);
         return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The same refusals as <see cref="TryOpenExternal"/>, split into reasons; <c>bad_request</c>'s id bound is <see cref="ContainerTable.NextId"/>, as the request check's.</remarks>
+    public InvReason ValidateOpenExternal(PlayerSlot slot, ContainerId c)
+    {
+        if (c.IsNone || c.Value >= _containers.NextId)
+        {
+            return (InvReason)InvReasons.BadRequest;
+        }
+
+        if (!_containers.TryGetSlot(c, out ushort containerSlot))
+        {
+            return InvReason.ContainerGone;
+        }
+
+        return slot.IsNone || _containers[containerSlot].OwnerSlot != ContainerHeader.NoOwner ? (InvReason)InvReasons.BadRequest : 0;
+    }
+
+    /// <inheritdoc />
+    public void CommitOpenExternal(PlayerSlot slot, ContainerId c)
+    {
+        // ValidateOpenExternal passed earlier in the same op, so TryOpenExternal cannot refuse.
+        _ = TryOpenExternal(slot, c);
     }
 
     /// <summary>

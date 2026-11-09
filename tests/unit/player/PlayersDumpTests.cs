@@ -139,7 +139,7 @@ public class PlayersDumpTests
     public void Dump_HasAPlayersSection_AfterSimCore_AndAJoinChangesIt()
     {
         // Arrange
-        var rig = PlayersRig.Create();
+        var rig = PlayersRig.Create().WithoutIntakeAnchor();
         byte[] before = PlayersSection(rig);
 
         // Act
@@ -157,7 +157,7 @@ public class PlayersDumpTests
     public void Dump_AfterLeave_ReturnsToTheEmptyPlayersSection()
     {
         // Arrange
-        var rig = PlayersRig.Create();
+        var rig = PlayersRig.Create().WithoutIntakeAnchor();
         rig.JoinAndTick(2);
 
         // Act
@@ -173,7 +173,7 @@ public class PlayersDumpTests
     public void Section_WritesSlotsInAscendingOrder_FieldByField_InTheDocumentedLayout()
     {
         // Arrange: slot 3 joins before slot 0, yet slot 0 is written first.
-        var rig = PlayersRig.Create();
+        var rig = PlayersRig.Create().WithoutIntakeAnchor();
         rig.JoinAndTick(3);
         rig.JoinAndTick(0);
         ref PlayerRecord r0 = ref rig.Record(0);
