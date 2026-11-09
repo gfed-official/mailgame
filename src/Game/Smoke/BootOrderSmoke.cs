@@ -17,7 +17,7 @@ namespace PerformativeMail.Game.Smoke;
 /// asserts: the nine status lines in ascending order with no FAIL and which steps are NOT WIRED; the step 1
 /// <c>MinSize</c> read-back (or, if it differs headless, the logged read-back line) and every <c>BOOT env</c> line,
 /// <c>Sim.AssertsEnabled == OS.IsDebugBuild()</c> in an unoptimised (Debug) game build, the logged boot thread; the step 2
-/// table counts and hash; the empty step 3/4 slots; the error screen installed as the fault sink and hidden; the loopback
+/// table counts and hash; the empty step 3 slot and step 4's <c>InputBoot</c>; the error screen installed as the fault sink and hidden; the loopback
 /// presence defaulted; a refused second <c>RequestBoot</c>; <c>StartPending</c> right after boot and, one frame later, the
 /// rig's driver started by <c>_Process</c>.
 /// </summary>
@@ -166,7 +166,7 @@ public sealed class BootOrderSmoke : SmokeScenario
         }
 
         Expect(ctx, "step 3 slot line", BootSmokeFaults.Logged(lines, "BOOT 3 persistence: no contributor"), true);
-        Expect(ctx, "step 4 slot line", BootSmokeFaults.Logged(lines, "BOOT 4 input: no contributor"), true);
+        Expect(ctx, "step 4 slot line", BootSmokeFaults.Logged(lines, "BOOT 4 input: contributor InputBoot"), true);
     }
 
     private static void CheckHostState(SmokeContext ctx, GameLoop loop)
