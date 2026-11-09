@@ -71,6 +71,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
     /// option (a), approved by Evan 2026-11-04 6:47 AM PT by card click (card t265s1214): "Approve A2 (TD-208 item 2) option (a):
     /// slot-to-player lookup, no ADR change, as listed in your message above"; the parameter is uncredited Mail Lead planning detail).
     /// </param>
+    /// <param name="playerScale">The team <c>playerScale</c> from the profile's shift stub settings (TD-193 item 4); solo (1000 permille) when null.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="SimBuildException"><c>MailRegistryInvalid</c> when the destination registry rejects the world's lots or the content (TD-079 item 5).</exception>
     public MailSystem(
@@ -85,7 +86,8 @@ public sealed class MailSystem : ISimSystem, IMailApi
         IStatSheet stats,
         SimCheckRing checkRing,
         SimCounters counters,
-        ISlotView slots)
+        ISlotView slots,
+        PlayerScale? playerScale = null)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(mailIds);
@@ -111,9 +113,9 @@ public sealed class MailSystem : ISimSystem, IMailApi
 
         // Until story 009 adds player scaling, the team cap is the solo value of 40 points at any player count; with 8 players the
         // formula would give 155. Mail Dev default, approved by Evan 2026-11-03 9:15 PM PT by card click (TD-193 item 4).
-        // Implementation detail (Mail Dev, not part of Evan's ruling): playerScale arrives with the deliveries/shift input (story 009);
-        // until then the buckets are built with 1000 permille.
-        _complaints = new ComplaintBuckets(_registry, content.Mail, SoloPlayerScalePm, counters);
+        // Implementation detail (Mail Dev, not part of Evan's ruling): story 009 now passes the composition profile's playerScalePm
+        // (ShiftStubSettings.PlayerScalePm, 1000 permille by default; placement pending Evan, TD-211); 1000 when none is passed.
+        _complaints = new ComplaintBuckets(_registry, content.Mail, playerScale?.Permille ?? SoloPlayerScalePm, counters);
         _consumer = new MailConsumer(
             this, events, inventory, wallet, stats, slots, counters, checkRing, _table, _registry, _complaints, content);
     }
@@ -157,7 +159,7 @@ public sealed class MailSystem : ISimSystem, IMailApi
     /// <summary>The mail table (tests create rows through it).</summary>
     internal MailTable Table => _table;
 
-    /// <summary>The <c>playerScale</c> the complaint buckets are built with until story 009 passes Run Structure's (n = 1).</summary>
+    /// <summary>The solo <c>playerScale</c> (n = 1), permille: the default when the composition passes none.</summary>
     internal const int SoloPlayerScalePm = 1000;
 
     /// <summary>The wallet port this module was given (tests: the composition root's injection).</summary>
@@ -226,7 +228,14 @@ public sealed class MailSystem : ISimSystem, IMailApi
 
     /// <inheritdoc />
     public void SetDeliveriesState(bool open, uint closeTick, ulong unlockedDistrictMask)
-        => SimAssert.Fail(SimAssertCode.MailApiNotImplemented); // story 009
+    {
+        if (!TickGuard.IsMutable(_tick, _counters))
+        {
+            return;
+        }
+
+        _registry.Deliveries.Set(open, closeTick, unlockedDistrictMask);
+    }
 
     /// <inheritdoc />
     public bool TryGetDestinationFacts(EntityId dest, out DestinationFacts f) => _registry.TryGetDestinationFacts(dest, out f);

@@ -5,7 +5,9 @@ using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.MailDestinations;
 using PerformativeMail.Sim.MailDestinations.Ports;
+using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Sim.Tests.Unit.Architecture;
@@ -495,6 +497,8 @@ internal static class CompositionRules
             new("ITickReader", Is<ITickReader>, Any),
             new("IWorldQuery (read-only world, ADR-0026)", Is<IWorldQuery>, Any),
             new("IRunControl (Run Structure only)", Is<IRunControl>, id => id == SystemId.RunStructure),
+            new("ShiftStubSettings (Run Structure only; composition-profile record, proposed, TD-211)", Is<ShiftStubSettings>, id => id == SystemId.RunStructure),
+            new("PlayerScale (Mail only; from the composition profile, TD-193 item 4)", Is<PlayerScale>, id => id == SystemId.MailDestinations),
             new("ContentSet", Is<ContentSet>, Any),
             new("ContentSet sub-table", subTables.Contains, Any),
             new("IStatSheet", t => t.IsInterface && t.Name == "IStatSheet", Any),

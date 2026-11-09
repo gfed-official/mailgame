@@ -4,7 +4,7 @@ namespace PerformativeMail.Sim.Core;
 
 /// <summary>
 /// An inclusive range of <see cref="OpKind"/> values owned by one system (ADR-0007 section 4). Later systems
-/// take 64-wide blocks from 0x01C0 by amending the ADR and appending a block here.
+/// take 64-wide blocks from 0x0200 (Run holds 0x01C0, proposed, pending Evan, TD-211) by amending the ADR and appending a block here.
 /// </summary>
 /// <example>
 /// <code>
@@ -51,6 +51,9 @@ public readonly record struct OpKindBlock
     /// <summary>Economy: 0x0180 to 0x01BF (ADR-0007 section 4 amendment 2026-10-28; first kind <c>WalletChanged</c> 0x0180, mail-destinations story 005).</summary>
     public static OpKindBlock Economy => new("Economy", 0x0180, 0x01BF);
 
+    /// <summary>Run: 0x01C0 to 0x01FF (proposed ADR-0007 section 4 amendment, pending Evan (TD-211); first kind <c>DeliveriesState</c> 0x01C0, mail-destinations story 009).</summary>
+    public static OpKindBlock Run => new("Run", 0x01C0, 0x01FF);
+
     /// <summary>Every defined block in ascending, disjoint order. Append new blocks here when ADR-0007 section 4 is amended.</summary>
     /// <remarks>Backed by a separate holder type: a static <c>ImmutableArray&lt;OpKindBlock&gt;</c> field on the struct itself fails to load on the .NET 8 runtime.</remarks>
     public static ImmutableArray<OpKindBlock> All => OpKindBlockTable.Blocks;
@@ -90,5 +93,5 @@ internal static class OpKindBlockTable
 {
     /// <summary>The blocks, ascending and disjoint.</summary>
     public static readonly ImmutableArray<OpKindBlock> Blocks = ImmutableArray.Create(
-        OpKindBlock.Core, OpKindBlock.Players, OpKindBlock.Inventory, OpKindBlock.MailDelivery, OpKindBlock.Throwing, OpKindBlock.Economy);
+        OpKindBlock.Core, OpKindBlock.Players, OpKindBlock.Inventory, OpKindBlock.MailDelivery, OpKindBlock.Throwing, OpKindBlock.Economy, OpKindBlock.Run);
 }

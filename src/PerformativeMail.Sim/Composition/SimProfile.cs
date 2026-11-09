@@ -1,4 +1,5 @@
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.Sim.Composition;
 
@@ -21,8 +22,9 @@ public sealed class SimProfile
     private readonly SystemId[] _systems;
     private readonly SimSystemFactory[]? _factories;
 
-    private SimProfile(string name, SystemId[] systems, SimSystemFactory[]? factories, SystemGraph graph)
+    private SimProfile(string name, SystemId[] systems, SimSystemFactory[]? factories, SystemGraph graph, ShiftStubSettings? shiftStub = null)
     {
+        ShiftStub = shiftStub ?? new ShiftStubSettings();
         Name = name;
         _systems = systems;
         _factories = factories;
@@ -41,6 +43,23 @@ public sealed class SimProfile
 
     /// <summary>Every shipped Sim system, in <see cref="SimComposition.ShippedOrder"/>.</summary>
     public static SimProfile Full => new("Full", SimComposition.ShippedOrder.ToArray(), null, SystemGraph.Shipped);
+
+    /// <summary>
+    /// The M-1a shift stub's greybox settings (mail-destinations story 009): composition-profile data, not a balance key and not content
+    /// (proposed, pending Evan, TD-211). Also supplies Mail's <c>playerScalePm</c>.
+    /// </summary>
+    public ShiftStubSettings ShiftStub { get; }
+
+    /// <summary>A copy of this profile with the given shift stub settings.</summary>
+    /// <param name="settings">The settings.</param>
+    /// <returns>The new profile.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="settings"/> is null.</exception>
+    /// <example><code>SimProfile p = SimProfile.M1aGreybox.WithShiftStub(new ShiftStubSettings { PrepTicks = 60 });</code></example>
+    public SimProfile WithShiftStub(ShiftStubSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        return new SimProfile(Name, _systems, _factories, Graph, settings);
+    }
 
     /// <summary>The profile's name (diagnostics only).</summary>
     public string Name { get; }
