@@ -36,8 +36,9 @@ internal sealed class EdgeQueue
     /// <param name="routerStateId">The router state the press was gated against.</param>
     /// <param name="device">The device class.</param>
     /// <param name="opensClosingEdge">True for a press that will be closed by a Release or Cancel edge.</param>
+    /// <param name="target">The presented target an Interact press carries (story 012); <c>default</c> for every other press.</param>
     /// <returns>False when the ring is full: the press is dropped and counted.</returns>
-    public bool TryPushPress(FrameAction action, ushort routerStateId, DeviceClass device, bool opensClosingEdge)
+    public bool TryPushPress(FrameAction action, ushort routerStateId, DeviceClass device, bool opensClosingEdge, in PresentedPrompt target = default)
     {
         int needed = opensClosingEdge ? 2 : 1;
         if (_count + _reserved + needed > Capacity)
@@ -46,7 +47,7 @@ internal sealed class EdgeQueue
             return false;
         }
 
-        Append(action, EdgeKind.Press, EdgeReason.None, routerStateId, device);
+        Append(action, EdgeKind.Press, EdgeReason.None, routerStateId, device, in target);
         if (opensClosingEdge)
         {
             _reserved++;
@@ -70,7 +71,7 @@ internal sealed class EdgeQueue
         }
 
         _reserved--;
-        Append(action, kind, reason, routerStateId, device);
+        Append(action, kind, reason, routerStateId, device, default);
     }
 
     /// <summary>
@@ -112,9 +113,10 @@ internal sealed class EdgeQueue
         _count = 0;
     }
 
-    private void Append(FrameAction action, EdgeKind kind, EdgeReason reason, ushort routerStateId, DeviceClass device)
+    private void Append(FrameAction action, EdgeKind kind, EdgeReason reason, ushort routerStateId, DeviceClass device, in PresentedPrompt target)
     {
-        _ring[(_head + _count) & Mask] = new InputEdge(action, kind, _nextSeq, routerStateId, reason, (byte)device);
+        _ring[(_head + _count) & Mask] = new InputEdge(
+            action, kind, _nextSeq, routerStateId, reason, (byte)device, target.Anchor.Entity.Value, target.Anchor.Slot, target.Seq);
         _nextSeq = unchecked((ushort)(_nextSeq + 1));
         _count++;
     }
