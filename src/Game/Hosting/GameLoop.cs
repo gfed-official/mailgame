@@ -566,12 +566,14 @@ public partial class GameLoop : Node
     private BootOptions NewBootOptions()
     {
         BootOptions? smoke = _smokeBootOptions;
+        IReadOnlyList<string> userArgs = smoke?.UserArgs ?? OS.GetCmdlineUserArgs();
         return new BootOptions
         {
             Clock = smoke?.Clock ?? new StopwatchMonotonicClock(),
             Seed = smoke?.Seed,
             FixtureProfile = smoke?.FixtureProfile,
-            UserArgs = smoke?.UserArgs ?? OS.GetCmdlineUserArgs(),
+            UserArgs = userArgs,
+            Playtest = smoke?.Playtest ?? PlaytestArgs.Parse(userArgs, OS.IsDebugBuild()),
         };
     }
 
@@ -600,6 +602,11 @@ public partial class GameLoop : Node
         if (_inputBoot is { Router: not null } input)
         {
             input.AttachToLoop(this);
+        }
+
+        if (ctx.Options.Playtest.AtMailbox && OS.IsDebugBuild())
+        {
+            AddChild(new PlaytestAutopilot(booted));
         }
     }
 

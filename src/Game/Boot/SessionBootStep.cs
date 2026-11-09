@@ -56,7 +56,7 @@ public sealed class SessionBootStep : IBootStep
         }
 
         (ulong seed, string seedSource) = ResolveSeed(ctx.Options);
-        SimProfile profile = ctx.Options.FixtureProfile ?? SimProfile.M1aGreybox;
+        SimProfile profile = ctx.Options.Playtest.Apply(ctx.Options.FixtureProfile ?? SimProfile.M1aGreybox);
         IWorldSource worldSource = M1aWorldSource.Instance;
 
         // The client's carrier step reads its own world copy, settings and static stat sheet; never the host world.
@@ -71,6 +71,13 @@ public sealed class SessionBootStep : IBootStep
         ctx.Log.Write(string.Create(
             CultureInfo.InvariantCulture,
             $"BOOT 5 session: loopback HostSession profile={profile.Name} seed={seed} ({seedSource}) world_source={worldSource.Kind}v{worldSource.Version} clock_frequency={clock.Frequency} catch_up_cap={content.Settings.Core.MaxCatchUpTicksPerFrame} catch_up_guard_ms={FrameRunnerSettings.Default.CatchUpGuardMs}"));
+        if (ctx.Options.Playtest.Any)
+        {
+            ctx.Log.Write(string.Create(
+                CultureInfo.InvariantCulture,
+                $"BOOT 5 session: playtest flags {ctx.Options.Playtest.Describe()} prep_ticks={profile.ShiftStub.PrepTicks} delivery_s={profile.ShiftStub.DeliverySeconds}"));
+        }
+
         // The local peer is admitted into slot 0 (HostSession), so its own launches take the local verdict.
         var mirrors = new ClientMirrors(new ThrowSettings(content.Throw), PlayerSlot.FromValue(0));
         IClientInputSettings input = ctx.Published.TryGet(out InputSettingsHolder? held) ? held : new DefaultClientInputSettings();
