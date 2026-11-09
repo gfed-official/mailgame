@@ -32,7 +32,7 @@ public readonly record struct HandResponse(HandBeat Beat, StringId ReasonKey, bo
 
 /// <summary>
 /// MD7's reply → hand-response table (manual-delivery story 006 AC-1, the data half). A pure lookup over the reply and the hold's
-/// latched branch; it starts nothing. The beat controller that plays it from <c>PresentationEventStream</c> cursors is not built yet.
+/// latched branch; it starts nothing. <see cref="HandBeatController"/> plays it from its <c>PresentationEventStream</c> cursor.
 /// The 5 s timeout row is not a reply and is not in this table.
 /// </summary>
 /// <example><code>HandResponse r = HandResponseTable.For(in reply, DeliverBranchKind.Match);   // (SlotInRiffle, None, true) for k = 3</code></example>
