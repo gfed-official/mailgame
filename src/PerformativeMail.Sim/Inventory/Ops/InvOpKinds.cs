@@ -107,9 +107,9 @@ public static class InvOpDescriptors
         R(InvReason.NotOpen), R(InvReason.StaleEntry), R(InvReason.NotAllowed), R(InvReason.NoRoom), R(InvReason.ContainerGone),
         R(InvReason.CapacityExhausted), R(InvReason.BadCount));
 
-    /// <summary><see cref="InvOpKinds.TakeAll"/>: 12 B; not_open, no_target (nothing matches), no_room (nothing fits), container_gone, capacity_exhausted.</summary>
+    /// <summary><see cref="InvOpKinds.TakeAll"/>: 9 B (ADR-0009 l.88, no pad); not_open, no_target (nothing matches), no_room (nothing fits), container_gone, capacity_exhausted.</summary>
     public static OpDescriptor TakeAll { get; } = OpDescriptor.For<TakeAllPayload>(
-        InvOpKinds.TakeAll, false, TakeAllCodecId, 12,
+        InvOpKinds.TakeAll, false, TakeAllCodecId, 9,
         R(InvReason.NotOpen), R(InvReason.NoTarget), R(InvReason.NoRoom), R(InvReason.ContainerGone), R(InvReason.CapacityExhausted));
 
     /// <summary><see cref="InvOpKinds.Return"/>: payload-free (<see cref="OpDescriptor.Empty"/>); cursor_empty, blocked, stack_full, no_room, capacity_exhausted. blocked and stack_full are declared but unreachable: an origin that is blocked or full falls through to the panel leg (story 010, <see cref="ReturnHandler"/>; Mail Lead planning default pending Evan (TD-153)).</summary>

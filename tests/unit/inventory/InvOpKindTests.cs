@@ -22,7 +22,7 @@ public class InvOpKindTests
         { (ushort)InvOpKinds.Move, 24, typeof(MovePayload) },
         { (ushort)InvOpKinds.Merge, 16, typeof(MergePayload) },
         { (ushort)InvOpKinds.QuickMove, 12, typeof(QuickMovePayload) },
-        { (ushort)InvOpKinds.TakeAll, 12, typeof(TakeAllPayload) },
+        { (ushort)InvOpKinds.TakeAll, 9, typeof(TakeAllPayload) },
         { (ushort)InvOpKinds.Return, 0, null },
         { (ushort)InvOpKinds.Drop, 4, typeof(DropPayload) },
         { (ushort)InvOpKinds.Pickup, 20, typeof(PickupPayload) },
@@ -51,7 +51,10 @@ public class InvOpKindTests
         Assert.Equal(size, d.PayloadLength);
         Assert.Equal(size, sizeOf);
         Assert.Equal(size, fieldSum);
-        Assert.Equal(0, size % 4);
+        if (kind != (ushort)InvOpKinds.TakeAll)
+        {
+            Assert.Equal(0, size % 4); // TakeAll is 9 B as ADR-0009 l.88 sizes it, no pad (Mail Lead ruling)
+        }
 
         // Assert: the shared descriptor check, the 32 B inventory ceiling, the Sim Core payload limit, and not system-only
         DescriptorAssert.Check(d, OpKindBlock.Inventory);

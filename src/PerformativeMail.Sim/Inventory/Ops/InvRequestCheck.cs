@@ -147,7 +147,7 @@ public sealed class InvRequestCheck
 
     private ushort CheckTakeAll(in TakeAllPayload p)
     {
-        ushort r = (p.Pad0 | p.Pad1 | p.Pad2) != 0 || p.FilterKind > (byte)TakeAllFilter.Kind ? Bad : Pass;
+        ushort r = p.FilterKind > (byte)TakeAllFilter.Kind ? Bad : Pass;
         return Or(r, CheckContainer(p.Container));
     }
 
