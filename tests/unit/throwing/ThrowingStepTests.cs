@@ -190,7 +190,7 @@ public class ThrowingStepTests
 
     [Theory]
     [Trait("Id", "TC-T6-3")]
-    [InlineData(false)]   // production wiring: until story 012 the mailbox drops the item straight down, one terminal
+    [InlineData(false)]   // production wiring: MailboxLanding (story 012), one terminal
     [InlineData(true)]    // a bound port receives the flight and owns its terminal
     public void MailboxVolumeWinner_IsDispatchedToTheMailboxPort_ExactlyOnce(bool bindDouble)
     {

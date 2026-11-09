@@ -12,7 +12,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 
 /// <summary>
 /// Throwing &amp; Catching's host-side module (GDD <c>design/gdd/throwing-catching.md</c> T4-T6; ADR-0015 sections 1, 4, 5 and 9;
-/// throwing-catching stories 008, 010 and 011). It holds the live flights in creation order (<see cref="FlightTable"/>, sized by
+/// throwing-catching stories 008, 010, 011 and 012). It holds the live flights in creation order (<see cref="FlightTable"/>, sized by
 /// <see cref="ThrowSettings.MaxFlights"/>), the per-slot cooldown clock <c>Tat</c> (absolute tick, written by the release commit, cleared on
 /// every join and leave of the slot), the always-on tick-end conservation record and the canonical dump section. It binds the
 /// <c>ThrowRelease</c> handler (<see cref="ThrowReleaseHandler"/>, phase 0, story 010), <see cref="PhaseId.ThrowingStep"/>
@@ -97,7 +97,7 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
     /// <param name="checks">The world's always-on check ring.</param>
     /// <param name="counters">The world's always-on counters.</param>
     /// <param name="hotbar">The selected hotbar slot; null is <see cref="UnsetHotbarSelection"/>.</param>
-    /// <param name="mailbox">The mailbox port; null is the drop-straight-down landing until story 012.</param>
+    /// <param name="mailbox">The mailbox port; null is <see cref="MailboxLanding"/> over <paramref name="mail"/> (story 012).</param>
     /// <exception cref="ArgumentNullException">A required argument is null.</exception>
     internal ThrowingSystem(
         EventLogFacade events,
@@ -149,11 +149,17 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
             Checks = checks,
             Counters = counters,
         });
-        var resolver = new TerminalResolver(events, slots, inventory, world, ids, Flights, ranks, checks, counters);
-        if (mailbox is not null)
-        {
-            resolver.Mailbox = mailbox;
-        }
+        var resolver = new TerminalResolver(
+            events,
+            slots,
+            inventory,
+            world,
+            ids,
+            Flights,
+            ranks,
+            checks,
+            counters,
+            mailbox ?? new MailboxLanding(events, slots, inventory, mail, world, ids, Flights, settings, checks, counters));
 
         _step = new ThrowingStep(Flights, settings, new ReceiverViewBuilder(world, new MailCatchVolumeSource(mail), counters), ranks, resolver);
     }

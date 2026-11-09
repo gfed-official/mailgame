@@ -17,7 +17,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// <item><description>water: <see cref="Terminal.Water"/>, floating at the contact point (<c>onWater</c>; never moved to land);</description></item>
 /// <item><description>a world solid (house, roof, the Post Office) or a map side: the item drops straight down onto the surface below the
 /// contact (<see cref="SurfaceBelow"/>, so never onto a roof), <see cref="Terminal.Ground"/>, or <see cref="Terminal.Water"/> over water;</description></item>
-/// <item><description>a mailbox: <see cref="IMailboxLanding"/> (story 012); an armed catcher: <see cref="ICatchLanding"/> when bound (M0);</description></item>
+/// <item><description>a mailbox: <see cref="IMailboxLanding"/> (<see cref="MailboxLanding"/>, story 012); an armed catcher: <see cref="ICatchLanding"/> when bound (M0);</description></item>
 /// <item><description>no contact through age <c>maxFlightTicks</c>: <see cref="Terminal.Timeout"/> on the surface below <c>p(90)</c>, with
 /// that surface's rank.</description></item>
 /// </list>
@@ -29,7 +29,7 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 /// Allocation-free. Not thread-safe: Sim tick thread only.
 /// </summary>
 /// <example><code>if (FlightSweep.FirstContact(in p0, in p1, in view, id, out Contact c)) { resolver.Resolve(index, in c, tick); }</code></example>
-internal sealed class TerminalResolver : IMailboxLanding
+internal sealed class TerminalResolver
 {
     /// <summary>How far inside the map every landing point is clamped, mm (GDD T6 "1 m inside the edge").</summary>
     public const int MapInsetMm = 1000;
@@ -44,7 +44,7 @@ internal sealed class TerminalResolver : IMailboxLanding
     private readonly SimCheckRing _checks;
     private readonly SimCounters _counters;
 
-    /// <summary>Creates the resolver; its own drop-straight-down landing is the mailbox port until <see cref="Mailbox"/> is replaced.</summary>
+    /// <summary>Creates the resolver.</summary>
     /// <param name="events">The event-log writer.</param>
     /// <param name="slots">The slot table (the connected mask).</param>
     /// <param name="inventory">Grid Inventory's API (<see cref="IInventoryApi.CreateWorldItem"/>).</param>
@@ -54,6 +54,7 @@ internal sealed class TerminalResolver : IMailboxLanding
     /// <param name="ranks">The rank table.</param>
     /// <param name="checks">The world's check ring.</param>
     /// <param name="counters">The world's counters.</param>
+    /// <param name="mailbox">The mailbox port (<see cref="MailboxLanding"/> in production).</param>
     public TerminalResolver(
         EventLogFacade events,
         ISlotView slots,
@@ -63,7 +64,8 @@ internal sealed class TerminalResolver : IMailboxLanding
         FlightTable flights,
         ReceiverRanks ranks,
         SimCheckRing checks,
-        SimCounters counters)
+        SimCounters counters,
+        IMailboxLanding mailbox)
     {
         _events = events;
         _slots = slots;
@@ -74,11 +76,11 @@ internal sealed class TerminalResolver : IMailboxLanding
         _ranks = ranks;
         _checks = checks;
         _counters = counters;
-        Mailbox = this;
+        Mailbox = mailbox;
     }
 
-    /// <summary>The mailbox port (story 012 binds Mail's; until then this resolver's drop-straight-down landing).</summary>
-    public IMailboxLanding Mailbox { get; set; }
+    /// <summary>The mailbox port.</summary>
+    public IMailboxLanding Mailbox { get; }
 
     /// <summary>The catcher port (story 023, M0); null at M-1a.</summary>
     public ICatchLanding? Catch { get; set; }
@@ -120,10 +122,6 @@ internal sealed class TerminalResolver : IMailboxLanding
         Land(index, Terminal.Timeout, _ranks.Of(below), 0, in last, at, below == ReceiverKind.Water, tick);
     }
 
-    /// <inheritdoc />
-    /// <remarks>Until story 012: the mailbox volume is treated as a solid, the item dropping straight down below the contact.</remarks>
-    void IMailboxLanding.Land(int index, in Contact contact, uint tick) => DropStraightDown(index, in contact, tick);
-
     private void DropStraightDown(int index, in Contact c, uint tick)
     {
         ReceiverKind below = SurfaceBelow.At(_world, OnMap(in c.Point), out Vec3Mm at);
@@ -132,12 +130,20 @@ internal sealed class TerminalResolver : IMailboxLanding
         Land(index, water ? Terminal.Water : Terminal.Ground, c.Rank, receiver, in c.Point, at, water, tick);
     }
 
+    /// <summary>The id the next WorldItem creation will take (the class's next counter), or none when the class is exhausted.</summary>
+    /// <param name="ids">The world's id allocator.</param>
+    /// <returns>The id <c>FlightResolved.worldItem</c> announces.</returns>
+    internal static EntityId NextWorldItem(EntityIds ids)
+    {
+        uint last = ids.Peek(EntityClass.WorldItem);
+        return last < EntityId.CounterMask ? EntityId.Compose(EntityClass.WorldItem, last + 1) : EntityId.None;
+    }
+
     private Vec3Mm OnMap(in Vec3Mm p) => _world.ClampInsideMap(in p, MapInsetMm);
 
     private void Land(int index, Terminal terminal, byte rank, uint receiver, in Vec3Mm contact, Vec3Mm at, bool onWater, uint tick)
     {
-        uint last = _ids.Peek(EntityClass.WorldItem);
-        EntityId announced = last < EntityId.CounterMask ? EntityId.Compose(EntityClass.WorldItem, last + 1) : EntityId.None;
+        EntityId announced = NextWorldItem(_ids);
         var resolved = new FlightResolved
         {
             FlightId = _flights.Id(index).Value,
