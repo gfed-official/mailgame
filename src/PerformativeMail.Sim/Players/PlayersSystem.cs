@@ -20,7 +20,7 @@ namespace PerformativeMail.Sim.Players;
 /// <see cref="IWorldQuery"/> and takes every constant from <see cref="PlayerSettings"/>. Story 019 adds the host side: phase 3
 /// <see cref="PlayersStep"/> ingests the latched transform samples into a per-slot host position (seeded at the pad on join), and
 /// <see cref="CheckInteraction"/> and <see cref="LeashExceeded"/> read it. Grid-inventory story 019 adds the range-gated <c>Open</c> op
-/// (<see cref="OpenHandler"/>, Players block, proposed ADR-0009 erratum) and the <c>po_intake</c> console's Open anchor, both bound only
+/// (<see cref="OpenHandler"/>, Players block, ADR-0009 erratum 2026-11-08) and the <c>po_intake</c> console's Open anchor, both bound only
 /// when the module has Grid Inventory's <see cref="IInventoryApi"/>. It binds the join listener, phase 3, its state contributor and
 /// that op. Allocation-free once constructed. Not thread-safe: used on the Sim tick thread.
 /// </summary>

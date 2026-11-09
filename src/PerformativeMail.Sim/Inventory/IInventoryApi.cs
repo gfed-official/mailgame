@@ -388,7 +388,7 @@ public interface IInventoryApi
 
     /// <summary>
     /// The pure half of opening <paramref name="c"/> as <paramref name="slot"/>'s external container (story 019; the Validate/Commit split
-    /// of story 011's <c>TryOpenExternal</c> decision, for Player Character's range-gated <c>Open</c> handler; proposed ADR-0009 erratum).
+    /// of story 011's <c>TryOpenExternal</c> decision, for Player Character's range-gated <c>Open</c> handler; ADR-0009 erratum 2026-11-08).
     /// Returns 0 when <see cref="CommitOpenExternal"/> would open it, else the first of: <c>bad_request</c> (as <c>(InvReason)</c>
     /// <see cref="InvReasons.BadRequest"/>) for a none id or one never issued; <see cref="InvReason.ContainerGone"/> for an issued
     /// container that is no longer live; <c>bad_request</c> for a none slot or a container with an owner slot (a panel or cursor is never

@@ -7,7 +7,7 @@ namespace PerformativeMail.Sim.Players.Ops;
 
 /// <summary>
 /// The range-gated <c>Open</c> handler (grid-inventory story 019; GDD R10; ADR-0009 section 2, ADR-0014 section 5), owned by Player
-/// Character under the proposed ADR-0009 erratum (as the approved Drop erratum moved Drop): <see cref="Apply"/> is
+/// Character under the ADR-0009 erratum 2026-11-08 (as the Drop erratum moved Drop): <see cref="Apply"/> is
 /// <see cref="Validate"/>, then on 0 <see cref="Commit"/>, then the reply. The chain is
 /// <c>bad_request → dead → frozen → no_target → unavailable → out_of_range / position_stale → container_gone</c>:
 /// <list type="number">

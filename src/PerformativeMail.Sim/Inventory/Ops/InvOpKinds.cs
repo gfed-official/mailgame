@@ -51,7 +51,7 @@ public static class InvOpKinds
     public const OpKind Pickup = (OpKind)0x008B;
 
     // 0x008C (Open) is retired, never reused: the range-gated Open moved to the Players block as PlayerOpKinds.Open (grid-inventory
-    // story 019, proposed ADR-0009 erratum), as the approved erratum of 2026-10-29 moves Drop.
+    // story 019, ADR-0009 erratum 2026-11-08), as the erratum of 2026-10-29 moves Drop.
 
     /// <summary>Close a container.</summary>
     public const OpKind Close = (OpKind)0x008D;

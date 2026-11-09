@@ -9,8 +9,8 @@ namespace PerformativeMail.Sim.Players.Ops;
 /// <summary>
 /// Player Character's <see cref="OpKind"/> values (ADR-0007 section 4 Players block <c>0x0040-0x007F</c>). <c>0x0040</c> is reserved for
 /// <c>Drop</c> (ADR-0009 erratum 2026-10-29; grid-inventory story 020, not built yet), so it is not declared here. <see cref="Open"/> left
-/// the Inventory block (<c>0x008C</c>, retired as an <c>OpKind</c>, never reused) for this one under the proposed ADR-0009 erratum of
-/// grid-inventory story 019 (pending Evan; Mail Lead planning default Q1, regroup 2026-11-08): Inventory cannot inject
+/// the Inventory block (<c>0x008C</c>, retired as an <c>OpKind</c>, never reused) for this one under the ADR-0009 erratum 2026-11-08 (grid-inventory
+/// story 019; approved by Evan 2026-11-08 9:51 PM PT, card t295s1326; the id 0x0041 is uncredited, Mail Dev as built): Inventory cannot inject
 /// <see cref="IPlayersApi"/> (<c>SystemGraph</c> declares Player Character → Grid Inventory), so the range-gated handler is Players'.
 /// </summary>
 /// <example><code>var op = new Op { Kind = PlayerOpKinds.Open, ReqId = 7 };</code></example>
