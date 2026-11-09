@@ -28,7 +28,7 @@ public static class RunEventDescriptors
     public const byte AudienceAll = 0xFF;
 
     /// <summary>Codec id of the <c>DeliveriesState</c> wire codec (mail-destinations story 015).</summary>
-    public const ushort DeliveriesStateCodecId = 9;
+    public const ushort DeliveriesStateCodecId = 10;
 
     /// <summary><see cref="RunEventKinds.DeliveriesState"/>: 24 B, replicated.</summary>
     public static EventDescriptor DeliveriesState { get; } = EventDescriptor.For<DeliveriesStatePayload>(

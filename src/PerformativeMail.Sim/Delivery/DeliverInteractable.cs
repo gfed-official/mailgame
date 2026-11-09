@@ -1,6 +1,7 @@
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Delivery.Client;
 using PerformativeMail.Sim.MailDestinations;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Primitives;
@@ -16,9 +17,15 @@ namespace PerformativeMail.Sim.Delivery;
 /// <para>
 /// Story 001 fills <see cref="GetHoldTicks"/>: the shared <c>holdEff</c> (<see cref="Hold.HoldTicks(int, int, int, in HoldSettings)"/>)
 /// with the actor's <see cref="Stat.DeliverInsertPm"/>, read on every call and never cached. Story 010 adds the prompt writer
-/// (<see cref="WritePrompt(in DeliverPromptInput, ref PromptArgs)"/>); the <see cref="IInteractable"/> hook calls it once story 003
-/// supplies this tick's preview and availability. The other hooks return fixed values until stories 003 (<see cref="IsAvailable"/>)
-/// and 004 (<see cref="OnPress"/>, <see cref="ShouldCancel"/>, <see cref="TryBuildRequest"/>) fill them.
+/// (<see cref="WritePrompt(in DeliverPromptInput, ref PromptArgs)"/>).
+/// </para>
+/// <para>
+/// Two instances exist. The host's (composition, <see cref="DeliverInteractable(IStatSheet, IMailApi?)"/>) answers
+/// <c>IPlayersApi.CheckInteraction</c> on host state only: MD2 rows 2, 4 and 5 through <see cref="DeliverAvailability"/> with the host
+/// flag; the framework gate has already refused swim depth, and CLOSED is left to Mail's <c>ConsumeHand</c>, which judges it at
+/// <c>holdStartTick</c> under the closing grace (this hook does not see the hold's start), so a graced hold is not refused. The
+/// client's (<see cref="DeliverPreviewStep.Interactable"/>) reads the 4b step's published state (stories 003 and 004): availability
+/// and the settle, the press payload, the cancels, the request and the prompt.
 /// </para>
 /// </summary>
 /// <example>
@@ -30,29 +37,51 @@ namespace PerformativeMail.Sim.Delivery;
 internal sealed class DeliverInteractable : IInteractable
 {
     private readonly IStatSheet _stats;
+    private readonly IMailApi? _hostMail;
+    private readonly DeliverPreviewStep? _client;
 
-    /// <summary>Creates the shared Deliver hooks over <paramref name="stats"/>.</summary>
+    /// <summary>Creates the host's Deliver hooks over <paramref name="stats"/> and, for rows 4 and 5, <paramref name="mail"/>.</summary>
     /// <param name="stats">The stat sheet read for <see cref="Stat.DeliverInsertPm"/>.</param>
+    /// <param name="mail">Mail's API for the destination state (none: every row passes).</param>
     /// <exception cref="ArgumentNullException"><paramref name="stats"/> is null.</exception>
-    public DeliverInteractable(IStatSheet stats)
+    public DeliverInteractable(IStatSheet stats, IMailApi? mail = null)
+        : this(stats, mail, null)
+    {
+    }
+
+    /// <summary>Creates the hooks: the client's when <paramref name="client"/> is set, else the host's.</summary>
+    internal DeliverInteractable(IStatSheet stats, IMailApi? mail, DeliverPreviewStep? client)
     {
         ArgumentNullException.ThrowIfNull(stats);
         _stats = stats;
+        _hostMail = mail;
+        _client = client;
     }
 
     /// <summary>
-    /// Available, with no reason key, until story 003 adds MD2's ordered rows. Story 005's host handler runs
-    /// <c>IPlayersApi.CheckInteraction</c>, which asks this hook after the framework gate (swim depth is the gate's
-    /// <c>reason.dry_land</c>), so an always-false stub would refuse every <c>deliver_matching</c>; CLOSED and LOCKED are judged by Mail
-    /// at the hold's start inside <c>ConsumeHand</c> meanwhile.
+    /// MD2's ordered rows (<see cref="DeliverAvailability"/>): on the client, rows 1 to 6 and then the MD4 settle
+    /// (<c>deliver.cancel.settle</c>; the press is refused here because <c>OnPress</c> cannot refuse); on the host, LOCKED
+    /// (<c>mail.reject.not_on_route</c>) from Mail's current destination facts.
     /// </summary>
     /// <param name="c">The call context.</param>
-    /// <param name="reason"><see cref="StringId.None"/>.</param>
-    /// <returns>True.</returns>
+    /// <param name="reason">The first row's key when false; <see cref="StringId.None"/> when true.</param>
+    /// <returns>True when available.</returns>
     public bool IsAvailable(in InteractionContext c, out StringId reason)
     {
-        reason = StringId.None;
-        return true;
+        if (_client is not null)
+        {
+            return _client.IsAvailable(in c, out reason);
+        }
+
+        DestState state = DestState.Open;
+        if (_hostMail is not null && _hostMail.TryGetDestinationFacts(c.Anchor.Entity, out DestinationFacts f) && f.State == DestState.Locked)
+        {
+            state = DestState.Locked;
+        }
+
+        DeliverRow row = DeliverAvailability.Evaluate(new DeliverAvailabilityFacts { HostFacts = true, State = state });
+        reason = DeliverAvailability.Key(row);
+        return row == DeliverRow.None;
     }
 
     /// <summary>
@@ -71,25 +100,38 @@ internal sealed class DeliverInteractable : IInteractable
         return Hold.HoldTicks(c.HoldBaseMs, insertPm, c.HoldSettingMs, in settings);
     }
 
-    /// <summary>Never cancels until story 004 defines the cancel rule.</summary>
+    /// <summary>
+    /// MD4's extra cancels on the client, judged on this tick's recompute with the destination state at the hold's start (closing grace):
+    /// the branch kind changed (<c>deliver.cancel.prompt_changed</c>), or on a MISDELIVER_ONE hold the selected slot or entry changed
+    /// (<c>deliver.cancel.selection_changed</c>). The host never times a hold, so its instance never cancels.
+    /// </summary>
     /// <param name="latch">The latch.</param>
     /// <param name="c">The call context.</param>
-    /// <param name="reason"><see cref="StringId.None"/>.</param>
-    /// <returns>False.</returns>
+    /// <param name="reason">The cancel key when true.</param>
+    /// <returns>True to cancel.</returns>
     public bool ShouldCancel(in InteractionLatch latch, in InteractionContext c, out StringId reason)
     {
+        if (_client is not null)
+        {
+            return _client.ShouldCancel(in latch, out reason);
+        }
+
         reason = StringId.None;
         return false;
     }
 
     /// <summary>
-    /// Writes nothing yet: <see cref="InteractionContext"/> carries no preview, panel or availability, so this hook calls
-    /// <see cref="WritePrompt(in DeliverPromptInput, ref PromptArgs)"/> once story 003's preview step supplies the input.
+    /// The prompt hook: on the client, <see cref="WritePrompt(in DeliverPromptInput, ref PromptArgs)"/> over this tick's published preview,
+    /// availability and settle state for <see cref="InteractionContext.Anchor"/>; otherwise the bytes are left untouched.
     /// </summary>
     /// <param name="c">The call context.</param>
-    /// <param name="args">The destination bytes (left untouched).</param>
+    /// <param name="args">The destination bytes.</param>
     public void WritePrompt(in InteractionContext c, ref PromptArgs args)
     {
+        if (_client is not null && _client.TryPromptInput(c.Anchor, out DeliverPromptInput input))
+        {
+            WritePrompt(in input, ref args);
+        }
     }
 
     /// <summary>
@@ -160,17 +202,47 @@ internal sealed class DeliverInteractable : IInteractable
 
     private static int ClampCents(Cents c) => (int)Math.Clamp(c.Value, int.MinValue, int.MaxValue);
 
-    /// <summary>Builds no request until story 004 defines the Deliver op.</summary>
+    /// <summary>
+    /// The one request of a completed hold (MD5): <c>deliver_matching</c> with the 24 B <see cref="DeliverMatchingPayload"/> — the latched
+    /// anchor's destination, <c>selectedEntryId</c> only for a MISDELIVER_ONE latch (0 on MATCH), the latched <c>holdStartTick</c> and
+    /// <c>Claim = latch.Claimed</c> (feet at press). No duration and no count. The host's instance builds nothing.
+    /// </summary>
     /// <param name="latch">The latch.</param>
     /// <param name="c">The call context.</param>
-    /// <param name="op">The op (left untouched).</param>
-    /// <returns>False.</returns>
-    public bool TryBuildRequest(in InteractionLatch latch, in InteractionContext c, ref Op op) => false;
+    /// <param name="op">The op to fill.</param>
+    /// <returns>True when a request was built.</returns>
+    public bool TryBuildRequest(in InteractionLatch latch, in InteractionContext c, ref Op op)
+    {
+        if (_client is null)
+        {
+            return false;
+        }
 
-    /// <summary>Latches nothing until story 004 defines the press-tick payload.</summary>
+        DeliverLatchPayload p = DeliverLatchPayload.Read(in latch.OwnerPayload);
+        op.Kind = DeliveryOpKinds.DeliverMatching;
+        op.SetPayload(new DeliverMatchingPayload
+        {
+            MailboxId = latch.Anchor.Entity.Value,
+            SelectedEntryId = p.Kind == DeliverBranchKind.MisdeliverOne ? p.SelectedEntry.Value : 0u,
+            HoldStartTick = p.HoldStartTick,
+            Claim = latch.Claimed,
+        });
+        return true;
+    }
+
+    /// <summary>
+    /// Latches the press-tick branch (MD4) into the 16 B owner payload (<see cref="DeliverLatchPayload"/>): kind, selected slot, entry
+    /// (MISDELIVER_ONE only), <c>holdStartTick = c.Tick</c> (the <c>IHostClock</c> estimate the press context carries) and the
+    /// destination ordinal. The settle refusal is <see cref="IsAvailable"/>'s. The host's instance latches nothing.
+    /// </summary>
     /// <param name="c">The call context.</param>
-    /// <param name="latch">The latch being built (left untouched).</param>
+    /// <param name="latch">The latch being built.</param>
     public void OnPress(in InteractionContext c, ref InteractionLatch latch)
     {
+        if (_client is not null)
+        {
+            DeliverLatchPayload p = _client.LatchPayload(in c);
+            DeliverLatchPayload.Write(in p, ref latch.OwnerPayload);
+        }
     }
 }

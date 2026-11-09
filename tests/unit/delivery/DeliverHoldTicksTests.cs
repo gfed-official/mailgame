@@ -4,6 +4,8 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Delivery;
+using PerformativeMail.Sim.Delivery.Client;
+using PerformativeMail.Sim.MailDestinations;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Primitives;
 
@@ -241,10 +243,11 @@ public class DeliverHoldTicksTests
         // Act
         FieldInfo[] fields = typeof(DeliverInteractable).GetFields(All);
 
-        // Assert
-        FieldInfo only = Assert.Single(fields);
-        Assert.Equal(typeof(IStatSheet), only.FieldType);
-        Assert.True(only.IsInitOnly);
+        // Assert: the stat sheet plus story 003's read-only state sources (host Mail API, client preview step); no cached value.
+        Assert.Equal(
+            new[] { typeof(IStatSheet), typeof(IMailApi), typeof(DeliverPreviewStep) }.OrderBy(t => t.Name),
+            fields.Select(f => f.FieldType).OrderBy(t => t.Name));
+        Assert.All(fields, f => Assert.True(f.IsInitOnly));
     }
 
     // ---------------------------------------------------------------- stub hooks (stories 003, 004, 010 fill them)

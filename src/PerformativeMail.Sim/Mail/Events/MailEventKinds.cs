@@ -42,13 +42,13 @@ public static class MailEventDescriptors
     public const byte AudienceAll = 0xFF;
 
     /// <summary>Codec id of the <c>DeliveryOutcome</c> wire codec (story 015).</summary>
-    public const ushort DeliveryOutcomeCodecId = 6;
+    public const ushort DeliveryOutcomeCodecId = 7;
 
     /// <summary>Codec id of the <c>ComplaintRaised</c> wire codec (story 015).</summary>
-    public const ushort ComplaintRaisedCodecId = 7;
+    public const ushort ComplaintRaisedCodecId = 8;
 
     /// <summary>Codec id of the <c>BatchArrived</c> wire codec (story 015).</summary>
-    public const ushort BatchArrivedCodecId = 8;
+    public const ushort BatchArrivedCodecId = 9;
 
     /// <summary>The most bytes a <c>DeliveryOutcome</c> takes on the wire (M-NET-2).</summary>
     public const byte DeliveryOutcomeWireMax = 19;

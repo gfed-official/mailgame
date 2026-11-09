@@ -27,7 +27,7 @@ public static class EconEventDescriptors
     public const byte ResyncScope = 2;
 
     /// <summary>Codec id of the <c>WalletChanged</c> wire codec (mail-destinations story 015).</summary>
-    public const ushort WalletChangedCodecId = 10;
+    public const ushort WalletChangedCodecId = 11;
 
     /// <summary><see cref="EconEventKinds.WalletChanged"/>: 24 B, replicated.</summary>
     public static EventDescriptor WalletChanged { get; } = EventDescriptor.For<WalletChangedPayload>(
