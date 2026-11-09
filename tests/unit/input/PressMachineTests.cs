@@ -24,7 +24,9 @@ public class PressMachineTests
 
     public PressMachineTests()
     {
-        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Carrier, _h.Ticks, _log);
+        // Pad Sprint in Hold mode (its default is Toggle, story 012), so the held bit is the OR of Shift and L3 (H-R9-1).
+        InputSettings padSprintHold = InputSettings.Defaults.With(SettingsField.HoldModeSprintPad, (int)HoldMode.Hold);
+        _router = new InputRouter(_map, padSprintHold, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, _log);
     }
 
     /// <summary>Every <see cref="Delivery.Frame"/> Tap action of the M-1a map (story 013 adds the Immediate taps).</summary>

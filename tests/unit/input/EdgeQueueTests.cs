@@ -21,7 +21,7 @@ public class EdgeQueueTests
 
     public EdgeQueueTests()
     {
-        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Carrier, _h.Ticks, _log);
+        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, _log);
     }
 
     [Fact]

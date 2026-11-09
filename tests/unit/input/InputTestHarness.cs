@@ -1,5 +1,6 @@
 using PerformativeMail.Client.Core.Input;
 using PerformativeMail.Sim.ClientLayer;
+using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Sim.Tests.Unit.Input;
 
@@ -91,6 +92,18 @@ public sealed class InputTestHarness
     /// <summary>The settable client tick counter.</summary>
     public FakeClientTickSource Ticks { get; } = new();
 
+    /// <summary>The settable published interaction snapshot (story 012).</summary>
+    public FakeInteractionQuery Interaction { get; } = new();
+
+    /// <summary>The presented-prompt latch over <see cref="Interaction"/>; call <see cref="PresentedPromptLatch.Update"/> to "present".</summary>
+    public PresentedPromptLatch Presented { get; }
+
+    /// <summary>Creates the harness.</summary>
+    public InputTestHarness()
+    {
+        Presented = new PresentedPromptLatch(Interaction);
+    }
+
     /// <summary>Advances the shared clock by <paramref name="n"/> Sim ticks (clears the sub-tick offset).</summary>
     /// <param name="n">The number of ticks.</param>
     public void AdvanceTicks(int n) => Clock.AdvanceTicks(n);
@@ -168,6 +181,19 @@ public sealed class InputTestHarness
             _ => RawKind.Synthetic,
         },
     };
+}
+
+/// <summary>A settable <see cref="IInteractionQuery"/> for router tests (stands in for player-character 018's publisher).</summary>
+public sealed class FakeInteractionQuery : IInteractionQuery
+{
+    private InteractionSnapshot _current;
+
+    /// <inheritdoc />
+    public ref readonly InteractionSnapshot Current => ref _current;
+
+    /// <summary>Publishes <paramref name="snapshot"/>.</summary>
+    /// <param name="snapshot">The new snapshot.</param>
+    public void Publish(in InteractionSnapshot snapshot) => _current = snapshot;
 }
 
 /// <summary>A settable <see cref="IClientTickSource"/> for router tests.</summary>

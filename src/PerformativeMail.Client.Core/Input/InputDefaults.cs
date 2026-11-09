@@ -25,4 +25,10 @@ internal static class InputDefaults
 
     /// <summary>The longest rendered frame the stick look integrates, ms; a longer hitch integrates this much (PROPOSED).</summary>
     public const int StickLookMaxDtMs = 1000;
+
+    /// <summary>GDD F8 <c>sprintUnlatchSeconds</c> in ms (0.25 s; a constant, not a setting).</summary>
+    public const int SprintUnlatchMs = 250;
+
+    /// <summary>Sprint Auto threshold: <c>|moveIntent| ≥ 0.9</c> in Q15 (Player Character P14, PROPOSED).</summary>
+    public const int SprintAutoMinQ15 = 29_491;
 }

@@ -59,8 +59,10 @@ internal sealed class MoveAxes
     /// <param name="dzOuterPm">Outer deadzone, permille.</param>
     /// <param name="x">Q15 x (right).</param>
     /// <param name="y">Q15 y (forward).</param>
-    public void Intent(HeldTable held, int dzInnerPm, int dzOuterPm, out short x, out short y)
+    /// <param name="fromPad">True when a pad's stick won (the keys win a tie, so (0, 0) is never from a pad).</param>
+    public void Intent(HeldTable held, int dzInnerPm, int dzOuterPm, out short x, out short y, out bool fromPad)
     {
+        fromPad = false;
         Digital(held, out int bx, out int by);
         long best = ((long)bx * bx) + ((long)by * by);
         for (int p = 0; p < DeviceSlots.PadCount; p++)
@@ -72,6 +74,7 @@ internal sealed class MoveAxes
                 best = m;
                 bx = sx;
                 by = -sy;
+                fromPad = true;
             }
         }
 

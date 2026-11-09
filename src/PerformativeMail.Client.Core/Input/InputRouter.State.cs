@@ -26,11 +26,13 @@ public sealed partial class InputRouter
     /// </summary>
     public MouseModeRequest MouseModeRequest { get; private set; }
 
-    // Re-reads body and holding from the published status; a change is a transition. Only a change of the status moves the
+    // Re-reads body and holding from the published status (and drops a toggled sprint on death, mount, swim or panel open); a
+    // change is a transition. Only a change of the status moves the
     // state, so a ForceState test hook holds until the status next changes.
     private void SyncCarrierStatus(long timeMs)
     {
         ref readonly CarrierStatus s = ref _carrier.Current;
+        SyncSprintLatch(in s);
         var body = (BodyLayer)InputContexts.RouterBody(in s);
         bool holding = InputContexts.RouterHolding(in s);
         if (body == _statusBody && holding == _statusHolding)

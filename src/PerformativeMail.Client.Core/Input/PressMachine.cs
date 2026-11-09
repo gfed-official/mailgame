@@ -25,6 +25,12 @@ internal enum PressPhase : byte
 
     /// <summary>Nothing more fires until release, and the release is swallowed (G1 not live, G3 state change).</summary>
     Muted = 5,
+
+    /// <summary>A Toggle-mode Interact press opened a toggled hold (story 012): its release emits nothing.</summary>
+    Toggled = 6,
+
+    /// <summary>A Sprint press on an Auto-mode device (story 012): the player walks while it is down.</summary>
+    Walking = 7,
 }
 
 /// <summary>

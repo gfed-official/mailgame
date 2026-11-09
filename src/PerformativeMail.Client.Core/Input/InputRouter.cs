@@ -1,5 +1,6 @@
 using PerformativeMail.Client.Core.Input.Settings;
 using PerformativeMail.Sim.ClientLayer;
+using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Client.Core.Input;
 
@@ -19,11 +20,16 @@ namespace PerformativeMail.Client.Core.Input;
 /// record of a frame is gated against the state the first one left. Move intent is state, not edges (GDD G3): it persists
 /// through Panel and Holding and is zeroed only by the states <see cref="MoveAxes.Kept"/> excludes.
 /// </para>
+/// <para>
+/// Hold classes (story 012, the Hold part): Interact presses carry the presented target and Toggle mode is translated into
+/// logical edges; Sprint follows its per-device Hold / Toggle / Auto mode; the Sim's hold lines are copied into the log.
+/// </para>
 /// <para>Single-threaded (the Godot main thread). 0 B per <see cref="Feed"/> and <see cref="FlushToLatch"/> after construction.</para>
 /// </summary>
 /// <example>
 /// <code>
-/// var router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, clock, carrierStatus, clientTicks, log);
+/// var router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, clock, interaction, presentedPrompt,
+///     carrierStatus, clientTicks, log);
 /// router.Feed(in record);          // from the adapter's _Input
 /// router.FlushToLatch(latch);      // GameLoop, once per frame before RunFrame
 /// </code>
@@ -50,28 +56,45 @@ public sealed partial class InputRouter
     /// <param name="map">The validated action map.</param>
     /// <param name="settings">The input settings.</param>
     /// <param name="clock">The monotonic ms clock.</param>
+    /// <param name="interaction">The published interaction snapshot (the Sim's hold state; ADR-0014 section 7).</param>
+    /// <param name="presented">The prompt last presented on screen, which Interact presses carry (G1).</param>
     /// <param name="carrier">The published carrier status (<c>body</c> and <c>holding</c>).</param>
     /// <param name="ticks">The published client tick counter.</param>
     /// <param name="log">The shared event log every gate decision, transition and drop is written to.</param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <exception cref="ArgumentException">The map has no Move or Look action.</exception>
-    public InputRouter(ActionMap map, InputSettings settings, IInputClock clock, ICarrierStatusSource carrier, IClientTickSource ticks, UiEventLog log)
+    public InputRouter(
+        ActionMap map,
+        InputSettings settings,
+        IInputClock clock,
+        IInteractionQuery interaction,
+        IPresentedPromptSource presented,
+        ICarrierStatusSource carrier,
+        IClientTickSource ticks,
+        UiEventLog log)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(interaction);
+        ArgumentNullException.ThrowIfNull(presented);
         ArgumentNullException.ThrowIfNull(carrier);
         ArgumentNullException.ThrowIfNull(ticks);
         ArgumentNullException.ThrowIfNull(log);
         _map = map;
         Settings = settings;
         _clock = clock;
+        _interaction = interaction;
+        _presented = presented;
         _carrier = carrier;
         _ticks = ticks;
         _log = log;
         ActionDef move = map.Get(ActionId.Move) ?? throw new ArgumentException("The map has no Move action.", nameof(map));
         _look = map.Get(ActionId.Look) ?? throw new ArgumentException("The map has no Look action.", nameof(map));
         _moveAxes = new MoveAxes(move);
+        _interactDef = map.Get(ActionId.Interact);
+        _sprintDef = map.Get(ActionId.Sprint);
+        _holdLog = new HoldLogMirror(in interaction.Current);
         _lookStick = new StickSamples(_look);
         _lookCurve = ResponseCurveTable.Build(settings.CurvePm);
         _lastFlushMs = clock.NowMs;
@@ -87,9 +110,6 @@ public sealed partial class InputRouter
 
     /// <summary>The current router state id (starts in World).</summary>
     public ushort State => _state;
-
-    /// <summary>The client tick counter the tick-counted rules read (stories 012, 013).</summary>
-    internal uint ClientTick => _ticks.ClientTick;
 
     /// <summary>The settings the router applies.</summary>
     internal InputSettings Settings { get; private set; }
@@ -107,6 +127,7 @@ public sealed partial class InputRouter
     public void Feed(in RawInputRecord r)
     {
         SyncCarrierStatus(r.ArrivalMs);
+        SyncInteraction(r.ArrivalMs);
         switch (r.Kind)
         {
             case RawKind.PadAxis:
@@ -147,7 +168,8 @@ public sealed partial class InputRouter
     /// coalesced), then the current state through <see cref="IInputLatchWriter.SetState"/>, then clears the queue. The state
     /// carries the move intent (zeroed where <see cref="MoveAxes.Kept"/> says so), the absolute look after this frame's stick
     /// integration, the focus cone, <see cref="InputFrameFlags.PanelOpen"/> while the overlay is Panel and
-    /// <see cref="InputFrameFlags.LookReseeded"/> on the first flush after <see cref="SetLook"/>.
+    /// <see cref="InputFrameFlags.LookReseeded"/> on the first flush after <see cref="SetLook"/>. The held bits apply the Sprint
+    /// mode (F8 is counted here, in client ticks).
     /// </summary>
     /// <param name="latch">The Sim latch writer.</param>
     /// <exception cref="ArgumentNullException"><paramref name="latch"/> is null.</exception>
@@ -156,12 +178,14 @@ public sealed partial class InputRouter
         ArgumentNullException.ThrowIfNull(latch);
         long nowMs = _clock.NowMs;
         SyncCarrierStatus(nowMs);
+        SyncInteraction(nowMs);
         _edges.PushTo(latch, _levelPressBits);
         short moveX = 0;
         short moveY = 0;
+        bool fromPad = false;
         if (MoveAxes.Kept.IsLive(_state))
         {
-            _moveAxes.Intent(_held, Settings.DzInnerPm, Settings.DzOuterPm, out moveX, out moveY);
+            _moveAxes.Intent(_held, Settings.DzInnerPm, Settings.DzOuterPm, out moveX, out moveY, out fromPad);
         }
 
         IntegrateStickLook(nowMs);
@@ -178,7 +202,7 @@ public sealed partial class InputRouter
             MoveY = moveY,
             LookYaw = _lookAcc.Yaw,
             LookPitch = _lookAcc.Pitch,
-            HeldBits = _held.ActionBits,
+            HeldBits = HeldBitsForFlush(moveX, moveY, fromPad),
             FocusCosMinPm = _focusCosMinPm,
             RouterStateId = _state,
             Flags = flags,
@@ -202,7 +226,8 @@ public sealed partial class InputRouter
     /// <summary>
     /// G3: re-evaluates every down machine after a state change. One whose latched action is not live in
     /// <paramref name="newState"/> becomes muted: a Hold or Aim machine queues <c>Cancel(StateChange)</c>, a held bit clears,
-    /// and the later release is swallowed. Machines are visited in table order.
+    /// and the later release is swallowed. Machines are visited in table order; then an open toggled Interact hold whose
+    /// action is not live is cancelled the same way (its button may already be up).
     /// </summary>
     /// <param name="oldState">The state before the change.</param>
     /// <param name="newState">The state after the change.</param>
@@ -225,6 +250,10 @@ public sealed partial class InputRouter
             {
                 _held.RemoveAction(m.Bit);
             }
+            else if (m.Phase == PressPhase.Walking)
+            {
+                _autoWalkers--;
+            }
 
             if (m.OwesClosingEdge)
             {
@@ -234,6 +263,8 @@ public sealed partial class InputRouter
             m.Phase = PressPhase.Muted;
             Log(_clock.NowMs, LogKind.GateMuted, in m, DeviceSlots.InputOf(i), newState);
         }
+
+        OnHoldClassesStateChanged(newState);
     }
 
     private void Press(int index, in RawInputRecord r)
@@ -258,7 +289,13 @@ public sealed partial class InputRouter
             m.Bit = bit;
         }
 
-        m.Phase = Begin(in m, out bool dropped);
+        bool dropped = false;
+        m.Phase = m switch
+        {
+            { HasBit: true, Bit: FrameAction.Interact, Grammar: Grammar.Hold } => BeginInteract(in m, out dropped),
+            { HasBit: true, Bit: FrameAction.Sprint, Grammar: Grammar.HeldState } => BeginSprint(index, in m),
+            _ => Begin(in m, out dropped),
+        };
         Log(r.ArrivalMs, LogKind.GateFired, in m, r.Input, _state);
         if (dropped)
         {
@@ -321,6 +358,9 @@ public sealed partial class InputRouter
                 break;
             case PressPhase.HoldActive:
                 _edges.PushClosing(m.Bit, EdgeKind.Release, EdgeReason.None, _state, m.Device);
+                break;
+            case PressPhase.Walking:
+                _autoWalkers--;
                 break;
             default:
                 break;
