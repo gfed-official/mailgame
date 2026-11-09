@@ -25,7 +25,7 @@ public class ToggleTranslationTests
     public ToggleTranslationTests()
     {
         InputSettings toggle = InputSettings.Defaults.With(SettingsField.HoldModeDeliver, (int)HoldMode.Toggle);
-        _router = new InputRouter(BuiltInActionMap.CreateM1a(), toggle, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, new UiEventLog());
+        _router = new InputRouter(BuiltInActionMap.CreateM1a(), toggle, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, new UiEventLog());
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class ToggleTranslationTests
         // Arrange
         var h = new InputTestHarness();
         InputSettings settings = InputSettings.Defaults.With(SettingsField.HoldModeDeliver, (int)mode);
-        var router = new InputRouter(BuiltInActionMap.CreateM1a(), settings, h.Clock, h.Interaction, h.Presented, h.Carrier, h.Ticks, new UiEventLog());
+        var router = new InputRouter(BuiltInActionMap.CreateM1a(), settings, h.Clock, h.Interaction, h.Presented, h.Carrier, h.ThrowAim, h.Ticks, new UiEventLog());
         h.Interaction.Publish(new InteractionSnapshot { Seq = 1, Focused = _container, Mode = target });
         h.Presented.Update();
 

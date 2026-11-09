@@ -21,7 +21,7 @@ public class ImmediateBindingRulingsTests
 
     public ImmediateBindingRulingsTests()
     {
-        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, _log);
+        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, _log);
         foreach (ActionDef d in _map.All)
         {
             if (d.Delivery == PerformativeMail.Client.Core.Input.Delivery.Immediate)

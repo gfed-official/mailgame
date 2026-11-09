@@ -26,7 +26,7 @@ public class PressMachineTests
     {
         // Pad Sprint in Hold mode (its default is Toggle, story 012), so the held bit is the OR of Shift and L3 (H-R9-1).
         InputSettings padSprintHold = InputSettings.Defaults.With(SettingsField.HoldModeSprintPad, (int)HoldMode.Hold);
-        _router = new InputRouter(_map, padSprintHold, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, _log);
+        _router = new InputRouter(_map, padSprintHold, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, _log);
     }
 
     /// <summary>Every <see cref="Delivery.Frame"/> Tap action of the M-1a map (story 013 adds the Immediate taps).</summary>
@@ -52,17 +52,18 @@ public class PressMachineTests
         Feed(_h.Press(KeyShift));            // Sprint: HeldState
         Feed(_h.Press(PadLeftStickClick));   // Sprint again, from the pad
         Feed(_h.Press(KeyE));                // Interact: Hold
-        Feed(_h.Press(MouseRight));          // Throw: Aim-release (Aim bit)
         Feed(_h.Press(KeyQ));                // Drop: Immediate (story 013 queues it)
+        Feed(_h.Release(KeyE));              // Interact is not live while aiming (story 014)
+        Feed(_h.Press(MouseRight));          // Throw: Aim-release (Aim bit)
 
         // Act
         _router.FlushToLatch(_h.Latch);
         List<InputEdge> presses = [.. _h.Latch.Edges];
         ulong heldWhileDown = _h.Latch.LastState.HeldBits;
         _h.Latch.Clear();
+        _h.AdvanceTicks(8);                  // past throwMinAimMs, so the Throw release commits
         Feed(_h.Release(KeyShift));
         Feed(_h.Release(KeySpace));
-        Feed(_h.Release(KeyE));
         Feed(_h.Release(MouseRight));
         Feed(_h.Release(KeyQ));
         _router.FlushToLatch(_h.Latch);
@@ -71,22 +72,22 @@ public class PressMachineTests
         Feed(_h.Release(PadLeftStickClick));
         _router.FlushToLatch(_h.Latch);
 
-        // Assert: presses in arrival order, gated in World, stamped with the device; no Sprint or Drop edge.
+        // Assert: edges in arrival order, gated in World, stamped with the device; no Sprint or Drop edge.
         Assert.Equal(
-            [(FrameAction.Jump, EdgeKind.Press, DeviceClass.Keyboard), (FrameAction.Interact, EdgeKind.Press, DeviceClass.Keyboard), (FrameAction.Aim, EdgeKind.Press, DeviceClass.Mouse)],
+            [(FrameAction.Jump, EdgeKind.Press, DeviceClass.Keyboard), (FrameAction.Interact, EdgeKind.Press, DeviceClass.Keyboard), (FrameAction.Interact, EdgeKind.Release, DeviceClass.Keyboard), (FrameAction.Aim, EdgeKind.Press, DeviceClass.Mouse)],
             presses.Select(e => (e.Action, e.Kind, (DeviceClass)e.DeviceClass)));
         Assert.All(presses, e => Assert.Equal(WorldId, e.RouterStateId));
         Assert.True(SerialU16.IsNewer(presses[1].ArrivalSeq, presses[0].ArrivalSeq));
-        Assert.True(SerialU16.IsNewer(presses[2].ArrivalSeq, presses[1].ArrivalSeq));
+        Assert.True(SerialU16.IsNewer(presses[3].ArrivalSeq, presses[2].ArrivalSeq));
         Assert.Equal(FrameActions.Bit(FrameAction.Sprint) | FrameActions.Bit(FrameAction.Aim), heldWhileDown);
 
-        // Releases: Hold and Aim only (no tap-on-release); Sprint stays held while the pad still holds it.
+        // Releases: Aim only (no tap-on-release); Sprint stays held while the pad still holds it.
         Assert.Equal(
-            [(FrameAction.Interact, EdgeKind.Release), (FrameAction.Aim, EdgeKind.Release)],
+            [(FrameAction.Aim, EdgeKind.Release)],
             releases.Select(e => (e.Action, e.Kind)));
         Assert.Equal(FrameActions.Bit(FrameAction.Sprint), heldAfterKeyboardRelease);
         Assert.Equal(0UL, _h.Latch.LastState.HeldBits);
-        Assert.Equal(2, _h.Latch.Edges.Count);
+        Assert.Single(_h.Latch.Edges);
     }
 
     [Fact]

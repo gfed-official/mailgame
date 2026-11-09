@@ -25,7 +25,7 @@ public class RouterTransitionsTests
 
     public RouterTransitionsTests()
     {
-        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, _log);
+        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, _log);
     }
 
     public static TheoryData<ushort, bool> M1aStates => new()

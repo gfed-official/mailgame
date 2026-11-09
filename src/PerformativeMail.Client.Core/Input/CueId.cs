@@ -12,6 +12,12 @@ public enum CueId : byte
 
     /// <summary>"Put it away first": Throw or Tool pressed in Holding-closed (GDD R6 ruling 3).</summary>
     PutAwayFirst = 1,
+
+    /// <summary>"Hold to aim": a throw aim released before <c>throwMinAimMs</c> (GDD F11, collision ruling 9; story 014).</summary>
+    HoldToAim = 2,
+
+    /// <summary>A Throw press refused because nothing can be thrown; Flags carry <see cref="IThrowAimView.NotThrowable"/> (story 014).</summary>
+    NotThrowable = 3,
 }
 
 /// <summary>

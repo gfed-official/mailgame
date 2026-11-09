@@ -24,7 +24,7 @@ public class InteractLatchTests
 
     public InteractLatchTests()
     {
-        _router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, _log);
+        _router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, _log);
     }
 
     [Fact]

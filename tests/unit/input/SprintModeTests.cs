@@ -124,7 +124,7 @@ public class SprintModeTests
     }
 
     private InputRouter Router(InputSettings settings) =>
-        new(BuiltInActionMap.CreateM1a(), settings, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, new UiEventLog());
+        new(BuiltInActionMap.CreateM1a(), settings, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, new UiEventLog());
 
     private void Tap(PhysicalInput input)
     {

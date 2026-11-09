@@ -47,12 +47,13 @@ public class TriggerHysteresisTests
     {
         var h = new InputTestHarness();
         var log = new UiEventLog();
-        var router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, h.Clock, h.Interaction, h.Presented, h.Carrier, h.Ticks, log);
+        var router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, h.Clock, h.Interaction, h.Presented, h.Carrier, h.ThrowAim, h.Ticks, log);
 
         Feed(router, h.Axis(PadLeftTrigger, 18022));
         Feed(router, h.Axis(PadLeftTrigger, 13107));
         router.FlushToLatch(h.Latch);
         List<EdgeKind> whileHeld = h.Latch.Edges.Select(e => e.Kind).ToList();
+        h.AdvanceTicks(8);   // 266 ms: past throwMinAimMs, so the release throws (story 014)
         Feed(router, h.Axis(PadLeftTrigger, 11141));
         router.FlushToLatch(h.Latch);
         Feed(router, h.Axis(PadRightTrigger, 32767));

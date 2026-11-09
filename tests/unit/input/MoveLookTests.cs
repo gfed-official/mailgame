@@ -24,7 +24,7 @@ public class MoveLookTests
 
     public MoveLookTests()
     {
-        _router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, new UiEventLog());
+        _router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, new UiEventLog());
     }
 
     [Fact]

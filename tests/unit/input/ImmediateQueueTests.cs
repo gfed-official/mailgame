@@ -27,7 +27,7 @@ public class ImmediateQueueTests
 
     public ImmediateQueueTests()
     {
-        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, _log);
+        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, _log);
     }
 
     /// <summary>Every Immediate Tap of the M-1a map except the two "Put it away first" message actions, which queue nothing.</summary>

@@ -92,6 +92,9 @@ public sealed class InputTestHarness
     /// <summary>The settable client tick counter.</summary>
     public FakeClientTickSource Ticks { get; } = new();
 
+    /// <summary>The settable throw preview the router reads aim refusals and the stale entry from (story 014).</summary>
+    public FakeThrowAimView ThrowAim { get; } = new();
+
     /// <summary>The settable published interaction snapshot (story 012).</summary>
     public FakeInteractionQuery Interaction { get; } = new();
 
@@ -194,6 +197,16 @@ public sealed class FakeInteractionQuery : IInteractionQuery
     /// <summary>Publishes <paramref name="snapshot"/>.</summary>
     /// <param name="snapshot">The new snapshot.</param>
     public void Publish(in InteractionSnapshot snapshot) => _current = snapshot;
+}
+
+/// <summary>A settable <see cref="IThrowAimView"/> for router tests (stands in for throwing-catching 004's <c>ThrowPreviewState</c>).</summary>
+public sealed class FakeThrowAimView : IThrowAimView
+{
+    /// <inheritdoc />
+    public byte NotThrowable { get; set; }
+
+    /// <inheritdoc />
+    public bool EntryStale { get; set; }
 }
 
 /// <summary>A settable <see cref="IClientTickSource"/> for router tests.</summary>

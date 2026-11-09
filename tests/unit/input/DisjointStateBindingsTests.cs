@@ -37,7 +37,7 @@ public class DisjointStateBindingsTests
         // Arrange
         var h = new InputTestHarness();
         var log = new UiEventLog();
-        var router = new InputRouter(_map, InputSettings.Defaults, h.Clock, h.Interaction, h.Presented, h.Carrier, h.Ticks, log);
+        var router = new InputRouter(_map, InputSettings.Defaults, h.Clock, h.Interaction, h.Presented, h.Carrier, h.ThrowAim, h.Ticks, log);
         if (context is Context.Panel or Context.HoldingOpen)
         {
             Feed(router, h.Press(KeyTab));

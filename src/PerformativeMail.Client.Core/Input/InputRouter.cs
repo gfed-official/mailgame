@@ -11,7 +11,8 @@ namespace PerformativeMail.Client.Core.Input;
 /// <para>
 /// Edge kinds per grammar: a <see cref="Delivery.Frame"/> Tap (Jump) emits a Press only; a HeldState action (Sprint) sets and
 /// clears its bit in <c>HeldBits</c> (OR across devices) and emits no edge; Hold (Interact) and Aim-release (Throw, which also
-/// holds the Aim bit while down) emit Press and Release, and Cancel on a state change. Immediate actions fire on the press into
+/// holds the Aim bit while aiming) emit Press and Release, and Cancel on a state change. Throw's aim, F11 commit and Toggle aim
+/// are the Aim part (story 014). Immediate actions fire on the press into
 /// the immediate queue (story 013, the Immediate part) that <see cref="DispatchImmediates"/> hands to the verb owners' sinks. Wheel and step records are story 010's. Analog input (story 009) is in the Analog part.
 /// </para>
 /// <para>
@@ -29,8 +30,9 @@ namespace PerformativeMail.Client.Core.Input;
 /// <example>
 /// <code>
 /// var router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, clock, interaction, presentedPrompt,
-///     carrierStatus, clientTicks, log);
+///     carrierStatus, throwAimView, clientTicks, log);
 /// router.RegisterSink(ActionId.Drop, dropSink);   // boot, by the verb owner
+/// router.RegisterSink(ActionId.Throw, throwSink); // the Throw commit
 /// router.Feed(in record);          // from the adapter's _Input
 /// router.DispatchImmediates();     // GameLoop, once per frame, then
 /// router.FlushToLatch(latch);      // before RunFrame
@@ -61,6 +63,7 @@ public sealed partial class InputRouter
     /// <param name="interaction">The published interaction snapshot (the Sim's hold state; ADR-0014 section 7).</param>
     /// <param name="presented">The prompt last presented on screen, which Interact presses carry (G1).</param>
     /// <param name="carrier">The published carrier status (<c>body</c> and <c>holding</c>).</param>
+    /// <param name="throwAim">Throwing's published throw preview (aim-start refusals and the stale-entry cancel; story 014).</param>
     /// <param name="ticks">The published client tick counter.</param>
     /// <param name="log">The shared event log every gate decision, transition and drop is written to.</param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
@@ -72,6 +75,7 @@ public sealed partial class InputRouter
         IInteractionQuery interaction,
         IPresentedPromptSource presented,
         ICarrierStatusSource carrier,
+        IThrowAimView throwAim,
         IClientTickSource ticks,
         UiEventLog log)
     {
@@ -81,6 +85,7 @@ public sealed partial class InputRouter
         ArgumentNullException.ThrowIfNull(interaction);
         ArgumentNullException.ThrowIfNull(presented);
         ArgumentNullException.ThrowIfNull(carrier);
+        ArgumentNullException.ThrowIfNull(throwAim);
         ArgumentNullException.ThrowIfNull(ticks);
         ArgumentNullException.ThrowIfNull(log);
         _map = map;
@@ -89,6 +94,7 @@ public sealed partial class InputRouter
         _interaction = interaction;
         _presented = presented;
         _carrier = carrier;
+        _aimView = throwAim;
         _ticks = ticks;
         _log = log;
         ActionDef move = map.Get(ActionId.Move) ?? throw new ArgumentException("The map has no Move action.", nameof(map));
@@ -131,6 +137,7 @@ public sealed partial class InputRouter
     {
         SyncCarrierStatus(r.ArrivalMs);
         SyncInteraction(r.ArrivalMs);
+        SyncAim(r.ArrivalMs);
         switch (r.Kind)
         {
             case RawKind.PadAxis:
@@ -167,7 +174,7 @@ public sealed partial class InputRouter
     }
 
     /// <summary>
-    /// Re-reads the carrier status, pushes every edge queued since the last flush, in arrival order (same-action level presses
+    /// Re-reads the carrier status (and the throw preview's stale flag), pushes every edge queued since the last flush, in arrival order (same-action level presses
     /// coalesced), then the current state through <see cref="IInputLatchWriter.SetState"/>, then clears the queue. The state
     /// carries the move intent (zeroed where <see cref="MoveAxes.Kept"/> says so), the absolute look after this frame's stick
     /// integration, the focus cone, <see cref="InputFrameFlags.PanelOpen"/> while the overlay is Panel and
@@ -182,6 +189,7 @@ public sealed partial class InputRouter
         long nowMs = _clock.NowMs;
         SyncCarrierStatus(nowMs);
         SyncInteraction(nowMs);
+        SyncAim(nowMs);
         _edges.PushTo(latch, _levelPressBits);
         short moveX = 0;
         short moveY = 0;
@@ -215,7 +223,7 @@ public sealed partial class InputRouter
     }
 
     /// <summary>
-    /// Test hook for states no story-008 transition reaches yet (aiming, story 014; Pause, story 016): sets the router state as a
+    /// Test hook for states no router transition reaches yet (Pause, story 016): sets the router state as a
     /// transition (G3, log, mouse mode). Body and holding set here hold until the carrier status next changes.
     /// </summary>
     /// <param name="stateId">The new state id.</param>
@@ -230,7 +238,7 @@ public sealed partial class InputRouter
     /// G3: re-evaluates every down machine after a state change. One whose latched action is not live in
     /// <paramref name="newState"/> becomes muted: a Hold or Aim machine queues <c>Cancel(StateChange)</c>, a held bit clears,
     /// and the later release is swallowed. Machines are visited in table order; then an open toggled Interact hold whose
-    /// action is not live is cancelled the same way (its button may already be up).
+    /// action is not live is cancelled the same way (its button may already be up), and so is an aim the new state ends.
     /// </summary>
     /// <param name="oldState">The state before the change.</param>
     /// <param name="newState">The state after the change.</param>
@@ -249,7 +257,12 @@ public sealed partial class InputRouter
                 continue;
             }
 
-            if (m.Phase is PressPhase.Active or PressPhase.Aiming)
+            bool isAim = m.Phase == PressPhase.Aiming && _aim.Slot == i;
+            if (isAim)
+            {
+                CloseAim(EdgeKind.Cancel, AimCancelReason.StateChange, newState, _clock.NowMs);
+            }
+            else if (m.Phase is PressPhase.Active or PressPhase.Aiming)
             {
                 _held.RemoveAction(m.Bit);
             }
@@ -258,7 +271,7 @@ public sealed partial class InputRouter
                 _autoWalkers--;
             }
 
-            if (m.OwesClosingEdge)
+            if (m.OwesClosingEdge && !isAim)
             {
                 _edges.PushClosing(m.Bit, EdgeKind.Cancel, EdgeReason.StateChange, newState, m.Device);
             }
@@ -268,6 +281,7 @@ public sealed partial class InputRouter
         }
 
         OnHoldClassesStateChanged(newState);
+        OnAimStateChanged(newState);
     }
 
     private void Press(int index, in RawInputRecord r)
@@ -290,6 +304,12 @@ public sealed partial class InputRouter
         {
             m.HasBit = true;
             m.Bit = bit;
+        }
+
+        if (def.CommitOnRelease && m.HasBit)
+        {
+            PressAim(index, ref m, in r);
+            return;
         }
 
         bool dropped = false;
@@ -360,6 +380,10 @@ public sealed partial class InputRouter
             case PressPhase.Active:
                 _held.RemoveAction(m.Bit);
                 break;
+            case PressPhase.Aiming when _aim.Slot == index:
+                m = default;
+                ReleaseAim(r.ArrivalMs);
+                return;
             case PressPhase.Aiming:
                 _held.RemoveAction(m.Bit);
                 _edges.PushClosing(m.Bit, EdgeKind.Release, EdgeReason.None, _state, m.Device);

@@ -21,7 +21,7 @@ public class EdgeQueueTests
 
     public EdgeQueueTests()
     {
-        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.Ticks, _log);
+        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, _log);
     }
 
     [Fact]
@@ -80,7 +80,8 @@ public class EdgeQueueTests
     [Fact]
     public void FullRing_DropsTheNewestPress_AndNeverAReleaseOrCancel()
     {
-        // Arrange: Interact and Throw aim open (each reserves its closing edge), then Jump presses fill the ring.
+        // Arrange: Interact and Throw aim open (each reserves its closing edge; starting the aim cancels Interact, story 014),
+        // then Jump presses fill the ring.
         Feed(_h.Press(KeyE));
         Feed(_h.Press(MouseRight));
         for (int i = 0; i < 252; i++)
@@ -97,13 +98,13 @@ public class EdgeQueueTests
         _router.ForceState(PanelId);
         _router.FlushToLatch(_h.Latch);
 
-        // Assert: 2 + 252 + 2 = 256 queued; the 253rd Jump was dropped and logged; both cancels arrived, last.
+        // Assert: 2 + 252 + 2 = 256 queued; the 253rd Jump was dropped and logged; both cancels arrived, the aim's last.
         Assert.Equal(0, droppedAtCapacity);
         Assert.Equal(1, _router.DroppedEdges);
         UiEventEntry drop = Assert.Single(Entries(), e => e.Kind == LogKind.Dropped);
         Assert.Equal((ushort)FrameAction.Jump, drop.IdA);
         Assert.Equal(
-            [(FrameAction.Interact, EdgeKind.Press), (FrameAction.Aim, EdgeKind.Press), (FrameAction.Jump, EdgeKind.Press), (FrameAction.Interact, EdgeKind.Cancel), (FrameAction.Aim, EdgeKind.Cancel)],
+            [(FrameAction.Interact, EdgeKind.Press), (FrameAction.Aim, EdgeKind.Press), (FrameAction.Interact, EdgeKind.Cancel), (FrameAction.Jump, EdgeKind.Press), (FrameAction.Aim, EdgeKind.Cancel)],
             _h.Latch.Edges.Select(e => (e.Action, e.Kind)));
     }
 
