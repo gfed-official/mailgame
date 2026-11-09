@@ -1,7 +1,6 @@
 using Godot;
 using PerformativeMail.Client.Core.Ui;
 using PerformativeMail.Game.Presentation;
-using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Content;
 
 namespace PerformativeMail.Game.Views.Inventory;
@@ -82,7 +81,6 @@ public partial class PanelGridView : Control, IPresentedView
     private void DrawHotbar()
     {
         int selected = _controller.SelectedSlot;
-        IPanelView panel = _source.Panel;
         Font font = ThemeDB.FallbackFont;
         for (int i = 0; i < PanelLayout.HotbarSlots; i++)
         {
@@ -95,8 +93,8 @@ public partial class PanelGridView : Control, IPresentedView
                 continue;
             }
 
-            PanelEntryFacts f = panel.Entry(PanelSection.Hotbar, i);
-            if (f.IsEntry)
+            PanelGridEntry f = _controller.HotbarEntry(i);
+            if (f.EntryId != 0)
             {
                 Glyph(r, f.Category, f.KindKey, f.Units);
             }

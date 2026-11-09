@@ -69,6 +69,15 @@ public sealed class PanelController : IImmediateActionSink
         }
     }
 
+    /// <summary>Hotbar slot <paramref name="slot"/> as a drawable entry (footprint 0, entry id 0 when empty), so the view names no Sim.ClientLayer type (ADR-0002).</summary>
+    /// <param name="slot">The slot, 0 to 7.</param>
+    /// <returns>The entry.</returns>
+    public PanelGridEntry HotbarEntry(int slot)
+    {
+        PanelEntryFacts f = _source.Panel.Entry(PanelSection.Hotbar, slot);
+        return new PanelGridEntry(f.EntryId.Value, 0, 0, 0, 0, f.Category, f.KindKey, f.Units, f.Address);
+    }
+
     /// <summary>Registers this controller as the sink of the eight hotbar-slot actions and of Quick move.</summary>
     /// <param name="router">The input router.</param>
     public void RegisterSinks(InputRouter router)
