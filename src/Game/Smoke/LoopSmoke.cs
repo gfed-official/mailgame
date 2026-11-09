@@ -1,9 +1,12 @@
 using Godot;
 using PerformativeMail.Client.Core.Throwing;
+using PerformativeMail.Client.Core.Ui;
 using PerformativeMail.Client.Core.Ui.Throwing;
 using PerformativeMail.Game.Boot;
 using PerformativeMail.Game.Hosting;
+using PerformativeMail.Game.Views.Inventory;
 using PerformativeMail.Sim.Composition;
+using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Economy;
 using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Players;
@@ -19,7 +22,7 @@ namespace PerformativeMail.Game.Smoke;
 /// <summary>
 /// The playable loop over the real boot (WP-F), driven only by key and mouse events through the production input adapter: walk to the
 /// Intake console, see it focused with the [E] prompt, press E (the Intake's Open, then take_all and the hotbar staging), see mail in the
-/// own-panel mirror with a hotbar slot selected; walk to the mailbox of a carried letter, hold E and see the wallet change; walk in front
+/// own-panel mirror with a hotbar slot selected and in the HUD inventory panel (hotbar and own grid) and ClientPorts.Panel; walk to the mailbox of a carried letter, hold E and see the wallet change; walk in front
 /// of the selected letter's mailbox, hold the right mouse button, pitch until the aim preview turns Accept, release, and see a projectile
 /// launched and the wallet change again. Every step fails loudly when it stays idle (no focus, no prompt, no pickup, no wallet change,
 /// no arc, no flight).
@@ -135,7 +138,19 @@ public sealed class LoopSmoke : SmokeScenario
         }
 
         Expect(ctx, $"E took the Intake's mail (take_all reason {_client.Pickup.LastTakeAllReason})", _client.Pickup.Pickups, 1);
-        return Expect(ctx, $"a letter is staged on the hotbar and selected (slot {_client.Panel.SelectedIndex})", picked && _client.Panel.TryGet(out _), true);
+        if (!Expect(ctx, $"a letter is staged on the hotbar and selected (slot {_client.Panel.SelectedIndex})", picked && _client.Panel.TryGet(out _), true))
+        {
+            return false;
+        }
+
+        // The HUD inventory panel and ClientPorts.Panel read the own-panel mirror: the staged letter shows on the drawn hotbar, the rest
+        // of the take in the panel's own grid.
+        bool portIsMirror = ReferenceEquals(_loop.Session?.Panel, _client.Panel);
+        Expect(ctx, "ClientPorts.Panel is the own-panel mirror", portIsMirror, true);
+        PanelGridView? view = _loop.GetNodeOrNull<PanelGridView>("Hud/Inventory/PanelGridView");
+        PanelGridEntry shown = view?.Controller.HotbarEntry(_client.Panel.SelectedIndex) ?? default;
+        Expect(ctx, $"the HUD panel's hotbar shows the letter in slot {_client.Panel.SelectedIndex} (entry {shown.EntryId}, x{shown.Units})", shown.EntryId != 0 && shown.Category == ItemCategory.Mail, true);
+        return Expect(ctx, $"the HUD panel's own grid holds the rest of the take ({_client.Panel.Inventory.EntryCount} entries)", _client.Panel.Inventory.EntryCount > 0, true);
     }
 
     private bool HandDeliver(SmokeContext ctx)

@@ -29,7 +29,7 @@ namespace PerformativeMail.Game.Boot;
 /// Intake pickup sequence and the hotbar selection sender. Everything it reads arrives through the client adapter (records, replies) or
 /// is the client's own state; it never reads <c>SimWorld</c> or a host table. <see cref="Attach"/> binds the session's request port and
 /// clock once the session exists; <see cref="Publish"/> hands the router's ports, the aim source and the verb sinks to the later boot
-/// steps. The mirror never feeds <c>ClientPorts.Panel</c> or the inventory panel view (those are the panel stand-in PR's).
+/// steps. The mirror is also <c>ClientPorts.Panel</c> (the carrier port contributor binds it) and the inventory panel's source.
 /// </summary>
 /// <example>
 /// <code>
@@ -146,6 +146,8 @@ public sealed class ClientLoop
         published.Add<IThrowAimView>(_aimView);
         published.Add<IAimArcSource>(_aimView);
         published.Add<IAnchorPoints>(new AnchorPoints(Interaction.Anchors));
+        published.Add<IInventoryPanelSource>(new MirrorPanel(Panel, _carrier));
+        published.Add<IInventoryActions>(Hotbar);
         published.Add(new ClientVerbSinks(new ThrowSink(this), new HotbarKeys(Hotbar)));
     }
 
@@ -200,6 +202,21 @@ public sealed class ClientLoop
             point = default;
             return false;
         }
+    }
+
+    // The inventory panel's read model: the own-panel mirror's hotbar, selection and player_inventory grid, open while the router is in
+    // the Panel context (Tab). No Intake grid: the client mirrors no external container.
+    private sealed class MirrorPanel(OwnPanelMirror panel, CarrierView carrier) : IInventoryPanelSource
+    {
+        public bool IsOpen => carrier.Status.PanelOpen;
+
+        public int SelectedSlot => panel.SelectedIndex;
+
+        public IPanelView Panel => panel;
+
+        public IGridSource Own => panel.Inventory;
+
+        public IGridSource? Intake => null;
     }
 
     // Keys 1 to 8 select hotbar slots 0 to 7 (slot 0 is the hands) through the mirror and HotbarSelect; the panel is not involved.

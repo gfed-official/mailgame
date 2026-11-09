@@ -1,3 +1,4 @@
+using PerformativeMail.Client.Core.Ui;
 using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
@@ -16,7 +17,8 @@ namespace PerformativeMail.Client.Core.Inventory;
 /// A container's records are staged and applied when its <c>Version</c> seal arrives (the client application unit); a seal whose
 /// <c>version_from</c> is not the mirrored version is applied anyway and counted in <see cref="Gaps"/> (resync is M0). Records of any
 /// other container (the Intake while it is open) and mailId continuation chunks are ignored. Mail hint runs do not travel, so the
-/// entries carry none. It is the client's <see cref="IPanelView"/> (deliver preview, hotbar strip) and, with the local hotbar selection
+/// entries carry none. It is the client's <see cref="IPanelView"/> (<c>ClientPorts.Panel</c>, the deliver preview, the inventory panel's
+/// hotbar and own grid through <see cref="Inventory"/>) and, with the local hotbar selection
 /// (<see cref="Select"/>), its <see cref="ISelectedEntryView"/> (aim preview). Never reads <c>SimWorld</c>. Allocation-free after
 /// construction; client thread only.
 /// </summary>
@@ -62,7 +64,12 @@ public sealed class OwnPanelMirror : IMirrorPart, IPanelView, ISelectedEntryView
         _ids[Hotbar] = hotbar.Value;
         _ids[Bag] = inventory.Value;
         _ids[Held] = cursor.Value;
+        (int w, int h) = InventorySize(content);
+        Inventory = new InventoryGrid(this, w, h);
     }
+
+    /// <summary>The player_inventory as the inventory panel's own grid (read-only; the panel view draws it).</summary>
+    public IGridSource Inventory { get; }
 
     /// <summary>The container record kinds this part applies.</summary>
     public static EventKindSet Kinds => EventKindSet.Of(
@@ -284,7 +291,7 @@ public sealed class OwnPanelMirror : IMirrorPart, IPanelView, ISelectedEntryView
                     list[_counts[c]++] = new Row
                     {
                         Id = p.EntryId, X = p.X, Y = p.Y, Count = p.Count, IsMail = p.IsMail != 0, MailKind = p.MailKind, ItemId = p.ItemId,
-                        Address = p.AddressId, Flags = p.Flags,
+                        Address = p.AddressId, Flags = p.Flags, W = p.W, H = p.H,
                     };
                 }
 
@@ -335,6 +342,19 @@ public sealed class OwnPanelMirror : IMirrorPart, IPanelView, ISelectedEntryView
             default:
                 break; // SplitFrom: its Removed and Inserted already carry the change
         }
+    }
+
+    private static (int W, int H) InventorySize(ContentSet content)
+    {
+        foreach (ContainerDef d in content.Containers.AsSpan())
+        {
+            if (d.Id == "player_inventory")
+            {
+                return (d.GridW, d.GridH);
+            }
+        }
+
+        return (0, 0);
     }
 
     private int Find(int c, uint id)
@@ -402,5 +422,25 @@ public sealed class OwnPanelMirror : IMirrorPart, IPanelView, ISelectedEntryView
         public ushort ItemId;
         public uint Address;
         public byte Flags;
+        public byte W;
+        public byte H;
+    }
+
+    // The player_inventory as the panel view's grid (read-only).
+    private sealed class InventoryGrid(OwnPanelMirror mirror, int width, int height) : IGridSource
+    {
+        public uint ContainerId => mirror._ids[Bag];
+
+        public int Width => width;
+
+        public int Height => height;
+
+        public int EntryCount => mirror._counts[Bag];
+
+        public PanelGridEntry Entry(int i)
+        {
+            ref readonly Row e = ref mirror._entries[Bag][i];
+            return new PanelGridEntry(e.Id, e.X, e.Y, Math.Max((byte)1, e.W), Math.Max((byte)1, e.H), mirror.CategoryOf(in e), e.IsMail ? e.MailKind : e.ItemId, e.Count, new AddressId(e.Address));
+        }
     }
 }

@@ -174,6 +174,18 @@ public class HudUiTests
         Assert.Equal(PromptMark.Mismatch, floor.Mark);
     }
 
+    // WP-F regression: the prompt view never set its framework reasons, so an available target (no key) matched the unset ClosePanel
+    // id and read "Close panel to deliver"; the Intake console now reads its Open line.
+    [Fact]
+    public void Available_open_target_with_unset_reasons_shows_take_mail_not_close_panel()
+    {
+        var open = new InteractionSnapshot { Seq = 4, Verb = Verb.Open, Available = 1, Focused = new AnchorRef(new EntityId(1u), 0) };
+
+        PromptRows rows = DeliverPromptRows.Build(DeliverPrompt.From(open), new EnMoneyFormatter(), new Text(), "[E]", default);
+
+        Assert.Equal("[E] Take mail", rows.Line1);
+    }
+
     [Fact]
     public void Nothing_reject_and_unavailable_rows_have_no_mark_and_non_deliver_verb_decodes_reason()
     {
