@@ -186,7 +186,8 @@ public sealed partial class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoin
         slot.IsNone || _records[slot.Value].IsEmpty ? LifeState.Despawned : _records[slot.Value].Life;
 
     /// <summary>
-    /// Binds the join/leave listener, phase 3 (<see cref="PlayersStep"/>, story 019) and the canonical dump section; with Grid
+    /// Binds the join/leave listener, phase 3 (<see cref="PlayersStep"/>, story 019), the canonical dump section and the
+    /// <see cref="PlayerOpKinds.HotbarSelect"/> handler; with Grid
     /// Inventory's API, also the <see cref="PlayerOpKinds.Open"/> handler and the <c>po_intake</c> console's Open anchor (grid-inventory
     /// story 019; GDD R10: the console is the anchor, at <see cref="PostOfficeRecord.IntakeAnchor"/>, default reach). Binds no event.
     /// </summary>
@@ -198,6 +199,7 @@ public sealed partial class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoin
         builder.BindPlayerJoinListener(this);
         builder.Bind(PhaseId.PlayersStep, new PlayersStep(this, _samples, _slots, _counters));
         builder.BindStateContributor(new PlayersStateContributor(this));
+        builder.BindOp(HotbarSelectOp.Descriptor, new HotbarSelectHandler(this, _slots));
         if (_inventory is null)
         {
             return;

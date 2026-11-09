@@ -4,8 +4,8 @@ namespace PerformativeMail.Sim.ThrowingCatching;
 
 /// <summary>
 /// Throwing's read port for the host's selected hotbar slot (ADR-0015 section 1 check 2, "not the selected slot"; throwing-catching
-/// story 009). An unowned seam at M-1a: no system yet stores the selection or binds an op that sets it, so only a test double implements
-/// it; a later WP-D story adds the <c>HotbarSelect</c> op and the production implementation. Read-only, allocation-free.
+/// story 009). Players stores the selection (its <c>HotbarSelect</c> op); <see cref="PlayersHotbarSelection"/> is the production
+/// implementation over <see cref="Players.IPlayersApi.SelectedHotbarIndex"/>. Read-only, allocation-free.
 /// </summary>
 /// <example><code>bool selected = hotbar.SelectedIndex(slot) == index;</code></example>
 public interface IHotbarSelection

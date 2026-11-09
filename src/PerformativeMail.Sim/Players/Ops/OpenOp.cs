@@ -12,12 +12,17 @@ namespace PerformativeMail.Sim.Players.Ops;
 /// the Inventory block (<c>0x008C</c>, retired as an <c>OpKind</c>, never reused) for this one under the proposed ADR-0009 erratum of
 /// grid-inventory story 019 (pending Evan; Mail Lead planning default Q1, regroup 2026-11-08): Inventory cannot inject
 /// <see cref="IPlayersApi"/> (<c>SystemGraph</c> declares Player Character → Grid Inventory), so the range-gated handler is Players'.
+/// <see cref="HotbarSelect"/> is the host's selected hotbar slot (Mail Lead planning default, regroup 2026-11-08: "a 4 B
+/// <c>HotbarSelect</c> op in the Players block keeps the ADR-0015 check 2 text intact").
 /// </summary>
 /// <example><code>var op = new Op { Kind = PlayerOpKinds.Open, ReqId = 7 };</code></example>
 public static class PlayerOpKinds
 {
     /// <summary>Open an external container (range-gated, P13): <see cref="OpenPayload"/>.</summary>
     public const OpKind Open = (OpKind)0x0041;
+
+    /// <summary>Select a hotbar slot (0 to 7; not range-gated, allowed while swimming): <see cref="HotbarSelectPayload"/>.</summary>
+    public const OpKind HotbarSelect = (OpKind)0x0042;
 }
 
 /// <summary>
