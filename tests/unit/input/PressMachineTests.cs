@@ -24,7 +24,7 @@ public class PressMachineTests
 
     public PressMachineTests()
     {
-        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _log);
+        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Carrier, _h.Ticks, _log);
     }
 
     /// <summary>Every <see cref="Delivery.Frame"/> Tap action of the M-1a map (story 013 adds the Immediate taps).</summary>

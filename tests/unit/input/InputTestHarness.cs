@@ -85,6 +85,12 @@ public sealed class InputTestHarness
     /// <summary>Records everything the router dispatches as an immediate action.</summary>
     public RecordingImmediateSink Immediates { get; } = new();
 
+    /// <summary>The settable carrier status the router reads <c>body</c> and <c>holding</c> from (story 008).</summary>
+    public CarrierStatusSourceStub Carrier { get; } = new();
+
+    /// <summary>The settable client tick counter.</summary>
+    public FakeClientTickSource Ticks { get; } = new();
+
     /// <summary>Advances the shared clock by <paramref name="n"/> Sim ticks (clears the sub-tick offset).</summary>
     /// <param name="n">The number of ticks.</param>
     public void AdvanceTicks(int n) => Clock.AdvanceTicks(n);
@@ -162,6 +168,13 @@ public sealed class InputTestHarness
             _ => RawKind.Synthetic,
         },
     };
+}
+
+/// <summary>A settable <see cref="IClientTickSource"/> for router tests.</summary>
+public sealed class FakeClientTickSource : IClientTickSource
+{
+    /// <inheritdoc />
+    public uint ClientTick { get; set; }
 }
 
 /// <summary>

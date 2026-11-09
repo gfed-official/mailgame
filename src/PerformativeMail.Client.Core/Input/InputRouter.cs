@@ -11,13 +11,19 @@ namespace PerformativeMail.Client.Core.Input;
 /// Edge kinds per grammar: a <see cref="Delivery.Frame"/> Tap (Jump) emits a Press only; a HeldState action (Sprint) sets and
 /// clears its bit in <c>HeldBits</c> (OR across devices) and emits no edge; Hold (Interact) and Aim-release (Throw, which also
 /// holds the Aim bit while down) emit Press and Release, and Cancel on a state change. Immediate actions latch and log but
-/// queue nothing yet (story 013). Analog, wheel and step records are later stories' (009, 010).
+/// queue nothing yet (story 013). Wheel and step records are story 010's; analog look and the deadzone story 009's.
+/// </para>
+/// <para>
+/// State (story 008): a fired action may move the router-owned layers through <see cref="TransitionTable"/>; <c>body</c> and
+/// <c>holding</c> follow <see cref="ICarrierStatusSource"/>, read before each record is handled and at each flush, so a second
+/// record of a frame is gated against the state the first one left. Move intent is state, not edges (GDD G3): it persists
+/// through Panel and Holding and is zeroed only by the states <see cref="MoveAxes.Kept"/> excludes.
 /// </para>
 /// <para>Single-threaded (the Godot main thread). 0 B per <see cref="Feed"/> and <see cref="FlushToLatch"/> after construction.</para>
 /// </summary>
 /// <example>
 /// <code>
-/// var router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, clock, log);
+/// var router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, clock, carrierStatus, clientTicks, log);
 /// router.Feed(in record);          // from the adapter's _Input
 /// router.FlushToLatch(latch);      // GameLoop, once per frame before RunFrame
 /// </code>
@@ -29,7 +35,11 @@ public sealed partial class InputRouter
 
     private readonly ActionMap _map;
     private readonly IInputClock _clock;
+    private readonly ICarrierStatusSource _carrier;
+    private readonly IClientTickSource _ticks;
     private readonly UiEventLog _log;
+    private readonly ActionDef _look;
+    private readonly MoveAxes _moveAxes;
     private readonly PressMachine[] _machines = new PressMachine[DeviceSlots.MachineCount];
     private readonly HeldTable _held = new();
     private readonly EdgeQueue _edges = new();
@@ -40,18 +50,29 @@ public sealed partial class InputRouter
     /// <param name="map">The validated action map.</param>
     /// <param name="settings">The input settings.</param>
     /// <param name="clock">The monotonic ms clock.</param>
-    /// <param name="log">The shared event log every gate decision and drop is written to.</param>
+    /// <param name="carrier">The published carrier status (<c>body</c> and <c>holding</c>).</param>
+    /// <param name="ticks">The published client tick counter.</param>
+    /// <param name="log">The shared event log every gate decision, transition and drop is written to.</param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
-    public InputRouter(ActionMap map, InputSettings settings, IInputClock clock, UiEventLog log)
+    /// <exception cref="ArgumentException">The map has no Move or Look action.</exception>
+    public InputRouter(ActionMap map, InputSettings settings, IInputClock clock, ICarrierStatusSource carrier, IClientTickSource ticks, UiEventLog log)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(carrier);
+        ArgumentNullException.ThrowIfNull(ticks);
         ArgumentNullException.ThrowIfNull(log);
         _map = map;
         Settings = settings;
         _clock = clock;
+        _carrier = carrier;
+        _ticks = ticks;
         _log = log;
+        ActionDef move = map.Get(ActionId.Move) ?? throw new ArgumentException("The map has no Move action.", nameof(map));
+        _look = map.Get(ActionId.Look) ?? throw new ArgumentException("The map has no Look action.", nameof(map));
+        _moveAxes = new MoveAxes(move);
+        MouseModeRequest = MouseModeOf(_state);
         foreach (ActionDef d in map.All)
         {
             if (d.Grammar == Grammar.Tap && d.Delivery == Delivery.Frame && d.FrameBit is FrameAction bit)
@@ -61,8 +82,11 @@ public sealed partial class InputRouter
         }
     }
 
-    /// <summary>The current router state id (starts in World; story 008 drives the transitions).</summary>
+    /// <summary>The current router state id (starts in World).</summary>
     public ushort State => _state;
+
+    /// <summary>The client tick counter the tick-counted rules read (stories 012, 013).</summary>
+    internal uint ClientTick => _ticks.ClientTick;
 
     /// <summary>The settings the router applies.</summary>
     internal InputSettings Settings { get; }
@@ -71,13 +95,21 @@ public sealed partial class InputRouter
     internal long DroppedEdges => _edges.Dropped;
 
     /// <summary>
-    /// Feeds one raw record. Raw held state is updated from every button record first; then a press is resolved and latched
-    /// against the current state, a release closes its machine, and an OS echo does nothing more.
+    /// Feeds one raw record. The carrier status is re-read first; raw held state is updated from every button record; then a
+    /// press is resolved and latched against the current state (and may fire a transition), a release closes its machine, and an
+    /// OS echo does nothing more. A pad axis sample updates the move axes.
     /// </summary>
     /// <param name="r">The record.</param>
     public void Feed(in RawInputRecord r)
     {
-        if (r.Kind is RawKind.MouseMotion or RawKind.PadAxis or RawKind.Wheel)
+        SyncCarrierStatus(r.ArrivalMs);
+        if (r.Kind == RawKind.PadAxis)
+        {
+            _moveAxes.Sample(in r);
+            return;
+        }
+
+        if (r.Kind is RawKind.MouseMotion or RawKind.Wheel)
         {
             return;
         }
@@ -100,29 +132,46 @@ public sealed partial class InputRouter
     }
 
     /// <summary>
-    /// Pushes every edge queued since the last flush, in arrival order (same-action level presses coalesced), then the current
-    /// state through <see cref="IInputLatchWriter.SetState"/>, then clears the queue.
+    /// Re-reads the carrier status, pushes every edge queued since the last flush, in arrival order (same-action level presses
+    /// coalesced), then the current state through <see cref="IInputLatchWriter.SetState"/>, then clears the queue. The state
+    /// carries the move intent (zeroed where <see cref="MoveAxes.Kept"/> says so) and <see cref="InputFrameFlags.PanelOpen"/> while the overlay is Panel.
     /// </summary>
     /// <param name="latch">The Sim latch writer.</param>
     /// <exception cref="ArgumentNullException"><paramref name="latch"/> is null.</exception>
     public void FlushToLatch(IInputLatchWriter latch)
     {
         ArgumentNullException.ThrowIfNull(latch);
+        SyncCarrierStatus(_clock.NowMs);
         _edges.PushTo(latch, _levelPressBits);
-        var state = new InputState { HeldBits = _held.ActionBits, RouterStateId = _state };
+        short moveX = 0;
+        short moveY = 0;
+        if (MoveAxes.Kept.IsLive(_state))
+        {
+            _moveAxes.Intent(_held, out moveX, out moveY);
+        }
+
+        var state = new InputState
+        {
+            MoveX = moveX,
+            MoveY = moveY,
+            HeldBits = _held.ActionBits,
+            RouterStateId = _state,
+            Flags = RouterStateInfo.IsPanel(_state) ? InputFrameFlags.PanelOpen : InputFrameFlags.None,
+        };
         latch.SetState(in state);
         _edges.Clear();
     }
 
-    /// <summary>Test hook until story 008's transitions: sets the router state and runs <see cref="OnStateChanged"/>.</summary>
+    /// <summary>
+    /// Test hook for states no story-008 transition reaches yet (aiming, story 014; Pause, story 016): sets the router state as a
+    /// transition (G3, log, mouse mode). Body and holding set here hold until the carrier status next changes.
+    /// </summary>
     /// <param name="stateId">The new state id.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="stateId"/> is not a packed state id.</exception>
     internal void ForceState(ushort stateId)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(stateId, (ushort)RouterStateInfo.StateCount);
-        ushort old = _state;
-        _state = stateId;
-        OnStateChanged(old, stateId);
+        ChangeState(stateId, _clock.NowMs, CauseForced, ActionId.None);
     }
 
     /// <summary>
@@ -190,6 +239,8 @@ public sealed partial class InputRouter
         {
             _log.Write(r.ArrivalMs, LogKind.Dropped, (byte)EdgeKind.Press, (ushort)m.Bit, (ushort)r.Input, _state);
         }
+
+        ApplyTransition(match.Action, r.ArrivalMs);
     }
 
     // The phase a live press enters. A Hold or Aim press whose edge is dropped is muted, so its release is swallowed too.
