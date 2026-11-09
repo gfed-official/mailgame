@@ -41,6 +41,9 @@ public partial class AimRibbonView : Control, IPresentedView
         SetAnchorsPreset(LayoutPreset.FullRect);
     }
 
+    /// <summary>Quads (stroke and end marker) the last <see cref="Present"/> queued for drawing.</summary>
+    public int DrawnQuads => _quadCount + _markerCount;
+
     /// <inheritdoc />
     public void Present(int alphaPermille)
     {

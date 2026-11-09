@@ -131,6 +131,7 @@ public sealed class CameraRigSmoke : SmokeScenario
         Expect(ctx, $"standing: the pivot settles on feet + 1.6 m ({rig.GlobalPosition} vs {want})", rig.GlobalPosition.DistanceTo(want) < 0.01f, true);
         Expect(ctx, "the rig took over and its camera is current", rig.HasTakenOver && rig.Camera is { Current: true }, true);
         CheckWalksAlongCamera(ctx, loop, session, rig);
+        CheckPitchAndRoll(ctx, loop, rig);
     }
 
     // W walks along the camera's flat forward after the mouse has turned the look away from the spawn yaw.
@@ -153,6 +154,36 @@ public sealed class CameraRigSmoke : SmokeScenario
         var moved = new Vector3(session.Carrier.View.Current.X - x0, 0f, session.Carrier.View.Current.Z - z0);
         float along = moved.LengthSquared() > 0f ? moved.Normalized().Dot(forward) : 0f;
         Expect(ctx, $"W walks along the camera's forward (moved {moved} mm, cos {along:0.000})", along > 0.98f, true);
+    }
+
+    // Mouse look through the adapter (WP-G item 4): mouse up raises the view on the next frame (not inverted, no smoothing), a long
+    // drag stops at the +70° / -60° clamp, and the camera's right axis stays level at every pitch (no roll).
+    private void CheckPitchAndRoll(SmokeContext ctx, GameLoop loop, CameraRig rig)
+    {
+        Camera3D camera = rig.Camera!;
+        float Pitch() => Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(-camera.GlobalBasis.Z.Y, -1f, 1f)));
+        float before = Pitch();
+        SmokeInput.MouseMotion(0f, -60f);
+        Tick(loop);
+        Tick(loop);
+        float up = Pitch();
+        Expect(ctx, $"mouse up raises the view at once ({before:0.0}° → {up:0.0}°)", up > before + 1f, true);
+        float maxRoll = Mathf.Abs(camera.GlobalBasis.X.Y);
+        SmokeInput.MouseMotion(0f, -5000f);
+        Tick(loop);
+        Tick(loop);
+        float top = Pitch();
+        maxRoll = Mathf.Max(maxRoll, Mathf.Abs(camera.GlobalBasis.X.Y));
+        SmokeInput.MouseMotion(0f, 10_000f);
+        Tick(loop);
+        Tick(loop);
+        float bottom = Pitch();
+        maxRoll = Mathf.Max(maxRoll, Mathf.Abs(camera.GlobalBasis.X.Y));
+        Expect(ctx, $"pitch clamps to +70° / -60° ({top:0.0}° / {bottom:0.0}°)", Mathf.Abs(top - 70f) < 0.5f && Mathf.Abs(bottom + 60f) < 0.5f, true);
+        Expect(ctx, $"no roll: the camera's right axis stays level (max |right.y| {maxRoll:0.00000})", maxRoll < 1e-4f, true);
+        SmokeInput.MouseMotion(0f, -5000f * (60f / 130f));
+        Tick(loop);
+        Tick(loop);
     }
 
     private void CheckScripted(SmokeContext ctx, GameLoop loop, PresenterDeps deps)
