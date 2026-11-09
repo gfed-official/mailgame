@@ -149,7 +149,8 @@ At the start of phase 0, the queue captures `n = min(count, maxOpsDrainedPerTick
   | `0x0100`–`0x013F` | Mail and Delivery |
   | `0x0140`–`0x017F` | Throwing |
   | `0x0180`–`0x01BF` | Economy (`OpKindBlock.Economy`; amendment 2026-10-28 — first kind `WalletChanged` 0x0180, mail-destinations 005) |
-  | `0x01C0`+ | Later systems, 64-wide blocks, allocated by amending this table |
+  | `0x01C0`–`0x01FF` | Run Structure (`OpKindBlock.Run`; amendment 2026-11-08 — first kind `DeliveriesState` 0x01C0, mail-destinations 009) |
+  | `0x0200`+ | Later systems, 64-wide blocks, allocated by amending this table |
 
 - **Descriptor contents.** Each kind's descriptor (`OpDescriptor`, registered at build by the owning system, ADR-0003) declares:
   - `PayloadLength`;
@@ -393,3 +394,4 @@ No code exists.
 
 ## Errata
 - 2026-10-28 — §4 block table amendment: the Economy block `0x0180`–`0x01BF` is allocated (`OpKindBlock.Economy`, appended to `OpKindBlockTable.Blocks`; the "later systems" row now starts at `0x01C0`). The block table is shared by `OpKind` and `EventKind` descriptors; its first kind is the `WalletChanged` event, `EconEventKinds.WalletChanged = (EventKind)0x0180`, raised by the M-1a `StubWallet` (mail-destinations story 005; ADR-0017 §8). Approved by Evan 2026-10-28 7:26 AM PT, in his own words in the Mail Lead chat, card 'Mail-destinations 005 decisions': "Approve all six TD-177 defaults for mail-destinations 005, including the ADR-0007 §4 economy event block row"; source TD-177 item 3. Table amendment only; the Decision is unchanged and the ADR stays Accepted.
+- 2026-11-08 — §4 block table amendment: the Run Structure block `0x01C0`–`0x01FF` is allocated (`OpKindBlock.Run`, appended to `OpKindBlockTable.Blocks`; the "later systems" row now starts at `0x0200`). Its first kind is the `DeliveriesState` event, `RunEventKinds.DeliveriesState = (EventKind)0x01C0`, raised by the M-1a shift stub (mail-destinations story 009; ADR-0017 §3). Approved by Evan 2026-11-08 9:51 PM PT, by card click on Mail Lead's card 'PR 83: approve both ADR additions listed above?' (card t293s1320; listing message t293s1319): "Approve PR 83 TD-211 items 1 and 3 (ADR-0007 Run id block and ADR-0003 injectable list), as listed in your message above" (TD-211 item 1). Uncredited Mail Dev detail (not part of Evan's approval): the kind's descriptor declares `ResyncScope` 4 (Run, after Players 0, Inventory 1, Mail 2, Throwing 3; ADR-0008 keeps that table in the descriptor file, `Run/Events/RunEventKinds.cs`). Table amendment only; the Decision is unchanged and the ADR stays Accepted.

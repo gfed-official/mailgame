@@ -8,7 +8,7 @@
 > **Est. size**: M/L — 12–14 stories
 > **Implementation priority**: 4 of 9
 > **Status**: Ready
-> **Stories**: 16 stories — 9 Complete, 7 Ready (counts refreshed 2026-11-04 from the story headers, `/workspace/scripts/count-story-status.sh`, story 007 Complete, branch `story/md-007` off main afe08b6; before that 2026-11-03: 8 Complete, 8 Ready, story 006 Complete, branch `story/mail-destinations-006` with main 84ff4ee (PR #60) merged in, no rebase; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 16 stories — 10 Complete, 6 Ready (counts refreshed 2026-11-08 from the story headers, `/workspace/scripts/count-story-status.sh`, story 009 Complete, branch `feat/mail-destinations-009` off main c2e3fbb, not merged; before that 2026-11-04: 9 Complete, 7 Ready, story 007 Complete, branch `story/md-007` off main afe08b6; before that 2026-11-03: 8 Complete, 8 Ready, story 006 Complete, branch `story/mail-destinations-006` with main 84ff4ee (PR #60) merged in, no rebase; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -122,7 +122,7 @@ This epic is complete when:
 | 006 | [Complaint buckets (F9), `ComplaintRaised`](story-006-complaint-buckets-f9.md) | Logic | Complete | ADR-0017 |
 | 007 | [Consume routine + hand path (`ConsumeHand`), outcomes](story-007-consume-routine-hand-path-outcomes.md) | Integration | Complete | ADR-0017, ADR-0008 |
 | 008 | [Thrown landings + hand → landing tick order](story-008-thrown-landing-and-tick-order.md) | Integration | Ready | ADR-0017, ADR-0015 |
-| 009 | [M-1a shift stub, `SetDeliveriesState`, `DeliveriesState`](story-009-shift-stub-deliveries-state.md) | Integration | Ready | ADR-0017, ADR-0003 |
+| 009 | [M-1a shift stub, `SetDeliveriesState`, `DeliveriesState`](story-009-shift-stub-deliveries-state.md) | Integration | Complete | ADR-0017, ADR-0003 |
 | 010 | [Client mirrors + client facts](story-010-client-mirrors-and-facts.md) | Integration | Ready | ADR-0016, ADR-0017 |
 | 011 | [Spawn value (F1) + kind counts (F3)](story-011-spawn-value-f1-kind-counts-f3.md) | Logic | Complete | ADR-0017, ADR-0006 |
 | 012 | [Batch schedule (F2), destination draws (F4), draw count](story-012-batch-schedule-f2-destinations-f4-draws.md) | Logic | Complete | ADR-0005, ADR-0017 |

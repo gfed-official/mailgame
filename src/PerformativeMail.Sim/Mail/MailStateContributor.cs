@@ -11,7 +11,8 @@ namespace PerformativeMail.Sim.MailDestinations;
 /// when built with the complaint buckets, <see cref="ComplaintBuckets.WriteCanonical"/> (story 006: <c>teamTokensPm i64, teamLastTick i64,
 /// lastLateTick i64, lateCharged u8</c>; Evan approved 2026-10-29 (TD-187 item 3)), then, when built with the consume routine,
 /// <see cref="MailConsumer.WriteCanonical"/> (story 007: <c>outcomeSeq u32</c>, <c>lastZeroFloorTick i64 × lots × 8</c>,
-/// <c>misdeliveriesThisShift u16</c>; TD-208 item 10). Later stories only append; never reorder what is here.
+/// <c>misdeliveriesThisShift u16</c>; TD-208 item 10), then the deliveries state (story 009: <c>open u8, closeTick u32,
+/// unlockedDistrictMask u64</c>; TD-208 item 10, "story 009 appends after these"). Later stories only append; never reorder what is here.
 /// </summary>
 internal sealed class MailStateContributor : ISimStateContributor
 {
@@ -57,6 +58,11 @@ internal sealed class MailStateContributor : ISimStateContributor
         // Story 007: the outcome state, after the team complaint state (TD-208 item 10: "the number first, then the floor times, then
         // the count").
         _consumer?.WriteCanonical(ref w);
-        // Story 009 appends the deliveries state here, after the outcome state.
+
+        // Story 009: the deliveries state, after the outcome state: open u8, closeTick u32, unlockedDistrictMask u64.
+        DeliveriesState deliveries = _registry.Deliveries;
+        w.WriteBool(deliveries.Open);
+        w.WriteU32(deliveries.CloseTick);
+        w.WriteU64(deliveries.UnlockedDistrictMask);
     }
 }
