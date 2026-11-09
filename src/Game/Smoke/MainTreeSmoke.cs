@@ -2,6 +2,7 @@ using Godot;
 using PerformativeMail.Game.Hosting;
 using PerformativeMail.Game.Presentation;
 using PerformativeMail.Game.Screens;
+using PerformativeMail.Game.Views.Terrain;
 
 namespace PerformativeMail.Game.Smoke;
 
@@ -36,7 +37,7 @@ public sealed class MainTreeSmoke : SmokeScenario
     {
         Check<Node>(ctx, loop, "Input");
         Check<WorldPresenter>(ctx, loop, "World");
-        Check<Node3D>(ctx, loop, "World/Terrain");
+        Check<TerrainView>(ctx, loop, "World/Terrain");   // story 010 attaches the terrain view
         Check<Node3D>(ctx, loop, "World/Destinations");
         Check<Node3D>(ctx, loop, "World/Entities");
         Check<Node3D>(ctx, loop, "World/Flights");

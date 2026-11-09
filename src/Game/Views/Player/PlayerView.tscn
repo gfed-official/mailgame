@@ -1,0 +1,48 @@
+[gd_scene format=3 uid="uid://v7lkoabbimju"]
+
+[ext_resource type="Script" uid="uid://dc6jmm086p7bi" path="res://src/Game/Views/Player/PlayerView.cs" id="1_5qu6y"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_552xo"]
+albedo_color = Color(0.2, 0.35, 0.75, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_k4vml"]
+radius = 0.3
+height = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_y1d4m"]
+albedo_color = Color(0.9, 0.75, 0.15, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_5638p"]
+size = Vector3(0.45, 0.12, 0.45)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_w78e5"]
+albedo_color = Color(0.95, 0.3, 0.2, 1)
+
+[sub_resource type="PrismMesh" id="PrismMesh_lg8qr"]
+size = Vector3(0.2, 0.25, 0.1)
+
+[node name="PlayerView" type="Node3D" unique_id=765371213]
+script = ExtResource("1_5qu6y")
+
+[node name="RigOffset" type="Node3D" parent="." unique_id=1559508]
+
+[node name="Body" type="MeshInstance3D" parent="RigOffset" unique_id=1828849032]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+material_override = SubResource("StandardMaterial3D_552xo")
+mesh = SubResource("CapsuleMesh_k4vml")
+
+[node name="Hat" type="MeshInstance3D" parent="RigOffset" unique_id=1135227985]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.46, 0)
+material_override = SubResource("StandardMaterial3D_y1d4m")
+mesh = SubResource("BoxMesh_5638p")
+
+[node name="Facing" type="MeshInstance3D" parent="RigOffset" unique_id=1816938483]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 1.15, -0.32)
+material_override = SubResource("StandardMaterial3D_w78e5")
+mesh = SubResource("PrismMesh_lg8qr")
+
+[node name="HeldItemAnchor" type="Marker3D" parent="RigOffset" unique_id=1322769303]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -0.4)
+
+[node name="HatAnchor" type="Marker3D" parent="RigOffset" unique_id=772113168]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)

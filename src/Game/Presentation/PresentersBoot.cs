@@ -3,14 +3,18 @@ using PerformativeMail.Client.Core.Presentation;
 using PerformativeMail.Game.Boot;
 using PerformativeMail.Game.Views;
 using PerformativeMail.Game.Views.Destinations;
+using PerformativeMail.Game.Views.Player;
 using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Players.Client;
 
 namespace PerformativeMail.Game.Presentation;
 
 /// <summary>
 /// Boot steps 7 and 8's Godot half (godot-host-shell stories 006, 008, 009). Step 7 (<see cref="Initialize"/>) builds the one
 /// <see cref="PresenterDeps"/> from the step's inputs (with an empty <see cref="ResolvedViewTables"/> and the
-/// <see cref="EntityViewRegistry"/>), registers the <see cref="DestinationsHost"/> over <c>World/Destinations</c> as a world-build step,
+/// <see cref="EntityViewRegistry"/>), registers the <see cref="DestinationsHost"/> over <c>World/Destinations</c> as a world-build step
+/// and the <see cref="PlayerPresenter"/> over <c>World/Entities</c> as a presented view (player-character 022; when the local player and
+/// the carrier view are published),
 /// calls <c>Initialize(deps)</c> on the World, Hud and Audio presenters in that order (ADR-0019 section 2), then runs the World presenter's
 /// world-build steps. Step 8 (<see cref="ResolveViews"/>) loads and resolves the three editor-saved view catalogs, logs per-table counts
 /// and one <c>VIEW</c> line per finding, stores them in the deps and attaches the per-lot views. <c>GameLoop</c> creates it over its own
@@ -51,6 +55,14 @@ public sealed class PresentersBoot(WorldPresenter world, HudPresenter hud, Audio
             world.RegisterBuildStep(_destinations);
         }
 
+        PlayerPresenter? player = null;
+        if (world.GetNodeOrNull<Node3D>("Entities") is { } entities && inputs.Published.TryGet(out ILocalPlayerView? local)
+            && inputs.Published.TryGet(out ICarrierView? _))
+        {
+            player = new PlayerPresenter(entities, deps, local);
+            world.Register(player);
+        }
+
         world.Initialize(deps);
         hud.Initialize(deps);
         audio.Initialize(deps);
@@ -61,6 +73,8 @@ public sealed class PresentersBoot(WorldPresenter world, HudPresenter hud, Audio
         {
             log.Write($"BOOT 7 world: destinations lots={_destinations.LotCount}");
         }
+
+        log.Write(player is null ? "BOOT 7 world: no player presenter (no ILocalPlayerView/ICarrierView published)" : "BOOT 7 world: player presenter registered");
     }
 
     /// <inheritdoc />

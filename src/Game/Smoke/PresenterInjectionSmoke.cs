@@ -69,7 +69,7 @@ public sealed class PresenterInjectionSmoke : SmokeScenario
 
         Expect(ctx, "step 7 ok", BootSmokeFaults.Logged(lines, "BOOT 7 world ok"), true);
         Expect(ctx, "step 7 logs the presenters", BootSmokeFaults.Logged(lines, "BOOT 7 world: presenters World,Hud,Audio initialized"), true);
-        Expect(ctx, "step 7 runs the one world-build step (destinations, story 009)", BootSmokeFaults.Logged(lines, "BOOT 7 world: world-build steps ran=1"), true);
+        Expect(ctx, "step 7 runs the two world-build steps (destinations, story 009; terrain, story 010)", BootSmokeFaults.Logged(lines, "BOOT 7 world: world-build steps ran=2"), true);
         Expect(ctx, "probe inits when step 6 ends", _initsAfterStep6, 0);
         Expect(ctx, "probe inits after boot (world, hud, audio)", $"{_world.Inits},{_hud.Inits},{_audio.Inits}", "1,1,1");
         Expect(ctx, "probes share one PresenterDeps", ReferenceEquals(_world.Deps, _hud.Deps) && ReferenceEquals(_hud.Deps, _audio.Deps), true);
