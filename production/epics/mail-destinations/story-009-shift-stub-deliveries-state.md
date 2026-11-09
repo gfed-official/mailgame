@@ -78,7 +78,7 @@
 **Status**: [x] Created and passing — `tests/integration/mail/ShiftStubDeliveriesStateTests.cs`, 4 tests, one per AC (2026-11-08):
 - AC-1 `Ac1_PrepDeliveryClosed_District1IsClosedOpenClosed_AndDistrict2IsLockedOnlyWhileOpen`
 - AC-2 `Ac2_AHandOverAppliedAtTheLastOpenTickIsAccepted_AndOneStartedAtTheCloseTickIsClosed` (hand-overs in phase 0 of S − 1, S, closeTick − 1, closeTick)
-- AC-3 `Ac3_OneDeliveriesStateEventPerChange_NoneOnOtherTicks_WithTheDeadlineSetAtDeliveryStart`
+- AC-3 `Ac3_OneDeliveriesStateEventPerChange_NoneOnOtherTicks_WithPrepsEndAsTheFirstDeadline`
 - AC-4 `Ac4_TwoIdenticalRuns_GiveIdenticalDumps_AndTheStubStateIsInTheDump`
 
 Existing tests adjusted for the 13-byte deliveries tail of Mail's section, the Run block and the Run section: `MailTableTests` (2), `DestinationRegistryTests`, `ComplaintBucketTests` (2 helpers), `ConsumeHandTests` AC-12, `MailCompositionTests` AC-3 (section order), `OpTypesTests` (2), and `CompositionRulesTests` (two rows for `ShiftStubSettings` and `PlayerScale`). None deleted.

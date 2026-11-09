@@ -19,7 +19,7 @@ public sealed class RunMirror : IMirrorPart
     /// <summary>The shift phase.</summary>
     public ShiftPhase Phase { get; private set; }
 
-    /// <summary>The tick the Delivery phase ends (0 before Delivery starts).</summary>
+    /// <summary>The tick the current phase ends (Prep's end from the stub's tick-1 event; 0 before any event).</summary>
     public uint DeadlineTick { get; private set; }
 
     /// <summary>The tick deliveries close (or closed).</summary>
