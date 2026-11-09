@@ -2,6 +2,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Economy;
+using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Sim.Composition;
 
@@ -44,6 +45,27 @@ public sealed class SimHost
 
     /// <summary>The world's stat sheet: the one instance every reader of this world holds (created in <see cref="SimComposition.Build"/>, sized from <c>SimSettings.Stats</c>).</summary>
     public IStatSheet StatSheet => Services.Stats.Sheet;
+
+    /// <summary>
+    /// Player Character's host API when the profile built it, else null. A host-side read for the host shell's own checks (godot-host-shell
+    /// story 005's session smoke asks <see cref="IPlayersApi.CheckInteraction"/>); it is never handed to the ClientLayer (ADR-0003
+    /// section 6). Looked up over <see cref="Systems"/>; boot-time and diagnostic use, not a tick path.
+    /// </summary>
+    public IPlayersApi? Players
+    {
+        get
+        {
+            foreach (ISimSystem system in Systems)
+            {
+                if (system is IPlayersApi players)
+                {
+                    return players;
+                }
+            }
+
+            return null;
+        }
+    }
 
     /// <summary>The profile's construction order (including systems whose construction code does not exist yet).</summary>
     internal SystemId[] Order { get; }

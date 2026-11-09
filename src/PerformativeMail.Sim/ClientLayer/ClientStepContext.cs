@@ -5,8 +5,8 @@ namespace PerformativeMail.Sim.ClientLayer;
 /// <summary>
 /// What an <see cref="IClientStep"/> sees for one client tick. A small readonly struct passed by <c>in</c>;
 /// valid only for the duration of the <see cref="IClientStep.Step"/> call. It carries the batch flag, the client
-/// tick counter, this tick's latched <see cref="InputFrame"/> and the <see cref="IHostClock"/>. It never exposes a
-/// <c>SimWorld</c>: the client reads only its mirror (ADR-0003 section 6).
+/// tick counter, this tick's latched <see cref="InputFrame"/>, the <see cref="IHostClock"/>, the attached <see cref="ClientPorts"/>
+/// and the layer's counters. It never exposes a <c>SimWorld</c>: the client reads only its mirror (ADR-0003 section 6).
 /// </summary>
 /// <example>
 /// <code>
@@ -19,15 +19,13 @@ namespace PerformativeMail.Sim.ClientLayer;
 /// </example>
 public readonly struct ClientStepContext
 {
-    private readonly InputLatch _latch;
+    private readonly ClientLayer _layer;
 
-    internal ClientStepContext(bool isFirstTickInBatch, uint clientTick, IHostClock hostClock, InputLatch latch, MirrorPartTable mirrorParts)
+    internal ClientStepContext(bool isFirstTickInBatch, uint clientTick, ClientLayer layer)
     {
-        MirrorParts = mirrorParts;
         IsFirstTickInBatch = isFirstTickInBatch;
         ClientTick = clientTick;
-        HostClock = hostClock;
-        _latch = latch;
+        _layer = layer;
     }
 
     /// <summary>True on the first client tick of a frame's batch; the only tick that carries input edges.</summary>
@@ -37,14 +35,23 @@ public readonly struct ClientStepContext
     public uint ClientTick { get; }
 
     /// <summary>The host tick estimate source (implemented by the adapter).</summary>
-    public IHostClock HostClock { get; }
+    public IHostClock HostClock => _layer.HostClock;
+
+    /// <summary>True once the host shell has attached the ports (<see cref="ClientLayer.Attach"/>); steps that need a port do nothing before.</summary>
+    public bool IsAttached => _layer.IsAttached;
+
+    /// <summary>The attached ports (every member null while <see cref="IsAttached"/> is false).</summary>
+    public ref readonly ClientPorts Ports => ref _layer.Ports;
+
+    /// <summary>The client layer's counters (solver counter flushes and other client-side counts).</summary>
+    public SimCounters Counters => _layer.Counters;
 
     /// <summary>The layer's bound mirror parts; the <c>MirrorDrain</c> step applies drained records to them (ADR-0016 section 1).</summary>
-    public MirrorPartTable MirrorParts { get; }
+    public MirrorPartTable MirrorParts => _layer.MirrorParts;
 
     /// <summary>
     /// This tick's input frame. Valid for steps bound to <see cref="ClientStepId.InputLatch"/> and later (the built-in
     /// latch has already emitted it); at <see cref="ClientStepId.MirrorDrain"/> it is still the previous tick's frame.
     /// </summary>
-    public ref readonly InputFrame Input => ref _latch.Frame;
+    public ref readonly InputFrame Input => ref _layer.InputLatch.Frame;
 }

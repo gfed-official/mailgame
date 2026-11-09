@@ -18,6 +18,9 @@ public enum InputFrameFlags : byte
 
     /// <summary>Set by the router: the look was re-seeded this frame (teleport, mount, dismount). Transported only.</summary>
     LookReseeded = 8,
+
+    /// <summary>Set by the router while its overlay is Panel (input-controls 008 sets it; player-character 020 reads it).</summary>
+    PanelOpen = 16,
 }
 
 /// <summary>
@@ -52,6 +55,6 @@ public readonly struct InputState
     /// <summary>The router state id (<see cref="RouterStateInfo"/>); informational.</summary>
     public ushort RouterStateId { get; init; }
 
-    /// <summary>Router-owned flags (<c>FocusLost</c>, <c>Paused</c>, <c>LookReseeded</c>). The latch ignores a <c>FirstInBatch</c> bit set here.</summary>
+    /// <summary>Router-owned flags (<c>FocusLost</c>, <c>Paused</c>, <c>LookReseeded</c>, <c>PanelOpen</c>). The latch ignores a <c>FirstInBatch</c> bit set here.</summary>
     public InputFrameFlags Flags { get; init; }
 }
