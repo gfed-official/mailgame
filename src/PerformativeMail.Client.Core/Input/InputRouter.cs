@@ -11,8 +11,8 @@ namespace PerformativeMail.Client.Core.Input;
 /// <para>
 /// Edge kinds per grammar: a <see cref="Delivery.Frame"/> Tap (Jump) emits a Press only; a HeldState action (Sprint) sets and
 /// clears its bit in <c>HeldBits</c> (OR across devices) and emits no edge; Hold (Interact) and Aim-release (Throw, which also
-/// holds the Aim bit while down) emit Press and Release, and Cancel on a state change. Immediate actions latch and log but
-/// queue nothing yet (story 013). Wheel and step records are story 010's. Analog input (story 009) is in the Analog part.
+/// holds the Aim bit while down) emit Press and Release, and Cancel on a state change. Immediate actions fire on the press into
+/// the immediate queue (story 013, the Immediate part) that <see cref="DispatchImmediates"/> hands to the verb owners' sinks. Wheel and step records are story 010's. Analog input (story 009) is in the Analog part.
 /// </para>
 /// <para>
 /// State (story 008): a fired action may move the router-owned layers through <see cref="TransitionTable"/>; <c>body</c> and
@@ -24,14 +24,16 @@ namespace PerformativeMail.Client.Core.Input;
 /// Hold classes (story 012, the Hold part): Interact presses carry the presented target and Toggle mode is translated into
 /// logical edges; Sprint follows its per-device Hold / Toggle / Auto mode; the Sim's hold lines are copied into the log.
 /// </para>
-/// <para>Single-threaded (the Godot main thread). 0 B per <see cref="Feed"/> and <see cref="FlushToLatch"/> after construction.</para>
+/// <para>Single-threaded (the Godot main thread). 0 B per <see cref="Feed"/>, <see cref="DispatchImmediates"/> and <see cref="FlushToLatch"/> after construction.</para>
 /// </summary>
 /// <example>
 /// <code>
 /// var router = new InputRouter(BuiltInActionMap.CreateM1a(), InputSettings.Defaults, clock, interaction, presentedPrompt,
 ///     carrierStatus, clientTicks, log);
+/// router.RegisterSink(ActionId.Drop, dropSink);   // boot, by the verb owner
 /// router.Feed(in record);          // from the adapter's _Input
-/// router.FlushToLatch(latch);      // GameLoop, once per frame before RunFrame
+/// router.DispatchImmediates();     // GameLoop, once per frame, then
+/// router.FlushToLatch(latch);      // before RunFrame
 /// </code>
 /// </example>
 public sealed partial class InputRouter
@@ -92,6 +94,7 @@ public sealed partial class InputRouter
         ActionDef move = map.Get(ActionId.Move) ?? throw new ArgumentException("The map has no Move action.", nameof(map));
         _look = map.Get(ActionId.Look) ?? throw new ArgumentException("The map has no Look action.", nameof(map));
         _moveAxes = new MoveAxes(move);
+        _sinks = NewSinkTable(map);
         _interactDef = map.Get(ActionId.Interact);
         _sprintDef = map.Get(ActionId.Sprint);
         _holdLog = new HoldLogMirror(in interaction.Current);
@@ -299,7 +302,12 @@ public sealed partial class InputRouter
         Log(r.ArrivalMs, LogKind.GateFired, in m, r.Input, _state);
         if (dropped)
         {
-            _log.Write(r.ArrivalMs, LogKind.Dropped, (byte)EdgeKind.Press, (ushort)m.Bit, (ushort)r.Input, _state);
+            _log.Write(r.ArrivalMs, LogKind.Dropped, (byte)EdgeKind.Press, (ushort)m.Bit, (ushort)r.Input, _state, (byte)DropCause.EdgeRingFull);
+        }
+
+        if (def.Delivery == Delivery.Immediate)
+        {
+            FireImmediate(in m, def.Grammar, r.ArrivalMs, r.Input);
         }
 
         ApplyTransition(match.Action, r.ArrivalMs);

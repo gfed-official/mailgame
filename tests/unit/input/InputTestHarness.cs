@@ -252,11 +252,9 @@ public sealed class RecordingLatchWriter : IInputLatchWriter
 }
 
 /// <summary>
-/// Records immediate-verb dispatches for router tests (input-controls story 003). Shaped after ADR-0012's
-/// <c>IImmediateActionSink.OnImmediate(in ImmediateAction)</c> and the field list in story 013, but it does NOT implement that
-/// interface yet: neither <c>IImmediateActionSink</c> nor <c>ImmediateAction</c> exists (story 013 owns both). Story 013 adds
-/// the interface and an <c>OnImmediate(in ImmediateAction)</c> overload here that forwards to
-/// <see cref="OnImmediate(ushort, EdgeKind, long, ushort, uint, byte)"/>, so existing assertions keep working.
+/// Records immediate-verb dispatches for router tests (input-controls story 003; the <see cref="IImmediateActionSink"/> of story
+/// 013). <see cref="OnImmediate(in ImmediateAction)"/> forwards to
+/// <see cref="OnImmediate(ushort, EdgeKind, long, ushort, uint, byte)"/>, so both shapes record the same <see cref="ImmediateCall"/>.
 /// </summary>
 /// <example>
 /// <code>
@@ -264,7 +262,7 @@ public sealed class RecordingLatchWriter : IInputLatchWriter
 /// Assert.Equal(1, sink.Calls.Count);
 /// </code>
 /// </example>
-public sealed class RecordingImmediateSink
+public sealed class RecordingImmediateSink : IImmediateActionSink
 {
     /// <summary>One recorded dispatch.</summary>
     /// <param name="ActionId">The action's numeric id.</param>
@@ -287,6 +285,10 @@ public sealed class RecordingImmediateSink
     /// <param name="flags">Action flags.</param>
     public void OnImmediate(ushort actionId, EdgeKind edge, long arrivalMs, ushort routerStateId, uint presentedSeq, byte flags) =>
         Calls.Add(new ImmediateCall(actionId, edge, arrivalMs, routerStateId, presentedSeq, flags));
+
+    /// <inheritdoc />
+    public void OnImmediate(in ImmediateAction a) =>
+        OnImmediate(a.ActionId, a.EdgeKind, a.ArrivalMs, a.RouterStateId, a.PresentedSeq, (byte)a.Flags);
 
     /// <summary>Forgets everything recorded.</summary>
     public void Clear() => Calls.Clear();
