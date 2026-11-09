@@ -5,6 +5,7 @@ using PerformativeMail.Client.Core.Input.Settings;
 using PerformativeMail.Client.Core.Presentation;
 using PerformativeMail.Game.Boot;
 using PerformativeMail.Game.Hosting;
+using PerformativeMail.Game.Hud;
 using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Game.Input;
@@ -46,6 +47,7 @@ public sealed class InputBoot(Node main, string settingsPath = InputSettingsFile
 {
     private readonly Node _main = main ?? throw new ArgumentNullException(nameof(main));
     private PublishedStates? _published;
+    private ActionMap? _map;
     private PresentedPromptLatch? _prompt;
     private bool _attached;
 
@@ -101,7 +103,10 @@ public sealed class InputBoot(Node main, string settingsPath = InputSettingsFile
 
         _prompt = new PresentedPromptLatch(Ports.Interaction);
         Router = new InputRouter(map, Settings.Current, Clock, Ports.Interaction, _prompt, Ports.Carrier, Ports.ThrowAim, Ports.Ticks, Log);
-        ctx.Log.Write($"BOOT 4 input: immediate sinks: none registered; no_sink until their stories: {UnsunkActions(map)}");
+        _map = map;
+        ctx.Published.Add(Settings);
+        ctx.Published.Add(Router);
+        ctx.Log.Write($"BOOT 4 input: immediate sinks: none yet (step 7 and AttachToLoop register them); immediate actions: {UnsunkActions(map, Router)}");
 
         _published = ctx.Published;
         Adapter = InputAdapter.AttachToRoot(_main.GetTree().Root);
@@ -139,8 +144,32 @@ public sealed class InputBoot(Node main, string settingsPath = InputSettingsFile
         loop.RegisterPreFrameHook(hooks);
         loop.RegisterPostPresentHook(hooks);
         Adapter.Initialize(new AdapterDeps { Router = Router, Clock = Clock, Settings = Settings.Current, Main = _main });
+        RegisterSinks(loop);
         _attached = true;
         GD.Print($"[InputBoot] attached: pre-frame adapter, dispatch+flush; post-present prompt latch; ports {Ports.Describe()}");
+        GD.Print($"[InputBoot] no_sink: {UnsunkActions(_map!, Router)}");
+    }
+
+    /// <summary>The pause overlay (Esc / P); null until <see cref="AttachToLoop"/>.</summary>
+    public PauseOverlay? PauseOverlay { get; private set; }
+
+    // The verb sinks this step owns: Throw's commit (the client loop's release sender) and the Back ladder ending in the solo pause.
+    private void RegisterSinks(GameLoop loop)
+    {
+        if (_published is { } published && published.TryGet(out ClientVerbSinks? verbs))
+        {
+            Router!.RegisterSink(ActionId.Throw, verbs.Throw);
+            for (ushort id = ActionId.HotbarSlot1; id <= ActionId.HotbarSlot8; id++)
+            {
+                Router.RegisterSink(id, verbs.HotbarKeys);
+            }
+        }
+
+        PauseOverlay = PauseOverlay.Create();
+        _main.AddChild(PauseOverlay);
+        var back = new BackLadder(Router!, () => PauseOverlay.Visible = loop.TogglePause());
+        Router!.RegisterSink(ActionId.Back, back);
+        Router.RegisterSink(ActionId.Pause, back);
     }
 
     private void BindPublished()
@@ -166,12 +195,12 @@ public sealed class InputBoot(Node main, string settingsPath = InputSettingsFile
         }
     }
 
-    private static string UnsunkActions(ActionMap map)
+    private static string UnsunkActions(ActionMap map, InputRouter router)
     {
         var line = new StringBuilder();
         foreach (ActionDef d in map.All)
         {
-            if (d.Delivery == Delivery.Immediate || d.CommitOnRelease)
+            if ((d.Delivery == Delivery.Immediate || d.CommitOnRelease) && !router.HasSink(d.Id))
             {
                 line.Append(line.Length == 0 ? string.Empty : ",").Append(d.StringId);
             }

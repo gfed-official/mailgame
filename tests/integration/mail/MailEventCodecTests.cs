@@ -246,7 +246,7 @@ public class MailEventCodecTests
                     ctx.Events, ctx.MailIds, ctx.Rng, ctx.Tick, ctx.Api<IInventoryApi>(SystemId.GridInventory), ctx.WalletGate, ctx.World!, ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Counters, ctx.Slots)),
                 new SimSystemEntry(SystemId.ManualDelivery, _ => this));
             var args = new SimBuildArgs(profile, _content, 7) { WorldSource = M1aWorldSource.Instance };
-            Session = new HostSession(args, _clock, null, MailEventCodecs.Create(maps));
+            Session = new HostSession(args, _clock, InventoryCodecs.CreateOps(), MailEventCodecs.Create(maps));
             Session.AddEventSink(this);
             Session.MirrorDrain.Register(this);
         }

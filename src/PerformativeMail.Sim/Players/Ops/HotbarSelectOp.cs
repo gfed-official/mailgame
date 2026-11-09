@@ -22,8 +22,11 @@ public static class HotbarSelectOp
     public const int SlotCount = 8;
 
     /// <summary>
-    /// <see cref="PlayerOpKinds.HotbarSelect"/>: 4 B; its only reject is Core's <c>bad_request</c> (8), so it declares no reason. Wire
-    /// codec id and size are 0 until the network epic assigns them.
+    /// <see cref="PlayerOpKinds.HotbarSelect"/>: 4 B; its only reject is Core's <c>bad_request</c> (8), so it declares no reason.
+    /// Fixed-length wire codec <see cref="CodecId"/> (WP-F: the client's hotbar keys send it).
     /// </summary>
-    public static OpDescriptor Descriptor { get; } = OpDescriptor.For<HotbarSelectPayload>(PlayerOpKinds.HotbarSelect, false, 0, 0);
+    public static OpDescriptor Descriptor { get; } = OpDescriptor.For<HotbarSelectPayload>(PlayerOpKinds.HotbarSelect, false, CodecId, 4);
+
+    /// <summary>Codec id of the <see cref="PlayerOpKinds.HotbarSelect"/> wire codec (WP-F).</summary>
+    public const ushort CodecId = 13;
 }

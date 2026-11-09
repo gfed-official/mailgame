@@ -227,8 +227,9 @@ public class InvMalformedOpTests
         });
         Assert.Equal(FuzzOps, replies.Select(r => r.ReqId).Distinct().Count());
         // Return is payload-free: a structurally valid Return has no field only the Sim can judge, so the generator issues none (its one
-        // bad_request, a non-zero payload length, is CheckRequest_ReturnWithANonZeroPayloadLength_IsBadRequest).
-        foreach (OpKind bound in InventoryWithStubOps.BoundBySystem.Where(k => k != InvOpKinds.Return))
+        // bad_request, a non-zero payload length, is CheckRequest_ReturnWithANonZeroPayloadLength_IsBadRequest). TakeAll (WP-F) came
+        // after the recorded generator, whose stream stays pinned; its bad_request rows are TakeAllTests'.
+        foreach (OpKind bound in InventoryWithStubOps.BoundBySystem.Where(k => k != InvOpKinds.Return && k != InvOpKinds.TakeAll))
         {
             Assert.True(issued.Values.Count(k => k == bound) > 0, $"generator issued no {bound} op");
         }
@@ -630,7 +631,7 @@ internal sealed class InvValidateOnlyStub : IOpHandler
 internal sealed class InventoryWithStubOps : ISimSystem
 {
     /// <summary>The kinds <see cref="InventorySystem.Bind"/> binds a production handler for (story 007: <c>Pick</c>, <c>Move</c>; story 008: <c>Merge</c>; story 010: <c>QuickMove</c>, <c>Return</c>; story 011: <c>Close</c>).</summary>
-    public static readonly OpKind[] BoundBySystem = { InvOpKinds.Pick, InvOpKinds.Move, InvOpKinds.Merge, InvOpKinds.QuickMove, InvOpKinds.Return, InvOpKinds.Close };
+    public static readonly OpKind[] BoundBySystem = { InvOpKinds.Pick, InvOpKinds.Move, InvOpKinds.Merge, InvOpKinds.QuickMove, InvOpKinds.TakeAll, InvOpKinds.Return, InvOpKinds.Close };
 
     private readonly ISlotView _slots;
 

@@ -23,6 +23,7 @@ public sealed class PlayerViewSmoke : SmokeScenario
 {
     private const int MaxJoinFrames = 10;
     private const int WalkTicks = 15;
+    private const int SprintTicks = 6;
 
     private readonly FakeClock _clock = new();
     private PresenterProbeView _probe = null!;
@@ -42,14 +43,32 @@ public sealed class PlayerViewSmoke : SmokeScenario
     public override void Start(SmokeContext ctx)
     {
         GameLoop loop = ctx.Loop;
-        if (loop.Session is not { LocalPlayer: { } local } session || _probe.Deps is not { } deps)
+        if (loop.Session is not { LocalPlayer: not null } || _probe.Deps is null)
         {
             ctx.Fail("no booted session with a local player, or no presenter deps");
             return;
         }
 
+        Expect(ctx, "no player view before the join", loop.GetNode("World/Entities").GetChildCount(), 0);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Runs once the input adapter (added deferred at boot step 4) is in the tree, so injected keys reach it.</remarks>
+    public override SmokeStatus Poll(SmokeContext ctx)
+    {
+        GameLoop loop = ctx.Loop;
+        if (loop.InputBoot?.Adapter is not { } adapter || !adapter.IsInsideTree())
+        {
+            return SmokeStatus.Running;
+        }
+
+        if (loop.Session is not { LocalPlayer: { } local } session || _probe.Deps is not { } deps)
+        {
+            ctx.Fail("no booted session with a local player, or no presenter deps");
+            return SmokeStatus.Done;
+        }
+
         Node entities = loop.GetNode("World/Entities");
-        Expect(ctx, "no player view before the join", entities.GetChildCount(), 0);
         loop._Process(0);   // starts the driver; no tick
         int frames = 0;
         while (!local.IsKnown && frames++ < MaxJoinFrames)
@@ -59,7 +78,7 @@ public sealed class PlayerViewSmoke : SmokeScenario
 
         if (!Expect(ctx, "ILocalPlayer.IsKnown", local.IsKnown, true))
         {
-            return;
+            return SmokeStatus.Done;
         }
 
         Tick(loop);
@@ -67,13 +86,14 @@ public sealed class PlayerViewSmoke : SmokeScenario
         if (entities.GetChildCount() != 1 || entities.GetChild(0) is not PlayerView view)
         {
             ctx.Fail("World/Entities child is not a PlayerView");
-            return;
+            return SmokeStatus.Done;
         }
 
         Expect(ctx, "registry holds the view under the local player's id", deps.Entities.TryGet(local.Id, out Node3D found) && ReferenceEquals(found, view), true);
         CheckShape(ctx, view);
         CheckFollows(ctx, loop, session, view);
         CheckConventions(ctx);
+        return SmokeStatus.Done;
     }
 
     private static void CheckShape(SmokeContext ctx, PlayerView view)
@@ -100,9 +120,9 @@ public sealed class PlayerViewSmoke : SmokeScenario
 
         (int startX, int startZ) = (carrier.Current.X, carrier.Current.Z);
         int boundaryMisses = 0;
+        SmokeInput.Key(Key.W, true);
         for (int i = 0; i < WalkTicks; i++)
         {
-            session.SetMoveInputForSmoke(0, 32767);
             Tick(loop);
             if (!At(view, carrier.Previous))
             {
@@ -125,6 +145,28 @@ public sealed class PlayerViewSmoke : SmokeScenario
         Vector3 forward = -view.GlobalBasis.Z;
         float theta = YawRadians.ToRotationY(view.LastPose.Yaw);
         Expect(ctx, "the view faces the body yaw (forward = (−sin θ, −cos θ))", forward.IsEqualApprox(new Vector3(-Mathf.Sin(theta), 0f, -Mathf.Cos(theta))), true);
+        CheckSprint(ctx, loop, carrier, view);
+        SmokeInput.Key(Key.W, false);
+    }
+
+    // Shift + W: the carrier reaches sprint speed (7500 mm/s, 250 mm per tick) and the view leans forward 15°.
+    private void CheckSprint(SmokeContext ctx, GameLoop loop, ICarrierView carrier, PlayerView view)
+    {
+        SmokeInput.Key(Key.Shift, true);
+        for (int i = 0; i < SprintTicks; i++)
+        {
+            Tick(loop);
+        }
+
+        long dx = carrier.Current.X - carrier.Previous.X;
+        long dz = carrier.Current.Z - carrier.Previous.Z;
+        long step = (long)Math.Sqrt((dx * dx) + (dz * dz));
+        float lean = view.GetNode<Node3D>("RigOffset").Rotation.X;
+        SmokeInput.Key(Key.Shift, false);
+        Tick(loop);
+        float after = view.GetNode<Node3D>("RigOffset").Rotation.X;
+        Expect(ctx, $"Shift sprints: {step} mm per tick (walk 167, sprint 250)", step >= 240, true);
+        Expect(ctx, $"the view leans forward while sprinting ({Mathf.RadToDeg(lean):0.0}°), upright after ({Mathf.RadToDeg(after):0.0}°)", Mathf.IsEqualApprox(lean, -PlayerView.SprintLeanRadians) && after == 0f, true);
     }
 
     private static void CheckConventions(SmokeContext ctx)

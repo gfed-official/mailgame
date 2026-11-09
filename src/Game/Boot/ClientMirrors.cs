@@ -24,14 +24,19 @@ namespace PerformativeMail.Game.Boot;
 /// <param name="ownSlot">The local player's slot (whose launches take the local verdict).</param>
 public sealed class ClientMirrors(ThrowSettings throwSettings, PlayerSlot ownSlot)
 {
+    private FlightMirrorConsumer? _flights;
+
     /// <summary>The wallet mirror.</summary>
     public WalletMirror Wallet { get; } = new();
 
     /// <summary>The run (shift phase) mirror.</summary>
     public RunMirror Run { get; } = new();
 
+    /// <summary>The flight mirror behind <see cref="Flights"/> (the release sender notes its own releases on it, WP-F).</summary>
+    public FlightMirror FlightMirror { get; } = new(throwSettings, ownSlot);
+
     /// <summary>The flight mirror's drain consumer; the flight view samples it once per frame.</summary>
-    public FlightMirrorConsumer Flights { get; } = new(new FlightMirror(throwSettings, ownSlot));
+    public FlightMirrorConsumer Flights => _flights ??= new FlightMirrorConsumer(FlightMirror);
 
     /// <summary>Binds the wallet and run mirrors; call from <c>HostSessionOptions.ConfigureClient</c>.</summary>
     /// <param name="builder">The host client's layer builder.</param>

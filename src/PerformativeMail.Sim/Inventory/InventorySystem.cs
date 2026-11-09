@@ -455,6 +455,7 @@ public sealed partial class InventorySystem : ISimSystem, IPlayerJoinListener, I
         builder.BindOp(InvOpDescriptors.QuickMove, new QuickMoveHandler(this, _content, _stats));
         builder.BindOp(InvOpDescriptors.Return, new ReturnHandler(this, _content, _stats));
         builder.BindOp(InvOpDescriptors.Close, new CloseHandler(this));
+        builder.BindOp(InvOpDescriptors.TakeAll, new TakeAllHandler(this, _content, _stats));
     }
 
     /// <summary>

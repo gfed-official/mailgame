@@ -28,6 +28,7 @@ public sealed class CameraRigSmoke : SmokeScenario
     private const int WalkTicks = 10;
     private const int SettleTicks = 30;
     private const long FrameMs = 33;
+    private const float TurnPixels = 300f;
 
     private readonly FakeClock _clock = new();
     private readonly List<int> _conePushes = [];
@@ -49,7 +50,7 @@ public sealed class CameraRigSmoke : SmokeScenario
     public override void Start(SmokeContext ctx)
     {
         GameLoop loop = ctx.Loop;
-        if (loop.Session is not { LocalPlayer: { } local } session || _probe.Deps is not { } deps)
+        if (loop.Session is not { LocalPlayer: not null } || _probe.Deps is null)
         {
             ctx.Fail("no booted session with a local player, or no presenter deps");
             return;
@@ -58,6 +59,25 @@ public sealed class CameraRigSmoke : SmokeScenario
         var rig = loop.GetNode<CameraRig>("World/CameraRig");
         Expect(ctx, "rig initialised at boot", rig.IsInitialized, true);
         Expect(ctx, "focus cone pushed once at Initialize", string.Join(",", _conePushes), CameraRig.FocusCosMinPm.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Runs once the input adapter (added deferred at boot step 4) is in the tree, so injected keys reach it.</remarks>
+    public override SmokeStatus Poll(SmokeContext ctx)
+    {
+        GameLoop loop = ctx.Loop;
+        if (loop.InputBoot?.Adapter is not { } adapter || !adapter.IsInsideTree())
+        {
+            return SmokeStatus.Running;
+        }
+
+        if (loop.Session is not { LocalPlayer: { } local } session || _probe.Deps is not { } deps)
+        {
+            ctx.Fail("no booted session with a local player, or no presenter deps");
+            return SmokeStatus.Done;
+        }
+
+        var rig = loop.GetNode<CameraRig>("World/CameraRig");
         loop._Process(0);
         int frames = 0;
         while (!local.IsKnown && frames++ < MaxJoinFrames)
@@ -69,11 +89,12 @@ public sealed class CameraRigSmoke : SmokeScenario
         if (loop.GetNode("World/Entities").GetChildCount() != 1 || loop.GetNode("World/Entities").GetChild(0) is not PlayerView view)
         {
             ctx.Fail("no PlayerView once the local player is known");
-            return;
+            return SmokeStatus.Done;
         }
 
         CheckFollows(ctx, loop, session, rig, view);
         CheckScripted(ctx, loop, deps);
+        return SmokeStatus.Done;
     }
 
     private static Vector3 FeetM(in CarrierRenderPose p) => new(p.XMm / 1000f, p.YMm / 1000f, p.ZMm / 1000f);
@@ -90,17 +111,17 @@ public sealed class CameraRigSmoke : SmokeScenario
     private void CheckFollows(SmokeContext ctx, GameLoop loop, BootSession session, CameraRig rig, PlayerView view)
     {
         float maxLag = 0f;
+        SmokeInput.Key(Key.W, true);
         for (int i = 0; i < WalkTicks; i++)
         {
-            session.SetMoveInputForSmoke(0, 32767);
             Tick(loop);
             var flatRig = new Vector3(rig.GlobalPosition.X, 0f, rig.GlobalPosition.Z);
             Vector3 feet = FeetM(view.LastPose);
             maxLag = Mathf.Max(maxLag, flatRig.DistanceTo(new Vector3(feet.X, 0f, feet.Z)));
         }
 
+        SmokeInput.Key(Key.W, false);
         Expect(ctx, $"walking: the pivot trails the rendered feet (max lag {maxLag:0.000} m)", maxLag > 0.005f, true);
-        session.SetMoveInputForSmoke(0, 0);
         for (int i = 0; i < SettleTicks; i++)
         {
             Tick(loop);
@@ -109,6 +130,29 @@ public sealed class CameraRigSmoke : SmokeScenario
         Vector3 want = FeetM(view.LastPose) + new Vector3(0f, 1.6f, 0f);
         Expect(ctx, $"standing: the pivot settles on feet + 1.6 m ({rig.GlobalPosition} vs {want})", rig.GlobalPosition.DistanceTo(want) < 0.01f, true);
         Expect(ctx, "the rig took over and its camera is current", rig.HasTakenOver && rig.Camera is { Current: true }, true);
+        CheckWalksAlongCamera(ctx, loop, session, rig);
+    }
+
+    // W walks along the camera's flat forward after the mouse has turned the look away from the spawn yaw.
+    private void CheckWalksAlongCamera(SmokeContext ctx, GameLoop loop, BootSession session, CameraRig rig)
+    {
+        SmokeInput.MouseMotion(TurnPixels, 0f);
+        Tick(loop);
+        Tick(loop);
+        Vector3 look = -rig.Camera!.GlobalBasis.Z;
+        var forward = new Vector3(look.X, 0f, look.Z).Normalized();
+        Expect(ctx, $"the mouse turned the camera off the spawn yaw (forward {forward})", forward.Dot(new Vector3(0f, 0f, -1f)) < 0.9f, true);
+        (int x0, int z0) = (session.Carrier.View.Current.X, session.Carrier.View.Current.Z);
+        SmokeInput.Key(Key.W, true);
+        for (int i = 0; i < WalkTicks; i++)
+        {
+            Tick(loop);
+        }
+
+        SmokeInput.Key(Key.W, false);
+        var moved = new Vector3(session.Carrier.View.Current.X - x0, 0f, session.Carrier.View.Current.Z - z0);
+        float along = moved.LengthSquared() > 0f ? moved.Normalized().Dot(forward) : 0f;
+        Expect(ctx, $"W walks along the camera's forward (moved {moved} mm, cos {along:0.000})", along > 0.98f, true);
     }
 
     private void CheckScripted(SmokeContext ctx, GameLoop loop, PresenterDeps deps)

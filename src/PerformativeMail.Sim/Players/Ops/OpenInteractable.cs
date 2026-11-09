@@ -9,10 +9,10 @@ namespace PerformativeMail.Sim.Players.Ops;
 /// (<c>SystemGraph</c> declares Player Character → Grid Inventory). Always available (R10: no ownership checks); no hold, no cancel and no
 /// prompt bytes. <see cref="TryBuildRequest"/> builds the one <see cref="PlayerOpKinds.Open"/> request from the latch: the anchor entity's
 /// value is the container id (<see cref="OpenOp.AnchorOf"/>) and the claim is the press-time position. Every hook is pure and
-/// allocation-free.
+/// allocation-free. The client registers the same hooks on its own Intake anchor (WP-F), so its press sends this request.
 /// </summary>
 /// <example><code>RegisterResult r = players.RegisterAnchor(AnchorDef.For(OpenOp.AnchorOf(intake), console, Verb.Open), new OpenInteractable());</code></example>
-internal sealed class OpenInteractable : IInteractable
+public sealed class OpenInteractable : IInteractable
 {
     /// <summary>Always available.</summary>
     /// <param name="c">The call context.</param>

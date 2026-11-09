@@ -18,6 +18,7 @@ public partial class PanelGridView : Control, IPresentedView
     private static readonly Color _mail = new(0.85f, 0.85f, 0.75f, 1f);
     private static readonly Color _item = new(0.45f, 0.65f, 0.85f, 1f);
     private static readonly Color _ink = new(0.05f, 0.05f, 0.05f, 1f);
+    private static readonly Color _label = new(0.92f, 0.92f, 0.88f, 1f);
 
     private static readonly string[] _slotNumbers = ["1", "2", "3", "4", "5", "6", "7", "8"];
     private static readonly Dictionary<int, string> _labels = [];
@@ -85,11 +86,14 @@ public partial class PanelGridView : Control, IPresentedView
         for (int i = 0; i < PanelLayout.HotbarSlots; i++)
         {
             PxRect r = _layout.HotbarSlot(i);
+
+            // Each slot sits on its own dark fill so the light labels read over any world colour behind the HUD.
+            DrawRect(new Rect2(r.X, r.Y, r.W, r.H), _cellFill);
             Frame(r, i == selected ? _selected : _border, i == selected ? 3 : 2);
-            DrawString(font, new Vector2(r.X + 3, r.Y + 12), _slotNumbers[i], HorizontalAlignment.Left, -1, 10, _border);
+            DrawString(font, new Vector2(r.X + 3, r.Y + 12), _slotNumbers[i], HorizontalAlignment.Left, -1, 10, _label);
             if (i == 0)
             {
-                DrawString(font, new Vector2(r.X + 4, r.Y + 30), "hands", HorizontalAlignment.Left, -1, 10, _border);
+                DrawString(font, new Vector2(r.X + 4, r.Y + 30), "hands", HorizontalAlignment.Left, -1, 10, _label);
                 continue;
             }
 

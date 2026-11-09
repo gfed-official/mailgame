@@ -52,11 +52,11 @@ public static class InvEventKinds
 /// (<c>0x0080-0x0085</c>) is <see cref="ReplicationClass.Targeted"/>: the raiser resolves the audience at raise time from the container — a panel or cursor
 /// container (one with an owner slot) gets exactly its owner's bit (owner-only delivery), an external container its subscriber set
 /// (ADR-0009 section 4 rule 1). A class is declared once per kind and these kinds serve both, so the owner-only rule is carried by the
-/// one-bit audience. Resync scope 1 (Inventory; ADR-0008 section 6 scope order Players 0, Inventory 1, …). Wire codec ids are 0 until
-/// the network-adapter-loopback epic assigns them. Only <c>InvRemoved</c> is coalescible (ADR-0009 section 4 rule 7). The world kinds
+/// one-bit audience. Resync scope 1 (Inventory; ADR-0008 section 6 scope order Players 0, Inventory 1, …). The container kinds carry
+/// fixed-length wire codec ids (WP-F: the client's own-panel mirror reads them; their continuation chunks use the same codec). Only <c>InvRemoved</c> is coalescible (ADR-0009 section 4 rule 7). The world kinds
 /// (<c>WorldItem{Spawned, Despawned, EntriesChanged}</c> and <c>ItemsLost</c>, story 013) are <see cref="ReplicationClass.Replicated"/>
 /// (GDD Network table: WorldItems replicate to every peer): the raiser supplies the connected-slot mask at raise time. Same resync
-/// scope; codec ids 0 like the container kinds (no wire codec is invented here).
+/// scope; their codec ids stay 0 (no client reads them yet).
 /// </summary>
 /// <example><code>foreach (EventDescriptor d in InvEventDescriptors.All) { builder.BindEventKind(d); }</code></example>
 public static class InvEventDescriptors
@@ -64,23 +64,41 @@ public static class InvEventDescriptors
     /// <summary>The resync scope bit of every inventory kind.</summary>
     public const byte ResyncScope = 1;
 
+    /// <summary>Codec id of the <see cref="InvEventKinds.Inserted"/> wire codec (WP-F; fixed length, also its continuation chunks).</summary>
+    public const ushort InsertedCodecId = 17;
+
+    /// <summary>Codec id of the <see cref="InvEventKinds.Removed"/> wire codec (WP-F).</summary>
+    public const ushort RemovedCodecId = 18;
+
+    /// <summary>Codec id of the <see cref="InvEventKinds.Merged"/> wire codec (WP-F; fixed length, also its continuation chunks).</summary>
+    public const ushort MergedCodecId = 19;
+
+    /// <summary>Codec id of the <see cref="InvEventKinds.Moved"/> wire codec (WP-F).</summary>
+    public const ushort MovedCodecId = 20;
+
+    /// <summary>Codec id of the <see cref="InvEventKinds.SplitFrom"/> wire codec (WP-F).</summary>
+    public const ushort SplitFromCodecId = 21;
+
+    /// <summary>Codec id of the <see cref="InvEventKinds.Version"/> wire codec (WP-F).</summary>
+    public const ushort VersionCodecId = 22;
+
     /// <summary><see cref="InvEventKinds.Inserted"/>: 48 B.</summary>
-    public static EventDescriptor Inserted { get; } = Of<InvInsertedPayload>(InvEventKinds.Inserted, false);
+    public static EventDescriptor Inserted { get; } = Of<InvInsertedPayload>(InvEventKinds.Inserted, false, InsertedCodecId);
 
     /// <summary><see cref="InvEventKinds.Removed"/>: 12 B, coalescible.</summary>
-    public static EventDescriptor Removed { get; } = Of<InvRemovedPayload>(InvEventKinds.Removed, true);
+    public static EventDescriptor Removed { get; } = Of<InvRemovedPayload>(InvEventKinds.Removed, true, RemovedCodecId);
 
     /// <summary><see cref="InvEventKinds.Merged"/>: 48 B.</summary>
-    public static EventDescriptor Merged { get; } = Of<InvMergedPayload>(InvEventKinds.Merged, false);
+    public static EventDescriptor Merged { get; } = Of<InvMergedPayload>(InvEventKinds.Merged, false, MergedCodecId);
 
     /// <summary><see cref="InvEventKinds.Moved"/>: 12 B.</summary>
-    public static EventDescriptor Moved { get; } = Of<InvMovedPayload>(InvEventKinds.Moved, false);
+    public static EventDescriptor Moved { get; } = Of<InvMovedPayload>(InvEventKinds.Moved, false, MovedCodecId);
 
     /// <summary><see cref="InvEventKinds.SplitFrom"/>: 16 B.</summary>
-    public static EventDescriptor SplitFrom { get; } = Of<InvSplitFromPayload>(InvEventKinds.SplitFrom, false);
+    public static EventDescriptor SplitFrom { get; } = Of<InvSplitFromPayload>(InvEventKinds.SplitFrom, false, SplitFromCodecId);
 
     /// <summary><see cref="InvEventKinds.Version"/>: 20 B.</summary>
-    public static EventDescriptor Version { get; } = Of<InvVersionPayload>(InvEventKinds.Version, false);
+    public static EventDescriptor Version { get; } = Of<InvVersionPayload>(InvEventKinds.Version, false, VersionCodecId);
 
     /// <summary><see cref="InvEventKinds.WorldItemSpawned"/>: 44 B, replicated.</summary>
     public static EventDescriptor WorldItemSpawned { get; } = World<WorldItemSpawnedPayload>(InvEventKinds.WorldItemSpawned);
@@ -101,9 +119,9 @@ public static class InvEventDescriptors
     public static ImmutableArray<EventDescriptor> All { get; } = ImmutableArray.Create(
         Inserted, Removed, Merged, Moved, SplitFrom, Version, WorldItemSpawned, WorldItemDespawned, WorldItemEntriesChanged, ItemsLost, BacklogUnits);
 
-    private static EventDescriptor Of<T>(EventKind kind, bool coalescible)
+    private static EventDescriptor Of<T>(EventKind kind, bool coalescible, ushort codecId)
         where T : unmanaged
-        => EventDescriptor.For<T>(kind, ReplicationClass.Targeted, coalescible, ResyncScope, wireCodecId: 0, wireSize: 0);
+        => EventDescriptor.For<T>(kind, ReplicationClass.Targeted, coalescible, ResyncScope, codecId, wireSize: (byte)System.Runtime.CompilerServices.Unsafe.SizeOf<T>());
 
     private static EventDescriptor World<T>(EventKind kind)
         where T : unmanaged

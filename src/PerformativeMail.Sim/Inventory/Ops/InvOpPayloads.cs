@@ -3,7 +3,8 @@ using System.Runtime.InteropServices;
 namespace PerformativeMail.Sim.Inventory.Ops;
 
 // Inventory op payloads (ADR-0009 section 1; story grid-inventory/004 pad rule): Pack = 1 sequential, padding-free, every payload a
-// multiple of 4 B with explicit zeroed pad fields counted in PayloadLength (the PlayerJoinPayload convention). Read and written unaligned
+// multiple of 4 B with explicit zeroed pad fields counted in PayloadLength (the PlayerJoinPayload convention), except TakeAll: it is the
+// one ADR-sized exception, 9 B with no pad, as ADR-0009 l.88 sizes it (Mail Lead ruling). Read and written unaligned
 // only, through Op.PayloadAs / Op.SetPayload. The actor is never a payload field (it is Op.Actor, stamped by the adapter); reqId is in
 // the Op header; containers are containerId u32; dependsOn never travels. A non-zero pad byte is bad_request (InvRequestCheck).
 // Claimed positions are three inline i32 fields in the Player Character P13 layout (feet x, y, z mm) rather than Players'
@@ -97,6 +98,41 @@ public struct QuickMovePayload
 
     /// <summary>Explicit padding, must be zero.</summary>
     public byte Pad2;
+}
+
+/// <summary>
+/// <c>TakeAll</c> (ADR-0009 section 1, 9 B: container u32 at 0, filterKind u8 at 4, filterValue u32 at 5; GDD R7
+/// <c>take_all {container, filter}</c>): every entry of the open external <see cref="Container"/> that <see cref="FilterKind"/> /
+/// <see cref="FilterValue"/> match (<see cref="TakeAllFilter"/>), oldest first by lowest mailId, quick-moved into the actor's panel. The
+/// one ADR-sized exception to the multiple-of-4 pad convention: no pad, as ADR-0009 l.88 sizes it (Mail Lead ruling).
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct TakeAllPayload
+{
+    /// <summary>The external container (the Intake at M-1a).</summary>
+    public uint Container;
+
+    /// <summary>A <see cref="TakeAllFilter"/> value.</summary>
+    public byte FilterKind;
+
+    /// <summary>The filter's value (see <see cref="TakeAllFilter"/>).</summary>
+    public uint FilterValue;
+}
+
+/// <summary>The <c>take_all</c> filters (GDD R7: <c>districtId, streetId, addressId, kind</c>). Only mail entries match a filter.</summary>
+public enum TakeAllFilter : byte
+{
+    /// <summary>Mail whose address is in district <c>FilterValue</c>.</summary>
+    District = 0,
+
+    /// <summary>Mail whose address is on street <c>FilterValue = district &lt;&lt; 8 | street</c>.</summary>
+    Street = 1,
+
+    /// <summary>Mail addressed to <c>FilterValue</c> (an <c>AddressId</c> value).</summary>
+    Address = 2,
+
+    /// <summary>Mail of kind <c>FilterValue</c> (a mail-kind <c>DefIndex</c> value).</summary>
+    Kind = 3,
 }
 
 /// <summary>Payload of <see cref="InvOpKinds.Drop"/> (4 B): drop an entry into the world.</summary>

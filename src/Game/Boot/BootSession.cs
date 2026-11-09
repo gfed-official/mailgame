@@ -65,6 +65,9 @@ public sealed class BootSession
     /// <summary>The client mirrors step 5 bound (wallet, run, flights).</summary>
     public ClientMirrors? Mirrors { get; internal init; }
 
+    /// <summary>The client interaction loop step 5 composed (own-panel mirror, interaction steps, Intake pickup).</summary>
+    public ClientLoop? Loop { get; internal init; }
+
     /// <summary>The tick driver.</summary>
     public TickDriver Driver => Session.Driver;
 
@@ -85,12 +88,4 @@ public sealed class BootSession
 
     /// <summary>The panel port step 6 attached; null before step 6.</summary>
     public IPanelView? Panel => Session.Client.Ports.Panel;
-
-    /// <summary>
-    /// Smoke seam (player-character 022's <c>player-view</c> smoke): latches a move intent as the client's continuous input state, as the
-    /// input router will (Q15 on the unit disc, y forward). Keeps smoke code from naming the client layer (<c>check-sim-access.sh</c>).
-    /// </summary>
-    /// <param name="moveX">Move intent X, Q15.</param>
-    /// <param name="moveY">Move intent Y, Q15.</param>
-    public void SetMoveInputForSmoke(short moveX, short moveY) => Session.Client.InputWriter.SetState(new InputState { MoveX = moveX, MoveY = moveY });
 }
