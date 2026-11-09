@@ -20,12 +20,12 @@ public interface IOpCodec
     /// <summary>The codec id the Sim's <see cref="OpDescriptor.WireCodecId"/> names (non-zero; 0 means "no wire codec").</summary>
     ushort CodecId { get; }
 
-    /// <summary>The exact encoded payload size in bytes; must equal the descriptor's <see cref="OpDescriptor.WireSize"/>.</summary>
+    /// <summary>The exact encoded payload size in bytes (the long form of an <see cref="IShortFormOpCodec"/>); must equal the descriptor's <see cref="OpDescriptor.WireSize"/>.</summary>
     byte WireSize { get; }
 
     /// <summary>
     /// Decodes <paramref name="payload"/> (exactly the bytes after the envelope header, already checked to be
-    /// <see cref="WireSize"/> long by the registry; a codec still validates its own length) into <paramref name="dst"/>. The caller
+    /// <see cref="WireSize"/> long, or <see cref="IShortFormOpCodec.ShortWireSize"/> long, by the envelope; a codec still validates its own length) into <paramref name="dst"/>. The caller
     /// has zeroed <paramref name="dst"/>; the codec writes only the meaningful payload bytes. Returns false for a value outside the
     /// wire range (the caller then discards <paramref name="dst"/>). Never throws, never allocates.
     /// </summary>
@@ -40,7 +40,7 @@ public interface IOpCodec
     /// </summary>
     /// <param name="src">The op whose payload to encode; its <see cref="Op.PayloadLength"/> must be the codec's Sim payload size.</param>
     /// <param name="dst">The destination; must hold at least <see cref="WireSize"/> bytes.</param>
-    /// <returns>The number of bytes written (<see cref="WireSize"/>), or -1 when <paramref name="dst"/> is too small or the payload length is wrong.</returns>
+    /// <returns>The number of bytes written (<see cref="WireSize"/>, or an <see cref="IShortFormOpCodec"/>'s short size), or -1 when <paramref name="dst"/> is too small or the payload length is wrong.</returns>
     int Encode(in Op src, Span<byte> dst);
 
     /// <summary>Number of deterministic sample payloads the codec offers to the shared round-trip test (at least 1, including edge values).</summary>

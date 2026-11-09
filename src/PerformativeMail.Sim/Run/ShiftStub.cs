@@ -23,7 +23,7 @@ public enum ShiftPhase : byte
 
 /// <summary>
 /// The M-1a Run Structure stand-in (mail-destinations story 009; ADR-0017 section 3, Q-ARCH-11): Prep, then Delivery, then Closed.
-/// Binds phase 12 only. On a transition it calls <see cref="IMailApi.SetDeliveriesState"/> in phase 12 of the tick before, so the new
+/// Binds phase 12 only. In Prep it calls <see cref="IMailApi.PrepareShift"/> each tick with the settings' profile (story 013). On a transition it calls <see cref="IMailApi.SetDeliveriesState"/> in phase 12 of the tick before, so the new
 /// state is effective from the next tick's phase 0, and raises one <see cref="RunEventKinds.DeliveriesState"/>. Reads no clock (ticks
 /// only) and never requests a stop. Its section is <see cref="SectionIds.Run"/>. Sim tick thread only.
 /// </summary>
@@ -35,6 +35,7 @@ public sealed class ShiftStub : ISimSystem, ISimPhase, ISimStateContributor
     private readonly EventLogFacade _events;
     private readonly ulong _mask;
     private readonly uint _deliveryTicks;
+    private readonly SpawnProfile _profile;
 
     // Held because the orchestrator owns the stop port; the greybox never stops, so it is not called.
     private readonly IRunControl _runControl;
@@ -63,10 +64,24 @@ public sealed class ShiftStub : ISimSystem, ISimPhase, ISimStateContributor
         _mask = settings.UnlockedMask;
         _deliveryTicks = checked((uint)(settings.DeliverySeconds * TickRate.Hz));
         _phaseEndTick = checked((uint)settings.PrepTicks);
+
+        // M-1a profile (story 013 AC-4): shift, V and D from the settings, no raid window, no Cursed mail, one player.
+        _profile = new SpawnProfile(
+            settings.Shift, settings.SpawnBudgetCents, settings.DeliverySeconds, RaidWindowSeconds: 0, CursedSharePm: 0, PlayerCount: 1,
+            settings.PlayerScalePm, FoundValueBudgetCents: 0);
     }
 
     /// <inheritdoc />
     public ushort SectionId => SectionIds.Run;
+
+    /// <summary>The current phase (tests).</summary>
+    internal ShiftPhase Phase => _phase;
+
+    /// <summary>The close tick (tests).</summary>
+    internal uint CloseTick => _closeTick;
+
+    /// <summary>The deadline tick (tests).</summary>
+    internal uint DeadlineTick => _deadlineTick;
 
     /// <inheritdoc />
     public void Bind(SimWorldBuilder builder)
@@ -80,6 +95,12 @@ public sealed class ShiftStub : ISimSystem, ISimPhase, ISimStateContributor
     /// <inheritdoc />
     public void Run(in TickContext ctx)
     {
+        // Prep: hand Mail the shift profile every Prep tick (an unchanged profile changes nothing there), before any transition.
+        if (_phase == ShiftPhase.Prep)
+        {
+            _mail.PrepareShift(in _profile);
+        }
+
         uint next = ctx.Tick + 1;
         if (_phase == ShiftPhase.Closed || next < _phaseEndTick)
         {

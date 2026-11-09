@@ -7,7 +7,8 @@ namespace PerformativeMail.Client.Core.Mirror;
 /// <summary>
 /// The <see cref="ClientStepId.MirrorDrain"/> step (ADR-0003 section 6, ADR-0011 section 2): once per client tick it drains the
 /// <see cref="ClientInbox"/> in arrival order and dispatches each record to every registered <see cref="IMirrorConsumer"/>,
-/// replies through <see cref="IMirrorConsumer.OnReply"/> and everything else through <see cref="IMirrorConsumer.OnEntry"/>.
+/// replies through <see cref="IMirrorConsumer.OnReply"/> and everything else through <see cref="IMirrorConsumer.OnEntry"/>, then to
+/// the layer's Sim-side mirror parts (<see cref="ClientStepContext.MirrorParts"/>, ADR-0016 section 1; no blob at M-1a).
 /// This is the only place host data is applied on the client. Only records queued when the step starts are drained, so a
 /// consumer cannot extend a drain. Client.Core owns this step and binds it into the Sim's <c>ClientLayerBuilder</c>
 /// (Client.Core to Sim is the allowed dependency direction). Allocation-free after consumers are registered.
@@ -83,10 +84,11 @@ public sealed class MirrorDrainStep : IClientStep
     {
         _adapter?.PumpInbound(_inbox);
         IMirrorConsumer[] consumers = _consumers;
+        MirrorPartTable parts = ctx.MirrorParts;
         int budget = _inbox.Count;
         for (int i = 0; i < budget && _inbox.TryDequeue(out ClientInboxRecord record); i++)
         {
-            if (consumers.Length == 0)
+            if (consumers.Length == 0 && parts.Count == 0)
             {
                 UnconsumedCount++;
                 continue;
@@ -100,6 +102,8 @@ public sealed class MirrorDrainStep : IClientStep
                 {
                     consumers[c].OnReply(record.Tick, in reply);
                 }
+
+                parts.ApplyReply(in reply);
             }
             else
             {
@@ -108,6 +112,8 @@ public sealed class MirrorDrainStep : IClientStep
                 {
                     consumers[c].OnEntry(record.Tick, in record.Entry);
                 }
+
+                parts.Apply(in record.Entry, ReadOnlySpan<byte>.Empty);
             }
         }
     }

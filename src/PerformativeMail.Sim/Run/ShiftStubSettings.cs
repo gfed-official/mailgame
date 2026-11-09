@@ -17,11 +17,17 @@ public sealed record ShiftStubSettings
     /// <summary>Seconds of Delivery. PLACEHOLDER: 240 is F2's shift-1 example value, not a tuned one.</summary>
     public int DeliverySeconds { get; init; } = 240;
 
-    /// <summary>The shift number. Carried for story 013's <c>PrepareShift</c>; the stub itself does not read it.</summary>
+    /// <summary>The shift number, handed to Mail's <c>PrepareShift</c> (story 013).</summary>
     public byte Shift { get; init; } = 1;
 
     /// <summary>The unlocked-district mask (bit <c>districtId - 1</c>); District 1 only by default.</summary>
     public ulong UnlockedMask { get; init; } = 1UL;
+
+    /// <summary>
+    /// V, the shift's spawn budget in cents, handed to Mail's <c>PrepareShift</c> (mail-destinations story 013). PLACEHOLDER: 960 is the
+    /// GDD F3 solo shift-1 example, not a tuned value (Run Structure owns quota x <c>spawnOverhead</c> at M1).
+    /// </summary>
+    public long SpawnBudgetCents { get; init; } = 960;
 
     /// <summary>The team <c>playerScale</c>, permille, handed to Mail's complaint buckets at construction (TD-193 item 4).</summary>
     public int PlayerScalePm { get; init; } = 1000;
