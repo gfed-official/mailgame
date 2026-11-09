@@ -1,5 +1,6 @@
 using PerformativeMail.Client.Core.Presentation;
 using PerformativeMail.Client.Core.Timing;
+using PerformativeMail.Client.Core.Ui;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Game.Presentation;
@@ -26,4 +27,7 @@ public sealed class PresenterDeps
 
     /// <summary>The audio cue entry (<see cref="AudioPresenter"/>); with no sink registered a cue is dropped.</summary>
     public required IAudioCueSink Audio { get; init; }
+
+    /// <summary>The HUD read model (hud-notifications story 002); optional until boot composes it, HUD views stay blank without it.</summary>
+    public IHudState? HudState { get; init; }
 }
