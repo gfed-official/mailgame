@@ -838,7 +838,7 @@ public class OpTypesTests
     public void OpKindBlocks_All_ListsEveryBlockAscending()
     {
         Assert.Equal(
-            [OpKindBlock.Core, OpKindBlock.Players, OpKindBlock.Inventory, OpKindBlock.MailDelivery, OpKindBlock.Throwing, OpKindBlock.Economy],
+            [OpKindBlock.Core, OpKindBlock.Players, OpKindBlock.Inventory, OpKindBlock.MailDelivery, OpKindBlock.Throwing, OpKindBlock.Economy, OpKindBlock.Run],
             OpKindBlock.All.ToArray());
     }
 
@@ -856,7 +856,9 @@ public class OpTypesTests
         Assert.Equal(default, none);
         Assert.True(OpKindBlock.TryOwnerOf((OpKind)0x0180, out OpKindBlock economy));
         Assert.Equal(OpKindBlock.Economy, economy);
-        Assert.False(OpKindBlock.TryOwnerOf((OpKind)0x01C0, out _));
+        Assert.True(OpKindBlock.TryOwnerOf((OpKind)0x01C0, out OpKindBlock run));
+        Assert.Equal(OpKindBlock.Run, run);
+        Assert.False(OpKindBlock.TryOwnerOf((OpKind)0x0200, out _));
         Assert.False(OpKindBlock.TryOwnerOf((OpKind)0xFFFF, out _));
     }
 

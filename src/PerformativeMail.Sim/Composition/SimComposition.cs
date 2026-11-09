@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Economy;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.MailDestinations;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.ThrowingCatching;
 using PerformativeMail.Sim.World;
 
@@ -160,7 +161,7 @@ public static class SimComposition
             context.Begin(order[i]);
             ISimSystem? system = profile.IsPerTest
                 ? profile.FactoryAt(i)(context) ?? throw new InvalidOperationException($"The factory for {order[i]} returned null.")
-                : ConstructShipped(order[i], context);
+                : ConstructShipped(order[i], context, profile);
             if (system is null)
             {
                 continue; // a shipped system whose epic has not landed yet: its phases stay no-ops
@@ -187,8 +188,8 @@ public static class SimComposition
 
     // The explicit construction code of the shipped systems, one case per system in ShippedOrder. Each gameplay epic adds its
     // case here (and its row in SystemGraph). A system whose epic has not landed yet returns null and its phases stay no-ops
-    // (GridInventory, PlayerCharacter, MailDestinations and Throwing are built).
-    private static ISimSystem? ConstructShipped(SystemId id, SimSystemContext context)
+    // (GridInventory, PlayerCharacter, MailDestinations, Throwing and the RunStructure stub are built).
+    private static ISimSystem? ConstructShipped(SystemId id, SimSystemContext context, SimProfile profile)
     {
         switch (id)
         {
@@ -214,7 +215,13 @@ public static class SimComposition
                         context.StatSheet,
                         context.CheckRing,
                         context.Counters,
-                        context.Slots)
+                        context.Slots,
+                        new PlayerScale(profile.ShiftStub.PlayerScalePm))
+                    : null;
+            case SystemId.RunStructure:
+                // M-1a STUB: the shift stub calls Mail downward, so it exists only where Mail is built (a world and a profile with Mail).
+                return context.World is not null && profile.Includes(SystemId.MailDestinations)
+                    ? new ShiftStub(context.Api<IMailApi>(SystemId.MailDestinations), context.RunControl, context.Events, profile.ShiftStub)
                     : null;
             case SystemId.Throwing:
                 // Throwing reads the world through IWorldQuery and needs Players and Mail, which are built only with a world.

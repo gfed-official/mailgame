@@ -1,12 +1,12 @@
 # Story 009: M-1a shift stub (Run Structure stand-in, phase 12) — `SetDeliveriesState`, the `DeliveriesState` event, OPEN/CLOSED/LOCKED from T + 1
 
 > **Epic**: Mail & Destinations (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: S–M (~0.5–1 day; ~200 lines prod + ~200 lines tests)
-> **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-21 (citation fix: `SystemId.Run` does not exist; the system is `SystemId.RunStructure`, `Core/SystemId.cs`)
+> **Manifest Version**: 2026-10-17.1
+> **Last Updated**: 2026-11-08 (Complete, branch `feat/mail-destinations-009`, not merged; re-stamped to manifest 2026-10-17.1; AC-1 mask example `0b10` → `0b01`). Earlier, 2026-10-21 (citation fix: `SystemId.Run` does not exist; the system is `SystemId.RunStructure`, `Core/SystemId.cs`)
 
 ## Context
 
@@ -33,10 +33,10 @@
 
 *From GDD `design/gdd/mail-destinations.md` (M-R4-1, M-R4-2 a/b/f/g at system level, M-X-5 subset), scoped to the M-1a stub:*
 
-- [ ] **AC-1 Stub cycle (M-R4-1a, M-1a form).** With District 1 unlocked and District 2 not (mask `0b10`), a stub configured Prep → Delivery → Closed: D1 destinations are CLOSED in Prep, OPEN for every tick of Delivery, and CLOSED after. D2 is LOCKED while deliveries are open and CLOSED otherwise (R5's precedence) throughout. No district is re-locked.
-- [ ] **AC-2 T + 1 rule (M-R4-2a, b, f).** The stub calls `SetDeliveriesState(false, closeTick: T, …)` in phase 12 of tick T − 1. A hand op applied in phase 0 of T − 1 sees OPEN; an op started at T sees CLOSED (`closed`). At Delivery-start tick S (set in S − 1), an op at S is accepted.
-- [ ] **AC-3 Event.** Each state change raises exactly one `DeliveriesState{phase, open, closeTick, deadlineTick, unlockedMask}` (Replicated, reliable-ordered, raised by the stub, not by Mail). No event is raised on ticks without a change. `deadlineTick` is set at Delivery start (the HUD timer reads it through `RunMirror`, story 010).
-- [ ] **AC-4 Determinism.** The stub's state (phase, `phaseEndTick`, open, `closeTick`, mask) is in the dump. Two identical runs produce identical dumps, and the stub reads no clock.
+- [x] **AC-1 Stub cycle (M-R4-1a, M-1a form).** With District 1 unlocked and District 2 not (mask `0b01`; correction per Mail Lead plan 2026-11-05: the shipped mask uses bit `districtId − 1`, so District 1 is bit 0), a stub configured Prep → Delivery → Closed: D1 destinations are CLOSED in Prep, OPEN for every tick of Delivery, and CLOSED after. D2 is LOCKED while deliveries are open and CLOSED otherwise (R5's precedence) throughout. No district is re-locked.
+- [x] **AC-2 T + 1 rule (M-R4-2a, b, f).** The stub calls `SetDeliveriesState(false, closeTick: T, …)` in phase 12 of tick T − 1. A hand op applied in phase 0 of T − 1 sees OPEN; an op started at T sees CLOSED (`closed`). At Delivery-start tick S (set in S − 1), an op at S is accepted.
+- [x] **AC-3 Event.** Each state change raises exactly one `DeliveriesState{phase, open, closeTick, deadlineTick, unlockedMask}` (Replicated, reliable-ordered, raised by the stub, not by Mail). No event is raised on ticks without a change. `deadlineTick` is set at Delivery start (the HUD timer reads it through `RunMirror`, story 010).
+- [x] **AC-4 Determinism.** The stub's state (phase, `phaseEndTick`, open, `closeTick`, mask) is in the dump. Two identical runs produce identical dumps, and the stub reads no clock.
 
 ---
 
@@ -75,7 +75,13 @@
 **Required evidence**:
 - Integration: `tests/integration/mail/ShiftStubDeliveriesStateTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/integration/mail/ShiftStubDeliveriesStateTests.cs`, 4 tests, one per AC (2026-11-08):
+- AC-1 `Ac1_PrepDeliveryClosed_District1IsClosedOpenClosed_AndDistrict2IsLockedOnlyWhileOpen`
+- AC-2 `Ac2_AHandOverAppliedAtTheLastOpenTickIsAccepted_AndOneStartedAtTheCloseTickIsClosed` (hand-overs in phase 0 of S − 1, S, closeTick − 1, closeTick)
+- AC-3 `Ac3_OneDeliveriesStateEventPerChange_NoneOnOtherTicks_WithTheDeadlineSetAtDeliveryStart`
+- AC-4 `Ac4_TwoIdenticalRuns_GiveIdenticalDumps_AndTheStubStateIsInTheDump`
+
+Existing tests adjusted for the 13-byte deliveries tail of Mail's section, the Run block and the Run section: `MailTableTests` (2), `DestinationRegistryTests`, `ComplaintBucketTests` (2 helpers), `ConsumeHandTests` AC-12, `MailCompositionTests` AC-3 (section order), `OpTypesTests` (2), and `CompositionRulesTests` (two rows for `ShiftStubSettings` and `PlayerScale`). None deleted.
 
 ---
 
