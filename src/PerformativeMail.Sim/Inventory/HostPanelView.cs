@@ -21,7 +21,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// foreach (PanelEntryFacts e in DeliverScan.Enumerate(inventory.HostPanelView(actorSlot))) { /* host scan order */ }
 /// </code>
 /// </example>
-internal sealed class HostPanelView : IPanelView
+internal sealed class HostPanelView : IPanelView, IHostPanelContainers
 {
     private readonly InventorySystem _inventory;
     private readonly ContentSet _content;
@@ -44,6 +44,15 @@ internal sealed class HostPanelView : IPanelView
         _slot = slot;
         _order = new ushort[maxCells];
     }
+
+    /// <inheritdoc />
+    public ContainerId ContainerOf(PanelSection s) => s switch
+    {
+        PanelSection.Cursor => _inventory.CursorOf(_slot),
+        PanelSection.Hotbar => _inventory.HotbarOf(_slot),
+        PanelSection.Inventory => _inventory.PlayerInventoryOf(_slot),
+        _ => default, // the backpack is M-1b
+    };
 
     /// <inheritdoc />
     public int CursorSlot

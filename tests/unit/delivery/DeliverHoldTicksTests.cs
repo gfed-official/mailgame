@@ -268,8 +268,8 @@ public class DeliverHoldTicksTests
         impl.OnPress(in c, ref pressed);
         impl.WritePrompt(in c, ref prompt);
 
-        // Assert
-        Assert.False(available);
+        // Assert: IsAvailable is true (no reason) until story 003, so story 005's host CheckInteraction can pass.
+        Assert.True(available);
         Assert.True(availableReason.IsNone);
         Assert.False(cancel);
         Assert.True(cancelReason.IsNone);

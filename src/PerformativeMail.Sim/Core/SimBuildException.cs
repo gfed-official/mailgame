@@ -162,6 +162,9 @@ public enum SimBuildErrorCode : byte
 
     /// <summary>Mail &amp; Destinations: the destination registry rejected the world's lots or the content at construction (more than 65,535 lots, a duplicate address or destination id, no <c>house</c> def, or an unusable <c>house</c> catch volume; TD-079 item 5). Evan approved 2026-10-28 (TD-183 item 2).</summary>
     MailRegistryInvalid = 53,
+
+    /// <summary>Manual Delivery: registering a destination's Deliver anchor with Player Character failed (the message names the <c>RegisterResult</c>).</summary>
+    DeliveryAnchorRegistrationFailed = 54,
 }
 
 /// <summary>
