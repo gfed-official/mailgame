@@ -17,6 +17,8 @@ namespace PerformativeMail.Client.Core.Camera;
 /// <item><description>the height field, with the segment lowered by the radius, via
 /// <see cref="HeightfieldMarch.FirstContact"/>, one permille before its (rounded-up) contact fraction. A segment outside
 /// the march contract is treated as a contact at 0.</description></item>
+/// <item><description>the four map sides (<see cref="IWorldQuery.Bounds"/>) as vertical walls moved in by the radius, so the camera
+/// never swings out past the map edge (WP-G); a side the pivot is already beyond does not pull in.</description></item>
 /// </list>
 /// The smallest fraction <c>f</c> (permille) gives <c>max(MinBoomMm, desired * f / 1000)</c>. It reads the world on every
 /// call and keeps no copy of the geometry. The terrain floor is approximate to march resolution (and <see cref="MinBoomMm"/>
@@ -61,6 +63,8 @@ public static class BoomSolver
         int f = SolidsFraction(w, in pivot, in end, r);
         int terrain = TerrainFraction(w, in pivot, in end, r);
         f = terrain < f ? terrain : f;
+        int bounds = BoundsFraction(w.Bounds, in pivot, in end, r);
+        f = bounds < f ? bounds : f;
 
         var sink = default(SimCounterSink);
         long boom = f >= FullPm ? desiredBoomMm : Fix.MulDiv(desiredBoomMm, f, FullPm, ref sink);
@@ -97,6 +101,31 @@ public static class BoomSolver
         }
 
         return best;
+    }
+
+    // The map sides as vertical walls, moved in by the radius (WP-G: past them there is no street to frame). A side the pivot is already
+    // beyond does not pull in.
+    private static int BoundsFraction(in MapBounds b, in Vec3Mm p0, in Vec3Mm p1, int r)
+    {
+        int best = FullPm;
+        best = Math.Min(best, SideFraction(p0.X, p1.X, b.MinXMm + r, low: true));
+        best = Math.Min(best, SideFraction(p0.X, p1.X, b.MaxXMm - r, low: false));
+        best = Math.Min(best, SideFraction(p0.Z, p1.Z, b.MinZMm + r, low: true));
+        best = Math.Min(best, SideFraction(p0.Z, p1.Z, b.MaxZMm - r, low: false));
+        return best;
+    }
+
+    // Permille of the way from v0 to v1 at which the coordinate crosses the side (rounded down); FullPm when it never does.
+    private static int SideFraction(long v0, long v1, long side, bool low)
+    {
+        bool inside0 = low ? v0 >= side : v0 <= side;
+        bool inside1 = low ? v1 >= side : v1 <= side;
+        if (!inside0 || inside1)
+        {
+            return FullPm;
+        }
+
+        return (int)((v0 - side) * FullPm / (v0 - v1));
     }
 
     private static int TerrainFraction(IWorldQuery w, in Vec3Mm p0, in Vec3Mm p1, int r)

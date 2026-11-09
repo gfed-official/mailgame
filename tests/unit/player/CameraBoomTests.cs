@@ -67,6 +67,7 @@ public sealed class CameraBoomTests
     [InlineData("ridge", 1800, 3)]
     [InlineData("clear", 3000, 0)]
     [InlineData("insideBox", BoomSolver.MinBoomMm, 0)]
+    [InlineData("mapEdge", 1750, 3)]
     public void Solve_Scenario_ReturnsLongestSafeBoom(string scenario, int expectedMm, int toleranceMm)
     {
         // Arrange: a flat 80 m world at 0, pivot 1600 up at (40 000, 40 000), yaw 0 so the boom runs along +Z.
@@ -77,6 +78,9 @@ public sealed class CameraBoomTests
             "box" => FlatWorld(b => b.AddSolid(EntityId.None, new AabbMm(new Vec3Mm(30_000, 0, 42_250), new Vec3Mm(50_000, 5000, 43_000)), SolidKind.House)),
             "ridge" => RidgeWorld(),
             "insideBox" => FlatWorld(b => b.AddSolid(EntityId.None, new AabbMm(new Vec3Mm(39_000, 0, 39_000), new Vec3Mm(41_000, 3000, 41_000)), SolidKind.House)),
+
+            // The map ends at z 42 000: the boom stops 250 short of the side (WP-G).
+            "mapEdge" => EdgeWorld(),
             _ => FlatWorld(),
         };
 
@@ -205,6 +209,14 @@ public sealed class CameraBoomTests
         var b = new WorldTablesBuilder();
         b.SetCorners(Tiles, Tiles, new int[(Tiles + 1) * (Tiles + 1)]);
         extra?.Invoke(b);
+        return b.Build(WorldTablesFixture.SlopeMaxPm, WorldTablesFixture.SwimEnterMm);
+    }
+
+    /// <summary>Flat at 0, 80 m along X but only 42 m along Z.</summary>
+    private static WorldTables EdgeWorld()
+    {
+        var b = new WorldTablesBuilder();
+        b.SetCorners(40, 21, new int[41 * 22]);
         return b.Build(WorldTablesFixture.SlopeMaxPm, WorldTablesFixture.SwimEnterMm);
     }
 

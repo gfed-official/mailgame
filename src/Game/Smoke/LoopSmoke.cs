@@ -5,6 +5,8 @@ using PerformativeMail.Client.Core.Ui.Throwing;
 using PerformativeMail.Game.Boot;
 using PerformativeMail.Game.Hosting;
 using PerformativeMail.Game.Views.Inventory;
+using PerformativeMail.Game.Views.Player;
+using PerformativeMail.Game.Views.Throwing;
 using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Economy;
@@ -135,6 +137,10 @@ public sealed class LoopSmoke : SmokeScenario
             return false;
         }
 
+        // The carrier stands between the camera and the console: it is drawn see-through so the console stays in view (WP-G item 6).
+        PlayerView? body = _loop.GetNodeOrNull<Node>("World/Entities")?.GetChildren().OfType<PlayerView>().FirstOrDefault();
+        Expect(ctx, "the carrier is see-through while it hides the focused Intake", body?.Occluding ?? false, true);
+
         _aim = Client.Aim;
 
         // The first batch reaches the Intake a few seconds into Delivery (F2 jitter): an empty Intake answers no_target, so press again.
@@ -216,6 +222,8 @@ public sealed class LoopSmoke : SmokeScenario
         }
 
         Expect(ctx, $"RMB shows an aim arc ({arc} points)", arc > 1, true);
+        int drawn = _loop.GetNodeOrNull<AimRibbonView>("Hud/Aim/AimRibbonView")?.DrawnQuads ?? 0;
+        Expect(ctx, $"the aim ribbon draws the arc on screen ({drawn} quads)", drawn > 1, true);
         Expect(ctx, "the arc ends in the letter's mailbox (Accept)", accept, true);
         // The router judges the release on its own millisecond clock (wall time): hold at least throwMinAimMs before letting go.
         System.Threading.Thread.Sleep(MinAimWallMs);

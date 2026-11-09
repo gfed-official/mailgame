@@ -26,4 +26,7 @@ public sealed class BootOptions
 
     /// <summary>The process's user args (<c>OS.GetCmdlineUserArgs()</c>); step 5 reads <c>--seed=&lt;n&gt;</c> from them.</summary>
     public IReadOnlyList<string> UserArgs { get; init; } = [];
+
+    /// <summary>The playtest flags (debug builds only, <see cref="PlaytestArgs.Parse"/>); step 5 applies their Prep and Delivery lengths.</summary>
+    public PlaytestArgs Playtest { get; init; } = PlaytestArgs.None;
 }
