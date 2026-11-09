@@ -13,9 +13,9 @@ using EventCursor = PerformativeMail.Client.Core.Presentation.EventCursor;
 namespace PerformativeMail.Sim.Tests.Unit.ManualDelivery;
 
 /// <summary>
-/// Manual-delivery story 006 (GDD MD7, M-EC-1; ADR-0016 section 5): <see cref="HandBeatController"/> driven through a
-/// <see cref="PresentationEventStream"/> fed the batches a hold produces (its <c>DeliveryOutcome</c>s, then the own reply), and the
-/// <see cref="ReachEcho"/> gate. Timeout/rejoin and dead/frozen rows are out of the greybox (Mail Lead regroup 2026-11-08).
+/// Manual-delivery story 006 (GDD MD7, M-EC-1; ADR-0016 section 5): <see cref="HandBeatController"/>, stamped by
+/// <see cref="HandBeatDriver"/>, driven through a <see cref="PresentationEventStream"/> fed the batches a hold produces (its
+/// <c>DeliveryOutcome</c>s, then the own reply), and the <see cref="ReachEcho"/> gate. Timeout/rejoin and dead/frozen rows are out of the greybox (Mail Lead regroup 2026-11-08).
 /// </summary>
 public class HandBeatControllerTests
 {
@@ -34,18 +34,18 @@ public class HandBeatControllerTests
     {
         // Arrange
         var rig = new Rig();
-        rig.Hand.OnHoldCompleted(Completed, House);
+        rig.Driver.OnHoldCompleted(Completed, House);
 
         // Act
         rig.Batch(Completed + 3, own ? Self : Other, k, reply: own ? OkReply(k) : null);
         rig.Update(Completed + 4);
-        int firstUpdate = rig.Hand.Started.Count;
-        HandBeatStart started = firstUpdate == 1 ? rig.Hand.Started[0] : default;
+        int firstUpdate = rig.Driver.Started.Count;
+        HandBeatStart started = firstUpdate == 1 ? rig.Driver.Started[0] : default;
         rig.Update(Completed + 5);
 
         // Assert
         Assert.True(firstUpdate == 1, row + ": " + firstUpdate + " beats");
-        Assert.Empty(rig.Hand.Started);
+        Assert.Empty(rig.Driver.Started);
         Assert.Equal((own ? Self : Other, House, Completed + 3, beat), (started.Actor, started.Destination, started.ApplyTick, started.Response.Beat));
         Assert.Equal(new RiffleTiming(stacks, riffleMs), started.Riffle);
     }
@@ -62,7 +62,7 @@ public class HandBeatControllerTests
         prompt.Source.Pending.Add(DeliveryOpKinds.DeliverMatching);
 
         // Act
-        rig.Hand.OnHoldCompleted(Completed, prompt.Home.Entity);
+        rig.Driver.OnHoldCompleted(Completed, prompt.Home.Entity);
         prompt.Tick();
         bool available = prompt.IsAvailable(prompt.Home, out StringId reason);
 
@@ -84,10 +84,10 @@ public class HandBeatControllerTests
         // Arrange
         var rig = new Rig { WithinReach = withinReach };
         EventCursor feed = rig.Events.OpenCursor(EventKindSet.Of(MailEventKinds.DeliveryOutcome, EventKind.OpReply));
-        rig.Hand.OnHoldCompleted(Completed, House);
+        rig.Driver.OnHoldCompleted(Completed, House);
         if (resync)
         {
-            rig.Hand.OnResync();
+            rig.Driver.OnResync();
         }
 
         // Act
@@ -95,10 +95,10 @@ public class HandBeatControllerTests
         rig.Update(Completed + replyTick);
 
         // Assert
-        Assert.True(beats == rig.Hand.Started.Count, row + ": " + rig.Hand.Started.Count + " beats");
+        Assert.True(beats == rig.Driver.Started.Count, row + ": " + rig.Driver.Started.Count + " beats");
         if (beats == 1)
         {
-            HandBeatStart started = rig.Hand.Started[0];
+            HandBeatStart started = rig.Driver.Started[0];
             Assert.Equal((HandBeat.SlotIn, slotIn, attached, 4_000L), (started.Response.Beat, started.Response.SlotIn, started.AttachedToPrompt, started.StartMs));
         }
 

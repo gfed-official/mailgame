@@ -7,28 +7,15 @@ using PerformativeMail.Sim.Primitives;
 namespace PerformativeMail.Client.Core.Presentation.Delivery;
 
 /// <summary>
-/// One hand beat to play (manual-delivery story 006): the hold's key, the <see cref="HandResponseTable"/> response, the riffle and
-/// whether it belongs to the current prompt. A plain descriptor for the Godot hand view (story 011); it carries no duration.
+/// One hand beat's cursor data (manual-delivery story 006): the hold's key, the <see cref="HandResponseTable"/> response and the riffle,
+/// all read from <see cref="PresentationEventStream"/>. <see cref="HandBeatDriver"/> stamps it into a <see cref="HandBeatStart"/>.
 /// </summary>
 /// <param name="Actor">The acting player.</param>
 /// <param name="Destination">The destination.</param>
 /// <param name="ApplyTick">The host tick the hold applied on (the batch's <c>sourceTick</c>).</param>
 /// <param name="Response">The hand response; a late reply's <see cref="HandResponse.SlotIn"/> is false (MD7).</param>
 /// <param name="Riffle">GDD F4 for the entries posted (<see cref="RiffleTiming.Stacks"/> 0 for none).</param>
-/// <param name="AttachedToPrompt">False for another player's hold and for a mailbox the carrier has walked beyond 2.9 m from.</param>
-/// <param name="StartMs">The render-sim time (ms) the beat starts at, passed in by the caller each frame.</param>
-public readonly record struct HandBeatStart(
-    PlayerSlot Actor, EntityId Destination, uint ApplyTick, HandResponse Response, RiffleTiming Riffle, bool AttachedToPrompt, long StartMs);
-
-/// <summary>Whether the carrier is still within hold reach (2.9 m) of a destination's Deliver anchor, from the published carrier and the anchor point.</summary>
-/// <example><code>bool attach = reach.IsWithinHoldReach(destination);</code></example>
-public interface IDeliverReachRead
-{
-    /// <summary>True while the local carrier is within hold reach of <paramref name="destination"/>'s anchor.</summary>
-    /// <param name="destination">The destination.</param>
-    /// <returns>True when within reach.</returns>
-    bool IsWithinHoldReach(EntityId destination);
-}
+public readonly record struct HandBeatOutcome(PlayerSlot Actor, EntityId Destination, uint ApplyTick, HandResponse Response, RiffleTiming Riffle);
 
 /// <summary>
 /// The hand beat (GDD MD7; ADR-0016 section 5; TR-delivery-017). An outcome beat: every beat starts from its cursor on
@@ -37,15 +24,14 @@ public interface IDeliverReachRead
 /// outcomes the hold produced. Another player's hold starts on its first outcome; an own hold starts on its reply, read after the
 /// hold's outcomes in the same batch, and maps it through <see cref="HandResponseTable"/>. <see cref="OnHoldCompleted"/> and
 /// <see cref="OnResync"/> never start a beat: with no reply the hand goes idle 30 ticks (1 s) after completion, a reply read after
-/// that plays without the slot-in, and a reply after a resync plays none. Frame context (render time, in-reach) arrives as plain
-/// <see cref="Update"/> arguments from a non-<c>[OutcomeBeat]</c> caller (<see cref="HandBeatDriver"/>); this type holds no clock or
-/// reach ports. Main thread only.
+/// that plays without the slot-in, and a reply after a resync plays none. It emits cursor data only (<see cref="HandBeatOutcome"/>);
+/// the non-<c>[OutcomeBeat]</c> <see cref="HandBeatDriver"/> stamps the start time and the prompt attach. Main thread only.
 /// </summary>
 /// <example>
 /// <code>
 /// var hand = new HandBeatController(deps.Events, self);
-/// hand.Update(clientTick, renderSimTimeMs, withinHoldReach);
-/// foreach (HandBeatStart beat in hand.Started) { view.Play(in beat); }
+/// hand.Update(clientTick);
+/// foreach (HandBeatOutcome beat in hand.Started) { /* HandBeatDriver stamps it */ }
 /// </code>
 /// </example>
 [OutcomeBeat]
@@ -60,7 +46,7 @@ public sealed class HandBeatController
     private readonly EventCursor _cursor;
     private readonly PlayerSlot _self;
     private readonly HoldKey[] _ring = new HoldKey[RingSize];
-    private readonly List<HandBeatStart> _started = [];
+    private readonly List<HandBeatOutcome> _started = [];
     private int _ringNext;
     private bool _awaiting;
     private uint _completedTick;
@@ -70,8 +56,6 @@ public sealed class HandBeatController
     private bool _ownMisdelivered;
     private HoldKey _remote;
     private int _remoteK;
-    private long _renderSimTimeMs;
-    private bool _withinHoldReach;
 
     /// <summary>Creates the controller and opens its cursor (it sees only events published from now on).</summary>
     /// <param name="events">The outcome-beat feed.</param>
@@ -84,8 +68,11 @@ public sealed class HandBeatController
         _self = self;
     }
 
+    /// <summary>The local player's slot: outcomes with another actor are remote holds.</summary>
+    public PlayerSlot Self => _self;
+
     /// <summary>The beats the last <see cref="Update"/> started, in stream order.</summary>
-    public IReadOnlyList<HandBeatStart> Started => _started;
+    public IReadOnlyList<HandBeatOutcome> Started => _started;
 
     /// <summary>The destination of the own hold awaiting a reply, or default when none.</summary>
     public EntityId AwaitedDestination => _awaiting ? _awaitedDestination : EntityId.None;
@@ -108,18 +95,10 @@ public sealed class HandBeatController
     /// <summary>A resync snapshot cleared the pending queue: a reply for the cleared request plays no hand beat.</summary>
     public void OnResync() => _awaiting = false;
 
-    /// <summary>
-    /// Reads every event published since the last call and replaces <see cref="Started"/> with the beats they start.
-    /// <paramref name="renderSimTimeMs"/> and <paramref name="withinHoldReach"/> are this frame's plain context from the caller
-    /// (clock and reach ports live outside this <c>[OutcomeBeat]</c> type).
-    /// </summary>
-    /// <param name="clientTick">The current client tick.</param>
-    /// <param name="renderSimTimeMs">This frame's render-sim time in ms (beat <see cref="HandBeatStart.StartMs"/>).</param>
-    /// <param name="withinHoldReach">True when the local carrier is within hold reach of the awaited destination (own-reply attach).</param>
-    public void Update(uint clientTick, long renderSimTimeMs, bool withinHoldReach)
+    /// <summary>Reads every event published since the last call and replaces <see cref="Started"/> with the beats they start.</summary>
+    /// <param name="clientTick">The current client tick (late replies, MD7).</param>
+    public void Update(uint clientTick)
     {
-        _renderSimTimeMs = renderSimTimeMs;
-        _withinHoldReach = withinHoldReach;
         _started.Clear();
         _remoteK = 0;
         while (_cursor.TryRead(out PresentedEvent e))
@@ -153,7 +132,7 @@ public sealed class HandBeatController
         {
             // A further outcome of the hold that started this update: the riffle grows, the beat does not repeat.
             _remoteK++;
-            HandBeatStart started = _started[^1];
+            HandBeatOutcome started = _started[^1];
             HandBeat beat = started.Response.Beat == HandBeat.SlotIn ? HandBeat.SlotInRiffle : started.Response.Beat;
             _started[^1] = started with { Response = started.Response with { Beat = beat }, Riffle = RiffleTiming.For(_remoteK) };
             return;
@@ -171,7 +150,7 @@ public sealed class HandBeatController
             : new HandResponse(misdelivered ? HandBeat.CarefulHandover : HandBeat.SlotIn, StringId.None, true);
         _remote = key;
         _remoteK = floor ? 0 : 1;
-        _started.Add(new HandBeatStart(key.Actor, key.Destination, key.ApplyTick, response, RiffleTiming.For(_remoteK), false, _renderSimTimeMs));
+        _started.Add(new HandBeatOutcome(key.Actor, key.Destination, key.ApplyTick, response, RiffleTiming.For(_remoteK)));
     }
 
     private void OnReply(in PresentedEvent e, uint clientTick)
@@ -200,14 +179,7 @@ public sealed class HandBeatController
         }
 
         int k = reply.IsOk ? reply.ExtraAs<InvReplyExtra>().GotEntries : 0;
-        _started.Add(new HandBeatStart(
-            _self,
-            destination,
-            e.SourceTick,
-            late ? response with { SlotIn = false } : response,
-            RiffleTiming.For(k),
-            _withinHoldReach,
-            _renderSimTimeMs));
+        _started.Add(new HandBeatOutcome(_self, destination, e.SourceTick, late ? response with { SlotIn = false } : response, RiffleTiming.For(k)));
     }
 
     // False when the key already fired; otherwise records it, overwriting the oldest of the 16.
