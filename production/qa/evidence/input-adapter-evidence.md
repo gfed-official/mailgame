@@ -107,3 +107,56 @@ SMOKE input-mouse-focus PASS first frame: ui_* InputMap matches the startup snap
 SMOKE input-mouse-focus PASS ui_* actions in the startup snapshot (non-zero) == True
 SMOKE RESULT name=input-mouse-focus pass=16 fail=0 exit=0
 ```
+
+# Story 028 — boot step 4, the per-frame call order, `user://input.json`
+
+**Story**: `production/epics/input-controls/story-028-gameloop-hookup-router-boot-settings-file.md`
+**Date**: 2026-11-09
+**Engine used for this run**: Godot **4.7.2**.stable.mono (`~/.local/bin/godot`, headless); 4.7.1 behaviour UNVERIFIED.
+**Procedure**: `--import` once for the three new `.uid` files (the csproj rewrite reverted, `.old` deleted), `dotnet build PerformativeMail.Game.sln -c Debug`, then `godot --headless --path . -- --smoke=input-boot` (exit 0). The scenario boots the real nine-step plan with an `InputBoot` step-4 contributor over the shell's frame-loop rig (recording run / sample / present; the booted session is kept for its client latch), then calls `InputBoot.AttachToLoop(loop)` itself: **production `GameLoop` / `BootPlan` do not call `InputBoot` yet** (hooks listed for WP-A in the PR). Synthetic events only. The unit test `RouterFrameCallsTests` (two facts) covers the 0-tick and 3-tick latch rows over the real client latch; both facts were seen FAILING with the dispatch / flush order swapped and with the flush removed. `--smoke=list` gives 22 scenarios; every one exits with its `expect=` code (input-adapter 38/0, input-mouse-focus 16/0, boot-order 84/0, session-ticks 28/0, main-tree 43/0, frame-order 50/0).
+
+## Rows by acceptance criterion
+
+| AC | Evidence | Result |
+|---|---|---|
+| Call order | smoke `frame order: Drop sink, RunFrame, sample, Present, post-present hook` (`11,20,30,40,51`), `next frame: the immediate is not dispatched again`; `RouterFrameCallsTests.BeforeRunFrame_DispatchesImmediatesBeforeTheLatchFlush`, `RouterFrameCallsTests.ZeroTickFrame_KeepsEdgesLatched_NextThreeTickFrameCarriesThemOnTheFirstTickOnly` | PASS on the WP-B side. The post-present `PresentedPromptLatch.Update` is registered before the smoke's recording hook (51); nothing on main publishes a focused prompt, so its effect is story 012's `InteractLatchTests`. Production wiring needs the WP-A hook. |
+| Boot step 4 | smoke `BOOT 4` lines, `step 4 ran InputBoot and passed`, `invalid action map: boot fails at step 4 ...`, `adapter is the last root child after a later root child entered (D-1 re-assert)`, `adapter initialised by AttachToLoop`, `AttachToLoop a second time throws` | PASS. Ports: idle `InputPortSlots` (no publisher on main) except the client tick, bound at attach. |
+| H-R12-1 | smoke `H-R12-1: IClientInputSettings.HoldSettingMs from the file == 600`, `... Deliver mode ... == Toggle`, `no warning for a valid file`, `malformed file: ... defaults applied`, `malformed file: warnings == 1`, `missing file: ... defaults`, `missing file: warnings == 0` | PASS (`FileAccess.GetFileAsBytes` + `GetOpenError()`). The Sim does not read `IClientInputSettings` from `InputBoot.Settings` yet (no composed hold step on main; WP-A hook). |
+| Solo pause | — | **NOT RUN** — router `PauseRequested` / `ResumeRequested` (story 016) do not exist; `check-no-scenetree-paused.sh` and `--self-check` green. |
+| Cross-system wiring | smoke `ShoulderSwap without a sink logs no_sink`; `BOOT 4 input: immediate sinks: none registered ...` | (a) no sink exists on main, every immediate logs `no_sink` (story 013). (b) `ReplyObserved` / `CommitSent`: **NOT RUN**, greybox simplification per m1a-packages.md (story 015). (c) camera rig, `LookReseeded`: **NOT RUN**, no rig on main. (d) `SetSessionMode`: **NOT RUN**, not on the router. |
+| Frame cost sanity | smoke `120 frames with input: loop not faulted`, `the driver ticked`, `event log not overwritten` | Short headless run only; the 60 s run and the 0.05 ms guardrail are advisory until M0 (E2) and were skipped. |
+
+## SMOKE lines (2026-11-09)
+
+```
+SMOKE input-boot PASS boot log: BOOT 4 input: contributor InputBoot
+SMOKE input-boot PASS boot log: BOOT 4 input: action map valid (29 actions, 0 warning(s))
+SMOKE input-boot PASS boot log: BOOT 4 input: settings user://smoke_input_028_toggle.json: loaded v1, 0 note(s), holdSettingMs=600 holdModeDeliver=Toggle
+SMOKE input-boot PASS boot log: BOOT 4 input: immediate sinks: none registered; no_sink until their stories: throw,tool,hotbar_slot_1,hotbar_slot_2,hotbar_slot_3,hotbar_slot_4,hotbar_slot_5,hotbar_slot_6,hotbar_slot_7,hotbar_slot_8,drop,throw_while_holding,tool_while_holding,open_panel,shoulder_swap,pause,back,grid_cursor,pick_place,rotate,cancel_return,quick_move,close_panel
+SMOKE input-boot PASS boot log: BOOT 4 input: router built, adapter queued as the last child of the root window
+SMOKE input-boot PASS boot log: BOOT 4 input ok
+SMOKE input-boot PASS step 4 ran InputBoot and passed == True
+SMOKE input-boot PASS boot ok, session kept == True
+SMOKE input-boot PASS H-R12-1: IClientInputSettings.HoldSettingMs from the file == 600
+SMOKE input-boot PASS H-R12-1: the router's Deliver mode from the file == Toggle
+SMOKE input-boot PASS H-R12-1: no warning for a valid file == True
+WARNING: [InputBoot] user://smoke_input_028_malformed.json is malformed; input settings use the defaults
+SMOKE input-boot PASS H-R12-1 malformed file: step 4 ok, defaults applied == True/0/True
+SMOKE input-boot PASS H-R12-1 malformed file: warnings == 1
+SMOKE input-boot PASS H-R12-1 missing file: step 4 ok, defaults applied == True/0/True
+SMOKE input-boot PASS H-R12-1 missing file: warnings == 0
+BOOT 4 input FAIL InvalidOperationException: The input action map failed validation (4 error(s)): ERROR FIELD move.Id: the numeric ActionId 1 is used by more than one action ERROR FIELD move.StringId: the string id 'move' is used by more than one action ERROR FIELD move.Id: the numeric ActionId 1 is used by more than one action ERROR FIELD move.StringId: the string id 'move' is used by more than one action 
+SMOKE input-boot PASS invalid action map: boot fails at step 4 with one fault and no router or adapter == False/4/1/True
+SMOKE input-boot PASS invalid action map: the fault names the validation == True
+SMOKE input-boot PASS AttachToLoop a second time throws: threw InvalidOperationException (InputBoot.AttachToLoop already ran.)
+SMOKE input-boot PASS adapter is a child of the root window == True
+SMOKE input-boot PASS adapter is the last root child after a later root child entered (D-1 re-assert) == True/True
+SMOKE input-boot PASS adapter initialised by AttachToLoop == True
+SMOKE input-boot PASS frame order: Drop sink, RunFrame, sample, Present, post-present hook == 11,20,30,40,51
+SMOKE input-boot PASS next frame: the immediate is not dispatched again == 20,30,40,51
+SMOKE input-boot PASS ShoulderSwap without a sink logs no_sink == True
+SMOKE input-boot PASS 120 frames with input: loop not faulted == False
+SMOKE input-boot PASS 120 frames: the driver ticked == True
+SMOKE input-boot PASS 120 frames: event log not overwritten == 0
+SMOKE RESULT name=input-boot pass=27 fail=0 exit=0
+```
