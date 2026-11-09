@@ -599,5 +599,7 @@ public class ThrowValidationTests
 
         public ClaimCorroboration CorroborateClaim(PlayerSlot slot, in ClaimedPosition claim, int toleranceMm, out Vec3Mm newest) =>
             _inner.CorroborateClaim(slot, in claim, toleranceMm, out newest);
+
+        public byte SelectedHotbarIndex(PlayerSlot slot) => _inner.SelectedHotbarIndex(slot);
     }
 }

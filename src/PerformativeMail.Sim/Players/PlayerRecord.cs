@@ -46,6 +46,9 @@ public struct PlayerRecord
     /// <summary>Capsule height, mm, from <see cref="PlayerSettings.CapsuleHeightMm"/> at join.</summary>
     public int CapsuleHeightMm;
 
+    /// <summary>The selected hotbar index, 0 to 7 (the <c>HotbarSelect</c> op); 0 (the hands slot) at join.</summary>
+    public byte HotbarIndex;
+
     /// <summary>True when no player occupies the slot.</summary>
     public readonly bool IsEmpty => PlayerId.IsNone;
 }

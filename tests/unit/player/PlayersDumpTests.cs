@@ -98,6 +98,7 @@ public class PlayersDumpTests
             }
 
             w.WriteU16(c.WadeSlowPm);   // story 009: appended after the pairs
+            w.WriteU8(r.HotbarIndex);   // HotbarSelect: appended after the carrier
         }
 
         w.WriteU32(0);   // story 012: the anchor registry tail (an empty registry is a zero count)

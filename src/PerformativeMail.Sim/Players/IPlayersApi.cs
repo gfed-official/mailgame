@@ -99,4 +99,14 @@ public interface IPlayersApi
     /// <returns>The outcome.</returns>
     /// <example><code>ClaimCorroboration c = players.CorroborateClaim(slot, in claim, 1500, out Vec3Mm newest);</code></example>
     ClaimCorroboration CorroborateClaim(PlayerSlot slot, in ClaimedPosition claim, int toleranceMm, out Vec3Mm newest);
+
+    /// <summary>
+    /// The hotbar index (0 to 7) the player in <paramref name="slot"/> last selected with the <c>HotbarSelect</c> op; 0 (the hands slot)
+    /// from join until the first select, and for an empty or none slot. Throwing's <c>ThrowRelease</c> check 2 (ADR-0015 section 1, "not the
+    /// selected slot"). Read-only: legal between ticks.
+    /// </summary>
+    /// <param name="slot">The player's slot.</param>
+    /// <returns>The selected index.</returns>
+    /// <example><code>bool selected = players.SelectedHotbarIndex(slot) == hotbarIndex;</code></example>
+    byte SelectedHotbarIndex(PlayerSlot slot);
 }
