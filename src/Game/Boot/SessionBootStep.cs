@@ -71,8 +71,8 @@ public sealed class SessionBootStep : IBootStep
         var session = new HostSession(
             new SimBuildArgs(profile, content, seed) { WorldSource = worldSource },
             clock,
-            ThrowingCodecs.CreateOps(),
-            ThrowingCodecs.CreateEvents(),
+            [.. ThrowingCodecs.CreateOps(), .. DeliveryCodecs.CreateOps()],
+            [.. ThrowingCodecs.CreateEvents(), .. MailEventCodecs.Create(new WorldIdMaps(clientWorld))],
             options);
 
         // HostSession starts its driver; GameLoop starts it on the first _Process instead, so boot time never becomes ticks (F12).

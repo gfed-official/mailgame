@@ -82,6 +82,10 @@ public class MailCompositionTests
         // Arrange: M-PERF-1c's scope, 10 destinations and 0 feeders.
         SimHost host = BuildM1a(_content);
         Assert.Equal(10, MailOf(host).Registry.Count);
+
+        // The shift stub hands Mail its Prep profile in tick 0 and Mail rolls the manifest in tick 1 (story 013): the idle span starts after.
+        host.World.Tick();
+        host.World.Tick();
         byte[] before = MailSection(host.World);
 
         // Act: 300 idle ticks.
@@ -98,7 +102,7 @@ public class MailCompositionTests
         byte[] pausedB = MailSection(host.World);
 
         // Assert
-        Assert.Equal(300u, host.World.CurrentTick);
+        Assert.Equal(302u, host.World.CurrentTick);
         Assert.Equal(0L, host.World.Counters[CounterId.MailRowsVisited]);
         Assert.Equal(0L, host.World.Counters[CounterId.MailBucketsVisited]);
         Assert.Equal(before, after);

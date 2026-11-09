@@ -2,6 +2,7 @@ using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Delivery;
 using PerformativeMail.Sim.Economy;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.MailDestinations;
@@ -218,6 +219,8 @@ public static class SimComposition
                         context.Slots,
                         new PlayerScale(profile.ShiftStub.PlayerScalePm))
                     : null;
+            case SystemId.ManualDelivery:
+                return ConstructManualDelivery(context);
             case SystemId.RunStructure:
                 // M-1a STUB: the shift stub calls Mail downward, so it exists only where Mail is built (a world and a profile with Mail).
                 return context.World is not null && profile.Includes(SystemId.MailDestinations)
@@ -240,6 +243,42 @@ public static class SimComposition
             default:
                 return null;
         }
+    }
+
+    /// <summary>
+    /// The <see cref="SystemId.ManualDelivery"/> case of the shipped construction (manual-delivery stories 001 and 005), also called by
+    /// per-test profiles that need the shipped registration: Delivery reads the world through <see cref="IWorldQuery"/> and needs Players
+    /// and Mail, which are built only with a world, so without one it is left unbuilt. It builds the <see cref="DeliverySystem"/> (which
+    /// builds its own destination registry from the world and the content, as Mail does), one shared host <see cref="DeliverInteractable"/>
+    /// over the stat sheet and Mail's API (MD2 rows on host state, manual-delivery story 003), and registers the Deliver anchors while the world is Constructed.
+    /// </summary>
+    /// <param name="context">The construction context, begun for <see cref="SystemId.ManualDelivery"/>.</param>
+    /// <returns>The system; null without a world.</returns>
+    /// <exception cref="SimBuildException"><c>DeliveryAnchorRegistrationFailed</c> when a registration returns anything but <see cref="RegisterResult.Ok"/> (the message names it).</exception>
+    internal static DeliverySystem? ConstructManualDelivery(SimSystemContext context)
+    {
+        if (context.World is not { } world)
+        {
+            return null;
+        }
+
+        IPlayersApi players = context.Api<IPlayersApi>(SystemId.PlayerCharacter);
+        IMailApi mail = context.Api<IMailApi>(SystemId.MailDestinations);
+        var delivery = new DeliverySystem(
+            players,
+            mail,
+            context.Api<IInventoryApi>(SystemId.GridInventory),
+            world,
+            context.Content,
+            context.Slots);
+        RegisterResult registered = DeliverAnchors.RegisterAll(players, delivery.Registry, context.Content, new DeliverInteractable(context.StatSheet, mail));
+        if (registered != RegisterResult.Ok)
+        {
+            throw new SimBuildException(
+                SimBuildErrorCode.DeliveryAnchorRegistrationFailed, $"Manual Delivery: registering a Deliver anchor returned {registered}.");
+        }
+
+        return delivery;
     }
 
     /// <summary>
