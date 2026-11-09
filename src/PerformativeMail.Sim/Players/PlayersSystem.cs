@@ -208,7 +208,7 @@ public sealed partial class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoin
         if (!intake.IsNone)
         {
             // A fresh registry with capacity player.maxAnchors (>= 1) and a non-none ref: the registration cannot fail.
-            _ = Anchors.Register(AnchorDef.For(OpenOp.AnchorOf(intake), _postOffice.IntakeAnchor, Verb.Open), _openHooks);
+            _ = Anchors.Register(AnchorDef.For(OpenOp.AnchorOf(intake), _world.PostOffice.IntakeAnchor, Verb.Open), _openHooks);
         }
     }
 
