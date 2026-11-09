@@ -1,4 +1,5 @@
 using Godot;
+using PerformativeMail.Game.Camera;
 using PerformativeMail.Game.Hosting;
 using PerformativeMail.Game.Presentation;
 using PerformativeMail.Game.Screens;
@@ -42,7 +43,7 @@ public sealed class MainTreeSmoke : SmokeScenario
         Check<Node3D>(ctx, loop, "World/Entities");
         Check<Node3D>(ctx, loop, "World/Flights");
         Check<Node3D>(ctx, loop, "World/Props");
-        Check<Node3D>(ctx, loop, "World/CameraRig");
+        Check<CameraRig>(ctx, loop, "World/CameraRig");   // player-character 023 attaches the camera rig
         Check<Node3D>(ctx, loop, "World/CameraRig/Boom");
         Check<Camera3D>(ctx, loop, "World/CameraRig/Boom/Camera3D");
         Check<HudPresenter>(ctx, loop, "Hud");

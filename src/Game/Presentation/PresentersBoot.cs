@@ -1,6 +1,8 @@
 using Godot;
 using PerformativeMail.Client.Core.Presentation;
 using PerformativeMail.Game.Boot;
+using PerformativeMail.Game.Camera;
+using PerformativeMail.Game.Hud;
 using PerformativeMail.Game.Views;
 using PerformativeMail.Game.Views.Destinations;
 using PerformativeMail.Game.Views.Player;
@@ -16,7 +18,9 @@ namespace PerformativeMail.Game.Presentation;
 /// and the <see cref="PlayerPresenter"/> over <c>World/Entities</c> as a presented view (player-character 022; when the local player and
 /// the carrier view are published),
 /// calls <c>Initialize(deps)</c> on the World, Hud and Audio presenters in that order (ADR-0019 section 2), then runs the World presenter's
-/// world-build steps. Step 8 (<see cref="ResolveViews"/>) loads and resolves the three editor-saved view catalogs, logs per-table counts
+/// world-build steps. Over the rig's camera it publishes the <see cref="FocusAnchorPresenter"/> as <see cref="IHudFocusFeed"/> and
+/// registers it on the World presenter after the subtree walk (so it runs after <c>CameraRig</c>, before the Hud presenter; player-character
+/// 026), and in debug builds adds the <see cref="FocusDebugOverlay"/> to the Hud presenter. Step 8 (<see cref="ResolveViews"/>) loads and resolves the three editor-saved view catalogs, logs per-table counts
 /// and one <c>VIEW</c> line per finding, stores them in the deps and attaches the per-lot views. <c>GameLoop</c> creates it over its own
 /// children <c>World</c>, <c>Hud</c> and <c>Audio</c>. Main thread only.
 /// </summary>
@@ -63,8 +67,25 @@ public sealed class PresentersBoot(WorldPresenter world, HudPresenter hud, Audio
             world.Register(player);
         }
 
+        FocusAnchorPresenter? focus = null;
+        if (world.GetNodeOrNull<Camera3D>("CameraRig/Boom/Camera3D") is { } camera)
+        {
+            focus = new FocusAnchorPresenter(camera, deps);
+            inputs.Published.Add<IHudFocusFeed>(focus);
+        }
+
         world.Initialize(deps);
+        if (focus is not null)
+        {
+            world.Register(focus);
+        }
+
         hud.Initialize(deps);
+        if (focus is not null && OS.IsDebugBuild())
+        {
+            hud.AddLayer(new FocusDebugOverlay { Name = "FocusDebugOverlay" }, FocusDebugOverlay.LayerOrder);
+        }
+
         audio.Initialize(deps);
         log.Write($"BOOT 7 world: presenters World,Hud,Audio initialized views={world.ViewCount},{hud.ViewCount},{audio.ViewCount}");
         int built = world.BuildWorld(inputs.World);
@@ -75,6 +96,9 @@ public sealed class PresentersBoot(WorldPresenter world, HudPresenter hud, Audio
         }
 
         log.Write(player is null ? "BOOT 7 world: no player presenter (no ILocalPlayerView/ICarrierView published)" : "BOOT 7 world: player presenter registered");
+        log.Write(focus is null
+            ? "BOOT 7 world: no focus feed (no World/CameraRig/Boom/Camera3D)"
+            : $"BOOT 7 world: focus feed published snapshot={(focus.HasSnapshot ? "IInteractionQuery" : "none (feed stays hidden)")}");
     }
 
     /// <inheritdoc />
