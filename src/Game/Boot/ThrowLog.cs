@@ -2,6 +2,7 @@ using System.Globalization;
 using PerformativeMail.Client.Core.Inventory;
 using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.MailDestinations;
 using PerformativeMail.Sim.Primitives;
 using PerformativeMail.Sim.ThrowingCatching;
 
@@ -10,10 +11,12 @@ namespace PerformativeMail.Game.Boot;
 /// <summary>
 /// The own throws' log lines (WP-H), so a live run's <c>game.log</c> tells input from logic: <c>[Throw] aim-start</c> on every Throw
 /// press the router checks (with the selected slot, entry and whether it is throwable), <c>[Throw] release</c> on every commit (with the
-/// sender's result), and <c>[Throw] result</c> when the host refuses the release or the own flight resolves (<c>accepted</c> for a
-/// mailbox accept, else <c>rejected</c> and the reason or terminal). Reads only client state: the preview, the own-panel mirror and the
-/// drained records and replies. A mirror part (<c>ThrowLaunched</c>, <c>FlightResolved</c>, replies); main thread only. Allocates per
-/// line, only on those player actions.
+/// sender's result), <c>[Throw] result</c> when the host refuses the release (<c>rejected</c> and the reason) or the own flight resolves
+/// (<c>accepted</c>, <c>misdelivered</c> or <c>rejected</c> at a mailbox, else <c>landed</c>, and the terminal), and
+/// <c>[Throw] outcome</c> for Mail's verdict on an own thrown landing: the units consumed and the cents paid or charged (a misdelivery
+/// consumes the units and charges the penalty, GDD throwing-catching T6; nothing comes back to the hotbar, WP-I). Reads only client
+/// state: the preview, the own-panel mirror and the drained records and replies. A mirror part (<c>ThrowLaunched</c>,
+/// <c>FlightResolved</c>, <c>DeliveryOutcome</c>, replies); main thread only. Allocates per line, only on those player actions.
 /// </summary>
 /// <param name="panel">The own-panel mirror (the selected slot).</param>
 /// <param name="ownSlot">This client's player slot.</param>
@@ -28,7 +31,7 @@ public sealed class ThrowLog(OwnPanelMirror panel, PlayerSlot ownSlot, Action<st
     private int _ownCount;
 
     /// <summary>The kinds this part applies.</summary>
-    public static EventKindSet Kinds => EventKindSet.Of(ThrowEventKinds.ThrowLaunched, ThrowEventKinds.FlightResolved);
+    public static EventKindSet Kinds => EventKindSet.Of(ThrowEventKinds.ThrowLaunched, ThrowEventKinds.FlightResolved, MailEventKinds.DeliveryOutcome);
 
     /// <summary>Own flights a mailbox accepted.</summary>
     public int Accepted { get; private set; }
@@ -62,6 +65,18 @@ public sealed class ThrowLog(OwnPanelMirror panel, PlayerSlot ownSlot, Action<st
             return;
         }
 
+        if (e.Kind == MailEventKinds.DeliveryOutcome)
+        {
+            DeliveryOutcomePayload o = e.PayloadAs<DeliveryOutcomePayload>();
+            if (o.Actor == ownSlot.Value && o.Via == (byte)DeliveryVia.Throw)
+            {
+                bool floor = (o.Flags & DeliveryOutcomePayload.FlagStoppedAtFloor) != 0;
+                Write($"outcome {((EvalResult)o.Result).ToString().ToLowerInvariant()} units={o.Units} cents={o.Cents}{(floor ? " stopped_at_floor" : string.Empty)}");
+            }
+
+            return;
+        }
+
         if (e.Kind != ThrowEventKinds.FlightResolved)
         {
             return;
@@ -77,7 +92,14 @@ public sealed class ThrowLog(OwnPanelMirror panel, PlayerSlot ownSlot, Action<st
         _own[i] = _own[--_ownCount];
         bool accepted = r.Terminal == Terminal.MailboxAccept;
         Accepted += accepted ? 1 : 0;
-        Write($"result {(accepted ? "accepted" : "rejected")} {r.Terminal} flight={r.FlightId}");
+        string word = r.Terminal switch
+        {
+            Terminal.MailboxAccept => "accepted",
+            Terminal.MailboxMisdeliver => "misdelivered",
+            Terminal.MailboxReject => "rejected",
+            _ => "landed",
+        };
+        Write($"result {word} {r.Terminal} flight={r.FlightId}");
     }
 
     /// <inheritdoc />

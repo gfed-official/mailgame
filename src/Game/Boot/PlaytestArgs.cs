@@ -11,10 +11,11 @@ namespace PerformativeMail.Game.Boot;
 /// (clamped to <see cref="MinDeliverySeconds"/>…<see cref="MaxDeliverySeconds"/>), <c>--playtest-no-timer</c> sets it to
 /// <see cref="MaxDeliverySeconds"/>, <c>--playtest-prep-seconds=&lt;n&gt;</c> sets the Prep length, and <c>--playtest-at-mailbox</c>
 /// asks the host shell's autopilot to take the first Intake batch and park the carrier at a carried letter's mailbox (Prep then
-/// defaults to <see cref="AtMailboxPrepSeconds"/>). They only change the composition profile and the client's own input; no Sim rule
-/// changes. An unparsable value is ignored (logged by the caller through <see cref="Describe"/>).
+/// defaults to <see cref="AtMailboxPrepSeconds"/>); <c>--playtest-park-next</c> does the same and, whenever the selected letter is for
+/// another house (after a throw or a delivery staged the next one, or a hotbar key), walks the carrier to that letter's mailbox again
+/// (WP-I). They only change the composition profile and the client's own input; no Sim rule changes. An unparsable value is ignored (logged by the caller through <see cref="Describe"/>).
 /// </summary>
-/// <example><code>godot --path . -- --playtest-no-timer --playtest-at-mailbox</code></example>
+/// <example><code>godot --path . -- --playtest-no-timer --playtest-park-next</code></example>
 public sealed record PlaytestArgs
 {
     /// <summary>The Delivery length flag's prefix.</summary>
@@ -28,6 +29,9 @@ public sealed record PlaytestArgs
 
     /// <summary>The start-at-a-mailbox flag.</summary>
     public const string AtMailboxArg = "--playtest-at-mailbox";
+
+    /// <summary>The start-at-a-mailbox flag that re-parks at each next letter's mailbox.</summary>
+    public const string ParkNextArg = "--playtest-park-next";
 
     /// <summary>Shortest Delivery, s (above the mail mix's 9 s tail guard).</summary>
     public const int MinDeliverySeconds = 30;
@@ -53,6 +57,9 @@ public sealed record PlaytestArgs
     /// <summary>Whether the autopilot takes the first batch and parks the carrier at a mailbox.</summary>
     public bool AtMailbox { get; init; }
 
+    /// <summary>Whether the autopilot stays on and re-parks at the selected letter's mailbox (implies <see cref="AtMailbox"/>).</summary>
+    public bool ParkNext { get; init; }
+
     /// <summary>True when any flag is set.</summary>
     public bool Any => DeliverySeconds is not null || PrepSeconds is not null || AtMailbox;
 
@@ -71,6 +78,7 @@ public sealed record PlaytestArgs
         int? delivery = null;
         int? prep = null;
         bool atMailbox = false;
+        bool parkNext = false;
         foreach (string arg in userArgs)
         {
             if (arg == NoTimerArg)
@@ -80,6 +88,11 @@ public sealed record PlaytestArgs
             else if (arg == AtMailboxArg)
             {
                 atMailbox = true;
+            }
+            else if (arg == ParkNextArg)
+            {
+                atMailbox = true;
+                parkNext = true;
             }
             else if (TryValue(arg, DeliverySecondsPrefix, out int d))
             {
@@ -96,6 +109,7 @@ public sealed record PlaytestArgs
             DeliverySeconds = delivery,
             PrepSeconds = prep ?? (atMailbox ? AtMailboxPrepSeconds : null),
             AtMailbox = atMailbox,
+            ParkNext = parkNext,
         };
     }
 
@@ -128,7 +142,7 @@ public sealed record PlaytestArgs
     /// <returns>The description.</returns>
     public string Describe() => string.Create(
         CultureInfo.InvariantCulture,
-        $"delivery_s={(DeliverySeconds?.ToString(CultureInfo.InvariantCulture) ?? "default")} prep_s={(PrepSeconds?.ToString(CultureInfo.InvariantCulture) ?? "default")} at_mailbox={AtMailbox}");
+        $"delivery_s={(DeliverySeconds?.ToString(CultureInfo.InvariantCulture) ?? "default")} prep_s={(PrepSeconds?.ToString(CultureInfo.InvariantCulture) ?? "default")} at_mailbox={AtMailbox} park_next={ParkNext}");
 
     private static bool TryValue(string arg, string prefix, out int value)
     {

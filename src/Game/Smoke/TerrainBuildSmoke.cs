@@ -46,7 +46,7 @@ public sealed class TerrainBuildSmoke : SmokeScenario
         CheckGround(ctx, terrain, world);
         CheckWater(ctx, terrain, world.Bounds);
         CheckSolids(ctx, terrain, world.StaticSolids);
-        Expect(ctx, "pad ring + slots + door markers", terrain.GetNodeOrNull("Pad")?.GetChildCount() ?? -1, world.PostOffice.PadSlots + 2);
+        Expect(ctx, "pad ring + slots + door + Intake markers", terrain.GetNodeOrNull("Pad")?.GetChildCount() ?? -1, world.PostOffice.PadSlots + 3);
         Expect(ctx, "one DirectionalLight3D", terrain.FindChildren("*", nameof(DirectionalLight3D), true, false).Count, 1);
         Expect(ctx, "one WorldEnvironment", terrain.FindChildren("*", nameof(WorldEnvironment), true, false).Count, 1);
         Expect(ctx, "no collider under World/Terrain", terrain.FindChildren("*", nameof(CollisionObject3D), true, false).Count, 0);
