@@ -21,7 +21,7 @@ namespace PerformativeMail.Game.Boot;
 /// <example>
 /// <code>
 /// IReadOnlyList&lt;IBootStep&gt; plan = BootPlan.Create(
-///     new GodotBootWindow(GetWindow()), OS.IsDebugBuild(), new BuiltInContentSource(), BootPlan.CreateContributors(), ArmStart);
+///     new GodotBootWindow(GetWindow()), OS.IsDebugBuild(), new BuiltInContentSource(), BootPlan.CreateContributors(new InputBoot(this)), ArmStart);
 /// </code>
 /// </example>
 public static class BootPlan
@@ -54,8 +54,9 @@ public static class BootPlan
     public const int StartStep = 9;
 
     /// <summary>The production slot contributors, one explicit line each (fresh instances per boot).</summary>
-    /// <returns>The contributors in registration order; none at this point (input-controls 028 adds <c>new InputBoot()</c>).</returns>
-    public static IReadOnlyList<IBootContributor> CreateContributors() => [];
+    /// <param name="input">Step 4's input router, input-controls 028's <c>InputBoot</c> (a Godot type, so <c>GameLoop</c> creates it).</param>
+    /// <returns>The contributors in registration order; no persistence contributor yet (ADR-0024).</returns>
+    public static IReadOnlyList<IBootContributor> CreateContributors(IBootContributor input) => [input];
 
     /// <summary>The production client-port contributors of step 6, one explicit line each (fresh instances per boot), run before <c>Attach</c>.</summary>
     /// <returns>Player-character 020's carrier ports; player-character 025's <c>IHeldItemView</c> and input-controls 028's sinks add theirs here.</returns>
