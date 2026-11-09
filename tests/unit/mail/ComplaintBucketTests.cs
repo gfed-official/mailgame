@@ -253,7 +253,7 @@ public class ComplaintBucketTests
         }
 
         int length = (int)BinaryPrimitives.ReadUInt32LittleEndian(dump.AsSpan(pos + 2));
-        ReadOnlySpan<byte> t = dump.AsSpan(pos + 6 + length - 17 - consumeBytes - 25, 25); // 17: the deliveries state (story 009, openSinceTick) ends the section
+        ReadOnlySpan<byte> t = dump.AsSpan(pos + 6 + length - 53 - 17 - consumeBytes - 25, 25); // 17: the deliveries state (story 009, openSinceTick), then 53: the shift spawner (story 013) ends the section
         return (BinaryPrimitives.ReadInt64LittleEndian(t), BinaryPrimitives.ReadInt64LittleEndian(t.Slice(8)),
             BinaryPrimitives.ReadInt64LittleEndian(t.Slice(16)), t[24]);
     }

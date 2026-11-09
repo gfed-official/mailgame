@@ -20,6 +20,7 @@ internal sealed class MailStateContributor : ISimStateContributor
     private readonly DestinationRegistry _registry;
     private readonly ComplaintBuckets? _complaints;
     private readonly MailConsumer? _consumer;
+    private readonly MailShiftSpawner? _spawner;
 
     /// <summary>Creates the contributor for one table, its destination registry and, optionally, the complaint buckets.</summary>
     /// <param name="table">The mail table to dump.</param>
@@ -31,7 +32,9 @@ internal sealed class MailStateContributor : ISimStateContributor
     /// registry tests' layout).
     /// </param>
     /// <param name="consumer">The consume routine, whose outcome state is dumped after the team complaint state; null writes none.</param>
-    public MailStateContributor(MailTable table, DestinationRegistry registry, ComplaintBuckets? complaints = null, MailConsumer? consumer = null)
+    /// <param name="spawner">The shift spawner, whose manifest inputs and lock are dumped after the deliveries state; null writes none.</param>
+    public MailStateContributor(
+        MailTable table, DestinationRegistry registry, ComplaintBuckets? complaints = null, MailConsumer? consumer = null, MailShiftSpawner? spawner = null)
     {
         ArgumentNullException.ThrowIfNull(table);
         ArgumentNullException.ThrowIfNull(registry);
@@ -39,6 +42,7 @@ internal sealed class MailStateContributor : ISimStateContributor
         _registry = registry;
         _complaints = complaints;
         _consumer = consumer;
+        _spawner = spawner;
     }
 
     /// <inheritdoc />
@@ -66,5 +70,8 @@ internal sealed class MailStateContributor : ISimStateContributor
         w.WriteU32(deliveries.CloseTick);
         w.WriteU64(deliveries.UnlockedDistrictMask);
         w.WriteU32(deliveries.OpenSinceTick);
+
+        // Story 013: the manifest's inputs and lock, after the deliveries state (layout in MailShiftSpawner.WriteCanonical).
+        _spawner?.WriteCanonical(ref w);
     }
 }

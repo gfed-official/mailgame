@@ -72,6 +72,16 @@ public interface IMailApi
     AabbMm CatchVolumeAt(int ordinal);
 
     /// <summary>
+    /// Run Structure's shift-start call (GDD R10; ADR-0017 section 10; mail-destinations story 013): stores the profile and marks the
+    /// manifest dirty; Mail's phase 8 rolls it once that tick, so several changes in one tick roll once and an unchanged profile changes
+    /// nothing. A new shift number sets Mail's current shift and zeroes the shift's wrong-delivery count. Locked from Delivery start: a
+    /// call for the same shift after deliveries opened, or any call while they are open, is ignored and counted. Allocates no mailId.
+    /// Illegal outside a phase (the ADR-0003 section 5 guard): nothing is stored. 0 B.
+    /// </summary>
+    /// <param name="p">The shift's spawn profile.</param>
+    void PrepareShift(in SpawnProfile p);
+
+    /// <summary>
     /// The throw path into the consume routine (ADR-0017 section 5 throw row; GDD R13; mail-destinations story 008): Throwing's step,
     /// phase 4, in flight order, after phase 0's hand ops (R6 tick order is phase order). <paramref name="e"/> is the flight's entry in
     /// <c>IInventoryApi.ConsumeUnit</c>'s Flight form (<c>new EntryRef(ContainerId.None, entry)</c>). One <c>MailConsumer.Consume</c> call

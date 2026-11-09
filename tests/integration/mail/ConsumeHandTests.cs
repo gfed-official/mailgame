@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
@@ -469,8 +470,8 @@ public class ConsumeHandTests
         int lots = rig.Mail.Registry.Count;
         byte[] section = MailSection(rig.Host.World);
         int blockBytes = 4 + (lots * 8 * 8) + 2;
-        // Story 009's deliveries state (17 B with openSinceTick) ends the section after the outcome block.
-        const int DeliveriesBytes = 17;
+        // Story 009's deliveries state (17 B with openSinceTick) follows the outcome block, then story 013's shift spawner (53 B) ends the section.
+        const int DeliveriesBytes = 17 + 53;
         ReadOnlySpan<byte> block = section.AsSpan(section.Length - DeliveriesBytes - blockBytes, blockBytes);
         ReadOnlySpan<byte> team = section.AsSpan(section.Length - DeliveriesBytes - blockBytes - 25, 25);
         Assert.Equal((long)lastTick, BinaryPrimitives.ReadInt64LittleEndian(team.Slice(8)));   // teamLastTick
@@ -707,6 +708,8 @@ public class ConsumeHandTests
 
         public int BacklogEntries => _inner.BacklogEntries;
 
+        public ContainerId IntakeContainer => _inner.IntakeContainer;
+
         public bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor)
         {
             Calls++;
@@ -784,6 +787,12 @@ public class ConsumeHandTests
         {
             Calls++;
             return _inner.AppendBacklog(in e);
+        }
+
+        public IPanelView HostPanelView(PlayerSlot slot)
+        {
+            Calls++;
+            return _inner.HostPanelView(slot);
         }
 
         public DetachCheck CheckDetachForThrow(PlayerSlot slot, uint rawEntryId, byte units, out byte hotbarIndex)

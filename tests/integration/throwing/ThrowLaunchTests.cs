@@ -1,4 +1,5 @@
 using PerformativeMail.Client.Core.Net.Codec;
+using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
@@ -402,5 +403,7 @@ public class ThrowLaunchTests
         public int SpeedPermille(PlayerSlot slot) => _inner.SpeedPermille(slot);
 
         public bool AppendBacklog(in BacklogEntry e) => _inner.AppendBacklog(in e);
+
+        public IPanelView HostPanelView(PlayerSlot slot) => _inner.HostPanelView(slot);
     }
 }

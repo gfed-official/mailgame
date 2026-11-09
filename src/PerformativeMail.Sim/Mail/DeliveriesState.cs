@@ -47,6 +47,5 @@ internal sealed class DeliveriesState
     /// <summary>True when the district is unlocked. Districts outside 1 to 63 are never unlocked.</summary>
     /// <param name="districtId">The district id.</param>
     /// <returns>True when unlocked.</returns>
-    public bool IsDistrictUnlocked(uint districtId) =>
-        districtId >= 1u && districtId <= 63u && ((UnlockedDistrictMask >> (int)(districtId - 1u)) & 1UL) != 0UL;
+    public bool IsDistrictUnlocked(uint districtId) => DeliveriesStateRules.IsDistrictUnlocked(UnlockedDistrictMask, districtId);
 }

@@ -46,6 +46,9 @@ public readonly struct ClientStepContext
     /// <summary>The client layer's counters (solver counter flushes and other client-side counts).</summary>
     public SimCounters Counters => _layer.Counters;
 
+    /// <summary>The layer's bound mirror parts; the <c>MirrorDrain</c> step applies drained records to them (ADR-0016 section 1).</summary>
+    public MirrorPartTable MirrorParts => _layer.MirrorParts;
+
     /// <summary>
     /// This tick's input frame. Valid for steps bound to <see cref="ClientStepId.InputLatch"/> and later (the built-in
     /// latch has already emitted it); at <see cref="ClientStepId.MirrorDrain"/> it is still the previous tick's frame.

@@ -1,3 +1,4 @@
+using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
@@ -366,6 +367,24 @@ public interface IInventoryApi
     int BacklogEntries { get; }
 
     /// <summary>
+    /// The live, read-only panel view of <paramref name="slot"/> (story 022; ADR-0009 erratum 2026-10-23, TD-172 D1): its cursor,
+    /// hotbar and player_inventory in deliver scan order, for <c>DeliverScan.Enumerate</c> (the host <c>deliver_matching</c> scan). One
+    /// instance per slot, preallocated at construction and kept across leave and rejoin; a call never allocates. Every section is
+    /// empty before the slot's first join. Reading it changes nothing. Legal between ticks.
+    /// </summary>
+    /// <param name="slot">The player slot (0 to <see cref="PlayerSlot.Count"/> - 1).</param>
+    /// <returns>The slot's view.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="slot"/> is none or out of range.</exception>
+    IPanelView HostPanelView(PlayerSlot slot);
+
+    /// <summary>
+    /// The Post Office intake container (<c>po_intake</c>), created at construction: the container Mail's batch firing hands units to
+    /// with <see cref="Spawn"/> (mail-destinations story 014), and the container Player Character registers its console anchor for (story 019).
+    /// Legal between ticks.
+    /// </summary>
+    ContainerId IntakeContainer { get; }
+
+    /// <summary>
     /// The decision <see cref="DetachForThrow"/> would make for the same arguments, without mutating (throwing-catching story 009; ADR-0009
     /// section 2): the same steps in the same order on the raw id, <see cref="DetachCheck.BadRequest"/> or <see cref="DetachCheck.Stale"/> exactly where
     /// <see cref="DetachForThrow"/> refuses with <c>bad_request</c> or <c>stale_entry</c>. Throwing's <c>ThrowRelease</c> validator calls it for
@@ -379,12 +398,6 @@ public interface IInventoryApi
     /// <returns>The decision.</returns>
     /// <example><code>DetachCheck c = inventory.CheckDetachForThrow(slot, payload.EntryId, payload.Units, out byte index);</code></example>
     DetachCheck CheckDetachForThrow(PlayerSlot slot, uint rawEntryId, byte units, out byte hotbarIndex);
-
-    /// <summary>
-    /// The Post Office Intake container (<c>po_intake</c>), created with the module (story 019: Player Character registers its console
-    /// anchor). Read-only. The default body (none) serves test doubles that have no Intake.
-    /// </summary>
-    ContainerId IntakeContainer => ContainerId.None;
 
     /// <summary>
     /// The pure half of opening <paramref name="c"/> as <paramref name="slot"/>'s external container (story 019; the Validate/Commit split

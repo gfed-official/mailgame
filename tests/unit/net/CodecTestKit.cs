@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using PerformativeMail.Client.Core.Net.Codec;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Delivery;
 using PerformativeMail.Sim.ThrowingCatching;
 
 namespace PerformativeMail.Sim.Tests.Unit.Net;
@@ -17,9 +18,9 @@ internal static class CodecTestKit
     public static readonly OpDescriptor NoWireDescriptor = OpDescriptor.Empty(OpKind.FreezePlayer, systemOnly: true, wireCodecId: 0, wireSize: 0);
 
     /// <summary>Every codec the adapter registers. Feature epics append here.</summary>
-    public static IOpCodec[] AllCodecs() => [.. SimCoreCodecs.Create(), .. ThrowingCodecs.CreateOps()];
+    public static IOpCodec[] AllCodecs() => [.. SimCoreCodecs.Create(), .. DeliveryCodecs.CreateOps(), .. ThrowingCodecs.CreateOps()];
 
-    /// <summary>Builds a frozen world with the Sim Core player ops, a no-wire op, Throwing's <c>ThrowRelease</c> and any extra descriptors (stub handlers).</summary>
+    /// <summary>Builds a frozen world with the Sim Core player ops, a no-wire op, Delivery's <c>DeliverMatching</c>, Throwing's <c>ThrowRelease</c> and any extra descriptors (stub handlers).</summary>
     public static SimWorld BuildWorld(params OpDescriptor[] extra) => BuildWorldWithEvents(extra);
 
     /// <summary>As <see cref="BuildWorld"/> with extra event descriptors bound.</summary>
@@ -34,6 +35,7 @@ internal static class CodecTestKit
         builder.BindOp(CorePlayerOps.JoinDescriptor, new StubHandler(OpKind.PlayerJoin));
         builder.BindOp(CorePlayerOps.LeaveDescriptor, new StubHandler(OpKind.PlayerLeave));
         builder.BindOp(NoWireDescriptor, new StubHandler(NoWireDescriptor.Kind));
+        builder.BindOp(DeliveryDescriptors.DeliverMatching, new StubHandler(DeliveryOpKinds.DeliverMatching));
         builder.BindOp(ThrowDescriptors.ThrowRelease, new StubHandler(ThrowOpKinds.ThrowRelease));
         for (int i = 0; i < extra.Length; i++)
         {

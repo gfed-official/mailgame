@@ -50,6 +50,7 @@ public sealed partial class MailSystem : ISimSystem, IMailApi
     private readonly DestinationRegistry _registry;
     private readonly ComplaintBuckets _complaints;
     private readonly MailConsumer _consumer;
+    private readonly MailShiftSpawner _spawner;
 
     // F11 feeder credits, one per placed feeder in ascending construct id (ADR-0017 section 7). M-1a has no feeders.
     private readonly int[] _feederCredits = Array.Empty<int>();
@@ -118,6 +119,7 @@ public sealed partial class MailSystem : ISimSystem, IMailApi
         _complaints = new ComplaintBuckets(_registry, content.Mail, playerScale?.Permille ?? SoloPlayerScalePm, counters);
         _consumer = new MailConsumer(
             this, events, inventory, wallet, stats, slots, counters, checkRing, _table, _registry, _complaints, content);
+        _spawner = new MailShiftSpawner(this, rng, tick, inventory, events, _table, _registry, content);
     }
 
     /// <summary>
@@ -153,6 +155,15 @@ public sealed partial class MailSystem : ISimSystem, IMailApi
         set => _consumer.MisdeliveriesThisShift = value;
     }
 
+    /// <summary>The shift spawner: the manifest, its lock and batch firing (stories 013 and 014).</summary>
+    internal MailShiftSpawner Spawner => _spawner;
+
+    /// <summary>
+    /// The units waiting in the Intake backlog, read from <see cref="IInventoryApi.BacklogUnits"/> and saturated to u16 for the HUD
+    /// (ADR-0017 section 6; story 014). Legal between ticks.
+    /// </summary>
+    public ushort BacklogUnits => (ushort)Math.Clamp(_inventory.BacklogUnits, 0, ushort.MaxValue);
+
     /// <summary>The consume routine (its outcome state for the dump round-trip and tests).</summary>
     internal MailConsumer Consumer => _consumer;
 
@@ -179,9 +190,10 @@ public sealed partial class MailSystem : ISimSystem, IMailApi
         builder.BindEventKind(MailEventDescriptors.ComplaintRaised);
         builder.BindEventKind(MailEventDescriptors.DeliveryOutcome);
         builder.BindEventKind(MailEventDescriptors.MailConsumed);
+        builder.BindEventKind(MailEventDescriptors.BatchArrived);
 
         // The dump section moved here from MailTable.BindDump (TD-074 item 4).
-        builder.BindStateContributor(new MailStateContributor(_table, _registry, _complaints, _consumer));
+        builder.BindStateContributor(new MailStateContributor(_table, _registry, _complaints, _consumer, _spawner));
     }
 
     /// <inheritdoc />
@@ -235,6 +247,18 @@ public sealed partial class MailSystem : ISimSystem, IMailApi
         }
 
         _registry.Deliveries.Set(open, closeTick, unlockedDistrictMask, _tick.CurrentTick + 1);
+        _spawner.OnDeliveriesState(open);
+    }
+
+    /// <inheritdoc />
+    public void PrepareShift(in SpawnProfile p)
+    {
+        if (!TickGuard.IsMutable(_tick, _counters))
+        {
+            return;
+        }
+
+        _spawner.PrepareShift(in p);
     }
 
     /// <inheritdoc />
@@ -284,9 +308,9 @@ public sealed partial class MailSystem : ISimSystem, IMailApi
     }
 
     /// <summary>
-    /// Phase 8 (ADR-0017 section 7; M-PERF-1c): updates every feeder credit and touches nothing else when idle, so an idle tick visits
-    /// no mail row and no complaint bucket (<see cref="CounterId.MailRowsVisited"/>, <see cref="CounterId.MailBucketsVisited"/>).
-    /// 0 B.
+    /// Phase 8 (ADR-0017 sections 7 and 10; M-PERF-1c): updates every feeder credit, then the shift spawner rolls a pending manifest and
+    /// fires a batch due this tick. Idle, the spawner compares one tick value and returns, so an idle tick visits no mail row and no
+    /// complaint bucket (<see cref="CounterId.MailRowsVisited"/>, <see cref="CounterId.MailBucketsVisited"/>). 0 B.
     /// </summary>
     internal void Step()
     {
@@ -295,6 +319,8 @@ public sealed partial class MailSystem : ISimSystem, IMailApi
         {
             // F11 (test, add insertRateMilli, cap at 30,000) lands with the M-1b feeders; M-1a has none.
         }
+
+        _spawner.Step();
     }
 
     private DestinationOrdinal Row(int ordinal)

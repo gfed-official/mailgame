@@ -19,7 +19,10 @@ public enum InputFrameFlags : byte
     /// <summary>Set by the router: the look was re-seeded this frame (teleport, mount, dismount). Transported only.</summary>
     LookReseeded = 8,
 
-    /// <summary>Set by the router while its overlay is Panel (input-controls 008 sets it; player-character 020 reads it).</summary>
+    /// <summary>
+    /// Set by the router while its overlay layer is Panel: the same fact as <see cref="RouterStateInfo.IsPanel"/> of the frame's
+    /// router state (ADR-0012 erratum 2026-10-21). Player Character reads it into <c>CarrierStatus.PanelOpen</c>.
+    /// </summary>
     PanelOpen = 16,
 }
 

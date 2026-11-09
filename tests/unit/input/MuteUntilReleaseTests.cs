@@ -21,7 +21,7 @@ public class MuteUntilReleaseTests
 
     public MuteUntilReleaseTests()
     {
-        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _log);
+        _router = new InputRouter(_map, InputSettings.Defaults, _h.Clock, _h.Interaction, _h.Presented, _h.Carrier, _h.ThrowAim, _h.Ticks, _log);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class MuteUntilReleaseTests
     [Fact]
     public void StateChange_MutesEveryNonLiveMachine_CancelsHoldAndAim_ClearsHeldState_AndSwallowsTheReleases()
     {
-        // Arrange: World, Interact + Throw aim + Sprint down.
+        // Arrange: World, Interact + Throw aim + Sprint down; entering aiming already mutes Interact (story 014).
         Feed(_h.Press(KeyE));
         Feed(_h.Press(MouseRight));
         Feed(_h.Press(KeyShift));
@@ -73,16 +73,16 @@ public class MuteUntilReleaseTests
         Feed(_h.Release(KeyShift));
         _router.FlushToLatch(_h.Latch);
 
-        // Assert: cancels in table order (keyboard before mouse), stamped with the new state.
+        // Assert: the aim's cancel, stamped with the new state (Interact's was queued when the aim started).
         Assert.Equal(
-            [(FrameAction.Interact, EdgeKind.Cancel, EdgeReason.StateChange, HoldingOpenId), (FrameAction.Aim, EdgeKind.Cancel, EdgeReason.StateChange, HoldingOpenId)],
+            [(FrameAction.Aim, EdgeKind.Cancel, EdgeReason.StateChange, HoldingOpenId)],
             cancels.Select(e => (e.Action, e.Kind, e.Reason, e.RouterStateId)));
         Assert.Equal(0UL, heldAfterChange);
         Assert.Empty(_h.Latch.Edges);
         Assert.Equal(
             [
-                (LogKind.GateFired, ActionId.Interact, KeyE), (LogKind.GateFired, ActionId.Throw, MouseRight), (LogKind.GateFired, ActionId.Sprint, KeyShift),
-                (LogKind.GateMuted, ActionId.Sprint, KeyShift), (LogKind.GateMuted, ActionId.Interact, KeyE), (LogKind.GateMuted, ActionId.Throw, MouseRight),
+                (LogKind.GateFired, ActionId.Interact, KeyE), (LogKind.GateFired, ActionId.Throw, MouseRight), (LogKind.GateMuted, ActionId.Interact, KeyE),
+                (LogKind.GateFired, ActionId.Sprint, KeyShift), (LogKind.GateMuted, ActionId.Sprint, KeyShift), (LogKind.GateMuted, ActionId.Throw, MouseRight),
                 (LogKind.GateSwallowed, ActionId.Throw, MouseRight), (LogKind.GateSwallowed, ActionId.Interact, KeyE), (LogKind.GateSwallowed, ActionId.Sprint, KeyShift),
             ],
             Gates());
