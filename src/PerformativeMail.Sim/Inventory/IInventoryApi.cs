@@ -1,3 +1,4 @@
+using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Placement;
@@ -361,4 +362,15 @@ public interface IInventoryApi
 
     /// <summary>The entries in the Intake backlog (story 021): an O(1) memo, read-only, legal between ticks. While it is not 0 nothing overtakes the backlog: <see cref="Spawn"/> into the Intake places nothing.</summary>
     int BacklogEntries { get; }
+
+    /// <summary>
+    /// The live, read-only panel view of <paramref name="slot"/> (story 022; ADR-0009 erratum 2026-10-23, TD-172 D1): its cursor,
+    /// hotbar and player_inventory in deliver scan order, for <c>DeliverScan.Enumerate</c> (the host <c>deliver_matching</c> scan). One
+    /// instance per slot, preallocated at construction and kept across leave and rejoin; a call never allocates. Every section is
+    /// empty before the slot's first join. Reading it changes nothing. Legal between ticks.
+    /// </summary>
+    /// <param name="slot">The player slot (0 to <see cref="PlayerSlot.Count"/> - 1).</param>
+    /// <returns>The slot's view.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="slot"/> is none or out of range.</exception>
+    IPanelView HostPanelView(PlayerSlot slot);
 }

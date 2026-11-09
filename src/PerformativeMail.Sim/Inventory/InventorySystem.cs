@@ -1,3 +1,4 @@
+using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
@@ -121,6 +122,7 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     private readonly DefIndex _playerInventoryDef;
     private readonly DefIndex _cursorDef;
     private readonly PanelIds[] _panels = new PanelIds[PlayerSlot.Count];
+    private readonly IPanelView[] _hostPanels = new IPanelView[PlayerSlot.Count];
     private readonly ContainerId _intake;
     private readonly ushort _intakeSlot;
     private readonly WorldItems _worldItems;
@@ -251,6 +253,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
         // Story 017: the tick-end conservation check over the ledger (its INVENTORY_ASSERT scan reads this module's storage).
         _conservation = new InventoryConservationCheck(ledger, this, checkRing, facade.Counters);
+
+        // Story 022: one host panel view per slot, preallocated so HostPanelView never allocates (kept across leave and rejoin).
+        for (int i = 0; i < _hostPanels.Length; i++)
+        {
+            _hostPanels[i] = new Inventory.HostPanelView(this, content, PlayerSlot.FromValue((byte)i), _occupancy.MaxWidth * _occupancy.MaxRows);
+        }
     }
 
     /// <summary>The settings the tables were allocated from.</summary>
@@ -316,6 +324,17 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
 
     /// <summary>The pickup core (story 014): everything a <c>pickup</c> does after Player Character's P13 chain; story 019's handler calls it.</summary>
     internal PickupCore Pickup => _pickup;
+
+    /// <inheritdoc />
+    public IPanelView HostPanelView(PlayerSlot slot)
+    {
+        if (slot.IsNone || slot.Value >= PlayerSlot.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(slot));
+        }
+
+        return _hostPanels[slot.Value];
+    }
 
     /// <summary>The hotbar of <paramref name="slot"/>, or none when the slot has no containers.</summary>
     /// <param name="slot">The player slot.</param>

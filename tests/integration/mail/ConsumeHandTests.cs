@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Composition;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
@@ -782,6 +783,12 @@ public class ConsumeHandTests
         {
             Calls++;
             return _inner.AppendBacklog(in e);
+        }
+
+        public IPanelView HostPanelView(PlayerSlot slot)
+        {
+            Calls++;
+            return _inner.HostPanelView(slot);
         }
     }
 
