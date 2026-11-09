@@ -469,8 +469,8 @@ public class ConsumeHandTests
         int lots = rig.Mail.Registry.Count;
         byte[] section = MailSection(rig.Host.World);
         int blockBytes = 4 + (lots * 8 * 8) + 2;
-        // Story 009's deliveries state (13 B) ends the section after the outcome block.
-        const int DeliveriesBytes = 13;
+        // Story 009's deliveries state (17 B with openSinceTick) ends the section after the outcome block.
+        const int DeliveriesBytes = 17;
         ReadOnlySpan<byte> block = section.AsSpan(section.Length - DeliveriesBytes - blockBytes, blockBytes);
         ReadOnlySpan<byte> team = section.AsSpan(section.Length - DeliveriesBytes - blockBytes - 25, 25);
         Assert.Equal((long)lastTick, BinaryPrimitives.ReadInt64LittleEndian(team.Slice(8)));   // teamLastTick

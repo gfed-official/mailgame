@@ -294,7 +294,7 @@ internal sealed class MailConsumer
         _ = _registry.TryGetDestinationFacts(_registry.EntityIdOf(o), out DestinationFacts raw);
         DeliveriesState s = _registry.Deliveries;
         DestState state = DeliveriesStateRules.Effective(
-            s.IsDistrictUnlocked(_registry.DistrictOf(o)), s.Open, s.CloseTick, c.ActionStartTick, c.ApplyTick, _balance.CloseGraceTicks);
+            s.IsDistrictUnlocked(_registry.DistrictOf(o)), s.Open, s.CloseTick, c.ActionStartTick, c.ApplyTick, _balance.CloseGraceTicks, s.OpenSinceTick);
         return new DestinationFacts(raw.Id, raw.Address, raw.Type, state, raw.AcceptsMask, raw.RequiresUnit);
     }
 

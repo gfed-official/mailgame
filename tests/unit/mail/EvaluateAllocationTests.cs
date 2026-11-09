@@ -55,8 +55,8 @@ public class EvaluateAllocationTests
             for (int i = 0; i < 10_000; i++)
             {
                 uint tick = (uint)(i % 2000);
-                local += (byte)DeliveriesStateRules.Effective(true, false, 1000u, 999u, tick, 90);
-                local += (byte)DeliveriesStateRules.Effective(false, true, 1000u, null, tick, 90);
+                local += (byte)DeliveriesStateRules.Effective(true, false, 1000u, 999u, tick, 90, 0u);
+                local += (byte)DeliveriesStateRules.Effective(false, true, 1000u, null, tick, 90, 0u);
             }
 
             sum = local;

@@ -234,7 +234,7 @@ public sealed partial class MailSystem : ISimSystem, IMailApi
             return;
         }
 
-        _registry.Deliveries.Set(open, closeTick, unlockedDistrictMask);
+        _registry.Deliveries.Set(open, closeTick, unlockedDistrictMask, _tick.CurrentTick + 1);
     }
 
     /// <inheritdoc />

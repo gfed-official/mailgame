@@ -253,7 +253,7 @@ public class ComplaintBucketTests
         }
 
         int length = (int)BinaryPrimitives.ReadUInt32LittleEndian(dump.AsSpan(pos + 2));
-        ReadOnlySpan<byte> t = dump.AsSpan(pos + 6 + length - 13 - consumeBytes - 25, 25); // 13: the deliveries state (story 009) ends the section
+        ReadOnlySpan<byte> t = dump.AsSpan(pos + 6 + length - 17 - consumeBytes - 25, 25); // 17: the deliveries state (story 009, openSinceTick) ends the section
         return (BinaryPrimitives.ReadInt64LittleEndian(t), BinaryPrimitives.ReadInt64LittleEndian(t.Slice(8)),
             BinaryPrimitives.ReadInt64LittleEndian(t.Slice(16)), t[24]);
     }
@@ -326,8 +326,8 @@ public class ComplaintBucketTests
         // Act
         byte[] dump = Dump(new MailStateContributor(table, rig.Registry, rig.Buckets));
 
-        // Assert: the 8 + 8 + 8 + 1 bytes after the registry (then the 13-byte deliveries state of story 009), field by field.
-        ReadOnlySpan<byte> t = dump.AsSpan(dump.Length - 13 - 25);
+        // Assert: the 8 + 8 + 8 + 1 bytes after the registry (then the 17-byte deliveries state of story 009 with openSinceTick), field by field.
+        ReadOnlySpan<byte> t = dump.AsSpan(dump.Length - 17 - 25);
         Assert.Equal(20_000L * 900, BinaryPrimitives.ReadInt64LittleEndian(t));
         Assert.Equal(30L, BinaryPrimitives.ReadInt64LittleEndian(t.Slice(8)));
         Assert.Equal(40L, BinaryPrimitives.ReadInt64LittleEndian(t.Slice(16)));

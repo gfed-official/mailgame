@@ -299,7 +299,8 @@ internal sealed class DestinationRegistry
             closeTick: Deliveries.CloseTick,
             actionStartTick: null,
             applyTick: 0u,
-            closeGraceTicks: 0);
+            closeGraceTicks: 0,
+            openSinceTick: Deliveries.OpenSinceTick);
 
     /// <summary>
     /// The <c>IMailApi.TryGetDestinationFacts</c> signature (story 005's <c>IMailApi</c> delegates here): fills

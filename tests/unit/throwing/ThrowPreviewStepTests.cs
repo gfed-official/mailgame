@@ -420,7 +420,7 @@ public class ThrowPreviewStepTests
         public bool TryGetDestination(uint destinationKey, uint actionStartTick, uint applyTick, out DestinationFacts facts)
         {
             DestState effective = DeliveriesStateRules.Effective(
-                State != DestState.Locked, State != DestState.Closed, 0, actionStartTick, applyTick, 90);
+                State != DestState.Locked, State != DestState.Closed, 0, actionStartTick, applyTick, 90, 0u);
             facts = new DestinationFacts(new EntityId(destinationKey), Address, DefIndex.FromValue(0), effective, 1UL << _letter.Value, false);
             return destinationKey == MbA;
         }

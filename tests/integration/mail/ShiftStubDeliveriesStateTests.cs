@@ -41,7 +41,7 @@ public class ShiftStubDeliveriesStateTests
             bool open = t >= DeliveryStart && t < CloseTick;
             Assert.True(rig.Mail.TryGetDestinationFacts(rig.Dest(0), out DestinationFacts d1));
             Assert.Equal(open ? DestState.Open : DestState.Closed, d1.State);
-            DestState d2 = DeliveriesStateRules.Effective(store.IsDistrictUnlocked(2), store.Open, store.CloseTick, null, t, 0);
+            DestState d2 = DeliveriesStateRules.Effective(store.IsDistrictUnlocked(2), store.Open, store.CloseTick, null, t, 0, 0u);
             Assert.Equal(open ? DestState.Locked : DestState.Closed, d2);
             Assert.True(store.IsDistrictUnlocked(1));
             rig.Host.World.Tick();

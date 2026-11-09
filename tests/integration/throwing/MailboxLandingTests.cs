@@ -157,6 +157,34 @@ public class MailboxLandingTests
         Assert.Equal(terminal, r.Terminal);
     }
 
+    [Fact]
+    [Trait("Id", "TC-T11-1")]
+    public void MailboxLanding_ReleasedWhileClosed_LandingAfterDeliveriesOpen_BouncesWholeAsOneThrownWorldItem()
+    {
+        // Arrange: 20 right-house letters released in Prep (closed); Run opens deliveries on the next tick, before the flight lands.
+        var rig = new MailRig(0);
+        rig.Door("closed");
+        EntryId entry = rig.Fly(Door, 20, Above(rig.Box(Door)), new Vec3Mm(0, 0, -3_000));
+        uint opens = rig.Throw.Sim.CurrentTick + 1;
+        rig.Throw.InPhase(() => rig.Throw.Mail.SetDeliveriesState(true, opens + 7_200, DeliveriesState.DefaultUnlockedMask));
+
+        // Act
+        EventEntry[] log = rig.Land();
+
+        // Assert: an unlocked door and the right house, so Mail's only Reject left is closed; the whole entry is one Thrown WorldItem.
+        FlightResolved r = Assert.Single(log, e => e.Kind == ThrowEventKinds.FlightResolved).PayloadAs<FlightResolved>();
+        Assert.True(r.Tick > opens);
+        Assert.Equal(Terminal.MailboxReject, r.Terminal);
+        WorldItemSpawnedPayload w = Assert.Single(log, e => e.Kind == InvEventKinds.WorldItemSpawned).PayloadAs<WorldItemSpawnedPayload>();
+        Assert.True(rig.Throw.Inventory.WorldItems.Table.TryGetSlot(new EntityId(w.WorldItemId), out ushort slot));
+        Assert.Equal((WorldItemOrigin.Thrown, entry.Value), (rig.Throw.Inventory.WorldItems.Table[slot].Origin, w.EntryId));
+        UnitLedger ledger = rig.Throw.Inventory.Ledger;
+        Assert.Equal((20L, 0L), (ledger.Live(UnitLedger.MailRow, LedgerState.World), ledger.Consumed(UnitLedger.MailRow)));
+        Assert.Equal((0L, 0), (rig.Wallet.Balance, rig.Wallet.Calls));
+        Assert.DoesNotContain(log, e => e.Kind == MailEventKinds.ComplaintRaised || e.Kind == MailEventKinds.DeliveryOutcome);
+        rig.AssertChecksGreen();   // Mail's Resolve agreed with its Judge
+    }
+
     // ---------------------------------------------------------------- Descending only, end to end
 
     [Fact]
