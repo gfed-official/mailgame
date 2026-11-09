@@ -1,5 +1,6 @@
 using PerformativeMail.Client.Core.Presentation;
 using PerformativeMail.Client.Core.Timing;
+using PerformativeMail.Client.Core.Ui;
 using PerformativeMail.Game.Views;
 using PerformativeMail.Sim.World;
 
@@ -33,4 +34,6 @@ public sealed class PresenterDeps
 
     /// <summary>The entity-view registry (story 009); every lookup is <c>IsInstanceValid</c>-guarded.</summary>
     public required EntityViewRegistry Entities { get; init; }
+    /// <summary>The HUD read model (hud-notifications story 002); optional until boot composes it, HUD views stay blank without it.</summary>
+    public IHudState? HudState { get; init; }
 }
