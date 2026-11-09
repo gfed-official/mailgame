@@ -5,7 +5,8 @@ namespace PerformativeMail.Client.Core.Net;
 /// <summary>
 /// Sees every event record <see cref="ClientAdapter"/> decodes into its inbox, in the frame it is decoded (ADR-0016 section 5;
 /// godot-host-shell story 006). The shell sets <c>PresentationEventStream</c> here at boot step 7. Called inside
-/// <see cref="ClientAdapter.PumpInbound"/>, in batch-tick then ordinal order; replies are not events and are not observed.
+/// <see cref="ClientAdapter.PumpInbound"/>, in batch-tick then ordinal order. A reply is observed, as an
+/// <see cref="EventKind.OpReply"/> entry, only when it is delivered to the inbox (an ignored duplicate or orphan is not).
 /// </summary>
 /// <example><code>adapter.DecodedEvents = presentationEventStream;</code></example>
 public interface IDecodedEventObserver
