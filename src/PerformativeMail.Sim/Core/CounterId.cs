@@ -210,9 +210,18 @@ public enum CounterId : ushort
     /// <summary>Throwing tick-end conservation check: one per tick on which <c>launched != resolved + live</c> or a flight has been resolved twice in its lifetime (a <c>FlightId</c> reused after the u16 wrap is a new flight) (throwing-catching story 008; ADR-0015 section 5). Unthrottled, unlike its <c>CheckCode.ThrowingConservationMismatch</c> record. Zero in a correct world. Id 64: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006".</summary>
     ThrowingConservationMismatches = 64,
 
-    /// <summary>Throwing <c>FlightTable.TryAppend</c>: one per append refused because <c>maxFlights</c> flights are live (the caller's <c>flight_cap</c> path, ADR-0015 section 1 row 10; throwing-catching story 008). Unreachable under the leaky bucket. Id 65: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006".</summary>
+    /// <summary>Throwing <c>FlightTable.TryAppend</c>, and the <c>ThrowRelease</c> validator's check 10 (story 009): one per append or release refused because <c>maxFlights</c> flights are live (the caller's <c>flight_cap</c> path, ADR-0015 section 1 row 10; throwing-catching story 008). Unreachable under the leaky bucket. Id 65: Evan approved (TD-195 item 3), 2026-10-29 1:52 PM PT: "Approve all three TD-195 defaults for throwing-catching 008 and all three TD-196 defaults for throwing-catching 006".</summary>
     ThrowingFlightCapRefusals = 65,
 
     /// <summary>Throwing <c>ReceiverViewBuilder.Build</c>: one per segment whose mailbox catch-volume candidates did not fit the <c>ThrowSettings.MaxReceiverCandidates</c> (64) scratch span; the lowest-ordinal volumes are kept and the buffer never grows (throwing-catching story 003; ADR-0015 Implementation Guidelines). The world-solid span's overflow is World's <see cref="WorldSolidQueryOverflow"/>. Id 66: Mail Lead planning default, approved by Evan 2026-10-29 7:54 PM PT (TD-199 item 2).</summary>
     ThrowingCandidateOverflow = 66,
+
+    /// <summary>Throwing <c>ThrowValidator.Validate</c>: one per <c>ThrowRelease</c> refused by its validation chain, whatever the reason (ADR-0015 section 1; GDD TC-E-5 "a counter ticks"; throwing-catching story 009). A diagnostic, not in the canonical dump. Id 67: a story 009 implementation default, not yet reviewed.</summary>
+    ThrowingReleaseRejections = 67,
+
+    /// <summary>Throwing <c>ThrowReleaseHandler</c> commit: one per validated <c>ThrowRelease</c> whose commit could not launch (the entry's facts unreadable, F1 refused, or <c>IInventoryApi.DetachForThrow</c> refused after a passing validation), answered <c>bad_request</c> with no flight and no <c>ThrowLaunched</c> (key <c>throwCommitFault</c>; throwing-catching story 010). Unreachable in a correct world; each one also writes <c>CheckCode.ThrowingCommitFault</c>. Id 68: a story 010 implementation default, not yet reviewed.</summary>
+    ThrowingCommitFaults = 68,
+
+    /// <summary>Throwing <c>Throwing.Step</c>: one per resolved flight whose landing WorldItem was not created as announced (<c>IInventoryApi.CreateWorldItem</c> returned none, or another id than the one <c>FlightResolved</c> carried), so its units stay in the Flight column (key <c>throwLandingFault</c>; throwing-catching story 011). Unreachable below the WorldItem table capacity; each one also writes <c>CheckCode.ThrowingLandingFault</c>. Id 69: a story 011 implementation default, not yet reviewed.</summary>
+    ThrowingLandingFaults = 69,
 }

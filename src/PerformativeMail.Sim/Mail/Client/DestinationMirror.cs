@@ -138,10 +138,13 @@ public sealed class DestinationMirror : IMirrorPart
     internal DestinationFacts FactsAt(int ordinal, DestState state) =>
         DestinationRows.Facts(_entity[ordinal], _address[ordinal], _type[ordinal], state, _typeAcceptsMask, _typeRequiresUnit);
 
-    /// <summary>The effective state of row <paramref name="ordinal"/>, through the one effective-state helper.</summary>
+    /// <summary>
+    /// The effective state of row <paramref name="ordinal"/>, through the one effective-state helper. <c>DeliveriesState</c> carries
+    /// no open-window start, so the client passes 0 (unknown).
+    /// </summary>
     internal DestState EffectiveStateAt(int ordinal, uint? actionStartTick, uint applyTick, int closeGraceTicks)
     {
         bool unlocked = DeliveriesStateRules.IsDistrictUnlocked(UnlockedDistrictMask, _district[ordinal]);
-        return DeliveriesStateRules.Effective(unlocked, Open, CloseTick, actionStartTick, applyTick, closeGraceTicks);
+        return DeliveriesStateRules.Effective(unlocked, Open, CloseTick, actionStartTick, applyTick, closeGraceTicks, 0u);
     }
 }

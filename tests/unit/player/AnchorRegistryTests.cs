@@ -860,7 +860,7 @@ public class AnchorRegistryTests
     public void Dump_ThroughTheComposedWorld_WritesTheAnchorsInIndexOrder_FieldByField()
     {
         // Arrange
-        PlayersRig rig = PlayersRig.Create();
+        PlayersRig rig = PlayersRig.Create().WithoutIntakeAnchor();
         Assert.Equal(4096, rig.Players.Anchors.Capacity);
         AnchorDef a = Def(30, 4000, 5000, Verb.Deliver);
         AnchorDef b = Def(10, 6000, 7000, Verb.Open, slot: 2);
@@ -887,7 +887,7 @@ public class AnchorRegistryTests
     public void Dump_ChangesWhenAnAnchorIsMovedOrRemoved_AndReturnsWhenRestored()
     {
         // Arrange
-        PlayersRig rig = PlayersRig.Create();
+        PlayersRig rig = PlayersRig.Create().WithoutIntakeAnchor();
         AnchorDef a = Def(1, 4000, 5000);
         AnchorDef b = Def(2, 6000, 7000);
         Assert.Equal(RegisterResult.Ok, rig.Players.RegisterAnchor(in a, new FakeInteractable()));

@@ -470,8 +470,8 @@ public class ConsumeHandTests
         int lots = rig.Mail.Registry.Count;
         byte[] section = MailSection(rig.Host.World);
         int blockBytes = 4 + (lots * 8 * 8) + 2;
-        // Story 009's deliveries state (13 B) follows the outcome block, then story 013's shift spawner (53 B) ends the section.
-        const int DeliveriesBytes = 13 + 53;
+        // Story 009's deliveries state (17 B with openSinceTick) follows the outcome block, then story 013's shift spawner (53 B) ends the section.
+        const int DeliveriesBytes = 17 + 53;
         ReadOnlySpan<byte> block = section.AsSpan(section.Length - DeliveriesBytes - blockBytes, blockBytes);
         ReadOnlySpan<byte> team = section.AsSpan(section.Length - DeliveriesBytes - blockBytes - 25, 25);
         Assert.Equal((long)lastTick, BinaryPrimitives.ReadInt64LittleEndian(team.Slice(8)));   // teamLastTick
@@ -793,6 +793,12 @@ public class ConsumeHandTests
         {
             Calls++;
             return _inner.HostPanelView(slot);
+        }
+
+        public DetachCheck CheckDetachForThrow(PlayerSlot slot, uint rawEntryId, byte units, out byte hotbarIndex)
+        {
+            Calls++;
+            return _inner.CheckDetachForThrow(slot, rawEntryId, units, out hotbarIndex);
         }
     }
 

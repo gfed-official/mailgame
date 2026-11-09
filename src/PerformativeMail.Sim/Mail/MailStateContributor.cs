@@ -63,11 +63,13 @@ internal sealed class MailStateContributor : ISimStateContributor
         // the count").
         _consumer?.WriteCanonical(ref w);
 
-        // Story 009: the deliveries state, after the outcome state: open u8, closeTick u32, unlockedDistrictMask u64.
+        // Story 009: the deliveries state, after the outcome state: open u8, closeTick u32, unlockedDistrictMask u64, then
+        // openSinceTick u32 (Mail R4: an action is judged by when it started).
         DeliveriesState deliveries = _registry.Deliveries;
         w.WriteBool(deliveries.Open);
         w.WriteU32(deliveries.CloseTick);
         w.WriteU64(deliveries.UnlockedDistrictMask);
+        w.WriteU32(deliveries.OpenSinceTick);
 
         // Story 013: the manifest's inputs and lock, after the deliveries state (layout in MailShiftSpawner.WriteCanonical).
         _spawner?.WriteCanonical(ref w);

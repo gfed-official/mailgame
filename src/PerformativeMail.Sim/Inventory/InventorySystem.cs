@@ -28,7 +28,8 @@ namespace PerformativeMail.Sim.Inventory;
 /// <c>IntakeDrain</c> phase (the backlog drain, story 021: <see cref="DrainBacklog"/>), the tick-end conservation check (story 017: <see cref="ConservationCheck"/>), the state contributor (containers and WorldItems), the join listener and the inventory event kinds (<see cref="InvEventDescriptors"/>, story 005). Its op
 /// handlers are <c>Pick</c> and <c>Move</c> (story 007; <see cref="PickHandler"/>, <see cref="MoveHandler"/>), <c>Merge</c> (story 008),
 /// <c>QuickMove</c> and <c>Return</c> (story 010; <see cref="QuickMoveHandler"/>, <see cref="ReturnHandler"/>) and <c>Close</c> (story
-/// 011); the other kinds' handlers are story 019's. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
+/// 011); <c>Open</c> is Player Character's handler over <see cref="ValidateOpenExternal"/> and <see cref="CommitOpenExternal"/> (story
+/// 019), and <c>Pickup</c>'s is the rest of story 019. Each slot's cursor origin (<see cref="TryGetCursorOrigin"/>, story 010) is kept by the <see cref="Mutator"/>. It binds no snapshot source (the builder has no
 /// <c>BindSnapshotSource</c> yet). Every container, entry and
 /// occupancy write goes through the <see cref="Mutator"/> (story 005); an external container's audience is its
 /// <see cref="Subscribers"/> set, which the open set (<see cref="OpenSet"/>, story 011) keeps in step. Storage is preallocated from
@@ -58,7 +59,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// </code>
 /// </example>
 [SimSystem(SystemId.GridInventory)]
-public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventoryApi
+public sealed partial class InventorySystem : ISimSystem, IPlayerJoinListener, IInventoryApi
 {
     private struct PanelIds
     {
@@ -457,8 +458,8 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <summary>
-    /// Makes <paramref name="c"/> <paramref name="slot"/>'s external container (GDD R10; story 011; called by story 019's range-gated
-    /// <c>Open</c> handler): an external that slot already had is closed for that slot only (its subscriber bit cleared; other slots'
+    /// Makes <paramref name="c"/> <paramref name="slot"/>'s external container (GDD R10; story 011; reached through <see cref="CommitOpenExternal"/>
+    /// by Player Character's range-gated <c>Open</c> handler, story 019): an external that slot already had is closed for that slot only (its subscriber bit cleared; other slots'
     /// bits are untouched), then <paramref name="c"/> is recorded and the slot's bit set in its <see cref="Subscribers"/> mask, so its
     /// records reach the slot from the next raise. No record, no version, no tick guard (it changes no container). False with nothing
     /// changed for a none slot, a dead or never-issued id, or a container with an owner slot (a panel or cursor is always in its owner's
@@ -483,6 +484,30 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         _openSet.SetExternal(slot, c);
         _subscribers.Add(containerSlot, slot);
         return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The same refusals as <see cref="TryOpenExternal"/>, split into reasons; <c>bad_request</c>'s id bound is <see cref="ContainerTable.NextId"/>, as the request check's.</remarks>
+    public InvReason ValidateOpenExternal(PlayerSlot slot, ContainerId c)
+    {
+        if (c.IsNone || c.Value >= _containers.NextId)
+        {
+            return (InvReason)InvReasons.BadRequest;
+        }
+
+        if (!_containers.TryGetSlot(c, out ushort containerSlot))
+        {
+            return InvReason.ContainerGone;
+        }
+
+        return slot.IsNone || _containers[containerSlot].OwnerSlot != ContainerHeader.NoOwner ? (InvReason)InvReasons.BadRequest : 0;
+    }
+
+    /// <inheritdoc />
+    public void CommitOpenExternal(PlayerSlot slot, ContainerId c)
+    {
+        // ValidateOpenExternal passed earlier in the same op, so TryOpenExternal cannot refuse.
+        _ = TryOpenExternal(slot, c);
     }
 
     /// <summary>
@@ -736,12 +761,23 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// The tick guard, then the ref's checks (a live container, a live entry whose <c>ContainerSlot</c> is that container, a count of at
     /// least 1, a defined reason), then <see cref="InventoryMutator.ConsumeOldest"/> (<see cref="InventoryMutator.TakeOldest"/> of 1 and
     /// the ledger's crossing to Consumed by reason, story 017) in one call scope and one bracket with cause
-    /// <see cref="InvCause.Consumed"/>, so the records, the seal and the last-unit removal are <c>TakeOldest</c>'s (story 012).
+    /// <see cref="InvCause.Consumed"/>, so the records, the seal and the last-unit removal are <c>TakeOldest</c>'s (story 012). The Flight
+    /// form (<see cref="ContainerId.None"/>, mail-destinations story 008) is <see cref="InventoryMutator.ConsumeFlightOldest"/>, with no
+    /// call scope: it raises nothing.
     /// </remarks>
     public bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor)
     {
-        if (!TickGuard.IsMutable(_tick, _events.Counters) || reason > ConsumeReason.ReturnedToSender
-            || !_containers.TryGetSlot(entry.Container, out ushort slot) || !_entries.TryGetSlot(entry.Entry, out ushort entrySlot))
+        if (!TickGuard.IsMutable(_tick, _events.Counters) || reason > ConsumeReason.ReturnedToSender)
+        {
+            return false;
+        }
+
+        if (entry.Container.IsNone)
+        {
+            return TryGetFlightSlot(entry.Entry, out ushort flying) && _mutator.ConsumeFlightOldest(flying, reason);
+        }
+
+        if (!_containers.TryGetSlot(entry.Container, out ushort slot) || !_entries.TryGetSlot(entry.Entry, out ushort entrySlot))
         {
             return false;
         }
@@ -768,10 +804,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <inheritdoc />
-    /// <remarks>The same ref checks as <see cref="ConsumeUnit"/>, without the tick guard; the oldest id is the first of the entry's ascending run.</remarks>
+    /// <remarks>The same ref checks as <see cref="ConsumeUnit"/> (its Flight form included), without the tick guard; the oldest id is the first of the entry's ascending run.</remarks>
     public bool TryReadEntry(EntryRef entry, out EntryView v)
     {
-        if (!_containers.TryGetSlot(entry.Container, out ushort slot) || !_entries.TryGetSlot(entry.Entry, out ushort entrySlot))
+        ushort slot = EntryRecord.NoContainer;
+        ushort entrySlot;
+        if (entry.Container.IsNone ? !TryGetFlightSlot(entry.Entry, out entrySlot)
+            : !_containers.TryGetSlot(entry.Container, out slot) || !_entries.TryGetSlot(entry.Entry, out entrySlot))
         {
             v = default;
             return false;
@@ -787,6 +826,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         v = new EntryView(DefIndex.FromValue(e.MailKind), e.AddressId, e.Flags, e.Count, new MailId(_mailIds.Read(in e.MailIds)[0]));
         return true;
     }
+
+    // The Flight form of an EntryRef (mail-destinations story 008): a live detached entry that DetachForThrow put in Flight, not one a
+    // WorldItem or the backlog holds.
+    private bool TryGetFlightSlot(EntryId id, out ushort entrySlot) =>
+        _entries.TryGetSlot(id, out entrySlot) && _entries[entrySlot].ContainerSlot == EntryRecord.NoContainer
+        && _mutator.Ledger.HolderOf(entrySlot) == (byte)LedgerState.Flight;
 
     /// <inheritdoc />
     /// <remarks>
@@ -811,33 +856,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return badRequest; // out of phase: counted by the guard, nothing mutated
         }
 
-        if (slot.IsNone || slot.Value >= PlayerSlot.Count || !_containers.TryGetSlot(_panels[slot.Value].Hotbar, out ushort hotbar))
+        // The one decision CheckDetachForThrow also returns (throwing-catching story 009), so Throwing's validator and this mutator agree.
+        DetachCheck check = ClassifyDetach(slot, entryId.Value, units, out ushort hotbar, out ushort entrySlot);
+        if (check != DetachCheck.Ok)
         {
-            return badRequest;
-        }
-
-        // The id goes through the op path's own two steps, with the thrower's slot as the temp namespace (ADR-0009 l.78, l.116-117, l.165).
-        ushort reason = InvRequestCheck.CheckEntryNamespace(_entries, entryId.Value, slot, false);
-        if (reason == 0)
-        {
-            reason = InvRequestCheck.ResolveEntry(_entries, entryId.Value);
-        }
-
-        if (reason != 0)
-        {
-            return new DetachResult((InvReason)reason, default, 0);
-        }
-
-        _ = _entries.TryGetSlot(entryId, out ushort entrySlot); // a live real id: ResolveEntry passed
-
-        if (_entries[entrySlot].ContainerSlot != hotbar)
-        {
-            return badRequest; // the cursor's, a panel's or another slot's entry, or a live detached entry (a duplicate release)
-        }
-
-        if (_entries[entrySlot].Count != units)
-        {
-            return new DetachResult(InvReason.StaleEntry, default, 0);
+            return check == DetachCheck.Stale ? new DetachResult(InvReason.StaleEntry, default, 0) : badRequest;
         }
 
         var plan = new InvPlan();

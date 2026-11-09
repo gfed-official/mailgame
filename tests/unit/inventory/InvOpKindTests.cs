@@ -25,7 +25,6 @@ public class InvOpKindTests
         { (ushort)InvOpKinds.Return, 0, null },
         { (ushort)InvOpKinds.Drop, 4, typeof(DropPayload) },
         { (ushort)InvOpKinds.Pickup, 20, typeof(PickupPayload) },
-        { (ushort)InvOpKinds.Open, 16, typeof(OpenPayload) },
         { (ushort)InvOpKinds.Close, 4, typeof(ClosePayload) },
     };
 
@@ -33,8 +32,8 @@ public class InvOpKindTests
 
     // ------------------------------------------------------------------ AC 1: kinds and payloads
 
-    // The 9 SizeTable rows name 9 distinct kinds, DescriptorOf finds each in InvOpDescriptors.All, and
-    // KindValues_RegisteredAndReserved_AreDistinctAndInsideTheInventoryBlock pins All to 9 kinds, so every descriptor runs here.
+    // The 8 SizeTable rows name 8 distinct kinds, DescriptorOf finds each in InvOpDescriptors.All, and
+    // KindValues_RegisteredAndReserved_AreDistinctAndInsideTheInventoryBlock pins All to 8 kinds, so every descriptor runs here.
     [Theory]
     [MemberData(nameof(SizeTable))]
     public void EveryDescriptor_MatchesTheStorySizeTable_FieldSumSizeOfAndPayloadLength(ushort kind, int size, Type? payload)
@@ -85,7 +84,7 @@ public class InvOpKindTests
         OpKind[] all = registered.Concat(reserved).ToArray();
 
         // Assert
-        Assert.Equal(9, registered.Length);
+        Assert.Equal(8, registered.Length);
         Assert.Equal(5, reserved.Length);
         Assert.Equal(all.Length, all.Distinct().Count());
         Assert.Equal(declared.Order(), all.Order());
@@ -107,7 +106,7 @@ public class InvOpKindTests
         {
             ("Pick", InvOpKinds.Pick, false), ("Move", InvOpKinds.Move, true), ("Merge", InvOpKinds.Merge, true),
             ("QuickMove", InvOpKinds.QuickMove, true), ("Return", InvOpKinds.Return, true), ("Drop", InvOpKinds.Drop, false),
-            ("Pickup", InvOpKinds.Pickup, true), ("Open", InvOpKinds.Open, false), ("Close", InvOpKinds.Close, false),
+            ("Pickup", InvOpKinds.Pickup, true), ("Close", InvOpKinds.Close, false),
         };
         var failures = new List<string>();
 
@@ -134,7 +133,7 @@ public class InvOpKindTests
         }
 
         // Assert: the table is every descriptor, in InvOpDescriptors.All order
-        Assert.Equal(9, rows.Length);
+        Assert.Equal(8, rows.Length);
         Assert.Equal(InvOpDescriptors.All.Select(d => d.Kind), rows.Select(r => r.Kind));
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }

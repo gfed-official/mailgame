@@ -236,7 +236,10 @@ public interface IInventoryApi
     /// lowest mailId. One call scope, one <c>InvRemoved{c, entry, 1}</c> and one <c>InvVersion</c> seal with <paramref name="actor"/>
     /// and cause <c>Consumed</c>; consuming the last unit removes and frees the entry in the same call. <paramref name="reason"/> is the
     /// ledger's (story 017); no other record is raised. False, mutating nothing, on a stale ref (a dead container, an entry that is
-    /// not live or not in that container), an empty entry, an undefined reason, or a call outside a tick phase.
+    /// not live or not in that container), an empty entry, an undefined reason, or a call outside a tick phase. <b>Flight form</b>
+    /// (mail-destinations story 008, a thrown landing): <c>new EntryRef(ContainerId.None, entry)</c> names the live detached entry
+    /// <see cref="DetachForThrow"/> left; its oldest unit crosses Flight to Consumed and nothing is raised (no container changes). An entry a
+    /// WorldItem or the backlog holds is refused.
     /// </summary>
     /// <param name="entry">The container and entry.</param>
     /// <param name="reason">Why the unit is consumed.</param>
@@ -249,7 +252,7 @@ public interface IInventoryApi
     /// mail kind, address, flags, letter count and oldest letter id. Changes nothing and allocates nothing; no call scope, no tick
     /// guard, so it is legal between ticks. False and <c>default</c> on a stale ref, the same refs <see cref="ConsumeUnit"/> refuses (a
     /// dead container, an entry that is not live or not in that container, an empty entry); also false for an item entry (uncredited
-    /// implementation detail: it is a mail read).
+    /// implementation detail: it is a mail read). Reads <see cref="ConsumeUnit"/>'s Flight form too.
     /// </summary>
     /// <param name="entry">The container and entry.</param>
     /// <param name="v">The stack when read.</param>
@@ -376,7 +379,65 @@ public interface IInventoryApi
 
     /// <summary>
     /// The Post Office intake container (<c>po_intake</c>), created at construction: the container Mail's batch firing hands units to
-    /// with <see cref="Spawn"/> (mail-destinations story 014). Legal between ticks.
+    /// with <see cref="Spawn"/> (mail-destinations story 014), and the container Player Character registers its console anchor for (story 019).
+    /// Legal between ticks.
     /// </summary>
     ContainerId IntakeContainer { get; }
+
+    /// <summary>
+    /// The decision <see cref="DetachForThrow"/> would make for the same arguments, without mutating (throwing-catching story 009; ADR-0009
+    /// section 2): the same steps in the same order on the raw id, <see cref="DetachCheck.BadRequest"/> or <see cref="DetachCheck.Stale"/> exactly where
+    /// <see cref="DetachForThrow"/> refuses with <c>bad_request</c> or <c>stale_entry</c>. Throwing's <c>ThrowRelease</c> validator calls it for
+    /// its checks 1 and 2 before its own checks 3 to 10 (ADR-0015 section 1). Read-only: legal between ticks (no tick guard), no record, no
+    /// event, no allocation.
+    /// </summary>
+    /// <param name="slot">The thrower's slot.</param>
+    /// <param name="rawEntryId">The hotbar entry's raw id as the request carried it (any bit pattern; a malformed id is <c>bad_request</c>, never an assert).</param>
+    /// <param name="units">The entry's whole count, as the client saw it.</param>
+    /// <param name="hotbarIndex">On <see cref="DetachCheck.Ok"/>, the entry's hotbar slot index (0 to 7); otherwise 0.</param>
+    /// <returns>The decision.</returns>
+    /// <example><code>DetachCheck c = inventory.CheckDetachForThrow(slot, payload.EntryId, payload.Units, out byte index);</code></example>
+    DetachCheck CheckDetachForThrow(PlayerSlot slot, uint rawEntryId, byte units, out byte hotbarIndex);
+
+    /// <summary>
+    /// The pure half of opening <paramref name="c"/> as <paramref name="slot"/>'s external container (story 019; the Validate/Commit split
+    /// of story 011's <c>TryOpenExternal</c> decision, for Player Character's range-gated <c>Open</c> handler; ADR-0009 erratum 2026-11-08).
+    /// Returns 0 when <see cref="CommitOpenExternal"/> would open it, else the first of: <c>bad_request</c> (as <c>(InvReason)</c>
+    /// <see cref="InvReasons.BadRequest"/>) for a none id or one never issued; <see cref="InvReason.ContainerGone"/> for an issued
+    /// container that is no longer live; <c>bad_request</c> for a none slot or a container with an owner slot (a panel or cursor is never
+    /// another's external, and always its owner's). Reads state only; legal between ticks. The default body (<c>bad_request</c>) serves
+    /// test doubles that cannot open anything.
+    /// </summary>
+    /// <param name="slot">The opening player's slot.</param>
+    /// <param name="c">The container.</param>
+    /// <returns>0 or the refusal.</returns>
+    InvReason ValidateOpenExternal(PlayerSlot slot, ContainerId c) => (InvReason)InvReasons.BadRequest;
+
+    /// <summary>
+    /// Opens <paramref name="c"/> as <paramref name="slot"/>'s external container (story 019, the commit half of
+    /// <see cref="ValidateOpenExternal"/>, which must have returned 0 in the same op): the slot's previous external is closed for that slot
+    /// only, then <paramref name="c"/> is recorded and the slot subscribed to it (story 011). No record, no version, no tick guard (it
+    /// changes no container). Never fails after a passing validate. Allocation-free.
+    /// </summary>
+    /// <param name="slot">The opening player's slot.</param>
+    /// <param name="c">The container.</param>
+    void CommitOpenExternal(PlayerSlot slot, ContainerId c)
+    {
+    }
+
+    /// <summary>
+    /// Reads the def facts of a live entry (throwing-catching story 010; ADR-0015 section 1 "F1" and section 9 <c>FlightRecord</c>): whether
+    /// it is mail, its def ordinal, its weight class and that class's weight points. Throwing's <c>ThrowRelease</c> commit reads the hotbar
+    /// entry once, before <see cref="DetachForThrow"/>, for F1's <c>baseSpeed[class]</c>, the record's <c>classPts</c> and
+    /// <c>ThrowLaunched.kindDef</c>. Read-only: legal between ticks, no record, no allocation. False and <c>default</c> for a none, temp or
+    /// not-live id. The default body (false) serves test doubles that hold no entries.
+    /// </summary>
+    /// <param name="entry">The entry.</param>
+    /// <param name="t">The facts when read.</param>
+    /// <returns>True when the entry is live.</returns>
+    bool TryReadThrowable(EntryId entry, out ThrowableEntry t)
+    {
+        t = default;
+        return false;
+    }
 }
