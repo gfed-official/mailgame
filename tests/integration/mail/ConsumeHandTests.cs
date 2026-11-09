@@ -785,6 +785,12 @@ public class ConsumeHandTests
             Calls++;
             return _inner.AppendBacklog(in e);
         }
+
+        public DetachCheck CheckDetachForThrow(PlayerSlot slot, uint rawEntryId, byte units, out byte hotbarIndex)
+        {
+            Calls++;
+            return _inner.CheckDetachForThrow(slot, rawEntryId, units, out hotbarIndex);
+        }
     }
 
     private sealed class ProbeSystem : ISimSystem, ISimPhase
