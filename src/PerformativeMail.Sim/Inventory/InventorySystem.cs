@@ -717,12 +717,23 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     /// The tick guard, then the ref's checks (a live container, a live entry whose <c>ContainerSlot</c> is that container, a count of at
     /// least 1, a defined reason), then <see cref="InventoryMutator.ConsumeOldest"/> (<see cref="InventoryMutator.TakeOldest"/> of 1 and
     /// the ledger's crossing to Consumed by reason, story 017) in one call scope and one bracket with cause
-    /// <see cref="InvCause.Consumed"/>, so the records, the seal and the last-unit removal are <c>TakeOldest</c>'s (story 012).
+    /// <see cref="InvCause.Consumed"/>, so the records, the seal and the last-unit removal are <c>TakeOldest</c>'s (story 012). The Flight
+    /// form (<see cref="ContainerId.None"/>, mail-destinations story 008) is <see cref="InventoryMutator.ConsumeFlightOldest"/>, with no
+    /// call scope: it raises nothing.
     /// </remarks>
     public bool ConsumeUnit(EntryRef entry, ConsumeReason reason, ActorId actor)
     {
-        if (!TickGuard.IsMutable(_tick, _events.Counters) || reason > ConsumeReason.ReturnedToSender
-            || !_containers.TryGetSlot(entry.Container, out ushort slot) || !_entries.TryGetSlot(entry.Entry, out ushort entrySlot))
+        if (!TickGuard.IsMutable(_tick, _events.Counters) || reason > ConsumeReason.ReturnedToSender)
+        {
+            return false;
+        }
+
+        if (entry.Container.IsNone)
+        {
+            return TryGetFlightSlot(entry.Entry, out ushort flying) && _mutator.ConsumeFlightOldest(flying, reason);
+        }
+
+        if (!_containers.TryGetSlot(entry.Container, out ushort slot) || !_entries.TryGetSlot(entry.Entry, out ushort entrySlot))
         {
             return false;
         }
@@ -749,10 +760,13 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
     }
 
     /// <inheritdoc />
-    /// <remarks>The same ref checks as <see cref="ConsumeUnit"/>, without the tick guard; the oldest id is the first of the entry's ascending run.</remarks>
+    /// <remarks>The same ref checks as <see cref="ConsumeUnit"/> (its Flight form included), without the tick guard; the oldest id is the first of the entry's ascending run.</remarks>
     public bool TryReadEntry(EntryRef entry, out EntryView v)
     {
-        if (!_containers.TryGetSlot(entry.Container, out ushort slot) || !_entries.TryGetSlot(entry.Entry, out ushort entrySlot))
+        ushort slot = EntryRecord.NoContainer;
+        ushort entrySlot;
+        if (entry.Container.IsNone ? !TryGetFlightSlot(entry.Entry, out entrySlot)
+            : !_containers.TryGetSlot(entry.Container, out slot) || !_entries.TryGetSlot(entry.Entry, out entrySlot))
         {
             v = default;
             return false;
@@ -768,6 +782,12 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
         v = new EntryView(DefIndex.FromValue(e.MailKind), e.AddressId, e.Flags, e.Count, new MailId(_mailIds.Read(in e.MailIds)[0]));
         return true;
     }
+
+    // The Flight form of an EntryRef (mail-destinations story 008): a live detached entry that DetachForThrow put in Flight, not one a
+    // WorldItem or the backlog holds.
+    private bool TryGetFlightSlot(EntryId id, out ushort entrySlot) =>
+        _entries.TryGetSlot(id, out entrySlot) && _entries[entrySlot].ContainerSlot == EntryRecord.NoContainer
+        && _mutator.Ledger.HolderOf(entrySlot) == (byte)LedgerState.Flight;
 
     /// <inheritdoc />
     /// <remarks>

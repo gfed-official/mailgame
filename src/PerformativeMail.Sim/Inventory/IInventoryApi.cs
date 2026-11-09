@@ -235,7 +235,10 @@ public interface IInventoryApi
     /// lowest mailId. One call scope, one <c>InvRemoved{c, entry, 1}</c> and one <c>InvVersion</c> seal with <paramref name="actor"/>
     /// and cause <c>Consumed</c>; consuming the last unit removes and frees the entry in the same call. <paramref name="reason"/> is the
     /// ledger's (story 017); no other record is raised. False, mutating nothing, on a stale ref (a dead container, an entry that is
-    /// not live or not in that container), an empty entry, an undefined reason, or a call outside a tick phase.
+    /// not live or not in that container), an empty entry, an undefined reason, or a call outside a tick phase. <b>Flight form</b>
+    /// (mail-destinations story 008, a thrown landing): <c>new EntryRef(ContainerId.None, entry)</c> names the live detached entry
+    /// <see cref="DetachForThrow"/> left; its oldest unit crosses Flight to Consumed and nothing is raised (no container changes). An entry a
+    /// WorldItem or the backlog holds is refused.
     /// </summary>
     /// <param name="entry">The container and entry.</param>
     /// <param name="reason">Why the unit is consumed.</param>
@@ -248,7 +251,7 @@ public interface IInventoryApi
     /// mail kind, address, flags, letter count and oldest letter id. Changes nothing and allocates nothing; no call scope, no tick
     /// guard, so it is legal between ticks. False and <c>default</c> on a stale ref, the same refs <see cref="ConsumeUnit"/> refuses (a
     /// dead container, an entry that is not live or not in that container, an empty entry); also false for an item entry (uncredited
-    /// implementation detail: it is a mail read).
+    /// implementation detail: it is a mail read). Reads <see cref="ConsumeUnit"/>'s Flight form too.
     /// </summary>
     /// <param name="entry">The container and entry.</param>
     /// <param name="v">The stack when read.</param>
