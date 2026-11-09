@@ -1,11 +1,12 @@
+using PerformativeMail.Client.Core.Presentation;
 using PerformativeMail.Sim.Content;
 
 namespace PerformativeMail.Game.Boot;
 
 /// <summary>
 /// The state one boot run hands from step to step, always by reference (TR-sim-013: no static holder, no locator).
-/// Step 2 stores the process's single <see cref="ContentSet"/> here (ADR-0010 section 4); stories 005-009 add the session,
-/// the Sim host, the world query and the presenter deps. It also fixes the boot thread (ADR-0003 section 3: the Sim is
+/// Step 2 stores the process's single <see cref="ContentSet"/> here (ADR-0010 section 4); step 5 the <see cref="Session"/> (story
+/// 005); step 6's contributors fill <see cref="Published"/> and step 7 hands it, with the world query, to <see cref="Presenters"/> (story 006). It also fixes the boot thread (ADR-0003 section 3: the Sim is
 /// built and frozen on the thread that will tick it), the boot-fault entry and the error display. Main thread only.
 /// </summary>
 /// <example>
@@ -37,6 +38,18 @@ public sealed class BootContext(BootLog log, int bootThreadId, Action<Exception>
 
     /// <summary>What step 1 read back from the window's minimum size after setting it (width, height); null before step 1.</summary>
     public (int Width, int Height)? MinSizeReadBack { get; internal set; }
+
+    /// <summary>Inputs of steps 5-6 (clock, seed, profile, user args); <c>GameLoop</c> sets the real ones, smokes their own.</summary>
+    public BootOptions Options { get; internal set; } = new();
+
+    /// <summary>Step 5's product: the host session, the owned-carrier step and (after step 6) the attached ports and render clock. Null until step 5 succeeds.</summary>
+    public BootSession? Session { get; internal set; }
+
+    /// <summary>The read-only ClientLayer states boot contributors publish for Presentation (story 006); step 7 hands it to the presenters.</summary>
+    public PublishedStates Published { get; } = new();
+
+    /// <summary>The presenters step 7 initialises (<c>GameLoop</c> sets its World, Hud and Audio presenters); null when there are none.</summary>
+    public IPresentersBoot? Presenters { get; internal set; }
 
     /// <summary>Why this run failed (step, name, kind, exception); null while no step has failed.</summary>
     public BootFailure? Failure { get; internal set; }
