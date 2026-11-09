@@ -3,10 +3,10 @@ using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
-using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Geometry;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Players.Client;
+using PerformativeMail.Sim.Players.Ops;
 using PerformativeMail.Sim.Primitives;
 using PerformativeMail.Sim.World;
 using ClientLayerSut = PerformativeMail.Sim.ClientLayer.ClientLayer;
@@ -104,7 +104,7 @@ internal sealed class StubInsertSheet : IStatSheet
 
 /// <summary>
 /// The owner fixture: <c>OnPress</c> writes <see cref="PayloadMark"/> into the payload; <c>GetHoldTicks</c> reads the stat and the
-/// hold setting on every call (as <c>DeliverInteractable</c> does); <c>TryBuildRequest</c> builds an <see cref="InvOpKinds.Open"/>
+/// hold setting on every call (as <c>DeliverInteractable</c> does); <c>TryBuildRequest</c> builds an <see cref="PlayerOpKinds.Open"/>
 /// with the latch's claim. <see cref="Order"/> logs the hook calls as digits (1 OnPress, 2 GetHoldTicks, 3 TryBuildRequest).
 /// <see cref="Branch"/> is the owner state <see cref="PureHookGuard"/> watches; no hook writes it. Story 017's switches:
 /// <see cref="Unavailable"/> (<c>IsAvailable</c> false with that key) and <see cref="CancelWith"/> (<c>ShouldCancel</c> true with that key).
@@ -176,7 +176,7 @@ internal sealed class PressOwner : IInteractable
         Order = (Order % 100_000_000_000L * 10) + 3;
         Builds++;
         BuiltFrom = latch;
-        op.Kind = InvOpKinds.Open;
+        op.Kind = PlayerOpKinds.Open;
         op.SetPayload(new OpenPayload { Container = latch.Anchor.Entity.Value, ClaimedX = latch.Claimed.X, ClaimedY = latch.Claimed.Y, ClaimedZ = latch.Claimed.Z });
         return true;
     }
@@ -548,7 +548,7 @@ public class PressResolutionTests
         if (accept)
         {
             OpenPayload p = rig.Requests.Last.PayloadAs<OpenPayload>();
-            Assert.Equal((InvOpKinds.Open, PressRig.Container.Entity.Value), (rig.Requests.Last.Kind, p.Container));
+            Assert.Equal((PlayerOpKinds.Open, PressRig.Container.Entity.Value), (rig.Requests.Last.Kind, p.Container));
             Assert.Equal((FocusRig.Feet.X + 7, -3, FocusRig.Feet.Z + 11), (p.ClaimedX, p.ClaimedY, p.ClaimedZ));
         }
     }

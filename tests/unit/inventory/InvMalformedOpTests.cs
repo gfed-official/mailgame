@@ -29,7 +29,7 @@ public class InvMalformedOpTests
 {
     private const uint RecordedSeed = 0x5EED_0004u;
     private const int FuzzOps = 10_000;
-    private const ulong GoldenFuzzHash = 0x7285DA452711B85CUL; // pinned 2026-10-20 from the recorded seed
+    private const ulong GoldenFuzzHash = 0xF28FC739DD857527UL; // pinned 2026-10-20 from the recorded seed; re-pinned 2026-11-08 (story 019: Open left the Inventory kinds)
 
     // ------------------------------------------------------------------ H-R7-4 (malformed half)
 
@@ -239,7 +239,7 @@ public class InvMalformedOpTests
         Assert.Equal(FuzzOps - boundOps, rig.StubCalls);
         Assert.Equal(boundOps, rig.HandlerCallsSince(ticksBefore, InventoryWithStubOps.BoundBySystem));
         Assert.Equal(FuzzOps, rig.HandlerCallsSince(ticksBefore, issued.Values.Distinct().ToArray()));
-        Assert.True(gen.KindsSeen >= 8, $"generator covered only {gen.KindsSeen} kinds");
+        Assert.True(gen.KindsSeen >= 7, $"generator covered only {gen.KindsSeen} kinds");
         Assert.Equal(before, rig.Snapshot());
         Assert.NotEqual(SimState.Faulted, rig.Host.World.State);
     }
@@ -276,7 +276,7 @@ public class InvMalformedOpTests
     // 011), whose valid cases are in PickMoveTests, MoveSplitMergeTests, QuickMoveReturnTests and OpenSetTests (the rig's unplaced live
     // entry is stale_entry to the real Pick, Move, Merge and QuickMove, QuickMoveReturnTests.QuickMove_OnTheStubRigsUnplacedLiveEntry_IsStaleEntry;
     // the rig's empty cursor is cursor_empty to the real Return, QuickMoveReturnTests.Return_OnTheStubRigsEmptyCursor_IsCursorEmpty).
-    public static TheoryData<string> ValidCases => new() { "Drop", "Pickup", "PickupDefaultEntry", "Open" };
+    public static TheoryData<string> ValidCases => new() { "Drop", "Pickup", "PickupDefaultEntry" };
 
     public static TheoryData<string> StaleCases => new() { "Pick", "Move", "Merge", "MergeTarget", "QuickMove", "Drop", "Pickup" };
 
@@ -395,7 +395,6 @@ public class InvMalformedOpTests
             case "Drop": op.Kind = InvOpKinds.Drop; op.SetPayload(new DropPayload { EntryId = entry }); break;
             case "Pickup": op.Kind = InvOpKinds.Pickup; op.SetPayload(new PickupPayload { WorldItemId = 7, EntryId = entry, ClaimedX = 1000, ClaimedZ = -2500 }); break;
             case "PickupDefaultEntry": op.Kind = InvOpKinds.Pickup; op.SetPayload(new PickupPayload { WorldItemId = 7, EntryId = 0 }); break;
-            case "Open": op.Kind = InvOpKinds.Open; op.SetPayload(new OpenPayload { Container = rig.IntakeContainer.Value, ClaimedX = 5 }); break;
             default: op.Kind = InvOpKinds.Return; break;
         }
 
@@ -435,7 +434,7 @@ public class InvMalformedOpTests
     {
         private static readonly OpKind[] _kinds =
         {
-            InvOpKinds.Pick, InvOpKinds.Move, InvOpKinds.Merge, InvOpKinds.QuickMove, InvOpKinds.Drop, InvOpKinds.Pickup, InvOpKinds.Open, InvOpKinds.Close,
+            InvOpKinds.Pick, InvOpKinds.Move, InvOpKinds.Merge, InvOpKinds.QuickMove, InvOpKinds.Drop, InvOpKinds.Pickup, InvOpKinds.Close,
         };
 
         private readonly InvOpRig _rig;
@@ -529,13 +528,6 @@ public class InvMalformedOpTests
                 {
                     var p = new PickupPayload { WorldItemId = 1u + (uint)_rng.Next(1000), EntryId = 0, ClaimedX = int.MinValue, ClaimedY = int.MaxValue, ClaimedZ = unchecked((int)_rng.Next()) };
                     if (_rng.Next(2) == 0) { p.WorldItemId = 0; } else { p.EntryId = BadEntry(actorSlot, actor, allowZero: false); }
-                    op.SetPayload(in p);
-                    break;
-                }
-
-                case InvOpKinds.Open:
-                {
-                    var p = new OpenPayload { Container = BadContainer(), ClaimedX = int.MaxValue, ClaimedY = int.MinValue, ClaimedZ = unchecked((int)_rng.Next()) };
                     op.SetPayload(in p);
                     break;
                 }

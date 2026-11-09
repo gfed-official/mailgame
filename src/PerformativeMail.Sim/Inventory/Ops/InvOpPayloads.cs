@@ -129,24 +129,6 @@ public struct PickupPayload
     public int ClaimedZ;
 }
 
-/// <summary>Payload of <see cref="InvOpKinds.Open"/> (16 B): open a container, with the claimed position.</summary>
-/// <example><code>var p = new OpenPayload { Container = c, ClaimedX = 0, ClaimedY = 0, ClaimedZ = 0 };</code></example>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct OpenPayload
-{
-    /// <summary>The container id.</summary>
-    public uint Container;
-
-    /// <summary>Claimed feet x, mm (P13 layout).</summary>
-    public int ClaimedX;
-
-    /// <summary>Claimed feet y, mm.</summary>
-    public int ClaimedY;
-
-    /// <summary>Claimed feet z, mm.</summary>
-    public int ClaimedZ;
-}
-
 /// <summary>Payload of <see cref="InvOpKinds.Close"/> (4 B): close a container.</summary>
 /// <example><code>var p = new ClosePayload { Container = c };</code></example>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
