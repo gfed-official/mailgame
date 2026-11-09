@@ -11,7 +11,8 @@ namespace PerformativeMail.Game.Smoke;
 /// M-1a wave-3 assembly: the production boot plan (step 4's <c>InputBoot</c> included) boots with the shift stub's Prep cut to
 /// <see cref="PrepTicks"/> ticks; the input boot is attached to the loop, the HUD has its persistent, inventory and aim layers and
 /// <c>World/Flights</c> its flight view; then fake-clock frames of 1/30 s run the shift from Prep into Delivery, which the client's run
-/// mirror (fed through MirrorDrain) reports, with the loop never faulted. Steps 7 and 8 must really build the world and resolve the
+/// mirror (fed through MirrorDrain) reports, with the loop never faulted; a third of the way into Prep the HUD shift clock is shown,
+/// counting down to Delivery (WP-H; hidden all Prep on eedc110). Steps 7 and 8 must really build the world and resolve the
 /// views: no <c>BOOT</c> line says <c>no world-build steps</c> or <c>views NOT WIRED</c> (the grey-void boot of 545df2f), step 7 ran
 /// the world-build steps (Destinations among them) and step 8 logged <c>BOOT 8 views ok</c>.
 /// </summary>
@@ -62,11 +63,19 @@ public sealed class ShiftBootSmoke : SmokeScenario
 
         RunMirror run = loop.Session!.Mirrors!.Run;
         loop._Process(0);   // starts the driver; no tick
+        Control? timer = loop.GetNodeOrNull<Control>("Hud/Persistent/ShiftTimerView");
+        string prepText = string.Empty;
         for (int i = 0; i < Frames; i++)
         {
             _clock.Advance(FakeClock.TickCounts);
             loop._Process(0);
+            if (i == PrepTicks / 3)
+            {
+                prepText = timer is { Visible: true } ? timer.GetChild<Label>(0).Text : string.Empty;
+            }
         }
+
+        Expect(ctx, $"the HUD shift clock shows in Prep, counting down to Delivery ('{prepText}')", prepText is "00:02" or "00:03", true);
 
         Expect(ctx, $"ticks after {Frames} frames", loop.Session.CurrentTick, (uint)Frames);
         Expect(ctx, "loop not faulted", loop.IsFaulted, false);

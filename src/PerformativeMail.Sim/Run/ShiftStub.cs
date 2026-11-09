@@ -24,13 +24,16 @@ public enum ShiftPhase : byte
 /// <summary>
 /// The M-1a Run Structure stand-in (mail-destinations story 009; ADR-0017 section 3, Q-ARCH-11): Prep, then Delivery, then Closed.
 /// Binds phase 12 only. In Prep it calls <see cref="IMailApi.PrepareShift"/> each tick with the settings' profile (story 013). On a transition it calls <see cref="IMailApi.SetDeliveriesState"/> in phase 12 of the tick before, so the new
-/// state is effective from the next tick's phase 0, and raises one <see cref="RunEventKinds.DeliveriesState"/>. Reads no clock (ticks
+/// state is effective from the next tick's phase 0, and raises one <see cref="RunEventKinds.DeliveriesState"/>. Tick 1 of a Prep that
+/// outlasts it also raises one, closed, whose <c>deadlineTick</c> is Prep's end (the HUD's Prep countdown, WP-H). Reads no clock (ticks
 /// only) and never requests a stop. Its section is <see cref="SectionIds.Run"/>. Sim tick thread only.
 /// </summary>
 /// <example><code>new ShiftStub(mailApi, runControl, context.Events, settings)</code></example>
 [SimSystem(SystemId.RunStructure)]
 public sealed class ShiftStub : ISimSystem, ISimPhase, ISimStateContributor
 {
+    private const uint PrepAnnounceTick = 1;
+
     private readonly IMailApi _mail;
     private readonly EventLogFacade _events;
     private readonly ulong _mask;
@@ -104,6 +107,13 @@ public sealed class ShiftStub : ISimSystem, ISimPhase, ISimStateContributor
         uint next = ctx.Tick + 1;
         if (_phase == ShiftPhase.Closed || next < _phaseEndTick)
         {
+            // Prep's end as the deadline, so the HUD clock counts down to Delivery (WP-H). Tick 1, not 0: tick 0 is the host's join
+            // tick, whose log the joining peer never receives (HostAdapter.Deliver; its join-tick view is JoinState, M0).
+            if (ctx.Tick == PrepAnnounceTick && _phase == ShiftPhase.Prep)
+            {
+                Raise(deadlineTick: _phaseEndTick);
+            }
+
             return;
         }
 
@@ -122,10 +132,15 @@ public sealed class ShiftStub : ISimSystem, ISimPhase, ISimStateContributor
         }
 
         _mail.SetDeliveriesState(_open, _closeTick, _mask);
+        Raise(_deadlineTick);
+    }
+
+    private void Raise(uint deadlineTick)
+    {
         var payload = new DeliveriesStatePayload
         {
             CloseTick = _closeTick,
-            DeadlineTick = _deadlineTick,
+            DeadlineTick = deadlineTick,
             UnlockedMask = _mask,
             Phase = (byte)_phase,
             Open = _open ? (byte)1 : (byte)0,

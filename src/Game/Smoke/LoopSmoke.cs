@@ -22,12 +22,15 @@ using static PerformativeMail.Game.Smoke.SmokeChecks;
 namespace PerformativeMail.Game.Smoke;
 
 /// <summary>
-/// The playable loop over the real boot (WP-F), driven only by key and mouse events through the production input adapter: walk to the
-/// Intake console, see it focused with the [E] prompt, press E (the Intake's Open, then take_all and the hotbar staging), see mail in the
-/// own-panel mirror with a hotbar slot selected and in the HUD inventory panel (hotbar and own grid) and ClientPorts.Panel; walk to the mailbox of a carried letter, hold E and see the wallet change; walk in front
-/// of the selected letter's mailbox, hold the right mouse button, pitch until the aim preview turns Accept, release, and see a projectile
-/// launched and the wallet change again. Every step fails loudly when it stays idle (no focus, no prompt, no pickup, no wallet change,
-/// no arc, no flight).
+/// The playable loop over the real boot (WP-F, WP-H), driven only by key and mouse events through the production input adapter, from
+/// one Intake pickup: walk to the Intake console, see it focused with the [E] prompt, press E (the Intake's Open, then take_all and the
+/// hotbar staging), see mail in the own-panel mirror with a hotbar slot selected and in the HUD inventory panel (hotbar and own grid)
+/// and ClientPorts.Panel; walk to the held letter's mailbox, hold E and see the wallet change; see the next player_inventory letter
+/// staged on the hotbar, select the hands (key 1) and then that letter's slot by its digit key; walk in front of its mailbox, hold the
+/// right mouse button, see the arc drawn, pitch until the aim preview turns Accept, release, and see a projectile launched, the
+/// mailbox accept it (<c>[Throw] result accepted</c>) and the wallet change; see the next letter staged again, deliver it by hand and
+/// see the wallet change. Every step fails loudly when it stays idle (no focus, no prompt, no pickup, no wallet change, no restage, no
+/// arc, no flight, no accept).
 /// </summary>
 [SmokeScenario("loop-pickup-deliver-throw")]
 public sealed class LoopSmoke : SmokeScenario
@@ -43,6 +46,7 @@ public sealed class LoopSmoke : SmokeScenario
 
     private readonly FakeClock _clock = new();
     private ClientLoop? _client;
+    private EntryId _spent;
     private CarrierView _carrier = null!;
     private WalletMirror _wallet = null!;
     private FlightMirrorConsumer _flights = null!;
@@ -114,9 +118,16 @@ public sealed class LoopSmoke : SmokeScenario
             return SmokeStatus.Done;
         }
 
+        // After a failed restage the select and the throw still run: they show what the player sees then (eedc110: no arc).
         if (Pickup(ctx) && HandDeliver(ctx))
         {
-            Throw(ctx);
+            bool staged = Restaged(ctx, "delivery");
+            bool selected = SelectByKey(ctx);
+            bool thrown = Throw(ctx);
+            if (staged && selected && thrown && Restaged(ctx, "throw"))
+            {
+                HandDeliver(ctx);
+            }
         }
 
         return SmokeStatus.Done;
@@ -169,7 +180,14 @@ public sealed class LoopSmoke : SmokeScenario
 
     private bool HandDeliver(SmokeContext ctx)
     {
-        EntryIdOrHeld(out AddressId address);
+        if (!Client.Panel.TryGet(out SelectedEntryFacts held))
+        {
+            ctx.Fail("no letter in hand to deliver");
+            return false;
+        }
+
+        _spent = held.Entry;
+        AddressId address = held.Unit.Address;
         if (!TryLot(address, out LotRecord lot))
         {
             ctx.Fail($"no lot carries the letter's address {address.Value}");
@@ -192,20 +210,26 @@ public sealed class LoopSmoke : SmokeScenario
         return Expect(ctx, $"hand delivery changed the wallet ({before} → {_wallet.BalanceCents} ¢)", paid, true);
     }
 
-    private void Throw(SmokeContext ctx)
+    private bool Throw(SmokeContext ctx)
     {
         if (!Client.Panel.TryGet(out SelectedEntryFacts held))
         {
-            ctx.Fail("no letter left in hand to throw");
-            return;
+            SmokeInput.Mouse(MouseButton.Right, true);
+            TickUntil(10, () => _aim.Aiming);
+            SmokeInput.Mouse(MouseButton.Right, false);
+            Tick();
+            ctx.Fail($"no letter in hand to throw (slot {Client.Panel.SelectedIndex}; RMB: aiming={_aim.Aiming}, '{Client.Throws.Last}')");
+            return false;
         }
 
         if (!TryLot(held.Unit.Address, out LotRecord lot))
         {
             ctx.Fail($"no lot carries the held letter's address {held.Unit.Address.Value}");
-            return;
+            return false;
         }
 
+        _spent = held.Entry;
+        int accepted = Client.Throws.Accepted;
         GoInFront(lot, ThrowStandOffMm);
         long before = _wallet.BalanceCents;
         uint released = Client.Release?.Released ?? 0;
@@ -237,15 +261,28 @@ public sealed class LoopSmoke : SmokeScenario
             return _wallet.BalanceCents != before;
         });
         Expect(ctx, $"a projectile was in flight (max {flying})", flying > 0, true);
-        Expect(ctx, $"the thrown letter landed and changed the wallet ({before} → {_wallet.BalanceCents} ¢)", paid, true);
+        Expect(ctx, $"the mailbox accepted the thrown letter ('{Client.Throws.Last}')", Client.Throws.Accepted > accepted, true);
+        return Expect(ctx, $"the thrown letter landed and changed the wallet ({before} → {_wallet.BalanceCents} ¢)", paid, true);
     }
 
-    // The address to hand-deliver: a player_inventory letter when there is one, else the held one.
-    private void EntryIdOrHeld(out AddressId address)
+    // The delivery or throw took the hotbar's only letter: the next player_inventory letter is quick-moved to the hotbar and selected
+    // (WP-H; on eedc110 the hotbar stayed empty, so no slot held anything to aim or throw).
+    private bool Restaged(SmokeContext ctx, string after)
     {
-        EntryId bag = Client.Panel.FirstInventoryMail();
-        address = !bag.IsNone ? Client.Panel.AddressOf(bag)
-            : Client.Panel.TryGet(out SelectedEntryFacts held) ? held.Unit.Address : AddressId.None;
+        bool staged = TickUntil(30, () => Client.Panel.TryGet(out SelectedEntryFacts f) && f.IsMail && f.Entry != _spent);
+        Client.Panel.TryGet(out SelectedEntryFacts next);
+        Expect(ctx, $"no second Intake pickup after the {after}", Client.Pickup.Pickups, 1);
+        return Expect(ctx, $"the next letter is staged and selected after the {after} (slot {Client.Panel.SelectedIndex}, entry {next.Entry.Value})", staged, true);
+    }
+
+    // The player's own selection: key 1 selects the empty hands (nothing to aim), then the staged letter's digit key selects it again.
+    private bool SelectByKey(SmokeContext ctx)
+    {
+        int slot = Client.Panel.SelectedIndex;
+        Press(Key.Key1, 1);
+        Expect(ctx, "key 1 selects the hands (no letter in hand)", Client.Panel.SelectedIndex == 0 && !Client.Panel.TryGet(out _), true);
+        Press(Key.Key1 + slot, 1);
+        return Expect(ctx, $"key {slot + 1} selects the staged letter again", Client.Panel.SelectedIndex == slot && Client.Panel.TryGet(out _), true);
     }
 
     private bool TryLot(AddressId address, out LotRecord lot)

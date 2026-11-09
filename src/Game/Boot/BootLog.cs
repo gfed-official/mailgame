@@ -19,6 +19,9 @@ public sealed class BootLog(Action<string>? echo = null)
 {
     private readonly List<string> _lines = [];
 
+    /// <summary>The printer lines are echoed to (null for none); later runtime logs such as <see cref="ThrowLog"/> print through it.</summary>
+    public Action<string>? Echo => echo;
+
     /// <summary>Every line written so far, in order.</summary>
     public IReadOnlyList<string> Lines => _lines;
 

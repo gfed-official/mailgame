@@ -14,7 +14,7 @@ namespace PerformativeMail.Sim.Tests.Unit.Boot;
 /// WP-F's playable loop through the real boot steps 5-6 and the loopback session, with the router's output written straight into the
 /// client latch (the Godot router and adapter are the loop smoke's): E at the Intake puts mail in the own-panel mirror (the inventory
 /// panel's source and <c>ClientPorts.Panel</c>) with a letter selected on the hotbar; holding E at that mail's mailbox pays; a release
-/// aimed until the preview turns Accept lands in the mailbox and pays.
+/// aimed until the preview turns Accept lands in the mailbox and pays, and the next player_inventory letter is then in hand.
 /// </summary>
 public class ClientLoopBootTests
 {
@@ -47,7 +47,7 @@ public class ClientLoopBootTests
     }
 
     [Fact]
-    public void Loop_ReleaseAimedIntoTheHeldLettersMailbox_LaunchesItAndPays()
+    public void Loop_ReleaseAimedIntoTheHeldLettersMailbox_LaunchesItAndPays_ThenTheNextInventoryLetterIsInHand()
     {
         // Arrange: picked up, standing 4 m in front of the held letter's mailbox.
         var loop = new LoopDriver();
@@ -65,6 +65,12 @@ public class ClientLoopBootTests
         Assert.True(accept);
         Assert.Equal(ThrowSendResult.Sent, sent);
         Assert.True(loop.Wallet > before, $"wallet {before} -> {loop.Wallet}");
+
+        // Assert: the throw emptied the hotbar; the next player_inventory letter is staged and selected without a second pickup (WP-H).
+        Assert.True(loop.Idle(30, () => loop.Client.Panel.TryGet(out _)), "no letter staged after the throw");
+        Assert.True(loop.Client.Panel.TryGet(out SelectedEntryFacts next));
+        Assert.True(next.IsMail && next.Entry != held.Entry);
+        Assert.Equal(1, loop.Client.Pickup.Pickups);
     }
 
     // Boots the session (steps 1-9 over a fake clock, Prep cut short) and drives it frame by frame through the client latch.

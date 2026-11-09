@@ -86,7 +86,7 @@ public class ShiftStubDeliveriesStateTests
 
     [Fact]
     [Trait("Id", "M-R4-3")]
-    public void Ac3_OneDeliveriesStateEventPerChange_NoneOnOtherTicks_WithTheDeadlineSetAtDeliveryStart()
+    public void Ac3_OneDeliveriesStateEventPerChange_NoneOnOtherTicks_WithPrepsEndAsTheFirstDeadline()
     {
         // Arrange
         var rig = new Rig(PrepTicks);
@@ -97,11 +97,14 @@ public class ShiftStubDeliveriesStateTests
             rig.Host.World.Tick();
         }
 
-        // Assert: raised in S-1 (Delivery) and closeTick-1 (Closed) and in no other tick.
-        Assert.Equal(new uint[] { DeliveryStart - 1, CloseTick - 1 }, rig.Raised.Select(x => x.Tick).ToArray());
-        DeliveriesStatePayload start = rig.Raised[0].Payload;
+        // Assert: raised in tick 1 (Prep, deadline = Prep's end, for the HUD's Prep countdown; tick 1 is the first tick the joining
+        // peer receives; WP-H), S-1 (Delivery) and closeTick-1 (Closed) and in no other tick.
+        Assert.Equal(new uint[] { 1, DeliveryStart - 1, CloseTick - 1 }, rig.Raised.Select(x => x.Tick).ToArray());
+        DeliveriesStatePayload prep = rig.Raised[0].Payload;
+        Assert.Equal((0u, DeliveryStart, 1UL, (byte)ShiftPhase.Prep, (byte)0), (prep.CloseTick, prep.DeadlineTick, prep.UnlockedMask, prep.Phase, prep.Open));
+        DeliveriesStatePayload start = rig.Raised[1].Payload;
         Assert.Equal((CloseTick, CloseTick, 1UL, (byte)ShiftPhase.Delivery, (byte)1), (start.CloseTick, start.DeadlineTick, start.UnlockedMask, start.Phase, start.Open));
-        DeliveriesStatePayload end = rig.Raised[1].Payload;
+        DeliveriesStatePayload end = rig.Raised[2].Payload;
         Assert.Equal((CloseTick, CloseTick, 1UL, (byte)ShiftPhase.Closed, (byte)0), (end.CloseTick, end.DeadlineTick, end.UnlockedMask, end.Phase, end.Open));
     }
 

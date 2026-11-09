@@ -73,7 +73,9 @@ public class ClientMirrorFactsTests
             }
 
             Assert.Equal(rig.Wallet.Balance.Value, wallet.BalanceCents);
-            Assert.Equal((rig.Stub.Phase, rig.Stub.DeadlineTick, rig.Stub.CloseTick), (run.Phase, run.DeadlineTick, run.CloseTick));
+            // From tick 1 Prep publishes its end (tick 6) as the deadline; the dumped deadline stays 0 until Delivery (WP-H).
+            uint deadline = rig.Stub.Phase == ShiftPhase.Prep && tick >= 1 ? 6u : rig.Stub.DeadlineTick;
+            Assert.Equal((rig.Stub.Phase, deadline, rig.Stub.CloseTick), (run.Phase, run.DeadlineTick, run.CloseTick));
         }
 
         // The stream really went through every state the theory row names, and both credits.
