@@ -99,4 +99,18 @@ public interface IMailApi
     /// <param name="open">True when deliveries are open.</param>
     /// <param name="closeTick">The tick they last closed (0 when never).</param>
     void GetDeliveriesState(out bool open, out uint closeTick);
+
+    /// <summary>
+    /// The throw path's judgement, read-only (throwing-catching story 012): what <see cref="ResolveThrownLanding"/> with the same
+    /// arguments would decide now, changing nothing and raising nothing, so Throwing can raise <c>FlightResolved</c> with its terminal
+    /// before the landing's domain events (ADR-0015 section 5). The same effective state (closing grace from <paramref name="releaseTick"/>)
+    /// and the same <c>MailRules.Evaluate</c> on the oldest unit as <c>MailConsumer.Consume</c>: no second copy of the rule. An unregistered
+    /// destination or an entry Mail cannot read is <see cref="LandingKind.Rejected"/>. Whether a Misdeliver stops at the wallet floor is
+    /// not judged (only the call knows). 0 B.
+    /// </summary>
+    /// <param name="dest">The destination entity whose catch volume the flight entered.</param>
+    /// <param name="e">The flight's entry (Flight form).</param>
+    /// <param name="releaseTick">The tick the throw was released.</param>
+    /// <returns>Accepted, Misdelivered or Rejected.</returns>
+    LandingKind JudgeThrownLanding(EntityId dest, in EntryRef e, uint releaseTick);
 }

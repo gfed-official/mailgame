@@ -19,12 +19,25 @@ public sealed partial class MailSystem
         using EventCallScope scope = _events.BeginCall();
         var call = new ConsumeCall(DeliveryVia.Throw, d, e, thrower, releaseTick, thrownPm, _tick.CurrentTick, false);
         ConsumeResult r = _consumer.Consume(in call);
-        LandingKind kind = r.Result switch
-        {
-            EvalResult.Accept => LandingKind.Accepted,
-            EvalResult.Misdeliver => LandingKind.Misdelivered,
-            _ => LandingKind.Rejected,
-        };
-        return new LandingResult(kind, (byte)r.Units, (byte)(before - r.Units), r.StoppedAtFloor, r.Reason);
+        return new LandingResult(KindOf(r.Result), (byte)r.Units, (byte)(before - r.Units), r.StoppedAtFloor, r.Reason);
     }
+
+    /// <inheritdoc />
+    public LandingKind JudgeThrownLanding(EntityId dest, in EntryRef e, uint releaseTick)
+    {
+        if (!_registry.TryGetOrdinal(dest, out DestinationOrdinal d))
+        {
+            return LandingKind.Rejected;
+        }
+
+        var call = new ConsumeCall(DeliveryVia.Throw, d, e, PlayerSlot.None, releaseTick, MailConsumer.HandThrownPm, _tick.CurrentTick, false);
+        return KindOf(_consumer.Judge(in call));
+    }
+
+    private static LandingKind KindOf(EvalResult r) => r switch
+    {
+        EvalResult.Accept => LandingKind.Accepted,
+        EvalResult.Misdeliver => LandingKind.Misdelivered,
+        _ => LandingKind.Rejected,
+    };
 }

@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Inventory.Ops;
 using PerformativeMail.Sim.Inventory.Storage;
 using PerformativeMail.Sim.MailDestinations;
+using PerformativeMail.Sim.MailDestinations.Ports;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Primitives;
 using PerformativeMail.Sim.Tests.Unit.Inventory;
@@ -21,7 +22,7 @@ namespace PerformativeMail.Sim.Tests.Unit.ThrowingCatching;
 /// sink. Two test-only seams: the selected hotbar slot is <see cref="Selection"/> (no production owner yet), and Inventory carries
 /// story grid-inventory/009's fixture op and phase-8 hook, so hotbar entries are placed through the real mutator and flights can be
 /// injected through the real <see cref="IInventoryApi.DetachForThrow"/>. The Throwing system may get a wrapped inventory or a mailbox
-/// port double. Players join on construction.
+/// port double, and Mail a test wallet in place of the composed <c>StubWallet</c>. Players join on construction.
 /// </summary>
 internal sealed class ThrowWorldRig
 {
@@ -30,7 +31,12 @@ internal sealed class ThrowWorldRig
     private uint _req = 1000;
     private uint _seq;
 
-    public ThrowWorldRig(WorldTables world, int players = 1, Func<IInventoryApi, IInventoryApi>? wrapInventory = null, IMailboxLanding? mailbox = null)
+    public ThrowWorldRig(
+        WorldTables world,
+        int players = 1,
+        Func<IInventoryApi, IInventoryApi>? wrapInventory = null,
+        IMailboxLanding? mailbox = null,
+        IWalletGate? wallet = null)
     {
         World = world;
         InventoryWithActionOp? inv = null;
@@ -44,7 +50,7 @@ internal sealed class ThrowWorldRig
             new SimSystemEntry(SystemId.PlayerCharacter, ctx => pc = new PlayersSystem(
                 world, ctx.Content, ctx.Samples, ctx.Slots, ctx.Tick, ctx.CheckRing, ctx.Counters, inv!.Inner)),
             new SimSystemEntry(SystemId.MailDestinations, ctx => mail = new MailSystem(
-                ctx.Events, ctx.MailIds, ctx.Rng, ctx.Tick, inv!.Inner, ctx.WalletGate, world, ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Counters, ctx.Slots)),
+                ctx.Events, ctx.MailIds, ctx.Rng, ctx.Tick, inv!.Inner, wallet ?? ctx.WalletGate, world, ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Counters, ctx.Slots)),
             new SimSystemEntry(SystemId.Throwing, ctx => new ThrowingSystem(
                 ctx.Events,
                 ctx.Slots,
