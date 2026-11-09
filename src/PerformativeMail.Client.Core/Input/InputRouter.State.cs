@@ -7,7 +7,7 @@ namespace PerformativeMail.Client.Core.Input;
 /// Router state transitions (story 008; ADR-0012 section 2, GDD R2 and States and Transitions). The router owns <c>capture</c>,
 /// <c>overlay</c>, <c>submenu</c> and <c>aiming</c>; <c>body</c> and <c>holding</c> follow the published carrier status, read at
 /// event time and at every flush. Every change runs G3 (<see cref="OnStateChanged"/>), logs a <see cref="LogKind.Transition"/>
-/// and recomputes <see cref="MouseModeRequest"/>.
+/// and recomputes <see cref="MouseModeRequest"/> and <see cref="InGameContext"/>, then raises <see cref="StateChanged"/>.
 /// </summary>
 public sealed partial class InputRouter
 {
@@ -25,6 +25,19 @@ public sealed partial class InputRouter
     /// Changes only on a state change.
     /// </summary>
     public MouseModeRequest MouseModeRequest { get; private set; }
+
+    /// <summary>
+    /// True while no capture layer is up (story 027): every play state but TextEntry and Pause, whose text field and menu keep
+    /// Godot's GUI focus and stock <c>ui_*</c> navigation. The adapter releases GUI focus whenever a change lands in one.
+    /// </summary>
+    public bool InGameContext { get; private set; }
+
+    /// <summary>
+    /// Raised after every router-state change, once G3 has run and <see cref="State"/>, <see cref="MouseModeRequest"/> and
+    /// <see cref="InGameContext"/> hold the new state; never raised without a change. Runs inside <see cref="Feed"/> or
+    /// <see cref="FlushToLatch"/>, on their thread (story 027: the adapter applies the mouse mode and GUI focus from it).
+    /// </summary>
+    public event Action? StateChanged;
 
     // Re-reads body and holding from the published status (and drops a toggled sprint on death, mount, swim or panel open); a
     // change is a transition. Only a change of the status moves the
@@ -69,11 +82,16 @@ public sealed partial class InputRouter
         _state = newState;
         _log.Write(timeMs, LogKind.Transition, cause, trigger, old, newState);
         MouseModeRequest = MouseModeOf(newState);
+        InGameContext = IsGameContext(newState);
         OnStateChanged(old, newState);
+        StateChanged?.Invoke();
     }
 
     private MouseModeRequest MouseModeOf(ushort stateId) =>
         _look.IsLive(stateId) ? MouseModeRequest.Captured : MouseModeRequest.Visible;
+
+    private static bool IsGameContext(ushort stateId) =>
+        RouterStateInfo.Unpack(stateId, out CaptureLayer c, out _, out _, out _, out _, out _) && c == CaptureLayer.None;
 
     // Packs a tuple, first dropping the router-owned layers the reachable rules forbid beside it: the panel closes when the body
     // leaves OnFoot, a submenu needs the panel, and aiming needs OnFoot with no capture, no overlay and nothing held (so opening

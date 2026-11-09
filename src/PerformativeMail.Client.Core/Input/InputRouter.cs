@@ -108,6 +108,7 @@ public sealed partial class InputRouter
         _lookCurve = ResponseCurveTable.Build(settings.CurvePm);
         _lastFlushMs = clock.NowMs;
         MouseModeRequest = MouseModeOf(_state);
+        InGameContext = IsGameContext(_state);
         foreach (ActionDef d in map.All)
         {
             if (d.Grammar == Grammar.Tap && d.Delivery == Delivery.Frame && d.FrameBit is FrameAction bit)

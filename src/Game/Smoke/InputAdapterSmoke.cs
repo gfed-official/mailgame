@@ -2,7 +2,6 @@ using Godot;
 using PerformativeMail.Client.Core.Input;
 using PerformativeMail.Client.Core.Input.Settings;
 using PerformativeMail.Game.Input;
-using PerformativeMail.Sim.Players;
 using static PerformativeMail.Game.Smoke.SmokeChecks;
 
 namespace PerformativeMail.Game.Smoke;
@@ -298,29 +297,5 @@ public sealed class InputAdapterSmoke : SmokeScenario
         }
 
         return "none";
-    }
-
-    private sealed class ManualClock : IInputClock
-    {
-        public long NowMs { get; set; }
-    }
-
-    private sealed class IdleInteraction : IInteractionQuery
-    {
-        private readonly InteractionSnapshot _snapshot;
-
-        public ref readonly InteractionSnapshot Current => ref _snapshot;
-    }
-
-    private sealed class NeverRefusingAim : IThrowAimView
-    {
-        public byte NotThrowable => 0;
-
-        public bool EntryStale => false;
-    }
-
-    private sealed class ZeroTicks : IClientTickSource
-    {
-        public uint ClientTick => 0;
     }
 }

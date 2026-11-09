@@ -1,3 +1,4 @@
+using Godot;
 using PerformativeMail.Client.Core.Input;
 using PerformativeMail.Client.Core.Input.Settings;
 
@@ -18,4 +19,10 @@ public sealed class AdapterDeps
 
     /// <summary>The input settings the router was built with (for the adapter-side settings of story 027).</summary>
     public required InputSettings Settings { get; init; }
+
+    /// <summary>
+    /// The <c>Main</c> node, for the adapter's one debug-build <see cref="FocusPolicyCheck"/> on its first frame (story 027);
+    /// null skips that check.
+    /// </summary>
+    public Node? Main { get; init; }
 }

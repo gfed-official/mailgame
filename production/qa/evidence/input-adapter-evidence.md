@@ -64,3 +64,46 @@ SMOKE input-adapter PASS InputEventAction leaves the last-used device unchanged 
 SMOKE input-adapter PASS last-used device after the pad rows == Pad/0
 SMOKE RESULT name=input-adapter pass=38 fail=0 exit=0
 ```
+
+
+---
+
+# Story 027 — mouse mode, GUI-focus policy, joypad project setting
+
+**Story**: `production/epics/input-controls/story-027-adapter-mouse-mode-gui-focus-hotplug-project-setting.md`
+**Date**: 2026-11-09
+**Engine used for this run**: Godot **4.7.2**.stable.mono (`~/.local/bin/godot`, headless); 4.7.1 behaviour UNVERIFIED.
+**Procedure**: as story 026 (`--import` once for the new `.uid` files, csproj rewrite reverted and `.old` deleted), `dotnet build PerformativeMail.Game.sln -c Debug`, then `godot --headless --path . -- --smoke=input-mouse-focus` (exit 0). Synthetic events only. Headless ignores `MouseMode = Captured` (spike S-31), so the smoke checks the mode the adapter **requests and writes**, not the OS cursor. The two H-R11-3 Space/Enter rows and the two focus-released rows were seen FAILING with the `GuiReleaseFocus()` call disabled (`Button presses is 2`, `focus released ... True`). The story-026 scenario `input-adapter` still passes (38/0) with the story-027 adapter.
+
+## Rows by acceptance criterion
+
+| AC | Smoke rows | Result |
+|---|---|---|
+| Mouse mode | `Initialize in World: mouse mode applied ...`, `Tab -> Panel: mouse mode Visible`, `keys that change no state in Panel: no mouse-mode write`, `Tab -> World: mouse mode Captured ...`, `mouse press in World re-asks capture ...`, `capture readback after the World write` | PASS (requested mode, write-on-change, readback retry). Pause: unreachable without story 016; the router's Pause request is `RouterTransitionsTests.MouseModeRequest_IsCapturedWithLook_VisibleInPanelHoldingOpenAndPause`. Cursor centred on leaving capture and the real captured / visible cursor: **MANUAL / NOT RUN** (story 029, real display). Capture re-applied after focus-in: **NOT RUN** — no focus handlers (greybox simplification per m1a-packages.md; story 018 calls `MouseModeController.Reapply()`). |
+| GUI-focus policy | `Button focused before Initialize`, the two `focus released` rows, `FocusPolicyCheck: ...`, `FocusPolicyCheck after GameControlFocus.Apply`, `first frame: ui_* InputMap matches the startup snapshot ...` | PASS. The InputMap-mutated path is not exercised (the smoke writes no `InputMap`). |
+| H-R11-3 clauses 2–4 | `project setting input_devices/joypads/ignore_joypad_on_unfocused_application`, `Input.IgnoreJoypadOnUnfocusedApplication at runtime`, the two `H-R11-3: Space, Enter, KP Enter in World ...` rows | PASS (clause 2 and 4). Clause 3 (captured in World, visible in Panel / Pause on a real display): **MANUAL / NOT RUN** (story 029). |
+| Project setting | `project setting ...` row; key as written by the spike's `run_b3_set.sh` (B3) | PASS |
+| Focus loss delivery, H-EC-5 integration half | — | **NOT RUN** — greybox simplification per m1a-packages.md ("no focus loss"); router `OnFocusLost` / `OnFocusGained` (story 018) do not exist. |
+| Pause requests | — | **NOT RUN** — router `PauseRequested` / `ResumeRequested` (story 016) do not exist; the adapter pauses nothing; `check-no-scenetree-paused.sh` green. |
+
+## SMOKE lines (2026-11-09)
+
+```
+SMOKE input-mouse-focus PASS project setting input_devices/joypads/ignore_joypad_on_unfocused_application == True
+SMOKE input-mouse-focus PASS Input.IgnoreJoypadOnUnfocusedApplication at runtime == True
+SMOKE input-mouse-focus PASS Button focused before Initialize == True
+SMOKE input-mouse-focus PASS Initialize in World: mouse mode applied, writes, focus released == Captured/1/False
+SMOKE input-mouse-focus PASS capture readback after the World write: rejected=True (headless ignores capture, S-31; real display is story 029)
+SMOKE input-mouse-focus PASS H-R11-3: Space, Enter, KP Enter in World after Initialize: Button presses == 0
+SMOKE input-mouse-focus PASS Tab -> Panel: mouse mode Visible, writes == Visible/2
+SMOKE input-mouse-focus PASS keys that change no state in Panel: no mouse-mode write == 2
+SMOKE input-mouse-focus PASS Tab -> World: mouse mode Captured, writes, Button focus released == Captured/3/False
+SMOKE input-mouse-focus PASS H-R11-3: Space, Enter, KP Enter in World after Panel -> World: Button presses == 0
+SMOKE input-mouse-focus PASS mouse press in World re-asks capture only while the readback shows it dropped (D-2) == 1
+SMOKE input-mouse-focus PASS FocusPolicyCheck: the visible focusable Hud Button only (hidden, Apply-ed and Screens exempt) == /root/Main/Hud/SmokeHudLayer/Stray (All)
+SMOKE input-mouse-focus PASS FocusPolicyCheck after GameControlFocus.Apply on it == 0
+SMOKE input-mouse-focus PASS before the first frame: boot checks not run == True
+SMOKE input-mouse-focus PASS first frame: ui_* InputMap matches the startup snapshot; focus policy findings in the clean tree == True/0
+SMOKE input-mouse-focus PASS ui_* actions in the startup snapshot (non-zero) == True
+SMOKE RESULT name=input-mouse-focus pass=16 fail=0 exit=0
+```

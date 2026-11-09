@@ -14,6 +14,15 @@ namespace PerformativeMail.Game.Input;
 /// reach the GUI (D-3). Mouse motion is summed and fed as one record per rendered frame (<see cref="OnPreFrame"/>, or before
 /// the next non-motion event so order is kept); joypad axes go through the per-device <see cref="JoyAxisCache"/>.
 /// <para>
+/// Story 027: on every router-state change (<see cref="InputRouter.StateChanged"/>) it applies the router's mouse-mode request
+/// through <see cref="Mouse"/> (written only when it changes; capture re-asked on each mouse press while the readback shows it
+/// dropped, D-2) and, when the new state is a game context, calls <c>GuiReleaseFocus()</c>; it does the same once when it is
+/// both initialised and in the tree. On its first pre-frame call it compares the <c>ui_*</c> InputMap with the snapshot taken
+/// at construction and, in a debug build, runs <see cref="FocusPolicyCheck"/> over <see cref="AdapterDeps.Main"/>, pushing an
+/// engine error or warning per finding. It never pauses anything: solo pause is <c>TickDriver.Pause</c> (story 028), never
+/// <c>SceneTree.Paused</c>.
+/// </para>
+/// <para>
 /// Placement (D-1): input callbacks run in reverse tree order and <c>ProcessPriority</c> does not reorder them (spike S-06), so
 /// the adapter is the last child of the root window and moves itself back there whenever another node enters the root;
 /// <see cref="AttachToRoot"/> adds it (deferred, spike H-1). <c>ProcessMode</c> is Always, so a paused tree still reaches it.
@@ -35,7 +44,10 @@ public partial class InputAdapter : Node, IInjectable<AdapterDeps>, IPreFrameHoo
     public const string NodeName = "InputAdapter";
 
     private readonly JoyAxisCache _axes = new();
+    private readonly UiInputMapSnapshot _uiMapAtStartup;
     private AdapterDeps? _deps;
+    private bool _subscribed;
+    private bool _bootChecksDone;
     private Window? _root;
     private bool _motionPending;
     private long _motionMs;
@@ -48,6 +60,7 @@ public partial class InputAdapter : Node, IInjectable<AdapterDeps>, IPreFrameHoo
         Name = NodeName;
         ProcessMode = ProcessModeEnum.Always;
         ProcessPriority = int.MinValue;
+        _uiMapAtStartup = UiInputMapSnapshot.Capture();
     }
 
     /// <summary>What <see cref="TryConvert"/> made of an event.</summary>
@@ -77,6 +90,18 @@ public partial class InputAdapter : Node, IInjectable<AdapterDeps>, IPreFrameHoo
 
     /// <summary>The pad index of the last physical event (0 unless <see cref="LastUsedDevice"/> is a pad).</summary>
     public byte LastUsedPad { get; private set; }
+
+    /// <summary>The mouse-mode switch (story 027).</summary>
+    public MouseModeController Mouse { get; } = new();
+
+    /// <summary>GUI-focus releases on entering a game context since construction (story 027).</summary>
+    public long FocusReleases { get; private set; }
+
+    /// <summary>The first-frame <c>ui_*</c> InputMap comparison: null until it has run, then whether the map was untouched.</summary>
+    public bool? UiMapIntact { get; private set; }
+
+    /// <summary>What the first-frame <see cref="FocusPolicyCheck"/> found (empty when skipped, not yet run, or clean).</summary>
+    public IReadOnlyList<string> FocusPolicyFindings { get; private set; } = [];
 
     /// <summary>
     /// Creates an adapter and adds it to <paramref name="root"/> as its last child, deferred (adding to the root while the main
@@ -108,10 +133,26 @@ public partial class InputAdapter : Node, IInjectable<AdapterDeps>, IPreFrameHoo
         }
 
         _deps = deps;
+        if (IsInsideTree())
+        {
+            Subscribe();
+        }
     }
 
-    /// <summary>Feeds this frame's summed mouse motion. Registered as the first pre-frame hook (story 028), before the router's.</summary>
-    public void OnPreFrame() => FlushMotion();
+    /// <summary>
+    /// Feeds this frame's summed mouse motion. Registered as the first pre-frame hook (story 028), before the router's. The first
+    /// call also runs the boot checks (the <c>ui_*</c> InputMap comparison and the debug-build focus policy check).
+    /// </summary>
+    public void OnPreFrame()
+    {
+        if (!_bootChecksDone && _deps is not null)
+        {
+            _bootChecksDone = true;
+            RunBootChecks(_deps.Main);
+        }
+
+        FlushMotion();
+    }
 
     /// <summary>
     /// Re-seeds the cache of pad <paramref name="pad"/> by polling <c>Godot.Input.GetJoyAxis</c> for every axis and feeds each
@@ -182,6 +223,11 @@ public partial class InputAdapter : Node, IInjectable<AdapterDeps>, IPreFrameHoo
             return;
         }
 
+        if (r.Kind == RawKind.MouseButton && r.Pressed)
+        {
+            Mouse.Reapply();
+        }
+
         _deps.Router.Feed(in r);
         if (_deps.Router.LastFeedConsumed)
         {
@@ -189,9 +235,24 @@ public partial class InputAdapter : Node, IInjectable<AdapterDeps>, IPreFrameHoo
         }
     }
 
-    /// <summary>Stops re-asserting the root-last place.</summary>
+    /// <summary>Starts following the router's state once initialised (story 027).</summary>
+    public override void _EnterTree()
+    {
+        if (_deps is not null)
+        {
+            Subscribe();
+        }
+    }
+
+    /// <summary>Stops following the router's state and stops re-asserting the root-last place.</summary>
     public override void _ExitTree()
     {
+        if (_subscribed)
+        {
+            _deps!.Router.StateChanged -= OnRouterStateChanged;
+            _subscribed = false;
+        }
+
         if (_root is not null)
         {
             _root.ChildEnteredTree -= OnRootChildEntered;
@@ -297,6 +358,50 @@ public partial class InputAdapter : Node, IInjectable<AdapterDeps>, IPreFrameHoo
         }
 
         return input == PhysicalInput.None ? Conversion.Unmapped : Conversion.Record;
+    }
+
+    // Follows the router's state from now on and applies the current one.
+    private void Subscribe()
+    {
+        if (_subscribed)
+        {
+            return;
+        }
+
+        _subscribed = true;
+        _deps!.Router.StateChanged += OnRouterStateChanged;
+        OnRouterStateChanged();
+    }
+
+    // Applies the mouse mode (a write only when the request changed) and drops any GUI focus on entering a game context.
+    private void OnRouterStateChanged()
+    {
+        InputRouter router = _deps!.Router;
+        Viewport viewport = GetViewport();
+        Mouse.Apply(router.MouseModeRequest, viewport);
+        if (router.InGameContext)
+        {
+            viewport.GuiReleaseFocus();
+            FocusReleases++;
+        }
+    }
+
+    private void RunBootChecks(Node? main)
+    {
+        UiMapIntact = _uiMapAtStartup.Matches(UiInputMapSnapshot.Capture(), out string diff);
+        if (UiMapIntact == false)
+        {
+            GD.PushError(diff);
+        }
+
+        if (main is not null)
+        {
+            FocusPolicyFindings = FocusPolicyCheck.Run(main);
+            foreach (string finding in FocusPolicyFindings)
+            {
+                GD.PushWarning($"Focus policy: a game Control can take GUI focus: {finding}");
+            }
+        }
     }
 
     // Caches the sample; a stick axis is fed as its x and y pair (the cached partner beside the new value), a trigger alone.
