@@ -22,6 +22,7 @@ public class InvOpKindTests
         { (ushort)InvOpKinds.Move, 24, typeof(MovePayload) },
         { (ushort)InvOpKinds.Merge, 16, typeof(MergePayload) },
         { (ushort)InvOpKinds.QuickMove, 12, typeof(QuickMovePayload) },
+        { (ushort)InvOpKinds.TakeAll, 12, typeof(TakeAllPayload) },
         { (ushort)InvOpKinds.Return, 0, null },
         { (ushort)InvOpKinds.Drop, 4, typeof(DropPayload) },
         { (ushort)InvOpKinds.Pickup, 20, typeof(PickupPayload) },
@@ -33,7 +34,7 @@ public class InvOpKindTests
     // ------------------------------------------------------------------ AC 1: kinds and payloads
 
     // The 8 SizeTable rows name 8 distinct kinds, DescriptorOf finds each in InvOpDescriptors.All, and
-    // KindValues_RegisteredAndReserved_AreDistinctAndInsideTheInventoryBlock pins All to 8 kinds, so every descriptor runs here.
+    // KindValues_RegisteredAndReserved_AreDistinctAndInsideTheInventoryBlock pins All to 9 kinds, so every descriptor runs here.
     [Theory]
     [MemberData(nameof(SizeTable))]
     public void EveryDescriptor_MatchesTheStorySizeTable_FieldSumSizeOfAndPayloadLength(ushort kind, int size, Type? payload)
@@ -84,8 +85,8 @@ public class InvOpKindTests
         OpKind[] all = registered.Concat(reserved).ToArray();
 
         // Assert
-        Assert.Equal(8, registered.Length);
-        Assert.Equal(5, reserved.Length);
+        Assert.Equal(9, registered.Length);
+        Assert.Equal(4, reserved.Length);
         Assert.Equal(all.Length, all.Distinct().Count());
         Assert.Equal(declared.Order(), all.Order());
         Assert.All(all, k => Assert.True(OpKindBlock.Inventory.Contains(k), $"0x{(ushort)k:X4}"));
@@ -93,7 +94,7 @@ public class InvOpKindTests
         Assert.DoesNotContain((OpKind)0x00F0, all); // the value Sim Core tests use as "unregistered"
         Assert.Equal(registered.Order(), registered);
         Assert.Equal(
-            new[] { InvOpKinds.MoveGroup, InvOpKinds.Split, InvOpKinds.QuickMoveGroup, InvOpKinds.TakeAll, InvOpKinds.Sort }.Order(),
+            new[] { InvOpKinds.MoveGroup, InvOpKinds.Split, InvOpKinds.QuickMoveGroup, InvOpKinds.Sort }.Order(),
             reserved.Order());
     }
 
@@ -101,11 +102,11 @@ public class InvOpKindTests
     [Fact]
     public void OnlyTheBlockAcquiringKinds_DeclareCapacityExhausted85()
     {
-        // Arrange: the block-acquiring kinds are Move, Merge, QuickMove, Pickup and Return
+        // Arrange: the block-acquiring kinds are Move, Merge, QuickMove, TakeAll, Pickup and Return
         (string Name, OpKind Kind, bool Acquiring)[] rows =
         {
             ("Pick", InvOpKinds.Pick, false), ("Move", InvOpKinds.Move, true), ("Merge", InvOpKinds.Merge, true),
-            ("QuickMove", InvOpKinds.QuickMove, true), ("Return", InvOpKinds.Return, true), ("Drop", InvOpKinds.Drop, false),
+            ("QuickMove", InvOpKinds.QuickMove, true), ("TakeAll", InvOpKinds.TakeAll, true), ("Return", InvOpKinds.Return, true), ("Drop", InvOpKinds.Drop, false),
             ("Pickup", InvOpKinds.Pickup, true), ("Close", InvOpKinds.Close, false),
         };
         var failures = new List<string>();
@@ -133,7 +134,7 @@ public class InvOpKindTests
         }
 
         // Assert: the table is every descriptor, in InvOpDescriptors.All order
-        Assert.Equal(8, rows.Length);
+        Assert.Equal(9, rows.Length);
         Assert.Equal(InvOpDescriptors.All.Select(d => d.Kind), rows.Select(r => r.Kind));
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }

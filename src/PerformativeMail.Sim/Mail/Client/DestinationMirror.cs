@@ -79,6 +79,9 @@ public sealed class DestinationMirror : IMirrorPart
     /// <summary>The unlocked-district mask of the last <c>DeliveriesState</c> (bit <c>districtId - 1</c>; District 1 before any).</summary>
     public ulong UnlockedDistrictMask { get; private set; } = 1UL;
 
+    /// <summary>Bumped by every applied <c>DeliveriesState</c> (the throw preview's cache key, <c>IThrowPreviewMirror.DestinationVersion</c>).</summary>
+    public uint Version { get; private set; }
+
     /// <summary>The destination entity of row <paramref name="ordinal"/>.</summary>
     /// <param name="ordinal">The row, 0 to <see cref="Count"/> - 1.</param>
     /// <returns>The entity id.</returns>
@@ -101,6 +104,7 @@ public sealed class DestinationMirror : IMirrorPart
         Open = p.Open != 0;
         CloseTick = p.CloseTick;
         UnlockedDistrictMask = p.UnlockedMask;
+        Version = unchecked(Version + 1);
     }
 
     /// <inheritdoc />

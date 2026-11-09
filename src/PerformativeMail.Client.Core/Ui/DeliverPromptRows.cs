@@ -70,7 +70,9 @@ public static class DeliverPromptRows
             case DeliverPromptBranch.Unavailable:
                 return new PromptRows(PromptMark.None, false, Fmt(p.Key, glyph, address, string.Empty, 0, string.Empty), string.Empty, string.Empty);
             default:
-                string reason = p.Key == reasons.ClosePanel ? Fmt(DeliverPromptKeys.ClosePanel, glyph, address, string.Empty, 0, string.Empty)
+                // An available target has no key: it never matches a framework reason (the view's reasons may be unset).
+                string reason = p.Key.IsNone ? (p.Verb == Verb.Open ? HudStringsEn.TakeMail.Replace("{glyph}", glyph) : string.Empty)
+                    : p.Key == reasons.ClosePanel ? Fmt(DeliverPromptKeys.ClosePanel, glyph, address, string.Empty, 0, string.Empty)
                     : p.Key == reasons.DryLand ? Fmt(DeliverPromptKeys.DryLand, glyph, address, string.Empty, 0, string.Empty)
                     : string.Empty;
                 return new PromptRows(PromptMark.None, false, reason, string.Empty, string.Empty);

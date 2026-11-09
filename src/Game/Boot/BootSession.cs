@@ -65,6 +65,9 @@ public sealed class BootSession
     /// <summary>The client mirrors step 5 bound (wallet, run, flights).</summary>
     public ClientMirrors? Mirrors { get; internal init; }
 
+    /// <summary>The client interaction loop step 5 composed (own-panel mirror, interaction steps, Intake pickup).</summary>
+    public ClientLoop? Loop { get; internal init; }
+
     /// <summary>The tick driver.</summary>
     public TickDriver Driver => Session.Driver;
 

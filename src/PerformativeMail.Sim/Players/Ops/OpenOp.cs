@@ -84,12 +84,16 @@ public static class PlayerOpReasons
 /// <summary>The descriptor of <see cref="PlayerOpKinds.Open"/> and the container-to-anchor mapping its handler and anchor share.</summary>
 public static class OpenOp
 {
+    /// <summary>Codec id of the <see cref="PlayerOpKinds.Open"/> wire codec (WP-F).</summary>
+    public const ushort CodecId = 12;
+
     /// <summary>
     /// <see cref="PlayerOpKinds.Open"/>: 16 B; the P13 chain (dead, frozen, no_target, unavailable, out_of_range, position_stale) and
-    /// container_gone. <c>bad_request</c> is Core's 8 and is not declared. Wire codec id and size are 0 until the network epic assigns them.
+    /// container_gone. <c>bad_request</c> is Core's 8 and is not declared. Fixed-length wire codec <see cref="CodecId"/> (WP-F: the client's
+    /// Intake pickup sends it).
     /// </summary>
     public static OpDescriptor Descriptor { get; } = OpDescriptor.For<OpenPayload>(
-        PlayerOpKinds.Open, false, 0, 0,
+        PlayerOpKinds.Open, false, CodecId, 16,
         new ReasonDef(PlayerOpReasons.Dead, "dead"), new ReasonDef(PlayerOpReasons.Frozen, "frozen"), InvReasons.Def(InvReason.NoTarget),
         new ReasonDef(PlayerOpReasons.Unavailable, "unavailable"), InvReasons.Def(InvReason.OutOfRange), InvReasons.Def(InvReason.PositionStale),
         InvReasons.Def(InvReason.ContainerGone));

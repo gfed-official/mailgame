@@ -27,6 +27,9 @@ public static class HudStringsEn
         [DeliverPromptKeys.MailRejectNotOnRoute] = "Not on today's route",
     };
 
+    /// <summary>The prompt of the Intake console's Open verb (WP-F: E takes the mail while the panel stays closed).</summary>
+    public const string TakeMail = "{glyph} Take mail";
+
     /// <summary>The format string of <paramref name="id"/>, or null when the table has no row.</summary>
     /// <param name="id">A <see cref="DeliverPromptKeys"/> id.</param>
     /// <returns>The format or null.</returns>

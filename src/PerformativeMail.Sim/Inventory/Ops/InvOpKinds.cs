@@ -6,8 +6,8 @@ namespace PerformativeMail.Sim.Inventory.Ops;
 /// <summary>
 /// Grid Inventory's <see cref="OpKind"/> values (ADR-0007 section 4 inventory block <c>0x0080-0x00FF</c>; ADR-0009 section 1; story
 /// grid-inventory/004). Values follow ADR-0009 section 1's table order, are append-only and never reused. The M-1a kinds have a
-/// descriptor in <see cref="InvOpDescriptors"/>; <c>MoveGroup</c>, <c>QuickMoveGroup</c>, <c>Split</c>, <c>TakeAll</c> and <c>Sort</c> are
-/// reserved here and registered at M1. <c>DeliverMatching</c> is Delivery's (block <c>0x0100-0x013F</c>, ADR-0009 erratum 2026-10-16);
+/// descriptor in <see cref="InvOpDescriptors"/>; <c>MoveGroup</c>, <c>QuickMoveGroup</c>, <c>Split</c> and <c>Sort</c> are
+/// reserved here and registered at M1 (<c>TakeAll</c> is registered for the M-1a playable loop, WP-F). <c>DeliverMatching</c> is Delivery's (block <c>0x0100-0x013F</c>, ADR-0009 erratum 2026-10-16);
 /// the throw op is Throwing's <c>ThrowRelease</c>; <c>Open</c> is Player Character's (<c>PlayerOpKinds.Open</c>, story 019). Kept in the owning module (as <see cref="CorePlayerOps"/> keeps Sim Core's
 /// descriptors) so Sim Core's enum never names a system's ops; <c>0x00F0</c> stays unassigned (Sim Core tests use it as "unregistered").
 /// </summary>
@@ -35,7 +35,7 @@ public static class InvOpKinds
     /// <summary>Reserved (M1): quick-move a manifest group.</summary>
     public const OpKind QuickMoveGroup = (OpKind)0x0086;
 
-    /// <summary>Reserved (M1): take everything matching a filter.</summary>
+    /// <summary>Take every entry of an open external container that matches a filter (WP-F: the Intake pickup).</summary>
     public const OpKind TakeAll = (OpKind)0x0087;
 
     /// <summary>Return the cursor's entry (payload-free).</summary>
@@ -57,15 +57,16 @@ public static class InvOpKinds
     public const OpKind Close = (OpKind)0x008D;
 
     /// <summary>The reserved (not yet registered) M1 values.</summary>
-    public static ImmutableArray<OpKind> Reserved { get; } = ImmutableArray.Create(MoveGroup, Split, QuickMoveGroup, TakeAll, Sort);
+    public static ImmutableArray<OpKind> Reserved { get; } = ImmutableArray.Create(MoveGroup, Split, QuickMoveGroup, Sort);
 }
 
 /// <summary>
 /// The descriptors of the M-1a inventory kinds (ADR-0007 section 4; ADR-0009 sections 1-2). <see cref="InventorySystem"/> binds
 /// <see cref="Pick"/> and <see cref="Move"/> (story 007), <see cref="Merge"/> (story 008), <see cref="QuickMove"/> and
-/// <see cref="Return"/> (story 010) and <see cref="Close"/> (story 011); the others are not bound yet: a declared kind without a handler
-/// fails <c>Freeze</c> (<c>MissingOpHandler</c>); <c>Drop</c> waits on story 020 and <c>Pickup</c> on the rest of story 019. Wire codec ids
-/// and sizes are 0 (unassigned) until the network-adapter-loopback epic assigns them. Reasons are the inventory codes each kind's ADR-0009
+/// <see cref="Return"/> (story 010), <see cref="Close"/> (story 011) and <see cref="TakeAll"/> (WP-F); the others are not bound yet: a
+/// declared kind without a handler fails <c>Freeze</c> (<c>MissingOpHandler</c>); <c>Drop</c> waits on story 020 and <c>Pickup</c> on the
+/// rest of story 019. <see cref="QuickMove"/>, <see cref="TakeAll"/> and <see cref="Close"/> carry wire codec ids (WP-F, the client's
+/// Intake pickup, fixed-length codecs); the other kinds' ids and sizes are 0 (unassigned). Reasons are the inventory codes each kind's ADR-0009
 /// chain can return (the precedence chains themselves are the handler stories'); every block-acquiring kind (<c>Move</c>, <c>Merge</c>,
 /// <c>QuickMove</c>, <c>Pickup</c>, <c>Return</c>) declares <c>(kind, 85) capacity_exhausted</c>. <c>bad_request</c> is Core's 8 and is
 /// not declared.
@@ -91,11 +92,25 @@ public static class InvOpDescriptors
         R(InvReason.NotOpen), R(InvReason.StaleEntry), R(InvReason.NotAllowed), R(InvReason.Blocked), R(InvReason.StackFull),
         R(InvReason.ContainerGone), R(InvReason.CapacityExhausted));
 
+    /// <summary>Codec id of the <see cref="InvOpKinds.QuickMove"/> wire codec (WP-F).</summary>
+    public const ushort QuickMoveCodecId = 14;
+
+    /// <summary>Codec id of the <see cref="InvOpKinds.TakeAll"/> wire codec (WP-F).</summary>
+    public const ushort TakeAllCodecId = 15;
+
+    /// <summary>Codec id of the <see cref="InvOpKinds.Close"/> wire codec (WP-F).</summary>
+    public const ushort CloseCodecId = 16;
+
     /// <summary><see cref="InvOpKinds.QuickMove"/>: 12 B; not_open, stale_entry, not_allowed, no_room, container_gone, capacity_exhausted, bad_count (count above the entry's total, story 010; Mail Lead planning default pending Evan (TD-153)).</summary>
     public static OpDescriptor QuickMove { get; } = OpDescriptor.For<QuickMovePayload>(
-        InvOpKinds.QuickMove, false, 0, 0,
+        InvOpKinds.QuickMove, false, QuickMoveCodecId, 12,
         R(InvReason.NotOpen), R(InvReason.StaleEntry), R(InvReason.NotAllowed), R(InvReason.NoRoom), R(InvReason.ContainerGone),
         R(InvReason.CapacityExhausted), R(InvReason.BadCount));
+
+    /// <summary><see cref="InvOpKinds.TakeAll"/>: 12 B; not_open, no_target (nothing matches), no_room (nothing fits), container_gone, capacity_exhausted.</summary>
+    public static OpDescriptor TakeAll { get; } = OpDescriptor.For<TakeAllPayload>(
+        InvOpKinds.TakeAll, false, TakeAllCodecId, 12,
+        R(InvReason.NotOpen), R(InvReason.NoTarget), R(InvReason.NoRoom), R(InvReason.ContainerGone), R(InvReason.CapacityExhausted));
 
     /// <summary><see cref="InvOpKinds.Return"/>: payload-free (<see cref="OpDescriptor.Empty"/>); cursor_empty, blocked, stack_full, no_room, capacity_exhausted. blocked and stack_full are declared but unreachable: an origin that is blocked or full falls through to the panel leg (story 010, <see cref="ReturnHandler"/>; Mail Lead planning default pending Evan (TD-153)).</summary>
     public static OpDescriptor Return { get; } = OpDescriptor.Empty(
@@ -115,11 +130,11 @@ public static class InvOpDescriptors
 
     /// <summary><see cref="InvOpKinds.Close"/>: 4 B; not_open, container_gone.</summary>
     public static OpDescriptor Close { get; } = OpDescriptor.For<ClosePayload>(
-        InvOpKinds.Close, false, 0, 0,
+        InvOpKinds.Close, false, CloseCodecId, 4,
         R(InvReason.NotOpen), R(InvReason.ContainerGone));
 
     /// <summary>Every M-1a inventory descriptor, in ascending kind order.</summary>
-    public static ImmutableArray<OpDescriptor> All { get; } = ImmutableArray.Create(Pick, Move, Merge, QuickMove, Return, Drop, Pickup, Close);
+    public static ImmutableArray<OpDescriptor> All { get; } = ImmutableArray.Create(Pick, Move, Merge, QuickMove, TakeAll, Return, Drop, Pickup, Close);
 
     private static ReasonDef R(InvReason reason) => InvReasons.Def(reason);
 }

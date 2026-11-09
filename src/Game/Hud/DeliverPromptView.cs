@@ -17,7 +17,7 @@ public partial class DeliverPromptView : Control, IInjectable<PresenterDeps>, IP
     private IHudState? _hud;
     private IMoneyFormatter _money = new EnMoneyFormatter();
     private IHudText _text = new NoText();
-    private FrameworkReasons _reasons;
+    private FrameworkReasons _reasons = PlayerReasons.Framework;
 
     /// <summary>Builds the plate and lines.</summary>
     public DeliverPromptView()

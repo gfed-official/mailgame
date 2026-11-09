@@ -99,6 +99,49 @@ public struct QuickMovePayload
     public byte Pad2;
 }
 
+/// <summary>
+/// <c>TakeAll</c> (ADR-0009 section 1, 9 B of fields padded to 12 B; GDD R7 <c>take_all {container, filter}</c>): every entry of the open
+/// external <see cref="Container"/> that <see cref="FilterKind"/> / <see cref="FilterValue"/> match (<see cref="TakeAllFilter"/>), oldest
+/// first by lowest mailId, quick-moved into the actor's panel. The pad bytes must be zero.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct TakeAllPayload
+{
+    /// <summary>The external container (the Intake at M-1a).</summary>
+    public uint Container;
+
+    /// <summary>A <see cref="TakeAllFilter"/> value.</summary>
+    public byte FilterKind;
+
+    /// <summary>Zero.</summary>
+    public byte Pad0;
+
+    /// <summary>Zero.</summary>
+    public byte Pad1;
+
+    /// <summary>Zero.</summary>
+    public byte Pad2;
+
+    /// <summary>The filter's value (see <see cref="TakeAllFilter"/>).</summary>
+    public uint FilterValue;
+}
+
+/// <summary>The <c>take_all</c> filters (GDD R7: <c>districtId, streetId, addressId, kind</c>). Only mail entries match a filter.</summary>
+public enum TakeAllFilter : byte
+{
+    /// <summary>Mail whose address is in district <c>FilterValue</c>.</summary>
+    District = 0,
+
+    /// <summary>Mail whose address is on street <c>FilterValue = district &lt;&lt; 8 | street</c>.</summary>
+    Street = 1,
+
+    /// <summary>Mail addressed to <c>FilterValue</c> (an <c>AddressId</c> value).</summary>
+    Address = 2,
+
+    /// <summary>Mail of kind <c>FilterValue</c> (a mail-kind <c>DefIndex</c> value).</summary>
+    Kind = 3,
+}
+
 /// <summary>Payload of <see cref="InvOpKinds.Drop"/> (4 B): drop an entry into the world.</summary>
 /// <example><code>var p = new DropPayload { EntryId = e };</code></example>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

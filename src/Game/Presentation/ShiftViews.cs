@@ -19,8 +19,10 @@ namespace PerformativeMail.Game.Presentation;
 /// <summary>
 /// Boot step 7's shift views (M-1a wave-3 assembly): the HUD read model over step 5's wallet and run mirrors, then the persistent HUD,
 /// inventory and aim layers on the Hud presenter and the flight view under <c>World/Flights</c>, all before the presenters'
-/// <c>Initialize</c> so their subtree walk injects them. Until WP-A part 2 (PR 89) and Evan's answer on card t316s1406 the inventory
-/// reads an empty panel, the aim ribbon an idle arc, and the deliver prompt an idle interaction unless one is published (TD-260).
+/// <c>Initialize</c> so their subtree walk injects them (WP-F).
+/// The aim ribbon reads the client's throw preview and the deliver prompt the client's interaction snapshot; the inventory layer
+/// keeps the empty panel (its source is the panel stand-in PR's, card t316s1406; TD-260, TD-270). Without a client loop (a smoke's
+/// boot), an idle arc and an idle interaction.
 /// Main thread only.
 /// </summary>
 /// <example>
@@ -55,8 +57,12 @@ internal static class ShiftViews
     public static string Install(WorldPresenter world, HudPresenter hud, PresentationInputs inputs)
     {
         HudLayers.Install(hud);
+        PublishedStates published = inputs.Published;
+        // The inventory panel stays the empty one: its real source is the stand-in PR's (card t316s1406), not WP-F's. The hotbar keys
+        // are the client loop's sinks (InputBoot), so they select through the own-panel mirror without feeding the panel.
         InventoryLayers.Install(hud, EmptyInventoryPanel.Instance, NoInventoryActions.Instance, ClosedIntakeGate.Instance, router: null);
-        ThrowLayers.InstallAim(hud, IdleAim.Instance, () => world.GetNodeOrNull<Camera3D>(CameraPath));
+        bool previewed = published.TryGet(out IAimArcSource? arc);
+        ThrowLayers.InstallAim(hud, arc ?? IdleAim.Instance, () => world.GetNodeOrNull<Camera3D>(CameraPath));
 
         string flights = "none (no World/Flights)";
         if (world.GetNodeOrNull<Node3D>("Flights") is { } parent)
@@ -67,10 +73,10 @@ internal static class ShiftViews
             flights = "World/Flights";
         }
 
-        return $"hud=Persistent inventory=EmptyPanel aim=Idle flights={flights}";
+        return $"hud=Persistent inventory=EmptyPanel aim={(previewed ? "ThrowPreview" : "Idle")} flights={flights}";
     }
 
-    // Nothing focused: the deliver prompt stays hidden until the focus/press chain is composed (PR 89).
+    // No client loop published: nothing focused, the deliver prompt stays hidden.
     private sealed class IdleInteraction : IInteractionQuery
     {
         public static readonly IdleInteraction Instance = new();
@@ -79,7 +85,7 @@ internal static class ShiftViews
         public ref readonly InteractionSnapshot Current => ref _snapshot;
     }
 
-    // No ThrowPreviewStep yet: its selected-entry port needs the panel (PR 89, card t316s1406).
+    // No client loop published: nothing to aim.
     private sealed class IdleAim : IAimArcSource
     {
         public static readonly IdleAim Instance = new();

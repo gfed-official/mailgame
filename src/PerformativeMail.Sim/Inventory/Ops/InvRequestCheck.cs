@@ -140,8 +140,15 @@ public sealed class InvRequestCheck
             InvOpKinds.Drop => CheckEntryNamespace(_entries, op.PayloadAs<DropPayload>().EntryId, actorSlot, false),
             InvOpKinds.Pickup => CheckPickup(op.PayloadAs<PickupPayload>(), actorSlot),
             InvOpKinds.Close => CheckContainer(op.PayloadAs<ClosePayload>().Container),
+            InvOpKinds.TakeAll => CheckTakeAll(op.PayloadAs<TakeAllPayload>()),
             _ => Bad,
         };
+    }
+
+    private ushort CheckTakeAll(in TakeAllPayload p)
+    {
+        ushort r = (p.Pad0 | p.Pad1 | p.Pad2) != 0 || p.FilterKind > (byte)TakeAllFilter.Kind ? Bad : Pass;
+        return Or(r, CheckContainer(p.Container));
     }
 
     private ushort CheckPick(in PickPayload p, PlayerSlot actorSlot) =>
@@ -215,7 +222,7 @@ public sealed class InvRequestCheck
             }
 
             default:
-                return Pass; // Return and Close name no entry
+                return Pass; // Return, Close and TakeAll name no entry
         }
     }
 
@@ -234,6 +241,7 @@ public sealed class InvRequestCheck
             InvOpKinds.Drop => InvOpDescriptors.Drop.PayloadLength,
             InvOpKinds.Pickup => InvOpDescriptors.Pickup.PayloadLength,
             InvOpKinds.Close => InvOpDescriptors.Close.PayloadLength,
+            InvOpKinds.TakeAll => InvOpDescriptors.TakeAll.PayloadLength,
             InvOpKinds.Return => InvOpDescriptors.Return.PayloadLength,
             _ => -1,
         };

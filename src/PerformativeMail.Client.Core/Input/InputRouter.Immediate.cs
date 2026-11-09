@@ -42,6 +42,11 @@ public sealed partial class InputRouter
         _sinks[actionId] = sink;
     }
 
+    /// <summary>True when <paramref name="actionId"/> has a registered sink.</summary>
+    /// <param name="actionId">The action id.</param>
+    /// <returns>Whether a sink is registered.</returns>
+    public bool HasSink(ushort actionId) => actionId < _sinks.Length && _sinks[actionId] is not null;
+
     /// <summary>
     /// Hands every queued immediate, in arrival order, to its action's sink and empties the queue. Each dispatch writes a
     /// <see cref="LogKind.Immediate"/> entry, or a <see cref="LogKind.Dropped"/> entry (<see cref="DropCause.NoSink"/>, counted)

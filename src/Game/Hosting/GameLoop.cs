@@ -349,6 +349,22 @@ public partial class GameLoop : Node
         return false;
     }
 
+    /// <summary>True while the tick driver is paused (<see cref="TryPause"/>).</summary>
+    public bool IsPaused => _sequence?.Driver.State == TickDriverState.Paused;
+
+    /// <summary>The Esc / P toggle (WP-F): resumes when paused, else asks <see cref="TryPause"/>.</summary>
+    /// <returns>True when the driver is paused afterwards.</returns>
+    public bool TogglePause()
+    {
+        if (IsPaused)
+        {
+            Resume();
+            return false;
+        }
+
+        return TryPause(out _);
+    }
+
     /// <summary>
     /// Resumes a paused tick driver at the clock's current timestamp (no burst for the paused
     /// time). A no-op when nothing is installed or the driver is not paused.

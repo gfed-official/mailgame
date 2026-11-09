@@ -93,6 +93,7 @@ public sealed class HostSession
         SimWorld world = Host.World;
 
         (OpCodecRegistry opRegistry, EventCodecRegistry events) = BuildCodecs(world, gameOpCodecs, eventCodecs);
+        OpCodecs = opRegistry;
         (LoopbackTransport hostEnd, LoopbackTransport clientEnd) = LoopbackTransport.CreatePair();
         HostAdapter = new HostAdapter(world, opRegistry, hostEnd, null, options.Adapter ?? new AdapterSettings(), options.Roster ?? new InMemoryRoster(), events);
         _relay.Attach(HostAdapter);
@@ -151,6 +152,9 @@ public sealed class HostSession
     /// pending slot in <see cref="ClientAdapter"/> waits until a disconnect (TD-068 item 2; resync is M0).
     /// </summary>
     public bool IsLocalJoined => HostAdapter.GetPeerState(PeerOrigin.Loopback, LocalPeer) == PeerState.Admitted;
+
+    /// <summary>The op codecs both adapters use (the host decodes with them; the host client's request sink encodes with them).</summary>
+    public OpCodecRegistry OpCodecs { get; }
 
     /// <summary>The host's <see cref="IHostClock"/> for host Presentation (<c>CurrentTick</c>).</summary>
     public IHostClock HostClock { get; }

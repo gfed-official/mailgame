@@ -1,4 +1,5 @@
 using System.Globalization;
+using PerformativeMail.Client.Core.Input.Settings;
 using PerformativeMail.Client.Core.Net;
 using PerformativeMail.Client.Core.Net.Codec;
 using PerformativeMail.Client.Core.Timing;
@@ -22,7 +23,8 @@ namespace PerformativeMail.Game.Boot;
 /// <see cref="ContentSet"/> by reference, the run seed), the loopback transport pair, the host and client adapters, the tick driver
 /// (the clock's frequency, <c>SimSettings</c>' catch-up cap) and the frame runner (<c>CatchUpGuardMs = 0</c>), and admits the local peer
 /// into slot 0. The host client's layer gets the owned-carrier step (<see cref="CarrierStepBinder"/>, player-character 020) over the
-/// client's own copy of the world tables, and the <see cref="ClientMirrors"/> (wallet, run, flights) are bound and published for step 7. The driver is stopped again so that <c>GameLoop</c> starts it on the first <c>_Process</c>
+/// client's own copy of the world tables, the <see cref="ClientMirrors"/> (wallet, run, flights) are bound and published for step 7, and
+/// so is the <see cref="ClientLoop"/> (own-panel mirror, interaction steps, Intake pickup; its ports and sources are published too). The driver is stopped again so that <c>GameLoop</c> starts it on the first <c>_Process</c>
 /// (ADR-0002). The run seed is <see cref="M1aRunSeed"/> unless <c>--seed=&lt;n&gt;</c> is in the user args (or a smoke sets
 /// <see cref="BootOptions.Seed"/>); it is logged. Product: <see cref="BootContext.Session"/>.
 /// </summary>
@@ -71,6 +73,8 @@ public sealed class SessionBootStep : IBootStep
             $"BOOT 5 session: loopback HostSession profile={profile.Name} seed={seed} ({seedSource}) world_source={worldSource.Kind}v{worldSource.Version} clock_frequency={clock.Frequency} catch_up_cap={content.Settings.Core.MaxCatchUpTicksPerFrame} catch_up_guard_ms={FrameRunnerSettings.Default.CatchUpGuardMs}"));
         // The local peer is admitted into slot 0 (HostSession), so its own launches take the local verdict.
         var mirrors = new ClientMirrors(new ThrowSettings(content.Throw), PlayerSlot.FromValue(0));
+        IClientInputSettings input = ctx.Published.TryGet(out InputSettingsHolder? held) ? held : new DefaultClientInputSettings();
+        var loop = new ClientLoop(clientWorld, content, carrier.View, StatSheet.Build(content, new StatSources([])), input, mirrors.Wallet);
         var options = new HostSessionOptions
         {
             Frame = FrameRunnerSettings.Default,
@@ -78,23 +82,26 @@ public sealed class SessionBootStep : IBootStep
             {
                 carrier.BindTo(b);
                 mirrors.BindTo(b);
+                loop.BindTo(b);
             },
         };
         var session = new HostSession(
             new SimBuildArgs(profile, content, seed) { WorldSource = worldSource },
             clock,
-            [.. ThrowingCodecs.CreateOps(), .. DeliveryCodecs.CreateOps()],
-            [.. ThrowingCodecs.CreateEvents(), .. MailEventCodecs.Create(new WorldIdMaps(clientWorld))],
+            [.. ThrowingCodecs.CreateOps(), .. DeliveryCodecs.CreateOps(), .. InventoryCodecs.CreateOps()],
+            [.. ThrowingCodecs.CreateEvents(), .. MailEventCodecs.Create(new WorldIdMaps(clientWorld)), .. InventoryCodecs.CreateEvents()],
             options);
 
         mirrors.Register(session.MirrorDrain);
+        loop.Attach(session, mirrors.FlightMirror);
         ctx.Published.Add(mirrors.Wallet);
         ctx.Published.Add(mirrors.Run);
         ctx.Published.Add(mirrors.Flights);
+        loop.Publish(ctx.Published);
 
         // HostSession starts its driver; GameLoop starts it on the first _Process instead, so boot time never becomes ticks (F12).
         session.Driver.Stop();
-        ctx.Session = new BootSession(session, clientWorld, carrier, clock, seed) { Mirrors = mirrors };
+        ctx.Session = new BootSession(session, clientWorld, carrier, clock, seed) { Mirrors = mirrors, Loop = loop };
         return BootStepResult.Ok;
     }
 
@@ -172,7 +179,7 @@ public sealed class AttachPortsBootStep : IBootStep
         ArgumentNullException.ThrowIfNull(ctx);
         BootSession booted = ctx.Session ?? throw new InvalidOperationException("Boot step 6 needs step 5's session.");
         HostSession session = booted.Session;
-        var ports = new ClientPortsBuilder { Requests = new ClientAdapterRequestSink(session.ClientAdapter), HostClock = session.ClientAdapter.Clock };
+        var ports = new ClientPortsBuilder { Requests = new ClientAdapterRequestSink(session.ClientAdapter, session.OpCodecs), HostClock = session.ClientAdapter.Clock };
         foreach (IPortContributor c in _contributors)
         {
             ctx.Log.Write($"BOOT 6 sim: port contributor {c.GetType().Name}");
