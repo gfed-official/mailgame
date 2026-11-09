@@ -1,5 +1,6 @@
 using PerformativeMail.Game.Boot;
 using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Hosting;
 
 namespace PerformativeMail.Sim.Tests.Unit.Boot;
 
@@ -103,6 +104,24 @@ internal sealed class DisplaySpy(List<string> record, bool throws = false) : IBo
     }
 }
 
+/// <summary>A settable monotonic clock (3 000 000 counts per second: 100 000 per 1/30 s tick).</summary>
+internal sealed class FakeBootClock : IMonotonicClock
+{
+    public const long TicksPerSecond = 3_000_000;
+
+    public long Timestamp { get; set; }
+
+    public long Frequency => TicksPerSecond;
+}
+
+/// <summary>Step 7's presenters without Godot: counts the hand-overs.</summary>
+internal sealed class StubPresenters : IPresentersBoot
+{
+    public int Calls { get; private set; }
+
+    public void Initialize(PresentationInputs inputs, BootLog log) => Calls++;
+}
+
 /// <summary>A boot harness: context with recording fault entry and display, and the full plan over doubles.</summary>
 internal sealed class BootHarness
 {
@@ -114,7 +133,11 @@ internal sealed class BootHarness
         {
             Faults.Add(ex);
             Record.Add($"fault {ex.GetType().Name}");
-        }, Display);
+        }, Display)
+        {
+            Options = new BootOptions { Clock = new FakeBootClock() },   // story 005: steps 5-6 build a real session over a fake clock
+            Presenters = new StubPresenters(),                            // story 006: step 7 hands the world to the presenters
+        };
     }
 
     public List<string> Record { get; } = [];

@@ -19,7 +19,8 @@ namespace PerformativeMail.Game.Hosting;
 /// session: the loop logs it, hands the message to <see cref="FaultSink"/> and never runs the Sim
 /// again. Boot (story 004) is <see cref="RequestBoot"/>: once per loop it runs the nine ADR-0019 section 3 steps of
 /// <see cref="BuildBootPlan"/> after handing faults to the <c>Main/Screens</c> error panels, and a step that throws ends
-/// the session through <see cref="FaultBoot"/> exactly like a frame fault. Story 005 installs the real sequence.
+/// the session through <see cref="FaultBoot"/> exactly like a frame fault. Story 005 installs the real sequence over the booted
+/// <see cref="Session"/>.
 /// Deliberately no static instance, no lookups beyond its own direct children, no scene changes.
 /// Main thread only.
 /// </summary>
@@ -45,6 +46,8 @@ public partial class GameLoop : Node
     private IPeerPresence? _peerPresence;
     private readonly BootRecord _boot = new();
     private IReadOnlyList<IBootStep>? _smokeBootSteps;
+    private BootOptions? _smokeBootOptions;
+    private BootSession? _session;
 
     /// <summary>
     /// Test seam: when false, <see cref="_Ready"/> does not call <see cref="RequestBoot"/>.
@@ -78,6 +81,12 @@ public partial class GameLoop : Node
 
     /// <summary>True while a frame sequence is installed.</summary>
     public bool HasSequence => _sequence is not null;
+
+    /// <summary>
+    /// The session boot steps 5-6 built (story 005); null before a successful boot. After boot this loop is its only holder: the
+    /// installed frame sequence runs it once per <see cref="_Process"/>.
+    /// </summary>
+    public BootSession? Session => _session;
 
     /// <summary>The managed thread recorded as the boot thread (in <see cref="_Ready"/>); every frame must run on it.</summary>
     public int BootThreadId => _bootThreadId;
@@ -192,6 +201,11 @@ public partial class GameLoop : Node
         }
 
         _boot.Result = sequence.Run(ctx);
+        if (_boot.Result.Value)
+        {
+            InstallBootedSession(ctx);
+        }
+
         return _boot.Result.Value;
     }
 
@@ -260,6 +274,20 @@ public partial class GameLoop : Node
         RequireDebugBuild(nameof(InstallBootStepsForSmoke));
         ArgumentNullException.ThrowIfNull(steps);
         _smokeBootSteps = steps;
+    }
+
+    /// <summary>
+    /// Smoke seam (debug builds only): <see cref="RequestBoot"/> hands <paramref name="options"/> to steps 5-6 instead of the real clock
+    /// and user args (a scenario's pre-boot hook installs a fake clock so its frames run an exact number of ticks).
+    /// </summary>
+    /// <param name="options">The options; a null <see cref="BootOptions.Clock"/> keeps the real clock.</param>
+    /// <exception cref="InvalidOperationException">Not a debug build.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
+    public void UseBootOptionsForSmoke(BootOptions options)
+    {
+        RequireDebugBuild(nameof(UseBootOptionsForSmoke));
+        ArgumentNullException.ThrowIfNull(options);
+        _smokeBootOptions = options;
     }
 
     /// <summary>
@@ -489,8 +517,51 @@ public partial class GameLoop : Node
         FaultSink = BootErrorPanel;
     }
 
+    // Story 006: step 7 initialises this loop's own World, Hud and Audio children (null when one is missing; step 7 then fails).
     private BootContext NewBootContext() =>
-        new(new BootLog(GD.Print), _bootThreadId, FaultBoot, _faultSink as IBootFailureDisplay);
+        new(new BootLog(GD.Print), _bootThreadId, FaultBoot, _faultSink as IBootFailureDisplay) { Options = NewBootOptions(), Presenters = NewPresentersBoot() };
+
+    private Presentation.PresentersBoot? NewPresentersBoot() =>
+        GetNodeOrNull<Presentation.WorldPresenter>("World") is { } world
+        && GetNodeOrNull<Presentation.HudPresenter>("Hud") is { } hud
+        && GetNodeOrNull<Presentation.AudioPresenter>("Audio") is { } audio
+            ? new Presentation.PresentersBoot(world, hud, audio)
+            : null;
+
+    // Steps 5-6's inputs: the Stopwatch clock and the user args, unless a smoke installed its own.
+    private BootOptions NewBootOptions()
+    {
+        BootOptions? smoke = _smokeBootOptions;
+        return new BootOptions
+        {
+            Clock = smoke?.Clock ?? new StopwatchMonotonicClock(),
+            Seed = smoke?.Seed,
+            FixtureProfile = smoke?.FixtureProfile,
+            UserArgs = smoke?.UserArgs ?? OS.GetCmdlineUserArgs(),
+        };
+    }
+
+    // Story 005: after a successful boot this loop holds the session and runs it through a frame sequence over the World, Hud and
+    // Audio presenters (ADR-0019 section 2 order; boot step 7 initialised them, story 006). A sequence a smoke installed
+    // before boot is kept, so its doubles stay in charge.
+    private void InstallBootedSession(BootContext ctx)
+    {
+        if (ctx.Session is not { RenderClock: { } renderClock } booted)
+        {
+            return;
+        }
+
+        _session = booted;
+        if (_sequence is not null)
+        {
+            Info("[GameLoop] a smoke-installed frame sequence is kept; the booted session is not run");
+            return;
+        }
+
+        var presentation = new PresentationRoot(
+            GetNode<Presentation.WorldPresenter>("World"), GetNode<Presentation.HudPresenter>("Hud"), GetNode<Presentation.AudioPresenter>("Audio"));
+        _sequence = new FrameSequence(booted.Clock, booted.Driver, new SessionFrameRun(booted.Session), new RenderClockSampler(renderClock), presentation);
+    }
 
     private static string? FindSmokeName()
     {
