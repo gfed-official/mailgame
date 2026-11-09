@@ -40,7 +40,7 @@ public sealed class LoopSmoke : SmokeScenario
     private const int MinAimWallMs = 400;
 
     private readonly FakeClock _clock = new();
-    private ClientLoop _client = null!;
+    private ClientLoop? _client;
     private CarrierView _carrier = null!;
     private WalletMirror _wallet = null!;
     private FlightMirrorConsumer _flights = null!;
@@ -48,6 +48,9 @@ public sealed class LoopSmoke : SmokeScenario
     private IAimArcSource _aim = null!;
     private IWorldQuery _world = null!;
     private GameLoop _loop = null!;
+
+    // Set once the pickup step has checked it is there.
+    private ClientLoop Client => _client!;
 
     /// <inheritdoc />
     public override bool NeedsBoot => true;
@@ -80,19 +83,19 @@ public sealed class LoopSmoke : SmokeScenario
             return SmokeStatus.Running;
         }
 
-        if (_loop.Session is not { Loop: { } client, LocalPlayer: { } local, Mirrors: { } mirrors } session)
+        if (_loop.Session is not { LocalPlayer: { } local, Mirrors: { } mirrors } session || _loop.InputBoot is not { } input)
         {
-            ctx.Fail("no booted session with the client loop");
+            ctx.Fail("no booted session");
             return SmokeStatus.Done;
         }
 
-        _client = client;
+        // The router's interaction port is what presses target: idle until a client interaction snapshot is published.
+        _client = session.Loop;
         _carrier = session.Carrier.View;
         _wallet = mirrors.Wallet;
         _flights = mirrors.Flights;
         _world = session.World;
-        _interaction = client.Interaction.Publisher;
-        _aim = client.Aim;
+        _interaction = input.Ports.Interaction;
         _loop._Process(0);
         for (int i = 0; i < 20 && !local.IsKnown; i++)
         {
@@ -127,30 +130,35 @@ public sealed class LoopSmoke : SmokeScenario
             return false;
         }
 
-        Expect(ctx, "the HUD prompt shows [E] Take mail", PromptText(), "[E] Take mail");
+        if (!Expect(ctx, "the HUD prompt shows [E] Take mail", PromptText(), "[E] Take mail") || _client is null)
+        {
+            return false;
+        }
+
+        _aim = Client.Aim;
 
         // The first batch reaches the Intake a few seconds into Delivery (F2 jitter): an empty Intake answers no_target, so press again.
         bool picked = false;
         for (int attempt = 0; attempt < 8 && !picked; attempt++)
         {
             Press(Key.E, 2);
-            picked = TickUntil(45, () => _client.Pickup.Pickups > 0 && _client.Panel.SelectedIndex > 0);
+            picked = TickUntil(45, () => Client.Pickup.Pickups > 0 && Client.Panel.SelectedIndex > 0);
         }
 
-        Expect(ctx, $"E took the Intake's mail (take_all reason {_client.Pickup.LastTakeAllReason})", _client.Pickup.Pickups, 1);
-        if (!Expect(ctx, $"a letter is staged on the hotbar and selected (slot {_client.Panel.SelectedIndex})", picked && _client.Panel.TryGet(out _), true))
+        Expect(ctx, $"E took the Intake's mail (take_all reason {Client.Pickup.LastTakeAllReason})", Client.Pickup.Pickups, 1);
+        if (!Expect(ctx, $"a letter is staged on the hotbar and selected (slot {Client.Panel.SelectedIndex})", picked && Client.Panel.TryGet(out _), true))
         {
             return false;
         }
 
         // The HUD inventory panel and ClientPorts.Panel read the own-panel mirror: the staged letter shows on the drawn hotbar, the rest
         // of the take in the panel's own grid.
-        bool portIsMirror = ReferenceEquals(_loop.Session?.Panel, _client.Panel);
+        bool portIsMirror = ReferenceEquals(_loop.Session?.Panel, Client.Panel);
         Expect(ctx, "ClientPorts.Panel is the own-panel mirror", portIsMirror, true);
         PanelGridView? view = _loop.GetNodeOrNull<PanelGridView>("Hud/Inventory/PanelGridView");
-        PanelGridEntry shown = view?.Controller.HotbarEntry(_client.Panel.SelectedIndex) ?? default;
-        Expect(ctx, $"the HUD panel's hotbar shows the letter in slot {_client.Panel.SelectedIndex} (entry {shown.EntryId}, x{shown.Units})", shown.EntryId != 0 && shown.Category == ItemCategory.Mail, true);
-        return Expect(ctx, $"the HUD panel's own grid holds the rest of the take ({_client.Panel.Inventory.EntryCount} entries)", _client.Panel.Inventory.EntryCount > 0, true);
+        PanelGridEntry shown = view?.Controller.HotbarEntry(Client.Panel.SelectedIndex) ?? default;
+        Expect(ctx, $"the HUD panel's hotbar shows the letter in slot {Client.Panel.SelectedIndex} (entry {shown.EntryId}, x{shown.Units})", shown.EntryId != 0 && shown.Category == ItemCategory.Mail, true);
+        return Expect(ctx, $"the HUD panel's own grid holds the rest of the take ({Client.Panel.Inventory.EntryCount} entries)", Client.Panel.Inventory.EntryCount > 0, true);
     }
 
     private bool HandDeliver(SmokeContext ctx)
@@ -180,7 +188,7 @@ public sealed class LoopSmoke : SmokeScenario
 
     private void Throw(SmokeContext ctx)
     {
-        if (!_client.Panel.TryGet(out SelectedEntryFacts held))
+        if (!Client.Panel.TryGet(out SelectedEntryFacts held))
         {
             ctx.Fail("no letter left in hand to throw");
             return;
@@ -194,7 +202,7 @@ public sealed class LoopSmoke : SmokeScenario
 
         GoInFront(lot, ThrowStandOffMm);
         long before = _wallet.BalanceCents;
-        uint released = _client.Release?.Released ?? 0;
+        uint released = Client.Release?.Released ?? 0;
         SmokeInput.Mouse(MouseButton.Right, true);
         TickUntil(10, () => _aim.Aiming);
         int arc = _aim.PointCount;
@@ -212,7 +220,7 @@ public sealed class LoopSmoke : SmokeScenario
         // The router judges the release on its own millisecond clock (wall time): hold at least throwMinAimMs before letting go.
         System.Threading.Thread.Sleep(MinAimWallMs);
         SmokeInput.Mouse(MouseButton.Right, false);
-        bool launched = TickUntil(10, () => (_client.Release?.Released ?? 0) > released);
+        bool launched = TickUntil(10, () => (Client.Release?.Released ?? 0) > released);
         Expect(ctx, "releasing RMB sent the throw", launched, true);
         int flying = 0;
         bool paid = TickUntil(120, () =>
@@ -227,9 +235,9 @@ public sealed class LoopSmoke : SmokeScenario
     // The address to hand-deliver: a player_inventory letter when there is one, else the held one.
     private void EntryIdOrHeld(out AddressId address)
     {
-        EntryId bag = _client.Panel.FirstInventoryMail();
-        address = !bag.IsNone ? _client.Panel.AddressOf(bag)
-            : _client.Panel.TryGet(out SelectedEntryFacts held) ? held.Unit.Address : AddressId.None;
+        EntryId bag = Client.Panel.FirstInventoryMail();
+        address = !bag.IsNone ? Client.Panel.AddressOf(bag)
+            : Client.Panel.TryGet(out SelectedEntryFacts held) ? held.Unit.Address : AddressId.None;
     }
 
     private bool TryLot(AddressId address, out LotRecord lot)
