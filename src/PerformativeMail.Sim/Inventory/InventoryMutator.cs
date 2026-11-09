@@ -757,6 +757,44 @@ internal sealed class InventoryMutator
     }
 
     /// <summary>
+    /// The in-flight consume primitive (mail-destinations story 008, a thrown landing; <c>ConsumeUnit</c>'s Flight form): the oldest unit
+    /// of a live detached entry in <see cref="LedgerState.Flight"/> crosses Flight to Consumed for <paramref name="reason"/>; for mail its
+    /// lowest mailId leaves the arena run. The last unit frees the entry. Touches no container, version or record (the entry is in none).
+    /// Anything else (a placed, free or empty entry, or one held by a WorldItem or the backlog) changes nothing and returns false. O(1).
+    /// </summary>
+    /// <param name="entrySlot">The flying entry's pool slot.</param>
+    /// <param name="reason">Why the unit is consumed.</param>
+    /// <returns>True when a unit was consumed.</returns>
+    public bool ConsumeFlightOldest(ushort entrySlot, ConsumeReason reason)
+    {
+        ref EntryRecord e = ref _entries[entrySlot];
+        if (!e.IsLive || e.ContainerSlot != EntryRecord.NoContainer || e.Count < 1
+            || _ledger.HolderOf(entrySlot) != (byte)LedgerState.Flight || (e.IsMail && e.MailIds.Count < 1))
+        {
+            return false;
+        }
+
+        _ledger.AddConsumed(UnitLedger.RowOf(in e), reason, 1);
+        LeaveHolder(entrySlot, 1);
+        if (e.IsMail)
+        {
+            Span<uint> taken = stackalloc uint[1];
+            _ = _mailIds.Take(ref e.MailIds, 1, taken, 0);
+        }
+
+        if (e.Count == 1)
+        {
+            _entries.Free(entrySlot);
+        }
+        else
+        {
+            _entries.SetCount(entrySlot, (byte)(e.Count - 1));
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// The split primitive (story grid-inventory/008: a <c>move</c> with <c>1 ≤ count &lt; total</c>, GDD R7 move row "atomic
     /// split-and-place (new piece gets a new entryId; remainder keeps the old)"): splits the <paramref name="k"/> <b>oldest</b> units
     /// of a placed entry off into a new entry placed at (<paramref name="x"/>, <paramref name="y"/>, <paramref name="rotated"/>) of

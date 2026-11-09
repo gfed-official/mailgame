@@ -98,6 +98,7 @@ public class PlayersDumpTests
             }
 
             w.WriteU16(c.WadeSlowPm);   // story 009: appended after the pairs
+            w.WriteU8(r.HotbarIndex);   // HotbarSelect: appended after the carrier
         }
 
         w.WriteU32(0);   // story 012: the anchor registry tail (an empty registry is a zero count)
@@ -139,7 +140,7 @@ public class PlayersDumpTests
     public void Dump_HasAPlayersSection_AfterSimCore_AndAJoinChangesIt()
     {
         // Arrange
-        var rig = PlayersRig.Create();
+        var rig = PlayersRig.Create().WithoutIntakeAnchor();
         byte[] before = PlayersSection(rig);
 
         // Act
@@ -157,7 +158,7 @@ public class PlayersDumpTests
     public void Dump_AfterLeave_ReturnsToTheEmptyPlayersSection()
     {
         // Arrange
-        var rig = PlayersRig.Create();
+        var rig = PlayersRig.Create().WithoutIntakeAnchor();
         rig.JoinAndTick(2);
 
         // Act
@@ -173,7 +174,7 @@ public class PlayersDumpTests
     public void Section_WritesSlotsInAscendingOrder_FieldByField_InTheDocumentedLayout()
     {
         // Arrange: slot 3 joins before slot 0, yet slot 0 is written first.
-        var rig = PlayersRig.Create();
+        var rig = PlayersRig.Create().WithoutIntakeAnchor();
         rig.JoinAndTick(3);
         rig.JoinAndTick(0);
         ref PlayerRecord r0 = ref rig.Record(0);

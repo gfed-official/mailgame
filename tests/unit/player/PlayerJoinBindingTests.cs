@@ -3,6 +3,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Balance;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Geometry;
+using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Primitives;
 using PerformativeMail.Sim.Tests.Unit.Architecture;
@@ -404,7 +405,7 @@ public class PlayerJoinBindingTests
     public void CompositionRules_PlayersSystem_Passes_AndTheWholeSimAssemblyStillDoes()
     {
         // Act
-        List<string> own = CompositionRules.Check(new[] { typeof(PlayersSystem) }, SystemGraph.Shipped);
+        List<string> own = CompositionRules.Check(new[] { typeof(PlayersSystem), typeof(InventorySystem) }, SystemGraph.Shipped);
         List<string> all = CompositionRules.Check(typeof(SimAssembly).Assembly.GetTypes(), SystemGraph.Shipped);
 
         // Assert

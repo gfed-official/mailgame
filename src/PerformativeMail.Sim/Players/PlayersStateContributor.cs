@@ -6,7 +6,7 @@ namespace PerformativeMail.Sim.Players;
 /// <summary>
 /// Players' canonical dump section (ADR-0006 section 4, ADR-0013 section 2): a <c>u32</c> count of present players, then for each
 /// in ascending slot order the slot, <c>playerId</c>, life state and deadlines, <c>TeleportSeq</c>, aim, and every
-/// <see cref="CarrierState"/> field written one by one (never a struct blit), the seven push pairs, then <c>WadeSlowPm</c> (story 009, appended); then the anchor registry (story 012, appended: <c>u32</c> count and the anchors in
+/// <see cref="CarrierState"/> field written one by one (never a struct blit), the seven push pairs, then <c>WadeSlowPm</c> (story 009, appended), then the selected hotbar index <c>u8</c> (<c>HotbarSelect</c>, appended); then the anchor registry (story 012, appended: <c>u32</c> count and the anchors in
 /// ascending index, see <see cref="AnchorRegistry.Dump"/>); then (story 019, appended; Evan approved 2026-10-29 (TD-188 item 1)) a <c>u32</c>
 /// count of present players and for each in ascending slot order its host position: feet X, Y, Z <c>i32</c>, yaw <c>u16</c>, <see cref="SampleFlags"/>
 /// <c>u8</c>, <c>LastReceivedTick</c> <c>u32</c> (an empty section is 12 bytes). The capsule size is not
@@ -54,6 +54,7 @@ internal sealed class PlayersStateContributor : ISimStateContributor
             w.WriteU16(r.LookYaw);
             w.WriteU16(unchecked((ushort)r.LookPitch));
             WriteCarrier(ref w, in r.Carrier);
+            w.WriteU8(r.HotbarIndex);   // the HotbarSelect op: appended after the carrier (additive layout)
         }
 
         _players.Anchors.Dump(ref w);   // story 012: the anchor registry, appended after the per-player block

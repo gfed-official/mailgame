@@ -120,7 +120,8 @@ public class MailEventCodecTests
     {
         // Arrange: a right-house letter and a wrong-house letter in slot 0's hotbar.
         var rig = new LoopbackRig();
-        rig.RunFrame(); // tick 0: the local join
+        rig.EnqueueProbe(LoopbackRig.OpenDeliveriesReq);
+        rig.RunFrame(); // tick 0: the local join; deliveries open from tick 1 (an action is judged by its start)
         Assert.True(rig.Session.IsLocalJoined);
 
         // Act: the probe op hands both over in tick 1; its batch is applied at the next client tick.
@@ -266,16 +267,23 @@ public class MailEventCodecTests
             Session.RunFrame();
         }
 
-        public void EnqueueProbe()
+        public const uint OpenDeliveriesReq = 2;
+
+        public void EnqueueProbe(uint reqId = 1)
         {
-            var op = new Op { Kind = _probeOp, ReqId = 1 };
+            var op = new Op { Kind = _probeOp, ReqId = reqId };
             Assert.True(Session.World.EnqueueOp(ActorId.System, in op));
         }
 
         public Reply Apply(in Op op, in TickContext ctx)
         {
             MailSystem mail = _mail!;
-            mail.SetDeliveriesState(true, 0, 1UL);
+            if (op.ReqId == OpenDeliveriesReq)
+            {
+                mail.SetDeliveriesState(true, 0, 1UL);
+                return Reply.Ok(in op);
+            }
+
             EntryRef right = Give(new DestinationOrdinal(0));
             EntryRef wrong = Give(new DestinationOrdinal(1));
             _ = mail.ConsumeHand(mail.Registry.EntityIdOf(new DestinationOrdinal(0)), new[] { right, wrong }, PlayerSlot.FromValue(0), ctx.Tick);

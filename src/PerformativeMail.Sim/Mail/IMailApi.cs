@@ -80,4 +80,47 @@ public interface IMailApi
     /// </summary>
     /// <param name="p">The shift's spawn profile.</param>
     void PrepareShift(in SpawnProfile p);
+
+    /// <summary>
+    /// The throw path into the consume routine (ADR-0017 section 5 throw row; GDD R13; mail-destinations story 008): Throwing's step,
+    /// phase 4, in flight order, after phase 0's hand ops (R6 tick order is phase order). <paramref name="e"/> is the flight's entry in
+    /// <c>IInventoryApi.ConsumeUnit</c>'s Flight form (<c>new EntryRef(ContainerId.None, entry)</c>). One <c>MailConsumer.Consume</c> call
+    /// with <c>actionStartTick = releaseTick</c> (the closing grace judges the release) and the snapshotted <paramref name="thrownPm"/>
+    /// (Cannon Arm applies even when the thrower has left; the live stat sheet's thrown multiplier is never read): an Accept pays every
+    /// unit; a Misdeliver misdelivers every unit, oldest first, until the wallet floor; a Reject consumes nothing. Lateness is read at the
+    /// apply tick's shift. Mail never creates the bounce: the caller turns a Reject or the remainder into one WorldItem (ADR-0015).
+    /// Out of phase or at an unregistered destination it changes nothing and returns <see cref="LandingKind.Rejected"/> with the whole
+    /// entry remaining. 0 B after warm-up.
+    /// </summary>
+    /// <param name="dest">The destination entity whose catch volume the flight entered.</param>
+    /// <param name="e">The flight's entry (Flight form).</param>
+    /// <param name="thrower">The thrower's slot (the outcome's actor).</param>
+    /// <param name="thrownPm">The thrower's thrown pay multiplier at release, permille.</param>
+    /// <param name="releaseTick">The tick the throw was released.</param>
+    /// <returns>What was consumed and what remains on the entry.</returns>
+    /// <exception cref="SimAssertException"><see cref="SimAssertCode.MailConsumeUnitRefused"/> under <c>SIM_ASSERT</c> when Inventory refuses a unit Mail has just read.</exception>
+    LandingResult ResolveThrownLanding(EntityId dest, in EntryRef e, PlayerSlot thrower, int thrownPm, uint releaseTick);
+
+    /// <summary>
+    /// The deliveries state Run last set through <see cref="SetDeliveriesState"/> (mail-destinations story 009 stores it), read-only:
+    /// whether deliveries are open and the tick they last closed. Throwing's <c>ThrowRelease</c> commit records <c>open</c> as the flight's
+    /// <c>openAtRelease</c> (throwing-catching story 010); Mail judges closing grace itself from the release tick. Legal between ticks; 0 B.
+    /// </summary>
+    /// <param name="open">True when deliveries are open.</param>
+    /// <param name="closeTick">The tick they last closed (0 when never).</param>
+    void GetDeliveriesState(out bool open, out uint closeTick);
+
+    /// <summary>
+    /// The throw path's judgement, read-only (throwing-catching story 012): what <see cref="ResolveThrownLanding"/> with the same
+    /// arguments would decide now, changing nothing and raising nothing, so Throwing can raise <c>FlightResolved</c> with its terminal
+    /// before the landing's domain events (ADR-0015 section 5). The same effective state (closing grace from <paramref name="releaseTick"/>)
+    /// and the same <c>MailRules.Evaluate</c> on the oldest unit as <c>MailConsumer.Consume</c>: no second copy of the rule. An unregistered
+    /// destination or an entry Mail cannot read is <see cref="LandingKind.Rejected"/>. Whether a Misdeliver stops at the wallet floor is
+    /// not judged (only the call knows). 0 B.
+    /// </summary>
+    /// <param name="dest">The destination entity whose catch volume the flight entered.</param>
+    /// <param name="e">The flight's entry (Flight form).</param>
+    /// <param name="releaseTick">The tick the throw was released.</param>
+    /// <returns>Accepted, Misdelivered or Rejected.</returns>
+    LandingKind JudgeThrownLanding(EntityId dest, in EntryRef e, uint releaseTick);
 }
