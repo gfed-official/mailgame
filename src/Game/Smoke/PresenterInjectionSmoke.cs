@@ -9,7 +9,7 @@ namespace PerformativeMail.Game.Smoke;
 /// <summary>
 /// godot-host-shell story 006 AC-1, AC-2 and AC-4 over the real boot and frame loop. Probe views sit in the <c>World</c> (nested under
 /// <c>World/Entities</c>), <c>Hud</c> and <c>Audio</c> subtrees before boot: none is initialised when step 6 ends, each exactly once
-/// after step 7, and step 7 logs its presenters and the empty world-build list. The deps carry the published <c>ICarrierView</c> and the
+/// after step 7, and step 7 logs its presenters and its one world-build step (story 009's destinations). The deps carry the published <c>ICarrierView</c> and the
 /// adapter's event stream; a missing published state throws naming its type. Each frame presents World, then Hud, then Audio, views in
 /// registration order with the frame's alpha; a view registered between frames is initialised at once and presented from the next
 /// frame, and one registered during <c>Present</c> is first presented the frame after.
@@ -69,7 +69,7 @@ public sealed class PresenterInjectionSmoke : SmokeScenario
 
         Expect(ctx, "step 7 ok", BootSmokeFaults.Logged(lines, "BOOT 7 world ok"), true);
         Expect(ctx, "step 7 logs the presenters", BootSmokeFaults.Logged(lines, "BOOT 7 world: presenters World,Hud,Audio initialized"), true);
-        Expect(ctx, "step 7 logs the empty world-build list", BootSmokeFaults.Logged(lines, "BOOT 7 world: no world-build steps"), true);
+        Expect(ctx, "step 7 runs the two world-build steps (destinations, story 009; terrain, story 010)", BootSmokeFaults.Logged(lines, "BOOT 7 world: world-build steps ran=2"), true);
         Expect(ctx, "probe inits when step 6 ends", _initsAfterStep6, 0);
         Expect(ctx, "probe inits after boot (world, hud, audio)", $"{_world.Inits},{_hud.Inits},{_audio.Inits}", "1,1,1");
         Expect(ctx, "probes share one PresenterDeps", ReferenceEquals(_world.Deps, _hud.Deps) && ReferenceEquals(_hud.Deps, _audio.Deps), true);

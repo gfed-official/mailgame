@@ -8,8 +8,8 @@ namespace PerformativeMail.Sim.ClientLayer;
 /// <see cref="ClientStepContext.Ports"/>. Every port is required: an absent one is bound to a null object by the shell, never left null.
 /// <para>
 /// Differences from the Key Interfaces sketch (recorded in the story): <c>Inbox</c> is not here because the drain is Client.Core's
-/// <c>MirrorDrainStep</c>, bound at build over its own inbox (network-adapter-loopback 007); <c>Panel</c> is added by the story that
-/// declares <c>IPanelView</c> (manual-delivery 002). <see cref="TransformSamples"/>, <see cref="CarrierLoad"/> and
+/// <c>MirrorDrainStep</c>, bound at build over its own inbox (network-adapter-loopback 007); <see cref="Panel"/> was added once
+/// <c>IPanelView</c> was declared (manual-delivery 002). <see cref="TransformSamples"/>, <see cref="CarrierLoad"/> and
 /// <see cref="LocalPlayer"/> are player-character story 020's additive ports. Init properties instead of readonly fields, so a port
 /// can be appended without breaking a constructor.
 /// </para>
@@ -35,4 +35,7 @@ public readonly struct ClientPorts
 
     /// <summary>The local player's slot and id (player-character 020).</summary>
     public ILocalPlayer LocalPlayer { get; init; }
+
+    /// <summary>The local player's own panel (ADR-0016 Key Interfaces).</summary>
+    public IPanelView Panel { get; init; }
 }

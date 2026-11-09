@@ -22,7 +22,7 @@ public class BootSequenceTests
         "BOOT 5 session ok",
         "BOOT 6 sim ok",
         "BOOT 7 world ok",
-        "BOOT 8 views NOT WIRED (story 008)",
+        "BOOT 8 views ok",
         "BOOT 9 start ok",
     ];
 
@@ -39,6 +39,23 @@ public class BootSequenceTests
         Assert.Null(h.Context.Failure);
         Assert.Empty(h.Faults);
         Assert.Empty(h.Display.Prepared);
+    }
+
+    [Theory]
+    [Trait("Id", "CDD-SCHEMA-7")]
+    [InlineData(0, true)]
+    [InlineData(10, false)]
+    public void Run_ViewStep_ResolvesWithDebugFlagAndFailsOnContentScreenOnlyWhenErrorsReported(int viewErrors, bool expectBooted)
+    {
+        var h = new BootHarness();
+        h.Presenters.ViewErrors = viewErrors;
+
+        bool ok = h.Run(h.Plan());
+
+        Assert.Equal(expectBooted, ok);
+        Assert.False(h.Presenters.ViewsRelease);   // the harness plan is a debug build: release = false
+        Assert.Equal(expectBooted ? null : (int?)BootPlan.ViewsStep, h.Context.Failure?.Step);
+        Assert.Equal(expectBooted ? null : BootFailureKind.Content, h.Context.Failure?.Kind);
     }
 
     [Fact]
@@ -65,9 +82,7 @@ public class BootSequenceTests
         Assert.Equal(
             ["window", "content", "persistence", "input", "session", "sim", "world", "views", "start"],
             plan.Select(s => s.Name));
-        Assert.Equal(
-            [BootPlan.ViewsStep],
-            plan.OfType<UnwiredBootStep>().Select(s => s.Number));
+        Assert.Empty(plan.OfType<UnwiredBootStep>());
     }
 
     [Fact]

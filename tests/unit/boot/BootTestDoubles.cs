@@ -114,12 +114,22 @@ internal sealed class FakeBootClock : IMonotonicClock
     public long Frequency => TicksPerSecond;
 }
 
-/// <summary>Step 7's presenters without Godot: counts the hand-overs.</summary>
-internal sealed class StubPresenters : IPresentersBoot
+/// <summary>Step 7's presenters and step 8's views without Godot: counts the hand-overs; step 8 reports <see cref="ViewErrors"/>.</summary>
+internal sealed class StubPresenters : IPresentersBoot, IViewsBoot
 {
     public int Calls { get; private set; }
 
+    public int ViewErrors { get; set; }
+
+    public bool? ViewsRelease { get; private set; }
+
     public void Initialize(PresentationInputs inputs, BootLog log) => Calls++;
+
+    public int ResolveViews(ContentSet content, bool release, BootLog log)
+    {
+        ViewsRelease = release;
+        return ViewErrors;
+    }
 }
 
 /// <summary>A boot harness: context with recording fault entry and display, and the full plan over doubles.</summary>
@@ -136,9 +146,12 @@ internal sealed class BootHarness
         }, Display)
         {
             Options = new BootOptions { Clock = new FakeBootClock() },   // story 005: steps 5-6 build a real session over a fake clock
-            Presenters = new StubPresenters(),                            // story 006: step 7 hands the world to the presenters
+            Presenters = Presenters,                                      // story 006: step 7 hands the world to the presenters
+            Views = Presenters,                                           // story 008: step 8 resolves the view catalogs
         };
     }
+
+    public StubPresenters Presenters { get; } = new();
 
     public List<string> Record { get; } = [];
 

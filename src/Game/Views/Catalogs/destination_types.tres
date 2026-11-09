@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ViewCatalog" format=3 uid="uid://0kyvpyjscxit"]
+
+[ext_resource type="PackedScene" uid="uid://cn41tb61hcit5" path="res://src/Game/Views/Placeholder/PlaceholderView.tscn" id="1_cpg1d"]
+[ext_resource type="Script" uid="uid://26sl72rcuxdu" path="res://src/Game/Views/ViewCatalog.cs" id="2_qmc5v"]
+
+[resource]
+script = ExtResource("2_qmc5v")
+Placeholder = ExtResource("1_cpg1d")

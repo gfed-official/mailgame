@@ -47,4 +47,15 @@ public sealed class PublishedStates
         _states.TryGetValue(typeof(T), out object? state)
             ? (T)state
             : throw new InvalidOperationException($"No published state {typeof(T).FullName}: no boot contributor added it to PublishedStates.");
+
+    /// <summary>The state published under <typeparamref name="T"/>, if any (for a view that is optional on a reduced boot).</summary>
+    /// <typeparam name="T">The read-only interface.</typeparam>
+    /// <param name="state">The state when published.</param>
+    /// <returns>True when a state is published as <typeparamref name="T"/>.</returns>
+    public bool TryGet<T>([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? state)
+        where T : class
+    {
+        state = _states.TryGetValue(typeof(T), out object? found) ? (T)found : null;
+        return state is not null;
+    }
 }

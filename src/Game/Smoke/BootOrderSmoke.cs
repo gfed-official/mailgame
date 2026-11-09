@@ -87,7 +87,7 @@ public sealed class BootOrderSmoke : SmokeScenario
         Expect(ctx, "BOOT FAIL lines", status.Count(s => s.Status == "FAIL"), 0);
         string notWired = string.Join(",", status.Where(s => s.Status == "NOT WIRED").Select(s => $"{s.Number} {s.Name}"));
         ctx.Pass($"NOT WIRED steps (story 011 asserts none): {notWired}");
-        Expect(ctx, "NOT WIRED steps at story 006", notWired, "8 views");
+        Expect(ctx, "NOT WIRED steps at story 008", notWired, "");
         Expect(ctx, "step 7 ran (story 006)", BootSmokeFaults.Logged(lines, "BOOT 7 world ok"), true);
     }
 
