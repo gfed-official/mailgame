@@ -79,15 +79,7 @@ public static class LaunchMath
             return false;
         }
 
-        long n = Fix.ISqrt((ulong)DirLengthSquared(i.Dx, i.Dy, i.Dz));
-        if (n < MinDirLength || n > MaxDirLength)
-        {
-            return false;
-        }
-
-        var sink = default(SimCounterSink); // n >= 16000 here: the divisor is never 0 or -1, nothing to count
-        long elevationPm = Fix.FloorDiv(1000L * i.Dy, n, ref sink);
-        if (elevationPm > MaxElevationPm || elevationPm < MinElevationPm)
+        if (!ValidateDir(i.Dx, i.Dy, i.Dz, out long n))
         {
             return false;
         }
@@ -106,6 +98,30 @@ public static class LaunchMath
 
         l = new Launch(origin, vel, s.G);
         return true;
+    }
+
+    /// <summary>
+    /// The F1 host bounds on a client direction (ADR-0015 section 1 check 8 and section 3): <c>16000 ≤ n ≤ 16768</c> and
+    /// <c>−876 ≤ FloorDiv(1000·dy, n) ≤ 980</c>, with <c>n = ISqrt(dx² + dy² + dz²)</c> over components widened to <see cref="long"/>.
+    /// The one bounds check: <see cref="Compute"/> and the <c>ThrowRelease</c> validator both call it. Pure, allocation-free.
+    /// </summary>
+    /// <param name="dx">Direction x.</param>
+    /// <param name="dy">Direction y.</param>
+    /// <param name="dz">Direction z.</param>
+    /// <param name="n">The direction length <c>n</c> (also when out of bounds).</param>
+    /// <returns>True when both bounds hold; false is <c>bad_direction</c>.</returns>
+    /// <example><code>if (!LaunchMath.ValidateDir(p.DirX, p.DirY, p.DirZ, out _)) { /* bad_direction */ }</code></example>
+    public static bool ValidateDir(short dx, short dy, short dz, out long n)
+    {
+        n = Fix.ISqrt((ulong)DirLengthSquared(dx, dy, dz));
+        if (n < MinDirLength || n > MaxDirLength)
+        {
+            return false;
+        }
+
+        var sink = default(SimCounterSink); // n >= 16000 here: the divisor is never 0 or -1, nothing to count
+        long elevationPm = Fix.FloorDiv(1000L * dy, n, ref sink);
+        return elevationPm <= MaxElevationPm && elevationPm >= MinElevationPm;
     }
 
     /// <summary>

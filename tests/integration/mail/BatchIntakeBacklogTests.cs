@@ -375,5 +375,8 @@ public class BatchIntakeBacklogTests
         public int SpeedPermille(PlayerSlot slot) => _inner.SpeedPermille(slot);
 
         public IPanelView HostPanelView(PlayerSlot slot) => _inner.HostPanelView(slot);
+
+        public DetachCheck CheckDetachForThrow(PlayerSlot slot, uint rawEntryId, byte units, out byte hotbarIndex) =>
+            _inner.CheckDetachForThrow(slot, rawEntryId, units, out hotbarIndex);
     }
 }

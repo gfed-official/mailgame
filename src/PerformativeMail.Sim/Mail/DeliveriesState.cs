@@ -18,6 +18,12 @@ internal sealed class DeliveriesState
     /// <summary>The tick deliveries last closed (0 when never).</summary>
     public uint CloseTick { get; private set; }
 
+    /// <summary>
+    /// The first tick of the current (or last) open window: set on a closed → open change to the tick that change takes effect (0 when never
+    /// opened, or opened through a write that gives no tick).
+    /// </summary>
+    public uint OpenSinceTick { get; private set; }
+
     /// <summary>The unlocked-district bit mask (see the type remarks).</summary>
     public ulong UnlockedDistrictMask { get; private set; } = DefaultUnlockedMask;
 
@@ -25,8 +31,14 @@ internal sealed class DeliveriesState
     /// <param name="open">Whether deliveries are open.</param>
     /// <param name="closeTick">The tick they closed.</param>
     /// <param name="unlockedDistrictMask">The unlocked-district mask.</param>
-    public void Set(bool open, uint closeTick, ulong unlockedDistrictMask)
+    /// <param name="effectiveTick">The first tick the new state applies (<c>SetDeliveriesState</c> passes the next tick).</param>
+    public void Set(bool open, uint closeTick, ulong unlockedDistrictMask, uint effectiveTick = 0)
     {
+        if (open && !Open)
+        {
+            OpenSinceTick = effectiveTick;
+        }
+
         Open = open;
         CloseTick = closeTick;
         UnlockedDistrictMask = unlockedDistrictMask;

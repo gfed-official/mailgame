@@ -47,7 +47,7 @@ internal sealed class DeliverRig
             "md005",
             null,
             new SimSystemEntry(SystemId.GridInventory, ctx => inventory = new InventorySystem(ctx.Content, ctx.StatSheet, ctx.CheckRing, ctx.Events, ctx.Tick, ctx.EntityIds, ctx.Slots)),
-            new SimSystemEntry(SystemId.PlayerCharacter, ctx => players = new PlayersSystem(ctx.World!, ctx.Content, ctx.Samples, ctx.Slots, ctx.Tick, ctx.CheckRing, ctx.Counters)),
+            new SimSystemEntry(SystemId.PlayerCharacter, ctx => players = new PlayersSystem(ctx.World!, ctx.Content, ctx.Samples, ctx.Slots, ctx.Tick, ctx.CheckRing, ctx.Counters, ctx.Api<IInventoryApi>(SystemId.GridInventory))),
             new SimSystemEntry(SystemId.MailDestinations, ctx =>
             {
                 wallet = new StubWallet();

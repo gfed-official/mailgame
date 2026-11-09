@@ -12,7 +12,7 @@ internal static class MailHostFacts
 {
     /// <summary>
     /// A destination's facts with its effective state (<see cref="DeliveriesStateRules.Effective"/>: open, or within the closing grace
-    /// for an action started before the close).
+    /// for an action started before the close; judged from the store's open-window start).
     /// </summary>
     /// <param name="registry">The destination registry.</param>
     /// <param name="o">The destination row.</param>
@@ -25,7 +25,7 @@ internal static class MailHostFacts
     {
         DeliveriesState s = registry.Deliveries;
         DestState state = DeliveriesStateRules.Effective(
-            s.IsDistrictUnlocked(registry.DistrictOf(o)), s.Open, s.CloseTick, actionStartTick, applyTick, closeGraceTicks);
+            s.IsDistrictUnlocked(registry.DistrictOf(o)), s.Open, s.CloseTick, actionStartTick, applyTick, closeGraceTicks, s.OpenSinceTick);
         return registry.FactsOf(o, state);
     }
 
