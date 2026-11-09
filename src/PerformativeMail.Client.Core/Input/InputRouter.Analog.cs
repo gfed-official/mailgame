@@ -106,6 +106,7 @@ public sealed partial class InputRouter : IFocusConeSink
         if (_look.IsLive(_state))
         {
             _lookAcc.AddMouse(r.Value, r.Value2, Settings);
+            LastFeedConsumed = true;
         }
     }
 
