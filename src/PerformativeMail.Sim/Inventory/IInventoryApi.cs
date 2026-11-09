@@ -361,4 +361,19 @@ public interface IInventoryApi
 
     /// <summary>The entries in the Intake backlog (story 021): an O(1) memo, read-only, legal between ticks. While it is not 0 nothing overtakes the backlog: <see cref="Spawn"/> into the Intake places nothing.</summary>
     int BacklogEntries { get; }
+
+    /// <summary>
+    /// The decision <see cref="DetachForThrow"/> would make for the same arguments, without mutating (throwing-catching story 009; ADR-0009
+    /// section 2): the same steps in the same order on the raw id, <see cref="DetachCheck.BadRequest"/> or <see cref="DetachCheck.Stale"/> exactly where
+    /// <see cref="DetachForThrow"/> refuses with <c>bad_request</c> or <c>stale_entry</c>. Throwing's <c>ThrowRelease</c> validator calls it for
+    /// its checks 1 and 2 before its own checks 3 to 10 (ADR-0015 section 1). Read-only: legal between ticks (no tick guard), no record, no
+    /// event, no allocation.
+    /// </summary>
+    /// <param name="slot">The thrower's slot.</param>
+    /// <param name="rawEntryId">The hotbar entry's raw id as the request carried it (any bit pattern; a malformed id is <c>bad_request</c>, never an assert).</param>
+    /// <param name="units">The entry's whole count, as the client saw it.</param>
+    /// <param name="hotbarIndex">On <see cref="DetachCheck.Ok"/>, the entry's hotbar slot index (0 to 7); otherwise 0.</param>
+    /// <returns>The decision.</returns>
+    /// <example><code>DetachCheck c = inventory.CheckDetachForThrow(slot, payload.EntryId, payload.Units, out byte index);</code></example>
+    DetachCheck CheckDetachForThrow(PlayerSlot slot, uint rawEntryId, byte units, out byte hotbarIndex);
 }

@@ -57,7 +57,7 @@ namespace PerformativeMail.Sim.Inventory;
 /// </code>
 /// </example>
 [SimSystem(SystemId.GridInventory)]
-public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventoryApi
+public sealed partial class InventorySystem : ISimSystem, IPlayerJoinListener, IInventoryApi
 {
     private struct PanelIds
     {
@@ -792,33 +792,11 @@ public sealed class InventorySystem : ISimSystem, IPlayerJoinListener, IInventor
             return badRequest; // out of phase: counted by the guard, nothing mutated
         }
 
-        if (slot.IsNone || slot.Value >= PlayerSlot.Count || !_containers.TryGetSlot(_panels[slot.Value].Hotbar, out ushort hotbar))
+        // The one decision CheckDetachForThrow also returns (throwing-catching story 009), so Throwing's validator and this mutator agree.
+        DetachCheck check = ClassifyDetach(slot, entryId.Value, units, out ushort hotbar, out ushort entrySlot);
+        if (check != DetachCheck.Ok)
         {
-            return badRequest;
-        }
-
-        // The id goes through the op path's own two steps, with the thrower's slot as the temp namespace (ADR-0009 l.78, l.116-117, l.165).
-        ushort reason = InvRequestCheck.CheckEntryNamespace(_entries, entryId.Value, slot, false);
-        if (reason == 0)
-        {
-            reason = InvRequestCheck.ResolveEntry(_entries, entryId.Value);
-        }
-
-        if (reason != 0)
-        {
-            return new DetachResult((InvReason)reason, default, 0);
-        }
-
-        _ = _entries.TryGetSlot(entryId, out ushort entrySlot); // a live real id: ResolveEntry passed
-
-        if (_entries[entrySlot].ContainerSlot != hotbar)
-        {
-            return badRequest; // the cursor's, a panel's or another slot's entry, or a live detached entry (a duplicate release)
-        }
-
-        if (_entries[entrySlot].Count != units)
-        {
-            return new DetachResult(InvReason.StaleEntry, default, 0);
+            return check == DetachCheck.Stale ? new DetachResult(InvReason.StaleEntry, default, 0) : badRequest;
         }
 
         var plan = new InvPlan();

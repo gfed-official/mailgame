@@ -27,7 +27,7 @@ namespace PerformativeMail.Sim.Players;
 /// </code>
 /// </example>
 [SimSystem(SystemId.PlayerCharacter)]
-public sealed class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
+public sealed partial class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
 {
     private readonly IWorldQuery _world;
     private readonly PostOfficeRecord _postOffice;

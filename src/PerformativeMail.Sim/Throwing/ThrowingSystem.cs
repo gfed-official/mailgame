@@ -157,6 +157,9 @@ public sealed class ThrowingSystem : ISimSystem, IThrowingApi, IPlayerJoinListen
         return ref _tat[slot.Value];
     }
 
+    /// <summary>Every slot's <c>Tat</c>, read-only, indexed by slot value (the <c>ThrowRelease</c> validator's <see cref="ThrowHostFacts.Tat"/>, story 009).</summary>
+    internal ReadOnlySpan<uint> TatClocks => _tat;
+
     /// <inheritdoc />
     void IPlayerJoinListener.OnPlayerJoined(PlayerSlot slot, EntityId player, uint tick) => _tat[slot.Value] = 0;
 

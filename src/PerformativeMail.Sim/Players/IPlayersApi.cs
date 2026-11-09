@@ -64,4 +64,39 @@ public interface IPlayersApi
     /// <returns>True when the panel should close.</returns>
     /// <example><code>if (players.LeashExceeded(slot, in anchorPoint, 3000)) { /* close the panel */ }</code></example>
     bool LeashExceeded(PlayerSlot slot, in Vec3Mm anchorPoint, int leashMm);
+
+    /// <summary>
+    /// True when the stored host sample of <paramref name="slot"/> carries the owner's swimming bit (<see cref="SampleFlags.Swimming"/>,
+    /// player-character story 019): the host's swimming fact, as <see cref="CheckInteraction"/>'s gate reads it. The water hysteresis is the
+    /// owner's (a carrier still swimming at 800 mm reports the bit). Throwing's <c>ThrowRelease</c> check 5 (throwing-catching story 009).
+    /// False for an empty slot. Read-only: legal between ticks.
+    /// </summary>
+    /// <param name="slot">The player's slot.</param>
+    /// <returns>True when swimming.</returns>
+    /// <example><code>if (players.IsSwimming(slot)) { /* swimming */ }</code></example>
+    bool IsSwimming(PlayerSlot slot);
+
+    /// <summary>
+    /// True when the player in <paramref name="slot"/> is not on foot (mounted, seated or driving). Always false at M-1a: there is no seat
+    /// or vehicle yet, as <see cref="CheckInteraction"/>'s <c>BodyContext.OnFoot</c> states. Throwing's <c>ThrowRelease</c> check 6
+    /// (throwing-catching story 009). Read-only: legal between ticks.
+    /// </summary>
+    /// <param name="slot">The player's slot.</param>
+    /// <returns>True when mounted.</returns>
+    /// <example><code>if (players.IsMounted(slot)) { /* unavailable */ }</code></example>
+    bool IsMounted(PlayerSlot slot);
+
+    /// <summary>
+    /// GDD F5 claim-and-corroborate for a request that never rejects on it (ADR-0015 section 1 check 9, "<c>IPlayersApi</c> history";
+    /// throwing-catching story 009): <see cref="ClaimCorroboration.NoSample"/> when the position is stale (GDD F5 <c>stale(p)</c>, as
+    /// <see cref="CheckInteraction"/>) or the slot is empty, else whether the history (the newest sample at M-1a) corroborates
+    /// <paramref name="claim"/> within <paramref name="toleranceMm"/> (3D, inclusive). Read-only: legal between ticks.
+    /// </summary>
+    /// <param name="slot">The player's slot.</param>
+    /// <param name="claim">The claimed feet position.</param>
+    /// <param name="toleranceMm">The tolerance, mm.</param>
+    /// <param name="newest">The newest host position (the last known one when stale); <c>default</c> for an empty slot.</param>
+    /// <returns>The outcome.</returns>
+    /// <example><code>ClaimCorroboration c = players.CorroborateClaim(slot, in claim, 1500, out Vec3Mm newest);</code></example>
+    ClaimCorroboration CorroborateClaim(PlayerSlot slot, in ClaimedPosition claim, int toleranceMm, out Vec3Mm newest);
 }
