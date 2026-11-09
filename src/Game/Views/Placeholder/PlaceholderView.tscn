@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://cn41tb61hcit5"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_f3eng"]
+shading_mode = 0
+albedo_color = Color(1, 0, 1, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_lci8m"]
+size = Vector3(0.4, 0.4, 0.4)
+
+[node name="PlaceholderView" type="Node3D" unique_id=128137209]
+
+[node name="Box" type="MeshInstance3D" parent="." unique_id=2112237860]
+material_override = SubResource("StandardMaterial3D_f3eng")
+mesh = SubResource("BoxMesh_lci8m")

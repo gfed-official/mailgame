@@ -51,6 +51,9 @@ public sealed class BootContext(BootLog log, int bootThreadId, Action<Exception>
     /// <summary>The presenters step 7 initialises (<c>GameLoop</c> sets its World, Hud and Audio presenters); null when there are none.</summary>
     public IPresentersBoot? Presenters { get; internal set; }
 
+    /// <summary>What step 8 resolves the view catalogs with (<c>GameLoop</c> sets its presenters' boot); null when there is none.</summary>
+    public IViewsBoot? Views { get; internal set; }
+
     /// <summary>Why this run failed (step, name, kind, exception); null while no step has failed.</summary>
     public BootFailure? Failure { get; internal set; }
 }

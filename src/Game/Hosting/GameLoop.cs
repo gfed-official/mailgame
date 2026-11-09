@@ -517,9 +517,18 @@ public partial class GameLoop : Node
         FaultSink = BootErrorPanel;
     }
 
-    // Story 006: step 7 initialises this loop's own World, Hud and Audio children (null when one is missing; step 7 then fails).
-    private BootContext NewBootContext() =>
-        new(new BootLog(GD.Print), _bootThreadId, FaultBoot, _faultSink as IBootFailureDisplay) { Options = NewBootOptions(), Presenters = NewPresentersBoot() };
+    // Story 006: step 7 initialises this loop's own World, Hud and Audio children (null when one is missing; steps 7-8 then fail).
+    // Story 008: the same presenters' boot resolves the view catalogs at step 8.
+    private BootContext NewBootContext()
+    {
+        Presentation.PresentersBoot? presenters = NewPresentersBoot();
+        return new(new BootLog(GD.Print), _bootThreadId, FaultBoot, _faultSink as IBootFailureDisplay)
+        {
+            Options = NewBootOptions(),
+            Presenters = presenters,
+            Views = presenters,
+        };
+    }
 
     private Presentation.PresentersBoot? NewPresentersBoot() =>
         GetNodeOrNull<Presentation.WorldPresenter>("World") is { } world
