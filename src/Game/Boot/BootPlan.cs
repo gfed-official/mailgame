@@ -11,8 +11,8 @@ namespace PerformativeMail.Game.Boot;
 /// <item><term>2 content</term><description>godot-host-shell 004: <see cref="ContentSourceStep"/> over <see cref="IContentBootSource"/> (M-1a <see cref="BuiltInContentSource"/>; story 007 adds <c>ContentHost</c>).</description></item>
 /// <item><term>3 persistence</term><description>Slot (<see cref="IBootContributor"/>, <see cref="PersistenceStep"/>): ADR-0024 persistence (not written yet).</description></item>
 /// <item><term>4 input</term><description>Slot (<see cref="IBootContributor"/>, <see cref="InputStep"/>): input-controls 028 <c>InputBoot</c> (validate <c>BuiltInActionMap</c>, read <c>user://input.json</c>, build the router, wire sinks; the adapter node's placement is 028's).</description></item>
-/// <item><term>5 session</term><description>godot-host-shell 005: <c>HostSession</c> (loopback, ADR-0011).</description></item>
-/// <item><term>6 sim</term><description>godot-host-shell 005: <c>SimComposition.Build</c> then <c>ClientLayer.Attach(ports)</c>; catches <c>SimBuildException</c> (ADR-0003).</description></item>
+/// <item><term>5 session</term><description>godot-host-shell 005: <see cref="SessionBootStep"/>, <c>HostSession</c> (loopback, ADR-0011; <c>SimComposition.Build</c> runs inside it).</description></item>
+/// <item><term>6 sim</term><description>godot-host-shell 005: <see cref="AttachPortsBootStep"/>, the <see cref="IPortContributor"/>s of <see cref="CreatePortContributors"/>, then <c>ClientLayer.Attach(ports)</c> and the render clock; a <c>SimBuildException</c> fails the step (ADR-0003).</description></item>
 /// <item><term>7 world</term><description>godot-host-shell 006 / 010: world tables, <c>Terrain</c> / <c>Destinations</c>, <c>Initialize(deps)</c>.</description></item>
 /// <item><term>8 views</term><description>godot-host-shell 008 / 009: <c>ViewCatalogResolver.Resolve(ContentSet)</c>, pools pre-instantiated.</description></item>
 /// <item><term>9 start</term><description>godot-host-shell 004: <see cref="StartGateStep"/> (<c>GameLoop.ArmStart</c> only; the driver starts on the first <c>_Process</c>, ADR-0002).</description></item>
@@ -57,21 +57,27 @@ public static class BootPlan
     /// <returns>The contributors in registration order; none at this point (input-controls 028 adds <c>new InputBoot()</c>).</returns>
     public static IReadOnlyList<IBootContributor> CreateContributors() => [];
 
+    /// <summary>The production client-port contributors of step 6, one explicit line each (fresh instances per boot), run before <c>Attach</c>.</summary>
+    /// <returns>Player-character 020's carrier ports; player-character 025's <c>IHeldItemView</c> and input-controls 028's sinks add theirs here.</returns>
+    public static IReadOnlyList<IPortContributor> CreatePortContributors() => [new CarrierPortContributor()];
+
     /// <summary>Builds the nine steps in ADR-0019 section 3 order.</summary>
     /// <param name="window">The root window (step 1).</param>
     /// <param name="isDebugBuild"><c>OS.IsDebugBuild()</c>, logged by step 1.</param>
     /// <param name="content">The content source (step 2).</param>
     /// <param name="contributors">The slot contributors (steps 3 and 4), usually <see cref="CreateContributors"/>.</param>
     /// <param name="armStart">The step 9 callback, <c>GameLoop.ArmStart</c>.</param>
+    /// <param name="portContributors">Step 6's port contributors; null for <see cref="CreatePortContributors"/>.</param>
     /// <returns>Nine steps numbered 1 to 9.</returns>
-    /// <exception cref="ArgumentNullException">An argument or a contributor is null.</exception>
+    /// <exception cref="ArgumentNullException">An argument, a contributor or a port contributor is null.</exception>
     /// <exception cref="ArgumentException">A contributor names a step that is not a slot (3 or 4); it would never run.</exception>
     public static IReadOnlyList<IBootStep> Create(
         IBootWindow window,
         bool isDebugBuild,
         IContentBootSource content,
         IReadOnlyList<IBootContributor> contributors,
-        Action armStart)
+        Action armStart,
+        IReadOnlyList<IPortContributor>? portContributors = null)
     {
         ArgumentNullException.ThrowIfNull(contributors);
         foreach (IBootContributor c in contributors)
@@ -91,8 +97,8 @@ public static class BootPlan
             new ContentSourceStep(content),
             new ContributorSlotStep(PersistenceStep, "persistence", contributors),
             new ContributorSlotStep(InputStep, "input", contributors),
-            new UnwiredBootStep(SessionStep, "session", "story 005"),
-            new UnwiredBootStep(SimStep, "sim", "story 005"),
+            new SessionBootStep(),
+            new AttachPortsBootStep(portContributors ?? CreatePortContributors()),
             new UnwiredBootStep(WorldStep, "world", "story 006"),
             new UnwiredBootStep(ViewsStep, "views", "story 008"),
             new StartGateStep(armStart),
