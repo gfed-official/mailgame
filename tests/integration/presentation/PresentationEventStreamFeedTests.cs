@@ -79,6 +79,29 @@ public class PresentationEventStreamFeedTests
         Assert.True(read[0].Ordinal < read[1].Ordinal);
     }
 
+    [Fact]
+    [Trait("Id", "M-MD7-2")]
+    public void OwnReply_IsPublishedOnceInTheFrameItsBatchIsDecoded_AfterTheOpsEvents()
+    {
+        var rig = new Rig();
+        EventCursor cursor = rig.Events.OpenCursor(EventKindSet.Of(FixtureEvent, EventKind.OpReply));
+        rig.RunFrame(); // tick 0: the local join (its reply is the join op's, read and skipped below)
+        while (cursor.TryRead(out _))
+        {
+        }
+
+        rig.Send(5);
+        rig.RunFrame(); // tick 1 applies the op; its event and reply records are decoded at the end of this frame
+
+        Assert.True(cursor.TryRead(out PresentedEvent e));
+        Assert.True(cursor.TryRead(out PresentedEvent reply));
+        Assert.Equal((FixtureEvent, EventKind.OpReply, 1u), (e.Kind, reply.Kind, reply.SourceTick));
+        Assert.Equal((FixtureOp, true), (reply.PayloadAs<Reply>().Kind, reply.PayloadAs<Reply>().IsOk));
+        Assert.True(e.Ordinal < reply.Ordinal);
+        rig.RunFrame();
+        Assert.False(cursor.TryRead(out _));
+    }
+
     private sealed class FakeClock : IMonotonicClock
     {
         public long Now { get; set; }

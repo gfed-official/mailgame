@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using PerformativeMail.Client.Core.Mirror;
 using PerformativeMail.Client.Core.Net.Codec;
 using PerformativeMail.Sim.Core;
@@ -15,7 +16,8 @@ public sealed partial class ClientAdapter
 
     /// <summary>
     /// Sees every event record decoded into the inbox, in the frame it is decoded (ADR-0016 section 5): boot step 7 sets the
-    /// <c>PresentationEventStream</c> here. Null (the default) observes nothing.
+    /// <c>PresentationEventStream</c> here. Each reply delivered to the inbox is published too, as an <see cref="EventKind.OpReply"/>
+    /// entry. Null (the default) observes nothing.
     /// </summary>
     public IDecodedEventObserver? DecodedEvents { get; set; }
 
@@ -142,7 +144,7 @@ public sealed partial class ClientAdapter
 
         if (payload.Length > 0 && payload[0] == ReplyCodec.Tag && ReplyCodec.TryDecode(payload, out Reply reply))
         {
-            HandleReply(inbox, _lastBatchTick, in reply);
+            HandleReply(inbox, _lastBatchTick, 0, in reply);
         }
         else if (payload.Length > 0 && payload[0] == EventBatch.Tag)
         {
@@ -224,7 +226,7 @@ public sealed partial class ClientAdapter
             else if (record.Kind == EventKind.OpReply)
             {
                 Reply reply = scratch.PayloadAs<Reply>();
-                HandleReply(inbox, tick, in reply);
+                HandleReply(inbox, tick, scratch.Ordinal, in reply);
             }
             else
             {
@@ -240,8 +242,9 @@ public sealed partial class ClientAdapter
     }
 
     // TD-066 item 1: deliver only the first reply for an awaited reqId. The pending entry is consumed (or turned into a
-    // resendable busy entry) on delivery, so a duplicate or orphan finds nothing awaiting and is ignored.
-    private void HandleReply(IClientInbox inbox, uint tick, in Reply reply)
+    // resendable busy entry) on delivery, so a duplicate or orphan finds nothing awaiting and is ignored. A delivered reply is
+    // also published to DecodedEvents at its batch ordinal (a bare resend at 0).
+    private void HandleReply(IClientInbox inbox, uint tick, uint ordinal, in Reply reply)
     {
         ushort reqId = unchecked((ushort)reply.ReqId);
         int slot = FindPending(reqId);
@@ -272,5 +275,25 @@ public sealed partial class ClientAdapter
         {
             _pending[slot] = default;
         }
+
+        PublishReply(tick, ordinal, in reply);
+    }
+
+    // ADR-0016 section 5: reply-driven outcome beats (the hand beat, manual-delivery story 006) read own replies from a
+    // PresentationEventStream cursor, so a delivered reply is published as the OpReply entry the inbox stores.
+    private void PublishReply(uint tick, uint ordinal, in Reply reply)
+    {
+        if (DecodedEvents is null)
+        {
+            return;
+        }
+
+        EventEntry entry = default;
+        entry.Ordinal = ordinal;
+        entry.Kind = EventKind.OpReply;
+        entry.PayloadLength = Reply.SizeBytes;
+        Span<byte> payload = entry.Payload;
+        MemoryMarshal.Write(payload, in reply);
+        DecodedEvents.OnDecoded(tick, in entry);
     }
 }
