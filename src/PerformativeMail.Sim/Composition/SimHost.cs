@@ -2,7 +2,6 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Content.Stats;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Economy;
-using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Sim.Composition;
@@ -61,27 +60,6 @@ public sealed class SimHost
                 if (system is IPlayersApi players)
                 {
                     return players;
-                }
-            }
-
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Grid Inventory's host API when the profile built it, else null. A host-side read for the host shell: the host client binds its
-    /// panel port to <see cref="IInventoryApi.HostPanelView"/> until the client container mirror exists (TD-140). Looked up over
-    /// <see cref="Systems"/>; boot-time and diagnostic use, not a tick path.
-    /// </summary>
-    public IInventoryApi? Inventory
-    {
-        get
-        {
-            foreach (ISimSystem system in Systems)
-            {
-                if (system is IInventoryApi inventory)
-                {
-                    return inventory;
                 }
             }
 

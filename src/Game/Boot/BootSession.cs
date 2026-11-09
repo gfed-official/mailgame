@@ -4,7 +4,6 @@ using PerformativeMail.Client.Core.Timing;
 using PerformativeMail.Sim.ClientLayer;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Hosting;
-using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Players.Client;
 using PerformativeMail.Sim.World;
@@ -83,9 +82,6 @@ public sealed class BootSession
 
     /// <summary>Player Character's host API (host-side checks only; never handed to the client).</summary>
     public IPlayersApi? Players => Session.Host.Players;
-
-    /// <summary>Grid Inventory's host API (host-side checks only; never handed to the client).</summary>
-    public IInventoryApi? Inventory => Session.Host.Inventory;
 
     /// <summary>The panel port step 6 attached; null before step 6.</summary>
     public IPanelView? Panel => Session.Client.Ports.Panel;

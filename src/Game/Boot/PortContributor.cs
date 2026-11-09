@@ -36,7 +36,7 @@ public interface IPortContributor
 /// <example>
 /// <code>
 /// var b = new ClientPortsBuilder { Requests = requests, HostClock = clock };
-/// ClientPorts ports = b.Build(out string line);   // "panel=HostPanelView requests=ClientAdapterRequestSink ..."
+/// ClientPorts ports = b.Build(out string line);   // "panel=EmptyPanelView(default) requests=ClientAdapterRequestSink ..."
 /// </code>
 /// </example>
 public sealed class ClientPortsBuilder
@@ -56,7 +56,7 @@ public sealed class ClientPortsBuilder
     /// <summary>The local player (player-character 020: <see cref="HostLocalPlayer"/>).</summary>
     public ILocalPlayer? LocalPlayer { get; set; }
 
-    /// <summary>The local player's own panel (<see cref="CarrierPortContributor"/>: the host's view of the local slot); unset binds an empty view.</summary>
+    /// <summary>The local player's own panel; unset binds an empty view until the client container mirror exists (TD-140).</summary>
     public IPanelView? Panel { get; set; }
 
     /// <summary>Fills the unset ports and builds the struct.</summary>

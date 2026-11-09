@@ -11,7 +11,9 @@ namespace PerformativeMail.Game.Smoke;
 /// M-1a wave-3 assembly: the production boot plan (step 4's <c>InputBoot</c> included) boots with the shift stub's Prep cut to
 /// <see cref="PrepTicks"/> ticks; the input boot is attached to the loop, the HUD has its persistent, inventory and aim layers and
 /// <c>World/Flights</c> its flight view; then fake-clock frames of 1/30 s run the shift from Prep into Delivery, which the client's run
-/// mirror (fed through MirrorDrain) reports, with the loop never faulted.
+/// mirror (fed through MirrorDrain) reports, with the loop never faulted. Steps 7 and 8 must really build the world and resolve the
+/// views: no <c>BOOT</c> line says <c>no world-build steps</c> or <c>views NOT WIRED</c> (the grey-void boot of 545df2f), step 7 ran
+/// the world-build steps (Destinations among them) and step 8 logged <c>BOOT 8 views ok</c>.
 /// </summary>
 [SmokeScenario("shift-boot")]
 public sealed class ShiftBootSmoke : SmokeScenario
@@ -41,6 +43,12 @@ public sealed class ShiftBootSmoke : SmokeScenario
             Expect(ctx, step, loop.BootLines.Contains(step), true);
         }
 
+        IReadOnlyList<string> lines = loop.BootLines;
+        Expect(ctx, "no BOOT line says no world-build steps", lines.Any(l => l.Contains("no world-build steps", StringComparison.Ordinal)), false);
+        Expect(ctx, "no BOOT line says views NOT WIRED", lines.Any(l => l.StartsWith("BOOT 8 ", StringComparison.Ordinal) && l.Contains("NOT WIRED", StringComparison.Ordinal)), false);
+        Expect(ctx, "step 7 ran the world-build steps", lines.Any(l => l.StartsWith("BOOT 7 world: world-build steps ran=", StringComparison.Ordinal)), true);
+        Expect(ctx, "step 7 built the destinations", lines.Any(l => l.StartsWith("BOOT 7 world: destinations lots=", StringComparison.Ordinal)), true);
+        Expect(ctx, "BOOT 8 views ok", lines.Contains("BOOT 8 views ok"), true);
         Expect(ctx, "production InputBoot attached to the loop", loop.InputBoot?.FrameCalls is not null, true);
         foreach (string path in new[] { "Hud/Persistent", "Hud/Inventory", "Hud/Aim", "World/Flights/Flights" })
         {

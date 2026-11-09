@@ -12,7 +12,7 @@ namespace PerformativeMail.Game.Smoke;
 /// <summary>
 /// godot-host-shell story 005 AC-2 and AC-3. Ports: the production plan with a recording <see cref="IPortContributor"/> appended to
 /// step 6; it is called once, before <c>Attach</c>, and the <c>BOOT 6 sim: ports: …</c> line names every port, with the panel as the
-/// host's view of slot 0 (the attached port is <c>IInventoryApi.HostPanelView(slot 0)</c>) and the carrier load as the constant default. End to end: 40 fake-clock frames of 1/30 s with idle input; the
+/// empty default (no client container mirror yet, TD-140) and the carrier load as the constant default. End to end: 40 fake-clock frames of 1/30 s with idle input; the
 /// local player is known in slot 0, every carrier sample was accepted by the host world (no refusal on either side, one ingested per
 /// tick after the join), and player-character 019's <c>CheckInteraction</c> at the carrier's position does not report
 /// <c>PositionStale</c> (without the samples it would: the join-seeded position is 40 ticks old, past the 30-tick rule).
@@ -62,7 +62,7 @@ public sealed class SessionPortsSmoke : SmokeScenario
         ctx.Pass($"boot log: {ports}");
         foreach (string part in new[]
         {
-            "panel=HostPanelView ", "requests=ClientAdapterRequestSink", "hostClock=", "samples=HostSampleSink",
+            "panel=EmptyPanelView(default) ", "requests=ClientAdapterRequestSink", "hostClock=", "samples=HostSampleSink",
             "load=ConstantCarrierLoadSource(default)", "localPlayer=HostLocalPlayer",
         })
         {
@@ -70,11 +70,6 @@ public sealed class SessionPortsSmoke : SmokeScenario
         }
 
         Expect(ctx, "ports line no longer says the panel is undeclared", ports.Contains("not declared", StringComparison.Ordinal), false);
-        Expect(
-            ctx,
-            "attached panel is the host's view of slot 0",
-            session.Inventory is { } inventory && ReferenceEquals(session.Panel, inventory.HostPanelView(PlayerSlot.FromValue(0))),
-            true);
     }
 
     private void CheckSamplesEndToEnd(SmokeContext ctx, GameLoop loop, BootSession session)
