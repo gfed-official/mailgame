@@ -444,7 +444,7 @@ public class DestinationRegistryTests
         const int RowBytes = 4 + 4 + 2 + 1 + 12 + 12 + 12 + 2 + 8 + 8;
         Assert.Equal(1u, BinaryPrimitives.ReadUInt32LittleEndian(p));
         Assert.Equal((ushort)10, BinaryPrimitives.ReadUInt16LittleEndian(p.Slice(TableBytes)));
-        Assert.Equal(TableBytes + 2 + (10 * RowBytes), p.Length);
+        Assert.Equal(TableBytes + 2 + (10 * RowBytes) + 13, p.Length);   // 13: the deliveries state (story 009)
 
         ReadOnlySpan<byte> r = p.Slice(TableBytes + 2 + (3 * RowBytes), RowBytes);   // ordinal 3
         var o = new DestinationOrdinal(3);

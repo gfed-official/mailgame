@@ -37,8 +37,9 @@ public interface IMailApi
     HandConsumeSummary ConsumeHand(EntityId dest, ReadOnlySpan<EntryRef> inScanOrder, PlayerSlot actor, uint holdStartTick);
 
     /// <summary>
-    /// Run Structure's downward call that sets the deliveries state (ADR-0017 section 3). Story 009 implements it; until then it is a
-    /// no-op that asserts <see cref="SimAssertCode.MailApiNotImplemented"/>.
+    /// Run Structure's downward call that sets the deliveries state (ADR-0017 section 3). Called by the Run shift stub in phase 12 of tick T − 1, so
+    /// the state is effective from tick T's phase 0. Stores the three values; Mail raises no event. Illegal outside a phase (the
+    /// ADR-0003 section 5 guard): nothing is stored.
     /// </summary>
     /// <param name="open">Whether deliveries are open.</param>
     /// <param name="closeTick">The tick they closed.</param>

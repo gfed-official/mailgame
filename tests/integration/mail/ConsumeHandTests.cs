@@ -470,8 +470,10 @@ public class ConsumeHandTests
         int lots = rig.Mail.Registry.Count;
         byte[] section = MailSection(rig.Host.World);
         int blockBytes = 4 + (lots * 8 * 8) + 2;
-        ReadOnlySpan<byte> block = section.AsSpan(section.Length - blockBytes);
-        ReadOnlySpan<byte> team = section.AsSpan(section.Length - blockBytes - 25, 25);
+        // Story 009's deliveries state (13 B) ends the section after the outcome block.
+        const int DeliveriesBytes = 13;
+        ReadOnlySpan<byte> block = section.AsSpan(section.Length - DeliveriesBytes - blockBytes, blockBytes);
+        ReadOnlySpan<byte> team = section.AsSpan(section.Length - DeliveriesBytes - blockBytes - 25, 25);
         Assert.Equal((long)lastTick, BinaryPrimitives.ReadInt64LittleEndian(team.Slice(8)));   // teamLastTick
         Assert.Equal(3u, BinaryPrimitives.ReadUInt32LittleEndian(block));
         for (int i = 0; i < lots * 8; i++)
@@ -490,7 +492,7 @@ public class ConsumeHandTests
         var fresh = new HandRig();
         fresh.Mail.Consumer.ReadCanonical(block);
         byte[] reloaded = MailSection(fresh.Host.World);
-        Assert.Equal(block.ToArray(), reloaded.AsSpan(reloaded.Length - blockBytes).ToArray());
+        Assert.Equal(block.ToArray(), reloaded.AsSpan(reloaded.Length - DeliveriesBytes - blockBytes, blockBytes).ToArray());
         fresh.Open();
         EntryRef f = default;
         fresh.Run(() => f = fresh.Give(0, "letter", Right, 1));
