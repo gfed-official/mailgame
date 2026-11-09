@@ -373,4 +373,10 @@ public interface IInventoryApi
     /// <returns>The slot's view.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="slot"/> is none or out of range.</exception>
     IPanelView HostPanelView(PlayerSlot slot);
+
+    /// <summary>
+    /// The Post Office intake container (<c>po_intake</c>), created at construction: the container Mail's batch firing hands units to
+    /// with <see cref="Spawn"/> (mail-destinations story 014). Legal between ticks.
+    /// </summary>
+    ContainerId IntakeContainer { get; }
 }

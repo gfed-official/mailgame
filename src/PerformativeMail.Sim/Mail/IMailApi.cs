@@ -70,4 +70,14 @@ public interface IMailApi
     /// <returns>The catch volume as a world AABB.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="ordinal"/> is outside the registry.</exception>
     AabbMm CatchVolumeAt(int ordinal);
+
+    /// <summary>
+    /// Run Structure's shift-start call (GDD R10; ADR-0017 section 10; mail-destinations story 013): stores the profile and marks the
+    /// manifest dirty; Mail's phase 8 rolls it once that tick, so several changes in one tick roll once and an unchanged profile changes
+    /// nothing. A new shift number sets Mail's current shift and zeroes the shift's wrong-delivery count. Locked from Delivery start: a
+    /// call for the same shift after deliveries opened, or any call while they are open, is ignored and counted. Allocates no mailId.
+    /// Illegal outside a phase (the ADR-0003 section 5 guard): nothing is stored. 0 B.
+    /// </summary>
+    /// <param name="p">The shift's spawn profile.</param>
+    void PrepareShift(in SpawnProfile p);
 }

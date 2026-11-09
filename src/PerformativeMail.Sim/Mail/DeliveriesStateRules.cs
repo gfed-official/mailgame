@@ -40,4 +40,14 @@ public static class DeliveriesStateRules
 
         return districtUnlocked ? DestState.Open : DestState.Locked;
     }
+
+    /// <summary>
+    /// The unlocked-district mask convention (bit <c>districtId - 1</c>; districts outside 1 to 63 are never unlocked), shared by the
+    /// host's deliveries store and the client's <c>DestinationMirror</c>.
+    /// </summary>
+    /// <param name="mask">The unlocked-district mask.</param>
+    /// <param name="districtId">The district id.</param>
+    /// <returns>True when unlocked.</returns>
+    public static bool IsDistrictUnlocked(ulong mask, uint districtId) =>
+        districtId >= 1u && districtId <= 63u && ((mask >> (int)(districtId - 1u)) & 1UL) != 0UL;
 }

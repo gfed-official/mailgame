@@ -21,8 +21,9 @@ public readonly struct ClientStepContext
 {
     private readonly InputLatch _latch;
 
-    internal ClientStepContext(bool isFirstTickInBatch, uint clientTick, IHostClock hostClock, InputLatch latch)
+    internal ClientStepContext(bool isFirstTickInBatch, uint clientTick, IHostClock hostClock, InputLatch latch, MirrorPartTable mirrorParts)
     {
+        MirrorParts = mirrorParts;
         IsFirstTickInBatch = isFirstTickInBatch;
         ClientTick = clientTick;
         HostClock = hostClock;
@@ -37,6 +38,9 @@ public readonly struct ClientStepContext
 
     /// <summary>The host tick estimate source (implemented by the adapter).</summary>
     public IHostClock HostClock { get; }
+
+    /// <summary>The layer's bound mirror parts; the <c>MirrorDrain</c> step applies drained records to them (ADR-0016 section 1).</summary>
+    public MirrorPartTable MirrorParts { get; }
 
     /// <summary>
     /// This tick's input frame. Valid for steps bound to <see cref="ClientStepId.InputLatch"/> and later (the built-in
