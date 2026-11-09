@@ -13,6 +13,12 @@ public sealed partial class ClientAdapter
     private bool _pumping;
     private uint _lastBatchTick;
 
+    /// <summary>
+    /// Sees every event record decoded into the inbox, in the frame it is decoded (ADR-0016 section 5): boot step 7 sets the
+    /// <c>PresentationEventStream</c> here. Null (the default) observes nothing.
+    /// </summary>
+    public IDecodedEventObserver? DecodedEvents { get; set; }
+
     /// <summary>True from the transport's connect callback until its disconnect callback.</summary>
     public bool IsConnected { get; private set; }
 
@@ -225,6 +231,10 @@ public sealed partial class ClientAdapter
                 bool added = inbox.TryAddEntry(tick, in scratch);
                 EntriesDelivered += added ? 1 : 0;
                 InboxFullDropCount += added ? 0 : 1;
+                if (added)
+                {
+                    DecodedEvents?.OnDecoded(tick, in scratch);
+                }
             }
         }
     }

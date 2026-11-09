@@ -34,7 +34,6 @@ namespace PerformativeMail.Sim.Players;
 public sealed partial class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoinListener
 {
     private readonly IWorldQuery _world;
-    private readonly PostOfficeRecord _postOffice;
     private readonly PlayerSettings _settings;
     private readonly PlayerRecord[] _records = new PlayerRecord[PlayerSlot.Count];
     private readonly EmptyRemoteCapsuleSource _emptyRemotes = new();
@@ -139,7 +138,6 @@ public sealed partial class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoin
         }
 
         _world = world;
-        _postOffice = po;
         _settings = settings;
         _samples = samples;
         _slots = slots;
@@ -361,7 +359,10 @@ public sealed partial class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoin
     void IPlayerJoinListener.OnPlayerJoined(PlayerSlot slot, EntityId player, uint tick)
     {
         SimAssert.That(_records[slot.Value].IsEmpty, SimAssertCode.PlayersJoinSlotOccupied);
-        Vec3Mm pad = PadSlots.Position(_world, _postOffice, slot.Value);
+        // The shared spawn rule (story 020 seeds the client's owned carrier with the same call): pad slot k, Grounded, facing
+        // outward (yaw k * 8192); the camera starts level on the same heading.
+        CarrierState spawn = CarrierSpawn.At(slot, _world);
+        var pad = new Vec3Mm(spawn.X, spawn.Y, spawn.Z);
         ref PlayerRecord r = ref _records[slot.Value];
         r = default;
         r.PlayerId = player;
@@ -369,14 +370,8 @@ public sealed partial class PlayersSystem : ISimSystem, IPlayersApi, IPlayerJoin
         r.ClockInTick = tick;
         r.CapsuleRadiusMm = _settings.CapsuleRadiusMm;
         r.CapsuleHeightMm = _settings.CapsuleHeightMm;
-        r.Carrier.X = pad.X;
-        r.Carrier.Y = pad.Y;
-        r.Carrier.Z = pad.Z;
-        r.Carrier.Loco = LocoState.Grounded;
-
-        // Face outward like the pad slot (PadSlots: yaw k * 8192); camera starts level on the same heading.
-        ushort yaw = unchecked((ushort)(slot.Value * PadSlots.SlotStepBam));
-        r.Carrier.BodyYaw = yaw;
+        r.Carrier = spawn;
+        ushort yaw = spawn.BodyYaw;
         r.LookYaw = yaw;
         r.LookPitch = 0;
 
