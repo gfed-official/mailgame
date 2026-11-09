@@ -6,6 +6,8 @@
 [ext_resource type="Script" path="res://src/Game/Presentation/AudioPresenter.cs" id="4"]
 [ext_resource type="PackedScene" path="res://src/Game/Screens/BootError.tscn" id="5_boot_error"]
 [ext_resource type="PackedScene" path="res://src/Game/Screens/ContentError.tscn" id="6_content_error"]
+[ext_resource type="Script" uid="uid://c7lklsa8bg6r4" path="res://src/Game/Views/Terrain/TerrainView.cs" id="7_terrain"]
+[ext_resource type="Script" uid="uid://dishseu54nbvu" path="res://src/Game/Camera/CameraRig.cs" id="8_camera_rig"]
 
 [node name="Main" type="Node" node_paths=PackedStringArray("BootErrorPanel", "ContentErrorPanel")]
 process_mode = 3
@@ -19,7 +21,9 @@ ContentErrorPanel = NodePath("Screens/ContentError")
 [node name="World" type="Node3D" parent="."]
 script = ExtResource("2")
 
-[node name="Terrain" type="Node3D" parent="World"]
+[node name="Terrain" type="Node3D" parent="World" node_paths=PackedStringArray("FallbackCamera")]
+script = ExtResource("7_terrain")
+FallbackCamera = NodePath("../CameraRig/Boom/Camera3D")
 
 [node name="Destinations" type="Node3D" parent="World"]
 
@@ -30,6 +34,7 @@ script = ExtResource("2")
 [node name="Props" type="Node3D" parent="World"]
 
 [node name="CameraRig" type="Node3D" parent="World"]
+script = ExtResource("8_camera_rig")
 
 [node name="Boom" type="Node3D" parent="World/CameraRig"]
 

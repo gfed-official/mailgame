@@ -14,7 +14,7 @@ namespace PerformativeMail.Game.Boot;
 /// <item><term>5 session</term><description>godot-host-shell 005: <see cref="SessionBootStep"/>, <c>HostSession</c> (loopback, ADR-0011; <c>SimComposition.Build</c> runs inside it).</description></item>
 /// <item><term>6 sim</term><description>godot-host-shell 005: <see cref="AttachPortsBootStep"/>, the <see cref="IPortContributor"/>s of <see cref="CreatePortContributors"/>, then <c>ClientLayer.Attach(ports)</c> and the render clock; a <c>SimBuildException</c> fails the step (ADR-0003).</description></item>
 /// <item><term>7 world</term><description>godot-host-shell 006: <see cref="PresentersBootStep"/> (the event stream on the client adapter, then <see cref="IPresentersBoot"/>: <c>Initialize(deps)</c> World, Hud, Audio and the world-build steps stories 009 / 010 register).</description></item>
-/// <item><term>8 views</term><description>godot-host-shell 008 / 009: <c>ViewCatalogResolver.Resolve(ContentSet)</c>, pools pre-instantiated.</description></item>
+/// <item><term>8 views</term><description>godot-host-shell 008 / 009: <see cref="ViewsBootStep"/> over <see cref="IViewsBoot"/> (resolve the three view catalogs, attach the per-lot views); pools are added here when the first exists.</description></item>
 /// <item><term>9 start</term><description>godot-host-shell 004: <see cref="StartGateStep"/> (<c>GameLoop.ArmStart</c> only; the driver starts on the first <c>_Process</c>, ADR-0002).</description></item>
 /// </list>
 /// </summary>
@@ -64,7 +64,7 @@ public static class BootPlan
 
     /// <summary>Builds the nine steps in ADR-0019 section 3 order.</summary>
     /// <param name="window">The root window (step 1).</param>
-    /// <param name="isDebugBuild"><c>OS.IsDebugBuild()</c>, logged by step 1.</param>
+    /// <param name="isDebugBuild"><c>OS.IsDebugBuild()</c>, logged by step 1; step 8 resolves with <c>release = !isDebugBuild</c>.</param>
     /// <param name="content">The content source (step 2).</param>
     /// <param name="contributors">The slot contributors (steps 3 and 4), usually <see cref="CreateContributors"/>.</param>
     /// <param name="armStart">The step 9 callback, <c>GameLoop.ArmStart</c>.</param>
@@ -101,7 +101,7 @@ public static class BootPlan
             new SessionBootStep(),
             new AttachPortsBootStep(portContributors ?? CreatePortContributors()),
             new PresentersBootStep(),
-            new UnwiredBootStep(ViewsStep, "views", "story 008"),
+            new ViewsBootStep(isDebugBuild),
             new StartGateStep(armStart),
         ];
     }

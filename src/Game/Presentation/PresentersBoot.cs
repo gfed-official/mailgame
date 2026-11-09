@@ -1,18 +1,43 @@
+using Godot;
+using PerformativeMail.Client.Core.Presentation;
 using PerformativeMail.Game.Boot;
+using PerformativeMail.Game.Camera;
+using PerformativeMail.Game.Hud;
+using PerformativeMail.Game.Views;
+using PerformativeMail.Game.Views.Destinations;
+using PerformativeMail.Game.Views.Player;
+using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Players.Client;
 
 namespace PerformativeMail.Game.Presentation;
 
 /// <summary>
-/// Boot step 7's Godot half (godot-host-shell story 006): builds the one <see cref="PresenterDeps"/> from the step's inputs, calls
-/// <c>Initialize(deps)</c> on the World, Hud and Audio presenters in that order (ADR-0019 section 2), then runs the World presenter's
-/// world-build steps. The deps carry the HUD state and the shift's layers are installed first (<see cref="ShiftViews"/>). <c>GameLoop</c> creates it over its own children <c>World</c>, <c>Hud</c> and <c>Audio</c>. Main thread only.
+/// Boot steps 7 and 8's Godot half (godot-host-shell stories 006, 008, 009). Step 7 (<see cref="Initialize"/>) builds the one
+/// <see cref="PresenterDeps"/> from the step's inputs (with an empty <see cref="ResolvedViewTables"/>, the
+/// <see cref="EntityViewRegistry"/> and the HUD state), installs the shift's HUD, inventory and throw layers (<see cref="ShiftViews"/>),
+/// registers the <see cref="DestinationsHost"/> over <c>World/Destinations</c> as a world-build step
+/// and the <see cref="PlayerPresenter"/> over <c>World/Entities</c> as a presented view (player-character 022; when the local player and
+/// the carrier view are published),
+/// calls <c>Initialize(deps)</c> on the World, Hud and Audio presenters in that order (ADR-0019 section 2), then runs the World presenter's
+/// world-build steps. Over the rig's camera it publishes the <see cref="FocusAnchorPresenter"/> as <see cref="IHudFocusFeed"/> and
+/// registers it on the World presenter after the subtree walk (so it runs after <c>CameraRig</c>, before the Hud presenter; player-character
+/// 026), and in debug builds adds the <see cref="FocusDebugOverlay"/> to the Hud presenter. Step 8 (<see cref="ResolveViews"/>) loads and resolves the three editor-saved view catalogs, logs per-table counts
+/// and one <c>VIEW</c> line per finding, stores them in the deps and attaches the per-lot views. <c>GameLoop</c> creates it over its own
+/// children <c>World</c>, <c>Hud</c> and <c>Audio</c>. Main thread only.
 /// </summary>
 /// <param name="world">The <c>Main/World</c> presenter.</param>
 /// <param name="hud">The <c>Main/Hud</c> presenter.</param>
 /// <param name="audio">The <c>Main/Audio</c> presenter.</param>
-/// <example><code>ctx.Presenters = new PresentersBoot(world, hud, audio);</code></example>
-public sealed class PresentersBoot(WorldPresenter world, HudPresenter hud, AudioPresenter audio) : IPresentersBoot
+/// <example><code>var presenters = new PresentersBoot(world, hud, audio); ctx.Presenters = presenters; ctx.Views = presenters;</code></example>
+public sealed class PresentersBoot(WorldPresenter world, HudPresenter hud, AudioPresenter audio) : IPresentersBoot, IViewsBoot
 {
+    private static readonly DefTableId[] _tables = [DefTableId.Items, DefTableId.MailKinds, DefTableId.DestinationTypes];
+    private PresenterDeps? _deps;
+    private DestinationsHost? _destinations;
+
+    /// <summary>The deps step 7 built; null before step 7.</summary>
+    public PresenterDeps? Deps => _deps;
+
     /// <inheritdoc />
     public void Initialize(PresentationInputs inputs, BootLog log)
     {
@@ -25,15 +50,104 @@ public sealed class PresentersBoot(WorldPresenter world, HudPresenter hud, Audio
             Events = inputs.Events,
             Published = inputs.Published,
             Audio = audio,
+            Views = new ResolvedViewTables(),
+            Entities = new EntityViewRegistry(PresentationCaps.EntityViews),
             HudState = ShiftViews.ComposeHud(inputs),
         };
+        _deps = deps;
         string shift = ShiftViews.Install(world, hud, inputs);
+        if (world.GetNodeOrNull<Node3D>("Destinations") is { } destinations)
+        {
+            _destinations = new DestinationsHost(destinations, deps, world.Register);
+            world.RegisterBuildStep(_destinations);
+        }
+
+        PlayerPresenter? player = null;
+        if (world.GetNodeOrNull<Node3D>("Entities") is { } entities && inputs.Published.TryGet(out ILocalPlayerView? local)
+            && inputs.Published.TryGet(out ICarrierView? _))
+        {
+            player = new PlayerPresenter(entities, deps, local);
+            world.Register(player);
+        }
+
+        FocusAnchorPresenter? focus = null;
+        if (world.GetNodeOrNull<Camera3D>("CameraRig/Boom/Camera3D") is { } camera)
+        {
+            focus = new FocusAnchorPresenter(camera, deps);
+            inputs.Published.Add<IHudFocusFeed>(focus);
+        }
+
         world.Initialize(deps);
+        if (focus is not null)
+        {
+            world.Register(focus);
+        }
+
         hud.Initialize(deps);
+        if (focus is not null && OS.IsDebugBuild())
+        {
+            hud.AddLayer(new FocusDebugOverlay { Name = "FocusDebugOverlay" }, FocusDebugOverlay.LayerOrder);
+        }
+
         audio.Initialize(deps);
         log.Write($"BOOT 7 world: shift views {shift}");
         log.Write($"BOOT 7 world: presenters World,Hud,Audio initialized views={world.ViewCount},{hud.ViewCount},{audio.ViewCount}");
         int built = world.BuildWorld(inputs.World);
         log.Write(built == 0 ? "BOOT 7 world: no world-build steps" : $"BOOT 7 world: world-build steps ran={built}");
+        if (_destinations is not null)
+        {
+            log.Write($"BOOT 7 world: destinations lots={_destinations.LotCount}");
+        }
+
+        log.Write(player is null ? "BOOT 7 world: no player presenter (no ILocalPlayerView/ICarrierView published)" : "BOOT 7 world: player presenter registered");
+        log.Write(focus is null
+            ? "BOOT 7 world: no focus feed (no World/CameraRig/Boom/Camera3D)"
+            : $"BOOT 7 world: focus feed published snapshot={(focus.HasSnapshot ? "IInteractionQuery" : "none (feed stays hidden)")}");
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">Step 7 has not run.</exception>
+    public int ResolveViews(ContentSet content, bool release, BootLog log)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(log);
+        PresenterDeps deps = _deps ?? throw new InvalidOperationException("Boot step 8 needs step 7's presenter deps.");
+        var resolved = new ResolvedViews?[_tables.Length];
+        int errors = 0;
+        var counts = new List<string>(_tables.Length);
+        for (int t = 0; t < _tables.Length; t++)
+        {
+            DefTableId table = _tables[t];
+            if (ViewCatalogResolver.Load(table) is not { } catalog)
+            {
+                log.Write($"VIEW error no view catalog at {ViewCatalogResolver.CatalogPath(table)}");
+                errors++;
+                continue;
+            }
+
+            ResolvedViews views = ViewCatalogResolver.Resolve(catalog, content, table, release);
+            foreach (ViewFinding finding in views.Findings)
+            {
+                log.Write(ViewMapping.Describe(table, in finding));
+            }
+
+            errors += views.Errors;
+            counts.Add($"{ViewMapping.TableName(table)} {views.Resolved}/{views.ByDefIndex.Count}");
+            resolved[t] = views;
+        }
+
+        log.Write($"BOOT 8 views: resolved {string.Join(", ", counts)} release={release} errors={errors}");
+        if (errors > 0)
+        {
+            return errors;
+        }
+
+        deps.Views.Set(resolved[0]!, resolved[1]!, resolved[2]!);
+        if (_destinations is not null)
+        {
+            log.Write($"BOOT 8 views: destination views attached={_destinations.AttachViews(deps.Views[DefTableId.DestinationTypes])}");
+        }
+
+        return 0;
     }
 }
