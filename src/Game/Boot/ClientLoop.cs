@@ -59,8 +59,9 @@ public sealed class ClientLoop
     /// <param name="stats">The client stat sheet.</param>
     /// <param name="input">The client input settings (hold length).</param>
     /// <param name="wallet">The wallet mirror (bound by <see cref="ClientMirrors"/>).</param>
+    /// <param name="log">The printer of the <c>[Throw]</c> lines (<see cref="ThrowLog"/>); null prints nothing.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public ClientLoop(IWorldQuery world, ContentSet content, CarrierView carrier, IStatSheet stats, IClientInputSettings input, WalletMirror wallet)
+    public ClientLoop(IWorldQuery world, ContentSet content, CarrierView carrier, IStatSheet stats, IClientInputSettings input, WalletMirror wallet, Action<string>? log = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(content);
@@ -77,7 +78,8 @@ public sealed class ClientLoop
         Interaction = new ClientInteractionBinder(
             world, content, PlayerSettings.FromBalance(content.Player), stats, carrier, Panel, Panel, new DeliverSource(Panel, Requests),
             Destinations, wallet, Requests, input, PlayerSlot.FromValue(LocalJoinIndex), ContainerIdPlan.Intake);
-        _aimView = new AimView(Interaction.Throw);
+        Throws = new ThrowLog(Panel, PlayerSlot.FromValue(LocalJoinIndex), log);
+        _aimView = new AimView(Interaction.Throw, Throws);
     }
 
     /// <summary>The own-panel mirror (deliver preview, aim preview, hotbar strip).</summary>
@@ -94,6 +96,9 @@ public sealed class ClientLoop
 
     /// <summary>The Intake pickup sequence.</summary>
     public IntakePickup Pickup { get; }
+
+    /// <summary>The own throws' <c>[Throw]</c> log.</summary>
+    public ThrowLog Throws { get; }
 
     /// <summary>The client interaction steps.</summary>
     public ClientInteractionBinder Interaction { get; }
@@ -114,6 +119,7 @@ public sealed class ClientLoop
         builder.BindMirrorPart(DestinationMirror.Kinds, Destinations);
         builder.BindMirrorPart(EventKindSet.Of(), Requests);
         builder.BindMirrorPart(EventKindSet.Of(), Pickup);
+        builder.BindMirrorPart(ThrowLog.Kinds, Throws);
         Interaction.BindTo(builder);
         builder.Bind(ClientStepId.Previews, Pickup);
     }
@@ -167,10 +173,18 @@ public sealed class ClientLoop
         public ref readonly CarrierStatus Current => ref carrier.Status;
     }
 
-    // The aim preview as the router's aim gate and the ribbon's arc.
-    private sealed class AimView(ThrowPreviewStep preview) : IThrowAimView, IAimArcSource
+    // The aim preview as the router's aim gate and the ribbon's arc. The router reads NotThrowable once per Throw press it checks
+    // (InputRouter.PressAim), which is where the aim-start line is written.
+    private sealed class AimView(ThrowPreviewStep preview, ThrowLog log) : IThrowAimView, IAimArcSource
     {
-        public byte NotThrowable => (byte)preview.Current.NotThrowable;
+        public byte NotThrowable
+        {
+            get
+            {
+                log.AimPress(in preview.Current);
+                return (byte)preview.Current.NotThrowable;
+            }
+        }
 
         public bool EntryStale => preview.Current.EntryStale != 0;
 
@@ -236,8 +250,14 @@ public sealed class ClientLoop
     {
         public void OnImmediate(in ImmediateAction a)
         {
-            if (a.EdgeKind == EdgeKind.Release && loop._release is { } release && loop._session is { } session
-                && release.Commit(session.Client.ClientTick) == ThrowSendResult.Sent)
+            if (a.EdgeKind != EdgeKind.Release || loop._release is not { } release || loop._session is not { } session)
+            {
+                return;
+            }
+
+            ThrowSendResult sent = release.Commit(session.Client.ClientTick);
+            loop.Throws.Release(sent, in loop.Interaction.Throw.Current);
+            if (sent == ThrowSendResult.Sent)
             {
                 loop._flights?.NoteOwnRelease(in release.Newest);
             }

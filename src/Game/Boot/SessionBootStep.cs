@@ -81,7 +81,7 @@ public sealed class SessionBootStep : IBootStep
         // The local peer is admitted into slot 0 (HostSession), so its own launches take the local verdict.
         var mirrors = new ClientMirrors(new ThrowSettings(content.Throw), PlayerSlot.FromValue(0));
         IClientInputSettings input = ctx.Published.TryGet(out InputSettingsHolder? held) ? held : new DefaultClientInputSettings();
-        var loop = new ClientLoop(clientWorld, content, carrier.View, StatSheet.Build(content, new StatSources([])), input, mirrors.Wallet);
+        var loop = new ClientLoop(clientWorld, content, carrier.View, StatSheet.Build(content, new StatSources([])), input, mirrors.Wallet, ctx.Log.Echo);
         var options = new HostSessionOptions
         {
             Frame = FrameRunnerSettings.Default,
