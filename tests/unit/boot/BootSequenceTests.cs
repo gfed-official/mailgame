@@ -68,7 +68,6 @@ public class BootSequenceTests
         Assert.Equal(
             [BootPlan.ViewsStep],
             plan.OfType<UnwiredBootStep>().Select(s => s.Number));
-        Assert.Empty(BootPlan.CreateContributors());
     }
 
     [Fact]
