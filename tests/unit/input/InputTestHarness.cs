@@ -1,5 +1,6 @@
 using PerformativeMail.Client.Core.Input;
 using PerformativeMail.Sim.ClientLayer;
+using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Sim.Tests.Unit.Input;
 
@@ -85,6 +86,27 @@ public sealed class InputTestHarness
     /// <summary>Records everything the router dispatches as an immediate action.</summary>
     public RecordingImmediateSink Immediates { get; } = new();
 
+    /// <summary>The settable carrier status the router reads <c>body</c> and <c>holding</c> from (story 008).</summary>
+    public CarrierStatusSourceStub Carrier { get; } = new();
+
+    /// <summary>The settable client tick counter.</summary>
+    public FakeClientTickSource Ticks { get; } = new();
+
+    /// <summary>The settable throw preview the router reads aim refusals and the stale entry from (story 014).</summary>
+    public FakeThrowAimView ThrowAim { get; } = new();
+
+    /// <summary>The settable published interaction snapshot (story 012).</summary>
+    public FakeInteractionQuery Interaction { get; } = new();
+
+    /// <summary>The presented-prompt latch over <see cref="Interaction"/>; call <see cref="PresentedPromptLatch.Update"/> to "present".</summary>
+    public PresentedPromptLatch Presented { get; }
+
+    /// <summary>Creates the harness.</summary>
+    public InputTestHarness()
+    {
+        Presented = new PresentedPromptLatch(Interaction);
+    }
+
     /// <summary>Advances the shared clock by <paramref name="n"/> Sim ticks (clears the sub-tick offset).</summary>
     /// <param name="n">The number of ticks.</param>
     public void AdvanceTicks(int n) => Clock.AdvanceTicks(n);
@@ -164,6 +186,36 @@ public sealed class InputTestHarness
     };
 }
 
+/// <summary>A settable <see cref="IInteractionQuery"/> for router tests (stands in for player-character 018's publisher).</summary>
+public sealed class FakeInteractionQuery : IInteractionQuery
+{
+    private InteractionSnapshot _current;
+
+    /// <inheritdoc />
+    public ref readonly InteractionSnapshot Current => ref _current;
+
+    /// <summary>Publishes <paramref name="snapshot"/>.</summary>
+    /// <param name="snapshot">The new snapshot.</param>
+    public void Publish(in InteractionSnapshot snapshot) => _current = snapshot;
+}
+
+/// <summary>A settable <see cref="IThrowAimView"/> for router tests (stands in for throwing-catching 004's <c>ThrowPreviewState</c>).</summary>
+public sealed class FakeThrowAimView : IThrowAimView
+{
+    /// <inheritdoc />
+    public byte NotThrowable { get; set; }
+
+    /// <inheritdoc />
+    public bool EntryStale { get; set; }
+}
+
+/// <summary>A settable <see cref="IClientTickSource"/> for router tests.</summary>
+public sealed class FakeClientTickSource : IClientTickSource
+{
+    /// <inheritdoc />
+    public uint ClientTick { get; set; }
+}
+
 /// <summary>
 /// An <see cref="IInputLatchWriter"/> that records every call in order (input-controls story 003). The router tests assert on
 /// <see cref="Edges"/>, <see cref="Steps"/> and <see cref="States"/>.
@@ -213,11 +265,9 @@ public sealed class RecordingLatchWriter : IInputLatchWriter
 }
 
 /// <summary>
-/// Records immediate-verb dispatches for router tests (input-controls story 003). Shaped after ADR-0012's
-/// <c>IImmediateActionSink.OnImmediate(in ImmediateAction)</c> and the field list in story 013, but it does NOT implement that
-/// interface yet: neither <c>IImmediateActionSink</c> nor <c>ImmediateAction</c> exists (story 013 owns both). Story 013 adds
-/// the interface and an <c>OnImmediate(in ImmediateAction)</c> overload here that forwards to
-/// <see cref="OnImmediate(ushort, EdgeKind, long, ushort, uint, byte)"/>, so existing assertions keep working.
+/// Records immediate-verb dispatches for router tests (input-controls story 003; the <see cref="IImmediateActionSink"/> of story
+/// 013). <see cref="OnImmediate(in ImmediateAction)"/> forwards to
+/// <see cref="OnImmediate(ushort, EdgeKind, long, ushort, uint, byte)"/>, so both shapes record the same <see cref="ImmediateCall"/>.
 /// </summary>
 /// <example>
 /// <code>
@@ -225,7 +275,7 @@ public sealed class RecordingLatchWriter : IInputLatchWriter
 /// Assert.Equal(1, sink.Calls.Count);
 /// </code>
 /// </example>
-public sealed class RecordingImmediateSink
+public sealed class RecordingImmediateSink : IImmediateActionSink
 {
     /// <summary>One recorded dispatch.</summary>
     /// <param name="ActionId">The action's numeric id.</param>
@@ -248,6 +298,10 @@ public sealed class RecordingImmediateSink
     /// <param name="flags">Action flags.</param>
     public void OnImmediate(ushort actionId, EdgeKind edge, long arrivalMs, ushort routerStateId, uint presentedSeq, byte flags) =>
         Calls.Add(new ImmediateCall(actionId, edge, arrivalMs, routerStateId, presentedSeq, flags));
+
+    /// <inheritdoc />
+    public void OnImmediate(in ImmediateAction a) =>
+        OnImmediate(a.ActionId, a.EdgeKind, a.ArrivalMs, a.RouterStateId, a.PresentedSeq, (byte)a.Flags);
 
     /// <summary>Forgets everything recorded.</summary>
     public void Clear() => Calls.Clear();
