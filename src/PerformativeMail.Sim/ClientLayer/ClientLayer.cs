@@ -25,8 +25,9 @@ public sealed class ClientLayer
     private uint _clientTick;
     private ClientPorts _ports;
 
-    internal ClientLayer(IHostClock hostClock, IClientStep[][] steps, InputLatch inputLatch, SimCounters counters)
+    internal ClientLayer(IHostClock hostClock, IClientStep[][] steps, InputLatch inputLatch, SimCounters counters, MirrorPartTable mirrorParts)
     {
+        MirrorParts = mirrorParts;
         HostClock = hostClock;
         _steps = steps;
         InputLatch = inputLatch;
@@ -41,6 +42,9 @@ public sealed class ClientLayer
 
     /// <summary>The push side of the built-in latch, which is all the router needs (the latch's push members are not public on the concrete type).</summary>
     public IInputLatchWriter InputWriter => InputLatch;
+
+    /// <summary>The mirror parts bound with <see cref="ClientLayerBuilder.BindMirrorPart"/> (the <c>MirrorDrain</c> step feeds them).</summary>
+    public MirrorPartTable MirrorParts { get; }
 
     /// <summary>The client's counters.</summary>
     public SimCounters Counters { get; }

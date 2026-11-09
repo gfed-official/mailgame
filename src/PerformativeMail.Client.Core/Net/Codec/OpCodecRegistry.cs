@@ -30,7 +30,7 @@ public sealed class OpCodecRegistry
     /// <param name="descriptors">The world's op descriptors, ascending by kind (<c>SimWorld.OpDescriptors</c>).</param>
     /// <param name="codecs">The codecs the composition root registers; may contain codecs no descriptor uses yet.</param>
     /// <exception cref="ArgumentNullException">A codec is null.</exception>
-    /// <exception cref="ArgumentException">Two codecs share an id, a codec id is 0, a descriptor names a codec id nobody registered, a descriptor's wire size exceeds <see cref="OpPayload.Size"/> (so <see cref="RequestEnvelope.MaxSize"/> would not hold), a codec's <see cref="IOpCodec.WireSize"/> differs from the descriptor's, a codec sample's <see cref="Op.PayloadLength"/> differs from the descriptor's <see cref="OpDescriptor.PayloadLength"/>, or the descriptors are not strictly ascending by kind.</exception>
+    /// <exception cref="ArgumentException">Two codecs share an id, a codec id is 0, a descriptor names a codec id nobody registered, a descriptor's wire size exceeds <see cref="OpPayload.Size"/> (so <see cref="RequestEnvelope.MaxSize"/> would not hold), a codec's <see cref="IOpCodec.WireSize"/> differs from the descriptor's, an <see cref="IShortFormOpCodec"/>'s short size is 0 or not below its wire size, a codec sample's <see cref="Op.PayloadLength"/> differs from the descriptor's <see cref="OpDescriptor.PayloadLength"/>, or the descriptors are not strictly ascending by kind.</exception>
     /// <remarks>Every check here guards composition-root (programmer) errors at session start; none is reachable from wire input, so decode stays exception-free.</remarks>
     public OpCodecRegistry(ReadOnlySpan<OpDescriptor> descriptors, ReadOnlySpan<IOpCodec> codecs)
     {
@@ -101,6 +101,13 @@ public sealed class OpCodecRegistry
             {
                 throw new ArgumentException(
                     $"Op kind 0x{(ushort)descriptor.Kind:X4}: descriptor wire size {descriptor.WireSize} differs from codec {found.CodecId} wire size {found.WireSize}.",
+                    nameof(codecs));
+            }
+
+            if (found is IShortFormOpCodec shortForm && (shortForm.ShortWireSize == 0 || shortForm.ShortWireSize >= found.WireSize))
+            {
+                throw new ArgumentException(
+                    $"Op kind 0x{(ushort)descriptor.Kind:X4}: codec {found.CodecId} short wire size {shortForm.ShortWireSize} is not between 1 and its wire size {found.WireSize} - 1.",
                     nameof(codecs));
             }
 

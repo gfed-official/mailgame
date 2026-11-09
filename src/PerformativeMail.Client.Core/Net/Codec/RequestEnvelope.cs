@@ -27,8 +27,8 @@ public static class RequestEnvelope
 
     /// <summary>
     /// Decodes one request message. Any malformation yields <see cref="DecodeResult.BadRequest"/> with <paramref name="op"/> all zero:
-    /// shorter than the header, unknown kind or a kind without a wire codec, payload shorter or longer than the descriptor's wire size
-    /// (trailing bytes), or a codec rejection.
+    /// shorter than the header, unknown kind or a kind without a wire codec, a payload length other than the descriptor's wire size
+    /// (or, for an <see cref="IShortFormOpCodec"/>, its short size; any other length, including trailing bytes), or a codec rejection.
     /// </summary>
     /// <param name="registry">The session's codec registry.</param>
     /// <param name="message">The whole message, valid only for this call.</param>
@@ -52,7 +52,7 @@ public static class RequestEnvelope
         }
 
         ReadOnlySpan<byte> payload = message.Slice(HeaderSize);
-        if (payload.Length != descriptor.WireSize)
+        if (!IsWireLength(descriptor, codec, payload.Length))
         {
             return DecodeResult.BadRequest;
         }
@@ -89,7 +89,7 @@ public static class RequestEnvelope
         }
 
         int written = codec.Encode(in op, destination.Slice(HeaderSize));
-        if (written != descriptor.WireSize)
+        if (!IsWireLength(descriptor, codec, written))
         {
             return -1;
         }
@@ -98,4 +98,8 @@ public static class RequestEnvelope
         BinaryPrimitives.WriteUInt16LittleEndian(destination.Slice(2), unchecked((ushort)op.ReqId));
         return HeaderSize + written;
     }
+
+    // The descriptor's wire size, or a two-length codec's short size (ADR-0011 erratum 2026-10-16: presence implied by length).
+    private static bool IsWireLength(OpDescriptor descriptor, IOpCodec codec, int length) =>
+        length == descriptor.WireSize || (codec is IShortFormOpCodec shortForm && length == shortForm.ShortWireSize);
 }

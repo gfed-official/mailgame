@@ -116,11 +116,13 @@ public class OpCodecFuzzTests
                 int length = RequestEnvelope.Encode(registry, in op, valid);
                 Assert.True(length > 0);
 
-                // Act and Assert: the full message is fine; every strict prefix is too short
+                // Act and Assert: the full message is fine; every strict prefix is too short, except a two-length codec's short form
                 Assert.Equal(DecodeResult.Ok, RequestEnvelope.TryDecode(registry, valid.AsSpan(0, length), out _));
+                int shortForm = binding.Codec is IShortFormOpCodec s ? RequestEnvelope.HeaderSize + s.ShortWireSize : -1;
                 for (int cut = 0; cut < length; cut++)
                 {
-                    Assert.Equal(DecodeResult.BadRequest, RequestEnvelope.TryDecode(registry, valid.AsSpan(0, cut), out _));
+                    DecodeResult expected = cut == shortForm ? DecodeResult.Ok : DecodeResult.BadRequest;
+                    Assert.Equal(expected, RequestEnvelope.TryDecode(registry, valid.AsSpan(0, cut), out _));
                 }
 
                 // and every extension (trailing bytes) is rejected
@@ -182,7 +184,7 @@ public class OpCodecFuzzTests
                 // Assert
                 if (ok)
                 {
-                    Assert.Equal(codec.WireSize, length);
+                    Assert.True(length == codec.WireSize || (codec is IShortFormOpCodec s && length == s.ShortWireSize), $"codec {codec.CodecId} accepted {length} B");
                     Assert.True(payloadLength > 0 && payloadLength <= OpPayload.Size);
                 }
                 else

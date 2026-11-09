@@ -31,6 +31,8 @@ public sealed class ClientLayerBuilder
     private readonly List<IClientStep>[] _steps = new List<IClientStep>[StepIdCount];
     private readonly List<IClientStep>[] _previews = new List<IClientStep>[PreviewSubStepCount];
     private readonly SimCheckRing? _checks;
+    private readonly List<EventKindSet> _partKinds = new();
+    private readonly List<IMirrorPart> _parts = new();
     private ulong _levelActionMask;
     private bool _built;
 
@@ -99,6 +101,24 @@ public sealed class ClientLayerBuilder
     }
 
     /// <summary>
+    /// Binds a Sim-side mirror part (ADR-0016 section 1): the <c>MirrorDrain</c> step applies every drained entry whose kind is in
+    /// <paramref name="kinds"/> to <paramref name="part"/>, and every reply, after earlier binds. Same frozen-table rules as
+    /// <see cref="Bind"/>.
+    /// </summary>
+    /// <param name="kinds">The event kinds the part applies.</param>
+    /// <param name="part">The mirror part.</param>
+    /// <exception cref="SimBuildException"><c>BindAfterFreeze</c> after <see cref="Build"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="part"/> is null.</exception>
+    /// <example><code>builder.BindMirrorPart(EventKindSet.Of(EconEventKinds.WalletChanged), walletMirror);</code></example>
+    public void BindMirrorPart(EventKindSet kinds, IMirrorPart part)
+    {
+        ThrowIfBuilt();
+        ArgumentNullException.ThrowIfNull(part);
+        _partKinds.Add(kinds);
+        _parts.Add(part);
+    }
+
+    /// <summary>
     /// Declares which <see cref="FrameAction"/>s are level actions (Tap and Held-state grammar) whose repeated Press edges
     /// the <see cref="InputLatch"/> may coalesce on overflow. Bit <c>n</c> is <c>(FrameAction)n</c>. Default 0: nothing is
     /// coalesced and overflow only drops the newest presses. Hold, Aim and Interact grammar must stay out of the mask.
@@ -153,7 +173,7 @@ public sealed class ClientLayerBuilder
             table[i] = row;
         }
 
-        return new ClientLayer(_hostClock, table, latch, _counters);
+        return new ClientLayer(_hostClock, table, latch, _counters, new MirrorPartTable(_partKinds.ToArray(), _parts.ToArray()));
     }
 
     private void ThrowIfBuilt()

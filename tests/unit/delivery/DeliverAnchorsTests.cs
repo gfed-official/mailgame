@@ -300,13 +300,13 @@ public class DeliverAnchorsTests
     [Trait("Id", "M-MD1-1a")]
     public void RegisterAll_TenAnchors_AreStillRegisteredAfter600TicksOfAComposedPlayersSystem()
     {
-        // Arrange
+        // Arrange: the M-1a composition's ManualDelivery case registers the ten anchors (manual-delivery story 005).
         WorldTables world = BuildStreet();
         PlayersRig rig = PlayersRig.Create(world);
         var registry = new DestinationRegistry(world, _content);
-        DeliverInteractable impl = NewImpl();
+        Assert.True(rig.Players.Anchors.TryGet(DeliverRef(registry, 0), AnchorRegistry.ContextWorld, out int first));
+        IInteractable impl = rig.Players.Anchors.ImplAt(first);
         int before = rig.Players.AnchorCount;
-        Assert.Equal(RegisterResult.Ok, DeliverAnchors.RegisterAll(rig.Players, registry, _content, impl));
         uint startTick = rig.Sim.CurrentTick;
 
         // Act
@@ -314,7 +314,8 @@ public class DeliverAnchorsTests
 
         // Assert (the ticks really ran: SimWorld.Tick is a no-op outside Ready/Running)
         Assert.Equal(startTick + 600, rig.Sim.CurrentTick);
-        Assert.Equal(before + 10, rig.Players.AnchorCount);
+        Assert.IsType<DeliverInteractable>(impl);
+        Assert.Equal(before, rig.Players.AnchorCount);
         for (int i = 0; i < registry.Count; i++)
         {
             Assert.True(rig.Players.Anchors.TryGet(DeliverRef(registry, i), AnchorRegistry.ContextWorld, out int index));

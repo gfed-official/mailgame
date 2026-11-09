@@ -101,11 +101,11 @@ internal sealed class DestinationRegistry
     {
         int n = lots.Length;
         CheckLotCount(n);
-        (DefIndex house, CatchVolume volume) = ResolveHouse(content, n);
+        (DefIndex house, CatchVolume volume) = DestinationRows.ResolveHouse(content, n);
         bool contiguous = IsContiguousAscending(lots);
 
         Deliveries = new DeliveriesState();
-        (_typeAcceptsMask, _typeRequiresUnit) = BuildTypeFacts(content);
+        (_typeAcceptsMask, _typeRequiresUnit) = DestinationRows.BuildTypeFacts(content);
         _entity = new EntityId[n];
         _address = new AddressId[n];
         _type = new DefIndex[n];
@@ -316,46 +316,46 @@ internal sealed class DestinationRegistry
             return false;
         }
 
-        DefIndex type = _type[o.Value];
-        ulong mask = 0UL;
-        bool requiresUnit = false;
-        if (!type.IsNone && type.Value < _typeAcceptsMask.Length)
-        {
-            mask = _typeAcceptsMask[type.Value];
-            requiresUnit = _typeRequiresUnit[type.Value];
-        }
-
-        f = new DestinationFacts(_entity[o.Value], _address[o.Value], type, RawStateOf(o), mask, requiresUnit);
+        f = FactsOf(o, RawStateOf(o));
         return true;
     }
 
-    // Build time only: one accepted-kind mask (bit k = the kind with DefIndex.Value k; kinds >= 64 are never set) per type.
-    private static (ulong[] Masks, bool[] RequiresUnit) BuildTypeFacts(ContentSet? content)
-    {
-        if (content is null)
-        {
-            return (Array.Empty<ulong>(), Array.Empty<bool>());
-        }
+    /// <summary>
+    /// The facts of row <paramref name="o"/> with <paramref name="state"/> (the raw state, or a consume's effective state); the
+    /// static columns come through <see cref="DestinationRows.Facts"/>, the helper the client's <c>DestinationMirror</c> shares. 0 B.
+    /// </summary>
+    /// <param name="o">The ordinal; must be below <see cref="Count"/>.</param>
+    /// <param name="state">The state to report.</param>
+    /// <returns>The facts.</returns>
+    public DestinationFacts FactsOf(DestinationOrdinal o, DestState state) =>
+        DestinationRows.Facts(_entity[o.Value], _address[o.Value], _type[o.Value], state, _typeAcceptsMask, _typeRequiresUnit);
 
-        ReadOnlySpan<DestinationTypeDef> types = content.DestinationTypes.AsSpan();
-        var masks = new ulong[types.Length];
-        var requires = new bool[types.Length];
-        for (int t = 0; t < types.Length; t++)
+    /// <summary>
+    /// Copies the addresses of the destinations in unlocked districts, ascending (the manifest roller's address list, story 013), and
+    /// the union of their types' accepted-kind masks. 0 B.
+    /// </summary>
+    /// <param name="destination">Receives the addresses (length at least <see cref="Count"/>).</param>
+    /// <param name="acceptsMask">The union of the unlocked destinations' accepted-kind masks.</param>
+    /// <returns>The number of addresses written.</returns>
+    public int CopyUnlockedAddresses(Span<AddressId> destination, out ulong acceptsMask)
+    {
+        int n = 0;
+        ulong mask = 0UL;
+        for (int i = 0; i < _addressKeys.Length; i++)
         {
-            ulong mask = 0UL;
-            foreach (DefIndex kind in types[t].Accepts)
+            int o = _addressOrdinals[i];
+            if (!Deliveries.IsDistrictUnlocked(_district[o]))
             {
-                if (!kind.IsNone && kind.Value < 64)
-                {
-                    mask |= 1UL << kind.Value;
-                }
+                continue;
             }
 
-            masks[t] = mask;
-            requires[t] = types[t].RequiresUnit;
+            destination[n++] = _address[o];
+            DefIndex t = _type[o];
+            mask |= !t.IsNone && t.Value < _typeAcceptsMask.Length ? _typeAcceptsMask[t.Value] : 0UL;
         }
 
-        return (masks, requires);
+        acceptsMask = mask;
+        return n;
     }
 
     /// <summary>
@@ -407,26 +407,6 @@ internal sealed class DestinationRegistry
         {
             throw new ArgumentException("More than 65535 lots do not fit a DestinationOrdinal.", "lots");
         }
-    }
-
-    /// <summary>Resolves the <c>house</c> type and its catch volume once, at build (no string compare at tick time).</summary>
-    private static (DefIndex House, CatchVolume Volume) ResolveHouse(ContentSet? content, int lotCount)
-    {
-        if (lotCount == 0)
-        {
-            return (default, default);
-        }
-
-        ArgumentNullException.ThrowIfNull(content);
-        DefIndex house = FindDefIndex(content, HouseDefId);
-        CatchVolume v = content.DestinationTypes[house].CatchVolume;
-        if (v.YawMilliDeg != 0 || v.WidthMm <= 0 || v.HeightMm <= 0 || v.DepthMm <= 0)
-        {
-            throw new ArgumentException(
-                "The house catch volume must have yaw 0 and positive extents so the world box is axis-aligned.", nameof(content));
-        }
-
-        return (house, v);
     }
 
     /// <summary>True when destination ids run first, first + 1, first + 2 ... (an empty list is not contiguous).</summary>
@@ -520,20 +500,6 @@ internal sealed class DestinationRegistry
         w.WriteI32(p.X);
         w.WriteI32(p.Y);
         w.WriteI32(p.Z);
-    }
-
-    private static DefIndex FindDefIndex(ContentSet content, string id)
-    {
-        ReadOnlySpan<DestinationTypeDef> defs = content.DestinationTypes.AsSpan();
-        for (int i = 0; i < defs.Length; i++)
-        {
-            if (string.Equals(defs[i].Id, id, StringComparison.Ordinal))
-            {
-                return DefIndex.FromValue((ushort)i);
-            }
-        }
-
-        throw new ArgumentException("The content set has no destination type '" + id + "'.", nameof(content));
     }
 
     private static ReadOnlySpan<LotRecord> Lots(IWorldQuery world)
