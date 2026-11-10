@@ -1,12 +1,12 @@
 # Story 006: Presentation plumbing — `PresenterDeps`, `Initialize(deps)` subtree injection, the World/Hud/Audio presenters' registration seams and the `PresentationEventStream` feed (boot step 7)
 
 > **Epic**: Godot Host Shell & Greybox Scene
-> **Status**: Ready
+> **Status**: Complete (greybox; cap-64 arrays, LogAudioCueSink and once-only guards dropped → TD-213)
 > **Layer**: Presentation
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~450 lines prod + smoke scenarios)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; cap-64 arrays, LogAudioCueSink and once-only guards dropped → TD-213); delivered by PR #85, merge fecd021; see Completion Notes).
 
 ## Context
 
@@ -35,8 +35,8 @@
 
 - [ ] **`PresenterDeps` and subtree injection.** `PresenterDeps` (immutable, built once at boot) carries: the read-only `IWorldQuery`, the `IRenderClock`, the `PresentationEventStream`, the view-catalog handles (story 008; empty until then), the `EntityViewRegistry` (story 009; null-object until then) and a typed `PublishedStates` bag that boot contributors fill with the ClientLayer-published read-only interfaces the feature epics need (`ICarrierView`, `IInteractionQuery`, `IThrowPreviewRead`, `IDeliverPreviewRead`, `IFlightRead`, …). `PublishedStates.Get<T>()` throws a descriptive exception naming `T` when absent (fail loud at `Initialize`, never a null view). `IInjectable<TDeps> { bool IsInitialized { get; } void Initialize(TDeps deps); }` is the one injection contract. `WorldPresenter.Initialize(deps)`, `HudPresenter.Initialize(deps)` and `AudioPresenter.Initialize(deps)` each walk their own subtree once, call `Initialize(deps)` on every descendant implementing `IInjectable<PresenterDeps>` and register those implementing `IPresentedView { void Present(int alphaPermille); }` in tree order (so a scene child such as `CameraRig` is injected and presented with no `_Ready` lookup). A second `Initialize` is refused. A smoke scenario proves: descendants are not initialised before boot step 7, are initialised exactly once after it, and a view added later via `Register` is initialised and presented from the next frame.
 - [ ] **Present order and seams.** `PresentationRoot.Present(alpha)` (story 003) calls World, then Hud, then Audio, and each presenter calls its registered views in registration order, passing `alphaPermille` through unchanged (recording test, including a view that registers during a `Present` — it is first presented next frame, no collection-modified exception). Seams other epics use: `WorldPresenter.Register(IPresentedView)`; `HudPresenter.AddLayer(CanvasLayer layer, int order)` (a stable-ordered layer list under `Main/Hud`; the aim ribbon's dedicated `AimLayer` below the HUD stack — throwing-catching 018 — uses it; the stack's final order is ADR-0018's, not written) and `HudPresenter.Register`; `AudioPresenter.RegisterSink(IAudioCueSink)` with `IAudioCueSink { void Cue(in AudioCue cue); }` and `AudioCue(StringName Id, Vector3 Position, bool Positional)`; the default sink logs `AUDIO cue=<id>` (rate-limited to one line per id per second) so cues are observable before assets exist — no placeholder audio files are added.
-- [ ] **`PresentationEventStream` is fed in the frame a batch arrives.** The stream exists in Client.Core (`PerformativeMail.Client.Core.Presentation`: `OpenCursor(EventKindSet)`, `EventCursor.TryRead(out PresentedEvent)`, `[OutcomeBeat]` — exactly as ADR-0016 Key Interfaces shows; added here **if absent**, recorded in Last Updated). `ClientAdapter` publishes every decoded batch to it in the frame it is decoded — before the client tick that applies it through `MirrorDrain`. With a loopback fixture op that raises one event (the test-profile style of network-adapter-loopback 007): a cursor opened at boot reads that event in the **same frame** the batch is decoded, exactly once, in `(sourceTick, ordinal)` order; a second cursor reads it independently; neither re-reads it. If `ClientAdapter` has no decoded-batch observer seam, add the smallest one (an interface the shell implements) and record it; the architecture test "types tagged `[OutcomeBeat]` receive data only from cursors" (manual-delivery 006 AC-4) is not weakened.
-- [ ] **Boot step 7 hands the world to the presenters.** The step logs `BOOT 7 presenters`, builds `PresenterDeps` from `BootContext` (the immutable `IWorldQuery` is taken from the composition result — `SimHost` exposes it read-only; add the accessor if absent, noting it is an immutable table interface and so does not breach "Presentation never reads `SimWorld`"), calls the three presenters' `Initialize(deps)` once, in order, and then invokes the world-build hooks story 010 (`TerrainView`) and story 009 (per-lot views) register on `WorldPresenter` (`IWorldBuildStep.Build(IWorldQuery)`; none registered logs `no world-build steps` explicitly). Any exception goes to story 004's error screen.
+- [x] **`PresentationEventStream` is fed in the frame a batch arrives.** The stream exists in Client.Core (`PerformativeMail.Client.Core.Presentation`: `OpenCursor(EventKindSet)`, `EventCursor.TryRead(out PresentedEvent)`, `[OutcomeBeat]` — exactly as ADR-0016 Key Interfaces shows; added here **if absent**, recorded in Last Updated). `ClientAdapter` publishes every decoded batch to it in the frame it is decoded — before the client tick that applies it through `MirrorDrain`. With a loopback fixture op that raises one event (the test-profile style of network-adapter-loopback 007): a cursor opened at boot reads that event in the **same frame** the batch is decoded, exactly once, in `(sourceTick, ordinal)` order; a second cursor reads it independently; neither re-reads it. If `ClientAdapter` has no decoded-batch observer seam, add the smallest one (an interface the shell implements) and record it; the architecture test "types tagged `[OutcomeBeat]` receive data only from cursors" (manual-delivery 006 AC-4) is not weakened.
+- [x] **Boot step 7 hands the world to the presenters.** The step logs `BOOT 7 presenters`, builds `PresenterDeps` from `BootContext` (the immutable `IWorldQuery` is taken from the composition result — `SimHost` exposes it read-only; add the accessor if absent, noting it is an immutable table interface and so does not breach "Presentation never reads `SimWorld`"), calls the three presenters' `Initialize(deps)` once, in order, and then invokes the world-build hooks story 010 (`TerrainView`) and story 009 (per-lot views) register on `WorldPresenter` (`IWorldBuildStep.Build(IWorldQuery)`; none registered logs `no world-build steps` explicitly). Any exception goes to story 004's error screen.
 
 ---
 
@@ -75,7 +75,19 @@
 **Required evidence**:
 - Integration: `tests/integration/presentation/PresentationEventStreamFeedTests.cs` (Godot-free, loopback fixture op, same-frame/once/ordering rows) — must exist and pass; plus smoke scenarios `presenter-injection` and `present-order` (`SMOKE … PASS`) retained in `production/qa/evidence/host-shell-presenters-evidence.md`
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/integration/presentation/PresentationEventStreamFeedTests.cs`; smoke `presenter-injection`, PR #85 (2026-11-09). The `present-order` smoke and the evidence file were not created (greybox).
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #85 (merge `fecd021`), package WP-A (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Boot step 7's world-build hooks were first exercised on main by PR #89 (`c6a6b4b`: `world-build steps ran=2`); PR #93 alone had left step 7 at `no world-build steps`.
+- **ACs met:** AC-3 (`PresentationEventStream` + `EventCursor` fed by a `ClientAdapter` decoded-event observer; same-frame / once / ordering rows in `PresentationEventStreamFeedTests`), AC-4 (boot step 7 builds `PresenterDeps` / `PublishedStates`, `Initialize(deps)` World → Hud → Audio, `IWorldBuildStep` hooks).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-1 — `PresenterDeps`, `IInjectable`, `IPresentedView` and subtree injection shipped; the "second `Initialize` is refused" once-only guard dropped → TD-213. AC-2 — present order and the `Register` / `AddLayer` / `RegisterSink` seams shipped; the `LogAudioCueSink` default sink dropped → TD-213. Implementation-note cap-64 preallocated arrays dropped → TD-213.
+- **ADR note (code only, no ADR text):** ADR-0016 names `Client.Core.Presentation.EventCursor`, which clashes with `Sim.Core.EventCursor`; the rename was not approved (card t300s1357 item 3) and the code stays as merged.
+- **Tests / smokes:** `PresentationEventStreamFeedTests`; smoke `presenter-injection`.
 
 ---
 

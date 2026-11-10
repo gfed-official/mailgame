@@ -8,7 +8,7 @@
 > **Est. size**: M — 11 stories (planning estimate was 8–10; the extra story splits boot from session wiring)
 > **Implementation priority**: 9 of 9 (last; uses `~/.local/bin/godot-mono`)
 > **Status**: Ready
-> **Stories**: 11 stories — 4 Complete, 7 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 11 stories — 9 Complete, 2 Ready (counts refreshed 2026-11-09 from the story headers, M-1a package cleanup on main 8c77595 (PRs 85–97 merged; `tools/planning/gen_impl_order.py` and a status count over the story headers); before that 4 Complete, 7 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -101,15 +101,15 @@ This epic is complete when:
 | 002 | [`Main.tscn` scene root, ADR-0019 node tree, explicit project settings, headless smoke harness](story-002-main-scene-tree-project-settings-smoke-harness.md) | Integration | Complete | ADR-0019 |
 | 003 | [`GameLoop` frame loop: `Stopwatch` clock, `RunFrame` once per frame, hook points, driver-state pause, fault stop](story-003-gameloop-frame-loop-clock-pause-fault.md) | Integration | Complete | ADR-0002 |
 | 004 | [Boot sequence (nine steps), error screen, window guard, `BuiltInContent` step, extension slots](story-004-boot-sequence-error-screen-content-step.md) | Integration | Complete | ADR-0019 |
-| 005 | [Host session wiring: `SimComposition.Build` over loopback, `ClientLayer.Attach(ports)`, sample sink, local join, render clock](story-005-host-session-composition-ports-render-clock.md) | Integration | Ready | ADR-0019 |
-| 006 | [Presentation plumbing: `PresenterDeps`, `Initialize(deps)` injection, World/Hud/Audio registration seams, `PresentationEventStream` feed](story-006-presenters-deps-injection-event-stream.md) | Integration | Ready | ADR-0019 |
+| 005 | [Host session wiring: `SimComposition.Build` over loopback, `ClientLayer.Attach(ports)`, sample sink, local join, render clock](story-005-host-session-composition-ports-render-clock.md) | Integration | Complete (greybox) | ADR-0019 |
+| 006 | [Presentation plumbing: `PresenterDeps`, `Initialize(deps)` injection, World/Hud/Audio registration seams, `PresentationEventStream` feed](story-006-presenters-deps-injection-event-stream.md) | Integration | Complete (greybox) | ADR-0019 |
 | 007 | [Minimal `ContentHost : IContentSource` over `res://content/` and the opt-in host content mode](story-007-contenthost-minimal-iconentsource.md) | Integration | Ready | ADR-0019 |
-| 008 | [`ViewCatalog`, `ViewCatalogResolver`, placeholder view + warning, editor-saved catalogs, uid CI check](story-008-viewcatalog-resolver-placeholder-uid-check.md) | Integration | Ready | ADR-0019 |
-| 009 | [`EntityViewRegistry`, `NodePool<T>` + caps, one view per lot under `World/Destinations`](story-009-entity-view-registry-pools-destination-views.md) | Integration | Ready | ADR-0019 |
-| 010 | [Greybox street: `TerrainView` from `IWorldQuery` (ground, water, solids, pad, light, fallback camera)](story-010-greybox-street-terrain-view.md) | Visual/Feel | Ready | ADR-0019 |
+| 008 | [`ViewCatalog`, `ViewCatalogResolver`, placeholder view + warning, editor-saved catalogs, uid CI check](story-008-viewcatalog-resolver-placeholder-uid-check.md) | Integration | Complete (greybox) | ADR-0019 |
+| 009 | [`EntityViewRegistry`, `NodePool<T>` + caps, one view per lot under `World/Destinations`](story-009-entity-view-registry-pools-destination-views.md) | Integration | Complete (greybox) | ADR-0019 |
+| 010 | [Greybox street: `TerrainView` from `IWorldQuery` (ground, water, solids, pad, light, fallback camera)](story-010-greybox-street-terrain-view.md) | Visual/Feel | Complete (greybox) | ADR-0019 |
 | 011 | [Headless smoke (boot, ≥ 300 ticks, exit 0), smoke wrapper, CI wiring, `critical-paths.md`](story-011-headless-smoke-300-ticks-ci-critical-paths.md) | Integration | Ready | ADR-0019 |
 
-**11 stories: 10 Integration, 1 Visual/Feel — 4 Complete, 7 Ready, 0 Blocked (refreshed 2026-10-21; 004 Complete in PR #17).** Every governing ADR (0001, 0002, 0003, 0010, 0011, 0012, 0016, 0019, 0026) is Accepted. Stories depend on other stories, not on missing decisions, so none is Blocked.
+**11 stories: 10 Integration, 1 Visual/Feel — 9 Complete, 2 Ready, 0 Blocked (refreshed 2026-11-09, M-1a package cleanup on main 8c77595; before that 4 Complete, 7 Ready, refreshed 2026-10-21; 004 Complete in PR #17).** Every governing ADR (0001, 0002, 0003, 0010, 0011, 0012, 0016, 0019, 0026) is Accepted. Stories depend on other stories, not on missing decisions, so none is Blocked.
 
 **Suggested order:** 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011. 007 may run any time after 004. Stories 001–004 can start as soon as simulation-core 001/010/024/025, network-adapter-loopback 001 and content-data 008 exist; 005 needs network-adapter-loopback 007 and player-character 019/020; 009–010 need the world-stub street (006/007).
 
@@ -157,6 +157,8 @@ This epic is complete when:
 **Engine risk.** HIGH (VERSION.md). Every story carries it; UNVERIFIED items stay UNVERIFIED in the stories: exported-build content read (V1/S1-5), `ProcessThreadGroup`/`low_processor_mode`/`physics_interpolation` effects, `Window.MinSize` on Wayland/hiDPI and `keep_height` below 16:9 (V4), Godot 4.7.1 mono download URL on CI, headless shared-library needs.
 
 ## Next Step
+
+**2026-11-09 (M-1a package cleanup, main 8c77595):** the rough playable M-1a greybox is on main — PRs 85–97 merged as one PR per package (Evan 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"), each under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310); live playtest on 8c77595 passes all four checks and 34/34 smokes. This epic's package stories are Complete (greybox trims per the M-1a regroup plan §3 simplify table, Mail Lead planning default, held in the package TD rows; see each story's Completion Notes): 005 and 006 (WP-A part 1, PR #85, merge fecd021), 008, 009 and 010 (WP-A part 2, PR #89, merge c6a6b4b). Still open: 007 (`ContentHost`, opt-in content hosting; PR #74 still open, hardening) and 011 (the headless 300-tick smoke gate and CI wiring — the box runs 34 smoke scenarios locally, 34/34 on 8c77595, but CI runs none; harden later). Next: the M-1a hardening packages (H-MIRROR first; plan written separately, see `production/session-state/HANDOFF.md`); no story is scheduled on its own. The earlier lists below are history.
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 007 (A3), 005 (A7), 006 (A8), 008 (A9), 009 (A10), 010 (A11), 011 (A12). Earlier notes below are history.
 

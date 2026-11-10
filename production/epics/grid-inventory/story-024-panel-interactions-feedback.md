@@ -1,12 +1,12 @@
 # Story 024: Panel interactions through the Panel/Holding input contexts, and the M-1a feedback cues
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: Partial (greybox; keys 1–8 select wired via HotbarSelect (PR #91 + PR #94); Shift quick-move built in the view but the live panel has no Intake grid and the Tab panel is a stub; drag, rotate, Q, tap-to-lift, Esc/RMB, H-UI-1 dropped → TD-250 (5), TD-270 (2)(7), TD-274 (c))
 > **Layer**: Presentation
 > **Type**: UI
 > **Estimate**: M–L (~1 day)
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: 2026-10-23 (split by the m1a-replan PR)
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Partial (greybox; keys 1–8 select wired via HotbarSelect (PR #91 + PR #94); Shift quick-move built in the view but the live panel has no Intake grid and the Tab panel is a stub; drag, rotate, Q, tap-to-lift, Esc/RMB, H-UI-1 dropped → TD-250 (5), TD-270 (2)(7), TD-274 (c)); delivered by PR #91, merge ae8a12d; see Completion Notes). Earlier: 2026-10-23 (split by the m1a-replan PR)
 
 > **Split 2026-10-23.** The live-region arm of H-UI-1 (each feedback row's exact text in the live region; TR-inventory-027, ADR-0019 l.313, erratum E6) moved verbatim to `story-025-deferred-live-region-feedback.md` (Deferred to the M1 accessibility pass). Evan, Mail Lead chat 2026-10-23 8:10 AM PT, approving errata E1–E6 and E9: "approve all". What stays here is every interaction, every reachable rejection's visible revert, cue id and exact text in the UI event log, and the Holding rules. The dependency on input-controls 011 (mouse-free panel cursor navigation) was dropped 2026-10-23 and restored 2026-10-27, when Evan kept 011 Ready (9:42 PM PT, "Keep input-controls 011 and 022 Ready").
 
@@ -72,7 +72,19 @@
 **Required evidence**:
 - UI: a retained screenshot of each screen touched in `production/qa/evidence/grid-inventory/` (+ H-UI-1 stub checks against the UI event log for the scripted-stub checks)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/ui/PanelControllerTests.cs` (Shift quick-move and hotbar-select rows only; no H-UI-1 stub checks, no retained screenshots), PR #91 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #91 (merge `ae8a12d`), package WP-E (M-1a wave 2; S1–S3 coded on Sonnet, review fixes on Opus), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Wired at boot by PR #93 (`545df2f`, TD-260) with no-op actions and a `NoTarget` gate (keys 1–8 and Quick move stayed `no_sink`). Fed by the client loop from PR #94 (`f145219`, TD-270): keys 1–8 select hotbar slots through the `HotbarSelect` op, and the Intake pickup is the `IntakePickup` macro — E at the console sends Open, then `take_all` for the street's district, then Close, then quick-moves the first letter to the hotbar and selects it (TD-270 (6)) — not the panel.
+- **ACs met:** none in full. Built: Shift quick-move Intake → panel and keys 1–8 to select, both through `InputRouter` sinks, not raw keys. Binding kept: the range gate goes through `IPlayersApi.CheckInteraction` (`CheckInteractionGate`, built with the local actor, anchor and claimed position).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-1 — only the Shift quick-move and the 1–8 select are built; the live panel has no Intake grid and the Tab panel is a stub, so the quick-move is not exercised live; tap-to-lift, drag, R rotate, Esc/RMB return, Q drop, the slot-1 refusal and the screenshots were dropped → TD-250 (5), TD-270 (2)(7). AC-2 — the H-UI-1 feedback table was dropped → TD-250 (5). AC-3 — holding across a panel close was dropped → TD-250 (5). PR #94 left "the panel's own back-ladder steps, Tab panel actions, and drag/drop" unbuilt (TD-270 (7)).
+- **Known gaps (TD-274):** (c) the Tab panel is an empty stub — Mail Playtest, live checks on f145219, eedc110, b1a3e8d and 8c77595.
+- **Tests:** `tests/unit/ui/PanelControllerTests.cs` (Shift-click on an Intake entry in range sends QuickMove from the Intake; out of range, on nothing or panel closed sends nothing; hotbar key refused by the request port leaves the selection) — PR #91; 6,445 per leg, 0 failed.
 
 ---
 

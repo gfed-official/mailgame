@@ -1,12 +1,12 @@
 # Story 023: Own-panel grid view and hotbar strip — one custom-drawn Control, 0 B/frame
 
 > **Epic**: Grid Inventory & Containers (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; AC3 0 B/frame target advisory until M0 → TD-250 (5))
 > **Layer**: Presentation
 > **Type**: UI
 > **Estimate**: M (~1 day)
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: 2026-10-23 (split by the m1a-replan PR)
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; AC3 0 B/frame target advisory until M0 → TD-250 (5)); delivered by PR #91, merge ae8a12d; see Completion Notes). Earlier: 2026-10-23 (split by the m1a-replan PR)
 
 > **Split 2026-10-23.** The TR-inventory-027 live-region feedback half — the live-region `Control` for feedback text named in the Decision Summary below (ADR-0019 l.313, erratum E6) — moved to `story-025-deferred-live-region-feedback.md` (Deferred to the M1 accessibility pass). Evan, Mail Lead chat 2026-10-23 8:10 AM PT, approving errata E1–E6 and E9: "approve all". No acceptance criterion left this story; the custom-drawn grid `Control`, the hotbar strip, the 0 B/frame check and the Intake grid view all stay.
 
@@ -35,10 +35,10 @@
 
 *From GDD `design/gdd/grid-inventory.md` (test IDs `H-…`), scoped to this story:*
 
-- [ ] Manual check — GIVEN a greybox build with a player holding letters, an Axe and a Medium, WHEN Tab opens the panel, THEN the hotbar row (slot 1 = hands, visibly reserved), the 8×2 inventory and dividers render per the UX spec, every entry at its `(x,y,rotated)` with count and kind/address glyph; screenshot retained in `production/qa/evidence/grid-inventory/`.
-- [ ] Manual check — the hotbar strip stays visible with the panel closed and shows the selected slot; selecting 1–8 updates it the same frame.
+- [x] Manual check — GIVEN a greybox build with a player holding letters, an Axe and a Medium, WHEN Tab opens the panel, THEN the hotbar row (slot 1 = hands, visibly reserved), the 8×2 inventory and dividers render per the UX spec, every entry at its `(x,y,rotated)` with count and kind/address glyph; screenshot retained in `production/qa/evidence/grid-inventory/`.
+- [x] Manual check — the hotbar strip stays visible with the panel closed and shows the selected slot; selecting 1–8 updates it the same frame.
 - [ ] Allocation: 600 frames with the panel open and the mirror changing every tick allocate 0 B per frame in steady state (frame-allocation probe; H-PERF-4 analogue for the own panel).
-- [ ] The Intake (M-1a external, story 011 decision) renders in the right-hand panel with the **grid** view (20×16) while open.
+- [x] The Intake (M-1a external, story 011 decision) renders in the right-hand panel with the **grid** view (20×16) while open.
 
 ---
 
@@ -73,7 +73,18 @@
 **Required evidence**:
 - UI: a retained screenshot of each screen touched in `production/qa/evidence/grid-inventory/` (+ H-UI checks for the scripted-stub checks)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/ui/PanelControllerTests.cs` (hotbar key row; no retained screenshot), PR #91 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #91 (merge `ae8a12d`), package WP-E (M-1a wave 2; S1–S3 coded on Sonnet, review fixes on Opus), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Wired at boot by PR #93 (`545df2f`, TD-260) through `InventoryLayers.Install`, at first over an empty panel source. Fed by the client loop from PR #94 (`f145219`, TD-270): the view reads `OwnPanelMirror`, the client's own seal-staged copy of the hotbar, player_inventory and cursor (a minimal stand-in for H-MIRROR's `ContainerMirror`, TD-270 (2)); PR #94 also gave the hotbar slots a dark fill so the "hands" label reads over any background.
+- **ACs met:** AC1 (hotbar row, 8×2 grid, glyph and count), AC2 (the hotbar stays visible with the panel closed and keys 1–8 update it the same frame), AC4 (Intake 20×16 grid drawn on the right while open). Binding kept: one custom-drawn `Control`, `PanelGridView`.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC3 — the 0 B/frame target is advisory until M0 (erratum E2), not measured → TD-250 (5). The AC1 retained screenshot was dropped under the plan's "one shot per package at assembly" rule. No Intake grid is live in the playable loop: the pickup is the `IntakePickup` macro at the console (TD-270 (6)), so the AC4 grid is drawn but not exercised.
+- **Tests:** `tests/unit/ui/PanelControllerTests.cs` (hotbar key shows the slot at once, then follows the mirror) — PR #91; 6,445 per leg, 0 failed.
 
 ---
 

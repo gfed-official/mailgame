@@ -1,12 +1,12 @@
 # Story 009: `ThrowRelease` host validation — the ordered check chain and claim-and-corroborate origin
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (0 B gate advisory until M0, erratum E2)
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~400 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-23 (split by the m1a-replan PR)
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (0 B gate advisory until M0, erratum E2); delivered by PR #87, merge 0490e0f; see Completion Notes). Earlier: 2026-10-23 (split by the m1a-replan PR)
 
 > **Split 2026-10-23.** The leaky-bucket cooldown (`TAT`; ADR-0015 §6, erratum E5) — the TC-T1-2 bucket AC, `ThrowCooldown.TryAccept`/`CommitTat`, the `throwCooldownTicks`/`throwBurstTicks` balance reads and the N = 7 precedence row — moved verbatim to `story-028-deferred-leaky-bucket-cooldown-tat.md` (Deferred to M0). Evan, Mail Lead chat 2026-10-23 8:10 AM PT, approving errata E1–E6 and E9: "approve all". What stays here is the ordered validation chain (check 7 keeps its slot and its `throw_cooldown` reason code but accepts unconditionally at M-1a) and claim-and-corroborate origin.
 
@@ -37,14 +37,14 @@
 
 *From GDD `design/gdd/throwing-catching.md` (TC-T1-1, TC-T4-1, TC-E-5, TC-E-6), scoped to this story:*
 
-- [ ] **TC-T4-1 (precedence, parametrised).** For N = 1…6, a request violating check N **and** check N+1 gets check N's reply (`bad_request`, `stale_entry`, `dead`, `frozen`, `swimming`, `unavailable`); a request violating only 8 gets `bad_direction`; only 10 gets `flight_cap`. Check 7 (`throw_cooldown`) keeps its position and reason code and accepts every request at M-1a; the parametrised test is written so the N = 7 row is one added `[InlineData]` when story 028 (M0) lands.
-- [ ] **TC-T1-1 (parametrised).** A valid release validates for a walking, sprinting, airborne, wading (899 mm, entered from dry land), OnSupport (velocity not inherited — no support data is read) or spawn-protected carrier, and the validator **never touches** spawn protection. Swimming (e.g. still swimming at 800 mm per the Player Character hysteresis) → `swimming`; Dead → `dead`; Frozen / on break → `frozen`; Mounted → `unavailable`.
-- [ ] **TC-E-5 a (entry changed after aiming, parametrised).** merged or split (count ≠ `units`), sorted into a new entry (id retired), selection moved off it → `stale_entry`; a replayed `seq` after the entry went to FLIGHT (entry unknown) → `stale_entry`; the cursor entry, a container entry, or an entry that is not in the sender's hotbar → `bad_request`; in every case the slot keeps its contents and a counter ticks.
-- [ ] **TC-E-5 / TC-E-4 (liveness).** A release applied while the thrower is Alive validates; the same release one tick after a (fixture) death gets `dead`. (The knockdown chain itself is Player Character / M-1b; a fixture sets the life state.) A release queued before the thrower's disconnect validates; one after it gets `frozen` (TC-E-6 a validator half).
-- [ ] **TC-T4-1 b (claim-and-corroborate).** Claimed feet within `claimToleranceMm` (1500, 3D) of the nearest history sample validate with `feetUsed = claim`; 1500 mm (3D) passes; 1501 mm validates with `feetUsed = newest sample`, `originClamped = true` and **no rejection**. With no history sample at all (empty history / position stale beyond 30 ticks) the release validates with the host's last known position and `originClamped = true`; a thrower who has never reported is never rejected on this check.
-- [ ] **TC-T4-1 d (purity).** After any rejection a Grid snapshot (slot, count, container version) and the Throwing dump hash are byte-identical to before the call; the validator allocates 0 B, raises no event and draws no RNG.
-- [ ] **Output plan.** A passing validation returns a stack-only `ThrowPlan { entry, units, feetUsed, originClamped, dir, side, tat' }` that story 010 commits without recomputation (`Commit` never fails and never re-validates). At M-1a `tat'` equals the slot's current `TAT` (story 028 fills it).
-- [ ] **`liveFlights`.** `flight_cap` is returned when `FlightTable` is full; the counter `flightCapHits` increments; a test fills 160 and asserts the 161st release is the only one refused.
+- [x] **TC-T4-1 (precedence, parametrised).** For N = 1…6, a request violating check N **and** check N+1 gets check N's reply (`bad_request`, `stale_entry`, `dead`, `frozen`, `swimming`, `unavailable`); a request violating only 8 gets `bad_direction`; only 10 gets `flight_cap`. Check 7 (`throw_cooldown`) keeps its position and reason code and accepts every request at M-1a; the parametrised test is written so the N = 7 row is one added `[InlineData]` when story 028 (M0) lands.
+- [x] **TC-T1-1 (parametrised).** A valid release validates for a walking, sprinting, airborne, wading (899 mm, entered from dry land), OnSupport (velocity not inherited — no support data is read) or spawn-protected carrier, and the validator **never touches** spawn protection. Swimming (e.g. still swimming at 800 mm per the Player Character hysteresis) → `swimming`; Dead → `dead`; Frozen / on break → `frozen`; Mounted → `unavailable`.
+- [x] **TC-E-5 a (entry changed after aiming, parametrised).** merged or split (count ≠ `units`), sorted into a new entry (id retired), selection moved off it → `stale_entry`; a replayed `seq` after the entry went to FLIGHT (entry unknown) → `stale_entry`; the cursor entry, a container entry, or an entry that is not in the sender's hotbar → `bad_request`; in every case the slot keeps its contents and a counter ticks.
+- [x] **TC-E-5 / TC-E-4 (liveness).** A release applied while the thrower is Alive validates; the same release one tick after a (fixture) death gets `dead`. (The knockdown chain itself is Player Character / M-1b; a fixture sets the life state.) A release queued before the thrower's disconnect validates; one after it gets `frozen` (TC-E-6 a validator half).
+- [x] **TC-T4-1 b (claim-and-corroborate).** Claimed feet within `claimToleranceMm` (1500, 3D) of the nearest history sample validate with `feetUsed = claim`; 1500 mm (3D) passes; 1501 mm validates with `feetUsed = newest sample`, `originClamped = true` and **no rejection**. With no history sample at all (empty history / position stale beyond 30 ticks) the release validates with the host's last known position and `originClamped = true`; a thrower who has never reported is never rejected on this check.
+- [x] **TC-T4-1 d (purity).** After any rejection a Grid snapshot (slot, count, container version) and the Throwing dump hash are byte-identical to before the call; the validator allocates 0 B, raises no event and draws no RNG.
+- [x] **Output plan.** A passing validation returns a stack-only `ThrowPlan { entry, units, feetUsed, originClamped, dir, side, tat' }` that story 010 commits without recomputation (`Commit` never fails and never re-validates). At M-1a `tat'` equals the slot's current `TAT` (story 028 fills it).
+- [x] **`liveFlights`.** `flight_cap` is returned when `FlightTable` is full; the counter `flightCapHits` increments; a test fills 160 and asserts the 161st release is the only one refused.
 
 ---
 
@@ -87,7 +87,20 @@
 **Required evidence**:
 - Logic: `tests/unit/throwing/ThrowValidationTests.cs` (`[Trait("Id", "TC-T4-1")]`, `TC-T1-1`, `TC-E-5`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/throwing/ThrowValidationTests.cs`, PR #87 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #87 (merge `0490e0f`), package WP-D (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310).
+- **ACs met:** all eight — TC-T4-1 precedence, TC-T1-1, TC-E-5 a, TC-E-5 / TC-E-4 liveness, TC-T4-1 b claim-and-corroborate, TC-T4-1 d purity, output plan, `liveFlights`. The 0 B clause of TC-T4-1 d is advisory until M0 (erratum E2; M-1a regroup plan §3 global rule).
+- **Deferred or partly met:** none in this story. The leaky-bucket `TAT` half is Deferred story 028 (already split, see story 028); check 7 keeps its slot and accepts unconditionally at M-1a, as this story says.
+- **As built (TD-230 (3), uncredited):** `IInventoryApi.CheckDetachForThrow(slot, rawEntryId, units, out hotbarIndex)` shares `DetachForThrow`'s decision; `IPlayersApi.IsSwimming`, `IsMounted` (false at M-1a) and `CorroborateClaim` added; check 3 maps every non-Alive non-Frozen state to `dead`; counter `ThrowingReleaseRejections` = 67. The `IHotbarSelection` unowned seam is filled by the `HotbarSelect` op built in the same PR (TD-230 (2)), so check 2's "not the selected slot" arm runs end to end (`ThrowLaunchTests.HotbarSelectThenRelease_…`).
+- **ADR:** no ADR text edited for this story.
+- **Tests:** `tests/unit/throwing/ThrowValidationTests.cs`; four legs green (net10.0 / net8.0 × Debug / Release, 0 failed).
 
 ---
 

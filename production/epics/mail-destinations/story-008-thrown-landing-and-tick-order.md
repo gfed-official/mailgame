@@ -1,12 +1,12 @@
 # Story 008: Thrown landings (`IMailApi.ResolveThrownLanding`, R13) and the hand → landing tick order
 
 > **Epic**: Mail & Destinations (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (feeder/NPC sub-cases are M-1b)
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~200 lines prod + ~300 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (feeder/NPC sub-cases are M-1b); delivered by PR #87, merge 0490e0f; see Completion Notes).
 
 ## Context
 
@@ -33,11 +33,11 @@
 
 *From GDD `design/gdd/mail-destinations.md`, scoped to the throw path (FX-W stub wallet; a Throwing caller stub that holds the entry in Flight):*
 
-- [ ] **AC-1 (M-X-2a, M-F8-1b, M-R6-1a throw)** At a wrong house, wallet −440, 20 letters at 11 ¢ → 5 consumed, wallet −495, `LandingResult` reports 15 remaining with `stoppedAtFloor`; one `DeliveryOutcome` (`via` throw, `units` 5, `stoppedAtFloor` set). With wallet 0 and 4 ¢ letters, a 20-stack costs exactly 80 ¢ and all 20 are consumed (M-R8-1b).
-- [ ] **AC-2 (M-F8-2)** One unit (spawn 8, penalty 4) then two units (spawn 9, penalty 5) thrown at wallet −492 → 1 consumed (−496), the second unit fails (−501 would breach), 2 units remain; raw complaint counts only the consumed unit (5,000 ‰).
-- [ ] **AC-3 (M-X-2b, M-R7-1a, M-R16-1a/b)** Accept pays every unit with the passed `thrownPm` (1100 → Cannon Arm applies), also when the thrower's slot is no longer connected. A 20-letter thrown misdelivery raises 20 `MailConsumed` and exactly 1 `DeliveryOutcome` (`units` 20, `result` misdeliver, `intendedAddress` set, `outcomeSeq` = previous + 1, `actor` = the thrower).
-- [ ] **AC-4 (M-X-2c, M-R6-2 thrown, M-R4-2d)** A Reject returns the whole entry to the caller (`LandingResult.Rejected`, units unchanged), with no wallet, complaint or stats change and no outcome. A throw released before close T that lands at T + 90 resolves as OPEN; one released at ≥ T is Rejected `closed`.
-- [ ] **AC-5 (M-R6-3 a, b, d — hand and throw sub-tests)** One mailbox, one tick, wallet −496, 4 ¢ Misdeliver: a hand op (phase 0) and a thrown landing (phase 4) → the hand op consumes (−500) and the landing returns `wallet_floor` with everything remaining. Without the hand op, the landing consumes. At wallet 0, four one-letter Misdeliver ops at one door in one tick debit the door bucket 5,000 ‰ each in order and the wallet 4 ¢ each. (Feeder and NPC sub-cases of M-R6-3 a/c are M-1b and later: excluded, not failed.)
+- [x] **AC-1 (M-X-2a, M-F8-1b, M-R6-1a throw)** At a wrong house, wallet −440, 20 letters at 11 ¢ → 5 consumed, wallet −495, `LandingResult` reports 15 remaining with `stoppedAtFloor`; one `DeliveryOutcome` (`via` throw, `units` 5, `stoppedAtFloor` set). With wallet 0 and 4 ¢ letters, a 20-stack costs exactly 80 ¢ and all 20 are consumed (M-R8-1b).
+- [x] **AC-2 (M-F8-2)** One unit (spawn 8, penalty 4) then two units (spawn 9, penalty 5) thrown at wallet −492 → 1 consumed (−496), the second unit fails (−501 would breach), 2 units remain; raw complaint counts only the consumed unit (5,000 ‰).
+- [x] **AC-3 (M-X-2b, M-R7-1a, M-R16-1a/b)** Accept pays every unit with the passed `thrownPm` (1100 → Cannon Arm applies), also when the thrower's slot is no longer connected. A 20-letter thrown misdelivery raises 20 `MailConsumed` and exactly 1 `DeliveryOutcome` (`units` 20, `result` misdeliver, `intendedAddress` set, `outcomeSeq` = previous + 1, `actor` = the thrower).
+- [x] **AC-4 (M-X-2c, M-R6-2 thrown, M-R4-2d)** A Reject returns the whole entry to the caller (`LandingResult.Rejected`, units unchanged), with no wallet, complaint or stats change and no outcome. A throw released before close T that lands at T + 90 resolves as OPEN; one released at ≥ T is Rejected `closed`.
+- [x] **AC-5 (M-R6-3 a, b, d — hand and throw sub-tests)** One mailbox, one tick, wallet −496, 4 ¢ Misdeliver: a hand op (phase 0) and a thrown landing (phase 4) → the hand op consumes (−500) and the landing returns `wallet_floor` with everything remaining. Without the hand op, the landing consumes. At wallet 0, four one-letter Misdeliver ops at one door in one tick debit the door bucket 5,000 ‰ each in order and the wallet 4 ¢ each. (Feeder and NPC sub-cases of M-R6-3 a/c are M-1b and later: excluded, not failed.)
 
 ---
 
@@ -75,7 +75,20 @@
 **Required evidence**:
 - Integration: `tests/integration/mail/ThrownLandingTests.cs` and `tests/integration/mail/ConsumeTickOrderTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/integration/mail/ThrownLandingTests.cs`, `tests/integration/mail/ConsumeTickOrderTests.cs`, PR #87 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #87 (merge `0490e0f`), package WP-D (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310).
+- **ACs met:** AC-1 to AC-5, all through `IMailApi.ResolveThrownLanding` and the real `SimWorld` phase order (hand op phase 0 → landing phase 4).
+- **Deferred or partly met:** none. The feeder and NPC sub-cases of M-R6-3 a/c are M-1b and later, excluded as the AC already says.
+- **As built (TD-230 (4), uncredited):** a Flight entry is `EntryRef(ContainerId.None, entry)` for `ConsumeUnit` / `TryReadEntry` (new mutator primitive `ConsumeFlightOldest`, no inventory event); `LandingResult(Kind, UnitsConsumed, UnitsRemaining, StoppedAtFloor, Reason)` with `LandingKind` Rejected 0 / Accepted 1 / Misdelivered 2; out of phase or an unknown destination → Rejected with the whole entry remaining. The closing-grace rule later moved to the open window's start (`DeliveriesState.OpenSinceTick`; TD-230 (b), see throwing-catching story 012); the thrown path still goes through `MailConsumer.Consume`.
+- **ADR:** no ADR text edited for this story.
+- **Tests:** `tests/integration/mail/ThrownLandingTests.cs`, `tests/integration/mail/ConsumeTickOrderTests.cs`; four legs green (0 failed).
 
 ---
 

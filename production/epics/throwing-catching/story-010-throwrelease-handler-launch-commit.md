@@ -1,12 +1,12 @@
 # Story 010: `ThrowReleaseHandler` Commit — F1 launch at the apply tick, `DetachForThrow`, the `FlightRecord`, `ThrowLaunched` and the `ok` reply
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; TC-E-4 knockdown dropped → TD-230)
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~400 lines prod + ~350 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-11-01 (docs branch `docs/lead-cleanups-2026-11-01`, off main 56c9446): AC added so a test guards the two `ThrowingSystem.Bind` event declarations (`ThrowingSystem.cs:142-143`, landed by story 006, untested); codec-asymmetry planning note (`ThrowLaunched.flags`). Before that: 2026-10-29 — owner AC added for the `ThrowingSystem.Bind` wiring (op handler; event declarations if 006 has not added them) (docs PR `docs/next-readiness-pc021-tc003`).
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; TC-E-4 knockdown dropped → TD-230); delivered by PR #87, merge 0490e0f; see Completion Notes). Earlier: 2026-11-01 (docs branch `docs/lead-cleanups-2026-11-01`, off main 56c9446): AC added so a test guards the two `ThrowingSystem.Bind` event declarations (`ThrowingSystem.cs:142-143`, landed by story 006, untested); codec-asymmetry planning note (`ThrowLaunched.flags`). Before that: 2026-10-29 — owner AC added for the `ThrowingSystem.Bind` wiring (op handler; event declarations if 006 has not added them) (docs PR `docs/next-readiness-pc021-tc003`).
 
 > **Op/host story (4 of 5).** The phase-0 handler that turns a validated release into a flight. After this story a throw leaves the hotbar and a `FlightRecord` exists; nothing sweeps it yet (story 011).
 
@@ -35,20 +35,20 @@
 
 *From GDD `design/gdd/throwing-catching.md` (TC-T2-1, TC-T4-1 c, TC-N-1, TC-E-4, TC-F1-1 b), scoped to this story:*
 
-- [ ] **TC-T2-1.** FX-L20 selected and thrown: exactly one `FlightRecord` holds all 20 `mailIds` (by reference), the `entryId` is kept, the hotbar slot is empty, the container `version` bumped by exactly 1 with one seal, and the 20 units are in the Flight ledger column. A standard-issue axe (light, value 0) throws 1 unit as non-mail with its `ItemDef` `weightClass`.
-- [ ] **FX-T launch.** The FX-T release (feet (10000, 0, 20000), dir (0, 3406, −16026), right-handed, light) stores origin (10250, 1200, 19700) and vel (0, 2911, −13695); `ThrowLaunched` carries the same integers plus `launchTick` = the apply tick `T`.
-- [ ] **TC-T4-1 c.** `launchTick == T`; the same tick's phase 4 does not sweep the new flight (age 0 never sweeps); the first sweep is at T+1 (asserted with story 011's step once present; here by `age == 0` at phase 4).
-- [ ] **Snapshots.** `thrownPm` = `IStatSheet.Read(ThrownCorrectPayMult, thrower)` at the apply tick (default 1000; a +100 Add → 1100, the Later vector); a later change to the sheet, or the thrower disconnecting, leaves the record unchanged. `ThrowRangePermille` is read once for F1 (default 1000 → `speedPm` 1000). `classPts` is the entry class's weight points (1/3/8).
-- [ ] **Release tick.** `releaseTick = T`; `openAtRelease` = whether deliveries were OPEN at `T` (Mail's deliveries state, read-only). Releases in Prep, Payday and Draft launch normally; their boxes are CLOSED at landing (story 012).
-- [ ] **Claimed origin.** With a corroborated claim the flight launches from it; with `originClamped` (story 009) it launches from the newest sample and `ThrowLaunched.flags` bit0 is set. A blocked chest → origin probe (story 003) launches from `feet + (0, 1000, 0)` (TC-E-1 a) and still carries `tat'`.
-- [ ] **TC-N-1 ordering (loopback).** For one launch the thrower's log order is the inventory `Removed`/`InvVersion` records, then `ThrowLaunched`, then the `ok` reply; every other peer's batch contains `ThrowLaunched` and no inventory records for the thrower's container; the actor is the transport peer's, never a payload field.
-- [ ] **Cooldown carried (M-1a).** `Commit` writes the `ThrowPlan.tat'` that story 009 computed, unchanged (no bucket at M-1a, erratum E5); two valid releases by one thrower applied at ticks 100 and 101 both launch end to end through the op ring with the real handler, and no reply carries `throw_cooldown`. The bucket form of this AC moved to story 028 (Deferred to M0).
+- [x] **TC-T2-1.** FX-L20 selected and thrown: exactly one `FlightRecord` holds all 20 `mailIds` (by reference), the `entryId` is kept, the hotbar slot is empty, the container `version` bumped by exactly 1 with one seal, and the 20 units are in the Flight ledger column. A standard-issue axe (light, value 0) throws 1 unit as non-mail with its `ItemDef` `weightClass`.
+- [x] **FX-T launch.** The FX-T release (feet (10000, 0, 20000), dir (0, 3406, −16026), right-handed, light) stores origin (10250, 1200, 19700) and vel (0, 2911, −13695); `ThrowLaunched` carries the same integers plus `launchTick` = the apply tick `T`.
+- [x] **TC-T4-1 c.** `launchTick == T`; the same tick's phase 4 does not sweep the new flight (age 0 never sweeps); the first sweep is at T+1 (asserted with story 011's step once present; here by `age == 0` at phase 4).
+- [x] **Snapshots.** `thrownPm` = `IStatSheet.Read(ThrownCorrectPayMult, thrower)` at the apply tick (default 1000; a +100 Add → 1100, the Later vector); a later change to the sheet, or the thrower disconnecting, leaves the record unchanged. `ThrowRangePermille` is read once for F1 (default 1000 → `speedPm` 1000). `classPts` is the entry class's weight points (1/3/8).
+- [x] **Release tick.** `releaseTick = T`; `openAtRelease` = whether deliveries were OPEN at `T` (Mail's deliveries state, read-only). Releases in Prep, Payday and Draft launch normally; their boxes are CLOSED at landing (story 012).
+- [x] **Claimed origin.** With a corroborated claim the flight launches from it; with `originClamped` (story 009) it launches from the newest sample and `ThrowLaunched.flags` bit0 is set. A blocked chest → origin probe (story 003) launches from `feet + (0, 1000, 0)` (TC-E-1 a) and still carries `tat'`.
+- [x] **TC-N-1 ordering (loopback).** For one launch the thrower's log order is the inventory `Removed`/`InvVersion` records, then `ThrowLaunched`, then the `ok` reply; every other peer's batch contains `ThrowLaunched` and no inventory records for the thrower's container; the actor is the transport peer's, never a payload field.
+- [x] **Cooldown carried (M-1a).** `Commit` writes the `ThrowPlan.tat'` that story 009 computed, unchanged (no bucket at M-1a, erratum E5); two valid releases by one thrower applied at ticks 100 and 101 both launch end to end through the op ring with the real handler, and no reply carries `throw_cooldown`. The bucket form of this AC moved to story 028 (Deferred to M0).
 - [ ] **TC-E-4 (launch half).** A release applied on the tick the thrower is (fixture) knocked down launches if the life state is still Alive at the handler (`Inputs.Apply` precedes damage resolution); the entry is in FLIGHT, not in the pile, and the flight continues. One tick later → `dead`.
-- [ ] **Commit never fails.** If `DetachForThrow` reports anything but success after a passing validation, the handler records a fault (`SimCheckRing`, counter `throwCommitFault`) and replies `bad_request` without appending a record or raising `ThrowLaunched`; a test injects a failing inventory double. In normal operation this path is unreachable.
-- [ ] **Owner: binding in `ThrowingSystem.Bind`.** This story adds `builder.BindOp(ThrowRelease descriptor, handler)` for the `ThrowRelease` handler in `ThrowingSystem.Bind` (`SimWorldBuilder.BindOp`, `Core/SimWorldBuilder.cs:157`), and the `builder.BindEventKind` declarations for `ThrowLaunched`/`FlightResolved` (`:114`) if story 006 has not already added them there; one composition test shows a built world accepts a `ThrowRelease` op and declares both event kinds.
-- [ ] **Owner: the event declarations are guarded by a test.** Story 006 landed the two declarations (`src/PerformativeMail.Sim/Throwing/ThrowingSystem.cs:142-143`, `builder.BindEventKind(ThrowEventDescriptors.ThrowLaunched)` / `FlightResolved`), but no test reaches them: `tests/integration/throwing/ThrowLoopbackTests.cs:68-69` binds the same descriptors on its own builder. This story adds one test on a world built through `SimComposition.Build` with the shipped Throwing (the `PlayersRig` fixture, `tests/unit/player/PlayersTestKit.cs:41-42`, as `tests/unit/throwing/FlightTableTests.cs:236` uses it) that raises one `ThrowLaunched` and one `FlightResolved` from inside a tick and asserts both flushed entries carry `ReplicationClass.Replicated` and the descriptors' wire codec ids (4 and 5, `ThrowEventDescriptors`). A kind with no descriptor is appended as `ReplicationClass.Internal` (`src/PerformativeMail.Sim/Core/EventLog.cs:221`) and never reaches a peer, so deleting either line at `ThrowingSystem.cs:142-143` must fail this test; it is seen failing with those two lines commented out before the story closes (`test-standards.md`).
-- [ ] **Hop and relay.** `hop = 0` for every flight at M-1a (T13 relay hops are M0 and deferred).
-- [ ] 1 000 launches allocate 0 B in `Commit`.
+- [x] **Commit never fails.** If `DetachForThrow` reports anything but success after a passing validation, the handler records a fault (`SimCheckRing`, counter `throwCommitFault`) and replies `bad_request` without appending a record or raising `ThrowLaunched`; a test injects a failing inventory double. In normal operation this path is unreachable.
+- [x] **Owner: binding in `ThrowingSystem.Bind`.** This story adds `builder.BindOp(ThrowRelease descriptor, handler)` for the `ThrowRelease` handler in `ThrowingSystem.Bind` (`SimWorldBuilder.BindOp`, `Core/SimWorldBuilder.cs:157`), and the `builder.BindEventKind` declarations for `ThrowLaunched`/`FlightResolved` (`:114`) if story 006 has not already added them there; one composition test shows a built world accepts a `ThrowRelease` op and declares both event kinds.
+- [x] **Owner: the event declarations are guarded by a test.** Story 006 landed the two declarations (`src/PerformativeMail.Sim/Throwing/ThrowingSystem.cs:142-143`, `builder.BindEventKind(ThrowEventDescriptors.ThrowLaunched)` / `FlightResolved`), but no test reaches them: `tests/integration/throwing/ThrowLoopbackTests.cs:68-69` binds the same descriptors on its own builder. This story adds one test on a world built through `SimComposition.Build` with the shipped Throwing (the `PlayersRig` fixture, `tests/unit/player/PlayersTestKit.cs:41-42`, as `tests/unit/throwing/FlightTableTests.cs:236` uses it) that raises one `ThrowLaunched` and one `FlightResolved` from inside a tick and asserts both flushed entries carry `ReplicationClass.Replicated` and the descriptors' wire codec ids (4 and 5, `ThrowEventDescriptors`). A kind with no descriptor is appended as `ReplicationClass.Internal` (`src/PerformativeMail.Sim/Core/EventLog.cs:221`) and never reaches a peer, so deleting either line at `ThrowingSystem.cs:142-143` must fail this test; it is seen failing with those two lines commented out before the story closes (`test-standards.md`).
+- [x] **Hop and relay.** `hop = 0` for every flight at M-1a (T13 relay hops are M0 and deferred).
+- [x] 1 000 launches allocate 0 B in `Commit`.
 
 ---
 
@@ -87,7 +87,20 @@
 **Required evidence**:
 - Integration: `tests/integration/throwing/ThrowLaunchTests.cs` (`[Trait("Id", "TC-T2-1")]`, `TC-T4-1c`, `TC-N-1`, `TC-E-4`) — must exist and pass on net10.0 and net8.0, using a real `SimWorld` with Grid Inventory, Throwing and stubbed Players/Mail/World
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/integration/throwing/ThrowLaunchTests.cs`, PR #87 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #87 (merge `0490e0f`), package WP-D (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310).
+- **ACs met:** TC-T2-1, FX-T launch, TC-T4-1 c, snapshots, release tick, claimed origin, TC-N-1 ordering, cooldown carried (M-1a), commit never fails, both owner ACs (`ThrowingSystem.Bind` binding; event declarations guarded), hop and relay, 0 B in `Commit` (advisory until M0, erratum E2).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** TC-E-4 (launch half) — the knockdown-tick launch case was dropped → TD-230 (5). The liveness half (Alive validates, one tick after a fixture death → `dead`) is story 009's and is built.
+- **As built (TD-230 (5), uncredited):** `IInventoryApi.TryReadThrowable` and `IMailApi.GetDeliveriesState` added for the commit's reads; a commit fault records `ThrowingCommitFault` 19 (counter 68). Check 2's selected slot comes from the `HotbarSelect` op built in the same PR (TD-230 (2)); `ThrowLaunchTests.HotbarSelectThenRelease_…` runs select → release through the op ring.
+- **ADR:** no ADR text edited for this story.
+- **Tests:** `tests/integration/throwing/ThrowLaunchTests.cs`; four legs green (0 failed).
 
 ---
 

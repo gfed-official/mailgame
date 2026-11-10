@@ -1,12 +1,12 @@
 # Story 010: Client mirror parts — `DestinationMirror`, `WalletMirror`, `RunMirror` — and the client facts constructors for `Evaluate`/F6/F7/F10
 
 > **Epic**: Mail & Destinations (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; reflection checks dropped → TD-220)
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~250 lines prod + ~250 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-20 (docs: AC-1 namespace `PerformativeMail.Sim.MailDestinations` per the ADR-0017 erratum 2026-10-20; stamp unchanged — a text-only manifest erratum)
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; reflection checks dropped → TD-220); delivered by PR #88, merge 7cd3756; see Completion Notes). Earlier: 2026-10-20 (docs: AC-1 namespace `PerformativeMail.Sim.MailDestinations` per the ADR-0017 erratum 2026-10-20; stamp unchanged — a text-only manifest erratum)
 
 ## Context
 
@@ -34,7 +34,7 @@
 *From ADR-0016 §1/§3 and GDD R5/R17, scoped to this story:*
 
 - [ ] **AC-1 Mirrors.** Fed a recorded stream of `DeliveriesState` and `WalletChanged` entries through `MirrorDrain`, `DestinationMirror` reports, per destination ordinal, the same OPEN/CLOSED/LOCKED as the host's `TryGetDestinationFacts` at the same ticks (story 009's stub cycle). `WalletMirror` reports the last `WalletChanged.balance`. `RunMirror` reports phase, `deadlineTick` and `closeTick`. None of these types references `SimWorld` or any `Sim.Mail` host table (namespace `PerformativeMail.Sim.MailDestinations`; reflection check).
-- [ ] **AC-2 Facts parity.** For a fixture of every (destination state incl. CLOSED-within-grace and LOCKED) × (unit category, kind, own/other address) pair, the client facts constructor (from mirrors + the `IPanelView` entry's kind/address/hint runs) and the host facts constructor (from the registry + mail table) produce equal `DestinationFacts`/`UnitFacts`, and `MailRules.Evaluate` returns equal results.
+- [x] **AC-2 Facts parity.** For a fixture of every (destination state incl. CLOSED-within-grace and LOCKED) × (unit category, kind, own/other address) pair, the client facts constructor (from mirrors + the `IPanelView` entry's kind/address/hint runs) and the host facts constructor (from the registry + mail table) produce equal `DestinationFacts`/`UnitFacts`, and `MailRules.Evaluate` returns equal results.
 - [ ] **AC-3 Display only.** With the mirrors at a stale wallet (one event behind), the client's `HintPayout` and `WalletGuard` preview may differ from the host's outcome, but no client code path can change the authoritative outcome. A test asserts that the client facts path has no reference to `IWalletGate` or to `MailConsumer`.
 
 ---
@@ -73,7 +73,20 @@
 **Required evidence**:
 - Integration: `tests/integration/mail/ClientMirrorFactsTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/integration/mail/ClientMirrorFactsTests.cs`, PR #88 (created) and PR #96 (AC-1 test updated) (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #88 (merge `7cd3756`), package WP-C (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Bound at boot by PR #93 (merge `545df2f`): `ClientMirrors` binds `WalletMirror` and `RunMirror` via `BindMirrorPart` in boot step 5 (TD-260). PR #96 (merge `b1a3e8d`): see the AC-1 note below.
+- **Built:** `DestinationMirror`, `MailClientFacts` (`Sim/Mail/Client`), `WalletMirror` (`Sim/Economy/Client`), `RunMirror` (`Sim/Run/Client`), `ClientLayerBuilder.BindMirrorPart(EventKindSet, IMirrorPart)`. Merge note from PR #88: the duplicate `ClientLayer.EventKindSet` was dropped in favour of main's `Core.EventKindSet`.
+- **ACs met:** AC-2.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-1 — the mirrors report state, wallet, phase/deadline/close ticks; the "no reference to `SimWorld` or host tables" reflection check was dropped → TD-220. AC-3 — display-only by construction; the "no reference to `IWalletGate` / `MailConsumer`" reflection test was dropped → TD-220.
+- **AC-1 test note (PR #96, TD-272 (b)):** `ShiftStub` now raises a closed `DeliveriesState` with `deadlineTick` = Prep's end on tick 1, so `ClientMirrorFactsTests` expects Prep's end as the mirrored deadline from tick 1. Only the test changed; the AC text above is not rewritten.
+- **Tests:** `tests/integration/mail/ClientMirrorFactsTests.cs` (PR #88; AC-1 expectation updated by PR #96). PR #96 reports 6,510 tests, 0 failed on all four legs.
 
 ---
 

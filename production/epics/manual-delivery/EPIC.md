@@ -8,7 +8,7 @@
 > **Est. size**: M — 10–12 stories
 > **Implementation priority**: 6 of 9
 > **Status**: Ready
-> **Stories**: 12 stories — 1 Complete, 9 Ready, 2 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 12 stories — 7 Complete, 3 Ready, 2 Deferred (counts refreshed 2026-11-09 from the story headers, M-1a package cleanup on main 8c77595 (PRs 85–97 merged; `tools/planning/gen_impl_order.py` and a status count over the story headers); before that 1 Complete, 9 Ready, 2 Deferred (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -115,15 +115,15 @@ This epic is complete when:
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
 | 001 | [Deliver anchors (MD1) + `GetHoldTicks` via `holdEff` (F2, MD9)](story-001-deliver-anchors-hold-ticks.md) | Logic | Complete | ADR-0014 |
-| 002 | [`DeliverScan` + pure preview (MD3) + F1 figures](story-002-deliver-scan-preview-f1.md) | Logic | Ready | ADR-0016, ADR-0017 |
-| 003 | [Availability (MD2), `DeliverPreview` step, settle tracker](story-003-availability-preview-step-tracker.md) | Logic | Ready | ADR-0016, ADR-0014 |
-| 004 | [Press, latch, cancels, request build (MD4, MD5 client)](story-004-press-latch-cancels-request.md) | Logic | Ready | ADR-0014, ADR-0016 |
-| 005 | [**`DeliverMatching` op (24 B; wire 24/28 B) + host handler**](story-005-delivermatching-op-and-handler.md) | Integration | Ready | ADR-0009 (errata), ADR-0017, ADR-0014, ADR-0011 |
-| 006 | [Reply/verdict table + once-per-hold hand-beat key (MD7)](story-006-reply-verdict-hand-beat-keys.md) | Logic | Ready | ADR-0016 |
+| 002 | [`DeliverScan` + pure preview (MD3) + F1 figures](story-002-deliver-scan-preview-f1.md) | Logic | Complete | ADR-0016, ADR-0017 |
+| 003 | [Availability (MD2), `DeliverPreview` step, settle tracker](story-003-availability-preview-step-tracker.md) | Logic | Complete (greybox) | ADR-0016, ADR-0014 |
+| 004 | [Press, latch, cancels, request build (MD4, MD5 client)](story-004-press-latch-cancels-request.md) | Logic | Complete (greybox) | ADR-0014, ADR-0016 |
+| 005 | [**`DeliverMatching` op (24 B; wire 24/28 B) + host handler**](story-005-delivermatching-op-and-handler.md) | Integration | Complete (greybox) | ADR-0009 (errata), ADR-0017, ADR-0014, ADR-0011 |
+| 006 | [Reply/verdict table + once-per-hold hand-beat key (MD7)](story-006-reply-verdict-hand-beat-keys.md) | Logic | Complete (greybox) | ADR-0016 |
 | 007 | [End-to-end over loopback: parity, network, edge cases](story-007-integration-loopback-parity-edge-cases.md) | Integration | Ready | ADR-0016, ADR-0011 |
 | 008 | [Race suite, bell fuzz, 10,000-seed soak](story-008-race-suite-bell-fuzz-soak.md) | Integration | Deferred (Evan 2026-10-23 8:54 AM PT) | ADR-0006 |
 | 009 | [Telemetry `latchedBranch` / `handShare`](story-009-telemetry-latched-branch-handshare.md) | Logic | Ready | ADR-0024 (M-1a slice) |
-| 010 | [Prompt content as data (`PromptArgs` key + typed args; narrowed 2026-10-23)](story-010-prompt-content-as-data.md) | Logic | Ready | ADR-0014 |
+| 010 | [Prompt content as data (`PromptArgs` key + typed args; narrowed 2026-10-23)](story-010-prompt-content-as-data.md) | Logic | Complete (greybox) | ADR-0014 |
 | 011 | [Hand presentation: flap, reach, lunge, echo, riffle, stance](story-011-hand-presentation-flap-reach-lunge-stance.md) | Visual/Feel | Ready | ADR-0019, ADR-0016 |
 | 012 | [Deliver prompt accessibility and localisation — the screen-reader settle gate (M-MD4-1e), ](story-012-deferred-prompt-accessibility-localisation.md) | Logic | Deferred (Evan 2026-10-23 8:54 AM PT) | — |
 
@@ -139,6 +139,8 @@ This epic is complete when:
 - **OQ-MD005-1:** see story 005 AC-7 (registry access) — open.
 
 ## Next Step
+
+**2026-11-09 (M-1a package cleanup, main 8c77595):** the rough playable M-1a greybox is on main — PRs 85–97 merged as one PR per package (Evan 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"), each under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310); live playtest on 8c77595 passes all four checks and 34/34 smokes. This epic's package stories are Complete (greybox trims per the M-1a regroup plan §3 simplify table, Mail Lead planning default, held in the package TD rows; see each story's Completion Notes): 002, 003, 004, 005, 010 and the 006 reply table (WP-C, PR #88, merge 7cd3756), the 006 `HandBeatController` (PR #92, merge 76a110b); the client chain is bound and the request-sink wire bug fixed by WP-F (PR #94, merge f145219). Still open: 011 (hand presentation: flap, reach cue, lunge — built by no PR; `HandBeatDriver` has no Game caller), 007 (loopback parity suite) and 009 (telemetry) — harden later. Next: the M-1a hardening packages (H-MIRROR first; plan written separately, see `production/session-state/HANDOFF.md`); no story is scheduled on its own. The earlier lists below are history.
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 002 (A6), 003 (A7), 005 (A8), 004 (A9), 006 (A10), 010 (A10), 011 (A12); then Track B: 009 (B1), 007 (B2); Deferred by Evan 2026-10-23 (not scheduled): 008, 012. Earlier notes below are history.
 

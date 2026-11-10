@@ -1,12 +1,12 @@
 # Story 002: `Main/Hud/Persistent` layer, `HudLayer` refresh, the wallet readout (`WalletView`) and the time-only shift timer (`ShiftTimerView`)
 
 > **Epic**: HUD & Notifications (M-1a minimal slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; AC-1, AC-2 and AC-6 partly met — layer created in code by HudLayers.Install at boot (PR #93), no recording-fake smoke, no tnum/screenshots/evidence → TD-250 (4))
 > **Layer**: Presentation
 > **Type**: UI
 > **Estimate**: S–M (~0.75 day; ~250 lines prod + smoke scenarios + evidence)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-23 (created by the m1a-replan docs PR against ADR-0018, Accepted 2026-10-23 8:10 AM PT; Mail Lead planning defaults, approved by Evan 2026-10-23 8:10 AM PT (TD-173) are labelled inline)
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; AC-1, AC-2 and AC-6 partly met — layer created in code by HudLayers.Install at boot (PR #93), no recording-fake smoke, no tnum/screenshots/evidence → TD-250 (4)); delivered by PR #91, merge ae8a12d; see Completion Notes). Earlier: 2026-10-23 (created by the m1a-replan docs PR against ADR-0018, Accepted 2026-10-23 8:10 AM PT; Mail Lead planning defaults, approved by Evan 2026-10-23 8:10 AM PT (TD-173) are labelled inline)
 
 > **UNBLOCKED 2026-10-23 8:10 AM PT: ADR-0018 is Accepted** (Evan, Mail Lead chat, 2026-10-23 8:10 AM PT: "approve all", replying to the widget whose first option was "accept ADR-0018 (minimal HUD)"). The same reply approved the Mail Lead planning defaults labelled inline (TD-173). `/story-readiness` re-run in the m1a-replan PR.
 
@@ -36,8 +36,8 @@
 
 - [ ] **AC-1 Scene and injection (ADR-0019 l.104, l.257; story 006).** `Main.tscn` has `Main/Hud/Persistent` (`CanvasLayer`, script `HudLayer.cs`) as the first child of `Main/Hud`, with children `WalletView` and `ShiftTimerView` (`Control`, `FocusMode = None`). `HudLayer` is registered with `HudPresenter.AddLayer(layer, order: 1)` and all three implement `IInjectable<PresenterDeps>` + `IPresentedView`. A smoke scenario (`hud-persistent-injection`, the shape of story 006's `presenter-injection`) proves they are not initialised before boot step 7, are initialised exactly once after it, a second `Initialize` is refused, and `IHudState` reaches them through `PresenterDeps` (field `HudState`, added here **if absent** and recorded in Last Updated — ADR-0018 §4.2, planning default, approved by Evan 2026-10-23 8:10 AM PT (TD-173)).
 - [ ] **AC-2 Refresh before views (ADR-0018 §4.2).** In every presented frame `HudLayer.Present` calls `IHudState.Refresh()` exactly once and before `WalletView.Present` and `ShiftTimerView.Present` (recording fake `IHudState` in a smoke scenario `hud-refresh-order`); the presenter order World → Hud → Audio is unchanged (story 006's `present-order` scenario still passes). `HudPresenter.cs` is not edited.
-- [ ] **AC-3 Wallet text (H-WIDGET-1 wallet row; H-WIDGET-2 view half; H10 l.179).** With a scripted `IHudState` stepping `WalletCents` 0 → 9 → −500 (mail-destinations story 005 AC-1 values and the floor, l.428), the `Label` text equals the fake `IMoneyFormatter`'s output for `(value, Balance)` after each change, the formatter is called exactly once per change and zero times on unchanged frames, and the text is written once at `Initialize` and then only when `Dirty.Wallet` is set. The story 001 lint (no "¢" / currency literal) now also covers `src/Game/Hud/**`.
-- [ ] **AC-4 Timer text and visibility (H-WIDGET-1 time-only timer; H-F3-1 text rows; TR-hud-005).** The timer `Label` is hidden while `Timer.Visible == false` and shows `HudStringsEn.TimerText(DisplaySeconds)` ("02:14", "00:01", "00:00") otherwise; text is written only when `Dirty.Timer` is set; a scripted `IHudState` whose `DisplaySeconds` steps once per 1 000 ms over 10 s causes exactly 10 text writes (H-PERF-3 row). No prefix ("Shift 3 / 5 · DELIVERY") and no Amber / Red state at M-1a (l.176 "M-1a time only → M1").
+- [x] **AC-3 Wallet text (H-WIDGET-1 wallet row; H-WIDGET-2 view half; H10 l.179).** With a scripted `IHudState` stepping `WalletCents` 0 → 9 → −500 (mail-destinations story 005 AC-1 values and the floor, l.428), the `Label` text equals the fake `IMoneyFormatter`'s output for `(value, Balance)` after each change, the formatter is called exactly once per change and zero times on unchanged frames, and the text is written once at `Initialize` and then only when `Dirty.Wallet` is set. The story 001 lint (no "¢" / currency literal) now also covers `src/Game/Hud/**`.
+- [x] **AC-4 Timer text and visibility (H-WIDGET-1 time-only timer; H-F3-1 text rows; TR-hud-005).** The timer `Label` is hidden while `Timer.Visible == false` and shows `HudStringsEn.TimerText(DisplaySeconds)` ("02:14", "00:01", "00:00") otherwise; text is written only when `Dirty.Timer` is set; a scripted `IHudState` whose `DisplaySeconds` steps once per 1 000 ms over 10 s causes exactly 10 text writes (H-PERF-3 row). No prefix ("Shift 3 / 5 · DELIVERY") and no Amber / Red state at M-1a (l.176 "M-1a time only → M1").
 - [ ] **AC-5 Layout and floors (H23 l.235–236; UI Requirements l.531–532; seed l.26, l.28 PROPOSED; TR-hud-015).** At 1920×1080 and text 100 %: the timer sits top-left at y 32 inside the 48 px side / 32 px top safe area with digits ≥ 28 ref px and tabular figures (`FontVariation` `tnum` — VERIFY-IN-ENGINE); the wallet sits in the top-right column inside the safe area with numerals ≥ 20 ref px; neither widget moves, scales or animates while running (l.505, l.522). Retained screenshots at 1920×1080 and at the 1280×720 minimum window (ADR-0019 §7) — **ADVISORY** until a render rig exists (GDD l.565).
 - [ ] **AC-6 Frame hygiene (H29 seed l.250; ADR-0019 l.262).** A smoke scenario (`hud-idle`) runs 600 frames with an unchanged `IHudState` and records 0 `Label.Text` writes; a source check finds no `DrawLine`/`DrawPolyline` in `src/Game/Hud/**`. No `_Process` on these nodes; nothing reads `delta`.
 - *Advisory, not an AC (lighter-process proposal, decision log 2026-10-23; H-PERF-3 is ADVISORY at M-1a):* the same scenario may log managed bytes per `Present` (the `src/Game/Smoke/FrameAllocSmoke.cs` shape); a non-zero number is a completion note, not a failure.
@@ -82,7 +82,18 @@
 
 - **Screenshot ruling:** the retained screenshots are **required** for `/story-done` (the AC-5 shots at 1920×1080; the 1280×720 shot is optional). "ADVISORY until a render rig exists" applies only to pixel-floor measurement.
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/ui/HudUiTests.cs` (timer rows; the smokes and the evidence doc were not created), PR #91 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #91 (merge `ae8a12d`), package WP-E (M-1a wave 2; S1–S3 coded on Sonnet, review fixes on Opus), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Wired at boot by PR #93 (`545df2f`, TD-260): the layer is created in code by `HudLayers.Install(hudPresenter, money?)` at boot step 7, not as a `Main.tscn` node. Fed by the client loop from PR #94 (`f145219`, TD-270). PR #96 (`b1a3e8d`, TD-272 (b)): the clock now counts down during Prep as well — `ShiftStub` raises a Prep `DeliveriesState` on tick 1 and `RunMirror` → `HudState` → `ShiftTimerF3` show it unchanged; the `shift-boot` smoke checks the Prep clock (`00:02` a third into a 3 s Prep).
+- **ACs met:** AC-3 (wallet text through the one `IMoneyFormatter.Format(WalletCents, Balance)` call), AC-4 (timer text and visibility). Binding kept: the timer runs off `IRenderClock`, rounds up and never rises within a key.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-1 — no `Main.tscn` node and no `hud-persistent-injection` smoke; the layer and views are installed in code at boot (PR #93) → TD-250 (4). AC-2 — `HudLayer.Present` calls `Refresh()` before the child views, but there is no recording-fake `hud-refresh-order` smoke → TD-250 (4). AC-6 — text writes are cached, no `_Process`, no `DrawLine`; no `hud-idle` smoke → TD-250 (4). AC-5 (`tnum`, layout floors, screenshots) and AC-7 (evidence doc) dropped with the smokes.
+- **Tests:** `tests/unit/ui/HudUiTests.cs` (timer rounds up / never rises within a key / hides without deadline; timer text changes once per second over ten seconds) — PR #91; 6,445 per leg, 0 failed. The Prep-clock behaviour is covered by the `shift-boot` smoke (PR #96).
 
 ---
 

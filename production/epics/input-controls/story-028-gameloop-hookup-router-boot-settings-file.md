@@ -1,12 +1,12 @@
 # Story 028: `GameLoop` hook-up — router construction at boot step 4, the per-frame call order, `user://input.json`, solo pause and the cross-system wiring
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; solo pause via WP-F's BackLadder, ReplyObserved and the 60 s run skipped (input-controls 015/016 absent, perf advisory) → TD-240 (74))
 > **Layer**: Presentation
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~350 lines prod + a headless boot run)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-23 (dependencies re-pointed by the m1a-replan PR)
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; solo pause via WP-F's BackLadder, ReplyObserved and the 60 s run skipped (input-controls 015/016 absent, perf advisory) → TD-240 (74)); delivered by PR #90, merge 7b4b6d2; wired into the production boot by PR #93, merge 545df2f; see Completion Notes). Earlier: 2026-10-23 (dependencies re-pointed by the m1a-replan PR)
 
 > **Unblocked 2026-10-16 (story 001 Complete, OQ-IC-9 spike verdict GO-WITH-DELTAS — satisfies the ADR-0012 §7 "spike recorded under `prototypes/`" gate):** apply ADR-0012 deltas D-1..D-8 (TD-021) — 026 not Done until the S-25 retention follow-up (TD-022). Read `prototypes/spike-oq-ic-9-input/REPORT.md` `## ADR-0012 §7 deltas` and the `## Consumed by` row for this story before implementing; `/story-readiness` still recommended. Its second unblock condition (stories 026 / 027 Ready) is met by the same change. Also verify D-1's root-last re-assertion (`ChildEnteredTree` → `MoveChild`, likely `CallDeferred`; spike H-1). Still needs `production/epics/godot-host-shell/story-003-gameloop-frame-loop-clock-pause-fault.md` and `story-004-boot-sequence-error-screen-content-step.md` (dependencies).
 
@@ -37,9 +37,9 @@
 
 *From ADR-0012 §4 / §6 / §9 and GDD H-R12-1, scoped to this story:*
 
-- [ ] **Call order.** `GameLoop._Process` executes `DispatchImmediates()` → `FlushToLatch(latchWriter)` → `RunFrame()` → `Present()` → update of the `PresentedPromptLatch` (story 012) from `IInteractionQuery.Current` (done *after* the HUD drew the prompt) in that order, once per frame; a headless smoke asserts the order with a recording router and a recording runner (including a frame that runs 0 ticks — edges stay latched — and one that runs 3 catch-up ticks — edges on the first only).
-- [ ] **Boot step 4.** The router is constructed from `BuiltInActionMap.CreateM1a()`, the parsed `InputSettings`, `StopwatchInputClock`, the ClientLayer-published `IInteractionQuery` / `ICarrierStatusSource` / `IClientTickSource` ports, `IThrowAimView` and a new `UiEventLog`; `ActionMapValidator.Validate` runs at boot and **any error stops boot into the error screen** (never a silent fallback). The adapter node (story 026) receives its deps via `Initialize`.
-- [ ] **H-R12-1 (integration).** With `user://input.json` containing `holdSettingMs: 600` and the Deliver class `"Toggle"`, a headless boot applies both (observable through `IClientInputSettings.HoldSettingMs` and the router's mode); a malformed file boots with defaults and **one** warning in the log; a missing file boots with defaults and no warning. The file is read with `FileAccess.GetFileAsBytes` and `GetOpenError()` is checked.
+- [x] **Call order.** `GameLoop._Process` executes `DispatchImmediates()` → `FlushToLatch(latchWriter)` → `RunFrame()` → `Present()` → update of the `PresentedPromptLatch` (story 012) from `IInteractionQuery.Current` (done *after* the HUD drew the prompt) in that order, once per frame; a headless smoke asserts the order with a recording router and a recording runner (including a frame that runs 0 ticks — edges stay latched — and one that runs 3 catch-up ticks — edges on the first only).
+- [x] **Boot step 4.** The router is constructed from `BuiltInActionMap.CreateM1a()`, the parsed `InputSettings`, `StopwatchInputClock`, the ClientLayer-published `IInteractionQuery` / `ICarrierStatusSource` / `IClientTickSource` ports, `IThrowAimView` and a new `UiEventLog`; `ActionMapValidator.Validate` runs at boot and **any error stops boot into the error screen** (never a silent fallback). The adapter node (story 026) receives its deps via `Initialize`.
+- [x] **H-R12-1 (integration).** With `user://input.json` containing `holdSettingMs: 600` and the Deliver class `"Toggle"`, a headless boot applies both (observable through `IClientInputSettings.HoldSettingMs` and the router's mode); a malformed file boots with defaults and **one** warning in the log; a missing file boots with defaults and no warning. The file is read with `FileAccess.GetFileAsBytes` and `GetOpenError()` is checked.
 - [ ] **Solo pause.** On `router.PauseRequested(solo: true)` the loop calls `TickDriver.Pause()` (refused with a logged reason while any remote peer exists); on `ResumeRequested` it calls `Resume(now)`; while paused `Advance` returns 0, the router keeps running (so Back / Menu / Resume work), `AlphaPermille` is frozen at 0, and held buttons stay muted after resume (G3). `tools/ci/check-no-scenetree-paused.sh` and its `--self-check` pass.
 - [ ] **Cross-system wiring.** (a) The Immediate sinks registered at boot: Throwing's release builder for `Throw`; Grid Inventory's panel-op sink for pick / place / rotate / return / drop / quick-move **when its story exists** (an absent sink logs `no_sink`, per story 013); camera rig / host sinks for `Pause`, `ShoulderSwap`; the Hotbar slot / step consumer where the **unowned selected-slot seam** is resolved (EPIC.md). (b) `ClientAdapter` reply events call `router.ReplyObserved(reqId, reason)`; the Throwing sender calls `CommitSent`. (c) The camera rig's `IFocusConeSink` and pitch limits are pushed (`SetViewParams`, `SetPitchLimits`); Teleport / mount / dismount `LookReseeded` events from the carrier view call `router.SetLook`. (d) `router.SetSessionMode(solo)` reflects the session.
 - [ ] **Frame cost sanity.** A 60 s headless run at 60 fps with scripted injected input shows no `UiEventLog` overflow of the router queues, no exceptions, and `RunFrame` still ticking 30 Hz.
@@ -79,7 +79,20 @@
 **Required evidence**:
 - Integration: a recorded headless `godot-mono` boot/run log (call-order assertion, H-R12-1 variants, solo pause/resume) in `production/qa/evidence/input-adapter-evidence.md`, and the godot-host-shell headless smoke (`tests/smoke/critical-paths.md`) still passing
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — smoke `input-boot` (27 asserts, 0 failed; the H-R12-1 variants as extra step-4 boot sequences), `tests/unit/input/RouterFrameCallsTests.cs` (0-tick and 3-tick latch rows), `boot-order` smoke expects `BOOT 4 input: contributor InputBoot` (PR #93); rows in `production/qa/evidence/input-adapter-evidence.md`, PR #90 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #90 (merge `7b4b6d2`), package WP-B part 2 (M-1a wave 2), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). PR #90 built `InputBoot` (step-4 `IBootContributor`), `InputSettingsFile` and Client.Core's `RouterFrameCalls`; the three hooks it asked of WP-A were wired by PR #93 (`545df2f`, wave-3 assembly, TD-260): `BootPlan.CreateContributors(input)` puts `InputBoot` at step 4, `GameLoop.InstallBootedSession` calls `InputBoot.AttachToLoop(this)` right after the booted `FrameSequence`, and `src/Game/Boot/SessionBootStep.cs:83` passes the published `InputSettingsHolder` as the Sim's `IClientInputSettings`. The sinks were registered by PR #94 (`f145219`, TD-270 (7)): `ThrowReleaseSender` (Throw), the `HotbarSelect` sink (keys 1–8), `BackLadder` (Back / Pause).
+- **ACs met:** AC-1 (`DispatchImmediates` → `FlushToLatch` before `RunFrame`, `PresentedPromptLatch.Update` after `Present`; `RouterFrameCalls`, TD-240 (72)), AC-2 (router built at step 4 over the late-bound `InputPortSlots`, `ActionMapValidator.ValidateForBoot` failing step 4 on any error, TD-240 (69)–(71)), AC-3 (`user://input.json` read with `FileAccess` + `GetOpenError()`; one warning for a malformed file, none for a missing one, TD-240 (73)).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-4 — the router raises no `PauseRequested` (story 016 absent); the solo pause is WP-F's `BackLadder` calling `GameLoop.TogglePause` (a `TickDriver` pause, never `SceneTree.Paused`; `check-no-scenetree-paused.sh` green). AC-5 — (a) sinks registered by PR #94; Grid Inventory's panel-op sink and `ShoulderSwap` still log `no_sink` (TD-240 (74)); (b) `ReplyObserved` / `CommitSent` not wired (story 015 absent); (c) the camera rig's `IFocusConeSink` / `SetPitchLimits` push is not wired (the cone stays at the rig's fixed 635 and the router's own default limits); (d) `SetSessionMode` not called. AC-6 — the 60 s run skipped (perf advisory until M0).
+- **Relaxed dependencies (regroup plan §2):** 028 → 015 / 016 (neither built).
+- **Harden later:** AC-4 router pause requests (016), AC-5 (b) `ReplyObserved` (015), (c) the focus-cone binding, (d) session mode.
+- **Tests / smokes:** smoke `input-boot` (27/0), `RouterFrameCallsTests`; four legs green, no test deleted.
 
 ---
 

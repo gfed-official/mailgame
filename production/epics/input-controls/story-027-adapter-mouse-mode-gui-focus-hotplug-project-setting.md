@@ -1,12 +1,12 @@
 # Story 027: Adapter — mouse mode, GUI-focus policy, focus-loss delivery and the joypad project setting
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; focus-loss handlers and pause requests not built, input-controls 016/018 harden later → TD-240)
 > **Layer**: Presentation
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~350 lines prod + smoke rows)
 > **Manifest Version**: 2026-10-17.1
-> **Last Updated**: 2026-10-23 (split by the m1a-replan PR)
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; focus-loss handlers and pause requests not built, input-controls 016/018 harden later → TD-240); delivered by PR #90, merge 7b4b6d2; see Completion Notes). Earlier: 2026-10-23 (split by the m1a-replan PR)
 
 > **Split 2026-10-23 (E1, ADR-0012).** The hot-plug delivery AC (`Input.JoyConnectionChanged` → `router.OnPadConnection`, H-EC-6 integration half) moved to **story 031 (Deferred to M0)**, alongside story 018's router half. The joypad project setting `ignore_joypad_on_unfocused_application` is a focus-loss setting (TR-input-016, asserted by H-R11-3), not a hot-plug one, so it stays here. Story 029 (the real-pad / real-display evidence session) stays Ready; this story records its own headless smoke rows in the evidence file. Evan, Mail Lead chat 2026-10-23 8:10 AM PT, approving errata E1–E6 and E9: "approve all".
 
@@ -37,9 +37,9 @@
 *From GDD R11 and ADR-0012 §7, scoped to this story. Verified by the headless smoke scene, recorded in `production/qa/evidence/input-adapter-evidence.md`; rows that need a real display stay MANUAL and are collected by story 029. Each row follows the spike report where it differs from the ADR text.*
 
 - [ ] **Mouse mode.** The adapter applies `router.MouseModeRequest` (story 008) on a router-state change only: `Input.MouseMode = Captured` in World / Holding-closed / Aiming, `Visible` in Panel, Holding-open and Pause (and in TextEntry / Map / Station / Draft / History when those exist); cursor position is restored/centred as the spike recorded; capture is **re-applied after focus-in** when the state still requests it.
-- [ ] **GUI-focus policy.** A `GameControl` convention (static helper `GameControlFocus.Apply(Control)` setting `FocusMode.None`, used by the HUD and in-world Controls) exists; on entering a game context the adapter calls `GetViewport().GuiReleaseFocus()`; a debug-build `FocusPolicyCheck` walks `Main` once after boot and reports any visible `Control` under `Hud` / `World` with a focus mode other than `None`. The `ui_*` InputMap is untouched (a boot-time assertion compares `InputMap.ActionGetEvents("ui_accept")` etc. against the engine defaults captured at startup; no `InputMap` write exists anywhere — the story 025 CI lint is Deferred to M0, so the boot-time assertion is the only check at M-1a).
-- [ ] **H-R11-3 (clauses 2–4).** With the smoke scene: `ignore_joypad_on_unfocused_application` reads `true` at runtime; the mouse is captured in World and visible in Panel, Pause (and TextEntry at M0); with a `Button` focused (set before entering World) Space and Enter in World never activate it.
-- [ ] **Project setting.** The repo-root `project.godot` carries `[input_devices] joypads/ignore_joypad_on_unfocused_application=true` (set by this story; verify the exact key against the spike's B3 row, not memory).
+- [x] **GUI-focus policy.** A `GameControl` convention (static helper `GameControlFocus.Apply(Control)` setting `FocusMode.None`, used by the HUD and in-world Controls) exists; on entering a game context the adapter calls `GetViewport().GuiReleaseFocus()`; a debug-build `FocusPolicyCheck` walks `Main` once after boot and reports any visible `Control` under `Hud` / `World` with a focus mode other than `None`. The `ui_*` InputMap is untouched (a boot-time assertion compares `InputMap.ActionGetEvents("ui_accept")` etc. against the engine defaults captured at startup; no `InputMap` write exists anywhere — the story 025 CI lint is Deferred to M0, so the boot-time assertion is the only check at M-1a).
+- [x] **H-R11-3 (clauses 2–4).** With the smoke scene: `ignore_joypad_on_unfocused_application` reads `true` at runtime; the mouse is captured in World and visible in Panel, Pause (and TextEntry at M0); with a `Button` focused (set before entering World) Space and Enter in World never activate it.
+- [x] **Project setting.** The repo-root `project.godot` carries `[input_devices] joypads/ignore_joypad_on_unfocused_application=true` (set by this story; verify the exact key against the spike's B3 row, not memory).
 - [ ] **Focus loss delivery.** `NotificationApplicationFocusOut` and `NotificationWMWindowFocusOut` call `router.OnFocusLost()`; the In notifications call `router.OnFocusGained()`, re-apply mouse capture and re-seed the axis cache (story 026). A duplicate Out (both notifications) is idempotent. **H-EC-5 (integration half)**, run headless here via `Notification()` and recorded in the evidence file (the real-display rerun is story 029, M0): focus loss mid-hold and mid-drag → releases synthesised, movement zeroed, every button muted, the drag entry stays on the cursor, the panel stays open, the recapture click is swallowed, solo auto-pauses.
 - [ ] **Pause requests.** The adapter does not pause the Sim; it exposes the router's `PauseRequested` / `ResumeRequested` to `GameLoop` (story 028). `tools/ci/check-no-scenetree-paused.sh` stays green.
 
@@ -76,7 +76,21 @@
 **Required evidence**:
 - Integration: smoke-scene log rows for these ACs in `production/qa/evidence/input-adapter-evidence.md` (this story creates the file if story 026 has not; story 029 owns the MANUAL sign-offs) — must exist; rows that need a real display are recorded as MANUAL / NOT RUN, never marked passed from a headless run
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — smoke `input-mouse-focus` (16 asserts, 0 failed); rows in `production/qa/evidence/input-adapter-evidence.md` (focus-loss rows NOT RUN), PR #90 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #90 (merge `7b4b6d2`), package WP-B part 2 (M-1a wave 2), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310).
+- **Built:** `MouseModeController` (applies `MouseModeRequest` on the router's `StateChanged` event only, TD-240 (62)), `GameControlFocus`, the debug-only `FocusPolicyCheck` (TD-240 (67)), the `ui_*` InputMap snapshot check (`GD.PushError` on a mismatch, TD-240 (66)), and `project.godot` `[input_devices] joypads/ignore_joypad_on_unfocused_application=true`.
+- **ACs met:** AC-2 (GUI-focus policy: `GuiReleaseFocus()` on entering a game context, TD-240 (63)), AC-3 (H-R11-3 clauses 2–4 in the `input-mouse-focus` smoke), AC-4 (project setting).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 "no focus loss"; held by the package TD row):** AC-1 — mouse mode switches on state change and the cursor is warped to the viewport centre when capture ends (TD-240 (64), (65)); the re-apply after focus-in is not built because no focus handler exists. AC-5 — focus-loss delivery (`OnFocusLost` / `OnFocusGained`, H-EC-5) not built: stories 016 and 018 are on the harden-later list, so the router has no focus API yet. AC-6 — `PauseRequested` / `ResumeRequested` not built; the solo pause in the playable build is WP-F's `BackLadder` → `GameLoop.TogglePause` (PR #94, TD-270 (7)).
+- **Relaxed dependencies (regroup plan §2):** 027 → 016 / 018 (neither built).
+- **Harden later:** focus loss (AC-1 re-apply, AC-5) and the router pause requests (AC-6) with input-controls 016 / 018.
+- **Tests / smokes:** smoke `input-mouse-focus` (16/0); four legs green, no test deleted.
 
 ---
 

@@ -1,12 +1,12 @@
 # Story 011: `ThrowingStep` (phase 4) — the per-tick sweep, GROUND / WATER / solid / TIMEOUT terminals, WorldItem placement and `FlightResolved`
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; placement snap TC-T6-3 b and TC-E-7 cap eviction dropped → TD-230 (5))
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~550 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-11-01 (docs branch `docs/lead-cleanups-2026-11-01`, off main 56c9446): codec-asymmetry planning note (`FlightResolved.terminal` and `pad`).
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; placement snap TC-T6-3 b and TC-E-7 cap eviction dropped → TD-230 (5)); delivered by PR #87, merge 0490e0f; see Completion Notes). Earlier: 2026-11-01 (docs branch `docs/lead-cleanups-2026-11-01`, off main 56c9446): codec-asymmetry planning note (`FlightResolved.terminal` and `pad`).
 
 > **Flight resolution story (1 of 3).** After this story every flight that does not hit a mailbox or a catcher ends correctly: it lands on the ground, floats on water, stops on a house or the map edge, or times out — exactly once, conserving its units. Mailbox landings are story 012; catchers are story 023.
 
@@ -35,17 +35,17 @@
 
 *From GDD `design/gdd/throwing-catching.md` (TC-T6-3, TC-E-1, TC-T4-1 c), scoped to this story. Mailbox terminals are story 012; CAUGHT/FUMBLE story 023; BONK, HIT_ENEMY, BELT are M0 / M-1b and not failed here:*
 
-- [ ] **Order and age.** With three live flights launched on different ticks the step visits them in launch order; a flight launched this tick (age 0) is skipped; a flight of age `k` sweeps exactly the segment `Ballistic.PositionAt(k−1) → PositionAt(k)`; ages run `1 … maxFlightTicks` inclusive.
-- [ ] **TC-T6-3 (parametrised): terrain.** A flight whose first contact is dry terrain → terminal GROUND, one WorldItem (`origin = Thrown`, `onWater = false`) at the contact point snapped to walkable ground; the Grid 300 s expiry starts at the landing tick.
-- [ ] **TC-T6-3: solid.** Contact with a `House` or `Roof` solid or the Post Office (the Intake console at M-1a) → GROUND: the flight stops at the contact point and the item drops **straight down** onto the ground below the footprint (`SurfaceBelow`, story 003) — never left on a roof, never accepted into the Intake. The map's vertical sides behave the same, with the item placed 1 m inside the edge.
-- [ ] **TC-T6-3: water.** A flight whose first contact is water → terminal WATER, one WorldItem at the contact point with `onWater = true` (no snapping to land, even at the shore); it cannot be picked up through tick 299 after landing; at tick 300 mail returns to the **back** of the Intake queue and non-mail is destroyed (Grid story 013's behaviour, asserted end to end).
-- [ ] **TC-T6-3: age 90.** An injected flight whose only ground contact is segment 89 → 90 resolves GROUND (the k = 90 sweep happens); an injected flight with no contact through age 90 resolves **TIMEOUT**: the item is created on the surface directly below `p(90)`, as GROUND or WATER depending on what is below (`FlightResolved.terminal = Timeout`, `rank` of the surface).
+- [x] **Order and age.** With three live flights launched on different ticks the step visits them in launch order; a flight launched this tick (age 0) is skipped; a flight of age `k` sweeps exactly the segment `Ballistic.PositionAt(k−1) → PositionAt(k)`; ages run `1 … maxFlightTicks` inclusive.
+- [x] **TC-T6-3 (parametrised): terrain.** A flight whose first contact is dry terrain → terminal GROUND, one WorldItem (`origin = Thrown`, `onWater = false`) at the contact point snapped to walkable ground; the Grid 300 s expiry starts at the landing tick.
+- [x] **TC-T6-3: solid.** Contact with a `House` or `Roof` solid or the Post Office (the Intake console at M-1a) → GROUND: the flight stops at the contact point and the item drops **straight down** onto the ground below the footprint (`SurfaceBelow`, story 003) — never left on a roof, never accepted into the Intake. The map's vertical sides behave the same, with the item placed 1 m inside the edge.
+- [x] **TC-T6-3: water.** A flight whose first contact is water → terminal WATER, one WorldItem at the contact point with `onWater = true` (no snapping to land, even at the shore); it cannot be picked up through tick 299 after landing; at tick 300 mail returns to the **back** of the Intake queue and non-mail is destroyed (Grid story 013's behaviour, asserted end to end).
+- [x] **TC-T6-3: age 90.** An injected flight whose only ground contact is segment 89 → 90 resolves GROUND (the k = 90 sweep happens); an injected flight with no contact through age 90 resolves **TIMEOUT**: the item is created on the surface directly below `p(90)`, as GROUND or WATER depending on what is below (`FlightResolved.terminal = Timeout`, `rank` of the surface).
 - [ ] **TC-T6-3 b (placement).** A drop point on a roof footprint snaps via candidates back along −v (the interpretation below); if every attempt fails the item goes to the receiver's base (for solids: the nearest walkable tile from World's query); a point past the map edge is clamped 1 m inside before snapping; a WATER landing at the shore floats at its contact point.
-- [ ] **TC-E-1 a.** A thrower facing a wall at arm's length (chest probe blocked, story 003): the flight launches from feet + 1000, the age-1 segment contacts the solid at f ≈ 0, exactly one WorldItem lands ≤ 1000 mm from the feet, and the cooldown has run (no refund).
-- [ ] **Earliest contact wins.** A house in front of a mailbox ends the flight as GROUND (solid rank 5 after an earlier f); a mailbox volume at an earlier f than a solid is routed to the mailbox port (story 012) — the step only dispatches on the winner's kind.
-- [ ] **Exactly one terminal.** Each flight leaves the live list in the step that resolves it; `FlightResolved` is raised exactly once per flight, **before** the WorldItem/domain events it causes in the same call scope; the tick-end record (story 008) never fires across a randomised run of 1 000 flights over the street fixture; no flight is processed after resolving.
+- [x] **TC-E-1 a.** A thrower facing a wall at arm's length (chest probe blocked, story 003): the flight launches from feet + 1000, the age-1 segment contacts the solid at f ≈ 0, exactly one WorldItem lands ≤ 1000 mm from the feet, and the cooldown has run (no refund).
+- [x] **Earliest contact wins.** A house in front of a mailbox ends the flight as GROUND (solid rank 5 after an earlier f); a mailbox volume at an earlier f than a solid is routed to the mailbox port (story 012) — the step only dispatches on the winner's kind.
+- [x] **Exactly one terminal.** Each flight leaves the live list in the step that resolves it; `FlightResolved` is raised exactly once per flight, **before** the WorldItem/domain events it causes in the same call scope; the tick-end record (story 008) never fires across a randomised run of 1 000 flights over the street fixture; no flight is processed after resolving.
 - [ ] **TC-E-7.** At `worldItemCap` a throw is never refused and its landing succeeds; the Grid eviction rule (old mail ≥ 10 s first, then the oldest non-mail) is exercised once end to end through `CreateWorldItem`.
-- [ ] **Ports for neighbours.** Mailbox and catcher winners are dispatched through `IMailboxLanding` (story 012) and `ICatchLanding` (story 023); a composition test asserts Throwing's production wiring binds the former; with `ICatchLanding` unbound no catcher spheres are supplied, so it is never invoked.
+- [x] **Ports for neighbours.** Mailbox and catcher winners are dispatched through `IMailboxLanding` (story 012) and `ICatchLanding` (story 023); a composition test asserts Throwing's production wiring binds the former; with `ICatchLanding` unbound no catcher spheres are supplied, so it is never invoked.
 - [ ] **0 B.** 100 000 flight-ticks over the fixture allocate 0 B in the step (buffers preallocated).
 
 ---
@@ -87,7 +87,20 @@
 **Required evidence**:
 - Logic: `tests/unit/throwing/ThrowingStepTests.cs` (`[Trait("Id", "TC-T6-3")]`, `TC-E-1`, `TC-E-7`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/throwing/ThrowingStepTests.cs`, PR #87 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #87 (merge `0490e0f`), package WP-D (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310).
+- **Built:** `ThrowingStep` (phase 4) over `ReceiverViewBuilder`, `TerminalResolver`, the `IMailboxLanding` / `ICatchLanding` ports. As built (TD-230 (5), uncredited): the step skips flights with `launchTick ≥ tick`; solids and the map sides drop the item to the surface below, clamped 1000 mm inside the map (no walkable snap); a landing fault records `ThrowingLandingFault` 20 (counter 69).
+- **ACs met:** Order and age, TC-T6-3 terrain, solid, water and age 90 / TIMEOUT, TC-E-1 a, Earliest contact wins, Exactly one terminal (`FlightResolved` before the events it causes; see TD-230 (a)), Ports for neighbours (`IMailboxLanding` bound; `ICatchLanding` unbound, catchers are M0).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 "drop placement search (snap/clamp), cap eviction"; held by the package TD row):** TC-T6-3 b — the −v candidate search and receiver-base fallback were dropped; placement is the straight drop with the 1000 mm map clamp → TD-230 (5). TC-E-7 — the `worldItemCap` eviction row was dropped → TD-230 (5). 0 B — advisory until M0 (erratum E2). The `FlightResolvedCodec` round-trip row named in the Implementation Notes is not named in the PR body.
+- **ADR note (TD-230 (a), Mail Review CODE-NOTE):** `FlightResolved.worldItem` is the predicted next WorldItem id for a Reject and 0 otherwise, because §5 raises it before the events it causes while the ADR-0015 diagram draws it after; stays as built, no ADR text edited.
+- **Tests:** `ThrowingStepTests`; four legs green (0 failed).
 
 ---
 

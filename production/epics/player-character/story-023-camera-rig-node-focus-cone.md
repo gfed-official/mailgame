@@ -1,12 +1,12 @@
 # Story 023: `CameraRig` node — follow spring, look, aim/swim profiles and the focus-cone cosine
 
 > **Epic**: Player Character & Movement (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; swimming and shoulder-swap profiles, cone table, replay, alloc probe and evidence dropped → TD-213 (8))
 > **Layer**: Presentation
 > **Type**: Visual/Feel
 > **Estimate**: M (~1 day; ~350 lines prod + evidence)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-11-01 (docs branch `docs/lead-cleanups-2026-11-01`, off main 56c9446): implementation note added — place the camera from `CameraPose.Compose`'s output (Story 021 as built; TD-201 item 3).
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; swimming and shoulder-swap profiles, cone table, replay, alloc probe and evidence dropped → TD-213 (8)); delivered by PR #89, merge c6a6b4b; see Completion Notes). Earlier: 2026-11-01 (docs branch `docs/lead-cleanups-2026-11-01`, off main 56c9446): implementation note added — place the camera from `CameraPose.Compose`'s output (Story 021 as built; TD-201 item 3).
 
 ## Context
 
@@ -32,8 +32,8 @@
 
 *From GDD `design/gdd/player-character-movement.md` (P9, PCM-P9-1, PCM-P11-1), scoped to this story. Evidence per the Visual/Feel type: screenshots + numeric trace + sign-off.*
 
-- [ ] **Scene shape.** `World/CameraRig (Node3D) → Boom (Node3D) → Camera3D` exists exactly as ADR-0019 §2 draws it; the rig is inert until `Initialize(ICarrierView, IWorldQuery, IRenderClock, IFocusConeSink, …)` is called by `GameLoop`/the World presenter; it has no `_PhysicsProcess`.
-- [ ] **Follow and look.** The pivot follows the rendered carrier pose (Story 022) with a ≈ **0.08 s critically damped spring** (positions only; time from `IRenderClock`, never `delta`); camera rotation is **never smoothed** — the look yaw/pitch from the router is applied every rendered frame (look latency one frame); pitch is clamped −60°…+70° (Story 021 profile).
+- [x] **Scene shape.** `World/CameraRig (Node3D) → Boom (Node3D) → Camera3D` exists exactly as ADR-0019 §2 draws it; the rig is inert until `Initialize(ICarrierView, IWorldQuery, IRenderClock, IFocusConeSink, …)` is called by `GameLoop`/the World presenter; it has no `_PhysicsProcess`.
+- [x] **Follow and look.** The pivot follows the rendered carrier pose (Story 022) with a ≈ **0.08 s critically damped spring** (positions only; time from `IRenderClock`, never `delta`); camera rotation is **never smoothed** — the look yaw/pitch from the router is applied every rendered frame (look latency one frame); pitch is clamped −60°…+70° (Story 021 profile).
 - [ ] **Profiles in engine.** With the default profile the trace (pivot, boom, shoulder, FOV) matches PCM-P9-1: pivot 1.6 m, boom 3.0 m, shoulder +0.6 m, vertical FOV 80°. Aim held: shoulder +0.75 m and boom 2.4 m eased in over 0.1 s, FOV unchanged; swimming: pivot 1.1 m and the camera never below the water plane; shoulder swap flips the offset sign. A camera pull-in never changes the aim vector (Throwing reads look yaw/pitch, not the camera position).
 - [ ] **Boom collision in engine.** Walking the carrier toward a house wall pulls the camera in (via Story 021's solver) within 50 ms and it eases back out over ~400 ms when clear; the camera never clips below terrain or into a house box on the M-1a street.
 - [ ] **Focus cone.** `FocusCone.CosMinPm(vFovDeg, aspect, focusConePm 900)` (computed on FOV or aspect change only) returns **635** at FOV 80 / 16:9, **526** at FOV 100, **752** at FOV 60, **549** at 21:9 (±1 for float rounding; round half away from zero), is pushed to the router/`InputFrame.FocusCosMinPm` as an integer, and changes only when FOV/aspect change (no per-frame recompute). The function is deterministic and covered by a Godot-free unit test (placed in `Client.Core` if its `BannedSymbols.txt` permits `double`, else in `src/Game` with a headless run).
@@ -77,7 +77,19 @@
 **Required evidence**:
 - Visual/Feel: retained screenshots in `production/qa/evidence/` + sign-off in `production/qa/evidence/player-camera-rig-evidence.md`; plus a Godot-free unit test for `FocusCone.CosMinPm` (`tests/unit/player/FocusConeTests.cs`)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — smoke `camera-rig` (PR #95 added the pitch clamp +70/−60 and level-right-axis checks), PR #89 (2026-11-09). `tests/unit/player/FocusConeTests.cs`, screenshots and the evidence file were not created (greybox; the cone is a fixed value).
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #89 (merge `c6a6b4b`), package WP-A (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Later: PR #95 — the boom treats the map sides as walls (TD-271 (6)); the `camera-rig` smoke checks the pitch clamp +70/−60 and a level right axis.
+- **ACs met:** AC-1 (`World/CameraRig` is now `CameraRig`, injected, no `_PhysicsProcess`), AC-2 (0.08 s critically damped follow spring on the render clock; look unsmoothed with the pitch clamp).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-3 — default and aim profiles only; swimming and shoulder swap dropped → TD-213 (8). AC-4 — `BoomSolver` + `CameraPose.Compose` place the camera; the 50 ms / ~400 ms in-engine timing rows were not evidenced. AC-5 — focus cone fixed at 635 via `CameraRig.BindFocusConeSink(Action<int>)`; the cone table (526 / 752 / 549) and `FocusCone.CosMinPm` test dropped → TD-213 (8). AC-6 — 600-frame replay dropped. AC-7 — alloc probe dropped (advisory until M0, erratum E2). AC-8 — screenshots, trace and sign-off dropped → TD-213 (8).
+- **Harden later:** input-controls 009's production binding of the focus-cone sink is not wired — only the `camera-rig` smoke binds it, so the router's `InputFrame.FocusCosMinPm` does not yet come from the rig.
+- **Tests / smokes:** smoke `camera-rig`.
 
 ---
 

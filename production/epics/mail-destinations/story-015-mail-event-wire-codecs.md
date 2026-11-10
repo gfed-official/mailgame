@@ -1,12 +1,12 @@
 # Story 015: Wire codecs for Mail/Run/Wallet events — `DeliveryOutcome` ≤ 19 B with ordinal narrowing, `ComplaintRaised`, `BatchArrived`, `DeliveriesState`, `WalletChanged`
 
 > **Epic**: Mail & Destinations (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; no fuzz, one truncated row per codec → TD-220 (15))
 > **Layer**: Feature (codecs live in `Client.Core/Net`)
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~250 lines prod + ~250 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; no fuzz, one truncated row per codec → TD-220 (15)); delivered by PR #88, merge 7cd3756; see Completion Notes).
 
 ## Context
 
@@ -33,9 +33,9 @@
 
 *From GDD `design/gdd/mail-destinations.md` (M-NET-2) and ADR-0011 §3/§6, scoped to this story:*
 
-- [ ] **AC-1 (M-NET-2)** The canonical `DeliveryOutcome` encoding is ≤ 19 B at maximum field values (units 255, maximum varint cents, `intendedAddress` set) and round-trips: decode(encode(x)) equals x for every field after the documented narrowing (`outcomeSeq` mod 2^16 re-expanded by serial arithmetic against the mirror's last value; destination and address through the ordinal maps).
-- [ ] **AC-2 Other events.** `ComplaintRaised`, `BatchArrived`, `DeliveriesState` and `WalletChanged` each round-trip through their codec. `DeliveriesState` and `DeliveryOutcome` are marked for the reliable-ordered channel.
-- [ ] **AC-3 Loopback end-to-end.** In a host loopback session (`production/epics/network-adapter-loopback/story-007-host-loopback-session-frame-timing.md`), a hand consume (story 007's fixture, driven by a test op) produces `DeliveryOutcome` entries that reach the host `ClientLayer` inbox decoded and equal to the Sim payloads (after narrowing), in log order, in the next client tick.
+- [x] **AC-1 (M-NET-2)** The canonical `DeliveryOutcome` encoding is ≤ 19 B at maximum field values (units 255, maximum varint cents, `intendedAddress` set) and round-trips: decode(encode(x)) equals x for every field after the documented narrowing (`outcomeSeq` mod 2^16 re-expanded by serial arithmetic against the mirror's last value; destination and address through the ordinal maps).
+- [x] **AC-2 Other events.** `ComplaintRaised`, `BatchArrived`, `DeliveriesState` and `WalletChanged` each round-trip through their codec. `DeliveriesState` and `DeliveryOutcome` are marked for the reliable-ordered channel.
+- [x] **AC-3 Loopback end-to-end.** In a host loopback session (`production/epics/network-adapter-loopback/story-007-host-loopback-session-frame-timing.md`), a hand consume (story 007's fixture, driven by a test op) produces `DeliveryOutcome` entries that reach the host `ClientLayer` inbox decoded and equal to the Sim payloads (after narrowing), in log order, in the next client tick.
 - [ ] **AC-4 Robustness.** Each decoder returns failure (never throws) on truncated input, trailing bytes, an out-of-range ordinal or an unknown result/via value (the H-NET-5 fuzz harness from `production/epics/network-adapter-loopback/story-002-op-codec-registry-envelope-fuzz.md` runs over these codecs with 10,000 random inputs).
 
 ---
@@ -72,7 +72,19 @@
 **Required evidence**:
 - Integration: `tests/integration/mail/MailEventCodecTests.cs` (+ the fuzz case) — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/integration/mail/MailEventCodecTests.cs` (no fuzz case), PR #88; AC-3's probe re-timed by PR #87 for the start-tick rule (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #88 (merge `7cd3756`), package WP-C (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). `src/Game/Boot/SessionBootStep.cs` passes the mail event codecs to the loopback `HostSession`, so `WalletChanged` reaches the wallet mirror and the HUD moves (the regroup plan's reason for putting this story on the playable path). PR #87 (`0490e0f`) re-timed `MailEventCodecTests.Ac3_AHandConsumeOverLoopback_…`: it opens deliveries in tick 0 and hands over in tick 1 under R4's "tick T sees the value set in T − 1" (TD-230 (b)).
+- **Built:** `MailEventCodecs` (`DeliveryOutcome` ≤ 19 B with `outcomeSeq` low 16 bits re-expanded by `ExpandOutcomeSeq`; `FixedLengthEventCodec` for `WalletChanged`, `DeliveriesState`, `BatchArrived`), `WorldIdMaps`; codec ids DeliveryOutcome 7, ComplaintRaised 8, BatchArrived 9, DeliveriesState 10, WalletChanged 11, following DeliverMatching's 6 in the one `WireCodecId` sequence (TD-220 (15)).
+- **ACs met:** AC-1 (≤ 19 B at maximum field values, round-trip after the ordinal narrowing), AC-2 (the four other events round-trip; reliable-ordered marks), AC-3 (loopback end to end: `DeliveryOutcome` reaches the client decoded, in log order, next client tick).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 "no fuzz"; held by the package TD row):** AC-4 — each decoder fails (never throws) on one truncated row per codec; the 10,000-input fuzz harness run was dropped → TD-220 (15).
+- **Tests:** `MailEventCodecTests`; PR #88 reports 6,256 tests, 0 failed on all four legs.
 
 ---
 

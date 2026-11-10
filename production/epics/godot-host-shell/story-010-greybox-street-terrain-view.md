@@ -1,12 +1,12 @@
 # Story 010: Greybox street — `TerrainView` from `IWorldQuery` (untextured ground, water plane, house/roof/Post Office boxes, pad marker, light and fallback camera)
 
 > **Epic**: Godot Host Shell & Greybox Scene
-> **Status**: Ready
+> **Status**: Complete (greybox; deviation checks, draw-call logs and screenshots dropped → TD-213)
 > **Layer**: Presentation
 > **Type**: Visual/Feel
 > **Estimate**: M (~1 day; ~350 lines prod + smoke + screenshots)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; deviation checks, draw-call logs and screenshots dropped → TD-213); delivered by PR #89, merge c6a6b4b; see Completion Notes).
 
 ## Context
 
@@ -33,8 +33,8 @@
 *From ADR-0019 §2–§3 and ADR-0026 §1/§2/§5/§7, scoped to this story and the epic's Definition of Done ("retained screenshots … the greybox street at 1280×720 and 1920×1080"). Delta: `World/Terrain` is an empty `Node3D` (story 002); `IWorldQuery` and `M1aStreet` come from the world-stub epic; no mesh, light or lit camera exists.*
 
 - [ ] **Ground mesh from the corner tables.** `TerrainView` (attached to `World/Terrain`, registered as an `IWorldBuildStep`, story 006) builds one `ArrayMesh` covering `TilesX × TilesZ` tiles of `TileSizeMm` (2000 mm → 2 m) from `IWorldQuery.GetCorners` (per-tile vertices so tile colours are flat): vertex heights equal the Sim's corner heights `/1000f` exactly (±1 mm), vertices carry an untextured colour by `Tile` flags (Road, Lot, Walkable, Blocked, water-hint) with a `StandardMaterial3D` using vertex colour as albedo — **no image textures anywhere** (a grep guard on `src/Game/Views/Terrain/**` for `.png/.jpg/.webp/Texture` fails the check). The build runs exactly once at boot step 7 (counter asserted), is logged with its wall time (advisory < 100 ms), and `Present` does no per-frame work. Smoke scenario `terrain-build` asserts vertex/triangle counts from the tile grid, corner-height parity at every tile corner, that the mesh AABB lies within `Bounds`, and — for the documented approximation (two planar triangles vs the Sim's bilinear surface) — that the maximum deviation at tile centres from `TerrainHeightMm / 1000f` is within the analytically expected `|h00 + h11 − h10 − h01| / 4` per tile (so the visual never lies about walkable ramps: the authored 1400 mm / 2000 mm ramp tile is planar and matches exactly).
-- [ ] **Water, solids, Post Office.** A single water quad at `y = 0` spans the map bounds (translucent blue-grey, `StandardMaterial3D` alpha; the Sim's water plane, not the tile `Water` hint). Every `StaticSolid` (`House`, `Roof`, `PostOffice`, `Prop`) becomes one box `MeshInstance3D` under `World/Terrain/Solids` with extents exactly `AabbMm / 1000f`, a flat colour per `SolidKind`, named by `Index`; the count equals `IWorldQuery.StaticSolids.Length` (10 houses + 10 roofs + the Post Office at M-1a). A flat disc of `PostOffice.PadRingRadiusMm` at `PadCentre` plus `PadSlots` (8) small markers at the pad slots, and a door marker at `DoorAnchor`, show where players spawn. All geometry is derived from the tables — none of the street's coordinates appear in `src/Game`.
-- [ ] **Light, environment and a fallback camera so the scene is visible before the rig exists.** `TerrainView` adds one `DirectionalLight3D` and one `WorldEnvironment` (flat sky colour, ambient light) as children of `World/Terrain`, and sets `World/CameraRig/Boom/Camera3D` to `Current` at a fallback pose derived from `PostOffice.PadCentre` (≈ 6 m back, 4 m up, looking at the pad along the street) with no `_Process`; player-character 023's `CameraRig` takes over by writing its own transform — the fallback must not fight it (the view only sets the pose once, in the build step, and logs `fallback camera pose set`).
+- [x] **Water, solids, Post Office.** A single water quad at `y = 0` spans the map bounds (translucent blue-grey, `StandardMaterial3D` alpha; the Sim's water plane, not the tile `Water` hint). Every `StaticSolid` (`House`, `Roof`, `PostOffice`, `Prop`) becomes one box `MeshInstance3D` under `World/Terrain/Solids` with extents exactly `AabbMm / 1000f`, a flat colour per `SolidKind`, named by `Index`; the count equals `IWorldQuery.StaticSolids.Length` (10 houses + 10 roofs + the Post Office at M-1a). A flat disc of `PostOffice.PadRingRadiusMm` at `PadCentre` plus `PadSlots` (8) small markers at the pad slots, and a door marker at `DoorAnchor`, show where players spawn. All geometry is derived from the tables — none of the street's coordinates appear in `src/Game`.
+- [x] **Light, environment and a fallback camera so the scene is visible before the rig exists.** `TerrainView` adds one `DirectionalLight3D` and one `WorldEnvironment` (flat sky colour, ambient light) as children of `World/Terrain`, and sets `World/CameraRig/Boom/Camera3D` to `Current` at a fallback pose derived from `PostOffice.PadCentre` (≈ 6 m back, 4 m up, looking at the pad along the street) with no `_Process`; player-character 023's `CameraRig` takes over by writing its own transform — the fallback must not fight it (the view only sets the pose once, in the build step, and logs `fallback camera pose set`).
 - [ ] **Visual/Feel evidence.** Retained screenshots of the greybox street at 1280×720 and 1920×1080 (windowed `godot-mono --path . --windowed --resolution WxH`), plus 1280×800 as an observation of `keep_height` below 16:9 (ADR-0019 V4 — record what is clipped, no pass/fail), showing: ground relief, the beach/water, the ramp, ten placeholder lot markers (story 009), roofs/houses, the Post Office and pad. The evidence file records the observed draw-call count and frame time at 1080p (advisory), the machine, the renderer and a lead sign-off. If no display is available the row reads `NOT RUN — needs a windowed session`, never PASS.
 
 ---
@@ -75,7 +75,19 @@
 **Required evidence**:
 - Visual/Feel: retained screenshots in `production/qa/evidence/` (1280×720, 1920×1080, plus the 1280×800 observation) and sign-off in `production/qa/evidence/greybox-street-evidence.md`; plus the headless smoke `terrain-build` log (`SMOKE … PASS`) recorded in the same file — `/story-done` checks the screenshots, sign-off and the scenario exist
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — smoke `terrain-build`, PR #89 (2026-11-09). Screenshots, draw-call figures and the evidence file were not created (greybox).
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #89 (merge `c6a6b4b`), package WP-A (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Later: PR #95 (`eedc110`) added the map-edge fence and ground skirt (TD-271 (5)); PR #97 (`8c77595`) added the orange Intake console marker (TD-273 (3)).
+- **ACs met:** AC-2 (water quad at `y = 0`, one box per `StaticSolid`, pad markers), AC-3 (light, environment, fallback camera; `World/Terrain` is now `TerrainView`).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-1 — flat-tile ground mesh from the `IWorldQuery` corners shipped and `terrain-build` checks it; the tile-centre deviation checks and draw-call / wall-time logs dropped → TD-213. AC-4 — screenshots at 1280×720 / 1920×1080 / 1280×800 and the sign-off dropped (one shot per package at assembly, regroup plan §3) → TD-213.
+- **Still binding and kept:** reads only `IWorldQuery`; no colliders; nothing in `_PhysicsProcess`.
+- **Tests / smokes:** smoke `terrain-build`.
 
 ---
 

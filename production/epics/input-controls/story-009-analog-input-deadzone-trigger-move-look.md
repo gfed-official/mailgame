@@ -1,12 +1,12 @@
 # Story 009: Analog input — F3 deadzone and response curve, F4 trigger hysteresis, movement across devices and absolute look
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; keyboard+mouse only, pad paths tested at AC rows only → TD-240)
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~500 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; keyboard+mouse only, pad paths tested at AC rows only → TD-240); delivered by PR #86, merge 110b8c1; see Completion Notes).
 
 ## Context
 
@@ -32,12 +32,12 @@
 
 *From GDD F3, F4 and H-F3-1 / H-F4-1 / H-R9-1 / H-R11-1, scoped to this story:*
 
-- [ ] **H-F3-1 (function).** `Deadzone.Apply(sx, sy, dzInnerPm, dzOuterPm, curvePm)` on Q15 inputs: s = (0.6, 0) with dz 0.15 / 0.95 → move magnitude 0.5625 (Q15 18432 ± 1) and look 0.5625^1.5 ≈ 0.42 (Q15 13824 ± 2, move stick curve fixed at 1.0); s = (0.14, 0) → 0; s = (0.5, 0.5) keeps its direction (the output vector's angle equals the input's, no cardinal snap); the result is clamped to the unit disc; `n = clamp((|s| − dzInner)/(dzOuter − dzInner), 0, 1)`; magnitude via `Fix.ISqrt` on the squared Q15 sum. (The load-time clamp "`dzInner` 0.9 → 0.40, `dzOuter` unchanged" is story 019's.)
-- [ ] **Power table.** A 1024-entry Q15 table of `n^curve` per curve value (1.0–3.0, 100‰ steps or the exact settings value) is built by integer-only code outside the frame (e.g. fixed-point log / exp, or a generated committed table like `tools/GenTrigQ15` — implementer's choice, recorded in Last Updated), cached per `curvePm`, rebuilt only on a settings change; monotonic non-decreasing in `n`, `t[0] = 0`, `t[1023] = 32767`, and spot values (0.5625^1.5) within ± 2 LSB.
-- [ ] **H-F4-1.** `TriggerHysteresis` per trigger: `pressed_t = pressed_(t−1) ? v ≥ max(trigOn − trigHyst, 0.05) : v ≥ trigOn` in integer permille with `trigHyst` = 150: LT rising to 0.55 → pressed; 0.40 → still pressed; 0.34 → released; with `trigOn` 0.15 the release point is 0.05; a digital trigger (0 / 1) works at any setting; the pad's Throw (LT) and Tool (RT) presses reach the router as logical button presses through this function.
-- [ ] **H-R9-1 (movement half).** Movement across devices takes the axis with the largest magnitude: LS at 0.4 and W held (digital, magnitude 1.0, diagonals normalised to the unit disc via the same `ISqrt` path: W+D → (23170, 23170) ± 1) → `moveIntent` is W at magnitude 1.0; releasing W returns LS's 0.4; `moveIntent` is Q15 on the unit disc, x right, y forward, **camera-relative** conversion is *not* done here (Player Character 005 does it from `LookYaw`).
-- [ ] **H-R11-1 (look half).** Mouse counts × sensitivity accumulate into `lookYaw` (ushort BAM, wraps) and `lookPitch` (short BAM, clamped to the camera owner's limits) as **absolute** values with a carried sub-BAM remainder: a scripted 90° (0x4000 BAM) of mouse motion over 3 ticks yields absolute yaw values at each flush (no deltas); right-stick look integrates `rate × dtMs / 1000` per rendered frame with a carried remainder; look is **not live** in Panel / Pause (input ignored, value held); `SetLook(yaw, pitch)` re-seeds the absolute look, sets `LookReseeded` for one flush and the next mouse motion continues from the new value (no jump back).
-- [ ] **View parameters.** `IFocusConeSink { void SetFocusCosMinPm(int pm); }` is declared in Client.Core and implemented by `InputRouter` (`SetViewParams(short focusCosMinPm)` is the ADR-named method; the sink is the one-method interface Player Character 023 asked for); the value reaches `InputFrame.FocusCosMinPm` via `SetState`, unchanged between calls. `SetPitchLimits(short minBam, short maxBam)` (additive to ADR-0012's signature, flagged in EPIC.md) is pushed by the camera owner; default −60° / +70° per Player Character story 021.
+- [x] **H-F3-1 (function).** `Deadzone.Apply(sx, sy, dzInnerPm, dzOuterPm, curvePm)` on Q15 inputs: s = (0.6, 0) with dz 0.15 / 0.95 → move magnitude 0.5625 (Q15 18432 ± 1) and look 0.5625^1.5 ≈ 0.42 (Q15 13824 ± 2, move stick curve fixed at 1.0); s = (0.14, 0) → 0; s = (0.5, 0.5) keeps its direction (the output vector's angle equals the input's, no cardinal snap); the result is clamped to the unit disc; `n = clamp((|s| − dzInner)/(dzOuter − dzInner), 0, 1)`; magnitude via `Fix.ISqrt` on the squared Q15 sum. (The load-time clamp "`dzInner` 0.9 → 0.40, `dzOuter` unchanged" is story 019's.)
+- [x] **Power table.** A 1024-entry Q15 table of `n^curve` per curve value (1.0–3.0, 100‰ steps or the exact settings value) is built by integer-only code outside the frame (e.g. fixed-point log / exp, or a generated committed table like `tools/GenTrigQ15` — implementer's choice, recorded in Last Updated), cached per `curvePm`, rebuilt only on a settings change; monotonic non-decreasing in `n`, `t[0] = 0`, `t[1023] = 32767`, and spot values (0.5625^1.5) within ± 2 LSB.
+- [x] **H-F4-1.** `TriggerHysteresis` per trigger: `pressed_t = pressed_(t−1) ? v ≥ max(trigOn − trigHyst, 0.05) : v ≥ trigOn` in integer permille with `trigHyst` = 150: LT rising to 0.55 → pressed; 0.40 → still pressed; 0.34 → released; with `trigOn` 0.15 the release point is 0.05; a digital trigger (0 / 1) works at any setting; the pad's Throw (LT) and Tool (RT) presses reach the router as logical button presses through this function.
+- [x] **H-R9-1 (movement half).** Movement across devices takes the axis with the largest magnitude: LS at 0.4 and W held (digital, magnitude 1.0, diagonals normalised to the unit disc via the same `ISqrt` path: W+D → (23170, 23170) ± 1) → `moveIntent` is W at magnitude 1.0; releasing W returns LS's 0.4; `moveIntent` is Q15 on the unit disc, x right, y forward, **camera-relative** conversion is *not* done here (Player Character 005 does it from `LookYaw`).
+- [x] **H-R11-1 (look half).** Mouse counts × sensitivity accumulate into `lookYaw` (ushort BAM, wraps) and `lookPitch` (short BAM, clamped to the camera owner's limits) as **absolute** values with a carried sub-BAM remainder: a scripted 90° (0x4000 BAM) of mouse motion over 3 ticks yields absolute yaw values at each flush (no deltas); right-stick look integrates `rate × dtMs / 1000` per rendered frame with a carried remainder; look is **not live** in Panel / Pause (input ignored, value held); `SetLook(yaw, pitch)` re-seeds the absolute look, sets `LookReseeded` for one flush and the next mouse motion continues from the new value (no jump back).
+- [x] **View parameters.** `IFocusConeSink { void SetFocusCosMinPm(int pm); }` is declared in Client.Core and implemented by `InputRouter` (`SetViewParams(short focusCosMinPm)` is the ADR-named method; the sink is the one-method interface Player Character 023 asked for); the value reaches `InputFrame.FocusCosMinPm` via `SetState`, unchanged between calls. `SetPitchLimits(short minBam, short maxBam)` (additive to ADR-0012's signature, flagged in EPIC.md) is pushed by the camera owner; default −60° / +70° per Player Character story 021.
 
 ---
 
@@ -76,7 +76,20 @@
 **Required evidence**:
 - Logic: `tests/unit/input/DeadzoneTests.cs` (`[Trait("Id", "H-F3-1")]`), `tests/unit/input/TriggerHysteresisTests.cs` (`[Trait("Id", "H-F4-1")]`), `tests/unit/input/MoveLookTests.cs` (`[Trait("Id", "H-R9-1")]`, `[Trait("Id", "H-R11-1")]`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/input/DeadzoneTests.cs` (H-F3-1), `tests/unit/input/TriggerHysteresisTests.cs` (H-F4-1), `tests/unit/input/MoveLookTests.cs` (H-R9-1, H-R11-1), net10.0 / net8.0, PR #86 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #86 (merge `110b8c1`), package WP-B part 1 (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310).
+- **ACs met:** all six — H-F3-1 deadzone and curve on Q15 with `Fix.ISqrt`, the integer-only power table (built at run time, TD-240 item 13), H-F4-1 trigger hysteresis, H-R9-1 largest-magnitude move across devices, H-R11-1 absolute BAM look with carried remainders and `SetLook` / `LookReseeded`, `IFocusConeSink` + `SetPitchLimits`.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** keyboard+mouse only — the pad paths (stick deadzone, trigger hysteresis, stick look) are integer logic exercised only at the AC rows, no real pad → TD-240 items 11–20. Signature and constant differences from the story text (`Deadzone.Apply` takes the built `ResponseCurveTable`; `MouseCountsPerTurn` = 3600 instead of `bamPerCountQ16`; `InputDefaults` holds only the non-setting constants) → TD-240 items 12, 14, 15.
+- **Relaxed dependencies (regroup plan §2):** none for this story.
+- **Harden later:** the `IFocusConeSink` binding to the camera rig's `BindFocusConeSink` is not wired in the production boot (the router implements the sink; `FocusCosMinPm` stays 0 until the first push, TD-240 item 18). Real-pad evidence is input-controls 029 (M-1).
+- **Tests / smokes:** `DeadzoneTests`, `TriggerHysteresisTests`, `MoveLookTests` (plus `PadPathTests` for the pad rows); four legs green, no test deleted.
 
 ---
 

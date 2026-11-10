@@ -1,12 +1,12 @@
 # Story 014: Batch firing — mailIds at the batch tick, Intake hand-off (`Spawn`, NoMerge), backlog append (`AppendBacklog`), `BatchArrived`
 
 > **Epic**: Mail & Destinations (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; partial-fill row (AC-5) dropped → TD-220; IInventoryApi.IntakeContainer not in the ADR-0009 Key Interfaces sketch — pending Evan, TD-220 (17) / TD-274 (b))
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~200 lines prod + ~300 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-21 1:21 PM PT (owner ruling: `Spawn` is per same-key group with an exact-count gate — guardrail, AC-1, AC-4, new AC-5 and Implementation Notes aligned with grid-inventory 012's `Spawn` (PR #21): one call per same-key manifest group with the mail key (kind, address, flags) and the group's ids, not one call per unit; GDD R11 and M-PERF-1d amended; docs only)
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; partial-fill row (AC-5) dropped → TD-220; IInventoryApi.IntakeContainer not in the ADR-0009 Key Interfaces sketch — pending Evan, TD-220 (17) / TD-274 (b)); delivered by PR #88, merge 7cd3756; see Completion Notes). Earlier: 2026-10-21 1:21 PM PT (owner ruling: `Spawn` is per same-key group with an exact-count gate — guardrail, AC-1, AC-4, new AC-5 and Implementation Notes aligned with grid-inventory 012's `Spawn` (PR #21): one call per same-key manifest group with the mail key (kind, address, flags) and the group's ids, not one call per unit; GDD R11 and M-PERF-1d amended; docs only)
 
 ## Context
 
@@ -34,10 +34,10 @@
 
 *From GDD `design/gdd/mail-destinations.md`, scoped to this story (real Inventory or its `IInventoryApi` stub with the drain):*
 
-- [ ] **AC-1 (M-R2-1a, M-X-1b)** At a batch tick of 3 units with the mail counter at 41, units get mailIds 42, 43, 44 in manifest order, rows are created (story 001), and each unit becomes its own count-1 Intake entry (NoMerge, GDD R14). Three units with one mail key (kind, address, flags) take one call, `Spawn(po_intake, kind, address, flags, [42, 43, 44], NoMerge)`; a batch whose units alternate between two keys makes one `Spawn` call per same-key group, in manifest order, and the Intake's outfeed order matches manifest order.
-- [ ] **AC-2 (M-R11-1a, b)** An Intake with one free cell and a 60-unit batch → 1 unit enters and 59 are appended to the backlog in manifest order (`backlogUnits` = 59). A later spawn appends while the backlog is non-empty even if an Intake cell is free.
-- [ ] **AC-3 (M-R11-1d, M-X-1d)** Conservation: spawned = Intake + backlog + circulation + consumed (the Inventory `UnitLedger` check passes every tick). 40 backlog entries against the 32-per-tick drain leave `backlogUnits` reflecting the 8 left after one tick.
-- [ ] **AC-4 (M-R10-1e, M-PERF-1d)** Batches fire only while deliveries are open (Delivery; Raid at M1); a batch tick in a closed state fires nothing and is not deferred. A fired batch makes exactly **g** `Spawn` calls, where g is the number of maximal same-key runs handed over while the backlog is empty (g ≤ c_b; `Spawn` takes one same-key manifest group per call, grid-inventory story 012; ruling Evan 2026-10-21 13:21 PT), plus exactly one `AppendBacklog` per remaining unit, so Spawn-placed + appended units = c_b (a 64-unit batch accounts for all 64); tests assert these exact counts, not upper bounds. An append to a non-empty backlog makes 0 Intake probes. Each fired batch raises one `BatchArrived{units}`.
+- [x] **AC-1 (M-R2-1a, M-X-1b)** At a batch tick of 3 units with the mail counter at 41, units get mailIds 42, 43, 44 in manifest order, rows are created (story 001), and each unit becomes its own count-1 Intake entry (NoMerge, GDD R14). Three units with one mail key (kind, address, flags) take one call, `Spawn(po_intake, kind, address, flags, [42, 43, 44], NoMerge)`; a batch whose units alternate between two keys makes one `Spawn` call per same-key group, in manifest order, and the Intake's outfeed order matches manifest order.
+- [x] **AC-2 (M-R11-1a, b)** An Intake with one free cell and a 60-unit batch → 1 unit enters and 59 are appended to the backlog in manifest order (`backlogUnits` = 59). A later spawn appends while the backlog is non-empty even if an Intake cell is free.
+- [x] **AC-3 (M-R11-1d, M-X-1d)** Conservation: spawned = Intake + backlog + circulation + consumed (the Inventory `UnitLedger` check passes every tick). 40 backlog entries against the 32-per-tick drain leave `backlogUnits` reflecting the 8 left after one tick.
+- [x] **AC-4 (M-R10-1e, M-PERF-1d)** Batches fire only while deliveries are open (Delivery; Raid at M1); a batch tick in a closed state fires nothing and is not deferred. A fired batch makes exactly **g** `Spawn` calls, where g is the number of maximal same-key runs handed over while the backlog is empty (g ≤ c_b; `Spawn` takes one same-key manifest group per call, grid-inventory story 012; ruling Evan 2026-10-21 13:21 PT), plus exactly one `AppendBacklog` per remaining unit, so Spawn-placed + appended units = c_b (a 64-unit batch accounts for all 64); tests assert these exact counts, not upper bounds. An append to a non-empty backlog makes 0 Intake probes. Each fired batch raises one `BatchArrived{units}`.
 - [ ] **AC-5 (M-R11-1a, M-PERF-1d) — mixed-key batch that fills the Intake partway through a group** With the backlog empty and the Intake able to take only 2 more units, a 6-unit batch in manifest order [A, A, A, B, B, A] (keys A and B; ids ascending) makes exactly one `Spawn` call, for the first A group (3 ids), which places 2 and leaves 1. The leftover id of that group and every unit of the later groups (B, B, A) go to `AppendBacklog` one unit at a time, in manifest order (4 appends), and no further `Spawn` call is made. Counts match the exact gate: g = 1 `Spawn` call, 2 Spawn-placed + 4 appended = 6 = c_b, 0 Intake probes on the appends, `backlogUnits` = 4, and the Intake's outfeed order and the backlog order both follow manifest order.
 
 ---
@@ -76,7 +76,20 @@
 **Required evidence**:
 - Integration: `tests/integration/mail/BatchIntakeBacklogTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/integration/mail/BatchIntakeBacklogTests.cs`, PR #88 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #88 (merge `7cd3756`), package WP-C (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). The live loop takes the fired batch from `po_intake` with WP-F's `take_all` (PR #94, TD-270 (5), (6)).
+- **Built:** batch firing in Mail's phase-8 step, one NoMerge `Spawn` per same-key group, the backlog append through `IInventoryApi.AppendBacklog`, `BatchArrived` (`0x0103`, 4 B, codec id 9), and `IInventoryApi.IntakeContainer` (appended) so Mail reaches `po_intake` without a container-id literal.
+- **ACs met:** AC-1 (mailIds in manifest order, one `Spawn` per same-key group, outfeed order), AC-2 (overflow appended in manifest order; append while the backlog is non-empty), AC-3 (ledger conservation; the 32-per-tick drain), AC-4 (fires only while open, not deferred; exact `Spawn` / `AppendBacklog` counts; one `BatchArrived` per batch).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 "partial-fill case"; held by the package TD row):** AC-5 — the mixed-key batch that fills the Intake partway through a group was dropped → TD-220.
+- **Open question for Evan (pending Evan, not approved):** `IInventoryApi.IntakeContainer` is not in ADR-0009's Key Interfaces sketch; a text-only sync is an ADR change for Evan (TD-220 (17), TD-274 (b)). No ADR text was edited.
+- **Tests:** `BatchIntakeBacklogTests`; PR #88 reports 6,256 tests, 0 failed on all four legs.
 
 ---
 

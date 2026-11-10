@@ -1,12 +1,12 @@
 # Story 003: Availability (MD2), the `DeliverPreview` client step (4b) and the `DeliverPreviewTracker` settle
 
 > **Epic**: Manual Delivery
-> **Status**: Ready
+> **Status**: Complete (greybox; timeout/rejoin rows dropped → TD-220)
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~250 lines prod + ~300 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; timeout/rejoin rows dropped → TD-220); delivered by PR #88, merge 7cd3756; see Completion Notes).
 
 ## Context
 
@@ -34,10 +34,10 @@
 
 *From GDD `design/gdd/manual-delivery.md`, scoped to this story:*
 
-- [ ] **AC-1 (M-MD2-1, 6 + 5 rows)** Each condition alone (Panel open; swim depth; an own pending `deliver_matching` / `throw` / `drop` / `take_all` / `sort`; CLOSED; LOCKED; preview NOTHING) makes `IsAvailable` return `deliver.close_panel`, `deliver.dry_land`, `deliver.pending` (`deliver.sorting` for sort), `mail.reject.closed`, `mail.reject.not_on_route` and `deliver.nothing` respectively. Each adjacent pair (1+2, 2+3, 3+4, 4+5, 5+6) returns the lower-numbered row's key. With none, `ok`.
+- [x] **AC-1 (M-MD2-1, 6 + 5 rows)** Each condition alone (Panel open; swim depth; an own pending `deliver_matching` / `throw` / `drop` / `take_all` / `sort`; CLOSED; LOCKED; preview NOTHING) makes `IsAvailable` return `deliver.close_panel`, `deliver.dry_land`, `deliver.pending` (`deliver.sorting` for sort), `mail.reject.closed`, `mail.reject.not_on_route` and `deliver.nothing` respectively. Each adjacent pair (1+2, 2+3, 3+4, 4+5, 5+6) returns the lower-numbered row's key. With none, `ok`.
 - [ ] **AC-2 (M-MD2-2)** With a pending own `deliver_matching`: when (a) the reply arrives or (c) a rejoin snapshot clears the queue, `deliver.pending` is false on that same tick, with no separate flag in the code (a reflection/grep test finds no pending boolean in `Sim/Delivery`). When (b) the 5 s timeout fires, it stays true until the resync snapshot is applied, and is false on that tick. While pending it holds at every mailbox.
-- [ ] **AC-3 (M-MD3-3)** With a Deliver anchor focused for 30 ticks, the evaluation counter rises by exactly 30 (no cache). IDLE evaluates 0 times. Two client instances with identical inputs give identical branches. A CLOSED destination scans 0 entries.
-- [ ] **AC-4 Tracker.** A MISDELIVER_ONE branch first shown at tick T publishes `DisplayedTicks` 0…5 with `CanStartHoldNext = false` for T…T+5 and true from T+6. A key change (a different `selectedEntryId`, a branch kind change or a destination change) resets it. A cents/`k`/`floorRefusal`/`cursed` change does not reset it. Any tick on which MD2 rows 1–5 apply resets it. MATCH branches publish `CanStartHoldNext = true` (no settle; MD4).
+- [x] **AC-3 (M-MD3-3)** With a Deliver anchor focused for 30 ticks, the evaluation counter rises by exactly 30 (no cache). IDLE evaluates 0 times. Two client instances with identical inputs give identical branches. A CLOSED destination scans 0 entries.
+- [x] **AC-4 Tracker.** A MISDELIVER_ONE branch first shown at tick T publishes `DisplayedTicks` 0…5 with `CanStartHoldNext = false` for T…T+5 and true from T+6. A key change (a different `selectedEntryId`, a branch kind change or a destination change) resets it. A cents/`k`/`floorRefusal`/`cursed` change does not reset it. Any tick on which MD2 rows 1–5 apply resets it. MATCH branches publish `CanStartHoldNext = true` (no settle; MD4).
 
 ---
 
@@ -74,7 +74,19 @@
 **Required evidence**:
 - Logic: `tests/unit/delivery/DeliverAvailabilityTests.cs` and `tests/unit/delivery/DeliverPreviewTrackerTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/delivery/DeliverAvailabilityTests.cs`, `tests/unit/delivery/DeliverPreviewTrackerTests.cs`, PR #88 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #88 (merge `7cd3756`), package WP-C (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). The step is bound in the production client composition by PR #94 (`f145219`): `ClientInteractionBinder` runs Focus → DeliverPreview → ThrowPreview → EdgeResolve → HoldAdvance in the ADR-0016 Previews order (TD-270 (1)).
+- **Built:** `DeliverAvailability` (MD2), `DeliverPreviewStep` (4b), `DeliverPreviewTracker`, `DeliverPreviewState` + `IDeliverPreviewRead` (`Sim/Delivery/Client`).
+- **ACs met:** AC-1 (the six MD2 rows and the adjacent pairs), AC-3 (evaluated every focused tick, 0 while IDLE, 0 entries scanned when CLOSED), AC-4 (tracker settle: key change resets, payload change does not, MATCH never settles).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 "drop timeout/rejoin"; held by the package TD row):** AC-2 — `deliver.pending` is derived from the own pending set (no separate flag; row (a) reply arrival); the 5 s timeout and rejoin-snapshot rows (b)(c) were dropped → TD-220 (11). The pending set, selected slot and current shift reach the step through the `IDeliverClientSource` port (TD-220 (13)), implemented by WP-F's `ClientLoop.DeliverSource` (`src/Game/Boot/ClientLoop.cs:161`).
+- **Tests:** `DeliverAvailabilityTests`, `DeliverPreviewTrackerTests`; PR #88 reports 6,256 tests, 0 failed on all four legs.
 
 ---
 

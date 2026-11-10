@@ -1,12 +1,12 @@
 # Story 018: `AimRibbonView` (Godot) — the screen-space solid / dashed / dotted arc, end markers and crosshair, drawn from the published preview
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; tags, crosshair, protected-rect sink, settle-pending marker, near-plane clipping and off-screen clamp dropped → TD-250 (6))
 > **Layer**: Presentation
 > **Type**: Visual/Feel
 > **Estimate**: M (~1 day; ~450 lines prod + the evidence capture)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; tags, crosshair, protected-rect sink, settle-pending marker, near-plane clipping and off-screen clamp dropped → TD-250 (6)); delivered by PR #91, merge ae8a12d; see Completion Notes).
 
 > **Presentation story (2 of 4).** The first thing a player sees of the game's signature verb: the honest arc. It draws what story 004 computed — it never recomputes a class, a colour decision or a contact. Godot work: use `~/.local/bin/godot-mono` (launch as `mise exec dotnet@10.0.402 -- ~/.local/bin/godot-mono …`; the plain `godot` is not on `PATH`).
 
@@ -43,7 +43,7 @@
 - [ ] **Per-frame projection.** Each rendered frame re-projects the last published 3D polyline through the current `Camera3D` (`UnprojectPosition`), so the line follows the camera at frame rate while the class stays tick-exact; points behind the near plane are clipped (the segment is cut at the plane crossing), never wrapped or mirrored; an off-screen end marker is clamped to the safe inset with its rect still published.
 - [ ] **Crosshair.** A 4 px Chalk White dot with a Charcoal outline marks camera forward only while aiming.
 - [ ] **Protected rect.** The marker's screen rect is published every aiming frame through `IProtectedRectSink` (HUD H11, defined in Client.Core; the HUD epic does not exist yet, so a null sink is a counted no-op, not an error).
-- [ ] **Thrower only.** The view is attached to the local player's presentation root; it is never instantiated for remote peers, and no state about another player's aim reaches it.
+- [x] **Thrower only.** The view is attached to the local player's presentation root; it is never instantiated for remote peers, and no state about another player's aim reaches it.
 - [ ] **TC-P-1 (draw cost) / V3.** Over 600 frames of aiming while walking with a pad, the view's `_Draw` ≤ 0.3 ms p95 (max ≤ 0.5 ms, ADVISORY) and allocates **0 managed bytes per frame** (BLOCKING). The measured allocation through `DrawPrimitive` is recorded as the V3 result; if non-zero, switch to the `RenderingServer`/`ArrayMesh` fallback in this story and re-measure.
 - [ ] **No banned calls.** A CI text check fails any `DrawLine`/`DrawPolyline` in `src/Game/**`; the AA decision (`msaa_2d` setting or feathered texture) is recorded in the evidence file with a before/after screenshot of a dashed edge.
 - [ ] **TC-U-3 a (legibility).** At 1080p and 20 m, in greyscale and protan/deutan/tritan simulation, on grass, sand, road and a Chalk White wall, while panning at 90°/s: each line is identifiable by pattern alone (solid / dashed / dotted) and each marker by silhouette alone (ring / X / wave disc / chevron disc / plain disc); ≥ 4/5 testers name each of Accept, Misdeliver, Ground, Reject, Water, Belt and 5/5 tell hit vs miss vs neutral. (Label contrast, TC-U-3 b, is story 019.)
@@ -84,7 +84,18 @@
 - Visual/Feel: retained screenshots in `production/qa/evidence/throwing/aim-ribbon/` (one per M-1a class, plus the greyscale and CVD-simulated sets and the AA before/after) and sign-off in `production/qa/evidence/throwing/aim-ribbon-evidence.md` by art-director (visual) and gameplay-programmer (feel)
 - Logic half: `tests/unit/throwing/RibbonGeometryTests.cs` (dash counts, near-plane clip, 0 B) — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/ui/ThrowViewLogicTests.cs` (not `tests/unit/throwing/RibbonGeometryTests.cs`; no retained screenshots or sign-off), PR #91 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #91 (merge `ae8a12d`), package WP-E (M-1a wave 2; S1–S3 coded on Sonnet, review fixes on Opus), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Wired at boot by PR #93 (`545df2f`, TD-260): `ThrowLayers.InstallAim` over an idle arc with the `World/CameraRig/Boom/Camera3D` camera. Fed by the client loop from PR #94 (`f145219`, TD-270): RMB shows the ribbon from the real `ThrowPreviewStep` (`ShiftViews`). Live render confirmed by PR #95 (`eedc110`, TD-271): the ribbon renders, no code bug; the playtest's "stub arc" was the preview stopping at the map-edge receiver about 1 m away. The `loop-pickup-deliver-throw` smoke now checks `AimRibbonView.DrawnQuads` > 1 (PR #95, PR #96).
+- **ACs met:** Thrower only (only the thrower draws it). Built: the arc plus an end marker in three classes — Accept solid, Misdeliver dashed, neutral dotted — with the points re-projected every frame. Binding kept: quads drawn with `DrawPrimitive` only; `rg DrawLine src/Game` finds nothing.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** Line patterns and End markers — three classes and one end marker only, not the per-class shapes, glyphs and exact px of the GDD table; `RibbonGeometry` uses integer pixels because PMSIM001 bans float in Client.Core, so sub-pixel dash accuracy is lost (ADR-0019 §6 describes float screen space — ADR/spec flag 3 in the PR #91 body, no ADR text edited) → TD-250 (6). Dropped: tags, the crosshair, the protected-rect sink, the settle-pending marker (TC-T3-1 d), the Timeout fade, the 0.08 s fade-in, near-plane clipping (segments touching a point behind the camera are not drawn rather than cut at the plane) and the off-screen marker clamp, the TC-P-1/V3 measurement, the AA evidence and TC-U-3 a → TD-250 (6). Tests live in `tests/unit/ui/`, not the story's `tests/unit/throwing/` → TD-250 (8).
+- **Tests:** `tests/unit/ui/ThrowViewLogicTests.cs` (solid stroke is continuous, dashed stroke has gaps; segments touching a point behind the camera are not drawn) — PR #91; 6,445 per leg, 0 failed. Smoke: `loop-pickup-deliver-throw` ribbon-quads check (PR #95).
 
 ---
 

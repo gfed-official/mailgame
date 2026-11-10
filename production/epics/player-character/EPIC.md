@@ -8,7 +8,7 @@
 > **Est. size**: L — 28 stories (20 Complete, 6 Ready, 2 Deferred; refreshed 2026-11-04, story 018 Complete, branch `story/pc-018` off main afe08b6; before that refreshed 2026-11-03, story 017 Complete, branch `story/player-character-017`, with main 7f1bc73 (PR #75) merged in, no rebase; story 021 Complete on main, PR #70)
 > **Implementation priority**: 5 of 9
 > **Status**: Ready
-> **Stories**: 28 stories — 20 Complete, 6 Ready, 2 Deferred (counts refreshed 2026-11-04 from the story headers, story 018 Complete, branch `story/pc-018` off main afe08b6; before that 2026-11-03, story 017 Complete, branch `story/player-character-017`, with main 7f1bc73 (PR #75) merged in, no rebase; story 021 Complete on main, PR #70; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 28 stories — 24 Complete, 2 Ready, 2 Deferred (counts refreshed 2026-11-09 from the story headers, M-1a package cleanup on main 8c77595 (PRs 85–97 merged; `tools/planning/gen_impl_order.py` and a status count over the story headers); before that 20 Complete, 6 Ready, 2 Deferred (counts refreshed 2026-11-04 from the story headers, story 018 Complete, branch `story/pc-018` off main afe08b6; before that 2026-11-03, story 017 Complete, branch `story/player-character-017`, with main 7f1bc73 (PR #75) merged in, no rebase; story 021 Complete on main, PR #70; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -131,17 +131,17 @@ Source: `docs/architecture/tr-registry.yaml` (`id: TR-movement-*`). 16 of 26 cov
 | 017 | [Hold counter — completion, cancel list, catch channel, focus latch](story-017-hold-counter-cancels-channel-focus-latch.md) | Logic | Complete | ADR-0014 |
 | 018 | [`InteractionSnapshot` publication and `IInteractionQuery`](story-018-interaction-snapshot-iinteractionquery.md) | Logic | Complete | ADR-0014 |
 | 019 | [Host `PlayersStep` ingest, `IPlayersApi.CheckInteraction` and the leash query](story-019-host-checkinteraction-position-ingest.md) | Logic | Complete | ADR-0014 |
-| 020 | [Owner-role `CarrierStep` in the ClientLayer — frame → input, sample emission, published state](story-020-carrierstep-clientlayer-integration.md) | Integration | Ready | ADR-0016 |
+| 020 | [Owner-role `CarrierStep` in the ClientLayer — frame → input, sample emission, published state](story-020-carrierstep-clientlayer-integration.md) | Integration | Complete (greybox) | ADR-0016 |
 | 021 | [Camera profiles and boom solver against the Sim geometry (`Client.Core`)](story-021-camera-boom-solver-config.md) | Logic | Complete | ADR-0019 |
-| 022 | [`PlayerView` greybox scene and the local carrier's render pose](story-022-playerview-scene-render-pose.md) | Visual/Feel | Ready | ADR-0019 |
-| 023 | [`CameraRig` node — follow spring, look, aim/swim profiles, focus-cone cosine](story-023-camera-rig-node-focus-cone.md) | Visual/Feel | Ready | ADR-0019 |
+| 022 | [`PlayerView` greybox scene and the local carrier's render pose](story-022-playerview-scene-render-pose.md) | Visual/Feel | Complete (greybox) | ADR-0019 |
+| 023 | [`CameraRig` node — follow spring, look, aim/swim profiles, focus-cone cosine](story-023-camera-rig-node-focus-cone.md) | Visual/Feel | Complete (greybox) | ADR-0019 |
 | 024 | [Greybox rig, `AnimationTree` state machine, gait playback, squash — and the AnimationTree spike](story-024-animationtree-greybox-rig-gait-spike.md) | Visual/Feel | Ready | ADR-0019 |
 | 025 | [Carry pose by held item class, whole-body load blend, idle doze](story-025-carry-pose-weight-blend-idle-doze.md) | Visual/Feel | Ready | ADR-0019 |
-| 026 | [Interaction prompt anchor — projected anchor and bounds, HUD focus feed](story-026-interaction-prompt-anchor-projection.md) | Integration | Ready | ADR-0019 |
+| 026 | [Interaction prompt anchor — projected anchor and bounds, HUD focus feed](story-026-interaction-prompt-anchor-projection.md) | Integration | Complete (greybox) | ADR-0019 |
 | 027 | [Movement rulings — extra-jump press resolution, `maxExtraJumps` 0–1, steep-slope slide, story 009 carry-forwards (TD-091)](story-027-movement-rulings-extra-jump-slide-td-091.md) | Logic | Deferred (Evan 2026-10-23) | ADR-0013 |
 | 028 | [PCM-P2-1 cross-OS golden equality (Windows + Linux) and the blocking PCM-PERF-1 counters /](story-028-deferred-golden-cross-os-equality-and-blocking-counters.md) | Integration | Deferred (Evan 2026-10-23) | — |
 
-**28 stories: 20 Logic, 4 Integration, 4 Visual/Feel — 20 Complete, 6 Ready, 2 Deferred (refreshed 2026-11-04 from the story headers, story 018 Complete, branch `story/pc-018` off main afe08b6; before that 2026-11-03, story 017 Complete, branch `story/player-character-017`, with main 7f1bc73 (PR #75) merged in, no rebase; story 021 Complete on main, PR #70).**
+**28 stories: 20 Logic, 4 Integration, 4 Visual/Feel — 24 Complete, 2 Ready, 2 Deferred (refreshed 2026-11-09, M-1a package cleanup on main 8c77595; before that 20 Complete, 6 Ready, 2 Deferred, refreshed 2026-11-04, story 018 Complete).**
 
 **Suggested order:** 001–010 (solver, in this order; 003 and 004 can run in parallel with 002/005) → 011–019 (interaction framework; 011, then 012/013, then 014–018, 019 any time after 012/013) → 020 → 021 → 022–026 (Godot-side, after the godot-host-shell epic's scene/view-registry stories).
 
@@ -198,6 +198,8 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (locomotion, carry pose, interaction prompt anchor), with a lead sign-off for Visual/Feel
 
 ## Next Step
+
+**2026-11-09 (M-1a package cleanup, main 8c77595):** the rough playable M-1a greybox is on main — PRs 85–97 merged as one PR per package (Evan 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"), each under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310); live playtest on 8c77595 passes all four checks and 34/34 smokes. This epic's package stories are Complete (greybox trims per the M-1a regroup plan §3 simplify table, Mail Lead planning default, held in the package TD rows; see each story's Completion Notes): 020 (WP-A part 1, PR #85, merge fecd021), 022, 023 and 026 (WP-A part 2, PR #89, merge c6a6b4b). Still open: 024 (greybox rig and `AnimationTree`) and 025 (carry pose and load blend) — harden later. Next: the M-1a hardening packages (H-MIRROR first; plan written separately, see `production/session-state/HANDOFF.md`); no story is scheduled on its own. The earlier lists below are history.
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 010 (A1; Complete 2026-10-27, PR #50), 015 (A1; Complete 2026-10-28, PR #56), 021 (A1; Complete 2026-10-29, branch `story/player-character-021`), 017 (A1; Complete 2026-10-29, branch `story/player-character-017`, PR #60), 019 (A1 since the 2026-10-28 regeneration, PR #50), 018 (A1 since the 2026-11-01 regeneration; Complete 2026-11-04, branch `story/pc-018`), 020 (A4), 022 (A9), 023 (A10), 024 (A10), 025 (A11), 026 (A11) (waves from the 2026-11-01 regeneration; regenerated 2026-11-04 after 018 Complete, branch `story/pc-018`: 020 A3, 022 A8, 023–024 A9, 025–026 A10); Deferred by Evan 2026-10-23 (not scheduled): 027, 028. Earlier notes below are history.
 

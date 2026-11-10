@@ -1,12 +1,12 @@
 # Story 005: Host session wiring — `SimComposition.Build` over the loopback session, `ClientLayer.Attach(ports)`, transform-sample sink, local join and the render clock (boot steps 5–6)
 
 > **Epic**: Godot Host Shell & Greybox Scene
-> **Status**: Ready
+> **Status**: Complete (greybox; AC-1 once-per-process factory guard dropped → TD-213)
 > **Layer**: Foundation
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~350 lines prod + smoke scenarios)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; AC-1 once-per-process factory guard dropped → TD-213); delivered by PR #85, merge fecd021; see Completion Notes).
 
 ## Context
 
@@ -34,10 +34,10 @@
 *From ADR-0019 §3 steps 5–6, ADR-0016 §1/§6 and the Player Character epic's seam ("wiring `ITransformSampleSink` to `SimWorld.TryWriteSample` for solo M-1a is unowned"), scoped to this story. Delta: story 004 left steps 5–6 `NOT WIRED`; `HostSession`, `FrameRunner`, `TickDriver` exist in Client.Core/Sim by their own epics; `ClientPorts`, `ClientLayer.Attach` and `IRequestSink` are **owned by no existing story** (simulation-core 023 predates ADR-0016; player-character EPIC.md lists the gap).*
 
 - [ ] **Steps 5–6 build the session once.** Boot step 5 logs `BOOT 5 session`, then constructs the host session from `production/epics/network-adapter-loopback/story-007-host-loopback-session-frame-timing.md` (`HostSession`: `SimComposition.Build(in SimBuildArgs)` with profile `M1aGreybox`, the step-2 `ContentSet` by reference and the run seed; `LoopbackTransport.CreatePair()`; `HostAdapter`/`ClientAdapter`; `FrameRunner`), and step 6 logs `BOOT 6 compose+attach` after `Build` returns, `ClientLayer.Attach` has run and `SimHost.World` is `Ready` with `CurrentTick == 0` on the boot thread. The factory is called exactly once per process (counter asserted; a second call throws). The run seed is `M1aRunSeed` (a named constant) unless `--seed=<n>` is passed in user args; it is logged. `TickDriver` is constructed with `Stopwatch.Frequency` and the catch-up cap from `ContentSet.SimSettings` (default 4); `FrameRunnerSettings.CatchUpGuardMs = 0`.
-- [ ] **`ClientPorts` and `Attach` exist and are attached once.** `ClientPorts { Inbox, Panel, Requests, HostClock }` and `ClientLayer.Attach(in ClientPorts)` are added exactly as ADR-0016 Key Interfaces shows **if absent** (record in Last Updated whether this story added them); `Attach` called twice, or after the first `Step`, is refused. Ports come from the session (`IClientInbox`/`IRequestSink` from `ClientAdapter`, `IHostClock` from the host clock); an absent port (`IPanelView` before grid-inventory's `ContainerMirror` exists) gets a null object and the boot log says so (`BOOT 6 ports: panel=Null …`) — never a silent default. Other epics add their ports through an explicit `IPortContributor { void Contribute(ClientPortsBuilder b, BootContext ctx); }` list in `BootPlan` that runs before `Attach` (player-character 020's `ITransformSampleSink`/`ICarrierLoadSource`/`ILocalPlayer`, 025's `IHeldItemView`, input-controls 028's sinks use it); a smoke scenario registers a recording contributor and sees it called once, before `Attach`.
-- [ ] **Local carrier samples reach the Sim and the local player is admitted.** The host wires `ITransformSampleSink` (player-character 020) to `SimWorld.TryWriteSample` for slot 0 (a thin adapter class in `src/Game/Boot/`; the Sim never learns it exists beyond the ring). With a fake `IMonotonicClock` (via `BootOptions.Clock`, a test seam on `BootContext`) advanced 40 ticks of 1/30 s with a scripted idle input, the smoke asserts: `ILocalPlayer.IsKnown` is true and slot 0; every sample write returned true (reject counter 0); player-character 019's `CheckInteraction` position-ingest does not report `PositionStale` (the 30-tick staleness rule) — proving the seam works end to end, not only compiles.
-- [ ] **Render clock inputs.** `RenderClock` (Client.Core, `IRenderClock`) is constructed with the host `IHostClock` and the driver's `AlphaPermille` source, and handed to story 003's frame sequence for the once-per-frame `Sample()` (between `RunFrame` and `Present`). With the fake clock: at tick boundaries `RenderSimTimeMs == ((long)HostTick*1000 + AlphaPermille)/30` (floor), `AlphaPermille` is frozen at 0 while the driver is paused, and `IsValid` is true on the host.
-- [ ] **One owner of the runner.** After boot, `GameLoop` holds the `FrameRunner`/`HostSession` and no other `src/Game` type references them (story 003's `check-sim-access.sh` passes with `Boot/` allowed). A smoke scenario (`session-ticks`) drives the booted session for 90 fake-clock frames of 1/30 s and asserts `World.CurrentTick == 90`, `Driver.Counters` shows 0 dropped ticks, and the world is not `Faulted`.
+- [x] **`ClientPorts` and `Attach` exist and are attached once.** `ClientPorts { Inbox, Panel, Requests, HostClock }` and `ClientLayer.Attach(in ClientPorts)` are added exactly as ADR-0016 Key Interfaces shows **if absent** (record in Last Updated whether this story added them); `Attach` called twice, or after the first `Step`, is refused. Ports come from the session (`IClientInbox`/`IRequestSink` from `ClientAdapter`, `IHostClock` from the host clock); an absent port (`IPanelView` before grid-inventory's `ContainerMirror` exists) gets a null object and the boot log says so (`BOOT 6 ports: panel=Null …`) — never a silent default. Other epics add their ports through an explicit `IPortContributor { void Contribute(ClientPortsBuilder b, BootContext ctx); }` list in `BootPlan` that runs before `Attach` (player-character 020's `ITransformSampleSink`/`ICarrierLoadSource`/`ILocalPlayer`, 025's `IHeldItemView`, input-controls 028's sinks use it); a smoke scenario registers a recording contributor and sees it called once, before `Attach`.
+- [x] **Local carrier samples reach the Sim and the local player is admitted.** The host wires `ITransformSampleSink` (player-character 020) to `SimWorld.TryWriteSample` for slot 0 (a thin adapter class in `src/Game/Boot/`; the Sim never learns it exists beyond the ring). With a fake `IMonotonicClock` (via `BootOptions.Clock`, a test seam on `BootContext`) advanced 40 ticks of 1/30 s with a scripted idle input, the smoke asserts: `ILocalPlayer.IsKnown` is true and slot 0; every sample write returned true (reject counter 0); player-character 019's `CheckInteraction` position-ingest does not report `PositionStale` (the 30-tick staleness rule) — proving the seam works end to end, not only compiles.
+- [x] **Render clock inputs.** `RenderClock` (Client.Core, `IRenderClock`) is constructed with the host `IHostClock` and the driver's `AlphaPermille` source, and handed to story 003's frame sequence for the once-per-frame `Sample()` (between `RunFrame` and `Present`). With the fake clock: at tick boundaries `RenderSimTimeMs == ((long)HostTick*1000 + AlphaPermille)/30` (floor), `AlphaPermille` is frozen at 0 while the driver is paused, and `IsValid` is true on the host.
+- [x] **One owner of the runner.** After boot, `GameLoop` holds the `FrameRunner`/`HostSession` and no other `src/Game` type references them (story 003's `check-sim-access.sh` passes with `Boot/` allowed). A smoke scenario (`session-ticks`) drives the booted session for 90 fake-clock frames of 1/30 s and asserts `World.CurrentTick == 90`, `Driver.Counters` shows 0 dropped ticks, and the world is not `Faulted`.
 
 ---
 
@@ -75,7 +75,19 @@
 **Required evidence**:
 - Integration: smoke scenarios `session-ticks` and `session-ports` (`SMOKE … PASS`, exit 0) with the boot-log excerpt showing steps 5–6 and the ports line, in `production/qa/evidence/host-shell-session-evidence.md` — `/story-done` checks the scenarios and file exist; pass/fail via `/smoke-check`
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — smokes `session-ticks`, `session-ports`; `ClientLayerAttachTests`, PR #85 (2026-11-09). No evidence file (greybox).
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #85 (merge `fecd021`), package WP-A (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Panel port later: PR #89 (`c6a6b4b`) bound `EmptyPanelView(default)`; PR #94 (`f145219`) binds the client-only `OwnPanelMirror`, and the `session-ports` smoke now expects `panel=OwnPanelMirror`.
+- **ACs met:** AC-2 (`ClientPorts` + `ClientLayer.Attach` once before the first `Step`, `IPortContributor`, boot logged `panel=Null` at PR 85), AC-3 (`HostSampleSink` → `SimWorld.TryWriteSample`, `session-ports` CheckInteraction check), AC-4 (render clock), AC-5 (`GameLoop` owns the session; `session-ticks`).
+- **AC-2 wording:** "exactly as ADR-0016 Key Interfaces shows" is met via the ADR-0016 erratum 2026-11-09 (no `Inbox`; init properties; three carrier ports `TransformSamples`, `CarrierLoad`, `LocalPlayer`; panel joins with the HUD package), approved by Evan 2026-11-09 2:14 AM PT, card t300s1357: "Approve PR 85 item 1: update ADR-0016's client ports to match the code (no inbox, panel later, carrier ports), as listed in your message above". Items 2 and 3 of that card were not approved: ADR-0003 unchanged (the `SimHost.Players` accessor stays a code note), `EventCursor` not renamed.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-1 — session built at steps 5–6, but the once-per-process factory guard (counter asserted, second call throws) was dropped → TD-213.
+- **Tests / smokes:** smokes `session-ticks`, `session-ports`; `ClientLayerAttachTests`.
 
 ---
 

@@ -1,12 +1,12 @@
 # Story 002: `DeliverScan` (one scan order for host and client) and the pure deliver preview (MD3) with F1 figures
 
 > **Epic**: Manual Delivery
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~250 lines prod + ~300 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete; delivered by PR #88, merge 7cd3756; see Completion Notes).
 
 ## Context
 
@@ -32,11 +32,11 @@
 
 *From GDD `design/gdd/manual-delivery.md` (FX-MB #17 at 17 Elm St, FX-L letter 8 ¢ / 4 ¢, FX-P panel), scoped to this story:*
 
-- [ ] **AC-1 (M-MD3-1, 7 rows)** REJECT with 0 panel entries scanned when #17 is CLOSED and matches exist; MATCH when a 17 Elm St letter is only in the backpack; MATCH when the only match is the selected entry; MATCH when the match is the cursor entry with the panel closed; MATCH when hands are selected and a match exists; MISDELIVER_ONE when there is no match and the selected slot holds a letter for 14 Larch Lane; NOTHING when there is no match and a tool is selected.
-- [ ] **AC-2 (M-MD3-2)** Two matching letters (value 9, deadline 1, shift 3) → MATCH with `deadOnly` true and `predictedPay` 0. A selected Cursed non-match → `cursed` true; a non-Cursed one → false.
-- [ ] **AC-3 (M-F1-1)** Shift 3, entries A (6 letters, value 8, deadline 3), B (one entry with runs: 3 letters value 8 deadline 2; 2 letters value 9 deadline 1), C (5 letters, value 9, deadline 3) → `k` = 3, `n` = 16, `predictedPay` = 105, `lateUnits` = 3, `deadUnits` = 2. **b** Stamp Collector 1250 turns an on-time 8 into 10; Cannon Arm 1100 changes nothing (hand path).
-- [ ] **AC-4 (M-F1-2)** A selected letter whose run 0 has value 8 → penalty 4 ¢; runs (value 8, value 12) still give 4; value 1 gives 1. At wallet −496, `floorRefusal` is false (lands on −500); at −497 it is true.
-- [ ] **AC-5 (M-MD10-1a, M-MD8-1a, M-INT-1 order half)** Matching mail only in an open chest → NOTHING (the external container is never scanned). Hands selected with 5 matching letters in the backpack → MATCH with `n` = 5. With matches at the cursor, hotbar slot 2, inventory (r0, c1) and the backpack, the MATCH entry list is in cursor → hotbar → inventory row-major → backpack order.
+- [x] **AC-1 (M-MD3-1, 7 rows)** REJECT with 0 panel entries scanned when #17 is CLOSED and matches exist; MATCH when a 17 Elm St letter is only in the backpack; MATCH when the only match is the selected entry; MATCH when the match is the cursor entry with the panel closed; MATCH when hands are selected and a match exists; MISDELIVER_ONE when there is no match and the selected slot holds a letter for 14 Larch Lane; NOTHING when there is no match and a tool is selected.
+- [x] **AC-2 (M-MD3-2)** Two matching letters (value 9, deadline 1, shift 3) → MATCH with `deadOnly` true and `predictedPay` 0. A selected Cursed non-match → `cursed` true; a non-Cursed one → false.
+- [x] **AC-3 (M-F1-1)** Shift 3, entries A (6 letters, value 8, deadline 3), B (one entry with runs: 3 letters value 8 deadline 2; 2 letters value 9 deadline 1), C (5 letters, value 9, deadline 3) → `k` = 3, `n` = 16, `predictedPay` = 105, `lateUnits` = 3, `deadUnits` = 2. **b** Stamp Collector 1250 turns an on-time 8 into 10; Cannon Arm 1100 changes nothing (hand path).
+- [x] **AC-4 (M-F1-2)** A selected letter whose run 0 has value 8 → penalty 4 ¢; runs (value 8, value 12) still give 4; value 1 gives 1. At wallet −496, `floorRefusal` is false (lands on −500); at −497 it is true.
+- [x] **AC-5 (M-MD10-1a, M-MD8-1a, M-INT-1 order half)** Matching mail only in an open chest → NOTHING (the external container is never scanned). Hands selected with 5 matching letters in the backpack → MATCH with `n` = 5. With matches at the cursor, hotbar slot 2, inventory (r0, c1) and the backpack, the MATCH entry list is in cursor → hotbar → inventory row-major → backpack order.
 
 ---
 
@@ -76,6 +76,18 @@
 - Logic: `tests/unit/delivery/DeliverPreviewTests.cs` and `tests/unit/delivery/DeliverScanTests.cs` — must exist and pass
 
 **Status**: [ ] Not yet created
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #88 (merge `7cd3756`), package WP-C (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Consumer wiring: PR #94 (merge `f145219`) feeds `DeliverPreview` from the real own-panel mirror (`OwnPanelMirror`) in the client composition.
+- **Built:** `DeliverScan`, `DeliverPreview`, `DeliverBranch` in `Sim/Delivery`; the `IPanelView` / `PanelSection` / `PanelEntryFacts` ports in `Sim/ClientLayer/Ports/`. No greybox trims in the WP-C plan §3 table for this story.
+- **ACs met:** AC-1, AC-2, AC-3, AC-4, AC-5.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** none dropped. As-built notes → TD-220 (1)–(5): no `RunFacts` type yet (the preview takes `currentShift` + `MailBalance` directly), the hotbar section is indexed by slot, and the value-hint runs are carried as `PanelHintRun`.
+- **Tests:** PR #88 names no test file per story; its body reports 6,256 tests, 0 failed on all four legs. The repo holds `tests/unit/delivery/DeliverPreviewTests.cs` and `tests/unit/delivery/DeliverScanTests.cs`.
 
 ---
 

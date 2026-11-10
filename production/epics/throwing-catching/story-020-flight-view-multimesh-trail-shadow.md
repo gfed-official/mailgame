@@ -1,12 +1,12 @@
 # Story 020: `FlightView` (Godot) — the parcel in the air: one bundle mesh via `MultiMeshInstance3D`, spin from `flightId`, ×N tag pool, blob shadow and the launch-verdict trail
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; shadow, trail, landed query, alpha fade-in, Timeout fade and 1 rev/s bundle spin dropped → TD-250 (7))
 > **Layer**: Presentation
 > **Type**: Visual/Feel
 > **Estimate**: M (~1 day; ~450 lines prod + the evidence capture)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; shadow, trail, landed query, alpha fade-in, Timeout fade and 1 rev/s bundle spin dropped → TD-250 (7)); delivered by PR #91, merge ae8a12d; see Completion Notes).
 
 > **Presentation story (3 of 4).** What every peer sees between the release and the landing. Positions, ages and verdicts come from story 017's mirror; this view places meshes and strokes a trail. Godot work: use `~/.local/bin/godot-mono`.
 
@@ -80,7 +80,18 @@
 - Visual/Feel: retained screenshots in `production/qa/evidence/throwing/flight-view/` and sign-off in `production/qa/evidence/throwing/flight-view-evidence.md` by art-director (visual) and gameplay-programmer (feel)
 - Logic half: `tests/unit/throwing/FlightPlacementTests.cs` (placement function, tag selection, 35 m rule, 0 B) — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/ui/ThrowViewLogicTests.cs` (not `tests/unit/throwing/FlightPlacementTests.cs`; no retained screenshots or sign-off), PR #91 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #91 (merge `ae8a12d`), package WP-E (M-1a wave 2; S1–S3 coded on Sonnet, review fixes on Opus), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Wired at boot by PR #93 (`545df2f`, TD-260): `ThrowLayers.CreateFlights` under `World/Flights`, with a sampler view registered on the World presenter that samples the flight mirror each frame and passes only `InFlight` flights (the sampler reads `IRenderClock`). Fed by the client loop from PR #94 (`f145219`, TD-270): own releases are noted on the flight mirror and the loop smoke sees the projectile in flight and land (wallet 8 → 16 ¢).
+- **ACs met:** none ticked — the PR #91 body records what was built, not AC verdicts. Built: one MultiMesh tier at 1.0×, preallocated to 160 instances; `TransformFormat` and `Mesh` set before `InstanceCount`, which is set once; placement is an integer lerp by `AlphaPermille`; spin is a pure function of flightId and the render tick.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** One bundle mesh — the tier and preallocation are as specified; `CustomAabb` and the Kraft parcel with Charcoal outline are MultiMesh placeholders, not confirmed → TD-250 (7). Placement — the pure placement function is tested; hide-before-render-tick and remove-after-landing rest on PR #93's `InFlight`-only sampler. Spin — the 1 rev/s bundle spin was dropped (the bundle unit count arrives with the `IFlightSource` adapter) → TD-250 (7). Dropped: the ×N tag (not mentioned in the PR body), the blob shadow, the trail, the landed query (`IFlightLandedQuery`), the alpha fade-in, the Timeout fade, the 0 B/budget measurement and the visual check → TD-250 (7). Tests live in `tests/unit/ui/`, not `tests/unit/throwing/` → TD-250 (8).
+- **Tests:** `tests/unit/ui/ThrowViewLogicTests.cs` (placement lerps the integer segment and clamps to the instance cap) — PR #91; 6,445 per leg, 0 failed.
 
 ---
 

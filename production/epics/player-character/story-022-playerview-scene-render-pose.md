@@ -1,12 +1,12 @@
 # Story 022: `PlayerView` greybox scene and the local carrier's render pose (≤ 1-tick extrapolation, clamped to the swept result)
 
 > **Epic**: Player Character & Movement (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; probe extrapolation replaced by prev→curr interpolation, replay, PCM-FEEL-2 and evidence dropped → TD-213 (7))
 > **Layer**: Presentation
 > **Type**: Visual/Feel
 > **Estimate**: M (~1 day; ~400 lines prod + tests + evidence)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; probe extrapolation replaced by prev→curr interpolation, replay, PCM-FEEL-2 and evidence dropped → TD-213 (7)); delivered by PR #89, merge c6a6b4b; see Completion Notes).
 
 ## Context
 
@@ -32,10 +32,10 @@
 
 *From GDD `design/gdd/player-character-movement.md` (P2, PCM-P2-3, P1), scoped to this story:*
 
-- [ ] **Scene shape.** `PlayerView.tscn` = `PlayerView (Node3D) → RigOffset (Node3D) → { Body (greybox capsule radius 0.3 m, height 1.4 m, feet at local origin), Hat (box on top — "hat first"), Facing (a nose/wedge showing body yaw), HeldItemAnchor (Marker3D), HatAnchor }`; no collision shapes, no physics bodies, no scripts with `_PhysicsProcess`. The view is created for the local carrier when `ILocalPlayer.IsKnown` (M-1a solo), registered in `EntityViewRegistry` under the player `EntityId`, and removed on despawn; every registry lookup is `IsInstanceValid`-guarded.
+- [x] **Scene shape.** `PlayerView.tscn` = `PlayerView (Node3D) → RigOffset (Node3D) → { Body (greybox capsule radius 0.3 m, height 1.4 m, feet at local origin), Hat (box on top — "hat first"), Facing (a nose/wedge showing body yaw), HeldItemAnchor (Marker3D), HatAnchor }`; no collision shapes, no physics bodies, no scripts with `_PhysicsProcess`. The view is created for the local carrier when `ILocalPlayer.IsKnown` (M-1a solo), registered in `EntityViewRegistry` under the player `EntityId`, and removed on despawn; every registry lookup is `IsInstanceValid`-guarded.
 - [ ] **Render pose rule (pure, Godot-free, `Client.Core`).** `CarrierRenderPose.Compute(prev, curr, predictedNext, alphaPermille, IWorldQuery)` returns the rendered feet position and yaw: horizontal `xz = curr + (predictedNext − curr) × alphaPermille / 1000` (extrapolation toward the **same-input one-tick probe**, so it is clamped to that tick's swept result — never into a wall); vertical `y = curr.Y` (no vertical extrapolation) raised to `TerrainHeightMm(x, z)` if it would be below; `alphaPermille` 0 returns `curr` exactly; a paused driver (alpha frozen at 0) shows `curr`; `predictedNext` is computed **once per new tick** by running `OwnedCarrier.Step` on a *copy* of the state with `ICarrierView.LastInput` (edges cleared) and a throwaway `CarrierScratch` — it never mutates the real state and never counts in `SimCounters`.
 - [ ] **PCM-P2-3.** Over 600 frames of the golden script (Story 010) replayed at random `alphaPermille`, the rendered pose is never below the latest tick's ground height, never farther from `curr` than `predictedNext` is along each horizontal axis, and with the carrier pressed against a wall (blocked) the rendered position equals `curr` for every alpha; free walking at 5000 mm/s at alpha 500 renders 83 ± 1 mm ahead of `curr`.
-- [ ] **Facing and conventions.** `Rotation.Y = bam × 2π / 65536` with no sign flip: BAM 16384 makes the node's −Z forward point along −X, BAM 0 along −Z (one view smoke test, ADR-0019 / ADR-0013 §Related); body-yaw display smoothing takes the shortest signed arc (wrap BAM deltas as `short`); camera yaw → BAM uses rounding and an unchecked `& 0xFFFF` (negative yaws wrap) — each covered by a pure unit test of the conversion helpers.
+- [x] **Facing and conventions.** `Rotation.Y = bam × 2π / 65536` with no sign flip: BAM 16384 makes the node's −Z forward point along −X, BAM 0 along −Z (one view smoke test, ADR-0019 / ADR-0013 §Related); body-yaw display smoothing takes the shortest signed arc (wrap BAM deltas as `short`); camera yaw → BAM uses rounding and an unchecked `& 0xFFFF` (negative yaws wrap) — each covered by a pure unit test of the conversion helpers.
 - [ ] **Driven only by `Present`.** The view moves only inside `Present(alphaPermille)` (or a `_Process` fed from its data); `_PhysicsProcess` is not overridden; `physics/common/physics_interpolation` is false in `project.godot`; the node reads `ICarrierView` and writes nothing back (a code-review checklist item and an architecture test: `src/Game/Views/Player/**` has no reference to `SimWorld`/`ClientLayer`).
 - [ ] **Units.** Sim mm → Godot metres by `mm / 1000f` at the view boundary only; Sim +Y up equals Godot +Y up; `EntityId` crosses into Godot only as `.Value`.
 - [ ] **Evidence (Visual/Feel).** `production/qa/evidence/player-view-render-pose-evidence.md` with a screenshot of the greybox carrier from behind on the M-1a street, a short recorded trace of rendered vs tick position at 30/60/144 Hz frame pacing (no backward steps, no wall penetration), and a lead sign-off; PCM-FEEL-2 (input → first moved frame ≤ 50 ms at 60 fps) is measured and logged **advisory**.
@@ -77,7 +77,19 @@
 **Required evidence**:
 - Visual/Feel: retained screenshot(s) in `production/qa/evidence/` + sign-off in `production/qa/evidence/player-view-render-pose-evidence.md`; plus `tests/unit/player/CarrierRenderPoseTests.cs` (`[Trait("Id", "PCM-P2-3")]`, conversion helpers) — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `CarrierRenderPoseTests`; smoke `player-view`, PR #89 (2026-11-09). Screenshots, the 30/60/144 Hz trace and the evidence file were not created (greybox).
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #89 (merge `c6a6b4b`), package WP-A (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Later: PR #95 see-through at 35 % and near-camera dither fade (TD-271 (6)); sprint lean (PR #94, TD-270 (9)).
+- **ACs met:** AC-1 (`PlayerView.tscn` editor-saved, no collision or physics; `PlayerPresenter` registered at boot step 7), AC-4 (`YawMath` / `YawRadians` conventions; smoke `player-view`).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-2 — `CarrierRenderPose` uses prev→curr interpolation by `AlphaPermille`, not the same-input one-tick probe → TD-213 (7); ADR-0016 §6's "≤ 1-tick interpolation" wording fits, GDD P2's extrapolation text does not (code note, no ADR or GDD edit). AC-3 — the 600-frame golden replay and the 83 mm-ahead figure (extrapolation-specific) dropped → TD-213 (7). AC-7 — screenshots, trace, PCM-FEEL-2 and sign-off dropped → TD-213 (7).
+- **Not evidenced in the PR body (verify at hardening):** AC-5 (`physics_interpolation` false in `project.godot`; the `src/Game/Views/Player/**` no-`SimWorld` architecture test) and AC-6 (units) — the scene carries no physics and the simplify table's "no `_PhysicsProcess`" stayed binding, but neither row is named in PR #89.
+- **Tests / smokes:** `CarrierRenderPoseTests`; smoke `player-view`.
 
 ---
 

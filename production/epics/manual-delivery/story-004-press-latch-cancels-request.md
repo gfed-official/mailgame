@@ -1,12 +1,12 @@
 # Story 004: Press, latch and hold (MD4) and the request (MD5, client side) — settle refusal, `ShouldCancel`, closing grace, `TryBuildRequest`
 
 > **Epic**: Manual Delivery
-> **Status**: Ready
+> **Status**: Complete (greybox; toggle settle and the clock-offset row dropped → TD-220 (11), (12))
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~250 lines prod + ~350 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; toggle settle and the clock-offset row dropped → TD-220 (11), (12)); delivered by PR #88, merge 7cd3756; see Completion Notes).
 
 ## Context
 
@@ -33,10 +33,10 @@
 
 *From GDD `design/gdd/manual-delivery.md`, scoped to this story (the Players hold counter drives the hooks):*
 
-- [ ] **AC-1 (M-MD3-4)** A reply plus snap-back flips MATCH to MISDELIVER_ONE in the same tick as an Interact press: the press is judged on the new branch, and no hold starts (settle).
+- [x] **AC-1 (M-MD3-4)** A reply plus snap-back flips MATCH to MISDELIVER_ONE in the same tick as an Interact press: the press is judged on the new branch, and no hold starts (settle).
 - [ ] **AC-2 (M-MD4-1 a–d)** MISDELIVER_ONE first displayed at T: presses at T and T+5 pulse the ✗ line, report `deliver.cancel.settle` and start no hold; T+6 starts one. A MATCH branch displayed for 0 ticks starts a hold on the press tick. ✗ (entry A) at T, ✓ at T+2, ✗ (A) at T+3 → earliest hold at T+9; selecting another wrong-house entry B at T+4 moves it to T+10; a `floorRefusal` or cents change does not move it. Toggle mode's arming press obeys the same settle. (M-MD4-1e, the screen-reader gate, is story 010's.)
-- [ ] **AC-3 (M-MD4-2, 6 rows)** A hold latched at tick 0; at tick 6: (a) a MATCH hold's matches vanish by snap-back (→ MISDELIVER_ONE), (b) a matching entry appears during a MISDELIVER_ONE hold, (c) the selected slot empties (→ NOTHING), (d) the carrier enters swim depth, (e) an own throw becomes pending → cancels with (a–c) `deliver.cancel.prompt_changed`, (d) `deliver.dry_land`, (e) `deliver.pending`, progress 0 and 0 requests through the completion tick. (f) A MATCH hold whose `k` drops from 3 to 2 and stays MATCH completes and sends 1 request.
-- [ ] **AC-4 (M-MD4-3)** On a MISDELIVER_ONE hold with slot 3 selected, selecting slot 4 at tick 5 cancels with `deliver.cancel.selection_changed`; 3 → 4 → 3 inside one tick does not cancel; the entry retired by `stale_entry` cancels; on a MATCH hold a selection change does nothing.
+- [x] **AC-3 (M-MD4-2, 6 rows)** A hold latched at tick 0; at tick 6: (a) a MATCH hold's matches vanish by snap-back (→ MISDELIVER_ONE), (b) a matching entry appears during a MISDELIVER_ONE hold, (c) the selected slot empties (→ NOTHING), (d) the carrier enters swim depth, (e) an own throw becomes pending → cancels with (a–c) `deliver.cancel.prompt_changed`, (d) `deliver.dry_land`, (e) `deliver.pending`, progress 0 and 0 requests through the completion tick. (f) A MATCH hold whose `k` drops from 3 to 2 and stays MATCH completes and sends 1 request.
+- [x] **AC-4 (M-MD4-3)** On a MISDELIVER_ONE hold with slot 3 selected, selecting slot 4 at tick 5 cancels with `deliver.cancel.selection_changed`; 3 → 4 → 3 inside one tick does not cancel; the entry retired by `stale_entry` cancels; on a MATCH hold a selection change does nothing.
 - [ ] **AC-5 (M-MD5-1, M-MD6-2c)** A completed hold sends exactly one `deliver_matching`. On MATCH, `selectedEntryId` = 0 (absent); on MISDELIVER_ONE it equals the latched entry id. `holdStartTick` equals the client's `IHostClock` estimate on the tick the hold began (12 ticks before the send at the default setting, with a test-injected clock offset). `ClaimedPosition` is the feet position at press. There is no duration or count field. #17 closing at tick 6 of a 12-tick hold does not cancel it, and the request completes (closing grace).
 
 ---
@@ -73,7 +73,19 @@
 **Required evidence**:
 - Logic: `tests/unit/delivery/DeliverPressLatchTests.cs` and `tests/unit/delivery/DeliverCancelTests.cs` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/delivery/DeliverPressLatchTests.cs`, `tests/unit/delivery/DeliverCancelTests.cs`, PR #88 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #88 (merge `7cd3756`), package WP-C (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Wire-path fix in PR #94 (`f145219`, TD-270 (8)): `ClientAdapterRequestSink` sent the in-memory payload as wire bytes, so `deliver_matching` arrived `out_of_range`; it now encodes with the session's op codecs, with a regression test watched failing then passing. The live hand delivery (wallet 0 → 8 ¢) is the `loop-pickup-deliver-throw` smoke and `ClientLoopBootTests`.
+- **Built:** `DeliverInteractable.OnPress` / `ShouldCancel` / `TryBuildRequest`, the 16 B `OwnerPayload` (kind u8, slot u8, pad, entryId u32, holdStartTick u32, destination ordinal u16, pad — TD-220 (12)), the settle refusal as `deliver.cancel.settle` from `IsAvailable` (TD-220 (11)).
+- **ACs met:** AC-1 (press judged on the recomputed branch; settle), AC-3 (the six cancel rows), AC-4 (selection change rows).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 "toggle settle, clock offset"; held by the package TD row):** AC-2 — the Hold-mode settle rows are built; the Toggle-mode arming-press settle row was dropped → TD-220 (11). AC-5 — one `deliver_matching` per completed hold, `selectedEntryId` 0 on MATCH, `ClaimedPosition` at press, no duration, closing grace at `holdStartTick`; the test-injected clock-offset row was dropped (the host's own client stamps offset 0) → TD-220.
+- **Tests:** `DeliverPressLatchTests`, `DeliverCancelTests`; PR #94's request-sink regression test; four legs green.
 
 ---
 

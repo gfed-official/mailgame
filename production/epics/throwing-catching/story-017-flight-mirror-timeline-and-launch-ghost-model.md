@@ -1,12 +1,12 @@
 # Story 017: `FlightMirror`, the flight render timeline (`hostTick − 3`, fast-forward by F2) and the launch-ghost reconciliation model
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; ACs 5–8 launch-ghost model dropped → TD-230 (8))
 > **Layer**: Presentation (Godot-free: `Sim/Throwing/Client` and `Client.Core/Throwing`)
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~500 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; ACs 5–8 launch-ghost model dropped → TD-230 (8)); delivered by PR #87, merge 0490e0f; bound at boot by PR #93, merge 545df2f; see Completion Notes).
 
 > **Presentation data story (1 of 4).** Everything the flight view and the launch ghost need that is *not* Godot: which flights exist, where each one is drawn this frame, and how the thrower's instant local parcel reconciles with the host's authoritative one. The views (stories 020, 021) only place meshes at the numbers produced here.
 
@@ -35,15 +35,15 @@
 
 *From GDD `design/gdd/throwing-catching.md` (Game Feel, Network "Timing", TC-F2-1 b, TC-N-4, TC-FE-2) and ADR-0016 §5–§6, scoped to this story:*
 
-- [ ] **Mirror from events.** `FlightMirror` (an `IMirrorPart` bound for `ThrowLaunched` and `FlightResolved` through `BindMirrorPart`) adds a flight on `ThrowLaunched` and marks it resolved on `FlightResolved` (keeping it until its visual has landed); a `FlightResolved` for an unknown `FlightId` is ignored for the arc (a rejoiner draws no arc) without error; a duplicate `FlightResolved` is idempotent.
-- [ ] **Timeline.** At host tick `H` and `AlphaPermille` a, a flight launched at `L` renders at age `H − 3 − L` plus a/1000 of a tick: the view receives the integer segment `(p(k), p(k+1))` and a, with `k` clamped to `[0, resolvedAge]`; before `renderTick < L` it is hidden (OQ16's hold-at-age-0 is deferred); after reaching its resolution age it reports `Landed` with the `FlightResolved.contact` point, not a `p(k)` beyond it.
-- [ ] **TC-F2-1 b / fast-forward.** A `ThrowLaunched` event that arrives 6 ticks late renders at the correct current age on the same frame (one `PositionAt` call, no replay); for 1 000 random flights the mirror's position at every integer age equals the host's segment endpoint from `ThrowLaunched` integers alone.
-- [ ] **Spin.** `Spin(flightId, bundle) → angle` is a pure function of `flightId` and elapsed render ticks (singles 2 rev/s, bundles 1 rev/s; stops at contact); two peers' values are equal; no RNG type is referenced.
+- [x] **Mirror from events.** `FlightMirror` (an `IMirrorPart` bound for `ThrowLaunched` and `FlightResolved` through `BindMirrorPart`) adds a flight on `ThrowLaunched` and marks it resolved on `FlightResolved` (keeping it until its visual has landed); a `FlightResolved` for an unknown `FlightId` is ignored for the arc (a rejoiner draws no arc) without error; a duplicate `FlightResolved` is idempotent.
+- [x] **Timeline.** At host tick `H` and `AlphaPermille` a, a flight launched at `L` renders at age `H − 3 − L` plus a/1000 of a tick: the view receives the integer segment `(p(k), p(k+1))` and a, with `k` clamped to `[0, resolvedAge]`; before `renderTick < L` it is hidden (OQ16's hold-at-age-0 is deferred); after reaching its resolution age it reports `Landed` with the `FlightResolved.contact` point, not a `p(k)` beyond it.
+- [x] **TC-F2-1 b / fast-forward.** A `ThrowLaunched` event that arrives 6 ticks late renders at the correct current age on the same frame (one `PositionAt` call, no replay); for 1 000 random flights the mirror's position at every integer age equals the host's segment endpoint from `ThrowLaunched` integers alone.
+- [x] **Spin.** `Spin(flightId, bundle) → angle` is a pure function of `flightId` and elapsed render ticks (singles 2 rev/s, bundles 1 rev/s; stops at contact); two peers' values are equal; no RNG type is referenced.
 - [ ] **Ghost spawn (data half of TC-FE-2).** A `ReleaseRecord` (story 007) with release frame `f` yields a ghost whose spawn is stamped with the same render frame/ms and position = the hand socket supplied by the view; over a 200-release replay corpus (`tests/replay/throwing/`, mouse and pad) the spawn frame minus the release frame is ≤ 1 frame for every release (virtual clock).
 - [ ] **Ghost path.** The ghost lerps from the hand socket onto the F1 predicted path over its first 3 ticks (a socket ≤ 400 mm from the F1 origin closes to 0 by tick 3), then follows `Ballistic.PositionAt` of the locally predicted launch on **time since release**, so it leads the authoritative flight by ≈ one-way + 100 ms: for a light level-ish throw the lead distance is 1.8 / 2.2 / 2.7 m (±0.1 m) at 60 / 120 / 200 ms RTT (virtual clock, synthetic one-way delays).
 - [ ] **Reconcile.** On the matching `ThrowLaunched` (by `seq`) the ghost blends into the authoritative timeline over `max(100, 1.5 × oneWay)` ms; it **snaps** (no blend) when `originClamped` is set or when the event's origin/velocity differ from the local prediction by any mm; after the blend the ghost despawns and the flight view owns the parcel.
 - [ ] **Hold and fade.** If the ghost reaches a predicted static contact before the outcome event it **holds at the contact point without settling** until the matching `FlightResolved` (≤ `ghostHoldMaxMs` = 600 ms, then fades over 150 ms); on a rejected release (`OpReply` reason) it fades over 150 ms where it is. TC-N-4's "a ghost at a static contact holds ≤ 600 ms for its outcome event" passes on a virtual clock with a delayed event stream (3–10 tick delays through the loopback `DelayTransport` harness of `production/epics/manual-delivery/story-008-race-suite-bell-fuzz-soak.md` when available).
-- [ ] **Never a beat.** The ghost and mirror types are not tagged `[OutcomeBeat]` and expose no landing callback; an architecture test asserts that `[OutcomeBeat]` types receive data only from `PresentationEventStream` cursors (ADR-0016 enforcement test) and that none of this story's types are such sinks.
+- [x] **Never a beat.** The ghost and mirror types are not tagged `[OutcomeBeat]` and expose no landing callback; an architecture test asserts that `[OutcomeBeat]` types receive data only from `PresentationEventStream` cursors (ADR-0016 enforcement test) and that none of this story's types are such sinks.
 - [ ] **Trail verdict.** The mirror records the **launch verdict** (class at release from `ThrowLaunched` visual data on remote peers, from `ReleaseRecord.ClassAtRelease` locally) per flight and never changes it afterwards (a box that closes mid-flight does not recolour the trail; TC-VA-1's Sim half).
 - [ ] 0 B per frame over 600 frames with 60 mirrored flights.
 
@@ -82,7 +82,19 @@
 **Required evidence**:
 - Logic: `tests/unit/throwing/FlightMirrorTests.cs`, `tests/unit/throwing/LaunchGhostTests.cs` (`[Trait("Id", "TC-F2-1b")]`, `TC-N-4`, `TC-FE-2`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/throwing/FlightMirrorTests.cs` (no `LaunchGhostTests.cs`: the ghost was dropped), PR #87 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #87 (merge `0490e0f`), package WP-D (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). At PR 87 the binding waited on `BindMirrorPart` (WP-C) and the per-frame `Present` (WP-A). PR #93 (`545df2f`, TD-260 (5)) binds `FlightMirrorConsumer` on `session.MirrorDrain` in boot step 5 and registers a sampler view that passes only `InFlight` flights to the flight view (throwing-catching 020, PR #91); PR #94 (`f145219`) notes own releases on the mirror so the thrower's flight shows from its release.
+- **Built:** `FlightMirror` (`IMirrorPart` for `ThrowLaunched` / `FlightResolved`), `FlightTimeline` (`HostTick − 3` + alpha; a late `ThrowLaunched` fast-forwarded by `Ballistic.PositionAt`), `FlightSpin` (spin start = flightId × 40 503 BAM), the per-flight launch verdict; `Client.Core/Throwing/FlightMirrorConsumer`. Render delay is a 3-tick constant, no balance row (TD-230 (8)).
+- **ACs met:** Mirror from events (unknown and duplicate `FlightResolved` handled), Timeline (last segment ends at the contact; `Landed` reported for one sample), TC-F2-1 b fast-forward, Spin, Trail verdict (own launch verdicts matched oldest-first).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 "drop ghost model, RTT corpus"; held by the package TD row):** ACs 5–8 — the launch ghost (`LaunchGhost`, `GhostSettings`, spawn / path / reconcile / hold-and-fade) was dropped; the flight view shows the authoritative flight at `HostTick − 3` only → TD-230 (8). Never a beat — none of the story's types is an `[OutcomeBeat]` and `OutcomeBeatRulesTests` (PR #92) checks every tagged type; the story's own architecture row was not written. 0 B — advisory until M0 (erratum E2).
+- **Tests:** `FlightMirrorTests`; four legs green (0 failed).
 
 ---
 

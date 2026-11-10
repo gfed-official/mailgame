@@ -1,12 +1,12 @@
 # Story 026: Interaction prompt anchor — projecting the focused anchor and its bounds to screen, and the HUD focus feed
 
 > **Epic**: Player Character & Movement (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; caret, perk-up and alloc probe dropped → TD-213 (10))
 > **Layer**: Presentation
 > **Type**: Integration
 > **Estimate**: M (~0.75 day; ~350 lines prod + tests + evidence)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; caret, perk-up and alloc probe dropped → TD-213 (10)); delivered by PR #89, merge c6a6b4b; see Completion Notes).
 
 > **Scope note (explicit, so the story is not misread as a HUD story).** This story supplies the *data* the HUD needs — the focused anchor, its projected screen position and bounds, the verb/availability/prompt args and hold progress. **The prompt widget, hold ring, lock icon, caret drawing and focus bracket are HUD & Notifications' (H11 / H12) and have no epic yet.** No `design/ux/` interaction-prompt spec exists (only `design/ux/hud-notifications-seed.md`); that is why this story is typed Integration with a debug overlay as evidence rather than a UI story, and why it is not Blocked. The widget's own story must wait for `/ux-design`.
 
@@ -33,12 +33,12 @@
 
 *From GDD Visual/Audio "Focus highlight", UI Requirements "Interaction prompt" and PCM-UI-1 (data half), scoped to this story:*
 
-- [ ] **`FocusFeed` contract.** A readonly struct `FocusFeed { bool Visible; AnchorRef Focused; Verb; InteractMode; Availability (ok | reason StringId); PromptArgs; InteractState; ushort ProgressPm; CancelReason LastCancel; Vector2 ScreenPos; Rect2 ScreenBounds; ushort PresentedSeq; byte Kind (None | Focused | TooFarCaret) }` is published each frame through `IHudFocusFeed.Current` for the HUD presenter (`Hud` runs after `World`); `PresentedSeq` equals the snapshot `Seq` it was built from and is what the router echoes in press edges.
-- [ ] **Projection.** For a focused anchor in front of the camera, `ScreenPos` is `Camera3D.UnprojectPosition(anchorPointMetres)` and `ScreenBounds` is the screen-space rectangle enclosing the projected corners of the anchor entity's visual bounds (the entity's view node `GetAabb()` via `EntityViewRegistry`; fallback when the entity has no view: a 0.5 m cube around the anchor point); an anchor **behind the camera** (`IsPositionBehind`) gives `Visible = false`; a focused anchor partly off-screen clamps its bounds to the viewport and keeps `Visible = true`.
-- [ ] **Unavailable and cancel data pass through.** An unavailable target keeps `Visible = true` with its one reason key (dimmed/lock rendering is the HUD's); `ProgressPm`, `InteractState` and `LastCancel` (for the drain-at-2× / "Moved out of reach" cue) are copied from the snapshot unchanged; the feed never invents a verdict (no green/red — focus must not pre-announce a match).
+- [x] **`FocusFeed` contract.** A readonly struct `FocusFeed { bool Visible; AnchorRef Focused; Verb; InteractMode; Availability (ok | reason StringId); PromptArgs; InteractState; ushort ProgressPm; CancelReason LastCancel; Vector2 ScreenPos; Rect2 ScreenBounds; ushort PresentedSeq; byte Kind (None | Focused | TooFarCaret) }` is published each frame through `IHudFocusFeed.Current` for the HUD presenter (`Hud` runs after `World`); `PresentedSeq` equals the snapshot `Seq` it was built from and is what the router echoes in press edges.
+- [x] **Projection.** For a focused anchor in front of the camera, `ScreenPos` is `Camera3D.UnprojectPosition(anchorPointMetres)` and `ScreenBounds` is the screen-space rectangle enclosing the projected corners of the anchor entity's visual bounds (the entity's view node `GetAabb()` via `EntityViewRegistry`; fallback when the entity has no view: a 0.5 m cube around the anchor point); an anchor **behind the camera** (`IsPositionBehind`) gives `Visible = false`; a focused anchor partly off-screen clamps its bounds to the viewport and keeps `Visible = true`.
+- [x] **Unavailable and cancel data pass through.** An unavailable target keeps `Visible = true` with its one reason key (dimmed/lock rendering is the HUD's); `ProgressPm`, `InteractState` and `LastCancel` (for the drain-at-2× / "Moved out of reach" cue) are copied from the snapshot unchanged; the feed never invents a verdict (no green/red — focus must not pre-announce a match).
 - [ ] **Too-far caret.** When nothing is focused and the snapshot's `NearestBeyond` anchor is 2.5–6 m away, the feed is `Kind = TooFarCaret` with the projected point of that anchor and no prompt text/args; a press that finds no valid target sets a one-frame `TooFarPulse` flag (from the snapshot's cancel/none data — "Too far" marker pulse) — drawing is the HUD's.
 - [ ] **Perk-up hook (cosmetic).** The focused entity's view node receives a `SetFocused(bool)` call on focus change (a mailbox flag may twitch 5°); it is a no-op for views without the method. Presentation only, never affects the Sim.
-- [ ] **Debug overlay (evidence).** A debug-build-only `Debug/FocusDebugOverlay` (CanvasLayer) draws the bracket rectangle and caret using `DrawPrimitive`/`DrawRect` outlines (never `DrawLine`/`DrawPolyline`) so the feed can be verified without the HUD; it does not ship in release builds (`OS.IsDebugBuild()`).
+- [x] **Debug overlay (evidence).** A debug-build-only `Debug/FocusDebugOverlay` (CanvasLayer) draws the bracket rectangle and caret using `DrawPrimitive`/`DrawRect` outlines (never `DrawLine`/`DrawPolyline`) so the feed can be verified without the HUD; it does not ship in release builds (`OS.IsDebugBuild()`).
 - [ ] **Allocation and order.** The feed is a struct written once per frame (0 managed bytes in steady state, probe over 600 frames); the World presenter publishes it before `HudPresenter` reads it (order test against `PresentationRoot.Present`'s World → Hud → Audio sequence).
 - [ ] **Evidence (Integration).** `production/qa/evidence/player-prompt-anchor-evidence.md` with screenshots of the debug overlay on: a focused mailbox, an unavailable target (swimming), an out-of-range caret at ~4 m, nothing in front, and an anchor behind the camera (hidden), plus the recorded `PresentedSeq` trace for a press.
 
@@ -76,7 +76,18 @@
 **Required evidence**:
 - Integration: `tests/integration/player/FocusFeedTests.cs` (feed contract against a scripted `IInteractionQuery` and a camera stub, Godot-free where the projection is injected) OR a retained playtest/screenshot doc `production/qa/evidence/player-prompt-anchor-evidence.md` — the document is required either way for the on-screen rows
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — smoke `focus-feed`, PR #89 (2026-11-09). `tests/integration/player/FocusFeedTests.cs`, the overlay screenshots and the evidence file were not created (greybox).
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #89 (merge `c6a6b4b`), package WP-A (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). At PR 89 the feed stayed hidden (boot logged `focus feed published snapshot=none`) because no client `IInteractionQuery` was published — that binding is `ClientLayerBuilder`'s, which WP-A did not own. Published since PR #94 (`f145219`) by `ClientInteractionBinder` / `InteractionSnapshotPublisher` (TD-260 (1) un-deferred, TD-270 (1)).
+- **ACs met:** AC-1 (`FocusFeed` / `IHudFocusFeed`, `PresentedSeq` echoed from the snapshot `Seq`), AC-2 (projection, view-AABB bounds via `EntityViewRegistry`, hidden when behind the camera), AC-3 (availability, progress, state and cancel values passed through, no invented verdict), AC-6 (debug-only `DrawRect` bracket overlay).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table "data + debug bracket only"; held by the package TD row):** AC-4 — too-far caret dropped → TD-213 (10). AC-5 — perk-up `SetFocused` hook dropped → TD-213 (10). AC-7 — alloc probe dropped (advisory until M0, erratum E2) → TD-213 (10); the World-before-Hud order test is not named in the PR body. AC-8 — overlay screenshots and the `PresentedSeq` trace dropped.
+- **Tests / smokes:** smoke `focus-feed`.
 
 ---
 

@@ -1,12 +1,12 @@
 # Story 014: Throw aim-release — router-owned `aiming`, F11 minimum aim on the ms clock, Toggle aim, aim-start refusals and the Throw commit
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; Hold-mode aim at 250 ms, "commit pending"/Busy parts wait on input-controls 015 (harden later) → TD-240 (47), (50))
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; Hold-mode aim at 250 ms, "commit pending"/Busy parts wait on input-controls 015 (harden later) → TD-240 (47), (50)); delivered by PR #86, merge 110b8c1; see Completion Notes).
 
 ## Context
 
@@ -34,13 +34,13 @@
 *From GDD F11, G1, G7 and H-F11-1 / H-G7-2 / H-G1-2 / H-EC-14, scoped to this story:*
 
 - [ ] **Enter aiming.** A Throw press while live (World: OnFoot, no overlay, no capture, not holding, not already aiming, no commit in progress/pending — story 015) sets `aiming` (state tuple), sets the `Aim` held bit, emits an `Aim` Press edge and logs `Transition`. The Throw input is RMB (KBM) or LT through F4 hysteresis (story 009).
-- [ ] **Aim-start refusals.** Through `IThrowAimView` (a Client.Core port over Throwing's `ThrowPreviewState` from `production/epics/throwing-catching/story-004-throw-aim-quantiser-and-preview-step.md`: `NotThrowable` {None, HandsSlot, EmptySlot, Swimming, …} and `EntryStale`), a Throw press with `NotThrowable ≠ None` starts **no** aim (no state change, no edge), logs a `Cue` carrying the reason id (the string is HUD's) and mutes the press until release (TC-T1-1 b "no aim starts and nothing is sent").
-- [ ] **H-F11-1 (Hold mode).** `aimHeld = tRelease − tPress` in ms from arrival stamps: 249 ms → cancel with a `HoldToAim` cue and **no** Throw immediate; 250 ms → Throw immediate queued; 160 ms → cancel; 300 ms → throws; with the setting `throwMinAimMs` = 150, 160 ms throws; at `holdSettingMs` 1000, 250 ms still throws (not scaled); a press and release delivered in the same frame (`aimHeld ≈ 0`) cancels. On release the Aim bit clears and a `Release` edge (commit) or `Cancel(…)` edge (cancel) is emitted so the Sim's `CarrierInput.Aiming` ends.
-- [ ] **H-EC-14 (throw half).** Throw held for 10 s throws on release (no timeout; `aimHeld ≥ min` always true).
-- [ ] **H-G7-2 (Toggle).** Aim in Toggle mode: the first press enters Aiming with no timeout (still aiming at 30 s of fake time); a second press at 0.20 s is **ignored** (still aiming, no throw, no cancel); a second press at 0.30 s commits; Back cancels (story 016 calls `TryCancelAim()`); the physical release of the first press emits nothing.
-- [ ] **H-G1-2 (latch by non-liveness).** While aiming, hotbar slot keys 1–8, D-pad hotbar steps, Interact (E), Tool (LMB) and Drop are **not live** (their predicates exclude `aiming`): feeding each produces no edge / immediate / step, and the release throws the entry that was selected at aim start (the selection cannot change; the Throw immediate carries no slot because Throwing's builder reads the last published preview, `production/epics/throwing-catching/story-007-throw-release-builder-client-cooldown-reply.md`). Tab / Y while aiming opens the panel and cancels the aim (story 008) — queue no Throw.
+- [x] **Aim-start refusals.** Through `IThrowAimView` (a Client.Core port over Throwing's `ThrowPreviewState` from `production/epics/throwing-catching/story-004-throw-aim-quantiser-and-preview-step.md`: `NotThrowable` {None, HandsSlot, EmptySlot, Swimming, …} and `EntryStale`), a Throw press with `NotThrowable ≠ None` starts **no** aim (no state change, no edge), logs a `Cue` carrying the reason id (the string is HUD's) and mutes the press until release (TC-T1-1 b "no aim starts and nothing is sent").
+- [x] **H-F11-1 (Hold mode).** `aimHeld = tRelease − tPress` in ms from arrival stamps: 249 ms → cancel with a `HoldToAim` cue and **no** Throw immediate; 250 ms → Throw immediate queued; 160 ms → cancel; 300 ms → throws; with the setting `throwMinAimMs` = 150, 160 ms throws; at `holdSettingMs` 1000, 250 ms still throws (not scaled); a press and release delivered in the same frame (`aimHeld ≈ 0`) cancels. On release the Aim bit clears and a `Release` edge (commit) or `Cancel(…)` edge (cancel) is emitted so the Sim's `CarrierInput.Aiming` ends.
+- [x] **H-EC-14 (throw half).** Throw held for 10 s throws on release (no timeout; `aimHeld ≥ min` always true).
+- [x] **H-G7-2 (Toggle).** Aim in Toggle mode: the first press enters Aiming with no timeout (still aiming at 30 s of fake time); a second press at 0.20 s is **ignored** (still aiming, no throw, no cancel); a second press at 0.30 s commits; Back cancels (story 016 calls `TryCancelAim()`); the physical release of the first press emits nothing.
+- [x] **H-G1-2 (latch by non-liveness).** While aiming, hotbar slot keys 1–8, D-pad hotbar steps, Interact (E), Tool (LMB) and Drop are **not live** (their predicates exclude `aiming`): feeding each produces no edge / immediate / step, and the release throws the entry that was selected at aim start (the selection cannot change; the Throw immediate carries no slot because Throwing's builder reads the last published preview, `production/epics/throwing-catching/story-007-throw-release-builder-client-cooldown-reply.md`). Tab / Y while aiming opens the panel and cancels the aim (story 008) — queue no Throw.
 - [ ] **G2 router-origin aim cancels.** The aim cancels with **no** throw and a `Cancel(reason)` edge when: Back (story 016); any state change that makes Throw non-live (`StateChange`); focus loss (`FocusLost`, story 018); device disconnect (`DeviceLost`, story 018); `IThrowAimView.EntryStale` becomes true (`EntryStale`, "entry gone or stale"); a commit from another input becomes pending (the Throw press is muted instead, story 015). A cancelled aim's physical release is swallowed.
-- [ ] **H-R11-2 (throw clause).** Feeding the release record and calling `DispatchImmediates()` in the same frame invokes Throwing's sink once, before `FlushToLatch`; a cancel invokes it zero times.
+- [x] **H-R11-2 (throw clause).** Feeding the release record and calling `DispatchImmediates()` in the same frame invokes Throwing's sink once, before `FlushToLatch`; a cancel invokes it zero times.
 
 ---
 
@@ -78,7 +78,20 @@
 **Required evidence**:
 - Logic: `tests/unit/input/ThrowAimTests.cs` (`[Trait("Id", "H-F11-1")]`, `H-EC-14`, `H-R11-2`), `tests/unit/input/ToggleAimTests.cs` (`[Trait("Id", "H-G7-2")]`), `tests/unit/input/AimLatchTests.cs` (`[Trait("Id", "H-G1-2")]`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/input/ThrowAimTests.cs` (H-F11-1, H-EC-14, H-R11-2), `tests/unit/input/ToggleAimTests.cs` (H-G7-2), `tests/unit/input/AimLatchTests.cs` (H-G1-2), net10.0 / net8.0, PR #86 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #86 (merge `110b8c1`), package WP-B part 1 (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). `IThrowAimView` was a test double until WP-D's throwing-catching 004 (PR #87, `0490e0f`); the real adapter over `ThrowPreviewState` is bound by PR #94 (`f145219`, `ClientInteractionBinder`), which also registers `ThrowReleaseSender` as the Throw commit sink and calls `TryCancelAim()` from `BackLadder`.
+- **ACs met:** aim-start refusals through `IThrowAimView` (`byte NotThrowable`, `bool EntryStale`, TD-240 item 42; one `Cue` carrying the reason id, item 43), H-F11-1 Hold mode on the ms clock (early release → `Cancel` with `EdgeReason.None`, item 44), H-EC-14, H-G7-2 Toggle (any device's press is the second press, item 48), H-G1-2 latch by non-liveness, H-R11-2 throw clause (commit immediate reserved at the press, item 45).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** "Enter aiming" — the "no commit in progress / pending" condition is story 015's Busy gate; until then a running deliver hold is cancelled at aim start (entering aiming is a G3 state change) rather than the Throw press refused → TD-240 (47). "G2 router-origin aim cancels" — Back, StateChange and EntryStale are real; FocusLost, DeviceLost and Busy are driven through the internal `CancelAim` in the test because their sources (015 / 018) are not built, and marking the commit pending (`CommitSent`) is left to 015 → TD-240 (50). Hold-mode aim at 250 ms is the greybox default (Toggle aim is built and tested, not the shipped mode).
+- **Relaxed dependencies (regroup plan §2):** 014 → 012 relaxed to the Toggle machinery only; throwing-catching 004 was a test double at merge.
+- **Harden later:** input-controls 015 (one-commit gate, `CommitSent` / `ReplyObserved`, Busy refusal) and 018 (focus-loss / device-loss cancel sources).
+- **Tests / smokes:** `ThrowAimTests`, `ToggleAimTests`, `AimLatchTests`; four earlier tests re-timed for aim-as-state-change and F11 (named in TD-240 item 47), none deleted; four legs green.
 
 ---
 

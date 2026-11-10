@@ -1,12 +1,12 @@
 # Story 012: Interact — the presented-target latch, Toggle-mode translation (G7), Sprint Hold / Toggle / Auto and F8 unlatch
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; presented-target latch only → TD-240)
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~500 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; presented-target latch only → TD-240); delivered by PR #86, merge 110b8c1; see Completion Notes).
 
 ## Context
 
@@ -33,13 +33,13 @@
 
 *From GDD G1, G7, F8 and H-G7-1 / H-G7-3 / H-F8-1 / H-R4-4 / H-R4-6 / H-G1-1, scoped to this story (router half — the hold completing at tick 12 is asserted end to end in story 021):*
 
-- [ ] **Presented-target latch (H-R4-6 router half, H-G1-1 router half).** An Interact press edge is stamped, **at event time**, with `(TargetEntity, TargetSlot, PresentedSeq)` of the **last presented** prompt (`IPresentedPromptSource`), not the live focus: with the last presented prompt "Hold [E] Deliver" on mailbox A and the live focus flipping to a container on the press tick, the edge names A; a later focus change never rewrites an edge already queued. With no presented prompt (first frame) the edge carries `TargetEntity = 0` (the Sim treats it as "no valid target", PC 016).
-- [ ] **`IPresentedPromptSource`.** A Client.Core port `{ bool TryGet(out PresentedPrompt p) }` (`AnchorRef`, `Seq`, `InteractMode`) with a `PresentedPromptLatch` implementation that `GameLoop` updates right after `Present()` (story 028). **Unowned seam:** ADR-0014 §7 says the presented snapshot "is tracked by ADR-0016", but ADR-0016 defines no mechanism and HUD has no epic — flagged in EPIC.md; this story supplies the latch.
-- [ ] **Toggle translation (H-G7-1 router half).** With the Deliver hold class in Toggle mode and a presented `InteractMode.Hold` target: a 1-tick press emits `Press` at tick 0, the physical release emits **nothing**, and a second press while the snapshot's `InteractState` is `Holding` or `ToggleArmed` emits a `Release` edge (reason `ToggleSecondPress`, consumed, never resolved as a catch) — at tick 8 in the GDD example. A press when the state is `Idle` / `Complete` is a **fresh** `Press`. A second press from **any device** counts as the second press. Tap-mode targets (container, WorldItem) are never toggled: their physical release behaves as in Hold mode. In Hold mode (default) press / release map straight to `Press` / `Release`.
-- [ ] **Back cancels a toggled hold (ladder step 3b hook).** The router exposes `TryCancelToggledHold()` used by story 016: while a toggled hold is running it emits `Cancel(Back)` and consumes the press (returns true), otherwise false.
-- [ ] **Sprint modes.** Sprint is a held-state action with per-device mode Hold (KBM default) / Toggle (pad default) / Auto. **Hold:** the bit follows the OR of Shift / L3. **Toggle:** a press latches the bit on, the next unlatches; the physical release is ignored; it also unlatches on death (`Life` Dead), mount (`Body` Mounted), swimming and panel open (read from `CarrierStatus`), and on **F8** (below). **Auto (Player Character P14):** the bit is set whenever `|moveIntent| ≥ 0.9` (29 491 Q15, PROPOSED) and the Sprint input walks while held (clears the bit). H-A11Y-1 (sprint class): every verb in the class works under each mode.
-- [ ] **H-F8-1.** `unlatch = |moveIntent| == 0 for ≥ ceil(sprintUnlatchSeconds × 30)` consecutive **client ticks** (default 0.25 s → 8): 7 neutral ticks keep the latch, the 8th unlatches; a stick reversal passing neutral for 3 ticks keeps it; a 0.4 s stop (12 ticks) drops it. Counted from `IClientTickSource.ClientTick`, never from ms.
-- [ ] **H-R4-4 (router half).** A press with no target (presented prompt empty) still emits a `Press` edge so the Sim can start catch-armed (M0) or nothing; the router itself never starts or times a hold and never fires a verb — a 1-tick press on a Hold target emits `Press`+`Release` and the Sim's cancel / "Hold" pulse cue is asserted in story 020. The router **copies** the Sim's hold lines from snapshot changes into `UiEventLog` in order: `HoldStart` (Idle → Holding), `HoldComplete` (→ Complete), `HoldCancel{reason}` (→ Idle with `LastCancel`), after the raw-input and gate lines of the same press (H-R11-4 ordering clause).
+- [x] **Presented-target latch (H-R4-6 router half, H-G1-1 router half).** An Interact press edge is stamped, **at event time**, with `(TargetEntity, TargetSlot, PresentedSeq)` of the **last presented** prompt (`IPresentedPromptSource`), not the live focus: with the last presented prompt "Hold [E] Deliver" on mailbox A and the live focus flipping to a container on the press tick, the edge names A; a later focus change never rewrites an edge already queued. With no presented prompt (first frame) the edge carries `TargetEntity = 0` (the Sim treats it as "no valid target", PC 016).
+- [x] **`IPresentedPromptSource`.** A Client.Core port `{ bool TryGet(out PresentedPrompt p) }` (`AnchorRef`, `Seq`, `InteractMode`) with a `PresentedPromptLatch` implementation that `GameLoop` updates right after `Present()` (story 028). **Unowned seam:** ADR-0014 §7 says the presented snapshot "is tracked by ADR-0016", but ADR-0016 defines no mechanism and HUD has no epic — flagged in EPIC.md; this story supplies the latch.
+- [x] **Toggle translation (H-G7-1 router half).** With the Deliver hold class in Toggle mode and a presented `InteractMode.Hold` target: a 1-tick press emits `Press` at tick 0, the physical release emits **nothing**, and a second press while the snapshot's `InteractState` is `Holding` or `ToggleArmed` emits a `Release` edge (reason `ToggleSecondPress`, consumed, never resolved as a catch) — at tick 8 in the GDD example. A press when the state is `Idle` / `Complete` is a **fresh** `Press`. A second press from **any device** counts as the second press. Tap-mode targets (container, WorldItem) are never toggled: their physical release behaves as in Hold mode. In Hold mode (default) press / release map straight to `Press` / `Release`.
+- [x] **Back cancels a toggled hold (ladder step 3b hook).** The router exposes `TryCancelToggledHold()` used by story 016: while a toggled hold is running it emits `Cancel(Back)` and consumes the press (returns true), otherwise false.
+- [x] **Sprint modes.** Sprint is a held-state action with per-device mode Hold (KBM default) / Toggle (pad default) / Auto. **Hold:** the bit follows the OR of Shift / L3. **Toggle:** a press latches the bit on, the next unlatches; the physical release is ignored; it also unlatches on death (`Life` Dead), mount (`Body` Mounted), swimming and panel open (read from `CarrierStatus`), and on **F8** (below). **Auto (Player Character P14):** the bit is set whenever `|moveIntent| ≥ 0.9` (29 491 Q15, PROPOSED) and the Sprint input walks while held (clears the bit). H-A11Y-1 (sprint class): every verb in the class works under each mode.
+- [x] **H-F8-1.** `unlatch = |moveIntent| == 0 for ≥ ceil(sprintUnlatchSeconds × 30)` consecutive **client ticks** (default 0.25 s → 8): 7 neutral ticks keep the latch, the 8th unlatches; a stick reversal passing neutral for 3 ticks keeps it; a 0.4 s stop (12 ticks) drops it. Counted from `IClientTickSource.ClientTick`, never from ms.
+- [x] **H-R4-4 (router half).** A press with no target (presented prompt empty) still emits a `Press` edge so the Sim can start catch-armed (M0) or nothing; the router itself never starts or times a hold and never fires a verb — a 1-tick press on a Hold target emits `Press`+`Release` and the Sim's cancel / "Hold" pulse cue is asserted in story 020. The router **copies** the Sim's hold lines from snapshot changes into `UiEventLog` in order: `HoldStart` (Idle → Holding), `HoldComplete` (→ Complete), `HoldCancel{reason}` (→ Idle with `LastCancel`), after the raw-input and gate lines of the same press (H-R11-4 ordering clause).
 
 ---
 
@@ -78,7 +78,19 @@
 **Required evidence**:
 - Logic: `tests/unit/input/InteractLatchTests.cs` (`[Trait("Id", "H-R4-6")]`, `H-G1-1`, `H-R4-4`), `tests/unit/input/ToggleTranslationTests.cs` (`[Trait("Id", "H-G7-1")]`), `tests/unit/input/SprintModeTests.cs` (`[Trait("Id", "H-G7-3")]`, `[Trait("Id", "H-F8-1")]`, `[Trait("Id", "H-A11Y-1")]`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/input/InteractLatchTests.cs` (H-R4-6, H-G1-1, H-R4-4), `tests/unit/input/ToggleTranslationTests.cs` (H-G7-1), `tests/unit/input/SprintModeTests.cs` (H-G7-3, H-F8-1, H-A11Y-1), net10.0 / net8.0, PR #86 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #86 (merge `110b8c1`), package WP-B part 1 (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). The post-`Present` `PresentedPromptLatch.Update` is PR #90's `RouterFrameCalls.AfterPresent`, attached to the production loop by PR #93 (`545df2f`); the interaction chain that publishes a focused prompt is PR #94 (`f145219`, `ClientInteractionBinder`).
+- **ACs met:** all seven — presented-target latch stamped at event time, `IPresentedPromptSource` / `PresentedPromptLatch` (injected into the router constructor, TD-240 item 21), Toggle translation for presented `InteractMode.Hold` targets, `TryCancelToggledHold()` (internal, TD-240 item 27; called by WP-F's `BackLadder`, PR #94), Sprint Hold / Toggle / Auto, H-F8-1 counted in client ticks, H-R4-4 router half with `HoldLogMirror`.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** presented-target latch only — the latch is the edge's `(TargetEntity, TargetSlot, PresentedSeq)` from the last presented prompt and nothing more; `TryGet` is false until the first `Update` or with nothing focused (TD-240 item 22); Channel (catch-armed) targets are not toggled, M0 (item 23). As-built extensions: a second press also counts while `Channel` (item 24), a settling `Release` closes a toggle the Sim ended (item 25), closing edges carry the opening device (item 26), Toggle sprint is one shared latch (item 28) → TD-240 items 21–32.
+- **Relaxed dependencies (regroup plan §2):** none recorded for this story; story 014's dependency on this story was relaxed to the Toggle machinery only.
+- **Tests / smokes:** `InteractLatchTests`, `ToggleTranslationTests`, `SprintModeTests`; `PressMachineTests` row sets pad Sprint to Hold for H-R9-1 (TD-240 item 32); four legs green, no test deleted.
 
 ---
 

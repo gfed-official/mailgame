@@ -7,8 +7,8 @@
 > **Engine Risk**: MEDIUM — `CanvasLayer`/`Control`/`Label` under ADR-0019 §7's stretch; `tnum` via `FontVariation` VERIFY-IN-ENGINE (seed l.299). No post-cutoff API in this slice (the live-region Controls are M4).
 > **Est. size**: S — 3 stories
 > **Implementation priority**: after `godot-host-shell` 005/006 and the feature epics' Sim stories it reads (see Stories)
-> **Status**: Ready — ADR-0018 Accepted by Evan 2026-10-23 8:10 AM PT ("approve all", Mail Lead chat)
-> **Stories**: 3 stories — 3 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Status**: Complete (greybox; M-1a package cleanup 2026-11-09 — ADR-0018 Accepted by Evan 2026-10-23 8:10 AM PT ("approve all", Mail Lead chat); known gaps TD-274 (a), (d))
+> **Stories**: 3 stories — 3 Complete (greybox) (counts refreshed 2026-11-09 from the story headers, M-1a package cleanup on main 8c77595 (PRs 85–97 merged; `tools/planning/gen_impl_order.py` and a status count over the story headers); before that 3 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -83,9 +83,9 @@ This epic's M-1a slice is complete when:
 
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
-| 001 | [`IHudState` read model (wallet, F3 timer, deliver prompt) + `IMoneyFormatter` + M-1a English string table (Client.Core)](story-001-hud-read-model-money-formatter.md) | Logic | Ready | ADR-0018 (Accepted), ADR-0016, ADR-0014 |
-| 002 | [`Main/Hud/Persistent` layer, `HudLayer` refresh, `WalletView` and time-only `ShiftTimerView`](story-002-wallet-readout-shift-timer-view.md) | UI | Ready | ADR-0018 (Accepted), ADR-0019 |
-| 003 | [`DeliverPromptView` — keys + args, ✓ / ✗ address-match indicator, H11 placement, 026 parity](story-003-deliver-prompt-display.md) | UI | Ready | ADR-0018 (Accepted), ADR-0019, ADR-0014 |
+| 001 | [`IHudState` read model (wallet, F3 timer, deliver prompt) + `IMoneyFormatter` + M-1a English string table (Client.Core)](story-001-hud-read-model-money-formatter.md) | Logic | Complete (greybox) | ADR-0018 (Accepted), ADR-0016, ADR-0014 |
+| 002 | [`Main/Hud/Persistent` layer, `HudLayer` refresh, `WalletView` and time-only `ShiftTimerView`](story-002-wallet-readout-shift-timer-view.md) | UI | Complete (greybox) | ADR-0018 (Accepted), ADR-0019 |
+| 003 | [`DeliverPromptView` — keys + args, ✓ / ✗ address-match indicator, H11 placement, 026 parity](story-003-deliver-prompt-display.md) | UI | Complete (greybox) | ADR-0018 (Accepted), ADR-0019, ADR-0014 |
 
 **Recommended order:** 001 (after mail-destinations 010 and player-character 018) → 002 (after godot-host-shell 005/006) and 003 (after manual-delivery 010, player-character 026, input-controls 005).
 
@@ -96,6 +96,8 @@ This epic's M-1a slice is complete when:
 - **OQ-HUD-1 (closed: approved by Evan 2026-10-23 8:10 AM PT, "approve all", TD-173):** the Mail Lead planning defaults ADR-0018 labels — the three-widget M-1a set (§6), the interim UX spec (risk 2), screen-fixed prompt placement (§4.3), the `{sign}{integer}¢` money format (§3.1), the timer hidden until `deadlineTick > 0` (§3.2), the read-only mirror interfaces and `IWorldDisplayText` (§2.2, §4.4), the layer ordinals and `PresenterDeps.HudState` (§4.1–§4.2), the glyph fallback (§4.4), the reticle at viewport centre (§4.3). Each is a one-section change if overruled. Accessibility (the M-MD4-1e seam, live regions) is not in this epic: deferred by Evan 2026-10-23 (manual-delivery 012).
 
 ## Next Step
+
+**2026-11-09 (M-1a package cleanup, main 8c77595):** the rough playable M-1a greybox is on main — PRs 85–97 merged as one PR per package (Evan 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"), each under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310); live playtest on 8c77595 passes all four checks and 34/34 smokes. This epic's package stories are Complete (greybox trims per the M-1a regroup plan §3 simplify table, Mail Lead planning default, held in the package TD rows; see each story's Completion Notes): 001, 002 and 003 (WP-E, PR #91, merge ae8a12d; composed at boot by PR #93, merge 545df2f; fed by the client loop from PR #94, merge f145219; the Prep clock from PR #96, merge b1a3e8d). Still open: none. Known gaps (TD-274): (a) hud-003 AC-1 omits the mailbox address on MISDELIVER_ONE and has no `hud-prompt-seq-parity` smoke; (d) the playtest copy nits ("Clears N dead letters · 0¢" while deliveries pay; "[E] Take mail" after a pickup). Next: the M-1a hardening packages (H-MIRROR first; plan written separately, see `production/session-state/HANDOFF.md`); no story is scheduled on its own. The earlier lists below are history.
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 001 (A11), 002 (A13), 003 (A14). Earlier notes below are history.
 

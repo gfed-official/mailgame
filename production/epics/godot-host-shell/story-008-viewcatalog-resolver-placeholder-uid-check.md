@@ -1,12 +1,12 @@
 # Story 008: `ViewCatalog` resource, `ViewCatalogResolver`, the placeholder view with a warning, editor-saved catalogs and the uid CI check (boot step 8)
 
 > **Epic**: Godot Host Shell & Greybox Scene
-> **Status**: Ready
+> **Status**: Complete (greybox; rename experiment dropped → TD-213)
 > **Layer**: Presentation
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~300 lines prod + tests + 3 catalogs + scene)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; rename experiment dropped → TD-213); delivered by PR #89, merge c6a6b4b; see Completion Notes).
 
 ## Context
 
@@ -33,9 +33,9 @@
 
 *From CD28, CDD-SCHEMA-7 and ADR-0019 §5 / Validation Criteria, scoped to this story. Delta: no `ViewCatalog` exists; M-1a content (`BuiltInContent`) has Items `axe, fiber, log, plank`, MailKinds `large, letter, medium, postcard, small`, DestinationTypes `house` — all start with **no art**, so every def resolves to the placeholder.*
 
-- [ ] **Pure mapping (Godot-free, unit-tested).** `ViewMapping.Map<T>(defIdsInDefIndexOrder, catalogIds, catalogViews, placeholder, release)` in `PerformativeMail.Client.Core.Presentation` returns the per-`DefIndex` array plus a list of findings. Rows: (a) every def has an entry → no findings, each index holds its view; (b) a def with no entry → placeholder at that index and one `MissingView(defId)` warning in debug, **an error** with `release = true`; (c) a catalog id with no def → one `UnknownDef(id)` warning, nothing mapped; (d) `catalogIds.Length != catalogViews.Length` → an error in **every** build, nothing mapped; (e) a duplicate catalog id → an error (story decision — the ADR is silent and duplicates are ambiguous; record in Last Updated); (f) the result array is indexed by `DefIndex` (ordinal-sorted id order) and has exactly the def count length; (g) mapping the same inputs twice gives equal results and does not touch the `ContentSet` (`ContentHash`, if present, unchanged — CDD-SCHEMA-7). Tests in `tests/unit/presentation/ViewMappingTests.cs`.
+- [x] **Pure mapping (Godot-free, unit-tested).** `ViewMapping.Map<T>(defIdsInDefIndexOrder, catalogIds, catalogViews, placeholder, release)` in `PerformativeMail.Client.Core.Presentation` returns the per-`DefIndex` array plus a list of findings. Rows: (a) every def has an entry → no findings, each index holds its view; (b) a def with no entry → placeholder at that index and one `MissingView(defId)` warning in debug, **an error** with `release = true`; (c) a catalog id with no def → one `UnknownDef(id)` warning, nothing mapped; (d) `catalogIds.Length != catalogViews.Length` → an error in **every** build, nothing mapped; (e) a duplicate catalog id → an error (story decision — the ADR is silent and duplicates are ambiguous; record in Last Updated); (f) the result array is indexed by `DefIndex` (ordinal-sorted id order) and has exactly the def count length; (g) mapping the same inputs twice gives equal results and does not touch the `ContentSet` (`ContentHash`, if present, unchanged — CDD-SCHEMA-7). Tests in `tests/unit/presentation/ViewMappingTests.cs`.
 - [ ] **The Godot resource and three editor-saved catalogs.** `[GlobalClass] public partial class ViewCatalog : Resource` (`DefIds`, `Scenes`, `Placeholder`) and `ViewCatalogResolver.Resolve(ViewCatalog c, ContentSet set, DefTableId table, bool release)` (returning `ResolvedViews { PackedScene[] ByDefIndex; findings }`) exist in `src/Game/Views/`. Three catalogs — `res://src/Game/Views/Catalogs/items.tres`, `mail_kinds.tres`, `destination_types.tres` — exist, each with `Placeholder = res://src/Game/Views/Placeholder/PlaceholderView.tscn` (a `Node3D` root with a ~0.4 m magenta unshaded `MeshInstance3D` box) and empty `DefIds`/`Scenes` at M-1a. They are **saved from an editor context** (a small editor tool run under `godot-mono --headless --editor`, or the inspector by hand — never `ResourceSaver.Save` from game code); `tools/ci/check-catalog-uids.sh` (with `--self-check` seen failing on a planted path-only fixture) fails any `Catalogs/*.tres` ext_resource line lacking `uid="uid://` and prints `checked N ext_resources in M catalogs` (zero checked is a failure, not a pass).
-- [ ] **Boot step 8 resolves the catalogs; missing views warn, never fail, in debug.** Step 8 logs `BOOT 8 views` with per-table `resolved/total` counts and one `VIEW warn missing view for <table>:<id> -> placeholder` line per def (10 for the M-1a content set: 4 items + 5 mail kinds + 1 destination type), uses `release = !OS.IsDebugBuild()`, stores the three `ResolvedViews` in `PresenterDeps` (story 006), and reaches `Valid` with the placeholder for every def. A smoke scenario asserts exactly 10 warnings, 0 errors, that `byDefIndex.Length` equals each table's def count, and that a `release = true` resolve of the same catalogs reports 10 errors (boot would fail) without touching the debug path.
+- [x] **Boot step 8 resolves the catalogs; missing views warn, never fail, in debug.** Step 8 logs `BOOT 8 views` with per-table `resolved/total` counts and one `VIEW warn missing view for <table>:<id> -> placeholder` line per def (10 for the M-1a content set: 4 items + 5 mail kinds + 1 destination type), uses `release = !OS.IsDebugBuild()`, stores the three `ResolvedViews` in `PresenterDeps` (story 006), and reaches `Valid` with the placeholder for every def. A smoke scenario asserts exactly 10 warnings, 0 errors, that `byDefIndex.Length` equals each table's def count, and that a `release = true` resolve of the same catalogs reports 10 errors (boot would fail) without touching the debug path.
 - [ ] **Rename survival (S4-3 repeated on the real project).** Renaming `PlaceholderView.tscn` to another path, running `godot-mono --headless --editor --path . --quit` once (rescan), and re-running the smoke scenario still resolves the placeholder from `items.tres`; the rename is then reverted. The recipe and both logs are retained in the evidence file. A catalog line without a uid is shown to break the same experiment (once, on a scratch copy) so the check is known to guard something.
 
 ---
@@ -74,7 +74,19 @@
 - Logic half: `tests/unit/presentation/ViewMappingTests.cs` (`[Trait("Id", "CDD-SCHEMA-7")]`) — must exist and pass
 - Integration half: smoke scenario `view-catalog` (`SMOKE … PASS`), `tools/ci/check-catalog-uids.sh` and `--self-check` output, and the rename experiment logs in `production/qa/evidence/host-shell-viewcatalog-evidence.md` — `/story-done` checks the test, scenario, script and evidence file exist
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `ViewMappingTests`, `CatalogUidTests`; smoke `view-catalog`, PR #89 (2026-11-09). No `tools/ci/check-catalog-uids.sh`, no rename-experiment logs, no evidence file (greybox).
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #89 (merge `c6a6b4b`), package WP-A (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Boot step 8 was first wired on main by this PR; PR #93 alone had left it `views NOT WIRED`. The `shift-boot` smoke now fails on `NOT WIRED` or `no world-build steps`.
+- **ACs met:** AC-1 (`ViewMapping` in Client.Core, `ViewMappingTests`), AC-3 (step 8 logs one warning per def — 10 at M-1a — with per-table counts, `release = !OS.IsDebugBuild()`, `ResolvedViews` into `PresenterDeps`; smoke `view-catalog`).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-2 — `ViewCatalog`, `ViewCatalogResolver`, `ResolvedViews`, `PlaceholderView.tscn` and the three catalogs shipped, editor-saved headless with real uids (regroup Q2 holds; no waiver needed); the uid check runs as `CatalogUidTests` because `tools/ci` is untouched → TD-213 (6). AC-4 — rename experiment dropped → TD-213.
+- **Note:** the editor tools are excluded from export with `#if TOOLS` (no `export_presets.cfg` in the repo).
+- **Tests / smokes:** `ViewMappingTests`, `CatalogUidTests`, a `BootSequenceTests` view-step row; smoke `view-catalog`.
 
 ---
 

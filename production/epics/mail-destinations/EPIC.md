@@ -8,7 +8,7 @@
 > **Est. size**: M/L — 12–14 stories
 > **Implementation priority**: 4 of 9
 > **Status**: Ready
-> **Stories**: 16 stories — 10 Complete, 6 Ready (counts refreshed 2026-11-08 from the story headers, `/workspace/scripts/count-story-status.sh`, story 009 Complete, branch `feat/mail-destinations-009` off main c2e3fbb, not merged; before that 2026-11-04: 9 Complete, 7 Ready, story 007 Complete, branch `story/md-007` off main afe08b6; before that 2026-11-03: 8 Complete, 8 Ready, story 006 Complete, branch `story/mail-destinations-006` with main 84ff4ee (PR #60) merged in, no rebase; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 16 stories — 15 Complete, 1 Ready (counts refreshed 2026-11-09 from the story headers, M-1a package cleanup on main 8c77595 (PRs 85–97 merged; `tools/planning/gen_impl_order.py` and a status count over the story headers); before that 10 Complete, 6 Ready (counts refreshed 2026-11-08 from the story headers, `/workspace/scripts/count-story-status.sh`, story 009 Complete, branch `feat/mail-destinations-009` off main c2e3fbb, not merged; before that 2026-11-04: 9 Complete, 7 Ready, story 007 Complete, branch `story/md-007` off main afe08b6; before that 2026-11-03: 8 Complete, 8 Ready, story 006 Complete, branch `story/mail-destinations-006` with main 84ff4ee (PR #60) merged in, no rebase; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -121,14 +121,14 @@ This epic is complete when:
 | 005 | [`IWalletGate`, `StubWallet`, Mail system shell](story-005-walletgate-stubwallet-mail-system.md) | Integration | Complete | ADR-0017, ADR-0003 |
 | 006 | [Complaint buckets (F9), `ComplaintRaised`](story-006-complaint-buckets-f9.md) | Logic | Complete | ADR-0017 |
 | 007 | [Consume routine + hand path (`ConsumeHand`), outcomes](story-007-consume-routine-hand-path-outcomes.md) | Integration | Complete | ADR-0017, ADR-0008 |
-| 008 | [Thrown landings + hand → landing tick order](story-008-thrown-landing-and-tick-order.md) | Integration | Ready | ADR-0017, ADR-0015 |
+| 008 | [Thrown landings + hand → landing tick order](story-008-thrown-landing-and-tick-order.md) | Integration | Complete | ADR-0017, ADR-0015 |
 | 009 | [M-1a shift stub, `SetDeliveriesState`, `DeliveriesState`](story-009-shift-stub-deliveries-state.md) | Integration | Complete | ADR-0017, ADR-0003 |
-| 010 | [Client mirrors + client facts](story-010-client-mirrors-and-facts.md) | Integration | Ready | ADR-0016, ADR-0017 |
+| 010 | [Client mirrors + client facts](story-010-client-mirrors-and-facts.md) | Integration | Complete (greybox) | ADR-0016, ADR-0017 |
 | 011 | [Spawn value (F1) + kind counts (F3)](story-011-spawn-value-f1-kind-counts-f3.md) | Logic | Complete | ADR-0017, ADR-0006 |
 | 012 | [Batch schedule (F2), destination draws (F4), draw count](story-012-batch-schedule-f2-destinations-f4-draws.md) | Logic | Complete | ADR-0005, ADR-0017 |
-| 013 | [Manifest roller + `PrepareShift`](story-013-manifest-roller-prepareshift.md) | Integration | Ready | ADR-0017, ADR-0005 |
-| 014 | [Batch firing, Intake hand-off, backlog append](story-014-batch-firing-intake-backlog.md) | Integration | Ready | ADR-0017, ADR-0009 |
-| 015 | [Mail/Run/Wallet event wire codecs](story-015-mail-event-wire-codecs.md) | Integration | Ready | ADR-0011, ADR-0017 |
+| 013 | [Manifest roller + `PrepareShift`](story-013-manifest-roller-prepareshift.md) | Integration | Complete (greybox) | ADR-0017, ADR-0005 |
+| 014 | [Batch firing, Intake hand-off, backlog append](story-014-batch-firing-intake-backlog.md) | Integration | Complete (greybox) | ADR-0017, ADR-0009 |
+| 015 | [Mail/Run/Wallet event wire codecs](story-015-mail-event-wire-codecs.md) | Integration | Complete (greybox) | ADR-0011, ADR-0017 |
 | 016 | [Greybox `MailboxView` + outcome beats](story-016-mailbox-greybox-view-outcome-beats.md) | Visual/Feel | Ready | ADR-0019, ADR-0016 |
 
 **Recommended order:** 001 → 002 → 003 → 004 → 005 → 006 → 007 → 009 → 008 → 010 → 011 → 012 → 013 → 014 → 015 → (016 once godot-host-shell has stories).
@@ -141,6 +141,8 @@ This epic is complete when:
 - Untraced requirements: none. Every M-1a story cites an existing TR. The `DeliveryOutcome` wire layout (story 015) is a story-level layout within ADR-0017's ≤ 19 B bound.
 
 ## Next Step
+
+**2026-11-09 (M-1a package cleanup, main 8c77595):** the rough playable M-1a greybox is on main — PRs 85–97 merged as one PR per package (Evan 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"), each under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310); live playtest on 8c77595 passes all four checks and 34/34 smokes. This epic's package stories are Complete (greybox trims per the M-1a regroup plan §3 simplify table, Mail Lead planning default, held in the package TD rows; see each story's Completion Notes): 008 (WP-D, PR #87, merge 0490e0f), 010, 013, 014 and 015 (WP-C, PR #88, merge 7cd3756; mirrors bound at boot by PR #93, merge 545df2f). Still open: 016 (greybox `MailboxView`, flag pop and wobble beats) — on the regroup plan's "nice, keep minimal" list, built by no PR; harden later. Open question for Evan (pending, not approved): `IMailApi.PrepareShift` is absent from the ADR-0017 Key Interfaces sketch (TD-220 (17), TD-274 (b)). Next: the M-1a hardening packages (H-MIRROR first; plan written separately, see `production/session-state/HANDOFF.md`); no story is scheduled on its own. The earlier lists below are history.
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 005 (A1; Complete 2026-10-28, PR #57), 006 (A1; Complete 2026-10-29, branch `story/mail-destinations-006`), 007 (A1; Complete 2026-11-04, branch `story/md-007`), 008 (A1), 009 (A1), 010 (A2), 013 (A2), 014 (A3), 015 (A4), 016 (A9) (waves from the 2026-11-04 regeneration, branch `story/md-007`). Earlier notes below are history.
 

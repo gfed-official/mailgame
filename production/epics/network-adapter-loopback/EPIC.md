@@ -8,7 +8,7 @@
 > **Est. size**: M — 6–8 stories
 > **Implementation priority**: alongside 1–2 (Simulation Core's `FrameRunner` needs an `IFrameTransport`; every feature op crosses this codec)
 > **Status**: Ready
-> **Stories**: 9 stories — 7 Complete, 2 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 9 stories — 8 Complete, 1 Ready (counts refreshed 2026-11-09 from the story headers, M-1a package cleanup on main 8c77595 (PRs 85–97 merged; `tools/planning/gen_impl_order.py` and a status count over the story headers); before that 7 Complete, 2 Ready (counts refreshed 2026-10-23 from the story headers, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -98,7 +98,7 @@ Implementation order = story number (each story's `Depends on:` is authoritative
 | 005 | [reqId dedupe — last-16 reply cache and in-flight set](story-005-reqid-dedupe-reply-cache.md) | Logic | Complete | ADR-0007, ADR-0011 |
 | 006 | [ClientAdapter — reliable requests, batch intake for ClientLayer, IHostClock estimator](story-006-clientadapter-requests-inbox-hostclock.md) | Logic | Complete | ADR-0011, ADR-0007, ADR-0003 |
 | 007 | [Host loopback session — FrameRunner over loopback and next-tick reply timing](story-007-host-loopback-session-frame-timing.md) | Integration | Complete | ADR-0011, ADR-0002, ADR-0008 |
-| 008 | [deliver_matching wire codec (24 B MATCH / 28 B MISDELIVER_ONE)](story-008-deliver-matching-wire-codec.md) | Logic | Ready | ADR-0011, ADR-0009 (payload resolved 2026-10-16) |
+| 008 | [deliver_matching wire codec (24 B MATCH / 28 B MISDELIVER_ONE)](story-008-deliver-matching-wire-codec.md) | Logic | Complete (greybox) | ADR-0011, ADR-0009 (payload resolved 2026-10-16) |
 | 009 | [SC-X-2 — a real Manual Delivery request from the host's own client over loopback](story-009-sc-x-2-manual-delivery-over-loopback.md) | Integration | Ready | ADR-0011, ADR-0007 (+ ADR-0014/0016 Accepted 2026-10-16) |
 
 **Formerly blocked:** 008 — payload conflict RESOLVED 2026-10-16 (/architecture-review: 24 B MATCH / 28 B MISDELIVER_ONE with claimed position; errata in ADR-0011/ADR-0009 GDD Impact); the Delivery-owned `DeliverMatching` descriptor + payload story now exists (`production/epics/manual-delivery/story-005-delivermatching-op-and-handler.md`), so 008 and 009 are Ready with it listed under Depends on (2026-10-16 story hygiene).
@@ -115,6 +115,8 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (none expected)
 
 ## Next Step
+
+**2026-11-09 (M-1a package cleanup, main 8c77595):** the rough playable M-1a greybox is on main — PRs 85–97 merged as one PR per package (Evan 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"), each under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310); live playtest on 8c77595 passes all four checks and 34/34 smokes. This epic's package stories are Complete (greybox trims per the M-1a regroup plan §3 simplify table, Mail Lead planning default, held in the package TD rows; see each story's Completion Notes): 008 (WP-C, PR #88, merge 7cd3756: the 24 B MATCH / 28 B MISDELIVER_ONE deliver codec; the inventory op and event codecs 12–22 were added by WP-F, PR #94, merge f145219, TD-270 (4)). Still open: 009 (SC-X-2) — harden later. TD-140 (inventory event codecs for the world kinds) stays with H-MIRROR. Next: the M-1a hardening packages (H-MIRROR first; plan written separately, see `production/session-state/HANDOFF.md`); no story is scheduled on its own. The earlier lists below are history.
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): then Track B: 008 (B1), 009 (B2). Earlier notes below are history.
 

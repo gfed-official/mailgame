@@ -1,12 +1,12 @@
 # Story 004: Throw aim quantiser and the `ThrowPreview` client step (4c) — the honest arc, its end class and the published `ThrowPreviewState`
 
 > **Epic**: Throwing & Catching (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; ClassSeq / class tracking dropped → TD-230 (7); the 4c step was bound in the client composition by PR #94)
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~500 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; ClassSeq / class tracking dropped → TD-230 (7); the 4c step was bound in the client composition by PR #94); delivered by PR #87, merge 0490e0f; bound in the production client by PR #94, merge f145219; see Completion Notes).
 
 > **Owner-side story (1 of 3).** T3 "Aim and preview (client)". Everything the player sees while aiming is computed here, in the Sim assembly's `ClientLayer`, from the **same** `LaunchMath` / `Ballistic` / `FlightSweep` the host runs. The ribbon view (story 018) and label (stories 005, 019) only draw what this step publishes.
 
@@ -35,16 +35,16 @@
 
 *From GDD `design/gdd/throwing-catching.md` (TC-T3-1 a/e, TC-T1-1 b state half) and ADR-0016 §2/§7, scoped to this story:*
 
-- [ ] **TC-T3-1 a (quantiser).** Camera pitch +80° and −70° (past the camera clamp) quantise to elevations +76° and −54° (pitch clamped to −60°…+70°, plus `loftDeg` 6°): `dy` = 15 897 ± 2 and −13 255 ± 2. Pitch +6° → dir (0, 3406, −16 026) when facing −Z (the FX-T vector). Every quantised dir has `16000 ≤ n ≤ 16768` and passes the host bounds of story 001 over 10 000 random yaw/pitch pairs.
-- [ ] **Same integers.** The `dir` published in `ThrowPreviewState` is exactly the integers `LaunchMath.Compute` consumed for the drawn arc; `ThrowReleaseBuilder` (story 007) sends those integers (no re-quantisation anywhere).
-- [ ] **Arc and end class.** For the FX-Flat fixture the published polyline is `Ballistic.PositionAt(l, k)` for `k = 0 … endAge`, truncated at the first contact (the contact point replaces the last point). End classes: **Accept** (descending entry into the destination whose `Evaluate` = Accept), **Misdeliver**, **Reject** (reason Closed / Locked / WontFit from `Evaluate`), **Ground**, **Water**, **Blocked** (solid / roof / map edge), **Belt** (reserved, M-1b), **Timeout** (no contact by `maxFlightTicks`).
-- [ ] **Colour from Evaluate only.** The class for a mailbox contact is `MailRules.Evaluate(DestinationFacts, UnitFacts)` built from `DestinationMirror` and the selected entry (`production/epics/mail-destinations/story-010-client-mirrors-and-facts.md` facts constructors); no wallet is read for the class; a closed or locked box shows Reject, not Accept. Closing grace is judged as the host will (Mail's effective-state helper at the current client tick).
-- [ ] **Static receivers only.** The query uses `ReceiverMask.StaticOnly` (story 003); an armed catcher or any dynamic receiver never changes the class; goons are never considered.
-- [ ] **TC-T3-1 e (cache key).** Changing any one of dir, origin (feet), destination phase / open state, wallet, or the static version re-runs the query (an evaluation counter test seam, as ADR-0016 §7 requires); an unchanged key re-runs nothing and republishes the same state with `Seq` unchanged. A walking carrier with a pad changes the key every tick (worst case is the budget).
+- [x] **TC-T3-1 a (quantiser).** Camera pitch +80° and −70° (past the camera clamp) quantise to elevations +76° and −54° (pitch clamped to −60°…+70°, plus `loftDeg` 6°): `dy` = 15 897 ± 2 and −13 255 ± 2. Pitch +6° → dir (0, 3406, −16 026) when facing −Z (the FX-T vector). Every quantised dir has `16000 ≤ n ≤ 16768` and passes the host bounds of story 001 over 10 000 random yaw/pitch pairs.
+- [x] **Same integers.** The `dir` published in `ThrowPreviewState` is exactly the integers `LaunchMath.Compute` consumed for the drawn arc; `ThrowReleaseBuilder` (story 007) sends those integers (no re-quantisation anywhere).
+- [x] **Arc and end class.** For the FX-Flat fixture the published polyline is `Ballistic.PositionAt(l, k)` for `k = 0 … endAge`, truncated at the first contact (the contact point replaces the last point). End classes: **Accept** (descending entry into the destination whose `Evaluate` = Accept), **Misdeliver**, **Reject** (reason Closed / Locked / WontFit from `Evaluate`), **Ground**, **Water**, **Blocked** (solid / roof / map edge), **Belt** (reserved, M-1b), **Timeout** (no contact by `maxFlightTicks`).
+- [x] **Colour from Evaluate only.** The class for a mailbox contact is `MailRules.Evaluate(DestinationFacts, UnitFacts)` built from `DestinationMirror` and the selected entry (`production/epics/mail-destinations/story-010-client-mirrors-and-facts.md` facts constructors); no wallet is read for the class; a closed or locked box shows Reject, not Accept. Closing grace is judged as the host will (Mail's effective-state helper at the current client tick).
+- [x] **Static receivers only.** The query uses `ReceiverMask.StaticOnly` (story 003); an armed catcher or any dynamic receiver never changes the class; goons are never considered.
+- [x] **TC-T3-1 e (cache key).** Changing any one of dir, origin (feet), destination phase / open state, wallet, or the static version re-runs the query (an evaluation counter test seam, as ADR-0016 §7 requires); an unchanged key re-runs nothing and republishes the same state with `Seq` unchanged. A walking carrier with a pad changes the key every tick (worst case is the budget).
 - [ ] **Class tracking for downstream.** The state carries `ClassSeq` (increments on each end-class change, never on a pure geometry change within a class), `ClassSinceTick` (client tick the current class began) and `RedSinceTick` (the tick the class last became Misdeliver; 0 when not Misdeliver) so the label settle (story 005), the preview sound edge (story 005) and `redAgeAtReleaseMs` telemetry (story 016) need no extra computation.
-- [ ] **TC-T1-1 b (state half).** With the hands slot (0) selected the state is inactive with `NotThrowable = HandsSlot`; with an empty selected slot `NotThrowable = EmptySlot`; swimming → inactive with `NotThrowable = Swimming` (the strings are story 019's); no polyline in any of them. With a throwable mail entry or non-mail item selected and `CarrierStatus.Aiming` true the state is active.
-- [ ] **Entry latch.** The state publishes the latched `EntryId` and `Units` (what the thrower sees) and `EntryStale = 1` when the selected entry's id or count differs from the entry latched at aim start (or the entry vanished) — the router consumes it for Input G2's "entry gone or stale" cancel (input-controls epic).
-- [ ] **Predicted origin.** The feet come from the client `ICarrierView` (Player Character story 020), i.e. the same position that `ThrowRelease` claims; `side` (dominant hand) comes from the player profile via a port with a default of +1.
+- [x] **TC-T1-1 b (state half).** With the hands slot (0) selected the state is inactive with `NotThrowable = HandsSlot`; with an empty selected slot `NotThrowable = EmptySlot`; swimming → inactive with `NotThrowable = Swimming` (the strings are story 019's); no polyline in any of them. With a throwable mail entry or non-mail item selected and `CarrierStatus.Aiming` true the state is active.
+- [x] **Entry latch.** The state publishes the latched `EntryId` and `Units` (what the thrower sees) and `EntryStale = 1` when the selected entry's id or count differs from the entry latched at aim start (or the entry vanished) — the router consumes it for Input G2's "entry gone or stale" cancel (input-controls epic).
+- [x] **Predicted origin.** The feet come from the client `ICarrierView` (Player Character story 020), i.e. the same position that `ThrowRelease` claims; `side` (dominant hand) comes from the player profile via a port with a default of +1.
 - [ ] **0 B.** 600 ticks of aiming while walking (key changes every tick) allocate 0 B in 4c; polyline buffers are preallocated at `maxFlightTicks + 1` points.
 - [ ] **Sub-step order.** A composition test asserts 4c is bound at `PreviewSubStep.ThrowPreview` and runs after 4b and before 4d.
 
@@ -86,7 +86,19 @@
 **Required evidence**:
 - Logic: `tests/unit/throwing/ThrowAimTests.cs` and `tests/unit/throwing/ThrowPreviewStepTests.cs` (`[Trait("Id", "TC-T3-1")]`, `TC-T1-1b`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/throwing/ThrowAimTests.cs`, `tests/unit/throwing/ThrowPreviewStepTests.cs`, PR #87 (2026-11-09)
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #87 (merge `0490e0f`), package WP-D (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). At PR 87 the 4c step was not registered in the client composition (it needed `ClientLayerBuilder`, WP-C's). PR #94 (`f145219`, WP-F) binds it: `ClientInteractionBinder` runs Focus → DeliverPreview → ThrowPreview → EdgeResolve → HoldAdvance in the ADR-0016 Previews order, the selected entry comes from `OwnPanelMirror`'s `ISelectedEntryView`, and `ClientLoop.AimView` adapts the state to the router's `IThrowAimView` and the ribbon's `IAimArcSource` (TD-270 (1), (2)). The live arc was confirmed by PR #95 (`eedc110`, TD-271 (2)).
+- **Built:** `ThrowAim` (quantiser, interpolating the Q15 table), `ThrowPreviewStep` (4c), `ThrowPreviewState` / `IThrowPreviewRead`, `PreviewCacheKey`, `ISelectedEntryView` (with `SelectedIndex`), `EndClass`, `NotThrowable`, and the narrow WP-D ports `IThrowCarrierSource`, `IThrowPreviewMirror`, `IThrowerProfile` (TD-230 (7)). The cache key adds entry, units, weight class, hand and throw-range stat; refusal order Swimming → hands slot → empty slot.
+- **ACs met:** TC-T3-1 a, Same integers, Arc and end class, Colour from `Evaluate` only, Static receivers only, TC-T3-1 e (cache key), TC-T1-1 b (state half), Entry latch (`EntryStale` consumed by input-controls 014), Predicted origin.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 "drop ClassSeq"; held by the package TD row):** Class tracking (`ClassSeq`, `ClassSinceTick`, `RedSinceTick`) dropped → TD-230 (7); story 005 (label settle) and 016 (telemetry) are on the harden-later list. 0 B — advisory until M0 (erratum E2). Sub-step order — the step is bound in `ClientInteractionBinder` in the ADR order; the named composition test was not written.
+- **Tests:** `ThrowAimTests`, `ThrowPreviewStepTests` (fake mirror re-pointed for `OpenSinceTick` in PR #87); four legs green (0 failed).
 
 ---
 

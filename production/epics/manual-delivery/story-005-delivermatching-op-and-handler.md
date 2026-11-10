@@ -1,12 +1,12 @@
 # Story 005: `DeliverMatching` — the Delivery-owned OpKind, descriptor, 24 B payload (24 B MATCH / 28 B MISDELIVER_ONE on the wire) and host handler
 
 > **Epic**: Manual Delivery
-> **Status**: Ready
+> **Status**: Complete (greybox; two-player and dead/frozen rows untested (mapping in code) → TD-220)
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: M–L (~1 day; ~300 lines prod + ~300 lines tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: 2026-10-21 (receives the Delivery system shell and its composition case from story 001: `[SimSystem(SystemId.ManualDelivery)]` — `SystemId.Delivery` does not exist; `ConstructShipped` case calling `DeliverAnchors.RegisterAll`; AC-7 composed world has 10 Deliver anchors; depends on mail-destinations 005; registry source is OQ-MD005-1. Manifest stamp not re-reviewed in this pass)
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; two-player and dead/frozen rows untested (mapping in code) → TD-220); delivered by PR #88, merge 7cd3756; see Completion Notes). Earlier: 2026-10-21 (receives the Delivery system shell and its composition case from story 001: `[SimSystem(SystemId.ManualDelivery)]` — `SystemId.Delivery` does not exist; `ConstructShipped` case calling `DeliverAnchors.RegisterAll`; AC-7 composed world has 10 Deliver anchors; depends on mail-destinations 005; registry source is OQ-MD005-1. Manifest stamp not re-reviewed in this pass)
 
 > **Origin (2026-10-16 `/architecture-review`):** the `DeliverMatching` op and handler moved from Inventory to Delivery. ADR-0017 forbids Inventory → Mail, and `ConsumeHand` is called "from Delivery's `deliver_matching` handler". The errata are recorded in ADR-0009 and ADR-0011 GDD Impact. This story replaces the handler half of `production/epics/grid-inventory/story-022-deliver-matching-handler.md` (whose wallet/match tests H-R7-6/7/11 and H-X-1 move here), and it is the descriptor that `production/epics/network-adapter-loopback/story-008-deliver-matching-wire-codec.md` registers its codec under.
 
@@ -37,12 +37,12 @@
 
 *From GDD `design/gdd/manual-delivery.md` (M-MD5-2, M-MD6-1/2/3, M-EC-3b), `design/gdd/grid-inventory.md` (H-R7-6, H-R7-7, H-R7-11, H-X-1, moved from grid-inventory story 022) and the ADR-0009/0011 errata, scoped to this story:*
 
-- [ ] **AC-1 Op shape.** `OpKind.DeliverMatching` is registered in `0x0100–0x013F` with an `OpDescriptor` whose payload struct is exactly 24 B (`Unsafe.SizeOf` test), field order `mailboxId, selectedEntryId, holdStartTick, ClaimedPosition{X, Y, Z}`, padding-free, with `selectedEntryId = 0` meaning absent. The descriptor exposes the `WireCodecId` network story 008 registers against, and declares the Delivery reason codes below.
-- [ ] **AC-2 Matches (H-R7-6, H-R7-7).** At #17's mailbox with mocked Accept: 4 letters to #17 at inventory (3,1) → all 4 consumed; the same entry on the cursor → same result, cursor empty. Hotbar slot 2 = 5 letters #17, inventory = 2 Mediums #17, inventory also 6 letters #18 → the #17 entries are consumed in cursor → hotbar → inventory row-major order, reply `requested = got`, #18 untouched, and the Misdeliver branch is never invoked on the match branch.
-- [ ] **AC-3 Fallback and `no_target` (H-R7-11, M-MD5-2).** No #17 entry, selected hotbar slot 2 = entry 60 (5 letters to #18, ids 300–304), `selectedEntryId = 60`, mocked Misdeliver → exactly mailId 300 consumed, entry 60 = 301–304. `selectedEntryId` absent → `no_target`, 0 consumed, wallet unchanged, no misdeliver outcome. One #17 letter elsewhere → only it is delivered (a match wins over the fallback; 0 penalties).
+- [x] **AC-1 Op shape.** `OpKind.DeliverMatching` is registered in `0x0100–0x013F` with an `OpDescriptor` whose payload struct is exactly 24 B (`Unsafe.SizeOf` test), field order `mailboxId, selectedEntryId, holdStartTick, ClaimedPosition{X, Y, Z}`, padding-free, with `selectedEntryId = 0` meaning absent. The descriptor exposes the `WireCodecId` network story 008 registers against, and declares the Delivery reason codes below.
+- [x] **AC-2 Matches (H-R7-6, H-R7-7).** At #17's mailbox with mocked Accept: 4 letters to #17 at inventory (3,1) → all 4 consumed; the same entry on the cursor → same result, cursor empty. Hotbar slot 2 = 5 letters #17, inventory = 2 Mediums #17, inventory also 6 letters #18 → the #17 entries are consumed in cursor → hotbar → inventory row-major order, reply `requested = got`, #18 untouched, and the Misdeliver branch is never invoked on the match branch.
+- [x] **AC-3 Fallback and `no_target` (H-R7-11, M-MD5-2).** No #17 entry, selected hotbar slot 2 = entry 60 (5 letters to #18, ids 300–304), `selectedEntryId = 60`, mocked Misdeliver → exactly mailId 300 consumed, entry 60 = 301–304. `selectedEntryId` absent → `no_target`, 0 consumed, wallet unchanged, no misdeliver outcome. One #17 letter elsewhere → only it is delivered (a match wins over the fallback; 0 penalties).
 - [ ] **AC-4 Wallet (H-X-1 a–c, M-EC-3b).** Wrong house at wallet −496 ¢ → one unit consumed, wallet −500; again → `wallet_floor`, nothing changes; correct house → 3 consumed; a mocked Reject → nothing changes. Two players misdelivering 4 ¢ at −496 in one tick: the first succeeds (−500), the second gets `wallet_floor`.
 - [ ] **AC-5 Host checks (M-MD6-1, M-MD6-3).** A `mailboxId` naming a destination with no Deliver anchor (fixture dock) → `no_target`. A claimed position 2,900 mm from the anchor is accepted; 3,200 mm → `out_of_range`. A test client at swim depth → `dry_land`, 0 consumed. Two requests from one player one tick apart are both applied (no throttle). `dead`/`frozen` from `CheckInteraction` map to their reply codes with nothing consumed.
-- [ ] **AC-7 Composition (from story 001).** A world composed with `SimProfile.M1aGreybox` over the M-1a street (10 house lots) has a built `DeliverySystem`, and after `SimComposition.Build` returns, the Players anchor registry holds exactly 10 Deliver anchors — one `AnchorRef(destId, 0)` per destination, `Verb.Deliver`, `InteractMode.Hold` — registered while the world was `Constructed`. A fixture that makes registration fail (a pre-registered `Verb.Deliver` on one destination's `AnchorRef(destId, 0)` → `RegisterResult.DuplicateVerb`) makes `Build` throw `SimBuildException` with the new Delivery error code and the failing `RegisterResult` in the message; nothing is half-built silently.
+- [x] **AC-7 Composition (from story 001).** A world composed with `SimProfile.M1aGreybox` over the M-1a street (10 house lots) has a built `DeliverySystem`, and after `SimComposition.Build` returns, the Players anchor registry holds exactly 10 Deliver anchors — one `AnchorRef(destId, 0)` per destination, `Verb.Deliver`, `InteractMode.Hold` — registered while the world was `Constructed`. A fixture that makes registration fail (a pre-registered `Verb.Deliver` on one destination's `AnchorRef(destId, 0)` → `RegisterResult.DuplicateVerb`) makes `Build` throw `SimBuildException` with the new Delivery error code and the failing `RegisterResult` in the message; nothing is half-built silently.
 - [ ] **AC-6 `holdStartTick` clamp and grace (M-MD6-2 a, b).** Delivery closing at the start of tick T: a hold begun at T − 12 applied at T − 1, T + 5 or T + 90 → Accept; applied at T + 91 → `closed`. One begun at T → `closed`, nothing consumed. A `holdStartTick` of applyTick + 200 is clamped to applyTick (→ `closed` after close); applyTick − 160 is clamped to applyTick − 150 (`maxHoldTicks` 60 + `closeGraceTicks` 90), never replaced. Two players posting to #17 in one tick both succeed, in arrival order.
 
 ---
@@ -92,6 +92,20 @@
 - Integration: `tests/integration/delivery/DeliverMatchingHandlerTests.cs` (+ the payload-size unit test in `tests/unit/delivery/DeliverMatchingOpTests.cs`) and `tests/integration/delivery/DeliveryCompositionTests.cs` (AC-7: composed M-1a world → 10 Deliver anchors; the `DuplicateVerb` fixture → `SimBuildException`) — must exist and pass on net10.0 and net8.0, Debug and Release
 
 **Status**: [ ] Not yet created
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #88 (merge `7cd3756`), package WP-C (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). Wire path fix: PR #94 (merge `f145219`) made `ClientAdapterRequestSink` encode with the session's op codecs, so `deliver_matching` no longer arrives `out_of_range` (TD-270 (8)).
+- **Built:** `OpKind.DeliverMatching` 0x0100, 24 B payload, reasons 64–74, `DeliverMatchingHandler`, `DeliverySystem`, the ManualDelivery case in `SimComposition`. `src/Game/Boot/SessionBootStep.cs` passes the delivery op codecs to the loopback `HostSession` (M1aGreybox now composes Delivery).
+- **ACs met:** AC-1, AC-2, AC-3, AC-7.
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-4 — the two-player same-tick `wallet_floor` row untested → TD-220 (7)–(10). AC-5 — the `dead`/`frozen` rows untested (the mapping is in code) → TD-220 (7)–(10). AC-6 — the two-players-one-tick row untested → TD-220 (7)–(10). Each AC's other rows are met.
+- **OQ-MD005-1 closed (Mail Lead planning default, M-1a regroup plan §3):** Delivery builds its own `DestinationRegistry(world, content)`, identical to Mail's, so no `IMailApi` accessor and no ADR change. The Open Questions text above is left as written.
+- **TD-210 closed (Mail Lead planning default, not Evan):** the ADR-0009/0017 behaviour stands (+1 version per `ConsumeUnit`), with a GDD erratum recorded at `grid-inventory.md` H-R7-6/7. The Implementation Notes' version-bump caveat is thereby settled.
+- **Tests:** PR #88 names no test file per story; its body reports 6,256 tests, 0 failed on all four legs. The repo holds `tests/integration/delivery/DeliverMatchingHandlerTests.cs`, `tests/integration/delivery/DeliveryCompositionTests.cs` and `tests/unit/delivery/DeliverMatchingOpTests.cs`.
 
 ---
 

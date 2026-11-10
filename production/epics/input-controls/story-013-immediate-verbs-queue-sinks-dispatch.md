@@ -1,12 +1,12 @@
 # Story 013: Immediate verbs — `ImmediateAction` queue, `IImmediateActionSink` registry and `DispatchImmediates`
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Ready
+> **Status**: Complete (greybox; relaxed dependency 013 → 010, no placeOnRelease → TD-240 (35))
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; relaxed dependency 013 → 010, no placeOnRelease → TD-240 (35)); delivered by PR #86, merge 110b8c1; see Completion Notes).
 
 ## Context
 
@@ -32,13 +32,13 @@
 
 *From GDD R11, G5, G8 and H-R11-2 / H-G5-1, scoped to this story:*
 
-- [ ] **Queue and dispatch (H-R11-2 router half).** `ImmediateAction { ActionId, EdgeKind, ArrivalMs, RouterStateId, PresentedSeq, Flags }` (`Flags` additive to ADR-0012's field list: `PlaceOnRelease` from F7) is appended at the firing edge during `Feed`; `DispatchImmediates()` invokes each action's registered `IImmediateActionSink.OnImmediate(in ImmediateAction)` in arrival order and empties the queue; a record fed in frame F and dispatched in frame F reaches the sink in frame F (test: `Feed` → `DispatchImmediates` → sink called once, before any flush). Capacity 64; if full, the newest Press is dropped (counted, logged), a Release / Cancel never.
-- [ ] **Sinks.** `RegisterSink(ActionId, IImmediateActionSink)`; a missing sink logs `Dropped(no_sink)` and counts — it never throws and never blocks other actions. Sinks are registered by the verb owners at boot (Grid Inventory panel ops, Throwing's release builder, camera rig / host for local verbs); this story ships null-object sinks and a `RecordingImmediateSink` for tests.
+- [x] **Queue and dispatch (H-R11-2 router half).** `ImmediateAction { ActionId, EdgeKind, ArrivalMs, RouterStateId, PresentedSeq, Flags }` (`Flags` additive to ADR-0012's field list: `PlaceOnRelease` from F7) is appended at the firing edge during `Feed`; `DispatchImmediates()` invokes each action's registered `IImmediateActionSink.OnImmediate(in ImmediateAction)` in arrival order and empties the queue; a record fed in frame F and dispatched in frame F reaches the sink in frame F (test: `Feed` → `DispatchImmediates` → sink called once, before any flush). Capacity 64; if full, the newest Press is dropped (counted, logged), a Release / Cancel never.
+- [x] **Sinks.** `RegisterSink(ActionId, IImmediateActionSink)`; a missing sink logs `Dropped(no_sink)` and counts — it never throws and never blocks other actions. Sinks are registered by the verb owners at boot (Grid Inventory panel ops, Throwing's release builder, camera rig / host for local verbs); this story ships null-object sinks and a `RecordingImmediateSink` for tests.
 - [ ] **Which actions are Immediate (M-1a).** Pick / place (LMB click-or-drag, Enter, A), Rotate, Return (Back ladder step 4 and RMB in Holding-open), Drop, Quick-move (chord), Throw commit (story 014), and the **local** verbs Pause, Shoulder swap and Hotbar slot 1–8. Each fires on its grammar's firing edge: Tap on press; Pick/place on press (lift) and on release (place) with `PlaceOnRelease` from `ClickOrDragResolver` (story 010).
-- [ ] **H-G8-1 (immediate taps).** Extending story 007's `[Theory]`: for every `Immediate` Tap action in the M-1a map, press at tick 0 / release at tick 30 queues exactly one `ImmediateAction` at the press and nothing at the release.
-- [ ] **H-G5-1 (consumed press).** Holding-open, RMB held for 2 s → exactly **one** `Return` immediate; no aim, no Throw immediate (Throw is not live there); the RMB machine is latched to Cancel until release and its release is swallowed. The same holds for any fired immediate: its follow-through cannot start a second verb.
-- [ ] **H-R6-2 (b)(c) logic halves.** (b) Shift+LMB in Panel → Quick-move immediate and the carrier still walks (walk-speed `moveIntent` present). (c) RMB in Holding-closed → a `PutAwayFirst` cue (log `Cue`, no immediate, no `Return`) and LT in Holding-closed the same with the pad wording id; RMB in Holding-open → `Return`.
-- [ ] **Issuing tick logged.** Every dispatched immediate writes a `UiEventLog` line with the issuing client tick (`IClientTickSource.ClientTick`), so the replay corpus (story 022, TR-input-021) includes bypass requests.
+- [x] **H-G8-1 (immediate taps).** Extending story 007's `[Theory]`: for every `Immediate` Tap action in the M-1a map, press at tick 0 / release at tick 30 queues exactly one `ImmediateAction` at the press and nothing at the release.
+- [x] **H-G5-1 (consumed press).** Holding-open, RMB held for 2 s → exactly **one** `Return` immediate; no aim, no Throw immediate (Throw is not live there); the RMB machine is latched to Cancel until release and its release is swallowed. The same holds for any fired immediate: its follow-through cannot start a second verb.
+- [x] **H-R6-2 (b)(c) logic halves.** (b) Shift+LMB in Panel → Quick-move immediate and the carrier still walks (walk-speed `moveIntent` present). (c) RMB in Holding-closed → a `PutAwayFirst` cue (log `Cue`, no immediate, no `Return`) and LT in Holding-closed the same with the pad wording id; RMB in Holding-open → `Return`.
+- [x] **Issuing tick logged.** Every dispatched immediate writes a `UiEventLog` line with the issuing client tick (`IClientTickSource.ClientTick`), so the replay corpus (story 022, TR-input-021) includes bypass requests.
 
 ---
 
@@ -74,7 +74,20 @@
 **Required evidence**:
 - Logic: `tests/unit/input/ImmediateQueueTests.cs` (`[Trait("Id", "H-R11-2")]`, `[Trait("Id", "H-G5-1")]`, `[Trait("Id", "H-G8-1")]`), `tests/unit/input/ImmediateBindingRulingsTests.cs` (`[Trait("Id", "H-R6-2")]`) — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/input/ImmediateQueueTests.cs` (H-R11-2, H-G5-1, H-G8-1), `tests/unit/input/ImmediateBindingRulingsTests.cs` (H-R6-2), net10.0 / net8.0, PR #86 (2026-11-09); the dispatch-before-`RunFrame` order is `tests/unit/input/RouterFrameCallsTests.cs` and smoke `input-boot`, PR #90
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #86 (merge `110b8c1`), package WP-B part 1 (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310). The call site (`DispatchImmediates` → `FlushToLatch` before `RunFrame`) is PR #90's `RouterFrameCalls.BeforeRunFrame`, attached to the production loop by PR #93 (`545df2f`). Sinks registered later by PR #94 (`f145219`): `ThrowReleaseSender` (Throw commit), `HotbarSelect` (keys 1–8), `BackLadder` (Back / Pause).
+- **ACs met:** queue and dispatch (preallocated 64 with reservations so a Release / Cancel is never dropped, TD-240 item 39), `RegisterSink` / `Dropped(no_sink)` (items 34, 38), H-G8-1 immediate taps, H-G5-1 consumed press (item 40), H-R6-2 (b)(c) incl. the `PutAwayFirst` cue with KBM / pad wording (item 36), issuing tick on every dispatch line (`LogKind.Immediate` = 13, appended, item 33).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** "Which actions are Immediate (M-1a)" — Pick / place fires one `Press` immediate per live press and its release queues nothing; `ImmediateFlags.PlaceOnRelease` exists but is never set because story 010's `ClickOrDragResolver` is not built (a click lifts, the next click places, no drag) → TD-240 (35). Grid cursor (Stepped) queues nothing until 010 / 011 (item 36).
+- **Relaxed dependencies (regroup plan §2):** 013 → 010 (`placeOnRelease`); 010 is on the harden-later list.
+- **Harden later:** Grid Inventory's panel-op sink (pick / place / rotate / return / drop / quick-move) and a `ShoulderSwap` sink still log `no_sink` (TD-240 item 74).
+- **Tests / smokes:** `ImmediateQueueTests`, `ImmediateBindingRulingsTests`; `UiEventLogTests` gained the `Immediate` name; four legs green, no test deleted.
 
 ---
 

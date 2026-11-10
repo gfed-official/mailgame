@@ -1,12 +1,12 @@
 # Story 009: `EntityViewRegistry`, `EntityViewHost`, `NodePool<T>` with the ADR-0019 caps, and one view per lot under `World/Destinations`
 
 > **Epic**: Godot Host Shell & Greybox Scene
-> **Status**: Ready
+> **Status**: Complete (greybox; NodePool, caps table and soak dropped → TD-213)
 > **Layer**: Presentation
 > **Type**: Integration
 > **Estimate**: M (~1 day; ~450 lines prod + tests/smoke)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; NodePool, caps table and soak dropped → TD-213); delivered by PR #89, merge c6a6b4b; see Completion Notes).
 
 ## Context
 
@@ -35,7 +35,7 @@
 
 - [ ] **`EntityViewRegistry` and `EntityViewHost`.** `EntityViewRegistry` (`TryGet(EntityId, out Node3D)`, `Add`, `Remove`, `Count`, counters) wraps a `Dictionary<EntityId, Node3D>` constructed with its capacity (`PresentationCaps.EntityViews`, a named constant — **ASSUMPTION 512** bounding the 8 players, world items up to grid-inventory 013's cap and the 10 destinations; revisit when that cap is final; log the chosen value); a duplicate `Add` and an `Add` beyond capacity are refused and counted (the dictionary never grows); `TryGet` on a node freed behind the registry's back removes the entry, increments `StaleLookups` and returns false. `EntityViewHost` (a plain C# class used by presenters, parenting under `World/Entities`) offers `Spawn(EntityId id, PackedScene scene)` (instantiate, parent, inject `PresenterDeps` if the node is `IInjectable<PresenterDeps>`, register), `SpawnForDef(EntityId id, ResolvedViews views, DefIndex def)` (uses story 008's by-`DefIndex` scene, i.e. the placeholder at M-1a) and `Despawn(EntityId id)` (remove from the registry, free the node). Smoke scenario `entity-registry` proves each row, including that 600 lookups allocate 0 B after warm-up (measured and logged).
 - [ ] **`NodePool<T>`, the caps table and boot-time instantiation.** `NodePool<T>(PackedScene scene, int cap, Node parent) where T : Node` instantiates all `cap` instances at construction (hidden, `ProcessMode = Disabled`), `Rent()` returns an instance or `null` when exhausted, `Return(T)` hides it again (returning a node the pool does not own is refused), and `RentOrRecycleOldest()` (for cosmetic pools) recycles the oldest rented instance instead of failing; counters `RentFails`, `Recycles`, `PeakInUse` are readable. `PresentationCaps` holds the ADR-0019 §5 numbers as named constants (`EnvelopeProps = 48`, `Residents = 8`, `HeapProps = 12`, `FlashesPerSecond = 3`, `BundleTags = 8`, `BundleTiers = 4`, `MailAudioVoices = 16` with the per-cue sub-caps cha-ching 4 / wrong-door 3 / `sfx_feed_tick` 6 / Lost Parcel chirp 3 and one reserved voice for the local player's own outcome). Feature epics register `PoolSpec(name, scene, cap, parent)` entries through an `IBootContributor` at boot step 8; the step instantiates every spec before the first frame, refuses a cap above its `PresentationCaps` constant, and logs `POOL <name> cap=<n> instantiated=<n>`. Smoke scenario `node-pool-soak` (a test pool of 48): 200 rents and 100 returns per simulated second for 600 frames never exceed the cap, `ObjectNodeCount` is constant across the run (no node instantiated after boot) and rent/return allocate 0 B per frame (measured, logged).
-- [ ] **One view per lot under `World/Destinations`.** At world-build time (story 006's `IWorldBuildStep`), `DestinationsHost` creates exactly one static view per `IWorldQuery.Lots[i]` — 10 on the M-1a street — from the `destination_types` catalog's resolved scene for the `house` type (the placeholder at M-1a; at M-1a every lot is `house`, and mail-destinations 002's per-lot registry type is used when present), named `Lot_<Number>`, at `LotRecord.Anchor / 1000f` (metres), yawed so the view faces `LotRecord.Face` using a pure, unit-tested `FaceYaw.ToBam(FaceDir)` (Client.Core, derived from the `FaceDir` definition in world-stub 004; BAM 0 faces −Z, no sign flip), registered in `EntityViewRegistry` under `LotRecord.Destination`. The view is injected through `IDestinationView : IInjectable<PresenterDeps> { void Bind(in LotBinding b); }` when it implements it (`LotBinding`: destination `EntityId`, ordinal, anchor in metres, face, display number) — **the attach point mail-destinations 016's `MailboxView` implements**; a placeholder with no script is fine. Smoke scenario `destinations-lots` asserts 10 children, unique names and ids, positions within the map bounds, each registry entry valid, and that none is pooled.
+- [x] **One view per lot under `World/Destinations`.** At world-build time (story 006's `IWorldBuildStep`), `DestinationsHost` creates exactly one static view per `IWorldQuery.Lots[i]` — 10 on the M-1a street — from the `destination_types` catalog's resolved scene for the `house` type (the placeholder at M-1a; at M-1a every lot is `house`, and mail-destinations 002's per-lot registry type is used when present), named `Lot_<Number>`, at `LotRecord.Anchor / 1000f` (metres), yawed so the view faces `LotRecord.Face` using a pure, unit-tested `FaceYaw.ToBam(FaceDir)` (Client.Core, derived from the `FaceDir` definition in world-stub 004; BAM 0 faces −Z, no sign flip), registered in `EntityViewRegistry` under `LotRecord.Destination`. The view is injected through `IDestinationView : IInjectable<PresenterDeps> { void Bind(in LotBinding b); }` when it implements it (`LotBinding`: destination `EntityId`, ordinal, anchor in metres, face, display number) — **the attach point mail-destinations 016's `MailboxView` implements**; a placeholder with no script is fine. Smoke scenario `destinations-lots` asserts 10 children, unique names and ids, positions within the map bounds, each registry entry valid, and that none is pooled.
 
 ---
 
@@ -74,7 +74,19 @@
 - Logic half: `tests/unit/presentation/FaceYawTests.cs` — must exist and pass
 - Integration half: smoke scenarios `entity-registry`, `node-pool-soak`, `destinations-lots` (`SMOKE … PASS`, measured allocation figures logged) in `production/qa/evidence/host-shell-views-evidence.md` — `/story-done` checks the test, scenarios and evidence file exist
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/presentation/FaceYawTests.cs`; smokes `entity-registry`, `destinations-lots`, PR #89 (2026-11-09). `node-pool-soak` and the evidence file were not created (greybox).
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #89 (merge `c6a6b4b`), package WP-A (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310).
+- **ACs met:** AC-3 (`DestinationsHost`, one static view per lot — 10 on the M-1a street — from the `destination_types` catalog's resolved scene, `FaceYaw` yaw; boot logs `destinations lots=10` and `destination views attached=10`; smoke `destinations-lots`).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-1 — `EntityViewRegistry` / `EntityViewHost` shipped with `IsInstanceValid` guards and views only from `Instantiate()`; the 600-lookup 0 B measurement skipped (every 0 B gate advisory until M0, erratum E2) → TD-213. AC-2 — `NodePool<T>`, `PresentationCaps` table, `PoolSpec` boot instantiation and the `node-pool-soak` smoke dropped until a pool exists → TD-213.
+- **ADR note (ADR-0019 §3 vs §5, code only):** destinations build in two phases — step 7 builds the lot anchors, step 8 instances the catalog scenes → TD-213 (5).
+- **Tests / smokes:** `FaceYawTests`; smokes `entity-registry`, `destinations-lots`.
 
 ---
 

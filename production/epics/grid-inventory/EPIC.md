@@ -8,7 +8,7 @@
 > **Est. size**: L — 16–20 stories (Sim first; the panel view after `godot-host-shell`)
 > **Implementation priority**: 3 of 9
 > **Status**: Ready
-> **Stories**: 25 stories — 19 Complete, 4 Ready, 1 Blocked, 1 Deferred (counts refreshed 2026-11-01 from the story headers, `count-story-status.sh`, branch `story/grid-inventory-018` off main 56c9446, main 70a5766 (PR #72), main 8d0398f (PR #71) and main 251e07a (docs PR #73) merged in, recounted after the 251e07a merge: story 018 Ready → Complete; before that 18 Complete, 5 Ready, 1 Blocked, 1 Deferred, refreshed 2026-10-29 from the story headers, `count-story-status.sh`, branch `chore/test-audit-cleanup` with main 4f30c32 merged: story 020 went Ready → Blocked in docs PR #68; before that 18 Complete, 6 Ready, 1 Deferred, refreshed 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
+> **Stories**: 25 stories — 22 Complete, 1 Partial, 1 Blocked, 1 Deferred (counts refreshed 2026-11-09 from the story headers, M-1a package cleanup on main 8c77595 (PRs 85–97 merged; `tools/planning/gen_impl_order.py` and a status count over the story headers); before that 19 Complete, 4 Ready, 1 Blocked, 1 Deferred (counts refreshed 2026-11-01 from the story headers, `count-story-status.sh`, branch `story/grid-inventory-018` off main 56c9446, main 70a5766 (PR #72), main 8d0398f (PR #71) and main 251e07a (docs PR #73) merged in, recounted after the 251e07a merge: story 018 Ready → Complete; before that 18 Complete, 5 Ready, 1 Blocked, 1 Deferred, refreshed 2026-10-29 from the story headers, `count-story-status.sh`, branch `chore/test-audit-cleanup` with main 4f30c32 merged: story 020 went Ready → Blocked in docs PR #68; before that 18 Complete, 6 Ready, 1 Deferred, refreshed 2026-10-23, m1a-replan; order in `production/epics/implementation-order.md`) — see the Stories table below
 
 ## Overview
 
@@ -132,12 +132,12 @@ Source: architecture.md v1.1 Appendix A. **21 / 28 traced.**
 | 016 | [Weight → speed (R16, D1): weightPoints and speedPermille](story-016-weight-speed.md) | Logic | Complete | ADR-0006, ADR-0009, ADR-0010 |
 | 017 | [UnitLedger conservation counters, tick-end check, INVENTORY_ASSERT full scan and the canonical dump section](story-017-unitledger-conservation.md) | Logic | Complete | ADR-0009, ADR-0006, ADR-0003 |
 | 018 | [Conservation fuzz over the M-1a op set (H-R19-1 subset) and H-DET-1 two-world determinism](story-018-conservation-fuzz-determinism.md) | Integration | Complete | ADR-0006, ADR-0009 |
-| 019 | [Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 range)](story-019-range-gated-open-pickup-leash.md) | Logic | Ready | ADR-0014, ADR-0009, ADR-0013 |
+| 019 | [Range-gated Open and Pickup handlers and the leash auto-close (P13 chain, F5 range)](story-019-range-gated-open-pickup-leash.md) | Logic | Complete (greybox; Open only) | ADR-0014, ADR-0009, ADR-0013 |
 | 020 | [Drop op — whole entry to a WorldItem at +500 mm along facing, ground-snapped; swimming refused](story-020-drop-op.md) | Logic | Blocked (read-only `IInventoryApi` query pending Evan) | ADR-0026, ADR-0013, ADR-0009 |
 | 021 | [Backlog append and the IntakeDrain phase (≤ 32 entries/tick, idle exit O(1))](story-021-backlog-intake-drain.md) | Logic | Complete | ADR-0017, ADR-0009 |
-| 022 | [Host panel view — Inventory's read-only scan primitive for `deliver_matching`](story-022-deliver-matching-handler.md) | Logic | Ready | ADR-0016, ADR-0009, ADR-0017 |
-| 023 | [Own-panel grid view and hotbar strip — one custom-drawn Control, 0 B/frame](story-023-panel-grid-view-hotbar.md) | UI | Ready | ADR-0019, ADR-0009 |
-| 024 | [Panel interactions through the Panel/Holding input contexts, and the M-1a feedback cues](story-024-panel-interactions-feedback.md) | UI | Ready | ADR-0019, ADR-0012, ADR-0009 |
+| 022 | [Host panel view — Inventory's read-only scan primitive for `deliver_matching`](story-022-deliver-matching-handler.md) | Logic | Complete (greybox) | ADR-0016, ADR-0009, ADR-0017 |
+| 023 | [Own-panel grid view and hotbar strip — one custom-drawn Control, 0 B/frame](story-023-panel-grid-view-hotbar.md) | UI | Complete (greybox) | ADR-0019, ADR-0009 |
+| 024 | [Panel interactions through the Panel/Holding input contexts, and the M-1a feedback cues](story-024-panel-interactions-feedback.md) | UI | Partial (greybox) | ADR-0019, ADR-0012, ADR-0009 |
 | 025 | [Inventory panel live-region feedback (TR-inventory-027) — the live-region `Control` and th](story-025-deferred-live-region-feedback.md) | UI | Deferred (Evan 2026-10-23) | — |
 
 **Blocked stories and the ADR each waits on.** Each reserved ADR is listed in `production/epics/index.md`.
@@ -161,6 +161,8 @@ This epic is complete when:
 - All Visual/Feel and UI stories have retained screenshots in `production/qa/evidence/` (hotbar, own panel, Holding, drop)
 
 ## Next Step
+
+**2026-11-09 (M-1a package cleanup, main 8c77595):** the rough playable M-1a greybox is on main — PRs 85–97 merged as one PR per package (Evan 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"), each under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310); live playtest on 8c77595 passes all four checks and 34/34 smokes. This epic's package stories are Complete (greybox trims per the M-1a regroup plan §3 simplify table, Mail Lead planning default, held in the package TD rows; see each story's Completion Notes): 019 (Open only; WP-D, PR #87, merge 0490e0f), 022 (WP-C, PR #88, merge 7cd3756), 023 (WP-E, PR #91, merge ae8a12d; fed by the client-only `OwnPanelMirror` since WP-F, PR #94, merge f145219). Still open: 024 is Partial (keys 1–8 and the Shift quick-move are built; the Tab panel is a stub, TD-274 (c)); 020 stays Blocked (Drop); the real client `ContainerMirror` and the inventory event codecs (TD-140) are the H-MIRROR hardening package. Next: the M-1a hardening packages (H-MIRROR first; plan written separately, see `production/session-state/HANDOFF.md`); no story is scheduled on its own. The earlier lists below are history.
 
 **2026-10-23 (m1a-replan, playable-first):** Next, in `production/epics/implementation-order.md` order (track and wave in parentheses; Evan 2026-10-23 7:13 AM PT "reorder playable-first"): Track A (playable greybox): 020 (A1), 019 (A3), 022 (A7), 023 (A10); then Track B: 018 (B1), 024 (B2); Deferred by Evan 2026-10-23 (not scheduled): 025. Earlier notes below are history.
 

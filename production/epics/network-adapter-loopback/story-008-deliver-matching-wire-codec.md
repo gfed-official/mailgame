@@ -1,12 +1,12 @@
 # Story 008: deliver_matching wire codec (24 B MATCH / 28 B MISDELIVER_ONE)
 
 > **Epic**: Network Adapter Core — Loopback (M-1a)
-> **Status**: Ready
+> **Status**: Complete (greybox; 22/26/32 B negative rows dropped → TD-220)
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: S (≈ 2–4 hours once unblocked; ≈ 150 lines incl. tests)
 > **Manifest Version**: 2026-10-16
-> **Last Updated**: 2026-10-16
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Complete (greybox; 22/26/32 B negative rows dropped → TD-220); delivered by PR #88, merge 7cd3756; see Completion Notes). Earlier: 2026-10-16
 
 > **Unblocked 2026-10-16 (story hygiene) — formerly BLOCKED on a story dependency only; now Ready with that dependency listed under Depends on.**
 > 1. ~~Payload conflict~~ **RESOLVED 2026-10-16** by `/architecture-review` (technical-director erratum, recorded in ADR-0011 and ADR-0009 GDD Impact). The wire carries the claimed position, as grid-inventory R7, ADR-0009 §1 and ADR-0014 §5 require. The layout is envelope `kind u16 · reqId u16` + `mailboxId u32 · holdStartTick u32 · ClaimedPosition (x, y, z i32 mm, 12 B)` [+ `selectedEntryId u32` on MISDELIVER_ONE] = **24 B MATCH / 28 B MISDELIVER_ONE**. Manual Delivery's 12/16 B figure is superseded (GDD sync pending). TR-delivery-008 is revised in `docs/architecture/tr-registry.yaml`.
@@ -67,6 +67,18 @@
 - `tests/unit/net/DeliverMatchingCodecTests.cs` (`[Trait("Id", "M-NET-1")]`) — must exist and pass
 
 **Status**: [ ] Not yet created
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Delivered by:** PR #88 (merge `7cd3756`), package WP-C (M-1a wave 1), merged 2026-11-09 under the merge rule "Merge on Review READY plus green CI, and only flag ADR changes to me" (Evan 2026-11-08 8:52 PM PT, card t292s1310).
+- **Built:** `DeliveryCodecs` in `Client.Core/Net/Codec` — 24 B MATCH / 28 B MISDELIVER_ONE, presence of `selectedEntryId` implied by length — plus the short-form decode path in the codec framework that accepts two wire lengths for one descriptor (Mail Lead planning default, M-1a regroup plan §3: no ADR change, ADR-0011 already says presence is implied by length). `src/Game/Boot/SessionBootStep.cs` passes the delivery op codecs to the loopback `HostSession`.
+- **ACs met:** none in full (one AC).
+- **Deferred or partly met (greybox trims, Mail Lead planning default, M-1a regroup plan §3 simplify table; held by the package TD row):** AC-1 — the 24 B MATCH / 28 B MISDELIVER_ONE forms are built and registered (the "still binding" half of the plan §3 row); the 22, 26 and 32 B negative rows were dropped → TD-220. The PR body does not itemise the remaining AC-1 rows.
+- **Tests:** PR #88 names no test file per story; its body reports 6,256 tests, 0 failed on all four legs. The repo holds `tests/unit/net/DeliverMatchingCodecTests.cs`.
 
 ---
 

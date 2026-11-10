@@ -1,12 +1,12 @@
 # Story 016: The Back ladder (R5), the `no_room` skip window (F13) and the Pause capture state
 
 > **Epic**: Input & Controls (M-1a slice)
-> **Status**: Ready
+> **Status**: Partial (greybox, harden later — M-1a hardening, see HANDOFF; WP-F's shortened BackLadder (cancel aim → toggled hold → solo pause toggle) built by PR #94 → TD-270 (7); the no_room skip window, the panel steps and the router Pause capture state not built)
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: M (~1 day; ~450 lines prod + tests)
 > **Manifest Version**: 2026-10-16.2
-> **Last Updated**: —
+> **Last Updated**: 2026-11-09 (M-1a package cleanup: Partial (greybox, harden later — M-1a hardening, see HANDOFF; WP-F's shortened BackLadder (cancel aim → toggled hold → solo pause toggle) built by PR #94 → TD-270 (7); the no_room skip window, the panel steps and the router Pause capture state not built); delivered by PR #94, merge f145219 (shortened ladder only); see Completion Notes).
 
 ## Context
 
@@ -75,7 +75,18 @@
 **Required evidence**:
 - Logic: `tests/unit/input/BackLadderTests.cs` (`[Trait("Id", "H-R5-1")]`, `H-R5-2`, `H-F13-1`, `H-R6-2`), `tests/unit/input/PauseCaptureTests.cs` — must exist and pass on net10.0 and net8.0
 
-**Status**: [ ] Not yet created
+**Status**: [x] Partly created — `tests/unit/input/BackLadderTests.cs` (one WP-F row: Esc while aiming cancels the aim, then toggles pause, P toggles it back), PR #94 (2026-11-09); `PauseCaptureTests.cs` not created
+
+---
+
+## Completion Notes
+
+*M-1a package delivery, recorded by Mail Lead's cleanup pass 2026-11-09 (owner ruling 2026-11-08 10:18 PM PT, card t299s1348: "Yes, switch to one PR per package and update the story files in one pass at the end"). Uncredited Mail Dev detail unless a quote says otherwise.*
+
+- **Not a package story.** This story is on the M-1a regroup plan's harden-later list ("016 (except Esc = cancel aim)"). PR #94 (merge `f145219`, package WP-F) built the playable subset as `src/PerformativeMail.Client.Core/Input/BackLadder.cs`, an `IImmediateActionSink` registered for Back and Pause: a Back press runs the router's own ladder steps (`TryCancelAim()`, then `TryCancelToggledHold()`) and only when neither ran toggles the solo pause; a Pause press toggles at once; the panel steps are not built (TD-270 (7)). The pause itself is `GameLoop.TogglePause` (a `TickDriver` pause with a `PauseOverlay`, never `SceneTree.Paused`), not a router `capture = Pause` state.
+- **ACs met:** none in full. Built: the H-R5-1 (b) row (aiming → cancel, no throw), step 3b (a toggled hold is cancelled and the press consumed), and Esc / P opening the pause from World.
+- **Not built (harden later):** H-R5-1 (c)(d) panel rows and step 5; step 4 and the F13 `no_room` skip window (`OnReturnResult`, `backSkipMs`); the router Pause capture state (muting, flushed edges, `Flags.Paused`, `PauseRequested` / `ResumeRequested`); H-R5-2 is not asserted; H-R6-2 (a) Menu / P remap flag.
+- **Tests:** `tests/unit/input/BackLadderTests.cs` (PR #94).
 
 ---
 
