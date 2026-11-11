@@ -1,0 +1,12 @@
+[
+  { "id": "hotbar", "grid": [8, 1], "view": "grid", "beltAccess": "none", "handCarried": true, "reservedCells": [[0, 0]] },
+  { "id": "player_inventory", "grid": [8, 2], "view": "grid", "beltAccess": "none", "handCarried": true },
+  { "id": "backpack", "grid": [8, 2], "view": "grid", "beltAccess": "none", "handCarried": true },
+  { "id": "bike_cargo", "grid": [8, 2], "view": "grid", "beltAccess": "none" },
+  { "id": "mail_truck_cargo", "grid": [8, 10], "view": "grid", "beltAccess": "loading_face", "allowedCategories": ["mail"] },
+  { "id": "po_intake", "grid": [20, 16], "view": "manifest", "beltAccess": "outfeed_only", "allowedCategories": ["mail"] },
+  { "id": "po_depot", "grid": [20, 16], "view": "manifest", "beltAccess": "none" },
+  { "id": "chest", "grid": [8, 4], "view": "grid", "beltAccess": "none" },
+  { "id": "depot", "grid": [16, 10], "view": "grid", "beltAccess": "any_side" },
+  { "id": "sorter_buffer", "grid": [4, 2], "view": "grid", "beltAccess": "none", "allowedCategories": ["mail"] }
+]

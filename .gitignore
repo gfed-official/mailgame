@@ -1,0 +1,16 @@
+# Godot
+.godot/
+*.translation
+export_presets.cfg.local
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+
+# Local run artifacts
+/logs/
+*.log

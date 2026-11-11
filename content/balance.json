@@ -1,0 +1,42 @@
+{
+  "baseQuota": [600, 1100, 1800, 2700, 4000],
+  "playerScaleExponent": 0.65,
+  "prepSeconds": [60, 90, 90, 90, 90],
+  "deliverySeconds": [240, 270, 270, 270, 300],
+  "raidWindowSeconds": 90,
+  "paydaySeconds": 20,
+  "draftSeconds": 30,
+
+  "walletFloor": -500,
+  "deadLetterShifts": 2,
+  "zeroMisdeliveryBonus": 0.10,
+
+  "complaintMax": 100,
+  "complaintDecayPerSecond": 0.1,
+  "complaintBacklogIncrement": 1,
+  "complaintBacklogIntervalSeconds": 15,
+  "complaintLateDelivery": 2,
+  "complaintInspectorThreshold": 75,
+
+  "playerHp": 100,
+  "walkSpeed": 5.0,
+  "sprintSpeed": 7.5,
+  "jumpHeight": 1.2,
+  "gravity": 20.0,
+  "playerRadius": 0.4,
+  "weightPointsLight": 1,
+  "weightPointsMedium": 3,
+  "weightPointsHeavy": 8,
+  "weightSpeedPerPoint": 0.01,
+  "weightSpeedFloor": 0.6,
+
+  "interactRange": 2.5,
+  "serverInteractRange": 3.0,
+  "interactRewindSeconds": 0.3,
+
+  "respawnSeconds": 10,
+  "deathBagDespawnSeconds": 30,
+  "worldItemDespawnSeconds": 300,
+  "interestRadius": 150,
+  "maxPlayers": 8
+}

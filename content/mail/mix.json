@@ -1,0 +1,17 @@
+{
+  "shifts": [
+    { "shift": 1, "shares": { "letter": 0.60, "small": 0.30, "medium": 0.10 } },
+    { "shift": 2, "shares": { "postcard": 0.10, "letter": 0.40, "small": 0.30, "medium": 0.15, "large": 0.05 } },
+    { "shift": 3, "shares": { "postcard": 0.10, "letter": 0.30, "small": 0.25, "medium": 0.20, "large": 0.10, "cargo": 0.05 } },
+    { "shift": 4, "shares": { "postcard": 0.10, "letter": 0.25, "small": 0.20, "medium": 0.20, "large": 0.15, "cargo": 0.10 } },
+    { "shift": 5, "shares": { "postcard": 0.10, "letter": 0.20, "small": 0.20, "medium": 0.20, "large": 0.15, "cargo": 0.15 } }
+  ],
+  "streetStreakRatio": 0.30,
+  "batchIntervalSeconds": 15,
+  "batchJitterSeconds": 3,
+  "spawnOverhead": 1.6,
+  "distanceMultiplierPerDistrict": 0.25,
+  "shiftMultiplierPerShift": 0.10,
+  "lateValueRatio": 0.5,
+  "misdeliveryPenaltyRatio": 0.5
+}

@@ -1,0 +1,6 @@
+[
+  { "id": "house", "insertRate": 2.0, "manualInsertHold": 0.4, "maxAutomatedFeeders": 1, "requiresUnit": false, "requiresVehicleZone": false },
+  { "id": "apartment", "insertRate": 2.0, "manualInsertHold": 0.4, "maxAutomatedFeeders": 1, "requiresUnit": true, "requiresVehicleZone": false },
+  { "id": "pobox", "insertRate": 2.0, "manualInsertHold": 0.4, "maxAutomatedFeeders": 1, "requiresUnit": true, "requiresVehicleZone": false },
+  { "id": "business_dock", "insertRate": 2.0, "manualInsertHold": 0.4, "maxAutomatedFeeders": 1, "requiresUnit": false, "requiresVehicleZone": true }
+]

@@ -1,0 +1,20 @@
+{
+  "id": "test_street",
+  "name": "Test Street (M0)",
+  "sizeTiles": [46, 26],
+  "districts": [{"id": 1, "name": "Post Office District", "unlockShift": 1}],
+  "streets": [{"id": 1, "name": "Larch Lane", "district": 1, "rect": [0, 13, 46, 2]}],
+  "postOffice": {"rect": [2, 6, 6, 6], "solid": [[2, 6, 4, 6]], "intake": [12.0, 18.0], "spawnPad": [14.0, 21.0]},
+  "destinations": [
+    {"type": "house", "street": 1, "number": 1, "lot": [10, 8, 4, 4], "building": [10, 8, 3, 2], "mailbox": [24.0, 25.0], "variant": 0},
+    {"type": "house", "street": 1, "number": 2, "lot": [10, 16, 4, 4], "building": [10, 18, 3, 2], "mailbox": [24.0, 31.0], "variant": 1},
+    {"type": "house", "street": 1, "number": 3, "lot": [17, 8, 4, 4], "building": [17, 8, 3, 2], "mailbox": [38.0, 25.0], "variant": 2},
+    {"type": "house", "street": 1, "number": 4, "lot": [17, 16, 4, 4], "building": [17, 18, 3, 2], "mailbox": [38.0, 31.0], "variant": 3},
+    {"type": "house", "street": 1, "number": 5, "lot": [24, 8, 4, 4], "building": [24, 8, 3, 2], "mailbox": [52.0, 25.0], "variant": 4},
+    {"type": "house", "street": 1, "number": 6, "lot": [24, 16, 4, 4], "building": [24, 18, 3, 2], "mailbox": [52.0, 31.0], "variant": 5},
+    {"type": "house", "street": 1, "number": 7, "lot": [31, 8, 4, 4], "building": [31, 8, 3, 2], "mailbox": [66.0, 25.0], "variant": 6},
+    {"type": "house", "street": 1, "number": 8, "lot": [31, 16, 4, 4], "building": [31, 18, 3, 2], "mailbox": [66.0, 31.0], "variant": 7},
+    {"type": "house", "street": 1, "number": 9, "lot": [38, 8, 4, 4], "building": [38, 8, 3, 2], "mailbox": [80.0, 25.0], "variant": 8},
+    {"type": "house", "street": 1, "number": 10, "lot": [38, 16, 4, 4], "building": [38, 18, 3, 2], "mailbox": [80.0, 31.0], "variant": 9}
+  ]
+}
