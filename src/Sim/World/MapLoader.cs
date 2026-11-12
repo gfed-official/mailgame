@@ -116,6 +116,12 @@ namespace PerformativeMail.Sim.World
                 }
                 double[] intake = J.NumArray(ctx, poEl, "intake", 2);
                 double[] pad = J.NumArray(ctx, poEl, "spawnPad", 2);
+                // Players spawn looking at this point; without it they look at the middle of the first street.
+                double[] lookAt = poEl.TryGetProperty("spawnLookAt", out _)
+                    ? J.NumArray(ctx, poEl, "spawnLookAt", 2)
+                    : streets.Count > 0 ? new double[] { streets[0].Rect.CenterX, streets[0].Rect.CenterZ } : new double[] { pad[0], pad[1] - 1.0 };
+                double lookX = lookAt[0] - pad[0], lookZ = lookAt[1] - pad[1];
+                if (lookX * lookX + lookZ * lookZ < 1e-6) ctx.Error("postOffice.spawnLookAt must differ from spawnPad");
                 po = new PostOfficeDef
                 {
                     Rect = rect,
@@ -124,6 +130,7 @@ namespace PerformativeMail.Sim.World
                     IntakeZ = (float)intake[1],
                     SpawnPadX = (float)pad[0],
                     SpawnPadZ = (float)pad[1],
+                    SpawnYaw = (float)Math.Atan2(-lookX, -lookZ),
                 };
             }
             else ctx.Error("missing 'postOffice' object");

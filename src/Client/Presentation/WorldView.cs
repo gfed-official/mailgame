@@ -121,8 +121,9 @@ namespace PerformativeMail.Client.Presentation
                 AddBox("PostOffice", centre, size, Palette.PostOffice);
                 AddLabel("POST OFFICE", new Vector3(centre.X, PostOfficeHeight + 1.2f, centre.Z), 160, Colors.White);
             }
-            AddBox("Intake", new Vector3(po.IntakeX, 0.3f, po.IntakeZ), new Vector3(1.6f, 0.6f, 1.6f), Palette.Intake);
-            AddLabel("INTAKE", new Vector3(po.IntakeX, 1.5f, po.IntakeZ), 72, Colors.White);
+            // A counter at waist height with its sign above: together they fill the Intake's aim box.
+            AddBox("Intake", new Vector3(po.IntakeX, 0.5f, po.IntakeZ), new Vector3(1.6f, 1.0f, 1.6f), Palette.Intake);
+            AddLabel("INTAKE", new Vector3(po.IntakeX, 1.6f, po.IntakeZ), 72, Colors.White);
             AddChild(new MeshInstance3D
             {
                 Name = "SpawnPad",

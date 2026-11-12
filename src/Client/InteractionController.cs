@@ -39,6 +39,9 @@ namespace PerformativeMail.Client
     /// </summary>
     public sealed class InteractionController
     {
+        /// <summary>The range is measured on the ground; the eyes are above it, so the ray may be this much longer.</summary>
+        private const float AimSlack = 1.0f;
+
         public InteractPrompt Prompt { get; private set; }
 
         private readonly ClientRuntime _client;
@@ -100,26 +103,41 @@ namespace PerformativeMail.Client
             _deliverAllDest = -1;
         }
 
-        /// <summary>The nearest interactable within the client interact range (doc 09 §3.1: 2.5 m).</summary>
+        /// <summary>
+        /// The interactable the player is looking at: the first one the view ray hits among those
+        /// within the client interact range of the player (doc 09 §3.1: 2.5 m). An open Intake stays
+        /// targeted while in range, because the mouse is on its panel, not on the world.
+        /// </summary>
         private InteractPrompt FindTarget(ClientWorld world)
         {
             float range = world.Content.Balance.GetFloat("interactRange");
             float px = world.Local.X, pz = world.Local.Z;
-            float best = range * range;
+            float rangeSq = range * range;
+            var ray = ViewRay.FromPlayer(world.Local, _client.Input.YawRadians, _client.Input.PitchRadians);
+            float best = range + AimSlack;
             var prompt = new InteractPrompt();
 
             var po = world.Map.PostOffice;
-            float d = DistSq(px, pz, po.IntakeX, po.IntakeZ);
-            if (d <= best)
+            if (DistSq(px, pz, po.IntakeX, po.IntakeZ) <= rangeSq)
             {
-                best = d;
-                prompt.Kind = world.OpenContainerId == world.IntakeContainerId ? InteractKind.CloseIntake : InteractKind.OpenIntake;
+                if (world.OpenContainerId == world.IntakeContainerId)
+                {
+                    prompt.Kind = InteractKind.CloseIntake;
+                    return prompt;
+                }
+                float t = ray.Hit(AimBox.Intake(world.Map));
+                if (t >= 0f && t <= best)
+                {
+                    best = t;
+                    prompt.Kind = InteractKind.OpenIntake;
+                }
             }
             foreach (var dest in world.Map.Destinations)
             {
-                d = DistSq(px, pz, dest.MailboxX, dest.MailboxZ);
-                if (d > best) continue;
-                best = d;
+                if (DistSq(px, pz, dest.MailboxX, dest.MailboxZ) > rangeSq) continue;
+                float t = ray.Hit(AimBox.Mailbox(world.Map, dest));
+                if (t < 0f || t > best) continue;
+                best = t;
                 prompt.Kind = InteractKind.Deliver;
                 prompt.Destination = dest;
             }

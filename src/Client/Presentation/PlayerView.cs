@@ -2,13 +2,23 @@ using Godot;
 
 namespace PerformativeMail.Client.Presentation
 {
-    /// <summary>Greybox player: a capsule with a visor (so facing is readable), a name tag and an envelope when mail is in hand.</summary>
+    /// <summary>
+    /// Greybox player: a capsule with a visor (so facing is readable), a name tag and an envelope
+    /// when mail is in hand. The local player's view has no meshes: the game is first person, and
+    /// the node only marks where the feet are for the camera to sit on.
+    /// </summary>
     public partial class PlayerView : Node3D
     {
-        private MeshInstance3D _held = null!;
+        /// <summary>True for the local player, whose body is not drawn.</summary>
+        public bool Bodiless { get; private set; }
+
+        private MeshInstance3D? _held;
 
         public void Setup(string playerName, int slot, bool local)
         {
+            Bodiless = local;
+            if (local) return;
+
             var colour = Palette.PlayerColour(slot);
             AddChild(new MeshInstance3D
             {
@@ -31,21 +41,21 @@ namespace PerformativeMail.Client.Presentation
                 Visible = false,
             };
             AddChild(_held);
-            if (!local)
+            AddChild(new Label3D
             {
-                AddChild(new Label3D
-                {
-                    Name = "NameTag",
-                    Text = playerName,
-                    Position = new Vector3(0f, 2.25f, 0f),
-                    FontSize = 48,
-                    PixelSize = 0.008f,
-                    OutlineSize = 8,
-                    Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-                });
-            }
+                Name = "NameTag",
+                Text = playerName,
+                Position = new Vector3(0f, 2.25f, 0f),
+                FontSize = 48,
+                PixelSize = 0.008f,
+                OutlineSize = 8,
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            });
         }
 
-        public void SetHoldingMail(bool holding) => _held.Visible = holding;
+        public void SetHoldingMail(bool holding)
+        {
+            if (_held != null) _held.Visible = holding;
+        }
     }
 }

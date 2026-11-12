@@ -62,7 +62,7 @@ These are decisions the design document left open. They are stated once here and
 | Topic | Decision | Rationale and alternative |  
 | :-: | :-: | :-: |  
 | Engine | Godot 4.x, C# (.NET) | Open source, headless server export, high-level multiplayer API (ENet, MultiplayerSpawner, MultiplayerSynchronizer), GodotSteam for relay/lobbies. Alternative: Unity with Netcode for GameObjects and Unity Transport/Relay. The architecture in chapter 07 is engine-neutral apart from named nodes. |  
-| Perspective and art | 3D, third-person, stylized low-poly | Matches the references (Satisfactory, Raft, Muck, Crab Game). Low-poly keeps 8-player scenes and belt-heavy factories cheap. |  
+| Perspective and art | 3D, first-person, stylized low-poly | Decided by Evan on 2026-11-11 after the first M0 playtest (was third-person). The camera sits at the local player's eye height; the local body is not drawn (hands and the held item only); the interaction ray and prompt run from the camera's view. Matches the references (Satisfactory, Raft, Muck, Crab Game). Low-poly keeps 8-player scenes and belt-heavy factories cheap. |  
 | Network authority | Server-authoritative, listen server or dedicated | Doc lists 1–8 players and "no idea how netcode works". Authoritative server is the simplest correct model for shared inventories and factories. No host migration in v1. |  
 | Session model | Online co-op, lobby-based, join-in-progress during Prep phase only | Joining mid-shift would break quota scaling and spawn budgets. |  
 | Money | Team-shared in Arcade | Quota is a team goal. Free Play may add a personal wallet toggle. |  

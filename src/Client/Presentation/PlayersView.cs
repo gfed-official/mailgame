@@ -1,14 +1,13 @@
 using System.Collections.Generic;
 using Godot;
 using PerformativeMail.Sim.Core;
-using PerformativeMail.Sim.Inventory;
-using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Client.Presentation
 {
     /// <summary>
-    /// Keeps one PlayerView per known player. The local player follows the predicted state; the
-    /// others are drawn 100 ms in the past, interpolated between snapshots (doc 06 §3).
+    /// Keeps one PlayerView per known player. The local player's (bodiless) view follows the
+    /// predicted state and carries the camera; the others are drawn 100 ms in the past,
+    /// interpolated between snapshots (doc 06 §3).
     /// </summary>
     public partial class PlayersView : Node3D
     {
@@ -57,11 +56,6 @@ namespace PerformativeMail.Client.Presentation
                     var target = new Vector3(world.Local.X, world.Local.Y, world.Local.Z);
                     float t = 1f - Mathf.Exp(-LocalFollowRate * (float)delta);
                     view.Position = view.Position.DistanceTo(target) > SnapDistance ? target : view.Position.Lerp(target, t);
-                    float yaw = PlayerInput.YawToRadians(world.Local.Yaw);
-                    view.Rotation = new Vector3(0f, Mathf.LerpAngle(view.Rotation.Y, yaw, t), 0f);
-                    int slot = _client!.Input.HeldSlot;
-                    var held = slot > 0 ? world.Hotbar.EntryAt(slot, 0) : null;
-                    view.SetHoldingMail(held != null && held.Stack.Kind == StackKind.Mail);
                 }
                 else if (player.Interpolate(world.ServerTick - ClientRuntime.InterpolationDelayTicks, out float x, out float y, out float z, out float yaw))
                 {

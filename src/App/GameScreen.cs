@@ -13,7 +13,7 @@ namespace PerformativeMail.App
     {
         public WorldView World { get; private set; } = null!;
         public PlayersView Players { get; private set; } = null!;
-        public CameraRig Camera { get; private set; } = null!;
+        public FirstPersonCamera Camera { get; private set; } = null!;
         public Hud Hud { get; private set; } = null!;
         public InventoryPanel Inventory { get; private set; } = null!;
 
@@ -35,9 +35,10 @@ namespace PerformativeMail.App
             AddChild(Players);
             Players.Setup(client);
 
-            // Start looking down the street (+X) from the Post Office.
-            Camera = new CameraRig { Name = "CameraRig", Yaw = -Mathf.Pi * 0.5f, Target = Players.LocalView };
+            // After the players in the tree, so each frame it sits on where the local view just moved to.
+            Camera = new FirstPersonCamera { Name = "Camera", Target = Players.LocalView };
             AddChild(Camera);
+            Camera.Setup(client);
 
             var layer = new CanvasLayer { Name = "UI" };
             AddChild(layer);
@@ -50,7 +51,7 @@ namespace PerformativeMail.App
 
             if (!humanInput) return;
             _input = new PlayerInputController { Name = "Input" };
-            _input.Setup(client, session.Interaction, Camera);
+            _input.Setup(client, session.Interaction);
             _input.InventoryToggled += () => _inventoryOpen = !_inventoryOpen;
             _input.Cancelled += () =>
             {

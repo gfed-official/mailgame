@@ -135,7 +135,10 @@ namespace PerformativeMail.Sim
             inventory.Viewers.Add(id);
 
             var player = new Player(id, name, slot, hotbar.Container, inventory.Container);
-            player.Move = new PlayerMoveState { X = px, Z = pz, Y = Map.HeightAt(px, pz), Grounded = true };
+            player.Move = new PlayerMoveState
+            {
+                X = px, Z = pz, Y = Map.HeightAt(px, pz), Grounded = true, Yaw = PlayerInput.QuantizeYaw(Map.PostOffice.SpawnYaw),
+            };
             _players.Add(player);
             Events.Add(new PlayerJoinedEvent { Player = id, Name = name, Slot = slot });
             return player;

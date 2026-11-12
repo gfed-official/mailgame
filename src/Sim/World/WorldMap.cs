@@ -68,6 +68,8 @@ namespace PerformativeMail.Sim.World
         public float IntakeZ { get; init; }
         public float SpawnPadX { get; init; }
         public float SpawnPadZ { get; init; }
+        /// <summary>Facing of a freshly spawned player in radians (0 looks along −Z), from the map's <c>spawnLookAt</c>.</summary>
+        public float SpawnYaw { get; init; }
     }
 
     /// <summary>
@@ -151,6 +153,7 @@ namespace PerformativeMail.Sim.World
             h.Add((int)MathF.Round(PostOffice.IntakeZ * 100f));
             h.Add((int)MathF.Round(PostOffice.SpawnPadX * 100f));
             h.Add((int)MathF.Round(PostOffice.SpawnPadZ * 100f));
+            h.Add((int)MathF.Round(PostOffice.SpawnYaw * 1000f));
             MapHash = h.Value;
         }
     }

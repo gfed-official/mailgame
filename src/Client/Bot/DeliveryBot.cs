@@ -79,6 +79,7 @@ namespace PerformativeMail.Client.Bot
                 case Step.ToIntake:
                     if (WalkTo(world, po.IntakeX, po.IntakeZ, interact - 0.5f))
                     {
+                        LookAt(world, AimBox.Intake(world.Map));
                         _awaiting = _client.OpenContainer(world.IntakeContainerId);
                         _step = Step.OpenIntake;
                     }
@@ -128,6 +129,8 @@ namespace PerformativeMail.Client.Bot
                     _targetEntry = entry.EntryId;
                     _targetContainer = container.Id;
                     _targetDest = dest;
+                    // Select the stack like a player would (slot 0 is hands), so the prompt shows its address check.
+                    _client.Input.HeldSlot = ReferenceEquals(container, world.Hotbar) ? (byte)entry.X : (byte)0;
                     _hasPath = false;
                     _step = Step.ToMailbox;
                     break;
@@ -136,6 +139,7 @@ namespace PerformativeMail.Client.Bot
                 case Step.ToMailbox:
                     if (WalkTo(world, _targetDest!.MailboxX, _targetDest.MailboxZ, interact - 1f))
                     {
+                        LookAt(world, AimBox.Mailbox(world.Map, _targetDest));
                         // Manual insert is a hold (doc 03 §2.1), timed on the client.
                         _holdTicks = (int)Math.Ceiling(_targetDest.Type.ManualInsertHold * 30f) + 1;
                         _step = Step.Hold;
@@ -178,6 +182,10 @@ namespace PerformativeMail.Client.Bot
             return best;
         }
 
+        /// <summary>Turns the view onto an interactable, as a player has to before the prompt appears.</summary>
+        private void LookAt(ClientWorld world, in AimBox box) =>
+            ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out _client.Input.YawRadians, out _client.Input.PitchRadians);
+
         /// <summary>Steers along a tile path toward a point. Returns true once within <paramref name="stopDistance"/>.</summary>
         private bool WalkTo(ClientWorld world, float x, float z, float stopDistance)
         {
@@ -213,6 +221,7 @@ namespace PerformativeMail.Client.Bot
             _client.Input.MoveX = tx / len;
             _client.Input.MoveZ = tz / len;
             _client.Input.YawRadians = MathF.Atan2(-tx, -tz);
+            _client.Input.PitchRadians = 0f;
             if (Sprint) _client.Input.Buttons = InputButtons.Sprint;
             return false;
         }

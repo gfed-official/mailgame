@@ -19,15 +19,33 @@ Netcode, movement, hand delivery on a fixed map. Standing rule: rough playable f
       mailbox acceptance / misdelivery, team wallet
 - [x] Net: binary messages, protocol hash, loopback transport, ServerRuntime / ClientRuntime
 - [x] Headless bot that walks Intake → mailbox and delivers (the smoke proof of the loop)
-- [x] Godot host window: world view, third-person camera, minimal HUD (timer, wallet, interact prompt)
+- [x] Godot host window: world view, camera (first person since 2026-11-11), minimal HUD (timer, wallet, interact prompt)
 - [x] Godot headless smoke that boots the project and exercises spawn → pickup → deliver → wallet
 
 **The rough loop is done.** `godot --path .` hosts over loopback on the test street: walk (WASD,
 mouse look, Shift, Space), open the Intake with E, click manifest rows to take mail, select a hotbar
 slot (1–8 / wheel), hold E at a mailbox to deliver, F delivers every matching stack; the HUD shows
-shift / phase / timer, quota, wallet, the prompt with ✓/✗ and the event feed. `tools/smoke.sh` proves
-it headless. Not yet seen by a human in a window — the host window has only been run headless here,
-so layout and feel are untested.
+shift / phase / timer, quota, wallet, the prompt with its match mark and the event feed.
+`tools/smoke.sh` proves it headless. A human playtest of `b2b9159` passed.
+
+### First person and the playtest nits (after the b2b9159 playtest)
+
+- [x] First-person camera (`FirstPersonCamera`): at `SimConstants.EyeHeight` (1.6 m) on the local
+      player, mouse look = yaw + pitch in `ClientInput`, local body not drawn (only the held mail),
+      orbit/boom rig removed. Doc 00 "Perspective and art" updated (Evan, 2026-11-11).
+- [x] Interaction ray from the camera: `ViewRay` (eyes + yaw/pitch) against an `AimBox` per
+      interactable; the prompt only shows for what the crosshair is on, within interact range.
+- [x] Nit 1 — boot view: the map gives `postOffice.spawnLookAt`; server and client start the player
+      facing it (down the street), and the smoke checks the camera is at the eyes, outside every
+      solid tile, with 8 m of clear view.
+- [x] Nit 2 — match mark: the default font has no ✓ / ✗ glyphs (they drew as nothing). The mark is
+      now drawn as lines (`MatchMark`) beside the words MATCH / WRONG ADDRESS, and `HotbarAssist`
+      selects picked-up mail so a stack is actually selected at the mailbox. The smoke checks both
+      marks appear and that no text on screen lacks a glyph (`FontCheck`).
+- [x] Nit 3 — clipped top row: every HUD element keeps a 28 px safe margin; the smoke checks the
+      top row lies fully inside the screen.
+- [x] Smoke asserts the camera sits at the player's eye position (every frame against the local
+      view, and at the end against the server position) and aims along the interact ray.
 
 ### Hardening toward the written M0 acceptance criteria (after the rough loop)
 
@@ -103,6 +121,25 @@ See "Commands" at the bottom (filled in as the tooling lands).
     takes seconds. The bot decides at `ClientRuntime.TickStarting`. After the deliveries the smoke
     switches back to the frame clock for 1 s to check that path too.
 18. **`.gdignore` in `design/` and `tests/`** keeps Godot from importing docs and test projects.
+19. **First-person details (doc 00 only says "first-person").** Eye height 1.6 m; FOV 75°; pitch
+    clamped to ±1.45 rad; the body yaw is the view yaw (movement is relative to it). Pitch is
+    client-side only and is not sent to the server. "Hands" are reduced to the held mail item
+    drawn in the lower right of the view; the local `PlayerView` has no meshes.
+20. **What the interact ray can hit.** No physics engine is involved: each interactable has an
+    axis-aligned `AimBox` (mailbox: 1 × 2 × 1 m around post, box and address plate; Intake: 2 m
+    cube around the counter and its sign). The target is the nearest box the view ray hits, among
+    interactables whose ground distance is within `interactRange` (the server's range check is
+    unchanged). The ray may be `range + 1 m` long because the eyes are above the ground point the
+    range is measured from. An open Intake stays targeted while in range (the mouse is on its panel).
+21. **Spawn facing.** `postOffice.spawnLookAt` in the map file (default: centre of the first
+    street) gives `SpawnYaw`; it is part of the map hash. Players spawn facing it.
+22. **Match mark.** Drawn, not typed (see nit 2), plus the verdict in words at the start of the
+    prompt line: `MATCH · Deliver …` / `WRONG ADDRESS · Deliver …`.
+23. **Hotbar assist.** Mail picked up while no mail is selected becomes the selected slot, and when
+    the selected stack is delivered the next mail slot is selected. Selecting "hands" by key is
+    respected until one of those two things happens.
+24. **UI scaling.** `window/stretch/mode = canvas_items`, aspect `expand`: the HUD is laid out for
+    1280 × 720 and scales with the window (this also gives the headless smoke a real screen size).
 
 ## Commands
 
@@ -115,6 +152,9 @@ All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes o
 tools/smoke.sh [seed]            # build + Godot headless smoke; exit 0 and "SMOKE OK" on success
 ~/.local/bin/godot --headless --path . -- --smoke --seed=1      # the smoke alone (build first)
 
+# the smoke in a (virtual) window, saving PNGs of the boot view and each prompt:
+xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --smoke --shots=/tmp/shots
+
 ~/.local/bin/godot --path .                                      # play: host on the test street
 ~/.local/bin/godot --path . -- --seed=7 --name=Ada               # user args go after "--"
 ```
@@ -125,5 +165,7 @@ change before starting Godot from the command line.
 The smoke checks, inside the real Godot host: the player spawns on the pad; mail arrives; the Intake
 prompt and manifest show; mail is carried; the mailbox prompt shows; delivery and misdelivery events
 reach the client; server wallet = start + paid − penalties = client wallet = the HUD's wallet line;
-no container desync or bad packet; the world, player view and camera exist and the local view sits
-on the server position; the real-time loop advances the server.
+no container desync or bad packet; the world, player view and camera exist; the boot view (camera
+at the eyes, not in a wall, clear view along the map's spawn facing); the camera at the player's eye
+position and aimed along the interact ray every frame; no local body; the ✓ and ✗ marks drawn; no
+missing glyphs; the top HUD row fully on screen; the real-time loop advances the server.

@@ -1,13 +1,12 @@
 using System;
 using Godot;
-using PerformativeMail.Client.Presentation;
 using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Client.InputHandling
 {
     /// <summary>
     /// Turns Godot input into the client's per-tick input and interaction requests (doc 09 §4).
-    /// Movement is relative to the camera; the character faces where it walks.
+    /// First person: the mouse or right stick turns the view, and movement is relative to it.
     /// </summary>
     public partial class PlayerInputController : Node
     {
@@ -34,16 +33,23 @@ namespace PerformativeMail.Client.InputHandling
 
         private ClientRuntime _client = null!;
         private InteractionController _interaction = null!;
-        private CameraRig _rig = null!;
+        private readonly HotbarAssist _assist = new HotbarAssist();
         private bool _uiOpen;
         private bool _wantCapture = true;
         private bool _deliverAllQueued;
 
-        public void Setup(ClientRuntime client, InteractionController interaction, CameraRig rig)
+        public void Setup(ClientRuntime client, InteractionController interaction)
         {
             _client = client;
             _interaction = interaction;
-            _rig = rig;
+        }
+
+        /// <summary>Turns the view: yaw wraps, pitch stops short of straight up and down.</summary>
+        private void Look(float yawDelta, float pitchDelta)
+        {
+            ref var input = ref _client.Input;
+            input.YawRadians = Mathf.Wrap(input.YawRadians + yawDelta, -Mathf.Pi, Mathf.Pi);
+            input.PitchRadians = Mathf.Clamp(input.PitchRadians + pitchDelta, -ViewRay.MaxPitch, ViewRay.MaxPitch);
         }
 
         public override void _Ready() => ApplyMouseMode();
@@ -55,7 +61,7 @@ namespace PerformativeMail.Client.InputHandling
             switch (ev)
             {
                 case InputEventMouseMotion motion when Captured:
-                    _rig.Look(-motion.Relative.X * MouseSensitivity, -motion.Relative.Y * MouseSensitivity);
+                    Look(-motion.Relative.X * MouseSensitivity, -motion.Relative.Y * MouseSensitivity);
                     return;
 
                 case InputEventMouseButton button when button.Pressed:
@@ -106,17 +112,15 @@ namespace PerformativeMail.Client.InputHandling
             {
                 float lookX = Godot.Input.GetJoyAxis(0, JoyAxis.RightX), lookY = Godot.Input.GetJoyAxis(0, JoyAxis.RightY);
                 if (Mathf.Abs(lookX) > 0.2f || Mathf.Abs(lookY) > 0.2f)
-                    _rig.Look(-lookX * StickLookSpeed * (float)delta, -lookY * StickLookSpeed * (float)delta);
+                    Look(-lookX * StickLookSpeed * (float)delta, -lookY * StickLookSpeed * (float)delta);
             }
 
-            // Camera yaw 0 looks along −Z: forward = (−sin, −cos), right = (cos, −sin).
-            float sin = Mathf.Sin(_rig.Yaw), cos = Mathf.Cos(_rig.Yaw);
+            // Yaw 0 looks along −Z: forward = (−sin, −cos), right = (cos, −sin). The body turns with the view.
+            float yaw = _client.Input.YawRadians;
+            float sin = Mathf.Sin(yaw), cos = Mathf.Cos(yaw);
             float forward = -move.Y;
-            float mx = move.X * cos - forward * sin;
-            float mz = -move.X * sin - forward * cos;
-            _client.Input.MoveX = mx;
-            _client.Input.MoveZ = mz;
-            if (mx * mx + mz * mz > 0.01f) _client.Input.YawRadians = Mathf.Atan2(-mx, -mz);
+            _client.Input.MoveX = move.X * cos - forward * sin;
+            _client.Input.MoveZ = -move.X * sin - forward * cos;
 
             var buttons = InputButtons.None;
             bool interact = !_uiOpen && Godot.Input.IsActionPressed(InputActions.Interact);
@@ -127,6 +131,7 @@ namespace PerformativeMail.Client.InputHandling
 
             // The Intake closes with the same key that opened it, so interact stays live under the panel.
             bool interactKey = Godot.Input.IsActionPressed(InputActions.Interact);
+            _assist.Update(_client);
             _interaction.Update(delta, interactKey, _deliverAllQueued && !_uiOpen);
             _deliverAllQueued = false;
         }

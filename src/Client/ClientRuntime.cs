@@ -24,7 +24,10 @@ namespace PerformativeMail.Client
     {
         /// <summary>World-space move direction, each axis -1..1.</summary>
         public float MoveX, MoveZ;
+        /// <summary>Where the player looks: yaw 0 faces −Z. The body faces the same way (first person).</summary>
         public float YawRadians;
+        /// <summary>Look pitch, positive up. Client-side only: it aims the camera and the interact ray.</summary>
+        public float PitchRadians;
         public InputButtons Buttons;
         public byte HeldSlot;
     }
@@ -229,6 +232,9 @@ namespace PerformativeMail.Client
             };
             foreach (var p in m.Players) world.Players[p.Id] = new ClientPlayer(p.Id, p.Name, p.Slot);
             World = world;
+            Input.YawRadians = map.PostOffice.SpawnYaw;
+            Input.PitchRadians = 0f;
+            world.Local.Yaw = PlayerInput.QuantizeYaw(map.PostOffice.SpawnYaw);
             world.Hotbar = LoadContainer(m.Hotbar)!;
             world.Inventory = LoadContainer(m.Inventory)!;
             State = ClientState.Joined;

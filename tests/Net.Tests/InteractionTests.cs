@@ -148,7 +148,7 @@ namespace PerformativeMail.Net.Tests
             string text = HudText.Prompt(s.World, prompt, out var tone);
             Assert.Equal(PromptTone.Match, tone);
             Assert.Contains(dest.Label, text);
-            Assert.Contains("✓", text);
+            Assert.StartsWith(HudText.MatchWord, text);
 
             // A short tap does nothing; the full 0.4 s hold delivers.
             for (int i = 0; i < 6; i++) s.Frame(interact: true);
@@ -182,7 +182,7 @@ namespace PerformativeMail.Net.Tests
 
             string text = HudText.Prompt(s.World, s.Interaction.Prompt, out var tone);
             Assert.Equal(PromptTone.Mismatch, tone);
-            Assert.Contains("✗", text);
+            Assert.StartsWith(HudText.MismatchWord, text);
             Assert.Contains(right.Label, text);
             Assert.Contains(wrong.Label, text);
 
@@ -192,6 +192,80 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(-15, s.Server.World.Economy.Wallet); // 30 ¢ × 0.5
             Assert.Equal(-15, s.World.Global.Wallet);
             Assert.Contains(s.Feed.Entries, e => e.Bad && e.Text.StartsWith("You misdelivered 1 Small Package"));
+        }
+
+        [Fact]
+        public void PromptNeedsTheViewOnTheMailbox()
+        {
+            var s = new Session();
+            var dest = s.World.Map.Destinations[2];
+            s.Teleport(dest.MailboxX + 1.5f, dest.MailboxZ);
+
+            // Looking straight at it from the eyes.
+            ViewRay.Aim(s.World.Local, dest.MailboxX, 1.0f, dest.MailboxZ, out s.Client.Input.YawRadians, out s.Client.Input.PitchRadians);
+            s.Frame(interact: false);
+            Assert.Equal(InteractKind.Deliver, s.Interaction.Prompt.Kind);
+            Assert.Same(dest, s.Interaction.Prompt.Destination);
+
+            // Back turned: in range, but not in view.
+            s.Client.Input.YawRadians += System.MathF.PI;
+            s.Frame(interact: false);
+            Assert.Equal(InteractKind.None, s.Interaction.Prompt.Kind);
+
+            // Facing it but looking at the sky.
+            s.Client.Input.YawRadians -= System.MathF.PI;
+            s.Client.Input.PitchRadians = 1.2f;
+            s.Frame(interact: false);
+            Assert.Equal(InteractKind.None, s.Interaction.Prompt.Kind);
+        }
+
+        [Fact]
+        public void ViewRayHitsWhatItIsAimedAt()
+        {
+            var feet = new PlayerMoveState { X = 10f, Y = 0f, Z = 10f };
+            var box = new AimBox(12f, 1f, 7f, 0.5f, 1f, 0.5f);
+            ViewRay.Aim(feet, box.X, box.Y, box.Z, out float yaw, out float pitch);
+            var ray = ViewRay.FromPlayer(feet, yaw, pitch);
+            Assert.Equal(1.6f, ray.Y, 3);
+            Assert.InRange(ray.Hit(box), 2.5f, 3.7f);
+            Assert.Equal(-1f, new ViewRay(ray.X, ray.Y, ray.Z, yaw + 1.5f, pitch).Hit(box));
+            // Yaw 0 looks along −Z, positive pitch looks up.
+            var ahead = new ViewRay(0f, 0f, 0f, 0f, 0f);
+            Assert.Equal(-1f, ahead.DirZ, 5);
+            Assert.True(new ViewRay(0f, 0f, 0f, 0f, 0.5f).DirY > 0f);
+        }
+
+        [Fact]
+        public void HotbarAssistSelectsPickedUpMailAndTheNextStackAfterADelivery()
+        {
+            var s = new Session();
+            var map = s.World.Map;
+            var assist = new HotbarAssist();
+            assist.Update(s.Client);
+            Assert.Equal(0, s.Client.Input.HeldSlot); // hands
+
+            s.Give(s.Player.Hotbar, "letter", map.Destinations[1]);
+            s.Give(s.Player.Hotbar, "letter", map.Destinations[2]);
+            assist.Update(s.Client);
+            Assert.Equal(1, s.Client.Input.HeldSlot);
+
+            // Choosing hands by key sticks while nothing changes.
+            s.Client.Input.HeldSlot = 0;
+            assist.Update(s.Client);
+            assist.Update(s.Client);
+            Assert.Equal(0, s.Client.Input.HeldSlot);
+
+            // Deliver the held stack: the next one is selected.
+            s.Client.Input.HeldSlot = 1;
+            assist.Update(s.Client);
+            var held = s.World.Hotbar.EntryAt(1, 0)!;
+            var dest = map.FindDestination(held.Stack.Address)!;
+            s.Teleport(dest.MailboxX + 0.5f, dest.MailboxZ);
+            s.Client.Deliver(s.World.Hotbar.Id, held.EntryId, dest.Id);
+            s.Run(10);
+            Assert.Null(s.World.Hotbar.EntryAt(1, 0));
+            assist.Update(s.Client);
+            Assert.Equal(2, s.Client.Input.HeldSlot);
         }
 
         [Fact]

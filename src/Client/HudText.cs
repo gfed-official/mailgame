@@ -47,15 +47,20 @@ namespace PerformativeMail.Client
         public static string Name(ContentDb content, ItemStack stack) =>
             stack.Kind == StackKind.Mail ? content.MailKinds[stack.DefIndex].Name : content.Items[stack.DefIndex].Name;
 
-        /// <summary>Full description of a stack for tooltips and lists: "3 Letters → 13 Larch Lane".</summary>
+        /// <summary>Full description of a stack for tooltips and lists: "3 Letters for 13 Larch Lane".</summary>
         public static string Stack(ClientWorld world, ItemStack stack) =>
             stack.Kind == StackKind.Mail
-                ? $"{CountAndKind(world.Content, stack)} → {world.Map.FormatAddress(stack.Address)}"
+                ? $"{CountAndKind(world.Content, stack)} for {world.Map.FormatAddress(stack.Address)}"
                 : CountAndKind(world.Content, stack);
+
+        public const string MatchWord = "MATCH";
+        public const string MismatchWord = "WRONG ADDRESS";
 
         /// <summary>
         /// The interact prompt line. For a delivery it shows the stack's address and the mailbox's
-        /// address side by side with a tick or a cross: the game never hides a mismatch.
+        /// address side by side with the verdict in words; the HUD draws the tick or cross that goes
+        /// with <paramref name="tone"/> itself, because the UI font has no ✓ / ✗ glyphs. The game
+        /// never hides a mismatch.
         /// </summary>
         public static string Prompt(ClientWorld world, in InteractPrompt p, out PromptTone tone)
         {
@@ -72,11 +77,11 @@ namespace PerformativeMail.Client
                     if (!p.KindAccepted)
                     {
                         tone = PromptTone.Mismatch;
-                        return $"{Name(world.Content, p.Stack.Stack)} does not fit the mailbox at {dest.Label}  ✗";
+                        return $"{Name(world.Content, p.Stack.Stack)} does not fit the mailbox at {dest.Label}";
                     }
                     tone = p.AddressMatches ? PromptTone.Match : PromptTone.Mismatch;
-                    string mark = p.AddressMatches ? "✓" : "✗";
-                    return $"Deliver {Stack(world, p.Stack.Stack)}   |   mailbox: {dest.Label}  {mark}  [hold E]{all}";
+                    string verdict = p.AddressMatches ? MatchWord : MismatchWord;
+                    return $"{verdict}   ·   Deliver {Stack(world, p.Stack.Stack)}   |   mailbox: {dest.Label}   [hold E]{all}";
                 }
                 default: return "";
             }
