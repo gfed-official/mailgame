@@ -34,11 +34,12 @@ namespace PerformativeMail.App
 
         public bool HasJoined { get; private set; }
 
-        public void StartHost(ContentDb content, uint seed, string playerName)
+        /// <param name="quickStart">Skip Lobby and Prep (<see cref="SimSettings.QuickStart"/>): straight into a shift.</param>
+        public void StartHost(ContentDb content, uint seed, string playerName, bool quickStart = false)
         {
             Content = content;
             var hub = new LoopbackHub();
-            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = true }, hub) { Log = line => GD.Print("[server] ", line) };
+            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart }, hub) { Log = line => GD.Print("[server] ", line) };
             Client = new ClientRuntime(content, hub.CreateClient(), playerName);
             Interaction = new InteractionController(Client);
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);

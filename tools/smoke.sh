@@ -8,6 +8,10 @@ DOTNET="${DOTNET:-$HOME/.dotnet/dotnet}"
 GODOT="${GODOT:-$HOME/.local/bin/godot}"
 SEED="${1:-1}"
 
+# Godot finds the .NET runtime through `dotnet` on PATH or DOTNET_ROOT; make sure it can.
+export DOTNET_ROOT="${DOTNET_ROOT:-$(dirname "$(readlink -f "$DOTNET")")}"
+export PATH="$DOTNET_ROOT:$PATH"
+
 "$DOTNET" build PerformativeMail.sln -nodeReuse:false -v quiet -nologo
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT

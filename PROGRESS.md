@@ -63,10 +63,13 @@ list below.
       abandons the run after the grace period; a finished run resets for the next one
 - [x] Net: requests (start, ready, continue), events (shift summary, run results), host and ready
       flags replicated, protocol schema bumped to `m1.0`
-- [ ] Client: phase-aware HUD (phase line, hints, ready list), Payday summary and Results overlays,
-      ready key, event feed lines
-- [ ] Bot plays whole runs (start, ready, deliver to quota, continue); Net.Tests cover a full run
-- [ ] Godot smoke walks Lobby → Prep → Delivery → Payday → … → Results → Lobby
+- [x] Client: phase-aware HUD (phase line, hints, ready count), Payday summary and Results panel,
+      the "go" key (G: start / ready / continue), event feed lines
+- [x] Bot plays whole runs (start, ready, deliver to quota, continue); Net.Tests cover a full run
+      (`RunFlowTests`)
+- [x] The Godot host runs the real loop (boots into the Lobby; `--quick` keeps the old straight-
+      into-a-shift start), and the smoke walks Lobby → Prep → Delivery → Payday → … → Results →
+      Lobby, checking the HUD and the panel at each step against the server
 - [ ] Postal Rank XP kept in a local MetaProfile (doc 01 §5.1, doc 08 §3.8; XP only)
 - [ ] Solo pause (doc 01 §1 "Shift clock")
 
@@ -218,14 +221,23 @@ tools/smoke.sh [seed]            # build + Godot headless smoke; exit 0 and "SMO
 # the smoke in a (virtual) window, saving PNGs of the boot view and each prompt:
 xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --smoke --shots=/tmp/shots
 
-~/.local/bin/godot --path .                                      # play: host on the test street
+~/.local/bin/godot --path .                                      # play: host on the test street, in the Lobby (G starts)
 ~/.local/bin/godot --path . -- --seed=7 --name=Ada               # user args go after "--"
+~/.local/bin/godot --path . -- --quick                           # skip Lobby and Prep: straight into shift 1
 ```
+
+Godot needs to find the .NET runtime: either `dotnet` on `PATH` or `DOTNET_ROOT=$HOME/.dotnet`
+(`tools/smoke.sh` sets both itself).
 
 Godot loads the assembly from `.godot/mono/temp/bin/Debug/`, so run `dotnet build` after every code
 change before starting Godot from the command line.
 
-The smoke checks, inside the real Godot host: the player spawns on the pad; mail arrives; the Intake
+The smoke plays one whole run inside the real Godot host (about 10 s): it boots into the Lobby
+(HUD says so, no mail yet), the host presses go, Prep shows the coming quota, Ready ends Prep, then
+in Delivery the close-up checks below run at 3 ticks per frame; after them the rest of the run is
+fast-forwarded at 30 ticks per frame with the bot delivering, and at every Payday and at Results the
+panel on screen must equal `HudText` of the server's summary / results; the host continues and the
+Lobby must be clean (wallet 0, no carried mail, panel gone). Close-up checks: the player spawns on the pad; mail arrives; the Intake
 prompt and manifest show; mail is carried; the mailbox prompt shows; delivery and misdelivery events
 reach the client; server wallet = start + paid − penalties = client wallet = the HUD's wallet line;
 no container desync or bad packet; the world, player view and camera exist; the boot view (camera

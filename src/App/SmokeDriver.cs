@@ -7,22 +7,28 @@ using PerformativeMail.Client.Presentation;
 using PerformativeMail.Client.UI;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.App
 {
     /// <summary>
     /// Headless smoke (run with "-- --smoke"): a DeliveryBot plays the real client inside the Godot
-    /// host until it has delivered and misdelivered mail, then the driver checks spawn → pickup →
-    /// deliver → wallet on both ends and on the screen. Prints "SMOKE OK" and exits 0, or
-    /// "SMOKE FAIL: …" and exits 1.
+    /// host through one whole run. Lobby → Prep → Delivery, where the driver checks spawn → pickup →
+    /// deliver → wallet on both ends and on the screen; then the rest of the run fast-forwarded,
+    /// checking every Payday summary and the Results panel, and back to the Lobby. Prints
+    /// "SMOKE OK" and exits 0, or "SMOKE FAIL: …" and exits 1.
     /// </summary>
     public partial class SmokeDriver : Node
     {
-        private enum Phase { Deliver, RealTime, Done }
+        private enum Stage { Lobby, Prep, Deliver, RealTime, RunOut, BackToLobby, Done }
 
         private const int TicksPerFrame = 3;
+        /// <summary>Once the close-up checks are done the remaining shifts run at one second per frame.</summary>
+        private const int RunOutTicksPerFrame = 30;
         private const int BootFrames = 3;
         private const int TimeoutTicks = 5400;
+        /// <summary>Longer than five full shifts with their Prep and Payday.</summary>
+        private const int RunTimeoutTicks = 70000;
         private const int WantDelivered = 3;
         private const int WantMisdelivered = 1;
         private const double RealTimeSeconds = 1.0;
@@ -31,7 +37,14 @@ namespace PerformativeMail.App
         private GameScreen _screen = null!;
         private DeliveryBot _bot = null!;
         private Action _botTick = null!;
-        private Phase _phase = Phase.Deliver;
+        private Stage _stage = Stage.Lobby;
+        private int _stageFrames, _goCooldown;
+        private uint _runOutStartTick;
+        private int _checkedSummaryShift;
+        private bool _checkedResults;
+        private RunResults? _results;
+        private readonly List<RunPhase> _phases = new List<RunPhase>();
+        private readonly List<ShiftSummary> _summaries = new List<ShiftSummary>();
 
         /// <summary>With a window (not headless), PNGs of the boot view and each prompt are saved here.</summary>
         public string? ShotDir;
@@ -55,12 +68,11 @@ namespace PerformativeMail.App
 
             var pad = world.Map.PostOffice;
             _spawnDistance = new Vector2(world.Local.X - pad.SpawnPadX, world.Local.Z - pad.SpawnPadZ).Length();
-            _startWallet = session.Server!.World.Economy.Wallet;
-            _startTick = session.Server.World.Tick;
             CheckBootView();
 
             client.EventReceived += OnEvent;
-            _bot = new DeliveryBot(client) { MisdeliverEvery = 4 };
+            // The driver presses "go" itself, so each phase stays on screen long enough to be checked.
+            _bot = new DeliveryBot(client) { MisdeliverEvery = 4, AutoRun = false };
             // The bot waits a few frames, so the boot view is drawn (and can be pictured) untouched.
             _botTick = () => { if (_frames >= BootFrames) _bot.Tick(); };
             client.TickStarting += _botTick;
@@ -74,6 +86,8 @@ namespace PerformativeMail.App
                 case DeliveredEvent e: _paid += e.Paid; _deliveredEvents++; break;
                 case MisdeliveredEvent e: _penalties += e.Penalty; _misdeliveredEvents++; break;
                 case MailSpawnedEvent e: _mailArrived += e.Count; break;
+                case PhaseChangedEvent e: _phases.Add(e.Phase); break;
+                case ShiftSummaryEvent e: _summaries.Add(e.Summary); break;
             }
         }
 
@@ -134,59 +148,270 @@ namespace PerformativeMail.App
 
         public override void _Process(double delta)
         {
-            if (_phase == Phase.Done) return;
+            if (_stage == Stage.Done) return;
+            var client = _session.Client;
+            var world = client.World!;
+            var server = _session.Server!.World;
+            var hud = _screen.Hud;
+            if (_goCooldown > 0) _goCooldown--;
+
+            switch (_stage)
+            {
+                case Stage.Lobby:
+                    // The game boots into the Lobby: nothing runs until the host presses "go".
+                    hud.Refresh();
+                    if (_frames > 0) TrackCamera();
+                    if (_frames == 1) Shot("boot");
+                    if (_frames == BootFrames)
+                    {
+                        Check(server.Run.Phase == RunPhase.Lobby && world.Global.Phase == RunPhase.Lobby, $"booted into {server.Run.Phase}, not the Lobby");
+                        Check(world.IsHost, "the hosting player is not the host");
+                        Check(hud.PhaseText == "LOBBY", $"in the Lobby the HUD phase line is \"{hud.PhaseText}\"");
+                        Check(hud.HintText.Contains($"Press {HudText.GoKey} to start", StringComparison.Ordinal), $"in the Lobby the HUD hint is \"{hud.HintText}\"");
+                        Check(hud.QuotaText.Length == 0, $"in the Lobby the HUD shows a quota: \"{hud.QuotaText}\"");
+                        Check(_mailArrived == 0 && server.Intake.EntryCount == 0, "mail arrived before the run started");
+                        Go();
+                    }
+                    _frames++;
+                    if (world.Global.Phase == RunPhase.Prep) Enter(Stage.Prep);
+                    else if (_frames > BootFrames + 60) Fail("the run did not leave the Lobby after the host pressed go");
+                    break;
+
+                case Stage.Prep:
+                    hud.Refresh();
+                    TrackCamera();
+                    if (_stageFrames == 2)
+                    {
+                        Check(hud.PhaseText.Contains("PREP", StringComparison.Ordinal), $"in Prep the HUD phase line is \"{hud.PhaseText}\"");
+                        Check(hud.QuotaText == HudText.Quota(world.Global) && hud.QuotaText.StartsWith("Quota $", StringComparison.Ordinal), $"in Prep the HUD quota line is \"{hud.QuotaText}\"");
+                        Check(hud.HintText.Contains("ready", StringComparison.Ordinal), $"in Prep the HUD hint is \"{hud.HintText}\"");
+                        Check(server.Intake.EntryCount == 0, "mail arrived during Prep");
+                        Shot("prep");
+                    }
+                    // Ready ends Prep early (doc 01 §1).
+                    if (_stageFrames >= 2 && !world.LocalReady) Go();
+                    _stageFrames++;
+                    if (world.Global.Phase == RunPhase.Delivery)
+                    {
+                        _startWallet = server.Economy.Wallet;
+                        _startTick = server.Tick;
+                        Enter(Stage.Deliver);
+                    }
+                    else if (_stageFrames > 80) Fail("Prep did not end after the only player readied up");
+                    break;
+
+                case Stage.Deliver:
+                    StepDeliver(delta);
+                    break;
+
+                case Stage.RealTime:
+                    _realTime += delta;
+                    if (_realTime < RealTimeSeconds) break;
+                    Verify();
+                    if (_failures.Count > 0) { Finish(); break; }
+                    // The rest of the run, fast: the bot delivers flat out, the driver presses "go".
+                    _bot.MisdeliverEvery = 0;
+                    client.TickStarting += _botTick;
+                    _session.FixedTicksPerFrame = RunOutTicksPerFrame;
+                    _runOutStartTick = server.Tick;
+                    Enter(Stage.RunOut);
+                    break;
+
+                case Stage.RunOut:
+                    StepRunOut();
+                    break;
+
+                case Stage.BackToLobby:
+                    hud.Refresh();
+                    _stageFrames++;
+                    if (world.Global.Phase != RunPhase.Lobby)
+                    {
+                        if (_stageFrames > 60) Fail("the run did not return to the Lobby after the host continued");
+                        break;
+                    }
+                    if (world.Global.Wallet != 0 && _stageFrames <= 60) break; // the global block follows within a few ticks
+                    VerifyRun();
+                    Finish();
+                    break;
+            }
+        }
+
+        private void Enter(Stage stage)
+        {
+            _stage = stage;
+            _stageFrames = 0;
+        }
+
+        private void Fail(string failure)
+        {
+            _failures.Add(failure);
+            Finish();
+        }
+
+        /// <summary>The "go" key (start / ready / continue), at most once every few frames so the answer can arrive.</summary>
+        private void Go()
+        {
+            if (_goCooldown > 0 || _session.Client.PendingRequestCount > 0) return;
+            if (_session.Client.PressGo() != 0) _goCooldown = 6;
+        }
+
+        private void StepDeliver(double delta)
+        {
             var client = _session.Client;
             var world = client.World!;
             var server = _session.Server!.World;
 
-            if (_phase == Phase.Deliver)
+            // The bot sends its requests itself; the controller only computes the prompt the HUD shows.
+            _session.Interaction.Update(delta, false, false);
+            _screen.Hud.Refresh();
+            var prompt = _session.Interaction.Prompt;
+            bool shown = _screen.Hud.PromptText.Length > 0;
+            if (shown && (prompt.Kind == InteractKind.OpenIntake || prompt.Kind == InteractKind.CloseIntake)) _sawIntakePrompt = true;
+            if (shown && prompt.Kind == InteractKind.Deliver) _sawMailboxPrompt = true;
+            if (_screen.Hud.PromptMark == PromptTone.Match && prompt.Kind == InteractKind.Deliver && prompt.AddressMatches) _sawMatchMark = true;
+            if (_screen.Hud.PromptMark == PromptTone.Mismatch && prompt.Kind == InteractKind.Deliver && !prompt.AddressMatches) _sawMismatchMark = true;
+            if (_screen.Inventory.Visible && _screen.Inventory.ManifestRows > 0) _sawManifest = true;
+            if (world.Hotbar.EntryCount + world.Inventory.EntryCount > 0) _sawCarriedMail = true;
+            TrackCamera();
+            foreach (char c in FontCheck.MissingGlyphs(_screen.Hud) + FontCheck.MissingGlyphs(_screen.Inventory))
+                if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
+
+            if (_sawIntakePrompt) Shot("intake");
+            if (_sawManifest) Shot("manifest");
+            if (_sawMatchMark) Shot("match");
+            if (_sawMismatchMark) Shot("mismatch");
+
+            if (_bot.StacksDelivered >= WantDelivered && _bot.StacksMisdelivered >= WantMisdelivered && client.PendingRequestCount == 0)
             {
-                // The bot sends its requests itself; the controller only computes the prompt the HUD shows.
-                _session.Interaction.Update(delta, false, false);
-                _screen.Hud.Refresh();
-                var prompt = _session.Interaction.Prompt;
-                bool shown = _screen.Hud.PromptText.Length > 0;
-                if (shown && (prompt.Kind == InteractKind.OpenIntake || prompt.Kind == InteractKind.CloseIntake)) _sawIntakePrompt = true;
-                if (shown && prompt.Kind == InteractKind.Deliver) _sawMailboxPrompt = true;
-                if (_screen.Hud.PromptMark == PromptTone.Match && prompt.Kind == InteractKind.Deliver && prompt.AddressMatches) _sawMatchMark = true;
-                if (_screen.Hud.PromptMark == PromptTone.Mismatch && prompt.Kind == InteractKind.Deliver && !prompt.AddressMatches) _sawMismatchMark = true;
-                if (_screen.Inventory.Visible && _screen.Inventory.ManifestRows > 0) _sawManifest = true;
-                if (world.Hotbar.EntryCount + world.Inventory.EntryCount > 0) _sawCarriedMail = true;
-                if (_frames > 0) TrackCamera();
-                foreach (char c in FontCheck.MissingGlyphs(_screen.Hud) + FontCheck.MissingGlyphs(_screen.Inventory))
-                    if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
+                client.TickStarting -= _botTick;
+                client.Input.MoveX = 0f;
+                client.Input.MoveZ = 0f;
+                client.Input.Buttons = 0;
+                // Back to the frame clock: the same loop a player gets.
+                _session.FixedTicksPerFrame = 0;
+                _realTimeStartTick = server.Tick;
+                Enter(Stage.RealTime);
+            }
+            else if (server.Tick - _startTick > TimeoutTicks)
+            {
+                Fail($"timed out after {TimeoutTicks} ticks: delivered {_bot.StacksDelivered}/{WantDelivered}, misdelivered {_bot.StacksMisdelivered}/{WantMisdelivered}, "
+                    + $"rejected {_bot.RequestsRejected} (last {_bot.LastRejection}), mail arrived {_mailArrived}");
+            }
+        }
 
-                if (_frames == 1) Shot("boot");
-                if (_sawIntakePrompt) Shot("intake");
-                if (_sawManifest) Shot("manifest");
-                if (_sawMatchMark) Shot("match");
-                if (_sawMismatchMark) Shot("mismatch");
-                _frames++;
+        /// <summary>
+        /// Delivery → Payday → next Prep … → Results. At each Payday and at Results the panel on
+        /// screen must show exactly what the server decided.
+        /// </summary>
+        private void StepRunOut()
+        {
+            var client = _session.Client;
+            var world = client.World!;
+            var server = _session.Server!.World;
+            var hud = _screen.Hud;
+            hud.Refresh();
+            foreach (char c in FontCheck.MissingGlyphs(hud))
+                if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
 
-                if (_bot.StacksDelivered >= WantDelivered && _bot.StacksMisdelivered >= WantMisdelivered && client.PendingRequestCount == 0)
+            switch (world.Global.Phase)
+            {
+                case RunPhase.Prep:
+                    if (!world.LocalReady) Go();
+                    break;
+
+                case RunPhase.Payday:
                 {
-                    client.TickStarting -= _botTick;
-                    client.Input.MoveX = 0f;
-                    client.Input.MoveZ = 0f;
-                    client.Input.Buttons = 0;
-                    // Back to the frame clock: the same loop a player gets.
-                    _session.FixedTicksPerFrame = 0;
-                    _realTimeStartTick = server.Tick;
-                    _phase = Phase.RealTime;
+                    var summary = world.LastSummary;
+                    if (summary == null || summary.Shift == _checkedSummaryShift) break;
+                    _checkedSummaryShift = summary.Shift;
+                    var truth = server.Run.LastSummary;
+                    Check(truth != null && truth.Shift == summary.Shift && truth.Earned == summary.Earned && truth.Quota == summary.Quota
+                        && truth.QuotaMet == summary.QuotaMet && truth.Bonus == summary.Bonus && truth.Deliveries == summary.Deliveries,
+                        $"the client's summary of shift {summary.Shift} differs from the server's");
+                    Check(summary.QuotaMet == (summary.Earned >= summary.Quota), $"shift {summary.Shift}: earned {summary.Earned} of {summary.Quota} but QuotaMet is {summary.QuotaMet}");
+                    string want = string.Join("\n", HudText.SummaryLines(world, summary));
+                    Check(hud.Overlay.Visible && hud.OverlayText == want, $"at Payday of shift {summary.Shift} the panel shows \"{hud.OverlayText}\", expected \"{want}\"");
+                    Check(hud.PhaseText.Contains("PAYDAY", StringComparison.Ordinal), $"at Payday the HUD phase line is \"{hud.PhaseText}\"");
+                    Check(hud.HintText.Contains(summary.QuotaMet ? "uota met" : "Quota missed", StringComparison.Ordinal), $"at Payday the HUD hint is \"{hud.HintText}\"");
+                    Shot($"payday{summary.Shift}");
+                    break;
                 }
-                else if (server.Tick - _startTick > TimeoutTicks)
+
+                case RunPhase.Results:
                 {
-                    _failures.Add($"timed out after {TimeoutTicks} ticks: delivered {_bot.StacksDelivered}/{WantDelivered}, misdelivered {_bot.StacksMisdelivered}/{WantMisdelivered}, "
-                        + $"rejected {_bot.RequestsRejected} (last {_bot.LastRejection}), mail arrived {_mailArrived}");
-                    Finish();
+                    var results = world.Results;
+                    if (results == null) break;
+                    if (!_checkedResults)
+                    {
+                        _checkedResults = true;
+                        _results = results;
+                        var truth = server.Run.Results;
+                        Check(truth != null && truth.Outcome == results.Outcome && truth.Score == results.Score && truth.ShiftsCompleted == results.ShiftsCompleted
+                            && truth.Deliveries == results.Deliveries && truth.Players.Count == results.Players.Count,
+                            "the client's run results differ from the server's");
+                        string want = string.Join("\n", HudText.ResultsLines(world, results));
+                        Check(hud.Overlay.Visible && hud.OverlayText == want, $"at Results the panel shows \"{hud.OverlayText}\", expected \"{want}\"");
+                        Check(hud.PhaseText.StartsWith("RESULTS", StringComparison.Ordinal), $"at Results the HUD phase line is \"{hud.PhaseText}\"");
+                        Check(hud.HintText.Contains($"Press {HudText.GoKey}", StringComparison.Ordinal), $"at Results the HUD hint is \"{hud.HintText}\"");
+                        Shot("results");
+                        // A slower clock again, so the picture is taken before the host leaves the screen.
+                        _session.FixedTicksPerFrame = TicksPerFrame;
+                        _stageFrames = 0;
+                    }
+                    else if (++_stageFrames >= 3)
+                    {
+                        Go();
+                        if (_goCooldown > 0)
+                        {
+                            client.TickStarting -= _botTick;
+                            Enter(Stage.BackToLobby);
+                        }
+                    }
+                    break;
                 }
-                return;
             }
 
-            _realTime += delta;
-            if (_realTime < RealTimeSeconds) return;
-            Verify();
-            Finish();
+            if (_stage == Stage.RunOut && server.Tick - _runOutStartTick > RunTimeoutTicks)
+                Fail($"the run did not reach Results within {RunTimeoutTicks} ticks (shift {server.Run.Shift}, {server.Run.Phase}; saw {string.Join(", ", _phases)})");
+        }
+
+        /// <summary>After Results → Lobby: the whole run as the client saw it.</summary>
+        private void VerifyRun()
+        {
+            var client = _session.Client;
+            var world = client.World!;
+            var server = _session.Server!.World;
+            var hud = _screen.Hud;
+            hud.Refresh();
+
+            string seen = string.Join(", ", _phases);
+            Check(_phases.Count >= 5 && _phases[0] == RunPhase.Prep && _phases[1] == RunPhase.Delivery && _phases[2] == RunPhase.Payday
+                && _phases[_phases.Count - 2] == RunPhase.Results && _phases[_phases.Count - 1] == RunPhase.Lobby,
+                $"the phases the client saw were: {seen}");
+            Check(_summaries.Count >= 1 && _results != null, $"{_summaries.Count} shift summaries and {(_results == null ? "no" : "the")} run results reached the client");
+            if (_results != null)
+            {
+                int met = 0, earned = 0;
+                foreach (var s in _summaries) { if (s.QuotaMet) met++; earned += s.Earned + s.Bonus; }
+                Check(_results.ShiftsCompleted == met, $"results say {_results.ShiftsCompleted} shifts completed, the summaries say {met}");
+                Check(_results.TotalEarned == earned, $"results say {_results.TotalEarned} earned, the summaries add up to {earned}");
+                var wantOutcome = met == HudText.ShiftCount(world.Content) ? RunOutcome.Victory : RunOutcome.QuotaMissed;
+                Check(_results.Outcome == wantOutcome, $"the run ended as {_results.Outcome} after {met} of {_summaries.Count} quotas");
+            }
+
+            Check(server.Run.Phase == RunPhase.Lobby && server.Run.RunNumber == 1, $"the server is in {server.Run.Phase} of run {server.Run.RunNumber}");
+            Check(hud.PhaseText == "LOBBY", $"back in the Lobby the HUD phase line is \"{hud.PhaseText}\"");
+            Check(!hud.Overlay.Visible, "the results panel is still shown in the Lobby");
+            Check(world.Global.Wallet == 0 && server.Economy.Wallet == 0, $"a new run starts with wallet {world.Global.Wallet} (server {server.Economy.Wallet})");
+            Check(world.Hotbar.EntryCount + world.Inventory.EntryCount == 0, "mail from the finished run is still carried in the Lobby");
+            Check(client.ContainerDesyncs == 0, $"{client.ContainerDesyncs} container desyncs");
+            Check(client.BadPackets == 0, $"{client.BadPackets} bad packets");
+            Check(_bot.RequestsRejected == 0, $"{_bot.RequestsRejected} bot requests rejected (last {_bot.LastRejection})");
+            Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
+
+            var book = new List<string>();
+            foreach (var s in _summaries) book.Add($"{HudText.Money(s.Earned)}/{HudText.Money(s.Quota)}");
+            GD.Print($"[smoke] run: {seen}; shifts {string.Join(" ", book)}; {(_results == null ? "no results" : $"{_results.Outcome}, score {HudText.Money(_results.Score)}")}; {server.Tick} ticks");
         }
 
         private void Verify()
@@ -261,7 +486,7 @@ namespace PerformativeMail.App
 
         private void Finish()
         {
-            _phase = Phase.Done;
+            _stage = Stage.Done;
             if (_failures.Count == 0) GD.Print("SMOKE OK");
             else
                 foreach (string failure in _failures) GD.PrintErr("SMOKE FAIL: ", failure);
