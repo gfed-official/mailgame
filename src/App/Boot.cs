@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using PerformativeMail.Client.InputHandling;
 using PerformativeMail.Sim.Content;
 
 namespace PerformativeMail.App
@@ -35,10 +36,17 @@ namespace PerformativeMail.App
             }
             GD.Print($"[boot] content {content.ContentHash:x8}, seed {seed}, {(smoke ? "smoke" : "host")}");
 
+            InputActions.Register();
             var session = new GameSession { Name = "Session" };
             session.StartHost(content, seed, name);
             AddChild(session);
-            session.Joined += () => GD.Print($"[boot] joined as {session.Client.World!.LocalId} on {session.Client.World.Map.Name}");
+            session.Joined += () =>
+            {
+                GD.Print($"[boot] joined as {session.Client.World!.LocalId} on {session.Client.World.Map.Name}");
+                var screen = new GameScreen { Name = "Screen" };
+                screen.Setup(session, humanInput: !smoke);
+                AddChild(screen);
+            };
         }
     }
 }
