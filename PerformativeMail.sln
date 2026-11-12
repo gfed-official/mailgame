@@ -27,6 +27,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Net.Tests", "Net.Tests", "{
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformativeMail.Net.Tests", "tests\Net.Tests\PerformativeMail.Net.Tests.csproj", "{41276633-7AC6-48CC-AF09-1A26BB2CB77A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformativeMail", "PerformativeMail.csproj", "{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -97,6 +99,18 @@ Global
 		{41276633-7AC6-48CC-AF09-1A26BB2CB77A}.Release|x64.Build.0 = Release|Any CPU
 		{41276633-7AC6-48CC-AF09-1A26BB2CB77A}.Release|x86.ActiveCfg = Release|Any CPU
 		{41276633-7AC6-48CC-AF09-1A26BB2CB77A}.Release|x86.Build.0 = Release|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Debug|x64.Build.0 = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Debug|x86.Build.0 = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Release|x64.ActiveCfg = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Release|x64.Build.0 = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Release|x86.ActiveCfg = Debug|Any CPU
+		{CD302E87-F0FE-4CCD-B9E2-1182B1E160F9}.Release|x86.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
