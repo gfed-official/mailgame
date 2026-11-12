@@ -41,7 +41,7 @@ namespace PerformativeMail.Client.Presentation
                 Visible = false,
             };
             AddChild(_held);
-            AddChild(new Label3D
+            AddChild(new SizedLabel3D
             {
                 Name = "NameTag",
                 Text = playerName,

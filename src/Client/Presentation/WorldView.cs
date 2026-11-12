@@ -90,7 +90,13 @@ namespace PerformativeMail.Client.Presentation
                 Mesh = new PrismMesh { Size = new Vector3(size.X + 0.6f, 1.6f, size.Z + 0.6f), Material = Palette.Flat(colour.Darkened(0.35f)) },
                 Position = new Vector3(centre.X, HouseHeight + 0.8f, centre.Z),
             });
-            AddLabel(dest.Address.Number.ToString(), new Vector3(centre.X, HouseHeight + 2.4f, centre.Z), 160, colour.Lightened(0.5f));
+            // The number floats above the wall that faces the mailbox, not above the ridge: up close the
+            // label is small (SizedLabel3D), and over the middle of the house the roof would hide it.
+            float dx = dest.MailboxX - centre.X, dz = dest.MailboxZ - centre.Z;
+            var front = Mathf.Abs(dx) / size.X > Mathf.Abs(dz) / size.Z
+                ? new Vector3(Mathf.Sign(dx) * size.X * 0.5f, 0f, 0f)
+                : new Vector3(0f, 0f, Mathf.Sign(dz) * size.Z * 0.5f);
+            AddLabel(dest.Address.Number.ToString(), new Vector3(centre.X, HouseHeight + 2.4f, centre.Z) + front, 160, colour.Lightened(0.5f));
         }
 
         private void AddMailbox(DestinationDef dest)
@@ -145,17 +151,16 @@ namespace PerformativeMail.Client.Presentation
 
         private static Label3D MakeLabel(string text, Vector3 position, int fontSize, Color colour, bool flat)
         {
-            var label = new Label3D
-            {
-                Text = text,
-                Position = position,
-                FontSize = fontSize,
-                PixelSize = 0.01f,
-                OutlineSize = fontSize / 6,
-                Modulate = colour,
-                Billboard = flat ? BaseMaterial3D.BillboardModeEnum.Disabled : BaseMaterial3D.BillboardModeEnum.Enabled,
-            };
-            // A flat label lies on the ground, readable from above.
+            // A flat label lies on the ground, readable from above; the others face the camera and
+            // are capped on screen so that walking up to one does not fill the view with it.
+            var label = flat ? new Label3D() : new SizedLabel3D();
+            label.Text = text;
+            label.Position = position;
+            label.FontSize = fontSize;
+            label.PixelSize = 0.01f;
+            label.OutlineSize = fontSize / 6;
+            label.Modulate = colour;
+            label.Billboard = flat ? BaseMaterial3D.BillboardModeEnum.Disabled : BaseMaterial3D.BillboardModeEnum.Enabled;
             if (flat) label.RotationDegrees = new Vector3(-90f, 0f, 0f);
             return label;
         }

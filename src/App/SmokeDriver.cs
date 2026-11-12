@@ -53,8 +53,9 @@ namespace PerformativeMail.App
         private readonly HashSet<string> _shots = new HashSet<string>();
         private int _startWallet, _paid, _penalties, _deliveredEvents, _misdeliveredEvents, _mailArrived;
         private bool _sawIntakePrompt, _sawMailboxPrompt, _sawManifest, _sawCarriedMail, _sawMatchMark, _sawMismatchMark;
-        private float _spawnDistance, _maxEyeOffset, _maxAimOffset;
-        private string _missingGlyphs = "";
+        private float _spawnDistance, _maxEyeOffset, _maxAimOffset, _maxLabelOver;
+        private string _missingGlyphs = "", _biggestLabel = "";
+        private long _labels;
         private int _frames;
         private uint _startTick, _realTimeStartTick;
         private double _realTime;
@@ -77,6 +78,8 @@ namespace PerformativeMail.App
             _botTick = () => { if (_frames >= BootFrames) _bot.Tick(); };
             client.TickStarting += _botTick;
             session.FixedTicksPerFrame = TicksPerFrame;
+            // Checks run once everything else has moved this frame (the camera, the labels that fit to it).
+            ProcessPriority = 1000;
         }
 
         private void OnEvent(SimEvent ev)
@@ -131,11 +134,22 @@ namespace PerformativeMail.App
             var ray = new ViewRay(0f, 0f, 0f, input.YawRadians, input.PitchRadians);
             var forward = -camera.GlobalTransform.Basis.Z;
             _maxAimOffset = Mathf.Max(_maxAimOffset, forward.DistanceTo(new Vector3(ray.DirX, ray.DirY, ray.DirZ)));
+            // World labels (house numbers, signs) are capped on screen however close the player stands.
+            foreach (var node in GetTree().GetNodesInGroup(SizedLabel3D.Group))
+            {
+                if (node is not SizedLabel3D label) continue;
+                _labels++;
+                float over = label.ScreenFraction(camera) / label.MaxScreenFraction;
+                if (over <= _maxLabelOver) continue;
+                _maxLabelOver = over;
+                _biggestLabel = label.Text;
+            }
         }
 
         private void Shot(string name)
         {
             if (ShotDir == null || DisplayServer.GetName() == "headless" || !_shots.Add(name)) return;
+            if (_shots.Count == 1) DirAccess.MakeDirRecursiveAbsolute(ShotDir);
             // Once this frame is drawn, so the picture shows exactly the state that asked for it.
             Action? save = null;
             save = () =>
@@ -460,6 +474,8 @@ namespace PerformativeMail.App
                 Check(_maxAimOffset <= 0.001f, $"the camera's aim strayed {_maxAimOffset:0.000} from the interact ray");
                 Check(view.Bodiless && view.GetChildCount() == 0, "the local player's body is drawn in first person");
             }
+            Check(_labels > 0, "no world labels were checked");
+            Check(_maxLabelOver <= 1.001f, $"the world label \"{_biggestLabel}\" grew to {_maxLabelOver:0.00} times its screen cap");
 
             Check(_sawMatchMark, "the HUD never drew the match tick for a stack at its own mailbox");
             Check(_sawMismatchMark, "the HUD never drew the mismatch cross for a stack at a wrong mailbox");

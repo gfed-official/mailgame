@@ -73,6 +73,19 @@ list below.
 - [ ] Postal Rank XP kept in a local MetaProfile (doc 01 §5.1, doc 08 §3.8; XP only)
 - [ ] Solo pause (doc 01 §1 "Shift clock")
 
+### Playtest nits on fa44a16 (`logs/fable52/nits-fa44a16.md`, 2026-11-12)
+
+- [x] Nit 1 — huge world labels: house numbers, mailbox addresses, INTAKE, POST OFFICE and name
+      tags are `SizedLabel3D`: real size from far away, but never more than 5 % of the screen height
+      per line up close (`LabelSizing`, unit-tested; the smoke checks every label every frame). House
+      numbers moved from above the ridge to above the wall that faces the mailbox, where the roof
+      does not hide the now-small number from the street.
+- [ ] Nit 2 — second manifest click put a package into the inventory, double height
+- [ ] Nit 3 — manifest rows reorder under the cursor
+- [ ] Nit 4 — an emptied hotbar slot stays selected
+- [ ] Nit 5 — a very fast E tap can fail to open the Intake
+- [ ] Nit 6 — complaint 20 after one 4-letter misdelivery (design check only)
+
 ### Hardening toward the written M0 acceptance criteria (after the rough loop)
 
 - [ ] ENet transport (listen server + remote clients), protocol hash rejection
