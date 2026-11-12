@@ -19,13 +19,21 @@ Netcode, movement, hand delivery on a fixed map. Standing rule: rough playable f
       mailbox acceptance / misdelivery, team wallet
 - [x] Net: binary messages, protocol hash, loopback transport, ServerRuntime / ClientRuntime
 - [x] Headless bot that walks Intake → mailbox and delivers (the smoke proof of the loop)
-- [ ] Godot host window: world view, third-person camera, minimal HUD (timer, wallet, interact prompt)
-- [ ] Godot headless smoke that boots the project and exercises spawn → pickup → deliver → wallet
+- [x] Godot host window: world view, third-person camera, minimal HUD (timer, wallet, interact prompt)
+- [x] Godot headless smoke that boots the project and exercises spawn → pickup → deliver → wallet
+
+**The rough loop is done.** `godot --path .` hosts over loopback on the test street: walk (WASD,
+mouse look, Shift, Space), open the Intake with E, click manifest rows to take mail, select a hotbar
+slot (1–8 / wheel), hold E at a mailbox to deliver, F delivers every matching stack; the HUD shows
+shift / phase / timer, quota, wallet, the prompt with ✓/✗ and the event feed. `tools/smoke.sh` proves
+it headless. Not yet seen by a human in a window — the host window has only been run headless here,
+so layout and feel are untested.
 
 ### Hardening toward the written M0 acceptance criteria (after the rough loop)
 
 - [ ] ENet transport (listen server + remote clients), protocol hash rejection
-- [ ] Inventory panel UI, optimistic ops with rollback
+- [ ] Inventory panel: drag and drop / rotate / sort, optimistic ops with rollback (the rough panel
+      is click = quick-move, server-confirmed only)
 - [ ] 8 clients / 10 min soak with container hash check on every version
 - [ ] Prediction error < 10 cm RMS at 200 ms / 5 % loss (network conditioner)
 - [ ] 10 000-op two-player chest fuzz: no duplicate / lost item
@@ -70,6 +78,31 @@ See "Commands" at the bottom (filled in as the tooling lands).
    Intake (or backlog) immediately instead of the 120 s freeze of doc 06 §6.
 10. **Bot pathing.** `DeliveryBot` uses a breadth-first tile path (`TilePathfinder`, client side). The
     routing graph of doc 02 arrives with world generation in M1.
+11. **Godot-free client logic.** The interact prompt and its requests (`InteractionController`), every
+    HUD string (`HudText`) and the event feed (`EventFeed`) live in the plain `src/Client` library so
+    xUnit covers them; the Godot nodes only draw them. `src/Client/{Presentation,UI,Input}` are
+    excluded from that library and compiled into the root Godot project instead (choice 1).
+12. **Namespace of the input layer.** The folder is `src/Client/Input` (doc 07) but the namespace is
+    `PerformativeMail.Client.InputHandling`: a namespace ending in `.Input` would hide `Godot.Input`
+    from every `PerformativeMail.Client.*` file.
+13. **Input map.** The default bindings of doc 09 §4 are registered in code at boot
+    (`InputActions.Register`), not serialized in `project.godot`; an action already present in the
+    project is left alone, so rebinding can come later without a migration.
+14. **How a delivery is aimed.** Doc 09 has a hold to insert. Rough loop: the stack in the *selected
+    hotbar slot* is what a held E inserts (slot 1 is hands); F delivers every carried stack that
+    matches the mailbox, hotbar then inventory, one per hold time. The prompt always shows the
+    stack's address beside the mailbox's with ✓ or ✗ — a mismatch is never hidden, and never blocked.
+15. **Intake UI.** The Intake is `view: "manifest"`: one row per (address, kind), a click quick-moves
+    the oldest stack of that row. Any external container is shown this way for now (the Intake is
+    the only one in M0). Own containers are drawn as grids; a click quick-moves.
+16. **Greybox visuals.** No art yet: boxes and capsules built in code from the `WorldMap`. A house,
+    its mailbox, its manifest row and the stripe on its mail share one colour (`Palette`, by the
+    destination's `variant`), as a readability aid on top of the printed address.
+17. **Host loop and the smoke.** `GameSession` drives client then server from `_Process`. Real time
+    uses the frame delta; the smoke sets `FixedTicksPerFrame` (3) so a run is the same every time and
+    takes seconds. The bot decides at `ClientRuntime.TickStarting`. After the deliveries the smoke
+    switches back to the frame clock for 1 s to check that path too.
+18. **`.gdignore` in `design/` and `tests/`** keeps Godot from importing docs and test projects.
 
 ## Commands
 
@@ -78,4 +111,19 @@ All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes o
 ```
 ~/.dotnet/dotnet build PerformativeMail.sln -nodeReuse:false
 ~/.dotnet/dotnet test  PerformativeMail.sln -nodeReuse:false     # Sim.Tests + Net.Tests
+
+tools/smoke.sh [seed]            # build + Godot headless smoke; exit 0 and "SMOKE OK" on success
+~/.local/bin/godot --headless --path . -- --smoke --seed=1      # the smoke alone (build first)
+
+~/.local/bin/godot --path .                                      # play: host on the test street
+~/.local/bin/godot --path . -- --seed=7 --name=Ada               # user args go after "--"
 ```
+
+Godot loads the assembly from `.godot/mono/temp/bin/Debug/`, so run `dotnet build` after every code
+change before starting Godot from the command line.
+
+The smoke checks, inside the real Godot host: the player spawns on the pad; mail arrives; the Intake
+prompt and manifest show; mail is carried; the mailbox prompt shows; delivery and misdelivery events
+reach the client; server wallet = start + paid − penalties = client wallet = the HUD's wallet line;
+no container desync or bad packet; the world, player view and camera exist and the local view sits
+on the server position; the real-time loop advances the server.

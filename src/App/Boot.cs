@@ -46,6 +46,10 @@ namespace PerformativeMail.App
                 var screen = new GameScreen { Name = "Screen" };
                 screen.Setup(session, humanInput: !smoke);
                 AddChild(screen);
+                if (!smoke) return;
+                var driver = new SmokeDriver { Name = "Smoke" };
+                driver.Setup(session, screen);
+                AddChild(driver);
             };
         }
     }
