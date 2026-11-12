@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Client.Bot
@@ -21,6 +22,8 @@ namespace PerformativeMail.Client.Bot
         public bool Sprint = true;
         /// <summary>Deliver every Nth stack to a wrong mailbox (0 = never); exercises the penalty path.</summary>
         public int MisdeliverEvery;
+        /// <summary>Press "go" between shifts: start the run and leave Results as host, ready up in Prep.</summary>
+        public bool AutoRun = true;
 
         public int StacksDelivered { get; private set; }
         public int StacksMisdelivered { get; private set; }
@@ -43,6 +46,7 @@ namespace PerformativeMail.Client.Bot
         private DestinationDef? _targetDest;
         private bool _targetIsWrong;
         private int _stackCounter;
+        private int _goCooldown;
 
         public DeliveryBot(ClientRuntime client)
         {
@@ -55,7 +59,8 @@ namespace PerformativeMail.Client.Bot
             if (request.RequestId != _awaiting) return;
             _awaiting = 0;
             _lastResult = result;
-            if (result != OpResult.Ok)
+            // A request that crosses a phase change (the shift ended while the hand was in the mailbox) is not a fault.
+            if (result != OpResult.Ok && result != OpResult.WrongPhase)
             {
                 RequestsRejected++;
                 LastRejection = result;
@@ -71,6 +76,12 @@ namespace PerformativeMail.Client.Bot
             _client.Input.Buttons = InputButtons.None;
             if (_client.State != ClientState.Joined || world == null || !world.HasLocal) return;
             if (_awaiting != 0) return;
+
+            if (world.Global.Phase != RunPhase.Delivery)
+            {
+                StepOutsideDelivery(world);
+                return;
+            }
 
             var po = world.Map.PostOffice;
             float interact = world.Content.Balance.GetFloat("interactRange");
@@ -168,6 +179,37 @@ namespace PerformativeMail.Client.Bot
                     else _step = Step.PickTarget;
                     break;
             }
+        }
+
+        /// <summary>
+        /// Between shifts there is nothing to deliver: the bot presses "go" when that moves the run
+        /// along (start as host, ready in Prep, continue as host) and otherwise stands still. Mail it
+        /// still carries is taken to its mailbox when the next Delivery starts.
+        /// </summary>
+        private void StepOutsideDelivery(ClientWorld world)
+        {
+            _step = Step.PickTarget;
+            _hasPath = false;
+            if (world.OpenContainerId != 0)
+            {
+                _awaiting = _client.CloseContainer();
+                return;
+            }
+            if (_goCooldown > 0) { _goCooldown--; return; }
+            if (!AutoRun) return;
+
+            bool go;
+            switch (world.Global.Phase)
+            {
+                case RunPhase.Lobby: go = world.IsHost || !world.LocalReady; break;
+                case RunPhase.Prep: go = !world.LocalReady; break;
+                case RunPhase.Results: go = world.IsHost; break;
+                default: go = false; break;
+            }
+            if (!go) return;
+            _awaiting = _client.PressGo();
+            // Ready and the phase arrive by snapshot; do not press again before they can have.
+            _goCooldown = 15;
         }
 
         private static GridEntry? FirstEntry(GridContainer container, HashSet<uint>? skip)

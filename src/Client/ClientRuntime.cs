@@ -142,6 +142,24 @@ namespace PerformativeMail.Client
         public uint SetReady(bool ready) => Send(SimRequest.SetReady(0, ready));
         public uint ContinueRun() => Send(SimRequest.ContinueRun(0));
 
+        /// <summary>
+        /// The one "go" key: the host starts the run in the Lobby and leaves Results; everyone else
+        /// in the Lobby, and everyone in Prep, toggles Ready. Returns the request id, 0 if the key
+        /// does nothing right now.
+        /// </summary>
+        public uint PressGo()
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal) return 0;
+            switch (world.Global.Phase)
+            {
+                case RunPhase.Lobby: return world.IsHost ? StartRun() : SetReady(!world.LocalReady);
+                case RunPhase.Prep: return SetReady(!world.LocalReady);
+                case RunPhase.Results: return world.IsHost ? ContinueRun() : 0;
+                default: return 0;
+            }
+        }
+
         // --- local tick -------------------------------------------------------------------------
 
         private void StepInput()

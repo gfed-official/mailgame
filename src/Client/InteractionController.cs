@@ -2,6 +2,7 @@ using System;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
+using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Client
@@ -30,6 +31,8 @@ namespace PerformativeMail.Client
         public float HoldProgress;
         /// <summary>Deliver: carried stacks addressed to this mailbox ("deliver all matching").</summary>
         public int MatchingStacks;
+        /// <summary>Deliver: mailboxes take mail only during the Delivery phase.</summary>
+        public bool MailboxClosed;
     }
 
     /// <summary>
@@ -144,7 +147,12 @@ namespace PerformativeMail.Client
             if (prompt.Kind != InteractKind.Deliver) return prompt;
 
             var target = prompt.Destination!;
-            prompt.MatchingStacks = CountMatching(world.Hotbar, target) + CountMatching(world.Inventory, target);
+            if (world.Global.Phase != RunPhase.Delivery)
+            {
+                prompt.MailboxClosed = true;
+                return prompt;
+            }
+            prompt.MatchingStacks =CountMatching(world.Hotbar, target) + CountMatching(world.Inventory, target);
             int slot = _client.Input.HeldSlot;
             var entry = slot > 0 ? world.Hotbar.EntryAt(slot, 0) : null;
             if (entry != null && entry.Stack.Kind == StackKind.Mail)
@@ -159,6 +167,12 @@ namespace PerformativeMail.Client
         private void StepDeliver(ClientWorld world, ref InteractPrompt prompt, double dt, bool interactHeld, bool deliverAllPressed)
         {
             var dest = prompt.Destination!;
+            if (prompt.MailboxClosed)
+            {
+                _hold = 0;
+                _deliverAllDest = -1;
+                return;
+            }
             double holdSeconds = dest.Type.ManualInsertHold;
             if (_deliverAllDest >= 0 && _deliverAllDest != dest.Id) _deliverAllDest = -1;
             if (deliverAllPressed && prompt.MatchingStacks > 0 && _deliverAllDest < 0)

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.Client
 {
@@ -47,6 +48,25 @@ namespace PerformativeMail.Client
                 case MisdeliveredEvent e: AddDelivery(world, e.Player, e.DestId, e.Kind, e.Penalty, bad: true); break;
                 case PlayerJoinedEvent e when e.Player != world.LocalId: Add($"{e.Name} joined"); break;
                 case MailSpawnedEvent e: Add($"{HudText.CountAndKind("item", e.Count)} of mail arrived at the Intake"); break;
+                case ShiftSummaryEvent e:
+                {
+                    var s = e.Summary;
+                    string books = $"{HudText.Money(s.Earned)} of {HudText.Money(s.Quota)}";
+                    Add(s.QuotaMet ? $"Shift {s.Shift} is over: quota met ({books})" : $"Shift {s.Shift} is over: quota missed ({books})", bad: !s.QuotaMet);
+                    break;
+                }
+                case PhaseChangedEvent e: OnPhase(e); break;
+            }
+        }
+
+        private void OnPhase(PhaseChangedEvent e)
+        {
+            switch (e.Phase)
+            {
+                case RunPhase.Lobby: Add("Back in the lobby"); break;
+                case RunPhase.Prep: Add($"Shift {e.Shift}: get ready — the quota will be about {HudText.Money(e.Quota)}"); break;
+                case RunPhase.Delivery: Add($"Shift {e.Shift} has started: deliver {HudText.Money(e.Quota)} of mail"); break;
+                case RunPhase.Results: Add(e.Outcome == RunOutcome.Victory ? "The run is won" : "The run is over", bad: e.Outcome != RunOutcome.Victory); break;
             }
         }
 

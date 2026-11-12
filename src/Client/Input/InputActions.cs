@@ -20,6 +20,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string DeliverAll = "deliver_all";
         public const string Inventory = "inventory";
         public const string Pause = "pause";
+        /// <summary>Start the run / ready / continue. Doc 09 §4 has no key for it; R is Rotate and Enter is Chat there, so G ("go").</summary>
+        public const string Go = "go";
 
         private static readonly HashSet<string> Created = new HashSet<string>();
 
@@ -35,6 +37,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(DeliverAll, Key.F);
             BindKey(Inventory, Key.Tab);
             BindKey(Pause, Key.Escape);
+            BindKey(Go, Key.G);
 
             BindAxis(MoveForward, JoyAxis.LeftY, -1f);
             BindAxis(MoveBack, JoyAxis.LeftY, 1f);
@@ -45,6 +48,7 @@ namespace PerformativeMail.Client.InputHandling
             BindButton(Interact, JoyButton.X);
             BindButton(Inventory, JoyButton.Y);
             BindButton(Pause, JoyButton.Start);
+            BindButton(Go, JoyButton.Back);
         }
 
         /// <summary>True if the action is ours to fill in.</summary>

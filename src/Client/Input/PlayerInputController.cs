@@ -99,6 +99,7 @@ namespace PerformativeMail.Client.InputHandling
                 }
             }
             else if (ev.IsActionPressed(InputActions.DeliverAll)) _deliverAllQueued = true;
+            else if (ev.IsActionPressed(InputActions.Go)) _client.PressGo();
         }
 
         /// <summary>Fills the client's input for the ticks of this frame; hooked to <c>GameSession.InputSource</c>.</summary>

@@ -23,6 +23,10 @@ namespace PerformativeMail.Client.UI
         public string QuotaText => _quota.Text;
         public string WalletText => _wallet.Text;
         public string PromptText => _prompt.Text;
+        public string HintText => _hint.Text;
+        /// <summary>The lines of the Payday summary / Results panel while it is shown, else empty.</summary>
+        public string OverlayText => _overlay.Visible ? _overlayText : "";
+        public Control Overlay => _overlay;
         /// <summary>The tick (Match) or cross (Mismatch) drawn beside the prompt right now; Neutral when there is none.</summary>
         public PromptTone PromptMark => _mark.Tone;
         /// <summary>The widgets along the top edge, for the smoke's "nothing is clipped" check.</summary>
@@ -32,7 +36,11 @@ namespace PerformativeMail.Client.UI
         private InteractionController _interaction = null!;
         private EventFeed _feed = null!;
 
-        private Label _phase = null!, _status = null!, _quota = null!, _wallet = null!, _prompt = null!, _held = null!;
+        private Label _phase = null!, _status = null!, _quota = null!, _wallet = null!, _prompt = null!, _held = null!, _hint = null!;
+        private PanelContainer _overlay = null!;
+        private VBoxContainer _overlayLines = null!;
+        private object? _overlaySource;
+        private string _overlayText = "";
         private ProgressBar _hold = null!;
         private MatchMark _mark = null!;
         private GridView _hotbar = null!;
@@ -53,6 +61,29 @@ namespace PerformativeMail.Client.UI
             _status = AddLabel("Status", 16, 0f, 0f, m, m + 40f, 700f, m + 66f, HorizontalAlignment.Left);
             _quota = AddLabel("Quota", 22, 1f, 0f, -520f, m, -m, m + 34f, HorizontalAlignment.Right);
             _wallet = AddLabel("Wallet", 22, 1f, 0f, -520f, m + 34f, -m, m + 68f, HorizontalAlignment.Right);
+
+            // What the run waits for and what the "go" key does, under the top row.
+            _hint = AddLabel("Hint", 20, 0.5f, 0f, -520f, m + 78f, 520f, m + 108f, HorizontalAlignment.Center);
+            _hint.Modulate = Palette.Amber;
+
+            // Payday summary / run results: a panel that sizes itself to its lines, upper middle of the screen.
+            _overlay = new PanelContainer
+            {
+                Name = "Overlay",
+                Visible = false,
+                MouseFilter = MouseFilterEnum.Ignore,
+                AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.2f, AnchorBottom = 0.2f,
+                GrowHorizontal = GrowDirection.Both,
+                GrowVertical = GrowDirection.End,
+            };
+            var back = new StyleBoxFlat { BgColor = new Color(0.05f, 0.06f, 0.08f, 0.82f) };
+            back.SetCornerRadiusAll(6);
+            back.SetContentMarginAll(22f);
+            _overlay.AddThemeStyleboxOverride("panel", back);
+            _overlayLines = new VBoxContainer { Name = "Lines", MouseFilter = MouseFilterEnum.Ignore };
+            _overlayLines.AddThemeConstantOverride("separation", 6);
+            _overlay.AddChild(_overlayLines);
+            AddChild(_overlay);
 
             // First person: a dot marks the exact point the interact ray leaves from.
             var crosshair = new ColorRect
@@ -141,6 +172,8 @@ namespace PerformativeMail.Client.UI
             _quota.Modulate = global.ShiftEarnings >= global.Quota ? Palette.Match : Colors.White;
             _wallet.Text = HudText.Wallet(global);
             _wallet.Modulate = global.Wallet < 0 ? Palette.Mismatch : Colors.White;
+            _hint.Text = HudText.PhaseHint(world);
+            RefreshOverlay(world);
 
             var prompt = _interaction.Prompt;
             _prompt.Text = HudText.Prompt(world, prompt, out var tone);
@@ -168,6 +201,31 @@ namespace PerformativeMail.Client.UI
                     _feedLines[i].Modulate = entry != null && entry.Bad ? Palette.Mismatch : Colors.White;
                 }
             }
+        }
+
+        /// <summary>Payday shows the shift summary, Results the run results; the lines are rebuilt only when their source changes.</summary>
+        private void RefreshOverlay(ClientWorld world)
+        {
+            object? source = world.Global.Phase == RunPhase.Payday ? world.LastSummary
+                : world.Global.Phase == RunPhase.Results ? world.Results
+                : null;
+            _overlay.Visible = source != null;
+            if (ReferenceEquals(source, _overlaySource)) return;
+            _overlaySource = source;
+
+            foreach (var child in _overlayLines.GetChildren()) child.QueueFree();
+            _overlayText = "";
+            if (source == null) return;
+            var lines = source is ShiftSummary summary ? HudText.SummaryLines(world, summary) : HudText.ResultsLines(world, (RunResults)source);
+            bool good = source is ShiftSummary s ? s.QuotaMet : ((RunResults)source).Outcome == RunOutcome.Victory;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var label = MakeLabel($"Line{i}", i == 0 ? 28 : 18, HorizontalAlignment.Center);
+                label.Text = lines[i];
+                if (i == 0) label.Modulate = good ? Palette.Match : Palette.Mismatch;
+                _overlayLines.AddChild(label);
+            }
+            _overlayText = string.Join("\n", lines);
         }
 
         /// <summary>A label anchored at (<paramref name="anchorX"/>, <paramref name="anchorY"/>) with pixel offsets from that point.</summary>
