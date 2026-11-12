@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Net;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.Client
 {
@@ -137,6 +138,9 @@ namespace PerformativeMail.Client
         public uint CloseContainer() => World == null || World.OpenContainerId == 0 ? 0 : Send(SimRequest.Close(0, World.OpenContainerId));
         public uint QuickMove(uint containerId, uint entryId) => Send(SimRequest.QuickMove(0, containerId, entryId));
         public uint Deliver(uint containerId, uint entryId, int destId) => Send(SimRequest.Deliver(0, containerId, entryId, destId));
+        public uint StartRun() => Send(SimRequest.StartRun(0));
+        public uint SetReady(bool ready) => Send(SimRequest.SetReady(0, ready));
+        public uint ContinueRun() => Send(SimRequest.ContinueRun(0));
 
         // --- local tick -------------------------------------------------------------------------
 
@@ -326,10 +330,20 @@ namespace PerformativeMail.Client
                 case PhaseChangedEvent e:
                 {
                     var g = world.Global;
-                    g.Shift = e.Shift; g.Phase = e.Phase; g.PhaseEndTick = e.PhaseEndTick; g.Quota = e.Quota;
+                    g.Shift = e.Shift; g.Phase = e.Phase; g.PhaseEndTick = e.PhaseEndTick; g.Quota = e.Quota; g.Outcome = e.Outcome;
                     world.Global = g;
+                    // Every phase change clears the Ready flags (the snapshots confirm it a moment later).
+                    foreach (var p in world.Players.Values) p.Ready = false;
+                    if (e.Phase == RunPhase.Lobby) world.LastSummary = null;
+                    if (e.Phase != RunPhase.Results) world.Results = null;
                     break;
                 }
+                case ShiftSummaryEvent e:
+                    world.LastSummary = e.Summary;
+                    break;
+                case RunResultsEvent e:
+                    world.Results = e.Results;
+                    break;
             }
             EventReceived?.Invoke(ev);
         }

@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Net;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Client
@@ -26,6 +27,8 @@ namespace PerformativeMail.Client
         public string Name { get; }
         public byte Slot { get; }
         public byte HeldSlot { get; private set; }
+        /// <summary>Ready flag of the Lobby and Prep, from the newest snapshot.</summary>
+        public bool Ready { get; internal set; }
         public bool HasSamples => _count > 0;
 
         private readonly Sample[] _samples = new Sample[BufferSize];
@@ -45,6 +48,7 @@ namespace PerformativeMail.Client
             _head = (_head + 1) % BufferSize;
             if (_count < BufferSize) _count++;
             HeldSlot = snap.HeldSlot;
+            Ready = snap.Ready;
         }
 
         /// <summary>Interpolated pose at a (fractional) server tick; clamps to the oldest / newest sample.</summary>
@@ -115,5 +119,26 @@ namespace PerformativeMail.Client
         /// <summary>Seconds left on the phase clock, derived from ticks (doc 07 §4.1).</summary>
         public double PhaseSecondsLeft =>
             Math.Max(0.0, SimConstants.TicksToSeconds((long)Global.PhaseEndTick - (long)Math.Floor(ServerTick)));
+
+        /// <summary>False in the phases that wait for people instead of a clock (Lobby, Results).</summary>
+        public bool PhaseHasClock => Global.PhaseEndTick != 0;
+
+        /// <summary>The newest Payday summary of the current run; null in the Lobby.</summary>
+        public ShiftSummary? LastSummary { get; internal set; }
+        /// <summary>The run's results while in Results; null otherwise.</summary>
+        public RunResults? Results { get; internal set; }
+
+        public bool IsHost => !LocalId.IsNone && Global.Host == LocalId;
+        public bool LocalReady => Players.TryGetValue(LocalId, out var p) && p.Ready;
+
+        public int ReadyCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (var p in Players.Values) if (p.Ready) n++;
+                return n;
+            }
+        }
     }
 }

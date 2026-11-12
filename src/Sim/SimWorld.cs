@@ -14,6 +14,11 @@ namespace PerformativeMail.Sim
     {
         public uint Seed = 1;
         public string MapId = "test_street";
+        /// <summary>
+        /// Nobody to wait for (tests, soak, bots): the run starts as soon as a player is present,
+        /// Prep is skipped, Results returns to the Lobby by itself and players may join at any time.
+        /// </summary>
+        public bool QuickStart;
     }
 
     /// <summary>The small global block replicated at 5 Hz (doc 06 §4: wallet, complaint, quota progress).</summary>
@@ -29,6 +34,8 @@ namespace PerformativeMail.Sim
         public ushort Backlog;
         public ushort Deliveries;
         public ushort Misdeliveries;
+        public RunOutcome Outcome;
+        public EntityId Host;
     }
 
     /// <summary>
@@ -100,7 +107,7 @@ namespace PerformativeMail.Sim
             foreach (var t in content.DestinationTypes) hold = Math.Min(hold, t.ManualInsertHold);
             _minDeliverIntervalTicks = SimConstants.SecondsToTicks(Math.Max(0, hold - 0.1));
 
-            Economy = new Economy(b);
+            Economy = new Economy(b, content.MailKinds.Count);
             Intake = CreateContainer("po_intake", EntityId.None, Map.PostOffice.IntakeX, Map.PostOffice.IntakeZ).Container;
             Spawner = new MailSpawner(content, Map, Intake, _entryIds, Settings.Seed);
         }
@@ -139,7 +146,9 @@ namespace PerformativeMail.Sim
             {
                 X = px, Z = pz, Y = Map.HeightAt(px, pz), Grounded = true, Yaw = PlayerInput.QuantizeYaw(Map.PostOffice.SpawnYaw),
             };
+            player.JoinOrder = _nextJoinOrder++;
             _players.Add(player);
+            if (Run.Host.IsNone) Run.Host = id;
             Events.Add(new PlayerJoinedEvent { Player = id, Name = name, Slot = slot });
             return player;
         }
@@ -162,6 +171,7 @@ namespace PerformativeMail.Sim
             }
             CommitContainer(Intake.Id);
             _players.Remove(player);
+            UpdateHostAfterLeave(id);
             _requests.RemoveAll(r => r.Player == id);
             Events.Add(new PlayerLeftEvent { Player = id });
         }
@@ -197,6 +207,8 @@ namespace PerformativeMail.Sim
             Backlog = (ushort)Math.Min(ushort.MaxValue, Spawner.BacklogCount),
             Deliveries = (ushort)Math.Min(ushort.MaxValue, Economy.ShiftDeliveries),
             Misdeliveries = (ushort)Math.Min(ushort.MaxValue, Economy.ShiftMisdeliveries),
+            Outcome = Run.Outcome,
+            Host = Run.Host,
         };
 
         // --- tick -----------------------------------------------------------------------------
@@ -258,42 +270,6 @@ namespace PerformativeMail.Sim
                 });
             }
             Economy.StepDelivery();
-        }
-
-        /// <summary>
-        /// M0 stand-in for the run state machine (M1): Delivery of shift 1 on a repeating clock.
-        /// The clock starts when the first player is present and re-samples the player count each restart.
-        /// </summary>
-        private void StepRun()
-        {
-            if (Run.Phase == RunPhase.Lobby)
-            {
-                if (_players.Count > 0) BeginDelivery();
-            }
-            else if (Run.Phase == RunPhase.Delivery && Tick >= Run.PhaseEndTick)
-            {
-                Spawner.EndShift();
-                BeginDelivery();
-            }
-        }
-
-        private void BeginDelivery()
-        {
-            var b = Content.Balance;
-            Run.Phase = RunPhase.Delivery;
-            Run.ClockIndex++;
-            Run.PlayerCount = Math.Max(1, _players.Count);
-            Run.Quota = QuotaFormula.Quota(b, Run.Shift, Run.PlayerCount);
-            Run.PhaseStartTick = Tick;
-            uint duration = SimConstants.SecondsToTicks(b.GetForShift("deliverySeconds", Run.Shift));
-            Run.PhaseEndTick = Tick + duration;
-            Economy.BeginShift();
-            int spawnValue = (int)Math.Round(Run.Quota * Content.MailMix.SpawnOverhead);
-            Spawner.BeginShift(Run.Shift, Tick + 1, duration, spawnValue);
-            Events.Add(new PhaseChangedEvent
-            {
-                Shift = (byte)Run.Shift, Phase = Run.Phase, PhaseEndTick = Run.PhaseEndTick, Quota = Run.Quota,
-            });
         }
 
         // --- containers -----------------------------------------------------------------------

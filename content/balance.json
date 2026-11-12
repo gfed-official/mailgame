@@ -6,6 +6,12 @@
   "raidWindowSeconds": 90,
   "paydaySeconds": 20,
   "draftSeconds": 30,
+  "emptyServerGraceSeconds": 60,
+
+  "xpPerShift": 100,
+  "xpVictory": 50,
+  "xpPerDelivery": 5,
+  "rankXpPerRank": 500,
 
   "walletFloor": -500,
   "deadLetterShifts": 2,

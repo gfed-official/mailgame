@@ -136,6 +136,7 @@ namespace PerformativeMail.Server
             string name = hello.Name.Trim();
             if (name.Length == 0) { Reject(client, RejectReason.BadHello); return; }
             if (name.Length > MaxNameLength) name = name.Substring(0, MaxNameLength);
+            if (!World.AcceptsPlayers) { Reject(client, RejectReason.RunInProgress); return; }
 
             var player = World.AddPlayer(name);
             if (player == null) { Reject(client, RejectReason.ServerFull); return; }
@@ -206,7 +207,7 @@ namespace PerformativeMail.Server
             {
                 _snapshot.Players.Add(new PlayerSnap
                 {
-                    Id = p.Id, X = p.Move.X, Y = p.Move.Y, Z = p.Move.Z, Yaw = p.Move.Yaw, HeldSlot = p.HeldSlot,
+                    Id = p.Id, X = p.Move.X, Y = p.Move.Y, Z = p.Move.Z, Yaw = p.Move.Yaw, HeldSlot = p.HeldSlot, Ready = p.Ready,
                 });
             }
             _snapshot.Tick = World.Tick;

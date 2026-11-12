@@ -21,6 +21,9 @@ namespace PerformativeMail.Sim.Inventory
         WalletFloor,
         TooFast,
         RateLimited,
+        /// <summary>The run phase does not allow this (mailboxes are shut outside Delivery, Start only in the Lobby, ...).</summary>
+        WrongPhase,
+        NotHost,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

@@ -25,6 +25,8 @@ namespace PerformativeMail.Sim.Net
         ProtocolMismatch = 1,
         ServerFull = 2,
         BadHello = 3,
+        /// <summary>Join-in-progress is only allowed in the Lobby and during Prep (doc 06 §5).</summary>
+        RunInProgress = 4,
     }
 
     public static class Protocol
@@ -34,16 +36,20 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m0.1;" +
+            "m1.0;" +
             "Hello:u32 hash,str name;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
+            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue;" +
             "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory;" +
             "Reject:u8 reason;" +
-            "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 grounded,f32 speed],u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held},[global];" +
-            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries;" +
+            "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 grounded,f32 speed],u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags},[global];" +
+            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host;" +
             "Events:u16 n,{u8 type,...};" +
-            "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase;" +
+            "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results;" +
+            "Phase:u8 shift,u8 phase,u32 end,i32 quota,u8 outcome;" +
+            "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
+            "Results:u8 outcome,u8 shifts,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp};" +
             "Entry:u32 id,u8 x,u8 y,u8 w,u8 h,u8 rot,u8 kind,u16 def,(mail:u32 addr,u8 unit,u16 n,{u32 id,u16 value,u8 spawn,u8 deadline,u8 flags}|item:i32 count)";
 
         /// <summary>32-bit hash of the message schema plus the content data hash.</summary>
@@ -185,12 +191,14 @@ namespace PerformativeMail.Sim.Net
         {
             w.U8(g.Shift); w.U8((byte)g.Phase); w.U32(g.PhaseEndTick); w.I32(g.Quota); w.I32(g.ShiftEarnings);
             w.I32(g.Wallet); w.U8(g.Complaint); w.U16(g.Backlog); w.U16(g.Deliveries); w.U16(g.Misdeliveries);
+            w.U8((byte)g.Outcome); w.U32(g.Host.Value);
         }
 
         public static GlobalState Read(NetReader r) => new GlobalState
         {
             Shift = r.U8(), Phase = (RunPhase)r.U8(), PhaseEndTick = r.U32(), Quota = r.I32(), ShiftEarnings = r.I32(),
             Wallet = r.I32(), Complaint = r.U8(), Backlog = r.U16(), Deliveries = r.U16(), Misdeliveries = r.U16(),
+            Outcome = (RunOutcome)r.U8(), Host = new EntityId(r.U32()),
         };
     }
 
@@ -201,6 +209,8 @@ namespace PerformativeMail.Sim.Net
         public float X, Y, Z;
         public ushort Yaw;
         public byte HeldSlot;
+        /// <summary>Ready flag of the Lobby and Prep.</summary>
+        public bool Ready;
     }
 
     /// <summary>
@@ -210,6 +220,7 @@ namespace PerformativeMail.Sim.Net
     public sealed class SnapshotMsg
     {
         private const byte FlagOwn = 1, FlagGlobal = 2;
+        private const byte PlayerReady = 1;
 
         public uint Tick;
         /// <summary>Seq of the last input the server has simulated for the receiving player.</summary>
@@ -236,7 +247,7 @@ namespace PerformativeMail.Sim.Net
             {
                 w.U32(p.Id.Value);
                 w.I32(ToCm(p.X)); w.I16((short)ToCm(p.Y)); w.I32(ToCm(p.Z));
-                w.U16(p.Yaw); w.U8(p.HeldSlot);
+                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8((byte)(p.Ready ? PlayerReady : 0));
             }
             if (HasGlobal) GlobalCodec.Write(w, Global);
         }
@@ -259,7 +270,7 @@ namespace PerformativeMail.Sim.Net
                 {
                     Id = new EntityId(r.U32()),
                     X = r.I32() / 100f, Y = r.I16() / 100f, Z = r.I32() / 100f,
-                    Yaw = r.U16(), HeldSlot = r.U8(),
+                    Yaw = r.U16(), HeldSlot = r.U8(), Ready = (r.U8() & PlayerReady) != 0,
                 });
             }
             if (m.HasGlobal) m.Global = GlobalCodec.Read(r);

@@ -162,9 +162,10 @@ namespace PerformativeMail.Net.Tests
                 {
                     Shift = 1, Phase = RunPhase.Delivery, PhaseEndTick = 7200, Quota = 600, ShiftEarnings = -12, Wallet = -480,
                     Complaint = 17, Backlog = 3, Deliveries = 40, Misdeliveries = 2,
+                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2),
                 },
             };
-            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4 });
+            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, Ready = true });
             var w = new NetWriter();
             m.Write(w);
             var back = SnapshotMsg.Read(Body(w, MsgType.Snapshot));
@@ -184,6 +185,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(92.00f, p.Z, 3);
             Assert.Equal(65535, p.Yaw);
             Assert.Equal(4, p.HeldSlot);
+            Assert.True(p.Ready);
         }
 
         [Fact]
@@ -203,7 +205,23 @@ namespace PerformativeMail.Net.Tests
                 new MailSpawnedEvent { FirstMailId = 100, Count = 12, Backlog = 1 },
                 new DeliveredEvent { MailId = 5, DestId = 3, Paid = 30, Player = player, Kind = 2 },
                 new MisdeliveredEvent { MailId = 6, DestId = 4, Penalty = 15, Player = player, Kind = 2 },
-                new PhaseChangedEvent { Shift = 1, Phase = RunPhase.Delivery, PhaseEndTick = 7201, Quota = 600 },
+                new PhaseChangedEvent { Shift = 5, Phase = RunPhase.Results, PhaseEndTick = 7201, Quota = 600, Outcome = RunOutcome.Victory },
+                new ShiftSummaryEvent
+                {
+                    Summary = new ShiftSummary
+                    {
+                        Shift = 2, Earned = -40, Quota = 1100, QuotaMet = true, Bonus = 110, DeliveriesByKind = new ushort[] { 7, 0, 3 },
+                        Misdeliveries = 2, LateDeliveries = 1, Mvp = player, MvpDeliveries = 6,
+                    },
+                },
+                new RunResultsEvent
+                {
+                    Results = new RunResults
+                    {
+                        Outcome = RunOutcome.QuotaMissed, ShiftsCompleted = 3, TotalEarned = 4321, Score = 4321, Deliveries = 70000, Misdeliveries = 9,
+                        Players = { new PlayerResult { Player = player, Deliveries = 41, Misdeliveries = 4, Earned = -15, Xp = 505 } },
+                    },
+                },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -221,7 +239,19 @@ namespace PerformativeMail.Net.Tests
             var delivered = (DeliveredEvent)back[7];
             Assert.Equal((5u, (ushort)3, (ushort)30, player, (ushort)2), (delivered.MailId, delivered.DestId, delivered.Paid, delivered.Player, delivered.Kind));
             var phase = (PhaseChangedEvent)back[9];
-            Assert.Equal((RunPhase.Delivery, 7201u, 600), (phase.Phase, phase.PhaseEndTick, phase.Quota));
+            Assert.Equal((RunPhase.Results, 7201u, 600, RunOutcome.Victory, (byte)5), (phase.Phase, phase.PhaseEndTick, phase.Quota, phase.Outcome, phase.Shift));
+
+            var summary = ((ShiftSummaryEvent)back[10]).Summary;
+            Assert.Equal((2, -40, 1100, true, 110), (summary.Shift, summary.Earned, summary.Quota, summary.QuotaMet, summary.Bonus));
+            Assert.Equal(new ushort[] { 7, 0, 3 }, summary.DeliveriesByKind);
+            Assert.Equal(10, summary.Deliveries);
+            Assert.Equal((2, 1, player, 6), (summary.Misdeliveries, summary.LateDeliveries, summary.Mvp, summary.MvpDeliveries));
+
+            var results = ((RunResultsEvent)back[11]).Results;
+            Assert.Equal((RunOutcome.QuotaMissed, 3, 4321, 4321, 70000, 9),
+                (results.Outcome, results.ShiftsCompleted, results.TotalEarned, results.Score, results.Deliveries, results.Misdeliveries));
+            var row = Assert.Single(results.Players);
+            Assert.Equal((player, 41, 4, -15, 505), (row.Player, row.Deliveries, row.Misdeliveries, row.Earned, row.Xp));
         }
 
         [Fact]

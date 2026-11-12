@@ -19,9 +19,9 @@ namespace PerformativeMail.Net.Tests
             public readonly List<ClientRuntime> Clients = new List<ClientRuntime>();
             public readonly List<DeliveryBot> Bots = new List<DeliveryBot>();
 
-            public Session(uint seed = 3)
+            public Session(uint seed = 3, bool quickStart = true)
             {
-                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = seed }, Hub);
+                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = seed, QuickStart = quickStart }, Hub);
             }
 
             public ClientRuntime AddClient(string name, bool bot = true)

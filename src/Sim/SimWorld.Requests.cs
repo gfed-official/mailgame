@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.Sim
 {
@@ -51,6 +52,9 @@ namespace PerformativeMail.Sim
                 case RequestKind.QuickMove: return QuickMoveOp(player, r);
                 case RequestKind.Sort: return SortOp(player, r);
                 case RequestKind.Deliver: return DeliverOp(player, r);
+                case RequestKind.StartRun: return StartRunOp(player);
+                case RequestKind.SetReady: return SetReadyOp(player, r);
+                case RequestKind.ContinueRun: return ContinueRunOp(player);
                 default: return OpResult.BadRequest;
             }
         }
@@ -147,6 +151,8 @@ namespace PerformativeMail.Sim
         /// </summary>
         private OpResult DeliverOp(Player player, in SimRequest r)
         {
+            // Deliveries earn money in Delivery (doc 01 §1 phase table); outside it the mailboxes are shut.
+            if (Run.Phase != RunPhase.Delivery) return OpResult.WrongPhase;
             var dest = Map.GetDestination(r.DestId);
             if (dest == null) return OpResult.UnknownDestination;
             if (!_containers.TryGetValue(r.Container, out var info)) return OpResult.UnknownContainer;
@@ -169,10 +175,11 @@ namespace PerformativeMail.Sim
                 if (!verdict.Consumed) break;
                 mail.RemoveAt(mail.Count - 1);
                 consumed++;
-                Economy.Apply(verdict);
+                Economy.Apply(verdict, kind.Index);
                 if (verdict.Outcome == DeliveryOutcome.Delivered)
                 {
                     player.Deliveries++;
+                    player.ShiftDeliveries++;
                     player.Earned += verdict.Amount;
                     Events.Add(new DeliveredEvent
                     {

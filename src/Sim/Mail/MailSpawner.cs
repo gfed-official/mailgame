@@ -19,8 +19,9 @@ namespace PerformativeMail.Sim.Mail
         private readonly WorldMap _map;
         private readonly GridContainer _intake;
         private readonly EntryIdAllocator _entryIds;
-        private readonly RngStream _spawnRng;
-        private readonly RngStream _addressRng;
+        private readonly uint _seed;
+        private RngStream _spawnRng;
+        private RngStream _addressRng;
 
         private readonly long[] _accrued;
         private readonly Queue<MailItem> _backlog = new Queue<MailItem>();
@@ -49,9 +50,25 @@ namespace PerformativeMail.Sim.Mail
             _map = map;
             _intake = intake;
             _entryIds = entryIds;
+            _seed = seed;
             _spawnRng = new RngStream(seed, "mail.spawn");
             _addressRng = new RngStream(seed, "mail.address");
             _accrued = new long[content.MailKinds.Count];
+        }
+
+        /// <summary>
+        /// Back to the state of a fresh run: no schedule, no backlog, RNG streams restarted, so the
+        /// same seed spawns the same mail again (doc 01 §5.3). Mail ids keep counting up.
+        /// </summary>
+        public void Reset()
+        {
+            _spawnRng = new RngStream(_seed, "mail.spawn");
+            _addressRng = new RngStream(_seed, "mail.address");
+            Array.Clear(_accrued, 0, _accrued.Length);
+            _backlog.Clear();
+            _active = false;
+            _backlogTimer = 0;
+            _intakeVersionAtLastDrain = uint.MaxValue;
         }
 
         /// <summary>Starts a Delivery phase worth <paramref name="spawnValue"/> ¢ of mail.</summary>

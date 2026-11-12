@@ -80,7 +80,21 @@ namespace PerformativeMail.Sim
     {
         public byte Shift;
         public RunPhase Phase;
+        /// <summary>0 when the phase has no clock.</summary>
         public uint PhaseEndTick;
         public int Quota;
+        public RunOutcome Outcome;
+    }
+
+    /// <summary>Payday payload (doc 01 §2.4), sent just before the PhaseChanged into Payday.</summary>
+    public sealed class ShiftSummaryEvent : SimEvent
+    {
+        public ShiftSummary Summary = null!;
+    }
+
+    /// <summary>Results payload (doc 08 §3.2), sent just before the PhaseChanged into Results.</summary>
+    public sealed class RunResultsEvent : SimEvent
+    {
+        public RunResults Results = null!;
     }
 }

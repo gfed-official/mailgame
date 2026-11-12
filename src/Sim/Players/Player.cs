@@ -33,9 +33,15 @@ namespace PerformativeMail.Sim.Players
 
         public uint LastDeliverTick;
         public bool HasDelivered;
+        /// <summary>Run totals; cleared when a run starts.</summary>
         public int Deliveries;
         public int Misdeliveries;
         public int Earned;
+        public int ShiftDeliveries;
+        /// <summary>Ready flag of the Lobby and Prep (doc 01 §1); cleared on every phase change.</summary>
+        public bool Ready;
+        /// <summary>Order of arrival; the earliest connected player is the host.</summary>
+        public uint JoinOrder;
 
         private readonly float[] _histX = new float[HistoryLength];
         private readonly float[] _histZ = new float[HistoryLength];

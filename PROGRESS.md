@@ -47,6 +47,29 @@ shift / phase / timer, quota, wallet, the prompt with its match mark and the eve
 - [x] Smoke asserts the camera sits at the player's eye position (every frame against the local
       view, and at the end against the server position) and aims along the interact ray.
 
+## Feature batch after the first-person pass (planned, checked off as it lands)
+
+Order: the run / shift loop of doc 01 first (it is M1 scope, pulled forward), then the M0 hardening
+list below.
+
+### Run / shift loop (doc 01 §1–§3, §5.1, §7)
+
+- [x] Sim: run state machine Lobby → Prep → Delivery → Payday → (next shift's Prep | Results) →
+      Lobby, phase clocks from `balance.json`, host-only Start / Continue, Ready ends Prep early
+      (`SimWorld.Run.cs`, `RunLoopTests`)
+- [x] Sim: quota check at Payday, shift summary (earned vs quota, deliveries by kind, misdeliveries,
+      late, MVP), zero-misdelivery shift bonus, run results (outcome, score, XP)
+- [x] Sim: mailboxes only accept mail during Delivery; join only in Lobby / Prep; an empty server
+      abandons the run after the grace period; a finished run resets for the next one
+- [x] Net: requests (start, ready, continue), events (shift summary, run results), host and ready
+      flags replicated, protocol schema bumped to `m1.0`
+- [ ] Client: phase-aware HUD (phase line, hints, ready list), Payday summary and Results overlays,
+      ready key, event feed lines
+- [ ] Bot plays whole runs (start, ready, deliver to quota, continue); Net.Tests cover a full run
+- [ ] Godot smoke walks Lobby → Prep → Delivery → Payday → … → Results → Lobby
+- [ ] Postal Rank XP kept in a local MetaProfile (doc 01 §5.1, doc 08 §3.8; XP only)
+- [ ] Solo pause (doc 01 §1 "Shift clock")
+
 ### Hardening toward the written M0 acceptance criteria (after the rough loop)
 
 - [ ] ENet transport (listen server + remote clients), protocol hash rejection
@@ -77,9 +100,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
 3. **M0 has no world generation (M1).** The test map is a hand-authored static file
    `content/maps/test_street.json`. Its `mapHash` (FNV-1a 64 of tile + address tables) stands in for
    `worldHash` and is checked at connect.
-4. **M0 has no run state machine (M1).** Stand-in: the run sits in `Delivery` of shift 1 with the
-   240 s shift clock; when the clock ends it restarts (earnings reset, quota re-sampled from player
-   count). Mail spawn budget per clock is `quota(1, n) × spawnOverhead`, as in ch. 01 §3.
+4. **Run state machine (doc 01 §1), replacing the old "always Delivery of shift 1" stand-in.**
+   Implemented phases: Lobby → Prep → Delivery → Payday → next shift's Prep, or Results → Lobby.
+   Not yet: Generating (the map is static, choice 3), Raid (M2), Draft (skipped until perks exist —
+   Payday goes straight to the next Prep). Mail spawn budget per shift is still
+   `quota(shift, n) × spawnOverhead`, as in ch. 01 §3. The details the docs leave open are choices
+   25–36. `SimSettings.QuickStart` keeps the old behaviour for tests, soaks and bots that only care
+   about the delivery loop: a run starts as soon as a player is present, Prep is skipped, Results
+   returns to the Lobby by itself after `paydaySeconds`, and joining is allowed at any time.
 5. **Where the transport interfaces live.** `IServerTransport` / `IClientTransport`, the message
    schemas and codecs are in `src/Sim/Net` (doc 07 lists `Net/` under Sim), so Server and Client only
    depend on Sim. `LoopbackHub` (src/Server/Transport) serves any number of in-process clients and
@@ -140,6 +168,41 @@ See "Commands" at the bottom (filled in as the tooling lands).
     respected until one of those two things happens.
 24. **UI scaling.** `window/stretch/mode = canvas_items`, aspect `expand`: the HUD is laid out for
     1280 × 720 and scales with the window (this also gives the headless smoke a real screen size).
+25. **How a run ends (doc 01 has RunOver and Victory screens).** One `Results` phase plus a
+    `RunOutcome` (`Victory` after shift 5's quota, `QuotaMissed` otherwise). Lobby and Results have
+    no clock (`PhaseEndTick = 0`); Results waits for the host's Continue, which returns to the Lobby.
+26. **Who is the host inside the sim.** The longest-connected player (`Player.JoinOrder`); if they
+    leave, the role passes to the next one (on a listen server the process dies with the host
+    anyway, so "the run ends when the host quits" needs no sim rule). Only the host may Start
+    (Lobby) and Continue (Results). The host may start at any time — no "all ready or 10 s
+    override" rule in the Lobby yet.
+27. **Ready.** A per-player flag, settable in Lobby and Prep, cleared on every phase change. Prep
+    ends early the moment every connected player is ready; in the Lobby it is only shown.
+28. **Mailboxes outside Delivery.** A delivery request in any other phase is refused with
+    `OpResult.WrongPhase`; carried mail simply stays carried into the next shift (deadlines apply).
+29. **Joining.** Only in Lobby and Prep (`SimWorld.AcceptsPlayers`); later a Hello is rejected with
+    `RejectReason.RunInProgress`. Doc 06's mid-run join / reconnect comes with ENet.
+30. **Empty server.** If nobody is connected for `emptyServerGraceSeconds` (60) during a run, the
+    run is abandoned straight to the Lobby without Results. Phases keep advancing meanwhile.
+31. **Shift bonus.** +10 % (`zeroMisdeliveryBonus`) of the shift's earnings when it had no
+    misdelivery and earned more than 0; paid into the wallet at Payday. It is *not* part of the
+    quota check (the check uses the earnings at the end of Delivery) and counts toward the score.
+32. **Quota timing.** The quota shown in Prep is a preview from the current player count; the
+    binding quota is sampled when Delivery starts. Shift earnings reset when Prep starts.
+33. **Score and XP.** Score = money earned over the run (stamps come later). XP per player =
+    `xpPerShift` × shifts completed + `xpVictory` on a win + `xpPerDelivery` × max(1, team
+    deliveries ÷ players) (doc 11's worked example), computed once at Results rather than at each
+    Payday (doc 06) — the totals are the same.
+34. **What resets between runs.** Wallet, complaint and counters; the Intake, every player's
+    containers (mail only) and the backlog are cleared; the spawner's random streams restart, so
+    the same seed deals the same mail again. Players are *not* moved back to the spawn pad (no
+    respawn exists until world generation, and a teleport would show as a prediction error).
+35. **How the client learns of it.** Ready is a bit in the per-player `flags` byte of snapshots;
+    host and outcome ride the global block; `ShiftSummaryEvent` and `RunResultsEvent` are reliable
+    events sent just before the `PhaseChangedEvent` that opens Payday / Results.
+36. **Meta XP numbers** (`xpPerShift` 100, `xpVictory` 50, `xpPerDelivery` 5, `rankXpPerRank` 500)
+    live in `balance.json`; doc 11 gives the formula but not a rank curve, so 500 XP per rank is a
+    placeholder.
 
 ## Commands
 

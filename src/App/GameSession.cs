@@ -38,7 +38,7 @@ namespace PerformativeMail.App
         {
             Content = content;
             var hub = new LoopbackHub();
-            Server = new ServerRuntime(content, new SimSettings { Seed = seed }, hub) { Log = line => GD.Print("[server] ", line) };
+            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = true }, hub) { Log = line => GD.Print("[server] ", line) };
             Client = new ClientRuntime(content, hub.CreateClient(), playerName);
             Interaction = new InteractionController(Client);
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);

@@ -10,6 +10,12 @@ namespace PerformativeMail.Sim
         QuickMove = 3,
         Sort = 4,
         Deliver = 5,
+        /// <summary>Host, Lobby: start the run.</summary>
+        StartRun = 6,
+        /// <summary>Lobby / Prep: set or clear the player's Ready flag (<see cref="SimRequest.Count"/> 1 or 0).</summary>
+        SetReady = 7,
+        /// <summary>Host, Results: back to the Lobby.</summary>
+        ContinueRun = 8,
     }
 
     /// <summary>
@@ -54,5 +60,12 @@ namespace PerformativeMail.Sim
 
         public static SimRequest Deliver(uint reqId, uint from, uint entryId, int destId) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.Deliver, Container = from, EntryId = entryId, DestId = (ushort)destId };
+
+        public static SimRequest StartRun(uint reqId) => new SimRequest { RequestId = reqId, Kind = RequestKind.StartRun };
+
+        public static SimRequest SetReady(uint reqId, bool ready) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.SetReady, Count = (ushort)(ready ? 1 : 0) };
+
+        public static SimRequest ContinueRun(uint reqId) => new SimRequest { RequestId = reqId, Kind = RequestKind.ContinueRun };
     }
 }

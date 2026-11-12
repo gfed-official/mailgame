@@ -9,7 +9,9 @@ namespace PerformativeMail.Sim.Tests
     /// <summary>The M0 loop driven straight through SimWorld: spawn → pickup → walk → deliver → wallet.</summary>
     public class SimWorldTests
     {
-        private static SimWorld NewWorld(uint seed = 7) => new SimWorld(TestContent.Db, new SimSettings { Seed = seed });
+        // QuickStart: Delivery of shift 1 begins as soon as a player is present (RunLoopTests covers the real phases).
+        private static SimWorld NewWorld(uint seed = 7) =>
+            new SimWorld(TestContent.Db, new SimSettings { Seed = seed, QuickStart = true });
 
         private static OpResult Request(SimWorld world, Player p, SimRequest request)
         {
@@ -39,7 +41,7 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
-        public void FirstPlayerStartsTheDeliveryClock()
+        public void QuickStart_FirstPlayerStartsTheDeliveryClock()
         {
             var world = NewWorld();
             world.Step();
