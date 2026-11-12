@@ -105,8 +105,9 @@ namespace PerformativeMail.Sim.Inventory
         }
 
         /// <summary>
-        /// Shift-click: moves as much of the entry as fits into the target containers, in order —
-        /// stack merges first, then unrotated free space, then rotated (doc 03 §3.2 auto-place).
+        /// Shift-click: moves as much of the entry as fits into the target containers — stack merges
+        /// first (in any target), then the first target with free space, trying it unrotated and
+        /// then rotated before the next target (doc 03 §3.2 auto-place).
         /// </summary>
         public static OpResult QuickMove(ContentDb content, GridContainer from, uint entryId,
             IReadOnlyList<GridContainer> targets)
@@ -130,15 +131,17 @@ namespace PerformativeMail.Sim.Inventory
             }
             if (!anyAccepts) return OpResult.NotAllowed;
 
-            for (int pass = 0; pass < 2; pass++)
+            // The order of the targets wins over the orientation: a 1×2 package goes into the
+            // one-row hotbar on its side before the inventory is tried upright.
+            foreach (var target in targets)
             {
-                bool rotated = pass == 1;
-                if (rotated && shape.W == shape.H) break;
-                int w = rotated ? shape.H : shape.W;
-                int h = rotated ? shape.W : shape.H;
-                foreach (var target in targets)
+                if (ReferenceEquals(target, from) || !Accepts(target, shape)) continue;
+                for (int pass = 0; pass < 2; pass++)
                 {
-                    if (ReferenceEquals(target, from) || !Accepts(target, shape)) continue;
+                    bool rotated = pass == 1;
+                    if (rotated && shape.W == shape.H) break;
+                    int w = rotated ? shape.H : shape.W;
+                    int h = rotated ? shape.W : shape.H;
                     if (!target.FindFreeSpot(w, h, out int x, out int y)) continue;
                     from.Remove(entryId);
                     entry.X = x; entry.Y = y; entry.Rotated = rotated; entry.W = w; entry.H = h;

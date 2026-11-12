@@ -30,8 +30,12 @@ namespace PerformativeMail.Net.Tests
                 Client = new ClientRuntime(Shared.Content, Hub.CreateClient(), "Ada");
                 Interaction = new InteractionController(Client);
                 Client.EventReceived += e => Feed.OnEvent(Client.World!, e);
+                Client.RequestCompleted += (_, _) => Requests++;
                 Run(10);
             }
+
+            /// <summary>Requests the server has answered.</summary>
+            public int Requests { get; private set; }
 
             public Player Player => Server.World.Players[0];
             public ClientWorld World => Client.World!;
@@ -103,6 +107,55 @@ namespace PerformativeMail.Net.Tests
             s.Frame(interact: true);
             s.Run(3);
             Assert.Equal(0u, s.World.OpenContainerId);
+        }
+
+        [Fact]
+        public void ATapShorterThanAFrameStillOpensTheIntake()
+        {
+            // The fa44a16 playtest: a very fast E tap is pressed and released between two frames, so
+            // the key is never seen held; only the input event tells.
+            var s = new Session();
+            var po = s.World.Map.PostOffice;
+            s.Teleport(po.IntakeX + 1f, po.IntakeZ);
+            s.Frame(interact: false);
+            Assert.Equal(InteractKind.OpenIntake, s.Interaction.Prompt.Kind);
+
+            s.Interaction.Update(Dt, interactHeld: false, deliverAllPressed: false, interactTapped: true);
+            s.Run(4);
+            Assert.Equal(s.World.IntakeContainerId, s.World.OpenContainerId);
+
+            // An event and the held key in the same frame are one press, not two.
+            s.Interaction.Update(Dt, interactHeld: true, deliverAllPressed: false, interactTapped: true);
+            s.Run(4);
+            Assert.Equal(0u, s.World.OpenContainerId);
+            for (int i = 0; i < 12; i++) s.Frame(interact: true);
+            Assert.Equal(0u, s.World.OpenContainerId);
+        }
+
+        [Fact]
+        public void ATapWhileTheLastRequestIsPendingIsNotLost()
+        {
+            var s = new Session();
+            var po = s.World.Map.PostOffice;
+            s.Teleport(po.IntakeX + 1f, po.IntakeZ);
+            s.Frame(interact: true);  // open: the request is on its way
+            Assert.Equal(0u, s.World.OpenContainerId);
+            s.Interaction.Update(Dt, interactHeld: false, deliverAllPressed: false); // released
+            s.Interaction.Update(Dt, interactHeld: true, deliverAllPressed: false);  // tapped again before the answer
+            for (int i = 0; i < 6; i++) s.Frame(interact: false);
+            // Both taps counted: opened, then closed again.
+            Assert.Equal(0u, s.World.OpenContainerId);
+            Assert.Equal(InteractKind.OpenIntake, s.Interaction.Prompt.Kind);
+            Assert.Equal(2, s.Requests);
+
+            // A press with nothing to act on does not linger: it is forgotten after a moment.
+            s.Teleport(30f, 27f);
+            s.Frame(interact: true);
+            for (int i = 0; i < 10; i++) s.Frame(interact: false);
+            s.Teleport(po.IntakeX + 1f, po.IntakeZ);
+            for (int i = 0; i < 6; i++) s.Frame(interact: false);
+            Assert.Equal(0u, s.World.OpenContainerId);
+            Assert.Equal(2, s.Requests);
         }
 
         [Fact]
@@ -266,6 +319,16 @@ namespace PerformativeMail.Net.Tests
             Assert.Null(s.World.Hotbar.EntryAt(1, 0));
             assist.Update(s.Client);
             Assert.Equal(2, s.Client.Input.HeldSlot);
+
+            // Deliver the last one: no emptied slot stays selected, the hands are.
+            held = s.World.Hotbar.EntryAt(2, 0)!;
+            dest = map.FindDestination(held.Stack.Address)!;
+            s.Teleport(dest.MailboxX + 0.5f, dest.MailboxZ);
+            s.Client.Deliver(s.World.Hotbar.Id, held.EntryId, dest.Id);
+            s.Run(10);
+            Assert.Equal(0, s.World.Hotbar.EntryCount);
+            assist.Update(s.Client);
+            Assert.Equal(0, s.Client.Input.HeldSlot);
         }
 
         [Fact]

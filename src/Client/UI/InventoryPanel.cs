@@ -1,9 +1,6 @@
-using System.Collections.Generic;
 using Godot;
 using PerformativeMail.Client.Presentation;
-using PerformativeMail.Sim.Inventory;
 using GridContainer = PerformativeMail.Sim.Inventory.GridContainer;
-using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Client.UI
 {
@@ -19,7 +16,7 @@ namespace PerformativeMail.Client.UI
         private ItemList _manifest = null!;
         private VBoxContainer _externalSide = null!;
         private Label _hint = null!;
-        private readonly List<uint> _rowEntries = new List<uint>();
+        private readonly ManifestList _rows = new ManifestList();
         private uint _listedId, _listedVersion;
 
         public int ManifestRows => _manifest.ItemCount;
@@ -77,56 +74,51 @@ namespace PerformativeMail.Client.UI
         public override void _Process(double delta)
         {
             var world = _client?.World;
-            if (world == null || !Visible) return;
-            var external = world.OpenContainer;
+            var external = Visible ? world?.OpenContainer : null;
+            if (world == null || external == null)
+            {
+                // Closed: the next time the list opens it starts in address order again.
+                _listedId = 0;
+                if (world == null || !Visible) return;
+            }
             _externalSide.Visible = external != null;
             _hint.Text = external != null
                 ? "Click a stack to move it across  ·  [E] or [Tab] closes"
                 : "Click a stack to move it between hotbar and inventory  ·  [Tab] closes";
-            if (external == null)
-            {
-                _listedId = 0;
-                return;
-            }
-            if (external.Id == _listedId && external.Version == _listedVersion) return;
+            if (external == null || (external.Id == _listedId && external.Version == _listedVersion)) return;
+            if (external.Id != _listedId) _rows.Reset();
             _listedId = external.Id;
             _listedVersion = external.Version;
-            RebuildManifest(world, external);
+            RefreshManifest(world, external);
         }
 
-        /// <summary>One row per (address, kind), in address order; a click takes the oldest stack of the row.</summary>
-        private void RebuildManifest(ClientWorld world, GridContainer external)
+        /// <summary>
+        /// One row per (address, kind); a click takes the oldest stack of the row. The rows are
+        /// updated in place and keep their position while the list is open (<see cref="ManifestList"/>).
+        /// </summary>
+        private void RefreshManifest(ClientWorld world, GridContainer external)
         {
-            var groups = new SortedDictionary<(AddressId Address, ushort Kind), (uint First, int Stacks, int Items)>();
-            foreach (var e in external.Entries)
+            _rows.Update(external);
+            var rows = _rows.Rows;
+            while (_manifest.ItemCount > rows.Count) _manifest.RemoveItem(_manifest.ItemCount - 1);
+            for (int i = 0; i < rows.Count; i++)
             {
-                if (e.Stack.Kind != StackKind.Mail) continue;
-                var key = (e.Stack.Address, e.Stack.DefIndex);
-                groups[key] = groups.TryGetValue(key, out var g)
-                    ? (System.Math.Min(g.First, e.EntryId), g.Stacks + 1, g.Items + e.Stack.Count)
-                    : (e.EntryId, 1, e.Stack.Count);
+                var row = rows[i];
+                if (i >= _manifest.ItemCount) _manifest.AddItem("");
+                _manifest.SetItemText(i, HudText.ManifestRow(world, row));
+                _manifest.SetItemDisabled(i, row.Empty);
+                var dest = world.Map.FindDestination(row.Address);
+                var colour = dest != null ? Palette.HouseColour(dest.Variant).Lightened(0.4f) : Colors.White;
+                _manifest.SetItemCustomFgColor(i, row.Empty ? new Color(colour, 0.35f) : colour);
             }
-
-            _manifest.Clear();
-            _rowEntries.Clear();
-            int total = 0;
-            foreach (var (key, g) in groups)
-            {
-                string kind = HudText.CountAndKind(world.Content.MailKinds[key.Kind].Name, g.Items);
-                string stacks = g.Stacks > 1 ? $"  ({g.Stacks} stacks)" : "";
-                int row = _manifest.AddItem($"{world.Map.FormatAddress(key.Address)}  —  {kind}{stacks}");
-                var dest = world.Map.FindDestination(key.Address);
-                if (dest != null) _manifest.SetItemCustomFgColor(row, Palette.HouseColour(dest.Variant).Lightened(0.4f));
-                _rowEntries.Add(g.First);
-                total += g.Items;
-            }
-            _externalTitle.Text = $"Intake  ·  {HudText.CountAndKind("item", total)} waiting";
+            _externalTitle.Text = $"Intake  ·  {HudText.CountAndKind("item", _rows.TotalItems)} waiting";
         }
 
         private void OnManifestClicked(long index, Vector2 atPosition, long mouseButtonIndex)
         {
-            if (mouseButtonIndex != (long)MouseButton.Left || index < 0 || index >= _rowEntries.Count) return;
-            _client.QuickMove(_listedId, _rowEntries[(int)index]);
+            if (mouseButtonIndex != (long)MouseButton.Left || index < 0 || index >= _rows.Rows.Count) return;
+            var row = _rows.Rows[(int)index];
+            if (!row.Empty) _client.QuickMove(_listedId, row.FirstEntry);
         }
     }
 }

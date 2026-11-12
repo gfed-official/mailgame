@@ -151,6 +151,16 @@ namespace PerformativeMail.Client
                 ? $"{CountAndKind(world.Content, stack)} for {world.Map.FormatAddress(stack.Address)}"
                 : CountAndKind(world.Content, stack);
 
+        /// <summary>A line of the Intake manifest: "8 Larch Lane  —  3 Letters", with the stack count when there are several.</summary>
+        public static string ManifestRow(ClientWorld world, in ManifestRow row)
+        {
+            string address = world.Map.FormatAddress(row.Address);
+            string name = world.Content.MailKinds[row.Kind].Name;
+            if (row.Empty) return $"{address}  —  no {name}s left";
+            string stacks = row.Stacks > 1 ? $"  ({row.Stacks} stacks)" : "";
+            return $"{address}  —  {CountAndKind(name, row.Items)}{stacks}";
+        }
+
         public const string MatchWord = "MATCH";
         public const string MismatchWord = "WRONG ADDRESS";
         public const string ClosedWord = "closed";

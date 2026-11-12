@@ -80,11 +80,23 @@ list below.
       per line up close (`LabelSizing`, unit-tested; the smoke checks every label every frame). House
       numbers moved from above the ridge to above the wall that faces the mailbox, where the roof
       does not hide the now-small number from the street.
-- [ ] Nit 2 — second manifest click put a package into the inventory, double height
-- [ ] Nit 3 — manifest rows reorder under the cursor
-- [ ] Nit 4 — an emptied hotbar slot stays selected
-- [ ] Nit 5 — a very fast E tap can fail to open the Intake
-- [ ] Nit 6 — complaint 20 after one 4-letter misdelivery (design check only)
+- [x] Nit 2 — a manifest click put a Small Package (1×2) upright into the inventory although the
+      hotbar had room: quick-move tried every target unrotated before any rotated. Now the order of
+      the targets wins: the hotbar is tried upright and on its side before the inventory (choice 37).
+      A click on a carried stack while the Intake is open still moves it "across", back to the
+      Intake — that is the rough panel's one rule (its hint line says so) until drag and drop lands.
+- [x] Nit 3 — manifest rows moved under the cursor as mail arrived: `ManifestList` keeps the rows
+      still while the Intake is open (address order when it opens, new addresses at the bottom, an
+      emptied row stays in place greyed out; choice 38). The list widget is updated in place.
+- [x] Nit 4 — an emptied hotbar slot stayed selected: `HotbarAssist` selects the next mail stack,
+      or the hands (slot 1) when no mail is left.
+- [x] Nit 5 — a very fast E tap could fail to open the Intake: the press is now also taken from
+      the input event (a tap shorter than a frame never shows when polling), and a press is
+      remembered for 0.25 s, so one made while the previous request is still unanswered counts.
+- [x] Nit 6 — complaint 20 after one 4-letter misdelivery: checked, left as is. Doc 01 §3.3 says
+      "Misdelivery: +5 (letters) to +20 (cargo)" per item, `kinds.json` has `complaintOnMisdelivery`
+      5 for a letter, and 4 letters × 5 = 20. The docs are followed; whether a whole stack should
+      count once is a design question for Evan, not a bug.
 
 ### Hardening toward the written M0 acceptance criteria (after the rough loop)
 
@@ -219,6 +231,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
 36. **Meta XP numbers** (`xpPerShift` 100, `xpVictory` 50, `xpPerDelivery` 5, `rankXpPerRank` 500)
     live in `balance.json`; doc 11 gives the formula but not a rank curve, so 500 XP per rank is a
     placeholder.
+37. **Quick-move order.** Doc 03 §3.2 says auto-place tries "stack merges first, then unrotated,
+    then rotated" but not how that combines with several target containers. Merges are tried in
+    every target first; then each target in order (hotbar before inventory) is tried unrotated and
+    rotated before the next one, so mail lands in the hotbar whenever it fits there at all.
+38. **Manifest order.** Doc 03 §3.2 gives the manifest "one row per (address, kind)" and no order.
+    Rows are in address order when the Intake is opened and then hold still: later arrivals for a
+    new address are appended, an emptied row stays (greyed, not clickable) until the Intake is
+    closed, except at the very end of the list where dropping it moves nothing.
+39. **World label size.** Labels are world-sized from far away (a house number reads from across
+    the map) and capped at 5 % of the screen height per line up close (36 px at 720p).
 
 ## Commands
 

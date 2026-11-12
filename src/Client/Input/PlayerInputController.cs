@@ -36,7 +36,7 @@ namespace PerformativeMail.Client.InputHandling
         private readonly HotbarAssist _assist = new HotbarAssist();
         private bool _uiOpen;
         private bool _wantCapture = true;
-        private bool _deliverAllQueued;
+        private bool _deliverAllQueued, _interactTapped;
 
         public void Setup(ClientRuntime client, InteractionController interaction)
         {
@@ -99,6 +99,8 @@ namespace PerformativeMail.Client.InputHandling
                 }
             }
             else if (ev.IsActionPressed(InputActions.DeliverAll)) _deliverAllQueued = true;
+            // A tap can start and end between two frames, where polling never sees it held.
+            else if (ev.IsActionPressed(InputActions.Interact)) _interactTapped = true;
             else if (ev.IsActionPressed(InputActions.Go)) _client.PressGo();
         }
 
@@ -133,8 +135,9 @@ namespace PerformativeMail.Client.InputHandling
             // The Intake closes with the same key that opened it, so interact stays live under the panel.
             bool interactKey = Godot.Input.IsActionPressed(InputActions.Interact);
             _assist.Update(_client);
-            _interaction.Update(delta, interactKey, _deliverAllQueued && !_uiOpen);
+            _interaction.Update(delta, interactKey, _deliverAllQueued && !_uiOpen, _interactTapped);
             _deliverAllQueued = false;
+            _interactTapped = false;
         }
 
         private bool Captured => Godot.Input.MouseMode == Godot.Input.MouseModeEnum.Captured;

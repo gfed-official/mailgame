@@ -4,7 +4,8 @@ namespace PerformativeMail.Client
 {
     /// <summary>
     /// Keeps a mail stack selected without the player hunting for number keys: mail picked up
-    /// while nothing is held gets selected, and when the held stack is delivered the next one is.
+    /// while nothing is held gets selected, and when the held stack is delivered the next one is
+    /// (the hands when there is none: an emptied slot never stays selected).
     /// It only reacts to those two changes, so choosing "hands" by key is respected until then.
     /// </summary>
     public sealed class HotbarAssist
@@ -38,6 +39,12 @@ namespace PerformativeMail.Client
                     client.Input.HeldSlot = (byte)next;
                     slot = next;
                     heldMail = true;
+                }
+                else if (lostHeld)
+                {
+                    // Nothing left to deliver: back to the hands rather than an empty slot.
+                    client.Input.HeldSlot = 0;
+                    slot = 0;
                 }
             }
 

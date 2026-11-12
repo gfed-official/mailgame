@@ -211,6 +211,30 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void QuickMovePrefersTheFirstTargetRotatedOverTheSecondUpright()
+        {
+            // The fa44a16 playtest: a 1×2 small package clicked in the Intake went upright into the
+            // inventory although the hotbar had room for it on its side.
+            var intake = New("po_intake");
+            var hotbar = New("hotbar", 2);
+            var inventory = New("player_inventory", 3);
+            var targets = new List<GridContainer> { hotbar, inventory };
+            var small = Put(intake, Mail("small", A));
+            Assert.Equal(OpResult.Ok, InventoryOps.QuickMove(TestContent.Db, intake, small.EntryId, targets));
+            Assert.Same(small, hotbar.Get(small.EntryId));
+            Assert.True(small.Rotated);
+            Assert.Equal((2, 1), (small.W, small.H));
+            Assert.Equal(0, inventory.EntryCount);
+
+            // With the hotbar full the next one goes into the inventory, upright.
+            for (int i = 0; i < 5; i++) Put(hotbar, Mail("letter", new AddressId(1, 1, 100 + i)));
+            var second = Put(intake, Mail("small", B));
+            Assert.Equal(OpResult.Ok, InventoryOps.QuickMove(TestContent.Db, intake, second.EntryId, targets));
+            Assert.Same(second, inventory.Get(second.EntryId));
+            Assert.False(second.Rotated);
+        }
+
+        [Fact]
         public void QuickMoveIntoFullTargetsFails()
         {
             var intake = New("po_intake");

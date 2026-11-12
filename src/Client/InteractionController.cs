@@ -44,12 +44,15 @@ namespace PerformativeMail.Client
     {
         /// <summary>The range is measured on the ground; the eyes are above it, so the ray may be this much longer.</summary>
         private const float AimSlack = 1.0f;
+        /// <summary>How long a press of interact waits for something to act on.</summary>
+        private const double PressLatchSeconds = 0.25;
 
         public InteractPrompt Prompt { get; private set; }
 
         private readonly ClientRuntime _client;
         private uint _awaiting;
         private bool _wasHeld;
+        private double _pressLatch;
         private double _hold;
         private int _deliverAllDest = -1;
 
@@ -59,11 +62,20 @@ namespace PerformativeMail.Client
             client.RequestCompleted += (request, _) => { if (request.RequestId == _awaiting) _awaiting = 0; };
         }
 
-        /// <summary>Call once per frame. <paramref name="deliverAllPressed"/> is the edge of the "deliver all matching" action.</summary>
-        public void Update(double dt, bool interactHeld, bool deliverAllPressed)
+        /// <summary>
+        /// Call once per frame. <paramref name="deliverAllPressed"/> is the edge of the "deliver all
+        /// matching" action. <paramref name="interactTapped"/> reports a press of interact seen as an
+        /// input event since the last call: a tap shorter than a frame never shows in
+        /// <paramref name="interactHeld"/>, and it must still open the Intake.
+        /// </summary>
+        public void Update(double dt, bool interactHeld, bool deliverAllPressed, bool interactTapped = false)
         {
-            bool pressed = interactHeld && !_wasHeld;
+            bool pressed = (interactHeld && !_wasHeld) || interactTapped;
             _wasHeld = interactHeld;
+            // A press is remembered for a moment, so one made while the last request is still on
+            // its way (or a step before the Intake comes into view) is not lost.
+            if (pressed) _pressLatch = PressLatchSeconds;
+            else if (_pressLatch > 0) _pressLatch = Math.Max(0, _pressLatch - dt);
 
             var world = _client.World;
             if (_client.State != ClientState.Joined || world == null || !world.HasLocal)
@@ -78,13 +90,21 @@ namespace PerformativeMail.Client
                 case InteractKind.OpenIntake:
                     _hold = 0;
                     _deliverAllDest = -1;
-                    if (pressed && _awaiting == 0) _awaiting = _client.OpenContainer(world.IntakeContainerId);
+                    if (_pressLatch > 0 && _awaiting == 0)
+                    {
+                        _pressLatch = 0;
+                        _awaiting = _client.OpenContainer(world.IntakeContainerId);
+                    }
                     break;
 
                 case InteractKind.CloseIntake:
                     _hold = 0;
                     _deliverAllDest = -1;
-                    if (pressed && _awaiting == 0) _awaiting = _client.CloseContainer();
+                    if (_pressLatch > 0 && _awaiting == 0)
+                    {
+                        _pressLatch = 0;
+                        _awaiting = _client.CloseContainer();
+                    }
                     break;
 
                 case InteractKind.Deliver:
@@ -102,6 +122,7 @@ namespace PerformativeMail.Client
         private void Reset()
         {
             Prompt = default;
+            _pressLatch = 0;
             _hold = 0;
             _deliverAllDest = -1;
         }
