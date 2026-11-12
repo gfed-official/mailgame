@@ -10,6 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Godot-facing client code compiles into the root Godot project (PerformativeMail.csproj). -->
+    <Compile Remove="Presentation/**;UI/**;Input/**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Sim/PerformativeMail.Sim.csproj" />
   </ItemGroup>
 

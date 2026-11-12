@@ -52,6 +52,8 @@ namespace PerformativeMail.Client
         public event Action<SimEvent>? EventReceived;
         /// <summary>Raised with the request that was answered and the server's verdict.</summary>
         public event Action<SimRequest, OpResult>? RequestCompleted;
+        /// <summary>Raised at the start of every client tick, before <see cref="Input"/> is sampled (bots decide here).</summary>
+        public event Action? TickStarting;
 
         // Diagnostics (M0 acceptance: container hashes match on every version; prediction error).
         public int ContainerVersionsVerified { get; private set; }
@@ -137,6 +139,7 @@ namespace PerformativeMail.Client
 
         private void StepInput()
         {
+            TickStarting?.Invoke();
             var world = World;
             if (State != ClientState.Joined || world == null) return;
             world.ServerTick += 1.0;
