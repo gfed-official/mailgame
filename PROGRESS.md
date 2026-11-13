@@ -106,7 +106,9 @@ list below.
 
 ### Hardening toward the written M0 acceptance criteria (after the rough loop)
 
-- [ ] ENet transport (listen server + remote clients), protocol hash rejection
+- [x] ENet transport (listen server + remote clients), protocol hash rejection (design choice 42).
+      The smoke ends with a second client joining the host's socket, walking, and leaving, and a
+      wrong-hash client being turned away; `tools/soak.sh` plays N processes over real sockets.
 - [ ] Inventory panel: drag and drop / rotate / sort, optimistic ops with rollback (the rough panel
       is click = quick-move, server-confirmed only)
 - [ ] 8 clients / 10 min soak with container hash check on every version
@@ -286,6 +288,35 @@ See "Commands" at the bottom (filled in as the tooling lands).
     - While paused the HUD shows PAUSED and "The clock is stopped · [Esc] resume", the interact
       prompt is hidden, and E / F / G do nothing.
 
+42. **ENet (doc 06 §2), as far as M0 needs it.** The doc names the transport and its three channels;
+    the rest is chosen here:
+    - Godot's low-level `ENetConnection` / `ENetPacketPeer`, not the high-level multiplayer API: the
+      game has its own messages, so ENet only carries bytes (`src/App/Net/EnetTransport.cs`, behind
+      the same `IServerTransport` / `IClientTransport` as loopback).
+    - A host is a listen server: its own client stays on loopback (doc 06 §1 "in-process"), remote
+      clients come in over ENet, and `CompositeServerTransport` (Godot-free, unit-tested) puts both
+      behind the one `ServerRuntime`.
+    - Channel 0 is sent unreliable *sequenced* with `FlagUnreliableFragment`: ENet drops a late
+      packet instead of delivering it out of order (the doc says "unordered"; both ends only ever
+      want the newest input / snapshot), and a snapshot above the MTU is fragmented, not promoted
+      to reliable. Channels 1 and 2 are reliable ordered.
+    - Default UDP port 24565 (`GameSession.DefaultPort`); `--port=N` picks another, `--port=0` any
+      free one, `--solo` does not listen. A host listens by default. If the port cannot be bound
+      the host plays on alone with an error line — a busy port must not stop a solo game.
+    - 16 ENet peers for 8 players, so a ninth client gets the "server full" answer instead of a
+      timeout. A rejected client is disconnected with `PeerDisconnectLater`, so the reason arrives.
+    - Both ends flush the socket at the end of every frame instead of waiting for the next poll
+      (otherwise every message would sit for a frame).
+    - `--join=ADDRESS[:PORT]` is the whole join UI until there is a menu (M1). Refused / no answer:
+      a line in the window (headless: exit code 3). Host lost after joining (doc 06 §5): the world
+      stands still under a HOST LOST banner; there is no main menu to return to yet. Reconnect and
+      the 120 s freeze of a disconnected player are M1 scope and not done.
+    - ENet's own timeouts (5–30 s) decide when a silent peer is gone.
+    - `--bot` lets a `DeliveryBot` play the process's client (as host: `--wait-players=N` holds the
+      run until N players are in the Lobby); `--quit-after=SECONDS` ends it with `BOT OK` /
+      `BOT FAIL`. Bots keep their profile in memory. `tools/soak.sh` starts a host and N−1 guests
+      this way — the soak over real sockets.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -304,6 +335,14 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --seed=7 --name=Ada               # user args go after "--"
 ~/.local/bin/godot --path . -- --quick                           # skip Lobby and Prep: straight into shift 1
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
+
+# multiplayer: a host listens on UDP 24565 by default
+~/.local/bin/godot --path . -- --port=24600                      # host on another port (0 = any free one; --solo = do not listen)
+~/.local/bin/godot --path . -- --join=192.168.1.20               # join a host (ADDRESS or ADDRESS:PORT), in its Lobby or Prep
+~/.local/bin/godot --headless --path . -- --bot --wait-players=2 # a bot hosts and starts the run once 2 players are in
+~/.local/bin/godot --headless --path . -- --bot --join=127.0.0.1 --quit-after=60   # a bot guest; ends with BOT OK / BOT FAIL
+
+tools/soak.sh [players=8] [seconds=600] [seed]   # host + guests as separate headless bot processes over ENet; "SOAK OK"
 ```
 
 The profile (Postal Rank XP, stats, last 10 runs) is `user://profile.json`, on Linux
@@ -331,4 +370,8 @@ position and aimed along the interact ray every frame; no local body; the ✓ an
 missing glyphs; the top HUD row fully on screen; the real-time loop advances the server. At Results
 the profile must hold the run's XP, run count, deliveries and recent-run line, the panel must show
 the rank line, and the saved profile must read back equal; `tools/smoke.sh` then also looks for the
-XP in the profile file itself.
+XP in the profile file itself. Last, back in the Lobby, ENet: a second `ClientRuntime` connects to
+the host's own UDP port, joins (both ends, the host's HUD and the host's player views count two
+players), walks a second down the street (the server moves it, its prediction agrees), and leaves;
+next to it a client saying Hello with a wrong protocol hash must get `ProtocolMismatch` and be
+disconnected.

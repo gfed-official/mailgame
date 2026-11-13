@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using PerformativeMail.App.Net;
 using PerformativeMail.Client;
 using PerformativeMail.Client.Bot;
 using PerformativeMail.Client.Meta;
@@ -8,6 +9,7 @@ using PerformativeMail.Client.Presentation;
 using PerformativeMail.Client.UI;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Net;
 using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.App
@@ -21,7 +23,7 @@ namespace PerformativeMail.App
     /// </summary>
     public partial class SmokeDriver : Node
     {
-        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Done }
+        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Remote, Done }
 
         private const int TicksPerFrame = 3;
         /// <summary>Once the close-up checks are done the remaining shifts run at one second per frame.</summary>
@@ -293,6 +295,153 @@ namespace PerformativeMail.App
                     }
                     if (world.Global.Wallet != 0 && _stageFrames <= 60) break; // the global block follows within a few ticks
                     VerifyRun();
+                    StartRemote();
+                    break;
+
+                case Stage.Remote:
+                    StepRemote();
+                    break;
+            }
+        }
+
+        // --- ENet (doc 06 §2): a second client joins the host's socket, a stale build is turned away ---
+
+        private const string RemoteName = "Remote";
+        private const int RemoteWalkTicks = 30;
+        private const ulong RemoteTimeoutMsec = 10000;
+
+        /// <summary>A build with another protocol: says Hello with a wrong hash and notes the answer.</summary>
+        private sealed class StaleClient : IClientTransportHandler
+        {
+            public EnetClientTransport Transport = null!;
+            public uint Hash;
+            public RejectReason? Rejected;
+            public bool Disconnected;
+
+            public void OnConnected()
+            {
+                var w = new NetWriter();
+                new HelloMsg { ProtocolHash = Hash, Name = "old build" }.Write(w);
+                Transport.Send(NetChannel.Reliable, w.ToArray());
+            }
+
+            public void OnDisconnected() => Disconnected = true;
+
+            public void OnData(NetChannel channel, byte[] data)
+            {
+                var r = new NetReader(data);
+                if ((MsgType)r.U8() == MsgType.Reject) Rejected = RejectMsg.Read(r);
+            }
+        }
+
+        private EnetClientTransport? _remoteTransport;
+        private ClientRuntime _remote = null!;
+        private readonly StaleClient _stale = new StaleClient();
+        private ulong _remoteDeadline;
+        private int _remoteStep, _remoteWalked, _remoteWaypoint;
+        private float _remoteStartX, _remoteStartZ;
+        private readonly List<(float X, float Z)> _remotePath = new List<(float, float)>();
+
+        private void StartRemote()
+        {
+            int port = _session.ListenPort;
+            if (port <= 0) { Fail("the host is not listening for remote clients"); return; }
+            _remoteTransport = EnetClientTransport.Connect("127.0.0.1", port, out var error);
+            var stale = EnetClientTransport.Connect("127.0.0.1", port, out var staleError);
+            if (_remoteTransport == null || stale == null) { Fail($"no ENet client socket ({error}, {staleError})"); return; }
+            _remote = new ClientRuntime(_session.Content, _remoteTransport, RemoteName);
+            _stale.Transport = stale;
+            _stale.Hash = _session.Server!.ProtocolHash ^ 1;
+            _remoteDeadline = Time.GetTicksMsec() + RemoteTimeoutMsec;
+            // One tick of each end per frame: the remote client is driven from here, a frame at a time.
+            _session.FixedTicksPerFrame = 1;
+            Enter(Stage.Remote);
+        }
+
+        /// <summary>Heads the remote player down the street toward the first mailbox, or stops it.</summary>
+        private void SteerRemote(ClientWorld remoteWorld, bool walk)
+        {
+            _remote.Input.MoveX = 0f;
+            _remote.Input.MoveZ = 0f;
+            if (!walk) return;
+            float px = remoteWorld.Local.X, pz = remoteWorld.Local.Z;
+            var goal = remoteWorld.Map.Destinations[0];
+            if (_remotePath.Count == 0 && !TilePathfinder.Find(remoteWorld.Map, px, pz, goal.MailboxX, goal.MailboxZ, _remotePath)) return;
+            while (true)
+            {
+                var to = new Vector2(_remotePath[_remoteWaypoint].X - px, _remotePath[_remoteWaypoint].Z - pz);
+                if (to.Length() < 0.6f && _remoteWaypoint < _remotePath.Count - 1) { _remoteWaypoint++; continue; }
+                if (to.Length() < 0.05f) return;
+                to = to.Normalized();
+                _remote.Input.MoveX = to.X;
+                _remote.Input.MoveZ = to.Y;
+                return;
+            }
+        }
+
+        private void StepRemote()
+        {
+            var world = _session.Client.World!;
+            var server = _session.Server!;
+            _remote.Tick();
+            _remoteTransport!.Flush();
+            _stale.Transport.Poll(_stale);
+            _stale.Transport.Flush();
+
+            if (Time.GetTicksMsec() > _remoteDeadline)
+            {
+                Fail($"ENet step {_remoteStep} timed out: remote client {_remote.State} ({_remote.RejectReason}), server has {server.ClientCount} clients, "
+                    + $"the host sees {world.Players.Count} players, stale build rejected with {_stale.Rejected?.ToString() ?? "nothing"}, disconnected {_stale.Disconnected}");
+                return;
+            }
+
+            switch (_remoteStep)
+            {
+                case 0:
+                {
+                    // Joined over the socket: both ends and the host's screen know two players.
+                    if (_remote.State != ClientState.Joined || !_remote.World!.HasLocal || _remote.World.Players.Count != 2) break;
+                    if (world.Players.Count != 2 || _screen.Players.ViewCount != 2) break;
+                    if (_stale.Rejected == null || !_stale.Disconnected) break;
+                    var remoteWorld = _remote.World;
+                    Check(_stale.Rejected == RejectReason.ProtocolMismatch, $"a client with another protocol hash was rejected with {_stale.Rejected}");
+                    Check(server.ClientCount == 2 && server.World.Players.Count == 2, $"the server has {server.ClientCount} clients and {server.World.Players.Count} players");
+                    Check(remoteWorld.Players[remoteWorld.LocalId].Name == RemoteName, "the remote client does not know its own name");
+                    Check(world.Players.TryGetValue(remoteWorld.LocalId, out var seen) && seen.Name == RemoteName, "the host does not see the remote player by name");
+                    Check(world.IsHost && !remoteWorld.IsHost, "the remote client took the host role");
+                    Check(remoteWorld.Global.Phase == RunPhase.Lobby, $"the remote client joined into {remoteWorld.Global.Phase}");
+                    _screen.Hud.Refresh();
+                    Check(_screen.Hud.HintText.Contains("2 players", StringComparison.Ordinal), $"with a guest in the Lobby the HUD hint is \"{_screen.Hud.HintText}\"");
+                    (_remoteStartX, _remoteStartZ) = (remoteWorld.Local.X, remoteWorld.Local.Z);
+                    _remoteStep = 1;
+                    break;
+                }
+
+                case 1:
+                {
+                    // The remote player walks: its inputs cross the socket, the server moves it, the host sees it move.
+                    var remoteWorld = _remote.World!;
+                    SteerRemote(remoteWorld, _remoteWalked < RemoteWalkTicks);
+                    if (++_remoteWalked < RemoteWalkTicks + 20) break;
+                    var truth = server.World.GetPlayer(remoteWorld.LocalId);
+                    if (truth == null) { Fail("the server lost the remote player"); return; }
+                    float walked = new Vector2(truth.Move.X - _remoteStartX, truth.Move.Z - _remoteStartZ).Length();
+                    float predicted = new Vector2(truth.Move.X - remoteWorld.Local.X, truth.Move.Z - remoteWorld.Local.Z).Length();
+                    Check(walked > 0.5f, $"the remote player walked {walked:0.00} m on the server");
+                    Check(predicted < 0.1f, $"the remote client predicts itself {predicted:0.00} m from the server's position");
+                    Check(_remote.SnapshotsReceived > 10, $"only {_remote.SnapshotsReceived} snapshots crossed the socket");
+                    Check(_remote.ContainerDesyncs == 0 && _remote.BadPackets == 0, $"remote client: {_remote.ContainerDesyncs} desyncs, {_remote.BadPackets} bad packets");
+                    GD.Print($"[smoke] enet: {RemoteName} joined on port {_session.ListenPort}, walked {walked:0.00} m, {_remote.SnapshotsReceived} snapshots, "
+                        + $"prediction rms {_remote.PredictionErrorRms:0.000} m; stale build rejected ({_stale.Rejected})");
+                    _remote.Disconnect();
+                    _remoteStep = 2;
+                    break;
+                }
+
+                case 2:
+                    // Leaving is seen by the server at once and by the host's client a snapshot later.
+                    if (server.ClientCount != 1 || server.World.Players.Count != 1 || world.Players.Count != 1) break;
+                    Check(_screen.Players.ViewCount <= 2, "player views pile up after a guest left");
                     Finish();
                     break;
             }

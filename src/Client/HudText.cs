@@ -6,6 +6,7 @@ using PerformativeMail.Sim;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Net;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
@@ -86,6 +87,30 @@ namespace PerformativeMail.Client
                     return world.IsHost ? $"Press {GoKey} to return to the lobby" : $"Waiting for {host} to return to the lobby";
                 default: return "";
             }
+        }
+
+        public const string HostLostTitle = "HOST LOST";
+        /// <summary>Doc 06 §5: no host migration; what a run has paid in XP so far is already saved at each Payday.</summary>
+        public const string HostLostHint = "The host left the game   ·   shifts you finished keep their XP";
+
+        /// <summary>
+        /// Why the connection ended, for the player: refused with a reason, never answered, or lost
+        /// after joining ("Host lost", doc 06 §5).
+        /// </summary>
+        public static string ConnectionEnded(ClientRuntime client, bool hadJoined)
+        {
+            if (client.State == ClientState.Rejected)
+            {
+                switch (client.RejectReason)
+                {
+                    case RejectReason.ProtocolMismatch: return "Could not join: this build does not match the host's";
+                    case RejectReason.ServerFull: return "Could not join: the game is full";
+                    case RejectReason.RunInProgress: return "Could not join: a shift is in progress (join in the Lobby or during Prep)";
+                    default: return "Could not join: the host refused the connection";
+                }
+            }
+            if (client.DisconnectDetail != null) return $"Could not join: {client.DisconnectDetail}";
+            return hadJoined ? "Host lost" : "Could not join: no answer from the host";
         }
 
         /// <summary>The Payday summary (doc 01 §1 Payday): title first, then one fact per line.</summary>

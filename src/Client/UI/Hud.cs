@@ -188,8 +188,11 @@ namespace PerformativeMail.Client.UI
             _wallet.Modulate = global.Wallet < 0 ? Palette.Mismatch : Colors.White;
             _rank.Visible = Profile != null && (global.Phase == RunPhase.Lobby || global.Phase == RunPhase.Results);
             if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
-            _hint.Text = HudText.PhaseHint(world);
-            _paused.Visible = world.Paused;
+            // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
+            bool lost = _client!.State == ClientState.Disconnected;
+            _hint.Text = lost ? HudText.HostLostHint : HudText.PhaseHint(world);
+            _paused.Visible = world.Paused || lost;
+            _paused.Text = lost ? HudText.HostLostTitle : HudText.PausedTitle;
             RefreshOverlay(world);
 
             var prompt = _interaction.Prompt;

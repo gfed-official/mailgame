@@ -24,6 +24,8 @@ namespace PerformativeMail.Client.Bot
         public int MisdeliverEvery;
         /// <summary>Press "go" between shifts: start the run and leave Results as host, ready up in Prep.</summary>
         public bool AutoRun = true;
+        /// <summary>As host, start the run only once this many players are in the Lobby (nobody joins mid-shift).</summary>
+        public int MinPlayersToStart = 1;
 
         public int StacksDelivered { get; private set; }
         public int StacksMisdelivered { get; private set; }
@@ -201,7 +203,7 @@ namespace PerformativeMail.Client.Bot
             bool go;
             switch (world.Global.Phase)
             {
-                case RunPhase.Lobby: go = world.IsHost || !world.LocalReady; break;
+                case RunPhase.Lobby: go = world.IsHost ? world.Players.Count >= MinPlayersToStart : !world.LocalReady; break;
                 case RunPhase.Prep: go = !world.LocalReady; break;
                 case RunPhase.Results: go = world.IsHost; break;
                 default: go = false; break;
