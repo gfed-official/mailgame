@@ -70,7 +70,11 @@ list below.
 - [x] The Godot host runs the real loop (boots into the Lobby; `--quick` keeps the old straight-
       into-a-shift start), and the smoke walks Lobby → Prep → Delivery → Payday → … → Results →
       Lobby, checking the HUD and the panel at each step against the server
-- [ ] Postal Rank XP kept in a local MetaProfile (doc 01 §5.1, doc 08 §3.8; XP only)
+- [x] Postal Rank XP kept in a local MetaProfile (doc 01 §5.1, doc 08 §3.8; XP only):
+      `src/Client/Meta` (`MetaProfile` JSON, `ProfileTracker`, `FileProfileStore` on
+      `user://profile.json`), saved at every Payday and at Results, rank line on the HUD in the
+      Lobby and on the Results panel ("RANK UP!" when it rose), `ProfileTests`, smoke checks the
+      saved file
 - [ ] Solo pause (doc 01 §1 "Shift clock")
 
 ### Playtest nits on fa44a16 (`logs/fable52/nits-fa44a16.md`, 2026-11-12)
@@ -241,6 +245,27 @@ See "Commands" at the bottom (filled in as the tooling lands).
     closed, except at the very end of the list where dropping it moves nothing.
 39. **World label size.** Labels are world-sized from far away (a house number reads from across
     the map) and capped at 5 % of the screen height per line up close (36 px at 720p).
+40. **MetaProfile, as far as it goes.** Doc 08 §3.8 gives the file shape and doc 07 §7.1 when it is
+    written (every Payday, and Results). The rest is chosen here:
+    - The profile is the *client's* (each player keeps their own file); the server only reports XP
+      in `RunResults`, the client adds its own row to its profile. `profileId` is `local:<guid>`.
+    - `stats.deliveries` / `misdeliveries` count the player's own events as they happen, so a
+      Payday save already holds them; XP, runs, wins, best score and the `recentRuns` line are
+      added once, at Results. A run abandoned before Results gives no XP (doc 01 §2: XP "at
+      Results").
+    - Rank = 1 + rankXp / `rankXpPerRank` (rank 1 at 0 XP).
+    - `seedString` is the numeric seed until seeds can be typed (doc 01 §1 seed strings are not in
+      yet); `date` is the local date.
+    - `unlocks`, `cosmetics` and `settings` are written empty and not read back: nothing fills
+      them yet.
+    - A profile that cannot be parsed is renamed to `profile.json.bad` and a new one started,
+      rather than overwritten. A failed save is kept in `ProfileTracker.SaveProblem` and retried
+      at the next save; it never stops the game.
+    - Writes go to `profile.json.tmp` and are moved over the file, so a crash mid-write cannot
+      leave half a profile.
+    - `--name=X` renames the profile; without it the stored name is used (first start: "Postie").
+    - The smoke never touches the real profile: in memory by default, or the file given with
+      `--profile=FILE` (which `tools/smoke.sh` points at a temp file and then checks for XP).
 
 ## Commands
 
@@ -259,7 +284,11 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path .                                      # play: host on the test street, in the Lobby (G starts)
 ~/.local/bin/godot --path . -- --seed=7 --name=Ada               # user args go after "--"
 ~/.local/bin/godot --path . -- --quick                           # skip Lobby and Prep: straight into shift 1
+~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ```
+
+The profile (Postal Rank XP, stats, last 10 runs) is `user://profile.json`, on Linux
+`~/.local/share/godot/app_userdata/Performative Mail/profile.json`; delete it to start at rank 1.
 
 Godot needs to find the .NET runtime: either `dotnet` on `PATH` or `DOTNET_ROOT=$HOME/.dotnet`
 (`tools/smoke.sh` sets both itself).
@@ -278,4 +307,7 @@ reach the client; server wallet = start + paid − penalties = client wallet = t
 no container desync or bad packet; the world, player view and camera exist; the boot view (camera
 at the eyes, not in a wall, clear view along the map's spawn facing); the camera at the player's eye
 position and aimed along the interact ray every frame; no local body; the ✓ and ✗ marks drawn; no
-missing glyphs; the top HUD row fully on screen; the real-time loop advances the server.
+missing glyphs; the top HUD row fully on screen; the real-time loop advances the server. At Results
+the profile must hold the run's XP, run count, deliveries and recent-run line, the panel must show
+the rank line, and the saved profile must read back equal; `tools/smoke.sh` then also looks for the
+XP in the profile file itself.

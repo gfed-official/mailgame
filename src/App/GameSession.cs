@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using PerformativeMail.Client;
+using PerformativeMail.Client.Meta;
 using PerformativeMail.Server;
 using PerformativeMail.Server.Transport;
 using PerformativeMail.Sim;
@@ -20,6 +21,8 @@ namespace PerformativeMail.App
         public ClientRuntime Client { get; private set; } = null!;
         public InteractionController Interaction { get; private set; } = null!;
         public EventFeed Feed { get; } = new EventFeed();
+        /// <summary>The local player's Postal Rank and stats, saved at every Payday and at Results.</summary>
+        public ProfileTracker Profile { get; private set; } = null!;
 
         /// <summary>Called every frame before the client ticks; the input layer fills <see cref="ClientRuntime.Input"/> here.</summary>
         public Action<double>? InputSource;
@@ -35,14 +38,16 @@ namespace PerformativeMail.App
         public bool HasJoined { get; private set; }
 
         /// <param name="quickStart">Skip Lobby and Prep (<see cref="SimSettings.QuickStart"/>): straight into a shift.</param>
-        public void StartHost(ContentDb content, uint seed, string playerName, bool quickStart = false)
+        /// <param name="profile">The local player's profile; it gives the player's name and is saved to <paramref name="store"/>.</param>
+        public void StartHost(ContentDb content, uint seed, MetaProfile profile, IProfileStore store, bool quickStart = false)
         {
             Content = content;
             var hub = new LoopbackHub();
             Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart }, hub) { Log = line => GD.Print("[server] ", line) };
-            Client = new ClientRuntime(content, hub.CreateClient(), playerName);
+            Client = new ClientRuntime(content, hub.CreateClient(), profile.DisplayName);
             Interaction = new InteractionController(Client);
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);
+            Profile = new ProfileTracker(Client, profile, store);
         }
 
         public override void _Process(double delta)

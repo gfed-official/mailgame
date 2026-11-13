@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using PerformativeMail.Client;
 using PerformativeMail.Client.Bot;
+using PerformativeMail.Client.Meta;
 using PerformativeMail.Client.Presentation;
 using PerformativeMail.Client.UI;
 using PerformativeMail.Sim;
@@ -56,6 +57,7 @@ namespace PerformativeMail.App
         private float _spawnDistance, _maxEyeOffset, _maxAimOffset, _maxLabelOver;
         private string _missingGlyphs = "", _biggestLabel = "";
         private long _labels;
+        private int _startXp, _startRuns, _startDeliveries, _ownDeliveries;
         private int _frames;
         private uint _startTick, _realTimeStartTick;
         private double _realTime;
@@ -71,6 +73,8 @@ namespace PerformativeMail.App
             _spawnDistance = new Vector2(world.Local.X - pad.SpawnPadX, world.Local.Z - pad.SpawnPadZ).Length();
             CheckBootView();
 
+            var profile = session.Profile.Profile;
+            (_startXp, _startRuns, _startDeliveries) = (profile.RankXp, profile.Runs, profile.Deliveries);
             client.EventReceived += OnEvent;
             // The driver presses "go" itself, so each phase stays on screen long enough to be checked.
             _bot = new DeliveryBot(client) { MisdeliverEvery = 4, AutoRun = false };
@@ -86,7 +90,11 @@ namespace PerformativeMail.App
         {
             switch (ev)
             {
-                case DeliveredEvent e: _paid += e.Paid; _deliveredEvents++; break;
+                case DeliveredEvent e:
+                    _paid += e.Paid;
+                    _deliveredEvents++;
+                    if (e.Player == _session.Client.World!.LocalId) _ownDeliveries++;
+                    break;
                 case MisdeliveredEvent e: _penalties += e.Penalty; _misdeliveredEvents++; break;
                 case MailSpawnedEvent e: _mailArrived += e.Count; break;
                 case PhaseChangedEvent e: _phases.Add(e.Phase); break;
@@ -363,8 +371,10 @@ namespace PerformativeMail.App
                         Check(truth != null && truth.Outcome == results.Outcome && truth.Score == results.Score && truth.ShiftsCompleted == results.ShiftsCompleted
                             && truth.Deliveries == results.Deliveries && truth.Players.Count == results.Players.Count,
                             "the client's run results differ from the server's");
-                        string want = string.Join("\n", HudText.ResultsLines(world, results));
+                        var tracker = _session.Profile;
+                        string want = string.Join("\n", HudText.ResultsLines(world, results, tracker.Profile, tracker.LastGain));
                         Check(hud.Overlay.Visible && hud.OverlayText == want, $"at Results the panel shows \"{hud.OverlayText}\", expected \"{want}\"");
+                        CheckProfile(world, results);
                         Check(hud.PhaseText.StartsWith("RESULTS", StringComparison.Ordinal), $"at Results the HUD phase line is \"{hud.PhaseText}\"");
                         Check(hud.HintText.Contains($"Press {HudText.GoKey}", StringComparison.Ordinal), $"at Results the HUD hint is \"{hud.HintText}\"");
                         Shot("results");
@@ -387,6 +397,39 @@ namespace PerformativeMail.App
 
             if (_stage == Stage.RunOut && server.Tick - _runOutStartTick > RunTimeoutTicks)
                 Fail($"the run did not reach Results within {RunTimeoutTicks} ticks (shift {server.Run.Shift}, {server.Run.Phase}; saw {string.Join(", ", _phases)})");
+        }
+
+        /// <summary>At Results the run's XP is in the profile, on the HUD and in the profile's store (doc 07 §7.1).</summary>
+        private void CheckProfile(ClientWorld world, RunResults results)
+        {
+            var tracker = _session.Profile;
+            var profile = tracker.Profile;
+            var hud = _screen.Hud;
+            int xp = -1;
+            foreach (var p in results.Players)
+                if (p.Player == world.LocalId) xp = p.Xp;
+            Check(xp > 0, $"the results give the local player {xp} XP");
+            Check(tracker.LastGain != null && tracker.LastGain.Value.Xp == xp, "the profile did not take the run's XP");
+            Check(profile.RankXp == _startXp + xp, $"the profile has {profile.RankXp} XP, expected {_startXp} + {xp}");
+            Check(profile.Runs == _startRuns + 1, $"the profile counts {profile.Runs} runs, expected {_startRuns + 1}");
+            Check(profile.Deliveries == _startDeliveries + _ownDeliveries, $"the profile counts {profile.Deliveries} deliveries, expected {_startDeliveries} + {_ownDeliveries}");
+            Check(profile.RecentRuns.Count > 0 && profile.RecentRuns[0].Score == results.Score && profile.RecentRuns[0].ShiftsCompleted == results.ShiftsCompleted,
+                "the newest recent run in the profile is not this run");
+            int perRank = HudText.RankXpPerRank(world.Content);
+            Check(hud.RankText == HudText.Rank(profile, perRank), $"at Results the HUD rank line is \"{hud.RankText}\", expected \"{HudText.Rank(profile, perRank)}\"");
+            Check(hud.OverlayText.Contains($"Postal Rank {profile.Rank(perRank)}", StringComparison.Ordinal), "the results panel does not show the Postal Rank");
+
+            Check(tracker.SaveProblem == null, $"saving the profile failed: {tracker.SaveProblem}");
+            // One save per Payday and one at Results, and what is stored reads back as the same profile.
+            string? stored = tracker.Store.Read();
+            if (stored == null) _failures.Add("no profile was stored at Results");
+            else
+            {
+                var read = MetaProfile.FromJson(stored);
+                Check(read.ProfileId == profile.ProfileId && read.RankXp == profile.RankXp && read.Runs == profile.Runs && read.Deliveries == profile.Deliveries
+                    && read.RecentRuns.Count == profile.RecentRuns.Count, "the stored profile differs from the one in memory");
+            }
+            GD.Print($"[smoke] profile: +{xp} XP, {HudText.Rank(profile, perRank)}, {profile.Runs} runs, {profile.Deliveries} deliveries");
         }
 
         /// <summary>After Results → Lobby: the whole run as the client saw it.</summary>
@@ -416,6 +459,9 @@ namespace PerformativeMail.App
             Check(server.Run.Phase == RunPhase.Lobby && server.Run.RunNumber == 1, $"the server is in {server.Run.Phase} of run {server.Run.RunNumber}");
             Check(hud.PhaseText == "LOBBY", $"back in the Lobby the HUD phase line is \"{hud.PhaseText}\"");
             Check(!hud.Overlay.Visible, "the results panel is still shown in the Lobby");
+            string rank = HudText.Rank(_session.Profile.Profile, HudText.RankXpPerRank(world.Content));
+            Check(hud.RankText == rank, $"back in the Lobby the HUD rank line is \"{hud.RankText}\", expected \"{rank}\"");
+            Check(_session.Profile.LastGain == null, "the last run's XP gain is still pending in the Lobby");
             Check(world.Global.Wallet == 0 && server.Economy.Wallet == 0, $"a new run starts with wallet {world.Global.Wallet} (server {server.Economy.Wallet})");
             Check(world.Hotbar.EntryCount + world.Inventory.EntryCount == 0, "mail from the finished run is still carried in the Lobby");
             Check(client.ContainerDesyncs == 0, $"{client.ContainerDesyncs} container desyncs");

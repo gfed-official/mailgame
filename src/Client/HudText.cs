@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using PerformativeMail.Client.Meta;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Content;
@@ -106,6 +107,23 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>The Results screen (doc 01 §1 RunOver / Victory): title, totals, then one line per player.</summary>
+        /// <param name="profile">The local player's profile and what this run added to it; adds the Postal Rank line.</param>
+        public static List<string> ResultsLines(ClientWorld world, RunResults r, MetaProfile? profile, ProfileGain? gain)
+        {
+            var lines = ResultsLines(world, r);
+            if (profile == null || gain == null) return lines;
+            int perRank = RankXpPerRank(world.Content);
+            string rank = Rank(profile, perRank);
+            lines.Add(gain.Value.RankAfter > gain.Value.RankBefore ? $"RANK UP!   {rank}" : rank);
+            return lines;
+        }
+
+        public static int RankXpPerRank(ContentDb content) => content.Balance.GetInt("rankXpPerRank");
+
+        /// <summary>"Postal Rank 2   ·   120 / 500 XP": the rank and the XP earned towards the next one (doc 01 §5.1).</summary>
+        public static string Rank(MetaProfile profile, int xpPerRank) =>
+            $"Postal Rank {profile.Rank(xpPerRank)}   ·   {profile.XpIntoRank(xpPerRank)} / {xpPerRank} XP";
+
         public static List<string> ResultsLines(ClientWorld world, RunResults r)
         {
             int shifts = ShiftCount(world.Content);

@@ -1,4 +1,5 @@
 using Godot;
+using PerformativeMail.Client.Meta;
 using PerformativeMail.Client.Presentation;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Run;
@@ -24,19 +25,23 @@ namespace PerformativeMail.Client.UI
         public string WalletText => _wallet.Text;
         public string PromptText => _prompt.Text;
         public string HintText => _hint.Text;
+        /// <summary>The Postal Rank line (Lobby and Results only), else empty.</summary>
+        public string RankText => _rank.Visible ? _rank.Text : "";
+        /// <summary>The local player's profile; without one the HUD shows no rank.</summary>
+        public ProfileTracker? Profile;
         /// <summary>The lines of the Payday summary / Results panel while it is shown, else empty.</summary>
         public string OverlayText => _overlay.Visible ? _overlayText : "";
         public Control Overlay => _overlay;
         /// <summary>The tick (Match) or cross (Mismatch) drawn beside the prompt right now; Neutral when there is none.</summary>
         public PromptTone PromptMark => _mark.Tone;
         /// <summary>The widgets along the top edge, for the smoke's "nothing is clipped" check.</summary>
-        public Control[] TopRow => new Control[] { _phase, _status, _quota, _wallet };
+        public Control[] TopRow => new Control[] { _phase, _status, _quota, _wallet, _rank };
 
         private ClientRuntime _client = null!;
         private InteractionController _interaction = null!;
         private EventFeed _feed = null!;
 
-        private Label _phase = null!, _status = null!, _quota = null!, _wallet = null!, _prompt = null!, _held = null!, _hint = null!;
+        private Label _phase = null!, _status = null!, _quota = null!, _wallet = null!, _rank = null!, _prompt = null!, _held = null!, _hint = null!;
         private PanelContainer _overlay = null!;
         private VBoxContainer _overlayLines = null!;
         private object? _overlaySource;
@@ -61,6 +66,8 @@ namespace PerformativeMail.Client.UI
             _status = AddLabel("Status", 16, 0f, 0f, m, m + 40f, 700f, m + 66f, HorizontalAlignment.Left);
             _quota = AddLabel("Quota", 22, 1f, 0f, -520f, m, -m, m + 34f, HorizontalAlignment.Right);
             _wallet = AddLabel("Wallet", 22, 1f, 0f, -520f, m + 34f, -m, m + 68f, HorizontalAlignment.Right);
+            // Between runs the quota line is empty, so the rank takes its place above the wallet.
+            _rank = AddLabel("Rank", 16, 1f, 0f, -520f, m + 4f, -m, m + 30f, HorizontalAlignment.Right);
 
             // What the run waits for and what the "go" key does, under the top row.
             _hint = AddLabel("Hint", 20, 0.5f, 0f, -520f, m + 78f, 520f, m + 108f, HorizontalAlignment.Center);
@@ -172,6 +179,8 @@ namespace PerformativeMail.Client.UI
             _quota.Modulate = global.ShiftEarnings >= global.Quota ? Palette.Match : Colors.White;
             _wallet.Text = HudText.Wallet(global);
             _wallet.Modulate = global.Wallet < 0 ? Palette.Mismatch : Colors.White;
+            _rank.Visible = Profile != null && (global.Phase == RunPhase.Lobby || global.Phase == RunPhase.Results);
+            if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
             _hint.Text = HudText.PhaseHint(world);
             RefreshOverlay(world);
 
@@ -216,7 +225,9 @@ namespace PerformativeMail.Client.UI
             foreach (var child in _overlayLines.GetChildren()) child.QueueFree();
             _overlayText = "";
             if (source == null) return;
-            var lines = source is ShiftSummary summary ? HudText.SummaryLines(world, summary) : HudText.ResultsLines(world, (RunResults)source);
+            var lines = source is ShiftSummary summary
+                ? HudText.SummaryLines(world, summary)
+                : HudText.ResultsLines(world, (RunResults)source, Profile?.Profile, Profile?.LastGain);
             bool good = source is ShiftSummary s ? s.QuotaMet : ((RunResults)source).Outcome == RunOutcome.Victory;
             for (int i = 0; i < lines.Count; i++)
             {

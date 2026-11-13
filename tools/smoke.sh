@@ -13,10 +13,13 @@ export DOTNET_ROOT="${DOTNET_ROOT:-$(dirname "$(readlink -f "$DOTNET")")}"
 export PATH="$DOTNET_ROOT:$PATH"
 
 "$DOTNET" build PerformativeMail.sln -nodeReuse:false -v quiet -nologo
-log="$(mktemp)"
-trap 'rm -f "$log"' EXIT
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+log="$work/log"
+# A profile file of its own: the smoke checks that the run's XP is saved, never the player's real profile.
+profile="$work/profile.json"
 set +e
-timeout 300 "$GODOT" --headless --path . -- --smoke "--seed=$SEED" 2>&1 | tee "$log"
+timeout 300 "$GODOT" --headless --path . -- --smoke "--seed=$SEED" "--profile=$profile" 2>&1 | tee "$log"
 status=${PIPESTATUS[0]}
 set -e
 if [ "$status" -ne 0 ]; then
@@ -24,3 +27,4 @@ if [ "$status" -ne 0 ]; then
     exit "$status"
 fi
 grep -q "^SMOKE OK$" "$log" || { echo "smoke: no SMOKE OK line" >&2; exit 1; }
+grep -q '"rankXp": [1-9]' "$profile" || { echo "smoke: no XP in the saved profile $profile" >&2; exit 1; }

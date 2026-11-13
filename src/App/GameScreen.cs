@@ -44,6 +44,7 @@ namespace PerformativeMail.App
             AddChild(layer);
             Hud = new Hud();
             layer.AddChild(Hud);
+            Hud.Profile = session.Profile;
             Hud.Setup(client, session.Interaction, session.Feed);
             Inventory = new InventoryPanel();
             layer.AddChild(Inventory);
