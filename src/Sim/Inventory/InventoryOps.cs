@@ -24,6 +24,8 @@ namespace PerformativeMail.Sim.Inventory
         /// <summary>The run phase does not allow this (mailboxes are shut outside Delivery, Start only in the Lobby, ...).</summary>
         WrongPhase,
         NotHost,
+        /// <summary>Only a solo run can be paused (doc 01 §1).</summary>
+        NotSolo,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

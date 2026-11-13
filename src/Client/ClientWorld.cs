@@ -128,7 +128,12 @@ namespace PerformativeMail.Client
         /// <summary>The run's results while in Results; null otherwise.</summary>
         public RunResults? Results { get; internal set; }
 
+        /// <summary>Solo pause (doc 01 §1): the server's tick, and with it this client's, stands still.</summary>
+        public bool Paused { get; internal set; }
+
         public bool IsHost => !LocalId.IsNone && Global.Host == LocalId;
+        /// <summary>Only the host of a solo run can pause it.</summary>
+        public bool CanPause => IsHost && Players.Count == 1;
         public bool LocalReady => Players.TryGetValue(LocalId, out var p) && p.Ready;
 
         public int ReadyCount

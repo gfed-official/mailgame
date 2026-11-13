@@ -72,7 +72,8 @@ namespace PerformativeMail.Server
             World.Step();
             RouteEvents();
             // 20 Hz from a 30 Hz tick: two ticks out of three (doc 06 §3 "alternates 1/2 tick gaps").
-            if (World.Tick % 3 != 0) SendSnapshots();
+            // A paused world has nothing new to show; the pause itself travels as a reliable event.
+            if (!World.Paused && World.Tick % 3 != 0) SendSnapshots();
             LastTickMs = _stopwatch.Elapsed.TotalMilliseconds;
             if (LastTickMs > MaxTickMs) MaxTickMs = LastTickMs;
         }

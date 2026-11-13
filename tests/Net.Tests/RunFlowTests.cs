@@ -5,6 +5,7 @@ using PerformativeMail.Client.Bot;
 using PerformativeMail.Server;
 using PerformativeMail.Server.Transport;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Net;
 using PerformativeMail.Sim.Run;
 using Xunit;
@@ -290,6 +291,79 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(2, s.Run.RunNumber);
             Assert.Equal(0, client.ContainerDesyncs);
             Assert.Equal(0, client.BadPackets);
+        }
+
+        [Fact]
+        public void ASoloHostPauses_AndTheClientsClockStandsWithTheServers()
+        {
+            var s = new Session();
+            var client = s.AddClient("Ada", bot: true);
+            Assert.True(s.StepUntil(() => s.Run.Phase == RunPhase.Delivery, 10));
+            s.Step(5 * 30);
+            var world = client.World!;
+            Assert.True(world.CanPause);
+
+            Assert.NotEqual(0u, client.TogglePause());
+            s.Step(3);
+            Assert.True(s.Server.World.Paused);
+            Assert.True(world.Paused);
+            uint tick = s.Server.World.Tick;
+            Assert.Equal(tick, world.ServerTick);
+            double left = world.PhaseSecondsLeft;
+            int snapshots = client.SnapshotsReceived;
+            var (x, z) = (world.Local.X, world.Local.Z);
+            Assert.Contains("resume", HudText.PhaseHint(world));
+
+            // A long pause: nothing moves on either end, and the bot does not pile requests up.
+            s.Step(300 * 30);
+            Assert.Equal(tick, s.Server.World.Tick);
+            Assert.Equal(tick, world.ServerTick);
+            Assert.Equal(left, world.PhaseSecondsLeft);
+            Assert.Equal(snapshots, client.SnapshotsReceived);
+            Assert.Equal((x, z), (world.Local.X, world.Local.Z));
+            Assert.Equal(0, client.PendingRequestCount);
+            Assert.Equal(RunPhase.Delivery, world.Global.Phase);
+
+            Assert.NotEqual(0u, client.TogglePause());
+            s.Step(30);
+            Assert.False(world.Paused);
+            Assert.InRange(s.Server.World.Tick, tick + 25, tick + 30);
+            Assert.InRange(world.PhaseSecondsLeft, left - 1.2, left - 0.7);
+            Assert.True(client.SnapshotsReceived > snapshots);
+            // The shift goes on as if nothing had happened.
+            Assert.True(s.StepUntil(() => s.Run.Phase == RunPhase.Payday, 240));
+            Assert.True(s.Run.LastSummary!.Deliveries > 0);
+            Assert.Equal(0, s.Bots[0].RequestsRejected);
+            Assert.Equal(0, client.ContainerDesyncs);
+            Assert.True(client.PredictionErrorMax < 0.5, $"prediction error {client.PredictionErrorMax:0.00} m across the pause");
+        }
+
+        [Fact]
+        public void NobodyPausesAMultiplayerRun_AndAJoinEndsASoloPause()
+        {
+            var s = new Session();
+            var host = s.AddClient("Ada");
+            s.Step(10);
+            Assert.NotEqual(0u, host.TogglePause());
+            s.Step(3);
+            Assert.True(host.World!.Paused);
+
+            var guest = s.AddClient("Bo");
+            s.Step(10);
+            Assert.Equal(ClientState.Joined, guest.State);
+            Assert.False(s.Server.World.Paused);
+            Assert.False(host.World.Paused);
+            Assert.False(guest.World!.Paused);
+            Assert.False(host.World.CanPause);
+            Assert.Equal(0u, host.TogglePause());
+            Assert.Equal(0u, guest.TogglePause());
+
+            OpResult? verdict = null;
+            host.RequestCompleted += (_, result) => verdict = result;
+            host.SetPaused(true);
+            s.Step(5);
+            Assert.Equal(OpResult.NotSolo, verdict);
+            Assert.False(s.Server.World.Paused);
         }
     }
 }

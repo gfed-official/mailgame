@@ -264,6 +264,48 @@ namespace PerformativeMail.Sim
             return OpResult.Ok;
         }
 
+        // --- pause ------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Doc 01 §1: "In a solo run the host may pause". Any phase; a multiplayer server never
+        /// pauses, so the pause also ends when a second player joins or the host leaves.
+        /// </summary>
+        private OpResult SetPausedOp(Player player, in SimRequest r)
+        {
+            if (player.Id != Run.Host) return OpResult.NotHost;
+            bool pause = r.Count != 0;
+            if (pause && _players.Count != 1) return OpResult.NotSolo;
+            SetPaused(pause);
+            return OpResult.Ok;
+        }
+
+        private void SetPaused(bool paused)
+        {
+            if (Paused == paused) return;
+            Paused = paused;
+            Events.Add(new PausedChangedEvent { Paused = paused, Tick = Tick });
+        }
+
+        /// <summary>
+        /// The only thing a paused server does: answer pause requests. Every other request waits
+        /// its turn in the queue and is applied on the first tick after the pause.
+        /// </summary>
+        private void ApplyPauseRequests()
+        {
+            for (int i = 0; i < _requests.Count && Paused;)
+            {
+                var pending = _requests[i];
+                if (pending.Request.Kind != RequestKind.SetPaused) { i++; continue; }
+                _requests.RemoveAt(i);
+                var player = GetPlayer(pending.Player);
+                if (player == null) continue;
+                Events.Add(new RequestResultEvent
+                {
+                    Audience = player.Id, RequestId = pending.Request.RequestId, Result = SetPausedOp(player, pending.Request),
+                });
+            }
+        }
+
         private static ushort Clamp16(int value) => (ushort)Math.Clamp(value, 0, ushort.MaxValue);
     }
 }

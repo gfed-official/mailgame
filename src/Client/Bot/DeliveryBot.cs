@@ -75,7 +75,7 @@ namespace PerformativeMail.Client.Bot
             _client.Input.MoveZ = 0f;
             _client.Input.Buttons = InputButtons.None;
             if (_client.State != ClientState.Joined || world == null || !world.HasLocal) return;
-            if (_awaiting != 0) return;
+            if (_awaiting != 0 || world.Paused) return;
 
             if (world.Global.Phase != RunPhase.Delivery)
             {

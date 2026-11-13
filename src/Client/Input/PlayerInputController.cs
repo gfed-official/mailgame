@@ -37,11 +37,13 @@ namespace PerformativeMail.Client.InputHandling
         private bool _uiOpen;
         private bool _wantCapture = true;
         private bool _deliverAllQueued, _interactTapped;
+        private uint _pauseRequest;
 
         public void Setup(ClientRuntime client, InteractionController interaction)
         {
             _client = client;
             _interaction = interaction;
+            client.RequestCompleted += (request, _) => { if (request.RequestId == _pauseRequest) _pauseRequest = 0; };
         }
 
         /// <summary>Turns the view: yaw wraps, pitch stops short of straight up and down.</summary>
@@ -101,12 +103,26 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.DeliverAll)) _deliverAllQueued = true;
             // A tap can start and end between two frames, where polling never sees it held.
             else if (ev.IsActionPressed(InputActions.Interact)) _interactTapped = true;
-            else if (ev.IsActionPressed(InputActions.Go)) _client.PressGo();
+            else if (ev.IsActionPressed(InputActions.Go) && !Paused) _client.PressGo();
+        }
+
+        /// <summary>
+        /// Doc 09 §2.12: Esc "pauses the server in solo". Until there is a pause menu, the freed
+        /// mouse is that menu: a solo host's run stands still exactly while the mouse is let go.
+        /// </summary>
+        private void SyncPause()
+        {
+            var world = _client.World;
+            if (world == null || _pauseRequest != 0) return;
+            bool want = !_wantCapture;
+            if (want == world.Paused || (want && !world.CanPause)) return;
+            _pauseRequest = _client.SetPaused(want);
         }
 
         /// <summary>Fills the client's input for the ticks of this frame; hooked to <c>GameSession.InputSource</c>.</summary>
         public void Sample(double delta)
         {
+            SyncPause();
             var move = _uiOpen
                 ? Vector2.Zero
                 : Godot.Input.GetVector(InputActions.MoveLeft, InputActions.MoveRight, InputActions.MoveForward, InputActions.MoveBack);
@@ -139,6 +155,8 @@ namespace PerformativeMail.Client.InputHandling
             _deliverAllQueued = false;
             _interactTapped = false;
         }
+
+        private bool Paused => _client.World != null && _client.World.Paused;
 
         private bool Captured => Godot.Input.MouseMode == Godot.Input.MouseModeEnum.Captured;
 

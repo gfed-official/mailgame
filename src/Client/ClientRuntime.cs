@@ -141,6 +141,19 @@ namespace PerformativeMail.Client
         public uint StartRun() => Send(SimRequest.StartRun(0));
         public uint SetReady(bool ready) => Send(SimRequest.SetReady(0, ready));
         public uint ContinueRun() => Send(SimRequest.ContinueRun(0));
+        public uint SetPaused(bool paused) => Send(SimRequest.SetPaused(0, paused));
+
+        /// <summary>
+        /// The pause key (doc 09 §2.12): resumes a paused run; pauses one this client hosts alone.
+        /// Returns the request id, 0 where the key does not pause (multiplayer never pauses).
+        /// </summary>
+        public uint TogglePause()
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null) return 0;
+            if (world.Paused) return SetPaused(false);
+            return world.CanPause ? SetPaused(true) : 0;
+        }
 
         /// <summary>
         /// The one "go" key: the host starts the run in the Lobby and leaves Results; everyone else
@@ -167,6 +180,8 @@ namespace PerformativeMail.Client
             TickStarting?.Invoke();
             var world = World;
             if (State != ClientState.Joined || world == null) return;
+            // Paused: the server simulates no input, so none is predicted or sent, and its clock stands.
+            if (world.Paused) return;
             world.ServerTick += 1.0;
             if (!world.HasLocal) return;
 
@@ -356,6 +371,10 @@ namespace PerformativeMail.Client
                     if (e.Phase != RunPhase.Results) world.Results = null;
                     break;
                 }
+                case PausedChangedEvent e:
+                    world.Paused = e.Paused;
+                    if (e.Paused) world.ServerTick = e.Tick;
+                    break;
                 case ShiftSummaryEvent e:
                     world.LastSummary = e.Summary;
                     break;

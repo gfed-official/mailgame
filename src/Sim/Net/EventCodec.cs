@@ -18,6 +18,7 @@ namespace PerformativeMail.Sim.Net
         PhaseChanged = 10,
         ShiftSummary = 11,
         RunResults = 12,
+        PausedChanged = 13,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -90,6 +91,10 @@ namespace PerformativeMail.Sim.Net
                     }
                     break;
                 }
+                case PausedChangedEvent e:
+                    w.U8((byte)EventType.PausedChanged);
+                    w.Bool(e.Paused); w.U32(e.Tick);
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -160,6 +165,8 @@ namespace PerformativeMail.Sim.Net
                     }
                     return new RunResultsEvent { Results = s };
                 }
+                case EventType.PausedChanged:
+                    return new PausedChangedEvent { Paused = r.Bool(), Tick = r.U32() };
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

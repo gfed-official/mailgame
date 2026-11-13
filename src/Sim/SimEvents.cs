@@ -86,6 +86,13 @@ namespace PerformativeMail.Sim
         public RunOutcome Outcome;
     }
 
+    /// <summary>The solo pause went on or off (doc 01 §1); <see cref="Tick"/> is the tick the server stands on.</summary>
+    public sealed class PausedChangedEvent : SimEvent
+    {
+        public bool Paused;
+        public uint Tick;
+    }
+
     /// <summary>Payday payload (doc 01 §2.4), sent just before the PhaseChanged into Payday.</summary>
     public sealed class ShiftSummaryEvent : SimEvent
     {

@@ -21,7 +21,7 @@ namespace PerformativeMail.App
     /// </summary>
     public partial class SmokeDriver : Node
     {
-        private enum Stage { Lobby, Prep, Deliver, RealTime, RunOut, BackToLobby, Done }
+        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Done }
 
         private const int TicksPerFrame = 3;
         /// <summary>Once the close-up checks are done the remaining shifts run at one second per frame.</summary>
@@ -40,6 +40,8 @@ namespace PerformativeMail.App
         private Action _botTick = null!;
         private Stage _stage = Stage.Lobby;
         private int _stageFrames, _goCooldown;
+        private uint _pausedAtTick;
+        private string _pausedPhaseText = "";
         private uint _runOutStartTick;
         private int _checkedSummaryShift;
         private bool _checkedResults;
@@ -209,6 +211,10 @@ namespace PerformativeMail.App
                         Check(hud.HintText.Contains("ready", StringComparison.Ordinal), $"in Prep the HUD hint is \"{hud.HintText}\"");
                         Check(server.Intake.EntryCount == 0, "mail arrived during Prep");
                         Shot("prep");
+                        // A solo host may stop the clock (doc 01 §1); Prep goes on once that is checked.
+                        if (client.TogglePause() == 0) Fail("the solo host could not ask for a pause");
+                        else Enter(Stage.Pause);
+                        break;
                     }
                     // Ready ends Prep early (doc 01 §1).
                     if (_stageFrames >= 2 && !world.LocalReady) Go();
@@ -220,6 +226,40 @@ namespace PerformativeMail.App
                         Enter(Stage.Deliver);
                     }
                     else if (_stageFrames > 80) Fail("Prep did not end after the only player readied up");
+                    break;
+
+                case Stage.Pause:
+                    hud.Refresh();
+                    TrackCamera();
+                    _stageFrames++;
+                    if (_pausedAtTick == 0)
+                    {
+                        if (world.Paused && server.Paused)
+                        {
+                            _pausedAtTick = server.Tick;
+                            _pausedPhaseText = hud.PhaseText;
+                            _stageFrames = 0;
+                        }
+                        else if (_stageFrames > 30) Fail("the solo host's pause never took effect");
+                    }
+                    else if (_stageFrames == 10)
+                    {
+                        // Thirty ticks' worth of frames later nothing has moved, and the screen says why.
+                        Check(server.Tick == _pausedAtTick, $"the paused server went from tick {_pausedAtTick} to {server.Tick}");
+                        Check(world.ServerTick == _pausedAtTick, $"the paused client's clock is at tick {world.ServerTick:0.0}, the server stands on {_pausedAtTick}");
+                        Check(hud.PhaseText == _pausedPhaseText, $"the paused HUD clock went from \"{_pausedPhaseText}\" to \"{hud.PhaseText}\"");
+                        Check(hud.PausedText == HudText.PausedTitle, $"the paused HUD shows \"{hud.PausedText}\", expected \"{HudText.PausedTitle}\"");
+                        Check(hud.HintText.Contains($"{HudText.PauseKey} resume", StringComparison.Ordinal), $"the paused HUD hint is \"{hud.HintText}\"");
+                        Shot("paused");
+                        if (client.TogglePause() == 0) Fail("the host could not ask to resume");
+                    }
+                    else if (_stageFrames > 10 && !world.Paused && !server.Paused)
+                    {
+                        Check(hud.PausedText.Length == 0, "the HUD still says PAUSED after the resume");
+                        _stage = Stage.Prep;
+                        _stageFrames = 3;
+                    }
+                    else if (_stageFrames > 50) Fail("the pause did not end after the host resumed");
                     break;
 
                 case Stage.Deliver:

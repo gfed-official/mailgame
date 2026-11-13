@@ -48,6 +48,8 @@ namespace PerformativeMail.Client
         }
 
         public const string GoKey = "[G]";
+        public const string PauseKey = "[Esc]";
+        public const string PausedTitle = "PAUSED";
 
         /// <summary>
         /// What the run is waiting for and what the "go" key does about it (doc 01 §1: the host
@@ -58,6 +60,7 @@ namespace PerformativeMail.Client
             var g = world.Global;
             int players = world.Players.Count, ready = world.ReadyCount;
             string host = world.Players.TryGetValue(g.Host, out var h) ? h.Name : "the host";
+            if (world.Paused) return $"The clock is stopped   ·   {PauseKey} resume";
             switch (g.Phase)
             {
                 case RunPhase.Lobby:

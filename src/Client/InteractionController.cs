@@ -78,7 +78,8 @@ namespace PerformativeMail.Client
             else if (_pressLatch > 0) _pressLatch = Math.Max(0, _pressLatch - dt);
 
             var world = _client.World;
-            if (_client.State != ClientState.Joined || world == null || !world.HasLocal)
+            // A paused server answers nothing but the resume: no prompt, and no request to queue up behind it.
+            if (_client.State != ClientState.Joined || world == null || !world.HasLocal || world.Paused)
             {
                 Reset();
                 return;

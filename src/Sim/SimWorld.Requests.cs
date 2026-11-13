@@ -55,6 +55,7 @@ namespace PerformativeMail.Sim
                 case RequestKind.StartRun: return StartRunOp(player);
                 case RequestKind.SetReady: return SetReadyOp(player, r);
                 case RequestKind.ContinueRun: return ContinueRunOp(player);
+                case RequestKind.SetPaused: return SetPausedOp(player, r);
                 default: return OpResult.BadRequest;
             }
         }

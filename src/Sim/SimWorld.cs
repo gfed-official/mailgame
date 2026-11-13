@@ -65,6 +65,8 @@ namespace PerformativeMail.Sim
         public uint Tick { get; private set; }
         public Economy Economy { get; }
         public RunState Run { get; } = new RunState();
+        /// <summary>Solo pause (doc 01 §1): the tick is frozen until the host resumes or somebody joins.</summary>
+        public bool Paused { get; private set; }
         public MailSpawner Spawner { get; }
         public GridContainer Intake { get; }
         public IReadOnlyList<Player> Players => _players;
@@ -150,6 +152,7 @@ namespace PerformativeMail.Sim
             _players.Add(player);
             if (Run.Host.IsNone) Run.Host = id;
             Events.Add(new PlayerJoinedEvent { Player = id, Name = name, Slot = slot });
+            if (_players.Count != 1) SetPaused(false);
             return player;
         }
 
@@ -174,6 +177,7 @@ namespace PerformativeMail.Sim
             UpdateHostAfterLeave(id);
             _requests.RemoveAll(r => r.Player == id);
             Events.Add(new PlayerLeftEvent { Player = id });
+            if (_players.Count != 1) SetPaused(false);
         }
 
         /// <summary>Buffers one input for the next ticks. Old or duplicate sequence numbers are ignored.</summary>
@@ -215,10 +219,16 @@ namespace PerformativeMail.Sim
 
         /// <summary>
         /// Advances one tick in the order of doc 06 §3: requests and inputs → player movement →
-        /// mail spawn → economy → run state. Events accumulate in <see cref="Events"/>.
+        /// mail spawn → economy → run state. Events accumulate in <see cref="Events"/>. While
+        /// <see cref="Paused"/> nothing advances, the tick counter included.
         /// </summary>
         public void Step()
         {
+            if (Paused)
+            {
+                ApplyPauseRequests();
+                if (Paused) return;
+            }
             Tick++;
             ApplyRequests();
             StepPlayers();

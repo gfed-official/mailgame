@@ -16,6 +16,8 @@ namespace PerformativeMail.Sim
         SetReady = 7,
         /// <summary>Host, Results: back to the Lobby.</summary>
         ContinueRun = 8,
+        /// <summary>Host, alone on the server: freeze or resume the tick (<see cref="SimRequest.Count"/> 1 or 0).</summary>
+        SetPaused = 9,
     }
 
     /// <summary>
@@ -67,5 +69,8 @@ namespace PerformativeMail.Sim
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetReady, Count = (ushort)(ready ? 1 : 0) };
 
         public static SimRequest ContinueRun(uint reqId) => new SimRequest { RequestId = reqId, Kind = RequestKind.ContinueRun };
+
+        public static SimRequest SetPaused(uint reqId, bool paused) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.SetPaused, Count = (ushort)(paused ? 1 : 0) };
     }
 }

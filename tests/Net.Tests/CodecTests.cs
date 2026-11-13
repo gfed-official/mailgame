@@ -222,6 +222,7 @@ namespace PerformativeMail.Net.Tests
                         Players = { new PlayerResult { Player = player, Deliveries = 41, Misdeliveries = 4, Earned = -15, Xp = 505 } },
                     },
                 },
+                new PausedChangedEvent { Paused = true, Tick = 90210 },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -252,6 +253,9 @@ namespace PerformativeMail.Net.Tests
                 (results.Outcome, results.ShiftsCompleted, results.TotalEarned, results.Score, results.Deliveries, results.Misdeliveries));
             var row = Assert.Single(results.Players);
             Assert.Equal((player, 41, 4, -15, 505), (row.Player, row.Deliveries, row.Misdeliveries, row.Earned, row.Xp));
+
+            var paused = (PausedChangedEvent)back[12];
+            Assert.Equal((true, 90210u), (paused.Paused, paused.Tick));
         }
 
         [Fact]

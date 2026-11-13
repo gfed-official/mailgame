@@ -402,5 +402,82 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(2, world.Run.RunNumber);
             Assert.Equal(1, world.Run.Shift);
         }
+
+        [Fact]
+        public void ASoloHostCanPause_AndTheTickStands()
+        {
+            var world = NewWorld();
+            var p = world.AddPlayer("a")!;
+            StartDelivery(world, p);
+            SimDriver.StepTicks(world, 5 * Tps);
+
+            world.Events.Clear();
+            Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.SetPaused(0, true)));
+            Assert.True(world.Paused);
+            var ev = Assert.Single(world.Events.OfType<PausedChangedEvent>());
+            Assert.Equal((true, world.Tick), (ev.Paused, ev.Tick));
+
+            uint tick = world.Tick, end = world.Run.PhaseEndTick;
+            int mail = world.Intake.EntryCount + world.Spawner.BacklogCount;
+            float x = p.Move.X;
+            world.QueueInput(p.Id, new PlayerInput { Seq = p.LastQueuedSeq + 1, MoveX = 127 });
+            SimDriver.StepTicks(world, 400 * Tps); // longer than the shift
+            Assert.Equal(tick, world.Tick);
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+            Assert.Equal(end, world.Run.PhaseEndTick);
+            Assert.Equal(mail, world.Intake.EntryCount + world.Spawner.BacklogCount);
+            Assert.Equal(x, p.Move.X);
+
+            // Anything but the resume waits for the pause to end.
+            world.Submit(p.Id, new SimRequest { RequestId = 9001, Kind = RequestKind.OpenContainer, Container = world.Intake.Id });
+            world.Step();
+            Assert.DoesNotContain(world.Events.OfType<RequestResultEvent>(), e => e.RequestId == 9001);
+
+            Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.SetPaused(0, false)));
+            Assert.False(world.Paused);
+            Assert.Equal(tick + 1, world.Tick);
+            Assert.Contains(world.Events.OfType<RequestResultEvent>(), e => e.RequestId == 9001);
+            Assert.NotEqual(x, p.Move.X);
+            RunUntil(world, () => world.Run.Phase == RunPhase.Payday, 240);
+        }
+
+        [Fact]
+        public void OnlyASoloHostMayPause_AndAJoinEndsThePause()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            var guest = world.AddPlayer("guest")!;
+            Assert.Equal(OpResult.NotSolo, Request(world, host, SimRequest.SetPaused(0, true)));
+            Assert.Equal(OpResult.NotHost, Request(world, guest, SimRequest.SetPaused(0, true)));
+            Assert.False(world.Paused);
+
+            world.RemovePlayer(guest.Id);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetPaused(0, true)));
+            Assert.True(world.Paused);
+            // Pausing twice is harmless and says nothing new.
+            world.Events.Clear();
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetPaused(0, true)));
+            Assert.Empty(world.Events.OfType<PausedChangedEvent>());
+
+            uint tick = world.Tick;
+            world.AddPlayer("late");
+            Assert.False(world.Paused);
+            Assert.False(Assert.Single(world.Events.OfType<PausedChangedEvent>()).Paused);
+            world.Step();
+            Assert.Equal(tick + 1, world.Tick);
+        }
+
+        [Fact]
+        public void ThePauseEndsWhenTheHostLeaves()
+        {
+            var world = NewWorld();
+            var p = world.AddPlayer("a")!;
+            StartDelivery(world, p);
+            Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.SetPaused(0, true)));
+            world.RemovePlayer(p.Id);
+            Assert.False(world.Paused);
+            // The abandoned run still times out to the Lobby.
+            RunUntil(world, () => world.Run.Phase == RunPhase.Lobby, 61);
+        }
     }
 }

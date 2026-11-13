@@ -75,7 +75,9 @@ list below.
       `user://profile.json`), saved at every Payday and at Results, rank line on the HUD in the
       Lobby and on the Results panel ("RANK UP!" when it rose), `ProfileTests`, smoke checks the
       saved file
-- [ ] Solo pause (doc 01 §1 "Shift clock")
+- [x] Solo pause (doc 01 §1 "Shift clock", doc 09 §2.12): the host of a solo run stops the server
+      tick with Esc and resumes with Esc or a click; `SetPaused` request, `PausedChangedEvent`,
+      PAUSED on the HUD, protocol `m1.1`; `RunLoopTests`, `RunFlowTests`, a pause step in the smoke
 
 ### Playtest nits on fa44a16 (`logs/fable52/nits-fa44a16.md`, 2026-11-12)
 
@@ -267,6 +269,23 @@ See "Commands" at the bottom (filled in as the tooling lands).
     - The smoke never touches the real profile: in memory by default, or the file given with
       `--profile=FILE` (which `tools/smoke.sh` points at a temp file and then checks for XP).
 
+41. **Solo pause.** Doc 01 §1 gives the rule ("server tick freezes; a paused flag is replicated for
+    UI") and doc 09 §2.12 the key (Esc opens the pause menu, which "pauses the server in solo").
+    The rest is chosen here:
+    - Only the host, and only while alone on the server (`OpResult.NotSolo` otherwise); any phase.
+      A second player joining, or the host leaving, ends the pause.
+    - A paused `SimWorld.Step` does nothing but answer pause requests: the tick counter stands, so
+      every clock that is a tick (phase end, deadlines, the empty-server grace) stands with it.
+      Other requests wait in the queue and are applied on the first tick after the resume.
+    - The flag travels as a reliable `PausedChangedEvent` with the tick the server stands on; no
+      snapshots are sent meanwhile. The client sets its clock to that tick, and neither predicts
+      nor sends input while paused. A joining player needs no flag: their join ended the pause.
+    - There is no pause menu yet, so the freed mouse is the menu: Esc lets the mouse go and (solo)
+      pauses; Esc again, or a click into the window, takes the mouse back and resumes. With other
+      players present Esc only frees the mouse. Losing window focus does not pause.
+    - While paused the HUD shows PAUSED and "The clock is stopped · [Esc] resume", the interact
+      prompt is hidden, and E / F / G do nothing.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -298,6 +317,8 @@ change before starting Godot from the command line.
 
 The smoke plays one whole run inside the real Godot host (about 10 s): it boots into the Lobby
 (HUD says so, no mail yet), the host presses go, Prep shows the coming quota, Ready ends Prep, then
+(before that, the solo host pauses: for ten frames the server tick, the client's clock and the HUD
+clock must stand, and the HUD must say PAUSED; then it resumes), then
 in Delivery the close-up checks below run at 3 ticks per frame; after them the rest of the run is
 fast-forwarded at 30 ticks per frame with the bot delivering, and at every Payday and at Results the
 panel on screen must equal `HudText` of the server's summary / results; the host continues and the

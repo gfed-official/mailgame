@@ -25,6 +25,8 @@ namespace PerformativeMail.Client.UI
         public string WalletText => _wallet.Text;
         public string PromptText => _prompt.Text;
         public string HintText => _hint.Text;
+        /// <summary>The big PAUSED line while a solo run is paused, else empty.</summary>
+        public string PausedText => _paused.Visible ? _paused.Text : "";
         /// <summary>The Postal Rank line (Lobby and Results only), else empty.</summary>
         public string RankText => _rank.Visible ? _rank.Text : "";
         /// <summary>The local player's profile; without one the HUD shows no rank.</summary>
@@ -41,7 +43,7 @@ namespace PerformativeMail.Client.UI
         private InteractionController _interaction = null!;
         private EventFeed _feed = null!;
 
-        private Label _phase = null!, _status = null!, _quota = null!, _wallet = null!, _rank = null!, _prompt = null!, _held = null!, _hint = null!;
+        private Label _phase = null!, _status = null!, _quota = null!, _wallet = null!, _rank = null!, _prompt = null!, _held = null!, _hint = null!, _paused = null!;
         private PanelContainer _overlay = null!;
         private VBoxContainer _overlayLines = null!;
         private object? _overlaySource;
@@ -72,6 +74,11 @@ namespace PerformativeMail.Client.UI
             // What the run waits for and what the "go" key does, under the top row.
             _hint = AddLabel("Hint", 20, 0.5f, 0f, -520f, m + 78f, 520f, m + 108f, HorizontalAlignment.Center);
             _hint.Modulate = Palette.Amber;
+
+            // Below the crosshair, clear of the Payday / Results panel a pause can sit on top of.
+            _paused = AddLabel("Paused", 44, 0.5f, 0.6f, -300f, -32f, 300f, 32f, HorizontalAlignment.Center);
+            _paused.Text = HudText.PausedTitle;
+            _paused.Visible = false;
 
             // Payday summary / run results: a panel that sizes itself to its lines, upper middle of the screen.
             _overlay = new PanelContainer
@@ -182,6 +189,7 @@ namespace PerformativeMail.Client.UI
             _rank.Visible = Profile != null && (global.Phase == RunPhase.Lobby || global.Phase == RunPhase.Results);
             if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
             _hint.Text = HudText.PhaseHint(world);
+            _paused.Visible = world.Paused;
             RefreshOverlay(world);
 
             var prompt = _interaction.Prompt;
