@@ -117,7 +117,14 @@ list below.
       stage that drives the real panel with mouse events against a chest.
 - [ ] 8 clients / 10 min soak with container hash check on every version
 - [ ] Prediction error < 10 cm RMS at 200 ms / 5 % loss (network conditioner)
-- [ ] 10 000-op two-player chest fuzz: no duplicate / lost item
+- [x] 10 000-op two-player chest fuzz: no duplicate / lost item (`ChestFuzzTests`, three seeds at
+      0 / 67 / 167 ms of latency each way, through the real clients and the wire). Each run: two
+      players at one chest send 10 000 moves, splits, merges, quick-moves, sorts and nonsense in
+      ~3 500 ticks, deciding on their own predicted picture, now and then closing the chest under
+      a move in flight. After every server tick: the count of every kind of thing and every piece
+      of mail is what was given, no entry id in two places, no two stacks on one cell, no stack
+      above its limit; at the end both mirrors hash-equal the server with 0 desyncs. About 55 %
+      of the ops are accepted, 4–8 % lose a race for a stack the other took (`UnknownEntry`).
 - [x] Delivery / misdelivery pay exactly per ch. 03 §2.2 (unit tests)
 - [ ] Server tick ≤ 2 ms with 8 players on the test map
 - [ ] ContentValidator CLI
