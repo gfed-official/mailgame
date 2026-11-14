@@ -95,10 +95,18 @@ namespace PerformativeMail.Client
         public bool HasLocal { get; internal set; }
         public float LocalSpeedMult { get; internal set; } = 1f;
 
-        /// <summary>Mirrors of the containers this client is allowed to see: body containers plus the open one.</summary>
+        /// <summary>
+        /// Confirmed mirrors of the containers this client is allowed to see: body containers plus the
+        /// open one. They change only by server deltas and are hash-checked on every version.
+        /// </summary>
         public Dictionary<uint, GridContainer> Containers { get; } = new Dictionary<uint, GridContainer>();
-        public GridContainer Hotbar { get; internal set; } = null!;
-        public GridContainer Inventory { get; internal set; } = null!;
+        /// <summary>Requests on their way, shown as if they had already succeeded.</summary>
+        public InventoryPrediction Prediction { get; }
+        public uint HotbarId { get; internal set; }
+        public uint InventoryId { get; internal set; }
+        /// <summary>The hotbar as the player sees it: confirmed state plus the moves still on their way.</summary>
+        public GridContainer Hotbar => Prediction.View(HotbarId)!;
+        public GridContainer Inventory => Prediction.View(InventoryId)!;
         public uint IntakeContainerId { get; internal set; }
         /// <summary>The external container being viewed, 0 if none.</summary>
         public uint OpenContainerId { get; internal set; }
@@ -111,10 +119,10 @@ namespace PerformativeMail.Client
         {
             Content = content;
             Map = map;
+            Prediction = new InventoryPrediction(content, this);
         }
 
-        public GridContainer? OpenContainer =>
-            OpenContainerId != 0 && Containers.TryGetValue(OpenContainerId, out var c) ? c : null;
+        public GridContainer? OpenContainer => OpenContainerId != 0 ? Prediction.View(OpenContainerId) : null;
 
         /// <summary>Seconds left on the phase clock, derived from ticks (doc 07 §4.1).</summary>
         public double PhaseSecondsLeft =>

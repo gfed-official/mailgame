@@ -128,6 +128,7 @@ namespace PerformativeMail.Client
             if (State != ClientState.Joined) return 0;
             request.RequestId = _nextRequestId++;
             _pendingRequests[request.RequestId] = request;
+            if (InventoryPrediction.Predicts(request.Kind)) World!.Prediction.Add(request);
             _writer.Reset();
             RequestMsg.Write(_writer, request);
             _transport.Send(NetChannel.Reliable, _writer.ToArray());
@@ -137,6 +138,10 @@ namespace PerformativeMail.Client
         public uint OpenContainer(uint containerId) => Send(SimRequest.Open(0, containerId));
         public uint CloseContainer() => World == null || World.OpenContainerId == 0 ? 0 : Send(SimRequest.Close(0, World.OpenContainerId));
         public uint QuickMove(uint containerId, uint entryId) => Send(SimRequest.QuickMove(0, containerId, entryId));
+        /// <summary>Drag and drop: the entry (or <paramref name="count"/> units of it; 0 = all) to a cell of a container.</summary>
+        public uint Move(uint fromContainer, uint entryId, uint toContainer, int x, int y, bool rotated = false, int count = 0) =>
+            Send(SimRequest.Move(0, fromContainer, entryId, toContainer, x, y, rotated, count));
+        public uint Sort(uint containerId, SortKey key) => Send(SimRequest.Sort(0, containerId, key));
         public uint Deliver(uint containerId, uint entryId, int destId) => Send(SimRequest.Deliver(0, containerId, entryId, destId));
         public uint StartRun() => Send(SimRequest.StartRun(0));
         public uint SetReady(bool ready) => Send(SimRequest.SetReady(0, ready));
@@ -272,8 +277,10 @@ namespace PerformativeMail.Client
             Input.YawRadians = map.PostOffice.SpawnYaw;
             Input.PitchRadians = 0f;
             world.Local.Yaw = PlayerInput.QuantizeYaw(map.PostOffice.SpawnYaw);
-            world.Hotbar = LoadContainer(m.Hotbar)!;
-            world.Inventory = LoadContainer(m.Inventory)!;
+            world.HotbarId = m.Hotbar.ContainerId;
+            world.InventoryId = m.Inventory.ContainerId;
+            LoadContainer(m.Hotbar);
+            LoadContainer(m.Inventory);
             State = ClientState.Joined;
         }
 
@@ -339,11 +346,12 @@ namespace PerformativeMail.Client
                     world.Players.Remove(e.Player);
                     break;
                 case ContainerStateEvent e:
-                    if (LoadContainer(e.State) != null && e.State.ContainerId != world.Hotbar.Id && e.State.ContainerId != world.Inventory.Id)
+                    if (LoadContainer(e.State) != null && e.State.ContainerId != world.HotbarId && e.State.ContainerId != world.InventoryId)
                     {
                         if (world.OpenContainerId != 0 && world.OpenContainerId != e.State.ContainerId)
                             world.Containers.Remove(world.OpenContainerId);
                         world.OpenContainerId = e.State.ContainerId;
+                        world.Prediction.Invalidate();
                     }
                     break;
                 case ContainerDeltaEvent e:
@@ -356,6 +364,9 @@ namespace PerformativeMail.Client
                     if (_pendingRequests.TryGetValue(e.RequestId, out var request))
                     {
                         _pendingRequests.Remove(e.RequestId);
+                        // Either way the guess ends here: an accepted move is in the mirrors by now
+                        // (its deltas come first), a refused one falls back to what the server has.
+                        world.Prediction.Resolve(e.RequestId);
                         if (request.Kind == RequestKind.CloseContainer && e.Result == OpResult.Ok) DropExternal(world, request.Container);
                         RequestCompleted?.Invoke(request, e.Result);
                     }
@@ -392,6 +403,7 @@ namespace PerformativeMail.Client
             var mirror = new GridContainer(state.ContainerId, _content.Containers[state.DefIndex]);
             mirror.Load(state);
             world.Containers[state.ContainerId] = mirror;
+            world.Prediction.Invalidate();
             VerifyHash(mirror, state.Hash);
             return mirror;
         }
@@ -400,6 +412,7 @@ namespace PerformativeMail.Client
         {
             // A delta for a container we no longer view was already in flight when we closed it.
             if (!world.Containers.TryGetValue(delta.ContainerId, out var mirror)) return;
+            world.Prediction.Invalidate();
             if (!mirror.Apply(delta)) { ContainerDesyncs++; return; }
             VerifyHash(mirror, delta.Hash);
         }
@@ -415,6 +428,7 @@ namespace PerformativeMail.Client
             if (world.OpenContainerId != containerId) return;
             world.Containers.Remove(containerId);
             world.OpenContainerId = 0;
+            world.Prediction.Invalidate();
         }
     }
 }
