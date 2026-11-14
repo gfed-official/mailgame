@@ -13,6 +13,7 @@ namespace PerformativeMail.App
     public partial class BotDriver : Node
     {
         private const double ReportSeconds = 10.0;
+        private const double TickBudgetMs = 2.0;
 
         /// <summary>0 = play until the process is stopped.</summary>
         public double QuitAfterSeconds;
@@ -56,6 +57,11 @@ namespace PerformativeMail.App
             if (problem == null && client.BadPackets > 0) problem = $"{client.BadPackets} bad packets";
             // A rejected request is no fault here: two bots reach for the same stack and one of them loses.
             if (problem == null && _bot.StacksDelivered == 0) problem = "the bot delivered nothing";
+            // Doc 12 M0: server tick ≤ 2 ms. Held against the mean and the 99th percentile; the worst
+            // single tick is printed but not judged (one GC pause or a busy machine is not the game).
+            var ticks = _session.Server?.TickTimes;
+            if (problem == null && ticks != null && ticks.Count > 0 && (ticks.MeanMs > TickBudgetMs || ticks.PercentileMs(0.99) > TickBudgetMs))
+                problem = $"server ticks over the {TickBudgetMs:0} ms budget: {ticks}";
             GD.Print("[bot] ", Stats());
             if (problem == null) GD.Print("BOT OK");
             else GD.PrintErr("BOT FAIL: ", problem);
@@ -67,7 +73,7 @@ namespace PerformativeMail.App
             var client = _session.Client;
             var world = client.World;
             string where = world == null ? client.State.ToString() : $"{HudText.ShiftAndPhase(world)}, {world.Players.Count} players, {HudText.Wallet(world.Global)}";
-            string server = _session.Server == null ? "" : $"; server tick {_session.Server.World.Tick}, max {_session.Server.MaxTickMs:0.00} ms";
+            string server = _session.Server == null ? "" : $"; server tick {_session.Server.World.Tick}: {_session.Server.TickTimes}";
             return $"{_elapsed:0} s: {where}; delivered {_bot.StacksDelivered} stacks, misdelivered {_bot.StacksMisdelivered}, rejected {_bot.RequestsRejected}; "
                 + $"{client.SnapshotsReceived} snapshots, {client.ContainerVersionsVerified} container versions verified, {client.ContainerDesyncs} desyncs, "
                 + $"{client.BadPackets} bad packets, prediction rms {client.PredictionErrorRms * 100.0:0.0} cm (max {client.PredictionErrorMax * 100.0:0.0}){server}";

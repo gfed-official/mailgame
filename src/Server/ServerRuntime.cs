@@ -35,6 +35,8 @@ namespace PerformativeMail.Server
         /// <summary>CPU time of the most recent tick, in milliseconds (sim step + replication).</summary>
         public double LastTickMs { get; private set; }
         public double MaxTickMs { get; private set; }
+        /// <summary>Tick times after the warm-up: what the 2 ms budget of doc 12 is held against.</summary>
+        public TickStats TickTimes { get; } = new TickStats();
         public Action<string>? Log;
 
         private readonly IServerTransport _transport;
@@ -76,6 +78,7 @@ namespace PerformativeMail.Server
             if (!World.Paused && World.Tick % 3 != 0) SendSnapshots();
             LastTickMs = _stopwatch.Elapsed.TotalMilliseconds;
             if (LastTickMs > MaxTickMs) MaxTickMs = LastTickMs;
+            TickTimes.Add(LastTickMs);
         }
 
         // --- transport callbacks ----------------------------------------------------------------
