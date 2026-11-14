@@ -22,6 +22,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string Pause = "pause";
         /// <summary>Start the run / ready / continue. Doc 09 §4 has no key for it; R is Rotate and Enter is Chat there, so G ("go").</summary>
         public const string Go = "go";
+        /// <summary>Turns the stack on the cursor a quarter (doc 09 §4: R).</summary>
+        public const string Rotate = "rotate";
 
         private static readonly HashSet<string> Created = new HashSet<string>();
 
@@ -38,6 +40,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Inventory, Key.Tab);
             BindKey(Pause, Key.Escape);
             BindKey(Go, Key.G);
+            BindKey(Rotate, Key.R);
 
             BindAxis(MoveForward, JoyAxis.LeftY, -1f);
             BindAxis(MoveBack, JoyAxis.LeftY, 1f);

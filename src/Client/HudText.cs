@@ -113,6 +113,43 @@ namespace PerformativeMail.Client
             return hadJoined ? "Host lost" : "Could not join: no answer from the host";
         }
 
+        // --- inventory screen (doc 09 §2.5) -------------------------------------------------------
+
+        public const string RotateKey = "[R]";
+        public const string SortByAddress = "Sort by address";
+        public const string SortBySize = "Sort by size";
+
+        /// <summary>The controls of the inventory screen, under the player's own grids.</summary>
+        public static string InventoryHint(bool externalOpen, bool dragging)
+        {
+            if (dragging) return $"Drop on a cell   ·   {RotateKey} turns it   ·   right-click puts it back";
+            string across = externalOpen ? "Click sends a stack across" : "Click swaps a stack between hotbar and inventory";
+            return $"Drag to move   ·   Ctrl+drag takes half   ·   {across}";
+        }
+
+        /// <summary>Why a move did not happen, said the way a player would (shown where the hint is while it matters).</summary>
+        public static string MoveRefused(OpResult result)
+        {
+            switch (result)
+            {
+                case OpResult.DoesNotFit: return "No room there";
+                case OpResult.NotAllowed: return "That cannot go in there";
+                case OpResult.NotOpen:
+                case OpResult.OutOfRange:
+                case OpResult.UnknownContainer: return "Too far away";
+                case OpResult.UnknownEntry: return "That is no longer there";
+                case OpResult.RateLimited: return "Too fast — slow down";
+                default: return "That cannot be moved now";
+            }
+        }
+
+        /// <summary>"Chest" for "chest", "Bike cargo" for "bike_cargo": the title over an open container.</summary>
+        public static string ContainerTitle(ContainerDef def)
+        {
+            string text = def.Id.Replace('_', ' ');
+            return text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text.Substring(1);
+        }
+
         /// <summary>The Payday summary (doc 01 §1 Payday): title first, then one fact per line.</summary>
         public static List<string> SummaryLines(ClientWorld world, ShiftSummary s)
         {

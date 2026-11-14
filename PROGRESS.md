@@ -109,8 +109,12 @@ list below.
 - [x] ENet transport (listen server + remote clients), protocol hash rejection (design choice 42).
       The smoke ends with a second client joining the host's socket, walking, and leaving, and a
       wrong-hash client being turned away; `tools/soak.sh` plays N processes over real sockets.
-- [ ] Inventory panel: drag and drop / rotate / sort, optimistic ops with rollback (the rough panel
-      is click = quick-move, server-confirmed only)
+- [x] Inventory panel: drag and drop / rotate / sort, optimistic ops with rollback (design choice
+      43). `InventoryPrediction` shows a Move / QuickMove / Sort at once (faint until confirmed) and
+      drops it again if the server refuses; `InventoryDrag` is the stack on the cursor; the panel
+      has sort buttons and shows a chest as a second grid. 9 Net.Tests (latency, refusal, split,
+      chained moves, a container closing under a move, drag / rotate / half / merge) and a smoke
+      stage that drives the real panel with mouse events against a chest.
 - [ ] 8 clients / 10 min soak with container hash check on every version
 - [ ] Prediction error < 10 cm RMS at 200 ms / 5 % loss (network conditioner)
 - [ ] 10 000-op two-player chest fuzz: no duplicate / lost item
@@ -175,8 +179,8 @@ See "Commands" at the bottom (filled in as the tooling lands).
     matches the mailbox, hotbar then inventory, one per hold time. The prompt always shows the
     stack's address beside the mailbox's with ✓ or ✗ — a mismatch is never hidden, and never blocked.
 15. **Intake UI.** The Intake is `view: "manifest"`: one row per (address, kind), a click quick-moves
-    the oldest stack of that row. Any external container is shown this way for now (the Intake is
-    the only one in M0). Own containers are drawn as grids; a click quick-moves.
+    the oldest stack of that row. A container whose def has another `view` (the chest) is drawn as
+    a grid beside the player's own; own containers are grids too (choice 43 for what the mouse does).
 16. **Greybox visuals.** No art yet: boxes and capsules built in code from the `WorldMap`. A house,
     its mailbox, its manifest row and the stripe on its mail share one colour (`Palette`, by the
     destination's `variant`), as a readability aid on top of the printed address.
@@ -317,6 +321,36 @@ See "Commands" at the bottom (filled in as the tooling lands).
       `BOT FAIL`. Bots keep their profile in memory. `tools/soak.sh` starts a host and N−1 guests
       this way — the soak over real sockets.
 
+43. **Inventory screen: prediction and the mouse (doc 09 §2.5, doc 06 §4).** The docs give "shows
+    at 60 % until confirmed, snaps back on refusal", drag, R to rotate and sort buttons; the rest
+    is chosen here:
+    - `ClientWorld.Containers` stay the *confirmed* mirrors (hash-checked on every version). The UI
+      reads `ClientWorld.Hotbar / Inventory / OpenContainer`, which are predicted views: the mirror
+      itself while nothing is pending, otherwise a clone with the pending requests replayed through
+      the same `InventoryOps` the server runs. A refused request simply drops out of the replay —
+      that is the snap-back. `Prediction.Revision` is the redraw key.
+    - Predicted: Move, QuickMove, Sort. Not predicted: Deliver (the mailbox answers within the hold
+      time anyway), open / close.
+    - A predicted split needs an entry id the server has not given yet: it gets a private one from
+      `0x8000_0000` up. Such a stack is shown but cannot be picked up or clicked until the server's
+      delta names it.
+    - No cursor container on the server. A drag is client-only state (`InventoryDrag`, Godot-free);
+      the drop is exactly one `Move`. While dragging, `Aim` runs the server's rules on clones of
+      the predicted views each time the cell, the rotation or the revision changes: the outline is
+      green or red, and a red drop is not sent (a text notice says why in the hint line; no sound
+      yet). The server still validates everything.
+    - The stack is held by the cell it was grabbed at; over a different stack of the same kind the
+      drop is a merge onto that stack.
+    - Mouse: drag = move the whole stack; Ctrl / Cmd + drag = the bigger half ((n + 1) / 2); a
+      press and release within 6 px = quick-move (as before; shift-click is not a separate
+      gesture); R (`rotate` action) turns the dragged stack; right-click puts it back. The context
+      menu of doc 09 is not done.
+    - Sort buttons ("Sort by address", "Sort by size") on the Inventory and on an external grid.
+      Not on the hotbar (its cells are the number keys) and not on the Intake (a manifest).
+    - Closing the panel, or the dragged stack disappearing (someone else took it), ends the drag.
+    - The test street has no chest; `SimWorld.AddWorldContainer("chest", x, z)` puts one down for
+      the tests and the smoke. Placing storage in the world is M1 (building).
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -370,7 +404,13 @@ position and aimed along the interact ray every frame; no local body; the ✓ an
 missing glyphs; the top HUD row fully on screen; the real-time loop advances the server. At Results
 the profile must hold the run's XP, run count, deliveries and recent-run line, the panel must show
 the rank line, and the saved profile must read back equal; `tools/smoke.sh` then also looks for the
-XP in the profile file itself. Last, back in the Lobby, ENet: a second `ClientRuntime` connects to
+XP in the profile file itself. Back in the Lobby, the inventory screen: the server puts a chest
+beside the host and a log, fibers and stones into inventory and chest; the smoke then feeds the
+panel's grids the mouse events of a hand — drag the 1×2 log over the hotbar (red outline), R (green),
+drop; Ctrl+drag half the fibers into the chest; drop stones onto logs (refused locally, nothing
+sent, the hint says "No room there"); click the stones across; press both sort buttons — and after
+each gesture the screen must show the result in the same frame (pending), the confirmed mirror must
+not have moved yet, and a moment later server, mirror and screen must agree with no desync. Last, ENet: a second `ClientRuntime` connects to
 the host's own UDP port, joins (both ends, the host's HUD and the host's player views count two
 players), walks a second down the street (the server moves it, its prediction agrees), and leaves;
 next to it a client saying Hello with a wrong protocol hash must get `ProtocolMismatch` and be

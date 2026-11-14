@@ -203,6 +203,95 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void ADragTurnsTheStackAndDropsItWhereTheCursorHoldsIt()
+        {
+            var s = new Session();
+            s.Give(s.Player.Inventory, "log", 1); // 1×2, upright at (0, 0)
+            uint inv = s.World.InventoryId, hotbar = s.World.HotbarId;
+            var log = s.World.Inventory.Entries.Single();
+            var drag = new InventoryDrag(s.Client);
+
+            // Picked up by its lower cell.
+            Assert.True(drag.Begin(inv, log.EntryId, 0, 1, half: false));
+            Assert.Equal((1, 2, 0, 1), (drag.W, drag.H, drag.GrabX, drag.GrabY));
+            // Upright it is too tall for the one-row hotbar; the cell marked "hands" takes nothing.
+            Assert.Equal(OpResult.DoesNotFit, drag.Aim(hotbar, 3, 0, out _, out _));
+            drag.Rotate();
+            Assert.Equal((2, 1, 1, 0), (drag.W, drag.H, drag.GrabX, drag.GrabY));
+            Assert.Equal(OpResult.DoesNotFit, drag.Aim(hotbar, 1, 0, out _, out _));
+            Assert.Equal(OpResult.Ok, drag.Aim(hotbar, 3, 0, out int x, out int y));
+            Assert.Equal((2, 0), (x, y)); // the cursor holds the right-hand cell
+
+            Assert.NotEqual(0u, drag.Drop(hotbar, 3, 0));
+            Assert.False(drag.Active);
+            var shown = s.World.Hotbar.Get(log.EntryId)!;
+            Assert.Equal((2, 0, true), (shown.X, shown.Y, shown.Rotated));
+            s.Settle();
+            Assert.Equal(OpResult.Ok, s.LastResult);
+            Assert.Equal(2, s.Player.Hotbar.Get(log.EntryId)!.X);
+        }
+
+        [Fact]
+        public void ADragOfHalfAStackSplitsItAndADropOnTheSameKindMerges()
+        {
+            var s = new Session();
+            s.Give(s.Player.Inventory, "fiber", 7);
+            uint inv = s.World.InventoryId;
+            var fiber = s.World.Inventory.Entries.Single();
+            var drag = new InventoryDrag(s.Client);
+
+            Assert.True(drag.Begin(inv, fiber.EntryId, 0, 0, half: true));
+            Assert.Equal(4, drag.Count); // the bigger half
+            // Half a stack cannot be dropped back onto its own cell.
+            Assert.Equal(0u, drag.Drop(inv, 0, 0));
+            Assert.Equal(0, s.World.Prediction.PendingCount);
+
+            Assert.True(drag.Begin(inv, fiber.EntryId, 0, 0, half: true));
+            Assert.NotEqual(0u, drag.Drop(inv, 5, 1));
+            var half = s.World.Inventory.EntryAt(5, 1)!;
+            // The new stack has no server name yet, so it cannot be picked up.
+            Assert.False(drag.Begin(inv, half.EntryId, 5, 1, half: false));
+            s.Settle();
+            half = s.World.Inventory.EntryAt(5, 1)!;
+            Assert.Equal((3, 4), (s.World.Inventory.Get(fiber.EntryId)!.Stack.Count, half.Stack.Count));
+
+            // Dropped whole onto the other stack: one stack of seven again.
+            Assert.True(drag.Begin(inv, half.EntryId, 5, 1, half: false));
+            Assert.Equal(OpResult.Ok, drag.Aim(inv, 0, 0, out int x, out int y));
+            Assert.Equal((0, 0), (x, y));
+            Assert.NotEqual(0u, drag.Drop(inv, 0, 0));
+            Assert.Equal(7, s.World.Inventory.Entries.Single().Stack.Count);
+            s.Settle();
+            Assert.Equal(7, s.Player.Inventory.Entries.Single().Stack.Count);
+
+            // Put back exactly where it lies: nothing is sent.
+            Assert.True(drag.Begin(inv, fiber.EntryId, 0, 0, half: false));
+            Assert.Equal(0u, drag.Drop(inv, 0, 0));
+            Assert.Equal(0, s.Client.PendingRequestCount);
+        }
+
+        [Fact]
+        public void ADraggedStackThatIsGoneEndsTheDrag()
+        {
+            var s = new Session();
+            s.Give(s.Player.Inventory, "stone", 2);
+            uint inv = s.World.InventoryId;
+            var stone = s.World.Inventory.Entries.Single();
+            var drag = new InventoryDrag(s.Client);
+            Assert.True(drag.Begin(inv, stone.EntryId, 0, 0, half: false));
+            Assert.NotNull(drag.Entry);
+
+            s.Player.Inventory.Remove(stone.EntryId);
+            Assert.True(s.Server.World.Give(s.Player.Inventory, ItemStack.OfItem(Shared.Content.Item("sand"), 1)));
+            s.Run(4);
+
+            Assert.Null(drag.Entry);
+            Assert.Equal(0, drag.Count);
+            Assert.Equal(0u, drag.Drop(inv, 3, 0));
+            Assert.Equal(0, s.Client.PendingRequestCount);
+        }
+
+        [Fact]
         public void AMoveIntoAContainerThatClosesMeanwhileLeavesNothingBehind()
         {
             var s = new Session(delayPolls: 2);

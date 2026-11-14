@@ -23,7 +23,7 @@ namespace PerformativeMail.App
     /// </summary>
     public partial class SmokeDriver : Node
     {
-        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Remote, Done }
+        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Inventory, Remote, Done }
 
         private const int TicksPerFrame = 3;
         /// <summary>Once the close-up checks are done the remaining shifts run at one second per frame.</summary>
@@ -295,7 +295,11 @@ namespace PerformativeMail.App
                     }
                     if (world.Global.Wallet != 0 && _stageFrames <= 60) break; // the global block follows within a few ticks
                     VerifyRun();
-                    StartRemote();
+                    StartInventory();
+                    break;
+
+                case Stage.Inventory:
+                    StepInventory();
                     break;
 
                 case Stage.Remote:
