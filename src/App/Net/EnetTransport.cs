@@ -124,8 +124,13 @@ namespace PerformativeMail.App.Net
     /// <summary>A remote client's connection to a listen server (doc 06 §2).</summary>
     public sealed class EnetClientTransport : IClientTransport
     {
+        /// <summary>How long a host may take to answer the first knock.</summary>
+        private const ulong ConnectTimeoutMsec = 5000;
+
         private readonly ENetConnection _host;
         private readonly ENetPacketPeer _peer;
+        private readonly ulong _connectDeadline;
+        private bool _connected;
         private bool _closed;
         private bool _reported;
 
@@ -133,6 +138,7 @@ namespace PerformativeMail.App.Net
         {
             _host = host;
             _peer = peer;
+            _connectDeadline = Time.GetTicksMsec() + ConnectTimeoutMsec;
         }
 
         /// <summary>Starts connecting; the handler hears OnConnected, or OnDisconnected when nobody answers. Null when no socket can be made.</summary>
@@ -158,10 +164,17 @@ namespace PerformativeMail.App.Net
             {
                 var ev = _host.Service(0);
                 var type = (ENetConnection.EventType)ev[0].AsInt32();
-                if (type == ENetConnection.EventType.None) return;
+                if (type == ENetConnection.EventType.None)
+                {
+                    // ENet itself keeps knocking for up to half a minute; nobody waits that long for a join.
+                    if (_connected || Time.GetTicksMsec() < _connectDeadline) return;
+                    _peer.Reset();
+                    type = ENetConnection.EventType.Disconnect;
+                }
                 switch (type)
                 {
                     case ENetConnection.EventType.Connect:
+                        _connected = true;
                         handler.OnConnected();
                         break;
                     case ENetConnection.EventType.Receive:
