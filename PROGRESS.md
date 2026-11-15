@@ -27,6 +27,9 @@ mouse look, Shift, Space), open the Intake with E, click manifest rows to take m
 slot (1–8 / wheel), hold E at a mailbox to deliver, F delivers every matching stack; the HUD shows
 shift / phase / timer, quota, wallet, the prompt with its match mark and the event feed.
 `tools/smoke.sh` proves it headless. A human playtest of `b2b9159` passed.
+Since then: G starts the run / readies / continues, Esc frees the mouse (and pauses a solo run), Tab
+opens the inventory — drag a stack to move it, Ctrl+drag takes half, R turns it, right-click puts it
+back, a click sends it across, and the buttons sort.
 
 ### First person and the playtest nits (after the b2b9159 playtest)
 
@@ -115,8 +118,19 @@ list below.
       has sort buttons and shows a chest as a second grid. 9 Net.Tests (latency, refusal, split,
       chained moves, a container closing under a move, drag / rotate / half / merge) and a smoke
       stage that drives the real panel with mouse events against a chest.
-- [ ] 8 clients / 10 min soak with container hash check on every version
-- [ ] Prediction error < 10 cm RMS at 200 ms / 5 % loss (network conditioner)
+- [x] 8 clients / 10 min soak with container hash check on every version (design choice 44).
+      In-process (`AcceptanceTests`, 18 000 ticks, 33 ms each way, 2 % loss): 2 764 container
+      versions verified, 0 desyncs, 558 stacks delivered. As eight Godot processes over ENet
+      (`tools/soak.sh 8 600 1`, run twice, both SOAK OK): every process 0 desyncs and 0 bad
+      packets, 286–414 versions verified each (≈ 2 800 in total), 49–80 stacks delivered per bot.
+- [x] Prediction error < 10 cm RMS at 200 ms / 5 % loss (`AcceptanceTests`, ten minutes each, the
+      `LoopbackHub` conditioner). 100 ms each way + 5 % loss: rms 0.23 cm, worst single correction
+      24.5 cm. 200 ms each way + 5 % loss: rms 0.23 cm, worst 25.0 cm. 100 ms each way without
+      loss: 0 — latency alone never corrects. A correction happens only when three input packets
+      in a row are lost (each packet repeats the last three inputs). Known limits: the conditioner
+      has no jitter; and after a *server* stall of a second or more (seen on this shared machine
+      in the ENet soak, see the tick item below) a guest is pulled back once by up to a few
+      metres, because the inputs that queued up meanwhile run into the server's speed clamp.
 - [x] 10 000-op two-player chest fuzz: no duplicate / lost item (`ChestFuzzTests`, three seeds at
       0 / 67 / 167 ms of latency each way, through the real clients and the wire). Each run: two
       players at one chest send 10 000 moves, splits, merges, quick-moves, sorts and nonsense in
@@ -126,8 +140,26 @@ list below.
       above its limit; at the end both mirrors hash-equal the server with 0 desyncs. About 55 %
       of the ops are accepted, 4–8 % lose a race for a stack the other took (`UnknownEntry`).
 - [x] Delivery / misdelivery pay exactly per ch. 03 §2.2 (unit tests)
-- [ ] Server tick ≤ 2 ms with 8 players on the test map
-- [ ] ContentValidator CLI
+- [x] Server tick ≤ 2 ms with 8 players on the test map (`TickStats`, design choice 44; judged on
+      mean and p99 after a 150-tick warm-up). In-process, 8 bots, 17 850 ticks: mean 0.009 ms, p99
+      0.04 ms, worst 0.42–0.66 ms. Inside the Godot host with 7 guests over ENet, ten real minutes
+      (18 003 ticks), two runs: mean 0.29 / 0.33 ms, p99 0.50 / 0.74 ms.
+      **Not clean:** both ENet runs had a handful of very slow ticks (second run: 34 over 5 ms out
+      of 18 003; the first run's log stopped at its cap of 20; the worst 2.2 s and 1.9 s). The slow-tick log of the second run says where the time
+      went: all but two of them sat inside ENet's `Service` / send calls (sockets), not in the sim
+      step (the two sim ones: 13.8 ms at the first Payday, 5.5 ms), and the collector accounts for
+      one of them (154 ms). The machine was not idle either time — `/proc/pressure` showed IO and
+      memory "full" stalls of 1–2 % and other sessions were compiling — so I read these as the
+      process being stalled by the machine, and the in-process run (no sockets, same sim, worst
+      tick under 1 ms) agrees. It is not proven; the soak should be repeated on a quiet machine,
+      and `tools/soak.sh` prints the slow ticks so the answer is one run away.
+- [x] ContentValidator CLI (`tools/ContentValidator`, `tools/validate-content.sh`, design choice
+      45): "content OK: 6 mail kinds, 4 destination types, 10 containers, 11 items, 1 maps, 32
+      street names; content hash b55d7575", or one `error:` line per problem and exit code 1.
+      Five tests in Sim.Tests; `tools/smoke.sh` runs it before the game.
+
+All of the hardening list is done. What is left of M0 as doc 12 writes it and is not covered by
+a test here: the "2 real players" of the soak, and a tick-time run on a quiet machine.
 
 ## How to build and check
 
@@ -358,6 +390,39 @@ See "Commands" at the bottom (filled in as the tooling lands).
     - The test street has no chest; `SimWorld.AddWorldContainer("chest", x, z)` puts one down for
       the tests and the smoke. Placing storage in the world is M1 (building).
 
+44. **How the M0 acceptance criteria (doc 12) are measured.** The doc gives the numbers, not the
+    method:
+    - *"8 clients (2 real, 6 bots) … for 10 min, hashes match on every version."* Eight bots: no
+      test can supply the two real players. Held twice — in-process (`AcceptanceTests`, ten minutes
+      of game time over the loopback wire with 33 ms each way and 2 % loss) and for ten real
+      minutes as eight Godot processes over ENet (`tools/soak.sh 8 600`). "Every version" is
+      literal: each container delta carries the server's hash of that version and the client
+      compares its mirror after applying it (`ContainerVersionsVerified` / `ContainerDesyncs`).
+    - *"Prediction error … 200 ms simulated latency with 5 % loss … below 10 cm RMS."* The error
+      is the distance the predicted position jumps at a reconciliation, over every snapshot.
+      "200 ms" is tested both as the round trip (100 ms each way) and as each direction. The
+      conditioner (`LoopbackHub`) delays by whole ticks and drops unreliable packets in both
+      directions; it has no jitter. *"No visible rubber-banding at 100 ms"* is held as: latency
+      alone gives no correction at all (≤ 1 cm asserted, 0 measured). `TheMeasureSeesAServerSide
+      Correction` shows the instrument is alive (a 1 m server-side shove reads as 1 m, once).
+    - *"Server tick ≤ 2 ms with 8 players."* `ServerRuntime.TickTimes` (`TickStats`): wall time of
+      a whole tick (network in, sim step, events and snapshots out), skipping the first 150 ticks
+      (JIT). Judged: the mean and the 99th percentile. Printed but not judged: the worst single
+      tick — one GC pause or a descheduled process is not the game's cost. Ticks over 5 ms are
+      logged (`[server] slow tick …`, the first 40) with the split network in / sim / out and
+      the GC pause time since the last one, so a slow tick can be told from a stalled machine.
+      A bot host fails its soak if mean or p99 exceed 2 ms.
+    - *"10 000 randomized ops."* Per seed, not in total; three seeds, see `ChestFuzzTests`.
+
+45. **ContentValidator (doc 07 §6).** The rules live in `ContentDb.TryLoad` — the game refuses to
+    boot on the same list — and `tools/ContentValidator` is the command around it: every problem
+    on its own `error:` line, exit code 1 (2 for a wrong command line). One rule is the tool's
+    own: a `.json` under `content/` that no loader read is an error (a misspelt file name would
+    otherwise be silently ignored). Of doc 08 §5 only the rules for def types that exist are in
+    (unique ids, references, `acceptedBy`, mix shares = 1 ± 0.001, positive grids); perks, waves,
+    archetypes, recipes and buildings get theirs with their loaders. `tools/smoke.sh` runs the
+    validator before the game; its tests sit in Sim.Tests.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -365,6 +430,10 @@ All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes o
 ```
 ~/.dotnet/dotnet build PerformativeMail.sln -nodeReuse:false
 ~/.dotnet/dotnet test  PerformativeMail.sln -nodeReuse:false     # Sim.Tests + Net.Tests
+# the M0 acceptance tests and the chest fuzz, with their measured numbers:
+~/.dotnet/dotnet test tests/Net.Tests -nodeReuse:false --filter "Acceptance|ChestFuzz" --logger "console;verbosity=detailed"
+
+tools/validate-content.sh [CONTENT_DIR] [--quiet]   # ContentValidator: "content OK …" / "error: …" lines, exit 0 / 1
 
 tools/smoke.sh [seed]            # build + Godot headless smoke; exit 0 and "SMOKE OK" on success
 ~/.local/bin/godot --headless --path . -- --smoke --seed=1      # the smoke alone (build first)
@@ -384,6 +453,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --headless --path . -- --bot --join=127.0.0.1 --quit-after=60   # a bot guest; ends with BOT OK / BOT FAIL
 
 tools/soak.sh [players=8] [seconds=600] [seed]   # host + guests as separate headless bot processes over ENet; "SOAK OK"
+                                                 # (also judges the host's tick times; give it 120 s or more — in less, a bot may not get to deliver)
 ```
 
 The profile (Postal Rank XP, stats, last 10 runs) is `user://profile.json`, on Linux
