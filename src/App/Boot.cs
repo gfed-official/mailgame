@@ -3,6 +3,7 @@ using System.Globalization;
 using Godot;
 using PerformativeMail.Client.InputHandling;
 using PerformativeMail.Client.Meta;
+using PerformativeMail.Client.Presentation;
 using PerformativeMail.Sim.Content;
 
 namespace PerformativeMail.App
@@ -15,7 +16,8 @@ namespace PerformativeMail.App
     /// --join=ADDRESS[:PORT] (join that host instead of hosting), --bot (a DeliveryBot plays this
     /// client; with --wait-players=N a hosting bot starts the run at N players, with
     /// --quit-after=SECONDS it ends with a verdict), --smoke, and with a window --shots=DIR to make
-    /// the smoke save screenshots.
+    /// the smoke save screenshots, --low (no lamp lights, shadows, bloom or anti-aliasing), --lookdev=DIR (pictures of the world from a tour of viewpoints,
+    /// then quit; --lookdev-views=name:ex,ey,ez:tx,ty,tz[:night];… for views of one's own).
     /// </summary>
     public partial class Boot : Node
     {
@@ -24,8 +26,8 @@ namespace PerformativeMail.App
         public override void _Ready()
         {
             uint seed = 1;
-            string? name = null, shots = null, profilePath = null, join = null;
-            bool smoke = false, quick = false, solo = false, bot = false;
+            string? name = null, shots = null, profilePath = null, join = null, lookDev = null, lookDevViews = null;
+            bool smoke = false, quick = false, solo = false, bot = false, low = false;
             int? port = null;
             int waitPlayers = 1;
             double quitAfter = 0;
@@ -35,11 +37,14 @@ namespace PerformativeMail.App
                 else if (arg == "--quick") quick = true;
                 else if (arg == "--solo") solo = true;
                 else if (arg == "--bot") bot = true;
+                else if (arg == "--low") low = true;
                 else if (arg.StartsWith("--wait-players=", StringComparison.Ordinal) && int.TryParse(arg.Substring(15), out int w)) waitPlayers = w;
                 else if (arg.StartsWith("--quit-after=", StringComparison.Ordinal) && double.TryParse(arg.Substring(13), NumberStyles.Float, CultureInfo.InvariantCulture, out double q)) quitAfter = q;
                 else if (arg.StartsWith("--port=", StringComparison.Ordinal) && int.TryParse(arg.Substring(7), out int p) && p >= 0 && p <= 65535) port = p;
                 else if (arg.StartsWith("--join=", StringComparison.Ordinal) && arg.Length > 7) join = arg.Substring(7);
                 else if (arg.StartsWith("--shots=", StringComparison.Ordinal) && arg.Length > 8) shots = arg.Substring(8);
+                else if (arg.StartsWith("--lookdev=", StringComparison.Ordinal) && arg.Length > 10) lookDev = arg.Substring(10);
+                else if (arg.StartsWith("--lookdev-views=", StringComparison.Ordinal) && arg.Length > 16) lookDevViews = arg.Substring(16);
                 else if (arg.StartsWith("--seed=", StringComparison.Ordinal) && uint.TryParse(arg.Substring(7), out uint s)) seed = s;
                 else if (arg.StartsWith("--name=", StringComparison.Ordinal) && arg.Length > 7) name = arg.Substring(7);
                 else if (arg.StartsWith("--profile=", StringComparison.Ordinal) && arg.Length > 10) profilePath = arg.Substring(10);
@@ -68,6 +73,10 @@ namespace PerformativeMail.App
             else if (profile.DisplayName.Length == 0) profile.DisplayName = DefaultName;
             int perRank = content.Balance.GetInt("rankXpPerRank");
             GD.Print($"[boot] profile {profile.DisplayName}: rank {profile.Rank(perRank)}, {profile.RankXp} XP, {profile.Runs} runs");
+
+            // A software renderer (the smoke under xvfb) draws the full look at about a frame a second.
+            string adapter = RenderingServer.GetVideoAdapterName() ?? "";
+            WorldView.Cheap = low || (smoke && adapter.Contains("llvmpipe", StringComparison.OrdinalIgnoreCase));
 
             InputActions.Register();
             var session = new GameSession { Name = "Session" };
@@ -103,8 +112,15 @@ namespace PerformativeMail.App
             {
                 GD.Print($"[boot] joined as {session.Client.World!.LocalId} on {session.Client.World.Map.Name}");
                 var screen = new GameScreen { Name = "Screen" };
-                screen.Setup(session, humanInput: !smoke && !bot);
+                screen.Setup(session, humanInput: !smoke && !bot && lookDev == null);
                 AddChild(screen);
+                if (lookDev != null && !smoke)
+                {
+                    var tour = new LookDev { Name = "LookDev", Dir = lookDev, Extra = lookDevViews };
+                    AddChild(tour);
+                    tour.Setup(screen);
+                    return;
+                }
                 if (bot && !smoke)
                 {
                     botDriver = new BotDriver { Name = "Bot", QuitAfterSeconds = quitAfter };

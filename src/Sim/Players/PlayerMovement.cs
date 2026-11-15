@@ -51,7 +51,7 @@ namespace PerformativeMail.Sim.Players
             float speed = (input.Has(InputButtons.Sprint) ? c.SprintSpeed : c.WalkSpeed) * speedMult;
             s.X += mx * speed * dt;
             s.Z += mz * speed * dt;
-            ResolveCollisions(ref s, map, c.Radius);
+            ResolveCollisions(ref s.X, ref s.Z, s.Y, map, c.Radius);
 
             if (s.Grounded && input.Has(InputButtons.Jump))
             {
@@ -74,43 +74,68 @@ namespace PerformativeMail.Sim.Players
             else s.Y = ground;
         }
 
-        /// <summary>Pushes a circle out of every solid tile it overlaps. Map edges are solid.</summary>
-        private static void ResolveCollisions(ref PlayerMoveState s, WorldMap map, float r)
+        /// <summary>
+        /// Pushes a circle out of every solid tile and solid prop it overlaps. Map edges are solid.
+        /// A prop lower than the walker's feet (<paramref name="feetY"/>) is passed over: fences
+        /// can be jumped. Carriers and enemies both walk with this.
+        /// </summary>
+        public static void ResolveCollisions(ref float x, ref float z, float feetY, WorldMap map, float r)
         {
             const float tile = SimConstants.TileSize;
             for (int iter = 0; iter < 2; iter++)
             {
                 bool pushed = false;
-                int minTx = (int)MathF.Floor((s.X - r) / tile), maxTx = (int)MathF.Floor((s.X + r) / tile);
-                int minTz = (int)MathF.Floor((s.Z - r) / tile), maxTz = (int)MathF.Floor((s.Z + r) / tile);
+                int minTx = (int)MathF.Floor((x - r) / tile), maxTx = (int)MathF.Floor((x + r) / tile);
+                int minTz = (int)MathF.Floor((z - r) / tile), maxTz = (int)MathF.Floor((z + r) / tile);
                 for (int tz = minTz; tz <= maxTz; tz++)
                 {
                     for (int tx = minTx; tx <= maxTx; tx++)
                     {
                         if (!map.IsSolid(tx, tz)) continue;
                         float x0 = tx * tile, z0 = tz * tile, x1 = x0 + tile, z1 = z0 + tile;
-                        float cx = Math.Clamp(s.X, x0, x1);
-                        float cz = Math.Clamp(s.Z, z0, z1);
-                        float dx = s.X - cx, dz = s.Z - cz;
+                        float cx = Math.Clamp(x, x0, x1);
+                        float cz = Math.Clamp(z, z0, z1);
+                        float dx = x - cx, dz = z - cz;
                         float distSq = dx * dx + dz * dz;
                         if (distSq >= r * r) continue;
                         if (distSq > 1e-12f)
                         {
                             float dist = MathF.Sqrt(distSq);
                             float push = (r - dist) / dist;
-                            s.X += dx * push;
-                            s.Z += dz * push;
+                            x += dx * push;
+                            z += dz * push;
                         }
                         else
                         {
                             // Centre is inside the tile: leave through the nearest face.
-                            float left = s.X - x0, right = x1 - s.X, up = s.Z - z0, down = z1 - s.Z;
+                            float left = x - x0, right = x1 - x, up = z - z0, down = z1 - z;
                             float min = Math.Min(Math.Min(left, right), Math.Min(up, down));
-                            if (min == left) s.X = x0 - r;
-                            else if (min == right) s.X = x1 + r;
-                            else if (min == up) s.Z = z0 - r;
-                            else s.Z = z1 + r;
+                            if (min == left) x = x0 - r;
+                            else if (min == right) x = x1 + r;
+                            else if (min == up) z = z0 - r;
+                            else z = z1 + r;
                         }
+                        pushed = true;
+                    }
+                }
+
+                var props = map.SolidPropsAt((int)MathF.Floor(x / tile), (int)MathF.Floor(z / tile));
+                if (props != null)
+                {
+                    foreach (int index in props)
+                    {
+                        var prop = map.Props[index];
+                        if (feetY >= prop.Height) continue;
+                        float reach = prop.Radius + r;
+                        float dist = prop.Distance(x, z, out float nearX, out float nearZ);
+                        if (dist >= reach) continue;
+                        if (dist > 1e-5f)
+                        {
+                            float push = (reach - dist) / dist;
+                            x += (x - nearX) * push;
+                            z += (z - nearZ) * push;
+                        }
+                        else x = nearX + reach;
                         pushed = true;
                     }
                 }

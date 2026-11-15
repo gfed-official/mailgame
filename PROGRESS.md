@@ -195,12 +195,22 @@ What the video shows, frame by frame:
 
 Visuals (all built in code; there are no art assets yet):
 
-- [ ] Sky, light and atmosphere: sunset gradient sky with a sun disc, warm key light, glow, fog,
-      and a blue night that falls for the raid
-- [ ] Town: clapboard houses with trim, windows, porches, shingle gable roofs and lanterns; path,
-      grass, picket fences, street lamps, benches, bushes, trees, boulders, flowers
-- [ ] The island around the street: cliffs, sea, harbour dock with crates, mail trucks, boats,
-      conveyors to a tower; the palisade with its gate and watch towers
+- [x] Sky, light and atmosphere (`Atmosphere`, `Shaders.Sky`): sunset gradient sky with a sun disc
+      and drifting cloud bands, warm low key light with soft shadows, glow, ambient occlusion, pink
+      haze; a blue starlit night with a moon-coloured key light and warm pools under the lamps,
+      porch lanterns and torches (`Atmosphere.TargetNight` blends between the two)
+- [x] Town (`HouseBuilder`, `SceneryView`, `Shaders.Ground / Clapboard / Shingles / Foliage`):
+      clapboard houses in the video's colours with white trim, framed windows, porches with rails,
+      shingle gable roofs, chimneys and glowing lanterns; a cobbled dirt path with soft edges, grass,
+      picket fences with a gate gap at each mailbox, red street lamps, benches, round bushes,
+      clumped-crown trees, boulders, flowers; the Post Office with awning, sign and loading yard
+- [x] The island around the street (`IslandView`): terrain falling to cliffs and the sea, a harbour
+      dock with crates, mail trucks, boats, a conveyor carrying parcels up to a wooden tower; the
+      spiked-log palisade with its gate, two roofed watch towers and torches at the east end of
+      the street
+- [x] The town is solid: trees, lamps, benches, boulders and fences stop a walker (fences can be
+      jumped); `Scenery` places them from the map hash, so server, clients and bots agree without
+      a byte on the wire (`SceneryTests`, choice 46)
 - [ ] Characters: smooth carriers with caps; raiders, the horned giant, the small red swarm
 - [ ] First-person hammer and mail cannon, the swing and the shot; blast, smoke, embers, coins
 - [ ] HUD in the video's layout: top-centre shift bars, health / stamina / money bottom left, the
@@ -490,6 +500,35 @@ See "Commands" at the bottom (filled in as the tooling lands).
     archetypes, recipes and buildings get theirs with their loaders. `tools/smoke.sh` runs the
     validator before the game; its tests sit in Sim.Tests.
 
+46. **Scenery (the video's town dressing) and what is solid.** The map file still only has tiles,
+    houses and mailboxes. Everything else the video shows on the street — trees, bushes, boulders,
+    lamps, benches, fences, flowers — is placed by `Scenery.Generate` (Sim, no Godot) from a random
+    stream seeded with the map hash, so the server, every client and the bot derive the same props
+    and nothing is sent. Rules: nothing on a street tile or within reach of one, nothing in front
+    of a door, a walkway or a mailbox, fences leave a gap at the walk and the mailbox.
+    Trees, lamps, benches, boulders and fences are solid circles / capsules in
+    `PlayerMovement.ResolveCollisions` (shared by the server and prediction); bushes by a house
+    corner are solid too, flowers are not. A prop lower than the walker's feet is passed over, so
+    a 0.95 m fence can be jumped (jump height 1.2 m). `WorldMap.IsNavBlocked` marks tiles a walker
+    cannot cross; `TilePathfinder` moved from the client to `Sim/World` (the bot, the tests' walker
+    and the enemies all use it).
+47. **The look is built in code.** There are still no art assets: `MeshKit` makes rounded boxes,
+    lumpy blobs and clumps with smooth normals ("remove the low poly"), `MeshBatch` turns each
+    (mesh, material) pair into one MultiMesh, and five small shaders (ground, clapboard, shingles,
+    foliage, water, sky) do the surfaces. The whole town is about 1.3 million triangles in ~120
+    draw calls. Forward+ on a GPU; the same scene also runs in the Compatibility renderer (the
+    screenshots under xvfb), which needed `limits/opengl/max_lights_per_object` raised to 32 because
+    a whole-town MultiMesh is one "object" to its 8-light limit.
+48. **`--low` and the smoke on a software renderer.** `WorldView.Cheap`: no lamp lights, shadows,
+    glow, ambient occlusion or anti-aliasing, and `MeshKit.LowDetail` builds every shape from about
+    a fifth of the triangles. On llvmpipe at 1280×720 that is 70 ms a frame instead of 560. The
+    smoke turns it on by itself when the adapter is llvmpipe (otherwise its ENet step, which has
+    a 10 s wall-clock limit, cannot finish); `--low` turns it on for a player with a weak GPU.
+49. **`--lookdev=DIR`.** A tour of fixed viewpoints (street, house, Post Office, gate, harbour,
+    from above, two at night) saved as PNGs, with the frame time printed — the way the look was
+    compared with the reference frames. `--lookdev-views=name:ex,ey,ez:tx,ty,tz[:night];…` adds
+    views of one's own.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -512,6 +551,11 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --seed=7 --name=Ada               # user args go after "--"
 ~/.local/bin/godot --path . -- --quick                           # skip Lobby and Prep: straight into shift 1
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
+~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
+
+# pictures of the world from a tour of viewpoints (and the frame time), then quit:
+xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --solo --lookdev=/tmp/look
+#   own views: "--lookdev-views=street:17,1.6,28.5:40,2.2,27;gate:70,3,28:92,3,28:night"  (name:eye:target[:night])
 
 # multiplayer: a host listens on UDP 24565 by default
 ~/.local/bin/godot --path . -- --port=24600                      # host on another port (0 = any free one; --solo = do not listen)

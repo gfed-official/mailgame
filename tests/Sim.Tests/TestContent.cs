@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Mail;
 using PerformativeMail.Sim.Players;
@@ -38,14 +39,32 @@ namespace PerformativeMail.Sim.Tests
             p.Move.Z = z;
         }
 
-        /// <summary>Queues one input per tick steering straight at a point until within <paramref name="stopDistance"/>.</summary>
+        /// <summary>
+        /// Queues one input per tick steering at a point until within <paramref name="stopDistance"/>:
+        /// straight at it when it is close, along a tile path around houses and props otherwise.
+        /// </summary>
         public static bool WalkTo(SimWorld world, Player p, float x, float z, float stopDistance = 0.3f, int maxTicks = 3000, bool sprint = false)
         {
+            var path = new List<(float X, float Z)>();
+            float far = x - p.Move.X, farZ = z - p.Move.Z;
+            if (far * far + farZ * farZ > 3f * 3f) TilePathfinder.Find(world.Map, p.Move.X, p.Move.Z, x, z, path);
+            int waypoint = 0;
             for (int i = 0; i < maxTicks; i++)
             {
                 float dx = x - p.Move.X, dz = z - p.Move.Z;
                 float dist = MathF.Sqrt(dx * dx + dz * dz);
                 if (dist <= stopDistance) return true;
+                while (waypoint < path.Count - 1)
+                {
+                    float wx = path[waypoint].X - p.Move.X, wz = path[waypoint].Z - p.Move.Z;
+                    if (wx * wx + wz * wz > 0.6f * 0.6f) break;
+                    waypoint++;
+                }
+                if (waypoint < path.Count - 1)
+                {
+                    dx = path[waypoint].X - p.Move.X; dz = path[waypoint].Z - p.Move.Z;
+                    dist = MathF.Sqrt(dx * dx + dz * dz);
+                }
                 var input = new PlayerInput
                 {
                     Seq = p.LastQueuedSeq + 1,

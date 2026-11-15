@@ -73,10 +73,11 @@ namespace PerformativeMail.Sim.Tests
         [Fact]
         public void SlidesAlongWalls()
         {
-            var s = At(21f, 20.4f);
+            // Along the back wall of the first house: its front has bushes at the corners.
+            var s = At(21f, 15.6f);
             float d = MathF.Sqrt(0.5f);
-            Run(ref s, Input(d, -d), 30);
-            Assert.InRange(s.Z, 20.399f, 20.41f);
+            Run(ref s, Input(d, d), 30);
+            Assert.InRange(s.Z, 15.59f, 15.601f);
             Assert.True(s.X > 23f, $"expected to slide east, x = {s.X}");
         }
 

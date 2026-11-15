@@ -6,148 +6,369 @@ using PerformativeMail.Sim.World;
 namespace PerformativeMail.Client.Presentation
 {
     /// <summary>
-    /// Static world dressing built from the WorldMap (doc 07 §5): ground tiles, houses, mailboxes,
-    /// the Post Office and its Intake. Greybox meshes; nothing here is read by the simulation.
+    /// The world as the concept video shows it (design/reference/higgsfield-01), built from the
+    /// WorldMap (doc 07 §5): a dirt-and-cobble street through grass, clapboard houses with lit
+    /// lanterns, mailboxes, the Post Office and its Intake counter, the map's props, and the island
+    /// around it all. Nothing here is read by the simulation.
     /// </summary>
     public partial class WorldView : Node3D
     {
         private const float Tile = SimConstants.TileSize;
-        private const float HouseHeight = 3f;
-        private const float PostOfficeHeight = 4.5f;
+        /// <summary>The ground texture reaches this far past the map, so streets run on to the harbour and the gate.</summary>
+        private const float GroundMargin = 24f;
+        private const int TexelsPerMetre = 2;
+        private const float GroundChunk = 16f;
+
+        private static readonly Color PostOfficeWall = new Color("efe2c4");
+        private static readonly Color PostOfficeRed = new Color("b23a34");
 
         public int MailboxCount { get; private set; }
+        public Atmosphere Atmosphere { get; private set; } = null!;
+
+        /// <summary>Lamps, porch lights and torches with their energy by day and by night.</summary>
+        private readonly List<(OmniLight3D Light, float Day, float Night)> _lights = new List<(OmniLight3D, float, float)>();
+        private float _litFor = -1f;
+
+        /// <summary>
+        /// Draw the world without what costs a renderer most: lamp and porch lights, shadows, bloom
+        /// and anti-aliasing, and with coarser shapes (<see cref="MeshKit.LowDetail"/>). For "--low"
+        /// and for the smoke under a software renderer.
+        /// </summary>
+        public static bool Cheap;
+
+        public override void _EnterTree()
+        {
+            if (!Cheap) GetViewport().Msaa3D = Viewport.Msaa.Msaa2X;
+        }
 
         public void Build(WorldMap map)
         {
-            AddSky();
-            AddGround(map);
-            foreach (var street in map.Streets)
-                AddLabel(street.Name, new Vector3(street.Rect.CenterX, 0.05f, street.Rect.CenterZ), 96, Colors.White, flat: true);
+            MeshKit.LowDetail = Cheap;
+            Atmosphere = new Atmosphere { Name = "Atmosphere" };
+            AddChild(Atmosphere);
+            Atmosphere.Build(Cheap);
+
+            // The material keeps the texture; C# lets go of it now rather than at exit, after the renderer has gone.
+            using var groundMap = GroundMap(map);
+            var ground = Shaders.Ground(groundMap, new Vector2(-GroundMargin, -GroundMargin), new Vector2(map.WidthM + GroundMargin * 2f, map.DepthM + GroundMargin * 2f));
+            AddGround(map, ground);
+
+            var batch = new MeshBatch();
             foreach (var dest in map.Destinations)
             {
-                AddHouse(dest);
-                AddMailbox(dest);
+                AddLight(HouseBuilder.Build(batch, dest), HouseBuilder.LanternLight, 7f, 0.5f, 2.6f);
+                AddHouseNumber(dest);
+                AddMailbox(batch, dest);
             }
-            AddPostOffice(map.PostOffice);
+            AddPostOffice(batch, map);
+            foreach (var street in map.Streets) AddStreetSign(batch, map, street);
+            foreach (var lamp in SceneryView.Build(batch, map)) AddLight(lamp + new Vector3(0f, -0.3f, 0f), SceneryView.LampLight, 12f, 0.8f, 4.5f);
+            foreach (var torch in IslandView.Build(this, batch, map, ground)) AddLight(torch + new Vector3(-0.4f, 0.2f, 0f), new Color(1.0f, 0.6f, 0.25f), 12f, 0.8f, 3.0f);
+            batch.Flush(this, "Batch");
+            ApplyNight();
         }
 
-        private void AddSky()
+        public override void _Process(double delta) => ApplyNight();
+
+        /// <summary>The lamps come up as the light goes down.</summary>
+        private void ApplyNight()
         {
-            var environment = new Environment
+            float night = Atmosphere.Night;
+            if (Mathf.IsEqualApprox(night, _litFor)) return;
+            _litFor = night;
+            foreach (var (light, day, dark) in _lights) light.LightEnergy = Mathf.Lerp(day, dark, night);
+        }
+
+        private void AddLight(Vector3 at, Color colour, float range, float day, float night)
+        {
+            if (Cheap) return;
+            var light = new OmniLight3D
             {
-                BackgroundMode = Environment.BGMode.Sky,
-                Sky = new Sky { SkyMaterial = new ProceduralSkyMaterial() },
-                AmbientLightSource = Environment.AmbientSource.Sky,
-                AmbientLightEnergy = 0.8f,
-                TonemapMode = Environment.ToneMapper.Filmic,
+                Position = at,
+                LightColor = colour,
+                OmniRange = range,
+                OmniAttenuation = 1.4f,
+                LightEnergy = day,
+                ShadowEnabled = false,
+                DistanceFadeEnabled = true,
+                DistanceFadeBegin = 70f,
+                DistanceFadeLength = 20f,
             };
-            AddChild(new WorldEnvironment { Name = "Environment", Environment = environment });
-            AddChild(new DirectionalLight3D
-            {
-                Name = "Sun",
-                RotationDegrees = new Vector3(-52f, -35f, 0f),
-                ShadowEnabled = true,
-                LightEnergy = 1.1f,
-            });
+            AddChild(light);
+            _lights.Add((light, day, night));
         }
 
-        private void AddGround(WorldMap map)
+        /// <summary>
+        /// What the ground is made of, as a texture the ground shader reads: red where a path runs
+        /// (streets, and the walk from each front door), green on the lots' lawns, blue on the Post
+        /// Office yard. Blurred, so edges are soft and the shader can tell a path's middle from its rim.
+        /// </summary>
+        private static ImageTexture GroundMap(WorldMap map)
         {
-            var byColour = new Dictionary<Color, List<Vector3>>();
-            for (int tz = 0; tz < map.Rows; tz++)
+            int width = Mathf.CeilToInt((map.WidthM + GroundMargin * 2f) * TexelsPerMetre), height = Mathf.CeilToInt((map.DepthM + GroundMargin * 2f) * TexelsPerMetre);
+            var data = new float[width * height * 3];
+            for (int py = 0; py < height; py++)
             {
-                for (int tx = 0; tx < map.Cols; tx++)
+                for (int px = 0; px < width; px++)
                 {
-                    var colour = Palette.Tile(map.GetTile(tx, tz));
-                    if (!byColour.TryGetValue(colour, out var list)) byColour[colour] = list = new List<Vector3>();
-                    list.Add(new Vector3((tx + 0.5f) * Tile, 0f, (tz + 0.5f) * Tile));
+                    float x = (px + 0.5f) / TexelsPerMetre - GroundMargin, z = (py + 0.5f) / TexelsPerMetre - GroundMargin;
+                    int tx = Mathf.FloorToInt(x / Tile), tz = Mathf.FloorToInt(z / Tile);
+                    int at = (py * width + px) * 3;
+                    if (map.InBounds(tx, tz))
+                    {
+                        switch (map.GetTile(tx, tz))
+                        {
+                            case TileType.Street: data[at] = 1f; break;
+                            case TileType.Lot: case TileType.Building: data[at + 1] = 1f; break;
+                            case TileType.Yard: data[at + 2] = 1f; break;
+                        }
+                        continue;
+                    }
+                    // Past the edge a street carries on in a straight line.
+                    foreach (var street in map.Streets)
+                    {
+                        var r = street.Rect;
+                        bool alongX = r.W >= r.H;
+                        if (alongX ? tz >= r.Y && tz < r.Y + r.H && (r.X == 0 && tx < 0 || r.X + r.W == map.Cols && tx >= map.Cols)
+                                   : tx >= r.X && tx < r.X + r.W && (r.Y == 0 && tz < 0 || r.Y + r.H == map.Rows && tz >= map.Rows))
+                            data[at] = 1f;
+                    }
                 }
             }
-            foreach (var (colour, positions) in byColour)
+            foreach (var dest in map.Destinations)
             {
-                var multimesh = new MultiMesh
+                Scenery.Walkway(dest, out float x0, out float z0, out float x1, out float z1);
+                var line = new Prop(PropKind.Fence, x0, z0, x1, z1, 0f, 1f, 0, 0f, 0f);
+                int minX = Mathf.FloorToInt((Mathf.Min(x0, x1) - 1f + GroundMargin) * TexelsPerMetre), maxX = Mathf.CeilToInt((Mathf.Max(x0, x1) + 1f + GroundMargin) * TexelsPerMetre);
+                int minY = Mathf.FloorToInt((Mathf.Min(z0, z1) - 1f + GroundMargin) * TexelsPerMetre), maxY = Mathf.CeilToInt((Mathf.Max(z0, z1) + 1f + GroundMargin) * TexelsPerMetre);
+                for (int py = Mathf.Max(0, minY); py < Mathf.Min(height, maxY); py++)
+                    for (int px = Mathf.Max(0, minX); px < Mathf.Min(width, maxX); px++)
+                        if (line.Distance((px + 0.5f) / TexelsPerMetre - GroundMargin, (py + 0.5f) / TexelsPerMetre - GroundMargin, out _, out _) < 0.7f)
+                            data[(py * width + px) * 3] = 0.8f;
+            }
+            for (int pass = 0; pass < 2; pass++) data = Blur(data, width, height);
+
+            var bytes = new byte[data.Length];
+            for (int i = 0; i < data.Length; i++) bytes[i] = (byte)Mathf.Clamp(Mathf.RoundToInt(data[i] * 255f), 0, 255);
+            using var image = Image.CreateFromData(width, height, false, Image.Format.Rgb8, bytes);
+            return ImageTexture.CreateFromImage(image);
+        }
+
+        /// <summary>A 5×5 box blur (one metre each way), done as two passes of five.</summary>
+        private static float[] Blur(float[] source, int width, int height)
+        {
+            var across = new float[source.Length];
+            var result = new float[source.Length];
+            for (int pass = 0; pass < 2; pass++)
+            {
+                var from = pass == 0 ? source : across;
+                var to = pass == 0 ? across : result;
+                for (int y = 0; y < height; y++)
                 {
-                    TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
-                    Mesh = new PlaneMesh { Size = new Vector2(Tile, Tile), Material = Palette.Flat(colour) },
-                    InstanceCount = positions.Count,
-                };
-                for (int i = 0; i < positions.Count; i++)
-                    multimesh.SetInstanceTransform(i, new Transform3D(Basis.Identity, positions[i]));
-                AddChild(new MultiMeshInstance3D { Name = $"Ground{colour.ToHtml(false)}", Multimesh = multimesh });
+                    for (int x = 0; x < width; x++)
+                    {
+                        for (int c = 0; c < 3; c++)
+                        {
+                            float sum = 0f;
+                            for (int k = -2; k <= 2; k++)
+                            {
+                                int sx = pass == 0 ? Mathf.Clamp(x + k, 0, width - 1) : x, sy = pass == 0 ? y : Mathf.Clamp(y + k, 0, height - 1);
+                                sum += from[(sy * width + sx) * 3 + c];
+                            }
+                            to[(y * width + x) * 3 + c] = sum / 5f;
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        /// <summary>The map's flat ground, in chunks, so each is lit by the few lamps near it.</summary>
+        private void AddGround(WorldMap map, ShaderMaterial material)
+        {
+            for (float z = 0f; z < map.DepthM; z += GroundChunk)
+            {
+                for (float x = 0f; x < map.WidthM; x += GroundChunk)
+                {
+                    float w = Mathf.Min(GroundChunk, map.WidthM - x), d = Mathf.Min(GroundChunk, map.DepthM - z);
+                    AddChild(new MeshInstance3D
+                    {
+                        Name = $"Ground{x:0}_{z:0}",
+                        Mesh = new PlaneMesh { Size = new Vector2(w, d) },
+                        MaterialOverride = material,
+                        Position = new Vector3(x + w * 0.5f, 0f, z + d * 0.5f),
+                        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                    });
+                }
             }
         }
 
-        private void AddHouse(DestinationDef dest)
+        private void AddHouseNumber(DestinationDef dest)
         {
             var colour = Palette.HouseColour(dest.Variant);
-            var b = dest.Building;
-            var size = new Vector3(b.W * Tile, HouseHeight, b.H * Tile);
-            var centre = new Vector3(b.CenterX, HouseHeight * 0.5f, b.CenterZ);
-            AddBox($"House{dest.Address.Number}", centre, size, colour);
-            AddChild(new MeshInstance3D
-            {
-                Name = $"Roof{dest.Address.Number}",
-                Mesh = new PrismMesh { Size = new Vector3(size.X + 0.6f, 1.6f, size.Z + 0.6f), Material = Palette.Flat(colour.Darkened(0.35f)) },
-                Position = new Vector3(centre.X, HouseHeight + 0.8f, centre.Z),
-            });
-            // The number floats above the wall that faces the mailbox, not above the ridge: up close the
-            // label is small (SizedLabel3D), and over the middle of the house the roof would hide it.
-            float dx = dest.MailboxX - centre.X, dz = dest.MailboxZ - centre.Z;
-            var front = Mathf.Abs(dx) / size.X > Mathf.Abs(dz) / size.Z
-                ? new Vector3(Mathf.Sign(dx) * size.X * 0.5f, 0f, 0f)
-                : new Vector3(0f, 0f, Mathf.Sign(dz) * size.Z * 0.5f);
-            AddLabel(dest.Address.Number.ToString(), new Vector3(centre.X, HouseHeight + 2.4f, centre.Z) + front, 160, colour.Lightened(0.5f));
+            var frame = HouseBuilder.Frame(dest, out float width, out float depth);
+            // The number floats above the gable that faces the mailbox: up close the label is small
+            // (SizedLabel3D), and over the middle of the house the roof would hide it.
+            AddLabel(dest.Address.Number.ToString(), frame * new Vector3(0f, HouseBuilder.RidgeHeight(width) + 0.9f, depth * 0.5f), 160, colour.Lightened(0.5f));
         }
 
-        private void AddMailbox(DestinationDef dest)
+        private void AddMailbox(MeshBatch batch, DestinationDef dest)
         {
             var colour = Palette.HouseColour(dest.Variant);
-            var root = new Node3D { Name = $"Mailbox{dest.Address.Number}", Position = new Vector3(dest.MailboxX, 0f, dest.MailboxZ) };
-            AddChild(root);
-            root.AddChild(new MeshInstance3D
-            {
-                Mesh = new BoxMesh { Size = new Vector3(0.12f, 1.0f, 0.12f), Material = Palette.Flat(new Color("3d3d3d")) },
-                Position = new Vector3(0f, 0.5f, 0f),
-            });
-            root.AddChild(new MeshInstance3D
-            {
-                Mesh = new BoxMesh { Size = new Vector3(0.45f, 0.35f, 0.65f), Material = Palette.Flat(colour) },
-                Position = new Vector3(0f, 1.15f, 0f),
-            });
-            root.AddChild(MakeLabel(dest.Label, new Vector3(0f, 1.75f, 0f), 56, Colors.White, flat: false));
+            Scenery.Front(dest, out int fx, out int fz);
+            var at = new Vector3(dest.MailboxX, 0f, dest.MailboxZ);
+            batch.Frame = new Transform3D(new Basis(Vector3.Up, Mathf.Atan2(fx, fz)), at);
+            batch.Box(new Vector3(0f, 0.5f, 0f), new Vector3(0.12f, 1.0f, 0.12f), MeshKit.Mat(new Color("6b4630"), 0.8f), 0.03f);
+            batch.Box(new Vector3(0f, 0.98f, 0.05f), new Vector3(0.3f, 0.06f, 0.5f), MeshKit.Mat(new Color("6b4630"), 0.8f), 0.02f);
+            // The box itself: round-topped, in the colour of its house, the flag up.
+            batch.Box(new Vector3(0f, 1.17f, 0.05f), new Vector3(0.34f, 0.34f, 0.62f), MeshKit.Mat(colour, 0.45f, 0.1f), 0.15f);
+            batch.Box(new Vector3(0f, 1.15f, 0.37f), new Vector3(0.28f, 0.26f, 0.03f), MeshKit.Mat(colour.Darkened(0.25f), 0.45f, 0.1f), 0.012f);
+            batch.Box(new Vector3(0.19f, 1.3f, 0.1f), new Vector3(0.025f, 0.26f, 0.05f), MeshKit.Mat(new Color("d6332c"), 0.5f), 0.01f);
+            batch.Box(new Vector3(0.19f, 1.4f, 0.16f), new Vector3(0.025f, 0.1f, 0.14f), MeshKit.Mat(new Color("d6332c"), 0.5f), 0.01f);
+            batch.Frame = Transform3D.Identity;
+            var label = MakeLabel(dest.Label, at + new Vector3(0f, 1.75f, 0f), 56, Colors.White, flat: false);
+            label.Name = $"Mailbox{dest.Address.Number}";
+            AddChild(label);
             MailboxCount++;
         }
 
-        private void AddPostOffice(PostOfficeDef po)
+        private void AddPostOffice(MeshBatch batch, WorldMap map)
         {
+            var po = map.PostOffice;
+            var siding = Shaders.Clapboard(PostOfficeWall);
+            var red = MeshKit.Mat(PostOfficeRed, 0.55f);
+            var cream = MeshKit.Mat(new Color("f6f0e4"), 0.6f);
+            var roof = Shaders.Shingles(new Color("7a2c2a"));
+            const float foundation = 0.3f, wall = 4.2f;
+            float intakeYaw = 0f;
             foreach (var solid in po.Solid)
             {
-                var size = new Vector3(solid.W * Tile, PostOfficeHeight, solid.H * Tile);
-                var centre = new Vector3(solid.CenterX, PostOfficeHeight * 0.5f, solid.CenterZ);
-                AddBox("PostOffice", centre, size, Palette.PostOffice);
-                AddLabel("POST OFFICE", new Vector3(centre.X, PostOfficeHeight + 1.2f, centre.Z), 160, Colors.White);
+                // The hall faces the Intake: its long roof runs along that front.
+                float dx = po.IntakeX - solid.CenterX, dz = po.IntakeZ - solid.CenterZ;
+                bool frontX = Mathf.Abs(dx) / solid.W > Mathf.Abs(dz) / solid.H;
+                float yaw = frontX ? (dx < 0 ? -Mathf.Pi * 0.5f : Mathf.Pi * 0.5f) : (dz < 0 ? Mathf.Pi : 0f);
+                float w = (frontX ? solid.H : solid.W) * Tile, d = (frontX ? solid.W : solid.H) * Tile;
+                var frame = new Transform3D(new Basis(Vector3.Up, yaw), new Vector3(solid.CenterX, 0f, solid.CenterZ));
+                intakeYaw = yaw;
+                batch.Frame = frame;
+                float hw = w * 0.5f, hd = d * 0.5f, top = foundation + wall, rise = hd * 0.62f;
+
+                batch.Box(new Vector3(0f, foundation * 0.5f, 0f), new Vector3(w + 0.16f, foundation, d + 0.16f), MeshKit.Mat(new Color("8d8794"), 0.9f), 0.05f);
+                batch.Add(MeshKit.Box(new Vector3(w, wall, d)), siding, new Vector3(0f, foundation + wall * 0.5f, 0f));
+                batch.Add(MeshKit.Gable(d, rise, w), siding, new Vector3(0f, top, 0f), new Vector3(0f, 90f, 0f));
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        batch.Box(new Vector3(sx * hw, foundation + wall * 0.5f, sz * hd), new Vector3(0.24f, wall, 0.24f), red, 0.03f);
+                batch.Box(new Vector3(0f, foundation + 0.5f, hd + 0.02f), new Vector3(w, 1.0f, 0.08f), red, 0.03f);
+
+                const float overhang = 0.6f, thick = 0.18f;
+                float alpha = Mathf.Atan2(rise, hd), run = hd + overhang, length = run / Mathf.Cos(alpha) + 0.06f;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var basis = new Basis(Vector3.Up, -side * Mathf.Pi * 0.5f) * new Basis(Vector3.Back, -alpha);
+                    var normal = new Vector3(0f, Mathf.Cos(alpha), side * Mathf.Sin(alpha));
+                    var mid = new Vector3(0f, top + rise - run * 0.5f * Mathf.Tan(alpha), side * run * 0.5f);
+                    batch.Add(MeshKit.RoundedBox(new Vector3(length, thick, w + 1.0f), 0.05f), roof, new Transform3D(basis, mid + normal * thick * 0.5f));
+                    for (int end = -1; end <= 1; end += 2)
+                        batch.Add(MeshKit.RoundedBox(new Vector3(length, 0.24f, 0.1f), 0.03f), cream, new Transform3D(basis, mid - normal * 0.05f + new Vector3(end * (hw + 0.47f), 0f, 0f)));
+                }
+                batch.Box(new Vector3(0f, top + rise + thick / Mathf.Cos(alpha) - 0.02f, 0f), new Vector3(w + 1.06f, 0.18f, 0.36f), MeshKit.Mat(new Color("5d2220"), 0.7f), 0.08f);
+
+                // The front: the sign over the counter, lit windows, the staff door.
+                var local = frame.AffineInverse() * new Vector3(po.IntakeX, 0f, po.IntakeZ);
+                float ix = Mathf.Clamp(local.X, -hw + 2.6f, hw - 2.6f);
+                batch.Box(new Vector3(ix, 3.75f, hd + 0.06f), new Vector3(5.4f, 0.95f, 0.14f), red, 0.05f);
+                batch.Box(new Vector3(ix, 3.75f, hd + 0.1f), new Vector3(5.1f, 0.7f, 0.1f), MeshKit.Mat(new Color("f3e6c4"), 0.6f), 0.04f);
+                AddChild(new Label3D
+                {
+                    Name = "PostOfficeSign",
+                    Text = "POST OFFICE",
+                    FontSize = 96,
+                    PixelSize = 0.006f,
+                    OutlineSize = 0,
+                    Modulate = new Color("8f2a26"),
+                    DoubleSided = false,
+                    Transform = frame * new Transform3D(Basis.Identity, new Vector3(ix, 3.75f, hd + 0.16f)),
+                });
+                foreach (float wx in new[] { ix - 4.1f, ix + 4.1f })
+                {
+                    if (wx < -hw + 0.9f || wx > hw - 0.9f) continue;
+                    if (wx > ix)
+                    {
+                        batch.Box(new Vector3(wx, foundation + 1.15f, hd + 0.03f), new Vector3(1.3f, 2.35f, 0.12f), cream, 0.03f);
+                        batch.Box(new Vector3(wx, foundation + 1.07f, hd + 0.07f), new Vector3(1.04f, 2.12f, 0.1f), red, 0.03f);
+                        batch.Box(new Vector3(wx, foundation + 1.6f, hd + 0.11f), new Vector3(0.55f, 0.6f, 0.05f), MeshKit.Glow(new Color("ffd98a"), 1.4f), 0.02f);
+                    }
+                    else HouseBuilder.Window(batch, frame, new Vector3(wx, foundation + 1.9f, hd), 0f, 1.2f, 1.4f, true);
+                    batch.Frame = frame;
+                }
+                HouseBuilder.Window(batch, frame, new Vector3(hw, foundation + 1.9f, 0f), 90f, 1.4f, 1.4f, true);
+                HouseBuilder.Window(batch, frame, new Vector3(-hw, foundation + 1.9f, 0f), -90f, 1.4f, 1.4f, true);
+                batch.Frame = frame;
+
+                // The service window and its striped awning.
+                batch.Box(new Vector3(ix, 1.78f, hd + 0.03f), new Vector3(3.3f, 1.55f, 0.12f), red, 0.03f);
+                batch.Box(new Vector3(ix, 1.78f, hd + 0.06f), new Vector3(3.0f, 1.3f, 0.1f), MeshKit.Glow(new Color("ffcf87"), 0.9f), 0.02f);
+                for (int i = 0; i < 9; i++)
+                    batch.Box(new Vector3(ix + (i - 4) * 0.5f, 2.95f, hd + 0.72f), new Vector3(0.5f, 0.07f, 1.6f), i % 2 == 0 ? red : cream, 0.02f, new Vector3(22f, 0f, 0f));
+                AddLight(frame * new Vector3(ix, 2.4f, hd + 1.0f), HouseBuilder.LanternLight, 8f, 0.5f, 1.8f);
+                AddLabel("POST OFFICE", frame * new Vector3(0f, top + rise + 1.2f, 0f), 160, Colors.White);
+                batch.Frame = Transform3D.Identity;
             }
-            // A counter at waist height with its sign above: together they fill the Intake's aim box.
-            AddBox("Intake", new Vector3(po.IntakeX, 0.5f, po.IntakeZ), new Vector3(1.6f, 1.0f, 1.6f), Palette.Intake);
-            AddLabel("INTAKE", new Vector3(po.IntakeX, 1.6f, po.IntakeZ), 72, Colors.White);
-            AddChild(new MeshInstance3D
-            {
-                Name = "SpawnPad",
-                Mesh = new CylinderMesh { TopRadius = 1.4f, BottomRadius = 1.4f, Height = 0.04f, Material = Palette.Flat(new Color("e9d8a6")) },
-                Position = new Vector3(po.SpawnPadX, 0.02f, po.SpawnPadZ),
-            });
+
+            // The Intake: a counter at waist height with its sign above; together they fill its aim box.
+            var wood = MeshKit.Mat(new Color("8a5a3c"), 0.7f);
+            var intake = new Vector3(po.IntakeX, 0f, po.IntakeZ);
+            batch.Frame = new Transform3D(new Basis(Vector3.Up, intakeYaw), intake);
+            batch.Box(new Vector3(0f, 0.48f, 0f), new Vector3(2.9f, 0.96f, 1.6f), wood, 0.05f);
+            batch.Box(new Vector3(0f, 1.0f, 0f), new Vector3(3.1f, 0.1f, 1.8f), MeshKit.Mat(Palette.Intake, 0.4f), 0.04f);
+            var parcel = MeshKit.Mat(new Color("c89a62"), 0.8f);
+            batch.Box(new Vector3(0.9f, 1.23f, 0.35f), new Vector3(0.6f, 0.36f, 0.5f), parcel, 0.04f, new Vector3(0f, 18f, 0f));
+            batch.Box(new Vector3(-0.95f, 1.15f, 0.4f), new Vector3(0.34f, 0.2f, 0.42f), MeshKit.Mat(new Color("fff8e7"), 0.7f), 0.03f, new Vector3(0f, -12f, 0f));
+            batch.Frame = Transform3D.Identity;
+            // Out from the wall, so the billboard does not turn into it.
+            AddLabel("INTAKE", intake + new Basis(Vector3.Up, intakeYaw) * new Vector3(0f, 1.7f, 0.7f), 72, Colors.White).Name = "Intake";
+
+            AddChild(MeshKit.Instance(MeshKit.Cylinder(1.4f, 1.4f, 0.05f, 40), MeshKit.Mat(new Color("d9c9a3"), 0.9f), new Vector3(po.SpawnPadX, 0.025f, po.SpawnPadZ), name: "SpawnPad"));
+            batch.Add(MeshKit.Cylinder(1.15f, 1.15f, 0.06f, 40), MeshKit.Mat(new Color("b23a34"), 0.8f), new Vector3(po.SpawnPadX, 0.026f, po.SpawnPadZ));
+            batch.Add(MeshKit.Cylinder(1.0f, 1.0f, 0.07f, 40), MeshKit.Mat(new Color("d9c9a3"), 0.9f), new Vector3(po.SpawnPadX, 0.027f, po.SpawnPadZ));
         }
 
-        private void AddBox(string name, Vector3 centre, Vector3 size, Color colour) =>
-            AddChild(new MeshInstance3D
+        /// <summary>A signpost with the street's name where the street starts.</summary>
+        private void AddStreetSign(MeshBatch batch, WorldMap map, StreetDef street)
+        {
+            var r = street.Rect;
+            bool alongX = r.W >= r.H;
+            // A fifth of the way along, on the low side's verge, turned across the street so walkers read it.
+            float along = (alongX ? r.X + r.W * 0.2f : r.Y + r.H * 0.2f) * Tile + 0.5f, side = (alongX ? r.Y : r.X) * Tile - 1.25f;
+            var at = alongX ? new Vector3(along, 0f, side) : new Vector3(side, 0f, along);
+            var basis = new Basis(Vector3.Up, alongX ? Mathf.Pi * 0.5f : 0f);
+            batch.Frame = new Transform3D(basis, at);
+            batch.Box(new Vector3(0f, 1.25f, 0f), new Vector3(0.12f, 2.5f, 0.12f), MeshKit.Mat(new Color("6b4630"), 0.8f), 0.03f);
+            batch.Box(new Vector3(0f, 2.2f, 0f), new Vector3(1.9f, 0.42f, 0.07f), MeshKit.Mat(new Color("2f4858"), 0.6f), 0.04f);
+            batch.Frame = Transform3D.Identity;
+            for (int face = -1; face <= 1; face += 2)
             {
-                Name = name,
-                Mesh = new BoxMesh { Size = size, Material = Palette.Flat(colour) },
-                Position = centre,
-            });
+                AddChild(new Label3D
+                {
+                    Name = $"StreetSign{street.Id}{(face < 0 ? "a" : "b")}",
+                    Text = street.Name,
+                    FontSize = 64,
+                    PixelSize = 0.004f,
+                    OutlineSize = 0,
+                    Modulate = new Color("f6f0e4"),
+                    DoubleSided = false,
+                    Transform = new Transform3D(basis * new Basis(Vector3.Up, face < 0 ? Mathf.Pi : 0f), at + new Vector3(0f, 2.2f, 0f) + basis * new Vector3(0f, 0f, face * 0.045f)),
+                });
+            }
+        }
 
-        private void AddLabel(string text, Vector3 position, int fontSize, Color colour, bool flat = false) =>
-            AddChild(MakeLabel(text, position, fontSize, colour, flat));
+        private Label3D AddLabel(string text, Vector3 position, int fontSize, Color colour, bool flat = false)
+        {
+            var label = MakeLabel(text, position, fontSize, colour, flat);
+            AddChild(label);
+            return label;
+        }
 
         private static Label3D MakeLabel(string text, Vector3 position, int fontSize, Color colour, bool flat)
         {

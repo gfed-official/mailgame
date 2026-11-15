@@ -1,20 +1,30 @@
 using System;
 using System.Collections.Generic;
 using PerformativeMail.Sim.Core;
-using PerformativeMail.Sim.World;
 
-namespace PerformativeMail.Client.Bot
+namespace PerformativeMail.Sim.World
 {
-    /// <summary>Breadth-first tile path for bots. 8-way, never cutting a solid corner; waypoints are tile centres.</summary>
+    /// <summary>
+    /// Breadth-first tile path for bots and enemies. 8-way, never cutting a corner; waypoints are
+    /// tile centres. It keeps to tiles a walker can cross without touching a house or a solid prop
+    /// (<see cref="WorldMap.IsNavBlocked"/>); only the tiles it starts and ends on may be such.
+    /// </summary>
     public static class TilePathfinder
     {
+        /// <summary>Working memory a frequent caller keeps, so that a search allocates nothing.</summary>
+        public sealed class Scratch
+        {
+            internal int[] CameFrom = Array.Empty<int>();
+            internal readonly Queue<int> Queue = new Queue<int>();
+        }
+
         private static readonly (int Dx, int Dz)[] Steps =
         {
             (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1),
         };
 
         /// <summary>Fills <paramref name="path"/> with world-space waypoints from start to goal. False if unreachable.</summary>
-        public static bool Find(WorldMap map, float fromX, float fromZ, float toX, float toZ, List<(float X, float Z)> path)
+        public static bool Find(WorldMap map, float fromX, float fromZ, float toX, float toZ, List<(float X, float Z)> path, Scratch? scratch = null)
         {
             path.Clear();
             const float tile = SimConstants.TileSize;
@@ -22,11 +32,14 @@ namespace PerformativeMail.Client.Bot
             int gx = (int)MathF.Floor(toX / tile), gz = (int)MathF.Floor(toZ / tile);
             if (map.IsSolid(sx, sz) || map.IsSolid(gx, gz)) return false;
 
+            scratch ??= new Scratch();
             int cols = map.Cols;
-            var cameFrom = new int[map.Cols * map.Rows];
+            if (scratch.CameFrom.Length < map.Cols * map.Rows) scratch.CameFrom = new int[map.Cols * map.Rows];
+            var cameFrom = scratch.CameFrom;
             for (int i = 0; i < cameFrom.Length; i++) cameFrom[i] = -1;
             int start = sz * cols + sx, goal = gz * cols + gx;
-            var queue = new Queue<int>();
+            var queue = scratch.Queue;
+            queue.Clear();
             queue.Enqueue(start);
             cameFrom[start] = start;
             while (queue.Count > 0 && cameFrom[goal] < 0)
@@ -36,9 +49,9 @@ namespace PerformativeMail.Client.Bot
                 foreach (var (dx, dz) in Steps)
                 {
                     int nx = cx + dx, nz = cz + dz;
-                    if (map.IsSolid(nx, nz)) continue;
-                    if (dx != 0 && dz != 0 && (map.IsSolid(cx + dx, cz) || map.IsSolid(cx, cz + dz))) continue;
                     int next = nz * cols + nx;
+                    if (next == goal ? map.IsSolid(nx, nz) : map.IsNavBlocked(nx, nz)) continue;
+                    if (dx != 0 && dz != 0 && (map.IsNavBlocked(cx + dx, cz) || map.IsNavBlocked(cx, cz + dz))) continue;
                     if (cameFrom[next] >= 0) continue;
                     cameFrom[next] = cur;
                     queue.Enqueue(next);

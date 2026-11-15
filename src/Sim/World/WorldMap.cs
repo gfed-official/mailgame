@@ -88,6 +88,8 @@ namespace PerformativeMail.Sim.World
         public IReadOnlyList<StreetDef> Streets { get; init; } = Array.Empty<StreetDef>();
         public IReadOnlyList<DestinationDef> Destinations { get; init; } = Array.Empty<DestinationDef>();
         public PostOfficeDef PostOffice { get; init; } = new PostOfficeDef();
+        /// <summary>Street furniture and greenery, derived from the map itself (<see cref="Scenery"/>).</summary>
+        public IReadOnlyList<Prop> Props { get; private set; } = Array.Empty<Prop>();
 
         /// <summary>FNV-1a 64 of the tile and address tables; the M0 stand-in for worldHash (doc 02 §2).</summary>
         public ulong MapHash { get; private set; }
@@ -155,6 +157,57 @@ namespace PerformativeMail.Sim.World
             h.Add((int)MathF.Round(PostOffice.SpawnPadZ * 100f));
             h.Add((int)MathF.Round(PostOffice.SpawnYaw * 1000f));
             MapHash = h.Value;
+            Props = Scenery.Generate(this);
+            IndexProps();
+        }
+
+        /// <summary>How far past a prop's own radius a walker's body can reach: the widest walker's radius.</summary>
+        public const float WalkerReach = 0.5f;
+        /// <summary>The radius the tile paths are planned for (a carrier; no enemy that paths is wider).</summary>
+        private const float NavRadius = 0.42f;
+
+        private int[]?[] _tileProps = Array.Empty<int[]?>();
+        private bool[] _navBlocked = Array.Empty<bool>();
+
+        /// <summary>Indices into <see cref="Props"/> of the solid props a walker standing on this tile can touch.</summary>
+        public int[]? SolidPropsAt(int tx, int tz) => InBounds(tx, tz) ? _tileProps[tz * Cols + tx] : null;
+
+        /// <summary>
+        /// True for a tile a tile path may not use: solid, or with a solid prop close enough that a
+        /// walker crossing the tile anywhere could bump into it. Streets are never blocked
+        /// (<see cref="Scenery"/> keeps its props back from them).
+        /// </summary>
+        public bool IsNavBlocked(int tx, int tz) => !InBounds(tx, tz) || _navBlocked[tz * Cols + tx];
+
+        private void IndexProps()
+        {
+            const float tile = SimConstants.TileSize;
+            var buckets = new List<int>?[Cols * Rows];
+            _navBlocked = new bool[Cols * Rows];
+            for (int i = 0; i < _navBlocked.Length; i++) _navBlocked[i] = Tiles[i] == TileType.Building;
+            for (int i = 0; i < Props.Count; i++)
+            {
+                var p = Props[i];
+                if (!p.Solid) continue;
+                float reach = p.Radius + WalkerReach;
+                int tx0 = (int)MathF.Floor((MathF.Min(p.X, p.X2) - reach) / tile), tx1 = (int)MathF.Floor((MathF.Max(p.X, p.X2) + reach) / tile);
+                int tz0 = (int)MathF.Floor((MathF.Min(p.Z, p.Z2) - reach) / tile), tz1 = (int)MathF.Floor((MathF.Max(p.Z, p.Z2) + reach) / tile);
+                for (int tz = Math.Max(tz0, 0); tz <= Math.Min(tz1, Rows - 1); tz++)
+                {
+                    for (int tx = Math.Max(tx0, 0); tx <= Math.Min(tx1, Cols - 1); tx++)
+                    {
+                        (buckets[tz * Cols + tx] ??= new List<int>()).Add(i);
+                        // Nearest point of the tile's square to the prop's centre line.
+                        float cx = Math.Clamp(p.X, tx * tile, (tx + 1) * tile), cz = Math.Clamp(p.Z, tz * tile, (tz + 1) * tile);
+                        float d = p.Distance(cx, cz, out float nx, out float nz);
+                        cx = Math.Clamp(nx, tx * tile, (tx + 1) * tile); cz = Math.Clamp(nz, tz * tile, (tz + 1) * tile);
+                        d = MathF.Min(d, p.Distance(cx, cz, out _, out _));
+                        if (d < p.Radius + NavRadius) _navBlocked[tz * Cols + tx] = true;
+                    }
+                }
+            }
+            _tileProps = new int[]?[Cols * Rows];
+            for (int i = 0; i < buckets.Length; i++) _tileProps[i] = buckets[i]?.ToArray();
         }
     }
 }

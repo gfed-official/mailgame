@@ -1,0 +1,248 @@
+using System;
+using System.Collections.Generic;
+using PerformativeMail.Sim.Core;
+
+namespace PerformativeMail.Sim.World
+{
+    public enum PropKind : byte
+    {
+        Tree = 0,
+        Bush = 1,
+        Boulder = 2,
+        Lamp = 3,
+        Bench = 4,
+        /// <summary>A run of picket fence from (X, Z) to (X2, Z2).</summary>
+        Fence = 5,
+        Flowers = 6,
+    }
+
+    /// <summary>
+    /// One piece of street furniture or greenery. A prop with a <see cref="Radius"/> is solid: a
+    /// capsule lying on the ground from (X, Z) to (X2, Z2), <see cref="Height"/> tall — a carrier
+    /// whose feet are above it passes over (a fence can be jumped, a tree cannot).
+    /// </summary>
+    public readonly struct Prop
+    {
+        public readonly PropKind Kind;
+        public readonly float X, Z, X2, Z2;
+        public readonly float Yaw;
+        public readonly float Scale;
+        public readonly byte Variant;
+        public readonly float Radius;
+        public readonly float Height;
+
+        public Prop(PropKind kind, float x, float z, float x2, float z2, float yaw, float scale, int variant, float radius, float height)
+        {
+            Kind = kind; X = x; Z = z; X2 = x2; Z2 = z2; Yaw = yaw; Scale = scale; Variant = (byte)variant; Radius = radius; Height = height;
+        }
+
+        public bool Solid => Radius > 0f;
+
+        /// <summary>Distance from a point to the prop's centre line.</summary>
+        public float Distance(float px, float pz, out float nearX, out float nearZ)
+        {
+            float dx = X2 - X, dz = Z2 - Z;
+            float lenSq = dx * dx + dz * dz;
+            float t = lenSq > 1e-9f ? Math.Clamp(((px - X) * dx + (pz - Z) * dz) / lenSq, 0f, 1f) : 0f;
+            nearX = X + dx * t;
+            nearZ = Z + dz * t;
+            float ox = px - nearX, oz = pz - nearZ;
+            return MathF.Sqrt(ox * ox + oz * oz);
+        }
+    }
+
+    /// <summary>
+    /// Dresses a map the way the concept video's town looks (design/reference/higgsfield-01): street
+    /// lamps and benches along the streets, a picket fence with a gate gap in front of every house,
+    /// bushes at the house corners, trees and boulders on the open grass, flowers. The result
+    /// depends only on the map (its hash seeds the stream), so server and clients agree on what
+    /// stands where without sending it.
+    /// </summary>
+    public static class Scenery
+    {
+        private const float Tile = SimConstants.TileSize;
+        private const float Tall = 100f;
+
+        /// <summary>Unit vector from a destination's building towards its mailbox along the dominant axis: the way the house faces.</summary>
+        public static void Front(DestinationDef dest, out int fx, out int fz)
+        {
+            float dx = dest.MailboxX - dest.Building.CenterX, dz = dest.MailboxZ - dest.Building.CenterZ;
+            float w = dest.Building.W * Tile, d = dest.Building.H * Tile;
+            if (MathF.Abs(dx) / w > MathF.Abs(dz) / d) { fx = dx < 0 ? -1 : 1; fz = 0; }
+            else { fx = 0; fz = dz < 0 ? -1 : 1; }
+        }
+
+        /// <summary>Where the front door's walk starts (the middle of the front wall) and where it meets the mailbox line.</summary>
+        public static void Walkway(DestinationDef dest, out float x0, out float z0, out float x1, out float z1)
+        {
+            Front(dest, out int fx, out int fz);
+            var b = dest.Building;
+            x0 = b.CenterX + fx * b.W * Tile * 0.5f;
+            z0 = b.CenterZ + fz * b.H * Tile * 0.5f;
+            // It runs straight out to one tile past the mailbox line, which is where the street is.
+            float reach = fx != 0 ? MathF.Abs(dest.MailboxX - x0) + 1.2f : MathF.Abs(dest.MailboxZ - z0) + 1.2f;
+            x1 = x0 + fx * reach;
+            z1 = z0 + fz * reach;
+        }
+
+        public static List<Prop> Generate(WorldMap map)
+        {
+            var props = new List<Prop>();
+            var rng = new RngStream((uint)(map.MapHash ^ (map.MapHash >> 32)), "scenery");
+            var keepClear = new List<(float X0, float Z0, float X1, float Z1, float R)>();
+            var po = map.PostOffice;
+            keepClear.Add((po.IntakeX, po.IntakeZ, po.IntakeX, po.IntakeZ, 3f));
+            keepClear.Add((po.SpawnPadX, po.SpawnPadZ, po.SpawnPadX, po.SpawnPadZ, 3f));
+            foreach (var d in map.Destinations)
+            {
+                keepClear.Add((d.MailboxX, d.MailboxZ, d.MailboxX, d.MailboxZ, 1.8f));
+                Walkway(d, out float wx0, out float wz0, out float wx1, out float wz1);
+                keepClear.Add((wx0, wz0, wx1, wz1, 1.3f));
+            }
+
+            bool Free(float x, float z, float r)
+            {
+                foreach (var k in keepClear)
+                {
+                    var seg = new Prop(PropKind.Fence, k.X0, k.Z0, k.X1, k.Z1, 0f, 1f, 0, 0f, 0f);
+                    if (seg.Distance(x, z, out _, out _) < k.R + r) return false;
+                }
+                foreach (var p in props)
+                    if (p.Solid && p.Distance(x, z, out _, out _) < p.Radius + r + 0.6f) return false;
+                return true;
+            }
+
+            TileType At(float x, float z) => map.GetTile((int)MathF.Floor(x / Tile), (int)MathF.Floor(z / Tile));
+            bool Walkable(float x, float z)
+            {
+                int tx = (int)MathF.Floor(x / Tile), tz = (int)MathF.Floor(z / Tile);
+                return map.InBounds(tx, tz) && !map.IsSolid(tx, tz);
+            }
+            // Solid things keep a walker's width back from the street, so its tiles stay clear for tile paths.
+            bool OffStreet(float x, float z, float r)
+            {
+                float m = r + 0.45f;
+                for (int oz = -1; oz <= 1; oz++)
+                    for (int ox = -1; ox <= 1; ox++)
+                        if (At(x + ox * m, z + oz * m) == TileType.Street) return false;
+                return true;
+            }
+            float Unit() => rng.NextInt(1000) / 1000f;
+
+            // Fences first: everything else keeps away from them.
+            foreach (var d in map.Destinations)
+            {
+                Front(d, out int fx, out int fz);
+                float lx0 = d.Lot.X * Tile, lz0 = d.Lot.Y * Tile, lx1 = (d.Lot.X + d.Lot.W) * Tile, lz1 = (d.Lot.Y + d.Lot.H) * Tile;
+                Walkway(d, out float wx0, out float wz0, out _, out _);
+                // Set back from the street by more than a walker's radius, so the street's tiles stay
+                // clear for tile paths; the gate gap takes in the front walk and the mailbox.
+                const float inset = 0.6f, gap = 1.3f, r = 0.12f, h = 0.95f;
+                if (fz != 0)
+                {
+                    float z = fz > 0 ? lz1 - inset : lz0 + inset;
+                    float g0 = MathF.Min(wx0 - gap, d.MailboxX - 0.9f), g1 = MathF.Max(wx0 + gap, d.MailboxX + 0.9f);
+                    if (g0 - (lx0 + inset) > 1f) props.Add(new Prop(PropKind.Fence, lx0 + inset, z, g0, z, 0f, 1f, 0, r, h));
+                    if (lx1 - inset - g1 > 1f) props.Add(new Prop(PropKind.Fence, g1, z, lx1 - inset, z, 0f, 1f, 0, r, h));
+                }
+                else
+                {
+                    float x = fx > 0 ? lx1 - inset : lx0 + inset;
+                    float g0 = MathF.Min(wz0 - gap, d.MailboxZ - 0.9f), g1 = MathF.Max(wz0 + gap, d.MailboxZ + 0.9f);
+                    if (g0 - (lz0 + inset) > 1f) props.Add(new Prop(PropKind.Fence, x, lz0 + inset, x, g0, 0f, 1f, 0, r, h));
+                    if (lz1 - inset - g1 > 1f) props.Add(new Prop(PropKind.Fence, x, g1, x, lz1 - inset, 0f, 1f, 0, r, h));
+                }
+            }
+
+            // Lamps along both sides of every street, a bench beside every other one.
+            foreach (var street in map.Streets)
+            {
+                bool alongX = street.Rect.W >= street.Rect.H;
+                float a0 = (alongX ? street.Rect.X : street.Rect.Y) * Tile;
+                float a1 = a0 + (alongX ? street.Rect.W : street.Rect.H) * Tile;
+                float b0 = (alongX ? street.Rect.Y : street.Rect.X) * Tile;
+                float b1 = b0 + (alongX ? street.Rect.H : street.Rect.W) * Tile;
+                int index = 0;
+                for (float a = a0 + 5f; a < a1 - 2f; a += 10f, index++)
+                {
+                    bool low = index % 2 == 0;
+                    float b = low ? b0 - 0.7f : b1 + 0.7f;
+                    float lampYaw = alongX ? (low ? 0f : MathF.PI) : (low ? MathF.PI * 0.5f : -MathF.PI * 0.5f);
+                    for (int attempt = 0; attempt < 3; attempt++)
+                    {
+                        float along = a + attempt * 2.5f;
+                        float x = alongX ? along : b, z = alongX ? b : along;
+                        if (!Walkable(x, z) || !Free(x, z, 0.3f)) continue;
+                        props.Add(new Prop(PropKind.Lamp, x, z, x, z, lampYaw, 1f, 0, 0.18f, Tall));
+                        if (index % 2 == 1) break;
+                        float benchAlong = along + 2.6f, benchB = low ? b0 - 1.5f : b1 + 1.5f;
+                        float bx = alongX ? benchAlong : benchB, bz = alongX ? benchB : benchAlong;
+                        if (!Walkable(bx, bz) || !Free(bx, bz, 1.1f)) break;
+                        float hx = alongX ? 0.75f : 0f, hz = alongX ? 0f : 0.75f;
+                        props.Add(new Prop(PropKind.Bench, bx - hx, bz - hz, bx + hx, bz + hz, lampYaw, 1f, 0, 0.32f, 0.85f));
+                        break;
+                    }
+                }
+            }
+
+            // Bushes at the front corners of every house, flowers in the front yard.
+            foreach (var d in map.Destinations)
+            {
+                Front(d, out int fx, out int fz);
+                var b = d.Building;
+                float halfW = b.W * Tile * 0.5f, halfD = b.H * Tile * 0.5f;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    // "Across" is along the front wall; "out" is away from it.
+                    float across = (fz != 0 ? halfW : halfD) - 0.7f;
+                    float outward = (fz != 0 ? halfD : halfW) + 0.75f;
+                    float x = b.CenterX + (fz != 0 ? side * across : fx * outward);
+                    float z = b.CenterZ + (fz != 0 ? fz * outward : side * across);
+                    if (Walkable(x, z) && Free(x, z, 0.5f) && OffStreet(x, z, 0.5f))
+                        props.Add(new Prop(PropKind.Bush, x, z, x, z, Unit() * 6.283f, 0.8f + Unit() * 0.35f, rng.NextInt(3), 0.5f, 0.9f));
+                    float fxp = b.CenterX + (fz != 0 ? side * (across - 0.6f - Unit()) : fx * (outward + 1.2f + Unit()));
+                    float fzp = b.CenterZ + (fz != 0 ? fz * (outward + 1.2f + Unit()) : side * (across - 0.6f - Unit()));
+                    if (Walkable(fxp, fzp) && Free(fxp, fzp, 0.2f))
+                        props.Add(new Prop(PropKind.Flowers, fxp, fzp, fxp, fzp, Unit() * 6.283f, 0.8f + Unit() * 0.5f, rng.NextInt(4), 0f, 0f));
+                }
+            }
+
+            // Trees, boulders, bushes and flowers on the open grass, on a jittered grid.
+            const float cell = 4.5f;
+            for (float gz = cell * 0.5f; gz < map.DepthM; gz += cell)
+            {
+                for (float gx = cell * 0.5f; gx < map.WidthM; gx += cell)
+                {
+                    float x = gx + (Unit() - 0.5f) * cell * 0.7f, z = gz + (Unit() - 0.5f) * cell * 0.7f;
+                    int roll = rng.NextInt(100);
+                    float scale = 0.85f + Unit() * 0.5f, yaw = Unit() * 6.283f;
+                    int variant = rng.NextInt(3);
+                    if (At(x, z) != TileType.Grass) continue;
+                    // Open grass only: nothing but grass within a tile and a half, so trunks stay off lots, yards and the road.
+                    bool open = true;
+                    for (int oz = -1; oz <= 1 && open; oz++)
+                        for (int ox = -1; ox <= 1 && open; ox++)
+                            if (At(x + ox * 3f, z + oz * 3f) != TileType.Grass && map.InBounds((int)MathF.Floor((x + ox * 3f) / Tile), (int)MathF.Floor((z + oz * 3f) / Tile))) open = false;
+                    if (roll < 34)
+                    {
+                        if (open && Free(x, z, 0.4f)) props.Add(new Prop(PropKind.Tree, x, z, x, z, yaw, scale, variant, 0.35f, Tall));
+                    }
+                    else if (roll < 44)
+                    {
+                        float r = 0.55f * scale;
+                        if (Free(x, z, r) && OffStreet(x, z, r)) props.Add(new Prop(PropKind.Boulder, x, z, x, z, yaw, scale, variant, r, 0.7f * scale));
+                    }
+                    else if (roll < 58)
+                    {
+                        if (Free(x, z, 0.5f) && OffStreet(x, z, 0.5f * scale)) props.Add(new Prop(PropKind.Bush, x, z, x, z, yaw, scale, variant, 0.5f * scale, 0.9f));
+                    }
+                    else if (roll < 80)
+                    {
+                        if (Free(x, z, 0.2f)) props.Add(new Prop(PropKind.Flowers, x, z, x, z, yaw, scale, rng.NextInt(4), 0f, 0f));
+                    }
+                }
+            }
+            return props;
+        }
+    }
+}
