@@ -13,6 +13,8 @@ export DOTNET_ROOT="${DOTNET_ROOT:-$(dirname "$(readlink -f "$DOTNET")")}"
 export PATH="$DOTNET_ROOT:$PATH"
 
 "$DOTNET" build PerformativeMail.sln -nodeReuse:false -v quiet -nologo
+# The content the game is about to boot with must pass the validator CI runs (doc 07 §6).
+"$DOTNET" tools/ContentValidator/bin/Debug/net8.0/ContentValidator.dll content
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 log="$work/log"

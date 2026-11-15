@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Sim/PerformativeMail.Sim.csproj" />
+    <ProjectReference Include="../../tools/ContentValidator/ContentValidator.csproj" />
   </ItemGroup>
 
 </Project>
