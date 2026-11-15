@@ -44,4 +44,6 @@ for log in "$work"/*.log; do
         grep -E "BOT FAIL|ERROR|\[boot\]" "$log" | tail -n 5 >&2 || true
     fi
 done
+# Server ticks over 5 ms, if any (the first 40): which tick, how long, where the time went.
+grep -E "^\[server\] slow tick" "$work/host.log" | sed "s/^/host: /" || true
 [ "$failed" -eq 0 ] && echo "SOAK OK: $PLAYERS players, $SECONDS_TO_RUN s" || { echo "SOAK FAIL" >&2; exit 1; }

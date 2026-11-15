@@ -47,6 +47,12 @@ namespace PerformativeMail.Server
         private readonly Stopwatch _stopwatch = new Stopwatch();
         private double _accumulator;
 
+        /// <summary>A tick this slow after the warm-up is worth a log line (the first few only).</summary>
+        private const double SlowTickMs = 5.0;
+        private const int MaxSlowTicksLogged = 40;
+        private int _slowTicksLogged;
+        private TimeSpan _gcPauseAtLastSlowTick;
+
         public ServerRuntime(ContentDb content, SimSettings settings, IServerTransport transport)
         {
             World = new SimWorld(content, settings);
@@ -71,7 +77,9 @@ namespace PerformativeMail.Server
         {
             _stopwatch.Restart();
             _transport.Poll(this);
+            double polled = _stopwatch.Elapsed.TotalMilliseconds;
             World.Step();
+            double stepped = _stopwatch.Elapsed.TotalMilliseconds;
             RouteEvents();
             // 20 Hz from a 30 Hz tick: two ticks out of three (doc 06 §3 "alternates 1/2 tick gaps").
             // A paused world has nothing new to show; the pause itself travels as a reliable event.
@@ -79,6 +87,15 @@ namespace PerformativeMail.Server
             LastTickMs = _stopwatch.Elapsed.TotalMilliseconds;
             if (LastTickMs > MaxTickMs) MaxTickMs = LastTickMs;
             TickTimes.Add(LastTickMs);
+            if (LastTickMs > SlowTickMs && TickTimes.Count > 0 && _slowTicksLogged < MaxSlowTicksLogged)
+            {
+                // Where the time went, and how much of it the collector took: enough to tell the game's cost from the machine's.
+                double gcMs = (GC.GetTotalPauseDuration() - _gcPauseAtLastSlowTick).TotalMilliseconds;
+                _slowTicksLogged++;
+                Log?.Invoke(FormattableString.Invariant($"slow tick {World.Tick}: {LastTickMs:0.0} ms = network in {polled:0.0} + sim {stepped - polled:0.0} + out {LastTickMs - stepped:0.0}")
+                    + FormattableString.Invariant($" ({World.Run.Phase}, {_clients.Count} clients, GC pauses since the last slow tick {gcMs:0.0} ms)"));
+            }
+            if (LastTickMs > SlowTickMs) _gcPauseAtLastSlowTick = GC.GetTotalPauseDuration();
         }
 
         // --- transport callbacks ----------------------------------------------------------------
