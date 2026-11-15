@@ -161,6 +161,73 @@ list below.
 All of the hardening list is done. What is left of M0 as doc 12 writes it and is not covered by
 a test here: the "2 real players" of the soak, and a tick-time run on a quiet machine.
 
+## Feature batch from the concept video (2026-11-15)
+
+Order given by Evan: (1) the look and the systems of the concept video, (2) playtest nits 7–11,
+(3) further features from `design/drive/` in the docs' milestone order.
+
+### 1. The concept video is the reference (`design/reference/higgsfield-01/`, nit 12)
+
+Evan's video (`/workspace/repos/refs/higgsfield-ref.mp4`, 15 s; frames every 0.5 s are in
+`design/reference/higgsfield-01/frame-001…030.jpg`, the mp4 itself is not in the repo). His look
+direction: "remove the low poly, more like satisfactory". Doc 00 "Perspective and art" now says so.
+
+What the video shows, frame by frame:
+
+- **Frames 1–6, the town at golden hour.** First person on a dirt path between colourful clapboard
+  houses (red, blue, yellow, green, magenta) with white trim, white-framed windows, dark shingle
+  gable roofs, porches and glowing wall lanterns; white picket fences, red street lamps, benches,
+  round bushes and round-canopy trees, boulders, flowers; townsfolk in caps. A pink-to-purple
+  sunset sky with a big sun disc, bloom and haze. Smooth, rounded, saturated shapes — no facets.
+- **Frames 7–12, a fight.** A helmeted dark-red raider charges; the player swings a big
+  stone-headed hammer (lower right of the view), then fires a "mail cannon" (cream and red body,
+  envelope emblem, glowing orange ring barrel): an orange blast, dark smoke with embers.
+- **Frames 13–16, loot.** Three glowing gold coins fly to the player; a dark-blue rounded card
+  panel titled "Heavy Mail" shows three item cards with $ values, the best one outlined in gold.
+- **Frames 17–22, the vista.** The island from a cliff: sea, a harbour dock with crates, red and
+  white mail trucks, red boats, conveyors carrying boxes up to a wooden tower.
+- **Frames 23–30, the night raid.** Blue night; a spiked-log palisade with a gate gap, two roofed
+  watch towers, torches; a giant horned boss with a swarm of small red creatures.
+- **HUD in every frame.** Top centre: a thin orange bar, a label and a long white progress bar.
+  Bottom left: red health bar with number, a 5-segment white stamina bar, money. Bottom centre: a
+  hotbar of teal rounded squares (slot number top-left, count bottom-right, the selected one gold
+  and glowing). Bottom right: tracker rows (icon, name, timer). A small ring crosshair.
+
+Visuals (all built in code; there are no art assets yet):
+
+- [ ] Sky, light and atmosphere: sunset gradient sky with a sun disc, warm key light, glow, fog,
+      and a blue night that falls for the raid
+- [ ] Town: clapboard houses with trim, windows, porches, shingle gable roofs and lanterns; path,
+      grass, picket fences, street lamps, benches, bushes, trees, boulders, flowers
+- [ ] The island around the street: cliffs, sea, harbour dock with crates, mail trucks, boats,
+      conveyors to a tower; the palisade with its gate and watch towers
+- [ ] Characters: smooth carriers with caps; raiders, the horned giant, the small red swarm
+- [ ] First-person hammer and mail cannon, the swing and the shot; blast, smoke, embers, coins
+- [ ] HUD in the video's layout: top-centre shift bars, health / stamina / money bottom left, the
+      teal hotbar with a gold selected slot, tracker rows bottom right, ring crosshair, loot cards
+
+Systems (server-authoritative, unit-tested):
+
+- [ ] Health, regeneration, death and respawn at the Post Office; stamina for sprinting
+- [ ] Attack input; the hammer (melee arc) and the mail cannon (a package shot with a blast)
+- [ ] Enemies: raider, swarmling, horned giant — chase, attack, die; replicated in snapshots
+- [ ] The night raid: the last part of Delivery on shifts 2–5, warning, pulses from the wave
+      budget of doc 05, enemies flee when the shift ends
+- [ ] Loot: coins fly to whoever is near and pay the wallet; item drops go to the inventory; the
+      loot cards show what a kill gave
+
+### 2. Playtest nits 7–11 (`logs/fable52/nits-fa44a16.md`, 2026-11-15)
+
+- [ ] Nit 7 — split stack counts are hard to read
+- [ ] Nit 8 — `slow tick 295: 6.7 ms network` when a guest joined
+- [ ] Nit 9 — a chest placed in the map
+- [ ] Nit 10 — `--playtest-no-timer` and a spawn-at-mailbox option, also for a `--join` guest
+- [ ] Nit 11 — player ids are not reused
+
+### 3. Further features from `design/drive/`, in milestone order
+
+(Listed and checked off as they land.)
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
