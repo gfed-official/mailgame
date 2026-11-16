@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
@@ -67,6 +68,9 @@ namespace PerformativeMail.Client
         public double PredictionErrorRms => _errorSamples == 0 ? 0.0 : Math.Sqrt(_errorSumSq / _errorSamples);
         public double PredictionErrorMax { get; private set; }
         public int PendingRequestCount => _pendingRequests.Count;
+        /// <summary>Hammer swings and cannon shots the local player has started; the view model plays each one.</summary>
+        public int LocalHammerSwings { get; private set; }
+        public int LocalCannonShots { get; private set; }
 
         private readonly ContentDb _content;
         private readonly IClientTransport _transport;
@@ -75,6 +79,9 @@ namespace PerformativeMail.Client
         private readonly List<PlayerInput> _pendingInputs = new List<PlayerInput>();
         private readonly InputsMsg _inputsMsg = new InputsMsg();
         private readonly Dictionary<uint, SimRequest> _pendingRequests = new Dictionary<uint, SimRequest>();
+        private readonly List<ushort> _enemyScratch = new List<ushort>();
+        private readonly uint _hammerCooldownTicks, _cannonCooldownTicks;
+        private uint _hammerReadySeq, _cannonReadySeq;
         private uint _nextSeq = 1;
         private uint _nextRequestId = 1;
         private uint _lastSnapshotTick;
@@ -87,6 +94,8 @@ namespace PerformativeMail.Client
             _content = content;
             _transport = transport;
             _move = MoveConstants.From(content.Balance);
+            _hammerCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("hammerCooldownSeconds"));
+            _cannonCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("cannonCooldownSeconds"));
             Name = name;
         }
 
@@ -202,6 +211,7 @@ namespace PerformativeMail.Client
             PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move);
             _pendingInputs.Add(input);
             if (_pendingInputs.Count > MaxPendingInputs) _pendingInputs.RemoveAt(0);
+            PredictAttacks(world, input);
 
             _inputsMsg.Inputs.Clear();
             for (int i = Math.Max(0, _pendingInputs.Count - InputsMsg.MaxInputs); i < _pendingInputs.Count; i++)
@@ -209,6 +219,44 @@ namespace PerformativeMail.Client
             _writer.Reset();
             _inputsMsg.Write(_writer);
             _transport.Send(NetChannel.Unreliable, _writer.ToArray());
+        }
+
+        /// <summary>
+        /// The swing and the shot are shown the moment the button goes down, on the same cooldowns
+        /// the server keeps; what they hit is the server's to say.
+        /// </summary>
+        private void PredictAttacks(ClientWorld world, in PlayerInput input)
+        {
+            if (world.Local.Dead) return;
+            if (input.Has(InputButtons.Attack) && input.Seq >= _hammerReadySeq)
+            {
+                _hammerReadySeq = input.Seq + _hammerCooldownTicks;
+                LocalHammerSwings++;
+            }
+            if (input.Has(InputButtons.AltAttack) && input.Seq >= _cannonReadySeq && CannonAmmo > 0)
+            {
+                _cannonReadySeq = input.Seq + _cannonCooldownTicks;
+                LocalCannonShots++;
+            }
+        }
+
+        /// <summary>Packages the local player could fire from the mail cannon.</summary>
+        public int CannonAmmo
+        {
+            get
+            {
+                var world = World;
+                if (world == null || world.HotbarId == 0) return 0;
+                return CountAmmo(world.Hotbar) + CountAmmo(world.Inventory);
+            }
+        }
+
+        private int CountAmmo(GridContainer container)
+        {
+            int n = 0;
+            foreach (var e in container.Entries)
+                if (e.Stack.Kind == StackKind.Mail && _content.MailKinds[e.Stack.DefIndex].CannonAmmo) n += e.Stack.Count;
+            return n;
         }
 
         // --- transport callbacks ----------------------------------------------------------------
@@ -299,8 +347,26 @@ namespace PerformativeMail.Client
 
             foreach (var snap in m.Players)
                 if (world.Players.TryGetValue(snap.Id, out var player)) player.Push(m.Tick, snap);
+            if (m.HasEnemies) ApplyEnemies(world, m);
             if (m.HasGlobal) world.Global = m.Global;
             if (m.HasOwn) Reconcile(world, m);
+        }
+
+        /// <summary>The enemy list is complete: whoever is not in it has fallen or fled.</summary>
+        private void ApplyEnemies(ClientWorld world, SnapshotMsg m)
+        {
+            foreach (var snap in m.Enemies)
+            {
+                if (snap.Kind >= _content.Enemies.Count) continue;
+                // Ids are 16 bits of a counter: after a wrap the same number can be somebody else.
+                if (!world.Enemies.TryGetValue(snap.Id, out var enemy) || enemy.Def.Index != snap.Kind || enemy.Mega != snap.Mega)
+                    world.Enemies[snap.Id] = enemy = new ClientEnemy(snap.Id, _content.Enemies[snap.Kind], snap.Mega);
+                enemy.Push(m.Tick, snap);
+            }
+            if (world.Enemies.Count == m.Enemies.Count) return;
+            _enemyScratch.Clear();
+            foreach (var e in world.Enemies.Values) if (e.LastTick != m.Tick) _enemyScratch.Add(e.Id);
+            foreach (ushort id in _enemyScratch) world.Enemies.Remove(id);
         }
 
         /// <summary>
@@ -320,6 +386,8 @@ namespace PerformativeMail.Client
             world.Local = m.Own;
             world.Local.Yaw = yaw;
             world.LocalSpeedMult = m.OwnSpeedMult;
+            if (m.OwnHp < world.LocalHp) world.LocalHurtTick = m.Tick;
+            world.LocalHp = m.OwnHp;
             world.HasLocal = true;
             foreach (var input in _pendingInputs)
                 PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move);
@@ -378,7 +446,12 @@ namespace PerformativeMail.Client
                     world.Global = g;
                     // Every phase change clears the Ready flags (the snapshots confirm it a moment later).
                     foreach (var p in world.Players.Values) p.Ready = false;
-                    if (e.Phase == RunPhase.Lobby) world.LastSummary = null;
+                    if (e.Phase == RunPhase.Lobby)
+                    {
+                        world.LastSummary = null;
+                        world.LocalKills = 0;
+                        world.LocalLootCoins = 0;
+                    }
                     if (e.Phase != RunPhase.Results) world.Results = null;
                     break;
                 }
@@ -391,6 +464,59 @@ namespace PerformativeMail.Client
                     break;
                 case RunResultsEvent e:
                     world.Results = e.Results;
+                    break;
+                case AttackEvent e:
+                    if (world.Players.TryGetValue(e.Player, out var attacker))
+                    {
+                        attacker.AttackTick = (uint)Math.Max(0.0, world.ServerTick);
+                        attacker.AttackWeapon = e.Weapon;
+                    }
+                    break;
+                case EnemyDiedEvent e:
+                    world.Enemies.Remove((ushort)e.Enemy.Counter);
+                    if (e.Killer == world.LocalId) world.LocalKills++;
+                    break;
+                case LootDroppedEvent e:
+                {
+                    var loot = new ClientLoot
+                    {
+                        Id = e.LootId, X = e.X, Z = e.Z, EnemyKind = e.EnemyKind, Mega = e.Mega, Coins = e.Coins, DroppedTick = world.ServerTick,
+                    };
+                    loot.Items.AddRange(e.Items);
+                    world.Loot[e.LootId] = loot;
+                    break;
+                }
+                case LootTakenEvent e:
+                    if (e.Player == world.LocalId) world.LocalLootCoins += e.Coins;
+                    if (e.Gone) world.Loot.Remove(e.LootId);
+                    else if (world.Loot.TryGetValue(e.LootId, out var left))
+                    {
+                        left.Coins = Math.Max(0, left.Coins - e.Coins);
+                        foreach (var taken in e.Items)
+                        {
+                            int at = left.Items.FindIndex(i => i.Item == taken.Item);
+                            if (at < 0) continue;
+                            int rest = left.Items[at].Count - taken.Count;
+                            if (rest <= 0) left.Items.RemoveAt(at);
+                            else left.Items[at] = new LootItem { Item = taken.Item, Count = (byte)rest };
+                        }
+                    }
+                    break;
+                case LootGoneEvent e:
+                    world.Loot.Remove(e.LootId);
+                    break;
+                case RaidChangedEvent e:
+                {
+                    var g = world.Global;
+                    g.Raid = e.Raid;
+                    world.Global = g;
+                    world.RaidTick = e.Tick;
+                    if (e.Raid == RaidState.None) world.Enemies.Clear();
+                    break;
+                }
+                case PlayerDiedEvent e:
+                    if (world.Players.TryGetValue(e.Player, out var fallen)) fallen.RespawnTick = e.RespawnTick;
+                    if (e.Player == world.LocalId) world.LocalRespawnTick = e.RespawnTick;
                     break;
             }
             EventReceived?.Invoke(ev);

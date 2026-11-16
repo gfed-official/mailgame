@@ -43,6 +43,22 @@ namespace PerformativeMail.Sim.Players
         /// <summary>Order of arrival; the earliest connected player is the host.</summary>
         public uint JoinOrder;
 
+        /// <summary>Doc 05 §1.1. 0 while dead (<see cref="PlayerMoveState.Dead"/>).</summary>
+        public float Hp;
+        public float MaxHp;
+        public uint LastDamageTick;
+        /// <summary>Tick a dead player stands up again at the Post Office.</summary>
+        public uint RespawnTick;
+        public uint HammerReadyTick;
+        public uint CannonReadyTick;
+        /// <summary>Run totals of the fight; cleared when a run starts.</summary>
+        public int Kills;
+        public int LootCoins;
+
+        public bool Dead => Move.Dead;
+        /// <summary>Health as the snapshot carries it: 0 dead, 1..255 alive.</summary>
+        public byte HpByte => Dead || MaxHp <= 0f ? (byte)0 : (byte)System.Math.Clamp((int)System.MathF.Ceiling(Hp / MaxHp * 255f), 1, 255);
+
         private readonly float[] _histX = new float[HistoryLength];
         private readonly float[] _histZ = new float[HistoryLength];
         private int _histHead;

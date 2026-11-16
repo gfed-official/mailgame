@@ -18,6 +18,11 @@ namespace PerformativeMail.Server
     {
         /// <summary>Doc 06 §3: the global block rides every 6th snapshot (≈ 3.3 Hz at 20 Hz).</summary>
         private const int GlobalEverySnapshots = 6;
+        /// <summary>
+        /// Enemies ride every other snapshot: 10 Hz, one list every 3 ticks. Forty of them at 9
+        /// bytes are then 29 kbps, inside the 40 kbps of doc 06 §8; clients interpolate.
+        /// </summary>
+        private const int EnemiesEverySnapshots = 2;
         private const int MaxCatchUpTicks = 5;
         private const int MaxNameLength = 24;
 
@@ -229,6 +234,15 @@ namespace PerformativeMail.Server
                 _snapshot.Players.Add(new PlayerSnap
                 {
                     Id = p.Id, X = p.Move.X, Y = p.Move.Y, Z = p.Move.Z, Yaw = p.Move.Yaw, HeldSlot = p.HeldSlot, Ready = p.Ready,
+                    Hp = p.HpByte,
+                });
+            }
+            _snapshot.Enemies.Clear();
+            foreach (var e in World.Enemies)
+            {
+                _snapshot.Enemies.Add(new EnemySnap
+                {
+                    Id = (ushort)e.Id.Counter, Kind = e.Def.Index, Mega = e.Mega, State = e.State, X = e.X, Z = e.Z, Yaw = e.Yaw, Hp = e.HpByte,
                 });
             }
             _snapshot.Tick = World.Tick;
@@ -242,6 +256,8 @@ namespace PerformativeMail.Server
                 _snapshot.HasOwn = true;
                 _snapshot.Own = player.Move;
                 _snapshot.OwnSpeedMult = player.SpeedMult;
+                _snapshot.OwnHp = player.Hp;
+                _snapshot.HasEnemies = c.SnapshotCount % EnemiesEverySnapshots == 0;
                 _snapshot.HasGlobal = c.SnapshotCount++ % GlobalEverySnapshots == 0;
                 _snapshot.Global = global;
                 _writer.Reset();

@@ -41,6 +41,8 @@ namespace PerformativeMail.Sim
 
         private OpResult Apply(Player player, in SimRequest r)
         {
+            // Down until the respawn: the lobby and pause requests still go through, the hands do not.
+            if (player.Dead && r.Kind <= RequestKind.Deliver && r.Kind != RequestKind.CloseContainer) return OpResult.Dead;
             switch (r.Kind)
             {
                 case RequestKind.OpenContainer: return OpenContainer(player, r.Container);

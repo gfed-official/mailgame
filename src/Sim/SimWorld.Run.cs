@@ -94,12 +94,15 @@ namespace PerformativeMail.Sim
             Run.LastSummary = null;
             Run.Results = null;
             Economy.Reset();
+            ResetCombatRng();
             foreach (var p in _players)
             {
                 p.Deliveries = 0;
                 p.Misdeliveries = 0;
                 p.Earned = 0;
                 p.ShiftDeliveries = 0;
+                p.Kills = 0;
+                p.LootCoins = 0;
             }
             BeginShift();
         }
@@ -113,6 +116,7 @@ namespace PerformativeMail.Sim
         private void BeginPrep()
         {
             var b = Content.Balance;
+            ClearCombat();
             Economy.BeginShift();
             // A preview for the HUD; the binding quota is sampled when Delivery starts.
             Run.Quota = QuotaFormula.Quota(b, Run.Shift, Math.Max(1, _players.Count));
@@ -122,6 +126,7 @@ namespace PerformativeMail.Sim
         private void BeginDelivery()
         {
             var b = Content.Balance;
+            ClearCombat();
             Run.PlayerCount = Math.Max(1, _players.Count);
             Run.Quota = QuotaFormula.Quota(b, Run.Shift, Run.PlayerCount);
             Economy.BeginShift();
@@ -130,12 +135,14 @@ namespace PerformativeMail.Sim
             int spawnValue = (int)Math.Round(Run.Quota * Content.MailMix.SpawnOverhead);
             Spawner.BeginShift(Run.Shift, Tick + 1, SimConstants.SecondsToTicks(seconds), spawnValue);
             EnterPhase(RunPhase.Delivery, seconds);
+            ScheduleRaid();
         }
 
         /// <summary>Doc 01 §2.4: the quota check, the shift bonus and the summary the clients show.</summary>
         private void BeginPayday()
         {
             Spawner.EndShift();
+            EndRaid();
             var summary = new ShiftSummary
             {
                 Shift = (byte)Run.Shift,
@@ -175,6 +182,7 @@ namespace PerformativeMail.Sim
         private void BeginResults(RunOutcome outcome)
         {
             var b = Content.Balance;
+            ClearCombat();
             Run.Outcome = outcome;
             var results = new RunResults
             {
@@ -199,14 +207,15 @@ namespace PerformativeMail.Sim
             EnterPhase(RunPhase.Results, Settings.QuickStart ? b.GetDouble("paydaySeconds") : 0);
         }
 
-        /// <summary>Ends the run: all mail and money are gone, the next run starts from the same seed.</summary>
+        /// <summary>Ends the run: all mail, loot and money are gone, the next run starts from the same seed.</summary>
         private void ReturnToLobby()
         {
+            ClearCombat();
             ClearMail(Intake, everything: true);
             foreach (var p in _players)
             {
-                ClearMail(p.Hotbar, everything: false);
-                ClearMail(p.Inventory, everything: false);
+                ClearMail(p.Hotbar, everything: true);
+                ClearMail(p.Inventory, everything: true);
             }
             Spawner.Reset();
             Economy.Reset();

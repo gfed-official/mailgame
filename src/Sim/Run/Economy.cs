@@ -26,6 +26,8 @@ namespace PerformativeMail.Sim.Run
         public int TotalMisdeliveries { get; private set; }
         /// <summary>Shift earnings plus shift bonuses since the run began (the score base, doc 01 §6).</summary>
         public int TotalEarned { get; private set; }
+        /// <summary>Coins looted from raiders since the run began; in the wallet, not in the earnings.</summary>
+        public int TotalLoot { get; private set; }
 
         public Economy(Balance balance, int mailKinds = 0)
         {
@@ -60,6 +62,17 @@ namespace PerformativeMail.Sim.Run
                     return;
             }
             AddComplaint(result.Complaint);
+        }
+
+        /// <summary>
+        /// Coins picked up from a fallen raider: straight into the wallet. They are not delivery
+        /// income, so the quota and the run score do not count them.
+        /// </summary>
+        public void AddLoot(int coins)
+        {
+            if (coins <= 0) return;
+            Wallet += coins;
+            TotalLoot += coins;
         }
 
         public void AddComplaint(int points) => Complaint = Math.Clamp(Complaint + points, 0, _complaintMax);
@@ -104,6 +117,7 @@ namespace PerformativeMail.Sim.Run
             TotalDeliveries = 0;
             TotalMisdeliveries = 0;
             TotalEarned = 0;
+            TotalLoot = 0;
             _decayTimer = 0;
         }
     }

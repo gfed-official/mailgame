@@ -26,6 +26,8 @@ namespace PerformativeMail.Sim.Inventory
         NotHost,
         /// <summary>Only a solo run can be paused (doc 01 §1).</summary>
         NotSolo,
+        /// <summary>A carrier who is down can do nothing until the respawn (doc 05 §1.1).</summary>
+        Dead,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

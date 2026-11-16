@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
@@ -36,17 +37,26 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.1;" +
+            "m1.2;" +
             "Hello:u32 hash,str name;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
+            "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
             "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause;" +
             "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory;" +
             "Reject:u8 reason;" +
-            "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 grounded,f32 speed],u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags},[global];" +
-            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host;" +
+            "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
+            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
+            "MoveFlags:grounded,winded,dead;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
+            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid;" +
             "Events:u16 n,{u8 type,...};" +
-            "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused;" +
+            "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
+            "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned;" +
+            "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
+            "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +
+            "LootDropped:u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count};" +
+            "LootTaken:u32 id,u32 player,u16 coins,u8 n,{u16 item,u8 count},u8 gone;LootGone:u32 id;" +
+            "Raid:u8 state,u32 tick;PlayerDied:u32 player,u32 respawn,u8 killer;PlayerRespawned:u32 player;" +
             "Phase:u8 shift,u8 phase,u32 end,i32 quota,u8 outcome;" +
             "Paused:u8 paused,u32 tick;" +
             "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
@@ -192,14 +202,14 @@ namespace PerformativeMail.Sim.Net
         {
             w.U8(g.Shift); w.U8((byte)g.Phase); w.U32(g.PhaseEndTick); w.I32(g.Quota); w.I32(g.ShiftEarnings);
             w.I32(g.Wallet); w.U8(g.Complaint); w.U16(g.Backlog); w.U16(g.Deliveries); w.U16(g.Misdeliveries);
-            w.U8((byte)g.Outcome); w.U32(g.Host.Value);
+            w.U8((byte)g.Outcome); w.U32(g.Host.Value); w.U8((byte)g.Raid);
         }
 
         public static GlobalState Read(NetReader r) => new GlobalState
         {
             Shift = r.U8(), Phase = (RunPhase)r.U8(), PhaseEndTick = r.U32(), Quota = r.I32(), ShiftEarnings = r.I32(),
             Wallet = r.I32(), Complaint = r.U8(), Backlog = r.U16(), Deliveries = r.U16(), Misdeliveries = r.U16(),
-            Outcome = (RunOutcome)r.U8(), Host = new EntityId(r.U32()),
+            Outcome = (RunOutcome)r.U8(), Host = new EntityId(r.U32()), Raid = (RaidState)r.U8(),
         };
     }
 
@@ -212,6 +222,23 @@ namespace PerformativeMail.Sim.Net
         public byte HeldSlot;
         /// <summary>Ready flag of the Lobby and Prep.</summary>
         public bool Ready;
+        /// <summary>Health in 255ths; 0 = down.</summary>
+        public byte Hp;
+    }
+
+    /// <summary>One enemy in a snapshot: 9 bytes (doc 06 §4; 40 of them at 10 Hz stay inside the budget).</summary>
+    public struct EnemySnap
+    {
+        /// <summary>The low 16 bits of the entity counter.</summary>
+        public ushort Id;
+        public byte Kind;
+        public bool Mega;
+        public EnemyState State;
+        public float X, Z;
+        /// <summary>Radians, quantised to 256 steps on the wire.</summary>
+        public float Yaw;
+        /// <summary>Health in 255ths, never 0: a dead enemy is simply not listed.</summary>
+        public byte Hp;
     }
 
     /// <summary>
@@ -220,8 +247,10 @@ namespace PerformativeMail.Sim.Net
     /// </summary>
     public sealed class SnapshotMsg
     {
-        private const byte FlagOwn = 1, FlagGlobal = 2;
+        private const byte FlagOwn = 1, FlagGlobal = 2, FlagEnemies = 4;
         private const byte PlayerReady = 1;
+        private const byte MoveGrounded = 1, MoveWinded = 2, MoveDead = 4;
+        private const float TwoPi = System.MathF.PI * 2f;
 
         public uint Tick;
         /// <summary>Seq of the last input the server has simulated for the receiving player.</summary>
@@ -229,7 +258,11 @@ namespace PerformativeMail.Sim.Net
         public bool HasOwn;
         public PlayerMoveState Own;
         public float OwnSpeedMult = 1f;
+        public float OwnHp;
         public readonly List<PlayerSnap> Players = new List<PlayerSnap>();
+        /// <summary>The enemy list rides every other snapshot. When present it is complete: who is not in it is gone.</summary>
+        public bool HasEnemies;
+        public readonly List<EnemySnap> Enemies = new List<EnemySnap>();
         public bool HasGlobal;
         public GlobalState Global;
 
@@ -238,17 +271,31 @@ namespace PerformativeMail.Sim.Net
             w.U8((byte)MsgType.Snapshot);
             w.U32(Tick);
             w.U32(AckSeq);
-            w.U8((byte)((HasOwn ? FlagOwn : 0) | (HasGlobal ? FlagGlobal : 0)));
+            w.U8((byte)((HasOwn ? FlagOwn : 0) | (HasGlobal ? FlagGlobal : 0) | (HasEnemies ? FlagEnemies : 0)));
             if (HasOwn)
             {
-                w.F32(Own.X); w.F32(Own.Y); w.F32(Own.Z); w.F32(Own.VelY); w.Bool(Own.Grounded); w.F32(OwnSpeedMult);
+                w.F32(Own.X); w.F32(Own.Y); w.F32(Own.Z); w.F32(Own.VelY);
+                w.U8((byte)((Own.Grounded ? MoveGrounded : 0) | (Own.Winded ? MoveWinded : 0) | (Own.Dead ? MoveDead : 0)));
+                w.F32(OwnSpeedMult); w.F32(Own.Fatigue); w.F32(OwnHp);
             }
             w.U8((byte)Players.Count);
             foreach (var p in Players)
             {
                 w.U32(p.Id.Value);
                 w.I32(ToCm(p.X)); w.I16((short)ToCm(p.Y)); w.I32(ToCm(p.Z));
-                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8((byte)(p.Ready ? PlayerReady : 0));
+                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8((byte)(p.Ready ? PlayerReady : 0)); w.U8(p.Hp);
+            }
+            if (HasEnemies)
+            {
+                w.U8((byte)Enemies.Count);
+                foreach (var e in Enemies)
+                {
+                    w.U16(e.Id);
+                    w.U8((byte)((e.Kind & 0x0F) | (e.Mega ? 0x10 : 0) | ((byte)e.State << 5)));
+                    w.U16(To2Cm(e.X)); w.U16(To2Cm(e.Z));
+                    w.U8((byte)((int)System.MathF.Round(e.Yaw / TwoPi * 256f) & 0xFF));
+                    w.U8(e.Hp);
+                }
             }
             if (HasGlobal) GlobalCodec.Write(w, Global);
         }
@@ -259,10 +306,17 @@ namespace PerformativeMail.Sim.Net
             byte flags = r.U8();
             m.HasOwn = (flags & FlagOwn) != 0;
             m.HasGlobal = (flags & FlagGlobal) != 0;
+            m.HasEnemies = (flags & FlagEnemies) != 0;
             if (m.HasOwn)
             {
-                m.Own = new PlayerMoveState { X = r.F32(), Y = r.F32(), Z = r.F32(), VelY = r.F32(), Grounded = r.Bool() };
+                m.Own = new PlayerMoveState { X = r.F32(), Y = r.F32(), Z = r.F32(), VelY = r.F32() };
+                byte move = r.U8();
+                m.Own.Grounded = (move & MoveGrounded) != 0;
+                m.Own.Winded = (move & MoveWinded) != 0;
+                m.Own.Dead = (move & MoveDead) != 0;
                 m.OwnSpeedMult = r.F32();
+                m.Own.Fatigue = r.F32();
+                m.OwnHp = r.F32();
             }
             int n = r.U8();
             for (int i = 0; i < n; i++)
@@ -271,14 +325,29 @@ namespace PerformativeMail.Sim.Net
                 {
                     Id = new EntityId(r.U32()),
                     X = r.I32() / 100f, Y = r.I16() / 100f, Z = r.I32() / 100f,
-                    Yaw = r.U16(), HeldSlot = r.U8(), Ready = (r.U8() & PlayerReady) != 0,
+                    Yaw = r.U16(), HeldSlot = r.U8(), Ready = (r.U8() & PlayerReady) != 0, Hp = r.U8(),
                 });
+            }
+            if (m.HasEnemies)
+            {
+                n = r.U8();
+                for (int i = 0; i < n; i++)
+                {
+                    ushort id = r.U16();
+                    byte packed = r.U8();
+                    m.Enemies.Add(new EnemySnap
+                    {
+                        Id = id, Kind = (byte)(packed & 0x0F), Mega = (packed & 0x10) != 0, State = (EnemyState)(packed >> 5),
+                        X = r.U16() * 0.02f, Z = r.U16() * 0.02f, Yaw = r.U8() / 256f * TwoPi, Hp = r.U8(),
+                    });
+                }
             }
             if (m.HasGlobal) m.Global = GlobalCodec.Read(r);
             return m;
         }
 
         private static int ToCm(float metres) => (int)System.MathF.Round(metres * 100f);
+        private static ushort To2Cm(float metres) => (ushort)System.Math.Clamp((int)System.MathF.Round(metres * 50f), 0, ushort.MaxValue);
     }
 
     public static class EventsMsg

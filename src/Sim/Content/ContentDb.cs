@@ -27,6 +27,8 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<DestinationTypeDef> DestinationTypes { get; private set; } = Array.Empty<DestinationTypeDef>();
         public IReadOnlyList<ContainerDef> Containers { get; private set; } = Array.Empty<ContainerDef>();
         public IReadOnlyList<ItemDef> Items { get; private set; } = Array.Empty<ItemDef>();
+        public IReadOnlyList<EnemyDef> Enemies { get; private set; } = Array.Empty<EnemyDef>();
+        public WaveDef Waves { get; private set; } = new WaveDef();
         public MailMixDef MailMix { get; private set; } = new MailMixDef();
         public Balance Balance { get; private set; } = new Balance(new Dictionary<string, double[]>());
         public IReadOnlyList<string> StreetNames { get; private set; } = Array.Empty<string>();
@@ -40,6 +42,7 @@ namespace PerformativeMail.Sim.Content
         private readonly Dictionary<string, ContainerDef> _containersById = new Dictionary<string, ContainerDef>();
         private readonly Dictionary<string, ItemDef> _itemsById = new Dictionary<string, ItemDef>();
         private readonly Dictionary<string, WorldMap> _maps = new Dictionary<string, WorldMap>();
+        private readonly Dictionary<string, EnemyDef> _enemiesById = new Dictionary<string, EnemyDef>();
 
         private ContentDb() { }
 
@@ -48,6 +51,7 @@ namespace PerformativeMail.Sim.Content
         public DestinationTypeDef DestinationType(string id) => _destTypesById[id];
         public ContainerDef Container(string id) => _containersById[id];
         public ItemDef Item(string id) => _itemsById[id];
+        public EnemyDef Enemy(string id) => _enemiesById[id];
         public WorldMap Map(string id) => _maps[id];
 
         /// <summary>Loads and validates; throws <see cref="ContentException"/> listing every problem.</summary>
@@ -134,6 +138,7 @@ namespace PerformativeMail.Sim.Content
                         AcceptedBy = J.StrArray(ctx, e, "acceptedBy"),
                         ComplaintOnMisdelivery = J.Int(ctx, e, "complaintOnMisdelivery", 0),
                         UnlockShift = J.Int(ctx, e, "unlockShift", 1),
+                        CannonAmmo = J.Bool(ctx, e, "cannonAmmo", false),
                     };
                     if (def.GridW <= 0 || def.GridH <= 0) ctx.Error($"'{def.Id}': grid sizes must be positive");
                     if (def.MaxStack <= 0) ctx.Error($"'{def.Id}': maxStack must be positive");
@@ -291,6 +296,145 @@ namespace PerformativeMail.Sim.Content
                     if (!values.ContainsKey(key)) ctx.Error($"missing required key '{key}'");
             }
 
+            // --- enemies and waves ---------------------------------------------------------------
+            {
+                var list = new List<EnemyDef>();
+                foreach (string file in source.ListJson("enemies"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        int[] coins = J.Has(e, "coins") ? J.IntArray(ctx, e, "coins", 2) : new int[2];
+                        var drops = new List<EnemyDrop>();
+                        string id = J.Str(ctx, e, "id");
+                        if (e.TryGetProperty("drops", out var dropsEl) && dropsEl.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var d in dropsEl.EnumerateArray())
+                            {
+                                if (d.ValueKind != JsonValueKind.Object) { ctx.Error($"'{id}': drops must be objects"); continue; }
+                                string item = J.Str(ctx, d, "item");
+                                double chance = J.Num(ctx, d, "chance");
+                                int count = J.Int(ctx, d, "count", 1);
+                                if (!db._itemsById.TryGetValue(item, out var itemDef)) { ctx.Error($"'{id}': drop references unknown item '{item}'"); continue; }
+                                if (chance < 0 || chance > 1) ctx.Error($"'{id}': drop chance of '{item}' must be in 0..1");
+                                if (count < 1 || count > 255) ctx.Error($"'{id}': drop count of '{item}' must be in 1..255");
+                                drops.Add(new EnemyDrop(itemDef, (int)Math.Round(chance * 1000), count));
+                            }
+                        }
+                        var def = new EnemyDef
+                        {
+                            Id = id,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Hp = (float)J.Num(ctx, e, "hp"),
+                            Damage = (float)J.Num(ctx, e, "damage"),
+                            AttackRate = (float)J.Num(ctx, e, "attackRate"),
+                            AttackRange = (float)J.Num(ctx, e, "attackRange"),
+                            Speed = (float)J.Num(ctx, e, "speed"),
+                            AggroRange = (float)J.Num(ctx, e, "aggroRange", 15),
+                            Radius = (float)J.Num(ctx, e, "radius", 0.4),
+                            Scale = (float)J.Num(ctx, e, "scale", 1),
+                            Cost = J.Int(ctx, e, "cost"),
+                            UnlockShift = J.Int(ctx, e, "unlockShift", 1),
+                            CoinsMin = coins[0],
+                            CoinsMax = coins[1],
+                            Drops = drops,
+                        };
+                        if (def.Hp <= 0) ctx.Error($"'{def.Id}': hp must be > 0");
+                        if (def.Damage < 0) ctx.Error($"'{def.Id}': damage must be >= 0");
+                        if (def.AttackRate <= 0) ctx.Error($"'{def.Id}': attackRate must be > 0");
+                        if (def.AttackRange <= 0) ctx.Error($"'{def.Id}': attackRange must be > 0");
+                        if (def.Speed <= 0) ctx.Error($"'{def.Id}': speed must be > 0");
+                        if (def.Radius <= 0 || def.Radius > WorldMap.WalkerReach)
+                            ctx.Error($"'{def.Id}': radius must be in (0, {WorldMap.WalkerReach}] (the widest body the props are indexed for)");
+                        if (def.Scale <= 0) ctx.Error($"'{def.Id}': scale must be > 0");
+                        if (def.Cost <= 0) ctx.Error($"'{def.Id}': cost must be > 0");
+                        if (def.CoinsMin < 0 || def.CoinsMax < def.CoinsMin) ctx.Error($"'{def.Id}': coins must be [min, max] with 0 <= min <= max");
+                        // The snapshot packs the kind into four bits.
+                        if (list.Count >= 16) { ctx.Error($"'{def.Id}': more than 16 enemy kinds"); continue; }
+                        if (!AddUnique(ctx, db._enemiesById, def.Id, def)) continue;
+                        list.Add(def);
+                    }
+                }
+                db.Enemies = list;
+            }
+            {
+                var ctx = new JsonCtx("waves/waves.json", errors);
+                string? text = Read(ctx.File, required: db.Enemies.Count > 0);
+                using var doc = text == null ? null : J.Parse(ctx, text);
+                if (doc != null && doc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    var root = doc.RootElement;
+                    var weights = new Dictionary<int, IReadOnlyList<KeyValuePair<EnemyDef, int>>>();
+                    if (root.TryGetProperty("weightsByShift", out var byShift) && byShift.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var s in byShift.EnumerateObject())
+                        {
+                            if (!int.TryParse(s.Name, out int shift) || shift < 1) { ctx.Error($"weightsByShift: '{s.Name}' is not a shift number"); continue; }
+                            var entries = new List<KeyValuePair<EnemyDef, int>>();
+                            if (s.Value.ValueKind != JsonValueKind.Object) { ctx.Error($"weightsByShift {shift}: must be an object of enemy weights"); continue; }
+                            foreach (var p in s.Value.EnumerateObject())
+                            {
+                                if (!db._enemiesById.TryGetValue(p.Name, out var enemy)) { ctx.Error($"weightsByShift {shift}: unknown enemy '{p.Name}'"); continue; }
+                                if (p.Value.ValueKind != JsonValueKind.Number || !p.Value.TryGetInt32(out int weight) || weight < 0)
+                                {
+                                    ctx.Error($"weightsByShift {shift}: weight of '{p.Name}' must be a non-negative integer");
+                                    continue;
+                                }
+                                // Doc 08 §5: a wave may only use enemies that are unlocked by then.
+                                if (weight > 0 && enemy.UnlockShift > shift)
+                                    ctx.Error($"weightsByShift {shift}: '{p.Name}' unlocks on shift {enemy.UnlockShift}");
+                                if (weight > 0) entries.Add(new KeyValuePair<EnemyDef, int>(enemy, weight));
+                            }
+                            weights[shift] = entries;
+                        }
+                    }
+                    else ctx.Error("missing 'weightsByShift' object");
+
+                    float megaHp = 1, megaDmg = 1, megaScale = 1, megaSpeed = 1;
+                    int megaLoot = 1;
+                    if (root.TryGetProperty("mega", out var mega) && mega.ValueKind == JsonValueKind.Object)
+                    {
+                        megaHp = (float)J.Num(ctx, mega, "hpMult");
+                        megaDmg = (float)J.Num(ctx, mega, "dmgMult");
+                        megaScale = (float)J.Num(ctx, mega, "scale");
+                        megaSpeed = (float)J.Num(ctx, mega, "speedMult");
+                        megaLoot = J.Int(ctx, mega, "lootMult", 1);
+                        if (megaHp <= 0 || megaDmg <= 0 || megaScale <= 0 || megaSpeed <= 0 || megaLoot < 1) ctx.Error("mega multipliers must be positive");
+                    }
+                    else ctx.Error("missing 'mega' object");
+
+                    var def = new WaveDef
+                    {
+                        BaseBudget = J.NumArray(ctx, root, "baseBudget"),
+                        WaveScalePerExtraPlayer = J.Num(ctx, root, "waveScalePerExtraPlayer"),
+                        SoloMult = J.Num(ctx, root, "soloMult", 1),
+                        SoloMaxPlayers = J.Int(ctx, root, "soloMaxPlayers", 0),
+                        Pulses = J.Int(ctx, root, "pulses"),
+                        PulseIntervalSeconds = J.Num(ctx, root, "pulseIntervalSeconds"),
+                        FinalePulseMult = J.Num(ctx, root, "finalePulseMult", 1),
+                        WarningSeconds = J.Num(ctx, root, "warningSeconds"),
+                        RaidWindowSeconds = J.Num(ctx, root, "raidWindowSeconds"),
+                        MegaChanceBase = J.Num(ctx, root, "megaChanceBase", 0),
+                        MegaChancePerShift = J.Num(ctx, root, "megaChancePerShift", 0),
+                        MegaHpMult = megaHp, MegaDamageMult = megaDmg, MegaScale = megaScale, MegaSpeedMult = megaSpeed, MegaLootMult = megaLoot,
+                        MaxAlive = J.Int(ctx, root, "maxAlive"),
+                        WeightsByShift = weights,
+                    };
+                    if (def.Pulses < 1) ctx.Error("pulses must be >= 1");
+                    if (def.PulseIntervalSeconds <= 0) ctx.Error("pulseIntervalSeconds must be > 0");
+                    if (def.WarningSeconds < 0 || def.RaidWindowSeconds <= 0) ctx.Error("warningSeconds must be >= 0 and raidWindowSeconds > 0");
+                    // The snapshot counts enemies in a byte.
+                    if (def.MaxAlive < 1 || def.MaxAlive > 255) ctx.Error("maxAlive must be in 1..255");
+                    foreach (double budget in def.BaseBudget) if (budget < 0) ctx.Error("baseBudget must not be negative");
+                    for (int shift = 1; shift <= def.BaseBudget.Length; shift++)
+                        if (def.BaseBudget[shift - 1] > 0 && def.WeightsFor(shift).Count == 0)
+                            ctx.Error($"shift {shift} has a raid budget but no enemy weights");
+                    db.Waves = def;
+                }
+                else if (doc != null) ctx.Error("root must be an object");
+            }
+
             // --- streets -------------------------------------------------------------------------
             {
                 var ctx = new JsonCtx("streets.json", errors);
@@ -334,6 +478,11 @@ namespace PerformativeMail.Sim.Content
             "complaintLateDelivery", "walkSpeed", "sprintSpeed", "jumpHeight", "gravity", "playerRadius",
             "weightPointsLight", "weightPointsMedium", "weightPointsHeavy", "weightSpeedPerPoint", "weightSpeedFloor",
             "interactRange", "serverInteractRange", "interactRewindSeconds", "maxPlayers",
+            "playerHp", "hpRegenPerSecond", "hpRegenDelaySeconds", "respawnSeconds",
+            "staminaSeconds", "staminaRegenSeconds", "staminaRecoverFraction",
+            "hammerDamage", "hammerCooldownSeconds", "hammerRange", "hammerArcDegrees", "hammerKnockback",
+            "cannonDamage", "cannonBlastRadius", "cannonCooldownSeconds", "cannonRange", "cannonSpeed",
+            "enemyWindupSeconds", "enemyFleeSeconds", "enemyFleeSpeedMult", "lootDespawnSeconds", "lootPickupRange",
         };
 
         private static IEnumerable<JsonElement> ReadArray(JsonCtx ctx, string? text)

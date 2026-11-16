@@ -1,0 +1,11 @@
+[
+  { "id": "barbarian", "name": "Raider", "hp": 60, "damage": 10, "attackRate": 1.0, "attackRange": 1.5, "speed": 4.5,
+    "aggroRange": 15, "radius": 0.4, "scale": 1.0, "cost": 10, "unlockShift": 2, "coins": [4, 8],
+    "drops": [{ "item": "fiber", "chance": 0.5, "count": 1 }] },
+  { "id": "swarmling", "name": "Swarmling", "hp": 20, "damage": 4, "attackRate": 0.8, "attackRange": 1.1, "speed": 5.5,
+    "aggroRange": 15, "radius": 0.28, "scale": 0.6, "cost": 4, "unlockShift": 2, "coins": [1, 3],
+    "drops": [] },
+  { "id": "giant", "name": "Horned Giant", "hp": 400, "damage": 40, "attackRate": 2.0, "attackRange": 2.4, "speed": 3.0,
+    "aggroRange": 15, "radius": 0.5, "scale": 1.9, "cost": 60, "unlockShift": 3, "coins": [30, 50],
+    "drops": [{ "item": "stone", "chance": 1.0, "count": 3 }, { "item": "iron_ore", "chance": 1.0, "count": 1 }] }
+]

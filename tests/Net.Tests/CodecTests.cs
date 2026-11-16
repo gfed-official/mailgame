@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
@@ -162,7 +163,7 @@ namespace PerformativeMail.Net.Tests
                 {
                     Shift = 1, Phase = RunPhase.Delivery, PhaseEndTick = 7200, Quota = 600, ShiftEarnings = -12, Wallet = -480,
                     Complaint = 17, Backlog = 3, Deliveries = 40, Misdeliveries = 2,
-                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2),
+                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active,
                 },
             };
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, Ready = true });
@@ -223,6 +224,19 @@ namespace PerformativeMail.Net.Tests
                     },
                 },
                 new PausedChangedEvent { Paused = true, Tick = 90210 },
+                new AttackEvent { Player = player, Weapon = Weapon.Cannon, X = 12.5f, Z = 28.25f, Yaw = 16384, Hits = 3 },
+                new BlastEvent { X = 40.5f, Z = 27f, Hits = 4 },
+                new EnemyDiedEvent { Enemy = new EntityId(EntityClass.Enemy, 77), Kind = 2, Mega = true, X = 50f, Z = 28f, Killer = player },
+                new LootDroppedEvent
+                {
+                    LootId = 9001, X = 50f, Z = 28f, EnemyKind = 2, Mega = true, Coins = 120,
+                    Items = { new LootItem { Item = 4, Count = 9 }, new LootItem { Item = 6, Count = 3 } },
+                },
+                new LootTakenEvent { LootId = 9001, Player = player, Coins = 120, Items = { new LootItem { Item = 4, Count = 5 } }, Gone = true },
+                new LootGoneEvent { LootId = 9002 },
+                new RaidChangedEvent { Raid = RaidState.Warning, Tick = 4500 },
+                new PlayerDiedEvent { Player = player, RespawnTick = 4800, Killer = 1 },
+                new PlayerRespawnedEvent { Player = player },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -256,6 +270,68 @@ namespace PerformativeMail.Net.Tests
 
             var paused = (PausedChangedEvent)back[12];
             Assert.Equal((true, 90210u), (paused.Paused, paused.Tick));
+
+            var attack = (AttackEvent)back[13];
+            Assert.Equal((player, Weapon.Cannon, 12.5f, 28.25f, (ushort)16384, (byte)3), (attack.Player, attack.Weapon, attack.X, attack.Z, attack.Yaw, attack.Hits));
+            var blast = (BlastEvent)back[14];
+            Assert.Equal((40.5f, 27f, (byte)4), (blast.X, blast.Z, blast.Hits));
+            var died = (EnemyDiedEvent)back[15];
+            Assert.Equal((new EntityId(EntityClass.Enemy, 77), (byte)2, true, 50f, 28f, player), (died.Enemy, died.Kind, died.Mega, died.X, died.Z, died.Killer));
+            var dropped = (LootDroppedEvent)back[16];
+            Assert.Equal((9001u, 50f, 28f, (byte)2, true, (ushort)120), (dropped.LootId, dropped.X, dropped.Z, dropped.EnemyKind, dropped.Mega, dropped.Coins));
+            Assert.Equal(2, dropped.Items.Count);
+            Assert.Equal(((ushort)6, (byte)3), (dropped.Items[1].Item, dropped.Items[1].Count));
+            var taken = (LootTakenEvent)back[17];
+            Assert.Equal((9001u, player, (ushort)120, true), (taken.LootId, taken.Player, taken.Coins, taken.Gone));
+            Assert.Equal(((ushort)4, (byte)5), (taken.Items[0].Item, taken.Items[0].Count));
+            Assert.Equal(9002u, ((LootGoneEvent)back[18]).LootId);
+            var raid = (RaidChangedEvent)back[19];
+            Assert.Equal((RaidState.Warning, 4500u), (raid.Raid, raid.Tick));
+            var fell = (PlayerDiedEvent)back[20];
+            Assert.Equal((player, 4800u, (byte)1), (fell.Player, fell.RespawnTick, fell.Killer));
+            Assert.Equal(player, ((PlayerRespawnedEvent)back[21]).Player);
+        }
+
+        [Fact]
+        public void SnapshotCarriesTheFight_EnemiesInNineBytesEach()
+        {
+            var m = new SnapshotMsg
+            {
+                Tick = 50, AckSeq = 7, HasOwn = true, HasEnemies = true, OwnHp = 62.5f,
+                Own = new PlayerMoveState { X = 1f, Z = 2f, Grounded = true, Winded = true, Dead = true, Fatigue = 0.75f },
+            };
+            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 1), Hp = 128 });
+            var empty = new NetWriter();
+            m.Write(empty);
+            m.Enemies.Add(new EnemySnap { Id = 65535, Kind = 2, Mega = true, State = EnemyState.Flee, X = 91.99f, Z = 28.013f, Yaw = -MathF.PI / 2f, Hp = 1 });
+            m.Enemies.Add(new EnemySnap { Id = 3, Kind = 0, State = EnemyState.Windup, X = 0f, Z = 5.5f, Yaw = MathF.PI / 4f, Hp = 255 });
+            var w = new NetWriter();
+            m.Write(w);
+            Assert.Equal(18, w.ToArray().Length - empty.ToArray().Length);
+
+            var back = SnapshotMsg.Read(Body(w, MsgType.Snapshot));
+            Assert.True(back.HasEnemies);
+            Assert.False(back.HasGlobal);
+            Assert.Equal((true, true, true, 0.75f, 62.5f), (back.Own.Grounded, back.Own.Winded, back.Own.Dead, back.Own.Fatigue, back.OwnHp));
+            Assert.Equal(128, Assert.Single(back.Players).Hp);
+            Assert.Equal(2, back.Enemies.Count);
+            var a = back.Enemies[0];
+            Assert.Equal(((ushort)65535, (byte)2, true, EnemyState.Flee, (byte)1), (a.Id, a.Kind, a.Mega, a.State, a.Hp));
+            Assert.Equal(92.0f, a.X, 2);
+            Assert.Equal(28.02f, a.Z, 2);
+            // −90° comes back as 270°: the same heading.
+            Assert.Equal(MathF.PI * 1.5f, a.Yaw, 2);
+            var b = back.Enemies[1];
+            Assert.Equal(((ushort)3, (byte)0, false, EnemyState.Windup, (byte)255), (b.Id, b.Kind, b.Mega, b.State, b.Hp));
+            Assert.Equal(MathF.PI / 4f, b.Yaw, 2);
+
+            // Without the flag the list is not on the wire at all, and a reader does not take "none" for "all gone".
+            m.HasEnemies = false;
+            var w2 = new NetWriter();
+            m.Write(w2);
+            var none = SnapshotMsg.Read(Body(w2, MsgType.Snapshot));
+            Assert.False(none.HasEnemies);
+            Assert.Empty(none.Enemies);
         }
 
         [Fact]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
@@ -19,6 +20,8 @@ namespace PerformativeMail.Sim
         /// Prep is skipped, Results returns to the Lobby by itself and players may join at any time.
         /// </summary>
         public bool QuickStart;
+        /// <summary>Night raids (doc 05 §3). Off for tests and tools that want the shifts to themselves.</summary>
+        public bool Raids = true;
     }
 
     /// <summary>The small global block replicated at 5 Hz (doc 06 §4: wallet, complaint, quota progress).</summary>
@@ -36,6 +39,7 @@ namespace PerformativeMail.Sim
         public ushort Misdeliveries;
         public RunOutcome Outcome;
         public EntityId Host;
+        public RaidState Raid;
     }
 
     /// <summary>
@@ -94,6 +98,8 @@ namespace PerformativeMail.Sim
             Map = content.Map(Settings.MapId);
             var b = content.Balance;
             _move = MoveConstants.From(b);
+            _combat = new CombatTuning(b);
+            ResetCombatRng();
             _maxPlayers = b.GetInt("maxPlayers");
             _serverInteractRange = b.GetFloat("serverInteractRange");
             _rewindTicks = (int)SimConstants.SecondsToTicks(b.GetDouble("interactRewindSeconds"));
@@ -135,9 +141,7 @@ namespace PerformativeMail.Sim
             while (SlotTaken(slot)) slot++;
             var id = _entityIds.Allocate(EntityClass.Player);
 
-            // Seats fan out around the pad so players do not spawn inside each other.
-            float px = Map.PostOffice.SpawnPadX + (slot % 2) * 1.0f - 0.5f;
-            float pz = Map.PostOffice.SpawnPadZ + (slot / 2) * 1.0f - 1.5f;
+            SeatPosition(slot, out float px, out float pz);
             var hotbar = CreateContainer("hotbar", id, 0, 0);
             var inventory = CreateContainer("player_inventory", id, 0, 0);
             hotbar.Viewers.Add(id);
@@ -148,6 +152,7 @@ namespace PerformativeMail.Sim
             {
                 X = px, Z = pz, Y = Map.HeightAt(px, pz), Grounded = true, Yaw = PlayerInput.QuantizeYaw(Map.PostOffice.SpawnYaw),
             };
+            player.Hp = player.MaxHp = _combat.PlayerHp;
             player.JoinOrder = _nextJoinOrder++;
             _players.Add(player);
             if (Run.Host.IsNone) Run.Host = id;
@@ -213,13 +218,14 @@ namespace PerformativeMail.Sim
             Misdeliveries = (ushort)Math.Min(ushort.MaxValue, Economy.ShiftMisdeliveries),
             Outcome = Run.Outcome,
             Host = Run.Host,
+            Raid = Raid,
         };
 
         // --- tick -----------------------------------------------------------------------------
 
         /// <summary>
         /// Advances one tick in the order of doc 06 §3: requests and inputs → player movement →
-        /// mail spawn → economy → run state. Events accumulate in <see cref="Events"/>. While
+        /// the fight → mail spawn → economy → run state. Events accumulate in <see cref="Events"/>. While
         /// <see cref="Paused"/> nothing advances, the tick counter included.
         /// </summary>
         public void Step()
@@ -232,6 +238,7 @@ namespace PerformativeMail.Sim
             Tick++;
             ApplyRequests();
             StepPlayers();
+            StepCombat();
             StepMail();
             StepRun();
         }
@@ -252,6 +259,7 @@ namespace PerformativeMail.Sim
                     var input = p.Inputs.Dequeue();
                     PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move);
                     p.HeldSlot = input.HeldSlot < p.Hotbar.Cols ? input.HeldSlot : (byte)0;
+                    HandleAttackInput(p, input);
                     p.LastProcessedSeq = input.Seq;
                     p.InputCredit -= 1f;
                     budget--;

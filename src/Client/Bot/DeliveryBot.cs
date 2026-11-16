@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
@@ -26,6 +27,8 @@ namespace PerformativeMail.Client.Bot
         public bool AutoRun = true;
         /// <summary>As host, start the run only once this many players are in the Lobby (nobody joins mid-shift).</summary>
         public int MinPlayersToStart = 1;
+        /// <summary>Hit raiders that come within the hammer's reach.</summary>
+        public bool Fights = true;
 
         public int StacksDelivered { get; private set; }
         public int StacksMisdelivered { get; private set; }
@@ -62,7 +65,8 @@ namespace PerformativeMail.Client.Bot
             _awaiting = 0;
             _lastResult = result;
             // A request that crosses a phase change (the shift ended while the hand was in the mailbox) is not a fault.
-            if (result != OpResult.Ok && result != OpResult.WrongPhase)
+            // Neither is one answered while the bot lay on the ground.
+            if (result != OpResult.Ok && result != OpResult.WrongPhase && result != OpResult.Dead)
             {
                 RequestsRejected++;
                 LastRejection = result;
@@ -77,7 +81,15 @@ namespace PerformativeMail.Client.Bot
             _client.Input.MoveZ = 0f;
             _client.Input.Buttons = InputButtons.None;
             if (_client.State != ClientState.Joined || world == null || !world.HasLocal) return;
-            if (_awaiting != 0 || world.Paused) return;
+            if (world.Paused) return;
+            if (world.Local.Dead)
+            {
+                // Down: nothing to do until the respawn at the Post Office, then start over from what is carried.
+                _step = Step.PickTarget;
+                _hasPath = false;
+                return;
+            }
+            if (Defend(world) || _awaiting != 0) return;
 
             if (world.Global.Phase != RunPhase.Delivery)
             {
@@ -212,6 +224,34 @@ namespace PerformativeMail.Client.Bot
             _awaiting = _client.PressGo();
             // Ready and the phase arrive by snapshot; do not press again before they can have.
             _goCooldown = 15;
+        }
+
+        /// <summary>
+        /// A raider within the hammer's reach is faced and hit; the mail waits. Returns true while
+        /// the bot fights.
+        /// </summary>
+        private bool Defend(ClientWorld world)
+        {
+            if (!Fights || world.Enemies.Count == 0) return false;
+            float range = world.Content.Balance.GetFloat("hammerRange") - 0.3f;
+            ClientEnemy? target = null;
+            float bestSq = float.MaxValue;
+            foreach (var e in world.Enemies.Values)
+            {
+                if (e.State == EnemyState.Flee) continue;
+                float dx = e.X - world.Local.X, dz = e.Z - world.Local.Z, sq = dx * dx + dz * dz;
+                float reach = range + e.Def.Radius;
+                if (sq > reach * reach || sq > bestSq || (sq == bestSq && target != null && e.Id > target.Id)) continue;
+                target = e;
+                bestSq = sq;
+            }
+            if (target == null) return false;
+            _client.Input.YawRadians = MathF.Atan2(-(target.X - world.Local.X), -(target.Z - world.Local.Z));
+            _client.Input.PitchRadians = 0f;
+            _client.Input.Buttons = InputButtons.Attack;
+            // A hold that was interrupted starts again.
+            if (_step == Step.Hold) _step = Step.ToMailbox;
+            return true;
         }
 
         private static GridEntry? FirstEntry(GridContainer container, HashSet<uint>? skip)

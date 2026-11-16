@@ -12,21 +12,38 @@ namespace PerformativeMail.Sim.Players
         public float VelY;
         public bool Grounded;
         public ushort Yaw;
+        /// <summary>Spent stamina: 0 fresh, 1 exhausted (so that a default state is a rested carrier).</summary>
+        public float Fatigue;
+        /// <summary>Ran the stamina out: no sprinting until part of it is back.</summary>
+        public bool Winded;
+        /// <summary>Down until the respawn (doc 05 §1.1); a dead carrier does not move.</summary>
+        public bool Dead;
+
+        public float Stamina => 1f - Fatigue;
     }
 
     /// <summary>Movement tunables (doc 11 / balance.json).</summary>
     public readonly struct MoveConstants
     {
         public readonly float WalkSpeed, SprintSpeed, JumpHeight, Gravity, Radius;
+        /// <summary>Fatigue gained per tick of sprinting and lost per tick of anything else.</summary>
+        public readonly float FatiguePerTick, RecoveryPerTick;
+        /// <summary>A winded carrier may sprint again once this much stamina is back.</summary>
+        public readonly float RecoverFraction;
 
-        public MoveConstants(float walk, float sprint, float jumpHeight, float gravity, float radius)
+        public MoveConstants(float walk, float sprint, float jumpHeight, float gravity, float radius,
+            float staminaSeconds = 0f, float staminaRegenSeconds = 0f, float recoverFraction = 0.2f)
         {
             WalkSpeed = walk; SprintSpeed = sprint; JumpHeight = jumpHeight; Gravity = gravity; Radius = radius;
+            FatiguePerTick = staminaSeconds > 0f ? SimConstants.TickDt / staminaSeconds : 0f;
+            RecoveryPerTick = staminaRegenSeconds > 0f ? SimConstants.TickDt / staminaRegenSeconds : 1f;
+            RecoverFraction = recoverFraction;
         }
 
         public static MoveConstants From(Balance b) => new MoveConstants(
             b.GetFloat("walkSpeed"), b.GetFloat("sprintSpeed"), b.GetFloat("jumpHeight"),
-            b.GetFloat("gravity"), b.GetFloat("playerRadius"));
+            b.GetFloat("gravity"), b.GetFloat("playerRadius"),
+            b.GetFloat("staminaSeconds"), b.GetFloat("staminaRegenSeconds"), b.GetFloat("staminaRecoverFraction"));
     }
 
     /// <summary>
@@ -48,12 +65,26 @@ namespace PerformativeMail.Sim.Players
                 float inv = 1f / MathF.Sqrt(lenSq);
                 mx *= inv; mz *= inv;
             }
-            float speed = (input.Has(InputButtons.Sprint) ? c.SprintSpeed : c.WalkSpeed) * speedMult;
+            if (s.Dead) mx = mz = lenSq = 0f;
+
+            // Sprinting spends stamina; out of it, a carrier walks until a part is back (the video's blue bar).
+            bool sprint = input.Has(InputButtons.Sprint) && lenSq > 0f && !s.Winded;
+            if (sprint)
+            {
+                s.Fatigue += c.FatiguePerTick;
+                if (s.Fatigue >= 1f) { s.Fatigue = 1f; s.Winded = true; }
+            }
+            else
+            {
+                s.Fatigue = MathF.Max(0f, s.Fatigue - c.RecoveryPerTick);
+                if (s.Fatigue <= 1f - c.RecoverFraction) s.Winded = false;
+            }
+            float speed = (sprint ? c.SprintSpeed : c.WalkSpeed) * speedMult;
             s.X += mx * speed * dt;
             s.Z += mz * speed * dt;
             ResolveCollisions(ref s.X, ref s.Z, s.Y, map, c.Radius);
 
-            if (s.Grounded && input.Has(InputButtons.Jump))
+            if (s.Grounded && input.Has(InputButtons.Jump) && !s.Dead)
             {
                 s.VelY = MathF.Sqrt(2f * c.Gravity * c.JumpHeight);
                 s.Grounded = false;

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Run;
@@ -103,5 +105,82 @@ namespace PerformativeMail.Sim
     public sealed class RunResultsEvent : SimEvent
     {
         public RunResults Results = null!;
+    }
+
+    public enum Weapon : byte { Hammer = 0, Cannon = 1 }
+
+    /// <summary>A carrier swung the hammer or fired the mail cannon; clients play it from here.</summary>
+    public sealed class AttackEvent : SimEvent
+    {
+        public EntityId Player;
+        public Weapon Weapon;
+        public float X, Z;
+        public ushort Yaw;
+        /// <summary>Hammer: enemies hit.</summary>
+        public byte Hits;
+    }
+
+    /// <summary>A cannon package went off.</summary>
+    public sealed class BlastEvent : SimEvent
+    {
+        public float X, Z;
+        public byte Hits;
+    }
+
+    /// <summary>An enemy fell. The snapshots simply stop listing it; this is for the effect and the loot card.</summary>
+    public sealed class EnemyDiedEvent : SimEvent
+    {
+        public EntityId Enemy;
+        public byte Kind;
+        public bool Mega;
+        public float X, Z;
+        public EntityId Killer;
+    }
+
+    /// <summary>What lies on the ground where an enemy fell.</summary>
+    public sealed class LootDroppedEvent : SimEvent
+    {
+        public uint LootId;
+        public float X, Z;
+        public byte EnemyKind;
+        public bool Mega;
+        public ushort Coins;
+        public List<LootItem> Items = new List<LootItem>();
+    }
+
+    /// <summary>A player took (part of) a loot bundle; <see cref="Gone"/> when nothing is left of it.</summary>
+    public sealed class LootTakenEvent : SimEvent
+    {
+        public uint LootId;
+        public EntityId Player;
+        public ushort Coins;
+        public List<LootItem> Items = new List<LootItem>();
+        public bool Gone;
+    }
+
+    /// <summary>The loot bundle despawned untaken (or the phase swept it away).</summary>
+    public sealed class LootGoneEvent : SimEvent
+    {
+        public uint LootId;
+    }
+
+    public sealed class RaidChangedEvent : SimEvent
+    {
+        public RaidState Raid;
+        /// <summary>Warning: the tick of the first spawn. Fleeing: the tick the last enemy is gone by.</summary>
+        public uint Tick;
+    }
+
+    public sealed class PlayerDiedEvent : SimEvent
+    {
+        public EntityId Player;
+        public uint RespawnTick;
+        /// <summary>Enemy kind that did it.</summary>
+        public byte Killer;
+    }
+
+    public sealed class PlayerRespawnedEvent : SimEvent
+    {
+        public EntityId Player;
     }
 }

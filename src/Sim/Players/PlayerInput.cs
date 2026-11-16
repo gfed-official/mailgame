@@ -9,6 +9,10 @@ namespace PerformativeMail.Sim.Players
         Sprint = 1 << 0,
         Jump = 1 << 1,
         Interact = 1 << 2,
+        /// <summary>Swing the hammer.</summary>
+        Attack = 1 << 3,
+        /// <summary>Fire the mail cannon.</summary>
+        AltAttack = 1 << 4,
     }
 
     /// <summary>

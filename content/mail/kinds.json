@@ -7,7 +7,7 @@
     "acceptedBy": ["house", "apartment", "pobox"], "complaintOnMisdelivery": 5, "unlockShift": 1 },
   { "id": "small", "name": "Small Package", "grid": [1, 2], "maxStack": 1, "baseValue": 30, "weightClass": "light",
     "carryByHand": true, "beltLanes": 1, "beltLength": 0.5, "deadlineOffsetShifts": 0,
-    "acceptedBy": ["house", "apartment"], "complaintOnMisdelivery": 8, "unlockShift": 1 },
+    "acceptedBy": ["house", "apartment"], "complaintOnMisdelivery": 8, "unlockShift": 1, "cannonAmmo": true },
   { "id": "medium", "name": "Medium Package", "grid": [2, 2], "maxStack": 1, "baseValue": 70, "weightClass": "medium",
     "carryByHand": true, "beltLanes": 1, "beltLength": 0.5, "deadlineOffsetShifts": 0,
     "acceptedBy": ["house", "apartment"], "complaintOnMisdelivery": 12, "unlockShift": 1 },

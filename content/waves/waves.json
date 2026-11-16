@@ -1,0 +1,21 @@
+{
+  "baseBudget": [0, 120, 220, 360, 560],
+  "waveScalePerExtraPlayer": 0.35,
+  "soloMult": 0.8,
+  "soloMaxPlayers": 2,
+  "pulses": 6,
+  "pulseIntervalSeconds": 15,
+  "finalePulseMult": 1.5,
+  "warningSeconds": 15,
+  "raidWindowSeconds": 90,
+  "megaChanceBase": 0.05,
+  "megaChancePerShift": 0.02,
+  "mega": { "hpMult": 2.5, "dmgMult": 1.5, "scale": 1.4, "speedMult": 0.9, "lootMult": 3 },
+  "maxAlive": 48,
+  "weightsByShift": {
+    "2": { "barbarian": 60, "swarmling": 40 },
+    "3": { "barbarian": 40, "swarmling": 30, "giant": 15 },
+    "4": { "barbarian": 30, "swarmling": 30, "giant": 15 },
+    "5": { "barbarian": 25, "swarmling": 30, "giant": 15 }
+  }
+}
