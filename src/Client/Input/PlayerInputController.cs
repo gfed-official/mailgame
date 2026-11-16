@@ -36,7 +36,7 @@ namespace PerformativeMail.Client.InputHandling
         private readonly HotbarAssist _assist = new HotbarAssist();
         private bool _uiOpen;
         private bool _wantCapture = true;
-        private bool _deliverAllQueued, _interactTapped;
+        private bool _deliverAllQueued, _interactTapped, _attackSwallowed;
         private uint _pauseRequest;
 
         public void Setup(ClientRuntime client, InteractionController interaction)
@@ -69,6 +69,8 @@ namespace PerformativeMail.Client.InputHandling
                 case InputEventMouseButton button when button.Pressed:
                     if (!_uiOpen && !Captured && button.ButtonIndex == MouseButton.Left)
                     {
+                        // The click that takes the mouse back is not a swing of the hammer.
+                        _attackSwallowed = true;
                         _wantCapture = true;
                         ApplyMouseMode();
                     }
@@ -146,6 +148,12 @@ namespace PerformativeMail.Client.InputHandling
             if (!_uiOpen && Godot.Input.IsActionPressed(InputActions.Sprint)) buttons |= InputButtons.Sprint;
             if (!_uiOpen && Godot.Input.IsActionPressed(InputActions.Jump)) buttons |= InputButtons.Jump;
             if (interact) buttons |= InputButtons.Interact;
+            // The weapons are in the hands only while the view is the player's: not under a panel, not with the mouse let go.
+            bool attack = Godot.Input.IsActionPressed(InputActions.Attack);
+            if (!attack) _attackSwallowed = false;
+            bool armed = !_uiOpen && (Captured || DisplayServer.GetName() == "headless");
+            if (armed && attack && !_attackSwallowed) buttons |= InputButtons.Attack;
+            if (armed && Godot.Input.IsActionPressed(InputActions.AltAttack)) buttons |= InputButtons.AltAttack;
             _client.Input.Buttons = buttons;
 
             // The Intake closes with the same key that opened it, so interact stays live under the panel.

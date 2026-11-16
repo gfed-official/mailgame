@@ -24,6 +24,10 @@ namespace PerformativeMail.Client.InputHandling
         public const string Go = "go";
         /// <summary>Turns the stack on the cursor a quarter (doc 09 §4: R).</summary>
         public const string Rotate = "rotate";
+        /// <summary>The hammer: left mouse button, right trigger (the concept video's melee).</summary>
+        public const string Attack = "attack";
+        /// <summary>The mail cannon: right mouse button, left trigger.</summary>
+        public const string AltAttack = "alt_attack";
 
         private static readonly HashSet<string> Created = new HashSet<string>();
 
@@ -41,6 +45,8 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Pause, Key.Escape);
             BindKey(Go, Key.G);
             BindKey(Rotate, Key.R);
+            BindMouse(Attack, MouseButton.Left);
+            BindMouse(AltAttack, MouseButton.Right);
 
             BindAxis(MoveForward, JoyAxis.LeftY, -1f);
             BindAxis(MoveBack, JoyAxis.LeftY, 1f);
@@ -52,6 +58,8 @@ namespace PerformativeMail.Client.InputHandling
             BindButton(Inventory, JoyButton.Y);
             BindButton(Pause, JoyButton.Start);
             BindButton(Go, JoyButton.Back);
+            BindAxis(Attack, JoyAxis.TriggerRight, 1f);
+            BindAxis(AltAttack, JoyAxis.TriggerLeft, 1f);
         }
 
         /// <summary>True if the action is ours to fill in.</summary>
@@ -67,6 +75,11 @@ namespace PerformativeMail.Client.InputHandling
         private static void BindKey(string action, Key key)
         {
             if (Ensure(action)) InputMap.ActionAddEvent(action, new InputEventKey { PhysicalKeycode = key });
+        }
+
+        private static void BindMouse(string action, MouseButton button)
+        {
+            if (Ensure(action)) InputMap.ActionAddEvent(action, new InputEventMouseButton { ButtonIndex = button });
         }
 
         private static void BindAxis(string action, JoyAxis axis, float value)

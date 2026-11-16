@@ -1,0 +1,329 @@
+using System.Collections.Generic;
+using Godot;
+
+namespace PerformativeMail.Client.Presentation
+{
+    /// <summary>
+    /// A body of rounded parts on a few pivots (hips, shoulders, the whole trunk), moved by code:
+    /// a walk cycle from the speed it is carried at, a raised arm that comes down, a white flash
+    /// when hurt, a fall when down. Carriers, raiders, the swarm and the giant are all one of these
+    /// (<see cref="Characters"/> builds them); yaw 0 faces −Z like everything else.
+    /// </summary>
+    public partial class CharacterModel : Node3D
+    {
+        /// <summary>Radians of leg swing per metre walked, at scale 1.</summary>
+        private const float StridePerMetre = 2.6f;
+        private const float StrikeSeconds = 0.22f;
+        private const float RecoverSeconds = 0.3f;
+        private const float FlashSeconds = 0.18f;
+
+        /// <summary>Everything above the feet; it leans, bobs and falls as one.</summary>
+        public Node3D Trunk { get; } = new Node3D { Name = "Trunk" };
+        public Node3D ArmL { get; private set; } = null!;
+        public Node3D ArmR { get; private set; } = null!;
+        public Node3D LegL { get; private set; } = null!;
+        public Node3D LegR { get; private set; } = null!;
+        /// <summary>The right hand: what is held hangs here.</summary>
+        public Node3D Hand { get; private set; } = null!;
+        /// <summary>Top of the head in metres at scale 1 (name tags and health bars sit above it).</summary>
+        public float Height = 1.8f;
+        /// <summary>How far the striking arm is raised, radians.</summary>
+        public float RaisedArm = 2.5f;
+        /// <summary>A creature that strikes with both arms (the giant's slam, the swarm's bite).</summary>
+        public bool BothArms;
+        /// <summary>The right arm is held out level (a carrier with the cannon out).</summary>
+        public bool Aiming;
+
+        private const float AimedArm = 1.35f;
+
+        private readonly List<MeshInstance3D> _meshes = new List<MeshInstance3D>();
+        private StandardMaterial3D? _flash;
+        private float _stride, _amplitude, _raise, _aim, _strike = -1f, _flashLeft, _down;
+
+        public CharacterModel()
+        {
+            AddChild(Trunk);
+        }
+
+        /// <summary>A pivot on the trunk (a shoulder) or on the root (a hip).</summary>
+        public Node3D Pivot(string name, Vector3 position, bool onTrunk = true)
+        {
+            var pivot = new Node3D { Name = name, Position = position };
+            (onTrunk ? Trunk : this).AddChild(pivot);
+            return pivot;
+        }
+
+        public MeshInstance3D Part(Node3D parent, Mesh mesh, Material material, Vector3 position, Vector3 rotationDegrees = default, Vector3? scale = null)
+        {
+            var part = MeshKit.Instance(mesh, material, position, rotationDegrees);
+            if (scale != null) part.Scale = scale.Value;
+            parent.AddChild(part);
+            _meshes.Add(part);
+            return part;
+        }
+
+        public void SetLimbs(Node3D armL, Node3D armR, Node3D legL, Node3D legR, Node3D hand)
+        {
+            ArmL = armL; ArmR = armR; LegL = legL; LegR = legR; Hand = hand;
+        }
+
+        /// <summary>The blow comes down now (a hammer swing, an enemy's hit).</summary>
+        public void Strike() => _strike = 0f;
+
+        /// <summary>A white flash over the whole body: it was hit.</summary>
+        public void Flash() => _flashLeft = FlashSeconds;
+
+        /// <param name="speed">Metres per second over the ground.</param>
+        /// <param name="windup">The striking arm is held up (an enemy about to hit).</param>
+        /// <param name="down">Lying on the ground.</param>
+        public void Animate(float delta, float speed, bool windup, bool down)
+        {
+            float scale = Mathf.Max(0.2f, Scale.Y);
+            _stride += speed / scale * StridePerMetre * delta;
+            _amplitude = Mathf.MoveToward(_amplitude, Mathf.Clamp(speed / (2.5f * scale), 0f, 1f), delta * 6f);
+            float swing = Mathf.Sin(_stride) * 0.75f * _amplitude;
+            LegL.Rotation = new Vector3(swing, 0f, 0f);
+            LegR.Rotation = new Vector3(-swing, 0f, 0f);
+
+            _raise = Mathf.MoveToward(_raise, windup ? 1f : 0f, delta * (windup ? 5f : 8f));
+            // A positive turn about X brings a hanging arm forward (−Z) and up.
+            float arm = -swing * 0.8f, struck = _raise * RaisedArm;
+            if (_strike >= 0f)
+            {
+                _strike += delta;
+                // Up in a blink, down hard, then back to the side.
+                if (_strike < StrikeSeconds) struck = Mathf.Lerp(RaisedArm, 0.9f, Mathf.Ease(_strike / StrikeSeconds, 2.2f));
+                else if (_strike < StrikeSeconds + RecoverSeconds) struck = Mathf.Lerp(0.9f, 0f, (_strike - StrikeSeconds) / RecoverSeconds);
+                else _strike = -1f;
+            }
+            bool striking = _strike >= 0f || _raise > 0.01f;
+            _aim = Mathf.MoveToward(_aim, Aiming ? 1f : 0f, delta * 8f);
+            ArmR.Rotation = new Vector3(striking ? struck : Mathf.Lerp(arm, AimedArm, _aim), 0f, 0f);
+            ArmL.Rotation = new Vector3(striking && BothArms ? struck : -arm, 0f, 0f);
+
+            _down = Mathf.MoveToward(_down, down ? 1f : 0f, delta * 3.5f);
+            float fall = Mathf.Ease(_down, 0.5f);
+            float lean = _amplitude * -0.12f + _raise * 0.18f + (_strike >= 0f && _strike < StrikeSeconds ? -0.25f : 0f);
+            Trunk.Rotation = new Vector3(Mathf.Lerp(lean, Mathf.Pi * 0.5f, fall), 0f, 0f);
+            Trunk.Position = new Vector3(0f, Mathf.Abs(Mathf.Sin(_stride)) * 0.05f * _amplitude + fall * 0.22f, fall * 0.5f);
+            LegL.Visible = LegR.Visible = _down < 0.5f;
+
+            if (_flashLeft > 0f || _flash != null) ApplyFlash(delta);
+        }
+
+        private void ApplyFlash(float delta)
+        {
+            _flashLeft = Mathf.Max(0f, _flashLeft - delta);
+            if (_flashLeft <= 0f)
+            {
+                if (_flash == null) return;
+                foreach (var mesh in _meshes) mesh.MaterialOverlay = null;
+                _flash = null;
+                return;
+            }
+            if (_flash == null)
+            {
+                _flash = new StandardMaterial3D
+                {
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                };
+                foreach (var mesh in _meshes) mesh.MaterialOverlay = _flash;
+            }
+            _flash.AlbedoColor = new Color(1f, 0.96f, 0.9f, 0.85f * _flashLeft / FlashSeconds);
+        }
+    }
+
+    /// <summary>The people and creatures of the concept video, built from rounded shapes (no art assets yet).</summary>
+    public static class Characters
+    {
+        private static readonly Color Skin = new Color("e8b796");
+        private static readonly Color Navy = new Color("2b3350");
+        private static readonly Color Leather = new Color("7a4a2b");
+        private static readonly Color Iron = new Color("8b9099");
+        private static readonly Color Bone = new Color("e9dfc8");
+        private static readonly Color RaiderRed = new Color("7d2227");
+        private static readonly Color SwarmRed = new Color("d8402f");
+        private static readonly Color GiantHide = new Color("4b3d5c");
+
+        /// <summary>A mail carrier: jacket and cap in the player's colour, satchel on the hip.</summary>
+        public static CharacterModel Carrier(Color colour)
+        {
+            var m = new CharacterModel { Name = "Carrier", Height = 1.86f };
+            var jacket = MeshKit.Mat(colour, 0.8f);
+            var trousers = MeshKit.Mat(Navy, 0.85f);
+            var skin = MeshKit.Mat(Skin, 0.7f);
+            Humanoid(m, jacket, jacket, trousers, skin, MeshKit.Mat(new Color("2a2422"), 0.6f), shoulder: 0.31f, torsoRadius: 0.25f, limb: 0.085f);
+
+            // The cap: a low crown and a brim over the eyes.
+            var cap = MeshKit.Mat(colour.Darkened(0.35f), 0.7f);
+            m.Part(m.Trunk, MeshKit.Sphere(0.215f), cap, new Vector3(0f, 1.74f, 0.01f), scale: new Vector3(1f, 0.62f, 1f));
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.3f, 0.035f, 0.2f), 0.017f), cap, new Vector3(0f, 1.71f, -0.24f), new Vector3(-8f, 0f, 0f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.03f, 10), MeshKit.Mat(new Color("f2c14e"), 0.4f, 0.6f), new Vector3(0f, 1.78f, -0.2f));
+            // Eyes, so the facing reads from across the street.
+            var eye = MeshKit.Mat(new Color("1b1b1e"), 0.4f);
+            m.Part(m.Trunk, MeshKit.Sphere(0.028f, 10), eye, new Vector3(-0.075f, 1.63f, -0.185f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.028f, 10), eye, new Vector3(0.075f, 1.63f, -0.185f));
+            // The satchel and its strap.
+            var leather = MeshKit.Mat(Leather, 0.8f);
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.14f, 0.3f, 0.36f), 0.05f), leather, new Vector3(-0.3f, 0.92f, 0.02f));
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.62f, 0.05f, 0.03f), 0.012f), leather, new Vector3(0f, 1.2f, -0.235f), new Vector3(0f, 0f, -38f));
+            return m;
+        }
+
+        /// <summary>The enemy the content calls <paramref name="id"/>; an unknown one is drawn as a raider.</summary>
+        public static CharacterModel Enemy(string id, bool mega)
+        {
+            switch (id)
+            {
+                case "swarmling": return Swarmling(mega);
+                case "giant": return Giant(mega);
+                default: return Raider(mega);
+            }
+        }
+
+        /// <summary>The helmeted dark-red raider of the video, club in hand.</summary>
+        public static CharacterModel Raider(bool mega)
+        {
+            var m = new CharacterModel { Name = "Raider", Height = 1.9f };
+            var tunic = MeshKit.Mat(RaiderRed, 0.85f);
+            var skin = MeshKit.Mat(new Color("c99a7c"), 0.75f);
+            Humanoid(m, tunic, skin, MeshKit.Mat(new Color("3b2a25"), 0.9f), skin, MeshKit.Mat(new Color("2a1f1c"), 0.8f), shoulder: 0.36f, torsoRadius: 0.3f, limb: 0.1f);
+
+            var iron = MeshKit.Mat(Iron, 0.45f, 0.7f);
+            // Helmet with a nose guard, a belt, and fur on the shoulders.
+            m.Part(m.Trunk, MeshKit.Sphere(0.235f), iron, new Vector3(0f, 1.71f, 0.02f), scale: new Vector3(1f, 0.8f, 1f));
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.05f, 0.17f, 0.04f), 0.018f), iron, new Vector3(0f, 1.63f, -0.21f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.31f, 0.31f, 0.09f), MeshKit.Mat(Leather, 0.7f), new Vector3(0f, 0.95f, 0f));
+            var fur = MeshKit.Mat(new Color("5a4638"), 1f);
+            m.Part(m.Trunk, MeshKit.Blob(0.17f, 0.2f, 3f, 5, new Vector3(1.1f, 0.7f, 1.2f), 6), fur, new Vector3(-0.33f, 1.45f, 0f));
+            m.Part(m.Trunk, MeshKit.Blob(0.17f, 0.2f, 3f, 9, new Vector3(1.1f, 0.7f, 1.2f), 6), fur, new Vector3(0.33f, 1.45f, 0f));
+            Eyes(m, new Vector3(0f, 1.62f, -0.18f), 0.08f, 0.03f, mega);
+
+            // The club, thick end up.
+            var wood = MeshKit.Mat(new Color("6b4a2e"), 0.9f);
+            m.Part(m.Hand, MeshKit.Cylinder(0.035f, 0.075f, 0.8f, 12), wood, new Vector3(0f, 0.05f, -0.3f), new Vector3(-80f, 0f, 0f));
+            m.Part(m.Hand, MeshKit.Sphere(0.08f, 12), wood, new Vector3(0f, 0.12f, -0.7f));
+            return m;
+        }
+
+        /// <summary>One of the swarm: a round red body on short legs, all eyes and horns.</summary>
+        public static CharacterModel Swarmling(bool mega)
+        {
+            var m = new CharacterModel { Name = "Swarmling", Height = 1.5f, RaisedArm = 2.0f, BothArms = true };
+            var red = MeshKit.Mat(SwarmRed, 0.6f);
+            var dark = MeshKit.Mat(SwarmRed.Darkened(0.45f), 0.7f);
+            m.Part(m.Trunk, MeshKit.Blob(0.46f, 0.08f, 2.2f, 3, new Vector3(1f, 0.95f, 0.95f), 8), red, new Vector3(0f, 0.92f, 0f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.3f), MeshKit.Mat(new Color("f08a6a"), 0.7f), new Vector3(0f, 0.8f, -0.2f), scale: new Vector3(1f, 0.9f, 0.7f));
+
+            var legL = m.Pivot("LegL", new Vector3(-0.2f, 0.5f, 0f), onTrunk: false);
+            var legR = m.Pivot("LegR", new Vector3(0.2f, 0.5f, 0f), onTrunk: false);
+            foreach (var leg in new[] { legL, legR })
+            {
+                m.Part(leg, MeshKit.Capsule(0.1f, 0.5f, 12), dark, new Vector3(0f, -0.25f, 0f));
+                m.Part(leg, MeshKit.Sphere(0.13f, 12), dark, new Vector3(0f, -0.44f, -0.06f), scale: new Vector3(1f, 0.6f, 1.4f));
+            }
+            var armL = m.Pivot("ArmL", new Vector3(-0.44f, 1.0f, 0f));
+            var armR = m.Pivot("ArmR", new Vector3(0.44f, 1.0f, 0f));
+            foreach (var arm in new[] { armL, armR })
+            {
+                m.Part(arm, MeshKit.Capsule(0.08f, 0.46f, 12), dark, new Vector3(0f, -0.2f, 0f));
+                m.Part(arm, MeshKit.Sphere(0.1f, 12), dark, new Vector3(0f, -0.42f, 0f));
+            }
+            var hand = new Node3D { Name = "Hand", Position = new Vector3(0f, -0.42f, 0f) };
+            armR.AddChild(hand);
+            m.SetLimbs(armL, armR, legL, legR, hand);
+
+            var bone = MeshKit.Mat(Bone, 0.6f);
+            m.Part(m.Trunk, MeshKit.Cone(0.07f, 0.26f, 10), bone, new Vector3(-0.22f, 1.4f, -0.02f), new Vector3(0f, 0f, 24f));
+            m.Part(m.Trunk, MeshKit.Cone(0.07f, 0.26f, 10), bone, new Vector3(0.22f, 1.4f, -0.02f), new Vector3(0f, 0f, -24f));
+            // Teeth under two big eyes.
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.3f, 0.07f, 0.04f), 0.02f), bone, new Vector3(0f, 0.78f, -0.42f));
+            Eyes(m, new Vector3(0f, 1.04f, -0.37f), 0.15f, 0.11f, mega);
+            return m;
+        }
+
+        /// <summary>The horned giant of the night raid: a heavy trunk on short legs, long arms, fists.</summary>
+        public static CharacterModel Giant(bool mega)
+        {
+            var m = new CharacterModel { Name = "Giant", Height = 1.95f, RaisedArm = 2.7f, BothArms = true };
+            var hide = MeshKit.Mat(GiantHide, 0.9f);
+            var dark = MeshKit.Mat(GiantHide.Darkened(0.35f), 0.9f);
+            var belly = MeshKit.Mat(GiantHide.Lightened(0.18f), 0.9f);
+            m.Part(m.Trunk, MeshKit.Blob(0.47f, 0.07f, 2f, 11, new Vector3(1.1f, 1.05f, 0.9f), 9), hide, new Vector3(0f, 1.12f, 0f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.36f), belly, new Vector3(0f, 0.98f, -0.16f), scale: new Vector3(1f, 1f, 0.7f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.21f), hide, new Vector3(0f, 1.66f, -0.1f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.13f, 12), dark, new Vector3(0f, 1.6f, -0.26f), scale: new Vector3(1.2f, 0.8f, 1f));
+            // Loincloth and a rope belt.
+            m.Part(m.Trunk, MeshKit.Cylinder(0.46f, 0.42f, 0.2f), MeshKit.Mat(new Color("6b4a2e"), 1f), new Vector3(0f, 0.68f, 0f));
+
+            var legL = m.Pivot("LegL", new Vector3(-0.24f, 0.62f, 0f), onTrunk: false);
+            var legR = m.Pivot("LegR", new Vector3(0.24f, 0.62f, 0f), onTrunk: false);
+            foreach (var leg in new[] { legL, legR })
+            {
+                m.Part(leg, MeshKit.Capsule(0.17f, 0.66f, 14), dark, new Vector3(0f, -0.3f, 0f));
+                m.Part(leg, MeshKit.Sphere(0.19f, 12), dark, new Vector3(0f, -0.54f, -0.08f), scale: new Vector3(1f, 0.5f, 1.4f));
+            }
+            var armL = m.Pivot("ArmL", new Vector3(-0.56f, 1.42f, 0f));
+            var armR = m.Pivot("ArmR", new Vector3(0.56f, 1.42f, 0f));
+            foreach (var arm in new[] { armL, armR })
+            {
+                m.Part(arm, MeshKit.Sphere(0.2f, 14), hide, Vector3.Zero);
+                m.Part(arm, MeshKit.Capsule(0.14f, 0.86f, 14), hide, new Vector3(0f, -0.4f, 0f));
+                m.Part(arm, MeshKit.Sphere(0.2f, 14), dark, new Vector3(0f, -0.86f, 0f));
+            }
+            var hand = new Node3D { Name = "Hand", Position = new Vector3(0f, -0.86f, 0f) };
+            armR.AddChild(hand);
+            m.SetLimbs(armL, armR, legL, legR, hand);
+
+            // The horns sweep out and up.
+            var bone = MeshKit.Mat(Bone, 0.55f);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                m.Part(m.Trunk, MeshKit.Cylinder(0.075f, 0.06f, 0.26f, 12), bone, new Vector3(side * 0.27f, 1.76f, -0.08f), new Vector3(0f, 0f, side * -62f));
+                m.Part(m.Trunk, MeshKit.Cone(0.06f, 0.34f, 12), bone, new Vector3(side * 0.43f, 1.94f, -0.08f), new Vector3(0f, 0f, side * -14f));
+            }
+            Eyes(m, new Vector3(0f, 1.7f, -0.29f), 0.08f, 0.04f, glow: true);
+            return m;
+        }
+
+        /// <summary>Two legs, a capsule trunk, two arms and a head: the frame carriers and raiders share.</summary>
+        private static void Humanoid(CharacterModel m, Material torso, Material sleeves, Material legs, Material skin, Material shoes, float shoulder, float torsoRadius, float limb)
+        {
+            m.Part(m.Trunk, MeshKit.Capsule(torsoRadius, 0.78f), torso, new Vector3(0f, 1.14f, 0f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.2f), skin, new Vector3(0f, 1.64f, 0f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.08f, 0.09f, 0.1f, 12), skin, new Vector3(0f, 1.47f, 0f));
+
+            var legL = m.Pivot("LegL", new Vector3(-0.13f, 0.84f, 0f), onTrunk: false);
+            var legR = m.Pivot("LegR", new Vector3(0.13f, 0.84f, 0f), onTrunk: false);
+            foreach (var leg in new[] { legL, legR })
+            {
+                m.Part(leg, MeshKit.Capsule(limb + 0.025f, 0.84f, 14), legs, new Vector3(0f, -0.4f, 0f));
+                m.Part(leg, MeshKit.RoundedBox(new Vector3(0.17f, 0.11f, 0.3f), 0.05f), shoes, new Vector3(0f, -0.785f, -0.05f));
+            }
+            var armL = m.Pivot("ArmL", new Vector3(-shoulder, 1.4f, 0f));
+            var armR = m.Pivot("ArmR", new Vector3(shoulder, 1.4f, 0f));
+            foreach (var arm in new[] { armL, armR })
+            {
+                m.Part(arm, MeshKit.Capsule(limb, 0.64f, 14), sleeves, new Vector3(0f, -0.27f, 0f));
+                m.Part(arm, MeshKit.Sphere(limb + 0.01f, 12), skin, new Vector3(0f, -0.6f, 0f));
+            }
+            var hand = new Node3D { Name = "Hand", Position = new Vector3(0f, -0.6f, 0f) };
+            armR.AddChild(hand);
+            m.SetLimbs(armL, armR, legL, legR, hand);
+        }
+
+        /// <summary>Two eyes around <paramref name="centre"/>; a mega's (and the giant's) burn orange.</summary>
+        private static void Eyes(CharacterModel m, Vector3 centre, float apart, float size, bool glow)
+        {
+            var white = glow ? MeshKit.Glow(new Color("ff9a3c"), 3f) : MeshKit.Mat(new Color("fff6e6"), 0.4f);
+            var pupil = MeshKit.Mat(new Color("1b1b1e"), 0.4f);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var at = centre + new Vector3(side * apart, 0f, 0f);
+                m.Part(m.Trunk, MeshKit.Sphere(size, 12), white, at);
+                if (!glow) m.Part(m.Trunk, MeshKit.Sphere(size * 0.5f, 10), pupil, at + new Vector3(0f, 0f, -size * 0.7f));
+            }
+        }
+    }
+}

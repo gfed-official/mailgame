@@ -30,6 +30,14 @@ namespace PerformativeMail.Client.Presentation
 
         public override void _Process(double delta) => Sync(delta);
 
+        /// <summary>Where a player's feet are drawn right now; false for a player without a view.</summary>
+        public bool TryGetPosition(EntityId id, out Vector3 position)
+        {
+            bool known = _views.TryGetValue(id, out var view);
+            position = known ? view!.Position : Vector3.Zero;
+            return known;
+        }
+
         private void Sync(double delta)
         {
             var world = _client?.World;
@@ -59,9 +67,7 @@ namespace PerformativeMail.Client.Presentation
                 }
                 else if (player.Interpolate(world.ServerTick - ClientRuntime.InterpolationDelayTicks, out float x, out float y, out float z, out float yaw))
                 {
-                    view.Position = new Vector3(x, y, z);
-                    view.Rotation = new Vector3(0f, yaw, 0f);
-                    view.SetHoldingMail(player.HeldSlot > 0);
+                    view.Show(player, new Vector3(x, y, z), yaw, (float)delta);
                 }
             }
 

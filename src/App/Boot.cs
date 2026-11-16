@@ -116,7 +116,7 @@ namespace PerformativeMail.App
                 AddChild(screen);
                 if (lookDev != null && !smoke)
                 {
-                    var tour = new LookDev { Name = "LookDev", Dir = lookDev, Extra = lookDevViews };
+                    var tour = new LookDev { Name = "LookDev", Dir = lookDev, Extra = lookDevViews, Server = session.Server?.World };
                     AddChild(tour);
                     tour.Setup(screen);
                     return;

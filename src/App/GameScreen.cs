@@ -2,6 +2,7 @@ using Godot;
 using PerformativeMail.Client.InputHandling;
 using PerformativeMail.Client.Presentation;
 using PerformativeMail.Client.UI;
+using PerformativeMail.Sim.Combat;
 
 namespace PerformativeMail.App
 {
@@ -13,6 +14,10 @@ namespace PerformativeMail.App
     {
         public WorldView World { get; private set; } = null!;
         public PlayersView Players { get; private set; } = null!;
+        public EnemiesView Enemies { get; private set; } = null!;
+        public CombatEffects Effects { get; private set; } = null!;
+        /// <summary>The raid brings the night (as in the concept video); look-dev sets the hour itself.</summary>
+        public bool DriveAtmosphere = true;
         public FirstPersonCamera Camera { get; private set; } = null!;
         public Hud Hud { get; private set; } = null!;
         public InventoryPanel Inventory { get; private set; } = null!;
@@ -34,6 +39,13 @@ namespace PerformativeMail.App
             Players = new PlayersView { Name = "Players" };
             AddChild(Players);
             Players.Setup(client);
+
+            Enemies = new EnemiesView { Name = "Enemies" };
+            AddChild(Enemies);
+            Enemies.Setup(client);
+            Effects = new CombatEffects { Name = "Effects" };
+            AddChild(Effects);
+            Effects.Setup(client, Players);
 
             // After the players in the tree, so each frame it sits on where the local view just moved to.
             Camera = new FirstPersonCamera { Name = "Camera", Target = Players.LocalView };
@@ -68,10 +80,14 @@ namespace PerformativeMail.App
             var world = _session?.Client.World;
             if (world == null) return;
             Camera.Target = Players.LocalView;
+            if (DriveAtmosphere) World.Atmosphere.TargetNight = NightFor(world.Raid);
             bool open = _inventoryOpen || world.OpenContainerId != 0;
             Inventory.Visible = open;
             if (_input != null) _input.UiOpen = open;
         }
+
+        /// <summary>Dusk falls with the warning, night with the raiders, and the day is back when they are gone.</summary>
+        public static float NightFor(RaidState raid) => raid == RaidState.None ? 0f : raid == RaidState.Warning ? 0.55f : 1f;
 
         public override void _ExitTree()
         {

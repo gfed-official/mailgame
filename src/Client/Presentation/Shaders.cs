@@ -226,6 +226,28 @@ void sky() {
 }
 ";
 
+        private const string HealthBarCode = @"
+shader_type spatial;
+render_mode unshaded, cull_disabled, shadows_disabled;
+uniform float hp = 1.0;
+void vertex() {
+    // Faces the camera wherever it stands, at the node's own scale.
+    mat4 facing = mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+    facing = facing * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0), vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));
+    MODELVIEW_MATRIX = VIEW_MATRIX * facing;
+    MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+}
+void fragment() {
+    float inside = step(0.03, UV.x) * step(UV.x, 0.97) * step(0.2, UV.y) * step(UV.y, 0.8);
+    vec3 fill = mix(vec3(0.95, 0.30, 0.22), vec3(0.72, 0.10, 0.12), UV.y);
+    vec3 bar = mix(vec3(0.16, 0.17, 0.22), fill, step(UV.x, 0.03 + 0.94 * hp));
+    ALBEDO = mix(vec3(0.03, 0.03, 0.05), bar, inside);
+}
+";
+
+        /// <summary>A bar over an enemy's head; each enemy has its own, set through the <c>hp</c> parameter (0..1).</summary>
+        public static ShaderMaterial HealthBar() => new ShaderMaterial { Shader = Get("healthbar", HealthBarCode) };
+
         private static readonly Dictionary<string, Shader> Compiled = new Dictionary<string, Shader>();
         private static readonly Dictionary<string, ShaderMaterial> Materials = new Dictionary<string, ShaderMaterial>();
 

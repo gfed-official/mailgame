@@ -1,20 +1,39 @@
 using Godot;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Players;
 
 namespace PerformativeMail.Client.Presentation
 {
     /// <summary>
     /// The local player's eyes (doc 00: 3D, first person). Sits at eye height on the local player
     /// view and looks along the client's yaw and pitch: the same <see cref="ViewRay"/> the interact
-    /// prompt is aimed with. The body is not drawn; the mail in hand is.
+    /// prompt is aimed with. The body is not drawn; what the hands hold is: the letter on the left,
+    /// and on the right the hammer or the mail cannon of the concept video, out while there is a
+    /// raid on or one of them was just used.
     /// </summary>
     public partial class FirstPersonCamera : Camera3D
     {
+        /// <summary>How long the weapon stays up after the last swing or shot with no raid on.</summary>
+        private const float DrawnSeconds = 4f;
+        /// <summary>How long the cannon stays in the hand after a shot before the hammer comes back.</summary>
+        private const float CannonSeconds = 2.5f;
+        private const float SwingSeconds = 0.38f;
+        private static readonly Vector3 HammerRest = new Vector3(0.4f, -0.66f, -0.5f);
+        private static readonly Vector3 CannonRest = new Vector3(0.3f, -0.4f, -0.42f);
+
         public Node3D? Target;
 
+        /// <summary>True while a weapon is up in the view.</summary>
+        public bool WeaponDrawn => _drawn > 0.5f;
+        /// <summary>True while the weapon in the view is the cannon.</summary>
+        public bool CannonOut => _cannon.Visible && WeaponDrawn;
+
         private ClientRuntime _client = null!;
-        private MeshInstance3D _held = null!;
+        private Node3D _held = null!, _hammer = null!, _cannon = null!;
+        private int _swings, _shots;
+        private float _drawn, _drawnLeft, _cannonLeft, _swing = -1f, _recoil;
 
         public void Setup(ClientRuntime client)
         {
@@ -22,19 +41,28 @@ namespace PerformativeMail.Client.Presentation
             Fov = 75f;
             Near = 0.05f;
             Current = true;
-            _held = new MeshInstance3D
-            {
-                Name = "HeldMail",
-                Mesh = new BoxMesh { Size = new Vector3(0.3f, 0.2f, 0.03f), Material = Palette.Flat(new Color("fff8e7")) },
-                Position = new Vector3(0.3f, -0.26f, -0.6f),
-                Rotation = new Vector3(-0.5f, 0.25f, 0f),
-                Visible = false,
-            };
+            _held = WeaponModels.Letter();
+            _held.Name = "HeldMail";
+            _held.Position = new Vector3(-0.3f, -0.26f, -0.6f);
+            _held.Rotation = new Vector3(-0.5f, -0.25f, 0f);
+            _held.Visible = false;
             AddChild(_held);
+            _hammer = WeaponModels.Hammer();
+            _hammer.Visible = false;
+            AddChild(_hammer);
+            _cannon = WeaponModels.Cannon();
+            _cannon.Visible = false;
+            AddChild(_cannon);
+            _swings = client.LocalHammerSwings;
+            _shots = client.LocalCannonShots;
             Sync();
         }
 
-        public override void _Process(double delta) => Sync();
+        public override void _Process(double delta)
+        {
+            Sync();
+            Animate((float)delta);
+        }
 
         /// <summary>Where the camera belongs for a player whose feet are at <paramref name="feet"/>.</summary>
         public static Vector3 EyePosition(Vector3 feet) => feet + new Vector3(0f, SimConstants.EyeHeight, 0f);
@@ -49,7 +77,60 @@ namespace PerformativeMail.Client.Presentation
 
             int slot = _client.Input.HeldSlot;
             var held = world.HasLocal && slot > 0 ? world.Hotbar.EntryAt(slot, 0) : null;
-            _held.Visible = held != null && held.Stack.Kind == StackKind.Mail;
+            _held.Visible = held != null && held.Stack.Kind == StackKind.Mail && !world.Local.Dead;
+        }
+
+        /// <summary>The hands: the weapon comes up, swings or kicks, and goes away again. The camera itself never moves for it.</summary>
+        private void Animate(float delta)
+        {
+            var world = _client?.World;
+            if (world == null) return;
+
+            if (_client!.LocalHammerSwings != _swings)
+            {
+                _swings = _client.LocalHammerSwings;
+                _swing = 0f;
+                _cannonLeft = 0f;
+                _drawnLeft = DrawnSeconds;
+            }
+            if (_client.LocalCannonShots != _shots)
+            {
+                _shots = _client.LocalCannonShots;
+                _recoil = 1f;
+                _cannonLeft = CannonSeconds;
+                _drawnLeft = DrawnSeconds;
+            }
+            // Taking aim with an empty hopper still shows the cannon: the HUD says what it wants.
+            if ((_client.Input.Buttons & InputButtons.AltAttack) != 0) { _cannonLeft = Mathf.Max(_cannonLeft, 0.6f); _drawnLeft = Mathf.Max(_drawnLeft, 0.6f); }
+            _drawnLeft = Mathf.Max(0f, _drawnLeft - delta);
+            _cannonLeft = Mathf.Max(0f, _cannonLeft - delta);
+
+            bool want = !world.Local.Dead && world.HasLocal && (world.Raid != RaidState.None || _drawnLeft > 0f);
+            _drawn = Mathf.MoveToward(_drawn, want ? 1f : 0f, delta * 5f);
+            bool cannon = _cannonLeft > 0f;
+            _hammer.Visible = _drawn > 0.01f && !cannon;
+            _cannon.Visible = _drawn > 0.01f && cannon;
+            var holstered = new Vector3(0f, -0.6f * (1f - Mathf.Ease(_drawn, 0.5f)), 0f);
+
+            // The hammer: back over the shoulder in a blink, down across the view, and up again.
+            float pitch = -0.95f, reach = 0f, roll = -0.3f;
+            if (_swing >= 0f)
+            {
+                _swing += delta;
+                float t = _swing / SwingSeconds;
+                if (t >= 1f) _swing = -1f;
+                else if (t < 0.25f) pitch = Mathf.Lerp(-0.95f, -0.2f, Mathf.Ease(t / 0.25f, 0.5f));
+                else if (t < 0.55f) { pitch = Mathf.Lerp(-0.2f, -1.9f, Mathf.Ease((t - 0.25f) / 0.3f, 2f)); reach = (t - 0.25f) / 0.3f; }
+                else { pitch = Mathf.Lerp(-1.9f, -0.95f, (t - 0.55f) / 0.45f); reach = 1f - (t - 0.55f) / 0.45f; }
+                roll = Mathf.Lerp(-0.3f, 0.25f, reach);
+            }
+            _hammer.Position = HammerRest + holstered + new Vector3(-0.16f * reach, 0.12f * reach, -0.22f * reach);
+            _hammer.Rotation = new Vector3(pitch, 0.1f, roll);
+
+            _recoil = Mathf.MoveToward(_recoil, 0f, delta * 3.2f);
+            float kick = _recoil * _recoil;
+            _cannon.Position = CannonRest + holstered + new Vector3(0f, 0.03f * kick, 0.16f * kick);
+            _cannon.Rotation = new Vector3(0.05f + 0.3f * kick, 0.1f, 0f);
         }
     }
 }
