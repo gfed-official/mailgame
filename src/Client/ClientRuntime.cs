@@ -8,6 +8,7 @@ using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Net;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
+using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Client
 {
@@ -49,6 +50,8 @@ namespace PerformativeMail.Client
         public string? DisconnectDetail { get; private set; }
         public ClientWorld? World { get; private set; }
         public string Name { get; }
+        /// <summary>What this client asks the server for when it joins (playtest nit 10).</summary>
+        public PlaytestFlags Playtest { get; }
 
         /// <summary>Set by the input layer; sampled once per client tick.</summary>
         public ClientInput Input;
@@ -89,8 +92,9 @@ namespace PerformativeMail.Client
         private double _errorSumSq;
         private long _errorSamples;
 
-        public ClientRuntime(ContentDb content, IClientTransport transport, string name)
+        public ClientRuntime(ContentDb content, IClientTransport transport, string name, PlaytestFlags playtest = PlaytestFlags.None)
         {
+            Playtest = playtest;
             _content = content;
             _transport = transport;
             _move = MoveConstants.From(content.Balance);
@@ -182,6 +186,8 @@ namespace PerformativeMail.Client
             {
                 case RunPhase.Lobby: return world.IsHost ? StartRun() : SetReady(!world.LocalReady);
                 case RunPhase.Prep: return SetReady(!world.LocalReady);
+                // A stopped clock never runs out, so the host ends the shift by hand.
+                case RunPhase.Delivery: return world.ClockStopped && world.IsHost ? ContinueRun() : 0;
                 case RunPhase.Results: return world.IsHost ? ContinueRun() : 0;
                 default: return 0;
             }
@@ -265,7 +271,7 @@ namespace PerformativeMail.Client
         {
             if (State != ClientState.Connecting) return;
             _writer.Reset();
-            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name }.Write(_writer);
+            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name, Playtest = Playtest }.Write(_writer);
             _transport.Send(NetChannel.Reliable, _writer.ToArray());
             State = ClientState.Joining;
         }
@@ -319,6 +325,7 @@ namespace PerformativeMail.Client
                 IntakeContainerId = m.IntakeContainerId,
                 ChestContainerIds = m.ChestContainerIds.ToArray(),
                 Global = m.Global,
+                GlobalTick = m.Tick,
                 ServerTick = m.Tick,
             };
             foreach (var p in m.Players) world.Players[p.Id] = new ClientPlayer(p.Id, p.Name, p.Slot);
@@ -331,6 +338,34 @@ namespace PerformativeMail.Client
             LoadContainer(m.Hotbar);
             LoadContainer(m.Inventory);
             State = ClientState.Joined;
+            // The server has parked this player already; its event may have come before the Welcome.
+            if ((Playtest & PlaytestFlags.AtMailbox) != 0 && world.Players.TryGetValue(m.PlayerId, out var self))
+                FaceMailbox(world, PlaytestSpot.Mailbox(map, self.Slot));
+        }
+
+        /// <summary>
+        /// The server has put the local player before a mailbox (<see cref="PlaytestFlags.AtMailbox"/>):
+        /// stand there at once and look at the box, so that its prompt is up without a mouse move.
+        /// </summary>
+        private void FaceMailbox(ClientWorld world, DestinationDef dest)
+        {
+            PlaytestSpot.Stand(world.Map, dest, _move.Radius, out float x, out float z);
+            var feet = new PlayerMoveState { X = x, Z = z, Y = world.Map.HeightAt(x, z), Grounded = true };
+            var box = AimBox.Mailbox(world.Map, dest);
+            ViewRay.Aim(feet, box.X, box.Y, box.Z, out Input.YawRadians, out Input.PitchRadians);
+            feet.Yaw = PlayerInput.QuantizeYaw(Input.YawRadians);
+            // Inputs sent from the old place would only walk the server's copy away from the box.
+            _pendingInputs.Clear();
+            world.Local = feet;
+            // The mail for the box in hand, when there is some: holding the key is all that is left to do.
+            var hotbar = world.Hotbar;
+            for (int slot = 1; slot < hotbar.Cols; slot++)
+            {
+                var entry = hotbar.EntryAt(slot, 0);
+                if (entry == null || entry.Stack.Kind != StackKind.Mail || entry.Stack.Address != dest.Address) continue;
+                Input.HeldSlot = (byte)slot;
+                break;
+            }
         }
 
         private void HandleSnapshot(SnapshotMsg m)
@@ -349,7 +384,11 @@ namespace PerformativeMail.Client
             foreach (var snap in m.Players)
                 if (world.Players.TryGetValue(snap.Id, out var player)) player.Push(m.Tick, snap);
             if (m.HasEnemies) ApplyEnemies(world, m);
-            if (m.HasGlobal) world.Global = m.Global;
+            if (m.HasGlobal)
+            {
+                world.Global = m.Global;
+                world.GlobalTick = m.Tick;
+            }
             if (m.HasOwn) Reconcile(world, m);
         }
 
@@ -445,6 +484,7 @@ namespace PerformativeMail.Client
                     var g = world.Global;
                     g.Shift = e.Shift; g.Phase = e.Phase; g.PhaseEndTick = e.PhaseEndTick; g.Quota = e.Quota; g.Outcome = e.Outcome;
                     world.Global = g;
+                    world.GlobalTick = e.Tick;
                     // Every phase change clears the Ready flags (the snapshots confirm it a moment later).
                     foreach (var p in world.Players.Values) p.Ready = false;
                     if (e.Phase == RunPhase.Lobby)
@@ -518,6 +558,9 @@ namespace PerformativeMail.Client
                 case PlayerDiedEvent e:
                     if (world.Players.TryGetValue(e.Player, out var fallen)) fallen.RespawnTick = e.RespawnTick;
                     if (e.Player == world.LocalId) world.LocalRespawnTick = e.RespawnTick;
+                    break;
+                case PlayerParkedEvent e:
+                    if (e.Destination < world.Map.Destinations.Count) FaceMailbox(world, world.Map.Destinations[e.Destination]);
                     break;
             }
             EventReceived?.Invoke(ev);

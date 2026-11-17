@@ -30,6 +30,7 @@ namespace PerformativeMail.Sim.Net
         RaidChanged = 20,
         PlayerDied = 21,
         PlayerRespawned = 22,
+        PlayerParked = 23,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -77,7 +78,7 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case PhaseChangedEvent e:
                     w.U8((byte)EventType.PhaseChanged);
-                    w.U8(e.Shift); w.U8((byte)e.Phase); w.U32(e.PhaseEndTick); w.I32(e.Quota); w.U8((byte)e.Outcome);
+                    w.U8(e.Shift); w.U8((byte)e.Phase); w.U32(e.Tick); w.U32(e.PhaseEndTick); w.I32(e.Quota); w.U8((byte)e.Outcome);
                     break;
                 case ShiftSummaryEvent e:
                 {
@@ -145,6 +146,10 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.PlayerRespawned);
                     w.U32(e.Player.Value);
                     break;
+                case PlayerParkedEvent e:
+                    w.U8((byte)EventType.PlayerParked);
+                    w.U16(e.Destination);
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -182,7 +187,7 @@ namespace PerformativeMail.Sim.Net
                 case EventType.PhaseChanged:
                     return new PhaseChangedEvent
                     {
-                        Shift = r.U8(), Phase = (RunPhase)r.U8(), PhaseEndTick = r.U32(), Quota = r.I32(), Outcome = (RunOutcome)r.U8(),
+                        Shift = r.U8(), Phase = (RunPhase)r.U8(), Tick = r.U32(), PhaseEndTick = r.U32(), Quota = r.I32(), Outcome = (RunOutcome)r.U8(),
                     };
                 case EventType.ShiftSummary:
                 {
@@ -253,6 +258,8 @@ namespace PerformativeMail.Sim.Net
                     return new PlayerDiedEvent { Player = new EntityId(r.U32()), RespawnTick = r.U32(), Killer = r.U8() };
                 case EventType.PlayerRespawned:
                     return new PlayerRespawnedEvent { Player = new EntityId(r.U32()) };
+                case EventType.PlayerParked:
+                    return new PlayerParkedEvent { Destination = r.U16() };
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

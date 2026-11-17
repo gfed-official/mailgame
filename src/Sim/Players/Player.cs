@@ -42,6 +42,8 @@ namespace PerformativeMail.Sim.Players
         public bool Ready;
         /// <summary>Order of arrival; the earliest connected player is the host.</summary>
         public uint JoinOrder;
+        /// <summary>What the player's Hello asked for (playtest nit 10).</summary>
+        public PlaytestFlags Playtest;
 
         /// <summary>Doc 05 §1.1. 0 while dead (<see cref="PlayerMoveState.Dead"/>).</summary>
         public float Hp;

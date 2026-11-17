@@ -37,8 +37,8 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.3;" +
-            "Hello:u32 hash,str name;" +
+            "m1.4;" +
+            "Hello:u32 hash,str name,u8 playtest;Playtest:noTimer,atMailbox;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
@@ -48,16 +48,16 @@ namespace PerformativeMail.Sim.Net
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
             "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
             "MoveFlags:grounded,winded,dead;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
-            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid;" +
+            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 clockStopped;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
-            "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned;" +
+            "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked;" +
             "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
             "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +
             "LootDropped:u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count};" +
             "LootTaken:u32 id,u32 player,u16 coins,u8 n,{u16 item,u8 count},u8 gone;LootGone:u32 id;" +
-            "Raid:u8 state,u32 tick;PlayerDied:u32 player,u32 respawn,u8 killer;PlayerRespawned:u32 player;" +
-            "Phase:u8 shift,u8 phase,u32 end,i32 quota,u8 outcome;" +
+            "Raid:u8 state,u32 tick;PlayerDied:u32 player,u32 respawn,u8 killer;PlayerRespawned:u32 player;PlayerParked:u16 dest;" +
+            "Phase:u8 shift,u8 phase,u32 tick,u32 end,i32 quota,u8 outcome;" +
             "Paused:u8 paused,u32 tick;" +
             "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
             "Results:u8 outcome,u8 shifts,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp};" +
@@ -77,15 +77,18 @@ namespace PerformativeMail.Sim.Net
     {
         public uint ProtocolHash;
         public string Name = "";
+        /// <summary>Playtest nit 10: what this player asks the server for, guest or host alike.</summary>
+        public PlaytestFlags Playtest;
 
         public void Write(NetWriter w)
         {
             w.U8((byte)MsgType.Hello);
             w.U32(ProtocolHash);
             w.Str(Name);
+            w.U8((byte)Playtest);
         }
 
-        public static HelloMsg Read(NetReader r) => new HelloMsg { ProtocolHash = r.U32(), Name = r.Str() };
+        public static HelloMsg Read(NetReader r) => new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8() };
     }
 
     /// <summary>The last few inputs, oldest first (doc 06 §3: each packet repeats the last 3 for loss cover).</summary>
@@ -209,14 +212,14 @@ namespace PerformativeMail.Sim.Net
         {
             w.U8(g.Shift); w.U8((byte)g.Phase); w.U32(g.PhaseEndTick); w.I32(g.Quota); w.I32(g.ShiftEarnings);
             w.I32(g.Wallet); w.U8(g.Complaint); w.U16(g.Backlog); w.U16(g.Deliveries); w.U16(g.Misdeliveries);
-            w.U8((byte)g.Outcome); w.U32(g.Host.Value); w.U8((byte)g.Raid);
+            w.U8((byte)g.Outcome); w.U32(g.Host.Value); w.U8((byte)g.Raid); w.U8((byte)(g.ClockStopped ? 1 : 0));
         }
 
         public static GlobalState Read(NetReader r) => new GlobalState
         {
             Shift = r.U8(), Phase = (RunPhase)r.U8(), PhaseEndTick = r.U32(), Quota = r.I32(), ShiftEarnings = r.I32(),
             Wallet = r.I32(), Complaint = r.U8(), Backlog = r.U16(), Deliveries = r.U16(), Misdeliveries = r.U16(),
-            Outcome = (RunOutcome)r.U8(), Host = new EntityId(r.U32()), Raid = (RaidState)r.U8(),
+            Outcome = (RunOutcome)r.U8(), Host = new EntityId(r.U32()), Raid = (RaidState)r.U8(), ClockStopped = r.U8() != 0,
         };
     }
 

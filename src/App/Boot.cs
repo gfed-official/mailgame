@@ -4,6 +4,7 @@ using Godot;
 using PerformativeMail.Client.InputHandling;
 using PerformativeMail.Client.Meta;
 using PerformativeMail.Client.Presentation;
+using PerformativeMail.Sim;
 using PerformativeMail.Sim.Content;
 
 namespace PerformativeMail.App
@@ -18,6 +19,9 @@ namespace PerformativeMail.App
     /// --quit-after=SECONDS it ends with a verdict), --smoke, and with a window --shots=DIR to make
     /// the smoke save screenshots, --low (no lamp lights, shadows, bloom or anti-aliasing), --lookdev=DIR (pictures of the world from a tour of viewpoints,
     /// then quit; --lookdev-views=name:ex,ey,ez:tx,ty,tz[:night];… for views of one's own).
+    /// For live checks, on a host and on a --join guest alike: --playtest-no-timer (the shift clock
+    /// stands while this player is in the game; the host's "go" key ends the shift) and
+    /// --playtest-mailbox (this player starts, and starts every shift, before a mailbox with mail for it).
     /// </summary>
     public partial class Boot : Node
     {
@@ -31,9 +35,12 @@ namespace PerformativeMail.App
             int? port = null;
             int waitPlayers = 1;
             double quitAfter = 0;
+            var playtest = PlaytestFlags.None;
             foreach (string arg in OS.GetCmdlineUserArgs())
             {
                 if (arg == "--smoke") smoke = true;
+                else if (arg == "--playtest-no-timer") playtest |= PlaytestFlags.NoTimer;
+                else if (arg == "--playtest-mailbox") playtest |= PlaytestFlags.AtMailbox;
                 else if (arg == "--quick") quick = true;
                 else if (arg == "--solo") solo = true;
                 else if (arg == "--bot") bot = true;
@@ -79,7 +86,10 @@ namespace PerformativeMail.App
             WorldView.Cheap = low || (smoke && adapter.Contains("llvmpipe", StringComparison.OrdinalIgnoreCase));
 
             InputActions.Register();
-            var session = new GameSession { Name = "Session" };
+            // The smoke checks the game as it ships: no playtest help.
+            if (smoke) playtest = PlaytestFlags.None;
+            if (playtest != PlaytestFlags.None) GD.Print($"[boot] playtest: {playtest}");
+            var session = new GameSession { Name = "Session", Playtest = playtest };
             if (join != null && !smoke)
             {
                 ParseAddress(join, out string address, out int joinPort);

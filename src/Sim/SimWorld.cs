@@ -40,6 +40,8 @@ namespace PerformativeMail.Sim
         public RunOutcome Outcome;
         public EntityId Host;
         public RaidState Raid;
+        /// <summary>Playtest nit 10: the Delivery clock stands (<see cref="SimWorld.ClockStopped"/>).</summary>
+        public bool ClockStopped;
     }
 
     /// <summary>
@@ -224,6 +226,7 @@ namespace PerformativeMail.Sim
             Outcome = Run.Outcome,
             Host = Run.Host,
             Raid = Raid,
+            ClockStopped = ClockStopped,
         };
 
         // --- tick -----------------------------------------------------------------------------

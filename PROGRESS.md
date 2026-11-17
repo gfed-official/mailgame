@@ -258,7 +258,13 @@ with the mail cannon, the loot on the cards and in the wallet.
       `InteractionTests.TheMapsChestOpensOnInteractAndClosesWhenTheCarrierWalksAway`; the smoke
       walks to it, opens it through the prompt and does its inventory gestures in it:
       `chest-prompt.png`, `chest.png`; design choice 57)
-- [ ] Nit 10 — `--playtest-no-timer` and a spawn-at-mailbox option, also for a `--join` guest
+- [x] Nit 10 — playtest flags, for a host and a `--join` guest alike (they travel in the Hello):
+      `--playtest-no-timer` (the shift clock stands while that player is in the game; the HUD says
+      "(stopped)" and the host's go key ends the shift) and `--playtest-mailbox` (that player
+      starts, and starts every shift, before a mailbox of their own, looking at it, with three
+      letters for it in the hotbar). Off by default; the smoke's own run strips them, its ENet
+      guest joins with both (`PlaytestTests`, `PlaytestFlowTests`, `CodecTests`; design choice 58)
+- [ ] Nit 13 — `--shift=N`, `--no-quota`, `--raid`, and a smoke run that starts with them
 - [ ] Nit 11 — player ids are not reused
 
 ### 3. Further features from `design/drive/`, in milestone order
@@ -618,6 +624,21 @@ See "Commands" at the bottom (filled in as the tooling lands).
     client's 2.5 m; the mailbox wins when both are under the crosshair. The smoke also got a
     watchdog: a minute without a frame prints the stage and exits 3 (one run sat silent until the
     shell's 300 s timeout right after a build and did not do it again in 14 runs).
+58. **Nit 10: the playtest flags are asked for by the client and granted by the server.** A flag
+    on the command line would otherwise only reach a host. They are a byte in the Hello (protocol
+    `m1.4`), kept on the player, and unknown bits are dropped; the server's log says who joined
+    with what. No build is without them and no permission is asked: this is a co-op game among
+    friends and the flags are for checking it, but they are off unless a player starts the game
+    with them, and they end when that player leaves. *No timer*: while such a player is in the
+    game the Delivery clock stands (the phase end, and a raid that has not begun, move one tick
+    later every tick, so nothing else needs to know); the clients get `clockStopped` in the global
+    block and freeze their own countdown; the host's go key, which does nothing in a running
+    Delivery, ends a stopped one. Prep and Payday keep their clocks (they have a ready key and are
+    short). *At a mailbox*: seat k (join order) gets the map's k-th destination; the player is put
+    1.3 m in front of it on a free spot when joining and at every shift start, and at shift start
+    gets three pieces of mail addressed to it (ids from 0xF0000000 up, outside the shift's own
+    mail; delivered, they pay like any other). The client turns the camera to the box
+    when the server says it parked the player (`PlayerParked`, to that player only).
 
 ## Commands
 

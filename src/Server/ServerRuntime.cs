@@ -167,6 +167,8 @@ namespace PerformativeMail.Server
             var player = World.AddPlayer(name);
             if (player == null) { Reject(client, RejectReason.ServerFull); return; }
             client.Player = player;
+            // Before the Welcome, so its containers and global state already show what was asked.
+            World.SetPlaytest(player, hello.Playtest);
 
             var welcome = new WelcomeMsg
             {
@@ -186,7 +188,9 @@ namespace PerformativeMail.Server
             _writer.Reset();
             welcome.Write(_writer);
             _transport.Send(client.Connection, NetChannel.Bulk, _writer.ToArray());
-            Log?.Invoke($"{name} joined as {player.Id}");
+            Log?.Invoke(player.Playtest == PlaytestFlags.None
+                ? $"{name} joined as {player.Id}"
+                : $"{name} joined as {player.Id} (playtest: {player.Playtest})");
         }
 
         private void Reject(Client client, RejectReason reason)

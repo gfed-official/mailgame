@@ -82,6 +82,8 @@ namespace PerformativeMail.Sim
     {
         public byte Shift;
         public RunPhase Phase;
+        /// <summary>The tick the phase began at.</summary>
+        public uint Tick;
         /// <summary>0 when the phase has no clock.</summary>
         public uint PhaseEndTick;
         public int Quota;
@@ -182,5 +184,14 @@ namespace PerformativeMail.Sim
     public sealed class PlayerRespawnedEvent : SimEvent
     {
         public EntityId Player;
+    }
+
+    /// <summary>
+    /// The server put the player before a mailbox (<see cref="PlaytestFlags.AtMailbox"/>); only the
+    /// player hears of it, and turns to look at the mailbox.
+    /// </summary>
+    public sealed class PlayerParkedEvent : SimEvent
+    {
+        public ushort Destination;
     }
 }

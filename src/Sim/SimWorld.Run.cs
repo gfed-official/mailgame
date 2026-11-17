@@ -36,7 +36,8 @@ namespace PerformativeMail.Sim
                     if (Tick >= Run.PhaseEndTick || AllReady()) BeginDelivery();
                     break;
                 case RunPhase.Delivery:
-                    if (Tick >= Run.PhaseEndTick) BeginPayday();
+                    if (ClockStopped) HoldShiftClock();
+                    else if (Tick >= Run.PhaseEndTick) BeginPayday();
                     break;
                 case RunPhase.Payday:
                     if (Tick >= Run.PhaseEndTick) EndPayday();
@@ -81,7 +82,7 @@ namespace PerformativeMail.Sim
             foreach (var p in _players) p.Ready = false;
             Events.Add(new PhaseChangedEvent
             {
-                Shift = (byte)Run.Shift, Phase = Run.Phase, PhaseEndTick = Run.PhaseEndTick, Quota = Run.Quota, Outcome = Run.Outcome,
+                Shift = (byte)Run.Shift, Phase = Run.Phase, Tick = Tick, PhaseEndTick = Run.PhaseEndTick, Quota = Run.Quota, Outcome = Run.Outcome,
             });
         }
 
@@ -136,6 +137,7 @@ namespace PerformativeMail.Sim
             Spawner.BeginShift(Run.Shift, Tick + 1, SimConstants.SecondsToTicks(seconds), spawnValue);
             EnterPhase(RunPhase.Delivery, seconds);
             ScheduleRaid();
+            ParkPlaytesters();
         }
 
         /// <summary>Doc 01 §2.4: the quota check, the shift bonus and the summary the clients show.</summary>
@@ -269,9 +271,12 @@ namespace PerformativeMail.Sim
 
         private OpResult ContinueRunOp(Player player)
         {
-            if (Run.Phase != RunPhase.Results) return OpResult.WrongPhase;
+            // A stopped clock never ends the shift; the host does, with the same key.
+            bool stoppedShift = Run.Phase == RunPhase.Delivery && ClockStopped;
+            if (Run.Phase != RunPhase.Results && !stoppedShift) return OpResult.WrongPhase;
             if (player.Id != Run.Host) return OpResult.NotHost;
-            ReturnToLobby();
+            if (stoppedShift) BeginPayday();
+            else ReturnToLobby();
             return OpResult.Ok;
         }
 

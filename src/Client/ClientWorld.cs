@@ -234,6 +234,8 @@ namespace PerformativeMail.Client
         public uint OpenContainerId { get; internal set; }
 
         public GlobalState Global { get; internal set; }
+        /// <summary>The server tick <see cref="Global"/>'s phase clock was last read at.</summary>
+        public uint GlobalTick { get; internal set; }
         /// <summary>Estimated current server tick (fractional), advanced locally between snapshots.</summary>
         public double ServerTick { get; internal set; }
 
@@ -247,9 +249,15 @@ namespace PerformativeMail.Client
 
         public GridContainer? OpenContainer => OpenContainerId != 0 ? Prediction.View(OpenContainerId) : null;
 
-        /// <summary>Seconds left on the phase clock, derived from ticks (doc 07 §4.1).</summary>
+        /// <summary>
+        /// Seconds left on the phase clock, derived from ticks (doc 07 §4.1). A stopped shift clock
+        /// (playtest nit 10) keeps what it had when the server last said so.
+        /// </summary>
         public double PhaseSecondsLeft =>
-            Math.Max(0.0, SimConstants.TicksToSeconds((long)Global.PhaseEndTick - (long)Math.Floor(ServerTick)));
+            Math.Max(0.0, SimConstants.TicksToSeconds((long)Global.PhaseEndTick - (ClockStopped ? GlobalTick : (long)Math.Floor(ServerTick))));
+
+        /// <summary>The Delivery clock stands because a player asked for it (<see cref="PlaytestFlags.NoTimer"/>).</summary>
+        public bool ClockStopped => Global.ClockStopped && Global.Phase == RunPhase.Delivery;
 
         /// <summary>False in the phases that wait for people instead of a clock (Lobby, Results).</summary>
         public bool PhaseHasClock => Global.PhaseEndTick != 0;

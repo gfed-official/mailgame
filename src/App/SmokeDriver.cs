@@ -10,6 +10,7 @@ using PerformativeMail.Client.UI;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Net;
+using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
@@ -381,7 +382,8 @@ namespace PerformativeMail.App
             _remoteTransport = EnetClientTransport.Connect("127.0.0.1", port, out var error);
             var stale = EnetClientTransport.Connect("127.0.0.1", port, out var staleError);
             if (_remoteTransport == null || stale == null) { Fail($"no ENet client socket ({error}, {staleError})"); return; }
-            _remote = new ClientRuntime(_session.Content, _remoteTransport, RemoteName);
+            // The guest asks for the playtest help (nit 10): it must cross the socket like the rest of the Hello.
+            _remote = new ClientRuntime(_session.Content, _remoteTransport, RemoteName, PlaytestMask.All);
             _stale.Transport = stale;
             _stale.Hash = _session.Server!.ProtocolHash ^ 1;
             _remoteDeadline = Time.GetTicksMsec() + RemoteTimeoutMsec;
@@ -411,6 +413,26 @@ namespace PerformativeMail.App
             }
         }
 
+        /// <summary>Playtest nit 10 for a guest: the server took both flags and put the guest before the mailbox of its seat.</summary>
+        private void CheckRemoteParked(ClientWorld remoteWorld)
+        {
+            var server = _session.Server!.World;
+            var truth = server.GetPlayer(remoteWorld.LocalId);
+            if (truth == null) { Fail("the server does not know the remote player"); return; }
+            Check(truth.Playtest == PlaytestMask.All, $"the guest asked for {PlaytestMask.All}, the server noted {truth.Playtest}");
+            Check(server.ClockStopped && remoteWorld.Global.ClockStopped, "the guest's --playtest-no-timer did not stop the clock");
+            var dest = PlaytestSpot.Mailbox(remoteWorld.Map, truth.Slot);
+            PlaytestSpot.Stand(remoteWorld.Map, dest, MoveConstants.From(_session.Content.Balance).Radius, out float x, out float z);
+            float onServer = new Vector2(truth.Move.X - x, truth.Move.Z - z).Length();
+            float onClient = new Vector2(remoteWorld.Local.X - x, remoteWorld.Local.Z - z).Length();
+            Check(onServer < 0.05f && onClient < 0.05f, $"the guest stands {onServer:0.00} m (server) and {onClient:0.00} m (its client) from its place at {dest.Label}");
+            var box = AimBox.Mailbox(remoteWorld.Map, dest);
+            ViewRay.Aim(remoteWorld.Local, box.X, box.Y, box.Z, out float yaw, out float pitch);
+            Check(Mathf.Abs(Mathf.AngleDifference(yaw, _remote.Input.YawRadians)) < 0.01f && Mathf.Abs(pitch - _remote.Input.PitchRadians) < 0.01f,
+                $"the guest does not look at the mailbox of {dest.Label}");
+            GD.Print($"[smoke] playtest: {RemoteName} joined with {truth.Playtest}, parked at {dest.Label}, clock stopped");
+        }
+
         private void StepRemote()
         {
             var world = _session.Client.World!;
@@ -435,7 +457,9 @@ namespace PerformativeMail.App
                     if (_remote.State != ClientState.Joined || !_remote.World!.HasLocal || _remote.World.Players.Count != 2) break;
                     if (world.Players.Count != 2 || _screen.Players.ViewCount != 2) break;
                     if (_stale.Rejected == null || !_stale.Disconnected) break;
+                    if (!world.Global.ClockStopped) break; // the global block follows within a few ticks
                     var remoteWorld = _remote.World;
+                    CheckRemoteParked(remoteWorld);
                     Check(_stale.Rejected == RejectReason.ProtocolMismatch, $"a client with another protocol hash was rejected with {_stale.Rejected}");
                     Check(server.ClientCount == 2 && server.World.Players.Count == 2, $"the server has {server.ClientCount} clients and {server.World.Players.Count} players");
                     Check(remoteWorld.Players[remoteWorld.LocalId].Name == RemoteName, "the remote client does not know its own name");
@@ -473,6 +497,9 @@ namespace PerformativeMail.App
                 case 2:
                     // Leaving is seen by the server at once and by the host's client a snapshot later.
                     if (server.ClientCount != 1 || server.World.Players.Count != 1 || world.Players.Count != 1) break;
+                    // The clock the guest had stopped is the host's again.
+                    if (world.Global.ClockStopped) break;
+                    Check(!server.World.ClockStopped, "the shift clock stays stopped after the guest who asked for it left");
                     Check(_screen.Players.ViewCount <= 2, "player views pile up after a guest left");
                     Finish();
                     break;

@@ -163,7 +163,7 @@ namespace PerformativeMail.Net.Tests
                 {
                     Shift = 1, Phase = RunPhase.Delivery, PhaseEndTick = 7200, Quota = 600, ShiftEarnings = -12, Wallet = -480,
                     Complaint = 17, Backlog = 3, Deliveries = 40, Misdeliveries = 2,
-                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active,
+                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true,
                 },
             };
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, Ready = true });
@@ -206,7 +206,7 @@ namespace PerformativeMail.Net.Tests
                 new MailSpawnedEvent { FirstMailId = 100, Count = 12, Backlog = 1 },
                 new DeliveredEvent { MailId = 5, DestId = 3, Paid = 30, Player = player, Kind = 2 },
                 new MisdeliveredEvent { MailId = 6, DestId = 4, Penalty = 15, Player = player, Kind = 2 },
-                new PhaseChangedEvent { Shift = 5, Phase = RunPhase.Results, PhaseEndTick = 7201, Quota = 600, Outcome = RunOutcome.Victory },
+                new PhaseChangedEvent { Shift = 5, Phase = RunPhase.Results, Tick = 7141, PhaseEndTick = 7201, Quota = 600, Outcome = RunOutcome.Victory },
                 new ShiftSummaryEvent
                 {
                     Summary = new ShiftSummary
@@ -237,6 +237,7 @@ namespace PerformativeMail.Net.Tests
                 new RaidChangedEvent { Raid = RaidState.Warning, Tick = 4500 },
                 new PlayerDiedEvent { Player = player, RespawnTick = 4800, Killer = 1 },
                 new PlayerRespawnedEvent { Player = player },
+                new PlayerParkedEvent { Destination = 517 },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -254,7 +255,7 @@ namespace PerformativeMail.Net.Tests
             var delivered = (DeliveredEvent)back[7];
             Assert.Equal((5u, (ushort)3, (ushort)30, player, (ushort)2), (delivered.MailId, delivered.DestId, delivered.Paid, delivered.Player, delivered.Kind));
             var phase = (PhaseChangedEvent)back[9];
-            Assert.Equal((RunPhase.Results, 7201u, 600, RunOutcome.Victory, (byte)5), (phase.Phase, phase.PhaseEndTick, phase.Quota, phase.Outcome, phase.Shift));
+            Assert.Equal((RunPhase.Results, 7141u, 7201u, 600, RunOutcome.Victory, (byte)5), (phase.Phase, phase.Tick, phase.PhaseEndTick, phase.Quota, phase.Outcome, phase.Shift));
 
             var summary = ((ShiftSummaryEvent)back[10]).Summary;
             Assert.Equal((2, -40, 1100, true, 110), (summary.Shift, summary.Earned, summary.Quota, summary.QuotaMet, summary.Bonus));
@@ -290,6 +291,20 @@ namespace PerformativeMail.Net.Tests
             var fell = (PlayerDiedEvent)back[20];
             Assert.Equal((player, 4800u, (byte)1), (fell.Player, fell.RespawnTick, fell.Killer));
             Assert.Equal(player, ((PlayerRespawnedEvent)back[21]).Player);
+            Assert.Equal((ushort)517, ((PlayerParkedEvent)back[22]).Destination);
+        }
+
+        [Fact]
+        public void HelloCarriesThePlaytestFlags()
+        {
+            var w = new NetWriter();
+            new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All }.Write(w);
+            var back = HelloMsg.Read(Body(w, MsgType.Hello));
+            Assert.Equal((0xC0FFEEu, "Bo", PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox), (back.ProtocolHash, back.Name, back.Playtest));
+
+            w = new NetWriter();
+            new HelloMsg { ProtocolHash = 1, Name = "Ada" }.Write(w);
+            Assert.Equal(PlaytestFlags.None, HelloMsg.Read(Body(w, MsgType.Hello)).Playtest);
         }
 
         [Fact]

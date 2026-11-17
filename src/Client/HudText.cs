@@ -46,8 +46,12 @@ namespace PerformativeMail.Client
                 case RunPhase.Results: return g.Outcome == RunOutcome.Victory ? "RESULTS   VICTORY" : "RESULTS   RUN OVER";
             }
             string clock = world.PhaseHasClock ? " " + Clock(world.PhaseSecondsLeft) : "";
+            if (world.ClockStopped) clock += " " + ClockStoppedTag;
             return $"Shift {g.Shift} / {ShiftCount(world.Content)}   {PhaseName(g.Phase)}{clock}";
         }
+
+        /// <summary>After the time of a shift whose clock a playtest flag has stopped (nit 10).</summary>
+        public const string ClockStoppedTag = "(stopped)";
 
         public const string GoKey = "[G]";
         public const string PauseKey = "[Esc]";
@@ -55,7 +59,8 @@ namespace PerformativeMail.Client
 
         /// <summary>
         /// What the run is waiting for and what the "go" key does about it (doc 01 §1: the host
-        /// starts the run, Ready ends Prep early). Empty during Delivery.
+        /// starts the run, Ready ends Prep early). Empty during Delivery, unless a playtest flag has
+        /// stopped its clock: then only the host's "go" key ends the shift.
         /// </summary>
         public static string PhaseHint(ClientWorld world)
         {
@@ -86,6 +91,10 @@ namespace PerformativeMail.Client
                 }
                 case RunPhase.Results:
                     return world.IsHost ? $"Press {GoKey} to return to the lobby" : $"Waiting for {host} to return to the lobby";
+                case RunPhase.Delivery when world.ClockStopped:
+                    return world.IsHost
+                        ? $"Playtest: the shift clock is stopped   ·   {GoKey} ends the shift"
+                        : $"Playtest: the shift clock is stopped   ·   {host} ends the shift";
                 default: return "";
             }
         }

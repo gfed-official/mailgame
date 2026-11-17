@@ -44,6 +44,8 @@ namespace PerformativeMail.App
         /// ticks of both ends per frame, which makes the headless smoke fast and repeatable.
         /// </summary>
         public int FixedTicksPerFrame;
+        /// <summary>What the local client asks the server for when it joins; set before StartHost or StartRemote.</summary>
+        public PlaytestFlags Playtest;
 
         public bool HasJoined { get; private set; }
 
@@ -93,7 +95,7 @@ namespace PerformativeMail.App
 
         private void StartClient(ContentDb content, IClientTransport transport, MetaProfile profile, IProfileStore store)
         {
-            Client = new ClientRuntime(content, transport, profile.DisplayName);
+            Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest);
             Interaction = new InteractionController(Client);
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);
             Profile = new ProfileTracker(Client, profile, store);
