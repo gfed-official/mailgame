@@ -74,6 +74,10 @@ namespace PerformativeMail.Sim
         private RngStream _lootRng = null!;
 
         private uint _raidWarnTick, _raidStartTick, _fleeEndTick;
+        /// <summary>The raid under way or to come was asked for at the shift's start (<see cref="PlaytestFlags.RaidNow"/>).</summary>
+        private bool _raidAtStart;
+        /// <summary>The shift whose budget and enemies the raid has: the running one, unless that has no raid of its own.</summary>
+        private int _raidShift;
         private int _raidPulse;
         private double _raidBudget, _raidCarry;
 
@@ -85,6 +89,8 @@ namespace PerformativeMail.Sim
         public uint RaidStartTick => _raidStartTick;
         /// <summary>The whole budget of the raid under way (doc 05 §3.2), set when it starts.</summary>
         public double RaidBudget => _raidBudget;
+        /// <summary>Pulses of the raid under way that have come in.</summary>
+        public int RaidPulsesSpawned => _raidPulse;
         public int EnemiesSpawnedTotal { get; private set; }
         public int EnemiesKilledTotal { get; private set; }
 
@@ -503,8 +509,21 @@ namespace PerformativeMail.Sim
         private void ScheduleRaid()
         {
             _raidWarnTick = _raidStartTick = 0;
+            _raidAtStart = false;
+            _raidShift = Run.Shift;
             var waves = Content.Waves;
-            if (!Settings.Raids || Content.Enemies.Count == 0 || waves.BudgetFor(Run.Shift) <= 0) return;
+            if (!Settings.Raids || Content.Enemies.Count == 0) return;
+            if (RaidsAtShiftStart)
+            {
+                // A shift without a raid of its own borrows the first one there is.
+                while (_raidShift < ShiftCount && waves.BudgetFor(_raidShift) <= 0) _raidShift++;
+                if (waves.BudgetFor(_raidShift) <= 0) return;
+                _raidAtStart = true;
+                _raidWarnTick = Tick + 1;
+                _raidStartTick = Tick + Math.Max(2, SimConstants.SecondsToTicks(PlaytestMask.RaidNowSeconds));
+                return;
+            }
+            if (waves.BudgetFor(Run.Shift) <= 0) return;
             uint length = Run.PhaseEndTick - Tick;
             uint window = Math.Min(SimConstants.SecondsToTicks(waves.RaidWindowSeconds), length - 1);
             uint warning = SimConstants.SecondsToTicks(waves.WarningSeconds);
@@ -527,7 +546,7 @@ namespace PerformativeMail.Sim
             if (Raid == RaidState.None && Tick >= _raidWarnTick) SetRaid(RaidState.Warning, _raidStartTick);
             if (Raid == RaidState.Warning && Tick >= _raidStartTick)
             {
-                _raidBudget = WaveBudget(waves, Run.Shift, _players.Count, Economy.Complaint);
+                _raidBudget = WaveBudget(waves, _raidShift, _players.Count, Economy.Complaint);
                 _raidCarry = 0;
                 _raidPulse = 0;
                 SetRaid(RaidState.Active, Run.PhaseEndTick);
@@ -549,7 +568,7 @@ namespace PerformativeMail.Sim
         {
             bool finale = pulse == waves.Pulses - 1;
             double budget = _raidBudget / waves.Pulses * (finale ? waves.FinalePulseMult : 1.0) + _raidCarry;
-            var weights = waves.WeightsFor(Run.Shift);
+            var weights = waves.WeightsFor(_raidShift);
             int megaPermille = (int)Math.Round((waves.MegaChanceBase + waves.MegaChancePerShift * Run.Shift) * 1000);
             // Doc 05 §3.2: the last pulse of the last shift always brings a Mega.
             bool forceMega = finale && Run.Shift >= ShiftCount;
@@ -595,6 +614,7 @@ namespace PerformativeMail.Sim
         private void EndRaid()
         {
             _raidWarnTick = _raidStartTick = 0;
+            _raidAtStart = false;
             _shots.Clear();
             if (_enemies.Count == 0 && Raid == RaidState.None) return;
             _fleeEndTick = Tick + _combat.FleeTicks;
@@ -620,6 +640,7 @@ namespace PerformativeMail.Sim
             foreach (var bundle in _loot) Events.Add(new LootGoneEvent { LootId = bundle.Id });
             _loot.Clear();
             _raidWarnTick = _raidStartTick = _fleeEndTick = 0;
+            _raidAtStart = false;
             SetRaid(RaidState.None, 0);
             foreach (var p in _players)
                 if (p.Dead) Respawn(p);

@@ -46,6 +46,8 @@ namespace PerformativeMail.App
         public int FixedTicksPerFrame;
         /// <summary>What the local client asks the server for when it joins; set before StartHost or StartRemote.</summary>
         public PlaytestFlags Playtest;
+        /// <summary>The shift the local client asks runs to start at, 0 = the first; set like <see cref="Playtest"/>.</summary>
+        public int StartShift;
 
         public bool HasJoined { get; private set; }
 
@@ -95,7 +97,7 @@ namespace PerformativeMail.App
 
         private void StartClient(ContentDb content, IClientTransport transport, MetaProfile profile, IProfileStore store)
         {
-            Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest);
+            Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest, StartShift);
             Interaction = new InteractionController(Client);
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);
             Profile = new ProfileTracker(Client, profile, store);

@@ -37,8 +37,8 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.4;" +
-            "Hello:u32 hash,str name,u8 playtest;Playtest:noTimer,atMailbox;" +
+            "m1.5;" +
+            "Hello:u32 hash,str name,u8 playtest,u8 startShift;Playtest:noTimer,atMailbox,noQuota,raidNow;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
@@ -48,7 +48,7 @@ namespace PerformativeMail.Sim.Net
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
             "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
             "MoveFlags:grounded,winded,dead;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
-            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 clockStopped;" +
+            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 playtest;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
             "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked;" +
@@ -77,8 +77,10 @@ namespace PerformativeMail.Sim.Net
     {
         public uint ProtocolHash;
         public string Name = "";
-        /// <summary>Playtest nit 10: what this player asks the server for, guest or host alike.</summary>
+        /// <summary>Playtest nits 10 and 13: what this player asks the server for, guest or host alike.</summary>
         public PlaytestFlags Playtest;
+        /// <summary>The shift this player wants runs to start at, 0 = the first.</summary>
+        public byte StartShift;
 
         public void Write(NetWriter w)
         {
@@ -86,9 +88,10 @@ namespace PerformativeMail.Sim.Net
             w.U32(ProtocolHash);
             w.Str(Name);
             w.U8((byte)Playtest);
+            w.U8(StartShift);
         }
 
-        public static HelloMsg Read(NetReader r) => new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8() };
+        public static HelloMsg Read(NetReader r) => new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8(), StartShift = r.U8() };
     }
 
     /// <summary>The last few inputs, oldest first (doc 06 §3: each packet repeats the last 3 for loss cover).</summary>
@@ -208,19 +211,26 @@ namespace PerformativeMail.Sim.Net
 
     public static class GlobalCodec
     {
+        private static GlobalState WithPlaytest(GlobalState g, byte bits)
+        {
+            g.ClockStopped = (bits & 1) != 0;
+            g.QuotaWaived = (bits & 2) != 0;
+            return g;
+        }
+
         public static void Write(NetWriter w, in GlobalState g)
         {
             w.U8(g.Shift); w.U8((byte)g.Phase); w.U32(g.PhaseEndTick); w.I32(g.Quota); w.I32(g.ShiftEarnings);
             w.I32(g.Wallet); w.U8(g.Complaint); w.U16(g.Backlog); w.U16(g.Deliveries); w.U16(g.Misdeliveries);
-            w.U8((byte)g.Outcome); w.U32(g.Host.Value); w.U8((byte)g.Raid); w.U8((byte)(g.ClockStopped ? 1 : 0));
+            w.U8((byte)g.Outcome); w.U32(g.Host.Value); w.U8((byte)g.Raid); w.U8((byte)((g.ClockStopped ? 1 : 0) | (g.QuotaWaived ? 2 : 0)));
         }
 
-        public static GlobalState Read(NetReader r) => new GlobalState
+        public static GlobalState Read(NetReader r) => WithPlaytest(new GlobalState
         {
             Shift = r.U8(), Phase = (RunPhase)r.U8(), PhaseEndTick = r.U32(), Quota = r.I32(), ShiftEarnings = r.I32(),
             Wallet = r.I32(), Complaint = r.U8(), Backlog = r.U16(), Deliveries = r.U16(), Misdeliveries = r.U16(),
-            Outcome = (RunOutcome)r.U8(), Host = new EntityId(r.U32()), Raid = (RaidState)r.U8(), ClockStopped = r.U8() != 0,
-        };
+            Outcome = (RunOutcome)r.U8(), Host = new EntityId(r.U32()), Raid = (RaidState)r.U8(),
+        }, r.U8());
     }
 
     /// <summary>One player in a snapshot. Position is quantised to 1 cm on the wire (doc 06 §4).</summary>

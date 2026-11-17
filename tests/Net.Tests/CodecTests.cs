@@ -163,7 +163,7 @@ namespace PerformativeMail.Net.Tests
                 {
                     Shift = 1, Phase = RunPhase.Delivery, PhaseEndTick = 7200, Quota = 600, ShiftEarnings = -12, Wallet = -480,
                     Complaint = 17, Backlog = 3, Deliveries = 40, Misdeliveries = 2,
-                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true,
+                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true,
                 },
             };
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, Ready = true });
@@ -298,13 +298,15 @@ namespace PerformativeMail.Net.Tests
         public void HelloCarriesThePlaytestFlags()
         {
             var w = new NetWriter();
-            new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All }.Write(w);
+            new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All, StartShift = 3 }.Write(w);
             var back = HelloMsg.Read(Body(w, MsgType.Hello));
-            Assert.Equal((0xC0FFEEu, "Bo", PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox), (back.ProtocolHash, back.Name, back.Playtest));
+            Assert.Equal((0xC0FFEEu, "Bo", PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow, (byte)3),
+                (back.ProtocolHash, back.Name, back.Playtest, back.StartShift));
 
             w = new NetWriter();
             new HelloMsg { ProtocolHash = 1, Name = "Ada" }.Write(w);
-            Assert.Equal(PlaytestFlags.None, HelloMsg.Read(Body(w, MsgType.Hello)).Playtest);
+            back = HelloMsg.Read(Body(w, MsgType.Hello));
+            Assert.Equal((PlaytestFlags.None, (byte)0), (back.Playtest, back.StartShift));
         }
 
         [Fact]

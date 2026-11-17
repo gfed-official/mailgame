@@ -22,11 +22,12 @@ namespace PerformativeMail.App
     /// deliver → wallet on both ends and on the screen; then the rest of the run fast-forwarded,
     /// checking every Payday summary and the Results panel, and back to the Lobby; there the
     /// inventory screen, a fight with the hammer and the mail cannon, and a guest over ENet. Prints
-    /// "SMOKE OK" and exits 0, or "SMOKE FAIL: …" and exits 1.
+    /// "SMOKE OK" and exits 0, or "SMOKE FAIL: …" and exits 1. Started with playtest flags it plays
+    /// the raid playtest instead (SmokeDriver.Playtest.cs).
     /// </summary>
     public partial class SmokeDriver : Node
     {
-        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Inventory, Combat, Remote, Done }
+        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Inventory, Combat, Remote, Playtest, Done }
 
         private const int TicksPerFrame = 3;
         /// <summary>Once the close-up checks are done the remaining shifts run at one second per frame.</summary>
@@ -97,6 +98,8 @@ namespace PerformativeMail.App
             // Checks run once everything else has moved this frame (the camera, the labels that fit to it).
             ProcessPriority = 1000;
             _watchdog = new System.Threading.Timer(_ => Watch(), null, WatchdogPeriodMsec, WatchdogPeriodMsec);
+            // Started with playtest flags, the smoke checks what they promise instead of the plain run.
+            if (session.Playtest != PlaytestFlags.None || session.StartShift != 0) StartPlaytest();
         }
 
         private void Watch()
@@ -334,12 +337,17 @@ namespace PerformativeMail.App
                 case Stage.Remote:
                     StepRemote();
                     break;
+
+                case Stage.Playtest:
+                    StepPlaytest();
+                    break;
             }
         }
 
         // --- ENet (doc 06 §2): a second client joins the host's socket, a stale build is turned away ---
 
         private const string RemoteName = "Remote";
+        private const int RemoteStartShift = 3;
         private const int RemoteWalkTicks = 30;
         private const ulong RemoteTimeoutMsec = 10000;
 
@@ -383,7 +391,7 @@ namespace PerformativeMail.App
             var stale = EnetClientTransport.Connect("127.0.0.1", port, out var staleError);
             if (_remoteTransport == null || stale == null) { Fail($"no ENet client socket ({error}, {staleError})"); return; }
             // The guest asks for the playtest help (nit 10): it must cross the socket like the rest of the Hello.
-            _remote = new ClientRuntime(_session.Content, _remoteTransport, RemoteName, PlaytestMask.All);
+            _remote = new ClientRuntime(_session.Content, _remoteTransport, RemoteName, PlaytestMask.All, RemoteStartShift);
             _stale.Transport = stale;
             _stale.Hash = _session.Server!.ProtocolHash ^ 1;
             _remoteDeadline = Time.GetTicksMsec() + RemoteTimeoutMsec;
@@ -420,6 +428,8 @@ namespace PerformativeMail.App
             var truth = server.GetPlayer(remoteWorld.LocalId);
             if (truth == null) { Fail("the server does not know the remote player"); return; }
             Check(truth.Playtest == PlaytestMask.All, $"the guest asked for {PlaytestMask.All}, the server noted {truth.Playtest}");
+            Check(truth.PlaytestShift == RemoteStartShift && server.StartShift == RemoteStartShift, $"the guest asked for shift {RemoteStartShift}, the server noted {truth.PlaytestShift} and would start at {server.StartShift}");
+            Check(server.QuotaWaived && remoteWorld.QuotaWaived && server.RaidsAtShiftStart, "the guest's --no-quota and --raid did not reach the server");
             Check(server.ClockStopped && remoteWorld.Global.ClockStopped, "the guest's --playtest-no-timer did not stop the clock");
             var dest = PlaytestSpot.Mailbox(remoteWorld.Map, truth.Slot);
             PlaytestSpot.Stand(remoteWorld.Map, dest, MoveConstants.From(_session.Content.Balance).Radius, out float x, out float z);
@@ -430,7 +440,7 @@ namespace PerformativeMail.App
             ViewRay.Aim(remoteWorld.Local, box.X, box.Y, box.Z, out float yaw, out float pitch);
             Check(Mathf.Abs(Mathf.AngleDifference(yaw, _remote.Input.YawRadians)) < 0.01f && Mathf.Abs(pitch - _remote.Input.PitchRadians) < 0.01f,
                 $"the guest does not look at the mailbox of {dest.Label}");
-            GD.Print($"[smoke] playtest: {RemoteName} joined with {truth.Playtest}, parked at {dest.Label}, clock stopped");
+            GD.Print($"[smoke] playtest: {RemoteName} joined with {truth.Playtest} and shift {truth.PlaytestShift}, parked at {dest.Label}, clock stopped");
         }
 
         private void StepRemote()
@@ -500,6 +510,7 @@ namespace PerformativeMail.App
                     // The clock the guest had stopped is the host's again.
                     if (world.Global.ClockStopped) break;
                     Check(!server.World.ClockStopped, "the shift clock stays stopped after the guest who asked for it left");
+                    Check(!server.World.QuotaWaived && !server.World.RaidsAtShiftStart && server.World.StartShift == 1, "the guest's playtest flags outlived the guest");
                     Check(_screen.Players.ViewCount <= 2, "player views pile up after a guest left");
                     Finish();
                     break;

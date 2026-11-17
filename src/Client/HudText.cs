@@ -52,6 +52,8 @@ namespace PerformativeMail.Client
 
         /// <summary>After the time of a shift whose clock a playtest flag has stopped (nit 10).</summary>
         public const string ClockStoppedTag = "(stopped)";
+        /// <summary>In the Payday hint of a missed quota that a playtest flag keeps from ending the run (nit 13).</summary>
+        public const string QuotaWaivedTag = "playtest: the run goes on";
 
         public const string GoKey = "[G]";
         public const string PauseKey = "[Esc]";
@@ -86,6 +88,8 @@ namespace PerformativeMail.Client
                     var s = world.LastSummary;
                     string clock = Clock(world.PhaseSecondsLeft);
                     if (s == null) return "";
+                    bool last = s.Shift >= ShiftCount(world.Content);
+                    if (!s.QuotaMet && world.QuotaWaived && !last) return $"Quota missed — {QuotaWaivedTag}   ·   shift {s.Shift + 1} in {clock}";
                     if (!s.QuotaMet) return $"Quota missed — results in {clock}";
                     return s.Shift >= ShiftCount(world.Content) ? $"Final quota met — results in {clock}" : $"Quota met — shift {s.Shift + 1} in {clock}";
                 }

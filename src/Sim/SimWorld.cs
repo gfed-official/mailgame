@@ -42,6 +42,8 @@ namespace PerformativeMail.Sim
         public RaidState Raid;
         /// <summary>Playtest nit 10: the Delivery clock stands (<see cref="SimWorld.ClockStopped"/>).</summary>
         public bool ClockStopped;
+        /// <summary>Playtest nit 13: a missed quota does not end the run (<see cref="SimWorld.QuotaWaived"/>).</summary>
+        public bool QuotaWaived;
     }
 
     /// <summary>
@@ -227,6 +229,7 @@ namespace PerformativeMail.Sim
             Host = Run.Host,
             Raid = Raid,
             ClockStopped = ClockStopped,
+            QuotaWaived = QuotaWaived,
         };
 
         // --- tick -----------------------------------------------------------------------------

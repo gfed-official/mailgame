@@ -1,0 +1,336 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Godot;
+using PerformativeMail.Client;
+using PerformativeMail.Client.UI;
+using PerformativeMail.Sim;
+using PerformativeMail.Sim.Combat;
+using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Run;
+using PerformativeMail.Sim.World;
+
+namespace PerformativeMail.App
+{
+    /// <summary>
+    /// The smoke of the raid playtest (nit 13), run with "--smoke --shift=2 --no-quota --raid": the
+    /// run starts at shift 2, the night raid is announced as the shift starts and comes five
+    /// seconds later, the host meets it on the street with the hammer through the client's own
+    /// input, and the quota the fight left no time for does not end the run. Every step is read
+    /// off the real HUD.
+    /// </summary>
+    public partial class SmokeDriver
+    {
+        private const PlaytestFlags RaidPlaytest = PlaytestFlags.NoQuota | PlaytestFlags.RaidNow;
+        private const int RaidPlaytestShift = 2;
+        /// <summary>From the mailbox side of the yard out onto the street, where the raiders come along.</summary>
+        private const float StandX = 20f, StandZ = 28f;
+        /// <summary>The hammer is swung at whatever is this near.</summary>
+        private const float SwingAt = 3.5f;
+        private const int PlaytestStepFrames = 400, FightFrames = 2400, LootFrames = 300;
+
+        private int _ptStep, _ptFrames, _ptSwings, _ptDeaths;
+        private uint _ptDeliveryTick;
+        private bool _ptWasDead, _ptSawEnemyView, _ptSawTracker, _ptBadTracker, _ptSawHammer, _ptSawCards;
+        private int _ptMostSeen;
+        private readonly List<(float X, float Z)> _ptPath = new List<(float, float)>();
+        private int _ptWaypoint;
+
+        private void StartPlaytest()
+        {
+            _stage = Stage.Playtest;
+            // The host is played from here, not by the delivery bot.
+            _session.Client.TickStarting -= _botTick;
+        }
+
+        private void NextPlaytestStep()
+        {
+            _ptStep++;
+            _ptFrames = 0;
+        }
+
+        private void StopHost()
+        {
+            var client = _session.Client;
+            client.Input.MoveX = 0f;
+            client.Input.MoveZ = 0f;
+            client.Input.Buttons = InputButtons.None;
+        }
+
+        /// <summary>Walks the host along the tile path to a point; true once there.</summary>
+        private bool WalkHostTo(ClientWorld world, float x, float z)
+        {
+            var client = _session.Client;
+            float px = world.Local.X, pz = world.Local.Z;
+            client.Input.MoveX = 0f;
+            client.Input.MoveZ = 0f;
+            if (new Vector2(x - px, z - pz).Length() < 0.4f) return true;
+            if (_ptPath.Count == 0)
+            {
+                _ptWaypoint = 0;
+                if (!TilePathfinder.Find(world.Map, px, pz, x, z, _ptPath)) { Fail($"no way from {px:0.0},{pz:0.0} to {x:0.0},{z:0.0}"); return false; }
+            }
+            while (true)
+            {
+                var to = new Vector2(_ptPath[_ptWaypoint].X - px, _ptPath[_ptWaypoint].Z - pz);
+                if (to.Length() < 0.6f && _ptWaypoint < _ptPath.Count - 1) { _ptWaypoint++; continue; }
+                if (to.Length() < 0.05f) return true;
+                to = to.Normalized();
+                client.Input.MoveX = to.X;
+                client.Input.MoveZ = to.Y;
+                client.Input.YawRadians = MathF.Atan2(-to.X, -to.Y);
+                client.Input.PitchRadians = 0f;
+                return false;
+            }
+        }
+
+        /// <summary>Faces the nearest raider and swings once it is in reach; without one, stands.</summary>
+        private void FightNearest(ClientWorld world)
+        {
+            StopHost();
+            if (world.Local.Dead) return;
+            ClientEnemy? nearest = null;
+            float best = float.MaxValue;
+            foreach (var e in world.Enemies.Values)
+            {
+                float d = new Vector2(e.X - world.Local.X, e.Z - world.Local.Z).Length();
+                if (d >= best) continue;
+                best = d;
+                nearest = e;
+            }
+            if (nearest == null) return;
+            AimAt(nearest.X, nearest.Z, best <= SwingAt ? InputButtons.Attack : InputButtons.None);
+        }
+
+        private void StepPlaytest()
+        {
+            var client = _session.Client;
+            var world = client.World!;
+            var server = _session.Server!.World;
+            var hud = _screen.Hud;
+            var waves = _session.Content.Waves;
+            var player = server.GetPlayer(world.LocalId);
+            if (player == null) { Fail("the server has no player for the host"); return; }
+            hud.Refresh();
+            TrackCamera();
+            foreach (char c in FontCheck.MissingGlyphs(hud))
+                if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
+            if (_screen.Enemies.ViewCount > 0) _ptSawEnemyView = true;
+            if (_screen.Camera.WeaponDrawn) _ptSawHammer = true;
+            if (hud.Loot.Cards.Visible) _ptSawCards = true;
+            if (world.Local.Dead && !_ptWasDead) _ptDeaths++;
+            _ptWasDead = world.Local.Dead;
+            _ptMostSeen = Math.Max(_ptMostSeen, world.Enemies.Count);
+            _ptFrames++;
+            _frames++;
+
+            switch (_ptStep)
+            {
+                case 0:
+                    // The Lobby as ever; what was asked on the command line is noted on the server's player.
+                    if (_ptFrames < BootFrames) break;
+                    if (_ptFrames == BootFrames)
+                    {
+                        if (_session.Playtest != RaidPlaytest || _session.StartShift != RaidPlaytestShift)
+                        {
+                            Fail($"the playtest smoke is run with --shift={RaidPlaytestShift} --no-quota --raid, not with {_session.Playtest} and shift {_session.StartShift}");
+                            break;
+                        }
+                        Check(server.Run.Phase == RunPhase.Lobby && hud.PhaseText == "LOBBY", $"booted into {server.Run.Phase}, the HUD says \"{hud.PhaseText}\"");
+                        Check(player.Playtest == RaidPlaytest && player.PlaytestShift == RaidPlaytestShift,
+                            $"the host asked for {RaidPlaytest} and shift {RaidPlaytestShift}, the server noted {player.Playtest} and shift {player.PlaytestShift}");
+                        Check(server.StartShift == RaidPlaytestShift && server.QuotaWaived && server.RaidsAtShiftStart && !server.ClockStopped,
+                            $"the server would start at shift {server.StartShift}, quota waived {server.QuotaWaived}, raids at shift start {server.RaidsAtShiftStart}, clock stopped {server.ClockStopped}");
+                    }
+                    Go();
+                    if (world.Global.Phase == RunPhase.Prep) NextPlaytestStep();
+                    else if (_ptFrames > PlaytestStepFrames) Fail("the run did not leave the Lobby after the host pressed go");
+                    break;
+
+                case 1:
+                {
+                    // --shift=2: the run's first Prep is the second shift's, with that shift's quota.
+                    if (_ptFrames < 3) break;
+                    if (_ptFrames == 3)
+                    {
+                        string want = $"Shift {RaidPlaytestShift} / {HudText.ShiftCount(world.Content)}   PREP";
+                        Check(server.Run.Shift == RaidPlaytestShift && server.Run.RunNumber == 1, $"the run started at shift {server.Run.Shift}");
+                        Check(hud.PhaseText.StartsWith(want, StringComparison.Ordinal), $"in the first Prep the HUD phase line is \"{hud.PhaseText}\", expected \"{want} …\"");
+                        Check(world.Global.Quota == QuotaFormula.Quota(world.Content.Balance, RaidPlaytestShift, 1) && hud.QuotaText == HudText.Quota(world.Global),
+                            $"in the first Prep the HUD quota line is \"{hud.QuotaText}\" for a quota of {world.Global.Quota}");
+                        Check(world.Raid == RaidState.None && hud.RaidText.Length == 0, $"in Prep the raid tracker says \"{hud.RaidText}\"");
+                        Shot("playtest-prep");
+                    }
+                    if (!world.LocalReady) Go();
+                    if (world.Global.Phase == RunPhase.Delivery)
+                    {
+                        _ptDeliveryTick = server.Run.PhaseStartTick;
+                        _ptSwings = client.LocalHammerSwings;
+                        NextPlaytestStep();
+                    }
+                    else if (_ptFrames > PlaytestStepFrames) Fail("Prep did not end after the only player readied up");
+                    break;
+                }
+
+                case 2:
+                {
+                    // --raid: the warning is up as the shift starts, counting down the five seconds.
+                    WalkHostTo(world, StandX, StandZ);
+                    if (world.Raid == RaidState.None)
+                    {
+                        if (_ptFrames > 30) Fail($"no raid warning {server.Tick - _ptDeliveryTick} ticks into the shift (server: {server.Raid})");
+                        break;
+                    }
+                    uint lead = server.RaidStartTick - _ptDeliveryTick;
+                    Check(lead == SimConstants.SecondsToTicks(PlaytestMask.RaidNowSeconds), $"the raid is due {lead} ticks into the shift");
+                    Check(world.Raid == RaidState.Warning && world.RaidSecondsLeft > 0 && world.RaidSecondsLeft <= PlaytestMask.RaidNowSeconds,
+                        $"the client sees the raid as {world.Raid}, {world.RaidSecondsLeft:0.0} s away");
+                    Check(hud.BannerText == HudText.RaidBanner(world) && hud.BannerText.StartsWith(HudText.RaidWarning, StringComparison.Ordinal),
+                        $"with a raid announced the banner says \"{hud.BannerText}\"");
+                    Check(hud.RaidText == HudText.RaidTracker(world) && hud.RaidText.StartsWith("Raid in ", StringComparison.Ordinal),
+                        $"with a raid announced the tracker says \"{hud.RaidText}\"");
+                    Check(hud.PhaseText.Contains("DELIVERY", StringComparison.Ordinal) && !hud.PhaseText.Contains(HudText.ClockStoppedTag, StringComparison.Ordinal),
+                        $"in the shift the HUD phase line is \"{hud.PhaseText}\"");
+                    Shot("playtest-warning");
+                    NextPlaytestStep();
+                    break;
+                }
+
+                case 3:
+                    // The raid begins on time: the banner goes, the tracker counts raiders.
+                    WalkHostTo(world, StandX, StandZ);
+                    if (world.Raid == RaidState.Warning)
+                    {
+                        if (_ptFrames > PlaytestStepFrames) Fail("the announced raid never began");
+                        break;
+                    }
+                    Check(world.Raid == RaidState.Active && server.Raid == RaidState.Active, $"after the warning the raid is {world.Raid} (server: {server.Raid})");
+                    Check(server.Tick - server.RaidStartTick < 30, $"the raid began {server.Tick - server.RaidStartTick} ticks late");
+                    Check(server.RaidBudget > 0, "the raid has no budget");
+                    NextPlaytestStep();
+                    break;
+
+                case 4:
+                {
+                    // The fight: out on the street until every pulse is in and nobody of it stands.
+                    bool there = WalkHostTo(world, StandX, StandZ);
+                    if (there || world.Enemies.Count > 0 && NearestEnemy(world) < 8f) _ptStep = 5;
+                    else if (_ptFrames > PlaytestStepFrames) Fail($"the host did not reach the street (at {world.Local.X:0.0},{world.Local.Z:0.0})");
+                    break;
+                }
+
+                case 5:
+                {
+                    FightNearest(world);
+                    if (world.Raid == RaidState.Active && world.Enemies.Count > 0)
+                    {
+                        if (hud.RaidText == HudText.RaidTracker(world) && hud.RaidText.Contains("left", StringComparison.Ordinal)) _ptSawTracker = true;
+                        else if (!_ptBadTracker)
+                        {
+                            _ptBadTracker = true;
+                            Check(false, $"with {world.Enemies.Count} raiders about the tracker says \"{hud.RaidText}\"");
+                        }
+                        if (_ptSawHammer) Shot("playtest-fight");
+                    }
+                    if (world.Global.Phase != RunPhase.Delivery || _ptFrames > FightFrames)
+                    {
+                        Fail($"the raid was not beaten: {world.Global.Phase} after {_ptFrames} frames, pulse {server.RaidPulsesSpawned} of {waves.Pulses}, "
+                            + $"{server.Enemies.Count} raiders left of {server.EnemiesSpawnedTotal}, {world.LocalKills} felled, down {_ptDeaths} times, hp {world.LocalHp:0}");
+                        break;
+                    }
+                    if (server.RaidPulsesSpawned < waves.Pulses || server.Enemies.Count > 0 || world.Enemies.Count > 0 || _screen.Enemies.ViewCount > 0) break;
+                    StopHost();
+                    int spawned = server.EnemiesSpawnedTotal;
+                    Check(spawned >= waves.Pulses, $"{waves.Pulses} pulses brought {spawned} raiders");
+                    Check(server.EnemiesKilledTotal == spawned && world.LocalKills == spawned, $"of {spawned} raiders {server.EnemiesKilledTotal} fell, the client counts {world.LocalKills}");
+                    Check(_ptSawEnemyView, "no raider was ever drawn");
+                    Check(_ptSawTracker, "the raid tracker never counted the raiders");
+                    Check(_ptSawHammer, "the hammer never showed in the player's hands");
+                    Check(_session.Feed.Entries.Any(e => e.Text.StartsWith("You felled ", StringComparison.Ordinal)), "the feed does not say a raider was felled");
+                    Check(hud.RaidText == HudText.RaidTracker(world), $"with the raid beaten the tracker says \"{hud.RaidText}\"");
+                    NextPlaytestStep();
+                    break;
+                }
+
+                case 6:
+                    // What the raiders left is taken on foot: coins in the wallet line, cards over the hotbar.
+                    WalkToLoot(world);
+                    if (world.Loot.Count > 0 && _ptFrames <= LootFrames) break;
+                    if (world.Global.Wallet != server.Economy.Wallet && _ptFrames <= LootFrames + 30) break;
+                    StopHost();
+                    Check(server.Economy.Wallet > 0 && player.LootCoins == server.Economy.Wallet, $"the wallet holds {server.Economy.Wallet}, the host took {player.LootCoins} in loot");
+                    Check(hud.WalletText == HudText.Wallet(world.Global), $"with the loot taken the HUD shows \"{hud.WalletText}\", expected \"{HudText.Wallet(world.Global)}\"");
+                    Check(_ptSawCards, "the loot cards never showed");
+                    Check(server.Economy.ShiftEarnings < server.Run.Quota, $"the shift's quota of {server.Run.Quota} was met by a fight ({server.Economy.ShiftEarnings})");
+                    Shot("playtest-loot");
+                    // The rest of the shift has nothing to show: a second of it per frame.
+                    _session.FixedTicksPerFrame = RunOutTicksPerFrame;
+                    NextPlaytestStep();
+                    break;
+
+                case 7:
+                {
+                    // --no-quota: the Payday of a missed quota says the run goes on.
+                    if (world.Global.Phase == RunPhase.Delivery)
+                    {
+                        if (_ptFrames > PlaytestStepFrames) Fail("the shift did not end");
+                        break;
+                    }
+                    if (world.Global.Phase != RunPhase.Payday) { Fail($"after the shift came {world.Global.Phase}"); break; }
+                    _session.FixedTicksPerFrame = TicksPerFrame;
+                    var summary = world.LastSummary;
+                    if (summary == null)
+                    {
+                        if (_ptFrames > PlaytestStepFrames) Fail("no summary of the shift reached the client");
+                        break;
+                    }
+                    Check(summary.Shift == RaidPlaytestShift && !summary.QuotaMet, $"the summary is of shift {summary.Shift}, quota met: {summary.QuotaMet}");
+                    string want = string.Join("\n", HudText.SummaryLines(world, summary));
+                    Check(hud.Overlay.Visible && hud.OverlayText == want, $"at Payday the panel shows \"{hud.OverlayText}\", expected \"{want}\"");
+                    Check(hud.OverlayText.Contains("QUOTA MISSED", StringComparison.Ordinal), "the panel does not say the quota was missed");
+                    Check(world.Raid == RaidState.Fleeing && hud.RaidText == HudText.RaidTracker(world) && hud.BannerText.Length == 0,
+                        $"at Payday the raid is {world.Raid}, the tracker says \"{hud.RaidText}\" and the banner \"{hud.BannerText}\" lies over the panel");
+                    Check(hud.HintText.Contains(HudText.QuotaWaivedTag, StringComparison.Ordinal) && hud.HintText.Contains($"shift {RaidPlaytestShift + 1} in ", StringComparison.Ordinal),
+                        $"at the Payday of a waived quota the HUD hint is \"{hud.HintText}\"");
+                    Shot("playtest-payday");
+                    NextPlaytestStep();
+                    break;
+                }
+
+                case 8:
+                {
+                    // … and it does: the next shift's Prep, no Results, nothing of the fight left.
+                    if (world.Global.Phase == RunPhase.Payday)
+                    {
+                        if (_ptFrames > PlaytestStepFrames) Fail("Payday did not end");
+                        break;
+                    }
+                    if (_ptFrames < PlaytestStepFrames && world.Global.Shift != server.Run.Shift) break;
+                    string want = $"Shift {RaidPlaytestShift + 1} / {HudText.ShiftCount(world.Content)}   PREP";
+                    Check(server.Run.Phase == RunPhase.Prep && server.Run.Shift == RaidPlaytestShift + 1 && server.Run.Outcome == RunOutcome.None && server.Run.Results == null,
+                        $"after the missed quota the server is in {server.Run.Phase} of shift {server.Run.Shift} ({server.Run.Outcome})");
+                    Check(world.Results == null && hud.PhaseText.StartsWith(want, StringComparison.Ordinal), $"after the missed quota the HUD phase line is \"{hud.PhaseText}\", expected \"{want} …\"");
+                    Check(server.Run.ShiftsCompleted == 0, $"a missed quota counts as {server.Run.ShiftsCompleted} shifts completed");
+                    Check(world.Raid == RaidState.None && world.Enemies.Count == 0 && server.Enemies.Count == 0 && hud.RaidText.Length == 0, $"in the next Prep the raid is {world.Raid}, \"{hud.RaidText}\"");
+                    Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"{client.ContainerDesyncs} desyncs, {client.BadPackets} bad packets");
+                    Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
+                    Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
+                    GD.Print($"[smoke] playtest: run started at shift {RaidPlaytestShift}; raid announced at the shift's start, {server.EnemiesSpawnedTotal} raiders in {waves.Pulses} pulses (most at once {_ptMostSeen}) felled with "
+                        + $"{client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, loot +{HudText.Money(server.Economy.Wallet)}"
+                        + $"; quota missed and waived, on to shift {server.Run.Shift}");
+                    Finish();
+                    break;
+                }
+            }
+        }
+
+        private static float NearestEnemy(ClientWorld world)
+        {
+            float best = float.MaxValue;
+            foreach (var e in world.Enemies.Values)
+                best = Math.Min(best, new Vector2(e.X - world.Local.X, e.Z - world.Local.Z).Length());
+            return best;
+        }
+    }
+}

@@ -168,7 +168,7 @@ namespace PerformativeMail.Server
             if (player == null) { Reject(client, RejectReason.ServerFull); return; }
             client.Player = player;
             // Before the Welcome, so its containers and global state already show what was asked.
-            World.SetPlaytest(player, hello.Playtest);
+            World.SetPlaytest(player, hello.Playtest, hello.StartShift);
 
             var welcome = new WelcomeMsg
             {
@@ -188,9 +188,16 @@ namespace PerformativeMail.Server
             _writer.Reset();
             welcome.Write(_writer);
             _transport.Send(client.Connection, NetChannel.Bulk, _writer.ToArray());
-            Log?.Invoke(player.Playtest == PlaytestFlags.None
-                ? $"{name} joined as {player.Id}"
-                : $"{name} joined as {player.Id} (playtest: {player.Playtest})");
+            Log?.Invoke($"{name} joined as {player.Id}{PlaytestNote(player)}");
+        }
+
+        /// <summary>What the server granted of a Hello's playtest wishes, for the log; empty for a player without any.</summary>
+        private static string PlaytestNote(Player player)
+        {
+            if (player.Playtest == PlaytestFlags.None && player.PlaytestShift == 0) return "";
+            string shift = player.PlaytestShift == 0 ? "" : $"shift {player.PlaytestShift}";
+            string flags = player.Playtest == PlaytestFlags.None ? "" : player.Playtest.ToString();
+            return $" (playtest: {flags}{(flags.Length > 0 && shift.Length > 0 ? ", " : "")}{shift})";
         }
 
         private void Reject(Client client, RejectReason reason)

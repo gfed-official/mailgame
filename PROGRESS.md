@@ -262,9 +262,17 @@ with the mail cannon, the loot on the cards and in the wallet.
       `--playtest-no-timer` (the shift clock stands while that player is in the game; the HUD says
       "(stopped)" and the host's go key ends the shift) and `--playtest-mailbox` (that player
       starts, and starts every shift, before a mailbox of their own, looking at it, with three
-      letters for it in the hotbar). Off by default; the smoke's own run strips them, its ENet
-      guest joins with both (`PlaytestTests`, `PlaytestFlowTests`, `CodecTests`; design choice 58)
-- [ ] Nit 13 — `--shift=N`, `--no-quota`, `--raid`, and a smoke run that starts with them
+      letters for it in the hotbar). Off by default; the smoke's ENet guest joins with them
+      (`PlaytestTests`, `PlaytestFlowTests`, `CodecTests`; design choice 58)
+- [x] Nit 13 — the fight can be playtested live, by a host and a `--join` guest alike: `--shift=N`
+      (the run starts at shift N, with its quota and its raid), `--no-quota` (a missed quota does
+      not end the run: Payday says "playtest: the run goes on" and the next shift comes) and
+      `--raid` (every shift's raid is announced as the shift starts and is there 5 s later; shift
+      1, which has none, borrows shift 2's). Off by default, listed under "Commands".
+      `tools/smoke.sh` has a second Godot run, `--smoke --shift=2 --no-quota --raid`: the host
+      fights the whole scheduled raid (15 raiders in 6 pulses) through the real HUD, takes the
+      loot, misses the quota and stands in shift 3's Prep (`PlaytestTests`, `PlaytestFlowTests`,
+      `CodecTests`; protocol `m1.5`; design choice 59)
 - [ ] Nit 11 — player ids are not reused
 
 ### 3. Further features from `design/drive/`, in milestone order
@@ -639,6 +647,21 @@ See "Commands" at the bottom (filled in as the tooling lands).
     gets three pieces of mail addressed to it (ids from 0xF0000000 up, outside the shift's own
     mail; delivered, they pay like any other). The client turns the camera to the box
     when the server says it parked the player (`PlayerParked`, to that player only).
+59. **Nit 13: `--shift=N`, `--no-quota`, `--raid`.** Same road as nit 10: two more bits and a
+    start-shift byte in the Hello (protocol `m1.5`), kept on the player, gone when the player
+    leaves; `quotaWaived` joins `clockStopped` in the global block. *Shift*: a run starts at the
+    highest shift any present player asked for (never past the last one); a tester who joins in
+    the Prep of an earlier shift moves the run up to theirs, from that Prep's start; a shift
+    under way is never replaced. Shifts skipped are not "completed": XP counts only quotas met.
+    *No quota*: after a missed quota the next shift comes; after the last shift the run ends as
+    ever, a victory only if that last quota was met. *Raid*: the warning comes on the shift's
+    first tick and the raid 5 s later (`PlaytestMask.RaidNowSeconds`), in every Delivery while
+    the tester is there, and at once (5 s) when they join a shift under way that has no raid
+    yet. It is the shift's own raid (budget, kinds, six pulses 15 s apart), only early; shift 1
+    has no budget, so it takes the first later shift that has one. It stays until the shift ends,
+    like any raid, and `--playtest-no-timer` does not hold it back (the clock it stops is the
+    shift's). With flags, `--smoke` plays the raid playtest instead of the full run, and wants
+    exactly `--shift=2 --no-quota --raid`.
 
 ## Commands
 
@@ -652,8 +675,9 @@ All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes o
 
 tools/validate-content.sh [CONTENT_DIR] [--quiet]   # ContentValidator: "content OK …" / "error: …" lines, exit 0 / 1
 
-tools/smoke.sh [seed]            # build + Godot headless smoke; exit 0 and "SMOKE OK" on success
+tools/smoke.sh [seed]            # build + two Godot headless smokes (the full run, the raid playtest); exit 0 and "SMOKE OK" twice
 ~/.local/bin/godot --headless --path . -- --smoke --seed=1      # the smoke alone (build first)
+~/.local/bin/godot --headless --path . -- --smoke --seed=1 --shift=2 --no-quota --raid   # the raid playtest's smoke alone
 
 # the smoke in a (virtual) window, saving PNGs of the boot view and each prompt:
 xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --smoke --shots=/tmp/shots
@@ -673,6 +697,15 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --join=192.168.1.20               # join a host (ADDRESS or ADDRESS:PORT), in its Lobby or Prep
 ~/.local/bin/godot --headless --path . -- --bot --wait-players=2 # a bot hosts and starts the run once 2 players are in
 ~/.local/bin/godot --headless --path . -- --bot --join=127.0.0.1 --quit-after=60   # a bot guest; ends with BOT OK / BOT FAIL
+
+# playtest flags: off by default, for a host and a --join guest alike, in force while that player is in the game
+#   --playtest-no-timer   the Delivery clock stands ("(stopped)" on the HUD); the host's G ends the shift
+#   --playtest-mailbox    start, and start every shift, at a mailbox of your own with three letters for it
+#   --shift=N             the run starts at shift N (1-5), with its quota and its raid
+#   --no-quota            a missed quota does not end the run; the next shift comes
+#   --raid                every shift's raid is announced as the shift starts and comes 5 s later
+~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
+~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-no-timer   # a guest brings a raid and stops the clock
 
 tools/soak.sh [players=8] [seconds=600] [seed]   # host + guests as separate headless bot processes over ENet; "SOAK OK"
                                                  # (also judges the host's tick times; give it 120 s or more — in less, a bot may not get to deliver)
@@ -721,4 +754,16 @@ stones are on the cards; nothing is left behind and the camera never left the ey
 the host's own UDP port, joins (both ends, the host's HUD and the host's player views count two
 players), walks a second down the street (the server moves it, its prediction agrees), and leaves;
 next to it a client saying Hello with a wrong protocol hash must get `ProtocolMismatch` and be
-disconnected.
+disconnected. That guest joins with every playtest flag and `--shift=3`: it must stand at its
+mailbox, and the server must have the clock stopped, the quota waived and the next run at shift 3
+until it leaves.
+
+The second run, `--smoke --shift=2 --no-quota --raid` (about 15 s), is nit 13's playtest as a
+player would do it: the flags must be on the host's player, go starts Prep of "Shift 2 / 5" with
+shift 2's quota, Ready starts it; the raid banner and the tracker's countdown must show from the
+first second and the raid must be there 5 s in; the host walks out to the street and fights with
+the hammer, through the client's input, until all six pulses are in and nobody of them is left on
+the server, in the client's list or drawn (every raider felled by the host, the tracker counting
+them, the feed saying so); it walks over the loot (coins in the wallet line, cards shown); the
+rest of the shift runs out, Payday's panel says QUOTA MISSED and the hint "playtest: the run goes
+on · shift 3 in …", and the run must then be in shift 3's Prep with no Results and no raid left.

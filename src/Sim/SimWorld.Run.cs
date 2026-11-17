@@ -89,7 +89,7 @@ namespace PerformativeMail.Sim
         private void BeginRun()
         {
             Run.RunNumber++;
-            Run.Shift = 1;
+            Run.Shift = StartShift;
             Run.ShiftsCompleted = 0;
             Run.Outcome = RunOutcome.None;
             Run.LastSummary = null;
@@ -172,8 +172,9 @@ namespace PerformativeMail.Sim
 
         private void EndPayday()
         {
-            if (!Run.LastSummary!.QuotaMet) BeginResults(RunOutcome.QuotaMissed);
-            else if (Run.Shift >= ShiftCount) BeginResults(RunOutcome.Victory);
+            bool met = Run.LastSummary!.QuotaMet;
+            if (!met && !QuotaWaived) BeginResults(RunOutcome.QuotaMissed);
+            else if (Run.Shift >= ShiftCount) BeginResults(met ? RunOutcome.Victory : RunOutcome.QuotaMissed);
             else
             {
                 Run.Shift++;

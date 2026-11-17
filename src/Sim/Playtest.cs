@@ -6,8 +6,9 @@ using PerformativeMail.Sim.World;
 namespace PerformativeMail.Sim
 {
     /// <summary>
-    /// What a client may ask for in its Hello so that a live check is reliable (playtest nit 10).
-    /// The host's own client asks the same way a guest's does.
+    /// What a client may ask for in its Hello so that a live check is reliable (playtest nits 10
+    /// and 13). The host's own client asks the same way a guest's does; next to these flags the
+    /// Hello carries the shift the run is to start at (<see cref="Players.Player.PlaytestShift"/>).
     /// </summary>
     [Flags]
     public enum PlaytestFlags : byte
@@ -17,12 +18,18 @@ namespace PerformativeMail.Sim
         NoTimer = 1,
         /// <summary>The player is put before a mailbox, and has mail for it whenever mailboxes are open.</summary>
         AtMailbox = 2,
+        /// <summary>A missed quota does not end the run while this player is in the game.</summary>
+        NoQuota = 4,
+        /// <summary>Every shift's night raid comes right after the shift starts, also in a shift that has none.</summary>
+        RaidNow = 8,
     }
 
     public static class PlaytestMask
     {
         /// <summary>Every flag there is. Not a member of the enum, so a log names the flags one by one.</summary>
-        public const PlaytestFlags All = PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox;
+        public const PlaytestFlags All = PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow;
+        /// <summary>From the start of a shift to the first raiders under <see cref="PlaytestFlags.RaidNow"/>: time to read the warning.</summary>
+        public const double RaidNowSeconds = 5;
     }
 
     /// <summary>Where a player who asked for <see cref="PlaytestFlags.AtMailbox"/> stands; both ends work it out from the map.</summary>

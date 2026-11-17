@@ -5,6 +5,7 @@ using PerformativeMail.Client;
 using PerformativeMail.Server;
 using PerformativeMail.Server.Transport;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Run;
 using Xunit;
@@ -12,8 +13,8 @@ using Xunit;
 namespace PerformativeMail.Net.Tests
 {
     /// <summary>
-    /// Playtest nit 10 as the players see it: the flags travel in the Hello, so a guest asks for
-    /// them the same way the host's own client does.
+    /// Playtest nits 10 and 13 as the players see them: the flags travel in the Hello, so a guest
+    /// asks for them the same way the host's own client does.
     /// </summary>
     public class PlaytestFlowTests
     {
@@ -30,9 +31,9 @@ namespace PerformativeMail.Net.Tests
                 Server.Log = Log.Add;
             }
 
-            public ClientRuntime AddClient(string name, PlaytestFlags playtest = PlaytestFlags.None)
+            public ClientRuntime AddClient(string name, PlaytestFlags playtest = PlaytestFlags.None, int startShift = 0)
             {
-                var client = new ClientRuntime(Shared.Content, Hub.CreateClient(), name, playtest);
+                var client = new ClientRuntime(Shared.Content, Hub.CreateClient(), name, playtest, startShift);
                 Clients.Add(client);
                 return client;
             }
@@ -58,7 +59,7 @@ namespace PerformativeMail.Net.Tests
         {
             var s = new Session();
             var host = s.AddClient("Ada");
-            var guest = s.AddClient("Bo", PlaytestMask.All);
+            var guest = s.AddClient("Bo", PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox);
             var hand = new InteractionController(guest);
             s.Step(10);
             var world = guest.World!;
@@ -66,7 +67,7 @@ namespace PerformativeMail.Net.Tests
             var truth = server.GetPlayer(world.LocalId)!;
 
             Assert.Equal(PlaytestFlags.None, server.GetPlayer(host.World!.LocalId)!.Playtest);
-            Assert.Equal(PlaytestMask.All, truth.Playtest);
+            Assert.Equal(PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox, truth.Playtest);
             Assert.Contains(s.Log, line => line.StartsWith("Bo joined as ", StringComparison.Ordinal) && line.EndsWith("(playtest: NoTimer, AtMailbox)", StringComparison.Ordinal));
             Assert.Contains(s.Log, line => line.StartsWith("Ada joined as ", StringComparison.Ordinal) && !line.Contains("playtest"));
 
@@ -177,6 +178,83 @@ namespace PerformativeMail.Net.Tests
             s.Step(60 * 30);
             Assert.InRange(world.PhaseSecondsLeft, 178.0, 180.0);
             Assert.StartsWith("Shift 1 / 5   DELIVERY 03:00", HudText.ShiftAndPhase(world));
+        }
+
+        [Fact]
+        public void AGuestWithShiftNoQuotaAndRaid_StartsTheRunAtThatShift_RaidedAtOnce_AndTheMissedQuotaEndsNothing()
+        {
+            var s = new Session();
+            var host = s.AddClient("Ada");
+            var guest = s.AddClient("Bo", PlaytestFlags.NoQuota | PlaytestFlags.RaidNow, 2);
+            s.Step(10);
+            var world = guest.World!;
+            var server = s.Server.World;
+            var truth = server.GetPlayer(world.LocalId)!;
+            Assert.Equal((PlaytestFlags.NoQuota | PlaytestFlags.RaidNow, (byte)2), (truth.Playtest, truth.PlaytestShift));
+            Assert.Contains(s.Log, line => line.StartsWith("Bo joined as ", StringComparison.Ordinal) && line.EndsWith("(playtest: NoQuota, RaidNow, shift 2)", StringComparison.Ordinal));
+            Assert.True(world.QuotaWaived && host.World!.QuotaWaived);
+            Assert.False(world.Global.ClockStopped);
+
+            // The host starts the run: it is shift 2 for both, with shift 2's quota for two.
+            Assert.NotEqual(0u, host.PressGo());
+            s.Step(5);
+            Assert.StartsWith("Shift 2 / 5   PREP 01:", HudText.ShiftAndPhase(world));
+            Assert.StartsWith("Shift 2 / 5   PREP 01:", HudText.ShiftAndPhase(host.World));
+            Assert.Equal(QuotaFormula.Quota(Shared.Content.Balance, 2, 2), world.Global.Quota);
+            host.PressGo();
+            guest.PressGo();
+            s.Step(10);
+            Assert.Equal((RunPhase.Delivery, (byte)2), (world.Global.Phase, world.Global.Shift));
+
+            // The raid is announced as the shift starts, on both screens, and is there five seconds in.
+            Assert.Equal(RaidState.Warning, world.Raid);
+            Assert.Equal(RaidState.Warning, host.World.Raid);
+            Assert.StartsWith(HudText.RaidWarning + "   ·   00:0", HudText.RaidBanner(world));
+            Assert.StartsWith("Raid in 00:0", HudText.RaidTracker(host.World));
+            Assert.InRange(world.RaidSecondsLeft, 4.0, 5.0);
+            s.Step(5 * 30);
+            Assert.Equal(RaidState.Active, world.Raid);
+            Assert.Equal(RaidState.Active, host.World.Raid);
+            Assert.NotEmpty(world.Enemies);
+            Assert.Equal(server.Enemies.Count, host.World.Enemies.Count);
+            Assert.Equal(HudText.RaidTracker(world), HudText.RaidTracker(host.World));
+            Assert.StartsWith("Raid   ·   ", HudText.RaidTracker(world));
+            // The clock of the shift runs as ever.
+            Assert.DoesNotContain(HudText.ClockStoppedTag, HudText.ShiftAndPhase(world));
+            Assert.StartsWith("Shift 2 / 5   DELIVERY 04:2", HudText.ShiftAndPhase(world));
+
+            // Nobody delivers: the quota is missed, and the run goes on to shift 3 all the same.
+            while (server.Run.Phase == RunPhase.Delivery) s.Step(30);
+            s.Step(10);
+            Assert.Equal(RunPhase.Payday, world.Global.Phase);
+            Assert.NotNull(world.LastSummary);
+            Assert.False(world.LastSummary!.QuotaMet);
+            Assert.StartsWith($"Quota missed — {HudText.QuotaWaivedTag}   ·   shift 3 in 00:", HudText.PhaseHint(world));
+            Assert.Equal(HudText.PhaseHint(world), HudText.PhaseHint(host.World));
+            while (server.Run.Phase == RunPhase.Payday) s.Step(30);
+            s.Step(10);
+            Assert.Equal((RunPhase.Prep, (byte)3, RunOutcome.None), (world.Global.Phase, world.Global.Shift, world.Global.Outcome));
+            Assert.StartsWith("Shift 3 / 5   PREP ", HudText.ShiftAndPhase(host.World));
+            Assert.Equal(RaidState.None, world.Raid);
+            Assert.Empty(world.Enemies);
+
+            // The one who asked leaves: the next missed quota ends the run, and no raid opens shift 3.
+            guest.Disconnect();
+            s.Clients.Remove(guest);
+            s.Step(15);
+            Assert.False(host.World.QuotaWaived);
+            host.PressGo();
+            s.Step(10);
+            Assert.Equal(RunPhase.Delivery, host.World.Global.Phase);
+            Assert.Equal(RaidState.None, host.World.Raid);
+            Assert.Equal(server.Run.PhaseEndTick - 90u * 30u, server.RaidStartTick);
+            while (server.Run.Phase == RunPhase.Delivery) s.Step(30);
+            s.Step(10);
+            Assert.StartsWith("Quota missed — results in 00:", HudText.PhaseHint(host.World));
+            while (server.Run.Phase == RunPhase.Payday) s.Step(30);
+            s.Step(10);
+            Assert.Equal("RESULTS   RUN OVER", HudText.ShiftAndPhase(host.World));
+            Assert.Equal(0, host.ContainerDesyncs + host.BadPackets + guest.BadPackets);
         }
 
         [Fact]

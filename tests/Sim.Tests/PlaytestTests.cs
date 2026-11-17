@@ -10,7 +10,11 @@ using Xunit;
 
 namespace PerformativeMail.Sim.Tests
 {
-    /// <summary>Playtest nit 10: the stopped shift clock and the carrier parked before a mailbox with mail for it.</summary>
+    /// <summary>
+    /// Playtest nits 10 and 13: the stopped shift clock, the carrier parked before a mailbox with
+    /// mail for it, the run that starts at a later shift, the quota that ends nothing and the raid
+    /// that comes as the shift starts.
+    /// </summary>
     public class PlaytestTests
     {
         private const int Tps = 30;
@@ -211,7 +215,7 @@ namespace PerformativeMail.Sim.Tests
             var a = world.AddPlayer("a")!;
             var b = world.AddPlayer("b")!;
             float hostX = host.Move.X, hostZ = host.Move.Z;
-            world.SetPlaytest(a, PlaytestMask.All);
+            world.SetPlaytest(a, PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox);
             world.SetPlaytest(b, PlaytestFlags.AtMailbox);
 
             var destA = PlaytestSpot.Mailbox(world.Map, a.Slot);
@@ -251,6 +255,276 @@ namespace PerformativeMail.Sim.Tests
                 Assert.Equal((x, z), (rx, rz));
                 Assert.Equal(TileType.Street, map.GetTile((int)(x / SimConstants.TileSize), (int)(z / SimConstants.TileSize)));
             }
+        }
+
+        // --- nit 13: --shift=N ---------------------------------------------------------------------
+
+        [Fact]
+        public void StartShift_TheRunStartsAtTheAskedShift_WithItsQuotaAndItsRaid()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            Assert.Equal(1, world.StartShift);
+            world.SetPlaytest(host, PlaytestFlags.None, 2);
+            Assert.Equal((PlaytestFlags.None, (byte)2), (host.Playtest, host.PlaytestShift));
+            Assert.Equal(2, world.StartShift);
+            // Nothing happens in the Lobby: the shift is where the next run starts.
+            Assert.Equal((RunPhase.Lobby, 1), (world.Run.Phase, world.Run.Shift));
+
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal((RunPhase.Prep, 2), (world.Run.Phase, world.Run.Shift));
+            Assert.Equal(QuotaFormula.Quota(world.Content.Balance, 2, 1), world.Run.Quota);
+            Assert.Equal((byte)2, world.GetGlobalState().Shift);
+            Assert.Equal(90u * Tps, world.Run.PhaseEndTick - world.Run.PhaseStartTick);
+
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+            Assert.Equal((RunPhase.Delivery, 2), (world.Run.Phase, world.Run.Shift));
+            Assert.Equal(270u * Tps, world.Run.PhaseEndTick - world.Run.PhaseStartTick);
+            // Shift 2's own raid, at its own time: the last minute and a half.
+            Assert.Equal(world.Run.PhaseEndTick - 90u * Tps, world.RaidStartTick);
+            Assert.Equal(RaidState.None, world.Raid);
+
+            // The quota is missed as it would be: the run ends, and the next one starts at shift 2 again.
+            while (world.Run.Phase == RunPhase.Delivery) world.Step();
+            while (world.Run.Phase == RunPhase.Payday) world.Step();
+            Assert.Equal((RunPhase.Results, RunOutcome.QuotaMissed), (world.Run.Phase, world.Run.Outcome));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.ContinueRun(0)));
+            Assert.Equal((RunPhase.Lobby, 1), (world.Run.Phase, world.Run.Shift));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal((RunPhase.Prep, 2), (world.Run.Phase, world.Run.Shift));
+        }
+
+        [Fact]
+        public void StartShift_TheLatestAskedWins_NeverPastTheLastShift_AndGoesWithThePlayer()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            var guest = world.AddPlayer("guest")!;
+            world.SetPlaytest(host, PlaytestFlags.None, 2);
+            world.SetPlaytest(guest, PlaytestFlags.None, 4);
+            Assert.Equal(4, world.StartShift);
+            world.SetPlaytest(guest, PlaytestFlags.None, 200);
+            Assert.Equal(world.ShiftCount, guest.PlaytestShift);
+            Assert.Equal(world.ShiftCount, world.StartShift);
+            world.SetPlaytest(guest, PlaytestFlags.None, -3);
+            Assert.Equal(0, guest.PlaytestShift);
+            world.SetPlaytest(guest, PlaytestFlags.None, 4);
+
+            world.RemovePlayer(guest.Id);
+            Assert.Equal(2, world.StartShift);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal(2, world.Run.Shift);
+        }
+
+        [Fact]
+        public void StartShift_AGuestJoiningInPrepMovesTheRunUp_NeverBack()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            SimDriver.StepTicks(world, 10 * Tps);
+            Assert.Equal((RunPhase.Prep, 1), (world.Run.Phase, world.Run.Shift));
+
+            world.Events.Clear();
+            var guest = world.AddPlayer("guest")!;
+            world.SetPlaytest(guest, PlaytestFlags.None, 3);
+            Assert.Equal((RunPhase.Prep, 3), (world.Run.Phase, world.Run.Shift));
+            // Shift 3's Prep from its start, and everybody hears of it.
+            Assert.Equal(world.Tick, world.Run.PhaseStartTick);
+            Assert.Equal(QuotaFormula.Quota(world.Content.Balance, 3, 2), world.Run.Quota);
+            var phase = world.Events.OfType<PhaseChangedEvent>().Last();
+            Assert.Equal(((byte)3, RunPhase.Prep), (phase.Shift, phase.Phase));
+
+            var late = world.AddPlayer("late")!;
+            world.SetPlaytest(late, PlaytestFlags.None, 2);
+            Assert.Equal(3, world.Run.Shift);
+
+            foreach (var p in world.Players) Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.SetReady(0, true)));
+            Assert.Equal((RunPhase.Delivery, 3), (world.Run.Phase, world.Run.Shift));
+            // A shift under way is not replaced: a later ask waits for the next run.
+            world.SetPlaytest(late, PlaytestFlags.None, 5);
+            Assert.Equal((RunPhase.Delivery, 3), (world.Run.Phase, world.Run.Shift));
+        }
+
+        // --- nit 13: --no-quota --------------------------------------------------------------------
+
+        [Fact]
+        public void NoQuota_AMissedQuotaDoesNotEndTheRun_UntilTheLastShiftIsOver()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            Assert.False(world.QuotaWaived);
+            Assert.False(world.GetGlobalState().QuotaWaived);
+            world.SetPlaytest(host, PlaytestFlags.NoQuota);
+            Assert.True(world.QuotaWaived);
+            Assert.True(world.GetGlobalState().QuotaWaived);
+            Assert.False(world.ClockStopped);
+
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            for (int shift = 1; shift <= world.ShiftCount; shift++)
+            {
+                Assert.Equal((RunPhase.Prep, shift), (world.Run.Phase, world.Run.Shift));
+                Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+                while (world.Run.Phase == RunPhase.Delivery) world.Step();
+                Assert.Equal(RunPhase.Payday, world.Run.Phase);
+                Assert.False(world.Run.LastSummary!.QuotaMet);
+                while (world.Run.Phase == RunPhase.Payday) world.Step();
+            }
+            // Nothing was earned: the run is over after its last shift, and not as a victory.
+            Assert.Equal((RunPhase.Results, RunOutcome.QuotaMissed), (world.Run.Phase, world.Run.Outcome));
+            Assert.Equal(0, world.Run.ShiftsCompleted);
+            Assert.Equal(0, world.Run.Results!.ShiftsCompleted);
+        }
+
+        [Fact]
+        public void NoQuota_EndsWithTheTesterWhoAskedForIt()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            var guest = world.AddPlayer("guest")!;
+            world.SetPlaytest(guest, PlaytestFlags.NoQuota);
+            StartDelivery(world, host);
+            while (world.Run.Phase == RunPhase.Delivery) world.Step();
+            Assert.False(world.Run.LastSummary!.QuotaMet);
+            // The guest leaves during Payday: the missed quota counts after all.
+            world.RemovePlayer(guest.Id);
+            Assert.False(world.QuotaWaived);
+            while (world.Run.Phase == RunPhase.Payday) world.Step();
+            Assert.Equal((RunPhase.Results, RunOutcome.QuotaMissed), (world.Run.Phase, world.Run.Outcome));
+        }
+
+        [Fact]
+        public void NoQuota_AMetQuotaStillCounts_AndTheLastOneIsAVictory()
+        {
+            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Raids = false });
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.NoQuota, world.ShiftCount);
+            StartDelivery(world, host);
+            Assert.Equal(world.ShiftCount, world.Run.Shift);
+            var home = world.Map.Destinations[0];
+            var item = TestContent.Mail("letter", home.Address, 800000, (byte)world.Run.Shift);
+            item.Value = (ushort)world.Run.Quota;
+            Assert.True(world.Give(host.Hotbar, ItemStack.OfMail(item)));
+            SimDriver.Teleport(host, home.MailboxX, home.MailboxZ);
+            SimDriver.StepTicks(world, 15);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Deliver(0, host.Hotbar.Id, host.Hotbar.Entries.Single().EntryId, home.Id)));
+            while (world.Run.Phase == RunPhase.Delivery) world.Step();
+            Assert.True(world.Run.LastSummary!.QuotaMet);
+            while (world.Run.Phase == RunPhase.Payday) world.Step();
+            Assert.Equal((RunPhase.Results, RunOutcome.Victory), (world.Run.Phase, world.Run.Outcome));
+            Assert.Equal(1, world.Run.ShiftsCompleted);
+        }
+
+        // --- nit 13: --raid ------------------------------------------------------------------------
+
+        [Fact]
+        public void RaidNow_TheRaidComesFiveSecondsIntoTheShift_AlsoInShiftOneWhichHasNone()
+        {
+            var world = NewWorld();
+            var waves = world.Content.Waves;
+            var host = world.AddPlayer("host")!;
+            Assert.False(world.RaidsAtShiftStart);
+            world.SetPlaytest(host, PlaytestFlags.RaidNow);
+            Assert.True(world.RaidsAtShiftStart);
+            Assert.Equal(0, waves.BudgetFor(1));
+
+            StartDelivery(world, host);
+            uint start = world.Run.PhaseStartTick;
+            Assert.Equal(start + 5u * Tps, world.RaidStartTick);
+            SimDriver.StepTicks(world, 2);
+            Assert.Equal(RaidState.Warning, world.Raid);
+            var warned = world.Events.OfType<RaidChangedEvent>().Last();
+            Assert.Equal((RaidState.Warning, world.RaidStartTick), (warned.Raid, warned.Tick));
+            Assert.Empty(world.Enemies);
+
+            while (world.Tick < world.RaidStartTick) world.Step();
+            world.Step();
+            Assert.Equal(RaidState.Active, world.Raid);
+            // Shift 1 has no raid of its own: it borrows shift 2's budget and shift 2's raiders.
+            Assert.Equal(SimWorld.WaveBudget(waves, 2, 1, world.Economy.Complaint), world.RaidBudget);
+            Assert.Equal(1, world.RaidPulsesSpawned);
+            Assert.NotEmpty(world.Enemies);
+            var allowed = waves.WeightsFor(2).Select(w => w.Key.Id).ToList();
+            Assert.All(world.Enemies, e => Assert.Contains(e.Def.Id, allowed));
+
+            // The pulses come at their usual pace, all of them long before the shift ends.
+            SimDriver.StepTicks(world, (int)((waves.Pulses - 1) * waves.PulseIntervalSeconds * Tps));
+            Assert.Equal(waves.Pulses, world.RaidPulsesSpawned);
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+            Assert.True(world.EnemiesSpawnedTotal >= waves.Pulses);
+            // The shift's clock runs as ever and its end breaks the raid off.
+            Assert.Equal(start + 240u * Tps, world.Run.PhaseEndTick);
+            while (world.Run.Phase == RunPhase.Delivery) world.Step();
+            Assert.Equal(RaidState.Fleeing, world.Raid);
+            while (world.Run.Phase == RunPhase.Payday) world.Step();
+            Assert.Equal(RaidState.None, world.Raid);
+            Assert.Empty(world.Enemies);
+        }
+
+        [Fact]
+        public void RaidNow_AShiftWithItsOwnRaidHasItEarly_WithItsOwnBudget()
+        {
+            var world = NewWorld();
+            var waves = world.Content.Waves;
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.RaidNow, 3);
+            StartDelivery(world, host);
+            Assert.Equal(3, world.Run.Shift);
+            Assert.Equal(world.Run.PhaseStartTick + 5u * Tps, world.RaidStartTick);
+            while (world.Raid != RaidState.Active) world.Step();
+            Assert.Equal(SimWorld.WaveBudget(waves, 3, 1, world.Economy.Complaint), world.RaidBudget);
+        }
+
+        [Fact]
+        public void RaidNow_ComesAlsoWhenTheClockIsStopped_AndTheClockStaysStopped()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.RaidNow | PlaytestFlags.NoTimer);
+            StartDelivery(world, host);
+            uint left = world.Run.PhaseEndTick - world.Tick;
+            uint raid = world.RaidStartTick;
+            SimDriver.StepTicks(world, 6 * Tps);
+            Assert.Equal(raid, world.RaidStartTick);
+            Assert.Equal(RaidState.Active, world.Raid);
+            Assert.NotEmpty(world.Enemies);
+            Assert.Equal(left, world.Run.PhaseEndTick - world.Tick);
+            // The host ends the shift by hand, and the raid with it.
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.ContinueRun(0)));
+            Assert.Equal((RunPhase.Payday, RaidState.Fleeing), (world.Run.Phase, world.Raid));
+        }
+
+        [Fact]
+        public void RaidNow_AskedInAShiftUnderWay_ComesFiveSecondsLater()
+        {
+            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = 7, QuickStart = true });
+            var host = world.AddPlayer("host")!;
+            SimDriver.StepTicks(world, 20 * Tps);
+            Assert.Equal((RunPhase.Delivery, 1, RaidState.None), (world.Run.Phase, world.Run.Shift, world.Raid));
+            Assert.Equal(0u, world.RaidStartTick);
+
+            var guest = world.AddPlayer("guest")!;
+            world.SetPlaytest(guest, PlaytestFlags.RaidNow);
+            Assert.Equal(world.Tick + 5u * Tps, world.RaidStartTick);
+            uint due = world.RaidStartTick;
+            SimDriver.StepTicks(world, 5 * Tps + 1);
+            Assert.Equal(RaidState.Active, world.Raid);
+            // A raid under way is not started over by a second tester.
+            var third = world.AddPlayer("third")!;
+            world.SetPlaytest(third, PlaytestFlags.RaidNow);
+            Assert.Equal(due, world.RaidStartTick);
+            Assert.Equal(host.Id, world.Run.Host);
+        }
+
+        [Fact]
+        public void RaidNow_WithRaidsSwitchedOff_NothingComes()
+        {
+            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Raids = false });
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.RaidNow);
+            StartDelivery(world, host);
+            SimDriver.StepTicks(world, 10 * Tps);
+            Assert.Equal((0u, RaidState.None), (world.RaidStartTick, world.Raid));
         }
 
         private static void AssertParked(SimWorld world, Player p, DestinationDef dest)

@@ -19,9 +19,13 @@ namespace PerformativeMail.App
     /// --quit-after=SECONDS it ends with a verdict), --smoke, and with a window --shots=DIR to make
     /// the smoke save screenshots, --low (no lamp lights, shadows, bloom or anti-aliasing), --lookdev=DIR (pictures of the world from a tour of viewpoints,
     /// then quit; --lookdev-views=name:ex,ey,ez:tx,ty,tz[:night];… for views of one's own).
-    /// For live checks, on a host and on a --join guest alike: --playtest-no-timer (the shift clock
-    /// stands while this player is in the game; the host's "go" key ends the shift) and
-    /// --playtest-mailbox (this player starts, and starts every shift, before a mailbox with mail for it).
+    /// For live checks, on a host and on a --join guest alike, and all off unless given:
+    /// --playtest-no-timer (the shift clock stands while this player is in the game; the host's
+    /// "go" key ends the shift), --playtest-mailbox (this player starts, and starts every shift,
+    /// before a mailbox with mail for it), --shift=N (the run starts at shift N, with that shift's
+    /// quota and raid), --no-quota (a missed quota does not end the run) and --raid (the night raid
+    /// comes five seconds into every shift, also in shift 1). With --smoke they are not played
+    /// with but checked: "--smoke --shift=2 --no-quota --raid" is the smoke of the raid playtest.
     /// </summary>
     public partial class Boot : Node
     {
@@ -36,11 +40,15 @@ namespace PerformativeMail.App
             int waitPlayers = 1;
             double quitAfter = 0;
             var playtest = PlaytestFlags.None;
+            int startShift = 0;
             foreach (string arg in OS.GetCmdlineUserArgs())
             {
                 if (arg == "--smoke") smoke = true;
                 else if (arg == "--playtest-no-timer") playtest |= PlaytestFlags.NoTimer;
                 else if (arg == "--playtest-mailbox") playtest |= PlaytestFlags.AtMailbox;
+                else if (arg == "--no-quota") playtest |= PlaytestFlags.NoQuota;
+                else if (arg == "--raid") playtest |= PlaytestFlags.RaidNow;
+                else if (arg.StartsWith("--shift=", StringComparison.Ordinal) && int.TryParse(arg.Substring(8), out int n) && n >= 1 && n <= byte.MaxValue) startShift = n;
                 else if (arg == "--quick") quick = true;
                 else if (arg == "--solo") solo = true;
                 else if (arg == "--bot") bot = true;
@@ -86,10 +94,10 @@ namespace PerformativeMail.App
             WorldView.Cheap = low || (smoke && adapter.Contains("llvmpipe", StringComparison.OrdinalIgnoreCase));
 
             InputActions.Register();
-            // The smoke checks the game as it ships: no playtest help.
-            if (smoke) playtest = PlaytestFlags.None;
-            if (playtest != PlaytestFlags.None) GD.Print($"[boot] playtest: {playtest}");
-            var session = new GameSession { Name = "Session", Playtest = playtest };
+            // The smoke without playtest flags checks the game as it ships; with them, the flags themselves.
+            bool playtesting = playtest != PlaytestFlags.None || startShift != 0;
+            if (playtesting) GD.Print($"[boot] playtest: {playtest}{(startShift != 0 ? $", shift {startShift}" : "")}");
+            var session = new GameSession { Name = "Session", Playtest = playtest, StartShift = startShift };
             if (join != null && !smoke)
             {
                 ParseAddress(join, out string address, out int joinPort);

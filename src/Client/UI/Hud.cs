@@ -296,7 +296,8 @@ namespace PerformativeMail.Client.UI
             }
             string down = HudText.Down(world);
             _banner.Text = down.Length > 0 ? down : HudText.RaidBanner(world);
-            _banner.Visible = _banner.Text.Length > 0;
+            // The Payday and Results panel stands where the banner does; the tracker still says the raiders flee.
+            _banner.Visible = _banner.Text.Length > 0 && !Overlay.Visible;
             _banner.Modulate = down.Length > 0 || world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
             _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0);
             if (_weapons.Visible) _weapons.Text = HudText.Weapons(_client.CannonAmmo);

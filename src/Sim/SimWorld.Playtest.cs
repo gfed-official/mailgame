@@ -10,8 +10,9 @@ using PerformativeMail.Sim.World;
 namespace PerformativeMail.Sim
 {
     /// <summary>
-    /// Playtest nit 10: a stopped shift clock and a carrier put before a mailbox with mail for it,
-    /// asked for by a player's Hello (<see cref="PlaytestFlags"/>).
+    /// Playtest nits 10 and 13: a stopped shift clock, a carrier put before a mailbox with mail for
+    /// it, a run that starts at a later shift, a quota that ends nothing and a raid right after the
+    /// shift starts, each asked for by a player's Hello (<see cref="PlaytestFlags"/>).
     /// </summary>
     public sealed partial class SimWorld
     {
@@ -20,31 +21,60 @@ namespace PerformativeMail.Sim
         private uint _playtestMail;
 
         /// <summary>True while a player who asked for <see cref="PlaytestFlags.NoTimer"/> is in the game.</summary>
-        public bool ClockStopped
+        public bool ClockStopped => AnyPlaytest(PlaytestFlags.NoTimer);
+        /// <summary>True while a player who asked for <see cref="PlaytestFlags.NoQuota"/> is in the game.</summary>
+        public bool QuotaWaived => AnyPlaytest(PlaytestFlags.NoQuota);
+        /// <summary>True while a player who asked for <see cref="PlaytestFlags.RaidNow"/> is in the game.</summary>
+        public bool RaidsAtShiftStart => AnyPlaytest(PlaytestFlags.RaidNow);
+
+        private bool AnyPlaytest(PlaytestFlags flag)
+        {
+            foreach (var p in _players)
+                if ((p.Playtest & flag) != 0) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// The shift a run starts at: the latest any player in the game asked for, the first if
+        /// nobody did. Never past the last shift.
+        /// </summary>
+        public int StartShift
         {
             get
             {
-                foreach (var p in _players)
-                    if ((p.Playtest & PlaytestFlags.NoTimer) != 0) return true;
-                return false;
+                int shift = 1;
+                foreach (var p in _players) shift = Math.Max(shift, p.PlaytestShift);
+                return Math.Min(shift, ShiftCount);
             }
         }
 
-        /// <summary>What a joining player asked for. Unknown bits are ignored.</summary>
-        public void SetPlaytest(Player player, PlaytestFlags flags)
+        /// <summary>
+        /// What a joining player asked for. Unknown bits are ignored. A start shift counts when the
+        /// next run starts, or at once for a run still in the Prep of an earlier shift; a raid asked
+        /// for in a Delivery whose raid has not been announced comes now.
+        /// </summary>
+        public void SetPlaytest(Player player, PlaytestFlags flags, int startShift = 0)
         {
             player.Playtest = flags & PlaytestMask.All;
+            player.PlaytestShift = (byte)Math.Clamp(startShift, 0, ShiftCount);
+            if (Run.Phase == RunPhase.Prep && player.PlaytestShift > Run.Shift)
+            {
+                Run.Shift = player.PlaytestShift;
+                BeginPrep();
+            }
+            if ((player.Playtest & PlaytestFlags.RaidNow) != 0 && Run.Phase == RunPhase.Delivery && Raid == RaidState.None) ScheduleRaid();
             if ((player.Playtest & PlaytestFlags.AtMailbox) != 0) ParkAtMailbox(player);
         }
 
         /// <summary>
         /// A stopped Delivery clock keeps all the time it has: the end of the shift moves away a
-        /// tick at a time, and with it a raid that has not been announced yet.
+        /// tick at a time, and with it a raid that has not been announced yet (a raid asked for at
+        /// the shift's start hangs on the start, not on the end, and comes all the same).
         /// </summary>
         private void HoldShiftClock()
         {
             Run.PhaseEndTick++;
-            if (_raidStartTick != 0 && Raid == RaidState.None)
+            if (_raidStartTick != 0 && Raid == RaidState.None && !_raidAtStart)
             {
                 _raidWarnTick++;
                 _raidStartTick++;

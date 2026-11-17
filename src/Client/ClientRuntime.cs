@@ -50,8 +50,10 @@ namespace PerformativeMail.Client
         public string? DisconnectDetail { get; private set; }
         public ClientWorld? World { get; private set; }
         public string Name { get; }
-        /// <summary>What this client asks the server for when it joins (playtest nit 10).</summary>
+        /// <summary>What this client asks the server for when it joins (playtest nits 10 and 13).</summary>
         public PlaytestFlags Playtest { get; }
+        /// <summary>The shift this client asks runs to start at, 0 = the first.</summary>
+        public int StartShift { get; }
 
         /// <summary>Set by the input layer; sampled once per client tick.</summary>
         public ClientInput Input;
@@ -92,9 +94,10 @@ namespace PerformativeMail.Client
         private double _errorSumSq;
         private long _errorSamples;
 
-        public ClientRuntime(ContentDb content, IClientTransport transport, string name, PlaytestFlags playtest = PlaytestFlags.None)
+        public ClientRuntime(ContentDb content, IClientTransport transport, string name, PlaytestFlags playtest = PlaytestFlags.None, int startShift = 0)
         {
             Playtest = playtest;
+            StartShift = Math.Clamp(startShift, 0, byte.MaxValue);
             _content = content;
             _transport = transport;
             _move = MoveConstants.From(content.Balance);
@@ -271,7 +274,7 @@ namespace PerformativeMail.Client
         {
             if (State != ClientState.Connecting) return;
             _writer.Reset();
-            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name, Playtest = Playtest }.Write(_writer);
+            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name, Playtest = Playtest, StartShift = (byte)StartShift }.Write(_writer);
             _transport.Send(NetChannel.Reliable, _writer.ToArray());
             State = ClientState.Joining;
         }

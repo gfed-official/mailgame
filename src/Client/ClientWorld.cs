@@ -258,6 +258,8 @@ namespace PerformativeMail.Client
 
         /// <summary>The Delivery clock stands because a player asked for it (<see cref="PlaytestFlags.NoTimer"/>).</summary>
         public bool ClockStopped => Global.ClockStopped && Global.Phase == RunPhase.Delivery;
+        /// <summary>A missed quota does not end the run because a player asked for it (<see cref="PlaytestFlags.NoQuota"/>).</summary>
+        public bool QuotaWaived => Global.QuotaWaived;
 
         /// <summary>False in the phases that wait for people instead of a clock (Lobby, Results).</summary>
         public bool PhaseHasClock => Global.PhaseEndTick != 0;
