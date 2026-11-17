@@ -180,6 +180,7 @@ namespace PerformativeMail.Server
                 Hotbar = player.Hotbar.Snapshot(),
                 Inventory = player.Inventory.Snapshot(),
             };
+            foreach (var chest in World.MapChests) welcome.ChestContainerIds.Add(chest.Id);
             foreach (var p in World.Players)
                 welcome.Players.Add(new PlayerInfo { Id = p.Id, Name = p.Name, Slot = p.Slot });
             _writer.Reset();

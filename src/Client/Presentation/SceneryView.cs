@@ -40,6 +40,7 @@ namespace PerformativeMail.Client.Presentation
                     case PropKind.Bench: Bench(batch, new Vector3((prop.X + prop.X2) * 0.5f, ground, (prop.Z + prop.Z2) * 0.5f), prop.Yaw); break;
                     case PropKind.Fence: Fence(batch, at, new Vector3(prop.X2, ground, prop.Z2)); break;
                     case PropKind.Flowers: Flowers(batch, at, prop.Scale, prop.Variant); break;
+                    case PropKind.Chest: Chest(batch, at, prop.Yaw); break;
                 }
             }
             return lamps;
@@ -103,6 +104,30 @@ namespace PerformativeMail.Client.Presentation
                 batch.Box(new Vector3(x, 0.45f, -0.26f), new Vector3(0.06f, 0.9f, 0.06f), iron, 0.02f, new Vector3(-8f, 0f, 0f));
                 batch.Box(new Vector3(x, 0.64f, -0.03f), new Vector3(0.07f, 0.05f, 0.48f), iron, 0.02f);
             }
+            batch.Frame = saved;
+        }
+
+        /// <summary>A banded wooden chest with a rounded lid; its lock is on the side <paramref name="yaw"/> looks to.</summary>
+        public static void Chest(MeshBatch batch, Vector3 at, float yaw)
+        {
+            var saved = batch.Frame;
+            // Local −Z is the front.
+            batch.Frame = saved * new Transform3D(new Basis(Vector3.Up, yaw), at);
+            var wood = MeshKit.Mat(new Color("8a5a3c"), 0.7f);
+            var dark = MeshKit.Mat(new Color("6b422a"), 0.75f);
+            var iron = MeshKit.Mat(new Color("2e2a33"), 0.45f, 0.5f);
+            var brass = MeshKit.Mat(new Color("d9a441"), 0.35f, 0.7f);
+            batch.Box(new Vector3(0f, 0.27f, 0f), new Vector3(0.92f, 0.5f, 0.62f), wood, 0.05f);
+            batch.Box(new Vector3(0f, 0.04f, 0f), new Vector3(0.98f, 0.08f, 0.68f), dark, 0.03f);
+            // The lid: a box whose edges are rounded all the way, so it reads as a barrel top.
+            batch.Box(new Vector3(0f, 0.62f, 0f), new Vector3(0.96f, 0.3f, 0.66f), dark, 0.14f);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                batch.Box(new Vector3(side * 0.3f, 0.29f, 0f), new Vector3(0.09f, 0.56f, 0.66f), iron, 0.02f);
+                batch.Box(new Vector3(side * 0.3f, 0.63f, 0f), new Vector3(0.09f, 0.33f, 0.7f), iron, 0.12f);
+            }
+            batch.Box(new Vector3(0f, 0.47f, -0.33f), new Vector3(0.16f, 0.2f, 0.06f), brass, 0.03f);
+            batch.Box(new Vector3(0f, 0.43f, -0.365f), new Vector3(0.05f, 0.07f, 0.02f), iron, 0.01f);
             batch.Frame = saved;
         }
 

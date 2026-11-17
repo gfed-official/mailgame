@@ -320,6 +320,8 @@ namespace PerformativeMail.Client
             {
                 case InteractKind.OpenIntake: return "Open Intake  [E]";
                 case InteractKind.CloseIntake: return "Close Intake  [E]";
+                case InteractKind.OpenChest: return $"Open {ContainerTitle(p.Chest!.Container)}  [E]";
+                case InteractKind.CloseChest: return $"Close {ContainerTitle(p.Chest!.Container)}  [E]";
                 case InteractKind.Deliver:
                 {
                     var dest = p.Destination!;

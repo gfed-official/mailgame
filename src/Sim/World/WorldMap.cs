@@ -72,6 +72,22 @@ namespace PerformativeMail.Sim.World
         public float SpawnYaw { get; init; }
     }
 
+    /// <summary>A storage container that stands in the map from the start (playtest nit 9: a chest by the Post Office).</summary>
+    public sealed class MapChestDef
+    {
+        /// <summary>Index into <see cref="WorldMap.Chests"/>.</summary>
+        public int Id { get; init; }
+        public ContainerDef Container { get; init; } = null!;
+        public float X { get; init; }
+        public float Z { get; init; }
+        /// <summary>Which way its front looks, in radians (0 looks along −Z).</summary>
+        public float Yaw { get; init; }
+
+        /// <summary>The solid part: a round body a carrier walks around or jumps onto.</summary>
+        public const float Radius = 0.45f;
+        public const float Height = 0.8f;
+    }
+
     /// <summary>
     /// Runtime world representation (doc 02 §4): tile grid, lots/destinations, addresses.
     /// In M0 it is loaded from a hand-authored static file instead of being generated from a seed.
@@ -88,11 +104,17 @@ namespace PerformativeMail.Sim.World
         public IReadOnlyList<StreetDef> Streets { get; init; } = Array.Empty<StreetDef>();
         public IReadOnlyList<DestinationDef> Destinations { get; init; } = Array.Empty<DestinationDef>();
         public PostOfficeDef PostOffice { get; init; } = new PostOfficeDef();
+        public IReadOnlyList<MapChestDef> Chests { get; init; } = Array.Empty<MapChestDef>();
         /// <summary>Street furniture and greenery, derived from the map itself (<see cref="Scenery"/>).</summary>
         public IReadOnlyList<Prop> Props { get; private set; } = Array.Empty<Prop>();
 
-        /// <summary>FNV-1a 64 of the tile and address tables; the M0 stand-in for worldHash (doc 02 §2).</summary>
+        /// <summary>FNV-1a 64 of the tile and address tables and the chests; the M0 stand-in for worldHash (doc 02 §2).</summary>
         public ulong MapHash { get; private set; }
+        /// <summary>
+        /// The hash of the ground alone (tiles, streets, destinations, Post Office): what the scenery
+        /// is grown from, so putting a chest into a map does not move its trees.
+        /// </summary>
+        public ulong SceneryKey { get; private set; }
 
         public float WidthM => Cols * SimConstants.TileSize;
         public float DepthM => Rows * SimConstants.TileSize;
@@ -156,6 +178,14 @@ namespace PerformativeMail.Sim.World
             h.Add((int)MathF.Round(PostOffice.SpawnPadX * 100f));
             h.Add((int)MathF.Round(PostOffice.SpawnPadZ * 100f));
             h.Add((int)MathF.Round(PostOffice.SpawnYaw * 1000f));
+            SceneryKey = h.Value;
+            foreach (var c in Chests)
+            {
+                h.Add(c.Container.Id);
+                h.Add((int)MathF.Round(c.X * 100f));
+                h.Add((int)MathF.Round(c.Z * 100f));
+                h.Add((int)MathF.Round(c.Yaw * 1000f));
+            }
             MapHash = h.Value;
             Props = Scenery.Generate(this);
             IndexProps();

@@ -110,6 +110,57 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void TheMapsChestOpensOnInteractAndClosesWhenTheCarrierWalksAway()
+        {
+            // Playtest nit 9: a chest stands in the map, so the chest grid can be used live.
+            var s = new Session();
+            var chest = Assert.Single(s.World.Map.Chests);
+            uint id = Assert.Single(s.World.ChestContainerIds);
+            Assert.Equal(s.Server.World.MapChests[0].Id, id);
+
+            // Beside it but looking away: no prompt. Looking at it: the prompt names it.
+            s.Teleport(chest.X + 1.3f, chest.Z);
+            s.Client.Input.YawRadians = ViewYaw(1f, 0f);
+            s.Frame(interact: false);
+            Assert.Equal(InteractKind.None, s.Interaction.Prompt.Kind);
+            ViewRay.Aim(s.World.Local, chest.X, 0.5f, chest.Z, out s.Client.Input.YawRadians, out s.Client.Input.PitchRadians);
+            s.Frame(interact: false);
+            Assert.Equal(InteractKind.OpenChest, s.Interaction.Prompt.Kind);
+            Assert.Equal("Open Chest  [E]", HudText.Prompt(s.World, s.Interaction.Prompt, out _));
+
+            s.Frame(interact: true);
+            s.Run(3);
+            Assert.Equal(id, s.World.OpenContainerId);
+            Assert.Equal("chest", s.World.OpenContainer!.Def.Id);
+            s.Frame(interact: false);
+            Assert.Equal(InteractKind.CloseChest, s.Interaction.Prompt.Kind);
+            Assert.Equal("Close Chest  [E]", HudText.Prompt(s.World, s.Interaction.Prompt, out _));
+
+            // What the server puts in is seen while it is open.
+            Assert.True(s.Server.World.Give(s.Server.World.MapChests[0], ItemStack.OfItem(Shared.Content.Item("stone"), 3)));
+            s.Run(3);
+            Assert.Equal(1, s.World.OpenContainer!.EntryCount);
+
+            // Walking off closes it; back at the chest a press opens it again with the stones still there.
+            s.Teleport(30f, 27f);
+            Assert.Equal(0u, s.World.OpenContainerId);
+            s.Frame(interact: false);
+            Assert.Equal(InteractKind.None, s.Interaction.Prompt.Kind);
+            s.Teleport(chest.X + 1.3f, chest.Z);
+            s.Frame(interact: true);
+            s.Run(3);
+            Assert.Equal(id, s.World.OpenContainerId);
+            Assert.Equal(1, s.World.OpenContainer!.EntryCount);
+            s.Frame(interact: false);
+            s.Frame(interact: true);
+            s.Run(3);
+            Assert.Equal(0u, s.World.OpenContainerId);
+        }
+
+        /// <summary>The yaw that looks along a ground direction (yaw 0 is −Z).</summary>
+        private static float ViewYaw(float dx, float dz) => System.MathF.Atan2(-dx, -dz);
+
+        [Fact]
         public void ATapShorterThanAFrameStillOpensTheIntake()
         {
             // The fa44a16 playtest: a very fast E tap is pressed and released between two frames, so

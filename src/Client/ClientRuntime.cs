@@ -305,7 +305,7 @@ namespace PerformativeMail.Client
         {
             if (State != ClientState.Joining) return;
             // World check (doc 06 §5 step 5): the client builds the map itself and compares hashes.
-            if (!_content.Maps.TryGetValue(m.MapId, out var map) || map.MapHash != m.MapHash)
+            if (!_content.Maps.TryGetValue(m.MapId, out var map) || map.MapHash != m.MapHash || m.ChestContainerIds.Count != map.Chests.Count)
             {
                 DisconnectDetail = $"map '{m.MapId}' does not match the server's";
                 _transport.Close();
@@ -317,6 +317,7 @@ namespace PerformativeMail.Client
                 LocalId = m.PlayerId,
                 Seed = m.Seed,
                 IntakeContainerId = m.IntakeContainerId,
+                ChestContainerIds = m.ChestContainerIds.ToArray(),
                 Global = m.Global,
                 ServerTick = m.Tick,
             };

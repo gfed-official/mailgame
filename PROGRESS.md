@@ -249,7 +249,15 @@ with the mail cannon, the loot on the cards and in the wallet.
       which also removes the 7 ms first tick of the first Delivery). Host + late guest over ENet:
       no slow tick at the join, at the shift start or when the guest leaves
       (`WarmUpTests`; design choice 56)
-- [ ] Nit 9 — a chest placed in the map
+- [x] Nit 9 — a chest placed in the map: `content/maps/test_street.json` has a `"chests"` list, and
+      one chest stands in the Post Office yard against the hall's east wall, north of the Intake.
+      It is a solid thing (collision and the bots' paths go round it), its 8×4 grid exists from the
+      start of the world, "Open Chest  [E]" / "Close Chest  [E]" open and close it, walking away
+      closes it, and a new run starts with it empty (`MapChestTests`,
+      `ContentValidatorTests.AChestInAWallOrOfAnUnknownKindIsAProblem`,
+      `InteractionTests.TheMapsChestOpensOnInteractAndClosesWhenTheCarrierWalksAway`; the smoke
+      walks to it, opens it through the prompt and does its inventory gestures in it:
+      `chest-prompt.png`, `chest.png`; design choice 57)
 - [ ] Nit 10 — `--playtest-no-timer` and a spawn-at-mailbox option, also for a `--join` guest
 - [ ] Nit 11 — player ids are not reused
 
@@ -597,6 +605,19 @@ See "Commands" at the bottom (filled in as the tooling lands).
     boot) for the same reason: the first Delivery tick was 7 ms, of which 2–4 ms GC. A slow tick
     that still shows up now and then on this box (e.g. 23 ms once, no game event near it) is the
     shared machine, not the game.
+57. **Nit 9: where a placed chest lives.** Doc 04 has chests as buildings a player places (M2);
+    until then the map file places them: `"chests": [{ "container", "at": [x, z], "yawDegrees" }]`,
+    checked by the loader (a storage grid, not hand-carried; inside the map; not in a building
+    tile; not on a street, which the tile paths need clear). Both ends know the chest from the map,
+    so nothing new is replicated: it is a solid prop added after the grown scenery (the scenery's
+    seed is `SceneryKey`, the hash of the ground alone, so adding a chest moves no tree), its
+    container is made when the world is (ids right after the Intake's), and the Welcome carries
+    the chests' container ids in map order (protocol `m1.3`; a count that differs from the map's
+    is a map mismatch). Its things are the run's: it is emptied on the return to the Lobby like
+    the pockets. The prompt needs the look (ray on a box a little larger than the model) and the
+    client's 2.5 m; the mailbox wins when both are under the crosshair. The smoke also got a
+    watchdog: a minute without a frame prints the stage and exits 3 (one run sat silent until the
+    shell's 300 s timeout right after a build and did not do it again in 14 runs).
 
 ## Commands
 
@@ -661,13 +682,15 @@ position and aimed along the interact ray every frame; no local body; the ✓ an
 missing glyphs; the top HUD row fully on screen; the real-time loop advances the server. At Results
 the profile must hold the run's XP, run count, deliveries and recent-run line, the panel must show
 the rank line, and the saved profile must read back equal; `tools/smoke.sh` then also looks for the
-XP in the profile file itself. Back in the Lobby, the inventory screen: the server puts a chest
-beside the host and a log, fibers and stones into inventory and chest; the smoke then feeds the
+XP in the profile file itself. Back in the Lobby, the inventory screen: the server puts a log,
+fibers and stones into the host's inventory and the chest in the Post Office yard; the host walks
+to the chest, looks at it ("Open Chest  [E]"), taps interact, and the smoke then feeds the
 panel's grids the mouse events of a hand — drag the 1×2 log over the hotbar (red outline), R (green),
 drop; Ctrl+drag half the fibers into the chest; drop stones onto logs (refused locally, nothing
 sent, the hint says "No room there"); click the stones across; press both sort buttons — and after
 each gesture the screen must show the result in the same frame (pending), the confirmed mirror must
-not have moved yet, and a moment later server, mirror and screen must agree with no desync. Then the
+not have moved yet, and a moment later server, mirror and screen must agree with no desync; a
+second tap ("Close Chest  [E]") closes it. Then the
 fight, through the client's own input: the server puts a raider beside the host, the smoke aims and
 holds attack until it falls (three swings; the enemy drawn, the hammer in the hands, the weapons
 line, the feed line), its loot must be drawn, taken, on the cards under "Raider" and in the wallet

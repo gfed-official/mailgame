@@ -271,7 +271,7 @@ namespace PerformativeMail.Client.Bot
             ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out _client.Input.YawRadians, out _client.Input.PitchRadians);
 
         /// <summary>Steers along a tile path toward a point. Returns true once within <paramref name="stopDistance"/>.</summary>
-        private bool WalkTo(ClientWorld world, float x, float z, float stopDistance)
+        public bool WalkTo(ClientWorld world, float x, float z, float stopDistance)
         {
             float px = world.Local.X, pz = world.Local.Z;
             float dx = x - px, dz = z - pz;

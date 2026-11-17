@@ -459,7 +459,7 @@ namespace PerformativeMail.Sim.Content
                     var ctx = new JsonCtx(file, errors);
                     string? text = Read(file);
                     if (text == null) continue;
-                    var map = MapLoader.Load(ctx, text, db._destTypesById, streetNames);
+                    var map = MapLoader.Load(ctx, text, db._destTypesById, streetNames, db._containersById);
                     if (map == null) continue;
                     if (db._maps.ContainsKey(map.Id)) ctx.Error($"duplicate map id '{map.Id}'");
                     else db._maps[map.Id] = map;

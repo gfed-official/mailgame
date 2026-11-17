@@ -228,6 +228,8 @@ namespace PerformativeMail.Client
         public GridContainer Hotbar => Prediction.View(HotbarId)!;
         public GridContainer Inventory => Prediction.View(InventoryId)!;
         public uint IntakeContainerId { get; internal set; }
+        /// <summary>The containers of the map's chests, in the order of <see cref="WorldMap.Chests"/>.</summary>
+        public IReadOnlyList<uint> ChestContainerIds { get; internal set; } = Array.Empty<uint>();
         /// <summary>The external container being viewed, 0 if none.</summary>
         public uint OpenContainerId { get; internal set; }
 

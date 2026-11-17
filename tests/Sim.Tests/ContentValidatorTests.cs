@@ -83,6 +83,23 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void AChestInAWallOrOfAnUnknownKindIsAProblem()
+        {
+            string map = File.ReadAllText(Content("maps/test_street.json"));
+            Assert.Contains("\"at\": [12.7, 14.6]", map);
+            File.WriteAllText(Content("maps/test_street.json"), map.Replace(
+                "{\"container\": \"chest\", \"at\": [12.7, 14.6], \"yawDegrees\": -90}",
+                "{\"container\": \"chest\", \"at\": [8.0, 14.6]}, {\"container\": \"crate\", \"at\": [14.0, 14.6]}, "
+                + "{\"container\": \"po_intake\", \"at\": [14.0, 16.0]}, {\"container\": \"chest\", \"at\": [30.0, 27.0]}"));
+            Assert.Equal(Program.ExitInvalid, Run(_dir, "content"));
+            string err = _err.ToString();
+            Assert.Contains("chest 0 is inside a solid tile", err);
+            Assert.Contains("unknown container 'crate'", err);
+            Assert.Contains("container 'po_intake' is not a storage grid", err);
+            Assert.Contains("stands on a street", err);
+        }
+
+        [Fact]
         public void AWrongCommandIsExitCodeTwo()
         {
             Assert.Equal(Program.ExitUsage, Run(_dir, "no-such-dir"));

@@ -14,6 +14,8 @@ namespace PerformativeMail.Sim.World
         /// <summary>A run of picket fence from (X, Z) to (X2, Z2).</summary>
         Fence = 5,
         Flowers = 6,
+        /// <summary>A chest the map places (<see cref="MapChestDef"/>): not grown, only made solid here.</summary>
+        Chest = 7,
     }
 
     /// <summary>
@@ -88,11 +90,12 @@ namespace PerformativeMail.Sim.World
         public static List<Prop> Generate(WorldMap map)
         {
             var props = new List<Prop>();
-            var rng = new RngStream((uint)(map.MapHash ^ (map.MapHash >> 32)), "scenery");
+            var rng = new RngStream((uint)(map.SceneryKey ^ (map.SceneryKey >> 32)), "scenery");
             var keepClear = new List<(float X0, float Z0, float X1, float Z1, float R)>();
             var po = map.PostOffice;
             keepClear.Add((po.IntakeX, po.IntakeZ, po.IntakeX, po.IntakeZ, 3f));
             keepClear.Add((po.SpawnPadX, po.SpawnPadZ, po.SpawnPadX, po.SpawnPadZ, 3f));
+            foreach (var c in map.Chests) keepClear.Add((c.X, c.Z, c.X, c.Z, 2f));
             foreach (var d in map.Destinations)
             {
                 keepClear.Add((d.MailboxX, d.MailboxZ, d.MailboxX, d.MailboxZ, 1.8f));
@@ -242,6 +245,9 @@ namespace PerformativeMail.Sim.World
                     }
                 }
             }
+            // Last, and without a roll of the dice: the chests stand where the map says.
+            foreach (var c in map.Chests)
+                props.Add(new Prop(PropKind.Chest, c.X, c.Z, c.X, c.Z, c.Yaw, 1f, 0, MapChestDef.Radius, MapChestDef.Height));
             return props;
         }
     }

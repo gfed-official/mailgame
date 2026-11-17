@@ -78,6 +78,10 @@ namespace PerformativeMail.Client
         public static AimBox Mailbox(WorldMap map, DestinationDef dest) =>
             new AimBox(dest.MailboxX, map.HeightAt(dest.MailboxX, dest.MailboxZ) + 1.0f, dest.MailboxZ, 0.5f, 1.0f, 0.5f);
 
+        /// <summary>A chest of the map, a little wider than its body.</summary>
+        public static AimBox Chest(WorldMap map, MapChestDef chest) =>
+            new AimBox(chest.X, map.HeightAt(chest.X, chest.Z) + 0.45f, chest.Z, 0.6f, 0.5f, 0.6f);
+
         /// <summary>The Intake counter with its sign.</summary>
         public static AimBox Intake(WorldMap map)
         {

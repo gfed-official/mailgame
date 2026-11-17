@@ -14,6 +14,9 @@ namespace PerformativeMail.Client
         CloseIntake,
         /// <summary>At a mailbox (doc 09 §3.1).</summary>
         Deliver,
+        /// <summary>At one of the map's chests.</summary>
+        OpenChest,
+        CloseChest,
     }
 
     /// <summary>What the interact prompt shows right now (doc 09 §2.4).</summary>
@@ -33,6 +36,8 @@ namespace PerformativeMail.Client
         public int MatchingStacks;
         /// <summary>Deliver: mailboxes take mail only during the Delivery phase.</summary>
         public bool MailboxClosed;
+        /// <summary>OpenChest / CloseChest: the chest in range.</summary>
+        public MapChestDef? Chest;
     }
 
     /// <summary>
@@ -89,16 +94,18 @@ namespace PerformativeMail.Client
             switch (prompt.Kind)
             {
                 case InteractKind.OpenIntake:
+                case InteractKind.OpenChest:
                     _hold = 0;
                     _deliverAllDest = -1;
                     if (_pressLatch > 0 && _awaiting == 0)
                     {
                         _pressLatch = 0;
-                        _awaiting = _client.OpenContainer(world.IntakeContainerId);
+                        _awaiting = _client.OpenContainer(prompt.Chest != null ? world.ChestContainerIds[prompt.Chest.Id] : world.IntakeContainerId);
                     }
                     break;
 
                 case InteractKind.CloseIntake:
+                case InteractKind.CloseChest:
                     _hold = 0;
                     _deliverAllDest = -1;
                     if (_pressLatch > 0 && _awaiting == 0)
@@ -130,8 +137,8 @@ namespace PerformativeMail.Client
 
         /// <summary>
         /// The interactable the player is looking at: the first one the view ray hits among those
-        /// within the client interact range of the player (doc 09 §3.1: 2.5 m). An open Intake stays
-        /// targeted while in range, because the mouse is on its panel, not on the world.
+        /// within the client interact range of the player (doc 09 §3.1: 2.5 m). An open Intake or
+        /// chest stays targeted while in range, because the mouse is on its panel, not on the world.
         /// </summary>
         private InteractPrompt FindTarget(ClientWorld world)
         {
@@ -157,6 +164,21 @@ namespace PerformativeMail.Client
                     prompt.Kind = InteractKind.OpenIntake;
                 }
             }
+            foreach (var chest in world.Map.Chests)
+            {
+                if (DistSq(px, pz, chest.X, chest.Z) > rangeSq) continue;
+                if (world.OpenContainerId == world.ChestContainerIds[chest.Id])
+                {
+                    prompt.Kind = InteractKind.CloseChest;
+                    prompt.Chest = chest;
+                    return prompt;
+                }
+                float t = ray.Hit(AimBox.Chest(world.Map, chest));
+                if (t < 0f || t > best) continue;
+                best = t;
+                prompt.Kind = InteractKind.OpenChest;
+                prompt.Chest = chest;
+            }
             foreach (var dest in world.Map.Destinations)
             {
                 if (DistSq(px, pz, dest.MailboxX, dest.MailboxZ) > rangeSq) continue;
@@ -164,6 +186,7 @@ namespace PerformativeMail.Client
                 if (t < 0f || t > best) continue;
                 best = t;
                 prompt.Kind = InteractKind.Deliver;
+                prompt.Chest = null;
                 prompt.Destination = dest;
             }
             if (prompt.Kind != InteractKind.Deliver) return prompt;

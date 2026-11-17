@@ -37,6 +37,7 @@ namespace PerformativeMail.App
         private const int WantDelivered = 3;
         private const int WantMisdelivered = 1;
         private const double RealTimeSeconds = 1.0;
+        private const int WatchdogPeriodMsec = 10000, WatchdogStalls = 6;
 
         private GameSession _session = null!;
         private GameScreen _screen = null!;
@@ -67,6 +68,10 @@ namespace PerformativeMail.App
         private int _frames;
         private uint _startTick, _realTimeStartTick;
         private double _realTime;
+        // A smoke that stops making frames says where it stood, instead of sitting silent until the shell's timeout.
+        private System.Threading.Timer? _watchdog;
+        private volatile int _beat;
+        private int _beatSeen, _stalls;
 
         public void Setup(GameSession session, GameScreen screen)
         {
@@ -90,6 +95,22 @@ namespace PerformativeMail.App
             session.FixedTicksPerFrame = TicksPerFrame;
             // Checks run once everything else has moved this frame (the camera, the labels that fit to it).
             ProcessPriority = 1000;
+            _watchdog = new System.Threading.Timer(_ => Watch(), null, WatchdogPeriodMsec, WatchdogPeriodMsec);
+        }
+
+        private void Watch()
+        {
+            int beat = _beat;
+            if (beat != _beatSeen)
+            {
+                _beatSeen = beat;
+                _stalls = 0;
+                return;
+            }
+            if (++_stalls < WatchdogStalls) return;
+            Console.Error.WriteLine($"SMOKE FAIL: no frame for {WatchdogStalls * WatchdogPeriodMsec / 1000} s in stage {_stage} "
+                + $"(frame {beat}, stage frame {_stageFrames}, server tick {_session.Server?.World.Tick})");
+            System.Environment.Exit(3);
         }
 
         private void OnEvent(SimEvent ev)
@@ -176,6 +197,7 @@ namespace PerformativeMail.App
 
         public override void _Process(double delta)
         {
+            _beat++;
             if (_stage == Stage.Done) return;
             var client = _session.Client;
             var world = client.World!;
@@ -301,7 +323,7 @@ namespace PerformativeMail.App
                     break;
 
                 case Stage.Inventory:
-                    StepInventory();
+                    StepInventory(delta);
                     break;
 
                 case Stage.Combat:
@@ -748,6 +770,7 @@ namespace PerformativeMail.App
         private void Finish()
         {
             _stage = Stage.Done;
+            _watchdog?.Dispose();
             if (_failures.Count == 0) GD.Print("SMOKE OK");
             else
                 foreach (string failure in _failures) GD.PrintErr("SMOKE FAIL: ", failure);

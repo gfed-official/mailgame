@@ -37,13 +37,13 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.2;" +
+            "m1.3;" +
             "Hello:u32 hash,str name;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
             "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause;" +
-            "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory;" +
+            "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u8 chests,{u32 container},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory;" +
             "Reject:u8 reason;" +
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
             "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
@@ -153,6 +153,8 @@ namespace PerformativeMail.Sim.Net
         public string MapId = "";
         public ulong MapHash;
         public uint IntakeContainerId;
+        /// <summary>The containers of the map's chests, in the map's order.</summary>
+        public readonly List<uint> ChestContainerIds = new List<uint>();
         public GlobalState Global;
         public readonly List<PlayerInfo> Players = new List<PlayerInfo>();
         public ContainerState Hotbar = null!;
@@ -162,6 +164,8 @@ namespace PerformativeMail.Sim.Net
         {
             w.U8((byte)MsgType.Welcome);
             w.U32(PlayerId.Value); w.U32(Tick); w.U32(Seed); w.Str(MapId); w.U64(MapHash); w.U32(IntakeContainerId);
+            w.U8((byte)ChestContainerIds.Count);
+            foreach (uint id in ChestContainerIds) w.U32(id);
             GlobalCodec.Write(w, Global);
             w.U8((byte)Players.Count);
             foreach (var p in Players) { w.U32(p.Id.Value); w.Str(p.Name); w.U8(p.Slot); }
@@ -174,8 +178,11 @@ namespace PerformativeMail.Sim.Net
             var m = new WelcomeMsg
             {
                 PlayerId = new EntityId(r.U32()), Tick = r.U32(), Seed = r.U32(), MapId = r.Str(), MapHash = r.U64(),
-                IntakeContainerId = r.U32(), Global = GlobalCodec.Read(r),
+                IntakeContainerId = r.U32(),
             };
+            int chests = r.U8();
+            for (int i = 0; i < chests; i++) m.ChestContainerIds.Add(r.U32());
+            m.Global = GlobalCodec.Read(r);
             int n = r.U8();
             for (int i = 0; i < n; i++)
                 m.Players.Add(new PlayerInfo { Id = new EntityId(r.U32()), Name = r.Str(), Slot = r.U8() });

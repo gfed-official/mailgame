@@ -212,6 +212,8 @@ namespace PerformativeMail.Sim
         {
             ClearCombat();
             ClearMail(Intake, everything: true);
+            // A run starts with empty chests, as it starts with empty pockets.
+            foreach (var chest in _mapChests) ClearMail(chest, everything: true);
             foreach (var p in _players)
             {
                 ClearMail(p.Hotbar, everything: true);

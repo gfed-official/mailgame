@@ -73,11 +73,14 @@ namespace PerformativeMail.Sim
         public bool Paused { get; private set; }
         public MailSpawner Spawner { get; }
         public GridContainer Intake { get; }
+        /// <summary>The containers of the map's chests, in the order of <see cref="WorldMap.Chests"/>.</summary>
+        public IReadOnlyList<GridContainer> MapChests => _mapChests;
         public IReadOnlyList<Player> Players => _players;
         /// <summary>Events produced since the host last drained them.</summary>
         public List<SimEvent> Events { get; } = new List<SimEvent>();
 
         private readonly List<Player> _players = new List<Player>();
+        private readonly List<GridContainer> _mapChests = new List<GridContainer>();
         private readonly Dictionary<uint, ContainerInfo> _containers = new Dictionary<uint, ContainerInfo>();
         private readonly List<PendingRequest> _requests = new List<PendingRequest>();
         private readonly EntityIdAllocator _entityIds = new EntityIdAllocator();
@@ -118,6 +121,8 @@ namespace PerformativeMail.Sim
             Economy = new Economy(b, content.MailKinds.Count);
             Intake = CreateContainer("po_intake", EntityId.None, Map.PostOffice.IntakeX, Map.PostOffice.IntakeZ).Container;
             Spawner = new MailSpawner(content, Map, Intake, _entryIds, Settings.Seed);
+            foreach (var chest in Map.Chests)
+                _mapChests.Add(CreateContainer(chest.Container.Id, EntityId.None, chest.X, chest.Z).Container);
         }
 
         public MoveConstants MoveConstants => _move;

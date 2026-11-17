@@ -10,7 +10,8 @@ namespace PerformativeMail.Sim.World
     internal static class MapLoader
     {
         public static WorldMap? Load(JsonCtx ctx, string text,
-            IReadOnlyDictionary<string, DestinationTypeDef> destinationTypes, ICollection<string> streetNames)
+            IReadOnlyDictionary<string, DestinationTypeDef> destinationTypes, ICollection<string> streetNames,
+            IReadOnlyDictionary<string, ContainerDef> containers)
         {
             using var doc = J.Parse(ctx, text);
             if (doc == null) return null;
@@ -183,6 +184,36 @@ namespace PerformativeMail.Sim.World
             }
             else ctx.Error("missing 'destinations' array");
 
+            // Optional: storage that stands in the map from the start.
+            var chests = new List<MapChestDef>();
+            if (root.TryGetProperty("chests", out var chestsEl))
+            {
+                if (chestsEl.ValueKind != JsonValueKind.Array) ctx.Error("'chests' must be an array");
+                else
+                {
+                    foreach (var e in chestsEl.EnumerateArray())
+                    {
+                        string containerId = J.Str(ctx, e, "container");
+                        double[] at = J.NumArray(ctx, e, "at", 2);
+                        if (!containers.TryGetValue(containerId, out var container))
+                        {
+                            ctx.Error($"chest {chests.Count}: unknown container '{containerId}'");
+                            continue;
+                        }
+                        if (container.HandCarried || container.View != "grid")
+                            ctx.Error($"chest {chests.Count}: container '{containerId}' is not a storage grid");
+                        chests.Add(new MapChestDef
+                        {
+                            Id = chests.Count,
+                            Container = container,
+                            X = (float)at[0],
+                            Z = (float)at[1],
+                            Yaw = (float)(J.Num(ctx, e, "yawDegrees", 0.0) * Math.PI / 180.0),
+                        });
+                    }
+                }
+            }
+
             var map = new WorldMap
             {
                 Id = id,
@@ -195,6 +226,7 @@ namespace PerformativeMail.Sim.World
                 Streets = streets,
                 Destinations = destinations,
                 PostOffice = po,
+                Chests = chests,
             };
 
             // Interaction points must be standable: inside the map and not inside a solid tile.
@@ -216,6 +248,13 @@ namespace PerformativeMail.Sim.World
                 if (map.IsSolid(tx, tz)) ctx.Error($"mailbox of {d.Address} is inside a solid tile");
             }
             if (destinations.Count == 0) ctx.Error("map has no destinations");
+            foreach (var c in chests)
+            {
+                CheckPoint(c.X, c.Z, $"chest {c.Id}");
+                int tx = (int)MathF.Floor(c.X / SimConstants.TileSize), tz = (int)MathF.Floor(c.Z / SimConstants.TileSize);
+                if (map.IsSolid(tx, tz)) ctx.Error($"chest {c.Id} is inside a solid tile");
+                else if (map.GetTile(tx, tz) == TileType.Street) ctx.Error($"chest {c.Id} stands on a street; the tile paths need streets clear");
+            }
 
             if (ctx.Errors.Count != errorsBefore) return null;
             map.ComputeHash();
