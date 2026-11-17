@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using PerformativeMail.Client.Meta;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Inventory;
@@ -243,6 +244,64 @@ namespace PerformativeMail.Client
             string stacks = row.Stacks > 1 ? $"  ({row.Stacks} stacks)" : "";
             return $"{address}  —  {CountAndKind(name, row.Items)}{stacks}";
         }
+
+        // --- the fight of the concept video: health, the raid, loot --------------------------------
+
+        /// <summary>"Raider", "Mega Horned Giant"; "Something" for a kind this build does not know.</summary>
+        public static string EnemyName(ContentDb content, int kind, bool mega)
+        {
+            string name = kind >= 0 && kind < content.Enemies.Count ? content.Enemies[kind].Name : "Something";
+            return mega ? "Mega " + name : name;
+        }
+
+        /// <summary>The number beside the health bar: whole points, and 0 only when down.</summary>
+        public static string Health(float hp) => ((int)Math.Ceiling(Math.Max(0f, hp))).ToString(CultureInfo.InvariantCulture);
+
+        public const string RaidWarning = "Raid incoming from the east";
+
+        /// <summary>The line across the view while a raid gathers, and when it breaks off.</summary>
+        public static string RaidBanner(ClientWorld world)
+        {
+            switch (world.Raid)
+            {
+                case RaidState.Warning: return $"{RaidWarning}   ·   {Clock(world.RaidSecondsLeft)}";
+                case RaidState.Fleeing: return "The raiders are running for the gate";
+                default: return "";
+            }
+        }
+
+        /// <summary>The raid's row among the trackers: the countdown, then how many are left.</summary>
+        public static string RaidTracker(ClientWorld world)
+        {
+            switch (world.Raid)
+            {
+                case RaidState.Warning: return $"Raid in {Clock(world.RaidSecondsLeft)}";
+                case RaidState.Active: return $"Raid   ·   {CountAndKind("raider", world.Enemies.Count)} left";
+                case RaidState.Fleeing: return "Raid   ·   fleeing";
+                default: return "";
+            }
+        }
+
+        /// <summary>While the local player is down: how long until they stand up at the Post Office.</summary>
+        public static string Down(ClientWorld world)
+        {
+            if (!world.HasLocal || !world.Local.Dead) return "";
+            int s = (int)Math.Ceiling(world.RespawnSecondsLeft);
+            return s > 0 ? $"DOWN   ·   back on your feet in {s}" : "DOWN";
+        }
+
+        /// <summary>The tracker row of what is waiting: mail not yet delivered and the complaint meter.</summary>
+        public static string Status(in GlobalState g) => $"Backlog {g.Backlog}   ·   Complaint {g.Complaint}";
+
+        /// <summary>The tracker row of the shift's work so far.</summary>
+        public static string Tally(in GlobalState g) => $"Delivered {g.Deliveries}   ·   Misdelivered {g.Misdeliveries}";
+
+        /// <summary>What the two triggers do, beside the hotbar while there is something to hit.</summary>
+        public static string Weapons(int cannonAmmo) =>
+            cannonAmmo > 0 ? $"[LMB] hammer   ·   [RMB] mail cannon x{cannonAmmo}" : "[LMB] hammer   ·   [RMB] mail cannon: no Small Package";
+
+        /// <summary>"x12" on a stack and on a loot card.</summary>
+        public static string Count(int count) => "x" + count.ToString(CultureInfo.InvariantCulture);
 
         public const string MatchWord = "MATCH";
         public const string MismatchWord = "WRONG ADDRESS";

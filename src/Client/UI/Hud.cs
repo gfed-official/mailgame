@@ -1,14 +1,17 @@
 using Godot;
 using PerformativeMail.Client.Meta;
 using PerformativeMail.Client.Presentation;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.Client.UI
 {
     /// <summary>
-    /// The minimal HUD (doc 09 §2.4): shift, phase and timer, quota and wallet, the interact prompt
-    /// with its hold bar, the event feed and the hotbar. Every string comes from <see cref="HudText"/>.
+    /// The HUD (doc 09 §2.4) in the layout of the concept video: the quota and the clock as two thin
+    /// bars at the top with the shift between them, health and stamina at the bottom left, the
+    /// hotbar in the middle with the loot cards over it, the trackers (wallet, quota, backlog, the
+    /// raid) at the bottom right, a ring for a crosshair. Every string comes from <see cref="HudText"/>.
     /// </summary>
     public partial class Hud : Control
     {
@@ -19,6 +22,10 @@ namespace PerformativeMail.Client.UI
         /// or a TV's overscan can eat the outermost pixels.
         /// </summary>
         public const float SafeMargin = 28f;
+        private const float BarWidth = 420f;
+        private const float TrackerWidth = 330f;
+        private static readonly Color QuotaColour = new Color("f0a020");
+        private static readonly Color HealthColour = new Color("e5484d");
 
         public string PhaseText => _phase.Text;
         public string QuotaText => _quota.Text;
@@ -29,6 +36,19 @@ namespace PerformativeMail.Client.UI
         public string PausedText => _paused.Visible ? _paused.Text : "";
         /// <summary>The Postal Rank line (Lobby and Results only), else empty.</summary>
         public string RankText => _rank.Visible ? _rank.Text : "";
+        /// <summary>The line across the view: the raid warning, or the countdown while down; else empty.</summary>
+        public string BannerText => _banner.Visible ? _banner.Text : "";
+        /// <summary>The number beside the health bar.</summary>
+        public string HealthText => _hp.Text;
+        /// <summary>How full the health and stamina bars are drawn, 0..1.</summary>
+        public float HealthShown => _healthBar.Value;
+        public float StaminaShown => _staminaBar.Value;
+        /// <summary>The raid's tracker row while there is a raid, else empty.</summary>
+        public string RaidText => _raid.Visible ? _raid.Text : "";
+        /// <summary>What the hammer and the cannon are bound to, while there is something to hit; else empty.</summary>
+        public string WeaponsText => _weapons.Visible ? _weapons.Text : "";
+        /// <summary>The cards of what was just picked up.</summary>
+        public LootPanel Loot => _loot;
         /// <summary>The local player's profile; without one the HUD shows no rank.</summary>
         public ProfileTracker? Profile;
         /// <summary>The lines of the Payday summary / Results panel while it is shown, else empty.</summary>
@@ -36,14 +56,18 @@ namespace PerformativeMail.Client.UI
         public Control Overlay => _overlay;
         /// <summary>The tick (Match) or cross (Mismatch) drawn beside the prompt right now; Neutral when there is none.</summary>
         public PromptTone PromptMark => _mark.Tone;
-        /// <summary>The widgets along the top edge, for the smoke's "nothing is clipped" check.</summary>
+        /// <summary>The lines along the edges, for the smoke's "nothing is clipped" check.</summary>
         public Control[] TopRow => new Control[] { _phase, _status, _quota, _wallet, _rank };
 
         private ClientRuntime _client = null!;
         private InteractionController _interaction = null!;
         private EventFeed _feed = null!;
 
-        private Label _phase = null!, _status = null!, _quota = null!, _wallet = null!, _rank = null!, _prompt = null!, _held = null!, _hint = null!, _paused = null!;
+        private Label _phase = null!, _status = null!, _tally = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!;
+        private Label _prompt = null!, _held = null!, _hint = null!, _paused = null!, _banner = null!, _hp = null!, _weapons = null!;
+        private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
+        private ColorRect _hurt = null!;
+        private LootPanel _loot = null!;
         private PanelContainer _overlay = null!;
         private VBoxContainer _overlayLines = null!;
         private object? _overlaySource;
@@ -53,6 +77,11 @@ namespace PerformativeMail.Client.UI
         private GridView _hotbar = null!;
         private readonly Label[] _feedLines = new Label[EventFeed.MaxEntries];
         private int _feedRevision = -1;
+        private RunPhase _clockPhase;
+        private int _clockShift;
+        private double _clockTotal;
+        private uint _hurtTick;
+        private float _hurtFlash;
 
         public void Setup(ClientRuntime client, InteractionController interaction, EventFeed feed)
         {
@@ -64,16 +93,24 @@ namespace PerformativeMail.Client.UI
             SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 
             const float m = SafeMargin;
-            _phase = AddLabel("Phase", 26, 0f, 0f, m, m, 700f, m + 38f, HorizontalAlignment.Left);
-            _status = AddLabel("Status", 16, 0f, 0f, m, m + 40f, 700f, m + 66f, HorizontalAlignment.Left);
-            _quota = AddLabel("Quota", 22, 1f, 0f, -520f, m, -m, m + 34f, HorizontalAlignment.Right);
-            _wallet = AddLabel("Wallet", 22, 1f, 0f, -520f, m + 34f, -m, m + 68f, HorizontalAlignment.Right);
-            // Between runs the quota line is empty, so the rank takes its place above the wallet.
-            _rank = AddLabel("Rank", 16, 1f, 0f, -520f, m + 4f, -m, m + 30f, HorizontalAlignment.Right);
 
-            // What the run waits for and what the "go" key does, under the top row.
-            _hint = AddLabel("Hint", 20, 0.5f, 0f, -520f, m + 78f, 520f, m + 108f, HorizontalAlignment.Center);
+            // Being hit reddens the whole view for a moment; being down keeps it dim.
+            _hurt = new ColorRect { Name = "Hurt", Color = new Color(0.75f, 0.04f, 0.04f, 0f), MouseFilter = MouseFilterEnum.Ignore };
+            _hurt.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            AddChild(_hurt);
+
+            // Top centre: what the shift has earned of its quota, the shift and its phase, the time left.
+            _quotaBar = AddBar("QuotaBar", 0.5f, 0f, -BarWidth * 0.5f, m, BarWidth * 0.5f, m + 8f, QuotaColour);
+            _phase = AddLabel("Phase", 20, 0.5f, 0f, -350f, m + 9f, 350f, m + 39f, HorizontalAlignment.Center);
+            _timeBar = AddBar("TimeBar", 0.5f, 0f, -BarWidth * 0.5f, m + 42f, BarWidth * 0.5f, m + 50f, Colors.White);
+
+            // What the run waits for and what the "go" key does, under the bars.
+            _hint = AddLabel("Hint", 18, 0.5f, 0f, -520f, m + 56f, 520f, m + 84f, HorizontalAlignment.Center);
             _hint.Modulate = Palette.Amber;
+
+            // The raid warning and the countdown while down: across the view, above the crosshair.
+            _banner = AddLabel("Banner", 28, 0.5f, 0.25f, -520f, -20f, 520f, 20f, HorizontalAlignment.Center);
+            _banner.Visible = false;
 
             // Below the crosshair, clear of the Payday / Results panel a pause can sit on top of.
             _paused = AddLabel("Paused", 44, 0.5f, 0.6f, -300f, -32f, 300f, 32f, HorizontalAlignment.Center);
@@ -90,8 +127,9 @@ namespace PerformativeMail.Client.UI
                 GrowHorizontal = GrowDirection.Both,
                 GrowVertical = GrowDirection.End,
             };
-            var back = new StyleBoxFlat { BgColor = new Color(0.05f, 0.06f, 0.08f, 0.82f) };
-            back.SetCornerRadiusAll(6);
+            var back = new StyleBoxFlat { BgColor = new Color(0.08f, 0.13f, 0.21f, 0.9f), BorderColor = new Color(0.45f, 0.72f, 0.86f, 0.35f) };
+            back.SetCornerRadiusAll(9);
+            back.SetBorderWidthAll(1);
             back.SetContentMarginAll(22f);
             _overlay.AddThemeStyleboxOverride("panel", back);
             _overlayLines = new VBoxContainer { Name = "Lines", MouseFilter = MouseFilterEnum.Ignore };
@@ -99,14 +137,12 @@ namespace PerformativeMail.Client.UI
             _overlay.AddChild(_overlayLines);
             AddChild(_overlay);
 
-            // First person: a dot marks the exact point the interact ray leaves from.
-            var crosshair = new ColorRect
+            // First person: the ring marks the exact point the interact ray leaves from.
+            var crosshair = new RingCrosshair
             {
                 Name = "Crosshair",
-                Color = new Color(1f, 1f, 1f, 0.85f),
-                MouseFilter = MouseFilterEnum.Ignore,
                 AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.5f, AnchorBottom = 0.5f,
-                OffsetLeft = -2f, OffsetRight = 2f, OffsetTop = -2f, OffsetBottom = 2f,
+                OffsetLeft = -12f, OffsetRight = 12f, OffsetTop = -12f, OffsetBottom = 12f,
             };
             AddChild(crosshair);
 
@@ -116,7 +152,7 @@ namespace PerformativeMail.Client.UI
                 Name = "PromptRow",
                 Alignment = BoxContainer.AlignmentMode.Center,
                 MouseFilter = MouseFilterEnum.Ignore,
-                AnchorLeft = 0f, AnchorRight = 1f, AnchorTop = 0.66f, AnchorBottom = 0.66f,
+                AnchorLeft = 0f, AnchorRight = 1f, AnchorTop = 0.62f, AnchorBottom = 0.62f,
                 OffsetLeft = m, OffsetRight = -m, OffsetTop = -2f, OffsetBottom = 32f,
             };
             promptRow.AddThemeConstantOverride("separation", 10);
@@ -136,8 +172,8 @@ namespace PerformativeMail.Client.UI
                 MouseFilter = MouseFilterEnum.Ignore,
                 AnchorLeft = 0.5f,
                 AnchorRight = 0.5f,
-                AnchorTop = 0.66f,
-                AnchorBottom = 0.66f,
+                AnchorTop = 0.62f,
+                AnchorBottom = 0.62f,
                 OffsetLeft = -130f,
                 OffsetRight = 130f,
                 OffsetTop = 40f,
@@ -145,11 +181,27 @@ namespace PerformativeMail.Client.UI
             };
             AddChild(_hold);
 
+            // Bottom left: health in red with its number, stamina in five blocks; the feed above them.
+            _healthBar = AddBar("Health", 0f, 1f, m, -m - 40f, m + 180f, -m - 28f, HealthColour);
+            _hp = AddLabel("HealthNumber", 14, 0f, 1f, m + 188f, -m - 46f, m + 260f, -m - 22f, HorizontalAlignment.Left);
+            _staminaBar = AddBar("Stamina", 0f, 1f, m, -m - 16f, m + 180f, -m - 4f, Colors.White);
+            _staminaBar.Segments = 5;
+            _weapons = AddLabel("Weapons", 14, 0f, 1f, m, -m - 74f, m + 560f, -m - 50f, HorizontalAlignment.Left);
+            _weapons.Visible = false;
             for (int i = 0; i < _feedLines.Length; i++)
             {
-                float top = -76f - m - (_feedLines.Length - i) * 24f;
+                float top = -m - 82f - (_feedLines.Length - i) * 24f;
                 _feedLines[i] = AddLabel($"Feed{i}", 15, 0f, 1f, m, top, 620f, top + 24f, HorizontalAlignment.Left);
             }
+
+            // Bottom right: the trackers, one plate a line, from the bottom up.
+            _wallet = AddTracker("Wallet", 0, new Color("ffd24a"));
+            _quota = AddTracker("Quota", 1, QuotaColour);
+            // Between runs the quota line is empty, so the rank takes its place above the wallet.
+            _rank = AddTracker("Rank", 1, new Color("c3a6ff"));
+            _status = AddTracker("Status", 2, new Color("5bc0eb"));
+            _tally = AddTracker("Tally", 3, Palette.Match);
+            _raid = AddTracker("Raid", 4, HealthColour);
 
             _hotbar = new GridView { Name = "Hotbar", ShowSlotNumbers = true, MouseFilter = MouseFilterEnum.Ignore };
             _hotbar.Setup(client, world => world.Hotbar);
@@ -165,10 +217,26 @@ namespace PerformativeMail.Client.UI
             _held = AddLabel("Held", 16, 0f, 1f, 0f, -GridView.Cell - m - 30f, 0f, -GridView.Cell - m - 4f, HorizontalAlignment.Center);
             _held.AnchorRight = 1f;
 
+            // What was just picked up takes the place of the held stack's name for a few seconds.
+            _loot = new LootPanel { Lift = m + GridView.Cell + 10f };
+            AddChild(_loot);
+            client.EventReceived += ev =>
+            {
+                if (client.World != null) _loot.Cards.OnEvent(client.World, ev);
+            };
+
             Refresh();
         }
 
-        public override void _Process(double delta) => Refresh();
+        public override void _Process(double delta)
+        {
+            Refresh();
+            var world = _client?.World;
+            if (world == null || !world.HasLocal) return;
+            _hurtFlash = Mathf.MoveToward(_hurtFlash, 0f, (float)delta * 2.5f);
+            float dim = world.Local.Dead ? 0.3f : 0f;
+            _hurt.Color = new Color(_hurt.Color, Mathf.Max(dim, _hurtFlash * 0.38f));
+        }
 
         /// <summary>Pulls the current state into the widgets; also called by the smoke before it reads them.</summary>
         public void Refresh()
@@ -176,24 +244,62 @@ namespace PerformativeMail.Client.UI
             var world = _client?.World;
             if (world == null || !world.HasLocal) return;
             var global = world.Global;
+            bool between = global.Phase == RunPhase.Lobby || global.Phase == RunPhase.Results;
 
             _phase.Text = HudText.ShiftAndPhase(world);
             double left = world.PhaseSecondsLeft;
             bool timed = global.Phase == RunPhase.Delivery;
-            _phase.Modulate = timed && left < RedSeconds ? Palette.Mismatch : timed && left < AmberSeconds ? Palette.Amber : Colors.White;
-            _status.Text = $"Complaint {global.Complaint}   ·   Backlog {global.Backlog}   ·   Delivered {global.Deliveries}   ·   Misdelivered {global.Misdeliveries}";
+            var urgency = timed && left < RedSeconds ? Palette.Mismatch : timed && left < AmberSeconds ? Palette.Amber : Colors.White;
+            _phase.Modulate = urgency;
+            // The clock as a bar: full when the phase began (or when this client first saw it).
+            if (global.Phase != _clockPhase || global.Shift != _clockShift)
+            {
+                _clockPhase = global.Phase;
+                _clockShift = global.Shift;
+                _clockTotal = 0.0;
+            }
+            if (left > _clockTotal) _clockTotal = left;
+            _timeBar.Visible = world.PhaseHasClock;
+            _timeBar.Value = _clockTotal > 0.0 ? (float)(left / _clockTotal) : 0f;
+            _timeBar.Fill = urgency;
+            _quotaBar.Visible = !between;
+            _quotaBar.Value = global.Quota > 0 ? global.ShiftEarnings / (float)global.Quota : 0f;
+            _quotaBar.Fill = global.ShiftEarnings >= global.Quota && global.Phase != RunPhase.Prep ? Palette.Match : QuotaColour;
+
+            _status.Visible = _tally.Visible = !between;
+            _status.Text = HudText.Status(global);
+            _tally.Text = HudText.Tally(global);
             _quota.Text = HudText.Quota(global);
             _quota.Modulate = global.ShiftEarnings >= global.Quota ? Palette.Match : Colors.White;
             _wallet.Text = HudText.Wallet(global);
             _wallet.Modulate = global.Wallet < 0 ? Palette.Mismatch : Colors.White;
-            _rank.Visible = Profile != null && (global.Phase == RunPhase.Lobby || global.Phase == RunPhase.Results);
+            _rank.Visible = Profile != null && between;
             if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
+            _raid.Text = HudText.RaidTracker(world);
+            _raid.Visible = _raid.Text.Length > 0;
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
             bool lost = _client!.State == ClientState.Disconnected;
             _hint.Text = lost ? HudText.HostLostHint : HudText.PhaseHint(world);
             _paused.Visible = world.Paused || lost;
             _paused.Text = lost ? HudText.HostLostTitle : HudText.PausedTitle;
             RefreshOverlay(world);
+
+            // Health, stamina, and what the fight asks of the player.
+            _healthBar.Value = world.LocalMaxHp > 0f ? world.LocalHp / world.LocalMaxHp : 0f;
+            _hp.Text = HudText.Health(world.LocalHp);
+            _staminaBar.Value = world.Local.Stamina;
+            _staminaBar.Fill = world.Local.Winded ? Palette.Amber : Colors.White;
+            if (world.LocalHurtTick != _hurtTick)
+            {
+                _hurtTick = world.LocalHurtTick;
+                _hurtFlash = 1f;
+            }
+            string down = HudText.Down(world);
+            _banner.Text = down.Length > 0 ? down : HudText.RaidBanner(world);
+            _banner.Visible = _banner.Text.Length > 0;
+            _banner.Modulate = down.Length > 0 || world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
+            _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0);
+            if (_weapons.Visible) _weapons.Text = HudText.Weapons(_client.CannonAmmo);
 
             var prompt = _interaction.Prompt;
             _prompt.Text = HudText.Prompt(world, prompt, out var tone);
@@ -208,6 +314,7 @@ namespace PerformativeMail.Client.UI
             _held.Text = held == null ? "" : HudText.Stack(world, held.Stack);
             var heldDest = held != null && held.Stack.Kind == StackKind.Mail ? world.Map.FindDestination(held.Stack.Address) : null;
             _held.Modulate = heldDest != null ? Palette.HouseColour(heldDest.Variant).Lightened(0.35f) : Colors.White;
+            _held.Visible = !_loot.Cards.Visible;
 
             if (_feedRevision != _feed.Revision)
             {
@@ -254,16 +361,39 @@ namespace PerformativeMail.Client.UI
         private Label AddLabel(string name, int fontSize, float anchorX, float anchorY, float left, float top, float right, float bottom, HorizontalAlignment align)
         {
             var label = MakeLabel(name, fontSize, align);
-            label.AnchorLeft = anchorX;
-            label.AnchorRight = anchorX;
-            label.AnchorTop = anchorY;
-            label.AnchorBottom = anchorY;
-            label.OffsetLeft = left;
-            label.OffsetTop = top;
-            label.OffsetRight = right;
-            label.OffsetBottom = bottom;
+            Place(label, anchorX, anchorY, left, top, right, bottom);
             AddChild(label);
             return label;
+        }
+
+        private MeterBar AddBar(string name, float anchorX, float anchorY, float left, float top, float right, float bottom, Color fill)
+        {
+            var bar = new MeterBar { Name = name, Fill = fill };
+            Place(bar, anchorX, anchorY, left, top, right, bottom);
+            AddChild(bar);
+            return bar;
+        }
+
+        /// <summary>A tracker plate at the bottom right, <paramref name="slot"/> rows up; returns its line.</summary>
+        private Label AddTracker(string name, int slot, Color mark)
+        {
+            var row = new TrackerRow(MakeLabel(name, 15, HorizontalAlignment.Left)) { Name = name + "Row", Mark = mark };
+            float bottom = -SafeMargin - slot * (TrackerRow.RowHeight + 6f);
+            Place(row, 1f, 1f, -SafeMargin - TrackerWidth, bottom - TrackerRow.RowHeight, -SafeMargin, bottom);
+            AddChild(row);
+            return row.Line;
+        }
+
+        private static void Place(Control control, float anchorX, float anchorY, float left, float top, float right, float bottom)
+        {
+            control.AnchorLeft = anchorX;
+            control.AnchorRight = anchorX;
+            control.AnchorTop = anchorY;
+            control.AnchorBottom = anchorY;
+            control.OffsetLeft = left;
+            control.OffsetTop = top;
+            control.OffsetRight = right;
+            control.OffsetBottom = bottom;
         }
 
         private static Label MakeLabel(string name, int fontSize, HorizontalAlignment align)

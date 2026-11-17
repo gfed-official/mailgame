@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Run;
 
@@ -22,7 +23,7 @@ namespace PerformativeMail.Client
 
             internal EntityId Player;
             internal ushort DestId, Kind;
-            internal bool Delivery;
+            internal bool Delivery, Kill;
             internal int Count, Amount;
         }
 
@@ -56,7 +57,50 @@ namespace PerformativeMail.Client
                     break;
                 }
                 case PhaseChangedEvent e: OnPhase(e); break;
+                case EnemyDiedEvent e when !e.Killer.IsNone: AddKill(world, e); break;
+                case RaidChangedEvent e: OnRaid(e.Raid); break;
+                case PlayerDiedEvent e:
+                    Add($"{Who(world, e.Player)} went down to a {HudText.EnemyName(world.Content, e.Killer, false)}", bad: true);
+                    break;
+                case PlayerRespawnedEvent e:
+                    Add(e.Player == world.LocalId ? "You are back on your feet" : $"{Who(world, e.Player)} is back on their feet");
+                    break;
             }
+        }
+
+        private void OnRaid(RaidState raid)
+        {
+            switch (raid)
+            {
+                case RaidState.Warning: Add(HudText.RaidWarning, bad: true); break;
+                case RaidState.Active: Add("The raiders are through the gate", bad: true); break;
+                case RaidState.None: Add("The raid is over"); break;
+            }
+        }
+
+        private static string Who(ClientWorld world, EntityId player) =>
+            player == world.LocalId ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+
+        /// <summary>A raid is many kills in a row: one player's run of one kind of enemy is one line.</summary>
+        private void AddKill(ClientWorld world, EnemyDiedEvent e)
+        {
+            ushort kind = (ushort)(e.Kind | (e.Mega ? 0x100 : 0));
+            Entry? entry = null;
+            if (_entries.Count > 0)
+            {
+                var last = _entries[_entries.Count - 1];
+                if (last.Kill && last.Player == e.Killer && last.Kind == kind) entry = last;
+            }
+            if (entry == null)
+            {
+                entry = new Entry { Kill = true, Player = e.Killer, Kind = kind };
+                Push(entry);
+            }
+            entry.Count++;
+            entry.Age = 0;
+            string name = HudText.EnemyName(world.Content, e.Kind, e.Mega);
+            entry.Text = entry.Count == 1 ? $"{Who(world, e.Killer)} felled a {name}" : $"{Who(world, e.Killer)} felled {HudText.CountAndKind(name, entry.Count)}";
+            Revision++;
         }
 
         private void OnPhase(PhaseChangedEvent e)
@@ -88,7 +132,7 @@ namespace PerformativeMail.Client
             entry.Amount += amount;
             entry.Age = 0;
 
-            string who = player == world.LocalId ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            string who = Who(world, player);
             string what = HudText.CountAndKind(kind < world.Content.MailKinds.Count ? world.Content.MailKinds[kind].Name : "item", entry.Count);
             string where = world.Map.GetDestination(destId)?.Label ?? "?";
             entry.Text = bad

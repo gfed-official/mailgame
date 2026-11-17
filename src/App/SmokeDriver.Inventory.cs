@@ -233,7 +233,7 @@ namespace PerformativeMail.App
                     Check(!panel.Dragging, "a drag outlived the closed panel");
                     GD.Print($"[smoke] inventory: {_invGestures} gestures (drag + turn, split, click, 2 sorts) shown at once and confirmed, 1 bad drop kept back; "
                         + $"{client.ContainerVersionsVerified} container versions verified");
-                    StartRemote();
+                    StartCombat();
                     break;
             }
         }

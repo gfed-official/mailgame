@@ -20,10 +20,24 @@ namespace PerformativeMail.Client.UI
         /// <summary>The place a stack was picked up from, while it hangs on the cursor.</summary>
         private const float LiftedAlpha = 0.25f;
 
-        private static readonly Color CellColour = new Color(0.10f, 0.11f, 0.13f, 0.82f);
-        private static readonly Color CellBorder = new Color(1f, 1f, 1f, 0.16f);
         private static readonly Color Ink = new Color("1b1b1e");
-        private static readonly Color ItemColour = new Color("8a8f98");
+        private static readonly Color ItemColour = new Color("b9bec8");
+        /// <summary>The count on a stack: white on a dark rim, so it reads on cream mail and on grey items alike.</summary>
+        private const int CountSize = 14, CountRim = 5;
+
+        // The teal squares of the concept video's hotbar; the held slot is the gold one.
+        private static readonly StyleBoxFlat CellBox = Rounded(new Color(0.16f, 0.39f, 0.52f, 0.86f), new Color(0.62f, 0.84f, 0.94f, 0.45f), 6, 1);
+        private static readonly StyleBoxFlat ReservedBox = Rounded(new Color(0.10f, 0.22f, 0.30f, 0.8f), new Color(0.62f, 0.84f, 0.94f, 0.25f), 6, 1);
+        private static readonly StyleBoxFlat SelectedBox = Rounded(new Color("f0a020"), new Color("ffe08a"), 6, 2);
+        private static readonly StyleBoxFlat StackBox = Rounded(Colors.White, new Color(0f, 0f, 0f, 0.35f), 4, 1);
+
+        private static StyleBoxFlat Rounded(Color fill, Color border, int radius, int borderWidth)
+        {
+            var box = new StyleBoxFlat { BgColor = fill, BorderColor = border, AntiAliasing = true };
+            box.SetCornerRadiusAll(radius);
+            box.SetBorderWidthAll(borderWidth);
+            return box;
+        }
 
         /// <summary>Left button down at a canvas position; the flag is the split modifier (Ctrl / Cmd).</summary>
         public event Action<Vector2, bool>? PointerPressed;
@@ -99,20 +113,20 @@ namespace PerformativeMail.Client.UI
             {
                 for (int x = 0; x < c.Cols; x++)
                 {
-                    var rect = new Rect2(x * Cell + 1f, y * Cell + 1f, Cell - 2f, Cell - 2f);
-                    DrawRect(rect, CellColour);
-                    DrawRect(rect, CellBorder, false, 1f);
-                    if (c.IsReserved(x, y))
-                        DrawString(font, new Vector2(x * Cell, y * Cell + Cell * 0.58f), "hands", HorizontalAlignment.Center, Cell, 11, new Color(1f, 1f, 1f, 0.6f));
+                    var rect = new Rect2(x * Cell + 2f, y * Cell + 2f, Cell - 4f, Cell - 4f);
+                    bool reserved = c.IsReserved(x, y);
+                    DrawStyleBox(x == SelectedColumn ? SelectedBox : reserved ? ReservedBox : CellBox, rect);
+                    if (reserved)
+                        DrawString(font, new Vector2(x * Cell, y * Cell + Cell * 0.58f), "hands", HorizontalAlignment.Center, Cell, 11, new Color(1f, 1f, 1f, 0.75f));
                     if (ShowSlotNumbers && y == c.Rows - 1)
-                        DrawString(font, new Vector2(x * Cell + 4f, y * Cell + 13f), (x + 1).ToString(), HorizontalAlignment.Left, -1f, 10, new Color(1f, 1f, 1f, 0.5f));
+                        DrawString(font, new Vector2(x * Cell + 6f, y * Cell + 15f), (x + 1).ToString(), HorizontalAlignment.Left, -1f, 10, new Color(1f, 1f, 1f, 0.7f));
                 }
             }
 
             bool lifting = Drag != null && Drag.Active && Drag.FromContainer == c.Id;
             foreach (var e in c.Entries)
             {
-                var rect = new Rect2(e.X * Cell + 3f, e.Y * Cell + 3f, e.W * Cell - 6f, e.H * Cell - 6f);
+                var rect = new Rect2(e.X * Cell + 5f, e.Y * Cell + 5f, e.W * Cell - 10f, e.H * Cell - 10f);
                 int count = e.Stack.Count;
                 float alpha = world.Prediction.IsPending(c.Id, e) ? PendingAlpha : 1f;
                 if (lifting && Drag!.EntryId == e.EntryId)
@@ -125,29 +139,34 @@ namespace PerformativeMail.Client.UI
                 DrawStack(this, font, world, e.Stack, rect, count, alpha);
             }
 
-            if (SelectedColumn >= 0 && SelectedColumn < c.Cols)
-                DrawRect(new Rect2(SelectedColumn * Cell, 0f, Cell, c.Rows * Cell), Palette.Amber, false, 3f);
         }
 
         /// <summary>One stack in a rectangle of a canvas item: in a cell of a grid, or on the cursor.</summary>
         public static void DrawStack(CanvasItem canvas, Font font, ClientWorld world, ItemStack stack, Rect2 rect, int count, float alpha)
         {
             var ink = new Color(Ink, alpha);
+            StackBox.BorderColor = new Color(0f, 0f, 0f, 0.35f * alpha);
             if (stack.Kind == StackKind.Mail)
             {
-                canvas.DrawRect(rect, new Color(Palette.MailColour(stack.DefIndex), alpha));
+                StackBox.BgColor = new Color(Palette.MailColour(stack.DefIndex), alpha);
+                canvas.DrawStyleBox(StackBox, rect);
                 var dest = world.Map.FindDestination(stack.Address);
                 // The stripe is the colour of the house the mail is addressed to.
-                if (dest != null) canvas.DrawRect(new Rect2(rect.Position, new Vector2(rect.Size.X, 7f)), new Color(Palette.HouseColour(dest.Variant), alpha));
-                canvas.DrawString(font, new Vector2(rect.Position.X + 2f, rect.Position.Y + 23f), "#" + stack.Address.Number, HorizontalAlignment.Left, rect.Size.X - 2f, 13, ink);
+                if (dest != null) canvas.DrawRect(new Rect2(rect.Position + new Vector2(1f, 3f), new Vector2(rect.Size.X - 2f, 6f)), new Color(Palette.HouseColour(dest.Variant), alpha));
+                canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.Position.Y + 23f), "#" + stack.Address.Number, HorizontalAlignment.Left, rect.Size.X - 3f, 13, ink);
             }
             else
             {
-                canvas.DrawRect(rect, new Color(ItemColour, alpha));
-                canvas.DrawString(font, new Vector2(rect.Position.X + 2f, rect.Position.Y + 23f), HudText.Name(world.Content, stack), HorizontalAlignment.Left, rect.Size.X - 2f, 11, ink);
+                StackBox.BgColor = new Color(ItemColour, alpha);
+                canvas.DrawStyleBox(StackBox, rect);
+                canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.Position.Y + 16f), HudText.Name(world.Content, stack), HorizontalAlignment.Left, rect.Size.X - 3f, 11, ink);
             }
-            if (count > 1)
-                canvas.DrawString(font, new Vector2(rect.Position.X, rect.End.Y - 3f), "x" + count, HorizontalAlignment.Right, rect.Size.X - 2f, 12, ink);
+            if (count <= 1) return;
+            // Bottom right, over the edge of the stack so two neighbours' counts never run together.
+            var at = new Vector2(rect.Position.X, rect.End.Y + 2f);
+            string text = HudText.Count(count);
+            canvas.DrawStringOutline(font, at, text, HorizontalAlignment.Right, rect.Size.X + 3f, CountSize, CountRim, new Color(0f, 0f, 0f, 0.9f * alpha));
+            canvas.DrawString(font, at, text, HorizontalAlignment.Right, rect.Size.X + 3f, CountSize, new Color(1f, 1f, 1f, alpha));
         }
 
         public override void _GuiInput(InputEvent ev)

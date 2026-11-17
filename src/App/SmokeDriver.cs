@@ -19,12 +19,13 @@ namespace PerformativeMail.App
     /// Headless smoke (run with "-- --smoke"): a DeliveryBot plays the real client inside the Godot
     /// host through one whole run. Lobby → Prep → Delivery, where the driver checks spawn → pickup →
     /// deliver → wallet on both ends and on the screen; then the rest of the run fast-forwarded,
-    /// checking every Payday summary and the Results panel, and back to the Lobby. Prints
+    /// checking every Payday summary and the Results panel, and back to the Lobby; there the
+    /// inventory screen, a fight with the hammer and the mail cannon, and a guest over ENet. Prints
     /// "SMOKE OK" and exits 0, or "SMOKE FAIL: …" and exits 1.
     /// </summary>
     public partial class SmokeDriver : Node
     {
-        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Inventory, Remote, Done }
+        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Inventory, Combat, Remote, Done }
 
         private const int TicksPerFrame = 3;
         /// <summary>Once the close-up checks are done the remaining shifts run at one second per frame.</summary>
@@ -301,6 +302,10 @@ namespace PerformativeMail.App
 
                 case Stage.Inventory:
                     StepInventory();
+                    break;
+
+                case Stage.Combat:
+                    StepCombat();
                     break;
 
                 case Stage.Remote:
