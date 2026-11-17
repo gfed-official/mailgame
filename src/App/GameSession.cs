@@ -66,7 +66,13 @@ namespace PerformativeMail.App
                 if (_enetServer == null) GD.PrintErr($"[server] cannot listen on UDP port {listenPort} ({error}); nobody can join this game");
                 else transport = new CompositeServerTransport(hub, _enetServer);
             }
-            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart }, transport) { Log = line => GD.Print("[server] ", line) };
+            // About 20 ms here instead of a 7 ms tick when the first shift starts.
+            SimWarmUp.Run(content, seed);
+            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart }, transport);
+            // Before anybody can join and before the log listens: the refusal of the knock is not news.
+            if (_enetServer != null && !EnetWarmUp.Run(_enetServer, transport, Server, Server.ProtocolHash))
+                GD.Print("[server] the ENet warm-up did not finish; the first join will cost a slow tick");
+            Server.Log = line => GD.Print("[server] ", line);
             if (_enetServer != null) GD.Print($"[server] listening on UDP port {_enetServer.Port}");
             StartClient(content, hub.CreateClient(), profile, store);
         }

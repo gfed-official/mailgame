@@ -242,7 +242,13 @@ with the mail cannon, the loot on the cards and in the wallet.
 - [x] Nit 7 — split stack counts are hard to read: the count is `x12` at the stack's lower right,
       14 px white on a 5 px dark rim, set over the stack's edge (`GridView.DrawStack`; checked in
       the smoke's `match.png` and `chest.png`)
-- [ ] Nit 8 — `slow tick 295: 6.7 ms network` when a guest joined
+- [x] Nit 8 — `slow tick 295: 6.7 ms network` when a guest joined: measured, and it is not the join
+      message (124 bytes, 0.02 ms to build and write) but the first use of the ENet path in the
+      process. The host now walks that path once at boot (`EnetWarmUp`: it knocks on its own port
+      with a Hello the server refuses) and the start of a shift in a scratch world (`SimWarmUp`,
+      which also removes the 7 ms first tick of the first Delivery). Host + late guest over ENet:
+      no slow tick at the join, at the shift start or when the guest leaves
+      (`WarmUpTests`; design choice 56)
 - [ ] Nit 9 — a chest placed in the map
 - [ ] Nit 10 — `--playtest-no-timer` and a spawn-at-mailbox option, also for a `--join` guest
 - [ ] Nit 11 — player ids are not reused
@@ -577,6 +583,20 @@ See "Commands" at the bottom (filled in as the tooling lands).
     complaint, the delivery tally, the raid. The prompt row moved up to 62 % of the height to
     clear the loot cards. The feed folds a run of kills into one line ("You felled 3 Swarmlings").
     All characters, weapons and effects are procedural rounded shapes like the town (choice 47).
+56. **Nit 8 asks whether the join snapshot can be spread out or made cheaper; it is already
+    small.** Measured on a host with a guest joining 8 s in: the Welcome is 124 bytes; `HandleHello`
+    takes 0.7 ms the first time (add the player 0.33, first ENet send 0.31). The 5.7–7.2 ms of
+    "network in" were first-use costs: Godot making the C# wrapper of the first `ENetPacketPeer`
+    (3.4 ms), the connect branch through the composite transport (2.1 ms), the first `GetPacket`
+    (0.5 ms). Choice: nothing is spread out; the host pays these at boot. `EnetWarmUp` connects to
+    the host's own port, sends a Hello with the wrong protocol hash and pumps the transport (not
+    the world) until the refusal and the disconnect have come back: connect, receive, send and
+    disconnect are then compiled, no player or player id is made, and the log is attached only
+    afterwards. It costs one ENet connection id (real guests start at 2) and gives up after
+    250 ms. `SimWarmUp` runs 90 ticks of a quick-start shift in a scratch world (about 20 ms at
+    boot) for the same reason: the first Delivery tick was 7 ms, of which 2–4 ms GC. A slow tick
+    that still shows up now and then on this box (e.g. 23 ms once, no game event near it) is the
+    shared machine, not the game.
 
 ## Commands
 
