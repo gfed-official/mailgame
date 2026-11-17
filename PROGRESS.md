@@ -211,24 +211,37 @@ Visuals (all built in code; there are no art assets yet):
 - [x] The town is solid: trees, lamps, benches, boulders and fences stop a walker (fences can be
       jumped); `Scenery` places them from the map hash, so server, clients and bots agree without
       a byte on the wire (`SceneryTests`, choice 46)
-- [ ] Characters: smooth carriers with caps; raiders, the horned giant, the small red swarm
-- [ ] First-person hammer and mail cannon, the swing and the shot; blast, smoke, embers, coins
-- [ ] HUD in the video's layout: top-centre shift bars, health / stamina / money bottom left, the
-      teal hotbar with a gold selected slot, tracker rows bottom right, ring crosshair, loot cards
+- [x] Characters (`CharacterModel`, `PlayerView`, `EnemiesView`): smooth carriers with caps;
+      raiders in helmets, the horned giant, the small red swarm — they walk, wind up, strike,
+      flash when hit and fall; a health bar over each hurt enemy
+- [x] First-person hammer and mail cannon (`WeaponModels`, `FirstPersonCamera`), the swing and
+      the shot; blast, smoke, embers, coins flying to the carrier (`CombatEffects`)
+- [x] HUD in the video's layout (`Hud`, `HudBars`, `LootPanel`, `GridView`): top-centre quota bar,
+      phase line and clock bar; health with its number and five stamina blocks bottom left, the
+      feed above them; the teal hotbar with a gold selected slot; tracker plates bottom right
+      (wallet, quota / rank, backlog, deliveries, raid); ring crosshair; loot cards over the
+      hotbar; a red flash when hurt, the raid banner, the DOWN countdown
 
 Systems (server-authoritative, unit-tested):
 
-- [ ] Health, regeneration, death and respawn at the Post Office; stamina for sprinting
-- [ ] Attack input; the hammer (melee arc) and the mail cannon (a package shot with a blast)
-- [ ] Enemies: raider, swarmling, horned giant — chase, attack, die; replicated in snapshots
-- [ ] The night raid: the last part of Delivery on shifts 2–5, warning, pulses from the wave
+- [x] Health, regeneration, death and respawn at the Post Office; stamina for sprinting
+      (all of the fight's sim tests are in `CombatTests`)
+- [x] Attack input; the hammer (melee arc) and the mail cannon (a package shot with a blast)
+- [x] Enemies: raider, swarmling, horned giant — chase, attack, die; replicated in snapshots
+      (`CodecTests` for the wire)
+- [x] The night raid: the last part of Delivery on shifts 2–5, warning, pulses from the wave
       budget of doc 05, enemies flee when the shift ends
-- [ ] Loot: coins fly to whoever is near and pay the wallet; item drops go to the inventory; the
-      loot cards show what a kill gave
+- [x] Loot: coins fly to whoever is near and pay the wallet; item drops go to the inventory; the
+      loot cards show what a kill gave (`LootCards`, `CombatHudTests`)
+
+The smoke plays the fight too (see "Commands"): a raider felled with the hammer, a giant shot
+with the mail cannon, the loot on the cards and in the wallet.
 
 ### 2. Playtest nits 7–11 (`logs/fable52/nits-fa44a16.md`, 2026-11-15)
 
-- [ ] Nit 7 — split stack counts are hard to read
+- [x] Nit 7 — split stack counts are hard to read: the count is `x12` at the stack's lower right,
+      14 px white on a 5 px dark rim, set over the stack's edge (`GridView.DrawStack`; checked in
+      the smoke's `match.png` and `chest.png`)
 - [ ] Nit 8 — `slow tick 295: 6.7 ms network` when a guest joined
 - [ ] Nit 9 — a chest placed in the map
 - [ ] Nit 10 — `--playtest-no-timer` and a spawn-at-mailbox option, also for a `--join` guest
@@ -528,6 +541,42 @@ See "Commands" at the bottom (filled in as the tooling lands).
     from above, two at night) saved as PNGs, with the frame time printed — the way the look was
     compared with the reference frames. `--lookdev-views=name:ex,ey,ez:tx,ty,tz[:night];…` adds
     views of one's own.
+50. **What the video adds to the docs' fight.** Doc 05 has health, the Mail Bat, raiders and the
+    night raid; the video adds a stamina bar, coins flying out of the fallen, loot cards, a swarm
+    of small red creatures and a horned giant. So: sprinting spends stamina (five blocks, 8 s of
+    sprint, 5 s to refill; empty, a carrier walks until one block is back); the `swarmling` is an enemy of its own
+    (video only, not in doc 05's table); loot coins go straight to the team wallet in cents but
+    count for neither the shift's earnings, the quota nor the score (those stay "mail delivered").
+    The hammer is doc 05's Mail Bat drawn as the video's stone-headed hammer.
+51. **Weapons without slots.** Hammer on LMB / right trigger, mail cannon on RMB / left trigger,
+    always at hand whatever the hotbar holds — the video shows no weapon slot and the hotbar is
+    for mail. The viewmodel is drawn during a raid and for 4 s after an attack (the cannon for
+    2.5 s after a shot), otherwise the hands are free for the held letter, which moved to the
+    lower left of the view. The click that recaptures the mouse is not a swing. The cannon fires
+    a Small Package out of the carrier's own mail (hotbar first, oldest first); the package is
+    gone, with no misdelivery penalty and no complaint — the price is the delivery not made.
+52. **Enemies on the wire.** The enemy list rides every second snapshot (10 Hz), 9 bytes an enemy
+    (id, kind + mega, position, yaw, state, health in 255ths); clients draw them 5 ticks in the
+    past between two samples. Everything else of the fight is a reliable event. A late joiner is
+    told the enemies but not the loot already lying on the ground (it can still be taken).
+53. **The raid.** Comes through the gate at the east end of the street, in the last part of
+    Delivery on shifts 2–5; the sky follows its state (0.55 night at the warning, full night while
+    it lasts). A Mega's body in the sim is capped at `WorldMap.WalkerReach` so it fits the paths;
+    it is only drawn larger. Between phases `ClearCombat` removes enemies, shots and loot and puts
+    downed carriers back on their feet; on the return to the Lobby the carriers' containers are
+    emptied.
+54. **Loot.** A bundle lies for 15 ticks before it can be taken (so the coins are seen to drop),
+    then goes to the nearest living carrier within 2.5 m; items that do not fit stay on the
+    ground and are tried again every second until the despawn. The card value of an item is its
+    sell price; the most valuable card is the gold one; cards stay 4 s after the last pickup and
+    kills within that time add to the cards on show.
+55. **The HUD follows the video, not doc 09's first sketch.** Top centre: quota bar (orange,
+    green once met), the phase line, the clock bar (its full length is the longest time left seen
+    in the phase). Bottom left: feed, weapons line (only while there is something to fight),
+    health, stamina. Bottom right: plates for wallet, quota (rank in the Lobby), backlog and
+    complaint, the delivery tally, the raid. The prompt row moved up to 62 % of the height to
+    clear the loot cards. The feed folds a run of kills into one line ("You felled 3 Swarmlings").
+    All characters, weapons and effects are procedural rounded shapes like the town (choice 47).
 
 ## Commands
 
@@ -598,7 +647,13 @@ panel's grids the mouse events of a hand — drag the 1×2 log over the hotbar (
 drop; Ctrl+drag half the fibers into the chest; drop stones onto logs (refused locally, nothing
 sent, the hint says "No room there"); click the stones across; press both sort buttons — and after
 each gesture the screen must show the result in the same frame (pending), the confirmed mirror must
-not have moved yet, and a moment later server, mirror and screen must agree with no desync. Last, ENet: a second `ClientRuntime` connects to
+not have moved yet, and a moment later server, mirror and screen must agree with no desync. Then the
+fight, through the client's own input: the server puts a raider beside the host, the smoke aims and
+holds attack until it falls (three swings; the enemy drawn, the hammer in the hands, the weapons
+line, the feed line), its loot must be drawn, taken, on the cards under "Raider" and in the wallet
+line; then a giant down the street and one Small Package: one cannon shot, the package gone, a blast
+drawn and the giant hurt; the giant's blow must show on the health number and bar; felled, its
+stones are on the cards; nothing is left behind and the camera never left the eyes. Last, ENet: a second `ClientRuntime` connects to
 the host's own UDP port, joins (both ends, the host's HUD and the host's player views count two
 players), walks a second down the street (the server moves it, its prediction agrees), and leaves;
 next to it a client saying Hello with a wrong protocol hash must get `ProtocolMismatch` and be
