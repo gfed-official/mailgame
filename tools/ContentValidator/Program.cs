@@ -71,7 +71,7 @@ namespace PerformativeMail.Tools.ContentValidator
             if (!quiet)
             {
                 output.WriteLine($"content OK: {db.MailKinds.Count} mail kinds, {db.DestinationTypes.Count} destination types, {db.Containers.Count} containers, "
-                    + $"{db.Items.Count} items, {db.Maps.Count} maps, {db.StreetNames.Count} street names, {db.Enemies.Count} enemies; content hash {db.ContentHash:x8} ({root})");
+                    + $"{db.Items.Count} items, {db.Maps.Count} maps, {db.StreetNames.Count} street names, {db.Enemies.Count} enemies, {db.Perks.Count} perks; content hash {db.ContentHash:x8} ({root})");
             }
             return ExitOk;
         }

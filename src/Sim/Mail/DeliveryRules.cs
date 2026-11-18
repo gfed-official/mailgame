@@ -1,4 +1,5 @@
 using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Sim.Mail
@@ -53,24 +54,42 @@ namespace PerformativeMail.Sim.Mail
             return 0;
         }
 
+        /// <summary>
+        /// The verdict on one piece of mail at one mailbox. <paramref name="team"/> is what the
+        /// team's perks do to the numbers (doc 01 §2.5); without it the content's own apply.
+        /// </summary>
         public static DeliveryResult Evaluate(in MailItem item, MailKindDef kind, DestinationDef dest,
-            int currentShift, int wallet, ContentDb content)
+            int currentShift, int wallet, ContentDb content, StatSheet? team = null)
         {
             if (!KindAccepted(kind, dest.Type)) return new DeliveryResult(DeliveryOutcome.WontFitHere);
 
             if (item.Address == dest.Address)
             {
-                int permille = TimelinessPermille(currentShift, item.DeadlineShift, content.MailMix.LateValueRatio);
-                bool late = permille < 1000;
+                double lateRatio = content.MailMix.LateValueRatio;
+                if (team != null) lateRatio = System.Math.Clamp(team.Resolve(Stat.LateValueRatio, (float)lateRatio), 0f, 1f);
+                int permille = TimelinessPermille(currentShift, item.DeadlineShift, lateRatio);
+                // Late is late whatever it pays: the complaint is for the day, not for the money.
+                bool late = currentShift > item.DeadlineShift;
                 int paid = item.Value * permille / 1000;
+                if (team != null && kind.MaxStack > 1) paid = Whole(team.Resolve(Stat.PaperMailValue, paid));
                 return new DeliveryResult(DeliveryOutcome.Delivered, paid,
                     late ? content.Balance.GetInt("complaintLateDelivery") : 0, late);
             }
 
             int penalty = (int)(item.Value * (long)System.Math.Round(content.MailMix.MisdeliveryPenaltyRatio * 1000.0) / 1000);
+            int complaint = kind.ComplaintOnMisdelivery;
+            if (team != null)
+            {
+                penalty = Whole(team.Resolve(Stat.MisdeliveryPenalty, penalty));
+                complaint = Whole(team.Resolve(Stat.MisdeliveryComplaint, complaint));
+            }
             if (wallet - penalty < content.Balance.GetInt("walletFloor"))
                 return new DeliveryResult(DeliveryOutcome.WalletFloor);
-            return new DeliveryResult(DeliveryOutcome.Misdelivered, penalty, kind.ComplaintOnMisdelivery);
+            return new DeliveryResult(DeliveryOutcome.Misdelivered, penalty, complaint);
         }
+
+        /// <summary>A resolved stat as whole ¢ or points: halves round up, nothing goes below 0.</summary>
+        private static int Whole(float value) =>
+            System.Math.Max(0, (int)System.Math.Round(value, System.MidpointRounding.AwayFromZero));
     }
 }

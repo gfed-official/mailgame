@@ -21,18 +21,19 @@ namespace PerformativeMail.Sim
 
         /// <summary>
         /// Empties the carrier's hotbar and inventory into a bag at their feet, each stack in the
-        /// cell it had: the hotbar is the bag's first row, the inventory the rows under it.
+        /// cell it had: the hotbar is the bag's first row, the inventory the rows under it. Who
+        /// keeps their hotbar (<see cref="Perks.Stat.KeepHotbarOnDeath"/>) leaves that row empty.
         /// </summary>
-        private void DropBag(Player p)
+        private void DropBag(Player p, bool keepHotbar = false)
         {
-            if (p.Hotbar.EntryCount == 0 && p.Inventory.EntryCount == 0) return;
+            if ((keepHotbar || p.Hotbar.EntryCount == 0) && p.Inventory.EntryCount == 0) return;
             var info = CreateContainer(DeathBagDefId, EntityId.None, p.Move.X, p.Move.Z);
             var bag = new DeathBag
             {
                 Container = info.Container, Owner = p.Id, X = info.X, Z = info.Z,
                 DespawnTick = Tick + _combat.BagDespawnTicks,
             };
-            MoveIntoBag(p.Hotbar, bag.Container, 0);
+            if (!keepHotbar) MoveIntoBag(p.Hotbar, bag.Container, 0);
             MoveIntoBag(p.Inventory, bag.Container, p.Hotbar.Rows);
             CommitContainer(p.Hotbar.Id);
             CommitContainer(p.Inventory.Id);

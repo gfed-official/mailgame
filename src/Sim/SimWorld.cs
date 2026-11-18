@@ -5,6 +5,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
@@ -93,7 +94,7 @@ namespace PerformativeMail.Sim
         private readonly int _maxPlayers;
         private readonly float _serverInteractRange;
         private readonly int _rewindTicks;
-        private readonly uint _minDeliverIntervalTicks;
+        private readonly float _minInsertHold;
         private readonly int _weightLight, _weightMedium, _weightHeavy;
         private readonly float _weightPerPoint, _weightFloor;
         private uint _nextContainerId = 1;
@@ -117,10 +118,9 @@ namespace PerformativeMail.Sim
             _weightFloor = b.GetFloat("weightSpeedFloor");
 
             // The hold is timed on the client; the server only refuses deliveries that come
-            // implausibly fast (hold minus 0.1 s of network slack).
-            double hold = 0.4;
-            foreach (var t in content.DestinationTypes) hold = Math.Min(hold, t.ManualInsertHold);
-            _minDeliverIntervalTicks = SimConstants.SecondsToTicks(Math.Max(0, hold - 0.1));
+            // implausibly fast (MinDeliverIntervalTicks).
+            _minInsertHold = 0.4f;
+            foreach (var t in content.DestinationTypes) _minInsertHold = Math.Min(_minInsertHold, t.ManualInsertHold);
 
             Economy = new Economy(b, content.MailKinds.Count);
             Intake = CreateContainer("po_intake", EntityId.None, Map.PostOffice.IntakeX, Map.PostOffice.IntakeZ).Container;
@@ -268,6 +268,11 @@ namespace PerformativeMail.Sim
             foreach (var p in _players)
             {
                 p.RecordPosition();
+                if (p.BoostUntilTick != 0 && Tick >= p.BoostUntilTick)
+                {
+                    p.BoostUntilTick = 0;
+                    RecomputeWeight(p);
+                }
                 if (p.Away)
                 {
                     // Nobody steers them: they come to rest where they stood.
@@ -356,11 +361,15 @@ namespace PerformativeMail.Sim
             }
         }
 
+        /// <summary>The carrier's speed: what they carry slows them, their perks and a fresh delivery speed them up.</summary>
         private void RecomputeWeight(Player p)
         {
             int points = InventoryOps.WeightPoints(Content, p.Hotbar, _weightLight, _weightMedium, _weightHeavy)
                        + InventoryOps.WeightPoints(Content, p.Inventory, _weightLight, _weightMedium, _weightHeavy);
-            p.SpeedMult = Math.Clamp(1f - _weightPerPoint * points, _weightFloor, 1f);
+            float weight = Math.Clamp(1f - StatFor(p, Stat.WeightPenalty, _weightPerPoint * points), _weightFloor, 1f);
+            float speed = StatFor(p, Stat.PlayerSpeed, 1f);
+            if (Tick < p.BoostUntilTick) speed *= 1f + StatFor(p, Stat.DeliveryBoost, 0f);
+            p.SpeedMult = weight * Math.Max(0f, speed);
         }
 
         private bool InRange(Player p, ContainerInfo info)

@@ -1,0 +1,64 @@
+[
+  { "id": "long_legs", "name": "Long Legs", "description": "+12% move speed.",
+    "category": "carrier", "scope": "personal", "rarity": "common",
+    "modifiers": [ { "stat": "PlayerSpeed", "op": "mul", "value": 1.12 } ],
+    "maxStacks": 3, "tags": ["movement"] },
+  { "id": "quick_hands", "name": "Quick Hands", "description": "Mailbox insert hold -50%.",
+    "category": "carrier", "scope": "personal", "rarity": "common",
+    "modifiers": [ { "stat": "InsertHold", "op": "mul", "value": 0.5 } ],
+    "maxStacks": 1, "tags": ["delivery"] },
+  { "id": "strong_back", "name": "Strong Back", "description": "Weight speed penalty -50%.",
+    "category": "carrier", "scope": "personal", "rarity": "common",
+    "modifiers": [ { "stat": "WeightPenalty", "op": "mul", "value": 0.5 } ],
+    "maxStacks": 1, "tags": ["movement"] },
+  { "id": "second_wind", "name": "Second Wind", "description": "Respawn in 3 s and keep your hotbar on death.",
+    "category": "carrier", "scope": "personal", "rarity": "uncommon",
+    "modifiers": [
+      { "stat": "RespawnSeconds", "op": "mul", "value": 0 },
+      { "stat": "RespawnSeconds", "op": "add", "value": 3 },
+      { "stat": "KeepHotbarOnDeath", "op": "add", "value": 1 }
+    ],
+    "maxStacks": 1, "tags": ["death"] },
+  { "id": "postal_sprint", "name": "Postal Sprint", "description": "Each correct delivery grants +30% speed for 4 s.",
+    "category": "carrier", "scope": "personal", "rarity": "rare",
+    "modifiers": [
+      { "stat": "DeliveryBoost", "op": "add", "value": 0.3 },
+      { "stat": "DeliveryBoostSeconds", "op": "add", "value": 4 }
+    ],
+    "maxStacks": 1, "tags": ["movement", "delivery"] },
+
+  { "id": "union_rep", "name": "Union Rep", "description": "Quota -10%.",
+    "category": "postal", "scope": "team", "rarity": "uncommon",
+    "modifiers": [ { "stat": "Quota", "op": "mul", "value": 0.9 } ],
+    "maxStacks": 1, "tags": ["quota"] },
+  { "id": "stamp_collector", "name": "Stamp Collector", "description": "Letter and postcard value +25%.",
+    "category": "postal", "scope": "team", "rarity": "common",
+    "modifiers": [ { "stat": "PaperMailValue", "op": "mul", "value": 1.25 } ],
+    "maxStacks": 1, "tags": ["value"] },
+  { "id": "fragile_handling", "name": "Fragile Handling", "description": "Misdelivery penalty -50% and complaint -50%.",
+    "category": "postal", "scope": "team", "rarity": "common",
+    "modifiers": [
+      { "stat": "MisdeliveryPenalty", "op": "mul", "value": 0.5 },
+      { "stat": "MisdeliveryComplaint", "op": "mul", "value": 0.5 }
+    ],
+    "maxStacks": 1, "tags": ["misdelivery"] },
+  { "id": "grace_period", "name": "Grace Period", "description": "Mail one shift late pays 100%.",
+    "category": "postal", "scope": "team", "rarity": "uncommon",
+    "modifiers": [
+      { "stat": "LateValueRatio", "op": "mul", "value": 0 },
+      { "stat": "LateValueRatio", "op": "add", "value": 1 }
+    ],
+    "maxStacks": 1, "tags": ["deadline"] },
+
+  { "id": "early_warning", "name": "Early Warning", "description": "Raid warning +20 s.",
+    "category": "defense", "scope": "team", "rarity": "common",
+    "modifiers": [ { "stat": "RaidWarningSeconds", "op": "add", "value": 20 } ],
+    "maxStacks": 1, "tags": ["raid"] },
+  { "id": "union_muscle", "name": "Union Muscle", "description": "Hammer damage +50%, hammer knockback x2.",
+    "category": "defense", "scope": "team", "rarity": "uncommon",
+    "modifiers": [
+      { "stat": "MeleeDamage", "op": "mul", "value": 1.5 },
+      { "stat": "MeleeKnockback", "op": "mul", "value": 2 }
+    ],
+    "maxStacks": 1, "tags": ["combat"] }
+]

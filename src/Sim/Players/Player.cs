@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Perks;
 
 namespace PerformativeMail.Sim.Players
 {
@@ -68,6 +69,12 @@ namespace PerformativeMail.Sim.Players
         /// <summary>Run totals of the fight; cleared when a run starts.</summary>
         public int Kills;
         public int LootCoins;
+
+        /// <summary>Personal perks of the run (doc 01 §2.5), one entry per stack, and what they do to this carrier's stats.</summary>
+        public readonly List<PerkDef> Perks = new List<PerkDef>();
+        public readonly StatSheet Stats = new StatSheet();
+        /// <summary>Until this tick the speed of a correct delivery lasts (<see cref="Stat.DeliveryBoost"/>); 0: none.</summary>
+        public uint BoostUntilTick;
 
         public bool Dead => Move.Dead;
         /// <summary>Health as the snapshot carries it: 0 dead, 1..255 alive.</summary>

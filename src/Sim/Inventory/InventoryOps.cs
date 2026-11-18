@@ -28,6 +28,14 @@ namespace PerformativeMail.Sim.Inventory
         NotSolo,
         /// <summary>A carrier who is down can do nothing until the respawn (doc 05 §1.1).</summary>
         Dead,
+        /// <summary>The Draft (doc 01 §2.5): this carrier has picked their card already.</summary>
+        AlreadyPicked,
+        /// <summary>A team perk somebody has taken; it is the whole team's once.</summary>
+        PerkTaken,
+        /// <summary>A personal perk this carrier holds as often as it stacks.</summary>
+        PerkMaxed,
+        /// <summary>A perk that never shares a run with one already held.</summary>
+        PerkExcluded,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

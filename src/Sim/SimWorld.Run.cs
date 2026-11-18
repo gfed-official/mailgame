@@ -97,6 +97,7 @@ namespace PerformativeMail.Sim
             Run.Results = null;
             Economy.Reset();
             ResetCombatRng();
+            ClearPerks();
             foreach (var p in _players)
             {
                 p.Deliveries = 0;
@@ -121,7 +122,7 @@ namespace PerformativeMail.Sim
             ClearCombat();
             Economy.BeginShift();
             // A preview for the HUD; the binding quota is sampled when Delivery starts.
-            Run.Quota = QuotaFormula.Quota(b, Run.Shift, Math.Max(1, PresentCount));
+            Run.Quota = TeamQuota(QuotaFormula.Quota(b, Run.Shift, Math.Max(1, PresentCount)));
             EnterPhase(RunPhase.Prep, b.GetForShift("prepSeconds", Run.Shift));
         }
 
@@ -131,11 +132,13 @@ namespace PerformativeMail.Sim
             ClearCombat();
             // Doc 06 §6: who is away does not count from here on, and nobody is counted again before the next shift.
             Run.PlayerCount = Math.Max(1, PresentCount);
-            Run.Quota = QuotaFormula.Quota(b, Run.Shift, Run.PlayerCount);
+            int quota = QuotaFormula.Quota(b, Run.Shift, Run.PlayerCount);
+            Run.Quota = TeamQuota(quota);
             Economy.BeginShift();
             foreach (var p in _players) p.ShiftDeliveries = 0;
             double seconds = b.GetForShift("deliverySeconds", Run.Shift);
-            int spawnValue = (int)Math.Round(Run.Quota * Content.MailMix.SpawnOverhead);
+            // As much mail as the quota of the formula asks for: a perk that lowers the quota does not thin the mail.
+            int spawnValue = (int)Math.Round(quota * Content.MailMix.SpawnOverhead);
             Spawner.BeginShift(Run.Shift, Tick + 1, SimConstants.SecondsToTicks(seconds), spawnValue);
             EnterPhase(RunPhase.Delivery, seconds);
             ScheduleRaid();
@@ -229,6 +232,7 @@ namespace PerformativeMail.Sim
             }
             Spawner.Reset();
             Economy.Reset();
+            ClearPerks();
             Run.Shift = 1;
             Run.Quota = 0;
             Run.PlayerCount = 0;

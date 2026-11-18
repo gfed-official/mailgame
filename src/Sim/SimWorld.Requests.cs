@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 
@@ -164,23 +166,25 @@ namespace PerformativeMail.Sim
             if (entry == null) return OpResult.UnknownEntry;
             if (entry.Stack.Kind != StackKind.Mail) return OpResult.NotMail;
             if (!player.WasWithin(dest.MailboxX, dest.MailboxZ, _serverInteractRange, _rewindTicks)) return OpResult.OutOfRange;
-            if (player.HasDelivered && Tick - player.LastDeliverTick < _minDeliverIntervalTicks) return OpResult.TooFast;
+            if (player.HasDelivered && Tick - player.LastDeliverTick < MinDeliverIntervalTicks(player)) return OpResult.TooFast;
 
             var kind = Content.MailKinds[entry.Stack.DefIndex];
             if (!DeliveryRules.KindAccepted(kind, dest.Type)) return OpResult.WontFitHere;
 
             var mail = entry.Stack.Mail;
             int consumed = 0;
+            bool delivered = false;
             while (mail.Count > 0)
             {
                 var item = mail[mail.Count - 1];
-                var verdict = DeliveryRules.Evaluate(item, kind, dest, Run.Shift, Economy.Wallet, Content);
+                var verdict = DeliveryRules.Evaluate(item, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats);
                 if (!verdict.Consumed) break;
                 mail.RemoveAt(mail.Count - 1);
                 consumed++;
                 Economy.Apply(verdict, kind.Index);
                 if (verdict.Outcome == DeliveryOutcome.Delivered)
                 {
+                    delivered = true;
                     player.Deliveries++;
                     player.ShiftDeliveries++;
                     player.Earned += verdict.Amount;
@@ -202,10 +206,19 @@ namespace PerformativeMail.Sim
 
             if (mail.Count == 0) info.Container.Remove(entry.EntryId);
             else info.Container.MarkDirty(entry.EntryId);
+            if (delivered) StartDeliveryBoost(player);
             CommitContainer(info.Container.Id);
             player.LastDeliverTick = Tick;
             player.HasDelivered = true;
             return OpResult.Ok;
         }
+
+        /// <summary>
+        /// The hold is timed on the client; the server only refuses deliveries that come
+        /// implausibly fast: the shortest hold there is, as this carrier's perks have it, minus
+        /// 0.1 s of network slack.
+        /// </summary>
+        private uint MinDeliverIntervalTicks(Player player) =>
+            SimConstants.SecondsToTicks(Math.Max(0.0, StatFor(player, Stat.InsertHold, _minInsertHold) - 0.1));
     }
 }

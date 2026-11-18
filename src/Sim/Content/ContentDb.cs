@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Sim.Content
@@ -28,6 +29,7 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<ContainerDef> Containers { get; private set; } = Array.Empty<ContainerDef>();
         public IReadOnlyList<ItemDef> Items { get; private set; } = Array.Empty<ItemDef>();
         public IReadOnlyList<EnemyDef> Enemies { get; private set; } = Array.Empty<EnemyDef>();
+        public IReadOnlyList<PerkDef> Perks { get; private set; } = Array.Empty<PerkDef>();
         public WaveDef Waves { get; private set; } = new WaveDef();
         public MailMixDef MailMix { get; private set; } = new MailMixDef();
         public Balance Balance { get; private set; } = new Balance(new Dictionary<string, double[]>());
@@ -43,6 +45,7 @@ namespace PerformativeMail.Sim.Content
         private readonly Dictionary<string, ItemDef> _itemsById = new Dictionary<string, ItemDef>();
         private readonly Dictionary<string, WorldMap> _maps = new Dictionary<string, WorldMap>();
         private readonly Dictionary<string, EnemyDef> _enemiesById = new Dictionary<string, EnemyDef>();
+        private readonly Dictionary<string, PerkDef> _perksById = new Dictionary<string, PerkDef>();
 
         private ContentDb() { }
 
@@ -52,6 +55,7 @@ namespace PerformativeMail.Sim.Content
         public ContainerDef Container(string id) => _containersById[id];
         public ItemDef Item(string id) => _itemsById[id];
         public EnemyDef Enemy(string id) => _enemiesById[id];
+        public PerkDef Perk(string id) => _perksById[id];
         public WorldMap Map(string id) => _maps[id];
 
         /// <summary>Loads and validates; throws <see cref="ContentException"/> listing every problem.</summary>
@@ -435,6 +439,100 @@ namespace PerformativeMail.Sim.Content
                 else if (doc != null) ctx.Error("root must be an object");
             }
 
+            // --- perks ---------------------------------------------------------------------------
+            {
+                var list = new List<PerkDef>();
+                var files = new List<string>();
+                foreach (string file in source.ListJson("perks"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        string scope = J.Str(ctx, e, "scope");
+                        bool team = scope == "team";
+                        if (!team && scope != "personal") ctx.Error($"'{id}': unknown scope '{scope}'");
+
+                        var modifiers = new List<StatModifier>();
+                        if (e.TryGetProperty("modifiers", out var modsEl) && modsEl.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var m in modsEl.EnumerateArray())
+                            {
+                                if (m.ValueKind != JsonValueKind.Object) { ctx.Error($"'{id}': modifiers must be objects"); continue; }
+                                string statName = J.Str(ctx, m, "stat");
+                                string op = J.Str(ctx, m, "op");
+                                double value = J.Num(ctx, m, "value");
+                                if (!Stats.TryParse(statName, out var stat)) { ctx.Error($"'{id}': unknown stat '{statName}'"); continue; }
+                                if (op != "mul" && op != "add") { ctx.Error($"'{id}': modifier op must be 'mul' or 'add', not '{op}'"); continue; }
+                                if (!team && Stats.IsTeam(stat)) ctx.Error($"'{id}': a personal perk cannot change the team stat {stat}");
+                                if (op == "mul" && value < 0) ctx.Error($"'{id}': the multiplier on {stat} must not be negative");
+                                modifiers.Add(new StatModifier(stat, op == "mul" ? ModifierOp.Mul : ModifierOp.Add, (float)value));
+                            }
+                        }
+                        else ctx.Error($"'{id}': missing 'modifiers' array");
+                        if (modifiers.Count == 0) ctx.Error($"'{id}': a perk without a modifier does nothing");
+
+                        // Doc 08 §2.9 names three more closed sets. Nothing is in them yet (no rule flag is
+                        // implemented, nothing can be crafted or built), so whatever a perk names from them is unknown.
+                        foreach (string rule in J.StrArray(ctx, e, "rules", optional: true)) ctx.Error($"'{id}': unknown rule flag '{rule}'");
+                        if (e.TryGetProperty("unlocks", out var unlocksEl))
+                        {
+                            if (unlocksEl.ValueKind != JsonValueKind.Array) ctx.Error($"'{id}': 'unlocks' must be an array");
+                            else
+                                foreach (var u in unlocksEl.EnumerateArray())
+                                    ctx.Error($"'{id}': unlocks references unknown recipe '{(u.ValueKind == JsonValueKind.Object ? J.Str(ctx, u, "recipe") : u.ToString())}'");
+                        }
+                        int shiftMin = 1, rankMin = 1;
+                        if (e.TryGetProperty("prerequisites", out var preEl))
+                        {
+                            if (preEl.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': 'prerequisites' must be an object");
+                            else
+                            {
+                                shiftMin = J.Int(ctx, preEl, "shiftMin", 1);
+                                rankMin = J.Int(ctx, preEl, "rankMin", 1);
+                                foreach (string built in J.StrArray(ctx, preEl, "builtAny", optional: true))
+                                    ctx.Error($"'{id}': prerequisite builtAny references unknown building '{built}'");
+                            }
+                        }
+
+                        var def = new PerkDef
+                        {
+                            Id = id,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Description = J.Str(ctx, e, "description"),
+                            Category = ParsePerkCategory(ctx, id, J.Str(ctx, e, "category")),
+                            Team = team,
+                            Rarity = ParsePerkRarity(ctx, id, J.Str(ctx, e, "rarity")),
+                            Modifiers = modifiers,
+                            ShiftMin = shiftMin,
+                            RankMin = rankMin,
+                            Excludes = J.StrArray(ctx, e, "excludes", optional: true),
+                            MaxStacks = J.Int(ctx, e, "maxStacks", 1),
+                            Tags = J.StrArray(ctx, e, "tags", optional: true),
+                        };
+                        if (def.ShiftMin < 1 || def.RankMin < 1) ctx.Error($"'{id}': prerequisites shiftMin and rankMin must be >= 1");
+                        if (def.MaxStacks < 1) ctx.Error($"'{id}': maxStacks must be >= 1");
+                        // Doc 01 §4.2: team perks are unique per run.
+                        if (team && def.MaxStacks > 1) ctx.Error($"'{id}': a team perk is held once, maxStacks must be 1");
+                        // The wire names a perk in one byte, and 255 is "none".
+                        if (list.Count >= byte.MaxValue) { ctx.Error($"'{id}': more than {byte.MaxValue} perks"); continue; }
+                        if (!AddUnique(ctx, db._perksById, def.Id, def)) continue;
+                        list.Add(def);
+                        files.Add(file);
+                    }
+                }
+                for (int i = 0; i < list.Count; i++)
+                {
+                    foreach (string other in list[i].Excludes)
+                    {
+                        if (other == list[i].Id) errors.Add($"{files[i]}: '{list[i].Id}': excludes itself");
+                        else if (!db._perksById.ContainsKey(other)) errors.Add($"{files[i]}: '{list[i].Id}': excludes references unknown perk '{other}'");
+                    }
+                }
+                db.Perks = list;
+            }
+
             // --- streets -------------------------------------------------------------------------
             {
                 var ctx = new JsonCtx("streets.json", errors);
@@ -510,6 +608,29 @@ namespace PerformativeMail.Sim.Content
             if (dict.ContainsKey(id)) { ctx.Error($"duplicate id '{id}'"); return false; }
             dict[id] = def;
             return true;
+        }
+
+        private static PerkCategory ParsePerkCategory(JsonCtx ctx, string id, string s)
+        {
+            switch (s)
+            {
+                case "carrier": return PerkCategory.Carrier;
+                case "facility": return PerkCategory.Facility;
+                case "postal": return PerkCategory.Postal;
+                case "defense": return PerkCategory.Defense;
+                default: ctx.Error($"'{id}': unknown category '{s}'"); return PerkCategory.Carrier;
+            }
+        }
+
+        private static PerkRarity ParsePerkRarity(JsonCtx ctx, string id, string s)
+        {
+            switch (s)
+            {
+                case "common": return PerkRarity.Common;
+                case "uncommon": return PerkRarity.Uncommon;
+                case "rare": return PerkRarity.Rare;
+                default: ctx.Error($"'{id}': unknown rarity '{s}'"); return PerkRarity.Common;
+            }
         }
 
         private static WeightClass ParseWeight(JsonCtx ctx, string s)

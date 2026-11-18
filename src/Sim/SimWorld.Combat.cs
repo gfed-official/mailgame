@@ -4,6 +4,7 @@ using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
@@ -21,7 +22,8 @@ namespace PerformativeMail.Sim
         private sealed class CombatTuning
         {
             public readonly float PlayerHp, RegenPerTick;
-            public readonly uint RegenDelayTicks, RespawnTicks;
+            public readonly uint RegenDelayTicks;
+            public readonly float RespawnSeconds;
             public readonly float HammerDamage, HammerRange, HammerHalfArc, HammerKnockback;
             public readonly uint HammerCooldownTicks;
             public readonly float CannonDamage, CannonBlastRadius, CannonRange, CannonStep;
@@ -37,7 +39,7 @@ namespace PerformativeMail.Sim
                 PlayerHp = b.GetFloat("playerHp");
                 RegenPerTick = b.GetFloat("hpRegenPerSecond") * SimConstants.TickDt;
                 RegenDelayTicks = SimConstants.SecondsToTicks(b.GetDouble("hpRegenDelaySeconds"));
-                RespawnTicks = SimConstants.SecondsToTicks(b.GetDouble("respawnSeconds"));
+                RespawnSeconds = b.GetFloat("respawnSeconds");
                 HammerDamage = b.GetFloat("hammerDamage");
                 HammerRange = b.GetFloat("hammerRange");
                 HammerHalfArc = b.GetFloat("hammerArcDegrees") * MathF.PI / 360f;
@@ -158,10 +160,10 @@ namespace PerformativeMail.Sim
             if (p.Hp > 0f) return;
             p.Hp = 0f;
             p.Move.Dead = true;
-            p.RespawnTick = Tick + _combat.RespawnTicks;
+            p.RespawnTick = Tick + Math.Max(1, SimConstants.SecondsToTicks(StatFor(p, Stat.RespawnSeconds, _combat.RespawnSeconds)));
             CloseExternal(p, notify: true);
             Events.Add(new PlayerDiedEvent { Player = p.Id, RespawnTick = p.RespawnTick, Killer = enemyKind });
-            DropBag(p);
+            DropBag(p, keepHotbar: StatFor(p, Stat.KeepHotbarOnDeath, 0f) > 0f);
         }
 
         /// <summary>
@@ -201,6 +203,8 @@ namespace PerformativeMail.Sim
             p.ProtectedUntilTick = 0;
             float yaw = PlayerInput.YawToRadians(p.Move.Yaw);
             float fx = -MathF.Sin(yaw), fz = -MathF.Cos(yaw);
+            float damage = StatFor(p, Stat.MeleeDamage, _combat.HammerDamage);
+            float knockback = StatFor(p, Stat.MeleeKnockback, _combat.HammerKnockback);
             int hits = 0;
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
@@ -212,11 +216,11 @@ namespace PerformativeMail.Sim
                 {
                     float angle = MathF.Acos(Math.Clamp((dx * fx + dz * fz) / dist, -1f, 1f));
                     if (angle > _combat.HammerHalfArc + MathF.Asin(e.Radius / dist)) continue;
-                    e.PushX += dx / dist * _combat.HammerKnockback;
-                    e.PushZ += dz / dist * _combat.HammerKnockback;
+                    e.PushX += dx / dist * knockback;
+                    e.PushZ += dz / dist * knockback;
                 }
                 hits++;
-                DamageEnemy(e, _combat.HammerDamage, p);
+                DamageEnemy(e, damage, p);
             }
             Events.Add(new AttackEvent
             {
@@ -695,7 +699,7 @@ namespace PerformativeMail.Sim
             if (waves.BudgetFor(Run.Shift) <= 0) return;
             uint length = Run.PhaseEndTick - Tick;
             uint window = Math.Min(SimConstants.SecondsToTicks(waves.RaidWindowSeconds), length - 1);
-            uint warning = SimConstants.SecondsToTicks(waves.WarningSeconds);
+            uint warning = SimConstants.SecondsToTicks(TeamStat(Stat.RaidWarningSeconds, (float)waves.WarningSeconds));
             _raidStartTick = Run.PhaseEndTick - window;
             _raidWarnTick = _raidStartTick - Math.Min(warning, _raidStartTick - Tick - 1);
         }
