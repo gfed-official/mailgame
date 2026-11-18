@@ -184,6 +184,8 @@ namespace PerformativeMail.Sim
     public sealed class PlayerRespawnedEvent : SimEvent
     {
         public EntityId Player;
+        /// <summary>The protection they stand up with ends by this tick; 0: none.</summary>
+        public uint ProtectedUntilTick;
     }
 
     /// <summary>A carrier went down with things on them: the bag that lies there now (doc 01 §2.2).</summary>

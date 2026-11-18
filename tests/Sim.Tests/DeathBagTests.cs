@@ -216,14 +216,15 @@ namespace PerformativeMail.Sim.Tests
             var p = PlayerOnTheStreet(world, 50f, 28f);
             GiveLetter(world, p);
             world.DamagePlayer(p, 1000f);
-            SimDriver.StepTicks(world, 11 * Tps);
+            // Ten seconds down, then the five in which nothing can hurt them.
+            SimDriver.StepTicks(world, 16 * Tps);
             Assert.False(p.Dead);
             SimDriver.Teleport(p, 70f, 28f);
             GiveStone(world, p);
             world.DamagePlayer(p, 1000f);
             Assert.Equal(new[] { 50f, 70f }, world.Bags.Select(b => b.X));
             Assert.NotEqual(world.Bags[0].Id, world.Bags[1].Id);
-            Assert.Equal(11u * Tps, world.Bags[1].DespawnTick - world.Bags[0].DespawnTick);
+            Assert.Equal(16u * Tps, world.Bags[1].DespawnTick - world.Bags[0].DespawnTick);
         }
 
         [Fact]

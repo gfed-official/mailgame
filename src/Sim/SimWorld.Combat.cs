@@ -28,6 +28,9 @@ namespace PerformativeMail.Sim
             public readonly uint CannonCooldownTicks;
             public readonly uint WindupTicks, FleeTicks, LootDespawnTicks, BagDespawnTicks;
             public readonly float FleeSpeedMult, LootPickupRange;
+            public readonly uint ProtectionTicks, ProvokedTicks;
+            public readonly float RaidStandoff, LeashMult, WaitDistance;
+            public readonly int MaxAttackers;
 
             public CombatTuning(Balance b)
             {
@@ -51,6 +54,12 @@ namespace PerformativeMail.Sim
                 LootDespawnTicks = SimConstants.SecondsToTicks(b.GetDouble("lootDespawnSeconds"));
                 LootPickupRange = b.GetFloat("lootPickupRange");
                 BagDespawnTicks = SimConstants.SecondsToTicks(b.GetDouble("deathBagDespawnSeconds"));
+                ProtectionTicks = SimConstants.SecondsToTicks(b.GetDouble("respawnProtectionSeconds"));
+                ProvokedTicks = SimConstants.SecondsToTicks(b.GetDouble("enemyProvokedSeconds"));
+                RaidStandoff = b.GetFloat("raidStandoffMetres");
+                LeashMult = b.GetFloat("enemyLeashMult");
+                MaxAttackers = b.GetInt("maxAttackersPerCarrier");
+                WaitDistance = b.GetFloat("attackerWaitMetres");
             }
         }
 
@@ -62,6 +71,11 @@ namespace PerformativeMail.Sim
         private const float PushSpeed = 12f;
         /// <summary>How close a cannon package has to pass an enemy's body to go off.</summary>
         private const float ShotRadius = 0.35f;
+        /// <summary>The raiders' line: lanes across the street, ranks over this many metres towards the gate.</summary>
+        private const int HoldLanes = 4, HoldRanks = 6;
+        private const float HoldDeep = 6f;
+        /// <summary>A raider this near its place on the line stands.</summary>
+        private const float HoldSlack = 0.4f;
         private const uint LootSettleTicks = 15;
         private const uint LootRetryTicks = 30;
 
@@ -136,7 +150,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         public void DamagePlayer(Player p, float damage, byte enemyKind = 0)
         {
-            if (p.Dead || damage <= 0f) return;
+            if (p.Dead || damage <= 0f || Protected(p)) return;
             p.LastDamageTick = Tick;
             p.Hp -= damage;
             if (p.Hp > 0f) return;
@@ -148,14 +162,22 @@ namespace PerformativeMail.Sim
             DropBag(p);
         }
 
-        private void Respawn(Player p)
+        /// <summary>
+        /// Back on their feet at the Post Office. In a fight they stand up protected (nit 17): for
+        /// a few seconds nothing hurts them and no raider goes for them, until they strike first.
+        /// </summary>
+        private void Respawn(Player p, bool protect = true)
         {
             SeatPosition(p.Slot, out float x, out float z);
             p.Move = new PlayerMoveState { X = x, Z = z, Y = Map.HeightAt(x, z), Grounded = true, Yaw = p.Move.Yaw };
             p.Hp = p.MaxHp;
             p.LastDamageTick = 0;
-            Events.Add(new PlayerRespawnedEvent { Player = p.Id });
+            p.ProtectedUntilTick = protect ? Tick + _combat.ProtectionTicks : 0;
+            Events.Add(new PlayerRespawnedEvent { Player = p.Id, ProtectedUntilTick = p.ProtectedUntilTick });
         }
+
+        /// <summary>True while the carrier's protection after a respawn holds.</summary>
+        public bool Protected(Player p) => !p.Dead && Tick < p.ProtectedUntilTick;
 
         private void HandleAttackInput(Player p, in PlayerInput input)
         {
@@ -171,6 +193,8 @@ namespace PerformativeMail.Sim
         private void SwingHammer(Player p)
         {
             p.HammerReadyTick = Tick + _combat.HammerCooldownTicks;
+            // Who strikes is in the fight again.
+            p.ProtectedUntilTick = 0;
             float yaw = PlayerInput.YawToRadians(p.Move.Yaw);
             float fx = -MathF.Sin(yaw), fz = -MathF.Cos(yaw);
             int hits = 0;
@@ -204,6 +228,7 @@ namespace PerformativeMail.Sim
         {
             if (!TakeAmmo(p, p.Hotbar) && !TakeAmmo(p, p.Inventory)) return;
             p.CannonReadyTick = Tick + _combat.CannonCooldownTicks;
+            p.ProtectedUntilTick = 0;
             float yaw = PlayerInput.YawToRadians(p.Move.Yaw);
             float fx = -MathF.Sin(yaw), fz = -MathF.Cos(yaw);
             _shots.Add(new Shot { Owner = p.Id, X = p.Move.X + fx * 0.5f, Z = p.Move.Z + fz * 0.5f, DirX = fx, DirZ = fz });
@@ -345,7 +370,12 @@ namespace PerformativeMail.Sim
         {
             if (e.Hp <= 0f) return;
             e.Hp -= damage;
-            if (attacker != null) e.LastHitBy = attacker.Id;
+            if (attacker != null)
+            {
+                e.LastHitBy = attacker.Id;
+                // Whoever hurt it has its attention for a while, from however far the blow came.
+                e.ProvokedUntilTick = Tick + _combat.ProvokedTicks;
+            }
             if (e.Hp > 0f) return;
             _enemies.Remove(e);
             EnemiesKilledTotal++;
@@ -360,6 +390,7 @@ namespace PerformativeMail.Sim
             if (_enemies.Count == 0) return;
             const float dt = SimConstants.TickDt;
             bool fleeOver = _fleeEndTick != 0 && Tick >= _fleeEndTick;
+            RankAttackers();
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
                 var e = _enemies[i];
@@ -416,21 +447,92 @@ namespace PerformativeMail.Sim
             foreach (var e in _enemies) PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius);
         }
 
+        /// <summary>
+        /// Among the raiders after one carrier only the nearest few close in; the rest wait their
+        /// turn a few steps back, so a carrier is fought rather than buried (nit 17).
+        /// </summary>
+        private void RankAttackers()
+        {
+            foreach (var e in _enemies)
+            {
+                e.Waiting = false;
+                var target = e.State == EnemyState.Flee ? null : GetPlayer(e.Target);
+                if (target == null) continue;
+                float own = DistanceSq(e, target);
+                int nearer = 0;
+                foreach (var other in _enemies)
+                {
+                    if (other == e || other.Target != e.Target || other.State == EnemyState.Flee) continue;
+                    float d = DistanceSq(other, target);
+                    if (d < own || (d == own && other.Id.Value < e.Id.Value)) nearer++;
+                }
+                e.Waiting = nearer >= _combat.MaxAttackers;
+            }
+        }
+
+        private static float DistanceSq(Enemy e, Player p)
+        {
+            float dx = p.Move.X - e.X, dz = p.Move.Z - e.Z;
+            return dx * dx + dz * dz;
+        }
+
+        /// <summary>
+        /// Whether an enemy may be after a carrier at most <paramref name="range"/> from a point:
+        /// not one who is down or stands protected after a respawn; one who hurt it lately, from
+        /// any distance.
+        /// </summary>
+        private bool ValidTarget(Enemy e, Player p, float range, float fromX, float fromZ)
+        {
+            if (p.Dead || Protected(p)) return false;
+            if (e.LastHitBy == p.Id && Tick < e.ProvokedUntilTick) return true;
+            float dx = p.Move.X - fromX, dz = p.Move.Z - fromZ;
+            return dx * dx + dz * dz <= range * range;
+        }
+
+        /// <summary>Doc 05 §2: the nearest valid target within aggroRange.</summary>
+        private Player? Acquire(Enemy e)
+        {
+            Player? best = null;
+            float bestSq = float.MaxValue;
+            foreach (var p in _players)
+            {
+                if (!ValidTarget(e, p, e.Def.AggroRange, e.X, e.Z)) continue;
+                float sq = DistanceSq(e, p);
+                if (sq >= bestSq) continue;
+                best = p;
+                bestSq = sq;
+            }
+            return best;
+        }
+
         private void StepChase(Enemy e, float dt)
         {
+            // Whoever it is after is let go once they have got well away from where it last had them
+            // within aggroRange (its own way round a house does not count as their getting away).
             var target = GetPlayer(e.Target);
-            if (target != null && target.Dead) target = null;
+            if (target != null)
+            {
+                if (DistanceSq(e, target) <= e.Def.AggroRange * e.Def.AggroRange) { e.SeenX = e.X; e.SeenZ = e.Z; }
+                if (!ValidTarget(e, target, e.Def.AggroRange * _combat.LeashMult, e.SeenX, e.SeenZ)) target = null;
+            }
             if (target == null || Tick >= e.RepathTick)
             {
-                target = NearestLivingPlayer(e.X, e.Z, float.MaxValue);
+                var nearest = Acquire(e);
+                if (nearest != null && nearest != target)
+                {
+                    target = nearest;
+                    e.SeenX = e.X; e.SeenZ = e.Z;
+                }
                 e.Target = target?.Id ?? EntityId.None;
                 e.RepathTick = Tick + RepathTicks;
                 e.Path.Clear();
                 e.Waypoint = 0;
-                if (target != null && !LineClear(e.X, e.Z, target.Move.X, target.Move.Z))
-                    TilePathfinder.Find(Map, e.X, e.Z, target.Move.X, target.Move.Z, e.Path, _navScratch);
+                float gx, gz;
+                if (target != null) { gx = target.Move.X; gz = target.Move.Z; }
+                else HoldSpot(e, out gx, out gz);
+                if (!LineClear(e.X, e.Z, gx, gz)) TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch);
             }
-            if (target == null) return;
+            if (target == null) { Hold(e, dt); return; }
 
             float dx = target.Move.X - e.X, dz = target.Move.Z - e.Z;
             float dist = MathF.Sqrt(dx * dx + dz * dz);
@@ -443,13 +545,54 @@ namespace PerformativeMail.Sim
                 if (dist > 1e-3f) e.Yaw = MathF.Atan2(-dx, -dz);
                 return;
             }
-            // Close enough to strike: hold the ground rather than walk into the carrier.
-            if (dist <= reach * 0.7f)
+            // Close enough to strike, or waiting for room at the carrier: hold the ground rather than walk in.
+            if (dist <= reach * 0.7f || (e.Waiting && dist <= _combat.WaitDistance + e.Radius))
             {
                 if (dist > 1e-3f) e.Yaw = MathF.Atan2(-dx, -dz);
                 return;
             }
             Walk(e, target.Move.X, target.Move.Z, e.Speed * dt);
+        }
+
+        /// <summary>
+        /// The raiders' line (nit 17): on the street, raidStandoffMetres from the Post Office's
+        /// pad towards the gate. Farther than any aggroRange, so nobody is fought on the pad who
+        /// did not pick the fight; the street between the Post Office and its mailboxes is theirs.
+        /// </summary>
+        public void RaidLine(out float x, out float z)
+        {
+            RaidGate(out float gx, out z);
+            float px = Map.PostOffice.SpawnPadX, dz = z - Map.PostOffice.SpawnPadZ;
+            float along = MathF.Sqrt(MathF.Max(0f, _combat.RaidStandoff * _combat.RaidStandoff - dz * dz));
+            // On a street too short for the standoff the line is the gate's mouth.
+            x = gx >= px ? MathF.Min(px + along, gx - HoldDeep) : MathF.Max(px - along, gx + HoldDeep);
+        }
+
+        /// <summary>Where on the line this raider stands: lanes across the street, ranks towards the gate.</summary>
+        public void HoldSpot(Enemy e, out float x, out float z)
+        {
+            RaidLine(out x, out z);
+            RaidGate(out float gx, out _);
+            uint n = e.Id.Counter;
+            x += (gx >= x ? 1f : -1f) * (n / HoldLanes % HoldRanks) * (HoldDeep / HoldRanks);
+            z += ((n % HoldLanes) / (HoldLanes - 1f) * 2f - 1f) * StreetHalfWidth();
+        }
+
+        /// <summary>Half the first street's width, less a raider's shoulder.</summary>
+        private float StreetHalfWidth() =>
+            Map.Streets.Count > 0 ? Map.Streets[0].Rect.H * SimConstants.TileSize * 0.5f - 0.6f : 1.4f;
+
+        /// <summary>With nobody to go for: to its place on the line, and there it watches the Post Office.</summary>
+        private void Hold(Enemy e, float dt)
+        {
+            HoldSpot(e, out float hx, out float hz);
+            float dx = hx - e.X, dz = hz - e.Z;
+            if (dx * dx + dz * dz > HoldSlack * HoldSlack)
+            {
+                Walk(e, hx, hz, e.Speed * dt);
+                return;
+            }
+            e.Yaw = MathF.Atan2(-(Map.PostOffice.SpawnPadX - e.X), -(Map.PostOffice.SpawnPadZ - e.Z));
         }
 
         /// <summary>One tick of walking at a point: along the tile path while it has one, straight otherwise.</summary>
@@ -592,7 +735,7 @@ namespace PerformativeMail.Sim
             // Doc 05 §3.2: the last pulse of the last shift always brings a Mega.
             bool forceMega = finale && Run.Shift >= ShiftCount;
             RaidGate(out float gx, out float gz);
-            float halfStreet = Map.Streets.Count > 0 ? Map.Streets[0].Rect.H * SimConstants.TileSize * 0.5f - 0.6f : 1.4f;
+            float halfStreet = StreetHalfWidth();
             while (_enemies.Count < waves.MaxAlive)
             {
                 _affordable.Clear();
@@ -664,7 +807,10 @@ namespace PerformativeMail.Sim
             _raidAtStart = false;
             SetRaid(RaidState.None, 0);
             foreach (var p in _players)
-                if (p.Dead) Respawn(p);
+            {
+                if (p.Dead) Respawn(p, protect: false);
+                p.ProtectedUntilTick = 0;
+            }
         }
 
         private void ResetCombatRng()

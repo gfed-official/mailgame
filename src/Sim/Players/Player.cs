@@ -53,6 +53,8 @@ namespace PerformativeMail.Sim.Players
         public uint LastDamageTick;
         /// <summary>Tick a dead player stands up again at the Post Office.</summary>
         public uint RespawnTick;
+        /// <summary>Until this tick, or their own first blow, a respawned carrier is not hurt and not gone for (nit 17).</summary>
+        public uint ProtectedUntilTick;
         public uint HammerReadyTick;
         public uint CannonReadyTick;
         /// <summary>Run totals of the fight; cleared when a run starts.</summary>

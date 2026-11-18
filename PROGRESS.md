@@ -304,6 +304,29 @@ with the mail cannon, the loot on the cards and in the wallet; and, since the de
       where they are used (`using`), as are the ground material's C# handle and the ENet host and
       peer on `Close`. `tools/smoke.sh` now fails on any "leaked at exit" line; four runs in a row
       were clean.
+- [x] Nit 17 — the raid camped the spawn pad: every raider walked at the nearest carrier from
+      anywhere on the map, so the whole wave ended up on the pad and whoever stood up there was
+      down again. Five rules now (design choice 63; all numbers in `balance.json`):
+      - a raider goes for the nearest carrier within its `aggroRange` (15 m, doc 05 §2) and
+        lets go of one who got 1.5× that far from where it last had them in range;
+      - a blow brings the one who was hit over from any distance for 6 s (no free cannon shots
+        at the line);
+      - with nobody to go for, the raiders walk to **their line** and hold it: across the
+        street 19 m from the pad toward the gate (x ≈ 31.7 on Test Street, four lanes, six
+        ranks), facing the Post Office. Pad and Intake are farther from it than any aggro
+        range, so a carrier can stand up, fetch a package at the Intake and shoot from the
+        yard; the street to the mailboxes is what the raid holds;
+      - back on their feet a carrier is **protected** for 5 s — not hurt, not gone for — until
+        they strike a blow of their own (hammer or cannon). The HUD banner says "PROTECTED · 4
+        s, or until you strike" in green. A shift boundary's respawn gives none;
+      - at most four raiders close in on one carrier; the others wait 4 m off until there is
+        room, so the mob no longer covers the camera.
+      `CombatTests` (9 new, among them the playtest's raid with two carriers: on the pad both
+      are left alone; the one who walks into the line and goes down stands up on a pad no
+      raider is within aggro range of, and opens the Intake unhurt), `CombatHudTests`, `CodecTests`;
+      the smoke's fallen host is checked for the banner, and the raid smoke's host now goes at
+      the raiders on their line. Protocol `m1.7` (snapshot player flag `protected`,
+      `PlayerRespawned.protectedUntil`)
 
 ### 3. Further features from `design/drive/`, in milestone order
 
@@ -785,6 +808,32 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the address of the mailbox one looks at stands right over it. The top of the HUD got a plate
     (as the trackers have) instead of more outline: the sky behind it goes from white sun to
     night, and outlined text alone lost against both the bar and the world.
+
+63. **Nit 17: who the raiders go for, and where they stand otherwise.** Doc 05 §2 gives every
+    enemy an `aggroRange` and says "nearest valid target within aggroRange, re-evaluated every
+    0.5 s"; the code had ignored the range, which is what made the whole wave walk to the pad.
+    Doc 05 §5 has the raid's real objective — the Post Office with HP, sieged — but that is an
+    M2 line (PO HP, repair, the run lost with the PO); until then the docs do not say what a
+    raider with no target does. Chosen:
+    - *The line.* They walk to a line across the street, `raidStandoffMetres` (19) from the
+      pad on the gate's side, and hold it in ranks, facing the Post Office. 19 m keeps the pad
+      (and the Intake, 3.6 m from it) outside every aggro range in the content (15 m at most),
+      and leaves the first mailboxes (x 24) on the carriers' side of the line: a delivery run
+      down the street is what crosses it. When the PO gets HP the same line is where the siege
+      starts from.
+    - *The leash* is measured from where the raider last had its target in range, not from
+      where it is now: a raider on its way round a house walks away from its target for a
+      while (`RaidersFindTheirWayAroundAHouse` caught that) and must not lose it there.
+    - *Provoked.* Without it the line would be a shooting gallery from 16 m: a raider that is
+      hit goes for whoever hit it for `enemyProvokedSeconds` (6), from any distance.
+    - *Protection* rather than a sanctuary: a no-raider zone round the pad was rejected because
+      a carrier could fight from inside it for free. 5 s of not being hurt or targeted, gone
+      with their own first blow, is the usual rule and has no such corner. It is on the
+      snapshot (one flag bit per player) so that the HUD's banner is the server's word.
+    - *Four at a time.* `maxAttackersPerCarrier` (4): the nearest four close in, the others
+      stand `attackerWaitMetres` (4) off. It keeps the view clear and makes a wave of fifteen
+      survivable for one carrier with a hammer, which the playtest said it was not. Rejected:
+      pushing bodies apart harder (giants then bulldoze the others onto the carrier).
 
 ## Commands
 

@@ -338,10 +338,11 @@ namespace PerformativeMail.Client.UI
                 _hurtFlash = 1f;
             }
             string down = HudText.Down(world);
-            _banner.Text = down.Length > 0 ? down : HudText.RaidBanner(world);
+            string safe = HudText.Protected(world);
+            _banner.Text = down.Length > 0 ? down : safe.Length > 0 ? safe : HudText.RaidBanner(world);
             // The Payday and Results panel stands where the banner does; the tracker still says the raiders flee.
             _banner.Visible = _banner.Text.Length > 0 && !Overlay.Visible;
-            _banner.Modulate = down.Length > 0 || world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
+            _banner.Modulate = down.Length > 0 ? Palette.Mismatch : safe.Length > 0 ? Palette.Match : world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
             _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0);
             if (_weapons.Visible) _weapons.Text = HudText.Weapons(_client.CannonAmmo);
 

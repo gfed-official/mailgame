@@ -467,6 +467,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Single(world.Events.OfType<PlayerDiedEvent>());
 
             // Raiders leave the fallen alone and go for whoever still stands.
+            SimDriver.Teleport(other, x + 10f, 28f);
             var e = world.SpawnEnemy(Db.Enemy("barbarian"), x + 2f, 28f)!;
             SimDriver.StepTicks(world, 2);
             Assert.Equal(other.Id, e.Target);
@@ -493,6 +494,225 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(world.Intake.Id, p.OpenContainer);
             world.DamagePlayer(p, 1000f);
             Assert.Equal(0u, p.OpenContainer);
+        }
+
+        // --- who the raiders go for (nit 17) ------------------------------------------------------
+
+        private static float Distance(Enemy e, float x, float z) => MathF.Sqrt((e.X - x) * (e.X - x) + (e.Z - z) * (e.Z - z));
+
+        private static float Distance(Enemy e, Player p) => Distance(e, p.Move.X, p.Move.Z);
+
+        [Fact]
+        public void WithNobodyInAggroRange_RaidersTakeTheirPlacesOnTheLine_AndLeaveThePadAlone()
+        {
+            var world = NewWorld();
+            var p = world.AddPlayer("carrier")!;
+            var po = world.Map.PostOffice;
+            world.RaidGate(out float gx, out float gz);
+            world.RaidLine(out float lx, out float lz);
+            Assert.Equal(gz, lz);
+            Assert.Equal(19f, MathF.Sqrt((lx - po.SpawnPadX) * (lx - po.SpawnPadX) + (lz - po.SpawnPadZ) * (lz - po.SpawnPadZ)), 3);
+
+            var pack = new List<Enemy>();
+            for (int i = 0; i < 12; i++) pack.Add(world.SpawnEnemy(Db.Enemy(i % 3 == 0 ? "swarmling" : "barbarian"), gx - i * 0.3f, gz)!);
+            SimDriver.StepTicks(world, 25 * Tps);
+
+            foreach (var e in pack)
+            {
+                Assert.True(e.Target.IsNone);
+                Assert.InRange(e.X, lx - 0.6f, lx + 6.6f);
+                Assert.InRange(e.Z, lz - 2f, lz + 2f);
+                Assert.True(Distance(e, po.SpawnPadX, po.SpawnPadZ) > e.Def.AggroRange, $"{e.Def.Id} holds {Distance(e, po.SpawnPadX, po.SpawnPadZ):0.0} m from the pad");
+                Assert.True(Distance(e, po.IntakeX, po.IntakeZ) > e.Def.AggroRange);
+                // Watching the Post Office: looking west, not back at the gate.
+                Assert.True(MathF.Sin(e.Yaw) > 0.5f, $"yaw {e.Yaw}");
+            }
+            Assert.Equal(p.MaxHp, p.Hp);
+
+            // They stand: no shuffling on the spot.
+            var before = pack.Select(e => (e.X, e.Z)).ToList();
+            SimDriver.StepTicks(world, 2 * Tps);
+            for (int i = 0; i < pack.Count; i++)
+                Assert.InRange(Distance(pack[i], before[i].X, before[i].Z), 0f, 0.05f);
+        }
+
+        [Fact]
+        public void ARaiderGoesForACarrierWithinAggroRange_AndLetsGoOfOneWhoGotAway()
+        {
+            var world = NewWorld();
+            var p = PlayerOnTheStreet(world, 60f, 28f);
+            var near = world.SpawnEnemy(Db.Enemy("barbarian"), 74.5f, 28f)!;
+            var far = world.SpawnEnemy(Db.Enemy("barbarian"), 77f, 29f)!;
+            SimDriver.StepTicks(world, 2);
+            Assert.Equal(p.Id, near.Target);
+            Assert.True(far.Target.IsNone);
+
+            // On its way to the line the other one comes by, and has them too.
+            SimDriver.StepTicks(world, Tps);
+            Assert.Equal(p.Id, far.Target);
+
+            // Twenty metres up the street is not away (the leash is half again the aggro range) …
+            SimDriver.Teleport(p, near.X - 20f, 28f);
+            world.Step();
+            Assert.Equal(p.Id, near.Target);
+            // … twenty-five are.
+            SimDriver.Teleport(p, near.X - 25f, 28f);
+            SimDriver.StepTicks(world, 2);
+            Assert.True(near.Target.IsNone && far.Target.IsNone);
+        }
+
+        [Fact]
+        public void ABlowFromAfarBringsTheRaiderOver()
+        {
+            var world = NewWorld();
+            var p = PlayerOnTheStreet(world, 60f, 28f);
+            p.MaxHp = p.Hp = 1000f;
+            var e = world.SpawnEnemy(Db.Enemy("giant"), 88f, 28f)!;
+            SimDriver.StepTicks(world, 3);
+            Assert.True(e.Target.IsNone);
+            world.DamageEnemy(e, 40f, p);
+            SimDriver.StepTicks(world, 2);
+            Assert.Equal(p.Id, e.Target);
+            // Six seconds of that bring it within aggro range, and then it is a fight like any other.
+            int ticks = 0;
+            while (p.Hp == p.MaxHp && ticks++ < 12 * Tps) world.Step();
+            Assert.True(p.Hp < p.MaxHp, $"the giant never arrived: it stands at {e.X:0.0}, {e.Z:0.0}");
+        }
+
+        [Fact]
+        public void BackOnTheirFeet_ACarrierIsProtectedForFiveSeconds()
+        {
+            var world = NewWorld();
+            var p = world.AddPlayer("carrier")!;
+            world.DamagePlayer(p, 1000f);
+            RunUntil(world, () => !p.Dead, 11);
+            var back = world.Events.OfType<PlayerRespawnedEvent>().Single();
+            Assert.Equal(world.Tick + 5 * Tps, back.ProtectedUntilTick);
+            Assert.True(world.Protected(p));
+
+            // A raider right beside them: its blows do nothing, and it does not even try.
+            var e = world.SpawnEnemy(Db.Enemy("barbarian"), p.Move.X + 1.2f, p.Move.Z)!;
+            world.DamagePlayer(p, 30f, e.Def.Index);
+            Assert.Equal(p.MaxHp, p.Hp);
+            SimDriver.StepTicks(world, 4 * Tps);
+            Assert.Equal(p.MaxHp, p.Hp);
+            Assert.True(e.Target.IsNone);
+            Assert.NotEqual(EnemyState.Windup, e.State);
+            Assert.True(Distance(e, p) > 8f, $"the raider is still {Distance(e, p):0.0} m from the pad");
+
+            // The five seconds are up.
+            SimDriver.StepTicks(world, Tps);
+            Assert.False(world.Protected(p));
+            world.DamagePlayer(p, 30f);
+            Assert.Equal(p.MaxHp - 30f, p.Hp);
+        }
+
+        [Theory]
+        [InlineData(InputButtons.Attack)]
+        [InlineData(InputButtons.AltAttack)]
+        public void TheirOwnFirstBlowEndsTheProtection(InputButtons button)
+        {
+            var world = NewWorld();
+            var p = world.AddPlayer("carrier")!;
+            Assert.True(world.Give(p.Hotbar, ItemStack.OfMail(TestContent.Mail("small", world.Map.Destinations[0].Address, _nextMailId++))));
+            world.DamagePlayer(p, 1000f);
+            RunUntil(world, () => !p.Dead, 11);
+            // What they carried lies in the bag; the cannon needs a package in hand.
+            if (!world.HasAmmo(p)) Assert.True(world.Give(p.Hotbar, ItemStack.OfMail(TestContent.Mail("small", world.Map.Destinations[0].Address, _nextMailId++))));
+            Assert.True(world.Protected(p));
+            // Moving, jumping, hands in the Intake: none of it is a blow.
+            world.QueueInput(p.Id, new PlayerInput { Seq = p.LastQueuedSeq + 1, MoveX = PlayerInput.QuantizeAxis(1f), Buttons = InputButtons.Jump | InputButtons.Sprint });
+            world.Step();
+            Assert.True(world.Protected(p));
+
+            Press(world, p, button);
+            Assert.Single(world.Events.OfType<AttackEvent>());
+            Assert.False(world.Protected(p));
+            var e = world.SpawnEnemy(Db.Enemy("barbarian"), p.Move.X + 1.2f, p.Move.Z)!;
+            SimDriver.StepTicks(world, 2);
+            Assert.Equal(p.Id, e.Target);
+            world.DamagePlayer(p, 30f);
+            Assert.Equal(p.MaxHp - 30f, p.Hp);
+        }
+
+        [Fact]
+        public void AShiftBoundaryPutsTheFallenOnTheirFeetWithoutProtection()
+        {
+            var world = NewWorld();
+            var p = world.AddPlayer("carrier")!;
+            Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.StartRun(0)));
+            world.DamagePlayer(p, 1000f);
+            Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.SetReady(0, true)));
+            Assert.False(p.Dead);
+            Assert.False(world.Protected(p));
+            Assert.Equal(0u, world.Events.OfType<PlayerRespawnedEvent>().Single().ProtectedUntilTick);
+        }
+
+        [Fact]
+        public void OnlyFourRaidersCloseInOnACarrier_TheOthersWaitTheirTurn()
+        {
+            var world = NewWorld();
+            var p = PlayerOnTheStreet(world);
+            p.MaxHp = p.Hp = 100000f;
+            var raider = Db.Enemy("barbarian");
+            var pack = new List<Enemy>();
+            for (int i = 0; i < 10; i++) pack.Add(world.SpawnEnemy(raider, 56f + i * 0.7f, 27f + i % 3)!);
+            SimDriver.StepTicks(world, 5 * Tps);
+
+            float reach = raider.AttackRange + raider.Radius;
+            Assert.All(pack, e => Assert.Equal(p.Id, e.Target));
+            Assert.Equal(4, pack.Count(e => Distance(e, p) <= reach));
+            Assert.Equal(6, pack.Count(e => e.Waiting));
+            Assert.All(pack.Where(e => e.Waiting), e => Assert.InRange(Distance(e, p), 3f, 5.5f));
+            Assert.True(p.Hp < p.MaxHp);
+
+            // One of the four falls: the nearest of those waiting steps in.
+            var fallen = pack.First(e => !e.Waiting);
+            world.DamageEnemy(fallen, 1000f, null);
+            pack.Remove(fallen);
+            SimDriver.StepTicks(world, 2 * Tps);
+            Assert.Equal(4, pack.Count(e => Distance(e, p) <= reach));
+            Assert.Equal(5, pack.Count(e => e.Waiting));
+        }
+
+        [Fact]
+        public void ARaidDoesNotCampThePad()
+        {
+            // The playtest's raid: two carriers, one of them picks the fight and goes down.
+            var world = NewWorld(seed: 21);
+            var p = world.AddPlayer("carrier")!;
+            var other = world.AddPlayer("other")!;
+            ReachShiftTwo(world, p);
+            var po = world.Map.PostOffice;
+            SimDriver.Teleport(p, po.SpawnPadX - 0.5f, po.SpawnPadZ - 1.5f);
+            // Half the raid is in, and has had the time to walk up the street.
+            RunUntil(world, () => world.RaidPulsesSpawned == 3, 271);
+            SimDriver.StepTicks(world, 14 * Tps);
+            Assert.True(world.Enemies.Count >= 4, $"{world.Enemies.Count} raiders");
+
+            // Hands in their pockets on the pad, both are left alone.
+            Assert.Equal((p.MaxHp, other.MaxHp), (p.Hp, other.Hp));
+            Assert.All(world.Enemies, e => Assert.True(e.Target.IsNone));
+
+            // One walks into the line and is back on the pad ten seconds later …
+            world.RaidLine(out float lx, out float lz);
+            SimDriver.Teleport(other, lx - 3f, lz);
+            RunUntil(world, () => other.Dead, 20);
+            Assert.Equal(p.MaxHp, p.Hp);
+            RunUntil(world, () => !other.Dead, 11);
+            Assert.True(world.Protected(other));
+
+            // … where nobody waits for them: the Intake is theirs, and so is the time to load the cannon.
+            RunUntil(world, () => !world.Protected(other), 6);
+            Assert.All(world.Enemies, e =>
+            {
+                Assert.True(e.Target.IsNone);
+                Assert.True(Distance(e, other) > e.Def.AggroRange, $"a {e.Def.Id} is {Distance(e, other):0.0} m from the pad");
+            });
+            SimDriver.Teleport(other, po.IntakeX, po.IntakeZ + 1.5f);
+            SimDriver.StepTicks(world, 5 * Tps);
+            Assert.Equal(OpResult.Ok, Request(world, other, SimRequest.Open(0, world.Intake.Id)));
+            Assert.Equal((p.MaxHp, other.MaxHp), (p.Hp, other.Hp));
         }
 
         // --- loot -------------------------------------------------------------------------------

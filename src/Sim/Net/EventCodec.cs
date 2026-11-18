@@ -146,7 +146,7 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case PlayerRespawnedEvent e:
                     w.U8((byte)EventType.PlayerRespawned);
-                    w.U32(e.Player.Value);
+                    w.U32(e.Player.Value); w.U32(e.ProtectedUntilTick);
                     break;
                 case PlayerParkedEvent e:
                     w.U8((byte)EventType.PlayerParked);
@@ -267,7 +267,7 @@ namespace PerformativeMail.Sim.Net
                 case EventType.PlayerDied:
                     return new PlayerDiedEvent { Player = new EntityId(r.U32()), RespawnTick = r.U32(), Killer = r.U8() };
                 case EventType.PlayerRespawned:
-                    return new PlayerRespawnedEvent { Player = new EntityId(r.U32()) };
+                    return new PlayerRespawnedEvent { Player = new EntityId(r.U32()), ProtectedUntilTick = r.U32() };
                 case EventType.PlayerParked:
                     return new PlayerParkedEvent { Destination = r.U16() };
                 case EventType.BagDropped:

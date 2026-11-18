@@ -187,6 +187,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(65535, p.Yaw);
             Assert.Equal(4, p.HeldSlot);
             Assert.True(p.Ready);
+            Assert.False(p.Protected);
         }
 
         [Fact]
@@ -236,7 +237,7 @@ namespace PerformativeMail.Net.Tests
                 new LootGoneEvent { LootId = 9002 },
                 new RaidChangedEvent { Raid = RaidState.Warning, Tick = 4500 },
                 new PlayerDiedEvent { Player = player, RespawnTick = 4800, Killer = 1 },
-                new PlayerRespawnedEvent { Player = player },
+                new PlayerRespawnedEvent { Player = player, ProtectedUntilTick = 4950 },
                 new PlayerParkedEvent { Destination = 517 },
                 new BagDroppedEvent { ContainerId = 77, Owner = player, X = 50.25f, Z = 28.5f, DespawnTick = 5400 },
                 new BagGoneEvent { ContainerId = 77, Returned = true, Mail = 12 },
@@ -292,7 +293,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((RaidState.Warning, 4500u), (raid.Raid, raid.Tick));
             var fell = (PlayerDiedEvent)back[20];
             Assert.Equal((player, 4800u, (byte)1), (fell.Player, fell.RespawnTick, fell.Killer));
-            Assert.Equal(player, ((PlayerRespawnedEvent)back[21]).Player);
+            var stood = (PlayerRespawnedEvent)back[21];
+            Assert.Equal((player, 4950u), (stood.Player, stood.ProtectedUntilTick));
             Assert.Equal((ushort)517, ((PlayerParkedEvent)back[22]).Destination);
             var bag = (BagDroppedEvent)back[23];
             Assert.Equal((77u, player, 50.25f, 28.5f, 5400u), (bag.ContainerId, bag.Owner, bag.X, bag.Z, bag.DespawnTick));
@@ -352,7 +354,7 @@ namespace PerformativeMail.Net.Tests
                 Tick = 50, AckSeq = 7, HasOwn = true, HasEnemies = true, OwnHp = 62.5f,
                 Own = new PlayerMoveState { X = 1f, Z = 2f, Grounded = true, Winded = true, Dead = true, Fatigue = 0.75f },
             };
-            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 1), Hp = 128 });
+            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 1), Hp = 128, Protected = true });
             var empty = new NetWriter();
             m.Write(empty);
             m.Enemies.Add(new EnemySnap { Id = 65535, Kind = 2, Mega = true, State = EnemyState.Flee, X = 91.99f, Z = 28.013f, Yaw = -MathF.PI / 2f, Hp = 1 });

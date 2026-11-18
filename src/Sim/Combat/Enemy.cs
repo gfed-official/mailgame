@@ -7,7 +7,7 @@ namespace PerformativeMail.Sim.Combat
     /// <summary>What an enemy is doing; replicated in two bits for the animation.</summary>
     public enum EnemyState : byte
     {
-        /// <summary>Walking at its target (or standing, with nobody to walk at).</summary>
+        /// <summary>Walking at its target (or, with nobody to walk at, to its place on the raid's line).</summary>
         Chase = 0,
         /// <summary>Winding up a blow: it lands when the windup ends if the target is still in reach.</summary>
         Windup = 1,
@@ -26,7 +26,10 @@ namespace PerformativeMail.Sim.Combat
         Fleeing = 3,
     }
 
-    /// <summary>A server-side enemy (doc 05 §2). Ground melee: walks at the nearest carrier and hits.</summary>
+    /// <summary>
+    /// A server-side enemy (doc 05 §2). Ground melee: walks at the nearest carrier within its aggro range and hits;
+    /// with nobody to go for it holds the raid's line on the street.
+    /// </summary>
     public sealed class Enemy
     {
         public EntityId Id;
@@ -42,6 +45,8 @@ namespace PerformativeMail.Sim.Combat
         public uint StateEndTick;
         public uint NextAttackTick;
         public EntityId Target;
+        /// <summary>Where it stood when it last had its target within aggroRange: the leash is measured from here.</summary>
+        public float SeenX, SeenZ;
         public uint RepathTick;
         public readonly List<(float X, float Z)> Path = new List<(float X, float Z)>();
         public int Waypoint;
@@ -49,6 +54,10 @@ namespace PerformativeMail.Sim.Combat
         public float PushX, PushZ;
         /// <summary>The player whose blow landed last, for the kill.</summary>
         public EntityId LastHitBy;
+        /// <summary>Until this tick it goes for <see cref="LastHitBy"/> from any distance.</summary>
+        public uint ProvokedUntilTick;
+        /// <summary>Enough others are nearer its target: it keeps back until there is room (set every tick).</summary>
+        public bool Waiting;
 
         /// <summary>Health as the snapshot carries it: 1..255.</summary>
         public byte HpByte => (byte)System.Math.Clamp((int)System.MathF.Ceiling(Hp / MaxHp * 255f), 1, 255);

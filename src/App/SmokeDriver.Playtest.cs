@@ -28,14 +28,20 @@ namespace PerformativeMail.App
         private const float StandX = 20f, StandZ = 28f;
         /// <summary>The hammer is swung at whatever is this near.</summary>
         private const float SwingAt = 3.5f;
+        /// <summary>
+        /// Raiders with nobody in their aggro range hold their line on the street (nit 17): the host
+        /// goes at whoever is farther off than this, which is well inside that range.
+        /// </summary>
+        private const float AdvanceBeyond = 10f;
         private const int PlaytestStepFrames = 400, FightFrames = 2400, LootFrames = 300;
 
-        private int _ptStep, _ptFrames, _ptSwings, _ptDeaths;
+        private int _ptStep, _ptFrames, _ptSwings, _ptDeaths, _ptProtected;
         private uint _ptDeliveryTick;
-        private bool _ptWasDead, _ptSawEnemyView, _ptSawTracker, _ptBadTracker, _ptSawHammer, _ptSawCards;
+        private bool _ptWasDead, _ptSawEnemyView, _ptSawTracker, _ptBadTracker, _ptSawHammer, _ptSawCards, _ptBadBanner;
         private int _ptMostSeen;
         private readonly List<(float X, float Z)> _ptPath = new List<(float, float)>();
         private int _ptWaypoint;
+        private float _ptGoalX, _ptGoalZ;
 
         private void StartPlaytest()
         {
@@ -66,9 +72,13 @@ namespace PerformativeMail.App
             client.Input.MoveX = 0f;
             client.Input.MoveZ = 0f;
             if (new Vector2(x - px, z - pz).Length() < 0.4f) return true;
+            // A goal that moved (a raider) is walked to along a new path.
+            if (new Vector2(x - _ptGoalX, z - _ptGoalZ).Length() > 2f) _ptPath.Clear();
             if (_ptPath.Count == 0)
             {
                 _ptWaypoint = 0;
+                _ptGoalX = x;
+                _ptGoalZ = z;
                 if (!TilePathfinder.Find(world.Map, px, pz, x, z, _ptPath)) { Fail($"no way from {px:0.0},{pz:0.0} to {x:0.0},{z:0.0}"); return false; }
             }
             while (true)
@@ -85,7 +95,10 @@ namespace PerformativeMail.App
             }
         }
 
-        /// <summary>Faces the nearest raider and swings once it is in reach; without one, stands.</summary>
+        /// <summary>
+        /// Faces the nearest raider and swings once it is in reach; goes at one that keeps its
+        /// distance on the raid's line; without one, stands.
+        /// </summary>
         private void FightNearest(ClientWorld world)
         {
             StopHost();
@@ -100,6 +113,11 @@ namespace PerformativeMail.App
                 nearest = e;
             }
             if (nearest == null) return;
+            if (best > AdvanceBeyond)
+            {
+                WalkHostTo(world, nearest.X, nearest.Z);
+                return;
+            }
             AimAt(nearest.X, nearest.Z, best <= SwingAt ? InputButtons.Attack : InputButtons.None);
         }
 
@@ -119,8 +137,23 @@ namespace PerformativeMail.App
             if (_screen.Enemies.ViewCount > 0) _ptSawEnemyView = true;
             if (_screen.Camera.WeaponDrawn) _ptSawHammer = true;
             if (hud.Loot.Cards.Visible) _ptSawCards = true;
-            if (world.Local.Dead && !_ptWasDead) _ptDeaths++;
+            if (world.Local.Dead && !_ptWasDead)
+            {
+                _ptDeaths++;
+                // Back on the pad the way to the raiders is another one.
+                _ptPath.Clear();
+            }
             _ptWasDead = world.Local.Dead;
+            // Nit 17: back on their feet the host is protected, and the banner says so.
+            if (world.LocalProtected)
+            {
+                _ptProtected++;
+                if (hud.BannerText != HudText.Protected(world) && !_ptBadBanner)
+                {
+                    _ptBadBanner = true;
+                    Check(false, $"protected after standing up, the banner says \"{hud.BannerText}\", expected \"{HudText.Protected(world)}\"");
+                }
+            }
             _ptMostSeen = Math.Max(_ptMostSeen, world.Enemies.Count);
             _ptFrames++;
             _frames++;
@@ -317,7 +350,7 @@ namespace PerformativeMail.App
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
                     GD.Print($"[smoke] playtest: run started at shift {RaidPlaytestShift}; raid announced at the shift's start, {server.EnemiesSpawnedTotal} raiders in {waves.Pulses} pulses (most at once {_ptMostSeen}) felled with "
-                        + $"{client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, loot +{HudText.Money(server.Economy.Wallet)}"
+                        + $"{client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, protected for {_ptProtected} frames, loot +{HudText.Money(server.Economy.Wallet)}"
                         + $"; quota missed and waived, on to shift {server.Run.Shift}");
                     Finish();
                     break;

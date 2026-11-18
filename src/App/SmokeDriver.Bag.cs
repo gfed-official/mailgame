@@ -99,6 +99,10 @@ namespace PerformativeMail.App
                 {
                     // Back on their feet at the Post Office, they walk to the bag and look at it.
                     if (world.Local.Dead) break;
+                    // Nit 17: nobody can hurt them for the first seconds, and the banner says so.
+                    Check(world.LocalProtected && server.Protected(player) && hud.BannerText == HudText.Protected(world) && hud.BannerText.StartsWith("PROTECTED", StringComparison.Ordinal),
+                        $"back on their feet the host is protected: {world.LocalProtected} (server: {server.Protected(player)}), the banner says \"{hud.BannerText}\"");
+                    Shot("bag-protected");
                     if (!world.Bags.TryGetValue(_bagId, out var bag)) { Fail("the bag was gone before its owner stood up"); return; }
                     if (!ClearLine(server, bag.X, bag.Z, 1.4f, out float standX, out float standZ)) { Fail("no open ground beside the bag"); return; }
                     var box = AimBox.Bag(world.Map, bag.X, bag.Z);

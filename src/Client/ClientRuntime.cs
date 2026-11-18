@@ -567,6 +567,9 @@ namespace PerformativeMail.Client
                     if (world.Players.TryGetValue(e.Player, out var fallen)) fallen.RespawnTick = e.RespawnTick;
                     if (e.Player == world.LocalId) world.LocalRespawnTick = e.RespawnTick;
                     break;
+                case PlayerRespawnedEvent e:
+                    if (e.Player == world.LocalId) world.LocalProtectedUntilTick = e.ProtectedUntilTick;
+                    break;
                 case PlayerParkedEvent e:
                     if (e.Destination < world.Map.Destinations.Count) FaceMailbox(world, world.Map.Destinations[e.Destination]);
                     break;

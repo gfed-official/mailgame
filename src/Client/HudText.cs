@@ -299,6 +299,14 @@ namespace PerformativeMail.Client
             return s > 0 ? $"DOWN   ·   back on your feet in {s}" : "DOWN";
         }
 
+        /// <summary>Just back on their feet in a fight: how long nothing can touch the local player.</summary>
+        public static string Protected(ClientWorld world)
+        {
+            if (!world.LocalProtected) return "";
+            int s = (int)Math.Ceiling(world.ProtectedSecondsLeft);
+            return s > 0 ? $"PROTECTED   ·   {s} s, or until you strike" : "PROTECTED   ·   until you strike";
+        }
+
         /// <summary>"your bag", "Cass's bag"; "an unclaimed bag" once whoever dropped it has left.</summary>
         public static string BagName(ClientWorld world, EntityId owner)
         {

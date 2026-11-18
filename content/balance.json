@@ -63,6 +63,12 @@
   "lootPickupRange": 2.5,
 
   "respawnSeconds": 10,
+  "respawnProtectionSeconds": 5,
+  "raidStandoffMetres": 19,
+  "enemyLeashMult": 1.5,
+  "enemyProvokedSeconds": 6,
+  "maxAttackersPerCarrier": 4,
+  "attackerWaitMetres": 4.0,
   "deathBagDespawnSeconds": 30,
   "worldItemDespawnSeconds": 300,
   "interestRadius": 150,

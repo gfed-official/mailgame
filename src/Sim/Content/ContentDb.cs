@@ -483,6 +483,8 @@ namespace PerformativeMail.Sim.Content
             "hammerDamage", "hammerCooldownSeconds", "hammerRange", "hammerArcDegrees", "hammerKnockback",
             "cannonDamage", "cannonBlastRadius", "cannonCooldownSeconds", "cannonRange", "cannonSpeed",
             "enemyWindupSeconds", "enemyFleeSeconds", "enemyFleeSpeedMult", "lootDespawnSeconds", "lootPickupRange",
+            "deathBagDespawnSeconds", "respawnProtectionSeconds", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
+            "maxAttackersPerCarrier", "attackerWaitMetres",
         };
 
         private static IEnumerable<JsonElement> ReadArray(JsonCtx ctx, string? text)

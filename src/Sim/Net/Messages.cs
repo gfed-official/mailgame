@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.6;" +
+            "m1.7;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift;Playtest:noTimer,atMailbox,noQuota,raidNow;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -47,7 +47,7 @@ namespace PerformativeMail.Sim.Net
             "Reject:u8 reason;" +
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
             "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
-            "MoveFlags:grounded,winded,dead;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
+            "MoveFlags:grounded,winded,dead;PlayerFlags:ready,protected;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 playtest;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
@@ -56,7 +56,7 @@ namespace PerformativeMail.Sim.Net
             "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +
             "LootDropped:u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count};" +
             "LootTaken:u32 id,u32 player,u16 coins,u8 n,{u16 item,u8 count},u8 gone;LootGone:u32 id;" +
-            "Raid:u8 state,u32 tick;PlayerDied:u32 player,u32 respawn,u8 killer;PlayerRespawned:u32 player;PlayerParked:u16 dest;" +
+            "Raid:u8 state,u32 tick;PlayerDied:u32 player,u32 respawn,u8 killer;PlayerRespawned:u32 player,u32 protectedUntil;PlayerParked:u16 dest;" +
             "BagDropped:u32 container,u32 owner,f32 x,f32 z,u32 despawn;BagGone:u32 container,u8 returned,u16 mail;" +
             "Phase:u8 shift,u8 phase,u32 tick,u32 end,i32 quota,u8 outcome;" +
             "Paused:u8 paused,u32 tick;" +
@@ -264,6 +264,8 @@ namespace PerformativeMail.Sim.Net
         public byte HeldSlot;
         /// <summary>Ready flag of the Lobby and Prep.</summary>
         public bool Ready;
+        /// <summary>Stands protected after a respawn (nit 17).</summary>
+        public bool Protected;
         /// <summary>Health in 255ths; 0 = down.</summary>
         public byte Hp;
     }
@@ -290,7 +292,7 @@ namespace PerformativeMail.Sim.Net
     public sealed class SnapshotMsg
     {
         private const byte FlagOwn = 1, FlagGlobal = 2, FlagEnemies = 4;
-        private const byte PlayerReady = 1;
+        private const byte PlayerReady = 1, PlayerProtected = 2;
         private const byte MoveGrounded = 1, MoveWinded = 2, MoveDead = 4;
         private const float TwoPi = System.MathF.PI * 2f;
 
@@ -325,7 +327,7 @@ namespace PerformativeMail.Sim.Net
             {
                 w.U32(p.Id.Value);
                 w.I32(ToCm(p.X)); w.I16((short)ToCm(p.Y)); w.I32(ToCm(p.Z));
-                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8((byte)(p.Ready ? PlayerReady : 0)); w.U8(p.Hp);
+                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8((byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0))); w.U8(p.Hp);
             }
             if (HasEnemies)
             {
@@ -363,12 +365,17 @@ namespace PerformativeMail.Sim.Net
             int n = r.U8();
             for (int i = 0; i < n; i++)
             {
-                m.Players.Add(new PlayerSnap
+                var p = new PlayerSnap
                 {
                     Id = new EntityId(r.U32()),
                     X = r.I32() / 100f, Y = r.I16() / 100f, Z = r.I32() / 100f,
-                    Yaw = r.U16(), HeldSlot = r.U8(), Ready = (r.U8() & PlayerReady) != 0, Hp = r.U8(),
-                });
+                    Yaw = r.U16(), HeldSlot = r.U8(),
+                };
+                byte playerFlags = r.U8();
+                p.Ready = (playerFlags & PlayerReady) != 0;
+                p.Protected = (playerFlags & PlayerProtected) != 0;
+                p.Hp = r.U8();
+                m.Players.Add(p);
             }
             if (m.HasEnemies)
             {

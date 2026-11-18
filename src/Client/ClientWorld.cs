@@ -34,6 +34,8 @@ namespace PerformativeMail.Client
         /// <summary>Health in 255ths from the newest snapshot; 0 = down.</summary>
         public byte Hp { get; private set; } = 255;
         public bool Dead => Hp == 0;
+        /// <summary>Stands protected after a respawn, as of the newest snapshot (nit 17).</summary>
+        public bool Protected { get; private set; }
         /// <summary>Server tick of the snapshot in which the health last dropped (the hit flash).</summary>
         public uint HurtTick { get; private set; }
         /// <summary>Server tick of this player's last hammer swing or cannon shot, and which it was.</summary>
@@ -64,6 +66,7 @@ namespace PerformativeMail.Client
             if (_count < BufferSize) _count++;
             HeldSlot = snap.HeldSlot;
             Ready = snap.Ready;
+            Protected = snap.Protected;
         }
 
         /// <summary>Interpolated pose at a (fractional) server tick; clamps to the oldest / newest sample.</summary>
@@ -210,6 +213,13 @@ namespace PerformativeMail.Client
         public uint LocalRespawnTick { get; internal set; }
         public double RespawnSecondsLeft =>
             Local.Dead ? Math.Max(0.0, SimConstants.TicksToSeconds((long)LocalRespawnTick - (long)Math.Floor(ServerTick))) : 0.0;
+
+        /// <summary>The tick the local player's protection after a respawn ends by (their own first blow ends it sooner).</summary>
+        public uint LocalProtectedUntilTick { get; internal set; }
+        /// <summary>True while nothing hurts the local player and no raider goes for them.</summary>
+        public bool LocalProtected => HasLocal && !Local.Dead && Players.TryGetValue(LocalId, out var me) && me.Protected;
+        public double ProtectedSecondsLeft =>
+            LocalProtected ? Math.Max(0.0, SimConstants.TicksToSeconds((long)LocalProtectedUntilTick - (long)Math.Floor(ServerTick))) : 0.0;
 
         /// <summary>Enemies of the newest enemy list, by the low 16 bits of their id.</summary>
         public Dictionary<ushort, ClientEnemy> Enemies { get; } = new Dictionary<ushort, ClientEnemy>();

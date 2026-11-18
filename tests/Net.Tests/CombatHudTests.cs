@@ -167,6 +167,18 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("", HudText.Down(s.World));
             Assert.Contains("You are back on your feet", s.FeedLines);
             Assert.Equal("100", HudText.Health(s.World.LocalHp));
+
+            // Nit 17: back up means five seconds nobody can hurt them, and the HUD says so and counts them down.
+            Assert.True(s.World.LocalProtected);
+            Assert.Matches("^PROTECTED   ·   [45] s, or until you strike$", HudText.Protected(s.World));
+            s.Sim.DamagePlayer(player, 40f, raider);
+            s.Step(6);
+            Assert.Equal("100", HudText.Health(s.World.LocalHp));
+            Assert.True(s.StepUntil(() => !s.World.LocalProtected, 6));
+            Assert.Equal("", HudText.Protected(s.World));
+            s.Sim.DamagePlayer(player, 40f, raider);
+            s.Step(6);
+            Assert.Equal("60", HudText.Health(s.World.LocalHp));
         }
 
         [Fact]
