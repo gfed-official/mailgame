@@ -23,9 +23,11 @@ namespace PerformativeMail.App
     /// --playtest-no-timer (the shift clock stands while this player is in the game; the host's
     /// "go" key ends the shift), --playtest-mailbox (this player starts, and starts every shift,
     /// before a mailbox with mail for it), --shift=N (the run starts at shift N, with that shift's
-    /// quota and raid), --no-quota (a missed quota does not end the run) and --raid (the night raid
-    /// comes five seconds into every shift, also in shift 1). With --smoke they are not played
-    /// with but checked: "--smoke --shift=2 --no-quota --raid" is the smoke of the raid playtest.
+    /// quota and raid), --no-quota (a missed quota does not end the run), --raid (the night raid
+    /// comes five seconds into every shift, also in shift 1) and --playtest-package (this player
+    /// has four Small Packages for the mail cannon when a shift starts and when they are back on
+    /// their feet). With --smoke they are not played with but checked:
+    /// "--smoke --shift=2 --no-quota --raid --playtest-package" is the smoke of the raid playtest.
     /// </summary>
     public partial class Boot : Node
     {
@@ -48,6 +50,7 @@ namespace PerformativeMail.App
                 else if (arg == "--playtest-mailbox") playtest |= PlaytestFlags.AtMailbox;
                 else if (arg == "--no-quota") playtest |= PlaytestFlags.NoQuota;
                 else if (arg == "--raid") playtest |= PlaytestFlags.RaidNow;
+                else if (arg == "--playtest-package") playtest |= PlaytestFlags.Packages;
                 else if (arg.StartsWith("--shift=", StringComparison.Ordinal) && int.TryParse(arg.Substring(8), out int n) && n >= 1 && n <= byte.MaxValue) startShift = n;
                 else if (arg == "--quick") quick = true;
                 else if (arg == "--solo") solo = true;

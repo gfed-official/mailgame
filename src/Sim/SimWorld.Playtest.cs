@@ -10,9 +10,10 @@ using PerformativeMail.Sim.World;
 namespace PerformativeMail.Sim
 {
     /// <summary>
-    /// Playtest nits 10 and 13: a stopped shift clock, a carrier put before a mailbox with mail for
-    /// it, a run that starts at a later shift, a quota that ends nothing and a raid right after the
-    /// shift starts, each asked for by a player's Hello (<see cref="PlaytestFlags"/>).
+    /// Playtest nits 10, 13 and 18: a stopped shift clock, a carrier put before a mailbox with mail
+    /// for it, a run that starts at a later shift, a quota that ends nothing, a raid right after the
+    /// shift starts and packages for the cannon, each asked for by a player's Hello
+    /// (<see cref="PlaytestFlags"/>).
     /// </summary>
     public sealed partial class SimWorld
     {
@@ -64,6 +65,7 @@ namespace PerformativeMail.Sim
             }
             if ((player.Playtest & PlaytestFlags.RaidNow) != 0 && Run.Phase == RunPhase.Delivery && Raid == RaidState.None) ScheduleRaid();
             if ((player.Playtest & PlaytestFlags.AtMailbox) != 0) ParkAtMailbox(player);
+            GivePlaytestPackages(player);
         }
 
         /// <summary>
@@ -85,6 +87,47 @@ namespace PerformativeMail.Sim
         {
             foreach (var p in _players)
                 if ((p.Playtest & PlaytestFlags.AtMailbox) != 0) ParkAtMailbox(p);
+        }
+
+        private void StockPlaytesters()
+        {
+            foreach (var p in _players) GivePlaytestPackages(p);
+        }
+
+        /// <summary>
+        /// Nit 18: tops a player who asked for <see cref="PlaytestFlags.Packages"/> up to
+        /// <see cref="PlaytestMask.PackageCount"/> packages the cannon fires, while mailboxes take
+        /// mail. They are real mail, addressed to the mailbox of the player's seat if it takes
+        /// packages, else to the first one that does.
+        /// </summary>
+        private void GivePlaytestPackages(Player p)
+        {
+            if ((p.Playtest & PlaytestFlags.Packages) == 0 || Run.Phase != RunPhase.Delivery || p.Dead) return;
+            MailKindDef? kind = null;
+            foreach (var k in Content.MailKinds)
+                if (k.CannonAmmo) { kind = k; break; }
+            if (kind == null) return;
+            DestinationDef? dest = PlaytestSpot.Mailbox(Map, p.Slot);
+            if (!DeliveryRules.KindAccepted(kind, dest.Type))
+            {
+                dest = null;
+                foreach (var d in Map.Destinations)
+                    if (DeliveryRules.KindAccepted(kind, d.Type)) { dest = d; break; }
+            }
+            if (dest == null) return;
+            for (int have = CountAmmo(p.Hotbar) + CountAmmo(p.Inventory); have < PlaytestMask.PackageCount; have++)
+            {
+                var item = new MailItem
+                {
+                    Id = PlaytestMailIdBase + _playtestMail++,
+                    Kind = kind.Index,
+                    Address = dest.Address,
+                    Value = (ushort)kind.BaseValue,
+                    SpawnShift = (byte)Run.Shift,
+                    DeadlineShift = (byte)(Run.Shift + kind.DeadlineOffsetShifts),
+                };
+                if (!Give(p.Hotbar, ItemStack.OfMail(item)) && !Give(p.Inventory, ItemStack.OfMail(item))) break;
+            }
         }
 
         /// <summary>

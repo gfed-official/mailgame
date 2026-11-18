@@ -174,6 +174,8 @@ namespace PerformativeMail.Sim
             p.LastDamageTick = 0;
             p.ProtectedUntilTick = protect ? Tick + _combat.ProtectionTicks : 0;
             Events.Add(new PlayerRespawnedEvent { Player = p.Id, ProtectedUntilTick = p.ProtectedUntilTick });
+            // What they carried lies in the bag where they fell.
+            GivePlaytestPackages(p);
         }
 
         /// <summary>True while the carrier's protection after a respawn holds.</summary>
@@ -256,11 +258,14 @@ namespace PerformativeMail.Sim
         /// <summary>True if the carrier has a package the cannon can fire.</summary>
         public bool HasAmmo(Player p) => HasAmmo(p.Hotbar) || HasAmmo(p.Inventory);
 
-        private bool HasAmmo(GridContainer container)
+        private bool HasAmmo(GridContainer container) => CountAmmo(container) > 0;
+
+        private int CountAmmo(GridContainer container)
         {
+            int n = 0;
             foreach (var e in container.Entries)
-                if (e.Stack.Kind == StackKind.Mail && Content.MailKinds[e.Stack.DefIndex].CannonAmmo) return true;
-            return false;
+                if (e.Stack.Kind == StackKind.Mail && Content.MailKinds[e.Stack.DefIndex].CannonAmmo) n += e.Stack.Count;
+            return n;
         }
 
         // --- the cannon's packages --------------------------------------------------------------

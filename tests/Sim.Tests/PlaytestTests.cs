@@ -527,6 +527,127 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal((0u, RaidState.None), (world.RaidStartTick, world.Raid));
         }
 
+        // --- nit 18: --playtest-package ---------------------------------------------------------
+
+        private static int Packages(SimWorld world, Player p) =>
+            p.Hotbar.Entries.Concat(p.Inventory.Entries).Where(e => e.Stack.Kind == StackKind.Mail && world.Content.MailKinds[e.Stack.DefIndex].CannonAmmo).Sum(e => e.Stack.Count);
+
+        private static void Fire(SimWorld world, Player p)
+        {
+            world.QueueInput(p.Id, new PlayerInput { Seq = p.LastQueuedSeq + 1, Yaw = p.Move.Yaw, Buttons = InputButtons.AltAttack });
+            world.Step();
+        }
+
+        [Fact]
+        public void Packages_TheShiftStartsWithFourForTheCannon_AndOnlyForWhoAsked()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            var guest = world.AddPlayer("guest")!;
+            world.SetPlaytest(guest, PlaytestFlags.Packages);
+            // The Lobby and Prep have no mail (doc 01 §1).
+            Assert.Equal(0, Packages(world, guest));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal((RunPhase.Prep, 0), (world.Run.Phase, Packages(world, guest)));
+            foreach (var p in world.Players) Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.SetReady(0, true)));
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+
+            Assert.Equal(4, PlaytestMask.PackageCount);
+            Assert.Equal((0, 4), (Packages(world, host), Packages(world, guest)));
+            Assert.False(world.HasAmmo(host));
+            Assert.True(world.HasAmmo(guest));
+            // Nobody was moved for it: that is --playtest-mailbox.
+            Assert.DoesNotContain(world.Events, e => e is PlayerParkedEvent);
+
+            // They are what the cannon fires: one shot, one package less.
+            Fire(world, guest);
+            var shot = Assert.Single(world.Events.OfType<AttackEvent>());
+            Assert.Equal((guest.Id, Weapon.Cannon), (shot.Player, shot.Weapon));
+            Assert.Equal(3, Packages(world, guest));
+
+            // And they are real mail with a real address: a house takes one and pays for it.
+            var entry = guest.Hotbar.Entries.Concat(guest.Inventory.Entries).First(e => e.Stack.Kind == StackKind.Mail);
+            var container = guest.Hotbar.Entries.Contains(entry) ? guest.Hotbar : guest.Inventory;
+            var dest = world.Map.Destinations.Single(d => d.Address == entry.Stack.Address);
+            SimDriver.Teleport(guest, dest.MailboxX, dest.MailboxZ + (dest.MailboxZ < 28f ? 1.2f : -1.2f));
+            SimDriver.StepTicks(world, 2);
+            Assert.Equal(OpResult.Ok, Request(world, guest, SimRequest.Deliver(0, container.Id, entry.EntryId, dest.Id)));
+            Assert.Equal((1, 0), (guest.Deliveries, guest.Misdeliveries));
+            Assert.Equal(2, Packages(world, guest));
+        }
+
+        [Fact]
+        public void Packages_AreToppedUpWhenTheNextShiftStarts_AndWhenTheCarrierIsBackOnTheirFeet()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.Packages | PlaytestFlags.NoQuota);
+            StartDelivery(world, host);
+            Fire(world, host);
+            SimDriver.StepTicks(world, 3 * Tps);
+            Fire(world, host);
+            Assert.Equal(2, Packages(world, host));
+
+            // Down: the two left are in the bag. Up again: four new ones, and five seconds to aim.
+            world.DamagePlayer(host, 9999f, (byte)world.Content.Enemy("barbarian").Index);
+            Assert.True(host.Dead);
+            Assert.Equal(0, Packages(world, host));
+            while (host.Dead) world.Step();
+            Assert.Equal(4, Packages(world, host));
+            Assert.True(world.Protected(host));
+
+            // The next shift tops up what was fired, and gives no more than four.
+            Fire(world, host);
+            Assert.Equal(3, Packages(world, host));
+            while (world.Run.Phase == RunPhase.Delivery) world.Step();
+            Assert.Equal(3, Packages(world, host));
+            while (world.Run.Phase != RunPhase.Prep) world.Step();
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+            Assert.Equal((RunPhase.Delivery, 2), (world.Run.Phase, world.Run.Shift));
+            Assert.Equal(4, Packages(world, host));
+        }
+
+        [Fact]
+        public void Packages_AskedInAShiftUnderWay_AreThereAtOnce()
+        {
+            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = 7, QuickStart = true });
+            var host = world.AddPlayer("host")!;
+            SimDriver.StepTicks(world, 5 * Tps);
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+            var guest = world.AddPlayer("guest")!;
+            world.SetPlaytest(guest, PlaytestFlags.Packages);
+            Assert.Equal((0, 4), (Packages(world, host), Packages(world, guest)));
+            // Asking twice gives no more.
+            world.SetPlaytest(guest, PlaytestFlags.Packages);
+            Assert.Equal(4, Packages(world, guest));
+        }
+
+        [Fact]
+        public void Packages_GoWithTheMailboxAndTheRaid_SoTheCannonCanBeTriedInOne()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.Packages | PlaytestFlags.AtMailbox | PlaytestFlags.RaidNow);
+            StartDelivery(world, host);
+            var dest = PlaytestSpot.Mailbox(world.Map, host.Slot);
+            AssertParked(world, host, dest);
+            // The letters for the mailbox and the packages for the cannon, side by side.
+            Assert.Equal(4, Packages(world, host));
+            Assert.Equal(PlaytestSpot.MailCount + 4, MailFor(host, dest.Address));
+            Assert.Equal(world.Run.PhaseStartTick + 5u * Tps, world.RaidStartTick);
+
+            // The raid is there five seconds later, and a package out of the cannon fells or hurts who it hits.
+            while (world.Enemies.Count == 0) world.Step();
+            var raider = world.Enemies[0];
+            SimDriver.Teleport(host, raider.X - 8f, raider.Z);
+            world.QueueInput(host.Id, new PlayerInput { Seq = host.LastQueuedSeq + 1, Yaw = PlayerInput.QuantizeYaw(-MathF.PI / 2f), Buttons = InputButtons.AltAttack });
+            world.Step();
+            Assert.Equal(3, Packages(world, host));
+            float hp = raider.Hp;
+            SimDriver.StepTicks(world, Tps);
+            Assert.True(raider.Hp < hp || !world.Enemies.Contains(raider), "the package missed a raider eight metres down the street");
+        }
+
         private static void AssertParked(SimWorld world, Player p, DestinationDef dest)
         {
             float dx = dest.MailboxX - p.Move.X, dz = dest.MailboxZ - p.Move.Z;

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the solution and runs the Godot headless smoke twice: the full run (spawn -> pickup ->
-# deliver -> wallet -> ... -> results), then the raid playtest (--shift=2 --no-quota --raid).
+# deliver -> wallet -> ... -> results), then the raid playtest (--shift=2 --no-quota --raid
+# --playtest-package).
 # Exits 0 only if the game printed "SMOKE OK" both times and leaked nothing on its way out.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -44,7 +45,8 @@ run_smoke() {
 run_smoke "$work/log" "--profile=$profile"
 grep -q '"rankXp": [1-9]' "$profile" || { echo "smoke: no XP in the saved profile $profile" >&2; exit 1; }
 
-# The raid playtest (nit 13): the run starts at shift 2, its raid comes at once and is fought
-# through the real HUD, and the missed quota does not end the run.
-run_smoke "$work/log-playtest" "--profile=$work/profile-playtest.json" --shift=2 --no-quota --raid
+# The raid playtest (nits 13 and 18): the run starts at shift 2, its raid comes at once and is
+# fought through the real HUD, with the packages --playtest-package hands out and the hammer,
+# and the missed quota does not end the run.
+run_smoke "$work/log-playtest" "--profile=$work/profile-playtest.json" --shift=2 --no-quota --raid --playtest-package
 grep -q "^\[smoke\] playtest: run started at shift 2" "$work/log-playtest" || { echo "smoke: the raid playtest did not run" >&2; exit 1; }

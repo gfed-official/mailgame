@@ -337,7 +337,7 @@ namespace PerformativeMail.Net.Tests
             var w = new NetWriter();
             new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All, StartShift = 3 }.Write(w);
             var back = HelloMsg.Read(Body(w, MsgType.Hello));
-            Assert.Equal((0xC0FFEEu, "Bo", PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow, (byte)3),
+            Assert.Equal((0xC0FFEEu, "Bo", PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages, (byte)3),
                 (back.ProtocolHash, back.Name, back.Playtest, back.StartShift));
 
             w = new NetWriter();

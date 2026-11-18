@@ -7,13 +7,14 @@ using PerformativeMail.Server.Transport;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using Xunit;
 
 namespace PerformativeMail.Net.Tests
 {
     /// <summary>
-    /// Playtest nits 10 and 13 as the players see them: the flags travel in the Hello, so a guest
+    /// Playtest nits 10, 13 and 18 as the players see them: the flags travel in the Hello, so a guest
     /// asks for them the same way the host's own client does.
     /// </summary>
     public class PlaytestFlowTests
@@ -255,6 +256,50 @@ namespace PerformativeMail.Net.Tests
             s.Step(10);
             Assert.Equal("RESULTS   RUN OVER", HudText.ShiftAndPhase(host.World));
             Assert.Equal(0, host.ContainerDesyncs + host.BadPackets + guest.BadPackets);
+        }
+
+        [Fact]
+        public void AGuestWithPackagesAndRaid_HasTheCannonLoadedWhenTheRaidersCome_AndFiresItThroughItsOwnInput()
+        {
+            // Nit 18: the mail cannon can be tried in a raid without a trip to the Intake first.
+            var s = new Session();
+            var host = s.AddClient("Ada");
+            var guest = s.AddClient("Bo", PlaytestFlags.Packages | PlaytestFlags.RaidNow);
+            s.Step(10);
+            var world = guest.World!;
+            var server = s.Server.World;
+            var truth = server.GetPlayer(world.LocalId)!;
+            Assert.Contains(s.Log, line => line.StartsWith("Bo joined as ", StringComparison.Ordinal) && line.EndsWith("(playtest: RaidNow, Packages)", StringComparison.Ordinal));
+            Assert.Equal((0, 0), (guest.CannonAmmo, host.CannonAmmo));
+
+            host.PressGo();
+            s.Step(5);
+            host.PressGo();
+            guest.PressGo();
+            s.Step(10);
+            Assert.Equal(RunPhase.Delivery, world.Global.Phase);
+            Assert.Equal((PlaytestMask.PackageCount, 0), (guest.CannonAmmo, host.World!.Hotbar.EntryCount + host.World.Inventory.EntryCount));
+            Assert.Equal(RaidState.Warning, world.Raid);
+            Assert.Equal("[LMB] hammer   ·   [RMB] mail cannon x4", HudText.Weapons(guest.CannonAmmo));
+            Assert.Equal("[LMB] hammer   ·   [RMB] mail cannon: no Small Package", HudText.Weapons(host.CannonAmmo));
+
+            // The raiders are on the street; one package down it, by the guest's own trigger.
+            s.Step(5 * 30);
+            while (server.Enemies.Count == 0) s.Step(1);
+            var raider = server.Enemies[0];
+            truth.Move.X = raider.X - 8f;
+            truth.Move.Z = raider.Z;
+            s.Step(10);
+            float hp = raider.Hp;
+            guest.Input.YawRadians = -MathF.PI / 2f;
+            guest.Input.Buttons = InputButtons.AltAttack;
+            s.Step(2);
+            guest.Input.Buttons = InputButtons.None;
+            s.Step(30);
+            Assert.Equal(1, guest.LocalCannonShots);
+            Assert.Equal(PlaytestMask.PackageCount - 1, guest.CannonAmmo);
+            Assert.True(raider.Hp < hp || !server.Enemies.Contains(raider), "the guest's package missed a raider eight metres down the street");
+            Assert.Equal(0, guest.ContainerDesyncs + guest.BadPackets + host.BadPackets);
         }
 
         [Fact]

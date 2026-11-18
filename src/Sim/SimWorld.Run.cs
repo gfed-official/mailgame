@@ -138,6 +138,7 @@ namespace PerformativeMail.Sim
             EnterPhase(RunPhase.Delivery, seconds);
             ScheduleRaid();
             ParkPlaytesters();
+            StockPlaytesters();
         }
 
         /// <summary>Doc 01 §2.4: the quota check, the shift bonus and the summary the clients show.</summary>

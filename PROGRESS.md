@@ -327,6 +327,14 @@ with the mail cannon, the loot on the cards and in the wallet; and, since the de
       the smoke's fallen host is checked for the banner, and the raid smoke's host now goes at
       the raiders on their line. Protocol `m1.7` (snapshot player flag `protected`,
       `PlayerRespawned.protectedUntil`)
+- [x] Nit 18 — `--playtest-package`: that player has four Small Packages (what the mail cannon
+      fires, RMB) when a shift's Delivery starts, when they join one under way and whenever they
+      are back on their feet — topped up to four, never more. Host and `--join` guest alike (a
+      fifth bit in the Hello's playtest byte), off by default, listed under "Commands". It goes
+      together with `--raid` and with `--playtest-mailbox` (letters for the mailbox and packages
+      for the cannon side by side). The raid smoke is now run with it: the host fires all four
+      at the raid before the hammer comes out (`PlaytestTests` 4 new, `PlaytestFlowTests` — a
+      guest fires through its own input —, `CodecTests`; protocol `m1.8`; design choice 64)
 
 ### 3. Further features from `design/drive/`, in milestone order
 
@@ -835,6 +843,18 @@ See "Commands" at the bottom (filled in as the tooling lands).
       survivable for one carrier with a hammer, which the playtest said it was not. Rejected:
       pushing bodies apart harder (giants then bulldoze the others onto the carrier).
 
+64. **Nit 18: `--playtest-package`.** The nit offered two roads (a flag of its own, or making
+    `--playtest-mailbox` work with `--raid`); both are true now, and the flag of its own is the
+    one to use, because the mailbox flag also moves the player and hands out letters, which the
+    cannon cannot fire. Chosen: *four* packages, not one — one shot every two seconds is over
+    too soon to judge the cannon by, and four still leave most of the pockets free (three lie
+    in the hotbar, one in the inventory). *Topped up*, not handed out: at every shift's start
+    and on standing up (the ones carried lie in the bag where the carrier fell, and the point of
+    the flag is not to have to walk for ammunition), never above four. They are real mail with
+    an address (the mailbox of the player's seat if it takes packages), so delivering one pays
+    as any package does — as the mailbox flag's letters do. Nothing in the Lobby or Prep: there
+    is no mail outside a shift (doc 01 §1).
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -849,7 +869,7 @@ tools/validate-content.sh [CONTENT_DIR] [--quiet]   # ContentValidator: "content
 
 tools/smoke.sh [seed]            # build + two Godot headless smokes (the full run, the raid playtest); exit 0 and "SMOKE OK" twice
 ~/.local/bin/godot --headless --path . -- --smoke --seed=1      # the smoke alone (build first)
-~/.local/bin/godot --headless --path . -- --smoke --seed=1 --shift=2 --no-quota --raid   # the raid playtest's smoke alone
+~/.local/bin/godot --headless --path . -- --smoke --seed=1 --shift=2 --no-quota --raid --playtest-package   # the raid playtest's smoke alone
 
 # the smoke in a (virtual) window, saving PNGs of the boot view and each prompt:
 xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --smoke --shots=/tmp/shots
@@ -876,7 +896,10 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --shift=N             the run starts at shift N (1-5), with its quota and its raid
 #   --no-quota            a missed quota does not end the run; the next shift comes
 #   --raid                every shift's raid is announced as the shift starts and comes 5 s later
+#   --playtest-package    four Small Packages for the mail cannon (RMB) when a shift starts and when back on your feet
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
+~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come
+~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-package --playtest-mailbox   # a guest: all three go together
 ~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-no-timer   # a guest brings a raid and stops the clock
 
 tools/soak.sh [players=8] [seconds=600] [seed]   # host + guests as separate headless bot processes over ENet; "SOAK OK"
@@ -936,11 +959,14 @@ disconnected. That guest joins with every playtest flag and `--shift=3`: it must
 mailbox, and the server must have the clock stopped, the quota waived and the next run at shift 3
 until it leaves.
 
-The second run, `--smoke --shift=2 --no-quota --raid` (about 15 s), is nit 13's playtest as a
-player would do it: the flags must be on the host's player, go starts Prep of "Shift 2 / 5" with
-shift 2's quota, Ready starts it; the raid banner and the tracker's countdown must show from the
-first second and the raid must be there 5 s in; the host walks out to the street and fights with
-the hammer, through the client's input, until all six pulses are in and nobody of them is left on
+The second run, `--smoke --shift=2 --no-quota --raid --playtest-package` (about 15 s), is the
+playtest of nits 13 and 18 as a player would do it: the flags must be on the host's player, go
+starts Prep of "Shift 2 / 5" with shift 2's quota (and no package yet), Ready starts it; the raid
+banner and the tracker's countdown must show from the first second, with four packages in the
+pockets and "mail cannon x4" on the weapons line, and the raid must be there 5 s in; the host
+walks out to the street and fights through the client's input — the four packages out of the
+cannon at raiders 5–24 m down the street (four shots, four blasts, none left), then the hammer,
+going at raiders who hold their line — until all six pulses are in and nobody of them is left on
 the server, in the client's list or drawn (every raider felled by the host, the tracker counting
 them, the feed saying so); it walks over the loot (coins in the wallet line, cards shown); the
 rest of the shift runs out, Payday's panel says QUOTA MISSED and the hint "playtest: the run goes

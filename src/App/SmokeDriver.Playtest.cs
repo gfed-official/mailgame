@@ -14,15 +14,16 @@ using PerformativeMail.Sim.World;
 namespace PerformativeMail.App
 {
     /// <summary>
-    /// The smoke of the raid playtest (nit 13), run with "--smoke --shift=2 --no-quota --raid": the
-    /// run starts at shift 2, the night raid is announced as the shift starts and comes five
-    /// seconds later, the host meets it on the street with the hammer through the client's own
-    /// input, and the quota the fight left no time for does not end the run. Every step is read
-    /// off the real HUD.
+    /// The smoke of the raid playtest (nits 13 and 18), run with
+    /// "--smoke --shift=2 --no-quota --raid --playtest-package": the run starts at shift 2, the
+    /// night raid is announced as the shift starts and comes five seconds later, the host meets
+    /// it on the street through the client's own input — the packages the flag gave them out of
+    /// the mail cannon, then the hammer — and the quota the fight left no time for does not end
+    /// the run. Every step is read off the real HUD.
     /// </summary>
     public partial class SmokeDriver
     {
-        private const PlaytestFlags RaidPlaytest = PlaytestFlags.NoQuota | PlaytestFlags.RaidNow;
+        private const PlaytestFlags RaidPlaytest = PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages;
         private const int RaidPlaytestShift = 2;
         /// <summary>From the mailbox side of the yard out onto the street, where the raiders come along.</summary>
         private const float StandX = 20f, StandZ = 28f;
@@ -33,11 +34,13 @@ namespace PerformativeMail.App
         /// goes at whoever is farther off than this, which is well inside that range.
         /// </summary>
         private const float AdvanceBeyond = 10f;
+        /// <summary>The cannon is for raiders this far off: nearer is the hammer's, farther is past a sure shot.</summary>
+        private const float CannonFrom = 5f, CannonTo = 24f;
         private const int PlaytestStepFrames = 400, FightFrames = 2400, LootFrames = 300;
 
-        private int _ptStep, _ptFrames, _ptSwings, _ptDeaths, _ptProtected;
+        private int _ptStep, _ptFrames, _ptSwings, _ptShots, _ptBlasts, _ptDeaths, _ptProtected;
         private uint _ptDeliveryTick;
-        private bool _ptWasDead, _ptSawEnemyView, _ptSawTracker, _ptBadTracker, _ptSawHammer, _ptSawCards, _ptBadBanner;
+        private bool _ptWasDead, _ptSawEnemyView, _ptSawTracker, _ptBadTracker, _ptSawHammer, _ptSawCannon, _ptSawCards, _ptBadBanner;
         private int _ptMostSeen;
         private readonly List<(float X, float Z)> _ptPath = new List<(float, float)>();
         private int _ptWaypoint;
@@ -96,8 +99,9 @@ namespace PerformativeMail.App
         }
 
         /// <summary>
-        /// Faces the nearest raider and swings once it is in reach; goes at one that keeps its
-        /// distance on the raid's line; without one, stands.
+        /// Faces the nearest raider and swings once it is in reach; fires the cannon at one down
+        /// the street while there is a package for it; goes at one that keeps its distance on the
+        /// raid's line; without one, stands.
         /// </summary>
         private void FightNearest(ClientWorld world)
         {
@@ -113,12 +117,32 @@ namespace PerformativeMail.App
                 nearest = e;
             }
             if (nearest == null) return;
+            if (_session.Client.CannonAmmo > 0 && best >= CannonFrom && best <= CannonTo && OpenGround(world, nearest.X, nearest.Z))
+            {
+                AimAt(nearest.X, nearest.Z, InputButtons.AltAttack);
+                return;
+            }
             if (best > AdvanceBeyond)
             {
                 WalkHostTo(world, nearest.X, nearest.Z);
                 return;
             }
             AimAt(nearest.X, nearest.Z, best <= SwingAt ? InputButtons.Attack : InputButtons.None);
+        }
+
+        /// <summary>True if nothing solid lies between the host and a point: a package fired there arrives.</summary>
+        private static bool OpenGround(ClientWorld world, float x, float z)
+        {
+            const float tile = SimConstants.TileSize;
+            var from = new Vector2(world.Local.X, world.Local.Z);
+            var to = new Vector2(x, z);
+            int steps = Math.Max(1, (int)MathF.Ceiling(from.DistanceTo(to) / 0.4f));
+            for (int i = 0; i <= steps; i++)
+            {
+                var at = from.Lerp(to, i / (float)steps);
+                if (world.Map.IsSolid((int)MathF.Floor(at.X / tile), (int)MathF.Floor(at.Y / tile))) return false;
+            }
+            return true;
         }
 
         private void StepPlaytest()
@@ -136,6 +160,7 @@ namespace PerformativeMail.App
                 if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
             if (_screen.Enemies.ViewCount > 0) _ptSawEnemyView = true;
             if (_screen.Camera.WeaponDrawn) _ptSawHammer = true;
+            if (_screen.Camera.CannonOut) _ptSawCannon = true;
             if (hud.Loot.Cards.Visible) _ptSawCards = true;
             if (world.Local.Dead && !_ptWasDead)
             {
@@ -167,7 +192,7 @@ namespace PerformativeMail.App
                     {
                         if (_session.Playtest != RaidPlaytest || _session.StartShift != RaidPlaytestShift)
                         {
-                            Fail($"the playtest smoke is run with --shift={RaidPlaytestShift} --no-quota --raid, not with {_session.Playtest} and shift {_session.StartShift}");
+                            Fail($"the playtest smoke is run with --shift={RaidPlaytestShift} --no-quota --raid --playtest-package, not with {_session.Playtest} and shift {_session.StartShift}");
                             break;
                         }
                         Check(server.Run.Phase == RunPhase.Lobby && hud.PhaseText == "LOBBY", $"booted into {server.Run.Phase}, the HUD says \"{hud.PhaseText}\"");
@@ -193,6 +218,8 @@ namespace PerformativeMail.App
                         Check(world.Global.Quota == QuotaFormula.Quota(world.Content.Balance, RaidPlaytestShift, 1) && hud.QuotaText == HudText.Quota(world.Global),
                             $"in the first Prep the HUD quota line is \"{hud.QuotaText}\" for a quota of {world.Global.Quota}");
                         Check(world.Raid == RaidState.None && hud.RaidText.Length == 0, $"in Prep the raid tracker says \"{hud.RaidText}\"");
+                        // --playtest-package: nothing before the shift, there is no mail in Prep.
+                        Check(client.CannonAmmo == 0 && !server.HasAmmo(player), $"in Prep the host has {client.CannonAmmo} packages for the cannon");
                         Shot("playtest-prep");
                     }
                     if (!world.LocalReady) Go();
@@ -200,6 +227,8 @@ namespace PerformativeMail.App
                     {
                         _ptDeliveryTick = server.Run.PhaseStartTick;
                         _ptSwings = client.LocalHammerSwings;
+                        _ptShots = client.LocalCannonShots;
+                        _ptBlasts = _screen.Effects.Blasts;
                         NextPlaytestStep();
                     }
                     else if (_ptFrames > PlaytestStepFrames) Fail("Prep did not end after the only player readied up");
@@ -225,6 +254,9 @@ namespace PerformativeMail.App
                         $"with a raid announced the tracker says \"{hud.RaidText}\"");
                     Check(hud.PhaseText.Contains("DELIVERY", StringComparison.Ordinal) && !hud.PhaseText.Contains(HudText.ClockStoppedTag, StringComparison.Ordinal),
                         $"in the shift the HUD phase line is \"{hud.PhaseText}\"");
+                    // --playtest-package (nit 18): the shift starts with packages for the cannon, and the HUD counts them.
+                    Check(client.CannonAmmo == PlaytestMask.PackageCount && hud.WeaponsText == HudText.Weapons(PlaytestMask.PackageCount),
+                        $"as the shift starts the host has {client.CannonAmmo} packages for the cannon and the weapons line says \"{hud.WeaponsText}\"");
                     Shot("playtest-warning");
                     NextPlaytestStep();
                     break;
@@ -280,6 +312,10 @@ namespace PerformativeMail.App
                     Check(_ptSawEnemyView, "no raider was ever drawn");
                     Check(_ptSawTracker, "the raid tracker never counted the raiders");
                     Check(_ptSawHammer, "the hammer never showed in the player's hands");
+                    int shots = client.LocalCannonShots - _ptShots;
+                    Check(shots == PlaytestMask.PackageCount && client.CannonAmmo == 0 && !server.HasAmmo(player),
+                        $"of {PlaytestMask.PackageCount} packages the host fired {shots} at the raid and has {client.CannonAmmo} left");
+                    Check(_ptSawCannon && _screen.Effects.Blasts - _ptBlasts == shots, $"{shots} cannon shots: the cannon showed in the player's hands: {_ptSawCannon}, {_screen.Effects.Blasts - _ptBlasts} blasts");
                     Check(_session.Feed.Entries.Any(e => e.Text.StartsWith("You felled ", StringComparison.Ordinal)), "the feed does not say a raider was felled");
                     Check(hud.RaidText == HudText.RaidTracker(world), $"with the raid beaten the tracker says \"{hud.RaidText}\"");
                     NextPlaytestStep();
@@ -350,7 +386,7 @@ namespace PerformativeMail.App
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
                     GD.Print($"[smoke] playtest: run started at shift {RaidPlaytestShift}; raid announced at the shift's start, {server.EnemiesSpawnedTotal} raiders in {waves.Pulses} pulses (most at once {_ptMostSeen}) felled with "
-                        + $"{client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, protected for {_ptProtected} frames, loot +{HudText.Money(server.Economy.Wallet)}"
+                        + $"{client.LocalCannonShots - _ptShots} packages out of the cannon and {client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, protected for {_ptProtected} frames, loot +{HudText.Money(server.Economy.Wallet)}"
                         + $"; quota missed and waived, on to shift {server.Run.Shift}");
                     Finish();
                     break;

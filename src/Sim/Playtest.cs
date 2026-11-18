@@ -22,12 +22,19 @@ namespace PerformativeMail.Sim
         NoQuota = 4,
         /// <summary>Every shift's night raid comes right after the shift starts, also in a shift that has none.</summary>
         RaidNow = 8,
+        /// <summary>
+        /// The player has Small Packages for the mail cannon: when a shift starts, when they join
+        /// one under way, and whenever they are back on their feet.
+        /// </summary>
+        Packages = 16,
     }
 
     public static class PlaytestMask
     {
         /// <summary>Every flag there is. Not a member of the enum, so a log names the flags one by one.</summary>
-        public const PlaytestFlags All = PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow;
+        public const PlaytestFlags All = PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages;
+        /// <summary>What a player with <see cref="PlaytestFlags.Packages"/> is topped up to: a few shots, and the pockets stay mostly free.</summary>
+        public const int PackageCount = 4;
         /// <summary>From the start of a shift to the first raiders under <see cref="PlaytestFlags.RaidNow"/>: time to read the warning.</summary>
         public const double RaidNowSeconds = 5;
     }
