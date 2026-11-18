@@ -101,13 +101,23 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("Postie", profile.DisplayName);
             Assert.Equal(0, profile.RankXp);
             Assert.Equal("{ broken", store.Bad);
-            Assert.Null(store.Json);
+            // The new profile is stored at once: its id is the account a server gives a lost seat back to.
+            Assert.Equal(profile.ProfileId, MetaProfile.FromJson(store.Json!).ProfileId);
 
             var empty = new MemoryProfileStore();
             var fresh = ProfileTracker.LoadOrCreate(empty, "Postie", out problem);
             Assert.Null(problem);
             Assert.Equal("Postie", fresh.DisplayName);
             Assert.Null(empty.Bad);
+            Assert.Equal(fresh.ProfileId, MetaProfile.FromJson(empty.Json!).ProfileId);
+            Assert.NotEqual(0ul, fresh.AccountId);
+            Assert.NotEqual(profile.AccountId, fresh.AccountId);
+            Assert.Equal(fresh.AccountId, ProfileTracker.LoadOrCreate(empty, "Other", out problem).AccountId);
+
+            // A store that cannot be written does not stop the game.
+            var full = new FailingStore();
+            Assert.Equal("Postie", ProfileTracker.LoadOrCreate(full, "Postie", out problem).DisplayName);
+            Assert.Null(problem);
 
             var kept = new MemoryProfileStore { Json = profile.ToJson() };
             Assert.Equal(profile.ProfileId, ProfileTracker.LoadOrCreate(kept, "Other", out problem).ProfileId);
@@ -138,8 +148,8 @@ namespace PerformativeMail.Net.Tests
                 var again = ProfileTracker.LoadOrCreate(store, "Postie", out string? problem);
                 Assert.NotNull(problem);
                 Assert.Equal(0, again.RankXp);
-                Assert.False(File.Exists(path));
                 Assert.Equal("{ broken", File.ReadAllText(path + ".bad"));
+                Assert.Equal(again.ProfileId, MetaProfile.FromJson(store.Read()!).ProfileId);
             }
             finally
             {

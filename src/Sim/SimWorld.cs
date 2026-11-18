@@ -147,7 +147,7 @@ namespace PerformativeMail.Sim
         /// lowest free seat and the id that goes with it (seat 0 is Player#1), so whoever comes
         /// after a guest has left is Player#2 again (playtest nit 11).
         /// </summary>
-        public Player? AddPlayer(string name)
+        public Player? AddPlayer(string name, ulong account = 0)
         {
             if (IsFull) return null;
             byte slot = 0;
@@ -167,17 +167,18 @@ namespace PerformativeMail.Sim
             };
             player.Hp = player.MaxHp = _combat.PlayerHp;
             player.JoinOrder = _nextJoinOrder++;
+            player.Account = account;
             _players.Add(player);
-            if (Run.Host.IsNone) Run.Host = id;
+            UpdateHost();
             Events.Add(new PlayerJoinedEvent { Player = id, Name = name, Slot = slot });
             if (_players.Count != 1) SetPaused(false);
             return player;
         }
 
         /// <summary>
-        /// Removes a player. Leaving drops no bag (that waits for the disconnect grace of doc 06):
-        /// mail on the body goes back to the Intake instead of being lost (the rule doc 03 §3.3
-        /// has for despawning world mail).
+        /// Removes a player at once: who leaves the Lobby, and whoever the server lets go without
+        /// the grace of <see cref="Disconnect"/>. No bag is dropped: mail on the body goes back to
+        /// the Intake instead of being lost (the rule doc 03 §3.3 has for despawning world mail).
         /// </summary>
         public void RemovePlayer(EntityId id)
         {
@@ -193,7 +194,7 @@ namespace PerformativeMail.Sim
             }
             CommitContainer(Intake.Id);
             _players.Remove(player);
-            UpdateHostAfterLeave(id);
+            UpdateHost();
             _requests.RemoveAll(r => r.Player == id);
             // The id is free for the next to join: nothing of the fight may still name the one who left.
             ForgetInCombat(id);
@@ -258,6 +259,7 @@ namespace PerformativeMail.Sim
             StepPlayers();
             StepCombat();
             StepMail();
+            StepAway();
             StepRun();
         }
 
@@ -266,6 +268,12 @@ namespace PerformativeMail.Sim
             foreach (var p in _players)
             {
                 p.RecordPosition();
+                if (p.Away)
+                {
+                    // Nobody steers them: they come to rest where they stood.
+                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move);
+                    continue;
+                }
 
                 // Inputs are spent from a credit that refills at 1.15 per tick: this is the
                 // "maxSpeed × 1.15 × dt" clamp of doc 06 §7 for a server that simulates movement

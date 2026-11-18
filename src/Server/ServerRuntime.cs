@@ -47,6 +47,8 @@ namespace PerformativeMail.Server
         private readonly IServerTransport _transport;
         private readonly Dictionary<int, Client> _clients = new Dictionary<int, Client>();
         private readonly List<Client> _clientList = new List<Client>();
+        /// <summary>Who lost their connection and may still come back, for the log's last word on them.</summary>
+        private readonly List<Player> _away = new List<Player>();
         private readonly NetWriter _writer = new NetWriter(1024);
         private readonly SnapshotMsg _snapshot = new SnapshotMsg();
         private readonly Stopwatch _stopwatch = new Stopwatch();
@@ -85,6 +87,7 @@ namespace PerformativeMail.Server
             double polled = _stopwatch.Elapsed.TotalMilliseconds;
             World.Step();
             double stepped = _stopwatch.Elapsed.TotalMilliseconds;
+            if (_away.Count > 0) LogWhoDidNotComeBack();
             RouteEvents();
             // 20 Hz from a 30 Hz tick: two ticks out of three (doc 06 §3 "alternates 1/2 tick gaps").
             // A paused world has nothing new to show; the pause itself travels as a reliable event.
@@ -117,10 +120,26 @@ namespace PerformativeMail.Server
             if (!_clients.TryGetValue(connectionId, out var client)) return;
             _clients.Remove(connectionId);
             _clientList.Remove(client);
-            if (client.Player != null)
+            if (client.Player == null) return;
+            // Doc 06 §6: out of a run under way nobody drops for good at once.
+            if (World.Disconnect(client.Player.Id))
             {
-                Log?.Invoke($"{client.Player.Name} left");
-                World.RemovePlayer(client.Player.Id);
+                double seconds = SimConstants.TicksToSeconds((long)client.Player.AwayUntilTick - World.Tick);
+                Log?.Invoke(FormattableString.Invariant($"{client.Player.Name} lost the connection: {seconds:0} s to come back as {client.Player.Id}"));
+                if (!_away.Contains(client.Player)) _away.Add(client.Player);
+            }
+            else Log?.Invoke($"{client.Player.Name} left");
+        }
+
+        private void LogWhoDidNotComeBack()
+        {
+            for (int i = _away.Count - 1; i >= 0; i--)
+            {
+                var p = _away[i];
+                bool gone = World.GetPlayer(p.Id) != p;
+                if (!gone && p.Away) continue;
+                _away.RemoveAt(i);
+                if (gone) Log?.Invoke($"{p.Name} did not come back");
             }
         }
 
@@ -162,10 +181,16 @@ namespace PerformativeMail.Server
             string name = hello.Name.Trim();
             if (name.Length == 0) { Reject(client, RejectReason.BadHello); return; }
             if (name.Length > MaxNameLength) name = name.Substring(0, MaxNameLength);
-            if (!World.AcceptsPlayers) { Reject(client, RejectReason.RunInProgress); return; }
-
-            var player = World.AddPlayer(name);
-            if (player == null) { Reject(client, RejectReason.ServerFull); return; }
+            // Somebody who lost their connection in this run is let back into any phase of it (doc 06 §6).
+            var player = World.FindAway(hello.Account);
+            bool back = player != null;
+            if (player != null) World.Reconnect(player);
+            else
+            {
+                if (!World.AcceptsPlayers) { Reject(client, RejectReason.RunInProgress); return; }
+                player = World.AddPlayer(name, hello.Account);
+                if (player == null) { Reject(client, RejectReason.ServerFull); return; }
+            }
             client.Player = player;
             // Before the Welcome, so its containers and global state already show what was asked.
             World.SetPlaytest(player, hello.Playtest, hello.StartShift);
@@ -178,6 +203,9 @@ namespace PerformativeMail.Server
                 MapId = World.Map.Id,
                 MapHash = World.Map.MapHash,
                 IntakeContainerId = World.Intake.Id,
+                RaidTick = World.RaidTick,
+                RespawnTick = player.Dead ? player.RespawnTick : 0,
+                ProtectedUntilTick = World.Protected(player) ? player.ProtectedUntilTick : 0,
                 Global = World.GetGlobalState(),
                 Hotbar = player.Hotbar.Snapshot(),
                 Inventory = player.Inventory.Snapshot(),
@@ -185,12 +213,22 @@ namespace PerformativeMail.Server
             foreach (var chest in World.MapChests) welcome.ChestContainerIds.Add(chest.Id);
             foreach (var bag in World.Bags)
                 welcome.Bags.Add(new BagInfo { ContainerId = bag.Id, Owner = bag.Owner, X = bag.X, Z = bag.Z, DespawnTick = bag.DespawnTick });
+            foreach (var bundle in World.Loot)
+            {
+                var loot = new LootDroppedEvent
+                {
+                    LootId = bundle.Id, X = bundle.X, Z = bundle.Z, EnemyKind = bundle.EnemyKind, Mega = bundle.Mega,
+                    Coins = (ushort)Math.Min(ushort.MaxValue, bundle.Coins),
+                };
+                loot.Items.AddRange(bundle.Items);
+                welcome.Loot.Add(loot);
+            }
             foreach (var p in World.Players)
                 welcome.Players.Add(new PlayerInfo { Id = p.Id, Name = p.Name, Slot = p.Slot });
             _writer.Reset();
             welcome.Write(_writer);
             _transport.Send(client.Connection, NetChannel.Bulk, _writer.ToArray());
-            Log?.Invoke($"{name} joined as {player.Id}{PlaytestNote(player)}");
+            Log?.Invoke(back ? $"{player.Name} is back as {player.Id}{PlaytestNote(player)}" : $"{name} joined as {player.Id}{PlaytestNote(player)}");
         }
 
         /// <summary>What the server granted of a Hello's playtest wishes, for the log; empty for a player without any.</summary>
@@ -248,7 +286,7 @@ namespace PerformativeMail.Server
                 _snapshot.Players.Add(new PlayerSnap
                 {
                     Id = p.Id, X = p.Move.X, Y = p.Move.Y, Z = p.Move.Z, Yaw = p.Move.Yaw, HeldSlot = p.HeldSlot, Ready = p.Ready,
-                    Hp = p.HpByte, Protected = World.Protected(p),
+                    Hp = p.HpByte, Protected = World.Protected(p), Away = p.Away,
                 });
             }
             _snapshot.Enemies.Clear();

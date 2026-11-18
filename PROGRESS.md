@@ -370,7 +370,19 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
 - [ ] Perk system (StatSheet, modifiers, team/personal, prerequisites, exclusions) with ~12 perks
 - [ ] Lobby with seed, archetype, kit; join-in-progress in Prep; disconnect grace
       - [x] a Lobby the host starts from; joining in Lobby and Prep
-      - [ ] seed / archetype / kit choice in the Lobby; the 120 s disconnect grace
+      - [x] **The 120 s disconnect grace** (doc 06 §6): who loses the connection outside the
+            Lobby stays where they stood — "Bo (away)" over their head, not moving, not hurt, not
+            hunted, pockets on them, seat held — and the feed says "Bo lost the connection — 02:00
+            to come back". The same account back within the two minutes is the same player (id,
+            body, pockets), in any phase, told what they missed ("Bo is back"); otherwise the
+            pockets lie in a bag where they stood and they are gone ("Bo did not come back"). Prep
+            does not wait for them, the next shift counts without them, the host role passes on.
+            Protocol `m1.9` (`PlayerAway`, `PlayerBack`, an `away` flag per player, an account in
+            the Hello, the raid / respawn / protection ticks and the loot on the ground in the
+            Welcome). `AwayTests` (18), `AwayFlowTests` (9), `CodecTests`, `ProfileTests`; the
+            smoke drops an ENet guest in Prep, reads the name tag and the feed on the host's
+            screen and brings them back as Player#2; design choice 65
+      - [ ] seed / archetype / kit choice in the Lobby
 - [ ] Content pipeline: JSON defs, validator in CI, hot reload
       - [x] JSON defs and the validator (`tools/validate-content.sh`, run by `tools/smoke.sh`)
       - [ ] a CI job; hot reload
@@ -381,8 +393,7 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
       - [x] a chest in the world, placed by the map (nit 9)
       - [ ] nodes, harvesting, building by hand
 
-Next in this order: the disconnect grace (it is what a leaver's bag is waiting for), then perks
-with the Draft phase.
+Next in this order: perks with the Draft phase.
 
 ## How to build and check
 
@@ -797,7 +808,8 @@ See "Commands" at the bottom (filled in as the tooling lands).
     - *Leavers*: leaving the game still sends carried mail straight back to the Intake, as
       before, and drops no bag; a bag the leaver had already dropped stays as "an unclaimed
       bag" (nobody's, so whoever takes the reused id inherits nothing of it). Doc 06's
-      "the body drops a death bag" after the 120 s disconnect grace waits for that grace.
+      "the body drops a death bag" after the 120 s disconnect grace came with that grace
+      (choice 65): only a leave in the Lobby is still a plain leave.
     - *Not yet*: the `second_wind` perk (no perks yet), the "+ overflow" of doc 03 (the pockets
       are 24 cells, the bag has 32), vehicles dropping a bag.
     - *Wire*: `BagDropped` (container, owner, place, despawn tick) and `BagGone` (returned or
@@ -854,6 +866,56 @@ See "Commands" at the bottom (filled in as the tooling lands).
     an address (the mailbox of the player's seat if it takes packages), so delivering one pays
     as any package does — as the mailbox flag's letters do. Nothing in the Lobby or Prep: there
     is no mail outside a shift (doc 01 §1).
+
+65. **The 120 s disconnect grace.** Doc 06 §6 has the rule in four sentences (frozen and
+    invulnerable for 120 s, inventory on the body, the same account id resumes, otherwise a
+    death bag; the player count for scaling drops at the next Delivery start). What they leave
+    open, and what was chosen:
+    - *Which disconnects.* Every one outside the Lobby, a clean quit too: the transport does not
+      tell a quit from a pulled cable, and somebody who quit by mistake wants the same two
+      minutes. In the Lobby there is no run to come back to, so a leave is a leave. `--quick`
+      servers follow the same rule.
+    - *Away means*: stepped with an empty input (they come to rest, they do not hang in the
+      air), not hurt, not targeted (a raider that had them lets go), no loot picked up, the
+      chest they had open closed, what they had asked for forgotten, not ready, their pause
+      ended. One who was down still stands up at the pad on the respawn clock. The seat is
+      held: a full server stays full.
+    - *Who is counted.* Present players only for "everyone ready", the Prep hint, the quota
+      preview and the head count taken at Delivery start. Within a shift nothing is recounted:
+      the raid's budget now reads that shift-start count (it read the live list before, which
+      the doc's last sentence forbids).
+    - *Playtest flags* of one who is away rest (no stopped clock for an empty chair) and count
+      again on their return; the Hello of the return applies them afresh.
+    - *The host* is whoever has been present longest: the role passes on when the host goes
+      away and is not taken back on return. With nobody present it stays where it was.
+    - *Nobody present*: doc 01 §7's empty-server rule wins over the 120 s — after
+      `emptyServerGraceSeconds` (60) the run is given up, the away players are removed without
+      bags and the server is back in the Lobby. A dedicated server must not sit in a dead run.
+    - *Pause*: only a server with exactly one seat taken pauses, so not while a seat is held.
+    - *Not back in time*: the pockets become a death bag where they stood (nobody's — "an
+      unclaimed bag" — with the usual 30 s; empty pockets leave none), then they are removed
+      as any leaver. From then on the same account is a stranger and joins as one.
+    - *Coming back*: the server looks the Hello's account up among the away players only, in
+      any phase, before the join-in-progress rule; a stranger mid-Delivery is still turned
+      away with `RunInProgress`, and so is an account that is present (two windows on one
+      machine share a profile). In Payday or Results the returner is sent the summary or the
+      results they missed. Input sequence numbers start afresh.
+    - *The account id* is the FNV-64 of the profile's id (never 0; 0 means "none" and is never
+      matched) until a platform gives a real one (doc 06 §2, Steam, is M3). It is what the
+      client says it is: on a listen server among friends that is enough, and it is not
+      authentication. A new profile is now written to disk at once, so that the id of the
+      first session is the id of the second.
+    - *What a mid-shift Welcome must carry.* Joining had only ever happened in the Lobby and in
+      Prep; a returner can land in a raid. The Welcome gained the raid's start tick, their own
+      respawn and protection ticks and the loot lying about; and since the Welcome travels on
+      the bulk channel and events on the reliable one, the client now keeps events that
+      overtake the Welcome and plays them after it (`WhatOvertakesTheWelcomeIsNotLost`).
+    - *On screen*: "(away)" behind the name over their head; feed lines for away, back, and
+      "did not come back" (against "left" for a Lobby leave); their bag reads "Bo's bag lies
+      where they stood". No countdown over the head: the feed line says the two minutes once,
+      and the name tag stays a name.
+    - *Not yet*: a "reconnecting…" screen on the returner's side (they see the normal join),
+      vehicles (doc 06: a driver who drops leaves the seat), authentication of the account.
 
 ## Commands
 

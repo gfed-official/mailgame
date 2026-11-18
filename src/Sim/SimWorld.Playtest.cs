@@ -28,10 +28,11 @@ namespace PerformativeMail.Sim
         /// <summary>True while a player who asked for <see cref="PlaytestFlags.RaidNow"/> is in the game.</summary>
         public bool RaidsAtShiftStart => AnyPlaytest(PlaytestFlags.RaidNow);
 
+        /// <summary>Who has lost their connection asks for nothing until they are back (their Hello says it again).</summary>
         private bool AnyPlaytest(PlaytestFlags flag)
         {
             foreach (var p in _players)
-                if ((p.Playtest & flag) != 0) return true;
+                if ((p.Playtest & flag) != 0 && !p.Away) return true;
             return false;
         }
 
@@ -44,7 +45,8 @@ namespace PerformativeMail.Sim
             get
             {
                 int shift = 1;
-                foreach (var p in _players) shift = Math.Max(shift, p.PlaytestShift);
+                foreach (var p in _players)
+                    if (!p.Away) shift = Math.Max(shift, p.PlaytestShift);
                 return Math.Min(shift, ShiftCount);
             }
         }
@@ -86,12 +88,13 @@ namespace PerformativeMail.Sim
         private void ParkPlaytesters()
         {
             foreach (var p in _players)
-                if ((p.Playtest & PlaytestFlags.AtMailbox) != 0) ParkAtMailbox(p);
+                if ((p.Playtest & PlaytestFlags.AtMailbox) != 0 && !p.Away) ParkAtMailbox(p);
         }
 
         private void StockPlaytesters()
         {
-            foreach (var p in _players) GivePlaytestPackages(p);
+            foreach (var p in _players)
+                if (!p.Away) GivePlaytestPackages(p);
         }
 
         /// <summary>
@@ -102,7 +105,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         private void GivePlaytestPackages(Player p)
         {
-            if ((p.Playtest & PlaytestFlags.Packages) == 0 || Run.Phase != RunPhase.Delivery || p.Dead) return;
+            if ((p.Playtest & PlaytestFlags.Packages) == 0 || Run.Phase != RunPhase.Delivery || p.Dead || p.Away) return;
             MailKindDef? kind = null;
             foreach (var k in Content.MailKinds)
                 if (k.CannonAmmo) { kind = k; break; }

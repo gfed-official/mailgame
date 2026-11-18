@@ -218,9 +218,9 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
-        public void DisconnectRemovesThePlayer()
+        public void DisconnectInTheLobbyRemovesThePlayer()
         {
-            var s = new Session();
+            var s = new Session(quickStart: false);
             var a = s.AddClient("Ada", bot: false);
             var b = s.AddClient("Bo", bot: false);
             s.Run(5);

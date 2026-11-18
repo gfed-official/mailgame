@@ -38,6 +38,9 @@ namespace PerformativeMail.Client.Presentation
             return known;
         }
 
+        /// <summary>The name tag over a player's head as drawn right now; empty without one.</summary>
+        public string NameTagOf(EntityId id) => _views.TryGetValue(id, out var view) ? view.NameTagText : "";
+
         private void Sync(double delta)
         {
             var world = _client?.World;

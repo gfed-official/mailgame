@@ -67,7 +67,8 @@ namespace PerformativeMail.Client
         public static string PhaseHint(ClientWorld world)
         {
             var g = world.Global;
-            int players = world.Players.Count, ready = world.ReadyCount;
+            // Who has lost their connection is not waited for.
+            int players = world.PresentCount, ready = world.ReadyCount;
             string host = world.Players.TryGetValue(g.Host, out var h) ? h.Name : "the host";
             if (world.Paused) return $"The clock is stopped   ·   {PauseKey} resume";
             switch (g.Phase)
@@ -305,6 +306,17 @@ namespace PerformativeMail.Client
             if (!world.LocalProtected) return "";
             int s = (int)Math.Ceiling(world.ProtectedSecondsLeft);
             return s > 0 ? $"PROTECTED   ·   {s} s, or until you strike" : "PROTECTED   ·   until you strike";
+        }
+
+        /// <summary>The name over a carrier's head; one who has lost their connection is marked as long as they may come back.</summary>
+        public static string NameTag(ClientPlayer player) => player.Away ? $"{player.Name} (away)" : player.Name;
+
+        /// <summary>The event feed's line when a carrier loses their connection during a run (doc 06 §6).</summary>
+        public static string WentAway(ClientWorld world, ClientPlayer player)
+        {
+            double left = SimConstants.TicksToSeconds((long)player.AwayUntilTick - (long)Math.Floor(world.ServerTick));
+            // To the nearest second: the tick the client reckons with is an estimate, and 02:01 of two minutes is wrong.
+            return $"{player.Name} lost the connection — {Clock(Math.Round(Math.Max(0.0, left)))} to come back";
         }
 
         /// <summary>"your bag", "Cass's bag"; "an unclaimed bag" once whoever dropped it has left.</summary>

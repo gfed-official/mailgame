@@ -27,6 +27,19 @@ namespace PerformativeMail.Sim
         public EntityId Player;
     }
 
+    /// <summary>A player lost their connection during a run: they stand where they stood until the tick (doc 06 §6).</summary>
+    public sealed class PlayerAwayEvent : SimEvent
+    {
+        public EntityId Player;
+        public uint UntilTick;
+    }
+
+    /// <summary>The player who was away has reconnected in time.</summary>
+    public sealed class PlayerBackEvent : SimEvent
+    {
+        public EntityId Player;
+    }
+
     /// <summary>Full container contents, sent when a player opens a container.</summary>
     public sealed class ContainerStateEvent : SimEvent
     {

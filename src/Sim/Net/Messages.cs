@@ -37,27 +37,28 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.8;" +
-            "Hello:u32 hash,str name,u8 playtest,u8 startShift;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
+            "m1.9;" +
+            "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
             "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause;" +
-            "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u8 chests,{u32 container},u8 bags,{u32 container,u32 owner,f32 x,f32 z,u32 despawn},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory;" +
+            "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u32 raidTick,u32 respawn,u32 protectedUntil,u8 chests,{u32 container},u8 bags,{u32 container,u32 owner,f32 x,f32 z,u32 despawn}," +
+            "u16 loot,{u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count}},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory;" +
             "Reject:u8 reason;" +
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
             "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
-            "MoveFlags:grounded,winded,dead;PlayerFlags:ready,protected;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
+            "MoveFlags:grounded,winded,dead;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 playtest;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
-            "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone;" +
+            "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone,playerAway,playerBack;" +
             "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
             "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +
             "LootDropped:u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count};" +
             "LootTaken:u32 id,u32 player,u16 coins,u8 n,{u16 item,u8 count},u8 gone;LootGone:u32 id;" +
             "Raid:u8 state,u32 tick;PlayerDied:u32 player,u32 respawn,u8 killer;PlayerRespawned:u32 player,u32 protectedUntil;PlayerParked:u16 dest;" +
-            "BagDropped:u32 container,u32 owner,f32 x,f32 z,u32 despawn;BagGone:u32 container,u8 returned,u16 mail;" +
+            "BagDropped:u32 container,u32 owner,f32 x,f32 z,u32 despawn;BagGone:u32 container,u8 returned,u16 mail;PlayerAway:u32 player,u32 until;PlayerBack:u32 player;" +
             "Phase:u8 shift,u8 phase,u32 tick,u32 end,i32 quota,u8 outcome;" +
             "Paused:u8 paused,u32 tick;" +
             "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
@@ -82,6 +83,11 @@ namespace PerformativeMail.Sim.Net
         public PlaytestFlags Playtest;
         /// <summary>The shift this player wants runs to start at, 0 = the first.</summary>
         public byte StartShift;
+        /// <summary>
+        /// Who this is from one connection to the next (doc 06 §6): the server gives a player who
+        /// lost their connection back to whoever says the same within the grace. 0: nobody in particular.
+        /// </summary>
+        public ulong Account;
 
         public void Write(NetWriter w)
         {
@@ -90,9 +96,11 @@ namespace PerformativeMail.Sim.Net
             w.Str(Name);
             w.U8((byte)Playtest);
             w.U8(StartShift);
+            w.U64(Account);
         }
 
-        public static HelloMsg Read(NetReader r) => new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8(), StartShift = r.U8() };
+        public static HelloMsg Read(NetReader r) =>
+            new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8(), StartShift = r.U8(), Account = r.U64() };
     }
 
     /// <summary>The last few inputs, oldest first (doc 06 §3: each packet repeats the last 3 for loss cover).</summary>
@@ -169,10 +177,18 @@ namespace PerformativeMail.Sim.Net
         public string MapId = "";
         public ulong MapHash;
         public uint IntakeContainerId;
+        /// <summary>
+        /// What somebody who comes into a shift under way has missed the events of: the tick of the
+        /// raid's state (<see cref="RaidChangedEvent.Tick"/>), and for a player who is given their
+        /// body back, when it stands up and until when it is protected. 0: nothing of the kind.
+        /// </summary>
+        public uint RaidTick, RespawnTick, ProtectedUntilTick;
         /// <summary>The containers of the map's chests, in the map's order.</summary>
         public readonly List<uint> ChestContainerIds = new List<uint>();
         /// <summary>The bags lying about; later ones come as events.</summary>
         public readonly List<BagInfo> Bags = new List<BagInfo>();
+        /// <summary>The loot lying about, each bundle with what is left of it.</summary>
+        public readonly List<LootDroppedEvent> Loot = new List<LootDroppedEvent>();
         public GlobalState Global;
         public readonly List<PlayerInfo> Players = new List<PlayerInfo>();
         public ContainerState Hotbar = null!;
@@ -182,10 +198,18 @@ namespace PerformativeMail.Sim.Net
         {
             w.U8((byte)MsgType.Welcome);
             w.U32(PlayerId.Value); w.U32(Tick); w.U32(Seed); w.Str(MapId); w.U64(MapHash); w.U32(IntakeContainerId);
+            w.U32(RaidTick); w.U32(RespawnTick); w.U32(ProtectedUntilTick);
             w.U8((byte)ChestContainerIds.Count);
             foreach (uint id in ChestContainerIds) w.U32(id);
             w.U8((byte)Bags.Count);
             foreach (var b in Bags) { w.U32(b.ContainerId); w.U32(b.Owner.Value); w.F32(b.X); w.F32(b.Z); w.U32(b.DespawnTick); }
+            w.U16((ushort)Loot.Count);
+            foreach (var l in Loot)
+            {
+                w.U32(l.LootId); w.F32(l.X); w.F32(l.Z); w.U8(l.EnemyKind); w.Bool(l.Mega); w.U16(l.Coins);
+                w.U8((byte)l.Items.Count);
+                foreach (var item in l.Items) { w.U16(item.Item); w.U8(item.Count); }
+            }
             GlobalCodec.Write(w, Global);
             w.U8((byte)Players.Count);
             foreach (var p in Players) { w.U32(p.Id.Value); w.Str(p.Name); w.U8(p.Slot); }
@@ -198,7 +222,7 @@ namespace PerformativeMail.Sim.Net
             var m = new WelcomeMsg
             {
                 PlayerId = new EntityId(r.U32()), Tick = r.U32(), Seed = r.U32(), MapId = r.Str(), MapHash = r.U64(),
-                IntakeContainerId = r.U32(),
+                IntakeContainerId = r.U32(), RaidTick = r.U32(), RespawnTick = r.U32(), ProtectedUntilTick = r.U32(),
             };
             int chests = r.U8();
             for (int i = 0; i < chests; i++) m.ChestContainerIds.Add(r.U32());
@@ -209,6 +233,14 @@ namespace PerformativeMail.Sim.Net
                 {
                     ContainerId = r.U32(), Owner = new EntityId(r.U32()), X = r.F32(), Z = r.F32(), DespawnTick = r.U32(),
                 });
+            }
+            int loot = r.U16();
+            for (int i = 0; i < loot; i++)
+            {
+                var l = new LootDroppedEvent { LootId = r.U32(), X = r.F32(), Z = r.F32(), EnemyKind = r.U8(), Mega = r.Bool(), Coins = r.U16() };
+                int items = r.U8();
+                for (int k = 0; k < items; k++) l.Items.Add(new LootItem { Item = r.U16(), Count = r.U8() });
+                m.Loot.Add(l);
             }
             m.Global = GlobalCodec.Read(r);
             int n = r.U8();
@@ -266,6 +298,8 @@ namespace PerformativeMail.Sim.Net
         public bool Ready;
         /// <summary>Stands protected after a respawn (nit 17).</summary>
         public bool Protected;
+        /// <summary>Has lost their connection and may still come back (doc 06 §6).</summary>
+        public bool Away;
         /// <summary>Health in 255ths; 0 = down.</summary>
         public byte Hp;
     }
@@ -292,7 +326,7 @@ namespace PerformativeMail.Sim.Net
     public sealed class SnapshotMsg
     {
         private const byte FlagOwn = 1, FlagGlobal = 2, FlagEnemies = 4;
-        private const byte PlayerReady = 1, PlayerProtected = 2;
+        private const byte PlayerReady = 1, PlayerProtected = 2, PlayerAway = 4;
         private const byte MoveGrounded = 1, MoveWinded = 2, MoveDead = 4;
         private const float TwoPi = System.MathF.PI * 2f;
 
@@ -327,7 +361,7 @@ namespace PerformativeMail.Sim.Net
             {
                 w.U32(p.Id.Value);
                 w.I32(ToCm(p.X)); w.I16((short)ToCm(p.Y)); w.I32(ToCm(p.Z));
-                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8((byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0))); w.U8(p.Hp);
+                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8((byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0) | (p.Away ? PlayerAway : 0))); w.U8(p.Hp);
             }
             if (HasEnemies)
             {
@@ -374,6 +408,7 @@ namespace PerformativeMail.Sim.Net
                 byte playerFlags = r.U8();
                 p.Ready = (playerFlags & PlayerReady) != 0;
                 p.Protected = (playerFlags & PlayerProtected) != 0;
+                p.Away = (playerFlags & PlayerAway) != 0;
                 p.Hp = r.U8();
                 m.Players.Add(p);
             }

@@ -61,6 +61,13 @@ namespace PerformativeMail.Net.Tests
                 Run(10);
             }
 
+            /// <summary>The seat's grace (doc 06 §6) runs out now, not in two minutes.</summary>
+            public void GiveUpOn(EntityId player)
+            {
+                Sim.GetPlayer(player)!.AwayUntilTick = Sim.Tick;
+                Run(10);
+            }
+
             public void Run(int ticks)
             {
                 for (int i = 0; i < ticks; i++)
@@ -239,7 +246,12 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("Ada's bag", HudText.BagName(bo.World, seen.Owner));
             Assert.Equal("", HudText.BagTracker(bo.World));
 
+            // While Ada may still come back it is hers.
             s.Leave(ada);
+            Assert.True(bo.World.Players[owner].Away);
+            Assert.Equal("Ada's bag", HudText.BagName(bo.World, seen.Owner));
+            s.GiveUpOn(owner);
+            Assert.False(bo.World.Players.ContainsKey(owner));
             Assert.Equal(EntityId.None, seen.Owner);
             Assert.Equal(EntityId.None, Assert.Single(s.Sim.Bags).Owner);
             Assert.Equal("an unclaimed bag", HudText.BagName(bo.World, seen.Owner));

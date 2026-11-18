@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using PerformativeMail.App.Net;
 using PerformativeMail.Client;
@@ -371,6 +372,7 @@ namespace PerformativeMail.App
         private const int RemoteStartShift = 3;
         private const int RemoteWalkTicks = 30;
         private const ulong RemoteTimeoutMsec = 10000;
+        private const ulong RemoteAccount = 0xA11CE;
 
         /// <summary>A build with another protocol: says Hello with a wrong hash and notes the answer.</summary>
         private sealed class StaleClient : IClientTransportHandler
@@ -402,6 +404,7 @@ namespace PerformativeMail.App
         private ulong _remoteDeadline;
         private int _remoteStep, _remoteWalked, _remoteWaypoint;
         private float _remoteStartX, _remoteStartZ;
+        private EntityId _awayId;
         private readonly List<(float X, float Z)> _remotePath = new List<(float, float)>();
 
         private void StartRemote()
@@ -533,9 +536,72 @@ namespace PerformativeMail.App
                     Check(!server.World.ClockStopped, "the shift clock stays stopped after the guest who asked for it left");
                     Check(!server.World.QuotaWaived && !server.World.RaidsAtShiftStart && server.World.StartShift == 1, "the guest's playtest flags outlived the guest");
                     Check(_screen.Players.ViewCount <= 2, "player views pile up after a guest left");
+                    _remoteDeadline = Time.GetTicksMsec() + RemoteTimeoutMsec;
+                    _remoteStep = 3;
+                    break;
+
+                case 3:
+                    // The run starts; a guest joins in Prep, this time with an account to be known by.
+                    if (world.Global.Phase != RunPhase.Prep) { Go(); break; }
+                    if (!JoinRemote()) return;
+                    _remoteStep = 4;
+                    break;
+
+                case 4:
+                {
+                    if (_remote.State != ClientState.Joined || !_remote.World!.HasLocal || world.Players.Count != 2) break;
+                    _awayId = _remote.World.LocalId;
+                    if (_screen.Players.NameTagOf(_awayId) != RemoteName) break;
+                    // The socket closes mid-run: the same thing to the server as a cable pulled (doc 06 §6).
+                    _remote.Disconnect();
+                    _remoteStep = 5;
+                    break;
+                }
+
+                case 5:
+                {
+                    // Their seat and their body stay, and the host's screen says so.
+                    if (server.ClientCount != 1 || !world.Players.TryGetValue(_awayId, out var away) || !away.Away) break;
+                    string awayTag = HudText.NameTag(away);
+                    if (_screen.Players.NameTagOf(_awayId) != awayTag) break;
+                    var truth = server.World.GetPlayer(_awayId);
+                    Check(awayTag == $"{RemoteName} (away)", $"the name tag of one who is away reads \"{awayTag}\"");
+                    Check(truth != null && truth.Away && server.World.Players.Count == 2, "the server did not keep the seat of the guest who lost the connection");
+                    string lost = $"{RemoteName} lost the connection — 02:00 to come back";
+                    Check(_session.Feed.Entries.Any(e => e.Text == lost), $"the feed does not say \"{lost}\"");
+                    _screen.Hud.Refresh();
+                    Check(_screen.Hud.HintText.Contains("0 / 1", StringComparison.Ordinal), $"with the guest away the Prep hint is \"{_screen.Hud.HintText}\"");
+                    if (!JoinRemote()) return;
+                    _remoteStep = 6;
+                    break;
+                }
+
+                case 6:
+                {
+                    if (_remote.State == ClientState.Rejected) { Fail($"the guest who came back was turned away ({_remote.RejectReason})"); return; }
+                    if (_remote.State != ClientState.Joined || !_remote.World!.HasLocal) break;
+                    if (!world.Players.TryGetValue(_awayId, out var back) || back.Away || _screen.Players.NameTagOf(_awayId) != RemoteName) break;
+                    // The same account within the grace is the same player, not a second one.
+                    Check(_remote.World.LocalId == _awayId, $"the guest left as {_awayId} and came back as {_remote.World.LocalId}");
+                    Check(server.ClientCount == 2 && server.World.Players.Count == 2 && world.Players.Count == 2,
+                        $"after the return the server has {server.ClientCount} clients and {server.World.Players.Count} players, the host sees {world.Players.Count}");
+                    Check(_session.Feed.Entries.Any(e => e.Text == $"{RemoteName} is back"), "the feed does not say the guest is back");
+                    Check(_remote.ContainerDesyncs == 0 && _remote.BadPackets == 0, $"returned client: {_remote.ContainerDesyncs} desyncs, {_remote.BadPackets} bad packets");
+                    GD.Print($"[smoke] away: {RemoteName} dropped in {world.Global.Phase}, stood as \"{RemoteName} (away)\", came back as {_awayId}");
+                    _remote.Disconnect();
                     Finish();
                     break;
+                }
             }
+        }
+
+        /// <summary>A guest's socket to the host, saying who they are; the one before it is closed.</summary>
+        private bool JoinRemote()
+        {
+            _remoteTransport = EnetClientTransport.Connect("127.0.0.1", _session.ListenPort, out var error);
+            if (_remoteTransport == null) { Fail($"no ENet client socket ({error})"); return false; }
+            _remote = new ClientRuntime(_session.Content, _remoteTransport, RemoteName, account: RemoteAccount);
+            return true;
         }
 
         private void Enter(Stage stage)

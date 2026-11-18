@@ -188,6 +188,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(4, p.HeldSlot);
             Assert.True(p.Ready);
             Assert.False(p.Protected);
+            Assert.False(p.Away);
         }
 
         [Fact]
@@ -241,6 +242,8 @@ namespace PerformativeMail.Net.Tests
                 new PlayerParkedEvent { Destination = 517 },
                 new BagDroppedEvent { ContainerId = 77, Owner = player, X = 50.25f, Z = 28.5f, DespawnTick = 5400 },
                 new BagGoneEvent { ContainerId = 77, Returned = true, Mail = 12 },
+                new PlayerAwayEvent { Player = player, UntilTick = 9000 },
+                new PlayerBackEvent { Player = player },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -300,6 +303,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((77u, player, 50.25f, 28.5f, 5400u), (bag.ContainerId, bag.Owner, bag.X, bag.Z, bag.DespawnTick));
             var bagGone = (BagGoneEvent)back[24];
             Assert.Equal((77u, true, (ushort)12), (bagGone.ContainerId, bagGone.Returned, bagGone.Mail));
+            var away = (PlayerAwayEvent)back[25];
+            Assert.Equal((player, 9000u), (away.Player, away.UntilTick));
+            Assert.Equal(player, ((PlayerBackEvent)back[26]).Player);
         }
 
         [Fact]
@@ -311,8 +317,10 @@ namespace PerformativeMail.Net.Tests
             {
                 PlayerId = new EntityId(EntityClass.Player, 3), Tick = 900, Seed = 7, MapId = "test_street", MapHash = 0xFEEDFACECAFEBEEFUL,
                 IntakeContainerId = 1, Global = new GlobalState { Shift = 2, Phase = RunPhase.Delivery },
+                RaidTick = 640, RespawnTick = 1100, ProtectedUntilTick = 1250,
                 Hotbar = c.Snapshot(), Inventory = c.Snapshot(),
             };
+            m.Loot.Add(new LootDroppedEvent { LootId = 9001, X = 50f, Z = 28f, EnemyKind = 2, Mega = true, Coins = 120, Items = { new LootItem { Item = 4, Count = 5 } } });
             m.ChestContainerIds.Add(2);
             m.Bags.Add(new BagInfo { ContainerId = 9, Owner = owner, X = 50.25f, Z = 28.5f, DespawnTick = 1800 });
             m.Bags.Add(new BagInfo { ContainerId = 11, X = 12f, Z = 30f, DespawnTick = 1900 });
@@ -327,6 +335,11 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((9u, owner, 50.25f, 28.5f, 1800u), (back.Bags[0].ContainerId, back.Bags[0].Owner, back.Bags[0].X, back.Bags[0].Z, back.Bags[0].DespawnTick));
             Assert.Equal((11u, EntityId.None, 12f, 30f, 1900u), (back.Bags[1].ContainerId, back.Bags[1].Owner, back.Bags[1].X, back.Bags[1].Z, back.Bags[1].DespawnTick));
             Assert.Equal(m.Global, back.Global);
+            // What somebody who comes into a running shift was not there to hear.
+            Assert.Equal((640u, 1100u, 1250u), (back.RaidTick, back.RespawnTick, back.ProtectedUntilTick));
+            var loot = Assert.Single(back.Loot);
+            Assert.Equal((9001u, 50f, 28f, (byte)2, true, (ushort)120), (loot.LootId, loot.X, loot.Z, loot.EnemyKind, loot.Mega, loot.Coins));
+            Assert.Equal(((ushort)4, (byte)5), (Assert.Single(loot.Items).Item, loot.Items[0].Count));
             Assert.Equal(("Cass", (byte)1), (back.Players[0].Name, back.Players[0].Slot));
             Assert.Equal(c.ComputeHash(), back.Inventory.Hash);
         }
@@ -335,15 +348,16 @@ namespace PerformativeMail.Net.Tests
         public void HelloCarriesThePlaytestFlags()
         {
             var w = new NetWriter();
-            new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All, StartShift = 3 }.Write(w);
+            new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All, StartShift = 3, Account = 0xFEDCBA9876543210UL }.Write(w);
             var back = HelloMsg.Read(Body(w, MsgType.Hello));
             Assert.Equal((0xC0FFEEu, "Bo", PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages, (byte)3),
                 (back.ProtocolHash, back.Name, back.Playtest, back.StartShift));
+            Assert.Equal(0xFEDCBA9876543210UL, back.Account);
 
             w = new NetWriter();
             new HelloMsg { ProtocolHash = 1, Name = "Ada" }.Write(w);
             back = HelloMsg.Read(Body(w, MsgType.Hello));
-            Assert.Equal((PlaytestFlags.None, (byte)0), (back.Playtest, back.StartShift));
+            Assert.Equal((PlaytestFlags.None, (byte)0, 0ul), (back.Playtest, back.StartShift, back.Account));
         }
 
         [Fact]
@@ -355,6 +369,7 @@ namespace PerformativeMail.Net.Tests
                 Own = new PlayerMoveState { X = 1f, Z = 2f, Grounded = true, Winded = true, Dead = true, Fatigue = 0.75f },
             };
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 1), Hp = 128, Protected = true });
+            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), Hp = 255, Away = true });
             var empty = new NetWriter();
             m.Write(empty);
             m.Enemies.Add(new EnemySnap { Id = 65535, Kind = 2, Mega = true, State = EnemyState.Flee, X = 91.99f, Z = 28.013f, Yaw = -MathF.PI / 2f, Hp = 1 });
@@ -367,7 +382,9 @@ namespace PerformativeMail.Net.Tests
             Assert.True(back.HasEnemies);
             Assert.False(back.HasGlobal);
             Assert.Equal((true, true, true, 0.75f, 62.5f), (back.Own.Grounded, back.Own.Winded, back.Own.Dead, back.Own.Fatigue, back.OwnHp));
-            Assert.Equal(128, Assert.Single(back.Players).Hp);
+            Assert.Equal(2, back.Players.Count);
+            Assert.Equal(((byte)128, true, false, false), (back.Players[0].Hp, back.Players[0].Protected, back.Players[0].Away, back.Players[0].Ready));
+            Assert.Equal(((byte)255, false, true, false), (back.Players[1].Hp, back.Players[1].Protected, back.Players[1].Away, back.Players[1].Ready));
             Assert.Equal(2, back.Enemies.Count);
             var a = back.Enemies[0];
             Assert.Equal(((ushort)65535, (byte)2, true, EnemyState.Flee, (byte)1), (a.Id, a.Kind, a.Mega, a.State, a.Hp));

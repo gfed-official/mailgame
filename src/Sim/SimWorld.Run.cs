@@ -54,7 +54,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         private bool StepEmptyServer()
         {
-            if (_players.Count > 0 || Run.Phase == RunPhase.Lobby)
+            if (PresentCount > 0 || Run.Phase == RunPhase.Lobby)
             {
                 _emptyTicks = 0;
                 return false;
@@ -65,10 +65,11 @@ namespace PerformativeMail.Sim
             return true;
         }
 
+        /// <summary>Everybody who is here is ready; who is away is not waited for.</summary>
         private bool AllReady()
         {
-            if (_players.Count == 0) return false;
-            foreach (var p in _players) if (!p.Ready) return false;
+            if (PresentCount == 0) return false;
+            foreach (var p in _players) if (!p.Ready && !p.Away) return false;
             return true;
         }
 
@@ -120,7 +121,7 @@ namespace PerformativeMail.Sim
             ClearCombat();
             Economy.BeginShift();
             // A preview for the HUD; the binding quota is sampled when Delivery starts.
-            Run.Quota = QuotaFormula.Quota(b, Run.Shift, Math.Max(1, _players.Count));
+            Run.Quota = QuotaFormula.Quota(b, Run.Shift, Math.Max(1, PresentCount));
             EnterPhase(RunPhase.Prep, b.GetForShift("prepSeconds", Run.Shift));
         }
 
@@ -128,7 +129,8 @@ namespace PerformativeMail.Sim
         {
             var b = Content.Balance;
             ClearCombat();
-            Run.PlayerCount = Math.Max(1, _players.Count);
+            // Doc 06 §6: who is away does not count from here on, and nobody is counted again before the next shift.
+            Run.PlayerCount = Math.Max(1, PresentCount);
             Run.Quota = QuotaFormula.Quota(b, Run.Shift, Run.PlayerCount);
             Economy.BeginShift();
             foreach (var p in _players) p.ShiftDeliveries = 0;
@@ -214,6 +216,8 @@ namespace PerformativeMail.Sim
         /// <summary>Ends the run: all mail, loot and money are gone, the next run starts from the same seed.</summary>
         private void ReturnToLobby()
         {
+            // The run they could have come back to is over.
+            RemoveAway();
             ClearCombat();
             ClearMail(Intake, everything: true);
             // A run starts with empty chests, as it starts with empty pockets.
@@ -245,13 +249,19 @@ namespace PerformativeMail.Sim
             CommitContainer(container.Id);
         }
 
-        private void UpdateHostAfterLeave(EntityId left)
+        /// <summary>
+        /// The host is whoever has been here longest. A host who leaves or loses their connection
+        /// hands the run on; with nobody here to take it, it stays with the one who is away.
+        /// </summary>
+        private void UpdateHost()
         {
-            if (Run.Host != left) return;
+            var host = GetPlayer(Run.Host);
+            if (host != null && !host.Away) return;
             Player? next = null;
             foreach (var p in _players)
-                if (next == null || p.JoinOrder < next.JoinOrder) next = p;
-            Run.Host = next?.Id ?? EntityId.None;
+                if (!p.Away && (next == null || p.JoinOrder < next.JoinOrder)) next = p;
+            if (next != null) Run.Host = next.Id;
+            else if (host == null) Run.Host = EntityId.None;
         }
 
         // --- requests ---------------------------------------------------------------------------

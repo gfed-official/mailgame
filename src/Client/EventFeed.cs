@@ -48,6 +48,11 @@ namespace PerformativeMail.Client
                 case DeliveredEvent e: AddDelivery(world, e.Player, e.DestId, e.Kind, e.Paid, bad: false); break;
                 case MisdeliveredEvent e: AddDelivery(world, e.Player, e.DestId, e.Kind, e.Penalty, bad: true); break;
                 case PlayerJoinedEvent e when e.Player != world.LocalId: Add($"{e.Name} joined"); break;
+                case PlayerLeftEvent e when world.LastLeft != null && world.LastLeft.Id == e.Player:
+                    Add(world.LastLeft.Away ? $"{world.LastLeft.Name} did not come back" : $"{world.LastLeft.Name} left", bad: world.LastLeft.Away);
+                    break;
+                case PlayerAwayEvent e when world.Players.TryGetValue(e.Player, out var away): Add(HudText.WentAway(world, away), bad: true); break;
+                case PlayerBackEvent e when e.Player != world.LocalId: Add($"{Who(world, e.Player)} is back"); break;
                 case MailSpawnedEvent e: Add($"{HudText.CountAndKind("item", e.Count)} of mail arrived at the Intake"); break;
                 case ShiftSummaryEvent e:
                 {
@@ -68,7 +73,8 @@ namespace PerformativeMail.Client
                 case BagDroppedEvent e:
                     Add(e.Owner == world.LocalId
                         ? "Your bag lies where you fell: get to it before it is gone"
-                        : $"{HudText.Capitalised(HudText.BagName(world, e.Owner))} lies where they fell");
+                        : $"{HudText.Capitalised(HudText.BagName(world, e.Owner))} lies where they "
+                            + (world.Players.TryGetValue(e.Owner, out var owner) && owner.Away ? "stood" : "fell"));
                     break;
                 case BagGoneEvent e: OnBagGone(world, e); break;
             }

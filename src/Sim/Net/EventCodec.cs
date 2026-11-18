@@ -33,6 +33,8 @@ namespace PerformativeMail.Sim.Net
         PlayerParked = 23,
         BagDropped = 24,
         BagGone = 25,
+        PlayerAway = 26,
+        PlayerBack = 27,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -160,6 +162,14 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.BagGone);
                     w.U32(e.ContainerId); w.Bool(e.Returned); w.U16(e.Mail);
                     break;
+                case PlayerAwayEvent e:
+                    w.U8((byte)EventType.PlayerAway);
+                    w.U32(e.Player.Value); w.U32(e.UntilTick);
+                    break;
+                case PlayerBackEvent e:
+                    w.U8((byte)EventType.PlayerBack);
+                    w.U32(e.Player.Value);
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -277,6 +287,10 @@ namespace PerformativeMail.Sim.Net
                     };
                 case EventType.BagGone:
                     return new BagGoneEvent { ContainerId = r.U32(), Returned = r.Bool(), Mail = r.U16() };
+                case EventType.PlayerAway:
+                    return new PlayerAwayEvent { Player = new EntityId(r.U32()), UntilTick = r.U32() };
+                case EventType.PlayerBack:
+                    return new PlayerBackEvent { Player = new EntityId(r.U32()) };
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

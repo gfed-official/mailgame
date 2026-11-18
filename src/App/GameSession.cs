@@ -97,7 +97,7 @@ namespace PerformativeMail.App
 
         private void StartClient(ContentDb content, IClientTransport transport, MetaProfile profile, IProfileStore store)
         {
-            Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest, StartShift);
+            Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest, StartShift, profile.AccountId);
             Interaction = new InteractionController(Client);
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);
             Profile = new ProfileTracker(Client, profile, store);

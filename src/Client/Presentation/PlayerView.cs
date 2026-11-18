@@ -19,6 +19,8 @@ namespace PerformativeMail.Client.Presentation
 
         private CharacterModel? _model;
         private Node3D? _held, _hammer, _cannon;
+        private SizedLabel3D? _nameTag;
+        private bool _away;
         private Vector3 _last;
         private bool _placed;
         private float _speed, _weaponLeft;
@@ -26,6 +28,9 @@ namespace PerformativeMail.Client.Presentation
 
         /// <summary>Whom this view shows.</summary>
         public ClientPlayer? Carrier;
+
+        /// <summary>What stands over the head right now; empty for the local player, who has no tag.</summary>
+        public string NameTagText => _nameTag?.Text ?? "";
 
         public void Setup(string playerName, int slot, bool local)
         {
@@ -50,7 +55,7 @@ namespace PerformativeMail.Client.Presentation
             _cannon.Visible = false;
             _model.Hand.AddChild(_cannon);
 
-            AddChild(new SizedLabel3D
+            _nameTag = new SizedLabel3D
             {
                 Name = "NameTag",
                 Text = playerName,
@@ -61,7 +66,8 @@ namespace PerformativeMail.Client.Presentation
                 Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
                 // Who somebody is matters more than an address behind them.
                 Rank = 2,
-            });
+            };
+            AddChild(_nameTag);
         }
 
         /// <summary>Moves a drawn carrier to its interpolated pose and plays what the snapshots and events say it does.</summary>
@@ -90,6 +96,12 @@ namespace PerformativeMail.Client.Presentation
             {
                 _hurtTick = player.HurtTick;
                 _model.Flash();
+            }
+            // One who has lost their connection stands marked for as long as they may come back.
+            if (player.Away != _away)
+            {
+                _away = player.Away;
+                _nameTag!.Text = HudText.NameTag(player);
             }
             _model.Aiming = _cannon!.Visible;
             _model.Animate(delta, _speed, windup: false, down: player.Dead);

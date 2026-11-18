@@ -102,6 +102,8 @@ namespace PerformativeMail.Sim
         public RaidState Raid { get; private set; }
         /// <summary>The tick of the raid's first spawn this shift, 0 if the shift has no raid.</summary>
         public uint RaidStartTick => _raidStartTick;
+        /// <summary>The tick the last <see cref="RaidChangedEvent"/> carried, for who joins after it.</summary>
+        public uint RaidTick { get; private set; }
         /// <summary>The whole budget of the raid under way (doc 05 §3.2), set when it starts.</summary>
         public double RaidBudget => _raidBudget;
         /// <summary>Pulses of the raid under way that have come in.</summary>
@@ -150,7 +152,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         public void DamagePlayer(Player p, float damage, byte enemyKind = 0)
         {
-            if (p.Dead || damage <= 0f || Protected(p)) return;
+            if (p.Dead || p.Away || damage <= 0f || Protected(p)) return;
             p.LastDamageTick = Tick;
             p.Hp -= damage;
             if (p.Hp > 0f) return;
@@ -488,7 +490,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         private bool ValidTarget(Enemy e, Player p, float range, float fromX, float fromZ)
         {
-            if (p.Dead || Protected(p)) return false;
+            if (p.Dead || p.Away || Protected(p)) return false;
             if (e.LastHitBy == p.Id && Tick < e.ProvokedUntilTick) return true;
             float dx = p.Move.X - fromX, dz = p.Move.Z - fromZ;
             return dx * dx + dz * dz <= range * range;
@@ -636,7 +638,7 @@ namespace PerformativeMail.Sim
             float bestSq = range == float.MaxValue ? float.MaxValue : range * range;
             foreach (var p in _players)
             {
-                if (p.Dead) continue;
+                if (p.Dead || p.Away) continue;
                 float dx = p.Move.X - x, dz = p.Move.Z - z, sq = dx * dx + dz * dz;
                 if (sq > bestSq || (best != null && sq == bestSq)) continue;
                 best = p;
@@ -713,7 +715,8 @@ namespace PerformativeMail.Sim
             if (Raid == RaidState.None && Tick >= _raidWarnTick) SetRaid(RaidState.Warning, _raidStartTick);
             if (Raid == RaidState.Warning && Tick >= _raidStartTick)
             {
-                _raidBudget = WaveBudget(waves, _raidShift, _players.Count, Economy.Complaint);
+                // The head count of the shift's start (doc 06 §6: not recalculated mid-shift).
+                _raidBudget = WaveBudget(waves, _raidShift, Run.PlayerCount, Economy.Complaint);
                 _raidCarry = 0;
                 _raidPulse = 0;
                 SetRaid(RaidState.Active, Run.PhaseEndTick);
@@ -774,6 +777,7 @@ namespace PerformativeMail.Sim
         {
             if (Raid == state) return;
             Raid = state;
+            RaidTick = tick;
             Events.Add(new RaidChangedEvent { Raid = state, Tick = tick });
         }
 

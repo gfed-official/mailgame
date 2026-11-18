@@ -36,6 +36,10 @@ namespace PerformativeMail.Client
         public bool Dead => Hp == 0;
         /// <summary>Stands protected after a respawn, as of the newest snapshot (nit 17).</summary>
         public bool Protected { get; private set; }
+        /// <summary>Has lost their connection and stands where they stood (doc 06 §6), as of the newest snapshot or event.</summary>
+        public bool Away { get; internal set; }
+        /// <summary>While away: the tick they are gone for good by.</summary>
+        public uint AwayUntilTick { get; internal set; }
         /// <summary>Server tick of the snapshot in which the health last dropped (the hit flash).</summary>
         public uint HurtTick { get; private set; }
         /// <summary>Server tick of this player's last hammer swing or cannon shot, and which it was.</summary>
@@ -67,6 +71,7 @@ namespace PerformativeMail.Client
             HeldSlot = snap.HeldSlot;
             Ready = snap.Ready;
             Protected = snap.Protected;
+            Away = snap.Away;
         }
 
         /// <summary>Interpolated pose at a (fractional) server tick; clamps to the oldest / newest sample.</summary>
@@ -197,8 +202,10 @@ namespace PerformativeMail.Client
         public EntityId LocalId { get; internal set; }
         public uint Seed { get; internal set; }
 
-        /// <summary>Every connected player including the local one.</summary>
+        /// <summary>Every player in the game including the local one, and whoever is away and may come back.</summary>
         public Dictionary<EntityId, ClientPlayer> Players { get; } = new Dictionary<EntityId, ClientPlayer>();
+        /// <summary>Whom the last <see cref="PlayerLeftEvent"/> took out of <see cref="Players"/>, for who tells of it.</summary>
+        public ClientPlayer? LastLeft { get; internal set; }
 
         /// <summary>Predicted movement state of the local player.</summary>
         public PlayerMoveState Local;
@@ -321,6 +328,17 @@ namespace PerformativeMail.Client
             {
                 int n = 0;
                 foreach (var p in Players.Values) if (p.Ready) n++;
+                return n;
+            }
+        }
+
+        /// <summary>The players who are connected: the ones Prep waits for.</summary>
+        public int PresentCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (var p in Players.Values) if (!p.Away) n++;
                 return n;
             }
         }

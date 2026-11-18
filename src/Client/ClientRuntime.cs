@@ -54,6 +54,11 @@ namespace PerformativeMail.Client
         public PlaytestFlags Playtest { get; }
         /// <summary>The shift this client asks runs to start at, 0 = the first.</summary>
         public int StartShift { get; }
+        /// <summary>
+        /// Who this client says it is (doc 06 §6): a server that still holds the body of a player who
+        /// said the same and lost their connection gives it back. 0: nobody in particular.
+        /// </summary>
+        public ulong Account { get; }
 
         /// <summary>Set by the input layer; sampled once per client tick.</summary>
         public ClientInput Input;
@@ -85,6 +90,7 @@ namespace PerformativeMail.Client
         private readonly InputsMsg _inputsMsg = new InputsMsg();
         private readonly Dictionary<uint, SimRequest> _pendingRequests = new Dictionary<uint, SimRequest>();
         private readonly List<ushort> _enemyScratch = new List<ushort>();
+        private readonly List<SimEvent> _early = new List<SimEvent>();
         private readonly uint _hammerCooldownTicks, _cannonCooldownTicks;
         private uint _hammerReadySeq, _cannonReadySeq;
         private uint _nextSeq = 1;
@@ -94,8 +100,10 @@ namespace PerformativeMail.Client
         private double _errorSumSq;
         private long _errorSamples;
 
-        public ClientRuntime(ContentDb content, IClientTransport transport, string name, PlaytestFlags playtest = PlaytestFlags.None, int startShift = 0)
+        public ClientRuntime(ContentDb content, IClientTransport transport, string name, PlaytestFlags playtest = PlaytestFlags.None, int startShift = 0,
+            ulong account = 0)
         {
+            Account = account;
             Playtest = playtest;
             StartShift = Math.Clamp(startShift, 0, byte.MaxValue);
             _content = content;
@@ -274,7 +282,7 @@ namespace PerformativeMail.Client
         {
             if (State != ClientState.Connecting) return;
             _writer.Reset();
-            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name, Playtest = Playtest, StartShift = (byte)StartShift }.Write(_writer);
+            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name, Playtest = Playtest, StartShift = (byte)StartShift, Account = Account }.Write(_writer);
             _transport.Send(NetChannel.Reliable, _writer.ToArray());
             State = ClientState.Joining;
         }
@@ -299,7 +307,9 @@ namespace PerformativeMail.Client
                         break;
                     case MsgType.Snapshot: HandleSnapshot(SnapshotMsg.Read(r)); break;
                     case MsgType.Events:
-                        foreach (var ev in EventsMsg.Read(r)) HandleEvent(ev);
+                        // The Welcome travels on a channel of its own: what overtakes it waits for it.
+                        if (World == null && State == ClientState.Joining) _early.AddRange(EventsMsg.Read(r));
+                        else foreach (var ev in EventsMsg.Read(r)) HandleEvent(ev);
                         break;
                     default: throw new NetFormatException($"unexpected message type {(byte)type}");
                 }
@@ -330,10 +340,14 @@ namespace PerformativeMail.Client
                 Global = m.Global,
                 GlobalTick = m.Tick,
                 ServerTick = m.Tick,
+                RaidTick = m.RaidTick,
+                LocalRespawnTick = m.RespawnTick,
+                LocalProtectedUntilTick = m.ProtectedUntilTick,
             };
             foreach (var p in m.Players) world.Players[p.Id] = new ClientPlayer(p.Id, p.Name, p.Slot);
             foreach (var b in m.Bags)
                 world.Bags[b.ContainerId] = new ClientBag { ContainerId = b.ContainerId, Owner = b.Owner, X = b.X, Z = b.Z, DespawnTick = b.DespawnTick };
+            foreach (var l in m.Loot) AddLoot(world, l);
             World = world;
             Input.YawRadians = map.PostOffice.SpawnYaw;
             Input.PitchRadians = 0f;
@@ -346,6 +360,18 @@ namespace PerformativeMail.Client
             // The server has parked this player already; its event may have come before the Welcome.
             if ((Playtest & PlaytestFlags.AtMailbox) != 0 && world.Players.TryGetValue(m.PlayerId, out var self))
                 FaceMailbox(world, PlaytestSpot.Mailbox(map, self.Slot));
+            foreach (var ev in _early) HandleEvent(ev);
+            _early.Clear();
+        }
+
+        private static void AddLoot(ClientWorld world, LootDroppedEvent e)
+        {
+            var loot = new ClientLoot
+            {
+                Id = e.LootId, X = e.X, Z = e.Z, EnemyKind = e.EnemyKind, Mega = e.Mega, Coins = e.Coins, DroppedTick = world.ServerTick,
+            };
+            loot.Items.AddRange(e.Items);
+            world.Loot[e.LootId] = loot;
         }
 
         /// <summary>
@@ -456,10 +482,21 @@ namespace PerformativeMail.Client
                     if (!world.Players.ContainsKey(e.Player)) world.Players[e.Player] = new ClientPlayer(e.Player, e.Name, e.Slot);
                     break;
                 case PlayerLeftEvent e:
+                    world.LastLeft = world.Players.TryGetValue(e.Player, out var leaver) ? leaver : null;
                     world.Players.Remove(e.Player);
                     // Their id is free for the next to join, who did not drop these.
                     foreach (var bag in world.Bags.Values)
                         if (bag.Owner == e.Player) bag.Owner = EntityId.None;
+                    break;
+                case PlayerAwayEvent e:
+                    if (world.Players.TryGetValue(e.Player, out var away))
+                    {
+                        away.Away = true;
+                        away.AwayUntilTick = e.UntilTick;
+                    }
+                    break;
+                case PlayerBackEvent e:
+                    if (world.Players.TryGetValue(e.Player, out var back)) back.Away = false;
                     break;
                 case ContainerStateEvent e:
                     if (LoadContainer(e.State) != null && e.State.ContainerId != world.HotbarId && e.State.ContainerId != world.InventoryId)
@@ -526,15 +563,8 @@ namespace PerformativeMail.Client
                     if (e.Killer == world.LocalId) world.LocalKills++;
                     break;
                 case LootDroppedEvent e:
-                {
-                    var loot = new ClientLoot
-                    {
-                        Id = e.LootId, X = e.X, Z = e.Z, EnemyKind = e.EnemyKind, Mega = e.Mega, Coins = e.Coins, DroppedTick = world.ServerTick,
-                    };
-                    loot.Items.AddRange(e.Items);
-                    world.Loot[e.LootId] = loot;
+                    AddLoot(world, e);
                     break;
-                }
                 case LootTakenEvent e:
                     if (e.Player == world.LocalId) world.LocalLootCoins += e.Coins;
                     if (e.Gone) world.Loot.Remove(e.LootId);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using PerformativeMail.Sim.Core;
 
 namespace PerformativeMail.Client.Meta
 {
@@ -36,6 +37,20 @@ namespace PerformativeMail.Client.Meta
 
         public static MetaProfile Create(string displayName) =>
             new MetaProfile { ProfileId = "local:" + Guid.NewGuid().ToString("N"), DisplayName = displayName };
+
+        /// <summary>
+        /// The account id a server knows this player by from one connection to the next (doc 06 §6),
+        /// until a platform gives a real one: the profile id in 64 bits, never 0.
+        /// </summary>
+        public ulong AccountId
+        {
+            get
+            {
+                var h = Fnv64.Create();
+                h.Add(ProfileId);
+                return h.Value == 0 ? 1 : h.Value;
+            }
+        }
 
         /// <summary>Rank 1 is where everybody starts; each <paramref name="xpPerRank"/> XP is one rank more (doc 01 §5.1).</summary>
         public int Rank(int xpPerRank) => 1 + RankXp / Math.Max(1, xpPerRank);

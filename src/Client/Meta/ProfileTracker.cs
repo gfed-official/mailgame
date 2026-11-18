@@ -41,8 +41,8 @@ namespace PerformativeMail.Client.Meta
         }
 
         /// <summary>
-        /// The stored profile, or a new one named <paramref name="defaultName"/>. A file that cannot be
-        /// read is set aside (not overwritten) and reported in <paramref name="problem"/>.
+        /// The stored profile, or a new one named <paramref name="defaultName"/>, stored at once. A
+        /// file that cannot be read is set aside (not overwritten) and reported in <paramref name="problem"/>.
         /// </summary>
         public static MetaProfile LoadOrCreate(IProfileStore store, string defaultName, out string? problem)
         {
@@ -58,7 +58,14 @@ namespace PerformativeMail.Client.Meta
                 try { store.SetAside(); }
                 catch (Exception aside) when (aside is IOException || aside is UnauthorizedAccessException) { problem += "; " + aside.Message; }
             }
-            return MetaProfile.Create(defaultName);
+            // Kept from the first launch on: a server gives a lost seat back to whoever has the same id (doc 06 §6).
+            var created = MetaProfile.Create(defaultName);
+            try { store.Write(created.ToJson()); }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                // The game goes on without it; the first Payday's save says what is wrong.
+            }
+            return created;
         }
 
         private void OnEvent(SimEvent ev)
