@@ -60,6 +60,8 @@ namespace PerformativeMail.Client.Presentation
 
         /// <summary>Blasts played so far (the smoke test looks for the one it fired).</summary>
         public int Blasts { get; private set; }
+        /// <summary>Those of them that hurt at least one raider.</summary>
+        public int BlastsThatHit { get; private set; }
         public int LootViewCount => _loot.Count;
         /// <summary>Death bags drawn in the world right now.</summary>
         public int BagViewCount => _bags.Count;
@@ -108,6 +110,7 @@ namespace PerformativeMail.Client.Presentation
                 }
                 case BlastEvent e:
                     Blast(new Vector3(e.X, 0.7f, e.Z));
+                    if (e.Hits > 0) BlastsThatHit++;
                     break;
                 case EnemyDiedEvent e:
                     Puff(new Vector3(e.X, 0.8f, e.Z), e.Mega ? 9 : 5, new Color("b9a892"), 0.45f);

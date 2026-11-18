@@ -38,7 +38,7 @@ namespace PerformativeMail.App
         private const float CannonFrom = 5f, CannonTo = 24f;
         private const int PlaytestStepFrames = 400, FightFrames = 2400, LootFrames = 300;
 
-        private int _ptStep, _ptFrames, _ptSwings, _ptShots, _ptBlasts, _ptDeaths, _ptProtected;
+        private int _ptStep, _ptFrames, _ptSwings, _ptShots, _ptBlasts, _ptBlastHits, _ptDeaths, _ptProtected;
         private uint _ptDeliveryTick;
         private bool _ptWasDead, _ptSawEnemyView, _ptSawTracker, _ptBadTracker, _ptSawHammer, _ptSawCannon, _ptSawCards, _ptBadBanner, _ptPicked;
         private int _ptMostSeen;
@@ -229,6 +229,7 @@ namespace PerformativeMail.App
                         _ptSwings = client.LocalHammerSwings;
                         _ptShots = client.LocalCannonShots;
                         _ptBlasts = _screen.Effects.Blasts;
+                        _ptBlastHits = _screen.Effects.BlastsThatHit;
                         NextPlaytestStep();
                     }
                     else if (_ptFrames > PlaytestStepFrames) Fail("Prep did not end after the only player readied up");
@@ -316,6 +317,9 @@ namespace PerformativeMail.App
                     Check(shots == PlaytestMask.PackageCount && client.CannonAmmo == 0 && !server.HasAmmo(player),
                         $"of {PlaytestMask.PackageCount} packages the host fired {shots} at the raid and has {client.CannonAmmo} left");
                     Check(_ptSawCannon && _screen.Effects.Blasts - _ptBlasts == shots, $"{shots} cannon shots: the cannon showed in the player's hands: {_ptSawCannon}, {_screen.Effects.Blasts - _ptBlasts} blasts");
+                    // Aimed at a raider, a package hits one: the playtest's cannon never did.
+                    int hit = _screen.Effects.BlastsThatHit - _ptBlastHits;
+                    Check(hit >= shots - 1, $"of {shots} packages fired at raiders {hit} hit one");
                     Check(_session.Feed.Entries.Any(e => e.Text.StartsWith("You felled ", StringComparison.Ordinal)), "the feed does not say a raider was felled");
                     Check(hud.RaidText == HudText.RaidTracker(world), $"with the raid beaten the tracker says \"{hud.RaidText}\"");
                     NextPlaytestStep();
@@ -393,7 +397,7 @@ namespace PerformativeMail.App
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
                     GD.Print($"[smoke] playtest: run started at shift {RaidPlaytestShift}; raid announced at the shift's start, {server.EnemiesSpawnedTotal} raiders in {waves.Pulses} pulses (most at once {_ptMostSeen}) felled with "
-                        + $"{client.LocalCannonShots - _ptShots} packages out of the cannon and {client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, protected for {_ptProtected} frames, loot +{HudText.Money(server.Economy.Wallet)}"
+                        + $"{client.LocalCannonShots - _ptShots} packages out of the cannon ({_screen.Effects.BlastsThatHit - _ptBlastHits} hit) and {client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, protected for {_ptProtected} frames, loot +{HudText.Money(server.Economy.Wallet)}"
                         + $"; quota missed and waived, on to shift {server.Run.Shift}");
                     Finish();
                     break;

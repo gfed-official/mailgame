@@ -57,6 +57,7 @@
   "hammerKnockback": 2.0,
   "cannonDamage": 40,
   "cannonBlastRadius": 2.0,
+  "cannonFuseRadius": 1.2,
   "cannonCooldownSeconds": 2.0,
   "cannonRange": 30,
   "cannonSpeed": 40,
@@ -68,6 +69,7 @@
 
   "respawnSeconds": 10,
   "respawnProtectionSeconds": 5,
+  "respawnYardMetres": 8,
   "raidStandoffMetres": 19,
   "enemyLeashMult": 1.5,
   "enemyProvokedSeconds": 6,

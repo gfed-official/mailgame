@@ -1,5 +1,5 @@
 {
-  "baseBudget": [0, 120, 220, 360, 560],
+  "baseBudget": [0, 120, 150, 185, 225],
   "waveScalePerExtraPlayer": 0.35,
   "soloMult": 0.8,
   "soloMaxPlayers": 2,

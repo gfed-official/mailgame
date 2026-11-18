@@ -26,12 +26,12 @@ namespace PerformativeMail.Sim
             public readonly float RespawnSeconds;
             public readonly float HammerDamage, HammerRange, HammerHalfArc, HammerKnockback;
             public readonly uint HammerCooldownTicks;
-            public readonly float CannonDamage, CannonBlastRadius, CannonRange, CannonStep;
+            public readonly float CannonDamage, CannonBlastRadius, CannonFuseRadius, CannonRange, CannonStep;
             public readonly uint CannonCooldownTicks;
             public readonly uint WindupTicks, FleeTicks, LootDespawnTicks, BagDespawnTicks;
             public readonly float FleeSpeedMult, LootPickupRange;
             public readonly uint ProtectionTicks, ProvokedTicks;
-            public readonly float RaidStandoff, LeashMult, WaitDistance;
+            public readonly float RaidStandoff, LeashMult, WaitDistance, YardRadius;
             public readonly int MaxAttackers;
 
             public CombatTuning(Balance b)
@@ -47,6 +47,7 @@ namespace PerformativeMail.Sim
                 HammerCooldownTicks = SimConstants.SecondsToTicks(b.GetDouble("hammerCooldownSeconds"));
                 CannonDamage = b.GetFloat("cannonDamage");
                 CannonBlastRadius = b.GetFloat("cannonBlastRadius");
+                CannonFuseRadius = b.GetFloat("cannonFuseRadius");
                 CannonRange = b.GetFloat("cannonRange");
                 CannonStep = b.GetFloat("cannonSpeed") * SimConstants.TickDt;
                 CannonCooldownTicks = SimConstants.SecondsToTicks(b.GetDouble("cannonCooldownSeconds"));
@@ -58,6 +59,7 @@ namespace PerformativeMail.Sim
                 BagDespawnTicks = SimConstants.SecondsToTicks(b.GetDouble("deathBagDespawnSeconds"));
                 ProtectionTicks = SimConstants.SecondsToTicks(b.GetDouble("respawnProtectionSeconds"));
                 ProvokedTicks = SimConstants.SecondsToTicks(b.GetDouble("enemyProvokedSeconds"));
+                YardRadius = b.GetFloat("respawnYardMetres");
                 RaidStandoff = b.GetFloat("raidStandoffMetres");
                 LeashMult = b.GetFloat("enemyLeashMult");
                 MaxAttackers = b.GetInt("maxAttackersPerCarrier");
@@ -71,13 +73,13 @@ namespace PerformativeMail.Sim
         private const float WindupSlack = 0.6f;
         /// <summary>Knockback travels at this speed.</summary>
         private const float PushSpeed = 12f;
-        /// <summary>How close a cannon package has to pass an enemy's body to go off.</summary>
-        private const float ShotRadius = 0.35f;
         /// <summary>The raiders' line: lanes across the street, ranks over this many metres towards the gate.</summary>
         private const int HoldLanes = 4, HoldRanks = 6;
         private const float HoldDeep = 6f;
         /// <summary>A raider this near its place on the line stands.</summary>
         private const float HoldSlack = 0.4f;
+        /// <summary>A cannon package that comes this close to an enemy's body has hit it.</summary>
+        private const float ShotRadius = 0.35f;
         private const uint LootSettleTicks = 15;
         private const uint LootRetryTicks = 30;
 
@@ -134,6 +136,9 @@ namespace PerformativeMail.Sim
                     if (Tick >= p.RespawnTick) Respawn(p);
                     continue;
                 }
+                // Out of the yard once its time is up, the protection does not come back by walking in
+                // again; and with no raider about there is nothing to be protected from.
+                if (p.ProtectedInYard && Tick >= p.ProtectedUntilTick && (_enemies.Count == 0 || !InYard(p))) p.ProtectedInYard = false;
                 if (p.Hp < p.MaxHp && Tick - p.LastDamageTick >= _combat.RegenDelayTicks)
                     p.Hp = MathF.Min(p.MaxHp, p.Hp + _combat.RegenPerTick);
             }
@@ -167,8 +172,9 @@ namespace PerformativeMail.Sim
         }
 
         /// <summary>
-        /// Back on their feet at the Post Office. In a fight they stand up protected (nit 17): for
-        /// a few seconds nothing hurts them and no raider goes for them, until they strike first.
+        /// Back on their feet at the Post Office. In a fight they stand up protected (nit 17):
+        /// nothing hurts them and no raider goes for them for a few seconds, and after those for
+        /// as long as they stay in the yard — until they hurt a raider themselves.
         /// </summary>
         private void Respawn(Player p, bool protect = true)
         {
@@ -177,13 +183,27 @@ namespace PerformativeMail.Sim
             p.Hp = p.MaxHp;
             p.LastDamageTick = 0;
             p.ProtectedUntilTick = protect ? Tick + _combat.ProtectionTicks : 0;
+            p.ProtectedInYard = protect;
             Events.Add(new PlayerRespawnedEvent { Player = p.Id, ProtectedUntilTick = p.ProtectedUntilTick });
             // What they carried lies in the bag where they fell.
             GivePlaytestPackages(p);
         }
 
         /// <summary>True while the carrier's protection after a respawn holds.</summary>
-        public bool Protected(Player p) => !p.Dead && Tick < p.ProtectedUntilTick;
+        public bool Protected(Player p) => !p.Dead && (Tick < p.ProtectedUntilTick || (p.ProtectedInYard && InYard(p)));
+
+        /// <summary>The Post Office's yard: respawnYardMetres around the pad, the Intake within it.</summary>
+        public bool InYard(Player p)
+        {
+            float dx = p.Move.X - Map.PostOffice.SpawnPadX, dz = p.Move.Z - Map.PostOffice.SpawnPadZ;
+            return dx * dx + dz * dz <= _combat.YardRadius * _combat.YardRadius;
+        }
+
+        private static void EndProtection(Player p)
+        {
+            p.ProtectedUntilTick = 0;
+            p.ProtectedInYard = false;
+        }
 
         private void HandleAttackInput(Player p, in PlayerInput input)
         {
@@ -199,8 +219,6 @@ namespace PerformativeMail.Sim
         private void SwingHammer(Player p)
         {
             p.HammerReadyTick = Tick + _combat.HammerCooldownTicks;
-            // Who strikes is in the fight again.
-            p.ProtectedUntilTick = 0;
             float yaw = PlayerInput.YawToRadians(p.Move.Yaw);
             float fx = -MathF.Sin(yaw), fz = -MathF.Cos(yaw);
             float damage = StatFor(p, Stat.MeleeDamage, _combat.HammerDamage);
@@ -236,7 +254,6 @@ namespace PerformativeMail.Sim
         {
             if (!TakeAmmo(p, p.Hotbar) && !TakeAmmo(p, p.Inventory)) return;
             p.CannonReadyTick = Tick + _combat.CannonCooldownTicks;
-            p.ProtectedUntilTick = 0;
             float yaw = PlayerInput.YawToRadians(p.Move.Yaw);
             float fx = -MathF.Sin(yaw), fz = -MathF.Cos(yaw);
             _shots.Add(new Shot { Owner = p.Id, X = p.Move.X + fx * 0.5f, Z = p.Move.Z + fz * 0.5f, DirX = fx, DirZ = fz });
@@ -293,10 +310,13 @@ namespace PerformativeMail.Sim
                     s.X = nx; s.Z = nz;
                     s.Travelled += step;
                     if (s.Travelled >= _combat.CannonRange) done = true;
+                    // A package goes off on a raider, and also beside one: at the point where it is
+                    // nearest to a raider it would pass within the fuse's reach, so the blast has them.
                     foreach (var e in _enemies)
                     {
-                        float dx = e.X - s.X, dz = e.Z - s.Z, reach = e.Radius + ShotRadius;
-                        if (dx * dx + dz * dz <= reach * reach) { done = true; break; }
+                        float dx = e.X - s.X, dz = e.Z - s.Z, distSq = dx * dx + dz * dz;
+                        float touch = e.Radius + ShotRadius, fuse = e.Radius + _combat.CannonFuseRadius;
+                        if (distSq <= touch * touch || (distSq <= fuse * fuse && dx * s.DirX + dz * s.DirZ <= 0f)) { done = true; break; }
                     }
                 }
                 if (!done) continue;
@@ -384,6 +404,8 @@ namespace PerformativeMail.Sim
             if (attacker != null)
             {
                 e.LastHitBy = attacker.Id;
+                // Who hurts a raider is in the fight again; a swing at the air is not a blow.
+                EndProtection(attacker);
                 // Whoever hurt it has its attention for a while, from however far the blow came.
                 e.ProvokedUntilTick = Tick + _combat.ProvokedTicks;
             }
@@ -822,7 +844,7 @@ namespace PerformativeMail.Sim
             foreach (var p in _players)
             {
                 if (p.Dead) Respawn(p, protect: false);
-                p.ProtectedUntilTick = 0;
+                EndProtection(p);
             }
         }
 

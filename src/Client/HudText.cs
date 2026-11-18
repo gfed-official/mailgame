@@ -319,12 +319,15 @@ namespace PerformativeMail.Client
             return s > 0 ? $"DOWN   ·   back on your feet in {s}" : "DOWN";
         }
 
-        /// <summary>Just back on their feet in a fight: how long nothing can touch the local player.</summary>
+        /// <summary>
+        /// Just back on their feet in a fight: how long nothing can touch the local player. Past the
+        /// seconds it is the yard that keeps them, for as long as they stay in it with raiders about.
+        /// </summary>
         public static string Protected(ClientWorld world)
         {
             if (!world.LocalProtected) return "";
             int s = (int)Math.Ceiling(world.ProtectedSecondsLeft);
-            return s > 0 ? $"PROTECTED   ·   {s} s, or until you strike" : "PROTECTED   ·   until you strike";
+            return s > 0 ? $"PROTECTED   ·   {s} s, or until you hit a raider" : "PROTECTED in the yard   ·   until you leave it or hit a raider";
         }
 
         /// <summary>The name over a carrier's head; one who has lost their connection is marked as long as they may come back.</summary>

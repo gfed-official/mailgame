@@ -579,9 +579,9 @@ namespace PerformativeMail.Sim.Content
             "playerHp", "hpRegenPerSecond", "hpRegenDelaySeconds", "respawnSeconds",
             "staminaSeconds", "staminaRegenSeconds", "staminaRecoverFraction",
             "hammerDamage", "hammerCooldownSeconds", "hammerRange", "hammerArcDegrees", "hammerKnockback",
-            "cannonDamage", "cannonBlastRadius", "cannonCooldownSeconds", "cannonRange", "cannonSpeed",
+            "cannonDamage", "cannonBlastRadius", "cannonFuseRadius", "cannonCooldownSeconds", "cannonRange", "cannonSpeed",
             "enemyWindupSeconds", "enemyFleeSeconds", "enemyFleeSpeedMult", "lootDespawnSeconds", "lootPickupRange",
-            "deathBagDespawnSeconds", "respawnProtectionSeconds", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
+            "deathBagDespawnSeconds", "respawnProtectionSeconds", "respawnYardMetres", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
             "maxAttackersPerCarrier", "attackerWaitMetres", "disconnectGraceSeconds",
             "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift",
         };

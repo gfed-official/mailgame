@@ -98,7 +98,7 @@ namespace PerformativeMail.Sim.Tests
             var waves = Db.Waves;
             Assert.Equal(0, waves.BudgetFor(1));
             Assert.Equal(120, waves.BudgetFor(2));
-            Assert.Equal(560, waves.BudgetFor(5));
+            Assert.Equal(225, waves.BudgetFor(5));
             Assert.Empty(waves.WeightsFor(1));
             Assert.DoesNotContain(waves.WeightsFor(2), w => w.Key.Id == "giant");
             Assert.Contains(waves.WeightsFor(3), w => w.Key.Id == "giant");
@@ -114,7 +114,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(120 * 0.8, SimWorld.WaveBudget(waves, 2, 1, 0), 6);
             Assert.Equal(120 * 1.35 * 0.8, SimWorld.WaveBudget(waves, 2, 2, 0), 6);
             Assert.Equal(120 * (1 + 0.35 * 3), SimWorld.WaveBudget(waves, 2, 4, 0), 6);
-            Assert.Equal(560 * (1 + 0.35 * 3) * 1.5, SimWorld.WaveBudget(waves, 5, 4, 50), 6);
+            Assert.Equal(225 * (1 + 0.35 * 3) * 1.5, SimWorld.WaveBudget(waves, 5, 4, 50), 6);
             Assert.Equal(0, SimWorld.WaveBudget(waves, 1, 4, 100), 6);
         }
 
@@ -316,6 +316,91 @@ namespace PerformativeMail.Sim.Tests
             Assert.InRange(blast.Z, 20f, 20.5f);
             Assert.Equal(23f, blast.X, 2);
             Assert.Equal(0, blast.Hits);
+        }
+
+        /// <summary>Fires one package at a point and steps until it has gone off.</summary>
+        private BlastEvent FireAt(SimWorld world, Player p, float x, float z)
+        {
+            float yaw = MathF.Atan2(-(x - p.Move.X), -(z - p.Move.Z));
+            int before = world.Events.OfType<BlastEvent>().Count();
+            Press(world, p, InputButtons.AltAttack, yaw);
+            for (int i = 0; i < Tps && world.Events.OfType<BlastEvent>().Count() == before; i++) Press(world, p, InputButtons.None, yaw);
+            Assert.Equal(before + 1, world.Events.OfType<BlastEvent>().Count());
+            return world.Events.OfType<BlastEvent>().Last();
+        }
+
+        [Theory]
+        [InlineData(0f)]
+        [InlineData(1.2f)]
+        [InlineData(-1.2f)]
+        public void APackageGoesOffAsItPassesARaider_AimedBesideItStillHits(float beside)
+        {
+            // The playtest's cannon never hit a raider: a package had to touch one to go off.
+            var world = NewWorld();
+            var p = PlayerOnTheStreet(world);
+            var home = world.Map.Destinations[0];
+            Assert.True(world.Give(p.Hotbar, ItemStack.OfMail(TestContent.Mail("small", home.Address, _nextMailId++))));
+            var raider = world.SpawnEnemy(Db.Enemy("barbarian"), 62f, 28f)!;
+
+            var blast = FireAt(world, p, 62f, 28f + beside);
+            Assert.Equal(1, blast.Hits);
+            Assert.Equal(20f, raider.Hp);
+            Assert.InRange(blast.X, 58f, 62f);
+        }
+
+        [Theory]
+        [InlineData(3.5f)]
+        [InlineData(-3.5f)]
+        public void APackageAimedWellWideFliesOn(float beside)
+        {
+            var world = NewWorld();
+            var p = PlayerOnTheStreet(world);
+            var home = world.Map.Destinations[0];
+            Assert.True(world.Give(p.Hotbar, ItemStack.OfMail(TestContent.Mail("small", home.Address, _nextMailId++))));
+            var raider = world.SpawnEnemy(Db.Enemy("barbarian"), 62f, 28f)!;
+
+            var blast = FireAt(world, p, 62f, 28f + beside);
+            Assert.Equal(0, blast.Hits);
+            Assert.Equal(60f, raider.Hp);
+            Assert.True(blast.X > 66f, $"went off at x {blast.X:0.0}");
+        }
+
+        [Fact]
+        public void FromThePad_FourPackagesAtTheRaidOnItsLine_AllHit()
+        {
+            // The playtest's cannon check: a carrier on the pad, the raid 19 m off, a hand that is a few degrees out.
+            var world = NewWorld(seed: 21);
+            var p = world.AddPlayer("carrier")!;
+            ReachShiftTwo(world, p);
+            var po = world.Map.PostOffice;
+            SimDriver.Teleport(p, po.SpawnPadX, po.SpawnPadZ);
+            RunUntil(world, () => world.RaidPulsesSpawned == 3, 271);
+            SimDriver.StepTicks(world, 14 * Tps);
+            Assert.True(world.Enemies.Count >= 4, $"{world.Enemies.Count} raiders");
+            var home = world.Map.Destinations[0];
+            for (int i = 0; i < 4; i++)
+            {
+                var package = ItemStack.OfMail(TestContent.Mail("small", home.Address, _nextMailId++, 2));
+                Assert.True(world.Give(p.Hotbar, package) || world.Give(p.Inventory, package));
+            }
+            p.MaxHp = p.Hp = 100000f;
+            world.Events.Clear();
+
+            float[] degreesOff = { 3f, -3f, 2f, -2f };
+            int hurt = 0;
+            foreach (float off in degreesOff)
+            {
+                var target = world.Enemies.OrderBy(e => Distance(e, p)).First();
+                float dx = target.X - p.Move.X, dz = target.Z - p.Move.Z, dist = MathF.Sqrt(dx * dx + dz * dz);
+                float yaw = MathF.Atan2(-dx, -dz) + off * MathF.PI / 180f;
+                var blast = FireAt(world, p, p.Move.X - MathF.Sin(yaw) * dist, p.Move.Z - MathF.Cos(yaw) * dist);
+                Assert.True(blast.Hits >= 1, $"the package aimed {off}° beside a raider {dist:0.0} m off hit nobody");
+                hurt += blast.Hits;
+                // Until the cannon is ready again.
+                for (int i = 0; i < 2 * Tps; i++) Press(world, p, InputButtons.None, yaw);
+            }
+            Assert.True(hurt >= 4);
+            Assert.False(world.HasAmmo(p));
         }
 
         // --- raiders ----------------------------------------------------------------------------
@@ -590,6 +675,25 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(world.Tick + 5 * Tps, back.ProtectedUntilTick);
             Assert.True(world.Protected(p));
 
+            // With no raider about, five seconds is all there is to it.
+            world.DamagePlayer(p, 30f);
+            Assert.Equal(p.MaxHp, p.Hp);
+            SimDriver.StepTicks(world, 5 * Tps);
+            Assert.False(world.Protected(p));
+            world.DamagePlayer(p, 30f);
+            Assert.Equal(p.MaxHp - 30f, p.Hp);
+        }
+
+        [Fact]
+        public void InTheYard_TheProtectionHoldsForAsLongAsTheyStay()
+        {
+            // The playtest's loop: down again the moment they stood up, raiders all around the pad.
+            var world = NewWorld();
+            var p = world.AddPlayer("carrier")!;
+            world.DamagePlayer(p, 1000f);
+            RunUntil(world, () => !p.Dead, 11);
+            var po = world.Map.PostOffice;
+
             // A raider right beside them: its blows do nothing, and it does not even try.
             var e = world.SpawnEnemy(Db.Enemy("barbarian"), p.Move.X + 1.2f, p.Move.Z)!;
             world.DamagePlayer(p, 30f, e.Def.Index);
@@ -600,39 +704,132 @@ namespace PerformativeMail.Sim.Tests
             Assert.NotEqual(EnemyState.Windup, e.State);
             Assert.True(Distance(e, p) > 8f, $"the raider is still {Distance(e, p):0.0} m from the pad");
 
-            // The five seconds are up.
+            // The five seconds are long up; on the pad and at the Intake nothing has changed.
+            SimDriver.StepTicks(world, 10 * Tps);
+            Assert.True(world.InYard(p));
+            Assert.True(world.Protected(p));
+            SimDriver.Teleport(p, po.IntakeX, po.IntakeZ + 1.5f);
             SimDriver.StepTicks(world, Tps);
+            Assert.True(world.InYard(p) && world.Protected(p));
+            var near = world.SpawnEnemy(Db.Enemy("barbarian"), p.Move.X + 3f, p.Move.Z + 3f)!;
+            SimDriver.StepTicks(world, 3 * Tps);
+            Assert.True(near.Target.IsNone);
+            Assert.Equal(p.MaxHp, p.Hp);
+
+            // Ten metres from the pad they are out of the yard, and coming back does not bring it back.
+            SimDriver.Teleport(p, po.SpawnPadX + 10f, po.SpawnPadZ);
+            world.Step();
+            Assert.False(world.InYard(p));
+            Assert.False(world.Protected(p));
+            SimDriver.Teleport(p, po.SpawnPadX, po.SpawnPadZ);
+            SimDriver.StepTicks(world, 2);
             Assert.False(world.Protected(p));
             world.DamagePlayer(p, 30f);
             Assert.Equal(p.MaxHp - 30f, p.Hp);
         }
 
-        [Theory]
-        [InlineData(InputButtons.Attack)]
-        [InlineData(InputButtons.AltAttack)]
-        public void TheirOwnFirstBlowEndsTheProtection(InputButtons button)
+        [Fact]
+        public void OutOfTheYardWithinTheFiveSeconds_TheProtectionLastsThemOut()
         {
             var world = NewWorld();
             var p = world.AddPlayer("carrier")!;
-            Assert.True(world.Give(p.Hotbar, ItemStack.OfMail(TestContent.Mail("small", world.Map.Destinations[0].Address, _nextMailId++))));
             world.DamagePlayer(p, 1000f);
             RunUntil(world, () => !p.Dead, 11);
-            // What they carried lies in the bag; the cannon needs a package in hand.
-            if (!world.HasAmmo(p)) Assert.True(world.Give(p.Hotbar, ItemStack.OfMail(TestContent.Mail("small", world.Map.Destinations[0].Address, _nextMailId++))));
+            var e = world.SpawnEnemy(Db.Enemy("barbarian"), 60f, 28f)!;
+            SimDriver.Teleport(p, 52f, 28f);
+            SimDriver.StepTicks(world, 4 * Tps);
+            Assert.True(world.Protected(p));
+            Assert.True(e.Target.IsNone);
+            Assert.Equal(p.MaxHp, p.Hp);
+            SimDriver.StepTicks(world, Tps + 1);
+            Assert.False(world.Protected(p));
+            SimDriver.StepTicks(world, Tps);
+            Assert.Equal(p.Id, e.Target);
+        }
+
+        [Theory]
+        [InlineData(InputButtons.Attack)]
+        [InlineData(InputButtons.AltAttack)]
+        public void ABlowThatLandsEndsTheProtection_OneAtTheAirDoesNot(InputButtons button)
+        {
+            var world = NewWorld();
+            var p = world.AddPlayer("carrier")!;
+            var home = world.Map.Destinations[0];
+            world.DamagePlayer(p, 1000f);
+            RunUntil(world, () => !p.Dead, 11);
+            for (int i = 0; i < 2; i++) Assert.True(world.Give(p.Hotbar, ItemStack.OfMail(TestContent.Mail("small", home.Address, _nextMailId++))));
             Assert.True(world.Protected(p));
             // Moving, jumping, hands in the Intake: none of it is a blow.
             world.QueueInput(p.Id, new PlayerInput { Seq = p.LastQueuedSeq + 1, MoveX = PlayerInput.QuantizeAxis(1f), Buttons = InputButtons.Jump | InputButtons.Sprint });
             world.Step();
             Assert.True(world.Protected(p));
 
-            Press(world, p, button);
+            // Nor is a swing at the air or a package into the wall: who hammers the button as they stand up loses nothing.
+            Press(world, p, button, yaw: MathF.PI / 2f);
             Assert.Single(world.Events.OfType<AttackEvent>());
+            SimDriver.StepTicks(world, Tps);
+            Assert.True(world.Protected(p));
+            world.DamagePlayer(p, 30f);
+            Assert.Equal(p.MaxHp, p.Hp);
+
+            // A raider is hurt: they are in the fight again, in the yard or not.
+            var e = world.SpawnEnemy(Db.Enemy("barbarian"), p.Move.X + 2f, p.Move.Z)!;
+            SimDriver.StepTicks(world, 2 * Tps);
+            Assert.True(e.Target.IsNone);
+            SimDriver.Teleport(p, e.X - 2f, e.Z);
+            Press(world, p, button);
+            for (int i = 0; i < 10 && e.Hp == e.MaxHp; i++) world.Step();
+            Assert.True(e.Hp < e.MaxHp);
             Assert.False(world.Protected(p));
-            var e = world.SpawnEnemy(Db.Enemy("barbarian"), p.Move.X + 1.2f, p.Move.Z)!;
             SimDriver.StepTicks(world, 2);
             Assert.Equal(p.Id, e.Target);
             world.DamagePlayer(p, 30f);
             Assert.Equal(p.MaxHp - 30f, p.Hp);
+        }
+
+        [Fact]
+        public void AFightOnThePad_WhoStandsUpInItIsLeftAlone_AndTakesTheirBagBack()
+        {
+            // The a5d987e playtest could not take a bag back by hand: down within a second of every revive.
+            var world = NewWorld();
+            var strong = world.AddPlayer("strong")!;
+            var p = world.AddPlayer("carrier")!;
+            StartDelivery(world, strong);
+            var po = world.Map.PostOffice;
+            var home = world.Map.Destinations[0];
+            strong.MaxHp = strong.Hp = 100000f;
+            Assert.True(world.Give(p.Hotbar, ItemStack.OfMail(TestContent.Mail("letter", home.Address, _nextMailId++))));
+            Assert.True(world.Give(p.Inventory, ItemStack.OfItem(Db.Item("stone"), 3)));
+            // The raid has followed the two of them home: eight raiders on the pad.
+            var pack = new List<Enemy>();
+            for (int i = 0; i < 8; i++) pack.Add(world.SpawnEnemy(Db.Enemy("barbarian"), po.SpawnPadX + 2f + i % 4, po.SpawnPadZ + 1f + i / 4)!);
+            RunUntil(world, () => p.Dead, 30);
+            var bag = Assert.Single(world.Bags);
+            Assert.True(world.InYard(p));
+
+            // Ten seconds later they stand up in the middle of it, and nobody turns to them.
+            RunUntil(world, () => !p.Dead, 11);
+            Assert.True(pack.Count(e => Distance(e, p) < 6f) >= 4, "the fight has left the pad");
+            for (int i = 0; i < 8 * Tps; i++)
+            {
+                world.Step();
+                Assert.Equal(p.MaxHp, p.Hp);
+                Assert.DoesNotContain(pack, e => e.Target == p.Id);
+            }
+            Assert.True(world.Protected(p));
+
+            // The bag lies where they fell, in the yard: they open it and take it all back.
+            Assert.True(SimDriver.WalkTo(world, p, bag.X, bag.Z, 1.2f));
+            Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.Open(0, bag.Id)));
+            foreach (uint entry in bag.Container.Entries.Select(e => e.EntryId).ToList())
+                Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.QuickMove(0, bag.Id, entry)));
+            Assert.Empty(world.Bags);
+            Assert.Equal(1, p.Hotbar.Entries.Count(e => e.Stack.Kind == StackKind.Mail));
+            ushort stone = Db.Item("stone").Index;
+            Assert.Equal(3, p.Hotbar.Entries.Concat(p.Inventory.Entries).Where(e => e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == stone).Sum(e => e.Stack.Count));
+            Assert.Equal(p.MaxHp, p.Hp);
+            Assert.True(strong.Hp < strong.MaxHp);
+            Assert.True(pack.Count(e => e.Target == strong.Id) >= 4);
         }
 
         [Fact]
@@ -703,7 +900,8 @@ namespace PerformativeMail.Sim.Tests
             Assert.True(world.Protected(other));
 
             // … where nobody waits for them: the Intake is theirs, and so is the time to load the cannon.
-            RunUntil(world, () => !world.Protected(other), 6);
+            SimDriver.StepTicks(world, 6 * Tps);
+            Assert.True(world.Protected(other));
             Assert.All(world.Enemies, e =>
             {
                 Assert.True(e.Target.IsNone);

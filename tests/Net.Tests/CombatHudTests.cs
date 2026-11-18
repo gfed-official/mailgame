@@ -170,13 +170,43 @@ namespace PerformativeMail.Net.Tests
 
             // Nit 17: back up means five seconds nobody can hurt them, and the HUD says so and counts them down.
             Assert.True(s.World.LocalProtected);
-            Assert.Matches("^PROTECTED   ·   [45] s, or until you strike$", HudText.Protected(s.World));
+            Assert.Matches("^PROTECTED   ·   [45] s, or until you hit a raider$", HudText.Protected(s.World));
             s.Sim.DamagePlayer(player, 40f, raider);
             s.Step(6);
             Assert.Equal("100", HudText.Health(s.World.LocalHp));
             Assert.True(s.StepUntil(() => !s.World.LocalProtected, 6));
             Assert.Equal("", HudText.Protected(s.World));
             s.Sim.DamagePlayer(player, 40f, raider);
+            s.Step(6);
+            Assert.Equal("60", HudText.Health(s.World.LocalHp));
+        }
+
+        [Fact]
+        public void WithRaidersAbout_TheYardKeepsWhoStoodUpInIt_AndTheBannerSaysUntilWhen()
+        {
+            var s = new Session();
+            var player = s.Sim.Players[0];
+            var po = s.Sim.Map.PostOffice;
+            var raider = s.Sim.SpawnEnemy(Shared.Content.Enemy("barbarian"), po.SpawnPadX + 3f, po.SpawnPadZ)!;
+            s.Sim.DamagePlayer(player, 999f, raider.Def.Index);
+            Assert.True(s.StepUntil(() => s.World.Local.Dead, 1));
+            Assert.True(s.StepUntil(() => !s.World.Local.Dead, 15));
+            Assert.Matches("^PROTECTED   ·   [45] s, or until you hit a raider$", HudText.Protected(s.World));
+
+            // The seconds run out with the raider still there: the banner stays, and so does their health.
+            s.Step(7 * 30);
+            Assert.True(s.World.LocalProtected);
+            Assert.Equal("PROTECTED in the yard   ·   until you leave it or hit a raider", HudText.Protected(s.World));
+            s.Sim.DamagePlayer(player, 40f, raider.Def.Index);
+            s.Step(6);
+            Assert.Equal("100", HudText.Health(s.World.LocalHp));
+
+            // Their own blow on it ends that, and the next one of the raider's counts.
+            s.Sim.DamageEnemy(raider, 10f, player);
+            s.Step(6);
+            Assert.False(s.World.LocalProtected);
+            Assert.Equal("", HudText.Protected(s.World));
+            s.Sim.DamagePlayer(player, 40f, raider.Def.Index);
             s.Step(6);
             Assert.Equal("60", HudText.Health(s.World.LocalHp));
         }
