@@ -273,7 +273,11 @@ with the mail cannon, the loot on the cards and in the wallet.
       fights the whole scheduled raid (15 raiders in 6 pulses) through the real HUD, takes the
       loot, misses the quota and stands in shift 3's Prep (`PlaytestTests`, `PlaytestFlowTests`,
       `CodecTests`; protocol `m1.5`; design choice 59)
-- [ ] Nit 11 — player ids are not reused
+- [x] Nit 11 — player ids are reused: a player's id is its seat (seat 0 is Player#1), and a
+      joiner takes the lowest free seat, so a guest who leaves and rejoins is Player#2 again
+      (`SimWorldTests.ALeaversIdAndSeatGoToTheNextToJoin`,
+      `CombatTests.WhoeverTakesALeaversId_InheritsNothingOfTheirFight`,
+      `LoopbackTests.AGuestWhoLeavesAndComesBack_IsPlayerTwoAgain_OnEveryScreen`; design choice 60)
 
 ### 3. Further features from `design/drive/`, in milestone order
 
@@ -662,6 +666,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     like any raid, and `--playtest-no-timer` does not hold it back (the clock it stops is the
     shift's). With flags, `--smoke` plays the raid playtest instead of the full run, and wants
     exactly `--shift=2 --no-quota --raid`.
+60. **Nit 11: free player ids are reused.** Decided yes: with at most eight players the number
+    after the name is how people tell each other apart ("Player#2", the seat colour), and it
+    should not creep up over an evening of joins. The id is now derived from the seat
+    (`EntityClass.Player`, seat + 1) instead of a counter, so id, seat and colour always go
+    together and no free-list is needed. What made the old rule safe was that an id never came
+    back; so leaving now wipes every place the sim kept that id (queued requests, enemies'
+    target and last-hit, shots in flight: a kill by a departed player's blow is nobody's), the
+    client drops the player on `PlayerLeft` before any `PlayerJoined` (reliable, in order), and
+    `PlayersView` rebuilds a view whose carrier object changed under the same id. Join order,
+    not the id, still picks the next host. Other entity classes keep never-reused ids.
 
 ## Commands
 

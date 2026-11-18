@@ -156,5 +156,50 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(before + carried, world.Intake.Entries.Sum(e => e.Stack.Count));
             Assert.Empty(world.Players);
         }
+
+        [Fact]
+        public void ALeaversIdAndSeatGoToTheNextToJoin()
+        {
+            // Playtest nit 11: a guest who leaves and comes back is Player#2 again, not Player#3.
+            var world = NewWorld();
+            var a = world.AddPlayer("a")!;
+            var b = world.AddPlayer("b")!;
+            var c = world.AddPlayer("c")!;
+            Assert.Equal(new uint[] { 1, 2, 3 }, new[] { a.Id.Counter, b.Id.Counter, c.Id.Counter });
+            Assert.Equal(new byte[] { 0, 1, 2 }, new[] { a.Slot, b.Slot, c.Slot });
+            Assert.Equal("Player#2", b.Id.ToString());
+            WaitForMail(world);
+            PickUpLetters(world, b);
+            uint oldHotbar = b.Hotbar.Id;
+            // A request of the one who leaves, still on its way in, is nobody's afterwards.
+            world.Submit(b.Id, SimRequest.Open(9, world.Intake.Id));
+
+            world.RemovePlayer(b.Id);
+            world.Events.Clear();
+            var again = world.AddPlayer("b again")!;
+            Assert.Equal((b.Id, b.Slot), (again.Id, again.Slot));
+            Assert.NotSame(b, again);
+            Assert.Same(again, world.GetPlayer(b.Id));
+            var joined = world.Events.OfType<PlayerJoinedEvent>().Single();
+            Assert.Equal((again.Id, "b again", (byte)1), (joined.Player, joined.Name, joined.Slot));
+            // A new carrier in every respect: own pockets, empty, on the pad.
+            Assert.NotEqual(oldHotbar, again.Hotbar.Id);
+            Assert.Null(world.GetContainer(oldHotbar));
+            Assert.Equal(0, again.Hotbar.EntryCount + again.Inventory.EntryCount);
+            Assert.Equal(0, again.Deliveries);
+            world.Step();
+            Assert.Empty(world.Events.OfType<RequestResultEvent>());
+            Assert.Equal(0u, again.OpenContainer);
+
+            // The first seat too; the host is whoever has been here longest, whatever their number.
+            world.RemovePlayer(a.Id);
+            Assert.Equal(c.Id, world.Run.Host);
+            var first = world.AddPlayer("d")!;
+            Assert.Equal((1u, (byte)0), (first.Id.Counter, first.Slot));
+            Assert.Equal(c.Id, world.Run.Host);
+            var fourth = world.AddPlayer("e")!;
+            Assert.Equal((4u, (byte)3), (fourth.Id.Counter, fourth.Slot));
+            Assert.Equal(4, world.Players.Select(p => p.Id).Distinct().Count());
+        }
     }
 }

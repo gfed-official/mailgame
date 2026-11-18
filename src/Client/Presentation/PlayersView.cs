@@ -46,9 +46,17 @@ namespace PerformativeMail.Client.Presentation
             foreach (var player in world.Players.Values)
             {
                 bool local = player.Id == world.LocalId;
-                if (!_views.TryGetValue(player.Id, out var view))
+                // Ids are used again (nit 11): the view of one who left is not the next one's.
+                if (_views.TryGetValue(player.Id, out var view) && view.Carrier != player)
                 {
-                    view = new PlayerView { Name = $"Player{player.Id.Counter}" };
+                    RemoveChild(view);
+                    view.QueueFree();
+                    _views.Remove(player.Id);
+                    view = null;
+                }
+                if (view == null)
+                {
+                    view = new PlayerView { Name = $"Player{player.Id.Counter}", Carrier = player };
                     view.Setup(player.Name, player.Slot, local);
                     AddChild(view);
                     _views[player.Id] = view;

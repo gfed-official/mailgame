@@ -142,13 +142,17 @@ namespace PerformativeMail.Sim
 
         // --- players --------------------------------------------------------------------------
 
-        /// <summary>Adds a player on the spawn pad. Returns null if the server is full.</summary>
+        /// <summary>
+        /// Adds a player on the spawn pad. Returns null if the server is full. The player takes the
+        /// lowest free seat and the id that goes with it (seat 0 is Player#1), so whoever comes
+        /// after a guest has left is Player#2 again (playtest nit 11).
+        /// </summary>
         public Player? AddPlayer(string name)
         {
             if (IsFull) return null;
             byte slot = 0;
             while (SlotTaken(slot)) slot++;
-            var id = _entityIds.Allocate(EntityClass.Player);
+            var id = new EntityId(EntityClass.Player, slot + 1u);
 
             SeatPosition(slot, out float px, out float pz);
             var hotbar = CreateContainer("hotbar", id, 0, 0);
@@ -190,6 +194,8 @@ namespace PerformativeMail.Sim
             _players.Remove(player);
             UpdateHostAfterLeave(id);
             _requests.RemoveAll(r => r.Player == id);
+            // The id is free for the next to join: nothing of the fight may still name the one who left.
+            ForgetInCombat(id);
             Events.Add(new PlayerLeftEvent { Player = id });
             if (_players.Count != 1) SetPaused(false);
         }

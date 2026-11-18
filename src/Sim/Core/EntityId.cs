@@ -34,7 +34,10 @@ namespace PerformativeMail.Sim.Core
         public override string ToString() => $"{Class}#{Counter}";
     }
 
-    /// <summary>Allocates ids per class; ids are never reused within a run.</summary>
+    /// <summary>
+    /// Allocates ids per class; ids are never reused within a run. Players are the exception and
+    /// are not allocated here: a player's id is its seat (<c>SimWorld.AddPlayer</c>).
+    /// </summary>
     public sealed class EntityIdAllocator
     {
         private readonly uint[] _next = new uint[8];

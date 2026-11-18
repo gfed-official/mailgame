@@ -24,6 +24,9 @@ namespace PerformativeMail.Client.Presentation
         private float _speed, _weaponLeft;
         private uint _attackTick, _hurtTick;
 
+        /// <summary>Whom this view shows.</summary>
+        public ClientPlayer? Carrier;
+
         public void Setup(string playerName, int slot, bool local)
         {
             Bodiless = local;

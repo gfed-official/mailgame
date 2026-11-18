@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using PerformativeMail.Client;
 using PerformativeMail.Client.Bot;
 using PerformativeMail.Server;
@@ -228,6 +229,52 @@ namespace PerformativeMail.Net.Tests
             s.Run(5);
             Assert.Single(s.Server.World.Players);
             Assert.Single(b.World.Players);
+        }
+
+        [Fact]
+        public void AGuestWhoLeavesAndComesBack_IsPlayerTwoAgain_OnEveryScreen()
+        {
+            // Playtest nit 11.
+            var s = new Session(quickStart: false);
+            var log = new List<string>();
+            s.Server.Log = log.Add;
+            var host = s.AddClient("Ada", bot: false);
+            var guest = s.AddClient("Bo", bot: false);
+            s.Run(10);
+            var first = guest.World!.LocalId;
+            Assert.Equal("Player#2", first.ToString());
+            Assert.Equal("Bo", host.World!.Players[first].Name);
+            var seen = host.World.Players[first];
+
+            guest.Disconnect();
+            s.Clients.Remove(guest);
+            s.Run(10);
+            Assert.False(host.World.Players.ContainsKey(first));
+
+            var back = s.AddClient("Bo", bot: false);
+            s.Run(10);
+            Assert.Equal(ClientState.Joined, back.State);
+            Assert.Equal(first, back.World!.LocalId);
+            Assert.Equal(2, log.Count(line => line == "Bo joined as Player#2"));
+            Assert.Equal(1, back.World.Players[first].Slot);
+            // The host knows a new carrier under the old number, where the server has them.
+            var now = host.World.Players[first];
+            Assert.NotSame(seen, now);
+            Assert.Equal(("Bo", (byte)1), (now.Name, now.Slot));
+            var truth = s.Server.World.GetPlayer(first)!;
+            Assert.True(now.Interpolate(host.World.ServerTick, out float x, out _, out float z, out _));
+            Assert.InRange(System.MathF.Abs(x - truth.Move.X) + System.MathF.Abs(z - truth.Move.Z), 0f, 0.05f);
+
+            // Somebody else may take the number in the very tick it comes free.
+            back.Disconnect();
+            s.Clients.Remove(back);
+            var other = s.AddClient("Cy", bot: false);
+            s.Run(10);
+            Assert.Equal(first, other.World!.LocalId);
+            Assert.Equal("Cy", host.World.Players[first].Name);
+            Assert.Equal(2, host.World.Players.Count);
+            Assert.Equal(2, s.Server.World.Players.Count);
+            Assert.Equal(0, host.BadPackets + other.BadPackets + host.ContainerDesyncs + other.ContainerDesyncs);
         }
 
         private sealed class RawClient : IClientTransportHandler

@@ -196,6 +196,41 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void WhoeverTakesALeaversId_InheritsNothingOfTheirFight()
+        {
+            // Player ids are used again (nit 11): a blow, a shot and a chase must not pass to the newcomer.
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            var guest = PlayerOnTheStreet(world);
+            var raider = world.SpawnEnemy(Db.Enemy("barbarian"), 52f, 28f)!;
+            var far = world.SpawnEnemy(Db.Enemy("barbarian"), 68f, 28f)!;
+            Press(world, guest, InputButtons.Attack);
+            Assert.Equal(guest.Id, raider.LastHitBy);
+            SimDriver.StepTicks(world, 5);
+            Assert.Equal(guest.Id, raider.Target);
+            var home = world.Map.Destinations[0];
+            Assert.True(world.Give(guest.Hotbar, ItemStack.OfMail(TestContent.Mail("small", home.Address, _nextMailId++))));
+            Press(world, guest, InputButtons.AltAttack);
+            Assert.Equal(guest.Id, world.Shots.Single().Owner);
+
+            world.RemovePlayer(guest.Id);
+            Assert.True(raider.LastHitBy.IsNone && raider.Target.IsNone && far.Target.IsNone);
+            Assert.True(world.Shots.Single().Owner.IsNone);
+            var next = world.AddPlayer("next")!;
+            Assert.Equal(guest.Id, next.Id);
+
+            // The package still lands, the raider it fells is nobody's kill, and nobody is paid for it.
+            raider.Hp = 1f;
+            world.Events.Clear();
+            for (int i = 0; i < 12 && world.Shots.Count > 0; i++) world.Step();
+            Assert.Empty(world.Shots);
+            var died = world.Events.OfType<EnemyDiedEvent>().Single();
+            Assert.Equal(raider.Id, died.Enemy);
+            Assert.True(died.Killer.IsNone);
+            Assert.Equal(0, next.Kills + host.Kills);
+        }
+
+        [Fact]
         public void ASwingAtNothingStillSwings()
         {
             var world = NewWorld();

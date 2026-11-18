@@ -315,6 +315,18 @@ namespace PerformativeMail.Sim
             return e;
         }
 
+        /// <summary>A player has left: their shots in the air and the blows they dealt are nobody's now.</summary>
+        private void ForgetInCombat(EntityId player)
+        {
+            foreach (var e in _enemies)
+            {
+                if (e.Target == player) e.Target = EntityId.None;
+                if (e.LastHitBy == player) e.LastHitBy = EntityId.None;
+            }
+            foreach (var s in _shots)
+                if (s.Owner == player) s.Owner = EntityId.None;
+        }
+
         public Enemy? GetEnemy(EntityId id)
         {
             foreach (var e in _enemies) if (e.Id == id) return e;
