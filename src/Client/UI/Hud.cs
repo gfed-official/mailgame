@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using PerformativeMail.Client.Meta;
 using PerformativeMail.Client.Presentation;
@@ -61,6 +62,35 @@ namespace PerformativeMail.Client.UI
         public PromptTone PromptMark => _mark.Tone;
         /// <summary>The lines along the edges, for the smoke's "nothing is clipped" check.</summary>
         public Control[] TopRow => new Control[] { _phase, _status, _quota, _wallet, _rank };
+        /// <summary>The top group from the top down: quota bar, the shift's line, clock bar. No two of them may touch (nit 14).</summary>
+        public Control[] TopStack => new Control[] { _quotaBar, _phase, _timeBar, _hint };
+        public Control TopPlate => _topPlate;
+
+        /// <summary>
+        /// Where no world label may be drawn (nit 14): the top plate and the hint under it, and the
+        /// banner while it says something. Not the ring in the middle: the address of the mailbox
+        /// being looked at stands right over it.
+        /// </summary>
+        public IReadOnlyList<ScreenBox> KeepClear()
+        {
+            _keepClear.Clear();
+            var top = _topPlate.GetGlobalRect();
+            _keepClear.Add(new ScreenBox(top.Position.X, 0f, top.End.X, top.End.Y));
+            if (_hint.Visible && _hint.Text.Length > 0) AddClear(_hint, HintClearWidth);
+            if (_banner.Visible) AddClear(_banner, BannerClearWidth);
+            return _keepClear;
+        }
+
+        /// <summary>A centred line of text keeps <paramref name="width"/> of its row clear, not the whole row it is laid out in.</summary>
+        private void AddClear(Control line, float width)
+        {
+            var rect = line.GetGlobalRect();
+            _keepClear.Add(ScreenBox.Around(rect.GetCenter().X, rect.GetCenter().Y, width, rect.Size.Y));
+        }
+
+        private const float HintClearWidth = 560f, BannerClearWidth = 640f;
+        private readonly List<ScreenBox> _keepClear = new List<ScreenBox>();
+        private Panel _topPlate = null!;
 
         private ClientRuntime _client = null!;
         private InteractionController _interaction = null!;
@@ -102,13 +132,20 @@ namespace PerformativeMail.Client.UI
             _hurt.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
             AddChild(_hurt);
 
-            // Top centre: what the shift has earned of its quota, the shift and its phase, the time left.
+            // Top centre: what the shift has earned of its quota, the shift and its phase, the time left,
+            // on a plate of their own so that the world behind cannot be read into them (nit 14).
+            _topPlate = new Panel { Name = "TopPlate", MouseFilter = MouseFilterEnum.Ignore };
+            var plate = new StyleBoxFlat { BgColor = new Color(0.06f, 0.1f, 0.16f, 0.6f), AntiAliasing = true };
+            plate.SetCornerRadiusAll(10);
+            _topPlate.AddThemeStyleboxOverride("panel", plate);
+            Place(_topPlate, 0.5f, 0f, -BarWidth * 0.5f - 14f, m - 10f, BarWidth * 0.5f + 14f, m + 70f);
+            AddChild(_topPlate);
             _quotaBar = AddBar("QuotaBar", 0.5f, 0f, -BarWidth * 0.5f, m, BarWidth * 0.5f, m + 8f, QuotaColour);
-            _phase = AddLabel("Phase", 20, 0.5f, 0f, -350f, m + 9f, 350f, m + 39f, HorizontalAlignment.Center);
-            _timeBar = AddBar("TimeBar", 0.5f, 0f, -BarWidth * 0.5f, m + 42f, BarWidth * 0.5f, m + 50f, Colors.White);
+            _phase = AddLabel("Phase", 20, 0.5f, 0f, -350f, m + 12f, 350f, m + 48f, HorizontalAlignment.Center);
+            _timeBar = AddBar("TimeBar", 0.5f, 0f, -BarWidth * 0.5f, m + 52f, BarWidth * 0.5f, m + 60f, Colors.White);
 
-            // What the run waits for and what the "go" key does, under the bars.
-            _hint = AddLabel("Hint", 18, 0.5f, 0f, -520f, m + 56f, 520f, m + 84f, HorizontalAlignment.Center);
+            // What the run waits for and what the "go" key does, under the plate.
+            _hint = AddLabel("Hint", 18, 0.5f, 0f, -520f, m + 74f, 520f, m + 102f, HorizontalAlignment.Center);
             _hint.Modulate = Palette.Amber;
 
             // The raid warning and the countdown while down: across the view, above the crosshair.

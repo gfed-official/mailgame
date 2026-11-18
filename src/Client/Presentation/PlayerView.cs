@@ -59,6 +59,8 @@ namespace PerformativeMail.Client.Presentation
                 PixelSize = 0.008f,
                 OutlineSize = 8,
                 Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                // Who somebody is matters more than an address behind them.
+                Rank = 2,
             });
         }
 

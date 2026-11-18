@@ -282,6 +282,19 @@ with the mail cannon, the loot on the cards and in the wallet; and, since the de
 
 ### 2b. Playtest nits 14–18 (`logs/fable52/nits-fa44a16.md`, 2026-11-17)
 
+- [x] Nit 14 — the shift's line lay on the white clock bar and a name tag lay on both: the top
+      group has room now (quota bar, 4 px, the line in a 36 px row, 4 px, clock bar; the hint
+      under it) and stands on a dark plate of its own, and no world label is drawn where it would
+      lie on the plate, the hint or the banner (`Hud.KeepClear`, `LabelDeclutterer`). The smoke
+      checks that the four rows do not touch, that they are on the plate, that the line fits it,
+      and every frame that no drawn label lies on the HUD (design choice 62)
+- [x] Nit 15 — far address labels piled up on each other and on the crosshair: a mailbox's
+      address thins out from 9 m and is gone at 15 m, a house number from 34 m to 46 m (INTAKE
+      30–42 m; POST OFFICE and name tags are read from anywhere), and where two labels would
+      still cover each other only one is drawn: the higher rank (name tag, then address and
+      sign, then house number), then the nearer. Fades take a fifth of a second.
+      `LabelDeclutter` is Godot-free (`LabelDeclutterTests`, 7); the smoke checks every frame that
+      no label is drawn past its distance (design choice 62)
 - [x] Nit 16 — objects leaked at exit (seen on both smoke passes here, in most runs: one `Image`
       and one `DummyTexture`, at times ENet peers too). Cause: a C# `Variant` that carries an
       object holds a reference of its own until the garbage collector finalises it, and what is
@@ -760,6 +773,18 @@ See "Commands" at the bottom (filled in as the tooling lands).
       emptied, how much mail went back); the Welcome lists the bags lying about. The client
       takes a bag off its list only after the feed has heard `BagGone`, so the line can still
       say whose it was. The countdown on the HUD is the despawn tick against the server clock.
+
+62. **Nits 14 and 15: which world labels are drawn.** The docs have no rule for world labels
+    (doc 09 only lists the HUD). Chosen: one pass a frame over all `SizedLabel3D`s
+    (`LabelDeclutterer`): each has a box on the screen (its capped height, its text's width, 6 px
+    of air), a distance fade and a rank; by rank, then nearest first, a label is drawn unless it
+    has faded out, lies on the HUD's keep-clear boxes or on a label already drawn. The distances
+    follow what each label is for: the address on a mailbox is for the last steps to it (the
+    prompt names it too), the number over a house is what is read from down the street, and
+    beyond half the street nothing is worth reading. The ring in the middle is not kept clear:
+    the address of the mailbox one looks at stands right over it. The top of the HUD got a plate
+    (as the trackers have) instead of more outline: the sky behind it goes from white sun to
+    night, and outlined text alone lost against both the bar and the world.
 
 ## Commands
 

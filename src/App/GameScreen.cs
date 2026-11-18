@@ -21,6 +21,7 @@ namespace PerformativeMail.App
         public FirstPersonCamera Camera { get; private set; } = null!;
         public Hud Hud { get; private set; } = null!;
         public InventoryPanel Inventory { get; private set; } = null!;
+        public LabelDeclutterer Labels { get; private set; } = null!;
 
         private GameSession _session = null!;
         private PlayerInputController? _input;
@@ -61,6 +62,10 @@ namespace PerformativeMail.App
             Inventory = new InventoryPanel();
             layer.AddChild(Inventory);
             Inventory.Setup(client);
+
+            // World labels thin out with distance, give way to nearer ones and stay off the HUD.
+            Labels = new LabelDeclutterer { Name = "Labels", KeepClear = Hud.KeepClear };
+            AddChild(Labels);
 
             if (!humanInput) return;
             _input = new PlayerInputController { Name = "Input" };

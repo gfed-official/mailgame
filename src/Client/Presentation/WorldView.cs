@@ -18,6 +18,12 @@ namespace PerformativeMail.Client.Presentation
         private const float GroundMargin = 24f;
         private const int TexelsPerMetre = 2;
         private const float GroundChunk = 16f;
+        /// <summary>
+        /// A mailbox's address is for the last steps to it; the number over the house is what is read
+        /// from down the street, and past half the street even that is only clutter (nit 15).
+        /// </summary>
+        public const float AddressFadeStart = 9f, AddressFadeEnd = 15f;
+        public const float NumberFadeStart = 34f, NumberFadeEnd = 46f;
 
         private static readonly Color PostOfficeWall = new Color("efe2c4");
         private static readonly Color PostOfficeRed = new Color("b23a34");
@@ -209,7 +215,9 @@ namespace PerformativeMail.Client.Presentation
             var frame = HouseBuilder.Frame(dest, out float width, out float depth);
             // The number floats above the gable that faces the mailbox: up close the label is small
             // (SizedLabel3D), and over the middle of the house the roof would hide it.
-            AddLabel(dest.Address.Number.ToString(), frame * new Vector3(0f, HouseBuilder.RidgeHeight(width) + 0.9f, depth * 0.5f), 160, colour.Lightened(0.5f));
+            var number = AddLabel(dest.Address.Number.ToString(), frame * new Vector3(0f, HouseBuilder.RidgeHeight(width) + 0.9f, depth * 0.5f), 160, colour.Lightened(0.5f));
+            number.Name = $"Number{dest.Address.Number}";
+            Fade(number, NumberFadeStart, NumberFadeEnd, 0);
         }
 
         private void AddMailbox(MeshBatch batch, DestinationDef dest)
@@ -228,6 +236,7 @@ namespace PerformativeMail.Client.Presentation
             batch.Frame = Transform3D.Identity;
             var label = MakeLabel(dest.Label, at + new Vector3(0f, 1.75f, 0f), 56, Colors.White, flat: false);
             label.Name = $"Mailbox{dest.Address.Number}";
+            Fade(label, AddressFadeStart, AddressFadeEnd, 1);
             AddChild(label);
             MailboxCount++;
         }
@@ -312,7 +321,8 @@ namespace PerformativeMail.Client.Presentation
                 for (int i = 0; i < 9; i++)
                     batch.Box(new Vector3(ix + (i - 4) * 0.5f, 2.95f, hd + 0.72f), new Vector3(0.5f, 0.07f, 1.6f), i % 2 == 0 ? red : cream, 0.02f, new Vector3(22f, 0f, 0f));
                 AddLight(frame * new Vector3(ix, 2.4f, hd + 1.0f), HouseBuilder.LanternLight, 8f, 0.5f, 1.8f);
-                AddLabel("POST OFFICE", frame * new Vector3(0f, top + rise + 1.2f, 0f), 160, Colors.White);
+                // The landmark of the street: read from anywhere.
+                Fade(AddLabel("POST OFFICE", frame * new Vector3(0f, top + rise + 1.2f, 0f), 160, Colors.White), 0f, 0f, 1);
                 batch.Frame = Transform3D.Identity;
             }
 
@@ -327,7 +337,9 @@ namespace PerformativeMail.Client.Presentation
             batch.Box(new Vector3(-0.95f, 1.15f, 0.4f), new Vector3(0.34f, 0.2f, 0.42f), MeshKit.Mat(new Color("fff8e7"), 0.7f), 0.03f, new Vector3(0f, -12f, 0f));
             batch.Frame = Transform3D.Identity;
             // Out from the wall, so the billboard does not turn into it.
-            AddLabel("INTAKE", intake + new Basis(Vector3.Up, intakeYaw) * new Vector3(0f, 1.7f, 0.7f), 72, Colors.White).Name = "Intake";
+            var sign = AddLabel("INTAKE", intake + new Basis(Vector3.Up, intakeYaw) * new Vector3(0f, 1.7f, 0.7f), 72, Colors.White);
+            sign.Name = "Intake";
+            Fade(sign, 30f, 42f, 1);
 
             AddChild(MeshKit.Instance(MeshKit.Cylinder(1.4f, 1.4f, 0.05f, 40), MeshKit.Mat(new Color("d9c9a3"), 0.9f), new Vector3(po.SpawnPadX, 0.025f, po.SpawnPadZ), name: "SpawnPad"));
             batch.Add(MeshKit.Cylinder(1.15f, 1.15f, 0.06f, 40), MeshKit.Mat(new Color("b23a34"), 0.8f), new Vector3(po.SpawnPadX, 0.026f, po.SpawnPadZ));
@@ -361,6 +373,15 @@ namespace PerformativeMail.Client.Presentation
                     Transform = new Transform3D(basis * new Basis(Vector3.Up, face < 0 ? Mathf.Pi : 0f), at + new Vector3(0f, 2.2f, 0f) + basis * new Vector3(0f, 0f, face * 0.045f)),
                 });
             }
+        }
+
+        /// <summary>From how far a label is read (nit 15) and which one stays where two would cover each other.</summary>
+        private static void Fade(Label3D label, float start, float end, int rank)
+        {
+            if (label is not SizedLabel3D sized) return;
+            sized.FadeStart = start;
+            sized.FadeEnd = end;
+            sized.Rank = rank;
         }
 
         private Label3D AddLabel(string text, Vector3 position, int fontSize, Color colour, bool flat = false)

@@ -63,8 +63,9 @@ namespace PerformativeMail.App
         private readonly HashSet<string> _shots = new HashSet<string>();
         private int _startWallet, _paid, _penalties, _deliveredEvents, _misdeliveredEvents, _mailArrived;
         private bool _sawIntakePrompt, _sawMailboxPrompt, _sawManifest, _sawCarriedMail, _sawMatchMark, _sawMismatchMark;
-        private float _spawnDistance, _maxEyeOffset, _maxAimOffset, _maxLabelOver;
-        private string _missingGlyphs = "", _biggestLabel = "";
+        private float _spawnDistance, _maxEyeOffset, _maxAimOffset, _maxLabelOver, _maxPhaseWidth;
+        private string _missingGlyphs = "", _biggestLabel = "", _farLabel = "", _hudLabel = "";
+        private int _maxLabelsHidden;
         private long _labels;
         private int _startXp, _startRuns, _startDeliveries, _ownDeliveries;
         private int _frames;
@@ -174,15 +175,31 @@ namespace PerformativeMail.App
             var forward = -camera.GlobalTransform.Basis.Z;
             _maxAimOffset = Mathf.Max(_maxAimOffset, forward.DistanceTo(new Vector3(ray.DirX, ray.DirY, ray.DirZ)));
             // World labels (house numbers, signs) are capped on screen however close the player stands.
-            foreach (var node in GetTree().GetNodesInGroup(SizedLabel3D.Group))
+            // And from far away they are gone (nit 15), as is any that would lie on the HUD (nit 14).
+            _screen.Labels.Step(0f);
+            _maxLabelsHidden = Math.Max(_maxLabelsHidden, _screen.Labels.Hidden);
+            var keepClear = _screen.Hud.KeepClear();
+            float screenHeight = GetViewport().GetVisibleRect().Size.Y;
+            foreach (var label in SizedLabel3D.Live)
             {
-                if (node is not SizedLabel3D label) continue;
                 _labels++;
                 float over = label.ScreenFraction(camera) / label.MaxScreenFraction;
-                if (over <= _maxLabelOver) continue;
-                _maxLabelOver = over;
-                _biggestLabel = label.Text;
+                if (over > _maxLabelOver)
+                {
+                    _maxLabelOver = over;
+                    _biggestLabel = label.Text;
+                }
+                if (camera.IsPositionBehind(label.GlobalPosition) || label.Target <= 0f) continue;
+                float distance = camera.GlobalPosition.DistanceTo(label.GlobalPosition);
+                if (label.FadeEnd > 0f && distance > label.FadeEnd && _farLabel.Length == 0) _farLabel = $"\"{label.Text}\" at {distance:0} m";
+                var at = camera.UnprojectPosition(label.GlobalPosition);
+                float tall = label.ScreenFraction(camera) * screenHeight;
+                var box = ScreenBox.Around(at.X, at.Y, tall * label.Aspect, tall);
+                foreach (var clear in keepClear)
+                    if (box.Overlaps(clear) && _hudLabel.Length == 0) _hudLabel = $"\"{label.Text}\" at {at}";
             }
+            var phase = _screen.Hud.TopStack[1];
+            _maxPhaseWidth = Mathf.Max(_maxPhaseWidth, phase.GetCombinedMinimumSize().X);
         }
 
         private void Shot(string name)
@@ -785,6 +802,9 @@ namespace PerformativeMail.App
             }
             Check(_labels > 0, "no world labels were checked");
             Check(_maxLabelOver <= 1.001f, $"the world label \"{_biggestLabel}\" grew to {_maxLabelOver:0.00} times its screen cap");
+            Check(_farLabel.Length == 0, $"the world label {_farLabel} was still drawn past its fade distance");
+            Check(_hudLabel.Length == 0, $"the world label {_hudLabel} was drawn on the HUD");
+            Check(_maxLabelsHidden > 0, "no world label was ever hidden: the street's far labels pile up");
 
             Check(_sawMatchMark, "the HUD never drew the match tick for a stack at its own mailbox");
             Check(_sawMismatchMark, "the HUD never drew the mismatch cross for a stack at a wrong mailbox");
@@ -797,6 +817,22 @@ namespace PerformativeMail.App
                 var min = control.GetCombinedMinimumSize();
                 Check(rect.Size.Y >= min.Y && rect.Size.X >= min.X, $"HUD {control.Name} is {rect.Size}, its text needs {min}");
             }
+
+            // The top group (nit 14): quota bar, the shift's line, clock bar and hint, each clear of the next, on their plate.
+            var stack = _screen.Hud.TopStack;
+            for (int i = 0; i + 1 < stack.Length; i++)
+            {
+                Rect2 upper = stack[i].GetGlobalRect(), lower = stack[i + 1].GetGlobalRect();
+                Check(upper.End.Y + 2f <= lower.Position.Y, $"HUD {stack[i].Name} (down to {upper.End.Y:0}) touches {stack[i + 1].Name} (from {lower.Position.Y:0})");
+            }
+            var plate = _screen.Hud.TopPlate.GetGlobalRect();
+            for (int i = 0; i < 3; i++)
+            {
+                var rect = stack[i].GetGlobalRect();
+                Check(plate.Position.Y <= rect.Position.Y && rect.End.Y <= plate.End.Y, $"HUD {stack[i].Name} at {rect} is not on the top plate {plate}");
+            }
+            Check(stack[1].GetGlobalRect().Size.Y >= stack[1].GetCombinedMinimumSize().Y, $"HUD {stack[1].Name} is {stack[1].GetGlobalRect().Size.Y:0} high, its text needs {stack[1].GetCombinedMinimumSize().Y:0}");
+            Check(_maxPhaseWidth > 0f && _maxPhaseWidth <= plate.Size.X - 16f, $"the shift's line grew to {_maxPhaseWidth:0} wide, the top plate is {plate.Size.X:0}");
 
             GD.Print($"[smoke] delivered {_bot.StacksDelivered} stacks ({_deliveredEvents} items, +{HudText.Money(_paid)}), "
                 + $"misdelivered {_bot.StacksMisdelivered} ({_misdeliveredEvents} items, -{HudText.Money(_penalties)}), "
