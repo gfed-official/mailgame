@@ -220,6 +220,30 @@ namespace PerformativeMail.Sim
     }
 
     /// <summary>
+    /// The cards of a Draft (doc 01 §2.5), the same for everybody, as indices into
+    /// ContentDb.Perks; sent just before the PhaseChanged into Draft.
+    /// </summary>
+    public sealed class DraftOfferEvent : SimEvent
+    {
+        public List<byte> Perks = new List<byte>();
+    }
+
+    /// <summary>A perk was taken: a personal one is <see cref="Player"/>'s, a team perk everybody's through them.</summary>
+    public sealed class PerkPickedEvent : SimEvent
+    {
+        /// <summary><see cref="Card"/> of a perk that did not come from a Draft card.</summary>
+        public const byte NoCard = 255;
+
+        public EntityId Player;
+        /// <summary>Index into ContentDb.Perks.</summary>
+        public byte Perk;
+        /// <summary>The card of the Draft's offer it was.</summary>
+        public byte Card = NoCard;
+        /// <summary>The Draft's clock ran out and the server chose for them.</summary>
+        public bool Auto;
+    }
+
+    /// <summary>
     /// The server put the player before a mailbox (<see cref="PlaytestFlags.AtMailbox"/>); only the
     /// player hears of it, and turns to look at the mailbox.
     /// </summary>

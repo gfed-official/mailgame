@@ -37,14 +37,15 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.9;" +
+            "m1.10;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
-            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause;" +
+            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick;" +
             "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u32 raidTick,u32 respawn,u32 protectedUntil,u8 chests,{u32 container},u8 bags,{u32 container,u32 owner,f32 x,f32 z,u32 despawn}," +
-            "u16 loot,{u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count}},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory;" +
+            "u16 loot,{u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count}},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory," +
+            "u16 perks,{u32 holder,u8 perk},u8 offer,{u8 perk},u8 picks,{u32 player,u8 card};" +
             "Reject:u8 reason;" +
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
             "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
@@ -52,7 +53,8 @@ namespace PerformativeMail.Sim.Net
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 playtest;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
-            "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone,playerAway,playerBack;" +
+            "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone,playerAway,playerBack,draftOffer,perkPicked;" +
+            "DraftOffer:u8 n,{u8 perk};PerkPicked:u32 player,u8 perk,u8 card,u8 auto;" +
             "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
             "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +
             "LootDropped:u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count};" +
@@ -168,6 +170,22 @@ namespace PerformativeMail.Sim.Net
         public uint DespawnTick;
     }
 
+    /// <summary>A perk of the run under way, as a joining client is told of it.</summary>
+    public struct PerkInfo
+    {
+        /// <summary>Whose personal perk it is; None for a team perk.</summary>
+        public EntityId Holder;
+        /// <summary>Index into ContentDb.Perks.</summary>
+        public byte Perk;
+    }
+
+    /// <summary>Who has taken which card of the Draft under way.</summary>
+    public struct DraftPickInfo
+    {
+        public EntityId Player;
+        public byte Card;
+    }
+
     /// <summary>Join state (doc 06 §5 step 4), small enough in M0 to be one message.</summary>
     public sealed class WelcomeMsg
     {
@@ -193,6 +211,11 @@ namespace PerformativeMail.Sim.Net
         public readonly List<PlayerInfo> Players = new List<PlayerInfo>();
         public ContainerState Hotbar = null!;
         public ContainerState Inventory = null!;
+        /// <summary>The perks of the run so far, in the order they were taken; later ones come as events.</summary>
+        public readonly List<PerkInfo> Perks = new List<PerkInfo>();
+        /// <summary>In a Draft: its cards, and who has taken which.</summary>
+        public readonly List<byte> DraftOffer = new List<byte>();
+        public readonly List<DraftPickInfo> DraftPicks = new List<DraftPickInfo>();
 
         public void Write(NetWriter w)
         {
@@ -215,6 +238,12 @@ namespace PerformativeMail.Sim.Net
             foreach (var p in Players) { w.U32(p.Id.Value); w.Str(p.Name); w.U8(p.Slot); }
             ContainerCodec.WriteState(w, Hotbar);
             ContainerCodec.WriteState(w, Inventory);
+            w.U16((ushort)Perks.Count);
+            foreach (var p in Perks) { w.U32(p.Holder.Value); w.U8(p.Perk); }
+            w.U8((byte)DraftOffer.Count);
+            foreach (byte perk in DraftOffer) w.U8(perk);
+            w.U8((byte)DraftPicks.Count);
+            foreach (var p in DraftPicks) { w.U32(p.Player.Value); w.U8(p.Card); }
         }
 
         public static WelcomeMsg Read(NetReader r)
@@ -248,6 +277,12 @@ namespace PerformativeMail.Sim.Net
                 m.Players.Add(new PlayerInfo { Id = new EntityId(r.U32()), Name = r.Str(), Slot = r.U8() });
             m.Hotbar = ContainerCodec.ReadState(r);
             m.Inventory = ContainerCodec.ReadState(r);
+            int perks = r.U16();
+            for (int i = 0; i < perks; i++) m.Perks.Add(new PerkInfo { Holder = new EntityId(r.U32()), Perk = r.U8() });
+            int offer = r.U8();
+            for (int i = 0; i < offer; i++) m.DraftOffer.Add(r.U8());
+            int picks = r.U8();
+            for (int i = 0; i < picks; i++) m.DraftPicks.Add(new DraftPickInfo { Player = new EntityId(r.U32()), Card = r.U8() });
             return m;
         }
     }

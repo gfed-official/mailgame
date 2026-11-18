@@ -42,7 +42,7 @@ namespace PerformativeMail.Net.Tests
 
             public Session(bool quickStart = true)
             {
-                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 3, QuickStart = quickStart }, Hub) { Log = Log.Add };
+                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 3, QuickStart = quickStart, Draft = false }, Hub) { Log = Log.Add };
             }
 
             public SimWorld Sim => Server.World;

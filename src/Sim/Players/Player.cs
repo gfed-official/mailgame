@@ -75,6 +75,8 @@ namespace PerformativeMail.Sim.Players
         public readonly StatSheet Stats = new StatSheet();
         /// <summary>Until this tick the speed of a correct delivery lasts (<see cref="Stat.DeliveryBoost"/>); 0: none.</summary>
         public uint BoostUntilTick;
+        /// <summary>The card of the Draft under way this carrier has taken; -1: none yet.</summary>
+        public sbyte DraftPick = -1;
 
         public bool Dead => Move.Dead;
         /// <summary>Health as the snapshot carries it: 0 dead, 1..255 alive.</summary>

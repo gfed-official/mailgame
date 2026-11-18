@@ -35,6 +35,8 @@ namespace PerformativeMail.Sim.Net
         BagGone = 25,
         PlayerAway = 26,
         PlayerBack = 27,
+        DraftOffer = 28,
+        PerkPicked = 29,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -170,6 +172,15 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.PlayerBack);
                     w.U32(e.Player.Value);
                     break;
+                case DraftOfferEvent e:
+                    w.U8((byte)EventType.DraftOffer);
+                    w.U8((byte)e.Perks.Count);
+                    foreach (byte perk in e.Perks) w.U8(perk);
+                    break;
+                case PerkPickedEvent e:
+                    w.U8((byte)EventType.PerkPicked);
+                    w.U32(e.Player.Value); w.U8(e.Perk); w.U8(e.Card); w.Bool(e.Auto);
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -291,6 +302,15 @@ namespace PerformativeMail.Sim.Net
                     return new PlayerAwayEvent { Player = new EntityId(r.U32()), UntilTick = r.U32() };
                 case EventType.PlayerBack:
                     return new PlayerBackEvent { Player = new EntityId(r.U32()) };
+                case EventType.DraftOffer:
+                {
+                    var e = new DraftOfferEvent();
+                    int n = r.U8();
+                    for (int i = 0; i < n; i++) e.Perks.Add(r.U8());
+                    return e;
+                }
+                case EventType.PerkPicked:
+                    return new PerkPickedEvent { Player = new EntityId(r.U32()), Perk = r.U8(), Card = r.U8(), Auto = r.Bool() };
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

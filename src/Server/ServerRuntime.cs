@@ -225,6 +225,13 @@ namespace PerformativeMail.Server
             }
             foreach (var p in World.Players)
                 welcome.Players.Add(new PlayerInfo { Id = p.Id, Name = p.Name, Slot = p.Slot });
+            foreach (var perk in World.TeamPerks) welcome.Perks.Add(new PerkInfo { Perk = perk.Index });
+            foreach (var p in World.Players)
+            {
+                foreach (var perk in p.Perks) welcome.Perks.Add(new PerkInfo { Holder = p.Id, Perk = perk.Index });
+                if (p.DraftPick >= 0) welcome.DraftPicks.Add(new DraftPickInfo { Player = p.Id, Card = (byte)p.DraftPick });
+            }
+            foreach (var perk in World.DraftOffer) welcome.DraftOffer.Add(perk.Index);
             _writer.Reset();
             welcome.Write(_writer);
             _transport.Send(client.Connection, NetChannel.Bulk, _writer.ToArray());

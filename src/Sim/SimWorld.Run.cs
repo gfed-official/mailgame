@@ -8,8 +8,8 @@ using PerformativeMail.Sim.Run;
 namespace PerformativeMail.Sim
 {
     /// <summary>
-    /// The run state machine (doc 01 §1): Lobby → Prep → Delivery → Payday → next shift's Prep, or
-    /// Results once the quota is missed or the last shift is paid, then back to the Lobby.
+    /// The run state machine (doc 01 §1): Lobby → Prep → Delivery → Payday → Draft → next shift's
+    /// Prep, or Results once the quota is missed or the last shift is paid, then back to the Lobby.
     /// </summary>
     public sealed partial class SimWorld
     {
@@ -41,6 +41,9 @@ namespace PerformativeMail.Sim
                     break;
                 case RunPhase.Payday:
                     if (Tick >= Run.PhaseEndTick) EndPayday();
+                    break;
+                case RunPhase.Draft:
+                    if (Tick >= Run.PhaseEndTick || DraftSettled()) EndDraft();
                     break;
                 case RunPhase.Results:
                     if (Run.PhaseEndTick != 0 && Tick >= Run.PhaseEndTick) ReturnToLobby();
@@ -181,7 +184,7 @@ namespace PerformativeMail.Sim
             bool met = Run.LastSummary!.QuotaMet;
             if (!met && !QuotaWaived) BeginResults(RunOutcome.QuotaMissed);
             else if (Run.Shift >= ShiftCount) BeginResults(met ? RunOutcome.Victory : RunOutcome.QuotaMissed);
-            else
+            else if (!BeginDraft())
             {
                 Run.Shift++;
                 BeginShift();

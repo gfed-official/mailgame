@@ -21,7 +21,7 @@ namespace PerformativeMail.Sim.Tests
 
         private uint _nextRequest = 1;
 
-        private static SimWorld NewWorld() => new SimWorld(TestContent.Db, new SimSettings { Seed = 7 });
+        private static SimWorld NewWorld() => new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Draft = false });
 
         private OpResult Request(SimWorld world, Player p, SimRequest request)
         {
@@ -396,7 +396,7 @@ namespace PerformativeMail.Sim.Tests
         [Fact]
         public void NoQuota_AMetQuotaStillCounts_AndTheLastOneIsAVictory()
         {
-            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Raids = false });
+            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Raids = false, Draft = false });
             var host = world.AddPlayer("host")!;
             world.SetPlaytest(host, PlaytestFlags.NoQuota, world.ShiftCount);
             StartDelivery(world, host);
@@ -519,7 +519,7 @@ namespace PerformativeMail.Sim.Tests
         [Fact]
         public void RaidNow_WithRaidsSwitchedOff_NothingComes()
         {
-            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Raids = false });
+            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Raids = false, Draft = false });
             var host = world.AddPlayer("host")!;
             world.SetPlaytest(host, PlaytestFlags.RaidNow);
             StartDelivery(world, host);

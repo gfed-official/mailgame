@@ -40,7 +40,7 @@ namespace PerformativeMail.App
 
         private int _ptStep, _ptFrames, _ptSwings, _ptShots, _ptBlasts, _ptDeaths, _ptProtected;
         private uint _ptDeliveryTick;
-        private bool _ptWasDead, _ptSawEnemyView, _ptSawTracker, _ptBadTracker, _ptSawHammer, _ptSawCannon, _ptSawCards, _ptBadBanner;
+        private bool _ptWasDead, _ptSawEnemyView, _ptSawTracker, _ptBadTracker, _ptSawHammer, _ptSawCannon, _ptSawCards, _ptBadBanner, _ptPicked;
         private int _ptMostSeen;
         private readonly List<(float X, float Z)> _ptPath = new List<(float, float)>();
         private int _ptWaypoint;
@@ -375,7 +375,14 @@ namespace PerformativeMail.App
                         if (_ptFrames > PlaytestStepFrames) Fail("Payday did not end");
                         break;
                     }
-                    if (_ptFrames < PlaytestStepFrames && world.Global.Shift != server.Run.Shift) break;
+                    if (world.Global.Phase == RunPhase.Draft)
+                    {
+                        // The Draft between the two shifts: a card, and on.
+                        if (!_ptPicked && world.FirstOpenCard >= 0) _ptPicked = client.PickPerk(world.FirstOpenCard) != 0;
+                        if (_ptFrames > 2 * PlaytestStepFrames) Fail("the Draft did not end");
+                        break;
+                    }
+                    if (_ptFrames < 2 * PlaytestStepFrames && world.Global.Shift != server.Run.Shift) break;
                     string want = $"Shift {RaidPlaytestShift + 1} / {HudText.ShiftCount(world.Content)}   PREP";
                     Check(server.Run.Phase == RunPhase.Prep && server.Run.Shift == RaidPlaytestShift + 1 && server.Run.Outcome == RunOutcome.None && server.Run.Results == null,
                         $"after the missed quota the server is in {server.Run.Phase} of shift {server.Run.Shift} ({server.Run.Outcome})");

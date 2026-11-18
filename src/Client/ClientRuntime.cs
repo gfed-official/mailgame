@@ -173,6 +173,17 @@ namespace PerformativeMail.Client
         public uint SetPaused(bool paused) => Send(SimRequest.SetPaused(0, paused));
 
         /// <summary>
+        /// Takes a card of the Draft (doc 01 §2.5). Returns the request id, 0 where there is nothing
+        /// to ask: no Draft, no such card, a card that is not open to this player, or a choice made.
+        /// </summary>
+        public uint PickPerk(int card)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || world.Global.Phase != RunPhase.Draft) return 0;
+            return world.CardState(card) == OpResult.Ok ? Send(SimRequest.PickPerk(0, card)) : 0;
+        }
+
+        /// <summary>
         /// The pause key (doc 09 §2.12): resumes a paused run; pauses one this client hosts alone.
         /// Returns the request id, 0 where the key does not pause (multiplayer never pauses).
         /// </summary>
@@ -348,6 +359,12 @@ namespace PerformativeMail.Client
             foreach (var b in m.Bags)
                 world.Bags[b.ContainerId] = new ClientBag { ContainerId = b.ContainerId, Owner = b.Owner, X = b.X, Z = b.Z, DespawnTick = b.DespawnTick };
             foreach (var l in m.Loot) AddLoot(world, l);
+            foreach (var perk in m.Perks)
+                if (perk.Perk < _content.Perks.Count) world.AddPerk(perk.Holder, _content.Perks[perk.Perk]);
+            foreach (byte perk in m.DraftOffer)
+                if (perk < _content.Perks.Count) world.DraftOffer.Add(_content.Perks[perk]);
+            foreach (var pick in m.DraftPicks)
+                if (world.Players.TryGetValue(pick.Player, out var picker)) picker.DraftPick = pick.Card;
             World = world;
             Input.YawRadians = map.PostOffice.SpawnYaw;
             Input.PitchRadians = 0f;
@@ -537,10 +554,23 @@ namespace PerformativeMail.Client
                         world.LastSummary = null;
                         world.LocalKills = 0;
                         world.LocalLootCoins = 0;
+                        world.ClearPerks();
                     }
                     if (e.Phase != RunPhase.Results) world.Results = null;
+                    // The offer comes just before the phase it is for.
+                    if (e.Phase != RunPhase.Draft) world.ClearDraft();
                     break;
                 }
+                case DraftOfferEvent e:
+                    world.ClearDraft();
+                    foreach (byte perk in e.Perks)
+                        if (perk < _content.Perks.Count) world.DraftOffer.Add(_content.Perks[perk]);
+                    break;
+                case PerkPickedEvent e:
+                    if (e.Perk >= _content.Perks.Count) break;
+                    world.AddPerk(e.Player, _content.Perks[e.Perk]);
+                    if (e.Card != PerkPickedEvent.NoCard && world.Players.TryGetValue(e.Player, out var picked)) picked.DraftPick = e.Card;
+                    break;
                 case PausedChangedEvent e:
                     world.Paused = e.Paused;
                     if (e.Paused) world.ServerTick = e.Tick;

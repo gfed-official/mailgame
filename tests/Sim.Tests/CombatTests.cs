@@ -23,7 +23,7 @@ namespace PerformativeMail.Sim.Tests
         private static ContentDb Db => TestContent.Db;
 
         private static SimWorld NewWorld(uint seed = 7, bool raids = true) =>
-            new SimWorld(Db, new SimSettings { Seed = seed, Raids = raids });
+            new SimWorld(Db, new SimSettings { Seed = seed, Raids = raids, Draft = false });
 
         private OpResult Request(SimWorld world, Player p, SimRequest request)
         {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
@@ -29,6 +30,8 @@ namespace PerformativeMail.Client.Bot
         public int MinPlayersToStart = 1;
         /// <summary>Hit raiders that come within the hammer's reach.</summary>
         public bool Fights = true;
+        /// <summary>Take a card in the Draft (with <see cref="AutoRun"/>); otherwise the Draft's clock chooses.</summary>
+        public bool PicksPerks = true;
 
         public int StacksDelivered { get; private set; }
         public int StacksMisdelivered { get; private set; }
@@ -66,7 +69,8 @@ namespace PerformativeMail.Client.Bot
             _lastResult = result;
             // A request that crosses a phase change (the shift ended while the hand was in the mailbox) is not a fault.
             // Neither is one answered while the bot lay on the ground.
-            if (result != OpResult.Ok && result != OpResult.WrongPhase && result != OpResult.Dead)
+            // Nor is a card somebody else took in the same moment.
+            if (result != OpResult.Ok && result != OpResult.WrongPhase && result != OpResult.Dead && result != OpResult.PerkTaken)
             {
                 RequestsRejected++;
                 LastRejection = result;
@@ -166,7 +170,7 @@ namespace PerformativeMail.Client.Bot
                     {
                         LookAt(world, AimBox.Mailbox(world.Map, _targetDest));
                         // Manual insert is a hold (doc 03 §2.1), timed on the client.
-                        _holdTicks = (int)Math.Ceiling(_targetDest.Type.ManualInsertHold * 30f) + 1;
+                        _holdTicks = (int)Math.Ceiling(world.LocalStat(Stat.InsertHold, _targetDest.Type.ManualInsertHold) * 30f) + 1;
                         _step = Step.Hold;
                     }
                     break;
@@ -211,6 +215,15 @@ namespace PerformativeMail.Client.Bot
             }
             if (_goCooldown > 0) { _goCooldown--; return; }
             if (!AutoRun) return;
+            if (world.Global.Phase == RunPhase.Draft)
+            {
+                // Any card will do: the first that is open to this player.
+                int card = PicksPerks ? world.FirstOpenCard : -1;
+                if (card < 0) return;
+                _awaiting = _client.PickPerk(card);
+                _goCooldown = 15;
+                return;
+            }
 
             bool go;
             switch (world.Global.Phase)

@@ -49,5 +49,22 @@ namespace PerformativeMail.Sim.Perks
 
         /// <summary>Exclusion holds in both directions, whichever of the two names the other.</summary>
         public bool ConflictsWith(PerkDef other) => ExcludesPerk(other) || other.ExcludesPerk(this);
+
+        /// <summary>True if any other perk of <paramref name="held"/> and this one exclude each other.</summary>
+        public bool ConflictsWithAny(IReadOnlyList<PerkDef> held)
+        {
+            for (int i = 0; i < held.Count; i++)
+                if (!ReferenceEquals(held[i], this) && ConflictsWith(held[i])) return true;
+            return false;
+        }
+
+        /// <summary>How often this perk is among <paramref name="held"/>.</summary>
+        public int StacksIn(IReadOnlyList<PerkDef> held)
+        {
+            int n = 0;
+            for (int i = 0; i < held.Count; i++)
+                if (ReferenceEquals(held[i], this)) n++;
+            return n;
+        }
     }
 }

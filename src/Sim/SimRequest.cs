@@ -18,6 +18,8 @@ namespace PerformativeMail.Sim
         ContinueRun = 8,
         /// <summary>Host, alone on the server: freeze or resume the tick (<see cref="SimRequest.Count"/> 1 or 0).</summary>
         SetPaused = 9,
+        /// <summary>Draft: take the card of the offer at index <see cref="SimRequest.Count"/>.</summary>
+        PickPerk = 10,
     }
 
     /// <summary>
@@ -72,5 +74,8 @@ namespace PerformativeMail.Sim
 
         public static SimRequest SetPaused(uint reqId, bool paused) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetPaused, Count = (ushort)(paused ? 1 : 0) };
+
+        public static SimRequest PickPerk(uint reqId, int card) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.PickPerk, Count = (ushort)card };
     }
 }

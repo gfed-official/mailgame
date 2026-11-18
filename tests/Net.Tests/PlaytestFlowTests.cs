@@ -28,7 +28,7 @@ namespace PerformativeMail.Net.Tests
 
             public Session(bool quickStart = false)
             {
-                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 3, QuickStart = quickStart }, Hub);
+                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 3, QuickStart = quickStart, Draft = false }, Hub);
                 Server.Log = Log.Add;
             }
 

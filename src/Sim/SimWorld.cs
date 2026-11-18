@@ -23,6 +23,11 @@ namespace PerformativeMail.Sim
         public bool QuickStart;
         /// <summary>Night raids (doc 05 §3). Off for tests and tools that want the shifts to themselves.</summary>
         public bool Raids = true;
+        /// <summary>
+        /// The perk Draft between a Payday and the next shift (doc 01 §2.5). Off for tests and tools
+        /// that want the run without perks; a <see cref="QuickStart"/> server has none either.
+        /// </summary>
+        public bool Draft = true;
     }
 
     /// <summary>The small global block replicated at 5 Hz (doc 06 §4: wallet, complaint, quota progress).</summary>

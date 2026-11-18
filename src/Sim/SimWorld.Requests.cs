@@ -60,6 +60,7 @@ namespace PerformativeMail.Sim
                 case RequestKind.SetReady: return SetReadyOp(player, r);
                 case RequestKind.ContinueRun: return ContinueRunOp(player);
                 case RequestKind.SetPaused: return SetPausedOp(player, r);
+                case RequestKind.PickPerk: return PickPerkOp(player, r);
                 default: return OpResult.BadRequest;
             }
         }

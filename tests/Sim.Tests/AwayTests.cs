@@ -26,7 +26,7 @@ namespace PerformativeMail.Sim.Tests
 
         private static ContentDb Db => TestContent.Db;
 
-        private static SimWorld NewWorld() => new SimWorld(Db, new SimSettings { Seed = 7 });
+        private static SimWorld NewWorld() => new SimWorld(Db, new SimSettings { Seed = 7, Draft = false });
 
         private OpResult Request(SimWorld world, Player p, SimRequest request)
         {

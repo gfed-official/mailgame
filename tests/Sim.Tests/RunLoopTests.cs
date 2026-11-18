@@ -16,7 +16,7 @@ namespace PerformativeMail.Sim.Tests
         private uint _nextRequest = 1;
         private uint _nextMailId = 500000;
 
-        private static SimWorld NewWorld(uint seed = 7) => new SimWorld(TestContent.Db, new SimSettings { Seed = seed });
+        private static SimWorld NewWorld(uint seed = 7) => new SimWorld(TestContent.Db, new SimSettings { Seed = seed, Draft = false });
 
         private OpResult Request(SimWorld world, Player p, SimRequest request)
         {

@@ -6,6 +6,9 @@
   "raidWindowSeconds": 90,
   "paydaySeconds": 20,
   "draftSeconds": 30,
+  "draftCards": 3,
+  "draftRarityWeights": [60, 30, 10],
+  "draftRareWeightPerShift": 5,
   "emptyServerGraceSeconds": 60,
   "disconnectGraceSeconds": 120,
 

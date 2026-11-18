@@ -2,6 +2,7 @@ using System;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
@@ -246,7 +247,8 @@ namespace PerformativeMail.Client
                 _deliverAllDest = -1;
                 return;
             }
-            double holdSeconds = dest.Type.ManualInsertHold;
+            // As this carrier's perks have it (Quick Hands); the server allows for the same.
+            double holdSeconds = Math.Max(0.0, world.LocalStat(Stat.InsertHold, dest.Type.ManualInsertHold));
             if (_deliverAllDest >= 0 && _deliverAllDest != dest.Id) _deliverAllDest = -1;
             if (deliverAllPressed && prompt.MatchingStacks > 0 && _deliverAllDest < 0)
             {

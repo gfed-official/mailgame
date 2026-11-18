@@ -6,8 +6,8 @@ using PerformativeMail.Sim.Core;
 namespace PerformativeMail.Sim.Run
 {
     /// <summary>
-    /// Run phases (doc 01 §1). Generating is skipped while the map is a static file, Raid arrives
-    /// with combat, and Draft is passed over until perks exist. RunOver and Victory are the Results
+    /// Run phases (doc 01 §1). Generating is skipped while the map is a static file and the raid
+    /// is a state of Delivery (<see cref="Combat.RaidState"/>). RunOver and Victory are the Results
     /// phase with a <see cref="RunOutcome"/>.
     /// </summary>
     public enum RunPhase : byte

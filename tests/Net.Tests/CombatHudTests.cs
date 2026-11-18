@@ -24,7 +24,7 @@ namespace PerformativeMail.Net.Tests
 
             public Session(uint seed = 3)
             {
-                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = seed }, Hub);
+                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = seed, Draft = false }, Hub);
                 Client = new ClientRuntime(Shared.Content, Hub.CreateClient(), "Ada");
                 Client.EventReceived += e =>
                 {

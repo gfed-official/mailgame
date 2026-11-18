@@ -6,6 +6,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Net;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
@@ -47,6 +48,10 @@ namespace PerformativeMail.Client
         public Weapon AttackWeapon { get; internal set; }
         /// <summary>Tick the player stands up again, while down.</summary>
         public uint RespawnTick { get; internal set; }
+        /// <summary>Their personal perks of the run, one entry per stack, in the order they were taken.</summary>
+        public List<PerkDef> Perks { get; } = new List<PerkDef>();
+        /// <summary>The card of the Draft under way they have taken; -1: none yet.</summary>
+        public int DraftPick { get; internal set; } = -1;
 
         private readonly Sample[] _samples = new Sample[BufferSize];
         private int _head;
@@ -313,6 +318,91 @@ namespace PerformativeMail.Client
         public ShiftSummary? LastSummary { get; internal set; }
         /// <summary>The run's results while in Results; null otherwise.</summary>
         public RunResults? Results { get; internal set; }
+
+        // --- perks (doc 01 §2.5) ----------------------------------------------------------------
+
+        /// <summary>The team perks of the run, in the order they were taken.</summary>
+        public List<PerkDef> TeamPerks { get; } = new List<PerkDef>();
+        /// <summary>The cards of the Draft under way, the same for everybody; empty outside it.</summary>
+        public List<PerkDef> DraftOffer { get; } = new List<PerkDef>();
+
+        private static readonly List<PerkDef> NoPerks = new List<PerkDef>();
+        private readonly StatSheet _teamStats = new StatSheet();
+        private readonly StatSheet _localStats = new StatSheet();
+
+        /// <summary>The local player's personal perks.</summary>
+        public IReadOnlyList<PerkDef> LocalPerks => Players.TryGetValue(LocalId, out var me) ? me.Perks : NoPerks;
+        /// <summary>The card the local player has taken in the Draft under way; -1: none yet.</summary>
+        public int LocalDraftPick => Players.TryGetValue(LocalId, out var me) ? me.DraftPick : -1;
+
+        /// <summary>A stat as the local player has it: the team's perks and their own over the base, as the server reckons it.</summary>
+        public float LocalStat(Stat stat, float baseValue) => _teamStats.Resolve(stat, baseValue, _localStats);
+
+        /// <summary>Whether a player may take the perk, by the rules of the server's SimWorld.CanTake.</summary>
+        public OpResult CanTake(ClientPlayer player, PerkDef perk)
+        {
+            if (perk.Team)
+            {
+                if (TeamPerks.Contains(perk)) return OpResult.PerkTaken;
+                foreach (var other in Players.Values)
+                    if (perk.ConflictsWithAny(other.Perks)) return OpResult.PerkExcluded;
+            }
+            else
+            {
+                if (perk.StacksIn(player.Perks) >= perk.MaxStacks) return OpResult.PerkMaxed;
+                if (perk.ConflictsWithAny(player.Perks)) return OpResult.PerkExcluded;
+            }
+            return perk.ConflictsWithAny(TeamPerks) ? OpResult.PerkExcluded : OpResult.Ok;
+        }
+
+        /// <summary>What stands between the local player and a card of the Draft; Ok: it is theirs to take.</summary>
+        public OpResult CardState(int card)
+        {
+            if (card < 0 || card >= DraftOffer.Count || !Players.TryGetValue(LocalId, out var me)) return OpResult.BadRequest;
+            return me.DraftPick >= 0 ? OpResult.AlreadyPicked : CanTake(me, DraftOffer[card]);
+        }
+
+        /// <summary>The first card the local player could still take; -1 if there is none, or they have chosen.</summary>
+        public int FirstOpenCard
+        {
+            get
+            {
+                for (int i = 0; i < DraftOffer.Count; i++)
+                    if (CardState(i) == OpResult.Ok) return i;
+                return -1;
+            }
+        }
+
+        internal void AddPerk(EntityId holder, PerkDef perk)
+        {
+            if (perk.Team)
+            {
+                if (TeamPerks.Contains(perk)) return;
+                TeamPerks.Add(perk);
+                _teamStats.Apply(perk);
+                return;
+            }
+            if (!Players.TryGetValue(holder, out var player)) return;
+            player.Perks.Add(perk);
+            if (holder == LocalId) _localStats.Apply(perk);
+        }
+
+        /// <summary>The Draft is over, or another begins: no cards, nobody has chosen.</summary>
+        internal void ClearDraft()
+        {
+            DraftOffer.Clear();
+            foreach (var p in Players.Values) p.DraftPick = -1;
+        }
+
+        /// <summary>A run ends without perks.</summary>
+        internal void ClearPerks()
+        {
+            TeamPerks.Clear();
+            _teamStats.Clear();
+            _localStats.Clear();
+            foreach (var p in Players.Values) p.Perks.Clear();
+            ClearDraft();
+        }
 
         /// <summary>Solo pause (doc 01 §1): the server's tick, and with it this client's, stands still.</summary>
         public bool Paused { get; internal set; }
