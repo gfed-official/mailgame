@@ -184,6 +184,20 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>
+        /// A number key, counted from 0 for "1": while a card of the Draft is open to this player
+        /// the keys of the cards take a card and no hotbar slot. Returns whether the key was the
+        /// Draft's; a card that is not open takes the key and does nothing.
+        /// </summary>
+        public bool PressCardKey(int key)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || world.Global.Phase != RunPhase.Draft) return false;
+            if (key < 0 || key >= world.DraftOffer.Count || world.FirstOpenCard < 0) return false;
+            PickPerk(key);
+            return true;
+        }
+
+        /// <summary>
         /// The pause key (doc 09 §2.12): resumes a paused run; pauses one this client hosts alone.
         /// Returns the request id, 0 where the key does not pause (multiplayer never pauses).
         /// </summary>

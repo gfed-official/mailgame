@@ -28,6 +28,7 @@ namespace PerformativeMail.Client.UI
         private static readonly Color QuotaColour = new Color("f0a020");
         private static readonly Color HealthColour = new Color("e5484d");
         private static readonly Color BagColour = new Color("c98a4b");
+        private static readonly Color PerkColour = new Color("e58fd0");
 
         public string PhaseText => _phase.Text;
         public string QuotaText => _quota.Text;
@@ -58,6 +59,10 @@ namespace PerformativeMail.Client.UI
         /// <summary>The lines of the Payday summary / Results panel while it is shown, else empty.</summary>
         public string OverlayText => _overlay.Visible ? _overlayText : "";
         public Control Overlay => _overlay;
+        /// <summary>The cards of the Draft while they lie open.</summary>
+        public DraftPanel Draft => _draft;
+        /// <summary>The tracker row of the run's perks once there are any, else empty.</summary>
+        public string PerksText => _perks.Visible ? _perks.Text : "";
         /// <summary>The tick (Match) or cross (Mismatch) drawn beside the prompt right now; Neutral when there is none.</summary>
         public PromptTone PromptMark => _mark.Tone;
         /// <summary>The lines along the edges, for the smoke's "nothing is clipped" check.</summary>
@@ -96,7 +101,8 @@ namespace PerformativeMail.Client.UI
         private InteractionController _interaction = null!;
         private EventFeed _feed = null!;
 
-        private Label _phase = null!, _status = null!, _tally = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!;
+        private Label _phase = null!, _status = null!, _tally = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!, _perks = null!;
+        private DraftPanel _draft = null!;
         private Label _prompt = null!, _held = null!, _hint = null!, _paused = null!, _banner = null!, _hp = null!, _weapons = null!;
         private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
         private ColorRect _hurt = null!;
@@ -177,6 +183,10 @@ namespace PerformativeMail.Client.UI
             _overlay.AddChild(_overlayLines);
             AddChild(_overlay);
 
+            // The cards of the Draft, where the Payday summary stood a moment ago.
+            _draft = new DraftPanel();
+            AddChild(_draft);
+
             // First person: the ring marks the exact point the interact ray leaves from.
             var crosshair = new RingCrosshair
             {
@@ -241,8 +251,9 @@ namespace PerformativeMail.Client.UI
             _rank = AddTracker("Rank", 1, new Color("c3a6ff"));
             _status = AddTracker("Status", 2, new Color("5bc0eb"));
             _tally = AddTracker("Tally", 3, Palette.Match);
-            _raid = AddTracker("Raid", 4, HealthColour);
-            _bag = AddTracker("Bag", 5, BagColour);
+            _perks = AddTracker("Perks", 4, PerkColour);
+            _raid = AddTracker("Raid", 5, HealthColour);
+            _bag = AddTracker("Bag", 6, BagColour);
 
             _hotbar = new GridView { Name = "Hotbar", ShowSlotNumbers = true, MouseFilter = MouseFilterEnum.Ignore };
             _hotbar.Setup(client, world => world.Hotbar);
@@ -316,6 +327,8 @@ namespace PerformativeMail.Client.UI
             _wallet.Modulate = global.Wallet < 0 ? Palette.Mismatch : Colors.White;
             _rank.Visible = Profile != null && between;
             if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
+            _perks.Text = HudText.PerkTracker(world);
+            _perks.Visible = _perks.Text.Length > 0;
             _raid.Text = HudText.RaidTracker(world);
             _raid.Visible = _raid.Text.Length > 0;
             _bag.Text = HudText.BagTracker(world);
@@ -326,6 +339,7 @@ namespace PerformativeMail.Client.UI
             _paused.Visible = world.Paused || lost;
             _paused.Text = lost ? HudText.HostLostTitle : HudText.PausedTitle;
             RefreshOverlay(world);
+            _draft.Refresh(world);
 
             // Health, stamina, and what the fight asks of the player.
             _healthBar.Value = world.LocalMaxHp > 0f ? world.LocalHp / world.LocalMaxHp : 0f;
@@ -340,8 +354,8 @@ namespace PerformativeMail.Client.UI
             string down = HudText.Down(world);
             string safe = HudText.Protected(world);
             _banner.Text = down.Length > 0 ? down : safe.Length > 0 ? safe : HudText.RaidBanner(world);
-            // The Payday and Results panel stands where the banner does; the tracker still says the raiders flee.
-            _banner.Visible = _banner.Text.Length > 0 && !Overlay.Visible;
+            // The Payday and Results panel stands where the banner does, and so do the cards; the tracker still says the raiders flee.
+            _banner.Visible = _banner.Text.Length > 0 && !Overlay.Visible && !_draft.Visible;
             _banner.Modulate = down.Length > 0 ? Palette.Mismatch : safe.Length > 0 ? Palette.Match : world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
             _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0);
             if (_weapons.Visible) _weapons.Text = HudText.Weapons(_client.CannonAmmo);
@@ -441,7 +455,7 @@ namespace PerformativeMail.Client.UI
             control.OffsetBottom = bottom;
         }
 
-        private static Label MakeLabel(string name, int fontSize, HorizontalAlignment align)
+        internal static Label MakeLabel(string name, int fontSize, HorizontalAlignment align)
         {
             var label = new Label
             {

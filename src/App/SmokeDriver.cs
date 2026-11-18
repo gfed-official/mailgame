@@ -684,7 +684,12 @@ namespace PerformativeMail.App
             switch (world.Global.Phase)
             {
                 case RunPhase.Prep:
+                    CheckDraftPick();
                     if (!world.LocalReady) Go();
+                    break;
+
+                case RunPhase.Draft:
+                    StepDraft();
                     break;
 
                 case RunPhase.Payday:
@@ -801,6 +806,7 @@ namespace PerformativeMail.App
                 var wantOutcome = met == HudText.ShiftCount(world.Content) ? RunOutcome.Victory : RunOutcome.QuotaMissed;
                 Check(_results.Outcome == wantOutcome, $"the run ended as {_results.Outcome} after {met} of {_summaries.Count} quotas");
             }
+            VerifyDrafts();
 
             Check(server.Run.Phase == RunPhase.Lobby && server.Run.RunNumber == 1, $"the server is in {server.Run.Phase} of run {server.Run.RunNumber}");
             Check(hud.PhaseText == "LOBBY", $"back in the Lobby the HUD phase line is \"{hud.PhaseText}\"");

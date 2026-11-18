@@ -77,6 +77,9 @@ namespace PerformativeMail.Client
                             + (world.Players.TryGetValue(e.Owner, out var owner) && owner.Away ? "stood" : "fell"));
                     break;
                 case BagGoneEvent e: OnBagGone(world, e); break;
+                case PerkPickedEvent e when e.Perk < world.Content.Perks.Count:
+                    Add(HudText.PerkPicked(world, e.Player, world.Content.Perks[e.Perk], e.Auto));
+                    break;
             }
         }
 
@@ -132,6 +135,7 @@ namespace PerformativeMail.Client
                 case RunPhase.Lobby: Add("Back in the lobby"); break;
                 case RunPhase.Prep: Add($"Shift {e.Shift}: get ready — the quota will be about {HudText.Money(e.Quota)}"); break;
                 case RunPhase.Delivery: Add($"Shift {e.Shift} has started: deliver {HudText.Money(e.Quota)} of mail"); break;
+                case RunPhase.Draft: Add($"The Draft: one perk each before shift {e.Shift + 1}"); break;
                 case RunPhase.Results: Add(e.Outcome == RunOutcome.Victory ? "The run is won" : "The run is over", bad: e.Outcome != RunOutcome.Victory); break;
             }
         }

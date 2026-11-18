@@ -363,11 +363,43 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             for a late joiner). `DeathBagTests` (9), `DeathBagFlowTests` (3), `CodecTests`; the
             smoke fells the host, walks them back and takes it all out again (`bag-down.png`,
             `bag-prompt.png`, `bag-open.png`); design choice 61
-      - [ ] the Generating, Raid and Draft phases as phases of their own (the raid runs inside
-            Delivery, choice 50; Draft waits for perks)
+      - [x] **The Draft phase** (doc 01 §1 and §2.5): after every Payday the run survives, but the
+            last, three cards of one shared offer lie open for 30 s; see the perk line below
+      - [ ] the Generating and Raid phases as phases of their own (the map is static, choice 3;
+            the raid runs inside Delivery, choice 50)
 - [ ] Shop (blueprints, bike, consumables, refined materials); bike as first vehicle (driver
       prediction path)
-- [ ] Perk system (StatSheet, modifiers, team/personal, prerequisites, exclusions) with ~12 perks
+- [x] **Perk system** (StatSheet, modifiers, team/personal, prerequisites, exclusions) with 11
+      perks (doc 01 §2.5 and §4, doc 07 §6, doc 08 §2.9, doc 09 §2.10; design choice 66)
+      - [x] *The stat sheet.* `content/perks/perks.json` (validated: unknown stat, op, category,
+            rarity, scope, excluded perk; a team perk that stacks; a personal perk on a team
+            stat), a closed `Stat` enum of fifteen numbers, `StatSheet` (base × every mul + every
+            add). A team perk is held once by the team, a personal one by its holder up to
+            `maxStacks`; exclusions hold in both directions. Eleven perks, each acting in the sim:
+            Long Legs, Quick Hands, Strong Back, Second Wind, Postal Sprint (personal); Union Rep,
+            Stamp Collector, Fragile Handling, Grace Period, Early Warning, Union Muscle (team).
+            `PerkTests` (23)
+      - [x] *The Draft.* Each card's rarity is rolled first (60 / 30 / 10, Rare +5 per shift),
+            then a perk of it that somebody here can still take; one card each (`PickPerk`), the
+            perk is theirs at once; a team card is gone for the others once taken; the Draft ends
+            as soon as everybody present has chosen, and at 30 s the clock gives the first open
+            card to whoever has not. Who is away gets none; who comes back mid-Draft finds the
+            table as it stands. Perks end with the run. Protocol `m1.10` (`DraftOffer`,
+            `PerkPicked`, the `PickPerk` request; perks, offer and picks in the Welcome).
+            `DraftTests` (14), `DraftFlowTests` (6), `CodecTests`
+      - [x] *On screen.* The three cards in the middle of the view — key, name, category badge, a
+            frame in the rarity's colour, what it does, "Team perk" / "Personal perk · stacks to
+            3 · never with …", and who took it as soon as they did; a card not open to you is
+            greyed and says why ("The team has it", "Not with Heavy Boots", "You hold all you can
+            of it"), your own is framed green. Keys 1–3 take a card (and are the hotbar's again
+            once you have chosen). Under the cards the 30 s as a bar and the run's perks so far;
+            the hint under the top plate says "Take a perk: [1] [2] [3] · 1 / 2 have chosen",
+            then "You took Union Rep · waiting for 1 more"; a "Perks · team 1 · yours 2" tracker
+            plate for the rest of the run; feed lines ("Bo took Union Rep for the team", "You
+            were given Long Legs"). The smoke reads the cards off the screen against the
+            server's, presses a card's key and finds the perk on both ends (`draft1.png`)
+      - [ ] rerolls and the personal-perk cap (doc 12 lists both under M4), the remaining perks
+            of the doc's list (they need buildings, vehicles, the shop)
 - [ ] Lobby with seed, archetype, kit; join-in-progress in Prep; disconnect grace
       - [x] a Lobby the host starts from; joining in Lobby and Prep
       - [x] **The 120 s disconnect grace** (doc 06 §6): who loses the connection outside the
@@ -393,7 +425,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
       - [x] a chest in the world, placed by the map (nit 9)
       - [ ] nodes, harvesting, building by hand
 
-Next in this order: perks with the Draft phase.
+Next in this order: the Shop (doc 12's next open line that needs no world generator); the
+generator and the districts before it are the larger piece and still open.
 
 ## How to build and check
 
@@ -415,8 +448,8 @@ See "Commands" at the bottom (filled in as the tooling lands).
    `worldHash` and is checked at connect.
 4. **Run state machine (doc 01 §1), replacing the old "always Delivery of shift 1" stand-in.**
    Implemented phases: Lobby → Prep → Delivery → Payday → next shift's Prep, or Results → Lobby.
-   Not yet: Generating (the map is static, choice 3), Raid (M2), Draft (skipped until perks exist —
-   Payday goes straight to the next Prep). Mail spawn budget per shift is still
+   Not yet: Generating (the map is static, choice 3), Raid (M2). Draft came with the perks
+   (choice 66); before them Payday went straight to the next Prep. Mail spawn budget per shift is still
    `quota(shift, n) × spawnOverhead`, as in ch. 01 §3. The details the docs leave open are choices
    25–36. `SimSettings.QuickStart` keeps the old behaviour for tests, soaks and bots that only care
    about the delivery loop: a run starts as soon as a player is present, Prep is skipped, Results
@@ -917,6 +950,50 @@ See "Commands" at the bottom (filled in as the tooling lands).
     - *Not yet*: a "reconnecting…" screen on the returner's side (they see the normal join),
       vehicles (doc 06: a driver who drops leaves the seat), authentication of the account.
 
+66. **Perks and the Draft.** Doc 01 §2.5 and §4, doc 08 §2.9, doc 09 §2.10 and doc 10 §4 give
+    the rules and the list. What they leave open, and what was chosen:
+    - *Stats.* A closed `Stat` enum of 15 and a `StatSheet` (base × every multiplier + every
+      addend); a perk is a list of modifiers on them and nothing else. A team stat can only be
+      changed by a team perk. No rule flag and no recipe exists yet, so a perk naming either
+      fails validation; the eleven perks in `content/perks` are those of doc 10's list that
+      need no building, vehicle or shop.
+    - *Rounding and floors.* What paper mail pays, what a misdelivery costs and the complaint
+      it raises are rounded to whole numbers, a half away from zero, and never fall below 0;
+      nor does the quota.
+    - *Grace Period*: mail one shift late pays in full but still counts as late (the
+      complaint stands).
+    - *Union Rep* lowers the quota that is shown and that binds; the mail spawn budget is still
+      worked out from the unmodified quota, so the perk makes the shift easier, not emptier.
+    - *Prerequisites.* `shiftMin` is checked against the shift that comes after the Draft.
+      `rankMin` above 1 is never met: the server is not told anybody's Postal Rank, so
+      everyone counts as rank 1.
+    - *Exclusions.* A team perk is checked against the team's perks and everybody's personal
+      ones, a personal perk against the team's and the picker's own.
+    - *Dealing.* Per card the rarity is rolled first (over the rarities that still have a
+      candidate), then one perk of it with equal chance. A candidate is a perk somebody
+      present could take and that does not conflict with a card already on the table. "Rare
+      +5 per shift" is read as +5 × (coming shift − 2): nothing extra in the first Draft. With
+      no candidate at all there is no Draft. The perks RNG stream starts afresh with every run.
+    - *When.* After every Payday the run survives, except the last: doc 01's "Draft → Victory"
+      would deal perks nobody can use. `Run.Shift` stays the shift just paid, and the HUD's
+      phase line says so ("Shift 1 / 5   DRAFT 00:30"). `--quick` servers and
+      `SimSettings.Draft = false` go from Payday straight to the next shift.
+    - *Ending.* As soon as everybody present has chosen or has no open card; otherwise at 30 s
+      the clock gives each of them the first card still open to them (the feed says "was
+      given"). Who is away gets nothing; who comes back mid-Draft finds the table as it
+      stands, in the Welcome. Whatever fight was left is cleared when the Draft begins.
+    - *Taking a card*: keys 1–3, no mouse (the cursor is captured in play and the cards are
+      three). While a card is open to you the keys are the cards' — the key of one that is
+      not open does nothing — and once you have chosen they are the hotbar's again. You can
+      walk about during the Draft.
+    - *On the card* instead of doc 09's "teammate avatars": "Taken by Bo", "Taken for the team
+      by you". There are no avatars.
+    - *Where.* The panel stands in the middle of the view and draws over the crosshair ring;
+      the Payday summary is gone by then. The "Perks" tracker plate took slot 4 of the right
+      column (raid 5, bag 6).
+    - *Not yet*: rerolls and the cap of five personal perks (doc 12: M4), the other perks of
+      the list, a perks page outside the Draft (the tracker plate only counts them).
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -938,7 +1015,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 
 ~/.local/bin/godot --path .                                      # play: host on the test street, in the Lobby (G starts)
 ~/.local/bin/godot --path . -- --seed=7 --name=Ada               # user args go after "--"
-~/.local/bin/godot --path . -- --quick                           # skip Lobby and Prep: straight into shift 1
+~/.local/bin/godot --path . -- --quick                           # skip Lobby, Prep and the Drafts: straight into shift 1
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
 
@@ -983,8 +1060,12 @@ The smoke plays one whole run inside the real Godot host (about 10 s): it boots 
 clock must stand, and the HUD must say PAUSED; then it resumes), then
 in Delivery the close-up checks below run at 3 ticks per frame; after them the rest of the run is
 fast-forwarded at 30 ticks per frame with the bot delivering, and at every Payday and at Results the
-panel on screen must equal `HudText` of the server's summary / results; the host continues and the
-Lobby must be clean (wallet 0, no carried mail, panel gone). Close-up checks: the player spawns on the pad; mail arrives; the Intake
+panel on screen must equal `HudText` of the server's summary / results; in the Draft between the
+shifts the cards on screen must be the server's and read as `HudText.DraftText` says, none greyed,
+inside the view and under the top lines, with the hint naming the keys; the smoke presses a card's
+key, and in the next Prep the perk must be held on the server and the client, counted on the
+"Perks" plate and named in the feed; the host continues and the
+Lobby must be clean (wallet 0, no carried mail, no perks, panel gone). Close-up checks: the player spawns on the pad; mail arrives; the Intake
 prompt and manifest show; mail is carried; the mailbox prompt shows; delivery and misdelivery events
 reach the client; server wallet = start + paid − penalties = client wallet = the HUD's wallet line;
 no container desync or bad packet; the world, player view and camera exist; the boot view (camera
@@ -1032,4 +1113,5 @@ going at raiders who hold their line — until all six pulses are in and nobody 
 the server, in the client's list or drawn (every raider felled by the host, the tracker counting
 them, the feed saying so); it walks over the loot (coins in the wallet line, cards shown); the
 rest of the shift runs out, Payday's panel says QUOTA MISSED and the hint "playtest: the run goes
-on · shift 3 in …", and the run must then be in shift 3's Prep with no Results and no raid left.
+on · shift 3 in …", the Draft follows (the smoke takes the first open card), and the run must
+then be in shift 3's Prep with no Results and no raid left.

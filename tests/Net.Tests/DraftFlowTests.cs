@@ -319,6 +319,146 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(2, s.Sim.TeamPerks.Count + s.Sim.Players.Sum(p => p.Perks.Count));
             Assert.Equal(s.Sim.TeamPerks.Select(p => p.Id), idler.World.TeamPerks.Select(p => p.Id));
             Assert.Equal(s.Sim.GetPlayer(idler.World.LocalId)!.Perks.Select(p => p.Id), idler.World.LocalPerks.Select(p => p.Id));
+
+            // The feed tells a card taken from a card given.
+            PerkDef taken = s.Content.Perks[auto[0].Perk], given = s.Content.Perks[auto[1].Perk];
+            Assert.Equal($"Picker took {taken.Name}{(taken.Team ? " for the team" : "")}", HudText.PerkPicked(idler.World, auto[0].Player, taken, auto[0].Auto));
+            Assert.Equal($"You were given {given.Name}{(given.Team ? " for the team" : "")}", HudText.PerkPicked(idler.World, auto[1].Player, given, auto[1].Auto));
+            Assert.Equal($"Idler was given {given.Name}{(given.Team ? " for the team" : "")}", HudText.PerkPicked(picker.World, auto[1].Player, given, auto[1].Auto));
+        }
+
+        /// <summary>
+        /// Cards with a face: a team perk, a personal one that stacks, one that is held once, and
+        /// Heavy Boots, which never go with Long Legs and are never dealt (the test hands them out).
+        /// </summary>
+        private static readonly Lazy<ContentDb> CardFaces = new Lazy<ContentDb>(() =>
+        {
+            string root = DirectoryContentSource.FindContentRoot(AppContext.BaseDirectory)!;
+            var source = new MemoryContentSource();
+            foreach (string file in Directory.GetFiles(root, "*.json", SearchOption.AllDirectories))
+                source.Files[Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/')] = File.ReadAllText(file);
+            foreach (string key in source.Files.Keys.Where(k => k.StartsWith("perks/", StringComparison.Ordinal)).ToList())
+                source.Files.Remove(key);
+            source.Files["perks/perks.json"] = @"[
+                { ""id"": ""rep"", ""name"": ""Union Rep"", ""description"": ""Quota -10%."", ""category"": ""postal"", ""scope"": ""team"", ""rarity"": ""uncommon"",
+                  ""modifiers"": [ { ""stat"": ""Quota"", ""op"": ""mul"", ""value"": 0.9 } ] },
+                { ""id"": ""legs"", ""name"": ""Long Legs"", ""description"": ""+12% move speed."", ""category"": ""carrier"", ""scope"": ""personal"", ""rarity"": ""common"",
+                  ""modifiers"": [ { ""stat"": ""PlayerSpeed"", ""op"": ""mul"", ""value"": 1.12 } ], ""maxStacks"": 3 },
+                { ""id"": ""hands"", ""name"": ""Quick Hands"", ""description"": ""Mailbox insert hold -50%."", ""category"": ""carrier"", ""scope"": ""personal"", ""rarity"": ""rare"",
+                  ""modifiers"": [ { ""stat"": ""InsertHold"", ""op"": ""mul"", ""value"": 0.5 } ] },
+                { ""id"": ""boots"", ""name"": ""Heavy Boots"", ""description"": ""Weight speed penalty -50%."", ""category"": ""defense"", ""scope"": ""personal"", ""rarity"": ""common"",
+                  ""modifiers"": [ { ""stat"": ""WeightPenalty"", ""op"": ""mul"", ""value"": 0.5 } ], ""prerequisites"": { ""shiftMin"": 9 }, ""excludes"": [""legs""] }
+            ]";
+            return ContentDb.Load(source);
+        });
+
+        [Fact]
+        public void ACardSaysWhatItIs_WhoTookIt_AndWhatKeepsItFromYou()
+        {
+            var s = new Session(CardFaces.Value);
+            var ada = s.Join("Ada");
+            var bo = s.Join("Bo");
+            var adaFeed = new EventFeed();
+            ada.EventReceived += e => adaFeed.OnEvent(ada.World!, e);
+            Assert.False(ada.PressCardKey(0));
+            Assert.Equal("", HudText.DraftText(ada.World!));
+            Assert.Equal("", HudText.Perks(ada.World!));
+            Assert.Equal("", HudText.PerkTracker(ada.World!));
+
+            // Before the Draft Ada has Long Legs once; Bo has the boots that exclude them, and Quick Hands.
+            s.StartDelivery();
+            SimWorld sim = s.Sim;
+            Player adaTruth = sim.GetPlayer(ada.World!.LocalId)!, boTruth = sim.GetPlayer(bo.World!.LocalId)!;
+            Assert.Equal(OpResult.Ok, sim.GrantPerk(adaTruth, s.Content.Perk("legs")));
+            Assert.Equal(OpResult.Ok, sim.GrantPerk(boTruth, s.Content.Perk("boots")));
+            Assert.Equal(OpResult.Ok, sim.GrantPerk(boTruth, s.Content.Perk("hands")));
+            s.MeetTheQuota(ada);
+            Assert.True(s.RunUntil(() => sim.Run.Phase == RunPhase.Draft, 330));
+            s.Run(10);
+            int rep = s.Card("rep"), legs = s.Card("legs"), hands = s.Card("hands");
+            Assert.True(rep >= 0 && legs >= 0 && hands >= 0);
+            ClientWorld a = ada.World, b = bo.World;
+
+            Assert.Equal("DRAFT   ·   one perk each before shift 2", HudText.DraftTitle(a));
+            Assert.Equal(new[] { $"[{rep + 1}]  Union Rep", "POSTAL   ·   UNCOMMON", "Quota -10%.", "Team perk", "" }, HudText.DraftCard(a, rep));
+            Assert.Equal(new[] { $"[{legs + 1}]  Long Legs", "CARRIER   ·   COMMON", "+12% move speed.", "Personal perk   ·   stacks to 3   ·   never with Heavy Boots", "You hold 1 of 3" },
+                HudText.DraftCard(a, legs));
+            Assert.Equal(new[] { $"[{hands + 1}]  Quick Hands", "CARRIER   ·   RARE", "Mailbox insert hold -50%.", "Personal perk", "" }, HudText.DraftCard(a, hands));
+            Assert.Equal("Take a perk: [1] [2] [3]   ·   0 / 2 have chosen", HudText.PhaseHint(a));
+            Assert.Equal("Shift 1 / 5   DRAFT 00:30", HudText.ShiftAndPhase(a));
+            Assert.Equal("You: Long Legs", HudText.Perks(a));
+            Assert.Equal("Perks   ·   team 0   ·   yours 1", HudText.PerkTracker(a));
+            string text = HudText.DraftText(a);
+            Assert.StartsWith("DRAFT   ·   one perk each before shift 2\n[1]  ", text);
+            Assert.EndsWith("\nYou: Long Legs", text);
+            Assert.Equal(1 + 3 * 4 + 1 + 1, text.Split('\n').Length);
+
+            // Bo may take only the team's card; the keys of the other two take nothing.
+            Assert.Equal("Not with Heavy Boots", HudText.CardNote(b, legs));
+            Assert.Equal("You hold all you can of it", HudText.CardNote(b, hands));
+            Assert.Equal($"Take a perk: [{rep + 1}]   ·   0 / 2 have chosen", HudText.PhaseHint(b));
+            Assert.Equal("You: Heavy Boots, Quick Hands", HudText.Perks(b));
+            Assert.True(bo.PressCardKey(legs));
+            Assert.False(bo.PressCardKey(3));
+            s.Run(10);
+            Assert.Equal(-1, b.LocalDraftPick);
+
+            Assert.True(bo.PressCardKey(rep));
+            s.Run(10);
+            Assert.Equal(rep, b.LocalDraftPick);
+            Assert.Equal("Taken for the team by you", HudText.CardNote(b, rep));
+            Assert.Equal("Taken for the team by Bo", HudText.CardNote(a, rep));
+            Assert.Equal("You took Union Rep   ·   waiting for 1 more", HudText.PhaseHint(b));
+            string open = string.Join(" ", new[] { legs, hands }.OrderBy(c => c).Select(c => $"[{c + 1}]"));
+            Assert.Equal($"Take a perk: {open}   ·   1 / 2 have chosen", HudText.PhaseHint(a));
+            Assert.Equal("Team: Union Rep   ·   You: Heavy Boots, Quick Hands", HudText.Perks(b));
+            // Who has chosen has their number keys back for the hotbar.
+            Assert.False(bo.PressCardKey(rep));
+            // The team's card is no key of Ada's any more: it is taken as a key and takes nothing.
+            Assert.True(ada.PressCardKey(rep));
+            s.Run(10);
+            Assert.Equal(-1, a.LocalDraftPick);
+
+            Assert.True(ada.PressCardKey(legs));
+            s.Run(10);
+            Assert.Equal((RunPhase.Prep, 2), (sim.Run.Phase, sim.Run.Shift));
+            Assert.Equal(new[] { "legs", "legs" }, adaTruth.Perks.Select(p => p.Id));
+            Assert.Equal("", HudText.DraftText(a));
+            Assert.Equal("Team: Union Rep   ·   You: Long Legs x2", HudText.Perks(a));
+            Assert.Equal("Perks   ·   team 1   ·   yours 2", HudText.PerkTracker(a));
+            Assert.False(ada.PressCardKey(0));
+            var lines = adaFeed.Entries.Select(e => e.Text).ToList();
+            Assert.Contains("The Draft: one perk each before shift 2", lines);
+            Assert.Contains("Bo took Union Rep for the team", lines);
+            Assert.Contains("You took Long Legs", lines);
+        }
+
+        [Fact]
+        public void WhoIsAwayIsNotCountedAmongThoseTheDraftWaitsFor()
+        {
+            var s = new Session(CardFaces.Value);
+            var ada = s.Join("Ada", AdaAccount);
+            var bo = s.Join("Bo", BoAccount);
+            var cy = s.Join("Cy", CyAccount);
+            s.StartDelivery();
+            s.MeetTheQuota(ada);
+            Assert.True(s.RunUntil(() => s.Sim.Run.PhaseEndTick - s.Sim.Tick < 60 * 30, 240));
+            s.Drop(bo);
+            Assert.True(s.RunUntil(() => s.Sim.Run.Phase == RunPhase.Draft, 90));
+            s.Run(10);
+
+            Assert.Equal("Take a perk: [1] [2] [3]   ·   0 / 2 have chosen", HudText.PhaseHint(ada.World!));
+            int legs = s.Card("legs");
+            Assert.True(cy.PressCardKey(legs));
+            s.Run(10);
+            Assert.Equal("You took Long Legs   ·   waiting for 1 more", HudText.PhaseHint(cy.World!));
+            Assert.Equal("Take a perk: [1] [2] [3]   ·   1 / 2 have chosen", HudText.PhaseHint(ada.World!));
+            // A personal card stays open to the others, and says who has it.
+            Assert.Equal("Taken by Cy", HudText.CardNote(ada.World!, legs));
+            Assert.Equal(OpResult.Ok, ada.World!.CardState(legs));
+            Assert.True(ada.PressCardKey(legs));
+            s.Run(5);
+            Assert.Equal(RunPhase.Prep, s.Sim.Run.Phase);
         }
     }
 }

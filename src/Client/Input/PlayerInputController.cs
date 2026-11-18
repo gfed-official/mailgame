@@ -80,6 +80,8 @@ namespace PerformativeMail.Client.InputHandling
 
                 case InputEventKey key when key.Pressed && !key.Echo:
                     int digit = (int)key.PhysicalKeycode - (int)Key.Key1;
+                    // In the Draft 1–3 are the cards, until one is taken.
+                    if (_client.PressCardKey(digit)) return;
                     if (digit >= 0 && digit < HotbarSlots)
                     {
                         _client.Input.HeldSlot = (byte)digit;

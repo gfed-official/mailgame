@@ -8,6 +8,7 @@ using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Net;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
@@ -93,6 +94,24 @@ namespace PerformativeMail.Client
                     if (!s.QuotaMet && world.QuotaWaived && !last) return $"Quota missed — {QuotaWaivedTag}   ·   shift {s.Shift + 1} in {clock}";
                     if (!s.QuotaMet) return $"Quota missed — results in {clock}";
                     return s.Shift >= ShiftCount(world.Content) ? $"Final quota met — results in {clock}" : $"Quota met — shift {s.Shift + 1} in {clock}";
+                }
+                case RunPhase.Draft:
+                {
+                    if (world.DraftOffer.Count == 0) return "";
+                    int waiting = 0;
+                    foreach (var p in world.Players.Values)
+                        if (!p.Away && p.DraftPick < 0) waiting++;
+                    int pick = world.LocalDraftPick;
+                    if (pick >= 0 && pick < world.DraftOffer.Count)
+                    {
+                        string took = $"You took {world.DraftOffer[pick].Name}";
+                        return waiting > 0 ? $"{took}   ·   waiting for {waiting} more" : took;
+                    }
+                    string keys = "";
+                    for (int i = 0; i < world.DraftOffer.Count; i++)
+                        if (world.CardState(i) == OpResult.Ok) keys += " " + CardKey(i);
+                    if (keys.Length == 0) return $"No card is open to you   ·   shift {g.Shift + 1} in {Clock(world.PhaseSecondsLeft)}";
+                    return $"Take a perk:{keys}   ·   {players - waiting} / {players} have chosen";
                 }
                 case RunPhase.Results:
                     return world.IsHost ? $"Press {GoKey} to return to the lobby" : $"Waiting for {host} to return to the lobby";
@@ -339,6 +358,142 @@ namespace PerformativeMail.Client
 
         public static string Capitalised(string text) =>
             text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text.Substring(1);
+
+        // --- the Draft (doc 09 §2.10) and the perks of the run -------------------------------------
+
+        /// <summary>The key that takes a card: "[1]".</summary>
+        public static string CardKey(int card) => $"[{(card + 1).ToString(CultureInfo.InvariantCulture)}]";
+
+        /// <summary>Over the cards: what is chosen, and before which shift.</summary>
+        public static string DraftTitle(ClientWorld world) => $"DRAFT   ·   one perk each before shift {world.Global.Shift + 1}";
+
+        /// <summary>"POSTAL   ·   UNCOMMON": the category badge, and the rarity the card's frame is coloured by.</summary>
+        public static string PerkBadge(PerkDef perk) =>
+            $"{perk.Category.ToString().ToUpperInvariant()}   ·   {perk.Rarity.ToString().ToUpperInvariant()}";
+
+        /// <summary>Whose the perk will be, how often it stacks, and what it never shares a run with.</summary>
+        public static string PerkScope(ContentDb content, PerkDef perk)
+        {
+            string scope = perk.Team ? "Team perk" : perk.MaxStacks > 1 ? $"Personal perk   ·   stacks to {perk.MaxStacks}" : "Personal perk";
+            string never = "";
+            foreach (var other in content.Perks)
+                if (!ReferenceEquals(other, perk) && perk.ConflictsWith(other)) never += (never.Length > 0 ? ", " : "") + other.Name;
+            return never.Length > 0 ? $"{scope}   ·   never with {never}" : scope;
+        }
+
+        /// <summary>
+        /// What has become of a card: who took it (picks are seen by everybody as they are made),
+        /// or why it is not open to the local player, or how much of it they hold already.
+        /// </summary>
+        public static string CardNote(ClientWorld world, int card)
+        {
+            if (card < 0 || card >= world.DraftOffer.Count) return "";
+            var perk = world.DraftOffer[card];
+            var takers = new List<string>();
+            foreach (var p in world.Players.Values)
+                if (p.DraftPick == card && p.Id != world.LocalId) takers.Add(p.Name);
+            takers.Sort(StringComparer.Ordinal);
+            if (world.LocalDraftPick == card) takers.Insert(0, "you");
+            if (takers.Count > 0)
+            {
+                string who = string.Join(", ", takers);
+                return perk.Team ? $"Taken for the team by {who}" : $"Taken by {who}";
+            }
+            switch (world.CardState(card))
+            {
+                case OpResult.PerkTaken: return "The team has it";
+                case OpResult.PerkMaxed: return "You hold all you can of it";
+                case OpResult.PerkExcluded:
+                {
+                    var with = HeldConflict(world, perk);
+                    return with != null ? $"Not with {with.Name}" : "Not with a perk already held";
+                }
+            }
+            int held = perk.Team ? 0 : perk.StacksIn(world.LocalPerks);
+            return held > 0 ? $"You hold {held} of {perk.MaxStacks}" : "";
+        }
+
+        /// <summary>The perk already in the run that keeps <paramref name="perk"/> from the local player.</summary>
+        private static PerkDef? HeldConflict(ClientWorld world, PerkDef perk)
+        {
+            foreach (var held in world.TeamPerks)
+                if (perk.ConflictsWith(held)) return held;
+            foreach (var held in world.LocalPerks)
+                if (perk.ConflictsWith(held)) return held;
+            if (!perk.Team) return null;
+            foreach (var p in world.Players.Values)
+                foreach (var held in p.Perks)
+                    if (perk.ConflictsWith(held)) return held;
+            return null;
+        }
+
+        /// <summary>The lines of a card from the top: key and name, badge, what it does, scope, and the note (empty if none).</summary>
+        public static string[] DraftCard(ClientWorld world, int card)
+        {
+            var perk = world.DraftOffer[card];
+            return new[]
+            {
+                $"{CardKey(card)}  {perk.Name}",
+                PerkBadge(perk),
+                perk.Description,
+                PerkScope(world.Content, perk),
+                CardNote(world, card),
+            };
+        }
+
+        /// <summary>Everything the Draft panel says, top to bottom, for the smoke; empty where there is no Draft.</summary>
+        public static string DraftText(ClientWorld world)
+        {
+            if (world.Global.Phase != RunPhase.Draft || world.DraftOffer.Count == 0) return "";
+            var lines = new List<string> { DraftTitle(world) };
+            for (int i = 0; i < world.DraftOffer.Count; i++)
+                foreach (string line in DraftCard(world, i))
+                    if (line.Length > 0) lines.Add(line);
+            string perks = Perks(world);
+            if (perks.Length > 0) lines.Add(perks);
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>The perks of the run so far: "Team: Union Rep   ·   You: Long Legs x2"; empty while there are none.</summary>
+        public static string Perks(ClientWorld world)
+        {
+            string team = PerkNames(world.TeamPerks), own = PerkNames(world.LocalPerks);
+            if (team.Length > 0 && own.Length > 0) return $"Team: {team}   ·   You: {own}";
+            return team.Length > 0 ? $"Team: {team}" : own.Length > 0 ? $"You: {own}" : "";
+        }
+
+        /// <summary>The tracker row of the run's perks: how many the team holds and how many are the local player's own.</summary>
+        public static string PerkTracker(ClientWorld world)
+        {
+            int team = world.TeamPerks.Count, own = world.LocalPerks.Count;
+            if (team + own == 0) return "";
+            return $"Perks   ·   team {team}   ·   yours {own}";
+        }
+
+        /// <summary>Names in the order they were taken, a stacked perk once with its count.</summary>
+        private static string PerkNames(IReadOnlyList<PerkDef> perks)
+        {
+            string names = "";
+            for (int i = 0; i < perks.Count; i++)
+            {
+                var perk = perks[i];
+                bool seen = false;
+                for (int j = 0; j < i && !seen; j++) seen = ReferenceEquals(perks[j], perk);
+                if (seen) continue;
+                int stacks = perk.StacksIn(perks);
+                names += (names.Length > 0 ? ", " : "") + (stacks > 1 ? $"{perk.Name} {Count(stacks)}" : perk.Name);
+            }
+            return names;
+        }
+
+        /// <summary>The event feed's line for a perk taken, or given by the Draft's clock.</summary>
+        public static string PerkPicked(ClientWorld world, EntityId player, PerkDef perk, bool auto)
+        {
+            bool me = player == world.LocalId;
+            string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            string verb = !auto ? "took" : me ? "were given" : "was given";
+            return perk.Team ? $"{who} {verb} {perk.Name} for the team" : $"{who} {verb} {perk.Name}";
+        }
 
         /// <summary>The tracker row of what is waiting: mail not yet delivered and the complaint meter.</summary>
         public static string Status(in GlobalState g) => $"Backlog {g.Backlog}   ·   Complaint {g.Complaint}";
