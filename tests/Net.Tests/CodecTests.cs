@@ -238,6 +238,8 @@ namespace PerformativeMail.Net.Tests
                 new PlayerDiedEvent { Player = player, RespawnTick = 4800, Killer = 1 },
                 new PlayerRespawnedEvent { Player = player },
                 new PlayerParkedEvent { Destination = 517 },
+                new BagDroppedEvent { ContainerId = 77, Owner = player, X = 50.25f, Z = 28.5f, DespawnTick = 5400 },
+                new BagGoneEvent { ContainerId = 77, Returned = true, Mail = 12 },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -292,6 +294,39 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((player, 4800u, (byte)1), (fell.Player, fell.RespawnTick, fell.Killer));
             Assert.Equal(player, ((PlayerRespawnedEvent)back[21]).Player);
             Assert.Equal((ushort)517, ((PlayerParkedEvent)back[22]).Destination);
+            var bag = (BagDroppedEvent)back[23];
+            Assert.Equal((77u, player, 50.25f, 28.5f, 5400u), (bag.ContainerId, bag.Owner, bag.X, bag.Z, bag.DespawnTick));
+            var bagGone = (BagGoneEvent)back[24];
+            Assert.Equal((77u, true, (ushort)12), (bagGone.ContainerId, bagGone.Returned, bagGone.Mail));
+        }
+
+        [Fact]
+        public void WelcomeNamesTheChestsAndTheBagsLyingAbout()
+        {
+            var c = SampleContainer();
+            var owner = new EntityId(EntityClass.Player, 2);
+            var m = new WelcomeMsg
+            {
+                PlayerId = new EntityId(EntityClass.Player, 3), Tick = 900, Seed = 7, MapId = "test_street", MapHash = 0xFEEDFACECAFEBEEFUL,
+                IntakeContainerId = 1, Global = new GlobalState { Shift = 2, Phase = RunPhase.Delivery },
+                Hotbar = c.Snapshot(), Inventory = c.Snapshot(),
+            };
+            m.ChestContainerIds.Add(2);
+            m.Bags.Add(new BagInfo { ContainerId = 9, Owner = owner, X = 50.25f, Z = 28.5f, DespawnTick = 1800 });
+            m.Bags.Add(new BagInfo { ContainerId = 11, X = 12f, Z = 30f, DespawnTick = 1900 });
+            m.Players.Add(new PlayerInfo { Id = owner, Name = "Cass", Slot = 1 });
+            var w = new NetWriter();
+            m.Write(w);
+            var back = WelcomeMsg.Read(Body(w, MsgType.Welcome));
+
+            Assert.Equal((m.PlayerId, 900u, 7u, "test_street", m.MapHash, 1u), (back.PlayerId, back.Tick, back.Seed, back.MapId, back.MapHash, back.IntakeContainerId));
+            Assert.Equal(new[] { 2u }, back.ChestContainerIds);
+            Assert.Equal(2, back.Bags.Count);
+            Assert.Equal((9u, owner, 50.25f, 28.5f, 1800u), (back.Bags[0].ContainerId, back.Bags[0].Owner, back.Bags[0].X, back.Bags[0].Z, back.Bags[0].DespawnTick));
+            Assert.Equal((11u, EntityId.None, 12f, 30f, 1900u), (back.Bags[1].ContainerId, back.Bags[1].Owner, back.Bags[1].X, back.Bags[1].Z, back.Bags[1].DespawnTick));
+            Assert.Equal(m.Global, back.Global);
+            Assert.Equal(("Cass", (byte)1), (back.Players[0].Name, back.Players[0].Slot));
+            Assert.Equal(c.ComputeHash(), back.Inventory.Hash);
         }
 
         [Fact]

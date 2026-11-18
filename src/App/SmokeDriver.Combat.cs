@@ -273,7 +273,7 @@ namespace PerformativeMail.App
                     GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled; "
                         + $"loot +{HudText.Money(server.Economy.Wallet - _fightWallet)}; health {hud.HealthText}");
                     client.Input.Buttons = InputButtons.None;
-                    StartRemote();
+                    StartBag();
                     break;
             }
         }

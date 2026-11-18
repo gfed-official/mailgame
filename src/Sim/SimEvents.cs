@@ -186,6 +186,24 @@ namespace PerformativeMail.Sim
         public EntityId Player;
     }
 
+    /// <summary>A carrier went down with things on them: the bag that lies there now (doc 01 §2.2).</summary>
+    public sealed class BagDroppedEvent : SimEvent
+    {
+        public uint ContainerId;
+        public EntityId Owner;
+        public float X, Z;
+        public uint DespawnTick;
+    }
+
+    /// <summary>A bag is gone: emptied by hand, or <see cref="Returned"/> when its time was up.</summary>
+    public sealed class BagGoneEvent : SimEvent
+    {
+        public uint ContainerId;
+        public bool Returned;
+        /// <summary>Mail items that went back to the Intake.</summary>
+        public ushort Mail;
+    }
+
     /// <summary>
     /// The server put the player before a mailbox (<see cref="PlaytestFlags.AtMailbox"/>); only the
     /// player hears of it, and turns to look at the mailbox.

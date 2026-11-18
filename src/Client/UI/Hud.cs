@@ -26,6 +26,7 @@ namespace PerformativeMail.Client.UI
         private const float TrackerWidth = 330f;
         private static readonly Color QuotaColour = new Color("f0a020");
         private static readonly Color HealthColour = new Color("e5484d");
+        private static readonly Color BagColour = new Color("c98a4b");
 
         public string PhaseText => _phase.Text;
         public string QuotaText => _quota.Text;
@@ -45,6 +46,8 @@ namespace PerformativeMail.Client.UI
         public float StaminaShown => _staminaBar.Value;
         /// <summary>The raid's tracker row while there is a raid, else empty.</summary>
         public string RaidText => _raid.Visible ? _raid.Text : "";
+        /// <summary>The tracker row of the local player's own bag while it lies in the world, else empty.</summary>
+        public string BagText => _bag.Visible ? _bag.Text : "";
         /// <summary>What the hammer and the cannon are bound to, while there is something to hit; else empty.</summary>
         public string WeaponsText => _weapons.Visible ? _weapons.Text : "";
         /// <summary>The cards of what was just picked up.</summary>
@@ -63,7 +66,7 @@ namespace PerformativeMail.Client.UI
         private InteractionController _interaction = null!;
         private EventFeed _feed = null!;
 
-        private Label _phase = null!, _status = null!, _tally = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!;
+        private Label _phase = null!, _status = null!, _tally = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!;
         private Label _prompt = null!, _held = null!, _hint = null!, _paused = null!, _banner = null!, _hp = null!, _weapons = null!;
         private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
         private ColorRect _hurt = null!;
@@ -202,6 +205,7 @@ namespace PerformativeMail.Client.UI
             _status = AddTracker("Status", 2, new Color("5bc0eb"));
             _tally = AddTracker("Tally", 3, Palette.Match);
             _raid = AddTracker("Raid", 4, HealthColour);
+            _bag = AddTracker("Bag", 5, BagColour);
 
             _hotbar = new GridView { Name = "Hotbar", ShowSlotNumbers = true, MouseFilter = MouseFilterEnum.Ignore };
             _hotbar.Setup(client, world => world.Hotbar);
@@ -277,6 +281,8 @@ namespace PerformativeMail.Client.UI
             if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
             _raid.Text = HudText.RaidTracker(world);
             _raid.Visible = _raid.Text.Length > 0;
+            _bag.Text = HudText.BagTracker(world);
+            _bag.Visible = _bag.Text.Length > 0;
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
             bool lost = _client!.State == ClientState.Disconnected;
             _hint.Text = lost ? HudText.HostLostHint : HudText.PhaseHint(world);

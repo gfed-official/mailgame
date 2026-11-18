@@ -27,7 +27,7 @@ namespace PerformativeMail.App
     /// </summary>
     public partial class SmokeDriver : Node
     {
-        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Inventory, Combat, Remote, Playtest, Done }
+        private enum Stage { Lobby, Prep, Pause, Deliver, RealTime, RunOut, BackToLobby, Inventory, Combat, Bag, Remote, Playtest, Done }
 
         private const int TicksPerFrame = 3;
         /// <summary>Once the close-up checks are done the remaining shifts run at one second per frame.</summary>
@@ -332,6 +332,10 @@ namespace PerformativeMail.App
 
                 case Stage.Combat:
                     StepCombat();
+                    break;
+
+                case Stage.Bag:
+                    StepBag(delta);
                     break;
 
                 case Stage.Remote:

@@ -219,7 +219,7 @@ Visuals (all built in code; there are no art assets yet):
 - [x] HUD in the video's layout (`Hud`, `HudBars`, `LootPanel`, `GridView`): top-centre quota bar,
       phase line and clock bar; health with its number and five stamina blocks bottom left, the
       feed above them; the teal hotbar with a gold selected slot; tracker plates bottom right
-      (wallet, quota / rank, backlog, deliveries, raid); ring crosshair; loot cards over the
+      (wallet, quota / rank, backlog, deliveries, raid, the own death bag); ring crosshair; loot cards over the
       hotbar; a red flash when hurt, the raid banner, the DOWN countdown
 
 Systems (server-authoritative, unit-tested):
@@ -235,7 +235,8 @@ Systems (server-authoritative, unit-tested):
       loot cards show what a kill gave (`LootCards`, `CombatHudTests`)
 
 The smoke plays the fight too (see "Commands"): a raider felled with the hammer, a giant shot
-with the mail cannon, the loot on the cards and in the wallet.
+with the mail cannon, the loot on the cards and in the wallet; and, since the death bag
+(section 3), the host going down and fetching their bag.
 
 ### 2. Playtest nits 7–11 (`logs/fable52/nits-fa44a16.md`, 2026-11-15)
 
@@ -281,7 +282,51 @@ with the mail cannon, the loot on the cards and in the wallet.
 
 ### 3. Further features from `design/drive/`, in milestone order
 
-(Listed and checked off as they land.)
+The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
+above). A box is ticked when the whole line of the doc exists; the sub-lines say which parts do.
+
+- [ ] World generation pipeline (all stages) for Small Island; worldHash; client-side
+      regeneration; SeedViewer tool
+      - [x] `worldHash` checked at connect (over the static map and the content, choice 3)
+      - [ ] the generator itself, regeneration on the client, the SeedViewer
+- [ ] Districts and per-shift unlock; address assignment; street names; house model variants and
+      colour coding
+      - [ ] all of it: the test street has one street, fixed addresses, and colours from the video
+- [ ] Run state machine with all phases; quota; spawn budget and mail mix; complaint meter;
+      deadlines; death and respawn; death bag
+      - [x] Lobby, Prep, Delivery, Payday, Results; quota; spawn budget and mix; the complaint
+            meter; deadlines and late value (the run / shift loop above)
+      - [x] death and respawn (section 1, with the fight)
+      - [x] **Death bag** (doc 01 §2.2 "Player death", doc 03 §3.1, doc 11): who goes down leaves
+            hotbar and inventory in a bag where they fell, 30 s on the clock. Anyone in reach opens
+            it like a chest ("Open your bag  [E]   ·   gone in 00:18", "Open Cass's bag …") and
+            takes from it or puts into it; emptied, it is gone at once. When the time is up its
+            mail is back in the Intake and the rest in its owner's pockets. On the HUD: an own-bag
+            tracker plate with the countdown, feed lines, a leather satchel on the ground that
+            throbs in its last 8 s. Protocol `m1.6` (`BagDropped`, `BagGone`, bags in the Welcome
+            for a late joiner). `DeathBagTests` (9), `DeathBagFlowTests` (3), `CodecTests`; the
+            smoke fells the host, walks them back and takes it all out again (`bag-down.png`,
+            `bag-prompt.png`, `bag-open.png`); design choice 61
+      - [ ] the Generating, Raid and Draft phases as phases of their own (the raid runs inside
+            Delivery, choice 50; Draft waits for perks)
+- [ ] Shop (blueprints, bike, consumables, refined materials); bike as first vehicle (driver
+      prediction path)
+- [ ] Perk system (StatSheet, modifiers, team/personal, prerequisites, exclusions) with ~12 perks
+- [ ] Lobby with seed, archetype, kit; join-in-progress in Prep; disconnect grace
+      - [x] a Lobby the host starts from; joining in Lobby and Prep
+      - [ ] seed / archetype / kit choice in the Lobby; the 120 s disconnect grace
+- [ ] Content pipeline: JSON defs, validator in CI, hot reload
+      - [x] JSON defs and the validator (`tools/validate-content.sh`, run by `tools/smoke.sh`)
+      - [ ] a CI job; hot reload
+- [x] Results screen and MetaProfile persistence (XP only) — the run / shift loop above. The
+      unlocks table is not wired yet.
+- [ ] Resource nodes and harvesting (wood, fiber, stone, ore); hand-built Wooden Wall and Chest
+      from harvested materials
+      - [x] a chest in the world, placed by the map (nit 9)
+      - [ ] nodes, harvesting, building by hand
+
+Next in this order: the disconnect grace (it is what a leaver's bag is waiting for), then perks
+with the Draft phase.
 
 ## How to build and check
 
@@ -676,6 +721,33 @@ See "Commands" at the bottom (filled in as the tooling lands).
     client drops the player on `PlayerLeft` before any `PlayerJoined` (reliable, in order), and
     `PlayersView` rebuilds a view whose carrier object changed under the same id. Join order,
     not the id, still picks the next host. Other entity classes keep never-reused ids.
+61. **The death bag (first of the M1 list, section 3).** It goes first because the piece it
+    completes (death and respawn) came in with the fight, and until now going down cost nothing.
+    Doc 01 §2.2 says the "contents return to PO Intake", doc 11 says "mail returns to Intake";
+    doc 03 §3.3 says a despawn must never lose mail. What the docs leave open, and what was
+    chosen:
+    - *What is in it*: hotbar and inventory, every stack in the cell it had (the bag is the 8×4
+      `death_bag` of doc 03 §3.1: row 0 the hotbar, rows 1–2 the inventory). Empty pockets drop
+      no bag. A carrier may have several bags lying about; the tracker shows the one with the
+      least time left.
+    - *Who may open it*: anyone in reach, the owner too once they are up; it is a container like
+      a chest, so things can also be put in. Emptied, it is gone at once. Someone who is down
+      gets no interact prompt at all.
+    - *When the 30 s are up* (`deathBagDespawnSeconds`; respawn is 10 s, so about 20 s to get
+      back): mail goes to the Intake (to the backlog if that is full), everything else to the
+      owner's inventory, then hotbar. What does not fit there, or has no owner any more, is
+      lost: the Intake is for mail, and a bag nobody fetched should cost something. A phase
+      boundary returns every bag the same way (`ClearCombat`), so no bag outlives its shift.
+    - *Leavers*: leaving the game still sends carried mail straight back to the Intake, as
+      before, and drops no bag; a bag the leaver had already dropped stays as "an unclaimed
+      bag" (nobody's, so whoever takes the reused id inherits nothing of it). Doc 06's
+      "the body drops a death bag" after the 120 s disconnect grace waits for that grace.
+    - *Not yet*: the `second_wind` perk (no perks yet), the "+ overflow" of doc 03 (the pockets
+      are 24 cells, the bag has 32), vehicles dropping a bag.
+    - *Wire*: `BagDropped` (container, owner, place, despawn tick) and `BagGone` (returned or
+      emptied, how much mail went back); the Welcome lists the bags lying about. The client
+      takes a bag off its list only after the feed has heard `BagGone`, so the line can still
+      say whose it was. The countdown on the HUD is the despawn tick against the server clock.
 
 ## Commands
 
@@ -764,7 +836,13 @@ holds attack until it falls (three swings; the enemy drawn, the hammer in the ha
 line, the feed line), its loot must be drawn, taken, on the cards under "Raider" and in the wallet
 line; then a giant down the street and one Small Package: one cannon shot, the package gone, a blast
 drawn and the giant hurt; the giant's blow must show on the health number and bar; felled, its
-stones are on the cards; nothing is left behind and the camera never left the eyes. Last, ENet: a second `ClientRuntime` connects to
+stones are on the cards; nothing is left behind and the camera never left the eyes. Then the
+death bag: the server fells the host with the loot in their pockets; down, the pockets must be
+empty, one bag (the host's own) must lie where they fell on the server, in the client's list and
+drawn, the tracker must count it down and there must be no prompt; back on their feet the host
+walks to it, looks at it ("Open your bag  [E]   ·   gone in 00:…"), taps interact, and the panel
+titled "Your bag" must hold everything they carried; stack by stack it goes back, and the emptied
+bag must be gone everywhere with the same items in the pockets as before and no desync. Last, ENet: a second `ClientRuntime` connects to
 the host's own UDP port, joins (both ends, the host's HUD and the host's player views count two
 players), walks a second down the street (the server moves it, its prediction agrees), and leaves;
 next to it a client saying Hello with a wrong protocol hash must get `ProtocolMismatch` and be

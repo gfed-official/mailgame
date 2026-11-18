@@ -34,7 +34,7 @@ namespace PerformativeMail.Sim.Tests
         public void TheRealContentIsValid()
         {
             Assert.Equal(Program.ExitOk, Run(_dir, "content"));
-            Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 10 containers, 11 items, 1 maps", _out.ToString());
+            Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 11 containers, 11 items, 1 maps", _out.ToString());
             Assert.Contains($"content hash {TestContent.Db.ContentHash:x8}", _out.ToString());
             Assert.Equal("", _err.ToString());
         }

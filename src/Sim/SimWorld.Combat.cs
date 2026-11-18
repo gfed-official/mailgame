@@ -26,7 +26,7 @@ namespace PerformativeMail.Sim
             public readonly uint HammerCooldownTicks;
             public readonly float CannonDamage, CannonBlastRadius, CannonRange, CannonStep;
             public readonly uint CannonCooldownTicks;
-            public readonly uint WindupTicks, FleeTicks, LootDespawnTicks;
+            public readonly uint WindupTicks, FleeTicks, LootDespawnTicks, BagDespawnTicks;
             public readonly float FleeSpeedMult, LootPickupRange;
 
             public CombatTuning(Balance b)
@@ -50,6 +50,7 @@ namespace PerformativeMail.Sim
                 FleeSpeedMult = b.GetFloat("enemyFleeSpeedMult");
                 LootDespawnTicks = SimConstants.SecondsToTicks(b.GetDouble("lootDespawnSeconds"));
                 LootPickupRange = b.GetFloat("lootPickupRange");
+                BagDespawnTicks = SimConstants.SecondsToTicks(b.GetDouble("deathBagDespawnSeconds"));
             }
         }
 
@@ -103,6 +104,7 @@ namespace PerformativeMail.Sim
             StepShots();
             StepEnemies();
             StepLoot();
+            StepBags();
         }
 
         private void StepHealth()
@@ -128,7 +130,10 @@ namespace PerformativeMail.Sim
             z = Map.PostOffice.SpawnPadZ + (slot / 2) * 1.0f - 1.5f;
         }
 
-        /// <summary>Hurts a carrier; at 0 HP they are down until the respawn (doc 05 §1.1).</summary>
+        /// <summary>
+        /// Hurts a carrier; at 0 HP they are down until the respawn and what they carried lies in
+        /// a bag where they fell (doc 05 §1.1).
+        /// </summary>
         public void DamagePlayer(Player p, float damage, byte enemyKind = 0)
         {
             if (p.Dead || damage <= 0f) return;
@@ -140,6 +145,7 @@ namespace PerformativeMail.Sim
             p.RespawnTick = Tick + _combat.RespawnTicks;
             CloseExternal(p, notify: true);
             Events.Add(new PlayerDiedEvent { Player = p.Id, RespawnTick = p.RespawnTick, Killer = enemyKind });
+            DropBag(p);
         }
 
         private void Respawn(Player p)
@@ -315,7 +321,7 @@ namespace PerformativeMail.Sim
             return e;
         }
 
-        /// <summary>A player has left: their shots in the air and the blows they dealt are nobody's now.</summary>
+        /// <summary>A player has left: their shots in the air, the blows they dealt and their bags are nobody's now.</summary>
         private void ForgetInCombat(EntityId player)
         {
             foreach (var e in _enemies)
@@ -325,6 +331,7 @@ namespace PerformativeMail.Sim
             }
             foreach (var s in _shots)
                 if (s.Owner == player) s.Owner = EntityId.None;
+            DisownBags(player);
         }
 
         public Enemy? GetEnemy(EntityId id)
@@ -643,7 +650,8 @@ namespace PerformativeMail.Sim
 
         /// <summary>
         /// Between shifts nothing of the fight is left (doc 05 §3.4: "Enemies never persist into
-        /// Prep"): enemies, packages in flight and loot go, and whoever was down stands up.
+        /// Prep"): enemies, packages in flight and loot go, bags are returned, and whoever was down
+        /// stands up.
         /// </summary>
         private void ClearCombat()
         {
@@ -651,6 +659,7 @@ namespace PerformativeMail.Sim
             _shots.Clear();
             foreach (var bundle in _loot) Events.Add(new LootGoneEvent { LootId = bundle.Id });
             _loot.Clear();
+            ReturnAllBags();
             _raidWarnTick = _raidStartTick = _fleeEndTick = 0;
             _raidAtStart = false;
             SetRaid(RaidState.None, 0);

@@ -332,6 +332,8 @@ namespace PerformativeMail.Client
                 ServerTick = m.Tick,
             };
             foreach (var p in m.Players) world.Players[p.Id] = new ClientPlayer(p.Id, p.Name, p.Slot);
+            foreach (var b in m.Bags)
+                world.Bags[b.ContainerId] = new ClientBag { ContainerId = b.ContainerId, Owner = b.Owner, X = b.X, Z = b.Z, DespawnTick = b.DespawnTick };
             World = world;
             Input.YawRadians = map.PostOffice.SpawnYaw;
             Input.PitchRadians = 0f;
@@ -455,6 +457,9 @@ namespace PerformativeMail.Client
                     break;
                 case PlayerLeftEvent e:
                     world.Players.Remove(e.Player);
+                    // Their id is free for the next to join, who did not drop these.
+                    foreach (var bag in world.Bags.Values)
+                        if (bag.Owner == e.Player) bag.Owner = EntityId.None;
                     break;
                 case ContainerStateEvent e:
                     if (LoadContainer(e.State) != null && e.State.ContainerId != world.HotbarId && e.State.ContainerId != world.InventoryId)
@@ -565,8 +570,13 @@ namespace PerformativeMail.Client
                 case PlayerParkedEvent e:
                     if (e.Destination < world.Map.Destinations.Count) FaceMailbox(world, world.Map.Destinations[e.Destination]);
                     break;
+                case BagDroppedEvent e:
+                    world.Bags[e.ContainerId] = new ClientBag { ContainerId = e.ContainerId, Owner = e.Owner, X = e.X, Z = e.Z, DespawnTick = e.DespawnTick };
+                    break;
             }
             EventReceived?.Invoke(ev);
+            // After the listeners: the feed still says whose bag it was.
+            if (ev is BagGoneEvent gone) world.Bags.Remove(gone.ContainerId);
         }
 
         private GridContainer? LoadContainer(ContainerState state)

@@ -175,8 +175,9 @@ namespace PerformativeMail.Sim
         }
 
         /// <summary>
-        /// Removes a player. M0 has no death bags, so mail on the body goes back to the Intake
-        /// instead of being lost (same rule doc 03 §3.3 uses for despawning world mail).
+        /// Removes a player. Leaving drops no bag (that waits for the disconnect grace of doc 06):
+        /// mail on the body goes back to the Intake instead of being lost (the rule doc 03 §3.3
+        /// has for despawning world mail).
         /// </summary>
         public void RemovePlayer(EntityId id)
         {

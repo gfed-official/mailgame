@@ -17,6 +17,9 @@ namespace PerformativeMail.Client
         /// <summary>At one of the map's chests.</summary>
         OpenChest,
         CloseChest,
+        /// <summary>At a death bag (doc 01 §2.2).</summary>
+        OpenBag,
+        CloseBag,
     }
 
     /// <summary>What the interact prompt shows right now (doc 09 §2.4).</summary>
@@ -38,6 +41,8 @@ namespace PerformativeMail.Client
         public bool MailboxClosed;
         /// <summary>OpenChest / CloseChest: the chest in range.</summary>
         public MapChestDef? Chest;
+        /// <summary>OpenBag / CloseBag: the bag in range.</summary>
+        public ClientBag? Bag;
     }
 
     /// <summary>
@@ -84,7 +89,8 @@ namespace PerformativeMail.Client
 
             var world = _client.World;
             // A paused server answers nothing but the resume: no prompt, and no request to queue up behind it.
-            if (_client.State != ClientState.Joined || world == null || !world.HasLocal || world.Paused)
+            // Nor does it answer the hands of a player who is down.
+            if (_client.State != ClientState.Joined || world == null || !world.HasLocal || world.Paused || world.Local.Dead)
             {
                 Reset();
                 return;
@@ -95,17 +101,21 @@ namespace PerformativeMail.Client
             {
                 case InteractKind.OpenIntake:
                 case InteractKind.OpenChest:
+                case InteractKind.OpenBag:
                     _hold = 0;
                     _deliverAllDest = -1;
                     if (_pressLatch > 0 && _awaiting == 0)
                     {
                         _pressLatch = 0;
-                        _awaiting = _client.OpenContainer(prompt.Chest != null ? world.ChestContainerIds[prompt.Chest.Id] : world.IntakeContainerId);
+                        _awaiting = _client.OpenContainer(
+                            prompt.Bag != null ? prompt.Bag.ContainerId
+                            : prompt.Chest != null ? world.ChestContainerIds[prompt.Chest.Id] : world.IntakeContainerId);
                     }
                     break;
 
                 case InteractKind.CloseIntake:
                 case InteractKind.CloseChest:
+                case InteractKind.CloseBag:
                     _hold = 0;
                     _deliverAllDest = -1;
                     if (_pressLatch > 0 && _awaiting == 0)
@@ -137,8 +147,8 @@ namespace PerformativeMail.Client
 
         /// <summary>
         /// The interactable the player is looking at: the first one the view ray hits among those
-        /// within the client interact range of the player (doc 09 §3.1: 2.5 m). An open Intake or
-        /// chest stays targeted while in range, because the mouse is on its panel, not on the world.
+        /// within the client interact range of the player (doc 09 §3.1: 2.5 m). An open Intake,
+        /// chest or bag stays targeted while in range, because the mouse is on its panel, not on the world.
         /// </summary>
         private InteractPrompt FindTarget(ClientWorld world)
         {
@@ -179,6 +189,23 @@ namespace PerformativeMail.Client
                 prompt.Kind = InteractKind.OpenChest;
                 prompt.Chest = chest;
             }
+            foreach (var bag in world.Bags.Values)
+            {
+                if (DistSq(px, pz, bag.X, bag.Z) > rangeSq) continue;
+                if (world.OpenContainerId == bag.ContainerId)
+                {
+                    prompt.Kind = InteractKind.CloseBag;
+                    prompt.Chest = null;
+                    prompt.Bag = bag;
+                    return prompt;
+                }
+                float t = ray.Hit(AimBox.Bag(world.Map, bag.X, bag.Z));
+                if (t < 0f || t > best) continue;
+                best = t;
+                prompt.Kind = InteractKind.OpenBag;
+                prompt.Chest = null;
+                prompt.Bag = bag;
+            }
             foreach (var dest in world.Map.Destinations)
             {
                 if (DistSq(px, pz, dest.MailboxX, dest.MailboxZ) > rangeSq) continue;
@@ -187,6 +214,7 @@ namespace PerformativeMail.Client
                 best = t;
                 prompt.Kind = InteractKind.Deliver;
                 prompt.Chest = null;
+                prompt.Bag = null;
                 prompt.Destination = dest;
             }
             if (prompt.Kind != InteractKind.Deliver) return prompt;

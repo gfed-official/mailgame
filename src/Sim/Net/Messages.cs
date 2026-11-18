@@ -37,13 +37,13 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.5;" +
+            "m1.6;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift;Playtest:noTimer,atMailbox,noQuota,raidNow;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
             "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause;" +
-            "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u8 chests,{u32 container},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory;" +
+            "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u8 chests,{u32 container},u8 bags,{u32 container,u32 owner,f32 x,f32 z,u32 despawn},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory;" +
             "Reject:u8 reason;" +
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
             "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
@@ -51,12 +51,13 @@ namespace PerformativeMail.Sim.Net
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 playtest;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
-            "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked;" +
+            "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone;" +
             "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
             "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +
             "LootDropped:u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count};" +
             "LootTaken:u32 id,u32 player,u16 coins,u8 n,{u16 item,u8 count},u8 gone;LootGone:u32 id;" +
             "Raid:u8 state,u32 tick;PlayerDied:u32 player,u32 respawn,u8 killer;PlayerRespawned:u32 player;PlayerParked:u16 dest;" +
+            "BagDropped:u32 container,u32 owner,f32 x,f32 z,u32 despawn;BagGone:u32 container,u8 returned,u16 mail;" +
             "Phase:u8 shift,u8 phase,u32 tick,u32 end,i32 quota,u8 outcome;" +
             "Paused:u8 paused,u32 tick;" +
             "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
@@ -150,6 +151,15 @@ namespace PerformativeMail.Sim.Net
         public byte Slot;
     }
 
+    /// <summary>A death bag lying in the world, as a joining client is told of it.</summary>
+    public struct BagInfo
+    {
+        public uint ContainerId;
+        public EntityId Owner;
+        public float X, Z;
+        public uint DespawnTick;
+    }
+
     /// <summary>Join state (doc 06 §5 step 4), small enough in M0 to be one message.</summary>
     public sealed class WelcomeMsg
     {
@@ -161,6 +171,8 @@ namespace PerformativeMail.Sim.Net
         public uint IntakeContainerId;
         /// <summary>The containers of the map's chests, in the map's order.</summary>
         public readonly List<uint> ChestContainerIds = new List<uint>();
+        /// <summary>The bags lying about; later ones come as events.</summary>
+        public readonly List<BagInfo> Bags = new List<BagInfo>();
         public GlobalState Global;
         public readonly List<PlayerInfo> Players = new List<PlayerInfo>();
         public ContainerState Hotbar = null!;
@@ -172,6 +184,8 @@ namespace PerformativeMail.Sim.Net
             w.U32(PlayerId.Value); w.U32(Tick); w.U32(Seed); w.Str(MapId); w.U64(MapHash); w.U32(IntakeContainerId);
             w.U8((byte)ChestContainerIds.Count);
             foreach (uint id in ChestContainerIds) w.U32(id);
+            w.U8((byte)Bags.Count);
+            foreach (var b in Bags) { w.U32(b.ContainerId); w.U32(b.Owner.Value); w.F32(b.X); w.F32(b.Z); w.U32(b.DespawnTick); }
             GlobalCodec.Write(w, Global);
             w.U8((byte)Players.Count);
             foreach (var p in Players) { w.U32(p.Id.Value); w.Str(p.Name); w.U8(p.Slot); }
@@ -188,6 +202,14 @@ namespace PerformativeMail.Sim.Net
             };
             int chests = r.U8();
             for (int i = 0; i < chests; i++) m.ChestContainerIds.Add(r.U32());
+            int bags = r.U8();
+            for (int i = 0; i < bags; i++)
+            {
+                m.Bags.Add(new BagInfo
+                {
+                    ContainerId = r.U32(), Owner = new EntityId(r.U32()), X = r.F32(), Z = r.F32(), DespawnTick = r.U32(),
+                });
+            }
             m.Global = GlobalCodec.Read(r);
             int n = r.U8();
             for (int i = 0; i < n; i++)

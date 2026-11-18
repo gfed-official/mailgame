@@ -31,6 +31,8 @@ namespace PerformativeMail.Sim.Net
         PlayerDied = 21,
         PlayerRespawned = 22,
         PlayerParked = 23,
+        BagDropped = 24,
+        BagGone = 25,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -150,6 +152,14 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.PlayerParked);
                     w.U16(e.Destination);
                     break;
+                case BagDroppedEvent e:
+                    w.U8((byte)EventType.BagDropped);
+                    w.U32(e.ContainerId); w.U32(e.Owner.Value); w.F32(e.X); w.F32(e.Z); w.U32(e.DespawnTick);
+                    break;
+                case BagGoneEvent e:
+                    w.U8((byte)EventType.BagGone);
+                    w.U32(e.ContainerId); w.Bool(e.Returned); w.U16(e.Mail);
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -260,6 +270,13 @@ namespace PerformativeMail.Sim.Net
                     return new PlayerRespawnedEvent { Player = new EntityId(r.U32()) };
                 case EventType.PlayerParked:
                     return new PlayerParkedEvent { Destination = r.U16() };
+                case EventType.BagDropped:
+                    return new BagDroppedEvent
+                    {
+                        ContainerId = r.U32(), Owner = new EntityId(r.U32()), X = r.F32(), Z = r.F32(), DespawnTick = r.U32(),
+                    };
+                case EventType.BagGone:
+                    return new BagGoneEvent { ContainerId = r.U32(), Returned = r.Bool(), Mail = r.U16() };
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

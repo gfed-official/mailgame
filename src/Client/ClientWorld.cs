@@ -173,6 +173,16 @@ namespace PerformativeMail.Client
         public double DroppedTick;
     }
 
+    /// <summary>A death bag lying in the world (doc 01 §2.2): a container anyone in reach can open.</summary>
+    public sealed class ClientBag
+    {
+        public uint ContainerId;
+        /// <summary>Whose it was; None once they have left.</summary>
+        public EntityId Owner;
+        public float X, Z;
+        public uint DespawnTick;
+    }
+
     /// <summary>
     /// The client's presentation model (doc 07 §5): the subset of sim state this client knows.
     /// Written only by <see cref="ClientRuntime"/>; views and UI read it.
@@ -205,6 +215,8 @@ namespace PerformativeMail.Client
         public Dictionary<ushort, ClientEnemy> Enemies { get; } = new Dictionary<ushort, ClientEnemy>();
         /// <summary>Loot bundles on the ground.</summary>
         public Dictionary<uint, ClientLoot> Loot { get; } = new Dictionary<uint, ClientLoot>();
+        /// <summary>Death bags lying about, by container id.</summary>
+        public Dictionary<uint, ClientBag> Bags { get; } = new Dictionary<uint, ClientBag>();
         public RaidState Raid => Global.Raid;
         /// <summary>Warning: the tick of the first spawn. Fleeing: the tick the last raider is gone by.</summary>
         public uint RaidTick { get; internal set; }
@@ -248,6 +260,22 @@ namespace PerformativeMail.Client
         }
 
         public GridContainer? OpenContainer => OpenContainerId != 0 ? Prediction.View(OpenContainerId) : null;
+
+        /// <summary>Seconds until a bag is gone and its mail back in the Intake.</summary>
+        public double BagSecondsLeft(ClientBag bag) =>
+            Math.Max(0.0, SimConstants.TicksToSeconds((long)bag.DespawnTick - (long)Math.Floor(ServerTick)));
+
+        /// <summary>The local player's own bag, the one with the least time left; null if none lies about.</summary>
+        public ClientBag? LocalBag
+        {
+            get
+            {
+                ClientBag? first = null;
+                foreach (var bag in Bags.Values)
+                    if (bag.Owner == LocalId && (first == null || bag.DespawnTick < first.DespawnTick)) first = bag;
+                return first;
+            }
+        }
 
         /// <summary>
         /// Seconds left on the phase clock, derived from ticks (doc 07 §4.1). A stopped shift clock

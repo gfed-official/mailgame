@@ -158,11 +158,7 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>"Chest" for "chest", "Bike cargo" for "bike_cargo": the title over an open container.</summary>
-        public static string ContainerTitle(ContainerDef def)
-        {
-            string text = def.Id.Replace('_', ' ');
-            return text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text.Substring(1);
-        }
+        public static string ContainerTitle(ContainerDef def) => Capitalised(def.Id.Replace('_', ' '));
 
         /// <summary>The Payday summary (doc 01 §1 Payday): title first, then one fact per line.</summary>
         public static List<string> SummaryLines(ClientWorld world, ShiftSummary s)
@@ -303,6 +299,27 @@ namespace PerformativeMail.Client
             return s > 0 ? $"DOWN   ·   back on your feet in {s}" : "DOWN";
         }
 
+        /// <summary>"your bag", "Cass's bag"; "an unclaimed bag" once whoever dropped it has left.</summary>
+        public static string BagName(ClientWorld world, EntityId owner)
+        {
+            if (!owner.IsNone && owner == world.LocalId) return "your bag";
+            return world.Players.TryGetValue(owner, out var p) ? $"{p.Name}'s bag" : "an unclaimed bag";
+        }
+
+        /// <summary>The title over an open container: a bag is named after whoever dropped it.</summary>
+        public static string ContainerTitle(ClientWorld world, GridContainer container) =>
+            world.Bags.TryGetValue(container.Id, out var bag) ? Capitalised(BagName(world, bag.Owner)) : ContainerTitle(container.Def);
+
+        /// <summary>The tracker row while the local player's bag lies in the world: how long it will.</summary>
+        public static string BagTracker(ClientWorld world)
+        {
+            var bag = world.LocalBag;
+            return bag == null ? "" : $"Your bag   ·   gone in {Clock(world.BagSecondsLeft(bag))}";
+        }
+
+        public static string Capitalised(string text) =>
+            text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text.Substring(1);
+
         /// <summary>The tracker row of what is waiting: mail not yet delivered and the complaint meter.</summary>
         public static string Status(in GlobalState g) => $"Backlog {g.Backlog}   ·   Complaint {g.Complaint}";
 
@@ -335,6 +352,8 @@ namespace PerformativeMail.Client
                 case InteractKind.CloseIntake: return "Close Intake  [E]";
                 case InteractKind.OpenChest: return $"Open {ContainerTitle(p.Chest!.Container)}  [E]";
                 case InteractKind.CloseChest: return $"Close {ContainerTitle(p.Chest!.Container)}  [E]";
+                case InteractKind.OpenBag: return $"Open {BagName(world, p.Bag!.Owner)}  [E]   ·   gone in {Clock(world.BagSecondsLeft(p.Bag))}";
+                case InteractKind.CloseBag: return $"Close {BagName(world, p.Bag!.Owner)}  [E]   ·   gone in {Clock(world.BagSecondsLeft(p.Bag))}";
                 case InteractKind.Deliver:
                 {
                     var dest = p.Destination!;

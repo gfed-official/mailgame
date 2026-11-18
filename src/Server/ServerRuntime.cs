@@ -183,6 +183,8 @@ namespace PerformativeMail.Server
                 Inventory = player.Inventory.Snapshot(),
             };
             foreach (var chest in World.MapChests) welcome.ChestContainerIds.Add(chest.Id);
+            foreach (var bag in World.Bags)
+                welcome.Bags.Add(new BagInfo { ContainerId = bag.Id, Owner = bag.Owner, X = bag.X, Z = bag.Z, DespawnTick = bag.DespawnTick });
             foreach (var p in World.Players)
                 welcome.Players.Add(new PlayerInfo { Id = p.Id, Name = p.Name, Slot = p.Slot });
             _writer.Reset();

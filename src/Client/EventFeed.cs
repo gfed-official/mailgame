@@ -65,7 +65,23 @@ namespace PerformativeMail.Client
                 case PlayerRespawnedEvent e:
                     Add(e.Player == world.LocalId ? "You are back on your feet" : $"{Who(world, e.Player)} is back on their feet");
                     break;
+                case BagDroppedEvent e:
+                    Add(e.Owner == world.LocalId
+                        ? "Your bag lies where you fell: get to it before it is gone"
+                        : $"{HudText.Capitalised(HudText.BagName(world, e.Owner))} lies where they fell");
+                    break;
+                case BagGoneEvent e: OnBagGone(world, e); break;
             }
+        }
+
+        /// <summary>The bag is still in <see cref="ClientWorld.Bags"/> here: the line says whose it was.</summary>
+        private void OnBagGone(ClientWorld world, BagGoneEvent e)
+        {
+            var owner = world.Bags.TryGetValue(e.ContainerId, out var bag) ? bag.Owner : EntityId.None;
+            string name = HudText.Capitalised(HudText.BagName(world, owner));
+            if (!e.Returned) Add($"{name} has been picked up");
+            else if (e.Mail > 0) Add($"{name} is gone: {HudText.CountAndKind("item", e.Mail)} of mail went back to the Intake", bad: true);
+            else if (!owner.IsNone && owner == world.LocalId) Add("Your bag is gone: what fits is back in your pockets");
         }
 
         private void OnRaid(RaidState raid)

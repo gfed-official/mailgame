@@ -356,7 +356,7 @@ namespace PerformativeMail.Client.UI
             if (!manifest)
             {
                 _listedId = 0;
-                _externalTitle.Text = HudText.ContainerTitle(external.Def);
+                _externalTitle.Text = HudText.ContainerTitle(world, external);
                 return;
             }
             int revision = world.Prediction.Revision;

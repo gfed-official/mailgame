@@ -16,6 +16,7 @@ namespace PerformativeMail.Client.Presentation
     public partial class CombatEffects : Node3D
     {
         private const float CoinFlySeconds = 0.4f;
+        private const double BagHurrySeconds = 8.0;
         private static readonly Color Gold = new Color("ffc93c");
         private static readonly Color Fire = new Color("ff8a2a");
 
@@ -60,12 +61,15 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Blasts played so far (the smoke test looks for the one it fired).</summary>
         public int Blasts { get; private set; }
         public int LootViewCount => _loot.Count;
+        /// <summary>Death bags drawn in the world right now.</summary>
+        public int BagViewCount => _bags.Count;
 
         private readonly List<Particle> _particles = new List<Particle>();
         private readonly List<Shot> _shots = new List<Shot>();
         private readonly List<Flash> _flashes = new List<Flash>();
         private readonly List<FlyingCoin> _flying = new List<FlyingCoin>();
         private readonly Dictionary<uint, LootView> _loot = new Dictionary<uint, LootView>();
+        private readonly Dictionary<uint, Node3D> _bags = new Dictionary<uint, Node3D>();
         private readonly List<uint> _gone = new List<uint>();
         private readonly Random _random = new Random(7);
         private ClientRuntime _client = null!;
@@ -120,6 +124,7 @@ namespace PerformativeMail.Client.Presentation
             if (world == null) return;
             float dt = (float)delta;
             SyncLoot(world, dt);
+            SyncBags(world);
             StepShots(dt);
             StepFlashes(dt);
             StepParticles(dt);
@@ -335,6 +340,54 @@ namespace PerformativeMail.Client.Presentation
             parcel.Position = new Vector3(0f, 0.13f * size, 0f);
             parcel.Rotation = new Vector3(0f, loot.Id * 1.3f, 0f);
             view.Root.AddChild(parcel);
+        }
+
+        // --- death bags -------------------------------------------------------------------------
+
+        private void SyncBags(ClientWorld world)
+        {
+            foreach (var bag in world.Bags.Values)
+            {
+                if (!_bags.TryGetValue(bag.ContainerId, out var view))
+                {
+                    view = Satchel();
+                    view.Name = $"Bag{bag.ContainerId}";
+                    view.Position = new Vector3(bag.X, world.Map.HeightAt(bag.X, bag.Z), bag.Z);
+                    view.Rotation = new Vector3(0f, bag.ContainerId * 1.9f, 0f);
+                    AddChild(view);
+                    _bags[bag.ContainerId] = view;
+                }
+                // The last seconds it throbs: whoever means to fetch it has to go now.
+                double left = world.BagSecondsLeft(bag);
+                float throb = left < BagHurrySeconds ? 1f + 0.08f * Mathf.Sin((float)left * Mathf.Tau * 2f) : 1f;
+                view.Scale = Vector3.One * throb;
+            }
+            if (_bags.Count == world.Bags.Count) return;
+            _gone.Clear();
+            foreach (uint id in _bags.Keys)
+                if (!world.Bags.ContainsKey(id)) _gone.Add(id);
+            foreach (uint id in _gone)
+            {
+                Puff(_bags[id].Position + Vector3.Up * 0.3f, 4, new Color("b9a892"), 0.3f);
+                _bags[id].QueueFree();
+                _bags.Remove(id);
+            }
+        }
+
+        /// <summary>A carrier's satchel lying on its back: body, flap, buckle and the strap beside it.</summary>
+        private static Node3D Satchel()
+        {
+            var root = new Node3D();
+            var leather = MeshKit.Mat(new Color("7a4a2b"), 0.8f);
+            var flap = MeshKit.Mat(new Color("5e3620"), 0.75f);
+            var brass = MeshKit.Mat(new Color("d9a441"), 0.35f, 0.8f);
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.62f, 0.3f, 0.46f), 0.1f), leather, new Vector3(0f, 0.15f, 0f)));
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.66f, 0.07f, 0.34f), 0.03f), flap, new Vector3(0f, 0.3f, -0.07f), new Vector3(-6f, 0f, 0f)));
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.1f, 0.04f, 0.08f), 0.015f), brass, new Vector3(0f, 0.325f, 0.08f)));
+            root.AddChild(MeshKit.Instance(MeshKit.Torus(0.2f, 0.24f), leather, new Vector3(0.36f, 0.03f, 0.1f)));
+            // An envelope half out of it: the bag is where the mail is.
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.3f, 0.02f, 0.2f), 0.008f), MeshKit.Mat(new Color("f3ead6"), 0.9f), new Vector3(-0.12f, 0.31f, 0.2f), new Vector3(14f, 20f, 0f)));
+            return root;
         }
 
         /// <summary>A glowing gold disc on its edge, as on the path in the video.</summary>
