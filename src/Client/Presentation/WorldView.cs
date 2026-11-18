@@ -48,9 +48,9 @@ namespace PerformativeMail.Client.Presentation
             AddChild(Atmosphere);
             Atmosphere.Build(Cheap);
 
-            // The material keeps the texture; C# lets go of it now rather than at exit, after the renderer has gone.
+            // The meshes keep the material and the material keeps the texture; C# lets go of both now rather than at exit, after the renderer has gone.
             using var groundMap = GroundMap(map);
-            var ground = Shaders.Ground(groundMap, new Vector2(-GroundMargin, -GroundMargin), new Vector2(map.WidthM + GroundMargin * 2f, map.DepthM + GroundMargin * 2f));
+            using var ground = Shaders.Ground(groundMap, new Vector2(-GroundMargin, -GroundMargin), new Vector2(map.WidthM + GroundMargin * 2f, map.DepthM + GroundMargin * 2f));
             AddGround(map, ground);
 
             var batch = new MeshBatch();

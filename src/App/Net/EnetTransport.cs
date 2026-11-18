@@ -21,6 +21,17 @@ namespace PerformativeMail.App.Net
             channel == NetChannel.Unreliable ? (int)ENetPacketPeer.FlagUnreliableFragment : (int)ENetPacketPeer.FlagReliable;
 
         public static bool IsOpen(ENetPacketPeer peer) => peer.GetState() == ENetPacketPeer.PeerState.Connected;
+
+        /// <summary>
+        /// The peer of an event from <c>Service</c>. The Variant that carries it holds a reference
+        /// of its own until C# finalises it, which at exit is too late (Godot reports the peer as
+        /// leaked), so it is let go here.
+        /// </summary>
+        public static ENetPacketPeer Peer(Godot.Collections.Array ev)
+        {
+            using Variant peer = ev[1];
+            return peer.As<ENetPacketPeer>();
+        }
     }
 
     /// <summary>The listen server's socket (doc 06 §2): remote clients connect to it over ENet.</summary>
@@ -54,10 +65,10 @@ namespace PerformativeMail.App.Net
             if (_closed) return;
             while (true)
             {
-                var ev = _host.Service(0);
+                using var ev = _host.Service(0);
                 var type = (ENetConnection.EventType)ev[0].AsInt32();
                 if (type == ENetConnection.EventType.None || type == ENetConnection.EventType.Error) return;
-                var peer = ev[1].As<ENetPacketPeer>();
+                var peer = Enet.Peer(ev);
                 ulong key = peer.GetInstanceId();
                 switch (type)
                 {
@@ -118,6 +129,7 @@ namespace PerformativeMail.App.Net
             _peers.Clear();
             _ids.Clear();
             _host.Destroy();
+            _host.Dispose();
         }
     }
 
@@ -162,7 +174,7 @@ namespace PerformativeMail.App.Net
             if (_closed) return;
             while (true)
             {
-                var ev = _host.Service(0);
+                using var ev = _host.Service(0);
                 var type = (ENetConnection.EventType)ev[0].AsInt32();
                 if (type == ENetConnection.EventType.None)
                 {
@@ -179,7 +191,7 @@ namespace PerformativeMail.App.Net
                         break;
                     case ENetConnection.EventType.Receive:
                     {
-                        byte[] data = ev[1].As<ENetPacketPeer>().GetPacket();
+                        byte[] data = _peer.GetPacket();
                         int channel = ev[3].AsInt32();
                         if (channel < Enet.Channels) handler.OnData((NetChannel)channel, data);
                         break;
@@ -218,6 +230,8 @@ namespace PerformativeMail.App.Net
             if (_closed) return;
             _closed = true;
             _host.Destroy();
+            _host.Dispose();
+            _peer.Dispose();
         }
     }
 }

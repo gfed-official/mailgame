@@ -261,7 +261,10 @@ void fragment() {
         public static ShaderMaterial Ground(Texture2D groundMap, Vector2 origin, Vector2 size)
         {
             var material = new ShaderMaterial { Shader = Get("ground", GroundCode) };
-            material.SetShaderParameter("ground_map", groundMap);
+            // A Variant holding an object keeps a reference until C# finalises it, which at exit is
+            // after the renderer has gone (Godot reports the texture as leaked); let it go here.
+            using Variant map = groundMap;
+            material.SetShaderParameter("ground_map", map);
             material.SetShaderParameter("map_origin", origin);
             material.SetShaderParameter("map_size", size);
             return material;

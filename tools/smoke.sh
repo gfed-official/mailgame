@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the solution and runs the Godot headless smoke twice: the full run (spawn -> pickup ->
 # deliver -> wallet -> ... -> results), then the raid playtest (--shift=2 --no-quota --raid).
-# Exits 0 only if the game printed "SMOKE OK" both times.
+# Exits 0 only if the game printed "SMOKE OK" both times and leaked nothing on its way out.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -21,7 +21,8 @@ trap 'rm -rf "$work"' EXIT
 # A profile file of its own: the smoke checks that the run's XP is saved, never the player's real profile.
 profile="$work/profile.json"
 
-# run_smoke <log> <godot user args...>: one headless run that must exit 0 and print "SMOKE OK".
+# run_smoke <log> <godot user args...>: one headless run that must exit 0, print "SMOKE OK" and
+# leave nothing behind at exit (nit 16).
 run_smoke() {
     local log="$1" status
     shift
@@ -34,6 +35,10 @@ run_smoke() {
         exit "$status"
     fi
     grep -q "^SMOKE OK$" "$log" || { echo "smoke: no SMOKE OK line ($*)" >&2; exit 1; }
+    if grep -q "leaked at exit" "$log"; then
+        echo "smoke: objects leaked at exit ($*)" >&2
+        exit 1
+    fi
 }
 
 run_smoke "$work/log" "--profile=$profile"

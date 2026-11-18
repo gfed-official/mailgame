@@ -280,6 +280,18 @@ with the mail cannon, the loot on the cards and in the wallet; and, since the de
       `CombatTests.WhoeverTakesALeaversId_InheritsNothingOfTheirFight`,
       `LoopbackTests.AGuestWhoLeavesAndComesBack_IsPlayerTwoAgain_OnEveryScreen`; design choice 60)
 
+### 2b. Playtest nits 14–18 (`logs/fable52/nits-fa44a16.md`, 2026-11-17)
+
+- [x] Nit 16 — objects leaked at exit (seen on both smoke passes here, in most runs: one `Image`
+      and one `DummyTexture`, at times ENet peers too). Cause: a C# `Variant` that carries an
+      object holds a reference of its own until the garbage collector finalises it, and what is
+      still held that way when the game quits is let go after the renderer has shut down. Two
+      places did that: the ground map texture handed to the ground shader (`Shaders.Ground`), and
+      the event arrays of ENet's `Service` (every event kept its peer). Both are now disposed
+      where they are used (`using`), as are the ground material's C# handle and the ENet host and
+      peer on `Close`. `tools/smoke.sh` now fails on any "leaked at exit" line; four runs in a row
+      were clean.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
