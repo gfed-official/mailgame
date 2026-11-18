@@ -85,6 +85,70 @@ namespace PerformativeMail.Net.Tests
             Assert.True(below.Shown);
         }
 
+        // The HUD's top group as it is on a 1280 x 720 screen: the plate, and the hint under it.
+        private static readonly ScreenBox[] TopLines = { new ScreenBox(416f, 0f, 864f, 98f), ScreenBox.Around(640f, 117f, 560f, 24f) };
+
+        [Fact]
+        public void ANameOnTheHudIsDrawnUnderIt_NotLeftOut()
+        {
+            // The a5d987e playtest: "Guest" over the top bar, with the guest right before the host.
+            var name = Label(520f, 60f, 1.2f, rank: 2);
+            name.Slides = true;
+            var number = Label(520f, 60f, 20f);
+            LabelDeclutter.Resolve(new List<LabelCandidate> { number, name }, TopLines);
+            Assert.True(name.Shown);
+            Assert.False(number.Shown);
+            // Under the plate it would lie on the hint, so it goes under that too.
+            Assert.Equal(129f, name.Box.Y0);
+            Assert.Equal(159f, name.Box.Y1);
+            Assert.Equal((460f, 580f), (name.Box.X0, name.Box.X1));
+            Assert.Equal(84f, name.SlideY);
+            Assert.DoesNotContain(TopLines, clear => name.Box.Overlaps(clear));
+
+            // Beside the hint, under the plate is far enough.
+            var left = Label(300f, 90f, 3f, rank: 2);
+            left.Box = ScreenBox.Around(390f, 90f, 120f, 30f);
+            left.Slides = true;
+            LabelDeclutter.Resolve(new List<LabelCandidate> { left }, new[] { TopLines[0] });
+            Assert.True(left.Shown);
+            Assert.Equal(98f, left.Box.Y0);
+            Assert.Equal(23f, left.SlideY);
+        }
+
+        [Fact]
+        public void ANameClearOfTheHudStaysWhereItIs_AndOneTooFarUpIsLeftOut()
+        {
+            var clear = Label(200f, 300f, 6f, rank: 2);
+            clear.Slides = true;
+            // Its owner stands so close that the name is far above the screen: no name beats one in their face.
+            var above = Label(640f, 100f, 0.6f, rank: 2);
+            above.Box = ScreenBox.Around(640f, -150f, 120f, 30f);
+            above.Slides = true;
+            var tall = new[] { new ScreenBox(416f, -400f, 864f, 98f) };
+            LabelDeclutter.Resolve(new List<LabelCandidate> { clear, above }, tall);
+            Assert.True(clear.Shown);
+            Assert.Equal(0f, clear.SlideY);
+            Assert.Equal(285f, clear.Box.Y0);
+            Assert.False(above.Shown);
+            Assert.Equal(0f, above.SlideY);
+            Assert.Equal(-165f, above.Box.Y0);
+        }
+
+        [Fact]
+        public void ANameDrawnLower_TakesItsRoomThere()
+        {
+            // Two guests side by side before the host: both names would land on the same spot under the hint.
+            var near = Label(600f, 50f, 1.0f, rank: 2);
+            var far = Label(640f, 60f, 1.4f, rank: 2);
+            near.Slides = far.Slides = true;
+            var address = Label(610f, 150f, 8f, rank: 1);
+            LabelDeclutter.Resolve(new List<LabelCandidate> { address, far, near }, TopLines);
+            Assert.True(near.Shown);
+            Assert.Equal(129f, near.Box.Y0);
+            Assert.False(far.Shown);
+            Assert.False(address.Shown);
+        }
+
         [Fact]
         public void AHigherRankWinsOverANearerLabel()
         {

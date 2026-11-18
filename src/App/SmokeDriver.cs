@@ -66,7 +66,9 @@ namespace PerformativeMail.App
         private bool _sawIntakePrompt, _sawMailboxPrompt, _sawManifest, _sawCarriedMail, _sawMatchMark, _sawMismatchMark;
         private float _spawnDistance, _maxEyeOffset, _maxAimOffset, _maxLabelOver, _maxPhaseWidth;
         private string _missingGlyphs = "", _biggestLabel = "", _farLabel = "", _hudLabel = "";
-        private int _maxLabelsHidden;
+        private int _maxLabelsHidden, _maxLabelsDrawn;
+        private string _stackedLabels = "";
+        private readonly List<(ScreenBox Box, string Text)> _drawnLabels = new List<(ScreenBox, string)>();
         private long _labels;
         private int _startXp, _startRuns, _startDeliveries, _ownDeliveries;
         private int _frames;
@@ -195,10 +197,16 @@ namespace PerformativeMail.App
                 if (label.FadeEnd > 0f && distance > label.FadeEnd && _farLabel.Length == 0) _farLabel = $"\"{label.Text}\" at {distance:0} m";
                 var at = camera.UnprojectPosition(label.GlobalPosition);
                 float tall = label.ScreenFraction(camera) * screenHeight;
-                var box = ScreenBox.Around(at.X, at.Y, tall * label.Aspect, tall);
+                var box = ScreenBox.Around(at.X, at.Y + label.SlidY, tall * label.Aspect, tall);
                 foreach (var clear in keepClear)
                     if (box.Overlaps(clear) && _hudLabel.Length == 0) _hudLabel = $"\"{label.Text}\" at {at}";
+                // Nor may two of them be drawn on each other (issue (b) of the a5d987e playtest: the street's addresses in one pile).
+                foreach (var (other, text) in _drawnLabels)
+                    if (box.Overlaps(other) && _stackedLabels.Length == 0) _stackedLabels = $"\"{label.Text}\" on \"{text}\" at {at}";
+                _drawnLabels.Add((box, label.Text));
+                _maxLabelsDrawn = Math.Max(_maxLabelsDrawn, _drawnLabels.Count);
             }
+            _drawnLabels.Clear();
             var phase = _screen.Hud.TopStack[1];
             _maxPhaseWidth = Mathf.Max(_maxPhaseWidth, phase.GetCombinedMinimumSize().X);
         }
@@ -588,11 +596,56 @@ namespace PerformativeMail.App
                     Check(_session.Feed.Entries.Any(e => e.Text == $"{RemoteName} is back"), "the feed does not say the guest is back");
                     Check(_remote.ContainerDesyncs == 0 && _remote.BadPackets == 0, $"returned client: {_remote.ContainerDesyncs} desyncs, {_remote.BadPackets} bad packets");
                     GD.Print($"[smoke] away: {RemoteName} dropped in {world.Global.Phase}, stood as \"{RemoteName} (away)\", came back as {_awayId}");
+                    _remoteStep = 7;
+                    _remoteWalked = 0;
+                    break;
+                }
+
+                case 7:
+                {
+                    // The a5d987e playtest: a guest right before the host, and their name over the top lines of the HUD.
+                    var truth = server.World.GetPlayer(_awayId);
+                    if (truth == null) { Fail("the server lost the guest who came back"); return; }
+                    _session.Client.Input.PitchRadians = 0f;
+                    float yaw = _session.Client.Input.YawRadians;
+                    truth.Move.X = world.Local.X - MathF.Sin(yaw) * NameTagMetres;
+                    truth.Move.Z = world.Local.Z - MathF.Cos(yaw) * NameTagMetres;
+                    if (++_remoteWalked < 30) break;
+                    CheckNameTag();
+                    Shot("nametag");
+                    _remoteStep = 8;
+                    _remoteWalked = 0;
+                    break;
+                }
+
+                case 8:
+                    if (++_remoteWalked < 3) break;
                     _remote.Disconnect();
                     Finish();
                     break;
-                }
             }
+        }
+
+        /// <summary>How far before the host the guest stands for the name tag's check: close enough for the name to stand where the HUD's top lines are.</summary>
+        private const float NameTagMetres = 1.0f;
+
+        /// <summary>A name that would stand on the HUD is drawn under it, in full (playtest issue (a) of the a5d987e report).</summary>
+        private void CheckNameTag()
+        {
+            var camera = _screen.Camera;
+            var tag = SizedLabel3D.Live.FirstOrDefault(l => l.Slides && l.Text == RemoteName && l.IsVisibleInTree());
+            if (tag == null) { Check(false, "the guest before the host has no name tag"); return; }
+            var size = GetViewport().GetVisibleRect().Size;
+            var at = camera.UnprojectPosition(tag.GlobalPosition);
+            float tall = tag.ScreenFraction(camera) * size.Y;
+            var stands = ScreenBox.Around(at.X, at.Y, tall * tag.Aspect, tall);
+            var drawn = ScreenBox.Around(at.X, at.Y + tag.SlidY, tall * tag.Aspect, tall);
+            var keepClear = _screen.Hud.KeepClear();
+            Check(keepClear.Any(clear => stands.Overlaps(clear)), $"the name of a guest {NameTagMetres} m before the host stands at {at}, clear of the HUD: the check checks nothing");
+            Check(tag.Target > 0f && tag.Shown > 0.9f, $"the name of the guest before the host is not drawn (target {tag.Target:0.0}, shown {tag.Shown:0.0})");
+            Check(tag.SlidY > 0f && !keepClear.Any(clear => drawn.Overlaps(clear)), $"the name of the guest before the host is drawn {tag.SlidY:0} px lower, at y {drawn.Y0:0}..{drawn.Y1:0}, on the HUD");
+            Check(drawn.Y1 < size.Y * 0.5f && drawn.X0 > 0f && drawn.X1 < size.X, $"the name of the guest before the host is drawn at {drawn.X0:0},{drawn.Y0:0}..{drawn.X1:0},{drawn.Y1:0}");
+            GD.Print($"[smoke] name tag: \"{RemoteName}\" {NameTagMetres} m before the host would stand at y {stands.Y0:0}..{stands.Y1:0} on the HUD's top lines, is drawn {tag.SlidY:0} px lower at y {drawn.Y0:0}..{drawn.Y1:0}");
         }
 
         /// <summary>A guest's socket to the host, saying who they are; the one before it is closed.</summary>
@@ -877,6 +930,8 @@ namespace PerformativeMail.App
             Check(_farLabel.Length == 0, $"the world label {_farLabel} was still drawn past its fade distance");
             Check(_hudLabel.Length == 0, $"the world label {_hudLabel} was drawn on the HUD");
             Check(_maxLabelsHidden > 0, "no world label was ever hidden: the street's far labels pile up");
+            Check(_stackedLabels.Length == 0, $"two world labels were drawn on each other: {_stackedLabels}");
+            Check(_maxLabelsDrawn >= 3, $"never more than {_maxLabelsDrawn} world labels were drawn at once: the pile-up check saw no street");
 
             Check(_sawMatchMark, "the HUD never drew the match tick for a stack at its own mailbox");
             Check(_sawMismatchMark, "the HUD never drew the mismatch cross for a stack at a wrong mailbox");

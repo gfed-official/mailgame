@@ -26,6 +26,12 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Where labels would cover each other the higher rank stays, then the nearer one.</summary>
         public int Rank;
 
+        /// <summary>Drawn lower rather than not at all where the HUD is in its way (a carrier's name).</summary>
+        public bool Slides;
+
+        /// <summary>How far down from where it stands the label is drawn right now, in the HUD's units.</summary>
+        public float SlidY { get; private set; }
+
         /// <summary>How strongly the label should be drawn (0..1), as the declutterer last decided.</summary>
         public float Target { get; private set; } = 1f;
 
@@ -84,6 +90,17 @@ namespace PerformativeMail.Client.Presentation
             // Changing a colour rebuilds the label's mesh, so only while it fades.
             Modulate = new Color(Modulate, _alpha * shown);
             OutlineModulate = new Color(OutlineModulate, _outlineAlpha * shown);
+        }
+
+        /// <summary>Draws the text <paramref name="screenY"/> HUD units under where the label stands; the label itself stays put.</summary>
+        public void Slide(float screenY, Camera3D camera, float screenHeight)
+        {
+            SlidY = screenY;
+            // Offset is in the text's own pixels, up the billboard: back from the screen through depth and scale.
+            float metres = screenY / screenHeight * 2f * Depth(camera) * Mathf.Tan(Mathf.DegToRad(camera.Fov) * 0.5f);
+            float pixels = Mathf.Round(-metres / (PixelSize * Mathf.Max(Scale.Y, 1e-4f)));
+            // Changing it rebuilds the label's mesh, so only when it moves.
+            if (!Mathf.IsEqualApprox(pixels, Offset.Y)) Offset = new Vector2(Offset.X, pixels);
         }
 
         private void Fit()

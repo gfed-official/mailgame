@@ -57,6 +57,7 @@ namespace PerformativeMail.Client.Presentation
                 candidate.Box = ScreenBox.Around(centre.X, centre.Y, tall * label.Aspect + Padding * 2f, tall + Padding * 2f);
                 candidate.Distance = eye.DistanceTo(at);
                 candidate.Rank = label.Rank;
+                candidate.Slides = label.Slides;
                 candidate.Fade = LabelDeclutter.DistanceFade(candidate.Distance, label.FadeStart, label.FadeEnd);
                 candidate.Owner = label;
                 _candidates.Add(candidate);
@@ -69,7 +70,9 @@ namespace PerformativeMail.Client.Presentation
             foreach (var candidate in _candidates)
             {
                 if (!candidate.Shown) Hidden++;
-                ((SizedLabel3D)candidate.Owner!).Show(candidate.Shown ? candidate.Fade : 0f, delta);
+                var label = (SizedLabel3D)candidate.Owner!;
+                label.Show(candidate.Shown ? candidate.Fade : 0f, delta);
+                if (label.Slides && (candidate.Shown || candidate.SlideY == 0f)) label.Slide(candidate.SlideY, camera, height);
                 candidate.Owner = null;
                 _pool.Add(candidate);
             }

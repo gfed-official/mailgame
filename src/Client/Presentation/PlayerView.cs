@@ -66,6 +66,8 @@ namespace PerformativeMail.Client.Presentation
                 Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
                 // Who somebody is matters more than an address behind them.
                 Rank = 2,
+                // And up close, where the name would stand on the HUD's top lines, it is drawn under them.
+                Slides = true,
             };
             AddChild(_nameTag);
         }

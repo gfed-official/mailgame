@@ -318,7 +318,8 @@ with the mail cannon, the loot on the cards and in the wallet; and, since the de
         yard; the street to the mailboxes is what the raid holds;
       - back on their feet a carrier is **protected** for 5 s — not hurt, not gone for — until
         they strike a blow of their own (hammer or cannon). The HUD banner says "PROTECTED · 4
-        s, or until you strike" in green. A shift boundary's respawn gives none;
+        s, or until you strike" in green. A shift boundary's respawn gives none (what ends it
+        and how long it holds in the yard changed in 2c (d));
       - at most four raiders close in on one carrier; the others wait 4 m off until there is
         room, so the mob no longer covers the camera.
       `CombatTests` (9 new, among them the playtest's raid with two carriers: on the pad both
@@ -335,6 +336,57 @@ with the mail cannon, the loot on the cards and in the wallet; and, since the de
       for the cannon side by side). The raid smoke is now run with it: the host fires all four
       at the raid before the hammer comes out (`PlaytestTests` 4 new, `PlaytestFlowTests` — a
       guest fires through its own input —, `CodecTests`; protocol `m1.8`; design choice 64)
+
+### 2c. Playtest issues of the a5d987e report (`mailgame-harness/results/20261117-235926-a5d987e/report.md`, 2026-11-18)
+
+The report tested a5d987e, before nits 14–18. Each issue was looked at again on e7577cc; what
+was still there is fixed, what was already gone is pinned by a check that would catch it.
+
+- [x] (a) The Guest's nameplate over the HUD's top bar — **gone on e7577cc** (nit 14: no world
+      label is drawn on the top plate, the hint or the banner), but gone altogether: with the
+      guest right before the host, as in the report's picture, there was no name at all. Now a
+      carrier's name that would stand on the HUD is **drawn under it** instead (at most 240 px
+      lower; past that, with its owner in your face, it is left out), and takes its room there.
+      `LabelDeclutterTests` (3 new); the smoke puts the returned guest 1 m before the host and
+      checks that the name would stand on the top lines, is drawn in full, lower, clear of the
+      HUD (`nametag.png` with `--shots`; design choice 67)
+- [x] (b) Distant address labels stack — **gone on e7577cc** (nit 15: addresses thin out from
+      9 m and are gone at 15 m, house numbers from 34 m to 46 m, and of two that would cover
+      each other one is drawn). Checked on the boot view (`boot.png`: "1 Larch Lane", "2",
+      "4", nothing else) and with a guest in the Lobby. The smoke now also checks every frame
+      that no two drawn labels lie on each other, and that it has seen a street's worth of them
+- [x] (c) Cannon shots never hit raiders — two causes. The one of the report ("every package
+      went into the death bag at the first down") went with nit 18. The other was still there:
+      a package only went off when it touched a raider (0.75 m to either side of its line) and
+      otherwise flew on to the end of its range, 30 m off. Now it has a **fuse**: it goes off at
+      the point where it is nearest to a raider if that is within `cannonFuseRadius` (1.2 m) of
+      the raider's body, and the blast (2 m) has them. Aim is what it was: where the camera
+      looks (checked: the shot's yaw is the view's). `CombatTests` (6 new cases: aimed 1.2 m beside a
+      raider it hits, 3.5 m beside it flies on; from the pad four packages aimed 2–3° beside the
+      raid on its line all hit); the raid smoke counts the blasts that hit and fails under
+      three of four (4 of 4 here) (design choice 68)
+- [x] (d) The death-bag re-down loop at spawn — still there in two ways: the 5 s protection
+      ended with the first swing at the air (and who stands up in a fight is hammering the
+      button), and once it had run out a fight that had come to the pad went on on top of
+      them. Now **only a blow that hurts a raider ends the protection**, and **in the yard**
+      (`respawnYardMetres`, 8 m around the pad: pad, Intake, chest — and the bag of who fell
+      there) it holds past the 5 s for as long as raiders are about and they stay in it. The
+      HUD says which: "PROTECTED · 4 s, or until you hit a raider", then "PROTECTED in the yard
+      · until you leave it or hit a raider". `CombatTests` (6 new or rewritten, among them the
+      playtest's case: eight raiders on the pad, a second carrier fighting them; who falls
+      there stands up, is not turned on for eight seconds, walks to the bag and takes every
+      item back), `CombatHudTests` (1 new) (design choice 69)
+- [x] (e) Shift 3 sends 32 raiders and cannot be won — measured on e7577cc with two carriers:
+      20–24 raiders in shift 2, 34–35 in shift 3, 45–50 in shift 4, and a team that plays it
+      plainly was down 20–50 times in shifts 4 and 5. `waves.json` `baseBudget` is now
+      120 / 150 / 185 / 225 for shifts 2–5 (was 120 / 220 / 360 / 560): a quarter more from
+      shift to shift instead of nearly twice. Two carriers now meet 24–27 raiders in shift 3,
+      31–34 in shift 4, 33–44 in shift 5. `RaidFightTests` (9 cases) plays whole raids with
+      clumsy bots (`RaidBot`: straight at the nearest raider, 25° off, a blow every 1.2 s):
+      the budget grows by 15–34 % a shift; shift 3 sends at most half again as many as shift 2;
+      one, two and four carriers win the raid of every shift within four minutes and are down
+      at most eight times a head; two carriers in shift 3 are down four times at most between
+      them, never within 8 s of standing up (design choice 70)
 
 ### 3. Further features from `design/drive/`, in milestone order
 
@@ -993,6 +1045,45 @@ See "Commands" at the bottom (filled in as the tooling lands).
       column (raid 5, bag 6).
     - *Not yet*: rerolls and the cap of five personal perks (doc 12: M4), the other perks of
       the list, a perks page outside the Draft (the tracker plate only counts them).
+
+67. **Playtest issue (a): a name on the HUD is drawn under it.** Choice 62 leaves out any
+    world label that would lie on the HUD. For a carrier's name that is the wrong answer in
+    the one case where it happens — somebody standing right before you —, so name tags
+    (`SizedLabel3D.Slides`) are moved down on the screen to under every HUD box in their way
+    and take their room there (rank and distance decide as before who is drawn where two
+    meet). The label itself stays over the head; only its text is drawn lower (`Label3D.Offset`).
+    More than 240 px (`LabelDeclutter.MaxSlide`) and it is left out: its owner is in your face.
+    Addresses, signs and house numbers are still left out rather than moved.
+
+68. **Playtest issue (c): the mail cannon's fuse.** Doc 05 gives the cannon a blast radius and
+    says nothing of what sets a package off. Touching a raider or a wall did; now it also goes
+    off beside a raider: at the point of its flight nearest to one, if that is within
+    `cannonFuseRadius` (1.2 m) of the raider's body. Not "on coming within 1.2 m" — that would
+    go off in front of a pack and reach fewer of them, and at the muzzle if a raider stands
+    close. With the 2 m blast, anything aimed within about 1.8 m of a raider hurts it; a
+    package aimed 3.5 m wide flies on. Walls and range are as before.
+
+69. **Playtest issue (d): what ends the protection, and the yard.** Choice 63 ended it with the
+    carrier's first blow, landed or not. Now:
+    - only a blow that takes health from a raider ends it (hammer or blast; the bags of loot
+      are not raiders);
+    - who was put back on their feet by the respawn timer stays protected past the 5 s for as
+      long as they stay within `respawnYardMetres` (8 m) of the spawn pad **and** there is a
+      raider anywhere. Leaving the yard after the 5 s ends it for good (coming back does not
+      bring it back), as does the last raider's fall. Leaving it within the 5 s keeps the
+      rest of the 5 s;
+    - it cannot be used to fight from: the first blow that lands ends it, and a blow brings
+      the raider over from anywhere (choice 63). It can be used to sit a raid out in the yard
+      once fallen; the raid then waits on its line, and the shift clock runs.
+    Nothing new on the wire: the snapshot's `protected` flag and `PlayerRespawned.protectedUntil`
+    say it all, and the HUD reads "in the yard" from protected-with-no-seconds-left.
+
+70. **Playtest issue (e): the wave budget.** Doc 05 §3.2's table (120 / 220 / 360 / 560) is
+    written for a game with walls, turrets, a shop and perks to answer it with. None of the
+    first three exists yet, and with hammer and cannon alone shift 3 was the wall the playtest
+    hit. `baseBudget` is 120 / 150 / 185 / 225 until they do; the formula around it (players,
+    complaint, the 0.8 for one or two) is the doc's. To be raised again when defences land —
+    `RaidFightTests` is the measure: its bots must still get through.
 
 ## Commands
 
