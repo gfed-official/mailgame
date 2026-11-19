@@ -34,6 +34,8 @@ namespace PerformativeMail.Sim.Players
 
         public uint LastDeliverTick;
         public bool HasDelivered;
+        public uint LastHarvestTick;
+        public bool HasHarvested;
         /// <summary>Run totals; cleared when a run starts.</summary>
         public int Deliveries;
         public int Misdeliveries;

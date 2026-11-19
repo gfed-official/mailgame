@@ -40,6 +40,8 @@ namespace PerformativeMail.Sim.Net
         ShopOffer = 30,
         ShopBought = 31,
         ShopSold = 32,
+        NodeHarvested = 33,
+        NodesRegrown = 34,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -198,6 +200,14 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.ShopSold);
                     w.U32(e.Player.Value); w.U16(e.Item); w.U16(e.Count); w.I32(e.Paid);
                     break;
+                case NodeHarvestedEvent e:
+                    w.U8((byte)EventType.NodeHarvested);
+                    w.U32(e.Player.Value); w.U16(e.Node); w.U8(e.HitsLeft); w.U16(e.Item); w.U8(e.Count);
+                    break;
+                case NodesRegrownEvent e:
+                    w.U8((byte)EventType.NodesRegrown);
+                    w.Bool(e.All);
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -339,6 +349,10 @@ namespace PerformativeMail.Sim.Net
                     return new ShopBoughtEvent { Player = new EntityId(r.U32()), Item = r.U8(), Price = r.U16() };
                 case EventType.ShopSold:
                     return new ShopSoldEvent { Player = new EntityId(r.U32()), Item = r.U16(), Count = r.U16(), Paid = r.I32() };
+                case EventType.NodeHarvested:
+                    return new NodeHarvestedEvent { Player = new EntityId(r.U32()), Node = r.U16(), HitsLeft = r.U8(), Item = r.U16(), Count = r.U8() };
+                case EventType.NodesRegrown:
+                    return new NodesRegrownEvent { All = r.Bool() };
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

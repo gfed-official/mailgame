@@ -81,6 +81,72 @@ namespace PerformativeMail.Sim.Content
         public int Heal { get; init; }
         /// <summary>Over how long it heals; 0 = at once.</summary>
         public float HealSeconds { get; init; }
+        /// <summary>A tool (doc 08 §2.1): the resources it harvests while it is in the hand; empty for everything else.</summary>
+        public IReadOnlyList<string> Harvests { get; init; } = Array.Empty<string>();
+        /// <summary>A tool: what it makes of a node's yield.</summary>
+        public float YieldMultiplier { get; init; } = 1f;
+        /// <summary>A tool: seconds one swing of it takes.</summary>
+        public float SwingSeconds { get; init; }
+
+        public bool HarvestsResource(string resource)
+        {
+            for (int i = 0; i < Harvests.Count; i++)
+                if (Harvests[i] == resource) return true;
+            return false;
+        }
+    }
+
+    /// <summary>Whether a node wants a tool (doc 02 §3.9).</summary>
+    public enum NodeTool : byte
+    {
+        /// <summary>Harvested by hand, whatever is in it.</summary>
+        None = 0,
+        /// <summary>By hand at <see cref="NodeDef.HandYield"/>, in full with a tool that harvests the resource.</summary>
+        Optional = 1,
+        /// <summary>Only with a tool that harvests the resource.</summary>
+        Required = 2,
+    }
+
+    /// <summary>
+    /// A resource node (doc 02 §3.9): which of the map's props it is, what a hit of it gives and
+    /// how many it takes. The nodes are the trees, bushes and boulders the map is dressed with.
+    /// </summary>
+    public sealed class NodeDef
+    {
+        public string Id { get; init; } = "";
+        public byte Index { get; init; }
+        public string Name { get; init; } = "";
+        /// <summary>What a carrier does to it, for the prompt: chop, pick, mine.</summary>
+        public string Verb { get; init; } = "";
+        /// <summary>The resource type a tool's "harvests" names.</summary>
+        public string Resource { get; init; } = "";
+        public World.PropKind Prop { get; init; }
+        /// <summary>The variants of the prop that are this node; empty = all of them.</summary>
+        public IReadOnlyList<int> Variants { get; init; } = Array.Empty<int>();
+        public ItemDef Item { get; init; } = null!;
+        /// <summary>Units per hit with the right tool, or by hand where no tool is asked for.</summary>
+        public int Yield { get; init; }
+        public int Hits { get; init; }
+        /// <summary>Full again when the next shift begins; otherwise gone for the run.</summary>
+        public bool Regrows { get; init; }
+        public NodeTool Tool { get; init; }
+        /// <summary>The share of the yield bare hands get where a tool is optional.</summary>
+        public float HandYield { get; init; } = 1f;
+
+        /// <summary>
+        /// Units one hit gives a carrier with <paramref name="held"/> in the hand (null: nothing
+        /// that matters); 0 where the node asks for a tool and that is not one.
+        /// </summary>
+        public int YieldWith(ItemDef? held)
+        {
+            if (held != null && held.HarvestsResource(Resource)) return Math.Max(1, (int)MathF.Round(Yield * held.YieldMultiplier, MidpointRounding.AwayFromZero));
+            if (Tool == NodeTool.Required) return 0;
+            return Tool == NodeTool.Optional ? Math.Max(1, (int)MathF.Round(Yield * HandYield, MidpointRounding.AwayFromZero)) : Yield;
+        }
+
+        /// <summary>Seconds one swing at it takes with <paramref name="held"/> in the hand.</summary>
+        public double SwingSeconds(ItemDef? held, double handSeconds) =>
+            held != null && held.HarvestsResource(Resource) && held.SwingSeconds > 0f ? held.SwingSeconds : handSeconds;
     }
 
     public enum ShopKind : byte { Blueprint = 0, Item = 1 }

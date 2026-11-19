@@ -26,6 +26,11 @@ namespace PerformativeMail.Sim
         Sell = 12,
         /// <summary>Use one unit of an entry of the player's own containers on themselves (a Bandage, Berries).</summary>
         Use = 13,
+        /// <summary>
+        /// Prep or Delivery: one swing at the resource node <see cref="SimRequest.DestId"/> (an index
+        /// into WorldMap.Props) with what is in hotbar slot <see cref="SimRequest.X"/>.
+        /// </summary>
+        Harvest = 14,
     }
 
     /// <summary>
@@ -45,7 +50,7 @@ namespace PerformativeMail.Sim
         public bool Rotated;
         /// <summary>Move: units to move, 0 = whole stack.</summary>
         public ushort Count;
-        /// <summary>Deliver: destination id.</summary>
+        /// <summary>Deliver: destination id. Harvest: the node, an index into WorldMap.Props.</summary>
         public ushort DestId;
         public SortKey SortKey;
 
@@ -92,5 +97,8 @@ namespace PerformativeMail.Sim
 
         public static SimRequest Use(uint reqId, uint from, uint entryId) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.Use, Container = from, EntryId = entryId };
+
+        public static SimRequest Harvest(uint reqId, int node, int heldSlot) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.Harvest, DestId = (ushort)node, X = (byte)heldSlot };
     }
 }

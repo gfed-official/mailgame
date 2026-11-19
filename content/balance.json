@@ -45,6 +45,7 @@
   "interactRange": 2.5,
   "serverInteractRange": 3.0,
   "interactRewindSeconds": 0.3,
+  "harvestSwingSeconds": 0.6,
 
   "hpRegenPerSecond": 2,
   "hpRegenDelaySeconds": 5,

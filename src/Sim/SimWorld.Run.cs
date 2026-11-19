@@ -102,6 +102,7 @@ namespace PerformativeMail.Sim
             ResetCombatRng();
             ClearPerks();
             ClearShop();
+            RegrowNodes(all: true);
             foreach (var p in _players)
             {
                 p.Deliveries = 0;
@@ -116,6 +117,7 @@ namespace PerformativeMail.Sim
 
         private void BeginShift()
         {
+            RegrowNodes(all: false);
             RollShopSpecials();
             if (Settings.QuickStart) BeginDelivery();
             else BeginPrep();
@@ -239,6 +241,7 @@ namespace PerformativeMail.Sim
             Economy.Reset();
             ClearPerks();
             ClearShop();
+            RegrowNodes(all: true);
             Run.Shift = 1;
             Run.Quota = 0;
             Run.PlayerCount = 0;

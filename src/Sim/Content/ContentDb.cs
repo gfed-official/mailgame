@@ -28,6 +28,7 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<DestinationTypeDef> DestinationTypes { get; private set; } = Array.Empty<DestinationTypeDef>();
         public IReadOnlyList<ContainerDef> Containers { get; private set; } = Array.Empty<ContainerDef>();
         public IReadOnlyList<ItemDef> Items { get; private set; } = Array.Empty<ItemDef>();
+        public IReadOnlyList<NodeDef> Nodes { get; private set; } = Array.Empty<NodeDef>();
         public IReadOnlyList<EnemyDef> Enemies { get; private set; } = Array.Empty<EnemyDef>();
         public IReadOnlyList<PerkDef> Perks { get; private set; } = Array.Empty<PerkDef>();
         public IReadOnlyList<ShopItemDef> ShopItems { get; private set; } = Array.Empty<ShopItemDef>();
@@ -48,6 +49,7 @@ namespace PerformativeMail.Sim.Content
         private readonly Dictionary<string, EnemyDef> _enemiesById = new Dictionary<string, EnemyDef>();
         private readonly Dictionary<string, PerkDef> _perksById = new Dictionary<string, PerkDef>();
         private readonly Dictionary<string, ShopItemDef> _shopById = new Dictionary<string, ShopItemDef>();
+        private readonly Dictionary<(PropKind, int), NodeDef> _nodesByProp = new Dictionary<(PropKind, int), NodeDef>();
 
         private ContentDb() { }
 
@@ -61,6 +63,9 @@ namespace PerformativeMail.Sim.Content
         public ShopItemDef ShopItem(string id) => _shopById[id];
         public ShopItemDef? FindShopItem(string id) => _shopById.TryGetValue(id, out var d) ? d : null;
         public WorldMap Map(string id) => _maps[id];
+
+        /// <summary>The resource node a prop of the map is (doc 02 §3.9); null for what is only scenery.</summary>
+        public NodeDef? NodeFor(in Prop prop) => _nodesByProp.TryGetValue((prop.Kind, prop.Variant % Scenery.Variants), out var def) ? def : null;
 
         /// <summary>Loads and validates; throws <see cref="ContentException"/> listing every problem.</summary>
         public static ContentDb Load(IContentSource source)
@@ -205,9 +210,24 @@ namespace PerformativeMail.Sim.Content
                     foreach (var e in ReadArray(ctx, Read(file)))
                     {
                         int[] grid = J.IntArray(ctx, e, "grid", 2);
+                        string id = J.Str(ctx, e, "id");
+                        IReadOnlyList<string> harvests = Array.Empty<string>();
+                        float yieldMultiplier = 1f, swingSeconds = 0f;
+                        if (e.TryGetProperty("tool", out var tool))
+                        {
+                            if (tool.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': 'tool' must be an object");
+                            else
+                            {
+                                harvests = J.StrArray(ctx, tool, "harvests");
+                                yieldMultiplier = (float)J.Num(ctx, tool, "yieldMultiplier", 1);
+                                swingSeconds = (float)J.Num(ctx, tool, "swingTime");
+                                if (harvests.Count == 0) ctx.Error($"'{id}': a tool harvests something");
+                                if (yieldMultiplier <= 0f || swingSeconds <= 0f) ctx.Error($"'{id}': tool.yieldMultiplier and tool.swingTime must be > 0");
+                            }
+                        }
                         var def = new ItemDef
                         {
-                            Id = J.Str(ctx, e, "id"),
+                            Id = id,
                             Index = (ushort)list.Count,
                             Name = J.Str(ctx, e, "name"),
                             Category = J.Str(ctx, e, "category"),
@@ -219,7 +239,11 @@ namespace PerformativeMail.Sim.Content
                             BuyPrice = J.Int(ctx, e, "buyPrice", 0),
                             Heal = J.Int(ctx, e, "heal", 0),
                             HealSeconds = (float)J.Num(ctx, e, "healSeconds", 0),
+                            Harvests = harvests,
+                            YieldMultiplier = yieldMultiplier,
+                            SwingSeconds = swingSeconds,
                         };
+                        if (harvests.Count > 0 && def.Category != "tool") ctx.Error($"'{def.Id}': only an item of category 'tool' has a 'tool' block");
                         if (def.GridW <= 0 || def.GridH <= 0) ctx.Error($"'{def.Id}': grid sizes must be positive");
                         if (def.MaxStack <= 0) ctx.Error($"'{def.Id}': maxStack must be positive");
                         if (def.SellPrice < 0 || def.BuyPrice < 0) ctx.Error($"'{def.Id}': prices must not be negative");
@@ -230,6 +254,82 @@ namespace PerformativeMail.Sim.Content
                     }
                 }
                 db.Items = list;
+            }
+
+            // --- resource nodes --------------------------------------------------------------------
+            {
+                var list = new List<NodeDef>();
+                var byId = new Dictionary<string, NodeDef>();
+                foreach (string file in source.ListJson("nodes"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        string itemId = J.Str(ctx, e, "item");
+                        if (!db._itemsById.TryGetValue(itemId, out var item)) { ctx.Error($"'{id}': gives unknown item '{itemId}'"); continue; }
+                        string propName = J.Str(ctx, e, "prop");
+                        PropKind prop;
+                        switch (propName)
+                        {
+                            case "tree": prop = PropKind.Tree; break;
+                            case "bush": prop = PropKind.Bush; break;
+                            case "boulder": prop = PropKind.Boulder; break;
+                            default: ctx.Error($"'{id}': prop must be 'tree', 'bush' or 'boulder', not '{propName}'"); continue;
+                        }
+                        string toolName = J.Str(ctx, e, "tool", "none");
+                        var tool = toolName == "required" ? NodeTool.Required : toolName == "optional" ? NodeTool.Optional : NodeTool.None;
+                        if (tool == NodeTool.None && toolName != "none") ctx.Error($"'{id}': tool must be 'none', 'optional' or 'required', not '{toolName}'");
+                        int[] variants = J.Has(e, "variants") ? J.IntArray(ctx, e, "variants") : Array.Empty<int>();
+                        var def = new NodeDef
+                        {
+                            Id = id,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Verb = J.Str(ctx, e, "verb"),
+                            Resource = J.Str(ctx, e, "resource"),
+                            Prop = prop,
+                            Variants = variants,
+                            Item = item,
+                            Yield = J.Int(ctx, e, "yield"),
+                            Hits = J.Int(ctx, e, "hits"),
+                            Regrows = J.Bool(ctx, e, "regrows", false),
+                            Tool = tool,
+                            HandYield = (float)J.Num(ctx, e, "handYield", 1),
+                        };
+                        // One hit is one stack at most, and the wire carries both in a byte.
+                        if (def.Yield < 1 || def.Yield > Math.Min(item.MaxStack, byte.MaxValue)) ctx.Error($"'{id}': yield must be in 1..{Math.Min(item.MaxStack, byte.MaxValue)}");
+                        if (def.Hits < 1 || def.Hits > byte.MaxValue) ctx.Error($"'{id}': hits must be in 1..{byte.MaxValue}");
+                        if (def.HandYield <= 0f || def.HandYield > 1f) ctx.Error($"'{id}': handYield must be in (0, 1]");
+                        if (J.Has(e, "handYield") && tool != NodeTool.Optional) ctx.Error($"'{id}': handYield is for a node whose tool is 'optional'");
+                        foreach (int variant in variants)
+                            if (variant < 0 || variant >= Scenery.Variants) ctx.Error($"'{id}': variants must be in 0..{Scenery.Variants - 1}");
+                        if (tool != NodeTool.None)
+                        {
+                            bool harvested = false;
+                            foreach (var candidate in db.Items) harvested |= candidate.HarvestsResource(def.Resource);
+                            if (!harvested) ctx.Error($"'{id}': no tool harvests '{def.Resource}'");
+                        }
+                        for (int variant = 0; variant < Scenery.Variants; variant++)
+                        {
+                            if (variants.Length > 0 && Array.IndexOf(variants, variant) < 0) continue;
+                            var key = (prop, variant);
+                            if (db._nodesByProp.TryGetValue(key, out var other)) ctx.Error($"'{id}': {propName} variant {variant} is '{other.Id}' already");
+                            else db._nodesByProp[key] = def;
+                        }
+                        if (!AddUnique(ctx, byId, def.Id, def)) continue;
+                        list.Add(def);
+                    }
+                }
+                db.Nodes = list;
+                // A tool for a resource nothing gives is a card on the counter that does nothing.
+                foreach (var item in db.Items)
+                    foreach (string resource in item.Harvests)
+                    {
+                        bool given = false;
+                        foreach (var node in list) given |= node.Resource == resource;
+                        if (!given) errors.Add($"items: '{item.Id}' harvests '{resource}', which no node gives");
+                    }
             }
 
             // --- mail mix ------------------------------------------------------------------------
@@ -682,7 +782,7 @@ namespace PerformativeMail.Sim.Content
             "deathBagDespawnSeconds", "respawnProtectionSeconds", "respawnYardMetres", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
             "maxAttackersPerCarrier", "attackerWaitMetres", "disconnectGraceSeconds",
             "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift",
-            "shopSpecialSlots", "shopSpecialDiscount",
+            "shopSpecialSlots", "shopSpecialDiscount", "harvestSwingSeconds",
         };
 
         private static IEnumerable<JsonElement> ReadArray(JsonCtx ctx, string? text)

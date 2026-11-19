@@ -64,6 +64,8 @@ namespace PerformativeMail.Sim.World
     {
         private const float Tile = SimConstants.TileSize;
         private const float Tall = 100f;
+        /// <summary>How many looks a tree, a bush or a boulder comes in; content/nodes tells them apart by it.</summary>
+        public const int Variants = 3;
 
         /// <summary>Unit vector from a destination's building towards its mailbox along the dominant axis: the way the house faces.</summary>
         public static void Front(DestinationDef dest, out int fx, out int fz)
@@ -202,7 +204,7 @@ namespace PerformativeMail.Sim.World
                     float x = b.CenterX + (fz != 0 ? side * across : fx * outward);
                     float z = b.CenterZ + (fz != 0 ? fz * outward : side * across);
                     if (Walkable(x, z) && Free(x, z, 0.5f) && OffStreet(x, z, 0.5f))
-                        props.Add(new Prop(PropKind.Bush, x, z, x, z, Unit() * 6.283f, 0.8f + Unit() * 0.35f, rng.NextInt(3), 0.5f, 0.9f));
+                        props.Add(new Prop(PropKind.Bush, x, z, x, z, Unit() * 6.283f, 0.8f + Unit() * 0.35f, rng.NextInt(Variants), 0.5f, 0.9f));
                     float fxp = b.CenterX + (fz != 0 ? side * (across - 0.6f - Unit()) : fx * (outward + 1.2f + Unit()));
                     float fzp = b.CenterZ + (fz != 0 ? fz * (outward + 1.2f + Unit()) : side * (across - 0.6f - Unit()));
                     if (Walkable(fxp, fzp) && Free(fxp, fzp, 0.2f))
@@ -219,7 +221,7 @@ namespace PerformativeMail.Sim.World
                     float x = gx + (Unit() - 0.5f) * cell * 0.7f, z = gz + (Unit() - 0.5f) * cell * 0.7f;
                     int roll = rng.NextInt(100);
                     float scale = 0.85f + Unit() * 0.5f, yaw = Unit() * 6.283f;
-                    int variant = rng.NextInt(3);
+                    int variant = rng.NextInt(Variants);
                     if (At(x, z) != TileType.Grass) continue;
                     // Open grass only: nothing but grass within a tile and a half, so trunks stay off lots, yards and the road.
                     bool open = true;

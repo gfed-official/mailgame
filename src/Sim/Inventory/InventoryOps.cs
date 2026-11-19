@@ -48,6 +48,10 @@ namespace PerformativeMail.Sim.Inventory
         NotUsable,
         /// <summary>Nothing to heal.</summary>
         FullHealth,
+        /// <summary>The node gives nothing to bare hands or to what is in them (a boulder wants a Pickaxe).</summary>
+        NeedsTool,
+        /// <summary>The node has nothing left.</summary>
+        Depleted,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

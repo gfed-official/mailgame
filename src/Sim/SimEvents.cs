@@ -272,6 +272,27 @@ namespace PerformativeMail.Sim
         public int Paid;
     }
 
+    /// <summary>A swing at a resource node landed (doc 02 §3.9): what it gave, and what the node has left.</summary>
+    public sealed class NodeHarvestedEvent : SimEvent
+    {
+        public EntityId Player;
+        /// <summary>Index into WorldMap.Props.</summary>
+        public ushort Node;
+        public byte HitsLeft;
+        /// <summary>Index into ContentDb.Items.</summary>
+        public ushort Item;
+        public byte Count;
+    }
+
+    /// <summary>
+    /// Nodes are whole again: those that regrow when a shift begins, or (<see cref="All"/>) every
+    /// node when a run begins or ends. Only sent when it changes something.
+    /// </summary>
+    public sealed class NodesRegrownEvent : SimEvent
+    {
+        public bool All;
+    }
+
     /// <summary>
     /// The server put the player before a mailbox (<see cref="PlaytestFlags.AtMailbox"/>); only the
     /// player hears of it, and turns to look at the mailbox.

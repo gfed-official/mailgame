@@ -64,6 +64,7 @@ namespace PerformativeMail.Sim
                 case RequestKind.Buy: return BuyOp(player, r);
                 case RequestKind.Sell: return SellOp(player, r);
                 case RequestKind.Use: return UseOp(player, r);
+                case RequestKind.Harvest: return HarvestOp(player, r);
                 default: return OpResult.BadRequest;
             }
         }

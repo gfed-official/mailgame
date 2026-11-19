@@ -1,0 +1,6 @@
+[
+  { "id": "axe", "name": "Axe", "category": "tool", "grid": [1, 2], "maxStack": 1, "weightClass": "light", "sellPrice": 25, "buyPrice": 80,
+    "tool": { "harvests": ["wood"], "yieldMultiplier": 1.0, "swingTime": 0.6 } },
+  { "id": "pickaxe", "name": "Pickaxe", "category": "tool", "grid": [1, 2], "maxStack": 1, "weightClass": "light", "sellPrice": 25, "buyPrice": 100,
+    "tool": { "harvests": ["stone", "ore"], "yieldMultiplier": 1.0, "swingTime": 0.6 } }
+]

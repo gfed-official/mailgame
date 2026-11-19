@@ -85,6 +85,8 @@ namespace PerformativeMail.Sim
         public GridContainer Intake { get; }
         /// <summary>The containers of the map's chests, in the order of <see cref="WorldMap.Chests"/>.</summary>
         public IReadOnlyList<GridContainer> MapChests => _mapChests;
+        /// <summary>The map's resource nodes and what each has left.</summary>
+        public NodeField Nodes { get; }
         public IReadOnlyList<Player> Players => _players;
         /// <summary>Events produced since the host last drained them.</summary>
         public List<SimEvent> Events { get; } = new List<SimEvent>();
@@ -132,6 +134,7 @@ namespace PerformativeMail.Sim
             Spawner = new MailSpawner(content, Map, Intake, _entryIds, Settings.Seed);
             foreach (var chest in Map.Chests)
                 _mapChests.Add(CreateContainer(chest.Container.Id, EntityId.None, chest.X, chest.Z).Container);
+            Nodes = new NodeField(content, Map);
         }
 
         public MoveConstants MoveConstants => _move;

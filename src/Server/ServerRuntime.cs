@@ -236,6 +236,8 @@ namespace PerformativeMail.Server
             foreach (var perk in World.DraftOffer) welcome.DraftOffer.Add(perk.Index);
             foreach (var entry in World.ShopSpecials) welcome.ShopSpecials.Add(entry.Index);
             foreach (var entry in World.ShopOwned) welcome.ShopOwned.Add(entry.Index);
+            for (int i = 0; i < World.Nodes.Count; i++)
+                if (World.Nodes.Touched(i)) welcome.Nodes.Add(new NodeInfo { Node = (ushort)i, HitsLeft = (byte)World.Nodes.HitsLeft(i) });
             _writer.Reset();
             welcome.Write(_writer);
             _transport.Send(client.Connection, NetChannel.Bulk, _writer.ToArray());

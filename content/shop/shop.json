@@ -12,5 +12,9 @@
   { "id": "oil_can_x3", "name": "Oil Cans ×3", "description": "Three full cans.", "kind": "item", "price": 160,
     "grants": { "item": "oil_can", "count": 3 }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["material", "special"] },
   { "id": "first_aid_kit", "name": "First-Aid Kit", "description": "Five Bandages for the price of four.", "kind": "item", "price": 105,
-    "grants": { "item": "bandage", "count": 5 }, "availability": { "fromShift": 1, "slot": "rotating" }, "tags": ["consumable", "special"] }
+    "grants": { "item": "bandage", "count": 5 }, "availability": { "fromShift": 1, "slot": "rotating" }, "tags": ["consumable", "special"] },
+  { "id": "axe", "name": "Axe", "description": "Twice the Logs from every swing at a tree.", "kind": "item", "price": 80,
+    "grants": { "item": "axe", "count": 1 }, "availability": { "fromShift": 1, "slot": "fixed" }, "tags": ["tool"] },
+  { "id": "pickaxe", "name": "Pickaxe", "description": "Breaks boulders into Stone and veins into Iron Ore.", "kind": "item", "price": 100,
+    "grants": { "item": "pickaxe", "count": 1 }, "availability": { "fromShift": 1, "slot": "fixed" }, "tags": ["tool"] }
 ]

@@ -1,0 +1,12 @@
+[
+  { "id": "tree", "name": "Tree", "verb": "chop", "resource": "wood", "prop": "tree",
+    "item": "log", "yield": 2, "hits": 5, "regrows": false, "tool": "optional", "handYield": 0.5 },
+  { "id": "fiber_bush", "name": "Bush", "verb": "pick", "resource": "fiber", "prop": "bush", "variants": [0, 1],
+    "item": "fiber", "yield": 3, "hits": 3, "regrows": true, "tool": "none" },
+  { "id": "berry_bush", "name": "Berry Bush", "verb": "pick", "resource": "berries", "prop": "bush", "variants": [2],
+    "item": "berries", "yield": 2, "hits": 2, "regrows": true, "tool": "none" },
+  { "id": "boulder", "name": "Boulder", "verb": "mine", "resource": "stone", "prop": "boulder", "variants": [0, 1],
+    "item": "stone", "yield": 3, "hits": 6, "regrows": false, "tool": "required" },
+  { "id": "ore_vein", "name": "Ore Vein", "verb": "mine", "resource": "ore", "prop": "boulder", "variants": [2],
+    "item": "iron_ore", "yield": 2, "hits": 8, "regrows": false, "tool": "required" }
+]

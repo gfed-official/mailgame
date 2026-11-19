@@ -250,6 +250,8 @@ namespace PerformativeMail.Net.Tests
                 new ShopOfferEvent { Shift = 3, Specials = { 1, 6 } },
                 new ShopBoughtEvent { Player = player, Item = 6, Price = 105 },
                 new ShopSoldEvent { Player = player, Item = 7, Count = 12, Paid = 48 },
+                new NodeHarvestedEvent { Player = player, Node = 317, HitsLeft = 4, Item = 1, Count = 3 },
+                new NodesRegrownEvent { All = true },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -322,6 +324,19 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((player, (byte)6, (ushort)105), (bought.Player, bought.Item, bought.Price));
             var sold = (ShopSoldEvent)back[31];
             Assert.Equal((player, (ushort)7, (ushort)12, 48), (sold.Player, sold.Item, sold.Count, sold.Paid));
+            var harvested = (NodeHarvestedEvent)back[32];
+            Assert.Equal((player, (ushort)317, (byte)4, (ushort)1, (byte)3), (harvested.Player, harvested.Node, harvested.HitsLeft, harvested.Item, harvested.Count));
+            Assert.True(((NodesRegrownEvent)back[33]).All);
+        }
+
+        [Fact]
+        public void TheHarvestRequestRoundTrips()
+        {
+            var q = SimRequest.Harvest(9, 317, 2);
+            Assert.Equal((RequestKind.Harvest, (ushort)317, (byte)2), (q.Kind, q.DestId, q.X));
+            var w = new NetWriter();
+            RequestMsg.Write(w, q);
+            Assert.Equal(q, RequestMsg.Read(Body(w, MsgType.Request)));
         }
 
         [Fact]
@@ -360,9 +375,14 @@ namespace PerformativeMail.Net.Tests
             m.DraftPicks.Add(new DraftPickInfo { Player = owner, Card = 1 });
             m.ShopSpecials.AddRange(new byte[] { 0, 6 });
             m.ShopOwned.Add(4);
+            m.Nodes.Add(new NodeInfo { Node = 12, HitsLeft = 0 });
+            m.Nodes.Add(new NodeInfo { Node = 317, HitsLeft = 4 });
             var w = new NetWriter();
             m.Write(w);
             var back = WelcomeMsg.Read(Body(w, MsgType.Welcome));
+
+            // The nodes somebody has swung at, and what each has left.
+            Assert.Equal(new[] { ((ushort)12, (byte)0), ((ushort)317, (byte)4) }, back.Nodes.Select(n => (n.Node, n.HitsLeft)));
 
             // What the counter has on special this shift, and what the team bought for the run.
             Assert.Equal(new byte[] { 0, 6 }, back.ShopSpecials);
