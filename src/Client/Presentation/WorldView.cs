@@ -27,6 +27,7 @@ namespace PerformativeMail.Client.Presentation
 
         private static readonly Color PostOfficeWall = new Color("efe2c4");
         private static readonly Color PostOfficeRed = new Color("b23a34");
+        private static readonly Color ShopTop = new Color("2f9c7a");
 
         public int MailboxCount { get; private set; }
         public Atmosphere Atmosphere { get; private set; } = null!;
@@ -340,6 +341,26 @@ namespace PerformativeMail.Client.Presentation
             var sign = AddLabel("INTAKE", intake + new Basis(Vector3.Up, intakeYaw) * new Vector3(0f, 1.7f, 0.7f), 72, Colors.White);
             sign.Name = "Intake";
             Fade(sign, 30f, 42f, 1);
+
+            if (po.HasShop)
+            {
+                // The shop: a shorter counter along the same wall with its goods laid out; it fills its aim box too.
+                var shop = new Vector3(po.ShopX, 0f, po.ShopZ);
+                batch.Frame = new Transform3D(new Basis(Vector3.Up, intakeYaw), shop);
+                batch.Box(new Vector3(0f, 0.48f, 0f), new Vector3(1.7f, 0.96f, 1.5f), wood, 0.05f);
+                batch.Box(new Vector3(0f, 1.0f, 0f), new Vector3(1.86f, 0.1f, 1.66f), MeshKit.Mat(ShopTop, 0.4f), 0.04f);
+                // Bandages, a bundle of planks, an oil can.
+                batch.Box(new Vector3(-0.55f, 1.16f, 0.4f), new Vector3(0.36f, 0.22f, 0.3f), MeshKit.Mat(new Color("fff8e7"), 0.7f), 0.03f, new Vector3(0f, 14f, 0f));
+                batch.Box(new Vector3(-0.55f, 1.275f, 0.4f), new Vector3(0.2f, 0.02f, 0.07f), red, 0f, new Vector3(0f, 14f, 0f));
+                batch.Box(new Vector3(-0.55f, 1.275f, 0.4f), new Vector3(0.07f, 0.02f, 0.2f), red, 0f, new Vector3(0f, 14f, 0f));
+                for (int i = 0; i < 3; i++)
+                    batch.Box(new Vector3(0.1f, 1.09f + i * 0.075f, 0.2f), new Vector3(0.24f, 0.07f, 1.0f), MeshKit.Mat(new Color("c79a5e").Darkened(i * 0.06f), 0.8f), 0.01f, new Vector3(0f, -8f + i * 5f, 0f));
+                batch.Add(MeshKit.Cylinder(0.11f, 0.13f, 0.3f, 14), MeshKit.Mat(new Color("4d6f8a"), 0.35f, 0.6f), new Vector3(0.6f, 1.2f, 0.45f));
+                batch.Frame = Transform3D.Identity;
+                var shopSign = AddLabel("SHOP", shop + new Basis(Vector3.Up, intakeYaw) * new Vector3(0f, 1.7f, 0.7f), 72, Colors.White);
+                shopSign.Name = "Shop";
+                Fade(shopSign, 30f, 42f, 1);
+            }
 
             AddChild(MeshKit.Instance(MeshKit.Cylinder(1.4f, 1.4f, 0.05f, 40), MeshKit.Mat(new Color("d9c9a3"), 0.9f), new Vector3(po.SpawnPadX, 0.025f, po.SpawnPadZ), name: "SpawnPad"));
             batch.Add(MeshKit.Cylinder(1.15f, 1.15f, 0.06f, 40), MeshKit.Mat(new Color("b23a34"), 0.8f), new Vector3(po.SpawnPadX, 0.026f, po.SpawnPadZ));

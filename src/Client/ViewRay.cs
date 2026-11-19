@@ -92,5 +92,12 @@ namespace PerformativeMail.Client
             var po = map.PostOffice;
             return new AimBox(po.IntakeX, map.HeightAt(po.IntakeX, po.IntakeZ) + 1.0f, po.IntakeZ, 1.0f, 1.0f, 1.0f);
         }
+
+        /// <summary>The shop counter with its sign.</summary>
+        public static AimBox Shop(WorldMap map)
+        {
+            var po = map.PostOffice;
+            return new AimBox(po.ShopX, map.HeightAt(po.ShopX, po.ShopZ) + 1.0f, po.ShopZ, 0.9f, 1.0f, 0.9f);
+        }
     }
 }

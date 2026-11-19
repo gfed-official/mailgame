@@ -82,6 +82,8 @@ namespace PerformativeMail.Client.InputHandling
                     int digit = (int)key.PhysicalKeycode - (int)Key.Key1;
                     // In the Draft 1–3 are the cards, until one is taken.
                     if (_client.PressCardKey(digit)) return;
+                    // At the shop's counter the numbers are its cards.
+                    if (_client.PressShopKey(digit)) return;
                     if (digit >= 0 && digit < HotbarSlots)
                     {
                         _client.Input.HeldSlot = (byte)digit;
@@ -93,6 +95,7 @@ namespace PerformativeMail.Client.InputHandling
             if (ev.IsActionPressed(InputActions.Inventory))
             {
                 if (_client.World != null && _client.World.OpenContainerId != 0) _client.CloseContainer();
+                else if (_client.World != null && _client.World.ShopOpen) _client.CloseShop();
                 else InventoryToggled?.Invoke();
             }
             else if (ev.IsActionPressed(InputActions.Pause))
@@ -108,6 +111,7 @@ namespace PerformativeMail.Client.InputHandling
             // A tap can start and end between two frames, where polling never sees it held.
             else if (ev.IsActionPressed(InputActions.Interact)) _interactTapped = true;
             else if (ev.IsActionPressed(InputActions.Go) && !Paused) _client.PressGo();
+            else if (ev.IsActionPressed(InputActions.Use) && !_uiOpen) _client.UseHeld();
         }
 
         /// <summary>

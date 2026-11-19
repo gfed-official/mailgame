@@ -154,9 +154,10 @@ namespace PerformativeMail.Client
         public const string SortBySize = "Sort by size";
 
         /// <summary>The controls of the inventory screen, under the player's own grids.</summary>
-        public static string InventoryHint(bool externalOpen, bool dragging)
+        public static string InventoryHint(bool externalOpen, bool dragging, bool shopOpen = false)
         {
             if (dragging) return $"Drop on a cell   ·   {RotateKey} turns it   ·   right-click puts it back";
+            if (shopOpen) return "Click sells a stack   ·   Ctrl+click sells one of it   ·   drag to move";
             string across = externalOpen ? "Click sends a stack across" : "Click swaps a stack between hotbar and inventory";
             return $"Drag to move   ·   Ctrl+drag takes half   ·   {across}";
         }
@@ -498,6 +499,117 @@ namespace PerformativeMail.Client
             return perk.Team ? $"{who} {verb} {perk.Name} for the team" : $"{who} {verb} {perk.Name}";
         }
 
+        // --- the shop (doc 09 §2.8) and what is used from the hand ---------------------------------
+
+        public const string UseKey = "[Q]";
+        public const string SpecialWord = "SPECIAL";
+
+        /// <summary>Over the cards: whose money it is, and how much of it there is.</summary>
+        public static string ShopTitle(ClientWorld world) => $"SHOP   ·   team wallet {Money(world.Global.Wallet)}";
+
+        /// <summary>"$0.80"; a special says so, and what it was before.</summary>
+        public static string ShopPriceLine(ClientWorld world, ShopItemDef def)
+        {
+            int price = world.ShopPrice(def);
+            if (!world.IsSpecial(def)) return Money(price);
+            return price < def.Price ? $"{SpecialWord}   ·   {Money(price)}  (was {Money(def.Price)})" : $"{SpecialWord}   ·   {Money(price)}";
+        }
+
+        /// <summary>What has become of a card: on its way, or why it is not to be had; a blueprint says whose it will be.</summary>
+        public static string ShopNote(ClientWorld world, ShopItemDef def)
+        {
+            if (world.IsBuying(def)) return "On its way";
+            switch (world.ShopState(def))
+            {
+                case OpResult.ShopLocked: return $"From shift {def.FromShift}";
+                case OpResult.AlreadyOwned: return "The team owns it";
+                case OpResult.CantAfford: return "Not enough money";
+                case OpResult.DoesNotFit: return "No room in your pockets";
+                case OpResult.WrongPhase: return "The counter is closed";
+            }
+            return def.OncePerRun ? "Once per run, for the whole team" : "";
+        }
+
+        /// <summary>The lines of a card from the top: key and name, price, what it is, and the note (empty if none).</summary>
+        public static string[] ShopCard(ClientWorld world, ShopItemDef def, int place)
+        {
+            return new[]
+            {
+                $"{CardKey(place)}  {def.Name}",
+                ShopPriceLine(world, def),
+                def.Description,
+                ShopNote(world, def),
+            };
+        }
+
+        /// <summary>Under the cards: how to buy, how to sell, how to leave.</summary>
+        public const string ShopHint = "A number key or a click buys   ·   click a stack of yours to sell it   ·   [E] or [Esc] closes";
+
+        /// <summary>Everything the shop panel says, top to bottom, for the smoke; empty while its cards are not up.</summary>
+        public static string ShopText(ClientWorld world)
+        {
+            if (!world.ShopOpen) return "";
+            var lines = new List<string> { ShopTitle(world) };
+            var shelf = world.ShopShelf;
+            for (int i = 0; i < shelf.Count; i++)
+                foreach (string line in ShopCard(world, shelf[i], i))
+                    if (line.Length > 0) lines.Add(line);
+            lines.Add(ShopHint);
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>Why the counter, or the hand, did not do what was asked.</summary>
+        public static string ShopRefused(OpResult result)
+        {
+            switch (result)
+            {
+                case OpResult.CantAfford: return "Not enough money in the wallet";
+                case OpResult.DoesNotFit: return "No room in your pockets";
+                case OpResult.ShopLocked: return "The shop does not sell that yet";
+                case OpResult.AlreadyOwned: return "The team owns it already";
+                case OpResult.WrongPhase: return "The counter is closed";
+                case OpResult.OutOfRange: return "Too far from the counter";
+                case OpResult.NotSellable: return "The shop does not buy that";
+                case OpResult.FullHealth: return "You are at full health";
+                case OpResult.NotUsable: return "That is not something to use";
+                case OpResult.Dead: return "Not while you are down";
+                case OpResult.RateLimited: return "Too fast — slow down";
+                default: return "That cannot be done now";
+            }
+        }
+
+        /// <summary>The event feed's line for a purchase: the money was everybody's.</summary>
+        public static string ShopBought(ClientWorld world, EntityId player, ShopItemDef def, int price)
+        {
+            bool me = player == world.LocalId;
+            string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            return $"{who} bought {def.Name}  -{Money(price)}";
+        }
+
+        /// <summary>The event feed's line for a sale.</summary>
+        public static string ShopSold(ClientWorld world, EntityId player, int item, int count, int paid)
+        {
+            bool me = player == world.LocalId;
+            string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            string what = CountAndKind(item >= 0 && item < world.Content.Items.Count ? world.Content.Items[item].Name : "item", count);
+            return $"{who} sold {what}  +{Money(paid)}";
+        }
+
+        /// <summary>The event feed's line for the specials of the shift that begins; empty when there are none.</summary>
+        public static string ShopSpecials(ClientWorld world)
+        {
+            string names = "";
+            foreach (var def in world.ShopSpecials) names += (names.Length > 0 ? ", " : "") + def.Name;
+            return names.Length > 0 ? $"On special at the shop: {names}" : "";
+        }
+
+        /// <summary>The name of the stack in the hand; what can be used says with which key.</summary>
+        public static string Held(ClientWorld world, ItemStack stack)
+        {
+            string name = Stack(world, stack);
+            return stack.Kind == StackKind.Item && world.Content.Items[stack.DefIndex].Heal > 0 ? $"{name}   ·   {UseKey} use" : name;
+        }
+
         /// <summary>The tracker row of what is waiting: mail not yet delivered and the complaint meter.</summary>
         public static string Status(in GlobalState g) => $"Backlog {g.Backlog}   ·   Complaint {g.Complaint}";
 
@@ -532,6 +644,9 @@ namespace PerformativeMail.Client
                 case InteractKind.CloseChest: return $"Close {ContainerTitle(p.Chest!.Container)}  [E]";
                 case InteractKind.OpenBag: return $"Open {BagName(world, p.Bag!.Owner)}  [E]   ·   gone in {Clock(world.BagSecondsLeft(p.Bag))}";
                 case InteractKind.CloseBag: return $"Close {BagName(world, p.Bag!.Owner)}  [E]   ·   gone in {Clock(world.BagSecondsLeft(p.Bag))}";
+                case InteractKind.OpenShop:
+                    return p.ShopClosed ? $"Shop   ·   {ClosedWord} — the counter serves in Prep and at Payday" : "Open Shop  [E]";
+                case InteractKind.CloseShop: return "Close Shop  [E]";
                 case InteractKind.Deliver:
                 {
                     var dest = p.Destination!;

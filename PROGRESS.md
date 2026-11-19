@@ -421,6 +421,35 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             the raid runs inside Delivery, choice 50)
 - [ ] Shop (blueprints, bike, consumables, refined materials); bike as first vehicle (driver
       prediction path)
+      - [x] **The counter in the sim** (doc 01 §2.4 and §3.4, doc 08 §2.10, doc 10 §3; design
+            choice 71). `content/shop/shop.json` (validated: unknown item, kind or category, a
+            price under the sell-back value, a blueprint that is not once-per-run, kinds that
+            cannot be honoured yet), seven entries: Bandages ×3, Planks ×20, Rope ×10, Glass ×10,
+            Iron Ingots ×10, Oil Cans ×3 (from shift 2), and the First-Aid Kit that only comes as
+            a special. `Buy` takes the price out of the team wallet and puts the stack in the
+            buyer's pockets — whole or not at all —, `Sell` pays an item's `sellPrice` per unit,
+            both only at the counter (the shop stands 4 m along the Post Office front from the
+            Intake) and only in Prep and at Payday. Two specials a shift, rolled when the shift
+            begins: 20 % off. A once-per-run entry (blueprints) is the team's until the run ends.
+            `Use`: a Bandage gives 50 HP at once, Berries 25 HP over 5 s, refused at full health.
+            Protocol `m1.11` (`Buy` / `Sell` / `Use` requests, `ShopOffer`, `ShopBought`,
+            `ShopSold`, specials and owned entries in the Welcome). `ShopTests` (19), `CodecTests`
+      - [x] **The counter on screen** (doc 09 §2.8). A wooden counter with a green top and its
+            wares under a SHOP sign; "Open Shop  [E]" puts the cards up on the right of the
+            inventory screen — key, name ×count, price ("SPECIAL · $2.80 (was $3.50)", framed
+            amber), what it is, and what stands in the way in red ("Not enough money", "From shift
+            2", "The team owns it", "No room in your pockets"), greyed when it cannot
+            be bought; "SHOP · team wallet $6.56" over them. A number key or a click buys; a
+            click on a stack of your own sells it, Ctrl+click one of it; E or Esc closes, and so
+            does walking off, going down, or the shift starting. Outside Prep and Payday the
+            counter says "Shop · closed — the counter serves in Prep and at Payday". The stack in
+            the hand is named over the hotbar ("2 Bandages · [Q] use"), Q uses it. Feed lines for
+            everybody ("On special at the shop: …", "Bo bought Planks ×20 for $1.40", "You sold 1
+            Bandage  +$0.07"). The wallet's change reaches every screen with the next snapshot.
+            `ShopFlowTests` (4); the smoke goes shopping in the first Prep the wallet allows
+            (`shop-counter.png`, `shop.png`)
+      - [ ] blueprints in the catalog (there is nothing to build yet), the bike and the other
+            vehicles, hires and services, tools (they come with harvesting)
 - [x] **Perk system** (StatSheet, modifiers, team/personal, prerequisites, exclusions) with 11
       perks (doc 01 §2.5 and §4, doc 07 §6, doc 08 §2.9, doc 09 §2.10; design choice 66)
       - [x] *The stat sheet.* `content/perks/perks.json` (validated: unknown stat, op, category,
@@ -477,8 +506,9 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
       - [x] a chest in the world, placed by the map (nit 9)
       - [ ] nodes, harvesting, building by hand
 
-Next in this order: the Shop (doc 12's next open line that needs no world generator); the
-generator and the districts before it are the larger piece and still open.
+Next in this order: resource nodes and harvesting, then building by hand (doc 12's last M1
+line; the tools go on the shop's counter). The generator and the districts before it are the
+larger piece and still open, as is the bike.
 
 ## How to build and check
 
@@ -1085,6 +1115,45 @@ See "Commands" at the bottom (filled in as the tooling lands).
     complaint, the 0.8 for one or two) is the doc's. To be raised again when defences land —
     `RaidFightTests` is the measure: its bots must still get through.
 
+71. **The shop.** Doc 01 §2.4 / §3.4, doc 08 §2.10, doc 09 §2.8 and doc 10 §3 give the list, the
+    prices and "a grid of cards". What they leave open, and what was chosen:
+    - *Where and when.* A counter of the Post Office (`postOffice.shop` in the map), reached
+      like the Intake (server range 3 m). It serves in Prep and at Payday (doc 01: "Prep" and
+      "Payday (+ shop)"); in the Lobby, Delivery, the Draft and Results a request is `WrongPhase`.
+    - *A purchase* is one catalog entry: its stack, whole or not at all (`DoesNotFit` costs
+      nothing). Consumables and tools go to the hotbar first, everything else to the inventory
+      first. The buyer carries it; the money is the team's, and anybody may spend it.
+    - *Selling* pays the item's `sellPrice` per unit into the wallet. It is team money but not
+      shift earnings: the quota is met with mail. Mail cannot be sold. The validator refuses a
+      catalog entry that costs less per unit than it sells back for.
+    - *Specials.* Two a shift, rolled from the shop's own RNG stream when the shift begins, so
+      Prep and that shift's Payday show the same two. A fixed entry on special is 20 % off
+      (`shopSpecialDiscount`); a `rotating` entry (the First-Aid Kit) is only on the counter
+      when it is a special, at its list price. An entry the team already owns, or one that is
+      not yet unlocked (`fromShift`), is not put on special.
+    - *Once per run.* Blueprint entries are bought once and are the team's until the run ends
+      (`AlreadyOwned` after that); a late joiner gets the list in the Welcome. No blueprint is
+      in the real catalog yet — there is nothing to build — but the rule is tested. Entry kinds
+      `vehicle`, `hire` and `service` fail validation until the sim can honour them.
+    - *Use.* Doc 09 §4 has no key for a consumable and both mouse buttons are weapons: Q (joypad
+      B) uses the stack in the hand. Bandage: 50 HP at once; Berries: 25 HP over 5 s; refused at
+      full health ("You are at full health" in the feed) and while down; works anywhere, in
+      any phase.
+    - *On screen.* The cards are the right side of the inventory screen, where an open
+      container would be; the shop being open is the client's own state (the server only
+      checks reach and phase per request), so opening it needs no round trip. Opening the shop
+      shuts an open container and the other way round. The cards come down when the player is
+      more than reach + 0.4 m away, goes down, or the phase closes the counter. While they are
+      up the number keys are the cards' (1–9), not the hotbar's; a click on a card buys as
+      well. A click on an own stack sells all of it, Ctrl+click one. More than six cards are
+      laid out three abreast. At Payday the summary panel steps aside while the cards are up.
+    - *The wallet is not predicted.* A card whose purchase is on its way is greyed ("On its
+      way"); the server puts the global block into the very next snapshot whenever the wallet
+      changed (it otherwise rides every sixth), so the cards follow within a tick or two.
+    - *A closed counter still answers*: the prompt says when it serves, and a press on it is
+      spent — it does not open the cards a moment later when the phase changes.
+    - *Not yet*: the bike and the other vehicles, hires, services, the Tailor; tools.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -1155,7 +1224,13 @@ panel on screen must equal `HudText` of the server's summary / results; in the D
 shifts the cards on screen must be the server's and read as `HudText.DraftText` says, none greyed,
 inside the view and under the top lines, with the hint naming the keys; the smoke presses a card's
 key, and in the next Prep the perk must be held on the server and the client, counted on the
-"Perks" plate and named in the feed; the host continues and the
+"Perks" plate and named in the feed; in the first Prep the wallet allows it the host goes to the
+shop (at a player's pace): "Open Shop  [E]" at the counter under its sign, a press, and the cards
+on screen must read as `HudText.ShopText` says — the server's specials framed, the cards that
+cannot be bought greyed, all inside the view; a click on a greyed card sends nothing, the key of
+the Bandages buys them (wallet, hotbar and feed checked on both ends), one is sold back, one is
+used at 40 HP from the hand ("… · [Q] use" over the hotbar), the last is sold, and a second press
+takes the cards down; the host continues and the
 Lobby must be clean (wallet 0, no carried mail, no perks, panel gone). Close-up checks: the player spawns on the pad; mail arrives; the Intake
 prompt and manifest show; mail is carried; the mailbox prompt shows; delivery and misdelivery events
 reach the client; server wallet = start + paid − penalties = client wallet = the HUD's wallet line;

@@ -100,6 +100,7 @@ namespace PerformativeMail.App
             Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest, StartShift, profile.AccountId);
             Interaction = new InteractionController(Client);
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);
+            Client.RequestCompleted += Feed.OnRequest;
             Profile = new ProfileTracker(Client, profile, store);
         }
 

@@ -61,6 +61,8 @@ namespace PerformativeMail.Client.UI
         public GridView InventoryGrid { get; private set; } = null!;
         /// <summary>The open container when it is shown as a grid (a chest); hidden for the Intake's manifest.</summary>
         public GridView ExternalGrid { get; private set; } = null!;
+        /// <summary>The cards of the shop, on the right while the local player stands at the counter with them up.</summary>
+        public ShopPanel Shop { get; private set; } = null!;
 
         public int ManifestRows => _manifest.ItemCount;
         public bool Dragging => _drag.Active;
@@ -129,6 +131,11 @@ namespace PerformativeMail.Client.UI
             };
             _manifest.ItemClicked += OnManifestClicked;
             _externalSide.AddChild(_manifest);
+
+            // The shop's cards stand where an open container would: at the counter there is none.
+            Shop = new ShopPanel();
+            Shop.Setup(client);
+            columns.AddChild(Shop);
 
             // Last child, so the stack on the cursor is drawn over everything else on the panel.
             _overlay = new Control { Name = "DragOverlay", MouseFilter = MouseFilterEnum.Ignore };
@@ -228,8 +235,23 @@ namespace PerformativeMail.Client.UI
                 _drag.Cancel();
                 DragChanged();
             }
-            else if (_pressed) LastRequestId = _client.QuickMove(_pressContainer, _pressEntry);
+            else if (_pressed) LastRequestId = Click();
             _pressed = false;
+        }
+
+        /// <summary>A click on a stack: at the shop's counter it is sold (with Ctrl one of it), anywhere else it goes to the other side.</summary>
+        private uint Click()
+        {
+            var world = _client.World;
+            if (world == null || !world.ShopOpen) return _client.QuickMove(_pressContainer, _pressEntry);
+            var entry = world.Prediction.View(_pressContainer)?.Get(_pressEntry);
+            if (entry == null) return 0;
+            if (entry.Stack.Kind != StackKind.Item)
+            {
+                Notice(HudText.ShopRefused(OpResult.NotSellable));
+                return 0;
+            }
+            return _client.Sell(_pressContainer, _pressEntry, _pressHalf ? 1 : 0);
         }
 
         /// <summary>Puts the stack on the cursor back where it lies.</summary>
@@ -314,7 +336,9 @@ namespace PerformativeMail.Client.UI
         /// <summary>A refused move has already snapped back (the prediction dropped it); the hint line says why. No sound yet.</summary>
         private void OnRequestCompleted(SimRequest request, OpResult result)
         {
-            if (result != OpResult.Ok && InventoryPrediction.Predicts(request.Kind) && Visible) Notice(HudText.MoveRefused(result));
+            if (result == OpResult.Ok || !Visible) return;
+            if (InventoryPrediction.Predicts(request.Kind)) Notice(HudText.MoveRefused(result));
+            else if (request.Kind == RequestKind.Buy || request.Kind == RequestKind.Sell) Notice(HudText.ShopRefused(result));
         }
 
         public override void _Process(double delta)
@@ -342,10 +366,11 @@ namespace PerformativeMail.Client.UI
             _manifest.Visible = manifest;
             ExternalGrid.Visible = external != null && !manifest;
             _externalSort.Visible = external != null && !manifest;
+            Shop.Refresh(world);
 
             if (_noticeLeft > 0) _noticeLeft -= delta;
             bool noticing = _noticeLeft > 0;
-            _hint.Text = noticing ? _notice : HudText.InventoryHint(external != null, _drag.Active);
+            _hint.Text = noticing ? _notice : HudText.InventoryHint(external != null, _drag.Active, world.ShopOpen);
             _hint.Modulate = noticing ? NoticeColour : HintColour;
 
             if (external == null)

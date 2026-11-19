@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.Client
@@ -80,7 +81,26 @@ namespace PerformativeMail.Client
                 case PerkPickedEvent e when e.Perk < world.Content.Perks.Count:
                     Add(HudText.PerkPicked(world, e.Player, world.Content.Perks[e.Perk], e.Auto));
                     break;
+                case ShopOfferEvent:
+                {
+                    string specials = HudText.ShopSpecials(world);
+                    if (specials.Length > 0) Add(specials);
+                    break;
+                }
+                case ShopBoughtEvent e when e.Item < world.Content.ShopItems.Count:
+                    Add(HudText.ShopBought(world, e.Player, world.Content.ShopItems[e.Item], e.Price));
+                    break;
+                case ShopSoldEvent e: Add(HudText.ShopSold(world, e.Player, e.Item, e.Count, e.Paid)); break;
             }
+        }
+
+        /// <summary>
+        /// The server's answer to a request of the local player. What was asked with a key and not
+        /// on a panel has nowhere else to say why it did not happen: using what is in the hand.
+        /// </summary>
+        public void OnRequest(SimRequest request, OpResult result)
+        {
+            if (result != OpResult.Ok && request.Kind == RequestKind.Use) Add(HudText.ShopRefused(result), bad: true);
         }
 
         /// <summary>The bag is still in <see cref="ClientWorld.Bags"/> here: the line says whose it was.</summary>

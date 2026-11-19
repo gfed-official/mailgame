@@ -21,6 +21,9 @@ namespace PerformativeMail.Client
         /// <summary>At a death bag (doc 01 §2.2).</summary>
         OpenBag,
         CloseBag,
+        /// <summary>At the shop counter of the Post Office (doc 09 §2.8).</summary>
+        OpenShop,
+        CloseShop,
     }
 
     /// <summary>What the interact prompt shows right now (doc 09 §2.4).</summary>
@@ -44,6 +47,8 @@ namespace PerformativeMail.Client
         public MapChestDef? Chest;
         /// <summary>OpenBag / CloseBag: the bag in range.</summary>
         public ClientBag? Bag;
+        /// <summary>OpenShop: the counter serves only in Prep and at Payday.</summary>
+        public bool ShopClosed;
     }
 
     /// <summary>
@@ -126,6 +131,20 @@ namespace PerformativeMail.Client
                     }
                     break;
 
+                case InteractKind.OpenShop:
+                case InteractKind.CloseShop:
+                    _hold = 0;
+                    _deliverAllDest = -1;
+                    // The cards are this client's own: nothing to wait for. A press on a closed counter is spent on it.
+                    if (_pressLatch > 0)
+                    {
+                        _pressLatch = 0;
+                        if (prompt.ShopClosed) break;
+                        if (prompt.Kind == InteractKind.OpenShop) _client.OpenShop();
+                        else _client.CloseShop();
+                    }
+                    break;
+
                 case InteractKind.Deliver:
                     StepDeliver(world, ref prompt, dt, interactHeld, deliverAllPressed);
                     break;
@@ -173,6 +192,21 @@ namespace PerformativeMail.Client
                 {
                     best = t;
                     prompt.Kind = InteractKind.OpenIntake;
+                }
+            }
+            if (po.HasShop && DistSq(px, pz, po.ShopX, po.ShopZ) <= rangeSq)
+            {
+                if (world.ShopOpen)
+                {
+                    prompt.Kind = InteractKind.CloseShop;
+                    return prompt;
+                }
+                float t = ray.Hit(AimBox.Shop(world.Map));
+                if (t >= 0f && t <= best)
+                {
+                    best = t;
+                    prompt.Kind = InteractKind.OpenShop;
+                    prompt.ShopClosed = !world.ShopServes;
                 }
             }
             foreach (var chest in world.Map.Chests)

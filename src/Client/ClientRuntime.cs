@@ -44,6 +44,8 @@ namespace PerformativeMail.Client
         /// <summary>Remote players are rendered this far in the past (doc 06 §3: 100 ms).</summary>
         public const double InterpolationDelayTicks = 3.0;
         private const int MaxPendingInputs = 120;
+        /// <summary>The cards of the shop stay up this far past the reach they were opened within (the server serves a little further still).</summary>
+        private const float ShopLeaveSlack = 0.4f;
 
         public ClientState State { get; private set; } = ClientState.Connecting;
         public RejectReason RejectReason { get; private set; }
@@ -92,6 +94,7 @@ namespace PerformativeMail.Client
         private readonly List<ushort> _enemyScratch = new List<ushort>();
         private readonly List<SimEvent> _early = new List<SimEvent>();
         private readonly uint _hammerCooldownTicks, _cannonCooldownTicks;
+        private readonly float _interactRange;
         private uint _hammerReadySeq, _cannonReadySeq;
         private uint _nextSeq = 1;
         private uint _nextRequestId = 1;
@@ -111,6 +114,7 @@ namespace PerformativeMail.Client
             _move = MoveConstants.From(content.Balance);
             _hammerCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("hammerCooldownSeconds"));
             _cannonCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("cannonCooldownSeconds"));
+            _interactRange = content.Balance.GetFloat("interactRange");
             Name = name;
         }
 
@@ -197,6 +201,91 @@ namespace PerformativeMail.Client
             return true;
         }
 
+        // --- the shop (doc 03 §4.4) -------------------------------------------------------------
+
+        /// <summary>The counter is within reach of the local player, and serves.</summary>
+        private bool AtShop(ClientWorld world, float slack)
+        {
+            if (!world.HasLocal || world.Local.Dead || !world.ShopServes) return false;
+            var po = world.Map.PostOffice;
+            float dx = world.Local.X - po.ShopX, dz = world.Local.Z - po.ShopZ;
+            float range = _interactRange + slack;
+            return dx * dx + dz * dz <= range * range;
+        }
+
+        /// <summary>
+        /// Puts the cards of the shop up. Nothing is asked of the server: the counter keeps no
+        /// record of who looks at it, and every purchase is checked on its own. Returns whether
+        /// they are up; a chest or the Intake that was open is shut first.
+        /// </summary>
+        public bool OpenShop()
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !AtShop(world, 0f)) return false;
+            if (world.OpenContainerId != 0) CloseContainer();
+            world.ShopOpen = true;
+            return true;
+        }
+
+        public void CloseShop()
+        {
+            if (World != null) World.ShopOpen = false;
+        }
+
+        /// <summary>
+        /// Buys an entry off the counter for the team's money. Returns the request id, 0 where there
+        /// is nothing to ask: the cards are not up, the entry is not to be had as things stand
+        /// (<see cref="ClientWorld.ShopState"/>), or the last request for it is still on its way.
+        /// </summary>
+        public uint Buy(ShopItemDef def)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.ShopOpen || world.IsBuying(def)) return 0;
+            if (world.ShopState(def) != OpResult.Ok) return 0;
+            uint id = Send(SimRequest.Buy(0, def.Index));
+            if (id != 0) world.ShopPending.Add(def);
+            return id;
+        }
+
+        /// <summary>
+        /// A number key, counted from 0 for "1": while the cards of the shop are up the keys of the
+        /// cards buy and select no hotbar slot. Returns whether the key was the shop's; a card that
+        /// cannot be bought takes the key and does nothing.
+        /// </summary>
+        public bool PressShopKey(int key)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.ShopOpen) return false;
+            var shelf = world.ShopShelf;
+            if (key < 0 || key >= shelf.Count) return false;
+            Buy(shelf[key]);
+            return true;
+        }
+
+        /// <summary>
+        /// Sells a stack the local player carries (or <paramref name="count"/> units of it; 0 = all)
+        /// over the counter. Returns the request id, 0 while the cards are not up.
+        /// </summary>
+        public uint Sell(uint containerId, uint entryId, int count = 0)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.ShopOpen) return 0;
+            return Send(SimRequest.Sell(0, containerId, entryId, count));
+        }
+
+        /// <summary>
+        /// The use key: one of what lies in the selected hotbar slot, when it is something to use
+        /// (a Bandage, Berries). Returns the request id, 0 where the hand holds nothing of the kind;
+        /// the server says no at full health.
+        /// </summary>
+        public uint UseHeld()
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
+            var entry = world.UsableAt(Input.HeldSlot);
+            return entry == null ? 0 : Send(SimRequest.Use(0, world.HotbarId, entry.EntryId));
+        }
+
         /// <summary>
         /// The pause key (doc 09 §2.12): resumes a paused run; pauses one this client hosts alone.
         /// Returns the request id, 0 where the key does not pause (multiplayer never pauses).
@@ -254,6 +343,8 @@ namespace PerformativeMail.Client
             _pendingInputs.Add(input);
             if (_pendingInputs.Count > MaxPendingInputs) _pendingInputs.RemoveAt(0);
             PredictAttacks(world, input);
+            // The cards come down with the shutters, and for whoever walks off or goes down.
+            if (world.ShopOpen && !AtShop(world, ShopLeaveSlack)) world.ShopOpen = false;
 
             _inputsMsg.Inputs.Clear();
             for (int i = Math.Max(0, _pendingInputs.Count - InputsMsg.MaxInputs); i < _pendingInputs.Count; i++)
@@ -379,6 +470,10 @@ namespace PerformativeMail.Client
                 if (perk < _content.Perks.Count) world.DraftOffer.Add(_content.Perks[perk]);
             foreach (var pick in m.DraftPicks)
                 if (world.Players.TryGetValue(pick.Player, out var picker)) picker.DraftPick = pick.Card;
+            foreach (byte item in m.ShopSpecials)
+                if (item < _content.ShopItems.Count) world.ShopSpecials.Add(_content.ShopItems[item]);
+            foreach (byte item in m.ShopOwned)
+                if (item < _content.ShopItems.Count) world.ShopOwned.Add(_content.ShopItems[item]);
             World = world;
             Input.YawRadians = map.PostOffice.SpawnYaw;
             Input.PitchRadians = 0f;
@@ -536,6 +631,8 @@ namespace PerformativeMail.Client
                             world.Containers.Remove(world.OpenContainerId);
                         world.OpenContainerId = e.State.ContainerId;
                         world.Prediction.Invalidate();
+                        // One thing at a time on the right of the inventory screen.
+                        world.ShopOpen = false;
                     }
                     break;
                 case ContainerDeltaEvent e:
@@ -552,6 +649,8 @@ namespace PerformativeMail.Client
                         // (its deltas come first), a refused one falls back to what the server has.
                         world.Prediction.Resolve(e.RequestId);
                         if (request.Kind == RequestKind.CloseContainer && e.Result == OpResult.Ok) DropExternal(world, request.Container);
+                        if (request.Kind == RequestKind.Buy && request.Count < _content.ShopItems.Count)
+                            world.ShopPending.Remove(_content.ShopItems[request.Count]);
                         RequestCompleted?.Invoke(request, e.Result);
                     }
                     break;
@@ -569,6 +668,7 @@ namespace PerformativeMail.Client
                         world.LocalKills = 0;
                         world.LocalLootCoins = 0;
                         world.ClearPerks();
+                        world.ClearShop();
                     }
                     if (e.Phase != RunPhase.Results) world.Results = null;
                     // The offer comes just before the phase it is for.
@@ -584,6 +684,16 @@ namespace PerformativeMail.Client
                     if (e.Perk >= _content.Perks.Count) break;
                     world.AddPerk(e.Player, _content.Perks[e.Perk]);
                     if (e.Card != PerkPickedEvent.NoCard && world.Players.TryGetValue(e.Player, out var picked)) picked.DraftPick = e.Card;
+                    break;
+                case ShopOfferEvent e:
+                    world.ShopSpecials.Clear();
+                    foreach (byte item in e.Specials)
+                        if (item < _content.ShopItems.Count) world.ShopSpecials.Add(_content.ShopItems[item]);
+                    break;
+                case ShopBoughtEvent e:
+                    if (e.Item >= _content.ShopItems.Count) break;
+                    var bought = _content.ShopItems[e.Item];
+                    if (bought.OncePerRun && !world.ShopOwned.Contains(bought)) world.ShopOwned.Add(bought);
                     break;
                 case PausedChangedEvent e:
                     world.Paused = e.Paused;

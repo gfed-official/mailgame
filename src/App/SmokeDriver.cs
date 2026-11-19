@@ -738,6 +738,8 @@ namespace PerformativeMail.App
             {
                 case RunPhase.Prep:
                     CheckDraftPick();
+                    // Once in the run the host goes shopping before readying up.
+                    if (StepShop()) break;
                     if (!world.LocalReady) Go();
                     break;
 
@@ -860,6 +862,7 @@ namespace PerformativeMail.App
                 Check(_results.Outcome == wantOutcome, $"the run ended as {_results.Outcome} after {met} of {_summaries.Count} quotas");
             }
             VerifyDrafts();
+            VerifyShop();
 
             Check(server.Run.Phase == RunPhase.Lobby && server.Run.RunNumber == 1, $"the server is in {server.Run.Phase} of run {server.Run.RunNumber}");
             Check(hud.PhaseText == "LOBBY", $"back in the Lobby the HUD phase line is \"{hud.PhaseText}\"");

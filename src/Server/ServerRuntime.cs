@@ -31,6 +31,8 @@ namespace PerformativeMail.Server
             public int Connection;
             public Player? Player;
             public int SnapshotCount;
+            /// <summary>The wallet in the last global block sent to this client.</summary>
+            public int WalletSent = int.MinValue;
             public readonly List<SimEvent> Outbox = new List<SimEvent>();
         }
 
@@ -319,8 +321,10 @@ namespace PerformativeMail.Server
                 _snapshot.OwnSpeedMult = player.SpeedMult;
                 _snapshot.OwnHp = player.Hp;
                 _snapshot.HasEnemies = c.SnapshotCount % EnemiesEverySnapshots == 0;
-                _snapshot.HasGlobal = c.SnapshotCount++ % GlobalEverySnapshots == 0;
+                // Money spent or taken at the shop's counter is on the cards at once, not a third of a second later.
+                _snapshot.HasGlobal = c.SnapshotCount++ % GlobalEverySnapshots == 0 || global.Wallet != c.WalletSent;
                 _snapshot.Global = global;
+                if (_snapshot.HasGlobal) c.WalletSent = global.Wallet;
                 _writer.Reset();
                 _snapshot.Write(_writer);
                 _transport.Send(c.Connection, NetChannel.Unreliable, _writer.ToArray());

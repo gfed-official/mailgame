@@ -1,0 +1,225 @@
+using System;
+using System.Linq;
+using Godot;
+using PerformativeMail.Client;
+using PerformativeMail.Client.UI;
+using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Inventory;
+using GridContainer = PerformativeMail.Sim.Inventory.GridContainer;
+
+namespace PerformativeMail.App
+{
+    /// <summary>
+    /// The shop in the smoke's run (doc 09 §2.8): in the first Prep the wallet allows it the host
+    /// stands at the counter, opens it through the prompt, sees the server's shelf on the cards,
+    /// buys what heals with the card's key, sells one back, uses one and sells the rest — and the
+    /// team's money is right after every step, on both ends.
+    /// </summary>
+    public partial class SmokeDriver
+    {
+        private const int ShopStepFrames = 150;
+        private const float ShopStandOff = 1.0f;
+
+        private int _shopStep, _shopFrames, _shopVisits, _shopWallet, _shopSlot;
+        private ShopItemDef? _shopCard;
+
+        private void NextShopStep()
+        {
+            _shopStep++;
+            _shopFrames = 0;
+        }
+
+        private static int Units(GridContainer container, ItemDef item)
+        {
+            int n = 0;
+            foreach (var e in container.Entries)
+                if (e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == item.Index) n += e.Stack.Count;
+            return n;
+        }
+
+        /// <summary>A frame of Prep. Returns true while the visit to the counter goes on: the go key waits for it.</summary>
+        private bool StepShop()
+        {
+            var client = _session.Client;
+            var world = client.World!;
+            var server = _session.Server!.World;
+            var hud = _screen.Hud;
+            var po = world.Map.PostOffice;
+            var player = server.GetPlayer(world.LocalId)!;
+
+            if (_shopStep == 0)
+            {
+                if (_shopVisits > 0 || !world.ShopServes || world.Local.Dead) return false;
+                // What heals is what the visit is for; the cheapest card of it.
+                ShopItemDef? card = null;
+                foreach (var def in world.ShopShelf)
+                    if (def.Item != null && def.Item.Heal > 0 && def.Count >= 3 && (card == null || world.ShopPrice(def) < world.ShopPrice(card))) card = def;
+                if (card == null || world.Global.Wallet != server.Economy.Wallet || world.ShopState(card) != OpResult.Ok) return false;
+                _shopCard = card;
+                // The pace of a player again, and the view on the counter.
+                _session.FixedTicksPerFrame = TicksPerFrame;
+                player.Move.X = po.ShopX + ShopStandOff;
+                player.Move.Z = po.ShopZ;
+                client.Input.YawRadians = Mathf.Pi * 0.5f;
+                client.Input.PitchRadians = -0.3f;
+                NextShopStep();
+                return true;
+            }
+
+            var item = _shopCard!.Item!;
+            var panel = _screen.Inventory.Shop;
+            int price = world.ShopPrice(_shopCard), count = _shopCard.Count;
+            // The counter is opened and closed as a player does it: through the prompt, with a press of interact.
+            _session.Interaction.Update(1.0 / 60.0, (_shopStep == 2 || _shopStep == 8) && _shopFrames == 0, false);
+            hud.Refresh();
+            var prompt = _session.Interaction.Prompt;
+            bool settled = client.PendingRequestCount == 0 && world.Global.Wallet == server.Economy.Wallet;
+            int held = Units(world.Hotbar, item);
+            if (++_shopFrames > ShopStepFrames)
+            {
+                Fail($"the visit to the shop stopped at step {_shopStep}: prompt {prompt.Kind}, cards {(world.ShopOpen ? "up" : "down")}, wallet {world.Global.Wallet} (server {server.Economy.Wallet}), "
+                    + $"{held} {item.Name} in the hotbar, {client.PendingRequestCount} requests pending");
+                return false;
+            }
+
+            switch (_shopStep)
+            {
+                case 1:
+                {
+                    float dx = world.Local.X - (po.ShopX + ShopStandOff), dz = world.Local.Z - po.ShopZ;
+                    if (dx * dx + dz * dz > 0.1f || prompt.Kind != InteractKind.OpenShop || _shopFrames < 4) break;
+                    string want = HudText.Prompt(world, prompt, out _);
+                    Check(!prompt.ShopClosed && hud.PromptText == want && want.StartsWith("Open Shop", StringComparison.Ordinal), $"at the shop's counter in Prep the prompt says \"{hud.PromptText}\"");
+                    var sign = _screen.World.GetNodeOrNull<Label3D>("Shop");
+                    Check(sign != null && sign.Text == "SHOP", "the shop's counter has no sign");
+                    Shot("shop-counter");
+                    NextShopStep();
+                    break;
+                }
+
+                case 2:
+                {
+                    // The press was this frame's; the screen shows the cards from the next one on.
+                    if (_shopFrames < 4) break;
+                    var shelf = world.ShopShelf;
+                    string want = HudText.ShopText(world);
+                    Check(world.ShopOpen && _screen.Inventory.Visible && panel.Visible, "the press of interact at the counter did not put the cards up");
+                    Check(want.Length > 0 && panel.Text == want, $"the shop shows \"{panel.Text}\", expected \"{want}\"");
+                    string cards = string.Join(", ", world.ShopSpecials.Select(d => d.Id)), truth = string.Join(", ", server.ShopSpecials.Select(d => d.Id));
+                    Check(cards == truth && panel.SpecialCount == world.ShopSpecials.Count, $"the client's specials are {cards} ({panel.SpecialCount} cards framed), the server's {truth}");
+                    int greyed = shelf.Count(d => world.ShopState(d) != OpResult.Ok);
+                    Check(panel.CardCount == shelf.Count && panel.GreyedCount == greyed, $"{panel.CardCount} cards for {shelf.Count} entries, {panel.GreyedCount} greyed where {greyed} cannot be bought");
+                    var view = GetViewport().GetVisibleRect();
+                    for (int i = 0; i < panel.CardCount; i++)
+                        Check(view.Encloses(panel.CardAt(i).GetGlobalRect()), $"shop card {i + 1} at {panel.CardAt(i).GetGlobalRect()} is not inside the view");
+                    Check(!hud.Overlay.Visible, "a summary panel is shown under the shop's cards");
+                    foreach (char c in FontCheck.MissingGlyphs(_screen.Inventory))
+                        if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
+                    Shot("shop");
+
+                    // A card that cannot be bought asks the server nothing; the key of ours buys it.
+                    int locked = -1, place = -1;
+                    for (int i = 0; i < shelf.Count; i++)
+                    {
+                        if (shelf[i] == _shopCard) place = i;
+                        else if (world.ShopState(shelf[i]) != OpResult.Ok) locked = i;
+                    }
+                    if (locked >= 0)
+                    {
+                        panel.Click(locked);
+                        Check(panel.LastRequestId == 0, $"a click on the greyed card {locked + 1} sent a request");
+                    }
+                    _shopWallet = server.Economy.Wallet;
+                    Check(client.PressShopKey(place) && world.IsBuying(_shopCard), $"key {HudText.CardKey(place)} did not buy {_shopCard.Name} ({world.ShopState(_shopCard)})");
+                    NextShopStep();
+                    break;
+                }
+
+                case 3:
+                {
+                    if (!settled || world.IsBuying(_shopCard) || held + Units(world.Inventory, item) < count) break;
+                    Check(server.Economy.Wallet == _shopWallet - price, $"{_shopCard.Name} at {price}: the wallet went from {_shopWallet} to {server.Economy.Wallet}");
+                    Check(held == count, $"{held} of the {count} {item.Name} bought are in the hotbar");
+                    string line = HudText.ShopBought(world, world.LocalId, _shopCard, price);
+                    Check(_session.Feed.Entries.Any(e => e.Text == line), $"the feed does not say \"{line}\"");
+                    var entry = world.Hotbar.Entries.FirstOrDefault(e => e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == item.Index);
+                    if (entry == null) { Fail("what was bought is not in the hotbar"); return false; }
+                    _shopSlot = entry.X;
+                    // One of them back over the counter.
+                    Check(client.Sell(world.HotbarId, entry.EntryId, 1) != 0, "the open shop took no request to sell");
+                    NextShopStep();
+                    break;
+                }
+
+                case 4:
+                {
+                    if (!settled || held != count - 1) break;
+                    Check(server.Economy.Wallet == _shopWallet - price + item.SellPrice, $"one {item.Name} sold at {item.SellPrice}: the wallet is {server.Economy.Wallet}, was {_shopWallet} before the visit");
+                    string line = HudText.ShopSold(world, world.LocalId, item.Index, 1, item.SellPrice);
+                    Check(_session.Feed.Entries.Any(e => e.Text == line), $"the feed does not say \"{line}\"");
+                    Check(panel.Text == HudText.ShopText(world), "the shop's cards did not follow the wallet");
+                    // Hurt, with the stack in the hand: the next one is used.
+                    player.Hp = player.MaxHp - item.Heal - 10f;
+                    client.Input.HeldSlot = (byte)_shopSlot;
+                    NextShopStep();
+                    break;
+                }
+
+                case 5:
+                {
+                    if (_shopFrames < 4) break;
+                    var entry = world.Hotbar.EntryAt(_shopSlot, 0);
+                    string want = entry == null ? "" : HudText.Held(world, entry.Stack);
+                    Check(want.Contains(HudText.UseKey, StringComparison.Ordinal) && hud.HeldText == want, $"with {item.Name} in the hand the HUD says \"{hud.HeldText}\", expected \"{want}\"");
+                    Check(client.UseHeld() != 0, $"the use key did nothing with {item.Name} in the hand");
+                    NextShopStep();
+                    break;
+                }
+
+                case 6:
+                {
+                    if (!settled || held != count - 2) break;
+                    Check(player.Hp >= player.MaxHp - 10.01f && player.Hp < player.MaxHp, $"a {item.Name} used at {player.MaxHp - item.Heal - 10f:0} HP left {player.Hp:0.0} of {player.MaxHp:0}");
+                    var entry = world.Hotbar.EntryAt(_shopSlot, 0);
+                    // The rest goes back: the run goes on with empty pockets.
+                    Check(entry != null && client.Sell(world.HotbarId, entry.EntryId) != 0, "the open shop took no request to sell the rest");
+                    NextShopStep();
+                    break;
+                }
+
+                case 7:
+                {
+                    if (!settled || held != 0) break;
+                    int want = _shopWallet - price + item.SellPrice * (count - 1);
+                    Check(server.Economy.Wallet == want, $"after the visit the wallet is {server.Economy.Wallet}, expected {want}");
+                    Check(world.Hotbar.EntryCount + world.Inventory.EntryCount == 0, "something of the shop's is still carried");
+                    Check(panel.Text == HudText.ShopText(world), "the shop's cards did not follow the wallet");
+                    player.Hp = player.MaxHp;
+                    client.Input.HeldSlot = 0;
+                    NextShopStep();
+                    break;
+                }
+
+                case 8:
+                    // The press was this frame's.
+                    if (_shopFrames < 4) break;
+                    Check(!world.ShopOpen && !_screen.Inventory.Visible, "the press of interact did not take the cards down");
+                    GD.Print($"[smoke] shop: {world.ShopShelf.Count} cards ({world.ShopSpecials.Count} special), {_shopCard.Name} for {HudText.Money(price)}, "
+                        + $"{count - 1} sold back, 1 used; wallet {HudText.Money(_shopWallet)} -> {HudText.Money(server.Economy.Wallet)}");
+                    _shopVisits++;
+                    _shopStep = 0;
+                    _session.FixedTicksPerFrame = RunOutTicksPerFrame;
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>After the run: the counter was visited, and the Lobby's is bare.</summary>
+        private void VerifyShop()
+        {
+            var world = _session.Client.World!;
+            Check(_shopVisits == 1, $"the smoke went to the shop {_shopVisits} times");
+            Check(world.ShopSpecials.Count == 0 && world.ShopOwned.Count == 0 && !world.ShopOpen, "the shop of the finished run is still stocked in the Lobby");
+        }
+    }
+}

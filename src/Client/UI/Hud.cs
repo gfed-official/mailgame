@@ -34,6 +34,8 @@ namespace PerformativeMail.Client.UI
         public string QuotaText => _quota.Text;
         public string WalletText => _wallet.Text;
         public string PromptText => _prompt.Text;
+        /// <summary>The line over the hotbar: what is in the hand.</summary>
+        public string HeldText => _held.Visible ? _held.Text : "";
         public string HintText => _hint.Text;
         /// <summary>The big PAUSED line while a solo run is paused, else empty.</summary>
         public string PausedText => _paused.Visible ? _paused.Text : "";
@@ -370,7 +372,7 @@ namespace PerformativeMail.Client.UI
             int slot = _client!.Input.HeldSlot;
             _hotbar.SelectedColumn = slot;
             var held = slot > 0 ? world.Hotbar.EntryAt(slot, 0) : null;
-            _held.Text = held == null ? "" : HudText.Stack(world, held.Stack);
+            _held.Text = held == null ? "" : HudText.Held(world, held.Stack);
             var heldDest = held != null && held.Stack.Kind == StackKind.Mail ? world.Map.FindDestination(held.Stack.Address) : null;
             _held.Modulate = heldDest != null ? Palette.HouseColour(heldDest.Variant).Lightened(0.35f) : Colors.White;
             _held.Visible = !_loot.Cards.Visible;
@@ -395,7 +397,8 @@ namespace PerformativeMail.Client.UI
             object? source = world.Global.Phase == RunPhase.Payday ? world.LastSummary
                 : world.Global.Phase == RunPhase.Results ? world.Results
                 : null;
-            _overlay.Visible = source != null;
+            // At Payday's counter the shop's cards stand where the summary does.
+            _overlay.Visible = source != null && !world.ShopOpen;
             if (ReferenceEquals(source, _overlaySource)) return;
             _overlaySource = source;
 

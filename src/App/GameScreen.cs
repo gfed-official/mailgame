@@ -75,6 +75,7 @@ namespace PerformativeMail.App
             {
                 _inventoryOpen = false;
                 client.CloseContainer();
+                client.CloseShop();
             };
             AddChild(_input);
             session.InputSource = _input.Sample;
@@ -86,7 +87,8 @@ namespace PerformativeMail.App
             if (world == null) return;
             Camera.Target = Players.LocalView;
             if (DriveAtmosphere) World.Atmosphere.TargetNight = NightFor(world.Raid);
-            bool open = _inventoryOpen || world.OpenContainerId != 0;
+            // The shop's cards stand on the inventory screen, like an open chest.
+            bool open = _inventoryOpen || world.OpenContainerId != 0 || world.ShopOpen;
             Inventory.Visible = open;
             if (_input != null) _input.UiOpen = open;
         }

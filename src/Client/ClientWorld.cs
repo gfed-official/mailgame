@@ -404,6 +404,82 @@ namespace PerformativeMail.Client
             ClearDraft();
         }
 
+        // --- the shop (doc 03 §4.4, doc 09 §2.8) --------------------------------------------------
+
+        /// <summary>The shift's specials, in the order of the catalogue.</summary>
+        public List<ShopItemDef> ShopSpecials { get; } = new List<ShopItemDef>();
+        /// <summary>What the team has bought of the entries sold once per run.</summary>
+        public List<ShopItemDef> ShopOwned { get; } = new List<ShopItemDef>();
+        /// <summary>The local player stands at the counter with its cards up. Theirs alone: the server keeps no such state.</summary>
+        public bool ShopOpen { get; internal set; }
+        /// <summary>Purchases on their way: the card waits for the server's word.</summary>
+        internal List<ShopItemDef> ShopPending { get; } = new List<ShopItemDef>();
+
+        private readonly List<ShopItemDef> _shelf = new List<ShopItemDef>();
+
+        /// <summary>The counter serves right now: the map has one, and it is Prep or Payday.</summary>
+        public bool ShopServes => Map.PostOffice.HasShop && ShopRules.IsOpen(Global.Phase);
+
+        /// <summary>
+        /// What lies on the counter this shift, in the order of the catalogue: the fixed stock and
+        /// the rotating entries among the specials. The card's number key is its place here.
+        /// </summary>
+        public IReadOnlyList<ShopItemDef> ShopShelf
+        {
+            get
+            {
+                _shelf.Clear();
+                foreach (var def in Content.ShopItems)
+                    if (!def.Rotating || ShopSpecials.Contains(def)) _shelf.Add(def);
+                return _shelf;
+            }
+        }
+
+        public bool IsSpecial(ShopItemDef def) => ShopSpecials.Contains(def);
+        public bool IsBuying(ShopItemDef def) => ShopPending.Contains(def);
+
+        /// <summary>What the entry costs this shift, as the server reckons it.</summary>
+        public int ShopPrice(ShopItemDef def) => ShopRules.Price(def, IsSpecial(def), ShopRules.DiscountPermille(Content.Balance));
+
+        /// <summary>
+        /// What stands between the local player and an entry, by the rules of the server's BuyOp:
+        /// Ok means a request to buy it would be granted as things stand.
+        /// </summary>
+        public OpResult ShopState(ShopItemDef def)
+        {
+            if (!ShopServes) return OpResult.WrongPhase;
+            var verdict = ShopRules.Check(def, Global.Shift, IsSpecial(def), ShopOwned.Contains(def));
+            if (verdict != OpResult.Ok) return verdict;
+            if (Global.Wallet < ShopPrice(def)) return OpResult.CantAfford;
+            if (def.Kind != ShopKind.Item || def.Item == null || HotbarId == 0) return OpResult.Ok;
+            bool hotbarFirst = ShopRules.HotbarFirst(def.Item);
+            var first = hotbarFirst ? Hotbar : Inventory;
+            var second = hotbarFirst ? Inventory : Hotbar;
+            return ShopRules.Fits(Content, first, second, def.Item, def.Count) ? OpResult.Ok : OpResult.DoesNotFit;
+        }
+
+        /// <summary>
+        /// The stack in a hotbar slot when it is something to use (doc 05 §1.1: a Bandage, Berries)
+        /// and the server knows it by name already; else null.
+        /// </summary>
+        public GridEntry? UsableAt(int slot)
+        {
+            if (HotbarId == 0 || slot <= 0) return null;
+            var hotbar = Hotbar;
+            var entry = slot < hotbar.Cols ? hotbar.EntryAt(slot, 0) : null;
+            if (entry == null || entry.Stack.Kind != StackKind.Item || InventoryPrediction.IsPrivate(entry)) return null;
+            return Content.Items[entry.Stack.DefIndex].Heal > 0 ? entry : null;
+        }
+
+        /// <summary>A run ends owning nothing, and the next draws its own specials.</summary>
+        internal void ClearShop()
+        {
+            ShopSpecials.Clear();
+            ShopOwned.Clear();
+            ShopPending.Clear();
+            ShopOpen = false;
+        }
+
         /// <summary>Solo pause (doc 01 §1): the server's tick, and with it this client's, stands still.</summary>
         public bool Paused { get; internal set; }
 

@@ -28,6 +28,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string Attack = "attack";
         /// <summary>The mail cannon: right mouse button, left trigger.</summary>
         public const string AltAttack = "alt_attack";
+        /// <summary>Uses the held consumable. Doc 09 §4 has no key for it and the mouse buttons are the weapons, so Q.</summary>
+        public const string Use = "use";
 
         private static readonly HashSet<string> Created = new HashSet<string>();
 
@@ -45,6 +47,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Pause, Key.Escape);
             BindKey(Go, Key.G);
             BindKey(Rotate, Key.R);
+            BindKey(Use, Key.Q);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);
 
@@ -58,6 +61,7 @@ namespace PerformativeMail.Client.InputHandling
             BindButton(Inventory, JoyButton.Y);
             BindButton(Pause, JoyButton.Start);
             BindButton(Go, JoyButton.Back);
+            BindButton(Use, JoyButton.B);
             BindAxis(Attack, JoyAxis.TriggerRight, 1f);
             BindAxis(AltAttack, JoyAxis.TriggerLeft, 1f);
         }
