@@ -86,6 +86,21 @@ namespace PerformativeMail.Client
         public static AimBox Bag(WorldMap map, float x, float z) =>
             new AimBox(x, map.HeightAt(x, z) + 0.3f, z, 0.5f, 0.4f, 0.5f);
 
+        /// <summary>
+        /// A resource node: a tree's trunk up to where its crown begins, a bush, a boulder. A little
+        /// wider than what is drawn, as everything else that is aimed at.
+        /// </summary>
+        public static AimBox Node(WorldMap map, in Prop prop)
+        {
+            float ground = map.HeightAt(prop.X, prop.Z), s = prop.Scale;
+            switch (prop.Kind)
+            {
+                case PropKind.Tree: return new AimBox(prop.X, ground + 1.5f, prop.Z, 0.6f, 1.5f, 0.6f);
+                case PropKind.Boulder: return new AimBox(prop.X, ground + 0.35f * s, prop.Z, 0.8f * s, 0.45f * s, 0.8f * s);
+                default: return new AimBox(prop.X, ground + 0.45f * s, prop.Z, 0.65f * s, 0.5f * s, 0.65f * s);
+            }
+        }
+
         /// <summary>The Intake counter with its sign.</summary>
         public static AimBox Intake(WorldMap map)
         {

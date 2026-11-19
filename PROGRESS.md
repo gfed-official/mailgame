@@ -448,8 +448,10 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             Bandage  +$0.07"). The wallet's change reaches every screen with the next snapshot.
             `ShopFlowTests` (4); the smoke goes shopping in the first Prep the wallet allows
             (`shop-counter.png`, `shop.png`)
+      - [x] the tools: the Axe ($0.80) and the Pickaxe ($1.00) are on the counter from shift 1
+            (nine cards now), never as specials — see harvesting below
       - [ ] blueprints in the catalog (there is nothing to build yet), the bike and the other
-            vehicles, hires and services, tools (they come with harvesting)
+            vehicles, hires and services
 - [x] **Perk system** (StatSheet, modifiers, team/personal, prerequisites, exclusions) with 11
       perks (doc 01 §2.5 and §4, doc 07 §6, doc 08 §2.9, doc 09 §2.10; design choice 66)
       - [x] *The stat sheet.* `content/perks/perks.json` (validated: unknown stat, op, category,
@@ -504,11 +506,37 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
 - [ ] Resource nodes and harvesting (wood, fiber, stone, ore); hand-built Wooden Wall and Chest
       from harvested materials
       - [x] a chest in the world, placed by the map (nit 9)
-      - [ ] nodes, harvesting, building by hand
+      - [x] **The nodes in the sim** (doc 02 §3.9, doc 08 §2.3 and §2.8; design choice 72).
+            `content/nodes/nodes.json` (validated: unknown prop, item or tool rule, a prop variant
+            claimed twice, a node no tool can work, a tool for what no node gives) makes the
+            map's own scenery
+            give: every Tree is wood (Logs, 5 hits, 2 a hit with the Axe, 1 by hand), a Bush
+            Fiber (3 hits of 3) or Berries (2 hits of 2), a Boulder Stone (6 hits of 3) or, one in
+            three, an Ore Vein (Iron Ore, 8 hits of 2) — the last two only with the Pickaxe in the
+            hand. 92 nodes on the test street. `Harvest` is one hit: in reach, in Prep or
+            Delivery, not faster than a swing (0.6 s), and only if what it gives fits in the
+            pockets (a hit that does not fit is not spent). A node worked out stays where it is —
+            a stump, a bare twig, rubble — and gives nothing; the bushes are full again when the
+            next shift begins, everything with the next run. Protocol `m1.12` (the `Harvest`
+            request, `NodeHarvested`, `NodesRegrown`, the worked nodes in the Welcome).
+            `HarvestTests` (11), `CodecTests`, `ContentValidatorTests`
+      - [x] **The nodes on screen** (doc 09 §2.4, the interact prompt's "harvest"). Looked at from beside it a node has a
+            prompt — "Pick Bush · Fiber x3 a hit · 3 hits left [hold E]", "Chop Tree · Log x1 a
+            hit (more with an Axe) · 5 hits left [hold E]", in red with the ✗ "Boulder · needs a
+            Pickaxe in the hand" or "Berry Bush · no room in your pockets for Berries x2". E held
+            fills the bar under the prompt once a swing; at its end the hit is asked for and the
+            hammer swings in the hands (the others see the swing on the carrier's body). The feed
+            counts a run of hits in one line ("You gathered Fiber x9", "Ada gathered Log x4") and
+            says "The bushes have grown back". Berry bushes carry red berries, an Ore Vein rust-
+            red lumps in the rock; the nodes are their own mesh batch, drawn anew only when one
+            runs out or grows back. `HarvestFlowTests` (4); in the smoke the host picks a bush
+            clean, is refused at a boulder, chops a tree down by hand, looks at a Berry Bush and
+            an Ore Vein, and sells the lot at the counter (`harvest-*.png`)
+      - [ ] building by hand (Wooden Wall, Chest); Sand and the Shovel; tools drawn in the hand
 
-Next in this order: resource nodes and harvesting, then building by hand (doc 12's last M1
-line; the tools go on the shop's counter). The generator and the districts before it are the
-larger piece and still open, as is the bike.
+Next in this order: building by hand from what is harvested (doc 12's last M1 line), which
+also gives the shop its blueprints. The generator and the districts before it are the larger
+piece and still open, as is the bike.
 
 ## How to build and check
 
@@ -1152,7 +1180,37 @@ See "Commands" at the bottom (filled in as the tooling lands).
       changed (it otherwise rides every sixth), so the cards follow within a tick or two.
     - *A closed counter still answers*: the prompt says when it serves, and a press on it is
       spent — it does not open the cards a moment later when the phase changes.
-    - *Not yet*: the bike and the other vehicles, hires, services, the Tailor; tools.
+    - *Not yet*: the bike and the other vehicles, hires, services, the Tailor.
+
+72. **Resource nodes and harvesting.** Doc 02 §3.9 has the generator scatter nodes by biome;
+    the map is still the static test street (choice 3). What was chosen until it is not:
+    - *The nodes are the scenery.* `content/nodes` tells which of the map's props give
+      something, by kind and variant: every Tree wood; a Bush of variant 0 or 1 Fiber, of
+      variant 2 Berries; a Boulder of variant 0 or 1 Stone, of variant 2 Iron Ore. No new
+      roll, so the map hash and the look of the street are as before — and the bushes at the
+      house corners can be picked. A node's id on the wire is its index in `map.Props`. Sand
+      and the Shovel wait for a biome that has sand.
+    - *A hit.* One request, one hit: the node loses a hit and its yield is in the pockets, or
+      nothing happens (`Depleted`, `NeedsTool`, `DoesNotFit`, `OutOfRange` at more than reach
+      + the prop's radius, `WrongPhase` outside Prep and Delivery, `TooFast` under a swing
+      less 0.1 s). The slot of the hand rides the request — the server's idea of the held slot
+      lags the scroll wheel. Berries go to the hotbar first, materials to the inventory first.
+    - *Tools.* A node is `none` (hands), `optional` (hands give `handYield` of it: a tree half)
+      or `required`. The tool is whatever item `harvests` the node's resource: Axe wood,
+      Pickaxe stone and ore. Both are bought at the counter ($0.80, $1.00; doc 10's prices);
+      the kits that would start with one are not in yet. No durability, and as a weapon (doc
+      10: "melee 15") they wait for the weapon slots.
+    - *Regrowth.* Bushes are full again when a shift begins (doc 02 §3.9: "Regrows in 1
+      shift"); trees and rock stay as they were left until the run ends. A node worked out
+      stays solid — stump, twig, rubble — so no path opens mid-run and no navigation changes.
+    - *The key.* Doc 09 §2.4 names "harvest" among the interact prompts, so it is E, held: every
+      0.6 s of holding is a swing, the hit lands at its end. The bar fills on while the last
+      answer is on its way, but the next hit is not asked for before it is here. Nothing is
+      predicted: the pockets and the node follow the server's answer.
+    - *What is drawn.* The hammer's swing stands in for the tool (there are no tool models
+      yet); the others see a hammer swing. Nodes are drawn by `NodesView` in one batch of their
+      own, rebuilt when the set of worked-out nodes changes (twice a shift at most, plus once
+      per node felled), not per hit.
 
 ## Commands
 
@@ -1224,14 +1282,20 @@ panel on screen must equal `HudText` of the server's summary / results; in the D
 shifts the cards on screen must be the server's and read as `HudText.DraftText` says, none greyed,
 inside the view and under the top lines, with the hint naming the keys; the smoke presses a card's
 key, and in the next Prep the perk must be held on the server and the client, counted on the
-"Perks" plate and named in the feed; in the first Prep the wallet allows it the host goes to the
+"Perks" plate and named in the feed; in the first Prep the counter serves the host first works
+the land at a tick a frame: beside a Bush the prompt must read as `HudText.Prompt` says, E held
+must fill the bar and take the three hits in three swings and no fewer than 51 ticks, the Fiber
+must be in the pockets and in the feed, the bush bare on both ends and drawn bare after one
+redraw of the nodes; a Boulder must ask for a Pickaxe in red and take no swing; a Tree is chopped
+down by hand the same way; a Berry Bush and an Ore Vein are looked at; then the host goes to the
 shop (at a player's pace): "Open Shop  [E]" at the counter under its sign, a press, and the cards
 on screen must read as `HudText.ShopText` says — the server's specials framed, the cards that
 cannot be bought greyed, all inside the view; a click on a greyed card sends nothing, the key of
 the Bandages buys them (wallet, hotbar and feed checked on both ends), one is sold back, one is
-used at 40 HP from the hand ("… · [Q] use" over the hotbar), the last is sold, and a second press
+used at 40 HP from the hand ("… · [Q] use" over the hotbar), the last is sold, the Fiber and the
+Logs go over the counter at their sell price, and a second press
 takes the cards down; the host continues and the
-Lobby must be clean (wallet 0, no carried mail, no perks, panel gone). Close-up checks: the player spawns on the pad; mail arrives; the Intake
+Lobby must be clean (wallet 0, no carried mail, no perks, panel gone, every node whole again). Close-up checks: the player spawns on the pad; mail arrives; the Intake
 prompt and manifest show; mail is carried; the mailbox prompt shows; delivery and misdelivery events
 reach the client; server wallet = start + paid − penalties = client wallet = the HUD's wallet line;
 no container desync or bad packet; the world, player view and camera exist; the boot view (camera

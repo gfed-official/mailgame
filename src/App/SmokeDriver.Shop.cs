@@ -5,6 +5,7 @@ using PerformativeMail.Client;
 using PerformativeMail.Client.UI;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Run;
 using GridContainer = PerformativeMail.Sim.Inventory.GridContainer;
 
 namespace PerformativeMail.App
@@ -12,15 +13,15 @@ namespace PerformativeMail.App
     /// <summary>
     /// The shop in the smoke's run (doc 09 §2.8): in the first Prep the wallet allows it the host
     /// stands at the counter, opens it through the prompt, sees the server's shelf on the cards,
-    /// buys what heals with the card's key, sells one back, uses one and sells the rest — and the
-    /// team's money is right after every step, on both ends.
+    /// buys what heals with the card's key, sells one back, uses one, sells the rest and what the
+    /// land gave before the visit — and the team's money is right after every step, on both ends.
     /// </summary>
     public partial class SmokeDriver
     {
         private const int ShopStepFrames = 150;
         private const float ShopStandOff = 1.0f;
 
-        private int _shopStep, _shopFrames, _shopVisits, _shopWallet, _shopSlot;
+        private int _shopStep, _shopFrames, _shopVisits, _shopWallet, _shopSlot, _shopGathered;
         private ShopItemDef? _shopCard;
 
         private void NextShopStep()
@@ -34,6 +35,15 @@ namespace PerformativeMail.App
             int n = 0;
             foreach (var e in container.Entries)
                 if (e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == item.Index) n += e.Stack.Count;
+            return n;
+        }
+
+        /// <summary>The stacks in a container that are not mail.</summary>
+        private static int Goods(GridContainer container)
+        {
+            int n = 0;
+            foreach (var e in container.Entries)
+                if (e.Stack.Kind == StackKind.Item) n++;
             return n;
         }
 
@@ -70,7 +80,7 @@ namespace PerformativeMail.App
             var panel = _screen.Inventory.Shop;
             int price = world.ShopPrice(_shopCard), count = _shopCard.Count;
             // The counter is opened and closed as a player does it: through the prompt, with a press of interact.
-            _session.Interaction.Update(1.0 / 60.0, (_shopStep == 2 || _shopStep == 8) && _shopFrames == 0, false);
+            _session.Interaction.Update(1.0 / 60.0, (_shopStep == 2 || _shopStep == 9) && _shopFrames == 0, false);
             hud.Refresh();
             var prompt = _session.Interaction.Prompt;
             bool settled = client.PendingRequestCount == 0 && world.Global.Wallet == server.Economy.Wallet;
@@ -192,20 +202,41 @@ namespace PerformativeMail.App
                     if (!settled || held != 0) break;
                     int want = _shopWallet - price + item.SellPrice * (count - 1);
                     Check(server.Economy.Wallet == want, $"after the visit the wallet is {server.Economy.Wallet}, expected {want}");
-                    Check(world.Hotbar.EntryCount + world.Inventory.EntryCount == 0, "something of the shop's is still carried");
                     Check(panel.Text == HudText.ShopText(world), "the shop's cards did not follow the wallet");
                     player.Hp = player.MaxHp;
                     client.Input.HeldSlot = 0;
+                    // What the land gave goes over the counter too: the run goes on with nothing but mail in the pockets.
+                    _shopGathered = 0;
+                    foreach (uint id in new[] { world.HotbarId, world.InventoryId })
+                        foreach (var e in world.Prediction.View(id)!.Entries.ToArray())
+                        {
+                            if (e.Stack.Kind != StackKind.Item) continue;
+                            var def = world.Content.Items[e.Stack.DefIndex];
+                            int value = ShopRules.SaleValue(def, e.Stack.Count);
+                            Check(value > 0 && client.Sell(id, e.EntryId) != 0, $"the open shop took no request to sell {def.Name} x{e.Stack.Count}");
+                            _shopGathered += value;
+                        }
                     NextShopStep();
                     break;
                 }
 
                 case 8:
+                {
+                    if (!settled || Goods(world.Hotbar) + Goods(world.Inventory) != 0) break;
+                    int want = _shopWallet - price + item.SellPrice * (count - 1) + _shopGathered;
+                    Check(server.Economy.Wallet == want, $"with {_shopGathered} for what was gathered the wallet is {server.Economy.Wallet}, expected {want}");
+                    Check(_shopGathered > 0 == _harvestVisits > 0, $"the counter paid {_shopGathered} for what was gathered on {_harvestVisits} rounds of the nodes");
+                    Check(panel.Text == HudText.ShopText(world), "the shop's cards did not follow the wallet");
+                    NextShopStep();
+                    break;
+                }
+
+                case 9:
                     // The press was this frame's.
                     if (_shopFrames < 4) break;
                     Check(!world.ShopOpen && !_screen.Inventory.Visible, "the press of interact did not take the cards down");
                     GD.Print($"[smoke] shop: {world.ShopShelf.Count} cards ({world.ShopSpecials.Count} special), {_shopCard.Name} for {HudText.Money(price)}, "
-                        + $"{count - 1} sold back, 1 used; wallet {HudText.Money(_shopWallet)} -> {HudText.Money(server.Economy.Wallet)}");
+                        + $"{count - 1} sold back, 1 used, what was gathered sold for {HudText.Money(_shopGathered)}; wallet {HudText.Money(_shopWallet)} -> {HudText.Money(server.Economy.Wallet)}");
                     _shopVisits++;
                     _shopStep = 0;
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;

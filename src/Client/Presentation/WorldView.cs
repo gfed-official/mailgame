@@ -48,7 +48,8 @@ namespace PerformativeMail.Client.Presentation
             if (!Cheap) GetViewport().Msaa3D = Viewport.Msaa.Msaa2X;
         }
 
-        public void Build(WorldMap map)
+        /// <param name="nodes">The props of the map that <see cref="NodesView"/> draws, if one does.</param>
+        public void Build(WorldMap map, NodeField? nodes = null)
         {
             MeshKit.LowDetail = Cheap;
             Atmosphere = new Atmosphere { Name = "Atmosphere" };
@@ -69,7 +70,7 @@ namespace PerformativeMail.Client.Presentation
             }
             AddPostOffice(batch, map);
             foreach (var street in map.Streets) AddStreetSign(batch, map, street);
-            foreach (var lamp in SceneryView.Build(batch, map)) AddLight(lamp + new Vector3(0f, -0.3f, 0f), SceneryView.LampLight, 12f, 0.8f, 4.5f);
+            foreach (var lamp in SceneryView.Build(batch, map, nodes)) AddLight(lamp + new Vector3(0f, -0.3f, 0f), SceneryView.LampLight, 12f, 0.8f, 4.5f);
             foreach (var torch in IslandView.Build(this, batch, map, ground)) AddLight(torch + new Vector3(-0.4f, 0.2f, 0f), new Color(1.0f, 0.6f, 0.25f), 12f, 0.8f, 3.0f);
             batch.Flush(this, "Batch");
             ApplyNight();

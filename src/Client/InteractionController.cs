@@ -1,5 +1,6 @@
 using System;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
 using PerformativeMail.Sim.Perks;
@@ -24,6 +25,8 @@ namespace PerformativeMail.Client
         /// <summary>At the shop counter of the Post Office (doc 09 §2.8).</summary>
         OpenShop,
         CloseShop,
+        /// <summary>At a tree, a bush or a boulder that has something left (doc 02 §3.9).</summary>
+        Harvest,
     }
 
     /// <summary>What the interact prompt shows right now (doc 09 §2.4).</summary>
@@ -49,6 +52,14 @@ namespace PerformativeMail.Client
         public ClientBag? Bag;
         /// <summary>OpenShop: the counter serves only in Prep and at Payday.</summary>
         public bool ShopClosed;
+        /// <summary>Harvest: the node in range, and which prop of the map it is.</summary>
+        public NodeDef? Node;
+        public int NodeIndex;
+        /// <summary>Harvest: Ok, or what stands in the way of a hit (NeedsTool, DoesNotFit).</summary>
+        public OpResult NodeState;
+        /// <summary>Harvest: units a hit gives the hand as it is, and the hits the node has left.</summary>
+        public int NodeYield;
+        public int NodeHitsLeft;
     }
 
     /// <summary>
@@ -71,6 +82,7 @@ namespace PerformativeMail.Client
         private double _pressLatch;
         private double _hold;
         private int _deliverAllDest = -1;
+        private int _harvestNode = -1;
 
         public InteractionController(ClientRuntime client)
         {
@@ -103,6 +115,12 @@ namespace PerformativeMail.Client
             }
 
             var prompt = FindTarget(world);
+            // A swing begun at one thing is not finished on another.
+            if (prompt.Kind != InteractKind.Harvest && _harvestNode >= 0)
+            {
+                _harvestNode = -1;
+                _hold = 0;
+            }
             switch (prompt.Kind)
             {
                 case InteractKind.OpenIntake:
@@ -149,6 +167,10 @@ namespace PerformativeMail.Client
                     StepDeliver(world, ref prompt, dt, interactHeld, deliverAllPressed);
                     break;
 
+                case InteractKind.Harvest:
+                    StepHarvest(world, ref prompt, dt, interactHeld);
+                    break;
+
                 default:
                     _hold = 0;
                     _deliverAllDest = -1;
@@ -163,12 +185,14 @@ namespace PerformativeMail.Client
             _pressLatch = 0;
             _hold = 0;
             _deliverAllDest = -1;
+            _harvestNode = -1;
         }
 
         /// <summary>
         /// The interactable the player is looking at: the first one the view ray hits among those
         /// within the client interact range of the player (doc 09 §3.1: 2.5 m). An open Intake,
         /// chest or bag stays targeted while in range, because the mouse is on its panel, not on the world.
+        /// A tree, a bush or a boulder is one while there is something to get from it.
         /// </summary>
         private InteractPrompt FindTarget(ClientWorld world)
         {
@@ -241,6 +265,27 @@ namespace PerformativeMail.Client
                 prompt.Chest = null;
                 prompt.Bag = bag;
             }
+            if (HarvestRules.IsOpen(world.Global.Phase))
+            {
+                var props = world.Map.Props;
+                for (int i = 0; i < props.Count; i++)
+                {
+                    var node = world.Nodes.Def(i);
+                    if (node == null || world.Nodes.Depleted(i)) continue;
+                    var prop = props[i];
+                    // Measured to the trunk's middle, as the server does: a wide boulder is reached from its side.
+                    float reach = range + prop.Radius;
+                    if (DistSq(px, pz, prop.X, prop.Z) > reach * reach) continue;
+                    float t = ray.Hit(AimBox.Node(world.Map, prop));
+                    if (t < 0f || t > best) continue;
+                    best = t;
+                    prompt.Kind = InteractKind.Harvest;
+                    prompt.Chest = null;
+                    prompt.Bag = null;
+                    prompt.Node = node;
+                    prompt.NodeIndex = i;
+                }
+            }
             foreach (var dest in world.Map.Destinations)
             {
                 if (DistSq(px, pz, dest.MailboxX, dest.MailboxZ) > rangeSq) continue;
@@ -250,7 +295,16 @@ namespace PerformativeMail.Client
                 prompt.Kind = InteractKind.Deliver;
                 prompt.Chest = null;
                 prompt.Bag = null;
+                prompt.Node = null;
                 prompt.Destination = dest;
+            }
+            if (prompt.Kind == InteractKind.Harvest)
+            {
+                int hand = _client.Input.HeldSlot;
+                prompt.NodeState = world.NodeState(prompt.NodeIndex, hand);
+                prompt.NodeYield = HarvestRules.Yield(prompt.Node!, HarvestRules.Held(world.Content, world.Hotbar, hand));
+                prompt.NodeHitsLeft = world.Nodes.HitsLeft(prompt.NodeIndex);
+                return prompt;
             }
             if (prompt.Kind != InteractKind.Deliver) return prompt;
 
@@ -318,6 +372,34 @@ namespace PerformativeMail.Client
                 _awaiting = _client.Deliver(world.Hotbar.Id, prompt.Stack.EntryId, dest.Id);
             }
             prompt.HoldProgress = (float)Math.Min(1.0, _hold / holdSeconds);
+        }
+
+        /// <summary>
+        /// Held interact swings at the node: a hit at the end of every swing time (doc 03 §3.4),
+        /// for as long as the key is down and the last hit has been answered.
+        /// </summary>
+        private void StepHarvest(ClientWorld world, ref InteractPrompt prompt, double dt, bool interactHeld)
+        {
+            _deliverAllDest = -1;
+            if (_harvestNode != prompt.NodeIndex)
+            {
+                _harvestNode = prompt.NodeIndex;
+                _hold = 0;
+            }
+            if (!interactHeld || prompt.NodeState != OpResult.Ok)
+            {
+                _hold = 0;
+                return;
+            }
+            double swingSeconds = HarvestRules.SwingSeconds(world.Content.Balance, prompt.Node!, HarvestRules.Held(world.Content, world.Hotbar, _client.Input.HeldSlot));
+            // The arm comes back while the answer is on its way; it does not come down before it is here.
+            _hold = Math.Min(swingSeconds, _hold + dt);
+            if (_hold >= swingSeconds && _awaiting == 0)
+            {
+                _hold = 0;
+                _awaiting = _client.Harvest(prompt.NodeIndex);
+            }
+            prompt.HoldProgress = swingSeconds > 0 ? (float)Math.Min(1.0, _hold / swingSeconds) : 0f;
         }
 
         private static bool Matches(ClientWorld world, GridEntry e, DestinationDef dest) =>

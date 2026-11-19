@@ -24,7 +24,7 @@ namespace PerformativeMail.Client
 
             internal EntityId Player;
             internal ushort DestId, Kind;
-            internal bool Delivery, Kill;
+            internal bool Delivery, Kill, Harvest;
             internal int Count, Amount;
         }
 
@@ -91,6 +91,8 @@ namespace PerformativeMail.Client
                     Add(HudText.ShopBought(world, e.Player, world.Content.ShopItems[e.Item], e.Price));
                     break;
                 case ShopSoldEvent e: Add(HudText.ShopSold(world, e.Player, e.Item, e.Count, e.Paid)); break;
+                case NodeHarvestedEvent e: AddHarvest(world, e); break;
+                case NodesRegrownEvent e when !e.All: Add("The bushes have grown back"); break;
             }
         }
 
@@ -101,6 +103,32 @@ namespace PerformativeMail.Client
         public void OnRequest(SimRequest request, OpResult result)
         {
             if (result != OpResult.Ok && request.Kind == RequestKind.Use) Add(HudText.ShopRefused(result), bad: true);
+            if (result != OpResult.Ok && request.Kind == RequestKind.Harvest)
+            {
+                // A swing a moment too soon is simply swung again.
+                string why = HudText.HarvestRefused(result);
+                if (why.Length > 0) Add(why, bad: true);
+            }
+        }
+
+        /// <summary>A node is many hits: one player's run of one thing is one line.</summary>
+        private void AddHarvest(ClientWorld world, NodeHarvestedEvent e)
+        {
+            Entry? entry = null;
+            if (_entries.Count > 0)
+            {
+                var last = _entries[_entries.Count - 1];
+                if (last.Harvest && last.Player == e.Player && last.Kind == e.Item) entry = last;
+            }
+            if (entry == null)
+            {
+                entry = new Entry { Harvest = true, Player = e.Player, Kind = e.Item };
+                Push(entry);
+            }
+            entry.Count += e.Count;
+            entry.Age = 0;
+            entry.Text = HudText.Gathered(world, e.Player, e.Item, entry.Count);
+            Revision++;
         }
 
         /// <summary>The bag is still in <see cref="ClientWorld.Bags"/> here: the line says whose it was.</summary>

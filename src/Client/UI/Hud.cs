@@ -67,6 +67,8 @@ namespace PerformativeMail.Client.UI
         public string PerksText => _perks.Visible ? _perks.Text : "";
         /// <summary>The tick (Match) or cross (Mismatch) drawn beside the prompt right now; Neutral when there is none.</summary>
         public PromptTone PromptMark => _mark.Tone;
+        /// <summary>How far the bar under a held prompt is filled right now; 0 when it is not shown.</summary>
+        public float HoldShown => _hold.Visible ? (float)_hold.Value : 0f;
         /// <summary>The lines along the edges, for the smoke's "nothing is clipped" check.</summary>
         public Control[] TopRow => new Control[] { _phase, _status, _quota, _wallet, _rank };
         /// <summary>The top group from the top down: quota bar, the shift's line, clock bar. No two of them may touch (nit 14).</summary>

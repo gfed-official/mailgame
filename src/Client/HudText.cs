@@ -595,6 +595,44 @@ namespace PerformativeMail.Client
             return $"{who} sold {what}  +{Money(paid)}";
         }
 
+        // --- harvesting (doc 02 §3.9) -----------------------------------------------------------
+
+        /// <summary>The tool that gets the most out of a node; null where none is made for it.</summary>
+        public static ItemDef? HarvestTool(ContentDb content, NodeDef node)
+        {
+            foreach (var item in content.Items)
+                if (item.HarvestsResource(node.Resource)) return item;
+            return null;
+        }
+
+        /// <summary>"an Axe", "a Pickaxe".</summary>
+        public static string WithArticle(string name) =>
+            name.Length > 0 && "AEIOUaeiou".IndexOf(name[0]) >= 0 ? $"an {name}" : $"a {name}";
+
+        /// <summary>The event feed's line for what a carrier has got out of the land, hit after hit.</summary>
+        public static string Gathered(ClientWorld world, EntityId player, int item, int count)
+        {
+            bool me = player == world.LocalId;
+            string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            string what = item >= 0 && item < world.Content.Items.Count ? world.Content.Items[item].Name : "item";
+            return $"{who} gathered {what} {Count(count)}";
+        }
+
+        /// <summary>Why a swing at a node came to nothing, where the prompt had not said so already.</summary>
+        public static string HarvestRefused(OpResult result)
+        {
+            switch (result)
+            {
+                case OpResult.NeedsTool: return "That takes a tool in the hand";
+                case OpResult.Depleted: return "There is nothing left of it";
+                case OpResult.DoesNotFit: return "No room in your pockets";
+                case OpResult.WrongPhase: return "Not now: the land is worked in Prep and during Delivery";
+                case OpResult.OutOfRange: return "Too far away";
+                case OpResult.Dead: return "Not while you are down";
+                default: return "";
+            }
+        }
+
         /// <summary>The event feed's line for the specials of the shift that begins; empty when there are none.</summary>
         public static string ShopSpecials(ClientWorld world)
         {
@@ -647,6 +685,26 @@ namespace PerformativeMail.Client
                 case InteractKind.OpenShop:
                     return p.ShopClosed ? $"Shop   ·   {ClosedWord} — the counter serves in Prep and at Payday" : "Open Shop  [E]";
                 case InteractKind.CloseShop: return "Close Shop  [E]";
+                case InteractKind.Harvest:
+                {
+                    var node = p.Node!;
+                    var tool = HarvestTool(world.Content, node);
+                    if (p.NodeState == OpResult.NeedsTool)
+                    {
+                        tone = PromptTone.Mismatch;
+                        return $"{node.Name}   ·   needs {WithArticle(tool?.Name ?? "tool")} in the hand";
+                    }
+                    string gives = $"{node.Item.Name} {Count(p.NodeYield)}";
+                    if (p.NodeState == OpResult.DoesNotFit)
+                    {
+                        tone = PromptTone.Mismatch;
+                        return $"{node.Name}   ·   no room in your pockets for {gives}";
+                    }
+                    // Bare hands on a tree: it can be done, and it can be done better.
+                    string better = tool != null && p.NodeYield < node.Yield ? $" (more with {WithArticle(tool.Name)})" : "";
+                    string left = p.NodeHitsLeft == 1 ? "1 hit left" : $"{p.NodeHitsLeft} hits left";
+                    return $"{Capitalised(node.Verb)} {node.Name}   ·   {gives} a hit{better}   ·   {left}   [hold E]";
+                }
                 case InteractKind.Deliver:
                 {
                     var dest = p.Destination!;

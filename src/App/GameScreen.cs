@@ -13,6 +13,7 @@ namespace PerformativeMail.App
     public partial class GameScreen : Node
     {
         public WorldView World { get; private set; } = null!;
+        public NodesView Nodes { get; private set; } = null!;
         public PlayersView Players { get; private set; } = null!;
         public EnemiesView Enemies { get; private set; } = null!;
         public CombatEffects Effects { get; private set; } = null!;
@@ -34,8 +35,11 @@ namespace PerformativeMail.App
             var client = session.Client;
 
             World = new WorldView { Name = "World" };
-            World.Build(client.World!.Map);
+            World.Build(client.World!.Map, client.World.Nodes);
             AddChild(World);
+            Nodes = new NodesView { Name = "Nodes" };
+            AddChild(Nodes);
+            Nodes.Setup(client);
 
             Players = new PlayersView { Name = "Players" };
             AddChild(Players);

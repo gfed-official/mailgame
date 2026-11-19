@@ -279,6 +279,7 @@ namespace PerformativeMail.Client
             Map = map;
             LocalHp = LocalMaxHp = content.Balance.GetFloat("playerHp");
             Prediction = new InventoryPrediction(content, this);
+            Nodes = new NodeField(content, map);
         }
 
         public GridContainer? OpenContainer => OpenContainerId != 0 ? Prediction.View(OpenContainerId) : null;
@@ -478,6 +479,24 @@ namespace PerformativeMail.Client
             ShopOwned.Clear();
             ShopPending.Clear();
             ShopOpen = false;
+        }
+
+        // --- resource nodes (doc 02 §3.9) --------------------------------------------------------
+
+        /// <summary>What the map's trees, bushes and boulders have left, as the server last said.</summary>
+        public NodeField Nodes { get; }
+
+        /// <summary>
+        /// What stands between the local player and a hit on a node with the selected hotbar slot
+        /// in the hand, by the rules of the server's HarvestOp, distance aside: Ok means a swing
+        /// would land as things stand.
+        /// </summary>
+        public OpResult NodeState(int node, int heldSlot)
+        {
+            var def = Nodes.Def(node);
+            if (def == null || HotbarId == 0) return OpResult.BadRequest;
+            if (!HarvestRules.IsOpen(Global.Phase)) return OpResult.WrongPhase;
+            return HarvestRules.Check(Content, def, Nodes.HitsLeft(node), HarvestRules.Held(Content, Hotbar, heldSlot), Hotbar, Inventory);
         }
 
         /// <summary>Solo pause (doc 01 §1): the server's tick, and with it this client's, stands still.</summary>

@@ -53,7 +53,7 @@ namespace PerformativeMail.Client.Presentation
             _cannon = WeaponModels.Cannon();
             _cannon.Visible = false;
             AddChild(_cannon);
-            _swings = client.LocalHammerSwings;
+            _swings = client.LocalHammerSwings + client.LocalHarvestSwings;
             _shots = client.LocalCannonShots;
             Sync();
         }
@@ -86,9 +86,10 @@ namespace PerformativeMail.Client.Presentation
             var world = _client?.World;
             if (world == null) return;
 
-            if (_client!.LocalHammerSwings != _swings)
+            // A swing at a tree is the same swing.
+            if (_client!.LocalHammerSwings + _client.LocalHarvestSwings != _swings)
             {
-                _swings = _client.LocalHammerSwings;
+                _swings = _client.LocalHammerSwings + _client.LocalHarvestSwings;
                 _swing = 0f;
                 _cannonLeft = 0f;
                 _drawnLeft = DrawnSeconds;

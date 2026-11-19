@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Client.Presentation
@@ -23,12 +24,15 @@ namespace PerformativeMail.Client.Presentation
             new[] { (new Vector3(0f, 2.3f, 0f), 0.95f), (new Vector3(0f, 3.4f, 0f), 0.9f), (new Vector3(0f, 4.4f, 0f), 0.7f), (new Vector3(0f, 5.2f, 0f), 0.45f) },
         };
 
+        /// <param name="nodes">The props that are resource nodes are not drawn here: they change (<see cref="NodesView"/>).</param>
         /// <returns>Where the street lamps' lights are.</returns>
-        public static List<Vector3> Build(MeshBatch batch, WorldMap map)
+        public static List<Vector3> Build(MeshBatch batch, WorldMap map, NodeField? nodes = null)
         {
             var lamps = new List<Vector3>();
-            foreach (var prop in map.Props)
+            for (int i = 0; i < map.Props.Count; i++)
             {
+                if (nodes != null && nodes.Def(i) != null) continue;
+                var prop = map.Props[i];
                 float ground = map.HeightAt(prop.X, prop.Z);
                 var at = new Vector3(prop.X, ground, prop.Z);
                 switch (prop.Kind)
@@ -69,6 +73,67 @@ namespace PerformativeMail.Client.Presentation
             var basis = new Basis(Vector3.Up, yaw).Scaled(Vector3.One * scale);
             batch.Add(MeshKit.Blob(0.62f, 0.2f, 1.25f, 23 + variant, new Vector3(1.2f, 0.72f, 0.95f)), MeshKit.Mat(new Color("6d6878"), 0.9f),
                 new Transform3D(basis, at + new Vector3(0f, 0.22f * scale, 0f)));
+        }
+
+        /// <summary>
+        /// A resource node as it stands: whole, it is the tree, bush or boulder it grew as, and
+        /// shows what is to be had from it (berries, veins of ore); worked out, it is a stump, a
+        /// bare bush, a heap of rubble.
+        /// </summary>
+        public static void ResourceNode(MeshBatch batch, WorldMap map, in Prop prop, NodeDef def, bool depleted)
+        {
+            var at = new Vector3(prop.X, map.HeightAt(prop.X, prop.Z), prop.Z);
+            var basis = new Basis(Vector3.Up, prop.Yaw).Scaled(Vector3.One * prop.Scale);
+            switch (prop.Kind)
+            {
+                case PropKind.Tree:
+                    if (!depleted) { Tree(batch, at, prop.Yaw, prop.Scale, prop.Variant); break; }
+                    batch.Add(MeshKit.Cylinder(0.3f, 0.22f, 0.42f, 12), MeshKit.Mat(new Color("5b3a26"), 0.9f), new Transform3D(basis, at + new Vector3(0f, 0.21f * prop.Scale, 0f)));
+                    batch.Add(MeshKit.Cylinder(0.2f, 0.2f, 0.02f, 12), MeshKit.Mat(new Color("d2a86c"), 0.8f), new Transform3D(basis, at + new Vector3(0f, 0.43f * prop.Scale, 0f)));
+                    break;
+
+                case PropKind.Bush:
+                    if (depleted)
+                    {
+                        // Picked clean: what is left is small and brown until the next shift.
+                        batch.Add(MeshKit.Blob(0.62f, 0.16f, 2.4f, 11 + prop.Variant % 3, new Vector3(1f, 0.82f, 1f)), Shaders.Foliage(new Color("4b3b24"), new Color("7d6b3c"), -0.5f, 1f),
+                            new Transform3D(basis.Scaled(new Vector3(0.6f, 0.5f, 0.6f)), at + new Vector3(0f, 0.2f * prop.Scale, 0f)));
+                        break;
+                    }
+                    Bush(batch, at, prop.Yaw, prop.Scale, prop.Variant);
+                    if (def.Resource != "berries") break;
+                    for (int i = 0; i < 9; i++)
+                    {
+                        // Round the upper half of the bush, a golden angle apart.
+                        float a = i * 2.39996f, up = 0.25f + 0.7f * ((i * 5) % 9) / 9f, flat = Mathf.Sqrt(1f - up * up);
+                        var on = new Vector3(Mathf.Cos(a) * flat, up * 0.82f, Mathf.Sin(a) * flat) * 0.63f;
+                        batch.Add(MeshKit.Sphere(0.065f, 8), MeshKit.Mat(new Color("d0243c"), 0.35f), new Transform3D(basis, at + new Vector3(0f, 0.4f * prop.Scale, 0f) + basis * on));
+                    }
+                    break;
+
+                case PropKind.Boulder:
+                    if (depleted)
+                    {
+                        for (int i = 0; i < 4; i++)
+                        {
+                            float a = i * 1.7f + prop.Yaw, r = (0.18f + 0.1f * i) * prop.Scale;
+                            batch.Add(MeshKit.Blob(0.62f, 0.2f, 1.25f, 23 + (prop.Variant + i) % 3, new Vector3(1.2f, 0.72f, 0.95f)), MeshKit.Mat(new Color("6d6878"), 0.9f),
+                                new Transform3D(new Basis(Vector3.Up, a * 2f).Scaled(Vector3.One * prop.Scale * (0.3f - 0.04f * i)), at + new Vector3(Mathf.Cos(a) * r, 0.06f * prop.Scale, Mathf.Sin(a) * r)));
+                        }
+                        break;
+                    }
+                    Boulder(batch, at, prop.Yaw, prop.Scale, prop.Variant);
+                    if (def.Resource != "ore") break;
+                    for (int i = 0; i < 7; i++)
+                    {
+                        // Rust-bright lumps over the top of the rock.
+                        float a = i * 2.39996f, up = 0.3f + 0.65f * ((i * 3) % 7) / 7f, flat = Mathf.Sqrt(1f - up * up);
+                        var on = new Vector3(Mathf.Cos(a) * flat * 1.2f, up * 0.72f, Mathf.Sin(a) * flat * 0.95f) * 0.6f;
+                        batch.Add(MeshKit.RoundedBox(new Vector3(0.16f, 0.1f, 0.13f), 0.03f), MeshKit.Mat(new Color("c9713a"), 0.4f, 0.7f),
+                            new Transform3D(basis * new Basis(Vector3.Up, a), at + new Vector3(0f, 0.22f * prop.Scale, 0f) + basis * on));
+                    }
+                    break;
+            }
         }
 
         /// <returns>The lantern's position.</returns>

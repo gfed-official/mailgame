@@ -83,6 +83,8 @@ namespace PerformativeMail.Client
         /// <summary>Hammer swings and cannon shots the local player has started; the view model plays each one.</summary>
         public int LocalHammerSwings { get; private set; }
         public int LocalCannonShots { get; private set; }
+        /// <summary>Swings at a tree, a bush or a boulder the local player has started; the view model plays these too.</summary>
+        public int LocalHarvestSwings { get; private set; }
 
         private readonly ContentDb _content;
         private readonly IClientTransport _transport;
@@ -287,6 +289,21 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>
+        /// One swing at a resource node (doc 02 §3.9) with the selected hotbar slot in the hand.
+        /// Returns the request id, 0 where there is nothing to ask: the swing would not land as
+        /// things stand (<see cref="ClientWorld.NodeState"/>). How far the node is, is the server's to say.
+        /// </summary>
+        public uint Harvest(int node)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
+            if (world.NodeState(node, Input.HeldSlot) != OpResult.Ok) return 0;
+            uint id = Send(SimRequest.Harvest(0, node, Input.HeldSlot));
+            if (id != 0) LocalHarvestSwings++;
+            return id;
+        }
+
+        /// <summary>
         /// The pause key (doc 09 §2.12): resumes a paused run; pauses one this client hosts alone.
         /// Returns the request id, 0 where the key does not pause (multiplayer never pauses).
         /// </summary>
@@ -474,6 +491,7 @@ namespace PerformativeMail.Client
                 if (item < _content.ShopItems.Count) world.ShopSpecials.Add(_content.ShopItems[item]);
             foreach (byte item in m.ShopOwned)
                 if (item < _content.ShopItems.Count) world.ShopOwned.Add(_content.ShopItems[item]);
+            foreach (var node in m.Nodes) world.Nodes.Set(node.Node, node.HitsLeft);
             World = world;
             Input.YawRadians = map.PostOffice.SpawnYaw;
             Input.PitchRadians = 0f;
@@ -669,6 +687,7 @@ namespace PerformativeMail.Client
                         world.LocalLootCoins = 0;
                         world.ClearPerks();
                         world.ClearShop();
+                        world.Nodes.Regrow(all: true);
                     }
                     if (e.Phase != RunPhase.Results) world.Results = null;
                     // The offer comes just before the phase it is for.
@@ -694,6 +713,18 @@ namespace PerformativeMail.Client
                     if (e.Item >= _content.ShopItems.Count) break;
                     var bought = _content.ShopItems[e.Item];
                     if (bought.OncePerRun && !world.ShopOwned.Contains(bought)) world.ShopOwned.Add(bought);
+                    break;
+                case NodeHarvestedEvent e:
+                    world.Nodes.Set(e.Node, e.HitsLeft);
+                    // Everybody else's swing is seen as their hammer's is; one's own was shown when it began.
+                    if (e.Player != world.LocalId && world.Players.TryGetValue(e.Player, out var harvester))
+                    {
+                        harvester.AttackTick = (uint)Math.Max(0.0, world.ServerTick);
+                        harvester.AttackWeapon = Weapon.Hammer;
+                    }
+                    break;
+                case NodesRegrownEvent e:
+                    world.Nodes.Regrow(e.All);
                     break;
                 case PausedChangedEvent e:
                     world.Paused = e.Paused;
