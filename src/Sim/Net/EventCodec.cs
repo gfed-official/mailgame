@@ -37,6 +37,9 @@ namespace PerformativeMail.Sim.Net
         PlayerBack = 27,
         DraftOffer = 28,
         PerkPicked = 29,
+        ShopOffer = 30,
+        ShopBought = 31,
+        ShopSold = 32,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -181,6 +184,20 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.PerkPicked);
                     w.U32(e.Player.Value); w.U8(e.Perk); w.U8(e.Card); w.Bool(e.Auto);
                     break;
+                case ShopOfferEvent e:
+                    w.U8((byte)EventType.ShopOffer);
+                    w.U8(e.Shift);
+                    w.U8((byte)e.Specials.Count);
+                    foreach (byte item in e.Specials) w.U8(item);
+                    break;
+                case ShopBoughtEvent e:
+                    w.U8((byte)EventType.ShopBought);
+                    w.U32(e.Player.Value); w.U8(e.Item); w.U16(e.Price);
+                    break;
+                case ShopSoldEvent e:
+                    w.U8((byte)EventType.ShopSold);
+                    w.U32(e.Player.Value); w.U16(e.Item); w.U16(e.Count); w.I32(e.Paid);
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -311,6 +328,17 @@ namespace PerformativeMail.Sim.Net
                 }
                 case EventType.PerkPicked:
                     return new PerkPickedEvent { Player = new EntityId(r.U32()), Perk = r.U8(), Card = r.U8(), Auto = r.Bool() };
+                case EventType.ShopOffer:
+                {
+                    var e = new ShopOfferEvent { Shift = r.U8() };
+                    int n = r.U8();
+                    for (int i = 0; i < n; i++) e.Specials.Add(r.U8());
+                    return e;
+                }
+                case EventType.ShopBought:
+                    return new ShopBoughtEvent { Player = new EntityId(r.U32()), Item = r.U8(), Price = r.U16() };
+                case EventType.ShopSold:
+                    return new ShopSoldEvent { Player = new EntityId(r.U32()), Item = r.U16(), Count = r.U16(), Paid = r.I32() };
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

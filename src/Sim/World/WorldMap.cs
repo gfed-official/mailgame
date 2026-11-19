@@ -70,6 +70,10 @@ namespace PerformativeMail.Sim.World
         public float SpawnPadZ { get; init; }
         /// <summary>Facing of a freshly spawned player in radians (0 looks along −Z), from the map's <c>spawnLookAt</c>.</summary>
         public float SpawnYaw { get; init; }
+        /// <summary>The shop counter (doc 02 §3.6), if the map has one: buying and selling happens within reach of it.</summary>
+        public bool HasShop { get; init; }
+        public float ShopX { get; init; }
+        public float ShopZ { get; init; }
     }
 
     /// <summary>A storage container that stands in the map from the start (playtest nit 9: a chest by the Post Office).</summary>
@@ -179,6 +183,11 @@ namespace PerformativeMail.Sim.World
             h.Add((int)MathF.Round(PostOffice.SpawnPadZ * 100f));
             h.Add((int)MathF.Round(PostOffice.SpawnYaw * 1000f));
             SceneryKey = h.Value;
+            if (PostOffice.HasShop)
+            {
+                h.Add((int)MathF.Round(PostOffice.ShopX * 100f));
+                h.Add((int)MathF.Round(PostOffice.ShopZ * 100f));
+            }
             foreach (var c in Chests)
             {
                 h.Add(c.Container.Id);

@@ -30,6 +30,7 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<ItemDef> Items { get; private set; } = Array.Empty<ItemDef>();
         public IReadOnlyList<EnemyDef> Enemies { get; private set; } = Array.Empty<EnemyDef>();
         public IReadOnlyList<PerkDef> Perks { get; private set; } = Array.Empty<PerkDef>();
+        public IReadOnlyList<ShopItemDef> ShopItems { get; private set; } = Array.Empty<ShopItemDef>();
         public WaveDef Waves { get; private set; } = new WaveDef();
         public MailMixDef MailMix { get; private set; } = new MailMixDef();
         public Balance Balance { get; private set; } = new Balance(new Dictionary<string, double[]>());
@@ -46,6 +47,7 @@ namespace PerformativeMail.Sim.Content
         private readonly Dictionary<string, WorldMap> _maps = new Dictionary<string, WorldMap>();
         private readonly Dictionary<string, EnemyDef> _enemiesById = new Dictionary<string, EnemyDef>();
         private readonly Dictionary<string, PerkDef> _perksById = new Dictionary<string, PerkDef>();
+        private readonly Dictionary<string, ShopItemDef> _shopById = new Dictionary<string, ShopItemDef>();
 
         private ContentDb() { }
 
@@ -56,6 +58,8 @@ namespace PerformativeMail.Sim.Content
         public ItemDef Item(string id) => _itemsById[id];
         public EnemyDef Enemy(string id) => _enemiesById[id];
         public PerkDef Perk(string id) => _perksById[id];
+        public ShopItemDef ShopItem(string id) => _shopById[id];
+        public ShopItemDef? FindShopItem(string id) => _shopById.TryGetValue(id, out var d) ? d : null;
         public WorldMap Map(string id) => _maps[id];
 
         /// <summary>Loads and validates; throws <see cref="ContentException"/> listing every problem.</summary>
@@ -213,9 +217,14 @@ namespace PerformativeMail.Sim.Content
                             WeightClass = ParseWeight(ctx, J.Str(ctx, e, "weightClass")),
                             SellPrice = J.Int(ctx, e, "sellPrice", 0),
                             BuyPrice = J.Int(ctx, e, "buyPrice", 0),
+                            Heal = J.Int(ctx, e, "heal", 0),
+                            HealSeconds = (float)J.Num(ctx, e, "healSeconds", 0),
                         };
                         if (def.GridW <= 0 || def.GridH <= 0) ctx.Error($"'{def.Id}': grid sizes must be positive");
                         if (def.MaxStack <= 0) ctx.Error($"'{def.Id}': maxStack must be positive");
+                        if (def.SellPrice < 0 || def.BuyPrice < 0) ctx.Error($"'{def.Id}': prices must not be negative");
+                        if (def.Heal < 0 || def.HealSeconds < 0) ctx.Error($"'{def.Id}': heal and healSeconds must not be negative");
+                        if (def.Heal == 0 && def.HealSeconds > 0) ctx.Error($"'{def.Id}': healSeconds without heal");
                         if (!AddUnique(ctx, db._itemsById, def.Id, def)) continue;
                         list.Add(def);
                     }
@@ -533,6 +542,95 @@ namespace PerformativeMail.Sim.Content
                 db.Perks = list;
             }
 
+            // --- shop ----------------------------------------------------------------------------
+            {
+                var list = new List<ShopItemDef>();
+                foreach (string file in source.ListJson("shop"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        string kindName = J.Str(ctx, e, "kind");
+                        var kind = ShopKind.Item;
+                        ItemDef? item = null;
+                        int count = 0;
+                        bool hasGrants = e.TryGetProperty("grants", out var grants) && grants.ValueKind == JsonValueKind.Object;
+                        if (!hasGrants) ctx.Error($"'{id}': missing 'grants' object");
+                        switch (kindName)
+                        {
+                            case "blueprint":
+                                kind = ShopKind.Blueprint;
+                                // A blueprint card is the blueprint: recipes name it by the card's id (doc 08 §2.7).
+                                if (hasGrants && J.Str(ctx, grants, "blueprint") != id) ctx.Error($"'{id}': a blueprint grants itself, 'grants.blueprint' must be '{id}'");
+                                break;
+                            case "item":
+                                if (!hasGrants) break;
+                                string itemId = J.Str(ctx, grants, "item");
+                                count = J.Int(ctx, grants, "count", 1);
+                                if (!db._itemsById.TryGetValue(itemId, out item)) ctx.Error($"'{id}': grants unknown item '{itemId}'");
+                                // One purchase is one stack: it fits a free cell or it does not.
+                                else if (count < 1 || count > item.MaxStack) ctx.Error($"'{id}': count must be in 1..{item.MaxStack} (one stack of '{itemId}')");
+                                break;
+                            // Doc 08 §2.8 names three more kinds; nothing can honour them yet (no vehicle, no hire, no Post Office HP).
+                            case "vehicle":
+                            case "hire":
+                            case "service":
+                                ctx.Error($"'{id}': kind '{kindName}' is not sold yet");
+                                break;
+                            default:
+                                ctx.Error($"'{id}': unknown kind '{kindName}'");
+                                break;
+                        }
+
+                        int fromShift = 1;
+                        bool rotating = false;
+                        if (e.TryGetProperty("availability", out var avail))
+                        {
+                            if (avail.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': 'availability' must be an object");
+                            else
+                            {
+                                fromShift = J.Int(ctx, avail, "fromShift", 1);
+                                string slot = J.Str(ctx, avail, "slot", "fixed");
+                                rotating = slot == "rotating";
+                                if (!rotating && slot != "fixed") ctx.Error($"'{id}': availability.slot must be 'fixed' or 'rotating', not '{slot}'");
+                            }
+                        }
+                        var tags = J.StrArray(ctx, e, "tags", optional: true);
+                        var def = new ShopItemDef
+                        {
+                            Id = id,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Description = J.Str(ctx, e, "description", ""),
+                            Kind = kind,
+                            Price = J.Int(ctx, e, "price"),
+                            Item = item,
+                            Count = count,
+                            FromShift = fromShift,
+                            Rotating = rotating,
+                            OncePerRun = J.Bool(ctx, e, "oncePerRun", kind == ShopKind.Blueprint),
+                            Special = tags.Contains("special"),
+                            Tags = tags,
+                        };
+                        if (def.Price <= 0 || def.Price > ushort.MaxValue) ctx.Error($"'{id}': price must be in 1..{ushort.MaxValue}");
+                        if (def.FromShift < 1) ctx.Error($"'{id}': availability.fromShift must be >= 1");
+                        // Doc 04 §1.3: a blueprint is bought once per run and is the whole team's.
+                        if (kind == ShopKind.Blueprint && !def.OncePerRun) ctx.Error($"'{id}': a blueprint is bought once per run");
+                        if (def.Rotating && !def.Special) ctx.Error($"'{id}': a rotating entry must be tagged 'special', or it is never on the counter");
+                        // Bought and sold straight back must never pay: not at the list price, not as a special.
+                        if (item != null && count >= 1 && item.SellPrice > 0 && db.Balance.Has("shopSpecialDiscount")
+                            && Run.ShopRules.Price(def, def.Special, Run.ShopRules.DiscountPermille(db.Balance)) < item.SellPrice * count)
+                            ctx.Error($"'{id}': costs less than the shop pays for {count} '{item.Id}' ({item.SellPrice * count} ¢)");
+                        // The wire names a shop entry in one byte.
+                        if (list.Count >= byte.MaxValue) { ctx.Error($"'{id}': more than {byte.MaxValue} shop entries"); continue; }
+                        if (!AddUnique(ctx, db._shopById, def.Id, def)) continue;
+                        list.Add(def);
+                    }
+                }
+                db.ShopItems = list;
+            }
+
             // --- streets -------------------------------------------------------------------------
             {
                 var ctx = new JsonCtx("streets.json", errors);
@@ -584,6 +682,7 @@ namespace PerformativeMail.Sim.Content
             "deathBagDespawnSeconds", "respawnProtectionSeconds", "respawnYardMetres", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
             "maxAttackersPerCarrier", "attackerWaitMetres", "disconnectGraceSeconds",
             "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift",
+            "shopSpecialSlots", "shopSpecialDiscount",
         };
 
         private static IEnumerable<JsonElement> ReadArray(JsonCtx ctx, string? text)

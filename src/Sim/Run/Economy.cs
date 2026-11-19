@@ -75,6 +75,30 @@ namespace PerformativeMail.Sim.Run
             TotalLoot += coins;
         }
 
+        /// <summary>Money spent at the shop and taken in there since the run began.</summary>
+        public int TotalSpent { get; private set; }
+        public int TotalSales { get; private set; }
+
+        /// <summary>
+        /// Pays a price out of the wallet (doc 03 §4.4: "purchases require sufficient balance").
+        /// False, and nothing is paid, when the wallet does not hold it.
+        /// </summary>
+        public bool Spend(int price)
+        {
+            if (price < 0 || Wallet < price) return false;
+            Wallet -= price;
+            TotalSpent += price;
+            return true;
+        }
+
+        /// <summary>What the shop paid for goods: into the wallet, and like loot not delivery income.</summary>
+        public void AddSale(int coins)
+        {
+            if (coins <= 0) return;
+            Wallet += coins;
+            TotalSales += coins;
+        }
+
         public void AddComplaint(int points) => Complaint = Math.Clamp(Complaint + points, 0, _complaintMax);
 
         /// <summary>One Delivery-phase tick: the meter decays 1 point every 1 / complaintDecayPerSecond seconds.</summary>
@@ -118,6 +142,8 @@ namespace PerformativeMail.Sim.Run
             TotalMisdeliveries = 0;
             TotalEarned = 0;
             TotalLoot = 0;
+            TotalSpent = 0;
+            TotalSales = 0;
             _decayTimer = 0;
         }
     }

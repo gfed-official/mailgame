@@ -247,6 +247,9 @@ namespace PerformativeMail.Net.Tests
                 new PlayerBackEvent { Player = player },
                 new DraftOfferEvent { Perks = { 4, 0, 9 } },
                 new PerkPickedEvent { Player = player, Perk = 9, Card = 2, Auto = true },
+                new ShopOfferEvent { Shift = 3, Specials = { 1, 6 } },
+                new ShopBoughtEvent { Player = player, Item = 6, Price = 105 },
+                new ShopSoldEvent { Player = player, Item = 7, Count = 12, Paid = 48 },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -312,6 +315,26 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(new byte[] { 4, 0, 9 }, ((DraftOfferEvent)back[27]).Perks);
             var picked = (PerkPickedEvent)back[28];
             Assert.Equal((player, (byte)9, (byte)2, true), (picked.Player, picked.Perk, picked.Card, picked.Auto));
+            var offer = (ShopOfferEvent)back[29];
+            Assert.Equal((byte)3, offer.Shift);
+            Assert.Equal(new byte[] { 1, 6 }, offer.Specials);
+            var bought = (ShopBoughtEvent)back[30];
+            Assert.Equal((player, (byte)6, (ushort)105), (bought.Player, bought.Item, bought.Price));
+            var sold = (ShopSoldEvent)back[31];
+            Assert.Equal((player, (ushort)7, (ushort)12, 48), (sold.Player, sold.Item, sold.Count, sold.Paid));
+        }
+
+        [Fact]
+        public void TheShopRequestsRoundTrip()
+        {
+            foreach (var q in new[] { SimRequest.Buy(5, 6), SimRequest.Sell(6, 3, 1234, 7), SimRequest.Sell(7, 3, 1234), SimRequest.Use(8, 2, 99) })
+            {
+                var w = new NetWriter();
+                RequestMsg.Write(w, q);
+                Assert.Equal(q, RequestMsg.Read(Body(w, MsgType.Request)));
+            }
+            Assert.Equal((RequestKind.Buy, (ushort)6), (SimRequest.Buy(5, 6).Kind, SimRequest.Buy(5, 6).Count));
+            Assert.Equal((RequestKind.Sell, 3u, 1234u, (ushort)0), (SimRequest.Sell(7, 3, 1234).Kind, SimRequest.Sell(7, 3, 1234).Container, SimRequest.Sell(7, 3, 1234).EntryId, SimRequest.Sell(7, 3, 1234).Count));
         }
 
         [Fact]
@@ -335,9 +358,15 @@ namespace PerformativeMail.Net.Tests
             m.Perks.Add(new PerkInfo { Holder = owner, Perk = 1 });
             m.DraftOffer.AddRange(new byte[] { 3, 1, 8 });
             m.DraftPicks.Add(new DraftPickInfo { Player = owner, Card = 1 });
+            m.ShopSpecials.AddRange(new byte[] { 0, 6 });
+            m.ShopOwned.Add(4);
             var w = new NetWriter();
             m.Write(w);
             var back = WelcomeMsg.Read(Body(w, MsgType.Welcome));
+
+            // What the counter has on special this shift, and what the team bought for the run.
+            Assert.Equal(new byte[] { 0, 6 }, back.ShopSpecials);
+            Assert.Equal(new byte[] { 4 }, back.ShopOwned);
 
             // The perks of the run and the Draft under way, for somebody who comes back into it.
             Assert.Equal(new[] { (EntityId.None, (byte)6), (owner, (byte)1) }, back.Perks.Select(p => (p.Holder, p.Perk)));

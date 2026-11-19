@@ -20,6 +20,12 @@ namespace PerformativeMail.Sim
         SetPaused = 9,
         /// <summary>Draft: take the card of the offer at index <see cref="SimRequest.Count"/>.</summary>
         PickPerk = 10,
+        /// <summary>At the shop counter, Prep or Payday: buy the entry of ContentDb.ShopItems at index <see cref="SimRequest.Count"/>.</summary>
+        Buy = 11,
+        /// <summary>At the shop counter: sell <see cref="SimRequest.Count"/> units (0 = the whole stack) of an entry of the player's own containers.</summary>
+        Sell = 12,
+        /// <summary>Use one unit of an entry of the player's own containers on themselves (a Bandage, Berries).</summary>
+        Use = 13,
     }
 
     /// <summary>
@@ -77,5 +83,14 @@ namespace PerformativeMail.Sim
 
         public static SimRequest PickPerk(uint reqId, int card) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.PickPerk, Count = (ushort)card };
+
+        public static SimRequest Buy(uint reqId, int shopItem) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.Buy, Count = (ushort)shopItem };
+
+        public static SimRequest Sell(uint reqId, uint from, uint entryId, int count = 0) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.Sell, Container = from, EntryId = entryId, Count = (ushort)count };
+
+        public static SimRequest Use(uint reqId, uint from, uint entryId) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.Use, Container = from, EntryId = entryId };
     }
 }

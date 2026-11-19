@@ -77,6 +77,36 @@ namespace PerformativeMail.Sim.Content
         public WeightClass WeightClass { get; init; }
         public int SellPrice { get; init; }
         public int BuyPrice { get; init; }
+        /// <summary>HP one unit gives back when it is used (doc 05 §1.1); 0 = not something to use.</summary>
+        public int Heal { get; init; }
+        /// <summary>Over how long it heals; 0 = at once.</summary>
+        public float HealSeconds { get; init; }
+    }
+
+    public enum ShopKind : byte { Blueprint = 0, Item = 1 }
+
+    /// <summary>
+    /// Something the Post Office shop sells (doc 08 §2.8, doc 10 §3): a blueprint the team owns
+    /// from then on, or a stack of an item into the buyer's pockets.
+    /// </summary>
+    public sealed class ShopItemDef
+    {
+        public string Id { get; init; } = "";
+        public byte Index { get; init; }
+        public string Name { get; init; } = "";
+        public string Description { get; init; } = "";
+        public ShopKind Kind { get; init; }
+        public int Price { get; init; }
+        /// <summary>What an <see cref="ShopKind.Item"/> entry puts into the pockets, as one stack.</summary>
+        public ItemDef? Item { get; init; }
+        public int Count { get; init; }
+        public int FromShift { get; init; } = 1;
+        /// <summary>Not in the fixed stock: on the counter only in a shift whose specials it is rolled into.</summary>
+        public bool Rotating { get; init; }
+        public bool OncePerRun { get; init; }
+        /// <summary>Tagged "special": may be rolled into one of the shift's special slots.</summary>
+        public bool Special { get; init; }
+        public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
     }
 
     /// <summary>One line of an enemy's drop table (doc 05 §2.2).</summary>

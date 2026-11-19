@@ -141,6 +141,7 @@ namespace PerformativeMail.Sim
                 if (p.ProtectedInYard && Tick >= p.ProtectedUntilTick && (_enemies.Count == 0 || !InYard(p))) p.ProtectedInYard = false;
                 if (p.Hp < p.MaxHp && Tick - p.LastDamageTick >= _combat.RegenDelayTicks)
                     p.Hp = MathF.Min(p.MaxHp, p.Hp + _combat.RegenPerTick);
+                StepHealing(p);
             }
         }
 
@@ -164,6 +165,7 @@ namespace PerformativeMail.Sim
             p.Hp -= damage;
             if (p.Hp > 0f) return;
             p.Hp = 0f;
+            StopHealing(p);
             p.Move.Dead = true;
             p.RespawnTick = Tick + Math.Max(1, SimConstants.SecondsToTicks(StatFor(p, Stat.RespawnSeconds, _combat.RespawnSeconds)));
             CloseExternal(p, notify: true);

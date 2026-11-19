@@ -244,6 +244,35 @@ namespace PerformativeMail.Sim
     }
 
     /// <summary>
+    /// The specials of the shift that begins (doc 10 §3), as indices into ContentDb.ShopItems;
+    /// sent just before the PhaseChanged that begins the shift.
+    /// </summary>
+    public sealed class ShopOfferEvent : SimEvent
+    {
+        public byte Shift;
+        public List<byte> Specials = new List<byte>();
+    }
+
+    /// <summary>Somebody bought at the shop, out of the team wallet.</summary>
+    public sealed class ShopBoughtEvent : SimEvent
+    {
+        public EntityId Player;
+        /// <summary>Index into ContentDb.ShopItems.</summary>
+        public byte Item;
+        public ushort Price;
+    }
+
+    /// <summary>Somebody sold to the shop; the money is the team's.</summary>
+    public sealed class ShopSoldEvent : SimEvent
+    {
+        public EntityId Player;
+        /// <summary>Index into ContentDb.Items.</summary>
+        public ushort Item;
+        public ushort Count;
+        public int Paid;
+    }
+
+    /// <summary>
     /// The server put the player before a mailbox (<see cref="PlaytestFlags.AtMailbox"/>); only the
     /// player hears of it, and turns to look at the mailbox.
     /// </summary>

@@ -60,6 +60,9 @@ namespace PerformativeMail.Sim.Players
         public float Hp;
         public float MaxHp;
         public uint LastDamageTick;
+        /// <summary>HP still to come from what they ate (Berries heal over seconds), and how much of it per tick.</summary>
+        public float HealPool;
+        public float HealPerTick;
         /// <summary>Tick a dead player stands up again at the Post Office.</summary>
         public uint RespawnTick;
         /// <summary>Until this tick, or until they hurt a raider, a respawned carrier is not hurt and not gone for (nit 17).</summary>

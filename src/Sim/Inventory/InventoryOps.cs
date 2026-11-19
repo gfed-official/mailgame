@@ -36,6 +36,18 @@ namespace PerformativeMail.Sim.Inventory
         PerkMaxed,
         /// <summary>A perk that never shares a run with one already held.</summary>
         PerkExcluded,
+        /// <summary>The shop (doc 03 §4.4): the counter sells this from a later shift on.</summary>
+        ShopLocked,
+        /// <summary>Sold once per run, and the team has it.</summary>
+        AlreadyOwned,
+        /// <summary>The team wallet does not hold the price.</summary>
+        CantAfford,
+        /// <summary>The shop pays nothing for this (mail, an item without a sell price).</summary>
+        NotSellable,
+        /// <summary>Not something a carrier can use on themselves.</summary>
+        NotUsable,
+        /// <summary>Nothing to heal.</summary>
+        FullHealth,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

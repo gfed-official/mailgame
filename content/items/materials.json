@@ -9,5 +9,6 @@
   { "id": "iron_ingot", "name": "Iron Ingot", "category": "material", "grid": [1, 1], "maxStack": 20, "weightClass": "light", "sellPrice": 10, "buyPrice": 40 },
   { "id": "glass", "name": "Glass", "category": "material", "grid": [1, 1], "maxStack": 20, "weightClass": "light", "sellPrice": 7, "buyPrice": 30 },
   { "id": "oil_can", "name": "Oil Can", "category": "material", "grid": [1, 2], "maxStack": 5, "weightClass": "light", "sellPrice": 15, "buyPrice": 60 },
-  { "id": "berries", "name": "Berries", "category": "consumable", "grid": [1, 1], "maxStack": 10, "weightClass": "light", "sellPrice": 1 }
+  { "id": "berries", "name": "Berries", "category": "consumable", "grid": [1, 1], "maxStack": 10, "weightClass": "light", "sellPrice": 1, "heal": 25, "healSeconds": 5 },
+  { "id": "bandage", "name": "Bandage", "category": "consumable", "grid": [1, 1], "maxStack": 5, "weightClass": "light", "sellPrice": 7, "buyPrice": 30, "heal": 50 }
 ]

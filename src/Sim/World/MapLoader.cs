@@ -123,8 +123,14 @@ namespace PerformativeMail.Sim.World
                     : streets.Count > 0 ? new double[] { streets[0].Rect.CenterX, streets[0].Rect.CenterZ } : new double[] { pad[0], pad[1] - 1.0 };
                 double lookX = lookAt[0] - pad[0], lookZ = lookAt[1] - pad[1];
                 if (lookX * lookX + lookZ * lookZ < 1e-6) ctx.Error("postOffice.spawnLookAt must differ from spawnPad");
+                // Optional: a map without a shop counter has no shop.
+                bool hasShop = poEl.TryGetProperty("shop", out _);
+                double[] shop = hasShop ? J.NumArray(ctx, poEl, "shop", 2) : new double[2];
                 po = new PostOfficeDef
                 {
+                    HasShop = hasShop,
+                    ShopX = (float)shop[0],
+                    ShopZ = (float)shop[1],
                     Rect = rect,
                     Solid = solid,
                     IntakeX = (float)intake[0],
@@ -237,6 +243,16 @@ namespace PerformativeMail.Sim.World
             }
             CheckPoint(po.IntakeX, po.IntakeZ, "postOffice.intake");
             CheckPoint(po.SpawnPadX, po.SpawnPadZ, "postOffice.spawnPad");
+            if (po.HasShop)
+            {
+                CheckPoint(po.ShopX, po.ShopZ, "postOffice.shop");
+                // Like the Intake it may be set into a wall; somewhere to stand must be within reach of it.
+                bool reachable = false;
+                for (int oz = -1; oz <= 1; oz++)
+                    for (int ox = -1; ox <= 1; ox++)
+                        if (!map.IsSolid((int)MathF.Floor((po.ShopX + ox * 1.0f) / SimConstants.TileSize), (int)MathF.Floor((po.ShopZ + oz * 1.0f) / SimConstants.TileSize))) reachable = true;
+                if (!reachable) ctx.Error("postOffice.shop is walled in: no walkable ground within a metre of it");
+            }
             {
                 int tx = (int)MathF.Floor(po.SpawnPadX / SimConstants.TileSize), tz = (int)MathF.Floor(po.SpawnPadZ / SimConstants.TileSize);
                 if (map.IsSolid(tx, tz)) ctx.Error("postOffice.spawnPad is inside a solid tile");

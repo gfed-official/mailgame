@@ -101,6 +101,7 @@ namespace PerformativeMail.Sim
             Economy.Reset();
             ResetCombatRng();
             ClearPerks();
+            ClearShop();
             foreach (var p in _players)
             {
                 p.Deliveries = 0;
@@ -115,6 +116,7 @@ namespace PerformativeMail.Sim
 
         private void BeginShift()
         {
+            RollShopSpecials();
             if (Settings.QuickStart) BeginDelivery();
             else BeginPrep();
         }
@@ -236,6 +238,7 @@ namespace PerformativeMail.Sim
             Spawner.Reset();
             Economy.Reset();
             ClearPerks();
+            ClearShop();
             Run.Shift = 1;
             Run.Quota = 0;
             Run.PlayerCount = 0;

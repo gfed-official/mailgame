@@ -232,6 +232,8 @@ namespace PerformativeMail.Server
                 if (p.DraftPick >= 0) welcome.DraftPicks.Add(new DraftPickInfo { Player = p.Id, Card = (byte)p.DraftPick });
             }
             foreach (var perk in World.DraftOffer) welcome.DraftOffer.Add(perk.Index);
+            foreach (var entry in World.ShopSpecials) welcome.ShopSpecials.Add(entry.Index);
+            foreach (var entry in World.ShopOwned) welcome.ShopOwned.Add(entry.Index);
             _writer.Reset();
             welcome.Write(_writer);
             _transport.Send(client.Connection, NetChannel.Bulk, _writer.ToArray());
