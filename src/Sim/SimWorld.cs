@@ -100,6 +100,7 @@ namespace PerformativeMail.Sim
         private readonly MoveConstants _move;
         private readonly int _maxPlayers;
         private readonly float _serverInteractRange;
+        private readonly float _serverShopRange;
         private readonly int _rewindTicks;
         private readonly float _minInsertHold;
         private readonly int _weightLight, _weightMedium, _weightHeavy;
@@ -117,6 +118,7 @@ namespace PerformativeMail.Sim
             ResetCombatRng();
             _maxPlayers = b.GetInt("maxPlayers");
             _serverInteractRange = b.GetFloat("serverInteractRange");
+            _serverShopRange = b.GetFloat("serverShopRange");
             _rewindTicks = (int)SimConstants.SecondsToTicks(b.GetDouble("interactRewindSeconds"));
             _weightLight = b.GetInt("weightPointsLight");
             _weightMedium = b.GetInt("weightPointsMedium");

@@ -388,6 +388,42 @@ was still there is fixed, what was already gone is pinned by a check that would 
       at most eight times a head; two carriers in shift 3 are down four times at most between
       them, never within 8 s of standing up (design choice 70)
 
+### 2d. Playtest issues of the 25fbca5 report (`mailgame-harness/results/20261119-082044-25fbca5/report.md`, 2026-11-19)
+
+The report tested 25fbca5, one commit before the harvesting UI. Each issue was looked at again
+on b44a177; what was still there is fixed, what was already gone is pinned by a check.
+
+- [x] (a) Payday: the counter is a walk away inside the 20 s window, and the host stood facing
+      the Intake — **still there**, and worse than reported: a Payday finds the carriers out on
+      their rounds, up to 70 m from the Post Office, and nobody walks that in 20 s. Now **at
+      Payday the counter serves the team where it stands**: the server asks for no reach in
+      that phase (buying and selling), the new shop key **C** puts the cards up anywhere, and
+      the Payday hint names it ("Quota met — shift 2 in 00:17 · [C] shop"). In Prep the same
+      key opens the counter from within its reach without any aim. `paydaySeconds` stays 20 (doc
+      11). `ShopTests` (1 new, 1 widened: host and guest buy and sell from across the map at
+      Payday, `OutOfRange` again in the next Prep), `ShopFlowTests` (1 new: the key in Prep,
+      Delivery and Payday, bought and sold 10 m and more from the counter, interact or the key
+      takes the cards down); the smoke puts the host at the mailbox farthest from the counter
+      (70 m) at the first Payday, reads the hint, presses the key, buys the cheapest card with
+      its number, sells it back and checks the wallet on both ends and that the summary is back
+      (`payday-shop.png` with `--shots`; design choice 73)
+- [x] (b) The shop prompt wants about 1 m and an exact aim at the counter's body — **still
+      there**: the reach was the mailboxes' 2.5 m measured from the wall behind the counter,
+      and the box to aim at was the counter's body, 1.8 m wide. Now the counter has **a reach
+      of its own** (`shopRange` 4 m, the server's `serverShopRange` 4.5 m: every seat of the
+      spawn pad is inside it), **a box to aim at 2.6 m wide and 2.5 m high** (counter, window
+      and sign), and where the crosshair is on nothing at all **facing a counter is enough**:
+      within 40° to either side of it, whatever the pitch, the prompt is the Intake's or the
+      shop's, whichever is faced more squarely. What the crosshair is on still comes first.
+      `ShopFlowTests` (1 new: from each of the four seats, turned to the counter, at eye level,
+      looking up at the sign and down at the ground, 34° off to either side — the prompt; with
+      the back to it — none; the report's seat facing the Intake gets the Intake, turned to the
+      counter the shop and E opens it; a shut counter only answers to the crosshair)
+      (design choice 74)
+- [ ] (c) The mouse is not recaptured after the Draft or after closing the shop
+- [ ] (d) The Guest's nameplate over a corner of the Draft panel
+- [ ] (e) Harvesting has no client UI
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
@@ -1212,6 +1248,30 @@ See "Commands" at the bottom (filled in as the tooling lands).
       own, rebuilt when the set of worked-out nodes changes (twice a shift at most, plus once
       per node felled), not per hit.
 
+73. **At Payday the shop comes to the carrier; the shop key is C** (playtest 25fbca5, issue a).
+    Doc 01's phase table gives Payday 20 s and "Shop opens for a fixed window"; doc 09 §2.8
+    puts the shop "at PO counter during Prep and Payday". Both cannot hold for a carrier whose
+    shift ended at a mailbox 70 m away, so the phase table wins: at Payday `BuyOp` and `SellOp`
+    ask for no reach (`ShopRules.ServesAnywhere`), in Prep the counter is a counter. The
+    window was not widened: `paydaySeconds` is doc 11's 20, and a longer Payday is a longer
+    wait for everybody who does not shop. The key: doc 09 §4 has none for the shop and gives B
+    to Build mode, so it is **C** (the counter; D-pad up on a pad), an action of its own —
+    `shop` — rather than a second meaning of E, which at Payday may well have a mailbox or the
+    Intake under the crosshair. C toggles; E and Esc still close. The cards opened at Payday
+    stay up while the carrier walks; they come down with the phase unless the carrier is at
+    the counter when Prep begins.
+74. **The counter's reach and aim are its own** (playtest 25fbca5, issue b). `shopRange` 4 m
+    for the client, `serverShopRange` 4.5 m for the server (the same half metre of slack as
+    `interactRange` 2.5 / `serverInteractRange` 3), measured as before from the map's `shop`
+    point on the wall. Doc 09 §3.1's 2.5 m is the reach of a mailbox, a thing one walks up to;
+    the counter is a place one stands before, and the farthest seat of the spawn pad is 3.5 m
+    from it. The facing rule
+    (`InteractionController.FacingCone`, 0.7 rad) applies to the Intake and to a serving shop
+    counter only, and only when the view ray hits no interactable at all — so a chest, a bag,
+    a mailbox or a node under the crosshair is never taken over by a counter beside it. A shut
+    counter (Delivery, Lobby) answers "closed" to the crosshair only: nobody walking past the
+    Post Office with mail in hand is told about the shop.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -1294,7 +1354,10 @@ cannot be bought greyed, all inside the view; a click on a greyed card sends not
 the Bandages buys them (wallet, hotbar and feed checked on both ends), one is sold back, one is
 used at 40 HP from the hand ("… · [Q] use" over the hotbar), the last is sold, the Fiber and the
 Logs go over the counter at their sell price, and a second press
-takes the cards down; the host continues and the
+takes the cards down; at the first Payday the host is put at the mailbox farthest from the counter:
+the hint must end in "[C] shop", the shop key must put the cards up there with the summary out
+of the way, a number key buys the cheapest card, it is sold back, the wallet is right on both
+ends and the summary is back once the key took the cards down; the host continues and the
 Lobby must be clean (wallet 0, no carried mail, no perks, panel gone, every node whole again). Close-up checks: the player spawns on the pad; mail arrives; the Intake
 prompt and manifest show; mail is carried; the mailbox prompt shows; delivery and misdelivery events
 reach the client; server wallet = start + paid − penalties = client wallet = the HUD's wallet line;

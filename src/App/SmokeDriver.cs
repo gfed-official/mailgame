@@ -750,7 +750,13 @@ namespace PerformativeMail.App
                 case RunPhase.Payday:
                 {
                     var summary = world.LastSummary;
-                    if (summary == null || summary.Shift == _checkedSummaryShift) break;
+                    if (summary == null) break;
+                    if (summary.Shift == _checkedSummaryShift)
+                    {
+                        // Once in the run the host shops from where the shift left them.
+                        StepPaydayShop();
+                        break;
+                    }
                     _checkedSummaryShift = summary.Shift;
                     var truth = server.Run.LastSummary;
                     Check(truth != null && truth.Shift == summary.Shift && truth.Earned == summary.Earned && truth.Quota == summary.Quota

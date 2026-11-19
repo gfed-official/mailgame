@@ -245,11 +245,146 @@ namespace PerformativeMail.App
             return true;
         }
 
+        private int _paydayShopStep, _paydayShopFrames, _paydayShopVisits, _paydayWallet, _paydayUnits, _paydaySold;
+        private ShopItemDef? _paydayCard;
+
+        private void NextPaydayShopStep()
+        {
+            _paydayShopStep++;
+            _paydayShopFrames = 0;
+        }
+
+        /// <summary>
+        /// A frame of a Payday whose summary has been checked (playtest 25fbca5: the counter was a
+        /// walk away inside a 20 s window). The host stands at the far end of the street: the hint
+        /// names the shop key, the key puts the cards up there, a card is bought and sold back, and
+        /// the summary is back when the cards are down.
+        /// </summary>
+        private void StepPaydayShop()
+        {
+            var client = _session.Client;
+            var world = client.World!;
+            var server = _session.Server!.World;
+            var hud = _screen.Hud;
+            var po = world.Map.PostOffice;
+            var player = server.GetPlayer(world.LocalId)!;
+            var panel = _screen.Inventory.Shop;
+
+            if (_paydayShopStep == 0)
+            {
+                if (_paydayShopVisits > 0 || !world.ShopServes || world.Local.Dead || world.PhaseSecondsLeft < 10
+                    || !hud.HintText.Contains(HudText.ShopKey, StringComparison.Ordinal)) return;
+                // The mailbox farthest from the counter, at the pace of a player.
+                float far = 0f;
+                foreach (var dest in world.Map.Destinations)
+                {
+                    float ddx = dest.MailboxX - po.ShopX, ddz = dest.MailboxZ - po.ShopZ, d = ddx * ddx + ddz * ddz;
+                    if (d <= far) continue;
+                    far = d;
+                    player.Move.X = dest.MailboxX + 1.0f;
+                    player.Move.Z = dest.MailboxZ;
+                }
+                _session.FixedTicksPerFrame = 1;
+                NextPaydayShopStep();
+                return;
+            }
+
+            _session.Interaction.Update(1.0 / 60.0, false, false);
+            hud.Refresh();
+            bool settled = client.PendingRequestCount == 0 && world.Global.Wallet == server.Economy.Wallet;
+            int held = _paydayCard?.Item == null ? 0 : Units(world.Hotbar, _paydayCard.Item) + Units(world.Inventory, _paydayCard.Item);
+            if (++_paydayShopFrames > ShopStepFrames)
+            {
+                Fail($"shopping at Payday stopped at step {_paydayShopStep}: cards {(world.ShopOpen ? "up" : "down")}, wallet {world.Global.Wallet} (server {server.Economy.Wallet}), "
+                    + $"{held} of {_paydayCard?.Name ?? "nothing"} carried, {client.PendingRequestCount} requests pending");
+                _paydayShopStep = 0;
+                _paydayShopVisits++;
+                return;
+            }
+
+            switch (_paydayShopStep)
+            {
+                case 1:
+                {
+                    float sx = world.Local.X - player.Move.X, sz = world.Local.Z - player.Move.Z;
+                    if (sx * sx + sz * sz > 0.1f || _paydayShopFrames < 4) break;
+                    float dx = world.Local.X - po.ShopX, dz = world.Local.Z - po.ShopZ, reach = world.Content.Balance.GetFloat("serverShopRange");
+                    Check(dx * dx + dz * dz > (reach + 5f) * (reach + 5f), $"the host is {MathF.Sqrt(dx * dx + dz * dz):0.0} m from the counter: not far enough to tell");
+                    Check(hud.HintText.EndsWith($"{HudText.ShopKey} shop", StringComparison.Ordinal), $"at Payday the HUD hint is \"{hud.HintText}\"");
+                    Check(_session.Interaction.Prompt.Kind != InteractKind.OpenShop && !world.ShopOpen, "the counter is prompted for from across the map");
+                    Check(client.ToggleShop() && world.ShopOpen, "the shop key did not put the cards up at Payday");
+                    NextPaydayShopStep();
+                    break;
+                }
+
+                case 2:
+                {
+                    if (_paydayShopFrames < 4) break;
+                    string want = HudText.ShopText(world);
+                    Check(_screen.Inventory.Visible && panel.Visible && panel.Text == want, $"at Payday the shop shows \"{panel.Text}\", expected \"{want}\"");
+                    Check(!hud.Overlay.Visible, "the Payday summary is shown under the shop's cards");
+                    Check(_session.Interaction.Prompt.Kind == InteractKind.CloseShop, $"with the cards up at Payday the prompt is {_session.Interaction.Prompt.Kind}");
+                    Shot("payday-shop");
+                    var shelf = world.ShopShelf;
+                    int place = -1;
+                    for (int i = 0; i < shelf.Count; i++)
+                        if (shelf[i].Item != null && world.ShopState(shelf[i]) == OpResult.Ok && (place < 0 || world.ShopPrice(shelf[i]) < world.ShopPrice(shelf[place]))) place = i;
+                    if (place < 0) { Fail($"with {HudText.Money(world.Global.Wallet)} at Payday no card can be bought"); return; }
+                    _paydayCard = shelf[place];
+                    _paydayWallet = server.Economy.Wallet;
+                    _paydayUnits = Units(world.Hotbar, _paydayCard.Item!) + Units(world.Inventory, _paydayCard.Item!);
+                    Check(client.PressShopKey(place) && world.IsBuying(_paydayCard), $"key {HudText.CardKey(place)} did not buy {_paydayCard.Name} at Payday ({world.ShopState(_paydayCard)})");
+                    NextPaydayShopStep();
+                    break;
+                }
+
+                case 3:
+                {
+                    var card = _paydayCard!;
+                    if (!settled || world.IsBuying(card) || held < _paydayUnits + card.Count) break;
+                    int price = world.ShopPrice(card);
+                    Check(server.Economy.Wallet == _paydayWallet - price, $"{card.Name} at {price} at Payday: the wallet went from {_paydayWallet} to {server.Economy.Wallet}");
+                    // Back over the counter with it, from out here too: the run goes on as it would have.
+                    _paydaySold = 0;
+                    foreach (uint id in new[] { world.HotbarId, world.InventoryId })
+                        foreach (var e in world.Prediction.View(id)!.Entries.ToArray())
+                        {
+                            if (e.Stack.Kind != StackKind.Item || e.Stack.DefIndex != card.Item!.Index) continue;
+                            _paydaySold += ShopRules.SaleValue(card.Item, e.Stack.Count);
+                            Check(client.Sell(id, e.EntryId) != 0, $"the open shop took no request to sell {card.Item.Name} at Payday");
+                        }
+                    NextPaydayShopStep();
+                    break;
+                }
+
+                case 4:
+                {
+                    if (!settled || held != 0) break;
+                    int want = _paydayWallet - world.ShopPrice(_paydayCard!) + _paydaySold;
+                    Check(server.Economy.Wallet == want, $"after shopping at Payday the wallet is {server.Economy.Wallet}, expected {want}");
+                    Check(client.ToggleShop() && !world.ShopOpen, "the shop key did not take the cards down");
+                    NextPaydayShopStep();
+                    break;
+                }
+
+                case 5:
+                    if (_paydayShopFrames < 4) break;
+                    Check(hud.Overlay.Visible && !_screen.Inventory.Visible, "the Payday summary is not back when the shop's cards are down");
+                    GD.Print($"[smoke] shop at Payday: {MathF.Sqrt((world.Local.X - po.ShopX) * (world.Local.X - po.ShopX) + (world.Local.Z - po.ShopZ) * (world.Local.Z - po.ShopZ)):0} m from the counter, "
+                        + $"{_paydayCard!.Name} for {HudText.Money(world.ShopPrice(_paydayCard))} and sold back for {HudText.Money(_paydaySold)}; wallet {HudText.Money(_paydayWallet)} -> {HudText.Money(server.Economy.Wallet)}");
+                    _paydayShopVisits++;
+                    _paydayShopStep = 0;
+                    _session.FixedTicksPerFrame = RunOutTicksPerFrame;
+                    break;
+            }
+        }
+
         /// <summary>After the run: the counter was visited, and the Lobby's is bare.</summary>
         private void VerifyShop()
         {
             var world = _session.Client.World!;
             Check(_shopVisits == 1, $"the smoke went to the shop {_shopVisits} times");
+            Check(_paydayShopVisits == 1 && _paydayShopStep == 0, $"the smoke shopped at {_paydayShopVisits} Paydays (step {_paydayShopStep})");
             Check(world.ShopSpecials.Count == 0 && world.ShopOwned.Count == 0 && !world.ShopOpen, "the shop of the finished run is still stocked in the Lobby");
         }
     }

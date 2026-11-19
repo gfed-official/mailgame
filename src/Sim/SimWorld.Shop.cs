@@ -71,13 +71,14 @@ namespace PerformativeMail.Sim
             Events.Add(offer);
         }
 
-        /// <summary>The counter serves in Prep and at Payday, and whoever stands at it.</summary>
+        /// <summary>The counter serves in Prep whoever stands at it, and at Payday the whole team where it is.</summary>
         private OpResult AtShop(Player player)
         {
             var po = Map.PostOffice;
             if (!po.HasShop) return OpResult.BadRequest;
             if (!ShopRules.IsOpen(Run.Phase)) return OpResult.WrongPhase;
-            if (!player.WasWithin(po.ShopX, po.ShopZ, _serverInteractRange, _rewindTicks)) return OpResult.OutOfRange;
+            if (ShopRules.ServesAnywhere(Run.Phase)) return OpResult.Ok;
+            if (!player.WasWithin(po.ShopX, po.ShopZ, _serverShopRange, _rewindTicks)) return OpResult.OutOfRange;
             return OpResult.Ok;
         }
 

@@ -91,9 +91,11 @@ namespace PerformativeMail.Client
                     string clock = Clock(world.PhaseSecondsLeft);
                     if (s == null) return "";
                     bool last = s.Shift >= ShiftCount(world.Content);
-                    if (!s.QuotaMet && world.QuotaWaived && !last) return $"Quota missed — {QuotaWaivedTag}   ·   shift {s.Shift + 1} in {clock}";
+                    // The counter serves the team where it stands, for as long as the summary is up.
+                    string shop = world.ShopServes ? $"   ·   {ShopKey} shop" : "";
+                    if (!s.QuotaMet && world.QuotaWaived && !last) return $"Quota missed — {QuotaWaivedTag}   ·   shift {s.Shift + 1} in {clock}{shop}";
                     if (!s.QuotaMet) return $"Quota missed — results in {clock}";
-                    return s.Shift >= ShiftCount(world.Content) ? $"Final quota met — results in {clock}" : $"Quota met — shift {s.Shift + 1} in {clock}";
+                    return s.Shift >= ShiftCount(world.Content) ? $"Final quota met — results in {clock}" : $"Quota met — shift {s.Shift + 1} in {clock}{shop}";
                 }
                 case RunPhase.Draft:
                 {
@@ -543,7 +545,9 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>Under the cards: how to buy, how to sell, how to leave.</summary>
-        public const string ShopHint = "A number key or a click buys   ·   click a stack of yours to sell it   ·   [E] or [Esc] closes";
+        /// <summary>The shop key (doc 09 §4 has none, and B is Build mode there): C, for the counter.</summary>
+        public const string ShopKey = "[C]";
+        public const string ShopHint = "A number key or a click buys   ·   click a stack of yours to sell it   ·   " + ShopKey + " or [Esc] closes";
 
         /// <summary>Everything the shop panel says, top to bottom, for the smoke; empty while its cards are not up.</summary>
         public static string ShopText(ClientWorld world)

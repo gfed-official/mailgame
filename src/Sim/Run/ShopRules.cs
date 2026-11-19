@@ -14,6 +14,19 @@ namespace PerformativeMail.Sim.Run
         /// <summary>Doc 01 §1 phase table: the shop is open in Prep and at Payday.</summary>
         public static bool IsOpen(RunPhase phase) => phase == RunPhase.Prep || phase == RunPhase.Payday;
 
+        /// <summary>
+        /// At Payday the counter serves the team wherever it stands: the shift ends with the
+        /// carriers out on their rounds, and the window is too short to walk back in.
+        /// </summary>
+        public static bool ServesAnywhere(RunPhase phase) => phase == RunPhase.Payday;
+
+        /// <summary>
+        /// Whether a carrier that far from the counter (squared, on the ground) is served.
+        /// <paramref name="range"/> is the shop's own: the server's, or a client's shorter one.
+        /// </summary>
+        public static bool InReach(RunPhase phase, float distSq, float range) =>
+            IsOpen(phase) && (ServesAnywhere(phase) || distSq <= range * range);
+
         /// <summary>How many specials a shift has.</summary>
         public static int SpecialSlots(Balance b) => Math.Max(0, b.GetInt("shopSpecialSlots"));
 

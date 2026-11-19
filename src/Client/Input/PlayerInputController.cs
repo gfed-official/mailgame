@@ -112,6 +112,7 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Interact)) _interactTapped = true;
             else if (ev.IsActionPressed(InputActions.Go) && !Paused) _client.PressGo();
             else if (ev.IsActionPressed(InputActions.Use) && !_uiOpen) _client.UseHeld();
+            else if (ev.IsActionPressed(InputActions.Shop) && !Paused) _client.ToggleShop();
         }
 
         /// <summary>

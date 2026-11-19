@@ -299,11 +299,25 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(OpResult.Ok, Buy(world, host, "bandage_x3"));
             Assert.Equal(OpResult.BadRequest, Request(world, host, SimRequest.Buy(0, Db.ShopItems.Count)));
 
+            // The counter's reach is its own, wider than a mailbox's: every seat of the pad before it is served.
+            var po = world.Map.PostOffice;
+            float reach = Db.Balance.GetFloat("serverShopRange");
+            Assert.True(reach > Db.Balance.GetFloat("serverInteractRange"));
+            Assert.True(Db.Balance.GetFloat("shopRange") < reach);
+            SimDriver.Teleport(host, po.ShopX + reach - 0.2f, po.ShopZ);
+            SimDriver.StepTicks(world, 30);
+            Assert.Equal(OpResult.Ok, Buy(world, host, "bandage_x3"));
+            SimDriver.Teleport(host, po.ShopX + reach + 0.3f, po.ShopZ);
+            SimDriver.StepTicks(world, 30);
+            Assert.Equal(OpResult.OutOfRange, Buy(world, host, "bandage_x3"));
+
             // Across the street nobody is served.
             var home = world.Map.Destinations[0];
             SimDriver.Teleport(host, home.MailboxX, home.MailboxZ);
             SimDriver.StepTicks(world, 30);
             Assert.Equal(OpResult.OutOfRange, Buy(world, host, "bandage_x3"));
+            Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("plank"), 2)));
+            Assert.Equal(OpResult.OutOfRange, Request(world, host, SimRequest.Sell(0, host.Inventory.Id, host.Inventory.Entries.First().EntryId)));
 
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
             Assert.Equal(RunPhase.Delivery, world.Run.Phase);
@@ -317,6 +331,42 @@ namespace PerformativeMail.Sim.Tests
             int before = world.Economy.Wallet;
             Assert.Equal(OpResult.Ok, Buy(world, host, "rope_x10"));
             Assert.Equal(before - world.ShopPrice(Db.ShopItem("rope_x10")), world.Economy.Wallet);
+        }
+
+        [Fact]
+        public void AtPaydayTheCounterServesTheTeamWhereItStands()
+        {
+            var (world, host) = AtTheCounter();
+            var guest = world.AddPlayer("guest")!;
+            Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("plank"), 5)));
+
+            // The shift ends with the carriers out on their rounds: nobody walks back in a Payday.
+            IntoPayday(world, host);
+            var home = world.Map.Destinations[0];
+            var po = world.Map.PostOffice;
+            SimDriver.Teleport(host, home.MailboxX, home.MailboxZ);
+            SimDriver.Teleport(guest, world.Map.WidthM - 3f, world.Map.DepthM - 3f);
+            SimDriver.StepTicks(world, 30);
+            float dx = host.Move.X - po.ShopX, dz = host.Move.Z - po.ShopZ;
+            Assert.True(dx * dx + dz * dz > 10f * 10f, "the mailbox of the first house is not far enough from the counter to tell");
+
+            int before = world.Economy.Wallet;
+            Assert.Equal(OpResult.Ok, Buy(world, host, "bandage_x3"));
+            Assert.Equal(OpResult.Ok, Buy(world, guest, "rope_x10"));
+            Assert.Equal(before - world.ShopPrice(Db.ShopItem("bandage_x3")) - world.ShopPrice(Db.ShopItem("rope_x10")), world.Economy.Wallet);
+            Assert.Equal(3, Count(host.Hotbar, "bandage"));
+            Assert.Equal(10, Count(guest.Inventory, "rope"));
+
+            // And buys what they carry, where they carry it.
+            before = world.Economy.Wallet;
+            var planks = host.Inventory.Entries.First(e => e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == Db.Item("plank").Index);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Sell(0, host.Inventory.Id, planks.EntryId)));
+            Assert.Equal(before + Db.Item("plank").SellPrice * 5, world.Economy.Wallet);
+
+            // The next Prep the counter is a counter again.
+            RunUntil(world, () => world.Run.Phase == RunPhase.Prep, 120);
+            world.Economy.AddLoot(500);
+            Assert.Equal(OpResult.OutOfRange, Buy(world, host, "bandage_x3"));
         }
 
         [Fact]

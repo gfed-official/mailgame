@@ -71,6 +71,8 @@ namespace PerformativeMail.Client
     {
         /// <summary>The range is measured on the ground; the eyes are above it, so the ray may be this much longer.</summary>
         private const float AimSlack = 1.0f;
+        /// <summary>A counter of the Post Office is meant by whoever faces it within this much to either side (40°).</summary>
+        public const float FacingCone = 0.7f;
         /// <summary>How long a press of interact waits for something to act on.</summary>
         private const double PressLatchSeconds = 0.25;
 
@@ -192,7 +194,8 @@ namespace PerformativeMail.Client
         /// The interactable the player is looking at: the first one the view ray hits among those
         /// within the client interact range of the player (doc 09 §3.1: 2.5 m). An open Intake,
         /// chest or bag stays targeted while in range, because the mouse is on its panel, not on the world.
-        /// A tree, a bush or a boulder is one while there is something to get from it.
+        /// A tree, a bush or a boulder is one while there is something to get from it. The Intake
+        /// and the shop counter are also found by facing them, when the ray finds nothing.
         /// </summary>
         private InteractPrompt FindTarget(ClientWorld world)
         {
@@ -204,7 +207,8 @@ namespace PerformativeMail.Client
             var prompt = new InteractPrompt();
 
             var po = world.Map.PostOffice;
-            if (DistSq(px, pz, po.IntakeX, po.IntakeZ) <= rangeSq)
+            bool intakeNear = DistSq(px, pz, po.IntakeX, po.IntakeZ) <= rangeSq;
+            if (intakeNear)
             {
                 if (world.OpenContainerId == world.IntakeContainerId)
                 {
@@ -218,15 +222,19 @@ namespace PerformativeMail.Client
                     prompt.Kind = InteractKind.OpenIntake;
                 }
             }
-            if (po.HasShop && DistSq(px, pz, po.ShopX, po.ShopZ) <= rangeSq)
+            // The cards are on the screen wherever they went up (at Payday that is anywhere): the key takes them down.
+            if (world.ShopOpen)
             {
-                if (world.ShopOpen)
-                {
-                    prompt.Kind = InteractKind.CloseShop;
-                    return prompt;
-                }
+                prompt.Kind = InteractKind.CloseShop;
+                return prompt;
+            }
+            // The counter has a reach of its own, so that it is found from anywhere on the pad before it.
+            float shopRange = world.Content.Balance.GetFloat("shopRange");
+            bool shopNear = po.HasShop && DistSq(px, pz, po.ShopX, po.ShopZ) <= shopRange * shopRange;
+            if (shopNear)
+            {
                 float t = ray.Hit(AimBox.Shop(world.Map));
-                if (t >= 0f && t <= best)
+                if (t >= 0f && t <= shopRange + AimSlack && (prompt.Kind == InteractKind.None || t <= best))
                 {
                     best = t;
                     prompt.Kind = InteractKind.OpenShop;
@@ -297,6 +305,18 @@ namespace PerformativeMail.Client
                 prompt.Bag = null;
                 prompt.Node = null;
                 prompt.Destination = dest;
+            }
+            // Nothing in the crosshair: a counter of the Post Office the carrier stands at and faces
+            // is meant all the same, whatever the eyes are on (its sign, the wall, the floor before it).
+            if (prompt.Kind == InteractKind.None)
+            {
+                float yaw = _client.Input.YawRadians;
+                float off = intakeNear ? FacingOff(px, pz, yaw, po.IntakeX, po.IntakeZ) : float.MaxValue;
+                // A counter that is shut says so to whoever looks at it, and to nobody who walks by.
+                float shopOff = shopNear && world.ShopServes ? FacingOff(px, pz, yaw, po.ShopX, po.ShopZ) : float.MaxValue;
+                if (shopOff < off && shopOff <= FacingCone) prompt.Kind = InteractKind.OpenShop;
+                else if (off <= FacingCone) prompt.Kind = InteractKind.OpenIntake;
+                return prompt;
             }
             if (prompt.Kind == InteractKind.Harvest)
             {
@@ -424,6 +444,19 @@ namespace PerformativeMail.Client
                 if (best != null) return (container, best);
             }
             return (null, null);
+        }
+
+        /// <summary>
+        /// How far the view is turned from a point on the ground, in radians, up and down aside:
+        /// 0 faces it. Standing on the point faces it whichever way one looks.
+        /// </summary>
+        public static float FacingOff(float px, float pz, float yaw, float x, float z)
+        {
+            float dx = x - px, dz = z - pz;
+            if (dx * dx + dz * dz < 1e-4f) return 0f;
+            float off = MathF.Atan2(-dx, -dz) - yaw;
+            off -= MathF.Round(off / (2f * MathF.PI)) * 2f * MathF.PI;
+            return MathF.Abs(off);
         }
 
         private static float DistSq(float ax, float az, float bx, float bz)

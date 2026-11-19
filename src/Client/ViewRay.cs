@@ -108,11 +108,11 @@ namespace PerformativeMail.Client
             return new AimBox(po.IntakeX, map.HeightAt(po.IntakeX, po.IntakeZ) + 1.0f, po.IntakeZ, 1.0f, 1.0f, 1.0f);
         }
 
-        /// <summary>The shop counter with its sign.</summary>
+        /// <summary>The shop counter, the window behind it and the sign over it: a good deal wider than the counter's body.</summary>
         public static AimBox Shop(WorldMap map)
         {
             var po = map.PostOffice;
-            return new AimBox(po.ShopX, map.HeightAt(po.ShopX, po.ShopZ) + 1.0f, po.ShopZ, 0.9f, 1.0f, 0.9f);
+            return new AimBox(po.ShopX, map.HeightAt(po.ShopX, po.ShopZ) + 1.25f, po.ShopZ, 1.3f, 1.25f, 1.3f);
         }
     }
 }

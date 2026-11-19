@@ -96,7 +96,7 @@ namespace PerformativeMail.Client
         private readonly List<ushort> _enemyScratch = new List<ushort>();
         private readonly List<SimEvent> _early = new List<SimEvent>();
         private readonly uint _hammerCooldownTicks, _cannonCooldownTicks;
-        private readonly float _interactRange;
+        private readonly float _shopRange;
         private uint _hammerReadySeq, _cannonReadySeq;
         private uint _nextSeq = 1;
         private uint _nextRequestId = 1;
@@ -116,7 +116,7 @@ namespace PerformativeMail.Client
             _move = MoveConstants.From(content.Balance);
             _hammerCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("hammerCooldownSeconds"));
             _cannonCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("cannonCooldownSeconds"));
-            _interactRange = content.Balance.GetFloat("interactRange");
+            _shopRange = content.Balance.GetFloat("shopRange");
             Name = name;
         }
 
@@ -205,14 +205,13 @@ namespace PerformativeMail.Client
 
         // --- the shop (doc 03 §4.4) -------------------------------------------------------------
 
-        /// <summary>The counter is within reach of the local player, and serves.</summary>
+        /// <summary>The counter serves the local player where they stand: within its reach in Prep, anywhere at Payday.</summary>
         private bool AtShop(ClientWorld world, float slack)
         {
             if (!world.HasLocal || world.Local.Dead || !world.ShopServes) return false;
             var po = world.Map.PostOffice;
             float dx = world.Local.X - po.ShopX, dz = world.Local.Z - po.ShopZ;
-            float range = _interactRange + slack;
-            return dx * dx + dz * dz <= range * range;
+            return ShopRules.InReach(world.Global.Phase, dx * dx + dz * dz, _shopRange + slack);
         }
 
         /// <summary>
@@ -232,6 +231,18 @@ namespace PerformativeMail.Client
         public void CloseShop()
         {
             if (World != null) World.ShopOpen = false;
+        }
+
+        /// <summary>
+        /// The shop key: the cards up where the counter serves this player (<see cref="OpenShop"/>:
+        /// no aim asked), down when they are up. Returns whether the key did anything.
+        /// </summary>
+        public bool ToggleShop()
+        {
+            var world = World;
+            if (world == null || !world.ShopOpen) return OpenShop();
+            CloseShop();
+            return true;
         }
 
         /// <summary>

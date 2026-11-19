@@ -30,6 +30,11 @@ namespace PerformativeMail.Client.InputHandling
         public const string AltAttack = "alt_attack";
         /// <summary>Uses the held consumable. Doc 09 §4 has no key for it and the mouse buttons are the weapons, so Q.</summary>
         public const string Use = "use";
+        /// <summary>
+        /// Puts the cards of the shop up or down without aiming at its counter: at the counter in
+        /// Prep, anywhere at Payday. Doc 09 §4 has no key for it and B is Build mode there, so C.
+        /// </summary>
+        public const string Shop = "shop";
 
         private static readonly HashSet<string> Created = new HashSet<string>();
 
@@ -48,6 +53,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Go, Key.G);
             BindKey(Rotate, Key.R);
             BindKey(Use, Key.Q);
+            BindKey(Shop, Key.C);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);
 
@@ -62,6 +68,7 @@ namespace PerformativeMail.Client.InputHandling
             BindButton(Pause, JoyButton.Start);
             BindButton(Go, JoyButton.Back);
             BindButton(Use, JoyButton.B);
+            BindButton(Shop, JoyButton.DpadUp);
             BindAxis(Attack, JoyAxis.TriggerRight, 1f);
             BindAxis(AltAttack, JoyAxis.TriggerLeft, 1f);
         }

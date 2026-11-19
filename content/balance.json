@@ -44,6 +44,8 @@
 
   "interactRange": 2.5,
   "serverInteractRange": 3.0,
+  "shopRange": 4.0,
+  "serverShopRange": 4.5,
   "interactRewindSeconds": 0.3,
   "harvestSwingSeconds": 0.6,
 
