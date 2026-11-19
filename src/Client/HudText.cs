@@ -59,6 +59,8 @@ namespace PerformativeMail.Client
         public const string GoKey = "[G]";
         public const string PauseKey = "[Esc]";
         public const string PausedTitle = "PAUSED";
+        /// <summary>Esc with nothing open and others in the run: nothing stops, only the mouse is let go.</summary>
+        public const string MouseReleased = "Mouse let go   ·   a click or " + PauseKey + " takes the view back";
 
         /// <summary>
         /// What the run is waiting for and what the "go" key does about it (doc 01 §1: the host

@@ -102,6 +102,7 @@ namespace PerformativeMail.App
                     Check(!prompt.ShopClosed && hud.PromptText == want && want.StartsWith("Open Shop", StringComparison.Ordinal), $"at the shop's counter in Prep the prompt says \"{hud.PromptText}\"");
                     var sign = _screen.World.GetNodeOrNull<Label3D>("Shop");
                     Check(sign != null && sign.Text == "SHOP", "the shop's counter has no sign");
+                    Check(_screen.Mouse.Wanted, "before the shop's cards are up the mouse is not the view's");
                     Shot("shop-counter");
                     NextShopStep();
                     break;
@@ -114,6 +115,7 @@ namespace PerformativeMail.App
                     var shelf = world.ShopShelf;
                     string want = HudText.ShopText(world);
                     Check(world.ShopOpen && _screen.Inventory.Visible && panel.Visible, "the press of interact at the counter did not put the cards up");
+                    Check(!_screen.Mouse.Wanted, "with the shop's cards up the mouse is not free for them");
                     Check(want.Length > 0 && panel.Text == want, $"the shop shows \"{panel.Text}\", expected \"{want}\"");
                     string cards = string.Join(", ", world.ShopSpecials.Select(d => d.Id)), truth = string.Join(", ", server.ShopSpecials.Select(d => d.Id));
                     Check(cards == truth && panel.SpecialCount == world.ShopSpecials.Count, $"the client's specials are {cards} ({panel.SpecialCount} cards framed), the server's {truth}");
@@ -235,6 +237,9 @@ namespace PerformativeMail.App
                     // The press was this frame's.
                     if (_shopFrames < 4) break;
                     Check(!world.ShopOpen && !_screen.Inventory.Visible, "the press of interact did not take the cards down");
+                    // Issue (c) of the 25fbca5 playtest: no click is needed to look around again.
+                    Check(_screen.Mouse.Wanted && !_screen.Mouse.Released, "with the shop's cards down the mouse is not the view's again");
+                    CheckMouseNote();
                     GD.Print($"[smoke] shop: {world.ShopShelf.Count} cards ({world.ShopSpecials.Count} special), {_shopCard.Name} for {HudText.Money(price)}, "
                         + $"{count - 1} sold back, 1 used, what was gathered sold for {HudText.Money(_shopGathered)}; wallet {HudText.Money(_shopWallet)} -> {HudText.Money(server.Economy.Wallet)}");
                     _shopVisits++;
@@ -323,6 +328,7 @@ namespace PerformativeMail.App
                     string want = HudText.ShopText(world);
                     Check(_screen.Inventory.Visible && panel.Visible && panel.Text == want, $"at Payday the shop shows \"{panel.Text}\", expected \"{want}\"");
                     Check(!hud.Overlay.Visible, "the Payday summary is shown under the shop's cards");
+                    Check(!_screen.Mouse.Wanted, "with the shop's cards up at Payday the mouse is not free for them");
                     Check(_session.Interaction.Prompt.Kind == InteractKind.CloseShop, $"with the cards up at Payday the prompt is {_session.Interaction.Prompt.Kind}");
                     Shot("payday-shop");
                     var shelf = world.ShopShelf;
@@ -370,6 +376,7 @@ namespace PerformativeMail.App
                 case 5:
                     if (_paydayShopFrames < 4) break;
                     Check(hud.Overlay.Visible && !_screen.Inventory.Visible, "the Payday summary is not back when the shop's cards are down");
+                    Check(_screen.Mouse.Wanted, "with the shop's cards down at Payday the mouse is not the view's again");
                     GD.Print($"[smoke] shop at Payday: {MathF.Sqrt((world.Local.X - po.ShopX) * (world.Local.X - po.ShopX) + (world.Local.Z - po.ShopZ) * (world.Local.Z - po.ShopZ)):0} m from the counter, "
                         + $"{_paydayCard!.Name} for {HudText.Money(world.ShopPrice(_paydayCard))} and sold back for {HudText.Money(_paydaySold)}; wallet {HudText.Money(_paydayWallet)} -> {HudText.Money(server.Economy.Wallet)}");
                     _paydayShopVisits++;
@@ -377,6 +384,20 @@ namespace PerformativeMail.App
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;
                     break;
             }
+        }
+
+        /// <summary>Esc with nothing open lets the mouse go; where nothing is paused for it the HUD says so, and a click takes the view back.</summary>
+        private void CheckMouseNote()
+        {
+            var hud = _screen.Hud;
+            var mouse = _screen.Mouse;
+            Check(hud.MouseText.Length == 0, $"with the mouse the view's the HUD says \"{hud.MouseText}\"");
+            mouse.Toggle();
+            hud.Refresh();
+            Check(!mouse.Wanted && hud.MouseText == HudText.MouseReleased, $"with the mouse let go the HUD says \"{hud.MouseText}\"");
+            Check(mouse.Click() && mouse.Wanted, "a click did not take the mouse back");
+            hud.Refresh();
+            Check(hud.MouseText.Length == 0, "the HUD still says the mouse is let go");
         }
 
         /// <summary>After the run: the counter was visited, and the Lobby's is bare.</summary>

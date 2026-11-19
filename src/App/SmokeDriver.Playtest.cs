@@ -381,8 +381,14 @@ namespace PerformativeMail.App
                     }
                     if (world.Global.Phase == RunPhase.Draft)
                     {
-                        // The Draft between the two shifts: a card, and on.
-                        if (!_ptPicked && world.FirstOpenCard >= 0) _ptPicked = client.PickPerk(world.FirstOpenCard) != 0;
+                        // The Draft between the two shifts: a card, with the pointer this time (the full run takes its by key), and on.
+                        if (!_ptPicked && world.ChoosingCard && hud.Draft.Visible)
+                        {
+                            Check(!_screen.Mouse.Wanted, "with the Draft's cards open to the host the mouse is not free for them");
+                            hud.Draft.Click(world.FirstOpenCard);
+                            _ptPicked = hud.Draft.LastRequestId != 0;
+                            Check(_ptPicked, $"a click on card {world.FirstOpenCard + 1} of the Draft did not take it");
+                        }
                         if (_ptFrames > 2 * PlaytestStepFrames) Fail("the Draft did not end");
                         break;
                     }
@@ -393,12 +399,13 @@ namespace PerformativeMail.App
                     Check(world.Results == null && hud.PhaseText.StartsWith(want, StringComparison.Ordinal), $"after the missed quota the HUD phase line is \"{hud.PhaseText}\", expected \"{want} …\"");
                     Check(server.Run.ShiftsCompleted == 0, $"a missed quota counts as {server.Run.ShiftsCompleted} shifts completed");
                     Check(world.Raid == RaidState.None && world.Enemies.Count == 0 && server.Enemies.Count == 0 && hud.RaidText.Length == 0, $"in the next Prep the raid is {world.Raid}, \"{hud.RaidText}\"");
+                    Check(_ptPicked && world.LocalPerks.Count + world.TeamPerks.Count == 1 && _screen.Mouse.Wanted, $"after the Draft the host holds {world.LocalPerks.Count + world.TeamPerks.Count} perks and the mouse is {(_screen.Mouse.Wanted ? "the view's" : "free")}");
                     Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"{client.ContainerDesyncs} desyncs, {client.BadPackets} bad packets");
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
                     GD.Print($"[smoke] playtest: run started at shift {RaidPlaytestShift}; raid announced at the shift's start, {server.EnemiesSpawnedTotal} raiders in {waves.Pulses} pulses (most at once {_ptMostSeen}) felled with "
                         + $"{client.LocalCannonShots - _ptShots} packages out of the cannon ({_screen.Effects.BlastsThatHit - _ptBlastHits} hit) and {client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, protected for {_ptProtected} frames, loot +{HudText.Money(server.Economy.Wallet)}"
-                        + $"; quota missed and waived, on to shift {server.Run.Shift}");
+                        + $"; quota missed and waived, a card of the Draft taken with a click, on to shift {server.Run.Shift}");
                     Finish();
                     break;
                 }

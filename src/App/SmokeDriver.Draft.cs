@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Godot;
 using PerformativeMail.Client;
+using PerformativeMail.Client.Presentation;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Run;
 
@@ -9,12 +10,16 @@ namespace PerformativeMail.App
 {
     /// <summary>
     /// The Draft in the smoke's run: the cards on the screen are the server's, a number key takes
-    /// one, and from the next Prep on the perk is held on both ends and named on the HUD.
+    /// one (a click does in the raid playtest's run), and from the next Prep on the perk is held on
+    /// both ends and named on the HUD. While the cards wait for the host the mouse is the pointer's, and the view's again when
+    /// one is taken; no world label is drawn on them.
     /// </summary>
     public partial class SmokeDriver
     {
-        private int _draftShift, _draftFrames, _drafts, _draftPicks;
+        private int _draftShift, _draftFrames, _drafts, _draftPicks, _draftLabelsUnder;
         private string? _draftPerk;
+        private SizedLabel3D? _draftLabel;
+        private float _draftYaw, _draftPitch;
 
         /// <summary>A frame of the run while the cards lie open.</summary>
         private void StepDraft()
@@ -46,8 +51,14 @@ namespace PerformativeMail.App
                 return;
             }
             if (_draftPerk != null || ++_draftFrames < 2) return;
+            // Laid out by now: the view goes to where a label of the world stands under the cards.
+            if (_draftFrames == 2) AimAtALabel();
+            if (_draftFrames < 4) return;
+            CheckLabelsUnderTheCards();
+            // The cards wait for a click: the mouse is the pointer's (issue (c) of the 25fbca5 playtest).
+            Check(world.ChoosingCard && !_screen.Mouse.Wanted && _screen.Mouse.PanelOpen, $"with the Draft's cards open to the host the mouse is {(_screen.Mouse.Wanted ? "the view's" : "free")}");
 
-            // Laid out by now: the cards stand in the view, clear of the lines at the top.
+            // The cards stand in the view, clear of the lines at the top.
             var box = panel.GetGlobalRect();
             Check(GetViewport().GetVisibleRect().Encloses(box) && box.Position.Y >= hud.TopStack[3].GetGlobalRect().End.Y, $"the Draft panel stands at {box}");
             for (int i = 0; i < panel.CardCount; i++)
@@ -59,6 +70,58 @@ namespace PerformativeMail.App
             if (world.CardState(card) != OpResult.Ok) card = world.FirstOpenCard;
             _draftPerk = world.DraftOffer[card].Id;
             Check(client.PressCardKey(card), $"key {HudText.CardKey(card)} did not take a card ({world.CardState(card)})");
+        }
+
+        /// <summary>The view goes to the nearest label of the world that is drawn in full, and as far under it as puts it in the middle of the cards.</summary>
+        private void AimAtALabel()
+        {
+            var client = _session.Client;
+            var eye = _screen.Camera.GlobalPosition;
+            _draftYaw = client.Input.YawRadians;
+            _draftPitch = client.Input.PitchRadians;
+            _draftLabel = null;
+            float best = float.MaxValue;
+            foreach (var label in SizedLabel3D.Live)
+            {
+                if (label.Slides || !label.IsVisibleInTree()) continue;
+                float distance = eye.DistanceTo(label.GlobalPosition);
+                if (distance < 2f || distance >= best || (label.FadeEnd > 0f && distance > label.FadeStart)) continue;
+                best = distance;
+                _draftLabel = label;
+            }
+            if (_draftLabel == null) return;
+            var at = _draftLabel.GlobalPosition;
+            ViewRay.Aim(client.World!.Local, at.X, at.Y, at.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+            float half = GetViewport().GetVisibleRect().Size.Y * 0.5f;
+            float up = (half - _screen.Hud.Draft.GetGlobalRect().GetCenter().Y) / half;
+            client.Input.PitchRadians -= MathF.Atan(up * MathF.Tan(Mathf.DegToRad(_screen.Camera.Fov) * 0.5f));
+        }
+
+        /// <summary>Issue (d) of the 25fbca5 playtest: what stands under the Draft's cards is not drawn on them.</summary>
+        private void CheckLabelsUnderTheCards()
+        {
+            var client = _session.Client;
+            var camera = _screen.Camera;
+            var rect = _screen.Hud.Draft.GetGlobalRect();
+            var cards = new ScreenBox(rect.Position.X, rect.Position.Y, rect.End.X, rect.End.Y);
+            Check(_screen.Hud.KeepClear().Any(clear => clear.X0 == cards.X0 && clear.Y0 == cards.Y0 && clear.X1 == cards.X1 && clear.Y1 == cards.Y1), "the Draft's cards are not kept clear of world labels");
+            _screen.Labels.Step(0f);
+            float height = GetViewport().GetVisibleRect().Size.Y;
+            foreach (var label in SizedLabel3D.Live)
+            {
+                if (!label.IsVisibleInTree() || camera.IsPositionBehind(label.GlobalPosition)) continue;
+                var at = camera.UnprojectPosition(label.GlobalPosition);
+                float tall = label.ScreenFraction(camera) * height;
+                if (!ScreenBox.Around(at.X, at.Y + label.SlidY, tall * label.Aspect, tall).Overlaps(cards)) continue;
+                if (label == _draftLabel) _draftLabelsUnder++;
+                Check(label.Target <= 0f, $"\"{label.Text}\" at {at} is drawn on the Draft's cards ({rect})");
+            }
+            if (_draftLabel != null)
+            {
+                client.Input.YawRadians = _draftYaw;
+                client.Input.PitchRadians = _draftPitch;
+                _draftLabel = null;
+            }
         }
 
         /// <summary>The first Prep after a card was taken: the perk is the player's, here and on the server.</summary>
@@ -78,6 +141,8 @@ namespace PerformativeMail.App
             bool seen = (perk.Team ? world.TeamPerks : world.LocalPerks).Contains(perk);
             Check(held && seen, $"{perk.Name} was taken: the server {(held ? "has" : "does not have")} it, the client {(seen ? "has" : "does not have")} it");
             Check(!hud.Draft.Visible && world.DraftOffer.Count == 0, "the cards still lie open in Prep");
+            // With the card taken the mouse turns the view again, without a click to take it back.
+            Check(!world.ChoosingCard && _screen.Mouse.Wanted && !_screen.Mouse.Released, $"after the Draft the mouse is not the view's (panel {(_screen.Mouse.PanelOpen ? "open" : "closed")})");
             string tracker = HudText.PerkTracker(world);
             Check(tracker.Length > 0 && hud.PerksText == tracker, $"the perks row says \"{hud.PerksText}\", expected \"{tracker}\"");
             string line = HudText.PerkPicked(world, world.LocalId, perk, auto: false);
@@ -90,6 +155,8 @@ namespace PerformativeMail.App
             var world = _session.Client.World!;
             int drafts = _phases.Count(p => p == RunPhase.Draft);
             Check(drafts >= 1 && _drafts == drafts && _draftPicks == drafts, $"the run had {drafts} Drafts; the smoke saw the cards of {_drafts} and took {_draftPicks} perks");
+            Check(_draftLabelsUnder >= 1, "no label of the world ever stood under the Draft's cards: the check checks nothing");
+            GD.Print($"[smoke] draft: {drafts} Drafts, a card taken by its key in each, the mouse free while they lay open and the view's after; {_draftLabelsUnder} times a label stood under the cards, never drawn");
             Check(world.TeamPerks.Count == 0 && world.LocalPerks.Count == 0 && _screen.Hud.PerksText.Length == 0, "perks of the finished run are still held in the Lobby");
         }
     }

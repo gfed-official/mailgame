@@ -63,6 +63,12 @@ namespace PerformativeMail.Client.UI
         public Control Overlay => _overlay;
         /// <summary>The cards of the Draft while they lie open.</summary>
         public DraftPanel Draft => _draft;
+        /// <summary>Whose the mouse is; without it the HUD says nothing about a mouse let go.</summary>
+        public MouseCapture? Mouse;
+        /// <summary>The line that says the mouse was let go and how to take it back; empty while the view has it, a panel is open or the run is paused.</summary>
+        public string MouseText => _mouseNote.Visible ? _mouseNote.Text : "";
+        /// <summary>The inventory screen: while it is open no world label is drawn on it.</summary>
+        public Control? Panel;
         /// <summary>The tracker row of the run's perks once there are any, else empty.</summary>
         public string PerksText => _perks.Visible ? _perks.Text : "";
         /// <summary>The tick (Match) or cross (Mismatch) drawn beside the prompt right now; Neutral when there is none.</summary>
@@ -78,7 +84,9 @@ namespace PerformativeMail.Client.UI
         /// <summary>
         /// Where no world label may be drawn (nit 14): the top plate and the hint under it, and the
         /// banner while it says something. Not the ring in the middle: the address of the mailbox
-        /// being looked at stands right over it.
+        /// being looked at stands right over it. And every panel that is up (issue (d) of the 25fbca5
+        /// playtest: a guest's name over a corner of the Draft's cards): the cards, the Payday
+        /// summary and the Results, the inventory screen.
         /// </summary>
         public IReadOnlyList<ScreenBox> KeepClear()
         {
@@ -87,7 +95,17 @@ namespace PerformativeMail.Client.UI
             _keepClear.Add(new ScreenBox(top.Position.X, 0f, top.End.X, top.End.Y));
             if (_hint.Visible && _hint.Text.Length > 0) AddClear(_hint, HintClearWidth);
             if (_banner.Visible) AddClear(_banner, BannerClearWidth);
+            AddPanel(_draft);
+            AddPanel(_overlay);
+            AddPanel(Panel);
             return _keepClear;
+        }
+
+        private void AddPanel(Control? panel)
+        {
+            if (panel == null || !panel.Visible) return;
+            var rect = panel.GetGlobalRect();
+            _keepClear.Add(new ScreenBox(rect.Position.X, rect.Position.Y, rect.End.X, rect.End.Y));
         }
 
         /// <summary>A centred line of text keeps <paramref name="width"/> of its row clear, not the whole row it is laid out in.</summary>
@@ -107,7 +125,7 @@ namespace PerformativeMail.Client.UI
 
         private Label _phase = null!, _status = null!, _tally = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!, _perks = null!;
         private DraftPanel _draft = null!;
-        private Label _prompt = null!, _held = null!, _hint = null!, _paused = null!, _banner = null!, _hp = null!, _weapons = null!;
+        private Label _prompt = null!, _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
         private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
         private ColorRect _hurt = null!;
         private LootPanel _loot = null!;
@@ -166,6 +184,11 @@ namespace PerformativeMail.Client.UI
             _paused = AddLabel("Paused", 44, 0.5f, 0.6f, -300f, -32f, 300f, 32f, HorizontalAlignment.Center);
             _paused.Text = HudText.PausedTitle;
             _paused.Visible = false;
+            // Where PAUSED stands in a solo run: with others in the run Esc only lets the mouse go, and the screen has to say so.
+            _mouseNote = AddLabel("MouseNote", 20, 0.5f, 0.6f, -400f, -16f, 400f, 16f, HorizontalAlignment.Center);
+            _mouseNote.Text = HudText.MouseReleased;
+            _mouseNote.Modulate = Palette.Amber;
+            _mouseNote.Visible = false;
 
             // Payday summary / run results: a panel that sizes itself to its lines, upper middle of the screen.
             _overlay = new PanelContainer
@@ -189,6 +212,7 @@ namespace PerformativeMail.Client.UI
 
             // The cards of the Draft, where the Payday summary stood a moment ago.
             _draft = new DraftPanel();
+            _draft.Setup(client);
             AddChild(_draft);
 
             // First person: the ring marks the exact point the interact ray leaves from.
@@ -342,7 +366,9 @@ namespace PerformativeMail.Client.UI
             _hint.Text = lost ? HudText.HostLostHint : HudText.PhaseHint(world);
             _paused.Visible = world.Paused || lost;
             _paused.Text = lost ? HudText.HostLostTitle : HudText.PausedTitle;
+            _mouseNote.Visible = Mouse != null && Mouse.Released && !Mouse.PanelOpen && !_paused.Visible;
             RefreshOverlay(world);
+            _draft.Mouse = Mouse;
             _draft.Refresh(world);
 
             // Health, stamina, and what the fight asks of the player.

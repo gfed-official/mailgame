@@ -150,6 +150,42 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void ANameOverAPanelGoesUnderItsEdge_OrIsLeftOut_AndIsNeverDrawnOnIt()
+        {
+            // Issue (d) of the 25fbca5 playtest: "Guest" over a corner of the Draft's cards. The cards on a 1280 x 720 screen.
+            var draft = new ScreenBox(210f, 144f, 1070f, 470f);
+            var hud = new[] { TopLines[0], TopLines[1], draft };
+
+            // Over the lower corner: the name is drawn right under the panel.
+            var corner = Label(250f, 450f, 4f, rank: 2);
+            corner.Slides = true;
+            // Over the upper corner the way down is too long: no name beats one across the cards.
+            var top = Label(1040f, 150f, 3f, rank: 2);
+            top.Slides = true;
+            // Before the host's face, on the HUD's top lines: under those lie the cards.
+            var face = Label(520f, 60f, 1.2f, rank: 2);
+            face.Slides = true;
+            // An address under the cards does not slide; one beside them stays.
+            var address = Label(640f, 300f, 6f, rank: 1);
+            var beside = Label(120f, 300f, 6f, rank: 1);
+            var labels = new List<LabelCandidate> { corner, top, face, address, beside };
+
+            LabelDeclutter.Resolve(labels, hud);
+
+            Assert.True(corner.Shown);
+            Assert.Equal(470f, corner.Box.Y0);
+            Assert.Equal(35f, corner.SlideY);
+            Assert.False(top.Shown);
+            Assert.Equal(0f, top.SlideY);
+            Assert.False(face.Shown);
+            Assert.Equal(0f, face.SlideY);
+            Assert.False(address.Shown);
+            Assert.True(beside.Shown);
+            foreach (var label in labels)
+                if (label.Shown) Assert.DoesNotContain(hud, clear => label.Box.Overlaps(clear));
+        }
+
+        [Fact]
         public void AHigherRankWinsOverANearerLabel()
         {
             var number = Label(640f, 360f, 4f, rank: 0);

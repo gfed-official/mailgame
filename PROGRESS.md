@@ -420,9 +420,39 @@ on b44a177; what was still there is fixed, what was already gone is pinned by a 
       the back to it — none; the report's seat facing the Intake gets the Intake, turned to the
       counter the shop and E opens it; a shut counter only answers to the crosshair)
       (design choice 74)
-- [ ] (c) The mouse is not recaptured after the Draft or after closing the shop
-- [ ] (d) The Guest's nameplate over a corner of the Draft panel
-- [ ] (e) Harvesting has no client UI
+- [x] (c) The mouse is not recaptured after the Draft or after closing the shop — **still
+      there** in two ways: whether the mouse was the view's hung on three flags spread over
+      the input node (a pause wish, a "UI open" setter, the last mode set), written once on the
+      change and never looked at again, so a grab lost to the window manager or to an Esc with
+      nothing open stayed lost without a word on screen; and the Draft's cards could only be
+      taken by key, so a carrier who went for the pointer in the Draft pressed Esc for it and
+      came out of the Draft with a free mouse. Now one rule, `MouseCapture` (Godot-free): the
+      mouse is the view's unless a panel is open or Esc let it go; **closing a panel always
+      gives it back**, whatever was pressed before; the mode is set anew every frame and
+      grabbed again when the window gets the focus back. **The Draft is a panel**: while a card
+      is still to be taken the pointer is free and a click on a card takes it (the keys still
+      do), Esc sets the cards aside for a look around, and with the pick the view is the
+      mouse's again. With the mouse let go outside a panel the HUD says so ("Mouse let go · a
+      click or [Esc] takes the view back"), and that click is not a swing. `MouseCaptureTests`
+      (4), `DraftFlowTests` (`ChoosingCard`); the smoke checks the rule after every panel it
+      opens and shuts (shop by E, by C, at Payday, the Draft by key in the full run and by a
+      click on the card in the raid run) and the HUD's note. Checked in a window with real X
+      input (Xvfb, xdotool): the view turns with the mouse in Prep, not with the shop open,
+      again right after C closes it, a real click on a Draft card takes it and the view turns
+      in the next Prep, Esc frees the pointer and a click takes it back (design choice 75)
+- [x] (d) The Guest's nameplate over a corner of the Draft panel — **still there**: the world's
+      labels kept clear of the HUD's plates, prompt and hint, but not of its panels. The
+      Draft's cards, the Payday / Results panel and the inventory screen (with chest and shop)
+      are now in `Hud.KeepClear()`: a name over a panel slides under its edge if that is near
+      (240 px), else it is left out; signs and house numbers behind a panel are not drawn.
+      `LabelDeclutterTests` (1 new: a name over a corner, over the middle, beside the panel);
+      in every Draft the smoke turns the host to a label of the world so that it lies under
+      the cards and checks that none is drawn on them (design choice 76)
+- [x] (e) Harvesting has no client UI — **gone on b44a177** (the report tested the commit
+      before): prompt with yield and hits left, the hold bar, the swing, the feed's count, bare
+      and full nodes, berries and ore — "The nodes on screen" in section 3. Pinned by
+      `HarvestFlowTests` (4) and the smoke's harvest steps; looked at again on the current tree
+      in a window.
 
 ### 3. Further features from `design/drive/`, in milestone order
 
@@ -1271,6 +1301,23 @@ See "Commands" at the bottom (filled in as the tooling lands).
     a mailbox or a node under the crosshair is never taken over by a counter beside it. A shut
     counter (Delivery, Lobby) answers "closed" to the crosshair only: nobody walking past the
     Post Office with mail in hand is told about the shop.
+75. **Whose the mouse is; the Draft is a panel with cards to click** (playtest 25fbca5, issue
+    c). Doc 09 §2.10 draws the Draft's cards and says nothing of how one is taken; the keys
+    1–3 were the only way. A carrier fresh from the shop's clickable cards reaches for the
+    pointer, so the Draft now frees it — only for who still has a card to take
+    (`ClientWorld.ChoosingCard`); who has chosen, or was given a card by the clock, looks
+    around again while the others think. Esc in the Draft sets the cards aside (they stay on
+    screen, keys still work) rather than releasing the mouse a second way. Esc with nothing
+    open still lets the mouse go — a solo host's pause, and in multiplayer the way to the
+    desktop — but the HUD now says so, and the first click into the view only takes the mouse
+    back. `MouseCapture` lives in `src/Client` without Godot so the rule has unit tests; the
+    input node applies it every frame, which costs a property read.
+76. **Panels are kept clear of the world's labels** (playtest 25fbca5, issue d). A panel's
+    ground is translucent — the street stays in sight behind the cards — and a bright name
+    tag, drawn without depth test to be seen through walls, shows through it as if it lay on
+    top of the cards' text. Rather than making the panels opaque, the declutterer's keep-clear
+    list (HUD plates, prompt, hint) takes the visible panels too; a tag there slides under the
+    panel's edge or is left out, like under any plate.
 
 ## Commands
 
@@ -1340,8 +1387,11 @@ in Delivery the close-up checks below run at 3 ticks per frame; after them the r
 fast-forwarded at 30 ticks per frame with the bot delivering, and at every Payday and at Results the
 panel on screen must equal `HudText` of the server's summary / results; in the Draft between the
 shifts the cards on screen must be the server's and read as `HudText.DraftText` says, none greyed,
-inside the view and under the top lines, with the hint naming the keys; the smoke presses a card's
-key, and in the next Prep the perk must be held on the server and the client, counted on the
+inside the view and under the top lines, with the hint naming the keys; the host is turned so
+that a label of the world lies under the cards, and none may be drawn on them; the pointer must
+be free while the cards are open and the view's again once the card is taken (as after every
+panel the smoke opens and shuts); the smoke presses a card's
+key (in the raid run it clicks the card), and in the next Prep the perk must be held on the server and the client, counted on the
 "Perks" plate and named in the feed; in the first Prep the counter serves the host first works
 the land at a tick a frame: beside a Bush the prompt must read as `HudText.Prompt` says, E held
 must fill the bar and take the three hits in three swings and no fewer than 51 ticks, the Fiber

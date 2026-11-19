@@ -385,6 +385,9 @@ namespace PerformativeMail.Net.Tests
                 HudText.DraftCard(a, legs));
             Assert.Equal(new[] { $"[{hands + 1}]  Quick Hands", "CARRIER   ·   RARE", "Mailbox insert hold -50%.", "Personal perk", "" }, HudText.DraftCard(a, hands));
             Assert.Equal("Take a perk: [1] [2] [3]   ·   0 / 2 have chosen", HudText.PhaseHint(a));
+            // Both have a card to take: until they have, the mouse is the pointer's and a card takes a click.
+            Assert.True(a.ChoosingCard);
+            Assert.True(b.ChoosingCard);
             Assert.Equal("Shift 1 / 5   DRAFT 00:30", HudText.ShiftAndPhase(a));
             Assert.Equal("You: Long Legs", HudText.Perks(a));
             Assert.Equal("Perks   ·   team 0   ·   yours 1", HudText.PerkTracker(a));
@@ -406,6 +409,9 @@ namespace PerformativeMail.Net.Tests
             Assert.True(bo.PressCardKey(rep));
             s.Run(10);
             Assert.Equal(rep, b.LocalDraftPick);
+            // Bo has chosen and has the view back, while the cards still lie before Ada.
+            Assert.False(b.ChoosingCard);
+            Assert.True(a.ChoosingCard);
             Assert.Equal("Taken for the team by you", HudText.CardNote(b, rep));
             Assert.Equal("Taken for the team by Bo", HudText.CardNote(a, rep));
             Assert.Equal("You took Union Rep   ·   waiting for 1 more", HudText.PhaseHint(b));
@@ -422,6 +428,7 @@ namespace PerformativeMail.Net.Tests
             Assert.True(ada.PressCardKey(legs));
             s.Run(10);
             Assert.Equal((RunPhase.Prep, 2), (sim.Run.Phase, sim.Run.Shift));
+            Assert.False(a.ChoosingCard);
             Assert.Equal(new[] { "legs", "legs" }, adaTruth.Perks.Select(p => p.Id));
             Assert.Equal("", HudText.DraftText(a));
             Assert.Equal("Team: Union Rep   ·   You: Long Legs x2", HudText.Perks(a));

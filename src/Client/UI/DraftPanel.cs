@@ -12,7 +12,8 @@ namespace PerformativeMail.Client.UI
     /// category badge, a frame in the colour of its rarity, what it does and whose it will be. A
     /// card somebody took says who as soon as they did; one that is not open to the local player
     /// is greyed, their own is framed in green. Under the cards the Draft's seconds as a bar and
-    /// the perks of the run so far. Every string comes from <see cref="HudText"/>.
+    /// the perks of the run so far. Every string comes from <see cref="HudText"/>. A card takes a
+    /// click as it takes its key; until the local player has chosen, the mouse is the pointer's.
     /// </summary>
     public partial class DraftPanel : PanelContainer
     {
@@ -35,6 +36,7 @@ namespace PerformativeMail.Client.UI
         private static readonly int[] FontSizes = { 20, 12, 16, 13, 14 };
 
         private readonly List<Card> _cards = new List<Card>();
+        private ClientRuntime? _client;
         private readonly Label _title;
         private readonly HBoxContainer _row;
         private readonly MeterBar _clock;
@@ -65,6 +67,16 @@ namespace PerformativeMail.Client.UI
         public float ClockShown => _clock.Value;
         /// <summary>The cards, left to right, for the smoke's "nothing is clipped" check.</summary>
         public Control CardAt(int card) => _cards[card].Panel;
+        /// <summary>The request the last click on a card sent; 0 if it sent none (the card was not open).</summary>
+        public uint LastRequestId { get; private set; }
+
+        /// <summary>Whose the mouse is: a card takes a click only while it is the pointer's, not the click of a swing with the cards set aside.</summary>
+        public MouseCapture? Mouse;
+
+        public void Setup(ClientRuntime client) => _client = client;
+
+        /// <summary>A click on a card: what its key does.</summary>
+        public void Click(int card) => LastRequestId = _client?.PickPerk(card) ?? 0;
 
         public DraftPanel()
         {
@@ -107,6 +119,7 @@ namespace PerformativeMail.Client.UI
             _title.Text = HudText.DraftTitle(world);
             while (_cards.Count < world.DraftOffer.Count) AddCard();
             int pick = world.LocalDraftPick, greyed = 0;
+            bool pointer = Mouse == null || !Mouse.Wanted;
             for (int i = 0; i < _cards.Count; i++)
             {
                 var card = _cards[i];
@@ -122,6 +135,9 @@ namespace PerformativeMail.Client.UI
                 card.Frame.BorderColor = own ? Palette.Match : rarity;
                 card.Frame.SetBorderWidthAll(own ? 3 : 2);
                 card.Panel.Modulate = live ? Colors.White : new Color(1f, 1f, 1f, 0.42f);
+                bool takes = live && !own && pointer;
+                card.Panel.MouseFilter = takes ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
+                card.Panel.MouseDefaultCursorShape = takes ? CursorShape.PointingHand : CursorShape.Arrow;
                 card.Lines[Badge].Modulate = rarity;
                 card.Lines[Note].Visible = lines[Note].Length > 0;
                 card.Lines[Note].Modulate = own ? Palette.Match : Palette.Amber;
@@ -166,6 +182,11 @@ namespace PerformativeMail.Client.UI
                 card.Lines[l] = label;
                 lines.AddChild(label);
             }
+            int place = _cards.Count;
+            card.Panel.GuiInput += ev =>
+            {
+                if (ev is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) Click(place);
+            };
             _cards.Add(card);
             _row.AddChild(card.Panel);
         }

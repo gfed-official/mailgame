@@ -1,4 +1,5 @@
 using Godot;
+using PerformativeMail.Client;
 using PerformativeMail.Client.InputHandling;
 using PerformativeMail.Client.Presentation;
 using PerformativeMail.Client.UI;
@@ -23,10 +24,12 @@ namespace PerformativeMail.App
         public Hud Hud { get; private set; } = null!;
         public InventoryPanel Inventory { get; private set; } = null!;
         public LabelDeclutterer Labels { get; private set; } = null!;
+        /// <summary>Whose the mouse is: the view's, or the pointer's while a panel is open (or it was let go).</summary>
+        public MouseCapture Mouse { get; } = new MouseCapture();
 
         private GameSession _session = null!;
         private PlayerInputController? _input;
-        private bool _inventoryOpen;
+        private bool _inventoryOpen, _draftAside;
 
         /// <param name="humanInput">False when something else (the smoke's bot) drives the client.</param>
         public void Setup(GameSession session, bool humanInput)
@@ -63,9 +66,11 @@ namespace PerformativeMail.App
             layer.AddChild(Hud);
             Hud.Profile = session.Profile;
             Hud.Setup(client, session.Interaction, session.Feed);
+            Hud.Mouse = Mouse;
             Inventory = new InventoryPanel();
             layer.AddChild(Inventory);
             Inventory.Setup(client);
+            Hud.Panel = Inventory;
 
             // World labels thin out with distance, give way to nearer ones and stay off the HUD.
             Labels = new LabelDeclutterer { Name = "Labels", KeepClear = Hud.KeepClear };
@@ -73,10 +78,12 @@ namespace PerformativeMail.App
 
             if (!humanInput) return;
             _input = new PlayerInputController { Name = "Input" };
-            _input.Setup(client, session.Interaction);
+            _input.Setup(client, session.Interaction, Mouse);
             _input.InventoryToggled += () => _inventoryOpen = !_inventoryOpen;
             _input.Cancelled += () =>
             {
+                // Esc closes what is open; with only the Draft's cards up it sets them aside, to look around before choosing by key.
+                if (!InventoryOpen(client.World)) _draftAside = true;
                 _inventoryOpen = false;
                 client.CloseContainer();
                 client.CloseShop();
@@ -91,11 +98,15 @@ namespace PerformativeMail.App
             if (world == null) return;
             Camera.Target = Players.LocalView;
             if (DriveAtmosphere) World.Atmosphere.TargetNight = NightFor(world.Raid);
-            // The shop's cards stand on the inventory screen, like an open chest.
-            bool open = _inventoryOpen || world.OpenContainerId != 0 || world.ShopOpen;
+            bool open = InventoryOpen(world);
             Inventory.Visible = open;
-            if (_input != null) _input.UiOpen = open;
+            // The Draft's cards take a click until the local player has chosen; then the mouse is the view's again.
+            if (!world.ChoosingCard) _draftAside = false;
+            Mouse.SetPanelOpen(open || (world.ChoosingCard && !_draftAside));
         }
+
+        /// <summary>The shop's cards stand on the inventory screen, like an open chest.</summary>
+        private bool InventoryOpen(ClientWorld? world) => _inventoryOpen || (world != null && (world.OpenContainerId != 0 || world.ShopOpen));
 
         /// <summary>Dusk falls with the warning, night with the raiders, and the day is back when they are gone.</summary>
         public static float NightFor(RaidState raid) => raid == RaidState.None ? 0f : raid == RaidState.Warning ? 0.55f : 1f;

@@ -374,6 +374,9 @@ namespace PerformativeMail.Client
             }
         }
 
+        /// <summary>The Draft's cards lie before the local player and one of them is still theirs to take: a click or a key takes it.</summary>
+        public bool ChoosingCard => Global.Phase == RunPhase.Draft && FirstOpenCard >= 0;
+
         internal void AddPerk(EntityId holder, PerkDef perk)
         {
             if (perk.Team)

@@ -19,30 +19,19 @@ namespace PerformativeMail.Client.InputHandling
         /// <summary>Raised on pause/escape; the screen closes whatever is open.</summary>
         public event Action? Cancelled;
 
-        /// <summary>While true (a panel is open) the character stands still and the mouse is free.</summary>
-        public bool UiOpen
-        {
-            get => _uiOpen;
-            set
-            {
-                if (_uiOpen == value) return;
-                _uiOpen = value;
-                ApplyMouseMode();
-            }
-        }
-
         private ClientRuntime _client = null!;
         private InteractionController _interaction = null!;
         private readonly HotbarAssist _assist = new HotbarAssist();
-        private bool _uiOpen;
-        private bool _wantCapture = true;
+        private MouseCapture _mouse = null!;
         private bool _deliverAllQueued, _interactTapped, _attackSwallowed;
         private uint _pauseRequest;
 
-        public void Setup(ClientRuntime client, InteractionController interaction)
+        /// <param name="mouse">Whose the mouse is; the screen says when a panel is open, the keys and clicks here do the rest.</param>
+        public void Setup(ClientRuntime client, InteractionController interaction, MouseCapture mouse)
         {
             _client = client;
             _interaction = interaction;
+            _mouse = mouse;
             client.RequestCompleted += (request, _) => { if (request.RequestId == _pauseRequest) _pauseRequest = 0; };
         }
 
@@ -56,6 +45,18 @@ namespace PerformativeMail.Client.InputHandling
 
         public override void _Ready() => ApplyMouseMode();
 
+        /// <summary>Every frame, so that the mouse is the view's again with the frame a panel closes (issue (c) of the 25fbca5 playtest).</summary>
+        public override void _Process(double delta) => ApplyMouseMode();
+
+        public override void _Notification(int what)
+        {
+            // A grab does not outlive another window having had the pointer: back in front, the view takes it anew.
+            if (what != NotificationApplicationFocusIn && what != NotificationWMWindowFocusIn) return;
+            if (_mouse == null || !_mouse.Wanted || DisplayServer.GetName() == "headless") return;
+            Godot.Input.MouseMode = Godot.Input.MouseModeEnum.Visible;
+            Godot.Input.MouseMode = Godot.Input.MouseModeEnum.Captured;
+        }
+
         public override void _ExitTree() => Godot.Input.MouseMode = Godot.Input.MouseModeEnum.Visible;
 
         public override void _UnhandledInput(InputEvent ev)
@@ -67,15 +68,14 @@ namespace PerformativeMail.Client.InputHandling
                     return;
 
                 case InputEventMouseButton button when button.Pressed:
-                    if (!_uiOpen && !Captured && button.ButtonIndex == MouseButton.Left)
+                    if (button.ButtonIndex == MouseButton.Left && _mouse.Click())
                     {
                         // The click that takes the mouse back is not a swing of the hammer.
                         _attackSwallowed = true;
-                        _wantCapture = true;
                         ApplyMouseMode();
                     }
-                    else if (!_uiOpen && button.ButtonIndex == MouseButton.WheelUp) CycleSlot(-1);
-                    else if (!_uiOpen && button.ButtonIndex == MouseButton.WheelDown) CycleSlot(1);
+                    else if (!UiOpen && button.ButtonIndex == MouseButton.WheelUp) CycleSlot(-1);
+                    else if (!UiOpen && button.ButtonIndex == MouseButton.WheelDown) CycleSlot(1);
                     return;
 
                 case InputEventKey key when key.Pressed && !key.Echo:
@@ -100,10 +100,10 @@ namespace PerformativeMail.Client.InputHandling
             }
             else if (ev.IsActionPressed(InputActions.Pause))
             {
-                if (_uiOpen) Cancelled?.Invoke();
+                if (UiOpen) Cancelled?.Invoke();
                 else
                 {
-                    _wantCapture = !_wantCapture;
+                    _mouse.Toggle();
                     ApplyMouseMode();
                 }
             }
@@ -111,7 +111,7 @@ namespace PerformativeMail.Client.InputHandling
             // A tap can start and end between two frames, where polling never sees it held.
             else if (ev.IsActionPressed(InputActions.Interact)) _interactTapped = true;
             else if (ev.IsActionPressed(InputActions.Go) && !Paused) _client.PressGo();
-            else if (ev.IsActionPressed(InputActions.Use) && !_uiOpen) _client.UseHeld();
+            else if (ev.IsActionPressed(InputActions.Use) && !UiOpen) _client.UseHeld();
             else if (ev.IsActionPressed(InputActions.Shop) && !Paused) _client.ToggleShop();
         }
 
@@ -123,7 +123,7 @@ namespace PerformativeMail.Client.InputHandling
         {
             var world = _client.World;
             if (world == null || _pauseRequest != 0) return;
-            bool want = !_wantCapture;
+            bool want = _mouse.Released;
             if (want == world.Paused || (want && !world.CanPause)) return;
             _pauseRequest = _client.SetPaused(want);
         }
@@ -132,11 +132,11 @@ namespace PerformativeMail.Client.InputHandling
         public void Sample(double delta)
         {
             SyncPause();
-            var move = _uiOpen
+            var move = UiOpen
                 ? Vector2.Zero
                 : Godot.Input.GetVector(InputActions.MoveLeft, InputActions.MoveRight, InputActions.MoveForward, InputActions.MoveBack);
 
-            if (!_uiOpen)
+            if (!UiOpen)
             {
                 float lookX = Godot.Input.GetJoyAxis(0, JoyAxis.RightX), lookY = Godot.Input.GetJoyAxis(0, JoyAxis.RightY);
                 if (Mathf.Abs(lookX) > 0.2f || Mathf.Abs(lookY) > 0.2f)
@@ -151,14 +151,14 @@ namespace PerformativeMail.Client.InputHandling
             _client.Input.MoveZ = -move.X * sin - forward * cos;
 
             var buttons = InputButtons.None;
-            bool interact = !_uiOpen && Godot.Input.IsActionPressed(InputActions.Interact);
-            if (!_uiOpen && Godot.Input.IsActionPressed(InputActions.Sprint)) buttons |= InputButtons.Sprint;
-            if (!_uiOpen && Godot.Input.IsActionPressed(InputActions.Jump)) buttons |= InputButtons.Jump;
+            bool interact = !UiOpen && Godot.Input.IsActionPressed(InputActions.Interact);
+            if (!UiOpen && Godot.Input.IsActionPressed(InputActions.Sprint)) buttons |= InputButtons.Sprint;
+            if (!UiOpen && Godot.Input.IsActionPressed(InputActions.Jump)) buttons |= InputButtons.Jump;
             if (interact) buttons |= InputButtons.Interact;
             // The weapons are in the hands only while the view is the player's: not under a panel, not with the mouse let go.
             bool attack = Godot.Input.IsActionPressed(InputActions.Attack);
             if (!attack) _attackSwallowed = false;
-            bool armed = !_uiOpen && (Captured || DisplayServer.GetName() == "headless");
+            bool armed = !UiOpen && (Captured || DisplayServer.GetName() == "headless");
             if (armed && attack && !_attackSwallowed) buttons |= InputButtons.Attack;
             if (armed && Godot.Input.IsActionPressed(InputActions.AltAttack)) buttons |= InputButtons.AltAttack;
             _client.Input.Buttons = buttons;
@@ -166,12 +166,15 @@ namespace PerformativeMail.Client.InputHandling
             // The Intake closes with the same key that opened it, so interact stays live under the panel.
             bool interactKey = Godot.Input.IsActionPressed(InputActions.Interact);
             _assist.Update(_client);
-            _interaction.Update(delta, interactKey, _deliverAllQueued && !_uiOpen, _interactTapped);
+            _interaction.Update(delta, interactKey, _deliverAllQueued && !UiOpen, _interactTapped);
             _deliverAllQueued = false;
             _interactTapped = false;
         }
 
         private bool Paused => _client.World != null && _client.World.Paused;
+
+        /// <summary>While a panel is open the character stands still and the mouse is free.</summary>
+        private bool UiOpen => _mouse.PanelOpen;
 
         private bool Captured => Godot.Input.MouseMode == Godot.Input.MouseModeEnum.Captured;
 
@@ -185,7 +188,8 @@ namespace PerformativeMail.Client.InputHandling
         {
             // No pointer to grab without a window.
             if (DisplayServer.GetName() == "headless") return;
-            Godot.Input.MouseMode = _wantCapture && !_uiOpen ? Godot.Input.MouseModeEnum.Captured : Godot.Input.MouseModeEnum.Visible;
+            var mode = _mouse.Wanted ? Godot.Input.MouseModeEnum.Captured : Godot.Input.MouseModeEnum.Visible;
+            if (Godot.Input.MouseMode != mode) Godot.Input.MouseMode = mode;
         }
     }
 }
