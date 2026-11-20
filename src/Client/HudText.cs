@@ -639,6 +639,132 @@ namespace PerformativeMail.Client
             }
         }
 
+        // --- building by hand (doc 04 §1, doc 09 §2.7) --------------------------------------------
+
+        /// <summary>A chest of the map, or one the carriers built.</summary>
+        private static string ChestTitle(in InteractPrompt p) =>
+            p.Chest != null ? ContainerTitle(p.Chest.Container) : p.Built?.Def.Container != null ? ContainerTitle(p.Built.Def.Container) : "Chest";
+
+        /// <summary>The keys of Build mode, over the hotbar while it is up.</summary>
+        public const string BuildKeys = "[LMB] build   [R] turn   [hold RMB] take down   [Q] pick   [B] done";
+
+        /// <summary>A recipe on the bar: "[1] Wooden Wall · Log x3".</summary>
+        public static string RecipeCard(RecipeDef recipe, int key) =>
+            $"[{(key + 1).ToString(CultureInfo.InvariantCulture)}] {recipe.Building.Name}   ·   {Inputs(recipe.Inputs, 1.0)}";
+
+        /// <summary>"Log x3", "Log x3, Rope x1": what a recipe takes, or the part of it that comes back.</summary>
+        public static string Inputs(IReadOnlyList<RecipeInput> inputs, double part, int hp = 1, int maxHp = 1)
+        {
+            var parts = new List<string>();
+            foreach (var input in inputs)
+            {
+                int n = BuildRules.Refund(input.Count, part, hp, maxHp);
+                if (n > 0) parts.Add($"{input.Item.Name} {Count(n)}");
+            }
+            return parts.Count == 0 ? "nothing" : string.Join(", ", parts);
+        }
+
+        /// <summary>"Missing 2 Log": what the pockets lack of a recipe.</summary>
+        public static string Missing(ClientWorld world, RecipeDef recipe)
+        {
+            var parts = new List<string>();
+            foreach (var input in recipe.Inputs)
+            {
+                int lack = input.Count - BuildRules.Have(world.Hotbar, world.Inventory, input.Item);
+                if (lack > 0) parts.Add($"{lack.ToString(CultureInfo.InvariantCulture)} {input.Item.Name}");
+            }
+            return "Missing " + string.Join(", ", parts);
+        }
+
+        /// <summary>Why a recipe cannot go on a tile (doc 09 §2.7: "On street", "Missing 2 Iron Ingot").</summary>
+        public static string PlaceReason(ClientWorld world, RecipeDef recipe, OpResult state)
+        {
+            switch (state)
+            {
+                case OpResult.OnStreet: return "On the street: it stays open for the mail";
+                case OpResult.Blocked: return "Something stands there";
+                case OpResult.Occupied: return "Somebody is in the way";
+                case OpResult.OutOfRange: return "Too far away";
+                case OpResult.MissingMaterials: return Missing(world, recipe);
+                case OpResult.NeedsBlueprint: return $"Needs the {recipe.Blueprint?.Name ?? "blueprint"} from the shop";
+                case OpResult.RecipeLocked: return $"From shift {recipe.UnlockShift.ToString(CultureInfo.InvariantCulture)}";
+                case OpResult.WrongPhase: return BuildClosed;
+                case OpResult.Dead: return "Not while you are down";
+                default: return "Cannot be built here";
+            }
+        }
+
+        public const string BuildClosed = "Building is done in Prep and during Delivery";
+
+        /// <summary>The prompt line in Build mode: the ghost's verdict, or what taking down what is looked at gives back.</summary>
+        public static string BuildPrompt(ClientWorld world, in BuildGhost g, out PromptTone tone)
+        {
+            tone = PromptTone.Neutral;
+            var recipe = g.Recipe;
+            if (recipe == null) return "";
+            switch (g.Aim)
+            {
+                case BuildAim.Place:
+                    if (g.State == OpResult.Ok)
+                    {
+                        tone = PromptTone.Match;
+                        return $"Build {recipe.Building.Name}   ·   {Inputs(recipe.Inputs, 1.0)}   [LMB]";
+                    }
+                    tone = PromptTone.Mismatch;
+                    return $"{recipe.Building.Name}   ·   {PlaceReason(world, recipe, g.State)}";
+                case BuildAim.Construct:
+                {
+                    var built = g.Target!;
+                    string name = built.Def.Name;
+                    string hp = built.Hp < built.Def.Hp ? $"   ·   {built.Hp.ToString(CultureInfo.InvariantCulture)}/{built.Def.Hp.ToString(CultureInfo.InvariantCulture)} HP" : "";
+                    string back = Inputs(built.Def.Recipe.Inputs, world.RefundRatio, built.Hp, built.Def.Hp);
+                    switch (g.State)
+                    {
+                        case OpResult.Ok: return $"Take down {name}   ·   {back} back{hp}   [hold RMB]";
+                        case OpResult.NotEmpty: tone = PromptTone.Mismatch; return $"{name}   ·   empty it first to take it down";
+                        case OpResult.DoesNotFit: tone = PromptTone.Mismatch; return $"{name}   ·   no room in your pockets for {back}";
+                        case OpResult.OutOfRange: tone = PromptTone.Mismatch; return $"{name}   ·   too far away to take down{hp}";
+                        default: tone = PromptTone.Mismatch; return $"{name}{hp}";
+                    }
+                }
+                default:
+                    return $"Build {recipe.Building.Name}   ·   look at open ground";
+            }
+        }
+
+        /// <summary>Why a build or a take-down came to nothing, where the prompt had not said so already.</summary>
+        public static string BuildRefused(OpResult result)
+        {
+            switch (result)
+            {
+                case OpResult.Occupied: return "Somebody stepped in the way";
+                case OpResult.Blocked: return "Something stands there now";
+                case OpResult.MissingMaterials: return "You do not have the materials";
+                case OpResult.NotEmpty: return "Empty the chest first";
+                case OpResult.DoesNotFit: return "No room in your pockets";
+                case OpResult.OutOfRange: return "Too far away";
+                case OpResult.WrongPhase: return BuildClosed;
+                default: return "";
+            }
+        }
+
+        /// <summary>The event feed's line for what was built.</summary>
+        public static string Built(ClientWorld world, EntityId player, BuildingDef def)
+        {
+            bool me = player == world.LocalId;
+            string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            return $"{who} built {WithArticle(def.Name)}";
+        }
+
+        /// <summary>The event feed's line for what is gone: taken down, or broken by the raiders.</summary>
+        public static string Unbuilt(ClientWorld world, EntityId player, BuildingDef def, bool destroyed)
+        {
+            if (destroyed) return $"The raiders broke {WithArticle(def.Name)}";
+            bool me = player == world.LocalId;
+            string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            return $"{who} took down {WithArticle(def.Name)}";
+        }
+
         /// <summary>The event feed's line for the specials of the shift that begins; empty when there are none.</summary>
         public static string ShopSpecials(ClientWorld world)
         {
@@ -684,8 +810,8 @@ namespace PerformativeMail.Client
             {
                 case InteractKind.OpenIntake: return "Open Intake  [E]";
                 case InteractKind.CloseIntake: return "Close Intake  [E]";
-                case InteractKind.OpenChest: return $"Open {ContainerTitle(p.Chest!.Container)}  [E]";
-                case InteractKind.CloseChest: return $"Close {ContainerTitle(p.Chest!.Container)}  [E]";
+                case InteractKind.OpenChest: return $"Open {ChestTitle(p)}  [E]";
+                case InteractKind.CloseChest: return $"Close {ChestTitle(p)}  [E]";
                 case InteractKind.OpenBag: return $"Open {BagName(world, p.Bag!.Owner)}  [E]   ·   gone in {Clock(world.BagSecondsLeft(p.Bag))}";
                 case InteractKind.CloseBag: return $"Close {BagName(world, p.Bag!.Owner)}  [E]   ·   gone in {Clock(world.BagSecondsLeft(p.Bag))}";
                 case InteractKind.OpenShop:

@@ -36,6 +36,9 @@ namespace PerformativeMail.Client.InputHandling
         /// </summary>
         public const string Shop = "shop";
 
+        /// <summary>Build mode (doc 09 §4: B).</summary>
+        public const string Build = "build";
+
         private static readonly HashSet<string> Created = new HashSet<string>();
 
         public static void Register()
@@ -54,6 +57,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Rotate, Key.R);
             BindKey(Use, Key.Q);
             BindKey(Shop, Key.C);
+            BindKey(Build, Key.B);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);
 
@@ -69,6 +73,7 @@ namespace PerformativeMail.Client.InputHandling
             BindButton(Go, JoyButton.Back);
             BindButton(Use, JoyButton.B);
             BindButton(Shop, JoyButton.DpadUp);
+            BindButton(Build, JoyButton.LeftShoulder);
             BindAxis(Attack, JoyAxis.TriggerRight, 1f);
             BindAxis(AltAttack, JoyAxis.TriggerLeft, 1f);
         }

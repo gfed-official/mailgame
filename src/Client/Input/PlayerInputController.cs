@@ -21,16 +21,18 @@ namespace PerformativeMail.Client.InputHandling
 
         private ClientRuntime _client = null!;
         private InteractionController _interaction = null!;
+        private BuildController? _build;
         private readonly HotbarAssist _assist = new HotbarAssist();
         private MouseCapture _mouse = null!;
-        private bool _deliverAllQueued, _interactTapped, _attackSwallowed;
+        private bool _deliverAllQueued, _interactTapped, _attackSwallowed, _placeQueued;
         private uint _pauseRequest;
 
         /// <param name="mouse">Whose the mouse is; the screen says when a panel is open, the keys and clicks here do the rest.</param>
-        public void Setup(ClientRuntime client, InteractionController interaction, MouseCapture mouse)
+        public void Setup(ClientRuntime client, InteractionController interaction, MouseCapture mouse, BuildController? build = null)
         {
             _client = client;
             _interaction = interaction;
+            _build = build;
             _mouse = mouse;
             client.RequestCompleted += (request, _) => { if (request.RequestId == _pauseRequest) _pauseRequest = 0; };
         }
@@ -74,6 +76,7 @@ namespace PerformativeMail.Client.InputHandling
                         _attackSwallowed = true;
                         ApplyMouseMode();
                     }
+                    else if (button.ButtonIndex == MouseButton.Left && Building) _placeQueued = true;
                     else if (!UiOpen && button.ButtonIndex == MouseButton.WheelUp) CycleSlot(-1);
                     else if (!UiOpen && button.ButtonIndex == MouseButton.WheelDown) CycleSlot(1);
                     return;
@@ -84,6 +87,8 @@ namespace PerformativeMail.Client.InputHandling
                     if (_client.PressCardKey(digit)) return;
                     // At the shop's counter the numbers are its cards.
                     if (_client.PressShopKey(digit)) return;
+                    // In Build mode they are the recipes.
+                    if (!UiOpen && _build != null && _build.PressKey(digit)) return;
                     if (digit >= 0 && digit < HotbarSlots)
                     {
                         _client.Input.HeldSlot = (byte)digit;
@@ -101,6 +106,8 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Pause))
             {
                 if (UiOpen) Cancelled?.Invoke();
+                // Esc puts Build mode down before it lets the mouse go.
+                else if (Building) _build!.Leave();
                 else
                 {
                     _mouse.Toggle();
@@ -111,6 +118,9 @@ namespace PerformativeMail.Client.InputHandling
             // A tap can start and end between two frames, where polling never sees it held.
             else if (ev.IsActionPressed(InputActions.Interact)) _interactTapped = true;
             else if (ev.IsActionPressed(InputActions.Go) && !Paused) _client.PressGo();
+            else if (ev.IsActionPressed(InputActions.Build) && !UiOpen && !Paused && _build != null) _build.Toggle();
+            else if (ev.IsActionPressed(InputActions.Rotate) && Building) _build!.Rotate();
+            else if (ev.IsActionPressed(InputActions.Use) && Building) _build!.Pipette();
             else if (ev.IsActionPressed(InputActions.Use) && !UiOpen) _client.UseHeld();
             else if (ev.IsActionPressed(InputActions.Shop) && !Paused) _client.ToggleShop();
         }
@@ -158,7 +168,8 @@ namespace PerformativeMail.Client.InputHandling
             // The weapons are in the hands only while the view is the player's: not under a panel, not with the mouse let go.
             bool attack = Godot.Input.IsActionPressed(InputActions.Attack);
             if (!attack) _attackSwallowed = false;
-            bool armed = !UiOpen && (Captured || DisplayServer.GetName() == "headless");
+            // In Build mode the buttons build and take down instead.
+            bool armed = !UiOpen && !Building && (Captured || DisplayServer.GetName() == "headless");
             if (armed && attack && !_attackSwallowed) buttons |= InputButtons.Attack;
             if (armed && Godot.Input.IsActionPressed(InputActions.AltAttack)) buttons |= InputButtons.AltAttack;
             _client.Input.Buttons = buttons;
@@ -169,7 +180,12 @@ namespace PerformativeMail.Client.InputHandling
             _interaction.Update(delta, interactKey, _deliverAllQueued && !UiOpen, _interactTapped);
             _deliverAllQueued = false;
             _interactTapped = false;
+            bool live = !UiOpen && (Captured || DisplayServer.GetName() == "headless");
+            _build?.Update(delta, _placeQueued && live, live && Godot.Input.IsActionPressed(InputActions.AltAttack));
+            _placeQueued = false;
         }
+
+        private bool Building => _build != null && _build.Active;
 
         private bool Paused => _client.World != null && _client.World.Paused;
 

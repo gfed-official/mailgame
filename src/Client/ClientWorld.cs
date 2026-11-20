@@ -280,6 +280,7 @@ namespace PerformativeMail.Client
             LocalHp = LocalMaxHp = content.Balance.GetFloat("playerHp");
             Prediction = new InventoryPrediction(content, this);
             Nodes = new NodeField(content, map);
+            Constructs = new ConstructField(map);
         }
 
         public GridContainer? OpenContainer => OpenContainerId != 0 ? Prediction.View(OpenContainerId) : null;
@@ -500,6 +501,72 @@ namespace PerformativeMail.Client
             if (def == null || HotbarId == 0) return OpResult.BadRequest;
             if (!HarvestRules.IsOpen(Global.Phase)) return OpResult.WrongPhase;
             return HarvestRules.Check(Content, def, Nodes.HitsLeft(node), HarvestRules.Held(Content, Hotbar, heldSlot), Hotbar, Inventory);
+        }
+
+        // --- building by hand (doc 04 §1) ---------------------------------------------------------
+
+        /// <summary>What the carriers have built, as the server last said.</summary>
+        public ConstructField Constructs { get; }
+        /// <summary>What stood on the tile of the last ConstructRemoved, for whoever hears of it after it is gone.</summary>
+        public Construct? LastRemoved { get; internal set; }
+
+        /// <summary>
+        /// What stands between the local player and a recipe, wherever they would build it, by the
+        /// rules of the server's PlaceConstructOp: Ok means the team may build it and the pockets
+        /// hold what it takes.
+        /// </summary>
+        public OpResult RecipeState(RecipeDef recipe)
+        {
+            if (HotbarId == 0) return OpResult.BadRequest;
+            if (!BuildRules.IsOpen(Global.Phase)) return OpResult.WrongPhase;
+            var verdict = BuildRules.CheckRecipe(recipe, Global.Shift, recipe.Blueprint == null || ShopOwned.Contains(recipe.Blueprint));
+            if (verdict != OpResult.Ok) return verdict;
+            return BuildRules.HasMaterials(recipe, Hotbar, Inventory) ? OpResult.Ok : OpResult.MissingMaterials;
+        }
+
+        /// <summary>
+        /// What stands between the local player and a recipe built on a tile, in the order the
+        /// server asks: Ok means a request to build it there would be granted as things stand.
+        /// </summary>
+        public OpResult PlaceState(RecipeDef recipe, int tx, int tz)
+        {
+            var state = RecipeState(recipe);
+            if (state != OpResult.Ok && state != OpResult.MissingMaterials) return state;
+            var tile = BuildRules.CheckTile(Map, Constructs, tx, tz);
+            if (tile != OpResult.Ok) return tile;
+            if (!BuildRules.InRange(tx, tz, Local.X, Local.Z, Content.Balance.GetFloat("buildRange"))) return OpResult.OutOfRange;
+            return TileOccupied(tx, tz) ? OpResult.Occupied : state;
+        }
+
+        /// <summary>True if a carrier or a raider this client knows of stands on the tile or reaches onto it.</summary>
+        private bool TileOccupied(int tx, int tz)
+        {
+            float radius = Content.Balance.GetFloat("playerRadius");
+            if (!Local.Dead && BuildRules.Touches(tx, tz, Local.X, Local.Z, radius)) return true;
+            foreach (var p in Players.Values)
+            {
+                if (p.Id == LocalId || p.Dead || !p.Interpolate(ServerTick, out float x, out _, out float z, out _)) continue;
+                if (BuildRules.Touches(tx, tz, x, z, radius)) return true;
+            }
+            foreach (var e in Enemies.Values)
+                if (BuildRules.Touches(tx, tz, e.X, e.Z, e.Def.Radius)) return true;
+            return false;
+        }
+
+        /// <summary>The part of its materials a construct would give back if it were taken down now.</summary>
+        public double RefundRatio => BuildRules.RefundRatio(Content.Balance, Global.Phase);
+
+        /// <summary>
+        /// What stands between the local player and taking a construct down, by the rules of the
+        /// server's RemoveConstructOp. What a chest nobody has open holds is the server's to say.
+        /// </summary>
+        public OpResult RemoveState(Construct built)
+        {
+            if (HotbarId == 0) return OpResult.BadRequest;
+            if (!BuildRules.IsOpen(Global.Phase)) return OpResult.WrongPhase;
+            if (!BuildRules.InRange(built.Tx, built.Tz, Local.X, Local.Z, Content.Balance.GetFloat("buildRange"))) return OpResult.OutOfRange;
+            if (built.ContainerId != 0 && Containers.TryGetValue(built.ContainerId, out var chest) && chest.EntryCount > 0) return OpResult.NotEmpty;
+            return BuildRules.RefundFits(Content, built.Def.Recipe, RefundRatio, built.Hp, Inventory, Hotbar) ? OpResult.Ok : OpResult.DoesNotFit;
         }
 
         /// <summary>Solo pause (doc 01 §1): the server's tick, and with it this client's, stands still.</summary>

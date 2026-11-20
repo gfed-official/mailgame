@@ -93,6 +93,13 @@ namespace PerformativeMail.Client
                 case ShopSoldEvent e: Add(HudText.ShopSold(world, e.Player, e.Item, e.Count, e.Paid)); break;
                 case NodeHarvestedEvent e: AddHarvest(world, e); break;
                 case NodesRegrownEvent e when !e.All: Add("The bushes have grown back"); break;
+                case ConstructPlacedEvent e when e.Building < world.Content.Buildings.Count:
+                    Add(HudText.Built(world, e.Player, world.Content.Buildings[e.Building]));
+                    break;
+                // Cleared away with the run, nobody's doing: not worth a line.
+                case ConstructRemovedEvent e when world.LastRemoved != null && (e.Destroyed || !e.Player.IsNone):
+                    Add(HudText.Unbuilt(world, e.Player, world.LastRemoved.Def, e.Destroyed), bad: e.Destroyed);
+                    break;
             }
         }
 
@@ -103,6 +110,11 @@ namespace PerformativeMail.Client
         public void OnRequest(SimRequest request, OpResult result)
         {
             if (result != OpResult.Ok && request.Kind == RequestKind.Use) Add(HudText.ShopRefused(result), bad: true);
+            if (result != OpResult.Ok && (request.Kind == RequestKind.PlaceConstruct || request.Kind == RequestKind.RemoveConstruct))
+            {
+                string why = HudText.BuildRefused(result);
+                if (why.Length > 0) Add(why, bad: true);
+            }
             if (result != OpResult.Ok && request.Kind == RequestKind.Harvest)
             {
                 // A swing a moment too soon is simply swung again.

@@ -53,3 +53,5 @@ grep -q "^\[smoke\] playtest: run started at shift 2" "$work/log-playtest" || { 
 # Between them the two runs take a card of the Draft both ways: by its key, and with a click on it.
 grep -q "^\[smoke\] draft: .* a card taken by its key" "$work/log" || { echo "smoke: no card of the Draft was taken by its key" >&2; exit 1; }
 grep -q "^\[smoke\] playtest: .* a card of the Draft taken with a click" "$work/log-playtest" || { echo "smoke: no card of the Draft was taken with a click" >&2; exit 1; }
+# Build mode (doc 09 §2.7): the full run builds by hand with what the land gave.
+grep -q "^\[smoke\] build: a Wooden Wall and a Chest built" "$work/log" || { echo "smoke: nothing was built in Build mode" >&2; exit 1; }

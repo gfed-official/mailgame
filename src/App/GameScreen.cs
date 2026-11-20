@@ -15,6 +15,7 @@ namespace PerformativeMail.App
     {
         public WorldView World { get; private set; } = null!;
         public NodesView Nodes { get; private set; } = null!;
+        public ConstructsView Constructs { get; private set; } = null!;
         public PlayersView Players { get; private set; } = null!;
         public EnemiesView Enemies { get; private set; } = null!;
         public CombatEffects Effects { get; private set; } = null!;
@@ -43,6 +44,9 @@ namespace PerformativeMail.App
             Nodes = new NodesView { Name = "Nodes" };
             AddChild(Nodes);
             Nodes.Setup(client);
+            Constructs = new ConstructsView { Name = "Constructs" };
+            AddChild(Constructs);
+            Constructs.Setup(client, session.Build);
 
             Players = new PlayersView { Name = "Players" };
             AddChild(Players);
@@ -66,6 +70,7 @@ namespace PerformativeMail.App
             layer.AddChild(Hud);
             Hud.Profile = session.Profile;
             Hud.Setup(client, session.Interaction, session.Feed);
+            Hud.Build = session.Build;
             Hud.Mouse = Mouse;
             Inventory = new InventoryPanel();
             layer.AddChild(Inventory);
@@ -78,7 +83,7 @@ namespace PerformativeMail.App
 
             if (!humanInput) return;
             _input = new PlayerInputController { Name = "Input" };
-            _input.Setup(client, session.Interaction, Mouse);
+            _input.Setup(client, session.Interaction, Mouse, session.Build);
             _input.InventoryToggled += () => _inventoryOpen = !_inventoryOpen;
             _input.Cancelled += () =>
             {

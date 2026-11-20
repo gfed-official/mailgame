@@ -616,11 +616,36 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             What is built stands from shift to shift and is gone with the run. Protocol `m1.13`
             (the two requests, `ConstructPlaced` / `Removed` / `Damaged` / `ConstructsCleared`,
             what stands in the Welcome). `BuildTests` (29), `CodecTests`, `ContentValidatorTests`
-      - [ ] building by hand on screen (Build mode, the ghost, the recipe bar)
+      - [x] **Building by hand, on screen** (doc 09 §2.7 Build mode, doc 09 §4 "B"; design
+            choice 78). **B** puts Build mode up in Prep and Delivery ("Building is done in
+            Prep and during Delivery" in the feed otherwise, and it comes down by itself with
+            the phase or a fall). Over the hotbar the recipe bar — "[1] Wooden Wall · Log x3
+            [2] Chest · Log x4", the chosen one green (amber when the pockets cannot pay for
+            it), the others red when they cannot — and the keys under it ("[LMB] build [R] turn
+            [hold RMB] take down [Q] pick [B] done"). The ghost stands on the tile of the ground
+            the crosshair is on (up to 14 m), a see-through palisade or chest and the tile it
+            takes, **green where it can be built and red where not**, and the prompt line says
+            why: "Wooden Wall · Missing 3 Log", "On the street: it stays open for the mail",
+            "Something stands there", "Somebody is in the way", "Too far away", "From shift N",
+            "Needs the … from the shop". The number keys choose, R turns, the left button builds
+            on green; on something built the prompt is "Take down Wooden Wall · Log x3 back
+            [hold RMB]" (less with lost HP, "· 180/300 HP"; "empty it first" for a chest with
+            something in it) and the right button held 0.5 s fills the bar and takes it down;
+            Q picks its recipe and turn. Esc puts the mode down before it lets the mouse go.
+            Built chests open with E like the map's. In the world a Wooden Wall is a palisade
+            of pointed logs on two rails along its arms — two walls that meet close their
+            corner on screen as in the sim —, darker and leaning under half its HP; a Chest
+            is the map's banded chest. Feed lines "Ada built a Wooden Wall", "You took down a
+            Chest", "The raiders broke a Wooden Wall". The client mirrors what stands (Welcome
+            and the four events), walks against it in its own prediction, the delivery bot
+            paths round it. `BuildFlowTests` (4); in the smoke the host builds a turned wall
+            with the tree's Logs, sees the ghost red out of reach, takes the wall down, builds,
+            opens, closes and takes down a Chest, builds the wall again and leaves it for the
+            run — gone on both ends in the Lobby (`build-*.png`)
       - [ ] Sand and the Shovel; tools drawn in the hand
 
-Next in this order: Build mode on screen for what the sim can now build, then the blueprints
-it gives the shop to sell. The generator and the districts before it are the larger piece and
+Next in this order: the blueprints of the shop's catalog for what is built, then Sand and
+the Shovel. The generator and the districts before it are the larger piece and
 still open, as is the bike.
 
 ## How to build and check
@@ -1372,6 +1397,18 @@ See "Commands" at the bottom (filled in as the tooling lands).
     - *Recipes.* `craftSeconds` has to be 0 and `produces` a building (doc 08 §2.7: no item
       crafting). `unlockShift` and `blueprint` are read and enforced (`RecipeLocked`,
       `NeedsBlueprint`); the two M1 recipes need neither.
+
+78. **Build mode's keys and the ghost** (doc 09 §2.7 and §4). Doc 09 gives B, R, Q and "hold
+    on a construct for 0.5 s" but no buttons for placing and taking down; the attack button
+    builds and the alt button held takes down, since in Build mode the hammer and the cannon
+    are put away (no swing, no shot). The number keys are the recipes while the mode is up,
+    as they are the shop's cards at the counter. Placing is one click per construct: drag
+    lines (doc 12's M2 "drag lines") wait for belts. The ghost follows the view ray down to
+    the ground and is shown up to 14 m away even where the hands do not reach (8 m), red
+    with "Too far away", so the player sees where they are pointing; looking up shows none.
+    What is built in front of the ghost's tile is looked at instead (taking down, pipette).
+    A built chest is opened by the interact key in or out of Build mode. The mode is not a
+    panel: the view keeps the mouse and the carrier walks.
 
 ## Commands
 

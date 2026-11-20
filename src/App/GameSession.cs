@@ -26,6 +26,8 @@ namespace PerformativeMail.App
         public ServerRuntime? Server { get; private set; }
         public ClientRuntime Client { get; private set; } = null!;
         public InteractionController Interaction { get; private set; } = null!;
+        /// <summary>Build mode (doc 09 §2.7): the recipe, the ghost and what it is on.</summary>
+        public BuildController Build { get; private set; } = null!;
         public EventFeed Feed { get; } = new EventFeed();
         /// <summary>The local player's Postal Rank and stats, saved at every Payday and at Results.</summary>
         public ProfileTracker Profile { get; private set; } = null!;
@@ -99,6 +101,7 @@ namespace PerformativeMail.App
         {
             Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest, StartShift, profile.AccountId);
             Interaction = new InteractionController(Client);
+            Build = new BuildController(Client) { OnRefused = why => Feed.Add(HudText.PlaceReason(Client.World!, Client.World!.Content.Recipes[0], why), bad: true) };
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);
             Client.RequestCompleted += Feed.OnRequest;
             Profile = new ProfileTracker(Client, profile, store);

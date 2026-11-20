@@ -46,8 +46,10 @@ namespace PerformativeMail.Client
         public int MatchingStacks;
         /// <summary>Deliver: mailboxes take mail only during the Delivery phase.</summary>
         public bool MailboxClosed;
-        /// <summary>OpenChest / CloseChest: the chest in range.</summary>
+        /// <summary>OpenChest / CloseChest: the chest of the map in range.</summary>
         public MapChestDef? Chest;
+        /// <summary>OpenChest / CloseChest: the chest the carriers built in range, where it is not one of the map's.</summary>
+        public Construct? Built;
         /// <summary>OpenBag / CloseBag: the bag in range.</summary>
         public ClientBag? Bag;
         /// <summary>OpenShop: the counter serves only in Prep and at Payday.</summary>
@@ -135,6 +137,7 @@ namespace PerformativeMail.Client
                         _pressLatch = 0;
                         _awaiting = _client.OpenContainer(
                             prompt.Bag != null ? prompt.Bag.ContainerId
+                            : prompt.Built != null ? prompt.Built.ContainerId
                             : prompt.Chest != null ? world.ChestContainerIds[prompt.Chest.Id] : world.IntakeContainerId);
                     }
                     break;
@@ -256,6 +259,23 @@ namespace PerformativeMail.Client
                 prompt.Kind = InteractKind.OpenChest;
                 prompt.Chest = chest;
             }
+            foreach (var built in world.Constructs.All)
+            {
+                if (built.ContainerId == 0 || DistSq(px, pz, built.X, built.Z) > rangeSq) continue;
+                if (world.OpenContainerId == built.ContainerId)
+                {
+                    prompt.Kind = InteractKind.CloseChest;
+                    prompt.Chest = null;
+                    prompt.Built = built;
+                    return prompt;
+                }
+                float t = ray.Hit(AimBox.Built(world.Map, built));
+                if (t < 0f || t > best) continue;
+                best = t;
+                prompt.Kind = InteractKind.OpenChest;
+                prompt.Chest = null;
+                prompt.Built = built;
+            }
             foreach (var bag in world.Bags.Values)
             {
                 if (DistSq(px, pz, bag.X, bag.Z) > rangeSq) continue;
@@ -263,6 +283,7 @@ namespace PerformativeMail.Client
                 {
                     prompt.Kind = InteractKind.CloseBag;
                     prompt.Chest = null;
+                    prompt.Built = null;
                     prompt.Bag = bag;
                     return prompt;
                 }
@@ -271,6 +292,7 @@ namespace PerformativeMail.Client
                 best = t;
                 prompt.Kind = InteractKind.OpenBag;
                 prompt.Chest = null;
+                prompt.Built = null;
                 prompt.Bag = bag;
             }
             if (HarvestRules.IsOpen(world.Global.Phase))
@@ -289,6 +311,7 @@ namespace PerformativeMail.Client
                     best = t;
                     prompt.Kind = InteractKind.Harvest;
                     prompt.Chest = null;
+                    prompt.Built = null;
                     prompt.Bag = null;
                     prompt.Node = node;
                     prompt.NodeIndex = i;
@@ -302,6 +325,7 @@ namespace PerformativeMail.Client
                 best = t;
                 prompt.Kind = InteractKind.Deliver;
                 prompt.Chest = null;
+                prompt.Built = null;
                 prompt.Bag = null;
                 prompt.Node = null;
                 prompt.Destination = dest;

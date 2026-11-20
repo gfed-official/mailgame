@@ -739,7 +739,7 @@ namespace PerformativeMail.App
                 case RunPhase.Prep:
                     CheckDraftPick();
                     // Once in the run the host works the land and goes shopping before readying up.
-                    if (StepHarvest() || StepShop()) break;
+                    if (StepHarvest() || StepBuild() || StepShop()) break;
                     if (!world.LocalReady) Go();
                     break;
 
@@ -870,6 +870,7 @@ namespace PerformativeMail.App
             VerifyDrafts();
             VerifyShop();
             VerifyHarvest();
+            VerifyBuild();
 
             Check(server.Run.Phase == RunPhase.Lobby && server.Run.RunNumber == 1, $"the server is in {server.Run.Phase} of run {server.Run.RunNumber}");
             Check(hud.PhaseText == "LOBBY", $"back in the Lobby the HUD phase line is \"{hud.PhaseText}\"");

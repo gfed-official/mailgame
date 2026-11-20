@@ -75,6 +75,19 @@ namespace PerformativeMail.Client.UI
         public PromptTone PromptMark => _mark.Tone;
         /// <summary>How far the bar under a held prompt is filled right now; 0 when it is not shown.</summary>
         public float HoldShown => _hold.Visible ? (float)_hold.Value : 0f;
+        /// <summary>Build mode; without it the HUD shows none.</summary>
+        public BuildController? Build;
+        /// <summary>The recipes on the bar over the hotbar while Build mode is up, one a line; else empty.</summary>
+        public string RecipeBarText => _recipeBar.Visible ? string.Join("\n", RecipeCards()) : "";
+        /// <summary>The recipe of the bar that is selected, -1 while the bar is down.</summary>
+        public int RecipeShown { get; private set; } = -1;
+
+        private IEnumerable<string> RecipeCards()
+        {
+            foreach (var child in _recipeBar.GetChildren())
+                if (child is Label label) yield return label.Text;
+        }
+
         /// <summary>The lines along the edges, for the smoke's "nothing is clipped" check.</summary>
         public Control[] TopRow => new Control[] { _phase, _status, _quota, _wallet, _rank };
         /// <summary>The top group from the top down: quota bar, the shift's line, clock bar. No two of them may touch (nit 14).</summary>
@@ -136,6 +149,7 @@ namespace PerformativeMail.Client.UI
         private ProgressBar _hold = null!;
         private MatchMark _mark = null!;
         private GridView _hotbar = null!;
+        private HBoxContainer _recipeBar = null!;
         private readonly Label[] _feedLines = new Label[EventFeed.MaxEntries];
         private int _feedRevision = -1;
         private RunPhase _clockPhase;
@@ -297,6 +311,20 @@ namespace PerformativeMail.Client.UI
             _held = AddLabel("Held", 16, 0f, 1f, 0f, -GridView.Cell - m - 30f, 0f, -GridView.Cell - m - 4f, HorizontalAlignment.Center);
             _held.AnchorRight = 1f;
 
+            // Build mode's recipes (doc 09 §2.7), a card each, over the line of its keys.
+            _recipeBar = new HBoxContainer
+            {
+                Name = "RecipeBar",
+                Alignment = BoxContainer.AlignmentMode.Center,
+                MouseFilter = MouseFilterEnum.Ignore,
+                Visible = false,
+            };
+            _recipeBar.AddThemeConstantOverride("separation", 14);
+            Place(_recipeBar, 0f, 1f, m, -GridView.Cell - m - 70f, 0f, -GridView.Cell - m - 36f);
+            _recipeBar.AnchorRight = 1f;
+            _recipeBar.OffsetRight = -m;
+            AddChild(_recipeBar);
+
             // What was just picked up takes the place of the held stack's name for a few seconds.
             _loot = new LootPanel { Lift = m + GridView.Cell + 10f };
             AddChild(_loot);
@@ -391,11 +419,23 @@ namespace PerformativeMail.Client.UI
             if (_weapons.Visible) _weapons.Text = HudText.Weapons(_client.CannonAmmo);
 
             var prompt = _interaction.Prompt;
-            _prompt.Text = HudText.Prompt(world, prompt, out var tone);
+            bool building = Build != null && Build.Active;
+            float holdProgress = prompt.HoldProgress;
+            PromptTone tone;
+            // In Build mode the line is the ghost's, but a panel that is open still says how to close it.
+            bool closing = prompt.Kind == InteractKind.CloseChest || prompt.Kind == InteractKind.CloseIntake || prompt.Kind == InteractKind.CloseBag || prompt.Kind == InteractKind.CloseShop;
+            if (building && !closing)
+            {
+                var ghost = Build!.Ghost;
+                _prompt.Text = HudText.BuildPrompt(world, ghost, out tone);
+                holdProgress = ghost.HoldProgress;
+            }
+            else _prompt.Text = HudText.Prompt(world, prompt, out tone);
             _prompt.Modulate = tone == PromptTone.Match ? Palette.Match : tone == PromptTone.Mismatch ? Palette.Mismatch : Colors.White;
             _mark.Tone = _prompt.Text.Length > 0 ? tone : PromptTone.Neutral;
-            _hold.Visible = prompt.HoldProgress > 0f;
-            _hold.Value = prompt.HoldProgress;
+            _hold.Visible = holdProgress > 0f;
+            _hold.Value = holdProgress;
+            RefreshRecipeBar(world, building);
 
             int slot = _client!.Input.HeldSlot;
             _hotbar.SelectedColumn = slot;
@@ -404,6 +444,12 @@ namespace PerformativeMail.Client.UI
             var heldDest = held != null && held.Stack.Kind == StackKind.Mail ? world.Map.FindDestination(held.Stack.Address) : null;
             _held.Modulate = heldDest != null ? Palette.HouseColour(heldDest.Variant).Lightened(0.35f) : Colors.White;
             _held.Visible = !_loot.Cards.Visible;
+            if (building)
+            {
+                _held.Text = HudText.BuildKeys;
+                _held.Modulate = Palette.Amber;
+                _held.Visible = true;
+            }
 
             if (_feedRevision != _feed.Revision)
             {
@@ -416,6 +462,37 @@ namespace PerformativeMail.Client.UI
                     _feedLines[i].Text = entry?.Text ?? "";
                     _feedLines[i].Modulate = entry != null && entry.Bad ? Palette.Mismatch : Colors.White;
                 }
+            }
+        }
+
+        /// <summary>The recipe cards while Build mode is up: the selected one green, one the pockets cannot pay for red.</summary>
+        private void RefreshRecipeBar(ClientWorld world, bool building)
+        {
+            _recipeBar.Visible = building;
+            if (!building)
+            {
+                RecipeShown = -1;
+                return;
+            }
+            var recipes = world.Content.Recipes;
+            if (_recipeBar.GetChildCount() != recipes.Count)
+            {
+                foreach (var child in _recipeBar.GetChildren())
+                {
+                    _recipeBar.RemoveChild(child);
+                    child.QueueFree();
+                }
+                for (int i = 0; i < recipes.Count; i++) _recipeBar.AddChild(MakeLabel($"Recipe{i}", 17, HorizontalAlignment.Center));
+            }
+            RecipeShown = Build!.RecipeIndex;
+            for (int i = 0; i < recipes.Count; i++)
+            {
+                var label = (Label)_recipeBar.GetChild(i);
+                var state = world.RecipeState(recipes[i]);
+                label.Text = HudText.RecipeCard(recipes[i], i);
+                label.Modulate = i == RecipeShown ? (state == OpResult.Ok ? Palette.Match : Palette.Amber)
+                    : state == OpResult.Ok ? Colors.White : new Color(Palette.Mismatch, 0.8f);
+                label.AddThemeConstantOverride("outline_size", i == RecipeShown ? 10 : 6);
             }
         }
 

@@ -315,6 +315,32 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>
+        /// Builds a recipe on a tile (doc 04 §1.1), turned <paramref name="rotation"/> quarters.
+        /// Returns the request id, 0 where there is nothing to ask: it would be refused as things
+        /// stand (<see cref="ClientWorld.PlaceState"/>).
+        /// </summary>
+        public uint PlaceConstruct(RecipeDef recipe, int tx, int tz, int rotation)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
+            if (world.PlaceState(recipe, tx, tz) != OpResult.Ok) return 0;
+            var building = recipe.Building;
+            return Send(SimRequest.PlaceConstruct(0, building.Index, tx, tz, rotation % Math.Max(1, building.Rotations)));
+        }
+
+        /// <summary>
+        /// Takes a construct down for what it gives back (doc 04 §1.4). Returns the request id, 0
+        /// where it would be refused as things stand (<see cref="ClientWorld.RemoveState"/>).
+        /// </summary>
+        public uint RemoveConstruct(Construct built)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
+            if (world.RemoveState(built) != OpResult.Ok) return 0;
+            return Send(SimRequest.RemoveConstruct(0, built.Tx, built.Tz));
+        }
+
+        /// <summary>
         /// The pause key (doc 09 §2.12): resumes a paused run; pauses one this client hosts alone.
         /// Returns the request id, 0 where the key does not pause (multiplayer never pauses).
         /// </summary>
@@ -367,7 +393,7 @@ namespace PerformativeMail.Client
                 Buttons = Input.Buttons,
                 HeldSlot = Input.HeldSlot,
             };
-            PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move);
+            PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs);
             _pendingInputs.Add(input);
             if (_pendingInputs.Count > MaxPendingInputs) _pendingInputs.RemoveAt(0);
             PredictAttacks(world, input);
@@ -503,6 +529,9 @@ namespace PerformativeMail.Client
             foreach (byte item in m.ShopOwned)
                 if (item < _content.ShopItems.Count) world.ShopOwned.Add(_content.ShopItems[item]);
             foreach (var node in m.Nodes) world.Nodes.Set(node.Node, node.HitsLeft);
+            foreach (var c in m.Constructs)
+                if (c.Building < _content.Buildings.Count && map.InBounds(c.X, c.Y))
+                    world.Constructs.Add(_content.Buildings[c.Building], c.X, c.Y, c.Rotation, c.Hp, c.ContainerId);
             World = world;
             Input.YawRadians = map.PostOffice.SpawnYaw;
             Input.PitchRadians = 0f;
@@ -616,7 +645,7 @@ namespace PerformativeMail.Client
             world.LocalHp = m.OwnHp;
             world.HasLocal = true;
             foreach (var input in _pendingInputs)
-                PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move);
+                PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs);
 
             if (!hadLocal) return;
             double dx = world.Local.X - beforeX, dz = world.Local.Z - beforeZ;
@@ -736,6 +765,29 @@ namespace PerformativeMail.Client
                     break;
                 case NodesRegrownEvent e:
                     world.Nodes.Regrow(e.All);
+                    break;
+                case ConstructPlacedEvent e:
+                    if (e.Building < _content.Buildings.Count && world.Map.InBounds(e.X, e.Y))
+                        world.Constructs.Add(_content.Buildings[e.Building], e.X, e.Y, e.Rotation, e.Hp, e.ContainerId);
+                    break;
+                case ConstructRemovedEvent e:
+                {
+                    var unbuilt = world.Constructs.At(e.X, e.Y);
+                    world.LastRemoved = unbuilt;
+                    if (unbuilt != null && unbuilt.ContainerId != 0) DropExternal(world, unbuilt.ContainerId);
+                    world.Constructs.Remove(e.X, e.Y);
+                    break;
+                }
+                case ConstructDamagedEvent e:
+                {
+                    var hit = world.Constructs.At(e.X, e.Y);
+                    if (hit != null) world.Constructs.SetHp(hit, e.Hp);
+                    break;
+                }
+                case ConstructsClearedEvent:
+                    foreach (var built in world.Constructs.All)
+                        if (built.ContainerId != 0) DropExternal(world, built.ContainerId);
+                    world.Constructs.Clear();
                     break;
                 case PausedChangedEvent e:
                     world.Paused = e.Paused;

@@ -101,6 +101,20 @@ namespace PerformativeMail.Client
             }
         }
 
+        /// <summary>
+        /// Something the carriers built: a wall the length of its tile along the way it runs and
+        /// a hand thicker than it is, a chest a little wider than its body.
+        /// </summary>
+        public static AimBox Built(WorldMap map, Construct built)
+        {
+            float ground = map.HeightAt(built.X, built.Z), h = built.Def.Height * 0.5f;
+            if (!built.Def.Joins) return new AimBox(built.X, ground + h, built.Z, built.Def.Radius + 0.15f, h + 0.1f, built.Def.Radius + 0.15f);
+            float along = SimConstants.TileSize * 0.5f, across = built.Def.Radius + 0.1f;
+            return built.AlongZ
+                ? new AimBox(built.X, ground + h, built.Z, across, h, along)
+                : new AimBox(built.X, ground + h, built.Z, along, h, across);
+        }
+
         /// <summary>The Intake counter with its sign.</summary>
         public static AimBox Intake(WorldMap map)
         {
