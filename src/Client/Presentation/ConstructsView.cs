@@ -10,9 +10,13 @@ namespace PerformativeMail.Client.Presentation
     /// What the carriers have built (doc 04 §1), drawn as the <see cref="ConstructField"/> has it:
     /// a Wooden Wall is a palisade of pointed logs along its arms, so that two walls that meet
     /// close their corner on screen as they do in the sim; a Chest is the map's banded chest. A
-    /// wall worn below half its HP is drawn darker and leaning. Batched like the town, drawn anew
-    /// only when something is built, taken down or hit. In Build mode the ghost of the recipe
-    /// stands on the tile under the crosshair, green where it can be built and red where not.
+    /// wall worn below half its HP is drawn darker and leaning. A Gate is two posts under a beam
+    /// in the palisade's line, its two plank leaves swinging open while a carrier is near; an
+    /// Alarm Post is a tall post with a roof, a brass bell and a lamp that flashes red while a
+    /// raider is within its reach. Batched like the town, drawn anew only when something is
+    /// built, taken down or hit; the leaves and lamps move every frame. In Build mode the ghost
+    /// of the recipe stands on the tile under the crosshair, green where it can be built and
+    /// red where not.
     /// </summary>
     public partial class ConstructsView : Node3D
     {
@@ -36,6 +40,24 @@ namespace PerformativeMail.Client.Presentation
         private Node3D? _built, _ghost;
         private (BuildingDef?, int, bool) _ghostShape;
 
+        private sealed class GateLeaves
+        {
+            public Construct Built = null!;
+            public Node3D Left = null!, Right = null!;
+            public float Open;
+        }
+
+        private readonly System.Collections.Generic.List<GateLeaves> _gates = new System.Collections.Generic.List<GateLeaves>();
+        private readonly System.Collections.Generic.List<(Construct Built, MeshInstance3D Lamp)> _lamps = new System.Collections.Generic.List<(Construct, MeshInstance3D)>();
+        private float _blink;
+
+        /// <summary>Gates swinging open (a carrier is near), and Alarm Post lamps lit, as of the last frame.</summary>
+        public int GatesOpening { get; private set; }
+        public int LampsLit { get; private set; }
+
+        /// <summary>How near a carrier has to be for a gate to swing open on screen.</summary>
+        private const float GateOpenRange = 2.6f;
+
         public void Setup(ClientRuntime client, BuildController? build)
         {
             _client = client;
@@ -47,7 +69,58 @@ namespace PerformativeMail.Client.Presentation
             Refresh();
         }
 
-        public override void _Process(double delta) => Refresh();
+        public override void _Process(double delta)
+        {
+            Refresh();
+            Animate((float)delta);
+        }
+
+        /// <summary>The gates swing towards open while a carrier is near; the lamps flash while a raider is in reach.</summary>
+        public void Animate(float delta)
+        {
+            var world = _client?.World;
+            if (world == null) return;
+            int opening = 0;
+            foreach (var g in _gates)
+            {
+                bool near = false;
+                if (world.HasLocal && !world.Local.Dead) near = Near(world.Local.X, world.Local.Z, g.Built);
+                foreach (var p in world.Players.Values)
+                {
+                    if (near) break;
+                    if (p.Id == world.LocalId || p.Dead || !p.Interpolate(world.ServerTick - ClientRuntime.InterpolationDelayTicks, out float x, out _, out float z, out _)) continue;
+                    near = Near(x, z, g.Built);
+                }
+                g.Open = Mathf.MoveToward(g.Open, near ? 1f : 0f, delta * 2.5f);
+                float angle = Mathf.Ease(g.Open, -2f) * Mathf.DegToRad(100f);
+                g.Left.Rotation = new Vector3(0f, -angle, 0f);
+                g.Right.Rotation = new Vector3(0f, angle, 0f);
+                if (near) opening++;
+            }
+            GatesOpening = opening;
+            _blink += delta;
+            int lit = 0;
+            foreach (var (built, lamp) in _lamps)
+            {
+                bool alarm = false;
+                foreach (var e in world.Enemies.Values)
+                {
+                    float dx = e.X - built.X, dz = e.Z - built.Z;
+                    if (dx * dx + dz * dz > built.Def.RevealRadius * built.Def.RevealRadius) continue;
+                    alarm = true;
+                    break;
+                }
+                lamp.Visible = alarm && Mathf.PosMod(_blink, 0.8f) < 0.5f;
+                if (alarm) lit++;
+            }
+            LampsLit = lit;
+        }
+
+        private static bool Near(float x, float z, Construct gate)
+        {
+            float dx = x - gate.X, dz = z - gate.Z;
+            return dx * dx + dz * dz < GateOpenRange * GateOpenRange;
+        }
 
         public void Refresh()
         {
@@ -69,10 +142,33 @@ namespace PerformativeMail.Client.Presentation
                 child.QueueFree();
             }
             var batch = new MeshBatch();
+            var previous = new System.Collections.Generic.Dictionary<Construct, float>();
+            foreach (var g in _gates) previous[g.Built] = g.Open;
+            _gates.Clear();
+            _lamps.Clear();
             foreach (var c in field.All)
             {
                 var at = new Vector3(c.X, world.Map.HeightAt(c.X, c.Z), c.Z);
                 Draw(batch, c.Def, at, field.Arms(c), c.Rotation, null, c.Hp * 2 < c.Def.Hp);
+                if (c.Def.Behaviour == BuildingBehaviour.Gate)
+                {
+                    var g = new GateLeaves { Built = c, Open = previous.TryGetValue(c, out float was) ? was : 0f };
+                    var frame = new Node3D { Name = $"Gate{c.Tx}_{c.Tz}", Position = at, Rotation = new Vector3(0f, c.AlongZ ? Mathf.Pi * 0.5f : 0f, 0f) };
+                    var plank = Mat(c.Hp * 2 < c.Def.Hp ? LogDark : PlankColour);
+                    var iron = MeshKit.Mat(IronColour, 0.5f, 0.3f);
+                    g.Left = Leaf(frame, -1, plank, iron);
+                    g.Right = Leaf(frame, 1, plank, iron);
+                    _built.AddChild(frame);
+                    _gates.Add(g);
+                }
+                else if (c.Def.Behaviour == BuildingBehaviour.Alarm)
+                {
+                    var lamp = MeshKit.Instance(MeshKit.Sphere(0.11f, 12), MeshKit.Glow(new Color("ff2a1a"), 4f), at + new Vector3(0f, AlarmLampHeight, 0f), default, $"AlarmLamp{c.Tx}_{c.Tz}");
+                    lamp.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+                    lamp.Visible = false;
+                    _built.AddChild(lamp);
+                    _lamps.Add((c, lamp));
+                }
             }
             batch.Flush(_built, "Built");
             Drawn = field.All.Count;
@@ -118,6 +214,18 @@ namespace PerformativeMail.Client.Presentation
         {
             switch (def.Behaviour)
             {
+                case BuildingBehaviour.Gate:
+                {
+                    // Its own two arms are the opening; what joins it from the sides is palisade.
+                    int own = (rotation & 1) != 0 ? ConstructField.ArmSouth | ConstructField.ArmNorth : ConstructField.ArmEast | ConstructField.ArmWest;
+                    var log = only ?? Mat(worn ? LogDark : LogColour);
+                    if ((arms & ~own) != 0) Wall(batch, at, arms & ~own, def.Height, log, only ?? Mat(RailColour), worn, centre: false);
+                    GateFrame(batch, at, (rotation & 1) != 0, def.Height, log, only ?? Mat(RailColour), only != null);
+                    return;
+                }
+                case BuildingBehaviour.Alarm:
+                    AlarmPost(batch, at, only ?? Mat(LogColour), only ?? Mat(RoofColour), only ?? MeshKit.Mat(BrassColour, 0.35f, 0.6f), only ?? MeshKit.Mat(new Color("7a1a14"), 0.5f));
+                    return;
                 case BuildingBehaviour.Spikes:
                     Spikes(batch, at, only ?? Mat(PlateColour), only ?? MeshKit.Mat(IronColour, 0.4f, 0.6f));
                     return;
@@ -132,6 +240,72 @@ namespace PerformativeMail.Client.Presentation
 
         private static readonly Color StoneColour = new Color("a9a49a"), StoneDark = new Color("6f6a62"), MortarColour = new Color("8b857a");
         private static readonly Color PlateColour = new Color("5c4330"), IronColour = new Color("3a3940");
+        private static readonly Color PlankColour = new Color("9b6a40"), RoofColour = new Color("7d3b2a"), BrassColour = new Color("c9a23a");
+        private const float GatePost = 0.18f, LeafHeight = 2.0f, AlarmLampHeight = 3.05f;
+
+        /// <summary>
+        /// A gate's frame: a squared post at each end of the opening and a beam across their
+        /// tops. With <paramref name="leaves"/> (the ghost) the leaves are drawn shut into the batch.
+        /// </summary>
+        public static void GateFrame(MeshBatch batch, Vector3 at, bool alongZ, float height, Material post, Material beam, bool leaves)
+        {
+            float half = SimConstants.TileSize * 0.5f;
+            var along = alongZ ? Vector3.Back : Vector3.Right;
+            float h = height + 0.25f;
+            for (int side = -1; side <= 1; side += 2)
+            {
+                batch.Box(at + along * side * (half - GatePost) + new Vector3(0f, h * 0.5f, 0f), new Vector3(GatePost * 2f, h, GatePost * 2f), post, 0.04f);
+                batch.Add(MeshKit.Cone(GatePost * 1.1f, 0.3f, 4), post, at + along * side * (half - GatePost) + new Vector3(0f, h + 0.15f, 0f), new Vector3(0f, 45f, 0f));
+            }
+            var size = alongZ ? new Vector3(0.22f, 0.24f, SimConstants.TileSize) : new Vector3(SimConstants.TileSize, 0.24f, 0.22f);
+            batch.Box(at + new Vector3(0f, h - 0.3f, 0f), size, beam, 0.04f);
+            if (!leaves) return;
+            float width = half - GatePost * 2f;
+            var leaf = alongZ ? new Vector3(0.1f, LeafHeight, width * 2f) : new Vector3(width * 2f, LeafHeight, 0.1f);
+            batch.Box(at + new Vector3(0f, LeafHeight * 0.5f + 0.08f, 0f), leaf, post, 0.03f);
+        }
+
+        /// <summary>One leaf of a gate, hung on the post on its side (−1 west, +1 east of the frame): planks, two battens and iron straps.</summary>
+        private static Node3D Leaf(Node3D frame, int side, Material plank, Material iron)
+        {
+            float half = SimConstants.TileSize * 0.5f, width = half - GatePost * 2f;
+            var hinge = new Node3D { Name = side < 0 ? "LeafL" : "LeafR", Position = new Vector3(side * (half - GatePost * 2f), 0f, 0f) };
+            frame.AddChild(hinge);
+            int planks = 4;
+            float w = width / planks;
+            for (int i = 0; i < planks; i++)
+            {
+                float x = -side * (w * (i + 0.5f));
+                float top = LeafHeight - (i % 2) * 0.08f;
+                hinge.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w - 0.02f, top, 0.07f), 0.02f), plank, new Vector3(x, top * 0.5f + 0.08f, 0f)));
+            }
+            for (int k = 0; k < 2; k++)
+            {
+                float y = 0.08f + LeafHeight * (k == 0 ? 0.25f : 0.75f);
+                hinge.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(width - 0.04f, 0.14f, 0.05f), 0.02f), plank, new Vector3(-side * width * 0.5f, y, 0.06f)));
+                hinge.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(width * 0.6f, 0.06f, 0.03f), 0.01f), iron, new Vector3(-side * width * 0.3f, y, -0.05f)));
+            }
+            return hinge;
+        }
+
+        /// <summary>
+        /// An Alarm Post: a tall post on a footing with a little pitched roof, a brass bell under
+        /// it on a crossbar and the lamp's housing on top (the light itself flashes, so it is drawn apart).
+        /// </summary>
+        public static void AlarmPost(MeshBatch batch, Vector3 at, Material wood, Material roof, Material brass, Material housing)
+        {
+            batch.Box(at + new Vector3(0f, 0.12f, 0f), new Vector3(0.6f, 0.24f, 0.6f), wood, 0.05f);
+            batch.Add(MeshKit.Cylinder(0.12f, 0.1f, 2.8f, 10), wood, at + new Vector3(0f, 1.4f, 0f));
+            batch.Box(at + new Vector3(0f, 2.35f, 0f), new Vector3(0.9f, 0.1f, 0.12f), wood, 0.02f);
+            for (int side = -1; side <= 1; side += 2)
+                batch.Box(at + new Vector3(side * 0.24f, 2.78f, 0f), new Vector3(0.56f, 0.06f, 0.7f), roof, 0.02f, new Vector3(0f, 0f, side * -28f));
+            // The bell hangs from the crossbar, its mouth down.
+            batch.Add(MeshKit.Cylinder(0.2f, 0.09f, 0.3f, 14), brass, at + new Vector3(0.3f, 2.12f, 0f));
+            batch.Add(MeshKit.Sphere(0.09f, 10), brass, at + new Vector3(0.3f, 2.28f, 0f));
+            batch.Add(MeshKit.Sphere(0.05f, 8), housing, at + new Vector3(0.3f, 1.95f, 0f));
+            batch.Add(MeshKit.Cylinder(0.14f, 0.12f, 0.12f, 10), housing, at + new Vector3(0f, AlarmLampHeight - 0.14f, 0f));
+            batch.Add(MeshKit.Sphere(0.1f, 12), MeshKit.Mat(new Color("5a1610"), 0.3f), at + new Vector3(0f, AlarmLampHeight, 0f));
+        }
 
         /// <summary>
         /// A dry-stone wall: courses of rounded blocks along every arm, each course set off by half
@@ -191,12 +365,12 @@ namespace PerformativeMail.Client.Presentation
         /// A palisade: a post in the middle of the tile and pointed logs out along every arm to the
         /// tile's edge, tied by two rails.
         /// </summary>
-        public static void Wall(MeshBatch batch, Vector3 at, int arms, float height, Material log, Material rail, bool worn)
+        public static void Wall(MeshBatch batch, Vector3 at, int arms, float height, Material log, Material rail, bool worn, bool centre = true)
         {
             float half = SimConstants.TileSize * 0.5f;
             var logMesh = MeshKit.Cylinder(LogRadius, LogRadius * 0.92f, 1f, 9);
             var tip = MeshKit.Cone(LogRadius, 0.32f, 9);
-            AddLog(batch, at, Vector3.Zero, height, logMesh, tip, log, worn, 0);
+            if (centre) AddLog(batch, at, Vector3.Zero, height, logMesh, tip, log, worn, 0);
             for (int d = 0; d < 4; d++)
             {
                 if ((arms & (1 << d)) == 0) continue;

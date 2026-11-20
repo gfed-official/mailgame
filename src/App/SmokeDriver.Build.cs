@@ -42,12 +42,17 @@ namespace PerformativeMail.App
         /// A tile of open ground near the Post Office with the tile before it open too and room to
         /// stand <see cref="BuildStandOff"/> west of it; the host is put there, facing it.
         /// </summary>
-        private bool StandAtBuildSite()
+        /// <summary>
+        /// Stands the host west of the open tile nearest the spawn pad, or nearest
+        /// (<paramref name="nearX"/>, <paramref name="nearZ"/>) among those <paramref name="accept"/> takes.
+        /// </summary>
+        private bool StandAtBuildSite(float nearX = float.NaN, float nearZ = float.NaN, Func<int, int, bool>? accept = null)
         {
             var world = _session.Client.World!;
             var map = world.Map;
             var po = map.PostOffice;
             var player = _session.Server!.World.GetPlayer(world.LocalId)!;
+            if (float.IsNaN(nearX)) (nearX, nearZ) = (po.SpawnPadX, po.SpawnPadZ);
             float best = float.MaxValue;
             for (int tz = 0; tz < map.Rows; tz++)
             {
@@ -55,8 +60,8 @@ namespace PerformativeMail.App
                 {
                     if (BuildRules.CheckTile(map, world.Constructs, tx, tz) != OpResult.Ok || BuildRules.CheckTile(map, world.Constructs, tx - 1, tz) != OpResult.Ok) continue;
                     float x = BuildRules.TileCentre(tx) - BuildStandOff, z = BuildRules.TileCentre(tz);
-                    if (!FreeGround(map, x, z, -1)) continue;
-                    float dx = x - po.SpawnPadX, dz = z - po.SpawnPadZ, d = dx * dx + dz * dz;
+                    if (!FreeGround(map, x, z, -1) || (accept != null && !accept(tx, tz))) continue;
+                    float dx = x - nearX, dz = z - nearZ, d = dx * dx + dz * dz;
                     if (d >= best) continue;
                     best = d;
                     _buildTx = tx;
@@ -158,6 +163,15 @@ namespace PerformativeMail.App
                     var seen = GetViewport().GetVisibleRect();
                     Check(seen.Encloses(bar) && bar.Position.X > Hud.SafeMargin + 260f && bar.End.X < seen.End.X - Hud.SafeMargin - 330f,
                         $"the recipe bar at {bar} runs into the health bars or the trackers of a {seen.Size} view");
+                    // Its rows, as many as the recipes take, stay inside it, under the keys line and over the bottom margin.
+                    var keys = hud.HeldRect;
+                    foreach (var child in hud.RecipeBar.GetChildren())
+                    {
+                        var card = ((Control)child).GetGlobalRect();
+                        Check(bar.Encloses(card) && card.End.Y <= seen.End.Y - Hud.SafeMargin + 0.5f && !card.Intersects(keys),
+                            $"the recipe card \"{((Label)child).Text}\" at {card} leaves the bar at {bar} or runs into the keys line at {keys}");
+                    }
+                    Check(keys.Position.Y >= hud.FeedBottom - 0.5f, $"the keys line at {keys} runs into the feed, which ends at {hud.FeedBottom}");
                     var at = new Vector3(BuildRules.TileCentre(_buildTx), 0f, BuildRules.TileCentre(_buildTz));
                     Check(view.GhostShown && view.GhostGreen && view.GhostPosition.DistanceTo(at) < 0.01f, $"the ghost is drawn {(view.GhostShown ? view.GhostGreen ? "green" : "red" : "nowhere")} at {view.GhostPosition}, the tile at {at}");
                     Shot(_buildStep == BuildStep.Ghost ? "build-ghost" : "build-again");

@@ -699,7 +699,7 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             refused at a pile with bare hands, is handed a Shovel, holds it in view and digs the
             pile out, and sells the Sand (`harvest-sand_pile-*.png`)
 
-- [ ] **The Gate and the Alarm Post** (doc 05 §4, doc 08 §2.6, doc 10 §2, doc 11 §10; design
+- [x] **The Gate and the Alarm Post** (doc 05 §4, doc 08 §2.6, doc 10 §2, doc 11 §10; design
       choice 81), the two defences without a blueprint
       - [x] *In the sim.* The **Gate** (`gate`, behaviour `gate`: 4 Logs and an Iron Ingot, 500
             HP, turned two ways) joins the walls in a line; carriers walk through it — their
@@ -717,9 +717,21 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed line "… · 30 s of warning with the Alarm Post", the raid tracker "· 3 by the
             alarm". `GateAndAlarmTests` (6), `BuildFlowTests` (1 new), `BuildTests`,
             `ContentValidatorTests`
-      - [ ] *On screen*: the gate's leaves, the post's bell and lamp, the marks over the raiders
+      - [x] *On screen.* A Gate is two squared posts with pointed caps under a beam, in the
+            palisade's line (what joins it from the sides is palisade), and two plank leaves
+            with battens and iron straps that swing open while a carrier is within 2.6 m and
+            shut behind them. An Alarm Post is a tall post on a footing with a little red roof,
+            a brass bell on a crossbar and a lamp on top that flashes red while a raider is
+            within its 40 m. A raider within reach of a post wears a red arrowhead over its
+            head, seen through walls. Build mode's recipe bar now has six cards: three rows of
+            the smaller font between the feed and the bottom edge, the keys line over them (the
+            smoke checks every card against the bar, the margin, the keys and the feed). In the
+            smoke the host builds a Gate turned across the way, walks through it as it swings
+            open, builds an Alarm Post in range (its prompt says so), and in the shift's raid the
+            feed names the post's warning, the lamp flashes and the raiders are marked
+            (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the Gate and the Alarm Post on screen, then the bike; the generator and the
+Next in this order: the bike (doc 12 M1 "bike as first vehicle"); the generator and the
 districts before it are the larger pieces still open.
 
 ## How to build and check

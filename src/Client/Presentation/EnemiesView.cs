@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Godot;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Combat;
+using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.Client.Presentation
 {
@@ -21,6 +22,8 @@ namespace PerformativeMail.Client.Presentation
             public Node3D Root = null!;
             public CharacterModel Model = null!;
             public MeshInstance3D Bar = null!;
+            /// <summary>The red mark over the head of a raider an Alarm Post has in reach, seen through walls.</summary>
+            public MeshInstance3D Mark = null!;
             public ShaderMaterial BarMaterial = null!;
             public Vector3 Last;
             public bool Placed;
@@ -31,6 +34,8 @@ namespace PerformativeMail.Client.Presentation
         }
 
         public int ViewCount => _views.Count;
+        /// <summary>How many raiders wear the Alarm Posts' mark as of the last frame.</summary>
+        public int MarksShown { get; private set; }
 
         private readonly Dictionary<ushort, View> _views = new Dictionary<ushort, View>();
         private readonly List<View> _dying = new List<View>();
@@ -63,6 +68,7 @@ namespace PerformativeMail.Client.Presentation
             if (world == null) return;
             float dt = (float)delta;
             double tick = world.ServerTick - InterpolationDelayTicks;
+            int marks = 0;
 
             foreach (var enemy in world.Enemies.Values)
             {
@@ -91,7 +97,11 @@ namespace PerformativeMail.Client.Presentation
                     view.BarMaterial.SetShaderParameter("hp", enemy.Hp / 255f);
                 }
                 view.Model.Animate(dt, view.Speed, enemy.State == EnemyState.Windup, down: false);
+                bool marked = world.Constructs.All.Count > 0 && RaidRules.Revealed(world.Constructs, x, z);
+                view.Mark.Visible = marked;
+                if (marked) marks++;
             }
+            MarksShown = marks;
 
             if (_views.Count != world.Enemies.Count)
             {
@@ -119,6 +129,20 @@ namespace PerformativeMail.Client.Presentation
             }
         }
 
+        private static StandardMaterial3D? _markMaterial;
+
+        private static StandardMaterial3D MarkMaterial => _markMaterial ??= new StandardMaterial3D
+        {
+            AlbedoColor = new Color(1f, 0.16f, 0.1f, 0.9f),
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+            BillboardKeepScale = true,
+            NoDepthTest = true,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            RenderPriority = 2,
+        };
+
         private View Create(ClientEnemy enemy)
         {
             float scale = enemy.Def.Scale * (enemy.Mega ? 1.4f : 1f);
@@ -142,6 +166,18 @@ namespace PerformativeMail.Client.Presentation
                 Visible = false,
             };
             view.Root.AddChild(view.Bar);
+            // A red arrowhead pointing down at it, facing the camera and seen through walls.
+            view.Mark = new MeshInstance3D
+            {
+                Name = "AlarmMark",
+                Mesh = new PrismMesh { Size = new Vector3(0.5f, 0.45f, 0.02f) },
+                MaterialOverride = MarkMaterial,
+                Position = new Vector3(0f, view.Model.Height * scale + 0.75f, 0f),
+                Scale = new Vector3(1f, -1f, 1f),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                Visible = false,
+            };
+            view.Root.AddChild(view.Mark);
             AddChild(view.Root);
             return view;
         }

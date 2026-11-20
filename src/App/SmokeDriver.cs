@@ -733,13 +733,14 @@ namespace PerformativeMail.App
             hud.Refresh();
             foreach (char c in FontCheck.MissingGlyphs(hud))
                 if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
+            TrackAlarm();
 
             switch (world.Global.Phase)
             {
                 case RunPhase.Prep:
                     CheckDraftPick();
                     // Once in the run the host works the land and goes shopping before readying up.
-                    if (StepHarvest() || StepBuild() || StepShop() || StepFortify()) break;
+                    if (StepHarvest() || StepBuild() || StepShop() || StepFortify() || StepDefences()) break;
                     if (!world.LocalReady) Go();
                     break;
 
@@ -872,6 +873,7 @@ namespace PerformativeMail.App
             VerifyHarvest();
             VerifyBuild();
             VerifyFortify();
+            VerifyDefences();
 
             Check(server.Run.Phase == RunPhase.Lobby && server.Run.RunNumber == 1, $"the server is in {server.Run.Phase} of run {server.Run.RunNumber}");
             Check(hud.PhaseText == "LOBBY", $"back in the Lobby the HUD phase line is \"{hud.PhaseText}\"");

@@ -36,6 +36,10 @@ namespace PerformativeMail.Client.UI
         public string PromptText => _prompt.Text;
         /// <summary>The line over the hotbar: what is in the hand.</summary>
         public string HeldText => _held.Visible ? _held.Text : "";
+        /// <summary>Where the held stack's name (or Build mode's keys) stands on screen.</summary>
+        public Rect2 HeldRect => _held.GetGlobalRect();
+        /// <summary>The lowest point of the event feed's lines on screen.</summary>
+        public float FeedBottom => _feedLines[_feedLines.Length - 1].GetGlobalRect().End.Y;
         public string HintText => _hint.Text;
         /// <summary>The big PAUSED line while a solo run is paused, else empty.</summary>
         public string PausedText => _paused.Visible ? _paused.Text : "";
@@ -152,7 +156,7 @@ namespace PerformativeMail.Client.UI
         private MatchMark _mark = null!;
         private GridView _hotbar = null!;
         private HFlowContainer _recipeBar = null!;
-        private const float RecipeBarHalfWidth = 280f;
+        private const float RecipeBarHalfWidth = 280f, RecipeBarHeight = 58f;
         private readonly Label[] _feedLines = new Label[EventFeed.MaxEntries];
         private int _feedRevision = -1;
         private RunPhase _clockPhase;
@@ -324,8 +328,9 @@ namespace PerformativeMail.Client.UI
                 Visible = false,
             };
             _recipeBar.AddThemeConstantOverride("h_separation", 18);
-            _recipeBar.AddThemeConstantOverride("v_separation", 2);
-            Place(_recipeBar, 0.5f, 1f, -RecipeBarHalfWidth, -m - 50f, RecipeBarHalfWidth, -m);
+            _recipeBar.AddThemeConstantOverride("v_separation", 1);
+            // Three rows of the small font fit between the feed and the bottom edge, the keys over them.
+            Place(_recipeBar, 0.5f, 1f, -RecipeBarHalfWidth, -m - RecipeBarHeight, RecipeBarHalfWidth, -m);
             AddChild(_recipeBar);
 
             // What was just picked up takes the place of the held stack's name for a few seconds.
@@ -447,6 +452,10 @@ namespace PerformativeMail.Client.UI
             var heldDest = held != null && held.Stack.Kind == StackKind.Mail ? world.Map.FindDestination(held.Stack.Address) : null;
             _held.Modulate = heldDest != null ? Palette.HouseColour(heldDest.Variant).Lightened(0.35f) : Colors.White;
             _held.Visible = !_loot.Cards.Visible;
+            // Over the hotbar, or over the recipe bar's rows while Build mode is up.
+            float m = SafeMargin;
+            _held.OffsetTop = building ? -m - RecipeBarHeight - 24f : -GridView.Cell - m - 30f;
+            _held.OffsetBottom = building ? -m - RecipeBarHeight : -GridView.Cell - m - 4f;
             if (building)
             {
                 _held.Text = HudText.BuildKeys;
@@ -486,7 +495,7 @@ namespace PerformativeMail.Client.UI
                     _recipeBar.RemoveChild(child);
                     child.QueueFree();
                 }
-                for (int i = 0; i < recipes.Count; i++) _recipeBar.AddChild(MakeLabel($"Recipe{i}", 15, HorizontalAlignment.Center));
+                for (int i = 0; i < recipes.Count; i++) _recipeBar.AddChild(MakeLabel($"Recipe{i}", 13, HorizontalAlignment.Center));
             }
             RecipeShown = Build!.RecipeIndex;
             for (int i = 0; i < recipes.Count; i++)
