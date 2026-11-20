@@ -41,9 +41,9 @@ namespace PerformativeMail.Net.Tests
 
             public SimWorld Sim => Server.World;
 
-            public ClientRuntime Join(string name)
+            public ClientRuntime Join(string name, int startShift = 0)
             {
-                var client = new ClientRuntime(Content, Hub.CreateClient(), name);
+                var client = new ClientRuntime(Content, Hub.CreateClient(), name, PlaytestFlags.None, startShift);
                 Clients.Add(client);
                 Run(10);
                 return client;
@@ -374,6 +374,71 @@ namespace PerformativeMail.Net.Tests
             s.Sim.DamageConstruct(s.Sim.Constructs.At(Tx, Tz)!, 1000f);
             s.Run(5);
             Assert.Empty(c.Constructs.All);
+        }
+
+        [Fact]
+        public void TheFortifyBlueprintBoughtByOneIsBuiltWithByAnother()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada", startShift: 2);
+            var bo = s.Join("Bo");
+            ClientWorld a = ada.World!, b = bo.World!;
+            var build = new BuildController(bo);
+            var boFeed = new EventFeed();
+            bo.EventReceived += e => boFeed.OnEvent(b, e);
+            s.ToPrep();
+            Assert.Equal(2, s.Sim.Run.Shift);
+            s.Sim.Economy.AddLoot(1000);
+            Assert.True(s.Sim.Give(s.Truth(bo).Inventory, ItemStack.OfItem(s.Content.Item("iron_ingot"), 4)));
+            s.Put(bo, Centre(Tx - 2), Centre(Tz));
+
+            // The bar has the Fortify recipes, red, and the ghost of one says what it takes.
+            Assert.True(build.Toggle());
+            var spikes = s.Content.Recipes.First(r => r.Building.Id == "spike_strip");
+            int key = s.Content.Recipes.ToList().IndexOf(spikes);
+            Assert.True(build.PressKey(key));
+            Assert.Equal(OpResult.NeedsBlueprint, b.RecipeState(spikes));
+            LookAt(bo, Tx, Tz);
+            build.Update(Dt, true, false);
+            s.Run(5);
+            Assert.Equal(OpResult.NeedsBlueprint, build.Ghost.State);
+            Assert.Equal("Spike Strip   ·   Needs the Blueprint: Fortify from the shop", HudText.BuildPrompt(b, build.Ghost, out _));
+            Assert.Empty(s.Sim.Constructs.All);
+
+            // Ada buys it at the counter, the tenth card, key 0.
+            var po = a.Map.PostOffice;
+            s.Put(ada, po.ShopX + 1.0f, po.ShopZ);
+            Assert.True(ada.OpenShop());
+            var fortify = s.Content.ShopItem("bp_defense");
+            int place = a.ShopShelf.ToList().IndexOf(fortify);
+            Assert.Equal("Once per run, for the whole team", HudText.ShopNote(a, fortify));
+            Assert.Equal(place == 9 ? "[0]" : HudText.CardKey(place), HudText.ShopCard(a, fortify, place)[0].Split(' ')[0]);
+            Assert.True(ada.PressShopKey(place));
+            s.Run(10);
+            Assert.Contains(fortify, b.ShopOwned);
+            Assert.Equal("The team owns it", HudText.ShopNote(a, fortify));
+            Assert.Contains(boFeed.Entries, e => e.Text == "Blueprint: Fortify: the team can build Stone Wall and Spike Strip now   ·   [B]");
+
+            // Bo's ghost is green now, and the strip goes down.
+            build.Update(Dt, false, false);
+            Assert.Equal(OpResult.Ok, build.Ghost.State);
+            build.Update(Dt, true, false);
+            s.Run(10);
+            var strip = Assert.Single(b.Constructs.All);
+            Assert.Equal("spike_strip", strip.Def.Id);
+            Assert.Equal(2, BuildRules.Have(b.Hotbar, b.Inventory, s.Content.Item("iron_ingot")));
+
+            // Walked over by its builder, on both ends alike.
+            s.Put(bo, Centre(Tx) - 1.5f, Centre(Tz));
+            for (int i = 0; i < 30; i++)
+            {
+                bo.Input.MoveX = 1f;
+                s.Run(1);
+            }
+            bo.Input.MoveX = 0f;
+            s.Run(10);
+            Assert.True(b.Local.X > Centre(Tx) + 0.5f, $"stopped at {b.Local.X} by the spikes");
+            Assert.True(MathF.Abs(b.Local.X - s.Truth(bo).Move.X) < 0.05f);
         }
     }
 }

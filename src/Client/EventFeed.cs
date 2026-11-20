@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Combat;
+using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Run;
@@ -89,6 +90,7 @@ namespace PerformativeMail.Client
                 }
                 case ShopBoughtEvent e when e.Item < world.Content.ShopItems.Count:
                     Add(HudText.ShopBought(world, e.Player, world.Content.ShopItems[e.Item], e.Price));
+                    if (world.Content.ShopItems[e.Item].Kind == ShopKind.Blueprint) Add(HudText.BlueprintBought(world, world.Content.ShopItems[e.Item]));
                     break;
                 case ShopSoldEvent e: Add(HudText.ShopSold(world, e.Player, e.Item, e.Count, e.Paid)); break;
                 case NodeHarvestedEvent e: AddHarvest(world, e); break;

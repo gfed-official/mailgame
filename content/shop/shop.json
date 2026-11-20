@@ -16,5 +16,7 @@
   { "id": "axe", "name": "Axe", "description": "Twice the Logs from every swing at a tree.", "kind": "item", "price": 80,
     "grants": { "item": "axe", "count": 1 }, "availability": { "fromShift": 1, "slot": "fixed" }, "tags": ["tool"] },
   { "id": "pickaxe", "name": "Pickaxe", "description": "Breaks boulders into Stone and veins into Iron Ore.", "kind": "item", "price": 100,
-    "grants": { "item": "pickaxe", "count": 1 }, "availability": { "fromShift": 1, "slot": "fixed" }, "tags": ["tool"] }
+    "grants": { "item": "pickaxe", "count": 1 }, "availability": { "fromShift": 1, "slot": "fixed" }, "tags": ["tool"] },
+  { "id": "bp_defense", "name": "Blueprint: Fortify", "description": "The team can build Stone Walls and Spike Strips.", "kind": "blueprint", "price": 300,
+    "grants": { "blueprint": "bp_defense" }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["blueprint"] }
 ]

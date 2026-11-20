@@ -516,8 +516,22 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             (`shop-counter.png`, `shop.png`)
       - [x] the tools: the Axe ($0.80) and the Pickaxe ($1.00) are on the counter from shift 1
             (nine cards now), never as specials — see harvesting below
-      - [ ] blueprints in the catalog (there is nothing to build yet), the bike and the other
-            vehicles, hires and services
+      - [x] **The first blueprint: Fortify** (doc 10 §3 bp_defense, doc 04 §1.3, doc 05 §4;
+            design choice 79). "Blueprint: Fortify", $3.00 from shift 2, once per run and the
+            whole team's: nothing lands in the pockets, the card says "Once per run, for the
+            whole team" and then "The team owns it", and the feed "Blueprint: Fortify: the team
+            can build Stone Wall and Spike Strip now · [B]". The **Stone Wall** (4 Stone, 800
+            HP, a dry-stone wall that joins the wooden ones at a corner) and the **Spike Strip**
+            (2 Iron Ingots, 150 HP, a plate of iron spikes: in nobody's way — carriers walk over
+            it, the raiders' paths go across it — and 15 HP a second off every raider standing
+            on its tile, never off a carrier; content's new `spikes` behaviour with
+            `params.damagePerSecond`, validated). Without the blueprint their ghosts say "Needs
+            the Blueprint: Fortify from the shop". The tenth card of the shop has the key 0.
+            `FortifyTests` (5), `BuildFlowTests` (1 new: Ada buys it with the card's key, Bo
+            builds with it and walks over the strip), `ContentValidatorTests` (1 new); the smoke
+            buys it in shift 2 and builds a strip (`fortify-*.png`)
+      - [ ] the other blueprints (they need belts, sorters, vehicles, turrets), the bike and the
+            other vehicles, hires and services
 - [x] **Perk system** (StatSheet, modifiers, team/personal, prerequisites, exclusions) with 11
       perks (doc 01 §2.5 and §4, doc 07 §6, doc 08 §2.9, doc 09 §2.10; design choice 66)
       - [x] *The stat sheet.* `content/perks/perks.json` (validated: unknown stat, op, category,
@@ -619,7 +633,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
       - [x] **Building by hand, on screen** (doc 09 §2.7 Build mode, doc 09 §4 "B"; design
             choice 78). **B** puts Build mode up in Prep and Delivery ("Building is done in
             Prep and during Delivery" in the feed otherwise, and it comes down by itself with
-            the phase or a fall). Over the hotbar the recipe bar — "[1] Wooden Wall · Log x3
+            the phase or a fall). In the hotbar's place (two rows at most, clear of the feed
+            and the trackers — the smoke checks) the recipe bar — "[1] Wooden Wall · Log x3
             [2] Chest · Log x4", the chosen one green (amber when the pockets cannot pay for
             it), the others red when they cannot — and the keys under it ("[LMB] build [R] turn
             [hold RMB] take down [Q] pick [B] done"). The ghost stands on the tile of the ground
@@ -644,8 +659,9 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             run — gone on both ends in the Lobby (`build-*.png`)
       - [ ] Sand and the Shovel; tools drawn in the hand
 
-Next in this order: the blueprints of the shop's catalog for what is built, then Sand and
-the Shovel. The generator and the districts before it are the larger piece and
+Next in this order: Sand and the Shovel and tools drawn in the hand, the Gate and the Alarm
+Post (no blueprint), then the bike; the generator and the districts are the larger pieces
+still open. The generator and the districts before it are the larger piece and
 still open, as is the bike.
 
 ## How to build and check
@@ -1409,6 +1425,18 @@ See "Commands" at the bottom (filled in as the tooling lands).
     What is built in front of the ghost's tile is looked at instead (taking down, pipette).
     A built chest is opened by the interact key in or out of Build mode. The mode is not a
     panel: the view keeps the mouse and the carrier walks.
+
+79. **Fortify, the first blueprint.** Doc 10 §3 has bp_defense unlock "Stone wall, spikes"
+    from shift 2 at 300 ¢; doc 05 §4 gives the two buildings' HP, costs and what spikes do.
+    Where they stop: a blueprint is not an item (it is the team's the moment it is bought,
+    held in the shop's once-per-run set the server already had); the Spike Strip covers its
+    whole tile, hurts a raider whose middle stands on the tile (its 15 HP a second in 1/30
+    steps, the kill nobody's but whoever hit it last), is not struck by raiders (it is not in
+    their way) and so never wears; it does not hurt carriers ("Turrets and spike strips do not
+    damage players"); nothing else is built on its tile. The Stone Wall's "Wall Breaker damage
+    reduced 50 %" waits for the Wall Breaker (no such raider yet). The smoke hands the host
+    the two Iron Ingots for the strip: the run has no money for the shop's ten after the
+    blueprint, and no refining (doc 03: there is none).
 
 ## Commands
 

@@ -37,7 +37,8 @@ namespace PerformativeMail.Sim.World
     /// A wall is two arms from the middle of its tile to the tile's edges, along the way it was
     /// turned; it grows a third or fourth arm towards a neighbouring wall that runs at it, so a
     /// corner and a T close by themselves. A chest is a round body in the middle of its tile.
-    /// Whatever stands on a tile, the raiders' tile paths keep off it.
+    /// Whatever stands on a tile, the raiders' tile paths keep off it — but for spikes, which
+    /// lie flat for everybody to walk over.
     /// </summary>
     public sealed class ConstructField
     {
@@ -63,8 +64,8 @@ namespace PerformativeMail.Sim.World
 
         public Construct? At(int tx, int tz) => _map.InBounds(tx, tz) ? _tiles[tz * _map.Cols + tx] : null;
 
-        /// <summary>True for a tile a tile path keeps off because of what is built there.</summary>
-        public bool Blocks(int tx, int tz) => At(tx, tz) != null;
+        /// <summary>True for a tile a tile path keeps off because of what is built there: anything but spikes.</summary>
+        public bool Blocks(int tx, int tz) => At(tx, tz) is { Def.Solid: true };
 
         public Construct Add(BuildingDef def, int tx, int tz, int rotation, int hp, uint containerId)
         {
@@ -164,7 +165,7 @@ namespace PerformativeMail.Sim.World
                 for (int tx = minTx; tx <= maxTx; tx++)
                 {
                     var c = At(tx, tz);
-                    if (c == null || feetY >= c.Def.Height) continue;
+                    if (c == null || !c.Def.Solid || feetY >= c.Def.Height) continue;
                     if (carrier && c.Def.Behaviour == BuildingBehaviour.Gate) continue;
                     float reach = c.Def.Radius + r;
                     float dist = Distance(c, x, z, out float nearX, out float nearZ);
@@ -202,7 +203,7 @@ namespace PerformativeMail.Sim.World
                 for (int tx = minTx; tx <= maxTx; tx++)
                 {
                     var c = At(tx, tz);
-                    if (c == null) continue;
+                    if (c == null || !c.Def.Solid) continue;
                     float line = Distance(c, x, z, out float nearX, out float nearZ);
                     float dist = line - c.Def.Radius;
                     if (dist > reach || dist >= bestDist) continue;

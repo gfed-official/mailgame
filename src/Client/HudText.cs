@@ -370,7 +370,7 @@ namespace PerformativeMail.Client
         // --- the Draft (doc 09 §2.10) and the perks of the run -------------------------------------
 
         /// <summary>The key that takes a card: "[1]".</summary>
-        public static string CardKey(int card) => $"[{(card + 1).ToString(CultureInfo.InvariantCulture)}]";
+        public static string CardKey(int card) => card == 9 ? "[0]" : $"[{(card + 1).ToString(CultureInfo.InvariantCulture)}]";
 
         /// <summary>Over the cards: what is chosen, and before which shift.</summary>
         public static string DraftTitle(ClientWorld world) => $"DRAFT   ·   one perk each before shift {world.Global.Shift + 1}";
@@ -746,6 +746,15 @@ namespace PerformativeMail.Client
                 case OpResult.WrongPhase: return BuildClosed;
                 default: return "";
             }
+        }
+
+        /// <summary>The event feed's line for a blueprint the team has bought: what it can build now.</summary>
+        public static string BlueprintBought(ClientWorld world, ShopItemDef blueprint)
+        {
+            var names = new List<string>();
+            foreach (var recipe in world.Content.Recipes)
+                if (recipe.Blueprint == blueprint) names.Add(recipe.Building.Name);
+            return names.Count == 0 ? $"The team owns the {blueprint.Name}" : $"{blueprint.Name}: the team can build {string.Join(" and ", names)} now   ·   [B]";
         }
 
         /// <summary>The event feed's line for what was built.</summary>

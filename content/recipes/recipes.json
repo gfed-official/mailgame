@@ -2,5 +2,9 @@
   { "id": "recipe_wall_wood", "produces": { "building": "wall_wood" },
     "inputs": [ { "item": "log", "count": 3 } ], "craftSeconds": 0, "unlockShift": 1 },
   { "id": "recipe_chest", "produces": { "building": "chest" },
-    "inputs": [ { "item": "log", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1 }
+    "inputs": [ { "item": "log", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1 },
+  { "id": "recipe_wall_stone", "produces": { "building": "wall_stone" },
+    "inputs": [ { "item": "stone", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_defense" },
+  { "id": "recipe_spike_strip", "produces": { "building": "spike_strip" },
+    "inputs": [ { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_defense" }
 ]

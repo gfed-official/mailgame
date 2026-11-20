@@ -153,6 +153,11 @@ namespace PerformativeMail.App
                         $"the green ghost's prompt is \"{hud.PromptText}\" ({hud.PromptMark}), expected \"{want}\"");
                     Check(hud.RecipeBarText.Split('\n').Length == world.Content.Recipes.Count && hud.RecipeShown == 0 && hud.HeldText == HudText.BuildKeys,
                         $"the recipe bar reads \"{hud.RecipeBarText}\" ({hud.RecipeShown}), over \"{hud.HeldText}\"");
+                    // The bar stands where the hotbar does, clear of the health bars and the trackers, inside the view.
+                    var bar = hud.RecipeBar.GetGlobalRect();
+                    var seen = GetViewport().GetVisibleRect();
+                    Check(seen.Encloses(bar) && bar.Position.X > Hud.SafeMargin + 260f && bar.End.X < seen.End.X - Hud.SafeMargin - 330f,
+                        $"the recipe bar at {bar} runs into the health bars or the trackers of a {seen.Size} view");
                     var at = new Vector3(BuildRules.TileCentre(_buildTx), 0f, BuildRules.TileCentre(_buildTz));
                     Check(view.GhostShown && view.GhostGreen && view.GhostPosition.DistanceTo(at) < 0.01f, $"the ghost is drawn {(view.GhostShown ? view.GhostGreen ? "green" : "red" : "nowhere")} at {view.GhostPosition}, the tile at {at}");
                     Shot(_buildStep == BuildStep.Ghost ? "build-ghost" : "build-again");

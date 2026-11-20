@@ -184,6 +184,8 @@ namespace PerformativeMail.Sim.Content
         Container = 1,
         /// <summary>A wall the carriers walk through.</summary>
         Gate = 2,
+        /// <summary>Lies flat on its tile (doc 05 §4 Spike Strip): it stops nobody, and hurts a raider standing on it.</summary>
+        Spikes = 3,
     }
 
     /// <summary>
@@ -209,8 +211,13 @@ namespace PerformativeMail.Sim.Content
         /// <summary>The one recipe that builds it.</summary>
         public RecipeDef Recipe { get; internal set; } = null!;
 
-        /// <summary>Walls and gates stand in a line and join each other; a chest stands alone.</summary>
-        public bool Joins => Behaviour != BuildingBehaviour.Container;
+        /// <summary>Spikes: what a raider standing on the tile loses a second.</summary>
+        public float DamagePerSecond { get; init; }
+
+        /// <summary>Walls and gates stand in a line and join each other; a chest and spikes stand alone.</summary>
+        public bool Joins => Behaviour == BuildingBehaviour.Wall || Behaviour == BuildingBehaviour.Gate;
+        /// <summary>Whether it stands in anybody's way at all: spikes are walked over, and the raiders' paths go across them.</summary>
+        public bool Solid => Behaviour != BuildingBehaviour.Spikes;
     }
 
     /// <summary>One line of a recipe: so many of an item.</summary>

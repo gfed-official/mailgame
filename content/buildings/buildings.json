@@ -6,5 +6,13 @@
   { "id": "chest", "name": "Chest", "footprint": [1, 1], "rotations": 4, "hp": 200,
     "placement": { "onStreet": false }, "behaviour": "container", "container": "chest",
     "params": { "radius": 0.45, "height": 0.8 },
-    "recipe": "recipe_chest", "tags": ["storage"] }
+    "recipe": "recipe_chest", "tags": ["storage"] },
+  { "id": "wall_stone", "name": "Stone Wall", "footprint": [1, 1], "rotations": 2, "hp": 800,
+    "placement": { "onStreet": false }, "behaviour": "wall",
+    "params": { "radius": 0.25, "height": 2.2 },
+    "recipe": "recipe_wall_stone", "tags": ["defense"] },
+  { "id": "spike_strip", "name": "Spike Strip", "footprint": [1, 1], "rotations": 1, "hp": 150,
+    "placement": { "onStreet": false }, "behaviour": "spikes",
+    "params": { "radius": 0.5, "height": 0.15, "damagePerSecond": 15 },
+    "recipe": "recipe_spike_strip", "tags": ["defense"] }
 ]

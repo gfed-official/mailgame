@@ -137,7 +137,8 @@ namespace PerformativeMail.Sim.Tests
         public void TheCatalogSellsBandagesAndRefinedMaterials_AndOneRotatingKit()
         {
             // The tools came with harvesting (HarvestTests); they are never a special, so the roll is as it was.
-            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe" },
+            // So did the Fortify blueprint with building (FortifyTests).
+            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "bp_defense" },
                 Db.ShopItems.Select(s => s.Id).ToArray());
             for (int i = 0; i < Db.ShopItems.Count; i++) Assert.Equal(i, Db.ShopItems[i].Index);
 
@@ -174,7 +175,7 @@ namespace PerformativeMail.Sim.Tests
 
             // Nothing the counter sells is worth more when it is sold straight back.
             foreach (var entry in Db.ShopItems)
-                Assert.True(ShopRules.Price(entry, entry.Special, discount) >= ShopRules.SaleValue(entry.Item!, entry.Count), entry.Id);
+                if (entry.Item != null) Assert.True(ShopRules.Price(entry, entry.Special, discount) >= ShopRules.SaleValue(entry.Item, entry.Count), entry.Id);
         }
 
         [Fact]

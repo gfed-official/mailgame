@@ -754,6 +754,7 @@ namespace PerformativeMail.Sim.Content
                             case "wall": behaviour = BuildingBehaviour.Wall; break;
                             case "container": behaviour = BuildingBehaviour.Container; break;
                             case "gate": behaviour = BuildingBehaviour.Gate; break;
+                            case "spikes": behaviour = BuildingBehaviour.Spikes; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
@@ -784,8 +785,11 @@ namespace PerformativeMail.Sim.Content
                             Container = container,
                             Radius = hasParams ? (float)J.Num(ctx, pars, "radius") : 0.2f,
                             Height = hasParams ? (float)J.Num(ctx, pars, "height") : 1f,
+                            DamagePerSecond = hasParams ? (float)J.Num(ctx, pars, "damagePerSecond", 0) : 0f,
                             Tags = J.StrArray(ctx, e, "tags", optional: true),
                         };
+                        if (behaviour == BuildingBehaviour.Spikes && def.DamagePerSecond <= 0f) ctx.Error($"'{id}': spikes need params.damagePerSecond > 0");
+                        if (behaviour != BuildingBehaviour.Spikes && def.DamagePerSecond != 0f) ctx.Error($"'{id}': only spikes do damage (params.damagePerSecond)");
                         if (def.Rotations != 1 && def.Rotations != 2 && def.Rotations != 4) ctx.Error($"'{id}': rotations must be 1, 2 or 4");
                         // The wire carries a construct's HP in 16 bits.
                         if (def.Hp < 1 || def.Hp > ushort.MaxValue) ctx.Error($"'{id}': hp must be in 1..{ushort.MaxValue}");

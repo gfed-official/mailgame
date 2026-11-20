@@ -466,6 +466,18 @@ namespace PerformativeMail.Sim
                 }
             }
 
+            // Spikes hurt whoever of them stands on their tile (doc 05 §4), carriers never.
+            if (Constructs.All.Count > 0)
+            {
+                for (int i = _enemies.Count - 1; i >= 0; i--)
+                {
+                    var e = _enemies[i];
+                    var under = Constructs.At((int)MathF.Floor(e.X / SimConstants.TileSize), (int)MathF.Floor(e.Z / SimConstants.TileSize));
+                    if (under != null && under.Def.Behaviour == BuildingBehaviour.Spikes && e.State != EnemyState.Flee)
+                        DamageEnemy(e, under.Def.DamagePerSecond * dt, null);
+                }
+            }
+
             // Bodies do not stack: overlapping enemies are pushed apart, then kept out of walls.
             for (int i = 0; i < _enemies.Count; i++)
             {

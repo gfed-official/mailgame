@@ -123,7 +123,8 @@ namespace PerformativeMail.Sim.Tests
         [Fact]
         public void ContentHasTheWoodenWallAndTheChest_EachWithItsRecipe()
         {
-            Assert.Equal(new[] { "wall_wood", "chest" }, Db.Buildings.Select(b => b.Id));
+            // The Fortify blueprint's two follow them (FortifyTests).
+            Assert.Equal(new[] { "wall_wood", "chest", "wall_stone", "spike_strip" }, Db.Buildings.Select(b => b.Id));
             Assert.Equal((300, 2, BuildingBehaviour.Wall, true), (Wall.Hp, Wall.Rotations, Wall.Behaviour, Wall.Joins));
             Assert.Equal((200, 4, BuildingBehaviour.Container, false), (Chest.Hp, Chest.Rotations, Chest.Behaviour, Chest.Joins));
             Assert.Equal("chest", Chest.Container!.Id);
@@ -134,8 +135,8 @@ namespace PerformativeMail.Sim.Tests
             Assert.Same(Wall, wall.Building);
             Assert.Equal(("log", 3), (wall.Inputs.Single().Item.Id, wall.Inputs.Single().Count));
             Assert.Equal(("log", 4), (Chest.Recipe.Inputs.Single().Item.Id, Chest.Recipe.Inputs.Single().Count));
-            Assert.All(Db.Recipes, r => Assert.Equal((1, null), (r.UnlockShift, r.Blueprint)));
-            Assert.Equal(2, Db.Recipes.Count);
+            Assert.All(new[] { Wall.Recipe, Chest.Recipe }, r => Assert.Equal((1, null), (r.UnlockShift, r.Blueprint)));
+            Assert.Equal(4, Db.Recipes.Count);
 
             Assert.Equal(8.0, Db.Balance.GetDouble("buildRange"));
             Assert.True(Db.Balance.GetDouble("serverBuildRange") > Db.Balance.GetDouble("buildRange"));

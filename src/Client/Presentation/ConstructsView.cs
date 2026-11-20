@@ -72,9 +72,7 @@ namespace PerformativeMail.Client.Presentation
             foreach (var c in field.All)
             {
                 var at = new Vector3(c.X, world.Map.HeightAt(c.X, c.Z), c.Z);
-                bool worn = c.Hp * 2 < c.Def.Hp;
-                if (c.Def.Joins) Wall(batch, at, field.Arms(c), c.Def.Height, Mat(worn ? LogDark : LogColour), Mat(RailColour), worn);
-                else SceneryView.Chest(batch, at, Yaw(c.Rotation));
+                Draw(batch, c.Def, at, field.Arms(c), c.Rotation, null, c.Hp * 2 < c.Def.Hp);
             }
             batch.Flush(_built, "Built");
             Drawn = field.All.Count;
@@ -102,14 +100,88 @@ namespace PerformativeMail.Client.Presentation
                 }
                 var batch = new MeshBatch();
                 var mat = GhostMat(ok ? GhostOk : GhostBad);
-                if (def.Joins) Wall(batch, Vector3.Zero, (ghost.Rotation & 1) != 0 ? ConstructField.ArmSouth | ConstructField.ArmNorth : ConstructField.ArmEast | ConstructField.ArmWest, def.Height, mat, mat, false);
-                else batch.Box(new Vector3(0f, 0.4f, 0f), new Vector3(0.96f, 0.8f, 0.66f), mat, 0.1f, new Vector3(0f, Mathf.RadToDeg(Yaw(ghost.Rotation)), 0f));
+                int arms = (ghost.Rotation & 1) != 0 ? ConstructField.ArmSouth | ConstructField.ArmNorth : ConstructField.ArmEast | ConstructField.ArmWest;
+                Draw(batch, def, Vector3.Zero, arms, ghost.Rotation, mat, false);
                 // The tile it takes, on the ground.
                 batch.Box(new Vector3(0f, 0.02f, 0f), new Vector3(SimConstants.TileSize - 0.1f, 0.04f, SimConstants.TileSize - 0.1f), mat, 0.02f);
                 batch.Flush(_ghost, "Ghost", castShadows: false);
             }
             float x = (ghost.Tx + 0.5f) * SimConstants.TileSize, z = (ghost.Tz + 0.5f) * SimConstants.TileSize;
             _ghost.Position = new Vector3(x, world.Map.HeightAt(x, z), z);
+        }
+
+        /// <summary>
+        /// One construct of any kind, in its own colours or all in <paramref name="only"/> (the
+        /// ghost's). <paramref name="arms"/> are a wall's, <paramref name="worn"/> under half its HP.
+        /// </summary>
+        public static void Draw(MeshBatch batch, BuildingDef def, Vector3 at, int arms, int rotation, Material? only, bool worn)
+        {
+            switch (def.Behaviour)
+            {
+                case BuildingBehaviour.Spikes:
+                    Spikes(batch, at, only ?? Mat(PlateColour), only ?? MeshKit.Mat(IronColour, 0.4f, 0.6f));
+                    return;
+                case BuildingBehaviour.Container:
+                    if (only != null) batch.Box(new Vector3(0f, 0.4f, 0f), new Vector3(0.96f, 0.8f, 0.66f), only, 0.1f, new Vector3(0f, Mathf.RadToDeg(Yaw(rotation)), 0f));
+                    else SceneryView.Chest(batch, at, Yaw(rotation));
+                    return;
+            }
+            if (def.Id == "wall_stone") StoneWall(batch, at, arms, def.Height, only ?? Mat(worn ? StoneDark : StoneColour), only ?? Mat(MortarColour), worn);
+            else Wall(batch, at, arms, def.Height, only ?? Mat(worn ? LogDark : LogColour), only ?? Mat(RailColour), worn);
+        }
+
+        private static readonly Color StoneColour = new Color("a9a49a"), StoneDark = new Color("6f6a62"), MortarColour = new Color("8b857a");
+        private static readonly Color PlateColour = new Color("5c4330"), IronColour = new Color("3a3940");
+
+        /// <summary>
+        /// A dry-stone wall: courses of rounded blocks along every arm, each course set off by half
+        /// a block from the one under it, on a footing a little wider.
+        /// </summary>
+        public static void StoneWall(MeshBatch batch, Vector3 at, int arms, float height, Material stone, Material mortar, bool worn)
+        {
+            float half = SimConstants.TileSize * 0.5f;
+            const float thick = 0.5f, block = 0.5f;
+            int courses = Mathf.Max(2, Mathf.RoundToInt(height / 0.36f));
+            float course = height / courses;
+            // The middle of the tile, where the arms meet.
+            batch.Box(at + new Vector3(0f, height * 0.5f, 0f), new Vector3(thick + 0.04f, height, thick + 0.04f), stone, 0.08f);
+            for (int d = 0; d < 4; d++)
+            {
+                if ((arms & (1 << d)) == 0) continue;
+                var dir = d switch { 0 => Vector3.Right, 1 => Vector3.Back, 2 => Vector3.Left, _ => Vector3.Forward };
+                batch.Box(at + dir * (half * 0.5f) + new Vector3(0f, 0.06f, 0f), new Vector3(dir.X != 0f ? half : thick + 0.12f, 0.12f, dir.Z != 0f ? half : thick + 0.12f), mortar, 0.03f);
+                for (int k = 0; k < courses; k++)
+                {
+                    // A worn wall has lost its top course or two at the far end.
+                    float offset = (k & 1) == 0 ? 0f : block * 0.5f;
+                    for (float s = thick * 0.5f + offset; s < half; s += block)
+                    {
+                        float len = Mathf.Min(block - 0.03f, half - s);
+                        if (len < 0.12f) continue;
+                        if (worn && k >= courses - 2 && s > half * 0.4f) continue;
+                        float jitter = 0.03f * (MeshKit.Noise3(at + dir * s + new Vector3(0f, k, 0f)) - 0.5f);
+                        var centre = at + dir * (s + len * 0.5f) + new Vector3(0f, course * (k + 0.5f), 0f);
+                        var size = new Vector3(dir.X != 0f ? len : thick + jitter, course - 0.03f, dir.Z != 0f ? len : thick + jitter);
+                        batch.Box(centre, size, stone, 0.07f);
+                    }
+                }
+            }
+        }
+
+        /// <summary>A Spike Strip: a low plank plate on the ground with rows of iron spikes standing up from it.</summary>
+        public static void Spikes(MeshBatch batch, Vector3 at, Material plate, Material iron)
+        {
+            float size = SimConstants.TileSize - 0.25f;
+            batch.Box(at + new Vector3(0f, 0.04f, 0f), new Vector3(size, 0.08f, size), plate, 0.03f);
+            var spike = MeshKit.Cone(0.07f, 0.28f, 6);
+            const int rows = 5;
+            for (int i = 0; i < rows; i++)
+                for (int j = 0; j < rows; j++)
+                {
+                    float x = (i + 0.5f) / rows * size - size * 0.5f, z = (j + 0.5f) / rows * size - size * 0.5f;
+                    if (((i + j) & 1) == 1) x += size / rows * 0.25f;
+                    batch.Add(spike, iron, at + new Vector3(x, 0.08f + 0.14f, z));
+                }
         }
 
         /// <summary>Local −Z is a chest's front: quarter turns from there.</summary>

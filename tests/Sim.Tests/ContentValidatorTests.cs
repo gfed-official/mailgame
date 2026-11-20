@@ -35,7 +35,7 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal(Program.ExitOk, Run(_dir, "content"));
             Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 11 containers, 14 items, 1 maps", _out.ToString());
-            Assert.Contains("9 shop entries, 5 resource nodes, 2 buildings;", _out.ToString());
+            Assert.Contains("10 shop entries, 5 resource nodes, 4 buildings;", _out.ToString());
             Assert.Contains($"content hash {TestContent.Db.ContentHash:x8}", _out.ToString());
             Assert.Equal("", _err.ToString());
         }
@@ -98,6 +98,21 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("unknown container 'crate'", err);
             Assert.Contains("container 'po_intake' is not a storage grid", err);
             Assert.Contains("stands on a street", err);
+        }
+
+        [Fact]
+        public void SpikesWithoutDamage_OrAWallThatHurts_AreAProblem()
+        {
+            string buildings = File.ReadAllText(Content("buildings/buildings.json"));
+            Assert.Contains("\"damagePerSecond\": 15", buildings);
+            Assert.Contains("\"radius\": 0.25, \"height\": 2.2", buildings);
+            File.WriteAllText(Content("buildings/buildings.json"), buildings
+                .Replace("\"damagePerSecond\": 15", "\"damagePerSecond\": 0")
+                .Replace("\"radius\": 0.25, \"height\": 2.2", "\"radius\": 0.25, \"height\": 2.2, \"damagePerSecond\": 5"));
+            Assert.Equal(Program.ExitInvalid, Run(_dir, "content"));
+            string err = _err.ToString();
+            Assert.Contains("'spike_strip': spikes need params.damagePerSecond > 0", err);
+            Assert.Contains("'wall_stone': only spikes do damage (params.damagePerSecond)", err);
         }
 
         [Fact]
