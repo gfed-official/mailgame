@@ -293,6 +293,42 @@ namespace PerformativeMail.Sim
         public bool All;
     }
 
+    /// <summary>A carrier built something on a tile (doc 04 §1).</summary>
+    public sealed class ConstructPlacedEvent : SimEvent
+    {
+        public EntityId Player;
+        /// <summary>Index into ContentDb.Buildings.</summary>
+        public byte Building;
+        public byte X, Y;
+        public byte Rotation;
+        public ushort Hp;
+        /// <summary>The container of a chest; 0 for what holds nothing.</summary>
+        public uint ContainerId;
+    }
+
+    /// <summary>
+    /// What stood on a tile is gone: taken down by <see cref="Player"/>, or <see cref="Destroyed"/>
+    /// by the raiders, or (<see cref="Player"/> None and not destroyed) cleared away with the run.
+    /// </summary>
+    public sealed class ConstructRemovedEvent : SimEvent
+    {
+        public byte X, Y;
+        public EntityId Player;
+        public bool Destroyed;
+    }
+
+    /// <summary>A raider's blow landed on a construct: the HP it has left.</summary>
+    public sealed class ConstructDamagedEvent : SimEvent
+    {
+        public byte X, Y;
+        public ushort Hp;
+    }
+
+    /// <summary>The run is over or begins anew: nothing the carriers built stands any more.</summary>
+    public sealed class ConstructsClearedEvent : SimEvent
+    {
+    }
+
     /// <summary>
     /// The server put the player before a mailbox (<see cref="PlaytestFlags.AtMailbox"/>); only the
     /// player hears of it, and turns to look at the mailbox.

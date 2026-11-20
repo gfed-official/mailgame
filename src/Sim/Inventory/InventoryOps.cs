@@ -52,6 +52,20 @@ namespace PerformativeMail.Sim.Inventory
         NeedsTool,
         /// <summary>The node has nothing left.</summary>
         Depleted,
+        /// <summary>Building (doc 04 §1): the pockets do not hold what the recipe takes.</summary>
+        MissingMaterials,
+        /// <summary>The recipe is built from a later shift on.</summary>
+        RecipeLocked,
+        /// <summary>The team does not own the blueprint the recipe asks for.</summary>
+        NeedsBlueprint,
+        /// <summary>Nothing is built on a street.</summary>
+        OnStreet,
+        /// <summary>A house, a tree, a mailbox or something built stands on the tile already.</summary>
+        Blocked,
+        /// <summary>Somebody stands on the tile.</summary>
+        Occupied,
+        /// <summary>A chest is taken down empty.</summary>
+        NotEmpty,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

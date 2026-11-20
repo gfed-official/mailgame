@@ -42,6 +42,10 @@ namespace PerformativeMail.Sim.Net
         ShopSold = 32,
         NodeHarvested = 33,
         NodesRegrown = 34,
+        ConstructPlaced = 35,
+        ConstructRemoved = 36,
+        ConstructDamaged = 37,
+        ConstructsCleared = 38,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -208,6 +212,21 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.NodesRegrown);
                     w.Bool(e.All);
                     break;
+                case ConstructPlacedEvent e:
+                    w.U8((byte)EventType.ConstructPlaced);
+                    w.U32(e.Player.Value); w.U8(e.Building); w.U8(e.X); w.U8(e.Y); w.U8(e.Rotation); w.U16(e.Hp); w.U32(e.ContainerId);
+                    break;
+                case ConstructRemovedEvent e:
+                    w.U8((byte)EventType.ConstructRemoved);
+                    w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value); w.Bool(e.Destroyed);
+                    break;
+                case ConstructDamagedEvent e:
+                    w.U8((byte)EventType.ConstructDamaged);
+                    w.U8(e.X); w.U8(e.Y); w.U16(e.Hp);
+                    break;
+                case ConstructsClearedEvent _:
+                    w.U8((byte)EventType.ConstructsCleared);
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -353,6 +372,17 @@ namespace PerformativeMail.Sim.Net
                     return new NodeHarvestedEvent { Player = new EntityId(r.U32()), Node = r.U16(), HitsLeft = r.U8(), Item = r.U16(), Count = r.U8() };
                 case EventType.NodesRegrown:
                     return new NodesRegrownEvent { All = r.Bool() };
+                case EventType.ConstructPlaced:
+                    return new ConstructPlacedEvent
+                    {
+                        Player = new EntityId(r.U32()), Building = r.U8(), X = r.U8(), Y = r.U8(), Rotation = r.U8(), Hp = r.U16(), ContainerId = r.U32(),
+                    };
+                case EventType.ConstructRemoved:
+                    return new ConstructRemovedEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()), Destroyed = r.Bool() };
+                case EventType.ConstructDamaged:
+                    return new ConstructDamagedEvent { X = r.U8(), Y = r.U8(), Hp = r.U16() };
+                case EventType.ConstructsCleared:
+                    return new ConstructsClearedEvent();
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

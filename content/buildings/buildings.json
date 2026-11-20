@@ -1,0 +1,10 @@
+[
+  { "id": "wall_wood", "name": "Wooden Wall", "footprint": [1, 1], "rotations": 2, "hp": 300,
+    "placement": { "onStreet": false }, "behaviour": "wall",
+    "params": { "radius": 0.2, "height": 2.4 },
+    "recipe": "recipe_wall_wood", "tags": ["defense"] },
+  { "id": "chest", "name": "Chest", "footprint": [1, 1], "rotations": 4, "hp": 200,
+    "placement": { "onStreet": false }, "behaviour": "container", "container": "chest",
+    "params": { "radius": 0.45, "height": 0.8 },
+    "recipe": "recipe_chest", "tags": ["storage"] }
+]

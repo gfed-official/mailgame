@@ -31,6 +31,13 @@ namespace PerformativeMail.Sim
         /// into WorldMap.Props) with what is in hotbar slot <see cref="SimRequest.X"/>.
         /// </summary>
         Harvest = 14,
+        /// <summary>
+        /// Prep or Delivery: build ContentDb.Buildings[<see cref="SimRequest.DestId"/>] on the tile
+        /// (<see cref="SimRequest.X"/>, <see cref="SimRequest.Y"/>), turned <see cref="SimRequest.Count"/> quarter turns.
+        /// </summary>
+        PlaceConstruct = 15,
+        /// <summary>Prep or Delivery: take down what is built on the tile (<see cref="SimRequest.X"/>, <see cref="SimRequest.Y"/>).</summary>
+        RemoveConstruct = 16,
     }
 
     /// <summary>
@@ -50,7 +57,7 @@ namespace PerformativeMail.Sim
         public bool Rotated;
         /// <summary>Move: units to move, 0 = whole stack.</summary>
         public ushort Count;
-        /// <summary>Deliver: destination id. Harvest: the node, an index into WorldMap.Props.</summary>
+        /// <summary>Deliver: destination id. Harvest: the node, an index into WorldMap.Props. PlaceConstruct: the building.</summary>
         public ushort DestId;
         public SortKey SortKey;
 
@@ -100,5 +107,14 @@ namespace PerformativeMail.Sim
 
         public static SimRequest Harvest(uint reqId, int node, int heldSlot) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.Harvest, DestId = (ushort)node, X = (byte)heldSlot };
+
+        public static SimRequest PlaceConstruct(uint reqId, int building, int tx, int tz, int rotation) =>
+            new SimRequest
+            {
+                RequestId = reqId, Kind = RequestKind.PlaceConstruct, DestId = (ushort)building, X = (byte)tx, Y = (byte)tz, Count = (ushort)rotation,
+            };
+
+        public static SimRequest RemoveConstruct(uint reqId, int tx, int tz) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (byte)tx, Y = (byte)tz };
     }
 }

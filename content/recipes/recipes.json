@@ -1,0 +1,6 @@
+[
+  { "id": "recipe_wall_wood", "produces": { "building": "wall_wood" },
+    "inputs": [ { "item": "log", "count": 3 } ], "craftSeconds": 0, "unlockShift": 1 },
+  { "id": "recipe_chest", "produces": { "building": "chest" },
+    "inputs": [ { "item": "log", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1 }
+]

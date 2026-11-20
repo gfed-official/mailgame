@@ -35,7 +35,7 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal(Program.ExitOk, Run(_dir, "content"));
             Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 11 containers, 14 items, 1 maps", _out.ToString());
-            Assert.Contains("9 shop entries, 5 resource nodes;", _out.ToString());
+            Assert.Contains("9 shop entries, 5 resource nodes, 2 buildings;", _out.ToString());
             Assert.Contains($"content hash {TestContent.Db.ContentHash:x8}", _out.ToString());
             Assert.Equal("", _err.ToString());
         }
@@ -98,6 +98,47 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("unknown container 'crate'", err);
             Assert.Contains("container 'po_intake' is not a storage grid", err);
             Assert.Contains("stands on a street", err);
+        }
+
+        [Fact]
+        public void ABuildingNothingCanHonourOrARecipeThatDoesNotAddUpIsAProblem()
+        {
+            string buildings = File.ReadAllText(Content("buildings/buildings.json"));
+            Assert.Contains("\"rotations\": 2, \"hp\": 300", buildings);
+            Assert.Contains("\"radius\": 0.45", buildings);
+            int end = buildings.LastIndexOf(']');
+            File.WriteAllText(Content("buildings/buildings.json"), buildings.Substring(0, end)
+                .Replace("\"rotations\": 2, \"hp\": 300", "\"rotations\": 3, \"hp\": 70000")
+                .Replace("\"radius\": 0.45", "\"radius\": 0.8")
+                + ", { \"id\": \"belt\", \"name\": \"Belt\", \"footprint\": [1, 1], \"hp\": 50, \"behaviour\": \"belt\", \"params\": { \"radius\": 0.2, \"height\": 0.2 }, \"recipe\": \"recipe_belt\" }"
+                + ", { \"id\": \"barn\", \"name\": \"Barn\", \"footprint\": [2, 2], \"hp\": 50, \"placement\": { \"onStreet\": true }, \"behaviour\": \"wall\", \"container\": \"chest\","
+                + " \"params\": { \"radius\": 0.2, \"height\": 2 }, \"recipe\": \"recipe_barn\" }]");
+            File.WriteAllText(Content("recipes/recipes.json"),
+                "[ { \"id\": \"recipe_wall_wood\", \"produces\": { \"building\": \"wall_wood\" }, \"craftSeconds\": 2, \"blueprint\": \"axe\","
+                + " \"inputs\": [ { \"item\": \"log\", \"count\": 3 }, { \"item\": \"log\", \"count\": 1 }, { \"item\": \"plank\", \"count\": 0 }, { \"item\": \"nails\", \"count\": 2 } ] },"
+                + " { \"id\": \"recipe_planks\", \"produces\": { \"item\": \"log\" }, \"inputs\": [ { \"item\": \"log\", \"count\": 1 } ] },"
+                + " { \"id\": \"recipe_shed\", \"produces\": { \"building\": \"shed\" }, \"inputs\": [ { \"item\": \"log\", \"count\": 1 } ] },"
+                + " { \"id\": \"recipe_chest_2\", \"produces\": { \"building\": \"chest\" }, \"inputs\": [] } ]");
+            Assert.Equal(Program.ExitInvalid, Run(_dir, "content"));
+            string err = _err.ToString();
+            Assert.Contains("'wall_wood': rotations must be 1, 2 or 4", err);
+            Assert.Contains("'wall_wood': hp must be in 1..65535", err);
+            Assert.Contains("'chest': params.radius must be in (0, 0.5]", err);
+            Assert.Contains("'belt': behaviour 'belt' is not built yet", err);
+            Assert.Contains("'barn': only a footprint of [1, 1] is built yet", err);
+            Assert.Contains("'barn': nothing is built on a street yet", err);
+            Assert.Contains("'barn': only a building whose behaviour is 'container' has a container", err);
+            Assert.Contains("'recipe_wall_wood': craftSeconds must be 0, placement is instant", err);
+            Assert.Contains("'recipe_wall_wood': 'log' is an input twice", err);
+            Assert.Contains("'recipe_wall_wood': the count of 'plank' must be in 1..255", err);
+            Assert.Contains("'recipe_wall_wood': unknown input item 'nails'", err);
+            Assert.Contains("'recipe_wall_wood': 'axe' is not a blueprint the shop sells", err);
+            Assert.Contains("'recipe_planks': a recipe produces a building, never an item", err);
+            Assert.Contains("'recipe_shed': produces unknown building 'shed'", err);
+            Assert.Contains("'recipe_chest_2': a recipe needs at least one input", err);
+            Assert.Contains("'recipe_chest_2': 'chest' names 'recipe_chest' as its recipe", err);
+            Assert.Contains("'chest': its recipe 'recipe_chest' is not in content/recipes", err);
+            Assert.Contains("'barn': its recipe 'recipe_barn' is not in content/recipes", err);
         }
 
         [Fact]

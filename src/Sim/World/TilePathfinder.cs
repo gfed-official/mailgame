@@ -7,7 +7,8 @@ namespace PerformativeMail.Sim.World
     /// <summary>
     /// Breadth-first tile path for bots and enemies. 8-way, never cutting a corner; waypoints are
     /// tile centres. It keeps to tiles a walker can cross without touching a house or a solid prop
-    /// (<see cref="WorldMap.IsNavBlocked"/>); only the tiles it starts and ends on may be such.
+    /// (<see cref="WorldMap.IsNavBlocked"/>) nor anything the carriers built; only the tiles it
+    /// starts and ends on may be such.
     /// </summary>
     public static class TilePathfinder
     {
@@ -24,7 +25,8 @@ namespace PerformativeMail.Sim.World
         };
 
         /// <summary>Fills <paramref name="path"/> with world-space waypoints from start to goal. False if unreachable.</summary>
-        public static bool Find(WorldMap map, float fromX, float fromZ, float toX, float toZ, List<(float X, float Z)> path, Scratch? scratch = null)
+        public static bool Find(WorldMap map, float fromX, float fromZ, float toX, float toZ, List<(float X, float Z)> path, Scratch? scratch = null,
+            ConstructField? constructs = null)
         {
             path.Clear();
             const float tile = SimConstants.TileSize;
@@ -50,8 +52,8 @@ namespace PerformativeMail.Sim.World
                 {
                     int nx = cx + dx, nz = cz + dz;
                     int next = nz * cols + nx;
-                    if (next == goal ? map.IsSolid(nx, nz) : map.IsNavBlocked(nx, nz)) continue;
-                    if (dx != 0 && dz != 0 && (map.IsNavBlocked(cx + dx, cz) || map.IsNavBlocked(cx, cz + dz))) continue;
+                    if (next == goal ? map.IsSolid(nx, nz) : Blocked(map, constructs, nx, nz)) continue;
+                    if (dx != 0 && dz != 0 && (Blocked(map, constructs, cx + dx, cz) || Blocked(map, constructs, cx, cz + dz))) continue;
                     if (cameFrom[next] >= 0) continue;
                     cameFrom[next] = cur;
                     queue.Enqueue(next);
@@ -67,5 +69,8 @@ namespace PerformativeMail.Sim.World
             else path.Add((toX, toZ));
             return true;
         }
+
+        private static bool Blocked(WorldMap map, ConstructField? constructs, int tx, int tz) =>
+            map.IsNavBlocked(tx, tz) || (constructs != null && constructs.Blocks(tx, tz));
     }
 }

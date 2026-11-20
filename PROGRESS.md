@@ -598,11 +598,30 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             runs out or grows back. `HarvestFlowTests` (4); in the smoke the host picks a bush
             clean, is refused at a boulder, chops a tree down by hand, looks at a Berry Bush and
             an Ore Vein, and sells the lot at the counter (`harvest-*.png`)
-      - [ ] building by hand (Wooden Wall, Chest); Sand and the Shovel; tools drawn in the hand
+      - [x] **Building by hand, in the sim** (doc 04 §1, doc 08 §2.6–§2.7; design choice 77).
+            `content/buildings` and `content/recipes` (validated: a behaviour nothing honours
+            yet, a footprint other than one tile, a recipe that makes an item, takes time, names
+            an unknown input or a card that is no blueprint, a building without its recipe) give
+            the Wooden Wall (3 Logs, 300 HP, turned two ways) and the Chest (4 Logs, 200 HP, a
+            chest's 8×4 grid). `PlaceConstruct` puts one on a tile within 8 m in Prep or
+            Delivery — open ground only: not the street, not where a house, tree, fence, mailbox,
+            the Intake, the counter or the pad is, not onto a carrier or a raider — out of the
+            Logs in the pockets (inventory first). `RemoveConstruct` takes it down for all of
+            its Logs in Prep, half in Delivery, less for what it has lost of its HP; a chest
+            only once it is empty. Walls stand in everybody's way across their tile and close
+            the corner where two meet; a chest is hopped over. The raiders path round what is
+            built; shut out, they break the wall in their way (a blow of their damage every
+            attackRate: three Raiders are through a Wooden Wall in about 10 s), and a blow at a
+            carrier right behind a wall lands on the wall. A broken chest spills into a bag.
+            What is built stands from shift to shift and is gone with the run. Protocol `m1.13`
+            (the two requests, `ConstructPlaced` / `Removed` / `Damaged` / `ConstructsCleared`,
+            what stands in the Welcome). `BuildTests` (29), `CodecTests`, `ContentValidatorTests`
+      - [ ] building by hand on screen (Build mode, the ghost, the recipe bar)
+      - [ ] Sand and the Shovel; tools drawn in the hand
 
-Next in this order: building by hand from what is harvested (doc 12's last M1 line), which
-also gives the shop its blueprints. The generator and the districts before it are the larger
-piece and still open, as is the bike.
+Next in this order: Build mode on screen for what the sim can now build, then the blueprints
+it gives the shop to sell. The generator and the districts before it are the larger piece and
+still open, as is the bike.
 
 ## How to build and check
 
@@ -1318,6 +1337,41 @@ See "Commands" at the bottom (filled in as the tooling lands).
     top of the cards' text. Rather than making the panels opaque, the declutterer's keep-clear
     list (HUD plates, prompt, hint) takes the visible panels too; a tag there slides under the
     panel's edge or is left out, like under any plate.
+77. **Building by hand.** Doc 04 §1 gives the grid (2 m tiles, one building a tile), the
+    phases, the refund and "not on streets"; doc 08 §2.6 the building's fields. What was
+    chosen where they stop:
+    - *What a tile takes.* Open ground only (`BuildRules.CheckTile`): never a Street tile
+      (`OnStreet` — the mail and the raid both need it, and the test street has one); not a
+      tile the tile paths already keep off (a house, a tree, a fence: `Blocked`); not a tile
+      with a fixture that has to stay in reach (a mailbox, the Intake, the counter, a map
+      chest, the pad and its eight seats); not onto a body (`Occupied`: a carrier's or a
+      raider's circle touching the tile). Range is to the middle of the tile, `buildRange` 8 m
+      for the client and `serverBuildRange` 8.5 m against the carrier's last ticks.
+    - *The shape.* A wall is not a filled tile: two arms of `params.radius` (0.2 m) from the
+      middle to the tile's edges along the way it was turned, and one more towards a
+      neighbouring wall that runs at it, so an L or a T is shut without a corner piece. A
+      single wall is walked round at its ends, where the next tile begins. A
+      chest is the map chest's body (0.45 m, 0.8 m high: a jump clears it). For the raiders'
+      tile paths every built tile is closed, whichever way the wall is turned.
+    - *The refund scales with what is left.* floor(count × phase ratio × hp / maxHp): a wall
+      at half its HP gives 1 Log in Prep, none in Delivery. Without it a wall about to fall
+      would be pulled for full price under the raiders' hands. The refund has to fit the
+      pockets (`DoesNotFit`, nothing happens), and a chest has to be empty (`NotEmpty`).
+      Anybody takes down what anybody built: the base is the team's.
+    - *Raiders and walls* (doc 05 §4 "structures take damage"). One rule: a raider walking at
+      its target that is up against something built (within 0.3 m, ahead of it) stands and
+      strikes it, its own damage every attackRate. Its path keeps off built tiles, so that
+      only happens where there is no way round — then it takes the way there would be
+      without the walls — or where its target stands right behind one. A blow aimed at a
+      carrier with a wall on the line between them lands on the wall (chests are no cover).
+      The hammer and the mail cannon are not stopped by walls yet. At 0 HP a construct is
+      gone (ruins and rebuilding are doc 12's M3); a chest's contents lie in a bag that is
+      nobody's, mail and all, with a death bag's time to live.
+    - *From shift to shift.* What is built stands until the run is over; then it is cleared,
+      chests with what was in them (a new run starts from the kit).
+    - *Recipes.* `craftSeconds` has to be 0 and `produces` a building (doc 08 §2.7: no item
+      crafting). `unlockShift` and `blueprint` are read and enforced (`RecipeLocked`,
+      `NeedsBlueprint`); the two M1 recipes need neither.
 
 ## Commands
 

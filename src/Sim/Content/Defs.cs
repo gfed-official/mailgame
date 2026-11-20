@@ -175,6 +175,67 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
     }
 
+    /// <summary>What a construct does once it stands (doc 08 §2.6 "behaviour"); the ones that are built so far.</summary>
+    public enum BuildingBehaviour : byte
+    {
+        /// <summary>Stands in the way of carriers and raiders alike.</summary>
+        Wall = 0,
+        /// <summary>A chest: a container anybody beside it may open.</summary>
+        Container = 1,
+        /// <summary>A wall the carriers walk through.</summary>
+        Gate = 2,
+    }
+
+    /// <summary>
+    /// Something a carrier builds on a tile (doc 04 §1, doc 08 §2.6). One tile each so far; what
+    /// it costs is its recipe's.
+    /// </summary>
+    public sealed class BuildingDef
+    {
+        public string Id { get; init; } = "";
+        public byte Index { get; init; }
+        public string Name { get; init; } = "";
+        /// <summary>How many ways it can face: 1, 2 or 4.</summary>
+        public int Rotations { get; init; } = 4;
+        public int Hp { get; init; }
+        public BuildingBehaviour Behaviour { get; init; }
+        /// <summary>A <see cref="BuildingBehaviour.Container"/>: what it holds.</summary>
+        public ContainerDef? Container { get; init; }
+        /// <summary>The solid part: half a wall's thickness, a chest's round body.</summary>
+        public float Radius { get; init; }
+        /// <summary>What is lower than a jump is jumped onto.</summary>
+        public float Height { get; init; }
+        public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
+        /// <summary>The one recipe that builds it.</summary>
+        public RecipeDef Recipe { get; internal set; } = null!;
+
+        /// <summary>Walls and gates stand in a line and join each other; a chest stands alone.</summary>
+        public bool Joins => Behaviour != BuildingBehaviour.Container;
+    }
+
+    /// <summary>One line of a recipe: so many of an item.</summary>
+    public readonly struct RecipeInput
+    {
+        public readonly ItemDef Item;
+        public readonly int Count;
+
+        public RecipeInput(ItemDef item, int count) { Item = item; Count = count; }
+    }
+
+    /// <summary>
+    /// What a construct costs (doc 08 §2.7): the materials placing it takes out of the builder's
+    /// pockets, and what has to be so before it can be built at all.
+    /// </summary>
+    public sealed class RecipeDef
+    {
+        public string Id { get; init; } = "";
+        public BuildingDef Building { get; init; } = null!;
+        public IReadOnlyList<RecipeInput> Inputs { get; init; } = Array.Empty<RecipeInput>();
+        /// <summary>The shop's blueprint the team has to own (doc 04 §1.3); null: known from the start.</summary>
+        public ShopItemDef? Blueprint { get; init; }
+        public int UnlockShift { get; init; } = 1;
+    }
+
     /// <summary>One line of an enemy's drop table (doc 05 §2.2).</summary>
     public readonly struct EnemyDrop
     {

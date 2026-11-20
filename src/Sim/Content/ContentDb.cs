@@ -32,6 +32,9 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<EnemyDef> Enemies { get; private set; } = Array.Empty<EnemyDef>();
         public IReadOnlyList<PerkDef> Perks { get; private set; } = Array.Empty<PerkDef>();
         public IReadOnlyList<ShopItemDef> ShopItems { get; private set; } = Array.Empty<ShopItemDef>();
+        /// <summary>What can be built, in the order of the build bar.</summary>
+        public IReadOnlyList<BuildingDef> Buildings { get; private set; } = Array.Empty<BuildingDef>();
+        public IReadOnlyList<RecipeDef> Recipes { get; private set; } = Array.Empty<RecipeDef>();
         public WaveDef Waves { get; private set; } = new WaveDef();
         public MailMixDef MailMix { get; private set; } = new MailMixDef();
         public Balance Balance { get; private set; } = new Balance(new Dictionary<string, double[]>());
@@ -49,6 +52,7 @@ namespace PerformativeMail.Sim.Content
         private readonly Dictionary<string, EnemyDef> _enemiesById = new Dictionary<string, EnemyDef>();
         private readonly Dictionary<string, PerkDef> _perksById = new Dictionary<string, PerkDef>();
         private readonly Dictionary<string, ShopItemDef> _shopById = new Dictionary<string, ShopItemDef>();
+        private readonly Dictionary<string, BuildingDef> _buildingsById = new Dictionary<string, BuildingDef>();
         private readonly Dictionary<(PropKind, int), NodeDef> _nodesByProp = new Dictionary<(PropKind, int), NodeDef>();
 
         private ContentDb() { }
@@ -62,6 +66,7 @@ namespace PerformativeMail.Sim.Content
         public PerkDef Perk(string id) => _perksById[id];
         public ShopItemDef ShopItem(string id) => _shopById[id];
         public ShopItemDef? FindShopItem(string id) => _shopById.TryGetValue(id, out var d) ? d : null;
+        public BuildingDef Building(string id) => _buildingsById[id];
         public WorldMap Map(string id) => _maps[id];
 
         /// <summary>The resource node a prop of the map is (doc 02 §3.9); null for what is only scenery.</summary>
@@ -731,6 +736,134 @@ namespace PerformativeMail.Sim.Content
                 db.ShopItems = list;
             }
 
+            // --- buildings and their recipes ------------------------------------------------------
+            {
+                var list = new List<BuildingDef>();
+                var recipeOf = new Dictionary<string, string>();
+                JsonCtx? lastCtx = null;
+                foreach (string file in source.ListJson("buildings"))
+                {
+                    var ctx = lastCtx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        string behaviourName = J.Str(ctx, e, "behaviour");
+                        BuildingBehaviour behaviour;
+                        switch (behaviourName)
+                        {
+                            case "wall": behaviour = BuildingBehaviour.Wall; break;
+                            case "container": behaviour = BuildingBehaviour.Container; break;
+                            case "gate": behaviour = BuildingBehaviour.Gate; break;
+                            // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
+                            default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
+                        }
+                        int[] footprint = J.IntArray(ctx, e, "footprint", 2);
+                        if (footprint[0] != 1 || footprint[1] != 1) ctx.Error($"'{id}': only a footprint of [1, 1] is built yet");
+                        if (e.TryGetProperty("placement", out var placement) && placement.ValueKind == JsonValueKind.Object)
+                        {
+                            if (J.Bool(ctx, placement, "onStreet", false)) ctx.Error($"'{id}': nothing is built on a street yet");
+                            if (J.Bool(ctx, placement, "onWater", false)) ctx.Error($"'{id}': nothing is built on water yet");
+                        }
+                        ContainerDef? container = null;
+                        if (behaviour == BuildingBehaviour.Container)
+                        {
+                            string containerId = J.Str(ctx, e, "container");
+                            if (!db._containersById.TryGetValue(containerId, out container)) ctx.Error($"'{id}': unknown container '{containerId}'");
+                        }
+                        else if (J.Has(e, "container")) ctx.Error($"'{id}': only a building whose behaviour is 'container' has a container");
+                        bool hasParams = e.TryGetProperty("params", out var pars) && pars.ValueKind == JsonValueKind.Object;
+                        if (!hasParams) ctx.Error($"'{id}': missing 'params' object");
+                        var def = new BuildingDef
+                        {
+                            Id = id,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Rotations = J.Int(ctx, e, "rotations", 4),
+                            Hp = J.Int(ctx, e, "hp"),
+                            Behaviour = behaviour,
+                            Container = container,
+                            Radius = hasParams ? (float)J.Num(ctx, pars, "radius") : 0.2f,
+                            Height = hasParams ? (float)J.Num(ctx, pars, "height") : 1f,
+                            Tags = J.StrArray(ctx, e, "tags", optional: true),
+                        };
+                        if (def.Rotations != 1 && def.Rotations != 2 && def.Rotations != 4) ctx.Error($"'{id}': rotations must be 1, 2 or 4");
+                        // The wire carries a construct's HP in 16 bits.
+                        if (def.Hp < 1 || def.Hp > ushort.MaxValue) ctx.Error($"'{id}': hp must be in 1..{ushort.MaxValue}");
+                        // It stands within its own tile, and a walker beside the tile does not touch it.
+                        if (def.Radius <= 0f || def.Radius > 0.5f) ctx.Error($"'{id}': params.radius must be in (0, 0.5]");
+                        if (def.Height <= 0f) ctx.Error($"'{id}': params.height must be > 0");
+                        // The wire names a building in one byte.
+                        if (list.Count >= byte.MaxValue) { ctx.Error($"'{id}': more than {byte.MaxValue} buildings"); continue; }
+                        if (!AddUnique(ctx, db._buildingsById, def.Id, def)) continue;
+                        recipeOf[def.Id] = J.Str(ctx, e, "recipe");
+                        list.Add(def);
+                    }
+                }
+                db.Buildings = list;
+
+                var recipes = new List<RecipeDef>();
+                var recipesById = new Dictionary<string, RecipeDef>();
+                foreach (string file in source.ListJson("recipes"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        // Doc 08 §2.7: there is no item crafting, and what is built stands at once.
+                        if (!e.TryGetProperty("produces", out var produces) || produces.ValueKind != JsonValueKind.Object) { ctx.Error($"'{id}': missing 'produces' object"); continue; }
+                        if (J.Has(produces, "item")) { ctx.Error($"'{id}': a recipe produces a building, never an item"); continue; }
+                        if (J.Num(ctx, e, "craftSeconds", 0) > 0) ctx.Error($"'{id}': craftSeconds must be 0, placement is instant");
+                        string buildingId = J.Str(ctx, produces, "building");
+                        if (!db._buildingsById.TryGetValue(buildingId, out var building)) { ctx.Error($"'{id}': produces unknown building '{buildingId}'"); continue; }
+                        var inputs = new List<RecipeInput>();
+                        if (!e.TryGetProperty("inputs", out var inputsEl) || inputsEl.ValueKind != JsonValueKind.Array) ctx.Error($"'{id}': missing 'inputs' array");
+                        else
+                        {
+                            foreach (var input in inputsEl.EnumerateArray())
+                            {
+                                if (input.ValueKind != JsonValueKind.Object) { ctx.Error($"'{id}': inputs must be objects"); continue; }
+                                string itemId = J.Str(ctx, input, "item");
+                                int count = J.Int(ctx, input, "count");
+                                if (!db._itemsById.TryGetValue(itemId, out var item)) { ctx.Error($"'{id}': unknown input item '{itemId}'"); continue; }
+                                if (count < 1 || count > byte.MaxValue) ctx.Error($"'{id}': the count of '{itemId}' must be in 1..{byte.MaxValue}");
+                                bool twice = false;
+                                foreach (var other in inputs) twice |= other.Item == item;
+                                if (twice) ctx.Error($"'{id}': '{itemId}' is an input twice");
+                                else inputs.Add(new RecipeInput(item, count));
+                            }
+                            if (inputs.Count == 0) ctx.Error($"'{id}': a recipe needs at least one input");
+                        }
+                        ShopItemDef? blueprint = null;
+                        if (J.Has(e, "blueprint"))
+                        {
+                            string blueprintId = J.Str(ctx, e, "blueprint");
+                            if (!db._shopById.TryGetValue(blueprintId, out blueprint) || blueprint.Kind != ShopKind.Blueprint)
+                            {
+                                ctx.Error($"'{id}': '{blueprintId}' is not a blueprint the shop sells");
+                                blueprint = null;
+                            }
+                        }
+                        var def = new RecipeDef
+                        {
+                            Id = id,
+                            Building = building,
+                            Inputs = inputs,
+                            Blueprint = blueprint,
+                            UnlockShift = J.Int(ctx, e, "unlockShift", 1),
+                        };
+                        if (def.UnlockShift < 1) ctx.Error($"'{id}': unlockShift must be >= 1");
+                        if (!AddUnique(ctx, recipesById, def.Id, def)) continue;
+                        if (building.Recipe != null) { ctx.Error($"'{id}': '{buildingId}' is built by '{building.Recipe.Id}' already"); continue; }
+                        if (recipeOf[buildingId] != id) { ctx.Error($"'{id}': '{buildingId}' names '{recipeOf[buildingId]}' as its recipe"); continue; }
+                        building.Recipe = def;
+                        recipes.Add(def);
+                    }
+                }
+                db.Recipes = recipes;
+                foreach (var building in list)
+                    if (building.Recipe == null) (lastCtx ?? new JsonCtx("buildings", errors)).Error($"'{building.Id}': its recipe '{recipeOf[building.Id]}' is not in content/recipes");
+            }
+
             // --- streets -------------------------------------------------------------------------
             {
                 var ctx = new JsonCtx("streets.json", errors);
@@ -783,6 +916,7 @@ namespace PerformativeMail.Sim.Content
             "maxAttackersPerCarrier", "attackerWaitMetres", "disconnectGraceSeconds",
             "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift",
             "shopSpecialSlots", "shopSpecialDiscount", "shopRange", "serverShopRange", "harvestSwingSeconds",
+            "buildRange", "serverBuildRange", "deconstructHoldSeconds", "deconstructRefundPrep", "deconstructRefundDelivery",
         };
 
         private static IEnumerable<JsonElement> ReadArray(JsonCtx ctx, string? text)

@@ -238,6 +238,14 @@ namespace PerformativeMail.Server
             foreach (var entry in World.ShopOwned) welcome.ShopOwned.Add(entry.Index);
             for (int i = 0; i < World.Nodes.Count; i++)
                 if (World.Nodes.Touched(i)) welcome.Nodes.Add(new NodeInfo { Node = (ushort)i, HitsLeft = (byte)World.Nodes.HitsLeft(i) });
+            foreach (var built in World.Constructs.All)
+            {
+                welcome.Constructs.Add(new ConstructInfo
+                {
+                    Building = built.Def.Index, X = (byte)built.Tx, Y = (byte)built.Tz, Rotation = built.Rotation,
+                    Hp = (ushort)built.Hp, ContainerId = built.ContainerId,
+                });
+            }
             _writer.Reset();
             welcome.Write(_writer);
             _transport.Send(client.Connection, NetChannel.Bulk, _writer.ToArray());

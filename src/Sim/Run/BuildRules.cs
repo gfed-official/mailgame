@@ -1,0 +1,139 @@
+using System;
+using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.World;
+
+namespace PerformativeMail.Sim.Run
+{
+    /// <summary>
+    /// The rules of building by hand (doc 04 §1) that the server decides by and a client colours
+    /// its ghost by: when one may build, what a recipe takes, which tiles take a construct, and
+    /// what taking one down gives back.
+    /// </summary>
+    public static class BuildRules
+    {
+        /// <summary>Doc 01 §1 phase table: building in Prep and in Delivery, the raid included.</summary>
+        public static bool IsOpen(RunPhase phase) => phase == RunPhase.Prep || phase == RunPhase.Delivery;
+
+        /// <summary>Whether the team may build the recipe at all yet, materials aside.</summary>
+        public static OpResult CheckRecipe(RecipeDef recipe, int shift, bool blueprintOwned)
+        {
+            if (recipe.Blueprint != null && !blueprintOwned) return OpResult.NeedsBlueprint;
+            return recipe.UnlockShift > shift ? OpResult.RecipeLocked : OpResult.Ok;
+        }
+
+        /// <summary>Units of an item in the hotbar and the inventory together.</summary>
+        public static int Have(GridContainer hotbar, GridContainer inventory, ItemDef item) => Count(hotbar, item) + Count(inventory, item);
+
+        private static int Count(GridContainer container, ItemDef item)
+        {
+            int n = 0;
+            foreach (var e in container.Entries)
+                if (e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == item.Index) n += e.Stack.ItemCount;
+            return n;
+        }
+
+        /// <summary>True if the pockets hold everything the recipe takes.</summary>
+        public static bool HasMaterials(RecipeDef recipe, GridContainer hotbar, GridContainer inventory)
+        {
+            foreach (var input in recipe.Inputs)
+                if (Have(hotbar, inventory, input.Item) < input.Count) return false;
+            return true;
+        }
+
+        public static float TileCentre(int t) => (t + 0.5f) * SimConstants.TileSize;
+
+        /// <summary>
+        /// Whether the ground of a tile takes a construct, whoever may be standing on it: open
+        /// ground that is no street, with no house, tree, fence or fixture of the map on it and
+        /// nothing built there yet.
+        /// </summary>
+        public static OpResult CheckTile(WorldMap map, ConstructField constructs, int tx, int tz)
+        {
+            if (!map.InBounds(tx, tz)) return OpResult.BadRequest;
+            // The street stays open: the mail has to get through, and so do the raiders (doc 04 §1.1).
+            if (map.GetTile(tx, tz) == TileType.Street) return OpResult.OnStreet;
+            if (map.IsNavBlocked(tx, tz) || constructs.At(tx, tz) != null || HoldsFixture(map, tx, tz)) return OpResult.Blocked;
+            return OpResult.Ok;
+        }
+
+        /// <summary>
+        /// True for a tile with something of the map on it that has to stay within reach: a
+        /// mailbox, the Intake, the shop counter, a chest of the map, the pad and its seats.
+        /// </summary>
+        public static bool HoldsFixture(WorldMap map, int tx, int tz)
+        {
+            var po = map.PostOffice;
+            if (OnTile(tx, tz, po.IntakeX, po.IntakeZ) || OnTile(tx, tz, po.SpawnPadX, po.SpawnPadZ)) return true;
+            if (po.HasShop && OnTile(tx, tz, po.ShopX, po.ShopZ)) return true;
+            for (int slot = 0; slot < PostOfficeDef.Seats; slot++)
+            {
+                po.Seat(slot, out float sx, out float sz);
+                if (OnTile(tx, tz, sx, sz)) return true;
+            }
+            foreach (var d in map.Destinations)
+                if (OnTile(tx, tz, d.MailboxX, d.MailboxZ)) return true;
+            foreach (var c in map.Chests)
+                if (OnTile(tx, tz, c.X, c.Z)) return true;
+            return false;
+        }
+
+        private static bool OnTile(int tx, int tz, float x, float z) =>
+            (int)MathF.Floor(x / SimConstants.TileSize) == tx && (int)MathF.Floor(z / SimConstants.TileSize) == tz;
+
+        /// <summary>True if a body (a carrier, a raider) stands on the tile or reaches onto it.</summary>
+        public static bool Touches(int tx, int tz, float x, float z, float radius)
+        {
+            const float tile = SimConstants.TileSize;
+            float dx = x - Math.Clamp(x, tx * tile, (tx + 1) * tile), dz = z - Math.Clamp(z, tz * tile, (tz + 1) * tile);
+            return dx * dx + dz * dz < radius * radius;
+        }
+
+        /// <summary>True if the middle of the tile is within <paramref name="range"/> of a point on the ground.</summary>
+        public static bool InRange(int tx, int tz, float x, float z, float range)
+        {
+            float dx = TileCentre(tx) - x, dz = TileCentre(tz) - z;
+            return dx * dx + dz * dz <= range * range;
+        }
+
+        /// <summary>The part of its materials a construct gives back when it is taken down (doc 04 §1.4): all of it in Prep, half in Delivery.</summary>
+        public static double RefundRatio(Balance b, RunPhase phase) =>
+            b.GetDouble(phase == RunPhase.Prep ? "deconstructRefundPrep" : "deconstructRefundDelivery");
+
+        /// <summary>
+        /// Units of one input that come back: the phase's part of what was put in, and of that as
+        /// much as the construct has left of its HP. Rounded down.
+        /// </summary>
+        public static int Refund(int count, double ratio, int hp, int maxHp)
+        {
+            if (maxHp <= 0) return 0;
+            double part = Math.Clamp(ratio, 0.0, 1.0) * Math.Clamp(hp, 0, maxHp) / maxHp;
+            return (int)Math.Floor(count * part + 1e-9);
+        }
+
+        /// <summary>
+        /// Puts what a construct gives back into the pockets, the inventory first. False (with
+        /// whatever fitted put in) if not all of it has room: try it on copies first.
+        /// </summary>
+        public static bool GiveRefund(ContentDb content, RecipeDef recipe, double ratio, int hp, GridContainer inventory, GridContainer hotbar, EntryIdAllocator ids)
+        {
+            foreach (var input in recipe.Inputs)
+            {
+                int left = Refund(input.Count, ratio, hp, recipe.Building.Hp);
+                while (left > 0)
+                {
+                    int n = Math.Min(left, Math.Max(1, input.Item.MaxStack));
+                    var stack = ItemStack.OfItem(input.Item, n);
+                    if (!InventoryOps.AutoPlace(content, inventory, stack, ids) && !InventoryOps.AutoPlace(content, hotbar, stack, ids)) return false;
+                    left -= n;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>True if everything the construct gives back has room in the pockets.</summary>
+        public static bool RefundFits(ContentDb content, RecipeDef recipe, double ratio, int hp, GridContainer inventory, GridContainer hotbar) =>
+            GiveRefund(content, recipe, ratio, hp, inventory.Clone(), hotbar.Clone(), new EntryIdAllocator(uint.MaxValue / 2));
+    }
+}

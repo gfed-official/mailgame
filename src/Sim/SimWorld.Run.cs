@@ -103,6 +103,7 @@ namespace PerformativeMail.Sim
             ClearPerks();
             ClearShop();
             RegrowNodes(all: true);
+            ClearConstructs();
             foreach (var p in _players)
             {
                 p.Deliveries = 0;
@@ -242,6 +243,7 @@ namespace PerformativeMail.Sim
             ClearPerks();
             ClearShop();
             RegrowNodes(all: true);
+            ClearConstructs();
             Run.Shift = 1;
             Run.Quota = 0;
             Run.PlayerCount = 0;

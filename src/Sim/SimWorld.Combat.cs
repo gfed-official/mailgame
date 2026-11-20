@@ -71,6 +71,8 @@ namespace PerformativeMail.Sim
         private const uint RepathTicks = 15;
         /// <summary>A blow still lands on a target that backed off less than this during the windup.</summary>
         private const float WindupSlack = 0.6f;
+        /// <summary>A raider this near to something built that is in its way strikes it.</summary>
+        private const float StrikeReach = 0.3f;
         /// <summary>Knockback travels at this speed.</summary>
         private const float PushSpeed = 12f;
         /// <summary>The raiders' line: lanes across the street, ranks over this many metres towards the gate.</summary>
@@ -147,12 +149,7 @@ namespace PerformativeMail.Sim
 
         // --- carriers ---------------------------------------------------------------------------
 
-        private void SeatPosition(byte slot, out float x, out float z)
-        {
-            // Seats fan out around the pad so players do not spawn inside each other.
-            x = Map.PostOffice.SpawnPadX + (slot % 2) * 1.0f - 0.5f;
-            z = Map.PostOffice.SpawnPadZ + (slot / 2) * 1.0f - 1.5f;
-        }
+        private void SeatPosition(byte slot, out float x, out float z) => Map.PostOffice.Seat(slot, out x, out z);
 
         /// <summary>
         /// Hurts a carrier; at 0 HP they are down until the respawn and what they carried lies in
@@ -373,7 +370,7 @@ namespace PerformativeMail.Sim
             e.Hp = e.MaxHp;
             // Each enemy thinks on its own tick, so a pulse does not path all at once.
             e.RepathTick = Tick + 1 + e.Id.Counter % RepathTicks;
-            PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius);
+            PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false);
             _enemies.Add(e);
             EnemiesSpawnedTotal++;
             return e;
@@ -444,11 +441,23 @@ namespace PerformativeMail.Sim
                     {
                         if (Tick < e.StateEndTick) break;
                         e.State = EnemyState.Chase;
+                        if (e.StrikeTx >= 0)
+                        {
+                            var built = Constructs.At(e.StrikeTx, e.StrikeTz);
+                            e.StrikeTx = -1;
+                            if (built != null && Constructs.Distance(built, e.X, e.Z, out _, out _) <= built.Def.Radius + e.Radius + StrikeReach + WindupSlack)
+                                DamageConstruct(built, e.Damage);
+                            break;
+                        }
                         var target = GetPlayer(e.Target);
                         if (target == null || target.Dead) break;
                         float dx = target.Move.X - e.X, dz = target.Move.Z - e.Z;
                         float reach = e.Def.AttackRange + e.Radius + WindupSlack;
-                        if (dx * dx + dz * dz <= reach * reach) DamagePlayer(target, e.Damage, e.Def.Index);
+                        if (dx * dx + dz * dz > reach * reach) break;
+                        // A wall between them takes the blow that was meant for the carrier behind it.
+                        var cover = Constructs.Between(e.X, e.Z, target.Move.X, target.Move.Z);
+                        if (cover != null) DamageConstruct(cover, e.Damage);
+                        else DamagePlayer(target, e.Damage, e.Def.Index);
                         break;
                     }
                     default:
@@ -479,7 +488,7 @@ namespace PerformativeMail.Sim
                     b.X += dx * push; b.Z += dz * push;
                 }
             }
-            foreach (var e in _enemies) PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius);
+            foreach (var e in _enemies) PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false);
         }
 
         /// <summary>
@@ -565,7 +574,7 @@ namespace PerformativeMail.Sim
                 float gx, gz;
                 if (target != null) { gx = target.Move.X; gz = target.Move.Z; }
                 else HoldSpot(e, out gx, out gz);
-                if (!LineClear(e.X, e.Z, gx, gz)) TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch);
+                FindPath(e, gx, gz);
             }
             if (target == null) { Hold(e, dt); return; }
 
@@ -586,7 +595,46 @@ namespace PerformativeMail.Sim
                 if (dist > 1e-3f) e.Yaw = MathF.Atan2(-dx, -dz);
                 return;
             }
+            if (StrikeWhatBlocks(e, target.Move.X, target.Move.Z)) return;
             Walk(e, target.Move.X, target.Move.Z, e.Speed * dt);
+        }
+
+        /// <summary>
+        /// The way to a point: none if it can be walked straight; else round the houses, the props
+        /// and what the carriers built; and where they have built every way shut, the way there
+        /// would be without it (<see cref="StrikeWhatBlocks"/> makes it one).
+        /// </summary>
+        private void FindPath(Enemy e, float gx, float gz)
+        {
+            if (LineClear(e.X, e.Z, gx, gz)) return;
+            if (TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch, Constructs) || Constructs.All.Count == 0) return;
+            TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch);
+        }
+
+        /// <summary>
+        /// A raider on its way to a carrier that is up against something they built breaks it
+        /// (doc 05 §4): it stands and strikes, a blow every attackRate. True if that is what it
+        /// does this tick. Its tile paths keep off what is built, so it only comes up against a
+        /// wall where there is no way round, or where its target stands right behind one.
+        /// </summary>
+        private bool StrikeWhatBlocks(Enemy e, float goalX, float goalZ)
+        {
+            if (Constructs.All.Count == 0) return false;
+            WalkPoint(e, goalX, goalZ, out float tx, out float tz);
+            float dx = tx - e.X, dz = tz - e.Z;
+            float dist = MathF.Sqrt(dx * dx + dz * dz);
+            if (dist < 1e-3f) return false;
+            var built = Constructs.Ahead(e.X, e.Z, dx / dist, dz / dist, e.Radius + StrikeReach);
+            if (built == null) return false;
+            Constructs.Distance(built, e.X, e.Z, out float nearX, out float nearZ);
+            if (MathF.Abs(nearX - e.X) + MathF.Abs(nearZ - e.Z) > 1e-3f) e.Yaw = MathF.Atan2(-(nearX - e.X), -(nearZ - e.Z));
+            if (Tick < e.NextAttackTick) return true;
+            e.State = EnemyState.Windup;
+            e.StateEndTick = Tick + _combat.WindupTicks;
+            e.NextAttackTick = Tick + SimConstants.SecondsToTicks(e.Def.AttackRate);
+            e.StrikeTx = built.Tx;
+            e.StrikeTz = built.Tz;
+            return true;
         }
 
         /// <summary>
@@ -633,13 +681,7 @@ namespace PerformativeMail.Sim
         /// <summary>One tick of walking at a point: along the tile path while it has one, straight otherwise.</summary>
         private void Walk(Enemy e, float goalX, float goalZ, float step)
         {
-            float tx = goalX, tz = goalZ;
-            while (e.Waypoint < e.Path.Count - 1)
-            {
-                float wx = e.Path[e.Waypoint].X - e.X, wz = e.Path[e.Waypoint].Z - e.Z;
-                if (wx * wx + wz * wz > 0.6f * 0.6f) { tx = e.Path[e.Waypoint].X; tz = e.Path[e.Waypoint].Z; break; }
-                e.Waypoint++;
-            }
+            WalkPoint(e, goalX, goalZ, out float tx, out float tz);
             float dx = tx - e.X, dz = tz - e.Z;
             float dist = MathF.Sqrt(dx * dx + dz * dz);
             if (dist < 1e-3f) return;
@@ -647,6 +689,18 @@ namespace PerformativeMail.Sim
             e.X += dx / dist * step;
             e.Z += dz / dist * step;
             e.Yaw = MathF.Atan2(-dx, -dz);
+        }
+
+        /// <summary>Where it walks at next: the waypoint of its path it has not reached yet, or the goal itself.</summary>
+        private static void WalkPoint(Enemy e, float goalX, float goalZ, out float x, out float z)
+        {
+            x = goalX; z = goalZ;
+            while (e.Waypoint < e.Path.Count - 1)
+            {
+                float wx = e.Path[e.Waypoint].X - e.X, wz = e.Path[e.Waypoint].Z - e.Z;
+                if (wx * wx + wz * wz > 0.6f * 0.6f) { x = e.Path[e.Waypoint].X; z = e.Path[e.Waypoint].Z; break; }
+                e.Waypoint++;
+            }
         }
 
         private static void StepPush(Enemy e, float dt)
@@ -685,7 +739,8 @@ namespace PerformativeMail.Sim
             for (int i = 1; i < steps; i++)
             {
                 float t = i / (float)steps;
-                if (Map.IsNavBlocked((int)MathF.Floor((x0 + dx * t) / tile), (int)MathF.Floor((z0 + dz * t) / tile))) return false;
+                int tx = (int)MathF.Floor((x0 + dx * t) / tile), tz = (int)MathF.Floor((z0 + dz * t) / tile);
+                if (Map.IsNavBlocked(tx, tz) || Constructs.Blocks(tx, tz)) return false;
             }
             return true;
         }
@@ -823,7 +878,8 @@ namespace PerformativeMail.Sim
                 e.State = EnemyState.Flee;
                 e.Path.Clear();
                 e.Waypoint = 0;
-                if (!LineClear(e.X, e.Z, gx, gz)) TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch);
+                e.StrikeTx = -1;
+                FindPath(e, gx, gz);
             }
             if (Raid != RaidState.None) SetRaid(RaidState.Fleeing, _fleeEndTick);
         }

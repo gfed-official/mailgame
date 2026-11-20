@@ -252,6 +252,10 @@ namespace PerformativeMail.Net.Tests
                 new ShopSoldEvent { Player = player, Item = 7, Count = 12, Paid = 48 },
                 new NodeHarvestedEvent { Player = player, Node = 317, HitsLeft = 4, Item = 1, Count = 3 },
                 new NodesRegrownEvent { All = true },
+                new ConstructPlacedEvent { Player = player, Building = 1, X = 14, Y = 9, Rotation = 3, Hp = 200, ContainerId = 4021 },
+                new ConstructRemovedEvent { X = 14, Y = 9, Player = player, Destroyed = true },
+                new ConstructDamagedEvent { X = 15, Y = 9, Hp = 40000 },
+                new ConstructsClearedEvent(),
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -327,6 +331,28 @@ namespace PerformativeMail.Net.Tests
             var harvested = (NodeHarvestedEvent)back[32];
             Assert.Equal((player, (ushort)317, (byte)4, (ushort)1, (byte)3), (harvested.Player, harvested.Node, harvested.HitsLeft, harvested.Item, harvested.Count));
             Assert.True(((NodesRegrownEvent)back[33]).All);
+            var placed = (ConstructPlacedEvent)back[34];
+            Assert.Equal((player, (byte)1, (byte)14, (byte)9, (byte)3, (ushort)200, 4021u),
+                (placed.Player, placed.Building, placed.X, placed.Y, placed.Rotation, placed.Hp, placed.ContainerId));
+            var removed = (ConstructRemovedEvent)back[35];
+            Assert.Equal(((byte)14, (byte)9, player, true), (removed.X, removed.Y, removed.Player, removed.Destroyed));
+            var damaged = (ConstructDamagedEvent)back[36];
+            Assert.Equal(((byte)15, (byte)9, (ushort)40000), (damaged.X, damaged.Y, damaged.Hp));
+        }
+
+        [Fact]
+        public void TheBuildRequestsRoundTrip()
+        {
+            var place = SimRequest.PlaceConstruct(9, 1, 14, 9, 3);
+            Assert.Equal((RequestKind.PlaceConstruct, (ushort)1, (byte)14, (byte)9, (ushort)3), (place.Kind, place.DestId, place.X, place.Y, place.Count));
+            var remove = SimRequest.RemoveConstruct(10, 14, 9);
+            Assert.Equal((RequestKind.RemoveConstruct, (byte)14, (byte)9), (remove.Kind, remove.X, remove.Y));
+            foreach (var q in new[] { place, remove })
+            {
+                var w = new NetWriter();
+                RequestMsg.Write(w, q);
+                Assert.Equal(q, RequestMsg.Read(Body(w, MsgType.Request)));
+            }
         }
 
         [Fact]
@@ -377,9 +403,15 @@ namespace PerformativeMail.Net.Tests
             m.ShopOwned.Add(4);
             m.Nodes.Add(new NodeInfo { Node = 12, HitsLeft = 0 });
             m.Nodes.Add(new NodeInfo { Node = 317, HitsLeft = 4 });
+            m.Constructs.Add(new ConstructInfo { Building = 0, X = 14, Y = 9, Rotation = 1, Hp = 180 });
+            m.Constructs.Add(new ConstructInfo { Building = 1, X = 15, Y = 9, Rotation = 3, Hp = 200, ContainerId = 4021 });
             var w = new NetWriter();
             m.Write(w);
             var back = WelcomeMsg.Read(Body(w, MsgType.Welcome));
+
+            // What stands built, in the order it was built.
+            Assert.Equal(new[] { ((byte)0, (byte)14, (byte)9, (byte)1, (ushort)180, 0u), ((byte)1, (byte)15, (byte)9, (byte)3, (ushort)200, 4021u) },
+                back.Constructs.Select(c => (c.Building, c.X, c.Y, c.Rotation, c.Hp, c.ContainerId)));
 
             // The nodes somebody has swung at, and what each has left.
             Assert.Equal(new[] { ((ushort)12, (byte)0), ((ushort)317, (byte)4) }, back.Nodes.Select(n => (n.Node, n.HitsLeft)));

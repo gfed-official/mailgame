@@ -58,6 +58,8 @@ namespace PerformativeMail.Sim.Combat
         public uint ProvokedUntilTick;
         /// <summary>Enough others are nearer its target: it keeps back until there is room (set every tick).</summary>
         public bool Waiting;
+        /// <summary>Windup: the tile of what the carriers built that the blow is for; StrikeTx −1: it is for the target.</summary>
+        public int StrikeTx = -1, StrikeTz;
 
         /// <summary>Health as the snapshot carries it: 1..255.</summary>
         public byte HpByte => (byte)System.Math.Clamp((int)System.MathF.Ceiling(Hp / MaxHp * 255f), 1, 255);

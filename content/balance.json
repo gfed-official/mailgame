@@ -48,6 +48,11 @@
   "serverShopRange": 4.5,
   "interactRewindSeconds": 0.3,
   "harvestSwingSeconds": 0.6,
+  "buildRange": 8.0,
+  "serverBuildRange": 8.5,
+  "deconstructHoldSeconds": 0.5,
+  "deconstructRefundPrep": 1.0,
+  "deconstructRefundDelivery": 0.5,
 
   "hpRegenPerSecond": 2,
   "hpRegenDelaySeconds": 5,

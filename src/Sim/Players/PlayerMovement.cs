@@ -52,7 +52,8 @@ namespace PerformativeMail.Sim.Players
     /// </summary>
     public static class PlayerMovement
     {
-        public static void Step(ref PlayerMoveState s, in PlayerInput input, WorldMap map, float speedMult, in MoveConstants c)
+        public static void Step(ref PlayerMoveState s, in PlayerInput input, WorldMap map, float speedMult, in MoveConstants c,
+            ConstructField? constructs = null)
         {
             const float dt = SimConstants.TickDt;
             s.Yaw = input.Yaw;
@@ -82,7 +83,7 @@ namespace PerformativeMail.Sim.Players
             float speed = (sprint ? c.SprintSpeed : c.WalkSpeed) * speedMult;
             s.X += mx * speed * dt;
             s.Z += mz * speed * dt;
-            ResolveCollisions(ref s.X, ref s.Z, s.Y, map, c.Radius);
+            ResolveCollisions(ref s.X, ref s.Z, s.Y, map, c.Radius, constructs);
 
             if (s.Grounded && input.Has(InputButtons.Jump) && !s.Dead)
             {
@@ -108,9 +109,11 @@ namespace PerformativeMail.Sim.Players
         /// <summary>
         /// Pushes a circle out of every solid tile and solid prop it overlaps. Map edges are solid.
         /// A prop lower than the walker's feet (<paramref name="feetY"/>) is passed over: fences
-        /// can be jumped. Carriers and enemies both walk with this.
+        /// can be jumped. Carriers and enemies both walk with this; what the carriers have built
+        /// (<paramref name="constructs"/>) stands in the way as well, a gate only in a raider's.
         /// </summary>
-        public static void ResolveCollisions(ref float x, ref float z, float feetY, WorldMap map, float r)
+        public static void ResolveCollisions(ref float x, ref float z, float feetY, WorldMap map, float r,
+            ConstructField? constructs = null, bool carrier = true)
         {
             const float tile = SimConstants.TileSize;
             for (int iter = 0; iter < 2; iter++)
@@ -170,6 +173,7 @@ namespace PerformativeMail.Sim.Players
                         pushed = true;
                     }
                 }
+                if (constructs != null && constructs.Push(ref x, ref z, feetY, r, carrier)) pushed = true;
                 if (!pushed) break;
             }
         }

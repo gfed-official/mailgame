@@ -74,6 +74,16 @@ namespace PerformativeMail.Sim.World
         public bool HasShop { get; init; }
         public float ShopX { get; init; }
         public float ShopZ { get; init; }
+
+        /// <summary>Seats there are around the pad: one for each carrier a server can hold.</summary>
+        public const int Seats = 8;
+
+        /// <summary>Where the carrier of a slot stands up: the seats fan out around the pad so nobody spawns inside another.</summary>
+        public void Seat(int slot, out float x, out float z)
+        {
+            x = SpawnPadX + (slot % 2) * 1.0f - 0.5f;
+            z = SpawnPadZ + (slot / 2) * 1.0f - 1.5f;
+        }
     }
 
     /// <summary>A storage container that stands in the map from the start (playtest nit 9: a chest by the Post Office).</summary>

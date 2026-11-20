@@ -65,6 +65,8 @@ namespace PerformativeMail.Sim
                 case RequestKind.Sell: return SellOp(player, r);
                 case RequestKind.Use: return UseOp(player, r);
                 case RequestKind.Harvest: return HarvestOp(player, r);
+                case RequestKind.PlaceConstruct: return PlaceConstructOp(player, r);
+                case RequestKind.RemoveConstruct: return RemoveConstructOp(player, r);
                 default: return OpResult.BadRequest;
             }
         }

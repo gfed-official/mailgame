@@ -87,6 +87,8 @@ namespace PerformativeMail.Sim
         public IReadOnlyList<GridContainer> MapChests => _mapChests;
         /// <summary>The map's resource nodes and what each has left.</summary>
         public NodeField Nodes { get; }
+        /// <summary>What the carriers have built this run.</summary>
+        public ConstructField Constructs { get; }
         public IReadOnlyList<Player> Players => _players;
         /// <summary>Events produced since the host last drained them.</summary>
         public List<SimEvent> Events { get; } = new List<SimEvent>();
@@ -119,6 +121,7 @@ namespace PerformativeMail.Sim
             _maxPlayers = b.GetInt("maxPlayers");
             _serverInteractRange = b.GetFloat("serverInteractRange");
             _serverShopRange = b.GetFloat("serverShopRange");
+            _serverBuildRange = b.GetFloat("serverBuildRange");
             _rewindTicks = (int)SimConstants.SecondsToTicks(b.GetDouble("interactRewindSeconds"));
             _weightLight = b.GetInt("weightPointsLight");
             _weightMedium = b.GetInt("weightPointsMedium");
@@ -137,6 +140,7 @@ namespace PerformativeMail.Sim
             foreach (var chest in Map.Chests)
                 _mapChests.Add(CreateContainer(chest.Container.Id, EntityId.None, chest.X, chest.Z).Container);
             Nodes = new NodeField(content, Map);
+            Constructs = new ConstructField(Map);
         }
 
         public MoveConstants MoveConstants => _move;
@@ -286,7 +290,7 @@ namespace PerformativeMail.Sim
                 if (p.Away)
                 {
                     // Nobody steers them: they come to rest where they stood.
-                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move);
+                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move, Constructs);
                     continue;
                 }
 
@@ -298,7 +302,7 @@ namespace PerformativeMail.Sim
                 while (budget > 0 && p.Inputs.Count > 0)
                 {
                     var input = p.Inputs.Dequeue();
-                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move);
+                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs);
                     p.HeldSlot = input.HeldSlot < p.Hotbar.Cols ? input.HeldSlot : (byte)0;
                     HandleAttackInput(p, input);
                     p.LastProcessedSeq = input.Seq;
