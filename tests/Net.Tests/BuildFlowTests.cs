@@ -247,6 +247,79 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void AMegaRaidersBodyKeepsTheGhostRed_AsTheServerSeesIt()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada");
+            ClientWorld a = ada.World!;
+            var build = new BuildController(ada);
+            s.ToPrep();
+            s.GiveLogs(ada, 10);
+            s.Put(ada, Centre(Tx + 2), Centre(Tz));
+            // A Mega's body is wider than its kind's (to the props' limit): 0.45 m off the tile's
+            // west edge, it reaches onto the tile where a plain one would not.
+            var def = s.Content.Enemy("barbarian");
+            float edge = Tx * SimConstants.TileSize;
+            var mega = s.Sim.SpawnEnemy(def, edge - 0.45f, Centre(Tz), mega: true)!;
+            Assert.True(mega.Radius > 0.45f && def.Radius < 0.45f);
+            // It stands still for the test.
+            mega.Speed = 0f;
+            s.Run(4);
+            var seen = Assert.Single(a.Enemies.Values);
+            Assert.True(seen.Mega);
+            Assert.InRange(mega.X, edge - mega.Radius + 0.01f, edge - def.Radius - 0.01f);
+            Assert.True(build.Toggle());
+            LookAt(ada, Tx, Tz);
+            build.Update(Dt, false, false);
+            Assert.Equal((Tx, Tz), (build.Ghost.Tx, build.Ghost.Tz));
+            Assert.Equal(OpResult.Occupied, build.Ghost.State);
+            Assert.Equal(OpResult.Occupied, a.PlaceState(build.Recipe!, Tx, Tz));
+        }
+
+        [Fact]
+        public void TakingDownAShutChestWithSomethingInIt_IsAskedOnce_UntilTheButtonIsLetGo()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada");
+            ClientWorld a = ada.World!;
+            var build = new BuildController(ada);
+            var refused = new List<OpResult>();
+            ada.RequestCompleted += (request, result) => { if (request.Kind == RequestKind.RemoveConstruct) refused.Add(result); };
+            s.ToPrep();
+            s.GiveLogs(ada, 10);
+            s.Put(ada, Centre(Tx - 1) - 0.2f, Centre(Tz));
+            Assert.True(build.Toggle());
+            Assert.True(build.PressKey(1));
+            LookAt(ada, Tx, Tz);
+            build.Update(Dt, true, false);
+            s.Run(10);
+            var chest = Assert.Single(s.Sim.Constructs.All);
+            // Something put into it on the server: the client, the chest shut, cannot know.
+            Assert.True(s.Sim.Give(s.Sim.GetContainer(chest.ContainerId)!, ItemStack.OfItem(s.Content.Item("log"), 1)));
+            s.Run(5);
+            LookAt(ada, a.Constructs.All[0]);
+
+            // Two seconds held: asked once, refused, and not again.
+            for (int i = 0; i < 60; i++)
+            {
+                build.Update(Dt, false, true);
+                s.Run(1);
+            }
+            Assert.Equal(new[] { OpResult.NotEmpty }, refused);
+            Assert.Equal(0f, build.Ghost.HoldProgress);
+            Assert.Single(a.Constructs.All);
+
+            // Let go and held again: asked again.
+            build.Update(Dt, false, false);
+            for (int i = 0; i < 30; i++)
+            {
+                build.Update(Dt, false, true);
+                s.Run(1);
+            }
+            Assert.Equal(new[] { OpResult.NotEmpty, OpResult.NotEmpty }, refused);
+        }
+
+        [Fact]
         public void AChestIsBuiltOpenedAndTakenDown_ByTheHeldAltButton()
         {
             var s = new Session();

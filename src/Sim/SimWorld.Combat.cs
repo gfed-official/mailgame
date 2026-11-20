@@ -364,8 +364,7 @@ namespace PerformativeMail.Sim
                 MaxHp = def.Hp * (mega ? waves.MegaHpMult : 1f),
                 Damage = def.Damage * (mega ? waves.MegaDamageMult : 1f),
                 Speed = def.Speed * (mega ? waves.MegaSpeedMult : 1f),
-                // A Mega is drawn larger; its body in the sim stays within what the props are indexed for.
-                Radius = MathF.Min(def.Radius * (mega ? waves.MegaScale : 1f), WorldMap.WalkerReach),
+                Radius = waves.BodyRadius(def, mega),
             };
             e.Hp = e.MaxHp;
             // Each enemy thinks on its own tick, so a pulse does not path all at once.

@@ -284,6 +284,12 @@ namespace PerformativeMail.Sim.Content
     /// <summary>Raid schedule and budget (doc 08 §2.11, doc 05 §3).</summary>
     public sealed class WaveDef
     {
+        /// <summary>
+        /// The radius of an enemy's body in the sim: a Mega is drawn larger, but its body stays
+        /// within what the props are indexed for. Server and client test a build tile against it.
+        /// </summary>
+        public float BodyRadius(EnemyDef def, bool mega) => MathF.Min(def.Radius * (mega ? MegaScale : 1f), World.WorldMap.WalkerReach);
+
         /// <summary>Per shift, 1-based; 0 = no raid that shift.</summary>
         public double[] BaseBudget { get; init; } = Array.Empty<double>();
         public double WaveScalePerExtraPlayer { get; init; }

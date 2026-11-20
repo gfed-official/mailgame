@@ -552,7 +552,7 @@ namespace PerformativeMail.Client
                 if (BuildRules.Touches(tx, tz, x, z, radius)) return true;
             }
             foreach (var e in Enemies.Values)
-                if (BuildRules.Touches(tx, tz, e.X, e.Z, e.Def.Radius)) return true;
+                if (BuildRules.Touches(tx, tz, e.X, e.Z, Content.Waves.BodyRadius(e.Def, e.Mega))) return true;
             return false;
         }
 

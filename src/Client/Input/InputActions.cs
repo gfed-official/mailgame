@@ -74,6 +74,7 @@ namespace PerformativeMail.Client.InputHandling
             BindButton(Use, JoyButton.B);
             BindButton(Shop, JoyButton.DpadUp);
             BindButton(Build, JoyButton.LeftShoulder);
+            BindButton(Rotate, JoyButton.RightShoulder);
             BindAxis(Attack, JoyAxis.TriggerRight, 1f);
             BindAxis(AltAttack, JoyAxis.TriggerLeft, 1f);
         }

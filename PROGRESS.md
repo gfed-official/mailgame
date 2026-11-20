@@ -454,6 +454,26 @@ on b44a177; what was still there is fixed, what was already gone is pinned by a 
       `HarvestFlowTests` (4) and the smoke's harvest steps; looked at again on the current tree
       in a window.
 
+### 2e. A read-through of Build mode and Fortify on c4d1d4d (2026-11-20)
+
+No playtest report on c4d1d4d; the unit tests and `tools/smoke.sh` were green on it. A read of
+the building code against the server's rules found no break in the codec, the mirror, the
+prediction, the spikes, the blueprint or the refunds, and three smaller faults, fixed:
+
+- [x] A **Mega raider's body** is wider than its kind's (×1.4, to the props' 0.5 m limit) on
+      the server; the client's ghost tested the kind's radius, so beside a Mega it could be
+      green and the server answered "Occupied". Both now use `WaveDef.BodyRadius`.
+      `BuildFlowTests.AMegaRaidersBodyKeepsTheGhostRed_AsTheServerSeesIt`
+- [x] The right button **held on a shut chest with something in it** asked to take it down
+      twice a second, each refused with a feed line: the client cannot see into a shut chest.
+      A refused take-down is not asked again until the button is let go or the crosshair moves.
+      `BuildFlowTests.TakingDownAShutChestWithSomethingInIt_IsAskedOnce_UntilTheButtonIsLetGo`
+- [x] **On a gamepad** Build mode could take down (left trigger held) but not build or turn:
+      the right trigger now builds as the left mouse button does, the right shoulder turns.
+
+One smoke run on the way timed out in its ENet walk (step 1 has 10 s of wall clock for ~2 s of
+walking) while the shared machine was busy; the run after it passed. Left as it is.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is

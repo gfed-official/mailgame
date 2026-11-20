@@ -53,6 +53,12 @@ namespace PerformativeMail.Client
         private uint _awaiting;
         private double _hold;
         private Construct? _holdTarget;
+        /// <summary>
+        /// What the server would not let be taken down (a chest with something in it, which the
+        /// client cannot see shut): the button is let go before it is asked again.
+        /// </summary>
+        private Construct? _refusedTarget;
+        private uint _removing;
 
         public bool Active { get; private set; }
         public int RecipeIndex { get; private set; }
@@ -67,7 +73,12 @@ namespace PerformativeMail.Client
         public BuildController(ClientRuntime client)
         {
             _client = client;
-            client.RequestCompleted += (request, _) => { if (request.RequestId == _awaiting) _awaiting = 0; };
+            client.RequestCompleted += (request, result) =>
+            {
+                if (request.RequestId != _awaiting) return;
+                if (request.RequestId == _removing && result != OpResult.Ok) _refusedTarget = _holdTarget;
+                _awaiting = _removing = 0;
+            };
         }
 
         public RecipeDef? Recipe
@@ -172,14 +183,15 @@ namespace PerformativeMail.Client
                 ghost.State = world.RemoveState(ghost.Target!);
                 if (_holdTarget != ghost.Target) _hold = 0;
                 _holdTarget = ghost.Target;
-                if (removeHeld && ghost.State == OpResult.Ok)
+                if (!removeHeld || _refusedTarget != ghost.Target) _refusedTarget = null;
+                if (removeHeld && ghost.State == OpResult.Ok && _refusedTarget == null)
                 {
                     // Held on as long as the last request is on its way; it goes when the answer is here.
                     _hold = Math.Min(RemoveHoldSeconds, _hold + dt);
                     if (_hold >= RemoveHoldSeconds && _awaiting == 0)
                     {
                         _hold = 0;
-                        _awaiting = _client.RemoveConstruct(ghost.Target!);
+                        _awaiting = _removing = _client.RemoveConstruct(ghost.Target!);
                     }
                 }
                 else _hold = 0;
@@ -188,7 +200,7 @@ namespace PerformativeMail.Client
             else
             {
                 _hold = 0;
-                _holdTarget = null;
+                _holdTarget = _refusedTarget = null;
                 if (ghost.Aim == BuildAim.Place)
                 {
                     ghost.State = world.PlaceState(recipe, ghost.Tx, ghost.Tz);
