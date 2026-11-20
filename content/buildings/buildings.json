@@ -14,5 +14,13 @@
   { "id": "spike_strip", "name": "Spike Strip", "footprint": [1, 1], "rotations": 1, "hp": 150,
     "placement": { "onStreet": false }, "behaviour": "spikes",
     "params": { "radius": 0.5, "height": 0.15, "damagePerSecond": 15 },
-    "recipe": "recipe_spike_strip", "tags": ["defense"] }
+    "recipe": "recipe_spike_strip", "tags": ["defense"] },
+  { "id": "gate", "name": "Gate", "footprint": [1, 1], "rotations": 2, "hp": 500,
+    "placement": { "onStreet": false }, "behaviour": "gate",
+    "params": { "radius": 0.2, "height": 2.4 },
+    "recipe": "recipe_gate", "tags": ["defense"] },
+  { "id": "alarm_post", "name": "Alarm Post", "footprint": [1, 1], "rotations": 1, "hp": 100,
+    "placement": { "onStreet": false }, "behaviour": "alarm",
+    "params": { "radius": 0.25, "height": 3.0, "warningBonusSeconds": 15, "revealRadius": 40 },
+    "recipe": "recipe_alarm_post", "tags": ["defense"] }
 ]

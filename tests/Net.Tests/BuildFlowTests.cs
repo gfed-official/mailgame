@@ -337,7 +337,7 @@ namespace PerformativeMail.Net.Tests
             // Key 2 is the Chest.
             Assert.True(build.PressKey(1));
             Assert.Equal("chest", build.Recipe!.Building.Id);
-            Assert.False(build.PressKey(5));
+            Assert.False(build.PressKey(6));
             LookAt(ada, Tx, Tz);
             build.Update(Dt, true, false);
             s.Run(10);
@@ -513,5 +513,76 @@ namespace PerformativeMail.Net.Tests
             Assert.True(b.Local.X > Centre(Tx) + 0.5f, $"stopped at {b.Local.X} by the spikes");
             Assert.True(MathF.Abs(b.Local.X - s.Truth(bo).Move.X) < 0.05f);
         }
-    }
+    
+        [Fact]
+        public void AGateIsWalkedThrough_AndAnAlarmPostSaysWhatItDoes_AndMarksTheRaiders()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada");
+            ClientWorld a = ada.World!;
+            var build = new BuildController(ada);
+            s.ToPrep();
+            s.GiveLogs(ada, 12);
+            Assert.True(s.Sim.Give(s.Truth(ada).Inventory, ItemStack.OfItem(s.Content.Item("iron_ingot"), 2)));
+            s.Run(5);
+            s.Put(ada, Centre(Tx - 2), Centre(Tz));
+            Assert.True(build.Toggle());
+
+            // Key 5 is the Gate, turned to run along Z; built across the way east.
+            Assert.True(build.PressKey(4));
+            Assert.Equal("gate", build.Recipe!.Building.Id);
+            Assert.Equal("[5] Gate   ·   Log x4, Iron Ingot x1", HudText.RecipeCard(build.Recipe!, 4));
+            Assert.True(build.Rotate());
+            LookAt(ada, Tx, Tz);
+            build.Update(Dt, false, false);
+            Assert.Equal("Build Gate   ·   Log x4, Iron Ingot x1   [LMB]", HudText.BuildPrompt(a, build.Ghost, out _));
+            build.Update(Dt, true, false);
+            s.Run(10);
+            var gate = Assert.Single(a.Constructs.All);
+            Assert.Equal(("gate", 1), (gate.Def.Id, (int)gate.Rotation));
+
+            // Walked through on both ends alike: the prediction does not stop at it.
+            for (int i = 0; i < 45; i++)
+            {
+                ada.Input.MoveX = 1f;
+                ada.Input.MoveZ = 0f;
+                s.Run(1);
+            }
+            ada.Input.MoveX = 0f;
+            s.Run(10);
+            Assert.True(a.Local.X > Centre(Tx) + 0.5f, $"stopped at {a.Local.X} by the gate");
+            Assert.True(MathF.Abs(a.Local.X - s.Truth(ada).Move.X) < 0.05f);
+
+            // Key 6 is the Alarm Post. Here, over 50 m from where the raiders come in, it only marks them.
+            Assert.True(build.PressKey(5));
+            Assert.Equal("alarm_post", build.Recipe!.Building.Id);
+            s.Put(ada, Centre(Tx - 2), Centre(Tz));
+            int px = -1, pz = -1;
+            for (int d = -4; d > -8 && px < 0; d--)
+                foreach (int tz in new[] { Tz, Tz + 1, Tz + 2 })
+                    if (px < 0 && BuildRules.CheckTile(a.Map, a.Constructs, Tx + d, tz) == OpResult.Ok) (px, pz) = (Tx + d, tz);
+            Assert.True(px >= 0, "no open ground east of the gate");
+            LookAt(ada, px, pz);
+            build.Update(Dt, false, false);
+            Assert.Equal(OpResult.Ok, build.Ghost.State);
+            Assert.Equal("Build Alarm Post   ·   Log x2, Iron Ingot x1   ·   too far from the raiders' way in to ring early   [LMB]", HudText.BuildPrompt(a, build.Ghost, out _));
+            // Out east, it would ring the raid in early.
+            RaidRules.Gate(a.Map, out float gx, out float gz);
+            int ex = (int)MathF.Floor((gx - 10f) / SimConstants.TileSize);
+            Assert.Equal("   ·   rings the raid in 15 s early", HudText.AlarmNote(a, build.Recipe!.Building, ex, Tz));
+            build.Update(Dt, true, false);
+            s.Run(10);
+            var post = a.Constructs.At(px, pz)!;
+            Assert.Equal("alarm_post", post.Def.Id);
+
+            // A raider within 40 m of it is marked, one further off is not.
+            Assert.Equal(0, a.MarkedEnemies);
+            var near = s.Sim.SpawnEnemy(s.Content.Enemy("barbarian"), post.X + 30f, Centre(Tz - 2))!;
+            var far = s.Sim.SpawnEnemy(s.Content.Enemy("barbarian"), post.X + 42f, Centre(Tz - 1))!;
+            near.Speed = far.Speed = 0f;
+            s.Run(6);
+            Assert.Equal(2, a.Enemies.Count);
+            Assert.Equal(1, a.MarkedEnemies);
+        }
+}
 }

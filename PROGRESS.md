@@ -699,8 +699,28 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             refused at a pile with bare hands, is handed a Shovel, holds it in view and digs the
             pile out, and sells the Sand (`harvest-sand_pile-*.png`)
 
-Next in this order: the Gate and the Alarm Post (no blueprint), then the bike; the generator
-and the districts before it are the larger pieces still open.
+- [ ] **The Gate and the Alarm Post** (doc 05 §4, doc 08 §2.6, doc 10 §2, doc 11 §10; design
+      choice 81), the two defences without a blueprint
+      - [x] *In the sim.* The **Gate** (`gate`, behaviour `gate`: 4 Logs and an Iron Ingot, 500
+            HP, turned two ways) joins the walls in a line; carriers walk through it — their
+            movement, the client's prediction and the delivery bot's tile paths
+            (`TilePathfinder.Find(carrier: true)`) — and the raiders treat it as a wall: their
+            paths keep off it, shut out they strike it, and it is cover. The **Alarm Post**
+            (`alarm_post`, behaviour `alarm`: 2 Logs and an Iron Ingot, 100 HP, params
+            `warningBonusSeconds` 15 and `revealRadius` 40, validated) stands in the way like a
+            chest; every post within 40 m of the raiders' way in rings the raid in 15 s earlier,
+            to 45 s in all (`waves.json` `maxWarningSeconds`, perks included) — built or taken
+            down in Prep or in Delivery before the warning, it moves the warning; once the
+            raid is announced it stays. A raider within 40 m of any post is marked
+            (`RaidRules.Revealed`, `ClientWorld.MarkedEnemies`). Build prompts say "rings the
+            raid in 15 s early" or "too far from the raiders' way in to ring early", the raid's
+            feed line "… · 30 s of warning with the Alarm Post", the raid tracker "· 3 by the
+            alarm". `GateAndAlarmTests` (6), `BuildFlowTests` (1 new), `BuildTests`,
+            `ContentValidatorTests`
+      - [ ] *On screen*: the gate's leaves, the post's bell and lamp, the marks over the raiders
+
+Next in this order: the Gate and the Alarm Post on screen, then the bike; the generator and the
+districts before it are the larger pieces still open.
 
 ## How to build and check
 
@@ -1494,6 +1514,21 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the held slot are not drawn as tools (a letter is still the letter). The others learn the
     tool from one byte per player in the snapshot (item index + 1, 0 = none) rather than from
     the hotbar contents, which only their owner is sent.
+
+81. **The Gate and the Alarm Post.** Doc 05 §4: a gate "opens for players and friendly
+    vehicles; enemies treat as wall", an alarm post "extends raid warning by 15 s and marks
+    enemies within 40 m on the map"; doc 11 §10: "+15 s per Alarm Post in range, max 45 s".
+    Where they stop: *in range* is in range of the raiders' way in (the east end of the street,
+    where they come from, `RaidRules.Gate`): a post is a lookout on the road the raid takes,
+    and one by the Post Office rings nothing early — the build prompt says which before it is
+    built. The 40 m of the doc's marking radius is the range for both. The cap is on the whole
+    warning (with Early Warning's 20 s too), and never below what the perks alone give. The
+    warning is the shift's when Delivery begins, moved by every post built or lost until the
+    announcement; after that the clock stands. *Marks on the map*: there is no map screen yet
+    (doc 09 §2.6 comes with M2's UI), so a marked raider wears a red mark over its head that
+    shows through walls, and the raid tracker counts them. The gate is not drawn open by the
+    sim: it opens on screen for a carrier near it; raiders never pass, so there is nothing to
+    hold open. Friendly vehicles wait for the bike.
 
 ## Commands
 

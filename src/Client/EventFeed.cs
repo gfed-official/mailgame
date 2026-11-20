@@ -65,7 +65,7 @@ namespace PerformativeMail.Client
                 }
                 case PhaseChangedEvent e: OnPhase(e); break;
                 case EnemyDiedEvent e when !e.Killer.IsNone: AddKill(world, e); break;
-                case RaidChangedEvent e: OnRaid(e.Raid); break;
+                case RaidChangedEvent e: OnRaid(world, e.Raid); break;
                 case PlayerDiedEvent e:
                     Add($"{Who(world, e.Player)} went down to a {HudText.EnemyName(world.Content, e.Killer, false)}", bad: true);
                     break;
@@ -155,11 +155,11 @@ namespace PerformativeMail.Client
             else if (!owner.IsNone && owner == world.LocalId) Add("Your bag is gone: what fits is back in your pockets");
         }
 
-        private void OnRaid(RaidState raid)
+        private void OnRaid(ClientWorld world, RaidState raid)
         {
             switch (raid)
             {
-                case RaidState.Warning: Add(HudText.RaidWarning, bad: true); break;
+                case RaidState.Warning: Add(HudText.RaidAnnounced(world), bad: true); break;
                 case RaidState.Active: Add("The raiders are through the gate", bad: true); break;
                 case RaidState.None: Add("The raid is over"); break;
             }

@@ -300,7 +300,7 @@ namespace PerformativeMail.Client.Bot
             else _stuckTicks++;
             if (!_hasPath || _stuckTicks > 30)
             {
-                _hasPath = TilePathfinder.Find(world.Map, px, pz, x, z, _path, constructs: world.Constructs);
+                _hasPath = TilePathfinder.Find(world.Map, px, pz, x, z, _path, constructs: world.Constructs, carrier: true);
                 _waypoint = 0;
                 _stuckTicks = 0;
                 if (!_hasPath) return false;

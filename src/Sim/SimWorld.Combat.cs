@@ -108,6 +108,8 @@ namespace PerformativeMail.Sim
         public RaidState Raid { get; private set; }
         /// <summary>The tick of the raid's first spawn this shift, 0 if the shift has no raid.</summary>
         public uint RaidStartTick => _raidStartTick;
+        /// <summary>The tick the raid of this shift is announced by (Alarm Posts move it while it is to come); 0 without one.</summary>
+        public uint RaidWarnTick => _raidWarnTick;
         /// <summary>The tick the last <see cref="RaidChangedEvent"/> carried, for who joins after it.</summary>
         public uint RaidTick { get; private set; }
         /// <summary>The whole budget of the raid under way (doc 05 §3.2), set when it starts.</summary>
@@ -759,10 +761,27 @@ namespace PerformativeMail.Sim
         // --- the raid ---------------------------------------------------------------------------
 
         /// <summary>Where the raiders come in and leave: the east end of the first street ("from the east").</summary>
-        public void RaidGate(out float x, out float z)
+        public void RaidGate(out float x, out float z) => RaidRules.Gate(Map, out x, out z);
+
+        /// <summary>
+        /// Seconds of warning before the raid (doc 11 §10): the waves', with Early Warning, plus
+        /// every Alarm Post in range of the raiders' way in, up to the cap.
+        /// </summary>
+        public double RaidWarningSeconds()
         {
-            x = Map.WidthM - 1.5f;
-            z = Map.Streets.Count > 0 ? Map.Streets[0].Rect.CenterZ : Map.DepthM * 0.5f;
+            var waves = Content.Waves;
+            return RaidRules.WarningSeconds(waves, TeamStat(Stat.RaidWarningSeconds, (float)waves.WarningSeconds), RaidRules.AlarmBonusSeconds(Map, Constructs));
+        }
+
+        /// <summary>
+        /// When the raid is announced, from the warning as it stands. An Alarm Post built or lost
+        /// before then moves it; once announced, it stays.
+        /// </summary>
+        private void SetRaidWarnTick()
+        {
+            if (_raidStartTick == 0 || _raidAtStart || Raid != RaidState.None || Tick + 1 >= _raidStartTick) return;
+            uint warning = SimConstants.SecondsToTicks(RaidWarningSeconds());
+            _raidWarnTick = _raidStartTick - Math.Min(warning, _raidStartTick - Tick - 1);
         }
 
         /// <summary>
@@ -789,9 +808,8 @@ namespace PerformativeMail.Sim
             if (waves.BudgetFor(Run.Shift) <= 0) return;
             uint length = Run.PhaseEndTick - Tick;
             uint window = Math.Min(SimConstants.SecondsToTicks(waves.RaidWindowSeconds), length - 1);
-            uint warning = SimConstants.SecondsToTicks(TeamStat(Stat.RaidWarningSeconds, (float)waves.WarningSeconds));
             _raidStartTick = Run.PhaseEndTick - window;
-            _raidWarnTick = _raidStartTick - Math.Min(warning, _raidStartTick - Tick - 1);
+            SetRaidWarnTick();
         }
 
         /// <summary>waveBudget(shift, n) of doc 05 §3.2 (no stamps yet).</summary>

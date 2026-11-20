@@ -310,7 +310,13 @@ namespace PerformativeMail.Client
             switch (world.Raid)
             {
                 case RaidState.Warning: return $"Raid in {Clock(world.RaidSecondsLeft)}";
-                case RaidState.Active: return $"Raid   ·   {CountAndKind("raider", world.Enemies.Count)} left";
+                case RaidState.Active:
+                {
+                    int marked = world.MarkedEnemies;
+                    return marked > 0
+                        ? $"Raid   ·   {CountAndKind("raider", world.Enemies.Count)} left   ·   {marked.ToString(CultureInfo.InvariantCulture)} by the alarm"
+                        : $"Raid   ·   {CountAndKind("raider", world.Enemies.Count)} left";
+                }
                 case RaidState.Fleeing: return "Raid   ·   fleeing";
                 default: return "";
             }
@@ -708,7 +714,7 @@ namespace PerformativeMail.Client
                     if (g.State == OpResult.Ok)
                     {
                         tone = PromptTone.Match;
-                        return $"Build {recipe.Building.Name}   ·   {Inputs(recipe.Inputs, 1.0)}   [LMB]";
+                        return $"Build {recipe.Building.Name}   ·   {Inputs(recipe.Inputs, 1.0)}{AlarmNote(world, recipe.Building, g.Tx, g.Tz)}   [LMB]";
                     }
                     tone = PromptTone.Mismatch;
                     return $"{recipe.Building.Name}   ·   {PlaceReason(world, recipe, g.State)}";
@@ -730,6 +736,27 @@ namespace PerformativeMail.Client
                 default:
                     return $"Build {recipe.Building.Name}   ·   look at open ground";
             }
+        }
+
+        /// <summary>What an Alarm Post would do on the tile: ring the raid in early, or only mark the raiders.</summary>
+        public static string AlarmNote(ClientWorld world, BuildingDef def, int tx, int tz)
+        {
+            if (def.Behaviour != BuildingBehaviour.Alarm) return "";
+            string seconds = ((int)Math.Round(def.WarningBonusSeconds)).ToString(CultureInfo.InvariantCulture);
+            return RaidRules.AlarmInRange(world.Map, def, tx, tz)
+                ? $"   ·   rings the raid in {seconds} s early"
+                : "   ·   too far from the raiders' way in to ring early";
+        }
+
+        /// <summary>The feed's line as the raid is announced: with the warning the Alarm Posts gave, if any rang.</summary>
+        public static string RaidAnnounced(ClientWorld world)
+        {
+            int posts = 0;
+            foreach (var c in world.Constructs.All)
+                if (RaidRules.AlarmInRange(world.Map, c.Def, c.Tx, c.Tz)) posts++;
+            if (posts == 0) return RaidWarning;
+            string seconds = ((int)Math.Round(world.RaidSecondsLeft)).ToString(CultureInfo.InvariantCulture);
+            return $"{RaidWarning}   ·   {seconds} s of warning with {(posts == 1 ? "the Alarm Post" : $"{posts.ToString(CultureInfo.InvariantCulture)} Alarm Posts")}";
         }
 
         /// <summary>Why a build or a take-down came to nothing, where the prompt had not said so already.</summary>

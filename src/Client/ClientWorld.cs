@@ -236,6 +236,19 @@ namespace PerformativeMail.Client
         public double ProtectedSecondsLeft =>
             LocalProtected ? Math.Max(0.0, SimConstants.TicksToSeconds((long)LocalProtectedUntilTick - (long)Math.Floor(ServerTick))) : 0.0;
 
+        /// <summary>How many of the enemies stand within an Alarm Post's reach (doc 05 §4): marked for everybody.</summary>
+        public int MarkedEnemies
+        {
+            get
+            {
+                int n = 0;
+                if (Constructs.All.Count == 0) return 0;
+                foreach (var e in Enemies.Values)
+                    if (RaidRules.Revealed(Constructs, e.X, e.Z)) n++;
+                return n;
+            }
+        }
+
         /// <summary>Enemies of the newest enemy list, by the low 16 bits of their id.</summary>
         public Dictionary<ushort, ClientEnemy> Enemies { get; } = new Dictionary<ushort, ClientEnemy>();
         /// <summary>Loot bundles on the ground.</summary>

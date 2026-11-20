@@ -189,6 +189,11 @@ namespace PerformativeMail.Sim.Content
         Gate = 2,
         /// <summary>Lies flat on its tile (doc 05 §4 Spike Strip): it stops nobody, and hurts a raider standing on it.</summary>
         Spikes = 3,
+        /// <summary>
+        /// A post with a bell (doc 05 §4 Alarm Post): stands in the way like a chest; near the
+        /// raiders' way in it rings the raid in earlier, and it marks the raiders near it.
+        /// </summary>
+        Alarm = 4,
     }
 
     /// <summary>
@@ -216,6 +221,10 @@ namespace PerformativeMail.Sim.Content
 
         /// <summary>Spikes: what a raider standing on the tile loses a second.</summary>
         public float DamagePerSecond { get; init; }
+        /// <summary>An alarm: how much earlier the raid is announced while it stands in range of the raiders' way in.</summary>
+        public float WarningBonusSeconds { get; init; }
+        /// <summary>An alarm: how far round it the raid is in range, and the raiders are marked.</summary>
+        public float RevealRadius { get; init; }
 
         /// <summary>Walls and gates stand in a line and join each other; a chest and spikes stand alone.</summary>
         public bool Joins => Behaviour == BuildingBehaviour.Wall || Behaviour == BuildingBehaviour.Gate;
@@ -299,6 +308,8 @@ namespace PerformativeMail.Sim.Content
         public double PulseIntervalSeconds { get; init; }
         public double FinalePulseMult { get; init; } = 1;
         public double WarningSeconds { get; init; }
+        /// <summary>The longest warning there is, perks and alarm posts together; 0 = no cap.</summary>
+        public double MaxWarningSeconds { get; init; }
         public double RaidWindowSeconds { get; init; }
         public double MegaChanceBase { get; init; }
         public double MegaChancePerShift { get; init; }

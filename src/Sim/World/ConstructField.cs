@@ -64,8 +64,12 @@ namespace PerformativeMail.Sim.World
 
         public Construct? At(int tx, int tz) => _map.InBounds(tx, tz) ? _tiles[tz * _map.Cols + tx] : null;
 
-        /// <summary>True for a tile a tile path keeps off because of what is built there: anything but spikes.</summary>
-        public bool Blocks(int tx, int tz) => At(tx, tz) is { Def.Solid: true };
+        /// <summary>
+        /// True for a tile a tile path keeps off because of what is built there: anything but
+        /// spikes, and for a carrier's path anything but spikes and gates.
+        /// </summary>
+        public bool Blocks(int tx, int tz, bool carrier = false) =>
+            At(tx, tz) is { Def.Solid: true } c && !(carrier && c.Def.Behaviour == BuildingBehaviour.Gate);
 
         public Construct Add(BuildingDef def, int tx, int tz, int rotation, int hp, uint containerId)
         {

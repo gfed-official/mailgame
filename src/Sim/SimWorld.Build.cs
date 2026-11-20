@@ -46,6 +46,7 @@ namespace PerformativeMail.Sim
             {
                 Player = player.Id, Building = def.Index, X = (byte)tx, Y = (byte)tz, Rotation = built.Rotation, Hp = (ushort)built.Hp, ContainerId = containerId,
             });
+            if (def.Behaviour == BuildingBehaviour.Alarm) SetRaidWarnTick();
             return OpResult.Ok;
         }
 
@@ -151,6 +152,7 @@ namespace PerformativeMail.Sim
             DropContainer(built);
             Constructs.Remove(built.Tx, built.Tz);
             Events.Add(new ConstructRemovedEvent { X = (byte)built.Tx, Y = (byte)built.Tz, Player = by, Destroyed = destroyed });
+            if (built.Def.Behaviour == BuildingBehaviour.Alarm) SetRaidWarnTick();
         }
 
         private void DropContainer(Construct built)

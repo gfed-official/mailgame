@@ -7,6 +7,7 @@
   "pulseIntervalSeconds": 15,
   "finalePulseMult": 1.5,
   "warningSeconds": 15,
+  "maxWarningSeconds": 45,
   "raidWindowSeconds": 90,
   "megaChanceBase": 0.05,
   "megaChancePerShift": 0.02,

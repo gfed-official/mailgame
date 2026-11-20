@@ -533,6 +533,7 @@ namespace PerformativeMail.Sim.Content
                         PulseIntervalSeconds = J.Num(ctx, root, "pulseIntervalSeconds"),
                         FinalePulseMult = J.Num(ctx, root, "finalePulseMult", 1),
                         WarningSeconds = J.Num(ctx, root, "warningSeconds"),
+                        MaxWarningSeconds = J.Num(ctx, root, "maxWarningSeconds", 0),
                         RaidWindowSeconds = J.Num(ctx, root, "raidWindowSeconds"),
                         MegaChanceBase = J.Num(ctx, root, "megaChanceBase", 0),
                         MegaChancePerShift = J.Num(ctx, root, "megaChancePerShift", 0),
@@ -543,6 +544,7 @@ namespace PerformativeMail.Sim.Content
                     if (def.Pulses < 1) ctx.Error("pulses must be >= 1");
                     if (def.PulseIntervalSeconds <= 0) ctx.Error("pulseIntervalSeconds must be > 0");
                     if (def.WarningSeconds < 0 || def.RaidWindowSeconds <= 0) ctx.Error("warningSeconds must be >= 0 and raidWindowSeconds > 0");
+                    if (def.MaxWarningSeconds != 0 && def.MaxWarningSeconds < def.WarningSeconds) ctx.Error("maxWarningSeconds must be 0 (no cap) or at least warningSeconds");
                     // The snapshot counts enemies in a byte.
                     if (def.MaxAlive < 1 || def.MaxAlive > 255) ctx.Error("maxAlive must be in 1..255");
                     foreach (double budget in def.BaseBudget) if (budget < 0) ctx.Error("baseBudget must not be negative");
@@ -756,6 +758,7 @@ namespace PerformativeMail.Sim.Content
                             case "container": behaviour = BuildingBehaviour.Container; break;
                             case "gate": behaviour = BuildingBehaviour.Gate; break;
                             case "spikes": behaviour = BuildingBehaviour.Spikes; break;
+                            case "alarm": behaviour = BuildingBehaviour.Alarm; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
@@ -787,10 +790,14 @@ namespace PerformativeMail.Sim.Content
                             Radius = hasParams ? (float)J.Num(ctx, pars, "radius") : 0.2f,
                             Height = hasParams ? (float)J.Num(ctx, pars, "height") : 1f,
                             DamagePerSecond = hasParams ? (float)J.Num(ctx, pars, "damagePerSecond", 0) : 0f,
+                            WarningBonusSeconds = hasParams ? (float)J.Num(ctx, pars, "warningBonusSeconds", 0) : 0f,
+                            RevealRadius = hasParams ? (float)J.Num(ctx, pars, "revealRadius", 0) : 0f,
                             Tags = J.StrArray(ctx, e, "tags", optional: true),
                         };
                         if (behaviour == BuildingBehaviour.Spikes && def.DamagePerSecond <= 0f) ctx.Error($"'{id}': spikes need params.damagePerSecond > 0");
                         if (behaviour != BuildingBehaviour.Spikes && def.DamagePerSecond != 0f) ctx.Error($"'{id}': only spikes do damage (params.damagePerSecond)");
+                        if (behaviour == BuildingBehaviour.Alarm && (def.WarningBonusSeconds <= 0f || def.RevealRadius <= 0f)) ctx.Error($"'{id}': an alarm needs params.warningBonusSeconds > 0 and params.revealRadius > 0");
+                        if (behaviour != BuildingBehaviour.Alarm && (def.WarningBonusSeconds != 0f || def.RevealRadius != 0f)) ctx.Error($"'{id}': only an alarm warns and reveals (params.warningBonusSeconds, params.revealRadius)");
                         if (def.Rotations != 1 && def.Rotations != 2 && def.Rotations != 4) ctx.Error($"'{id}': rotations must be 1, 2 or 4");
                         // The wire carries a construct's HP in 16 bits.
                         if (def.Hp < 1 || def.Hp > ushort.MaxValue) ctx.Error($"'{id}': hp must be in 1..{ushort.MaxValue}");

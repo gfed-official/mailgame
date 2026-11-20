@@ -6,5 +6,9 @@
   { "id": "recipe_wall_stone", "produces": { "building": "wall_stone" },
     "inputs": [ { "item": "stone", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_defense" },
   { "id": "recipe_spike_strip", "produces": { "building": "spike_strip" },
-    "inputs": [ { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_defense" }
+    "inputs": [ { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_defense" },
+  { "id": "recipe_gate", "produces": { "building": "gate" },
+    "inputs": [ { "item": "log", "count": 4 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
+  { "id": "recipe_alarm_post", "produces": { "building": "alarm_post" },
+    "inputs": [ { "item": "log", "count": 2 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 }
 ]
