@@ -280,7 +280,8 @@ namespace PerformativeMail.Sim.Content
                             case "tree": prop = PropKind.Tree; break;
                             case "bush": prop = PropKind.Bush; break;
                             case "boulder": prop = PropKind.Boulder; break;
-                            default: ctx.Error($"'{id}': prop must be 'tree', 'bush' or 'boulder', not '{propName}'"); continue;
+                            case "sand_pile": prop = PropKind.SandPile; break;
+                            default: ctx.Error($"'{id}': prop must be 'tree', 'bush', 'boulder' or 'sand_pile', not '{propName}'"); continue;
                         }
                         string toolName = J.Str(ctx, e, "tool", "none");
                         var tool = toolName == "required" ? NodeTool.Required : toolName == "optional" ? NodeTool.Optional : NodeTool.None;

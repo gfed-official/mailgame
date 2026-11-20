@@ -13,17 +13,21 @@ namespace PerformativeMail.App
     /// <summary>
     /// Harvesting in the smoke's run (doc 02 §3.9): in the Prep before the visit to the shop the
     /// host picks a bush clean with the held key, is told what a boulder takes, chops a tree down
-    /// by hand and looks at what else grows — the prompt, the bar, the pockets, the feed and what
-    /// stands in the world afterwards are right on both ends. The shop takes what was gathered.
+    /// by hand and looks at what else grows, is refused at a sand pile with bare hands and digs it
+    /// out with a Shovel the server hands them, drawn in the hand — the prompt, the bar, the
+    /// pockets, the feed and what stands in the world afterwards are right on both ends. The shop
+    /// takes what was gathered, the Shovel too.
     /// </summary>
     public partial class SmokeDriver
     {
-        private enum HarvestVisit { Work, Refused, Look }
+        /// <summary>Tool: worked with the tool it takes in the hand, which the server hands over (the run cannot pay for the shop's yet).</summary>
+        private enum HarvestVisit { Work, Refused, Look, Tool }
 
         private static readonly (string Node, HarvestVisit Visit)[] HarvestRound =
         {
             ("fiber_bush", HarvestVisit.Work), ("boulder", HarvestVisit.Refused), ("tree", HarvestVisit.Work),
             ("berry_bush", HarvestVisit.Look), ("ore_vein", HarvestVisit.Look),
+            ("sand_pile", HarvestVisit.Refused), ("sand_pile", HarvestVisit.Tool),
         };
 
         private const int HarvestStepFrames = 300, HarvestArriveFrames = 30, HarvestRefusedFrames = 30;
@@ -32,7 +36,7 @@ namespace PerformativeMail.App
         private int _harvestStep, _harvestFrames, _harvestVisits, _harvestTry, _harvestNode = -1;
         private int _harvestSwings, _harvestYield, _harvestHad, _harvestBare, _harvestRedraws, _harvestWorked, _harvestUnits;
         private float _harvestX, _harvestZ;
-        private bool _harvestHolding, _harvestBar;
+        private bool _harvestHolding, _harvestBar, _harvestToolSeen;
         private string _harvestSeen = "";
 
         /// <summary>
@@ -81,6 +85,22 @@ namespace PerformativeMail.App
             _harvestHolding = false;
             if (_harvestStep <= HarvestRound.Length && !StandAtNode(HarvestRound[_harvestStep - 1].Node, 0))
                 Fail($"the map has no '{HarvestRound[_harvestStep - 1].Node}' with room to stand beside it");
+            var client = _session.Client;
+            if (_harvestStep > HarvestRound.Length || HarvestRound[_harvestStep - 1].Visit != HarvestVisit.Tool)
+            {
+                client.Input.HeldSlot = 0;
+                return;
+            }
+            // The tool the node takes, on the hotbar of the server's player, and in the hand.
+            var world = client.World!;
+            var def = world.Nodes.Def(_harvestNode)!;
+            var tool = world.Content.Items.First(i => i.HarvestsResource(def.Resource));
+            var player = _session.Server!.World.GetPlayer(world.LocalId)!;
+            Check(_session.Server.World.Give(player.Hotbar, ItemStack.OfItem(tool, 1)), $"no room on the hotbar for {tool.Name}");
+            var entry = player.Hotbar.Entries.FirstOrDefault(e => e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == tool.Index && e.X > 0);
+            if (entry == null) { Fail($"{tool.Name} is not on the hotbar"); return; }
+            client.Input.HeldSlot = (byte)entry.X;
+            _harvestToolSeen = false;
         }
 
         /// <summary>A frame of Prep. Returns true while the round of the nodes goes on: the shop and the go key wait for it.</summary>
@@ -104,6 +124,7 @@ namespace PerformativeMail.App
                 return true;
             }
 
+            if (_harvestStep > HarvestRound.Length) return EndHarvest();
             var (id, visit) = HarvestRound[_harvestStep - 1];
             var def = world.Nodes.Def(_harvestNode)!;
             _session.Interaction.Update(1.0 / 30.0, _harvestHolding, false);
@@ -141,7 +162,14 @@ namespace PerformativeMail.App
                 Check(want.Length > 0 && hud.PromptText == want, $"at the {def.Name} the prompt says \"{hud.PromptText}\", expected \"{want}\"");
                 bool needsTool = prompt.NodeState == OpResult.NeedsTool;
                 Check(prompt.NodeState == OpResult.Ok || needsTool, $"the {def.Name} cannot be worked: {prompt.NodeState}");
-                Check(needsTool == (visit == HarvestVisit.Refused || def.Tool == NodeTool.Required), $"bare hands at the {def.Name}: {prompt.NodeState}");
+                Check(needsTool == (visit == HarvestVisit.Refused || (def.Tool == NodeTool.Required && visit != HarvestVisit.Tool)), $"bare hands at the {def.Name}: {prompt.NodeState}");
+                if (visit == HarvestVisit.Tool)
+                {
+                    // The tool is drawn in the hand while it is held, before a swing and after.
+                    var tool = world.Content.Items.First(i => i.HarvestsResource(def.Resource));
+                    Check(_screen.Camera.ToolInHand == tool.Name, $"with {tool.Name} in the held slot the hand holds \"{_screen.Camera.ToolInHand}\"");
+                    Shot($"harvest-{id}-tool");
+                }
                 if (needsTool)
                     Check(want.Contains("needs a", StringComparison.Ordinal) && hud.PromptMark == PromptTone.Mismatch && tone == PromptTone.Mismatch, $"the prompt for what the {def.Name} takes is \"{want}\" ({hud.PromptMark})");
                 else
@@ -182,6 +210,7 @@ namespace PerformativeMail.App
 
             // Held until nothing is left of it, and the world is drawn that way.
             if (_harvestBar) Shot($"harvest-{id}-swing");
+            if (visit == HarvestVisit.Tool && _screen.Camera.ToolInHand.Length > 0) _harvestToolSeen = true;
             int gathered = def.Hits * _harvestYield;
             if (!world.Nodes.Depleted(_harvestNode) || client.PendingRequestCount > 0 || have < _harvestHad + gathered || view.Bare != _harvestBare + 1) return true;
             int swings = client.LocalHarvestSwings - _harvestSwings;
@@ -195,6 +224,13 @@ namespace PerformativeMail.App
             string line = HudText.Gathered(world, world.LocalId, def.Item.Index, gathered);
             Check(_session.Feed.Entries.Any(e => e.Text == line), $"the feed does not say \"{line}\"");
             Shot($"harvest-{id}-bare");
+            if (visit == HarvestVisit.Tool)
+            {
+                Check(_harvestToolSeen, $"the tool was not in the hand while the {def.Name} was worked");
+                client.Input.HeldSlot = 0;
+                _screen.Camera.Sync();
+                Check(_screen.Camera.ToolInHand.Length == 0, $"with the hands empty the hand still holds \"{_screen.Camera.ToolInHand}\"");
+            }
             _harvestWorked++;
             _harvestUnits += gathered;
             NextHarvestStep();
@@ -219,7 +255,7 @@ namespace PerformativeMail.App
             var world = _session.Client.World!;
             var server = _session.Server!.World;
             var view = _screen.Nodes;
-            Check(_harvestVisits == 1 && _harvestWorked == 2, $"the smoke worked the land {_harvestVisits} times and {_harvestWorked} nodes out");
+            Check(_harvestVisits == 1 && _harvestWorked == 3, $"the smoke worked the land {_harvestVisits} times and {_harvestWorked} nodes out");
             int touched = 0;
             for (int i = 0; i < world.Nodes.Count; i++)
                 if (world.Nodes.Touched(i) || server.Nodes.Touched(i)) touched++;

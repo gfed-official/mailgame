@@ -97,6 +97,7 @@ namespace PerformativeMail.Client
             {
                 case PropKind.Tree: return new AimBox(prop.X, ground + 1.5f, prop.Z, 0.6f, 1.5f, 0.6f);
                 case PropKind.Boulder: return new AimBox(prop.X, ground + 0.35f * s, prop.Z, 0.8f * s, 0.45f * s, 0.8f * s);
+                case PropKind.SandPile: return new AimBox(prop.X, ground + 0.25f * s, prop.Z, 0.85f * s, 0.35f * s, 0.85f * s);
                 default: return new AimBox(prop.X, ground + 0.45f * s, prop.Z, 0.65f * s, 0.5f * s, 0.65f * s);
             }
         }

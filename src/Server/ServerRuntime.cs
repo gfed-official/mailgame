@@ -306,7 +306,7 @@ namespace PerformativeMail.Server
             {
                 _snapshot.Players.Add(new PlayerSnap
                 {
-                    Id = p.Id, X = p.Move.X, Y = p.Move.Y, Z = p.Move.Z, Yaw = p.Move.Yaw, HeldSlot = p.HeldSlot, Ready = p.Ready,
+                    Id = p.Id, X = p.Move.X, Y = p.Move.Y, Z = p.Move.Z, Yaw = p.Move.Yaw, HeldSlot = p.HeldSlot, HeldTool = World.HeldTool(p), Ready = p.Ready,
                     Hp = p.HpByte, Protected = World.Protected(p), Away = p.Away,
                 });
             }

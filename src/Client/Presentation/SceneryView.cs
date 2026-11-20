@@ -45,6 +45,7 @@ namespace PerformativeMail.Client.Presentation
                     case PropKind.Fence: Fence(batch, at, new Vector3(prop.X2, ground, prop.Z2)); break;
                     case PropKind.Flowers: Flowers(batch, at, prop.Scale, prop.Variant); break;
                     case PropKind.Chest: Chest(batch, at, prop.Yaw); break;
+                    case PropKind.SandPile: SandPile(batch, at, prop.Yaw, prop.Scale, prop.Variant, false); break;
                 }
             }
             return lamps;
@@ -73,6 +74,37 @@ namespace PerformativeMail.Client.Presentation
             var basis = new Basis(Vector3.Up, yaw).Scaled(Vector3.One * scale);
             batch.Add(MeshKit.Blob(0.62f, 0.2f, 1.25f, 23 + variant, new Vector3(1.2f, 0.72f, 0.95f)), MeshKit.Mat(new Color("6d6878"), 0.9f),
                 new Transform3D(basis, at + new Vector3(0f, 0.22f * scale, 0f)));
+        }
+
+        private static readonly Color Sand = new Color("e6d3a8");
+
+        /// <summary>
+        /// A heap of beach sand with a few shells and pebbles on it; dug out, a low ring of it
+        /// round the hollow.
+        /// </summary>
+        public static void SandPile(MeshBatch batch, Vector3 at, float yaw, float scale, int variant, bool depleted)
+        {
+            var basis = new Basis(Vector3.Up, yaw).Scaled(Vector3.One * scale);
+            var sand = MeshKit.Mat(Sand, 1f);
+            if (depleted)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    float a = i * Mathf.Tau / 5f + 0.3f, r = 0.42f;
+                    batch.Add(MeshKit.Blob(0.3f, 0.2f, 1.1f, 31 + (variant + i) % 3, new Vector3(1.3f, 0.35f, 1f)), sand,
+                        new Transform3D(basis * new Basis(Vector3.Up, a), at + basis * new Vector3(Mathf.Cos(a) * r, 0.02f, Mathf.Sin(a) * r)));
+                }
+                return;
+            }
+            batch.Add(MeshKit.Blob(0.7f, 0.18f, 1.1f, 31 + variant % 3, new Vector3(1.05f, 0.55f, 0.95f)), sand, new Transform3D(basis, at + new Vector3(0f, 0.05f * scale, 0f)));
+            var shell = MeshKit.Mat(new Color("f4e6da"), 0.5f);
+            var pebble = MeshKit.Mat(new Color("8a8278"), 0.9f);
+            for (int i = 0; i < 5; i++)
+            {
+                float a = i * 2.39996f + variant, up = 0.3f + 0.12f * i, flat = Mathf.Sqrt(1f - up * up);
+                var on = new Vector3(Mathf.Cos(a) * flat * 1.05f, up * 0.55f, Mathf.Sin(a) * flat * 0.95f) * 0.68f;
+                batch.Add(MeshKit.Sphere(i % 2 == 0 ? 0.045f : 0.035f, 8), i % 2 == 0 ? shell : pebble, new Transform3D(basis.Scaled(new Vector3(1f, 0.6f, 1f)), at + new Vector3(0f, 0.05f * scale, 0f) + basis * on));
+            }
         }
 
         /// <summary>
@@ -132,6 +164,10 @@ namespace PerformativeMail.Client.Presentation
                         batch.Add(MeshKit.RoundedBox(new Vector3(0.16f, 0.1f, 0.13f), 0.03f), MeshKit.Mat(new Color("c9713a"), 0.4f, 0.7f),
                             new Transform3D(basis * new Basis(Vector3.Up, a), at + new Vector3(0f, 0.22f * prop.Scale, 0f) + basis * on));
                     }
+                    break;
+
+                case PropKind.SandPile:
+                    SandPile(batch, at, prop.Yaw, prop.Scale, prop.Variant, depleted);
                     break;
             }
         }

@@ -137,8 +137,8 @@ namespace PerformativeMail.Sim.Tests
         public void TheCatalogSellsBandagesAndRefinedMaterials_AndOneRotatingKit()
         {
             // The tools came with harvesting (HarvestTests); they are never a special, so the roll is as it was.
-            // So did the Fortify blueprint with building (FortifyTests).
-            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "bp_defense" },
+            // So did the Fortify blueprint with building (FortifyTests), and the Shovel with the beach.
+            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "bp_defense" },
                 Db.ShopItems.Select(s => s.Id).ToArray());
             for (int i = 0; i < Db.ShopItems.Count; i++) Assert.Equal(i, Db.ShopItems[i].Index);
 

@@ -16,6 +16,8 @@ namespace PerformativeMail.Sim.World
         Flowers = 6,
         /// <summary>A chest the map places (<see cref="MapChestDef"/>): not grown, only made solid here.</summary>
         Chest = 7,
+        /// <summary>A heap of sand on a beach (doc 02 §3.9): dug with a Shovel.</summary>
+        SandPile = 8,
     }
 
     /// <summary>
@@ -245,6 +247,23 @@ namespace PerformativeMail.Sim.World
                     {
                         if (Free(x, z, 0.2f)) props.Add(new Prop(PropKind.Flowers, x, z, x, z, yaw, scale, rng.NextInt(4), 0f, 0f));
                     }
+                }
+            }
+            // Sand piles on the beaches, out of a stream of their own: a beach moves nothing else.
+            var sandRng = new RngStream((uint)(map.MapHash ^ (map.MapHash >> 32)), "sand");
+            const float sandCell = 4f;
+            for (float gz = sandCell * 0.5f; gz < map.DepthM; gz += sandCell)
+            {
+                for (float gx = sandCell * 0.5f; gx < map.WidthM; gx += sandCell)
+                {
+                    float x = gx + (sandRng.NextInt(1000) / 1000f - 0.5f) * sandCell * 0.6f, z = gz + (sandRng.NextInt(1000) / 1000f - 0.5f) * sandCell * 0.6f;
+                    int roll = sandRng.NextInt(100);
+                    float scale = 0.85f + sandRng.NextInt(1000) / 1000f * 0.4f, yaw = sandRng.NextInt(1000) / 1000f * 6.283f;
+                    if (roll >= 45 || At(x, z) != TileType.Beach) continue;
+                    // A pile keeps a walker's width off the map's edge, which is a wall.
+                    float r = 0.6f * scale;
+                    if (x < r + 1f || z < r + 1f || x > map.WidthM - r - 1f || z > map.DepthM - r - 1f) continue;
+                    if (Free(x, z, r) && OffStreet(x, z, r)) props.Add(new Prop(PropKind.SandPile, x, z, x, z, yaw, scale, 0, r, 0.45f * scale));
                 }
             }
             // Last, and without a roll of the dice: the chests stand where the map says.

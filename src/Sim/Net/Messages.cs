@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.13;" +
+            "m1.14;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -49,7 +49,7 @@ namespace PerformativeMail.Sim.Net
             "u16 constructs,{u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container};" +
             "Reject:u8 reason;" +
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
-            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
+            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 tool,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
             "MoveFlags:grounded,winded,dead;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 playtest;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
@@ -383,6 +383,8 @@ namespace PerformativeMail.Sim.Net
         public float X, Y, Z;
         public ushort Yaw;
         public byte HeldSlot;
+        /// <summary>The tool in the held slot, as its item index + 1; 0 for none (what the others see in the hand).</summary>
+        public byte HeldTool;
         /// <summary>Ready flag of the Lobby and Prep.</summary>
         public bool Ready;
         /// <summary>Stands protected after a respawn (nit 17).</summary>
@@ -450,7 +452,7 @@ namespace PerformativeMail.Sim.Net
             {
                 w.U32(p.Id.Value);
                 w.I32(ToCm(p.X)); w.I16((short)ToCm(p.Y)); w.I32(ToCm(p.Z));
-                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8((byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0) | (p.Away ? PlayerAway : 0))); w.U8(p.Hp);
+                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8(p.HeldTool); w.U8((byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0) | (p.Away ? PlayerAway : 0))); w.U8(p.Hp);
             }
             if (HasEnemies)
             {
@@ -492,7 +494,7 @@ namespace PerformativeMail.Sim.Net
                 {
                     Id = new EntityId(r.U32()),
                     X = r.I32() / 100f, Y = r.I16() / 100f, Z = r.I32() / 100f,
-                    Yaw = r.U16(), HeldSlot = r.U8(),
+                    Yaw = r.U16(), HeldSlot = r.U8(), HeldTool = r.U8(),
                 };
                 byte playerFlags = r.U8();
                 p.Ready = (playerFlags & PlayerReady) != 0;

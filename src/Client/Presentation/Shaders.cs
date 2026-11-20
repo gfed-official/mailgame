@@ -42,6 +42,7 @@ uniform vec3 stone_a : source_color = vec3(0.30, 0.28, 0.34);
 uniform vec3 stone_b : source_color = vec3(0.47, 0.44, 0.48);
 uniform vec3 rock : source_color = vec3(0.40, 0.38, 0.44);
 uniform vec3 sand : source_color = vec3(0.78, 0.62, 0.42);
+uniform vec3 beach_sand : source_color = vec3(0.88, 0.79, 0.60);
 varying vec3 wp;
 varying vec3 wn;
 " + Noise + @"
@@ -66,8 +67,9 @@ void vertex() {
 }
 void fragment() {
     vec2 uv = (wp.xz - map_origin) / map_size;
-    vec3 m = texture(ground_map, uv).rgb;
-    m *= step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+    vec4 ma = texture(ground_map, uv);
+    ma *= step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+    vec3 m = ma.rgb;
     float n = fbm(wp.xz * 0.7);
     vec3 grass = mix(grass_a, grass_b, fbm(wp.xz * 0.08 + 40.0));
     grass = mix(grass, grass_c, smoothstep(0.5, 0.8, fbm(wp.xz * 0.3 + 9.0)) * 0.6);
@@ -91,9 +93,12 @@ void fragment() {
     // Rounded tops: each stone is lighter in its middle than at its rim.
     col = mix(col, mix(stone_a, stone_b, cb.y) * (1.15 - 0.9 * cb.x), stone);
 
-    // Off the flat of the town: sand near the water, rock on anything steep.
-    float beach = (1.0 - smoothstep(-3.6, -2.2, wp.y)) * (1.0 - path);
-    col = mix(col, sand * (0.9 + 0.2 * n), beach);
+    // Off the flat of the town: sand near the water, rock on anything steep. On the map, the
+    // beach's tiles: fine ripples blown across it.
+    float shore = smoothstep(0.35, 0.65, ma.a + (n - 0.5) * 0.35);
+    float beach = max(1.0 - smoothstep(-3.6, -2.2, wp.y), shore) * (1.0 - path);
+    float ripple = 0.94 + 0.06 * sin(wp.x * 5.0 + wp.z * 2.0 + vnoise(wp.xz * 1.5) * 4.0) * shore;
+    col = mix(col, mix(sand, beach_sand, shore) * (0.9 + 0.2 * n) * ripple, beach);
     float steep = 1.0 - smoothstep(0.62, 0.80, wn.y + (n - 0.5) * 0.15);
     col = mix(col, rock * (0.75 + 0.5 * fbm(wp.xz * 0.5 + wp.y)), steep);
 
@@ -257,7 +262,7 @@ void fragment() {
             return shader;
         }
 
-        /// <param name="groundMap">Red: path, green: lawn, blue: paving, over the rectangle of ground from <paramref name="origin"/>.</param>
+        /// <param name="groundMap">Red: path, green: lawn, blue: paving, alpha: beach, over the rectangle of ground from <paramref name="origin"/>.</param>
         public static ShaderMaterial Ground(Texture2D groundMap, Vector2 origin, Vector2 size)
         {
             var material = new ShaderMaterial { Shader = Get("ground", GroundCode) };

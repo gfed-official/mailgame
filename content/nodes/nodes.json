@@ -8,5 +8,7 @@
   { "id": "boulder", "name": "Boulder", "verb": "mine", "resource": "stone", "prop": "boulder", "variants": [0, 1],
     "item": "stone", "yield": 3, "hits": 6, "regrows": false, "tool": "required" },
   { "id": "ore_vein", "name": "Ore Vein", "verb": "mine", "resource": "ore", "prop": "boulder", "variants": [2],
-    "item": "iron_ore", "yield": 2, "hits": 8, "regrows": false, "tool": "required" }
+    "item": "iron_ore", "yield": 2, "hits": 8, "regrows": false, "tool": "required" },
+  { "id": "sand_pile", "name": "Sand Pile", "verb": "dig", "resource": "sand", "prop": "sand_pile",
+    "item": "sand", "yield": 4, "hits": 4, "regrows": true, "tool": "required" }
 ]

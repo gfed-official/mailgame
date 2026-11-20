@@ -122,13 +122,14 @@ namespace PerformativeMail.Sim.Tests
         public void TheNodesAreTheMapsTreesBushesAndBoulders()
         {
             // Doc 02 §3.9's table.
-            Assert.Equal(new[] { "tree", "fiber_bush", "berry_bush", "boulder", "ore_vein" }, Db.Nodes.Select(n => n.Id).ToArray());
+            Assert.Equal(new[] { "tree", "fiber_bush", "berry_bush", "boulder", "ore_vein", "sand_pile" }, Db.Nodes.Select(n => n.Id).ToArray());
             var tree = Db.Nodes[0];
             Assert.Equal(("log", 2, 5, false, NodeTool.Optional, 0.5f), (tree.Item.Id, tree.Yield, tree.Hits, tree.Regrows, tree.Tool, tree.HandYield));
             Assert.Equal(("fiber", 3, 3, true, NodeTool.None), (Db.Nodes[1].Item.Id, Db.Nodes[1].Yield, Db.Nodes[1].Hits, Db.Nodes[1].Regrows, Db.Nodes[1].Tool));
             Assert.Equal(("berries", 2, 2, true, NodeTool.None), (Db.Nodes[2].Item.Id, Db.Nodes[2].Yield, Db.Nodes[2].Hits, Db.Nodes[2].Regrows, Db.Nodes[2].Tool));
             Assert.Equal(("stone", 3, 6, false, NodeTool.Required), (Db.Nodes[3].Item.Id, Db.Nodes[3].Yield, Db.Nodes[3].Hits, Db.Nodes[3].Regrows, Db.Nodes[3].Tool));
             Assert.Equal(("iron_ore", 2, 8, false, NodeTool.Required), (Db.Nodes[4].Item.Id, Db.Nodes[4].Yield, Db.Nodes[4].Hits, Db.Nodes[4].Regrows, Db.Nodes[4].Tool));
+            Assert.Equal(("sand", 4, 4, true, NodeTool.Required), (Db.Nodes[5].Item.Id, Db.Nodes[5].Yield, Db.Nodes[5].Hits, Db.Nodes[5].Regrows, Db.Nodes[5].Tool));
 
             // Doc 08 §2.1, doc 10 §3: the tools, and their cards on the counter.
             var axe = Db.Item("axe");
@@ -138,9 +139,12 @@ namespace PerformativeMail.Sim.Tests
             Assert.True(pickaxe.HarvestsResource("stone") && pickaxe.HarvestsResource("ore") && !pickaxe.HarvestsResource("wood"));
             Assert.Equal((80, "axe", 1, false), (Db.ShopItem("axe").Price, Db.ShopItem("axe").Item!.Id, Db.ShopItem("axe").Count, Db.ShopItem("axe").Special));
             Assert.Equal((100, "pickaxe"), (Db.ShopItem("pickaxe").Price, Db.ShopItem("pickaxe").Item!.Id));
+            var shovel = Db.Item("shovel");
+            Assert.True(shovel.HarvestsResource("sand") && !shovel.HarvestsResource("stone"));
+            Assert.Equal((90, "shovel", false), (Db.ShopItem("shovel").Price, Db.ShopItem("shovel").Item!.Id, Db.ShopItem("shovel").Special));
             Assert.Empty(Db.Item("log").Harvests);
 
-            // Every tree, bush and boulder of the map is a node, and nothing else is; all five kinds grow on it.
+            // Every tree, bush, boulder and sand pile of the map is a node, and nothing else is; all six kinds grow on it.
             var world = NewWorld();
             var map = world.Map;
             Assert.Equal(map.Props.Count, world.Nodes.Count);
@@ -148,13 +152,13 @@ namespace PerformativeMail.Sim.Tests
             {
                 var kind = map.Props[i].Kind;
                 var def = world.Nodes.Def(i);
-                Assert.Equal(kind == PropKind.Tree || kind == PropKind.Bush || kind == PropKind.Boulder, def != null);
+                Assert.Equal(kind == PropKind.Tree || kind == PropKind.Bush || kind == PropKind.Boulder || kind == PropKind.SandPile, def != null);
                 if (def == null) continue;
                 Assert.Equal(kind, def.Prop);
                 Assert.Equal(def.Hits, world.Nodes.HitsLeft(i));
                 Assert.False(world.Nodes.Depleted(i) || world.Nodes.Touched(i));
             }
-            Assert.Equal(map.Props.Count(p => p.Kind == PropKind.Tree || p.Kind == PropKind.Bush || p.Kind == PropKind.Boulder), world.Nodes.NodeCount);
+            Assert.Equal(map.Props.Count(p => p.Kind == PropKind.Tree || p.Kind == PropKind.Bush || p.Kind == PropKind.Boulder || p.Kind == PropKind.SandPile), world.Nodes.NodeCount);
             foreach (var node in Db.Nodes) Assert.True(Node(world, node.Id) >= 0);
             Assert.Null(world.Nodes.Def(-1));
             Assert.Null(world.Nodes.Def(map.Props.Count));
@@ -175,7 +179,7 @@ namespace PerformativeMail.Sim.Tests
             }
 
             Assert.Contains("'tree': gives unknown item 'timber'", Broken("\"item\": \"log\"", "\"item\": \"timber\""));
-            Assert.Contains("'tree': prop must be 'tree', 'bush' or 'boulder', not 'lamp'", Broken("\"prop\": \"tree\"", "\"prop\": \"lamp\""));
+            Assert.Contains("'tree': prop must be 'tree', 'bush', 'boulder' or 'sand_pile', not 'lamp'", Broken("\"prop\": \"tree\"", "\"prop\": \"lamp\""));
             Assert.Contains("'tree': tool must be 'none', 'optional' or 'required', not 'maybe'", Broken("\"tool\": \"optional\"", "\"tool\": \"maybe\""));
             Assert.Contains("'tree': handYield is for a node whose tool is 'optional'", Broken("\"tool\": \"optional\"", "\"tool\": \"none\""));
             Assert.Contains("'tree': hits must be in 1..255", Broken("\"hits\": 5", "\"hits\": 0"));
@@ -303,6 +307,78 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(OpResult.NeedsTool, Swing(world, host, vein));
             Assert.Equal(OpResult.Ok, Swing(world, host, vein, pickaxe));
             Assert.Equal(2, Count(host, "iron_ore"));
+        }
+
+        [Fact]
+        public void ASandPileOnTheBeachWantsAShovel_AndIsFullAgainWithTheNextShift()
+        {
+            var (world, host) = InPrep();
+            var map = world.Map;
+            int pile = Node(world, "sand_pile");
+            var prop = map.Props[pile];
+            Assert.Equal(PropKind.SandPile, prop.Kind);
+            Assert.Equal(TileType.Beach, map.GetTile((int)MathF.Floor(prop.X / SimConstants.TileSize), (int)MathF.Floor(prop.Z / SimConstants.TileSize)));
+            Beside(world, host, pile);
+
+            Assert.Equal(OpResult.NeedsTool, Swing(world, host, pile));
+            Assert.Equal(OpResult.NeedsTool, Swing(world, host, pile, Hold(world, host, "pickaxe")));
+            int shovel = Hold(world, host, "shovel");
+            for (int i = 0; i < 4; i++) Assert.Equal(OpResult.Ok, Swing(world, host, pile, shovel));
+            Assert.Equal(16, Count(host, "sand"));
+            Assert.True(world.Nodes.Depleted(pile));
+            Assert.Equal(OpResult.Depleted, Swing(world, host, pile, shovel));
+
+            IntoPayday(world, host);
+            RunUntil(world, () => world.Run.Phase == RunPhase.Prep && world.Run.Shift == 2, 30);
+            Assert.False(world.Nodes.Touched(pile));
+        }
+
+        [Fact]
+        public void TheBeachIsOpenGround_AndMovesNoTreeOfTheStreet()
+        {
+            var map = Db.Map("test_street");
+            int beach = 0, piles = 0;
+            for (int tz = 0; tz < map.Rows; tz++)
+                for (int tx = 0; tx < map.Cols; tx++)
+                {
+                    if (map.GetTile(tx, tz) != TileType.Beach) continue;
+                    beach++;
+                    Assert.False(map.IsSolid(tx, tz));
+                }
+            Assert.True(beach > 0);
+            foreach (var p in map.Props)
+            {
+                var tile = map.GetTile((int)MathF.Floor(p.X / SimConstants.TileSize), (int)MathF.Floor(p.Z / SimConstants.TileSize));
+                if (p.Kind == PropKind.SandPile) { piles++; Assert.Equal(TileType.Beach, tile); }
+                else if (p.Kind is PropKind.Tree or PropKind.Boulder) Assert.NotEqual(TileType.Beach, tile);
+            }
+            Assert.InRange(piles, 3, 20);
+            // A tile of beach without a pile on it can be built on.
+            var world = NewWorld();
+            bool buildable = false;
+            for (int tz = 0; tz < map.Rows && !buildable; tz++)
+                for (int tx = 0; tx < map.Cols && !buildable; tx++)
+                    buildable = map.GetTile(tx, tz) == TileType.Beach && BuildRules.CheckTile(map, world.Constructs, tx, tz) == OpResult.Ok;
+            Assert.True(buildable);
+
+            // The same map without its beach: another map hash, the same scenery key, and every
+            // tree, bush and boulder off the sand where it stood.
+            var source = Source();
+            string mapJson = source.Files["maps/test_street.json"];
+            Assert.Contains("\"beaches\"", mapJson);
+            source.Files["maps/test_street.json"] = System.Text.RegularExpressions.Regex.Replace(mapJson, @"\s*""beaches"": \[\[[^\n]*\]\],", "");
+            var bare = ContentDb.Load(source).Map("test_street");
+            Assert.NotEqual(map.MapHash, bare.MapHash);
+            Assert.Equal(map.SceneryKey, bare.SceneryKey);
+            Assert.DoesNotContain(bare.Props, p => p.Kind == PropKind.SandPile);
+            int kept = 0;
+            foreach (var p in map.Props)
+            {
+                if (p.Kind is not (PropKind.Tree or PropKind.Bush or PropKind.Boulder)) continue;
+                Assert.Contains(bare.Props, q => q.Kind == p.Kind && q.X == p.X && q.Z == p.Z);
+                kept++;
+            }
+            Assert.True(kept > 50);
         }
 
         // --- refusals ---------------------------------------------------------------------------

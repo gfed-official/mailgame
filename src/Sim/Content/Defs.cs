@@ -88,6 +88,9 @@ namespace PerformativeMail.Sim.Content
         /// <summary>A tool: seconds one swing of it takes.</summary>
         public float SwingSeconds { get; init; }
 
+        /// <summary>Drawn in the hand while it is held (an Axe, a Pickaxe, a Shovel).</summary>
+        public bool IsTool => Category == "tool";
+
         public bool HarvestsResource(string resource)
         {
             for (int i = 0; i < Harvests.Count; i++)

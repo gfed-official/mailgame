@@ -139,6 +139,53 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void AShovelDigsASandPile_AndTheOthersSeeItInTheHand()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada");
+            var bo = s.Join("Bo");
+            ClientWorld a = ada.World!, b = bo.World!;
+            var interaction = new InteractionController(ada);
+            int pile = s.Node("sand_pile");
+            s.ToPrep();
+            s.Face(ada, pile);
+
+            // By hand, or with the wrong tool, the pile asks for its own.
+            interaction.Update(Dt, false, false);
+            Assert.Equal(InteractKind.Harvest, interaction.Prompt.Kind);
+            Assert.Equal(pile, interaction.Prompt.NodeIndex);
+            Assert.Equal("Sand Pile   ·   needs a Shovel in the hand", HudText.Prompt(a, interaction.Prompt, out var tone));
+            Assert.Equal(PromptTone.Mismatch, tone);
+            ada.Input.HeldSlot = (byte)s.Hand(ada, "pickaxe");
+            s.Run(3);
+            interaction.Update(Dt, false, false);
+            Assert.Equal(OpResult.NeedsTool, interaction.Prompt.NodeState);
+            // The others see the Pickaxe in the hand: the snapshot says which tool it is.
+            Assert.Equal(s.Content.Item("pickaxe").Index + 1, b.Players[a.LocalId].HeldTool);
+
+            int shovel = s.Hand(ada, "shovel");
+            ada.Input.HeldSlot = (byte)shovel;
+            s.Run(3);
+            Assert.Equal(s.Content.Item("shovel").Index + 1, b.Players[a.LocalId].HeldTool);
+            interaction.Update(Dt, false, false);
+            Assert.Equal("Dig Sand Pile   ·   Sand x4 a hit   ·   4 hits left   [hold E]", HudText.Prompt(a, interaction.Prompt, out tone));
+            Assert.Equal(PromptTone.Neutral, tone);
+            for (int frames = 0; frames < 150 && !a.Nodes.Depleted(pile); frames++)
+            {
+                interaction.Update(Dt, true, false);
+                s.Run(1);
+            }
+            s.Run(5);
+            Assert.True(a.Nodes.Depleted(pile) && b.Nodes.Depleted(pile));
+            Assert.Equal(16, Units(a, "sand"));
+
+            // Mail or bare hands: no tool for anybody to see.
+            ada.Input.HeldSlot = 0;
+            s.Run(3);
+            Assert.Equal(0, b.Players[a.LocalId].HeldTool);
+        }
+
+        [Fact]
         public void AHeldKeyPicksABushClean_AndEverybodySeesIt()
         {
             var s = new Session();

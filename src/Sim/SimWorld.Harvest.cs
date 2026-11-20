@@ -15,6 +15,16 @@ namespace PerformativeMail.Sim
     public sealed partial class SimWorld
     {
         /// <summary>
+        /// The tool in the slot the carrier holds, as its item index + 1 (0: none, mail, a
+        /// material): what the others see in their hand.
+        /// </summary>
+        public byte HeldTool(Player p)
+        {
+            var held = HarvestRules.Held(Content, p.Hotbar, p.HeldSlot);
+            return held != null && held.IsTool && held.Index < byte.MaxValue ? (byte)(held.Index + 1) : (byte)0;
+        }
+
+        /// <summary>
         /// A felled tree and a broken boulder still stand in the way (the stump, the rubble):
         /// what is solid and where the raiders walk does not change with the nodes.
         /// </summary>

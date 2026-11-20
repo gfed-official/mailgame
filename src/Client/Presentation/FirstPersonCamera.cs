@@ -10,8 +10,10 @@ namespace PerformativeMail.Client.Presentation
     /// The local player's eyes (doc 00: 3D, first person). Sits at eye height on the local player
     /// view and looks along the client's yaw and pitch: the same <see cref="ViewRay"/> the interact
     /// prompt is aimed with. The body is not drawn; what the hands hold is: the letter on the left,
-    /// and on the right the hammer or the mail cannon of the concept video, out while there is a
-    /// raid on or one of them was just used.
+    /// and on the right the tool of the held slot (an Axe, a Pickaxe, a Shovel) for as long as it
+    /// is held, or else the hammer or the mail cannon of the concept video, out while there is a
+    /// raid on or one of them was just used. A tool in the hand is what swings, at a node and at
+    /// a raider alike.
     /// </summary>
     public partial class FirstPersonCamera : Camera3D
     {
@@ -29,9 +31,14 @@ namespace PerformativeMail.Client.Presentation
         public bool WeaponDrawn => _drawn > 0.5f;
         /// <summary>True while the weapon in the view is the cannon.</summary>
         public bool CannonOut => _cannon.Visible && WeaponDrawn;
+        /// <summary>The name of the tool drawn in the hand ("Shovel"); empty when none is.</summary>
+        public string ToolInHand => _tool != null && _tool.Visible ? _tool.Name : "";
 
         private ClientRuntime _client = null!;
         private Node3D _held = null!, _hammer = null!, _cannon = null!;
+        /// <summary>The tool of the held slot, if it is one; the models are built the first time each is held.</summary>
+        private Node3D? _tool;
+        private readonly System.Collections.Generic.Dictionary<ushort, Node3D?> _tools = new System.Collections.Generic.Dictionary<ushort, Node3D?>();
         private int _swings, _shots;
         private float _drawn, _drawnLeft, _cannonLeft, _swing = -1f, _recoil;
 
@@ -78,6 +85,27 @@ namespace PerformativeMail.Client.Presentation
             int slot = _client.Input.HeldSlot;
             var held = world.HasLocal && slot > 0 ? world.Hotbar.EntryAt(slot, 0) : null;
             _held.Visible = held != null && held.Stack.Kind == StackKind.Mail && !world.Local.Dead;
+            var item = held != null && held.Stack.Kind == StackKind.Item ? world.Content.Items[held.Stack.DefIndex] : null;
+            var tool = item != null && item.IsTool ? ToolModel(item) : null;
+            if (tool != _tool)
+            {
+                if (_tool != null) _tool.Visible = false;
+                _tool = tool;
+            }
+        }
+
+        private Node3D? ToolModel(Sim.Content.ItemDef item)
+        {
+            if (_tools.TryGetValue(item.Index, out var model)) return model;
+            model = WeaponModels.Tool(item.Id);
+            if (model != null)
+            {
+                model.Name = item.Name;
+                model.Visible = false;
+                AddChild(model);
+            }
+            _tools[item.Index] = model;
+            return model;
         }
 
         /// <summary>The hands: the weapon comes up, swings or kicks, and goes away again. The camera itself never moves for it.</summary>
@@ -106,10 +134,13 @@ namespace PerformativeMail.Client.Presentation
             _drawnLeft = Mathf.Max(0f, _drawnLeft - delta);
             _cannonLeft = Mathf.Max(0f, _cannonLeft - delta);
 
-            bool want = !world.Local.Dead && world.HasLocal && (world.Raid != RaidState.None || _drawnLeft > 0f);
+            bool want = !world.Local.Dead && world.HasLocal && (world.Raid != RaidState.None || _drawnLeft > 0f || _tool != null);
             _drawn = Mathf.MoveToward(_drawn, want ? 1f : 0f, delta * 5f);
             bool cannon = _cannonLeft > 0f;
-            _hammer.Visible = _drawn > 0.01f && !cannon;
+            // A tool in the hand takes the hammer's place; the cannon still comes up for a shot.
+            var swung = _tool ?? _hammer;
+            if (_tool != null) _hammer.Visible = false;
+            swung.Visible = _drawn > 0.01f && !cannon;
             _cannon.Visible = _drawn > 0.01f && cannon;
             var holstered = new Vector3(0f, -0.6f * (1f - Mathf.Ease(_drawn, 0.5f)), 0f);
 
@@ -125,8 +156,8 @@ namespace PerformativeMail.Client.Presentation
                 else { pitch = Mathf.Lerp(-1.9f, -0.95f, (t - 0.55f) / 0.45f); reach = 1f - (t - 0.55f) / 0.45f; }
                 roll = Mathf.Lerp(-0.3f, 0.25f, reach);
             }
-            _hammer.Position = HammerRest + holstered + new Vector3(-0.16f * reach, 0.12f * reach, -0.22f * reach);
-            _hammer.Rotation = new Vector3(pitch, 0.1f, roll);
+            swung.Position = HammerRest + holstered + new Vector3(-0.16f * reach, 0.12f * reach, -0.22f * reach);
+            swung.Rotation = new Vector3(pitch, 0.1f, roll);
 
             _recoil = Mathf.MoveToward(_recoil, 0f, delta * 3.2f);
             float kick = _recoil * _recoil;

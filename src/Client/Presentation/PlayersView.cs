@@ -78,7 +78,7 @@ namespace PerformativeMail.Client.Presentation
                 }
                 else if (player.Interpolate(world.ServerTick - ClientRuntime.InterpolationDelayTicks, out float x, out float y, out float z, out float yaw))
                 {
-                    view.Show(player, new Vector3(x, y, z), yaw, (float)delta);
+                    view.Show(player, new Vector3(x, y, z), yaw, (float)delta, world.Content);
                 }
             }
 

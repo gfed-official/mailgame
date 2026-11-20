@@ -76,6 +76,19 @@ namespace PerformativeMail.Sim.World
                 return new TileRect(r[0], r[1], r[2], r[3]);
             }
 
+            // Optional: beaches (doc 02 §3.2), laid down first; what comes after is built over them.
+            if (root.TryGetProperty("beaches", out var beachesEl))
+            {
+                if (beachesEl.ValueKind != JsonValueKind.Array) ctx.Error("'beaches' must be an array");
+                else
+                    foreach (var e in beachesEl.EnumerateArray())
+                    {
+                        double[] r = J.NumArrayOf(ctx, e, "beaches[]", 4);
+                        var br = new TileRect((int)r[0], (int)r[1], (int)r[2], (int)r[3]);
+                        if (RectOk(br, "beaches[]")) Fill(br, TileType.Beach, 0);
+                    }
+            }
+
             var streets = new List<StreetDef>();
             if (root.TryGetProperty("streets", out var streetsEl) && streetsEl.ValueKind == JsonValueKind.Array)
             {

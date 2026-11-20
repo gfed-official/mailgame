@@ -29,6 +29,67 @@ namespace PerformativeMail.Client.Presentation
             return root;
         }
 
+        private static readonly Color Iron = new Color("6f737c");
+        private static readonly Color Edge = new Color("c9ccd2");
+
+        /// <summary>
+        /// A harvesting tool by its item id, built like the hammer (grip at the origin, the handle
+        /// up +Y, the working end striking towards −Z); null for an item that has no model.
+        /// </summary>
+        public static Node3D? Tool(string itemId) => itemId switch
+        {
+            "axe" => Axe(),
+            "pickaxe" => Pickaxe(),
+            "shovel" => Shovel(),
+            _ => null,
+        };
+
+        /// <summary>The Axe: a long ash handle and a wedge of a head with a bright edge.</summary>
+        public static Node3D Axe()
+        {
+            var root = new Node3D { Name = "Axe" };
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.024f, 0.028f, 0.78f, 12), MeshKit.Mat(Wood, 0.8f), new Vector3(0f, 0.32f, 0f)));
+            root.AddChild(MeshKit.Instance(MeshKit.Sphere(0.036f, 12), MeshKit.Mat(Wood.Darkened(0.3f), 0.7f), new Vector3(0f, -0.07f, 0f)));
+            var iron = MeshKit.Mat(Iron, 0.5f, 0.3f);
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.05f, 0.13f, 0.2f), 0.015f), iron, new Vector3(0f, 0.66f, -0.06f)));
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.035f, 0.2f, 0.05f), 0.012f), MeshKit.Mat(Edge, 0.35f, 0.3f), new Vector3(0f, 0.66f, -0.17f)));
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.06f, 0.06f, 0.07f), 0.015f), iron, new Vector3(0f, 0.66f, 0.06f)));
+            return root;
+        }
+
+        /// <summary>The Pickaxe: a curved iron head across the top of the handle, a point each way.</summary>
+        public static Node3D Pickaxe()
+        {
+            var root = new Node3D { Name = "Pickaxe" };
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.025f, 0.029f, 0.74f, 12), MeshKit.Mat(Wood, 0.8f), new Vector3(0f, 0.3f, 0f)));
+            root.AddChild(MeshKit.Instance(MeshKit.Sphere(0.036f, 12), MeshKit.Mat(Wood.Darkened(0.3f), 0.7f), new Vector3(0f, -0.07f, 0f)));
+            var iron = MeshKit.Mat(Iron, 0.5f, 0.3f);
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.06f, 0.07f, 0.09f), 0.015f), iron, new Vector3(0f, 0.66f, 0f)));
+            for (int side = -1; side <= 1; side += 2)
+            {
+                // Each half of the head bends down a little towards its point.
+                root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.03f, 0.008f, 0.24f, 8), iron, new Vector3(0f, 0.63f, side * 0.15f), new Vector3(side * 72f, 0f, 0f)));
+            }
+            return root;
+        }
+
+        /// <summary>The Shovel: a long handle with a D-grip and a rounded steel blade.</summary>
+        public static Node3D Shovel()
+        {
+            var root = new Node3D { Name = "Shovel" };
+            var wood = MeshKit.Mat(Wood, 0.8f);
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.022f, 0.025f, 0.86f, 12), wood, new Vector3(0f, 0.35f, 0f)));
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.1f, 0.03f, 0.03f), 0.01f), wood, new Vector3(0f, -0.1f, 0f)));
+            var steel = MeshKit.Mat(Iron.Lightened(0.25f), 0.4f, 0.3f);
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.03f, 0.024f, 0.08f, 10), steel, new Vector3(0f, 0.8f, 0f)));
+            // The blade faces −Z, the way it digs, with its tip rounded.
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.2f, 0.22f, 0.025f), 0.01f), steel, new Vector3(0f, 0.94f, -0.015f), new Vector3(-8f, 0f, 0f)));
+            var tip = MeshKit.Instance(MeshKit.Sphere(0.1f, 12), steel, new Vector3(0f, 1.04f, -0.03f));
+            tip.Scale = new Vector3(1f, 0.55f, 0.13f);
+            root.AddChild(tip);
+            return root;
+        }
+
         /// <summary>The mail cannon: a cream barrel along −Z with red trim and a glowing geared ring at the muzzle.</summary>
         public static Node3D Cannon()
         {

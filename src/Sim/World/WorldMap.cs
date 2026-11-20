@@ -15,6 +15,8 @@ namespace PerformativeMail.Sim.World
         Lot = 3,
         /// <summary>Post Office yard (walkable).</summary>
         Yard = 4,
+        /// <summary>Sand by the water (doc 02 §3.2 Beach): walkable and open ground, where the sand piles lie.</summary>
+        Beach = 5,
     }
 
     /// <summary>Tile rectangle [x, y, w, h] in tiles.</summary>
@@ -176,7 +178,8 @@ namespace PerformativeMail.Sim.World
             h.Add(Id);
             h.Add(Cols);
             h.Add(Rows);
-            for (int i = 0; i < Tiles.Length; i++) { h.Add((byte)Tiles[i]); h.Add(TileDistrict[i]); }
+            // A beach is grass to the scenery's key, so laying one down does not move the street's trees.
+            for (int i = 0; i < Tiles.Length; i++) { h.Add((byte)(Tiles[i] == TileType.Beach ? TileType.Grass : Tiles[i])); h.Add(TileDistrict[i]); }
             foreach (var s in Streets) { h.Add(s.Id); h.Add(s.Name); h.Add(s.District); }
             foreach (var d in Destinations)
             {
@@ -193,6 +196,8 @@ namespace PerformativeMail.Sim.World
             h.Add((int)MathF.Round(PostOffice.SpawnPadZ * 100f));
             h.Add((int)MathF.Round(PostOffice.SpawnYaw * 1000f));
             SceneryKey = h.Value;
+            for (int i = 0; i < Tiles.Length; i++)
+                if (Tiles[i] == TileType.Beach) h.Add(i);
             if (PostOffice.HasShop)
             {
                 h.Add((int)MathF.Round(PostOffice.ShopX * 100f));

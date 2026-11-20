@@ -657,12 +657,30 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             with the tree's Logs, sees the ghost red out of reach, takes the wall down, builds,
             opens, closes and takes down a Chest, builds the wall again and leaves it for the
             run — gone on both ends in the Lobby (`build-*.png`)
-      - [ ] Sand and the Shovel; tools drawn in the hand
+      - [x] **Sand and the Shovel; tools drawn in the hand** (doc 02 §3.2 and §3.9, doc 10
+            §1.1–§1.2 and §3; design choice 80). The test street has a **beach**: the map's new
+            optional `beaches` (tile rects, `TileType.Beach`, walkable open ground that can be
+            built on) lays sand in its south-west corner, towards the harbour. On it lie **Sand
+            Piles** (`PropKind.SandPile`, grown from a random stream of their own, so no tree of
+            the street moves: the scenery key reads a beach as grass) — `sand_pile` in
+            content/nodes: 4 Sand a hit, 4 hits, full again with the next shift, only with the
+            **Shovel** (content/items/tools, harvests `sand`), $0.90 on the counter from shift 1:
+            the eleventh card, on the **minus key** ("[-]" — the blueprint moved there, the
+            Shovel stands with the other tools). A heap of pale sand with shells and pebbles, a
+            low ring round a hollow when dug out; the ground shader draws the beach's tiles as
+            rippled sand. **Tools in the hand**: an Axe, a Pickaxe or a Shovel in the held slot
+            is drawn in the right hand of the first-person view for as long as it is held, and
+            it is what swings — at a node and at a raider (the blow is still the hammer's) —;
+            the cannon still comes up for a shot. The others see it in the carrier's fist: the
+            snapshot carries a `HeldTool` byte per player (protocol `m1.14`). `HarvestTests` (2
+            new: the pile wants a Shovel and regrows; the beach is open ground and moves no
+            tree), `HarvestFlowTests` (1 new: the prompt, the dig, the tool seen by the other
+            client), `CodecTests`, `ShopTests`, `ContentValidatorTests`; in the smoke the host is
+            refused at a pile with bare hands, is handed a Shovel, holds it in view and digs the
+            pile out, and sells the Sand (`harvest-sand_pile-*.png`)
 
-Next in this order: Sand and the Shovel and tools drawn in the hand, the Gate and the Alarm
-Post (no blueprint), then the bike; the generator and the districts are the larger pieces
-still open. The generator and the districts before it are the larger piece and
-still open, as is the bike.
+Next in this order: the Gate and the Alarm Post (no blueprint), then the bike; the generator
+and the districts before it are the larger pieces still open.
 
 ## How to build and check
 
@@ -1437,6 +1455,25 @@ See "Commands" at the bottom (filled in as the tooling lands).
     reduced 50 %" waits for the Wall Breaker (no such raider yet). The smoke hands the host
     the two Iron Ingots for the strip: the run has no money for the shop's ten after the
     blueprint, and no refining (doc 03: there is none).
+
+80. **Sand, the Shovel, and what the hand holds.** Doc 02 §3.2 puts sand on the Beach biome
+    ("land tiles within 3 tiles of water"); the test street is still static (choice 3) and its
+    water lies outside the map (`IslandView`), so the map names its beach itself: `beaches` in
+    the map JSON, a strip in the south-west corner on the side of the harbour. It is laid
+    before the streets, lots and the Post Office, so they stay what they are. The scenery key
+    treats a beach tile as grass (and the map hash does not), so the street's trees and bushes
+    stand where they stood; the grid's trees, bushes and boulders keep off the sand, which
+    takes 6 of the 92 nodes away. Sand piles come from a stream of their own seeded by the map
+    hash: 45 % of 4 m cells on the beach, kept a walker's width from the map's edge. A pile is
+    solid but low (0.45 m × scale: a jump clears it), like a boulder for paths. Doc 10 gives
+    the Shovel's price (90 ¢) and grid; its sell price is 22 ¢ (the other tools' 25 ¢ scaled).
+    The shop has eleven cards now; the eleventh takes the key right of 0, minus. *The tool in
+    the hand*: doc 10 §1.2 gives the tools melee damage, which waits for the weapon slots;
+    until then a tool in the held slot is only drawn — in the hammer's place, swung by the
+    same swing — so the hand shows what the carrier will harvest with. Mail and materials in
+    the held slot are not drawn as tools (a letter is still the letter). The others learn the
+    tool from one byte per player in the snapshot (item index + 1, 0 = none) rather than from
+    the hotbar contents, which only their owner is sent.
 
 ## Commands
 

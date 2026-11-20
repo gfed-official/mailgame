@@ -109,19 +109,22 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>
         /// What the ground is made of, as a texture the ground shader reads: red where a path runs
         /// (streets, and the walk from each front door), green on the lots' lawns, blue on the Post
-        /// Office yard. Blurred, so edges are soft and the shader can tell a path's middle from its rim.
+        /// Office yard, alpha on the beach. Blurred, so edges are soft and the shader can tell a
+        /// path's middle from its rim.
         /// </summary>
+        private const int Channels = 4;
+
         private static ImageTexture GroundMap(WorldMap map)
         {
             int width = Mathf.CeilToInt((map.WidthM + GroundMargin * 2f) * TexelsPerMetre), height = Mathf.CeilToInt((map.DepthM + GroundMargin * 2f) * TexelsPerMetre);
-            var data = new float[width * height * 3];
+            var data = new float[width * height * Channels];
             for (int py = 0; py < height; py++)
             {
                 for (int px = 0; px < width; px++)
                 {
                     float x = (px + 0.5f) / TexelsPerMetre - GroundMargin, z = (py + 0.5f) / TexelsPerMetre - GroundMargin;
                     int tx = Mathf.FloorToInt(x / Tile), tz = Mathf.FloorToInt(z / Tile);
-                    int at = (py * width + px) * 3;
+                    int at = (py * width + px) * Channels;
                     if (map.InBounds(tx, tz))
                     {
                         switch (map.GetTile(tx, tz))
@@ -129,6 +132,7 @@ namespace PerformativeMail.Client.Presentation
                             case TileType.Street: data[at] = 1f; break;
                             case TileType.Lot: case TileType.Building: data[at + 1] = 1f; break;
                             case TileType.Yard: data[at + 2] = 1f; break;
+                            case TileType.Beach: data[at + 3] = 1f; break;
                         }
                         continue;
                     }
@@ -152,13 +156,13 @@ namespace PerformativeMail.Client.Presentation
                 for (int py = Mathf.Max(0, minY); py < Mathf.Min(height, maxY); py++)
                     for (int px = Mathf.Max(0, minX); px < Mathf.Min(width, maxX); px++)
                         if (line.Distance((px + 0.5f) / TexelsPerMetre - GroundMargin, (py + 0.5f) / TexelsPerMetre - GroundMargin, out _, out _) < 0.7f)
-                            data[(py * width + px) * 3] = 0.8f;
+                            data[(py * width + px) * Channels] = 0.8f;
             }
             for (int pass = 0; pass < 2; pass++) data = Blur(data, width, height);
 
             var bytes = new byte[data.Length];
             for (int i = 0; i < data.Length; i++) bytes[i] = (byte)Mathf.Clamp(Mathf.RoundToInt(data[i] * 255f), 0, 255);
-            using var image = Image.CreateFromData(width, height, false, Image.Format.Rgb8, bytes);
+            using var image = Image.CreateFromData(width, height, false, Image.Format.Rgba8, bytes);
             return ImageTexture.CreateFromImage(image);
         }
 
@@ -175,15 +179,15 @@ namespace PerformativeMail.Client.Presentation
                 {
                     for (int x = 0; x < width; x++)
                     {
-                        for (int c = 0; c < 3; c++)
+                        for (int c = 0; c < Channels; c++)
                         {
                             float sum = 0f;
                             for (int k = -2; k <= 2; k++)
                             {
                                 int sx = pass == 0 ? Mathf.Clamp(x + k, 0, width - 1) : x, sy = pass == 0 ? y : Mathf.Clamp(y + k, 0, height - 1);
-                                sum += from[(sy * width + sx) * 3 + c];
+                                sum += from[(sy * width + sx) * Channels + c];
                             }
-                            to[(y * width + x) * 3 + c] = sum / 5f;
+                            to[(y * width + x) * Channels + c] = sum / 5f;
                         }
                     }
                 }

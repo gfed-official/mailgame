@@ -5,8 +5,8 @@ namespace PerformativeMail.Client.Presentation
 {
     /// <summary>
     /// Another carrier: a <see cref="CharacterModel"/> in the player's colour with a name tag, a
-    /// letter in the hand when mail is held, and the hammer or cannon out for a moment after it was
-    /// used. The local player's view has no meshes: the game is first person, and the node only
+    /// letter in the hand when mail is held, the tool they hold (an Axe, a Pickaxe, a Shovel) for
+    /// as long as they hold it, and the hammer or cannon out for a moment after it was used. The local player's view has no meshes: the game is first person, and the node only
     /// marks where the feet are for the camera to sit on.
     /// </summary>
     public partial class PlayerView : Node3D
@@ -18,7 +18,8 @@ namespace PerformativeMail.Client.Presentation
         public bool Bodiless { get; private set; }
 
         private CharacterModel? _model;
-        private Node3D? _held, _hammer, _cannon;
+        private Node3D? _held, _hammer, _cannon, _tool;
+        private byte _toolItem;
         private SizedLabel3D? _nameTag;
         private bool _away;
         private Vector3 _last;
@@ -28,6 +29,9 @@ namespace PerformativeMail.Client.Presentation
 
         /// <summary>Whom this view shows.</summary>
         public ClientPlayer? Carrier;
+
+        /// <summary>The name of the tool drawn in the hand ("Axe"); empty when none is.</summary>
+        public string ToolInHand => _tool != null && _tool.Visible ? _tool.Name : "";
 
         /// <summary>What stands over the head right now; empty for the local player, who has no tag.</summary>
         public string NameTagText => _nameTag?.Text ?? "";
@@ -73,9 +77,21 @@ namespace PerformativeMail.Client.Presentation
         }
 
         /// <summary>Moves a drawn carrier to its interpolated pose and plays what the snapshots and events say it does.</summary>
-        public void Show(ClientPlayer player, Vector3 position, float yaw, float delta)
+        public void Show(ClientPlayer player, Vector3 position, float yaw, float delta, Sim.Content.ContentDb? content = null)
         {
             if (_model == null) return;
+            if (player.HeldTool != _toolItem && content != null)
+            {
+                _toolItem = player.HeldTool;
+                _tool?.QueueFree();
+                _tool = _toolItem > 0 && _toolItem <= content.Items.Count ? WeaponModels.Tool(content.Items[_toolItem - 1].Id) : null;
+                if (_tool != null)
+                {
+                    _tool.Name = content.Items[_toolItem - 1].Name;
+                    _tool.Rotation = _hammer!.Rotation;
+                    _model.Hand.AddChild(_tool);
+                }
+            }
             // A respawn is a jump, not a sprint across the map.
             float moved = _placed ? new Vector2(position.X - _last.X, position.Z - _last.Z).Length() : 0f;
             if (delta > 0f && moved < 3f) _speed = Mathf.Lerp(_speed, moved / delta, 1f - Mathf.Exp(-12f * delta));
@@ -89,7 +105,8 @@ namespace PerformativeMail.Client.Presentation
                 _attackTick = player.AttackTick;
                 _weaponLeft = WeaponSeconds;
                 bool hammer = player.AttackWeapon == Weapon.Hammer;
-                _hammer!.Visible = hammer;
+                // A tool in the hand is what swings.
+                _hammer!.Visible = hammer && _tool == null;
                 _cannon!.Visible = !hammer;
                 if (hammer) _model.Strike();
             }
@@ -107,7 +124,8 @@ namespace PerformativeMail.Client.Presentation
             }
             _model.Aiming = _cannon!.Visible;
             _model.Animate(delta, _speed, windup: false, down: player.Dead);
-            _held!.Visible = player.HeldSlot > 0 && !player.Dead && _weaponLeft <= 0f;
+            _held!.Visible = player.HeldSlot > 0 && !player.Dead && _weaponLeft <= 0f && _tool == null;
+            if (_tool != null) _tool.Visible = !player.Dead && !_cannon.Visible;
         }
     }
 }

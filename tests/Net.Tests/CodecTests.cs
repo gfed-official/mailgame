@@ -167,7 +167,7 @@ namespace PerformativeMail.Net.Tests
                     Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true,
                 },
             };
-            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, Ready = true });
+            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, HeldTool = 17, Ready = true });
             var w = new NetWriter();
             m.Write(w);
             var back = SnapshotMsg.Read(Body(w, MsgType.Snapshot));
@@ -187,6 +187,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(92.00f, p.Z, 3);
             Assert.Equal(65535, p.Yaw);
             Assert.Equal(4, p.HeldSlot);
+            Assert.Equal(17, p.HeldTool);
             Assert.True(p.Ready);
             Assert.False(p.Protected);
             Assert.False(p.Away);
