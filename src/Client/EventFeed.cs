@@ -95,6 +95,15 @@ namespace PerformativeMail.Client
                 case ShopSoldEvent e: Add(HudText.ShopSold(world, e.Player, e.Item, e.Count, e.Paid)); break;
                 case NodeHarvestedEvent e: AddHarvest(world, e); break;
                 case NodesRegrownEvent e when !e.All: Add("The bushes have grown back"); break;
+                case VehicleAddedEvent e when e.Def < world.Content.Vehicles.Count:
+                    Add(HudText.VehicleAdded(world.Content.Vehicles[e.Def]));
+                    break;
+                case VehicleMountedEvent e when world.Vehicles.TryGetValue(e.Vehicle, out var mounted):
+                    Add(HudText.Mounted(world, e.Player, mounted.Def));
+                    break;
+                case VehicleParkedEvent e when e.Player == world.LocalId && world.Vehicles.TryGetValue(e.Vehicle, out var parked):
+                    Add($"You got off the {parked.Def.Name}");
+                    break;
                 case ConstructPlacedEvent e when e.Building < world.Content.Buildings.Count:
                     Add(HudText.Built(world, e.Player, world.Content.Buildings[e.Building]));
                     break;
@@ -115,6 +124,11 @@ namespace PerformativeMail.Client
             if (result != OpResult.Ok && (request.Kind == RequestKind.PlaceConstruct || request.Kind == RequestKind.RemoveConstruct))
             {
                 string why = HudText.BuildRefused(result);
+                if (why.Length > 0) Add(why, bad: true);
+            }
+            if (result != OpResult.Ok && request.Kind == RequestKind.Mount)
+            {
+                string why = HudText.MountRefused(result);
                 if (why.Length > 0) Add(why, bad: true);
             }
             if (result != OpResult.Ok && request.Kind == RequestKind.Harvest)

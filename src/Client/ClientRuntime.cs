@@ -166,6 +166,15 @@ namespace PerformativeMail.Client
         }
 
         public uint OpenContainer(uint containerId) => Send(SimRequest.Open(0, containerId));
+
+        /// <summary>Gets into the saddle of a parked vehicle (doc 04 §3.1). 0 where there is nothing to ask.</summary>
+        public uint Mount(EntityId vehicle)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused || world.Local.Riding) return 0;
+            if (!world.Vehicles.TryGetValue(vehicle, out var v) || v.Ridden) return 0;
+            return Send(SimRequest.Mount(0, vehicle.Value));
+        }
         public uint CloseContainer() => World == null || World.OpenContainerId == 0 ? 0 : Send(SimRequest.Close(0, World.OpenContainerId));
         public uint QuickMove(uint containerId, uint entryId) => Send(SimRequest.QuickMove(0, containerId, entryId));
         /// <summary>Drag and drop: the entry (or <paramref name="count"/> units of it; 0 = all) to a cell of a container.</summary>

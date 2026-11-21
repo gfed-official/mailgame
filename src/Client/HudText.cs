@@ -536,7 +536,9 @@ namespace PerformativeMail.Client
                 case OpResult.CantAfford: return "Not enough money";
                 case OpResult.DoesNotFit: return "No room in your pockets";
                 case OpResult.WrongPhase: return "The counter is closed";
+                case OpResult.OnePerCarrier: return $"A {def.Name} for each of you already";
             }
+            if (def.Kind == ShopKind.Vehicle) return "One for each carrier   ·   parked by the counter";
             return def.OncePerRun ? "Once per run, for the whole team" : "";
         }
 
@@ -555,6 +557,8 @@ namespace PerformativeMail.Client
         /// <summary>Under the cards: how to buy, how to sell, how to leave.</summary>
         /// <summary>The shop key (doc 09 §4 has none, and B is Build mode there): C, for the counter.</summary>
         public const string ShopKey = "[C]";
+        /// <summary>The jump key gets off a vehicle (a bike does not jump).</summary>
+        public const string GetOffKey = "[Space]";
         public const string ShopHint = "A number key or a click buys   ·   click a stack of yours to sell it   ·   " + ShopKey + " or [Esc] closes";
 
         /// <summary>Everything the shop panel says, top to bottom, for the smoke; empty while its cards are not up.</summary>
@@ -579,6 +583,8 @@ namespace PerformativeMail.Client
                 case OpResult.DoesNotFit: return "No room in your pockets";
                 case OpResult.ShopLocked: return "The shop does not sell that yet";
                 case OpResult.AlreadyOwned: return "The team owns it already";
+                case OpResult.OnePerCarrier: return "The team has one for each of you already";
+                case OpResult.NoParking: return "No room to park it by the counter";
                 case OpResult.WrongPhase: return "The counter is closed";
                 case OpResult.OutOfRange: return "Too far from the counter";
                 case OpResult.NotSellable: return "The shop does not buy that";
@@ -775,6 +781,31 @@ namespace PerformativeMail.Client
             }
         }
 
+        /// <summary>The event feed's line for a vehicle bought: where it stands.</summary>
+        public static string VehicleAdded(VehicleDef def) => $"The {def.Name} stands by the counter   ·   look at it and [E] to ride";
+
+        /// <summary>The event feed's line for somebody getting on.</summary>
+        public static string Mounted(ClientWorld world, EntityId player, VehicleDef def)
+        {
+            if (player == world.LocalId) return $"You are on the {def.Name}   ·   {GetOffKey} gets off   ·   [E] opens its rack";
+            string who = world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            return $"{who} got on a {def.Name}";
+        }
+
+        /// <summary>Why the saddle was not had.</summary>
+        public static string MountRefused(OpResult result)
+        {
+            switch (result)
+            {
+                case OpResult.Ridden: return "Somebody is on it";
+                case OpResult.OutOfRange: return "Too far away to get on";
+                case OpResult.AlreadyRiding: return "You are in a saddle already";
+                case OpResult.Dead: return "Not while you are down";
+                case OpResult.BadRequest: return "It is not there any more";
+                default: return "";
+            }
+        }
+
         /// <summary>The event feed's line for a blueprint the team has bought: what it can build now.</summary>
         public static string BlueprintBought(ClientWorld world, ShopItemDef blueprint)
         {
@@ -853,6 +884,9 @@ namespace PerformativeMail.Client
                 case InteractKind.OpenShop:
                     return p.ShopClosed ? $"Shop   ·   {ClosedWord} — the counter serves in Prep and at Payday" : "Open Shop  [E]";
                 case InteractKind.CloseShop: return "Close Shop  [E]";
+                case InteractKind.Mount: return $"Ride {p.Vehicle!.Def.Name}  [E]";
+                case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off";
+                case InteractKind.CloseRack: return $"Close {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off";
                 case InteractKind.Harvest:
                 {
                     var node = p.Node!;

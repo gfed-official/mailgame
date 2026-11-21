@@ -78,6 +78,12 @@ namespace PerformativeMail.Client.Presentation
                 }
                 else if (player.Interpolate(world.ServerTick - ClientRuntime.InterpolationDelayTicks, out float x, out float y, out float z, out float yaw))
                 {
+                    // In a saddle: up on it, and the body turned the way the bike points.
+                    if (player.Ride != 0)
+                    {
+                        y += VehiclesView.SaddleRise;
+                        yaw = player.Heading;
+                    }
                     view.Show(player, new Vector3(x, y, z), yaw, (float)delta, world.Content);
                 }
             }

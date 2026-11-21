@@ -17,6 +17,7 @@ namespace PerformativeMail.App
         public NodesView Nodes { get; private set; } = null!;
         public ConstructsView Constructs { get; private set; } = null!;
         public PlayersView Players { get; private set; } = null!;
+        public VehiclesView Vehicles { get; private set; } = null!;
         public EnemiesView Enemies { get; private set; } = null!;
         public CombatEffects Effects { get; private set; } = null!;
         /// <summary>The raid brings the night (as in the concept video); look-dev sets the hour itself.</summary>
@@ -51,6 +52,10 @@ namespace PerformativeMail.App
             Players = new PlayersView { Name = "Players" };
             AddChild(Players);
             Players.Setup(client);
+            // After the players in the tree: a ridden bike goes where its rider was just drawn.
+            Vehicles = new VehiclesView { Name = "Vehicles" };
+            AddChild(Vehicles);
+            Vehicles.Setup(client, Players);
 
             Enemies = new EnemiesView { Name = "Enemies" };
             AddChild(Enemies);

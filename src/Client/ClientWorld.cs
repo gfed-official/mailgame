@@ -507,6 +507,8 @@ namespace PerformativeMail.Client
             if (!ShopServes) return OpResult.WrongPhase;
             var verdict = ShopRules.Check(def, Global.Shift, IsSpecial(def), ShopOwned.Contains(def));
             if (verdict != OpResult.Ok) return verdict;
+            verdict = ShopRules.VehicleCheck(def, Vehicles.Count, PresentCount);
+            if (verdict != OpResult.Ok) return verdict;
             if (Global.Wallet < ShopPrice(def)) return OpResult.CantAfford;
             if (def.Kind != ShopKind.Item || def.Item == null || HotbarId == 0) return OpResult.Ok;
             bool hotbarFirst = ShopRules.HotbarFirst(def.Item);

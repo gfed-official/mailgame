@@ -59,3 +59,5 @@ grep -q "^\[smoke\] build: a Wooden Wall and a Chest built" "$work/log" || { ech
 grep -q "^\[smoke\] fortify: Blueprint: Fortify bought" "$work/log" || { echo "smoke: the Fortify blueprint was not bought and built with" >&2; exit 1; }
 # The Gate and the Alarm Post (doc 05 §4): built, walked through, and ringing in the shift's raid.
 grep -q "^\[smoke\] defences: a Gate built" "$work/log" || { echo "smoke: no Gate and Alarm Post were built" >&2; exit 1; }
+# The bike (doc 04 §3.1): bought, got on through its prompt, ridden at road speed, its rack opened, got off.
+grep -q "^\[smoke\] bike: bought, ridden" "$work/log" || { echo "smoke: the bike was not bought and ridden" >&2; exit 1; }

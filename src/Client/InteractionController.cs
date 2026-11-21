@@ -27,6 +27,11 @@ namespace PerformativeMail.Client
         CloseShop,
         /// <summary>At a tree, a bush or a boulder that has something left (doc 02 §3.9).</summary>
         Harvest,
+        /// <summary>At a parked vehicle nobody rides (doc 04 §3.1): get on.</summary>
+        Mount,
+        /// <summary>In the saddle with nothing else in view: the vehicle's cargo rack.</summary>
+        OpenRack,
+        CloseRack,
     }
 
     /// <summary>What the interact prompt shows right now (doc 09 §2.4).</summary>
@@ -62,6 +67,8 @@ namespace PerformativeMail.Client
         /// <summary>Harvest: units a hit gives the hand as it is, and the hits the node has left.</summary>
         public int NodeYield;
         public int NodeHitsLeft;
+        /// <summary>Mount: the vehicle in range. OpenRack / CloseRack: the one ridden.</summary>
+        public ClientVehicle? Vehicle;
     }
 
     /// <summary>
@@ -127,6 +134,36 @@ namespace PerformativeMail.Client
             }
             switch (prompt.Kind)
             {
+                case InteractKind.Mount:
+                    _hold = 0;
+                    _deliverAllDest = -1;
+                    if (_pressLatch > 0 && _awaiting == 0)
+                    {
+                        _pressLatch = 0;
+                        _awaiting = _client.Mount(prompt.Vehicle!.Id);
+                    }
+                    break;
+
+                case InteractKind.OpenRack:
+                    _hold = 0;
+                    _deliverAllDest = -1;
+                    if (_pressLatch > 0 && _awaiting == 0)
+                    {
+                        _pressLatch = 0;
+                        _awaiting = _client.OpenContainer(prompt.Vehicle!.CargoContainer);
+                    }
+                    break;
+
+                case InteractKind.CloseRack:
+                    _hold = 0;
+                    _deliverAllDest = -1;
+                    if (_pressLatch > 0 && _awaiting == 0)
+                    {
+                        _pressLatch = 0;
+                        _awaiting = _client.CloseContainer();
+                    }
+                    break;
+
                 case InteractKind.OpenIntake:
                 case InteractKind.OpenChest:
                 case InteractKind.OpenBag:
@@ -208,6 +245,15 @@ namespace PerformativeMail.Client
             var ray = ViewRay.FromPlayer(world.Local, _client.Input.YawRadians, _client.Input.PitchRadians);
             float best = range + AimSlack;
             var prompt = new InteractPrompt();
+
+            // The rack is open from the saddle: the mouse is on its panel, and the key shuts it.
+            var ride = world.LocalRide;
+            if (ride != null && world.OpenContainerId != 0 && world.OpenContainerId == ride.CargoContainer)
+            {
+                prompt.Kind = InteractKind.CloseRack;
+                prompt.Vehicle = ride;
+                return prompt;
+            }
 
             var po = world.Map.PostOffice;
             bool intakeNear = DistSq(px, pz, po.IntakeX, po.IntakeZ) <= rangeSq;
@@ -317,6 +363,22 @@ namespace PerformativeMail.Client
                     prompt.NodeIndex = i;
                 }
             }
+            if (ride == null)
+            {
+                foreach (var v in world.Vehicles.Values)
+                {
+                    if (v.Ridden || DistSq(px, pz, v.X, v.Z) > rangeSq) continue;
+                    float t = ray.Hit(AimBox.Vehicle(world.Map, v.X, v.Z));
+                    if (t < 0f || t > best) continue;
+                    best = t;
+                    prompt.Kind = InteractKind.Mount;
+                    prompt.Chest = null;
+                    prompt.Built = null;
+                    prompt.Bag = null;
+                    prompt.Node = null;
+                    prompt.Vehicle = v;
+                }
+            }
             foreach (var dest in world.Map.Destinations)
             {
                 if (DistSq(px, pz, dest.MailboxX, dest.MailboxZ) > rangeSq) continue;
@@ -328,6 +390,7 @@ namespace PerformativeMail.Client
                 prompt.Built = null;
                 prompt.Bag = null;
                 prompt.Node = null;
+                prompt.Vehicle = null;
                 prompt.Destination = dest;
             }
             // Nothing in the crosshair: a counter of the Post Office the carrier stands at and faces
@@ -340,6 +403,12 @@ namespace PerformativeMail.Client
                 float shopOff = shopNear && world.ShopServes ? FacingOff(px, pz, yaw, po.ShopX, po.ShopZ) : float.MaxValue;
                 if (shopOff < off && shopOff <= FacingCone) prompt.Kind = InteractKind.OpenShop;
                 else if (off <= FacingCone) prompt.Kind = InteractKind.OpenIntake;
+                // In the saddle with nothing else to see to: the rack behind, and how to get off.
+                else if (ride != null)
+                {
+                    prompt.Kind = InteractKind.OpenRack;
+                    prompt.Vehicle = ride;
+                }
                 return prompt;
             }
             if (prompt.Kind == InteractKind.Harvest)

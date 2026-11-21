@@ -397,6 +397,7 @@ namespace PerformativeMail.Client.UI
             _raid.Visible = _raid.Text.Length > 0;
             _bag.Text = HudText.BagTracker(world);
             _bag.Visible = _bag.Text.Length > 0;
+            foreach (var row in _trackerRows) row.Visible = !world.ShopOpen;
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
             bool lost = _client!.State == ClientState.Disconnected;
             _hint.Text = lost ? HudText.HostLostHint : HudText.PhaseHint(world);
@@ -561,8 +562,12 @@ namespace PerformativeMail.Client.UI
             float bottom = -SafeMargin - slot * (TrackerRow.RowHeight + 6f);
             Place(row, 1f, 1f, -SafeMargin - TrackerWidth, bottom - TrackerRow.RowHeight, -SafeMargin, bottom);
             AddChild(row);
+            _trackerRows.Add(row);
             return row.Line;
         }
+
+        /// <summary>The tracker plates; the shop's cards take their corner while they are up (the wallet is on the cards' title).</summary>
+        private readonly System.Collections.Generic.List<Control> _trackerRows = new System.Collections.Generic.List<Control>();
 
         private static void Place(Control control, float anchorX, float anchorY, float left, float top, float right, float bottom)
         {

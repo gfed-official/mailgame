@@ -82,6 +82,10 @@ namespace PerformativeMail.Client
         public static AimBox Chest(WorldMap map, MapChestDef chest) =>
             new AimBox(chest.X, map.HeightAt(chest.X, chest.Z) + 0.45f, chest.Z, 0.6f, 0.5f, 0.6f);
 
+        /// <summary>A parked vehicle: a bike from wheel to wheel whichever way it points, saddle and bars included.</summary>
+        public static AimBox Vehicle(WorldMap map, float x, float z) =>
+            new AimBox(x, map.HeightAt(x, z) + 0.55f, z, 0.85f, 0.6f, 0.85f);
+
         /// <summary>A death bag on the ground, wider than the satchel so it is easy to pick in a fight.</summary>
         public static AimBox Bag(WorldMap map, float x, float z) =>
             new AimBox(x, map.HeightAt(x, z) + 0.3f, z, 0.5f, 0.4f, 0.5f);

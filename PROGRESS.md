@@ -550,13 +550,14 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             `FortifyTests` (5), `BuildFlowTests` (1 new: Ada buys it with the card's key, Bo
             builds with it and walks over the strip), `ContentValidatorTests` (1 new); the smoke
             buys it in shift 2 and builds a strip (`fortify-*.png`)
-      - [ ] **The bike, the first vehicle** (doc 04 §3.1, doc 06 §3 "S with driver prediction",
+      - [x] **The bike, the first vehicle** (doc 04 §3.1, doc 06 §3 "S with driver prediction",
             doc 10 §1.3 and §3; design choice 82)
             - [x] *In the sim.* `content/vehicles` (validated: unknown or hand-carried cargo,
                   seats other than 1, speeds, rates, radius) has the **Bike**: 8 m/s on the road
                   (the street and the Post Office yard), 5 off it, 150 HP, the `bike_cargo` rack
-                  of 2x8. The shop sells it (`kind: vehicle`, $1.20 from shift 1, the twelfth
-                  card on the **equals key**, the blueprint moved there): one for each carrier
+                  of 2x8. The shop sells it (`kind: vehicle`, $1.20 from shift 1, the card after
+                  the Shovel; the blueprint's key moves one on, to the **equals key** in a shift
+                  with the First-Aid Kit on special): one for each carrier
                   present, parked on the free tile nearest the counter. `Mount` (in reach,
                   nobody on it) puts the carrier into the saddle where the bike stood; from then
                   on the bike is part of the rider's movement state (`PlayerMoveState.Ride`,
@@ -571,8 +572,27 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
                   `Parked` / `VehiclesCleared`; the vehicles in the Welcome; the ride, its speed
                   and heading in the own snapshot, the ride and its heading per player).
                   `VehicleTests` (11), `CodecTests`, `ShopTests`, `ContentValidatorTests`
-            - [ ] *On screen*: the bike drawn parked and under its rider, the prompts, the rack,
-                  the smoke riding one
+            - [x] *On screen* (doc 09 §2.4 prompts, §3 "vehicles"). A postman's bike: a red
+                  diamond frame, black tyres on spoked wheels that turn with the ground covered,
+                  a sprung leather saddle, swept bars with a lamp, and a rack over the rear wheel
+                  with the canvas mail satchel that is its cargo; parked where it was left, under
+                  its rider while ridden (the local rider's where the prediction has them, the
+                  others' where their body is drawn, up on the saddle and turned the way the bike
+                  points). Beside a parked one, looking at it: "Ride Bike  [E]", a tap gets on.
+                  In the saddle with nothing else in view the prompt is "Open Bike cargo  [E]   ·
+                  [Space] get off": E opens the rack on the right of the inventory screen, Space
+                  gets off. The card says "One for each carrier · parked by the counter", greyed
+                  "A Bike for each of you already". Feed lines ("The Bike stands by the counter ·
+                  look at it and [E] to ride", "You are on the Bike · [Space] gets off · [E]
+                  opens its rack", "Ada got on a Bike", "You got off the Bike", and why a saddle
+                  was refused). The tracker plates step aside while the shop's cards are up (the
+                  twelfth card sits in their corner; the wallet is on the cards' title).
+                  `VehicleFlowTests` (1: bought with the card's key, the prompt, E, 8 m/s down the
+                  street with the prediction within a tick of the server every tick, the heading
+                  the others see, the rack from the saddle, the jump key off on the rider's end
+                  at once, a late joiner finds it parked); in the smoke the host buys one in
+                  shift 2's Prep, gets on through its prompt, rides the street at 8 m/s, opens the
+                  rack, gets off, and in the Lobby no bike is left on either end (`bike-*.png`)
       - [ ] the other blueprints (they need belts, sorters, vehicles, turrets), the other
             vehicles, hires and services
 - [x] **Perk system** (StatSheet, modifiers, team/personal, prerequisites, exclusions) with 11
@@ -754,8 +774,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the bike (doc 12 M1 "bike as first vehicle"); the generator and the
-districts before it are the larger pieces still open.
+Next in this order: the world generator and the districts (doc 12 M1's first two lines), the
+larger pieces still open.
 
 ## How to build and check
 
