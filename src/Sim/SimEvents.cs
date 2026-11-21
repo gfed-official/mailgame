@@ -338,6 +338,18 @@ namespace PerformativeMail.Sim
         public ushort Destination;
     }
 
+    /// <summary>
+    /// A starting kit was handed out (doc 03 §4.4): a player's personal items into their pockets,
+    /// or the team's — the host's kit — into the chest by the Post Office and its vehicles by the counter.
+    /// </summary>
+    public sealed class KitGivenEvent : SimEvent
+    {
+        public EntityId Player;
+        /// <summary>Index into ContentDb.Kits.</summary>
+        public byte Kit;
+        public bool Team;
+    }
+
     /// <summary>A vehicle is bought (doc 10 §3) and stands parked by the counter.</summary>
     public sealed class VehicleAddedEvent : SimEvent
     {

@@ -113,7 +113,7 @@ namespace PerformativeMail.Net.Tests
 
             Assert.Equal("LOBBY", HudText.ShiftAndPhase(world));
             Assert.Equal("", HudText.Quota(world.Global));
-            Assert.Equal("Press [G] to start the run   ·   1 player here", HudText.PhaseHint(world));
+            Assert.Equal("Press [G] to start the run   ·   1 player here   ·   [K] kit: Land", HudText.PhaseHint(world));
 
             // A letter in hand at its own mailbox: before the shift the mailbox is closed, and holding E sends nothing.
             var dest = world.Map.Destinations[0];
@@ -206,11 +206,11 @@ namespace PerformativeMail.Net.Tests
             s.AddClient("Ada");
             var guest = s.AddClient("Bo");
             s.Step(10);
-            Assert.Equal("Waiting for Ada to start the run   ·   [G] ready", HudText.PhaseHint(guest.World!));
+            Assert.Equal("Waiting for Ada to start the run   ·   [G] ready   ·   [K] kit: Land", HudText.PhaseHint(guest.World!));
             guest.PressGo();
             s.Step(10);
-            Assert.Equal("Ready — waiting for Ada to start the run   ·   [G] not ready", HudText.PhaseHint(guest.World!));
-            Assert.Equal("Press [G] to start the run   ·   2 players here, 1 ready", HudText.PhaseHint(s.Clients[0].World!));
+            Assert.Equal("Ready — waiting for Ada to start the run   ·   [G] not ready   ·   [K] kit: Land", HudText.PhaseHint(guest.World!));
+            Assert.Equal("Press [G] to start the run   ·   2 players here, 1 ready   ·   [K] kit: Land", HudText.PhaseHint(s.Clients[0].World!));
         }
 
         [Fact]

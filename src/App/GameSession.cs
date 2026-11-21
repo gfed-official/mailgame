@@ -76,7 +76,7 @@ namespace PerformativeMail.App
             }
             // About 20 ms here instead of a 7 ms tick when the first shift starts.
             SimWarmUp.Run(content, seed);
-            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart, MapId = mapId }, transport);
+            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart, MapId = mapId, StartingKits = true }, transport);
             // Before anybody can join and before the log listens: the refusal of the knock is not news.
             if (_enetServer != null && !EnetWarmUp.Run(_enetServer, transport, Server, Server.ProtocolHash))
                 GD.Print("[server] the ENet warm-up did not finish; the first join will cost a slow tick");
@@ -101,9 +101,11 @@ namespace PerformativeMail.App
 
         private void StartClient(ContentDb content, IClientTransport transport, MetaProfile profile, IProfileStore store)
         {
-            Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest, StartShift, profile.AccountId);
+            Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest, StartShift, profile.AccountId,
+                profile.Rank(HudText.RankXpPerRank(content)));
             Interaction = new InteractionController(Client);
             Build = new BuildController(Client) { OnRefused = why => Feed.Add(HudText.PlaceReason(Client.World!, Client.World!.Content.Recipes[0], why), bad: true) };
+            Feed.Content = content;
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);
             Client.RequestCompleted += Feed.OnRequest;
             Profile = new ProfileTracker(Client, profile, store);

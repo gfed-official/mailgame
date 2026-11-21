@@ -1,0 +1,17 @@
+[
+  { "id": "land", "name": "Land", "rank": 1,
+    "personal": [ { "item": "axe", "count": 1 }, { "item": "fiber", "count": 4 } ],
+    "team": [ { "item": "log", "count": 10 } ],
+    "teamVehicles": [ "bike" ],
+    "description": "The default: an Axe and Fiber for you; a Bike and Logs for the team." },
+  { "id": "sea", "name": "Sea", "rank": 2,
+    "personal": [ { "item": "axe", "count": 1 }, { "item": "rope", "count": 2 } ],
+    "team": [ { "item": "log", "count": 10 } ],
+    "teamVehicles": [],
+    "description": "An Axe and Rope for you; Logs for the team. (Its Rowboat blueprint comes with the boats.)" },
+  { "id": "pipes", "name": "Pipes", "rank": 10,
+    "personal": [ { "item": "pickaxe", "count": 1 } ],
+    "team": [ { "item": "iron_ingot", "count": 10 } ],
+    "teamVehicles": [],
+    "description": "A Pickaxe for you; Iron Ingots for the team. (Its pipes and pump come with Pneumatics.)" }
+]

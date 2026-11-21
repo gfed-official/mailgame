@@ -35,7 +35,7 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal(Program.ExitOk, Run(_dir, "content"));
             Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 11 containers, 15 items, 1 maps", _out.ToString());
-            Assert.Contains("12 shop entries, 6 resource nodes, 6 buildings, 1 vehicles;", _out.ToString());
+            Assert.Contains("12 shop entries, 6 resource nodes, 6 buildings, 1 vehicles, 3 kits;", _out.ToString());
             Assert.Contains($"content hash {TestContent.Db.ContentHash:x8}", _out.ToString());
             Assert.Equal("", _err.ToString());
         }
@@ -73,6 +73,22 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("error: perks.json: not read by any loader", err);
             Assert.Contains("content INVALID:", err);
             Assert.Equal("", _out.ToString());
+        }
+
+        [Fact]
+        public void AKitMustHandOutWhatExists_OneStackEach_TheDefaultFromRankOne()
+        {
+            File.WriteAllText(Content("kits/kits.json"), "[" +
+                "{ \"id\": \"land\", \"name\": \"Land\", \"rank\": 2, \"personal\": [ { \"item\": \"crowbar\", \"count\": 1 } ], \"team\": [ { \"item\": \"log\", \"count\": 11 } ], \"teamVehicles\": [ \"tram\" ] }," +
+                "{ \"id\": \"sea\", \"name\": \"Sea\", \"rank\": 0, \"team\": [] }]");
+            Assert.Equal(Program.ExitInvalid, Run(_dir, "content"));
+            string err = _err.ToString();
+            Assert.Contains("'land': personal names unknown item 'crowbar'", err);
+            Assert.Contains("'land': team 'log' count must be 1..10 (one stack)", err);
+            Assert.Contains("'land': teamVehicles names unknown vehicle 'tram'", err);
+            Assert.Contains("'land': the first kit is the default and must be open from rank 1", err);
+            Assert.Contains("'sea': missing 'personal' array", err);
+            Assert.Contains("'sea': rank must be >= 1", err);
         }
 
         [Fact]

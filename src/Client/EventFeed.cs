@@ -34,6 +34,8 @@ namespace PerformativeMail.Client
         public int Revision { get; private set; }
 
         private readonly List<Entry> _entries = new List<Entry>();
+        /// <summary>What a request's answer is read against; set by the session, else from the first event.</summary>
+        public ContentDb? Content;
 
         public void Update(double dt)
         {
@@ -45,6 +47,7 @@ namespace PerformativeMail.Client
 
         public void OnEvent(ClientWorld world, SimEvent ev)
         {
+            Content ??= world.Content;
             switch (ev)
             {
                 case DeliveredEvent e: AddDelivery(world, e.Player, e.DestId, e.Kind, e.Paid, bad: false); break;
@@ -106,6 +109,12 @@ namespace PerformativeMail.Client
                 case VehicleAddedEvent e when e.Def < world.Content.Vehicles.Count:
                     Add(HudText.VehicleAdded(world.Content.Vehicles[e.Def]));
                     break;
+                case KitGivenEvent e:
+                {
+                    string line = HudText.KitGiven(world, e);
+                    if (line.Length > 0) Add(line);
+                    break;
+                }
                 case VehicleMountedEvent e when world.Vehicles.TryGetValue(e.Vehicle, out var mounted):
                     Add(HudText.Mounted(world, e.Player, mounted.Def));
                     break;
@@ -138,6 +147,11 @@ namespace PerformativeMail.Client
             {
                 string why = HudText.MountRefused(result);
                 if (why.Length > 0) Add(why, bad: true);
+            }
+            if (request.Kind == RequestKind.SetKit && Content != null && request.Count < Content.Kits.Count)
+            {
+                if (result == OpResult.Ok) Add(HudText.KitChosen(Content.Kits[request.Count]));
+                else if (HudText.KitRefused(result).Length > 0) Add(HudText.KitRefused(result), bad: true);
             }
             if (result != OpResult.Ok && request.Kind == RequestKind.Harvest)
             {

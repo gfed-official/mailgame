@@ -40,6 +40,8 @@ namespace PerformativeMail.Sim
         RemoveConstruct = 16,
         /// <summary>Get into the saddle of the vehicle whose id is <see cref="SimRequest.EntryId"/> (getting off is the jump key).</summary>
         Mount = 17,
+        /// <summary>Lobby: take the starting kit ContentDb.Kits[<see cref="SimRequest.Count"/>].</summary>
+        SetKit = 18,
     }
 
     /// <summary>
@@ -118,6 +120,9 @@ namespace PerformativeMail.Sim
 
         public static SimRequest Mount(uint reqId, uint vehicle) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.Mount, EntryId = vehicle };
+
+        public static SimRequest SetKit(uint reqId, int kit) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.SetKit, Count = (ushort)kit };
 
         public static SimRequest RemoveConstruct(uint reqId, int tx, int tz) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (byte)tx, Y = (byte)tz };

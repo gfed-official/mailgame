@@ -55,6 +55,12 @@ namespace PerformativeMail.Sim.Players
         public bool Away => AwayUntilTick != 0;
         /// <summary>What the player's Hello asked for (playtest nits 10 and 13).</summary>
         public PlaytestFlags Playtest;
+        /// <summary>The Postal Rank the player's Hello gave: which starting kits are open to them.</summary>
+        public int Rank = 1;
+        /// <summary>The starting kit chosen in the Lobby (doc 03 §4.4); the content's default until then.</summary>
+        public Content.KitDef? Kit;
+        /// <summary>This run's personal kit items are in the pockets already.</summary>
+        public bool KitGiven;
         /// <summary>The shift this player wants runs to start at (<c>--shift=N</c>), 0 = the first as always.</summary>
         public byte PlaytestShift;
 

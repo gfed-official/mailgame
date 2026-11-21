@@ -196,6 +196,7 @@ namespace PerformativeMail.Server
             client.Player = player;
             // Before the Welcome, so its containers and global state already show what was asked.
             World.SetPlaytest(player, hello.Playtest, hello.StartShift);
+            World.SetRank(player, hello.Rank);
 
             var welcome = new WelcomeMsg
             {
@@ -315,7 +316,7 @@ namespace PerformativeMail.Server
                 {
                     Id = p.Id, X = p.Move.X, Y = p.Move.Y, Z = p.Move.Z, Yaw = p.Move.Yaw, HeldSlot = p.HeldSlot, HeldTool = World.HeldTool(p), Ready = p.Ready,
                     Hp = p.HpByte, Protected = World.Protected(p), Away = p.Away,
-                    Ride = p.Move.Ride, Heading = Sim.Vehicles.Vehicle.YawOf(p.Move.HeadX, p.Move.HeadZ, 0f),
+                    Ride = p.Move.Ride, Heading = Sim.Vehicles.Vehicle.YawOf(p.Move.HeadX, p.Move.HeadZ, 0f), Kit = p.Kit?.Index ?? 0,
                 });
             }
             _snapshot.Enemies.Clear();

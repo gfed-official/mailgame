@@ -38,6 +38,8 @@ namespace PerformativeMail.Client.InputHandling
 
         /// <summary>Build mode (doc 09 §4: B).</summary>
         public const string Build = "build";
+        /// <summary>The next starting kit, in the Lobby. Doc 09 §4 has no key for it; K.</summary>
+        public const string Kit = "kit";
         /// <summary>The map overlay (doc 09 §4: M).</summary>
         public const string Map = "map";
 
@@ -61,6 +63,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Shop, Key.C);
             BindKey(Build, Key.B);
             BindKey(Map, Key.M);
+            BindKey(Kit, Key.K);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);
 

@@ -106,9 +106,10 @@ namespace PerformativeMail.Client
         private long _errorSamples;
 
         public ClientRuntime(ContentDb content, IClientTransport transport, string name, PlaytestFlags playtest = PlaytestFlags.None, int startShift = 0,
-            ulong account = 0)
+            ulong account = 0, int rank = 1)
         {
             Account = account;
+            Rank = Math.Clamp(rank, 1, byte.MaxValue);
             Playtest = playtest;
             StartShift = Math.Clamp(startShift, 0, byte.MaxValue);
             _content = content;
@@ -210,6 +211,46 @@ namespace PerformativeMail.Client
             if (key < 0 || key >= world.DraftOffer.Count || world.FirstOpenCard < 0) return false;
             PickPerk(key);
             return true;
+        }
+
+        // --- the starting kit (doc 03 §4.4) ----------------------------------------------------
+
+        /// <summary>The Postal Rank this client says it has: the kits up to it are open.</summary>
+        public int Rank { get; }
+
+        /// <summary>The kit the local player has picked (the server's word, from the snapshots).</summary>
+        public KitDef LocalKit
+        {
+            get
+            {
+                var world = World;
+                if (world == null || !world.Players.TryGetValue(world.LocalId, out var me)) return _content.DefaultKit;
+                return me.Kit < _content.Kits.Count ? _content.Kits[me.Kit] : _content.DefaultKit;
+            }
+        }
+
+        /// <summary>OK if the kit can be picked here and now; why not otherwise.</summary>
+        public OpResult KitState(KitDef kit)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || world.Global.Phase != RunPhase.Lobby) return OpResult.WrongPhase;
+            return kit.Rank > Rank ? OpResult.RankTooLow : OpResult.Ok;
+        }
+
+        /// <summary>Picks a kit in the Lobby; 0 if it is not open.</summary>
+        public uint ChooseKit(KitDef kit) => KitState(kit) == OpResult.Ok ? Send(SimRequest.SetKit(0, kit.Index)) : 0;
+
+        /// <summary>The next kit open at this rank after the one picked, round to the first; 0 when there is no other.</summary>
+        public uint CycleKit()
+        {
+            var kits = _content.Kits;
+            int from = LocalKit.Index;
+            for (int i = 1; i < kits.Count; i++)
+            {
+                var kit = kits[(from + i) % kits.Count];
+                if (KitState(kit) == OpResult.Ok) return ChooseKit(kit);
+            }
+            return 0;
         }
 
         // --- the shop (doc 03 §4.4) -------------------------------------------------------------
@@ -461,7 +502,7 @@ namespace PerformativeMail.Client
         {
             if (State != ClientState.Connecting) return;
             _writer.Reset();
-            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name, Playtest = Playtest, StartShift = (byte)StartShift, Account = Account }.Write(_writer);
+            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name, Playtest = Playtest, StartShift = (byte)StartShift, Account = Account, Rank = (byte)Rank }.Write(_writer);
             _transport.Send(NetChannel.Reliable, _writer.ToArray());
             State = ClientState.Joining;
         }

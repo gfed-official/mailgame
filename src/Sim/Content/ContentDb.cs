@@ -34,6 +34,10 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<ShopItemDef> ShopItems { get; private set; } = Array.Empty<ShopItemDef>();
         /// <summary>What carriers ride (doc 10 §1.3).</summary>
         public IReadOnlyList<VehicleDef> Vehicles { get; private set; } = Array.Empty<VehicleDef>();
+        /// <summary>The starting kits (doc 03 §4.4), the default first.</summary>
+        public IReadOnlyList<KitDef> Kits { get; private set; } = Array.Empty<KitDef>();
+        /// <summary>The kit a player has until they choose another: Land, open from rank 1.</summary>
+        public KitDef DefaultKit => Kits[0];
         /// <summary>What can be built, in the order of the build bar.</summary>
         public IReadOnlyList<BuildingDef> Buildings { get; private set; } = Array.Empty<BuildingDef>();
         public IReadOnlyList<RecipeDef> Recipes { get; private set; } = Array.Empty<RecipeDef>();
@@ -54,6 +58,7 @@ namespace PerformativeMail.Sim.Content
         private readonly Dictionary<string, EnemyDef> _enemiesById = new Dictionary<string, EnemyDef>();
         private readonly Dictionary<string, PerkDef> _perksById = new Dictionary<string, PerkDef>();
         private readonly Dictionary<string, VehicleDef> _vehiclesById = new Dictionary<string, VehicleDef>();
+        private readonly Dictionary<string, KitDef> _kitsById = new Dictionary<string, KitDef>();
         private readonly Dictionary<string, ShopItemDef> _shopById = new Dictionary<string, ShopItemDef>();
         private readonly Dictionary<string, BuildingDef> _buildingsById = new Dictionary<string, BuildingDef>();
         private readonly Dictionary<(PropKind, int), NodeDef> _nodesByProp = new Dictionary<(PropKind, int), NodeDef>();
@@ -69,6 +74,7 @@ namespace PerformativeMail.Sim.Content
         public PerkDef Perk(string id) => _perksById[id];
         public ShopItemDef ShopItem(string id) => _shopById[id];
         public VehicleDef Vehicle(string id) => _vehiclesById[id];
+        public KitDef Kit(string id) => _kitsById[id];
         public ShopItemDef? FindShopItem(string id) => _shopById.TryGetValue(id, out var d) ? d : null;
         public BuildingDef Building(string id) => _buildingsById[id];
         public WorldMap Map(string id) => _maps[id];
@@ -697,6 +703,61 @@ namespace PerformativeMail.Sim.Content
                     }
                 }
                 db.Vehicles = list;
+            }
+
+            // --- kits ----------------------------------------------------------------------------
+            {
+                var list = new List<KitDef>();
+                foreach (string file in source.ListJson("kits"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        List<KitStack> Stacks(string key)
+                        {
+                            var stacks = new List<KitStack>();
+                            if (!e.TryGetProperty(key, out var arr) || arr.ValueKind != JsonValueKind.Array)
+                            {
+                                ctx.Error($"'{id}': missing '{key}' array");
+                                return stacks;
+                            }
+                            foreach (var s in arr.EnumerateArray())
+                            {
+                                string itemId = J.Str(ctx, s, "item");
+                                int count = J.Int(ctx, s, "count");
+                                if (!db._itemsById.TryGetValue(itemId, out var item)) { ctx.Error($"'{id}': {key} names unknown item '{itemId}'"); continue; }
+                                if (count < 1 || count > item.MaxStack) { ctx.Error($"'{id}': {key} '{itemId}' count must be 1..{item.MaxStack} (one stack)"); continue; }
+                                stacks.Add(new KitStack(item, count));
+                            }
+                            return stacks;
+                        }
+                        var vehicles = new List<VehicleDef>();
+                        foreach (string vehicleId in J.StrArray(ctx, e, "teamVehicles", optional: true))
+                        {
+                            if (db._vehiclesById.TryGetValue(vehicleId, out var vehicle)) vehicles.Add(vehicle);
+                            else ctx.Error($"'{id}': teamVehicles names unknown vehicle '{vehicleId}'");
+                        }
+                        var def = new KitDef
+                        {
+                            Id = id,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Description = J.Str(ctx, e, "description", ""),
+                            Rank = J.Int(ctx, e, "rank", 1),
+                            Personal = Stacks("personal"),
+                            Team = Stacks("team"),
+                            TeamVehicles = vehicles,
+                        };
+                        if (def.Rank < 1) ctx.Error($"'{id}': rank must be >= 1");
+                        if (list.Count == 0 && def.Rank != 1) ctx.Error($"'{id}': the first kit is the default and must be open from rank 1");
+                        if (list.Count >= byte.MaxValue) { ctx.Error($"'{id}': too many kits"); continue; }
+                        if (!AddUnique(ctx, db._kitsById, def.Id, def)) continue;
+                        list.Add(def);
+                    }
+                }
+                if (list.Count == 0) errors.Add("kits: no starting kit (doc 03 §4.4 needs the default Land kit)");
+                db.Kits = list;
             }
 
             // --- shop ----------------------------------------------------------------------------

@@ -105,6 +105,7 @@ namespace PerformativeMail.Sim
             RegrowNodes(all: true);
             ClearConstructs();
             ClearVehicles();
+            GiveKits();
             foreach (var p in _players)
             {
                 p.Deliveries = 0;

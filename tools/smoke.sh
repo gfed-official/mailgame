@@ -56,14 +56,17 @@ grep -q "^\[smoke\] draft: .* a card taken by its key" "$work/log" || { echo "sm
 grep -q "^\[smoke\] playtest: .* a card of the Draft taken with a click" "$work/log-playtest" || { echo "smoke: no card of the Draft was taken with a click" >&2; exit 1; }
 # Build mode (doc 09 §2.7): the full run builds by hand with what the land gave.
 grep -q "^\[smoke\] build: a Wooden Wall and a Chest built" "$work/log" || { echo "smoke: nothing was built in Build mode" >&2; exit 1; }
+# The starting kit (doc 03 §4.4): the Land kit in the pockets, the team's in the chest and by the counter.
+grep -q "^\[smoke\] kit: the Land kit" "$work/log" || { echo "smoke: the starting kit was not handed out" >&2; exit 1; }
 # The map (doc 09 §2.6): up with mail in the hotbar, the route to its house drawn.
 grep -q "^\[smoke\] map: up with mail" "$work/log" || { echo "smoke: the map was not shown with a route" >&2; exit 1; }
 # The shop's first blueprint (doc 10 §3 bp_defense): bought in shift 2 and built with.
 grep -q "^\[smoke\] fortify: Blueprint: Fortify bought" "$work/log" || { echo "smoke: the Fortify blueprint was not bought and built with" >&2; exit 1; }
 # The Gate and the Alarm Post (doc 05 §4): built, walked through, and ringing in the shift's raid.
 grep -q "^\[smoke\] defences: a Gate built" "$work/log" || { echo "smoke: no Gate and Alarm Post were built" >&2; exit 1; }
-# The bike (doc 04 §3.1): bought, got on through its prompt, ridden at road speed, its rack opened, got off.
-grep -q "^\[smoke\] bike: bought, ridden" "$work/log" || { echo "smoke: the bike was not bought and ridden" >&2; exit 1; }
+# The bike (doc 04 §3.1): the Land kit's (the card sells a lone carrier no second), got on through its prompt,
+# ridden at road speed, its rack opened, got off.
+grep -q "^\[smoke\] bike: the Land kit's, ridden" "$work/log" || { echo "smoke: the kit's bike was not ridden" >&2; exit 1; }
 
 # The generated Small Island town (doc 02): twenty seeds make valid towns (SeedViewer), and a bot
 # plays the smoke seed's town for 25 s, the client building it from the seed and checking its hash.

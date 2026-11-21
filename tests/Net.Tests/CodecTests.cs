@@ -167,7 +167,7 @@ namespace PerformativeMail.Net.Tests
                     Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true,
                 },
             };
-            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, HeldTool = 17, Ready = true, Ride = 1, Heading = MathF.PI / 2f });
+            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, HeldTool = 17, Ready = true, Ride = 1, Heading = MathF.PI / 2f, Kit = 2 });
             var w = new NetWriter();
             m.Write(w);
             var back = SnapshotMsg.Read(Body(w, MsgType.Snapshot));
@@ -188,6 +188,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(1.20f, p.Y, 3);
             Assert.Equal(92.00f, p.Z, 3);
             Assert.Equal(65535, p.Yaw);
+            Assert.Equal((byte)2, p.Kit);
             Assert.Equal(4, p.HeldSlot);
             Assert.Equal(17, p.HeldTool);
             Assert.True(p.Ready);
@@ -266,6 +267,7 @@ namespace PerformativeMail.Net.Tests
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
                 new VehicleParkedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), X = 60.75f, Z = 28f, Heading = -2.5f, Player = player },
                 new VehiclesClearedEvent(),
+                new KitGivenEvent { Player = new EntityId(EntityClass.Player, 2), Kit = 1, Team = true },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -275,6 +277,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(events.Count, back.Count);
             for (int i = 0; i < events.Count; i++) Assert.IsType(events[i].GetType(), back[i]);
 
+            var kit = (KitGivenEvent)back[^1];
+            Assert.Equal((new EntityId(EntityClass.Player, 2), (byte)1, true), (kit.Player, kit.Kit, kit.Team));
             var joined = (PlayerJoinedEvent)back[0];
             Assert.Equal(("Ada", (byte)2, player), (joined.Name, joined.Slot, joined.Player));
             Assert.Equal(delta.Hash, ((ContainerDeltaEvent)back[3]).Delta.Hash);
@@ -469,16 +473,17 @@ namespace PerformativeMail.Net.Tests
         public void HelloCarriesThePlaytestFlags()
         {
             var w = new NetWriter();
-            new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All, StartShift = 3, Account = 0xFEDCBA9876543210UL }.Write(w);
+            new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All, StartShift = 3, Account = 0xFEDCBA9876543210UL, Rank = 7 }.Write(w);
             var back = HelloMsg.Read(Body(w, MsgType.Hello));
             Assert.Equal((0xC0FFEEu, "Bo", PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages, (byte)3),
                 (back.ProtocolHash, back.Name, back.Playtest, back.StartShift));
             Assert.Equal(0xFEDCBA9876543210UL, back.Account);
+            Assert.Equal((byte)7, back.Rank);
 
             w = new NetWriter();
             new HelloMsg { ProtocolHash = 1, Name = "Ada" }.Write(w);
             back = HelloMsg.Read(Body(w, MsgType.Hello));
-            Assert.Equal((PlaytestFlags.None, (byte)0, 0ul), (back.Playtest, back.StartShift, back.Account));
+            Assert.Equal((PlaytestFlags.None, (byte)0, 0ul, (byte)1), (back.Playtest, back.StartShift, back.Account, back.Rank));
         }
 
         [Fact]

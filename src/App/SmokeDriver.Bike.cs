@@ -17,6 +17,8 @@ namespace PerformativeMail.App
     public partial class SmokeDriver
     {
         private int _bikeStep, _bikeFrames, _bikeVisits;
+        /// <summary>The Land kit's bike stood by the counter already: the card is refused and that one is ridden.</summary>
+        private bool _kitBike;
         private float _bikeTopSpeed;
         private Action? _bikeTick;
 
@@ -61,8 +63,17 @@ namespace PerformativeMail.App
                     if (world.Global.Wallet != server.Economy.Wallet) break;
                     if (!world.ShopOpen) { client.OpenShop(); break; }
                     int place = world.ShopShelf.ToList().IndexOf(card);
-                    Check(place >= 0 && world.ShopState(card) == Sim.Inventory.OpResult.Ok, $"the Bike's card is at {place}: \"{HudText.ShopNote(world, card)}\"");
-                    Check(client.PressShopKey(place), $"the key of the Bike's card {HudText.CardKey(place)} was not the shop's");
+                    _kitBike = world.Vehicles.Count == 1;
+                    if (_kitBike)
+                    {
+                        // One carrier, and the team's kit gave them a bike: the card says so and sells none.
+                        Check(world.ShopState(card) == Sim.Inventory.OpResult.OnePerCarrier, $"with the kit's bike by the counter the Bike's card says \"{HudText.ShopNote(world, card)}\"");
+                    }
+                    else
+                    {
+                        Check(place >= 0 && world.ShopState(card) == Sim.Inventory.OpResult.Ok, $"the Bike's card is at {place}: \"{HudText.ShopNote(world, card)}\"");
+                        Check(client.PressShopKey(place), $"the key of the Bike's card {HudText.CardKey(place)} was not the shop's");
+                    }
                     next = true;
                     break;
                 }
@@ -70,7 +81,8 @@ namespace PerformativeMail.App
                 {
                     if (world.Vehicles.Count != 1 || server.Vehicles.Count != 1 || client.PendingRequestCount > 0) break;
                     var bought = world.Vehicles.Values.First();
-                    Check(_session.Feed.Entries.Any(e => e.Text == HudText.VehicleAdded(bought.Def)), "the feed does not say where the bought bike stands");
+                    // The kit's bike was announced in shift 1 (the kit's visit checks that line).
+                    Check(_kitBike || _session.Feed.Entries.Any(e => e.Text == HudText.VehicleAdded(bought.Def)), "the feed does not say where the bought bike stands");
                     Check(_screen.Vehicles.Shown == 1 && _screen.Vehicles.RiddenShown == 0, $"{_screen.Vehicles.Shown} bikes drawn for one parked");
                     client.CloseShop();
                     Shot("bike-bought");
@@ -199,7 +211,7 @@ namespace PerformativeMail.App
                     ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
                     if (_bikeFrames < 6) break;
                     Shot("bike-parked");
-                    GD.Print($"[smoke] bike: bought, ridden at {_bikeTopSpeed:0.0} m/s down the street, its rack opened from the saddle, and left parked at x {bike.X:0.0}");
+                    GD.Print($"[smoke] bike: {(_kitBike ? "the Land kit's" : "bought")}, ridden at {_bikeTopSpeed:0.0} m/s down the street, its rack opened from the saddle, and left parked at x {bike.X:0.0}");
                     _bikeVisits++;
                     _bikeStep = 0;
                     client.TickStarting += _botTick;

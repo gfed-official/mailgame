@@ -29,6 +29,12 @@ namespace PerformativeMail.Sim
         /// that want the run without perks; a <see cref="QuickStart"/> server has none either.
         /// </summary>
         public bool Draft = true;
+        /// <summary>
+        /// The starting kits (doc 03 §4.4): personal items into the pockets as the run starts, the
+        /// host's team items into the chest by the Post Office and its vehicles by the counter. The
+        /// game turns them on; tests and tools that count what is in the pockets leave them off.
+        /// </summary>
+        public bool StartingKits;
     }
 
     /// <summary>The small global block replicated at 5 Hz (doc 06 §4: wallet, complaint, quota progress).</summary>
@@ -185,9 +191,12 @@ namespace PerformativeMail.Sim
             player.Hp = player.MaxHp = _combat.PlayerHp;
             player.JoinOrder = _nextJoinOrder++;
             player.Account = account;
+            player.Kit = Content.DefaultKit;
             _players.Add(player);
             UpdateHost();
             Events.Add(new PlayerJoinedEvent { Player = id, Name = name, Slot = slot });
+            // Doc 06 §6: who joins in Prep spawns with the starting kit's personal items.
+            if (Run.Phase != RunPhase.Lobby) GivePersonalKit(player);
             if (_players.Count != 1) SetPaused(false);
             return player;
         }

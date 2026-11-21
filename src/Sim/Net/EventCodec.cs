@@ -50,6 +50,7 @@ namespace PerformativeMail.Sim.Net
         VehicleMounted = 40,
         VehicleParked = 41,
         VehiclesCleared = 42,
+        KitGiven = 43,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -246,6 +247,12 @@ namespace PerformativeMail.Sim.Net
                 case VehiclesClearedEvent _:
                     w.U8((byte)EventType.VehiclesCleared);
                     break;
+                case KitGivenEvent e:
+                    w.U8((byte)EventType.KitGiven);
+                    w.U32(e.Player.Value);
+                    w.U8(e.Kit);
+                    w.U8((byte)(e.Team ? 1 : 0));
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -413,6 +420,8 @@ namespace PerformativeMail.Sim.Net
                     return new VehicleParkedEvent { Vehicle = new EntityId(r.U32()), X = r.F32(), Z = r.F32(), Heading = r.F32(), Player = new EntityId(r.U32()) };
                 case EventType.VehiclesCleared:
                     return new VehiclesClearedEvent();
+                case EventType.KitGiven:
+                    return new KitGivenEvent { Player = new EntityId(r.U32()), Kit = r.U8(), Team = r.U8() != 0 };
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

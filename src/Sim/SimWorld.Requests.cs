@@ -68,6 +68,7 @@ namespace PerformativeMail.Sim
                 case RequestKind.PlaceConstruct: return PlaceConstructOp(player, r);
                 case RequestKind.RemoveConstruct: return RemoveConstructOp(player, r);
                 case RequestKind.Mount: return MountOp(player, r);
+                case RequestKind.SetKit: return SetKitOp(player, r);
                 default: return OpResult.BadRequest;
             }
         }

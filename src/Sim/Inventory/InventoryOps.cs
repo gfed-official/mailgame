@@ -74,6 +74,8 @@ namespace PerformativeMail.Sim.Inventory
         Ridden,
         /// <summary>The carrier is in a saddle already.</summary>
         AlreadyRiding,
+        /// <summary>The starting kit asked for is not open at the player's Postal Rank.</summary>
+        RankTooLow,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

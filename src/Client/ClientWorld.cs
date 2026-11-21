@@ -31,6 +31,8 @@ namespace PerformativeMail.Client
         public byte HeldSlot { get; private set; }
         /// <summary>The tool in their hand, as its item index + 1; 0 for none.</summary>
         public byte HeldTool { get; private set; }
+        /// <summary>The starting kit picked in the Lobby, an index into ContentDb.Kits.</summary>
+        public byte Kit { get; private set; }
         /// <summary>Ready flag of the Lobby and Prep, from the newest snapshot.</summary>
         public bool Ready { get; internal set; }
         public bool HasSamples => _count > 0;
@@ -81,6 +83,7 @@ namespace PerformativeMail.Client
             if (_count < BufferSize) _count++;
             HeldSlot = snap.HeldSlot;
             HeldTool = snap.HeldTool;
+            Kit = snap.Kit;
             Ready = snap.Ready;
             Protected = snap.Protected;
             Away = snap.Away;

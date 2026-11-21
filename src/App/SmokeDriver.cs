@@ -249,6 +249,9 @@ namespace PerformativeMail.App
                         Check(hud.PhaseText == "LOBBY", $"in the Lobby the HUD phase line is \"{hud.PhaseText}\"");
                         Check(hud.HintText.Contains($"Press {HudText.GoKey} to start", StringComparison.Ordinal), $"in the Lobby the HUD hint is \"{hud.HintText}\"");
                         Check(hud.QuotaText.Length == 0, $"in the Lobby the HUD shows a quota: \"{hud.QuotaText}\"");
+                        // At Postal Rank 1 the Land kit is the one open: the hint names it, K finds no other.
+                        Check(hud.HintText.EndsWith($"{HudText.KitKey} kit: Land", StringComparison.Ordinal), $"in the Lobby the HUD hint does not name the kit: \"{hud.HintText}\"");
+                        Check(client.CycleKit() == 0, "at rank 1 the kit key asked for another kit than Land");
                         Check(_mailArrived == 0 && server.Intake.EntryCount == 0, "mail arrived before the run started");
                         Go();
                     }
@@ -260,6 +263,8 @@ namespace PerformativeMail.App
                 case Stage.Prep:
                     hud.Refresh();
                     TrackCamera();
+                    // The first Prep starts with the starting kit (doc 03 §4.4).
+                    if (StepKit()) break;
                     if (_stageFrames == 2)
                     {
                         Check(hud.PhaseText.Contains("PREP", StringComparison.Ordinal), $"in Prep the HUD phase line is \"{hud.PhaseText}\"");

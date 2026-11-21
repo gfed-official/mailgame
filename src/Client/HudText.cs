@@ -57,6 +57,60 @@ namespace PerformativeMail.Client
         public const string QuotaWaivedTag = "playtest: the run goes on";
 
         public const string GoKey = "[G]";
+        /// <summary>Picks the next starting kit in the Lobby. Doc 09 §4 has no key for it; K for kit.</summary>
+        public const string KitKey = "[K]";
+
+        /// <summary>The kit the local player has picked, as the snapshots say.</summary>
+        public static KitDef LocalKit(ClientWorld world) =>
+            world.Players.TryGetValue(world.LocalId, out var me) && me.Kit < world.Content.Kits.Count ? world.Content.Kits[me.Kit] : world.Content.DefaultKit;
+
+        /// <summary>"Axe, Fiber ×4".</summary>
+        public static string KitStacks(IReadOnlyList<KitStack> stacks)
+        {
+            var parts = new List<string>();
+            foreach (var s in stacks) parts.Add(s.Count == 1 ? s.Item.Name : $"{s.Item.Name} ×{s.Count}");
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>What a kit holds, for the Lobby: "Axe, Fiber ×4 for you · Log ×10 and a Bike for the team".</summary>
+        public static string KitContents(KitDef kit)
+        {
+            string team = KitStacks(kit.Team);
+            foreach (var v in kit.TeamVehicles) team += (team.Length > 0 ? " and a " : "a ") + v.Name;
+            return $"{KitStacks(kit.Personal)} for you" + (team.Length > 0 ? $"   ·   {team} for the team" : "");
+        }
+
+        public static string KitChosen(KitDef kit) => $"Your kit: {kit.Name} — {KitContents(kit)}";
+
+        public static string KitRefused(OpResult result) => result switch
+        {
+            OpResult.RankTooLow => "That kit opens at a higher Postal Rank",
+            OpResult.WrongPhase => "Kits are picked in the Lobby",
+            _ => "",
+        };
+
+        /// <summary>The kits there are and at which rank each opens: "Land · Sea (rank 2) · Pipes (rank 10)".</summary>
+        public static string KitsOpen(ContentDb content, int rank)
+        {
+            var parts = new List<string>();
+            foreach (var k in content.Kits) parts.Add(k.Rank <= rank ? k.Name : $"{k.Name} (rank {k.Rank})");
+            return string.Join(" · ", parts);
+        }
+
+        /// <summary>The line for a kit handed out; empty for another player's personal items.</summary>
+        public static string KitGiven(ClientWorld world, KitGivenEvent e)
+        {
+            if (e.Kit >= world.Content.Kits.Count) return "";
+            var kit = world.Content.Kits[e.Kit];
+            if (!e.Team)
+                return e.Player == world.LocalId && kit.Personal.Count > 0 ? $"Your {kit.Name} kit is in your pockets: {KitStacks(kit.Personal)}" : "";
+            var parts = new List<string>();
+            string whose = e.Player == world.LocalId ? "your" : $"{PlayerName(world, e.Player)}'s";
+            if (kit.Team.Count > 0)
+                parts.Add($"{KitStacks(kit.Team)} in {(world.Map.Chests.Count > 0 ? "the chest by the Post Office" : (e.Player == world.LocalId ? "your pockets" : $"{PlayerName(world, e.Player)}'s pockets"))}");
+            foreach (var v in kit.TeamVehicles) parts.Add($"a {v.Name} by the counter");
+            return parts.Count == 0 ? "" : $"The team's kit ({whose} {kit.Name} kit): {string.Join("   ·   ", parts)}";
+        }
         public const string PauseKey = "[Esc]";
         public const string PausedTitle = "PAUSED";
         /// <summary>Esc with nothing open and others in the run: nothing stops, only the mouse is let go.</summary>
@@ -77,12 +131,15 @@ namespace PerformativeMail.Client
             switch (g.Phase)
             {
                 case RunPhase.Lobby:
+                {
+                    string kit = $"   ·   {KitKey} kit: {LocalKit(world).Name}";
                     if (world.IsHost)
                         return $"Press {GoKey} to start the run   ·   {(players == 1 ? "1 player" : $"{players} players")} here"
-                            + (players > 1 ? $", {ready} ready" : "");
+                            + (players > 1 ? $", {ready} ready" : "") + kit;
                     return world.LocalReady
-                        ? $"Ready — waiting for {host} to start the run   ·   {GoKey} not ready"
-                        : $"Waiting for {host} to start the run   ·   {GoKey} ready";
+                        ? $"Ready — waiting for {host} to start the run   ·   {GoKey} not ready{kit}"
+                        : $"Waiting for {host} to start the run   ·   {GoKey} ready{kit}";
+                }
                 case RunPhase.Prep:
                     return world.LocalReady
                         ? $"Ready {ready} / {players} — the shift starts when everyone is   ·   {GoKey} not ready"

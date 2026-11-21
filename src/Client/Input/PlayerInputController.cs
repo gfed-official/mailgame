@@ -133,6 +133,7 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Use) && !UiOpen) _client.UseHeld();
             else if (ev.IsActionPressed(InputActions.Shop) && !Paused) _client.ToggleShop();
             else if (ev.IsActionPressed(InputActions.Map)) MapToggled?.Invoke();
+            else if (ev.IsActionPressed(InputActions.Kit) && !UiOpen) _client.CycleKit();
         }
 
         /// <summary>

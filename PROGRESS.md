@@ -753,7 +753,27 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             Welcome). `AwayTests` (18), `AwayFlowTests` (9), `CodecTests`, `ProfileTests`; the
             smoke drops an ENet guest in Prep, reads the name tag and the feed on the host's
             screen and brings them back as Player#2; design choice 65
-      - [ ] seed / archetype / kit choice in the Lobby
+      - [x] **The starting kit, picked in the Lobby** (doc 03 §4.4, doc 01 §5.2, doc 06 §5–§6;
+            design choice 86). `content/kits` (validated: unknown item or vehicle, more than one
+            stack's worth, a rank under 1, a default that is not open from rank 1): **Land**
+            (rank 1, the default: Axe, Fiber ×4; the team Log ×10 and a Bike), **Sea** (rank 2:
+            Axe, Rope ×2; the team Log ×10), **Pipes** (rank 10: Pickaxe; the team Iron Ingot
+            ×10). The Hello carries the player's Postal Rank from their profile; `SetKit` in the
+            Lobby takes a kit up to it (`RankTooLow` otherwise, `WrongPhase` once the run is on).
+            As the run starts every player present gets their kit's personal items in the
+            inventory; the host's kit gives the team its items in the chest by the Post Office
+            (the map's Depot) and its vehicles parked by the counter; who joins in Prep gets
+            theirs on the way in, who comes back after losing the connection not twice; every
+            run anew. On screen: **K** picks the next kit open at your rank, the Lobby's hint ends
+            "[K] kit: Land", the feed "Your kit: Sea — Axe, Rope ×2 for you · Log ×10 for the
+            team", "Your Land kit is in your pockets: Axe, Fiber ×4", "The team's kit (Ada's Land
+            kit): Log ×10 in the chest by the Post Office · a Bike by the counter". Every
+            player's kit is in the snapshot. Protocol `m1.16` (the Hello's rank, the `SetKit`
+            request, `KitGiven`, a kit byte per player). `KitTests` (4), `KitFlowTests` (1),
+            `CodecTests`, `ContentValidatorTests` (1 new); the smoke checks the Land kit at the
+            first Prep, then walks to the chest and puts the Axe and Fiber in with the Logs, and
+            rides the kit's bike in shift 2 (its card says "A Bike for each of you already")
+      - [ ] seed and archetype choice in the Lobby
 - [ ] Content pipeline: JSON defs, validator in CI, hot reload
       - [x] JSON defs and the validator (`tools/validate-content.sh`, run by `tools/smoke.sh`)
       - [ ] a CI job; hot reload
@@ -887,7 +907,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the Lobby's seed / archetype / kit (the archetype choice with it).
+Next in this order: the Lobby's seed and archetype choice (the host picks the map and the
+seed; the clients rebuild the world), then the Generating phase and the content pipeline's CI.
 
 ## How to build and check
 
@@ -1759,6 +1780,17 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the hotbar and the feed stay on top) and does not take the mouse, so it can be kept up
     while walking. Doc 09 §4 gives the pad's View button for the map; here that button is the
     go key, so the map is on the D-pad's down.
+
+86. **Starting kits.** Doc 03 §4.4's table is followed where the items exist: there is no
+    Backpack yet (every kit's), no Rowboat blueprint (Sea), no pipes or pump (Pipes); those
+    come with the systems they belong to. The Depot is not built yet, so the team's items go
+    into the map's chest by the Post Office (into the host's pockets on a map without one).
+    The rank is the profile's at connect time, sent in the Hello and trusted like the rest of
+    the local profile (doc 01 §5.2 "starting kits are per player from their own profile"); a
+    rank-up during the session opens the next kit from the next connect. Kits are a
+    `SimSettings.StartingKits` switch the game turns on and tests leave off, so the many tests
+    that count pockets and bikes stay as they were. K picks the kit (doc 09 §4 has no key;
+    the doc's Lobby screen with per-player dropdowns comes with a Lobby screen of its own).
 
 ## Commands
 

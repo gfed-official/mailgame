@@ -37,31 +37,31 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.15;" +
-            "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
+            "m1.16;" +
+            "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
-            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount;" +
+            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount,kit;" +
             "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u32 raidTick,u32 respawn,u32 protectedUntil,u8 chests,{u32 container},u8 bags,{u32 container,u32 owner,f32 x,f32 z,u32 despawn}," +
             "u16 loot,{u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count}},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory," +
             "u16 perks,{u32 holder,u8 perk},u8 offer,{u8 perk},u8 picks,{u32 player,u8 card},u8 specials,{u8 shop},u8 owned,{u8 shop},u16 nodes,{u16 node,u8 hitsLeft}," +
             "u16 constructs,{u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container},u8 vehicles,{u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 rider};" +
             "Reject:u8 reason;" +
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp,u8 ride,f32 rideSpeed,f32 headX,f32 headZ]," +
-            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 tool,u8 flags,u8 hp,u8 ride,u8 heading},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
+            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 tool,u8 flags,u8 hp,u8 ride,u8 heading,u8 kit},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
             "MoveFlags:grounded,winded,dead;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 playtest;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
             "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone,playerAway,playerBack,draftOffer,perkPicked,shopOffer,shopBought,shopSold,nodeHarvested,nodesRegrown," +
-            "constructPlaced,constructRemoved,constructDamaged,constructsCleared,vehicleAdded,vehicleMounted,vehicleParked,vehiclesCleared;" +
+            "constructPlaced,constructRemoved,constructDamaged,constructsCleared,vehicleAdded,vehicleMounted,vehicleParked,vehiclesCleared,kitGiven;" +
             "DraftOffer:u8 n,{u8 perk};PerkPicked:u32 player,u8 perk,u8 card,u8 auto;" +
             "ShopOffer:u8 shift,u8 n,{u8 shop};ShopBought:u32 player,u8 shop,u16 price;ShopSold:u32 player,u16 item,u16 count,i32 paid;" +
             "NodeHarvested:u32 player,u16 node,u8 hitsLeft,u16 item,u8 count;NodesRegrown:u8 all;" +
             "ConstructPlaced:u32 player,u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container;ConstructRemoved:u8 x,u8 y,u32 player,u8 destroyed;" +
             "ConstructDamaged:u8 x,u8 y,u16 hp;ConstructsCleared:;" +
-            "VehicleAdded:u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 buyer;VehicleMounted:u32 id,u32 player;VehicleParked:u32 id,f32 x,f32 z,f32 heading,u32 player;VehiclesCleared:;" +
+            "VehicleAdded:u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 buyer;VehicleMounted:u32 id,u32 player;VehicleParked:u32 id,f32 x,f32 z,f32 heading,u32 player;VehiclesCleared:;KitGiven:u32 player,u8 kit,u8 team;" +
             "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
             "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +
             "LootDropped:u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count};" +
@@ -97,6 +97,8 @@ namespace PerformativeMail.Sim.Net
         /// lost their connection back to whoever says the same within the grace. 0: nobody in particular.
         /// </summary>
         public ulong Account;
+        /// <summary>The player's Postal Rank (doc 01 §5.2): which starting kits they may pick.</summary>
+        public byte Rank = 1;
 
         public void Write(NetWriter w)
         {
@@ -106,10 +108,11 @@ namespace PerformativeMail.Sim.Net
             w.U8((byte)Playtest);
             w.U8(StartShift);
             w.U64(Account);
+            w.U8(Rank);
         }
 
         public static HelloMsg Read(NetReader r) =>
-            new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8(), StartShift = r.U8(), Account = r.U64() };
+            new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8(), StartShift = r.U8(), Account = r.U64(), Rank = r.U8() };
     }
 
     /// <summary>The last few inputs, oldest first (doc 06 §3: each packet repeats the last 3 for loss cover).</summary>
@@ -423,6 +426,8 @@ namespace PerformativeMail.Sim.Net
         public byte Ride;
         /// <summary>The way the ridden vehicle points, a yaw in radians (256 steps on the wire).</summary>
         public float Heading;
+        /// <summary>The starting kit picked in the Lobby, an index into ContentDb.Kits.</summary>
+        public byte Kit;
     }
 
     /// <summary>One enemy in a snapshot: 9 bytes (doc 06 §4; 40 of them at 10 Hz stay inside the budget).</summary>
@@ -484,7 +489,7 @@ namespace PerformativeMail.Sim.Net
                 w.U32(p.Id.Value);
                 w.I32(ToCm(p.X)); w.I16((short)ToCm(p.Y)); w.I32(ToCm(p.Z));
                 w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8(p.HeldTool); w.U8((byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0) | (p.Away ? PlayerAway : 0))); w.U8(p.Hp);
-                w.U8(p.Ride); w.U8(ToAngle(p.Heading));
+                w.U8(p.Ride); w.U8(ToAngle(p.Heading)); w.U8(p.Kit);
             }
             if (HasEnemies)
             {
@@ -536,6 +541,7 @@ namespace PerformativeMail.Sim.Net
                 p.Hp = r.U8();
                 p.Ride = r.U8();
                 p.Heading = r.U8() / 256f * TwoPi;
+                p.Kit = r.U8();
                 m.Players.Add(p);
             }
             if (m.HasEnemies)

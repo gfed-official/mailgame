@@ -180,6 +180,33 @@ namespace PerformativeMail.Sim.Content
         public float Radius { get; init; }
     }
 
+    /// <summary>A stack a starting kit hands out: so many of an item.</summary>
+    public readonly struct KitStack
+    {
+        public readonly ItemDef Item;
+        public readonly int Count;
+        public KitStack(ItemDef item, int count) { Item = item; Count = count; }
+    }
+
+    /// <summary>
+    /// A starting kit (doc 03 §4.4, doc 01 §5.2): chosen per player in the Lobby from those their
+    /// Postal Rank has opened; its personal items go into the player's pockets when the run
+    /// starts (or when they join in Prep), its team items — the host's kit's — once a run into the
+    /// chest by the Post Office, its vehicles by the counter.
+    /// </summary>
+    public sealed class KitDef
+    {
+        public string Id { get; init; } = "";
+        public byte Index { get; init; }
+        public string Name { get; init; } = "";
+        public string Description { get; init; } = "";
+        /// <summary>The Postal Rank that opens it.</summary>
+        public int Rank { get; init; } = 1;
+        public IReadOnlyList<KitStack> Personal { get; init; } = Array.Empty<KitStack>();
+        public IReadOnlyList<KitStack> Team { get; init; } = Array.Empty<KitStack>();
+        public IReadOnlyList<VehicleDef> TeamVehicles { get; init; } = Array.Empty<VehicleDef>();
+    }
+
     /// <summary>
     /// Something the Post Office shop sells (doc 08 §2.8, doc 10 §3): a blueprint the team owns
     /// from then on, or a stack of an item into the buyer's pockets.
