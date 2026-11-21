@@ -32,6 +32,8 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<EnemyDef> Enemies { get; private set; } = Array.Empty<EnemyDef>();
         public IReadOnlyList<PerkDef> Perks { get; private set; } = Array.Empty<PerkDef>();
         public IReadOnlyList<ShopItemDef> ShopItems { get; private set; } = Array.Empty<ShopItemDef>();
+        /// <summary>What carriers ride (doc 10 §1.3).</summary>
+        public IReadOnlyList<VehicleDef> Vehicles { get; private set; } = Array.Empty<VehicleDef>();
         /// <summary>What can be built, in the order of the build bar.</summary>
         public IReadOnlyList<BuildingDef> Buildings { get; private set; } = Array.Empty<BuildingDef>();
         public IReadOnlyList<RecipeDef> Recipes { get; private set; } = Array.Empty<RecipeDef>();
@@ -51,6 +53,7 @@ namespace PerformativeMail.Sim.Content
         private readonly Dictionary<string, WorldMap> _maps = new Dictionary<string, WorldMap>();
         private readonly Dictionary<string, EnemyDef> _enemiesById = new Dictionary<string, EnemyDef>();
         private readonly Dictionary<string, PerkDef> _perksById = new Dictionary<string, PerkDef>();
+        private readonly Dictionary<string, VehicleDef> _vehiclesById = new Dictionary<string, VehicleDef>();
         private readonly Dictionary<string, ShopItemDef> _shopById = new Dictionary<string, ShopItemDef>();
         private readonly Dictionary<string, BuildingDef> _buildingsById = new Dictionary<string, BuildingDef>();
         private readonly Dictionary<(PropKind, int), NodeDef> _nodesByProp = new Dictionary<(PropKind, int), NodeDef>();
@@ -65,6 +68,7 @@ namespace PerformativeMail.Sim.Content
         public EnemyDef Enemy(string id) => _enemiesById[id];
         public PerkDef Perk(string id) => _perksById[id];
         public ShopItemDef ShopItem(string id) => _shopById[id];
+        public VehicleDef Vehicle(string id) => _vehiclesById[id];
         public ShopItemDef? FindShopItem(string id) => _shopById.TryGetValue(id, out var d) ? d : null;
         public BuildingDef Building(string id) => _buildingsById[id];
         public WorldMap Map(string id) => _maps[id];
@@ -650,6 +654,51 @@ namespace PerformativeMail.Sim.Content
                 db.Perks = list;
             }
 
+            // --- vehicles --------------------------------------------------------------------------
+            {
+                var list = new List<VehicleDef>();
+                foreach (string file in source.ListJson("vehicles"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        string cargoId = J.Str(ctx, e, "cargo");
+                        if (!db._containersById.TryGetValue(cargoId, out var cargo)) { ctx.Error($"'{id}': unknown cargo container '{cargoId}'"); continue; }
+                        var def = new VehicleDef
+                        {
+                            Id = id,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Description = J.Str(ctx, e, "description", ""),
+                            Cargo = cargo,
+                            Seats = J.Int(ctx, e, "seats", 1),
+                            Hp = (float)J.Num(ctx, e, "hp"),
+                            RoadSpeed = (float)J.Num(ctx, e, "roadSpeed"),
+                            OffRoadSpeed = (float)J.Num(ctx, e, "offRoadSpeed"),
+                            Acceleration = (float)J.Num(ctx, e, "acceleration"),
+                            Braking = (float)J.Num(ctx, e, "braking"),
+                            CoastDeceleration = (float)J.Num(ctx, e, "coastDeceleration"),
+                            TurnRate = (float)(J.Num(ctx, e, "turnRateDegrees") * Math.PI / 180.0),
+                            Radius = (float)J.Num(ctx, e, "radius"),
+                        };
+                        // Only a one-seat vehicle can be ridden so far: the rider is the driver (doc 04 §3.1 Bike).
+                        if (def.Seats != 1) ctx.Error($"'{id}': seats must be 1 (vehicles with passengers are not driven yet)");
+                        if (def.Hp <= 0f) ctx.Error($"'{id}': hp must be > 0");
+                        if (def.OffRoadSpeed <= 0f || def.RoadSpeed < def.OffRoadSpeed) ctx.Error($"'{id}': speeds must be 0 < offRoadSpeed <= roadSpeed");
+                        if (def.Acceleration <= 0f || def.Braking <= 0f || def.CoastDeceleration <= 0f) ctx.Error($"'{id}': acceleration, braking and coastDeceleration must be > 0");
+                        if (def.TurnRate <= 0f) ctx.Error($"'{id}': turnRateDegrees must be > 0");
+                        if (def.Radius <= 0f || def.Radius > 0.5f) ctx.Error($"'{id}': radius must be in (0, 0.5]");
+                        if (cargo.HandCarried) ctx.Error($"'{id}': its cargo '{cargoId}' is a hand-carried container");
+                        // The player's movement state names the ridden vehicle in a byte, 0 for none.
+                        if (list.Count >= byte.MaxValue - 1) { ctx.Error($"'{id}': too many vehicles"); continue; }
+                        if (!AddUnique(ctx, db._vehiclesById, def.Id, def)) continue;
+                        list.Add(def);
+                    }
+                }
+                db.Vehicles = list;
+            }
+
             // --- shop ----------------------------------------------------------------------------
             {
                 var list = new List<ShopItemDef>();
@@ -662,6 +711,7 @@ namespace PerformativeMail.Sim.Content
                         string kindName = J.Str(ctx, e, "kind");
                         var kind = ShopKind.Item;
                         ItemDef? item = null;
+                        VehicleDef? vehicle = null;
                         int count = 0;
                         bool hasGrants = e.TryGetProperty("grants", out var grants) && grants.ValueKind == JsonValueKind.Object;
                         if (!hasGrants) ctx.Error($"'{id}': missing 'grants' object");
@@ -680,8 +730,13 @@ namespace PerformativeMail.Sim.Content
                                 // One purchase is one stack: it fits a free cell or it does not.
                                 else if (count < 1 || count > item.MaxStack) ctx.Error($"'{id}': count must be in 1..{item.MaxStack} (one stack of '{itemId}')");
                                 break;
-                            // Doc 08 §2.8 names three more kinds; nothing can honour them yet (no vehicle, no hire, no Post Office HP).
                             case "vehicle":
+                                kind = ShopKind.Vehicle;
+                                if (!hasGrants) break;
+                                string vehicleId = J.Str(ctx, grants, "vehicle");
+                                if (!db._vehiclesById.TryGetValue(vehicleId, out vehicle)) ctx.Error($"'{id}': grants unknown vehicle '{vehicleId}'");
+                                break;
+                            // Doc 08 §2.8 names two more kinds; nothing can honour them yet (no hire, no Post Office HP).
                             case "hire":
                             case "service":
                                 ctx.Error($"'{id}': kind '{kindName}' is not sold yet");
@@ -714,6 +769,7 @@ namespace PerformativeMail.Sim.Content
                             Kind = kind,
                             Price = J.Int(ctx, e, "price"),
                             Item = item,
+                            Vehicle = vehicle,
                             Count = count,
                             FromShift = fromShift,
                             Rotating = rotating,

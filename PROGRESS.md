@@ -550,8 +550,31 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             `FortifyTests` (5), `BuildFlowTests` (1 new: Ada buys it with the card's key, Bo
             builds with it and walks over the strip), `ContentValidatorTests` (1 new); the smoke
             buys it in shift 2 and builds a strip (`fortify-*.png`)
-      - [ ] the other blueprints (they need belts, sorters, vehicles, turrets), the bike and the
-            other vehicles, hires and services
+      - [ ] **The bike, the first vehicle** (doc 04 §3.1, doc 06 §3 "S with driver prediction",
+            doc 10 §1.3 and §3; design choice 82)
+            - [x] *In the sim.* `content/vehicles` (validated: unknown or hand-carried cargo,
+                  seats other than 1, speeds, rates, radius) has the **Bike**: 8 m/s on the road
+                  (the street and the Post Office yard), 5 off it, 150 HP, the `bike_cargo` rack
+                  of 2x8. The shop sells it (`kind: vehicle`, $1.20 from shift 1, the twelfth
+                  card on the **equals key**, the blueprint moved there): one for each carrier
+                  present, parked on the free tile nearest the counter. `Mount` (in reach,
+                  nobody on it) puts the carrier into the saddle where the bike stood; from then
+                  on the bike is part of the rider's movement state (`PlayerMoveState.Ride`,
+                  `RideSpeed`, `HeadX/Z`) and `PlayerMovement.Step` rides it — the front follows
+                  the steer at 200°/s, the speed comes up at 5 m/s², hard back brakes at 10, let
+                  go it rolls out at 3, a wall takes the speed it cannot make good, the pockets'
+                  weight does not slow it —, the same step on the server and in the rider's
+                  prediction. The **jump key gets off** (predicted too), and so do going down and
+                  losing the connection; the bike stays parked where it was. The rack is the
+                  rider's to open, from the saddle anywhere. Bikes are the team's until the run
+                  ends. Protocol `m1.15` (the `Mount` request; `VehicleAdded` / `Mounted` /
+                  `Parked` / `VehiclesCleared`; the vehicles in the Welcome; the ride, its speed
+                  and heading in the own snapshot, the ride and its heading per player).
+                  `VehicleTests` (11), `CodecTests`, `ShopTests`, `ContentValidatorTests`
+            - [ ] *On screen*: the bike drawn parked and under its rider, the prompts, the rack,
+                  the smoke riding one
+      - [ ] the other blueprints (they need belts, sorters, vehicles, turrets), the other
+            vehicles, hires and services
 - [x] **Perk system** (StatSheet, modifiers, team/personal, prerequisites, exclusions) with 11
       perks (doc 01 §2.5 and §4, doc 07 §6, doc 08 §2.9, doc 09 §2.10; design choice 66)
       - [x] *The stat sheet.* `content/perks/perks.json` (validated: unknown stat, op, category,
@@ -1541,6 +1564,25 @@ See "Commands" at the bottom (filled in as the tooling lands).
     shows through walls, and the raid tracker counts them. The gate is not drawn open by the
     sim: it opens on screen for a carrier near it; raiders never pass, so there is nothing to
     hold open. Friendly vehicles wait for the bike.
+82. **The bike.** Doc 04 §3.1 gives 2x8, 8 / 5 m/s, one seat, "Land kit or shop 120 ¢", "no
+    fuel; parked only, not carried"; doc 06 §3 "driving client predicts; server simulates and
+    corrects"; doc 07 §5 a "2.5D arcade model (heading, speed, grip …)". Where they stop: the
+    *road* is paved ground — the street's and the Post Office yard's tiles —, everything else
+    is off road. The arcade model is a heading that follows the steer at a turn rate and a
+    speed that comes up at an acceleration, with braking and rolling out; no grip, no slope
+    (the map is flat). Riding is part of the rider's own movement state, so the prediction
+    path is the players' own with no second one to keep in step; the server's +15 % input
+    clamp holds for it as for walking. Getting on is a request (it moves the carrier onto the
+    bike, the server's to say); getting off is the **jump key**, because a bike does not
+    jump and E is the mailbox's and the chest's — so it is predicted like any step. Who gets
+    off stands where the bike was; the bike is not solid (carriers and raiders pass it, as
+    they pass a bag), so nobody is pushed off it. The pockets' weight does not slow a bike
+    (it carries the load) and perks of walking speed do not speed it (Bike Courier will).
+    *One for each carrier present*: one seat each, so a team of four buys at most four. The
+    Land kit has no kits to come with yet (no Lobby choice), so the shop is the only way in.
+    A bike's 150 HP is kept but nothing hurts it yet (doc 05 §2 targets constructs; the
+    raiders' priority lists name no vehicles); deliveries and swings from the saddle are
+    allowed — the rack is the bike's point.
 
 ## Commands
 

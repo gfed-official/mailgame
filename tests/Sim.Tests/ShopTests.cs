@@ -137,8 +137,8 @@ namespace PerformativeMail.Sim.Tests
         public void TheCatalogSellsBandagesAndRefinedMaterials_AndOneRotatingKit()
         {
             // The tools came with harvesting (HarvestTests); they are never a special, so the roll is as it was.
-            // So did the Fortify blueprint with building (FortifyTests), and the Shovel with the beach.
-            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "bp_defense" },
+            // So did the Fortify blueprint with building (FortifyTests), the Shovel with the beach and the Bike (VehicleTests).
+            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "bike", "bp_defense" },
                 Db.ShopItems.Select(s => s.Id).ToArray());
             for (int i = 0; i < Db.ShopItems.Count; i++) Assert.Equal(i, Db.ShopItems[i].Index);
 
@@ -149,7 +149,7 @@ namespace PerformativeMail.Sim.Tests
             var kit = Db.ShopItem("first_aid_kit");
             Assert.True(kit.Rotating && kit.Special);
             Assert.Equal(("bandage", 5, 105), (kit.Item!.Id, kit.Count, kit.Price));
-            Assert.Null(Db.FindShopItem("bike"));
+            Assert.Equal(ShopKind.Vehicle, Db.ShopItem("bike").Kind);
 
             // Doc 05 §1.1: a Bandage gives 50 HP at once, Berries 25 over five seconds.
             Assert.Equal((50, 0f), (Db.Item("bandage").Heal, Db.Item("bandage").HealSeconds));
@@ -192,7 +192,8 @@ namespace PerformativeMail.Sim.Tests
                 Entry("hidden", "rope", 5, 80, "\"availability\": { \"slot\": \"rotating\" }"),
                 Entry("sideways", "rope", 5, 80, "\"availability\": { \"slot\": \"weekly\" }"),
                 Entry("early", "rope", 5, 80, "\"availability\": { \"fromShift\": 0 }"),
-                "{ \"id\": \"bike\", \"name\": \"Bike\", \"kind\": \"vehicle\", \"price\": 200, \"grants\": { \"vehicle\": \"bike\" } }",
+                "{ \"id\": \"trike\", \"name\": \"Trike\", \"kind\": \"vehicle\", \"price\": 200, \"grants\": { \"vehicle\": \"trike\" } }",
+                "{ \"id\": \"porter\", \"name\": \"Porter\", \"kind\": \"hire\", \"price\": 200, \"grants\": { } }",
                 "{ \"id\": \"luck\", \"name\": \"Luck\", \"kind\": \"wish\", \"price\": 200, \"grants\": { } }",
                 "{ \"id\": \"bare\", \"name\": \"Bare\", \"kind\": \"item\", \"price\": 200 }",
                 "{ \"id\": \"bp_other\", \"name\": \"B\", \"kind\": \"blueprint\", \"price\": 200, \"grants\": { \"blueprint\": \"bp_defense\" } }",
@@ -211,7 +212,8 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("'hidden': a rotating entry must be tagged 'special'", all);
             Assert.Contains("'sideways': availability.slot must be 'fixed' or 'rotating', not 'weekly'", all);
             Assert.Contains("'early': availability.fromShift must be >= 1", all);
-            Assert.Contains("'bike': kind 'vehicle' is not sold yet", all);
+            Assert.Contains("'trike': grants unknown vehicle 'trike'", all);
+            Assert.Contains("'porter': kind 'hire' is not sold yet", all);
             Assert.Contains("'luck': unknown kind 'wish'", all);
             Assert.Contains("'bare': missing 'grants' object", all);
             Assert.Contains("'bp_other': a blueprint grants itself", all);

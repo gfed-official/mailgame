@@ -37,30 +37,31 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.14;" +
+            "m1.15;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
-            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove;" +
+            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount;" +
             "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u32 raidTick,u32 respawn,u32 protectedUntil,u8 chests,{u32 container},u8 bags,{u32 container,u32 owner,f32 x,f32 z,u32 despawn}," +
             "u16 loot,{u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count}},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory," +
             "u16 perks,{u32 holder,u8 perk},u8 offer,{u8 perk},u8 picks,{u32 player,u8 card},u8 specials,{u8 shop},u8 owned,{u8 shop},u16 nodes,{u16 node,u8 hitsLeft}," +
-            "u16 constructs,{u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container};" +
+            "u16 constructs,{u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container},u8 vehicles,{u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 rider};" +
             "Reject:u8 reason;" +
-            "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp]," +
-            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 tool,u8 flags,u8 hp},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
+            "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp,u8 ride,f32 rideSpeed,f32 headX,f32 headZ]," +
+            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 tool,u8 flags,u8 hp,u8 ride,u8 heading},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
             "MoveFlags:grounded,winded,dead;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,u8 playtest;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
             "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone,playerAway,playerBack,draftOffer,perkPicked,shopOffer,shopBought,shopSold,nodeHarvested,nodesRegrown," +
-            "constructPlaced,constructRemoved,constructDamaged,constructsCleared;" +
+            "constructPlaced,constructRemoved,constructDamaged,constructsCleared,vehicleAdded,vehicleMounted,vehicleParked,vehiclesCleared;" +
             "DraftOffer:u8 n,{u8 perk};PerkPicked:u32 player,u8 perk,u8 card,u8 auto;" +
             "ShopOffer:u8 shift,u8 n,{u8 shop};ShopBought:u32 player,u8 shop,u16 price;ShopSold:u32 player,u16 item,u16 count,i32 paid;" +
             "NodeHarvested:u32 player,u16 node,u8 hitsLeft,u16 item,u8 count;NodesRegrown:u8 all;" +
             "ConstructPlaced:u32 player,u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container;ConstructRemoved:u8 x,u8 y,u32 player,u8 destroyed;" +
             "ConstructDamaged:u8 x,u8 y,u16 hp;ConstructsCleared:;" +
+            "VehicleAdded:u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 buyer;VehicleMounted:u32 id,u32 player;VehicleParked:u32 id,f32 x,f32 z,f32 heading,u32 player;VehiclesCleared:;" +
             "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
             "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +
             "LootDropped:u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count};" +
@@ -211,6 +212,19 @@ namespace PerformativeMail.Sim.Net
         public uint ContainerId;
     }
 
+    /// <summary>A vehicle of the run, as a joining client is told of it.</summary>
+    public struct VehicleInfo
+    {
+        public EntityId Id;
+        /// <summary>Index into ContentDb.Vehicles.</summary>
+        public byte Def;
+        public float X, Z;
+        public float Heading;
+        public uint CargoContainer;
+        /// <summary>Who rides it; None while it stands parked.</summary>
+        public EntityId Rider;
+    }
+
     /// <summary>Join state (doc 06 §5 step 4), small enough in M0 to be one message.</summary>
     public sealed class WelcomeMsg
     {
@@ -248,6 +262,8 @@ namespace PerformativeMail.Sim.Net
         public readonly List<NodeInfo> Nodes = new List<NodeInfo>();
         /// <summary>What the carriers have built, in the order they built it; later ones come as events.</summary>
         public readonly List<ConstructInfo> Constructs = new List<ConstructInfo>();
+        /// <summary>The vehicles of the run; later ones come as events.</summary>
+        public readonly List<VehicleInfo> Vehicles = new List<VehicleInfo>();
 
         public void Write(NetWriter w)
         {
@@ -284,6 +300,8 @@ namespace PerformativeMail.Sim.Net
             foreach (var node in Nodes) { w.U16(node.Node); w.U8(node.HitsLeft); }
             w.U16((ushort)Constructs.Count);
             foreach (var c in Constructs) { w.U8(c.Building); w.U8(c.X); w.U8(c.Y); w.U8(c.Rotation); w.U16(c.Hp); w.U32(c.ContainerId); }
+            w.U8((byte)Vehicles.Count);
+            foreach (var v in Vehicles) { w.U32(v.Id.Value); w.U8(v.Def); w.F32(v.X); w.F32(v.Z); w.F32(v.Heading); w.U32(v.CargoContainer); w.U32(v.Rider.Value); }
         }
 
         public static WelcomeMsg Read(NetReader r)
@@ -335,6 +353,14 @@ namespace PerformativeMail.Sim.Net
                 m.Constructs.Add(new ConstructInfo
                 {
                     Building = r.U8(), X = r.U8(), Y = r.U8(), Rotation = r.U8(), Hp = r.U16(), ContainerId = r.U32(),
+                });
+            }
+            int vehicles = r.U8();
+            for (int i = 0; i < vehicles; i++)
+            {
+                m.Vehicles.Add(new VehicleInfo
+                {
+                    Id = new EntityId(r.U32()), Def = r.U8(), X = r.F32(), Z = r.F32(), Heading = r.F32(), CargoContainer = r.U32(), Rider = new EntityId(r.U32()),
                 });
             }
             return m;
@@ -393,6 +419,10 @@ namespace PerformativeMail.Sim.Net
         public bool Away;
         /// <summary>Health in 255ths; 0 = down.</summary>
         public byte Hp;
+        /// <summary>On foot 0; in a saddle the vehicle's index + 1 (<see cref="PlayerMoveState.Ride"/>).</summary>
+        public byte Ride;
+        /// <summary>The way the ridden vehicle points, a yaw in radians (256 steps on the wire).</summary>
+        public float Heading;
     }
 
     /// <summary>One enemy in a snapshot: 9 bytes (doc 06 §4; 40 of them at 10 Hz stay inside the budget).</summary>
@@ -446,6 +476,7 @@ namespace PerformativeMail.Sim.Net
                 w.F32(Own.X); w.F32(Own.Y); w.F32(Own.Z); w.F32(Own.VelY);
                 w.U8((byte)((Own.Grounded ? MoveGrounded : 0) | (Own.Winded ? MoveWinded : 0) | (Own.Dead ? MoveDead : 0)));
                 w.F32(OwnSpeedMult); w.F32(Own.Fatigue); w.F32(OwnHp);
+                w.U8(Own.Ride); w.F32(Own.RideSpeed); w.F32(Own.HeadX); w.F32(Own.HeadZ);
             }
             w.U8((byte)Players.Count);
             foreach (var p in Players)
@@ -453,6 +484,7 @@ namespace PerformativeMail.Sim.Net
                 w.U32(p.Id.Value);
                 w.I32(ToCm(p.X)); w.I16((short)ToCm(p.Y)); w.I32(ToCm(p.Z));
                 w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8(p.HeldTool); w.U8((byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0) | (p.Away ? PlayerAway : 0))); w.U8(p.Hp);
+                w.U8(p.Ride); w.U8(ToAngle(p.Heading));
             }
             if (HasEnemies)
             {
@@ -462,7 +494,7 @@ namespace PerformativeMail.Sim.Net
                     w.U16(e.Id);
                     w.U8((byte)((e.Kind & 0x0F) | (e.Mega ? 0x10 : 0) | ((byte)e.State << 5)));
                     w.U16(To2Cm(e.X)); w.U16(To2Cm(e.Z));
-                    w.U8((byte)((int)System.MathF.Round(e.Yaw / TwoPi * 256f) & 0xFF));
+                    w.U8(ToAngle(e.Yaw));
                     w.U8(e.Hp);
                 }
             }
@@ -486,6 +518,7 @@ namespace PerformativeMail.Sim.Net
                 m.OwnSpeedMult = r.F32();
                 m.Own.Fatigue = r.F32();
                 m.OwnHp = r.F32();
+                m.Own.Ride = r.U8(); m.Own.RideSpeed = r.F32(); m.Own.HeadX = r.F32(); m.Own.HeadZ = r.F32();
             }
             int n = r.U8();
             for (int i = 0; i < n; i++)
@@ -501,6 +534,8 @@ namespace PerformativeMail.Sim.Net
                 p.Protected = (playerFlags & PlayerProtected) != 0;
                 p.Away = (playerFlags & PlayerAway) != 0;
                 p.Hp = r.U8();
+                p.Ride = r.U8();
+                p.Heading = r.U8() / 256f * TwoPi;
                 m.Players.Add(p);
             }
             if (m.HasEnemies)
@@ -521,6 +556,7 @@ namespace PerformativeMail.Sim.Net
             return m;
         }
 
+        private static byte ToAngle(float radians) => (byte)((int)System.MathF.Round(radians / TwoPi * 256f) & 0xFF);
         private static int ToCm(float metres) => (int)System.MathF.Round(metres * 100f);
         private static ushort To2Cm(float metres) => (ushort)System.Math.Clamp((int)System.MathF.Round(metres * 50f), 0, ushort.MaxValue);
     }

@@ -152,7 +152,33 @@ namespace PerformativeMail.Sim.Content
             held != null && held.HarvestsResource(Resource) && held.SwingSeconds > 0f ? held.SwingSeconds : handSeconds;
     }
 
-    public enum ShopKind : byte { Blueprint = 0, Item = 1 }
+    public enum ShopKind : byte { Blueprint = 0, Item = 1, Vehicle = 2 }
+
+    /// <summary>
+    /// Something a carrier rides (doc 04 §3.1, doc 10 §1.3): an arcade body with a top speed on
+    /// the road and off it, and a cargo grid that rides with it.
+    /// </summary>
+    public sealed class VehicleDef
+    {
+        public string Id { get; init; } = "";
+        public byte Index { get; init; }
+        public string Name { get; init; } = "";
+        public string Description { get; init; } = "";
+        public ContainerDef Cargo { get; init; } = null!;
+        public int Seats { get; init; } = 1;
+        public float Hp { get; init; }
+        /// <summary>Top speed on paved tiles (the street, the Post Office yard) and on everything else, m/s.</summary>
+        public float RoadSpeed { get; init; }
+        public float OffRoadSpeed { get; init; }
+        /// <summary>m/s² of speed gained towards the top speed, lost when braking against the way it rolls, and lost rolling free.</summary>
+        public float Acceleration { get; init; }
+        public float Braking { get; init; }
+        public float CoastDeceleration { get; init; }
+        /// <summary>How fast the front wheel follows the rider's steer, radians a second.</summary>
+        public float TurnRate { get; init; }
+        /// <summary>The round body it bumps into things with.</summary>
+        public float Radius { get; init; }
+    }
 
     /// <summary>
     /// Something the Post Office shop sells (doc 08 §2.8, doc 10 §3): a blueprint the team owns
@@ -168,6 +194,8 @@ namespace PerformativeMail.Sim.Content
         public int Price { get; init; }
         /// <summary>What an <see cref="ShopKind.Item"/> entry puts into the pockets, as one stack.</summary>
         public ItemDef? Item { get; init; }
+        /// <summary>What a <see cref="ShopKind.Vehicle"/> entry parks by the counter.</summary>
+        public VehicleDef? Vehicle { get; init; }
         public int Count { get; init; }
         public int FromShift { get; init; } = 1;
         /// <summary>Not in the fixed stock: on the counter only in a shift whose specials it is rolled into.</summary>

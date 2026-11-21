@@ -82,8 +82,9 @@ namespace PerformativeMail.Client.InputHandling
                     return;
 
                 case InputEventKey key when key.Pressed && !key.Echo:
-                    // 1–9, 0 for the tenth and the minus key beside it for the eleventh (cards of the shop).
-                    int digit = key.PhysicalKeycode == Key.Key0 ? 9 : key.PhysicalKeycode == Key.Minus ? 10 : (int)key.PhysicalKeycode - (int)Key.Key1;
+                    // 1–9, 0 for the tenth, and the minus and equals keys beside it for the eleventh and twelfth (cards of the shop).
+                    int digit = key.PhysicalKeycode == Key.Key0 ? 9 : key.PhysicalKeycode == Key.Minus ? 10 : key.PhysicalKeycode == Key.Equal ? 11
+                        : (int)key.PhysicalKeycode - (int)Key.Key1;
                     // In the Draft 1–3 are the cards, until one is taken.
                     if (_client.PressCardKey(digit)) return;
                     // At the shop's counter the numbers are its cards.

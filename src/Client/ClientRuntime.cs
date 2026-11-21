@@ -113,7 +113,7 @@ namespace PerformativeMail.Client
             StartShift = Math.Clamp(startShift, 0, byte.MaxValue);
             _content = content;
             _transport = transport;
-            _move = MoveConstants.From(content.Balance);
+            _move = MoveConstants.From(content);
             _hammerCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("hammerCooldownSeconds"));
             _cannonCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("cannonCooldownSeconds"));
             _shopRange = content.Balance.GetFloat("shopRange");
@@ -532,6 +532,12 @@ namespace PerformativeMail.Client
             foreach (var c in m.Constructs)
                 if (c.Building < _content.Buildings.Count && map.InBounds(c.X, c.Y))
                     world.Constructs.Add(_content.Buildings[c.Building], c.X, c.Y, c.Rotation, c.Hp, c.ContainerId);
+            foreach (var v in m.Vehicles)
+                if (v.Def < _content.Vehicles.Count)
+                    world.Vehicles[v.Id] = new ClientVehicle
+                    {
+                        Id = v.Id, Def = _content.Vehicles[v.Def], X = v.X, Z = v.Z, Heading = v.Heading, CargoContainer = v.CargoContainer, Rider = v.Rider,
+                    };
             World = world;
             Input.YawRadians = map.PostOffice.SpawnYaw;
             Input.PitchRadians = 0f;
@@ -788,6 +794,30 @@ namespace PerformativeMail.Client
                     foreach (var built in world.Constructs.All)
                         if (built.ContainerId != 0) DropExternal(world, built.ContainerId);
                     world.Constructs.Clear();
+                    break;
+                case VehicleAddedEvent e:
+                    if (e.Def < _content.Vehicles.Count)
+                        world.Vehicles[e.Vehicle] = new ClientVehicle
+                        {
+                            Id = e.Vehicle, Def = _content.Vehicles[e.Def], X = e.X, Z = e.Z, Heading = e.Heading, CargoContainer = e.CargoContainer,
+                        };
+                    break;
+                case VehicleMountedEvent e:
+                    if (world.Vehicles.TryGetValue(e.Vehicle, out var mounted)) mounted.Rider = e.Player;
+                    break;
+                case VehicleParkedEvent e:
+                    if (world.Vehicles.TryGetValue(e.Vehicle, out var parked))
+                    {
+                        parked.Rider = EntityId.None;
+                        parked.X = e.X;
+                        parked.Z = e.Z;
+                        parked.Heading = e.Heading;
+                        if (e.Player == world.LocalId) DropExternal(world, parked.CargoContainer);
+                    }
+                    break;
+                case VehiclesClearedEvent:
+                    foreach (var v in world.Vehicles.Values) DropExternal(world, v.CargoContainer);
+                    world.Vehicles.Clear();
                     break;
                 case PausedChangedEvent e:
                     world.Paused = e.Paused;

@@ -376,7 +376,7 @@ namespace PerformativeMail.Client
         // --- the Draft (doc 09 §2.10) and the perks of the run -------------------------------------
 
         /// <summary>The key that takes a card: "[1]".</summary>
-        public static string CardKey(int card) => card == 9 ? "[0]" : card == 10 ? "[-]" : $"[{(card + 1).ToString(CultureInfo.InvariantCulture)}]";
+        public static string CardKey(int card) => card == 9 ? "[0]" : card == 10 ? "[-]" : card == 11 ? "[=]" : $"[{(card + 1).ToString(CultureInfo.InvariantCulture)}]";
 
         /// <summary>Over the cards: what is chosen, and before which shift.</summary>
         public static string DraftTitle(ClientWorld world) => $"DRAFT   ·   one perk each before shift {world.Global.Shift + 1}";

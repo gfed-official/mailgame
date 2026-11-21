@@ -246,6 +246,13 @@ namespace PerformativeMail.Server
                     Hp = (ushort)built.Hp, ContainerId = built.ContainerId,
                 });
             }
+            foreach (var v in World.Vehicles)
+            {
+                welcome.Vehicles.Add(new VehicleInfo
+                {
+                    Id = v.Id, Def = v.Def.Index, X = v.X, Z = v.Z, Heading = v.Heading, CargoContainer = v.Cargo.Id, Rider = v.Rider,
+                });
+            }
             _writer.Reset();
             welcome.Write(_writer);
             _transport.Send(client.Connection, NetChannel.Bulk, _writer.ToArray());
@@ -308,6 +315,7 @@ namespace PerformativeMail.Server
                 {
                     Id = p.Id, X = p.Move.X, Y = p.Move.Y, Z = p.Move.Z, Yaw = p.Move.Yaw, HeldSlot = p.HeldSlot, HeldTool = World.HeldTool(p), Ready = p.Ready,
                     Hp = p.HpByte, Protected = World.Protected(p), Away = p.Away,
+                    Ride = p.Move.Ride, Heading = Sim.Vehicles.Vehicle.YawOf(p.Move.HeadX, p.Move.HeadZ, 0f),
                 });
             }
             _snapshot.Enemies.Clear();

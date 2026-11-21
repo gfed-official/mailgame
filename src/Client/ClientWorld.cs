@@ -54,6 +54,10 @@ namespace PerformativeMail.Client
         public List<PerkDef> Perks { get; } = new List<PerkDef>();
         /// <summary>The card of the Draft under way they have taken; -1: none yet.</summary>
         public int DraftPick { get; internal set; } = -1;
+        /// <summary>On foot 0; in a saddle the vehicle's index + 1, as of the newest snapshot.</summary>
+        public byte Ride { get; private set; }
+        /// <summary>The way the vehicle they ride points, a yaw, as of the newest snapshot.</summary>
+        public float Heading { get; private set; }
 
         private readonly Sample[] _samples = new Sample[BufferSize];
         private int _head;
@@ -80,6 +84,8 @@ namespace PerformativeMail.Client
             Ready = snap.Ready;
             Protected = snap.Protected;
             Away = snap.Away;
+            Ride = snap.Ride;
+            Heading = snap.Heading;
         }
 
         /// <summary>Interpolated pose at a (fractional) server tick; clamps to the oldest / newest sample.</summary>
@@ -200,6 +206,23 @@ namespace PerformativeMail.Client
     }
 
     /// <summary>
+    /// A vehicle of the run (doc 04 §3.1) as the client knows it: where it was parked, or whose
+    /// saddle it is under; a ridden one is drawn where its rider is.
+    /// </summary>
+    public sealed class ClientVehicle
+    {
+        public EntityId Id;
+        public VehicleDef Def = null!;
+        public float X, Z;
+        /// <summary>The way it points while parked, a yaw (0 looks along −Z).</summary>
+        public float Heading;
+        public uint CargoContainer;
+        /// <summary>Who rides it; None while it stands parked.</summary>
+        public EntityId Rider;
+        public bool Ridden => !Rider.IsNone;
+    }
+
+    /// <summary>
     /// The client's presentation model (doc 07 §5): the subset of sim state this client knows.
     /// Written only by <see cref="ClientRuntime"/>; views and UI read it.
     /// </summary>
@@ -255,6 +278,19 @@ namespace PerformativeMail.Client
         public Dictionary<uint, ClientLoot> Loot { get; } = new Dictionary<uint, ClientLoot>();
         /// <summary>Death bags lying about, by container id.</summary>
         public Dictionary<uint, ClientBag> Bags { get; } = new Dictionary<uint, ClientBag>();
+        /// <summary>The vehicles of the run, by id.</summary>
+        public Dictionary<EntityId, ClientVehicle> Vehicles { get; } = new Dictionary<EntityId, ClientVehicle>();
+
+        /// <summary>The vehicle the local player sits on, null on foot.</summary>
+        public ClientVehicle? LocalRide
+        {
+            get
+            {
+                if (!Local.Riding) return null;
+                foreach (var v in Vehicles.Values) if (v.Rider == LocalId) return v;
+                return null;
+            }
+        }
         public RaidState Raid => Global.Raid;
         /// <summary>Warning: the tick of the first spawn. Fleeing: the tick the last raider is gone by.</summary>
         public uint RaidTick { get; internal set; }

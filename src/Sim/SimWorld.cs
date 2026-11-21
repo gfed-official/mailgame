@@ -64,6 +64,8 @@ namespace PerformativeMail.Sim
             /// <summary>Owning player for body containers; None for world containers.</summary>
             public EntityId Owner;
             public float X, Z;
+            /// <summary>The vehicle whose cargo it is: only its rider opens it.</summary>
+            public Vehicles.Vehicle? Vehicle;
             public readonly List<EntityId> Viewers = new List<EntityId>();
         }
 
@@ -115,7 +117,7 @@ namespace PerformativeMail.Sim
             Settings = settings ?? new SimSettings();
             Map = content.Map(Settings.MapId);
             var b = content.Balance;
-            _move = MoveConstants.From(b);
+            _move = MoveConstants.From(content);
             _combat = new CombatTuning(b);
             ResetCombatRng();
             _maxPlayers = b.GetInt("maxPlayers");
@@ -271,6 +273,7 @@ namespace PerformativeMail.Sim
             Tick++;
             ApplyRequests();
             StepPlayers();
+            StepVehicles();
             StepCombat();
             StepMail();
             StepAway();
@@ -389,6 +392,8 @@ namespace PerformativeMail.Sim
         private bool InRange(Player p, ContainerInfo info)
         {
             if (!info.Owner.IsNone) return info.Owner == p.Id;
+            // Doc 03 §2 Bike: the rider reaches the cargo from the saddle, and only the rider.
+            if (info.Vehicle != null) return info.Vehicle.Rider == p.Id && p.Move.Riding;
             float dx = p.Move.X - info.X, dz = p.Move.Z - info.Z;
             return dx * dx + dz * dz <= _serverInteractRange * _serverInteractRange;
         }

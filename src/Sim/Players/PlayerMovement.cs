@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.World;
@@ -18,8 +19,19 @@ namespace PerformativeMail.Sim.Players
         public bool Winded;
         /// <summary>Down until the respawn (doc 05 §1.1); a dead carrier does not move.</summary>
         public bool Dead;
+        /// <summary>
+        /// On foot: 0. In the saddle: the ridden vehicle's index in ContentDb.Vehicles + 1 (doc 04
+        /// §3.1). Only the server puts a carrier on a vehicle; getting off (the jump key) is part of
+        /// the step, so the rider's client predicts it.
+        /// </summary>
+        public byte Ride;
+        /// <summary>How fast the vehicle rolls, m/s, along <see cref="HeadX"/>, <see cref="HeadZ"/>.</summary>
+        public float RideSpeed;
+        /// <summary>The way the vehicle points, a unit vector on the ground; (0, 0) before it has pointed anywhere.</summary>
+        public float HeadX, HeadZ;
 
         public float Stamina => 1f - Fatigue;
+        public bool Riding => Ride != 0;
     }
 
     /// <summary>Movement tunables (doc 11 / balance.json).</summary>
@@ -30,10 +42,14 @@ namespace PerformativeMail.Sim.Players
         public readonly float FatiguePerTick, RecoveryPerTick;
         /// <summary>A winded carrier may sprint again once this much stamina is back.</summary>
         public readonly float RecoverFraction;
+        /// <summary>What can be ridden, in the order of ContentDb.Vehicles; empty where nothing is.</summary>
+        public readonly IReadOnlyList<VehicleDef> Vehicles;
 
         public MoveConstants(float walk, float sprint, float jumpHeight, float gravity, float radius,
-            float staminaSeconds = 0f, float staminaRegenSeconds = 0f, float recoverFraction = 0.2f)
+            float staminaSeconds = 0f, float staminaRegenSeconds = 0f, float recoverFraction = 0.2f,
+            IReadOnlyList<VehicleDef>? vehicles = null)
         {
+            Vehicles = vehicles ?? Array.Empty<VehicleDef>();
             WalkSpeed = walk; SprintSpeed = sprint; JumpHeight = jumpHeight; Gravity = gravity; Radius = radius;
             FatiguePerTick = staminaSeconds > 0f ? SimConstants.TickDt / staminaSeconds : 0f;
             RecoveryPerTick = staminaRegenSeconds > 0f ? SimConstants.TickDt / staminaRegenSeconds : 1f;
@@ -44,6 +60,20 @@ namespace PerformativeMail.Sim.Players
             b.GetFloat("walkSpeed"), b.GetFloat("sprintSpeed"), b.GetFloat("jumpHeight"),
             b.GetFloat("gravity"), b.GetFloat("playerRadius"),
             b.GetFloat("staminaSeconds"), b.GetFloat("staminaRegenSeconds"), b.GetFloat("staminaRecoverFraction"));
+
+        /// <summary>The balance's movement and the content's vehicles: what the server and a client step with.</summary>
+        public static MoveConstants From(ContentDb content)
+        {
+            var b = content.Balance;
+            return new MoveConstants(
+                b.GetFloat("walkSpeed"), b.GetFloat("sprintSpeed"), b.GetFloat("jumpHeight"),
+                b.GetFloat("gravity"), b.GetFloat("playerRadius"),
+                b.GetFloat("staminaSeconds"), b.GetFloat("staminaRegenSeconds"), b.GetFloat("staminaRecoverFraction"),
+                content.Vehicles);
+        }
+
+        /// <summary>The vehicle a state rides, null on foot (or for an index this content does not have).</summary>
+        public VehicleDef? RideOf(in PlayerMoveState s) => s.Ride != 0 && s.Ride <= Vehicles.Count ? Vehicles[s.Ride - 1] : null;
     }
 
     /// <summary>
@@ -57,6 +87,23 @@ namespace PerformativeMail.Sim.Players
         {
             const float dt = SimConstants.TickDt;
             s.Yaw = input.Yaw;
+            if (s.Ride != 0)
+            {
+                var vehicle = c.RideOf(s);
+                // The jump key gets off (a bike does not jump), and so does whoever goes down; off,
+                // they stand where the vehicle stood, and this tick's jump is spent on getting off.
+                if (vehicle == null || s.Dead || input.Has(InputButtons.Jump))
+                {
+                    s.Ride = 0;
+                    s.RideSpeed = 0f;
+                    var afoot = input;
+                    afoot.Buttons &= ~InputButtons.Jump;
+                    Step(ref s, afoot, map, speedMult, c, constructs);
+                    return;
+                }
+                StepRide(ref s, input, map, vehicle, c, constructs);
+                return;
+            }
 
             float mx = input.MoveX / 127f;
             float mz = input.MoveZ / 127f;
@@ -104,6 +151,72 @@ namespace PerformativeMail.Sim.Players
                 }
             }
             else s.Y = ground;
+        }
+
+        /// <summary>True on the paved tiles a vehicle runs at its road speed on: the street and the Post Office yard.</summary>
+        public static bool OnRoad(WorldMap map, float x, float z)
+        {
+            var tile = map.GetTile((int)MathF.Floor(x / SimConstants.TileSize), (int)MathF.Floor(z / SimConstants.TileSize));
+            return tile == TileType.Street || tile == TileType.Yard;
+        }
+
+        /// <summary>
+        /// One tick in the saddle (doc 04 §3.1, doc 07 §5 "2.5D arcade model"): the input is where
+        /// the rider steers; the front follows it at the vehicle's turn rate and the speed comes up
+        /// to the top speed of the ground it rolls on — the road's or the rough's — at its
+        /// acceleration. Steering hard against the way it rolls brakes; let go, it rolls out. What
+        /// it runs into takes the speed it cannot make good. It carries the load, so what is in
+        /// the pockets does not slow it, and the rider's breath comes back as if they stood.
+        /// </summary>
+        private static void StepRide(ref PlayerMoveState s, in PlayerInput input, WorldMap map, VehicleDef v, in MoveConstants c,
+            ConstructField? constructs)
+        {
+            const float dt = SimConstants.TickDt;
+            float mx = input.MoveX / 127f, mz = input.MoveZ / 127f;
+            float len = MathF.Sqrt(mx * mx + mz * mz);
+            if (len > 1f) { mx /= len; mz /= len; len = 1f; }
+            float top = OnRoad(map, s.X, s.Z) ? v.RoadSpeed : v.OffRoadSpeed;
+
+            if (len > 0.01f)
+            {
+                float dx = mx / len, dz = mz / len;
+                if (s.HeadX == 0f && s.HeadZ == 0f) { s.HeadX = dx; s.HeadZ = dz; }
+                float dot = s.HeadX * dx + s.HeadZ * dz;
+                if (s.RideSpeed > 0.5f && dot < -0.3f)
+                    s.RideSpeed = MathF.Max(0f, s.RideSpeed - v.Braking * dt);
+                else
+                {
+                    if (s.RideSpeed <= 0.5f) { s.HeadX = dx; s.HeadZ = dz; }
+                    else
+                    {
+                        float cross = s.HeadX * dz - s.HeadZ * dx;
+                        float angle = Math.Clamp(MathF.Atan2(cross, dot), -v.TurnRate * dt, v.TurnRate * dt);
+                        float sin = MathF.Sin(angle), cos = MathF.Cos(angle);
+                        float hx = s.HeadX * cos - s.HeadZ * sin, hz = s.HeadX * sin + s.HeadZ * cos;
+                        float hl = MathF.Sqrt(hx * hx + hz * hz);
+                        s.HeadX = hx / hl; s.HeadZ = hz / hl;
+                    }
+                    float target = top * len;
+                    s.RideSpeed = s.RideSpeed < target
+                        ? MathF.Min(target, s.RideSpeed + v.Acceleration * dt)
+                        : MathF.Max(target, s.RideSpeed - v.CoastDeceleration * dt);
+                }
+            }
+            else s.RideSpeed = MathF.Max(0f, s.RideSpeed - v.CoastDeceleration * dt);
+
+            if (s.RideSpeed > 0f)
+            {
+                float x = s.X + s.HeadX * s.RideSpeed * dt, z = s.Z + s.HeadZ * s.RideSpeed * dt;
+                ResolveCollisions(ref x, ref z, s.Y, map, v.Radius, constructs);
+                float along = ((x - s.X) * s.HeadX + (z - s.Z) * s.HeadZ) / dt;
+                s.RideSpeed = Math.Clamp(along, 0f, s.RideSpeed);
+                s.X = x; s.Z = z;
+            }
+            s.Fatigue = MathF.Max(0f, s.Fatigue - c.RecoveryPerTick);
+            if (s.Fatigue <= 1f - c.RecoverFraction) s.Winded = false;
+            s.VelY = 0f;
+            s.Grounded = true;
+            s.Y = map.HeightAt(s.X, s.Z);
         }
 
         /// <summary>

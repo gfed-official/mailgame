@@ -38,6 +38,8 @@ namespace PerformativeMail.Sim
         PlaceConstruct = 15,
         /// <summary>Prep or Delivery: take down what is built on the tile (<see cref="SimRequest.X"/>, <see cref="SimRequest.Y"/>).</summary>
         RemoveConstruct = 16,
+        /// <summary>Get into the saddle of the vehicle whose id is <see cref="SimRequest.EntryId"/> (getting off is the jump key).</summary>
+        Mount = 17,
     }
 
     /// <summary>
@@ -113,6 +115,9 @@ namespace PerformativeMail.Sim
             {
                 RequestId = reqId, Kind = RequestKind.PlaceConstruct, DestId = (ushort)building, X = (byte)tx, Y = (byte)tz, Count = (ushort)rotation,
             };
+
+        public static SimRequest Mount(uint reqId, uint vehicle) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.Mount, EntryId = vehicle };
 
         public static SimRequest RemoveConstruct(uint reqId, int tx, int tz) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (byte)tx, Y = (byte)tz };

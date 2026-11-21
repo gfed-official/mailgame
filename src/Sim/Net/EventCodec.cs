@@ -46,6 +46,10 @@ namespace PerformativeMail.Sim.Net
         ConstructRemoved = 36,
         ConstructDamaged = 37,
         ConstructsCleared = 38,
+        VehicleAdded = 39,
+        VehicleMounted = 40,
+        VehicleParked = 41,
+        VehiclesCleared = 42,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -227,6 +231,21 @@ namespace PerformativeMail.Sim.Net
                 case ConstructsClearedEvent _:
                     w.U8((byte)EventType.ConstructsCleared);
                     break;
+                case VehicleAddedEvent e:
+                    w.U8((byte)EventType.VehicleAdded);
+                    w.U32(e.Vehicle.Value); w.U8(e.Def); w.F32(e.X); w.F32(e.Z); w.F32(e.Heading); w.U32(e.CargoContainer); w.U32(e.Buyer.Value);
+                    break;
+                case VehicleMountedEvent e:
+                    w.U8((byte)EventType.VehicleMounted);
+                    w.U32(e.Vehicle.Value); w.U32(e.Player.Value);
+                    break;
+                case VehicleParkedEvent e:
+                    w.U8((byte)EventType.VehicleParked);
+                    w.U32(e.Vehicle.Value); w.F32(e.X); w.F32(e.Z); w.F32(e.Heading); w.U32(e.Player.Value);
+                    break;
+                case VehiclesClearedEvent _:
+                    w.U8((byte)EventType.VehiclesCleared);
+                    break;
                 default:
                     throw new System.ArgumentException($"no wire format for {ev.GetType().Name}");
             }
@@ -383,6 +402,17 @@ namespace PerformativeMail.Sim.Net
                     return new ConstructDamagedEvent { X = r.U8(), Y = r.U8(), Hp = r.U16() };
                 case EventType.ConstructsCleared:
                     return new ConstructsClearedEvent();
+                case EventType.VehicleAdded:
+                    return new VehicleAddedEvent
+                    {
+                        Vehicle = new EntityId(r.U32()), Def = r.U8(), X = r.F32(), Z = r.F32(), Heading = r.F32(), CargoContainer = r.U32(), Buyer = new EntityId(r.U32()),
+                    };
+                case EventType.VehicleMounted:
+                    return new VehicleMountedEvent { Vehicle = new EntityId(r.U32()), Player = new EntityId(r.U32()) };
+                case EventType.VehicleParked:
+                    return new VehicleParkedEvent { Vehicle = new EntityId(r.U32()), X = r.F32(), Z = r.F32(), Heading = r.F32(), Player = new EntityId(r.U32()) };
+                case EventType.VehiclesCleared:
+                    return new VehiclesClearedEvent();
                 default:
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }

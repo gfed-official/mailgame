@@ -92,8 +92,11 @@ namespace PerformativeMail.Sim
             bool special = _shopSpecials.Contains(def);
             var verdict = ShopRules.Check(def, Run.Shift, special, _shopOwned.Contains(def));
             if (verdict != OpResult.Ok) return verdict;
+            verdict = ShopRules.VehicleCheck(def, _vehicles.Count, PresentCount);
+            if (verdict != OpResult.Ok) return verdict;
             int price = ShopRules.Price(def, special, ShopRules.DiscountPermille(Content.Balance));
             if (Economy.Wallet < price) return OpResult.CantAfford;
+            if (def.Kind == ShopKind.Vehicle && (def.Vehicle == null || AddVehicle(def.Vehicle, player.Id) == null)) return OpResult.NoParking;
 
             if (def.Kind == ShopKind.Item)
             {

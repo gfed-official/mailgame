@@ -56,6 +56,13 @@ namespace PerformativeMail.Sim.Run
             return OpResult.Ok;
         }
 
+        /// <summary>
+        /// A vehicle seats one (doc 04 §3.1 Bike): the counter sells the team one for each carrier
+        /// there is, no more. Ok for every other kind of entry.
+        /// </summary>
+        public static OpResult VehicleCheck(ShopItemDef def, int vehicles, int carriers) =>
+            def.Kind == ShopKind.Vehicle && vehicles >= Math.Max(1, carriers) ? OpResult.OnePerCarrier : OpResult.Ok;
+
         /// <summary>What is used from the hand goes to the hotbar first; materials to the inventory.</summary>
         public static bool HotbarFirst(ItemDef item) => item.Category == "consumable" || item.Category == "tool";
 

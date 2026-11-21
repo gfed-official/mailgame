@@ -337,4 +337,38 @@ namespace PerformativeMail.Sim
     {
         public ushort Destination;
     }
+
+    /// <summary>A vehicle is bought (doc 10 §3) and stands parked by the counter.</summary>
+    public sealed class VehicleAddedEvent : SimEvent
+    {
+        public EntityId Vehicle;
+        /// <summary>Index into ContentDb.Vehicles.</summary>
+        public byte Def;
+        public float X, Z;
+        public float Heading;
+        public uint CargoContainer;
+        public EntityId Buyer;
+    }
+
+    /// <summary>A carrier gets into the saddle: the vehicle goes where they go until they get off.</summary>
+    public sealed class VehicleMountedEvent : SimEvent
+    {
+        public EntityId Vehicle;
+        public EntityId Player;
+    }
+
+    /// <summary>The rider is off (by the jump key, going down, the connection lost): the vehicle stands here.</summary>
+    public sealed class VehicleParkedEvent : SimEvent
+    {
+        public EntityId Vehicle;
+        public float X, Z;
+        public float Heading;
+        /// <summary>Who got off.</summary>
+        public EntityId Player;
+    }
+
+    /// <summary>A run ends or begins: no vehicle is left.</summary>
+    public sealed class VehiclesClearedEvent : SimEvent
+    {
+    }
 }

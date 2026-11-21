@@ -66,6 +66,14 @@ namespace PerformativeMail.Sim.Inventory
         Occupied,
         /// <summary>A chest is taken down empty.</summary>
         NotEmpty,
+        /// <summary>Vehicles (doc 04 §3.1): the team has one for each carrier already.</summary>
+        OnePerCarrier,
+        /// <summary>No free spot by the counter to park what is bought.</summary>
+        NoParking,
+        /// <summary>Somebody rides it.</summary>
+        Ridden,
+        /// <summary>The carrier is in a saddle already.</summary>
+        AlreadyRiding,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

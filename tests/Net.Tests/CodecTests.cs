@@ -158,7 +158,7 @@ namespace PerformativeMail.Net.Tests
             var m = new SnapshotMsg
             {
                 Tick = 1234, AckSeq = 99, HasOwn = true,
-                Own = new PlayerMoveState { X = 12.3456f, Y = 0.777f, Z = 45.6789f, VelY = -3.25f, Grounded = false },
+                Own = new PlayerMoveState { X = 12.3456f, Y = 0.777f, Z = 45.6789f, VelY = -3.25f, Grounded = false, Ride = 1, RideSpeed = 7.25f, HeadX = 0.6f, HeadZ = -0.8f },
                 OwnSpeedMult = 0.87f, HasGlobal = true,
                 Global = new GlobalState
                 {
@@ -167,7 +167,7 @@ namespace PerformativeMail.Net.Tests
                     Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true,
                 },
             };
-            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, HeldTool = 17, Ready = true });
+            m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, HeldTool = 17, Ready = true, Ride = 1, Heading = MathF.PI / 2f });
             var w = new NetWriter();
             m.Write(w);
             var back = SnapshotMsg.Read(Body(w, MsgType.Snapshot));
@@ -179,6 +179,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(m.Own.VelY, back.Own.VelY);
             Assert.False(back.Own.Grounded);
             Assert.Equal(0.87f, back.OwnSpeedMult);
+            // The rider's own vehicle state, unquantised, for the replay of their prediction.
+            Assert.Equal(((byte)1, 7.25f, 0.6f, -0.8f), (back.Own.Ride, back.Own.RideSpeed, back.Own.HeadX, back.Own.HeadZ));
             Assert.Equal(m.Global, back.Global);
             var p = Assert.Single(back.Players);
             Assert.Equal(m.Players[0].Id, p.Id);
@@ -191,6 +193,9 @@ namespace PerformativeMail.Net.Tests
             Assert.True(p.Ready);
             Assert.False(p.Protected);
             Assert.False(p.Away);
+            // Somebody else in a saddle: the vehicle, and its heading in 256 steps.
+            Assert.Equal(1, p.Ride);
+            Assert.Equal(MathF.PI / 2f, p.Heading, 3);
         }
 
         [Fact]
@@ -257,6 +262,10 @@ namespace PerformativeMail.Net.Tests
                 new ConstructRemovedEvent { X = 14, Y = 9, Player = player, Destroyed = true },
                 new ConstructDamagedEvent { X = 15, Y = 9, Hp = 40000 },
                 new ConstructsClearedEvent(),
+                new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
+                new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
+                new VehicleParkedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), X = 60.75f, Z = 28f, Heading = -2.5f, Player = player },
+                new VehiclesClearedEvent(),
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -337,6 +346,13 @@ namespace PerformativeMail.Net.Tests
                 (placed.Player, placed.Building, placed.X, placed.Y, placed.Rotation, placed.Hp, placed.ContainerId));
             var removed = (ConstructRemovedEvent)back[35];
             Assert.Equal(((byte)14, (byte)9, player, true), (removed.X, removed.Y, removed.Player, removed.Destroyed));
+            var bike = new EntityId(EntityClass.Vehicle, 3);
+            var added = (VehicleAddedEvent)back[38];
+            Assert.Equal((bike, (byte)0, 14.5f, 22.25f, 1.5f, 4022u, player), (added.Vehicle, added.Def, added.X, added.Z, added.Heading, added.CargoContainer, added.Buyer));
+            var mounted = (VehicleMountedEvent)back[39];
+            Assert.Equal((bike, player), (mounted.Vehicle, mounted.Player));
+            var parked = (VehicleParkedEvent)back[40];
+            Assert.Equal((bike, 60.75f, 28f, -2.5f, player), (parked.Vehicle, parked.X, parked.Z, parked.Heading, parked.Player));
             var damaged = (ConstructDamagedEvent)back[36];
             Assert.Equal(((byte)15, (byte)9, (ushort)40000), (damaged.X, damaged.Y, damaged.Hp));
         }
@@ -348,7 +364,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((RequestKind.PlaceConstruct, (ushort)1, (byte)14, (byte)9, (ushort)3), (place.Kind, place.DestId, place.X, place.Y, place.Count));
             var remove = SimRequest.RemoveConstruct(10, 14, 9);
             Assert.Equal((RequestKind.RemoveConstruct, (byte)14, (byte)9), (remove.Kind, remove.X, remove.Y));
-            foreach (var q in new[] { place, remove })
+            var mount = SimRequest.Mount(11, new EntityId(EntityClass.Vehicle, 3).Value);
+            Assert.Equal((RequestKind.Mount, new EntityId(EntityClass.Vehicle, 3).Value), (mount.Kind, mount.EntryId));
+            foreach (var q in new[] { place, remove, mount })
             {
                 var w = new NetWriter();
                 RequestMsg.Write(w, q);
@@ -406,6 +424,8 @@ namespace PerformativeMail.Net.Tests
             m.Nodes.Add(new NodeInfo { Node = 317, HitsLeft = 4 });
             m.Constructs.Add(new ConstructInfo { Building = 0, X = 14, Y = 9, Rotation = 1, Hp = 180 });
             m.Constructs.Add(new ConstructInfo { Building = 1, X = 15, Y = 9, Rotation = 3, Hp = 200, ContainerId = 4021 });
+            m.Vehicles.Add(new VehicleInfo { Id = new EntityId(EntityClass.Vehicle, 1), Def = 0, X = 14f, Z = 25f, Heading = 0.5f, CargoContainer = 4030 });
+            m.Vehicles.Add(new VehicleInfo { Id = new EntityId(EntityClass.Vehicle, 2), Def = 0, X = 40f, Z = 28f, Heading = -1f, CargoContainer = 4031, Rider = owner });
             var w = new NetWriter();
             m.Write(w);
             var back = WelcomeMsg.Read(Body(w, MsgType.Welcome));
@@ -413,6 +433,10 @@ namespace PerformativeMail.Net.Tests
             // What stands built, in the order it was built.
             Assert.Equal(new[] { ((byte)0, (byte)14, (byte)9, (byte)1, (ushort)180, 0u), ((byte)1, (byte)15, (byte)9, (byte)3, (ushort)200, 4021u) },
                 back.Constructs.Select(c => (c.Building, c.X, c.Y, c.Rotation, c.Hp, c.ContainerId)));
+
+            // The vehicles of the run, parked or ridden.
+            Assert.Equal(new[] { (new EntityId(EntityClass.Vehicle, 1), (byte)0, 14f, 25f, 0.5f, 4030u, EntityId.None), (new EntityId(EntityClass.Vehicle, 2), (byte)0, 40f, 28f, -1f, 4031u, owner) },
+                back.Vehicles.Select(v => (v.Id, v.Def, v.X, v.Z, v.Heading, v.CargoContainer, v.Rider)));
 
             // The nodes somebody has swung at, and what each has left.
             Assert.Equal(new[] { ((ushort)12, (byte)0), ((ushort)317, (byte)4) }, back.Nodes.Select(n => (n.Node, n.HitsLeft)));
