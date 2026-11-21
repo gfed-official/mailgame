@@ -379,6 +379,13 @@ namespace PerformativeMail.Sim.World
                 for (int x = ptx - 20; x <= ptx + 20; x++)
                     if (map.InBounds(x, z) && (map.GetTile(x, z) == TileType.Grass || map.GetTile(x, z) == TileType.Beach) && !map.IsNavBlocked(x, z)) open++;
             if (open < 400) return $"only {open} open tiles by the Post Office";
+            // The streets one network (doc 02 §3.8), every mailbox at the side of one.
+            if (!map.Routes.Connected()) return "the streets are not one network";
+            foreach (var d in map.Destinations)
+            {
+                map.Routes.NearestEdge(d.MailboxX, d.MailboxZ, out _, out _, out float off);
+                if (off > 6f) return $"the mailbox of {map.FormatAddress(d.Address)} is {off:F1} m from a street";
+            }
             // Resource minimums: wood, stone and ore, fiber and berries, sand enough to build with.
             foreach (var (kind, least) in ResourceMinimums)
             {

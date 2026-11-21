@@ -125,6 +125,8 @@ namespace PerformativeMail.Sim.World
         public IslandTerrain? Terrain { get; init; }
         /// <summary>Street furniture and greenery, derived from the map itself (<see cref="Scenery"/>).</summary>
         public IReadOnlyList<Prop> Props { get; private set; } = Array.Empty<Prop>();
+        /// <summary>The streets as a graph (doc 02 §3.8): routes, lengths, the map's ways in.</summary>
+        public RoutingGraph Routes { get; private set; } = new RoutingGraph();
 
         /// <summary>FNV-1a 64 of the tile and address tables and the chests; the M0 stand-in for worldHash (doc 02 §2).</summary>
         public ulong MapHash { get; private set; }
@@ -222,6 +224,7 @@ namespace PerformativeMail.Sim.World
             }
             MapHash = h.Value;
             Props = Scenery.Generate(this);
+            Routes = RoutingGraph.Build(this);
             IndexProps();
         }
 

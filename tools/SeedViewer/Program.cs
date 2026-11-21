@@ -110,7 +110,7 @@ namespace PerformativeMail.Tools.SeedViewer
                     $", island {t.Cols}x{t.Rows} land {100.0 * land / t.Biomes.Length:F0}% (forest {Share(Biome.Forest)}% rocky {Share(Biome.Rocky)}% beach {Share(Biome.Beach)}%), top {t.MaxHeightCm / 100.0:F1} m");
             }
             return string.Create(CultureInfo.InvariantCulture,
-                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count} houses, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}){island}, worldHash {map.MapHash:x16}");
+                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count} houses, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}), routes {map.Routes.Nodes.Count} nodes {map.Routes.Edges.Count} edges {map.Routes.TotalLength:F0} m{island}, worldHash {map.MapHash:x16}");
         }
 
         public static string Draw(WorldMap map)
