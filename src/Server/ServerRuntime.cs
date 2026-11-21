@@ -37,7 +37,17 @@ namespace PerformativeMail.Server
         }
 
         public SimWorld World { get; }
-        public uint ProtocolHash { get; }
+        public uint ProtocolHash { get; private set; }
+        /// <summary>
+        /// After a hot reload of the content this server runs on (doc 07 §6): the sim reads its
+        /// numbers again, and from now on only a client with the new content may join.
+        /// </summary>
+        public void ContentReloaded()
+        {
+            ProtocolHash = Protocol.Hash(World.Content);
+            World.ContentReloaded();
+        }
+
         public int ClientCount => _clients.Count;
         /// <summary>CPU time of the most recent tick, in milliseconds (sim step + replication).</summary>
         public double LastTickMs { get; private set; }

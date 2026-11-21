@@ -108,14 +108,15 @@ namespace PerformativeMail.Sim
         private readonly List<PendingRequest> _requests = new List<PendingRequest>();
         private readonly EntityIdAllocator _entityIds = new EntityIdAllocator();
         private readonly EntryIdAllocator _entryIds = new EntryIdAllocator();
-        private readonly MoveConstants _move;
-        private readonly int _maxPlayers;
-        private readonly float _serverInteractRange;
-        private readonly float _serverShopRange;
-        private readonly int _rewindTicks;
-        private readonly float _minInsertHold;
-        private readonly int _weightLight, _weightMedium, _weightHeavy;
-        private readonly float _weightPerPoint, _weightFloor;
+        // The balance's numbers as the sim uses them; read again after a hot reload (ContentReloaded).
+        private MoveConstants _move;
+        private int _maxPlayers;
+        private float _serverInteractRange;
+        private float _serverShopRange;
+        private int _rewindTicks;
+        private float _minInsertHold;
+        private int _weightLight, _weightMedium, _weightHeavy;
+        private float _weightPerPoint, _weightFloor;
         private uint _nextContainerId = 1;
 
         public SimWorld(ContentDb content, SimSettings? settings = null)
@@ -124,9 +125,23 @@ namespace PerformativeMail.Sim
             Settings = settings ?? new SimSettings();
             Map = WorldGenerator.Resolve(content, Settings.MapId, Settings.Seed);
             var b = content.Balance;
-            _move = MoveConstants.From(content);
-            _combat = new CombatTuning(b);
+            ReadTunables();
             ResetCombatRng();
+
+            Economy = new Economy(b, content.MailKinds.Count);
+            Intake = CreateContainer("po_intake", EntityId.None, Map.PostOffice.IntakeX, Map.PostOffice.IntakeZ).Container;
+            Spawner = new MailSpawner(content, Map, Intake, _entryIds, Settings.Seed);
+            foreach (var chest in Map.Chests)
+                _mapChests.Add(CreateContainer(chest.Container.Id, EntityId.None, chest.X, chest.Z).Container);
+            Nodes = new NodeField(content, Map);
+            Constructs = new ConstructField(Map);
+        }
+
+        private void ReadTunables()
+        {
+            var b = Content.Balance;
+            _move = MoveConstants.From(Content);
+            _combat = new CombatTuning(b);
             _maxPlayers = b.GetInt("maxPlayers");
             _serverInteractRange = b.GetFloat("serverInteractRange");
             _serverShopRange = b.GetFloat("serverShopRange");
@@ -141,15 +156,34 @@ namespace PerformativeMail.Sim
             // The hold is timed on the client; the server only refuses deliveries that come
             // implausibly fast (MinDeliverIntervalTicks).
             _minInsertHold = 0.4f;
-            foreach (var t in content.DestinationTypes) _minInsertHold = Math.Min(_minInsertHold, t.ManualInsertHold);
+            foreach (var t in Content.DestinationTypes) _minInsertHold = Math.Min(_minInsertHold, t.ManualInsertHold);
+        }
 
-            Economy = new Economy(b, content.MailKinds.Count);
-            Intake = CreateContainer("po_intake", EntityId.None, Map.PostOffice.IntakeX, Map.PostOffice.IntakeZ).Container;
-            Spawner = new MailSpawner(content, Map, Intake, _entryIds, Settings.Seed);
-            foreach (var chest in Map.Chests)
-                _mapChests.Add(CreateContainer(chest.Container.Id, EntityId.None, chest.X, chest.Z).Container);
-            Nodes = new NodeField(content, Map);
-            Constructs = new ConstructField(Map);
+        /// <summary>
+        /// After <see cref="ContentDb.ReloadFrom"/> (hot reload, doc 07 §6): the balance's numbers
+        /// are read again and the perks taken are applied again over them. A carrier's health
+        /// keeps its share of the new maximum; what is under way (a Delivery's quota, a raid
+        /// already scheduled) stays as it was sampled.
+        /// </summary>
+        public void ContentReloaded()
+        {
+            float oldMaxHp = _combat.PlayerHp;
+            ReadTunables();
+            Economy.Retune(Content.Balance);
+            _teamStats.Clear();
+            foreach (var perk in _teamPerks) _teamStats.Apply(perk);
+            foreach (var p in _players)
+            {
+                p.Stats.Clear();
+                foreach (var perk in p.Perks) p.Stats.Apply(perk);
+                if (p.MaxHp == oldMaxHp && oldMaxHp > 0f)
+                {
+                    float share = p.Hp / p.MaxHp;
+                    p.MaxHp = _combat.PlayerHp;
+                    if (!p.Dead) p.Hp = Math.Max(1f, MathF.Round(p.MaxHp * share, 2));
+                }
+                RecomputeWeight(p);
+            }
         }
 
         public MoveConstants MoveConstants => _move;

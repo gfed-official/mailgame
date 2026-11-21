@@ -82,12 +82,18 @@ namespace PerformativeMail.Client.Presentation
         {
             _client = client;
             _players = players;
-            var balance = client.World!.Content.Balance;
+            ContentReloaded();
+            client.EventReceived += OnEvent;
+        }
+
+        /// <summary>The balance's numbers for the shots and swings drawn; read again after a hot reload.</summary>
+        public void ContentReloaded()
+        {
+            var balance = _client.World!.Content.Balance;
             _cannonSpeed = balance.GetFloat("cannonSpeed");
             _cannonRange = balance.GetFloat("cannonRange");
             _blastRadius = balance.GetFloat("cannonBlastRadius");
             _hammerRange = balance.GetFloat("hammerRange");
-            client.EventReceived += OnEvent;
         }
 
         public override void _ExitTree()

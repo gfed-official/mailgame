@@ -599,6 +599,20 @@ namespace PerformativeMail.Client
             return perk.Team ? $"{who} {verb} {perk.Name} for the team" : $"{who} {verb} {perk.Name}";
         }
 
+        // --- hot reload (doc 07 §6: F6 in a debug build) ---------------------------------------------
+
+        public const string HotReloadNotHost = "Content reload is the host's (F6)";
+        public const string HotReloadWithGuests = "Content not reloaded: guests are in the game, their content could not follow";
+
+        public static string HotReloaded(ContentDb content) => $"Content reloaded · hash {content.ContentHash:x8}";
+
+        /// <summary>The first thing in the way, and how many more there are (the log has them all).</summary>
+        public static string HotReloadRefused(IReadOnlyList<string> problems)
+        {
+            string first = problems.Count > 0 ? problems[0] : "unknown";
+            return problems.Count > 1 ? $"Content not reloaded: {first} (+{problems.Count - 1} more)" : $"Content not reloaded: {first}";
+        }
+
         // --- the shop (doc 09 §2.8) and what is used from the hand ---------------------------------
 
         public const string UseKey = "[Q]";

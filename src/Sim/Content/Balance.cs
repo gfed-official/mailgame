@@ -14,6 +14,14 @@ namespace PerformativeMail.Sim.Content
         public Balance(Dictionary<string, double[]> values) { _values = values; }
 
         public bool Has(string key) => _values.ContainsKey(key);
+
+        /// <summary>Hot reload: this table takes the other's values, so whoever holds it reads the new ones.</summary>
+        internal void TakeOver(Balance other)
+        {
+            if (ReferenceEquals(other, this)) return;
+            _values.Clear();
+            foreach (var pair in other._values) _values[pair.Key] = pair.Value;
+        }
         public IEnumerable<string> Keys => _values.Keys;
 
         public double GetDouble(string key)

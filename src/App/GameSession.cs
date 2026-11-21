@@ -54,6 +54,8 @@ namespace PerformativeMail.App
         public int StartWallet;
 
         public bool HasJoined { get; private set; }
+        /// <summary>Raised after a hot reload took: what drew with the old numbers reads them again.</summary>
+        public event Action? ContentReloaded;
 
         private EnetServerTransport? _enetServer;
         private EnetClientTransport? _enetClient;
@@ -85,6 +87,31 @@ namespace PerformativeMail.App
             Server.Log = line => GD.Print("[server] ", line);
             if (_enetServer != null) GD.Print($"[server] listening on UDP port {_enetServer.Port}");
             StartClient(content, hub.CreateClient(), profile, store);
+        }
+
+        /// <summary>
+        /// Hot reload (doc 07 §6, F6 in a debug build): the host's content is read again from
+        /// <paramref name="source"/> and, if it passes the validator and has the same ids, maps
+        /// and street names, its numbers are taken over by the server, the local client and the
+        /// screen, and the perks taken are applied again. A guest's content could not follow, so
+        /// only a host alone in the game may. The feed says what happened.
+        /// </summary>
+        public bool HotReload(IContentSource source)
+        {
+            if (Server == null || Client.World == null) { Feed.Add(HudText.HotReloadNotHost, bad: true); return false; }
+            if (Server.ClientCount > 1) { Feed.Add(HudText.HotReloadWithGuests, bad: true); return false; }
+            if (!Content.ReloadFrom(source, out var problems))
+            {
+                foreach (string problem in problems) GD.PrintErr("[content] ", problem);
+                Feed.Add(HudText.HotReloadRefused(problems), bad: true);
+                return false;
+            }
+            Server.ContentReloaded();
+            Client.ContentReloaded();
+            ContentReloaded?.Invoke();
+            GD.Print($"[content] reloaded, content hash {Content.ContentHash:x8}");
+            Feed.Add(HudText.HotReloaded(Content));
+            return true;
         }
 
         /// <summary>Joins a host over ENet. False when no socket could be made; a host that never answers ends in <see cref="ConnectionEnded"/>.</summary>

@@ -272,6 +272,7 @@ namespace PerformativeMail.App
                         Check(hud.HintText.Contains("ready", StringComparison.Ordinal), $"in Prep the HUD hint is \"{hud.HintText}\"");
                         Check(server.Intake.EntryCount == 0, "mail arrived during Prep");
                         Shot("prep");
+                        CheckHotReload();
                         // A solo host may stop the clock (doc 01 §1); Prep goes on once that is checked.
                         if (client.TogglePause() == 0) Fail("the solo host could not ask for a pause");
                         else Enter(Stage.Pause);

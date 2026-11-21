@@ -247,7 +247,7 @@ namespace PerformativeMail.Client
         public float LocalSpeedMult { get; internal set; } = 1f;
         /// <summary>The local player's health, exact (other players' comes in 255ths).</summary>
         public float LocalHp { get; internal set; }
-        public float LocalMaxHp { get; }
+        public float LocalMaxHp { get; private set; }
         /// <summary>Server tick of the snapshot in which the local health last dropped.</summary>
         public uint LocalHurtTick { get; internal set; }
         /// <summary>While the local player is down: the tick they stand up again.</summary>
@@ -450,6 +450,16 @@ namespace PerformativeMail.Client
 
         /// <summary>The Draft's cards lie before the local player and one of them is still theirs to take: a click or a key takes it.</summary>
         public bool ChoosingCard => Global.Phase == RunPhase.Draft && FirstOpenCard >= 0;
+
+        /// <summary>After a hot reload: the most health from the balance again, the perks' sheets from their new values.</summary>
+        internal void ContentReloaded()
+        {
+            LocalMaxHp = Content.Balance.GetFloat("playerHp");
+            _teamStats.Clear();
+            foreach (var perk in TeamPerks) _teamStats.Apply(perk);
+            _localStats.Clear();
+            foreach (var perk in LocalPerks) _localStats.Apply(perk);
+        }
 
         internal void AddPerk(EntityId holder, PerkDef perk)
         {

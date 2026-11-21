@@ -85,7 +85,7 @@ namespace PerformativeMail.Sim
         private const uint LootSettleTicks = 15;
         private const uint LootRetryTicks = 30;
 
-        private readonly CombatTuning _combat;
+        private CombatTuning _combat = null!;
         private readonly List<Enemy> _enemies = new List<Enemy>();
         private readonly List<LootBundle> _loot = new List<LootBundle>();
         private readonly List<Shot> _shots = new List<Shot>();

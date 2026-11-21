@@ -22,7 +22,7 @@ namespace PerformativeMail.Sim.Content
     /// All loaded content as immutable defs (doc 07 §6). Loading validates against the chapter 08 rules;
     /// the same code path backs boot-time validation and tools/ContentValidator.
     /// </summary>
-    public sealed class ContentDb
+    public sealed partial class ContentDb
     {
         public IReadOnlyList<MailKindDef> MailKinds { get; private set; } = Array.Empty<MailKindDef>();
         public IReadOnlyList<DestinationTypeDef> DestinationTypes { get; private set; } = Array.Empty<DestinationTypeDef>();

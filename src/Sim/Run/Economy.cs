@@ -8,9 +8,9 @@ namespace PerformativeMail.Sim.Run
     /// <summary>Team wallet, shift earnings and complaint meter (doc 03 §4.1, doc 01 §3.3). Integer ¢ throughout.</summary>
     public sealed class Economy
     {
-        private readonly int _complaintMax;
-        private readonly uint _decayIntervalTicks;
-        private readonly int _bonusPermille;
+        private int _complaintMax;
+        private uint _decayIntervalTicks;
+        private int _bonusPermille;
         private uint _decayTimer;
 
         public int Wallet { get; private set; }
@@ -31,11 +31,18 @@ namespace PerformativeMail.Sim.Run
 
         public Economy(Balance balance, int mailKinds = 0)
         {
+            Retune(balance);
+            ShiftDeliveriesByKind = new int[mailKinds];
+        }
+
+        /// <summary>The balance's numbers, read again after a hot reload; the money and the meter stay.</summary>
+        public void Retune(Balance balance)
+        {
             _complaintMax = balance.GetInt("complaintMax");
             double perSecond = balance.GetDouble("complaintDecayPerSecond");
             _decayIntervalTicks = perSecond > 0 ? SimConstants.SecondsToTicks(1.0 / perSecond) : 0;
             _bonusPermille = (int)Math.Round(balance.GetDouble("zeroMisdeliveryBonus") * 1000.0);
-            ShiftDeliveriesByKind = new int[mailKinds];
+            Complaint = Math.Min(Complaint, _complaintMax);
         }
 
         public void Apply(in DeliveryResult result, int kind = -1)

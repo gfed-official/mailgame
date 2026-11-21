@@ -56,6 +56,8 @@ grep -q "^\[smoke\] draft: .* a card taken by its key" "$work/log" || { echo "sm
 grep -q "^\[smoke\] playtest: .* a card of the Draft taken with a click" "$work/log-playtest" || { echo "smoke: no card of the Draft was taken with a click" >&2; exit 1; }
 # Build mode (doc 09 §2.7): the full run builds by hand with what the land gave.
 grep -q "^\[smoke\] build: a Wooden Wall and a Chest built" "$work/log" || { echo "smoke: nothing was built in Build mode" >&2; exit 1; }
+# Hot reload (doc 07 §6): a changed number taken at once, a broken file turned away, the files back.
+grep -q "^\[smoke\] hot reload: walk speed" "$work/log" || { echo "smoke: the content was not hot reloaded" >&2; exit 1; }
 # The starting kit (doc 03 §4.4): the Land kit in the pockets, the team's in the chest and by the counter.
 grep -q "^\[smoke\] kit: the Land kit" "$work/log" || { echo "smoke: the starting kit was not handed out" >&2; exit 1; }
 # The host's world in the Lobby (doc 06 §5): over to the seed's island, a new seed, and back.

@@ -44,6 +44,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string World = "world", Seed = "seed";
         /// <summary>The map overlay (doc 09 §4: M).</summary>
         public const string Map = "map";
+        /// <summary>Hot reload of the content in a debug build (doc 07 §6: F6).</summary>
+        public const string ReloadContent = "reload_content";
 
         private static readonly HashSet<string> Created = new HashSet<string>();
 
@@ -68,6 +70,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Kit, Key.K);
             BindKey(World, Key.V);
             BindKey(Seed, Key.N);
+            BindKey(ReloadContent, Key.F6);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);
 

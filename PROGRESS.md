@@ -835,7 +835,7 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             to the island with V (the screen rebuilt, the host on its pad, out of the saddle),
             draws a new seed with N, and goes back to the test street from its own seed for the
             stages that follow (`lobby-island.png`)
-- [ ] Content pipeline: JSON defs, validator in CI, hot reload
+- [x] Content pipeline: JSON defs, validator in CI, hot reload
       - [x] JSON defs and the validator (`tools/validate-content.sh`, run by `tools/smoke.sh`)
       - [x] **The CI job** (doc 07 §10; design choice 89). `.github/workflows/ci.yml`: three jobs
             on every push and pull request — the content validator, the Sim and Net tests, and
@@ -847,7 +847,23 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             naming it. Not run on GitHub from here (nothing is pushed); every stage passed
             locally. The export of the dedicated server and clients (doc 07 §10's second line)
             waits for export presets.
-      - [ ] hot reload (F6 in a debug build)
+      - [x] **Hot reload, F6 in a debug build** (doc 07 §6; design choice 90).
+            `ContentDb.ReloadFrom` loads and validates the files as at boot; if every table
+            still has the same ids in the same order and the maps and street names are the same,
+            the new values are copied into the defs already loaded (their defs inside — a
+            recipe's Log, a bike's cargo grid — stay the loaded ones), the balance table is
+            swapped in place and the content hash is the new one. Then the server reads its
+            numbers again and applies the perks taken again over them (a carrier's health keeps
+            its share of a new maximum), the host's client predicts with the new numbers, the
+            screen's shots and swings read theirs, and only a guest with the new content gets in
+            (`ServerRuntime.ContentReloaded`, `ClientRuntime.ContentReloaded`). An id added,
+            removed or moved, a changed map or broken content is refused, nothing changes, and
+            the feed says what was in the way ("Content not reloaded: …"; the log has all of it).
+            Only a host alone in the game may: a guest's content could not follow.
+            `ContentReloadTests` (6), `HotReloadFlowTests` (the prediction keeps with the
+            server at a new walk speed; a guest on the old content is turned away); the smoke's
+            first Prep reloads through `res://content` with the walk speed changed, then a
+            broken balance.json, then the files as they are, and checks each.
 - [x] Results screen and MetaProfile persistence (XP only) — the run / shift loop above. The
       unlocks table is not wired yet.
 - [ ] Resource nodes and harvesting (wood, fiber, stone, ore); hand-built Wooden Wall and Chest
@@ -1882,6 +1898,13 @@ See "Commands" at the bottom (filled in as the tooling lands).
     connects a bot for 60 s"; `tools/smoke.sh` is that and more (two runs, an ENet guest, the
     island bot), so CI runs it rather than a second, smaller smoke. The workflow sits in the
     repo but is unproven until the repo is pushed to a host that runs it.
+90. **Hot reload in place.** Doc 07 §6 says "reloads content and re-applies perks". The defs
+    are immutable to the game, but everything holds them by reference (constructs, vehicles,
+    stacks, perks taken, the shop's shelf), so the new values are copied into the loaded defs
+    by reflection rather than a new ContentDb swapped in, and anything whose index or id would
+    move needs a restart. What was sampled stays sampled (a Delivery's quota, a raid already
+    scheduled, a construct's HP), as with a perk taken mid-shift. F6 does nothing in a release
+    build.
 
 ## Commands
 
@@ -1910,6 +1933,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
 # in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed
+# in a debug build: F6 reloads content/ (a host alone in the game; the feed says whether it took)
 # in a run: M puts up the map with the way to the house of the mail in your hand
 
 # pictures of the world from a tour of viewpoints (and the frame time), then quit:

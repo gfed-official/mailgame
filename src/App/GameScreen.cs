@@ -46,7 +46,14 @@ namespace PerformativeMail.App
         }
 
         // The host picked another world in the Lobby: everything drawn of the old one goes.
-        public override void _EnterTree() => _session.Client.WorldReplaced += Rebuild;
+        public override void _EnterTree()
+        {
+            _session.Client.WorldReplaced += Rebuild;
+            _session.ContentReloaded += OnContentReloaded;
+        }
+
+        // A hot reload (F6): what is drawn from the balance's numbers reads them again.
+        private void OnContentReloaded() => Effects.ContentReloaded();
 
         /// <summary>
         /// The world was replaced (doc 06 §5): the views of the old map are let go and made anew
@@ -135,6 +142,7 @@ namespace PerformativeMail.App
             _input.Setup(client, session.Interaction, Mouse, session.Build);
             _input.InventoryToggled += () => _inventoryOpen = !_inventoryOpen;
             _input.MapToggled += Map.Toggle;
+            _input.ContentReloadAsked += () => session.HotReload(new GodotContentSource());
             _input.MapOpen = () => Map.Visible;
             _input.Cancelled += () =>
             {
@@ -171,6 +179,7 @@ namespace PerformativeMail.App
         public override void _ExitTree()
         {
             if (_session != null) _session.Client.WorldReplaced -= Rebuild;
+            if (_session != null) _session.ContentReloaded -= OnContentReloaded;
             if (_input != null && _session != null) _session.InputSource = null;
         }
     }

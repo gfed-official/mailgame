@@ -92,15 +92,15 @@ namespace PerformativeMail.Client
 
         private readonly ContentDb _content;
         private readonly IClientTransport _transport;
-        private readonly MoveConstants _move;
+        private MoveConstants _move;
         private readonly NetWriter _writer = new NetWriter(256);
         private readonly List<PlayerInput> _pendingInputs = new List<PlayerInput>();
         private readonly InputsMsg _inputsMsg = new InputsMsg();
         private readonly Dictionary<uint, SimRequest> _pendingRequests = new Dictionary<uint, SimRequest>();
         private readonly List<ushort> _enemyScratch = new List<ushort>();
         private readonly List<SimEvent> _early = new List<SimEvent>();
-        private readonly uint _hammerCooldownTicks, _cannonCooldownTicks;
-        private readonly float _shopRange;
+        private uint _hammerCooldownTicks, _cannonCooldownTicks;
+        private float _shopRange;
         private uint _hammerReadySeq, _cannonReadySeq;
         private uint _nextSeq = 1;
         private uint _nextRequestId = 1;
@@ -119,11 +119,27 @@ namespace PerformativeMail.Client
             StartShift = Math.Clamp(startShift, 0, byte.MaxValue);
             _content = content;
             _transport = transport;
-            _move = MoveConstants.From(content);
-            _hammerCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("hammerCooldownSeconds"));
-            _cannonCooldownTicks = SimConstants.SecondsToTicks(content.Balance.GetDouble("cannonCooldownSeconds"));
-            _shopRange = content.Balance.GetFloat("shopRange");
+            ReadTunables();
             Name = name;
+        }
+
+        private void ReadTunables()
+        {
+            _move = MoveConstants.From(_content);
+            _hammerCooldownTicks = SimConstants.SecondsToTicks(_content.Balance.GetDouble("hammerCooldownSeconds"));
+            _cannonCooldownTicks = SimConstants.SecondsToTicks(_content.Balance.GetDouble("cannonCooldownSeconds"));
+            _shopRange = _content.Balance.GetFloat("shopRange");
+        }
+
+        /// <summary>
+        /// After a hot reload of the content this client runs on (doc 07 §6; the host's own client
+        /// shares the server's): the prediction steps with the new numbers, the perks taken count
+        /// with their new values.
+        /// </summary>
+        public void ContentReloaded()
+        {
+            ReadTunables();
+            World?.ContentReloaded();
         }
 
         /// <summary>Real-time driver: polls the network once, then runs the fixed client ticks the elapsed time covers.</summary>

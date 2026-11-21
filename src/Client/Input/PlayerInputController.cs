@@ -20,6 +20,8 @@ namespace PerformativeMail.Client.InputHandling
         public event Action? Cancelled;
         /// <summary>Raised by the map key, and by Esc while the map is open.</summary>
         public event Action? MapToggled;
+        /// <summary>F6 in a debug build: the content is to be read again (doc 07 §6).</summary>
+        public event Action? ContentReloadAsked;
         /// <summary>True while the map is up: Esc puts it down first.</summary>
         public Func<bool>? MapOpen;
 
@@ -136,6 +138,7 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Kit) && !UiOpen) _client.CycleKit();
             else if (ev.IsActionPressed(InputActions.World) && !UiOpen) _client.CycleWorld();
             else if (ev.IsActionPressed(InputActions.Seed) && !UiOpen) _client.NewSeed();
+            else if (ev.IsActionPressed(InputActions.ReloadContent) && OS.IsDebugBuild()) ContentReloadAsked?.Invoke();
         }
 
         /// <summary>

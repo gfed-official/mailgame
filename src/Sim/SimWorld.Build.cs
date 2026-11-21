@@ -17,7 +17,7 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed partial class SimWorld
     {
-        private readonly float _serverBuildRange;
+        private float _serverBuildRange;
 
         private OpResult PlaceConstructOp(Player player, in SimRequest r)
         {
