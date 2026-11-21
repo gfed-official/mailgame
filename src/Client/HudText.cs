@@ -205,7 +205,8 @@ namespace PerformativeMail.Client
                     for (int i = 0; i < world.DraftOffer.Count; i++)
                         if (world.CardState(i) == OpResult.Ok) keys += " " + CardKey(i);
                     if (keys.Length == 0) return $"No card is open to you   ·   shift {g.Shift + 1} in {Clock(world.PhaseSecondsLeft)}";
-                    return $"Take a perk:{keys}   ·   {players - waiting} / {players} have chosen";
+                    string newCards = world.CanReroll ? $"   ·   {RerollKey} new cards" : "";
+                    return $"Take a perk:{keys}{newCards}   ·   {players - waiting} / {players} have chosen";
                 }
                 case RunPhase.Results:
                     return world.IsHost ? $"Press {GoKey} to return to the lobby" : $"Waiting for {host} to return to the lobby";
@@ -468,6 +469,29 @@ namespace PerformativeMail.Client
         /// <summary>The key that takes a card: "[1]".</summary>
         public static string CardKey(int card) => card == 9 ? "[0]" : card == 10 ? "[-]" : card == 11 ? "[=]" : $"[{(card + 1).ToString(CultureInfo.InvariantCulture)}]";
 
+        public const string RerollKey = RotateKey;
+
+        /// <summary>Under the cards (doc 09 §2.10 "reroll button with remaining count"); empty once the card is chosen.</summary>
+        public static string RerollLine(ClientWorld world)
+        {
+            if (world.Global.Phase != RunPhase.Draft || world.DraftOffer.Count == 0 || world.LocalDraftPick >= 0) return "";
+            return world.RerollsLeft > 0
+                ? $"{RerollKey} New cards   ·   {Rerolls(world.RerollsLeft)} left this run"
+                : "No rerolls left this run";
+        }
+
+        private static string Rerolls(int n) => n == 1 ? "1 reroll" : $"{n.ToString(CultureInfo.InvariantCulture)} rerolls";
+
+        public static string Rerolled(int left) => $"You drew new cards   ·   {Rerolls(left)} left this run";
+
+        public static string RerollRefused(OpResult result) => result switch
+        {
+            OpResult.NoRerolls => "No rerolls left this run",
+            OpResult.NoNewCards => "No other cards are left to draw",
+            OpResult.AlreadyPicked => "You have taken your card",
+            _ => "",
+        };
+
         /// <summary>Over the cards: what is chosen, and before which shift.</summary>
         public static string DraftTitle(ClientWorld world) => $"DRAFT   ·   one perk each before shift {world.Global.Shift + 1}";
 
@@ -494,8 +518,9 @@ namespace PerformativeMail.Client
             if (card < 0 || card >= world.DraftOffer.Count) return "";
             var perk = world.DraftOffer[card];
             var takers = new List<string>();
+            // By the perk: after a reroll somebody else's card of the same number may be another.
             foreach (var p in world.Players.Values)
-                if (p.DraftPick == card && p.Id != world.LocalId) takers.Add(p.Name);
+                if (p.DraftPick >= 0 && ReferenceEquals(p.DraftPerk, perk) && p.Id != world.LocalId) takers.Add(p.Name);
             takers.Sort(StringComparer.Ordinal);
             if (world.LocalDraftPick == card) takers.Insert(0, "you");
             if (takers.Count > 0)
@@ -553,6 +578,8 @@ namespace PerformativeMail.Client
             for (int i = 0; i < world.DraftOffer.Count; i++)
                 foreach (string line in DraftCard(world, i))
                     if (line.Length > 0) lines.Add(line);
+            string reroll = RerollLine(world);
+            if (reroll.Length > 0) lines.Add(reroll);
             string perks = Perks(world);
             if (perks.Length > 0) lines.Add(perks);
             return string.Join("\n", lines);

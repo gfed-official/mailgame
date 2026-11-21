@@ -47,6 +47,8 @@ namespace PerformativeMail.Sim
         /// <see cref="SimRequest.EntryId"/> (doc 01 §5.3, doc 06 §5 step 1).
         /// </summary>
         SetWorld = 19,
+        /// <summary>The Draft, before choosing: three new cards of the player's own (doc 01 §2.5 "one free reroll per player per run").</summary>
+        Reroll = 20,
     }
 
     /// <summary>
@@ -125,6 +127,8 @@ namespace PerformativeMail.Sim
 
         public static SimRequest Mount(uint reqId, uint vehicle) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.Mount, EntryId = vehicle };
+
+        public static SimRequest Reroll(uint reqId) => new SimRequest { RequestId = reqId, Kind = RequestKind.Reroll };
 
         public static SimRequest SetWorld(uint reqId, int choice, uint seed) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetWorld, Count = (ushort)choice, EntryId = seed };

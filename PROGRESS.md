@@ -779,8 +779,22 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             plate for the rest of the run; feed lines ("Bo took Union Rep for the team", "You
             were given Long Legs"). The smoke reads the cards off the screen against the
             server's, presses a card's key and finds the perk on both ends (`draft1.png`)
-      - [ ] rerolls and the personal-perk cap (doc 12 lists both under M4), the remaining perks
-            of the doc's list (they need buildings, vehicles, the shop)
+      - [x] **Rerolls** (doc 01 §2.5 "one free reroll per player per run", §5.2 a second from
+            Postal Rank 4, doc 09 §2.10 "reroll button with remaining count", doc 11 §10; design
+            choice 91). Before choosing, R or the button under the cards draws three new cards
+            of the player's own — none of those they had, all open to them, from the Draft's perk
+            stream — and the others keep the shared ones. `rerollsPerRun` (1) and
+            `rerollSecondRank` (4) in the balance; the rerolls come back with a new run. The card
+            taken, the clock's pick and the Welcome of who comes back mid-Draft all go by the
+            player's own cards; a pick is shown on others' screens by its perk, not its number
+            ("Taken by Ada" only on the card of the same perk). `NoRerolls` / `NoNewCards`
+            refusals, feed lines ("You drew new cards · 0 rerolls left this run"), the hint's
+            "[R] new cards". Protocol `m1.18` (the `Reroll` request; the offer event to each
+            player with `reroll` and `rerollsLeft`; rerolls and the pick's perk in the Welcome).
+            `DraftTests` (+4), `DraftFlowTests` (+2), `CodecTests`; the smoke's first Draft
+            clicks the button and checks the new cards on both ends (`draft-reroll` shot)
+      - [ ] the personal-perk cap (M4), the remaining perks of the doc's list (they need
+            buildings, vehicles, the shop)
 - [x] Lobby with seed, archetype, kit; join-in-progress in Prep; disconnect grace
       - [x] a Lobby the host starts from; joining in Lobby and Prep
       - [x] **The 120 s disconnect grace** (doc 06 §6): who loses the connection outside the
@@ -1905,6 +1919,11 @@ See "Commands" at the bottom (filled in as the tooling lands).
     move needs a restart. What was sampled stays sampled (a Delivery's quota, a raid already
     scheduled, a construct's HP), as with a perk taken mid-shift. F6 does nothing in a release
     build.
+91. **Rerolls are personal.** Doc 01 §2.5's offer is shared, but the reroll is "per player":
+    rerolling the shared cards would take them from teammates who are still reading them, so a
+    reroll deals the player a table of their own and leaves everybody else's alone. A team perk
+    on a personal table is still the team's once. Rank 4's second reroll comes from the rank in
+    the Hello (the server has it since the kits); the perk pool itself is not rank-locked yet.
 
 ## Commands
 
@@ -1933,6 +1952,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
 # in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed
+# in the Draft: 1-3 take a card, R (or the button) draws new cards of your own, once a run (twice from Postal Rank 4)
 # in a debug build: F6 reloads content/ (a host alone in the game; the feed says whether it took)
 # in a run: M puts up the map with the way to the house of the mail in your hand
 

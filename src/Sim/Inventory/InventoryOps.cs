@@ -76,6 +76,10 @@ namespace PerformativeMail.Sim.Inventory
         AlreadyRiding,
         /// <summary>The starting kit asked for is not open at the player's Postal Rank.</summary>
         RankTooLow,
+        /// <summary>The Draft (doc 01 §2.5): this carrier has used the rerolls of the run.</summary>
+        NoRerolls,
+        /// <summary>No other cards are left that this carrier could take.</summary>
+        NoNewCards,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

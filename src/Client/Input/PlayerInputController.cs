@@ -129,6 +129,8 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Go) && !Paused) _client.PressGo();
             else if (ev.IsActionPressed(InputActions.Build) && !UiOpen && !Paused && _build != null) _build.Toggle();
             else if (ev.IsActionPressed(InputActions.Rotate) && Building) _build!.Rotate();
+            // In the Draft, before the card is chosen, R draws new cards (doc 01 §2.5).
+            else if (ev.IsActionPressed(InputActions.Rotate) && _client.World?.CanReroll == true) _client.Reroll();
             // A pad's trigger builds as the left button does (that one is taken with the mouse above).
             else if (Building && ev is InputEventJoypadMotion && ev.IsActionPressed(InputActions.Attack)) _placeQueued = true;
             else if (ev.IsActionPressed(InputActions.Use) && Building) _build!.Pipette();

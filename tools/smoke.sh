@@ -54,6 +54,8 @@ grep -q "^\[smoke\] playtest: run started at shift 2" "$work/log-playtest" || { 
 # Between them the two runs take a card of the Draft both ways: by its key, and with a click on it.
 grep -q "^\[smoke\] draft: .* a card taken by its key" "$work/log" || { echo "smoke: no card of the Draft was taken by its key" >&2; exit 1; }
 grep -q "^\[smoke\] playtest: .* a card of the Draft taken with a click" "$work/log-playtest" || { echo "smoke: no card of the Draft was taken with a click" >&2; exit 1; }
+# The Draft's reroll (doc 01 §2.5): new cards of one's own with the button.
+grep -q "^\[smoke\] draft: rerolled with the button" "$work/log" || { echo "smoke: the Draft's cards were not rerolled" >&2; exit 1; }
 # Build mode (doc 09 §2.7): the full run builds by hand with what the land gave.
 grep -q "^\[smoke\] build: a Wooden Wall and a Chest built" "$work/log" || { echo "smoke: nothing was built in Build mode" >&2; exit 1; }
 # Hot reload (doc 07 §6): a changed number taken at once, a broken file turned away, the files back.

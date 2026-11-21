@@ -90,6 +90,9 @@ namespace PerformativeMail.Client
                             + (world.Players.TryGetValue(e.Owner, out var owner) && owner.Away ? "stood" : "fell"));
                     break;
                 case BagGoneEvent e: OnBagGone(world, e); break;
+                case DraftOfferEvent e when e.Reroll:
+                    Add(HudText.Rerolled(e.RerollsLeft));
+                    break;
                 case PerkPickedEvent e when e.Perk < world.Content.Perks.Count:
                     Add(HudText.PerkPicked(world, e.Player, world.Content.Perks[e.Perk], e.Auto));
                     break;
@@ -155,6 +158,11 @@ namespace PerformativeMail.Client
             {
                 if (result == OpResult.Ok) Add(HudText.KitChosen(Content.Kits[request.Count]));
                 else if (HudText.KitRefused(result).Length > 0) Add(HudText.KitRefused(result), bad: true);
+            }
+            if (result != OpResult.Ok && request.Kind == RequestKind.Reroll)
+            {
+                string why = HudText.RerollRefused(result);
+                if (why.Length > 0) Add(why, bad: true);
             }
             if (result != OpResult.Ok && request.Kind == RequestKind.Harvest)
             {

@@ -57,6 +57,10 @@ namespace PerformativeMail.Sim.Players
         public PlaytestFlags Playtest;
         /// <summary>The Postal Rank the player's Hello gave: which starting kits are open to them.</summary>
         public int Rank = 1;
+        /// <summary>The Draft's rerolls this player has used in the run (doc 01 §2.5).</summary>
+        public int RerollsUsed;
+        /// <summary>The cards of this player's own after a reroll; null: the Draft's shared offer.</summary>
+        public List<PerkDef>? Offer;
         /// <summary>The starting kit chosen in the Lobby (doc 03 §4.4); the content's default until then.</summary>
         public Content.KitDef? Kit;
         /// <summary>This run's personal kit items are in the pockets already.</summary>

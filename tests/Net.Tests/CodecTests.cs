@@ -252,7 +252,7 @@ namespace PerformativeMail.Net.Tests
                 new BagGoneEvent { ContainerId = 77, Returned = true, Mail = 12 },
                 new PlayerAwayEvent { Player = player, UntilTick = 9000 },
                 new PlayerBackEvent { Player = player },
-                new DraftOfferEvent { Perks = { 4, 0, 9 } },
+                new DraftOfferEvent { Perks = { 4, 0, 9 }, Reroll = true, RerollsLeft = 1 },
                 new PerkPickedEvent { Player = player, Perk = 9, Card = 2, Auto = true },
                 new ShopOfferEvent { Shift = 3, Specials = { 1, 6 } },
                 new ShopBoughtEvent { Player = player, Item = 6, Price = 105 },
@@ -337,6 +337,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((player, 9000u), (away.Player, away.UntilTick));
             Assert.Equal(player, ((PlayerBackEvent)back[26]).Player);
             Assert.Equal(new byte[] { 4, 0, 9 }, ((DraftOfferEvent)back[27]).Perks);
+            Assert.Equal((true, (byte)1), (((DraftOfferEvent)back[27]).Reroll, ((DraftOfferEvent)back[27]).RerollsLeft));
             var picked = (PerkPickedEvent)back[28];
             Assert.Equal((player, (byte)9, (byte)2, true), (picked.Player, picked.Perk, picked.Card, picked.Auto));
             var offer = (ShopOfferEvent)back[29];
@@ -425,7 +426,8 @@ namespace PerformativeMail.Net.Tests
             m.Perks.Add(new PerkInfo { Perk = 6 });
             m.Perks.Add(new PerkInfo { Holder = owner, Perk = 1 });
             m.DraftOffer.AddRange(new byte[] { 3, 1, 8 });
-            m.DraftPicks.Add(new DraftPickInfo { Player = owner, Card = 1 });
+            m.DraftPicks.Add(new DraftPickInfo { Player = owner, Card = 1, Perk = 7 });
+            m.RerollsLeft = 2;
             m.ShopSpecials.AddRange(new byte[] { 0, 6 });
             m.ShopOwned.Add(4);
             m.Nodes.Add(new NodeInfo { Node = 12, HitsLeft = 0 });
@@ -456,7 +458,8 @@ namespace PerformativeMail.Net.Tests
             // The perks of the run and the Draft under way, for somebody who comes back into it.
             Assert.Equal(new[] { (EntityId.None, (byte)6), (owner, (byte)1) }, back.Perks.Select(p => (p.Holder, p.Perk)));
             Assert.Equal(new byte[] { 3, 1, 8 }, back.DraftOffer);
-            Assert.Equal((owner, (byte)1), (Assert.Single(back.DraftPicks).Player, back.DraftPicks[0].Card));
+            Assert.Equal((owner, (byte)1, (byte)7), (Assert.Single(back.DraftPicks).Player, back.DraftPicks[0].Card, back.DraftPicks[0].Perk));
+            Assert.Equal((byte)2, back.RerollsLeft);
 
             Assert.Equal((m.PlayerId, 900u, 7u, "test_street", m.MapHash, 1u), (back.PlayerId, back.Tick, back.Seed, back.MapId, back.MapHash, back.IntakeContainerId));
             Assert.Equal(new[] { 2u }, back.ChestContainerIds);

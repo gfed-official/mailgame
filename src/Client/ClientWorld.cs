@@ -56,6 +56,8 @@ namespace PerformativeMail.Client
         public List<PerkDef> Perks { get; } = new List<PerkDef>();
         /// <summary>The card of the Draft under way they have taken; -1: none yet.</summary>
         public int DraftPick { get; internal set; } = -1;
+        /// <summary>The perk of that card: after a reroll the cards are not the same for everybody.</summary>
+        public PerkDef? DraftPerk { get; internal set; }
         /// <summary>On foot 0; in a saddle the vehicle's index + 1, as of the newest snapshot.</summary>
         public byte Ride { get; private set; }
         /// <summary>The way the vehicle they ride points, a yaw, as of the newest snapshot.</summary>
@@ -479,8 +481,18 @@ namespace PerformativeMail.Client
         internal void ClearDraft()
         {
             DraftOffer.Clear();
-            foreach (var p in Players.Values) p.DraftPick = -1;
+            foreach (var p in Players.Values)
+            {
+                p.DraftPick = -1;
+                p.DraftPerk = null;
+            }
         }
+
+        /// <summary>The Draft's rerolls the local player has left in the run, as the server last said (doc 01 §2.5).</summary>
+        public int RerollsLeft { get; internal set; }
+
+        /// <summary>The local player may ask for new cards: a Draft is on, they have not chosen, and a reroll is left.</summary>
+        public bool CanReroll => Global.Phase == RunPhase.Draft && DraftOffer.Count > 0 && LocalDraftPick < 0 && RerollsLeft > 0;
 
         /// <summary>A run ends without perks.</summary>
         internal void ClearPerks()

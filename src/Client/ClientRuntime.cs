@@ -221,6 +221,18 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>
+        /// The reroll (doc 01 §2.5, R in the Draft): three new cards of this player's own, while
+        /// they have not chosen and have a reroll left. Returns the request id, 0 where there is
+        /// nothing to ask.
+        /// </summary>
+        public uint Reroll()
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.CanReroll) return 0;
+            return Send(SimRequest.Reroll(0));
+        }
+
+        /// <summary>
         /// A number key, counted from 0 for "1": while a card of the Draft is open to this player
         /// the keys of the cards take a card and no hotbar slot. Returns whether the key was the
         /// Draft's; a card that is not open takes the key and does nothing.
@@ -624,8 +636,13 @@ namespace PerformativeMail.Client
                 if (perk.Perk < _content.Perks.Count) world.AddPerk(perk.Holder, _content.Perks[perk.Perk]);
             foreach (byte perk in m.DraftOffer)
                 if (perk < _content.Perks.Count) world.DraftOffer.Add(_content.Perks[perk]);
+            world.RerollsLeft = m.RerollsLeft;
             foreach (var pick in m.DraftPicks)
-                if (world.Players.TryGetValue(pick.Player, out var picker)) picker.DraftPick = pick.Card;
+                if (world.Players.TryGetValue(pick.Player, out var picker))
+                {
+                    picker.DraftPick = pick.Card;
+                    picker.DraftPerk = pick.Perk < _content.Perks.Count ? _content.Perks[pick.Perk] : null;
+                }
             foreach (byte item in m.ShopSpecials)
                 if (item < _content.ShopItems.Count) world.ShopSpecials.Add(_content.ShopItems[item]);
             foreach (byte item in m.ShopOwned)
@@ -871,14 +888,21 @@ namespace PerformativeMail.Client
                     break;
                 }
                 case DraftOfferEvent e:
-                    world.ClearDraft();
+                    // New cards of one's own after a reroll leave the others' picks standing.
+                    if (e.Reroll) world.DraftOffer.Clear();
+                    else world.ClearDraft();
                     foreach (byte perk in e.Perks)
                         if (perk < _content.Perks.Count) world.DraftOffer.Add(_content.Perks[perk]);
+                    world.RerollsLeft = e.RerollsLeft;
                     break;
                 case PerkPickedEvent e:
                     if (e.Perk >= _content.Perks.Count) break;
                     world.AddPerk(e.Player, _content.Perks[e.Perk]);
-                    if (e.Card != PerkPickedEvent.NoCard && world.Players.TryGetValue(e.Player, out var picked)) picked.DraftPick = e.Card;
+                    if (e.Card != PerkPickedEvent.NoCard && world.Players.TryGetValue(e.Player, out var picked))
+                    {
+                        picked.DraftPick = e.Card;
+                        picked.DraftPerk = _content.Perks[e.Perk];
+                    }
                     break;
                 case ShopOfferEvent e:
                     world.ShopSpecials.Clear();

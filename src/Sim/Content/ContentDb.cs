@@ -1043,7 +1043,7 @@ namespace PerformativeMail.Sim.Content
             "enemyWindupSeconds", "enemyFleeSeconds", "enemyFleeSpeedMult", "lootDespawnSeconds", "lootPickupRange",
             "deathBagDespawnSeconds", "respawnProtectionSeconds", "respawnYardMetres", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
             "maxAttackersPerCarrier", "attackerWaitMetres", "disconnectGraceSeconds",
-            "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift",
+            "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank",
             "shopSpecialSlots", "shopSpecialDiscount", "shopRange", "serverShopRange", "harvestSwingSeconds",
             "buildRange", "serverBuildRange", "deconstructHoldSeconds", "deconstructRefundPrep", "deconstructRefundDelivery",
         };

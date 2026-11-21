@@ -41,6 +41,7 @@ namespace PerformativeMail.Client.UI
         private readonly HBoxContainer _row;
         private readonly MeterBar _clock;
         private readonly Label _perks;
+        private readonly Button _reroll;
 
         /// <summary>Everything the panel says, top to bottom; empty while it is not shown.</summary>
         public string Text
@@ -55,6 +56,7 @@ namespace PerformativeMail.Client.UI
                     foreach (var line in card.Lines)
                         if (line.Text.Length > 0) lines.Add(line.Text);
                 }
+                if (_reroll.Visible) lines.Add(_reroll.Text);
                 if (_perks.Visible) lines.Add(_perks.Text);
                 return string.Join("\n", lines);
             }
@@ -77,6 +79,13 @@ namespace PerformativeMail.Client.UI
 
         /// <summary>A click on a card: what its key does.</summary>
         public void Click(int card) => LastRequestId = _client?.PickPerk(card) ?? 0;
+
+        /// <summary>A click on the reroll button: what R does.</summary>
+        public void ClickReroll() => LastRequestId = _client?.Reroll() ?? 0;
+
+        /// <summary>The reroll button, for the smoke: shown, and open to a click.</summary>
+        public bool RerollShown => Visible && _reroll.Visible;
+        public bool RerollOpen => RerollShown && !_reroll.Disabled;
 
         public DraftPanel()
         {
@@ -104,6 +113,10 @@ namespace PerformativeMail.Client.UI
             _row = new HBoxContainer { Name = "Cards", Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
             _row.AddThemeConstantOverride("separation", 12);
             column.AddChild(_row);
+            _reroll = new Button { Name = "Reroll", FocusMode = FocusModeEnum.None, SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
+            _reroll.AddThemeFontSizeOverride("font_size", 15);
+            _reroll.Pressed += ClickReroll;
+            column.AddChild(_reroll);
             _clock = new MeterBar { Name = "Clock", CustomMinimumSize = new Vector2(0f, 8f) };
             column.AddChild(_clock);
             _perks = Hud.MakeLabel("Perks", 14, HorizontalAlignment.Center);
@@ -144,6 +157,10 @@ namespace PerformativeMail.Client.UI
             }
             CardCount = world.DraftOffer.Count;
             GreyedCount = greyed;
+            _reroll.Text = HudText.RerollLine(world);
+            _reroll.Visible = _reroll.Text.Length > 0;
+            _reroll.Disabled = !world.CanReroll;
+            _reroll.MouseFilter = pointer ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
 
             double total = world.Content.Balance.GetDouble("draftSeconds"), left = world.PhaseSecondsLeft;
             _clock.Value = total > 0.0 ? (float)(left / total) : 0f;

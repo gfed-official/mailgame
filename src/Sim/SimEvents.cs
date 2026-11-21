@@ -220,12 +220,17 @@ namespace PerformativeMail.Sim
     }
 
     /// <summary>
-    /// The cards of a Draft (doc 01 §2.5), the same for everybody, as indices into
-    /// ContentDb.Perks; sent just before the PhaseChanged into Draft.
+    /// The cards of a Draft (doc 01 §2.5) before the <see cref="SimEvent.Audience"/>, as indices
+    /// into ContentDb.Perks: the shared offer, sent to each player just before the PhaseChanged
+    /// into Draft, or after a <see cref="Reroll"/> that player's own.
     /// </summary>
     public sealed class DraftOfferEvent : SimEvent
     {
         public List<byte> Perks = new List<byte>();
+        /// <summary>The player's own new cards: the others' picks stand.</summary>
+        public bool Reroll;
+        /// <summary>How many rerolls the player has left in the run.</summary>
+        public byte RerollsLeft;
     }
 
     /// <summary>A perk was taken: a personal one is <see cref="Player"/>'s, a team perk everybody's through them.</summary>

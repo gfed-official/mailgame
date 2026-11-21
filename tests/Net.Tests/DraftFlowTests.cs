@@ -141,6 +141,73 @@ namespace PerformativeMail.Net.Tests
             public int Card(string perk) => Sim.DraftOffer.ToList().FindIndex(p => p.Id == perk);
         }
 
+        // The real content's perks: enough of them for new cards.
+        [Fact]
+        public void ARerollGivesOnlyThatPlayerNewCards_ThePicksStand_AndATakenPerkIsNamedByWhatItIs()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada");
+            var bo = s.Join("Bo");
+            // Cy chooses last: the Draft stays open while the others' picks are looked at.
+            s.Join("Cy");
+            Assert.Equal(0u, ada.Reroll());
+            s.ToTheDraft(ada);
+            var shared = s.Sim.DraftOffer.Select(p => p.Id).ToArray();
+            foreach (var c in new[] { ada, bo })
+            {
+                Assert.Equal(1, c.World!.RerollsLeft);
+                Assert.True(c.World.CanReroll);
+                Assert.Equal("[R] New cards   ·   1 reroll left this run", HudText.RerollLine(c.World));
+                Assert.Contains("   ·   [R] new cards   ·   ", HudText.PhaseHint(c.World));
+            }
+
+            // Bo takes a card first; then Ada draws new ones of her own.
+            Assert.NotEqual(0u, bo.PickPerk(0));
+            s.Run(10);
+            Assert.Equal(0u, bo.Reroll());
+            Assert.NotEqual(0u, ada.Reroll());
+            s.Run(10);
+            var own = s.Sim.OfferFor(s.Sim.GetPlayer(ada.World!.LocalId)!).Select(p => p.Id).ToArray();
+            Assert.Empty(own.Intersect(shared));
+            Assert.Equal(own, ada.World.DraftOffer.Select(p => p.Id));
+            Assert.Equal(shared, bo.World!.DraftOffer.Select(p => p.Id));
+            Assert.Equal((0, 1), (ada.World.RerollsLeft, bo.World.RerollsLeft));
+            Assert.False(ada.World.CanReroll);
+            Assert.Equal("No rerolls left this run", HudText.RerollLine(ada.World));
+            Assert.DoesNotContain("new cards", HudText.PhaseHint(ada.World));
+            // Bo's pick stands on Ada's screen; none of her new cards is said to be his.
+            Assert.Equal(0, ada.World.Players[bo.World.LocalId].DraftPick);
+            Assert.All(Enumerable.Range(0, own.Length), i => Assert.DoesNotContain("Bo", HudText.CardNote(ada.World, i)));
+            Assert.Equal(0u, ada.Reroll());
+
+            // Ada takes her second card: Bo sees whose perk it is, not his card 1.
+            Assert.NotEqual(0u, ada.PickPerk(1));
+            s.Run(10);
+            Assert.Equal(new[] { own[1] }, s.Sim.GetPlayer(ada.World.LocalId)!.Perks.Select(p => p.Id));
+            Assert.Equal(own[1], bo.World.Players[ada.World.LocalId].DraftPerk!.Id);
+            int same = Array.IndexOf(shared, own[1]);
+            for (int i = 0; i < shared.Length; i++)
+                Assert.Equal(i == same, HudText.CardNote(bo.World, i).Contains("Ada", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void WhoComesBackAfterARerollFindsTheirOwnCards_AndNoRerollLeft()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada", AdaAccount);
+            var bo = s.Join("Bo", BoAccount);
+            s.ToTheDraft(ada);
+            Assert.NotEqual(0u, bo.Reroll());
+            s.Run(10);
+            var own = bo.World!.DraftOffer.Select(p => p.Id).ToArray();
+            s.Drop(bo);
+            var back = s.Join("Bo", BoAccount);
+            Assert.Equal(ClientState.Joined, back.State);
+            Assert.Equal(own, back.World!.DraftOffer.Select(p => p.Id));
+            Assert.Equal(0, back.World.RerollsLeft);
+            Assert.Equal(1, ada.World!.RerollsLeft);
+        }
+
         [Fact]
         public void TheTableIsTheSameForEverybody_AndAPickIsSeenByAll()
         {
@@ -384,7 +451,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(new[] { $"[{legs + 1}]  Long Legs", "CARRIER   ·   COMMON", "+12% move speed.", "Personal perk   ·   stacks to 3   ·   never with Heavy Boots", "You hold 1 of 3" },
                 HudText.DraftCard(a, legs));
             Assert.Equal(new[] { $"[{hands + 1}]  Quick Hands", "CARRIER   ·   RARE", "Mailbox insert hold -50%.", "Personal perk", "" }, HudText.DraftCard(a, hands));
-            Assert.Equal("Take a perk: [1] [2] [3]   ·   0 / 2 have chosen", HudText.PhaseHint(a));
+            Assert.Equal("Take a perk: [1] [2] [3]   ·   [R] new cards   ·   0 / 2 have chosen", HudText.PhaseHint(a));
             // Both have a card to take: until they have, the mouse is the pointer's and a card takes a click.
             Assert.True(a.ChoosingCard);
             Assert.True(b.ChoosingCard);
@@ -394,12 +461,14 @@ namespace PerformativeMail.Net.Tests
             string text = HudText.DraftText(a);
             Assert.StartsWith("DRAFT   ·   one perk each before shift 2\n[1]  ", text);
             Assert.EndsWith("\nYou: Long Legs", text);
-            Assert.Equal(1 + 3 * 4 + 1 + 1, text.Split('\n').Length);
+            // The title, four lines a card and a note on one, the reroll, the perks held.
+            Assert.Equal(1 + 3 * 4 + 1 + 1 + 1, text.Split('\n').Length);
+            Assert.Contains("\n[R] New cards   ·   1 reroll left this run\n", text);
 
             // Bo may take only the team's card; the keys of the other two take nothing.
             Assert.Equal("Not with Heavy Boots", HudText.CardNote(b, legs));
             Assert.Equal("You hold all you can of it", HudText.CardNote(b, hands));
-            Assert.Equal($"Take a perk: [{rep + 1}]   ·   0 / 2 have chosen", HudText.PhaseHint(b));
+            Assert.Equal($"Take a perk: [{rep + 1}]   ·   [R] new cards   ·   0 / 2 have chosen", HudText.PhaseHint(b));
             Assert.Equal("You: Heavy Boots, Quick Hands", HudText.Perks(b));
             Assert.True(bo.PressCardKey(legs));
             Assert.False(bo.PressCardKey(3));
@@ -416,7 +485,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("Taken for the team by Bo", HudText.CardNote(a, rep));
             Assert.Equal("You took Union Rep   ·   waiting for 1 more", HudText.PhaseHint(b));
             string open = string.Join(" ", new[] { legs, hands }.OrderBy(c => c).Select(c => $"[{c + 1}]"));
-            Assert.Equal($"Take a perk: {open}   ·   1 / 2 have chosen", HudText.PhaseHint(a));
+            Assert.Equal($"Take a perk: {open}   ·   [R] new cards   ·   1 / 2 have chosen", HudText.PhaseHint(a));
             Assert.Equal("Team: Union Rep   ·   You: Heavy Boots, Quick Hands", HudText.Perks(b));
             // Who has chosen has their number keys back for the hotbar.
             Assert.False(bo.PressCardKey(rep));
@@ -454,12 +523,12 @@ namespace PerformativeMail.Net.Tests
             Assert.True(s.RunUntil(() => s.Sim.Run.Phase == RunPhase.Draft, 90));
             s.Run(10);
 
-            Assert.Equal("Take a perk: [1] [2] [3]   ·   0 / 2 have chosen", HudText.PhaseHint(ada.World!));
+            Assert.Equal("Take a perk: [1] [2] [3]   ·   [R] new cards   ·   0 / 2 have chosen", HudText.PhaseHint(ada.World!));
             int legs = s.Card("legs");
             Assert.True(cy.PressCardKey(legs));
             s.Run(10);
             Assert.Equal("You took Long Legs   ·   waiting for 1 more", HudText.PhaseHint(cy.World!));
-            Assert.Equal("Take a perk: [1] [2] [3]   ·   1 / 2 have chosen", HudText.PhaseHint(ada.World!));
+            Assert.Equal("Take a perk: [1] [2] [3]   ·   [R] new cards   ·   1 / 2 have chosen", HudText.PhaseHint(ada.World!));
             // A personal card stays open to the others, and says who has it.
             Assert.Equal("Taken by Cy", HudText.CardNote(ada.World!, legs));
             Assert.Equal(OpResult.Ok, ada.World!.CardState(legs));

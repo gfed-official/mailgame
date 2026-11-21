@@ -20,6 +20,8 @@ namespace PerformativeMail.App
         private string? _draftPerk;
         private SizedLabel3D? _draftLabel;
         private float _draftYaw, _draftPitch;
+        private int _rerollStep, _rerollFrames;
+        private string _rerollShared = "";
 
         /// <summary>A frame of the run while the cards lie open.</summary>
         private void StepDraft()
@@ -64,6 +66,38 @@ namespace PerformativeMail.App
             for (int i = 0; i < panel.CardCount; i++)
                 Check(box.Encloses(panel.CardAt(i).GetGlobalRect()), $"card {i + 1} at {panel.CardAt(i).GetGlobalRect()} is not inside the panel at {box}");
             Check(panel.ClockShown > 0f && panel.ClockShown < 1f, $"the bar of the Draft's seconds stands at {panel.ClockShown:0.00}");
+
+            // The first Draft: new cards with a click on the reroll button (doc 01 §2.5, doc 09 §2.10).
+            if (_drafts == 1 && _rerollStep < 2)
+            {
+                if (_rerollStep == 0)
+                {
+                    Check(panel.RerollOpen && world.RerollsLeft == 1, $"the reroll button is {(panel.RerollShown ? "shown" : "not shown")}, {world.RerollsLeft} rerolls left");
+                    _rerollShared = string.Join(", ", world.DraftOffer.Select(p => p.Id));
+                    panel.ClickReroll();
+                    Check(panel.LastRequestId != 0, "a click on the reroll button sent nothing");
+                    _rerollStep = 1;
+                    _rerollFrames = 0;
+                    return;
+                }
+                string cards = string.Join(", ", world.DraftOffer.Select(p => p.Id));
+                if (client.PendingRequestCount > 0 || cards == _rerollShared)
+                {
+                    if (++_rerollFrames > 60) Fail($"the reroll brought no new cards: still {cards}");
+                    return;
+                }
+                var me = server.GetPlayer(world.LocalId)!;
+                string truth = string.Join(", ", server.OfferFor(me).Select(p => p.Id));
+                Check(cards == truth && world.DraftOffer.All(p => !_rerollShared.Contains(p.Id, StringComparison.Ordinal)), $"after the reroll the client shows {cards}, the server dealt {truth}, the shared cards were {_rerollShared}");
+                Check(world.RerollsLeft == 0 && server.RerollsLeft(me) == 0 && !panel.RerollOpen, $"after the reroll {world.RerollsLeft} are left (server {server.RerollsLeft(me)})");
+                hud.Refresh();
+                Check(panel.Text == HudText.DraftText(world) && panel.Text.Contains("No rerolls left this run", StringComparison.Ordinal), $"after the reroll the Draft shows \"{panel.Text}\"");
+                Check(_session.Feed.Entries.Any(e => e.Text == HudText.Rerolled(0)), "the feed does not say new cards were drawn");
+                Shot("draft-reroll");
+                GD.Print($"[smoke] draft: rerolled with the button, {_rerollShared} -> {cards}");
+                _rerollStep = 2;
+                return;
+            }
 
             // A different card each time, by the key a player would press.
             int card = (shift - 1) % world.DraftOffer.Count;

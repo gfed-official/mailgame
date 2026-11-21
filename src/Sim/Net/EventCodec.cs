@@ -191,6 +191,8 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.DraftOffer);
                     w.U8((byte)e.Perks.Count);
                     foreach (byte perk in e.Perks) w.U8(perk);
+                    w.Bool(e.Reroll);
+                    w.U8(e.RerollsLeft);
                     break;
                 case PerkPickedEvent e:
                     w.U8((byte)EventType.PerkPicked);
@@ -388,6 +390,8 @@ namespace PerformativeMail.Sim.Net
                     var e = new DraftOfferEvent();
                     int n = r.U8();
                     for (int i = 0; i < n; i++) e.Perks.Add(r.U8());
+                    e.Reroll = r.Bool();
+                    e.RerollsLeft = r.U8();
                     return e;
                 }
                 case EventType.PerkPicked:

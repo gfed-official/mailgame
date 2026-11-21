@@ -242,9 +242,11 @@ namespace PerformativeMail.Server
             foreach (var p in World.Players)
             {
                 foreach (var perk in p.Perks) welcome.Perks.Add(new PerkInfo { Holder = p.Id, Perk = perk.Index });
-                if (p.DraftPick >= 0) welcome.DraftPicks.Add(new DraftPickInfo { Player = p.Id, Card = (byte)p.DraftPick });
+                if (p.DraftPick >= 0) welcome.DraftPicks.Add(new DraftPickInfo { Player = p.Id, Card = (byte)p.DraftPick, Perk = World.OfferFor(p)[p.DraftPick].Index });
             }
-            foreach (var perk in World.DraftOffer) welcome.DraftOffer.Add(perk.Index);
+            // The cards before this player: their own if they rerolled before they lost the connection.
+            foreach (var perk in World.OfferFor(player)) welcome.DraftOffer.Add(perk.Index);
+            welcome.RerollsLeft = (byte)Math.Min(World.RerollsLeft(player), byte.MaxValue);
             foreach (var entry in World.ShopSpecials) welcome.ShopSpecials.Add(entry.Index);
             foreach (var entry in World.ShopOwned) welcome.ShopOwned.Add(entry.Index);
             for (int i = 0; i < World.Nodes.Count; i++)

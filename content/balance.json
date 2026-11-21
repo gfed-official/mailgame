@@ -9,6 +9,8 @@
   "draftCards": 3,
   "draftRarityWeights": [60, 30, 10],
   "draftRareWeightPerShift": 5,
+  "rerollsPerRun": 1,
+  "rerollSecondRank": 4,
   "shopSpecialSlots": 2,
   "shopSpecialDiscount": 0.2,
   "emptyServerGraceSeconds": 60,

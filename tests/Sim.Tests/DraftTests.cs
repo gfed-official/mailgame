@@ -277,6 +277,102 @@ namespace PerformativeMail.Sim.Tests
             Assert.Single(bo.Perks);
         }
 
+        // --- rerolls (doc 01 §2.5: "one free reroll per player per run"; doc 01 §5.2: a second at rank 4) ---
+
+        [Fact]
+        public void AReroll_GivesThatPlayerThreeNewCardsOfTheirOwn_TheOthersKeepTheirs()
+        {
+            var db = Content(Perks(Enumerable.Range(0, 8).Select(i => Perk($"p{i}", "personal")).ToArray()));
+            var world = NewWorld(content: db);
+            var ada = world.AddPlayer("Ada")!;
+            var bo = world.AddPlayer("Bo")!;
+            PastThePayday(world, ada);
+            var shared = world.DraftOffer.ToArray();
+            Assert.Equal((1, 1), (world.RerollsLeft(ada), world.RerollsLeft(bo)));
+            // Everybody hears of the shared cards, each with their own rerolls left.
+            var dealt = world.Events.OfType<DraftOfferEvent>().ToList();
+            Assert.Equal(new[] { ada.Id, bo.Id }, dealt.Select(e => e.Audience));
+            Assert.All(dealt, e => Assert.Equal((false, (byte)1), (e.Reroll, e.RerollsLeft)));
+            world.Events.Clear();
+
+            Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.Reroll(0)));
+            var own = world.OfferFor(ada).ToArray();
+            Assert.Equal(3, own.Length);
+            Assert.Empty(own.Intersect(shared));
+            Assert.Equal(shared, world.OfferFor(bo));
+            Assert.Equal(shared, world.DraftOffer);
+            var rerolled = world.Events.OfType<DraftOfferEvent>().Single();
+            Assert.Equal((ada.Id, true, (byte)0), (rerolled.Audience, rerolled.Reroll, rerolled.RerollsLeft));
+            Assert.Equal(own.Select(p => p.Index), rerolled.Perks);
+
+            // One a run: no second, and the card taken is one of their own.
+            Assert.Equal(OpResult.NoRerolls, Request(world, ada, SimRequest.Reroll(0)));
+            Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.PickPerk(0, 1)));
+            Assert.Equal(new[] { own[1] }, ada.Perks);
+            Assert.Equal(OpResult.Ok, Request(world, bo, SimRequest.PickPerk(0, 1)));
+            Assert.Equal(new[] { shared[1] }, bo.Perks);
+
+            // The next Draft is shared again, and the reroll is still spent.
+            RunUntil(world, () => world.Run.Phase == RunPhase.Prep, 1);
+            Assert.Null(ada.Offer);
+            PastThePayday(world, ada);
+            Assert.Equal(RunPhase.Draft, world.Run.Phase);
+            Assert.Equal(world.DraftOffer, world.OfferFor(ada));
+            Assert.Equal((0, 1), (world.RerollsLeft(ada), world.RerollsLeft(bo)));
+            Assert.Equal(OpResult.NoRerolls, Request(world, ada, SimRequest.Reroll(0)));
+        }
+
+        [Fact]
+        public void NoRerollOnceTheCardIsTaken_NorOutsideTheDraft_AndRankFourHasTwo_EachWithNoneOfTheCardsBefore()
+        {
+            var db = Content(Perks(Enumerable.Range(0, 12).Select(i => Perk($"p{i}", "personal")).ToArray()));
+            var world = NewWorld(content: db);
+            var ada = world.AddPlayer("Ada")!;
+            var bo = world.AddPlayer("Bo")!;
+            world.SetRank(bo, 4);
+            Assert.Equal(OpResult.WrongPhase, Request(world, ada, SimRequest.Reroll(0)));
+            PastThePayday(world, ada);
+            Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.PickPerk(0, 0)));
+            Assert.Equal(OpResult.AlreadyPicked, Request(world, ada, SimRequest.Reroll(0)));
+            Assert.Equal(1, world.RerollsLeft(ada));
+
+            Assert.Equal(2, world.RerollsLeft(bo));
+            var first = world.OfferFor(bo).ToArray();
+            Assert.Equal(OpResult.Ok, Request(world, bo, SimRequest.Reroll(0)));
+            var second = world.OfferFor(bo).ToArray();
+            Assert.Equal(OpResult.Ok, Request(world, bo, SimRequest.Reroll(0)));
+            var third = world.OfferFor(bo).ToArray();
+            // Each time none of the cards just before them.
+            Assert.Empty(second.Intersect(first));
+            Assert.Empty(third.Intersect(second));
+            Assert.Equal(OpResult.NoRerolls, Request(world, bo, SimRequest.Reroll(0)));
+        }
+
+        [Fact]
+        public void ARerollWithNothingElseToDraw_IsRefused_AndSpendsNothing()
+        {
+            var db = Content(Perks(Perk("a", "personal"), Perk("b", "personal"), Perk("c", "personal")));
+            var world = NewWorld(content: db);
+            var ada = world.AddPlayer("Ada")!;
+            PastThePayday(world, ada);
+            Assert.Equal(OpResult.NoNewCards, Request(world, ada, SimRequest.Reroll(0)));
+            Assert.Equal(1, world.RerollsLeft(ada));
+            Assert.Null(ada.Offer);
+        }
+
+        [Fact]
+        public void WhenTheClockRunsOut_ARerolledPlayerIsGivenTheFirstOfTheirOwnCards()
+        {
+            var db = Content(Perks(Enumerable.Range(0, 8).Select(i => Perk($"p{i}", "personal")).ToArray()));
+            var world = NewWorld(content: db);
+            var ada = world.AddPlayer("Ada")!;
+            PastThePayday(world, ada);
+            Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.Reroll(0)));
+            var own = world.OfferFor(ada)[0];
+            RunUntil(world, () => world.Run.Phase == RunPhase.Prep, 31);
+            Assert.Equal(new[] { own }, ada.Perks);
+        }
+
         [Fact]
         public void ATeamCardIsGoneForTheOthersOnceItIsTaken()
         {
@@ -436,7 +532,7 @@ namespace PerformativeMail.Sim.Tests
         [Fact]
         public void TheDraftNeedsItsNumbersInTheBalance()
         {
-            foreach (string key in new[] { "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift" })
+            foreach (string key in new[] { "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank" })
             {
                 string root = DirectoryContentSource.FindContentRoot(AppContext.BaseDirectory)!;
                 var source = new MemoryContentSource();

@@ -92,6 +92,7 @@ namespace PerformativeMail.Sim
                 RecomputeWeight(p);
             }
             CloseDraft();
+            foreach (var p in _players) p.RerollsUsed = 0;
             _perkRng = new RngStream(Settings.Seed, "perks");
         }
 
@@ -105,8 +106,23 @@ namespace PerformativeMail.Sim
         private readonly int[] _rarityCount = new int[RarityCount];
         private readonly int[] _rarityWeight = new int[RarityCount];
 
-        /// <summary>The cards of the Draft under way, the same for everybody; empty outside it.</summary>
+        /// <summary>The shared cards of the Draft under way; empty outside it.</summary>
         public IReadOnlyList<PerkDef> DraftOffer => _offer;
+
+        /// <summary>The cards before this player: their own after a reroll, else the shared offer.</summary>
+        public IReadOnlyList<PerkDef> OfferFor(Player p) => p.Offer ?? (IReadOnlyList<PerkDef>)_offer;
+
+        /// <summary>
+        /// Rerolls a run gives a player (doc 01 §2.5, doc 11 §10: one, two from the Postal Rank
+        /// of doc 01 §5.2's "second perk reroll").
+        /// </summary>
+        public int RerollsAllowed(Player p)
+        {
+            var b = Content.Balance;
+            return Math.Max(0, b.GetInt("rerollsPerRun") + (p.Rank >= b.GetInt("rerollSecondRank") ? 1 : 0));
+        }
+
+        public int RerollsLeft(Player p) => Math.Max(0, RerollsAllowed(p) - p.RerollsUsed);
 
         /// <summary>
         /// Doc 01 §2.5: between a Payday the run survives and the next shift everybody takes one
@@ -116,14 +132,17 @@ namespace PerformativeMail.Sim
         private bool BeginDraft()
         {
             if (!Settings.Draft || Settings.QuickStart) return false;
-            RollOffer(Run.Shift + 1);
+            RollOffer(_offer, Run.Shift + 1, null, null);
             if (_offer.Count == 0) return false;
             // The cards are dealt between shifts: nothing of the fight is left on the street.
             ClearCombat();
-            foreach (var p in _players) p.DraftPick = -1;
-            var offer = new DraftOfferEvent();
-            foreach (var perk in _offer) offer.Perks.Add(perk.Index);
-            Events.Add(offer);
+            foreach (var p in _players)
+            {
+                p.DraftPick = -1;
+                p.Offer = null;
+                // The same cards to everybody, each with the rerolls they have left.
+                Events.Add(OfferEvent(p, reroll: false));
+            }
             EnterPhase(RunPhase.Draft, Content.Balance.GetDouble("draftSeconds"));
             return true;
         }
@@ -133,7 +152,7 @@ namespace PerformativeMail.Sim
         /// rarity by the weights (Rare gains weight with every shift), then one of the perks of
         /// that rarity that may still be offered.
         /// </summary>
-        private void RollOffer(int shift)
+        private void RollOffer(List<PerkDef> offer, int shift, Player? only, IReadOnlyList<PerkDef>? avoid)
         {
             var b = Content.Balance;
             var rng = _perkRng ??= new RngStream(Settings.Seed, "perks");
@@ -143,14 +162,14 @@ namespace PerformativeMail.Sim
                 _rarityWeight[r] = r < weights.Length ? Math.Max(0, (int)Math.Round(weights[r])) : 0;
             _rarityWeight[(int)PerkRarity.Rare] += Math.Max(0, b.GetInt("draftRareWeightPerShift") * (shift - 2));
 
-            _offer.Clear();
-            while (_offer.Count < cards)
+            offer.Clear();
+            while (offer.Count < cards)
             {
                 _candidates.Clear();
                 Array.Clear(_rarityCount, 0, RarityCount);
                 foreach (var perk in Content.Perks)
                 {
-                    if (!Offerable(perk, shift)) continue;
+                    if (!Offerable(perk, shift, offer, only, avoid)) continue;
                     _candidates.Add(perk);
                     _rarityCount[(int)perk.Rarity]++;
                 }
@@ -161,7 +180,7 @@ namespace PerformativeMail.Sim
                     if (_rarityCount[r] > 0) total += _rarityWeight[r];
                 if (total <= 0)
                 {
-                    _offer.Add(_candidates[rng.NextInt(_candidates.Count)]);
+                    offer.Add(_candidates[rng.NextInt(_candidates.Count)]);
                     continue;
                 }
                 int roll = rng.NextInt(total);
@@ -176,7 +195,7 @@ namespace PerformativeMail.Sim
                 foreach (var perk in _candidates)
                 {
                     if ((int)perk.Rarity != rarity || nth-- > 0) continue;
-                    _offer.Add(perk);
+                    offer.Add(perk);
                     break;
                 }
             }
@@ -184,14 +203,19 @@ namespace PerformativeMail.Sim
 
         /// <summary>
         /// A perk may be a card when its prerequisites are met, it is not on the table already and
-        /// excludes no card that is, and somebody who is here could take it. The server is not
-        /// told anybody's Postal Rank yet: every carrier counts as rank 1.
+        /// excludes no card that is, and somebody who is here could take it — for a reroll, the
+        /// one who asked, and none of the cards they had. The perk pool is not rank-locked yet:
+        /// every perk asks rank 1.
         /// </summary>
-        private bool Offerable(PerkDef perk, int shift)
+        private bool Offerable(PerkDef perk, int shift, List<PerkDef> offer, Player? only, IReadOnlyList<PerkDef>? avoid)
         {
             if (perk.ShiftMin > shift || perk.RankMin > 1) return false;
-            foreach (var card in _offer)
+            foreach (var card in offer)
                 if (ReferenceEquals(card, perk) || perk.ConflictsWith(card)) return false;
+            if (avoid != null)
+                foreach (var card in avoid)
+                    if (ReferenceEquals(card, perk)) return false;
+            if (only != null) return CanTake(only, perk) == OpResult.Ok;
             foreach (var p in _players)
                 if (!p.Away && CanTake(p, perk) == OpResult.Ok) return true;
             return false;
@@ -199,9 +223,36 @@ namespace PerformativeMail.Sim
 
         private int FirstOpenCard(Player p)
         {
-            for (int i = 0; i < _offer.Count; i++)
-                if (CanTake(p, _offer[i]) == OpResult.Ok) return i;
+            var offer = OfferFor(p);
+            for (int i = 0; i < offer.Count; i++)
+                if (CanTake(p, offer[i]) == OpResult.Ok) return i;
             return -1;
+        }
+
+        private DraftOfferEvent OfferEvent(Player p, bool reroll)
+        {
+            var e = new DraftOfferEvent { Audience = p.Id, Reroll = reroll, RerollsLeft = (byte)Math.Min(RerollsLeft(p), byte.MaxValue) };
+            foreach (var perk in OfferFor(p)) e.Perks.Add(perk.Index);
+            return e;
+        }
+
+        /// <summary>
+        /// Doc 01 §2.5: "one free reroll per player per run". Before choosing, the player gets
+        /// three new cards of their own — none of those they had, all open to them — and the
+        /// others keep theirs. It draws from the Draft's perk stream like the shared cards.
+        /// </summary>
+        private OpResult RerollOp(Player player)
+        {
+            if (Run.Phase != RunPhase.Draft) return OpResult.WrongPhase;
+            if (player.DraftPick >= 0) return OpResult.AlreadyPicked;
+            if (RerollsLeft(player) <= 0) return OpResult.NoRerolls;
+            var cards = new List<PerkDef>();
+            RollOffer(cards, Run.Shift + 1, player, OfferFor(player));
+            if (cards.Count == 0) return OpResult.NoNewCards;
+            player.RerollsUsed++;
+            player.Offer = cards;
+            Events.Add(OfferEvent(player, reroll: true));
+            return OpResult.Ok;
         }
 
         /// <summary>Everybody who is here has taken a card, or has none left to take.</summary>
@@ -217,13 +268,13 @@ namespace PerformativeMail.Sim
         {
             if (Run.Phase != RunPhase.Draft) return OpResult.WrongPhase;
             if (player.DraftPick >= 0) return OpResult.AlreadyPicked;
-            if (r.Count >= _offer.Count) return OpResult.BadRequest;
+            if (r.Count >= OfferFor(player).Count) return OpResult.BadRequest;
             return TakeCard(player, r.Count, auto: false);
         }
 
         private OpResult TakeCard(Player p, int card, bool auto)
         {
-            var verdict = Grant(p, _offer[card], (byte)card, auto);
+            var verdict = Grant(p, OfferFor(p)[card], (byte)card, auto);
             if (verdict == OpResult.Ok) p.DraftPick = (sbyte)card;
             return verdict;
         }
@@ -248,7 +299,11 @@ namespace PerformativeMail.Sim
         private void CloseDraft()
         {
             _offer.Clear();
-            foreach (var p in _players) p.DraftPick = -1;
+            foreach (var p in _players)
+            {
+                p.DraftPick = -1;
+                p.Offer = null;
+            }
         }
 
         /// <summary>A correct delivery starts (or renews) the speed of <see cref="Stat.DeliveryBoost"/>.</summary>
