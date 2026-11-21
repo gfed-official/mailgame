@@ -837,7 +837,17 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             stages that follow (`lobby-island.png`)
 - [ ] Content pipeline: JSON defs, validator in CI, hot reload
       - [x] JSON defs and the validator (`tools/validate-content.sh`, run by `tools/smoke.sh`)
-      - [ ] a CI job; hot reload
+      - [x] **The CI job** (doc 07 §10; design choice 89). `.github/workflows/ci.yml`: three jobs
+            on every push and pull request — the content validator, the Sim and Net tests, and
+            the headless smoke (after the validator; Godot .NET 4.7.2, the csproj's SDK, fetched
+            from the release page and cached, the project imported once). Each job is a stage
+            of `tools/ci.sh` (`content`, `test`, `smoke`; all three without arguments), so the
+            box runs exactly what CI runs. The content stage also proves the validator still
+            fails: a copy of the content with a recipe for an unknown item must be turned away,
+            naming it. Not run on GitHub from here (nothing is pushed); every stage passed
+            locally. The export of the dedicated server and clients (doc 07 §10's second line)
+            waits for export presets.
+      - [ ] hot reload (F6 in a debug build)
 - [x] Results screen and MetaProfile persistence (XP only) — the run / shift loop above. The
       unlocks table is not wired yet.
 - [ ] Resource nodes and harvesting (wood, fiber, stone, ore); hand-built Wooden Wall and Chest
@@ -1868,6 +1878,11 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the wallet as the run starts rather than adding loot, so a re-ask cannot print money and
     the run's summary (earned, loot, spent) stays the game's own.
 
+89. **CI.** Doc 07 §10 asks for the tests, the validator and a smoke that "boots, hosts, and
+    connects a bot for 60 s"; `tools/smoke.sh` is that and more (two runs, an ENet guest, the
+    island bot), so CI runs it rather than a second, smaller smoke. The workflow sits in the
+    repo but is unproven until the repo is pushed to a host that runs it.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -1920,6 +1935,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-package --playtest-mailbox   # a guest: all three go together
 ~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-no-timer   # a guest brings a raid and stops the clock
 
+tools/ci.sh [content] [test] [smoke]   # what CI runs (.github/workflows/ci.yml), stage by stage; "CI OK"
 tools/soak.sh [players=8] [seconds=600] [seed]   # host + guests as separate headless bot processes over ENet; "SOAK OK"
                                                  # (also judges the host's tick times; give it 120 s or more — in less, a bot may not get to deliver)
 ```
