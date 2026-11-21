@@ -382,14 +382,36 @@ namespace PerformativeMail.Client
         /// <summary>The number beside the health bar: whole points, and 0 only when down.</summary>
         public static string Health(float hp) => ((int)Math.Ceiling(Math.Max(0f, hp))).ToString(CultureInfo.InvariantCulture);
 
+        /// <summary>The warning of a raid by the first way in, the east end of the first street (doc 05 §3.1's example).</summary>
         public const string RaidWarning = "Raid incoming from the east";
+
+        /// <summary>
+        /// Where the raid comes from (doc 05 §3.1 "Raid incoming from the east"): its first way in,
+        /// and the second its later pulses come by too; with <paramref name="streets"/> the street
+        /// each comes along.
+        /// </summary>
+        public static string RaidFrom(WorldMap map, int first, int second, bool streets)
+        {
+            var edges = map.SpawnEdges;
+            if (edges.Count == 0) return "the east";
+            var a = edges[first >= 0 && first < edges.Count ? first : 0];
+            string text = streets ? a.Name : $"the {a.Direction}";
+            if (second < 0 || second >= edges.Count || second == a.Index) return text;
+            var b = edges[second];
+            if (!streets && b.Direction == a.Direction) return text;
+            return streets ? $"{text}, later also {b.Name}" : $"{text} and the {b.Direction}";
+        }
+
+        /// <summary>The banner's words for the raid on its way: "Raid incoming from the east and the north".</summary>
+        public static string RaidIncoming(ClientWorld world) =>
+            $"Raid incoming from {RaidFrom(world.Map, world.Global.RaidEdgeA, world.Global.RaidEdgeB, streets: false)}";
 
         /// <summary>The line across the view while a raid gathers, and when it breaks off.</summary>
         public static string RaidBanner(ClientWorld world)
         {
             switch (world.Raid)
             {
-                case RaidState.Warning: return $"{RaidWarning}   ·   {Clock(world.RaidSecondsLeft)}";
+                case RaidState.Warning: return $"{RaidIncoming(world)}   ·   {Clock(world.RaidSecondsLeft)}";
                 case RaidState.Fleeing: return "The raiders are running for the gate";
                 default: return "";
             }
@@ -880,9 +902,9 @@ namespace PerformativeMail.Client
         {
             if (def.Behaviour != BuildingBehaviour.Alarm) return "";
             string seconds = ((int)Math.Round(def.WarningBonusSeconds)).ToString(CultureInfo.InvariantCulture);
-            return RaidRules.AlarmInRange(world.Map, def, tx, tz)
+            return RaidRules.AlarmInRange(world.Map, def, tx, tz, world.Global.Shift)
                 ? $"   ·   rings the raid in {seconds} s early"
-                : "   ·   too far from the raiders' way in to ring early";
+                : "   ·   too far from the raiders' ways in to ring early";
         }
 
         /// <summary>The feed's line as the raid is announced: with the warning the Alarm Posts gave, if any rang.</summary>
@@ -890,9 +912,10 @@ namespace PerformativeMail.Client
         {
             int posts = 0;
             foreach (var c in world.Constructs.All)
-                if (RaidRules.AlarmInRange(world.Map, c.Def, c.Tx, c.Tz)) posts++;
+                if (RaidRules.AlarmInRange(world.Map, c.Def, c.Tx, c.Tz, world.Global.Shift)) posts++;
             var waves = world.Content.Waves;
-            return RaidAnnounced(posts, world.RaidSecondsLeft, world.LocalStat(Stat.RaidWarningSeconds, (float)waves.WarningSeconds));
+            string head = $"Raid incoming from {RaidFrom(world.Map, world.Global.RaidEdgeA, world.Global.RaidEdgeB, streets: true)}";
+            return RaidAnnounced(head, posts, world.RaidSecondsLeft, world.LocalStat(Stat.RaidWarningSeconds, (float)waves.WarningSeconds));
         }
 
         /// <summary>
@@ -900,11 +923,11 @@ namespace PerformativeMail.Client
         /// when the warning is longer than the one the team has without them (a raid called at
         /// once by the playtest's <c>--raid</c> owes them nothing).
         /// </summary>
-        public static string RaidAnnounced(int posts, double secondsLeft, double warningWithoutPosts)
+        public static string RaidAnnounced(string head, int posts, double secondsLeft, double warningWithoutPosts)
         {
-            if (posts == 0 || secondsLeft < warningWithoutPosts + 0.5) return RaidWarning;
+            if (posts == 0 || secondsLeft < warningWithoutPosts + 0.5) return head;
             string seconds = ((int)Math.Round(secondsLeft)).ToString(CultureInfo.InvariantCulture);
-            return $"{RaidWarning}   ·   {seconds} s of warning with {(posts == 1 ? "the Alarm Post" : $"{posts.ToString(CultureInfo.InvariantCulture)} Alarm Posts")}";
+            return $"{head}   ·   {seconds} s of warning with {(posts == 1 ? "the Alarm Post" : $"{posts.ToString(CultureInfo.InvariantCulture)} Alarm Posts")}";
         }
 
         /// <summary>Why a build or a take-down came to nothing, where the prompt had not said so already.</summary>

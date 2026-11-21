@@ -55,6 +55,10 @@ namespace PerformativeMail.App
             float plateBottom = _screen.Hud.TopPlate.GetGlobalRect().End.Y;
             Check(map.MapRect.Position.Y >= plateBottom, $"the map's top {map.MapRect.Position.Y:0} is under the top plate (to {plateBottom:0})");
             Check(map.TitleText.StartsWith("MAP · ", StringComparison.Ordinal), $"the map's title reads \"{map.TitleText}\"");
+            // The raiders' way in (doc 02 §3.10) is marked: the east end of Larch Lane, no raid by it in shift 1.
+            Check(map.EdgesDrawn.Count == 1 && map.EdgesDrawn[0].Edge.Index == 0 && !map.EdgesDrawn[0].Raid
+                    && map.EdgesDrawn[0].Edge.Name == "the east, along Larch Lane",
+                $"the map marks {map.EdgesDrawn.Count} ways in for the raiders");
             int underMap = CheckLabelsOffMap();
             Shot("map");
             GD.Print($"[smoke] map: up with mail in the hotbar, \"{map.RouteText}\" in {guide.Points.Count} points; {underMap} world labels under it kept off");

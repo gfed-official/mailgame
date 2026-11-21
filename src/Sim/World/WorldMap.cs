@@ -127,6 +127,8 @@ namespace PerformativeMail.Sim.World
         public IReadOnlyList<Prop> Props { get; private set; } = Array.Empty<Prop>();
         /// <summary>The streets as a graph (doc 02 §3.8): routes, lengths, the map's ways in.</summary>
         public RoutingGraph Routes { get; private set; } = new RoutingGraph();
+        /// <summary>The raiders' ways in (doc 02 §3.10); the first is the east end of the first street, open from shift 1.</summary>
+        public IReadOnlyList<SpawnEdge> SpawnEdges { get; private set; } = Array.Empty<SpawnEdge>();
 
         /// <summary>FNV-1a 64 of the tile and address tables and the chests; the M0 stand-in for worldHash (doc 02 §2).</summary>
         public ulong MapHash { get; private set; }
@@ -226,6 +228,7 @@ namespace PerformativeMail.Sim.World
             Props = Scenery.Generate(this);
             Routes = RoutingGraph.Build(this);
             IndexProps();
+            SpawnEdges = World.SpawnEdges.Build(this);
         }
 
         /// <summary>How far past a prop's own radius a walker's body can reach: the widest walker's radius.</summary>

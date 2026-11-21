@@ -13,7 +13,7 @@ namespace PerformativeMail.Tools.SeedViewer
     ///   SeedViewer [SEED[-LAST]] [--map] [--island] [--content=DIR]
     /// One line of figures per seed (size, houses, districts and their houses, streets, nodes,
     /// the world hash) and with --map the town drawn in letters, a character a tile:
-    /// '=' street, '#' house, '.' lot, 'P' Post Office, 'y' its yard, '~' beach, 'T' tree,
+    /// '@' a raiders' way in, '=' street, '#' house, '.' lot, 'P' Post Office, 'y' its yard, '~' beach, 'T' tree,
     /// 'o' boulder, '*' bush, 's' sand pile, ' ' grass; the digit of a house's district on its
     /// mailbox. With --island the whole island, a character for 4 × 4 tiles, by its biome:
     /// '#' deep water, '~' shallow, ':' beach, '.' grassland, 'T' forest, '^' rocky, 'H' the town.
@@ -109,8 +109,9 @@ namespace PerformativeMail.Tools.SeedViewer
                 island = string.Create(CultureInfo.InvariantCulture,
                     $", island {t.Cols}x{t.Rows} land {100.0 * land / t.Biomes.Length:F0}% (forest {Share(Biome.Forest)}% rocky {Share(Biome.Rocky)}% beach {Share(Biome.Beach)}%), top {t.MaxHeightCm / 100.0:F1} m");
             }
+            string edges = string.Join(" ", map.SpawnEdges.Select(e => $"{e.Direction}@{e.UnlockShift}"));
             return string.Create(CultureInfo.InvariantCulture,
-                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count} houses, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}), routes {map.Routes.Nodes.Count} nodes {map.Routes.Edges.Count} edges {map.Routes.TotalLength:F0} m{island}, worldHash {map.MapHash:x16}");
+                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count} houses, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}), routes {map.Routes.Nodes.Count} nodes {map.Routes.Edges.Count} edges {map.Routes.TotalLength:F0} m, raiders from {edges}{island}, worldHash {map.MapHash:x16}");
         }
 
         public static string Draw(WorldMap map)
@@ -141,6 +142,12 @@ namespace PerformativeMail.Tools.SeedViewer
             {
                 int x = (int)(d.MailboxX / 2f), z = (int)(d.MailboxZ / 2f);
                 if (map.InBounds(x, z)) grid[z, x] = (char)('0' + d.Address.District % 10);
+            }
+            // The raiders' ways in: '@'.
+            foreach (var e in map.SpawnEdges)
+            {
+                int x = Math.Clamp((int)(e.X / 2f), 0, map.Cols - 1), z = Math.Clamp((int)(e.Z / 2f), 0, map.Rows - 1);
+                grid[z, x] = '@';
             }
             var sb = new StringBuilder();
             for (int z = 0; z < map.Rows; z++)

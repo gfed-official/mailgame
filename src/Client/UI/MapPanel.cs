@@ -24,6 +24,7 @@ namespace PerformativeMail.Client.UI
         private static readonly Color Ink = new Color(0.96f, 0.94f, 0.88f);
         private static readonly Color Route = new Color("ffbf47");
         private static readonly Color Sand = new Color("d9c08a");
+        private static readonly Color Raiders = new Color("e63946");
         private static readonly Color[] Districts =
         {
             new Color("e9c46a"), new Color("8ecae6"), new Color("f4a261"), new Color("b5e48c"), new Color("cdb4db"),
@@ -41,6 +42,9 @@ namespace PerformativeMail.Client.UI
         /// <summary>The line under the map, as last drawn; empty while it is closed.</summary>
         public string RouteText { get; private set; } = "";
         public string TitleText { get; private set; } = "";
+        /// <summary>The raiders' ways in marked at the last draw, and whether the raid comes by each.</summary>
+        public IReadOnlyList<(SpawnEdge Edge, bool Raid)> EdgesDrawn => _edges;
+        private List<(SpawnEdge Edge, bool Raid)> _edges = new List<(SpawnEdge, bool)>();
         /// <summary>Where the map itself was drawn on the screen, in pixels.</summary>
         public Rect2 MapRect { get; private set; }
         /// <summary>The highest the HUD's lines along the bottom reach (the event feed): the panel ends above it.</summary>
@@ -76,6 +80,7 @@ namespace PerformativeMail.Client.UI
             Guide.Update(world, _client.Input.HeldSlot);
             RouteText = Guide.Line(world, _move);
             TitleText = MapGuide.Title(world);
+            _edges = MapGuide.Edges(world);
             QueueRedraw();
         }
 
@@ -215,6 +220,31 @@ namespace PerformativeMail.Client.UI
                 DrawStringOutline(font, at + new Vector2(-90f, 5f), text, HorizontalAlignment.Center, 180f, 12, 4, new Color(0f, 0f, 0f, 0.9f));
                 DrawString(font, at + new Vector2(-90f, 5f), text, HorizontalAlignment.Center, 180f, 12, new Color(0.88f, 0.88f, 0.88f));
             }
+            // The raiders' ways in: a red arrowhead pointing into the town; the raid's own bright,
+            // with its way to the Post Office.
+            foreach (var (edge, raid) in _edges)
+            {
+                var colour = raid ? Raiders : new Color(Raiders, 0.55f);
+                if (raid && edge.Path.Count >= 2)
+                {
+                    var path = new Vector2[edge.Path.Count];
+                    for (int i = 0; i < path.Length; i++) path[i] = At(edge.Path[i].X, edge.Path[i].Z);
+                    for (int i = 0; i + 1 < path.Length; i++) DrawDashedLine(path[i], path[i + 1], Raiders, 2f, 6f);
+                }
+                var tip = At(edge.X, edge.Z) + new Vector2(edge.InX, edge.InZ) * 15f;
+                var into = new Vector2(edge.InX, edge.InZ);
+                var across = new Vector2(-edge.InZ, edge.InX);
+                var head = new[] { tip, tip - into * 14f + across * 9f, tip - into * 9f, tip - into * 14f - across * 9f };
+                DrawColoredPolygon(head, colour);
+                DrawPolyline(new[] { head[0], head[1], head[2], head[3], head[0] }, new Color(0f, 0f, 0f, 0.8f), 1.5f, true);
+                if (raid)
+                {
+                    var label = tip + into * 8f + new Vector2(-30f, 4f);
+                    DrawStringOutline(font, label, "RAID", HorizontalAlignment.Center, 60f, 12, 4, new Color(0f, 0f, 0f, 0.9f));
+                    DrawString(font, label, "RAID", HorizontalAlignment.Center, 60f, 12, Raiders);
+                }
+            }
+
             var po = map.PostOffice;
             DrawString(font, At(po.Rect.CenterX, po.Rect.CenterZ) + new Vector2(-40f, 4f), "PO", HorizontalAlignment.Center, 80f, 13, Ink);
 

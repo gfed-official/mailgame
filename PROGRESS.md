@@ -623,8 +623,28 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             the layout (`map.png`)
       - [x] the archetype choice in the Lobby — see the Lobby line below (Small Island is the
             one archetype built; Large Island is M4 in doc 12)
-      - [ ] the Generating phase with its progress bar; enemy spawn edges (§3.10); settlement
-            placement searched for rather than set (choice 84)
+      - [x] **Enemy spawn edges** (doc 02 §3.10, doc 05 §3.1–§3.4; design choice 92).
+            `SpawnEdges.Build`, on the server and every client from the map alone: the first
+            way in is the east end of the first street, open from shift 1 (on the test street
+            the only one, where the raiders always came from); every district that opens later
+            adds the way in facing it — on the side of the map (never the beach's) it lies
+            towards from the Post Office, at a street that leaves the map near there, else at
+            the nearest open tile of that edge the pad can be walked to from —, at least 40 m
+            from the pad, shared with a way in already within 30 m. Each has its compass point,
+            its street, its unlock shift and its path to the pad over the routing graph. A
+            raid takes its ways in from the seed's "spawns" stream among those open: pulses 1–3
+            by one, 4–6 by two in turns (doc 05 §3.2); each raider holds its line on its own way
+            in's path (raidStandoffMetres from the pad, lanes across it) and flees by the way it
+            came. An Alarm Post rings early near any way in open by the shift. Protocol `m1.19`
+            (the raid's two ways in in the global state and the raid event). Banner "Raid
+            incoming from the east and the north", feed "Raid incoming from the east, along
+            Harbour Road, later also the north"; the map (M) marks each open way in with a red
+            arrowhead, the raid's bright with "RAID" and its path dashed. `SeedViewer` prints
+            "raiders from east@1 north@2 west@4" and draws '@'. `SpawnEdgeTests` (6),
+            `SpawnEdgeFlowTests` (1), `CombatHudTests`; the smoke checks the map marks the test
+            street's one way in
+      - [ ] the Generating phase with its progress bar; settlement placement searched for
+            rather than set (choice 84)
       - [x] Checked along the way: the rider's prediction on the generated town keeps with the
             server tick by tick (`VehicleFlowTests.OnTheGeneratedTown_TheRidersPredictionKeepsWithTheServer`)
 - [x] Districts and per-shift unlock; address assignment; street names; house model variants and
@@ -1008,8 +1028,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the content pipeline's CI job and hot reload, then the rest of the M1
-list (the other blueprints and vehicles, rerolls), the Generating phase and spawn edges.
+Next in this order: the Generating phase with its progress bar, settlement placement searched
+for; the other blueprints and vehicles wait for belts, sorters and turrets (later milestones).
 
 ## How to build and check
 
@@ -1924,6 +1944,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     reroll deals the player a table of their own and leaves everybody else's alone. A team perk
     on a personal table is still the team's once. Rank 4's second reroll comes from the rank in
     the Hello (the server has it since the kits); the perk pool itself is not rank-locked yet.
+92. **Spawn edges on a town grid.** Doc 02 §3.10 asks for mouths 120 m from the PO and 40 m
+    from any house; the sim's walkable world is the town grid (~170 × 120 m, houses up to its
+    edges), so no tile of it is that far. The mouths are on the grid's edge, at least 40 m from
+    the pad, and raiders are taken to walk in from the island beyond. "Facing the newly unlocked
+    area" is the side of the map the district's mailboxes lie towards from the pad. The east end
+    of the first street is always the first way in, open from shift 1, so the test street and
+    the doc's example ("Raid incoming from the east") keep it. Alarm Posts ring early near any
+    way in open by the shift, not only the raid's: the raid's ways in are drawn as Delivery
+    starts, and a post built in Prep should know whether it is any use. Water edges for
+    Balloons come with Balloons.
 
 ## Commands
 

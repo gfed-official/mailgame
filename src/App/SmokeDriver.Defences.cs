@@ -119,7 +119,7 @@ namespace PerformativeMail.App
                     Check(MathF.Abs(world.Local.Z - _buildZ) < 0.3f, $"walking through the Gate the host was pushed to z {world.Local.Z:0.00} from {_buildZ:0.00}");
                     // On to the Alarm Post's place, near the raiders' way in.
                     RaidRules.Gate(world.Map, out float gx, out float gz);
-                    if (!StandAtBuildSite(gx - 12f, gz, (tx, tz) => RaidRules.AlarmInRange(world.Map, alarm.Building, tx, tz)))
+                    if (!StandAtBuildSite(gx - 12f, gz, (tx, tz) => RaidRules.AlarmInRange(world.Map, alarm.Building, tx, tz, world.Global.Shift)))
                         Fail("no open ground in range of the raiders' way in for the Alarm Post");
                     next = true;
                     break;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.World;
@@ -73,6 +74,24 @@ namespace PerformativeMail.Client
             foreach (var d in world.Map.Districts) if (d.UnlockShift <= Math.Max(1, (int)world.Global.Shift)) open++;
             string districts = world.Map.Districts.Count <= 1 ? "" : $" · {open} of {world.Map.Districts.Count} districts open";
             return $"MAP · {world.Map.Name}{districts}   [M] close";
+        }
+
+        /// <summary>
+        /// The raiders' ways in the map marks (doc 09 §2.6, doc 05 §3.1 "the spawn edge(s) marked
+        /// on the map"): every one open by the shift, and whether the raid on its way or under way
+        /// comes by it.
+        /// </summary>
+        public static List<(SpawnEdge Edge, bool Raid)> Edges(ClientWorld world)
+        {
+            var list = new List<(SpawnEdge, bool)>();
+            int shift = Math.Max(1, (int)world.Global.Shift);
+            bool raid = world.Raid == RaidState.Warning || world.Raid == RaidState.Active;
+            foreach (var e in world.Map.SpawnEdges)
+            {
+                bool comes = raid && (e.Index == world.Global.RaidEdgeA || e.Index == world.Global.RaidEdgeB);
+                if (e.OpenAt(shift) || comes) list.Add((e, comes));
+            }
+            return list;
         }
     }
 }

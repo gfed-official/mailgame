@@ -565,7 +565,7 @@ namespace PerformativeMail.Net.Tests
             LookAt(ada, px, pz);
             build.Update(Dt, false, false);
             Assert.Equal(OpResult.Ok, build.Ghost.State);
-            Assert.Equal("Build Alarm Post   ·   Log x2, Iron Ingot x1   ·   too far from the raiders' way in to ring early   [LMB]", HudText.BuildPrompt(a, build.Ghost, out _));
+            Assert.Equal("Build Alarm Post   ·   Log x2, Iron Ingot x1   ·   too far from the raiders' ways in to ring early   [LMB]", HudText.BuildPrompt(a, build.Ghost, out _));
             // Out east, it would ring the raid in early.
             RaidRules.Gate(a.Map, out float gx, out float gz);
             int ex = (int)MathF.Floor((gx - 10f) / SimConstants.TileSize);

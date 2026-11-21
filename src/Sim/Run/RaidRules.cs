@@ -10,30 +10,47 @@ namespace PerformativeMail.Sim.Run
     /// </summary>
     public static class RaidRules
     {
-        /// <summary>Where the raiders come in and leave: the east end of the first street ("from the east").</summary>
+        /// <summary>The first way in: the east end of the first street ("from the east"), open from shift 1.</summary>
         public static void Gate(WorldMap map, out float x, out float z)
         {
-            x = map.WidthM - 1.5f;
-            z = map.Streets.Count > 0 ? map.Streets[0].Rect.CenterZ : map.DepthM * 0.5f;
+            var edge = map.SpawnEdges[0];
+            x = edge.X;
+            z = edge.Z;
         }
 
-        /// <summary>True if an alarm of this kind on the tile is in range of the raiders' way in (doc 11: "+15 s per Alarm Post in range").</summary>
-        public static bool AlarmInRange(WorldMap map, BuildingDef def, int tx, int tz)
+        /// <summary>
+        /// True if an alarm of this kind on the tile is in range of a way in open by the shift
+        /// (doc 11: "+15 s per Alarm Post in range"; design choice 92).
+        /// </summary>
+        public static bool AlarmInRange(WorldMap map, BuildingDef def, int tx, int tz, int shift)
         {
             if (def.Behaviour != BuildingBehaviour.Alarm) return false;
-            Gate(map, out float gx, out float gz);
-            float dx = BuildRules.TileCentre(tx) - gx, dz = BuildRules.TileCentre(tz) - gz;
-            return dx * dx + dz * dz <= def.RevealRadius * def.RevealRadius;
+            float r2 = def.RevealRadius * def.RevealRadius;
+            foreach (var edge in map.SpawnEdges)
+            {
+                if (!edge.OpenAt(shift)) continue;
+                float dx = BuildRules.TileCentre(tx) - edge.X, dz = BuildRules.TileCentre(tz) - edge.Z;
+                if (dx * dx + dz * dz <= r2) return true;
+            }
+            return false;
         }
 
         /// <summary>Seconds of warning the Alarm Posts that stand add, all of them together.</summary>
-        public static double AlarmBonusSeconds(WorldMap map, ConstructField built)
+        public static double AlarmBonusSeconds(WorldMap map, ConstructField built, int shift)
         {
             double bonus = 0;
             foreach (var c in built.All)
-                if (AlarmInRange(map, c.Def, c.Tx, c.Tz)) bonus += c.Def.WarningBonusSeconds;
+                if (AlarmInRange(map, c.Def, c.Tx, c.Tz, shift)) bonus += c.Def.WarningBonusSeconds;
             return bonus;
         }
+
+        /// <summary>
+        /// Doc 05 §3.2: "1 edge for pulses 1–3, 2 edges for 4–6": which of the raid's two ways in
+        /// the <paramref name="nth"/> raider of pulse <paramref name="pulse"/> (from 0, of
+        /// <paramref name="pulses"/>) comes by — the second half of the pulses take turns.
+        /// </summary>
+        public static int PulseEdge(int pulse, int pulses, int nth, int first, int second) =>
+            pulse * 2 < pulses || second < 0 || nth % 2 == 0 ? first : second;
 
         /// <summary>The warning before a raid: the perks' and the posts', no longer than the cap.</summary>
         public static double WarningSeconds(WaveDef waves, double withPerks, double alarmBonus)

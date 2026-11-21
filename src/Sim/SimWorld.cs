@@ -53,6 +53,8 @@ namespace PerformativeMail.Sim
         public RunOutcome Outcome;
         public EntityId Host;
         public RaidState Raid;
+        /// <summary>The raid's ways in (<see cref="SimWorld.RaidEdgeA"/>, <see cref="SimWorld.RaidEdgeB"/>), −1 for none.</summary>
+        public sbyte RaidEdgeA, RaidEdgeB;
         /// <summary>Playtest nit 10: the Delivery clock stands (<see cref="SimWorld.ClockStopped"/>).</summary>
         public bool ClockStopped;
         /// <summary>Playtest nit 13: a missed quota does not end the run (<see cref="SimWorld.QuotaWaived"/>).</summary>
@@ -296,6 +298,8 @@ namespace PerformativeMail.Sim
             Outcome = Run.Outcome,
             Host = Run.Host,
             Raid = Raid,
+            RaidEdgeA = (sbyte)RaidEdgeA,
+            RaidEdgeB = (sbyte)RaidEdgeB,
             ClockStopped = ClockStopped,
             QuotaWaived = QuotaWaived,
         };

@@ -184,6 +184,8 @@ namespace PerformativeMail.Sim
         public RaidState Raid;
         /// <summary>Warning: the tick of the first spawn. Fleeing: the tick the last enemy is gone by.</summary>
         public uint Tick;
+        /// <summary>The raid's ways in (indices into the map's spawn edges), −1 for none.</summary>
+        public sbyte EdgeA = -1, EdgeB = -1;
     }
 
     public sealed class PlayerDiedEvent : SimEvent

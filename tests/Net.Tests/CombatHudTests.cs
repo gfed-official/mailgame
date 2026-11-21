@@ -241,7 +241,7 @@ namespace PerformativeMail.Net.Tests
             Assert.True(s.StepUntil(() => s.World.Raid == RaidState.Warning, 275));
             Assert.StartsWith(HudText.RaidWarning + "   ·   00:", HudText.RaidBanner(s.World));
             Assert.StartsWith("Raid in 00:", HudText.RaidTracker(s.World));
-            Assert.Contains(HudText.RaidWarning, s.FeedLines);
+            Assert.Contains(HudText.RaidWarning + ", along Larch Lane", s.FeedLines);
             Assert.InRange(s.World.RaidSecondsLeft, 1.0, 60.0);
 
             Assert.True(s.StepUntil(() => s.World.Raid == RaidState.Active && s.World.Enemies.Count > 0, 60));
@@ -259,11 +259,11 @@ namespace PerformativeMail.Net.Tests
         public void TheRaidsLine_NamesTheAlarmPost_OnlyWhenItRangTheRaidInEarly()
         {
             // 15 s more than the team's own 15: the post is named.
-            Assert.Equal($"{HudText.RaidWarning}   ·   30 s of warning with the Alarm Post", HudText.RaidAnnounced(1, 29.97, 15.0));
-            Assert.Equal($"{HudText.RaidWarning}   ·   45 s of warning with 3 Alarm Posts", HudText.RaidAnnounced(3, 45.0, 15.0));
+            Assert.Equal($"{HudText.RaidWarning}   ·   30 s of warning with the Alarm Post", HudText.RaidAnnounced(HudText.RaidWarning, 1, 29.97, 15.0));
+            Assert.Equal($"{HudText.RaidWarning}   ·   45 s of warning with 3 Alarm Posts", HudText.RaidAnnounced(HudText.RaidWarning, 3, 45.0, 15.0));
             // A raid called at once (the playtest's --raid) owes the posts in range nothing.
-            Assert.Equal(HudText.RaidWarning, HudText.RaidAnnounced(1, 5.0, 15.0));
-            Assert.Equal(HudText.RaidWarning, HudText.RaidAnnounced(0, 30.0, 15.0));
+            Assert.Equal(HudText.RaidWarning, HudText.RaidAnnounced(HudText.RaidWarning, 1, 5.0, 15.0));
+            Assert.Equal(HudText.RaidWarning, HudText.RaidAnnounced(HudText.RaidWarning, 0, 30.0, 15.0));
         }
 
         [Fact]

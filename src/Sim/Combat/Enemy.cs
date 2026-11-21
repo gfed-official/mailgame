@@ -60,6 +60,8 @@ namespace PerformativeMail.Sim.Combat
         public bool Waiting;
         /// <summary>Windup: the tile of what the carriers built that the blow is for; StrikeTx −1: it is for the target.</summary>
         public int StrikeTx = -1, StrikeTz;
+        /// <summary>The way in it came by (an index into the map's spawn edges): where it holds its line and where it flees to.</summary>
+        public int Edge;
 
         /// <summary>Health as the snapshot carries it: 1..255.</summary>
         public byte HpByte => (byte)System.Math.Clamp((int)System.MathF.Ceiling(Hp / MaxHp * 255f), 1, 255);

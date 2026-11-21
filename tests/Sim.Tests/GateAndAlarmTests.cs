@@ -87,7 +87,7 @@ namespace PerformativeMail.Sim.Tests
                 {
                     if (BuildRules.CheckTile(map, world.Constructs, tx, tz) != OpResult.Ok) continue;
                     if (map.IsNavBlocked(tx, tz + 1) && map.IsNavBlocked(tx, tz - 1) && map.IsNavBlocked(tx + 1, tz) && map.IsNavBlocked(tx - 1, tz)) continue;
-                    if (RaidRules.AlarmInRange(map, Alarm, tx, tz) != inRange) continue;
+                    if (RaidRules.AlarmInRange(map, Alarm, tx, tz, 1) != inRange) continue;
                     float dx = Centre(tx) - gx, dz = Centre(tz) - gz;
                     tiles.Add((tx, tz, dx * dx + dz * dz));
                 }
@@ -191,7 +191,7 @@ namespace PerformativeMail.Sim.Tests
             var far = AlarmTiles(world, inRange: false, 1)[0];
             // One out of range, built in Prep: it changes nothing.
             Assert.Equal(OpResult.Ok, PlaceBeside(world, host, Alarm, far.Tx, far.Tz));
-            Assert.Equal(0.0, RaidRules.AlarmBonusSeconds(world.Map, world.Constructs));
+            Assert.Equal(0.0, RaidRules.AlarmBonusSeconds(world.Map, world.Constructs, world.Run.Shift));
             Assert.Equal(15.0, world.RaidWarningSeconds());
             // One in range, built in Prep: the shift's raid is scheduled with it.
             Assert.Equal(OpResult.Ok, PlaceBeside(world, host, Alarm, near[0].Tx, near[0].Tz));

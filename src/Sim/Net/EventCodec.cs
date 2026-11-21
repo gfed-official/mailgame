@@ -157,7 +157,7 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case RaidChangedEvent e:
                     w.U8((byte)EventType.RaidChanged);
-                    w.U8((byte)e.Raid); w.U32(e.Tick);
+                    w.U8((byte)e.Raid); w.U32(e.Tick); w.U8((byte)e.EdgeA); w.U8((byte)e.EdgeB);
                     break;
                 case PlayerDiedEvent e:
                     w.U8((byte)EventType.PlayerDied);
@@ -367,7 +367,7 @@ namespace PerformativeMail.Sim.Net
                 case EventType.LootGone:
                     return new LootGoneEvent { LootId = r.U32() };
                 case EventType.RaidChanged:
-                    return new RaidChangedEvent { Raid = (RaidState)r.U8(), Tick = r.U32() };
+                    return new RaidChangedEvent { Raid = (RaidState)r.U8(), Tick = r.U32(), EdgeA = (sbyte)r.U8(), EdgeB = (sbyte)r.U8() };
                 case EventType.PlayerDied:
                     return new PlayerDiedEvent { Player = new EntityId(r.U32()), RespawnTick = r.U32(), Killer = r.U8() };
                 case EventType.PlayerRespawned:

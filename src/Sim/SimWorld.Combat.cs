@@ -101,6 +101,9 @@ namespace PerformativeMail.Sim
         private int _raidShift;
         private int _raidPulse;
         private double _raidBudget, _raidCarry;
+        /// <summary>The raid's ways in (doc 05 §3.2): the first half of its pulses by the one, then both; −1: none.</summary>
+        private int _raidEdgeA = -1, _raidEdgeB = -1;
+        private RngStream _spawnRng = null!;
 
         public IReadOnlyList<Enemy> Enemies => _enemies;
         public IReadOnlyList<LootBundle> Loot => _loot;
@@ -116,6 +119,10 @@ namespace PerformativeMail.Sim
         public double RaidBudget => _raidBudget;
         /// <summary>Pulses of the raid under way that have come in.</summary>
         public int RaidPulsesSpawned => _raidPulse;
+        /// <summary>The way in of the raid's first pulses (an index into the map's spawn edges); −1 without a raid.</summary>
+        public int RaidEdgeA => _raidEdgeA;
+        /// <summary>The second way in of its later pulses; −1 if they come by the first too.</summary>
+        public int RaidEdgeB => _raidEdgeB;
         public int EnemiesSpawnedTotal { get; private set; }
         public int EnemiesKilledTotal { get; private set; }
 
@@ -369,6 +376,7 @@ namespace PerformativeMail.Sim
                 Radius = waves.BodyRadius(def, mega),
             };
             e.Hp = e.MaxHp;
+            e.Edge = NearestEdge(x, z);
             // Each enemy thinks on its own tick, so a pulse does not path all at once.
             e.RepathTick = Tick + 1 + e.Id.Counter % RepathTicks;
             PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false);
@@ -432,7 +440,8 @@ namespace PerformativeMail.Sim
                 {
                     case EnemyState.Flee:
                     {
-                        RaidGate(out float gx, out float gz);
+                        var edge = EdgeOf(e);
+                        float gx = edge.X, gz = edge.Z;
                         float dx = gx - e.X, dz = gz - e.Z;
                         if (fleeOver || dx * dx + dz * dz < 1.5f * 1.5f) { _enemies.RemoveAt(i); continue; }
                         Walk(e, gx, gz, e.Speed * _combat.FleeSpeedMult * dt);
@@ -651,32 +660,29 @@ namespace PerformativeMail.Sim
         }
 
         /// <summary>
-        /// The raiders' line (nit 17): on the street, raidStandoffMetres from the Post Office's
-        /// pad towards the gate. Farther than any aggroRange, so nobody is fought on the pad who
-        /// did not pick the fight; the street between the Post Office and its mailboxes is theirs.
+        /// The raiders' line (nit 17) of the raid's first way in: on its path to the Post Office,
+        /// raidStandoffMetres from the pad. Farther than any aggroRange, so nobody is fought on
+        /// the pad who did not pick the fight; the street between the Post Office and its
+        /// mailboxes is theirs.
         /// </summary>
-        public void RaidLine(out float x, out float z)
-        {
-            RaidGate(out float gx, out z);
-            float px = Map.PostOffice.SpawnPadX, dz = z - Map.PostOffice.SpawnPadZ;
-            float along = MathF.Sqrt(MathF.Max(0f, _combat.RaidStandoff * _combat.RaidStandoff - dz * dz));
-            // On a street too short for the standoff the line is the gate's mouth.
-            x = gx >= px ? MathF.Min(px + along, gx - HoldDeep) : MathF.Max(px - along, gx + HoldDeep);
-        }
+        public void RaidLine(out float x, out float z) => RaidLine(RaidEdge(), out x, out z, out _, out _);
 
-        /// <summary>Where on the line this raider stands: lanes across the street, ranks towards the gate.</summary>
+        /// <summary>The line of a way in, and the way along its path towards the Post Office there.</summary>
+        private void RaidLine(SpawnEdge edge, out float x, out float z, out float dirX, out float dirZ) =>
+            // On a path too short for the standoff the line is the gate's mouth.
+            edge.LinePoint(Map.PostOffice.SpawnPadX, Map.PostOffice.SpawnPadZ, _combat.RaidStandoff, HoldDeep, out x, out z, out dirX, out dirZ);
+
+        /// <summary>Where on its way in's line this raider stands: lanes across the street, ranks back towards the mouth.</summary>
         public void HoldSpot(Enemy e, out float x, out float z)
         {
-            RaidLine(out x, out z);
-            RaidGate(out float gx, out _);
+            var edge = EdgeOf(e);
+            RaidLine(edge, out x, out z, out float dirX, out float dirZ);
             uint n = e.Id.Counter;
-            x += (gx >= x ? 1f : -1f) * (n / HoldLanes % HoldRanks) * (HoldDeep / HoldRanks);
-            z += ((n % HoldLanes) / (HoldLanes - 1f) * 2f - 1f) * StreetHalfWidth();
+            float back = (n / HoldLanes % HoldRanks) * (HoldDeep / HoldRanks);
+            float across = ((n % HoldLanes) / (HoldLanes - 1f) * 2f - 1f) * edge.HalfWidth;
+            x += -dirX * back + dirZ * across;
+            z += -dirZ * back - dirX * across;
         }
-
-        /// <summary>Half the first street's width, less a raider's shoulder.</summary>
-        private float StreetHalfWidth() =>
-            Map.Streets.Count > 0 ? Map.Streets[0].Rect.H * SimConstants.TileSize * 0.5f - 0.6f : 1.4f;
 
         /// <summary>With nobody to go for: to its place on the line, and there it watches the Post Office.</summary>
         private void Hold(Enemy e, float dt)
@@ -760,8 +766,50 @@ namespace PerformativeMail.Sim
 
         // --- the raid ---------------------------------------------------------------------------
 
-        /// <summary>Where the raiders come in and leave: the east end of the first street ("from the east").</summary>
-        public void RaidGate(out float x, out float z) => RaidRules.Gate(Map, out x, out z);
+        /// <summary>Where the raid's first pulses come in: the mouth of its first way in (the first of the map's without a raid).</summary>
+        public void RaidGate(out float x, out float z)
+        {
+            var edge = RaidEdge();
+            x = edge.X;
+            z = edge.Z;
+        }
+
+        private SpawnEdge RaidEdge() => Map.SpawnEdges[_raidEdgeA >= 0 && _raidEdgeA < Map.SpawnEdges.Count ? _raidEdgeA : 0];
+
+        /// <summary>The way in a raider came by, and leaves by.</summary>
+        public SpawnEdge EdgeOf(Enemy e) => Map.SpawnEdges[e.Edge >= 0 && e.Edge < Map.SpawnEdges.Count ? e.Edge : 0];
+
+        /// <summary>The way in nearest a point: whoever is put down there came by it.</summary>
+        private int NearestEdge(float x, float z)
+        {
+            int best = 0;
+            float bestSq = float.MaxValue;
+            foreach (var edge in Map.SpawnEdges)
+            {
+                float dx = edge.X - x, dz = edge.Z - z, sq = dx * dx + dz * dz;
+                if (sq < bestSq) { bestSq = sq; best = edge.Index; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Doc 05 §3.2: the raid's ways in, chosen from those facing the districts open now — one
+        /// for the first half of the pulses, a second one (if there is another) for the rest.
+        /// From the seed's "spawns" stream, so a raid's way in moves nothing else of the run.
+        /// </summary>
+        private void ChooseRaidEdges()
+        {
+            _raidEdgeA = _raidEdgeB = -1;
+            var open = new List<int>();
+            foreach (var edge in Map.SpawnEdges)
+                if (edge.OpenAt(Run.Shift)) open.Add(edge.Index);
+            if (open.Count == 0) open.Add(0);
+            if (open.Count == 1) { _raidEdgeA = open[0]; return; }
+            int a = _spawnRng.NextInt(open.Count);
+            _raidEdgeA = open[a];
+            open.RemoveAt(a);
+            _raidEdgeB = open[_spawnRng.NextInt(open.Count)];
+        }
 
         /// <summary>
         /// Seconds of warning before the raid (doc 11 §10): the waves', with Early Warning, plus
@@ -770,7 +818,7 @@ namespace PerformativeMail.Sim
         public double RaidWarningSeconds()
         {
             var waves = Content.Waves;
-            return RaidRules.WarningSeconds(waves, TeamStat(Stat.RaidWarningSeconds, (float)waves.WarningSeconds), RaidRules.AlarmBonusSeconds(Map, Constructs));
+            return RaidRules.WarningSeconds(waves, TeamStat(Stat.RaidWarningSeconds, (float)waves.WarningSeconds), RaidRules.AlarmBonusSeconds(Map, Constructs, Run.Shift));
         }
 
         /// <summary>
@@ -793,6 +841,7 @@ namespace PerformativeMail.Sim
             _raidWarnTick = _raidStartTick = 0;
             _raidAtStart = false;
             _raidShift = Run.Shift;
+            _raidEdgeA = _raidEdgeB = -1;
             var waves = Content.Waves;
             if (!Settings.Raids || Content.Enemies.Count == 0) return;
             if (RaidsAtShiftStart)
@@ -800,12 +849,14 @@ namespace PerformativeMail.Sim
                 // A shift without a raid of its own borrows the first one there is.
                 while (_raidShift < ShiftCount && waves.BudgetFor(_raidShift) <= 0) _raidShift++;
                 if (waves.BudgetFor(_raidShift) <= 0) return;
+                ChooseRaidEdges();
                 _raidAtStart = true;
                 _raidWarnTick = Tick + 1;
                 _raidStartTick = Tick + Math.Max(2, SimConstants.SecondsToTicks(PlaytestMask.RaidNowSeconds));
                 return;
             }
             if (waves.BudgetFor(Run.Shift) <= 0) return;
+            ChooseRaidEdges();
             uint length = Run.PhaseEndTick - Tick;
             uint window = Math.Min(SimConstants.SecondsToTicks(waves.RaidWindowSeconds), length - 1);
             _raidStartTick = Run.PhaseEndTick - window;
@@ -854,8 +905,7 @@ namespace PerformativeMail.Sim
             int megaPermille = (int)Math.Round((waves.MegaChanceBase + waves.MegaChancePerShift * Run.Shift) * 1000);
             // Doc 05 §3.2: the last pulse of the last shift always brings a Mega.
             bool forceMega = finale && Run.Shift >= ShiftCount;
-            RaidGate(out float gx, out float gz);
-            float halfStreet = StreetHalfWidth();
+            int nth = 0;
             while (_enemies.Count < waves.MaxAlive)
             {
                 _affordable.Clear();
@@ -876,10 +926,14 @@ namespace PerformativeMail.Sim
                 }
                 bool mega = forceMega || _waveRng.Chance(megaPermille);
                 forceMega = false;
-                // Spread over the mouth of the gate, so a pulse walks in as a crowd rather than a stack.
-                float x = gx - _waveRng.NextInt(300) / 100f;
-                float z = gz + (_waveRng.NextInt(2001) - 1000) / 1000f * halfStreet;
-                if (SpawnEnemy(def, x, z, mega) == null) break;
+                var edge = Map.SpawnEdges[Math.Max(0, RaidRules.PulseEdge(pulse, waves.Pulses, nth++, _raidEdgeA, _raidEdgeB))];
+                // Spread over the mouth, so a pulse walks in as a crowd rather than a stack.
+                float inward = _waveRng.NextInt(300) / 100f, across = (_waveRng.NextInt(2001) - 1000) / 1000f * edge.HalfWidth;
+                float x = edge.X + edge.InX * inward + edge.InZ * across;
+                float z = edge.Z + edge.InZ * inward - edge.InX * across;
+                var spawned = SpawnEnemy(def, x, z, mega);
+                if (spawned == null) break;
+                spawned.Edge = edge.Index;
                 budget -= def.Cost;
             }
             _raidCarry = budget;
@@ -890,7 +944,8 @@ namespace PerformativeMail.Sim
             if (Raid == state) return;
             Raid = state;
             RaidTick = tick;
-            Events.Add(new RaidChangedEvent { Raid = state, Tick = tick });
+            if (state == RaidState.None) _raidEdgeA = _raidEdgeB = -1;
+            Events.Add(new RaidChangedEvent { Raid = state, Tick = tick, EdgeA = (sbyte)_raidEdgeA, EdgeB = (sbyte)_raidEdgeB });
         }
 
         /// <summary>Doc 05 §3.4: when the shift clock ends every enemy runs for the gate and is gone 5 s later.</summary>
@@ -901,14 +956,14 @@ namespace PerformativeMail.Sim
             _shots.Clear();
             if (_enemies.Count == 0 && Raid == RaidState.None) return;
             _fleeEndTick = Tick + _combat.FleeTicks;
-            RaidGate(out float gx, out float gz);
             foreach (var e in _enemies)
             {
                 e.State = EnemyState.Flee;
                 e.Path.Clear();
                 e.Waypoint = 0;
                 e.StrikeTx = -1;
-                FindPath(e, gx, gz);
+                var edge = EdgeOf(e);
+                FindPath(e, edge.X, edge.Z);
             }
             if (Raid != RaidState.None) SetRaid(RaidState.Fleeing, _fleeEndTick);
         }
@@ -939,6 +994,7 @@ namespace PerformativeMail.Sim
         {
             _waveRng = new RngStream(Settings.Seed, "waves");
             _lootRng = new RngStream(Settings.Seed, "loot");
+            _spawnRng = new RngStream(Settings.Seed, "spawns");
         }
 
         // --- loot -------------------------------------------------------------------------------

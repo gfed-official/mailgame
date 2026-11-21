@@ -1020,6 +1020,8 @@ namespace PerformativeMail.Client
                 {
                     var g = world.Global;
                     g.Raid = e.Raid;
+                    g.RaidEdgeA = e.EdgeA;
+                    g.RaidEdgeB = e.EdgeB;
                     world.Global = g;
                     world.RaidTick = e.Tick;
                     if (e.Raid == RaidState.None) world.Enemies.Clear();
