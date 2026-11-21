@@ -56,6 +56,8 @@ namespace PerformativeMail.Client
         public PlaytestFlags Playtest { get; }
         /// <summary>The shift this client asks runs to start at, 0 = the first.</summary>
         public int StartShift { get; }
+        /// <summary>--playtest-wallet: the money (cents) this player asks runs to start with.</summary>
+        public int StartWallet { get; }
         /// <summary>
         /// Who this client says it is (doc 06 §6): a server that still holds the body of a player who
         /// said the same and lost their connection gives it back. 0: nobody in particular.
@@ -108,8 +110,9 @@ namespace PerformativeMail.Client
         private long _errorSamples;
 
         public ClientRuntime(ContentDb content, IClientTransport transport, string name, PlaytestFlags playtest = PlaytestFlags.None, int startShift = 0,
-            ulong account = 0, int rank = 1)
+            ulong account = 0, int rank = 1, int startWallet = 0)
         {
+            StartWallet = Math.Max(0, startWallet);
             Account = account;
             Rank = Math.Clamp(rank, 1, byte.MaxValue);
             Playtest = playtest;
@@ -533,7 +536,7 @@ namespace PerformativeMail.Client
         {
             if (State != ClientState.Connecting) return;
             _writer.Reset();
-            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name, Playtest = Playtest, StartShift = (byte)StartShift, Account = Account, Rank = (byte)Rank }.Write(_writer);
+            new HelloMsg { ProtocolHash = Protocol.Hash(_content), Name = Name, Playtest = Playtest, StartShift = (byte)StartShift, Account = Account, Rank = (byte)Rank, StartWallet = (uint)StartWallet }.Write(_writer);
             _transport.Send(NetChannel.Reliable, _writer.ToArray());
             State = ClientState.Joining;
         }

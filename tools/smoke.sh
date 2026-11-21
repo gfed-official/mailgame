@@ -64,6 +64,9 @@ grep -q "^\[smoke\] world: Test Street, then Small Island" "$work/log" || { echo
 grep -q "^\[smoke\] map: up with mail" "$work/log" || { echo "smoke: the map was not shown with a route" >&2; exit 1; }
 # The shop's first blueprint (doc 10 §3 bp_defense): bought in shift 2 and built with.
 grep -q "^\[smoke\] fortify: Blueprint: Fortify bought" "$work/log" || { echo "smoke: the Fortify blueprint was not bought and built with" >&2; exit 1; }
+grep -q "^\[smoke\] fortify: .*, a Stone Wall (800 HP" "$work/log" || { echo "smoke: no Stone Wall was built with the Fortify blueprint" >&2; exit 1; }
+# Healing (doc 05 §1.1): a Bandage at once, Berries over their seconds, the health bar following.
+grep -q "^\[smoke\] heal: a Bandage gave" "$work/log" || { echo "smoke: healing with a Bandage and Berries was not checked" >&2; exit 1; }
 # The Gate and the Alarm Post (doc 05 §4): built, walked through, and ringing in the shift's raid.
 grep -q "^\[smoke\] defences: a Gate built" "$work/log" || { echo "smoke: no Gate and Alarm Post were built" >&2; exit 1; }
 # The bike (doc 04 §3.1): the Land kit's (the card sells a lone carrier no second), got on through its prompt,

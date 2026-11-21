@@ -195,7 +195,7 @@ namespace PerformativeMail.Server
             }
             client.Player = player;
             // Before the Welcome, so its containers and global state already show what was asked.
-            World.SetPlaytest(player, hello.Playtest, hello.StartShift);
+            World.SetPlaytest(player, hello.Playtest, hello.StartShift, (int)Math.Min(hello.StartWallet, (uint)PlaytestMask.MaxWallet));
             World.SetRank(player, hello.Rank);
 
             var welcome = new WelcomeMsg
@@ -263,8 +263,9 @@ namespace PerformativeMail.Server
         /// <summary>What the server granted of a Hello's playtest wishes, for the log; empty for a player without any.</summary>
         private static string PlaytestNote(Player player)
         {
-            if (player.Playtest == PlaytestFlags.None && player.PlaytestShift == 0) return "";
+            if (player.Playtest == PlaytestFlags.None && player.PlaytestShift == 0 && player.PlaytestWallet == 0) return "";
             string shift = player.PlaytestShift == 0 ? "" : $"shift {player.PlaytestShift}";
+            if (player.PlaytestWallet != 0) shift += $"{(shift.Length > 0 ? ", " : "")}wallet {player.PlaytestWallet} cents";
             string flags = player.Playtest == PlaytestFlags.None ? "" : player.Playtest.ToString();
             return $" (playtest: {flags}{(flags.Length > 0 && shift.Length > 0 ? ", " : "")}{shift})";
         }

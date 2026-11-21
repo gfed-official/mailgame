@@ -15,11 +15,22 @@ namespace PerformativeMail.App
     /// counter, buys the blueprint with its card's key, and builds a Spike Strip in Build mode
     /// with two Iron Ingots the server hands them (the run has no refinery and the smoke no
     /// money for the shop's ten). The ghost goes from red ("Needs the Blueprint") to green, the
-    /// strip is drawn, and the host walks over it unhurt.
+    /// strip is drawn, and the host walks over it unhurt. Then the blueprint's other building: a
+    /// Stone Wall from four Stone, drawn, blocking, with its 800 HP.
     /// </summary>
     public partial class SmokeDriver
     {
         private int _fortifyStep, _fortifyFrames, _fortifyVisits, _fortifyWallet;
+        private int _stripTx, _stripTz, _stoneBefore;
+        private const int StoneWallStone = 4;
+
+        private static int Carried(Sim.SimWorld server, Sim.Players.Player player, string item)
+        {
+            int n = 0;
+            foreach (var e in player.Hotbar.Entries.Concat(player.Inventory.Entries))
+                if (e.Stack.Kind == StackKind.Item && server.Content.Items[e.Stack.DefIndex].Id == item) n += e.Stack.Count;
+            return n;
+        }
 
         private bool StepFortify()
         {
@@ -30,6 +41,7 @@ namespace PerformativeMail.App
             var build = _session.Build;
             var fortify = world.Content.ShopItem("bp_defense");
             var spikes = world.Content.Recipes.First(r => r.Building.Id == "spike_strip");
+            var stoneWall = world.Content.Recipes.First(r => r.Building.Id == "wall_stone");
             var player = server.GetPlayer(world.LocalId)!;
             var po = world.Map.PostOffice;
 
@@ -113,11 +125,52 @@ namespace PerformativeMail.App
                     if (_fortifyFrames < 30) break;
                     Check(MathF.Abs(world.Local.X - BuildRules.TileCentre(_buildTx)) < 0.05f && player.Hp == player.MaxHp,
                         $"on the Spike Strip the host stands at {world.Local.X} (tile middle {BuildRules.TileCentre(_buildTx)}) with {player.Hp} HP");
-                    GD.Print($"[smoke] fortify: Blueprint: Fortify bought with its key for {HudText.Money(_fortifyWallet - world.Global.Wallet)}, a Spike Strip built at ({_buildTx}, {_buildTz}) and walked over");
+                    _stripTx = _buildTx;
+                    _stripTz = _buildTz;
+                    // The blueprint's other building: a Stone Wall from four Stone (playtest c59d497: it had no check).
+                    _stoneBefore = Carried(server, player, "stone");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("stone"), StoneWallStone)), "no room for four Stone");
+                    _stoneBefore += StoneWallStone;
+                    if (!StandAtBuildSite()) Fail("no open ground to put the Stone Wall on");
+                    next = true;
+                    break;
+                case 6:
+                {
+                    AimAtTile(_buildTx, _buildTz);
+                    bool arrived = MathF.Abs(world.Local.X - _buildX) < 0.3f && MathF.Abs(world.Local.Z - _buildZ) < 0.3f;
+                    if (!arrived || _fortifyFrames < 4 || client.PendingRequestCount > 0) break;
+                    if (!build.Active) Check(build.Toggle(), $"B did not put Build mode up ({build.Refused})");
+                    Check(build.PressKey(world.Content.Recipes.ToList().IndexOf(stoneWall)) && build.Recipe == stoneWall, "the Stone Wall has no key in Build mode");
+                    build.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
+                    _screen.Constructs.Refresh();
+                    if (build.Ghost.Aim != BuildAim.Place || build.Ghost.State != OpResult.Ok) break;
+                    Check(hud.PromptText.StartsWith("Build Stone Wall", StringComparison.Ordinal) && _screen.Constructs.GhostGreen, $"the Stone Wall's ghost: \"{hud.PromptText}\"");
+                    Shot("fortify-stone-ghost");
+                    build.Update(1.0 / 30.0, true, false);
+                    next = true;
+                    break;
+                }
+                case 7:
+                {
+                    var wall = world.Constructs.At(_buildTx, _buildTz);
+                    var built = server.Constructs.At(_buildTx, _buildTz);
+                    if (wall == null || built == null || client.PendingRequestCount > 0) break;
+                    Check(wall.Def.Id == "wall_stone" && built.Def.Id == "wall_stone" && world.Constructs.Blocks(_buildTx, _buildTz),
+                        $"built a {wall.Def.Id} at ({_buildTx}, {_buildTz}) that blocks the way: {world.Constructs.Blocks(_buildTx, _buildTz)}");
+                    Check(built.Hp == built.Def.Hp && built.Def.Hp == 800, $"the Stone Wall stands with {built.Hp} of {built.Def.Hp} HP");
+                    int stone = Carried(server, player, "stone");
+                    Check(stone == _stoneBefore - StoneWallStone, $"the Stone Wall took {_stoneBefore - stone} Stone, not {StoneWallStone}");
+                    build.Leave();
+                    _screen.Constructs.Refresh();
+                    Check(_screen.Constructs.Drawn >= 2, $"{_screen.Constructs.Drawn} constructs drawn with a Spike Strip and a Stone Wall built");
+                    Shot("fortify-stone-wall");
+                    GD.Print($"[smoke] fortify: Blueprint: Fortify bought with its key for {HudText.Money(_fortifyWallet - world.Global.Wallet)}, a Spike Strip built at ({_stripTx}, {_stripTz}) and walked over, a Stone Wall ({built.Hp} HP, {StoneWallStone} Stone) at ({_buildTx}, {_buildTz})");
                     _fortifyVisits++;
                     _fortifyStep = 0;
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;
                     return false;
+                }
             }
             if (next)
             {

@@ -63,6 +63,8 @@ namespace PerformativeMail.Sim.Players
         public bool KitGiven;
         /// <summary>The shift this player wants runs to start at (<c>--shift=N</c>), 0 = the first as always.</summary>
         public byte PlaytestShift;
+        /// <summary>The money (cents) this player wants the team's wallet to hold as a run starts, 0 = none (--playtest-wallet).</summary>
+        public int PlaytestWallet;
 
         /// <summary>Doc 05 §1.1. 0 while dead (<see cref="PlayerMoveState.Dead"/>).</summary>
         public float Hp;

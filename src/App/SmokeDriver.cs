@@ -751,7 +751,7 @@ namespace PerformativeMail.App
                 case RunPhase.Prep:
                     CheckDraftPick();
                     // Once in the run the host works the land and goes shopping before readying up.
-                    if (StepHarvest() || StepBuild() || StepShop() || StepFortify() || StepDefences() || StepBike()) break;
+                    if (StepHarvest() || StepBuild() || StepShop() || StepHeal() || StepFortify() || StepDefences() || StepBike()) break;
                     if (!world.LocalReady) Go();
                     break;
 
@@ -883,6 +883,7 @@ namespace PerformativeMail.App
             VerifyShop();
             VerifyHarvest();
             VerifyBuild();
+            VerifyHeal();
             VerifyFortify();
             VerifyDefences();
             VerifyBike();

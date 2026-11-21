@@ -257,6 +257,110 @@ namespace PerformativeMail.Sim.Tests
             }
         }
 
+        [Fact]
+        public void AtMailbox_ARiderIsParkedInTheSaddle_TheBikeComesAlong()
+        {
+            // Playtest c59d497: the park at the shift's start took the rider off the bike and left it at the Post Office.
+            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Raids = false, Draft = false });
+            var host = world.AddPlayer("host")!;
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            world.Economy.AddLoot(1000);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Buy(0, TestContent.Db.ShopItem("bike").Index)));
+            var bike = world.Vehicles.Last();
+            SimDriver.Teleport(host, bike.X + 1f, bike.Z);
+            SimDriver.StepTicks(world, 12);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Mount(0, bike.Id.Value)));
+            world.SetPlaytest(host, PlaytestFlags.AtMailbox);
+            world.Events.Clear();
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+
+            var dest = PlaytestSpot.Mailbox(world.Map, host.Slot);
+            AssertParked(world, host, dest);
+            Assert.True(host.Move.Riding, "the park took the rider off the bike");
+            Assert.Equal(host.Id, bike.Rider);
+            Assert.DoesNotContain(world.Events, e => e is VehicleParkedEvent);
+            SimDriver.StepTicks(world, 2);
+            Assert.Equal((host.Move.X, host.Move.Z), (bike.X, bike.Z));
+            Assert.Equal(0f, host.Move.RideSpeed);
+            // It rides on from there, along the street towards its middle.
+            float x0 = host.Move.X, z0 = host.Move.Z;
+            var street = dest.Street.Rect;
+            float mx = (street.X + street.W * 0.5f) * SimConstants.TileSize - x0, mz = (street.Y + street.H * 0.5f) * SimConstants.TileSize - z0;
+            if (street.W >= street.H) mz = 0f; else mx = 0f;
+            float ml = MathF.Max(1e-3f, MathF.Sqrt(mx * mx + mz * mz));
+            for (int i = 0; i < Tps; i++)
+            {
+                world.QueueInput(host.Id, new PlayerInput { Seq = host.LastQueuedSeq + 1, MoveX = PlayerInput.QuantizeAxis(mx / ml), MoveZ = PlayerInput.QuantizeAxis(mz / ml) });
+                world.Step();
+            }
+            Assert.True(MathF.Abs(host.Move.X - x0) + MathF.Abs(host.Move.Z - z0) > 2f, "the parked rider does not ride on");
+            Assert.True(host.Move.Riding);
+        }
+
+        [Fact]
+        public void AtMailbox_OnTheIsland_EverySeatStandsFree_OnFootAndOnABike()
+        {
+            // Playtest c59d497: parked on the island the host stood wedged between a house and its bush.
+            var db = TestContent.Db;
+            var move = MoveConstants.From(db.Balance);
+            float bike = db.Vehicle("bike").Radius;
+            float reach = db.Balance.GetFloat("interactRange");
+            for (uint seed = 1; seed <= 12; seed++)
+            {
+                var map = WorldGenerator.Generate(db, seed);
+                for (int slot = 0; slot < 4; slot++)
+                {
+                    var dest = PlaytestSpot.Mailbox(map, slot);
+                    PlaytestSpot.Stand(map, dest, bike, out float x, out float z);
+                    float dx = dest.MailboxX - x, dz = dest.MailboxZ - z;
+                    Assert.InRange(MathF.Sqrt(dx * dx + dz * dz), 0.8f, reach - 0.5f);
+                    Assert.Equal(TileType.Street, map.GetTile((int)(x / SimConstants.TileSize), (int)(z / SimConstants.TileSize)));
+                    foreach (float r in new[] { move.Radius, bike })
+                    {
+                        float rx = x, rz = z;
+                        PlayerMovement.ResolveCollisions(ref rx, ref rz, map.HeightAt(x, z), map, r);
+                        Assert.True(MathF.Abs(rx - x) + MathF.Abs(rz - z) < 1e-3f, $"seed {seed} seat {slot}: {map.FormatAddress(dest.Address)} pushes a radius {r} out of ({x:0.00}, {z:0.00})");
+                    }
+                }
+            }
+        }
+
+        // --- --playtest-wallet=N ---------------------------------------------------------------------
+
+        [Fact]
+        public void Wallet_TheRunStartsWithTheMostAsked_ToppedUpNotAdded_AndNotCountedAsIncome()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            var guest = world.AddPlayer("guest")!;
+            world.SetPlaytest(host, PlaytestFlags.None, startWallet: 300);
+            world.SetPlaytest(guest, PlaytestFlags.None, startWallet: 450);
+            Assert.Equal(450, world.StartWallet);
+            Assert.Equal(0, world.Economy.Wallet);
+            StartDelivery(world, host);
+            Assert.Equal(450, world.Economy.Wallet);
+            Assert.Equal((0, 0, 0), (world.Economy.TotalEarned, world.Economy.ShiftEarnings, world.Economy.TotalLoot));
+
+            // Asked again in the run with less than the wallet holds: nothing is taken away; with more, it is topped up.
+            world.SetPlaytest(host, PlaytestFlags.None, startWallet: 100);
+            Assert.Equal(450, world.Economy.Wallet);
+            world.SetPlaytest(host, PlaytestFlags.None, startWallet: 900);
+            Assert.Equal(900, world.Economy.Wallet);
+            // Never past the cap.
+            world.SetPlaytest(host, PlaytestFlags.None, startWallet: int.MaxValue);
+            Assert.Equal(PlaytestMask.MaxWallet, host.PlaytestWallet);
+        }
+
+        [Fact]
+        public void Wallet_WithoutItARunStartsWithNothing()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            StartDelivery(world, host);
+            Assert.Equal(0, world.Economy.Wallet);
+        }
+
         // --- nit 13: --shift=N ---------------------------------------------------------------------
 
         [Fact]

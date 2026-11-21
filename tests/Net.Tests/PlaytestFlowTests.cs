@@ -32,9 +32,9 @@ namespace PerformativeMail.Net.Tests
                 Server.Log = Log.Add;
             }
 
-            public ClientRuntime AddClient(string name, PlaytestFlags playtest = PlaytestFlags.None, int startShift = 0)
+            public ClientRuntime AddClient(string name, PlaytestFlags playtest = PlaytestFlags.None, int startShift = 0, int startWallet = 0)
             {
-                var client = new ClientRuntime(Shared.Content, Hub.CreateClient(), name, playtest, startShift);
+                var client = new ClientRuntime(Shared.Content, Hub.CreateClient(), name, playtest, startShift, startWallet: startWallet);
                 Clients.Add(client);
                 return client;
             }
@@ -179,6 +179,26 @@ namespace PerformativeMail.Net.Tests
             s.Step(60 * 30);
             Assert.InRange(world.PhaseSecondsLeft, 178.0, 180.0);
             Assert.StartsWith("Shift 1 / 5   DELIVERY 03:00", HudText.ShiftAndPhase(world));
+        }
+
+        [Fact]
+        public void AGuestWithAWallet_TheRunStartsWithThatMoney_OnEveryScreen_AndItIsNotIncome()
+        {
+            var s = new Session();
+            var host = s.AddClient("Ada");
+            var guest = s.AddClient("Bo", startWallet: 500);
+            s.Step(10);
+            var server = s.Server.World;
+            Assert.Equal(500, server.GetPlayer(guest.World!.LocalId)!.PlaytestWallet);
+            Assert.Contains(s.Log, line => line.StartsWith("Bo joined as ", StringComparison.Ordinal) && line.EndsWith("(playtest: wallet 500 cents)", StringComparison.Ordinal));
+            // The Lobby has no wallet to fill.
+            Assert.Equal(0, server.Economy.Wallet);
+
+            Assert.NotEqual(0u, host.PressGo());
+            s.Step(5);
+            Assert.Equal(RunPhase.Prep, host.World!.Global.Phase);
+            Assert.Equal((500, 500, 500), (server.Economy.Wallet, host.World.Global.Wallet, guest.World.Global.Wallet));
+            Assert.Equal((0, 0), (server.Economy.TotalEarned, server.Economy.ShiftEarnings));
         }
 
         [Fact]

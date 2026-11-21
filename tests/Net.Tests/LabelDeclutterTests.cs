@@ -116,6 +116,21 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void ANameOnTheOpenMapIsNotDrawn_ItCannotSlideFarEnough()
+        {
+            // The map panel on a 1280 x 720 screen (playtest c59d497: a guest's name showed through it).
+            var map = new[] { new ScreenBox(60f, 132f, 1220f, 560f) };
+            var name = Label(640f, 300f, 4f, rank: 2);
+            name.Box = ScreenBox.Around(640f, 300f, 160f, 40f);
+            name.Slides = true;
+            var beside = Label(30f, 300f, 4f, rank: 2);
+            beside.Box = ScreenBox.Around(30f, 300f, 50f, 20f);
+            LabelDeclutter.Resolve(new List<LabelCandidate> { name, beside }, map);
+            Assert.False(name.Shown);
+            Assert.True(beside.Shown);
+        }
+
+        [Fact]
         public void ANameClearOfTheHudStaysWhereItIs_AndOneTooFarUpIsLeftOut()
         {
             var clear = Label(200f, 300f, 6f, rank: 2);

@@ -4,6 +4,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Vehicles;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
@@ -36,6 +37,18 @@ namespace PerformativeMail.Sim
             return false;
         }
 
+        /// <summary>The most money any player in the game asked the run to start with (cents).</summary>
+        public int StartWallet
+        {
+            get
+            {
+                int coins = 0;
+                foreach (var p in _players)
+                    if (!p.Away) coins = Math.Max(coins, p.PlaytestWallet);
+                return coins;
+            }
+        }
+
         /// <summary>
         /// The shift a run starts at: the latest any player in the game asked for, the first if
         /// nobody did. Never past the last shift.
@@ -56,10 +69,13 @@ namespace PerformativeMail.Sim
         /// next run starts, or at once for a run still in the Prep of an earlier shift; a raid asked
         /// for in a Delivery whose raid has not been announced comes now.
         /// </summary>
-        public void SetPlaytest(Player player, PlaytestFlags flags, int startShift = 0)
+        public void SetPlaytest(Player player, PlaytestFlags flags, int startShift = 0, int startWallet = 0)
         {
             player.Playtest = flags & PlaytestMask.All;
             player.PlaytestShift = (byte)Math.Clamp(startShift, 0, ShiftCount);
+            player.PlaytestWallet = Math.Clamp(startWallet, 0, PlaytestMask.MaxWallet);
+            // Asked for in a run under way, the money is there at once.
+            if (Run.Phase != RunPhase.Lobby && Run.Phase != RunPhase.Results) Economy.TopUp(player.PlaytestWallet);
             if (Run.Phase == RunPhase.Prep && player.PlaytestShift > Run.Shift)
             {
                 Run.Shift = player.PlaytestShift;
@@ -141,9 +157,22 @@ namespace PerformativeMail.Sim
         {
             if (p.Dead) return;
             var dest = PlaytestSpot.Mailbox(Map, p.Slot);
-            PlaytestSpot.Stand(Map, dest, _move.Radius, out float x, out float z);
+            // A rider is parked in the saddle (playtest c59d497): the bike comes along, standing, facing the box.
+            var ride = RiddenBy(p.Id);
+            float radius = ride != null ? Math.Max(_move.Radius, ride.Def.Radius) : _move.Radius;
+            PlaytestSpot.Stand(Map, dest, radius, out float x, out float z);
             float yaw = MathF.Atan2(-(dest.MailboxX - x), -(dest.MailboxZ - z));
-            p.Move = new PlayerMoveState { X = x, Z = z, Y = Map.HeightAt(x, z), Grounded = true, Yaw = PlayerInput.QuantizeYaw(yaw) };
+            var move = new PlayerMoveState { X = x, Z = z, Y = Map.HeightAt(x, z), Grounded = true, Yaw = PlayerInput.QuantizeYaw(yaw) };
+            if (ride != null && p.Move.Riding)
+            {
+                move.Ride = p.Move.Ride;
+                Vehicle.Forward(yaw, out move.HeadX, out move.HeadZ);
+                ride.X = x;
+                ride.Z = z;
+                ride.Heading = Vehicle.YawOf(move.HeadX, move.HeadZ, ride.Heading);
+                MoveCargo(ride);
+            }
+            p.Move = move;
             CloseExternal(p, notify: true);
             GivePlaytestMail(p, dest);
             // After the mail, so the client that hears of it can take the stack in hand.

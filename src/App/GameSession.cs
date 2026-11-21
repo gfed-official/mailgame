@@ -50,6 +50,8 @@ namespace PerformativeMail.App
         public PlaytestFlags Playtest;
         /// <summary>The shift the local client asks runs to start at, 0 = the first; set like <see cref="Playtest"/>.</summary>
         public int StartShift;
+        /// <summary>--playtest-wallet: the money (cents) runs are to start with.</summary>
+        public int StartWallet;
 
         public bool HasJoined { get; private set; }
 
@@ -102,7 +104,7 @@ namespace PerformativeMail.App
         private void StartClient(ContentDb content, IClientTransport transport, MetaProfile profile, IProfileStore store)
         {
             Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest, StartShift, profile.AccountId,
-                profile.Rank(HudText.RankXpPerRank(content)));
+                profile.Rank(HudText.RankXpPerRank(content)), StartWallet);
             Interaction = new InteractionController(Client);
             Build = new BuildController(Client) { OnRefused = why => Feed.Add(HudText.PlaceReason(Client.World!, Client.World!.Content.Recipes[0], why), bad: true) };
             Feed.Content = content;

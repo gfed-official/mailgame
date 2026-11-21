@@ -28,7 +28,8 @@ namespace PerformativeMail.App
     /// quota and raid), --no-quota (a missed quota does not end the run), --raid (the night raid
     /// comes five seconds into every shift, also in shift 1) and --playtest-package (this player
     /// has four Small Packages for the mail cannon when a shift starts and when they are back on
-    /// their feet). With --smoke they are not played with but checked:
+    /// their feet), --playtest-wallet=N (runs start with $N in the team's wallet; asked for in a run
+    /// under way, the wallet is topped up to it at once). With --smoke they are not played with but checked:
     /// "--smoke --shift=2 --no-quota --raid --playtest-package" is the smoke of the raid playtest.
     /// </summary>
     public partial class Boot : Node
@@ -44,7 +45,7 @@ namespace PerformativeMail.App
             int waitPlayers = 1;
             double quitAfter = 0;
             var playtest = PlaytestFlags.None;
-            int startShift = 0;
+            int startShift = 0, startWallet = 0;
             string mapId = "test_street";
             foreach (string arg in OS.GetCmdlineUserArgs())
             {
@@ -55,6 +56,11 @@ namespace PerformativeMail.App
                 else if (arg == "--raid") playtest |= PlaytestFlags.RaidNow;
                 else if (arg == "--playtest-package") playtest |= PlaytestFlags.Packages;
                 else if (arg.StartsWith("--shift=", StringComparison.Ordinal) && int.TryParse(arg.Substring(8), out int n) && n >= 1 && n <= byte.MaxValue) startShift = n;
+                // Dollars, as the HUD shows them ("5" or "4.50"); kept in cents.
+                else if (arg.StartsWith("--playtest-wallet=", StringComparison.Ordinal)
+                    && decimal.TryParse(arg.Substring(18), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out decimal dollars)
+                    && dollars > 0m)
+                    startWallet = (int)Math.Min(PlaytestMask.MaxWallet, Math.Round(dollars * 100m));
                 else if (arg == "--quick") quick = true;
                 // Doc 02: the seed's own Small Island town instead of the test street.
                 else if (arg == "--world=island") mapId = WorldGenerator.SmallIsland;
@@ -104,9 +110,9 @@ namespace PerformativeMail.App
 
             InputActions.Register();
             // The smoke without playtest flags checks the game as it ships; with them, the flags themselves.
-            bool playtesting = playtest != PlaytestFlags.None || startShift != 0;
-            if (playtesting) GD.Print($"[boot] playtest: {playtest}{(startShift != 0 ? $", shift {startShift}" : "")}");
-            var session = new GameSession { Name = "Session", Playtest = playtest, StartShift = startShift };
+            bool playtesting = playtest != PlaytestFlags.None || startShift != 0 || startWallet != 0;
+            if (playtesting) GD.Print($"[boot] playtest: {playtest}{(startShift != 0 ? $", shift {startShift}" : "")}{(startWallet != 0 ? $", wallet {startWallet} cents" : "")}");
+            var session = new GameSession { Name = "Session", Playtest = playtest, StartShift = startShift, StartWallet = startWallet };
             if (join != null && !smoke)
             {
                 ParseAddress(join, out string address, out int joinPort);

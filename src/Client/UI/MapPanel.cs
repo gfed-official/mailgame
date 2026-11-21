@@ -57,6 +57,14 @@ namespace PerformativeMail.Client.UI
 
         public void Toggle() => Visible = !Visible;
 
+        /// <summary>The panel on the screen, in pixels: world labels keep off it while it is up (its back lets the view through).</summary>
+        public Rect2 PanelArea()
+        {
+            var screen = Size;
+            float bottom = Mathf.Min(screen.Y - 120f, (BottomClear?.Invoke() ?? screen.Y - 120f) - 8f);
+            return new Rect2(Side, Top, screen.X - Side * 2f, Mathf.Max(120f, bottom - Top));
+        }
+
         public override void _Process(double delta)
         {
             if (!Visible || _client?.World == null)
@@ -148,9 +156,7 @@ namespace PerformativeMail.Client.UI
                 _textureShift = shift;
             }
 
-            var screen = Size;
-            float bottom = Mathf.Min(screen.Y - 120f, (BottomClear?.Invoke() ?? screen.Y - 120f) - 8f);
-            var area = new Rect2(Side, Top, screen.X - Side * 2f, Mathf.Max(120f, bottom - Top));
+            var area = PanelArea();
             DrawRect(area, Back);
             var font = GetThemeDefaultFont();
             DrawString(font, area.Position + new Vector2(14f, 24f), TitleText, HorizontalAlignment.Left, area.Size.X - 28f, 17, Ink);

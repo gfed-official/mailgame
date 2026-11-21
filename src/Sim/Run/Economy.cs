@@ -75,6 +75,15 @@ namespace PerformativeMail.Sim.Run
             TotalLoot += coins;
         }
 
+        /// <summary>
+        /// A playtest's starting money (--playtest-wallet): tops the wallet up to <paramref name="coins"/>.
+        /// Not income of any kind: the quota, the score and the run's totals do not see it.
+        /// </summary>
+        public void TopUp(int coins)
+        {
+            if (coins > Wallet) Wallet = coins;
+        }
+
         /// <summary>Money spent at the shop and taken in there since the run began.</summary>
         public int TotalSpent { get; private set; }
         public int TotalSales { get; private set; }

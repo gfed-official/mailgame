@@ -8,7 +8,8 @@ namespace PerformativeMail.Sim
     /// <summary>
     /// What a client may ask for in its Hello so that a live check is reliable (playtest nits 10
     /// and 13). The host's own client asks the same way a guest's does; next to these flags the
-    /// Hello carries the shift the run is to start at (<see cref="Players.Player.PlaytestShift"/>).
+    /// Hello carries the shift the run is to start at (<see cref="Players.Player.PlaytestShift"/>)
+    /// and the money it is to start with (<see cref="Players.Player.PlaytestWallet"/>).
     /// </summary>
     [Flags]
     public enum PlaytestFlags : byte
@@ -37,6 +38,8 @@ namespace PerformativeMail.Sim
         public const int PackageCount = 4;
         /// <summary>From the start of a shift to the first raiders under <see cref="PlaytestFlags.RaidNow"/>: time to read the warning.</summary>
         public const double RaidNowSeconds = 5;
+        /// <summary>The most a playtest may ask the wallet to start with: $1000.00, in cents.</summary>
+        public const int MaxWallet = 100000;
     }
 
     /// <summary>Where a player who asked for <see cref="PlaytestFlags.AtMailbox"/> stands; both ends work it out from the map.</summary>

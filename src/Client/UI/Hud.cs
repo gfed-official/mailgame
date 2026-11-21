@@ -46,6 +46,8 @@ namespace PerformativeMail.Client.UI
         public float FeedTop => _feedLines[0].GetGlobalRect().Position.Y;
         /// <summary>True while the map is up: the interact prompt keeps off it.</summary>
         public Func<bool>? MapOpen;
+        /// <summary>Where the map is drawn while it is up: kept clear of world labels like the HUD's panels.</summary>
+        public Func<Rect2>? MapArea;
         public string HintText => _hint.Text;
         /// <summary>The big PAUSED line while a solo run is paused, else empty.</summary>
         public string PausedText => _paused.Visible ? _paused.Text : "";
@@ -123,6 +125,11 @@ namespace PerformativeMail.Client.UI
             AddPanel(_draft);
             AddPanel(_overlay);
             AddPanel(Panel);
+            if (MapOpen?.Invoke() == true && MapArea != null)
+            {
+                var map = MapArea();
+                _keepClear.Add(new ScreenBox(map.Position.X, map.Position.Y, map.End.X, map.End.Y));
+            }
             return _keepClear;
         }
 

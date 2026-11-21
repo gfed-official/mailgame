@@ -37,8 +37,8 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.16;" +
-            "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
+            "m1.17;" +
+            "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
@@ -99,6 +99,8 @@ namespace PerformativeMail.Sim.Net
         public ulong Account;
         /// <summary>The player's Postal Rank (doc 01 §5.2): which starting kits they may pick.</summary>
         public byte Rank = 1;
+        /// <summary>The money (cents) this player wants runs to start with, 0 = none (--playtest-wallet).</summary>
+        public uint StartWallet;
 
         public void Write(NetWriter w)
         {
@@ -109,10 +111,11 @@ namespace PerformativeMail.Sim.Net
             w.U8(StartShift);
             w.U64(Account);
             w.U8(Rank);
+            w.U32(StartWallet);
         }
 
         public static HelloMsg Read(NetReader r) =>
-            new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8(), StartShift = r.U8(), Account = r.U64(), Rank = r.U8() };
+            new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8(), StartShift = r.U8(), Account = r.U64(), Rank = r.U8(), StartWallet = r.U32() };
     }
 
     /// <summary>The last few inputs, oldest first (doc 06 §3: each packet repeats the last 3 for loss cover).</summary>

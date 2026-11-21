@@ -55,9 +55,26 @@ namespace PerformativeMail.App
             float plateBottom = _screen.Hud.TopPlate.GetGlobalRect().End.Y;
             Check(map.MapRect.Position.Y >= plateBottom, $"the map's top {map.MapRect.Position.Y:0} is under the top plate (to {plateBottom:0})");
             Check(map.TitleText.StartsWith("MAP · ", StringComparison.Ordinal), $"the map's title reads \"{map.TitleText}\"");
+            int underMap = CheckLabelsOffMap();
             Shot("map");
-            GD.Print($"[smoke] map: up with mail in the hotbar, \"{map.RouteText}\" in {guide.Points.Count} points");
+            GD.Print($"[smoke] map: up with mail in the hotbar, \"{map.RouteText}\" in {guide.Points.Count} points; {underMap} world labels under it kept off");
             _mapStep = 2;
+        }
+
+        /// <summary>No world label (a carrier's name, a house number) is drawn on the map while it is up: its back lets the view through.</summary>
+        private int CheckLabelsOffMap()
+        {
+            var area = _screen.Map.PanelArea();
+            var camera = _screen.GetViewport().GetCamera3D();
+            int under = 0;
+            foreach (var label in Client.Presentation.SizedLabel3D.Live)
+            {
+                if (!label.IsVisibleInTree() || camera == null || camera.IsPositionBehind(label.GlobalPosition)) continue;
+                if (!area.HasPoint(camera.UnprojectPosition(label.GlobalPosition))) continue;
+                under++;
+                Check(label.Target == 0f, $"the world label \"{label.Text}\" is drawn on the map");
+            }
+            return under;
         }
     }
 }

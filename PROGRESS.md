@@ -501,6 +501,45 @@ town; no break found, the two checks stay:
 - [x] `RaidFightTests.OnTheGeneratedTown_TheRaidersFindTheirWayToThePostOffice` (seeds 2, 13:
       in from the main street's east end, down to their line before the Post Office)
 
+### 2h. Playtest issues of the c59d497 report (`mailgame-harness/results/20261121-064749-c59d497/report.md`, 2026-11-21)
+
+Each one checked on 7e68047 first; all four were still there.
+
+- [x] (a) A guest's name tag showed through the map (its back is 92 % opaque, the big name in
+      the view behind it). While the map is up its panel is one of the places world labels keep
+      off (`MapPanel.PanelArea`, `Hud.KeepClear`); a name tag cannot slide 400 px down, so it is
+      not drawn. `LabelDeclutterTests.ANameOnTheOpenMapIsNotDrawn_ItCannotSlideFarEnough`; the
+      smoke's map step checks that no world label under the panel is drawn ("18 world labels
+      under it kept off").
+- [x] (b) `--playtest-mailbox`'s park at the shift's start took a rider off the bike (it wrote a
+      new move state with no ride) and left the bike at the Post Office. A rider is now parked
+      in the saddle: the bike comes along, its cargo with it, standing, facing the box, and the
+      spot is worked out for the bike's radius. `PlaytestTests.AtMailbox_ARiderIsParkedInTheSaddle_TheBikeComesAlong`.
+      The "wedged" part was checked on the island: every seat's spot on 12 seeds is a street
+      tile nothing pushes a carrier or a bike out of
+      (`AtMailbox_OnTheIsland_EverySeatStandsFree_OnFootAndOnABike`); being stuck came from
+      getting off the bike there, which no longer happens.
+- [x] (c) The Fortify Stone Wall had no smoke check. The smoke's Fortify visit now also builds
+      one in Build mode from four Stone: its key, a green ghost and "Build Stone Wall", built on
+      both ends, blocking, 800 HP, four Stone gone, drawn (`fortify-stone-ghost`,
+      `fortify-stone-wall` shots); `tools/smoke.sh` greps for it.
+- [x] (d) Bandage and Berry healing, never seen live: a smoke stage of its own
+      (`SmokeDriver.Heal.cs`) in the first Prep after the shop. Hurt by 60 with a Bandage in the
+      hand, the use key gives 50 HP at once; with Berries, part of their 25 HP halfway through
+      their 5 s and all of it at the end; the HUD's number and bar follow the server each time;
+      at full health the use key uses nothing. The carrier's own mending is held off while it
+      measures. Nothing was broken; the check stays (`heal-bandage`, `heal-berries` shots).
+- [x] `--playtest-wallet=N` (the report's issue 3): runs start with $N in the team's wallet ("5"
+      or "4.50"; capped at $1000). Carried in the Hello like `--shift` (protocol `m1.17`), the
+      most any player in the game asked for counts; asked for in a run under way, the wallet is
+      topped up to it at once. Topped up, never added to, and not income: the quota, the score
+      and the run's totals do not see it (design choice 88). `PlaytestTests.Wallet_*`,
+      `PlaytestFlowTests.AGuestWithAWallet_*`, `CodecTests`.
+
+The report's issue 1 (input lag at 8–13 FPS eating the 20 s Payday window) is the box's software
+rendering; issue 6 (the island's north hedge with trees behind it) is the island's edge as
+generated. Both left as they are.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
@@ -1824,6 +1863,10 @@ See "Commands" at the bottom (filled in as the tooling lands).
     mail, the raids and the shop. Without a Lobby screen of its own (doc 09 §2.2's three
     columns) the choices are keys and HUD plates, as the kit's are. The host's choice is not
     rank-locked: both worlds are open from rank 1.
+88. **`--playtest-wallet`.** A playtest flag, not a game rule, so it follows the others: any
+    player may ask (the most asked counts, like `--shift`), and it goes when they go. It sets
+    the wallet as the run starts rather than adding loot, so a re-ask cannot print money and
+    the run's summary (earned, loot, spent) stays the game's own.
 
 ## Commands
 
@@ -1871,6 +1914,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --no-quota            a missed quota does not end the run; the next shift comes
 #   --raid                every shift's raid is announced as the shift starts and comes 5 s later
 #   --playtest-package    four Small Packages for the mail cannon (RMB) when a shift starts and when back on your feet
+#   --playtest-wallet=N   runs start with $N in the team's wallet (e.g. 5 or 4.50); asked in a run, topped up to it at once
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
 ~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come
 ~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-package --playtest-mailbox   # a guest: all three go together

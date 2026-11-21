@@ -477,17 +477,18 @@ namespace PerformativeMail.Net.Tests
         public void HelloCarriesThePlaytestFlags()
         {
             var w = new NetWriter();
-            new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All, StartShift = 3, Account = 0xFEDCBA9876543210UL, Rank = 7 }.Write(w);
+            new HelloMsg { ProtocolHash = 0xC0FFEE, Name = "Bo", Playtest = PlaytestMask.All, StartShift = 3, Account = 0xFEDCBA9876543210UL, Rank = 7, StartWallet = 450 }.Write(w);
             var back = HelloMsg.Read(Body(w, MsgType.Hello));
             Assert.Equal((0xC0FFEEu, "Bo", PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages, (byte)3),
                 (back.ProtocolHash, back.Name, back.Playtest, back.StartShift));
             Assert.Equal(0xFEDCBA9876543210UL, back.Account);
             Assert.Equal((byte)7, back.Rank);
+            Assert.Equal(450u, back.StartWallet);
 
             w = new NetWriter();
             new HelloMsg { ProtocolHash = 1, Name = "Ada" }.Write(w);
             back = HelloMsg.Read(Body(w, MsgType.Hello));
-            Assert.Equal((PlaytestFlags.None, (byte)0, 0ul, (byte)1), (back.Playtest, back.StartShift, back.Account, back.Rank));
+            Assert.Equal((PlaytestFlags.None, (byte)0, 0ul, (byte)1, 0u), (back.Playtest, back.StartShift, back.Account, back.Rank, back.StartWallet));
         }
 
         [Fact]

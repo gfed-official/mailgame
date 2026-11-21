@@ -99,6 +99,7 @@ namespace PerformativeMail.Sim
             Run.LastSummary = null;
             Run.Results = null;
             Economy.Reset();
+            Economy.TopUp(StartWallet);
             ResetCombatRng();
             ClearPerks();
             ClearShop();

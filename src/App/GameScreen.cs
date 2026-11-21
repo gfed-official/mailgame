@@ -123,6 +123,7 @@ namespace PerformativeMail.App
             Inventory.Setup(client);
             Hud.Panel = Inventory;
             Hud.MapOpen = () => Map.Visible;
+            Hud.MapArea = Map.PanelArea;
             Map.BottomClear = () => Hud.FeedTop;
 
             // World labels thin out with distance, give way to nearer ones and stay off the HUD.
