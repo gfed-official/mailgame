@@ -71,6 +71,8 @@ namespace PerformativeMail.Client
         public event Action<SimRequest, OpResult>? RequestCompleted;
         /// <summary>Raised at the start of every client tick, before <see cref="Input"/> is sampled (bots decide here).</summary>
         public event Action? TickStarting;
+        /// <summary>Raised when the host has put the game onto another map or seed and this client has built it.</summary>
+        public event Action? WorldReplaced;
 
         // Diagnostics (M0 acceptance: container hashes match on every version; prediction error).
         public int ContainerVersionsVerified { get; private set; }
@@ -252,6 +254,35 @@ namespace PerformativeMail.Client
             }
             return 0;
         }
+
+        // --- the world (doc 01 §5.3, doc 06 §5) ------------------------------------------------
+
+        private readonly Random _seedDice = new Random();
+
+        /// <summary>The map played now among SimWorld.WorldChoices; −1 for one not offered.</summary>
+        public int WorldChoice
+        {
+            get
+            {
+                var world = World;
+                if (world == null) return -1;
+                for (int i = 0; i < SimWorld.WorldChoices.Count; i++) if (SimWorld.WorldChoices[i] == world.Map.Id) return i;
+                return -1;
+            }
+        }
+
+        /// <summary>True when this player may pick the world: the host, in the Lobby.</summary>
+        public bool CanChooseWorld => State == ClientState.Joined && World != null && World.IsHost && World.Global.Phase == RunPhase.Lobby;
+
+        /// <summary>Host, Lobby: play a world of SimWorld.WorldChoices from a seed; 0 if not the host's to pick now.</summary>
+        public uint ChooseWorld(int choice, uint seed) =>
+            CanChooseWorld && choice >= 0 && choice < SimWorld.WorldChoices.Count ? Send(SimRequest.SetWorld(0, choice, seed)) : 0;
+
+        /// <summary>The next world, from the same seed.</summary>
+        public uint CycleWorld() => ChooseWorld((WorldChoice + 1) % SimWorld.WorldChoices.Count, World?.Seed ?? 1);
+
+        /// <summary>The same world from a seed drawn at random.</summary>
+        public uint NewSeed() => ChooseWorld(Math.Max(0, WorldChoice), (uint)_seedDice.Next(1, int.MaxValue));
 
         // --- the shop (doc 03 §4.4) -------------------------------------------------------------
 
@@ -545,13 +576,7 @@ namespace PerformativeMail.Client
             if (State != ClientState.Joining) return;
             // World check (doc 06 §5 step 5): the client builds the map itself and compares hashes.
             // A generated town is built here from the seed, as the server built it (doc 02 §2); the hashes must agree.
-            WorldMap? map = null;
-            if (WorldGenerator.Generates(m.MapId))
-            {
-                try { map = WorldGenerator.Generate(_content, m.Seed); }
-                catch (InvalidOperationException) { map = null; }
-            }
-            else _content.Maps.TryGetValue(m.MapId, out map);
+            var map = BuildMap(m.MapId, m.Seed);
             if (map == null || map.MapHash != m.MapHash || m.ChestContainerIds.Count != map.Chests.Count)
             {
                 DisconnectDetail = $"map '{m.MapId}' does not match the server's";
@@ -610,6 +635,31 @@ namespace PerformativeMail.Client
                 FaceMailbox(world, PlaytestSpot.Mailbox(map, self.Slot));
             foreach (var ev in _early) HandleEvent(ev);
             _early.Clear();
+        }
+
+        /// <summary>The map of an id: a file's, or the seed's generated town built here (doc 02 §2). Null if there is none.</summary>
+        private WorldMap? BuildMap(string mapId, uint seed)
+        {
+            if (!WorldGenerator.Generates(mapId)) return _content.Maps.TryGetValue(mapId, out var file) ? file : null;
+            try { return WorldGenerator.Generate(_content, seed); }
+            catch (InvalidOperationException) { return null; }
+        }
+
+        /// <summary>The host's new world (doc 06 §5): built here from its id and seed, its hash checked as at the Welcome.</summary>
+        private void ReplaceWorld(ClientWorld world, WorldChangedEvent e)
+        {
+            var map = BuildMap(e.MapId, e.Seed);
+            if (map == null || map.MapHash != e.MapHash || e.ChestContainerIds.Count != map.Chests.Count)
+            {
+                DisconnectDetail = $"map '{e.MapId}' does not match the server's";
+                _transport.Close();
+                State = ClientState.Disconnected;
+                return;
+            }
+            world.ReplaceMap(map, e.Seed, e.ChestContainerIds);
+            Input.YawRadians = map.PostOffice.SpawnYaw;
+            Input.PitchRadians = 0f;
+            WorldReplaced?.Invoke();
         }
 
         private static void AddLoot(ClientWorld world, LootDroppedEvent e)
@@ -726,6 +776,9 @@ namespace PerformativeMail.Client
             if (world == null) return;
             switch (ev)
             {
+                case WorldChangedEvent e:
+                    ReplaceWorld(world, e);
+                    break;
                 case PlayerJoinedEvent e:
                     if (!world.Players.ContainsKey(e.Player)) world.Players[e.Player] = new ClientPlayer(e.Player, e.Name, e.Slot);
                     break;

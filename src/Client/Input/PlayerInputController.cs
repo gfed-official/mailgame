@@ -134,6 +134,8 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Shop) && !Paused) _client.ToggleShop();
             else if (ev.IsActionPressed(InputActions.Map)) MapToggled?.Invoke();
             else if (ev.IsActionPressed(InputActions.Kit) && !UiOpen) _client.CycleKit();
+            else if (ev.IsActionPressed(InputActions.World) && !UiOpen) _client.CycleWorld();
+            else if (ev.IsActionPressed(InputActions.Seed) && !UiOpen) _client.NewSeed();
         }
 
         /// <summary>

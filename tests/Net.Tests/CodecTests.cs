@@ -267,6 +267,7 @@ namespace PerformativeMail.Net.Tests
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
                 new VehicleParkedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), X = 60.75f, Z = 28f, Heading = -2.5f, Player = player },
                 new VehiclesClearedEvent(),
+                new WorldChangedEvent { MapId = "small_island", Seed = 0xC0FFEE, MapHash = 0x1122334455667788UL, ChestContainerIds = { 41, 42 } },
                 new KitGivenEvent { Player = new EntityId(EntityClass.Player, 2), Kit = 1, Team = true },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
@@ -277,6 +278,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(events.Count, back.Count);
             for (int i = 0; i < events.Count; i++) Assert.IsType(events[i].GetType(), back[i]);
 
+            var changed = (WorldChangedEvent)back[^2];
+            Assert.Equal(("small_island", 0xC0FFEEu, 0x1122334455667788UL), (changed.MapId, changed.Seed, changed.MapHash));
+            Assert.Equal(new uint[] { 41, 42 }, changed.ChestContainerIds);
             var kit = (KitGivenEvent)back[^1];
             Assert.Equal((new EntityId(EntityClass.Player, 2), (byte)1, true), (kit.Player, kit.Kit, kit.Team));
             var joined = (PlayerJoinedEvent)back[0];

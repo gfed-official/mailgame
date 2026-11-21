@@ -582,7 +582,10 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             `MapPanel`; `MapFlowTests` (2: test street and generated town); the smoke puts it up
             in the first Delivery once the bot carries mail and checks the route, the line and
             the layout (`map.png`)
-      - [ ] the archetype choice in the Lobby
+      - [x] the archetype choice in the Lobby — see the Lobby line below (Small Island is the
+            one archetype built; Large Island is M4 in doc 12)
+      - [ ] the Generating phase with its progress bar; enemy spawn edges (§3.10); settlement
+            placement searched for rather than set (choice 84)
       - [x] Checked along the way: the rider's prediction on the generated town keeps with the
             server tick by tick (`VehicleFlowTests.OnTheGeneratedTown_TheRidersPredictionKeepsWithTheServer`)
 - [x] Districts and per-shift unlock; address assignment; street names; house model variants and
@@ -739,7 +742,7 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             server's, presses a card's key and finds the perk on both ends (`draft1.png`)
       - [ ] rerolls and the personal-perk cap (doc 12 lists both under M4), the remaining perks
             of the doc's list (they need buildings, vehicles, the shop)
-- [ ] Lobby with seed, archetype, kit; join-in-progress in Prep; disconnect grace
+- [x] Lobby with seed, archetype, kit; join-in-progress in Prep; disconnect grace
       - [x] a Lobby the host starts from; joining in Lobby and Prep
       - [x] **The 120 s disconnect grace** (doc 06 §6): who loses the connection outside the
             Lobby stays where they stood — "Bo (away)" over their head, not moving, not hurt, not
@@ -773,7 +776,26 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             `CodecTests`, `ContentValidatorTests` (1 new); the smoke checks the Land kit at the
             first Prep, then walks to the chest and puts the Axe and Fiber in with the Logs, and
             rides the kit's bike in shift 2 (its card says "A Bike for each of you already")
-      - [ ] seed and archetype choice in the Lobby
+      - [x] **The world and its seed, picked by the host in the Lobby** (doc 01 §1 and §5.3,
+            doc 06 §5, doc 09 §2.2; design choice 87). `SimWorld.WorldChoices`: the test street
+            and the seed's Small Island. `SetWorld` (host, Lobby: `NotHost` / `WrongPhase`
+            otherwise) builds the map and swaps it in where the old one stood — the Intake stays
+            the same container, the map's chests are new ones, nodes, what is built, perks and the
+            shop start afresh, the mail and the raids follow the new seed, every carrier stands on
+            the new pad — and sends one reliable `WorldChanged` (id, seed, hash, the chests'
+            containers): every client builds the map itself, checks the hash as at the Welcome
+            (a mismatch ends the connection) and swaps its world, and the screen is built anew
+            for it (out of the tree, as the first time). Who joins later is welcomed into it. On
+            screen in the Lobby, three plates where the shift's are: the world and its seed as a
+            string to share ("Small Island · PM1-SMALL-2A94F8CE", doc 01 §5.3 without stamps),
+            the kit ("Kit: Land · [K]"), and for the host "[V] world · [N] new seed"; **V**
+            steps through the worlds from the same seed, **N** draws a new one; the feed "Ada
+            chose Small Island · PM1-SMALL-00000003 · 46 houses, 5 districts". Protocol `m1.16`
+            (the `SetWorld` request, `WorldChanged`). `WorldChoiceTests` (2), `WorldFlowTests`
+            (1), `CodecTests`; the smoke, back in the Lobby after its run, reads the plates, goes
+            to the island with V (the screen rebuilt, the host on its pad, out of the saddle),
+            draws a new seed with N, and goes back to the test street from its own seed for the
+            stages that follow (`lobby-island.png`)
 - [ ] Content pipeline: JSON defs, validator in CI, hot reload
       - [x] JSON defs and the validator (`tools/validate-content.sh`, run by `tools/smoke.sh`)
       - [ ] a CI job; hot reload
@@ -907,8 +929,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the Lobby's seed and archetype choice (the host picks the map and the
-seed; the clients rebuild the world), then the Generating phase and the content pipeline's CI.
+Next in this order: the content pipeline's CI job and hot reload, then the rest of the M1
+list (the other blueprints and vehicles, rerolls), the Generating phase and spawn edges.
 
 ## How to build and check
 
@@ -1792,6 +1814,17 @@ See "Commands" at the bottom (filled in as the tooling lands).
     that count pockets and bikes stay as they were. K picks the kit (doc 09 §4 has no key;
     the doc's Lobby screen with per-player dropdowns comes with a Lobby screen of its own).
 
+87. **The world in the Lobby.** The doc's lobby picks the archetype and the seed before
+    "Generating"; here the world is generated the moment the host picks it (a town takes
+    ~60 ms), so the Lobby already stands in it and the Generating phase is not needed for
+    it. The choices are the test street (the M0 map, kept as a practice street) and Small
+    Island; Large Island and Land are later milestones, the Daily Seed needs the leaderboard
+    backend (deferred by the doc). The seed string is doc 01 §5.3's without the stamps
+    (there are none yet). A new seed for a map from a file keeps the map and changes the
+    mail, the raids and the shop. Without a Lobby screen of its own (doc 09 §2.2's three
+    columns) the choices are keys and HUD plates, as the kit's are. The host's choice is not
+    rank-locked: both worlds are open from rank 1.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -1818,6 +1851,8 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --world=island --seed=7           # host the seed's generated Small Island town instead of the test street
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
+# in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed
+# in a run: M puts up the map with the way to the house of the mail in your hand
 
 # pictures of the world from a tour of viewpoints (and the frame time), then quit:
 xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --solo --lookdev=/tmp/look

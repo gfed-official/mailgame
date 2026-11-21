@@ -40,6 +40,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string Build = "build";
         /// <summary>The next starting kit, in the Lobby. Doc 09 §4 has no key for it; K.</summary>
         public const string Kit = "kit";
+        /// <summary>Host, Lobby: the next world, and a new seed for it. Doc 09 §4 has no keys for them; V and N.</summary>
+        public const string World = "world", Seed = "seed";
         /// <summary>The map overlay (doc 09 §4: M).</summary>
         public const string Map = "map";
 
@@ -64,6 +66,8 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Build, Key.B);
             BindKey(Map, Key.M);
             BindKey(Kit, Key.K);
+            BindKey(World, Key.V);
+            BindKey(Seed, Key.N);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);
 

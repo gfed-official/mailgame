@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using PerformativeMail.Client.Meta;
 using PerformativeMail.Client.Presentation;
+using PerformativeMail.Sim;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Run;
@@ -148,6 +149,11 @@ namespace PerformativeMail.Client.UI
         private EventFeed _feed = null!;
 
         private Label _phase = null!, _status = null!, _tally = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!, _perks = null!;
+        /// <summary>The Lobby's plates (doc 09 §2.2): the world and its seed, the kit, the host's keys for them.</summary>
+        private Label _world = null!, _kit = null!, _worldKeys = null!;
+        public string WorldText => _world.Visible ? _world.Text : "";
+        public string KitText => _kit.Visible ? _kit.Text : "";
+        public string WorldKeysText => _worldKeys.Visible ? _worldKeys.Text : "";
         private DraftPanel _draft = null!;
         private Label _prompt = null!, _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
         private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
@@ -308,6 +314,10 @@ namespace PerformativeMail.Client.UI
             _perks = AddTracker("Perks", 4, PerkColour);
             _raid = AddTracker("Raid", 5, HealthColour);
             _bag = AddTracker("Bag", 6, BagColour);
+            // In the Lobby, where the shift's plates are empty.
+            _world = AddTracker("World", 2, new Color("7fd1b9"));
+            _kit = AddTracker("Kit", 3, new Color("f4a261"));
+            _worldKeys = AddTracker("WorldKeys", 4, new Color("b8c4d0"));
 
             _hotbar = new GridView { Name = "Hotbar", ShowSlotNumbers = true, MouseFilter = MouseFilterEnum.Ignore };
             _hotbar.Setup(client, world => world.Hotbar);
@@ -341,12 +351,20 @@ namespace PerformativeMail.Client.UI
             // What was just picked up takes the place of the held stack's name for a few seconds.
             _loot = new LootPanel { Lift = m + GridView.Cell + 10f };
             AddChild(_loot);
-            client.EventReceived += ev =>
-            {
-                if (client.World != null) _loot.Cards.OnEvent(client.World, ev);
-            };
+            client.EventReceived += OnLootEvent;
 
             Refresh();
+        }
+
+        private void OnLootEvent(SimEvent ev)
+        {
+            if (_client.World != null) _loot.Cards.OnEvent(_client.World, ev);
+        }
+
+        /// <summary>A HUD let go (the world replaced in the Lobby) hears no more of the client.</summary>
+        public override void _ExitTree()
+        {
+            if (_client != null) _client.EventReceived -= OnLootEvent;
         }
 
         public override void _Process(double delta)
@@ -396,6 +414,15 @@ namespace PerformativeMail.Client.UI
             _wallet.Modulate = global.Wallet < 0 ? Palette.Mismatch : Colors.White;
             _rank.Visible = Profile != null && between;
             if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
+            bool lobby = global.Phase == RunPhase.Lobby;
+            _world.Visible = _kit.Visible = lobby;
+            _worldKeys.Visible = lobby && world.IsHost;
+            if (lobby)
+            {
+                _world.Text = HudText.WorldTracker(world);
+                _kit.Text = HudText.KitTracker(world);
+                _worldKeys.Text = HudText.WorldKeys;
+            }
             _perks.Text = HudText.PerkTracker(world);
             _perks.Visible = _perks.Text.Length > 0;
             _raid.Text = HudText.RaidTracker(world);

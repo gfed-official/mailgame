@@ -42,6 +42,11 @@ namespace PerformativeMail.Sim
         Mount = 17,
         /// <summary>Lobby: take the starting kit ContentDb.Kits[<see cref="SimRequest.Count"/>].</summary>
         SetKit = 18,
+        /// <summary>
+        /// Host, Lobby: play SimWorld.WorldChoices[<see cref="SimRequest.Count"/>] from the seed
+        /// <see cref="SimRequest.EntryId"/> (doc 01 §5.3, doc 06 §5 step 1).
+        /// </summary>
+        SetWorld = 19,
     }
 
     /// <summary>
@@ -120,6 +125,9 @@ namespace PerformativeMail.Sim
 
         public static SimRequest Mount(uint reqId, uint vehicle) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.Mount, EntryId = vehicle };
+
+        public static SimRequest SetWorld(uint reqId, int choice, uint seed) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.SetWorld, Count = (ushort)choice, EntryId = seed };
 
         public static SimRequest SetKit(uint reqId, int kit) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetKit, Count = (ushort)kit };

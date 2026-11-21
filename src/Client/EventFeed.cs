@@ -109,6 +109,9 @@ namespace PerformativeMail.Client
                 case VehicleAddedEvent e when e.Def < world.Content.Vehicles.Count:
                     Add(HudText.VehicleAdded(world.Content.Vehicles[e.Def]));
                     break;
+                case WorldChangedEvent e:
+                    Add(HudText.WorldChanged(world, e));
+                    break;
                 case KitGivenEvent e:
                 {
                     string line = HudText.KitGiven(world, e);

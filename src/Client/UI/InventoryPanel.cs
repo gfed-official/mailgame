@@ -334,6 +334,12 @@ namespace PerformativeMail.Client.UI
         }
 
         /// <summary>A refused move has already snapped back (the prediction dropped it); the hint line says why. No sound yet.</summary>
+        /// <summary>A panel let go (the world replaced in the Lobby) hears no more of the client.</summary>
+        public override void _ExitTree()
+        {
+            if (_client != null) _client.RequestCompleted -= OnRequestCompleted;
+        }
+
         private void OnRequestCompleted(SimRequest request, OpResult result)
         {
             if (result == OpResult.Ok || !Visible) return;

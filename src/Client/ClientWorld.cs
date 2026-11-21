@@ -340,6 +340,24 @@ namespace PerformativeMail.Client
 
         public GridContainer? OpenContainer => OpenContainerId != 0 ? Prediction.View(OpenContainerId) : null;
 
+        /// <summary>
+        /// The host picked another world in the Lobby: this map and seed from now on, its nodes
+        /// whole, nothing built, nothing parked or lying about, its chests the containers named.
+        /// </summary>
+        internal void ReplaceMap(WorldMap map, uint seed, IReadOnlyList<uint> chestContainerIds)
+        {
+            foreach (uint id in ChestContainerIds) Containers.Remove(id);
+            Map = map;
+            Seed = seed;
+            ChestContainerIds = new List<uint>(chestContainerIds).ToArray();
+            Nodes = new NodeField(Content, map);
+            Constructs = new ConstructField(map);
+            Vehicles.Clear();
+            Bags.Clear();
+            Loot.Clear();
+            Enemies.Clear();
+        }
+
         /// <summary>Seconds until a bag is gone and its mail back in the Intake.</summary>
         public double BagSecondsLeft(ClientBag bag) =>
             Math.Max(0.0, SimConstants.TicksToSeconds((long)bag.DespawnTick - (long)Math.Floor(ServerTick)));
@@ -545,7 +563,7 @@ namespace PerformativeMail.Client
         // --- resource nodes (doc 02 §3.9) --------------------------------------------------------
 
         /// <summary>What the map's trees, bushes and boulders have left, as the server last said.</summary>
-        public NodeField Nodes { get; }
+        public NodeField Nodes { get; private set; }
 
         /// <summary>
         /// What stands between the local player and a hit on a node with the selected hotbar slot
@@ -563,7 +581,7 @@ namespace PerformativeMail.Client
         // --- building by hand (doc 04 §1) ---------------------------------------------------------
 
         /// <summary>What the carriers have built, as the server last said.</summary>
-        public ConstructField Constructs { get; }
+        public ConstructField Constructs { get; private set; }
         /// <summary>What stood on the tile of the last ConstructRemoved, for whoever hears of it after it is gone.</summary>
         public Construct? LastRemoved { get; internal set; }
 

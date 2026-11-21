@@ -37,6 +37,8 @@ namespace PerformativeMail.Client.Presentation
         private float _litFor = -1f;
         private readonly List<(DestinationDef Dest, Label3D Label)> _mailboxLabels = new List<(DestinationDef, Label3D)>();
         private WorldMap? _map;
+        /// <summary>The map this view was built for.</summary>
+        public WorldMap? Map => _map;
         private int _districtsFor = -1;
 
         /// <summary>Mailboxes whose district is not open yet in the shift last shown (doc 01 §1.2 district unlock).</summary>

@@ -339,6 +339,18 @@ namespace PerformativeMail.Sim
     }
 
     /// <summary>
+    /// The host picked another map or seed in the Lobby (doc 06 §5): every client builds the map
+    /// itself from the id and the seed and checks the hash; the map's chests are new containers.
+    /// </summary>
+    public sealed class WorldChangedEvent : SimEvent
+    {
+        public string MapId = "";
+        public uint Seed;
+        public ulong MapHash;
+        public List<uint> ChestContainerIds = new List<uint>();
+    }
+
+    /// <summary>
     /// A starting kit was handed out (doc 03 §4.4): a player's personal items into their pockets,
     /// or the team's — the host's kit — into the chest by the Post Office and its vehicles by the counter.
     /// </summary>

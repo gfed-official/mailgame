@@ -83,21 +83,21 @@ namespace PerformativeMail.Sim
         }
 
         public ContentDb Content { get; }
-        public WorldMap Map { get; }
+        public WorldMap Map { get; private set; }
         public SimSettings Settings { get; }
         public uint Tick { get; private set; }
         public Economy Economy { get; }
         public RunState Run { get; } = new RunState();
         /// <summary>Solo pause (doc 01 §1): the tick is frozen until the host resumes or somebody joins.</summary>
         public bool Paused { get; private set; }
-        public MailSpawner Spawner { get; }
+        public MailSpawner Spawner { get; private set; }
         public GridContainer Intake { get; }
         /// <summary>The containers of the map's chests, in the order of <see cref="WorldMap.Chests"/>.</summary>
         public IReadOnlyList<GridContainer> MapChests => _mapChests;
         /// <summary>The map's resource nodes and what each has left.</summary>
-        public NodeField Nodes { get; }
+        public NodeField Nodes { get; private set; }
         /// <summary>What the carriers have built this run.</summary>
-        public ConstructField Constructs { get; }
+        public ConstructField Constructs { get; private set; }
         public IReadOnlyList<Player> Players => _players;
         /// <summary>Events produced since the host last drained them.</summary>
         public List<SimEvent> Events { get; } = new List<SimEvent>();

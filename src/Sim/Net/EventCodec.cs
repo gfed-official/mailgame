@@ -51,6 +51,7 @@ namespace PerformativeMail.Sim.Net
         VehicleParked = 41,
         VehiclesCleared = 42,
         KitGiven = 43,
+        WorldChanged = 44,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -247,6 +248,14 @@ namespace PerformativeMail.Sim.Net
                 case VehiclesClearedEvent _:
                     w.U8((byte)EventType.VehiclesCleared);
                     break;
+                case WorldChangedEvent e:
+                    w.U8((byte)EventType.WorldChanged);
+                    w.Str(e.MapId);
+                    w.U32(e.Seed);
+                    w.U64(e.MapHash);
+                    w.U8((byte)e.ChestContainerIds.Count);
+                    foreach (uint id in e.ChestContainerIds) w.U32(id);
+                    break;
                 case KitGivenEvent e:
                     w.U8((byte)EventType.KitGiven);
                     w.U32(e.Player.Value);
@@ -420,6 +429,13 @@ namespace PerformativeMail.Sim.Net
                     return new VehicleParkedEvent { Vehicle = new EntityId(r.U32()), X = r.F32(), Z = r.F32(), Heading = r.F32(), Player = new EntityId(r.U32()) };
                 case EventType.VehiclesCleared:
                     return new VehiclesClearedEvent();
+                case EventType.WorldChanged:
+                {
+                    var e = new WorldChangedEvent { MapId = r.Str(), Seed = r.U32(), MapHash = r.U64() };
+                    int n = r.U8();
+                    for (int i = 0; i < n; i++) e.ChestContainerIds.Add(r.U32());
+                    return e;
+                }
                 case EventType.KitGiven:
                     return new KitGivenEvent { Player = new EntityId(r.U32()), Kit = r.U8(), Team = r.U8() != 0 };
                 default:

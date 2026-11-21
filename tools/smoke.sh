@@ -58,6 +58,8 @@ grep -q "^\[smoke\] playtest: .* a card of the Draft taken with a click" "$work/
 grep -q "^\[smoke\] build: a Wooden Wall and a Chest built" "$work/log" || { echo "smoke: nothing was built in Build mode" >&2; exit 1; }
 # The starting kit (doc 03 §4.4): the Land kit in the pockets, the team's in the chest and by the counter.
 grep -q "^\[smoke\] kit: the Land kit" "$work/log" || { echo "smoke: the starting kit was not handed out" >&2; exit 1; }
+# The host's world in the Lobby (doc 06 §5): over to the seed's island, a new seed, and back.
+grep -q "^\[smoke\] world: Test Street, then Small Island" "$work/log" || { echo "smoke: the host did not switch the world in the Lobby" >&2; exit 1; }
 # The map (doc 09 §2.6): up with mail in the hotbar, the route to its house drawn.
 grep -q "^\[smoke\] map: up with mail" "$work/log" || { echo "smoke: the map was not shown with a route" >&2; exit 1; }
 # The shop's first blueprint (doc 10 §3 bp_defense): bought in shift 2 and built with.

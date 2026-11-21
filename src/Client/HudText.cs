@@ -57,6 +57,39 @@ namespace PerformativeMail.Client
         public const string QuotaWaivedTag = "playtest: the run goes on";
 
         public const string GoKey = "[G]";
+        /// <summary>The host's keys for the world in the Lobby. Doc 09 §4 has none; V steps through the worlds, N draws a new seed.</summary>
+        public const string WorldKey = "[V]", SeedKey = "[N]";
+
+        /// <summary>
+        /// The seed as a string to share (doc 01 §5.3, "PM1-SMALL-7F3A9C21"; no Postage Stamps yet):
+        /// the map's tag and the seed in hex.
+        /// </summary>
+        public static string SeedString(string mapId, uint seed)
+        {
+            string tag = mapId == WorldGenerator.SmallIsland ? "SMALL" : mapId.Split('_')[0].ToUpperInvariant();
+            return $"PM1-{tag}-{seed:X8}";
+        }
+
+        /// <summary>The world's name for the Lobby: "Small Island", or a map file's own name.</summary>
+        public static string WorldName(WorldMap map) => map.Id == WorldGenerator.SmallIsland ? "Small Island" : map.Name;
+
+        /// <summary>The Lobby's world plate: "Small Island · PM1-SMALL-0000002A".</summary>
+        public static string WorldTracker(ClientWorld world) => $"{WorldName(world.Map)} · {SeedString(world.Map.Id, world.Seed)}";
+
+        /// <summary>The Lobby's kit plate: "Kit: Land · [K]".</summary>
+        public static string KitTracker(ClientWorld world) => $"Kit: {LocalKit(world).Name}   ·   {KitKey}";
+
+        /// <summary>The host's keys in the Lobby.</summary>
+        public static string WorldKeys => $"{WorldKey} world   ·   {SeedKey} new seed";
+
+        /// <summary>The feed's line when the host has picked another world.</summary>
+        public static string WorldChanged(ClientWorld world, WorldChangedEvent e)
+        {
+            string who = world.IsHost ? "You" : PlayerName(world, world.Global.Host);
+            int houses = world.Map.Destinations.Count;
+            return $"{who} chose {WorldName(world.Map)} · {SeedString(e.MapId, e.Seed)}   ·   {houses} houses, {world.Map.Districts.Count} district{(world.Map.Districts.Count == 1 ? "" : "s")}";
+        }
+
         /// <summary>Picks the next starting kit in the Lobby. Doc 09 §4 has no key for it; K for kit.</summary>
         public const string KitKey = "[K]";
 

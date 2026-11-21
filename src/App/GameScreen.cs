@@ -35,10 +35,45 @@ namespace PerformativeMail.App
         private PlayerInputController? _input;
         private bool _inventoryOpen, _draftAside;
 
+        private bool _humanInput;
+
         /// <param name="humanInput">False when something else (the smoke's bot) drives the client.</param>
         public void Setup(GameSession session, bool humanInput)
         {
             _session = session;
+            _humanInput = humanInput;
+            Build();
+        }
+
+        // The host picked another world in the Lobby: everything drawn of the old one goes.
+        public override void _EnterTree() => _session.Client.WorldReplaced += Rebuild;
+
+        /// <summary>
+        /// The world was replaced (doc 06 §5): the views of the old map are let go and made anew
+        /// for the new one, out of the tree as the first time (controls placed by an anchor preset
+        /// inside the tree would keep the rect they had), then the screen goes back where it stood.
+        /// </summary>
+        private void Rebuild()
+        {
+            var parent = GetParent();
+            int index = GetIndex();
+            parent.RemoveChild(this);
+            _input = null;
+            foreach (var child in GetChildren())
+            {
+                RemoveChild(child);
+                child.QueueFree();
+            }
+            _inventoryOpen = false;
+            Build();
+            parent.AddChild(this);
+            parent.MoveChild(this, index);
+        }
+
+        private void Build()
+        {
+            var session = _session;
+            bool humanInput = _humanInput;
             var client = session.Client;
 
             World = new WorldView { Name = "World" };
@@ -134,6 +169,7 @@ namespace PerformativeMail.App
 
         public override void _ExitTree()
         {
+            if (_session != null) _session.Client.WorldReplaced -= Rebuild;
             if (_input != null && _session != null) _session.InputSource = null;
         }
     }
