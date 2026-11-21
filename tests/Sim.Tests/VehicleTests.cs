@@ -326,5 +326,33 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal((a.X, a.Z, a.RideSpeed, a.HeadX), (b.X, b.Z, b.RideSpeed, b.HeadX));
             Assert.True(a.Riding);
         }
-    }
+    
+        [Theory]
+        [InlineData(1u)]
+        [InlineData(4u)]
+        [InlineData(9u)]
+        public void OnTheGeneratedTown_TheBikeStandsByTheCounter_AndRunsTheMainStreetAt8(uint seed)
+        {
+            // The bike and the counter were made on the test street; the seed's town has its own Post Office.
+            var world = new SimWorld(Db, new SimSettings { Seed = seed, MapId = WorldGenerator.SmallIsland, Raids = false, Draft = false });
+            var host = world.AddPlayer("host")!;
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            world.Economy.AddLoot(1000);
+            var po = world.Map.PostOffice;
+            SimDriver.Teleport(host, po.ShopX + 1f, po.ShopZ);
+            SimDriver.StepTicks(world, 12);
+            var bike = BuyAndMount(world, host);
+            int tx = (int)MathF.Floor(bike.X / SimConstants.TileSize), tz = (int)MathF.Floor(bike.Z / SimConstants.TileSize);
+            Assert.False(world.Map.IsNavBlocked(tx, tz));
+
+            // The main street is the first street; ridden east along its middle it is road all the way.
+            var main = world.Map.Streets[0].Rect;
+            float z = (main.Y + 1) * SimConstants.TileSize;
+            SimDriver.Teleport(host, 6f, z);
+            Ride(world, host, 1f, 0f, 3 * Tps);
+            Assert.True(PlayerMovement.OnRoad(world.Map, host.Move.X, host.Move.Z));
+            Assert.Equal(8f, host.Move.RideSpeed, 3);
+            Assert.Equal(z, host.Move.Z, 1);
+        }
+}
 }

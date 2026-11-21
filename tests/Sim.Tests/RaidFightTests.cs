@@ -5,6 +5,7 @@ using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
+using PerformativeMail.Sim.World;
 using Xunit;
 
 namespace PerformativeMail.Sim.Tests
@@ -138,6 +139,29 @@ namespace PerformativeMail.Sim.Tests
                 var o = Fight(seed, 3, 2, cannon: false, clumsy: true);
                 Assert.True(o.Won && o.Downs <= 4 && o.FastReDowns == 0, $"seed {seed}: won {o.Won}, {o.Downs} downs, {o.FastReDowns} of them within 8 s of standing up");
             }
+        }
+        [Theory]
+        [InlineData(2u)]
+        [InlineData(13u)]
+        public void OnTheGeneratedTown_TheRaidersFindTheirWayToThePostOffice(uint seed)
+        {
+            // The raid was tuned on the test street; on the seed's town they come in by the main street's east end.
+            var world = new SimWorld(TestContent.Db, new SimSettings { Seed = seed, MapId = WorldGenerator.SmallIsland, Draft = false });
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.NoTimer | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow, 2);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+            // Nobody walks out to them, so they come down the street to their line (nit 17) and hold it.
+            world.RaidLine(out float lx, out float lz);
+            float nearest = float.MaxValue;
+            for (int t = 0; t < 120 * Tps && nearest > 3f; t++)
+            {
+                world.Step();
+                foreach (var e in world.Enemies)
+                    nearest = MathF.Min(nearest, MathF.Sqrt((e.X - lx) * (e.X - lx) + (e.Z - lz) * (e.Z - lz)));
+            }
+            Assert.True(world.EnemiesSpawnedTotal > 0);
+            Assert.True(nearest <= 3f, $"seed {seed}: the nearest raider got no closer than {nearest:F1} m to the line at ({lx:F1}, {lz:F1})");
         }
     }
 

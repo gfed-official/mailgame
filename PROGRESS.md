@@ -489,6 +489,18 @@ piles' regrowth, what a late joiner is told) found no break, and one wrong line,
 Trees on the beach's corner are not grown there at all (scenery only grows on grass); the
 others keep their places, as the commit said. Left as it is.
 
+### 2g. A check of the bike, the generated town and the district unlocks on 189065e (2026-11-20)
+
+No playtest report on 189065e; the unit tests (338 + 154) and `tools/smoke.sh` were green on it.
+The bike and the raid had only been tried on the test street, so both were tried on the seed's
+town; no break found, the two checks stay:
+
+- [x] `VehicleTests.OnTheGeneratedTown_TheBikeStandsByTheCounter_AndRunsTheMainStreetAt8`
+      (seeds 1, 4, 9: bought at the town's counter, parked on an open tile, 8 m/s down the main
+      street from its west end)
+- [x] `RaidFightTests.OnTheGeneratedTown_TheRaidersFindTheirWayToThePostOffice` (seeds 2, 13:
+      in from the main street's east end, down to their line before the Post Office)
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
