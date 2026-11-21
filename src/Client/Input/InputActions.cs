@@ -38,6 +38,8 @@ namespace PerformativeMail.Client.InputHandling
 
         /// <summary>Build mode (doc 09 §4: B).</summary>
         public const string Build = "build";
+        /// <summary>The map overlay (doc 09 §4: M).</summary>
+        public const string Map = "map";
 
         private static readonly HashSet<string> Created = new HashSet<string>();
 
@@ -58,6 +60,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Use, Key.Q);
             BindKey(Shop, Key.C);
             BindKey(Build, Key.B);
+            BindKey(Map, Key.M);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);
 
@@ -75,6 +78,7 @@ namespace PerformativeMail.Client.InputHandling
             BindButton(Shop, JoyButton.DpadUp);
             BindButton(Build, JoyButton.LeftShoulder);
             BindButton(Rotate, JoyButton.RightShoulder);
+            BindButton(Map, JoyButton.DpadDown);
             BindAxis(Attack, JoyAxis.TriggerRight, 1f);
             BindAxis(AltAttack, JoyAxis.TriggerLeft, 1f);
         }

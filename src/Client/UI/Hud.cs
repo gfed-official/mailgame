@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using PerformativeMail.Client.Meta;
@@ -40,6 +41,10 @@ namespace PerformativeMail.Client.UI
         public Rect2 HeldRect => _held.GetGlobalRect();
         /// <summary>The lowest point of the event feed's lines on screen.</summary>
         public float FeedBottom => _feedLines[_feedLines.Length - 1].GetGlobalRect().End.Y;
+        /// <summary>The top of the event feed's first line.</summary>
+        public float FeedTop => _feedLines[0].GetGlobalRect().Position.Y;
+        /// <summary>True while the map is up: the interact prompt keeps off it.</summary>
+        public Func<bool>? MapOpen;
         public string HintText => _hint.Text;
         /// <summary>The big PAUSED line while a solo run is paused, else empty.</summary>
         public string PausedText => _paused.Visible ? _paused.Text : "";
@@ -440,6 +445,12 @@ namespace PerformativeMail.Client.UI
                 holdProgress = ghost.HoldProgress;
             }
             else _prompt.Text = HudText.Prompt(world, prompt, out tone);
+            if (MapOpen?.Invoke() == true)
+            {
+                _prompt.Text = "";
+                tone = PromptTone.Neutral;
+                holdProgress = 0f;
+            }
             _prompt.Modulate = tone == PromptTone.Match ? Palette.Match : tone == PromptTone.Mismatch ? Palette.Mismatch : Colors.White;
             _mark.Tone = _prompt.Text.Length > 0 ? tone : PromptTone.Neutral;
             _hold.Visible = holdProgress > 0f;

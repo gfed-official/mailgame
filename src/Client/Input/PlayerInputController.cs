@@ -18,6 +18,10 @@ namespace PerformativeMail.Client.InputHandling
         public event Action? InventoryToggled;
         /// <summary>Raised on pause/escape; the screen closes whatever is open.</summary>
         public event Action? Cancelled;
+        /// <summary>Raised by the map key, and by Esc while the map is open.</summary>
+        public event Action? MapToggled;
+        /// <summary>True while the map is up: Esc puts it down first.</summary>
+        public Func<bool>? MapOpen;
 
         private ClientRuntime _client = null!;
         private InteractionController _interaction = null!;
@@ -108,6 +112,7 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Pause))
             {
                 if (UiOpen) Cancelled?.Invoke();
+                else if (MapOpen?.Invoke() == true) MapToggled?.Invoke();
                 // Esc puts Build mode down before it lets the mouse go.
                 else if (Building) _build!.Leave();
                 else
@@ -127,6 +132,7 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Use) && Building) _build!.Pipette();
             else if (ev.IsActionPressed(InputActions.Use) && !UiOpen) _client.UseHeld();
             else if (ev.IsActionPressed(InputActions.Shop) && !Paused) _client.ToggleShop();
+            else if (ev.IsActionPressed(InputActions.Map)) MapToggled?.Invoke();
         }
 
         /// <summary>

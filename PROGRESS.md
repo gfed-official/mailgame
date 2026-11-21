@@ -556,7 +556,35 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             beach, forest floor and rock from a biome texture, and the harbour's deck and jetties
             in the bay under the town's beach (the test street keeps its drawn island).
             `IslandTerrainTests` (4)
-      - [ ] the archetype choice in the Lobby, the routing graph
+      - [x] **The routing graph** (doc 02 §3.8 and §4; design choice 85). `RoutingGraph`, built
+            from every map's streets on the server and the clients alike: a node where streets
+            meet, end, or leave the map (the main street's two ways in from the island), an edge
+            along each stretch of street centre line between two, with its length, its surface
+            (paved; dirt paths come with towns of their own) and its street. Routes from any
+            point to any point: on to the nearest stretch, Dijkstra along the graph, off it to the
+            goal. Validation: the streets are one network and every mailbox stands by one.
+            `SeedViewer` prints its nodes, edges and metres. `RoutingGraphTests` (4: the test
+            street is one edge from edge to edge; 40 towns are one network with every street tile
+            on it; routes from the pad to every house run on streets, no shorter than the crow
+            flies; the same seed, the same graph)
+      - [x] **The map, M** (doc 09 §2.6, §4; its first user). An overlay under the HUD's top
+            plate and above the event feed — the clock stays in view, the mouse stays the view's,
+            the walk goes on under it: the town from above out of the tile grid (streets, lots in
+            their district's colour, houses in their own, the Post Office, the beach), street
+            names along the streets, house numbers where there is room, districts not open yet
+            greyed and hatched with "Opens in shift N" on their houses, the other carriers as
+            dots with names, yourself as an arrow the way you look, a white ring round every house
+            you carry mail for, and **the route to the house of the mail in the hand** (the held
+            slot's, else the first mail in the hotbar) along the routing graph in amber, with the
+            line "To 8 Larch Lane · 64 m by the streets · 00:13 on foot, 00:09 running" (by bike
+            when riding). M or Esc puts it down; the pad's D-pad down too (doc 09's View button is
+            the go key here). The interact prompt keeps off it while it is up. `MapGuide`,
+            `MapPanel`; `MapFlowTests` (2: test street and generated town); the smoke puts it up
+            in the first Delivery once the bot carries mail and checks the route, the line and
+            the layout (`map.png`)
+      - [ ] the archetype choice in the Lobby
+      - [x] Checked along the way: the rider's prediction on the generated town keeps with the
+            server tick by tick (`VehicleFlowTests.OnTheGeneratedTown_TheRidersPredictionKeepsWithTheServer`)
 - [x] Districts and per-shift unlock; address assignment; street names; house model variants and
       colour coding (on the generated town; the test street keeps its one district)
       - [x] on the generated town: districts, address assignment, street names, colour coding
@@ -859,8 +887,7 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the rest of the generator (the routing graph, the archetype choice in the
-Lobby), then the Lobby's seed / archetype / kit.
+Next in this order: the Lobby's seed / archetype / kit (the archetype choice with it).
 
 ## How to build and check
 
@@ -1721,6 +1748,17 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the grassland, so the doc's "≥ 25 % of land" always holds. Driftwood on the beach and the
     marsh (Large Island) are not made. The resource minimums are counts of nodes on the town
     grid (the island outside it is scenery only), set under the least of 50 seeds.
+
+85. **The routing graph and the map.** The graph is built from the `StreetDef`s, not from the
+    tiles: a street is a straight 2-tile strip, its centre line an edge, and a point within
+    2.5 m of another street's end or crossing is the same node — enough for the grid towns there
+    are. Every map has one (the test street's is a single edge), so the map works on both. The
+    map is the doc's first layer set without zoom, filter chips, pings or the route editor
+    (they need pings, depots and NPC drivers): it shows the route of the mail in the hand,
+    which is what a carrier wants of it now. It is drawn under the HUD (the clock, the plates,
+    the hotbar and the feed stay on top) and does not take the mouse, so it can be kept up
+    while walking. Doc 09 §4 gives the pad's View button for the map; here that button is the
+    go key, so the map is on the D-pad's down.
 
 ## Commands
 

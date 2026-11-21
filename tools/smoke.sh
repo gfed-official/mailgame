@@ -56,6 +56,8 @@ grep -q "^\[smoke\] draft: .* a card taken by its key" "$work/log" || { echo "sm
 grep -q "^\[smoke\] playtest: .* a card of the Draft taken with a click" "$work/log-playtest" || { echo "smoke: no card of the Draft was taken with a click" >&2; exit 1; }
 # Build mode (doc 09 §2.7): the full run builds by hand with what the land gave.
 grep -q "^\[smoke\] build: a Wooden Wall and a Chest built" "$work/log" || { echo "smoke: nothing was built in Build mode" >&2; exit 1; }
+# The map (doc 09 §2.6): up with mail in the hotbar, the route to its house drawn.
+grep -q "^\[smoke\] map: up with mail" "$work/log" || { echo "smoke: the map was not shown with a route" >&2; exit 1; }
 # The shop's first blueprint (doc 10 §3 bp_defense): bought in shift 2 and built with.
 grep -q "^\[smoke\] fortify: Blueprint: Fortify bought" "$work/log" || { echo "smoke: the Fortify blueprint was not bought and built with" >&2; exit 1; }
 # The Gate and the Alarm Post (doc 05 §4): built, walked through, and ringing in the shift's raid.

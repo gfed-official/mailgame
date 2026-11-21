@@ -25,6 +25,8 @@ namespace PerformativeMail.App
         public FirstPersonCamera Camera { get; private set; } = null!;
         public Hud Hud { get; private set; } = null!;
         public InventoryPanel Inventory { get; private set; } = null!;
+        /// <summary>The map overlay (doc 09 §2.6), M.</summary>
+        public MapPanel Map { get; private set; } = null!;
         public LabelDeclutterer Labels { get; private set; } = null!;
         /// <summary>Whose the mouse is: the view's, or the pointer's while a panel is open (or it was let go).</summary>
         public MouseCapture Mouse { get; } = new MouseCapture();
@@ -72,6 +74,10 @@ namespace PerformativeMail.App
             var layer = new CanvasLayer { Name = "UI" };
             AddChild(layer);
             Hud = new Hud();
+            // Under the HUD: the map is an overlay, the clock and the plates stay on top of it.
+            Map = new MapPanel { Name = "Map" };
+            layer.AddChild(Map);
+            Map.Setup(client);
             layer.AddChild(Hud);
             Hud.Profile = session.Profile;
             Hud.Setup(client, session.Interaction, session.Feed);
@@ -81,6 +87,8 @@ namespace PerformativeMail.App
             layer.AddChild(Inventory);
             Inventory.Setup(client);
             Hud.Panel = Inventory;
+            Hud.MapOpen = () => Map.Visible;
+            Map.BottomClear = () => Hud.FeedTop;
 
             // World labels thin out with distance, give way to nearer ones and stay off the HUD.
             Labels = new LabelDeclutterer { Name = "Labels", KeepClear = Hud.KeepClear };
@@ -90,6 +98,8 @@ namespace PerformativeMail.App
             _input = new PlayerInputController { Name = "Input" };
             _input.Setup(client, session.Interaction, Mouse, session.Build);
             _input.InventoryToggled += () => _inventoryOpen = !_inventoryOpen;
+            _input.MapToggled += Map.Toggle;
+            _input.MapOpen = () => Map.Visible;
             _input.Cancelled += () =>
             {
                 // Esc closes what is open; with only the Draft's cards up it sets them aside, to look around before choosing by key.

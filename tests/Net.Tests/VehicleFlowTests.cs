@@ -9,6 +9,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
+using PerformativeMail.Sim.World;
 using Xunit;
 
 namespace PerformativeMail.Net.Tests
@@ -30,9 +31,9 @@ namespace PerformativeMail.Net.Tests
             public readonly List<ClientRuntime> Clients = new List<ClientRuntime>();
             public readonly ContentDb Content = Shared.Content;
 
-            public Session()
+            public Session(string mapId = "test_street", uint seed = 3)
             {
-                Server = new ServerRuntime(Content, new SimSettings { Seed = 3, Raids = false, Draft = false }, Hub);
+                Server = new ServerRuntime(Content, new SimSettings { Seed = seed, MapId = mapId, Raids = false, Draft = false }, Hub);
             }
 
             public SimWorld Sim => Server.World;
@@ -167,6 +168,62 @@ namespace PerformativeMail.Net.Tests
             var seen = Assert.Single(c.Vehicles.Values);
             Assert.Equal((bike.Id, false), (seen.Id, seen.Ridden));
             Assert.Equal(b.Vehicles[bike.Id].X, seen.X);
+        }
+
+        [Theory]
+        [InlineData(3u)]
+        [InlineData(8u)]
+        public void OnTheGeneratedTown_TheRidersPredictionKeepsWithTheServer(uint seed)
+        {
+            // The client builds the seed's town itself; its ride must be the server's, tick by tick.
+            var s = new Session(WorldGenerator.SmallIsland, seed);
+            var ada = s.Join("Ada");
+            var a = ada.World!;
+            Assert.Equal(s.Sim.Map.MapHash, a.Map.MapHash);
+            var interaction = new InteractionController(ada);
+            Assert.NotEqual(0u, ada.PressGo());
+            s.Run(10);
+            s.Sim.Economy.AddLoot(500);
+            var po = s.Sim.Map.PostOffice;
+            var truth = s.Truth(ada);
+            truth.Move.X = po.ShopX + 1.5f;
+            truth.Move.Z = po.ShopZ;
+            s.Run(10);
+            Assert.True(ada.OpenShop());
+            var card = s.Content.ShopItem("bike");
+            Assert.True(ada.PressShopKey(a.ShopShelf.ToList().IndexOf(card)));
+            s.Run(10);
+            ada.CloseShop();
+            var bike = Assert.Single(a.Vehicles.Values);
+            truth.Move.X = bike.X + 1.6f;
+            truth.Move.Z = bike.Z;
+            s.Run(10);
+            var box = AimBox.Vehicle(a.Map, bike.X, bike.Z);
+            ViewRay.Aim(a.Local, box.X, box.Y, box.Z, out ada.Input.YawRadians, out ada.Input.PitchRadians);
+            interaction.Update(Dt, false, false);
+            Assert.Equal(InteractKind.Mount, interaction.Prompt.Kind);
+            interaction.Update(Dt, false, false, interactTapped: true);
+            s.Run(10);
+            Assert.True(a.Local.Riding);
+
+            // East along the main street from its west end.
+            var main = s.Sim.Map.Streets[0].Rect;
+            truth.Move.X = 6f;
+            truth.Move.Z = (main.Y + 1) * 2f;
+            s.Run(10);
+            ada.Input.MoveX = 1f;
+            ada.Input.MoveZ = 0f;
+            float worst = 0f;
+            for (int i = 0; i < 120; i++)
+            {
+                s.Run(1);
+                worst = MathF.Max(worst, MathF.Abs(a.Local.X - truth.Move.X) + MathF.Abs(a.Local.Z - truth.Move.Z));
+            }
+            Assert.True(worst < 0.6f, $"seed {seed}: the prediction was {worst:0.00} m from the server");
+            Assert.Equal(8f, a.Local.RideSpeed, 2);
+            ada.Input.MoveX = 0f;
+            s.Run(100);
+            Assert.Equal(truth.Move.X, a.Local.X, 3);
         }
 
         private static float NormalisedYaw(float yaw)

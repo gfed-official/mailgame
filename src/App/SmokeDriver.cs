@@ -694,6 +694,7 @@ namespace PerformativeMail.App
             if (_screen.Inventory.Visible && _screen.Inventory.ManifestRows > 0) _sawManifest = true;
             if (world.Hotbar.EntryCount + world.Inventory.EntryCount > 0) _sawCarriedMail = true;
             TrackCamera();
+            StepMap();
             foreach (char c in FontCheck.MissingGlyphs(_screen.Hud) + FontCheck.MissingGlyphs(_screen.Inventory))
                 if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
 
@@ -704,6 +705,7 @@ namespace PerformativeMail.App
 
             if (_bot.StacksDelivered >= WantDelivered && _bot.StacksMisdelivered >= WantMisdelivered && client.PendingRequestCount == 0)
             {
+                Check(_mapStep == 3, "the map was never put up and down in the first Delivery");
                 client.TickStarting -= _botTick;
                 client.Input.MoveX = 0f;
                 client.Input.MoveZ = 0f;
