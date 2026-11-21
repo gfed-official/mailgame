@@ -474,6 +474,21 @@ prediction, the spikes, the blueprint or the refunds, and three smaller faults, 
 One smoke run on the way timed out in its ENet walk (step 1 has 10 s of wall clock for ~2 s of
 walking) while the shared machine was busy; the run after it passed. Left as it is.
 
+### 2f. A read-through of Sand, the Shovel, tools in the hand, the Gate and the Alarm Post on c59cf39 (2026-11-20)
+
+No playtest report on c59cf39; the unit tests and `tools/smoke.sh` were green on it. A read of
+the three commits against the server's rules (the gate in movement, prediction and the bot's
+paths, the warning moved by posts and frozen once announced, the held-tool byte, the sand
+piles' regrowth, what a late joiner is told) found no break, and one wrong line, fixed:
+
+- [x] With the playtest's `--raid` (the raid called at once, 5 s of warning) an Alarm Post in
+      range was still credited in the raid's feed line ("… 5 s of warning with the Alarm
+      Post"). The posts are named only when the warning is longer than the team's own without
+      them. `CombatHudTests.TheRaidsLine_NamesTheAlarmPost_OnlyWhenItRangTheRaidInEarly`
+
+Trees on the beach's corner are not grown there at all (scenery only grows on grass); the
+others keep their places, as the commit said. Left as it is.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is

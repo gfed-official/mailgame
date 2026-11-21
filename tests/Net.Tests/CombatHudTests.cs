@@ -254,5 +254,16 @@ namespace PerformativeMail.Net.Tests
             Assert.Contains("The raid is over", s.FeedLines);
             Assert.Equal("", HudText.RaidTracker(s.World));
         }
+
+        [Fact]
+        public void TheRaidsLine_NamesTheAlarmPost_OnlyWhenItRangTheRaidInEarly()
+        {
+            // 15 s more than the team's own 15: the post is named.
+            Assert.Equal($"{HudText.RaidWarning}   ·   30 s of warning with the Alarm Post", HudText.RaidAnnounced(1, 29.97, 15.0));
+            Assert.Equal($"{HudText.RaidWarning}   ·   45 s of warning with 3 Alarm Posts", HudText.RaidAnnounced(3, 45.0, 15.0));
+            // A raid called at once (the playtest's --raid) owes the posts in range nothing.
+            Assert.Equal(HudText.RaidWarning, HudText.RaidAnnounced(1, 5.0, 15.0));
+            Assert.Equal(HudText.RaidWarning, HudText.RaidAnnounced(0, 30.0, 15.0));
+        }
     }
 }

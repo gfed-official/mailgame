@@ -760,8 +760,19 @@ namespace PerformativeMail.Client
             int posts = 0;
             foreach (var c in world.Constructs.All)
                 if (RaidRules.AlarmInRange(world.Map, c.Def, c.Tx, c.Tz)) posts++;
-            if (posts == 0) return RaidWarning;
-            string seconds = ((int)Math.Round(world.RaidSecondsLeft)).ToString(CultureInfo.InvariantCulture);
+            var waves = world.Content.Waves;
+            return RaidAnnounced(posts, world.RaidSecondsLeft, world.LocalStat(Stat.RaidWarningSeconds, (float)waves.WarningSeconds));
+        }
+
+        /// <summary>
+        /// The raid's line with <paramref name="posts"/> Alarm Posts in range: they are named only
+        /// when the warning is longer than the one the team has without them (a raid called at
+        /// once by the playtest's <c>--raid</c> owes them nothing).
+        /// </summary>
+        public static string RaidAnnounced(int posts, double secondsLeft, double warningWithoutPosts)
+        {
+            if (posts == 0 || secondsLeft < warningWithoutPosts + 0.5) return RaidWarning;
+            string seconds = ((int)Math.Round(secondsLeft)).ToString(CultureInfo.InvariantCulture);
             return $"{RaidWarning}   ·   {seconds} s of warning with {(posts == 1 ? "the Alarm Post" : $"{posts.ToString(CultureInfo.InvariantCulture)} Alarm Posts")}";
         }
 
