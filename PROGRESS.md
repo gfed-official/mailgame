@@ -532,8 +532,31 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             run played and a letter delivered at the farthest house), `LoopbackTests` (1: two
             clients build the town from the seed, their bots deliver); `tools/smoke.sh` runs
             the SeedViewer over seeds 1–20 and a bot on the smoke seed's town to "BOT OK"
-      - [ ] the heightmap, biomes and the island's coastline in the sim (the island around the
-            town is the backdrop's), the archetype choice in the Lobby, the routing graph
+      - [x] **The island: heightmap, coastline and biomes in the sim** (doc 02 §2, §3.1–§3.2,
+            §3.9, §3.12; design choice 84). `IslandTerrain`: 300 × 300 tiles of 2 m (the doc's
+            600 × 600 m) round the town, heights in whole centimetres from `FixedNoise` (value
+            noise on an integer lattice, smoothstep in 16.16 fixed point — no floats, so every
+            machine builds the same island), from the seed's own "heightmap" and "biomes"
+            streams; a radial falloff with a noisy coast, the town levelled to 1.5 m above the
+            sea with the land blending up from it over 26 tiles, and a **bay** cut into the south
+            shore right below the town's beach. The coast is smoothed (no land tile with fewer
+            than two land neighbours). **Biomes** by the doc's table: deep / shallow water by
+            depth (2 m), beach within 3 tiles of the water (in town: the town's own beach rows),
+            rocky above 60 % of the highest ground or steeper than 20°, forest on the grassland
+            where a noise mask is highest — 30 % of the land —, grassland the rest. Retried with
+            a wider radius while less than 30 % of the land can be built on (35°) or there is no
+            deep water within 200 m of the pad. The heights and biomes are in the world hash.
+            **The town's scenery grows by its biome** (`Scenery.Odds`: woods in the forest,
+            boulders — and their ore veins — on rocky ground, bushes and flowers on the
+            grassland); the test street keeps its mix to the tree. Validation has **resource
+            minimums** (30 trees, 15 boulders, 60 bushes, 20 sand piles). `SeedViewer` prints the
+            biome shares and the node counts, `--island` draws the island. *On screen* the
+            backdrop of a generated town is the sim's island: its heights and coast, the sea at
+            its level, woods on its forest, boulders on its rocky ground, the ground shader's
+            beach, forest floor and rock from a biome texture, and the harbour's deck and jetties
+            in the bay under the town's beach (the test street keeps its drawn island).
+            `IslandTerrainTests` (4)
+      - [ ] the archetype choice in the Lobby, the routing graph
 - [x] Districts and per-shift unlock; address assignment; street names; house model variants and
       colour coding (on the generated town; the test street keeps its one district)
       - [x] on the generated town: districts, address assignment, street names, colour coding
@@ -836,8 +859,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the rest of the generator (heightmap and biomes in the sim, the
-archetype choice in the Lobby, the routing graph), then the Lobby's seed / archetype / kit.
+Next in this order: the rest of the generator (the routing graph, the archetype choice in the
+Lobby), then the Lobby's seed / archetype / kit.
 
 ## How to build and check
 
@@ -1684,6 +1707,21 @@ See "Commands" at the bottom (filled in as the tooling lands).
     are made for its layout); `--world=island` plays the generated town, and the smoke plays
     it with a bot.
 
+84. **The island round the town.** Doc 02 §3.1 asks for layered fixed-point OpenSimplex2; the
+    noise is value noise on an integer lattice with a smoothstep in 16.16 fixed point, four
+    octaves (`FixedNoise`) — integer-only as the doc wants, simpler than simplex, and pinned by
+    a test. The sim walks the town flat as before (`WorldMap.HeightAt` stays 0): the town grid
+    is levelled to 1.5 m over the sea ("buildings auto-level" taken for the whole town site),
+    and the relief is the island's round it, which nobody walks yet. Settlement placement is
+    not searched for: the one town of a Small Island sits in the island's middle (the PO "near
+    centre") and "towns like the coast" is a bay cut from the south shore to the town's beach,
+    so the beach of design choice 83 is a real shore and deep water lies within 200 m. Rocky
+    ground inside the town is where the levelled-out natural ground would have stood above 60 %
+    of the top (slope cannot make it rocky there). Forest is the top 30 % of a noise mask over
+    the grassland, so the doc's "≥ 25 % of land" always holds. Driftwood on the beach and the
+    marsh (Large Island) are not made. The resource minimums are counts of nodes on the town
+    grid (the island outside it is scenery only), set under the least of 50 seeds.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -1695,7 +1733,7 @@ All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes o
 ~/.dotnet/dotnet test tests/Net.Tests -nodeReuse:false --filter "Acceptance|ChestFuzz" --logger "console;verbosity=detailed"
 
 tools/validate-content.sh [CONTENT_DIR] [--quiet]   # ContentValidator: "content OK …" / "error: …" lines, exit 0 / 1
-~/.dotnet/dotnet tools/SeedViewer/bin/Debug/net8.0/SeedViewer.dll 1-20 [--map]   # the generated town of each seed: figures, and the town in letters
+~/.dotnet/dotnet tools/SeedViewer/bin/Debug/net8.0/SeedViewer.dll 1-20 [--map] [--island]   # the generated town of each seed: figures, the town in letters, the island by biome
 
 tools/smoke.sh [seed]            # build + two Godot headless smokes (the full run, the raid playtest); exit 0 and "SMOKE OK" twice
 ~/.local/bin/godot --headless --path . -- --smoke --seed=1      # the smoke alone (build first)

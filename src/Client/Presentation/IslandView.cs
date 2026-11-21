@@ -9,7 +9,9 @@ namespace PerformativeMail.Client.Presentation
     /// What lies around the playable map in the concept video: the town sits on an island of rolling
     /// grass and cliffs above the sea, with a harbour dock of crates, mail trucks and boats, a
     /// conveyor climbing to a wooden tower, and a spiked palisade with a gate and watch towers
-    /// where the street leaves town. None of it can be walked on; the sim knows only the map.
+    /// where the street leaves town. None of it can be walked on. A generated town's island is the
+    /// sim's (<see cref="IslandTerrain"/>): its heights, its coast, its biomes and the bay under the
+    /// town's beach, where the harbour lies; the test street keeps the island drawn for it.
     /// </summary>
     public static class IslandView
     {
@@ -56,11 +58,22 @@ namespace PerformativeMail.Client.Presentation
             return best;
         }
 
+        /// <summary>Where the sea stands: under a generated town by the island's level, else the test street's.</summary>
+        public static float SeaLevelOf(WorldMap map) => map.Terrain != null ? -IslandTerrain.TownLevelCm / 100f : SeaLevel;
+
         /// <summary>Height of the island's ground. Inside the map it is the sim's flat 0.</summary>
         public static float Height(WorldMap map, float x, float z)
         {
             float d = Outside(map, x, z);
             if (d <= 0f) return 0f;
+            if (map.Terrain is IslandTerrain island)
+            {
+                // The streets that leave the town run on level for a while, then climb with the land.
+                float ground = island.MetresAboveTown(x, z);
+                float off = x < 0f ? -x : x - map.WidthM;
+                if (off > 0f) ground = Mathf.Lerp(ground, 0f, RoadWeight(map, x, z) * (1f - Mathf.SmoothStep(30f, 60f, off)));
+                return ground;
+            }
             float cx = map.WidthM * 0.5f, cz = map.DepthM * 0.5f;
             float ex = (x - cx) / (cx + 72f), ez = (z - cz) / (cz + 62f);
             float r = Mathf.Sqrt(ex * ex + ez * ez) + (Fbm(x * 0.021f, z * 0.021f) - 0.5f) * 0.28f;
@@ -90,13 +103,20 @@ namespace PerformativeMail.Client.Presentation
                 Name = "Sea",
                 Mesh = new PlaneMesh { Size = new Vector2(2400f, 2400f) },
                 MaterialOverride = Shaders.Water(),
-                Position = new Vector3(map.WidthM * 0.5f, SeaLevel, map.DepthM * 0.5f),
+                Position = new Vector3(map.WidthM * 0.5f, SeaLevelOf(map), map.DepthM * 0.5f),
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             });
             Islets(batch, map);
-            Greenery(batch, map);
+            if (map.Terrain is IslandTerrain island) IslandGreenery(batch, map, island);
+            else Greenery(batch, map);
             Hedges(batch, map);
-            Dock(batch, map);
+            if (map.Terrain != null)
+            {
+                // The harbour in the bay under the town's beach, its deck level with the shore.
+                float sea = SeaLevelOf(map);
+                Dock(batch, map, new Vector2(map.WidthM * 0.3f, map.DepthM + 14f), sea + 0.9f, sea, tower: false);
+            }
+            else Dock(batch, map, Harbour, DockTop, SeaLevel, tower: true);
             return Palisade(batch, map);
         }
 
@@ -104,8 +124,11 @@ namespace PerformativeMail.Client.Presentation
         {
             var b = new MeshBuilder();
             float cx = map.WidthM * 0.5f, cz = map.DepthM * 0.5f;
-            int x0 = Mathf.FloorToInt((cx - 176f) / Step), x1 = Mathf.CeilToInt((cx + 176f) / Step);
-            int z0 = Mathf.FloorToInt((cz - 136f) / Step), z1 = Mathf.CeilToInt((cz + 136f) / Step);
+            // The whole of a generated island; round the test street what the camera can see.
+            float rx = 176f, rz = 136f;
+            if (map.Terrain is IslandTerrain island) { rx = island.Cols * Tile * 0.5f; rz = island.Rows * Tile * 0.5f; }
+            int x0 = Mathf.FloorToInt((cx - rx) / Step), x1 = Mathf.CeilToInt((cx + rx) / Step);
+            int z0 = Mathf.FloorToInt((cz - rz) / Step), z1 = Mathf.CeilToInt((cz + rz) / Step);
             var index = new int[x1 - x0 + 1, z1 - z0 + 1];
             for (int ix = x0; ix <= x1; ix++)
                 for (int iz = z0; iz <= z1; iz++)
@@ -164,6 +187,51 @@ namespace PerformativeMail.Client.Presentation
             }
         }
 
+        /// <summary>
+        /// The island's own growth, by the sim's biome under it (doc 02 §3.2): woods in the
+        /// forest, boulders on rocky ground, a tree or a bush here and there on the grassland,
+        /// nothing on the beach and in the water. Scenery only: none of it is a node.
+        /// </summary>
+        private static void IslandGreenery(MeshBatch batch, WorldMap map, IslandTerrain island)
+        {
+            const float cell = 8f;
+            float sea = SeaLevelOf(map);
+            float left = -island.TownX * Tile, top = -island.TownZ * Tile;
+            float right = left + island.Cols * Tile, bottom = top + island.Rows * Tile;
+            for (float gz = top + cell * 0.5f; gz < bottom; gz += cell)
+            {
+                for (float gx = left + cell * 0.5f; gx < right; gx += cell)
+                {
+                    var seed = new Vector3(gx * 0.713f, 3.1f, gz * 0.531f);
+                    float x = gx + (MeshKit.Noise3(seed) - 0.5f) * cell * 1.4f, z = gz + (MeshKit.Noise3(seed + new Vector3(9f, 0f, 0f)) - 0.5f) * cell * 1.4f;
+                    if (Outside(map, x, z) < 3.5f || RoadWeight(map, x, z) > 0.2f) continue;
+                    float h = Height(map, x, z);
+                    if (h < sea + 0.5f) continue;
+                    var biome = island.BiomeAt(Mathf.FloorToInt(x / Tile) + island.TownX, Mathf.FloorToInt(z / Tile) + island.TownZ);
+                    float roll = MeshKit.Noise3(seed * 3.7f + new Vector3(0f, 5f, 0f)) * 100f;
+                    float scale = 0.9f + MeshKit.Noise3(seed * 5.3f) * 0.8f, yaw = roll * 0.7f;
+                    int variant = (int)(MeshKit.Noise3(seed * 7.9f) * 2.99f);
+                    var at = new Vector3(x, h - 0.05f, z);
+                    switch (biome)
+                    {
+                        case Biome.Forest:
+                            if (roll < 72f) SceneryView.Tree(batch, at, yaw, scale * 1.2f, variant);
+                            else if (roll < 84f) SceneryView.Bush(batch, at, yaw, scale * 1.2f, variant);
+                            break;
+                        case Biome.Rocky:
+                            if (roll < 40f) SceneryView.Boulder(batch, at, yaw, scale * 2.0f, variant);
+                            else if (roll < 46f) SceneryView.Tree(batch, at, yaw, scale, variant);
+                            break;
+                        case Biome.Grassland:
+                            if (roll < 12f) SceneryView.Tree(batch, at, yaw, scale * 1.1f, variant);
+                            else if (roll < 26f) SceneryView.Bush(batch, at, yaw, scale * 1.2f, variant);
+                            else if (roll < 29f) SceneryView.Boulder(batch, at, yaw, scale * 1.3f, variant);
+                            break;
+                    }
+                }
+            }
+        }
+
         /// <summary>A hedge marks the edge of town on the three sides without a wall.</summary>
         private static void Hedges(MeshBatch batch, WorldMap map)
         {
@@ -210,29 +278,29 @@ namespace PerformativeMail.Client.Presentation
             Run(new Vector3(-off, 0f, z), new Vector3(-off, 0f, map.DepthM + off));
         }
 
-        private static void Dock(MeshBatch batch, WorldMap map)
+        private static void Dock(MeshBatch batch, WorldMap map, Vector2 harbourAt, float deck, float sea, bool tower)
         {
             var plank = MeshKit.Mat(new Color("6e4a35"), 0.8f);
             var plankDark = MeshKit.Mat(new Color("5c3d2c"), 0.8f);
             var pile = MeshKit.Mat(new Color("3f2a20"), 0.9f);
-            float x0 = Harbour.X - 16f, x1 = Harbour.X + 16f, z0 = Harbour.Y - 13f, z1 = Harbour.Y + 11f;
+            float x0 = harbourAt.X - 16f, x1 = harbourAt.X + 16f, z0 = harbourAt.Y - 13f, z1 = harbourAt.Y + 11f;
             // The deck: long planks side by side, on piles standing in the water.
             int index = 0;
             for (float x = x0; x < x1; x += 1.0f, index++)
-                batch.Box(new Vector3(x + 0.5f, DockTop - 0.1f, (z0 + z1) * 0.5f), new Vector3(0.96f, 0.2f, z1 - z0), index % 3 == 0 ? plankDark : plank, 0.03f);
+                batch.Box(new Vector3(x + 0.5f, deck - 0.1f, (z0 + z1) * 0.5f), new Vector3(0.96f, 0.2f, z1 - z0), index % 3 == 0 ? plankDark : plank, 0.03f);
             for (float x = x0 + 1f; x <= x1; x += 6f)
                 for (float z = z0 + 1f; z <= z1; z += 5.5f)
-                    batch.Add(MeshKit.Cylinder(0.22f, 0.22f, 5f, 10), pile, new Vector3(x, DockTop - 2.4f, z));
+                    batch.Add(MeshKit.Cylinder(0.22f, 0.22f, 5f, 10), pile, new Vector3(x, deck - 2.4f, z));
             // Two jetties out to the south, boats tied alongside.
             for (int j = 0; j < 2; j++)
             {
                 float jx = x0 + 8f + j * 14f;
-                batch.Box(new Vector3(jx, DockTop - 0.1f, z1 + 7f), new Vector3(2.4f, 0.2f, 14f), plank, 0.03f);
+                batch.Box(new Vector3(jx, deck - 0.1f, z1 + 7f), new Vector3(2.4f, 0.2f, 14f), plank, 0.03f);
                 for (float z = z1 + 2f; z <= z1 + 14f; z += 4f)
                     for (int side = -1; side <= 1; side += 2)
-                        batch.Add(MeshKit.Cylinder(0.16f, 0.16f, 5.6f, 8), pile, new Vector3(jx + side * 1.1f, DockTop - 2.2f, z));
-                Boat(batch, new Vector3(jx + 3.6f, SeaLevel, z1 + 6f + j * 3f), 0.1f + j * 0.2f);
-                if (j == 0) Boat(batch, new Vector3(jx - 3.8f, SeaLevel, z1 + 10f), 3.3f);
+                        batch.Add(MeshKit.Cylinder(0.16f, 0.16f, 5.6f, 8), pile, new Vector3(jx + side * 1.1f, deck - 2.2f, z));
+                Boat(batch, new Vector3(jx + 3.6f, sea, z1 + 6f + j * 3f), 0.1f + j * 0.2f);
+                if (j == 0) Boat(batch, new Vector3(jx - 3.8f, sea, z1 + 10f), 3.3f);
             }
 
             // Crates of mail, stacked where the trucks unload.
@@ -246,23 +314,24 @@ namespace PerformativeMail.Client.Presentation
                 int stack = 1 + (int)(MeshKit.Noise3(seed * 4.1f) * 2.4f);
                 for (int level = 0; level < stack; level++)
                 {
-                    var at = new Vector3(x, DockTop + size * (level + 0.5f), z);
+                    var at = new Vector3(x, deck + size * (level + 0.5f), z);
                     var turn = new Vector3(0f, MeshKit.Noise3(seed * 6.7f + new Vector3(level, 0f, 0f)) * 90f, 0f);
                     batch.Box(at, new Vector3(size, size, size), crateColours[(i + level) % crateColours.Length], 0.05f, turn);
                     batch.Box(at, new Vector3(size + 0.03f, size * 0.16f, size + 0.03f), band, 0.02f, turn);
                 }
             }
             // Sheds, trucks, and the conveyor that carries parcels up to the sorting tower.
-            Shed(batch, new Vector3(x0 + 5f, DockTop, z0 + 4f), 0.2f);
-            Shed(batch, new Vector3(x1 - 6f, DockTop, z0 + 3.5f), -0.15f);
-            Truck(batch, new Vector3(x1 - 5f, DockTop, z1 - 5f), 2.2f);
-            Truck(batch, new Vector3(Harbour.X + 1f, DockTop, z1 - 2.5f), 1.2f);
+            Shed(batch, new Vector3(x0 + 5f, deck, z0 + 4f), 0.2f);
+            Shed(batch, new Vector3(x1 - 6f, deck, z0 + 3.5f), -0.15f);
+            Truck(batch, new Vector3(x1 - 5f, deck, z1 - 5f), 2.2f);
+            Truck(batch, new Vector3(harbourAt.X + 1f, deck, z1 - 2.5f), 1.2f);
+            if (!tower) return;
             Truck(batch, new Vector3(-14f, Height(map, -14f, 28f), 28.5f), -Mathf.Pi * 0.5f);
 
             var towerAt = new Vector3(-58f, 0f, -22f);
             towerAt.Y = Height(map, towerAt.X, towerAt.Z);
             Tower(batch, towerAt, 6.5f, true);
-            Conveyor(batch, map, new Vector3(x0 + 9f, DockTop + 1.0f, z0 + 6f), new Vector3(-50f, towerAt.Y + 0.5f, -4f));
+            Conveyor(batch, map, new Vector3(x0 + 9f, deck + 1.0f, z0 + 6f), new Vector3(-50f, towerAt.Y + 0.5f, -4f));
             Conveyor(batch, map, new Vector3(-50f, towerAt.Y + 0.5f, -4f), towerAt + new Vector3(0f, 6.5f, 1.5f));
         }
 
@@ -361,7 +430,7 @@ namespace PerformativeMail.Client.Presentation
             for (float t = 3f; t < length - 1f; t += 6f)
             {
                 var p = from + dir * t;
-                float ground = Mathf.Max(Height(map, p.X, p.Z), SeaLevel - 1.5f);
+                float ground = Mathf.Max(Height(map, p.X, p.Z), SeaLevelOf(map) - 1.5f);
                 float leg = p.Y - ground;
                 if (leg > 0.3f)
                     for (int side = -1; side <= 1; side += 2)

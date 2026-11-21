@@ -43,6 +43,14 @@ uniform vec3 stone_b : source_color = vec3(0.47, 0.44, 0.48);
 uniform vec3 rock : source_color = vec3(0.40, 0.38, 0.44);
 uniform vec3 sand : source_color = vec3(0.78, 0.62, 0.42);
 uniform vec3 beach_sand : source_color = vec3(0.88, 0.79, 0.60);
+uniform vec3 forest_floor : source_color = vec3(0.09, 0.19, 0.07);
+uniform float sea_level = -3.5;
+// A generated island's biomes, a texel a tile: r beach, g forest, b rocky; the town's rect keeps its own ground.
+uniform sampler2D biome_map : filter_linear, repeat_disable;
+uniform bool has_biomes = false;
+uniform vec2 biome_origin = vec2(0.0, 0.0);
+uniform vec2 biome_size = vec2(1.0, 1.0);
+uniform vec2 town_size = vec2(1.0, 1.0);
 varying vec3 wp;
 varying vec3 wn;
 " + Noise + @"
@@ -96,7 +104,15 @@ void fragment() {
     // Off the flat of the town: sand near the water, rock on anything steep. On the map, the
     // beach's tiles: fine ripples blown across it.
     float shore = smoothstep(0.35, 0.65, ma.a + (n - 0.5) * 0.35);
-    float beach = max(1.0 - smoothstep(-3.6, -2.2, wp.y), shore) * (1.0 - path);
+    float wild = 0.0;
+    if (has_biomes) {
+        vec4 bm = texture(biome_map, (wp.xz - biome_origin) / biome_size);
+        wild = 1.0 - step(0.0, wp.x) * step(wp.x, town_size.x) * step(0.0, wp.z) * step(wp.z, town_size.y);
+        col = mix(col, forest_floor * (0.8 + 0.4 * n), smoothstep(0.3, 0.7, bm.g + (n - 0.5) * 0.3) * 0.75 * wild);
+        col = mix(col, rock * (0.8 + 0.4 * fbm(wp.xz * 0.4)), smoothstep(0.35, 0.75, bm.b + (n - 0.5) * 0.3) * 0.8 * wild);
+        shore = max(shore, smoothstep(0.3, 0.7, bm.r + (n - 0.5) * 0.3) * wild);
+    }
+    float beach = max(1.0 - smoothstep(sea_level - 0.1, sea_level + 1.3, wp.y), shore) * (1.0 - path);
     float ripple = 0.94 + 0.06 * sin(wp.x * 5.0 + wp.z * 2.0 + vnoise(wp.xz * 1.5) * 4.0) * shore;
     col = mix(col, mix(sand, beach_sand, shore) * (0.9 + 0.2 * n) * ripple, beach);
     float steep = 1.0 - smoothstep(0.62, 0.80, wn.y + (n - 0.5) * 0.15);
@@ -263,7 +279,18 @@ void fragment() {
         }
 
         /// <param name="groundMap">Red: path, green: lawn, blue: paving, alpha: beach, over the rectangle of ground from <paramref name="origin"/>.</param>
-        public static ShaderMaterial Ground(Texture2D groundMap, Vector2 origin, Vector2 size)
+        /// <summary>A generated island's biomes on the ground outside the town (<see cref="Ground"/>'s biome_map).</summary>
+        public static void GroundBiomes(ShaderMaterial ground, Texture2D biomeMap, Vector2 origin, Vector2 size, Vector2 townSize)
+        {
+            using Variant map = biomeMap;
+            ground.SetShaderParameter("biome_map", map);
+            ground.SetShaderParameter("has_biomes", true);
+            ground.SetShaderParameter("biome_origin", origin);
+            ground.SetShaderParameter("biome_size", size);
+            ground.SetShaderParameter("town_size", townSize);
+        }
+
+        public static ShaderMaterial Ground(Texture2D groundMap, Vector2 origin, Vector2 size, float seaLevel = -3.5f)
         {
             var material = new ShaderMaterial { Shader = Get("ground", GroundCode) };
             // A Variant holding an object keeps a reference until C# finalises it, which at exit is
@@ -272,6 +299,7 @@ void fragment() {
             material.SetShaderParameter("ground_map", map);
             material.SetShaderParameter("map_origin", origin);
             material.SetShaderParameter("map_size", size);
+            material.SetShaderParameter("sea_level", seaLevel);
             return material;
         }
 

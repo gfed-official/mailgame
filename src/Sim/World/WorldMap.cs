@@ -121,6 +121,8 @@ namespace PerformativeMail.Sim.World
         public IReadOnlyList<DestinationDef> Destinations { get; init; } = Array.Empty<DestinationDef>();
         public PostOfficeDef PostOffice { get; init; } = new PostOfficeDef();
         public IReadOnlyList<MapChestDef> Chests { get; init; } = Array.Empty<MapChestDef>();
+        /// <summary>The island around a generated town (doc 02 §3.1–§3.2); null for a map from a file.</summary>
+        public IslandTerrain? Terrain { get; init; }
         /// <summary>Street furniture and greenery, derived from the map itself (<see cref="Scenery"/>).</summary>
         public IReadOnlyList<Prop> Props { get; private set; } = Array.Empty<Prop>();
 
@@ -144,6 +146,13 @@ namespace PerformativeMail.Sim.World
 
         /// <summary>Terrain height at a world position. The M0 test map is flat.</summary>
         public float HeightAt(float x, float z) => 0f;
+
+        /// <summary>
+        /// The biome of a tile of the map: the island's where there is one; on a map from a file its
+        /// beach is beach and the rest grassland.
+        /// </summary>
+        public Biome BiomeAt(int tx, int tz) =>
+            Terrain != null ? Terrain.TownBiome(tx, tz) : GetTile(tx, tz) == TileType.Beach ? Biome.Beach : Biome.Grassland;
 
         public DestinationDef? GetDestination(int id) =>
             id >= 0 && id < Destinations.Count ? Destinations[id] : null;
@@ -196,6 +205,7 @@ namespace PerformativeMail.Sim.World
             h.Add((int)MathF.Round(PostOffice.SpawnPadZ * 100f));
             h.Add((int)MathF.Round(PostOffice.SpawnYaw * 1000f));
             SceneryKey = h.Value;
+            Terrain?.AddTo(ref h);
             for (int i = 0; i < Tiles.Length; i++)
                 if (Tiles[i] == TileType.Beach) h.Add(i);
             if (PostOffice.HasShop)

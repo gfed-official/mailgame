@@ -10,12 +10,14 @@ namespace PerformativeMail.Tools.SeedViewer
 {
     /// <summary>
     /// The SeedViewer of doc 12 M1: what the generator makes of a seed, without starting the game.
-    ///   SeedViewer [SEED[-LAST]] [--map] [--content=DIR]
+    ///   SeedViewer [SEED[-LAST]] [--map] [--island] [--content=DIR]
     /// One line of figures per seed (size, houses, districts and their houses, streets, nodes,
     /// the world hash) and with --map the town drawn in letters, a character a tile:
     /// '=' street, '#' house, '.' lot, 'P' Post Office, 'y' its yard, '~' beach, 'T' tree,
     /// 'o' boulder, '*' bush, 's' sand pile, ' ' grass; the digit of a house's district on its
-    /// mailbox. Exit code 0; 1 if a seed makes no town; 2 for a wrong command.
+    /// mailbox. With --island the whole island, a character for 4 × 4 tiles, by its biome:
+    /// '#' deep water, '~' shallow, ':' beach, '.' grassland, 'T' forest, '^' rocky, 'H' the town.
+    /// Exit code 0; 1 if a seed makes no town; 2 for a wrong command.
     /// </summary>
     public static class Program
     {
@@ -26,21 +28,22 @@ namespace PerformativeMail.Tools.SeedViewer
         public static int Run(string[] args, string workingDir, TextWriter output, TextWriter errors)
         {
             uint first = 1, last = 1;
-            bool drawMap = false;
+            bool drawMap = false, drawIsland = false;
             string? contentDir = null;
             foreach (string arg in args)
             {
                 if (arg == "--map") drawMap = true;
+                else if (arg == "--island") drawIsland = true;
                 else if (arg.StartsWith("--content=", StringComparison.Ordinal)) contentDir = arg.Substring(10);
                 else if (arg == "--help" || arg == "-h")
                 {
-                    output.WriteLine("usage: SeedViewer [SEED[-LAST]] [--map] [--content=DIR]");
+                    output.WriteLine("usage: SeedViewer [SEED[-LAST]] [--map] [--island] [--content=DIR]");
                     return ExitOk;
                 }
                 else if (!arg.StartsWith('-') && TryRange(arg, out first, out last)) { }
                 else
                 {
-                    errors.WriteLine($"SeedViewer: unexpected argument '{arg}' (usage: SeedViewer [SEED[-LAST]] [--map] [--content=DIR])");
+                    errors.WriteLine($"SeedViewer: unexpected argument '{arg}' (usage: SeedViewer [SEED[-LAST]] [--map] [--island] [--content=DIR])");
                     return ExitUsage;
                 }
             }
@@ -72,6 +75,7 @@ namespace PerformativeMail.Tools.SeedViewer
                 }
                 output.WriteLine(Summary(map, seed));
                 if (drawMap) output.Write(Draw(map));
+                if (drawIsland && map.Terrain != null) output.Write(DrawIsland(map.Terrain));
                 if (seed == last) break;
             }
             return status;
@@ -96,8 +100,17 @@ namespace PerformativeMail.Tools.SeedViewer
             var districts = string.Join(" ", map.Districts.Select(d => map.Destinations.Count(h => h.Address.District == d.Id).ToString(CultureInfo.InvariantCulture)));
             int nodes = map.Props.Count(p => p.Kind == PropKind.Tree || p.Kind == PropKind.Bush || p.Kind == PropKind.Boulder || p.Kind == PropKind.SandPile);
             int names = map.Streets.Select(s => s.Name).Distinct().Count();
+            int Of(PropKind kind) => map.Props.Count(p => p.Kind == kind);
+            string island = "";
+            if (map.Terrain is IslandTerrain t)
+            {
+                int land = t.LandTiles;
+                string Share(Biome b) => (100.0 * t.Count(b) / Math.Max(1, land)).ToString("F0", CultureInfo.InvariantCulture);
+                island = string.Create(CultureInfo.InvariantCulture,
+                    $", island {t.Cols}x{t.Rows} land {100.0 * land / t.Biomes.Length:F0}% (forest {Share(Biome.Forest)}% rocky {Share(Biome.Rocky)}% beach {Share(Biome.Beach)}%), top {t.MaxHeightCm / 100.0:F1} m");
+            }
             return string.Create(CultureInfo.InvariantCulture,
-                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count} houses, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes, worldHash {map.MapHash:x16}");
+                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count} houses, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}){island}, worldHash {map.MapHash:x16}");
         }
 
         public static string Draw(WorldMap map)
@@ -137,5 +150,30 @@ namespace PerformativeMail.Tools.SeedViewer
             }
             return sb.ToString();
         }
-    }
+    
+        public static string DrawIsland(IslandTerrain t)
+        {
+            const int step = 4;
+            var sb = new StringBuilder();
+            for (int z = 0; z < t.Rows; z += step)
+            {
+                for (int x = 0; x < t.Cols; x += step)
+                {
+                    int cx = x + step / 2, cz = z + step / 2;
+                    bool town = cx >= t.TownX && cz >= t.TownZ && cx < t.TownX + t.TownCols && cz < t.TownZ + t.TownRows;
+                    sb.Append(town ? 'H' : t.BiomeAt(cx, cz) switch
+                    {
+                        Biome.DeepWater => '#',
+                        Biome.ShallowWater => '~',
+                        Biome.Beach => ':',
+                        Biome.Forest => 'T',
+                        Biome.Rocky => '^',
+                        _ => '.',
+                    });
+                }
+                sb.Append('\n');
+            }
+            return sb.ToString();
+        }
+}
 }

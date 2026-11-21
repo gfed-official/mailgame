@@ -91,6 +91,23 @@ namespace PerformativeMail.Sim.World
             z1 = z0 + fz * reach;
         }
 
+        /// <summary>
+        /// What the open ground grows, as the upper ends of a roll of 100 (trees below the first,
+        /// then boulders, bushes, flowers): by the island's biome (doc 02 §3.2 — wood in the
+        /// forest, stone and ore on rocky ground, fiber and berries on the grassland), and on a map
+        /// without an island the test street's mix.
+        /// </summary>
+        public static void Odds(WorldMap map, float x, float z, out int trees, out int boulders, out int bushes, out int flowers)
+        {
+            if (map.Terrain == null) { trees = 34; boulders = 44; bushes = 58; flowers = 80; return; }
+            switch (map.BiomeAt((int)MathF.Floor(x / Tile), (int)MathF.Floor(z / Tile)))
+            {
+                case Biome.Forest: trees = 56; boulders = 60; bushes = 72; flowers = 78; break;
+                case Biome.Rocky: trees = 6; boulders = 44; bushes = 50; flowers = 54; break;
+                default: trees = 16; boulders = 24; bushes = 46; flowers = 74; break;
+            }
+        }
+
         public static List<Prop> Generate(WorldMap map)
         {
             var props = new List<Prop>();
@@ -225,25 +242,26 @@ namespace PerformativeMail.Sim.World
                     float scale = 0.85f + Unit() * 0.5f, yaw = Unit() * 6.283f;
                     int variant = rng.NextInt(Variants);
                     if (At(x, z) != TileType.Grass) continue;
+                    Odds(map, x, z, out int trees, out int boulders, out int bushes, out int flowers);
                     // Open grass only: nothing but grass within a tile and a half, so trunks stay off lots, yards and the road.
                     bool open = true;
                     for (int oz = -1; oz <= 1 && open; oz++)
                         for (int ox = -1; ox <= 1 && open; ox++)
                             if (At(x + ox * 3f, z + oz * 3f) != TileType.Grass && map.InBounds((int)MathF.Floor((x + ox * 3f) / Tile), (int)MathF.Floor((z + oz * 3f) / Tile))) open = false;
-                    if (roll < 34)
+                    if (roll < trees)
                     {
                         if (open && Free(x, z, 0.4f)) props.Add(new Prop(PropKind.Tree, x, z, x, z, yaw, scale, variant, 0.35f, Tall));
                     }
-                    else if (roll < 44)
+                    else if (roll < boulders)
                     {
                         float r = 0.55f * scale;
                         if (Free(x, z, r) && OffStreet(x, z, r)) props.Add(new Prop(PropKind.Boulder, x, z, x, z, yaw, scale, variant, r, 0.7f * scale));
                     }
-                    else if (roll < 58)
+                    else if (roll < bushes)
                     {
                         if (Free(x, z, 0.5f) && OffStreet(x, z, 0.5f * scale)) props.Add(new Prop(PropKind.Bush, x, z, x, z, yaw, scale, variant, 0.5f * scale, 0.9f));
                     }
-                    else if (roll < 80)
+                    else if (roll < flowers)
                     {
                         if (Free(x, z, 0.2f)) props.Add(new Prop(PropKind.Flowers, x, z, x, z, yaw, scale, rng.NextInt(4), 0f, 0f));
                     }

@@ -193,6 +193,10 @@ namespace PerformativeMail.Sim.World
             }
             int districtCount = district;
 
+            // --- the island round the town (doc 02 §3.1–§3.2) ----------------------------------------
+            var terrain = IslandTerrain.Generate(seed, suffix, cols, rows, BeachRows, poRect.X + 5, poRect.Y + 4, out problem);
+            if (terrain == null) return null;
+
             // --- the tile grid --------------------------------------------------------------------
             var tiles = new TileType[cols * rows];
             var tileDistrict = new byte[cols * rows];
@@ -311,6 +315,7 @@ namespace PerformativeMail.Sim.World
                 Destinations = destinations,
                 PostOffice = po,
                 Chests = chests,
+                Terrain = terrain,
             };
             map.ComputeHash();
             problem = Validate(map);
@@ -335,6 +340,12 @@ namespace PerformativeMail.Sim.World
             }
             return best;
         }
+
+        /// <summary>How many of each node a town must have (doc 02 §3.12 "resource minimums").</summary>
+        public static readonly (PropKind Kind, int Least)[] ResourceMinimums =
+        {
+            (PropKind.Tree, 30), (PropKind.Boulder, 15), (PropKind.Bush, 60), (PropKind.SandPile, 20),
+        };
 
         /// <summary>
         /// Doc 02 §3.12: every mailbox can be walked to from the Post Office, every address is
@@ -368,6 +379,13 @@ namespace PerformativeMail.Sim.World
                 for (int x = ptx - 20; x <= ptx + 20; x++)
                     if (map.InBounds(x, z) && (map.GetTile(x, z) == TileType.Grass || map.GetTile(x, z) == TileType.Beach) && !map.IsNavBlocked(x, z)) open++;
             if (open < 400) return $"only {open} open tiles by the Post Office";
+            // Resource minimums: wood, stone and ore, fiber and berries, sand enough to build with.
+            foreach (var (kind, least) in ResourceMinimums)
+            {
+                int count = 0;
+                foreach (var p in map.Props) if (p.Kind == kind) count++;
+                if (count < least) return $"only {count} {kind} nodes (at least {least})";
+            }
             return null;
         }
     }

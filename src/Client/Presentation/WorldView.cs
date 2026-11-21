@@ -65,7 +65,12 @@ namespace PerformativeMail.Client.Presentation
 
             // The meshes keep the material and the material keeps the texture; C# lets go of both now rather than at exit, after the renderer has gone.
             using var groundMap = GroundMap(map);
-            using var ground = Shaders.Ground(groundMap, new Vector2(-GroundMargin, -GroundMargin), new Vector2(map.WidthM + GroundMargin * 2f, map.DepthM + GroundMargin * 2f));
+            using var ground = Shaders.Ground(groundMap, new Vector2(-GroundMargin, -GroundMargin), new Vector2(map.WidthM + GroundMargin * 2f, map.DepthM + GroundMargin * 2f), IslandView.SeaLevelOf(map));
+            if (map.Terrain is IslandTerrain island)
+            {
+                using var biomeMap = BiomeMap(island);
+                Shaders.GroundBiomes(ground, biomeMap, new Vector2(-island.TownX * Tile, -island.TownZ * Tile), new Vector2(island.Cols * Tile, island.Rows * Tile), new Vector2(map.WidthM, map.DepthM));
+            }
             AddGround(map, ground);
 
             var batch = new MeshBatch();
@@ -190,6 +195,25 @@ namespace PerformativeMail.Client.Presentation
             var bytes = new byte[data.Length];
             for (int i = 0; i < data.Length; i++) bytes[i] = (byte)Mathf.Clamp(Mathf.RoundToInt(data[i] * 255f), 0, 255);
             using var image = Image.CreateFromData(width, height, false, Image.Format.Rgba8, bytes);
+            return ImageTexture.CreateFromImage(image);
+        }
+
+        /// <summary>The island's biomes a texel a tile, for the ground shader: red beach, green forest, blue rocky.</summary>
+        private static ImageTexture BiomeMap(IslandTerrain island)
+        {
+            var bytes = new byte[island.Cols * island.Rows * 4];
+            for (int i = 0; i < island.Biomes.Length; i++)
+            {
+                int at = i * 4;
+                switch (island.Biomes[i])
+                {
+                    case Biome.Beach: bytes[at] = 255; break;
+                    case Biome.Forest: bytes[at + 1] = 255; break;
+                    case Biome.Rocky: bytes[at + 2] = 255; break;
+                }
+                bytes[at + 3] = 255;
+            }
+            using var image = Image.CreateFromData(island.Cols, island.Rows, false, Image.Format.Rgba8, bytes);
             return ImageTexture.CreateFromImage(image);
         }
 
