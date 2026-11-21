@@ -497,10 +497,36 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
 - [ ] World generation pipeline (all stages) for Small Island; worldHash; client-side
       regeneration; SeedViewer tool
       - [x] `worldHash` checked at connect (over the static map and the content, choice 3)
-      - [ ] the generator itself, regeneration on the client, the SeedViewer
+      - [x] **The Small Island town from a seed** (doc 02 §2–§3.7, §3.11–§3.12; design choice
+            83). `WorldGenerator` (map id `small_island`, `--world=island` on a host) builds the
+            seed's town in integer tiles from streams of its own ("towns", "roads",
+            "addresses"): 76–88 × 60 tiles, a main street from shore to shore past the Post
+            Office (the raiders' way in at its east end), a back street to either side tied to
+            it by cross streets every 12–16 tiles (some to one side only), 38–50 houses on 4 × 4
+            lots along the frontages with the mailbox at the verge and neighbours in different
+            colours, a beach along the south shore with its sand piles, the scenery and the
+            resource nodes grown as on the test street (~350 nodes). Street names from
+            streets.json, unique per street; numbers from the west end out, odd north, even
+            south. **Districts** of 8–12 houses grown from the Post Office out, street segment
+            by street segment (up to five, district N unlocks at shift N in the map's data;
+            the remainder goes to the last). Validated — every mailbox walked to from the pad,
+            unique addresses, 400 open tiles by the Post Office, no empty district — and drawn
+            again otherwise (eight tries). The map is not sent: the Welcome carries its id, the
+            seed and the world hash, and **the client builds the town itself** and refuses a
+            hash that differs. **`tools/SeedViewer`** (`SeedViewer [SEED[-LAST]] [--map]`): a
+            line of figures per seed and the town in letters. Off the map only a street that
+            leaves it runs on to the island's backdrop. `WorldGeneratorTests` (5: the same
+            seed to the tile, 50 seeds valid, districts from the Post Office out, numbering, a
+            run played and a letter delivered at the farthest house), `LoopbackTests` (1: two
+            clients build the town from the seed, their bots deliver); `tools/smoke.sh` runs
+            the SeedViewer over seeds 1–20 and a bot on the smoke seed's town to "BOT OK"
+      - [ ] the heightmap, biomes and the island's coastline in the sim (the island around the
+            town is the backdrop's), the archetype choice in the Lobby, the routing graph
 - [ ] Districts and per-shift unlock; address assignment; street names; house model variants and
       colour coding
-      - [ ] all of it: the test street has one street, fixed addresses, and colours from the video
+      - [x] on the generated town: districts, address assignment, street names, colour coding
+            (the house variants of the test street, neighbours never alike) — see above
+      - [ ] the per-shift unlock: mail goes to every house of the map whatever the shift
 - [ ] Run state machine with all phases; quota; spawn budget and mail mix; complaint meter;
       deadlines; death and respawn; death bag
       - [x] Lobby, Prep, Delivery, Payday, Results; quota; spawn budget and mix; the complaint
@@ -789,8 +815,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the world generator and the districts (doc 12 M1's first two lines), the
-larger pieces still open.
+Next in this order: the per-shift district unlock (mail only for the districts open by the
+shift), then the rest of the generator (heightmap and biomes in the sim, the Lobby's choice).
 
 ## How to build and check
 
@@ -1618,6 +1644,24 @@ See "Commands" at the bottom (filled in as the tooling lands).
     A bike's 150 HP is kept but nothing hurts it yet (doc 05 §2 targets constructs; the
     raiders' priority lists name no vehicles); deliveries and swings from the saddle are
     allowed — the rack is the bike's point.
+83. **The generated town.** Doc 02 describes the whole island (300 × 300 tiles of fixed-point
+    noise, biomes, settlement sites); doc 12 M1 asks for "all stages". What is built: the
+    town's stages — street graph and lots, buildings and destinations, addresses, districts,
+    the Post Office, validation, worldHash, client-side regeneration and the SeedViewer — on
+    a town-sized grid (76–88 × 60 tiles, ~160 × 120 m); the island around it stays the
+    backdrop the test street already has (flat in the sim, as the sim's ground is flat
+    everywhere so far). The street graph is a main street, two back streets and cross
+    streets: a grid with removed links (a cross street may reach one side only), no bent
+    segments. Lots are 4 × 4 only (no 4 × 6, no corner landmarks, no apartments or PO Box
+    Bank yet — those destination types come with the later shifts' content). A street is cut
+    into segments at its crossings, each a `StreetDef` of its own with the street's name, so
+    that a district can take whole segments ("following whole streets where possible");
+    numbers run along the whole street. District growth orders the segments by distance from
+    the Post Office along the streets (Manhattan, across-block weighted), closes a district at
+    8–12 houses, at most five; district N unlocks at shift N. "Towns like the coast" is a
+    beach along the south shore. The test street stays the default map (the smoke's checks
+    are made for its layout); `--world=island` plays the generated town, and the smoke plays
+    it with a bot.
 
 ## Commands
 
@@ -1630,6 +1674,7 @@ All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes o
 ~/.dotnet/dotnet test tests/Net.Tests -nodeReuse:false --filter "Acceptance|ChestFuzz" --logger "console;verbosity=detailed"
 
 tools/validate-content.sh [CONTENT_DIR] [--quiet]   # ContentValidator: "content OK …" / "error: …" lines, exit 0 / 1
+~/.dotnet/dotnet tools/SeedViewer/bin/Debug/net8.0/SeedViewer.dll 1-20 [--map]   # the generated town of each seed: figures, and the town in letters
 
 tools/smoke.sh [seed]            # build + two Godot headless smokes (the full run, the raid playtest); exit 0 and "SMOKE OK" twice
 ~/.local/bin/godot --headless --path . -- --smoke --seed=1      # the smoke alone (build first)
@@ -1641,6 +1686,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path .                                      # play: host on the test street, in the Lobby (G starts)
 ~/.local/bin/godot --path . -- --seed=7 --name=Ada               # user args go after "--"
 ~/.local/bin/godot --path . -- --quick                           # skip Lobby, Prep and the Drafts: straight into shift 1
+~/.local/bin/godot --path . -- --world=island --seed=7           # host the seed's generated Small Island town instead of the test street
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
 

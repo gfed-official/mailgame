@@ -503,7 +503,15 @@ namespace PerformativeMail.Client
         {
             if (State != ClientState.Joining) return;
             // World check (doc 06 §5 step 5): the client builds the map itself and compares hashes.
-            if (!_content.Maps.TryGetValue(m.MapId, out var map) || map.MapHash != m.MapHash || m.ChestContainerIds.Count != map.Chests.Count)
+            // A generated town is built here from the seed, as the server built it (doc 02 §2); the hashes must agree.
+            WorldMap? map = null;
+            if (WorldGenerator.Generates(m.MapId))
+            {
+                try { map = WorldGenerator.Generate(_content, m.Seed); }
+                catch (InvalidOperationException) { map = null; }
+            }
+            else _content.Maps.TryGetValue(m.MapId, out map);
+            if (map == null || map.MapHash != m.MapHash || m.ChestContainerIds.Count != map.Chests.Count)
             {
                 DisconnectDetail = $"map '{m.MapId}' does not match the server's";
                 _transport.Close();

@@ -47,7 +47,8 @@ namespace PerformativeMail.Client.Presentation
             foreach (var street in map.Streets)
             {
                 var r = street.Rect;
-                if (r.W < r.H) continue;
+                // Only a street that leaves the map runs on past it (a back street of a generated town ends in town).
+                if (r.W < r.H || (r.X > 0 && r.X + r.W < map.Cols)) continue;
                 float z0 = r.Y * Tile, z1 = (r.Y + r.H) * Tile;
                 float off = Mathf.Max(0f, Mathf.Max(z0 - z, z - z1));
                 best = Mathf.Max(best, 1f - Mathf.SmoothStep(1.5f, 6f, off));

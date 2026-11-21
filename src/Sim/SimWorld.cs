@@ -15,6 +15,7 @@ namespace PerformativeMail.Sim
     public sealed class SimSettings
     {
         public uint Seed = 1;
+        /// <summary>A map of content/maps, or <see cref="WorldGenerator.SmallIsland"/> for the seed's own town.</summary>
         public string MapId = "test_street";
         /// <summary>
         /// Nobody to wait for (tests, soak, bots): the run starts as soon as a player is present,
@@ -115,7 +116,7 @@ namespace PerformativeMail.Sim
         {
             Content = content;
             Settings = settings ?? new SimSettings();
-            Map = content.Map(Settings.MapId);
+            Map = WorldGenerator.Resolve(content, Settings.MapId, Settings.Seed);
             var b = content.Balance;
             _move = MoveConstants.From(content);
             _combat = new CombatTuning(b);

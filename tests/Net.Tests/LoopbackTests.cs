@@ -20,9 +20,9 @@ namespace PerformativeMail.Net.Tests
             public readonly List<ClientRuntime> Clients = new List<ClientRuntime>();
             public readonly List<DeliveryBot> Bots = new List<DeliveryBot>();
 
-            public Session(uint seed = 3, bool quickStart = true)
+            public Session(uint seed = 3, bool quickStart = true, string mapId = "test_street")
             {
-                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = seed, QuickStart = quickStart }, Hub);
+                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = seed, QuickStart = quickStart, MapId = mapId }, Hub);
             }
 
             public ClientRuntime AddClient(string name, bool bot = true)
@@ -42,6 +42,25 @@ namespace PerformativeMail.Net.Tests
                     Server.Tick();
                 }
             }
+        }
+
+        [Fact]
+        public void OnAGeneratedTown_TheClientBuildsItFromTheSeed_AndTheBotsDeliver()
+        {
+            // Doc 02 §2: nothing of the town goes over the wire but its id, the seed and the hash.
+            var s = new Session(seed: 17, mapId: PerformativeMail.Sim.World.WorldGenerator.SmallIsland);
+            var ada = s.AddClient("Ada");
+            var bo = s.AddClient("Bo");
+            s.Run(30 * 60);
+            foreach (var c in new[] { ada, bo })
+            {
+                Assert.Equal(ClientState.Joined, c.State);
+                var map = c.World!.Map;
+                Assert.NotSame(s.Server.World.Map, map);
+                Assert.Equal((s.Server.World.Map.MapHash, s.Server.World.Map.Destinations.Count), (map.MapHash, map.Destinations.Count));
+            }
+            Assert.True(s.Bots.Sum(b => b.StacksDelivered) >= 4, $"{s.Bots.Sum(b => b.StacksDelivered)} stacks delivered on the generated town");
+            Assert.Equal(0, s.Bots.Sum(b => b.StacksMisdelivered));
         }
 
         [Fact]

@@ -60,7 +60,9 @@ namespace PerformativeMail.App
         /// <param name="quickStart">Skip Lobby and Prep (<see cref="SimSettings.QuickStart"/>): straight into a shift.</param>
         /// <param name="profile">The local player's profile; it gives the player's name and is saved to <paramref name="store"/>.</param>
         /// <param name="listenPort">UDP port for remote clients; 0 = any free port, below 0 = do not listen.</param>
-        public void StartHost(ContentDb content, uint seed, MetaProfile profile, IProfileStore store, bool quickStart = false, int listenPort = -1)
+        /// <param name="mapId">The map to play: a file of content/maps, or "small_island" for the seed's own town (doc 02).</param>
+        public void StartHost(ContentDb content, uint seed, MetaProfile profile, IProfileStore store, bool quickStart = false, int listenPort = -1,
+            string mapId = "test_street")
         {
             Content = content;
             var hub = new LoopbackHub();
@@ -74,7 +76,7 @@ namespace PerformativeMail.App
             }
             // About 20 ms here instead of a 7 ms tick when the first shift starts.
             SimWarmUp.Run(content, seed);
-            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart }, transport);
+            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart, MapId = mapId }, transport);
             // Before anybody can join and before the log listens: the refusal of the knock is not news.
             if (_enetServer != null && !EnetWarmUp.Run(_enetServer, transport, Server, Server.ProtocolHash))
                 GD.Print("[server] the ENet warm-up did not finish; the first join will cost a slow tick");

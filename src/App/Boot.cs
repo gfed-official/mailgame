@@ -5,6 +5,7 @@ using PerformativeMail.Client.InputHandling;
 using PerformativeMail.Client.Meta;
 using PerformativeMail.Client.Presentation;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.World;
 using PerformativeMail.Sim.Content;
 
 namespace PerformativeMail.App
@@ -12,6 +13,7 @@ namespace PerformativeMail.App
     /// <summary>
     /// Entry point (scenes/Main.tscn). M0 has no menu: it loads content and hosts a listen server on
     /// the test map, in the Lobby, or joins one. User arguments (after "--"): --seed=N, --name=X,
+    /// --world=island (host: the seed's generated Small Island town, doc 02; --map=ID for a map by id),
     /// --quick (skip Lobby and Prep), --profile=FILE (instead of user://profile.json),
     /// --port=N (host: the UDP port to listen on, 0 = any free one), --solo (host: do not listen),
     /// --join=ADDRESS[:PORT] (join that host instead of hosting), --bot (a DeliveryBot plays this
@@ -43,6 +45,7 @@ namespace PerformativeMail.App
             double quitAfter = 0;
             var playtest = PlaytestFlags.None;
             int startShift = 0;
+            string mapId = "test_street";
             foreach (string arg in OS.GetCmdlineUserArgs())
             {
                 if (arg == "--smoke") smoke = true;
@@ -53,6 +56,9 @@ namespace PerformativeMail.App
                 else if (arg == "--playtest-package") playtest |= PlaytestFlags.Packages;
                 else if (arg.StartsWith("--shift=", StringComparison.Ordinal) && int.TryParse(arg.Substring(8), out int n) && n >= 1 && n <= byte.MaxValue) startShift = n;
                 else if (arg == "--quick") quick = true;
+                // Doc 02: the seed's own Small Island town instead of the test street.
+                else if (arg == "--world=island") mapId = WorldGenerator.SmallIsland;
+                else if (arg.StartsWith("--map=", StringComparison.Ordinal) && arg.Length > 6) mapId = arg.Substring(6);
                 else if (arg == "--solo") solo = true;
                 else if (arg == "--bot") bot = true;
                 else if (arg == "--low") low = true;
@@ -115,7 +121,7 @@ namespace PerformativeMail.App
             {
                 // The smoke takes any free port, so two of them can run side by side.
                 int listen = solo ? -1 : port ?? (smoke ? 0 : GameSession.DefaultPort);
-                session.StartHost(content, seed, profile, store, quickStart: quick && !smoke, listenPort: listen);
+                session.StartHost(content, seed, profile, store, quickStart: quick && !smoke, listenPort: listen, mapId: mapId);
             }
             AddChild(session);
             BotDriver? botDriver = null;

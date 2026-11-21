@@ -1,0 +1,141 @@
+using System;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.World;
+
+namespace PerformativeMail.Tools.SeedViewer
+{
+    /// <summary>
+    /// The SeedViewer of doc 12 M1: what the generator makes of a seed, without starting the game.
+    ///   SeedViewer [SEED[-LAST]] [--map] [--content=DIR]
+    /// One line of figures per seed (size, houses, districts and their houses, streets, nodes,
+    /// the world hash) and with --map the town drawn in letters, a character a tile:
+    /// '=' street, '#' house, '.' lot, 'P' Post Office, 'y' its yard, '~' beach, 'T' tree,
+    /// 'o' boulder, '*' bush, 's' sand pile, ' ' grass; the digit of a house's district on its
+    /// mailbox. Exit code 0; 1 if a seed makes no town; 2 for a wrong command.
+    /// </summary>
+    public static class Program
+    {
+        public const int ExitOk = 0, ExitInvalid = 1, ExitUsage = 2;
+
+        public static int Main(string[] args) => Run(args, Directory.GetCurrentDirectory(), Console.Out, Console.Error);
+
+        public static int Run(string[] args, string workingDir, TextWriter output, TextWriter errors)
+        {
+            uint first = 1, last = 1;
+            bool drawMap = false;
+            string? contentDir = null;
+            foreach (string arg in args)
+            {
+                if (arg == "--map") drawMap = true;
+                else if (arg.StartsWith("--content=", StringComparison.Ordinal)) contentDir = arg.Substring(10);
+                else if (arg == "--help" || arg == "-h")
+                {
+                    output.WriteLine("usage: SeedViewer [SEED[-LAST]] [--map] [--content=DIR]");
+                    return ExitOk;
+                }
+                else if (!arg.StartsWith('-') && TryRange(arg, out first, out last)) { }
+                else
+                {
+                    errors.WriteLine($"SeedViewer: unexpected argument '{arg}' (usage: SeedViewer [SEED[-LAST]] [--map] [--content=DIR])");
+                    return ExitUsage;
+                }
+            }
+
+            ContentDb content;
+            try
+            {
+                content = contentDir != null
+                    ? ContentDb.Load(new DirectoryContentSource(Path.GetFullPath(contentDir, workingDir)))
+                    : ContentDb.LoadFromDirectoryTree(workingDir);
+            }
+            catch (ContentException e)
+            {
+                errors.WriteLine($"SeedViewer: {e.Message}");
+                return ExitInvalid;
+            }
+
+            int status = ExitOk;
+            for (uint seed = first; ; seed++)
+            {
+                WorldMap map;
+                try { map = WorldGenerator.Generate(content, seed); }
+                catch (InvalidOperationException e)
+                {
+                    errors.WriteLine($"seed {seed}: {e.Message}");
+                    status = ExitInvalid;
+                    if (seed == last) break;
+                    continue;
+                }
+                output.WriteLine(Summary(map, seed));
+                if (drawMap) output.Write(Draw(map));
+                if (seed == last) break;
+            }
+            return status;
+        }
+
+        private static bool TryRange(string arg, out uint first, out uint last)
+        {
+            int dash = arg.IndexOf('-');
+            if (dash < 0)
+            {
+                bool ok = uint.TryParse(arg, NumberStyles.None, CultureInfo.InvariantCulture, out first);
+                last = first;
+                return ok;
+            }
+            last = 0;
+            return uint.TryParse(arg.Substring(0, dash), NumberStyles.None, CultureInfo.InvariantCulture, out first)
+                && uint.TryParse(arg.Substring(dash + 1), NumberStyles.None, CultureInfo.InvariantCulture, out last) && last >= first;
+        }
+
+        public static string Summary(WorldMap map, uint seed)
+        {
+            var districts = string.Join(" ", map.Districts.Select(d => map.Destinations.Count(h => h.Address.District == d.Id).ToString(CultureInfo.InvariantCulture)));
+            int nodes = map.Props.Count(p => p.Kind == PropKind.Tree || p.Kind == PropKind.Bush || p.Kind == PropKind.Boulder || p.Kind == PropKind.SandPile);
+            int names = map.Streets.Select(s => s.Name).Distinct().Count();
+            return string.Create(CultureInfo.InvariantCulture,
+                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count} houses, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes, worldHash {map.MapHash:x16}");
+        }
+
+        public static string Draw(WorldMap map)
+        {
+            var grid = new char[map.Rows, map.Cols];
+            for (int z = 0; z < map.Rows; z++)
+                for (int x = 0; x < map.Cols; x++)
+                    grid[z, x] = map.GetTile(x, z) switch
+                    {
+                        TileType.Street => '=',
+                        TileType.Building => '#',
+                        TileType.Lot => '.',
+                        TileType.Yard => 'y',
+                        TileType.Beach => '~',
+                        _ => ' ',
+                    };
+            foreach (var solid in map.PostOffice.Solid)
+                for (int z = solid.Y; z < solid.Y + solid.H; z++)
+                    for (int x = solid.X; x < solid.X + solid.W; x++) grid[z, x] = 'P';
+            foreach (var p in map.Props)
+            {
+                int x = (int)(p.X / 2f), z = (int)(p.Z / 2f);
+                if (!map.InBounds(x, z) || grid[z, x] != ' ' && grid[z, x] != '~') continue;
+                char c = p.Kind switch { PropKind.Tree => 'T', PropKind.Boulder => 'o', PropKind.Bush => '*', PropKind.SandPile => 's', _ => grid[z, x] };
+                grid[z, x] = c;
+            }
+            foreach (var d in map.Destinations)
+            {
+                int x = (int)(d.MailboxX / 2f), z = (int)(d.MailboxZ / 2f);
+                if (map.InBounds(x, z)) grid[z, x] = (char)('0' + d.Address.District % 10);
+            }
+            var sb = new StringBuilder();
+            for (int z = 0; z < map.Rows; z++)
+            {
+                for (int x = 0; x < map.Cols; x++) sb.Append(grid[z, x]);
+                sb.Append('\n');
+            }
+            return sb.ToString();
+        }
+    }
+}

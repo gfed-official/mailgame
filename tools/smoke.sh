@@ -2,7 +2,8 @@
 # Builds the solution and runs the Godot headless smoke twice: the full run (spawn -> pickup ->
 # deliver -> wallet -> ... -> results), then the raid playtest (--shift=2 --no-quota --raid
 # --playtest-package).
-# Exits 0 only if the game printed "SMOKE OK" both times and leaked nothing on its way out.
+# Exits 0 only if the game printed "SMOKE OK" both times and leaked nothing on its way out, and then
+# a bot played the generated Small Island town (doc 02) of the same seed to "BOT OK".
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -61,3 +62,16 @@ grep -q "^\[smoke\] fortify: Blueprint: Fortify bought" "$work/log" || { echo "s
 grep -q "^\[smoke\] defences: a Gate built" "$work/log" || { echo "smoke: no Gate and Alarm Post were built" >&2; exit 1; }
 # The bike (doc 04 §3.1): bought, got on through its prompt, ridden at road speed, its rack opened, got off.
 grep -q "^\[smoke\] bike: bought, ridden" "$work/log" || { echo "smoke: the bike was not bought and ridden" >&2; exit 1; }
+
+# The generated Small Island town (doc 02): twenty seeds make valid towns (SeedViewer), and a bot
+# plays the smoke seed's town for 25 s, the client building it from the seed and checking its hash.
+"$DOTNET" tools/SeedViewer/bin/Debug/net8.0/SeedViewer.dll 1-20 > "$work/seeds" || { cat "$work/seeds"; echo "smoke: a seed made no valid town" >&2; exit 1; }
+set +e
+timeout 120 "$GODOT" --headless --path . -- --bot --solo --world=island "--seed=$SEED" --quit-after=25 "--profile=$work/profile-island.json" 2>&1 | tee "$work/log-island"
+status=${PIPESTATUS[0]}
+set -e
+[ "$status" -eq 0 ] || { echo "smoke: the bot on the generated town exited with $status" >&2; exit "$status"; }
+grep -q "^BOT OK$" "$work/log-island" || { echo "smoke: the bot on the generated town did not finish OK" >&2; exit 1; }
+grep -q "on Small Island #$SEED" "$work/log-island" || { echo "smoke: the bot did not play on the generated town" >&2; exit 1; }
+grep -q "leaked at exit" "$work/log-island" && { echo "smoke: objects leaked at exit (island bot)" >&2; exit 1; }
+echo "island OK"
