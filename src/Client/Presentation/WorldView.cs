@@ -35,6 +35,12 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Lamps, porch lights and torches with their energy by day and by night.</summary>
         private readonly List<(OmniLight3D Light, float Day, float Night)> _lights = new List<(OmniLight3D, float, float)>();
         private float _litFor = -1f;
+        private readonly List<(DestinationDef Dest, Label3D Label)> _mailboxLabels = new List<(DestinationDef, Label3D)>();
+        private WorldMap? _map;
+        private int _districtsFor = -1;
+
+        /// <summary>Mailboxes whose district is not open yet in the shift last shown (doc 01 §1.2 district unlock).</summary>
+        public int LockedMailboxes { get; private set; }
 
         /// <summary>
         /// Draw the world without what costs a renderer most: lamp and porch lights, shadows, bloom
@@ -51,6 +57,7 @@ namespace PerformativeMail.Client.Presentation
         /// <param name="nodes">The props of the map that <see cref="NodesView"/> draws, if one does.</param>
         public void Build(WorldMap map, NodeField? nodes = null)
         {
+            _map = map;
             MeshKit.LowDetail = Cheap;
             Atmosphere = new Atmosphere { Name = "Atmosphere" };
             AddChild(Atmosphere);
@@ -77,6 +84,26 @@ namespace PerformativeMail.Client.Presentation
         }
 
         public override void _Process(double delta) => ApplyNight();
+
+        /// <summary>
+        /// The houses of a district not open yet by <paramref name="shift"/> say when it opens, in
+        /// grey under their address; the others read as always. Cheap to call every frame.
+        /// </summary>
+        public void ShowDistricts(int shift)
+        {
+            if (shift == _districtsFor || _map == null) return;
+            _districtsFor = shift;
+            int locked = 0;
+            foreach (var (dest, label) in _mailboxLabels)
+            {
+                int opens = HudText.DistrictOpensAt(_map, dest);
+                bool closed = opens > shift;
+                if (closed) locked++;
+                label.Text = closed ? $"{dest.Label}\n{HudText.OpensInShift(opens)}" : dest.Label;
+                label.Modulate = closed ? new Color(0.78f, 0.78f, 0.8f, 0.6f) : Colors.White;
+            }
+            LockedMailboxes = locked;
+        }
 
         /// <summary>The lamps come up as the light goes down.</summary>
         private void ApplyNight()
@@ -244,6 +271,7 @@ namespace PerformativeMail.Client.Presentation
             label.Name = $"Mailbox{dest.Address.Number}";
             Fade(label, AddressFadeStart, AddressFadeEnd, 1);
             AddChild(label);
+            _mailboxLabels.Add((dest, label));
             MailboxCount++;
         }
 

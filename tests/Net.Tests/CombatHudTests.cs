@@ -265,5 +265,23 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(HudText.RaidWarning, HudText.RaidAnnounced(1, 5.0, 15.0));
             Assert.Equal(HudText.RaidWarning, HudText.RaidAnnounced(0, 30.0, 15.0));
         }
+
+        [Fact]
+        public void APrepOnAGeneratedTown_SaysWhichDistrictOpens_AndTheTestStreetSaysNothing()
+        {
+            var map = PerformativeMail.Sim.World.WorldGenerator.Generate(Shared.Content, 1);
+            int first = map.Destinations.Count(d => d.Address.District == 1);
+            string one = HudText.DistrictOpened(map, 1);
+            Assert.StartsWith($"Post Office District: {first} houses on ", one);
+            Assert.EndsWith("take mail   ·   another district opens every shift", one);
+            int second = map.Destinations.Count(d => d.Address.District == 2);
+            Assert.StartsWith($"District 2 opens: {second} more houses on ", HudText.DistrictOpened(map, 2));
+            Assert.EndsWith($"{first + second} in all", HudText.DistrictOpened(map, 2));
+            Assert.Equal("", HudText.DistrictOpened(map, 9));
+            Assert.Equal("", HudText.DistrictOpened(Shared.Content.Map("test_street"), 1));
+            var late = map.Destinations.First(d => d.Address.District == 3);
+            Assert.Equal(3, HudText.DistrictOpensAt(map, late));
+            Assert.Equal("opens in shift 3", HudText.OpensInShift(3));
+        }
     }
 }

@@ -63,7 +63,15 @@ namespace PerformativeMail.Client
                     Add(s.QuotaMet ? $"Shift {s.Shift} is over: quota met ({books})" : $"Shift {s.Shift} is over: quota missed ({books})", bad: !s.QuotaMet);
                     break;
                 }
-                case PhaseChangedEvent e: OnPhase(e); break;
+                case PhaseChangedEvent e:
+                    OnPhase(e);
+                    // Doc 01 §1.2: Prep is when the shift's district opens.
+                    if (e.Phase == RunPhase.Prep)
+                    {
+                        string opened = HudText.DistrictOpened(world.Map, e.Shift);
+                        if (opened.Length > 0) Add(opened);
+                    }
+                    break;
                 case EnemyDiedEvent e when !e.Killer.IsNone: AddKill(world, e); break;
                 case RaidChangedEvent e: OnRaid(world, e.Raid); break;
                 case PlayerDiedEvent e:

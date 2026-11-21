@@ -136,5 +136,28 @@ namespace PerformativeMail.Sim.Tests
             SimDriver.StepTicks(world, 2);
             Assert.Equal(OpResult.Ok, world.Events.OfType<RequestResultEvent>().Single(e => e.RequestId == 1).Result);
         }
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        public void MailGoesOnlyToTheDistrictsOpenByTheShift(int shift)
+        {
+            // Doc 01 §1.2: district N opens in shift N; until then no mail is addressed to its houses.
+            var world = new SimWorld(Db, new SimSettings { Seed = 5, MapId = WorldGenerator.SmallIsland, Raids = false, Draft = false });
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.None, shift);
+            world.Submit(host.Id, SimRequest.StartRun(1));
+            world.Step();
+            world.Submit(host.Id, SimRequest.SetReady(2, true));
+            world.Step();
+            Assert.Equal((RunPhase.Delivery, shift), (world.Run.Phase, world.Run.Shift));
+            SimDriver.StepTicks(world, 90 * 30);
+            var districts = world.Intake.Entries.Where(e => e.Stack.Kind == StackKind.Mail).Select(e => e.Stack.Address.District).ToList();
+            Assert.NotEmpty(districts);
+            Assert.All(districts, d => Assert.InRange(d, 1, shift));
+            // The newest district gets its share at once.
+            Assert.Contains(shift, districts);
+        }
     }
 }

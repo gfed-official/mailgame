@@ -108,6 +108,7 @@ namespace PerformativeMail.App
             if (world == null) return;
             Camera.Target = Players.LocalView;
             if (DriveAtmosphere) World.Atmosphere.TargetNight = NightFor(world.Raid);
+            World.ShowDistricts(world.Global.Shift);
             bool open = InventoryOpen(world);
             Inventory.Visible = open;
             // The Draft's cards take a click until the local player has chosen; then the mouse is the view's again.

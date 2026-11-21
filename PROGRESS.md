@@ -522,11 +522,20 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             the SeedViewer over seeds 1–20 and a bot on the smoke seed's town to "BOT OK"
       - [ ] the heightmap, biomes and the island's coastline in the sim (the island around the
             town is the backdrop's), the archetype choice in the Lobby, the routing graph
-- [ ] Districts and per-shift unlock; address assignment; street names; house model variants and
-      colour coding
+- [x] Districts and per-shift unlock; address assignment; street names; house model variants and
+      colour coding (on the generated town; the test street keeps its one district)
       - [x] on the generated town: districts, address assignment, street names, colour coding
             (the house variants of the test street, neighbours never alike) — see above
-      - [ ] the per-shift unlock: mail goes to every house of the map whatever the shift
+      - [x] **The per-shift unlock** (doc 01 §1.2 "district unlock", doc 09 §2.6 "locked ones …
+            'Unlocks shift N'"). The spawner has addressed mail only to districts open by the
+            shift since M0; on the generated town that now means district N's houses get mail
+            from shift N on. On screen: a house whose district is not open yet carries "opens in
+            shift N" in grey under its address, until the shift comes; as a Prep begins the feed
+            says which district opens ("District 2 opens: 11 more houses on Pelican Drive and
+            Mackerel Mews · 20 in all"; in shift 1 "Post Office District: 9 houses on … take
+            mail · another district opens every shift"); a one-district map (the test street)
+            says nothing of it. `WorldGeneratorTests.MailGoesOnlyToTheDistrictsOpenByTheShift`
+            (3), `CombatHudTests` (1)
 - [ ] Run state machine with all phases; quota; spawn budget and mail mix; complaint meter;
       deadlines; death and respawn; death bag
       - [x] Lobby, Prep, Delivery, Payday, Results; quota; spawn budget and mix; the complaint
@@ -815,8 +824,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the per-shift district unlock (mail only for the districts open by the
-shift), then the rest of the generator (heightmap and biomes in the sim, the Lobby's choice).
+Next in this order: the rest of the generator (heightmap and biomes in the sim, the
+archetype choice in the Lobby, the routing graph), then the Lobby's seed / archetype / kit.
 
 ## How to build and check
 

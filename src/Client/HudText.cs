@@ -792,6 +792,47 @@ namespace PerformativeMail.Client
             }
         }
 
+        /// <summary>The shift a house's district opens in (doc 01 §1.2): its mail comes from then on.</summary>
+        public static int DistrictOpensAt(WorldMap map, DestinationDef dest)
+        {
+            foreach (var d in map.Districts)
+                if (d.Id == dest.Address.District) return d.UnlockShift;
+            return 1;
+        }
+
+        public static string OpensInShift(int shift) => $"opens in shift {shift.ToString(CultureInfo.InvariantCulture)}";
+
+        /// <summary>
+        /// The feed's line as a shift's Prep begins on a map of several districts: the district that
+        /// opens with it, how many houses it adds and on which streets; empty when none does.
+        /// </summary>
+        public static string DistrictOpened(WorldMap map, int shift)
+        {
+            if (map.Districts.Count < 2) return "";
+            foreach (var district in map.Districts)
+            {
+                if (district.UnlockShift != shift) continue;
+                var streets = new List<string>();
+                int houses = 0;
+                foreach (var d in map.Destinations)
+                {
+                    if (d.Address.District != district.Id) continue;
+                    houses++;
+                    if (!streets.Contains(d.Street.Name)) streets.Add(d.Street.Name);
+                }
+                string on = streets.Count == 0 ? "" : $" on {JoinAnd(streets)}";
+                int open = 0;
+                foreach (var d in map.Destinations) if (DistrictOpensAt(map, d) <= shift) open++;
+                return shift == 1
+                    ? $"{district.Name}: {houses} houses{on} take mail   ·   another district opens every shift"
+                    : $"{district.Name} opens: {houses} more houses{on}   ·   {open} in all";
+            }
+            return "";
+        }
+
+        private static string JoinAnd(List<string> items) =>
+            items.Count == 1 ? items[0] : string.Join(", ", items.GetRange(0, items.Count - 1)) + " and " + items[items.Count - 1];
+
         /// <summary>The event feed's line for a vehicle bought: where it stands.</summary>
         public static string VehicleAdded(VehicleDef def) => $"The {def.Name} stands by the counter   ·   look at it and [E] to ride";
 
