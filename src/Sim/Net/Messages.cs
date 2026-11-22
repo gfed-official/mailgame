@@ -37,12 +37,12 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m2.0;" +
+            "m2.1;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
-            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount,kit,world,reroll,placeLine,beltResync;" +
+            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount,kit,world,reroll,placeLine,beltResync,pushBelt;" +
             "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u32 raidTick,u32 respawn,u32 protectedUntil,u8 chests,{u32 container},u8 bags,{u32 container,u32 owner,f32 x,f32 z,u32 despawn}," +
             "u16 loot,{u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count}},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory," +
             "u16 perks,{u32 holder,u8 perk},u8 offer,{u8 perk},u8 rerolls,u8 picks,{u32 player,u8 card,u8 perk},u8 specials,{u8 shop},u8 owned,{u8 shop},u16 nodes,{u16 node,u8 hitsLeft}," +
@@ -55,13 +55,13 @@ namespace PerformativeMail.Sim.Net
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
             "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone,playerAway,playerBack,draftOffer,perkPicked,shopOffer,shopBought,shopSold,nodeHarvested,nodesRegrown," +
-            "constructPlaced,constructRemoved,constructDamaged,constructsCleared,vehicleAdded,vehicleMounted,vehicleParked,vehiclesCleared,kitGiven,worldChanged,beltState,beltAdded,beltMoved,beltRemoved,beltChecksum;" +
+            "constructPlaced,constructRemoved,constructDamaged,constructsCleared,vehicleAdded,vehicleMounted,vehicleParked,vehiclesCleared,kitGiven,worldChanged,beltState,beltAdded,beltMoved,beltRemoved,beltChecksum,beltPushed;" +
             "DraftOffer:u8 n,{u8 perk},u8 reroll,u8 rerollsLeft;PerkPicked:u32 player,u8 perk,u8 card,u8 auto;" +
             "ShopOffer:u8 shift,u8 n,{u8 shop};ShopBought:u32 player,u8 shop,u16 price;ShopSold:u32 player,u16 item,u16 count,i32 paid;" +
             "NodeHarvested:u32 player,u16 node,u8 hitsLeft,u16 item,u8 count;NodesRegrown:u8 all;" +
             "ConstructPlaced:u32 player,u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container;ConstructRemoved:u8 x,u8 y,u32 player,u8 destroyed;" +
             "ConstructDamaged:u8 x,u8 y,u16 hp;ConstructsCleared:;" +
-            "BeltItem:u32 mail,u16 kind,u32 addr,u8 unit,u8 lane,f32 pos;BeltState:u8 x,u8 y,u32 tick,u16 n,{item};BeltAdded:u8 x,u8 y,item;BeltMoved:u32 mail,u8 x,u8 y,u8 lane;BeltRemoved:u32 mail;BeltChecksum:u8 x,u8 y,u16 count,u32 hash;" +
+            "BeltItem:u32 mail,u16 kind,u32 addr,u8 unit,u8 lane,f32 pos;BeltState:u8 x,u8 y,u32 tick,u16 n,{item};BeltAdded:u8 x,u8 y,item;BeltMoved:u32 mail,u8 x,u8 y,u8 lane;BeltRemoved:u32 mail;BeltChecksum:u8 x,u8 y,u16 count,u32 hash;BeltPushed:u8 x,u8 y,u16 ticks,u32 player;" +
             "VehicleAdded:u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 buyer;VehicleMounted:u32 id,u32 player;VehicleParked:u32 id,f32 x,f32 z,f32 heading,u32 player;VehiclesCleared:;KitGiven:u32 player,u8 kit,u8 team;WorldChanged:str map,u32 seed,u64 hash,u8 n,{u32 chest};" +
             "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
             "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +

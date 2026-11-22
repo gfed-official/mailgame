@@ -1198,6 +1198,17 @@ namespace PerformativeMail.Client
                     string left = p.NodeHitsLeft == 1 ? "1 hit left" : $"{p.NodeHitsLeft} hits left";
                     return $"{Capitalised(node.Verb)} {node.Name}   ·   {gives} a hit{better}   ·   {left}   [hold E]";
                 }
+                case InteractKind.PushBelt:
+                {
+                    var def = p.Built!.Def;
+                    float mult = world.Belts.PushMultiplier;
+                    if (p.Pushing)
+                    {
+                        tone = PromptTone.Match;
+                        return $"Pushing the {def.Name}   ·   {(def.Speed * mult).ToString("0.0", CultureInfo.InvariantCulture)} m/s";
+                    }
+                    return $"Push the {def.Name}   ·   ×{mult.ToString("0.0", CultureInfo.InvariantCulture)} while held   [hold E]";
+                }
                 case InteractKind.Deliver:
                 {
                     var dest = p.Destination!;

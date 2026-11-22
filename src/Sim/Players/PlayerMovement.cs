@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.World;
@@ -130,6 +131,14 @@ namespace PerformativeMail.Sim.Players
             float speed = (sprint ? c.SprintSpeed : c.WalkSpeed) * speedMult;
             s.X += mx * speed * dt;
             s.Z += mz * speed * dt;
+            // Doc 04 §2.1: a carrier standing on a belt is carried, at the belt's rated speed the way
+            // it runs (a push speeds the mail, not the ride, so a client predicts it exactly).
+            if (s.Grounded && !s.Dead && BeltUnder(constructs, s.X, s.Z) is { } belt)
+            {
+                var d = BeltNetwork.Dirs[belt.Rotation & 3];
+                s.X += d.Dx * belt.Def.Speed * dt;
+                s.Z += d.Dz * belt.Def.Speed * dt;
+            }
             ResolveCollisions(ref s.X, ref s.Z, s.Y, map, c.Radius, constructs);
 
             if (s.Grounded && input.Has(InputButtons.Jump) && !s.Dead)
@@ -137,7 +146,7 @@ namespace PerformativeMail.Sim.Players
                 s.VelY = MathF.Sqrt(2f * c.Gravity * c.JumpHeight);
                 s.Grounded = false;
             }
-            float ground = map.HeightAt(s.X, s.Z);
+            float ground = Floor(map, constructs, s.X, s.Z);
             if (!s.Grounded)
             {
                 // Exact integration of constant gravity, so the apex really is jumpHeight.
@@ -152,6 +161,18 @@ namespace PerformativeMail.Sim.Players
             }
             else s.Y = ground;
         }
+
+        /// <summary>The belt, splitter or merger on the tile of a point; null for none.</summary>
+        public static Construct? BeltUnder(ConstructField? constructs, float x, float z)
+        {
+            if (constructs == null) return null;
+            var c = constructs.At((int)MathF.Floor(x / SimConstants.TileSize), (int)MathF.Floor(z / SimConstants.TileSize));
+            return BeltNetwork.IsBelt(c) ? c : null;
+        }
+
+        /// <summary>What a carrier stands on: the ground, or a belt's running surface on it.</summary>
+        public static float Floor(WorldMap map, ConstructField? constructs, float x, float z) =>
+            map.HeightAt(x, z) + (BeltUnder(constructs, x, z) != null ? BeltNetwork.SurfaceHeight : 0f);
 
         /// <summary>True on the paved tiles a vehicle runs at its road speed on: the street and the Post Office yard.</summary>
         public static bool OnRoad(WorldMap map, float x, float z)

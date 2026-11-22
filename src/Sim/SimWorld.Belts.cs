@@ -105,6 +105,23 @@ namespace PerformativeMail.Sim
             return OpResult.Ok;
         }
 
+        /// <summary>
+        /// A carrier pushes a belt (doc 04 §2.1 "player operation"): the segment of the tile runs at
+        /// the operated multiplier for a moment, and everybody's belts with it. A carrier holding
+        /// the key asks again before it runs out.
+        /// </summary>
+        private OpResult PushBeltOp(Player player, in SimRequest r)
+        {
+            if (player.Move.Dead) return OpResult.Dead;
+            if (!Map.InBounds(r.X, r.Y) || !BeltNetwork.IsBelt(Constructs.At(r.X, r.Y))) return OpResult.BadRequest;
+            if (!player.WasWithin(BuildRules.TileCentre(r.X), BuildRules.TileCentre(r.Y), _serverInteractRange, _rewindTicks)) return OpResult.OutOfRange;
+            CompileBelts();
+            var s = Belts.Push(r.X, r.Y);
+            if (s == null) return OpResult.BadRequest;
+            Events.Add(new BeltPushedEvent { X = HeadX(s), Y = HeadZ(s), Ticks = (ushort)s.PushTicks, Player = player.Id });
+            return OpResult.Ok;
+        }
+
         /// <summary>Puts a piece of mail on a segment's head and tells the clients; false without room (the outfeed; tests).</summary>
         public bool PutOnBelt(BeltSegment s, in MailItem mail)
         {

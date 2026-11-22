@@ -32,6 +32,8 @@ namespace PerformativeMail.Client
         /// <summary>In the saddle with nothing else in view: the vehicle's cargo rack.</summary>
         OpenRack,
         CloseRack,
+        /// <summary>At a belt, a splitter or a merger (doc 04 §2.1): held, its segment runs faster.</summary>
+        PushBelt,
     }
 
     /// <summary>What the interact prompt shows right now (doc 09 §2.4).</summary>
@@ -69,6 +71,8 @@ namespace PerformativeMail.Client
         public int NodeHitsLeft;
         /// <summary>Mount: the vehicle in range. OpenRack / CloseRack: the one ridden.</summary>
         public ClientVehicle? Vehicle;
+        /// <summary>PushBelt: interact is held on it.</summary>
+        public bool Pushing;
     }
 
     /// <summary>
@@ -94,6 +98,9 @@ namespace PerformativeMail.Client
         private double _hold;
         private int _deliverAllDest = -1;
         private int _harvestNode = -1;
+        /// <summary>A push lasts 0.7 s on the server: one held is asked again this often.</summary>
+        public const double PushRepeatSeconds = 0.4;
+        private double _pushAgain;
 
         public InteractionController(ClientRuntime client)
         {
@@ -211,6 +218,15 @@ namespace PerformativeMail.Client
 
                 case InteractKind.Harvest:
                     StepHarvest(world, ref prompt, dt, interactHeld);
+                    break;
+
+                case InteractKind.PushBelt:
+                    _hold = 0;
+                    _deliverAllDest = -1;
+                    _pressLatch = 0;
+                    _pushAgain = Math.Max(0, _pushAgain - dt);
+                    prompt.Pushing = interactHeld || interactTapped;
+                    if (prompt.Pushing && _pushAgain <= 0 && _client.PushBelt(prompt.Built!.Tx, prompt.Built.Tz) != 0) _pushAgain = PushRepeatSeconds;
                     break;
 
                 default:
@@ -378,6 +394,20 @@ namespace PerformativeMail.Client
                     prompt.Node = null;
                     prompt.Vehicle = v;
                 }
+            }
+            // A belt is pushed (doc 04 §2.1); one under the feet too, looking down at it.
+            foreach (var built in world.Constructs.All)
+            {
+                if (!built.Def.Carries || DistSq(px, pz, built.X, built.Z) > rangeSq) continue;
+                float t = ray.Hit(AimBox.Built(world.Map, built));
+                if (t < 0f || t > best) continue;
+                best = t;
+                prompt.Kind = InteractKind.PushBelt;
+                prompt.Chest = null;
+                prompt.Bag = null;
+                prompt.Node = null;
+                prompt.Vehicle = null;
+                prompt.Built = built;
             }
             foreach (var dest in world.Map.Destinations)
             {

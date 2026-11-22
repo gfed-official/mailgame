@@ -57,6 +57,7 @@ namespace PerformativeMail.Sim.Net
         BeltItemMoved = 47,
         BeltItemRemoved = 48,
         BeltChecksum = 49,
+        BeltPushed = 50,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -261,6 +262,10 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.BeltChecksum);
                     w.U8(e.X); w.U8(e.Y); w.U16(e.Count); w.U32(e.Hash);
                     break;
+                case BeltPushedEvent e:
+                    w.U8((byte)EventType.BeltPushed);
+                    w.U8(e.X); w.U8(e.Y); w.U16(e.Ticks); w.U32(e.Player.Value);
+                    break;
                 case VehicleAddedEvent e:
                     w.U8((byte)EventType.VehicleAdded);
                     w.U32(e.Vehicle.Value); w.U8(e.Def); w.F32(e.X); w.F32(e.Z); w.F32(e.Heading); w.U32(e.CargoContainer); w.U32(e.Buyer.Value);
@@ -463,6 +468,8 @@ namespace PerformativeMail.Sim.Net
                     return new BeltItemRemovedEvent { MailId = r.U32() };
                 case EventType.BeltChecksum:
                     return new BeltChecksumEvent { X = r.U8(), Y = r.U8(), Count = r.U16(), Hash = r.U32() };
+                case EventType.BeltPushed:
+                    return new BeltPushedEvent { X = r.U8(), Y = r.U8(), Ticks = r.U16(), Player = new EntityId(r.U32()) };
                 case EventType.VehicleAdded:
                     return new VehicleAddedEvent
                     {

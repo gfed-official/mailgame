@@ -1176,7 +1176,21 @@ the whole line exists; the sub-lines say which parts do.
             after two Conveyor Belts: a segment of its own at 4 m/s), `BeltFlowTests` (the wheel and
             the key on a client), shop tests; in the smoke the wheel on the belt key shows "Fast
             Belt 2/2", red for want of its blueprint, and back
-      - [ ] Ramps and elevated belts; a carrier carried along, pushing a belt
+      - [x] **A carrier carried along, pushing a belt** (doc 04 §2.1 "player operation", doc 11
+            operated multiplier 1.5; design choice 98). Standing on a belt, a splitter or a merger
+            (grounded, alive) a carrier is moved the way it runs at its rated speed on top of their
+            own walk, and stands on its running surface (`BeltNetwork.SurfaceHeight`, 0.36 m) —
+            in `PlayerMovement.Step`, so a client predicts it exactly. Held interact at a belt
+            (the new prompt "Push the Conveyor Belt · ×1.5 while held [hold E]", "Pushing the
+            Conveyor Belt · 3.0 m/s") sends `PushBelt` every 0.4 s (protocol `m2.1`); the server
+            gives the segment 0.7 s of push (`beltPushMultiplier`, `beltPushSeconds` in
+            balance.json) and tells everybody (`BeltPushedEvent`), each side counting it down in
+            its own steps. `BeltRideTests` (carried at 2 m/s and set down off the end, predicted
+            exactly, a push at 3 m/s that runs out, refused out of reach or off a belt),
+            `BeltFlowTests` (the prompt, the push on both ends, the ride with nothing to correct),
+            `CodecTests`; in the smoke the host pushes the line from beside it and rides it 2 m in
+            a second (`belt-push` shot)
+      - [ ] Ramps and elevated belts
       - [ ] Endpoints into containers (Depot) and vehicles
 - [ ] Belt replication: LaneInsert/Remove/Checksum/State; client visual sim; interest management for segments
       - [x] Events `BeltState` (a segment whole: when compiled anew, to a joiner after the
@@ -1194,8 +1208,8 @@ the whole line exists; the sub-lines say which parts do.
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the rest of the belt line (a carrier carried along and pushing a belt, ramps
-and elevated belts to cross streets), then the Address Sorter
+Next in this order: the rest of the belt line (ramps and elevated belts to cross streets), then
+the Address Sorter
 with its filter panel (which also gives the splitter its kind filter), Inserters and the Depot.
 
 ## How to build and check
@@ -2172,6 +2186,13 @@ See "Commands" at the bottom (filled in as the tooling lands).
     The belts are one group ("belt"); the content validator refuses more than 12 keys. The card
     says "[7] Fast Belt 2/2", the keys line "[wheel] belt tier". A Fast Belt is drawn as the
     Conveyor Belt with blue rail caps and two chevrons a half; a change of tier starts a segment.
+98. **Riding and pushing belts.** Doc 04 §2.1 says a carrier on a belt is carried and one pushing a
+    segment gives it +50 % "while held". The ride is at the belt's *rated* speed, push or not: a
+    push is server state the rider's prediction would only learn late, and the ride is the fast
+    travel, the push is for the mail. A carrier on a belt stands on its top (0.36 m), a step up
+    onto it and down off it with no climb. "While held" is a 0.7 s push renewed every 0.4 s by a
+    client holding E, so a dropped packet or a let-go key ends it within a second and the server
+    keeps no per-player hold state. Splitters and mergers carry and are pushed like belts.
 
 ## Commands
 

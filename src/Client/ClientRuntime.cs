@@ -471,6 +471,15 @@ namespace PerformativeMail.Client
         /// Lays a line of a recipe (doc 04 §1.1 drag placement), each tile turned the same. Returns
         /// the request id, 0 where not one tile of it would be built (<see cref="ClientWorld.LineStates"/>).
         /// </summary>
+        /// <summary>Pushes the belt on a tile (doc 04 §2.1): its segment runs faster for a moment. 0 if not sent.</summary>
+        public uint PushBelt(int tx, int tz)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
+            if (!Sim.Automation.BeltNetwork.IsBelt(world.Constructs.At(tx, tz))) return 0;
+            return Send(SimRequest.PushBelt(0, tx, tz));
+        }
+
         public uint PlaceLine(RecipeDef recipe, int x0, int z0, int x1, int z1, int rotation)
         {
             var world = World;
@@ -1027,6 +1036,12 @@ namespace PerformativeMail.Client
                 case BeltItemRemovedEvent e:
                     world.Belts.RemoveMail(e.MailId);
                     break;
+                case BeltPushedEvent e:
+                {
+                    var seg = world.Map.InBounds(e.X, e.Y) ? world.Belts.SegmentByHead(e.Y * world.Map.Cols + e.X) : null;
+                    if (seg != null) seg.PushTicks = Math.Max(seg.PushTicks, e.Ticks);
+                    break;
+                }
                 case BeltChecksumEvent e:
                 {
                     var belts = world.Belts;

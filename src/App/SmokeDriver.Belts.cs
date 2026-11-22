@@ -26,6 +26,9 @@ namespace PerformativeMail.App
         private const int BeltLine = 5;
         private int _beltStep, _beltFrames, _beltVisits, _beltDelivered;
         private int _beltX0, _beltZ0, _beltX1, _beltZ1, _beltDest = -1;
+        /// <summary>Interact held at the line (doc 04 §2.1 pushing a belt); where the ride began.</summary>
+        private bool _beltPushing;
+        private float _rideX, _rideZ;
 
         /// <summary>A row or column of open tiles whose last one faces a mailbox's tile, the host standing beside its middle.</summary>
         private bool FindBeltSite(ClientWorld world)
@@ -100,7 +103,7 @@ namespace PerformativeMail.App
                     + $"prompt \"{hud.PromptText}\", {server.Belts.Segments.Count} segments on the server, {server.Belts.ItemCount} items, {client.PendingRequestCount} requests pending");
                 return false;
             }
-            _session.Interaction.Update(1.0 / 30.0, false, false);
+            _session.Interaction.Update(1.0 / 30.0, _beltPushing, false);
             var seg = server.Belts.SegmentAt(_beltX0, _beltZ0);
             switch (_beltStep)
             {
@@ -172,6 +175,67 @@ namespace PerformativeMail.App
                     AimAtTile(_beltX1, _beltZ1);
                     Shot("belt-mail");
                     GD.Print($"[smoke] belts: a line of {BeltLine} Conveyor Belts dragged from ({_beltX0}, {_beltZ0}) to ({_beltX1}, {_beltZ1}) at the mailbox of {world.Map.GetDestination(_beltDest)!.Label}, three letters ridden to its end");
+                    _beltStep = 40;
+                    _beltFrames = 0;
+                    return true;
+                }
+
+                case 40:
+                {
+                    // Pushed (doc 04 §2.1): beside the line's second tile, interact held at it.
+                    int tx = _beltX0 + Math.Sign(_beltX1 - _beltX0), tz = _beltZ0 + Math.Sign(_beltZ1 - _beltZ0);
+                    if (_beltFrames == 1)
+                    {
+                        var player = server.GetPlayer(world.LocalId)!;
+                        // Off the line's side the player stands on.
+                        bool alongX = _beltZ0 == _beltZ1;
+                        float side = alongX ? MathF.Sign(player.Move.Z - BuildRules.TileCentre(tz)) : MathF.Sign(player.Move.X - BuildRules.TileCentre(tx));
+                        if (side == 0f) side = 1f;
+                        player.Move.X = BuildRules.TileCentre(tx) + (alongX ? 0f : 1.4f * side);
+                        player.Move.Z = BuildRules.TileCentre(tz) + (alongX ? 1.4f * side : 0f);
+                    }
+                    AimAtTile(tx, tz);
+                    if (_beltFrames < 8) break;
+                    var prompt = _session.Interaction.Prompt;
+                    if (!_beltPushing)
+                    {
+                        Check(prompt.Kind == InteractKind.PushBelt && HudText.Prompt(world, prompt, out _).StartsWith("Push the Conveyor Belt", StringComparison.Ordinal),
+                            $"beside the belt the prompt is {prompt.Kind} \"{HudText.Prompt(world, prompt, out _)}\"");
+                        _beltPushing = true;
+                        break;
+                    }
+                    if (_beltFrames < 20) break;
+                    var mine = world.Belts.SegmentAt(_beltX0, _beltZ0)!;
+                    Check(prompt.Pushing && seg != null && seg.PushTicks > 0 && mine.PushTicks > 0,
+                        $"held at the belt: pushing {prompt.Pushing}, {seg?.PushTicks} ticks of push on the server, {mine.PushTicks} here");
+                    Shot("belt-push");
+                    _beltPushing = false;
+                    // On the head of the line: carried along it.
+                    var truth = server.GetPlayer(world.LocalId)!;
+                    truth.Move.X = BuildRules.TileCentre(_beltX0);
+                    truth.Move.Z = BuildRules.TileCentre(_beltZ0);
+                    _beltStep = 41;
+                    _beltFrames = 0;
+                    return true;
+                }
+
+                case 41:
+                {
+                    if (_beltFrames == 10)
+                    {
+                        _rideX = world.Local.X;
+                        _rideZ = world.Local.Z;
+                    }
+                    if (_beltFrames < 40) break;
+                    var truth = server.GetPlayer(world.LocalId)!;
+                    float along = (world.Local.X - _rideX) * Math.Sign(_beltX1 - _beltX0) + (world.Local.Z - _rideZ) * Math.Sign(_beltZ1 - _beltZ0);
+                    float floor = world.Map.HeightAt(world.Local.X, world.Local.Z) + BeltNetwork.SurfaceHeight;
+                    Check(along > 1.6f && along < 2.4f && MathF.Abs(world.Local.Y - floor) < 0.01f && MathF.Abs(world.Local.X - truth.Move.X) + MathF.Abs(world.Local.Z - truth.Move.Z) < 0.3f,
+                        $"on the belt the host went {along:0.00} m along it in a second at y {world.Local.Y:0.00} (its top {floor:0.00}), the server has them {truth.Move.X - world.Local.X:0.00}, {truth.Move.Z - world.Local.Z:0.00} off");
+                    GD.Print($"[smoke] belt push and ride: the line pushed to 3 m/s while held, and the host carried {along:0.00} m along it in a second, standing on it");
+                    // Off it again, beside its head.
+                    truth.Move.X = BuildRules.TileCentre(_beltX0) + (_beltZ0 == _beltZ1 ? 0f : 1.4f);
+                    truth.Move.Z = BuildRules.TileCentre(_beltZ0) + (_beltZ0 == _beltZ1 ? 1.4f : 0f);
                     _beltStep = 5;
                     _beltFrames = 0;
                     return true;

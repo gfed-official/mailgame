@@ -58,6 +58,11 @@ namespace PerformativeMail.Sim
         PlaceLine = 21,
         /// <summary>A client's belt segment headed at (<see cref="SimRequest.X"/>, <see cref="SimRequest.Y"/>) did not match the server's checksum: send it whole.</summary>
         BeltResync = 22,
+        /// <summary>
+        /// Doc 04 §2.1: the carrier holds interact at the belt on tile (<see cref="SimRequest.X"/>,
+        /// <see cref="SimRequest.Y"/>); its segment runs faster for a moment. Sent again while held.
+        /// </summary>
+        PushBelt = 23,
     }
 
     /// <summary>
@@ -162,6 +167,9 @@ namespace PerformativeMail.Sim
 
         public static SimRequest BeltResync(uint reqId, int headX, int headZ) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.BeltResync, X = (byte)headX, Y = (byte)headZ };
+
+        public static SimRequest PushBelt(uint reqId, int tx, int tz) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.PushBelt, X = (byte)tx, Y = (byte)tz };
 
         public static SimRequest RemoveConstruct(uint reqId, int tx, int tz) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (byte)tx, Y = (byte)tz };

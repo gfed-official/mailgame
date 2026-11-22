@@ -131,6 +131,52 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void HeldAtABelt_InteractPushesIt_OnBothEnds_AndRidingItIsPredictedExactly()
+        {
+            var (session, host) = Built();
+            var world = host.World!;
+            var truth = session.Truth(host);
+            var interaction = new InteractionController(host);
+            // Beside the west line, looking at its middle tile.
+            truth.Move.X = Centre(6);
+            truth.Move.Z = Centre(Row) + 1.4f;
+            session.Run(10);
+            var target = world.Constructs.At(6, Row)!;
+            var box = AimBox.Built(world.Map, target);
+            ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out host.Input.YawRadians, out host.Input.PitchRadians);
+            interaction.Update(1.0 / 30, false, false);
+            Assert.Equal(InteractKind.PushBelt, interaction.Prompt.Kind);
+            Assert.Equal("Push the Conveyor Belt   ·   ×1.5 while held   [hold E]", HudText.Prompt(world, interaction.Prompt, out _));
+            var server = session.Sim.Belts.SegmentAt(5, Row)!;
+            var mirror = world.Belts.SegmentAt(5, Row)!;
+            for (int i = 0; i < 30; i++)
+            {
+                interaction.Update(1.0 / 30, true, false);
+                session.Run(1);
+            }
+            Assert.Equal("Pushing the Conveyor Belt   ·   3.0 m/s", HudText.Prompt(world, interaction.Prompt, out var tone));
+            Assert.Equal(PromptTone.Match, tone);
+            Assert.True(server.PushTicks > 0 && mirror.PushTicks > 0, $"pushed {server.PushTicks} on the server, {mirror.PushTicks} on the client");
+            // Let go, both run out.
+            for (int i = 0; i < 40; i++)
+            {
+                interaction.Update(1.0 / 30, false, false);
+                session.Run(1);
+            }
+            Assert.Equal((0, 0), (server.PushTicks, mirror.PushTicks));
+
+            // Stepping onto the belt: carried east on both ends alike, nothing to correct.
+            truth.Move.Z = Centre(Row);
+            session.Run(10);
+            float x0 = world.Local.X;
+            session.Run(30);
+            Assert.InRange(world.Local.X - x0, 1.8f, 2.2f);
+            Assert.Equal(world.Map.HeightAt(world.Local.X, world.Local.Z) + BeltNetwork.SurfaceHeight, world.Local.Y, 3);
+            session.Run(5);
+            Assert.True(System.Math.Abs(world.Local.X - truth.Move.X) < 0.25f, $"client {world.Local.X}, server {truth.Move.X}");
+        }
+
+        [Fact]
         public void ADragLine_ByAClient_IsBuiltTileByTile_AndItsGhostSaysWhichTilesWouldBe()
         {
             var session = new Session();

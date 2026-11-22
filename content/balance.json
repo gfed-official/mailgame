@@ -50,6 +50,8 @@
   "shopRange": 4.0,
   "serverShopRange": 4.5,
   "interactRewindSeconds": 0.3,
+  "beltPushMultiplier": 1.5,
+  "beltPushSeconds": 0.7,
   "harvestSwingSeconds": 0.6,
   "buildRange": 8.0,
   "serverBuildRange": 8.5,

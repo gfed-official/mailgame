@@ -1067,6 +1067,7 @@ namespace PerformativeMail.Sim.Content
             "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank",
             "shopSpecialSlots", "shopSpecialDiscount", "shopRange", "serverShopRange", "harvestSwingSeconds",
             "buildRange", "serverBuildRange", "deconstructHoldSeconds", "deconstructRefundPrep", "deconstructRefundDelivery",
+            "beltPushMultiplier", "beltPushSeconds",
         };
 
         private static IEnumerable<JsonElement> ReadArray(JsonCtx ctx, string? text)

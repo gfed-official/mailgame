@@ -70,6 +70,7 @@ namespace PerformativeMail.Sim
                 case RequestKind.RemoveConstruct: return RemoveConstructOp(player, r);
                 case RequestKind.PlaceLine: return PlaceLineOp(player, r);
                 case RequestKind.BeltResync: return BeltResyncOp(player, r);
+                case RequestKind.PushBelt: return PushBeltOp(player, r);
                 case RequestKind.Mount: return MountOp(player, r);
                 case RequestKind.SetKit: return SetKitOp(player, r);
                 case RequestKind.SetWorld: return SetWorldOp(player, r);

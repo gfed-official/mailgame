@@ -65,6 +65,13 @@ namespace PerformativeMail.Sim.Automation
         public readonly List<BeltSegment> Ins = new List<BeltSegment>();
         public int NextIn;
 
+        /// <summary>
+        /// Ticks left of a carrier's push (doc 04 §2.1 "pushing a belt"): while above 0 the
+        /// segment runs at <see cref="BeltNetwork.PushMultiplier"/> times its speed. Counted down
+        /// by every step, on the server and on a client alike, so neither needs the other's tick.
+        /// </summary>
+        public int PushTicks;
+
         /// <summary>The tile the segment's last tile faces, as a tile index; −1 off the map.</summary>
         public int FrontTile = -1;
 
@@ -102,6 +109,8 @@ namespace PerformativeMail.Sim.Automation
     public sealed class BeltNetwork
     {
         public const byte LaneLeft = 0, LaneRight = 1, LaneBoth = 2;
+        /// <summary>Top of a belt's running surface above the ground: where the mail rides and a carrier on it stands.</summary>
+        public const float SurfaceHeight = 0.36f;
         private const float Tile = SimConstants.TileSize;
 
         /// <summary>Rotation r faces (Dx, Dz)[r]: east, south, west, north — the order of <see cref="ConstructField"/>'s arms.</summary>
@@ -125,9 +134,17 @@ namespace PerformativeMail.Sim.Automation
         /// <summary>Items riding all belts.</summary>
         public int ItemCount { get; private set; }
 
+        /// <summary>Doc 11 "operated belt multiplier": a pushed segment's speed, times its own.</summary>
+        public float PushMultiplier { get; }
+        /// <summary>How long one push lasts: a carrier holding the key pushes again before it runs out.</summary>
+        public int PushTickCount { get; }
+
         public BeltNetwork(ContentDb content, WorldMap map, ConstructField field)
         {
             _content = content;
+            var balance = content.Balance;
+            PushMultiplier = balance.Has("beltPushMultiplier") ? balance.GetFloat("beltPushMultiplier") : 1.5f;
+            PushTickCount = (int)SimConstants.SecondsToTicks(balance.Has("beltPushSeconds") ? balance.GetFloat("beltPushSeconds") : 0.7);
             _map = map;
             _field = field;
             _segOf = new BeltSegment?[map.Cols * map.Rows];
@@ -419,8 +436,10 @@ namespace PerformativeMail.Sim.Automation
             Span<float> frontier = stackalloc float[2];
             foreach (var s in _segments)
             {
+                bool pushed = s.PushTicks > 0;
+                if (pushed) s.PushTicks--;
                 if (s.Items.Count == 0) continue;
-                float step = s.Speed * speedMult * dt;
+                float step = s.Speed * speedMult * (pushed ? PushMultiplier : 1f) * dt;
                 frontier[0] = frontier[1] = s.Length;
                 var items = s.Items;
                 for (int i = 0; i < items.Count; i++)
@@ -605,6 +624,14 @@ namespace PerformativeMail.Sim.Automation
                         return true;
                     }
             return false;
+        }
+
+        /// <summary>A carrier pushes the segment a tile is on (doc 04 §2.1): it runs faster for <see cref="PushTickCount"/> ticks; null without a belt there.</summary>
+        public BeltSegment? Push(int tx, int tz)
+        {
+            var s = SegmentAt(tx, tz);
+            if (s != null) s.PushTicks = Math.Max(s.PushTicks, PushTickCount);
+            return s;
         }
 
         /// <summary>Everything off every belt (a run's end); the items are handed back.</summary>

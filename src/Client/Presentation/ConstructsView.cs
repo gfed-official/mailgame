@@ -247,7 +247,7 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>The speed of the slowest belt (Mk1); a faster one has blue caps and a second pair of chevrons.</summary>
         public const float BeltBaseSpeed = 2f;
         /// <summary>Top of a belt's running surface above the ground: where the mail rides.</summary>
-        public const float BeltTop = 0.36f;
+        public const float BeltTop = Sim.Automation.BeltNetwork.SurfaceHeight;
 
         /// <summary>
         /// A Conveyor Belt tile in the look of the reference factory: a steel frame on four legs with

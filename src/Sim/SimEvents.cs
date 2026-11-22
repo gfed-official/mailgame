@@ -382,6 +382,14 @@ namespace PerformativeMail.Sim
         public uint Hash;
     }
 
+    /// <summary>A carrier pushes the segment headed at (X, Y) (doc 04 §2.1): it runs faster for <see cref="Ticks"/> ticks.</summary>
+    public sealed class BeltPushedEvent : SimEvent
+    {
+        public byte X, Y;
+        public ushort Ticks;
+        public EntityId Player;
+    }
+
     /// <summary>The run is over or begins anew: nothing the carriers built stands any more.</summary>
     public sealed class ConstructsClearedEvent : SimEvent
     {
