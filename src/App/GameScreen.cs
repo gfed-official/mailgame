@@ -16,6 +16,7 @@ namespace PerformativeMail.App
         public WorldView World { get; private set; } = null!;
         public NodesView Nodes { get; private set; } = null!;
         public ConstructsView Constructs { get; private set; } = null!;
+        public BeltItemsView BeltItems { get; private set; } = null!;
         public PlayersView Players { get; private set; } = null!;
         public VehiclesView Vehicles { get; private set; } = null!;
         public EnemiesView Enemies { get; private set; } = null!;
@@ -98,6 +99,9 @@ namespace PerformativeMail.App
             Constructs = new ConstructsView { Name = "Constructs" };
             AddChild(Constructs);
             Constructs.Setup(client, session.Build);
+            BeltItems = new BeltItemsView { Name = "BeltItems" };
+            AddChild(BeltItems);
+            BeltItems.Setup(client);
 
             Players = new PlayersView { Name = "Players" };
             AddChild(Players);

@@ -331,6 +331,57 @@ namespace PerformativeMail.Sim
         public ushort Hp;
     }
 
+    /// <summary>One item of a <see cref="BeltStateEvent"/>: what a client needs to draw it.</summary>
+    public struct BeltItemInfo
+    {
+        public uint MailId;
+        public ushort Kind;
+        public uint AddressKey;
+        public byte Unit;
+        public byte Lane;
+        public float Pos;
+    }
+
+    /// <summary>
+    /// A belt segment whole (doc 06 §4 LaneState): its head tile and every item on it. Sent when
+    /// the segment is compiled anew, to whoever joins, and to a client whose checksum was off.
+    /// </summary>
+    public sealed class BeltStateEvent : SimEvent
+    {
+        public byte X, Y;
+        public uint Tick;
+        public readonly List<BeltItemInfo> Items = new List<BeltItemInfo>();
+    }
+
+    /// <summary>A piece of mail put on a segment's head (doc 06 §4 LaneInsert): from the Intake's outfeed, a splitter.</summary>
+    public sealed class BeltItemAddedEvent : SimEvent
+    {
+        public byte X, Y;
+        public BeltItemInfo Item;
+    }
+
+    /// <summary>A piece of mail went from a segment's end onto the head of the segment headed at (X, Y), in its lane.</summary>
+    public sealed class BeltItemMovedEvent : SimEvent
+    {
+        public uint MailId;
+        public byte X, Y;
+        public byte Lane;
+    }
+
+    /// <summary>A piece of mail left the belts (doc 06 §4 LaneRemove): into a mailbox, or back to the Intake.</summary>
+    public sealed class BeltItemRemovedEvent : SimEvent
+    {
+        public uint MailId;
+    }
+
+    /// <summary>Every 2 s per segment (doc 06 §4 LaneChecksum): the count and <see cref="Automation.BeltNetwork.Checksum"/>.</summary>
+    public sealed class BeltChecksumEvent : SimEvent
+    {
+        public byte X, Y;
+        public ushort Count;
+        public uint Hash;
+    }
+
     /// <summary>The run is over or begins anew: nothing the carriers built stands any more.</summary>
     public sealed class ConstructsClearedEvent : SimEvent
     {

@@ -38,7 +38,7 @@ namespace PerformativeMail.Client.Presentation
         private ConstructField? _drawn;
         private int _version = -1;
         private Node3D? _built, _ghost;
-        private (BuildingDef?, int, bool) _ghostShape;
+        private (BuildingDef?, int, bool, string) _ghostShape;
 
         private sealed class GateLeaves
         {
@@ -149,6 +149,11 @@ namespace PerformativeMail.Client.Presentation
             foreach (var c in field.All)
             {
                 var at = new Vector3(c.X, world.Map.HeightAt(c.X, c.Z), c.Z);
+                if (c.Def.Behaviour == BuildingBehaviour.Belt)
+                {
+                    BeltTile(batch, at, BeltEntry(world, c), c.Rotation & 3, null, c.Hp * 2 < c.Def.Hp);
+                    continue;
+                }
                 Draw(batch, c.Def, at, field.Arms(c), c.Rotation, null, c.Hp * 2 < c.Def.Hp);
                 if (c.Def.Behaviour == BuildingBehaviour.Gate)
                 {
@@ -183,9 +188,11 @@ namespace PerformativeMail.Client.Presentation
             _ghost!.Visible = show;
             if (!show) return;
             var def = ghost.Recipe!.Building;
-            bool ok = ghost.State == OpResult.Ok;
+            bool ok = ghost.Line != null ? ghost.LineOk > 0 : ghost.State == OpResult.Ok;
             GhostGreen = ok;
-            var shape = (def, ghost.Rotation, ok);
+            GhostTiles = ghost.Line?.Count ?? 1;
+            string line = ghost.Line == null ? "" : string.Join(";", ghost.Line);
+            var shape = (def, ghost.Rotation, ok, line);
             if (shape != _ghostShape)
             {
                 _ghostShape = shape;
@@ -195,16 +202,90 @@ namespace PerformativeMail.Client.Presentation
                     child.QueueFree();
                 }
                 var batch = new MeshBatch();
-                var mat = GhostMat(ok ? GhostOk : GhostBad);
+                var good = GhostMat(GhostOk);
+                var bad = GhostMat(GhostBad);
+                var tiles = ghost.Line ?? new System.Collections.Generic.List<(int, int, OpResult)> { (ghost.Tx, ghost.Tz, ghost.State) };
                 int arms = (ghost.Rotation & 1) != 0 ? ConstructField.ArmSouth | ConstructField.ArmNorth : ConstructField.ArmEast | ConstructField.ArmWest;
-                Draw(batch, def, Vector3.Zero, arms, ghost.Rotation, mat, false);
-                // The tile it takes, on the ground.
-                batch.Box(new Vector3(0f, 0.02f, 0f), new Vector3(SimConstants.TileSize - 0.1f, 0.04f, SimConstants.TileSize - 0.1f), mat, 0.02f);
+                foreach (var (tx, tz, state) in tiles)
+                {
+                    var mat = state == OpResult.Ok ? good : bad;
+                    var offset = new Vector3((tx - ghost.Tx) * SimConstants.TileSize, 0f, (tz - ghost.Tz) * SimConstants.TileSize);
+                    if (def.Behaviour == BuildingBehaviour.Belt) BeltTile(batch, offset, ghost.Rotation & 3, ghost.Rotation & 3, mat, false);
+                    else Draw(batch, def, offset, arms, ghost.Rotation, mat, false);
+                    // The tile it takes, on the ground.
+                    batch.Box(offset + new Vector3(0f, 0.02f, 0f), new Vector3(SimConstants.TileSize - 0.1f, 0.04f, SimConstants.TileSize - 0.1f), mat, 0.02f);
+                }
                 batch.Flush(_ghost, "Ghost", castShadows: false);
             }
             float x = (ghost.Tx + 0.5f) * SimConstants.TileSize, z = (ghost.Tz + 0.5f) * SimConstants.TileSize;
             _ghost.Position = new Vector3(x, world.Map.HeightAt(x, z), z);
         }
+
+        /// <summary>Tiles the ghost stands on: more than one while a drag line is held.</summary>
+        public int GhostTiles { get; private set; }
+
+        /// <summary>The way mail comes onto a belt's tile: from the belt before it in its segment, else straight from behind.</summary>
+        private static int BeltEntry(ClientWorld world, Construct c)
+        {
+            var belts = world.Belts;
+            var seg = belts.SegmentAt(c.Tx, c.Tz);
+            int k = belts.IndexInSegment(c.Tx, c.Tz);
+            if (seg == null || k <= 0) return c.Rotation & 3;
+            int prev = seg.Tiles[k - 1];
+            return world.Constructs.At(prev % world.Map.Cols, prev / world.Map.Cols) is { } p ? p.Rotation & 3 : c.Rotation & 3;
+        }
+
+        private static readonly Color BeltRubber = new Color("2b2b2e"), BeltSteel = new Color("8d939b"), BeltYellow = new Color("e0a526"), BeltArrow = new Color("c8c2b0");
+        /// <summary>Top of a belt's running surface above the ground: where the mail rides.</summary>
+        public const float BeltTop = 0.36f;
+
+        /// <summary>
+        /// A Conveyor Belt tile in the look of the reference factory: a steel frame on four legs with
+        /// yellow-capped side rails, a dark rubber belt between them and pale chevrons the way it
+        /// runs. A corner is an L: half from the edge it comes in by to the middle, half on to the
+        /// edge it faces.
+        /// </summary>
+        public static void BeltTile(MeshBatch batch, Vector3 at, int inDir, int dir, Material? only, bool worn)
+        {
+            var rubber = only ?? Mat(worn ? BeltRubber.Lightened(0.15f) : BeltRubber);
+            var steel = only ?? MeshKit.Mat(BeltSteel, 0.45f, 0.6f);
+            var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
+            var arrow = only ?? Mat(BeltArrow);
+            float half = SimConstants.TileSize * 0.5f;
+            const float width = 1.4f;
+            for (int part = 0; part < 2; part++)
+            {
+                int d = part == 0 ? inDir : dir;
+                var v = Dir(d);
+                // Entry half: from the edge behind to the middle; exit half: from the middle on.
+                var mid = part == 0 ? at - v * (half * 0.5f) : at + v * (half * 0.5f);
+                float len = half + (inDir != dir ? width * 0.5f : 0f);
+                var lenAxis = new Vector3(Mathf.Abs(v.X), 0f, Mathf.Abs(v.Z));
+                var across = new Vector3(Mathf.Abs(v.Z), 0f, Mathf.Abs(v.X));
+                batch.Box(mid + new Vector3(0f, BeltTop - 0.04f, 0f), lenAxis * len + across * width + new Vector3(0f, 0.07f, 0f), rubber, 0.02f);
+                batch.Box(mid + new Vector3(0f, BeltTop - 0.12f, 0f), lenAxis * len + across * (width + 0.04f) + new Vector3(0f, 0.08f, 0f), steel, 0.01f);
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var rail = mid + across * side * (width * 0.5f + 0.05f) + new Vector3(0f, BeltTop + 0.02f, 0f);
+                    batch.Box(rail, lenAxis * len + across * 0.08f + new Vector3(0f, 0.12f, 0f), steel, 0.02f);
+                    batch.Box(rail + new Vector3(0f, 0.08f, 0f), lenAxis * len + across * 0.09f + new Vector3(0f, 0.03f, 0f), yellow, 0.01f);
+                }
+                // A chevron on each half, pointing the way it runs.
+                float yaw = Mathf.Atan2(v.X, v.Z);
+                for (int arm = -1; arm <= 1; arm += 2)
+                {
+                    var basis = new Basis(Vector3.Up, yaw + arm * 0.75f);
+                    var c = mid + new Vector3(0f, BeltTop + 0.002f, 0f) - v * 0.1f + basis * new Vector3(0f, 0f, -0.18f);
+                    batch.Add(MeshKit.Box(new Vector3(0.07f, 0.01f, 0.4f)), arrow, new Transform3D(basis, c));
+                }
+            }
+            // Legs at the corners of the tile.
+            for (int i = -1; i <= 1; i += 2)
+                for (int j = -1; j <= 1; j += 2)
+                    batch.Box(at + new Vector3(i * (width * 0.5f + 0.02f), (BeltTop - 0.16f) * 0.5f, j * 0.6f), new Vector3(0.08f, BeltTop - 0.16f, 0.08f), steel, 0.01f);
+        }
+
+        private static Vector3 Dir(int d) => d switch { 0 => Vector3.Right, 1 => Vector3.Back, 2 => Vector3.Left, _ => Vector3.Forward };
 
         /// <summary>
         /// One construct of any kind, in its own colours or all in <paramref name="only"/> (the

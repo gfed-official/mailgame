@@ -22,5 +22,9 @@
   { "id": "alarm_post", "name": "Alarm Post", "footprint": [1, 1], "rotations": 1, "hp": 100,
     "placement": { "onStreet": false }, "behaviour": "alarm",
     "params": { "radius": 0.25, "height": 3.0, "warningBonusSeconds": 15, "revealRadius": 40 },
-    "recipe": "recipe_alarm_post", "tags": ["defense"] }
+    "recipe": "recipe_alarm_post", "tags": ["defense"] },
+  { "id": "belt_mk1", "name": "Conveyor Belt", "footprint": [1, 1], "rotations": 4, "hp": 80,
+    "placement": { "onStreet": false }, "behaviour": "belt",
+    "params": { "radius": 0.5, "height": 0.35, "speed": 2.0 },
+    "recipe": "recipe_belt_mk1", "tags": ["transport"] }
 ]

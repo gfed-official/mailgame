@@ -876,6 +876,7 @@ namespace PerformativeMail.Sim.Content
                             case "gate": behaviour = BuildingBehaviour.Gate; break;
                             case "spikes": behaviour = BuildingBehaviour.Spikes; break;
                             case "alarm": behaviour = BuildingBehaviour.Alarm; break;
+                            case "belt": behaviour = BuildingBehaviour.Belt; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
@@ -909,12 +910,15 @@ namespace PerformativeMail.Sim.Content
                             DamagePerSecond = hasParams ? (float)J.Num(ctx, pars, "damagePerSecond", 0) : 0f,
                             WarningBonusSeconds = hasParams ? (float)J.Num(ctx, pars, "warningBonusSeconds", 0) : 0f,
                             RevealRadius = hasParams ? (float)J.Num(ctx, pars, "revealRadius", 0) : 0f,
+                            Speed = hasParams ? (float)J.Num(ctx, pars, "speed", 0) : 0f,
                             Tags = J.StrArray(ctx, e, "tags", optional: true),
                         };
                         if (behaviour == BuildingBehaviour.Spikes && def.DamagePerSecond <= 0f) ctx.Error($"'{id}': spikes need params.damagePerSecond > 0");
                         if (behaviour != BuildingBehaviour.Spikes && def.DamagePerSecond != 0f) ctx.Error($"'{id}': only spikes do damage (params.damagePerSecond)");
                         if (behaviour == BuildingBehaviour.Alarm && (def.WarningBonusSeconds <= 0f || def.RevealRadius <= 0f)) ctx.Error($"'{id}': an alarm needs params.warningBonusSeconds > 0 and params.revealRadius > 0");
                         if (behaviour != BuildingBehaviour.Alarm && (def.WarningBonusSeconds != 0f || def.RevealRadius != 0f)) ctx.Error($"'{id}': only an alarm warns and reveals (params.warningBonusSeconds, params.revealRadius)");
+                        if (behaviour == BuildingBehaviour.Belt && (def.Speed <= 0f || def.Rotations != 4)) ctx.Error($"'{id}': a belt needs params.speed > 0 and 4 rotations");
+                        if (behaviour != BuildingBehaviour.Belt && def.Speed != 0f) ctx.Error($"'{id}': only a belt has params.speed");
                         if (def.Rotations != 1 && def.Rotations != 2 && def.Rotations != 4) ctx.Error($"'{id}': rotations must be 1, 2 or 4");
                         // The wire carries a construct's HP in 16 bits.
                         if (def.Hp < 1 || def.Hp > ushort.MaxValue) ctx.Error($"'{id}': hp must be in 1..{ushort.MaxValue}");

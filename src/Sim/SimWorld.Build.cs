@@ -21,27 +21,63 @@ namespace PerformativeMail.Sim
 
         private OpResult PlaceConstructOp(Player player, in SimRequest r)
         {
+            var verdict = CheckPlace(player, r, out var def);
+            return verdict != OpResult.Ok ? verdict : PlaceOne(player, def!, r.X, r.Y, r.Count);
+        }
+
+        /// <summary>
+        /// Drag placement (doc 04 §1.1): one request for a straight line, each tile judged by
+        /// itself. What can be built is built, from the start of the line on, until the materials
+        /// run out; Ok if one tile or more was, else why the first could not be.
+        /// </summary>
+        private OpResult PlaceLineOp(Player player, in SimRequest r)
+        {
+            var verdict = CheckPlace(player, r, out var def);
+            if (verdict != OpResult.Ok) return verdict;
+            int x1 = (int)(r.ToContainer & 0xFF), z1 = (int)((r.ToContainer >> 8) & 0xFF);
+            if (!BuildRules.LineTiles(r.X, r.Y, x1, z1, _lineScratch)) return OpResult.BadRequest;
+            OpResult first = OpResult.Ok;
+            int built = 0;
+            foreach (var (tx, tz) in _lineScratch)
+            {
+                var one = PlaceOne(player, def!, tx, tz, r.Count);
+                if (one == OpResult.Ok) built++;
+                else if (built == 0 && first == OpResult.Ok) first = one;
+                if (one == OpResult.MissingMaterials) break;
+            }
+            return built > 0 ? OpResult.Ok : first;
+        }
+
+        private readonly System.Collections.Generic.List<(int, int)> _lineScratch = new System.Collections.Generic.List<(int, int)>();
+
+        private OpResult CheckPlace(Player player, in SimRequest r, out BuildingDef? def)
+        {
+            def = null;
             if (player.Dead) return OpResult.Dead;
             if (!BuildRules.IsOpen(Run.Phase)) return OpResult.WrongPhase;
             if (r.DestId >= Content.Buildings.Count) return OpResult.BadRequest;
-            var def = Content.Buildings[r.DestId];
-            var recipe = def.Recipe;
+            def = Content.Buildings[r.DestId];
             if (r.Count >= def.Rotations) return OpResult.BadRequest;
-            int tx = r.X, tz = r.Y;
-            var verdict = BuildRules.CheckRecipe(recipe, Run.Shift, recipe.Blueprint == null || _shopOwned.Contains(recipe.Blueprint));
-            if (verdict != OpResult.Ok) return verdict;
-            verdict = BuildRules.CheckTile(Map, Constructs, tx, tz);
+            var recipe = def.Recipe;
+            return BuildRules.CheckRecipe(recipe, Run.Shift, recipe.Blueprint == null || _shopOwned.Contains(recipe.Blueprint));
+        }
+
+        private OpResult PlaceOne(Player player, BuildingDef def, int tx, int tz, int rotation)
+        {
+            var recipe = def.Recipe;
+            var verdict = BuildRules.CheckTile(Map, Constructs, tx, tz);
             if (verdict != OpResult.Ok) return verdict;
             float cx = BuildRules.TileCentre(tx), cz = BuildRules.TileCentre(tz);
             if (!player.WasWithin(cx, cz, _serverBuildRange, _rewindTicks)) return OpResult.OutOfRange;
-            if (TileOccupied(tx, tz)) return OpResult.Occupied;
+            // What lies flat is laid under the feet.
+            if (def.Solid && TileOccupied(tx, tz)) return OpResult.Occupied;
             if (!BuildRules.HasMaterials(recipe, player.Hotbar, player.Inventory)) return OpResult.MissingMaterials;
 
             foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, input.Count);
             CommitContainer(player.Inventory.Id);
             CommitContainer(player.Hotbar.Id);
             uint containerId = def.Container != null ? CreateContainer(def.Container.Id, EntityId.None, cx, cz).Container.Id : 0;
-            var built = Constructs.Add(def, tx, tz, r.Count, def.Hp, containerId);
+            var built = Constructs.Add(def, tx, tz, rotation, def.Hp, containerId);
             Events.Add(new ConstructPlacedEvent
             {
                 Player = player.Id, Building = def.Index, X = (byte)tx, Y = (byte)tz, Rotation = built.Rotation, Hp = (ushort)built.Hp, ContainerId = containerId,
@@ -167,6 +203,7 @@ namespace PerformativeMail.Sim
         /// <summary>A run ends or begins: nothing built stands any more, and what was in the chests is gone with them.</summary>
         private void ClearConstructs()
         {
+            ClearBelts();
             if (Constructs.All.Count == 0) return;
             foreach (var built in Constructs.All) DropContainer(built);
             Constructs.Clear();

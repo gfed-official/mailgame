@@ -25,7 +25,7 @@ namespace PerformativeMail.Client
 
             internal EntityId Player;
             internal ushort DestId, Kind;
-            internal bool Delivery, Kill, Harvest;
+            internal bool Delivery, Kill, Harvest, Build;
             internal int Count, Amount;
         }
 
@@ -128,8 +128,20 @@ namespace PerformativeMail.Client
                     Add($"You got off the {parked.Def.Name}");
                     break;
                 case ConstructPlacedEvent e when e.Building < world.Content.Buildings.Count:
-                    Add(HudText.Built(world, e.Player, world.Content.Buildings[e.Building]));
+                {
+                    // A drag line is many in a row: one line, "You built 5 Conveyor Belts".
+                    var last = _entries.Count > 0 ? _entries[_entries.Count - 1] : null;
+                    if (last != null && last.Build && last.Player == e.Player && last.Kind == e.Building && last.Age < 1.0)
+                    {
+                        last.Count++;
+                        last.Age = 0;
+                        last.Text = HudText.Built(world, e.Player, world.Content.Buildings[e.Building], last.Count);
+                        Revision++;
+                        break;
+                    }
+                    Push(new Entry { Text = HudText.Built(world, e.Player, world.Content.Buildings[e.Building]), Build = true, Player = e.Player, Kind = e.Building, Count = 1 });
                     break;
+                }
                 // Cleared away with the run, nobody's doing: not worth a line.
                 case ConstructRemovedEvent e when world.LastRemoved != null && (e.Destroyed || !e.Player.IsNone):
                     Add(HudText.Unbuilt(world, e.Player, world.LastRemoved.Def, e.Destroyed), bad: e.Destroyed);
@@ -213,7 +225,7 @@ namespace PerformativeMail.Client
         }
 
         private static string Who(ClientWorld world, EntityId player) =>
-            player == world.LocalId ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            player.IsNone ? "A belt" : player == world.LocalId ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
 
         /// <summary>A raid is many kills in a row: one player's run of one kind of enemy is one line.</summary>
         private void AddKill(ClientWorld world, EnemyDiedEvent e)

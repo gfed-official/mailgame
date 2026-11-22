@@ -850,7 +850,7 @@ namespace PerformativeMail.Client
             p.Chest != null ? ContainerTitle(p.Chest.Container) : p.Built?.Def.Container != null ? ContainerTitle(p.Built.Def.Container) : "Chest";
 
         /// <summary>The keys of Build mode, over the hotbar while it is up.</summary>
-        public const string BuildKeys = "[LMB] build   [R] turn   [hold RMB] take down   [Q] pick   [B] done";
+        public const string BuildKeys = "[LMB] build, drag for a line   [R] turn   [hold RMB] take down   [Q] pick   [B] done";
 
         /// <summary>A recipe on the bar: "[1] Wooden Wall · Log x3".</summary>
         public static string RecipeCard(RecipeDef recipe, int key) =>
@@ -866,6 +866,14 @@ namespace PerformativeMail.Client
                 if (n > 0) parts.Add($"{input.Item.Name} {Count(n)}");
             }
             return parts.Count == 0 ? "nothing" : string.Join(", ", parts);
+        }
+
+        /// <summary>"Plank x5, Iron Ingot x5": what so many of a recipe take.</summary>
+        public static string Times(IReadOnlyList<RecipeInput> inputs, int times)
+        {
+            var parts = new List<string>();
+            foreach (var input in inputs) parts.Add($"{input.Item.Name} {Count(input.Count * times)}");
+            return string.Join(", ", parts);
         }
 
         /// <summary>"Missing 2 Log": what the pockets lack of a recipe.</summary>
@@ -908,6 +916,20 @@ namespace PerformativeMail.Client
             if (recipe == null) return "";
             switch (g.Aim)
             {
+                case BuildAim.Place when g.Line != null && g.Line.Count > 1:
+                {
+                    // Doc 04 §1.1: a drag line, laid when the button is let go.
+                    int ok = g.LineOk, n = g.Line.Count;
+                    string name = recipe.Building.Name + (ok == 1 ? "" : "s");
+                    if (ok == 0)
+                    {
+                        tone = PromptTone.Mismatch;
+                        return $"{recipe.Building.Name}   ·   {PlaceReason(world, recipe, g.Line[0].State)}";
+                    }
+                    tone = PromptTone.Match;
+                    string of = ok == n ? "" : $" of {n.ToString(CultureInfo.InvariantCulture)}";
+                    return $"Lay {ok.ToString(CultureInfo.InvariantCulture)}{of} {name}   ·   {Times(recipe.Inputs, ok)}   [let go]";
+                }
                 case BuildAim.Place:
                     if (g.State == OpResult.Ok)
                     {
@@ -1061,11 +1083,11 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>The event feed's line for what was built.</summary>
-        public static string Built(ClientWorld world, EntityId player, BuildingDef def)
+        public static string Built(ClientWorld world, EntityId player, BuildingDef def, int count = 1)
         {
             bool me = player == world.LocalId;
             string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
-            return $"{who} built {WithArticle(def.Name)}";
+            return count == 1 ? $"{who} built {WithArticle(def.Name)}" : $"{who} built {count.ToString(CultureInfo.InvariantCulture)} {def.Name}s";
         }
 
         /// <summary>The event feed's line for what is gone: taken down, or broken by the raiders.</summary>

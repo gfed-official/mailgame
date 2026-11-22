@@ -49,6 +49,15 @@ namespace PerformativeMail.Sim
         SetWorld = 19,
         /// <summary>The Draft, before choosing: three new cards of the player's own (doc 01 §2.5 "one free reroll per player per run").</summary>
         Reroll = 20,
+        /// <summary>
+        /// Prep or Delivery: a line of ContentDb.Buildings[<see cref="SimRequest.DestId"/>] (doc 04
+        /// §1.1 drag placement) from (<see cref="SimRequest.X"/>, <see cref="SimRequest.Y"/>) to the
+        /// tile packed in <see cref="SimRequest.ToContainer"/> (x | y &lt;&lt; 8) along a row or a column,
+        /// each turned <see cref="SimRequest.Count"/> quarter turns. Every tile is judged by itself.
+        /// </summary>
+        PlaceLine = 21,
+        /// <summary>A client's belt segment headed at (<see cref="SimRequest.X"/>, <see cref="SimRequest.Y"/>) did not match the server's checksum: send it whole.</summary>
+        BeltResync = 22,
     }
 
     /// <summary>
@@ -143,6 +152,16 @@ namespace PerformativeMail.Sim
 
         public static SimRequest SetKit(uint reqId, int kit) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetKit, Count = (ushort)kit };
+
+        public static SimRequest PlaceLine(uint reqId, int building, int x0, int z0, int x1, int z1, int rotation) =>
+            new SimRequest
+            {
+                RequestId = reqId, Kind = RequestKind.PlaceLine, DestId = (ushort)building, X = (byte)x0, Y = (byte)z0,
+                ToContainer = (uint)(x1 & 0xFF) | (uint)(z1 & 0xFF) << 8, Count = (ushort)rotation,
+            };
+
+        public static SimRequest BeltResync(uint reqId, int headX, int headZ) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.BeltResync, X = (byte)headX, Y = (byte)headZ };
 
         public static SimRequest RemoveConstruct(uint reqId, int tx, int tz) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (byte)tx, Y = (byte)tz };

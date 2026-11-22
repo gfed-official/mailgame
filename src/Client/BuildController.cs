@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
@@ -32,6 +33,23 @@ namespace PerformativeMail.Client
         public Construct? Target;
         /// <summary>Construct: 0..1 of the hold that takes it down.</summary>
         public float HoldProgress;
+        /// <summary>
+        /// Place, while a drag is held (doc 04 §1.1): the tiles of the line from where it began to
+        /// the one under the crosshair, and what each would come to; <see cref="Rotation"/> is the
+        /// line's. Null with no drag under way.
+        /// </summary>
+        public List<(int Tx, int Tz, OpResult State)>? Line;
+
+        /// <summary>Tiles of the line that would be built.</summary>
+        public int LineOk
+        {
+            get
+            {
+                int n = 0;
+                if (Line != null) foreach (var t in Line) if (t.State == OpResult.Ok) n++;
+                return n;
+            }
+        }
     }
 
     /// <summary>
@@ -59,6 +77,10 @@ namespace PerformativeMail.Client
         /// </summary>
         private Construct? _refusedTarget;
         private uint _removing;
+        /// <summary>A drag line under way: the tile it began on.</summary>
+        private bool _dragging;
+        private int _dragX, _dragZ;
+        private readonly List<(int, int, OpResult)> _line = new List<(int, int, OpResult)>();
 
         public bool Active { get; private set; }
         public int RecipeIndex { get; private set; }
@@ -115,6 +137,7 @@ namespace PerformativeMail.Client
         public void Leave()
         {
             Active = false;
+            _dragging = false;
             Ghost = default;
             _hold = 0;
             _holdTarget = null;
@@ -157,9 +180,11 @@ namespace PerformativeMail.Client
 
         /// <summary>
         /// Call once per frame. <paramref name="placePressed"/> is the edge of the attack button,
-        /// <paramref name="removeHeld"/> whether the alt button is down; neither counts under a panel.
+        /// <paramref name="placeHeld"/> whether it is still down (a drag line for belts and walls,
+        /// laid when it is let go), <paramref name="removeHeld"/> whether the alt button is down;
+        /// none counts under a panel.
         /// </summary>
-        public void Update(double dt, bool placePressed, bool removeHeld)
+        public void Update(double dt, bool placePressed, bool removeHeld, bool placeHeld = false)
         {
             var world = _client.World;
             if (!Active) return;
@@ -173,13 +198,17 @@ namespace PerformativeMail.Client
             var ghost = new BuildGhost { Recipe = recipe, Rotation = Rotation % turns };
             if (world.Paused)
             {
+                _dragging = false;
                 Ghost = ghost;
                 return;
             }
             Aim(world, ref ghost);
+            // A drag stays on the ground it began on, whatever the crosshair passes over.
+            if (_dragging && ghost.Aim == BuildAim.Construct) AimGround(world, ref ghost);
 
             if (ghost.Aim == BuildAim.Construct)
             {
+                _dragging = false;
                 ghost.State = world.RemoveState(ghost.Target!);
                 if (_holdTarget != ghost.Target) _hold = 0;
                 _holdTarget = ghost.Target;
@@ -204,11 +233,72 @@ namespace PerformativeMail.Client
                 if (ghost.Aim == BuildAim.Place)
                 {
                     ghost.State = world.PlaceState(recipe, ghost.Tx, ghost.Tz);
-                    if (placePressed && ghost.State == OpResult.Ok && _awaiting == 0)
+                    if (recipe.Building.Drags) Drag(world, recipe, ref ghost, placePressed, placeHeld);
+                    else if (placePressed && ghost.State == OpResult.Ok && _awaiting == 0)
                         _awaiting = _client.PlaceConstruct(recipe, ghost.Tx, ghost.Tz, ghost.Rotation);
                 }
+                else _dragging = false;
             }
             Ghost = ghost;
+        }
+
+        /// <summary>
+        /// Doc 04 §1.1 drag placement: the press begins the line on the tile under the crosshair, it
+        /// runs along the row or the column the crosshair is further along, and letting go lays it —
+        /// one PlaceLine request, a belt turned the way the line was drawn, a wall along it. A press
+        /// let go on the tile it began on builds that one tile, as for anything else.
+        /// </summary>
+        private void Drag(ClientWorld world, RecipeDef recipe, ref BuildGhost ghost, bool pressed, bool held)
+        {
+            if (pressed && !_dragging)
+            {
+                _dragging = true;
+                _dragX = ghost.Tx;
+                _dragZ = ghost.Tz;
+            }
+            if (!_dragging) return;
+            int dx = ghost.Tx - _dragX, dz = ghost.Tz - _dragZ;
+            int ex = _dragX, ez = _dragZ;
+            if (Math.Abs(dx) >= Math.Abs(dz)) ex += Math.Clamp(dx, -(BuildRules.MaxLine - 1), BuildRules.MaxLine - 1);
+            else ez += Math.Clamp(dz, -(BuildRules.MaxLine - 1), BuildRules.MaxLine - 1);
+            bool single = ex == _dragX && ez == _dragZ;
+            int rotation = ghost.Rotation;
+            if (!single)
+            {
+                int dir = ex > _dragX ? 0 : ez > _dragZ ? 1 : ex < _dragX ? 2 : 3;
+                // A belt runs the way it was drawn; a wall stands along the line.
+                rotation = recipe.Building.Behaviour == BuildingBehaviour.Belt ? dir : (dir & 1) % Math.Max(1, recipe.Building.Rotations);
+            }
+            _line.Clear();
+            world.LineStates(recipe, _dragX, _dragZ, ex, ez, _line);
+            ghost.Line = new List<(int, int, OpResult)>(_line);
+            ghost.Rotation = rotation;
+            ghost.Tx = _dragX;
+            ghost.Tz = _dragZ;
+            ghost.State = _line.Count > 0 ? _line[0].Item3 : OpResult.BadRequest;
+            if (held) return;
+            _dragging = false;
+            if (_awaiting != 0) return;
+            if (single)
+            {
+                if (ghost.State == OpResult.Ok) _awaiting = _client.PlaceConstruct(recipe, _dragX, _dragZ, rotation);
+            }
+            else _awaiting = _client.PlaceLine(recipe, _dragX, _dragZ, ex, ez, rotation);
+            Rotation = rotation;
+        }
+
+        /// <summary>The tile of the ground the view ray comes down on, whatever stands on it.</summary>
+        private void AimGround(ClientWorld world, ref BuildGhost ghost)
+        {
+            var ray = ViewRay.FromPlayer(world.Local, _client.Input.YawRadians, _client.Input.PitchRadians);
+            float ground = ray.DirY < -1e-3f ? (world.Local.Y + SimConstants.EyeHeight) / -ray.DirY : float.MaxValue;
+            ghost.Target = null;
+            ghost.Aim = BuildAim.None;
+            if (ground > MaxAim * 1.5f) return;
+            ghost.Aim = BuildAim.Place;
+            ghost.Tx = (int)MathF.Floor((ray.X + ray.DirX * ground) / SimConstants.TileSize);
+            ghost.Tz = (int)MathF.Floor((ray.Z + ray.DirZ * ground) / SimConstants.TileSize);
+            if (!world.Map.InBounds(ghost.Tx, ghost.Tz)) ghost.Aim = BuildAim.None;
         }
 
         /// <summary>The construct the view ray meets first, else the tile of the ground it comes down on.</summary>

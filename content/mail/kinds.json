@@ -15,6 +15,6 @@
     "carryByHand": true, "beltLanes": 1, "beltLength": 0.5, "deadlineOffsetShifts": 0,
     "acceptedBy": ["house", "apartment"], "complaintOnMisdelivery": 16, "unlockShift": 2 },
   { "id": "cargo", "name": "Cargo", "grid": [5, 8], "maxStack": 1, "baseValue": 600, "weightClass": "bulk",
-    "carryByHand": false, "beltLanes": 2, "beltLength": 0.5, "deadlineOffsetShifts": 1,
+    "carryByHand": false, "beltLanes": 2, "beltLength": 2.0, "deadlineOffsetShifts": 1,
     "acceptedBy": ["business_dock"], "complaintOnMisdelivery": 20, "unlockShift": 3 }
 ]

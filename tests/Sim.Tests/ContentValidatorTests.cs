@@ -35,7 +35,7 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal(Program.ExitOk, Run(_dir, "content"));
             Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 11 containers, 15 items, 1 maps", _out.ToString());
-            Assert.Contains("12 shop entries, 6 resource nodes, 6 buildings, 1 vehicles, 3 kits;", _out.ToString());
+            Assert.Contains("12 shop entries, 6 resource nodes, 7 buildings, 1 vehicles, 3 kits;", _out.ToString());
             Assert.Contains($"content hash {TestContent.Db.ContentHash:x8}", _out.ToString());
             Assert.Equal("", _err.ToString());
         }
@@ -141,7 +141,7 @@ namespace PerformativeMail.Sim.Tests
             File.WriteAllText(Content("buildings/buildings.json"), buildings.Substring(0, end)
                 .Replace("\"rotations\": 2, \"hp\": 300", "\"rotations\": 3, \"hp\": 70000")
                 .Replace("\"radius\": 0.45", "\"radius\": 0.8")
-                + ", { \"id\": \"belt\", \"name\": \"Belt\", \"footprint\": [1, 1], \"hp\": 50, \"behaviour\": \"belt\", \"params\": { \"radius\": 0.2, \"height\": 0.2 }, \"recipe\": \"recipe_belt\" }"
+                + ", { \"id\": \"belt\", \"name\": \"Belt\", \"footprint\": [1, 1], \"hp\": 50, \"behaviour\": \"sorter\", \"params\": { \"radius\": 0.2, \"height\": 0.2 }, \"recipe\": \"recipe_belt\" }"
                 + ", { \"id\": \"barn\", \"name\": \"Barn\", \"footprint\": [2, 2], \"hp\": 50, \"placement\": { \"onStreet\": true }, \"behaviour\": \"wall\", \"container\": \"chest\","
                 + " \"params\": { \"radius\": 0.2, \"height\": 2 }, \"recipe\": \"recipe_barn\" }]");
             File.WriteAllText(Content("recipes/recipes.json"),
@@ -155,7 +155,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("'wall_wood': rotations must be 1, 2 or 4", err);
             Assert.Contains("'wall_wood': hp must be in 1..65535", err);
             Assert.Contains("'chest': params.radius must be in (0, 0.5]", err);
-            Assert.Contains("'belt': behaviour 'belt' is not built yet", err);
+            Assert.Contains("'belt': behaviour 'sorter' is not built yet", err);
             Assert.Contains("'barn': only a footprint of [1, 1] is built yet", err);
             Assert.Contains("'barn': nothing is built on a street yet", err);
             Assert.Contains("'barn': only a building whose behaviour is 'container' has a container", err);

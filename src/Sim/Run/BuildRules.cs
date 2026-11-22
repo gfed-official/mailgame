@@ -42,6 +42,24 @@ namespace PerformativeMail.Sim.Run
             return true;
         }
 
+        /// <summary>The longest line one drag lays (doc 04 §1.1), in tiles.</summary>
+        public const int MaxLine = 16;
+
+        /// <summary>
+        /// The tiles of a drag line from the first to the last, which share a row or a column;
+        /// false (and no tiles) for any other pair or a line longer than <see cref="MaxLine"/>.
+        /// </summary>
+        public static bool LineTiles(int x0, int z0, int x1, int z1, System.Collections.Generic.List<(int, int)> tiles)
+        {
+            tiles.Clear();
+            if (x0 != x1 && z0 != z1) return false;
+            int n = Math.Max(Math.Abs(x1 - x0), Math.Abs(z1 - z0)) + 1;
+            if (n > MaxLine) return false;
+            int dx = Math.Sign(x1 - x0), dz = Math.Sign(z1 - z0);
+            for (int i = 0; i < n; i++) tiles.Add((x0 + dx * i, z0 + dz * i));
+            return true;
+        }
+
         public static float TileCentre(int t) => (t + 0.5f) * SimConstants.TileSize;
 
         /// <summary>

@@ -199,7 +199,7 @@ namespace PerformativeMail.Client.InputHandling
             _deliverAllQueued = false;
             _interactTapped = false;
             bool live = !UiOpen && (Captured || DisplayServer.GetName() == "headless");
-            _build?.Update(delta, _placeQueued && live, live && Godot.Input.IsActionPressed(InputActions.AltAttack));
+            _build?.Update(delta, _placeQueued && live, live && Godot.Input.IsActionPressed(InputActions.AltAttack), live && Godot.Input.IsActionPressed(InputActions.Attack));
             _placeQueued = false;
         }
 

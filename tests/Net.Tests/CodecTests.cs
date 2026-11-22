@@ -269,6 +269,11 @@ namespace PerformativeMail.Net.Tests
                 new VehiclesClearedEvent(),
                 new WorldChangedEvent { MapId = "small_island", Seed = 0xC0FFEE, MapHash = 0x1122334455667788UL, ChestContainerIds = { 41, 42 } },
                 new KitGivenEvent { Player = new EntityId(EntityClass.Player, 2), Kit = 1, Team = true },
+                new BeltStateEvent { X = 8, Y = 12, Tick = 901, Items = { new BeltItemInfo { MailId = 77, Kind = 5, AddressKey = 0x01020003, Unit = 2, Lane = 2, Pos = 3.25f } } },
+                new BeltItemAddedEvent { X = 7, Y = 9, Item = new BeltItemInfo { MailId = 78, Kind = 1, AddressKey = 0x01010004, Lane = 1, Pos = 0f } },
+                new BeltItemMovedEvent { MailId = 78, X = 11, Y = 12, Lane = 0 },
+                new BeltItemRemovedEvent { MailId = 77 },
+                new BeltChecksumEvent { X = 8, Y = 12, Count = 3, Hash = 0xDEADBEEF },
             };
             Assert.Equal(Enum.GetValues<EventType>().Length, events.Count);
 
@@ -278,10 +283,21 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(events.Count, back.Count);
             for (int i = 0; i < events.Count; i++) Assert.IsType(events[i].GetType(), back[i]);
 
-            var changed = (WorldChangedEvent)back[^2];
+            var changed = (WorldChangedEvent)back[^7];
             Assert.Equal(("small_island", 0xC0FFEEu, 0x1122334455667788UL), (changed.MapId, changed.Seed, changed.MapHash));
             Assert.Equal(new uint[] { 41, 42 }, changed.ChestContainerIds);
-            var kit = (KitGivenEvent)back[^1];
+            var kit = (KitGivenEvent)back[^6];
+            var belt = (BeltStateEvent)back[^5];
+            Assert.Equal((8, 12, 901u), (belt.X, belt.Y, belt.Tick));
+            var info = belt.Items.Single();
+            Assert.Equal((77u, (ushort)5, 0x01020003u, (byte)2, (byte)2, 3.25f), (info.MailId, info.Kind, info.AddressKey, info.Unit, info.Lane, info.Pos));
+            var onBelt = (BeltItemAddedEvent)back[^4];
+            Assert.Equal((7, 9, 78u, (byte)1), (onBelt.X, onBelt.Y, onBelt.Item.MailId, onBelt.Item.Lane));
+            var moved = (BeltItemMovedEvent)back[^3];
+            Assert.Equal((78u, 11, 12, (byte)0), (moved.MailId, moved.X, moved.Y, moved.Lane));
+            Assert.Equal(77u, ((BeltItemRemovedEvent)back[^2]).MailId);
+            var sum = (BeltChecksumEvent)back[^1];
+            Assert.Equal((8, 12, (ushort)3, 0xDEADBEEFu), (sum.X, sum.Y, sum.Count, sum.Hash));
             Assert.Equal((new EntityId(EntityClass.Player, 2), (byte)1, true), (kit.Player, kit.Kit, kit.Team));
             var joined = (PlayerJoinedEvent)back[0];
             Assert.Equal(("Ada", (byte)2, player), (joined.Name, joined.Slot, joined.Player));

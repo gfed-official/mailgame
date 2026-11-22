@@ -249,6 +249,8 @@ namespace PerformativeMail.Sim.Content
         /// raiders' way in it rings the raid in earlier, and it marks the raiders near it.
         /// </summary>
         Alarm = 4,
+        /// <summary>A conveyor belt (doc 04 §2.1): lies flat, carries mail one way at its speed.</summary>
+        Belt = 5,
     }
 
     /// <summary>
@@ -280,11 +282,15 @@ namespace PerformativeMail.Sim.Content
         public float WarningBonusSeconds { get; init; }
         /// <summary>An alarm: how far round it the raid is in range, and the raiders are marked.</summary>
         public float RevealRadius { get; init; }
+        /// <summary>A belt: metres a second (doc 11: Mk1 2, Mk2 4, Mk3 6).</summary>
+        public float Speed { get; init; }
+        /// <summary>Laid in a line by dragging (doc 04 §1.1: belts, pipes, walls).</summary>
+        public bool Drags => Behaviour == BuildingBehaviour.Belt || Behaviour == BuildingBehaviour.Wall;
 
         /// <summary>Walls and gates stand in a line and join each other; a chest and spikes stand alone.</summary>
         public bool Joins => Behaviour == BuildingBehaviour.Wall || Behaviour == BuildingBehaviour.Gate;
         /// <summary>Whether it stands in anybody's way at all: spikes are walked over, and the raiders' paths go across them.</summary>
-        public bool Solid => Behaviour != BuildingBehaviour.Spikes;
+        public bool Solid => Behaviour != BuildingBehaviour.Spikes && Behaviour != BuildingBehaviour.Belt;
     }
 
     /// <summary>One line of a recipe: so many of an item.</summary>

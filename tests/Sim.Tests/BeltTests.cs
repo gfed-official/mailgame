@@ -1,0 +1,272 @@
+using System;
+using System.Linq;
+using PerformativeMail.Sim.Automation;
+using PerformativeMail.Sim.Content;
+using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Mail;
+using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Run;
+using PerformativeMail.Sim.World;
+using Xunit;
+
+namespace PerformativeMail.Sim.Tests
+{
+    /// <summary>
+    /// Conveyor belts (doc 04 §2.1) and the drag line that lays them (doc 04 §1.1): compiled into
+    /// segments, two lanes of mail 0.5 m apart at 2 m/s, handed on from segment to segment, into
+    /// a mailbox at its insert rate by the rules of a hand, and back to the Intake when the belt
+    /// under them is taken down.
+    /// </summary>
+    public class BeltTests
+    {
+        private const int Tps = 30;
+        /// <summary>The verge north of Larch Lane, west of the mailbox of number 1 (tile 12, 12).</summary>
+        private const int Row = 12, MailboxTx = 12;
+
+        private uint _nextRequest = 1;
+        private uint _nextMail = 970000;
+
+        private static ContentDb Db => TestContent.Db;
+        private static BuildingDef Belt => Db.Building("belt_mk1");
+
+        private OpResult Request(SimWorld world, Player p, SimRequest request)
+        {
+            world.Events.Clear();
+            request.RequestId = _nextRequest++;
+            world.Submit(p.Id, request);
+            world.Step();
+            return world.Events.OfType<RequestResultEvent>().Last(e => e.RequestId == request.RequestId).Result;
+        }
+
+        private static float Centre(int t) => BuildRules.TileCentre(t);
+
+        private (SimWorld World, Player Host) InPrep(int planks = 20, int ingots = 20)
+        {
+            var world = new SimWorld(Db, new SimSettings { Seed = 7, Raids = false, Draft = false });
+            var host = world.AddPlayer("host")!;
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal(RunPhase.Prep, world.Run.Phase);
+            SimDriver.Teleport(host, Centre(9), Centre(Row) + 1f);
+            if (planks > 0) Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("plank"), planks)));
+            if (ingots > 0) Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("iron_ingot"), ingots)));
+            return (world, host);
+        }
+
+        private OpResult Line(SimWorld world, Player p, int x0, int z0, int x1, int z1, int rotation) =>
+            Request(world, p, SimRequest.PlaceLine(0, Belt.Index, x0, z0, x1, z1, rotation));
+
+        private static int Count(GridContainer c, string item)
+        {
+            ushort index = Db.Item(item).Index;
+            return c.Entries.Where(e => e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == index).Sum(e => e.Stack.Count);
+        }
+
+        private MailItem Letter(SimWorld world, DestinationDef to) => TestContent.Mail("letter", to.Address, _nextMail++, world.Run.Shift);
+
+        private static DestinationDef NumberOne(SimWorld world) =>
+            world.Map.Destinations.Single(d => d.Address.Number == 1);
+
+        [Fact]
+        public void TheConveyorBelt_IsContent_FlatFourWaysTwoMetresASecond_APlankAndAnIngotATile()
+        {
+            Assert.Equal((BuildingBehaviour.Belt, 4, 80, 2f), (Belt.Behaviour, Belt.Rotations, Belt.Hp, Belt.Speed));
+            Assert.False(Belt.Solid);
+            Assert.True(Belt.Drags && Db.Building("wall_wood").Drags && !Db.Building("chest").Drags);
+            Assert.Equal(new[] { ("plank", 1), ("iron_ingot", 1) }, Belt.Recipe.Inputs.Select(i => (i.Item.Id, i.Count)));
+            Assert.Equal((2, 2.0f), (Db.MailKind("cargo").BeltLanes, Db.MailKind("cargo").BeltLength));
+        }
+
+        [Fact]
+        public void ADragLine_IsOneRequest_EveryTileJudged_AndStopsWhenTheMaterialsRunOut()
+        {
+            var (world, host) = InPrep(planks: 4);
+            Assert.Equal(OpResult.BadRequest, Line(world, host, 6, Row, 8, Row + 1, 0));
+            Assert.Equal(OpResult.Ok, Line(world, host, 6, Row, 11, Row, 0));
+            // Four planks: four belts, from the start of the line on.
+            Assert.Equal(4, world.Events.OfType<ConstructPlacedEvent>().Count());
+            Assert.All(Enumerable.Range(6, 4), x => Assert.Equal(Belt, world.Constructs.At(x, Row)!.Def));
+            Assert.Null(world.Constructs.At(10, Row));
+            Assert.Equal((0, 16), (Count(host.Inventory, "plank"), Count(host.Inventory, "iron_ingot")));
+            Assert.Equal(OpResult.MissingMaterials, Line(world, host, 10, Row, 11, Row, 0));
+
+            // One segment, head at the west end, facing east.
+            world.Step();
+            var s = Assert.Single(world.Belts.Segments);
+            Assert.Equal((6, Row, 4, 8f), (s.Head % world.Map.Cols, s.Head / world.Map.Cols, s.Tiles.Count, s.Length));
+            Assert.Equal(BeltEndKind.None, s.End);
+            // Laid where the carrier stands: it lies flat.
+            SimDriver.Teleport(host, Centre(10), Centre(Row));
+            Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("plank"), 2)));
+            Assert.Equal(OpResult.Ok, Line(world, host, 10, Row, 11, Row, 0));
+            world.Step();
+            s = Assert.Single(world.Belts.Segments);
+            Assert.Equal(6, s.Tiles.Count);
+            Assert.Equal(BeltEndKind.Mailbox, s.End);
+            Assert.Equal(NumberOne(world).Id, s.DestId);
+        }
+
+        [Fact]
+        public void MailRides_TwoMetresASecond_HalfAMetreApart_InTwoLanes_AndWaitsAtAnOpenEnd()
+        {
+            var (world, host) = InPrep();
+            Assert.Equal(OpResult.Ok, Line(world, host, 6, Row, 9, Row, 0));
+            world.Step();
+            var s = world.Belts.Segments.Single();
+            var to = NumberOne(world);
+            Assert.True(world.Belts.TryInsert(s, Letter(world, to), out var first));
+            Assert.Equal(BeltNetwork.LaneLeft, first.Lane);
+            SimDriver.StepTicks(world, Tps);
+            Assert.InRange(s.Items[0].Pos, 1.9f, 2.1f);
+            // Room at the head again only once the one before is half a metre on.
+            Assert.True(world.Belts.TryInsert(s, Letter(world, to), out var second));
+            Assert.Equal(BeltNetwork.LaneRight, second.Lane);
+            for (int i = 0; i < 10 * Tps; i++)
+            {
+                world.Belts.TryInsert(s, Letter(world, to), out _);
+                world.Step();
+            }
+            // 8 m of belt: four tiles of four in each lane, all of them backed up at the end.
+            SimDriver.StepTicks(world, 5 * Tps);
+            Assert.Equal(32, s.Items.Count);
+            foreach (byte lane in new[] { BeltNetwork.LaneLeft, BeltNetwork.LaneRight })
+            {
+                var pos = s.Items.Where(it => it.Lane == lane).Select(it => it.Pos).ToArray();
+                Assert.Equal(16, pos.Length);
+                Assert.Equal(8f, pos[0], 3);
+                for (int i = 1; i < pos.Length; i++) Assert.Equal(0.5f, pos[i - 1] - pos[i], 3);
+            }
+            Assert.False(world.Belts.TryInsert(s, Letter(world, to), out _));
+        }
+
+        [Fact]
+        public void AtAMailbox_TheRightMailGoesIn_AtItsInsertRate_InDeliveryOnly_AndTheWrongMailWaits()
+        {
+            var (world, host) = InPrep();
+            Assert.Equal(OpResult.Ok, Line(world, host, 8, Row, 11, Row, 0));
+            world.Step();
+            var s = world.Belts.Segments.Single();
+            var to = NumberOne(world);
+            var other = world.Map.Destinations.First(d => d.Address.Number == 2);
+            Assert.True(world.Belts.TryInsert(s, Letter(world, to), out _));
+            SimDriver.StepTicks(world, 5 * Tps);
+            // In Prep the mailboxes are shut: it waits at the end.
+            Assert.Equal(8f, s.Items.Single().Pos, 3);
+
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+            int wallet = world.Economy.Wallet;
+            world.Events.Clear();
+            world.Step();
+            var paid = world.Events.OfType<DeliveredEvent>().Single();
+            Assert.Equal((to.Id, EntityId.None), (paid.DestId, paid.Player));
+            Assert.Equal(wallet + paid.Paid, world.Economy.Wallet);
+            Assert.Empty(s.Items);
+
+            // Wrong mail in the left lane stays at the end; the right lane goes on, at 2 a second.
+            world.Belts.TryInsert(s, Letter(world, other), out var wrong);
+            world.Belts.TryInsert(s, Letter(world, to), out var right1);
+            Assert.NotEqual(wrong.Lane, right1.Lane);
+            var delivered = new System.Collections.Generic.List<uint>();
+            for (int i = 0; i < 12 * Tps; i++)
+            {
+                if (i % 10 == 0) world.Belts.TryInsert(s, Letter(world, to), out _);
+                world.Events.Clear();
+                world.Step();
+                foreach (var d in world.Events.OfType<DeliveredEvent>()) delivered.Add(world.Tick);
+            }
+            Assert.True(delivered.Count >= 8, $"{delivered.Count} delivered: " + string.Join(" ", s.Items.Select(it => $"{it.Lane}@{it.Pos:0.00}{(it.Mail.Address == to.Address ? "" : "!")}")));
+            for (int i = 1; i < delivered.Count; i++) Assert.True(delivered[i] - delivered[i - 1] >= 15, "faster than the insert rate");
+            Assert.Contains(s.Items, it => it.Mail.Id == wrong.Mail.Id && it.Pos >= 7.99f);
+            Assert.Equal(0, world.Economy.ShiftMisdeliveries);
+        }
+
+        [Fact]
+        public void TwoLinesIntoOneTile_MakeThreeSegments_AndTheMailIsHandedOn()
+        {
+            var (world, host) = InPrep();
+            // West line east into (8, 12); a south-facing line from (8, 10) down to it: the tile has two feeders.
+            Assert.Equal(OpResult.Ok, Line(world, host, 5, Row, 7, Row, 0));
+            Assert.Equal(OpResult.Ok, Line(world, host, 8, Row - 2, 8, Row - 1, 1));
+            Assert.Equal(OpResult.Ok, Line(world, host, 8, Row, 11, Row, 0));
+            world.Step();
+            Assert.Equal(3, world.Belts.Segments.Count);
+            var merged = world.Belts.SegmentAt(8, Row)!;
+            Assert.Equal(8 + Row * world.Map.Cols, merged.Head);
+            Assert.Equal(BeltEndKind.Mailbox, merged.End);
+            var west = world.Belts.SegmentAt(5, Row)!;
+            var north = world.Belts.SegmentAt(8, Row - 2)!;
+            Assert.Same(merged, west.Next);
+            Assert.Same(merged, north.Next);
+
+            var to = NumberOne(world);
+            Assert.True(world.Belts.TryInsert(west, Letter(world, to), out var a));
+            Assert.True(world.Belts.TryInsert(north, Letter(world, to), out var b));
+            var moved = new System.Collections.Generic.List<BeltItemMovedEvent>();
+            for (int i = 0; i < 8 * Tps; i++)
+            {
+                world.Events.Clear();
+                world.Step();
+                moved.AddRange(world.Events.OfType<BeltItemMovedEvent>());
+            }
+            Assert.Equal(new[] { a.Mail.Id, b.Mail.Id }.OrderBy(x => x), moved.Select(m => m.MailId).OrderBy(x => x));
+            Assert.All(moved, m => Assert.Equal((8, Row), (m.X, m.Y)));
+            // Both came in by the left lane (the north line from the left side): one at the end, one behind it.
+            Assert.Equal(2, merged.Items.Count);
+            Assert.All(merged.Items, it => Assert.Equal(BeltNetwork.LaneLeft, it.Lane));
+            Assert.Equal(new[] { 8f, 7.5f }, merged.Items.Select(it => MathF.Round(it.Pos, 3)));
+            // Straight on, mail keeps its lane; from the left side, whatever its lane, it comes into the left one.
+            Assert.Equal(BeltNetwork.LaneRight, world.Belts.EntryLane(west, merged, BeltNetwork.LaneRight));
+            Assert.Equal(BeltNetwork.LaneLeft, world.Belts.EntryLane(north, merged, BeltNetwork.LaneRight));
+        }
+
+        [Fact]
+        public void TakingABeltDown_PutsTheMailOnIt_BackIntoTheIntake_AndTheRestKeepsItsPlace()
+        {
+            var (world, host) = InPrep();
+            Assert.Equal(OpResult.Ok, Line(world, host, 6, Row, 9, Row, 0));
+            world.Step();
+            var s = world.Belts.Segments.Single();
+            var to = NumberOne(world);
+            Assert.True(world.Belts.TryInsert(s, Letter(world, to), out var far));
+            SimDriver.StepTicks(world, 2 * Tps);
+            Assert.True(world.Belts.TryInsert(s, Letter(world, to), out var near));
+            SimDriver.StepTicks(world, 10);
+            int inIntake = world.Intake.Entries.Sum(e => e.Stack.Kind == StackKind.Mail ? e.Stack.Mail.Count : 0);
+
+            // The first belt goes, with the letter on it; the one 4 m on keeps going on what is left.
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.RemoveConstruct(0, 6, Row)));
+            Assert.Contains(world.Events.OfType<BeltItemRemovedEvent>(), e => e.MailId == near.Mail.Id);
+            Assert.Equal(inIntake + 1, world.Intake.Entries.Sum(e => e.Stack.Kind == StackKind.Mail ? e.Stack.Mail.Count : 0));
+            var rest = world.Belts.Segments.Single();
+            Assert.Equal(3, rest.Tiles.Count);
+            var kept = rest.Items.Single();
+            Assert.Equal(far.Mail.Id, kept.Mail.Id);
+            Assert.InRange(kept.Pos, 2.0f, 2.8f);
+            Assert.Contains(world.Events.OfType<BeltStateEvent>(), e => e.X == 7 && e.Y == Row && e.Items.Single().MailId == far.Mail.Id);
+        }
+
+        [Fact]
+        public void ALoopOfBelts_IsOneSegment_ThatFeedsItself()
+        {
+            var (world, host) = InPrep();
+            // A 2 × 2 ring: east, south, west, north.
+            Assert.Equal(OpResult.Ok, Line(world, host, 8, Row - 1, 8, Row - 1, 0));
+            Assert.Equal(OpResult.Ok, Line(world, host, 9, Row - 1, 9, Row - 1, 1));
+            Assert.Equal(OpResult.Ok, Line(world, host, 9, Row, 9, Row, 2));
+            Assert.Equal(OpResult.Ok, Line(world, host, 8, Row, 8, Row, 3));
+            world.Step();
+            var s = world.Belts.Segments.Single();
+            Assert.Same(s, s.Next);
+            Assert.Equal(8 + (Row - 1) * world.Map.Cols, s.Head);
+            Assert.True(world.Belts.TryInsert(s, Letter(world, NumberOne(world)), out var item));
+            SimDriver.StepTicks(world, 10 * Tps);
+            // Round and round: never lost, never stuck.
+            var now = s.Items.Single();
+            Assert.Equal(item.Mail.Id, now.Mail.Id);
+            float before = now.Pos;
+            SimDriver.StepTicks(world, 15);
+            Assert.NotEqual(before, s.Items.Single().Pos);
+        }
+    }
+}

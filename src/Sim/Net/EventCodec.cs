@@ -52,6 +52,11 @@ namespace PerformativeMail.Sim.Net
         VehiclesCleared = 42,
         KitGiven = 43,
         WorldChanged = 44,
+        BeltState = 45,
+        BeltItemAdded = 46,
+        BeltItemMoved = 47,
+        BeltItemRemoved = 48,
+        BeltChecksum = 49,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -234,6 +239,27 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case ConstructsClearedEvent _:
                     w.U8((byte)EventType.ConstructsCleared);
+                    break;
+                case BeltStateEvent e:
+                    w.U8((byte)EventType.BeltState);
+                    w.U8(e.X); w.U8(e.Y); w.U32(e.Tick); w.U16((ushort)e.Items.Count);
+                    foreach (var it in e.Items) WriteBeltItem(w, it);
+                    break;
+                case BeltItemAddedEvent e:
+                    w.U8((byte)EventType.BeltItemAdded);
+                    w.U8(e.X); w.U8(e.Y); WriteBeltItem(w, e.Item);
+                    break;
+                case BeltItemMovedEvent e:
+                    w.U8((byte)EventType.BeltItemMoved);
+                    w.U32(e.MailId); w.U8(e.X); w.U8(e.Y); w.U8(e.Lane);
+                    break;
+                case BeltItemRemovedEvent e:
+                    w.U8((byte)EventType.BeltItemRemoved);
+                    w.U32(e.MailId);
+                    break;
+                case BeltChecksumEvent e:
+                    w.U8((byte)EventType.BeltChecksum);
+                    w.U8(e.X); w.U8(e.Y); w.U16(e.Count); w.U32(e.Hash);
                     break;
                 case VehicleAddedEvent e:
                     w.U8((byte)EventType.VehicleAdded);
@@ -422,6 +448,21 @@ namespace PerformativeMail.Sim.Net
                     return new ConstructDamagedEvent { X = r.U8(), Y = r.U8(), Hp = r.U16() };
                 case EventType.ConstructsCleared:
                     return new ConstructsClearedEvent();
+                case EventType.BeltState:
+                {
+                    var e = new BeltStateEvent { X = r.U8(), Y = r.U8(), Tick = r.U32() };
+                    int n = r.U16();
+                    for (int i = 0; i < n; i++) e.Items.Add(ReadBeltItem(r));
+                    return e;
+                }
+                case EventType.BeltItemAdded:
+                    return new BeltItemAddedEvent { X = r.U8(), Y = r.U8(), Item = ReadBeltItem(r) };
+                case EventType.BeltItemMoved:
+                    return new BeltItemMovedEvent { MailId = r.U32(), X = r.U8(), Y = r.U8(), Lane = r.U8() };
+                case EventType.BeltItemRemoved:
+                    return new BeltItemRemovedEvent { MailId = r.U32() };
+                case EventType.BeltChecksum:
+                    return new BeltChecksumEvent { X = r.U8(), Y = r.U8(), Count = r.U16(), Hash = r.U32() };
                 case EventType.VehicleAdded:
                     return new VehicleAddedEvent
                     {
@@ -446,6 +487,14 @@ namespace PerformativeMail.Sim.Net
                     throw new NetFormatException($"unknown event type {(byte)type}");
             }
         }
+
+        private static void WriteBeltItem(NetWriter w, in BeltItemInfo it)
+        {
+            w.U32(it.MailId); w.U16(it.Kind); w.U32(it.AddressKey); w.U8(it.Unit); w.U8(it.Lane); w.F32(it.Pos);
+        }
+
+        private static BeltItemInfo ReadBeltItem(NetReader r) =>
+            new BeltItemInfo { MailId = r.U32(), Kind = r.U16(), AddressKey = r.U32(), Unit = r.U8(), Lane = r.U8(), Pos = r.F32() };
 
         private static void WriteLoot(NetWriter w, List<LootItem> items)
         {

@@ -1073,6 +1073,72 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
 
 Next in this order: the other blueprints and vehicles wait for belts, sorters and turrets (later milestones).
 
+### 4. M2 — Automation (doc 12 M2, doc 04), in the docs' order
+
+Doc 12's M2 "Systems" list, the parts of it in doc 04's order (§1 building, §2 item transport,
+§2.3–§2.6 splitters, sorters, inserters, storage, §3 vehicles, §3.3 ports). A box is ticked when
+the whole line exists; the sub-lines say which parts do.
+
+- [ ] Build mode with ghost validity, drag lines, deconstruct, pipette; construct registry and
+      placement validation; terrain flattening deltas
+      - [x] Ghost validity, deconstruct, pipette (M1, above)
+      - [x] **Drag lines** (doc 04 §1.1, doc 09 §2.7). For belts and walls (`BuildingDef.Drags`)
+            the attack button pressed on a tile begins a line, held it runs along the row or the
+            column the crosshair is further along (up to 16 tiles, `BuildRules.MaxLine`), and let
+            go it is laid: one `PlaceLine` request (protocol `m2.0`), every tile judged by itself
+            on the server, built from the start of the line on until the materials run out. A
+            belt faces the way the line was drawn, a wall stands along it; a press let go where it
+            began builds one tile as before. The ghost is every tile of the line, green or red
+            each (`ClientWorld.LineStates` does the server's sums: tiles past what the pockets
+            hold are "Missing"), the prompt "Lay 5 Conveyor Belts · Plank x5, Iron Ingot x5 [let
+            go]", the feed one line ("You built 5 Conveyor Belts"). `BeltTests`,
+            `BeltFlowTests` (the gesture through `BuildController`, a wall down a column)
+      - [ ] Terrain flattening deltas
+- [ ] Belt segments (compiled runs, two lanes, ramps, elevated), splitters, mergers; Intake
+      outfeed; endpoints into mailboxes, containers, vehicles
+      - [x] **Conveyor Belt Mk1** (doc 04 §2.1, doc 10 §2.1, doc 07 §8; design choice 94).
+            `belt_mk1` (behaviour `belt`, 80 HP, a Plank and an Iron Ingot, 2 m/s, four ways,
+            flat: walked over and laid under the feet). `Automation/BeltNetwork` compiles the
+            belts into **segments** — from a head with no single feeder behind it, tile after tile
+            while each is fed by the one before it alone (corners included), so a merge starts a
+            segment and a loop is one segment feeding itself — named by their head tile, so the
+            server and every client compiling the same tiles agree. **Two lanes**, 0.5 m apart
+            (Cargo takes both and 2 m: `kinds.json` beltLength 2.0), advanced in one pass a
+            segment, front first, each item up to the one ahead in its lane. **Endpoints**: the
+            next segment's head (straight on an item keeps its lane, from the side it takes the
+            lane of that side), a **mailbox** (the tile it faces holds one: in Delivery, at the
+            destination type's insert rate, by the hand's rules; mail it would not take as a
+            match waits at the end and the line backs up), otherwise the end holds what comes.
+            Taking a belt down (or losing it) puts the mail on it back into the Intake; the rest
+            keep their place by tile. A belt's delivery pays as a hand's, credited to nobody ("A
+            belt delivered 1 Letter to 4 Larch Lane"). *On screen*: a steel frame on legs,
+            yellow-capped rails, a dark rubber belt with pale chevrons, a corner as an L
+            (`ConstructsView.BeltTile`); the mail riding it as one MultiMesh (`BeltItemsView`),
+            an envelope flat and a parcel standing, in the colour of its house. `BeltTests` (7),
+            `BeltFlowTests` (4), `CodecTests`, `BuildTests`, `ContentValidatorTests`; in the smoke
+            the host drags five belts to a mailbox, three letters ride to its end and wait (Prep),
+            the same on both ends and drawn, and in Delivery the mailbox takes them
+            (`belt-drag`, `belt-line`, `belt-mail` shots)
+      - [ ] Intake outfeed (doc 04 §2.6)
+      - [ ] Splitters and mergers (doc 04 §2.3)
+      - [ ] Ramps and elevated belts; Fast Belt (bp_fast_belts); a carrier carried along, pushing a belt
+      - [ ] Endpoints into containers (Depot) and vehicles
+- [ ] Belt replication: LaneInsert/Remove/Checksum/State; client visual sim; interest management for segments
+      - [x] Events `BeltState` (a segment whole: when compiled anew, to a joiner after the
+            Welcome, on request), `BeltItemAdded`, `BeltItemMoved` (end to the next head),
+            `BeltItemRemoved`, `BeltChecksum` (every 2 s a segment: count and a hash of the mail
+            lane by lane in order); a client whose checksum is off asks `BeltResync` and gets the
+            segment whole. The client runs the same `BeltNetwork` each tick without endpoints, so
+            nothing is drawn past an end before the server says so
+      - [ ] Interest management for segments (everything is global, as for the rest so far);
+            the M2 bandwidth and 5000-item acceptance figures
+- [ ] Address Sorter with filter UI; Inserters; Depot
+- [ ] Pipes (inlet filters, junctions, outlets, underground) behind bp_pipes
+- [ ] Mail Truck; Vehicle Depot with route console; NPC driver behaviour; player takeover
+- [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
+- [ ] Oil Pump for vehicle fuel
+- [ ] Map screen with layers, filter chips, pings, route editor
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -2007,6 +2073,21 @@ See "Commands" at the bottom (filled in as the tooling lands).
     carriers whose screen is ready, not with generation stages. The Ready of Generating is the
     client's own, not a key; the feed says nothing of it (its five lines are kept for the kits
     handed out at the same moment).
+94. **Belts: what the docs leave open.** (a) A belt ending at a mailbox puts in only mail the
+    box takes as a match; anything else waits at the end and the line backs up behind it. Doc 04
+    §3.2 has NPC drivers "never guess", and a belt that misdelivered every stray letter would
+    make one mis-sort cost the whole line; a jam is visible and is what the Address Sorter is
+    for. (b) A belt ending in the open holds its items at the end: there are no loose
+    WorldItems for mail yet (doc 04 §2.1's 5-minute despawn back to the Intake comes with them);
+    a chest is fed by an inserter only (doc 04 §2.6), so it holds too. (c) Mail coming onto a belt
+    from the side goes into the lane on that side, straight on it keeps its lane (the usual
+    side-loading rule; doc 04 is silent). (d) What lay on a belt that is taken down or broken
+    goes back to the Intake at once, as mail never is lost (doc 03 §3.3). (e) Segments are named
+    by their head tile instead of a server id, since every client compiles the same tiles. (f)
+    The checksum hashes which mail is where and in what order, not positions: a client lags the
+    server's tick by its latency, so positions differ by design; only the order and set of mail
+    show a real desync. (g) A belt delivery is the team's, credited to nobody: it counts for the
+    quota and the shift's deliveries, not for anybody's MVP line or Postal Rank deliveries.
 
 ## Commands
 

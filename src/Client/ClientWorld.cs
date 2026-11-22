@@ -604,6 +604,39 @@ namespace PerformativeMail.Client
 
         /// <summary>What the carriers have built, as the server last said.</summary>
         public ConstructField Constructs { get; private set; }
+
+        /// <summary>
+        /// The belts as this client sees them (doc 07 §8 visual belt sim): compiled from
+        /// <see cref="Constructs"/> as the server compiles them, the items moved here each tick and
+        /// handed on or taken off only by the server's events.
+        /// </summary>
+        public Sim.Automation.BeltNetwork Belts
+        {
+            get
+            {
+                if (_belts == null || !ReferenceEquals(_beltsField, Constructs))
+                {
+                    _belts = new Sim.Automation.BeltNetwork(Content, Map, Constructs);
+                    _beltsField = Constructs;
+                }
+                _belts.Compile();
+                return _belts;
+            }
+        }
+
+        private Sim.Automation.BeltNetwork? _belts;
+        private ConstructField? _beltsField;
+        /// <summary>Checksums of the server's that did not match this client's segments, and the resyncs asked for.</summary>
+        public int BeltMismatches { get; internal set; }
+
+        /// <summary>A belt item as the server sent it.</summary>
+        public Sim.Automation.BeltItem BeltItemOf(in BeltItemInfo info)
+        {
+            var mail = new Sim.Mail.MailItem { Id = info.MailId, Kind = info.Kind, Address = new AddressId(info.AddressKey, info.Unit) };
+            float length = info.Kind < Content.MailKinds.Count ? Content.MailKinds[info.Kind].BeltLength : 0.5f;
+            return new Sim.Automation.BeltItem { Mail = mail, Lane = info.Lane, Pos = info.Pos, Length = length };
+        }
+
         /// <summary>What stood on the tile of the last ConstructRemoved, for whoever hears of it after it is gone.</summary>
         public Construct? LastRemoved { get; internal set; }
 
@@ -632,7 +665,34 @@ namespace PerformativeMail.Client
             var tile = BuildRules.CheckTile(Map, Constructs, tx, tz);
             if (tile != OpResult.Ok) return tile;
             if (!BuildRules.InRange(tx, tz, Local.X, Local.Z, Content.Balance.GetFloat("buildRange"))) return OpResult.OutOfRange;
-            return TileOccupied(tx, tz) ? OpResult.Occupied : state;
+            // What lies flat is laid under the feet.
+            return recipe.Building.Solid && TileOccupied(tx, tz) ? OpResult.Occupied : state;
+        }
+
+        /// <summary>
+        /// A drag line's tiles (doc 04 §1.1) and what each would come to, as the server's
+        /// PlaceLineOp goes: every tile by itself, and the materials spent from the start of the
+        /// line on, so the tiles past what the pockets hold are MissingMaterials. False (no tiles)
+        /// for a line that is no row or column, or too long.
+        /// </summary>
+        public bool LineStates(RecipeDef recipe, int x0, int z0, int x1, int z1, List<(int Tx, int Tz, OpResult State)> states)
+        {
+            states.Clear();
+            var tiles = new List<(int, int)>();
+            if (!BuildRules.LineTiles(x0, z0, x1, z1, tiles)) return false;
+            int afford = int.MaxValue;
+            if (HotbarId != 0)
+                foreach (var input in recipe.Inputs)
+                    afford = Math.Min(afford, input.Count <= 0 ? int.MaxValue : BuildRules.Have(Hotbar, Inventory, input.Item) / input.Count);
+            int spent = 0;
+            foreach (var (tx, tz) in tiles)
+            {
+                var state = PlaceState(recipe, tx, tz);
+                if (state == OpResult.Ok && spent >= afford) state = OpResult.MissingMaterials;
+                if (state == OpResult.Ok) spent++;
+                states.Add((tx, tz, state));
+            }
+            return true;
         }
 
         /// <summary>True if a carrier or a raider this client knows of stands on the tile or reaches onto it.</summary>

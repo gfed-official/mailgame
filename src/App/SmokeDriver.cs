@@ -127,6 +127,7 @@ namespace PerformativeMail.App
             switch (ev)
             {
                 case DeliveredEvent e:
+                    if (e.Player.IsNone) _beltDelivered++;
                     _paid += e.Paid;
                     _deliveredEvents++;
                     if (e.Player == _session.Client.World!.LocalId) _ownDeliveries++;
@@ -766,13 +767,14 @@ namespace PerformativeMail.App
             foreach (char c in FontCheck.MissingGlyphs(hud))
                 if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
             TrackAlarm();
+            if (!_beltFeedSeen && _session.Feed.Entries.Any(e => e.Text.StartsWith("A belt delivered", StringComparison.Ordinal))) _beltFeedSeen = true;
 
             switch (world.Global.Phase)
             {
                 case RunPhase.Prep:
                     CheckDraftPick();
                     // Once in the run the host works the land and goes shopping before readying up.
-                    if (StepHarvest() || StepBuild() || StepShop() || StepHeal() || StepFortify() || StepDefences() || StepBike()) break;
+                    if (StepHarvest() || StepBuild() || StepShop() || StepHeal() || StepFortify() || StepDefences() || StepBelts() || StepBike()) break;
                     if (!world.LocalReady) Go();
                     break;
 
@@ -907,6 +909,7 @@ namespace PerformativeMail.App
             VerifyHeal();
             VerifyFortify();
             VerifyDefences();
+            VerifyBelts();
             VerifyBike();
 
             Check(server.Run.Phase == RunPhase.Lobby && server.Run.RunNumber == 1, $"the server is in {server.Run.Phase} of run {server.Run.RunNumber}");

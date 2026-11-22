@@ -200,6 +200,8 @@ namespace PerformativeMail.Client
         // --- requests ---------------------------------------------------------------------------
 
         /// <summary>Sends a request; the id is assigned here and returned. The answer arrives via <see cref="RequestCompleted"/>.</summary>
+        private readonly HashSet<int> _beltResyncAsked = new HashSet<int>();
+
         public uint Send(SimRequest request)
         {
             if (State != ClientState.Joined) return 0;
@@ -466,6 +468,20 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>
+        /// Lays a line of a recipe (doc 04 §1.1 drag placement), each tile turned the same. Returns
+        /// the request id, 0 where not one tile of it would be built (<see cref="ClientWorld.LineStates"/>).
+        /// </summary>
+        public uint PlaceLine(RecipeDef recipe, int x0, int z0, int x1, int z1, int rotation)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
+            var states = new List<(int, int, OpResult)>();
+            if (!world.LineStates(recipe, x0, z0, x1, z1, states) || !states.Exists(t => t.Item3 == OpResult.Ok)) return 0;
+            var building = recipe.Building;
+            return Send(SimRequest.PlaceLine(0, building.Index, x0, z0, x1, z1, rotation % Math.Max(1, building.Rotations)));
+        }
+
+        /// <summary>
         /// Takes a construct down for what it gives back (doc 04 §1.4). Returns the request id, 0
         /// where it would be refused as things stand (<see cref="ClientWorld.RemoveState"/>).
         /// </summary>
@@ -519,6 +535,8 @@ namespace PerformativeMail.Client
             // Paused: the server simulates no input, so none is predicted or sent, and its clock stands.
             if (world.Paused) return;
             world.ServerTick += 1.0;
+            // Doc 07 §8: the belts' items move here at the server's speed; only its events take them off an end.
+            world.Belts.Step(SimConstants.TickDt, null);
             if (!world.HasLocal) return;
 
             var input = new PlayerInput
@@ -972,8 +990,53 @@ namespace PerformativeMail.Client
                 case ConstructsClearedEvent:
                     foreach (var built in world.Constructs.All)
                         if (built.ContainerId != 0) DropExternal(world, built.ContainerId);
+                    world.Belts.Clear();
                     world.Constructs.Clear();
                     break;
+                case BeltStateEvent e:
+                {
+                    var belts = world.Belts;
+                    var seg = world.Map.InBounds(e.X, e.Y) ? belts.SegmentByHead(e.Y * world.Map.Cols + e.X) : null;
+                    if (seg == null) break;
+                    var items = new List<Sim.Automation.BeltItem>(e.Items.Count);
+                    foreach (var info in e.Items) items.Add(world.BeltItemOf(info));
+                    belts.SetItems(seg, items);
+                    _beltResyncAsked.Remove(seg.Head);
+                    break;
+                }
+                case BeltItemAddedEvent e:
+                {
+                    var belts = world.Belts;
+                    var seg = world.Map.InBounds(e.X, e.Y) ? belts.SegmentByHead(e.Y * world.Map.Cols + e.X) : null;
+                    if (seg != null) belts.Add(seg, world.BeltItemOf(e.Item));
+                    break;
+                }
+                case BeltItemMovedEvent e:
+                {
+                    var belts = world.Belts;
+                    var seg = world.Map.InBounds(e.X, e.Y) ? belts.SegmentByHead(e.Y * world.Map.Cols + e.X) : null;
+                    var item = belts.Find(e.MailId);
+                    belts.RemoveMail(e.MailId);
+                    if (seg == null || item == null) break;
+                    var moved = item.Value;
+                    moved.Pos = 0f;
+                    moved.Lane = e.Lane;
+                    belts.Add(seg, moved);
+                    break;
+                }
+                case BeltItemRemovedEvent e:
+                    world.Belts.RemoveMail(e.MailId);
+                    break;
+                case BeltChecksumEvent e:
+                {
+                    var belts = world.Belts;
+                    var seg = world.Map.InBounds(e.X, e.Y) ? belts.SegmentByHead(e.Y * world.Map.Cols + e.X) : null;
+                    if (seg != null && seg.Items.Count == e.Count && Sim.Automation.BeltNetwork.Checksum(seg) == e.Hash) break;
+                    // Off: the segment whole, once until it comes (doc 06 §4).
+                    world.BeltMismatches++;
+                    if (_beltResyncAsked.Add(e.Y * world.Map.Cols + e.X)) Send(SimRequest.BeltResync(0, e.X, e.Y));
+                    break;
+                }
                 case VehicleAddedEvent e:
                     if (e.Def < _content.Vehicles.Count)
                         world.Vehicles[e.Vehicle] = new ClientVehicle
