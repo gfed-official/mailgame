@@ -1119,7 +1119,18 @@ the whole line exists; the sub-lines say which parts do.
             the host drags five belts to a mailbox, three letters ride to its end and wait (Prep),
             the same on both ends and drawn, and in Delivery the mailbox takes them
             (`belt-drag`, `belt-line`, `belt-mail` shots)
-      - [ ] Intake outfeed (doc 04 §2.6)
+      - [x] **Intake outfeed** (doc 04 §2.6; design choice 95). A belt on the tile north of the
+            Intake's, facing north (`BeltNetwork.OutfeedTile`, `OutfeedRotation`), is fed by
+            the Intake in Prep and in Delivery: the oldest mail there first (spawn order, FIFO by
+            mail id), one piece a tick while the belt's head has room, the Intake's grid and
+            backlog following. A chute out of the counter's north end and a yellow arrow painted
+            on the tile show where; a belt ghost there says "fed by the Intake" (or "[R] to face
+            away from the Intake"). The map chest moved a tile up and over on the test street and
+            in the generated towns, out of the outfeed's way. `BeltTests` (FIFO, only the belt
+            facing away; on 20 island seeds the outfeed tile takes a belt and leads somewhere); in
+            the smoke the host drags two belts north out of the outfeed, the Intake's oldest mail
+            rides them the same on both ends (`outfeed-drag`, `outfeed-mail`), and taken down they
+            give it back to the Intake. The Presort perk (by street) comes with the perk pool
       - [ ] Splitters and mergers (doc 04 §2.3)
       - [ ] Ramps and elevated belts; Fast Belt (bp_fast_belts); a carrier carried along, pushing a belt
       - [ ] Endpoints into containers (Depot) and vehicles
@@ -2088,6 +2099,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     server's tick by its latency, so positions differ by design; only the order and set of mail
     show a real desync. (g) A belt delivery is the team's, credited to nobody: it counts for the
     quota and the shift's deliveries, not for anybody's MVP line or Postal Rank deliveries.
+95. **Where the Intake's outfeed opens.** Doc 10 §3 has the outfeed face "on the east side". On
+    both maps the Intake is a counter against the hall's east wall, and east of it is where the
+    carriers stand to use it, with the spawn pad's seats on those tiles (fixtures nothing is built
+    on). So the outfeed opens at the counter's north end: a belt on the tile north of the Intake's,
+    facing north, away from it. The map chest, which stood on that tile's north neighbour on both
+    maps and boxed it in, moved one tile up and east (still in the Post Office's yard). The
+    outfeed gives one piece a tick at most; the belt's head room is what limits it (8 a second on
+    two lanes of a Mk1 belt), so no rate of its own is invented.
 
 ## Commands
 

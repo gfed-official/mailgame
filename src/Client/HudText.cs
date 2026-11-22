@@ -928,13 +928,13 @@ namespace PerformativeMail.Client
                     }
                     tone = PromptTone.Match;
                     string of = ok == n ? "" : $" of {n.ToString(CultureInfo.InvariantCulture)}";
-                    return $"Lay {ok.ToString(CultureInfo.InvariantCulture)}{of} {name}   ·   {Times(recipe.Inputs, ok)}   [let go]";
+                    return $"Lay {ok.ToString(CultureInfo.InvariantCulture)}{of} {name}   ·   {Times(recipe.Inputs, ok)}{OutfeedNote(world, recipe.Building, g.Tx, g.Tz, g.Rotation)}   [let go]";
                 }
                 case BuildAim.Place:
                     if (g.State == OpResult.Ok)
                     {
                         tone = PromptTone.Match;
-                        return $"Build {recipe.Building.Name}   ·   {Inputs(recipe.Inputs, 1.0)}{AlarmNote(world, recipe.Building, g.Tx, g.Tz)}   [LMB]";
+                        return $"Build {recipe.Building.Name}   ·   {Inputs(recipe.Inputs, 1.0)}{AlarmNote(world, recipe.Building, g.Tx, g.Tz)}{OutfeedNote(world, recipe.Building, g.Tx, g.Tz, g.Rotation)}   [LMB]";
                     }
                     tone = PromptTone.Mismatch;
                     return $"{recipe.Building.Name}   ·   {PlaceReason(world, recipe, g.State)}";
@@ -959,6 +959,18 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>What an Alarm Post would do on the tile: ring the raid in early, or only mark the raiders.</summary>
+        /// <summary>
+        /// A belt on the Intake's outfeed tile (doc 04 §2.6): " · fed by the Intake" when it faces
+        /// away from the counter, otherwise how to make it so.
+        /// </summary>
+        public static string OutfeedNote(ClientWorld world, BuildingDef def, int tx, int tz, int rotation)
+        {
+            if (def.Behaviour != BuildingBehaviour.Belt) return "";
+            var belts = world.Belts;
+            if (belts.OutfeedTile < 0 || tx != belts.OutfeedX || tz != belts.OutfeedZ) return "";
+            return (rotation & 3) == Sim.Automation.BeltNetwork.OutfeedRotation ? "   ·   fed by the Intake" : "   ·   [R] to face away from the Intake: fed by it";
+        }
+
         public static string AlarmNote(ClientWorld world, BuildingDef def, int tx, int tz)
         {
             if (def.Behaviour != BuildingBehaviour.Alarm) return "";

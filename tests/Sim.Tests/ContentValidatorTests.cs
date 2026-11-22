@@ -103,9 +103,9 @@ namespace PerformativeMail.Sim.Tests
         public void AChestInAWallOrOfAnUnknownKindIsAProblem()
         {
             string map = File.ReadAllText(Content("maps/test_street.json"));
-            Assert.Contains("\"at\": [12.7, 14.6]", map);
+            Assert.Contains("\"at\": [15.0, 12.8]", map);
             File.WriteAllText(Content("maps/test_street.json"), map.Replace(
-                "{\"container\": \"chest\", \"at\": [12.7, 14.6], \"yawDegrees\": -90}",
+                "{\"container\": \"chest\", \"at\": [15.0, 12.8], \"yawDegrees\": -90}",
                 "{\"container\": \"chest\", \"at\": [8.0, 14.6]}, {\"container\": \"crate\", \"at\": [14.0, 14.6]}, "
                 + "{\"container\": \"po_intake\", \"at\": [14.0, 16.0]}, {\"container\": \"chest\", \"at\": [30.0, 27.0]}"));
             Assert.Equal(Program.ExitInvalid, Run(_dir, "content"));

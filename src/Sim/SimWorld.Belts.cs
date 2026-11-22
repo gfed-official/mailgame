@@ -49,6 +49,7 @@ namespace PerformativeMail.Sim
             var belts = Belts;
             CompileBelts();
             if (belts.Segments.Count == 0) return;
+            StepOutfeed();
             belts.Step(SimConstants.TickDt, this, Tick);
             for (int i = 0; i < belts.Segments.Count; i++)
             {
@@ -110,6 +111,35 @@ namespace PerformativeMail.Sim
             if (!Belts.TryInsert(s, mail, out var item)) return false;
             Events.Add(new BeltItemAddedEvent { X = HeadX(s), Y = HeadZ(s), Item = Info(item) });
             return true;
+        }
+
+        /// <summary>
+        /// The Intake's outfeed (doc 04 §2.6): in Prep and in Delivery, the oldest mail in the
+        /// Intake (spawn order, FIFO — mail ids rise as it spawns) onto the head of the belt at the
+        /// outfeed, one piece a tick while it has room.
+        /// </summary>
+        private void StepOutfeed()
+        {
+            if (!BuildRules.IsOpen(Run.Phase)) return;
+            var seg = Belts.Outfeed;
+            if (seg == null) return;
+            GridEntry? oldest = null;
+            int index = -1;
+            foreach (var e in Intake.Entries)
+            {
+                if (e.Stack.Kind != StackKind.Mail) continue;
+                var mail = e.Stack.Mail;
+                for (int i = 0; i < mail.Count; i++)
+                    if (oldest == null || mail[i].Id < oldest.Stack.Mail[index].Id) { oldest = e; index = i; }
+            }
+            if (oldest == null) return;
+            var item = oldest.Stack.Mail[index];
+            if (!BeltNetwork.PickLane(seg, Content.MailKinds[item.Kind], out _)) return;
+            if (!PutOnBelt(seg, item)) return;
+            oldest.Stack.Mail.RemoveAt(index);
+            if (oldest.Stack.Mail.Count == 0) Intake.Remove(oldest.EntryId);
+            else Intake.MarkDirty(oldest.EntryId);
+            CommitContainer(Intake.Id);
         }
 
         /// <summary>A run ends or begins: the mail on the belts goes back to the Intake with them.</summary>

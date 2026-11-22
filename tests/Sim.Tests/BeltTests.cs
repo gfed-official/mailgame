@@ -268,5 +268,60 @@ namespace PerformativeMail.Sim.Tests
             SimDriver.StepTicks(world, 15);
             Assert.NotEqual(before, s.Items.Single().Pos);
         }
+    
+        [Fact]
+        public void TheIntakesOutfeed_FeedsABeltFacingAway_OldestMailFirst_AndOnlyThatOne()
+        {
+            var (world, host) = InPrep();
+            var belts = world.Belts;
+            // The tile north of the Intake's, the belt facing north, away from the counter.
+            Assert.Equal((6, 8), (belts.OutfeedX, belts.OutfeedZ));
+            Assert.Equal(OpResult.Ok, BuildRules.CheckTile(world.Map, world.Constructs, 6, 8));
+            SimDriver.Teleport(host, Centre(8), Centre(7) + 1f);
+            var to = NumberOne(world);
+            var other = world.Map.Destinations.First(d => d.Address.Number == 2);
+            // Turned the wrong way, nothing comes.
+            Assert.Equal(OpResult.Ok, Line(world, host, 6, 8, 6, 8, 0));
+            Assert.True(world.Give(world.Intake, ItemStack.OfMail(TestContent.Mail("letter", to.Address, 905))));
+            Assert.True(world.Give(world.Intake, ItemStack.OfMail(TestContent.Mail("small", other.Address, 903))));
+            Assert.True(world.Give(world.Intake, ItemStack.OfMail(TestContent.Mail("letter", to.Address, 909))));
+            SimDriver.StepTicks(world, 30);
+            Assert.Null(world.Belts.Outfeed);
+            Assert.Equal(0, world.Belts.ItemCount);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.RemoveConstruct(0, 6, 8)));
+
+            // North, then east along the row: the Intake's mail comes out oldest first.
+            Assert.Equal(OpResult.Ok, Line(world, host, 6, 7, 10, 7, 0));
+            world.Submit(host.Id, SimRequest.PlaceLine(_nextRequest++, Belt.Index, 6, 8, 6, 8, BeltNetwork.OutfeedRotation));
+            var order = new System.Collections.Generic.List<uint>();
+            for (int i = 0; i < 3 * Tps; i++)
+            {
+                world.Events.Clear();
+                world.Step();
+                order.AddRange(world.Events.OfType<BeltItemAddedEvent>().Select(e => e.Item.MailId));
+            }
+            Assert.Equal(new uint[] { 903, 905, 909 }, order);
+            Assert.Equal(0, world.Intake.Entries.Sum(e => e.Stack.Count));
+            var outfeed = world.Belts.Outfeed!;
+            Assert.Equal(6 + 8 * world.Map.Cols, outfeed.Head);
+            Assert.Equal(6, outfeed.Tiles.Count);
+            Assert.Equal(3, outfeed.Items.Count);
+            Assert.True(outfeed.Items.Min(it => it.Pos) > 1f);
+        }
+
+        [Fact]
+        public void OnTheIsland_TheOutfeedTile_CanTakeABelt()
+        {
+            for (uint seed = 1; seed <= 20; seed++)
+            {
+                var world = new SimWorld(Db, new SimSettings { Seed = seed, MapId = WorldGenerator.SmallIsland, Raids = false, Draft = false });
+                var belts = world.Belts;
+                Assert.Equal(OpResult.Ok, BuildRules.CheckTile(world.Map, world.Constructs, belts.OutfeedX, belts.OutfeedZ));
+                // And somewhere to go from it: the tile north of it, or one beside that.
+                int x = belts.OutfeedX, z = belts.OutfeedZ - 1;
+                Assert.True(new[] { (x, z), (x + 1, z + 1), (x - 1, z + 1) }.Any(t => BuildRules.CheckTile(world.Map, world.Constructs, t.Item1, t.Item2) == OpResult.Ok),
+                    $"seed {seed}: the outfeed at ({x}, {z + 1}) leads nowhere");
+            }
+        }
     }
 }

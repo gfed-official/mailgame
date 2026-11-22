@@ -19,6 +19,6 @@
     {"type": "house", "street": 1, "number": 10, "lot": [38, 16, 4, 4], "building": [38, 18, 3, 2], "mailbox": [80.0, 31.0], "variant": 9}
   ],
   "chests": [
-    {"container": "chest", "at": [12.7, 14.6], "yawDegrees": -90}
+    {"container": "chest", "at": [15.0, 12.8], "yawDegrees": -90}
   ]
 }

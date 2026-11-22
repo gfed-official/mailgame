@@ -396,6 +396,23 @@ namespace PerformativeMail.Client.Presentation
             batch.Box(new Vector3(0.9f, 1.23f, 0.35f), new Vector3(0.6f, 0.36f, 0.5f), parcel, 0.04f, new Vector3(0f, 18f, 0f));
             batch.Box(new Vector3(-0.95f, 1.15f, 0.4f), new Vector3(0.34f, 0.2f, 0.42f), MeshKit.Mat(new Color("fff8e7"), 0.7f), 0.03f, new Vector3(0f, -12f, 0f));
             batch.Frame = Transform3D.Identity;
+            // The outfeed (doc 04 §2.6): a steel chute out of the counter's north end down to the
+            // tile a belt is fed on, and a yellow arrow painted there the way the belt has to run.
+            {
+                const float T = SimConstants.TileSize;
+                int itx = (int)Mathf.Floor(po.IntakeX / T), itz = (int)Mathf.Floor(po.IntakeZ / T);
+                float ox = (itx + 0.5f) * T, oz = (itz - 0.5f) * T;
+                var steel = MeshKit.Mat(new Color("8d939b"), 0.45f, 0.6f);
+                var hazard = MeshKit.Mat(new Color("e0a526"), 0.6f);
+                float gy = map.HeightAt(ox, oz);
+                batch.Frame = Transform3D.Identity;
+                batch.Box(new Vector3(ox, gy + 0.62f, itz * T + 0.05f), new Vector3(1.1f, 0.5f, 0.5f), steel, 0.04f, new Vector3(-25f, 0f, 0f));
+                batch.Box(new Vector3(ox, gy + 0.9f, itz * T + 0.15f), new Vector3(1.2f, 0.12f, 0.3f), hazard, 0.02f);
+                for (int arm = -1; arm <= 1; arm += 2)
+                    batch.Box(new Vector3(ox + arm * 0.22f, gy + 0.015f, oz + 0.2f), new Vector3(0.12f, 0.02f, 0.75f), hazard, 0.01f, new Vector3(0f, arm * 40f, 0f));
+                batch.Box(new Vector3(ox, gy + 0.015f, oz + 0.25f), new Vector3(0.12f, 0.02f, 0.9f), hazard, 0.01f);
+            }
+
             // Out from the wall, so the billboard does not turn into it.
             var sign = AddLabel("INTAKE", intake + new Basis(Vector3.Up, intakeYaw) * new Vector3(0f, 1.7f, 0.7f), 72, Colors.White);
             sign.Name = "Intake";

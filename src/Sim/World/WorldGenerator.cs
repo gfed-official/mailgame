@@ -299,7 +299,8 @@ namespace PerformativeMail.Sim.World
 
             var chests = new List<MapChestDef>
             {
-                new MapChestDef { Id = 0, Container = content.Container("chest"), X = ox + 8.7f, Z = oz + 2.6f, Yaw = -MathF.PI * 0.5f },
+                // In the yard's north-east corner: the tile north of the Intake is the outfeed's (doc 04 §2.6).
+                new MapChestDef { Id = 0, Container = content.Container("chest"), X = ox + 11f, Z = oz + 0.8f, Yaw = -MathF.PI * 0.5f },
             };
 
             var map = new WorldMap

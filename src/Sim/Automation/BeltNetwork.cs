@@ -137,8 +137,31 @@ namespace PerformativeMail.Sim.Automation
             return _map.InBounds(tx, tz) ? tz * _map.Cols + tx : -1;
         }
 
-        /// <summary>The tile whose east edge is the Intake's outfeed face (doc 10 §3: on its east side).</summary>
+        /// <summary>The Intake's tile.</summary>
         public int IntakeTile => _intakeTile;
+
+        /// <summary>
+        /// The way a belt on <see cref="OutfeedTile"/> faces to be fed by the Intake: north, away
+        /// from the counter's north end (design choice 95: doc 10's east side is where the carriers
+        /// stand at the counter and the pad's seats are).
+        /// </summary>
+        public const int OutfeedRotation = 3;
+
+        /// <summary>The tile north of the Intake's, where its outfeed belt starts; −1 off the map.</summary>
+        public int OutfeedTile => _intakeTile >= _map.Cols ? _intakeTile - _map.Cols : -1;
+
+        public int OutfeedX => OutfeedTile % _map.Cols;
+        public int OutfeedZ => OutfeedTile / _map.Cols;
+
+        /// <summary>The segment the Intake's outfeed feeds, if a belt stands there the right way.</summary>
+        public BeltSegment? Outfeed
+        {
+            get
+            {
+                foreach (var s in _segments) if (s.FromIntake) return s;
+                return null;
+            }
+        }
 
         /// <summary>Whether a lane holder <paramref name="a"/> takes room in lane <paramref name="b"/>.</summary>
         public static bool SharesLane(byte a, byte b) => a == LaneBoth || b == LaneBoth || a == b;
@@ -231,10 +254,9 @@ namespace PerformativeMail.Sim.Automation
                     s.End = BeltEndKind.Mailbox;
                     s.DestId = dest;
                 }
-                // The Intake's outfeed face is the east edge of its tile: a belt there facing away is fed.
+                // The Intake's outfeed (doc 04 §2.6): a belt on its tile, facing away from the counter, is fed.
                 var head = BeltOn(s.Head)!;
-                s.FromIntake = !feeders.ContainsKey(s.Head) && _intakeTile >= 0 && (head.Rotation & 3) == 0 && s.Head == _intakeTile + 1
-                               && _intakeTile % _map.Cols + 1 < _map.Cols;
+                s.FromIntake = !feeders.ContainsKey(s.Head) && s.Head == OutfeedTile && (head.Rotation & 3) == OutfeedRotation;
             }
 
             // Items keep their tile and their place on it.

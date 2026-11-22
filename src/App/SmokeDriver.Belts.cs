@@ -164,13 +164,95 @@ namespace PerformativeMail.App
                     // A look along the line at the mail waiting at its end.
                     AimAtTile(_beltX1, _beltZ1);
                     Shot("belt-mail");
-                    Check(build.Toggle() == false && !build.Active, "B did not put Build mode down after the belt");
                     GD.Print($"[smoke] belts: a line of {BeltLine} Conveyor Belts dragged from ({_beltX0}, {_beltZ0}) to ({_beltX1}, {_beltZ1}) at the mailbox of {world.Map.GetDestination(_beltDest)!.Label}, three letters ridden to its end");
+                    _beltStep = 5;
+                    _beltFrames = 0;
+                    return true;
+                }
+
+                case 5:
+                {
+                    // The Intake's outfeed (doc 04 §2.6): two belts dragged north from the tile north of it.
+                    var belts = world.Belts;
+                    int ox = belts.OutfeedX, oz = belts.OutfeedZ;
+                    if (_beltFrames == 1)
+                    {
+                        var player = server.GetPlayer(world.LocalId)!;
+                        Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("plank"), 2)), "no room for two Planks");
+                        Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 2)), "no room for two Iron Ingots");
+                        Check(BuildRules.CheckTile(world.Map, world.Constructs, ox, oz) == OpResult.Ok && BuildRules.CheckTile(world.Map, world.Constructs, ox, oz - 1) == OpResult.Ok,
+                            $"the outfeed's tiles ({ox}, {oz}) and ({ox}, {oz - 1}) cannot take a belt");
+                        // Beside the counter, south-east of the outfeed.
+                        player.Move.X = BuildRules.TileCentre(ox + 1);
+                        player.Move.Z = BuildRules.TileCentre(oz + 1);
+                        _outfeedIntake = IntakeMail(server.Intake);
+                    }
+                    AimAtTile(ox, oz);
+                    if (_beltFrames < 8) break;
+                    build.Update(1.0 / 30.0, true, false, placeHeld: true);
+                    _beltStep = 6;
+                    _beltFrames = 0;
+                    return true;
+                }
+
+                case 6:
+                {
+                    var belts = world.Belts;
+                    AimAtTile(belts.OutfeedX, belts.OutfeedZ - 1);
+                    build.Update(1.0 / 30.0, false, false, placeHeld: true);
+                    if (_beltFrames < 4) return true;
+                    hud.Refresh();
+                    var g = build.Ghost;
+                    Check(g.Line != null && g.Line.Count == 2 && g.LineOk == 2 && g.Rotation == BeltNetwork.OutfeedRotation && hud.PromptText.Contains("fed by the Intake", StringComparison.Ordinal),
+                        $"the outfeed's drag is {g.Line?.Count} tiles ({g.LineOk} green) turned {g.Rotation}, the prompt \"{hud.PromptText}\"");
+                    Shot("outfeed-drag");
+                    build.Update(1.0 / 30.0, false, false, placeHeld: false);
+                    // Mail for the outfeed to give, whatever the Intake has already.
+                    var dest = world.Map.GetDestination(_beltDest)!;
+                    var kind = world.Content.MailKind("letter");
+                    for (uint i = 0; i < 2; i++)
+                        Check(server.Give(server.Intake, ItemStack.OfMail(new MailItem { Id = 990011 + i, Kind = kind.Index, Address = dest.Address, Value = (ushort)kind.BaseValue, SpawnShift = (byte)server.Run.Shift, DeadlineShift = (byte)(server.Run.Shift + 1) })),
+                            "no room in the Intake for a letter");
+                    _outfeedIntake += 2;
+                    _beltStep = 7;
+                    _beltFrames = 0;
+                    return true;
+                }
+
+                case 7:
+                {
+                    var outfeed = server.Belts.Outfeed;
+                    if (_beltFrames < 3 * 30 || outfeed == null || client.PendingRequestCount > 0) break;
+                    var mine = world.Belts.Outfeed;
+                    string Ids(BeltSegment s) => string.Join(",", s.Items.OrderBy(it => it.Lane).ThenByDescending(it => it.Pos).Select(it => $"{it.Lane}/{it.Mail.Id}"));
+                    int taken = _outfeedIntake - IntakeMail(server.Intake);
+                    Check(mine != null && outfeed.Tiles.Count == 2 && outfeed.Items.Count >= 2 && taken == outfeed.Items.Count && Ids(outfeed) == Ids(mine)
+                        && outfeed.Items.Max(it => it.Mail.Id) < OldestIn(server.Intake) && outfeed.Items.Max(it => it.Pos) >= outfeed.Length - 1e-3f,
+                        $"the outfeed's belt holds {outfeed.Items.Count} ({Ids(outfeed)}; here {(mine == null ? "none" : Ids(mine))}), the Intake gave {taken}");
+                    _screen.BeltItems.Refresh();
+                    Check(_screen.BeltItems.Drawn >= 3 + outfeed.Items.Count, $"{_screen.BeltItems.Drawn} items drawn on the belts");
+                    AimAtTile(world.Belts.OutfeedX, world.Belts.OutfeedZ - 1);
+                    Shot("outfeed-mail");
+                    GD.Print($"[smoke] outfeed: two belts dragged north from the Intake's outfeed at ({world.Belts.OutfeedX}, {world.Belts.OutfeedZ}), {outfeed.Items.Count} pieces of mail out of the Intake onto them, oldest first");
+                    // Taken down again: the mail on them goes back into the Intake for the shift.
+                    foreach (var tile in outfeed.Tiles)
+                    {
+                        var built = world.Constructs.At(tile % world.Map.Cols, tile / world.Map.Cols);
+                        if (built != null) client.RemoveConstruct(built);
+                    }
+                    _beltStep = 8;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 8:
+                    if (client.PendingRequestCount > 0 || server.Belts.Outfeed != null) break;
+                    Check(IntakeMail(server.Intake) == _outfeedIntake && world.Belts.Outfeed == null, $"after the outfeed's belts went the Intake holds {IntakeMail(server.Intake)} of {_outfeedIntake}");
+                    Check(build.Toggle() == false && !build.Active, "B did not put Build mode down after the belt");
                     _beltVisits++;
                     _beltStep = 0;
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;
                     return false;
-                }
             }
             if (_beltStep >= 3) build.Update(1.0 / 30.0, false, false);
             return true;
@@ -188,5 +270,18 @@ namespace PerformativeMail.App
         }
 
         private bool _beltFeedSeen;
+        private int _outfeedIntake;
+
+        /// <summary>The lowest mail id in a container: the oldest piece there (uint.MaxValue for none).</summary>
+        private static uint OldestIn(Sim.Inventory.GridContainer c)
+        {
+            uint oldest = uint.MaxValue;
+            foreach (var e in c.Entries)
+                if (e.Stack.Kind == StackKind.Mail)
+                    foreach (var m in e.Stack.Mail) oldest = Math.Min(oldest, m.Id);
+            return oldest;
+        }
+
+        private static int IntakeMail(Sim.Inventory.GridContainer intake) => intake.Entries.Sum(e => e.Stack.Kind == StackKind.Mail ? e.Stack.Count : 0);
     }
 }
