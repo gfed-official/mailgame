@@ -337,7 +337,7 @@ namespace PerformativeMail.Net.Tests
             // Key 2 is the Chest.
             Assert.True(build.PressKey(1));
             Assert.Equal("chest", build.Recipe!.Building.Id);
-            Assert.False(build.PressKey(7));
+            Assert.False(build.PressKey(9));
             LookAt(ada, Tx, Tz);
             build.Update(Dt, true, false);
             s.Run(10);

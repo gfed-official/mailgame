@@ -246,8 +246,63 @@ namespace PerformativeMail.App
                 }
 
                 case 8:
+                {
                     if (client.PendingRequestCount > 0 || server.Belts.Outfeed != null) break;
                     Check(IntakeMail(server.Intake) == _outfeedIntake && world.Belts.Outfeed == null, $"after the outfeed's belts went the Intake holds {IntakeMail(server.Intake)} of {_outfeedIntake}");
+                    // A Splitter (doc 04 §2.3) on open ground two tiles off, by its key.
+                    var splitter = world.Content.Recipes.First(r => r.Building.Id == "splitter");
+                    var player = server.GetPlayer(world.LocalId)!;
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("plank"), 1)), "no room for a Plank");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 2)), "no room for two Iron Ingots");
+                    int hx = (int)MathF.Floor(world.Local.X / SimConstants.TileSize), hz = (int)MathF.Floor(world.Local.Z / SimConstants.TileSize);
+                    _splitX = -1;
+                    for (int r = 2; r <= 3 && _splitX < 0; r++)
+                        for (int dz = -r; dz <= r && _splitX < 0; dz++)
+                            for (int dx = -r; dx <= r && _splitX < 0; dx++)
+                                if ((Math.Abs(dx) == r || Math.Abs(dz) == r) && BuildRules.CheckTile(world.Map, world.Constructs, hx + dx, hz + dz) == OpResult.Ok)
+                                    (_splitX, _splitZ) = (hx + dx, hz + dz);
+                    if (_splitX < 0)
+                    {
+                        Fail("no open tile near the Intake for the Splitter");
+                        return false;
+                    }
+                    int key = world.Content.Recipes.ToList().IndexOf(splitter);
+                    Check(build.PressKey(key) && build.Recipe == splitter, $"key {key + 1} in Build mode is not the Splitter");
+                    _beltStep = 9;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 9:
+                {
+                    AimAtTile(_splitX, _splitZ);
+                    var built = world.Constructs.At(_splitX, _splitZ);
+                    if (built == null)
+                    {
+                        if (_beltFrames == 6)
+                        {
+                            build.Update(1.0 / 30.0, false, false);
+                            hud.Refresh();
+                            Check(build.Ghost.State == OpResult.Ok && hud.PromptText.StartsWith("Build Splitter", StringComparison.Ordinal), $"the Splitter's ghost is {build.Ghost.State}, the prompt \"{hud.PromptText}\"");
+                            build.Update(1.0 / 30.0, true, false);
+                            return true;
+                        }
+                        break;
+                    }
+                    if (client.PendingRequestCount > 0) break;
+                    view.Refresh();
+                    Check(built.Def.Id == "splitter" && server.Constructs.At(_splitX, _splitZ)?.Def.Id == "splitter" && world.Belts.SegmentAt(_splitX, _splitZ) != null,
+                        $"the Splitter at ({_splitX}, {_splitZ}) is a {built.Def.Id}, on the server {server.Constructs.At(_splitX, _splitZ)?.Def.Id}");
+                    Shot("splitter");
+                    GD.Print($"[smoke] splitter: built at ({_splitX}, {_splitZ}) by its key, a belt segment of its own on both ends");
+                    client.RemoveConstruct(built);
+                    _beltStep = 10;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 10:
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
                     Check(build.Toggle() == false && !build.Active, "B did not put Build mode down after the belt");
                     _beltVisits++;
                     _beltStep = 0;
@@ -270,7 +325,7 @@ namespace PerformativeMail.App
         }
 
         private bool _beltFeedSeen;
-        private int _outfeedIntake;
+        private int _outfeedIntake, _splitX, _splitZ;
 
         /// <summary>The lowest mail id in a container: the oldest piece there (uint.MaxValue for none).</summary>
         private static uint OldestIn(Sim.Inventory.GridContainer c)

@@ -27,6 +27,8 @@ namespace PerformativeMail.Sim.Automation
         Belt,
         /// <summary>A mailbox: what it accepts goes in at its insert rate.</summary>
         Mailbox,
+        /// <summary>A splitter (doc 04 §2.3): to the first of its outputs with room, round-robin.</summary>
+        Split,
     }
 
     /// <summary>
@@ -55,6 +57,13 @@ namespace PerformativeMail.Sim.Automation
         public uint NextInsertTick;
         /// <summary>The lane the next item put on at the head goes to.</summary>
         public byte NextLane;
+
+        /// <summary>A splitter: the segments it hands on to, front, left, right; the next to try.</summary>
+        public readonly List<BeltSegment> Outs = new List<BeltSegment>();
+        public int NextOut;
+        /// <summary>A merger: the segments that feed it; whose turn it is.</summary>
+        public readonly List<BeltSegment> Ins = new List<BeltSegment>();
+        public int NextIn;
 
         /// <summary>The tile the segment's last tile faces, as a tile index; −1 off the map.</summary>
         public int FrontTile = -1;
@@ -166,7 +175,8 @@ namespace PerformativeMail.Sim.Automation
         /// <summary>Whether a lane holder <paramref name="a"/> takes room in lane <paramref name="b"/>.</summary>
         public static bool SharesLane(byte a, byte b) => a == LaneBoth || b == LaneBoth || a == b;
 
-        public static bool IsBelt(Construct? c) => c != null && c.Def.Behaviour == BuildingBehaviour.Belt;
+        /// <summary>Anything mail rides through: a belt, a splitter, a merger.</summary>
+        public static bool IsBelt(Construct? c) => c != null && c.Def.Carries;
 
         public BeltSegment? SegmentAt(int tx, int tz) => _map.InBounds(tx, tz) ? _segOf[tz * _map.Cols + tx] : null;
         public BeltSegment? SegmentByHead(int head) => _byHead.TryGetValue(head, out var s) ? s : null;
@@ -183,15 +193,58 @@ namespace PerformativeMail.Sim.Automation
 
         private Construct? BeltOn(int tile) => tile < 0 ? null : _field.At(tile % _map.Cols, tile / _map.Cols) is { } c && IsBelt(c) ? c : null;
 
-        /// <summary>True if the belt on <paramref name="from"/> hands on to the belt on the tile it faces (not one facing back at it).</summary>
+        /// <summary>
+        /// The tiles a belt-like construct hands mail on to (doc 04 §2.3): the one it faces; a
+        /// splitter also the ones to its left and right, front first, then left, then right.
+        /// </summary>
+        private void Outputs(int tile, List<int> outs)
+        {
+            outs.Clear();
+            var a = BeltOn(tile);
+            if (a == null) return;
+            int r = a.Rotation & 3;
+            outs.Add(FrontOf(tile, r));
+            if (a.Def.Behaviour != BuildingBehaviour.Splitter) return;
+            outs.Add(FrontOf(tile, (r + 3) & 3));
+            outs.Add(FrontOf(tile, (r + 1) & 3));
+        }
+
+        /// <summary>
+        /// Whether what stands on <paramref name="to"/> takes mail coming in moving the way
+        /// <paramref name="dir"/>: a belt and a merger from anywhere but their front, a splitter
+        /// only from behind.
+        /// </summary>
+        private bool Accepts(int to, int dir)
+        {
+            var b = BeltOn(to);
+            if (b == null) return false;
+            int r = b.Rotation & 3;
+            return b.Def.Behaviour == BuildingBehaviour.Splitter ? dir == r : dir != ((r + 2) & 3);
+        }
+
+        /// <summary>The direction from one tile to its neighbour; −1 if they are not neighbours.</summary>
+        private int DirTo(int from, int to)
+        {
+            if (from < 0 || to < 0) return -1;
+            int dx = to % _map.Cols - from % _map.Cols, dz = to / _map.Cols - from / _map.Cols;
+            for (int d = 0; d < 4; d++) if (Dirs[d].Dx == dx && Dirs[d].Dz == dz) return d;
+            return -1;
+        }
+
+        private readonly List<int> _outs = new List<int>();
+
+        /// <summary>True if the belt on <paramref name="from"/> hands on to the tile it faces (a splitter: to the first of its outputs that takes it).</summary>
         private bool Feeds(int from, out int to)
         {
             to = -1;
-            var a = BeltOn(from);
-            if (a == null) return false;
-            to = FrontOf(from, a.Rotation);
-            var b = BeltOn(to);
-            return b != null && (b.Rotation & 3) != ((a.Rotation + 2) & 3);
+            Outputs(from, _outs);
+            foreach (int o in _outs)
+            {
+                if (!Accepts(o, DirTo(from, o))) continue;
+                to = o;
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -224,14 +277,20 @@ namespace PerformativeMail.Sim.Automation
             belts.Sort();
             var feeders = new Dictionary<int, int>();
             foreach (int t in belts)
-                if (Feeds(t, out int to)) feeders[to] = feeders.TryGetValue(to, out int n) ? n + 1 : 1;
+            {
+                Outputs(t, _outs);
+                foreach (int o in _outs)
+                    if (Accepts(o, DirTo(t, o))) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
+            }
 
-            // A tile continues the segment of the belt behind it if that belt is its only feeder and of its tier.
+            // A belt continues the segment of the belt behind it if that belt is its only feeder and
+            // of its tier; a splitter or a merger is a segment of its own.
             var from = new Dictionary<int, int>();
             foreach (int t in belts)
             {
-                if (!Feeds(t, out int to) || feeders[to] != 1) continue;
-                if (BeltOn(t)!.Def != BeltOn(to)!.Def) continue;
+                var a = BeltOn(t)!;
+                if (a.Def.Behaviour != BuildingBehaviour.Belt || !Feeds(t, out int to) || feeders[to] != 1) continue;
+                if (a.Def != BeltOn(to)!.Def) continue;
                 from[to] = t;
             }
             foreach (int t in belts)
@@ -242,12 +301,23 @@ namespace PerformativeMail.Sim.Automation
 
             foreach (var s in _segments)
             {
-                var last = BeltOn(s.Tiles[s.Tiles.Count - 1])!;
-                s.FrontTile = FrontOf(s.Tiles[s.Tiles.Count - 1], last.Rotation);
-                if (Feeds(s.Tiles[s.Tiles.Count - 1], out int to))
+                int lastTile = s.Tiles[s.Tiles.Count - 1];
+                var last = BeltOn(lastTile)!;
+                s.FrontTile = FrontOf(lastTile, last.Rotation);
+                if (last.Def.Behaviour == BuildingBehaviour.Splitter)
+                {
+                    // Doc 04 §2.3: up to three outputs, round-robin.
+                    Outputs(lastTile, _outs);
+                    foreach (int o in _outs)
+                        if (Accepts(o, DirTo(lastTile, o)) && _segOf[o] is { } outSeg) s.Outs.Add(outSeg);
+                    if (s.Outs.Count > 0) s.End = BeltEndKind.Split;
+                }
+                else if (Feeds(lastTile, out int to))
                 {
                     s.End = BeltEndKind.Belt;
                     s.Next = _segOf[to];
+                    // A merger takes its inputs in turn: it knows them, back, left, right.
+                    if (s.Next != null && BeltOn(s.Next.Head)!.Def.Behaviour == BuildingBehaviour.Merger) s.Next.Ins.Add(s);
                 }
                 else if (s.FrontTile >= 0 && _mailboxAt.TryGetValue(s.FrontTile, out int dest))
                 {
@@ -298,7 +368,7 @@ namespace PerformativeMail.Sim.Automation
         }
 
         private static string Key(BeltSegment s) =>
-            string.Join(",", s.Tiles) + "|" + s.End + "|" + (s.Next?.Head ?? -1) + "|" + s.DestId + "|" + s.Speed + "|" + s.FromIntake;
+            string.Join(",", s.Tiles) + "|" + s.End + "|" + (s.Next?.Head ?? -1) + "|" + string.Join(",", s.Outs.ConvertAll(o => o.Head)) + "|" + s.DestId + "|" + s.Speed + "|" + s.FromIntake;
 
         private void Walk(int start, Dictionary<int, int> from)
         {
@@ -376,8 +446,10 @@ namespace PerformativeMail.Sim.Automation
                 switch (s.End)
                 {
                     case BeltEndKind.Belt when s.Next != null:
-                        byte lane = EntryLane(s, s.Next, it.Lane);
-                        if (s.Next == s && s.Items.Count > 1)
+                    {
+                        var next = s.Next;
+                        byte lane = EntryLane(s, next, it.Lane);
+                        if (next == s && s.Items.Count > 1)
                         {
                             // Round a loop: the lane behind it must have room for it at the head.
                             float rear = s.Length;
@@ -385,16 +457,35 @@ namespace PerformativeMail.Sim.Automation
                                 if (k != i && SharesLane(s.Items[k].Lane, lane)) rear = Math.Min(rear, s.Items[k].Pos - s.Items[k].Length);
                             if (rear < it.Length - 1e-4f) break;
                         }
-                        else if (s.Next != s && !s.Next.HasRoom(lane, it.Length)) break;
-                        s.Items.RemoveAt(i);
-                        var moved = it;
-                        moved.Pos = 0f;
-                        moved.Lane = lane;
-                        s.Next.Items.Add(moved);
-                        SortItems(s.Next);
-                        sink.Moved(s, s.Next, moved);
+                        else if (next != s && !next.HasRoom(lane, it.Length)) break;
+                        // A merger (doc 04 §2.3) takes its inputs in turn: another's turn holds this one
+                        // back if that one has mail waiting at its end.
+                        int input = next.Ins.IndexOf(s);
+                        if (input >= 0 && next.Ins.Count > 1)
+                        {
+                            var turn = next.Ins[next.NextIn % next.Ins.Count];
+                            if (turn != s && Waiting(turn)) break;
+                            next.NextIn = (input + 1) % next.Ins.Count;
+                        }
+                        Hand(s, i, it, next, lane, sink);
                         gone = true;
                         break;
+                    }
+                    case BeltEndKind.Split:
+                    {
+                        // Round-robin over the outputs, skipping those with no room (doc 04 §2.3).
+                        for (int k = 0; k < s.Outs.Count && !gone; k++)
+                        {
+                            int o = (s.NextOut + k) % s.Outs.Count;
+                            var next = s.Outs[o];
+                            byte lane = EntryLane(s, next, it.Lane);
+                            if (!next.HasRoom(lane, it.Length)) continue;
+                            s.NextOut = (o + 1) % s.Outs.Count;
+                            Hand(s, i, it, next, lane, sink);
+                            gone = true;
+                        }
+                        break;
+                    }
                     case BeltEndKind.Mailbox:
                         if (tick < s.NextInsertTick) break;
                         if (!sink.TryDeliver(s, it)) break;
@@ -407,6 +498,19 @@ namespace PerformativeMail.Sim.Automation
             }
         }
 
+        private static void Hand(BeltSegment s, int i, BeltItem it, BeltSegment next, byte lane, IBeltSink sink)
+        {
+            s.Items.RemoveAt(i);
+            it.Pos = 0f;
+            it.Lane = lane;
+            next.Items.Add(it);
+            SortItems(next);
+            sink.Moved(s, next, it);
+        }
+
+        /// <summary>True if a segment has mail at its very end.</summary>
+        private static bool Waiting(BeltSegment s) => s.Items.Count > 0 && s.Items[0].Pos >= s.Length - 1e-4f;
+
         /// <summary>
         /// The lane mail goes on at the next segment's head: its own coming in straight (or round a
         /// corner of the same run), the lane on the side it comes from when it comes in from the
@@ -416,9 +520,9 @@ namespace PerformativeMail.Sim.Automation
         {
             if (lane == LaneBoth) return lane;
             var head = BeltOn(to.Head);
-            var last = BeltOn(from.Tiles[from.Tiles.Count - 1]);
-            if (head == null || last == null) return lane;
-            int d = head.Rotation & 3, f = last.Rotation & 3;
+            int f = DirTo(from.Tiles[from.Tiles.Count - 1], to.Head);
+            if (head == null || f < 0) return lane;
+            int d = head.Rotation & 3;
             if (d == f) return lane;
             // The feeder stands behind the head's tile, towards −f; the head's left is (Dz, −Dx).
             bool fromLeft = -Dirs[f].Dx == Dirs[d].Dz && -Dirs[f].Dz == -Dirs[d].Dx;

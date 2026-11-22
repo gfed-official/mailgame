@@ -26,5 +26,13 @@
   { "id": "belt_mk1", "name": "Conveyor Belt", "footprint": [1, 1], "rotations": 4, "hp": 80,
     "placement": { "onStreet": false }, "behaviour": "belt",
     "params": { "radius": 0.5, "height": 0.35, "speed": 2.0 },
-    "recipe": "recipe_belt_mk1", "tags": ["transport"] }
+    "recipe": "recipe_belt_mk1", "tags": ["transport"] },
+  { "id": "splitter", "name": "Splitter", "footprint": [1, 1], "rotations": 4, "hp": 150,
+    "placement": { "onStreet": false }, "behaviour": "splitter",
+    "params": { "radius": 0.5, "height": 0.7, "speed": 2.0 },
+    "recipe": "recipe_splitter", "tags": ["transport"] },
+  { "id": "merger", "name": "Merger", "footprint": [1, 1], "rotations": 4, "hp": 150,
+    "placement": { "onStreet": false }, "behaviour": "merger",
+    "params": { "radius": 0.5, "height": 0.7, "speed": 2.0 },
+    "recipe": "recipe_merger", "tags": ["transport"] }
 ]

@@ -60,6 +60,7 @@ grep -q "^\[smoke\] draft: rerolled with the button" "$work/log" || { echo "smok
 grep -q "^\[smoke\] build: a Wooden Wall and a Chest built" "$work/log" || { echo "smoke: nothing was built in Build mode" >&2; exit 1; }
 grep -q "^\[smoke\] belts: a line of 5 Conveyor Belts dragged" "$work/log" || { echo "smoke: no belt was dragged out" >&2; exit 1; }
 grep -q "^\[smoke\] outfeed: two belts dragged north" "$work/log" || { echo "smoke: the Intake's outfeed fed no belt" >&2; exit 1; }
+grep -q "^\[smoke\] splitter: built at" "$work/log" || { echo "smoke: no Splitter was built" >&2; exit 1; }
 # Hot reload (doc 07 §6): a changed number taken at once, a broken file turned away, the files back.
 grep -q "^\[smoke\] hot reload: walk speed" "$work/log" || { echo "smoke: the content was not hot reloaded" >&2; exit 1; }
 # The starting kit (doc 03 §4.4): the Land kit in the pockets, the team's in the chest and by the counter.

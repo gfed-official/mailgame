@@ -1131,7 +1131,21 @@ the whole line exists; the sub-lines say which parts do.
             the smoke the host drags two belts north out of the outfeed, the Intake's oldest mail
             rides them the same on both ends (`outfeed-drag`, `outfeed-mail`), and taken down they
             give it back to the Intake. The Presort perk (by street) comes with the perk pool
-      - [ ] Splitters and mergers (doc 04 §2.3)
+      - [x] **Splitters and mergers** (doc 04 §2.3, doc 10 §2.1; design choice 96). `splitter`
+            and `merger` (150 HP, two Iron Ingots and a Plank, four ways, low enough to walk
+            over). Each is a one-tile segment of its own in the belt network, so mail crosses it
+            as it crosses a belt and the clients follow it by the same events. A **splitter**
+            takes mail from behind only and hands what reaches its end to front, left and right
+            in turn, skipping a way with no room; with every way full it backs up. A **merger**
+            takes from back, left and right in turn — an input whose turn it is holds the others
+            back only while it has mail waiting — onto its one output. Drawn as the belt under a
+            steel housing with yellow arrows on its roof, out for a splitter and in for a merger.
+            The recipe bar takes a fourth row (the feed goes up 18 px while Build mode is up).
+            `BeltTests` (splitter round-robin and skipping a full way, merger in turn),
+            `BeltFlowTests` (a client's mirror through a split-and-merge loop), `BuildTests`,
+            `ContentValidatorTests`; in the smoke a Splitter is built by its key (`splitter`
+            shot). The optional per-output kind filter waits for the filter panel the Address
+            Sorter brings
       - [ ] Ramps and elevated belts; Fast Belt (bp_fast_belts); a carrier carried along, pushing a belt
       - [ ] Endpoints into containers (Depot) and vehicles
 - [ ] Belt replication: LaneInsert/Remove/Checksum/State; client visual sim; interest management for segments
@@ -2107,6 +2121,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     maps and boxed it in, moved one tile up and east (still in the Post Office's yard). The
     outfeed gives one piece a tick at most; the belt's head room is what limits it (8 a second on
     two lanes of a Mk1 belt), so no rate of its own is invented.
+96. **Splitters and mergers.** Doc 04 §2.3 gives their ways and round-robin, not the rest. A
+    splitter takes mail only from the belt behind it (a side belt would be a fourth way, and its
+    left and right are outputs); a merger takes from anything facing into it but its front.
+    Round-robin is per item handed on; a merger's turn passes over an input with nothing waiting,
+    so an idle input never stalls the others. Both move mail at the Mk1 belt speed across their
+    tile (params.speed 2). Like belts they lie low (0.7 m) and are walked over rather than walked
+    round, which keeps them out of the raiders' tile paths until M3 decides what raiders do to
+    belts.
 
 ## Commands
 

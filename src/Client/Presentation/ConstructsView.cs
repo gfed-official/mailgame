@@ -149,9 +149,11 @@ namespace PerformativeMail.Client.Presentation
             foreach (var c in field.All)
             {
                 var at = new Vector3(c.X, world.Map.HeightAt(c.X, c.Z), c.Z);
-                if (c.Def.Behaviour == BuildingBehaviour.Belt)
+                if (c.Def.Carries)
                 {
-                    BeltTile(batch, at, BeltEntry(world, c), c.Rotation & 3, null, c.Hp * 2 < c.Def.Hp);
+                    bool belt = c.Def.Behaviour == BuildingBehaviour.Belt;
+                    BeltTile(batch, at, belt ? BeltEntry(world, c) : c.Rotation & 3, c.Rotation & 3, null, c.Hp * 2 < c.Def.Hp);
+                    if (!belt) Housing(batch, at, c.Rotation & 3, c.Def.Behaviour == BuildingBehaviour.Splitter, null);
                     continue;
                 }
                 Draw(batch, c.Def, at, field.Arms(c), c.Rotation, null, c.Hp * 2 < c.Def.Hp);
@@ -210,7 +212,11 @@ namespace PerformativeMail.Client.Presentation
                 {
                     var mat = state == OpResult.Ok ? good : bad;
                     var offset = new Vector3((tx - ghost.Tx) * SimConstants.TileSize, 0f, (tz - ghost.Tz) * SimConstants.TileSize);
-                    if (def.Behaviour == BuildingBehaviour.Belt) BeltTile(batch, offset, ghost.Rotation & 3, ghost.Rotation & 3, mat, false);
+                    if (def.Carries)
+                    {
+                        BeltTile(batch, offset, ghost.Rotation & 3, ghost.Rotation & 3, mat, false);
+                        if (def.Behaviour != BuildingBehaviour.Belt) Housing(batch, offset, ghost.Rotation & 3, def.Behaviour == BuildingBehaviour.Splitter, mat);
+                    }
                     else Draw(batch, def, offset, arms, ghost.Rotation, mat, false);
                     // The tile it takes, on the ground.
                     batch.Box(offset + new Vector3(0f, 0.02f, 0f), new Vector3(SimConstants.TileSize - 0.1f, 0.04f, SimConstants.TileSize - 0.1f), mat, 0.02f);
@@ -283,6 +289,38 @@ namespace PerformativeMail.Client.Presentation
             for (int i = -1; i <= 1; i += 2)
                 for (int j = -1; j <= 1; j += 2)
                     batch.Box(at + new Vector3(i * (width * 0.5f + 0.02f), (BeltTop - 0.16f) * 0.5f, j * 0.6f), new Vector3(0.08f, BeltTop - 0.16f, 0.08f), steel, 0.01f);
+        }
+
+        /// <summary>
+        /// A splitter's or merger's housing over its belt (doc 04 §2.3): two steel side plates under
+        /// a roof, and yellow arrows on the roof — out to the front, left and right for a splitter,
+        /// in from the back, left and right for a merger.
+        /// </summary>
+        public static void Housing(MeshBatch batch, Vector3 at, int dir, bool splitter, Material? only)
+        {
+            var steel = only ?? MeshKit.Mat(new Color("6f757d"), 0.4f, 0.7f);
+            var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
+            var v = Dir(dir);
+            var across = new Vector3(Mathf.Abs(v.Z), 0f, Mathf.Abs(v.X));
+            var along = new Vector3(Mathf.Abs(v.X), 0f, Mathf.Abs(v.Z));
+            const float roof = 0.95f;
+            for (int side = -1; side <= 1; side += 2)
+                batch.Box(at + across * side * 0.78f + new Vector3(0f, roof * 0.5f, 0f), along * 1.1f + across * 0.1f + new Vector3(0f, roof, 0f), steel, 0.03f);
+            batch.Box(at + new Vector3(0f, roof, 0f), along * 1.2f + across * 1.7f + new Vector3(0f, 0.1f, 0f), steel, 0.04f);
+            // The arrows: for each way, a shaft and a head on the roof.
+            for (int k = 0; k < 3; k++)
+            {
+                int d = k == 0 ? dir : k == 1 ? (dir + 3) & 3 : (dir + 1) & 3;
+                if (!splitter && k == 0) d = (dir + 2) & 3;
+                var w = Dir(d);
+                // A splitter's arrows point out along their way; a merger's point in, towards the middle.
+                var tip = splitter ? w * 0.55f : w * 0.15f;
+                var tail = splitter ? w * 0.15f : w * 0.55f;
+                var mid = (tip + tail) * 0.5f;
+                float yaw = Mathf.Atan2((tip - tail).X, (tip - tail).Z);
+                batch.Add(MeshKit.Box(new Vector3(0.09f, 0.02f, 0.4f)), yellow, new Transform3D(new Basis(Vector3.Up, yaw), at + mid + new Vector3(0f, roof + 0.06f, 0f)));
+                batch.Add(MeshKit.Cone(0.12f, 0.2f, 3), yellow, new Transform3D(new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.Pi * 0.5f), at + tip + new Vector3(0f, roof + 0.06f, 0f)));
+            }
         }
 
         private static Vector3 Dir(int d) => d switch { 0 => Vector3.Right, 1 => Vector3.Back, 2 => Vector3.Left, _ => Vector3.Forward };

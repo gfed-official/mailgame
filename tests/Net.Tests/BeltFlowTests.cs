@@ -257,6 +257,63 @@ namespace PerformativeMail.Net.Tests
         }
 
         private const double Dt = 1.0 / 30.0;
+
+        [Fact]
+        public void ThroughASplitterAndAMerger_TheClientsMirrorFollows()
+        {
+            var session = new Session(delay: 2);
+            var host = session.Join("host");
+            Assert.NotEqual(0u, host.PressGo());
+            session.Run(15);
+            var sim = session.Sim;
+            var truth = session.Truth(host);
+            truth.Move.X = Centre(10);
+            truth.Move.Z = Centre(5);
+            Assert.True(sim.Give(truth.Inventory, ItemStack.OfItem(session.Content.Item("plank"), 20)));
+            Assert.True(sim.Give(truth.Inventory, ItemStack.OfItem(session.Content.Item("iron_ingot"), 20)));
+            session.Run(15);
+            RecipeDef R(string id) => session.Content.Recipes.Single(r => r.Building.Id == id);
+            // In at (8, 5), split three ways at (9, 5): north, east, south; the north and south ways
+            // turn back east and meet the middle one in a merger at (11, 5), out at (12, 5).
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 8, 5, 0));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("splitter"), 9, 5, 0));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 9, 4, 3));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 9, 6, 1));
+            session.Run(10);
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 9, 3, 0));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 9, 7, 0));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 10, 5, 0));
+            session.Run(10);
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 10, 3, 0));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 10, 7, 0));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 11, 3, 1));
+            session.Run(10);
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 11, 4, 1));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 11, 7, 3));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 11, 6, 3));
+            session.Run(10);
+            Assert.NotEqual(0u, host.PlaceConstruct(R("merger"), 11, 5, 0));
+            Assert.NotEqual(0u, host.PlaceConstruct(R("belt_mk1"), 12, 5, 0));
+            session.Run(15);
+            Assert.Equal(15, sim.Constructs.All.Count);
+            var merger = sim.Belts.SegmentAt(11, 5)!;
+            Assert.Equal(3, merger.Ins.Count);
+            Assert.Equal(3, sim.Belts.SegmentAt(9, 5)!.Outs.Count);
+
+            var to = sim.Map.Destinations.Single(d => d.Address.Number == 1);
+            var input = sim.Belts.SegmentAt(8, 5)!;
+            uint id = 940000;
+            for (int i = 0; i < 9 * 30; i++)
+            {
+                if (i % 9 == 0) sim.PutOnBelt(input, TestMail.Letter(session.Content, to.Address, id++, sim.Run.Shift));
+                session.Run(1);
+            }
+            session.Run(10 * 30);
+            // Everything backed up at the open end out of the merger: the same on both ends.
+            Assert.True(sim.Belts.SegmentAt(12, 5)!.Items.Count > 0);
+            Assert.Equal(Layout(sim.Belts), Layout(host.World!.Belts));
+            Assert.Equal(0, host.World.BeltMismatches);
+        }
     }
 
     internal static class TestMail

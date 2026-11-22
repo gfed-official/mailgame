@@ -323,5 +323,110 @@ namespace PerformativeMail.Sim.Tests
                     $"seed {seed}: the outfeed at ({x}, {z + 1}) leads nowhere");
             }
         }
+    
+        private OpResult Put(SimWorld world, Player p, string building, int tx, int tz, int rotation) =>
+            Request(world, p, SimRequest.PlaceConstruct(0, Db.Building(building).Index, tx, tz, rotation));
+
+        [Fact]
+        public void ASplitter_HandsMailFrontLeftRight_InTurn_SkippingAWayThatIsFull()
+        {
+            var (world, host) = InPrep();
+            SimDriver.Teleport(host, Centre(10), Centre(5));
+            Assert.Equal(OpResult.Ok, Line(world, host, 8, 5, 9, 5, 0));
+            Assert.Equal(OpResult.Ok, Put(world, host, "splitter", 10, 5, 0));
+            Assert.Equal(OpResult.Ok, Put(world, host, "belt_mk1", 11, 5, 0));
+            Assert.Equal(OpResult.Ok, Put(world, host, "belt_mk1", 10, 4, 3));
+            Assert.Equal(OpResult.Ok, Put(world, host, "belt_mk1", 10, 6, 1));
+            world.Step();
+            var belts = world.Belts;
+            var splitter = belts.SegmentAt(10, 5)!;
+            Assert.Single(splitter.Tiles);
+            Assert.Equal(BeltEndKind.Split, splitter.End);
+            var front = belts.SegmentAt(11, 5)!;
+            var left = belts.SegmentAt(10, 4)!;
+            var right = belts.SegmentAt(10, 6)!;
+            Assert.Equal(new[] { front, left, right }, splitter.Outs);
+            Assert.Same(splitter, belts.SegmentAt(9, 5)!.Next);
+
+            var input = belts.SegmentAt(8, 5)!;
+            var to = NumberOne(world);
+            var into = new System.Collections.Generic.List<BeltSegment>();
+            for (int i = 0; i < 8 * Tps; i++)
+            {
+                if (i % 10 == 0 && i < 60) world.PutOnBelt(input, Letter(world, to));
+                world.Events.Clear();
+                world.Step();
+                foreach (var m in world.Events.OfType<BeltItemMovedEvent>())
+                    into.Add(belts.SegmentByHead(m.Y * world.Map.Cols + m.X)!);
+            }
+            var outs = into.Where(sg => sg != splitter).ToList();
+            Assert.Equal(new[] { front, left, right, front, left, right }, outs);
+            Assert.Equal((2, 2, 2), (front.Items.Count, left.Items.Count, right.Items.Count));
+
+            // The left way full (a 2 m belt holds four a lane): the next four go front and right only.
+            for (int i = 0; i < 4 * Tps; i++)
+            {
+                if (i % 8 == 0) world.PutOnBelt(left, Letter(world, to));
+                world.Step();
+            }
+            Assert.Equal(8, left.Items.Count);
+            into.Clear();
+            for (int i = 0; i < 4 * Tps; i++)
+            {
+                if (i % 10 == 0 && i < 40) world.PutOnBelt(input, Letter(world, to));
+                world.Events.Clear();
+                world.Step();
+                foreach (var m in world.Events.OfType<BeltItemMovedEvent>())
+                    into.Add(belts.SegmentByHead(m.Y * world.Map.Cols + m.X)!);
+            }
+            Assert.Equal(new[] { front, right, front, right }, into.Where(sg => sg != splitter));
+            Assert.Equal((4, 8, 4), (front.Items.Count, left.Items.Count, right.Items.Count));
+        }
+
+        [Fact]
+        public void AMerger_TakesItsInputsInTurn_OntoItsOneOutput()
+        {
+            var (world, host) = InPrep();
+            SimDriver.Teleport(host, Centre(10), Centre(5));
+            Assert.Equal(OpResult.Ok, Put(world, host, "belt_mk1", 9, 5, 0));
+            Assert.Equal(OpResult.Ok, Put(world, host, "belt_mk1", 10, 4, 1));
+            Assert.Equal(OpResult.Ok, Put(world, host, "belt_mk1", 10, 6, 3));
+            Assert.Equal(OpResult.Ok, Put(world, host, "merger", 10, 5, 0));
+            Assert.Equal(OpResult.Ok, Line(world, host, 11, 5, 12, 5, 0));
+            world.Step();
+            var belts = world.Belts;
+            var merger = belts.SegmentAt(10, 5)!;
+            var ins = new[] { belts.SegmentAt(9, 5)!, belts.SegmentAt(10, 4)!, belts.SegmentAt(10, 6)! };
+            Assert.Equal(3, merger.Ins.Count);
+            Assert.All(ins, i => Assert.Same(merger, i.Next));
+            var output = belts.SegmentAt(11, 5)!;
+            Assert.Same(output, merger.Next);
+
+            // Three letters on each input, all at once: they come out one input after another.
+            var to = NumberOne(world);
+            var from = new System.Collections.Generic.Dictionary<uint, BeltSegment>();
+            for (int k = 0; k < 3; k++)
+            {
+                foreach (var i in ins)
+                {
+                    var letter = Letter(world, to);
+                    if (world.PutOnBelt(i, letter)) from[letter.Id] = i;
+                }
+                SimDriver.StepTicks(world, 8);
+            }
+            var order = new System.Collections.Generic.List<BeltSegment>();
+            for (int t = 0; t < 10 * Tps; t++)
+            {
+                world.Events.Clear();
+                world.Step();
+                foreach (var m in world.Events.OfType<BeltItemMovedEvent>())
+                    if (m.X == 10 && m.Y == 5) order.Add(from[m.MailId]);
+            }
+            Assert.Equal(9, from.Count);
+            Assert.Equal(9, order.Count);
+            // In turn: no input twice in a row while another had mail waiting.
+            for (int k = 1; k < 6; k++) Assert.NotSame(order[k - 1], order[k]);
+            Assert.All(ins, i => Assert.Equal(3, order.Count(o => o == i)));
+        }
     }
 }

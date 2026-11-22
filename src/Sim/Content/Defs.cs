@@ -251,6 +251,10 @@ namespace PerformativeMail.Sim.Content
         Alarm = 4,
         /// <summary>A conveyor belt (doc 04 §2.1): lies flat, carries mail one way at its speed.</summary>
         Belt = 5,
+        /// <summary>Doc 04 §2.3: one input from behind, up to three outputs (front, left, right) in turn.</summary>
+        Splitter = 6,
+        /// <summary>Doc 04 §2.3: up to three inputs (back, left, right) in turn, one output in front.</summary>
+        Merger = 7,
     }
 
     /// <summary>
@@ -290,7 +294,9 @@ namespace PerformativeMail.Sim.Content
         /// <summary>Walls and gates stand in a line and join each other; a chest and spikes stand alone.</summary>
         public bool Joins => Behaviour == BuildingBehaviour.Wall || Behaviour == BuildingBehaviour.Gate;
         /// <summary>Whether it stands in anybody's way at all: spikes are walked over, and the raiders' paths go across them.</summary>
-        public bool Solid => Behaviour != BuildingBehaviour.Spikes && Behaviour != BuildingBehaviour.Belt;
+        public bool Solid => Behaviour != BuildingBehaviour.Spikes && !Carries;
+        /// <summary>Mail rides through it (doc 04 §2): a belt, a splitter, a merger. Low enough to walk over.</summary>
+        public bool Carries => Behaviour == BuildingBehaviour.Belt || Behaviour == BuildingBehaviour.Splitter || Behaviour == BuildingBehaviour.Merger;
     }
 
     /// <summary>One line of a recipe: so many of an item.</summary>

@@ -267,7 +267,7 @@ namespace PerformativeMail.Client
             {
                 int dir = ex > _dragX ? 0 : ez > _dragZ ? 1 : ex < _dragX ? 2 : 3;
                 // A belt runs the way it was drawn; a wall stands along the line.
-                rotation = recipe.Building.Behaviour == BuildingBehaviour.Belt ? dir : (dir & 1) % Math.Max(1, recipe.Building.Rotations);
+                rotation = recipe.Building.Carries ? dir : (dir & 1) % Math.Max(1, recipe.Building.Rotations);
             }
             _line.Clear();
             world.LineStates(recipe, _dragX, _dragZ, ex, ez, _line);
