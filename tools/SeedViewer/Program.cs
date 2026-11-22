@@ -107,7 +107,7 @@ namespace PerformativeMail.Tools.SeedViewer
                 int land = t.LandTiles;
                 string Share(Biome b) => (100.0 * t.Count(b) / Math.Max(1, land)).ToString("F0", CultureInfo.InvariantCulture);
                 island = string.Create(CultureInfo.InvariantCulture,
-                    $", island {t.Cols}x{t.Rows} land {100.0 * land / t.Biomes.Length:F0}% (forest {Share(Biome.Forest)}% rocky {Share(Biome.Rocky)}% beach {Share(Biome.Beach)}%), top {t.MaxHeightCm / 100.0:F1} m");
+                    $", island {t.Cols}x{t.Rows} land {100.0 * land / t.Biomes.Length:F0}% (forest {Share(Biome.Forest)}% rocky {Share(Biome.Rocky)}% beach {Share(Biome.Beach)}%), top {t.MaxHeightCm / 100.0:F1} m, town at {t.TownX},{t.TownZ} (flat {t.Site.Flat / 10}% levelled {t.Site.Levelling} cm, {t.Site.Coast * 2} m from the sea, {t.Site.FromCentre * 2} m off the middle)");
             }
             string edges = string.Join(" ", map.SpawnEdges.Select(e => $"{e.Direction}@{e.UnlockShift}"));
             return string.Create(CultureInfo.InvariantCulture,

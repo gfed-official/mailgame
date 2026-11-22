@@ -21,8 +21,9 @@ namespace PerformativeMail.Sim.World
     /// south shore up to the town's beach, the coastline smoothed (no single-tile spits), and a
     /// biome for every tile — deep and shallow water by depth, beach within 3 tiles of the water,
     /// rocky ground high up or steep, forest from a noise mask on at least a quarter of the land,
-    /// grassland the rest. The town's own grid sits in the middle, levelled to
-    /// <see cref="TownLevelCm"/>: the sim walks the town flat, the land around it rises from it.
+    /// grassland the rest. The town's site is searched for on the natural ground (doc 02 §3.3,
+    /// <see cref="PlaceTown"/>), and its grid levelled there to <see cref="TownLevelCm"/>: the sim
+    /// walks the town flat, the land around it rises from it.
     /// </summary>
     public sealed class IslandTerrain
     {
@@ -51,6 +52,43 @@ namespace PerformativeMail.Sim.World
         public int MaxHeightCm { get; private set; }
         /// <summary>The island's radius in tiles the falloff settled on (it grows when there is too little flat land).</summary>
         public int Radius { get; private set; }
+        /// <summary>The site search's figures for the site taken (doc 02 §3.3), for the SeedViewer and the tests.</summary>
+        public SiteScore Site { get; private set; }
+
+        /// <summary>What a site for the town's grid is judged by: all in ‰ of its tiles, centimetres and tiles.</summary>
+        public readonly struct SiteScore
+        {
+            /// <summary>Land under the grid, ‰.</summary>
+            public readonly int Land;
+            /// <summary>Ground under 10° (doc 02 §3.3 "flat"), ‰.</summary>
+            public readonly int Flat;
+            /// <summary>The mean height the ground is levelled by, in centimetres.</summary>
+            public readonly int Levelling;
+            /// <summary>Tiles from the grid's south edge to the sea (the bay's length).</summary>
+            public readonly int Coast;
+            /// <summary>Tiles from the grid's middle to the island's.</summary>
+            public readonly int FromCentre;
+            public readonly int Total;
+            public SiteScore(int land, int flat, int levelling, int coast, int fromCentre)
+            {
+                Land = land; Flat = flat; Levelling = levelling; Coast = coast; FromCentre = fromCentre;
+                Total = flat * 2 - levelling - coast * 5 - fromCentre * 5;
+            }
+        }
+
+        /// <summary>Doc 02 §3.3: flat is under 10°, 35 cm over a 2 m tile.</summary>
+        public const int FlatSlopeCm = 35;
+        /// <summary>How far from the island's middle the town's grid may be moved (doc 02 §1: "PO near centre").</summary>
+        public const int SiteReach = 40;
+        /// <summary>The site search tries every so many tiles.</summary>
+        private const int SiteStep = 4;
+        /// <summary>Of a site's grid at least this much must be land, ‰.</summary>
+        private const int SiteLandMin = 970;
+        /// <summary>
+        /// And all of this many tiles beyond its west, north and east edges, where its streets
+        /// leave it and the raiders come in from the island.
+        /// </summary>
+        private const int SiteShore = 8;
 
         public bool InBounds(int ix, int iz) => ix >= 0 && iz >= 0 && ix < Cols && iz < Rows;
 
@@ -124,10 +162,10 @@ namespace PerformativeMail.Sim.World
             for (int attempt = 0; attempt < MaxAttempts; attempt++)
             {
                 var t = new IslandTerrain { Cols = Size, Rows = Size, TownCols = townCols, TownRows = townRows };
-                t.TownX = (Size - townCols) / 2;
-                t.TownZ = (Size - townRows) / 2;
                 t.Radius = 134 + attempt * 6;
-                var natural = t.Heights(heightSeed, coastSeed);
+                var natural = t.Natural(heightSeed, coastSeed);
+                t.PlaceTown(natural);
+                t.Heights(natural);
                 t.Classify(natural, forestSeed, beachRows);
                 problem = t.Check(padTx + t.TownX, padTz + t.TownZ);
                 if (problem == null) return t;
@@ -135,15 +173,12 @@ namespace PerformativeMail.Sim.World
             return null;
         }
 
-        /// <summary>Heights: the natural ground, the town levelled into it, the bay; returns the natural ground.</summary>
-        private int[] Heights(uint heightSeed, uint coastSeed)
+        /// <summary>The natural ground: noise hills under a radial falloff with a noisy coast.</summary>
+        private int[] Natural(uint heightSeed, uint coastSeed)
         {
-            int n = Cols * Rows;
-            var natural = new int[n];
-            var h = new int[n];
+            var natural = new int[Cols * Rows];
             int cx = Cols / 2, cz = Rows / 2;
-            int townX1 = TownX + TownCols, townZ1 = TownZ + TownRows, townMid = TownX + TownCols / 2;
-            const int Margin = 26, Falloff = 24;
+            const int Falloff = 24;
             for (int iz = 0; iz < Rows; iz++)
             {
                 for (int ix = 0; ix < Cols; ix++)
@@ -155,8 +190,94 @@ namespace PerformativeMail.Sim.World
                     int q = FixedNoise.Fbm(heightSeed, ix, iz, 48, 4);
                     // Hills: the noise squared, so most of the land is low and a few tops stand out.
                     int land = 160 + (int)((long)q * q / 65536 * 1700 / 65536);
-                    int ground = (land * inland - 600 * (1024 - inland)) / 1024;
-                    natural[iz * Cols + ix] = ground;
+                    natural[iz * Cols + ix] = (land * inland - 600 * (1024 - inland)) / 1024;
+                }
+            }
+            return natural;
+        }
+
+        /// <summary>
+        /// Doc 02 §3.3, settlement placement: the town's grid goes where the natural ground under it
+        /// is all land and scores best — flat (under 10°), little to level, near the south coast
+        /// ("towns like the coast": its beach faces the bay), not far from the middle ("PO near
+        /// centre"); every <see cref="SiteStep"/> tiles within <see cref="SiteReach"/> of the middle
+        /// is tried. With no such site the grid stays in the middle.
+        /// </summary>
+        private void PlaceTown(int[] natural)
+        {
+            int midX = (Cols - TownCols) / 2, midZ = (Rows - TownRows) / 2;
+            TownX = midX;
+            TownZ = midZ;
+            Site = Score(natural, midX, midZ);
+            bool found = Site.Land >= SiteLandMin && LandAround(natural, midX, midZ);
+            for (int z0 = midZ - SiteReach; z0 <= midZ + SiteReach; z0 += SiteStep)
+            {
+                for (int x0 = midX - SiteReach; x0 <= midX + SiteReach; x0 += SiteStep)
+                {
+                    if (x0 < SiteShore || z0 < SiteShore || x0 + TownCols + SiteShore >= Cols || z0 + TownRows >= Rows - 1) continue;
+                    var score = Score(natural, x0, z0);
+                    if (score.Land < SiteLandMin || !LandAround(natural, x0, z0)) continue;
+                    if (found && score.Total <= Site.Total) continue;
+                    found = true;
+                    Site = score;
+                    TownX = x0;
+                    TownZ = z0;
+                }
+            }
+        }
+
+        /// <summary>True if the ground just beyond the grid's west, north and east edges is all land.</summary>
+        private bool LandAround(int[] natural, int x0, int z0)
+        {
+            for (int iz = z0 - SiteShore; iz < z0 + TownRows; iz++)
+                for (int ix = x0 - SiteShore; ix < x0 + TownCols + SiteShore; ix++)
+                {
+                    bool beyond = iz < z0 || ix < x0 || ix >= x0 + TownCols;
+                    if (beyond && natural[iz * Cols + ix] <= 0) return false;
+                }
+            return true;
+        }
+
+        private SiteScore Score(int[] natural, int x0, int z0)
+        {
+            int all = 0, land = 0, flat = 0;
+            long level = 0;
+            for (int iz = z0; iz < z0 + TownRows; iz += 2)
+            {
+                for (int ix = x0; ix < x0 + TownCols; ix += 2)
+                {
+                    int h = natural[iz * Cols + ix];
+                    all++;
+                    if (h <= 0) continue;
+                    land++;
+                    level += Math.Abs(h - TownLevelCm);
+                    int slope = 0;
+                    if (ix > 0) slope = Math.Max(slope, Math.Abs(h - natural[iz * Cols + ix - 1]));
+                    if (ix < Cols - 1) slope = Math.Max(slope, Math.Abs(h - natural[iz * Cols + ix + 1]));
+                    if (iz > 0) slope = Math.Max(slope, Math.Abs(h - natural[(iz - 1) * Cols + ix]));
+                    if (iz < Rows - 1) slope = Math.Max(slope, Math.Abs(h - natural[(iz + 1) * Cols + ix]));
+                    if (slope <= FlatSlopeCm) flat++;
+                }
+            }
+            // The bay runs south from the grid's middle to the sea.
+            int coast = 0, mid = x0 + TownCols / 2;
+            for (int iz = z0 + TownRows; iz < Rows && natural[iz * Cols + mid] > 0; iz++) coast++;
+            int dx = x0 + TownCols / 2 - Cols / 2, dz = z0 + TownRows / 2 - Rows / 2;
+            return new SiteScore(land * 1000 / all, flat * 1000 / all, land > 0 ? (int)(level / land) : 0, coast, ISqrt((long)dx * dx + (long)dz * dz));
+        }
+
+        /// <summary>Heights: the natural ground with the town levelled into it, and the bay.</summary>
+        private void Heights(int[] natural)
+        {
+            int n = Cols * Rows;
+            var h = new int[n];
+            int townX1 = TownX + TownCols, townZ1 = TownZ + TownRows, townMid = TownX + TownCols / 2;
+            const int Margin = 26;
+            for (int iz = 0; iz < Rows; iz++)
+            {
+                for (int ix = 0; ix < Cols; ix++)
+                {
+                    int ground = natural[iz * Cols + ix];
 
                     // The town is levelled; the ground blends into it over 26 tiles round it.
                     int ox = Math.Max(0, Math.Max(TownX - ix, ix - (townX1 - 1)));
@@ -203,7 +324,6 @@ namespace PerformativeMail.Sim.World
             int max = 0;
             for (int i = 0; i < n; i++) { HeightCm[i] = (short)h[i]; max = Math.Max(max, h[i]); }
             MaxHeightCm = max;
-            return natural;
         }
 
         private bool InTown(int ix, int iz) => ix >= TownX && iz >= TownZ && ix < TownX + TownCols && iz < TownZ + TownRows;

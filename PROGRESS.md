@@ -643,8 +643,18 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             "raiders from east@1 north@2 west@4" and draws '@'. `SpawnEdgeTests` (6),
             `SpawnEdgeFlowTests` (1), `CombatHudTests`; the smoke checks the map marks the test
             street's one way in
-      - [ ] the Generating phase with its progress bar; settlement placement searched for
-            rather than set (choice 84)
+      - [x] **Settlement placement searched for** (doc 02 §3.3; design choice 84, amended).
+            `IslandTerrain` now draws the natural ground first, then tries the town's grid
+            every 4 tiles within 40 tiles (80 m) of the island's middle: a site must be ≥ 97 %
+            land with land 8 tiles beyond its west, north and east edges (where the streets
+            leave and the raiders come in); it scores by flat ground (under 10°) ×2, less the
+            mean levelling in cm, less 5 a tile of bay to the sea and 5 a tile from the middle
+            ("towns like the coast", "PO near centre"); the best is levelled and the bay cut
+            below it. 30 seeds give 25+ different sites. `SeedViewer` prints "town at 148,156
+            (flat 96% levelled 455 cm, 98 m from the sea, 106 m off the middle)". The island
+            view draws the terrain and the islets round the island's middle, not the town's.
+            `IslandTerrainTests` (1 new)
+      - [ ] the Generating phase with its progress bar
       - [x] Checked along the way: the rider's prediction on the generated town keeps with the
             server tick by tick (`VehicleFlowTests.OnTheGeneratedTown_TheRidersPredictionKeepsWithTheServer`)
 - [x] Districts and per-shift unlock; address assignment; street names; house model variants and
@@ -1028,8 +1038,7 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the Generating phase with its progress bar, settlement placement searched
-for; the other blueprints and vehicles wait for belts, sorters and turrets (later milestones).
+Next in this order: the Generating phase with its progress bar; the other blueprints and vehicles wait for belts, sorters and turrets (later milestones).
 
 ## How to build and check
 
@@ -1882,9 +1891,12 @@ See "Commands" at the bottom (filled in as the tooling lands).
     a test. The sim walks the town flat as before (`WorldMap.HeightAt` stays 0): the town grid
     is levelled to 1.5 m over the sea ("buildings auto-level" taken for the whole town site),
     and the relief is the island's round it, which nobody walks yet. Settlement placement is
-    not searched for: the one town of a Small Island sits in the island's middle (the PO "near
-    centre") and "towns like the coast" is a bay cut from the south shore to the town's beach,
-    so the beach of design choice 83 is a real shore and deep water lies within 200 m. Rocky
+    searched for (since the batch after 941ca96): the one town's grid goes to the best-scoring
+    all-land site near the middle (doc 02 §3.3's flatness and coast, doc 02 §1's "PO near
+    centre"); its candidates are placements of the town's fixed-size grid rather than flat
+    regions of minTownTiles, as the grid is the town. "Towns like the coast" stays a bay cut
+    from the south shore to the town's beach (shorter the nearer the coast the site is), so the
+    beach of design choice 83 is a real shore and deep water lies within 200 m. Rocky
     ground inside the town is where the levelled-out natural ground would have stood above 60 %
     of the top (slope cannot make it rocky there). Forest is the top 30 % of a noise mask over
     the grassland, so the doc's "≥ 25 % of land" always holds. Driftwood on the beach and the

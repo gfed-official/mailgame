@@ -123,8 +123,9 @@ namespace PerformativeMail.Client.Presentation
         private static Mesh Terrain(WorldMap map)
         {
             var b = new MeshBuilder();
-            float cx = map.WidthM * 0.5f, cz = map.DepthM * 0.5f;
-            // The whole of a generated island; round the test street what the camera can see.
+            // The whole of a generated island (the town's site is searched for, so not always in
+            // its middle); round the test street what the camera can see.
+            IslandCentre(map, out float cx, out float cz);
             float rx = 176f, rz = 136f;
             if (map.Terrain is IslandTerrain island) { rx = island.Cols * Tile * 0.5f; rz = island.Rows * Tile * 0.5f; }
             int x0 = Mathf.FloorToInt((cx - rx) / Step), x1 = Mathf.CeilToInt((cx + rx) / Step);
@@ -152,7 +153,8 @@ namespace PerformativeMail.Client.Presentation
         {
             var rock = MeshKit.Mat(new Color("4f4a63"), 0.95f);
             var mesh = MeshKit.Blob(1f, 0.22f, 1.4f, 41, new Vector3(1f, 0.5f, 1f), 10);
-            var centre = new Vector3(map.WidthM * 0.5f, SeaLevel, map.DepthM * 0.5f);
+            IslandCentre(map, out float cx, out float cz);
+            var centre = new Vector3(cx, SeaLevel, cz);
             (float Angle, float Distance, float Size)[] islets = { (0.5f, 330f, 60f), (1.9f, 420f, 90f), (2.8f, 300f, 45f), (4.1f, 380f, 70f), (5.3f, 460f, 110f) };
             foreach (var (angle, distance, size) in islets)
                 batch.Add(mesh, rock, new Transform3D(Basis.Identity.Scaled(new Vector3(size, size * 0.5f, size * 0.8f)), centre + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * distance));
@@ -192,6 +194,16 @@ namespace PerformativeMail.Client.Presentation
         /// forest, boulders on rocky ground, a tree or a bush here and there on the grassland,
         /// nothing on the beach and in the water. Scenery only: none of it is a node.
         /// </summary>
+        /// <summary>The middle of the island in the town's frame: the town's own middle on the test street.</summary>
+        private static void IslandCentre(WorldMap map, out float x, out float z)
+        {
+            x = map.WidthM * 0.5f;
+            z = map.DepthM * 0.5f;
+            if (map.Terrain is not IslandTerrain island) return;
+            x = (island.Cols * 0.5f - island.TownX) * Tile;
+            z = (island.Rows * 0.5f - island.TownZ) * Tile;
+        }
+
         private static void IslandGreenery(MeshBatch batch, WorldMap map, IslandTerrain island)
         {
             const float cell = 8f;

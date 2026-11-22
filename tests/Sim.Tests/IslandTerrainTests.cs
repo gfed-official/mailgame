@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using PerformativeMail.Sim.Content;
@@ -107,6 +108,35 @@ namespace PerformativeMail.Sim.Tests
                 Assert.Equal(0f, t.MetresAboveTown(map.WidthM * 0.5f, map.DepthM * 0.5f), 3);
                 Assert.True(t.MetresAboveTown(map.WidthM * 0.5f, map.DepthM + 20f) < 0f);
             }
+        }
+
+        [Fact]
+        public void TheTownsSite_IsSearchedFor_OnLandAndFlat_NearTheMiddle_AndDiffersBySeed()
+        {
+            // Doc 02 §3.3: the town goes where the ground is flat, by the coast, near the middle.
+            var sites = new HashSet<(int, int)>();
+            int central = 0;
+            for (uint seed = 1; seed <= 30; seed++)
+            {
+                var map = WorldGenerator.Generate(Db, seed);
+                var t = map.Terrain!;
+                var site = t.Site;
+                sites.Add((t.TownX, t.TownZ));
+                int midX = (t.Cols - map.Cols) / 2, midZ = (t.Rows - map.Rows) / 2;
+                Assert.InRange(t.TownX - midX, -IslandTerrain.SiteReach, IslandTerrain.SiteReach);
+                Assert.InRange(t.TownZ - midZ, -IslandTerrain.SiteReach, IslandTerrain.SiteReach);
+                if (t.TownX == midX && t.TownZ == midZ) central++;
+                // All but a few tiles under the grid were land, and most of them flat.
+                Assert.True(site.Land >= 970, $"seed {seed}: {site.Land}‰ land");
+                Assert.True(site.Flat >= 850, $"seed {seed}: {site.Flat}‰ flat");
+                Assert.Equal(site.Flat * 2 - site.Levelling - site.Coast * 5 - site.FromCentre * 5, site.Total);
+                // Land beyond the west, north and east edges, where the streets leave and the raiders come in.
+                foreach (var (ix, iz) in new[] { (t.TownX - 4, t.TownZ + map.Rows / 2), (t.TownX + map.Cols + 3, t.TownZ + map.Rows / 2), (t.TownX + map.Cols / 2, t.TownZ - 4) })
+                    Assert.False(IslandTerrain.IsWater(t.BiomeAt(ix, iz)), $"seed {seed}: water at ({ix}, {iz}) beside the town");
+            }
+            // Not one place for every seed: the island decides.
+            Assert.True(sites.Count >= 15, $"only {sites.Count} sites for 30 seeds");
+            Assert.True(central < 10, $"{central} of 30 towns in the very middle");
         }
 
         [Fact]
