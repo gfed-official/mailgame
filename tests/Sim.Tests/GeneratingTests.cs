@@ -57,6 +57,29 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void AWorldDrawnThatArrivesInPrep_IsNoReadyForPrep()
+        {
+            // A slow client draws its world as the ten seconds run out: its word comes a tick late.
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            var slow = world.AddPlayer("slow")!;
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.WorldDrawn(0)));
+            Assert.True(host.Ready);
+            while (world.Run.Phase == RunPhase.Generating) world.Step();
+            Assert.Equal(RunPhase.Prep, world.Run.Phase);
+            Assert.Equal(OpResult.WrongPhase, Request(world, slow, SimRequest.WorldDrawn(0)));
+            Assert.False(slow.Ready);
+            // The host's own Ready does not end Prep for the one who never pressed theirs.
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+            SimDriver.StepTicks(world, 5);
+            Assert.Equal(RunPhase.Prep, world.Run.Phase);
+            Assert.Equal(OpResult.Ok, Request(world, slow, SimRequest.SetReady(0, true)));
+            world.Step();
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+        }
+
+        [Fact]
         public void WhoNeverSaysTheirWorldIsDrawn_IsWaitedForTenSecondsAtMost()
         {
             var world = NewWorld();

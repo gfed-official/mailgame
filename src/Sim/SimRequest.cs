@@ -98,6 +98,14 @@ namespace PerformativeMail.Sim
 
         public static SimRequest SetReady(uint reqId, bool ready) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetReady, Count = (ushort)(ready ? 1 : 0) };
+        /// <summary>
+        /// A client's world is built and drawn (doc 01 §1 Generating): a Ready that counts only
+        /// while the server is still Generating, so one that arrives after Prep began is no Prep Ready.
+        /// </summary>
+        public static SimRequest WorldDrawn(uint reqId) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.SetReady, Count = WorldDrawnCount };
+        /// <summary><see cref="Count"/> of <see cref="WorldDrawn"/>.</summary>
+        public const ushort WorldDrawnCount = 2;
 
         public static SimRequest ContinueRun(uint reqId) => new SimRequest { RequestId = reqId, Kind = RequestKind.ContinueRun };
 

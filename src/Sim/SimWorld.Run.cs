@@ -318,6 +318,8 @@ namespace PerformativeMail.Sim
         private OpResult SetReadyOp(Player player, in SimRequest r)
         {
             if (Run.Phase != RunPhase.Lobby && Run.Phase != RunPhase.Generating && Run.Phase != RunPhase.Prep) return OpResult.WrongPhase;
+            // Sent by the client by itself once its world is drawn: in Prep it would mean a Ready nobody pressed.
+            if (r.Count == SimRequest.WorldDrawnCount && Run.Phase != RunPhase.Generating) return OpResult.WrongPhase;
             player.Ready = r.Count != 0;
             return OpResult.Ok;
         }

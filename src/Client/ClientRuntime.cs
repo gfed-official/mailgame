@@ -184,7 +184,7 @@ namespace PerformativeMail.Client
                 return;
             }
             if (_generatedSent || world.LocalReady || !(WorldDrawn?.Invoke() ?? true)) return;
-            if (SetReady(true) != 0) _generatedSent = true;
+            if (Send(SimRequest.WorldDrawn(0)) != 0) _generatedSent = true;
         }
 
         public void Disconnect()

@@ -550,6 +550,12 @@ over seeds 1–220 with every town valid.
       counts only within 40 tiles all round (`IslandTerrain.PlaceTown`); over seeds 1–220 none is
       further than 80 m. `IslandTerrainTests.TheTownsSite_*` checks it on 30 seeds (four of them
       failed before). World hashes of those seeds changed; nothing pins them.
+- [x] Generating: the client's own "my world is drawn" was a plain Ready, and the server took it
+      in Prep too. A slow client whose word came just after the ten seconds (or a joiner's, after
+      the last other client's) was then Ready for Prep without pressing anything, and the others'
+      Ready ended Prep under them. It is now `SimRequest.WorldDrawn` (a SetReady with count 2),
+      refused outside Generating. `GeneratingTests.AWorldDrawnThatArrivesInPrep_IsNoReadyForPrep`.
+      The spawn edges were read through for the same; nothing found.
 
 ### 3. Further features from `design/drive/`, in milestone order
 
