@@ -49,6 +49,7 @@ namespace PerformativeMail.App
         public override void _EnterTree()
         {
             _session.Client.WorldReplaced += Rebuild;
+            _session.Client.WorldDrawn = () => _framesDrawn >= DrawnFrames;
             _session.ContentReloaded += OnContentReloaded;
         }
 
@@ -77,8 +78,13 @@ namespace PerformativeMail.App
             parent.MoveChild(this, index);
         }
 
+        /// <summary>Frames the world has been drawn since the screen was last built: the Generating phase's Ready waits for a couple.</summary>
+        private int _framesDrawn;
+        private const int DrawnFrames = 2;
+
         private void Build()
         {
+            _framesDrawn = 0;
             var session = _session;
             bool humanInput = _humanInput;
             var client = session.Client;
@@ -160,6 +166,7 @@ namespace PerformativeMail.App
         {
             var world = _session?.Client.World;
             if (world == null) return;
+            _framesDrawn++;
             Camera.Target = Players.LocalView;
             if (DriveAtmosphere) World.Atmosphere.TargetNight = NightFor(world.Raid);
             World.ShowDistricts(world.Global.Shift);
@@ -179,6 +186,7 @@ namespace PerformativeMail.App
         public override void _ExitTree()
         {
             if (_session != null) _session.Client.WorldReplaced -= Rebuild;
+            if (_session != null) _session.Client.WorldDrawn = null;
             if (_session != null) _session.ContentReloaded -= OnContentReloaded;
             if (_input != null && _session != null) _session.InputSource = null;
         }

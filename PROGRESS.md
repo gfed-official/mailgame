@@ -654,7 +654,23 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             (flat 96% levelled 455 cm, 98 m from the sea, 106 m off the middle)". The island
             view draws the terrain and the islets round the island's middle, not the town's.
             `IslandTerrainTests` (1 new)
-      - [ ] the Generating phase with its progress bar
+      - [x] **The Generating phase with its progress bar** (doc 01 §1; design choice 93).
+            The host's start puts the run into `RunPhase.Generating` (`SimSettings.Generating`,
+            on in the game, off in tests that start straight into Prep): the run is set up at
+            once (wallet, perks, shop, nodes, constructs, vehicles, kits) and the server waits
+            until every carrier here has said their world is built and drawn — their Ready —, or
+            `generatingSeconds` (10) are up; then the first shift's Prep. A player may join while
+            it lasts (their `--shift` counts). The client sends that Ready itself
+            (`ClientRuntime.WorldDrawn`: the screen has drawn the world two frames since it was
+            last built; a headless client at once). The loading panel (`GeneratingPanel`):
+            "GENERATING", the world and its seed string with houses and districts, a bar that
+            fills with the share of carriers ready, a line each ("Bo · building the world…" /
+            "Ada (you) · ready"), "The first Prep starts when everyone has the world, in 00:08 at
+            the latest"; the phase line "GENERATING", the hint "Building Small Island" / "waiting
+            for 1 of 2"; world labels keep off the panel. Protocol `m1.20`. `GeneratingTests`
+            (4), `GeneratingFlowTests` (1); in the smoke the host's screen holds back its Ready
+            for a few frames and the panel must read as `HudText.GeneratingLines` says, with its
+            bar, before Prep (`generating.png`)
       - [x] Checked along the way: the rider's prediction on the generated town keeps with the
             server tick by tick (`VehicleFlowTests.OnTheGeneratedTown_TheRidersPredictionKeepsWithTheServer`)
 - [x] Districts and per-shift unlock; address assignment; street names; house model variants and
@@ -688,8 +704,8 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             `bag-prompt.png`, `bag-open.png`); design choice 61
       - [x] **The Draft phase** (doc 01 §1 and §2.5): after every Payday the run survives, but the
             last, three cards of one shared offer lie open for 30 s; see the perk line below
-      - [ ] the Generating and Raid phases as phases of their own (the map is static, choice 3;
-            the raid runs inside Delivery, choice 50)
+      - [x] the Generating phase (see the world generation line above)
+      - [ ] the Raid phase as a phase of its own (the raid runs inside Delivery, choice 50)
 - [ ] Shop (blueprints, bike, consumables, refined materials); bike as first vehicle (driver
       prediction path)
       - [x] **The counter in the sim** (doc 01 §2.4 and §3.4, doc 08 §2.10, doc 10 §3; design
@@ -1038,7 +1054,7 @@ above). A box is ticked when the whole line of the doc exists; the sub-lines say
             feed names the post's warning, the lamp flashes and the raiders are marked
             (`gate-*.png`, `alarm-*.png`)
 
-Next in this order: the Generating phase with its progress bar; the other blueprints and vehicles wait for belts, sorters and turrets (later milestones).
+Next in this order: the other blueprints and vehicles wait for belts, sorters and turrets (later milestones).
 
 ## How to build and check
 
@@ -1060,7 +1076,7 @@ See "Commands" at the bottom (filled in as the tooling lands).
    `worldHash` and is checked at connect.
 4. **Run state machine (doc 01 §1), replacing the old "always Delivery of shift 1" stand-in.**
    Implemented phases: Lobby → Prep → Delivery → Payday → next shift's Prep, or Results → Lobby.
-   Not yet: Generating (the map is static, choice 3), Raid (M2). Draft came with the perks
+   Not yet: Raid (M2); Generating came with choice 93. Draft came with the perks
    (choice 66); before them Payday went straight to the next Prep. Mail spawn budget per shift is still
    `quota(shift, n) × spawnOverhead`, as in ch. 01 §3. The details the docs leave open are choices
    25–36. `SimSettings.QuickStart` keeps the old behaviour for tests, soaks and bots that only care
@@ -1966,6 +1982,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     way in open by the shift, not only the raid's: the raid's ways in are drawn as Delivery
     starts, and a post built in Prep should know whether it is any use. Water edges for
     Balloons come with Balloons.
+93. **What Generating waits for.** The world is generated when the host picks it in the Lobby
+    (choice 87: a town takes ~60 ms on the server and each client), so Generating does not
+    generate it again; it is the run's set-up (doc 01: "spawns Post Office, players, initial
+    resources") and the wait for every client to have that world built and drawn, which is what
+    a guest who joined a moment after the host's V or N needs. Its bar therefore fills with the
+    carriers whose screen is ready, not with generation stages. The Ready of Generating is the
+    client's own, not a key; the feed says nothing of it (its five lines are kept for the kits
+    handed out at the same moment).
 
 ## Commands
 

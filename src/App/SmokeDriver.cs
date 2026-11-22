@@ -55,6 +55,7 @@ namespace PerformativeMail.App
         private bool _checkedResults;
         private RunResults? _results;
         private readonly List<RunPhase> _phases = new List<RunPhase>();
+        private bool _sawGenerating, _shotGenerating;
         private readonly List<ShiftSummary> _summaries = new List<ShiftSummary>();
 
         /// <summary>With a window (not headless), PNGs of the boot view and each prompt are saved here.</summary>
@@ -253,11 +254,30 @@ namespace PerformativeMail.App
                         Check(hud.HintText.EndsWith($"{HudText.KitKey} kit: Land", StringComparison.Ordinal), $"in the Lobby the HUD hint does not name the kit: \"{hud.HintText}\"");
                         Check(client.CycleKit() == 0, "at rank 1 the kit key asked for another kit than Land");
                         Check(_mailArrived == 0 && server.Intake.EntryCount == 0, "mail arrived before the run started");
+                        // As if the screen were still drawing a new world: the Generating phase waits a few frames for it.
+                        var drawn = client.WorldDrawn;
+                        int from = _frames;
+                        client.WorldDrawn = () => _frames > from + 5 && (drawn?.Invoke() ?? true);
                         Go();
                     }
                     _frames++;
-                    if (world.Global.Phase == RunPhase.Prep) Enter(Stage.Prep);
-                    else if (_frames > BootFrames + 60) Fail("the run did not leave the Lobby after the host pressed go");
+                    // Doc 01 §1: the start goes through Generating, its loading panel up, to Prep once the screen has drawn the world.
+                    if (world.Global.Phase == RunPhase.Generating)
+                    {
+                        _sawGenerating = true;
+                        Check(hud.Generating.Visible && hud.Generating.Text == string.Join("\n", HudText.GeneratingLines(world)),
+                            $"in Generating the loading panel reads \"{hud.Generating.Text}\"");
+                        Check(hud.PhaseText == "GENERATING", $"in Generating the HUD phase line is \"{hud.PhaseText}\"");
+                        Check(Mathf.IsEqualApprox(hud.Generating.Progress, HudText.GeneratingProgress(world)), $"the loading bar is {hud.Generating.Progress:0.00} full");
+                        if (!_shotGenerating) { Shot("generating"); _shotGenerating = true; }
+                    }
+                    if (world.Global.Phase == RunPhase.Prep)
+                    {
+                        Check(_sawGenerating, "the run went to Prep without a Generating phase on screen");
+                        Check(!hud.Generating.Visible, "the loading panel stayed up in Prep");
+                        Enter(Stage.Prep);
+                    }
+                    else if (_frames > BootFrames + 90) Fail($"the run did not leave the Lobby after the host pressed go ({world.Global.Phase})");
                     break;
 
                 case Stage.Prep:
@@ -867,7 +887,7 @@ namespace PerformativeMail.App
             hud.Refresh();
 
             string seen = string.Join(", ", _phases);
-            Check(_phases.Count >= 5 && _phases[0] == RunPhase.Prep && _phases[1] == RunPhase.Delivery && _phases[2] == RunPhase.Payday
+            Check(_phases.Count >= 6 && _phases[0] == RunPhase.Generating && _phases[1] == RunPhase.Prep && _phases[2] == RunPhase.Delivery && _phases[3] == RunPhase.Payday
                 && _phases[_phases.Count - 2] == RunPhase.Results && _phases[_phases.Count - 1] == RunPhase.Lobby,
                 $"the phases the client saw were: {seen}");
             Check(_summaries.Count >= 1 && _results != null, $"{_summaries.Count} shift summaries and {(_results == null ? "no" : "the")} run results reached the client");

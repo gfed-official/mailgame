@@ -18,6 +18,11 @@ namespace PerformativeMail.Sim.Run
         Payday = 3,
         Draft = 4,
         Results = 5,
+        /// <summary>
+        /// Doc 01 §1: between the host's start and Prep the run is set up and every carrier's
+        /// client makes sure it has the world built and drawn; Prep comes when all have.
+        /// </summary>
+        Generating = 6,
     }
 
     /// <summary>How a run ended (doc 01 §7). None while it is still going.</summary>

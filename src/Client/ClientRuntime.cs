@@ -75,6 +75,13 @@ namespace PerformativeMail.Client
         public event Action? TickStarting;
         /// <summary>Raised when the host has put the game onto another map or seed and this client has built it.</summary>
         public event Action? WorldReplaced;
+        /// <summary>
+        /// Whether the screen has the world drawn (the Generating phase, doc 01 §1); the client
+        /// says it is ready once it has. Null (a headless client): at once.
+        /// </summary>
+        public Func<bool>? WorldDrawn;
+        /// <summary>The Ready of this Generating phase has gone out.</summary>
+        private bool _generatedSent;
 
         // Diagnostics (M0 acceptance: container hashes match on every version; prediction error).
         public int ContainerVersionsVerified { get; private set; }
@@ -159,7 +166,25 @@ namespace PerformativeMail.Client
         public void Tick()
         {
             _transport.Poll(this);
+            StepGenerating();
             StepInput();
+        }
+
+        /// <summary>
+        /// Doc 01 §1 "Generating": the server waits for every client to have the world built (the
+        /// map from the seed, its hash checked at the Welcome or the world's change) and drawn;
+        /// this client says so with its Ready as soon as the screen has.
+        /// </summary>
+        private void StepGenerating()
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Global.Phase != RunPhase.Generating)
+            {
+                _generatedSent = false;
+                return;
+            }
+            if (_generatedSent || world.LocalReady || !(WorldDrawn?.Invoke() ?? true)) return;
+            if (SetReady(true) != 0) _generatedSent = true;
         }
 
         public void Disconnect()

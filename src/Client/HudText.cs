@@ -44,6 +44,7 @@ namespace PerformativeMail.Client
             switch (g.Phase)
             {
                 case RunPhase.Lobby: return "LOBBY";
+                case RunPhase.Generating: return "GENERATING";
                 case RunPhase.Results: return g.Outcome == RunOutcome.Victory ? "RESULTS   VICTORY" : "RESULTS   RUN OVER";
             }
             string clock = world.PhaseHasClock ? " " + Clock(world.PhaseSecondsLeft) : "";
@@ -75,6 +76,39 @@ namespace PerformativeMail.Client
 
         /// <summary>The Lobby's world plate: "Small Island · PM1-SMALL-0000002A".</summary>
         public static string WorldTracker(ClientWorld world) => $"{WorldName(world.Map)} · {SeedString(world.Map.Id, world.Seed)}";
+
+        /// <summary>
+        /// The loading panel of the Generating phase (doc 01 §1, doc 09 "loading screen"): the
+        /// world, then a line per carrier — whose client has it drawn —, then how long the run
+        /// waits at most.
+        /// </summary>
+        public static List<string> GeneratingLines(ClientWorld world)
+        {
+            var map = world.Map;
+            int districts = map.Districts.Count;
+            var lines = new List<string>
+            {
+                "GENERATING",
+                $"{WorldName(map)} · {SeedString(map.Id, world.Seed)}   ·   {map.Destinations.Count} houses, {districts} district{(districts == 1 ? "" : "s")}",
+            };
+            var players = new List<ClientPlayer>(world.Players.Values);
+            players.Sort((a, b) => a.Slot.CompareTo(b.Slot));
+            foreach (var p in players)
+            {
+                if (p.Away) continue;
+                string who = p.Id == world.LocalId ? $"{p.Name} (you)" : p.Name;
+                lines.Add(p.Ready ? $"{who}   ·   ready" : $"{who}   ·   building the world…");
+            }
+            lines.Add($"The first Prep starts when everyone has the world, in {Clock(world.PhaseSecondsLeft)} at the latest");
+            return lines;
+        }
+
+        /// <summary>How full the loading bar is: the share of the carriers here whose world is drawn.</summary>
+        public static float GeneratingProgress(ClientWorld world)
+        {
+            int players = world.PresentCount;
+            return players > 0 ? Math.Clamp(world.ReadyCount / (float)players, 0f, 1f) : 0f;
+        }
 
         /// <summary>The Lobby's kit plate: "Kit: Land · [K]".</summary>
         public static string KitTracker(ClientWorld world) => $"Kit: {LocalKit(world).Name}   ·   {KitKey}";
@@ -173,6 +207,10 @@ namespace PerformativeMail.Client
                         ? $"Ready — waiting for {host} to start the run   ·   {GoKey} not ready{kit}"
                         : $"Waiting for {host} to start the run   ·   {GoKey} ready{kit}";
                 }
+                case RunPhase.Generating:
+                    return world.LocalReady
+                        ? $"The world is ready here   ·   waiting for {players - ready} of {players}"
+                        : $"Building {WorldName(world.Map)}";
                 case RunPhase.Prep:
                     return world.LocalReady
                         ? $"Ready {ready} / {players} — the shift starts when everyone is   ·   {GoKey} not ready"
@@ -338,6 +376,7 @@ namespace PerformativeMail.Client
             switch (g.Phase)
             {
                 case RunPhase.Lobby:
+                case RunPhase.Generating:
                 case RunPhase.Results: return "";
                 case RunPhase.Prep: return $"Quota {Money(g.Quota)}";
                 default: return $"Quota {Money(g.ShiftEarnings)} / {Money(g.Quota)}";

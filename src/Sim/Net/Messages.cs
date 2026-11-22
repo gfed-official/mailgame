@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m1.19;" +
+            "m1.20;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -68,7 +68,7 @@ namespace PerformativeMail.Sim.Net
             "LootTaken:u32 id,u32 player,u16 coins,u8 n,{u16 item,u8 count},u8 gone;LootGone:u32 id;" +
             "Raid:u8 state,u32 tick,i8 edgeA,i8 edgeB;PlayerDied:u32 player,u32 respawn,u8 killer;PlayerRespawned:u32 player,u32 protectedUntil;PlayerParked:u16 dest;" +
             "BagDropped:u32 container,u32 owner,f32 x,f32 z,u32 despawn;BagGone:u32 container,u8 returned,u16 mail;PlayerAway:u32 player,u32 until;PlayerBack:u32 player;" +
-            "Phase:u8 shift,u8 phase,u32 tick,u32 end,i32 quota,u8 outcome;" +
+            "Phase:u8 shift,u8 phase,u32 tick,u32 end,i32 quota,u8 outcome;Phases:lobby,prep,delivery,payday,draft,results,generating;" +
             "Paused:u8 paused,u32 tick;" +
             "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
             "Results:u8 outcome,u8 shifts,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp};" +

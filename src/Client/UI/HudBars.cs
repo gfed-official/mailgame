@@ -19,6 +19,13 @@ namespace PerformativeMail.Client.UI
             set { if (_fill.BgColor != value) { _fill.BgColor = value; QueueRedraw(); } }
         }
 
+        /// <summary>The empty part's colour: lighter on a dark panel, where the default would not show.</summary>
+        public Color Track
+        {
+            get => _back.BgColor;
+            set { if (_back.BgColor != value) { _back.BgColor = value; QueueRedraw(); } }
+        }
+
         /// <summary>0..1.</summary>
         public float Value
         {

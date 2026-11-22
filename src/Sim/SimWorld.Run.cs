@@ -8,8 +8,9 @@ using PerformativeMail.Sim.Run;
 namespace PerformativeMail.Sim
 {
     /// <summary>
-    /// The run state machine (doc 01 §1): Lobby → Prep → Delivery → Payday → Draft → next shift's
-    /// Prep, or Results once the quota is missed or the last shift is paid, then back to the Lobby.
+    /// The run state machine (doc 01 §1): Lobby → Generating → Prep → Delivery → Payday → Draft →
+    /// next shift's Prep, or Results once the quota is missed or the last shift is paid, then back
+    /// to the Lobby.
     /// </summary>
     public sealed partial class SimWorld
     {
@@ -22,7 +23,7 @@ namespace PerformativeMail.Sim
 
         /// <summary>Join-in-progress is allowed only in the Lobby and during Prep (doc 06 §5).</summary>
         public bool AcceptsPlayers =>
-            Settings.QuickStart || Run.Phase == RunPhase.Lobby || Run.Phase == RunPhase.Prep;
+            Settings.QuickStart || Run.Phase == RunPhase.Lobby || Run.Phase == RunPhase.Generating || Run.Phase == RunPhase.Prep;
 
         private void StepRun()
         {
@@ -31,6 +32,10 @@ namespace PerformativeMail.Sim
             {
                 case RunPhase.Lobby:
                     if (Settings.QuickStart && _players.Count > 0) BeginRun();
+                    break;
+                case RunPhase.Generating:
+                    // Who has not drawn the world by the deadline catches up in Prep.
+                    if (Tick >= Run.PhaseEndTick || AllReady()) BeginShift();
                     break;
                 case RunPhase.Prep:
                     if (Tick >= Run.PhaseEndTick || AllReady()) BeginDelivery();
@@ -92,6 +97,23 @@ namespace PerformativeMail.Sim
 
         private void BeginRun()
         {
+            SetUpRun();
+            BeginShift();
+        }
+
+        /// <summary>
+        /// Doc 01 §1 "Generating": the run is set up as the host starts it — the world as new, the
+        /// kits handed out — and the clients say when they have it drawn (their Ready); then Prep.
+        /// </summary>
+        private void BeginGenerating()
+        {
+            SetUpRun();
+            EnterPhase(RunPhase.Generating, Content.Balance.GetDouble("generatingSeconds"));
+        }
+
+        /// <summary>A fresh run: the wallet, the perks, the shop, the nodes, what was built and the kits.</summary>
+        private void SetUpRun()
+        {
             Run.RunNumber++;
             Run.Shift = StartShift;
             Run.ShiftsCompleted = 0;
@@ -116,7 +138,6 @@ namespace PerformativeMail.Sim
                 p.Kills = 0;
                 p.LootCoins = 0;
             }
-            BeginShift();
         }
 
         private void BeginShift()
@@ -289,13 +310,14 @@ namespace PerformativeMail.Sim
         {
             if (Run.Phase != RunPhase.Lobby) return OpResult.WrongPhase;
             if (player.Id != Run.Host) return OpResult.NotHost;
-            BeginRun();
+            if (Settings.Generating) BeginGenerating();
+            else BeginRun();
             return OpResult.Ok;
         }
 
         private OpResult SetReadyOp(Player player, in SimRequest r)
         {
-            if (Run.Phase != RunPhase.Lobby && Run.Phase != RunPhase.Prep) return OpResult.WrongPhase;
+            if (Run.Phase != RunPhase.Lobby && Run.Phase != RunPhase.Generating && Run.Phase != RunPhase.Prep) return OpResult.WrongPhase;
             player.Ready = r.Count != 0;
             return OpResult.Ok;
         }

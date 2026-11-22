@@ -80,7 +80,7 @@ namespace PerformativeMail.App
             }
             // About 20 ms here instead of a 7 ms tick when the first shift starts.
             SimWarmUp.Run(content, seed);
-            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart, MapId = mapId, StartingKits = true }, transport);
+            Server = new ServerRuntime(content, new SimSettings { Seed = seed, QuickStart = quickStart, MapId = mapId, StartingKits = true, Generating = true }, transport);
             // Before anybody can join and before the log listens: the refusal of the knock is not news.
             if (_enetServer != null && !EnetWarmUp.Run(_enetServer, transport, Server, Server.ProtocolHash))
                 GD.Print("[server] the ENet warm-up did not finish; the first join will cost a slow tick");

@@ -66,7 +66,7 @@ namespace PerformativeMail.Sim
 
         /// <summary>
         /// What a joining player asked for. Unknown bits are ignored. A start shift counts when the
-        /// next run starts, or at once for a run still in the Prep of an earlier shift; a raid asked
+        /// next run starts, or at once for a run still being generated or in the Prep of an earlier shift; a raid asked
         /// for in a Delivery whose raid has not been announced comes now.
         /// </summary>
         public void SetPlaytest(Player player, PlaytestFlags flags, int startShift = 0, int startWallet = 0)
@@ -81,6 +81,8 @@ namespace PerformativeMail.Sim
                 Run.Shift = player.PlaytestShift;
                 BeginPrep();
             }
+            // While the run is being set up, its first shift is still to come.
+            if (Run.Phase == RunPhase.Generating && player.PlaytestShift > Run.Shift) Run.Shift = player.PlaytestShift;
             if ((player.Playtest & PlaytestFlags.RaidNow) != 0 && Run.Phase == RunPhase.Delivery && Raid == RaidState.None) ScheduleRaid();
             if ((player.Playtest & PlaytestFlags.AtMailbox) != 0) ParkAtMailbox(player);
             GivePlaytestPackages(player);

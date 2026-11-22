@@ -75,6 +75,8 @@ namespace PerformativeMail.Client.UI
         public Control Overlay => _overlay;
         /// <summary>The cards of the Draft while they lie open.</summary>
         public DraftPanel Draft => _draft;
+        /// <summary>The loading screen of the Generating phase.</summary>
+        public GeneratingPanel Generating => _generating;
         /// <summary>Whose the mouse is; without it the HUD says nothing about a mouse let go.</summary>
         public MouseCapture? Mouse;
         /// <summary>The line that says the mouse was let go and how to take it back; empty while the view has it, a panel is open or the run is paused.</summary>
@@ -123,6 +125,7 @@ namespace PerformativeMail.Client.UI
             if (_hint.Visible && _hint.Text.Length > 0) AddClear(_hint, HintClearWidth);
             if (_banner.Visible) AddClear(_banner, BannerClearWidth);
             AddPanel(_draft);
+            AddPanel(_generating);
             AddPanel(_overlay);
             AddPanel(Panel);
             if (MapOpen?.Invoke() == true && MapArea != null)
@@ -162,6 +165,7 @@ namespace PerformativeMail.Client.UI
         public string KitText => _kit.Visible ? _kit.Text : "";
         public string WorldKeysText => _worldKeys.Visible ? _worldKeys.Text : "";
         private DraftPanel _draft = null!;
+        private GeneratingPanel _generating = null!;
         private Label _prompt = null!, _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
         private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
         private ColorRect _hurt = null!;
@@ -253,6 +257,8 @@ namespace PerformativeMail.Client.UI
             _draft = new DraftPanel();
             _draft.Setup(client);
             AddChild(_draft);
+            _generating = new GeneratingPanel();
+            AddChild(_generating);
 
             // First person: the ring marks the exact point the interact ray leaves from.
             var crosshair = new RingCrosshair
@@ -390,7 +396,7 @@ namespace PerformativeMail.Client.UI
             var world = _client?.World;
             if (world == null || !world.HasLocal) return;
             var global = world.Global;
-            bool between = global.Phase == RunPhase.Lobby || global.Phase == RunPhase.Results;
+            bool between = global.Phase == RunPhase.Lobby || global.Phase == RunPhase.Generating || global.Phase == RunPhase.Results;
 
             _phase.Text = HudText.ShiftAndPhase(world);
             double left = world.PhaseSecondsLeft;
@@ -446,6 +452,7 @@ namespace PerformativeMail.Client.UI
             RefreshOverlay(world);
             _draft.Mouse = Mouse;
             _draft.Refresh(world);
+            _generating.Refresh(world);
 
             // Health, stamina, and what the fight asks of the player.
             _healthBar.Value = world.LocalMaxHp > 0f ? world.LocalHp / world.LocalMaxHp : 0f;

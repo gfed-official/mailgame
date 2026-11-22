@@ -35,6 +35,12 @@ namespace PerformativeMail.Sim
         /// game turns them on; tests and tools that count what is in the pockets leave them off.
         /// </summary>
         public bool StartingKits;
+        /// <summary>
+        /// The Generating phase (doc 01 §1) between the host's start and Prep, waiting for every
+        /// client to have the world drawn. The game turns it on; tests and tools that start a run
+        /// straight into Prep leave it off.
+        /// </summary>
+        public bool Generating;
     }
 
     /// <summary>The small global block replicated at 5 Hz (doc 06 §4: wallet, complaint, quota progress).</summary>
