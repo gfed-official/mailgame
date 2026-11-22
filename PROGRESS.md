@@ -557,6 +557,26 @@ over seeds 1–220 with every town valid.
       refused outside Generating. `GeneratingTests.AWorldDrawnThatArrivesInPrep_IsNoReadyForPrep`.
       The spawn edges were read through for the same; nothing found.
 
+### 2j. A check of belts, the Intake outfeed, splitters and mergers on 789d49f (2026-11-22)
+
+No playtest report on 789d49f. The unit tests were green; `tools/smoke.sh` was red twice in a row.
+
+- [x] The smoke's fight failed "the hammer never showed in the player's hands" although the raider
+      fell: the hammer comes up in real time (a tenth of a second to half way), the smoke runs
+      the fight at three ticks a frame, and headless frames quick enough let the raider fall
+      first. After the fall the smoke now gives it half a second of real time before it checks.
+- [x] Belts: whenever the network was compiled again (any belt, splitter or merger built, turned
+      or taken down anywhere), mail put on a head less than a length ago — its rear still behind
+      the head, e.g. the Intake's outfeed's newest letter every quarter second — counted as not
+      fitting and went back into the Intake. Only mail whose *front* is pushed off the head goes
+      now. `BeltTests.MailJustPutOn_StaysOnTheBelt_WhenABeltIsBuiltElsewhere` (failed before);
+      `BeltFuzzTests` builds random networks of belts, splitters and mergers round a mailbox,
+      rebuilds them under the mail for 3000 ticks on 8 seeds, and checks that no mail is made,
+      lost or doubled, every lane keeps its order and spacing, and a client's mirror moved by
+      the hand-offs alone has the same mail lane by lane on every segment (it found the bug).
+- The island bot's 2 ms tick budget missed once at p99 2.16 ms (mean 0.12 ms) under the box's
+  load; three runs on their own passed.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is

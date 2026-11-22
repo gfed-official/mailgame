@@ -356,7 +356,8 @@ namespace PerformativeMail.Sim.Automation
                     var it = s.Items[i];
                     float limit = Limit(frontier, it.Lane);
                     if (it.Pos > limit) it.Pos = limit;
-                    if (it.Pos - it.Length < -1e-4f) { orphans?.Add(it); s.Items.RemoveAt(i--); continue; }
+                    // Its rear may still hang behind the head (it has just come on); its front may not.
+                    if (it.Pos < -1e-4f) { orphans?.Add(it); s.Items.RemoveAt(i--); continue; }
                     s.Items[i] = it;
                     SetFrontier(frontier, it.Lane, it.Pos - it.Length);
                 }

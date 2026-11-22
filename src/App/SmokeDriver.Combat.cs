@@ -26,6 +26,9 @@ namespace PerformativeMail.App
         private int _fightStep, _fightFrames;
         private Enemy _raider = null!, _giant = null!;
         private int _fightKills, _fightSwings, _fightShots, _fightBlasts, _fightWallet, _raiderCoins;
+        /// <summary>When the raider fell (ms): the hammer comes up in real time, the fight runs at fixed ticks a frame, so it gets half a second.</summary>
+        private ulong _raiderFellMsec;
+        private const ulong HammerWaitMsec = 500;
         private bool _sawWeaponsLine, _sawHammerDrawn, _sawCannonOut, _sawLootOnGround, _sawEnemyView;
 
         private void StartCombat()
@@ -160,6 +163,9 @@ namespace PerformativeMail.App
                     if (_sawHammerDrawn) Shot("hammer");
                     if (world.LocalKills == _fightKills) break;
                     client.Input.Buttons = InputButtons.None;
+                    // Headless frames can be quicker than the hammer's tenth of a second to come up.
+                    if (_raiderFellMsec == 0) _raiderFellMsec = Time.GetTicksMsec();
+                    if (!_sawHammerDrawn && Time.GetTicksMsec() - _raiderFellMsec < HammerWaitMsec) break;
                     Check(client.LocalHammerSwings - _fightSwings >= 3, $"the raider fell after {client.LocalHammerSwings - _fightSwings} swings of the hammer");
                     Check(_session.Feed.Entries.Any(e => e.Text == "You felled a Raider"), "the feed does not say the raider was felled");
                     Check(_sawHammerDrawn, "the hammer never showed in the player's hands");

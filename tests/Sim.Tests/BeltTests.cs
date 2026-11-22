@@ -247,6 +247,25 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void MailJustPutOn_StaysOnTheBelt_WhenABeltIsBuiltElsewhere()
+        {
+            // Its rear still hangs behind the head for a quarter of a second: a recompile used to
+            // count that as no room and put it back into the Intake.
+            var (world, host) = InPrep();
+            Assert.Equal(OpResult.Ok, Line(world, host, 6, Row, 9, Row, 0));
+            world.Step();
+            var s = world.Belts.Segments.Single();
+            Assert.True(world.Belts.TryInsert(s, Letter(world, NumberOne(world)), out var letter));
+            Assert.True(world.Belts.TryInsert(s, Letter(world, NumberOne(world)), out var second));
+            world.Step();
+            Assert.All(s.Items, it => Assert.True(it.Pos < it.Length));
+            Assert.Equal(OpResult.Ok, Line(world, host, 8, Row - 1, 9, Row - 1, 2));
+            Assert.DoesNotContain(world.Events.OfType<BeltItemRemovedEvent>(), e => e.MailId == letter.Mail.Id || e.MailId == second.Mail.Id);
+            var kept = world.Belts.SegmentAt(6, Row)!;
+            Assert.Equal(new[] { letter.Mail.Id, second.Mail.Id }.OrderBy(x => x), kept.Items.Select(it => it.Mail.Id).OrderBy(x => x));
+        }
+
+        [Fact]
         public void ALoopOfBelts_IsOneSegment_ThatFeedsItself()
         {
             var (world, host) = InPrep();
