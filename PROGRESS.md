@@ -1164,6 +1164,10 @@ the whole line exists; the sub-lines say which parts do.
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
+Next in this order: the rest of the belt line (ramps and elevated belts to cross streets, the Fast
+Belt behind bp_fast_belts, a carrier carried along and pushing a belt), then the Address Sorter
+with its filter panel (which also gives the splitter its kind filter), Inserters and the Depot.
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
