@@ -96,7 +96,7 @@ namespace PerformativeMail.App
                     bool arrived = MathF.Abs(world.Local.X - _buildX) < 0.3f && MathF.Abs(world.Local.Z - _buildZ) < 0.3f;
                     if (!arrived || _fortifyFrames < 4 || client.PendingRequestCount > 0) break;
                     if (!build.Active) Check(build.Toggle(), $"B did not put Build mode up ({build.Refused})");
-                    Check(build.PressKey(world.Content.Recipes.ToList().IndexOf(spikes)) && build.Recipe == spikes, "the Spike Strip has no key in Build mode");
+                    Check(build.PressKey(spikes.Key) && build.Recipe == spikes, "the Spike Strip has no key in Build mode");
                     build.Update(1.0 / 30.0, false, false);
                     hud.Refresh();
                     _screen.Constructs.Refresh();
@@ -140,7 +140,7 @@ namespace PerformativeMail.App
                     bool arrived = MathF.Abs(world.Local.X - _buildX) < 0.3f && MathF.Abs(world.Local.Z - _buildZ) < 0.3f;
                     if (!arrived || _fortifyFrames < 4 || client.PendingRequestCount > 0) break;
                     if (!build.Active) Check(build.Toggle(), $"B did not put Build mode up ({build.Refused})");
-                    Check(build.PressKey(world.Content.Recipes.ToList().IndexOf(stoneWall)) && build.Recipe == stoneWall, "the Stone Wall has no key in Build mode");
+                    Check(build.PressKey(stoneWall.Key) && build.Recipe == stoneWall, "the Stone Wall has no key in Build mode");
                     build.Update(1.0 / 30.0, false, false);
                     hud.Refresh();
                     _screen.Constructs.Refresh();

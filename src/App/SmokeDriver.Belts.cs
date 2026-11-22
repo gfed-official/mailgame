@@ -80,8 +80,15 @@ namespace PerformativeMail.App
                     return false;
                 }
                 if (!build.Active) Check(build.Toggle(), $"B did not put Build mode up for the belt ({build.Refused})");
-                int key = world.Content.Recipes.ToList().IndexOf(belt);
+                int key = belt.Key;
                 Check(build.PressKey(key) && build.Recipe == belt, $"key {key + 1} in Build mode is not the Conveyor Belt");
+                // The wheel steps to the Fast Belt on the same key (doc 09 §2.7), red without its blueprint, and back.
+                Check(build.Cycle(1) && build.Recipe?.Building.Id == "belt_mk2", $"the wheel on the belt's key is the {build.Recipe?.Building.Name}, not the Fast Belt");
+                hud.Refresh();
+                Check(hud.RecipeBarText.Contains("Fast Belt 2/2", StringComparison.Ordinal)
+                    && hud.RecipeShown == key && world.RecipeState(build.Recipe!) == OpResult.NeedsBlueprint,
+                    $"with the wheel on the Fast Belt the bar reads \"{hud.RecipeBarText}\" ({hud.RecipeShown}), {world.RecipeState(build.Recipe!)}");
+                Check(build.Cycle(-1) && build.Recipe == belt, "the wheel back is not the Conveyor Belt");
                 _beltStep = 1;
                 _beltFrames = 0;
                 return true;
@@ -266,7 +273,7 @@ namespace PerformativeMail.App
                         Fail("no open tile near the Intake for the Splitter");
                         return false;
                     }
-                    int key = world.Content.Recipes.ToList().IndexOf(splitter);
+                    int key = splitter.Key;
                     Check(build.PressKey(key) && build.Recipe == splitter, $"key {key + 1} in Build mode is not the Splitter");
                     _beltStep = 9;
                     _beltFrames = 0;

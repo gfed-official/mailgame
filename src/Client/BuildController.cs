@@ -143,13 +143,52 @@ namespace PerformativeMail.Client
             _holdTarget = null;
         }
 
-        /// <summary>A number key, counted from 0 for "1": in Build mode the keys are the recipes. Returns whether it was taken.</summary>
+        /// <summary>The recipe last chosen with the wheel in each group, by key.</summary>
+        private readonly Dictionary<int, RecipeDef> _chosen = new Dictionary<int, RecipeDef>();
+
+        /// <summary>
+        /// A number key, counted from 0 for "1": in Build mode the keys are the recipes, one a
+        /// group (<see cref="RecipeDef.Group"/>), the one of it chosen last. Returns whether it was taken.
+        /// </summary>
         public bool PressKey(int key)
         {
             var world = _client.World;
-            if (!Active || world == null || key < 0 || key >= world.Content.Recipes.Count) return false;
-            RecipeIndex = key;
+            var keys = world?.Content.RecipeKeys;
+            if (!Active || keys == null || key < 0 || key >= keys.Count) return false;
+            Select(_chosen.TryGetValue(key, out var chosen) ? chosen : keys[key][0]);
             return true;
+        }
+
+        /// <summary>The wheel in Build mode: the next (+1) or previous (−1) recipe of the selected one's group. Returns whether it was taken.</summary>
+        public bool Cycle(int step)
+        {
+            if (!Active) return false;
+            var recipe = Recipe;
+            var world = _client.World;
+            if (recipe == null || world == null) return true;
+            var group = world.Content.RecipeKeys[recipe.Key];
+            int at = 0;
+            for (int i = 0; i < group.Count; i++) if (group[i] == recipe) at = i;
+            Select(group[((at + step) % group.Count + group.Count) % group.Count]);
+            return true;
+        }
+
+        /// <summary>What a key builds: the selected recipe if it is of that key's group, else the group's last choice.</summary>
+        public RecipeDef Chosen(int key)
+        {
+            var recipe = Recipe;
+            if (recipe != null && recipe.Key == key) return recipe;
+            return _chosen.TryGetValue(key, out var chosen) ? chosen : _client.World!.Content.RecipeKeys[key][0];
+        }
+
+        /// <summary>Makes a recipe the selected one (and its group's choice).</summary>
+        public void Select(RecipeDef recipe)
+        {
+            var recipes = _client.World?.Content.Recipes;
+            if (recipes == null) return;
+            for (int i = 0; i < recipes.Count; i++)
+                if (recipes[i] == recipe) RecipeIndex = i;
+            _chosen[recipe.Key] = recipe;
         }
 
         /// <summary>R: a quarter turn more. Returns whether Build mode took the key.</summary>
@@ -172,7 +211,7 @@ namespace PerformativeMail.Client
             for (int i = 0; i < world.Content.Recipes.Count; i++)
             {
                 if (world.Content.Recipes[i].Building != target.Def) continue;
-                RecipeIndex = i;
+                Select(world.Content.Recipes[i]);
                 Rotation = target.Rotation;
             }
             return true;

@@ -1166,7 +1166,17 @@ the whole line exists; the sub-lines say which parts do.
             `ContentValidatorTests`; in the smoke a Splitter is built by its key (`splitter`
             shot). The optional per-output kind filter waits for the filter panel the Address
             Sorter brings
-      - [ ] Ramps and elevated belts; Fast Belt (bp_fast_belts); a carrier carried along, pushing a belt
+      - [x] **Fast Belt** (doc 04 §2.1 Mk2, doc 10 §2.1, §3; design choice 97). `belt_mk2` (100 HP,
+            a Plank and two Iron Ingots, 4 m/s) behind `bp_fast_belts` (Blueprint: Fast Belts,
+            $5.00, from shift 3, once a run for the team). It shares the Conveyor Belt's key of
+            Build mode: recipes now have a `group`, the wheel steps through a group while Build mode
+            is up, the key remembers the choice (`BuildController.Cycle`, `Chosen`,
+            `ContentDb.RecipeKeys`). Drawn with blue rail caps and doubled chevrons.
+            `FastBeltTests` (content, refused without the blueprint, bought in shift 3 and laid
+            after two Conveyor Belts: a segment of its own at 4 m/s), `BeltFlowTests` (the wheel and
+            the key on a client), shop tests; in the smoke the wheel on the belt key shows "Fast
+            Belt 2/2", red for want of its blueprint, and back
+      - [ ] Ramps and elevated belts; a carrier carried along, pushing a belt
       - [ ] Endpoints into containers (Depot) and vehicles
 - [ ] Belt replication: LaneInsert/Remove/Checksum/State; client visual sim; interest management for segments
       - [x] Events `BeltState` (a segment whole: when compiled anew, to a joiner after the
@@ -1184,8 +1194,8 @@ the whole line exists; the sub-lines say which parts do.
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the rest of the belt line (ramps and elevated belts to cross streets, the Fast
-Belt behind bp_fast_belts, a carrier carried along and pushing a belt), then the Address Sorter
+Next in this order: the rest of the belt line (a carrier carried along and pushing a belt, ramps
+and elevated belts to cross streets), then the Address Sorter
 with its filter panel (which also gives the splitter its kind filter), Inserters and the Depot.
 
 ## How to build and check
@@ -2153,6 +2163,15 @@ See "Commands" at the bottom (filled in as the tooling lands).
     tile (params.speed 2). Like belts they lie low (0.7 m) and are walked over rather than walked
     round, which keeps them out of the raiders' tile paths until M3 decides what raiders do to
     belts.
+97. **The Fast Belt and the keys of Build mode.** Doc 10 gives belt_mk2 (100 HP, a Plank and two
+    Iron Ingots) and bp_fast_belts (500 ¢, shift 3, "Belt Mk2"), doc 11 its 4 m/s; doc 09 §2.7
+    "scroll switches belt tier". With it Build mode would have had 12 recipes for 12 number keys
+    and no key left for ramps or sorters, so a recipe may name a `group`: the recipes of a group
+    share one key (the place of the group's first recipe), the wheel steps through them while
+    Build mode is up (the hotbar is down then), and a key brings back the group's last choice.
+    The belts are one group ("belt"); the content validator refuses more than 12 keys. The card
+    says "[7] Fast Belt 2/2", the keys line "[wheel] belt tier". A Fast Belt is drawn as the
+    Conveyor Belt with blue rail caps and two chevrons a half; a change of tier starts a segment.
 
 ## Commands
 

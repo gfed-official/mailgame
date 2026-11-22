@@ -83,6 +83,9 @@ namespace PerformativeMail.Client.InputHandling
                         ApplyMouseMode();
                     }
                     else if (button.ButtonIndex == MouseButton.Left && Building) _placeQueued = true;
+                    // In Build mode the wheel steps through the variants of a recipe (doc 09 §2.7: belt tiers).
+                    else if (!UiOpen && Building && button.ButtonIndex == MouseButton.WheelUp) _build!.Cycle(-1);
+                    else if (!UiOpen && Building && button.ButtonIndex == MouseButton.WheelDown) _build!.Cycle(1);
                     else if (!UiOpen && button.ButtonIndex == MouseButton.WheelUp) CycleSlot(-1);
                     else if (!UiOpen && button.ButtonIndex == MouseButton.WheelDown) CycleSlot(1);
                     return;

@@ -41,6 +41,9 @@ namespace PerformativeMail.Sim.Content
         /// <summary>What can be built, in the order of the build bar.</summary>
         public IReadOnlyList<BuildingDef> Buildings { get; private set; } = Array.Empty<BuildingDef>();
         public IReadOnlyList<RecipeDef> Recipes { get; private set; } = Array.Empty<RecipeDef>();
+        /// <summary>The recipes by their key of Build mode: each group's recipes in their order (<see cref="RecipeDef.Group"/>).</summary>
+        public const int MaxRecipeKeys = 12;
+        public IReadOnlyList<IReadOnlyList<RecipeDef>> RecipeKeys { get; private set; } = Array.Empty<IReadOnlyList<RecipeDef>>();
         public WaveDef Waves { get; private set; } = new WaveDef();
         public MailMixDef MailMix { get; private set; } = new MailMixDef();
         public Balance Balance { get; private set; } = new Balance(new Dictionary<string, double[]>());
@@ -985,6 +988,7 @@ namespace PerformativeMail.Sim.Content
                             Inputs = inputs,
                             Blueprint = blueprint,
                             UnlockShift = J.Int(ctx, e, "unlockShift", 1),
+                            Group = J.Has(e, "group") ? J.Str(ctx, e, "group") : id,
                         };
                         if (def.UnlockShift < 1) ctx.Error($"'{id}': unlockShift must be >= 1");
                         if (!AddUnique(ctx, recipesById, def.Id, def)) continue;
@@ -995,6 +999,17 @@ namespace PerformativeMail.Sim.Content
                     }
                 }
                 db.Recipes = recipes;
+                var keys = new List<List<RecipeDef>>();
+                var keyOf = new Dictionary<string, int>();
+                foreach (var recipe in recipes)
+                {
+                    if (!keyOf.TryGetValue(recipe.Group, out int key)) { key = keyOf[recipe.Group] = keys.Count; keys.Add(new List<RecipeDef>()); }
+                    recipe.Key = key;
+                    keys[key].Add(recipe);
+                }
+                db.RecipeKeys = keys.ConvertAll(k => (IReadOnlyList<RecipeDef>)k);
+                // 1–9, 0, minus and equals.
+                if (keys.Count > MaxRecipeKeys) new JsonCtx("recipes", errors).Error($"{keys.Count} keys of Build mode: at most {MaxRecipeKeys} (group the variants of a building)");
                 foreach (var building in list)
                     if (building.Recipe == null) (lastCtx ?? new JsonCtx("buildings", errors)).Error($"'{building.Id}': its recipe '{recipeOf[building.Id]}' is not in content/recipes");
             }

@@ -65,7 +65,7 @@ namespace PerformativeMail.App
                     bool arrived = MathF.Abs(world.Local.X - _buildX) < 0.3f && MathF.Abs(world.Local.Z - _buildZ) < 0.3f;
                     if (!arrived || _defenceFrames < 4 || client.PendingRequestCount > 0) break;
                     if (!build.Active) Check(build.Toggle(), $"B did not put Build mode up ({build.Refused})");
-                    Check(build.PressKey(world.Content.Recipes.ToList().IndexOf(gate)) && build.Recipe == gate, "the Gate has no key in Build mode");
+                    Check(build.PressKey(gate.Key) && build.Recipe == gate, "the Gate has no key in Build mode");
                     if ((build.Rotation & 1) == 0) build.Rotate();
                     build.Update(1.0 / 30.0, false, false);
                     hud.Refresh();
@@ -131,7 +131,7 @@ namespace PerformativeMail.App
                     bool arrived = MathF.Abs(world.Local.X - _buildX) < 0.3f && MathF.Abs(world.Local.Z - _buildZ) < 0.3f;
                     if (!arrived || _defenceFrames < 4 || client.PendingRequestCount > 0) break;
                     if (!build.Active) Check(build.Toggle(), $"B did not put Build mode up ({build.Refused})");
-                    Check(build.PressKey(world.Content.Recipes.ToList().IndexOf(alarm)) && build.Recipe == alarm, "the Alarm Post has no key in Build mode");
+                    Check(build.PressKey(alarm.Key) && build.Recipe == alarm, "the Alarm Post has no key in Build mode");
                     build.Update(1.0 / 30.0, false, false);
                     hud.Refresh();
                     _screen.Constructs.Refresh();

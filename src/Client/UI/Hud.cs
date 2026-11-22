@@ -95,7 +95,7 @@ namespace PerformativeMail.Client.UI
         public string RecipeBarText => _recipeBar.Visible ? string.Join("\n", RecipeCards()) : "";
         /// <summary>The bar of recipes, for the smoke's "nothing on anything else" check.</summary>
         public Control RecipeBar => _recipeBar;
-        /// <summary>The recipe of the bar that is selected, -1 while the bar is down.</summary>
+        /// <summary>The key of the bar that is selected, -1 while the bar is down.</summary>
         public int RecipeShown { get; private set; } = -1;
 
         private IEnumerable<string> RecipeCards()
@@ -548,22 +548,23 @@ namespace PerformativeMail.Client.UI
                 RecipeShown = -1;
                 return;
             }
-            var recipes = world.Content.Recipes;
-            if (_recipeBar.GetChildCount() != recipes.Count)
+            var keys = world.Content.RecipeKeys;
+            if (_recipeBar.GetChildCount() != keys.Count)
             {
                 foreach (var child in _recipeBar.GetChildren())
                 {
                     _recipeBar.RemoveChild(child);
                     child.QueueFree();
                 }
-                for (int i = 0; i < recipes.Count; i++) _recipeBar.AddChild(MakeLabel($"Recipe{i}", 13, HorizontalAlignment.Center));
+                for (int i = 0; i < keys.Count; i++) _recipeBar.AddChild(MakeLabel($"Recipe{i}", 13, HorizontalAlignment.Center));
             }
-            RecipeShown = Build!.RecipeIndex;
-            for (int i = 0; i < recipes.Count; i++)
+            RecipeShown = Build!.Recipe?.Key ?? -1;
+            for (int i = 0; i < keys.Count; i++)
             {
                 var label = (Label)_recipeBar.GetChild(i);
-                var state = world.RecipeState(recipes[i]);
-                label.Text = HudText.RecipeCard(recipes[i], i);
+                var recipe = Build.Chosen(i);
+                var state = world.RecipeState(recipe);
+                label.Text = HudText.RecipeCard(recipe, i, keys[i]);
                 label.Modulate = i == RecipeShown ? (state == OpResult.Ok ? Palette.Match : Palette.Amber)
                     : state == OpResult.Ok ? Colors.White : new Color(Palette.Mismatch, 0.8f);
                 label.AddThemeConstantOverride("outline_size", i == RecipeShown ? 10 : 6);

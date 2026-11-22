@@ -22,5 +22,7 @@
   { "id": "bike", "name": "Bike", "description": "8 m/s on the road, 5 off it; a rack of 2x8 for the round.", "kind": "vehicle", "price": 120,
     "grants": { "vehicle": "bike" }, "availability": { "fromShift": 1, "slot": "fixed" }, "tags": ["vehicle"] },
   { "id": "bp_defense", "name": "Blueprint: Fortify", "description": "The team can build Stone Walls and Spike Strips.", "kind": "blueprint", "price": 300,
-    "grants": { "blueprint": "bp_defense" }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["blueprint"] }
+    "grants": { "blueprint": "bp_defense" }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["blueprint"] },
+  { "id": "bp_fast_belts", "name": "Blueprint: Fast Belts", "description": "The team can build Fast Belts: 4 m/s, twice a Conveyor Belt.", "kind": "blueprint", "price": 500,
+    "grants": { "blueprint": "bp_fast_belts" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] }
 ]

@@ -468,7 +468,7 @@ namespace PerformativeMail.Net.Tests
             // The bar has the Fortify recipes, red, and the ghost of one says what it takes.
             Assert.True(build.Toggle());
             var spikes = s.Content.Recipes.First(r => r.Building.Id == "spike_strip");
-            int key = s.Content.Recipes.ToList().IndexOf(spikes);
+            int key = spikes.Key;
             Assert.True(build.PressKey(key));
             Assert.Equal(OpResult.NeedsBlueprint, b.RecipeState(spikes));
             LookAt(bo, Tx, Tz);

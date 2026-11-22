@@ -850,11 +850,23 @@ namespace PerformativeMail.Client
             p.Chest != null ? ContainerTitle(p.Chest.Container) : p.Built?.Def.Container != null ? ContainerTitle(p.Built.Def.Container) : "Chest";
 
         /// <summary>The keys of Build mode, over the hotbar while it is up.</summary>
-        public const string BuildKeys = "[LMB] build, drag for a line   [R] turn   [hold RMB] take down   [Q] pick   [B] done";
+        public const string BuildKeys = "[LMB] build, drag for a line   [R] turn   [wheel] belt tier   [hold RMB] take down   [Q] pick   [B] done";
 
-        /// <summary>A recipe on the bar: "[1] Wooden Wall · Log x3".</summary>
-        public static string RecipeCard(RecipeDef recipe, int key) =>
-            $"[{(key + 1).ToString(CultureInfo.InvariantCulture)}] {recipe.Building.Name}   ·   {Inputs(recipe.Inputs, 1.0)}";
+        /// <summary>A recipe on the bar: "[1] Wooden Wall · Log x3"; one of a group says which of how many the wheel is on: "[7] Fast Belt 2/2 · …".</summary>
+        public static string RecipeCard(RecipeDef recipe, int key, IReadOnlyList<RecipeDef>? group = null)
+        {
+            string of = "";
+            if (group != null && group.Count > 1)
+            {
+                int at = 0;
+                for (int i = 0; i < group.Count; i++) if (group[i] == recipe) at = i;
+                of = $" {(at + 1).ToString(CultureInfo.InvariantCulture)}/{group.Count.ToString(CultureInfo.InvariantCulture)}";
+            }
+            return $"[{KeyName(key)}] {recipe.Building.Name}{of}   ·   {Inputs(recipe.Inputs, 1.0)}";
+        }
+
+        /// <summary>The name of a number key counted from 0: 1–9, 0, -, =.</summary>
+        public static string KeyName(int key) => key < 9 ? (key + 1).ToString(CultureInfo.InvariantCulture) : key == 9 ? "0" : key == 10 ? "-" : "=";
 
         /// <summary>"Log x3", "Log x3, Rope x1": what a recipe takes, or the part of it that comes back.</summary>
         public static string Inputs(IReadOnlyList<RecipeInput> inputs, double part, int hp = 1, int maxHp = 1)

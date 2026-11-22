@@ -12,9 +12,12 @@
   { "id": "recipe_alarm_post", "produces": { "building": "alarm_post" },
     "inputs": [ { "item": "log", "count": 2 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
   { "id": "recipe_belt_mk1", "produces": { "building": "belt_mk1" },
-    "inputs": [ { "item": "plank", "count": 1 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
+    "inputs": [ { "item": "plank", "count": 1 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "belt" },
   { "id": "recipe_splitter", "produces": { "building": "splitter" },
     "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
   { "id": "recipe_merger", "produces": { "building": "merger" },
-    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 }
+    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
+  { "id": "recipe_belt_mk2", "produces": { "building": "belt_mk2" },
+    "inputs": [ { "item": "plank", "count": 1 }, { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1,
+    "blueprint": "bp_fast_belts", "group": "belt" }
 ]

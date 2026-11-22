@@ -156,7 +156,7 @@ namespace PerformativeMail.App
                     string want = HudText.BuildPrompt(world, g, out var tone);
                     Check(hud.PromptText == want && want.StartsWith("Build Wooden Wall", StringComparison.Ordinal) && tone == PromptTone.Match && hud.PromptMark == PromptTone.Match,
                         $"the green ghost's prompt is \"{hud.PromptText}\" ({hud.PromptMark}), expected \"{want}\"");
-                    Check(hud.RecipeBarText.Split('\n').Length == world.Content.Recipes.Count && hud.RecipeShown == 0 && hud.HeldText == HudText.BuildKeys,
+                    Check(hud.RecipeBarText.Split('\n').Length == world.Content.RecipeKeys.Count && hud.RecipeShown == 0 && hud.HeldText == HudText.BuildKeys,
                         $"the recipe bar reads \"{hud.RecipeBarText}\" ({hud.RecipeShown}), over \"{hud.HeldText}\"");
                     // The bar stands where the hotbar does, clear of the health bars and the trackers, inside the view.
                     var bar = hud.RecipeBar.GetGlobalRect();

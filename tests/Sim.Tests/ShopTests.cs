@@ -19,7 +19,10 @@ namespace PerformativeMail.Sim.Tests
 
         private const string Blueprint =
             "{ \"id\": \"bp_defense\", \"name\": \"Defense Blueprint\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 300, "
-            + "\"grants\": { \"blueprint\": \"bp_defense\" }, \"tags\": [\"blueprint\", \"special\"] }";
+            + "\"grants\": { \"blueprint\": \"bp_defense\" }, \"tags\": [\"blueprint\", \"special\"] }, "
+            // The Fast Belt's recipe names it; from shift 3, so the earlier shelves are as they were.
+            + "{ \"id\": \"bp_fast_belts\", \"name\": \"Fast Belts\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 500, "
+            + "\"grants\": { \"blueprint\": \"bp_fast_belts\" }, \"availability\": { \"fromShift\": 3, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }";
 
         private uint _nextRequest = 1;
         private uint _nextMailId = 960000;
@@ -138,7 +141,7 @@ namespace PerformativeMail.Sim.Tests
         {
             // The tools came with harvesting (HarvestTests); they are never a special, so the roll is as it was.
             // So did the Fortify blueprint with building (FortifyTests), the Shovel with the beach and the Bike (VehicleTests).
-            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "bike", "bp_defense" },
+            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "bike", "bp_defense", "bp_fast_belts" },
                 Db.ShopItems.Select(s => s.Id).ToArray());
             for (int i = 0; i < Db.ShopItems.Count; i++) Assert.Equal(i, Db.ShopItems[i].Index);
 

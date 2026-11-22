@@ -92,6 +92,45 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void BuildMode_TheWheel_StepsBetweenTheBeltTiers_OnOneKey_AndTheKeyRemembersTheChoice()
+        {
+            var session = new Session();
+            var host = session.Join("host");
+            Assert.NotEqual(0u, host.PressGo());
+            session.Run(10);
+            var build = new BuildController(host);
+            Assert.True(build.Toggle());
+            var content = session.Content;
+            var belt = content.Recipes.Single(r => r.Building.Id == "belt_mk1");
+            var fast = content.Recipes.Single(r => r.Building.Id == "belt_mk2");
+            var splitter = content.Recipes.Single(r => r.Building.Id == "splitter");
+            Assert.True(build.PressKey(belt.Key));
+            Assert.Same(belt, build.Recipe);
+            Assert.Equal($"[{belt.Key + 1}] Conveyor Belt 1/2   ·   Plank x1, Iron Ingot x1", HudText.RecipeCard(belt, belt.Key, content.RecipeKeys[belt.Key]));
+            Assert.True(build.Cycle(1));
+            Assert.Same(fast, build.Recipe);
+            Assert.Equal($"[{belt.Key + 1}] Fast Belt 2/2   ·   Plank x1, Iron Ingot x2", HudText.RecipeCard(fast, belt.Key, content.RecipeKeys[belt.Key]));
+            // Round again, either way.
+            Assert.True(build.Cycle(1));
+            Assert.Same(belt, build.Recipe);
+            Assert.True(build.Cycle(-1));
+            Assert.Same(fast, build.Recipe);
+            // A recipe alone stays itself; back on the belts' key, the Fast Belt is still the choice.
+            Assert.True(build.PressKey(splitter.Key));
+            Assert.True(build.Cycle(1));
+            Assert.Same(splitter, build.Recipe);
+            Assert.Same(fast, build.Chosen(belt.Key));
+            Assert.True(build.PressKey(belt.Key));
+            Assert.Same(fast, build.Recipe);
+            // Locked behind its blueprint, it says so.
+            Assert.Equal(OpResult.NeedsBlueprint, host.World!.RecipeState(fast));
+            Assert.False(build.PressKey(content.RecipeKeys.Count));
+            build.Leave();
+            Assert.False(build.Cycle(1));
+            Assert.Equal("-", HudText.KeyName(10));
+        }
+
+        [Fact]
         public void ADragLine_ByAClient_IsBuiltTileByTile_AndItsGhostSaysWhichTilesWouldBe()
         {
             var session = new Session();

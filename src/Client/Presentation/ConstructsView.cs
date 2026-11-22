@@ -152,7 +152,7 @@ namespace PerformativeMail.Client.Presentation
                 if (c.Def.Carries)
                 {
                     bool belt = c.Def.Behaviour == BuildingBehaviour.Belt;
-                    BeltTile(batch, at, belt ? BeltEntry(world, c) : c.Rotation & 3, c.Rotation & 3, null, c.Hp * 2 < c.Def.Hp);
+                    BeltTile(batch, at, belt ? BeltEntry(world, c) : c.Rotation & 3, c.Rotation & 3, null, c.Hp * 2 < c.Def.Hp, c.Def.Speed);
                     if (!belt) Housing(batch, at, c.Rotation & 3, c.Def.Behaviour == BuildingBehaviour.Splitter, null);
                     continue;
                 }
@@ -214,7 +214,7 @@ namespace PerformativeMail.Client.Presentation
                     var offset = new Vector3((tx - ghost.Tx) * SimConstants.TileSize, 0f, (tz - ghost.Tz) * SimConstants.TileSize);
                     if (def.Carries)
                     {
-                        BeltTile(batch, offset, ghost.Rotation & 3, ghost.Rotation & 3, mat, false);
+                        BeltTile(batch, offset, ghost.Rotation & 3, ghost.Rotation & 3, mat, false, def.Speed);
                         if (def.Behaviour != BuildingBehaviour.Belt) Housing(batch, offset, ghost.Rotation & 3, def.Behaviour == BuildingBehaviour.Splitter, mat);
                     }
                     else Draw(batch, def, offset, arms, ghost.Rotation, mat, false);
@@ -242,6 +242,10 @@ namespace PerformativeMail.Client.Presentation
         }
 
         private static readonly Color BeltRubber = new Color("2b2b2e"), BeltSteel = new Color("8d939b"), BeltYellow = new Color("e0a526"), BeltArrow = new Color("c8c2b0");
+        /// <summary>A Fast Belt's rail caps (doc 04 §2.1 Mk2): the tier is seen from across the street.</summary>
+        private static readonly Color BeltBlue = new Color("2f7fd8");
+        /// <summary>The speed of the slowest belt (Mk1); a faster one has blue caps and a second pair of chevrons.</summary>
+        public const float BeltBaseSpeed = 2f;
         /// <summary>Top of a belt's running surface above the ground: where the mail rides.</summary>
         public const float BeltTop = 0.36f;
 
@@ -251,11 +255,12 @@ namespace PerformativeMail.Client.Presentation
         /// runs. A corner is an L: half from the edge it comes in by to the middle, half on to the
         /// edge it faces.
         /// </summary>
-        public static void BeltTile(MeshBatch batch, Vector3 at, int inDir, int dir, Material? only, bool worn)
+        public static void BeltTile(MeshBatch batch, Vector3 at, int inDir, int dir, Material? only, bool worn, float speed = BeltBaseSpeed)
         {
+            bool fast = speed > BeltBaseSpeed + 0.01f;
             var rubber = only ?? Mat(worn ? BeltRubber.Lightened(0.15f) : BeltRubber);
             var steel = only ?? MeshKit.Mat(BeltSteel, 0.45f, 0.6f);
-            var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
+            var yellow = only ?? MeshKit.Mat(fast ? BeltBlue : BeltYellow, 0.6f);
             var arrow = only ?? Mat(BeltArrow);
             float half = SimConstants.TileSize * 0.5f;
             const float width = 1.4f;
@@ -276,14 +281,15 @@ namespace PerformativeMail.Client.Presentation
                     batch.Box(rail, lenAxis * len + across * 0.08f + new Vector3(0f, 0.12f, 0f), steel, 0.02f);
                     batch.Box(rail + new Vector3(0f, 0.08f, 0f), lenAxis * len + across * 0.09f + new Vector3(0f, 0.03f, 0f), yellow, 0.01f);
                 }
-                // A chevron on each half, pointing the way it runs.
+                // A chevron on each half, pointing the way it runs; a fast belt has two.
                 float yaw = Mathf.Atan2(v.X, v.Z);
-                for (int arm = -1; arm <= 1; arm += 2)
-                {
-                    var basis = new Basis(Vector3.Up, yaw + arm * 0.75f);
-                    var c = mid + new Vector3(0f, BeltTop + 0.002f, 0f) - v * 0.1f + basis * new Vector3(0f, 0f, -0.18f);
-                    batch.Add(MeshKit.Box(new Vector3(0.07f, 0.01f, 0.4f)), arrow, new Transform3D(basis, c));
-                }
+                for (int n = 0; n < (fast ? 2 : 1); n++)
+                    for (int arm = -1; arm <= 1; arm += 2)
+                    {
+                        var basis = new Basis(Vector3.Up, yaw + arm * 0.75f);
+                        var c = mid + new Vector3(0f, BeltTop + 0.002f, 0f) - v * (fast ? 0.3f - n * 0.4f : 0.1f) + basis * new Vector3(0f, 0f, -0.18f);
+                        batch.Add(MeshKit.Box(new Vector3(0.07f, 0.01f, 0.4f)), arrow, new Transform3D(basis, c));
+                    }
             }
             // Legs at the corners of the tile.
             for (int i = -1; i <= 1; i += 2)

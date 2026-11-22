@@ -34,5 +34,9 @@
   { "id": "merger", "name": "Merger", "footprint": [1, 1], "rotations": 4, "hp": 150,
     "placement": { "onStreet": false }, "behaviour": "merger",
     "params": { "radius": 0.5, "height": 0.7, "speed": 2.0 },
-    "recipe": "recipe_merger", "tags": ["transport"] }
+    "recipe": "recipe_merger", "tags": ["transport"] },
+  { "id": "belt_mk2", "name": "Fast Belt", "footprint": [1, 1], "rotations": 4, "hp": 100,
+    "placement": { "onStreet": false }, "behaviour": "belt",
+    "params": { "radius": 0.5, "height": 0.35, "speed": 4.0 },
+    "recipe": "recipe_belt_mk2", "tags": ["transport"] }
 ]

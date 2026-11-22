@@ -320,6 +320,13 @@ namespace PerformativeMail.Sim.Content
         /// <summary>The shop's blueprint the team has to own (doc 04 §1.3); null: known from the start.</summary>
         public ShopItemDef? Blueprint { get; init; }
         public int UnlockShift { get; init; } = 1;
+        /// <summary>
+        /// Recipes of a group share one key of Build mode, the wheel stepping through them (doc 09
+        /// §2.7 "scroll switches belt tier"); its own id when it is alone.
+        /// </summary>
+        public string Group { get; init; } = "";
+        /// <summary>The key of Build mode, counted from 0: its group's place among the groups, in the order they first come.</summary>
+        public int Key { get; internal set; }
     }
 
     /// <summary>One line of an enemy's drop table (doc 05 §2.2).</summary>
