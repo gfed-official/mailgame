@@ -216,6 +216,8 @@ namespace PerformativeMail.Sim.World
                 {
                     if (x0 < SiteShore || z0 < SiteShore || x0 + TownCols + SiteShore >= Cols || z0 + TownRows >= Rows - 1) continue;
                     var score = Score(natural, x0, z0);
+                    // Within the reach all round, not to the corners of the square searched.
+                    if (score.FromCentre > SiteReach) continue;
                     if (score.Land < SiteLandMin || !LandAround(natural, x0, z0)) continue;
                     if (found && score.Total <= Site.Total) continue;
                     found = true;

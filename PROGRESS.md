@@ -540,6 +540,17 @@ The report's issue 1 (input lag at 8–13 FPS eating the 20 s Payday window) is 
 rendering; issue 6 (the island's north hedge with trees behind it) is the island's edge as
 generated. Both left as they are.
 
+### 2i. A check of spawn edges, settlement placement and Generating on 6290846 (2026-11-21)
+
+No playtest report on 6290846. `tools/smoke.sh` and the unit tests were green; the SeedViewer ran
+over seeds 1–220 with every town valid.
+
+- [x] The settlement search said "within 80 m of the middle" but tried every site of a ±40-tile
+      *square*: seeds 21–24, 219 and others put the town 88–112 m off the middle. A site now
+      counts only within 40 tiles all round (`IslandTerrain.PlaceTown`); over seeds 1–220 none is
+      further than 80 m. `IslandTerrainTests.TheTownsSite_*` checks it on 30 seeds (four of them
+      failed before). World hashes of those seeds changed; nothing pins them.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is

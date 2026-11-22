@@ -125,6 +125,8 @@ namespace PerformativeMail.Sim.Tests
                 int midX = (t.Cols - map.Cols) / 2, midZ = (t.Rows - map.Rows) / 2;
                 Assert.InRange(t.TownX - midX, -IslandTerrain.SiteReach, IslandTerrain.SiteReach);
                 Assert.InRange(t.TownZ - midZ, -IslandTerrain.SiteReach, IslandTerrain.SiteReach);
+                // Within 80 m all round, the square's corners not included.
+                Assert.True(site.FromCentre <= IslandTerrain.SiteReach, $"seed {seed}: {site.FromCentre * 2} m off the middle");
                 if (t.TownX == midX && t.TownZ == midZ) central++;
                 // All but a few tiles under the grid were land, and most of them flat.
                 Assert.True(site.Land >= 970, $"seed {seed}: {site.Land}‰ land");
