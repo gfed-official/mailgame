@@ -40,6 +40,8 @@ namespace PerformativeMail.Client.UI
         public string HeldText => _held.Visible ? _held.Text : "";
         /// <summary>Where the held stack's name (or Build mode's keys) stands on screen.</summary>
         public Rect2 HeldRect => _held.GetGlobalRect();
+        /// <summary>How wide the held line's words are drawn (the label itself is as wide as the screen, its words in the middle).</summary>
+        public float HeldTextWidth => _held.GetThemeFont("font").GetStringSize(_held.Text, HorizontalAlignment.Left, -1, _held.GetThemeFontSize("font_size")).X;
         /// <summary>The lowest point of the event feed's lines on screen.</summary>
         public float FeedBottom => _feedLines[_feedLines.Length - 1].GetGlobalRect().End.Y;
         /// <summary>The top of the event feed's first line.</summary>
@@ -523,6 +525,8 @@ namespace PerformativeMail.Client.UI
                 _held.Modulate = Palette.Amber;
                 _held.Visible = true;
             }
+            // The keys of Build mode fit over the recipe bar, clear of the trackers beside it.
+            _held.AddThemeFontSizeOverride("font_size", building ? 14 : 16);
 
             if (_feedRevision != _feed.Revision)
             {

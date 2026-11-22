@@ -850,7 +850,7 @@ namespace PerformativeMail.Client
             p.Chest != null ? ContainerTitle(p.Chest.Container) : p.Built?.Def.Container != null ? ContainerTitle(p.Built.Def.Container) : "Chest";
 
         /// <summary>The keys of Build mode, over the hotbar while it is up.</summary>
-        public const string BuildKeys = "[LMB] build, drag for a line   [R] turn   [wheel] belt tier   [hold RMB] take down   [Q] pick   [B] done";
+        public const string BuildKeys = "[LMB] build / drag  [R] turn  [wheel] tier  [hold RMB] remove  [Q] pick  [B] done";
 
         /// <summary>A recipe on the bar: "[1] Wooden Wall · Log x3"; one of a group says which of how many the wheel is on: "[7] Fast Belt 2/2 · …".</summary>
         public static string RecipeCard(RecipeDef recipe, int key, IReadOnlyList<RecipeDef>? group = null)
@@ -946,10 +946,10 @@ namespace PerformativeMail.Client
                     if (g.State == OpResult.Ok)
                     {
                         tone = PromptTone.Match;
-                        return $"Build {recipe.Building.Name}   ·   {Inputs(recipe.Inputs, 1.0)}{AlarmNote(world, recipe.Building, g.Tx, g.Tz)}{OutfeedNote(world, recipe.Building, g.Tx, g.Tz, g.Rotation)}   [LMB]";
+                        return $"Build {recipe.Building.Name}   ·   {Inputs(recipe.Inputs, 1.0)}{AlarmNote(world, recipe.Building, g.Tx, g.Tz)}{OutfeedNote(world, recipe.Building, g.Tx, g.Tz, g.Rotation)}{RampNote(recipe.Building, g.Rotation)}   [LMB]";
                     }
                     tone = PromptTone.Mismatch;
-                    return $"{recipe.Building.Name}   ·   {PlaceReason(world, recipe, g.State)}";
+                    return $"{recipe.Building.Name}   ·   {PlaceReason(world, recipe, g.State)}{RampNote(recipe.Building, g.Rotation)}";
                 case BuildAim.Construct:
                 {
                     var built = g.Target!;
@@ -977,10 +977,17 @@ namespace PerformativeMail.Client
         /// </summary>
         public static string OutfeedNote(ClientWorld world, BuildingDef def, int tx, int tz, int rotation)
         {
-            if (def.Behaviour != BuildingBehaviour.Belt) return "";
+            if (def.Behaviour != BuildingBehaviour.Belt || !def.Rideable) return "";
             var belts = world.Belts;
             if (belts.OutfeedTile < 0 || tx != belts.OutfeedX || tz != belts.OutfeedZ) return "";
             return (rotation & 3) == Sim.Automation.BeltNetwork.OutfeedRotation ? "   ·   fed by the Intake" : "   ·   [R] to face away from the Intake: fed by it";
+        }
+
+        /// <summary>A Belt Ramp's ghost (doc 04 §2.1): which way it runs, up a level or down one; R turns it round and then over.</summary>
+        public static string RampNote(BuildingDef def, int rotation)
+        {
+            if (!def.Ramp) return "";
+            return rotation < 4 ? "   ·   up a level the way it faces" : "   ·   down a level the way it faces";
         }
 
         public static string AlarmNote(ClientWorld world, BuildingDef def, int tx, int tz)

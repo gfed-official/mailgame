@@ -111,6 +111,11 @@ namespace PerformativeMail.Sim.Automation
         public const byte LaneLeft = 0, LaneRight = 1, LaneBoth = 2;
         /// <summary>Top of a belt's running surface above the ground: where the mail rides and a carrier on it stands.</summary>
         public const float SurfaceHeight = 0.36f;
+        /// <summary>
+        /// How much higher an Elevated Belt runs (doc 04 §2.1 "one level"; design choice 99: clear
+        /// of a carrier's head and a bike's rider, so the street under it stays open).
+        /// </summary>
+        public const float LevelHeight = 2.2f;
         private const float Tile = SimConstants.TileSize;
 
         /// <summary>Rotation r faces (Dx, Dz)[r]: east, south, west, north — the order of <see cref="ConstructField"/>'s arms.</summary>
@@ -227,16 +232,53 @@ namespace PerformativeMail.Sim.Automation
         }
 
         /// <summary>
-        /// Whether what stands on <paramref name="to"/> takes mail coming in moving the way
-        /// <paramref name="dir"/>: a belt and a merger from anywhere but their front, a splitter
-        /// only from behind.
+        /// Whether what stands on <paramref name="to"/> takes mail from <paramref name="from"/>: a
+        /// belt and a merger from anywhere but their front, a splitter and a ramp only from behind,
+        /// and only at the height it comes at (doc 04 §2.1: a ramp between the levels).
         /// </summary>
-        private bool Accepts(int to, int dir)
+        private bool Accepts(int from, int to)
         {
             var b = BeltOn(to);
-            if (b == null) return false;
+            int dir = DirTo(from, to);
+            if (b == null || dir < 0) return false;
             int r = b.Rotation & 3;
-            return b.Def.Behaviour == BuildingBehaviour.Splitter ? dir == r : dir != ((r + 2) & 3);
+            bool way = b.Def.Behaviour == BuildingBehaviour.Splitter || b.Def.Ramp ? dir == r : dir != ((r + 2) & 3);
+            return way && OutLevel(from) == InLevel(to);
+        }
+
+        /// <summary>
+        /// The height mail comes onto a belt tile at, in half levels: 0 on the ground, 2 an
+        /// elevated belt's; a ramp's back tile at its low or high end, its front tile at 1, half way.
+        /// </summary>
+        public int InLevel(int tile)
+        {
+            var c = BeltOn(tile);
+            if (c == null) return 0;
+            if (!c.Def.Ramp) return 2 * c.Def.Level;
+            int i = c.IndexOf(tile % _map.Cols, tile / _map.Cols);
+            return RampUp(c) ? i : 2 - i;
+        }
+
+        /// <summary>The height mail leaves a belt tile at, in half levels.</summary>
+        public int OutLevel(int tile)
+        {
+            var c = BeltOn(tile);
+            if (c == null) return 0;
+            if (!c.Def.Ramp) return 2 * c.Def.Level;
+            int i = c.IndexOf(tile % _map.Cols, tile / _map.Cols);
+            return RampUp(c) ? i + 1 : 1 - i;
+        }
+
+        /// <summary>A ramp turned 0–3 runs up the way it faces, 4–7 down.</summary>
+        public static bool RampUp(Construct c) => c.Rotation < 4;
+
+        /// <summary>Metres above a belt's ordinary running surface at a point <paramref name="pos"/> metres along a segment.</summary>
+        public float HeightAt(BeltSegment s, float pos)
+        {
+            int k = Math.Clamp((int)MathF.Floor(pos / Tile), 0, s.Tiles.Count - 1);
+            float t = Math.Clamp(pos - k * Tile, 0f, Tile) / Tile;
+            int tile = s.Tiles[k];
+            return (InLevel(tile) + (OutLevel(tile) - InLevel(tile)) * t) * 0.5f * LevelHeight;
         }
 
         /// <summary>The direction from one tile to its neighbour; −1 if they are not neighbours.</summary>
@@ -257,7 +299,7 @@ namespace PerformativeMail.Sim.Automation
             Outputs(from, _outs);
             foreach (int o in _outs)
             {
-                if (!Accepts(o, DirTo(from, o))) continue;
+                if (!Accepts(from, o)) continue;
                 to = o;
                 return true;
             }
@@ -290,14 +332,22 @@ namespace PerformativeMail.Sim.Automation
 
             var belts = new List<int>();
             foreach (var c in _field.All)
-                if (IsBelt(c)) belts.Add(c.Tz * _map.Cols + c.Tx);
+            {
+                if (!IsBelt(c)) continue;
+                // A ramp's two tiles are both belt.
+                for (int i = 0; i < c.Def.Length; i++)
+                {
+                    var (x, z) = c.TileAt(i);
+                    if (_map.InBounds(x, z) && _field.At(x, z) == c) belts.Add(z * _map.Cols + x);
+                }
+            }
             belts.Sort();
             var feeders = new Dictionary<int, int>();
             foreach (int t in belts)
             {
                 Outputs(t, _outs);
                 foreach (int o in _outs)
-                    if (Accepts(o, DirTo(t, o))) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
+                    if (Accepts(t, o)) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
             }
 
             // A belt continues the segment of the belt behind it if that belt is its only feeder and
@@ -326,7 +376,7 @@ namespace PerformativeMail.Sim.Automation
                     // Doc 04 §2.3: up to three outputs, round-robin.
                     Outputs(lastTile, _outs);
                     foreach (int o in _outs)
-                        if (Accepts(o, DirTo(lastTile, o)) && _segOf[o] is { } outSeg) s.Outs.Add(outSeg);
+                        if (Accepts(lastTile, o) && _segOf[o] is { } outSeg) s.Outs.Add(outSeg);
                     if (s.Outs.Count > 0) s.End = BeltEndKind.Split;
                 }
                 else if (Feeds(lastTile, out int to))
@@ -336,14 +386,15 @@ namespace PerformativeMail.Sim.Automation
                     // A merger takes its inputs in turn: it knows them, back, left, right.
                     if (s.Next != null && BeltOn(s.Next.Head)!.Def.Behaviour == BuildingBehaviour.Merger) s.Next.Ins.Add(s);
                 }
-                else if (s.FrontTile >= 0 && _mailboxAt.TryGetValue(s.FrontTile, out int dest))
+                // A mailbox takes mail from a belt on the ground, not from one running over it.
+                else if (s.FrontTile >= 0 && OutLevel(lastTile) == 0 && _mailboxAt.TryGetValue(s.FrontTile, out int dest))
                 {
                     s.End = BeltEndKind.Mailbox;
                     s.DestId = dest;
                 }
                 // The Intake's outfeed (doc 04 §2.6): a belt on its tile, facing away from the counter, is fed.
                 var head = BeltOn(s.Head)!;
-                s.FromIntake = !feeders.ContainsKey(s.Head) && s.Head == OutfeedTile && (head.Rotation & 3) == OutfeedRotation;
+                s.FromIntake = !feeders.ContainsKey(s.Head) && s.Head == OutfeedTile && (head.Rotation & 3) == OutfeedRotation && InLevel(s.Head) == 0;
             }
 
             // Items keep their tile and their place on it.

@@ -78,10 +78,12 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal((ShopKind.Blueprint, 500, 3), (Blueprint.Kind, Blueprint.Price, Blueprint.FromShift));
             // One key for both belts: the wheel steps between them (doc 09 §2.7).
             Assert.Equal(Belt.Recipe.Key, Fast.Recipe.Key);
-            Assert.Equal(new[] { Belt.Recipe, Fast.Recipe }, Db.RecipeKeys[Belt.Recipe.Key]);
-            Assert.Equal(Db.Recipes.Count - 1, Db.RecipeKeys.Count);
+            // The belt's variants: the Fast Belt, the Belt Ramp and the Elevated Belt (RampTests).
+            var group = Db.RecipeKeys[Belt.Recipe.Key];
+            Assert.Equal(new[] { "belt_mk1", "belt_mk2", "belt_mk1_ramp", "belt_mk1_elevated" }, group.Select(r => r.Building.Id));
+            Assert.Equal(Db.Recipes.Count - 3, Db.RecipeKeys.Count);
             Assert.True(Db.RecipeKeys.Count <= ContentDb.MaxRecipeKeys);
-            Assert.All(Db.Recipes.Where(r => r != Fast.Recipe), r => Assert.Equal(r, Db.RecipeKeys[r.Key].First()));
+            Assert.All(Db.Recipes.Where(r => !group.Contains(r)), r => Assert.Equal(r, Db.RecipeKeys[r.Key].First()));
         }
 
         [Fact]

@@ -5,7 +5,7 @@ using PerformativeMail.Sim.Core;
 
 namespace PerformativeMail.Sim.World
 {
-    /// <summary>Something a carrier built (doc 04 §1): one building on one tile.</summary>
+    /// <summary>Something a carrier built (doc 04 §1): one building on its tile (a Belt Ramp on two).</summary>
     public sealed class Construct
     {
         public BuildingDef Def { get; }
@@ -22,6 +22,25 @@ namespace PerformativeMail.Sim.World
         public float Z => (Tz + 0.5f) * SimConstants.TileSize;
         /// <summary>A wall runs along X (false) or along Z (true).</summary>
         public bool AlongZ => (Rotation & 1) != 0;
+
+        /// <summary>The way it faces: east, south, west, north (a ramp's up or down aside).</summary>
+        public int Facing => Rotation & 3;
+
+        /// <summary>
+        /// Its <paramref name="i"/>-th tile, from 0 for the one it was built on to
+        /// <see cref="BuildingDef.Length"/> − 1, on in the way it faces.
+        /// </summary>
+        public (int Tx, int Tz) TileAt(int i) => (Tx + FacingDx[Facing] * i, Tz + FacingDz[Facing] * i);
+
+        private static readonly int[] FacingDx = { 1, 0, -1, 0 }, FacingDz = { 0, 1, 0, -1 };
+
+        /// <summary>Which of its tiles (tx, tz) is, −1 for none of them.</summary>
+        public int IndexOf(int tx, int tz)
+        {
+            for (int i = 0; i < Def.Length; i++)
+                if (TileAt(i) == (tx, tz)) return i;
+            return -1;
+        }
 
         public Construct(BuildingDef def, int tx, int tz, int rotation, int hp, uint containerId)
         {
@@ -71,21 +90,32 @@ namespace PerformativeMail.Sim.World
         public bool Blocks(int tx, int tz, bool carrier = false) =>
             At(tx, tz) is { Def.Solid: true } c && !(carrier && c.Def.Behaviour == BuildingBehaviour.Gate);
 
+        /// <summary>Builds on the tile, and on as many more as its length takes (on the map); what stood on them goes.</summary>
         public Construct Add(BuildingDef def, int tx, int tz, int rotation, int hp, uint containerId)
         {
             var c = new Construct(def, tx, tz, rotation % Math.Max(1, def.Rotations), Math.Clamp(hp, 1, def.Hp), containerId);
-            Remove(tx, tz);
-            _tiles[tz * _map.Cols + tx] = c;
+            for (int i = 0; i < def.Length; i++)
+            {
+                var (x, z) = c.TileAt(i);
+                if (!_map.InBounds(x, z)) continue;
+                Remove(x, z);
+                _tiles[z * _map.Cols + x] = c;
+            }
             _all.Add(c);
             Version++;
             return c;
         }
 
+        /// <summary>Takes down what stands on the tile, from all of its tiles.</summary>
         public bool Remove(int tx, int tz)
         {
             var c = At(tx, tz);
             if (c == null) return false;
-            _tiles[tz * _map.Cols + tx] = null;
+            for (int i = 0; i < c.Def.Length; i++)
+            {
+                var (x, z) = c.TileAt(i);
+                if (_map.InBounds(x, z) && _tiles[z * _map.Cols + x] == c) _tiles[z * _map.Cols + x] = null;
+            }
             _all.Remove(c);
             Version++;
             return true;

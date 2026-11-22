@@ -1,4 +1,5 @@
 using Godot;
+using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
@@ -152,8 +153,11 @@ namespace PerformativeMail.Client.Presentation
                 if (c.Def.Carries)
                 {
                     bool belt = c.Def.Behaviour == BuildingBehaviour.Belt;
-                    BeltTile(batch, at, belt ? BeltEntry(world, c) : c.Rotation & 3, c.Rotation & 3, null, c.Hp * 2 < c.Def.Hp, c.Def.Speed);
-                    if (!belt) Housing(batch, at, c.Rotation & 3, c.Def.Behaviour == BuildingBehaviour.Splitter, null);
+                    bool worn = c.Hp * 2 < c.Def.Hp;
+                    if (c.Def.Ramp) RampTile(batch, at, c.Facing, BeltNetwork.RampUp(c), null, worn);
+                    else if (c.Def.Level > 0) ElevatedTile(batch, at, BeltEntry(world, c), c.Facing, null, worn, c.Def.Speed);
+                    else BeltTile(batch, at, belt ? BeltEntry(world, c) : c.Facing, c.Facing, null, worn, c.Def.Speed);
+                    if (!belt) Housing(batch, at, c.Facing, c.Def.Behaviour == BuildingBehaviour.Splitter, null);
                     continue;
                 }
                 Draw(batch, c.Def, at, field.Arms(c), c.Rotation, null, c.Hp * 2 < c.Def.Hp);
@@ -212,14 +216,17 @@ namespace PerformativeMail.Client.Presentation
                 {
                     var mat = state == OpResult.Ok ? good : bad;
                     var offset = new Vector3((tx - ghost.Tx) * SimConstants.TileSize, 0f, (tz - ghost.Tz) * SimConstants.TileSize);
-                    if (def.Carries)
+                    if (def.Ramp) RampTile(batch, offset, ghost.Rotation & 3, ghost.Rotation < 4, mat, false);
+                    else if (def.Level > 0) ElevatedTile(batch, offset, ghost.Rotation & 3, ghost.Rotation & 3, mat, false, def.Speed);
+                    else if (def.Carries)
                     {
                         BeltTile(batch, offset, ghost.Rotation & 3, ghost.Rotation & 3, mat, false, def.Speed);
                         if (def.Behaviour != BuildingBehaviour.Belt) Housing(batch, offset, ghost.Rotation & 3, def.Behaviour == BuildingBehaviour.Splitter, mat);
                     }
                     else Draw(batch, def, offset, arms, ghost.Rotation, mat, false);
-                    // The tile it takes, on the ground.
-                    batch.Box(offset + new Vector3(0f, 0.02f, 0f), new Vector3(SimConstants.TileSize - 0.1f, 0.04f, SimConstants.TileSize - 0.1f), mat, 0.02f);
+                    // The tiles it takes, on the ground (a ramp's two).
+                    for (int i = 0; i < def.Length; i++)
+                        batch.Box(offset + Dir(ghost.Rotation & 3) * (i * SimConstants.TileSize) + new Vector3(0f, 0.02f, 0f), new Vector3(SimConstants.TileSize - 0.1f, 0.04f, SimConstants.TileSize - 0.1f), mat, 0.02f);
                 }
                 batch.Flush(_ghost, "Ghost", castShadows: false);
             }
@@ -295,6 +302,70 @@ namespace PerformativeMail.Client.Presentation
             for (int i = -1; i <= 1; i += 2)
                 for (int j = -1; j <= 1; j += 2)
                     batch.Box(at + new Vector3(i * (width * 0.5f + 0.02f), (BeltTop - 0.16f) * 0.5f, j * 0.6f), new Vector3(0.08f, BeltTop - 0.16f, 0.08f), steel, 0.01f);
+        }
+
+        /// <summary>
+        /// An Elevated Belt (doc 04 §2.1): the belt tile a level up, on two steel posts and a cross
+        /// beam either side of the way it runs, clear of whoever walks the street under it.
+        /// </summary>
+        public static void ElevatedTile(MeshBatch batch, Vector3 at, int inDir, int dir, Material? only, bool worn, float speed = BeltBaseSpeed)
+        {
+            var steel = only ?? MeshKit.Mat(BeltSteel, 0.45f, 0.6f);
+            const float lift = BeltNetwork.LevelHeight;
+            BeltTile(batch, at + new Vector3(0f, lift, 0f), inDir, dir, only, worn, speed);
+            var across = Dir(dir).Z != 0f ? Vector3.Right : Vector3.Back;
+            float top = lift + BeltTop - 0.16f;
+            for (int side = -1; side <= 1; side += 2)
+                batch.Box(at + across * side * 0.82f + new Vector3(0f, top * 0.5f, 0f), new Vector3(0.14f, top, 0.14f), steel, 0.02f);
+            batch.Box(at + new Vector3(0f, top - 0.06f, 0f), across * 1.78f + new Vector3(0.12f, 0.12f, 0.12f) - across * 0.12f, steel, 0.02f);
+        }
+
+        /// <summary>
+        /// A Belt Ramp (doc 04 §2.1, two tiles long): the belt as a slope from the back edge of the
+        /// tile it was built on to the front edge of the next, a level up or down the way it faces,
+        /// on posts under its high half. <paramref name="at"/> is the first tile's middle.
+        /// </summary>
+        public static void RampTile(MeshBatch batch, Vector3 at, int dir, bool up, Material? only, bool worn)
+        {
+            var rubber = only ?? Mat(worn ? BeltRubber.Lightened(0.15f) : BeltRubber);
+            var steel = only ?? MeshKit.Mat(BeltSteel, 0.45f, 0.6f);
+            var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
+            var arrow = only ?? Mat(BeltArrow);
+            const float run = 2f * SimConstants.TileSize, rise = BeltNetwork.LevelHeight, width = 1.4f;
+            var v = Dir(dir);
+            var back = at - v * (SimConstants.TileSize * 0.5f);
+            float h0 = up ? 0f : rise, h1 = up ? rise : 0f;
+            float slope = Mathf.Atan2(h1 - h0, run);
+            float len = Mathf.Sqrt(run * run + rise * rise) + 0.05f;
+            // Local Z along the slope, local Y its normal.
+            var basis = new Basis(Vector3.Up, Mathf.Atan2(v.X, v.Z)) * new Basis(Vector3.Right, -slope);
+            var mid = back + v * (run * 0.5f) + new Vector3(0f, BeltTop + (h0 + h1) * 0.5f, 0f);
+            void Part(Vector3 local, Vector3 size, Material mat) => batch.Add(MeshKit.Box(size), mat, new Transform3D(basis, mid + basis * local));
+            Part(new Vector3(0f, -0.04f, 0f), new Vector3(width, 0.07f, len), rubber);
+            Part(new Vector3(0f, -0.12f, 0f), new Vector3(width + 0.04f, 0.08f, len), steel);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Part(new Vector3(side * (width * 0.5f + 0.05f), 0.02f, 0f), new Vector3(0.08f, 0.12f, len), steel);
+                Part(new Vector3(side * (width * 0.5f + 0.05f), 0.1f, 0f), new Vector3(0.09f, 0.03f, len), yellow);
+            }
+            // Chevrons up the slope (or down it), the way the mail goes.
+            for (int n = -1; n <= 1; n++)
+                for (int arm = -1; arm <= 1; arm += 2)
+                {
+                    var chevron = basis * new Basis(Vector3.Up, arm * 0.75f);
+                    var c = mid + basis * new Vector3(0f, 0.002f, n * 1.3f) + chevron * new Vector3(0f, 0f, -0.18f);
+                    batch.Add(MeshKit.Box(new Vector3(0.07f, 0.01f, 0.4f)), arrow, new Transform3D(chevron, c));
+                }
+            // Posts where it is off the ground: a pair at the middle and at the high end.
+            var across = new Vector3(Mathf.Abs(v.Z), 0f, Mathf.Abs(v.X));
+            foreach (float t in new[] { 0.5f, 0.94f })
+            {
+                float along = up ? t : 1f - t;
+                float h = BeltTop - 0.16f + h0 + (h1 - h0) * along;
+                var foot = back + v * (run * along);
+                for (int side = -1; side <= 1; side += 2)
+                    batch.Box(foot + across * side * 0.78f + new Vector3(0f, h * 0.5f, 0f), new Vector3(0.12f, h, 0.12f), steel, 0.02f);
+            }
         }
 
         /// <summary>

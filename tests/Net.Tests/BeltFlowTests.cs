@@ -104,16 +104,24 @@ namespace PerformativeMail.Net.Tests
             var belt = content.Recipes.Single(r => r.Building.Id == "belt_mk1");
             var fast = content.Recipes.Single(r => r.Building.Id == "belt_mk2");
             var splitter = content.Recipes.Single(r => r.Building.Id == "splitter");
+            var ramp = content.Recipes.Single(r => r.Building.Id == "belt_mk1_ramp");
+            var elevated = content.Recipes.Single(r => r.Building.Id == "belt_mk1_elevated");
             Assert.True(build.PressKey(belt.Key));
             Assert.Same(belt, build.Recipe);
-            Assert.Equal($"[{belt.Key + 1}] Conveyor Belt 1/2   ·   Plank x1, Iron Ingot x1", HudText.RecipeCard(belt, belt.Key, content.RecipeKeys[belt.Key]));
+            Assert.Equal($"[{belt.Key + 1}] Conveyor Belt 1/4   ·   Plank x1, Iron Ingot x1", HudText.RecipeCard(belt, belt.Key, content.RecipeKeys[belt.Key]));
             Assert.True(build.Cycle(1));
             Assert.Same(fast, build.Recipe);
-            Assert.Equal($"[{belt.Key + 1}] Fast Belt 2/2   ·   Plank x1, Iron Ingot x2", HudText.RecipeCard(fast, belt.Key, content.RecipeKeys[belt.Key]));
+            Assert.Equal($"[{belt.Key + 1}] Fast Belt 2/4   ·   Plank x1, Iron Ingot x2", HudText.RecipeCard(fast, belt.Key, content.RecipeKeys[belt.Key]));
+            Assert.True(build.Cycle(1));
+            Assert.Same(ramp, build.Recipe);
+            Assert.True(build.Cycle(1));
+            Assert.Same(elevated, build.Recipe);
             // Round again, either way.
             Assert.True(build.Cycle(1));
             Assert.Same(belt, build.Recipe);
             Assert.True(build.Cycle(-1));
+            Assert.Same(elevated, build.Recipe);
+            Assert.True(build.Cycle(-2));
             Assert.Same(fast, build.Recipe);
             // A recipe alone stays itself; back on the belts' key, the Fast Belt is still the choice.
             Assert.True(build.PressKey(splitter.Key));
@@ -174,6 +182,70 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(world.Map.HeightAt(world.Local.X, world.Local.Z) + BeltNetwork.SurfaceHeight, world.Local.Y, 3);
             session.Run(5);
             Assert.True(System.Math.Abs(world.Local.X - truth.Move.X) < 0.25f, $"client {world.Local.X}, server {truth.Move.X}");
+        }
+
+        [Fact]
+        public void ALineOverTheStreet_ByAClient_IsTheSameOnBothEnds_AndForALateJoiner()
+        {
+            var session = new Session();
+            var host = session.Join("host");
+            Assert.NotEqual(0u, host.PressGo());
+            session.Run(10);
+            var truth = session.Truth(host);
+            Assert.True(session.Sim.Give(truth.Inventory, ItemStack.OfItem(session.Content.Item("plank"), 30)));
+            Assert.True(session.Sim.Give(truth.Inventory, ItemStack.OfItem(session.Content.Item("iron_ingot"), 30)));
+            session.Run(10);
+            var world = host.World!;
+            int x = -1;
+            for (int cx = 16; cx < world.Map.Cols - 2 && x < 0; cx++)
+            {
+                bool open = true;
+                for (int z = 10; z <= 17 && open; z++)
+                    if (z < 13 || z > 14) open = BuildRules.CheckTile(world.Map, world.Constructs, cx, z) == OpResult.Ok;
+                if (open) x = cx;
+            }
+            Assert.True(x >= 0, "no open column across Larch Lane");
+            RecipeDef R(string id) => session.Content.Recipes.Single(r => r.Building.Id == id);
+            // South over Larch Lane (rows 13, 14): a belt, a ramp up, two elevated belts, a ramp down, a belt.
+            foreach (var (id, z, rot) in new[] { ("belt_mk1", 10, 1), ("belt_mk1_ramp", 11, 1), ("belt_mk1_elevated", 13, 1), ("belt_mk1_elevated", 14, 1), ("belt_mk1_ramp", 15, 5), ("belt_mk1", 17, 1) })
+            {
+                truth.Move.X = Centre(x) + 1.6f;
+                truth.Move.Z = Centre(z);
+                session.Run(10);
+                Assert.Equal(OpResult.Ok, world.PlaceState(R(id), x, z, rot));
+                Assert.NotEqual(0u, host.PlaceConstruct(R(id), x, z, rot));
+                session.Run(10);
+            }
+            Assert.Equal(6, session.Sim.Constructs.All.Count);
+            var ramp = world.Constructs.At(x, 16)!;
+            Assert.Equal(("belt_mk1_ramp", 5), (ramp.Def.Id, (int)ramp.Rotation));
+            Assert.Same(ramp, world.Constructs.At(x, 15));
+            Assert.Equal(session.Sim.Belts.Segments.Select(sg => sg.Head), world.Belts.Segments.Select(sg => sg.Head));
+            Assert.Equal(5, world.Belts.Segments.Count);
+            Assert.Equal("   ·   up a level the way it faces", HudText.RampNote(world.Constructs.At(x, 11)!.Def, world.Constructs.At(x, 11)!.Rotation));
+            Assert.Equal("   ·   down a level the way it faces", HudText.RampNote(ramp.Def, ramp.Rotation));
+
+            // Three letters across: the client's mirror has them where the server does, and they are drawn a level up over the street.
+            var head = session.Sim.Belts.SegmentAt(x, 10)!;
+            var dest = session.Sim.Map.Destinations.Single(d => d.Address.Number == 1);
+            for (uint i = 0; i < 3; i++)
+            {
+                Assert.True(session.Sim.PutOnBelt(head, new MailItem { Id = 970100 + i, Kind = session.Content.MailKind("letter").Index, Address = dest.Address }));
+                session.Run(10);
+            }
+            // 16 m at 2 m/s.
+            session.Run(300);
+            var mirrorOver = world.Belts.SegmentAt(x, 13)!;
+            Assert.Equal(BeltNetwork.LevelHeight, world.Belts.HeightAt(mirrorOver, 1f), 3);
+            Assert.Equal(Layout(session.Sim.Belts), Layout(world.Belts));
+            Assert.Equal(3, session.Sim.Belts.SegmentAt(x, 17)!.Items.Count);
+            Assert.Equal(0, world.BeltMismatches);
+
+            // Whoever joins now gets the two-tile ramps and the mail from the Welcome.
+            var late = session.Join("late");
+            session.Run(10);
+            Assert.Same(late.World!.Constructs.At(x, 11), late.World.Constructs.At(x, 12));
+            Assert.Equal(Layout(session.Sim.Belts), Layout(late.World.Belts));
         }
 
         [Fact]

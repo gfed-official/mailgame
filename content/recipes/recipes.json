@@ -19,5 +19,9 @@
     "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
   { "id": "recipe_belt_mk2", "produces": { "building": "belt_mk2" },
     "inputs": [ { "item": "plank", "count": 1 }, { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1,
-    "blueprint": "bp_fast_belts", "group": "belt" }
+    "blueprint": "bp_fast_belts", "group": "belt" },
+  { "id": "recipe_belt_mk1_ramp", "produces": { "building": "belt_mk1_ramp" },
+    "inputs": [ { "item": "plank", "count": 3 }, { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "group": "belt" },
+  { "id": "recipe_belt_mk1_elevated", "produces": { "building": "belt_mk1_elevated" },
+    "inputs": [ { "item": "plank", "count": 2 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "belt" }
 ]

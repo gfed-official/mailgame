@@ -65,7 +65,7 @@ namespace PerformativeMail.Sim
         private OpResult PlaceOne(Player player, BuildingDef def, int tx, int tz, int rotation)
         {
             var recipe = def.Recipe;
-            var verdict = BuildRules.CheckTile(Map, Constructs, tx, tz);
+            var verdict = BuildRules.CheckPlacement(Map, Constructs, def, tx, tz, rotation);
             if (verdict != OpResult.Ok) return verdict;
             float cx = BuildRules.TileCentre(tx), cz = BuildRules.TileCentre(tz);
             if (!player.WasWithin(cx, cz, _serverBuildRange, _rewindTicks)) return OpResult.OutOfRange;

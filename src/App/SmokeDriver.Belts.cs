@@ -88,7 +88,7 @@ namespace PerformativeMail.App
                 // The wheel steps to the Fast Belt on the same key (doc 09 §2.7), red without its blueprint, and back.
                 Check(build.Cycle(1) && build.Recipe?.Building.Id == "belt_mk2", $"the wheel on the belt's key is the {build.Recipe?.Building.Name}, not the Fast Belt");
                 hud.Refresh();
-                Check(hud.RecipeBarText.Contains("Fast Belt 2/2", StringComparison.Ordinal)
+                Check(hud.RecipeBarText.Contains("Fast Belt 2/4", StringComparison.Ordinal)
                     && hud.RecipeShown == key && world.RecipeState(build.Recipe!) == OpResult.NeedsBlueprint,
                     $"with the wheel on the Fast Belt the bar reads \"{hud.RecipeBarText}\" ({hud.RecipeShown}), {world.RecipeState(build.Recipe!)}");
                 Check(build.Cycle(-1) && build.Recipe == belt, "the wheel back is not the Conveyor Belt");
@@ -373,6 +373,131 @@ namespace PerformativeMail.App
                 }
 
                 case 10:
+                {
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
+                    // A Belt Ramp (doc 04 §2.1), two tiles long, by the wheel on the belt's key.
+                    var player = server.GetPlayer(world.LocalId)!;
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("plank"), 5)), "no room for five Planks");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 3)), "no room for three Iron Ingots");
+                    var ramp = world.Content.Building("belt_mk1_ramp");
+                    int hx = (int)MathF.Floor(world.Local.X / SimConstants.TileSize), hz = (int)MathF.Floor(world.Local.Z / SimConstants.TileSize);
+                    _splitX = -1;
+                    for (int r = 2; r <= 3 && _splitX < 0; r++)
+                        for (int dz = -r; dz <= r && _splitX < 0; dz++)
+                            for (int dx = -r; dx <= r && _splitX < 0; dx++)
+                                for (int rot = 0; rot < 4 && _splitX < 0; rot++)
+                                    if ((Math.Abs(dx) == r || Math.Abs(dz) == r) && BuildRules.CheckPlacement(world.Map, world.Constructs, ramp, hx + dx, hz + dz, rot) == OpResult.Ok
+                                        && BuildRules.InRange(hx + dx + 2 * BeltNetwork.Dirs[rot].Dx, hz + dz + 2 * BeltNetwork.Dirs[rot].Dz, world.Local.X, world.Local.Z, 7f))
+                                        (_splitX, _splitZ, _rampRot) = (hx + dx, hz + dz, rot);
+                    if (_splitX < 0)
+                    {
+                        Fail("no two open tiles near the Intake for the Belt Ramp");
+                        return false;
+                    }
+                    var belt0 = world.Content.Recipes.First(r => r.Building.Id == "belt_mk1");
+                    Check(build.PressKey(belt0.Key), "the belt's key did not take");
+                    for (int i = 0; i < 4 && build.Recipe?.Building != ramp; i++) build.Cycle(1);
+                    for (int i = 0; i < 8 && build.Rotation != _rampRot; i++) build.Rotate();
+                    Check(build.Recipe?.Building == ramp && build.Rotation == _rampRot, $"the wheel never came to the Belt Ramp ({build.Recipe?.Building.Name}, turned {build.Rotation})");
+                    _beltStep = 11;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 11:
+                {
+                    AimAtTile(_splitX, _splitZ);
+                    var built = world.Constructs.At(_splitX, _splitZ);
+                    if (built == null)
+                    {
+                        if (_beltFrames == 6)
+                        {
+                            build.Update(1.0 / 30.0, false, false);
+                            hud.Refresh();
+                            Check(build.Ghost.State == OpResult.Ok && hud.PromptText.StartsWith("Build Belt Ramp", StringComparison.Ordinal) && hud.PromptText.Contains("up a level", StringComparison.Ordinal),
+                                $"the Belt Ramp's ghost is {build.Ghost.State}, the prompt \"{hud.PromptText}\"");
+                            build.Update(1.0 / 30.0, true, false);
+                            return true;
+                        }
+                        break;
+                    }
+                    if (client.PendingRequestCount > 0) break;
+                    var (x2, z2) = built.TileAt(1);
+                    view.Refresh();
+                    Check(built.Def.Id == "belt_mk1_ramp" && world.Constructs.At(x2, z2) == built && server.Constructs.At(x2, z2)?.Def.Id == "belt_mk1_ramp"
+                        && world.Belts.SegmentAt(_splitX, _splitZ)?.Tiles.Count == 2,
+                        $"the Belt Ramp at ({_splitX}, {_splitZ}) is a {built.Def.Id}, its second tile ({x2}, {z2}) holds {world.Constructs.At(x2, z2)?.Def.Id} here, {server.Constructs.At(x2, z2)?.Def.Id} on the server");
+                    AimAtTile(x2, z2);
+                    Shot("ramp");
+                    GD.Print($"[smoke] ramp: a Belt Ramp built at ({_splitX}, {_splitZ}) on ({x2}, {z2}) too by the wheel on the belt's key, one segment of two tiles");
+                    client.RemoveConstruct(built);
+                    _beltStep = 12;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 12:
+                {
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
+                    // An Elevated Belt on the street (doc 04 §1.1, the crossing), standing on it.
+                    var map = world.Map;
+                    int hx = (int)MathF.Floor(world.Local.X / SimConstants.TileSize), hz = (int)MathF.Floor(world.Local.Z / SimConstants.TileSize);
+                    _splitX = -1;
+                    for (int r = 0; r <= 12 && _splitX < 0; r++)
+                        for (int dz = -r; dz <= r && _splitX < 0; dz++)
+                            for (int dx = -r; dx <= r && _splitX < 0; dx++)
+                                if ((Math.Abs(dx) == r || Math.Abs(dz) == r) && map.GetTile(hx + dx, hz + dz) == TileType.Street
+                                    && map.GetTile(hx + dx + 1, hz + dz) == TileType.Street && BuildRules.CheckTile(map, world.Constructs, hx + dx, hz + dz, onStreet: true) == OpResult.Ok)
+                                    (_splitX, _splitZ) = (hx + dx, hz + dz);
+                    if (_splitX < 0)
+                    {
+                        Fail("no street near the Intake for the Elevated Belt");
+                        return false;
+                    }
+                    var player = server.GetPlayer(world.LocalId)!;
+                    player.Move.X = BuildRules.TileCentre(_splitX + 1) + 0.5f;
+                    player.Move.Z = BuildRules.TileCentre(_splitZ);
+                    var elevated = world.Content.Building("belt_mk1_elevated");
+                    for (int i = 0; i < 4 && build.Recipe?.Building != elevated; i++) build.Cycle(1);
+                    Check(build.Recipe?.Building == elevated, $"the wheel never came to the Elevated Belt ({build.Recipe?.Building.Name})");
+                    _beltStep = 13;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 13:
+                {
+                    AimAtTile(_splitX, _splitZ);
+                    var built = world.Constructs.At(_splitX, _splitZ);
+                    if (built == null)
+                    {
+                        if (_beltFrames == 10)
+                        {
+                            build.Update(1.0 / 30.0, false, false);
+                            hud.Refresh();
+                            Check(build.Ghost.State == OpResult.Ok && hud.PromptText.StartsWith("Build Elevated Belt", StringComparison.Ordinal),
+                                $"the Elevated Belt's ghost on the street at ({_splitX}, {_splitZ}) is {build.Ghost.State} ({build.Ghost.Tx}, {build.Ghost.Tz}), the prompt \"{hud.PromptText}\"");
+                            build.Update(1.0 / 30.0, true, false, placeHeld: true);
+                            build.Update(1.0 / 30.0, false, false, placeHeld: false);
+                            return true;
+                        }
+                        break;
+                    }
+                    if (client.PendingRequestCount > 0) break;
+                    view.Refresh();
+                    Check(built.Def.Id == "belt_mk1_elevated" && world.Map.GetTile(_splitX, _splitZ) == TileType.Street && server.Constructs.At(_splitX, _splitZ)?.Def.Id == "belt_mk1_elevated",
+                        $"on the street at ({_splitX}, {_splitZ}) stands a {built.Def.Id}, on the server {server.Constructs.At(_splitX, _splitZ)?.Def.Id}");
+                    // Looked at from the street beside it: a level up, on its posts.
+                    _session.Client.Input.PitchRadians = 0.25f;
+                    Shot("elevated");
+                    GD.Print($"[smoke] elevated: an Elevated Belt built on the street at ({_splitX}, {_splitZ}) by the wheel, {BeltNetwork.LevelHeight:0.0} m up");
+                    client.RemoveConstruct(built);
+                    _beltStep = 14;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 14:
                     if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
                     Check(build.Toggle() == false && !build.Active, "B did not put Build mode down after the belt");
                     _beltVisits++;
@@ -396,7 +521,7 @@ namespace PerformativeMail.App
         }
 
         private bool _beltFeedSeen;
-        private int _outfeedIntake, _splitX, _splitZ;
+        private int _outfeedIntake, _splitX, _splitZ, _rampRot;
 
         /// <summary>The lowest mail id in a container: the oldest piece there (uint.MaxValue for none).</summary>
         private static uint OldestIn(Sim.Inventory.GridContainer c)

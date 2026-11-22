@@ -462,7 +462,7 @@ namespace PerformativeMail.Client
         {
             var world = World;
             if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
-            if (world.PlaceState(recipe, tx, tz) != OpResult.Ok) return 0;
+            if (world.PlaceState(recipe, tx, tz, rotation) != OpResult.Ok) return 0;
             var building = recipe.Building;
             return Send(SimRequest.PlaceConstruct(0, building.Index, tx, tz, rotation % Math.Max(1, building.Rotations)));
         }

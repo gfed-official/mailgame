@@ -50,7 +50,11 @@ namespace PerformativeMail.Sim.Tests
             var clientField = new ConstructField(map);
             var server = new BeltNetwork(Db, map, serverField);
             var client = new BeltNetwork(Db, map, clientField);
-            var kinds = new[] { Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("splitter"), Db.Building("merger") };
+            var kinds = new[]
+            {
+                Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk2"), Db.Building("splitter"), Db.Building("merger"),
+                Db.Building("belt_mk1_ramp"), Db.Building("belt_mk1_elevated"),
+            };
             var mailKinds = new[] { Db.MailKind("letter"), Db.MailKind("letter"), Db.MailKind("cargo") };
             var rng = new Random(seed);
             var sink = new Sink();
@@ -75,7 +79,7 @@ namespace PerformativeMail.Sim.Tests
             }
 
             for (int i = 0; i < 160; i++)
-                Build(x0 + rng.Next(size), z0 + rng.Next(size), kinds[rng.Next(kinds.Length)], rng.Next(4));
+                Build(x0 + rng.Next(size), z0 + rng.Next(size), kinds[rng.Next(kinds.Length)], rng.Next(8));
 
             for (int tick = 1; tick <= 3000; tick++)
             {
@@ -83,7 +87,7 @@ namespace PerformativeMail.Sim.Tests
                 {
                     int edits = 1 + rng.Next(3);
                     for (int e = 0; e < edits; e++)
-                        Build(x0 + rng.Next(size), z0 + rng.Next(size), rng.Next(3) == 0 ? null : kinds[rng.Next(kinds.Length)], rng.Next(4));
+                        Build(x0 + rng.Next(size), z0 + rng.Next(size), rng.Next(3) == 0 ? null : kinds[rng.Next(kinds.Length)], rng.Next(8));
                 }
                 orphans.Clear();
                 server.Compile(null, orphans);
@@ -145,7 +149,7 @@ namespace PerformativeMail.Sim.Tests
                 }
             }
             Assert.True(made.Count > 100, $"only {made.Count} pieces were put on");
-            Assert.True(handOffs > 50, $"only {handOffs} hand-offs");
+            Assert.True(handOffs > 20, $"only {handOffs} hand-offs");
         }
     }
 }

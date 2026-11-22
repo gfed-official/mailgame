@@ -271,7 +271,7 @@ namespace PerformativeMail.Client
                 _holdTarget = _refusedTarget = null;
                 if (ghost.Aim == BuildAim.Place)
                 {
-                    ghost.State = world.PlaceState(recipe, ghost.Tx, ghost.Tz);
+                    ghost.State = world.PlaceState(recipe, ghost.Tx, ghost.Tz, ghost.Rotation);
                     if (recipe.Building.Drags) Drag(world, recipe, ref ghost, placePressed, placeHeld);
                     else if (placePressed && ghost.State == OpResult.Ok && _awaiting == 0)
                         _awaiting = _client.PlaceConstruct(recipe, ghost.Tx, ghost.Tz, ghost.Rotation);

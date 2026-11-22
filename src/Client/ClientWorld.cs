@@ -658,11 +658,11 @@ namespace PerformativeMail.Client
         /// What stands between the local player and a recipe built on a tile, in the order the
         /// server asks: Ok means a request to build it there would be granted as things stand.
         /// </summary>
-        public OpResult PlaceState(RecipeDef recipe, int tx, int tz)
+        public OpResult PlaceState(RecipeDef recipe, int tx, int tz, int rotation = 0)
         {
             var state = RecipeState(recipe);
             if (state != OpResult.Ok && state != OpResult.MissingMaterials) return state;
-            var tile = BuildRules.CheckTile(Map, Constructs, tx, tz);
+            var tile = BuildRules.CheckPlacement(Map, Constructs, recipe.Building, tx, tz, rotation);
             if (tile != OpResult.Ok) return tile;
             if (!BuildRules.InRange(tx, tz, Local.X, Local.Z, Content.Balance.GetFloat("buildRange"))) return OpResult.OutOfRange;
             // What lies flat is laid under the feet.

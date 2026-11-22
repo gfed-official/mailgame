@@ -886,10 +886,10 @@ namespace PerformativeMail.Sim.Content
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
                         int[] footprint = J.IntArray(ctx, e, "footprint", 2);
-                        if (footprint[0] != 1 || footprint[1] != 1) ctx.Error($"'{id}': only a footprint of [1, 1] is built yet");
+                        bool onStreet = false;
                         if (e.TryGetProperty("placement", out var placement) && placement.ValueKind == JsonValueKind.Object)
                         {
-                            if (J.Bool(ctx, placement, "onStreet", false)) ctx.Error($"'{id}': nothing is built on a street yet");
+                            onStreet = J.Bool(ctx, placement, "onStreet", false);
                             if (J.Bool(ctx, placement, "onWater", false)) ctx.Error($"'{id}': nothing is built on water yet");
                         }
                         ContainerDef? container = null;
@@ -917,14 +917,23 @@ namespace PerformativeMail.Sim.Content
                             RevealRadius = hasParams ? (float)J.Num(ctx, pars, "revealRadius", 0) : 0f,
                             Speed = hasParams ? (float)J.Num(ctx, pars, "speed", 0) : 0f,
                             Tags = J.StrArray(ctx, e, "tags", optional: true),
+                            Length = footprint.Length > 1 ? footprint[1] : 1,
+                            Level = hasParams ? J.Int(ctx, pars, "level", 0) : 0,
+                            Ramp = hasParams && J.Bool(ctx, pars, "ramp", false),
+                            OnStreet = onStreet,
                         };
+                        // Doc 04 §2.1: a ramp is two tiles long and runs up or down; an elevated belt one level up crosses a street.
+                        if (footprint[0] != 1 || (def.Length != 1 && !(def.Ramp && def.Length == 2))) ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2])");
+                        if (def.Ramp && (behaviour != BuildingBehaviour.Belt || def.Length != 2 || def.Rotations != 8 || def.Level != 0)) ctx.Error($"'{id}': a ramp is a belt of footprint [1, 2], 8 rotations and level 0");
+                        if (def.Level != 0 && (behaviour != BuildingBehaviour.Belt || def.Level != 1)) ctx.Error($"'{id}': only a belt is raised, by one level");
+                        if (def.OnStreet && def.Level != 1) ctx.Error($"'{id}': only an elevated belt is built on a street");
                         if (behaviour == BuildingBehaviour.Spikes && def.DamagePerSecond <= 0f) ctx.Error($"'{id}': spikes need params.damagePerSecond > 0");
                         if (behaviour != BuildingBehaviour.Spikes && def.DamagePerSecond != 0f) ctx.Error($"'{id}': only spikes do damage (params.damagePerSecond)");
                         if (behaviour == BuildingBehaviour.Alarm && (def.WarningBonusSeconds <= 0f || def.RevealRadius <= 0f)) ctx.Error($"'{id}': an alarm needs params.warningBonusSeconds > 0 and params.revealRadius > 0");
                         if (behaviour != BuildingBehaviour.Alarm && (def.WarningBonusSeconds != 0f || def.RevealRadius != 0f)) ctx.Error($"'{id}': only an alarm warns and reveals (params.warningBonusSeconds, params.revealRadius)");
-                        if (def.Carries && (def.Speed <= 0f || def.Rotations != 4)) ctx.Error($"'{id}': a {behaviourName} needs params.speed > 0 and 4 rotations");
+                        if (def.Carries && (def.Speed <= 0f || def.Rotations != (def.Ramp ? 8 : 4))) ctx.Error($"'{id}': a {behaviourName} needs params.speed > 0 and 4 rotations");
                         if (!def.Carries && def.Speed != 0f) ctx.Error($"'{id}': only a belt, a splitter or a merger has params.speed");
-                        if (def.Rotations != 1 && def.Rotations != 2 && def.Rotations != 4) ctx.Error($"'{id}': rotations must be 1, 2 or 4");
+                        if (def.Rotations != 1 && def.Rotations != 2 && def.Rotations != 4 && !(def.Ramp && def.Rotations == 8)) ctx.Error($"'{id}': rotations must be 1, 2 or 4");
                         // The wire carries a construct's HP in 16 bits.
                         if (def.Hp < 1 || def.Hp > ushort.MaxValue) ctx.Error($"'{id}': hp must be in 1..{ushort.MaxValue}");
                         // It stands within its own tile, and a walker beside the tile does not touch it.

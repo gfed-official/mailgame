@@ -64,7 +64,7 @@ namespace PerformativeMail.Client.Presentation
                     belts.PointAt(s, Mathf.Max(0f, pos), it.Lane, out float x, out float z, out int dir);
                     var kind = it.Mail.Kind < world.Content.MailKinds.Count ? world.Content.MailKinds[it.Mail.Kind] : null;
                     var size = Size(kind?.Id);
-                    float y = world.Map.HeightAt(x, z) + ConstructsView.BeltTop + 0.04f + size.Y * 0.5f;
+                    float y = world.Map.HeightAt(x, z) + ConstructsView.BeltTop + belts.HeightAt(s, Mathf.Max(0f, pos)) + 0.04f + size.Y * 0.5f;
                     var basis = new Basis(Vector3.Up, dir * -Mathf.Pi * 0.5f).Scaled(size);
                     _mesh.SetInstanceTransform(i, new Transform3D(basis, new Vector3(x, y, z)));
                     var dest = world.Map.FindDestination(it.Mail.Address);

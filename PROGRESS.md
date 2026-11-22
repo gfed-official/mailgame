@@ -1190,7 +1190,32 @@ the whole line exists; the sub-lines say which parts do.
             `BeltFlowTests` (the prompt, the push on both ends, the ride with nothing to correct),
             `CodecTests`; in the smoke the host pushes the line from beside it and rides it 2 m in
             a second (`belt-push` shot)
-      - [ ] Ramps and elevated belts
+      - [x] **Ramps and elevated belts** (doc 04 §2.1 elevated variant, §1.1 street crossings,
+            doc 10 §2.1; design choice 99). `belt_mk1_elevated` (Elevated Belt, 80 HP, two Planks
+            and an Iron Ingot) runs one level (2.2 m) up on two posts and may stand on a street
+            (`BuildingDef.OnStreet`; a ground belt there is still "OnStreet"). `belt_mk1_ramp` (Belt
+            Ramp, 120 HP, three Planks and two Iron Ingots) is the first construct of two tiles
+            (`BuildingDef.Length`, footprint [1, 2]): built on a tile it takes the one in front too,
+            both must be open (`BuildRules.CheckPlacement`), one `Construct` stands on both, taken
+            down by either; R turns it through 8 ways, four up and four down (the prompt says "up a
+            level the way it faces" / "down …"). In the belt network a tile has a height mail comes
+            in and goes out at (`InLevel`, `OutLevel`, in half levels); mail is handed on only where
+            they meet, a ramp takes mail from behind only, a mailbox only from a belt on the ground
+            and the outfeed feeds only one. Mail is drawn at its height along the slope
+            (`BeltNetwork.HeightAt`). Neither carries a walker: under an elevated belt the street
+            stays open. Both are on the belt's key (the wheel: 3/4 and 4/4). `RampTests` (content;
+            two tiles, refused onto the street, taken down by the second; a line over Larch Lane up
+            a ramp, over two elevated belts and down another with a letter riding it; no hand-off
+            where heights differ, none into a mailbox from above; walking under), `BeltFuzzTests`
+            with ramps, elevated and fast belts in the mix, `BeltFlowTests` (a client builds the
+            crossing, the same segments, mail and checksums on both ends, a late joiner's ramps
+            on two tiles); in the smoke the wheel builds a Belt Ramp (`ramp` shot) and an
+            Elevated Belt on the street (`elevated` shot). Crossing another belt (two constructs
+            on one tile) waits for a construct layer over the ground one
+      - [x] The keys line of Build mode had grown into the tracker plates at the bottom right
+            (with "[wheel] tier" it ran to x 1010 of 1280; before it, to about 967): it is
+            shorter and drawn at 14 px while Build mode is up, and the smoke measures its words
+            against the recipe bar's span
       - [ ] Endpoints into containers (Depot) and vehicles
 - [ ] Belt replication: LaneInsert/Remove/Checksum/State; client visual sim; interest management for segments
       - [x] Events `BeltState` (a segment whole: when compiled anew, to a joiner after the
@@ -1208,9 +1233,8 @@ the whole line exists; the sub-lines say which parts do.
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the rest of the belt line (ramps and elevated belts to cross streets), then
-the Address Sorter
-with its filter panel (which also gives the splitter its kind filter), Inserters and the Depot.
+Next in this order: the Address Sorter with its filter panel (which also gives the splitter its
+kind filter), Inserters and the Depot (the belt line's endpoints into containers come with them).
 
 ## How to build and check
 
@@ -2193,6 +2217,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     onto it and down off it with no climb. "While held" is a 0.7 s push renewed every 0.4 s by a
     client holding E, so a dropped packet or a let-go key ends it within a second and the server
     keeps no per-player hold state. Splitters and mergers carry and are pushed like belts.
+99. **Ramps and elevated belts.** Doc 04 §2.1 has belts "raised one level (1 m) to cross streets
+    and other belts" and "ramps 2 tiles long". A level is 2.2 m here, not 1 m: the point of the
+    crossing is a street that stays open, and 1 m would stop every carrier and bike at it; a
+    4 m ramp up 2.2 m is steep, as factory belts are. A ramp faces the way the mail goes and
+    runs up (turned 0–3) or down (4–7), so one recipe serves both ends of a crossing. Mail moves
+    between tiles only at the same height; a ramp is fed from behind only (from the side it
+    would come in half way up). Only the elevated belt is built on a street; ramps stand on
+    the verges. Neither is solid (the posts are walked through, as belts are walked over) and
+    neither carries a walker. Crossing another belt needs two constructs on one tile and is
+    left for later.
 
 ## Commands
 

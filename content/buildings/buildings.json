@@ -38,5 +38,13 @@
   { "id": "belt_mk2", "name": "Fast Belt", "footprint": [1, 1], "rotations": 4, "hp": 100,
     "placement": { "onStreet": false }, "behaviour": "belt",
     "params": { "radius": 0.5, "height": 0.35, "speed": 4.0 },
-    "recipe": "recipe_belt_mk2", "tags": ["transport"] }
+    "recipe": "recipe_belt_mk2", "tags": ["transport"] },
+  { "id": "belt_mk1_ramp", "name": "Belt Ramp", "footprint": [1, 2], "rotations": 8, "hp": 120,
+    "placement": { "onStreet": false }, "behaviour": "belt",
+    "params": { "radius": 0.5, "height": 2.55, "speed": 2.0, "ramp": true },
+    "recipe": "recipe_belt_mk1_ramp", "tags": ["transport"] },
+  { "id": "belt_mk1_elevated", "name": "Elevated Belt", "footprint": [1, 1], "rotations": 4, "hp": 80,
+    "placement": { "onStreet": true }, "behaviour": "belt",
+    "params": { "radius": 0.5, "height": 2.55, "speed": 2.0, "level": 1 },
+    "recipe": "recipe_belt_mk1_elevated", "tags": ["transport"] }
 ]

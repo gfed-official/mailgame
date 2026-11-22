@@ -258,16 +258,27 @@ namespace PerformativeMail.Sim.Content
     }
 
     /// <summary>
-    /// Something a carrier builds on a tile (doc 04 §1, doc 08 §2.6). One tile each so far; what
-    /// it costs is its recipe's.
+    /// Something a carrier builds on a tile (doc 04 §1, doc 08 §2.6). One tile each, but for a
+    /// Belt Ramp's two; what it costs is its recipe's.
     /// </summary>
     public sealed class BuildingDef
     {
         public string Id { get; init; } = "";
         public byte Index { get; init; }
         public string Name { get; init; } = "";
-        /// <summary>How many ways it can face: 1, 2 or 4.</summary>
+        /// <summary>How many ways it can face: 1, 2 or 4; a ramp 8 (four ways up, four down).</summary>
         public int Rotations { get; init; } = 4;
+        /// <summary>
+        /// Tiles it takes (footprint [1, n]): from the tile it is built on, on in the way it faces.
+        /// A Belt Ramp's 2 (doc 04 §2.1 "ramps are 2 tiles long").
+        /// </summary>
+        public int Length { get; init; } = 1;
+        /// <summary>A belt's level (doc 04 §2.1): 0 on the ground, 1 an Elevated Belt, <see cref="Automation.BeltNetwork.LevelHeight"/> up.</summary>
+        public int Level { get; init; }
+        /// <summary>A Belt Ramp: from one level to the other over its two tiles, up or down by its rotation.</summary>
+        public bool Ramp { get; init; }
+        /// <summary>May stand on a street tile (doc 04 §1.1: the elevated belt crossing).</summary>
+        public bool OnStreet { get; init; }
         public int Hp { get; init; }
         public BuildingBehaviour Behaviour { get; init; }
         /// <summary>A <see cref="BuildingBehaviour.Container"/>: what it holds.</summary>
@@ -289,7 +300,9 @@ namespace PerformativeMail.Sim.Content
         /// <summary>A belt: metres a second (doc 11: Mk1 2, Mk2 4, Mk3 6).</summary>
         public float Speed { get; init; }
         /// <summary>Laid in a line by dragging (doc 04 §1.1: belts, pipes, walls).</summary>
-        public bool Drags => Behaviour == BuildingBehaviour.Belt || Behaviour == BuildingBehaviour.Wall;
+        public bool Drags => (Behaviour == BuildingBehaviour.Belt && !Ramp) || Behaviour == BuildingBehaviour.Wall;
+        /// <summary>A belt a carrier stands on and is carried by: one on the ground (an elevated belt runs over their head).</summary>
+        public bool Rideable => Carries && Level == 0 && !Ramp;
 
         /// <summary>Walls and gates stand in a line and join each other; a chest and spikes stand alone.</summary>
         public bool Joins => Behaviour == BuildingBehaviour.Wall || Behaviour == BuildingBehaviour.Gate;

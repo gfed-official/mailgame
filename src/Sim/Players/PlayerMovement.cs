@@ -162,12 +162,12 @@ namespace PerformativeMail.Sim.Players
             else s.Y = ground;
         }
 
-        /// <summary>The belt, splitter or merger on the tile of a point; null for none.</summary>
+        /// <summary>The belt, splitter or merger on the ground on the tile of a point; null for none.</summary>
         public static Construct? BeltUnder(ConstructField? constructs, float x, float z)
         {
             if (constructs == null) return null;
             var c = constructs.At((int)MathF.Floor(x / SimConstants.TileSize), (int)MathF.Floor(z / SimConstants.TileSize));
-            return BeltNetwork.IsBelt(c) ? c : null;
+            return c != null && c.Def.Rideable ? c : null;
         }
 
         /// <summary>What a carrier stands on: the ground, or a belt's running surface on it.</summary>

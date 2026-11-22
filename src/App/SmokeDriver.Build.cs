@@ -172,6 +172,10 @@ namespace PerformativeMail.App
                             $"the recipe card \"{((Label)child).Text}\" at {card} leaves the bar at {bar} or runs into the keys line at {keys}");
                     }
                     Check(keys.Position.Y >= hud.FeedBottom - 0.5f, $"the keys line at {keys} runs into the feed, which ends at {hud.FeedBottom}");
+                    // Its words, drawn in the middle of the screen, stay over the bar: clear of the trackers to its right.
+                    float keysMid = keys.Position.X + keys.Size.X * 0.5f, keysHalf = hud.HeldTextWidth * 0.5f;
+                    Check(keysMid - keysHalf >= bar.Position.X - 0.5f && keysMid + keysHalf <= bar.End.X + 0.5f,
+                        $"the keys line's words run from x {keysMid - keysHalf:0} to {keysMid + keysHalf:0}, past the recipe bar at {bar.Position.X:0}..{bar.End.X:0}");
                     var at = new Vector3(BuildRules.TileCentre(_buildTx), 0f, BuildRules.TileCentre(_buildTz));
                     Check(view.GhostShown && view.GhostGreen && view.GhostPosition.DistanceTo(at) < 0.01f, $"the ghost is drawn {(view.GhostShown ? view.GhostGreen ? "green" : "red" : "nowhere")} at {view.GhostPosition}, the tile at {at}");
                     Shot(_buildStep == BuildStep.Ghost ? "build-ghost" : "build-again");

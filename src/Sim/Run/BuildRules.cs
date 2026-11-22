@@ -67,14 +67,32 @@ namespace PerformativeMail.Sim.Run
         /// ground that is no street, with no house, tree, fence or fixture of the map on it and
         /// nothing built there yet.
         /// </summary>
-        public static OpResult CheckTile(WorldMap map, ConstructField constructs, int tx, int tz)
+        public static OpResult CheckTile(WorldMap map, ConstructField constructs, int tx, int tz, bool onStreet = false)
         {
             if (!map.InBounds(tx, tz)) return OpResult.BadRequest;
-            // The street stays open: the mail has to get through, and so do the raiders (doc 04 §1.1).
-            if (map.GetTile(tx, tz) == TileType.Street) return OpResult.OnStreet;
+            // The street stays open: the mail has to get through, and so do the raiders (doc 04 §1.1);
+            // an elevated belt crosses it overhead.
+            if (map.GetTile(tx, tz) == TileType.Street && !onStreet) return OpResult.OnStreet;
             if (map.IsNavBlocked(tx, tz) || constructs.At(tx, tz) != null || HoldsFixture(map, tx, tz)) return OpResult.Blocked;
             return OpResult.Ok;
         }
+
+        /// <summary>
+        /// Whether a building turned so takes the ground from a tile on: every tile it would stand
+        /// on (a Belt Ramp's two), by <see cref="CheckTile"/>; the first one's verdict that is not Ok.
+        /// </summary>
+        public static OpResult CheckPlacement(WorldMap map, ConstructField constructs, BuildingDef def, int tx, int tz, int rotation)
+        {
+            int dx = DirX[rotation & 3], dz = DirZ[rotation & 3];
+            for (int i = 0; i < Math.Max(1, def.Length); i++)
+            {
+                var verdict = CheckTile(map, constructs, tx + dx * i, tz + dz * i, def.OnStreet);
+                if (verdict != OpResult.Ok) return verdict;
+            }
+            return OpResult.Ok;
+        }
+
+        private static readonly int[] DirX = { 1, 0, -1, 0 }, DirZ = { 0, 1, 0, -1 };
 
         /// <summary>
         /// True for a tile with something of the map on it that has to stay within reach: a
