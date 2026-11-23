@@ -659,7 +659,91 @@ namespace PerformativeMail.App
                 }
 
                 case 20:
+                {
                     if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
+                    // An Inserter (doc 04 §2.5) on the outfeed's tile, out of the Intake onto a belt:
+                    // the wheel on the sorter's key, turned to face away from the counter.
+                    var player = server.GetPlayer(world.LocalId)!;
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 3)), "no room for three Iron Ingots");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("plank"), 2)), "no room for two Planks");
+                    var belts = world.Belts;
+                    player.Move.X = BuildRules.TileCentre(belts.OutfeedX + 1);
+                    player.Move.Z = BuildRules.TileCentre(belts.OutfeedZ + 1);
+                    var inserter = world.Content.Building("inserter");
+                    var sorterKey = world.Content.Recipes.First(r => r.Building.Id == "address_sorter_mk1").Key;
+                    Check(build.PressKey(sorterKey), "the sorter's key did not take");
+                    for (int i = 0; i < 2 && build.Recipe?.Building != inserter; i++) build.Cycle(1);
+                    for (int i = 0; i < 4 && build.Rotation != BeltNetwork.OutfeedRotation; i++) build.Rotate();
+                    Check(build.Recipe?.Building == inserter && build.Rotation == BeltNetwork.OutfeedRotation, $"the wheel on key {sorterKey + 1} never came to the Inserter ({build.Recipe?.Building.Name}, turned {build.Rotation})");
+                    _beltStep = 23;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 23:
+                {
+                    var belts = world.Belts;
+                    AimAtTile(belts.OutfeedX, belts.OutfeedZ);
+                    if (_beltFrames < 8) break;
+                    build.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
+                    Check(build.Ghost.State == OpResult.Ok && hud.PromptText.StartsWith("Build Inserter", StringComparison.Ordinal),
+                        $"the Inserter's ghost on the outfeed is {build.Ghost.State}, the prompt \"{hud.PromptText}\"");
+                    build.Update(1.0 / 30.0, true, false);
+                    _beltStep = 24;
+                    _beltFrames = 0;
+                    return true;
+                }
+
+                case 24:
+                {
+                    var belts = world.Belts;
+                    var built = world.Constructs.At(belts.OutfeedX, belts.OutfeedZ);
+                    if (built == null || client.PendingRequestCount > 0) break;
+                    Check(built.Def.Id == "inserter" && built.Facing == BeltNetwork.OutfeedRotation, $"on the outfeed stands a {built.Def.Id} turned {built.Facing}");
+                    Check(client.PlaceConstruct(belt, belts.OutfeedX, belts.OutfeedZ - 1, BeltNetwork.OutfeedRotation) != 0, "the belt beyond the Inserter was not asked for");
+                    // Mail for it to take, whatever the Intake has already.
+                    var dest = world.Map.GetDestination(_beltDest)!;
+                    var kind = world.Content.MailKind("letter");
+                    for (uint i = 0; i < 2; i++)
+                        Check(server.Give(server.Intake, ItemStack.OfMail(new MailItem { Id = 990021 + i, Kind = kind.Index, Address = dest.Address, Value = (ushort)kind.BaseValue, SpawnShift = (byte)server.Run.Shift, DeadlineShift = (byte)(server.Run.Shift + 1) })),
+                            "no room in the Intake for a letter");
+                    _beltStep = 25;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 25:
+                {
+                    var belts = world.Belts;
+                    var fed = server.Belts.SegmentAt(belts.OutfeedX, belts.OutfeedZ - 1);
+                    AimAtTile(belts.OutfeedX, belts.OutfeedZ);
+                    view.Animate(1f / 30f);
+                    if (fed == null || fed.Items.Count == 0 || view.ArmsSwinging == 0 || _beltFrames < 10) break;
+                    var mine = world.Belts.SegmentAt(belts.OutfeedX, belts.OutfeedZ - 1);
+                    Check(mine != null && mine.Items.Count == fed.Items.Count && world.InserterSwings.ContainsKey(belts.OutfeedZ * world.Map.Cols + belts.OutfeedX),
+                        $"the Inserter put {fed.Items.Count} pieces on the belt, {mine?.Items.Count} of them here");
+                    Shot("inserter");
+                    GD.Print($"[smoke] inserter: an Inserter on the outfeed by the wheel on key {world.Content.Recipes.First(r => r.Building.Id == "inserter").Key + 1}, {fed.Items.Count} pieces out of the Intake onto a belt, its arm swinging");
+                    client.RemoveConstruct(world.Constructs.At(belts.OutfeedX, belts.OutfeedZ - 1)!);
+                    _beltStep = 26;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 26:
+                {
+                    var belts = world.Belts;
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(belts.OutfeedX, belts.OutfeedZ - 1) != null) break;
+                    var built = world.Constructs.At(belts.OutfeedX, belts.OutfeedZ);
+                    if (built != null) client.RemoveConstruct(built);
+                    _beltStep = 27;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 27:
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(world.Belts.OutfeedX, world.Belts.OutfeedZ) != null) break;
                     Check(build.Toggle() == false && !build.Active, "B did not put Build mode down after the belt");
                     _beltVisits++;
                     _beltStep = 0;

@@ -60,6 +60,7 @@ namespace PerformativeMail.Sim.Net
         BeltPushed = 50,
         ConstructConfigured = 51,
         SorterStatus = 52,
+        InserterSwung = 53,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -99,7 +100,7 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case DeliveredEvent e:
                     w.U8((byte)EventType.Delivered);
-                    w.U32(e.MailId); w.U16(e.DestId); w.U16(e.Paid); w.U32(e.Player.Value); w.U16(e.Kind);
+                    w.U32(e.MailId); w.U16(e.DestId); w.U16(e.Paid); w.U32(e.Player.Value); w.U16(e.Kind); w.U8((byte)e.Machine);
                     break;
                 case MisdeliveredEvent e:
                     w.U8((byte)EventType.Misdelivered);
@@ -273,6 +274,10 @@ namespace PerformativeMail.Sim.Net
                     w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value); w.U8((byte)e.Filters.Count);
                     foreach (ushort f in e.Filters) w.U16(f);
                     break;
+                case InserterSwungEvent e:
+                    w.U8((byte)EventType.InserterSwung);
+                    w.U8(e.X); w.U8(e.Y); w.U16(e.Kind);
+                    break;
                 case SorterStatusEvent e:
                     w.U8((byte)EventType.SorterStatus);
                     w.U8(e.X); w.U8(e.Y); w.U8(e.Buffered); w.U16(e.Sorted); w.U16(e.Overflowed); w.U8((byte)e.Matches.Count);
@@ -334,7 +339,7 @@ namespace PerformativeMail.Sim.Net
                 case EventType.Delivered:
                     return new DeliveredEvent
                     {
-                        MailId = r.U32(), DestId = r.U16(), Paid = r.U16(), Player = new EntityId(r.U32()), Kind = r.U16(),
+                        MailId = r.U32(), DestId = r.U16(), Paid = r.U16(), Player = new EntityId(r.U32()), Kind = r.U16(), Machine = (DeliveryMachine)r.U8(),
                     };
                 case EventType.Misdelivered:
                     return new MisdeliveredEvent
@@ -489,6 +494,8 @@ namespace PerformativeMail.Sim.Net
                     for (int i = 0; i < n; i++) e.Filters.Add(r.U16());
                     return e;
                 }
+                case EventType.InserterSwung:
+                    return new InserterSwungEvent { X = r.U8(), Y = r.U8(), Kind = r.U16() };
                 case EventType.SorterStatus:
                 {
                     var e = new SorterStatusEvent { X = r.U8(), Y = r.U8(), Buffered = r.U8(), Sorted = r.U16(), Overflowed = r.U16() };

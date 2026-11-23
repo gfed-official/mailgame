@@ -25,6 +25,7 @@ namespace PerformativeMail.Client
 
             internal EntityId Player;
             internal ushort DestId, Kind;
+            internal DeliveryMachine Machine;
             internal bool Delivery, Kill, Harvest, Build;
             internal int Count, Amount;
         }
@@ -50,7 +51,7 @@ namespace PerformativeMail.Client
             Content ??= world.Content;
             switch (ev)
             {
-                case DeliveredEvent e: AddDelivery(world, e.Player, e.DestId, e.Kind, e.Paid, bad: false); break;
+                case DeliveredEvent e: AddDelivery(world, e.Player, e.DestId, e.Kind, e.Paid, bad: false, e.Machine); break;
                 case MisdeliveredEvent e: AddDelivery(world, e.Player, e.DestId, e.Kind, e.Penalty, bad: true); break;
                 case PlayerJoinedEvent e when e.Player != world.LocalId: Add($"{e.Name} joined"); break;
                 case PlayerLeftEvent e when world.LastLeft != null && world.LastLeft.Id == e.Player:
@@ -261,25 +262,25 @@ namespace PerformativeMail.Client
             }
         }
 
-        private void AddDelivery(ClientWorld world, EntityId player, ushort destId, ushort kind, int amount, bool bad)
+        private void AddDelivery(ClientWorld world, EntityId player, ushort destId, ushort kind, int amount, bool bad, DeliveryMachine machine = DeliveryMachine.Hand)
         {
             Entry? entry = null;
             if (_entries.Count > 0)
             {
                 var last = _entries[_entries.Count - 1];
-                if (last.Delivery && last.Player == player && last.DestId == destId && last.Kind == kind && last.Bad == bad)
+                if (last.Delivery && last.Player == player && last.Machine == machine && last.DestId == destId && last.Kind == kind && last.Bad == bad)
                     entry = last;
             }
             if (entry == null)
             {
-                entry = new Entry { Delivery = true, Player = player, DestId = destId, Kind = kind, Bad = bad };
+                entry = new Entry { Delivery = true, Player = player, Machine = machine, DestId = destId, Kind = kind, Bad = bad };
                 Push(entry);
             }
             entry.Count++;
             entry.Amount += amount;
             entry.Age = 0;
 
-            string who = Who(world, player);
+            string who = player.IsNone && machine == DeliveryMachine.Inserter ? "An inserter" : Who(world, player);
             string what = HudText.CountAndKind(kind < world.Content.MailKinds.Count ? world.Content.MailKinds[kind].Name : "item", entry.Count);
             string where = world.Map.GetDestination(destId)?.Label ?? "?";
             entry.Text = bad

@@ -872,13 +872,13 @@ namespace PerformativeMail.Client
         /// <summary>In Build mode, at what has filters: the key that puts them up.</summary>
         public static string FiltersNote(Construct built) => built.Def.FilterOutputs > 0 ? "   ·   [E] filters" : "";
 
-        public const string FilterHint = "[1]–[3] or a click: the next filter   ·   right click: back   ·   [E] or [Esc] close";
+        public const string FilterHint = "A number key or a click: the next filter   ·   right click: back   ·   [E] or [Esc] close";
 
         public static string FilterTitle(Construct built) =>
             built.Def.Behaviour == BuildingBehaviour.Sorter ? $"{built.Def.Name.ToUpperInvariant()}   ·   filters" : $"{built.Def.Name.ToUpperInvariant()}   ·   filters by kind";
 
         /// <summary>The ways out of a sorter or a splitter, as the panel names them (a sorter's last is its overflow).</summary>
-        public static string PortName(Construct built, int output) => output switch
+        public static string PortName(Construct built, int output) => built.Def.Behaviour == BuildingBehaviour.Inserter ? "Takes" : output switch
         {
             0 => "Front",
             1 => "Left",
@@ -899,7 +899,8 @@ namespace PerformativeMail.Client
                 case FilterKind.Kind:
                     return filter.Value < world.Content.MailKinds.Count ? Plural(world.Content.MailKinds[filter.Value].Name) : "Some kind";
                 default:
-                    return built.Def.Behaviour == BuildingBehaviour.Sorter ? "nothing (no filter)" : "anything the others do not take";
+                    return built.Def.Behaviour == BuildingBehaviour.Sorter ? "nothing (no filter)"
+                        : built.Def.Behaviour == BuildingBehaviour.Inserter ? "any mail" : "anything the others do not take";
             }
         }
 

@@ -50,6 +50,10 @@ namespace PerformativeMail.Client.Presentation
 
         private readonly System.Collections.Generic.List<GateLeaves> _gates = new System.Collections.Generic.List<GateLeaves>();
         private readonly System.Collections.Generic.List<(Construct Built, MeshInstance3D Lamp)> _lamps = new System.Collections.Generic.List<(Construct, MeshInstance3D)>();
+        /// <summary>Each inserter's arm (a pivot turned about its post) and the piece it carries over.</summary>
+        private readonly System.Collections.Generic.List<(Construct Built, Node3D Arm, MeshInstance3D Piece)> _arms = new System.Collections.Generic.List<(Construct, Node3D, MeshInstance3D)>();
+        /// <summary>Inserters whose arm is part way through a swing (for the smoke).</summary>
+        public int ArmsSwinging { get; private set; }
         private float _blink;
 
         /// <summary>Gates swinging open (a carrier is near), and Alarm Post lamps lit, as of the last frame.</summary>
@@ -115,6 +119,46 @@ namespace PerformativeMail.Client.Presentation
                 if (alarm) lit++;
             }
             LampsLit = lit;
+
+            // An inserter's arm rests over what is behind it; when it has moved a piece it swings
+            // round to the front with it and back again, in the time of one move.
+            int swinging = 0;
+            foreach (var (built, arm, piece) in _arms)
+            {
+                float t = 1f;
+                if (world.InserterSwings.TryGetValue(built.Tz * world.Map.Cols + built.Tx, out var swing))
+                    t = (float)((world.ServerTick - swing.Tick) / (SimConstants.TickRate / Mathf.Max(0.1f, built.Def.Rate)));
+                t = Mathf.Clamp(t, 0f, 1f);
+                float turn = t < 0.5f ? Mathf.SmoothStep(0f, 1f, t * 2f) : Mathf.SmoothStep(1f, 0f, (t - 0.5f) * 2f);
+                arm.Rotation = new Vector3(0f, ArmYaw(built.Facing) + Mathf.Pi * (1f - turn), 0f);
+                piece.Visible = t < 0.5f;
+                if (t < 1f) swinging++;
+            }
+            ArmsSwinging = swinging;
+        }
+
+        /// <summary>The yaw that points an arm built along −Z the way <paramref name="dir"/> goes.</summary>
+        private static float ArmYaw(int dir)
+        {
+            var v = Dir(dir);
+            return Mathf.Atan2(-v.X, -v.Z);
+        }
+
+        /// <summary>An inserter's arm: a boom from the top of its post and a grab at its end, with a letter in it while carrying.</summary>
+        private Node3D InserterArm(Construct c, Vector3 at, bool worn)
+        {
+            var arm = new Node3D { Name = $"Arm{c.Tx}_{c.Tz}", Position = at + new Vector3(0f, 0.95f, 0f) };
+            var steel = MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            var orange = MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            arm.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.16f, 0.14f, 1.05f), 0.03f), orange, new Vector3(0f, 0f, -0.5f), default, "Boom"));
+            arm.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.3f, 0.32f, 0.12f), 0.03f), steel, new Vector3(0f, -0.12f, -1.02f), default, "Grab"));
+            var piece = MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.36f, 0.04f, 0.24f), 0.01f), MeshKit.Mat(new Color("f2ecd9"), 0.8f), new Vector3(0f, -0.3f, -1.02f), default, "Piece");
+            piece.Visible = false;
+            arm.AddChild(piece);
+            arm.Rotation = new Vector3(0f, ArmYaw(c.Facing) + Mathf.Pi, 0f);
+            _built!.AddChild(arm);
+            _arms.Add((c, arm, piece));
+            return arm;
         }
 
         private static bool Near(float x, float z, Construct gate)
@@ -147,6 +191,7 @@ namespace PerformativeMail.Client.Presentation
             foreach (var g in _gates) previous[g.Built] = g.Open;
             _gates.Clear();
             _lamps.Clear();
+            _arms.Clear();
             foreach (var c in field.All)
             {
                 var at = new Vector3(c.X, world.Map.HeightAt(c.X, c.Z), c.Z);
@@ -174,6 +219,7 @@ namespace PerformativeMail.Client.Presentation
                     _built.AddChild(frame);
                     _gates.Add(g);
                 }
+                else if (c.Def.Behaviour == BuildingBehaviour.Inserter) InserterArm(c, at, c.Hp * 2 < c.Def.Hp);
                 else if (c.Def.Behaviour == BuildingBehaviour.Alarm)
                 {
                     var lamp = MeshKit.Instance(MeshKit.Sphere(0.11f, 12), MeshKit.Glow(new Color("ff2a1a"), 4f), at + new Vector3(0f, AlarmLampHeight, 0f), default, $"AlarmLamp{c.Tx}_{c.Tz}");
@@ -450,6 +496,28 @@ namespace PerformativeMail.Client.Presentation
             }
         }
 
+        /// <summary>
+        /// An Inserter's base (doc 04 §2.5): a steel plate, a post with an orange collar, and a
+        /// yellow arrow on the plate the way it moves mail. The arm is a node of its own
+        /// (<see cref="InserterArm"/>); the ghost draws it pointing ahead.
+        /// </summary>
+        public static void InserterBase(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
+        {
+            var steel = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
+            batch.Box(at + new Vector3(0f, 0.06f, 0f), new Vector3(1.3f, 0.12f, 1.3f), dark, 0.03f);
+            batch.Box(at + new Vector3(0f, 0.5f, 0f), new Vector3(0.36f, 0.8f, 0.36f), steel, 0.06f);
+            batch.Box(at + new Vector3(0f, 0.86f, 0f), new Vector3(0.46f, 0.12f, 0.46f), orange, 0.04f);
+            var v = Dir(facing);
+            float yaw = Mathf.Atan2(v.X, v.Z);
+            batch.Add(MeshKit.Box(new Vector3(0.1f, 0.02f, 0.4f)), yellow, new Transform3D(new Basis(Vector3.Up, yaw), at + v * 0.35f + new Vector3(0f, 0.13f, 0f)));
+            batch.Add(MeshKit.Cone(0.13f, 0.22f, 3), yellow, new Transform3D(new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.Pi * 0.5f), at + v * 0.58f + new Vector3(0f, 0.13f, 0f)));
+            // The ghost has no arm node: its arm is drawn into the batch, pointing ahead.
+            if (only != null) batch.Box(at + v * 0.5f + new Vector3(0f, 0.95f, 0f), new Vector3(Mathf.Abs(v.Z) * 0.16f + Mathf.Abs(v.X) * 1.05f, 0.14f, Mathf.Abs(v.X) * 0.16f + Mathf.Abs(v.Z) * 1.05f), only, 0.03f);
+        }
+
         /// <summary>A framed opening at the edge of a sorter's tile (along, across) on the side <paramref name="dir"/>.</summary>
         private static void Mouth(MeshBatch batch, Vector3 centre, int facing, int along, int across, int dir, Material frame, Material hole)
         {
@@ -489,6 +557,9 @@ namespace PerformativeMail.Client.Presentation
                     return;
                 case BuildingBehaviour.Sorter:
                     Sorter(batch, at, rotation & 3, only, worn);
+                    return;
+                case BuildingBehaviour.Inserter:
+                    InserterBase(batch, at, rotation & 3, only, worn);
                     return;
                 case BuildingBehaviour.Container:
                     if (only != null) batch.Box(new Vector3(0f, 0.4f, 0f), new Vector3(0.96f, 0.8f, 0.66f), only, 0.1f, new Vector3(0f, Mathf.RadToDeg(Yaw(rotation)), 0f));

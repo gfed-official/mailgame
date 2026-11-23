@@ -599,6 +599,9 @@ namespace PerformativeMail.Client
 
         // --- the filters of sorters and splitters (doc 04 §2.3, §2.4, doc 09 §2.7) -----------------
 
+        /// <summary>When each inserter last moved a piece (doc 04 §2.5), by tile index, as a server tick: its arm swings from it.</summary>
+        public Dictionary<int, (double Tick, ushort Kind)> InserterSwings { get; } = new Dictionary<int, (double, ushort)>();
+
         /// <summary>The sorter or splitter whose filters the local player has up; null for none.</summary>
         public Construct? FilterTarget { get; internal set; }
         /// <summary>What the server last said of it (while the filters are up); null before the first word.</summary>

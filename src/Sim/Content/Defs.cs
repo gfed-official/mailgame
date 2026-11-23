@@ -260,6 +260,12 @@ namespace PerformativeMail.Sim.Content
         /// overflow; mail is looked at one piece at a time and goes out by the first filter it matches.
         /// </summary>
         Sorter = 8,
+        /// <summary>
+        /// Doc 04 §2.5 Inserter: one tile; takes a piece of mail from what is behind it (a chest, a
+        /// depot, the end of a belt, the Intake) and puts it into what is in front (a mailbox, a
+        /// belt, a chest, a depot, a sorter) at its rate; optionally by kind.
+        /// </summary>
+        Inserter = 9,
     }
 
     /// <summary>
@@ -286,7 +292,9 @@ namespace PerformativeMail.Sim.Content
         /// A sorter's filtered outputs and a splitter's (doc 04 §2.3 "optional per-output filter by
         /// kind", §2.4); 0 for what sorts nothing.
         /// </summary>
-        public int FilterOutputs => Behaviour == BuildingBehaviour.Sorter ? 3 : Behaviour == BuildingBehaviour.Splitter ? 3 : 0;
+        public int FilterOutputs => Behaviour == BuildingBehaviour.Sorter ? 3 : Behaviour == BuildingBehaviour.Splitter ? 3 : Behaviour == BuildingBehaviour.Inserter ? 1 : 0;
+        /// <summary>An inserter: pieces it moves a second (doc 11: 1.25).</summary>
+        public float Rate { get; init; }
         /// <summary>Filters an output holds (doc 04 §2.4: 1 on a Mk1 sorter); a splitter's one, a kind.</summary>
         public int FilterSlots { get; init; } = 1;
         /// <summary>A sorter: pieces of mail it looks at a second (doc 11: Mk1 2).</summary>

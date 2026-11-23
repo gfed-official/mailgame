@@ -56,8 +56,8 @@ namespace PerformativeMail.Sim.Tests
             var client = new BeltNetwork(Db, map, clientField);
             var kinds = new[]
             {
-                Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk2"), Db.Building("splitter"), Db.Building("merger"),
-                Db.Building("belt_mk1_ramp"), Db.Building("belt_mk1_elevated"), Db.Building("address_sorter_mk1"),
+                Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk2"), Db.Building("splitter"), Db.Building("merger"),
+                Db.Building("belt_mk1_ramp"), Db.Building("belt_mk1_elevated"), Db.Building("address_sorter_mk1"), Db.Building("inserter"),
             };
             var dest = map.Destinations[0];
             var filters = new[]
@@ -174,7 +174,8 @@ namespace PerformativeMail.Sim.Tests
                 }
             }
             Assert.True(made.Count > 100, $"only {made.Count} pieces were put on");
-            Assert.True(handOffs > 20, $"only {handOffs} hand-offs");
+            // A 2 × 2 sorter or an inserter dropped on a line breaks it: fewer hand-offs than belts alone, still plenty.
+            Assert.True(handOffs > 12, $"only {handOffs} hand-offs");
         }
     }
 }

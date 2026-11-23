@@ -178,21 +178,36 @@ namespace PerformativeMail.Sim
         /// </summary>
         bool IBeltSink.TryDeliver(BeltSegment segment, in BeltItem item)
         {
-            if (Run.Phase != RunPhase.Delivery) return false;
             var dest = Map.GetDestination(segment.DestId);
-            if (dest == null || item.Mail.Address != dest.Address) return false;
-            var kind = Content.MailKinds[item.Mail.Kind];
-            if (!DeliveryRules.KindAccepted(kind, dest.Type)) return false;
-            var verdict = DeliveryRules.Evaluate(item.Mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats);
-            if (verdict.Outcome != DeliveryOutcome.Delivered) return false;
-            Economy.Apply(verdict, kind.Index);
+            if (dest == null || !AutomatedDelivers(dest, item.Mail)) return false;
             Events.Add(new BeltItemRemovedEvent { MailId = item.Mail.Id });
-            Events.Add(new DeliveredEvent
-            {
-                MailId = item.Mail.Id, DestId = dest.Id, Paid = (ushort)verdict.Amount, Player = EntityId.None, Kind = item.Mail.Kind,
-            });
+            DeliverAutomated(dest, item.Mail, DeliveryMachine.Belt);
             segment.NextInsertTick = Tick + SimConstants.SecondsToTicks(1.0 / Math.Max(0.01, dest.Type.InsertRate));
             return true;
+        }
+
+        /// <summary>
+        /// Whether a mailbox takes a piece from a belt or an inserter: in Delivery, its own address,
+        /// a kind it takes, and a delivery that pays (design choice 94: automation never guesses).
+        /// </summary>
+        private bool AutomatedDelivers(DestinationDef dest, in MailItem mail)
+        {
+            if (Run.Phase != RunPhase.Delivery || mail.Address != dest.Address) return false;
+            var kind = Content.MailKinds[mail.Kind];
+            if (!DeliveryRules.KindAccepted(kind, dest.Type)) return false;
+            return DeliveryRules.Evaluate(mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats).Outcome == DeliveryOutcome.Delivered;
+        }
+
+        /// <summary>A delivery by a belt or an inserter: the team's, credited to nobody (design choice 94 g).</summary>
+        private void DeliverAutomated(DestinationDef dest, in MailItem mail, DeliveryMachine machine)
+        {
+            var kind = Content.MailKinds[mail.Kind];
+            var verdict = DeliveryRules.Evaluate(mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats);
+            Economy.Apply(verdict, kind.Index);
+            Events.Add(new DeliveredEvent
+            {
+                MailId = mail.Id, DestId = dest.Id, Paid = (ushort)verdict.Amount, Player = EntityId.None, Kind = mail.Kind, Machine = machine,
+            });
         }
 
         void IBeltSink.Moved(BeltSegment from, BeltSegment to, in BeltItem item) =>

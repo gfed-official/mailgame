@@ -427,7 +427,8 @@ namespace PerformativeMail.Client
             bool building = Building?.Invoke() == true;
             foreach (var built in world.Constructs.All)
             {
-                bool sorter = built.Def.Behaviour == BuildingBehaviour.Sorter;
+                // A sorter or an inserter: what has filters and carries nothing.
+                bool sorter = built.Def.FilterOutputs > 0 && !built.Def.Carries;
                 if (!built.Def.Carries && !sorter) continue;
                 float reach = range + (sorter ? built.Def.Radius : 0f);
                 if (DistSq(px, pz, sorter ? built.CentreX : built.X, sorter ? built.CentreZ : built.Z) > reach * reach) continue;

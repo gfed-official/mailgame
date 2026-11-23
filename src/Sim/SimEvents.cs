@@ -80,6 +80,16 @@ namespace PerformativeMail.Sim
         public ushort Paid;
         public EntityId Player;
         public ushort Kind;
+        /// <summary>Who put it in when no carrier did (<see cref="Player"/> none): a belt or an inserter.</summary>
+        public DeliveryMachine Machine;
+    }
+
+    /// <summary>What made a delivery that is nobody's (design choice 94 g).</summary>
+    public enum DeliveryMachine : byte
+    {
+        Hand = 0,
+        Belt = 1,
+        Inserter = 2,
     }
 
     public sealed class MisdeliveredEvent : SimEvent
@@ -405,6 +415,13 @@ namespace PerformativeMail.Sim
         public ushort Sorted, Overflowed;
         /// <summary>Per output (a sorter's last is its overflow): pieces of the Intake's mail it would take.</summary>
         public readonly List<ushort> Matches = new List<ushort>();
+    }
+
+    /// <summary>The inserter on (X, Y) moved a piece of mail of a kind (doc 04 §2.5): the clients swing its arm.</summary>
+    public sealed class InserterSwungEvent : SimEvent
+    {
+        public byte X, Y;
+        public ushort Kind;
     }
 
     /// <summary>A carrier pushes the segment headed at (X, Y) (doc 04 §2.1): it runs faster for <see cref="Ticks"/> ticks.</summary>

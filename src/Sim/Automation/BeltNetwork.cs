@@ -420,7 +420,7 @@ namespace PerformativeMail.Sim.Automation
             _fieldVersion = _field.Version;
             var sig = new System.Text.StringBuilder();
             foreach (var c in _field.All)
-                if (IsBelt(c) || c.Def.Behaviour == BuildingBehaviour.Sorter)
+                if (IsBelt(c) || c.Def.Behaviour == BuildingBehaviour.Sorter || c.Def.Behaviour == BuildingBehaviour.Inserter)
                     sig.Append(c.Tx).Append(',').Append(c.Tz).Append(',').Append(c.Rotation).Append(',').Append(c.Def.Index).Append(';');
             string signature = sig.ToString();
             if (signature == _signature) return false;
@@ -466,6 +466,13 @@ namespace PerformativeMail.Sim.Automation
                     int o = PortTile(c, port);
                     if (o >= 0 && AcceptsFrom(SorterNode.Port(port, c.Facing).Dir, o, 0)) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
                 }
+            }
+            // An inserter puts mail on the head of the belt in front of it: that belt starts a segment.
+            foreach (var c in _field.All)
+            {
+                if (c.Def.Behaviour != BuildingBehaviour.Inserter) continue;
+                int o = FrontOf(TileIndex(c.Tx, c.Tz), c.Facing);
+                if (o >= 0 && AcceptsFrom(c.Facing, o, 0)) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
             }
             foreach (var node in _sorters)
             {
@@ -744,6 +751,46 @@ namespace PerformativeMail.Sim.Automation
                 }
                 if (gone) i--;
             }
+        }
+
+        // --- inserters (doc 04 §2.5) ---------------------------------------------------------------
+
+        /// <summary>
+        /// The segment an inserter on (tx, tz) facing <paramref name="facing"/> puts mail on: the
+        /// one headed at the tile in front, on the ground, taking mail from that way; null for none.
+        /// </summary>
+        public BeltSegment? FedBy(int tx, int tz, int facing)
+        {
+            int o = FrontOf(TileIndex(tx, tz), facing);
+            if (o < 0 || !AcceptsFrom(facing & 3, o, 0)) return null;
+            var s = _segOf[o];
+            return s != null && s.Head == o ? s : null;
+        }
+
+        /// <summary>The segment whose end an inserter on (tx, tz) facing <paramref name="facing"/> takes from: the belt behind it running into it.</summary>
+        public BeltSegment? EndingAt(int tx, int tz, int facing)
+        {
+            int self = TileIndex(tx, tz);
+            int back = FrontOf(self, (facing + 2) & 3);
+            if (back < 0) return null;
+            var s = _segOf[back];
+            return s != null && s.Tiles[s.Tiles.Count - 1] == back && s.FrontTile == self && OutLevel(back) == 0 ? s : null;
+        }
+
+        /// <summary>The piece waiting at a segment's very end, if one is.</summary>
+        public static bool FrontWaiting(BeltSegment s, out BeltItem item)
+        {
+            item = default;
+            if (!Waiting(s)) return false;
+            item = s.Items[0];
+            return true;
+        }
+
+        /// <summary>Takes a segment's front piece off it (an inserter's grab).</summary>
+        public void TakeFront(BeltSegment s)
+        {
+            s.Items.RemoveAt(0);
+            ItemCount--;
         }
 
         /// <summary>A splitter: whether one of its outputs with a belt has a filter that catches the piece.</summary>

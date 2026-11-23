@@ -883,6 +883,7 @@ namespace PerformativeMail.Sim.Content
                             case "splitter": behaviour = BuildingBehaviour.Splitter; break;
                             case "merger": behaviour = BuildingBehaviour.Merger; break;
                             case "sorter": behaviour = BuildingBehaviour.Sorter; break;
+                            case "inserter": behaviour = BuildingBehaviour.Inserter; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
@@ -923,6 +924,7 @@ namespace PerformativeMail.Sim.Content
                             FilterSlots = hasParams ? J.Int(ctx, pars, "filterSlotsPerOutput", 1) : 1,
                             Throughput = hasParams ? (float)J.Num(ctx, pars, "throughputPerSecond", 0) : 0f,
                             BufferSize = hasParams ? J.Int(ctx, pars, "bufferSize", 0) : 0,
+                            Rate = hasParams ? (float)J.Num(ctx, pars, "rate", 0) : 0f,
                             Level = hasParams ? J.Int(ctx, pars, "level", 0) : 0,
                             Ramp = hasParams && J.Bool(ctx, pars, "ramp", false),
                             OnStreet = onStreet,
@@ -935,6 +937,8 @@ namespace PerformativeMail.Sim.Content
                         if (sorter && (def.Throughput <= 0f || def.BufferSize < 1 || def.BufferSize > 64 || def.Rotations != 4))
                             ctx.Error($"'{id}': a sorter needs params.throughputPerSecond > 0, params.bufferSize in 1..64 and 4 rotations");
                         if (!sorter && (def.Throughput != 0f || def.BufferSize != 0)) ctx.Error($"'{id}': only a sorter has params.throughputPerSecond and params.bufferSize");
+                        bool inserter = behaviour == BuildingBehaviour.Inserter;
+                        if (inserter ? def.Rate <= 0f || def.Rotations != 4 : def.Rate != 0f) ctx.Error($"'{id}': an inserter, and only an inserter, has params.rate > 0 (and 4 rotations)");
                         if (def.FilterSlots < 1 || def.FilterSlots > 3 || (def.FilterSlots != 1 && !sorter)) ctx.Error($"'{id}': params.filterSlotsPerOutput is 1 (a sorter's up to 3)");
                         if (def.Ramp && (behaviour != BuildingBehaviour.Belt || def.Length != 2 || def.Rotations != 8 || def.Level != 0)) ctx.Error($"'{id}': a ramp is a belt of footprint [1, 2], 8 rotations and level 0");
                         if (def.Level != 0 && (behaviour != BuildingBehaviour.Belt || def.Level != 1)) ctx.Error($"'{id}': only a belt is raised, by one level");

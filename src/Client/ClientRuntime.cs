@@ -1116,6 +1116,9 @@ namespace PerformativeMail.Client
                     world.Constructs.SetFilters(set, filters);
                     break;
                 }
+                case InserterSwungEvent e:
+                    if (world.Map.InBounds(e.X, e.Y)) world.InserterSwings[e.Y * world.Map.Cols + e.X] = (world.ServerTick, e.Kind);
+                    break;
                 case SorterStatusEvent e:
                     if (world.FilterTarget != null && world.FilterTarget.Tx == e.X && world.FilterTarget.Tz == e.Y) world.FilterStatus = e;
                     break;

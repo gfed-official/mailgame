@@ -1286,14 +1286,35 @@ the whole line exists; the sub-lines say which parts do.
             `CodecTests`; in the smoke the blueprint is bought by its card's key, the sorter built by
             key 0 (`sorter-ghost`, `sorter`), its filters put up by E and the front set by key 1
             (`sorter-filters`)
+      - [x] **Inserter** (doc 04 §2.5, doc 10 §2.2, doc 11 "inserter rate 1.25"; design choice
+            104). `inserter` (120 HP, two Iron Ingots and a Plank, no blueprint) on the sorter's key
+            of Build mode (recipe group "sorting", doc 09 §2.7's Sorting category; the wheel steps
+            between them, so Build mode keeps ten keys). In the tick after the belts
+            (`SimWorld.StepInserters`), at its rate, it moves one piece of mail from behind it — a
+            chest's or depot's grid in order, the Intake's oldest piece (on the outfeed's tile, facing
+            away), or the piece waiting at the end of a belt running into it — to the front: a
+            mailbox (in Delivery, by the rules a belt goes by), a chest, a sorter's input, or the head of a
+            belt (which it starts, as a sorter's port does). It takes only what the front will take
+            and its kind filter lets through (the filter panel, one card "Takes", by E), so nothing
+            waits in its arm. A delivery by it is the team's and the feed says "An inserter
+            delivered…" (`DeliveredEvent.Machine`; protocol `m2.4`); `InserterSwungEvent` swings its
+            arm on every client (a boom with a grab turning from back to front with the piece, and
+            back). Drawn as a steel post on a plate with an orange collar and a yellow arrow.
+            Build mode lifts the feed 36 px and holds its oldest line back while up (the recipe bar's
+            fifth row). `InserterTests` (content, chest into a mailbox at its rate and only its own
+            mail, the Intake oldest first onto a belt and a belt into a chest, the kind filter into a
+            sorter), `InserterFlowTests` (E and the panel, swings and the feed on a client),
+            `BeltFuzzTests` with inserters, `CodecTests`; in the smoke an Inserter on the outfeed by
+            the wheel on key 0 puts the Intake's mail on a belt, its arm swinging (`inserter`).
+            The Long Inserter (bp_sorting, reach 2) waits
 - [ ] Pipes (inlet filters, junctions, outlets, underground) behind bp_pipes
 - [ ] Mail Truck; Vehicle Depot with route console; NPC driver behaviour; player takeover
 - [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: Inserters and the Depot (the belt line's endpoints into containers come with
-them).
+Next in this order: the Depot (the belt line's endpoints into containers come with it), then
+the Long Inserter.
 
 ## How to build and check
 
@@ -2318,6 +2339,17 @@ See "Commands" at the bottom (filled in as the tooling lands).
     open/close/set; "matches N in the Intake" is the server's count of where the Intake's mail would
     go by the filters alone. E at a sorter configures it; at a splitter E pushes, so its filters are
     E in Build mode (doc 09 §2.7 puts "configure" there).
+
+104. **Inserters.** Doc 04 §2.5 says what an inserter takes from and puts into, not when. It
+    moves a piece only when the front takes it then (a mailbox by the rules of design choice
+    94, a grid with room, a sorter's buffer with room, a belt head with room in a lane), so no
+    piece is ever held in the arm or dropped; from a grid it takes the first such piece in the
+    grid's order, from the Intake the oldest, from a belt only the piece waiting at the very
+    end. It works in Prep and Delivery, like the belts' outfeed, and moves mail only (doc 04's
+    examples are all mail; materials stay in the pockets and chests). Its kind filter is the
+    splitter's kind; it is configured by E as a sorter is. It stands in the way (it is a machine
+    with a post, unlike a belt). It shares the sorter's key: with it Build mode would have had 11
+    keys, and doc 09 §2.7 groups them as "Sorting".
 
 ## Commands
 

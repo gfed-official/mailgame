@@ -265,6 +265,7 @@ namespace PerformativeMail.Net.Tests
                 new ConstructsClearedEvent(),
                 new ConstructConfiguredEvent { X = 16, Y = 21, Player = player, Filters = { 0x0104, 0, 0x0302 } },
                 new SorterStatusEvent { X = 16, Y = 21, Buffered = 7, Sorted = 1234, Overflowed = 56, Matches = { 3, 0, 9, 12 } },
+                new InserterSwungEvent { X = 11, Y = 12, Kind = 3 },
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
                 new VehicleParkedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), X = 60.75f, Z = 28f, Heading = -2.5f, Player = player },
@@ -304,6 +305,8 @@ namespace PerformativeMail.Net.Tests
             var configured = back.OfType<ConstructConfiguredEvent>().Single();
             Assert.Equal((16, 21, player), (configured.X, configured.Y, configured.Player));
             Assert.Equal(new ushort[] { 0x0104, 0, 0x0302 }, configured.Filters);
+            var swung = back.OfType<InserterSwungEvent>().Single();
+            Assert.Equal(((byte)11, (byte)12, (ushort)3), (swung.X, swung.Y, swung.Kind));
             var status = back.OfType<SorterStatusEvent>().Single();
             Assert.Equal((16, 21, (byte)7, (ushort)1234, (ushort)56), (status.X, status.Y, status.Buffered, status.Sorted, status.Overflowed));
             Assert.Equal(new ushort[] { 3, 0, 9, 12 }, status.Matches);

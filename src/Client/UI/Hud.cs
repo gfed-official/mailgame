@@ -517,6 +517,8 @@ namespace PerformativeMail.Client.UI
                 float top = -m - 82f - (_feedLines.Length - i) * 24f - (building ? FeedLiftBuilding : 0f);
                 _feedLines[i].OffsetTop = top;
                 _feedLines[i].OffsetBottom = top + 24f;
+                // Lifted over the recipe bar's rows, the oldest line would run into the prompt: it waits.
+                _feedLines[i].Visible = !(building && i == 0);
             }
             _held.OffsetBottom = building ? -m - RecipeBarHeight : -GridView.Cell - m - 4f;
             if (building)
