@@ -160,6 +160,8 @@ namespace PerformativeMail.Client.Presentation
                     if (!belt) Housing(batch, at, c.Facing, c.Def.Behaviour == BuildingBehaviour.Splitter, null);
                     continue;
                 }
+                // A sorter stands over the middle of its four tiles.
+                if (c.Def.Width > 1) at = new Vector3(c.CentreX, world.Map.HeightAt(c.CentreX, c.CentreZ), c.CentreZ);
                 Draw(batch, c.Def, at, field.Arms(c), c.Rotation, null, c.Hp * 2 < c.Def.Hp);
                 if (c.Def.Behaviour == BuildingBehaviour.Gate)
                 {
@@ -223,10 +225,13 @@ namespace PerformativeMail.Client.Presentation
                         BeltTile(batch, offset, ghost.Rotation & 3, ghost.Rotation & 3, mat, false, def.Speed);
                         if (def.Behaviour != BuildingBehaviour.Belt) Housing(batch, offset, ghost.Rotation & 3, def.Behaviour == BuildingBehaviour.Splitter, mat);
                     }
-                    else Draw(batch, def, offset, arms, ghost.Rotation, mat, false);
-                    // The tiles it takes, on the ground (a ramp's two).
-                    for (int i = 0; i < def.Length; i++)
-                        batch.Box(offset + Dir(ghost.Rotation & 3) * (i * SimConstants.TileSize) + new Vector3(0f, 0.02f, 0f), new Vector3(SimConstants.TileSize - 0.1f, 0.04f, SimConstants.TileSize - 0.1f), mat, 0.02f);
+                    else Draw(batch, def, offset + FootprintCentre(def, ghost.Rotation), arms, ghost.Rotation, mat, false);
+                    // The tiles it takes, on the ground (a ramp's two, a sorter's four).
+                    for (int i = 0; i < def.TileCount; i++)
+                    {
+                        var (fx, fz) = Construct.TileOf(0, 0, ghost.Rotation, i % def.Length, i / def.Length);
+                        batch.Box(offset + new Vector3(fx * SimConstants.TileSize, 0.02f, fz * SimConstants.TileSize), new Vector3(SimConstants.TileSize - 0.1f, 0.04f, SimConstants.TileSize - 0.1f), mat, 0.02f);
+                    }
                 }
                 batch.Flush(_ghost, "Ghost", castShadows: false);
             }
@@ -402,6 +407,63 @@ namespace PerformativeMail.Client.Presentation
 
         private static Vector3 Dir(int d) => d switch { 0 => Vector3.Right, 1 => Vector3.Back, 2 => Vector3.Left, _ => Vector3.Forward };
 
+        /// <summary>From the middle of the tile a building is built on to the middle of all its tiles.</summary>
+        public static Vector3 FootprintCentre(BuildingDef def, int rotation)
+        {
+            if (def.Width <= 1) return Vector3.Zero;
+            var (fx, fz) = Construct.TileOf(0, 0, rotation, def.Length - 1, def.Width - 1);
+            return new Vector3(fx, 0f, fz) * (SimConstants.TileSize * 0.5f);
+        }
+
+        private static readonly Color SorterBody = new Color("9aa3ad"), SorterTrim = new Color("e07a1f"), SorterDark = new Color("2a2f36");
+        private static readonly Color PortIn = new Color("3fae5a"), PortOut = new Color("e0a526"), PortOverflow = new Color("c8402e");
+
+        /// <summary>
+        /// An Address Sorter (doc 04 §2.4) in the look of the reference factory: a steel machine on
+        /// a base plate over its four tiles, an orange band round it, a hood with a lit console
+        /// screen, and a framed mouth on each way: green for the input, amber for the three outputs,
+        /// red for the overflow. <paramref name="at"/> is the middle of its tiles.
+        /// </summary>
+        public static void Sorter(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
+        {
+            const float t = SimConstants.TileSize;
+            var body = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            var trim = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            float yaw = Mathf.RadToDeg(-facing * Mathf.Pi * 0.5f);
+            batch.Box(at + new Vector3(0f, 0.08f, 0f), new Vector3(2f * t - 0.2f, 0.16f, 2f * t - 0.2f), dark, 0.03f);
+            batch.Box(at + new Vector3(0f, 0.8f, 0f), new Vector3(2f * t - 0.9f, 1.3f, 2f * t - 0.9f), body, 0.08f);
+            batch.Box(at + new Vector3(0f, 1.05f, 0f), new Vector3(2f * t - 0.84f, 0.16f, 2f * t - 0.84f), trim, 0.02f);
+            batch.Box(at + new Vector3(0f, 1.55f, 0f), new Vector3(2f * t - 1.6f, 0.2f, 2f * t - 1.6f), body, 0.05f, new Vector3(0f, yaw, 0f));
+            // The console: a slanted screen on the hood, towards the input side.
+            var f = Dir(facing);
+            var screen = only ?? MeshKit.Glow(new Color("4fd3e8"), 1.2f);
+            batch.Box(at - f * 0.55f + new Vector3(0f, 1.72f, 0f), new Vector3(0.9f, 0.12f, 0.9f), dark, 0.02f, new Vector3(0f, yaw, 0f));
+            batch.Box(at - f * 0.55f + new Vector3(0f, 1.79f, 0f), new Vector3(0.7f, 0.03f, 0.7f), screen, 0.0f, new Vector3(0f, yaw, 0f));
+            // The mouths: the input into (0, 0) from behind, then the ports.
+            Mouth(batch, at, facing, 0, 0, (facing + 2) & 3, only ?? MeshKit.Mat(PortIn, 0.5f), dark);
+            for (int port = 0; port < Sim.Automation.SorterNode.Ports; port++)
+            {
+                var (along, across, dir) = Sim.Automation.SorterNode.Port(port, facing);
+                var frame = only ?? MeshKit.Mat(port == Sim.Automation.SorterNode.Overflow ? PortOverflow : PortOut, 0.5f);
+                Mouth(batch, at, facing, along, across, dir, frame, dark);
+            }
+        }
+
+        /// <summary>A framed opening at the edge of a sorter's tile (along, across) on the side <paramref name="dir"/>.</summary>
+        private static void Mouth(MeshBatch batch, Vector3 centre, int facing, int along, int across, int dir, Material frame, Material hole)
+        {
+            const float t = SimConstants.TileSize;
+            var f = Dir(facing);
+            var r = Dir((facing + 1) & 3);
+            var tile = centre + f * ((along - 0.5f) * t) + r * ((across - 0.5f) * t);
+            var d = Dir(dir);
+            var side = new Vector3(Mathf.Abs(d.Z), 0f, Mathf.Abs(d.X));
+            var at = tile + d * (t * 0.5f - 0.45f);
+            batch.Box(at + new Vector3(0f, 0.55f, 0f), side * 1.15f + new Vector3(0f, 0.75f, 0f) + new Vector3(Mathf.Abs(d.X), 0f, Mathf.Abs(d.Z)) * 0.12f, frame, 0.03f);
+            batch.Box(at + d * 0.02f + new Vector3(0f, 0.5f, 0f), side * 0.9f + new Vector3(0f, 0.55f, 0f) + new Vector3(Mathf.Abs(d.X), 0f, Mathf.Abs(d.Z)) * 0.12f, hole, 0.02f);
+        }
+
         /// <summary>
         /// One construct of any kind, in its own colours or all in <paramref name="only"/> (the
         /// ghost's). <paramref name="arms"/> are a wall's, <paramref name="worn"/> under half its HP.
@@ -424,6 +486,9 @@ namespace PerformativeMail.Client.Presentation
                     return;
                 case BuildingBehaviour.Spikes:
                     Spikes(batch, at, only ?? Mat(PlateColour), only ?? MeshKit.Mat(IronColour, 0.4f, 0.6f));
+                    return;
+                case BuildingBehaviour.Sorter:
+                    Sorter(batch, at, rotation & 3, only, worn);
                     return;
                 case BuildingBehaviour.Container:
                     if (only != null) batch.Box(new Vector3(0f, 0.4f, 0f), new Vector3(0.96f, 0.8f, 0.66f), only, 0.1f, new Vector3(0f, Mathf.RadToDeg(Yaw(rotation)), 0f));

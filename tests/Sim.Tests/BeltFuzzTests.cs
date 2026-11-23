@@ -32,6 +32,10 @@ namespace PerformativeMail.Sim.Tests
                 return true;
             }
             public void Moved(BeltSegment from, BeltSegment to, in BeltItem item) => Moves.Add((item.Mail.Id, to.Head, item.Lane));
+            public readonly List<uint> Taken = new List<uint>();
+            public readonly List<(int Head, BeltItem Item)> SortedOut = new List<(int, BeltItem)>();
+            public void Took(BeltSegment from, in BeltItem item) => Taken.Add(item.Mail.Id);
+            public void Sorted(SorterNode sorter, int port, BeltSegment to, in BeltItem item) => SortedOut.Add((to.Head, item));
         }
 
         [Theory]
@@ -53,12 +57,17 @@ namespace PerformativeMail.Sim.Tests
             var kinds = new[]
             {
                 Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk2"), Db.Building("splitter"), Db.Building("merger"),
-                Db.Building("belt_mk1_ramp"), Db.Building("belt_mk1_elevated"),
+                Db.Building("belt_mk1_ramp"), Db.Building("belt_mk1_elevated"), Db.Building("address_sorter_mk1"),
+            };
+            var dest = map.Destinations[0];
+            var filters = new[]
+            {
+                MailFilter.Empty, new MailFilter(FilterKind.Kind, Db.MailKind("letter").Index), new MailFilter(FilterKind.Kind, Db.MailKind("cargo").Index),
+                new MailFilter(FilterKind.Street, dest.Address.Street), new MailFilter(FilterKind.District, dest.Address.District),
             };
             var mailKinds = new[] { Db.MailKind("letter"), Db.MailKind("letter"), Db.MailKind("cargo") };
             var rng = new Random(seed);
             var sink = new Sink();
-            var dest = map.Destinations[0];
             // Round a mailbox, so some lines end at one.
             int size = 8;
             int x0 = Math.Clamp((int)(dest.MailboxX / SimConstants.TileSize) - size / 2, 0, map.Cols - size);
@@ -67,14 +76,22 @@ namespace PerformativeMail.Sim.Tests
             var orphaned = new HashSet<uint>();
             var made = new HashSet<uint>();
             var orphans = new List<BeltItem>();
-            int handOffs = 0;
+            int handOffs = 0, sorterOuts = 0;
 
             void Build(int tx, int tz, BuildingDef? def, int rot)
             {
                 foreach (var f in new[] { serverField, clientField })
                 {
                     if (def == null) f.Remove(tx, tz);
-                    else f.Add(def, tx, tz, rot, def.Hp, 0);
+                    else
+                    {
+                        var c = f.Add(def, tx, tz, rot, def.Hp, 0);
+                        // The same filters on both ends, as the server's ConstructConfigured would have it.
+                        var rngF = new Random(tx * 977 + tz * 31 + rot);
+                        var set = new List<MailFilter>();
+                        for (int k = 0; k < c.Filters.Length; k++) set.Add(filters[rngF.Next(filters.Length)]);
+                        f.SetFilters(c, set);
+                    }
                 }
             }
 
@@ -110,11 +127,16 @@ namespace PerformativeMail.Sim.Tests
                 }
 
                 sink.Moves.Clear();
+                sink.Taken.Clear();
+                sink.SortedOut.Clear();
                 int deliveredBefore = sink.Delivered.Count;
                 server.Step(SimConstants.TickDt, sink, (uint)tick);
                 client.Step(SimConstants.TickDt, null, (uint)tick);
                 for (int d = deliveredBefore; d < sink.Delivered.Count; d++) Assert.True(client.RemoveMail(sink.Delivered[d]));
-                handOffs += sink.Moves.Count;
+                foreach (uint taken in sink.Taken) Assert.True(client.RemoveMail(taken));
+                foreach (var (head, sorted) in sink.SortedOut) client.Add(client.SegmentByHead(head)!, sorted);
+                handOffs += sink.Moves.Count + sink.SortedOut.Count;
+                sorterOuts += sink.SortedOut.Count;
                 foreach (var (mailId, head, lane) in sink.Moves)
                 {
                     var it = client.Find(mailId);
@@ -129,7 +151,10 @@ namespace PerformativeMail.Sim.Tests
                 var riding = server.Segments.SelectMany(s => s.Items).Select(it => it.Mail.Id).ToList();
                 Assert.Equal(riding.Count, riding.Distinct().Count());
                 Assert.Equal(riding.Count, server.ItemCount);
-                Assert.Equal(made.Count, riding.Count + sink.Delivered.Count + orphaned.Count);
+                var buffered = server.Sorters.SelectMany(n => n.Buffer).Select(m => m.Id).ToList();
+                Assert.Empty(riding.Intersect(buffered));
+                Assert.Equal(buffered.Count, buffered.Distinct().Count());
+                Assert.Equal(made.Count, riding.Count + buffered.Count + sink.Delivered.Count + orphaned.Count);
                 foreach (var s in server.Segments)
                 {
                     for (int k = 0; k < s.Items.Count; k++)

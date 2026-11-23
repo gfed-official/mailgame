@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 
 namespace PerformativeMail.Sim.World
 {
-    /// <summary>Something a carrier built (doc 04 §1): one building on its tile (a Belt Ramp on two).</summary>
+    /// <summary>Something a carrier built (doc 04 §1): one building on its tile (a Belt Ramp on two, an Address Sorter on four).</summary>
     public sealed class Construct
     {
         public BuildingDef Def { get; }
@@ -17,9 +18,36 @@ namespace PerformativeMail.Sim.World
         /// <summary>The container of a chest; 0 for what holds nothing.</summary>
         public uint ContainerId { get; }
 
-        /// <summary>The middle of its tile.</summary>
+        /// <summary>The middle of its tile (the one it was built on).</summary>
         public float X => (Tx + 0.5f) * SimConstants.TileSize;
         public float Z => (Tz + 0.5f) * SimConstants.TileSize;
+
+        /// <summary>The middle of all its tiles: where a sorter's round body stands.</summary>
+        public float CentreX
+        {
+            get
+            {
+                var (fx, _) = TileAt(Def.TileCount - 1);
+                return (Tx + fx + 1) * 0.5f * SimConstants.TileSize;
+            }
+        }
+
+        public float CentreZ
+        {
+            get
+            {
+                var (_, fz) = TileAt(Def.TileCount - 1);
+                return (Tz + fz + 1) * 0.5f * SimConstants.TileSize;
+            }
+        }
+
+        /// <summary>
+        /// A sorter's or a splitter's filters (doc 04 §2.3, §2.4): output by output,
+        /// <see cref="BuildingDef.FilterSlots"/> each; empty for what sorts nothing.
+        /// </summary>
+        public MailFilter[] Filters { get; }
+
+        public MailFilter Filter(int output, int slot) => Filters[output * Def.FilterSlots + slot];
         /// <summary>A wall runs along X (false) or along Z (true).</summary>
         public bool AlongZ => (Rotation & 1) != 0;
 
@@ -28,16 +56,24 @@ namespace PerformativeMail.Sim.World
 
         /// <summary>
         /// Its <paramref name="i"/>-th tile, from 0 for the one it was built on to
-        /// <see cref="BuildingDef.Length"/> − 1, on in the way it faces.
+        /// <see cref="BuildingDef.TileCount"/> − 1: on in the way it faces, then (a sorter) the
+        /// same again one tile to the right of that way.
         /// </summary>
-        public (int Tx, int Tz) TileAt(int i) => (Tx + FacingDx[Facing] * i, Tz + FacingDz[Facing] * i);
+        public (int Tx, int Tz) TileAt(int i) => TileOf(Tx, Tz, Facing, i % Def.Length, i / Def.Length);
+
+        /// <summary>The tile <paramref name="along"/> on and <paramref name="across"/> to the right of a building's own, turned so.</summary>
+        public static (int Tx, int Tz) TileOf(int tx, int tz, int facing, int along, int across)
+        {
+            int f = facing & 3, r = (f + 1) & 3;
+            return (tx + FacingDx[f] * along + FacingDx[r] * across, tz + FacingDz[f] * along + FacingDz[r] * across);
+        }
 
         private static readonly int[] FacingDx = { 1, 0, -1, 0 }, FacingDz = { 0, 1, 0, -1 };
 
         /// <summary>Which of its tiles (tx, tz) is, −1 for none of them.</summary>
         public int IndexOf(int tx, int tz)
         {
-            for (int i = 0; i < Def.Length; i++)
+            for (int i = 0; i < Def.TileCount; i++)
                 if (TileAt(i) == (tx, tz)) return i;
             return -1;
         }
@@ -45,6 +81,7 @@ namespace PerformativeMail.Sim.World
         public Construct(BuildingDef def, int tx, int tz, int rotation, int hp, uint containerId)
         {
             Def = def; Tx = tx; Tz = tz; Rotation = (byte)rotation; Hp = hp; ContainerId = containerId;
+            Filters = def.FilterOutputs > 0 ? new MailFilter[def.FilterOutputs * def.FilterSlots] : Array.Empty<MailFilter>();
         }
     }
 
@@ -94,7 +131,7 @@ namespace PerformativeMail.Sim.World
         public Construct Add(BuildingDef def, int tx, int tz, int rotation, int hp, uint containerId)
         {
             var c = new Construct(def, tx, tz, rotation % Math.Max(1, def.Rotations), Math.Clamp(hp, 1, def.Hp), containerId);
-            for (int i = 0; i < def.Length; i++)
+            for (int i = 0; i < def.TileCount; i++)
             {
                 var (x, z) = c.TileAt(i);
                 if (!_map.InBounds(x, z)) continue;
@@ -111,7 +148,7 @@ namespace PerformativeMail.Sim.World
         {
             var c = At(tx, tz);
             if (c == null) return false;
-            for (int i = 0; i < c.Def.Length; i++)
+            for (int i = 0; i < c.Def.TileCount; i++)
             {
                 var (x, z) = c.TileAt(i);
                 if (_map.InBounds(x, z) && _tiles[z * _map.Cols + x] == c) _tiles[z * _map.Cols + x] = null;
@@ -127,6 +164,19 @@ namespace PerformativeMail.Sim.World
             Array.Clear(_tiles, 0, _tiles.Length);
             _all.Clear();
             Version++;
+        }
+
+        /// <summary>A sorter's or a splitter's filters as they are now (the server's word, or a client told of it).</summary>
+        public void SetFilters(Construct c, IReadOnlyList<MailFilter> filters)
+        {
+            bool same = true;
+            for (int i = 0; i < c.Filters.Length; i++)
+            {
+                var f = i < filters.Count ? filters[i] : MailFilter.Empty;
+                if (c.Filters[i] != f) same = false;
+                c.Filters[i] = f;
+            }
+            if (!same) Version++;
         }
 
         public void SetHp(Construct c, int hp)
@@ -160,7 +210,7 @@ namespace PerformativeMail.Sim.World
         /// </summary>
         public float Distance(Construct c, float x, float z, out float nearX, out float nearZ)
         {
-            float cx = c.X, cz = c.Z;
+            float cx = c.CentreX, cz = c.CentreZ;
             nearX = cx; nearZ = cz;
             float dx = x - cx, dz = z - cz;
             float best = dx * dx + dz * dz;

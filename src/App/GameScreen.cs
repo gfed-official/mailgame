@@ -161,6 +161,7 @@ namespace PerformativeMail.App
                 _inventoryOpen = false;
                 client.CloseContainer();
                 client.CloseShop();
+                client.CloseFilters();
             };
             AddChild(_input);
             session.InputSource = _input.Sample;
@@ -182,7 +183,7 @@ namespace PerformativeMail.App
         }
 
         /// <summary>The shop's cards stand on the inventory screen, like an open chest.</summary>
-        private bool InventoryOpen(ClientWorld? world) => _inventoryOpen || (world != null && (world.OpenContainerId != 0 || world.ShopOpen));
+        private bool InventoryOpen(ClientWorld? world) => _inventoryOpen || (world != null && (world.OpenContainerId != 0 || world.ShopOpen || world.FilterTarget != null));
 
         /// <summary>Dusk falls with the warning, night with the raiders, and the day is back when they are gone.</summary>
         public static float NightFor(RaidState raid) => raid == RaidState.None ? 0f : raid == RaidState.Warning ? 0.55f : 1f;

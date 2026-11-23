@@ -97,6 +97,8 @@ namespace PerformativeMail.Client.InputHandling
                     // At the shop's counter the numbers are its cards: first, so a key meant for them
                     // in the frame Payday turns into the Draft is no pick (playtest df77576).
                     if (_client.PressShopKey(digit)) return;
+                    // With the filters of a sorter up, a key steps its output's filter on.
+                    if (_client.PressFilterKey(digit)) return;
                     // In the Draft 1–3 are the cards, until one is taken.
                     if (_client.PressCardKey(digit)) return;
                     // In Build mode they are the recipes.
@@ -113,6 +115,7 @@ namespace PerformativeMail.Client.InputHandling
             {
                 if (_client.World != null && _client.World.OpenContainerId != 0) _client.CloseContainer();
                 else if (_client.World != null && _client.World.ShopOpen) _client.CloseShop();
+                else if (_client.World?.FilterTarget != null) _client.CloseFilters();
                 else InventoryToggled?.Invoke();
             }
             else if (ev.IsActionPressed(InputActions.Pause))

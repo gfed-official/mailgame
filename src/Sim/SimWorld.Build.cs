@@ -70,7 +70,12 @@ namespace PerformativeMail.Sim
             float cx = BuildRules.TileCentre(tx), cz = BuildRules.TileCentre(tz);
             if (!player.WasWithin(cx, cz, _serverBuildRange, _rewindTicks)) return OpResult.OutOfRange;
             // What lies flat is laid under the feet.
-            if (def.Solid && TileOccupied(tx, tz)) return OpResult.Occupied;
+            if (def.Solid)
+                for (int i = 0; i < def.TileCount; i++)
+                {
+                    var (x, z) = Construct.TileOf(tx, tz, rotation, i % def.Length, i / def.Length);
+                    if (TileOccupied(x, z)) return OpResult.Occupied;
+                }
             if (!BuildRules.HasMaterials(recipe, player.Hotbar, player.Inventory)) return OpResult.MissingMaterials;
 
             foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, input.Count);

@@ -25,6 +25,8 @@ namespace PerformativeMail.Sim.Players
         public float SpeedMult = 1f;
         /// <summary>External container this player is viewing, 0 if none.</summary>
         public uint OpenContainer;
+        /// <summary>The tile index + 1 of the sorter or splitter whose filters this player has open; 0 for none.</summary>
+        public int ViewingFilters;
 
         public readonly Queue<PlayerInput> Inputs = new Queue<PlayerInput>();
         public uint LastQueuedSeq;

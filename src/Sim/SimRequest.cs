@@ -63,6 +63,13 @@ namespace PerformativeMail.Sim
         /// <see cref="SimRequest.Y"/>); its segment runs faster for a moment. Sent again while held.
         /// </summary>
         PushBelt = 23,
+        /// <summary>
+        /// A sorter's or a splitter's filters on tile (<see cref="SimRequest.X"/>, <see cref="SimRequest.Y"/>)
+        /// (doc 04 §2.4, doc 06 §3 ConfigureConstruct). <see cref="SimRequest.Count"/>: 0 opens
+        /// them (the status comes while open), 1 shuts them, 2 sets output
+        /// <see cref="SimRequest.EntryId"/> / 16, slot EntryId % 16 to the filter <see cref="SimRequest.DestId"/>.
+        /// </summary>
+        ConfigureConstruct = 24,
     }
 
     /// <summary>
@@ -167,6 +174,15 @@ namespace PerformativeMail.Sim
 
         public static SimRequest BeltResync(uint reqId, int headX, int headZ) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.BeltResync, X = (byte)headX, Y = (byte)headZ };
+
+        public const ushort ConfigureOpen = 0, ConfigureClose = 1, ConfigureSet = 2;
+
+        public static SimRequest Configure(uint reqId, int tx, int tz, ushort op, int output = 0, int slot = 0, ushort filter = 0) =>
+            new SimRequest
+            {
+                RequestId = reqId, Kind = RequestKind.ConfigureConstruct, X = (byte)tx, Y = (byte)tz, Count = op,
+                EntryId = (uint)(output * 16 + slot), DestId = filter,
+            };
 
         public static SimRequest PushBelt(uint reqId, int tx, int tz) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.PushBelt, X = (byte)tx, Y = (byte)tz };

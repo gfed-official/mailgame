@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using PerformativeMail.Client.Meta;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Content;
@@ -866,6 +867,83 @@ namespace PerformativeMail.Client
             return $"[{KeyName(key)}] {recipe.Building.Name}{of}   ·   {Inputs(recipe.Inputs, 1.0)}";
         }
 
+        // --- the filters of sorters and splitters (doc 04 §2.3, §2.4, doc 09 §2.7) -------------------
+
+        /// <summary>In Build mode, at what has filters: the key that puts them up.</summary>
+        public static string FiltersNote(Construct built) => built.Def.FilterOutputs > 0 ? "   ·   [E] filters" : "";
+
+        public const string FilterHint = "[1]–[3] or a click: the next filter   ·   right click: back   ·   [E] or [Esc] close";
+
+        public static string FilterTitle(Construct built) =>
+            built.Def.Behaviour == BuildingBehaviour.Sorter ? $"{built.Def.Name.ToUpperInvariant()}   ·   filters" : $"{built.Def.Name.ToUpperInvariant()}   ·   filters by kind";
+
+        /// <summary>The ways out of a sorter or a splitter, as the panel names them (a sorter's last is its overflow).</summary>
+        public static string PortName(Construct built, int output) => output switch
+        {
+            0 => "Front",
+            1 => "Left",
+            2 => "Right",
+            _ => "Overflow",
+        };
+
+        /// <summary>"Larch Lane", "District 2", "Letters"; an empty filter takes nothing on a sorter and anything on a splitter.</summary>
+        public static string FilterName(ClientWorld world, Construct built, MailFilter filter)
+        {
+            switch (filter.Kind)
+            {
+                case FilterKind.Street: return world.Map.GetStreet(filter.Value)?.Name ?? $"Street {filter.Value.ToString(CultureInfo.InvariantCulture)}";
+                case FilterKind.District:
+                    foreach (var d in world.Map.Districts)
+                        if (d.Id == filter.Value && d.Name.Length > 0) return d.Name;
+                    return $"District {filter.Value.ToString(CultureInfo.InvariantCulture)}";
+                case FilterKind.Kind:
+                    return filter.Value < world.Content.MailKinds.Count ? Plural(world.Content.MailKinds[filter.Value].Name) : "Some kind";
+                default:
+                    return built.Def.Behaviour == BuildingBehaviour.Sorter ? "nothing (no filter)" : "anything the others do not take";
+            }
+        }
+
+        private static string Plural(string name) => name.EndsWith("s", StringComparison.Ordinal) ? name : name + "s";
+
+        /// <summary>
+        /// The panel's row of an output: its key and way, its filter, and what of the Intake's mail
+        /// it would take as things stand ("matches N items currently in Intake", doc 09 §2.7).
+        /// </summary>
+        public static string[] FilterRow(ClientWorld world, Construct built, int output)
+        {
+            bool overflow = output >= built.Def.FilterOutputs;
+            string head = overflow ? PortName(built, output) : $"[{KeyName(output)}]  {PortName(built, output)}";
+            string what = overflow ? "whatever no filter catches" : FilterName(world, built, world.ShownFilter(built, output, 0));
+            var status = world.FilterStatus;
+            string matches = status != null && output < status.Matches.Count
+                ? $"{status.Matches[output].ToString(CultureInfo.InvariantCulture)} in the Intake now"
+                : "…";
+            return new[] { head, what, matches };
+        }
+
+        /// <summary>A sorter's line under its title: its buffer and what it has sent where. Empty for a splitter.</summary>
+        public static string FilterStatusLine(Construct built, SorterStatusEvent? status)
+        {
+            if (built.Def.Behaviour != BuildingBehaviour.Sorter) return "";
+            if (status == null) return $"In its buffer …/{built.Def.BufferSize.ToString(CultureInfo.InvariantCulture)}";
+            return $"In its buffer {status.Buffered.ToString(CultureInfo.InvariantCulture)}/{built.Def.BufferSize.ToString(CultureInfo.InvariantCulture)}"
+                + $"   ·   sorted {status.Sorted.ToString(CultureInfo.InvariantCulture)}   ·   to overflow {status.Overflowed.ToString(CultureInfo.InvariantCulture)}";
+        }
+
+        /// <summary>The whole panel, top to bottom, as <see cref="UI.FilterPanel"/> shows it.</summary>
+        public static string FilterText(ClientWorld world)
+        {
+            var built = world.FilterTarget;
+            if (built == null) return "";
+            var lines = new List<string> { FilterTitle(built) };
+            string status = FilterStatusLine(built, world.FilterStatus);
+            if (status.Length > 0) lines.Add(status);
+            int rows = built.Def.FilterOutputs + (built.Def.Behaviour == BuildingBehaviour.Sorter ? 1 : 0);
+            for (int o = 0; o < rows; o++) lines.AddRange(FilterRow(world, built, o));
+            lines.Add(FilterHint);
+            return string.Join("\n", lines);
+        }
+
         /// <summary>The name of a number key counted from 0: 1–9, 0, -, =.</summary>
         public static string KeyName(int key) => key < 9 ? (key + 1).ToString(CultureInfo.InvariantCulture) : key == 9 ? "0" : key == 10 ? "-" : "=";
 
@@ -957,7 +1035,7 @@ namespace PerformativeMail.Client
                     string back = Inputs(built.Def.Recipe.Inputs, world.RefundRatio, built.Hp, built.Def.Hp);
                     switch (g.State)
                     {
-                        case OpResult.Ok: return $"Take down {name}   ·   {back} back{hp}   [hold RMB]";
+                        case OpResult.Ok: return $"Take down {name}   ·   {back} back{hp}   [hold RMB]{FiltersNote(built)}";
                         case OpResult.NotEmpty: tone = PromptTone.Mismatch; return $"{name}   ·   empty it first to take it down";
                         case OpResult.DoesNotFit: tone = PromptTone.Mismatch; return $"{name}   ·   no room in your pockets for {back}";
                         case OpResult.OutOfRange: tone = PromptTone.Mismatch; return $"{name}   ·   too far away to take down{hp}";
@@ -1181,6 +1259,8 @@ namespace PerformativeMail.Client
                 case InteractKind.OpenShop:
                     return p.ShopClosed ? $"Shop   ·   {ClosedWord} — the counter serves in Prep and at Payday" : "Open Shop  [E]";
                 case InteractKind.CloseShop: return "Close Shop  [E]";
+                case InteractKind.Configure: return $"Set the filters of the {p.Built!.Def.Name}  [E]";
+                case InteractKind.CloseFilters: return $"Close the filters of the {p.Built!.Def.Name}  [E]";
                 case InteractKind.Mount: return $"Ride {p.Vehicle!.Def.Name}  [E]";
                 case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off";
                 case InteractKind.CloseRack: return $"Close {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off";
@@ -1213,7 +1293,8 @@ namespace PerformativeMail.Client
                         tone = PromptTone.Match;
                         return $"Pushing the {def.Name}   ·   {(def.Speed * mult).ToString("0.0", CultureInfo.InvariantCulture)} m/s";
                     }
-                    return $"Push the {def.Name}   ·   ×{mult.ToString("0.0", CultureInfo.InvariantCulture)} while held   [hold E]";
+                    string filters = def.FilterOutputs > 0 ? "   ·   its filters in Build mode" : "";
+                    return $"Push the {def.Name}   ·   ×{mult.ToString("0.0", CultureInfo.InvariantCulture)} while held   [hold E]{filters}";
                 }
                 case InteractKind.Deliver:
                 {

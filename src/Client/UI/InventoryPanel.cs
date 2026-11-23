@@ -63,6 +63,8 @@ namespace PerformativeMail.Client.UI
         public GridView ExternalGrid { get; private set; } = null!;
         /// <summary>The cards of the shop, on the right while the local player stands at the counter with them up.</summary>
         public ShopPanel Shop { get; private set; } = null!;
+        /// <summary>The filters of a sorter or a splitter, on the right while they are up.</summary>
+        public FilterPanel Filters { get; private set; } = null!;
 
         public int ManifestRows => _manifest.ItemCount;
         public bool Dragging => _drag.Active;
@@ -136,6 +138,9 @@ namespace PerformativeMail.Client.UI
             Shop = new ShopPanel();
             Shop.Setup(client);
             columns.AddChild(Shop);
+            Filters = new FilterPanel();
+            Filters.Setup(client);
+            columns.AddChild(Filters);
 
             // Last child, so the stack on the cursor is drawn over everything else on the panel.
             _overlay = new Control { Name = "DragOverlay", MouseFilter = MouseFilterEnum.Ignore };
@@ -373,6 +378,7 @@ namespace PerformativeMail.Client.UI
             ExternalGrid.Visible = external != null && !manifest;
             _externalSort.Visible = external != null && !manifest;
             Shop.Refresh(world);
+            Filters.Refresh(world);
 
             if (_noticeLeft > 0) _noticeLeft -= delta;
             bool noticing = _noticeLeft > 0;

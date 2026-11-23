@@ -382,6 +382,31 @@ namespace PerformativeMail.Sim
         public uint Hash;
     }
 
+    /// <summary>
+    /// The filters of the sorter or splitter built on (X, Y), all of them, output by output (doc 06
+    /// §3: ConfigureConstruct's confirmed event to everybody).
+    /// </summary>
+    public sealed class ConstructConfiguredEvent : SimEvent
+    {
+        public byte X, Y;
+        /// <summary><see cref="Automation.MailFilter.Encode"/> of each.</summary>
+        public readonly List<ushort> Filters = new List<ushort>();
+        public EntityId Player;
+    }
+
+    /// <summary>
+    /// What the sorter or splitter on (X, Y) is doing, to whoever has its filters open (doc 06 §3:
+    /// "E when viewing"; doc 09 §2.7 "matches N items currently in Intake").
+    /// </summary>
+    public sealed class SorterStatusEvent : SimEvent
+    {
+        public byte X, Y;
+        public byte Buffered;
+        public ushort Sorted, Overflowed;
+        /// <summary>Per output (a sorter's last is its overflow): pieces of the Intake's mail it would take.</summary>
+        public readonly List<ushort> Matches = new List<ushort>();
+    }
+
     /// <summary>A carrier pushes the segment headed at (X, Y) (doc 04 §2.1): it runs faster for <see cref="Ticks"/> ticks.</summary>
     public sealed class BeltPushedEvent : SimEvent
     {

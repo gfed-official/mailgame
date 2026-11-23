@@ -882,6 +882,7 @@ namespace PerformativeMail.Sim.Content
                             case "belt": behaviour = BuildingBehaviour.Belt; break;
                             case "splitter": behaviour = BuildingBehaviour.Splitter; break;
                             case "merger": behaviour = BuildingBehaviour.Merger; break;
+                            case "sorter": behaviour = BuildingBehaviour.Sorter; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
@@ -918,12 +919,23 @@ namespace PerformativeMail.Sim.Content
                             Speed = hasParams ? (float)J.Num(ctx, pars, "speed", 0) : 0f,
                             Tags = J.StrArray(ctx, e, "tags", optional: true),
                             Length = footprint.Length > 1 ? footprint[1] : 1,
+                            Width = footprint.Length > 0 ? footprint[0] : 1,
+                            FilterSlots = hasParams ? J.Int(ctx, pars, "filterSlotsPerOutput", 1) : 1,
+                            Throughput = hasParams ? (float)J.Num(ctx, pars, "throughputPerSecond", 0) : 0f,
+                            BufferSize = hasParams ? J.Int(ctx, pars, "bufferSize", 0) : 0,
                             Level = hasParams ? J.Int(ctx, pars, "level", 0) : 0,
                             Ramp = hasParams && J.Bool(ctx, pars, "ramp", false),
                             OnStreet = onStreet,
                         };
                         // Doc 04 §2.1: a ramp is two tiles long and runs up or down; an elevated belt one level up crosses a street.
-                        if (footprint[0] != 1 || (def.Length != 1 && !(def.Ramp && def.Length == 2))) ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2])");
+                        bool sorter = behaviour == BuildingBehaviour.Sorter;
+                        if (sorter ? def.Width != 2 || def.Length != 2 : def.Width != 1 || (def.Length != 1 && !(def.Ramp && def.Length == 2)))
+                            ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2])");
+                        // Doc 04 §2.4: a sorter looks at its mail at a rate, out of a buffer.
+                        if (sorter && (def.Throughput <= 0f || def.BufferSize < 1 || def.BufferSize > 64 || def.Rotations != 4))
+                            ctx.Error($"'{id}': a sorter needs params.throughputPerSecond > 0, params.bufferSize in 1..64 and 4 rotations");
+                        if (!sorter && (def.Throughput != 0f || def.BufferSize != 0)) ctx.Error($"'{id}': only a sorter has params.throughputPerSecond and params.bufferSize");
+                        if (def.FilterSlots < 1 || def.FilterSlots > 3 || (def.FilterSlots != 1 && !sorter)) ctx.Error($"'{id}': params.filterSlotsPerOutput is 1 (a sorter's up to 3)");
                         if (def.Ramp && (behaviour != BuildingBehaviour.Belt || def.Length != 2 || def.Rotations != 8 || def.Level != 0)) ctx.Error($"'{id}': a ramp is a belt of footprint [1, 2], 8 rotations and level 0");
                         if (def.Level != 0 && (behaviour != BuildingBehaviour.Belt || def.Level != 1)) ctx.Error($"'{id}': only a belt is raised, by one level");
                         if (def.OnStreet && def.Level != 1) ctx.Error($"'{id}': only an elevated belt is built on a street");
@@ -937,7 +949,8 @@ namespace PerformativeMail.Sim.Content
                         // The wire carries a construct's HP in 16 bits.
                         if (def.Hp < 1 || def.Hp > ushort.MaxValue) ctx.Error($"'{id}': hp must be in 1..{ushort.MaxValue}");
                         // It stands within its own tile, and a walker beside the tile does not touch it.
-                        if (def.Radius <= 0f || def.Radius > 0.5f) ctx.Error($"'{id}': params.radius must be in (0, 0.5]");
+                        float maxRadius = Math.Min(def.Width, def.Length) * SimConstants.TileSize * 0.5f - 0.5f;
+                        if (def.Radius <= 0f || def.Radius > maxRadius) ctx.Error($"'{id}': params.radius must be in (0, {maxRadius.ToString(System.Globalization.CultureInfo.InvariantCulture)}]");
                         if (def.Height <= 0f) ctx.Error($"'{id}': params.height must be > 0");
                         // The wire names a building in one byte.
                         if (list.Count >= byte.MaxValue) { ctx.Error($"'{id}': more than {byte.MaxValue} buildings"); continue; }

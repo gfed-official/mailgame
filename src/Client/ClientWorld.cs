@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
@@ -596,6 +597,48 @@ namespace PerformativeMail.Client
             ShopOpen = false;
         }
 
+        // --- the filters of sorters and splitters (doc 04 §2.3, §2.4, doc 09 §2.7) -----------------
+
+        /// <summary>The sorter or splitter whose filters the local player has up; null for none.</summary>
+        public Construct? FilterTarget { get; internal set; }
+        /// <summary>What the server last said of it (while the filters are up); null before the first word.</summary>
+        public SorterStatusEvent? FilterStatus { get; internal set; }
+        /// <summary>Filters asked for and not yet confirmed: output × slot → the filter.</summary>
+        internal Dictionary<int, MailFilter> FilterPending { get; } = new Dictionary<int, MailFilter>();
+
+        /// <summary>
+        /// What an output of <paramref name="built"/> may be set to, in the order the panel steps
+        /// through them (doc 04 §2.4: "a UI listing only unlocked addresses"): nothing, then for a
+        /// sorter the streets and districts open by this shift, then the kinds of mail; a splitter
+        /// filters by kind only.
+        /// </summary>
+        public List<MailFilter> FilterChoices(Construct built)
+        {
+            var choices = new List<MailFilter> { MailFilter.Empty };
+            if (built.Def.Behaviour == BuildingBehaviour.Sorter)
+            {
+                int shift = Math.Max(1, (int)Global.Shift);
+                foreach (var street in Map.Streets)
+                    if (DistrictOpen(street.District, shift)) choices.Add(new MailFilter(FilterKind.Street, street.Id));
+                foreach (var d in Map.Districts)
+                    if (d.UnlockShift <= shift) choices.Add(new MailFilter(FilterKind.District, d.Id));
+            }
+            foreach (var kind in Content.MailKinds) choices.Add(new MailFilter(FilterKind.Kind, kind.Index));
+            return choices;
+        }
+
+        private bool DistrictOpen(int district, int shift)
+        {
+            foreach (var d in Map.Districts)
+                if (d.Id == district) return d.UnlockShift <= shift;
+            // A map without districts has every street open.
+            return true;
+        }
+
+        /// <summary>An output's filter as the panel shows it: the one on its way, else the confirmed one.</summary>
+        public MailFilter ShownFilter(Construct built, int output, int slot) =>
+            FilterPending.TryGetValue(output * 16 + slot, out var pending) ? pending : built.Filter(output, slot);
+
         // --- resource nodes (doc 02 §3.9) --------------------------------------------------------
 
         /// <summary>What the map's trees, bushes and boulders have left, as the server last said.</summary>
@@ -680,7 +723,14 @@ namespace PerformativeMail.Client
             if (tile != OpResult.Ok) return tile;
             if (!BuildRules.InRange(tx, tz, Local.X, Local.Z, Content.Balance.GetFloat("buildRange"))) return OpResult.OutOfRange;
             // What lies flat is laid under the feet.
-            return recipe.Building.Solid && TileOccupied(tx, tz) ? OpResult.Occupied : state;
+            var def = recipe.Building;
+            if (def.Solid)
+                for (int i = 0; i < def.TileCount; i++)
+                {
+                    var (x, z) = Construct.TileOf(tx, tz, rotation, i % def.Length, i / def.Length);
+                    if (TileOccupied(x, z)) return OpResult.Occupied;
+                }
+            return state;
         }
 
         /// <summary>

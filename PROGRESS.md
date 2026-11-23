@@ -1255,14 +1255,45 @@ the whole line exists; the sub-lines say which parts do.
       - [ ] Interest management for segments (everything is global, as for the rest so far);
             the M2 bandwidth and 5000-item acceptance figures
 - [ ] Address Sorter with filter UI; Inserters; Depot
+      - [x] **Address Sorter and its filter panel** (doc 04 §2.4, doc 09 §2.7, doc 10 §2.2–§3,
+            doc 06 §3 ConfigureConstruct; design choice 103). `address_sorter_mk1` (behaviour
+            `sorter`, 500 HP, four Iron Ingots and six Stones, footprint [2, 2]) behind
+            `bp_sorting` (Blueprint: Sorting, $4.00, from shift 1). A construct may now be two
+            tiles wide (`BuildingDef.Width`, `TileCount`; `Construct.TileOf`, `CentreX/Z`; a solid one
+            pushes walkers from the middle of its tiles). In the belt network a sorter is a
+            `SorterNode`: a belt facing into the tile it was built on, from behind, ends in its
+            buffer (8); it looks at one piece every 0.5 s (`throughputPerSecond` 2) and puts it on the
+            head of the belt out of its front, left or right by the first of those whose filter
+            catches it, else out of its overflow (beside the input, going back); with no belt there,
+            or no room, it waits and the line backs up. Filters (`MailFilter`: street, district,
+            kind; one slot an output) live on the construct; a sorter taken down puts its buffer back
+            into the Intake. **The splitter's kind filter**: an output with a kind takes that kind,
+            the rest go round the outputs without one (each its own turn). The **filter panel** on
+            the right of the inventory screen (`UI/FilterPanel`): E at a sorter, or at a splitter in
+            Build mode ("[E] filters"), puts it up; a card for each way out with its key, its filter
+            and how much of the Intake's mail it would take now (`SorterStatusEvent` every 0.5 s to
+            whoever has it up), the sorter's buffer and counts over them; a click or the output's
+            number key steps the filter on through nothing, the streets and districts open by the
+            shift and the kinds, a right click back. `ConfigureConstruct` (open, close, set; protocol
+            `m2.2`), `ConstructConfiguredEvent` to everybody, filters in the Welcome. Drawn as a
+            grey steel machine on a base plate with an orange band, a lit console and framed mouths
+            (green in, amber out, red overflow). Build mode's recipe bar takes a fifth row (the feed
+            goes up 36 px). `SorterTests` (content, four tiles turned, **1000 pieces turned all four
+            ways with no misroute and the overflow exactly the unmatched**, rate and buffer, the
+            splitter's filter, the server's requests and status, mail out of a line and back to the
+            Intake), `BeltFuzzTests` with sorters and filters in the mix, `SorterFlowTests` (E, the
+            panel's text, key 1 on both ends, a late joiner, walking off; the splitter in Build mode),
+            `CodecTests`; in the smoke the blueprint is bought by its card's key, the sorter built by
+            key 0 (`sorter-ghost`, `sorter`), its filters put up by E and the front set by key 1
+            (`sorter-filters`)
 - [ ] Pipes (inlet filters, junctions, outlets, underground) behind bp_pipes
 - [ ] Mail Truck; Vehicle Depot with route console; NPC driver behaviour; player takeover
 - [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the Address Sorter with its filter panel (which also gives the splitter its
-kind filter), Inserters and the Depot (the belt line's endpoints into containers come with them).
+Next in this order: Inserters and the Depot (the belt line's endpoints into containers come with
+them).
 
 ## How to build and check
 
@@ -2271,6 +2302,22 @@ See "Commands" at the bottom (filled in as the tooling lands).
     before): each input its own share rounded down, the rest of the whole one unit each to the
     inputs with most left over, the dearer item (sell price) on a tie. Rounded input by input,
     any construct of single units (a belt: a Plank and an Iron Ingot) gave nothing at all.
+
+103. **The Address Sorter.** Doc 04 §2.4 gives the ways out, not their places: the input comes into
+    the tile it was built on from behind; front and left leave the tile ahead of it, right the
+    tile beside that, the overflow the tile beside the input, going back (doc: "the same side as
+    the input, offset by one tile"). The sorter is no segment: mail goes into its buffer and out
+    onto the heads of the belts its ports face (a port's belt counts as fed, so it starts a
+    segment). An output with no filter takes nothing; one whose belt is missing is passed over;
+    a piece with nowhere to go waits at the front of the buffer. Filters are by street, district
+    and kind (doc's number ranges and units wait for a map that has them), one a slot, one slot an
+    output (Extra Labels comes with that perk); the server takes any street or district of the
+    map, the panel offers those open by the shift. The splitter's filter (doc 04 §2.3) is a kind
+    only; its filtered outputs take what they catch, its unfiltered ones the rest, each in its
+    own turn. The panel is up for one carrier at a time per client and asks the server nothing but
+    open/close/set; "matches N in the Intake" is the server's count of where the Intake's mail would
+    go by the filters alone. E at a sorter configures it; at a splitter E pushes, so its filters are
+    E in Build mode (doc 09 §2.7 puts "configure" there).
 
 ## Commands
 

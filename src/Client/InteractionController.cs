@@ -34,6 +34,10 @@ namespace PerformativeMail.Client
         CloseRack,
         /// <summary>At a belt, a splitter or a merger (doc 04 §2.1): held, its segment runs faster.</summary>
         PushBelt,
+        /// <summary>At an Address Sorter, or a splitter in Build mode (doc 09 §2.7 "configure"): its filters up.</summary>
+        Configure,
+        /// <summary>Its filters are up: the key takes them down.</summary>
+        CloseFilters,
     }
 
     /// <summary>What the interact prompt shows right now (doc 09 §2.4).</summary>
@@ -101,6 +105,9 @@ namespace PerformativeMail.Client
         /// <summary>A push lasts 0.7 s on the server: one held is asked again this often.</summary>
         public const double PushRepeatSeconds = 0.4;
         private double _pushAgain;
+
+        /// <summary>True while Build mode is up: E at a splitter then sets its filters instead of pushing it.</summary>
+        public Func<bool>? Building;
 
         public InteractionController(ClientRuntime client)
         {
@@ -212,6 +219,19 @@ namespace PerformativeMail.Client
                     }
                     break;
 
+                case InteractKind.Configure:
+                case InteractKind.CloseFilters:
+                    _hold = 0;
+                    _deliverAllDest = -1;
+                    // The filters are this client's to show: the server only hears which are up.
+                    if (_pressLatch > 0)
+                    {
+                        _pressLatch = 0;
+                        if (prompt.Kind == InteractKind.Configure) _client.OpenFilters(prompt.Built!);
+                        else _client.CloseFilters();
+                    }
+                    break;
+
                 case InteractKind.Deliver:
                     StepDeliver(world, ref prompt, dt, interactHeld, deliverAllPressed);
                     break;
@@ -286,6 +306,13 @@ namespace PerformativeMail.Client
                     best = t;
                     prompt.Kind = InteractKind.OpenIntake;
                 }
+            }
+            // The filters are up on the inventory screen: the key takes them down.
+            if (world.FilterTarget != null)
+            {
+                prompt.Kind = InteractKind.CloseFilters;
+                prompt.Built = world.FilterTarget;
+                return prompt;
             }
             // The cards are on the screen wherever they went up (at Payday that is anywhere): the key takes them down.
             if (world.ShopOpen)
@@ -395,14 +422,19 @@ namespace PerformativeMail.Client
                     prompt.Vehicle = v;
                 }
             }
-            // A belt is pushed (doc 04 §2.1); one under the feet too, looking down at it.
+            // A belt is pushed (doc 04 §2.1); one under the feet too, looking down at it. A sorter
+            // has its filters set, and so has a splitter in Build mode.
+            bool building = Building?.Invoke() == true;
             foreach (var built in world.Constructs.All)
             {
-                if (!built.Def.Carries || DistSq(px, pz, built.X, built.Z) > rangeSq) continue;
+                bool sorter = built.Def.Behaviour == BuildingBehaviour.Sorter;
+                if (!built.Def.Carries && !sorter) continue;
+                float reach = range + (sorter ? built.Def.Radius : 0f);
+                if (DistSq(px, pz, sorter ? built.CentreX : built.X, sorter ? built.CentreZ : built.Z) > reach * reach) continue;
                 float t = ray.Hit(AimBox.Built(world.Map, built));
                 if (t < 0f || t > best) continue;
                 best = t;
-                prompt.Kind = InteractKind.PushBelt;
+                prompt.Kind = sorter || (building && built.Def.FilterOutputs > 0) ? InteractKind.Configure : InteractKind.PushBelt;
                 prompt.Chest = null;
                 prompt.Bag = null;
                 prompt.Node = null;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PerformativeMail.Sim;
+using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
@@ -375,6 +376,7 @@ namespace PerformativeMail.Client
             var world = World;
             if (State != ClientState.Joined || world == null || !AtShop(world, 0f)) return false;
             if (world.OpenContainerId != 0) CloseContainer();
+            CloseFilters();
             world.ShopOpen = true;
             return true;
         }
@@ -483,6 +485,89 @@ namespace PerformativeMail.Client
         /// Lays a line of a recipe (doc 04 §1.1 drag placement), each tile turned the same. Returns
         /// the request id, 0 where not one tile of it would be built (<see cref="ClientWorld.LineStates"/>).
         /// </summary>
+        // --- the filters of sorters and splitters (doc 04 §2.3, §2.4, doc 09 §2.7) ------------------
+
+        /// <summary>A little more than the server's reach, so the panel does not shut under a carrier the server still serves.</summary>
+        private const float FilterLeaveSlack = 1.0f;
+
+        /// <summary>Whether the local player may have the filters of a construct up where they stand.</summary>
+        public bool CanConfigure(Construct? built, float slack = 0f)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || built == null || built.Def.FilterOutputs == 0) return false;
+            float reach = _content.Balance.GetFloat("buildRange") + built.Def.Radius + slack;
+            float dx = world.Local.X - built.CentreX, dz = world.Local.Z - built.CentreZ;
+            return dx * dx + dz * dz <= reach * reach;
+        }
+
+        /// <summary>
+        /// Puts the filters of a sorter or a splitter up (doc 09 §2.7 "configure"): what was open on
+        /// the right of the inventory screen is shut, and the server sends what the construct does
+        /// while they are up. Returns the request id, 0 if not here.
+        /// </summary>
+        public uint OpenFilters(Construct built)
+        {
+            var world = World;
+            if (world == null || !CanConfigure(built)) return 0;
+            if (world.OpenContainerId != 0) CloseContainer();
+            world.ShopOpen = false;
+            world.FilterTarget = built;
+            world.FilterStatus = null;
+            world.FilterPending.Clear();
+            return Send(SimRequest.Configure(0, built.Tx, built.Tz, SimRequest.ConfigureOpen));
+        }
+
+        /// <summary>Takes the filters down; returns whether they were up.</summary>
+        public bool CloseFilters()
+        {
+            var world = World;
+            if (world?.FilterTarget == null) return false;
+            var built = world.FilterTarget;
+            CloseFiltersHere(world);
+            if (State == ClientState.Joined) Send(SimRequest.Configure(0, built.Tx, built.Tz, SimRequest.ConfigureClose));
+            return true;
+        }
+
+        private static void CloseFiltersHere(ClientWorld world)
+        {
+            world.FilterTarget = null;
+            world.FilterStatus = null;
+            world.FilterPending.Clear();
+        }
+
+        /// <summary>Sets a slot of an output of the open construct to a filter; the panel shows it at once. 0 if nothing was sent.</summary>
+        public uint SetFilter(int output, int slot, MailFilter filter)
+        {
+            var world = World;
+            var built = world?.FilterTarget;
+            if (world == null || built == null || output < 0 || output >= built.Def.FilterOutputs || slot < 0 || slot >= built.Def.FilterSlots) return 0;
+            if (world.ShownFilter(built, output, slot) == filter) return 0;
+            uint id = Send(SimRequest.Configure(0, built.Tx, built.Tz, SimRequest.ConfigureSet, output, slot, filter.Encode()));
+            if (id != 0) world.FilterPending[output * 16 + slot] = filter;
+            return id;
+        }
+
+        /// <summary>The next (+1) or previous (−1) of <see cref="ClientWorld.FilterChoices"/> for an output's first slot. 0 if nothing was sent.</summary>
+        public uint StepFilter(int output, int step)
+        {
+            var world = World;
+            var built = world?.FilterTarget;
+            if (world == null || built == null || output < 0 || output >= built.Def.FilterOutputs) return 0;
+            var choices = world.FilterChoices(built);
+            int at = choices.IndexOf(world.ShownFilter(built, output, 0));
+            int next = ((Math.Max(0, at) + step) % choices.Count + choices.Count) % choices.Count;
+            return SetFilter(output, 0, choices[next]);
+        }
+
+        /// <summary>A number key while the filters are up: it steps that output on. Returns whether the key was theirs.</summary>
+        public bool PressFilterKey(int key)
+        {
+            var built = World?.FilterTarget;
+            if (built == null) return false;
+            if (key >= 0 && key < built.Def.FilterOutputs) StepFilter(key, 1);
+            return true;
+        }
+
         /// <summary>Pushes the belt on a tile (doc 04 §2.1): its segment runs faster for a moment. 0 if not sent.</summary>
         public uint PushBelt(int tx, int tz)
         {
@@ -574,6 +659,8 @@ namespace PerformativeMail.Client
             if (_pendingInputs.Count > MaxPendingInputs) _pendingInputs.RemoveAt(0);
             PredictAttacks(world, input);
             // The cards come down with the shutters, and for whoever walks off or goes down.
+            if (world.FilterTarget != null && (world.Constructs.At(world.FilterTarget.Tx, world.FilterTarget.Tz) != world.FilterTarget || !CanConfigure(world.FilterTarget, FilterLeaveSlack)))
+                CloseFilters();
             if (world.ShopOpen && !AtShop(world, ShopLeaveSlack))
             {
                 world.ShopOpen = false;
@@ -719,7 +806,10 @@ namespace PerformativeMail.Client
             foreach (var node in m.Nodes) world.Nodes.Set(node.Node, node.HitsLeft);
             foreach (var c in m.Constructs)
                 if (c.Building < _content.Buildings.Count && map.InBounds(c.X, c.Y))
-                    world.Constructs.Add(_content.Buildings[c.Building], c.X, c.Y, c.Rotation, c.Hp, c.ContainerId);
+                {
+                    var built = world.Constructs.Add(_content.Buildings[c.Building], c.X, c.Y, c.Rotation, c.Hp, c.ContainerId);
+                    if (c.Filters != null) world.Constructs.SetFilters(built, c.Filters.ConvertAll(MailFilter.Decode));
+                }
             foreach (var v in m.Vehicles)
                 if (v.Def < _content.Vehicles.Count)
                     world.Vehicles[v.Id] = new ClientVehicle
@@ -916,6 +1006,7 @@ namespace PerformativeMail.Client
                         world.Prediction.Invalidate();
                         // One thing at a time on the right of the inventory screen.
                         world.ShopOpen = false;
+                        if (world.FilterTarget != null) CloseFilters();
                     }
                     break;
                 case ContainerDeltaEvent e:
@@ -934,6 +1025,12 @@ namespace PerformativeMail.Client
                         if (request.Kind == RequestKind.CloseContainer && e.Result == OpResult.Ok) DropExternal(world, request.Container);
                         if (request.Kind == RequestKind.Buy && request.Count < _content.ShopItems.Count)
                             world.ShopPending.Remove(_content.ShopItems[request.Count]);
+                        if (request.Kind == RequestKind.ConfigureConstruct && request.Count == SimRequest.ConfigureSet
+                            && world.FilterPending.TryGetValue((int)request.EntryId, out var asked) && asked.Encode() == request.DestId)
+                            world.FilterPending.Remove((int)request.EntryId);
+                        if (request.Kind == RequestKind.ConfigureConstruct && request.Count == SimRequest.ConfigureOpen && e.Result != OpResult.Ok
+                            && world.FilterTarget != null && world.FilterTarget.Tx == request.X && world.FilterTarget.Tz == request.Y)
+                            CloseFiltersHere(world);
                         RequestCompleted?.Invoke(request, e.Result);
                     }
                     break;
@@ -1010,6 +1107,18 @@ namespace PerformativeMail.Client
                     world.Constructs.Remove(e.X, e.Y);
                     break;
                 }
+                case ConstructConfiguredEvent e:
+                {
+                    var set = world.Constructs.At(e.X, e.Y);
+                    if (set == null || set.Tx != e.X || set.Tz != e.Y) break;
+                    var filters = new List<MailFilter>(e.Filters.Count);
+                    foreach (ushort f in e.Filters) filters.Add(MailFilter.Decode(f));
+                    world.Constructs.SetFilters(set, filters);
+                    break;
+                }
+                case SorterStatusEvent e:
+                    if (world.FilterTarget != null && world.FilterTarget.Tx == e.X && world.FilterTarget.Tz == e.Y) world.FilterStatus = e;
+                    break;
                 case ConstructDamagedEvent e:
                 {
                     var hit = world.Constructs.At(e.X, e.Y);

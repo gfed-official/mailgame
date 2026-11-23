@@ -257,6 +257,7 @@ namespace PerformativeMail.Server
                 {
                     Building = built.Def.Index, X = (byte)built.Tx, Y = (byte)built.Tz, Rotation = built.Rotation,
                     Hp = (ushort)built.Hp, ContainerId = built.ContainerId,
+                    Filters = built.Filters.Length > 0 ? new List<ushort>(System.Linq.Enumerable.Select(built.Filters, f => f.Encode())) : null,
                 });
             }
             foreach (var v in World.Vehicles)

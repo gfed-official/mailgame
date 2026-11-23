@@ -84,16 +84,14 @@ namespace PerformativeMail.Sim.Run
         /// </summary>
         public static OpResult CheckPlacement(WorldMap map, ConstructField constructs, BuildingDef def, int tx, int tz, int rotation)
         {
-            int dx = DirX[rotation & 3], dz = DirZ[rotation & 3];
-            for (int i = 0; i < Math.Max(1, def.Length); i++)
+            for (int i = 0; i < Math.Max(1, def.TileCount); i++)
             {
-                var verdict = CheckTile(map, constructs, tx + dx * i, tz + dz * i, def.OnStreet);
+                var (x, z) = Construct.TileOf(tx, tz, rotation, i % def.Length, i / def.Length);
+                var verdict = CheckTile(map, constructs, x, z, def.OnStreet);
                 if (verdict != OpResult.Ok) return verdict;
             }
             return OpResult.Ok;
         }
-
-        private static readonly int[] DirX = { 1, 0, -1, 0 }, DirZ = { 0, 1, 0, -1 };
 
         /// <summary>
         /// True for a tile with something of the map on it that has to stay within reach: a

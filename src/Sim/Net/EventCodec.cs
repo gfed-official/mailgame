@@ -58,6 +58,8 @@ namespace PerformativeMail.Sim.Net
         BeltItemRemoved = 48,
         BeltChecksum = 49,
         BeltPushed = 50,
+        ConstructConfigured = 51,
+        SorterStatus = 52,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -266,6 +268,16 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.BeltPushed);
                     w.U8(e.X); w.U8(e.Y); w.U16(e.Ticks); w.U32(e.Player.Value);
                     break;
+                case ConstructConfiguredEvent e:
+                    w.U8((byte)EventType.ConstructConfigured);
+                    w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value); w.U8((byte)e.Filters.Count);
+                    foreach (ushort f in e.Filters) w.U16(f);
+                    break;
+                case SorterStatusEvent e:
+                    w.U8((byte)EventType.SorterStatus);
+                    w.U8(e.X); w.U8(e.Y); w.U8(e.Buffered); w.U16(e.Sorted); w.U16(e.Overflowed); w.U8((byte)e.Matches.Count);
+                    foreach (ushort m in e.Matches) w.U16(m);
+                    break;
                 case VehicleAddedEvent e:
                     w.U8((byte)EventType.VehicleAdded);
                     w.U32(e.Vehicle.Value); w.U8(e.Def); w.F32(e.X); w.F32(e.Z); w.F32(e.Heading); w.U32(e.CargoContainer); w.U32(e.Buyer.Value);
@@ -470,6 +482,20 @@ namespace PerformativeMail.Sim.Net
                     return new BeltChecksumEvent { X = r.U8(), Y = r.U8(), Count = r.U16(), Hash = r.U32() };
                 case EventType.BeltPushed:
                     return new BeltPushedEvent { X = r.U8(), Y = r.U8(), Ticks = r.U16(), Player = new EntityId(r.U32()) };
+                case EventType.ConstructConfigured:
+                {
+                    var e = new ConstructConfiguredEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()) };
+                    int n = r.U8();
+                    for (int i = 0; i < n; i++) e.Filters.Add(r.U16());
+                    return e;
+                }
+                case EventType.SorterStatus:
+                {
+                    var e = new SorterStatusEvent { X = r.U8(), Y = r.U8(), Buffered = r.U8(), Sorted = r.U16(), Overflowed = r.U16() };
+                    int n = r.U8();
+                    for (int i = 0; i < n; i++) e.Matches.Add(r.U16());
+                    return e;
+                }
                 case EventType.VehicleAdded:
                     return new VehicleAddedEvent
                     {

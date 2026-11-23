@@ -180,9 +180,9 @@ namespace PerformativeMail.Client.UI
         private MatchMark _mark = null!;
         private GridView _hotbar = null!;
         private HFlowContainer _recipeBar = null!;
-        private const float RecipeBarHalfWidth = 280f, RecipeBarHeight = 76f;
-        /// <summary>How far the feed goes up while Build mode is up, for the recipe bar's fourth row and the keys line over it.</summary>
-        private const float FeedLiftBuilding = 18f;
+        private const float RecipeBarHalfWidth = 280f, RecipeBarHeight = 94f;
+        /// <summary>How far the feed goes up while Build mode is up, for the recipe bar's fifth row and the keys line over it.</summary>
+        private const float FeedLiftBuilding = 36f;
         private readonly Label[] _feedLines = new Label[EventFeed.MaxEntries];
         private int _feedRevision = -1;
         private RunPhase _clockPhase;
@@ -361,7 +361,7 @@ namespace PerformativeMail.Client.UI
             };
             _recipeBar.AddThemeConstantOverride("h_separation", 18);
             _recipeBar.AddThemeConstantOverride("v_separation", 1);
-            // Four rows of the small font fit between the feed (lifted while building) and the bottom edge, the keys over them.
+            // Five rows of the small font fit between the feed (lifted while building) and the bottom edge, the keys over them.
             Place(_recipeBar, 0.5f, 1f, -RecipeBarHalfWidth, -m - RecipeBarHeight, RecipeBarHalfWidth, -m);
             AddChild(_recipeBar);
 

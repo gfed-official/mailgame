@@ -255,6 +255,11 @@ namespace PerformativeMail.Sim.Content
         Splitter = 6,
         /// <summary>Doc 04 §2.3: up to three inputs (back, left, right) in turn, one output in front.</summary>
         Merger = 7,
+        /// <summary>
+        /// Doc 04 §2.4 Address Sorter: 2 × 2 tiles, one input, three filtered outputs and an
+        /// overflow; mail is looked at one piece at a time and goes out by the first filter it matches.
+        /// </summary>
+        Sorter = 8,
     }
 
     /// <summary>
@@ -273,6 +278,21 @@ namespace PerformativeMail.Sim.Content
         /// A Belt Ramp's 2 (doc 04 §2.1 "ramps are 2 tiles long").
         /// </summary>
         public int Length { get; init; } = 1;
+        /// <summary>Tiles it takes across (footprint [w, n]), on to the right of the way it faces: an Address Sorter's 2.</summary>
+        public int Width { get; init; } = 1;
+        /// <summary>Every tile it stands on.</summary>
+        public int TileCount => Length * Width;
+        /// <summary>
+        /// A sorter's filtered outputs and a splitter's (doc 04 §2.3 "optional per-output filter by
+        /// kind", §2.4); 0 for what sorts nothing.
+        /// </summary>
+        public int FilterOutputs => Behaviour == BuildingBehaviour.Sorter ? 3 : Behaviour == BuildingBehaviour.Splitter ? 3 : 0;
+        /// <summary>Filters an output holds (doc 04 §2.4: 1 on a Mk1 sorter); a splitter's one, a kind.</summary>
+        public int FilterSlots { get; init; } = 1;
+        /// <summary>A sorter: pieces of mail it looks at a second (doc 11: Mk1 2).</summary>
+        public float Throughput { get; init; }
+        /// <summary>A sorter: pieces of mail it holds inside (doc 04 §2.4: a 2 × 4 buffer).</summary>
+        public int BufferSize { get; init; }
         /// <summary>A belt's level (doc 04 §2.1): 0 on the ground, 1 an Elevated Belt, <see cref="Automation.BeltNetwork.LevelHeight"/> up.</summary>
         public int Level { get; init; }
         /// <summary>A Belt Ramp: from one level to the other over its two tiles, up or down by its rotation.</summary>

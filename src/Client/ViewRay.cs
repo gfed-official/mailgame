@@ -113,6 +113,12 @@ namespace PerformativeMail.Client
         public static AimBox Built(WorldMap map, Construct built)
         {
             float ground = map.HeightAt(built.X, built.Z), h = built.Def.Height * 0.5f;
+            if (built.Def.Width > 1)
+            {
+                // A sorter: the box over its four tiles.
+                float half = built.Def.Width * SimConstants.TileSize * 0.5f - 0.15f;
+                return new AimBox(built.CentreX, ground + h, built.CentreZ, half, h + 0.1f, half);
+            }
             if (built.Def.Length > 1)
             {
                 // A ramp: the box over all of its tiles.

@@ -498,6 +498,167 @@ namespace PerformativeMail.App
                 }
 
                 case 14:
+                {
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
+                    // The Address Sorter (doc 04 §2.4): its blueprint bought at the counter with the card's key.
+                    var player = server.GetPlayer(world.LocalId)!;
+                    var sorting = world.Content.ShopItem("bp_sorting");
+                    server.Economy.AddLoot(sorting.Price);
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 4)), "no room for four Iron Ingots");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("stone"), 6)), "no room for six Stones");
+                    if (build.Active) build.Toggle();
+                    player.Move.X = world.Map.PostOffice.ShopX + ShopStandOff;
+                    player.Move.Z = world.Map.PostOffice.ShopZ;
+                    _beltStep = 15;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 15:
+                {
+                    var player = server.GetPlayer(world.LocalId)!;
+                    var sorting = world.Content.ShopItem("bp_sorting");
+                    float dx = world.Local.X - player.Move.X, dz = world.Local.Z - player.Move.Z;
+                    if (dx * dx + dz * dz > 0.1f || _beltFrames < 4 || world.Global.Wallet != server.Economy.Wallet) break;
+                    if (!world.ShopOpen) { client.OpenShop(); break; }
+                    int place = world.ShopShelf.ToList().IndexOf(sorting);
+                    Check(place >= 0 && world.ShopState(sorting) == OpResult.Ok, $"the Sorting blueprint's card is at {place}, {world.ShopState(sorting)}");
+                    Check(client.PressShopKey(place), $"the key of the Sorting blueprint's card {HudText.CardKey(place)} was not the shop's");
+                    _beltStep = 16;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 16:
+                {
+                    if (!world.ShopOwned.Contains(world.Content.ShopItem("bp_sorting")) || client.PendingRequestCount > 0) break;
+                    Check(server.OwnsBlueprint("bp_sorting"), "the server does not have the team owning the Sorting blueprint");
+                    client.CloseShop();
+                    var sorter = world.Content.Recipes.First(r => r.Building.Id == "address_sorter_mk1");
+                    // Four open tiles, the host on open ground just behind its input.
+                    var map = world.Map;
+                    int hx = (int)MathF.Floor(world.Local.X / SimConstants.TileSize), hz = (int)MathF.Floor(world.Local.Z / SimConstants.TileSize);
+                    _splitX = -1;
+                    for (int r = 2; r <= 10 && _splitX < 0; r++)
+                        for (int dz = -r; dz <= r && _splitX < 0; dz++)
+                            for (int dx = -r; dx <= r && _splitX < 0; dx++)
+                            {
+                                int x = hx + dx, z = hz + dz;
+                                if ((Math.Abs(dx) != r && Math.Abs(dz) != r) || BuildRules.CheckPlacement(map, world.Constructs, sorter.Building, x, z, 0) != OpResult.Ok) continue;
+                                if (BuildRules.CheckTile(map, world.Constructs, x - 1, z) != OpResult.Ok || !FreeGround(map, BuildRules.TileCentre(x - 1), BuildRules.TileCentre(z), -1)) continue;
+                                (_splitX, _splitZ) = (x, z);
+                            }
+                    if (_splitX < 0)
+                    {
+                        Fail("no four open tiles near the Post Office for the Address Sorter");
+                        return false;
+                    }
+                    var player = server.GetPlayer(world.LocalId)!;
+                    player.Move.X = BuildRules.TileCentre(_splitX - 1) - 0.4f;
+                    player.Move.Z = BuildRules.TileCentre(_splitZ);
+                    Check(build.Toggle(), $"B did not put Build mode up for the Address Sorter ({build.Refused})");
+                    Check(build.PressKey(sorter.Key) && build.Recipe == sorter, $"key {sorter.Key + 1} in Build mode is not the Address Sorter");
+                    for (int i = 0; i < 4 && build.Rotation != 0; i++) build.Rotate();
+                    _beltStep = 17;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 17:
+                {
+                    AimAtTile(_splitX, _splitZ);
+                    var built = world.Constructs.At(_splitX, _splitZ);
+                    if (built == null)
+                    {
+                        if (_beltFrames == 8)
+                        {
+                            build.Update(1.0 / 30.0, false, false);
+                            hud.Refresh();
+                            view.Refresh();
+                            Check(build.Ghost.State == OpResult.Ok && hud.PromptText.StartsWith("Build Address Sorter", StringComparison.Ordinal) && view.GhostGreen,
+                                $"the Address Sorter's ghost at ({_splitX}, {_splitZ}) is {build.Ghost.State} ({build.Ghost.Tx}, {build.Ghost.Tz}), the prompt \"{hud.PromptText}\"");
+                            Shot("sorter-ghost");
+                            build.Update(1.0 / 30.0, true, false);
+                            return true;
+                        }
+                        break;
+                    }
+                    if (client.PendingRequestCount > 0) break;
+                    view.Refresh();
+                    bool four = Enumerable.Range(0, built.Def.TileCount).All(i => world.Constructs.At(built.TileAt(i).Tx, built.TileAt(i).Tz) == built
+                        && server.Constructs.At(built.TileAt(i).Tx, built.TileAt(i).Tz)?.Def == built.Def);
+                    Check(built.Def.Id == "address_sorter_mk1" && four, $"the Address Sorter at ({_splitX}, {_splitZ}) does not stand on its four tiles on both ends");
+                    // A few steps back for its picture, then up to it again.
+                    var player = server.GetPlayer(world.LocalId)!;
+                    player.Move.X = BuildRules.TileCentre(_splitX - 1) - 4.5f;
+                    _beltStep = 21;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 21:
+                {
+                    var built = world.Constructs.At(_splitX, _splitZ)!;
+                    var box = AimBox.Built(world.Map, built);
+                    ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    if (_beltFrames < 8) break;
+                    view.Refresh();
+                    Shot("sorter");
+                    var player = server.GetPlayer(world.LocalId)!;
+                    player.Move.X = BuildRules.TileCentre(_splitX - 1) - 0.4f;
+                    _beltStep = 22;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 22:
+                {
+                    AimAtTile(_splitX, _splitZ);
+                    if (_beltFrames < 8) break;
+                    var built = world.Constructs.At(_splitX, _splitZ)!;
+                    // In Build mode the crosshair on it says its filters are on the interact key.
+                    build.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
+                    Check(build.Ghost.Aim == BuildAim.Construct && hud.PromptText.EndsWith(HudText.FiltersNote(built), StringComparison.Ordinal),
+                        $"at the Address Sorter Build mode says \"{hud.PromptText}\"");
+                    _session.Interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
+                    Check(world.FilterTarget == built, $"E at the Address Sorter did not put its filters up ({_session.Interaction.Prompt.Kind})");
+                    _beltStep = 18;
+                    _beltFrames = 0;
+                    return true;
+                }
+
+                case 18:
+                {
+                    var panel = _screen.Inventory.Filters;
+                    if (world.FilterStatus == null || !panel.IsVisibleInTree() || _beltFrames < 3) break;
+                    Check(_screen.Mouse.PanelOpen && panel.Text == HudText.FilterText(world) && panel.CardCount == 4,
+                        $"the filter panel reads \"{panel.Text}\" ({panel.CardCount} cards), not \"{HudText.FilterText(world)}\"");
+                    Check(client.PressFilterKey(0), "key 1 was not the filters'");
+                    _beltStep = 19;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 19:
+                {
+                    var built = world.FilterTarget;
+                    var truth = server.Constructs.At(_splitX, _splitZ);
+                    if (built == null || truth == null || truth.Filter(0, 0).IsEmpty || client.PendingRequestCount > 0 || _beltFrames < 3) break;
+                    var panel = _screen.Inventory.Filters;
+                    string street = HudText.FilterName(world, built, truth.Filter(0, 0));
+                    Check(built.Filter(0, 0) == truth.Filter(0, 0) && truth.Filter(0, 0).Kind == FilterKind.Street && panel.Text.Contains("\n" + street + "\n", StringComparison.Ordinal),
+                        $"key 1 set the front to {truth.Filter(0, 0).Kind} {truth.Filter(0, 0).Value} on the server, {built.Filter(0, 0).Kind} here; the panel \"{panel.Text}\"");
+                    Shot("sorter-filters");
+                    GD.Print($"[smoke] sorter: an Address Sorter built at ({_splitX}, {_splitZ}) on four tiles, its filters up by E, the front set to {street} by key 1");
+                    Check(client.CloseFilters(), "the filters were not up to take down");
+                    client.RemoveConstruct(built);
+                    _beltStep = 20;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 20:
                     if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
                     Check(build.Toggle() == false && !build.Active, "B did not put Build mode down after the belt");
                     _beltVisits++;

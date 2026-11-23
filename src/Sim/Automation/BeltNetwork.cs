@@ -29,6 +29,60 @@ namespace PerformativeMail.Sim.Automation
         Mailbox,
         /// <summary>A splitter (doc 04 §2.3): to the first of its outputs with room, round-robin.</summary>
         Split,
+        /// <summary>An Address Sorter's input (doc 04 §2.4): into its buffer while there is room.</summary>
+        Sorter,
+    }
+
+    /// <summary>
+    /// An Address Sorter in the belt network (doc 04 §2.4): the mail in its buffer, oldest first,
+    /// and the segments its outputs feed. It keeps its buffer from one compile to the next.
+    /// </summary>
+    public sealed class SorterNode
+    {
+        public const int Front = 0, Left = 1, Right = 2, Overflow = 3, Ports = 4;
+
+        public Construct Built { get; }
+        public readonly List<MailItem> Buffer = new List<MailItem>();
+        /// <summary>The segment each port hands on to (front, left, right, overflow); null with no belt there.</summary>
+        public readonly BeltSegment?[] Outs = new BeltSegment?[Ports];
+        /// <summary>The first tick it looks at the next piece.</summary>
+        public uint NextTick;
+        /// <summary>This run: pieces it sent out by a filter, and to the overflow.</summary>
+        public int Sorted, Overflowed;
+
+        public SorterNode(Construct built) { Built = built; }
+
+        /// <summary>
+        /// The port a piece goes out by: the first filtered output with a belt whose filters catch
+        /// it, else the overflow; −1 if that has no belt either.
+        /// </summary>
+        public int PortFor(in MailItem mail)
+        {
+            var def = Built.Def;
+            for (int o = 0; o < def.FilterOutputs; o++)
+            {
+                if (Outs[o] == null) continue;
+                for (int k = 0; k < def.FilterSlots; k++)
+                    if (Built.Filter(o, k).Matches(mail)) return o;
+            }
+            return Outs[Overflow] != null ? Overflow : -1;
+        }
+
+        /// <summary>
+        /// Where a port is: the sorter's tile it leaves from (along, across from the one it was
+        /// built on) and the way it goes out. The input comes into (0, 0) from behind.
+        /// </summary>
+        public static (int Along, int Across, int Dir) Port(int port, int facing)
+        {
+            int f = facing & 3;
+            switch (port)
+            {
+                case Front: return (1, 0, f);
+                case Left: return (1, 0, (f + 3) & 3);
+                case Right: return (1, 1, (f + 1) & 3);
+                default: return (0, 1, (f + 2) & 3);
+            }
+        }
     }
 
     /// <summary>
@@ -60,7 +114,15 @@ namespace PerformativeMail.Sim.Automation
 
         /// <summary>A splitter: the segments it hands on to, front, left, right; the next to try.</summary>
         public readonly List<BeltSegment> Outs = new List<BeltSegment>();
+        /// <summary>A splitter: the port of each of <see cref="Outs"/> (front 0, left 1, right 2), for its filters.</summary>
+        public readonly List<int> OutPorts = new List<int>();
+        /// <summary>A splitter: itself, for its filters.</summary>
+        public Construct? Splitter;
+        /// <summary>A sorter end: the sorter.</summary>
+        public SorterNode? Sorter;
         public int NextOut;
+        /// <summary>A filtered splitter: the turn of the outputs without a filter, kept apart so neither kind of mail skews the other's.</summary>
+        public int NextOutRest;
         /// <summary>A merger: the segments that feed it; whose turn it is.</summary>
         public readonly List<BeltSegment> Ins = new List<BeltSegment>();
         public int NextIn;
@@ -97,6 +159,10 @@ namespace PerformativeMail.Sim.Automation
         bool TryDeliver(BeltSegment segment, in BeltItem item);
         /// <summary>An item went from one segment's end onto the next one's head.</summary>
         void Moved(BeltSegment from, BeltSegment to, in BeltItem item);
+        /// <summary>An item went off a segment's end into a sorter's buffer.</summary>
+        void Took(BeltSegment from, in BeltItem item);
+        /// <summary>A sorter put a piece out by a port onto the head of a segment.</summary>
+        void Sorted(SorterNode sorter, int port, BeltSegment to, in BeltItem item);
     }
 
     /// <summary>
@@ -129,6 +195,7 @@ namespace PerformativeMail.Sim.Automation
         private readonly BeltSegment?[] _segOf;
         private readonly int[] _indexIn;
         private readonly Dictionary<int, int> _mailboxAt = new Dictionary<int, int>();
+        private readonly List<SorterNode> _sorters = new List<SorterNode>();
         private readonly int _intakeTile;
         private int _fieldVersion = -1;
         private string _signature = "";
@@ -138,6 +205,25 @@ namespace PerformativeMail.Sim.Automation
         public int Version { get; private set; }
         /// <summary>Items riding all belts.</summary>
         public int ItemCount { get; private set; }
+        /// <summary>Every Address Sorter, in the order they were built.</summary>
+        public IReadOnlyList<SorterNode> Sorters => _sorters;
+
+        public SorterNode? SorterOf(Construct c)
+        {
+            foreach (var n in _sorters) if (n.Built == c) return n;
+            return null;
+        }
+
+        /// <summary>Mail in the sorters' buffers.</summary>
+        public int BufferedCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (var s in _sorters) n += s.Buffer.Count;
+                return n;
+            }
+        }
 
         /// <summary>Doc 11 "operated belt multiplier": a pushed segment's speed, times its own.</summary>
         public float PushMultiplier { get; }
@@ -238,12 +324,28 @@ namespace PerformativeMail.Sim.Automation
         /// </summary>
         private bool Accepts(int from, int to)
         {
-            var b = BeltOn(to);
             int dir = DirTo(from, to);
-            if (b == null || dir < 0) return false;
+            return dir >= 0 && AcceptsFrom(dir, to, OutLevel(from));
+        }
+
+        /// <summary>Whether what stands on <paramref name="to"/> takes mail coming in going <paramref name="dir"/> at a height (half levels).</summary>
+        private bool AcceptsFrom(int dir, int to, int level)
+        {
+            var b = BeltOn(to);
+            if (b == null) return false;
             int r = b.Rotation & 3;
             bool way = b.Def.Behaviour == BuildingBehaviour.Splitter || b.Def.Ramp ? dir == r : dir != ((r + 2) & 3);
-            return way && OutLevel(from) == InLevel(to);
+            return way && level == InLevel(to);
+        }
+
+        private int TileIndex(int tx, int tz) => _map.InBounds(tx, tz) ? tz * _map.Cols + tx : -1;
+
+        /// <summary>The tile a sorter's port hands on to, −1 off the map.</summary>
+        private int PortTile(Construct sorter, int port)
+        {
+            var (along, across, dir) = SorterNode.Port(port, sorter.Facing);
+            var (x, z) = Construct.TileOf(sorter.Tx, sorter.Tz, sorter.Facing, along, across);
+            return TileIndex(x + Dirs[dir].Dx, z + Dirs[dir].Dz);
         }
 
         /// <summary>
@@ -318,7 +420,8 @@ namespace PerformativeMail.Sim.Automation
             _fieldVersion = _field.Version;
             var sig = new System.Text.StringBuilder();
             foreach (var c in _field.All)
-                if (IsBelt(c)) sig.Append(c.Tx).Append(',').Append(c.Tz).Append(',').Append(c.Rotation).Append(',').Append(c.Def.Index).Append(';');
+                if (IsBelt(c) || c.Def.Behaviour == BuildingBehaviour.Sorter)
+                    sig.Append(c.Tx).Append(',').Append(c.Tz).Append(',').Append(c.Rotation).Append(',').Append(c.Def.Index).Append(';');
             string signature = sig.ToString();
             if (signature == _signature) return false;
             _signature = signature;
@@ -350,6 +453,29 @@ namespace PerformativeMail.Sim.Automation
                     if (Accepts(t, o)) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
             }
 
+            // The sorters: those taken down give their buffers back; a belt a port feeds is a head.
+            var sorters = new List<SorterNode>();
+            foreach (var c in _field.All)
+            {
+                if (c.Def.Behaviour != BuildingBehaviour.Sorter) continue;
+                var node = SorterOf(c) ?? new SorterNode(c);
+                Array.Clear(node.Outs, 0, node.Outs.Length);
+                sorters.Add(node);
+                for (int port = 0; port < SorterNode.Ports; port++)
+                {
+                    int o = PortTile(c, port);
+                    if (o >= 0 && AcceptsFrom(SorterNode.Port(port, c.Facing).Dir, o, 0)) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
+                }
+            }
+            foreach (var node in _sorters)
+            {
+                if (sorters.Contains(node)) continue;
+                foreach (var mail in node.Buffer) orphans?.Add(new BeltItem { Mail = mail });
+                node.Buffer.Clear();
+            }
+            _sorters.Clear();
+            _sorters.AddRange(sorters);
+
             // A belt continues the segment of the belt behind it if that belt is its only feeder and
             // of its tier; a splitter or a merger is a segment of its own.
             var from = new Dictionary<int, int>();
@@ -374,9 +500,14 @@ namespace PerformativeMail.Sim.Automation
                 if (last.Def.Behaviour == BuildingBehaviour.Splitter)
                 {
                     // Doc 04 §2.3: up to three outputs, round-robin.
+                    s.Splitter = last;
                     Outputs(lastTile, _outs);
-                    foreach (int o in _outs)
-                        if (Accepts(lastTile, o) && _segOf[o] is { } outSeg) s.Outs.Add(outSeg);
+                    for (int port = 0; port < _outs.Count; port++)
+                    {
+                        if (!Accepts(lastTile, _outs[port]) || _segOf[_outs[port]] is not { } outSeg) continue;
+                        s.Outs.Add(outSeg);
+                        s.OutPorts.Add(port);
+                    }
                     if (s.Outs.Count > 0) s.End = BeltEndKind.Split;
                 }
                 else if (Feeds(lastTile, out int to))
@@ -385,6 +516,13 @@ namespace PerformativeMail.Sim.Automation
                     s.Next = _segOf[to];
                     // A merger takes its inputs in turn: it knows them, back, left, right.
                     if (s.Next != null && BeltOn(s.Next.Head)!.Def.Behaviour == BuildingBehaviour.Merger) s.Next.Ins.Add(s);
+                }
+                // An Address Sorter takes it at its input: into the tile it was built on, from behind, on the ground.
+                else if (s.FrontTile >= 0 && OutLevel(lastTile) == 0 && _field.At(s.FrontTile % _map.Cols, s.FrontTile / _map.Cols) is { Def.Behaviour: BuildingBehaviour.Sorter } sorter
+                    && TileIndex(sorter.Tx, sorter.Tz) == s.FrontTile && (last.Rotation & 3) == sorter.Facing)
+                {
+                    s.End = BeltEndKind.Sorter;
+                    s.Sorter = SorterOf(sorter);
                 }
                 // A mailbox takes mail from a belt on the ground, not from one running over it.
                 else if (s.FrontTile >= 0 && OutLevel(lastTile) == 0 && _mailboxAt.TryGetValue(s.FrontTile, out int dest))
@@ -396,6 +534,13 @@ namespace PerformativeMail.Sim.Automation
                 var head = BeltOn(s.Head)!;
                 s.FromIntake = !feeders.ContainsKey(s.Head) && s.Head == OutfeedTile && (head.Rotation & 3) == OutfeedRotation && InLevel(s.Head) == 0;
             }
+
+            foreach (var node in _sorters)
+                for (int port = 0; port < SorterNode.Ports; port++)
+                {
+                    int o = PortTile(node.Built, port);
+                    if (o >= 0 && AcceptsFrom(SorterNode.Port(port, node.Built.Facing).Dir, o, 0)) node.Outs[port] = _segOf[o];
+                }
 
             // Items keep their tile and their place on it.
             ItemCount = 0;
@@ -437,7 +582,7 @@ namespace PerformativeMail.Sim.Automation
         }
 
         private static string Key(BeltSegment s) =>
-            string.Join(",", s.Tiles) + "|" + s.End + "|" + (s.Next?.Head ?? -1) + "|" + string.Join(",", s.Outs.ConvertAll(o => o.Head)) + "|" + s.DestId + "|" + s.Speed + "|" + s.FromIntake;
+            string.Join(",", s.Tiles) + "|" + s.End + "|" + (s.Next?.Head ?? -1) + "|" + string.Join(",", s.Outs.ConvertAll(o => o.Head)) + "|" + s.DestId + "|" + s.Speed + "|" + s.FromIntake + "|" + (s.Sorter != null ? s.Sorter.Built.Tx * 1000 + s.Sorter.Built.Tz : -1);
 
         private void Walk(int start, Dictionary<int, int> from)
         {
@@ -504,6 +649,22 @@ namespace PerformativeMail.Sim.Automation
             }
             if (sink == null) return;
             foreach (var s in _segments) HandOff(s, sink, tick);
+            foreach (var node in _sorters) StepSorter(node, sink, tick);
+        }
+
+        /// <summary>Doc 04 §2.4: one piece at a time, at the sorter's rate, out by the first filter it matches.</summary>
+        private void StepSorter(SorterNode node, IBeltSink sink, uint tick)
+        {
+            if (node.Buffer.Count == 0 || tick < node.NextTick) return;
+            var mail = node.Buffer[0];
+            int port = node.PortFor(mail);
+            // Its way out is full, or there is none: it waits, and the buffer fills behind it.
+            if (port < 0 || !TryInsert(node.Outs[port]!, mail, out var item)) return;
+            node.Buffer.RemoveAt(0);
+            if (port == SorterNode.Overflow) node.Overflowed++;
+            else node.Sorted++;
+            node.NextTick = tick + Math.Max(1u, SimConstants.SecondsToTicks(1.0 / node.Built.Def.Throughput));
+            sink.Sorted(node, port, node.Outs[port]!, item);
         }
 
         private void HandOff(BeltSegment s, IBeltSink sink, uint tick)
@@ -542,16 +703,32 @@ namespace PerformativeMail.Sim.Automation
                         gone = true;
                         break;
                     }
+                    case BeltEndKind.Sorter when s.Sorter != null:
+                    {
+                        var node = s.Sorter;
+                        if (node.Buffer.Count >= node.Built.Def.BufferSize) break;
+                        s.Items.RemoveAt(i);
+                        ItemCount--;
+                        node.Buffer.Add(it.Mail);
+                        sink.Took(s, it);
+                        gone = true;
+                        break;
+                    }
                     case BeltEndKind.Split:
                     {
-                        // Round-robin over the outputs, skipping those with no room (doc 04 §2.3).
+                        // Round-robin over the outputs, skipping those with no room (doc 04 §2.3);
+                        // with filters, over those that catch it, else over those that have none.
+                        bool caught = Caught(s, it.Mail);
                         for (int k = 0; k < s.Outs.Count && !gone; k++)
                         {
-                            int o = (s.NextOut + k) % s.Outs.Count;
+                            int turn = caught || s.Splitter == null ? s.NextOut : s.NextOutRest;
+                            int o = (turn + k) % s.Outs.Count;
+                            if (!Takes(s, o, it.Mail, caught)) continue;
                             var next = s.Outs[o];
                             byte lane = EntryLane(s, next, it.Lane);
                             if (!next.HasRoom(lane, it.Length)) continue;
-                            s.NextOut = (o + 1) % s.Outs.Count;
+                            if (caught || s.Splitter == null) s.NextOut = (o + 1) % s.Outs.Count;
+                            else s.NextOutRest = (o + 1) % s.Outs.Count;
                             Hand(s, i, it, next, lane, sink);
                             gone = true;
                         }
@@ -567,6 +744,23 @@ namespace PerformativeMail.Sim.Automation
                 }
                 if (gone) i--;
             }
+        }
+
+        /// <summary>A splitter: whether one of its outputs with a belt has a filter that catches the piece.</summary>
+        private static bool Caught(BeltSegment s, in MailItem mail)
+        {
+            if (s.Splitter == null) return false;
+            foreach (int port in s.OutPorts)
+                if (s.Splitter.Filter(port, 0).Matches(mail)) return true;
+            return false;
+        }
+
+        /// <summary>A splitter's output takes a piece: one its filter catches, or, when none does, one with no filter.</summary>
+        private static bool Takes(BeltSegment s, int o, in MailItem mail, bool caught)
+        {
+            if (s.Splitter == null) return true;
+            var filter = s.Splitter.Filter(s.OutPorts[o], 0);
+            return caught ? filter.Matches(mail) : filter.IsEmpty;
         }
 
         private static void Hand(BeltSegment s, int i, BeltItem it, BeltSegment next, byte lane, IBeltSink sink)
@@ -693,6 +887,12 @@ namespace PerformativeMail.Sim.Automation
             {
                 all.AddRange(s.Items);
                 s.Items.Clear();
+            }
+            foreach (var node in _sorters)
+            {
+                foreach (var mail in node.Buffer) all.Add(new BeltItem { Mail = mail });
+                node.Buffer.Clear();
+                node.Sorted = node.Overflowed = 0;
             }
             ItemCount = 0;
             return all;

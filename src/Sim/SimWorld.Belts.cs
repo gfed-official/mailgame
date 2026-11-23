@@ -197,5 +197,10 @@ namespace PerformativeMail.Sim
 
         void IBeltSink.Moved(BeltSegment from, BeltSegment to, in BeltItem item) =>
             Events.Add(new BeltItemMovedEvent { MailId = item.Mail.Id, X = HeadX(to), Y = HeadZ(to), Lane = item.Lane });
+
+        void IBeltSink.Took(BeltSegment from, in BeltItem item) => Events.Add(new BeltItemRemovedEvent { MailId = item.Mail.Id });
+
+        void IBeltSink.Sorted(SorterNode sorter, int port, BeltSegment to, in BeltItem item) =>
+            Events.Add(new BeltItemAddedEvent { X = HeadX(to), Y = HeadZ(to), Item = Info(item) });
     }
 }

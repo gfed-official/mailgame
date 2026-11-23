@@ -134,6 +134,7 @@ namespace PerformativeMail.App
                 profile.Rank(HudText.RankXpPerRank(content)), StartWallet);
             Interaction = new InteractionController(Client);
             Build = new BuildController(Client) { OnRefused = why => Feed.Add(HudText.PlaceReason(Client.World!, Client.World!.Content.Recipes[0], why), bad: true) };
+            Interaction.Building = () => Build.Active;
             Feed.Content = content;
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);
             Client.RequestCompleted += Feed.OnRequest;
