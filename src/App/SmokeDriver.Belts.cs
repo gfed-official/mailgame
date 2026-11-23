@@ -737,6 +737,99 @@ namespace PerformativeMail.App
                     if (client.PendingRequestCount > 0 || server.Constructs.At(belts.OutfeedX, belts.OutfeedZ - 1) != null) break;
                     var built = world.Constructs.At(belts.OutfeedX, belts.OutfeedZ);
                     if (built != null) client.RemoveConstruct(built);
+                    _beltStep = 50;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 50:
+                {
+                    var belts = world.Belts;
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(belts.OutfeedX, belts.OutfeedZ) != null) break;
+                    // A Long Inserter (doc 04 §2.5, bp_sorting) a tile past the outfeed: it reaches over
+                    // the empty outfeed tile into the Intake and puts the mail on a belt two tiles on.
+                    var player = server.GetPlayer(world.LocalId)!;
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 4)), "no room for four Iron Ingots");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("plank"), 2)), "no room for two Planks");
+                    player.Move.X = BuildRules.TileCentre(belts.OutfeedX + 1);
+                    player.Move.Z = BuildRules.TileCentre(belts.OutfeedZ - 1);
+                    var longOne = world.Content.Building("inserter_long");
+                    var sorterKey = world.Content.Recipes.First(r => r.Building.Id == "address_sorter_mk1").Key;
+                    Check(build.PressKey(sorterKey), "the sorter's key did not take");
+                    for (int i = 0; i < 3 && build.Recipe?.Building != longOne; i++) build.Cycle(1);
+                    for (int i = 0; i < 4 && build.Rotation != BeltNetwork.OutfeedRotation; i++) build.Rotate();
+                    Check(build.Recipe?.Building == longOne && build.Rotation == BeltNetwork.OutfeedRotation, $"the wheel on key {sorterKey + 1} never came to the Long Inserter ({build.Recipe?.Building.Name}, turned {build.Rotation})");
+                    _beltStep = 51;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 51:
+                {
+                    var belts = world.Belts;
+                    AimAtTile(belts.OutfeedX, belts.OutfeedZ - 1);
+                    if (_beltFrames < 8) break;
+                    build.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
+                    Check(build.Ghost.State == OpResult.Ok && hud.PromptText.StartsWith("Build Long Inserter", StringComparison.Ordinal),
+                        $"the Long Inserter's ghost past the outfeed is {build.Ghost.State}, the prompt \"{hud.PromptText}\"");
+                    build.Update(1.0 / 30.0, true, false);
+                    _beltStep = 52;
+                    _beltFrames = 0;
+                    return true;
+                }
+
+                case 52:
+                {
+                    var belts = world.Belts;
+                    var built = world.Constructs.At(belts.OutfeedX, belts.OutfeedZ - 1);
+                    if (built == null || client.PendingRequestCount > 0) break;
+                    Check(built.Def.Id == "inserter_long" && built.Facing == BeltNetwork.OutfeedRotation, $"past the outfeed stands a {built.Def.Id} turned {built.Facing}");
+                    Check(client.PlaceConstruct(belt, belts.OutfeedX, belts.OutfeedZ - 3, BeltNetwork.OutfeedRotation) != 0, "the belt two past the Long Inserter was not asked for");
+                    var dest = world.Map.GetDestination(_beltDest)!;
+                    var kind = world.Content.MailKind("letter");
+                    for (uint i = 0; i < 2; i++)
+                        Check(server.Give(server.Intake, ItemStack.OfMail(new MailItem { Id = 990031 + i, Kind = kind.Index, Address = dest.Address, Value = (ushort)kind.BaseValue, SpawnShift = (byte)server.Run.Shift, DeadlineShift = (byte)(server.Run.Shift + 1) })),
+                            "no room in the Intake for a letter");
+                    _beltStep = 53;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 53:
+                {
+                    var belts = world.Belts;
+                    var fed = server.Belts.SegmentAt(belts.OutfeedX, belts.OutfeedZ - 3);
+                    AimAtTile(belts.OutfeedX, belts.OutfeedZ - 2);
+                    view.Animate(1f / 30f);
+                    if (fed == null || fed.Items.Count == 0 || view.ArmsSwinging == 0 || _beltFrames < 10) break;
+                    var mine = world.Belts.SegmentAt(belts.OutfeedX, belts.OutfeedZ - 3);
+                    Check(mine != null && mine.Items.Count == fed.Items.Count && world.InserterSwings.ContainsKey((belts.OutfeedZ - 1) * world.Map.Cols + belts.OutfeedX),
+                        $"the Long Inserter put {fed.Items.Count} pieces on the belt two on, {mine?.Items.Count} of them here");
+                    float reach = view.GrabReach(belts.OutfeedX, belts.OutfeedZ - 1);
+                    Check(MathF.Abs(reach - PerformativeMail.Client.Presentation.ConstructsView.ArmLength(2)) < 1e-3f && reach > SimConstants.TileSize, $"the Long Inserter's grab is {reach:0.00} m out");
+                    Shot("long-inserter");
+                    GD.Print($"[smoke] long inserter: a Long Inserter past the outfeed by the wheel, over the empty outfeed tile out of the Intake, {fed.Items.Count} pieces onto a belt two tiles on, its grab {reach:0.00} m out");
+                    client.RemoveConstruct(world.Constructs.At(belts.OutfeedX, belts.OutfeedZ - 3)!);
+                    _beltStep = 54;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 54:
+                {
+                    var belts = world.Belts;
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(belts.OutfeedX, belts.OutfeedZ - 3) != null) break;
+                    var built = world.Constructs.At(belts.OutfeedX, belts.OutfeedZ - 1);
+                    if (built != null) client.RemoveConstruct(built);
+                    _beltStep = 55;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 55:
+                {
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(world.Belts.OutfeedX, world.Belts.OutfeedZ - 1) != null) break;
                     _beltStep = 27;
                     _beltFrames = 0;
                     break;

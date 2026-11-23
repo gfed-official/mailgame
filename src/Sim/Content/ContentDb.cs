@@ -925,6 +925,7 @@ namespace PerformativeMail.Sim.Content
                             Throughput = hasParams ? (float)J.Num(ctx, pars, "throughputPerSecond", 0) : 0f,
                             BufferSize = hasParams ? J.Int(ctx, pars, "bufferSize", 0) : 0,
                             Rate = hasParams ? (float)J.Num(ctx, pars, "rate", 0) : 0f,
+                            Reach = hasParams ? J.Int(ctx, pars, "reach", 1) : 1,
                             Level = hasParams ? J.Int(ctx, pars, "level", 0) : 0,
                             Ramp = hasParams && J.Bool(ctx, pars, "ramp", false),
                             OnStreet = onStreet,
@@ -940,6 +941,7 @@ namespace PerformativeMail.Sim.Content
                         if (!sorter && (def.Throughput != 0f || def.BufferSize != 0)) ctx.Error($"'{id}': only a sorter has params.throughputPerSecond and params.bufferSize");
                         bool inserter = behaviour == BuildingBehaviour.Inserter;
                         if (inserter ? def.Rate <= 0f || def.Rotations != 4 : def.Rate != 0f) ctx.Error($"'{id}': an inserter, and only an inserter, has params.rate > 0 (and 4 rotations)");
+                        if (inserter ? def.Reach != 1 && def.Reach != 2 : def.Reach != 1) ctx.Error($"'{id}': params.reach is an inserter's, 1 or 2");
                         if (def.FilterSlots < 1 || def.FilterSlots > 3 || (def.FilterSlots != 1 && !sorter)) ctx.Error($"'{id}': params.filterSlotsPerOutput is 1 (a sorter's up to 3)");
                         if (def.Ramp && (behaviour != BuildingBehaviour.Belt || def.Length != 2 || def.Rotations != 8 || def.Level != 0)) ctx.Error($"'{id}': a ramp is a belt of footprint [1, 2], 8 rotations and level 0");
                         if (def.Level != 0 && (behaviour != BuildingBehaviour.Belt || def.Level != 1)) ctx.Error($"'{id}': only a belt is raised, by one level");

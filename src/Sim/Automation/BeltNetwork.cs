@@ -477,7 +477,7 @@ namespace PerformativeMail.Sim.Automation
             foreach (var c in _field.All)
             {
                 if (c.Def.Behaviour != BuildingBehaviour.Inserter) continue;
-                int o = FrontOf(TileIndex(c.Tx, c.Tz), c.Facing);
+                int o = Ahead(TileIndex(c.Tx, c.Tz), c.Facing, c.Def.Reach);
                 if (o >= 0 && AcceptsFrom(c.Facing, o, 0)) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
             }
             foreach (var node in _sorters)
@@ -774,26 +774,39 @@ namespace PerformativeMail.Sim.Automation
 
         // --- inserters (doc 04 §2.5) ---------------------------------------------------------------
 
+        /// <summary>The tile <paramref name="reach"/> tiles on from <paramref name="tile"/> the way <paramref name="rotation"/> faces; -1 off the map.</summary>
+        private int Ahead(int tile, int rotation, int reach)
+        {
+            for (int i = 0; i < reach && tile >= 0; i++) tile = FrontOf(tile, rotation);
+            return tile;
+        }
+
         /// <summary>
         /// The segment an inserter on (tx, tz) facing <paramref name="facing"/> puts mail on: the
-        /// one headed at the tile in front, on the ground, taking mail from that way; null for none.
+        /// one headed at the tile it reaches in front (a Long Inserter's two on), on the ground,
+        /// taking mail from that way; null for none.
         /// </summary>
-        public BeltSegment? FedBy(int tx, int tz, int facing)
+        public BeltSegment? FedBy(int tx, int tz, int facing, int reach = 1)
         {
-            int o = FrontOf(TileIndex(tx, tz), facing);
+            int o = Ahead(TileIndex(tx, tz), facing, reach);
             if (o < 0 || !AcceptsFrom(facing & 3, o, 0)) return null;
             var s = _segOf[o];
             return s != null && s.Head == o ? s : null;
         }
 
-        /// <summary>The segment whose end an inserter on (tx, tz) facing <paramref name="facing"/> takes from: the belt behind it running into it.</summary>
-        public BeltSegment? EndingAt(int tx, int tz, int facing)
+        /// <summary>
+        /// The segment whose end an inserter on (tx, tz) facing <paramref name="facing"/> takes
+        /// from: the belt behind it running into it, or for a Long Inserter the belt two behind
+        /// running into the tile between.
+        /// </summary>
+        public BeltSegment? EndingAt(int tx, int tz, int facing, int reach = 1)
         {
             int self = TileIndex(tx, tz);
-            int back = FrontOf(self, (facing + 2) & 3);
+            int into = Ahead(self, (facing + 2) & 3, reach - 1);
+            int back = Ahead(self, (facing + 2) & 3, reach);
             if (back < 0) return null;
             var s = _segOf[back];
-            return s != null && s.Tiles[s.Tiles.Count - 1] == back && s.FrontTile == self && OutLevel(back) == 0 ? s : null;
+            return s != null && s.Tiles[s.Tiles.Count - 1] == back && s.FrontTile == into && OutLevel(back) == 0 ? s : null;
         }
 
         /// <summary>The piece waiting at a segment's very end, if one is.</summary>

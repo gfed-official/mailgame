@@ -1267,7 +1267,7 @@ the whole line exists; the sub-lines say which parts do.
             nothing is drawn past an end before the server says so
       - [ ] Interest management for segments (everything is global, as for the rest so far);
             the M2 bandwidth and 5000-item acceptance figures
-- [x] Address Sorter with filter UI; Inserters; Depot (the Long Inserter waits)
+- [x] Address Sorter with filter UI; Inserters (and the Long Inserter); Depot
       - [x] **Address Sorter and its filter panel** (doc 04 §2.4, doc 09 §2.7, doc 10 §2.2–§3,
             doc 06 §3 ConfigureConstruct; design choice 103). `address_sorter_mk1` (behaviour
             `sorter`, 500 HP, four Iron Ingots and six Stones, footprint [2, 2]) behind
@@ -1319,7 +1319,21 @@ the whole line exists; the sub-lines say which parts do.
             sorter), `InserterFlowTests` (E and the panel, swings and the feed on a client),
             `BeltFuzzTests` with inserters, `CodecTests`; in the smoke an Inserter on the outfeed by
             the wheel on key 0 puts the Intake's mail on a belt, its arm swinging (`inserter`).
-            The Long Inserter (bp_sorting, reach 2) waits
+            The Long Inserter: see below
+      - [x] **Long Inserter** (doc 04 §2.5, doc 08 §2.6 "reach (1 or 2)", doc 10 §2.2; design
+            choice 106). `inserter_long` (120 HP, three Iron Ingots and a Plank, behind
+            `bp_sorting`) is an inserter with `params.reach` 2 (`BuildingDef.Reach`, validated 1
+            or 2 and only on an inserter): from two tiles behind (a chest's or depot's grid, the
+            Intake, the end of a belt running into the tile between) into two tiles in front (a
+            mailbox, a chest or depot, a sorter's input, a belt's head, which it starts), over
+            whatever stands between (`BeltNetwork.FedBy` / `EndingAt` take a reach). On the
+            sorter's key, third on the wheel. Drawn taller, with a boom a tile longer, blue bands and
+            a counterweight (`ConstructsView.ArmLength`, `ArmHeight`). `InserterTests` (content and
+            the blueprint; a chest into a mailbox over a belt that is not fed; the Intake over a belt
+            on the outfeed onto a belt two on, off its end over an empty tile into a chest),
+            `BeltFuzzTests` with it, the content pins; in the smoke the wheel on key 0 builds one a
+            tile past the outfeed, it puts the Intake's mail on a belt two tiles on, its arm
+            swinging with the grab 3.02 m out (`long-inserter`)
       - [x] **Depot** (doc 04 §2.6, doc 10 §2.2; design choice 105). `depot` (behaviour
             `container`, 800 HP, footprint [2, 2], eight Stones and four Iron Ingots, no
             blueprint) with the `depot` grid of 16 × 10 (`beltAccess: any_side`), on the chest's
@@ -1341,7 +1355,7 @@ the whole line exists; the sub-lines say which parts do.
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the Long Inserter, then Pipes (bp_pipes).
+Next in this order: Pipes (bp_pipes), then the Mail Truck and the Vehicle Depot.
 
 ## How to build and check
 
@@ -2385,6 +2399,15 @@ See "Commands" at the bottom (filled in as the tooling lands).
     goes in. It shares the chest's key (group "storage") so Build mode keeps ten keys, and it
     needs no blueprint (doc 04 lists none for it). Its grid is reached within the interact
     range of its sides, not of its middle.
+106. **The Long Inserter.** Doc 04 §2.5 says only "2-tile reach", doc 08 "reach (1 or 2)",
+    doc 10 its cost and bp_sorting. It takes from the tile two behind and puts into the tile two
+    in front, reaching over the tile between whatever stands there (a belt there is neither fed
+    nor emptied); from a belt it takes the piece waiting at the end of a belt two behind that
+    runs into the tile between (which must not hold a belt that carries it on). Everything else
+    is the Inserter's: rate 1.25, the kind filter, the targets. It shares the sorter's key (the
+    wheel: Address Sorter, Inserter, Long Inserter). Drawn with a taller post, a boom a tile
+    longer (3.02 m to the grab) at 1.25 m, blue bands (the second tier's colour, as the Fast
+    Belt's caps) and a counterweight.
 
 ## Commands
 

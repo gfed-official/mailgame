@@ -81,8 +81,8 @@ namespace PerformativeMail.Sim.Tests
             // The belt's variants: the Fast Belt, the Belt Ramp and the Elevated Belt (RampTests).
             var group = Db.RecipeKeys[Belt.Recipe.Key];
             Assert.Equal(new[] { "belt_mk1", "belt_mk2", "belt_mk1_ramp", "belt_mk1_elevated" }, group.Select(r => r.Building.Id));
-            // And the sorter's: the Address Sorter and the Inserter (InserterTests); the chest's: the Chest and the Depot (DepotTests).
-            Assert.Equal(Db.Recipes.Count - 5, Db.RecipeKeys.Count);
+            // And the sorter's: the Address Sorter, the Inserter and the Long Inserter (InserterTests); the chest's: the Chest and the Depot (DepotTests).
+            Assert.Equal(Db.Recipes.Count - 6, Db.RecipeKeys.Count);
             Assert.True(Db.RecipeKeys.Count <= ContentDb.MaxRecipeKeys);
             Assert.All(Db.Recipes.Where(r => r.Group.Length == 0), r => Assert.Equal(r, Db.RecipeKeys[r.Key].Single()));
         }

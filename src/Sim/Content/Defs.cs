@@ -295,6 +295,8 @@ namespace PerformativeMail.Sim.Content
         public int FilterOutputs => Behaviour == BuildingBehaviour.Sorter ? 3 : Behaviour == BuildingBehaviour.Splitter ? 3 : Behaviour == BuildingBehaviour.Inserter ? 1 : 0;
         /// <summary>An inserter: pieces it moves a second (doc 11: 1.25).</summary>
         public float Rate { get; init; }
+        /// <summary>An inserter: how many tiles off it takes from and puts into (doc 08 §2.6: 1, a Long Inserter's 2).</summary>
+        public int Reach { get; init; } = 1;
         /// <summary>Filters an output holds (doc 04 §2.4: 1 on a Mk1 sorter); a splitter's one, a kind.</summary>
         public int FilterSlots { get; init; } = 1;
         /// <summary>A sorter: pieces of mail it looks at a second (doc 11: Mk1 2).</summary>

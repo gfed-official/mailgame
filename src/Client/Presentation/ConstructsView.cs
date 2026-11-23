@@ -137,6 +137,14 @@ namespace PerformativeMail.Client.Presentation
             ArmsSwinging = swinging;
         }
 
+        /// <summary>How far out from its post the grab of the inserter on (tx, tz) is drawn; 0 for none (for the smoke).</summary>
+        public float GrabReach(int tx, int tz)
+        {
+            foreach (var (built, arm, _) in _arms)
+                if (built.Tx == tx && built.Tz == tz && arm.GetNodeOrNull<Node3D>("Grab") is { } grab) return -grab.Position.Z;
+            return 0f;
+        }
+
         /// <summary>The yaw that points an arm built along −Z the way <paramref name="dir"/> goes.</summary>
         private static float ArmYaw(int dir)
         {
@@ -144,15 +152,34 @@ namespace PerformativeMail.Client.Presentation
             return Mathf.Atan2(-v.X, -v.Z);
         }
 
-        /// <summary>An inserter's arm: a boom from the top of its post and a grab at its end, with a letter in it while carrying.</summary>
+        /// <summary>How long an inserter's boom is: to the near edge of the tile it reaches (a Long Inserter's two on).</summary>
+        public static float ArmLength(int reach) => 1.02f + (reach - 1) * SimConstants.TileSize;
+
+        /// <summary>The height of an inserter's boom: a Long Inserter's swings over a carrier's head and the belt between.</summary>
+        public static float ArmHeight(int reach) => reach > 1 ? 1.25f : 0.95f;
+
+        /// <summary>
+        /// An inserter's arm: a boom from the top of its post and a grab at its end, with a letter
+        /// in it while carrying. A Long Inserter's boom is a tile longer, blue-banded, with a
+        /// counterweight behind the post.
+        /// </summary>
         private Node3D InserterArm(Construct c, Vector3 at, bool worn)
         {
-            var arm = new Node3D { Name = $"Arm{c.Tx}_{c.Tz}", Position = at + new Vector3(0f, 0.95f, 0f) };
+            int reach = c.Def.Reach;
+            float len = ArmLength(reach);
+            var arm = new Node3D { Name = $"Arm{c.Tx}_{c.Tz}", Position = at + new Vector3(0f, ArmHeight(reach), 0f) };
             var steel = MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
             var orange = MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
-            arm.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.16f, 0.14f, 1.05f), 0.03f), orange, new Vector3(0f, 0f, -0.5f), default, "Boom"));
-            arm.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.3f, 0.32f, 0.12f), 0.03f), steel, new Vector3(0f, -0.12f, -1.02f), default, "Grab"));
-            var piece = MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.36f, 0.04f, 0.24f), 0.01f), MeshKit.Mat(new Color("f2ecd9"), 0.8f), new Vector3(0f, -0.3f, -1.02f), default, "Piece");
+            arm.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.16f, 0.14f, len + 0.03f), 0.03f), orange, new Vector3(0f, 0f, -len * 0.5f + 0.01f), default, "Boom"));
+            if (reach > 1)
+            {
+                var blue = MeshKit.Mat(BeltBlue, 0.55f, 0.2f);
+                for (int band = 1; band <= 2; band++)
+                    arm.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.19f, 0.17f, 0.14f), 0.02f), blue, new Vector3(0f, 0f, -len * band / 3f), default, $"Band{band}"));
+                arm.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.34f, 0.26f, 0.3f), 0.04f), MeshKit.Mat(SorterDark, 0.6f, 0.4f), new Vector3(0f, -0.02f, 0.32f), default, "Counterweight"));
+            }
+            arm.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.3f, 0.32f, 0.12f), 0.03f), steel, new Vector3(0f, -0.12f, -len), default, "Grab"));
+            var piece = MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.36f, 0.04f, 0.24f), 0.01f), MeshKit.Mat(new Color("f2ecd9"), 0.8f), new Vector3(0f, -0.3f, -len), default, "Piece");
             piece.Visible = false;
             arm.AddChild(piece);
             arm.Rotation = new Vector3(0f, ArmYaw(c.Facing) + Mathf.Pi, 0f);
@@ -501,21 +528,24 @@ namespace PerformativeMail.Client.Presentation
         /// yellow arrow on the plate the way it moves mail. The arm is a node of its own
         /// (<see cref="InserterArm"/>); the ghost draws it pointing ahead.
         /// </summary>
-        public static void InserterBase(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
+        public static void InserterBase(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn, int reach = 1)
         {
             var steel = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
             var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
             var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
             var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
             batch.Box(at + new Vector3(0f, 0.06f, 0f), new Vector3(1.3f, 0.12f, 1.3f), dark, 0.03f);
-            batch.Box(at + new Vector3(0f, 0.5f, 0f), new Vector3(0.36f, 0.8f, 0.36f), steel, 0.06f);
-            batch.Box(at + new Vector3(0f, 0.86f, 0f), new Vector3(0.46f, 0.12f, 0.46f), orange, 0.04f);
+            float top = ArmHeight(reach) - 0.09f;
+            batch.Box(at + new Vector3(0f, top * 0.5f + 0.05f, 0f), new Vector3(0.36f, top - 0.1f, 0.36f), steel, 0.06f);
+            batch.Box(at + new Vector3(0f, top, 0f), new Vector3(0.46f, 0.12f, 0.46f), orange, 0.04f);
+            if (reach > 1) batch.Box(at + new Vector3(0f, top - 0.3f, 0f), new Vector3(0.42f, 0.1f, 0.42f), only ?? MeshKit.Mat(BeltBlue, 0.55f, 0.2f), 0.03f);
             var v = Dir(facing);
             float yaw = Mathf.Atan2(v.X, v.Z);
             batch.Add(MeshKit.Box(new Vector3(0.1f, 0.02f, 0.4f)), yellow, new Transform3D(new Basis(Vector3.Up, yaw), at + v * 0.35f + new Vector3(0f, 0.13f, 0f)));
             batch.Add(MeshKit.Cone(0.13f, 0.22f, 3), yellow, new Transform3D(new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.Pi * 0.5f), at + v * 0.58f + new Vector3(0f, 0.13f, 0f)));
             // The ghost has no arm node: its arm is drawn into the batch, pointing ahead.
-            if (only != null) batch.Box(at + v * 0.5f + new Vector3(0f, 0.95f, 0f), new Vector3(Mathf.Abs(v.Z) * 0.16f + Mathf.Abs(v.X) * 1.05f, 0.14f, Mathf.Abs(v.X) * 0.16f + Mathf.Abs(v.Z) * 1.05f), only, 0.03f);
+            float len = ArmLength(reach) + 0.03f;
+            if (only != null) batch.Box(at + v * (len * 0.5f) + new Vector3(0f, ArmHeight(reach), 0f), new Vector3(Mathf.Abs(v.Z) * 0.16f + Mathf.Abs(v.X) * len, 0.14f, Mathf.Abs(v.X) * 0.16f + Mathf.Abs(v.Z) * len), only, 0.03f);
         }
 
         /// <summary>
@@ -599,7 +629,7 @@ namespace PerformativeMail.Client.Presentation
                     Sorter(batch, at, rotation & 3, only, worn);
                     return;
                 case BuildingBehaviour.Inserter:
-                    InserterBase(batch, at, rotation & 3, only, worn);
+                    InserterBase(batch, at, rotation & 3, only, worn, def.Reach);
                     return;
                 case BuildingBehaviour.Container when def.Width > 1:
                     Depot(batch, at, rotation & 3, only, worn);

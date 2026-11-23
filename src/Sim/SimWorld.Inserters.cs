@@ -12,7 +12,8 @@ namespace PerformativeMail.Sim
 {
     /// <summary>
     /// Inserters (doc 04 §2.5) in the tick, after the belts: each, when its rate lets it, takes one
-    /// piece of mail from what stands behind it and puts it into what stands in front. It only
+    /// piece of mail from what stands behind it and puts it into what stands in front (a Long
+    /// Inserter over the tile between, two off each way). It only
     /// takes what the front will take (and its kind filter lets through), so nothing is ever held
     /// in the arm and nothing is ever dropped.
     /// </summary>
@@ -55,7 +56,7 @@ namespace PerformativeMail.Sim
             var target = TargetOf(c);
             if (!target.Any) return false;
             var (dx, dz) = BeltNetwork.Dirs[c.Facing];
-            int bx = c.Tx - dx, bz = c.Tz - dz;
+            int bx = c.Tx - dx * c.Def.Reach, bz = c.Tz - dz * c.Def.Reach;
             var filter = c.Filter(0, 0);
 
             // The Intake (doc 04 §2.6: inserters pull from it too): the oldest piece the front takes.
@@ -66,7 +67,7 @@ namespace PerformativeMail.Sim
             if (behind != null && behind.ContainerId != 0 && GetContainer(behind.ContainerId) is { } box)
                 return TakeFromContainer(box, c, filter, target, oldestFirst: false, out kind);
             // The end of a belt running into it.
-            var seg = Belts.EndingAt(c.Tx, c.Tz, c.Facing);
+            var seg = Belts.EndingAt(c.Tx, c.Tz, c.Facing, c.Def.Reach);
             if (seg == null || !BeltNetwork.FrontWaiting(seg, out var item)) return false;
             if (!Passes(filter, item.Mail) || !Takes(target, item.Mail)) return false;
             Belts.TakeFront(seg);
@@ -81,7 +82,7 @@ namespace PerformativeMail.Sim
         private InserterTarget TargetOf(Construct c)
         {
             var (dx, dz) = BeltNetwork.Dirs[c.Facing];
-            int fx = c.Tx + dx, fz = c.Tz + dz;
+            int fx = c.Tx + dx * c.Def.Reach, fz = c.Tz + dz * c.Def.Reach;
             var t = new InserterTarget();
             if (!Map.InBounds(fx, fz)) return t;
             int mailbox = Belts.MailboxOn(fz * Map.Cols + fx);
@@ -102,7 +103,7 @@ namespace PerformativeMail.Sim
                 t.Sorter = Belts.SorterOf(front);
                 return t;
             }
-            t.Belt = Belts.FedBy(c.Tx, c.Tz, c.Facing);
+            t.Belt = Belts.FedBy(c.Tx, c.Tz, c.Facing, c.Def.Reach);
             return t;
         }
 

@@ -28,6 +28,8 @@
     "inputs": [ { "item": "iron_ingot", "count": 4 }, { "item": "stone", "count": 6 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_sorting", "group": "sorting" },
   { "id": "recipe_inserter", "produces": { "building": "inserter" },
     "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "sorting" },
+  { "id": "recipe_inserter_long", "produces": { "building": "inserter_long" },
+    "inputs": [ { "item": "iron_ingot", "count": 3 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_sorting", "group": "sorting" },
   { "id": "recipe_depot", "produces": { "building": "depot" },
     "inputs": [ { "item": "stone", "count": 8 }, { "item": "iron_ingot", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "group": "storage" }
 ]

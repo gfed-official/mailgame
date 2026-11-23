@@ -77,7 +77,7 @@ namespace PerformativeMail.Sim.Tests
             var kinds = new[]
             {
                 Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk2"), Db.Building("splitter"), Db.Building("merger"),
-                Db.Building("belt_mk1_ramp"), Db.Building("belt_mk1_elevated"), Db.Building("address_sorter_mk1"), Db.Building("inserter"), Db.Building("depot"),
+                Db.Building("belt_mk1_ramp"), Db.Building("belt_mk1_elevated"), Db.Building("address_sorter_mk1"), Db.Building("inserter"), Db.Building("inserter_long"), Db.Building("depot"),
             };
             var dest = map.Destinations[0];
             var filters = new[]
