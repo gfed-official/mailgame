@@ -605,6 +605,19 @@ Checked on 1ac7271; all three were still there.
 - Belt lines from the outfeed into a mailbox backing up on mixed Intake mail is choice 94 as
   meant; the Address Sorter (below) is what sorts it.
 
+### 2l. A check of belts, the Address Sorter, the Inserter and the Depot on 387171e (2026-11-23)
+
+No playtest on 387171e. Build, Sim.Tests (443), Net.Tests (181) and both smokes were green; nothing
+was found broken.
+
+- [x] The belt fuzz did not have the Depot in its mix: `BeltFuzzTests` now builds depots too (with
+      a container id, as the server does), its sink stores every third piece that reaches one, and
+      the count of mail made must equal what rides, waits in a sorter, was delivered, **was stored**
+      or went back to the Intake; the client's mirror takes stored mail off as the server's
+      `BeltItemRemoved` would. The fuzz area grew from 8 × 8 to 10 × 10 tiles (2 × 2 depots and
+      sorters crowded the lines out), and `RandomNetworks_FeedDepots` checks over four seeds that
+      depots really were fed. All invariants held on every seed
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is

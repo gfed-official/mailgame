@@ -11,7 +11,7 @@ using Xunit;
 namespace PerformativeMail.Sim.Tests
 {
     /// <summary>
-    /// Random belt networks (belts, splitters, mergers, built, turned and taken down under the
+    /// Random belt networks (belts, splitters, mergers, sorters, inserters, depots, built, turned and taken down under the
     /// mail) against what must always hold: no mail made or lost, none twice, every lane in order
     /// with its items apart, and a client's mirror, moved by the server's hand-offs alone, holding
     /// the same mail lane by lane on every segment.
@@ -24,7 +24,14 @@ namespace PerformativeMail.Sim.Tests
         {
             public readonly List<(uint Mail, int Head, byte Lane)> Moves = new List<(uint, int, byte)>();
             public readonly List<uint> Delivered = new List<uint>();
-            public bool TryStore(BeltSegment segment, in BeltItem item) => false;
+            public readonly List<uint> Stored = new List<uint>();
+            public bool TryStore(BeltSegment segment, in BeltItem item)
+            {
+                // A depot with room for every third piece, so its lines back up too.
+                if (item.Mail.Id % 3 != 0) return false;
+                Stored.Add(item.Mail.Id);
+                return true;
+            }
             public bool TryDeliver(BeltSegment segment, in BeltItem item)
             {
                 // Every other piece goes in, so some wait at the end.
@@ -48,7 +55,19 @@ namespace PerformativeMail.Sim.Tests
         [InlineData(6)]
         [InlineData(7)]
         [InlineData(8)]
-        public void RandomNetworks_KeepEveryPieceOfMail_InOrder_AndTheClientsMirrorAgrees(int seed)
+        public void RandomNetworks_KeepEveryPieceOfMail_InOrder_AndTheClientsMirrorAgrees(int seed) => Run(seed);
+
+        [Fact]
+        public void RandomNetworks_FeedDepots()
+        {
+            // Not every seed leaves a belt running into a depot that stands long enough; over a few, they do.
+            int stored = 0;
+            for (int seed = 1; seed <= 4; seed++) stored += Run(seed);
+            Assert.True(stored > 0, "no piece went into a depot");
+        }
+
+        /// <summary>One random network played out; the pieces that went into depots.</summary>
+        private static int Run(int seed)
         {
             var map = new SimWorld(Db, new SimSettings { Seed = 7, Raids = false, Draft = false }).Map;
             var serverField = new ConstructField(map);
@@ -58,7 +77,7 @@ namespace PerformativeMail.Sim.Tests
             var kinds = new[]
             {
                 Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk1"), Db.Building("belt_mk2"), Db.Building("splitter"), Db.Building("merger"),
-                Db.Building("belt_mk1_ramp"), Db.Building("belt_mk1_elevated"), Db.Building("address_sorter_mk1"), Db.Building("inserter"),
+                Db.Building("belt_mk1_ramp"), Db.Building("belt_mk1_elevated"), Db.Building("address_sorter_mk1"), Db.Building("inserter"), Db.Building("depot"),
             };
             var dest = map.Destinations[0];
             var filters = new[]
@@ -70,7 +89,7 @@ namespace PerformativeMail.Sim.Tests
             var rng = new Random(seed);
             var sink = new Sink();
             // Round a mailbox, so some lines end at one.
-            int size = 8;
+            int size = 10;
             int x0 = Math.Clamp((int)(dest.MailboxX / SimConstants.TileSize) - size / 2, 0, map.Cols - size);
             int z0 = Math.Clamp((int)(dest.MailboxZ / SimConstants.TileSize) - size / 2, 0, map.Rows - size);
             uint nextMail = 1;
@@ -86,7 +105,7 @@ namespace PerformativeMail.Sim.Tests
                     if (def == null) f.Remove(tx, tz);
                     else
                     {
-                        var c = f.Add(def, tx, tz, rot, def.Hp, 0);
+                        var c = f.Add(def, tx, tz, rot, def.Hp, def.Container != null ? 1000u + (uint)(tz * map.Cols + tx) : 0u);
                         // The same filters on both ends, as the server's ConstructConfigured would have it.
                         var rngF = new Random(tx * 977 + tz * 31 + rot);
                         var set = new List<MailFilter>();
@@ -130,10 +149,11 @@ namespace PerformativeMail.Sim.Tests
                 sink.Moves.Clear();
                 sink.Taken.Clear();
                 sink.SortedOut.Clear();
-                int deliveredBefore = sink.Delivered.Count;
+                int deliveredBefore = sink.Delivered.Count, storedBefore = sink.Stored.Count;
                 server.Step(SimConstants.TickDt, sink, (uint)tick);
                 client.Step(SimConstants.TickDt, null, (uint)tick);
                 for (int d = deliveredBefore; d < sink.Delivered.Count; d++) Assert.True(client.RemoveMail(sink.Delivered[d]));
+                for (int d = storedBefore; d < sink.Stored.Count; d++) Assert.True(client.RemoveMail(sink.Stored[d]));
                 foreach (uint taken in sink.Taken) Assert.True(client.RemoveMail(taken));
                 foreach (var (head, sorted) in sink.SortedOut) client.Add(client.SegmentByHead(head)!, sorted);
                 handOffs += sink.Moves.Count + sink.SortedOut.Count;
@@ -155,7 +175,7 @@ namespace PerformativeMail.Sim.Tests
                 var buffered = server.Sorters.SelectMany(n => n.Buffer).Select(m => m.Id).ToList();
                 Assert.Empty(riding.Intersect(buffered));
                 Assert.Equal(buffered.Count, buffered.Distinct().Count());
-                Assert.Equal(made.Count, riding.Count + buffered.Count + sink.Delivered.Count + orphaned.Count);
+                Assert.Equal(made.Count, riding.Count + buffered.Count + sink.Delivered.Count + sink.Stored.Count + orphaned.Count);
                 foreach (var s in server.Segments)
                 {
                     for (int k = 0; k < s.Items.Count; k++)
@@ -177,6 +197,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.True(made.Count > 100, $"only {made.Count} pieces were put on");
             // A 2 × 2 sorter or an inserter dropped on a line breaks it: fewer hand-offs than belts alone, still plenty.
             Assert.True(handOffs > 12, $"only {handOffs} hand-offs");
+            return sink.Stored.Count;
         }
     }
 }
