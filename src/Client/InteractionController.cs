@@ -350,7 +350,9 @@ namespace PerformativeMail.Client
             }
             foreach (var built in world.Constructs.All)
             {
-                if (built.ContainerId == 0 || DistSq(px, pz, built.X, built.Z) > rangeSq) continue;
+                // A Depot is reached from round its four tiles, measured to its middle.
+                float reach = range + (built.Def.Width > 1 ? built.Def.Radius : 0f);
+                if (built.ContainerId == 0 || DistSq(px, pz, built.CentreX, built.CentreZ) > reach * reach) continue;
                 if (world.OpenContainerId == built.ContainerId)
                 {
                     prompt.Kind = InteractKind.CloseChest;

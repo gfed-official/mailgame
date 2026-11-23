@@ -213,6 +213,18 @@ namespace PerformativeMail.Sim
         void IBeltSink.Moved(BeltSegment from, BeltSegment to, in BeltItem item) =>
             Events.Add(new BeltItemMovedEvent { MailId = item.Mail.Id, X = HeadX(to), Y = HeadZ(to), Lane = item.Lane });
 
+        /// <summary>A belt's end at a Depot: the piece goes into its grid if there is room, else it waits and the line backs up.</summary>
+        bool IBeltSink.TryStore(BeltSegment segment, in BeltItem item)
+        {
+            var store = GetContainer(segment.ContainerId);
+            var stack = ItemStack.OfMail(item.Mail);
+            if (store == null || !InventoryOps.HasRoomFor(Content, store, stack)) return false;
+            InventoryOps.AutoPlace(Content, store, stack, _entryIds);
+            CommitContainer(store.Id);
+            Events.Add(new BeltItemRemovedEvent { MailId = item.Mail.Id });
+            return true;
+        }
+
         void IBeltSink.Took(BeltSegment from, in BeltItem item) => Events.Add(new BeltItemRemovedEvent { MailId = item.Mail.Id });
 
         void IBeltSink.Sorted(SorterNode sorter, int port, BeltSegment to, in BeltItem item) =>

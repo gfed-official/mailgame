@@ -31,6 +31,8 @@ namespace PerformativeMail.Sim.Automation
         Split,
         /// <summary>An Address Sorter's input (doc 04 §2.4): into its buffer while there is room.</summary>
         Sorter,
+        /// <summary>A container belts feed directly (doc 04 §2.6: a Depot, on any side): into its grid while it has room.</summary>
+        Container,
     }
 
     /// <summary>
@@ -120,6 +122,8 @@ namespace PerformativeMail.Sim.Automation
         public Construct? Splitter;
         /// <summary>A sorter end: the sorter.</summary>
         public SorterNode? Sorter;
+        /// <summary>A container end: the container's id.</summary>
+        public uint ContainerId;
         public int NextOut;
         /// <summary>A filtered splitter: the turn of the outputs without a filter, kept apart so neither kind of mail skews the other's.</summary>
         public int NextOutRest;
@@ -159,6 +163,8 @@ namespace PerformativeMail.Sim.Automation
         bool TryDeliver(BeltSegment segment, in BeltItem item);
         /// <summary>An item went from one segment's end onto the next one's head.</summary>
         void Moved(BeltSegment from, BeltSegment to, in BeltItem item);
+        /// <summary>The front item has reached a container's side; true if the container took it.</summary>
+        bool TryStore(BeltSegment segment, in BeltItem item);
         /// <summary>An item went off a segment's end into a sorter's buffer.</summary>
         void Took(BeltSegment from, in BeltItem item);
         /// <summary>A sorter put a piece out by a port onto the head of a segment.</summary>
@@ -531,6 +537,13 @@ namespace PerformativeMail.Sim.Automation
                     s.End = BeltEndKind.Sorter;
                     s.Sorter = SorterOf(sorter);
                 }
+                // A Depot (doc 04 §2.6 "belts can feed directly on any side"), from a belt on the ground.
+                else if (s.FrontTile >= 0 && OutLevel(lastTile) == 0 && _field.At(s.FrontTile % _map.Cols, s.FrontTile / _map.Cols) is { ContainerId: > 0 } store
+                    && store.Def.Container?.BeltAccess == "any_side")
+                {
+                    s.End = BeltEndKind.Container;
+                    s.ContainerId = store.ContainerId;
+                }
                 // A mailbox takes mail from a belt on the ground, not from one running over it.
                 else if (s.FrontTile >= 0 && OutLevel(lastTile) == 0 && _mailboxAt.TryGetValue(s.FrontTile, out int dest))
                 {
@@ -589,7 +602,7 @@ namespace PerformativeMail.Sim.Automation
         }
 
         private static string Key(BeltSegment s) =>
-            string.Join(",", s.Tiles) + "|" + s.End + "|" + (s.Next?.Head ?? -1) + "|" + string.Join(",", s.Outs.ConvertAll(o => o.Head)) + "|" + s.DestId + "|" + s.Speed + "|" + s.FromIntake + "|" + (s.Sorter != null ? s.Sorter.Built.Tx * 1000 + s.Sorter.Built.Tz : -1);
+            string.Join(",", s.Tiles) + "|" + s.End + "|" + (s.Next?.Head ?? -1) + "|" + string.Join(",", s.Outs.ConvertAll(o => o.Head)) + "|" + s.DestId + "|" + s.Speed + "|" + s.FromIntake + "|" + (s.Sorter != null ? s.Sorter.Built.Tx * 1000 + s.Sorter.Built.Tz : -1) + "|" + s.ContainerId;
 
         private void Walk(int start, Dictionary<int, int> from)
         {
@@ -741,6 +754,12 @@ namespace PerformativeMail.Sim.Automation
                         }
                         break;
                     }
+                    case BeltEndKind.Container:
+                        if (!sink.TryStore(s, it)) break;
+                        s.Items.RemoveAt(i);
+                        ItemCount--;
+                        gone = true;
+                        break;
                     case BeltEndKind.Mailbox:
                         if (tick < s.NextInsertTick) break;
                         if (!sink.TryDeliver(s, it)) break;

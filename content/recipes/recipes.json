@@ -2,7 +2,7 @@
   { "id": "recipe_wall_wood", "produces": { "building": "wall_wood" },
     "inputs": [ { "item": "log", "count": 3 } ], "craftSeconds": 0, "unlockShift": 1 },
   { "id": "recipe_chest", "produces": { "building": "chest" },
-    "inputs": [ { "item": "log", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1 },
+    "inputs": [ { "item": "log", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "group": "storage" },
   { "id": "recipe_wall_stone", "produces": { "building": "wall_stone" },
     "inputs": [ { "item": "stone", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_defense" },
   { "id": "recipe_spike_strip", "produces": { "building": "spike_strip" },
@@ -27,5 +27,7 @@
   { "id": "recipe_address_sorter_mk1", "produces": { "building": "address_sorter_mk1" },
     "inputs": [ { "item": "iron_ingot", "count": 4 }, { "item": "stone", "count": 6 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_sorting", "group": "sorting" },
   { "id": "recipe_inserter", "produces": { "building": "inserter" },
-    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "sorting" }
+    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "sorting" },
+  { "id": "recipe_depot", "produces": { "building": "depot" },
+    "inputs": [ { "item": "stone", "count": 8 }, { "item": "iron_ingot", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "group": "storage" }
 ]

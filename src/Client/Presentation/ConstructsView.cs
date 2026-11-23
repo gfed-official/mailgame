@@ -518,6 +518,46 @@ namespace PerformativeMail.Client.Presentation
             if (only != null) batch.Box(at + v * 0.5f + new Vector3(0f, 0.95f, 0f), new Vector3(Mathf.Abs(v.Z) * 0.16f + Mathf.Abs(v.X) * 1.05f, 0.14f, Mathf.Abs(v.X) * 0.16f + Mathf.Abs(v.Z) * 1.05f), only, 0.03f);
         }
 
+        /// <summary>
+        /// A Depot (doc 04 §2.6): a steel store over its four tiles in the look of the reference's
+        /// storage containers — ribbed grey walls between orange corner posts, a flat roof with a
+        /// lip, a roll-up door on the side it faces, and an amber band where belts come in.
+        /// <paramref name="at"/> is the middle of its tiles.
+        /// </summary>
+        public static void Depot(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
+        {
+            const float t = SimConstants.TileSize;
+            float w = 2f * t - 0.5f, h = 1.9f;
+            var body = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.5f, 0.55f);
+            var rib = only ?? MeshKit.Mat(new Color("7d858f"), 0.45f, 0.6f);
+            var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
+            batch.Box(at + new Vector3(0f, 0.08f, 0f), new Vector3(2f * t - 0.15f, 0.16f, 2f * t - 0.15f), dark, 0.03f);
+            batch.Box(at + new Vector3(0f, 0.16f + h * 0.5f, 0f), new Vector3(w, h, w), body, 0.06f);
+            // Ribs along every side, a hand proud of the walls.
+            for (int side = 0; side < 4; side++)
+            {
+                var n = Dir(side);
+                var along = new Vector3(Mathf.Abs(n.Z), 0f, Mathf.Abs(n.X));
+                for (int k = -2; k <= 2; k++)
+                    batch.Box(at + n * (w * 0.5f + 0.03f) + along * (k * 0.62f) + new Vector3(0f, 0.16f + h * 0.5f, 0f), along * 0.1f + new Vector3(0f, h - 0.1f, 0f) + new Vector3(Mathf.Abs(n.X), 0f, Mathf.Abs(n.Z)) * 0.08f, rib, 0.02f);
+            }
+            for (int cx = -1; cx <= 1; cx += 2)
+                for (int cz = -1; cz <= 1; cz += 2)
+                    batch.Box(at + new Vector3(cx * w * 0.5f, 0.16f + h * 0.5f + 0.05f, cz * w * 0.5f), new Vector3(0.24f, h + 0.1f, 0.24f), orange, 0.04f);
+            batch.Box(at + new Vector3(0f, 0.16f + h + 0.08f, 0f), new Vector3(w + 0.3f, 0.16f, w + 0.3f), rib, 0.04f);
+            // The belts' band, all round at the height mail comes in.
+            batch.Box(at + new Vector3(0f, 0.42f, 0f), new Vector3(w + 0.06f, 0.12f, w + 0.06f), yellow, 0.02f);
+            // The roll-up door on the side it faces.
+            var f = Dir(facing);
+            var across = new Vector3(Mathf.Abs(f.Z), 0f, Mathf.Abs(f.X));
+            var depth = new Vector3(Mathf.Abs(f.X), 0f, Mathf.Abs(f.Z));
+            batch.Box(at + f * (w * 0.5f + 0.04f) + new Vector3(0f, 0.16f + 0.75f, 0f), across * 1.7f + depth * 0.06f + new Vector3(0f, 1.4f, 0f), dark, 0.02f);
+            for (int k = 0; k < 6; k++)
+                batch.Box(at + f * (w * 0.5f + 0.08f) + new Vector3(0f, 0.3f + k * 0.22f, 0f), across * 1.6f + depth * 0.04f + new Vector3(0f, 0.05f, 0f), rib, 0.01f);
+        }
+
         /// <summary>A framed opening at the edge of a sorter's tile (along, across) on the side <paramref name="dir"/>.</summary>
         private static void Mouth(MeshBatch batch, Vector3 centre, int facing, int along, int across, int dir, Material frame, Material hole)
         {
@@ -560,6 +600,9 @@ namespace PerformativeMail.Client.Presentation
                     return;
                 case BuildingBehaviour.Inserter:
                     InserterBase(batch, at, rotation & 3, only, worn);
+                    return;
+                case BuildingBehaviour.Container when def.Width > 1:
+                    Depot(batch, at, rotation & 3, only, worn);
                     return;
                 case BuildingBehaviour.Container:
                     if (only != null) batch.Box(new Vector3(0f, 0.4f, 0f), new Vector3(0.96f, 0.8f, 0.66f), only, 0.1f, new Vector3(0f, Mathf.RadToDeg(Yaw(rotation)), 0f));

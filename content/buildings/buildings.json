@@ -54,5 +54,9 @@
   { "id": "inserter", "name": "Inserter", "footprint": [1, 1], "rotations": 4, "hp": 120,
     "placement": { "onStreet": false }, "behaviour": "inserter",
     "params": { "radius": 0.35, "height": 1.1, "rate": 1.25 },
-    "recipe": "recipe_inserter", "tags": ["automation", "sorting"] }
+    "recipe": "recipe_inserter", "tags": ["automation", "sorting"] },
+  { "id": "depot", "name": "Depot", "footprint": [2, 2], "rotations": 4, "hp": 800,
+    "placement": { "onStreet": false }, "behaviour": "container", "container": "depot",
+    "params": { "radius": 1.5, "height": 2.0 },
+    "recipe": "recipe_depot", "tags": ["storage"] }
 ]

@@ -743,8 +743,141 @@ namespace PerformativeMail.App
                 }
 
                 case 27:
+                {
                     if (client.PendingRequestCount > 0 || server.Constructs.At(world.Belts.OutfeedX, world.Belts.OutfeedZ) != null) break;
-                    Check(build.Toggle() == false && !build.Active, "B did not put Build mode down after the belt");
+                    // A Depot (doc 04 §2.6) by the wheel on the chest's key, on four open tiles.
+                    var player = server.GetPlayer(world.LocalId)!;
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("stone"), 8)), "no room for eight Stones");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 4)), "no room for four Iron Ingots");
+                    var depot = world.Content.Building("depot");
+                    var map = world.Map;
+                    int hx = (int)MathF.Floor(world.Local.X / SimConstants.TileSize), hz = (int)MathF.Floor(world.Local.Z / SimConstants.TileSize);
+                    _splitX = -1;
+                    for (int r = 2; r <= 10 && _splitX < 0; r++)
+                        for (int dz = -r; dz <= r && _splitX < 0; dz++)
+                            for (int dx = -r; dx <= r && _splitX < 0; dx++)
+                            {
+                                int x = hx + dx, z = hz + dz;
+                                if ((Math.Abs(dx) != r && Math.Abs(dz) != r) || BuildRules.CheckPlacement(map, world.Constructs, depot, x, z, 0) != OpResult.Ok) continue;
+                                if (BuildRules.CheckTile(map, world.Constructs, x - 1, z) != OpResult.Ok || !FreeGround(map, BuildRules.TileCentre(x - 1), BuildRules.TileCentre(z), -1)) continue;
+                                (_splitX, _splitZ) = (x, z);
+                            }
+                    if (_splitX < 0)
+                    {
+                        Fail("no four open tiles near the Post Office for the Depot");
+                        return false;
+                    }
+                    player.Move.X = BuildRules.TileCentre(_splitX - 1) - 0.4f;
+                    player.Move.Z = BuildRules.TileCentre(_splitZ);
+                    var chestKey = world.Content.Recipes.First(r => r.Building.Id == "chest").Key;
+                    Check(build.PressKey(chestKey), "the chest's key did not take");
+                    for (int i = 0; i < 2 && build.Recipe?.Building != depot; i++) build.Cycle(1);
+                    for (int i = 0; i < 4 && build.Rotation != 0; i++) build.Rotate();
+                    Check(build.Recipe?.Building == depot, $"the wheel on key {chestKey + 1} never came to the Depot ({build.Recipe?.Building.Name})");
+                    _beltStep = 28;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 28:
+                {
+                    AimAtTile(_splitX, _splitZ);
+                    var built = world.Constructs.At(_splitX, _splitZ);
+                    if (built == null)
+                    {
+                        if (_beltFrames == 8)
+                        {
+                            build.Update(1.0 / 30.0, false, false);
+                            hud.Refresh();
+                            Check(build.Ghost.State == OpResult.Ok && hud.PromptText.StartsWith("Build Depot", StringComparison.Ordinal),
+                                $"the Depot's ghost at ({_splitX}, {_splitZ}) is {build.Ghost.State}, the prompt \"{hud.PromptText}\"");
+                            build.Update(1.0 / 30.0, true, false);
+                            return true;
+                        }
+                        break;
+                    }
+                    if (client.PendingRequestCount > 0) break;
+                    Check(built.Def.Id == "depot" && world.Constructs.At(_splitX + 1, _splitZ + 1) == built && built.ContainerId != 0,
+                        $"the Depot at ({_splitX}, {_splitZ}) is a {built.Def.Id} on {(world.Constructs.At(_splitX + 1, _splitZ + 1) == built ? "four" : "fewer")} tiles");
+                    // Out of Build mode, E opens it like a chest.
+                    Check(build.Toggle() == false, "B did not put Build mode down at the Depot");
+                    var box = AimBox.Built(world.Map, built);
+                    ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    _beltStep = 29;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 29:
+                {
+                    var built = world.Constructs.At(_splitX, _splitZ)!;
+                    var aim = AimBox.Built(world.Map, built);
+                    ViewRay.Aim(world.Local, aim.X, aim.Y, aim.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    // The delivery bot shuts whatever is open outside Delivery: it stands aside while the Depot is.
+                    if (!_botAside)
+                    {
+                        client.TickStarting -= _botTick;
+                        _botAside = true;
+                    }
+                    // A tap of E while it says "Open Depot", again if the first was early.
+                    if (_beltFrames % 20 == 4 && world.OpenContainerId == 0 && _session.Interaction.Prompt.Kind == InteractKind.OpenChest)
+                    {
+                        _session.Interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
+                        break;
+                    }
+                    if (world.OpenContainerId != built.ContainerId || !_screen.Inventory.IsVisibleInTree() || _beltFrames < 8) { _depotShown = 0; break; }
+                    // The panel lays itself out over a frame or two after it comes up.
+                    if (++_depotShown < 4) break;
+                    var grid = world.OpenContainer;
+                    Check(grid != null && grid.Def.Id == "depot" && _screen.Inventory.ExternalTitle == "Depot" && _screen.Inventory.ExternalGrid.IsVisibleInTree(),
+                        $"E at the Depot opened {grid?.Def.Id}, titled \"{_screen.Inventory.ExternalTitle}\"");
+                    var seen = GetViewport().GetVisibleRect();
+                    Check(seen.Encloses(_screen.Inventory.ExternalGrid.GetGlobalRect()), $"the Depot's grid at {_screen.Inventory.ExternalGrid.GetGlobalRect()} leaves the view");
+                    Shot("depot-open");
+                    client.CloseContainer();
+                    _beltStep = 30;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 30:
+                {
+                    var built = world.Constructs.At(_splitX, _splitZ)!;
+                    if (client.PendingRequestCount > 0 || world.OpenContainerId != 0) break;
+                    // Shut on both ends: the bot comes back.
+                    if (_botAside)
+                    {
+                        client.TickStarting += _botTick;
+                        _botAside = false;
+                    }
+                    var player = server.GetPlayer(world.LocalId)!;
+                    player.Move.X = BuildRules.TileCentre(_splitX - 1) - 4.5f;
+                    if (_beltFrames < 10) break;
+                    var box = AimBox.Built(world.Map, built);
+                    ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    if (_beltFrames < 16) break;
+                    view.Refresh();
+                    Shot("depot");
+                    GD.Print($"[smoke] depot: a Depot built at ({_splitX}, {_splitZ}) on four tiles by the wheel on the chest's key, opened by E, its 16 x 10 grid on screen");
+                    player.Move.X = BuildRules.TileCentre(_splitX - 1) - 0.4f;
+                    _beltStep = 31;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 31:
+                {
+                    if (_beltFrames < 8) break;
+                    var built = world.Constructs.At(_splitX, _splitZ);
+                    if (built != null && client.PendingRequestCount == 0 && _beltFrames == 8) client.RemoveConstruct(built);
+                    if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
+                    _beltStep = 32;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 32:
+                    Check(!build.Active, "Build mode is still up after the belt");
                     _beltVisits++;
                     _beltStep = 0;
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;
@@ -766,7 +899,8 @@ namespace PerformativeMail.App
         }
 
         private bool _beltFeedSeen;
-        private int _outfeedIntake, _splitX, _splitZ, _rampRot;
+        private int _outfeedIntake, _splitX, _splitZ, _rampRot, _depotShown;
+        private bool _botAside;
 
         /// <summary>The lowest mail id in a container: the oldest piece there (uint.MaxValue for none).</summary>
         private static uint OldestIn(Sim.Inventory.GridContainer c)

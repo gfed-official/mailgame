@@ -931,8 +931,9 @@ namespace PerformativeMail.Sim.Content
                         };
                         // Doc 04 §2.1: a ramp is two tiles long and runs up or down; an elevated belt one level up crosses a street.
                         bool sorter = behaviour == BuildingBehaviour.Sorter;
-                        if (sorter ? def.Width != 2 || def.Length != 2 : def.Width != 1 || (def.Length != 1 && !(def.Ramp && def.Length == 2)))
-                            ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2])");
+                        bool square = sorter || behaviour == BuildingBehaviour.Container;
+                        if (square && def.Width == 2 ? def.Length != 2 : def.Width != 1 || (def.Length != 1 && !(def.Ramp && def.Length == 2)) || (sorter && def.Width != 2))
+                            ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2], a container [1, 1] or [2, 2])");
                         // Doc 04 §2.4: a sorter looks at its mail at a rate, out of a buffer.
                         if (sorter && (def.Throughput <= 0f || def.BufferSize < 1 || def.BufferSize > 64 || def.Rotations != 4))
                             ctx.Error($"'{id}': a sorter needs params.throughputPerSecond > 0, params.bufferSize in 1..64 and 4 rotations");

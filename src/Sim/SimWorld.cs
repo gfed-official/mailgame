@@ -79,6 +79,8 @@ namespace PerformativeMail.Sim
             /// <summary>Owning player for body containers; None for world containers.</summary>
             public EntityId Owner;
             public float X, Z;
+            /// <summary>Metres more than the interact range it is reached from: a Depot's half width, its middle being far from its sides.</summary>
+            public float Reach;
             /// <summary>The vehicle whose cargo it is: only its rider opens it.</summary>
             public Vehicles.Vehicle? Vehicle;
             public readonly List<EntityId> Viewers = new List<EntityId>();
@@ -452,7 +454,8 @@ namespace PerformativeMail.Sim
             // Doc 03 §2 Bike: the rider reaches the cargo from the saddle, and only the rider.
             if (info.Vehicle != null) return info.Vehicle.Rider == p.Id && p.Move.Riding;
             float dx = p.Move.X - info.X, dz = p.Move.Z - info.Z;
-            return dx * dx + dz * dz <= _serverInteractRange * _serverInteractRange;
+            float range = _serverInteractRange + info.Reach;
+            return dx * dx + dz * dz <= range * range;
         }
 
         private void CloseExternal(Player p, bool notify)

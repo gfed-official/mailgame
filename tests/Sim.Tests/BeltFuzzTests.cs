@@ -24,6 +24,7 @@ namespace PerformativeMail.Sim.Tests
         {
             public readonly List<(uint Mail, int Head, byte Lane)> Moves = new List<(uint, int, byte)>();
             public readonly List<uint> Delivered = new List<uint>();
+            public bool TryStore(BeltSegment segment, in BeltItem item) => false;
             public bool TryDeliver(BeltSegment segment, in BeltItem item)
             {
                 // Every other piece goes in, so some wait at the end.

@@ -32,6 +32,7 @@ namespace PerformativeMail.Sim.Tests
         {
             public readonly List<uint> Taken = new List<uint>();
             public readonly List<(SorterNode Node, int Port, uint Mail)> Out = new List<(SorterNode, int, uint)>();
+            public bool TryStore(BeltSegment segment, in BeltItem item) => false;
             public bool TryDeliver(BeltSegment segment, in BeltItem item) => false;
             public void Moved(BeltSegment from, BeltSegment to, in BeltItem item) { }
             public void Took(BeltSegment from, in BeltItem item) => Taken.Add(item.Mail.Id);
@@ -256,6 +257,7 @@ namespace PerformativeMail.Sim.Tests
         private sealed class MovesSink : IBeltSink
         {
             public readonly List<(int Head, ushort Kind)> Moves = new List<(int, ushort)>();
+            public bool TryStore(BeltSegment segment, in BeltItem item) => false;
             public bool TryDeliver(BeltSegment segment, in BeltItem item) => false;
             public void Moved(BeltSegment from, BeltSegment to, in BeltItem item) => Moves.Add((to.Head, item.Mail.Kind));
             public void Took(BeltSegment from, in BeltItem item) { }

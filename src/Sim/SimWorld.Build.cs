@@ -81,7 +81,16 @@ namespace PerformativeMail.Sim
             foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, input.Count);
             CommitContainer(player.Inventory.Id);
             CommitContainer(player.Hotbar.Id);
-            uint containerId = def.Container != null ? CreateContainer(def.Container.Id, EntityId.None, cx, cz).Container.Id : 0;
+            uint containerId = 0;
+            if (def.Container != null)
+            {
+                // A Depot's grid is reached from round all of its four tiles.
+                var centre = def.Width > 1 ? Construct.TileOf(tx, tz, rotation, def.Length - 1, def.Width - 1) : (tx, tz);
+                float x = (cx + BuildRules.TileCentre(centre.Item1)) * 0.5f, z = (cz + BuildRules.TileCentre(centre.Item2)) * 0.5f;
+                var info = CreateContainer(def.Container.Id, EntityId.None, x, z);
+                if (def.Width > 1) info.Reach = def.Radius;
+                containerId = info.Container.Id;
+            }
             var built = Constructs.Add(def, tx, tz, rotation, def.Hp, containerId);
             Events.Add(new ConstructPlacedEvent
             {

@@ -1244,7 +1244,7 @@ the whole line exists; the sub-lines say which parts do.
             (with "[wheel] tier" it ran to x 1010 of 1280; before it, to about 967): it is
             shorter and drawn at 14 px while Build mode is up, and the smoke measures its words
             against the recipe bar's span
-      - [ ] Endpoints into containers (Depot) and vehicles
+      - [x] Endpoints into containers: the Depot (see the Depot under M2's sorting line); vehicles wait for the Mail Truck
 - [ ] Belt replication: LaneInsert/Remove/Checksum/State; client visual sim; interest management for segments
       - [x] Events `BeltState` (a segment whole: when compiled anew, to a joiner after the
             Welcome, on request), `BeltItemAdded`, `BeltItemMoved` (end to the next head),
@@ -1254,7 +1254,7 @@ the whole line exists; the sub-lines say which parts do.
             nothing is drawn past an end before the server says so
       - [ ] Interest management for segments (everything is global, as for the rest so far);
             the M2 bandwidth and 5000-item acceptance figures
-- [ ] Address Sorter with filter UI; Inserters; Depot
+- [x] Address Sorter with filter UI; Inserters; Depot (the Long Inserter waits)
       - [x] **Address Sorter and its filter panel** (doc 04 §2.4, doc 09 §2.7, doc 10 §2.2–§3,
             doc 06 §3 ConfigureConstruct; design choice 103). `address_sorter_mk1` (behaviour
             `sorter`, 500 HP, four Iron Ingots and six Stones, footprint [2, 2]) behind
@@ -1307,14 +1307,28 @@ the whole line exists; the sub-lines say which parts do.
             `BeltFuzzTests` with inserters, `CodecTests`; in the smoke an Inserter on the outfeed by
             the wheel on key 0 puts the Intake's mail on a belt, its arm swinging (`inserter`).
             The Long Inserter (bp_sorting, reach 2) waits
+      - [x] **Depot** (doc 04 §2.6, doc 10 §2.2; design choice 105). `depot` (behaviour
+            `container`, 800 HP, footprint [2, 2], eight Stones and four Iron Ingots, no
+            blueprint) with the `depot` grid of 16 × 10 (`beltAccess: any_side`), on the chest's
+            key of Build mode (recipe group "storage", the wheel steps between them). A belt on the
+            ground running into any of its four tiles from any side ends in it
+            (`BeltEndKind.Container`, `IBeltSink.TryStore`): the piece goes into its grid while
+            there is room, else it waits and the line backs up; an inserter pulls from it as from a
+            chest. A chest is still fed by an inserter only. Its grid is reached from round all its
+            tiles (the container sits at its middle with `Reach` its half width, on the server and
+            in the client's prompt); it is not taken down with anything in it. Drawn as a ribbed
+            steel store between orange corner posts with a roll-up door and the belts' amber band.
+            `DepotTests` (content, belts from the west and the south into it, opened from beside it,
+            refused removal, an inserter pulling it onto a belt; a chest holds the line); in the
+            smoke the wheel on the chest's key builds one (ghost prompt "Build Depot"), E opens it
+            with its grid on screen (`depot-open`, `depot`), and it is taken down again
 - [ ] Pipes (inlet filters, junctions, outlets, underground) behind bp_pipes
 - [ ] Mail Truck; Vehicle Depot with route console; NPC driver behaviour; player takeover
 - [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the Depot (the belt line's endpoints into containers come with it), then
-the Long Inserter.
+Next in this order: the Long Inserter, then Pipes (bp_pipes).
 
 ## How to build and check
 
@@ -2350,6 +2364,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     splitter's kind; it is configured by E as a sorter is. It stands in the way (it is a machine
     with a post, unlike a belt). It shares the sorter's key: with it Build mode would have had 11
     keys, and doc 09 §2.7 groups them as "Sorting".
+105. **The Depot.** Doc 04 §2.6 gives a grid of 10 × 16 and "belts feed directly on any side"
+    but no footprint or HP. It stands on 2 × 2 tiles like the sorter (the store of the
+    reference's yard), 800 HP, and holds the grid 16 wide and 10 high so it fits the inventory
+    screen beside the pockets. Only a belt on the ground feeds it (an elevated belt runs over),
+    any piece of mail it has room for, in Prep and Delivery alike; nothing else of a belt's
+    goes in. It shares the chest's key (group "storage") so Build mode keeps ten keys, and it
+    needs no blueprint (doc 04 lists none for it). Its grid is reached within the interact
+    range of its sides, not of its middle.
 
 ## Commands
 
