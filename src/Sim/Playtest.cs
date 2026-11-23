@@ -49,6 +49,12 @@ namespace PerformativeMail.Sim
         public const float StandOff = 1.3f;
         /// <summary>Enough for a delivery, a second one and a split.</summary>
         public const int MailCount = 3;
+        /// <summary>
+        /// In a shift with a raid, a parked carrier is let be for as long as they stay this near
+        /// the spot (playtest df77576: the raid holds its line a few metres past the mailboxes
+        /// next to the Post Office, and downed the carriers it found there before they could move).
+        /// </summary>
+        public const float GuardRadius = 4f;
 
         /// <summary>Each seat has a mailbox of its own, so two carriers do not stand in each other.</summary>
         public static DestinationDef Mailbox(WorldMap map, int slot) => map.Destinations[slot % map.Destinations.Count];

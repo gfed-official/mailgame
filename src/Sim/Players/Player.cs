@@ -83,6 +83,13 @@ namespace PerformativeMail.Sim.Players
         public uint ProtectedUntilTick;
         /// <summary>Past that tick the protection holds for as long as they have not left the Post Office's yard.</summary>
         public bool ProtectedInYard;
+        /// <summary>
+        /// Parked before a mailbox (<see cref="PlaytestFlags.AtMailbox"/>) in a shift with a raid: the
+        /// protection holds for as long as they stand within <see cref="PlaytestSpot.GuardRadius"/> of
+        /// <see cref="ParkX"/>, <see cref="ParkZ"/> and have not hurt a raider.
+        /// </summary>
+        public bool ProtectedAtPark;
+        public float ParkX, ParkZ;
         public uint HammerReadyTick;
         public uint CannonReadyTick;
         /// <summary>Run totals of the fight; cleared when a run starts.</summary>

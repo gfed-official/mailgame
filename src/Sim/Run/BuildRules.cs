@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
@@ -149,14 +150,57 @@ namespace PerformativeMail.Sim.Run
         }
 
         /// <summary>
+        /// Units of each input that come back (playtest df77576: a Conveyor Belt, one Plank and one
+        /// Iron Ingot, gave nothing back in Delivery). The part is reckoned over the materials as a
+        /// whole, rounded down: each input gets its own share rounded down, and the units the whole
+        /// has over those go one each to the inputs with the most left over, the dearer item first.
+        /// Half of a belt is its Iron Ingot; half of a splitter (two Ingots and a Plank) one Ingot.
+        /// </summary>
+        public static int[] RefundCounts(IReadOnlyList<RecipeInput> inputs, double ratio, int hp, int maxHp)
+        {
+            var back = new int[inputs.Count];
+            if (maxHp <= 0) return back;
+            double part = Math.Clamp(ratio, 0.0, 1.0) * Math.Clamp(hp, 0, maxHp) / maxHp;
+            int total = 0, given = 0;
+            for (int i = 0; i < inputs.Count; i++)
+            {
+                total += inputs[i].Count;
+                back[i] = Refund(inputs[i].Count, ratio, hp, maxHp);
+                given += back[i];
+            }
+            int extra = (int)Math.Floor(total * part + 1e-9) - given;
+            while (extra-- > 0)
+            {
+                int best = -1;
+                double bestRest = 0;
+                for (int i = 0; i < inputs.Count; i++)
+                {
+                    if (back[i] >= inputs[i].Count) continue;
+                    double rest = inputs[i].Count * part - back[i];
+                    if (best < 0 || rest > bestRest + 1e-9
+                        || (Math.Abs(rest - bestRest) <= 1e-9 && inputs[i].Item.SellPrice > inputs[best].Item.SellPrice))
+                    {
+                        best = i;
+                        bestRest = rest;
+                    }
+                }
+                if (best < 0) break;
+                back[best]++;
+            }
+            return back;
+        }
+
+        /// <summary>
         /// Puts what a construct gives back into the pockets, the inventory first. False (with
         /// whatever fitted put in) if not all of it has room: try it on copies first.
         /// </summary>
         public static bool GiveRefund(ContentDb content, RecipeDef recipe, double ratio, int hp, GridContainer inventory, GridContainer hotbar, EntryIdAllocator ids)
         {
-            foreach (var input in recipe.Inputs)
+            var counts = RefundCounts(recipe.Inputs, ratio, hp, recipe.Building.Hp);
+            for (int i = 0; i < recipe.Inputs.Count; i++)
             {
-                int left = Refund(input.Count, ratio, hp, recipe.Building.Hp);
+                var input = recipe.Inputs[i];
+                int left = counts[i];
                 while (left > 0)
                 {
                     int n = Math.Min(left, Math.Max(1, input.Item.MaxStack));

@@ -258,6 +258,78 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void AtMailboxWithRaidNow_TheParkedCarriersAreLetBe_UntilTheyWalkOffOrStrike()
+        {
+            // Playtest df77576: the raid holds its line 19 m from the Post Office, a few metres past
+            // the mailboxes of seats 0 and 1, and downed both carriers parked there within seconds.
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            var guest = world.AddPlayer("guest")!;
+            var flags = PlaytestFlags.RaidNow | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.NoTimer;
+            world.SetPlaytest(host, flags);
+            world.SetPlaytest(guest, flags);
+            StartDelivery(world, host);
+            Assert.True(world.Protected(host) && world.Protected(guest));
+
+            // Every pulse comes and the raiders stand about the mailboxes; nobody is hurt or gone for.
+            var waves = world.Content.Waves;
+            SimDriver.StepTicks(world, (int)((5 + waves.Pulses * waves.PulseIntervalSeconds) * Tps));
+            Assert.Equal(waves.Pulses, world.RaidPulsesSpawned);
+            Assert.NotEmpty(world.Enemies);
+            Assert.Contains(world.Enemies, e => MathF.Abs(e.X - host.Move.X) + MathF.Abs(e.Z - host.Move.Z) < 15f);
+            foreach (var p in new[] { host, guest })
+            {
+                Assert.False(p.Dead);
+                Assert.Equal(p.MaxHp, p.Hp);
+                Assert.True(world.Protected(p));
+                Assert.DoesNotContain(world.Enemies, e => e.Target == p.Id);
+            }
+
+            // The host strikes a raider: they are in the fight again.
+            world.DamageEnemy(world.Enemies[0], 1f, host);
+            Assert.False(world.Protected(host));
+            // The guest walks off the spot: the same, and it does not come back by walking back.
+            float x = guest.Move.X, z = guest.Move.Z;
+            var off = guest.Move;
+            off.X += PlaytestSpot.GuardRadius + 1f;
+            guest.Move = off;
+            world.Step();
+            Assert.False(world.Protected(guest));
+            var back = guest.Move;
+            back.X = x; back.Z = z;
+            guest.Move = back;
+            world.Step();
+            Assert.False(world.Protected(guest));
+        }
+
+        [Fact]
+        public void AtMailboxWithoutARaid_NoGuard()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.AtMailbox);
+            StartDelivery(world, host);
+            Assert.True(host.ProtectedAtPark == false && !world.Protected(host));
+        }
+
+        [Fact]
+        public void AtMailbox_AskedForInARaidUnderWay_TheCarrierIsLetBeAtTheMailbox()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.RaidNow);
+            StartDelivery(world, host);
+            SimDriver.StepTicks(world, 8 * Tps);
+            Assert.NotEmpty(world.Enemies);
+            // A guest's Hello in the middle of it.
+            var guest = world.AddPlayer("guest")!;
+            world.SetPlaytest(guest, PlaytestFlags.AtMailbox);
+            Assert.True(world.Protected(guest));
+            SimDriver.StepTicks(world, 20 * Tps);
+            Assert.Equal(guest.MaxHp, guest.Hp);
+        }
+
+        [Fact]
         public void AtMailbox_ARiderIsParkedInTheSaddle_TheBikeComesAlong()
         {
             // Playtest c59d497: the park at the shift's start took the rider off the bike and left it at the Post Office.

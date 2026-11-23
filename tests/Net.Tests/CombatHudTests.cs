@@ -22,10 +22,10 @@ namespace PerformativeMail.Net.Tests
             public readonly EventFeed Feed = new EventFeed();
             public readonly LootCards Cards = new LootCards();
 
-            public Session(uint seed = 3)
+            public Session(uint seed = 3, PlaytestFlags playtest = PlaytestFlags.None)
             {
                 Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = seed, Draft = false }, Hub);
-                Client = new ClientRuntime(Shared.Content, Hub.CreateClient(), "Ada");
+                Client = new ClientRuntime(Shared.Content, Hub.CreateClient(), "Ada", playtest, 0);
                 Client.EventReceived += e =>
                 {
                     Feed.OnEvent(Client.World!, e);
@@ -209,6 +209,32 @@ namespace PerformativeMail.Net.Tests
             s.Sim.DamagePlayer(player, 40f, raider.Def.Index);
             s.Step(6);
             Assert.Equal("60", HudText.Health(s.World.LocalHp));
+        }
+
+        [Fact]
+        public void ParkedAtTheMailboxWithARaid_TheBannerSaysTheMailboxKeepsThem_UntilTheyWalkOff()
+        {
+            // Playtest df77576: --raid with --playtest-mailbox downed the carrier at the mailbox in seconds.
+            var s = new Session(playtest: PlaytestFlags.RaidNow | PlaytestFlags.AtMailbox);
+            s.Client.StartRun();
+            s.Step(6);
+            s.Client.SetReady(true);
+            Assert.True(s.StepUntil(() => s.Sim.Run.Phase == RunPhase.Delivery && s.World.LocalProtected, 3));
+            Assert.True(s.World.LocalAtPark);
+            Assert.Equal("PROTECTED at the mailbox   ·   until you walk off or hit a raider", HudText.Protected(s.World));
+            Assert.True(s.StepUntil(() => s.Sim.Enemies.Count > 0, 10));
+            s.Step(20 * 30);
+            Assert.Equal("100", HudText.Health(s.World.LocalHp));
+            Assert.True(s.World.LocalProtected);
+
+            // Off the spot, the raid is theirs like anybody's.
+            var player = s.Sim.Players[0];
+            var move = player.Move;
+            move.Z += PlaytestSpot.GuardRadius + 1f;
+            player.Move = move;
+            s.Step(6);
+            Assert.False(s.World.LocalProtected);
+            Assert.Equal("", HudText.Protected(s.World));
         }
 
         [Fact]

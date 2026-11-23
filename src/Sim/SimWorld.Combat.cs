@@ -150,6 +150,8 @@ namespace PerformativeMail.Sim
                 // Out of the yard once its time is up, the protection does not come back by walking in
                 // again; and with no raider about there is nothing to be protected from.
                 if (p.ProtectedInYard && Tick >= p.ProtectedUntilTick && (_enemies.Count == 0 || !InYard(p))) p.ProtectedInYard = false;
+                // Walked off the mailbox, they are in the raid like anybody else.
+                if (p.ProtectedAtPark && !AtPark(p)) p.ProtectedAtPark = false;
                 if (p.Hp < p.MaxHp && Tick - p.LastDamageTick >= _combat.RegenDelayTicks)
                     p.Hp = MathF.Min(p.MaxHp, p.Hp + _combat.RegenPerTick);
                 StepHealing(p);
@@ -198,7 +200,14 @@ namespace PerformativeMail.Sim
         }
 
         /// <summary>True while the carrier's protection after a respawn holds.</summary>
-        public bool Protected(Player p) => !p.Dead && (Tick < p.ProtectedUntilTick || (p.ProtectedInYard && InYard(p)));
+        public bool Protected(Player p) => !p.Dead && (Tick < p.ProtectedUntilTick || (p.ProtectedInYard && InYard(p)) || (p.ProtectedAtPark && AtPark(p)));
+
+        /// <summary>Still where a playtest parked them, before their mailbox.</summary>
+        private static bool AtPark(Player p)
+        {
+            float dx = p.Move.X - p.ParkX, dz = p.Move.Z - p.ParkZ;
+            return dx * dx + dz * dz <= PlaytestSpot.GuardRadius * PlaytestSpot.GuardRadius;
+        }
 
         /// <summary>The Post Office's yard: respawnYardMetres around the pad, the Intake within it.</summary>
         public bool InYard(Player p)
@@ -211,6 +220,7 @@ namespace PerformativeMail.Sim
         {
             p.ProtectedUntilTick = 0;
             p.ProtectedInYard = false;
+            p.ProtectedAtPark = false;
         }
 
         private void HandleAttackInput(Player p, in PlayerInput input)

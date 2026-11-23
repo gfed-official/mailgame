@@ -175,6 +175,10 @@ namespace PerformativeMail.Sim
                 MoveCargo(ride);
             }
             p.Move = move;
+            // With raiders to come or about, they are not dropped into the fight: it is theirs to join.
+            p.ProtectedAtPark = Run.Phase == RunPhase.Delivery && (_raidStartTick != 0 || _enemies.Count > 0);
+            p.ParkX = x;
+            p.ParkZ = z;
             CloseExternal(p, notify: true);
             GivePlaytestMail(p, dest);
             // After the mail, so the client that hears of it can take the stack in hand.

@@ -141,6 +141,56 @@ namespace PerformativeMail.Net.Tests
             public int Card(string perk) => Sim.DraftOffer.ToList().FindIndex(p => p.Id == perk);
         }
 
+        /// <summary>
+        /// Playtest df77576: C late in Payday put the shop's cards up, the Draft came over them, and
+        /// the 2 meant for the shop took Second Wind. A number key just after the shop's cards came
+        /// down under the Draft takes no card; a moment later the keys are the Draft's again.
+        /// </summary>
+        [Fact]
+        public void AShopKeyPressedAsTheDraftTakesOver_TakesNoCard()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada");
+            s.StartDelivery();
+            s.MeetTheQuota(ada);
+            Assert.True(s.RunUntil(() => s.Sim.Run.Phase == RunPhase.Payday, 330));
+            Assert.True(s.RunUntil(() => s.Sim.Run.PhaseEndTick - s.Sim.Tick < 15, 30));
+            var world = ada.World!;
+            Assert.True(ada.ToggleShop());
+            Assert.True(world.ShopOpen);
+            Assert.False(ada.DraftKeysHeld);
+            Assert.True(s.RunUntil(() => world.Global.Phase == RunPhase.Draft && world.DraftOffer.Count > 0, 5));
+            s.Run(1);
+            Assert.False(world.ShopOpen);
+            Assert.True(ada.DraftKeysHeld);
+
+            // The key is swallowed: nothing is asked, nothing is taken, and it selects no slot.
+            Assert.True(ada.PressCardKey(1));
+            s.Run(10);
+            Assert.Equal(-1, world.LocalDraftPick);
+            Assert.Empty(world.LocalPerks.Concat(world.TeamPerks));
+            Assert.Equal(RunPhase.Draft, s.Sim.Run.Phase);
+
+            Assert.True(s.RunUntil(() => !ada.DraftKeysHeld, 2));
+            var card = s.Sim.DraftOffer[1];
+            Assert.True(ada.PressCardKey(1));
+            s.Run(10);
+            Assert.Contains(card, ada.World!.LocalPerks.Concat(ada.World.TeamPerks));
+        }
+
+        [Fact]
+        public void WithoutTheShopUp_TheDraftsKeysAreLiveAtOnce()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada");
+            s.ToTheDraft(ada);
+            Assert.False(ada.DraftKeysHeld);
+            var card = s.Sim.DraftOffer[0];
+            Assert.True(ada.PressCardKey(0));
+            s.Run(10);
+            Assert.Contains(card, ada.World!.LocalPerks.Concat(ada.World.TeamPerks));
+        }
+
         // The real content's perks: enough of them for new cards.
         [Fact]
         public void ARerollGivesOnlyThatPlayerNewCards_ThePicksStand_AndATakenPerkIsNamedByWhatItIs()

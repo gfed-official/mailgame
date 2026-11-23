@@ -490,7 +490,8 @@ namespace PerformativeMail.Client
         {
             if (!world.LocalProtected) return "";
             int s = (int)Math.Ceiling(world.ProtectedSecondsLeft);
-            return s > 0 ? $"PROTECTED   ·   {s} s, or until you hit a raider" : "PROTECTED in the yard   ·   until you leave it or hit a raider";
+            if (s > 0) return $"PROTECTED   ·   {s} s, or until you hit a raider";
+            return world.LocalAtPark ? "PROTECTED at the mailbox   ·   until you walk off or hit a raider" : "PROTECTED in the yard   ·   until you leave it or hit a raider";
         }
 
         /// <summary>The name over a carrier's head; one who has lost their connection is marked as long as they may come back.</summary>
@@ -872,11 +873,9 @@ namespace PerformativeMail.Client
         public static string Inputs(IReadOnlyList<RecipeInput> inputs, double part, int hp = 1, int maxHp = 1)
         {
             var parts = new List<string>();
-            foreach (var input in inputs)
-            {
-                int n = BuildRules.Refund(input.Count, part, hp, maxHp);
-                if (n > 0) parts.Add($"{input.Item.Name} {Count(n)}");
-            }
+            var counts = BuildRules.RefundCounts(inputs, part, hp, maxHp);
+            for (int i = 0; i < inputs.Count; i++)
+                if (counts[i] > 0) parts.Add($"{inputs[i].Item.Name} {Count(counts[i])}");
             return parts.Count == 0 ? "nothing" : string.Join(", ", parts);
         }
 

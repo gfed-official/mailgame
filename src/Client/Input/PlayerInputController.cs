@@ -94,10 +94,11 @@ namespace PerformativeMail.Client.InputHandling
                     // 1–9, 0 for the tenth, and the minus and equals keys beside it for the eleventh and twelfth (cards of the shop).
                     int digit = key.PhysicalKeycode == Key.Key0 ? 9 : key.PhysicalKeycode == Key.Minus ? 10 : key.PhysicalKeycode == Key.Equal ? 11
                         : (int)key.PhysicalKeycode - (int)Key.Key1;
+                    // At the shop's counter the numbers are its cards: first, so a key meant for them
+                    // in the frame Payday turns into the Draft is no pick (playtest df77576).
+                    if (_client.PressShopKey(digit)) return;
                     // In the Draft 1–3 are the cards, until one is taken.
                     if (_client.PressCardKey(digit)) return;
-                    // At the shop's counter the numbers are its cards.
-                    if (_client.PressShopKey(digit)) return;
                     // In Build mode they are the recipes.
                     if (!UiOpen && _build != null && _build.PressKey(digit)) return;
                     if (digit >= 0 && digit < HotbarSlots)

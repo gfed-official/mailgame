@@ -46,6 +46,14 @@ namespace PerformativeMail.Client
         private const int MaxPendingInputs = 120;
         /// <summary>The cards of the shop stay up this far past the reach they were opened within (the server serves a little further still).</summary>
         private const float ShopLeaveSlack = 0.4f;
+        /// <summary>
+        /// Playtest df77576: the shop's cards open as Payday runs out came down under the Draft's,
+        /// and the next number key, meant for the shop, took a perk. For this long after that the
+        /// number keys take no card (a click still does).
+        /// </summary>
+        public const double ShopToDraftKeyGraceSeconds = 1.5;
+        /// <summary>The server tick (as this client reckons it) before which the Draft's number keys do nothing.</summary>
+        private double _draftKeysFrom;
 
         public ClientState State { get; private set; } = ClientState.Connecting;
         public RejectReason RejectReason { get; private set; }
@@ -264,11 +272,15 @@ namespace PerformativeMail.Client
         /// the keys of the cards take a card and no hotbar slot. Returns whether the key was the
         /// Draft's; a card that is not open takes the key and does nothing.
         /// </summary>
+        public bool DraftKeysHeld => World != null && World.ServerTick < _draftKeysFrom;
+
         public bool PressCardKey(int key)
         {
             var world = World;
             if (State != ClientState.Joined || world == null || world.Global.Phase != RunPhase.Draft) return false;
             if (key < 0 || key >= world.DraftOffer.Count || world.FirstOpenCard < 0) return false;
+            // A key meant for the shop that the Draft has just replaced is swallowed, not a pick.
+            if (DraftKeysHeld) return true;
             PickPerk(key);
             return true;
         }
@@ -562,7 +574,12 @@ namespace PerformativeMail.Client
             if (_pendingInputs.Count > MaxPendingInputs) _pendingInputs.RemoveAt(0);
             PredictAttacks(world, input);
             // The cards come down with the shutters, and for whoever walks off or goes down.
-            if (world.ShopOpen && !AtShop(world, ShopLeaveSlack)) world.ShopOpen = false;
+            if (world.ShopOpen && !AtShop(world, ShopLeaveSlack))
+            {
+                world.ShopOpen = false;
+                if (world.Global.Phase == RunPhase.Draft)
+                    _draftKeysFrom = world.ServerTick + SimConstants.SecondsToTicks(ShopToDraftKeyGraceSeconds);
+            }
 
             _inputsMsg.Inputs.Clear();
             for (int i = Math.Max(0, _pendingInputs.Count - InputsMsg.MaxInputs); i < _pendingInputs.Count; i++)
@@ -774,6 +791,9 @@ namespace PerformativeMail.Client
             // Inputs sent from the old place would only walk the server's copy away from the box.
             _pendingInputs.Clear();
             world.Local = feet;
+            world.ParkX = x;
+            world.ParkZ = z;
+            world.HasPark = true;
             // The mail for the box in hand, when there is some: holding the key is all that is left to do.
             var hotbar = world.Hotbar;
             for (int slot = 1; slot < hotbar.Cols; slot++)

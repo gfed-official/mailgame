@@ -259,6 +259,20 @@ namespace PerformativeMail.Client
 
         /// <summary>The tick the local player's protection after a respawn ends by (their own first blow ends it sooner).</summary>
         public uint LocalProtectedUntilTick { get; internal set; }
+        /// <summary>Where a playtest last parked the local player before their mailbox (<see cref="HasPark"/>).</summary>
+        public float ParkX { get; internal set; }
+        public float ParkZ { get; internal set; }
+        public bool HasPark { get; internal set; }
+        /// <summary>True while the local player stands where the playtest parked them (the server's guard around it).</summary>
+        public bool LocalAtPark
+        {
+            get
+            {
+                if (!HasPark || !HasLocal) return false;
+                float dx = Local.X - ParkX, dz = Local.Z - ParkZ;
+                return dx * dx + dz * dz <= PlaytestSpot.GuardRadius * PlaytestSpot.GuardRadius;
+            }
+        }
         /// <summary>True while nothing hurts the local player and no raider goes for them.</summary>
         public bool LocalProtected => HasLocal && !Local.Dead && Players.TryGetValue(LocalId, out var me) && me.Protected;
         public double ProtectedSecondsLeft =>

@@ -577,6 +577,34 @@ No playtest report on 789d49f. The unit tests were green; `tools/smoke.sh` was r
 - The island bot's 2 ms tick budget missed once at p99 2.16 ms (mean 0.12 ms) under the box's
   load; three runs on their own passed.
 
+### 2k. Playtest issues of the df77576 report (`mailgame-harness/results/20261122-132422-df77576/report.md`, 2026-11-22)
+
+Checked on 1ac7271; all three were still there.
+
+- [x] `--raid` with `--playtest-mailbox`: the raid holds its line 19 m from the Post Office
+      (`raidStandoffMetres`), on the test street a few metres past the mailboxes of seats 0 and
+      1, so its 16–21 raiders found the parked carriers within 10 s and downed them (a repro
+      without input: both down 26 s in). A carrier parked in a shift with a raid (to come or
+      under way, also by a Hello in the middle of one) is now let be at the mailbox — not hurt,
+      not gone for — until they walk 4 m off the spot (`PlaytestSpot.GuardRadius`) or hurt a
+      raider (`Player.ProtectedAtPark`, as the yard keeps who stood up in it); the banner says
+      "PROTECTED at the mailbox · until you walk off or hit a raider" (design choice 100).
+      `PlaytestTests.AtMailboxWithRaidNow_*` (two carriers through all six pulses, then a blow
+      and a walk off), `AtMailboxWithoutARaid_NoGuard`, `AtMailbox_AskedForInARaidUnderWay_*`,
+      `CombatHudTests.ParkedAtTheMailboxWithARaid_*`
+- [x] C late in Payday: the shop's cards came down under the Draft's and the next number key
+      took a card. The number keys are the shop's first while its cards are up, and for 1.5 s
+      after the Draft took them down the Draft's keys take no card (a click does;
+      `ClientRuntime.DraftKeysHeld`, design choice 101). `DraftFlowTests.AShopKeyPressedAsTheDraftTakesOver_TakesNoCard`,
+      `WithoutTheShopUp_TheDraftsKeysAreLiveAtOnce`
+- [x] "Nothing back" for a belt in Delivery: the 50 % of doc 04 §1.4 was rounded down input by
+      input, so anything of one Plank and one Iron Ingot gave nothing. It is now half of the
+      materials as a whole, rounded down, the dearer first (`BuildRules.RefundCounts`; design
+      choice 102): a belt gives its Iron Ingot back, a splitter still one Ingot, Prep still all.
+      `BuildTests.TheRefundIsHalfOfTheMaterialsAsAWhole_*`, `ABeltTakenDownInDelivery_*`
+- Belt lines from the outfeed into a mailbox backing up on mixed Intake mail is choice 94 as
+  meant; the Address Sorter (below) is what sorts it.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
@@ -2227,6 +2255,22 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the verges. Neither is solid (the posts are walked through, as belts are walked over) and
     neither carries a walker. Crossing another belt needs two constructs on one tile and is
     left for later.
+
+100. **A playtest carrier parked into a raid.** `--raid --playtest-mailbox` parked the carrier at
+    a mailbox the raid holds its line beside. Rather than move the mailbox (on the test street
+    every one is within the raiders' reach of the line) or thin the raid (it is the raid's
+    playtest), the parked carrier is protected the way a respawned one is in the yard: for as
+    long as they stay within 4 m of the spot and have not hurt a raider. The fight starts when
+    they choose. A park in a shift with no raid gives no protection.
+101. **Shop keys and the Draft.** The Draft follows Payday at once, and the shop's cards (open
+    anywhere at Payday) come down under it. A number key is the shop's while its cards are up;
+    for 1.5 s after the Draft took them down the number keys take no card and select no slot,
+    which covers a key pressed in the second the screen changed. A click on a card counts at once.
+102. **What comes back of a construct.** Doc 04 §1.4: 100 % in Prep, 50 % in Delivery. The part is
+    of the construct's materials as a whole, rounded down (and scaled by the HP it has left, as
+    before): each input its own share rounded down, the rest of the whole one unit each to the
+    inputs with most left over, the dearer item (sell price) on a tie. Rounded input by input,
+    any construct of single units (a belt: a Plank and an Iron Ingot) gave nothing at all.
 
 ## Commands
 

@@ -173,6 +173,45 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(back, BuildRules.Refund(count, ratio, hp, maxHp));
         }
 
+        /// <summary>
+        /// Playtest df77576: "belts give nothing back when taken down, the splitter gives an Iron
+        /// Ingot". The half of Delivery is over the materials as a whole: a belt's half is one of its
+        /// two, the dearer.
+        /// </summary>
+        [Theory]
+        [InlineData("belt_mk1", 0.5, 1.0, "iron_ingot:1")]
+        [InlineData("belt_mk1", 1.0, 1.0, "plank:1,iron_ingot:1")]
+        [InlineData("belt_mk1", 0.5, 0.5, "")]
+        [InlineData("splitter", 0.5, 1.0, "iron_ingot:1")]
+        [InlineData("belt_mk2", 0.5, 1.0, "iron_ingot:1")]
+        [InlineData("belt_mk1_elevated", 0.5, 1.0, "plank:1")]
+        [InlineData("belt_mk1_ramp", 0.5, 1.0, "plank:1,iron_ingot:1")]
+        public void TheRefundIsHalfOfTheMaterialsAsAWhole_TheDearerFirst(string building, double ratio, double hpPart, string expected)
+        {
+            var def = Db.Building(building);
+            var inputs = def.Recipe!.Inputs;
+            var back = BuildRules.RefundCounts(inputs, ratio, (int)(def.Hp * hpPart), def.Hp);
+            string got = string.Join(",", inputs.Select((input, i) => (input, n: back[i])).Where(t => t.n > 0).Select(t => $"{t.input.Item.Id}:{t.n}"));
+            Assert.Equal(expected, got);
+            // Never more than the phase's part of the whole, nor of any one input than went in.
+            Assert.True(back.Sum() <= Math.Floor(inputs.Sum(i => i.Count) * ratio * hpPart + 1e-9));
+            Assert.All(inputs.Select((input, i) => back[i] <= input.Count), Assert.True);
+        }
+
+        [Fact]
+        public void ABeltTakenDownInDelivery_GivesItsIronIngotBack()
+        {
+            var (world, host) = InPrep();
+            var belt = Db.Building("belt_mk1");
+            Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("plank"), 1)));
+            Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("iron_ingot"), 1)));
+            IntoDelivery(world, host);
+            Assert.Equal(OpResult.Ok, Place(world, host, belt, Tx, Tz));
+            Assert.Equal((0, 0), (Count(host.Inventory, "plank"), Count(host.Inventory, "iron_ingot")));
+            Assert.Equal(OpResult.Ok, Remove(world, host, Tx, Tz));
+            Assert.Equal((0, 1), (Count(host.Inventory, "plank") + Count(host.Hotbar, "plank"), Count(host.Inventory, "iron_ingot") + Count(host.Hotbar, "iron_ingot")));
+        }
+
         // --- placing ----------------------------------------------------------------------------
 
         [Fact]
