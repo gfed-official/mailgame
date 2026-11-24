@@ -122,6 +122,15 @@ namespace PerformativeMail.Client
                     if (line.Length > 0) Add(line);
                     break;
                 }
+                case DriverEvent e:
+                {
+                    int key = e.Y * world.Map.Cols + e.X;
+                    _drivers.TryGetValue(key, out var was);
+                    _drivers[key] = e;
+                    string line = HudText.DriverNews(world, e, was);
+                    if (line.Length > 0) Add(line, bad: e.State == DriverState.Fleeing || e.State == DriverState.Stranded);
+                    break;
+                }
                 case VehicleMountedEvent e when world.Vehicles.TryGetValue(e.Vehicle, out var mounted):
                     Add(HudText.Mounted(world, e.Player, mounted.Def));
                     break;
@@ -150,6 +159,9 @@ namespace PerformativeMail.Client
             }
         }
 
+        /// <summary>What each depot's driver did last, for the news of the next word.</summary>
+        private readonly Dictionary<int, DriverEvent> _drivers = new Dictionary<int, DriverEvent>();
+
         /// <summary>
         /// The server's answer to a request of the local player. What was asked with a key and not
         /// on a panel has nowhere else to say why it did not happen: using what is in the hand.
@@ -165,6 +177,11 @@ namespace PerformativeMail.Client
             if (result != OpResult.Ok && request.Kind == RequestKind.Mount)
             {
                 string why = HudText.MountRefused(result);
+                if (why.Length > 0) Add(why, bad: true);
+            }
+            if (result != OpResult.Ok && request.Kind == RequestKind.ConfigureConstruct && request.Count == SimRequest.ConfigureHire)
+            {
+                string why = HudText.HireRefused(result);
                 if (why.Length > 0) Add(why, bad: true);
             }
             if (result != OpResult.Ok && request.Kind == RequestKind.Refuel)
@@ -289,6 +306,7 @@ namespace PerformativeMail.Client
             {
                 DeliveryMachine.Inserter => "An inserter",
                 DeliveryMachine.Pipe => "A pipe",
+                DeliveryMachine.Driver => "A driver",
                 _ => Who(world, player),
             };
             string what = HudText.CountAndKind(kind < world.Content.MailKinds.Count ? world.Content.MailKinds[kind].Name : "item", entry.Count);

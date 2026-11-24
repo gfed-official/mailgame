@@ -48,7 +48,7 @@ namespace PerformativeMail.App
             }
             if (++_bikeFrames > BuildStepFrames * 2)
             {
-                Fail($"the bike visit stopped at step {_bikeStep}: {world.Vehicles.Count} bikes here, {server.Vehicles.Count} on the server, riding {world.Local.Riding}, "
+                Fail($"the bike visit stopped at step {_bikeStep}: {Bikes(world).Count()} bikes here, {server.Vehicles.Count(v => v.Def.Id == "bike")} on the server, riding {world.Local.Riding}, "
                     + $"prompt {_session.Interaction.Prompt.Kind} \"{hud.PromptText}\", host at {world.Local.X:0.00}, {world.Local.Z:0.00}");
                 return false;
             }
@@ -63,7 +63,7 @@ namespace PerformativeMail.App
                     if (world.Global.Wallet != server.Economy.Wallet) break;
                     if (!world.ShopOpen) { client.OpenShop(); break; }
                     int place = world.ShopShelf.ToList().IndexOf(card);
-                    _kitBike = world.Vehicles.Count == 1;
+                    _kitBike = Bikes(world).Count() == 1;
                     if (_kitBike)
                     {
                         // One carrier, and the team's kit gave them a bike: the card says so and sells none.
@@ -79,11 +79,11 @@ namespace PerformativeMail.App
                 }
                 case 2:
                 {
-                    if (world.Vehicles.Count != 1 || server.Vehicles.Count != 1 || client.PendingRequestCount > 0) break;
-                    var bought = world.Vehicles.Values.First();
+                    if (Bikes(world).Count() != 1 || server.Vehicles.Count(v => v.Def.Id == "bike") != 1 || client.PendingRequestCount > 0) break;
+                    var bought = Bikes(world).First();
                     // The kit's bike was announced in shift 1 (the kit's visit checks that line).
                     Check(_kitBike || _session.Feed.Entries.Any(e => e.Text == HudText.VehicleAdded(bought.Def)), "the feed does not say where the bought bike stands");
-                    Check(_screen.Vehicles.Shown == 1 && _screen.Vehicles.RiddenShown == 0, $"{_screen.Vehicles.Shown} bikes drawn for one parked");
+                    Check(_screen.Vehicles.Shown == 1 + Others(world) && _screen.Vehicles.RiddenShown == 0, $"{_screen.Vehicles.Shown} bikes drawn for one parked");
                     client.CloseShop();
                     Shot("bike-bought");
                     // Beside it, on open ground (not in a gate or on a strip someone built there).
@@ -101,7 +101,7 @@ namespace PerformativeMail.App
                 }
                 case 3:
                 {
-                    var bike = world.Vehicles.Values.First();
+                    var bike = Bikes(world).First();
                     float dx = world.Local.X - player.Move.X, dz = world.Local.Z - player.Move.Z;
                     if (dx * dx + dz * dz > 0.1f || _bikeFrames < 4) break;
                     var box = AimBox.Vehicle(world.Map, bike.X, bike.Z);
@@ -188,7 +188,7 @@ namespace PerformativeMail.App
                 }
                 case 8:
                 {
-                    var bike = world.Vehicles.Values.First();
+                    var bike = Bikes(world).First();
                     if (world.Local.Riding || player.Move.Riding || bike.Ridden || client.PendingRequestCount > 0) break;
                     client.TickStarting -= _bikeTick;
                     _bikeTick = null;
@@ -197,7 +197,7 @@ namespace PerformativeMail.App
                     Check(world.OpenContainerId == 0, "the rack is still open after getting off");
                     Check(_session.Feed.Entries.Any(e => e.Text == "You got off the Bike"), "the feed does not say the host got off");
                     Check(MathF.Abs(bike.X - player.Move.X) < 1f && bike.X > 55f, $"the bike was left at x {bike.X:0.00}, the host stands at {player.Move.X:0.00}");
-                    Check(_screen.Vehicles.Shown == 1 && _screen.Vehicles.RiddenShown == 0, "the bike left on the street is not drawn parked");
+                    Check(_screen.Vehicles.Shown == 1 + Others(world) && _screen.Vehicles.RiddenShown == 0, "the bike left on the street is not drawn parked");
                     // A step back from it, looking at it, for the picture.
                     player.Move.X = bike.X + 2.2f;
                     next = true;
@@ -205,7 +205,7 @@ namespace PerformativeMail.App
                 }
                 case 9:
                 {
-                    var bike = world.Vehicles.Values.First();
+                    var bike = Bikes(world).First();
                     if (MathF.Abs(world.Local.X - player.Move.X) > 0.1f || _bikeFrames < 4) break;
                     var box = AimBox.Vehicle(world.Map, bike.X, bike.Z);
                     ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
@@ -227,6 +227,12 @@ namespace PerformativeMail.App
             }
             return true;
         }
+
+        /// <summary>The bikes the client knows of; a truck left standing at a Vehicle Depot is not one.</summary>
+        private static System.Collections.Generic.IEnumerable<PerformativeMail.Client.ClientVehicle> Bikes(PerformativeMail.Client.ClientWorld world) =>
+            world.Vehicles.Values.Where(v => v.Def.Id == "bike");
+
+        private static int Others(PerformativeMail.Client.ClientWorld world) => world.Vehicles.Count - Bikes(world).Count();
 
         /// <summary>After the run: the bike was ridden once, and in the Lobby none is left on either end.</summary>
         private void VerifyBike()

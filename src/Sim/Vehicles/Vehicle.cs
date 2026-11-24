@@ -22,6 +22,8 @@ namespace PerformativeMail.Sim.Vehicles
         public float Hp;
         /// <summary>Seconds of driving left in its tank (doc 04 §3.1); unused by what burns no fuel.</summary>
         public float Fuel;
+        /// <summary>A depot's NPC driver drives it (doc 04 §3.2): it is neither parked nor a carrier's, and nothing loads it.</summary>
+        public bool NpcDriving;
 
         public Vehicle(EntityId id, VehicleDef def, GridContainer cargo, float x, float z, float heading)
         {

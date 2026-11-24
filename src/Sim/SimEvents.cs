@@ -91,6 +91,8 @@ namespace PerformativeMail.Sim
         Belt = 1,
         Inserter = 2,
         Pipe = 3,
+        /// <summary>A Vehicle Depot's NPC driver (doc 04 §3.2).</summary>
+        Driver = 4,
     }
 
     public sealed class MisdeliveredEvent : SimEvent
@@ -445,6 +447,25 @@ namespace PerformativeMail.Sim
     public sealed class VehicleRemovedEvent : SimEvent
     {
         public EntityId Vehicle;
+    }
+
+    /// <summary>What a Vehicle Depot's NPC driver does now (doc 04 §3.2): sent when it changes, and to a joiner.</summary>
+    public sealed class DriverEvent : SimEvent
+    {
+        public const ushort NoHouse = ushort.MaxValue;
+        /// <summary>The depot's tile (the one it was built on).</summary>
+        public byte X, Y;
+        public DriverState State;
+        /// <summary>The truck it runs; none while waiting at the depot.</summary>
+        public EntityId Vehicle;
+        /// <summary>The house it drives to or unloads at; <see cref="NoHouse"/> for none.</summary>
+        public ushort House;
+        /// <summary>Houses of this trip, and which of them it is at (from 0).</summary>
+        public byte Houses, At;
+        /// <summary>Pieces it has delivered since it was hired.</summary>
+        public ushort Delivered;
+        /// <summary>Who hired it or took the wheel, when that is what happened.</summary>
+        public EntityId Player;
     }
 
     public sealed class VehicleFuelEvent : SimEvent

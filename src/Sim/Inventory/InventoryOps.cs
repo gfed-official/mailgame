@@ -88,6 +88,8 @@ namespace PerformativeMail.Sim.Inventory
         NoOilCan,
         /// <summary>Doc 04 §3.2: one Vehicle Depot for every two carriers, rounded up, stands already.</summary>
         DepotLimit,
+        /// <summary>Doc 04 §3.2 "max 1 per depot": a driver is hired there for this shift already.</summary>
+        AlreadyHired,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

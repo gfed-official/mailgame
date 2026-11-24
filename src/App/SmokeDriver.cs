@@ -128,6 +128,7 @@ namespace PerformativeMail.App
             {
                 case DeliveredEvent e:
                     if (e.Player.IsNone) _beltDelivered++;
+                    if (e.Machine == DeliveryMachine.Driver) _driverDelivered++;
                     _paid += e.Paid;
                     _deliveredEvents++;
                     if (e.Player == _session.Client.World!.LocalId) _ownDeliveries++;
@@ -767,6 +768,7 @@ namespace PerformativeMail.App
             foreach (char c in FontCheck.MissingGlyphs(hud))
                 if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
             TrackAlarm();
+            TrackDriver();
             if (!_beltFeedSeen && _session.Feed.Entries.Any(e => e.Text.StartsWith("A belt delivered", StringComparison.Ordinal))) _beltFeedSeen = true;
 
             switch (world.Global.Phase)

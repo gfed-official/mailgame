@@ -890,7 +890,11 @@ namespace PerformativeMail.Client
         /// <summary>The hint under the cards: a depot's console says its stops are stepped as filters are.</summary>
         public static string FilterHintFor(Construct built) => built.Def.IsVehicleDepot ? RouteHint : FilterHint;
 
-        public const string RouteHint = "A number key or a click: the next stop   ·   right click: back   ·   [E] or [Esc] close";
+        public const string RouteHint = "A number key or a click: the next stop   ·   right click: back   ·   [7] hires the driver   ·   [E] or [Esc] close";
+
+        /// <summary>The cards of a panel: a sorter's outputs and its overflow, a depot's stops and its driver.</summary>
+        public static int FilterRows(Construct built) =>
+            built.Def.FilterOutputs + (built.Def.Behaviour == BuildingBehaviour.Sorter || built.Def.IsVehicleDepot ? 1 : 0);
 
         public static string FilterTitle(Construct built) =>
             built.Def.IsVehicleDepot ? $"{built.Def.Name.ToUpperInvariant()}   ·   route console"
@@ -959,7 +963,7 @@ namespace PerformativeMail.Client
         /// </summary>
         public static string[] FilterRow(ClientWorld world, Construct built, int output)
         {
-            if (built.Def.IsVehicleDepot) return StopRow(world, built, output);
+            if (built.Def.IsVehicleDepot) return output < built.Def.RouteStops ? StopRow(world, built, output) : DriverRow(world, built);
             bool overflow = output >= built.Def.FilterOutputs;
             string head = overflow ? PortName(built, output) : $"[{KeyName(output)}]  {PortName(built, output)}";
             string what = overflow ? "whatever no filter catches" : FilterName(world, built, world.ShownFilter(built, output, 0));
@@ -985,6 +989,80 @@ namespace PerformativeMail.Client
                 : stop < status.Matches.Count ? $"{status.Matches[stop].ToString(CultureInfo.InvariantCulture)} for it in the truck" : "…";
             return new[] { head, matches };
         }
+
+        /// <summary>
+        /// A depot's card of its NPC driver (doc 04 §3.2): the key that hires one and what it costs,
+        /// or what the hired one is doing.
+        /// </summary>
+        public static string[] DriverRow(ClientWorld world, Construct built)
+        {
+            var d = world.DriverAt(built);
+            string head = $"[{KeyName(built.Def.RouteStops)}]  Driver   ·   ";
+            if (d == null)
+            {
+                int from = (int)world.Content.Balance.GetFloat(world.Players.Count <= 1 ? "npcHireShiftSolo" : "npcHireShiftGroup");
+                string note = world.Global.Shift < from ? $"from shift {from.ToString(CultureInfo.InvariantCulture)}" : "drives the route at 60 % of your speed";
+                return new[] { $"{head}hire for this shift, {Money(built.Def.HireCost)}", note };
+            }
+            return new[] { $"{head}hired for this shift   ·   {d.Delivered.ToString(CultureInfo.InvariantCulture)} delivered", DriverDoing(world, d) };
+        }
+
+        /// <summary>"out to 4 Larch Lane (2 of 5)", "waiting for mail in the truck"…</summary>
+        public static string DriverDoing(ClientWorld world, DriverEvent d)
+        {
+            string house = world.Map.GetDestination(d.House)?.Label ?? "a house";
+            string of = d.Houses > 1 ? $" ({(d.At + 1).ToString(CultureInfo.InvariantCulture)} of {d.Houses.ToString(CultureInfo.InvariantCulture)})" : "";
+            switch (d.State)
+            {
+                case DriverState.Waiting: return "waiting for a truck with mail for the route, in Delivery";
+                case DriverState.Out: return $"out to {house}{of}";
+                case DriverState.Unloading: return $"delivering at {house}{of}";
+                case DriverState.Returning: return "on the way back to the depot";
+                case DriverState.Fleeing: return "turned back: raiders near the route";
+                case DriverState.Stranded: return "out of fuel on the road: an Oil Can fills it";
+                case DriverState.Passenger: return "riding along: stop by a house of the route and it hands the mail out";
+                default: return "";
+            }
+        }
+
+        /// <summary>The event feed's line for a driver's news; empty for what is not news.</summary>
+        public static string DriverNews(ClientWorld world, DriverEvent d, DriverEvent? was)
+        {
+            if (d.State == was?.State) return "";
+            switch (d.State)
+            {
+                // A joiner hears where things stand (nobody named), not news.
+                case DriverState.Waiting when was == null && d.Player.IsNone: return "";
+                case DriverState.Waiting when was == null || was.State == DriverState.None:
+                    return d.Player == world.LocalId ? $"You hired a driver for the Vehicle Depot   ·   {Money(HireCost(world.Content))}"
+                        : $"{(world.Players.TryGetValue(d.Player, out var p) ? p.Name : "Someone")} hired a driver for the Vehicle Depot";
+                case DriverState.Waiting: return "The driver is back at the Vehicle Depot";
+                case DriverState.Out when was?.State == DriverState.Waiting:
+                    return d.Houses == 1 ? "The driver sets out with the truck: 1 house" : $"The driver sets out with the truck: {d.Houses.ToString(CultureInfo.InvariantCulture)} houses";
+                case DriverState.Fleeing: return "The driver turns back: raiders near the route";
+                case DriverState.Stranded: return "The driver's truck ran out of fuel";
+                case DriverState.Passenger:
+                    return d.Player == world.LocalId ? "You take the wheel   ·   the driver moves over and hands the mail out at the route's houses" : "";
+                case DriverState.None: return was != null && was.State != DriverState.None ? "The driver's hire is over for this shift" : "";
+                default: return "";
+            }
+        }
+
+        private static int HireCost(ContentDb content)
+        {
+            foreach (var b in content.Buildings) if (b.IsVehicleDepot) return b.HireCost;
+            return 0;
+        }
+
+        /// <summary>Why the driver was not hired.</summary>
+        public static string HireRefused(OpResult result) => result switch
+        {
+            OpResult.CantAfford => "Not enough money to hire a driver",
+            OpResult.ShopLocked => "No driver for hire yet this run",
+            OpResult.AlreadyHired => "A driver is hired there already",
+            OpResult.WrongPhase => "Drivers are hired in Prep and during Delivery",
+            _ => "",
+        };
 
         /// <summary>The bit of a depot's status that says a truck stands in its bay.</summary>
         public const byte DepotStatusTruck = Sim.SimWorld.DepotTruckInBay;
@@ -1026,7 +1104,7 @@ namespace PerformativeMail.Client
             var lines = new List<string> { FilterTitle(built) };
             string status = FilterStatusLine(world, built, world.FilterStatus);
             if (status.Length > 0) lines.Add(status);
-            int rows = built.Def.FilterOutputs + (built.Def.Behaviour == BuildingBehaviour.Sorter ? 1 : 0);
+            int rows = FilterRows(built);
             for (int o = 0; o < rows; o++) lines.AddRange(FilterRow(world, built, o));
             lines.Add(FilterHintFor(built));
             return string.Join("\n", lines);
@@ -1376,6 +1454,7 @@ namespace PerformativeMail.Client
                     if (!p.Vehicle!.Def.Fuelled) return $"Ride {p.Vehicle.Def.Name}  [E]";
                     return p.Vehicle.Fuel <= 0f
                         ? $"{p.Vehicle.Def.Name}   ·   out of fuel — an Oil Can in the hand fills it"
+                        : p.Vehicle.NpcDriving ? $"Take the wheel of the {p.Vehicle.Def.Name}  [E]   ·   the driver moves over"
                         : $"Drive the {p.Vehicle.Def.Name}  [E]   ·   {FuelText(p.Vehicle)}";
                 case InteractKind.Refuel: return $"Refuel the {p.Vehicle!.Def.Name} with an Oil Can  [E]   ·   {FuelText(p.Vehicle)}";
                 case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off{FuelNote(p.Vehicle)}";

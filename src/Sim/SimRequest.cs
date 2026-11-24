@@ -180,7 +180,7 @@ namespace PerformativeMail.Sim
         public static SimRequest BeltResync(uint reqId, int headX, int headZ) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.BeltResync, X = (byte)headX, Y = (byte)headZ };
 
-        public const ushort ConfigureOpen = 0, ConfigureClose = 1, ConfigureSet = 2;
+        public const ushort ConfigureOpen = 0, ConfigureClose = 1, ConfigureSet = 2, ConfigureHire = 3;
 
         public static SimRequest Configure(uint reqId, int tx, int tz, ushort op, int output = 0, int slot = 0, ushort filter = 0) =>
             new SimRequest

@@ -1317,7 +1317,7 @@ namespace PerformativeMail.App
                     }
                     var panel = _screen.Inventory.Filters;
                     if (world.FilterStatus == null || !panel.IsVisibleInTree() || _beltFrames < 20) break;
-                    Check(panel.Text == HudText.FilterText(world) && panel.CardCount == 6,
+                    Check(panel.Text == HudText.FilterText(world) && panel.CardCount == 7,
                         $"the route console reads \"{panel.Text}\" ({panel.CardCount} cards), not \"{HudText.FilterText(world)}\"");
                     Check(panel.Text.StartsWith("VEHICLE DEPOT   ·   route console\nNo stops yet", StringComparison.Ordinal), $"the console begins \"{panel.Text}\"");
                     Check(client.PressFilterKey(0), "key 1 was not the console's");
@@ -1344,6 +1344,24 @@ namespace PerformativeMail.App
                         Check(seen.Encloses(panel.CardAt(c).GetGlobalRect()), $"the console's card {c + 1} at {panel.CardAt(c).GetGlobalRect()} leaves the view");
                     Shot("vehicle-depot-console");
                     GD.Print($"[smoke] vehicle depot: built at ({_splitX}, {_splitZ}) on nine tiles by the wheel on the chest's key, a truck in its bay, the route console up by E, stop 1 set to {first.Label} by key 1 with the truck's 2 letters for it");
+                    // Its driver (doc 04 §3.2), for hire from shift 2 solo: this is shift 2's Prep, key 7 hires one.
+                    Check(panel.Text.Contains("[7]  Driver   ·   hire for this shift, $1.50\ndrives the route at 60 % of your speed", StringComparison.Ordinal), $"the console's driver card reads \"{panel.Text}\"");
+                    Check(client.PressFilterKey(6), "key 7 was not the console's");
+                    _beltStep = 38;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 38:
+                {
+                    if (client.PendingRequestCount > 0 || _beltFrames < 3) break;
+                    var panel = _screen.Inventory.Filters;
+                    if (world.FilterTarget == null || world.DriverAt(world.FilterTarget) == null) break;
+                    Check(_session.Feed.Entries.Any(e => e.Text == "You hired a driver for the Vehicle Depot   ·   $1.50"), "the feed did not say the driver was hired");
+                    Check(server.Drivers.Count(d => d.State == DriverState.Waiting) == 1, "no driver waits at the depot on the server");
+                    Check(panel.Text.Contains("[7]  Driver   ·   hired for this shift   ·   0 delivered\nwaiting for a truck with mail for the route, in Delivery", StringComparison.Ordinal),
+                        $"after key 7 the console reads \"{panel.Text}\"");
+                    GD.Print("[smoke] vehicle depot: key 7 hired its driver for shift 2 ($1.50); the depot and the truck stay for Delivery");
                     Check(client.CloseFilters(), "the console was not up to take down");
                     _beltStep = 37;
                     _beltFrames = 0;
@@ -1370,17 +1388,13 @@ namespace PerformativeMail.App
                     if (_beltFrames == 1) { player.Move.X = built.CentreX - 9f; player.Move.Z = built.CentreZ + 4f; }
                     ViewRay.Aim(world.Local, built.CentreX, 1.4f, built.CentreZ, out client.Input.YawRadians, out client.Input.PitchRadians);
                     if (_beltFrames < 16) break;
-                    if (_beltFrames == 16)
-                    {
-                        view.Refresh();
-                        Shot("vehicle-depot");
-                        Check(server.RemoveVehicle(server.Vehicles.First(v => v.Def.Id == "mail_truck")), "the truck was not taken away");
-                        player.Move.X = BuildRules.TileCentre(_splitX - 1) - 0.4f;
-                        player.Move.Z = BuildRules.TileCentre(_splitZ);
-                        break;
-                    }
-                    if (_beltFrames == 24 && client.PendingRequestCount == 0) client.RemoveConstruct(built);
-                    if (_beltFrames < 24 || client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
+                    view.Refresh();
+                    Shot("vehicle-depot");
+                    // The depot, its truck and its driver stay: in Delivery the driver takes the two letters to the first house.
+                    player.Move.X = BuildRules.TileCentre(_splitX - 1) - 0.4f;
+                    player.Move.Z = BuildRules.TileCentre(_splitZ);
+                    _depotX = _splitX;
+                    _depotZ = _splitZ;
                     _beltStep = 32;
                     _beltFrames = 0;
                     break;
@@ -1406,11 +1420,34 @@ namespace PerformativeMail.App
                 "the feed never said \"A belt delivered\"");
             var world = _session.Client.World!;
             Check(world.Belts.ItemCount == 0 && _session.Server!.World.Belts.ItemCount == 0, "mail is left on the belts in the Lobby");
+            Check(_driverFollowed, "the driver's truck was never seen on the road here where the server had it");
+            Check(_driverDelivered >= 2, $"the depot's driver delivered {_driverDelivered} pieces, not the truck's two letters");
+            Check(!world.Drivers.Values.Any(d => d.State != DriverState.None) && !_session.Server!.World.Drivers.Any(), "a driver is left in the Lobby");
         }
 
         private bool _beltFeedSeen;
         private int _outfeedIntake, _splitX, _splitZ, _rampRot, _depotShown;
         private bool _botAside;
+        /// <summary>The Vehicle Depot left standing for Delivery, and what its driver did there.</summary>
+        private int _depotX = -1, _depotZ = -1, _driverDelivered;
+        private bool _driverFollowed;
+
+        /// <summary>
+        /// In the run-out: while the depot's driver has its truck on the road, it is drawn where the
+        /// server has it (the snapshots' word) with the driver aboard.
+        /// </summary>
+        private void TrackDriver()
+        {
+            if (_depotX < 0 || _driverFollowed) return;
+            var server = _session.Server!.World;
+            var world = _session.Client.World!;
+            var d = server.Drivers.FirstOrDefault(x => x.State == DriverState.Out && x.Truck != null);
+            if (d == null || !world.Vehicles.TryGetValue(d.Truck!.Id, out var here) || !here.NpcDriving) return;
+            float dx = here.X - d.Truck.X, dz = here.Z - d.Truck.Z;
+            if (dx * dx + dz * dz > 4f) return;
+            Check(here.NpcAboard && _screen.Vehicles.TryGetPosition(here.Id, out _), "the driver's truck is not drawn with its driver");
+            _driverFollowed = true;
+        }
 
         /// <summary>The lowest mail id in a container: the oldest piece there (uint.MaxValue for none).</summary>
         private static uint OldestIn(Sim.Inventory.GridContainer c)

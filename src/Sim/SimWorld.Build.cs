@@ -218,6 +218,7 @@ namespace PerformativeMail.Sim
         /// <summary>A run ends or begins: nothing built stands any more, and what was in the chests is gone with them.</summary>
         private void ClearConstructs()
         {
+            ClearDrivers();
             ClearBelts();
             ClearPipes();
             if (Constructs.All.Count == 0) return;

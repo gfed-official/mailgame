@@ -623,6 +623,13 @@ was found broken.
 No playtest on 136f335. Build, Sim.Tests (459), Net.Tests (183) and both smokes were green on it;
 nothing was found broken in those systems, so nothing needed fixing before the next features.
 
+### 2n. A check of the Vehicle Depot on 55889d6, before NPC drivers (2026-11-24)
+
+No playtest. Build, Sim.Tests (469), Net.Tests (185) and both smokes were green; the island bot
+failed once on its 2 ms tick budget (p99 2.02 ms, one 6.2 ms tick with a GC pause while the box
+was loaded) and passed twice when run again: load on the shared machine, not a regression.
+Nothing in pipes, the truck, the inserters, belts, the sorter or the depots needed fixing.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
@@ -1401,7 +1408,7 @@ the whole line exists; the sub-lines say which parts do.
             outlet, the Intake's letters ride drawn in capsules (`pipes`), wait in the outlet, and
             go back to the Intake when the pipes are taken down. Vertical pipes (up buildings) wait:
             nothing is built up a building yet
-- [ ] Mail Truck; Vehicle Depot with route console; NPC driver behaviour; player takeover
+- [x] Mail Truck; Vehicle Depot with route console; NPC driver behaviour; player takeover
       - [x] **Mail Truck** (doc 04 §3.1, doc 10 §1.3 and §3; design choice 108). `mail_truck`
             (600 HP, 14 m/s on the road and 7 off it, two seats of which the driver's is used, a
             cargo bay `mail_truck_cargo` of 8 × 10 for mail) sold at the counter for $9.00 from shift
@@ -1459,12 +1466,41 @@ the whole line exists; the sub-lines say which parts do.
             refusals and counts, the plan), shop and content pins; in the smoke the wheel on the
             chest's key builds one (`vehicle-depot-ghost`), a truck stands in its bay with two
             letters, E at the console puts it up and key 1 makes stop 1 the first house with "2 for
-            it in the truck" (`vehicle-depot-console`, `vehicle-depot`), and it is taken down
+            it in the truck" (`vehicle-depot-console`, `vehicle-depot`); it now stays for the driver
+      - [x] **NPC drivers and player takeover** (doc 04 §3.2, doc 10 §3 npc_driver, doc 11; design
+            choice 110). The console's seventh card is its **driver**: key 7 or a click hires one
+            for the shift ($1.50, `npcHireCost`; from shift 2 for a solo carrier, 3 for a group;
+            one a depot, `AlreadyHired`), in Prep or Delivery (`ConfigureHire`, protocol `m2.8`).
+            In Delivery the driver takes the truck standing in the bay out once it holds mail for
+            the route's houses and nothing more has been loaded for 4 s (`npcDepartWaitSeconds`);
+            it drives along the routing graph at 60 % of the truck's speed for the ground
+            (`npcSpeedRatio`), burning fuel, to the houses of the stops nearest first
+            (`RoutePlan`), and at each puts the mail for it into the box at the box's insert rate by
+            the belts' rules (it never guesses), then comes back into the bay; what matched no
+            stop rides home. Raiders within 20 m of the truck or the way still to go send it home
+            (Fleeing); run dry it is Stranded until an Oil Can fills it. **Takeover**: a carrier
+            may get in at any time ("Take the wheel of the Mail Truck [E] · the driver moves
+            over"); the truck then runs at full speed under them, and the driver hands the mail out
+            wherever it stands still within 3.5 m of a box of the route; getting off hands the
+            wheel back in the same tick (left in the bay, the driver is home). At Payday the hire
+            ends and the truck is put back into its bay if that is free. Every change is a
+            `DriverEvent` (to a joiner too); the snapshot carries where each NPC-driven truck is
+            (13 bytes each, only while there are any; doc 06 "without driver prediction"), eased
+            between snapshots on the client. Drawn: a carrier in the post's blue with a cap in the
+            cab, at the wheel or beside the carrier, the window beside them rolled down. The feed
+            says when it is hired, sets out, turns back, runs dry, is back and is let go, and a
+            delivery is "A driver delivered …"; the console's card says what it does ("out to 1
+            Larch Lane (1 of 2)"). `DriverTests` (the hire's rules; a three-stop route delivering
+            only its stops' mail at 60 % and back; takeover and hand-back within a tick with mail
+            handed out meanwhile; raiders; Payday), `DriverFlowTests` (key 7, the truck followed
+            on a client, the wheel offered), `CodecTests` (the snapshot's block); in the smoke key
+            7 hires the driver in shift 2's Prep, and in Delivery it takes the truck's two letters
+            to the first house, the truck drawn where the server has it with its driver aboard
 - [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the Vehicle Depot (route console, NPC drivers, player takeover), then the sea path.
+Next in this order: the sea path (rowboat, pier, motorboat, small port, NPC captain), then the Oil Pump.
 
 ## How to build and check
 
@@ -2565,6 +2601,18 @@ See "Commands" at the bottom (filled in as the tooling lands).
     recipe is open from shift 1 and its blueprint (sold from shift 2) is what holds it back; (f) it
     shares the chest's key of Build mode (doc 09 groups it under Vehicles, but Build mode has ten
     keys and every group but two is used).
+
+110. **NPC drivers.** Doc 04 §3.2 gives 150 ¢ a shift, one a depot, 60 % of player speed, the
+    stops' mail at the box's insert rate, never guessing, fleeing raiders within 20 m, and the
+    takeover. Choices: (a) the driver is hired on the console's seventh card and its hire ends at
+    Payday; (b) it sets out with the truck in the bay once that holds mail for a stop and 4 s went
+    by with nothing more loaded (doc 11's "waits at stops"), never with an empty truck; (c) it
+    drives the routing graph's way kinematically (not the carriers' physics), at 0.6 of the
+    vehicle's road or off-road speed, and stops within 3.5 m of a box; (d) "the route" for fleeing
+    is the truck, the way still to go and the houses still to come; (e) while a carrier drives,
+    the driver hands mail out wherever the truck stands still by a box of the route; (f) the
+    server sends NPC-driven trucks' places in every snapshot while any is driven, eased on the
+    client; (g) drivers do not fight and cannot be hurt (vehicle HP waits for wrecks).
 
 ## Commands
 

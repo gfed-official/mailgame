@@ -19,6 +19,8 @@ namespace PerformativeMail.Client.Presentation
         private const float WheelRadius = 0.34f, WheelBase = 0.55f;
         /// <summary>The saddle's height over the ground: a rider is drawn this much higher than on foot.</summary>
         public const float SaddleRise = 0.32f;
+        /// <summary>How far off the middle of a truck's cab its two seats are.</summary>
+        private const float DriverSeatX = 0.45f;
 
         private sealed class Drawn
         {
@@ -27,6 +29,9 @@ namespace PerformativeMail.Client.Presentation
             public float WheelRadius = VehiclesView.WheelRadius;
             public Vector3 Last;
             public bool Placed;
+            /// <summary>A truck's NPC driver (doc 04 §3.2), and the cab's side windows, rolled down beside whoever sits there.</summary>
+            public Node3D? Driver;
+            public Node3D? LeftWindow, RightWindow;
         }
 
         private readonly Dictionary<EntityId, Drawn> _drawn = new Dictionary<EntityId, Drawn>();
@@ -70,7 +75,15 @@ namespace PerformativeMail.Client.Presentation
                     }
                     Vector3 position;
                     float heading;
-                    if (!v.Ridden)
+                    if (!v.Ridden && v.NpcDriving && d.Placed)
+                    {
+                        // Between the snapshots that move it: eased after them, without a jump.
+                        float k = 1f - Mathf.Exp(-12f * (float)delta);
+                        var target = new Vector3(v.X, world.Map.HeightAt(v.X, v.Z), v.Z);
+                        position = d.Root.Position.DistanceTo(target) > 6f ? target : d.Root.Position.Lerp(target, k);
+                        heading = Mathf.LerpAngle(d.Root.Rotation.Y, v.Heading, k);
+                    }
+                    else if (!v.Ridden)
                     {
                         position = new Vector3(v.X, world.Map.HeightAt(v.X, v.Z), v.Z);
                         heading = v.Heading;
@@ -92,6 +105,15 @@ namespace PerformativeMail.Client.Presentation
                         heading = v.Heading;
                     }
                     Place(d, position, heading);
+                    if (d.Driver != null)
+                    {
+                        // At the wheel (the left), or beside the carrier who took it.
+                        bool beside = v.Ridden;
+                        d.Driver.Visible = v.NpcAboard;
+                        d.Driver.Position = new Vector3(beside ? DriverSeatX : -DriverSeatX, 0f, 0f);
+                        d.LeftWindow!.Visible = !(v.NpcAboard && !beside);
+                        d.RightWindow!.Visible = !(v.NpcAboard && beside);
+                    }
                     shown++;
                     if (v.Ridden) ridden++;
                 }
@@ -227,9 +249,12 @@ namespace PerformativeMail.Client.Presentation
             float cabLen = 1.25f, cabZ = -half + cabLen * 0.5f;
             root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w, 1.15f, cabLen), 0.18f), body, new Vector3(0f, 1.15f, cabZ)));
             root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w - 0.2f, 0.5f, 0.06f), 0.04f), glass, new Vector3(0f, 1.42f, -half + 0.02f), new Vector3(-12f, 0f, 0f)));
+            var windows = new Node3D[2];
             foreach (float side in new[] { -1f, 1f })
             {
-                root.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.04f, 0.42f, 0.7f)), glass, new Vector3(side * (w * 0.5f + 0.005f), 1.4f, cabZ - 0.05f)));
+                var window = MeshKit.Instance(MeshKit.Box(new Vector3(0.04f, 0.42f, 0.7f)), glass, new Vector3(side * (w * 0.5f + 0.005f), 1.4f, cabZ - 0.05f));
+                root.AddChild(window);
+                windows[side < 0f ? 0 : 1] = window;
                 root.AddChild(MeshKit.Instance(MeshKit.Sphere(0.08f, 12), MeshKit.Glow(Lamp, 1.8f), new Vector3(side * (w * 0.5f - 0.25f), 0.75f, -half - 0.02f)));
                 root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.08f, 0.12f, 0.18f), 0.03f), trim, new Vector3(side * (w * 0.5f + 0.06f), 1.45f, -half + 0.25f)));
             }
@@ -253,7 +278,19 @@ namespace PerformativeMail.Client.Presentation
                     axle.AddChild(MeshKit.Instance(MeshKit.Cylinder(TruckWheel, TruckWheel, 0.3f, 18), tyre, new Vector3(side * (w * 0.5f - 0.12f), 0f, 0f), new Vector3(0f, 0f, 90f)));
                     axle.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.2f, 0.2f, 0.32f, 12), steel, new Vector3(side * (w * 0.5f - 0.12f), 0f, 0f), new Vector3(0f, 0f, 90f)));
                 }
-            return new Drawn { Root = root, FrontWheel = front, RearWheel = rear, WheelRadius = TruckWheel };
+            // Its NPC driver: a carrier in the post's blue with a cap, seen through the rolled-down window.
+            var driver = new Node3D { Name = "Driver", Visible = false };
+            root.AddChild(driver);
+            var uniform = MeshKit.Mat(new Color("2f5fa8"), 0.7f);
+            var skin = MeshKit.Mat(new Color("d9a679"), 0.8f);
+            driver.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.46f, 0.42f, 0.3f), 0.1f), uniform, new Vector3(0f, 1.3f, cabZ + 0.15f)));
+            driver.AddChild(MeshKit.Instance(MeshKit.Sphere(0.15f, 12), skin, new Vector3(0f, 1.62f, cabZ + 0.12f)));
+            driver.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.16f, 0.16f, 0.09f, 12), uniform, new Vector3(0f, 1.75f, cabZ + 0.12f)));
+            driver.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.22f, 0.025f, 0.14f)), MeshKit.Mat(VanTrim, 0.6f), new Vector3(0f, 1.72f, cabZ - 0.04f)));
+            return new Drawn
+            {
+                Root = root, FrontWheel = front, RearWheel = rear, WheelRadius = TruckWheel, Driver = driver, LeftWindow = windows[0], RightWindow = windows[1],
+            };
         }
 
         private static Node3D Wheel(Node3D root, string name, Vector3 hub, Material tyre, Material steel)

@@ -561,11 +561,22 @@ namespace PerformativeMail.Client
         {
             var world = World;
             var built = world?.FilterTarget;
+            // A depot's card after its stops is its driver: a click hires one.
+            if (built != null && built.Def.IsVehicleDepot && output == built.Def.RouteStops) return step > 0 ? HireDriver() : 0;
             if (world == null || built == null || output < 0 || output >= built.Def.FilterOutputs) return 0;
             var choices = world.FilterChoices(built);
             int at = choices.IndexOf(world.ShownFilter(built, output, 0));
             int next = ((Math.Max(0, at) + step) % choices.Count + choices.Count) % choices.Count;
             return SetFilter(output, 0, choices[next]);
+        }
+
+        /// <summary>Hires the driver of the depot whose console is up (doc 04 §3.2), for this shift. 0 if nothing was sent.</summary>
+        public uint HireDriver()
+        {
+            var world = World;
+            var built = world?.FilterTarget;
+            if (world == null || built == null || !built.Def.IsVehicleDepot || world.DriverAt(built) != null) return 0;
+            return Send(SimRequest.Configure(0, built.Tx, built.Tz, SimRequest.ConfigureHire));
         }
 
         /// <summary>A number key while the filters are up: it steps that output on. Returns whether the key was theirs.</summary>
@@ -574,6 +585,7 @@ namespace PerformativeMail.Client
             var built = World?.FilterTarget;
             if (built == null) return false;
             if (key >= 0 && key < built.Def.FilterOutputs) StepFilter(key, 1);
+            else if (built.Def.IsVehicleDepot && key == built.Def.RouteStops) HireDriver();
             return true;
         }
 
@@ -924,6 +936,13 @@ namespace PerformativeMail.Client
             foreach (var snap in m.Players)
                 if (world.Players.TryGetValue(snap.Id, out var player)) player.Push(m.Tick, snap);
             if (m.HasEnemies) ApplyEnemies(world, m);
+            foreach (var (id, x, z, heading) in m.NpcVehicles)
+                if (world.Vehicles.TryGetValue(new EntityId(id), out var driven) && driven.NpcDriving)
+                {
+                    driven.X = x;
+                    driven.Z = z;
+                    driven.Heading = heading;
+                }
             if (m.HasGlobal)
             {
                 world.Global = m.Global;
@@ -1226,6 +1245,20 @@ namespace PerformativeMail.Client
                 case VehicleFuelEvent e:
                     if (world.Vehicles.TryGetValue(e.Vehicle, out var fuelled)) fuelled.Fuel = e.Seconds;
                     break;
+                case DriverEvent e:
+                {
+                    int key = e.Y * world.Map.Cols + e.X;
+                    // The truck it had and the one it has now: who drives each.
+                    if (world.Drivers.TryGetValue(key, out var was) && was.Vehicle != e.Vehicle && world.Vehicles.TryGetValue(was.Vehicle, out var left))
+                        left.NpcDriving = left.NpcAboard = false;
+                    world.Drivers[key] = e;
+                    if (world.Vehicles.TryGetValue(e.Vehicle, out var run))
+                    {
+                        run.NpcAboard = e.State != DriverState.None && e.State != DriverState.Waiting;
+                        run.NpcDriving = e.State is DriverState.Out or DriverState.Unloading or DriverState.Returning or DriverState.Fleeing or DriverState.Stranded;
+                    }
+                    break;
+                }
                 case VehicleMountedEvent e:
                     if (world.Vehicles.TryGetValue(e.Vehicle, out var mounted)) mounted.Rider = e.Player;
                     break;
@@ -1240,6 +1273,7 @@ namespace PerformativeMail.Client
                     }
                     break;
                 case VehiclesClearedEvent:
+                    world.Drivers.Clear();
                     foreach (var v in world.Vehicles.Values) DropExternal(world, v.CargoContainer);
                     world.Vehicles.Clear();
                     break;

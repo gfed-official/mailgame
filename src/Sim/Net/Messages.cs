@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m2.7;" +
+            "m2.8;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -49,8 +49,8 @@ namespace PerformativeMail.Sim.Net
             "u16 constructs,{u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container,u8 nf,{u16 filter}},u8 vehicles,{u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 rider};" +
             "Reject:u8 reason;" +
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp,u8 ride,f32 rideSpeed,f32 headX,f32 headZ]," +
-            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 tool,u8 flags,u8 hp,u8 ride,u8 heading,u8 kit},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global];" +
-            "MoveFlags:grounded,winded,dead;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies;" +
+            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 tool,u8 flags,u8 hp,u8 ride,u8 heading,u8 kit},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global],[npcVehicles:u8 n,{u32 id,i32 xcm,i32 zcm,u8 heading}];" +
+            "MoveFlags:grounded,winded,dead;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies,npcVehicles;" +
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,i8 raidEdgeA,i8 raidEdgeB,u8 playtest;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
@@ -62,6 +62,7 @@ namespace PerformativeMail.Sim.Net
             "ConstructPlaced:u32 player,u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container;ConstructRemoved:u8 x,u8 y,u32 player,u8 destroyed;" +
             "ConstructDamaged:u8 x,u8 y,u16 hp;ConstructsCleared:;" +
             "BeltItem:u32 mail,u16 kind,u32 addr,u8 unit,u8 lane,f32 pos;BeltState:u8 x,u8 y,u32 tick,u16 n,{item};BeltAdded:u8 x,u8 y,item;BeltMoved:u32 mail,u8 x,u8 y,u8 lane;BeltRemoved:u32 mail;BeltChecksum:u8 x,u8 y,u16 count,u32 hash;BeltPushed:u8 x,u8 y,u16 ticks,u32 player;ConstructConfigured:u8 x,u8 y,u32 player,u8 n,{u16 filter};SorterStatus:u8 x,u8 y,u8 buffered,u16 sorted,u16 overflowed,u8 n,{u16 matches};InserterSwung:u8 x,u8 y,u16 kind;PipeCapsule:item,u8 fromX,u8 fromY,u8 outX,u8 outY;PipeRemoved:u32 mail;VehicleFuel:u32 vehicle,f32 seconds;VehicleRemoved:u32 vehicle;" +
+            "Driver:u8 x,u8 y,u8 state,u32 vehicle,u16 house,u8 houses,u8 at,u16 delivered,u32 player;DriverStates:none,waiting,out,unloading,returning,fleeing,stranded,passenger;" +
             "VehicleAdded:u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 buyer;VehicleMounted:u32 id,u32 player;VehicleParked:u32 id,f32 x,f32 z,f32 heading,u32 player;VehiclesCleared:;KitGiven:u32 player,u8 kit,u8 team;WorldChanged:str map,u32 seed,u64 hash,u8 n,{u32 chest};" +
             "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
             "EnemyDied:u32 enemy,u8 kind,u8 mega,f32 x,f32 z,u32 killer;" +
@@ -475,7 +476,7 @@ namespace PerformativeMail.Sim.Net
     /// </summary>
     public sealed class SnapshotMsg
     {
-        private const byte FlagOwn = 1, FlagGlobal = 2, FlagEnemies = 4;
+        private const byte FlagOwn = 1, FlagGlobal = 2, FlagEnemies = 4, FlagNpcVehicles = 8;
         private const byte PlayerReady = 1, PlayerProtected = 2, PlayerAway = 4;
         private const byte MoveGrounded = 1, MoveWinded = 2, MoveDead = 4;
         private const float TwoPi = System.MathF.PI * 2f;
@@ -493,13 +494,15 @@ namespace PerformativeMail.Sim.Net
         public readonly List<EnemySnap> Enemies = new List<EnemySnap>();
         public bool HasGlobal;
         public GlobalState Global;
+        /// <summary>The vehicles NPC drivers drive (doc 06 §3 "same as vehicles without driver prediction"): where each is, every snapshot while any is.</summary>
+        public readonly List<(uint Id, float X, float Z, float Heading)> NpcVehicles = new List<(uint, float, float, float)>();
 
         public void Write(NetWriter w)
         {
             w.U8((byte)MsgType.Snapshot);
             w.U32(Tick);
             w.U32(AckSeq);
-            w.U8((byte)((HasOwn ? FlagOwn : 0) | (HasGlobal ? FlagGlobal : 0) | (HasEnemies ? FlagEnemies : 0)));
+            w.U8((byte)((HasOwn ? FlagOwn : 0) | (HasGlobal ? FlagGlobal : 0) | (HasEnemies ? FlagEnemies : 0) | (NpcVehicles.Count > 0 ? FlagNpcVehicles : 0)));
             if (HasOwn)
             {
                 w.F32(Own.X); w.F32(Own.Y); w.F32(Own.Z); w.F32(Own.VelY);
@@ -528,6 +531,15 @@ namespace PerformativeMail.Sim.Net
                 }
             }
             if (HasGlobal) GlobalCodec.Write(w, Global);
+            if (NpcVehicles.Count > 0)
+            {
+                w.U8((byte)System.Math.Min(255, NpcVehicles.Count));
+                for (int i = 0; i < System.Math.Min(255, NpcVehicles.Count); i++)
+                {
+                    var v = NpcVehicles[i];
+                    w.U32(v.Id); w.I32(ToCm(v.X)); w.I32(ToCm(v.Z)); w.U8(ToAngle(v.Heading));
+                }
+            }
         }
 
         public static SnapshotMsg Read(NetReader r)
@@ -583,6 +595,11 @@ namespace PerformativeMail.Sim.Net
                 }
             }
             if (m.HasGlobal) m.Global = GlobalCodec.Read(r);
+            if ((flags & FlagNpcVehicles) != 0)
+            {
+                n = r.U8();
+                for (int i = 0; i < n; i++) m.NpcVehicles.Add((r.U32(), r.I32() / 100f, r.I32() / 100f, r.U8() / 256f * TwoPi));
+            }
             return m;
         }
 

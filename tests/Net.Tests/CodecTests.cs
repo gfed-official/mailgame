@@ -270,6 +270,10 @@ namespace PerformativeMail.Net.Tests
                 new PipeCapsuleRemovedEvent { MailId = 79 },
                 new VehicleFuelEvent { Vehicle = new EntityId(EntityClass.Vehicle, 4), Seconds = 287.5f },
                 new VehicleRemovedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 4) },
+                new DriverEvent
+                {
+                    X = 14, Y = 21, State = DriverState.Unloading, Vehicle = new EntityId(EntityClass.Vehicle, 5), House = 7, Houses = 3, At = 1, Delivered = 9, Player = player,
+                },
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
                 new VehicleParkedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), X = 60.75f, Z = 28f, Heading = -2.5f, Player = player },
@@ -316,6 +320,9 @@ namespace PerformativeMail.Net.Tests
             var fuel = back.OfType<VehicleFuelEvent>().Single();
             Assert.Equal((new EntityId(EntityClass.Vehicle, 4), 287.5f), (fuel.Vehicle, fuel.Seconds));
             Assert.Equal(new EntityId(EntityClass.Vehicle, 4), back.OfType<VehicleRemovedEvent>().Single().Vehicle);
+            var driver = back.OfType<DriverEvent>().Single();
+            Assert.Equal(((byte)14, (byte)21, DriverState.Unloading, new EntityId(EntityClass.Vehicle, 5), (ushort)7, (byte)3, (byte)1, (ushort)9, player),
+                (driver.X, driver.Y, driver.State, driver.Vehicle, driver.House, driver.Houses, driver.At, driver.Delivered, driver.Player));
             var swung = back.OfType<InserterSwungEvent>().Single();
             Assert.Equal(((byte)11, (byte)12, (ushort)3), (swung.X, swung.Y, swung.Kind));
             var status = back.OfType<SorterStatusEvent>().Single();
@@ -582,6 +589,24 @@ namespace PerformativeMail.Net.Tests
             var none = SnapshotMsg.Read(Body(w2, MsgType.Snapshot));
             Assert.False(none.HasEnemies);
             Assert.Empty(none.Enemies);
+        }
+
+        [Fact]
+        public void SnapshotCarriesTheTrucksNpcDriversDrive_InThirteenBytesEach_OnlyWhileThereAreAny()
+        {
+            var m = new SnapshotMsg { Tick = 9 };
+            var empty = new NetWriter();
+            m.Write(empty);
+            m.NpcVehicles.Add((new EntityId(EntityClass.Vehicle, 5).Value, 31.004f, 44.996f, -MathF.PI / 2f));
+            var w = new NetWriter();
+            m.Write(w);
+            Assert.Equal(1 + 13, w.ToArray().Length - empty.ToArray().Length);
+            var back = SnapshotMsg.Read(Body(w, MsgType.Snapshot));
+            var (id, x, z, heading) = back.NpcVehicles.Single();
+            Assert.Equal(new EntityId(EntityClass.Vehicle, 5).Value, id);
+            Assert.Equal((31.0f, 45.0f), (x, z));
+            Assert.Equal(MathF.PI * 1.5f, heading, 2);
+            Assert.Empty(SnapshotMsg.Read(Body(empty, MsgType.Snapshot)).NpcVehicles);
         }
 
         [Fact]

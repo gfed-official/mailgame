@@ -138,6 +138,7 @@ namespace PerformativeMail.Sim
             player.Move.HeadX = hx;
             player.Move.HeadZ = hz;
             Events.Add(new VehicleMountedEvent { Vehicle = v.Id, Player = player.Id });
+            TakeOver(v, player);
             return OpResult.Ok;
         }
 
@@ -210,7 +211,7 @@ namespace PerformativeMail.Sim
         {
             foreach (var v in _vehicles)
             {
-                if (!v.Def.LoadingFace || v.Ridden) continue;
+                if (!v.Def.LoadingFace || v.Ridden || v.NpcDriving) continue;
                 Vehicle.Rear(v.Def, v.X, v.Z, v.Heading, out float rx, out float rz);
                 if ((int)MathF.Floor(rx / SimConstants.TileSize) == tx && (int)MathF.Floor(rz / SimConstants.TileSize) == tz) return v;
             }
@@ -229,6 +230,7 @@ namespace PerformativeMail.Sim
             SnapIntoBay(v);
             MoveCargo(v);
             Events.Add(new VehicleParkedEvent { Vehicle = v.Id, X = v.X, Z = v.Z, Heading = v.Heading, Player = by });
+            HandBack(v);
         }
 
         private void MoveCargo(Vehicle v)

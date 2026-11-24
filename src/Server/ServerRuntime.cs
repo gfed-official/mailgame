@@ -273,6 +273,7 @@ namespace PerformativeMail.Server
             World.SendBeltStates(player.Id);
             World.SendPipeStates(player.Id);
             World.SendVehicleFuel(player.Id);
+            World.SendDrivers(player.Id);
             Log?.Invoke(back ? $"{player.Name} is back as {player.Id}{PlaytestNote(player)}" : $"{name} joined as {player.Id}{PlaytestNote(player)}");
         }
 
@@ -344,6 +345,9 @@ namespace PerformativeMail.Server
                     Id = (ushort)e.Id.Counter, Kind = e.Def.Index, Mega = e.Mega, State = e.State, X = e.X, Z = e.Z, Yaw = e.Yaw, Hp = e.HpByte,
                 });
             }
+            _snapshot.NpcVehicles.Clear();
+            foreach (var v in World.Vehicles)
+                if (v.NpcDriving) _snapshot.NpcVehicles.Add((v.Id.Value, v.X, v.Z, v.Heading));
             _snapshot.Tick = World.Tick;
             var global = World.GetGlobalState();
 

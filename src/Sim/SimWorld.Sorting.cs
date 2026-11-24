@@ -36,6 +36,8 @@ namespace PerformativeMail.Sim
                 case SimRequest.ConfigureClose:
                     player.ViewingFilters = 0;
                     return OpResult.Ok;
+                case SimRequest.ConfigureHire:
+                    return HireOp(player, built);
                 case SimRequest.ConfigureSet:
                 {
                     int output = (int)(r.EntryId / 16), slot = (int)(r.EntryId % 16);

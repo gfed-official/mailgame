@@ -56,7 +56,7 @@ namespace PerformativeMail.Sim
         {
             Bay(depot, out float bx, out float bz, out _);
             foreach (var v in _vehicles)
-                if (!v.Ridden && Near(v.X, v.Z, bx, bz, 0.25f)) return v;
+                if (!v.Ridden && !v.NpcDriving && Near(v.X, v.Z, bx, bz, 0.25f)) return v;
             return null;
         }
 

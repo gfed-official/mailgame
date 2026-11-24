@@ -227,6 +227,10 @@ namespace PerformativeMail.Client
         public EntityId Rider;
         /// <summary>Seconds of driving in its tank as the server last said (counted down here while the local player drives it).</summary>
         public float Fuel;
+        /// <summary>A depot's NPC driver drives it (doc 04 §3.2): where it is comes with every snapshot.</summary>
+        public bool NpcDriving;
+        /// <summary>A hired driver is in it: at the wheel, or beside a carrier who took it.</summary>
+        public bool NpcAboard;
         public bool Ridden => !Rider.IsNone;
     }
 
@@ -606,6 +610,12 @@ namespace PerformativeMail.Client
 
         /// <summary>When each inserter last moved a piece (doc 04 §2.5), by tile index, as a server tick: its arm swings from it.</summary>
         public Dictionary<int, (double Tick, ushort Kind)> InserterSwings { get; } = new Dictionary<int, (double, ushort)>();
+
+        /// <summary>What each Vehicle Depot's driver does, as the server last said, by the depot's tile index.</summary>
+        public Dictionary<int, DriverEvent> Drivers { get; } = new Dictionary<int, DriverEvent>();
+
+        public DriverEvent? DriverAt(Construct depot) =>
+            Drivers.TryGetValue(depot.Tz * Map.Cols + depot.Tx, out var d) && d.State != DriverState.None ? d : null;
 
         /// <summary>The sorter or splitter whose filters the local player has up; null for none.</summary>
         public Construct? FilterTarget { get; internal set; }
