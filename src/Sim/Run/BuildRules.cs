@@ -74,6 +74,7 @@ namespace PerformativeMail.Sim.Run
             // The street stays open: the mail has to get through, and so do the raiders (doc 04 §1.1);
             // an elevated belt crosses it overhead.
             if (map.GetTile(tx, tz) == TileType.Street && !onStreet) return OpResult.OnStreet;
+            if (map.IsWater(tx, tz)) return OpResult.NotOnWater;
             if (map.IsNavBlocked(tx, tz) || constructs.At(tx, tz) != null || HoldsFixture(map, tx, tz)) return OpResult.Blocked;
             return OpResult.Ok;
         }
@@ -84,6 +85,8 @@ namespace PerformativeMail.Sim.Run
         /// </summary>
         public static OpResult CheckPlacement(WorldMap map, ConstructField constructs, BuildingDef def, int tx, int tz, int rotation)
         {
+            if (def.OnWater) return CheckOnWater(map, constructs, def, tx, tz, rotation);
+            if (def.IsPort) return CheckPort(map, constructs, def, tx, tz, rotation);
             for (int i = 0; i < Math.Max(1, def.TileCount); i++)
             {
                 var (x, z) = Construct.TileOf(tx, tz, rotation, i % def.Length, i / def.Length);
@@ -92,6 +95,54 @@ namespace PerformativeMail.Sim.Run
             }
             return OpResult.Ok;
         }
+
+        /// <summary>
+        /// Doc 04 §3.3: a Pier over shallow water on all its three tiles, built out from the shore
+        /// (the tile behind it walkable ground or another pier's deck); a Rowboat on a tile of water
+        /// of either depth. Nothing else may be built over them.
+        /// </summary>
+        public static OpResult CheckOnWater(WorldMap map, ConstructField constructs, BuildingDef def, int tx, int tz, int rotation)
+        {
+            if (!map.InBounds(tx, tz)) return OpResult.BadRequest;
+            for (int i = 0; i < Math.Max(1, def.TileCount); i++)
+            {
+                var (x, z) = Construct.TileOf(tx, tz, rotation, i % def.Length, i / def.Length);
+                if (!map.InBounds(x, z)) return OpResult.BadRequest;
+                if (def.Deck ? !map.IsShallowWater(x, z) : !map.IsWater(x, z)) return OpResult.NotOnWater;
+                if (constructs.At(x, z) != null) return OpResult.Blocked;
+            }
+            if (def.Deck)
+            {
+                var (bx, bz) = Construct.TileOf(tx, tz, rotation, -1, 0);
+                if (!map.InBounds(bx, bz) || map.IsSolid(bx, bz) || (map.IsWater(bx, bz) && !Players.PlayerMovement.DeckOn(constructs, bx, bz))) return OpResult.NotFromShore;
+            }
+            return OpResult.Ok;
+        }
+
+        /// <summary>
+        /// Doc 04 §3.3 Small Port, "3 × 4 with 2 tiles over deep water": its back two rows on open
+        /// ground as anything built, its front two on deep water with nothing over it.
+        /// </summary>
+        public static OpResult CheckPort(WorldMap map, ConstructField constructs, BuildingDef def, int tx, int tz, int rotation)
+        {
+            for (int i = 0; i < def.TileCount; i++)
+            {
+                int along = i % def.Length;
+                var (x, z) = Construct.TileOf(tx, tz, rotation, along, i / def.Length);
+                if (!map.InBounds(x, z)) return OpResult.BadRequest;
+                if (along < PortQuayRows)
+                {
+                    var verdict = CheckTile(map, constructs, x, z);
+                    if (verdict != OpResult.Ok) return verdict;
+                }
+                else if (!map.IsWater(x, z) || map.IsShallowWater(x, z)) return OpResult.NotOnWater;
+                else if (constructs.At(x, z) != null) return OpResult.Blocked;
+            }
+            return OpResult.Ok;
+        }
+
+        /// <summary>A Small Port's rows on land, from its back: the quay.</summary>
+        public const int PortQuayRows = 2;
 
         /// <summary>
         /// True for a tile with something of the map on it that has to stay within reach: a

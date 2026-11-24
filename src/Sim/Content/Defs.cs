@@ -170,6 +170,9 @@ namespace PerformativeMail.Sim.Content
         /// <summary>Top speed on paved tiles (the street, the Post Office yard) and on everything else, m/s.</summary>
         public float RoadSpeed { get; init; }
         public float OffRoadSpeed { get; init; }
+        /// <summary>Doc 04 §3.1 "speed … water": a boat's top speed, m/s; 0 for what runs on land. A boat goes only on water.</summary>
+        public float WaterSpeed { get; init; }
+        public bool OnWater => WaterSpeed > 0f;
         /// <summary>m/s² of speed gained towards the top speed, lost when braking against the way it rolls, and lost rolling free.</summary>
         public float Acceleration { get; init; }
         public float Braking { get; init; }
@@ -219,6 +222,8 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<KitStack> Personal { get; init; } = Array.Empty<KitStack>();
         public IReadOnlyList<KitStack> Team { get; init; } = Array.Empty<KitStack>();
         public IReadOnlyList<VehicleDef> TeamVehicles { get; init; } = Array.Empty<VehicleDef>();
+        /// <summary>Blueprints the kit gives the team for the run (doc 10 §3 bp_rowboat "Granted by Sea kit").</summary>
+        public List<ShopItemDef> TeamBlueprints { get; } = new List<ShopItemDef>();
     }
 
     /// <summary>
@@ -243,6 +248,8 @@ namespace PerformativeMail.Sim.Content
         public int FromShift { get; init; } = 1;
         /// <summary>Not in the fixed stock: on the counter only in a shift whose specials it is rolled into.</summary>
         public bool Rotating { get; init; }
+        /// <summary>Availability slot "kit": never on the counter, only given by a starting kit (doc 10 §3 bp_rowboat).</summary>
+        public bool KitOnly { get; init; }
         public bool OncePerRun { get; init; }
         /// <summary>Tagged "special": may be rolled into one of the shift's special slots.</summary>
         public bool Special { get; init; }
@@ -293,6 +300,18 @@ namespace PerformativeMail.Sim.Content
         /// driver runs the parked truck round.
         /// </summary>
         VehicleDepot = 11,
+        /// <summary>Doc 04 §3.3 Pier: 1 × 3 over shallow water from the shore, a deck walked on; a Rowboat moors beside it.</summary>
+        Pier = 12,
+        /// <summary>
+        /// Doc 10 §2 rowboat_build: placed on the water in Build mode, it is no construct but a
+        /// vehicle (<see cref="BuildingDef.Vehicle"/>) put down there.
+        /// </summary>
+        Boat = 13,
+        /// <summary>
+        /// Doc 04 §3.3 Small Port: 3 × 4 tiles, the back two a quay on land, the front two over deep
+        /// water where a Motor Boat lies in its bay, loaded from the quay's loading face.
+        /// </summary>
+        Port = 14,
     }
 
     /// <summary>What a piece of a pipe network is (doc 08 §2.6 "inlet/outlet/junction role").</summary>
@@ -343,6 +362,13 @@ namespace PerformativeMail.Sim.Content
         /// <summary>A Vehicle Depot: what hiring its NPC driver for a shift costs, in cents (doc 10 §3 npc_driver: 150).</summary>
         public int HireCost { get; init; }
         public bool IsVehicleDepot => Behaviour == BuildingBehaviour.VehicleDepot;
+        public bool IsPort => Behaviour == BuildingBehaviour.Port;
+        /// <summary>A Vehicle Depot or a Small Port: a bay a vehicle is set into, with a loading face.</summary>
+        public bool HasBay => IsVehicleDepot || IsPort;
+        /// <summary>Built on water (doc 04 §3.3): a Pier, a placed Rowboat.</summary>
+        public bool OnWater { get; init; }
+        /// <summary>What a <see cref="BuildingBehaviour.Boat"/> placement puts on the water.</summary>
+        public VehicleDef? Vehicle { get; set; }
         /// <summary>Its filters may name a street or a district, not only a kind: a sorter's and a pipe outlet's.</summary>
         public bool FiltersAddresses => Behaviour == BuildingBehaviour.Sorter || PipeRole == PipeRole.Outlet;
         /// <summary>An inserter: pieces it moves a second (doc 11: 1.25).</summary>
@@ -391,7 +417,9 @@ namespace PerformativeMail.Sim.Content
         /// <summary>Walls and gates stand in a line and join each other; a chest and spikes stand alone.</summary>
         public bool Joins => Behaviour == BuildingBehaviour.Wall || Behaviour == BuildingBehaviour.Gate;
         /// <summary>Whether it stands in anybody's way at all: spikes and pipes are walked over, and the raiders' paths go across them.</summary>
-        public bool Solid => Behaviour != BuildingBehaviour.Spikes && Behaviour != BuildingBehaviour.VehicleDepot && !Carries && PipeRole != PipeRole.Pipe && PipeRole != PipeRole.Underground;
+        /// <summary>Doc 04 §3.3: a Pier is a deck over the water, walked on; boats moor beside it.</summary>
+        public bool Deck => Behaviour == BuildingBehaviour.Pier;
+        public bool Solid => Behaviour != BuildingBehaviour.Pier && Behaviour != BuildingBehaviour.Port && Behaviour != BuildingBehaviour.Spikes && Behaviour != BuildingBehaviour.VehicleDepot && !Carries && PipeRole != PipeRole.Pipe && PipeRole != PipeRole.Underground;
         /// <summary>Mail rides through it (doc 04 §2): a belt, a splitter, a merger. Low enough to walk over.</summary>
         public bool Carries => Behaviour == BuildingBehaviour.Belt || Behaviour == BuildingBehaviour.Splitter || Behaviour == BuildingBehaviour.Merger;
     }

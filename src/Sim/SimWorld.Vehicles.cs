@@ -43,8 +43,42 @@ namespace PerformativeMail.Sim
         /// </summary>
         public Vehicle? AddVehicle(VehicleDef def, EntityId buyer)
         {
+            if (def.OnWater)
+            {
+                // A boat is moored on the water nearest the counter (doc 04 §3.3); a map without water has no room for one.
+                if (!FindMooring(out float bx, out float bz)) return null;
+                return AddVehicleAt(def, bx, bz, 0f, buyer);
+            }
             if (!FindParking(out float x, out float z)) return null;
             return AddVehicleAt(def, x, z, Map.PostOffice.SpawnYaw, buyer);
+        }
+
+        /// <summary>The middle of the free tile of water nearest the counter (the pad without one): none built over it, no boat near.</summary>
+        private bool FindMooring(out float x, out float z)
+        {
+            var po = Map.PostOffice;
+            float ox = po.HasShop ? po.ShopX : po.SpawnPadX, oz = po.HasShop ? po.ShopZ : po.SpawnPadZ;
+            const float tile = SimConstants.TileSize;
+            float best = float.MaxValue;
+            x = z = 0f;
+            for (int tz = 0; tz < Map.Rows; tz++)
+                for (int tx = 0; tx < Map.Cols; tx++)
+                {
+                    if (!PlayerMovement.BoatGoes(Map, Constructs, tx, tz)) continue;
+                    // All round it water too, so it floats clear of the quay.
+                    bool open = true;
+                    for (int dz = -1; dz <= 1 && open; dz++)
+                        for (int dx = -1; dx <= 1 && open; dx++)
+                            if (!PlayerMovement.BoatGoes(Map, Constructs, tx + dx, tz + dz)) open = false;
+                    if (!open) continue;
+                    float cx = (tx + 0.5f) * tile, cz = (tz + 0.5f) * tile;
+                    bool taken = false;
+                    foreach (var v in _vehicles) if (Near(cx, cz, v.X, v.Z, 2.5f)) taken = true;
+                    if (taken) continue;
+                    float d = (cx - ox) * (cx - ox) + (cz - oz) * (cz - oz);
+                    if (d < best) { best = d; x = cx; z = cz; }
+                }
+            return best < float.MaxValue;
         }
 
         public Vehicle AddVehicleAt(VehicleDef def, float x, float z, float heading, EntityId buyer = default)
@@ -209,6 +243,9 @@ namespace PerformativeMail.Sim
         /// <summary>A vehicle standing parked whose rear (its loading face) is on the tile; null for none.</summary>
         public Vehicle? LoadingFaceOn(int tx, int tz)
         {
+            // A Small Port's loading face is on its quay, and loads the boat in its bay (doc 04 §3.3).
+            if (Constructs.At(tx, tz) is { Def.IsPort: true } port && PortLoadingTile(port) == (tx, tz))
+                return InBay(port) is { Def.LoadingFace: true } boat ? boat : null;
             foreach (var v in _vehicles)
             {
                 if (!v.Def.LoadingFace || v.Ridden || v.NpcDriving) continue;

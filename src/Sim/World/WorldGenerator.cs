@@ -26,6 +26,8 @@ namespace PerformativeMail.Sim.World
         private const int MaxAttempts = 8;
         private const int LotSize = 4;
         private const int BeachRows = 6;
+        /// <summary>Doc 02 §3.2: the harbour basin below the beach, inside the map — shallow rows, then deep ones.</summary>
+        public const int ShallowRows = 3, DeepRows = 3;
 
         /// <summary>True for a map id the generator makes rather than a file.</summary>
         public static bool Generates(string mapId) => mapId == SmallIsland;
@@ -198,8 +200,10 @@ namespace PerformativeMail.Sim.World
             if (terrain == null) return null;
 
             // --- the tile grid --------------------------------------------------------------------
-            var tiles = new TileType[cols * rows];
-            var tileDistrict = new byte[cols * rows];
+            // The land's rows, and under them the basin's.
+            int allRows = rows + ShallowRows + DeepRows;
+            var tiles = new TileType[cols * allRows];
+            var tileDistrict = new byte[cols * allRows];
             void Fill(TileRect r, TileType type, int d)
             {
                 for (int y = Math.Max(0, r.Y); y < Math.Min(rows, r.Y + r.H); y++)
@@ -210,6 +214,9 @@ namespace PerformativeMail.Sim.World
                     }
             }
             Fill(new TileRect(0, rows - BeachRows, cols, BeachRows), TileType.Beach, 0);
+            // Shelving water under the west half of the beach (for piers), deep along the rest of the quay (for a port).
+            for (int i = cols * rows; i < tiles.Length; i++)
+                tiles[i] = i < cols * (rows + ShallowRows) && i % cols < cols / 2 ? TileType.Water : TileType.DeepWater;
 
             var districts = new List<DistrictDef>();
             for (int d = 1; d <= districtCount; d++)
@@ -308,7 +315,7 @@ namespace PerformativeMail.Sim.World
                 Id = SmallIsland,
                 Name = $"Small Island #{seed}",
                 Cols = cols,
-                Rows = rows,
+                Rows = allRows,
                 Tiles = tiles,
                 TileDistrict = tileDistrict,
                 Districts = districts,

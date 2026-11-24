@@ -31,6 +31,14 @@
     "grants": { "blueprint": "bp_truck" }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["blueprint"] },
   { "id": "mail_truck", "name": "Mail Truck", "description": "14 m/s on the road; a bay of 8x10 for mail.", "kind": "vehicle", "price": 900,
     "requires": "bp_truck", "grants": { "vehicle": "mail_truck" }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["vehicle"] },
+  { "id": "bp_rowboat", "name": "Blueprint: Rowboat", "description": "The team can place Rowboats on the water.", "kind": "blueprint", "price": 1,
+    "grants": { "blueprint": "bp_rowboat" }, "availability": { "fromShift": 1, "slot": "kit" }, "tags": ["blueprint"] },
+  { "id": "rowboat", "name": "Rowboat", "description": "3 m/s on the water; a locker of 2x8.", "kind": "vehicle", "price": 200,
+    "grants": { "vehicle": "rowboat" }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["vehicle"] },
+  { "id": "bp_motorboat", "name": "Blueprint: Harbour", "description": "Motor Boats and the Small Port for the team.", "kind": "blueprint", "price": 500,
+    "grants": { "blueprint": "bp_motorboat" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] },
+  { "id": "motorboat", "name": "Motor Boat", "description": "9 m/s on the water; a hold of 8x10 for mail.", "kind": "vehicle", "price": 700,
+    "requires": "bp_motorboat", "grants": { "vehicle": "motorboat" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["vehicle"] },
   { "id": "bp_pipes", "name": "Blueprint: Pneumatics", "description": "Pneumatic pipes: inlets send mail to outlets.", "kind": "blueprint", "price": 700,
     "grants": { "blueprint": "bp_pipes" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] }
 ]

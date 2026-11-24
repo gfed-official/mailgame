@@ -79,6 +79,9 @@ grep -q "^\[smoke\] defences: a Gate built" "$work/log" || { echo "smoke: no Gat
 # The bike (doc 04 §3.1): the Land kit's (the card sells a lone carrier no second), got on through its prompt,
 # ridden at road speed, its rack opened, got off.
 grep -q "^\[smoke\] bike: the Land kit's, ridden" "$work/log" || { echo "smoke: the kit's bike was not ridden" >&2; exit 1; }
+# The sea path (doc 04 §3.3): a Pier built from the beach, a Rowboat placed, rowed and left from the pier.
+grep -q "^\[smoke\] boats: a Pier built" "$work/log" || { echo "smoke: no Pier and Rowboat in the smoke" >&2; exit 1; }
+grep -q "^\[smoke\] boats: a Small Port built" "$work/log" || { echo "smoke: no Small Port and Motor Boat in the smoke" >&2; exit 1; }
 
 # The generated Small Island town (doc 02): twenty seeds make valid towns (SeedViewer), and a bot
 # plays the smoke seed's town for 25 s, the client building it from the seed and checking its hash.

@@ -50,7 +50,7 @@ namespace PerformativeMail.Sim.Run
         /// </summary>
         public static OpResult Check(ShopItemDef def, int shift, bool special, bool owned)
         {
-            if (def.Rotating && !special) return OpResult.BadRequest;
+            if ((def.Rotating && !special) || def.KitOnly) return OpResult.BadRequest;
             if (def.FromShift > shift) return OpResult.ShopLocked;
             if (def.OncePerRun && owned) return OpResult.AlreadyOwned;
             return OpResult.Ok;

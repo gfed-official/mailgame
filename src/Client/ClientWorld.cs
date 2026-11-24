@@ -551,7 +551,7 @@ namespace PerformativeMail.Client
             {
                 _shelf.Clear();
                 foreach (var def in Content.ShopItems)
-                    if (!def.Rotating || ShopSpecials.Contains(def)) _shelf.Add(def);
+                    if (!def.KitOnly && (!def.Rotating || ShopSpecials.Contains(def))) _shelf.Add(def);
                 return _shelf;
             }
         }

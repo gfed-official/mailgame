@@ -74,6 +74,7 @@ namespace PerformativeMail.Client.Presentation
                 Shaders.GroundBiomes(ground, biomeMap, new Vector2(-island.TownX * Tile, -island.TownZ * Tile), new Vector2(island.Cols * Tile, island.Rows * Tile), new Vector2(map.WidthM, map.DepthM));
             }
             AddGround(map, ground);
+            IslandView.Basin(this, map);
 
             var batch = new MeshBatch();
             foreach (var dest in map.Destinations)
@@ -251,11 +252,13 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>The map's flat ground, in chunks, so each is lit by the few lamps near it.</summary>
         private void AddGround(WorldMap map, ShaderMaterial material)
         {
-            for (float z = 0f; z < map.DepthM; z += GroundChunk)
+            // The water along the south edge is the harbour basin's (IslandView.Basin), not ground.
+            float depth = map.LandRows * Tile;
+            for (float z = 0f; z < depth; z += GroundChunk)
             {
                 for (float x = 0f; x < map.WidthM; x += GroundChunk)
                 {
-                    float w = Mathf.Min(GroundChunk, map.WidthM - x), d = Mathf.Min(GroundChunk, map.DepthM - z);
+                    float w = Mathf.Min(GroundChunk, map.WidthM - x), d = Mathf.Min(GroundChunk, depth - z);
                     AddChild(new MeshInstance3D
                     {
                         Name = $"Ground{x:0}_{z:0}",

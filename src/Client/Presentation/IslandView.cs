@@ -58,6 +58,51 @@ namespace PerformativeMail.Client.Presentation
             return best;
         }
 
+        /// <summary>The water of the map's own harbour basin (doc 02 §3.2), a little under the quay: boats float on it.</summary>
+        public const float BasinLevel = -0.45f;
+
+        /// <summary>
+        /// The map's water along its south edge: a stone quay where the land ends, sand under the
+        /// shallow water and a darker bed under the deep, and the water over them (design choice 111).
+        /// </summary>
+        public static void Basin(Node3D parent, WorldMap map)
+        {
+            float land = map.LandRows * Tile;
+            if (land >= map.DepthM) return;
+            float width = map.WidthM, depth = map.DepthM - land;
+            var sand = MeshKit.Mat(new Color("b9a57a"), 0.95f);
+            var deep = MeshKit.Mat(new Color("3c5560"), 0.95f);
+            var stone = MeshKit.Mat(new Color("8d8a82"), 0.9f);
+            var cap = MeshKit.Mat(new Color("b5b0a3"), 0.85f);
+            // The bed a run of a row at a time.
+            for (int tz = map.LandRows; tz < map.Rows; tz++)
+                for (int tx = 0; tx < map.Cols;)
+                {
+                    bool shallow = map.IsShallowWater(tx, tz);
+                    int end = tx + 1;
+                    while (end < map.Cols && map.IsShallowWater(end, tz) == shallow && map.IsWater(end, tz) == map.IsWater(tx, tz)) end++;
+                    if (map.IsWater(tx, tz))
+                        parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3((end - tx) * Tile, 0.2f, Tile)), shallow ? sand : deep,
+                            new Vector3((tx + end) * 0.5f * Tile, shallow ? -1.5f : -3.2f, (tz + 0.5f) * Tile)));
+                    tx = end;
+                }
+            // The quay along the land, its coping level with the ground.
+            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(width, 3.2f, 0.5f)), stone, new Vector3(width * 0.5f, -1.65f, land + 0.25f), name: "Quay"));
+            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(width, 0.12f, 0.6f)), cap, new Vector3(width * 0.5f, 0.0f, land + 0.3f), name: "QuayCoping"));
+            // The far side and the ends: a sea wall the basin is closed by.
+            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(width + 1f, 4f, 0.6f)), stone, new Vector3(width * 0.5f, -1.4f, map.DepthM + 0.3f)));
+            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.6f, 4f, depth)), stone, new Vector3(-0.3f, -1.4f, land + depth * 0.5f)));
+            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.6f, 4f, depth)), stone, new Vector3(width + 0.3f, -1.4f, land + depth * 0.5f)));
+            parent.AddChild(new MeshInstance3D
+            {
+                Name = "BasinWater",
+                Mesh = new PlaneMesh { Size = new Vector2(width, depth) },
+                MaterialOverride = Shaders.Water(),
+                Position = new Vector3(width * 0.5f, BasinLevel, land + depth * 0.5f),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
+        }
+
         /// <summary>Where the sea stands: under a generated town by the island's level, else the test street's.</summary>
         public static float SeaLevelOf(WorldMap map) => map.Terrain != null ? -IslandTerrain.TownLevelCm / 100f : SeaLevel;
 

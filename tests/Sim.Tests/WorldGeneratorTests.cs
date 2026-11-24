@@ -59,7 +59,9 @@ namespace PerformativeMail.Sim.Tests
                     Assert.Equal(TileType.Lot, map.GetTile(d.Lot.X + 3, d.Lot.Y + (d.Building.Y == d.Lot.Y ? 3 : 0)));
                 }
                 // A beach along the south shore, the Post Office on the main street with its counter.
-                Assert.Equal(TileType.Beach, map.GetTile(1, map.Rows - 1));
+                Assert.Equal(TileType.Beach, map.GetTile(1, map.LandRows - 1));
+                // Under it the harbour basin (doc 02 §3.2): shallow rows, then deep ones, to the map's edge.
+                Assert.Equal((TileType.Water, TileType.DeepWater, map.LandRows + 6), (map.GetTile(1, map.LandRows), map.GetTile(map.Cols - 2, map.Rows - 1), map.Rows));
                 Assert.True(map.PostOffice.HasShop);
                 Assert.Single(map.Chests);
                 // The main street runs from shore to shore in segments, the raiders' way in at its east end.

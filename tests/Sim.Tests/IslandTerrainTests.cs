@@ -60,7 +60,7 @@ namespace PerformativeMail.Sim.Tests
                     {
                         int h = t.Height(ix, iz);
                         var biome = t.BiomeAt(ix, iz);
-                        bool town = ix >= t.TownX && iz >= t.TownZ && ix < t.TownX + map.Cols && iz < t.TownZ + map.Rows;
+                        bool town = ix >= t.TownX && iz >= t.TownZ && ix < t.TownX + map.Cols && iz < t.TownZ + map.LandRows;
                         // Water by depth (doc 02 §3.2: shallow under 2 m).
                         if (h <= 0)
                         {
@@ -102,7 +102,7 @@ namespace PerformativeMail.Sim.Tests
                     for (int ix = px - 100; ix <= px + 100; ix++)
                         deep |= t.BiomeAt(ix, iz) == Biome.DeepWater && (ix - px) * (ix - px) + (iz - pz) * (iz - pz) <= 100 * 100;
                 Assert.True(deep, $"seed {seed}: no deep water within 200 m");
-                int below = t.TownZ + map.Rows + 3, mid = t.TownX + map.Cols / 2;
+                int below = t.TownZ + map.LandRows + 3, mid = t.TownX + map.Cols / 2;
                 Assert.True(IslandTerrain.IsWater(t.BiomeAt(mid, below)));
                 // In the sim the town is flat; the view is the island's, the sea under the town's level.
                 Assert.Equal(0f, t.MetresAboveTown(map.WidthM * 0.5f, map.DepthM * 0.5f), 3);
@@ -122,7 +122,7 @@ namespace PerformativeMail.Sim.Tests
                 var t = map.Terrain!;
                 var site = t.Site;
                 sites.Add((t.TownX, t.TownZ));
-                int midX = (t.Cols - map.Cols) / 2, midZ = (t.Rows - map.Rows) / 2;
+                int midX = (t.Cols - map.Cols) / 2, midZ = (t.Rows - map.LandRows) / 2;
                 Assert.InRange(t.TownX - midX, -IslandTerrain.SiteReach, IslandTerrain.SiteReach);
                 Assert.InRange(t.TownZ - midZ, -IslandTerrain.SiteReach, IslandTerrain.SiteReach);
                 // Within 80 m all round, the square's corners not included.
@@ -133,7 +133,7 @@ namespace PerformativeMail.Sim.Tests
                 Assert.True(site.Flat >= 850, $"seed {seed}: {site.Flat}‰ flat");
                 Assert.Equal(site.Flat * 2 - site.Levelling - site.Coast * 5 - site.FromCentre * 5, site.Total);
                 // Land beyond the west, north and east edges, where the streets leave and the raiders come in.
-                foreach (var (ix, iz) in new[] { (t.TownX - 4, t.TownZ + map.Rows / 2), (t.TownX + map.Cols + 3, t.TownZ + map.Rows / 2), (t.TownX + map.Cols / 2, t.TownZ - 4) })
+                foreach (var (ix, iz) in new[] { (t.TownX - 4, t.TownZ + map.LandRows / 2), (t.TownX + map.Cols + 3, t.TownZ + map.LandRows / 2), (t.TownX + map.Cols / 2, t.TownZ - 4) })
                     Assert.False(IslandTerrain.IsWater(t.BiomeAt(ix, iz)), $"seed {seed}: water at ({ix}, {iz}) beside the town");
             }
             // Not one place for every seed: the island decides.

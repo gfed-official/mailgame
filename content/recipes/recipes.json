@@ -43,5 +43,11 @@
   { "id": "recipe_pipe_inlet", "produces": { "building": "pipe_inlet" },
     "inputs": [ { "item": "iron_ingot", "count": 3 }, { "item": "glass", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_pipes", "group": "pipe" },
   { "id": "recipe_pipe_outlet", "produces": { "building": "pipe_outlet" },
-    "inputs": [ { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_pipes", "group": "pipe" }
+    "inputs": [ { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_pipes", "group": "pipe" },
+  { "id": "recipe_pier", "produces": { "building": "pier" },
+    "inputs": [ { "item": "log", "count": 6 } ], "craftSeconds": 0, "unlockShift": 1, "group": "storage" },
+  { "id": "recipe_rowboat", "produces": { "building": "rowboat_build" },
+    "inputs": [ { "item": "log", "count": 8 }, { "item": "rope", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_rowboat", "group": "storage" },
+  { "id": "recipe_small_port", "produces": { "building": "small_port" },
+    "inputs": [ { "item": "plank", "count": 16 }, { "item": "stone", "count": 10 }, { "item": "iron_ingot", "count": 6 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_motorboat", "group": "storage" }
 ]

@@ -93,7 +93,14 @@ namespace PerformativeMail.Sim.Players
                 var vehicle = c.RideOf(s);
                 // The jump key gets off (a bike does not jump), and so does whoever goes down; off,
                 // they stand where the vehicle stood, and this tick's jump is spent on getting off.
-                if (vehicle == null || s.Dead || input.Has(InputButtons.Jump))
+                // Out of a boat one steps onto a pier or the shore beside it; on open water the key does nothing.
+                bool ashore = true;
+                if (vehicle != null && vehicle.OnWater && !s.Dead && input.Has(InputButtons.Jump))
+                {
+                    ashore = Landing(map, constructs, s.X, s.Z, out float lx, out float lz);
+                    if (ashore) { s.X = lx; s.Z = lz; }
+                }
+                if (vehicle == null || s.Dead || (input.Has(InputButtons.Jump) && ashore))
                 {
                     s.Ride = 0;
                     s.RideSpeed = 0f;
@@ -196,7 +203,7 @@ namespace PerformativeMail.Sim.Players
             float mx = input.MoveX / 127f, mz = input.MoveZ / 127f;
             float len = MathF.Sqrt(mx * mx + mz * mz);
             if (len > 1f) { mx /= len; mz /= len; len = 1f; }
-            float top = OnRoad(map, s.X, s.Z) ? v.RoadSpeed : v.OffRoadSpeed;
+            float top = v.OnWater ? v.WaterSpeed : OnRoad(map, s.X, s.Z) ? v.RoadSpeed : v.OffRoadSpeed;
 
             if (len > 0.01f)
             {
@@ -228,7 +235,7 @@ namespace PerformativeMail.Sim.Players
             if (s.RideSpeed > 0f)
             {
                 float x = s.X + s.HeadX * s.RideSpeed * dt, z = s.Z + s.HeadZ * s.RideSpeed * dt;
-                ResolveCollisions(ref x, ref z, s.Y, map, v.Radius, constructs);
+                ResolveCollisions(ref x, ref z, s.Y, map, v.Radius, constructs, boat: v.OnWater);
                 // A long body (a Mail Truck) bumps with its nose and its tail too: each is pushed out, and the middle with it.
                 float off = v.BodyOffset;
                 if (off > 0f)
@@ -237,7 +244,7 @@ namespace PerformativeMail.Sim.Players
                     {
                         float ex = x + s.HeadX * off * end, ez = z + s.HeadZ * off * end;
                         float px = ex, pz = ez;
-                        ResolveCollisions(ref px, ref pz, s.Y, map, v.Radius, constructs);
+                        ResolveCollisions(ref px, ref pz, s.Y, map, v.Radius, constructs, boat: v.OnWater);
                         x += px - ex;
                         z += pz - ez;
                     }
@@ -253,6 +260,45 @@ namespace PerformativeMail.Sim.Players
             s.Y = map.HeightAt(s.X, s.Z);
         }
 
+        /// <summary>True on a tile with a deck built over the water (a Pier): walked on, and in a boat's way.</summary>
+        public static bool DeckOn(ConstructField? constructs, int tx, int tz) => constructs?.At(tx, tz) is { Def.Deck: true };
+
+        /// <summary>Where a boat may be: water with nothing built over it, or a Small Port's bay (its middle column, between its pontoons).</summary>
+        public static bool BoatGoes(WorldMap map, ConstructField? constructs, int tx, int tz) =>
+            map.IsWater(tx, tz) && (constructs?.At(tx, tz) is not { } built || (built.Def.IsPort && built.IndexOf(tx, tz) / built.Def.Length == 1));
+
+        /// <summary>True where a carrier may stand: no house or wall of the map, and over water only on a deck.</summary>
+        public static bool Walkable(WorldMap map, ConstructField? constructs, int tx, int tz) =>
+            map.InBounds(tx, tz) && !map.IsSolid(tx, tz) && (!map.IsWater(tx, tz) || DeckOn(constructs, tx, tz))
+            && !(constructs?.At(tx, tz) is { Def.Solid: true });
+
+        /// <summary>
+        /// Where one getting out of a boat at (x, z) steps (doc 04 §3.3 "Rowboat mooring"): the
+        /// nearest point of a pier's deck or of the shore within <see cref="LandingReach"/>, a body's
+        /// width in from the edge; false on open water. The same on the server and in prediction.
+        /// </summary>
+        public static bool Landing(WorldMap map, ConstructField? constructs, float x, float z, out float lx, out float lz)
+        {
+            const float tile = SimConstants.TileSize, inset = 0.45f;
+            int ox = (int)MathF.Floor(x / tile), oz = (int)MathF.Floor(z / tile);
+            float best = LandingReach * LandingReach;
+            bool found = false;
+            lx = x; lz = z;
+            for (int tz = oz - 2; tz <= oz + 2; tz++)
+                for (int tx = ox - 2; tx <= ox + 2; tx++)
+                {
+                    if (!Walkable(map, constructs, tx, tz) || map.SolidPropsAt(tx, tz) is { Length: > 0 }) continue;
+                    float px = Math.Clamp(x, tx * tile + inset, (tx + 1) * tile - inset), pz = Math.Clamp(z, tz * tile + inset, (tz + 1) * tile - inset);
+                    float d = (px - x) * (px - x) + (pz - z) * (pz - z);
+                    if (d >= best) continue;
+                    best = d; lx = px; lz = pz; found = true;
+                }
+            return found;
+        }
+
+        /// <summary>How far from a boat its rower can step ashore.</summary>
+        public const float LandingReach = 2.6f;
+
         /// <summary>
         /// Pushes a circle out of every solid tile and solid prop it overlaps. Map edges are solid.
         /// A prop lower than the walker's feet (<paramref name="feetY"/>) is passed over: fences
@@ -260,7 +306,7 @@ namespace PerformativeMail.Sim.Players
         /// (<paramref name="constructs"/>) stands in the way as well, a gate only in a raider's.
         /// </summary>
         public static void ResolveCollisions(ref float x, ref float z, float feetY, WorldMap map, float r,
-            ConstructField? constructs = null, bool carrier = true)
+            ConstructField? constructs = null, bool carrier = true, bool boat = false)
         {
             const float tile = SimConstants.TileSize;
             for (int iter = 0; iter < 2; iter++)
@@ -272,7 +318,7 @@ namespace PerformativeMail.Sim.Players
                 {
                     for (int tx = minTx; tx <= maxTx; tx++)
                     {
-                        if (!map.IsSolid(tx, tz)) continue;
+                        if (!(boat ? !BoatGoes(map, constructs, tx, tz) : map.IsSolid(tx, tz) || (map.IsWater(tx, tz) && !DeckOn(constructs, tx, tz)))) continue;
                         float x0 = tx * tile, z0 = tz * tile, x1 = x0 + tile, z1 = z0 + tile;
                         float cx = Math.Clamp(x, x0, x1);
                         float cz = Math.Clamp(z, z0, z1);
@@ -320,7 +366,7 @@ namespace PerformativeMail.Sim.Players
                         pushed = true;
                     }
                 }
-                if (constructs != null && constructs.Push(ref x, ref z, feetY, r, carrier)) pushed = true;
+                if (!boat && constructs != null && constructs.Push(ref x, ref z, feetY, r, carrier)) pushed = true;
                 if (!pushed) break;
             }
         }

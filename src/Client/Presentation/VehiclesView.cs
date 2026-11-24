@@ -29,6 +29,11 @@ namespace PerformativeMail.Client.Presentation
             public float WheelRadius = VehiclesView.WheelRadius;
             public Vector3 Last;
             public bool Placed;
+            /// <summary>A boat's time on the water, for its rocking.</summary>
+            public float Bob;
+            /// <summary>A boat's oars (its "wheels"), swept to and fro with the water covered, not turned round.</summary>
+            public bool Oars;
+            public float Stroke;
             /// <summary>A truck's NPC driver (doc 04 §3.2), and the cab's side windows, rolled down beside whoever sits there.</summary>
             public Node3D? Driver;
             public Node3D? LeftWindow, RightWindow;
@@ -70,7 +75,7 @@ namespace PerformativeMail.Client.Presentation
                 {
                     if (!_drawn.TryGetValue(v.Id, out var d))
                     {
-                        d = v.Def.BodyOffset > 0f ? BuildTruck(v.Id, v.Def) : Build(v.Id);
+                        d = v.Def.OnWater ? (v.Def.LoadingFace ? BuildMotorboat(v.Id, v.Def) : BuildRowboat(v.Id)) : v.Def.BodyOffset > 0f ? BuildTruck(v.Id, v.Def) : Build(v.Id);
                         _drawn[v.Id] = d;
                     }
                     Vector3 position;
@@ -103,6 +108,12 @@ namespace PerformativeMail.Client.Presentation
                     {
                         position = new Vector3(v.X, world.Map.HeightAt(v.X, v.Z), v.Z);
                         heading = v.Heading;
+                    }
+                    // A boat floats on the basin, rocking a little.
+                    if (v.Def.OnWater)
+                    {
+                        d.Bob += (float)delta;
+                        position.Y = IslandView.BasinLevel + Mathf.Sin(d.Bob * 1.7f + v.Id.Counter) * 0.03f;
                     }
                     Place(d, position, heading);
                     if (d.Driver != null)
@@ -140,7 +151,14 @@ namespace PerformativeMail.Client.Presentation
             {
                 var step = position - d.Last;
                 float along = -(step.X * Mathf.Sin(heading) + step.Z * Mathf.Cos(heading));
-                if (Mathf.Abs(along) < 3f)
+                if (d.Oars && Mathf.Abs(along) < 3f)
+                {
+                    d.Stroke += Mathf.Abs(along) * 2.2f;
+                    float sweep = Mathf.Sin(d.Stroke) * 0.5f, dip = Mathf.Cos(d.Stroke) * 0.12f;
+                    d.FrontWheel.Rotation = new Vector3(dip, -sweep, 0f);
+                    d.RearWheel.Rotation = new Vector3(dip, sweep, 0f);
+                }
+                else if (Mathf.Abs(along) < 3f)
                 {
                     float turn = -along / d.WheelRadius;
                     d.FrontWheel.RotateObjectLocal(Vector3.Right, turn);
@@ -151,6 +169,125 @@ namespace PerformativeMail.Client.Presentation
             d.Placed = true;
             d.Root.Position = position;
             d.Root.Rotation = new Vector3(0f, heading, 0f);
+        }
+
+        private static readonly Color HullWood = new Color("8a5a36"), HullPaint = new Color("2d6f8e"), HullInside = new Color("6b4a30"), Gunwale = new Color("e9e2d0");
+
+        /// <summary>
+        /// Doc 04 §3.1 Rowboat: a clinker hull painted the harbour's blue with a cream gunwale, two
+        /// thwarts inside, pointing along −Z (yaw 0) with its waterline at <paramref name="at"/>.
+        /// Ghosts draw it all in <paramref name="only"/>.
+        /// </summary>
+        public static void RowboatHull(MeshBatch batch, Vector3 at, float yaw, Material? only)
+        {
+            var basis = new Basis(Vector3.Up, yaw);
+            var paint = only ?? MeshKit.Mat(HullPaint, 0.6f);
+            var wood = only ?? MeshKit.Mat(HullWood, 0.8f);
+            var inside = only ?? MeshKit.Mat(HullInside, 0.85f);
+            var trim = only ?? MeshKit.Mat(Gunwale, 0.6f);
+            void Part(Mesh mesh, Material m, Vector3 local, float yawLocal = 0f) =>
+                batch.Add(mesh, m, new Transform3D(basis * new Basis(Vector3.Up, yawLocal), at + basis * local));
+            // The hull: a flat bottom, straight sides aft and a V of planks closing to the stem at the bow.
+            const float half = 0.5f, aft = 1.25f, waist = -0.45f, stem = -1.5f, top = 0.3f;
+            Part(MeshKit.RoundedBox(new Vector3(0.9f, 0.16f, aft - waist), 0.06f), paint, new Vector3(0f, -0.12f, (aft + waist) * 0.5f));
+            Part(MeshKit.RoundedBox(new Vector3(0.5f, 0.16f, waist - stem), 0.06f), paint, new Vector3(0f, -0.1f, (waist + stem) * 0.5f + 0.1f));
+            float bowLength = Mathf.Sqrt(half * half + (waist - stem) * (waist - stem)), bowYaw = Mathf.Atan2(half, waist - stem);
+            for (int k = -1; k <= 1; k += 2)
+            {
+                // A side aft, then its half of the bow; each drawn as two strakes, the upper in bare wood.
+                Part(MeshKit.Box(new Vector3(0.06f, 0.26f, aft - waist)), paint, new Vector3(k * half, 0.03f, (aft + waist) * 0.5f));
+                Part(MeshKit.Box(new Vector3(0.06f, 0.14f, aft - waist)), wood, new Vector3(k * (half + 0.01f), 0.21f, (aft + waist) * 0.5f));
+                Part(MeshKit.Box(new Vector3(0.06f, 0.26f, bowLength)), paint, new Vector3(k * half * 0.5f, 0.03f, (waist + stem) * 0.5f), k * bowYaw);
+                Part(MeshKit.Box(new Vector3(0.06f, 0.14f, bowLength)), wood, new Vector3(k * (half * 0.5f + 0.01f), 0.21f, (waist + stem) * 0.5f), k * bowYaw);
+                Part(MeshKit.Box(new Vector3(0.07f, 0.06f, aft - waist + 0.04f)), trim, new Vector3(k * half, top, (aft + waist) * 0.5f));
+                Part(MeshKit.Box(new Vector3(0.07f, 0.06f, bowLength)), trim, new Vector3(k * half * 0.5f, top, (waist + stem) * 0.5f), k * bowYaw);
+            }
+            // The transom across the stern, the floor boards inside.
+            Part(MeshKit.Box(new Vector3(2f * half + 0.06f, 0.4f, 0.06f)), paint, new Vector3(0f, 0.08f, aft));
+            Part(MeshKit.Box(new Vector3(2f * half + 0.08f, 0.06f, 0.08f)), trim, new Vector3(0f, top, aft));
+            Part(MeshKit.Box(new Vector3(2f * half - 0.08f, 0.03f, aft - waist)), inside, new Vector3(0f, -0.02f, (aft + waist) * 0.5f));
+            foreach (float z in new[] { -0.35f, 0.55f })
+                Part(MeshKit.Box(new Vector3(0.92f, 0.05f, 0.26f)), wood, new Vector3(0f, 0.34f, z));
+            // The stem post at the bow.
+            Part(MeshKit.Box(new Vector3(0.09f, 0.5f, 0.1f)), wood, new Vector3(0f, 0.12f, stem));
+        }
+
+        /// <summary>A rowboat on the water, its two oars in their rowlocks (they sweep as it moves).</summary>
+        private Drawn BuildRowboat(EntityId id)
+        {
+            var root = new Node3D { Name = $"Rowboat{id.Counter}" };
+            AddChild(root);
+            var batch = new MeshBatch();
+            RowboatHull(batch, Vector3.Zero, 0f, null);
+            batch.Flush(root, "Hull");
+            var oarWood = MeshKit.Mat(new Color("c9a06a"), 0.75f);
+            var blade = MeshKit.Mat(new Color("d8d0bd"), 0.7f);
+            Node3D Oar(float side)
+            {
+                var pivot = new Node3D { Name = side < 0f ? "LeftOar" : "RightOar", Position = new Vector3(side * 0.55f, 0.36f, -0.05f) };
+                root.AddChild(pivot);
+                // Out over the side and down into the water.
+                var shaft = new Node3D { RotationDegrees = new Vector3(0f, 0f, side * 72f) };
+                pivot.AddChild(shaft);
+                shaft.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.03f, 0.03f, 2.1f, 8), oarWood, new Vector3(0f, -0.65f, 0f)));
+                shaft.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.05f, 0.5f, 0.16f)), blade, new Vector3(0f, -1.55f, 0f)));
+                return pivot;
+            }
+            var left = Oar(-1f);
+            var right = Oar(1f);
+            return new Drawn { Root = root, FrontWheel = left, RearWheel = right, Oars = true };
+        }
+
+        /// <summary>
+        /// Doc 04 §3.1 Motor Boat (design choice 112): a white workboat with the post's red band, a
+        /// wheelhouse forward with dark glass and a lit mast lamp, a cargo hold aft with an amber
+        /// roll-up door at the stern (its loading face), a rubbing strake and an outboard.
+        /// </summary>
+        private Drawn BuildMotorboat(EntityId id, Sim.Content.VehicleDef def)
+        {
+            var root = new Node3D { Name = $"MotorBoat{id.Counter}" };
+            AddChild(root);
+            var batch = new MeshBatch();
+            var white = MeshKit.Mat(new Color("eceae3"), 0.5f);
+            var red = MeshKit.Mat(new Color("c0392b"), 0.55f);
+            var bottom = MeshKit.Mat(new Color("2b3440"), 0.7f);
+            var glass = MeshKit.Mat(new Color("1d2a33"), 0.15f, 0.3f);
+            var amber = MeshKit.Mat(new Color("e0902a"), 0.5f);
+            var rub = MeshKit.Mat(new Color("3a3a3a"), 0.8f);
+            var deck = MeshKit.Mat(new Color("9c7b58"), 0.85f);
+            float half = def.Length * 0.5f, beam = 0.85f;
+            // The hull aft of the bow, the bow a V of two plates closing to the stem.
+            batch.Add(MeshKit.RoundedBox(new Vector3(2f * beam, 0.75f, half + 0.9f), 0.15f), white, new Vector3(0f, 0.1f, (half - 0.9f) * 0.5f + 0.45f - 0.45f));
+            batch.Add(MeshKit.RoundedBox(new Vector3(2f * beam - 0.05f, 0.3f, half + 0.8f), 0.12f), bottom, new Vector3(0f, -0.2f, (half - 0.9f) * 0.5f));
+            float bowLength = Mathf.Sqrt(beam * beam + 1.3f * 1.3f), bowYaw = Mathf.Atan2(beam, 1.3f);
+            for (int k = -1; k <= 1; k += 2)
+            {
+                batch.Add(MeshKit.Box(new Vector3(0.08f, 0.75f, bowLength)), white, new Transform3D(new Basis(Vector3.Up, k * bowYaw), new Vector3(k * beam * 0.5f, 0.1f, -half + 0.65f)));
+                batch.Add(MeshKit.Box(new Vector3(0.1f, 0.14f, bowLength)), red, new Transform3D(new Basis(Vector3.Up, k * bowYaw), new Vector3(k * (beam * 0.5f + 0.01f), 0.28f, -half + 0.65f)));
+                batch.Box(new Vector3(k * (beam + 0.01f), 0.28f, 0.45f), new Vector3(0.04f, 0.14f, half + 0.85f), red, 0.0f);
+                batch.Box(new Vector3(k * (beam + 0.04f), 0.02f, 0.45f), new Vector3(0.06f, 0.08f, half + 0.9f), rub, 0.02f);
+            }
+            batch.Add(MeshKit.Box(new Vector3(2f * beam - 0.2f, 0.06f, 1.2f)), deck, new Vector3(0f, 0.46f, -half + 0.95f));
+            // The wheelhouse forward of the middle.
+            batch.Box(new Vector3(0f, 0.95f, -0.35f), new Vector3(1.3f, 1.0f, 1.0f), white, 0.08f);
+            batch.Box(new Vector3(0f, 1.12f, -0.86f), new Vector3(1.15f, 0.42f, 0.04f), glass, 0.0f);
+            for (int k = -1; k <= 1; k += 2) batch.Box(new Vector3(k * 0.66f, 1.12f, -0.35f), new Vector3(0.04f, 0.42f, 0.75f), glass, 0.0f);
+            batch.Box(new Vector3(0f, 1.5f, -0.35f), new Vector3(1.45f, 0.08f, 1.15f), red, 0.03f);
+            batch.Add(MeshKit.Cylinder(0.03f, 0.03f, 0.7f, 8), rub, new Vector3(0f, 1.9f, -0.3f));
+            batch.Add(MeshKit.Sphere(0.06f, 10), MeshKit.Glow(new Color("ffe8a8"), 2.2f), new Vector3(0f, 2.27f, -0.3f));
+            // The hold aft, its roll-up door at the stern.
+            batch.Box(new Vector3(0f, 0.85f, 1.05f), new Vector3(1.4f, 0.8f, 1.5f), white, 0.06f);
+            batch.Box(new Vector3(0f, 1.27f, 1.05f), new Vector3(1.48f, 0.06f, 1.58f), red, 0.02f);
+            batch.Box(new Vector3(0f, 0.82f, half - 0.18f), new Vector3(1.0f, 0.65f, 0.04f), amber, 0.0f);
+            for (int s = 0; s < 6; s++) batch.Box(new Vector3(0f, 0.55f + s * 0.11f, half - 0.16f), new Vector3(1.0f, 0.015f, 0.02f), rub, 0.0f);
+            // The outboard on the transom.
+            batch.Box(new Vector3(0f, 0.35f, half + 0.12f), new Vector3(0.35f, 0.5f, 0.3f), rub, 0.06f);
+            batch.Flush(root, "Hull");
+            var front = new Node3D { Name = "FrontWheel" };
+            var rear = new Node3D { Name = "RearWheel" };
+            root.AddChild(front);
+            root.AddChild(rear);
+            return new Drawn { Root = root, FrontWheel = front, RearWheel = rear, WheelRadius = 1000f };
         }
 
         /// <summary>A bike pointing along −Z (yaw 0), its wheels on the ground.</summary>

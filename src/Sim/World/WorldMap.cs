@@ -17,6 +17,10 @@ namespace PerformativeMail.Sim.World
         Yard = 4,
         /// <summary>Sand by the water (doc 02 §3.2 Beach): walkable and open ground, where the sand piles lie.</summary>
         Beach = 5,
+        /// <summary>Doc 02 §3.2 shallow water (depth &lt; 2 m): rowed over, a Pier is built on it; nobody walks it.</summary>
+        Water = 6,
+        /// <summary>Doc 02 §3.2 deep water: rowed over too; a Small Port wants it.</summary>
+        DeepWater = 7,
     }
 
     /// <summary>Tile rectangle [x, y, w, h] in tiles.</summary>
@@ -132,6 +136,8 @@ namespace PerformativeMail.Sim.World
 
         /// <summary>FNV-1a 64 of the tile and address tables and the chests; the M0 stand-in for worldHash (doc 02 §2).</summary>
         public ulong MapHash { get; private set; }
+        /// <summary>The hash of everything but the water: what the sand piles are grown from.</summary>
+        public ulong LandHash { get; private set; }
         /// <summary>
         /// The hash of the ground alone (tiles, streets, destinations, Post Office): what the scenery
         /// is grown from, so putting a chest into a map does not move its trees.
@@ -139,6 +145,18 @@ namespace PerformativeMail.Sim.World
         public ulong SceneryKey { get; private set; }
 
         public float WidthM => Cols * SimConstants.TileSize;
+
+        /// <summary>The rows down to the last that holds any land: the water along the south edge (doc 02 §3.2) lies beyond them.</summary>
+        public int LandRows
+        {
+            get
+            {
+                for (int z = Rows - 1; z >= 0; z--)
+                    for (int x = 0; x < Cols; x++)
+                        if (Tiles[z * Cols + x] is not (TileType.Water or TileType.DeepWater)) return z + 1;
+                return 0;
+            }
+        }
         public float DepthM => Rows * SimConstants.TileSize;
 
         public bool InBounds(int tx, int tz) => tx >= 0 && tz >= 0 && tx < Cols && tz < Rows;
@@ -147,6 +165,21 @@ namespace PerformativeMail.Sim.World
 
         /// <summary>Out-of-bounds counts as solid so the map edge is a wall.</summary>
         public bool IsSolid(int tx, int tz) => !InBounds(tx, tz) || Tiles[tz * Cols + tx] == TileType.Building;
+
+        /// <summary>Doc 02 §3.2: water of either depth, where boats go and walkers do not.</summary>
+        public bool IsWater(int tx, int tz) => InBounds(tx, tz) && Tiles[tz * Cols + tx] is TileType.Water or TileType.DeepWater;
+
+        public bool IsShallowWater(int tx, int tz) => InBounds(tx, tz) && Tiles[tz * Cols + tx] == TileType.Water;
+
+        /// <summary>True if the map has any water at all.</summary>
+        public bool HasWater
+        {
+            get
+            {
+                foreach (var t in Tiles) if (t is TileType.Water or TileType.DeepWater) return true;
+                return false;
+            }
+        }
 
         /// <summary>Terrain height at a world position. The M0 test map is flat.</summary>
         public float HeightAt(float x, float z) => 0f;
@@ -190,9 +223,10 @@ namespace PerformativeMail.Sim.World
             var h = Fnv64.Create();
             h.Add(Id);
             h.Add(Cols);
-            h.Add(Rows);
+            // Water laid along the south edge does not move the trees either: the scenery key is the land's.
+            h.Add(LandRows);
             // A beach is grass to the scenery's key, so laying one down does not move the street's trees.
-            for (int i = 0; i < Tiles.Length; i++) { h.Add((byte)(Tiles[i] == TileType.Beach ? TileType.Grass : Tiles[i])); h.Add(TileDistrict[i]); }
+            for (int i = 0; i < LandRows * Cols; i++) { h.Add((byte)(Tiles[i] == TileType.Beach ? TileType.Grass : Tiles[i])); h.Add(TileDistrict[i]); }
             foreach (var s in Streets) { h.Add(s.Id); h.Add(s.Name); h.Add(s.District); }
             foreach (var d in Destinations)
             {
@@ -224,6 +258,14 @@ namespace PerformativeMail.Sim.World
                 h.Add((int)MathF.Round(c.Z * 100f));
                 h.Add((int)MathF.Round(c.Yaw * 1000f));
             }
+            // The sand piles grow from the land's hash: water laid down after does not move them.
+            LandHash = h.Value;
+            if (Rows != LandRows || HasWater)
+            {
+                h.Add(Rows);
+                for (int i = 0; i < Tiles.Length; i++)
+                    if (Tiles[i] is TileType.Water or TileType.DeepWater) { h.Add(i); h.Add((byte)Tiles[i]); }
+            }
             MapHash = h.Value;
             Props = Scenery.Generate(this);
             Routes = RoutingGraph.Build(this);
@@ -254,7 +296,7 @@ namespace PerformativeMail.Sim.World
             const float tile = SimConstants.TileSize;
             var buckets = new List<int>?[Cols * Rows];
             _navBlocked = new bool[Cols * Rows];
-            for (int i = 0; i < _navBlocked.Length; i++) _navBlocked[i] = Tiles[i] == TileType.Building;
+            for (int i = 0; i < _navBlocked.Length; i++) _navBlocked[i] = Tiles[i] is TileType.Building or TileType.Water or TileType.DeepWater;
             for (int i = 0; i < Props.Count; i++)
             {
                 var p = Props[i];

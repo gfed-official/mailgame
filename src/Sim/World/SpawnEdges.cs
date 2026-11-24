@@ -259,7 +259,7 @@ namespace PerformativeMail.Sim.World
             return tiles;
         }
 
-        /// <summary>A side is land if most of its tiles are open ground other than the beach: the beach's side faces the sea.</summary>
+        /// <summary>A side is land if most of its tiles are open ground other than the beach and the water: the beach's side faces the sea.</summary>
         private static bool SideHasLand(WorldMap map, Side s)
         {
             int land = 0, all = 0;
@@ -267,7 +267,7 @@ namespace PerformativeMail.Sim.World
             {
                 all++;
                 var t = map.GetTile(tx, tz);
-                if (t != TileType.Beach && t != TileType.Building) land++;
+                if (t != TileType.Beach && t != TileType.Building && t != TileType.Water && t != TileType.DeepWater) land++;
             }
             return land * 2 > all;
         }

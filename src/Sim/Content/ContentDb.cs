@@ -683,8 +683,9 @@ namespace PerformativeMail.Sim.Content
                             Cargo = cargo,
                             Seats = J.Int(ctx, e, "seats", 1),
                             Hp = (float)J.Num(ctx, e, "hp"),
-                            RoadSpeed = (float)J.Num(ctx, e, "roadSpeed"),
-                            OffRoadSpeed = (float)J.Num(ctx, e, "offRoadSpeed"),
+                            RoadSpeed = (float)J.Num(ctx, e, "roadSpeed", 0),
+                            OffRoadSpeed = (float)J.Num(ctx, e, "offRoadSpeed", 0),
+                            WaterSpeed = (float)J.Num(ctx, e, "waterSpeed", 0),
                             Acceleration = (float)J.Num(ctx, e, "acceleration"),
                             Braking = (float)J.Num(ctx, e, "braking"),
                             CoastDeceleration = (float)J.Num(ctx, e, "coastDeceleration"),
@@ -701,7 +702,8 @@ namespace PerformativeMail.Sim.Content
                         if (def.FuelSecondsPerCan < 0f || (def.FuelSecondsPerCan > 0f ? def.TankSeconds < def.FuelSecondsPerCan : def.TankSeconds != 0f))
                             ctx.Error($"'{id}': a vehicle that burns fuel has fuelSecondsPerCan > 0 and tankSeconds >= it; one that does not, neither");
                         if (def.Hp <= 0f) ctx.Error($"'{id}': hp must be > 0");
-                        if (def.OffRoadSpeed <= 0f || def.RoadSpeed < def.OffRoadSpeed) ctx.Error($"'{id}': speeds must be 0 < offRoadSpeed <= roadSpeed");
+                        if (def.OnWater ? def.RoadSpeed != 0f || def.OffRoadSpeed != 0f : def.OffRoadSpeed <= 0f || def.RoadSpeed < def.OffRoadSpeed || def.WaterSpeed < 0f)
+                            ctx.Error($"'{id}': speeds must be 0 < offRoadSpeed <= roadSpeed, or a boat's waterSpeed > 0 alone");
                         if (def.Acceleration <= 0f || def.Braking <= 0f || def.CoastDeceleration <= 0f) ctx.Error($"'{id}': acceleration, braking and coastDeceleration must be > 0");
                         if (def.TurnRate <= 0f) ctx.Error($"'{id}': turnRateDegrees must be > 0");
                         if (def.Radius <= 0f || def.Radius > 0.5f) ctx.Error($"'{id}': radius must be in (0, 0.5]");
@@ -715,6 +717,7 @@ namespace PerformativeMail.Sim.Content
                 db.Vehicles = list;
             }
 
+            var kitBlueprints = new List<(KitDef Kit, string Blueprint, JsonCtx Ctx)>();
             // --- kits ----------------------------------------------------------------------------
             {
                 var list = new List<KitDef>();
@@ -759,6 +762,7 @@ namespace PerformativeMail.Sim.Content
                             Team = Stacks("team"),
                             TeamVehicles = vehicles,
                         };
+                        foreach (string bp in J.StrArray(ctx, e, "teamBlueprints", optional: true)) kitBlueprints.Add((def, bp, ctx));
                         if (def.Rank < 1) ctx.Error($"'{id}': rank must be >= 1");
                         if (list.Count == 0 && def.Rank != 1) ctx.Error($"'{id}': the first kit is the default and must be open from rank 1");
                         if (list.Count >= byte.MaxValue) { ctx.Error($"'{id}': too many kits"); continue; }
@@ -819,7 +823,7 @@ namespace PerformativeMail.Sim.Content
                         }
 
                         int fromShift = 1;
-                        bool rotating = false;
+                        bool rotating = false, kitOnly = false;
                         if (e.TryGetProperty("availability", out var avail))
                         {
                             if (avail.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': 'availability' must be an object");
@@ -828,7 +832,8 @@ namespace PerformativeMail.Sim.Content
                                 fromShift = J.Int(ctx, avail, "fromShift", 1);
                                 string slot = J.Str(ctx, avail, "slot", "fixed");
                                 rotating = slot == "rotating";
-                                if (!rotating && slot != "fixed") ctx.Error($"'{id}': availability.slot must be 'fixed' or 'rotating', not '{slot}'");
+                                kitOnly = slot == "kit";
+                                if (!rotating && !kitOnly && slot != "fixed") ctx.Error($"'{id}': availability.slot must be 'fixed', 'rotating' or 'kit', not '{slot}'");
                             }
                         }
                         var tags = J.StrArray(ctx, e, "tags", optional: true);
@@ -845,6 +850,7 @@ namespace PerformativeMail.Sim.Content
                             Count = count,
                             FromShift = fromShift,
                             Rotating = rotating,
+                            KitOnly = kitOnly,
                             OncePerRun = J.Bool(ctx, e, "oncePerRun", kind == ShopKind.Blueprint),
                             Special = tags.Contains("special"),
                             Tags = tags,
@@ -853,6 +859,7 @@ namespace PerformativeMail.Sim.Content
                         if (def.FromShift < 1) ctx.Error($"'{id}': availability.fromShift must be >= 1");
                         // Doc 04 §1.3: a blueprint is bought once per run and is the whole team's.
                         if (kind == ShopKind.Blueprint && !def.OncePerRun) ctx.Error($"'{id}': a blueprint is bought once per run");
+                        if (def.KitOnly && kind != ShopKind.Blueprint) ctx.Error($"'{id}': only a blueprint is given by a kit alone (availability.slot 'kit')");
                         if (def.Rotating && !def.Special) ctx.Error($"'{id}': a rotating entry must be tagged 'special', or it is never on the counter");
                         // Bought and sold straight back must never pay: not at the list price, not as a special.
                         if (item != null && count >= 1 && item.SellPrice > 0 && db.Balance.Has("shopSpecialDiscount")
@@ -873,6 +880,11 @@ namespace PerformativeMail.Sim.Content
                     else ctx.Error($"'{def.Id}': requires '{blueprint}', which is not a blueprint the shop sells");
                 }
                 db.ShopItems = list;
+                foreach (var (kit, blueprint, ctx) in kitBlueprints)
+                {
+                    if (db._shopById.TryGetValue(blueprint, out var bp) && bp.Kind == ShopKind.Blueprint) kit.TeamBlueprints.Add(bp);
+                    else ctx.Error($"'{kit.Id}': teamBlueprints names '{blueprint}', which is no blueprint");
+                }
             }
 
             // --- buildings and their recipes ------------------------------------------------------
@@ -902,16 +914,29 @@ namespace PerformativeMail.Sim.Content
                             case "inserter": behaviour = BuildingBehaviour.Inserter; break;
                             case "pipe": behaviour = BuildingBehaviour.Pipe; break;
                             case "vehicle_depot": behaviour = BuildingBehaviour.VehicleDepot; break;
+                            case "pier": behaviour = BuildingBehaviour.Pier; break;
+                            case "boat": behaviour = BuildingBehaviour.Boat; break;
+                            case "port": behaviour = BuildingBehaviour.Port; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
                         int[] footprint = J.IntArray(ctx, e, "footprint", 2);
-                        bool onStreet = false;
+                        bool onStreet = false, onWater = false;
                         if (e.TryGetProperty("placement", out var placement) && placement.ValueKind == JsonValueKind.Object)
                         {
                             onStreet = J.Bool(ctx, placement, "onStreet", false);
-                            if (J.Bool(ctx, placement, "onWater", false)) ctx.Error($"'{id}': nothing is built on water yet");
+                            onWater = J.Bool(ctx, placement, "onWater", false);
                         }
+                        // Doc 04 §3.3: piers and boats go on the water, and only they.
+                        bool watery = behaviour == BuildingBehaviour.Pier || behaviour == BuildingBehaviour.Boat;
+                        if (onWater != watery) ctx.Error($"'{id}': a pier or a boat, and only they, have placement.onWater");
+                        VehicleDef? boat = null;
+                        if (behaviour == BuildingBehaviour.Boat)
+                        {
+                            string vehicleId = J.Str(ctx, e, "vehicle");
+                            if (!db._vehiclesById.TryGetValue(vehicleId, out boat) || !boat.OnWater) ctx.Error($"'{id}': 'vehicle' must name a boat, not '{vehicleId}'");
+                        }
+                        else if (J.Has(e, "vehicle")) ctx.Error($"'{id}': only a boat placement names a vehicle");
                         ContainerDef? container = null;
                         if (behaviour == BuildingBehaviour.Container)
                         {
@@ -956,6 +981,8 @@ namespace PerformativeMail.Sim.Content
                             Level = hasParams ? J.Int(ctx, pars, "level", 0) : 0,
                             Ramp = hasParams && J.Bool(ctx, pars, "ramp", false),
                             OnStreet = onStreet,
+                            OnWater = onWater,
+                            Vehicle = boat,
                             RouteStops = hasParams ? J.Int(ctx, pars, "routeStops", 0) : 0,
                             HireCost = hasParams ? J.Int(ctx, pars, "npcHireCost", 0) : 0,
                         };
@@ -963,9 +990,11 @@ namespace PerformativeMail.Sim.Content
                         bool sorter = behaviour == BuildingBehaviour.Sorter;
                         bool square = sorter || behaviour == BuildingBehaviour.Container;
                         bool vehicleDepot = behaviour == BuildingBehaviour.VehicleDepot;
-                        if (vehicleDepot ? def.Width != 3 || def.Length != 3
+                        if (behaviour == BuildingBehaviour.Port ? def.Width != 3 || def.Length != 4 || def.Rotations != 4
+                            : behaviour == BuildingBehaviour.Pier ? def.Width != 1 || def.Length != 3
+                            : vehicleDepot ? def.Width != 3 || def.Length != 3
                             : square && def.Width == 2 ? def.Length != 2 : def.Width != 1 || (def.Length != 1 && !(def.Ramp && def.Length == 2)) || (sorter && def.Width != 2))
-                            ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2], a container [1, 1] or [2, 2], a vehicle depot [3, 3])");
+                            ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2], a container [1, 1] or [2, 2], a vehicle depot [3, 3], a pier [1, 3], a port [3, 4])");
                         // Doc 04 §3.2: a route of a few stops, kept as 16-bit filters; a driver hired for a price.
                         if (vehicleDepot ? def.RouteStops < 1 || def.RouteStops > 9 || def.HireCost <= 0 || def.Rotations != 4 : def.RouteStops != 0 || def.HireCost != 0)
                             ctx.Error($"'{id}': a vehicle depot, and only one, has params.routeStops in 1..9, params.npcHireCost > 0 (and 4 rotations)");

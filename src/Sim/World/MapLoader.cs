@@ -89,6 +89,19 @@ namespace PerformativeMail.Sim.World
                     }
             }
 
+            // Optional: shallow and deep water (doc 02 §3.2), where boats go; nothing else may be laid over it.
+            foreach (var (field, type) in new[] { ("water", TileType.Water), ("deepWater", TileType.DeepWater) })
+            {
+                if (!root.TryGetProperty(field, out var waterEl)) continue;
+                if (waterEl.ValueKind != JsonValueKind.Array) { ctx.Error($"'{field}' must be an array"); continue; }
+                foreach (var e in waterEl.EnumerateArray())
+                {
+                    double[] r = J.NumArrayOf(ctx, e, field + "[]", 4);
+                    var wr = new TileRect((int)r[0], (int)r[1], (int)r[2], (int)r[3]);
+                    if (RectOk(wr, field + "[]")) Fill(wr, type, 0);
+                }
+            }
+
             var streets = new List<StreetDef>();
             if (root.TryGetProperty("streets", out var streetsEl) && streetsEl.ValueKind == JsonValueKind.Array)
             {

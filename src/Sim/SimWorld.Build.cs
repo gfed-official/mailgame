@@ -5,6 +5,7 @@ using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
+using PerformativeMail.Sim.Vehicles;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Sim
@@ -77,11 +78,26 @@ namespace PerformativeMail.Sim
                     var (x, z) = Construct.TileOf(tx, tz, rotation, i % def.Length, i / def.Length);
                     if (TileOccupied(x, z)) return OpResult.Occupied;
                 }
+            if (def.Vehicle != null)
+            {
+                // Doc 10 §2 rowboat_build: a boat put down on the water, one of each kind for each carrier.
+                foreach (var other in _vehicles)
+                    if (Near(other.X, other.Z, cx, cz, 1.8f)) return OpResult.Occupied;
+                int same = 0;
+                foreach (var other in _vehicles) if (other.Def == def.Vehicle) same++;
+                if (same >= Math.Max(1, PresentCount)) return OpResult.OnePerCarrier;
+            }
             if (!BuildRules.HasMaterials(recipe, player.Hotbar, player.Inventory)) return OpResult.MissingMaterials;
 
             foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, input.Count);
             CommitContainer(player.Inventory.Id);
             CommitContainer(player.Hotbar.Id);
+            if (def.Vehicle != null)
+            {
+                var (fx, fz) = Construct.TileOf(0, 0, rotation, 1, 0);
+                AddVehicleAt(def.Vehicle, cx, cz, Vehicle.YawOf(fx, fz, 0f), player.Id);
+                return OpResult.Ok;
+            }
             uint containerId = 0;
             if (def.Container != null)
             {

@@ -90,6 +90,10 @@ namespace PerformativeMail.Sim.Inventory
         DepotLimit,
         /// <summary>Doc 04 §3.2 "max 1 per depot": a driver is hired there for this shift already.</summary>
         AlreadyHired,
+        /// <summary>Doc 04 §3.3: a Pier or a Rowboat goes on the water (a Pier on shallow water), and nothing else does.</summary>
+        NotOnWater,
+        /// <summary>Doc 04 §3.3: a Pier is built out from the shore or from another pier.</summary>
+        NotFromShore,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

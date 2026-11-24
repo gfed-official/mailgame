@@ -57,6 +57,7 @@ namespace PerformativeMail.Sim
             if (depot != null)
                 foreach (var s in kit.Team) Give(depot, ItemStack.OfItem(s.Item, s.Count));
             foreach (var v in kit.TeamVehicles) AddVehicle(v, host?.Id ?? Core.EntityId.None);
+            foreach (var bp in kit.TeamBlueprints) Grant(bp, host?.Id ?? Core.EntityId.None);
             Events.Add(new KitGivenEvent { Player = host?.Id ?? Core.EntityId.None, Kit = kit.Index, Team = true });
         }
     }

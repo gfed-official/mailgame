@@ -1,9 +1,11 @@
 {
   "id": "test_street",
   "name": "Test Street (M0)",
-  "sizeTiles": [46, 26],
+  "sizeTiles": [46, 34],
   "districts": [{"id": 1, "name": "Post Office District", "unlockShift": 1}],
   "beaches": [[0, 19, 8, 7]],
+  "water": [[0, 26, 20, 3]],
+  "deepWater": [[20, 26, 26, 3], [0, 29, 46, 5]],
   "streets": [{"id": 1, "name": "Larch Lane", "district": 1, "rect": [0, 13, 46, 2]}],
   "postOffice": {"rect": [2, 6, 6, 6], "solid": [[2, 6, 4, 6]], "intake": [12.0, 18.0], "shop": [12.0, 22.0], "spawnPad": [14.0, 21.0], "spawnLookAt": [40.0, 28.0]},
   "destinations": [

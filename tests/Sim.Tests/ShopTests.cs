@@ -30,6 +30,10 @@ namespace PerformativeMail.Sim.Tests
             + "{ \"id\": \"bp_pipes\", \"name\": \"Pneumatics\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 700, "
             + "\"grants\": { \"blueprint\": \"bp_pipes\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }, "
             // The Vehicle Depot's (from the last shift too).
+            + "{ \"id\": \"bp_rowboat\", \"name\": \"Rowboat\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 1, "
+            + "\"grants\": { \"blueprint\": \"bp_rowboat\" }, \"availability\": { \"fromShift\": 1, \"slot\": \"kit\" }, \"tags\": [\"blueprint\"] }, "
+            + "{ \"id\": \"bp_motorboat\", \"name\": \"Harbour\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 500, "
+            + "\"grants\": { \"blueprint\": \"bp_motorboat\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }, "
             + "{ \"id\": \"bp_truck\", \"name\": \"Motor Pool\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 500, "
             + "\"grants\": { \"blueprint\": \"bp_truck\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }";
 
@@ -150,7 +154,7 @@ namespace PerformativeMail.Sim.Tests
         {
             // The tools came with harvesting (HarvestTests); they are never a special, so the roll is as it was.
             // So did the Fortify blueprint with building (FortifyTests), the Shovel with the beach and the Bike (VehicleTests).
-            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "bike", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_truck", "mail_truck", "bp_pipes" },
+            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "bike", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_truck", "mail_truck", "bp_rowboat", "rowboat", "bp_motorboat", "motorboat", "bp_pipes" },
                 Db.ShopItems.Select(s => s.Id).ToArray());
             for (int i = 0; i < Db.ShopItems.Count; i++) Assert.Equal(i, Db.ShopItems[i].Index);
 
@@ -222,7 +226,7 @@ namespace PerformativeMail.Sim.Tests
             // 110 pays for ten ingots at 10 ¢, but not at a fifth off.
             Assert.Contains("'special_loop': costs less than the shop pays for 10 'iron_ingot' (100 ¢)", all);
             Assert.Contains("'hidden': a rotating entry must be tagged 'special'", all);
-            Assert.Contains("'sideways': availability.slot must be 'fixed' or 'rotating', not 'weekly'", all);
+            Assert.Contains("'sideways': availability.slot must be 'fixed', 'rotating' or 'kit', not 'weekly'", all);
             Assert.Contains("'early': availability.fromShift must be >= 1", all);
             Assert.Contains("'trike': grants unknown vehicle 'trike'", all);
             Assert.Contains("'porter': kind 'hire' is not sold yet", all);

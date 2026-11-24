@@ -7,5 +7,14 @@
     "roadSpeed": 14.0, "offRoadSpeed": 7.0, "acceleration": 4.0, "braking": 9.0, "coastDeceleration": 2.5,
     "turnRateDegrees": 110, "radius": 0.5, "length": 3.4,
     "fuelSecondsPerCan": 300, "tankSeconds": 600, "loadingFace": true,
-    "description": "14 m/s on the road, 7 off it; a cargo bay of 8x10 for mail, loaded at its rear by belts and inserters. An Oil Can runs it 5 minutes." }
+    "description": "14 m/s on the road, 7 off it; a cargo bay of 8x10 for mail, loaded at its rear by belts and inserters. An Oil Can runs it 5 minutes." },
+  { "id": "rowboat", "name": "Rowboat", "cargo": "rowboat_cargo", "seats": 1, "hp": 120,
+    "waterSpeed": 3.0, "acceleration": 1.5, "braking": 3.0, "coastDeceleration": 1.0,
+    "turnRateDegrees": 90, "radius": 0.5, "length": 2.8,
+    "description": "Rowed at 3 m/s over the water; a locker of 2x8. Got out of onto a Pier or the shore." },
+  { "id": "motorboat", "name": "Motor Boat", "cargo": "motorboat_cargo", "seats": 2, "hp": 500,
+    "waterSpeed": 9.0, "acceleration": 2.5, "braking": 5.0, "coastDeceleration": 1.5,
+    "turnRateDegrees": 70, "radius": 0.5, "length": 4.0,
+    "fuelSecondsPerCan": 300, "tankSeconds": 600, "loadingFace": true,
+    "description": "9 m/s on the water; a hold of 8x10 for mail, loaded at a Small Port. An Oil Can runs it 5 minutes." }
 ]

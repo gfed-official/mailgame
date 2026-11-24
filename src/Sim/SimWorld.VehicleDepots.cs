@@ -26,14 +26,22 @@ namespace PerformativeMail.Sim
             return n;
         }
 
-        /// <summary>Where a truck stands in a depot's bay: the middle of its nine tiles, its nose the way the depot faces.</summary>
+        /// <summary>
+        /// Where a vehicle stands in a bay, its nose the way the construct faces: a depot's is the
+        /// middle of its nine tiles; a Small Port's lies over its two rows of water, the boat's
+        /// stern at the quay's edge (doc 04 §3.3).
+        /// </summary>
         public static void Bay(Construct depot, out float x, out float z, out float heading)
         {
-            x = depot.CentreX;
-            z = depot.CentreZ;
             var (dx, dz) = BeltNetwork.Dirs[depot.Facing];
+            float out_ = depot.Def.IsPort ? Core.SimConstants.TileSize : 0f;
+            x = depot.CentreX + dx * out_;
+            z = depot.CentreZ + dz * out_;
             heading = Vehicle.YawOf(dx, dz, 0f);
         }
+
+        /// <summary>A Small Port's loading face: the back middle tile of its quay, where a belt or an inserter loads the boat in its bay.</summary>
+        public static (int Tx, int Tz) PortLoadingTile(Construct port) => port.TileAt(port.Def.Length);
 
         /// <summary>
         /// Where its Route Console stands: on the left of the bay, at the outer edge of the middle
@@ -51,24 +59,25 @@ namespace PerformativeMail.Sim
         /// <summary>How far past the middle of its tile the console stands, outwards.</summary>
         public const float ConsoleOutset = 0.45f;
 
-        /// <summary>The vehicle standing parked in a depot's bay; null for none.</summary>
+        /// <summary>The vehicle standing parked in a bay (a boat in a port's, a land vehicle in a depot's); null for none.</summary>
         public Vehicle? InBay(Construct depot)
         {
             Bay(depot, out float bx, out float bz, out _);
             foreach (var v in _vehicles)
-                if (!v.Ridden && !v.NpcDriving && Near(v.X, v.Z, bx, bz, 0.25f)) return v;
+                if (!v.Ridden && !v.NpcDriving && v.Def.OnWater == depot.Def.IsPort && Near(v.X, v.Z, bx, bz, 0.25f)) return v;
             return null;
         }
 
         /// <summary>
-        /// Parked with its middle on a depot's tiles, a truck is set into the bay (doc 04 §3.1
+        /// Parked with its middle on a depot's tiles, a truck is set into the bay (and a Motor Boat
+        /// on a port's water into the port's) (doc 04 §3.1
         /// "Depots and Ports provide marked parking zones"; design choice 109), if the bay is free.
         /// </summary>
         private void SnapIntoBay(Vehicle v)
         {
             if (!v.Def.LoadingFace) return;
             var depot = Constructs.At((int)MathF.Floor(v.X / Core.SimConstants.TileSize), (int)MathF.Floor(v.Z / Core.SimConstants.TileSize));
-            if (depot == null || !depot.Def.IsVehicleDepot) return;
+            if (depot == null || (v.Def.OnWater ? !depot.Def.IsPort : !depot.Def.IsVehicleDepot)) return;
             var there = InBay(depot);
             if (there != null && there != v) return;
             Bay(depot, out v.X, out v.Z, out v.Heading);

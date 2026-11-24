@@ -24,6 +24,7 @@ namespace PerformativeMail.Client.UI
         private static readonly Color Ink = new Color(0.96f, 0.94f, 0.88f);
         private static readonly Color Route = new Color("ffbf47");
         private static readonly Color Sand = new Color("d9c08a");
+        private static readonly Color Shallow = new Color("5fa6b8"), Deep = new Color("2f6a86");
         private static readonly Color Raiders = new Color("e63946");
         private static readonly Color[] Districts =
         {
@@ -115,6 +116,8 @@ namespace PerformativeMail.Client.UI
                         TileType.Lot => DistrictColour(district).Lerp(Palette.Grass, 0.45f),
                         TileType.Yard => Palette.Yard,
                         TileType.Beach => Sand,
+                        TileType.Water => Shallow,
+                        TileType.DeepWater => Deep,
                         TileType.Building => houseColour.TryGetValue(i, out var hc) ? hc : Palette.PostOffice,
                         _ => Palette.Grass.Darkened(0.25f),
                     };

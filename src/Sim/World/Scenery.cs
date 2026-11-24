@@ -233,7 +233,7 @@ namespace PerformativeMail.Sim.World
 
             // Trees, boulders, bushes and flowers on the open grass, on a jittered grid.
             const float cell = 4.5f;
-            for (float gz = cell * 0.5f; gz < map.DepthM; gz += cell)
+            for (float gz = cell * 0.5f; gz < map.LandRows * Tile; gz += cell)
             {
                 for (float gx = cell * 0.5f; gx < map.WidthM; gx += cell)
                 {
@@ -247,7 +247,8 @@ namespace PerformativeMail.Sim.World
                     bool open = true;
                     for (int oz = -1; oz <= 1 && open; oz++)
                         for (int ox = -1; ox <= 1 && open; ox++)
-                            if (At(x + ox * 3f, z + oz * 3f) != TileType.Grass && map.InBounds((int)MathF.Floor((x + ox * 3f) / Tile), (int)MathF.Floor((z + oz * 3f) / Tile))) open = false;
+                            if (At(x + ox * 3f, z + oz * 3f) != TileType.Grass && map.InBounds((int)MathF.Floor((x + ox * 3f) / Tile), (int)MathF.Floor((z + oz * 3f) / Tile))
+                                && !map.IsWater((int)MathF.Floor((x + ox * 3f) / Tile), (int)MathF.Floor((z + oz * 3f) / Tile))) open = false;
                     if (roll < trees)
                     {
                         if (open && Free(x, z, 0.4f)) props.Add(new Prop(PropKind.Tree, x, z, x, z, yaw, scale, variant, 0.35f, Tall));
@@ -268,9 +269,9 @@ namespace PerformativeMail.Sim.World
                 }
             }
             // Sand piles on the beaches, out of a stream of their own: a beach moves nothing else.
-            var sandRng = new RngStream((uint)(map.MapHash ^ (map.MapHash >> 32)), "sand");
+            var sandRng = new RngStream((uint)(map.LandHash ^ (map.LandHash >> 32)), "sand");
             const float sandCell = 4f;
-            for (float gz = sandCell * 0.5f; gz < map.DepthM; gz += sandCell)
+            for (float gz = sandCell * 0.5f; gz < map.LandRows * Tile; gz += sandCell)
             {
                 for (float gx = sandCell * 0.5f; gx < map.WidthM; gx += sandCell)
                 {
@@ -280,7 +281,7 @@ namespace PerformativeMail.Sim.World
                     if (roll >= 45 || At(x, z) != TileType.Beach) continue;
                     // A pile keeps a walker's width off the map's edge, which is a wall.
                     float r = 0.6f * scale;
-                    if (x < r + 1f || z < r + 1f || x > map.WidthM - r - 1f || z > map.DepthM - r - 1f) continue;
+                    if (x < r + 1f || z < r + 1f || x > map.WidthM - r - 1f || z > map.LandRows * Tile - r - 1f) continue;
                     if (Free(x, z, r) && OffStreet(x, z, r)) props.Add(new Prop(PropKind.SandPile, x, z, x, z, yaw, scale, 0, r, 0.45f * scale));
                 }
             }

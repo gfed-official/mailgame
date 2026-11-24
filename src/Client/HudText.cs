@@ -1158,6 +1158,9 @@ namespace PerformativeMail.Client
                 case OpResult.WrongPhase: return BuildClosed;
                 case OpResult.Dead: return "Not while you are down";
                 case OpResult.DepotLimit: return "One Vehicle Depot for every two carriers stands already";
+                case OpResult.NotOnWater: return recipe.Building.Deck ? "A Pier goes out over shallow water" : recipe.Building.OnWater ? "A boat goes on the water" : "Not on the water";
+                case OpResult.NotFromShore: return "A Pier is built out from the shore or another pier";
+                case OpResult.OnePerCarrier: return $"One {recipe.Building.Name} for each carrier is on the water already";
                 default: return "Cannot be built here";
             }
         }
@@ -1273,6 +1276,7 @@ namespace PerformativeMail.Client
             {
                 case OpResult.Occupied: return "Somebody stepped in the way";
                 case OpResult.Blocked: return "Something stands there now";
+                case OpResult.OnePerCarrier: return "One boat of the kind for each carrier already";
                 case OpResult.MissingMaterials: return "You do not have the materials";
                 case OpResult.NotEmpty: return "Empty the chest first";
                 case OpResult.DoesNotFit: return "No room in your pockets";
@@ -1324,11 +1328,22 @@ namespace PerformativeMail.Client
             items.Count == 1 ? items[0] : string.Join(", ", items.GetRange(0, items.Count - 1)) + " and " + items[items.Count - 1];
 
         /// <summary>The event feed's line for a vehicle bought: where it stands.</summary>
-        public static string VehicleAdded(VehicleDef def) => $"The {def.Name} stands by the counter   ·   look at it and [E] to ride";
+        public static string VehicleAdded(VehicleDef def) => def.OnWater
+            ? $"The {def.Name} is moored on the water by the quay   ·   look at it and [E] to get in"
+            : $"The {def.Name} stands by the counter   ·   look at it and [E] to ride";
+
+        /// <summary>How the rider gets off: a boat only where a pier or the shore is in reach (doc 04 §3.3).</summary>
+        public static string GetOff(ClientWorld world, ClientVehicle v)
+        {
+            if (!v.Def.OnWater) return $"{GetOffKey} get off";
+            return Sim.Players.PlayerMovement.Landing(world.Map, world.Constructs, world.Local.X, world.Local.Z, out _, out _)
+                ? $"{GetOffKey} get out" : "row to a pier or the shore to get out";
+        }
 
         /// <summary>The event feed's line for somebody getting on.</summary>
         public static string Mounted(ClientWorld world, EntityId player, VehicleDef def)
         {
+            if (player == world.LocalId && def.OnWater) return $"You are in the {def.Name}   ·   {GetOffKey} by a pier or the shore gets out   ·   [E] opens its locker";
             if (player == world.LocalId) return $"You are on the {def.Name}   ·   {GetOffKey} gets off   ·   [E] opens its rack";
             string who = world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
             return $"{who} got on a {def.Name}";
@@ -1451,14 +1466,15 @@ namespace PerformativeMail.Client
                 case InteractKind.Configure: return $"Set the filters of the {p.Built!.Def.Name}  [E]";
                 case InteractKind.CloseFilters: return $"Close the filters of the {p.Built!.Def.Name}  [E]";
                 case InteractKind.Mount:
-                    if (!p.Vehicle!.Def.Fuelled) return $"Ride {p.Vehicle.Def.Name}  [E]";
+                    if (p.Vehicle!.Def.OnWater && !p.Vehicle.Def.Fuelled) return $"Get into the {p.Vehicle.Def.Name}  [E]";
+                    if (!p.Vehicle.Def.Fuelled) return $"Ride {p.Vehicle.Def.Name}  [E]";
                     return p.Vehicle.Fuel <= 0f
                         ? $"{p.Vehicle.Def.Name}   ·   out of fuel — an Oil Can in the hand fills it"
                         : p.Vehicle.NpcDriving ? $"Take the wheel of the {p.Vehicle.Def.Name}  [E]   ·   the driver moves over"
                         : $"Drive the {p.Vehicle.Def.Name}  [E]   ·   {FuelText(p.Vehicle)}";
                 case InteractKind.Refuel: return $"Refuel the {p.Vehicle!.Def.Name} with an Oil Can  [E]   ·   {FuelText(p.Vehicle)}";
-                case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off{FuelNote(p.Vehicle)}";
-                case InteractKind.CloseRack: return $"Close {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off{FuelNote(p.Vehicle)}";
+                case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOff(world, p.Vehicle)}{FuelNote(p.Vehicle)}";
+                case InteractKind.CloseRack: return $"Close {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOff(world, p.Vehicle)}{FuelNote(p.Vehicle)}";
                 case InteractKind.Harvest:
                 {
                     var node = p.Node!;

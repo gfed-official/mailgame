@@ -1497,10 +1497,66 @@ the whole line exists; the sub-lines say which parts do.
             7 hires the driver in shift 2's Prep, and in Delivery it takes the truck's two letters
             to the first house, the truck drawn where the server has it with its driver aboard
 - [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
+      - [x] **Water, the Pier and the Rowboat** (doc 04 §3.1 and §3.3, doc 02 §3.2, doc 10 §1.3, §2
+            and §3; design choice 111). The map now has **water**: `TileType.Water` (shallow) and
+            `DeepWater`, from a map file's optional `water` / `deepWater` rects; the test street
+            grew from 26 to 34 rows, a harbour basin of eight rows along its south edge — shallow
+            for three rows under the beach's west, deep along the rest of the quay — and the
+            generated island's map gets six rows of the same under its beach (`WorldGenerator`
+            `ShallowRows`, `DeepRows`); the scenery key and the sand piles' hash are the land's, so
+            no tree or pile moved. Nobody walks into water and raiders do not path over it (it is
+            nav-blocked), except onto a deck. The **Pier** (`pier`, 1 × 3, 300 HP, 6 Logs, on the
+            chest's key) goes over shallow water only, built out from the shore or another pier
+            (`NotOnWater`, `NotFromShore`); its deck is walked on and is in a boat's way. The
+            **Rowboat** (`rowboat`: 120 HP, one seat, a 2 × 8 locker, 3 m/s on the water and
+            nowhere else, `VehicleDef.WaterSpeed`) is placed in Build mode from `rowboat_build`
+            (8 Logs, 2 Rope, behind `bp_rowboat`; one of each kind a carrier) — `bp_rowboat` is a
+            blueprint the counter never sells (availability slot `kit`) and the **Sea kit** gives it
+            to the team (`teamBlueprints`) — or bought for $2.00 from shift 2, moored on the free
+            water nearest the counter. It is rowed on the bike's physics with the water as its only
+            ground, predicted the same; the jump key gets the rower out onto the nearest point of a
+            pier's deck or the shore within 2.6 m (`PlayerMovement.Landing`), and out on open water
+            does nothing ("row to a pier or the shore to get out"). Prompts "Get into the Rowboat
+            [E]", the feed "You are in the Rowboat · [Space] by a pier or the shore gets out".
+            Drawn: the basin with a stone quay and sea walls, sand under the shallows and a dark
+            bed under the deep, the water at 0.45 m below the quay; the pier a deck of weathered
+            planks on posts with iron bollards; the rowboat a blue clinker hull with a cream
+            gunwale, thwarts and two oars that sweep as it moves, rocking on the water; the map
+            screen shows the water. `BoatTests` (content; nobody walks in; the pier's rules and its
+            deck; the kit's blueprint, placing, 3 m/s, held to the water; out onto the pier, never
+            into open water; bought and moored), `BoatFlowTests` (the prompt, rowing predicted, the
+            sea wall, the hint, out on the quay on both ends), content and shop pins; in the smoke
+            the host builds a pier from the beach, places a rowboat, gets in by its prompt, rows it
+            out (`rowboat-prompt`, `rowboat-row`), fails to get out in the basin, and steps out onto
+            the pier's end (`pier`)
+      - [x] **Motor Boat and Small Port** (doc 04 §3.1 and §3.3, doc 10 §1.3, §2 and §3; design
+            choice 112). `bp_motorboat` ("Blueprint: Harbour", $5.00, shift 3) opens the **Motor
+            Boat** at the counter ($7.00, shift 3: 500 HP, two seats, 9 m/s on the water, an 8 × 10
+            hold for mail, an Oil Can a 5 minutes as the truck's, moored on the free water nearest
+            the counter) and the **Small Port** (`small_port`, 3 × 4 tiles, 1200 HP, 16 Planks, 10
+            Stones, 6 Iron Ingots, on the chest's key): its back two rows a quay on open ground, its
+            front two over deep water (`BuildRules.CheckPort`, `NotOnWater`). The quay is walked
+            on; between its two pontoons the middle column of water is the **bay** (boats go there
+            and nowhere else of the port), and a Motor Boat left with its middle on the port's water
+            is set into it, its stern at the quay's edge (`SimWorld.Bay`, `SnapIntoBay`). The
+            **loading face** is the quay's back middle tile (`PortLoadingTile`): a belt ending into
+            it from behind the port, or an inserter facing it, loads the boat in the bay while
+            nobody is in it. Getting out of a boat in the bay steps onto the quay. Drawn: a
+            concrete quay with an orange rail and iron bollards either side of the bay, the loading
+            face hatched with a roller chute down to the boat, a derrick with its hook over the bay,
+            and two floating pontoons; the boat a white workboat with the post's red band, a
+            wheelhouse with dark glass and a mast lamp, a hold aft with an amber roll-up door, an
+            outboard. `PortTests` (content; bought with the blueprint, 9 m/s on fuel; the port's
+            placement, its quay, bay and pontoons; a boat left crooked set into the bay, out onto
+            the quay, loaded from a belt, not while ridden), shop and content pins; in the smoke the
+            host builds a Small Port on the deep quay, a Motor Boat lies in its bay, and a letter
+            rides a belt into its hold (`small-port`). NPC captains (and the water routes and
+            navmesh they need) wait for a second harbour to sail to — a Business Dock or another
+            town
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the sea path (rowboat, pier, motorboat, small port, NPC captain), then the Oil Pump.
+Next in this order: the NPC captain and a water navmesh (once there is somewhere to sail to), then the Oil Pump.
 
 ## How to build and check
 
@@ -2613,6 +2669,31 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the driver hands mail out wherever the truck stands still by a box of the route; (f) the
     server sends NPC-driven trucks' places in every snapshot while any is driven, eased on the
     client; (g) drivers do not fight and cannot be hurt (vehicle HP waits for wrecks).
+
+111. **Water and the Rowboat.** Doc 02 §3.2 has shallow and deep water, doc 04 §3.3 a 1 × 3 pier
+    "over shallow water" for "rowboat mooring", doc 10 the rowboat's stats, its build placement
+    from the Sea kit's blueprint and the shop's 200 ¢ from shift 2. Choices: (a) the sim's water
+    is tiles of the map (a basin inside the map's edge on the test street, closed by a sea wall);
+    walkers cannot enter it, and there is no swimming; (b) its surface is drawn 0.45 m under the
+    quay and the sim stays flat, so a rower's eyes are where a walker's are; (c) a pier must start
+    from walkable ground or another pier, so it is always reachable; (d) out of a boat one steps to
+    the nearest walkable point within 2.2 m, else not at all; (e) the placed rowboat is no construct
+    but a vehicle (a Build-mode recipe with behaviour `boat`), on the chest's key with the pier
+    (Build mode keeps ten keys); (f) one boat of a kind per carrier, as with bikes and trucks; (g) a
+    bought rowboat is moored on the free water nearest the counter, with water all round it; (h) a
+    kit-only blueprint is a shop entry of slot `kit`, never on the counter; (i) the basin shelves:
+    shallow under the beach's west (piers), deep along the rest of the quay (ports); getting out
+    reaches 2.6 m.
+
+112. **The Small Port and the Motor Boat.** Doc 04 §3.3 gives "3 × 4 with 2 tiles over deep water",
+    a parking zone with a loading face, belts and inserters, a Route Console for captains; doc 10
+    its HP, cost and the Harbour blueprint. Choices: (a) the back two rows are a quay on land, the
+    front two over deep water; (b) the bay is the middle column of the water rows, the boat's
+    stern at the quay's edge, and the side columns hold pontoons boats cannot pass; (c) the loading
+    face is the back middle tile of the quay (a belt reaches it from behind the port, as a depot's),
+    drawn with a chute down to the boat; (d) the Route Console and NPC captains wait: on one island
+    with one basin there is no second harbour to run a water route to; (e) the Motor Boat drives
+    on the truck's fuel rules and is moored like a bought rowboat.
 
 ## Commands
 

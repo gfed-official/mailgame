@@ -91,6 +91,12 @@ namespace PerformativeMail.Client
         {
             if (def.BodyOffset <= 0f) return Vehicle(map, x, z);
             Sim.Vehicles.Vehicle.Forward(heading, out float fx, out float fz);
+            // A boat lies low in the basin (Presentation.IslandView.BasinLevel): its hull from the water up to its gunwale.
+            if (def.OnWater)
+            {
+                float h = def.Length * 0.5f, w = 0.65f;
+                return new AimBox(x, -0.2f, z, MathF.Abs(fx) * h + MathF.Abs(fz) * w, 0.45f, MathF.Abs(fz) * h + MathF.Abs(fx) * w);
+            }
             float half = def.Length * 0.5f, side = 0.95f;
             return new AimBox(x, map.HeightAt(x, z) + 1.1f, z, MathF.Abs(fx) * half + MathF.Abs(fz) * side, 1.1f, MathF.Abs(fz) * half + MathF.Abs(fx) * side);
         }

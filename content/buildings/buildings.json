@@ -86,5 +86,17 @@
   { "id": "pipe_outlet", "name": "Pipe Outlet", "footprint": [1, 1], "rotations": 4, "hp": 120,
     "placement": { "onStreet": false }, "behaviour": "pipe",
     "params": { "radius": 0.45, "height": 1.0, "role": "outlet" },
-    "recipe": "recipe_pipe_outlet", "tags": ["transport", "pipe"] }
+    "recipe": "recipe_pipe_outlet", "tags": ["transport", "pipe"] },
+  { "id": "pier", "name": "Pier", "footprint": [1, 3], "rotations": 4, "hp": 300,
+    "placement": { "onWater": true }, "behaviour": "pier",
+    "params": { "radius": 0.5, "height": 0.3 },
+    "recipe": "recipe_pier", "tags": ["vehicles"] },
+  { "id": "rowboat_build", "name": "Rowboat", "footprint": [1, 1], "rotations": 4, "hp": 120,
+    "placement": { "onWater": true }, "behaviour": "boat", "vehicle": "rowboat",
+    "params": { "radius": 0.45, "height": 0.6 },
+    "recipe": "recipe_rowboat", "tags": ["vehicles"] },
+  { "id": "small_port", "name": "Small Port", "footprint": [3, 4], "rotations": 4, "hp": 1200,
+    "placement": { "onStreet": false }, "behaviour": "port",
+    "params": { "radius": 2.5, "height": 3.0 },
+    "recipe": "recipe_small_port", "tags": ["vehicles"] }
 ]

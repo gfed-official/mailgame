@@ -707,6 +707,119 @@ namespace PerformativeMail.Client.Presentation
         /// the bay: a grey pedestal with a lit screen turned to the bay. <paramref name="at"/> is
         /// the middle of its tiles.
         /// </summary>
+        /// <summary>
+        /// Doc 04 §3.3 Pier: a deck of weathered planks three tiles out over the water, level with
+        /// the quay, on posts down into the bed, with a bollard at either corner of its end.
+        /// </summary>
+        public static void Pier(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
+        {
+            const float t = SimConstants.TileSize;
+            var plank = only ?? MeshKit.Mat(worn ? new Color("6b5440") : new Color("9a7a58"), 0.9f);
+            var joist = only ?? MeshKit.Mat(new Color("5a4634"), 0.9f);
+            var post = only ?? MeshKit.Mat(new Color("4a3a2c"), 0.95f);
+            var iron = only ?? MeshKit.Mat(IronColour, 0.45f, 0.6f);
+            var f = Dir(facing);
+            var r = Dir((facing + 1) & 3);
+            var along = new Vector3(Mathf.Abs(f.X), 0f, Mathf.Abs(f.Z));
+            var across = new Vector3(Mathf.Abs(r.X), 0f, Mathf.Abs(r.Z));
+            float length = 3f * t, width = t - 0.1f;
+            // The planks across the way it runs, a finger's gap between them.
+            int planks = 20;
+            for (int i = 0; i < planks; i++)
+            {
+                float s = -length * 0.5f + (i + 0.5f) * length / planks;
+                batch.Box(at + f * s + new Vector3(0f, -0.04f, 0f), across * width + along * (length / planks - 0.04f) + new Vector3(0f, 0.08f, 0f), plank, 0.01f);
+            }
+            for (int k = -1; k <= 1; k += 2)
+                batch.Box(at + r * (k * (width * 0.5f - 0.12f)) + new Vector3(0f, -0.18f, 0f), along * length + across * 0.16f + new Vector3(0f, 0.2f, 0f), joist, 0.02f);
+            // Posts in pairs a tile apart, down into the bed.
+            for (int i = 0; i <= 3; i++)
+                for (int k = -1; k <= 1; k += 2)
+                    batch.Add(MeshKit.Cylinder(0.12f, 0.13f, 2.2f, 10), post, at + f * (-length * 0.5f + i * t * (i == 3 ? 0.97f : 1f)) + r * (k * (width * 0.5f - 0.05f)) + new Vector3(0f, -1.1f, 0f));
+            // Bollards at the end, for the mooring lines.
+            for (int k = -1; k <= 1; k += 2)
+            {
+                var b = at + f * (length * 0.5f - 0.3f) + r * (k * (width * 0.5f - 0.25f));
+                batch.Add(MeshKit.Cylinder(0.11f, 0.13f, 0.4f, 12), iron, b + new Vector3(0f, 0.2f, 0f));
+                batch.Add(MeshKit.Cylinder(0.16f, 0.16f, 0.05f, 12), iron, b + new Vector3(0f, 0.42f, 0f));
+            }
+        }
+
+        /// <summary>
+        /// Doc 04 §3.3 Small Port (design choice 112): a concrete quay on land with an orange-railed
+        /// edge and bollards, a roller chute from the loading face at its back down to the boat, a
+        /// derrick at one corner, and over the water two floating pontoons either side of the bay.
+        /// </summary>
+        public static void SmallPort(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
+        {
+            const float t = SimConstants.TileSize;
+            var slab = only ?? MeshKit.Mat(worn ? new Color("6d6a64") : new Color("a8a49b"), 0.9f);
+            var edge = only ?? MeshKit.Mat(new Color("7c786f"), 0.9f);
+            var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var steel = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
+            var deck = only ?? MeshKit.Mat(new Color("8f6f50"), 0.9f);
+            var float_ = only ?? MeshKit.Mat(new Color("dfe3e6"), 0.6f);
+            var iron = only ?? MeshKit.Mat(IronColour, 0.45f, 0.6f);
+            var f = Dir(facing);
+            var r = Dir((facing + 1) & 3);
+            var along = new Vector3(Mathf.Abs(f.X), 0f, Mathf.Abs(f.Z));
+            var across = new Vector3(Mathf.Abs(r.X), 0f, Mathf.Abs(r.Z));
+            float w = 3f * t - 0.1f;
+            // The quay: its two rows of land, the waterline at the construct's middle.
+            var quay = at - f * t;
+            batch.Box(quay + new Vector3(0f, 0.05f, 0f), across * w + along * (2f * t - 0.05f) + new Vector3(0f, 0.1f, 0f), slab, 0.03f);
+            batch.Box(at - f * 0.2f + new Vector3(0f, -0.6f, 0f), across * w + along * 0.4f + new Vector3(0f, 1.3f, 0f), edge, 0.02f);
+            // The railing along the edge, the bay's gap in it; bollards either side of the gap.
+            for (int k = -1; k <= 1; k += 2)
+            {
+                var side = at - f * 0.25f + r * (k * 2.0f);
+                batch.Box(side + new Vector3(0f, 0.95f, 0f), across * 1.9f + along * 0.06f + new Vector3(0f, 0.06f, 0f), orange, 0.01f);
+                batch.Box(side + new Vector3(0f, 0.55f, 0f), across * 1.9f + along * 0.05f + new Vector3(0f, 0.05f, 0f), orange, 0.01f);
+                foreach (float p in new[] { -0.9f, 0f, 0.9f })
+                    batch.Box(side + r * p + new Vector3(0f, 0.5f, 0f), new Vector3(0.06f, 0.9f, 0.06f), orange, 0.01f);
+                var bollard = at - f * 0.35f + r * (k * 0.95f);
+                batch.Add(MeshKit.Cylinder(0.13f, 0.15f, 0.45f, 12), iron, bollard + new Vector3(0f, 0.32f, 0f));
+                batch.Add(MeshKit.Cylinder(0.19f, 0.19f, 0.05f, 12), iron, bollard + new Vector3(0f, 0.56f, 0f));
+            }
+            // The loading face at the back middle, hatched, and a roller chute from it to the boat.
+            var back = at - f * (1.5f * t);
+            batch.Box(back + new Vector3(0f, 0.104f, 0f), across * 1.9f + along * 1.8f + new Vector3(0f, 0.01f, 0f), dark, 0.0f);
+            for (int k = -3; k <= 3; k++)
+                batch.Add(MeshKit.Box(new Vector3(0.12f, 0.014f, 0.62f)), yellow, new Transform3D(new Basis(Vector3.Up, Mathf.Atan2(f.X, f.Z) + Mathf.Pi * 0.25f), back + r * (k * 0.27f) + new Vector3(0f, 0.11f, 0f)));
+            var chuteFrom = back + f * 0.6f + new Vector3(0f, 0.55f, 0f);
+            var chuteTo = at + f * 0.5f + new Vector3(0f, 0.1f, 0f);
+            var chuteMid = (chuteFrom + chuteTo) * 0.5f;
+            float chuteLength = chuteFrom.DistanceTo(chuteTo), slope = Mathf.Atan2(chuteFrom.Y - chuteTo.Y, (chuteTo - chuteFrom).Length());
+            var chuteBasis = new Basis(Vector3.Up, Mathf.Atan2(f.X, f.Z)) * new Basis(Vector3.Right, slope);
+            batch.Add(MeshKit.Box(new Vector3(0.9f, 0.08f, chuteLength)), steel, new Transform3D(chuteBasis, chuteMid));
+            for (int k = -1; k <= 1; k += 2)
+                batch.Add(MeshKit.Box(new Vector3(0.06f, 0.2f, chuteLength)), orange, new Transform3D(chuteBasis, chuteMid + r * (k * 0.45f) + new Vector3(0f, 0.08f, 0f)));
+            foreach (float s in new[] { 0.15f, 0.85f })
+            {
+                var leg = chuteFrom.Lerp(chuteTo, s);
+                batch.Box(new Vector3(leg.X, (leg.Y - 0.05f) * 0.5f, leg.Z), new Vector3(0.08f, Mathf.Max(0.05f, leg.Y), 0.08f), steel, 0.01f);
+            }
+            // The derrick at the back corner: a post, a boom out over the bay, its hook.
+            var post = at - f * (1.6f * t) + r * (1.1f * t);
+            batch.Add(MeshKit.Cylinder(0.14f, 0.18f, 3.4f, 12), orange, post + new Vector3(0f, 1.7f, 0f));
+            var boomTip = at + f * 1.6f + r * 0.4f + new Vector3(0f, 3.1f, 0f);
+            var boomFrom = post + new Vector3(0f, 3.2f, 0f);
+            var boomBasis = Basis.LookingAt((boomTip - boomFrom).Normalized(), Vector3.Up);
+            batch.Add(MeshKit.Box(new Vector3(0.14f, 0.14f, boomFrom.DistanceTo(boomTip))), orange, new Transform3D(boomBasis, (boomFrom + boomTip) * 0.5f));
+            batch.Add(MeshKit.Cylinder(0.012f, 0.012f, 1.6f, 6), steel, boomTip + new Vector3(0f, -0.8f, 0f));
+            batch.Box(boomTip + new Vector3(0f, -1.65f, 0f), new Vector3(0.18f, 0.12f, 0.18f), iron, 0.02f);
+            // The pontoons over the water either side of the bay, on their floats, with posts at the end.
+            for (int k = -1; k <= 1; k += 2)
+            {
+                var pontoon = at + f * t + r * (k * 2.25f);
+                batch.Box(pontoon + new Vector3(0f, -0.2f, 0f), across * 1.0f + along * (2f * t - 0.1f) + new Vector3(0f, 0.1f, 0f), deck, 0.02f);
+                batch.Box(pontoon + new Vector3(0f, -0.38f, 0f), across * 0.9f + along * (2f * t - 0.3f) + new Vector3(0f, 0.26f, 0f), float_, 0.08f);
+                batch.Add(MeshKit.Cylinder(0.1f, 0.1f, 2.6f, 10), iron, pontoon + f * (t - 0.2f) + new Vector3(0f, -0.3f, 0f));
+            }
+        }
+
         public static void VehicleDepot(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
         {
             const float t = SimConstants.TileSize;
@@ -813,6 +926,16 @@ namespace PerformativeMail.Client.Presentation
                     return;
                 case BuildingBehaviour.VehicleDepot:
                     VehicleDepot(batch, at, rotation & 3, only, worn);
+                    return;
+                case BuildingBehaviour.Pier:
+                    Pier(batch, at, rotation & 3, only, worn);
+                    return;
+                case BuildingBehaviour.Port:
+                    SmallPort(batch, at, rotation & 3, only, worn);
+                    return;
+                case BuildingBehaviour.Boat:
+                    // Only ever a ghost: what is placed is the boat itself (VehiclesView).
+                    VehiclesView.RowboatHull(batch, at + new Vector3(0f, IslandView.BasinLevel, 0f), Yaw(rotation) , only);
                     return;
                 case BuildingBehaviour.Container:
                     if (only != null) batch.Box(new Vector3(0f, 0.4f, 0f), new Vector3(0.96f, 0.8f, 0.66f), only, 0.1f, new Vector3(0f, Mathf.RadToDeg(Yaw(rotation)), 0f));
