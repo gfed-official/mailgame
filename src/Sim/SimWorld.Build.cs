@@ -218,6 +218,7 @@ namespace PerformativeMail.Sim
         private void ClearConstructs()
         {
             ClearBelts();
+            ClearPipes();
             if (Constructs.All.Count == 0) return;
             foreach (var built in Constructs.All) DropContainer(built);
             Constructs.Clear();

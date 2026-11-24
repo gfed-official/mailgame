@@ -172,6 +172,18 @@ namespace PerformativeMail.App
                             $"the recipe card \"{((Label)child).Text}\" at {card} leaves the bar at {bar} or runs into the keys line at {keys}");
                     }
                     Check(keys.Position.Y >= hud.FeedBottom - 0.5f, $"the keys line at {keys} runs into the feed, which ends at {hud.FeedBottom}");
+                    // Every recipe on every step of the wheel fits its card whole (none is cut short with "…").
+                    var cardLabel = (Label)hud.RecipeBar.GetChild(0);
+                    var cardFont = cardLabel.GetThemeFont("font");
+                    int cardSize = cardLabel.GetThemeFontSize("font_size");
+                    var recipeKeys = world.Content.RecipeKeys;
+                    for (int k = 0; k < recipeKeys.Count; k++)
+                        foreach (var r in recipeKeys[k])
+                        {
+                            string text = HudText.RecipeCard(r, k, recipeKeys[k]);
+                            float width = cardFont.GetStringSize(text, HorizontalAlignment.Left, -1, cardSize).X;
+                            Check(width <= Hud.RecipeCardWidth, $"the recipe card \"{text}\" is {width:0} px, wider than its {Hud.RecipeCardWidth:0}");
+                        }
                     // Its words, drawn in the middle of the screen, stay over the bar: clear of the trackers to its right.
                     float keysMid = keys.Position.X + keys.Size.X * 0.5f, keysHalf = hud.HeldTextWidth * 0.5f;
                     Check(keysMid - keysHalf >= bar.Position.X - 0.5f && keysMid + keysHalf <= bar.End.X + 0.5f,

@@ -24,7 +24,7 @@ namespace PerformativeMail.App
     public partial class SmokeDriver
     {
         private const int BeltLine = 5;
-        private int _beltStep, _beltFrames, _beltVisits, _beltDelivered;
+        private int _beltStep, _beltFrames, _beltVisits, _beltDelivered, _pipeHold;
         private int _beltX0, _beltZ0, _beltX1, _beltZ1, _beltDest = -1;
         /// <summary>Interact held at the line (doc 04 §2.1 pushing a belt); where the ride began.</summary>
         private bool _beltPushing;
@@ -830,6 +830,135 @@ namespace PerformativeMail.App
                 case 55:
                 {
                     if (client.PendingRequestCount > 0 || server.Constructs.At(world.Belts.OutfeedX, world.Belts.OutfeedZ - 1) != null) break;
+                    _beltStep = 60;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 60:
+                {
+                    // Pneumatic pipes (doc 04 §2.2, bp_pipes): the blueprint is sold from shift 3, so
+                    // the server grants it here. A Pipe Inlet on the outfeed by the wheel on the pipes'
+                    // key, pipes up the yard to a junction and west to an outlet.
+                    var player = server.GetPlayer(world.LocalId)!;
+                    Check(server.Grant(world.Content.ShopItem("bp_pipes"), player.Id), "the team owned the Pneumatics blueprint already");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 14)), "no room for fourteen Iron Ingots");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("glass"), 6)), "no room for six Glass");
+                    var belts = world.Belts;
+                    player.Move.X = BuildRules.TileCentre(belts.OutfeedX - 1);
+                    player.Move.Z = BuildRules.TileCentre(belts.OutfeedZ - 3);
+                    _beltStep = 61;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 61:
+                {
+                    var inlet = world.Content.Building("pipe_inlet");
+                    if (!world.ShopOwned.Contains(world.Content.ShopItem("bp_pipes")) || _beltFrames < 3) break;
+                    var pipeKey = world.Content.Building("pipe").Recipe.Key;
+                    Check(build.PressKey(pipeKey), "the pipes' key did not take");
+                    for (int i = 0; i < 5 && build.Recipe?.Building != inlet; i++) build.Cycle(1);
+                    for (int i = 0; i < 4 && build.Rotation != BeltNetwork.OutfeedRotation; i++) build.Rotate();
+                    Check(build.Recipe?.Building == inlet && build.Rotation == BeltNetwork.OutfeedRotation, $"the wheel on key {pipeKey + 1} never came to the Pipe Inlet ({build.Recipe?.Building.Name}, turned {build.Rotation})");
+                    _beltStep = 62;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 62:
+                {
+                    var belts = world.Belts;
+                    AimAtTile(belts.OutfeedX, belts.OutfeedZ);
+                    if (_beltFrames < 8) break;
+                    build.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
+                    Check(build.Ghost.State == OpResult.Ok && hud.PromptText.StartsWith("Build Pipe Inlet", StringComparison.Ordinal),
+                        $"the Pipe Inlet's ghost on the outfeed is {build.Ghost.State}, the prompt \"{hud.PromptText}\"");
+                    build.Update(1.0 / 30.0, true, false);
+                    _beltStep = 63;
+                    _beltFrames = 0;
+                    return true;
+                }
+
+                case 63:
+                {
+                    var belts = world.Belts;
+                    int ox = belts.OutfeedX, oz = belts.OutfeedZ;
+                    var built = world.Constructs.At(ox, oz);
+                    if (built == null || client.PendingRequestCount > 0) break;
+                    Check(built.Def.Id == "pipe_inlet" && built.Facing == BeltNetwork.OutfeedRotation, $"on the outfeed stands a {built.Def.Id} turned {built.Facing}");
+                    Sim.Content.RecipeDef Of(string id) => world.Content.Building(id).Recipe;
+                    for (int z = oz - 1; z >= oz - 3; z--) Check(client.PlaceConstruct(Of("pipe"), ox, z, BeltNetwork.OutfeedRotation) != 0, $"the pipe on ({ox}, {z}) was not asked for");
+                    Check(client.PlaceConstruct(Of("pipe_junction"), ox, oz - 4, 0) != 0, "the junction was not asked for");
+                    Check(client.PlaceConstruct(Of("pipe"), ox - 1, oz - 4, 2) != 0, "the pipe west was not asked for");
+                    Check(client.PlaceConstruct(Of("pipe_outlet"), ox - 2, oz - 4, 2) != 0, "the outlet was not asked for");
+                    var dest = world.Map.GetDestination(_beltDest)!;
+                    var kind = world.Content.MailKind("letter");
+                    for (uint i = 0; i < 2; i++)
+                        Check(server.Give(server.Intake, ItemStack.OfMail(new MailItem { Id = 990041 + i, Kind = kind.Index, Address = dest.Address, Value = (ushort)kind.BaseValue, SpawnShift = (byte)server.Run.Shift, DeadlineShift = (byte)(server.Run.Shift + 1) })),
+                            "no room in the Intake for a letter");
+                    _beltStep = 64;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 64:
+                {
+                    var belts = world.Belts;
+                    int ox = belts.OutfeedX, oz = belts.OutfeedZ;
+                    // Back on the open row north of the Post Office, Build mode down, looking down the pipes into the yard.
+                    if (_beltFrames == 1)
+                    {
+                        build.Leave();
+                        var player = server.GetPlayer(world.LocalId)!;
+                        player.Move.X = BuildRules.TileCentre(ox + 3);
+                        player.Move.Z = BuildRules.TileCentre(oz - 5);
+                    }
+                    AimAtTile(ox - 1, oz - 3);
+                    _screen.PipeCapsules.Refresh();
+                    if (client.PendingRequestCount > 0 || world.Pipes.Capsules.Count == 0 || _screen.PipeCapsules.Drawn == 0 || _beltFrames < 6) break;
+                    Check(server.Pipes.Capsules.Count >= world.Pipes.Capsules.Count - 1 && world.PipeMismatches == 0,
+                        $"{world.Pipes.Capsules.Count} capsules here, {server.Pipes.Capsules.Count} on the server, {world.PipeMismatches} without a way");
+                    foreach (var cap in world.Pipes.Capsules)
+                        Check(cap.Path[0] == oz * world.Map.Cols + ox && cap.Outlet == (oz - 4) * world.Map.Cols + ox - 2, $"a capsule from tile {cap.Path[0]} to {cap.Outlet}");
+                    Shot("pipes");
+                    GD.Print($"[smoke] pipes: a Pipe Inlet on the outfeed by the wheel on key {world.Content.Building("pipe").Recipe.Key + 1}, {world.Pipes.Capsules.Count} capsules drawn on their way to the outlet");
+                    _beltStep = 65;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 65:
+                {
+                    var belts = world.Belts;
+                    int ox = belts.OutfeedX, oz = belts.OutfeedZ;
+                    var outlet = server.Pipes.OutletAt((oz - 4) * world.Map.Cols + ox - 2);
+                    if (outlet == null || outlet.Queue.Count < 2 || world.Pipes.Capsules.Count < 2) break;
+                    // Both wait in the outlet (nothing stands in front of it), drawn at its end.
+                    // Back in reach of every piece, then take them down.
+                    if (++_pipeHold == 1)
+                    {
+                        var player = server.GetPlayer(world.LocalId)!;
+                        player.Move.X = BuildRules.TileCentre(ox - 1);
+                        player.Move.Z = BuildRules.TileCentre(oz - 3);
+                    }
+                    if (_pipeHold < 4) break;
+                    GD.Print($"[smoke] pipes: both letters at the outlet, {outlet.Queue.Count} in its queue; the pipes taken down");
+                    foreach (var (x, z) in new[] { (ox, oz), (ox, oz - 1), (ox, oz - 2), (ox, oz - 3), (ox, oz - 4), (ox - 1, oz - 4), (ox - 2, oz - 4) })
+                        if (world.Constructs.At(x, z) is { } piece) client.RemoveConstruct(piece);
+                    _beltStep = 66;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 66:
+                {
+                    var belts = world.Belts;
+                    if (client.PendingRequestCount > 0 || server.Pipes.Inlets.GetEnumerator().MoveNext() || server.Pipes.ItemCount > 0) break;
+                    Check(world.Pipes.Capsules.Count == 0 && server.Intake.Entries.Any(e => e.Stack.Kind == StackKind.Mail && e.Stack.Mail.Any(m => m.Id == 990041)),
+                        $"{world.Pipes.Capsules.Count} capsules left here; the letters are not back in the Intake");
+                    if (!build.Active) Check(build.Toggle(), $"B did not put Build mode up again ({build.Refused})");
                     _beltStep = 27;
                     _beltFrames = 0;
                     break;

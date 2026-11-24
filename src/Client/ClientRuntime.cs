@@ -643,6 +643,7 @@ namespace PerformativeMail.Client
             world.ServerTick += 1.0;
             // Doc 07 §8: the belts' items move here at the server's speed; only its events take them off an end.
             world.Belts.Step(SimConstants.TickDt, null);
+            world.Pipes.Step(SimConstants.TickDt, arrive: false);
             if (!world.HasLocal) return;
 
             var input = new PlayerInput
@@ -1132,6 +1133,7 @@ namespace PerformativeMail.Client
                     foreach (var built in world.Constructs.All)
                         if (built.ContainerId != 0) DropExternal(world, built.ContainerId);
                     world.Belts.Clear();
+                    world.Pipes.Clear();
                     world.Constructs.Clear();
                     break;
                 case BeltStateEvent e:
@@ -1167,6 +1169,17 @@ namespace PerformativeMail.Client
                 }
                 case BeltItemRemovedEvent e:
                     world.Belts.RemoveMail(e.MailId);
+                    break;
+                case PipeCapsuleEvent e:
+                {
+                    var map = world.Map;
+                    if (!map.InBounds(e.FromX, e.FromY) || !map.InBounds(e.OutX, e.OutY)) break;
+                    var item = world.BeltItemOf(e.Item);
+                    if (world.Pipes.Send(item.Mail, e.FromY * map.Cols + e.FromX, e.OutY * map.Cols + e.OutX) == null) world.PipeMismatches++;
+                    break;
+                }
+                case PipeCapsuleRemovedEvent e:
+                    world.Pipes.RemoveMail(e.MailId);
                     break;
                 case BeltPushedEvent e:
                 {

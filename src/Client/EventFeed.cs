@@ -280,7 +280,12 @@ namespace PerformativeMail.Client
             entry.Amount += amount;
             entry.Age = 0;
 
-            string who = player.IsNone && machine == DeliveryMachine.Inserter ? "An inserter" : Who(world, player);
+            string who = !player.IsNone ? Who(world, player) : machine switch
+            {
+                DeliveryMachine.Inserter => "An inserter",
+                DeliveryMachine.Pipe => "A pipe",
+                _ => Who(world, player),
+            };
             string what = HudText.CountAndKind(kind < world.Content.MailKinds.Count ? world.Content.MailKinds[kind].Name : "item", entry.Count);
             string where = world.Map.GetDestination(destId)?.Label ?? "?";
             entry.Text = bad

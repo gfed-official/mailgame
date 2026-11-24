@@ -61,6 +61,8 @@ namespace PerformativeMail.Sim.Net
         ConstructConfigured = 51,
         SorterStatus = 52,
         InserterSwung = 53,
+        PipeCapsule = 54,
+        PipeCapsuleRemoved = 55,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -273,6 +275,14 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.ConstructConfigured);
                     w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value); w.U8((byte)e.Filters.Count);
                     foreach (ushort f in e.Filters) w.U16(f);
+                    break;
+                case PipeCapsuleEvent e:
+                    w.U8((byte)EventType.PipeCapsule);
+                    WriteBeltItem(w, e.Item); w.U8(e.FromX); w.U8(e.FromY); w.U8(e.OutX); w.U8(e.OutY);
+                    break;
+                case PipeCapsuleRemovedEvent e:
+                    w.U8((byte)EventType.PipeCapsuleRemoved);
+                    w.U32(e.MailId);
                     break;
                 case InserterSwungEvent e:
                     w.U8((byte)EventType.InserterSwung);
@@ -494,6 +504,10 @@ namespace PerformativeMail.Sim.Net
                     for (int i = 0; i < n; i++) e.Filters.Add(r.U16());
                     return e;
                 }
+                case EventType.PipeCapsule:
+                    return new PipeCapsuleEvent { Item = ReadBeltItem(r), FromX = r.U8(), FromY = r.U8(), OutX = r.U8(), OutY = r.U8() };
+                case EventType.PipeCapsuleRemoved:
+                    return new PipeCapsuleRemovedEvent { MailId = r.U32() };
                 case EventType.InserterSwung:
                     return new InserterSwungEvent { X = r.U8(), Y = r.U8(), Kind = r.U16() };
                 case EventType.SorterStatus:

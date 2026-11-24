@@ -34,6 +34,18 @@ namespace PerformativeMail.Sim
             return false;
         }
 
+        /// <summary>
+        /// Gives the team an entry sold once per run for nothing, whatever the shift (the smoke, and
+        /// tests): everybody hears of it as of a purchase at no price.
+        /// </summary>
+        public bool Grant(ShopItemDef def, EntityId by)
+        {
+            if (!def.OncePerRun || _shopOwned.Contains(def)) return false;
+            _shopOwned.Add(def);
+            Events.Add(new ShopBoughtEvent { Player = by, Item = def.Index, Price = 0 });
+            return true;
+        }
+
         /// <summary>What the entry costs this shift.</summary>
         public int ShopPrice(ShopItemDef def) =>
             ShopRules.Price(def, _shopSpecials.Contains(def), ShopRules.DiscountPermille(Content.Balance));

@@ -82,7 +82,8 @@ namespace PerformativeMail.Sim.Tests
             var group = Db.RecipeKeys[Belt.Recipe.Key];
             Assert.Equal(new[] { "belt_mk1", "belt_mk2", "belt_mk1_ramp", "belt_mk1_elevated" }, group.Select(r => r.Building.Id));
             // And the sorter's: the Address Sorter, the Inserter and the Long Inserter (InserterTests); the chest's: the Chest and the Depot (DepotTests).
-            Assert.Equal(Db.Recipes.Count - 6, Db.RecipeKeys.Count);
+            // The splitter's: the Splitter and the Merger; the pipes': five (PipeTests).
+            Assert.Equal(Db.Recipes.Count - 11, Db.RecipeKeys.Count);
             Assert.True(Db.RecipeKeys.Count <= ContentDb.MaxRecipeKeys);
             Assert.All(Db.Recipes.Where(r => r.Group.Length == 0), r => Assert.Equal(r, Db.RecipeKeys[r.Key].Single()));
         }

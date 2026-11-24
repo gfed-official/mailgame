@@ -108,10 +108,10 @@ namespace PerformativeMail.Net.Tests
             var elevated = content.Recipes.Single(r => r.Building.Id == "belt_mk1_elevated");
             Assert.True(build.PressKey(belt.Key));
             Assert.Same(belt, build.Recipe);
-            Assert.Equal($"[{belt.Key + 1}] Conveyor Belt 1/4   ·   Plank x1, Iron Ingot x1", HudText.RecipeCard(belt, belt.Key, content.RecipeKeys[belt.Key]));
+            Assert.Equal($"[{belt.Key + 1}] Conveyor Belt 1/4 · Plank x1, Iron Ingot x1", HudText.RecipeCard(belt, belt.Key, content.RecipeKeys[belt.Key]));
             Assert.True(build.Cycle(1));
             Assert.Same(fast, build.Recipe);
-            Assert.Equal($"[{belt.Key + 1}] Fast Belt 2/4   ·   Plank x1, Iron Ingot x2", HudText.RecipeCard(fast, belt.Key, content.RecipeKeys[belt.Key]));
+            Assert.Equal($"[{belt.Key + 1}] Fast Belt 2/4 · Plank x1, Iron Ingot x2", HudText.RecipeCard(fast, belt.Key, content.RecipeKeys[belt.Key]));
             Assert.True(build.Cycle(1));
             Assert.Same(ramp, build.Recipe);
             Assert.True(build.Cycle(1));
@@ -123,9 +123,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Same(elevated, build.Recipe);
             Assert.True(build.Cycle(-2));
             Assert.Same(fast, build.Recipe);
-            // A recipe alone stays itself; back on the belts' key, the Fast Belt is still the choice.
+            // The splitter's key steps to the Merger and round again; back on the belts' key, the Fast Belt is still the choice.
             Assert.True(build.PressKey(splitter.Key));
-            Assert.True(build.Cycle(1));
+            Assert.True(build.Cycle(2));
             Assert.Same(splitter, build.Recipe);
             Assert.Same(fast, build.Chosen(belt.Key));
             Assert.True(build.PressKey(belt.Key));

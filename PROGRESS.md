@@ -1349,13 +1349,59 @@ the whole line exists; the sub-lines say which parts do.
             refused removal, an inserter pulling it onto a belt; a chest holds the line); in the
             smoke the wheel on the chest's key builds one (ghost prompt "Build Depot"), E opens it
             with its grid on screen (`depot-open`, `depot`), and it is taken down again
-- [ ] Pipes (inlet filters, junctions, outlets, underground) behind bp_pipes
+- [x] Pipes (inlet filters, junctions, outlets, underground) behind bp_pipes
+      - [x] **Pneumatic pipes** (doc 04 §2.2, doc 10 §2.1, doc 11 "pipe speed 5 m/s, spacing 1 m";
+            design choice 107). Behaviour `pipe` with a role (`BuildingDef.PipeRole`): `pipe`
+            (Pneumatic Pipe, 100 HP, an Iron Ingot and a Glass; straight, open behind and in front),
+            `pipe_underground` (shown as Buried Pipe, 200 HP, twice the materials; straight, on a
+            street too, walked and driven over), `pipe_junction` (120 HP; open on all four sides),
+            `pipe_inlet` (150 HP; takes from behind, opens in front) and `pipe_outlet` (120 HP; opens
+            behind, puts out in front), all behind `bp_pipes` (Blueprint: Pneumatics, $7.00, from
+            shift 3) on one key of Build mode (the wheel steps through the five; the Splitter and the
+            Merger now share a key, doc 09 §2.7's Transport, so Build mode keeps ten). Straight pipes
+            and buried ones are dragged in lines and walked over; the boxes stand. `Automation/
+            PipeNetwork`: two tiles are joined where both open towards each other; per outlet a
+            breadth-first count of tiles to it; a capsule (one piece of mail) runs the shortest way
+            (the lowest direction first on a tie) at 5 m/s. **Routing at the inlet**: the nearest
+            outlet it reaches whose filter catches the piece (an outlet with no filter standing
+            before a mailbox catches that house's mail), else the nearest default (no filter, no
+            mailbox), of those with room (8 sent or waiting, `pipeOutletCapacity`); one a filter
+            catches but none with room makes it wait, never a default. An inlet sends a capsule a
+            metre's spacing apart (0.2 s) and takes a piece only when it can send it: from the end of
+            a belt running into it (`BeltEndKind.Inlet`), from an inserter in front of it, or, on
+            the outfeed's tile facing away from the counter, the oldest piece of the Intake it can
+            route. An outlet puts its oldest piece out at 2 a second (a mailbox's insert rate if
+            slower) into a mailbox (in Delivery; "A pipe delivered…", `DeliveryMachine.Pipe`), a
+            chest or depot, a sorter's input, an inlet or a belt's head (which it starts), as an
+            inserter does (`SimWorld.TargetOf` shared). A pipe taken down under capsules sends them
+            the shortest way left from where they are, or back to the Intake; an outlet taken down
+            gives its queue back. Its filter (street, district or kind, as a sorter's) is set on the
+            filter panel by E ("PIPE OUTLET · what the inlets send it", "Takes", "this house's mail"
+            / "whatever no other outlet takes"). Net: `PipeCapsuleEvent` (the mail, from a tile to
+            an outlet: sent, sent round, or to a joiner from where it is), `PipeCapsuleRemovedEvent`
+            (protocol `m2.5`); the client runs the same `PipeNetwork` without arrivals.
+            *On screen*: a glass tube on a steel stand with orange collars, the capsules (in the
+            colour of their house) seen through it (`PipeCapsulesView`), a junction a steel hub with
+            four stubs, an inlet a box with a green mouth behind and an outlet one with an amber
+            mouth in front, a buried pipe a flush hatch with yellow chevrons (none drawn under it).
+            Build mode's recipe cards are now each half the bar wide (ellipsis as a last resort), at
+            12 px with a tighter " · ", and the smoke measures every recipe of every key against
+            that width. `PipeTests` (content and keys; the blueprint and the street; the Intake by
+            filter and default, one capsule each 0.2 s; 5 m/s by the shortest way; a full outlet
+            holding the inlet, an outlet and a pipe taken down under capsules; inserter → inlet,
+            outlet → belt → inlet, outlet → chest; an outlet before a mailbox in Prep and in
+            Delivery), `PipeFlowTests` (a client's capsules on the server's ways, a joiner's, the
+            outlet's panel), `CodecTests`, the shop and content pins; in the smoke the server grants
+            the blueprint, the wheel on key 0 builds a Pipe Inlet on the outfeed, pipes lead to an
+            outlet, the Intake's letters ride drawn in capsules (`pipes`), wait in the outlet, and
+            go back to the Intake when the pipes are taken down. Vertical pipes (up buildings) wait:
+            nothing is built up a building yet
 - [ ] Mail Truck; Vehicle Depot with route console; NPC driver behaviour; player takeover
 - [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: Pipes (bp_pipes), then the Mail Truck and the Vehicle Depot.
+Next in this order: the Mail Truck and the Vehicle Depot (route console, NPC drivers).
 
 ## How to build and check
 
@@ -2408,6 +2454,26 @@ See "Commands" at the bottom (filled in as the tooling lands).
     wheel: Address Sorter, Inserter, Long Inserter). Drawn with a taller post, a boom a tile
     longer (3.02 m to the grab) at 1.25 m, blue bands (the second tier's colour, as the Fast
     Belt's caps) and a counterweight.
+107. **Pneumatic pipes.** Doc 04 §2.2 gives capsules at 5 m/s, 1 m apart, a target outlet chosen
+    at the inlet by "a filter (address prefix or kind) mapping to an outlet id", unmatched to the
+    default outlet, and an underground piece under streets at twice the cost; doc 10 the five
+    pieces and costs. Choices: (a) the filter lives on the **outlet** (one card "Takes", street,
+    district or kind, as a sorter's) rather than as a table on the inlet: the inlet sends a piece
+    to the nearest reachable outlet whose filter catches it, else to the nearest one without a
+    filter (the default); the routing is still decided at the inlet and every capsule carries its
+    outlet. An outlet without a filter that stands before a mailbox takes that house's mail, so a
+    house fed by pipe needs no setting. (b) Nothing ever collides in a pipe: an inlet sends no
+    more to an outlet than it holds (8, sent or waiting) and no faster than one capsule a metre
+    apart; a piece some outlet catches waits while those are full rather than going to a default.
+    (c) A straight pipe opens behind and in front, a junction on all sides (corners, tees and
+    crosses are junctions), an inlet only in front, an outlet only behind. Straight and buried
+    pipes are walked over (not solid, like belts); junctions, inlets and outlets stand. (d) The
+    underground pipe is one tile a piece, straight, allowed on a street (doc 10's "+span" read as
+    a piece per tile), shown as "Buried Pipe" so its recipe card fits Build mode's bar. (e)
+    Outlets put out at 2 pieces a second ("same insert rate"). (f) bp_pipes is $7.00 from shift 3
+    (doc 10: 700, shift 3). (g) Splitter and Merger share a key of Build mode now so the pipes
+    get one and Build mode keeps ten keys. (h) Vertical pipes up buildings wait for something to
+    build up.
 
 ## Commands
 

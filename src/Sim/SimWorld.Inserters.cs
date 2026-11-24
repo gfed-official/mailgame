@@ -22,14 +22,15 @@ namespace PerformativeMail.Sim
         private readonly Dictionary<Construct, uint> _inserterNext = new Dictionary<Construct, uint>();
         private readonly List<Construct> _inserterGone = new List<Construct>();
 
-        /// <summary>What an inserter puts into, found anew each time it may move a piece.</summary>
+        /// <summary>What an inserter (or a pipe outlet) puts into, found anew each time it may move a piece.</summary>
         private struct InserterTarget
         {
             public DestinationDef? Mailbox;
             public GridContainer? Container;
             public SorterNode? Sorter;
             public BeltSegment? Belt;
-            public bool Any => Mailbox != null || Container != null || Sorter != null || Belt != null;
+            public InletNode? Inlet;
+            public bool Any => Mailbox != null || Container != null || Sorter != null || Belt != null || Inlet != null;
         }
 
         private void StepInserters()
@@ -72,7 +73,7 @@ namespace PerformativeMail.Sim
             if (!Passes(filter, item.Mail) || !Takes(target, item.Mail)) return false;
             Belts.TakeFront(seg);
             Events.Add(new BeltItemRemovedEvent { MailId = item.Mail.Id });
-            Put(target, item.Mail);
+            Put(target, item.Mail, DeliveryMachine.Inserter);
             kind = item.Mail.Kind;
             return true;
         }
@@ -97,6 +98,12 @@ namespace PerformativeMail.Sim
                 t.Container = GetContainer(front.ContainerId);
                 return t;
             }
+            // A pipe inlet takes it from behind (doc 04 §2.2).
+            if (front != null && front.Def.PipeRole == PipeRole.Inlet && front.Facing == c.Facing)
+            {
+                t.Inlet = Pipes.InletOf(front);
+                return t;
+            }
             // A sorter takes it at its input: into the tile it was built on, from behind.
             if (front != null && front.Def.Behaviour == BuildingBehaviour.Sorter && front.Tx == fx && front.Tz == fz && front.Facing == c.Facing)
             {
@@ -112,12 +119,13 @@ namespace PerformativeMail.Sim
             if (t.Mailbox != null) return AutomatedDelivers(t.Mailbox, mail);
             if (t.Container != null) return InventoryOps.HasRoomFor(Content, t.Container, ItemStack.OfMail(mail));
             if (t.Sorter != null) return t.Sorter.Buffer.Count < t.Sorter.Built.Def.BufferSize;
+            if (t.Inlet != null) return TryLaunch(t.Inlet, mail, dryRun: true);
             return t.Belt != null && BeltNetwork.PickLane(t.Belt, Content.MailKinds[mail.Kind], out _);
         }
 
-        private void Put(in InserterTarget t, in MailItem mail)
+        private void Put(in InserterTarget t, in MailItem mail, DeliveryMachine machine)
         {
-            if (t.Mailbox != null) DeliverAutomated(t.Mailbox, mail, DeliveryMachine.Inserter);
+            if (t.Mailbox != null) DeliverAutomated(t.Mailbox, mail, machine);
             else if (t.Container != null)
             {
                 InventoryOps.AutoPlace(Content, t.Container, ItemStack.OfMail(mail), _entryIds);
@@ -125,6 +133,7 @@ namespace PerformativeMail.Sim
             }
             else if (t.Sorter != null) t.Sorter.Buffer.Add(mail);
             else if (t.Belt != null) PutOnBelt(t.Belt, mail);
+            else if (t.Inlet != null) TryLaunch(t.Inlet, mail, dryRun: false);
         }
 
         /// <summary>One piece out of a container: the first (or, from the Intake, the oldest) its filter and the front take.</summary>
@@ -153,7 +162,7 @@ namespace PerformativeMail.Sim
             if (pick.Stack.Mail.Count == 0) from.Remove(pick.EntryId);
             else from.MarkDirty(pick.EntryId);
             CommitContainer(from.Id);
-            Put(target, mail);
+            Put(target, mail, DeliveryMachine.Inserter);
             kind = mail.Kind;
             return true;
         }

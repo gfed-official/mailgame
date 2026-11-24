@@ -17,6 +17,7 @@ namespace PerformativeMail.App
         public NodesView Nodes { get; private set; } = null!;
         public ConstructsView Constructs { get; private set; } = null!;
         public BeltItemsView BeltItems { get; private set; } = null!;
+        public PipeCapsulesView PipeCapsules { get; private set; } = null!;
         public PlayersView Players { get; private set; } = null!;
         public VehiclesView Vehicles { get; private set; } = null!;
         public EnemiesView Enemies { get; private set; } = null!;
@@ -102,6 +103,9 @@ namespace PerformativeMail.App
             BeltItems = new BeltItemsView { Name = "BeltItems" };
             AddChild(BeltItems);
             BeltItems.Setup(client);
+            PipeCapsules = new PipeCapsulesView { Name = "PipeCapsules" };
+            AddChild(PipeCapsules);
+            PipeCapsules.Setup(client);
 
             Players = new PlayersView { Name = "Players" };
             AddChild(Players);

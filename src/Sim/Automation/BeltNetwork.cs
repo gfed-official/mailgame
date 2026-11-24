@@ -33,6 +33,8 @@ namespace PerformativeMail.Sim.Automation
         Sorter,
         /// <summary>A container belts feed directly (doc 04 §2.6: a Depot, on any side): into its grid while it has room.</summary>
         Container,
+        /// <summary>A pipe inlet (doc 04 §2.2), from behind: into a capsule when it can send one.</summary>
+        Inlet,
     }
 
     /// <summary>
@@ -167,6 +169,8 @@ namespace PerformativeMail.Sim.Automation
         bool TryStore(BeltSegment segment, in BeltItem item);
         /// <summary>An item went off a segment's end into a sorter's buffer.</summary>
         void Took(BeltSegment from, in BeltItem item);
+        /// <summary>The front item has reached a pipe inlet; true if the inlet sent it on.</summary>
+        bool TryInlet(BeltSegment segment, in BeltItem item) => false;
         /// <summary>A sorter put a piece out by a port onto the head of a segment.</summary>
         void Sorted(SorterNode sorter, int port, BeltSegment to, in BeltItem item);
     }
@@ -426,7 +430,8 @@ namespace PerformativeMail.Sim.Automation
             _fieldVersion = _field.Version;
             var sig = new System.Text.StringBuilder();
             foreach (var c in _field.All)
-                if (IsBelt(c) || c.Def.Behaviour == BuildingBehaviour.Sorter || c.Def.Behaviour == BuildingBehaviour.Inserter)
+                if (IsBelt(c) || c.Def.Behaviour == BuildingBehaviour.Sorter || c.Def.Behaviour == BuildingBehaviour.Inserter
+                    || c.Def.PipeRole == PipeRole.Inlet || c.Def.PipeRole == PipeRole.Outlet)
                     sig.Append(c.Tx).Append(',').Append(c.Tz).Append(',').Append(c.Rotation).Append(',').Append(c.Def.Index).Append(';');
             string signature = sig.ToString();
             if (signature == _signature) return false;
@@ -473,10 +478,10 @@ namespace PerformativeMail.Sim.Automation
                     if (o >= 0 && AcceptsFrom(SorterNode.Port(port, c.Facing).Dir, o, 0)) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
                 }
             }
-            // An inserter puts mail on the head of the belt in front of it: that belt starts a segment.
+            // An inserter (or a pipe outlet) puts mail on the head of the belt in front of it: that belt starts a segment.
             foreach (var c in _field.All)
             {
-                if (c.Def.Behaviour != BuildingBehaviour.Inserter) continue;
+                if (c.Def.Behaviour != BuildingBehaviour.Inserter && c.Def.PipeRole != PipeRole.Outlet) continue;
                 int o = Ahead(TileIndex(c.Tx, c.Tz), c.Facing, c.Def.Reach);
                 if (o >= 0 && AcceptsFrom(c.Facing, o, 0)) feeders[o] = feeders.TryGetValue(o, out int n) ? n + 1 : 1;
             }
@@ -543,6 +548,12 @@ namespace PerformativeMail.Sim.Automation
                 {
                     s.End = BeltEndKind.Container;
                     s.ContainerId = store.ContainerId;
+                }
+                // A pipe inlet takes it from behind, from a belt on the ground (doc 04 §2.2).
+                else if (s.FrontTile >= 0 && OutLevel(lastTile) == 0 && _field.At(s.FrontTile % _map.Cols, s.FrontTile / _map.Cols) is { Def.PipeRole: PipeRole.Inlet } inlet
+                    && (last.Rotation & 3) == inlet.Facing)
+                {
+                    s.End = BeltEndKind.Inlet;
                 }
                 // A mailbox takes mail from a belt on the ground, not from one running over it.
                 else if (s.FrontTile >= 0 && OutLevel(lastTile) == 0 && _mailboxAt.TryGetValue(s.FrontTile, out int dest))
@@ -754,6 +765,12 @@ namespace PerformativeMail.Sim.Automation
                         }
                         break;
                     }
+                    case BeltEndKind.Inlet:
+                        if (!sink.TryInlet(s, it)) break;
+                        s.Items.RemoveAt(i);
+                        ItemCount--;
+                        gone = true;
+                        break;
                     case BeltEndKind.Container:
                         if (!sink.TryStore(s, it)) break;
                         s.Items.RemoveAt(i);

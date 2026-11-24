@@ -884,6 +884,7 @@ namespace PerformativeMail.Sim.Content
                             case "merger": behaviour = BuildingBehaviour.Merger; break;
                             case "sorter": behaviour = BuildingBehaviour.Sorter; break;
                             case "inserter": behaviour = BuildingBehaviour.Inserter; break;
+                            case "pipe": behaviour = BuildingBehaviour.Pipe; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
@@ -926,6 +927,15 @@ namespace PerformativeMail.Sim.Content
                             BufferSize = hasParams ? J.Int(ctx, pars, "bufferSize", 0) : 0,
                             Rate = hasParams ? (float)J.Num(ctx, pars, "rate", 0) : 0f,
                             Reach = hasParams ? J.Int(ctx, pars, "reach", 1) : 1,
+                            PipeRole = behaviour != BuildingBehaviour.Pipe ? PipeRole.None : (hasParams ? J.Str(ctx, pars, "role") : "") switch
+                            {
+                                "pipe" => PipeRole.Pipe,
+                                "junction" => PipeRole.Junction,
+                                "inlet" => PipeRole.Inlet,
+                                "outlet" => PipeRole.Outlet,
+                                "underground" => PipeRole.Underground,
+                                _ => PipeRole.None,
+                            },
                             Level = hasParams ? J.Int(ctx, pars, "level", 0) : 0,
                             Ramp = hasParams && J.Bool(ctx, pars, "ramp", false),
                             OnStreet = onStreet,
@@ -945,7 +955,9 @@ namespace PerformativeMail.Sim.Content
                         if (def.FilterSlots < 1 || def.FilterSlots > 3 || (def.FilterSlots != 1 && !sorter)) ctx.Error($"'{id}': params.filterSlotsPerOutput is 1 (a sorter's up to 3)");
                         if (def.Ramp && (behaviour != BuildingBehaviour.Belt || def.Length != 2 || def.Rotations != 8 || def.Level != 0)) ctx.Error($"'{id}': a ramp is a belt of footprint [1, 2], 8 rotations and level 0");
                         if (def.Level != 0 && (behaviour != BuildingBehaviour.Belt || def.Level != 1)) ctx.Error($"'{id}': only a belt is raised, by one level");
-                        if (def.OnStreet && def.Level != 1) ctx.Error($"'{id}': only an elevated belt is built on a street");
+                        if (def.OnStreet && def.Level != 1 && def.PipeRole != PipeRole.Underground) ctx.Error($"'{id}': only an elevated belt and an underground pipe are built on a street");
+                        if (behaviour == BuildingBehaviour.Pipe && (def.PipeRole == PipeRole.None || def.Rotations != 4))
+                            ctx.Error($"'{id}': a pipe needs params.role (pipe, junction, inlet, outlet or underground) and 4 rotations");
                         if (behaviour == BuildingBehaviour.Spikes && def.DamagePerSecond <= 0f) ctx.Error($"'{id}': spikes need params.damagePerSecond > 0");
                         if (behaviour != BuildingBehaviour.Spikes && def.DamagePerSecond != 0f) ctx.Error($"'{id}': only spikes do damage (params.damagePerSecond)");
                         if (behaviour == BuildingBehaviour.Alarm && (def.WarningBonusSeconds <= 0f || def.RevealRadius <= 0f)) ctx.Error($"'{id}': an alarm needs params.warningBonusSeconds > 0 and params.revealRadius > 0");
@@ -1096,7 +1108,7 @@ namespace PerformativeMail.Sim.Content
             "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank",
             "shopSpecialSlots", "shopSpecialDiscount", "shopRange", "serverShopRange", "harvestSwingSeconds",
             "buildRange", "serverBuildRange", "deconstructHoldSeconds", "deconstructRefundPrep", "deconstructRefundDelivery",
-            "beltPushMultiplier", "beltPushSeconds",
+            "beltPushMultiplier", "beltPushSeconds", "pipeSpeed", "pipeSpacing", "pipeOutletRate", "pipeOutletCapacity",
         };
 
         private static IEnumerable<JsonElement> ReadArray(JsonCtx ctx, string? text)

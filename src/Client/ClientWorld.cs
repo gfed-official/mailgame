@@ -612,13 +612,13 @@ namespace PerformativeMail.Client
         /// <summary>
         /// What an output of <paramref name="built"/> may be set to, in the order the panel steps
         /// through them (doc 04 §2.4: "a UI listing only unlocked addresses"): nothing, then for a
-        /// sorter the streets and districts open by this shift, then the kinds of mail; a splitter
-        /// filters by kind only.
+        /// sorter or a pipe outlet the streets and districts open by this shift, then the kinds of
+        /// mail; a splitter and an inserter filter by kind only.
         /// </summary>
         public List<MailFilter> FilterChoices(Construct built)
         {
             var choices = new List<MailFilter> { MailFilter.Empty };
-            if (built.Def.Behaviour == BuildingBehaviour.Sorter)
+            if (built.Def.FiltersAddresses)
             {
                 int shift = Math.Max(1, (int)Global.Shift);
                 foreach (var street in Map.Streets)
@@ -686,6 +686,29 @@ namespace PerformativeMail.Client
 
         private Sim.Automation.BeltNetwork? _belts;
         private ConstructField? _beltsField;
+
+        /// <summary>
+        /// The pipes as this client sees them: compiled from <see cref="Constructs"/> as the server
+        /// compiles them, capsules sent and taken off by the server's events, moved here each tick.
+        /// </summary>
+        public Sim.Automation.PipeNetwork Pipes
+        {
+            get
+            {
+                if (_pipes == null || !ReferenceEquals(_pipesField, Constructs))
+                {
+                    _pipes = new Sim.Automation.PipeNetwork(Content, Map, Constructs);
+                    _pipesField = Constructs;
+                }
+                _pipes.Compile();
+                return _pipes;
+            }
+        }
+
+        private Sim.Automation.PipeNetwork? _pipes;
+        private ConstructField? _pipesField;
+        /// <summary>Capsules the server sent that this client's pipes had no way for.</summary>
+        public int PipeMismatches { get; internal set; }
         /// <summary>Checksums of the server's that did not match this client's segments, and the resyncs asked for.</summary>
         public int BeltMismatches { get; internal set; }
 

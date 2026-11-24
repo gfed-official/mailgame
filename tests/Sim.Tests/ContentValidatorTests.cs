@@ -35,7 +35,7 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal(Program.ExitOk, Run(_dir, "content"));
             Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 11 containers, 15 items, 1 maps", _out.ToString());
-            Assert.Contains("14 shop entries, 6 resource nodes, 16 buildings, 1 vehicles, 3 kits;", _out.ToString());
+            Assert.Contains("15 shop entries, 6 resource nodes, 21 buildings, 1 vehicles, 3 kits;", _out.ToString());
             Assert.Contains($"content hash {TestContent.Db.ContentHash:x8}", _out.ToString());
             Assert.Equal("", _err.ToString());
         }
@@ -157,7 +157,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("'chest': params.radius must be in (0, 0.5]", err);
             Assert.Contains("'belt': behaviour 'turret' is not built yet", err);
             Assert.Contains("'barn': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2], a container [1, 1] or [2, 2])", err);
-            Assert.Contains("'barn': only an elevated belt is built on a street", err);
+            Assert.Contains("'barn': only an elevated belt and an underground pipe are built on a street", err);
             Assert.Contains("'barn': only a building whose behaviour is 'container' has a container", err);
             Assert.Contains("'recipe_wall_wood': craftSeconds must be 0, placement is instant", err);
             Assert.Contains("'recipe_wall_wood': 'log' is an input twice", err);

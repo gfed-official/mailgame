@@ -14,9 +14,9 @@
   { "id": "recipe_belt_mk1", "produces": { "building": "belt_mk1" },
     "inputs": [ { "item": "plank", "count": 1 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "belt" },
   { "id": "recipe_splitter", "produces": { "building": "splitter" },
-    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
+    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "split" },
   { "id": "recipe_merger", "produces": { "building": "merger" },
-    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
+    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "split" },
   { "id": "recipe_belt_mk2", "produces": { "building": "belt_mk2" },
     "inputs": [ { "item": "plank", "count": 1 }, { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1,
     "blueprint": "bp_fast_belts", "group": "belt" },
@@ -31,5 +31,15 @@
   { "id": "recipe_inserter_long", "produces": { "building": "inserter_long" },
     "inputs": [ { "item": "iron_ingot", "count": 3 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_sorting", "group": "sorting" },
   { "id": "recipe_depot", "produces": { "building": "depot" },
-    "inputs": [ { "item": "stone", "count": 8 }, { "item": "iron_ingot", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "group": "storage" }
+    "inputs": [ { "item": "stone", "count": 8 }, { "item": "iron_ingot", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "group": "storage" },
+  { "id": "recipe_pipe", "produces": { "building": "pipe" },
+    "inputs": [ { "item": "iron_ingot", "count": 1 }, { "item": "glass", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_pipes", "group": "pipe" },
+  { "id": "recipe_pipe_underground", "produces": { "building": "pipe_underground" },
+    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "glass", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_pipes", "group": "pipe" },
+  { "id": "recipe_pipe_junction", "produces": { "building": "pipe_junction" },
+    "inputs": [ { "item": "iron_ingot", "count": 2 }, { "item": "glass", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_pipes", "group": "pipe" },
+  { "id": "recipe_pipe_inlet", "produces": { "building": "pipe_inlet" },
+    "inputs": [ { "item": "iron_ingot", "count": 3 }, { "item": "glass", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_pipes", "group": "pipe" },
+  { "id": "recipe_pipe_outlet", "produces": { "building": "pipe_outlet" },
+    "inputs": [ { "item": "iron_ingot", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_pipes", "group": "pipe" }
 ]

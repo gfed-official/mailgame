@@ -57,16 +57,16 @@ namespace PerformativeMail.Sim
 
         private int TileIndex(Construct built) => built.Tz * Map.Cols + built.Tx;
 
-        /// <summary>A sorter filters by street, district or kind of this map and content; a splitter by kind only (doc 04 §2.3).</summary>
+        /// <summary>A sorter and a pipe outlet filter by street, district or kind of this map and content; a splitter and an inserter by kind only (doc 04 §2.3).</summary>
         private bool FilterExists(BuildingDef def, MailFilter filter)
         {
             switch (filter.Kind)
             {
                 case FilterKind.None: return true;
                 case FilterKind.Kind: return filter.Value < Content.MailKinds.Count;
-                case FilterKind.Street: return def.Behaviour == BuildingBehaviour.Sorter && Map.GetStreet(filter.Value) != null;
+                case FilterKind.Street: return def.FiltersAddresses && Map.GetStreet(filter.Value) != null;
                 case FilterKind.District:
-                    if (def.Behaviour != BuildingBehaviour.Sorter) return false;
+                    if (!def.FiltersAddresses) return false;
                     foreach (var d in Map.Districts) if (d.Id == filter.Value) return true;
                     return false;
                 default: return false;
@@ -122,6 +122,7 @@ namespace PerformativeMail.Sim
                 if (e.Stack.Kind != StackKind.Mail) continue;
                 foreach (var mail in e.Stack.Mail) CountMatch(built, sorter, mail, matches);
             }
+            if (built.Def.PipeRole == PipeRole.Outlet) matches[0] = OutletMatches(built);
             foreach (int n in matches) ev.Matches.Add((ushort)Math.Min(ushort.MaxValue, n));
             Events.Add(ev);
         }

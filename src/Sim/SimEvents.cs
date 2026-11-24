@@ -90,6 +90,7 @@ namespace PerformativeMail.Sim
         Hand = 0,
         Belt = 1,
         Inserter = 2,
+        Pipe = 3,
     }
 
     public sealed class MisdeliveredEvent : SimEvent
@@ -422,6 +423,24 @@ namespace PerformativeMail.Sim
     {
         public byte X, Y;
         public ushort Kind;
+    }
+
+    /// <summary>
+    /// A capsule in the pipes (doc 04 §2.2): from the middle of tile (FromX, FromY) — an inlet's
+    /// when it is sent, where it is when its way is broken and it goes round, or to a joiner — by
+    /// the shortest way to the outlet on (OutX, OutY). A client sends its own capsule of the mail
+    /// that way, replacing any it had.
+    /// </summary>
+    public sealed class PipeCapsuleEvent : SimEvent
+    {
+        public BeltItemInfo Item;
+        public byte FromX, FromY, OutX, OutY;
+    }
+
+    /// <summary>A piece of mail left the pipes: put out by its outlet, or back to the Intake.</summary>
+    public sealed class PipeCapsuleRemovedEvent : SimEvent
+    {
+        public uint MailId;
     }
 
     /// <summary>A carrier pushes the segment headed at (X, Y) (doc 04 §2.1): it runs faster for <see cref="Ticks"/> ticks.</summary>

@@ -181,6 +181,9 @@ namespace PerformativeMail.Client.UI
         private GridView _hotbar = null!;
         private HFlowContainer _recipeBar = null!;
         private const float RecipeBarHalfWidth = 280f, RecipeBarHeight = 94f;
+        /// <summary>A recipe card's width: half the bar, less the gap between two.</summary>
+        public const float RecipeCardWidth = RecipeBarHalfWidth - RecipeCardGap * 0.5f;
+        private const float RecipeCardGap = 18f;
         /// <summary>How far the feed goes up while Build mode is up, for the recipe bar's fifth row and the keys line over it.</summary>
         private const float FeedLiftBuilding = 36f;
         private readonly Label[] _feedLines = new Label[EventFeed.MaxEntries];
@@ -359,7 +362,7 @@ namespace PerformativeMail.Client.UI
                 MouseFilter = MouseFilterEnum.Ignore,
                 Visible = false,
             };
-            _recipeBar.AddThemeConstantOverride("h_separation", 18);
+            _recipeBar.AddThemeConstantOverride("h_separation", (int)RecipeCardGap);
             _recipeBar.AddThemeConstantOverride("v_separation", 1);
             // Five rows of the small font fit between the feed (lifted while building) and the bottom edge, the keys over them.
             Place(_recipeBar, 0.5f, 1f, -RecipeBarHalfWidth, -m - RecipeBarHeight, RecipeBarHalfWidth, -m);
@@ -562,7 +565,14 @@ namespace PerformativeMail.Client.UI
                     _recipeBar.RemoveChild(child);
                     child.QueueFree();
                 }
-                for (int i = 0; i < keys.Count; i++) _recipeBar.AddChild(MakeLabel($"Recipe{i}", 13, HorizontalAlignment.Center));
+                for (int i = 0; i < keys.Count; i++)
+                {
+                    // Two to a row, each its half of the bar: a long one is cut short rather than taking a row of its own.
+                    var card = MakeLabel($"Recipe{i}", 12, HorizontalAlignment.Center);
+                    card.CustomMinimumSize = new Vector2(RecipeCardWidth, 0f);
+                    card.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+                    _recipeBar.AddChild(card);
+                }
             }
             RecipeShown = Build!.Recipe?.Key ?? -1;
             for (int i = 0; i < keys.Count; i++)

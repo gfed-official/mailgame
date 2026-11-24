@@ -864,7 +864,8 @@ namespace PerformativeMail.Client
                 for (int i = 0; i < group.Count; i++) if (group[i] == recipe) at = i;
                 of = $" {(at + 1).ToString(CultureInfo.InvariantCulture)}/{group.Count.ToString(CultureInfo.InvariantCulture)}";
             }
-            return $"[{KeyName(key)}] {recipe.Building.Name}{of}   ·   {Inputs(recipe.Inputs, 1.0)}";
+            // Tight: two cards stand side by side in the bar's width (Hud.RecipeCardWidth).
+            return $"[{KeyName(key)}] {recipe.Building.Name}{of} · {Inputs(recipe.Inputs, 1.0)}";
         }
 
         // --- the filters of sorters and splitters (doc 04 §2.3, §2.4, doc 09 §2.7) -------------------
@@ -875,10 +876,12 @@ namespace PerformativeMail.Client
         public const string FilterHint = "A number key or a click: the next filter   ·   right click: back   ·   [E] or [Esc] close";
 
         public static string FilterTitle(Construct built) =>
-            built.Def.Behaviour == BuildingBehaviour.Sorter ? $"{built.Def.Name.ToUpperInvariant()}   ·   filters" : $"{built.Def.Name.ToUpperInvariant()}   ·   filters by kind";
+            built.Def.Behaviour == BuildingBehaviour.Sorter ? $"{built.Def.Name.ToUpperInvariant()}   ·   filters"
+            : built.Def.PipeRole == PipeRole.Outlet ? $"{built.Def.Name.ToUpperInvariant()}   ·   what the inlets send it"
+            : $"{built.Def.Name.ToUpperInvariant()}   ·   filters by kind";
 
         /// <summary>The ways out of a sorter or a splitter, as the panel names them (a sorter's last is its overflow).</summary>
-        public static string PortName(Construct built, int output) => built.Def.Behaviour == BuildingBehaviour.Inserter ? "Takes" : output switch
+        public static string PortName(Construct built, int output) => built.Def.Behaviour == BuildingBehaviour.Inserter || built.Def.PipeRole == PipeRole.Outlet ? "Takes" : output switch
         {
             0 => "Front",
             1 => "Left",
@@ -899,9 +902,18 @@ namespace PerformativeMail.Client
                 case FilterKind.Kind:
                     return filter.Value < world.Content.MailKinds.Count ? Plural(world.Content.MailKinds[filter.Value].Name) : "Some kind";
                 default:
+                    if (built.Def.PipeRole == PipeRole.Outlet)
+                        return world.Belts.MailboxOn(OutletFront(world, built)) >= 0 ? "this house's mail" : "whatever no other outlet takes";
                     return built.Def.Behaviour == BuildingBehaviour.Sorter ? "nothing (no filter)"
                         : built.Def.Behaviour == BuildingBehaviour.Inserter ? "any mail" : "anything the others do not take";
             }
+        }
+
+        private static int OutletFront(ClientWorld world, Construct built)
+        {
+            var (dx, dz) = Sim.Automation.BeltNetwork.Dirs[built.Facing];
+            int fx = built.Tx + dx, fz = built.Tz + dz;
+            return world.Map.InBounds(fx, fz) ? fz * world.Map.Cols + fx : -1;
         }
 
         private static string Plural(string name) => name.EndsWith("s", StringComparison.Ordinal) ? name : name + "s";

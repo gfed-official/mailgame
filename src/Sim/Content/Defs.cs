@@ -266,6 +266,28 @@ namespace PerformativeMail.Sim.Content
         /// belt, a chest, a depot, a sorter) at its rate; optionally by kind.
         /// </summary>
         Inserter = 9,
+        /// <summary>
+        /// Doc 04 §2.2 pneumatic pipes: a piece of a pipe network by its <see cref="BuildingDef.PipeRole"/>
+        /// — a pipe, a junction, an inlet, an outlet, an underground pipe.
+        /// </summary>
+        Pipe = 10,
+    }
+
+    /// <summary>What a piece of a pipe network is (doc 08 §2.6 "inlet/outlet/junction role").</summary>
+    public enum PipeRole : byte
+    {
+        /// <summary>Not a pipe.</summary>
+        None = 0,
+        /// <summary>A straight piece: open to the tiles behind and in front of it.</summary>
+        Pipe = 1,
+        /// <summary>Open on all four sides: a corner, a tee or a cross.</summary>
+        Junction = 2,
+        /// <summary>Takes mail from behind (a belt, an inserter, the Intake) and sends it into the pipe in front.</summary>
+        Inlet = 3,
+        /// <summary>Takes the capsules sent to it from the pipe behind and puts the mail into what is in front.</summary>
+        Outlet = 4,
+        /// <summary>A straight piece under the ground (doc 04 §2.2 "under streets"): on a street too, walked and driven over.</summary>
+        Underground = 5,
     }
 
     /// <summary>
@@ -292,9 +314,14 @@ namespace PerformativeMail.Sim.Content
         /// A sorter's filtered outputs and a splitter's (doc 04 §2.3 "optional per-output filter by
         /// kind", §2.4); 0 for what sorts nothing.
         /// </summary>
-        public int FilterOutputs => Behaviour == BuildingBehaviour.Sorter ? 3 : Behaviour == BuildingBehaviour.Splitter ? 3 : Behaviour == BuildingBehaviour.Inserter ? 1 : 0;
+        public int FilterOutputs => Behaviour == BuildingBehaviour.Sorter ? 3 : Behaviour == BuildingBehaviour.Splitter ? 3
+            : Behaviour == BuildingBehaviour.Inserter || PipeRole == PipeRole.Outlet ? 1 : 0;
+        /// <summary>Its filters may name a street or a district, not only a kind: a sorter's and a pipe outlet's.</summary>
+        public bool FiltersAddresses => Behaviour == BuildingBehaviour.Sorter || PipeRole == PipeRole.Outlet;
         /// <summary>An inserter: pieces it moves a second (doc 11: 1.25).</summary>
         public float Rate { get; init; }
+        /// <summary>A piece of a pipe network: what it is.</summary>
+        public PipeRole PipeRole { get; init; }
         /// <summary>An inserter: how many tiles off it takes from and puts into (doc 08 §2.6: 1, a Long Inserter's 2).</summary>
         public int Reach { get; init; } = 1;
         /// <summary>Filters an output holds (doc 04 §2.4: 1 on a Mk1 sorter); a splitter's one, a kind.</summary>
@@ -330,14 +357,14 @@ namespace PerformativeMail.Sim.Content
         /// <summary>A belt: metres a second (doc 11: Mk1 2, Mk2 4, Mk3 6).</summary>
         public float Speed { get; init; }
         /// <summary>Laid in a line by dragging (doc 04 §1.1: belts, pipes, walls).</summary>
-        public bool Drags => (Behaviour == BuildingBehaviour.Belt && !Ramp) || Behaviour == BuildingBehaviour.Wall;
+        public bool Drags => (Behaviour == BuildingBehaviour.Belt && !Ramp) || Behaviour == BuildingBehaviour.Wall || PipeRole == PipeRole.Pipe || PipeRole == PipeRole.Underground;
         /// <summary>A belt a carrier stands on and is carried by: one on the ground (an elevated belt runs over their head).</summary>
         public bool Rideable => Carries && Level == 0 && !Ramp;
 
         /// <summary>Walls and gates stand in a line and join each other; a chest and spikes stand alone.</summary>
         public bool Joins => Behaviour == BuildingBehaviour.Wall || Behaviour == BuildingBehaviour.Gate;
-        /// <summary>Whether it stands in anybody's way at all: spikes are walked over, and the raiders' paths go across them.</summary>
-        public bool Solid => Behaviour != BuildingBehaviour.Spikes && !Carries;
+        /// <summary>Whether it stands in anybody's way at all: spikes and pipes are walked over, and the raiders' paths go across them.</summary>
+        public bool Solid => Behaviour != BuildingBehaviour.Spikes && !Carries && PipeRole != PipeRole.Pipe && PipeRole != PipeRole.Underground;
         /// <summary>Mail rides through it (doc 04 §2): a belt, a splitter, a merger. Low enough to walk over.</summary>
         public bool Carries => Behaviour == BuildingBehaviour.Belt || Behaviour == BuildingBehaviour.Splitter || Behaviour == BuildingBehaviour.Merger;
     }

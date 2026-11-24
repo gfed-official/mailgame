@@ -548,6 +548,117 @@ namespace PerformativeMail.Client.Presentation
             if (only != null) batch.Box(at + v * (len * 0.5f) + new Vector3(0f, ArmHeight(reach), 0f), new Vector3(Mathf.Abs(v.Z) * 0.16f + Mathf.Abs(v.X) * len, 0.14f, Mathf.Abs(v.X) * 0.16f + Mathf.Abs(v.Z) * len), only, 0.03f);
         }
 
+        /// <summary>The height of the middle of a pneumatic tube above the ground (for the capsules too).</summary>
+        public const float PipeAxis = 0.5f;
+        /// <summary>A tube's outer radius.</summary>
+        public const float PipeRadius = 0.2f;
+
+        private static Material? _pipeGlass;
+
+        /// <summary>The glass of the tubes: clear enough that the capsules show through.</summary>
+        private static Material PipeGlass => _pipeGlass ??= new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.72f, 0.88f, 0.96f, 0.32f),
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            Roughness = 0.08f,
+            Metallic = 0.1f,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+
+        /// <summary>A length of glass tube from the middle of a tile <paramref name="from"/> metres out to <paramref name="to"/>, the way <paramref name="dir"/> goes.</summary>
+        private static void Tube(MeshBatch batch, Vector3 at, int dir, float from, float to, Material glass)
+        {
+            var v = Dir(dir);
+            float len = to - from;
+            var basis = new Basis(Vector3.Up, Mathf.Atan2(v.X, v.Z)) * new Basis(Vector3.Right, Mathf.Pi * 0.5f);
+            batch.Add(MeshKit.Cylinder(PipeRadius, PipeRadius, len, 16), glass, new Transform3D(basis, at + v * (from + len * 0.5f) + new Vector3(0f, PipeAxis, 0f)));
+        }
+
+        /// <summary>A steel ring round a tube <paramref name="along"/> metres out the way <paramref name="dir"/> goes.</summary>
+        private static void Collar(MeshBatch batch, Vector3 at, int dir, float along, Material steel)
+        {
+            var v = Dir(dir);
+            var basis = new Basis(Vector3.Up, Mathf.Atan2(v.X, v.Z)) * new Basis(Vector3.Right, Mathf.Pi * 0.5f);
+            batch.Add(MeshKit.Cylinder(PipeRadius + 0.04f, PipeRadius + 0.04f, 0.12f, 16), steel, new Transform3D(basis, at + v * along + new Vector3(0f, PipeAxis, 0f)));
+        }
+
+        /// <summary>
+        /// A piece of a pneumatic pipe network (doc 04 §2.2), after the reference's tube lines: a
+        /// glass tube on a steel stand with orange collars at the tile's edges (the capsules show
+        /// through it); an underground pipe a flush steel hatch with yellow chevrons; a junction a
+        /// steel hub with a stub out of each side; an inlet a hopper with a green mouth behind and an
+        /// outlet a box with an amber mouth in front, each with its stub on the pipe's side.
+        /// </summary>
+        public static void PipePiece(MeshBatch batch, PipeRole role, Vector3 at, int facing, Material? only, bool worn)
+        {
+            var glass = only ?? PipeGlass;
+            var steel = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
+            const float half = SimConstants.TileSize * 0.5f;
+            var f = Dir(facing);
+            switch (role)
+            {
+                case PipeRole.Pipe:
+                {
+                    Tube(batch, at, facing, -half, half, glass);
+                    Collar(batch, at, facing, half - 0.06f, orange);
+                    Collar(batch, at, facing, -half + 0.06f, orange);
+                    // A stand: a foot and a saddle under the middle.
+                    var across = Dir((facing + 1) & 3);
+                    batch.Box(at + new Vector3(0f, 0.04f, 0f), new Vector3(0.5f, 0.08f, 0.5f), dark, 0.02f);
+                    batch.Box(at + new Vector3(0f, (PipeAxis - PipeRadius) * 0.5f, 0f), new Vector3(0.1f, PipeAxis - PipeRadius, 0.1f), steel, 0.02f);
+                    batch.Box(at + new Vector3(0f, PipeAxis - PipeRadius - 0.03f, 0f), new Vector3(Mathf.Abs(across.X) * 0.5f + Mathf.Abs(f.X) * 0.14f, 0.06f, Mathf.Abs(across.Z) * 0.5f + Mathf.Abs(f.Z) * 0.14f), steel, 0.02f);
+                    return;
+                }
+                case PipeRole.Underground:
+                {
+                    batch.Box(at + new Vector3(0f, 0.03f, 0f), new Vector3(1.5f, 0.06f, 1.5f), dark, 0.02f);
+                    batch.Add(MeshKit.Cylinder(0.5f, 0.5f, 0.04f, 20), steel, at + new Vector3(0f, 0.07f, 0f));
+                    float yaw = Mathf.Atan2(f.X, f.Z);
+                    for (int k = -1; k <= 1; k += 2)
+                        batch.Add(MeshKit.Box(new Vector3(0.12f, 0.02f, 0.3f)), yellow, new Transform3D(new Basis(Vector3.Up, yaw), at + f * (k * 0.62f) + new Vector3(0f, 0.07f, 0f)));
+                    return;
+                }
+                case PipeRole.Junction:
+                {
+                    batch.Box(at + new Vector3(0f, PipeAxis * 0.5f, 0f), new Vector3(0.36f, PipeAxis, 0.36f), dark, 0.03f);
+                    batch.Box(at + new Vector3(0f, PipeAxis, 0f), new Vector3(0.62f, 0.62f, 0.62f), steel, 0.1f);
+                    for (int d = 0; d < 4; d++)
+                    {
+                        Tube(batch, at, d, 0.3f, half, glass);
+                        Collar(batch, at, d, half - 0.06f, orange);
+                    }
+                    return;
+                }
+                case PipeRole.Inlet:
+                case PipeRole.Outlet:
+                {
+                    bool inlet = role == PipeRole.Inlet;
+                    // The box sits back from the side its tube leaves by.
+                    int tubeSide = inlet ? facing : (facing + 2) & 3;
+                    var t = Dir(tubeSide);
+                    var box = at - t * 0.25f;
+                    batch.Box(box + new Vector3(0f, 0.5f, 0f), new Vector3(1.05f, 1.0f, 1.05f), steel, 0.08f);
+                    batch.Box(box + new Vector3(0f, 1.03f, 0f), new Vector3(1.12f, 0.08f, 1.12f), orange, 0.03f);
+                    // The mouth: an inlet's behind it, an outlet's in front.
+                    var m = -t;
+                    var side = new Vector3(Mathf.Abs(m.Z), 0f, Mathf.Abs(m.X));
+                    var mouth = only ?? MeshKit.Mat(inlet ? PortIn : PortOut, 0.5f, 0.2f);
+                    batch.Box(box + m * 0.53f + new Vector3(0f, 0.5f, 0f), side * 0.8f + new Vector3(0f, 0.6f, 0f) + new Vector3(Mathf.Abs(m.X), 0f, Mathf.Abs(m.Z)) * 0.06f, mouth, 0.03f);
+                    batch.Box(box + m * 0.56f + new Vector3(0f, 0.47f, 0f), side * 0.6f + new Vector3(0f, 0.4f, 0f) + new Vector3(Mathf.Abs(m.X), 0f, Mathf.Abs(m.Z)) * 0.04f, dark, 0.02f);
+                    Tube(batch, at, tubeSide, 0.3f, half, glass);
+                    Collar(batch, at, tubeSide, half - 0.06f, orange);
+                    // A yellow arrow on the roof, the way mail goes.
+                    float yaw = Mathf.Atan2(f.X, f.Z);
+                    batch.Add(MeshKit.Box(new Vector3(0.1f, 0.02f, 0.36f)), yellow, new Transform3D(new Basis(Vector3.Up, yaw), box + new Vector3(0f, 1.08f, 0f) - f * 0.08f));
+                    batch.Add(MeshKit.Cone(0.13f, 0.2f, 3), yellow, new Transform3D(new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.Pi * 0.5f), box + new Vector3(0f, 1.08f, 0f) + f * 0.18f));
+                    return;
+                }
+            }
+        }
+
         /// <summary>
         /// A Depot (doc 04 §2.6): a steel store over its four tiles in the look of the reference's
         /// storage containers — ribbed grey walls between orange corner posts, a flat roof with a
@@ -630,6 +741,9 @@ namespace PerformativeMail.Client.Presentation
                     return;
                 case BuildingBehaviour.Inserter:
                     InserterBase(batch, at, rotation & 3, only, worn, def.Reach);
+                    return;
+                case BuildingBehaviour.Pipe:
+                    PipePiece(batch, def.PipeRole, at, rotation & 3, only, worn);
                     return;
                 case BuildingBehaviour.Container when def.Width > 1:
                     Depot(batch, at, rotation & 3, only, worn);

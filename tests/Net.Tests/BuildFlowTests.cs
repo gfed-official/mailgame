@@ -152,7 +152,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(OpResult.Ok, build.Ghost.State);
             Assert.Equal("Build Wooden Wall   ·   Log x3   [LMB]", HudText.BuildPrompt(a, build.Ghost, out tone));
             Assert.Equal(PromptTone.Match, tone);
-            Assert.Equal("[1] Wooden Wall   ·   Log x3", HudText.RecipeCard(build.Recipe!, 0));
+            Assert.Equal("[1] Wooden Wall · Log x3", HudText.RecipeCard(build.Recipe!, 0));
             build.Update(Dt, true, false);
             s.Run(10);
             var wall = Assert.Single(s.Sim.Constructs.All);
@@ -531,7 +531,7 @@ namespace PerformativeMail.Net.Tests
             // Key 5 is the Gate, turned to run along Z; built across the way east.
             Assert.True(build.PressKey(4));
             Assert.Equal("gate", build.Recipe!.Building.Id);
-            Assert.Equal("[5] Gate   ·   Log x4, Iron Ingot x1", HudText.RecipeCard(build.Recipe!, 4));
+            Assert.Equal("[5] Gate · Log x4, Iron Ingot x1", HudText.RecipeCard(build.Recipe!, 4));
             Assert.True(build.Rotate());
             LookAt(ada, Tx, Tz);
             build.Update(Dt, false, false);
