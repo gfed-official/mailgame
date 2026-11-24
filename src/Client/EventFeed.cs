@@ -167,6 +167,11 @@ namespace PerformativeMail.Client
                 string why = HudText.MountRefused(result);
                 if (why.Length > 0) Add(why, bad: true);
             }
+            if (result != OpResult.Ok && request.Kind == RequestKind.Refuel)
+            {
+                string why = HudText.RefuelRefused(result);
+                if (why.Length > 0) Add(why, bad: true);
+            }
             if (request.Kind == RequestKind.SetKit && Content != null && request.Count < Content.Kits.Count)
             {
                 if (result == OpResult.Ok) Add(HudText.KitChosen(Content.Kits[request.Count]));

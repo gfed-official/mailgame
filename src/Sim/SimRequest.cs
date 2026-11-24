@@ -70,6 +70,8 @@ namespace PerformativeMail.Sim
         /// <see cref="SimRequest.EntryId"/> / 16, slot EntryId % 16 to the filter <see cref="SimRequest.DestId"/>.
         /// </summary>
         ConfigureConstruct = 24,
+        /// <summary>Doc 04 §3.1: an Oil Can out of the pockets into the tank of vehicle <see cref="SimRequest.EntryId"/>.</summary>
+        Refuel = 25,
     }
 
     /// <summary>
@@ -156,6 +158,9 @@ namespace PerformativeMail.Sim
 
         public static SimRequest Mount(uint reqId, uint vehicle) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.Mount, EntryId = vehicle };
+
+        public static SimRequest Refuel(uint reqId, uint vehicle) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.Refuel, EntryId = vehicle };
 
         public static SimRequest Reroll(uint reqId) => new SimRequest { RequestId = reqId, Kind = RequestKind.Reroll };
 

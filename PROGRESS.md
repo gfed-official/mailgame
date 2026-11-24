@@ -1397,11 +1397,42 @@ the whole line exists; the sub-lines say which parts do.
             go back to the Intake when the pipes are taken down. Vertical pipes (up buildings) wait:
             nothing is built up a building yet
 - [ ] Mail Truck; Vehicle Depot with route console; NPC driver behaviour; player takeover
+      - [x] **Mail Truck** (doc 04 §3.1, doc 10 §1.3 and §3; design choice 108). `mail_truck`
+            (600 HP, 14 m/s on the road and 7 off it, two seats of which the driver's is used, a
+            cargo bay `mail_truck_cargo` of 8 × 10 for mail) sold at the counter for $9.00 from shift
+            2 once the team owns `bp_truck` (Blueprint: Motor Pool, $5.00, shift 2; shop entries may
+            now `require` a blueprint, `ShopItemDef.Requires`, refused `NeedsBlueprint`); a carrier
+            may have one of each kind of vehicle (a bike and a truck). It drives on the bike's
+            physics, predicted the same, but its body is 3.4 m long: it bumps with a circle at its
+            nose and one at its tail (`VehicleDef.Length`, `BodyOffset`). **Fuel**: an Oil Can
+            drives it 5 minutes (`fuelSecondsPerCan` 300, tank 600); bought with one can's worth;
+            it burns while it rolls, everybody hears the tank every second it is driven
+            (`VehicleFuelEvent`, to a joiner too), and run dry it stops and sets its driver down; empty
+            it is not driven ("out of fuel — an Oil Can in the hand fills it", `NoFuel`). With an Oil
+            Can in the hand, E at it refuels it (`Refuel` request, protocol `m2.6`; `TankFull`,
+            `NoOilCan`). The prompts: "Drive the Mail Truck [E] · fuel 05:00 of 10:00", "Refuel the
+            Mail Truck with an Oil Can [E] · …", the fuel on the cargo prompt while driving.
+            **Loading face**: standing parked (nobody in it), a belt on the ground ending into the
+            tile its rear is on loads mail into its bay while there is room (`IBeltSink.TryLoad`), and
+            an inserter facing that tile does too; ridden, the line waits. Drawn as a chunky cream
+            van after the reference's: dark chassis and bumpers, a cab with dark glass and lit lamps,
+            a taller cargo box with the post's red band, an amber roll-up door at the rear, four fat
+            wheels turning. `SimWorld.RemoveVehicle` (its mail back to the Intake,
+            `VehicleRemovedEvent`) for the smoke and tests. The shop's descriptions of the
+            blueprints were shortened so the 17 cards stay one height and inside a 720 p view.
+            `TruckTests` (content; sold with the blueprint beside a bike; 14 m/s, burning, dry,
+            refused, refuelled and full; the nose bumping into a house; loaded by a belt and by an
+            inserter, not while ridden), `TruckFlowTests` (the prompt, the drive predicted, the fuel
+            on both ends, refuelled by E, a joiner), `CodecTests`, shop and content pins; in the
+            smoke the server grants the blueprint and parks a truck with its rear at the end of two
+            belts out of the outfeed, the Intake's mail rides into its bay, the prompt reads with its
+            fuel, the host gets in, and it is taken away again (`truck` shot). The Vehicle Depot,
+            the route console and NPC drivers are next; passengers wait for them
 - [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the Mail Truck and the Vehicle Depot (route console, NPC drivers).
+Next in this order: the Vehicle Depot (route console, NPC drivers, player takeover), then the sea path.
 
 ## How to build and check
 
@@ -2474,6 +2505,20 @@ See "Commands" at the bottom (filled in as the tooling lands).
     (doc 10: 700, shift 3). (g) Splitter and Merger share a key of Build mode now so the pipes
     get one and Build mode keeps ten keys. (h) Vertical pipes up buildings wait for something to
     build up.
+108. **The Mail Truck.** Doc 04 §3.1 gives 10x8, 14 / 7 m/s, two seats, 900 ¢ with the truck
+    blueprint, "1 Oil Can per 5 min driving" and a loading zone at the rear; doc 10 600 HP and
+    bp_truck (500, shift 2). Choices: (a) the bay is the existing `mail_truck_cargo` (8 wide, 10
+    high, mail only) and is opened from the driver's seat as a bike's rack is; (b) the second
+    seat is not used until NPC drivers and passengers come; (c) its body is two 0.5 m circles
+    1.2 m before and behind its middle (the prop index is built for bodies of 0.5 m, so no
+    wider), so its nose and tail do not go through walls; its width overhangs a little; (d) the
+    tank holds two cans (10 minutes) and a bought truck comes with one; it burns only while it
+    rolls faster than 0.1 m/s, and run dry it stops and its driver is set down; an Oil Can in
+    the hand and E at it fills it (one can a press); (e) "parked" is "nobody in it": then a belt
+    on the ground ending into the tile under the middle of its rear, or an inserter facing that
+    tile, loads it; (f) a carrier may own one vehicle of each kind (a bike and a truck), the
+    counter's old "one for each carrier" now per kind; (g) a free entry (a grant) reads "You were
+    given …" in the feed.
 
 ## Commands
 

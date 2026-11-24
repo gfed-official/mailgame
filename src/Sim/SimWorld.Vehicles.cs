@@ -57,6 +57,7 @@ namespace PerformativeMail.Sim
             {
                 Vehicle = v.Id, Def = def.Index, X = x, Z = z, Heading = heading, CargoContainer = cargo.Container.Id, Buyer = buyer,
             });
+            if (def.Fuelled) Events.Add(new VehicleFuelEvent { Vehicle = v.Id, Seconds = v.Fuel });
             return v;
         }
 
@@ -121,7 +122,8 @@ namespace PerformativeMail.Sim
             var v = GetVehicle(new EntityId(r.EntryId));
             if (v == null) return OpResult.BadRequest;
             if (v.Ridden) return OpResult.Ridden;
-            if (!player.WasWithin(v.X, v.Z, _serverInteractRange, _rewindTicks)) return OpResult.OutOfRange;
+            if (!player.WasWithin(v.X, v.Z, _serverInteractRange + v.Def.BodyOffset, _rewindTicks)) return OpResult.OutOfRange;
+            if (v.Def.Fuelled && v.Fuel <= 0f) return OpResult.NoFuel;
 
             CloseExternal(player, notify: true);
             v.Rider = player.Id;
@@ -156,10 +158,63 @@ namespace PerformativeMail.Sim
                     v.Z = rider.Move.Z;
                     v.Heading = Vehicle.YawOf(rider.Move.HeadX, rider.Move.HeadZ, v.Heading);
                     MoveCargo(v);
+                    if (!v.Def.Fuelled) continue;
+                    // Doc 04 §3.1: it burns while it rolls; dry, it stops and its driver gets down.
+                    if (rider.Move.RideSpeed > 0.1f) v.Fuel = MathF.Max(0f, v.Fuel - SimConstants.TickDt);
+                    if (v.Fuel <= 0f)
+                    {
+                        Events.Add(new VehicleFuelEvent { Vehicle = v.Id, Seconds = 0f });
+                        Park(v, rider);
+                    }
+                    else if (Tick % SimConstants.TickRate == 0) Events.Add(new VehicleFuelEvent { Vehicle = v.Id, Seconds = v.Fuel });
                     continue;
                 }
                 Park(v, rider);
             }
+        }
+
+        /// <summary>Who joins hears how much fuel each vehicle that burns it has.</summary>
+        public void SendVehicleFuel(EntityId player)
+        {
+            foreach (var v in _vehicles)
+                if (v.Def.Fuelled) Events.Add(new VehicleFuelEvent { Audience = player, Vehicle = v.Id, Seconds = v.Fuel });
+        }
+
+        /// <summary>Doc 04 §3.1: an Oil Can out of the pockets (the hand's first) into the tank of a vehicle beside the carrier.</summary>
+        private OpResult RefuelOp(Player player, in SimRequest r)
+        {
+            if (player.Dead) return OpResult.Dead;
+            var v = GetVehicle(new EntityId(r.EntryId));
+            if (v == null || !v.Def.Fuelled) return OpResult.BadRequest;
+            if (!player.WasWithin(v.X, v.Z, _serverInteractRange + v.Def.BodyOffset, _rewindTicks)) return OpResult.OutOfRange;
+            if (v.Fuel + v.Def.FuelSecondsPerCan > v.Def.TankSeconds + 0.5f) return OpResult.TankFull;
+            var can = Content.Item("oil_can");
+            foreach (var pocket in new[] { player.Hotbar, player.Inventory })
+            {
+                foreach (var e in pocket.Entries)
+                {
+                    if (e.Stack.Kind != StackKind.Item || e.Stack.DefIndex != can.Index) continue;
+                    if (e.Stack.ItemCount > 1) { e.Stack.ItemCount--; pocket.MarkDirty(e.EntryId); }
+                    else pocket.Remove(e.EntryId);
+                    CommitContainer(pocket.Id);
+                    v.Fuel = MathF.Min(v.Def.TankSeconds, v.Fuel + v.Def.FuelSecondsPerCan);
+                    Events.Add(new VehicleFuelEvent { Vehicle = v.Id, Seconds = v.Fuel });
+                    return OpResult.Ok;
+                }
+            }
+            return OpResult.NoOilCan;
+        }
+
+        /// <summary>A vehicle standing parked whose rear (its loading face) is on the tile; null for none.</summary>
+        public Vehicle? LoadingFaceOn(int tx, int tz)
+        {
+            foreach (var v in _vehicles)
+            {
+                if (!v.Def.LoadingFace || v.Ridden) continue;
+                Vehicle.Rear(v.Def, v.X, v.Z, v.Heading, out float rx, out float rz);
+                if ((int)MathF.Floor(rx / SimConstants.TileSize) == tx && (int)MathF.Floor(rz / SimConstants.TileSize) == tz) return v;
+            }
+            return null;
         }
 
         private void Park(Vehicle v, Player? rider)
@@ -180,6 +235,24 @@ namespace PerformativeMail.Sim
             if (!_containers.TryGetValue(v.Cargo.Id, out var info)) return;
             info.X = v.X;
             info.Z = v.Z;
+        }
+
+        /// <summary>Takes a vehicle away (the smoke, tests): its rider set down, the mail in its cargo back to the Intake.</summary>
+        public bool RemoveVehicle(Vehicle v)
+        {
+            if (!_vehicles.Contains(v)) return false;
+            var rider = GetPlayer(v.Rider);
+            if (rider != null) { rider.Move.Ride = 0; rider.Move.RideSpeed = 0f; }
+            foreach (var p in _players)
+                if (p.OpenContainer == v.Cargo.Id) CloseExternal(p, notify: true);
+            foreach (var e in v.Cargo.Entries)
+                if (e.Stack.Kind == StackKind.Mail)
+                    foreach (var mail in e.Stack.Mail) Spawner.ReturnToIntake(mail);
+            CommitContainer(Intake.Id);
+            _containers.Remove(v.Cargo.Id);
+            _vehicles.Remove(v);
+            Events.Add(new VehicleRemovedEvent { Vehicle = v.Id });
+            return true;
         }
 
         /// <summary>A run ends or begins: no vehicle is left, nor what was in its cargo (the run's mail is gone with the run).</summary>

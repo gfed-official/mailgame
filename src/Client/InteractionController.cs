@@ -29,6 +29,8 @@ namespace PerformativeMail.Client
         Harvest,
         /// <summary>At a parked vehicle nobody rides (doc 04 §3.1): get on.</summary>
         Mount,
+        /// <summary>At a vehicle that burns fuel with an Oil Can in the hand (doc 04 §3.1): fill its tank.</summary>
+        Refuel,
         /// <summary>In the saddle with nothing else in view: the vehicle's cargo rack.</summary>
         OpenRack,
         CloseRack,
@@ -158,6 +160,16 @@ namespace PerformativeMail.Client
                     }
                     break;
 
+                case InteractKind.Refuel:
+                    _hold = 0;
+                    _deliverAllDest = -1;
+                    if (_pressLatch > 0 && _awaiting == 0)
+                    {
+                        _pressLatch = 0;
+                        _awaiting = _client.Refuel(prompt.Vehicle!.Id);
+                    }
+                    break;
+
                 case InteractKind.OpenRack:
                     _hold = 0;
                     _deliverAllDest = -1;
@@ -273,6 +285,15 @@ namespace PerformativeMail.Client
         /// A tree, a bush or a boulder is one while there is something to get from it. The Intake
         /// and the shop counter are also found by facing them, when the ray finds nothing.
         /// </summary>
+        /// <summary>Whether the hotbar slot in the hand holds an Oil Can.</summary>
+        private bool HoldsOilCan(ClientWorld world)
+        {
+            int slot = _client.Input.HeldSlot;
+            var held = slot > 0 ? world.Hotbar.EntryAt(slot, 0) : null;
+            return held != null && held.Stack.Kind == StackKind.Item && held.Stack.DefIndex < world.Content.Items.Count
+                && world.Content.Items[held.Stack.DefIndex].Id == "oil_can";
+        }
+
         private InteractPrompt FindTarget(ClientWorld world)
         {
             float range = world.Content.Balance.GetFloat("interactRange");
@@ -412,11 +433,12 @@ namespace PerformativeMail.Client
             {
                 foreach (var v in world.Vehicles.Values)
                 {
-                    if (v.Ridden || DistSq(px, pz, v.X, v.Z) > rangeSq) continue;
-                    float t = ray.Hit(AimBox.Vehicle(world.Map, v.X, v.Z));
+                    float reachV = range + v.Def.BodyOffset;
+                    if (v.Ridden || DistSq(px, pz, v.X, v.Z) > reachV * reachV) continue;
+                    float t = ray.Hit(AimBox.Vehicle(world.Map, v.Def, v.X, v.Z, v.Heading));
                     if (t < 0f || t > best) continue;
                     best = t;
-                    prompt.Kind = InteractKind.Mount;
+                    prompt.Kind = v.Def.Fuelled && HoldsOilCan(world) ? InteractKind.Refuel : InteractKind.Mount;
                     prompt.Chest = null;
                     prompt.Built = null;
                     prompt.Bag = null;

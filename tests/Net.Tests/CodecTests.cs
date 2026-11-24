@@ -268,6 +268,8 @@ namespace PerformativeMail.Net.Tests
                 new InserterSwungEvent { X = 11, Y = 12, Kind = 3 },
                 new PipeCapsuleEvent { Item = new BeltItemInfo { MailId = 79, Kind = 2, AddressKey = 0x01020005, Unit = 1 }, FromX = 6, FromY = 8, OutX = 11, OutY = 4 },
                 new PipeCapsuleRemovedEvent { MailId = 79 },
+                new VehicleFuelEvent { Vehicle = new EntityId(EntityClass.Vehicle, 4), Seconds = 287.5f },
+                new VehicleRemovedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 4) },
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
                 new VehicleParkedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), X = 60.75f, Z = 28f, Heading = -2.5f, Player = player },
@@ -311,6 +313,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((79u, (ushort)2, 0x01020005u, (byte)1, (byte)6, (byte)8, (byte)11, (byte)4),
                 (capsule.Item.MailId, capsule.Item.Kind, capsule.Item.AddressKey, capsule.Item.Unit, capsule.FromX, capsule.FromY, capsule.OutX, capsule.OutY));
             Assert.Equal(79u, back.OfType<PipeCapsuleRemovedEvent>().Single().MailId);
+            var fuel = back.OfType<VehicleFuelEvent>().Single();
+            Assert.Equal((new EntityId(EntityClass.Vehicle, 4), 287.5f), (fuel.Vehicle, fuel.Seconds));
+            Assert.Equal(new EntityId(EntityClass.Vehicle, 4), back.OfType<VehicleRemovedEvent>().Single().Vehicle);
             var swung = back.OfType<InserterSwungEvent>().Single();
             Assert.Equal(((byte)11, (byte)12, (ushort)3), (swung.X, swung.Y, swung.Kind));
             var status = back.OfType<SorterStatusEvent>().Single();

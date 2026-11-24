@@ -2,5 +2,10 @@
   { "id": "bike", "name": "Bike", "cargo": "bike_cargo", "seats": 1, "hp": 150,
     "roadSpeed": 8.0, "offRoadSpeed": 5.0, "acceleration": 5.0, "braking": 10.0, "coastDeceleration": 3.0,
     "turnRateDegrees": 200, "radius": 0.45,
-    "description": "8 m/s on the road, 5 off it; a cargo rack of 2x8 the rider can reach from the saddle." }
+    "description": "8 m/s on the road, 5 off it; a cargo rack of 2x8 the rider can reach from the saddle." },
+  { "id": "mail_truck", "name": "Mail Truck", "cargo": "mail_truck_cargo", "seats": 2, "hp": 600,
+    "roadSpeed": 14.0, "offRoadSpeed": 7.0, "acceleration": 4.0, "braking": 9.0, "coastDeceleration": 2.5,
+    "turnRateDegrees": 110, "radius": 0.5, "length": 3.4,
+    "fuelSecondsPerCan": 300, "tankSeconds": 600, "loadingFace": true,
+    "description": "14 m/s on the road, 7 off it; a cargo bay of 8x10 for mail, loaded at its rear by belts and inserters. An Oil Can runs it 5 minutes." }
 ]

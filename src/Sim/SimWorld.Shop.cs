@@ -104,7 +104,10 @@ namespace PerformativeMail.Sim
             bool special = _shopSpecials.Contains(def);
             var verdict = ShopRules.Check(def, Run.Shift, special, _shopOwned.Contains(def));
             if (verdict != OpResult.Ok) return verdict;
-            verdict = ShopRules.VehicleCheck(def, _vehicles.Count, PresentCount);
+            if (def.Requires != null && !_shopOwned.Contains(def.Requires)) return OpResult.NeedsBlueprint;
+            int same = 0;
+            foreach (var v in _vehicles) if (v.Def == def.Vehicle) same++;
+            verdict = ShopRules.VehicleCheck(def, same, PresentCount);
             if (verdict != OpResult.Ok) return verdict;
             int price = ShopRules.Price(def, special, ShopRules.DiscountPermille(Content.Balance));
             if (Economy.Wallet < price) return OpResult.CantAfford;

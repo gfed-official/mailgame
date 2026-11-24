@@ -178,6 +178,20 @@ namespace PerformativeMail.Sim.Content
         public float TurnRate { get; init; }
         /// <summary>The round body it bumps into things with.</summary>
         public float Radius { get; init; }
+        /// <summary>
+        /// Nose to tail, metres: longer than its body is round, it bumps with a circle at the nose
+        /// and one at the tail (a Mail Truck); its rear is its loading face.
+        /// </summary>
+        public float Length { get; init; }
+        /// <summary>Doc 04 §3.1 "1 Oil Can per 5 min driving": seconds of driving a can gives; 0 runs on legs.</summary>
+        public float FuelSecondsPerCan { get; init; }
+        /// <summary>Seconds of driving the tank holds.</summary>
+        public float TankSeconds { get; init; }
+        /// <summary>Doc 04 §3.1 "loading zone at rear": belts and inserters facing its rear load it while it stands parked.</summary>
+        public bool LoadingFace { get; init; }
+        public bool Fuelled => FuelSecondsPerCan > 0f;
+        /// <summary>How far the nose and tail circles stand from the middle (0: one circle).</summary>
+        public float BodyOffset => System.Math.Max(0f, Length * 0.5f - Radius);
     }
 
     /// <summary>A stack a starting kit hands out: so many of an item.</summary>
@@ -223,6 +237,8 @@ namespace PerformativeMail.Sim.Content
         public ItemDef? Item { get; init; }
         /// <summary>What a <see cref="ShopKind.Vehicle"/> entry parks by the counter.</summary>
         public VehicleDef? Vehicle { get; init; }
+        /// <summary>A blueprint the team must own before the counter sells this (doc 10 §3: the Mail Truck needs bp_truck).</summary>
+        public ShopItemDef? Requires { get; internal set; }
         public int Count { get; init; }
         public int FromShift { get; init; } = 1;
         /// <summary>Not in the fixed stock: on the counter only in a shift whose specials it is rolled into.</summary>

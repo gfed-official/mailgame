@@ -690,9 +690,16 @@ namespace PerformativeMail.Sim.Content
                             CoastDeceleration = (float)J.Num(ctx, e, "coastDeceleration"),
                             TurnRate = (float)(J.Num(ctx, e, "turnRateDegrees") * Math.PI / 180.0),
                             Radius = (float)J.Num(ctx, e, "radius"),
+                            Length = (float)J.Num(ctx, e, "length", 2.0 * J.Num(ctx, e, "radius")),
+                            FuelSecondsPerCan = (float)J.Num(ctx, e, "fuelSecondsPerCan", 0),
+                            TankSeconds = (float)J.Num(ctx, e, "tankSeconds", 0),
+                            LoadingFace = J.Bool(ctx, e, "loadingFace", false),
                         };
-                        // Only a one-seat vehicle can be ridden so far: the rider is the driver (doc 04 §3.1 Bike).
-                        if (def.Seats != 1) ctx.Error($"'{id}': seats must be 1 (vehicles with passengers are not driven yet)");
+                        // The rider is the driver (doc 04 §3.1); a second seat waits for passengers and NPC drivers.
+                        if (def.Seats != 1 && def.Seats != 2) ctx.Error($"'{id}': seats must be 1 or 2");
+                        if (def.Length < 2f * def.Radius - 1e-4f || def.Length > 6f) ctx.Error($"'{id}': length must be in [2 x radius, 6]");
+                        if (def.FuelSecondsPerCan < 0f || (def.FuelSecondsPerCan > 0f ? def.TankSeconds < def.FuelSecondsPerCan : def.TankSeconds != 0f))
+                            ctx.Error($"'{id}': a vehicle that burns fuel has fuelSecondsPerCan > 0 and tankSeconds >= it; one that does not, neither");
                         if (def.Hp <= 0f) ctx.Error($"'{id}': hp must be > 0");
                         if (def.OffRoadSpeed <= 0f || def.RoadSpeed < def.OffRoadSpeed) ctx.Error($"'{id}': speeds must be 0 < offRoadSpeed <= roadSpeed");
                         if (def.Acceleration <= 0f || def.Braking <= 0f || def.CoastDeceleration <= 0f) ctx.Error($"'{id}': acceleration, braking and coastDeceleration must be > 0");
@@ -766,6 +773,7 @@ namespace PerformativeMail.Sim.Content
             // --- shop ----------------------------------------------------------------------------
             {
                 var list = new List<ShopItemDef>();
+                var requiresOf = new List<(ShopItemDef Def, string Blueprint, JsonCtx Ctx)>();
                 foreach (string file in source.ListJson("shop"))
                 {
                     var ctx = new JsonCtx(file, errors);
@@ -853,8 +861,16 @@ namespace PerformativeMail.Sim.Content
                         // The wire names a shop entry in one byte.
                         if (list.Count >= byte.MaxValue) { ctx.Error($"'{id}': more than {byte.MaxValue} shop entries"); continue; }
                         if (!AddUnique(ctx, db._shopById, def.Id, def)) continue;
+                        string requires = J.Str(ctx, e, "requires", "");
+                        if (requires.Length > 0) requiresOf.Add((def, requires, ctx));
                         list.Add(def);
                     }
+                }
+                // Doc 10 §3 "Requires bp_truck": a blueprint the counter sells.
+                foreach (var (def, blueprint, ctx) in requiresOf)
+                {
+                    if (db._shopById.TryGetValue(blueprint, out var bp) && bp.Kind == ShopKind.Blueprint && bp != def) def.Requires = bp;
+                    else ctx.Error($"'{def.Id}': requires '{blueprint}', which is not a blueprint the shop sells");
                 }
                 db.ShopItems = list;
             }

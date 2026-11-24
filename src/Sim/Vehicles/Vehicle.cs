@@ -20,13 +20,24 @@ namespace PerformativeMail.Sim.Vehicles
         public float Heading;
         public EntityId Rider;
         public float Hp;
+        /// <summary>Seconds of driving left in its tank (doc 04 §3.1); unused by what burns no fuel.</summary>
+        public float Fuel;
 
         public Vehicle(EntityId id, VehicleDef def, GridContainer cargo, float x, float z, float heading)
         {
             Id = id; Def = def; Cargo = cargo; X = x; Z = z; Heading = heading; Hp = def.Hp;
+            Fuel = def.FuelSecondsPerCan;
         }
 
         public bool Ridden => !Rider.IsNone;
+
+        /// <summary>The middle of its rear (its loading face), from its middle and heading.</summary>
+        public static void Rear(VehicleDef def, float x, float z, float heading, out float rx, out float rz)
+        {
+            Forward(heading, out float fx, out float fz);
+            rx = x - fx * def.Length * 0.5f;
+            rz = z - fz * def.Length * 0.5f;
+        }
 
         /// <summary>The unit vector on the ground a yaw points along (yaw 0 looks along −Z).</summary>
         public static void Forward(float yaw, out float x, out float z)

@@ -795,6 +795,8 @@ namespace PerformativeMail.Client
         {
             bool me = player == world.LocalId;
             string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            // A grant (the smoke, a test) costs nothing: it was given, not bought.
+            if (price == 0) return me ? $"You were given {def.Name}" : $"{who} was given {def.Name}";
             return $"{who} bought {def.Name}  -{Money(price)}";
         }
 
@@ -1180,6 +1182,25 @@ namespace PerformativeMail.Client
             return $"{who} got on a {def.Name}";
         }
 
+        /// <summary>"fuel 4:32 of 10:00": a tank's driving left.</summary>
+        public static string FuelText(ClientVehicle v) => $"fuel {Clock(v.Fuel)} of {Clock(v.Def.TankSeconds)}";
+
+        private static string FuelNote(ClientVehicle v) => v.Def.Fuelled ? "   ·   " + FuelText(v) : "";
+
+        /// <summary>Why the tank was not filled.</summary>
+        public static string RefuelRefused(OpResult result)
+        {
+            switch (result)
+            {
+                case OpResult.TankFull: return "The tank takes no more";
+                case OpResult.NoOilCan: return "No Oil Can in your pockets";
+                case OpResult.OutOfRange: return "Too far away to refuel it";
+                case OpResult.Dead: return "Not while you are down";
+                case OpResult.BadRequest: return "It is not there any more";
+                default: return "";
+            }
+        }
+
         /// <summary>Why the saddle was not had.</summary>
         public static string MountRefused(OpResult result)
         {
@@ -1188,6 +1209,7 @@ namespace PerformativeMail.Client
                 case OpResult.Ridden: return "Somebody is on it";
                 case OpResult.OutOfRange: return "Too far away to get on";
                 case OpResult.AlreadyRiding: return "You are in a saddle already";
+                case OpResult.NoFuel: return "Out of fuel: an Oil Can in the hand fills it";
                 case OpResult.Dead: return "Not while you are down";
                 case OpResult.BadRequest: return "It is not there any more";
                 default: return "";
@@ -1274,9 +1296,14 @@ namespace PerformativeMail.Client
                 case InteractKind.CloseShop: return "Close Shop  [E]";
                 case InteractKind.Configure: return $"Set the filters of the {p.Built!.Def.Name}  [E]";
                 case InteractKind.CloseFilters: return $"Close the filters of the {p.Built!.Def.Name}  [E]";
-                case InteractKind.Mount: return $"Ride {p.Vehicle!.Def.Name}  [E]";
-                case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off";
-                case InteractKind.CloseRack: return $"Close {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off";
+                case InteractKind.Mount:
+                    if (!p.Vehicle!.Def.Fuelled) return $"Ride {p.Vehicle.Def.Name}  [E]";
+                    return p.Vehicle.Fuel <= 0f
+                        ? $"{p.Vehicle.Def.Name}   ·   out of fuel — an Oil Can in the hand fills it"
+                        : $"Drive the {p.Vehicle.Def.Name}  [E]   ·   {FuelText(p.Vehicle)}";
+                case InteractKind.Refuel: return $"Refuel the {p.Vehicle!.Def.Name} with an Oil Can  [E]   ·   {FuelText(p.Vehicle)}";
+                case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off{FuelNote(p.Vehicle)}";
+                case InteractKind.CloseRack: return $"Close {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOffKey} get off{FuelNote(p.Vehicle)}";
                 case InteractKind.Harvest:
                 {
                     var node = p.Node!;

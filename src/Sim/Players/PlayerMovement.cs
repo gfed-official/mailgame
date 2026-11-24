@@ -229,6 +229,19 @@ namespace PerformativeMail.Sim.Players
             {
                 float x = s.X + s.HeadX * s.RideSpeed * dt, z = s.Z + s.HeadZ * s.RideSpeed * dt;
                 ResolveCollisions(ref x, ref z, s.Y, map, v.Radius, constructs);
+                // A long body (a Mail Truck) bumps with its nose and its tail too: each is pushed out, and the middle with it.
+                float off = v.BodyOffset;
+                if (off > 0f)
+                {
+                    for (int end = 1; end >= -1; end -= 2)
+                    {
+                        float ex = x + s.HeadX * off * end, ez = z + s.HeadZ * off * end;
+                        float px = ex, pz = ez;
+                        ResolveCollisions(ref px, ref pz, s.Y, map, v.Radius, constructs);
+                        x += px - ex;
+                        z += pz - ez;
+                    }
+                }
                 float along = ((x - s.X) * s.HeadX + (z - s.Z) * s.HeadZ) / dt;
                 s.RideSpeed = Math.Clamp(along, 0f, s.RideSpeed);
                 s.X = x; s.Z = z;

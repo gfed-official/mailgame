@@ -437,6 +437,22 @@ namespace PerformativeMail.Sim
         public byte FromX, FromY, OutX, OutY;
     }
 
+    /// <summary>
+    /// The fuel in a vehicle's tank, seconds of driving (doc 04 §3.1): when it is bought or filled,
+    /// every second it is driven, and when it runs dry (its driver is set down then).
+    /// </summary>
+    /// <summary>A vehicle is gone (the smoke, tests; later a wreck): its cargo with it.</summary>
+    public sealed class VehicleRemovedEvent : SimEvent
+    {
+        public EntityId Vehicle;
+    }
+
+    public sealed class VehicleFuelEvent : SimEvent
+    {
+        public EntityId Vehicle;
+        public float Seconds;
+    }
+
     /// <summary>A piece of mail left the pipes: put out by its outlet, or back to the Intake.</summary>
     public sealed class PipeCapsuleRemovedEvent : SimEvent
     {

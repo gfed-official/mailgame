@@ -80,6 +80,12 @@ namespace PerformativeMail.Sim.Inventory
         NoRerolls,
         /// <summary>No other cards are left that this carrier could take.</summary>
         NoNewCards,
+        /// <summary>Doc 04 §3.1: its tank is empty; an Oil Can fills it.</summary>
+        NoFuel,
+        /// <summary>Its tank takes no more.</summary>
+        TankFull,
+        /// <summary>The pockets hold no Oil Can.</summary>
+        NoOilCan,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

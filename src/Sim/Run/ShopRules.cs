@@ -57,8 +57,9 @@ namespace PerformativeMail.Sim.Run
         }
 
         /// <summary>
-        /// A vehicle seats one (doc 04 §3.1 Bike): the counter sells the team one for each carrier
-        /// there is, no more. Ok for every other kind of entry.
+        /// A vehicle has one driver (doc 04 §3.1): the counter sells the team one of each kind for
+        /// each carrier there is, no more (<paramref name="vehicles"/>: those of its kind). Ok for
+        /// every other kind of entry.
         /// </summary>
         public static OpResult VehicleCheck(ShopItemDef def, int vehicles, int carriers) =>
             def.Kind == ShopKind.Vehicle && vehicles >= Math.Max(1, carriers) ? OpResult.OnePerCarrier : OpResult.Ok;

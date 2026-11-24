@@ -169,6 +169,8 @@ namespace PerformativeMail.Sim.Automation
         bool TryStore(BeltSegment segment, in BeltItem item);
         /// <summary>An item went off a segment's end into a sorter's buffer.</summary>
         void Took(BeltSegment from, in BeltItem item);
+        /// <summary>The front item has reached an end with nothing built before it; true if a vehicle's loading face standing there took it.</summary>
+        bool TryLoad(BeltSegment segment, in BeltItem item) => false;
         /// <summary>The front item has reached a pipe inlet; true if the inlet sent it on.</summary>
         bool TryInlet(BeltSegment segment, in BeltItem item) => false;
         /// <summary>A sorter put a piece out by a port onto the head of a segment.</summary>
@@ -765,6 +767,13 @@ namespace PerformativeMail.Sim.Automation
                         }
                         break;
                     }
+                    case BeltEndKind.None:
+                        // Doc 04 §3.1: a parked truck's rear on the tile in front loads from a belt on the ground.
+                        if (s.FrontTile < 0 || OutLevel(s.Tiles[s.Tiles.Count - 1]) != 0 || !sink.TryLoad(s, it)) break;
+                        s.Items.RemoveAt(i);
+                        ItemCount--;
+                        gone = true;
+                        break;
                     case BeltEndKind.Inlet:
                         if (!sink.TryInlet(s, it)) break;
                         s.Items.RemoveAt(i);

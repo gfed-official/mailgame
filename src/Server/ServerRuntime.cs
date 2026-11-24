@@ -272,6 +272,7 @@ namespace PerformativeMail.Server
             _transport.Send(client.Connection, NetChannel.Bulk, _writer.ToArray());
             World.SendBeltStates(player.Id);
             World.SendPipeStates(player.Id);
+            World.SendVehicleFuel(player.Id);
             Log?.Invoke(back ? $"{player.Name} is back as {player.Id}{PlaytestNote(player)}" : $"{name} joined as {player.Id}{PlaytestNote(player)}");
         }
 

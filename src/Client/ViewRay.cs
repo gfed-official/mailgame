@@ -86,6 +86,15 @@ namespace PerformativeMail.Client
         public static AimBox Vehicle(WorldMap map, float x, float z) =>
             new AimBox(x, map.HeightAt(x, z) + 0.55f, z, 0.85f, 0.6f, 0.85f);
 
+        /// <summary>A parked vehicle of its kind: a bike's box, or a truck's body, nose to tail the way it points.</summary>
+        public static AimBox Vehicle(WorldMap map, Sim.Content.VehicleDef def, float x, float z, float heading)
+        {
+            if (def.BodyOffset <= 0f) return Vehicle(map, x, z);
+            Sim.Vehicles.Vehicle.Forward(heading, out float fx, out float fz);
+            float half = def.Length * 0.5f, side = 0.95f;
+            return new AimBox(x, map.HeightAt(x, z) + 1.1f, z, MathF.Abs(fx) * half + MathF.Abs(fz) * side, 1.1f, MathF.Abs(fz) * half + MathF.Abs(fx) * side);
+        }
+
         /// <summary>A death bag on the ground, wider than the satchel so it is easy to pick in a fight.</summary>
         public static AimBox Bag(WorldMap map, float x, float z) =>
             new AimBox(x, map.HeightAt(x, z) + 0.3f, z, 0.5f, 0.4f, 0.5f);

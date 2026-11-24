@@ -225,6 +225,8 @@ namespace PerformativeMail.Client
         public uint CargoContainer;
         /// <summary>Who rides it; None while it stands parked.</summary>
         public EntityId Rider;
+        /// <summary>Seconds of driving in its tank as the server last said (counted down here while the local player drives it).</summary>
+        public float Fuel;
         public bool Ridden => !Rider.IsNone;
     }
 
@@ -565,7 +567,10 @@ namespace PerformativeMail.Client
             if (!ShopServes) return OpResult.WrongPhase;
             var verdict = ShopRules.Check(def, Global.Shift, IsSpecial(def), ShopOwned.Contains(def));
             if (verdict != OpResult.Ok) return verdict;
-            verdict = ShopRules.VehicleCheck(def, Vehicles.Count, PresentCount);
+            if (def.Requires != null && !ShopOwned.Contains(def.Requires)) return OpResult.NeedsBlueprint;
+            int same = 0;
+            foreach (var v in Vehicles.Values) if (v.Def == def.Vehicle) same++;
+            verdict = ShopRules.VehicleCheck(def, same, PresentCount);
             if (verdict != OpResult.Ok) return verdict;
             if (Global.Wallet < ShopPrice(def)) return OpResult.CantAfford;
             if (def.Kind != ShopKind.Item || def.Item == null || HotbarId == 0) return OpResult.Ok;

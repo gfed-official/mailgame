@@ -958,6 +958,123 @@ namespace PerformativeMail.App
                     if (client.PendingRequestCount > 0 || server.Pipes.Inlets.GetEnumerator().MoveNext() || server.Pipes.ItemCount > 0) break;
                     Check(world.Pipes.Capsules.Count == 0 && server.Intake.Entries.Any(e => e.Stack.Kind == StackKind.Mail && e.Stack.Mail.Any(m => m.Id == 990041)),
                         $"{world.Pipes.Capsules.Count} capsules left here; the letters are not back in the Intake");
+                    _beltStep = 70;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 70:
+                {
+                    // The Mail Truck (doc 04 §3.1): the server grants the Motor Pool and parks one with
+                    // its rear (the loading face) at the end of two belts out of the outfeed.
+                    var belts = world.Belts;
+                    int ox = belts.OutfeedX, oz = belts.OutfeedZ;
+                    if (client.PendingRequestCount > 0 || _beltFrames < 2) break;
+                    var player = server.GetPlayer(world.LocalId)!;
+                    Check(server.Grant(world.Content.ShopItem("bp_truck"), player.Id), "the team owned the Motor Pool blueprint already");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 2)), "no room for two Iron Ingots");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("plank"), 2)), "no room for two Planks");
+                    Check(client.PlaceConstruct(belt, ox, oz, BeltNetwork.OutfeedRotation) != 0 && client.PlaceConstruct(belt, ox, oz - 1, BeltNetwork.OutfeedRotation) != 0,
+                        "the belts out of the outfeed were not asked for");
+                    var truckDef = world.Content.Vehicle("mail_truck");
+                    _pipeHold = 0;
+                    var truck = server.AddVehicleAt(truckDef, BuildRules.TileCentre(ox), BuildRules.TileCentre(oz - 2) - truckDef.Length * 0.5f, 0f, player.Id);
+                    Check(server.LoadingFaceOn(ox, oz - 2) == truck, "the truck's rear is not on the tile the belts end into");
+                    _beltStep = 71;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 71:
+                {
+                    var truck = server.Vehicles.FirstOrDefault(v => v.Def.Id == "mail_truck");
+                    var here = world.Vehicles.Values.FirstOrDefault(v => v.Def.Id == "mail_truck");
+                    if (truck == null || here == null || client.PendingRequestCount > 0 || !truck.Cargo.Entries.Any()) break;
+                    // From behind it, looking at it: "Drive the Mail Truck", with its fuel.
+                    if (++_pipeHold < 20)
+                    {
+                        var player = server.GetPlayer(world.LocalId)!;
+                        // Behind it and to its right: the roll-up door at its rear, the belts running into it.
+                        player.Move.X = here!.X + 1.0f;
+                        player.Move.Z = here.Z + 3.3f;
+                        break;
+                    }
+                    var box = AimBox.Vehicle(world.Map, here!.Def, here.X, here.Z, here.Heading);
+                    ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    _session.Interaction.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
+                    if (_session.Interaction.Prompt.Kind != InteractKind.Mount || _beltFrames < 30) break;
+                    Check(hud.PromptText == $"Drive the Mail Truck  [E]   ·   fuel 05:00 of 10:00", $"beside the truck the prompt reads \"{hud.PromptText}\"");
+                    Check(_screen.Vehicles.Shown >= 1 && world.BeltMismatches == 0, $"{_screen.Vehicles.Shown} vehicles drawn, {world.BeltMismatches} checksums off");
+                    _beltStep = 75;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 75:
+                {
+                    // For the picture: from the open ground east of the yard, the truck and the belts into its rear.
+                    var player = server.GetPlayer(world.LocalId)!;
+                    var here = world.Vehicles.Values.First(v => v.Def.Id == "mail_truck");
+                    var truck = server.Vehicles.First(v => v.Def.Id == "mail_truck");
+                    if (_beltFrames == 1)
+                    {
+                        player.Move.X = BuildRules.TileCentre(10);
+                        player.Move.Z = BuildRules.TileCentre(7) + 0.5f;
+                    }
+                    ViewRay.Aim(world.Local, here.X, 1.2f, here.Z + 0.8f, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    if (_beltFrames < 20) break;
+                    Shot("truck");
+                    int loaded = truck!.Cargo.Entries.Where(e => e.Stack.Kind == StackKind.Mail).Sum(e => e.Stack.Mail.Count);
+                    GD.Print($"[smoke] truck: a Mail Truck parked at the end of two belts out of the outfeed, {loaded} pieces loaded at its rear; \"Drive the Mail Truck\" with its fuel beside it");
+                    player.Move.X = here.X + 1.0f;
+                    player.Move.Z = here.Z + 3.3f;
+                    _beltStep = 76;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 76:
+                {
+                    var here = world.Vehicles.Values.First(v => v.Def.Id == "mail_truck");
+                    float dx = world.Local.X - here.X - 1.0f, dz = world.Local.Z - here.Z - 3.3f;
+                    if (dx * dx + dz * dz > 0.1f || _beltFrames < 4) break;
+                    Check(client.Mount(here.Id) != 0, "the truck's mount was not asked for");
+                    _beltStep = 72;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 72:
+                {
+                    var player = server.GetPlayer(world.LocalId)!;
+                    if (!world.Local.Riding || !player.Move.Riding || client.PendingRequestCount > 0) break;
+                    Check(world.LocalRide?.Def.Id == "mail_truck", "the host rides something else than the truck");
+                    // Off again, and the truck, the belts and what it held go.
+                    var truck = server.Vehicles.First(v => v.Def.Id == "mail_truck");
+                    Check(server.RemoveVehicle(truck), "the truck was not taken away");
+                    _beltStep = 73;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 73:
+                {
+                    // On foot again (the server's word reached here): the belts go.
+                    if (world.Vehicles.Values.Any(v => v.Def.Id == "mail_truck") || world.Local.Riding || _beltFrames < 4) break;
+                    var belts = world.Belts;
+                    foreach (var (x, z) in new[] { (belts.OutfeedX, belts.OutfeedZ), (belts.OutfeedX, belts.OutfeedZ - 1) })
+                        if (world.Constructs.At(x, z) is { } piece) client.RemoveConstruct(piece);
+                    _beltStep = 74;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 74:
+                {
+                    var belts = world.Belts;
+                    if (client.PendingRequestCount > 0 || world.Local.Riding || server.Constructs.At(belts.OutfeedX, belts.OutfeedZ) != null
+                        || server.Constructs.At(belts.OutfeedX, belts.OutfeedZ - 1) != null) break;
                     if (!build.Active) Check(build.Toggle(), $"B did not put Build mode up again ({build.Refused})");
                     _beltStep = 27;
                     _beltFrames = 0;

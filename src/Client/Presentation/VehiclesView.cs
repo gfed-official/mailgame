@@ -24,6 +24,7 @@ namespace PerformativeMail.Client.Presentation
         {
             public Node3D Root = null!;
             public Node3D FrontWheel = null!, RearWheel = null!;
+            public float WheelRadius = VehiclesView.WheelRadius;
             public Vector3 Last;
             public bool Placed;
         }
@@ -64,7 +65,7 @@ namespace PerformativeMail.Client.Presentation
                 {
                     if (!_drawn.TryGetValue(v.Id, out var d))
                     {
-                        d = Build(v.Id);
+                        d = v.Def.BodyOffset > 0f ? BuildTruck(v.Id, v.Def) : Build(v.Id);
                         _drawn[v.Id] = d;
                     }
                     Vector3 position;
@@ -119,7 +120,7 @@ namespace PerformativeMail.Client.Presentation
                 float along = -(step.X * Mathf.Sin(heading) + step.Z * Mathf.Cos(heading));
                 if (Mathf.Abs(along) < 3f)
                 {
-                    float turn = -along / WheelRadius;
+                    float turn = -along / d.WheelRadius;
                     d.FrontWheel.RotateObjectLocal(Vector3.Right, turn);
                     d.RearWheel.RotateObjectLocal(Vector3.Right, turn);
                 }
@@ -196,6 +197,63 @@ namespace PerformativeMail.Client.Presentation
             Tube(root, crank + new Vector3(-0.05f, 0f, 0.08f), new Vector3(-0.2f, 0.01f, 0.16f), 0.012f, steel);
 
             return new Drawn { Root = root, FrontWheel = front, RearWheel = rear };
+        }
+
+        private static readonly Color VanBody = new Color("efe9dc"), VanStripe = new Color("c23a2b"), VanGlass = new Color("27323b"), VanTrim = new Color("3a3f46");
+        private const float TruckWheel = 0.4f;
+
+        /// <summary>
+        /// A Mail Truck pointing along −Z (doc 04 §3.1), after the reference's chunky delivery vans:
+        /// a cream body on a dark chassis, a cab with a wide dark windscreen and a taller cargo box
+        /// behind with the post's red band; at its rear the roll-up door of its loading face in the
+        /// belts' amber, lamps lit in front, four fat wheels on two axles.
+        /// </summary>
+        private Drawn BuildTruck(EntityId id, Sim.Content.VehicleDef def)
+        {
+            var root = new Node3D { Name = $"Truck{id.Counter}" };
+            AddChild(root);
+            float len = def.Length, half = len * 0.5f, w = 1.8f;
+            var body = MeshKit.Mat(VanBody, 0.55f, 0.1f);
+            var stripe = MeshKit.Mat(VanStripe, 0.5f, 0.1f);
+            var glass = MeshKit.Mat(VanGlass, 0.15f, 0.5f);
+            var trim = MeshKit.Mat(VanTrim, 0.6f, 0.4f);
+            var tyre = MeshKit.Mat(Tyre, 0.9f);
+            var steel = MeshKit.Mat(Steel, 0.35f, 0.8f);
+            // Chassis and bumpers.
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w - 0.1f, 0.3f, len - 0.1f), 0.08f), trim, new Vector3(0f, TruckWheel + 0.05f, 0f)));
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w, 0.22f, 0.16f), 0.06f), trim, new Vector3(0f, 0.42f, -half + 0.02f)));
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w, 0.22f, 0.16f), 0.06f), trim, new Vector3(0f, 0.42f, half - 0.02f)));
+            // The cab, its bonnet and windscreen.
+            float cabLen = 1.25f, cabZ = -half + cabLen * 0.5f;
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w, 1.15f, cabLen), 0.18f), body, new Vector3(0f, 1.15f, cabZ)));
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w - 0.2f, 0.5f, 0.06f), 0.04f), glass, new Vector3(0f, 1.42f, -half + 0.02f), new Vector3(-12f, 0f, 0f)));
+            foreach (float side in new[] { -1f, 1f })
+            {
+                root.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.04f, 0.42f, 0.7f)), glass, new Vector3(side * (w * 0.5f + 0.005f), 1.4f, cabZ - 0.05f)));
+                root.AddChild(MeshKit.Instance(MeshKit.Sphere(0.08f, 12), MeshKit.Glow(Lamp, 1.8f), new Vector3(side * (w * 0.5f - 0.25f), 0.75f, -half - 0.02f)));
+                root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.08f, 0.12f, 0.18f), 0.03f), trim, new Vector3(side * (w * 0.5f + 0.06f), 1.45f, -half + 0.25f)));
+            }
+            // The cargo box: taller, the post's red band round it.
+            float boxLen = len - cabLen - 0.05f, boxZ = half - boxLen * 0.5f;
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w + 0.04f, 1.55f, boxLen), 0.12f), body, new Vector3(0f, 1.37f, boxZ)));
+            root.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(w + 0.07f, 0.2f, boxLen - 0.2f)), stripe, new Vector3(0f, 1.25f, boxZ)));
+            // Its rear: a roll-up door in amber slats, the loading face.
+            var amber = MeshKit.Mat(new Color("e0a526"), 0.6f);
+            root.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(w - 0.25f, 1.25f, 0.04f)), trim, new Vector3(0f, 1.3f, half + 0.01f)));
+            for (int k = 0; k < 5; k++)
+                root.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(w - 0.35f, 0.18f, 0.03f)), amber, new Vector3(0f, 0.8f + k * 0.24f, half + 0.04f)));
+            // Wheels on two axles.
+            var front = new Node3D { Name = "FrontWheel", Position = new Vector3(0f, TruckWheel, -half + 0.75f) };
+            var rear = new Node3D { Name = "RearWheel", Position = new Vector3(0f, TruckWheel, half - 0.7f) };
+            root.AddChild(front);
+            root.AddChild(rear);
+            foreach (var axle in new[] { front, rear })
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    axle.AddChild(MeshKit.Instance(MeshKit.Cylinder(TruckWheel, TruckWheel, 0.3f, 18), tyre, new Vector3(side * (w * 0.5f - 0.12f), 0f, 0f), new Vector3(0f, 0f, 90f)));
+                    axle.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.2f, 0.2f, 0.32f, 12), steel, new Vector3(side * (w * 0.5f - 0.12f), 0f, 0f), new Vector3(0f, 0f, 90f)));
+                }
+            return new Drawn { Root = root, FrontWheel = front, RearWheel = rear, WheelRadius = TruckWheel };
         }
 
         private static Node3D Wheel(Node3D root, string name, Vector3 hub, Material tyre, Material steel)

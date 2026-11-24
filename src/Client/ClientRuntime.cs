@@ -233,6 +233,15 @@ namespace PerformativeMail.Client
             if (!world.Vehicles.TryGetValue(vehicle, out var v) || v.Ridden) return 0;
             return Send(SimRequest.Mount(0, vehicle.Value));
         }
+        /// <summary>An Oil Can from the pockets into a vehicle's tank (doc 04 §3.1). 0 if not sent.</summary>
+        public uint Refuel(EntityId vehicle)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
+            if (!world.Vehicles.TryGetValue(vehicle, out var v) || !v.Def.Fuelled) return 0;
+            return Send(SimRequest.Refuel(0, vehicle.Value));
+        }
+
         public uint CloseContainer() => World == null || World.OpenContainerId == 0 ? 0 : Send(SimRequest.Close(0, World.OpenContainerId));
         public uint QuickMove(uint containerId, uint entryId) => Send(SimRequest.QuickMove(0, containerId, entryId));
         /// <summary>Drag and drop: the entry (or <paramref name="count"/> units of it; 0 = all) to a cell of a container.</summary>
@@ -644,6 +653,9 @@ namespace PerformativeMail.Client
             // Doc 07 §8: the belts' items move here at the server's speed; only its events take them off an end.
             world.Belts.Step(SimConstants.TickDt, null);
             world.Pipes.Step(SimConstants.TickDt, arrive: false);
+            // The tank of what the local player drives goes down here as on the server; its events set it right.
+            if (world.HasLocal && world.LocalRide is { Def.Fuelled: true } driven && world.Local.RideSpeed > 0.1f)
+                driven.Fuel = MathF.Max(0f, driven.Fuel - SimConstants.TickDt);
             if (!world.HasLocal) return;
 
             var input = new PlayerInput
@@ -1203,6 +1215,16 @@ namespace PerformativeMail.Client
                         {
                             Id = e.Vehicle, Def = _content.Vehicles[e.Def], X = e.X, Z = e.Z, Heading = e.Heading, CargoContainer = e.CargoContainer,
                         };
+                    break;
+                case VehicleRemovedEvent e:
+                    if (world.Vehicles.TryGetValue(e.Vehicle, out var removed))
+                    {
+                        DropExternal(world, removed.CargoContainer);
+                        world.Vehicles.Remove(e.Vehicle);
+                    }
+                    break;
+                case VehicleFuelEvent e:
+                    if (world.Vehicles.TryGetValue(e.Vehicle, out var fuelled)) fuelled.Fuel = e.Seconds;
                     break;
                 case VehicleMountedEvent e:
                     if (world.Vehicles.TryGetValue(e.Vehicle, out var mounted)) mounted.Rider = e.Player;

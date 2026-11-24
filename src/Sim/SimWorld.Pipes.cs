@@ -202,6 +202,19 @@ namespace PerformativeMail.Sim
             outlet.NextTick = Tick + Math.Max(1u, SimConstants.SecondsToTicks(1.0 / Math.Max(0.01, rate)));
         }
 
+        /// <summary>A belt's end before a parked truck's rear (doc 04 §3.1 loading zone): into its cargo while it has room.</summary>
+        bool IBeltSink.TryLoad(BeltSegment segment, in BeltItem item)
+        {
+            if (_vehicles.Count == 0) return false;
+            var v = LoadingFaceOn(segment.FrontTile % Map.Cols, segment.FrontTile / Map.Cols);
+            var stack = ItemStack.OfMail(item.Mail);
+            if (v == null || !InventoryOps.HasRoomFor(Content, v.Cargo, stack)) return false;
+            InventoryOps.AutoPlace(Content, v.Cargo, stack, _entryIds);
+            CommitContainer(v.Cargo.Id);
+            Events.Add(new BeltItemRemovedEvent { MailId = item.Mail.Id });
+            return true;
+        }
+
         /// <summary>A belt's end at an inlet: the piece goes into a capsule if the inlet can send it now, else it waits.</summary>
         bool IBeltSink.TryInlet(BeltSegment segment, in BeltItem item)
         {
