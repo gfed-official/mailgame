@@ -287,6 +287,12 @@ namespace PerformativeMail.Sim.Content
         /// — a pipe, a junction, an inlet, an outlet, an underground pipe.
         /// </summary>
         Pipe = 10,
+        /// <summary>
+        /// Doc 04 §3.2 Vehicle Depot: 3 × 3 tiles a vehicle drives onto, its parking bay in the
+        /// middle with the loading face at the back, and a Route Console whose stops a hired NPC
+        /// driver runs the parked truck round.
+        /// </summary>
+        VehicleDepot = 11,
     }
 
     /// <summary>What a piece of a pipe network is (doc 08 §2.6 "inlet/outlet/junction role").</summary>
@@ -331,7 +337,12 @@ namespace PerformativeMail.Sim.Content
         /// kind", §2.4); 0 for what sorts nothing.
         /// </summary>
         public int FilterOutputs => Behaviour == BuildingBehaviour.Sorter ? 3 : Behaviour == BuildingBehaviour.Splitter ? 3
-            : Behaviour == BuildingBehaviour.Inserter || PipeRole == PipeRole.Outlet ? 1 : 0;
+            : Behaviour == BuildingBehaviour.Inserter || PipeRole == PipeRole.Outlet ? 1 : Behaviour == BuildingBehaviour.VehicleDepot ? RouteStops : 0;
+        /// <summary>A Vehicle Depot: the stops its Route Console holds, kept as its filters (an address, a street or a district each).</summary>
+        public int RouteStops { get; init; }
+        /// <summary>A Vehicle Depot: what hiring its NPC driver for a shift costs, in cents (doc 10 §3 npc_driver: 150).</summary>
+        public int HireCost { get; init; }
+        public bool IsVehicleDepot => Behaviour == BuildingBehaviour.VehicleDepot;
         /// <summary>Its filters may name a street or a district, not only a kind: a sorter's and a pipe outlet's.</summary>
         public bool FiltersAddresses => Behaviour == BuildingBehaviour.Sorter || PipeRole == PipeRole.Outlet;
         /// <summary>An inserter: pieces it moves a second (doc 11: 1.25).</summary>
@@ -380,7 +391,7 @@ namespace PerformativeMail.Sim.Content
         /// <summary>Walls and gates stand in a line and join each other; a chest and spikes stand alone.</summary>
         public bool Joins => Behaviour == BuildingBehaviour.Wall || Behaviour == BuildingBehaviour.Gate;
         /// <summary>Whether it stands in anybody's way at all: spikes and pipes are walked over, and the raiders' paths go across them.</summary>
-        public bool Solid => Behaviour != BuildingBehaviour.Spikes && !Carries && PipeRole != PipeRole.Pipe && PipeRole != PipeRole.Underground;
+        public bool Solid => Behaviour != BuildingBehaviour.Spikes && Behaviour != BuildingBehaviour.VehicleDepot && !Carries && PipeRole != PipeRole.Pipe && PipeRole != PipeRole.Underground;
         /// <summary>Mail rides through it (doc 04 §2): a belt, a splitter, a merger. Low enough to walk over.</summary>
         public bool Carries => Behaviour == BuildingBehaviour.Belt || Behaviour == BuildingBehaviour.Splitter || Behaviour == BuildingBehaviour.Merger;
     }

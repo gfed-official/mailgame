@@ -901,6 +901,7 @@ namespace PerformativeMail.Sim.Content
                             case "sorter": behaviour = BuildingBehaviour.Sorter; break;
                             case "inserter": behaviour = BuildingBehaviour.Inserter; break;
                             case "pipe": behaviour = BuildingBehaviour.Pipe; break;
+                            case "vehicle_depot": behaviour = BuildingBehaviour.VehicleDepot; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
@@ -955,12 +956,19 @@ namespace PerformativeMail.Sim.Content
                             Level = hasParams ? J.Int(ctx, pars, "level", 0) : 0,
                             Ramp = hasParams && J.Bool(ctx, pars, "ramp", false),
                             OnStreet = onStreet,
+                            RouteStops = hasParams ? J.Int(ctx, pars, "routeStops", 0) : 0,
+                            HireCost = hasParams ? J.Int(ctx, pars, "npcHireCost", 0) : 0,
                         };
                         // Doc 04 §2.1: a ramp is two tiles long and runs up or down; an elevated belt one level up crosses a street.
                         bool sorter = behaviour == BuildingBehaviour.Sorter;
                         bool square = sorter || behaviour == BuildingBehaviour.Container;
-                        if (square && def.Width == 2 ? def.Length != 2 : def.Width != 1 || (def.Length != 1 && !(def.Ramp && def.Length == 2)) || (sorter && def.Width != 2))
-                            ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2], a container [1, 1] or [2, 2])");
+                        bool vehicleDepot = behaviour == BuildingBehaviour.VehicleDepot;
+                        if (vehicleDepot ? def.Width != 3 || def.Length != 3
+                            : square && def.Width == 2 ? def.Length != 2 : def.Width != 1 || (def.Length != 1 && !(def.Ramp && def.Length == 2)) || (sorter && def.Width != 2))
+                            ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2], a container [1, 1] or [2, 2], a vehicle depot [3, 3])");
+                        // Doc 04 §3.2: a route of a few stops, kept as 16-bit filters; a driver hired for a price.
+                        if (vehicleDepot ? def.RouteStops < 1 || def.RouteStops > 9 || def.HireCost <= 0 || def.Rotations != 4 : def.RouteStops != 0 || def.HireCost != 0)
+                            ctx.Error($"'{id}': a vehicle depot, and only one, has params.routeStops in 1..9, params.npcHireCost > 0 (and 4 rotations)");
                         // Doc 04 §2.4: a sorter looks at its mail at a rate, out of a buffer.
                         if (sorter && (def.Throughput <= 0f || def.BufferSize < 1 || def.BufferSize > 64 || def.Rotations != 4))
                             ctx.Error($"'{id}': a sorter needs params.throughputPerSecond > 0, params.bufferSize in 1..64 and 4 rotations");
@@ -1125,6 +1133,7 @@ namespace PerformativeMail.Sim.Content
             "shopSpecialSlots", "shopSpecialDiscount", "shopRange", "serverShopRange", "harvestSwingSeconds",
             "buildRange", "serverBuildRange", "deconstructHoldSeconds", "deconstructRefundPrep", "deconstructRefundDelivery",
             "beltPushMultiplier", "beltPushSeconds", "pipeSpeed", "pipeSpacing", "pipeOutletRate", "pipeOutletCapacity",
+            "npcSpeedRatio", "npcHireShiftSolo", "npcHireShiftGroup", "npcDepartWaitSeconds", "npcStopReach", "npcFleeRadius",
         };
 
         private static IEnumerable<JsonElement> ReadArray(JsonCtx ctx, string? text)

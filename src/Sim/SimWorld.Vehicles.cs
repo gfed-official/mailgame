@@ -226,6 +226,7 @@ namespace PerformativeMail.Sim
             }
             var by = v.Rider;
             v.Rider = EntityId.None;
+            SnapIntoBay(v);
             MoveCargo(v);
             Events.Add(new VehicleParkedEvent { Vehicle = v.Id, X = v.X, Z = v.Z, Heading = v.Heading, Player = by });
         }

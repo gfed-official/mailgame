@@ -52,6 +52,8 @@ namespace PerformativeMail.Net.Tests
                   ""grants"": { ""blueprint"": ""bp_sorting"" }, ""availability"": { ""fromShift"": 5, ""slot"": ""fixed"" }, ""tags"": [""blueprint""] },
                 { ""id"": ""bp_pipes"", ""name"": ""Pneumatics"", ""description"": ""Pipes."", ""kind"": ""blueprint"", ""price"": 700,
                   ""grants"": { ""blueprint"": ""bp_pipes"" }, ""availability"": { ""fromShift"": 5, ""slot"": ""fixed"" }, ""tags"": [""blueprint""] },
+                { ""id"": ""bp_truck"", ""name"": ""Motor Pool"", ""description"": ""Trucks."", ""kind"": ""blueprint"", ""price"": 500,
+                  ""grants"": { ""blueprint"": ""bp_truck"" }, ""availability"": { ""fromShift"": 5, ""slot"": ""fixed"" }, ""tags"": [""blueprint""] },
                 { ""id"": ""first_aid_kit"", ""name"": ""First-Aid Kit"", ""description"": ""Five Bandages for the price of four."", ""kind"": ""item"", ""price"": 105,
                   ""grants"": { ""item"": ""bandage"", ""count"": 5 }, ""availability"": { ""fromShift"": 1, ""slot"": ""rotating"" }, ""tags"": [""special""] }
             ]";
@@ -187,7 +189,7 @@ namespace PerformativeMail.Net.Tests
                 Assert.True(w.ShopServes);
                 Assert.Equal(new[] { "bandage_x3", "first_aid_kit" }, w.ShopSpecials.Select(d => d.Id));
                 Assert.Equal(s.Sim.ShopSpecials.Select(d => d.Id), w.ShopSpecials.Select(d => d.Id));
-                Assert.Equal(new[] { "bandage_x3", "plank_x20", "oil_can_x3", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_pipes", "first_aid_kit" }, w.ShopShelf.Select(d => d.Id));
+                Assert.Equal(new[] { "bandage_x3", "plank_x20", "oil_can_x3", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_pipes", "bp_truck", "first_aid_kit" }, w.ShopShelf.Select(d => d.Id));
             }
 
             // Out on the street there is no counter to open.
@@ -453,7 +455,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("From shift 2", HudText.ShopNote(a, oil));
             Assert.True(ada.PressShopKey(0));
             Assert.False(a.IsBuying(bandages));
-            Assert.False(ada.PressShopKey(8));
+            Assert.False(ada.PressShopKey(9));
             Assert.False(ada.PressShopKey(-1));
 
             s.Sim.Economy.AddLoot(1000);
@@ -468,7 +470,7 @@ namespace PerformativeMail.Net.Tests
             string text = HudText.ShopText(a);
             Assert.StartsWith("SHOP   ·   team wallet $10.00\n[1]  Bandages ×3\n", text);
             Assert.EndsWith("\n" + HudText.ShopHint, text);
-            Assert.Equal(1 + 3 + 3 + 4 + 4 + 4 + 4 + 4 + 3 + 1, text.Split('\n').Length);
+            Assert.Equal(1 + 3 + 3 + 4 + 4 + 4 + 4 + 4 + 4 + 3 + 1, text.Split('\n').Length);
             Assert.Equal("", HudText.ShopText(b));
 
             // The key of a card buys it: the card waits for the server, a second press asks nothing more.

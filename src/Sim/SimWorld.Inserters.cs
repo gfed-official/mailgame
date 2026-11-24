@@ -112,7 +112,7 @@ namespace PerformativeMail.Sim
             }
             t.Belt = Belts.FedBy(c.Tx, c.Tz, c.Facing, c.Def.Reach);
             // Nothing built there: a parked truck's rear (doc 04 §3.1 "a belt end or inserter facing it").
-            if (t.Belt == null && front == null && _vehicles.Count > 0 && LoadingFaceOn(fx, fz) is { } truck) t.Container = truck.Cargo;
+            if (t.Belt == null && (front == null || front.Def.IsVehicleDepot) && _vehicles.Count > 0 && LoadingFaceOn(fx, fz) is { } truck) t.Container = truck.Cargo;
             return t;
         }
 

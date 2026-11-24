@@ -69,6 +69,7 @@ namespace PerformativeMail.Sim
             if (verdict != OpResult.Ok) return verdict;
             float cx = BuildRules.TileCentre(tx), cz = BuildRules.TileCentre(tz);
             if (!player.WasWithin(cx, cz, _serverBuildRange, _rewindTicks)) return OpResult.OutOfRange;
+            if (def.IsVehicleDepot && VehicleDepotCount() >= VehicleDepotLimit) return OpResult.DepotLimit;
             // What lies flat is laid under the feet.
             if (def.Solid)
                 for (int i = 0; i < def.TileCount; i++)

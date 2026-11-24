@@ -43,7 +43,7 @@ namespace PerformativeMail.Client.UI
                 foreach (var card in _cards)
                 {
                     if (!card.Panel.Visible) continue;
-                    foreach (var line in card.Lines) lines.Add(line.Text);
+                    foreach (var line in card.Lines) if (line.Visible) lines.Add(line.Text);
                 }
                 lines.Add(_hint.Text);
                 return string.Join("\n", lines);
@@ -88,7 +88,8 @@ namespace PerformativeMail.Client.UI
             Visible = built != null;
             if (built == null) return;
             _title.Text = HudText.FilterTitle(built);
-            _status.Text = HudText.FilterStatusLine(built, world.FilterStatus);
+            _status.Text = HudText.FilterStatusLine(world, built, world.FilterStatus);
+            _hint.Text = HudText.FilterHintFor(built);
             _status.Visible = _status.Text.Length > 0;
             int rows = built.Def.FilterOutputs + (built.Def.Behaviour == BuildingBehaviour.Sorter ? 1 : 0);
             while (_cards.Count < rows) AddCard();
@@ -98,10 +99,16 @@ namespace PerformativeMail.Client.UI
                 card.Panel.Visible = i < rows;
                 if (!card.Panel.Visible) continue;
                 string[] lines = HudText.FilterRow(world, built, i);
-                for (int l = 0; l < lines.Length; l++) card.Lines[l].Text = lines[l];
+                for (int l = 0; l < card.Lines.Length; l++)
+                {
+                    card.Lines[l].Visible = l < lines.Length;
+                    if (l < lines.Length) card.Lines[l].Text = lines[l];
+                }
                 bool output = i < built.Def.FilterOutputs;
                 bool set = output && !world.ShownFilter(built, i, 0).IsEmpty;
-                card.Lines[1].Modulate = set ? SetColour : new Color(1f, 1f, 1f, 0.7f);
+                // A depot's card is two lines: what the stop is stands in the first.
+                var what = lines.Length > 2 ? card.Lines[1] : card.Lines[0];
+                what.Modulate = set ? SetColour : new Color(1f, 1f, 1f, lines.Length > 2 ? 0.7f : 1f);
                 card.Frame.BorderColor = set ? Palette.Amber : FilterFrame;
                 card.Panel.MouseDefaultCursorShape = output ? CursorShape.PointingHand : CursorShape.Arrow;
             }

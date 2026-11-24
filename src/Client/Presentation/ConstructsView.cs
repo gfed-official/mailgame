@@ -699,6 +699,69 @@ namespace PerformativeMail.Client.Presentation
                 batch.Box(at + f * (w * 0.5f + 0.08f) + new Vector3(0f, 0.3f + k * 0.22f, 0f), across * 1.6f + depth * 0.04f + new Vector3(0f, 0.05f, 0f), rib, 0.01f);
         }
 
+        /// <summary>
+        /// A Vehicle Depot (doc 04 §3.2) in the look of the reference's truck stations: a concrete
+        /// pad over its nine tiles with the bay painted on it in yellow, a steel canopy on four
+        /// orange posts with a ribbed roof high over a truck, the loading face at the back in
+        /// yellow and black hatching with an amber arrow in, and the Route Console on the left of
+        /// the bay: a grey pedestal with a lit screen turned to the bay. <paramref name="at"/> is
+        /// the middle of its tiles.
+        /// </summary>
+        public static void VehicleDepot(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
+        {
+            const float t = SimConstants.TileSize;
+            float w = 3f * t - 0.12f, half = w * 0.5f, roof = 3.25f;
+            var slab = only ?? MeshKit.Mat(worn ? new Color("6d6a64") : new Color("a19d94"), 0.9f);
+            var steel = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            var rib = only ?? MeshKit.Mat(new Color("7d858f"), 0.45f, 0.6f);
+            var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            var yellow = only ?? MeshKit.Mat(BeltYellow, 0.6f);
+            var f = Dir(facing);
+            var r = Dir((facing + 1) & 3);
+            var along = new Vector3(Mathf.Abs(f.X), 0f, Mathf.Abs(f.Z));
+            var across = new Vector3(Mathf.Abs(r.X), 0f, Mathf.Abs(r.Z));
+            float yaw = Mathf.Atan2(f.X, f.Z);
+            batch.Box(at + new Vector3(0f, 0.05f, 0f), new Vector3(w, 0.1f, w), slab, 0.03f);
+            // The bay: a yellow line down each side and a stop bar before the nose.
+            for (int k = -1; k <= 1; k += 2)
+                batch.Box(at + r * (k * 1.45f) + new Vector3(0f, 0.105f, 0f), along * (w - 0.9f) + across * 0.12f + new Vector3(0f, 0.012f, 0f), yellow, 0.0f);
+            batch.Box(at + f * (half - 0.55f) + new Vector3(0f, 0.105f, 0f), across * 2.9f + along * 0.16f + new Vector3(0f, 0.012f, 0f), yellow, 0.0f);
+            // The loading face at the back middle: hatching, and an arrow pointing in.
+            var back = at - f * (half - 0.35f);
+            batch.Box(back + new Vector3(0f, 0.104f, 0f), across * 1.9f + along * 0.5f + new Vector3(0f, 0.01f, 0f), dark, 0.0f);
+            for (int k = -3; k <= 3; k++)
+                batch.Add(MeshKit.Box(new Vector3(0.12f, 0.014f, 0.62f)), yellow, new Transform3D(new Basis(Vector3.Up, yaw + Mathf.Pi * 0.25f), back + r * (k * 0.27f) + new Vector3(0f, 0.11f, 0f)));
+            var amber = only ?? MeshKit.Mat(PortOut, 0.5f);
+            batch.Add(MeshKit.Box(new Vector3(0.14f, 0.02f, 0.5f)), amber, new Transform3D(new Basis(Vector3.Up, yaw), at - f * (half - 1.05f) + new Vector3(0f, 0.115f, 0f)));
+            batch.Add(MeshKit.Cone(0.2f, 0.3f, 3), amber, new Transform3D(new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.Pi * 0.5f), at - f * (half - 1.45f) + new Vector3(0f, 0.115f, 0f)));
+            // The canopy: four posts, two beams along the bay, a ribbed roof.
+            for (int a = -1; a <= 1; a += 2)
+                for (int c = -1; c <= 1; c += 2)
+                {
+                    var post = at + f * (a * (half - 0.2f)) + r * (c * (half - 0.2f));
+                    batch.Box(post + new Vector3(0f, 0.25f, 0f), new Vector3(0.5f, 0.3f, 0.5f), dark, 0.04f);
+                    batch.Box(post + new Vector3(0f, roof * 0.5f, 0f), new Vector3(0.24f, roof, 0.24f), orange, 0.04f);
+                }
+            for (int c = -1; c <= 1; c += 2)
+                batch.Box(at + r * (c * (half - 0.2f)) + new Vector3(0f, roof + 0.1f, 0f), along * (w - 0.1f) + across * 0.28f + new Vector3(0f, 0.3f, 0f), steel, 0.04f);
+            batch.Box(at + new Vector3(0f, roof + 0.32f, 0f), new Vector3(w + 0.2f, 0.12f, w + 0.2f), steel, 0.04f);
+            for (int k = -4; k <= 4; k++)
+                batch.Box(at + f * (k * 0.66f) + new Vector3(0f, roof + 0.42f, 0f), along * 0.12f + across * (w + 0.1f) + new Vector3(0f, 0.08f, 0f), rib, 0.02f);
+            // The yellow band under the roof's edge, front and back.
+            for (int a = -1; a <= 1; a += 2)
+                batch.Box(at + f * (a * (half + 0.08f)) + new Vector3(0f, roof + 0.2f, 0f), across * (w + 0.2f) + along * 0.06f + new Vector3(0f, 0.16f, 0f), yellow, 0.01f);
+            // The Route Console on the left of the bay, its screen turned to it.
+            var console = at - r * (t + Sim.SimWorld.ConsoleOutset);
+            batch.Box(console + new Vector3(0f, 0.08f, 0f), new Vector3(0.7f, 0.16f, 0.7f), dark, 0.03f);
+            batch.Box(console + new Vector3(0f, 0.6f, 0f), new Vector3(0.46f, 0.9f, 0.4f), steel, 0.05f, new Vector3(0f, Mathf.RadToDeg(yaw), 0f));
+            batch.Box(console + new Vector3(0f, 1.08f, 0f), new Vector3(0.56f, 0.07f, 0.5f), orange, 0.02f, new Vector3(0f, Mathf.RadToDeg(yaw), 0f));
+            var screen = only ?? MeshKit.Glow(new Color("4fd3e8"), 1.2f);
+            var tilt = new Basis(Vector3.Up, yaw + Mathf.Pi * 0.5f) * new Basis(Vector3.Right, -0.6f);
+            batch.Add(MeshKit.Box(new Vector3(0.5f, 0.34f, 0.07f)), dark, new Transform3D(tilt, console + r * 0.06f + new Vector3(0f, 1.32f, 0f)));
+            batch.Add(MeshKit.Box(new Vector3(0.42f, 0.27f, 0.02f)), screen, new Transform3D(tilt, console + r * 0.1f + new Vector3(0f, 1.34f, 0f)));
+        }
+
         /// <summary>A framed opening at the edge of a sorter's tile (along, across) on the side <paramref name="dir"/>.</summary>
         private static void Mouth(MeshBatch batch, Vector3 centre, int facing, int along, int across, int dir, Material frame, Material hole)
         {
@@ -747,6 +810,9 @@ namespace PerformativeMail.Client.Presentation
                     return;
                 case BuildingBehaviour.Container when def.Width > 1:
                     Depot(batch, at, rotation & 3, only, worn);
+                    return;
+                case BuildingBehaviour.VehicleDepot:
+                    VehicleDepot(batch, at, rotation & 3, only, worn);
                     return;
                 case BuildingBehaviour.Container:
                     if (only != null) batch.Box(new Vector3(0f, 0.4f, 0f), new Vector3(0.96f, 0.8f, 0.66f), only, 0.1f, new Vector3(0f, Mathf.RadToDeg(Yaw(rotation)), 0f));

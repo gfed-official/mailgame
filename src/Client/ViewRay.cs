@@ -122,6 +122,12 @@ namespace PerformativeMail.Client
         public static AimBox Built(WorldMap map, Construct built)
         {
             float ground = map.HeightAt(built.X, built.Z), h = built.Def.Height * 0.5f;
+            if (built.Def.IsVehicleDepot)
+            {
+                // Its Route Console: the pad is driven and walked over.
+                Sim.SimWorld.Console(built, out float kx, out float kz);
+                return new AimBox(kx, map.HeightAt(kx, kz) + 0.75f, kz, 0.4f, 0.75f, 0.4f);
+            }
             if (built.Def.Width > 1)
             {
                 // A sorter: the box over its four tiles.

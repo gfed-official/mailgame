@@ -856,6 +856,9 @@ namespace PerformativeMail.Client
         /// <summary>The keys of Build mode, over the hotbar while it is up.</summary>
         public const string BuildKeys = "[LMB] build / drag  [R] turn  [wheel] tier  [hold RMB] remove  [Q] pick  [B] done";
 
+        /// <summary>The name and materials of a recipe card past which it names only two materials.</summary>
+        public const int RecipeCardChars = 38;
+
         /// <summary>A recipe on the bar: "[1] Wooden Wall · Log x3"; one of a group says which of how many the wheel is on: "[7] Fast Belt 2/2 · …".</summary>
         public static string RecipeCard(RecipeDef recipe, int key, IReadOnlyList<RecipeDef>? group = null)
         {
@@ -866,24 +869,38 @@ namespace PerformativeMail.Client
                 for (int i = 0; i < group.Count; i++) if (group[i] == recipe) at = i;
                 of = $" {(at + 1).ToString(CultureInfo.InvariantCulture)}/{group.Count.ToString(CultureInfo.InvariantCulture)}";
             }
-            // Tight: two cards stand side by side in the bar's width (Hud.RecipeCardWidth).
-            return $"[{KeyName(key)}] {recipe.Building.Name}{of} · {Inputs(recipe.Inputs, 1.0)}";
+            // Tight: two cards stand side by side in the bar's width (Hud.RecipeCardWidth); a recipe
+            // of three materials names two and how many more (the prompt names them all).
+            string inputs = Inputs(recipe.Inputs, 1.0);
+            if (recipe.Inputs.Count > 2 && recipe.Building.Name.Length + inputs.Length > RecipeCardChars)
+            {
+                var two = new List<RecipeInput> { recipe.Inputs[0], recipe.Inputs[1] };
+                inputs = $"{Inputs(two, 1.0)} +{(recipe.Inputs.Count - 2).ToString(CultureInfo.InvariantCulture)}";
+            }
+            return $"[{KeyName(key)}] {recipe.Building.Name}{of} · {inputs}";
         }
 
         // --- the filters of sorters and splitters (doc 04 §2.3, §2.4, doc 09 §2.7) -------------------
 
         /// <summary>In Build mode, at what has filters: the key that puts them up.</summary>
-        public static string FiltersNote(Construct built) => built.Def.FilterOutputs > 0 ? "   ·   [E] filters" : "";
+        public static string FiltersNote(Construct built) => built.Def.IsVehicleDepot ? "   ·   [E] route console" : built.Def.FilterOutputs > 0 ? "   ·   [E] filters" : "";
 
         public const string FilterHint = "A number key or a click: the next filter   ·   right click: back   ·   [E] or [Esc] close";
 
+        /// <summary>The hint under the cards: a depot's console says its stops are stepped as filters are.</summary>
+        public static string FilterHintFor(Construct built) => built.Def.IsVehicleDepot ? RouteHint : FilterHint;
+
+        public const string RouteHint = "A number key or a click: the next stop   ·   right click: back   ·   [E] or [Esc] close";
+
         public static string FilterTitle(Construct built) =>
-            built.Def.Behaviour == BuildingBehaviour.Sorter ? $"{built.Def.Name.ToUpperInvariant()}   ·   filters"
+            built.Def.IsVehicleDepot ? $"{built.Def.Name.ToUpperInvariant()}   ·   route console"
+            : built.Def.Behaviour == BuildingBehaviour.Sorter ? $"{built.Def.Name.ToUpperInvariant()}   ·   filters"
             : built.Def.PipeRole == PipeRole.Outlet ? $"{built.Def.Name.ToUpperInvariant()}   ·   what the inlets send it"
             : $"{built.Def.Name.ToUpperInvariant()}   ·   filters by kind";
 
         /// <summary>The ways out of a sorter or a splitter, as the panel names them (a sorter's last is its overflow).</summary>
-        public static string PortName(Construct built, int output) => built.Def.Behaviour == BuildingBehaviour.Inserter || built.Def.PipeRole == PipeRole.Outlet ? "Takes" : output switch
+        public static string PortName(Construct built, int output) => built.Def.IsVehicleDepot ? $"Stop {(output + 1).ToString(CultureInfo.InvariantCulture)}"
+            : built.Def.Behaviour == BuildingBehaviour.Inserter || built.Def.PipeRole == PipeRole.Outlet ? "Takes" : output switch
         {
             0 => "Front",
             1 => "Left",
@@ -894,6 +911,7 @@ namespace PerformativeMail.Client
         /// <summary>"Larch Lane", "District 2", "Letters"; an empty filter takes nothing on a sorter and anything on a splitter.</summary>
         public static string FilterName(ClientWorld world, Construct built, MailFilter filter)
         {
+            if (built.Def.IsVehicleDepot) return StopName(world, filter);
             switch (filter.Kind)
             {
                 case FilterKind.Street: return world.Map.GetStreet(filter.Value)?.Name ?? $"Street {filter.Value.ToString(CultureInfo.InvariantCulture)}";
@@ -908,6 +926,21 @@ namespace PerformativeMail.Client
                         return world.Belts.MailboxOn(OutletFront(world, built)) >= 0 ? "this house's mail" : "whatever no other outlet takes";
                     return built.Def.Behaviour == BuildingBehaviour.Sorter ? "nothing (no filter)"
                         : built.Def.Behaviour == BuildingBehaviour.Inserter ? "any mail" : "anything the others do not take";
+            }
+        }
+
+        /// <summary>A stop of a route (doc 04 §3.2): "4 Larch Lane", "Larch Lane · every house", "Post Office District · every house".</summary>
+        public static string StopName(ClientWorld world, MailFilter stop)
+        {
+            switch (stop.Kind)
+            {
+                case FilterKind.Address: return world.Map.GetDestination(stop.Value)?.Label ?? "a house";
+                case FilterKind.Street: return $"{world.Map.GetStreet(stop.Value)?.Name ?? "a street"}   ·   every house";
+                case FilterKind.District:
+                    foreach (var d in world.Map.Districts)
+                        if (d.Id == stop.Value && d.Name.Length > 0) return $"{d.Name}   ·   every house";
+                    return $"District {stop.Value.ToString(CultureInfo.InvariantCulture)}   ·   every house";
+                default: return "no stop";
             }
         }
 
@@ -926,6 +959,7 @@ namespace PerformativeMail.Client
         /// </summary>
         public static string[] FilterRow(ClientWorld world, Construct built, int output)
         {
+            if (built.Def.IsVehicleDepot) return StopRow(world, built, output);
             bool overflow = output >= built.Def.FilterOutputs;
             string head = overflow ? PortName(built, output) : $"[{KeyName(output)}]  {PortName(built, output)}";
             string what = overflow ? "whatever no filter catches" : FilterName(world, built, world.ShownFilter(built, output, 0));
@@ -936,7 +970,46 @@ namespace PerformativeMail.Client
             return new[] { head, what, matches };
         }
 
+        /// <summary>
+        /// A depot's card of a stop: its key and number with what it is, and how much of what is in
+        /// the truck in the bay it takes (the console's "matches N items", doc 09 §2.7).
+        /// </summary>
+        public static string[] StopRow(ClientWorld world, Construct built, int stop)
+        {
+            var filter = world.ShownFilter(built, stop, 0);
+            string head = $"[{KeyName(stop)}]  {PortName(built, stop)}   ·   {StopName(world, filter)}";
+            var status = world.FilterStatus;
+            string matches = filter.IsEmpty ? "a number key or a click sets it"
+                : status == null ? "…"
+                : (status.Buffered & DepotStatusTruck) == 0 ? "no truck in the bay"
+                : stop < status.Matches.Count ? $"{status.Matches[stop].ToString(CultureInfo.InvariantCulture)} for it in the truck" : "…";
+            return new[] { head, matches };
+        }
+
+        /// <summary>The bit of a depot's status that says a truck stands in its bay.</summary>
+        public const byte DepotStatusTruck = Sim.SimWorld.DepotTruckInBay;
+
+        /// <summary>Under a depot console's title: the round trip of its route at a driver's pace, from the bay.</summary>
+        public static string RouteLine(ClientWorld world, Construct built)
+        {
+            var stops = new List<Sim.Automation.MailFilter>();
+            for (int i = 0; i < built.Def.RouteStops; i++) stops.Add(world.ShownFilter(built, i, 0));
+            Sim.SimWorld.Bay(built, out float bx, out float bz, out _);
+            var houses = new List<DestinationDef>();
+            Sim.Vehicles.RoutePlan.Houses(world.Map, stops, bx, bz, null, houses);
+            if (houses.Count == 0) return "No stops yet: a route is a few houses, streets or districts";
+            float metres = Sim.Vehicles.RoutePlan.RoundTrip(world.Map, houses, bx, bz, new List<(float, float)>());
+            float speed = 0f;
+            foreach (var v in world.Content.Vehicles) if (v.LoadingFace) speed = MathF.Max(speed, v.RoadSpeed);
+            speed *= world.Content.Balance.GetFloat("npcSpeedRatio");
+            string n = houses.Count == 1 ? "1 house" : $"{houses.Count.ToString(CultureInfo.InvariantCulture)} houses";
+            return $"{n}   ·   {metres.ToString("F0", CultureInfo.InvariantCulture)} m round trip, about {Clock(speed > 0f ? metres / speed : 0f)} at a driver's pace";
+        }
+
         /// <summary>A sorter's line under its title: its buffer and what it has sent where. Empty for a splitter.</summary>
+        public static string FilterStatusLine(ClientWorld world, Construct built, SorterStatusEvent? status) =>
+            built.Def.IsVehicleDepot ? RouteLine(world, built) : FilterStatusLine(built, status);
+
         public static string FilterStatusLine(Construct built, SorterStatusEvent? status)
         {
             if (built.Def.Behaviour != BuildingBehaviour.Sorter) return "";
@@ -951,11 +1024,11 @@ namespace PerformativeMail.Client
             var built = world.FilterTarget;
             if (built == null) return "";
             var lines = new List<string> { FilterTitle(built) };
-            string status = FilterStatusLine(built, world.FilterStatus);
+            string status = FilterStatusLine(world, built, world.FilterStatus);
             if (status.Length > 0) lines.Add(status);
             int rows = built.Def.FilterOutputs + (built.Def.Behaviour == BuildingBehaviour.Sorter ? 1 : 0);
             for (int o = 0; o < rows; o++) lines.AddRange(FilterRow(world, built, o));
-            lines.Add(FilterHint);
+            lines.Add(FilterHintFor(built));
             return string.Join("\n", lines);
         }
 
@@ -1006,6 +1079,7 @@ namespace PerformativeMail.Client
                 case OpResult.RecipeLocked: return $"From shift {recipe.UnlockShift.ToString(CultureInfo.InvariantCulture)}";
                 case OpResult.WrongPhase: return BuildClosed;
                 case OpResult.Dead: return "Not while you are down";
+                case OpResult.DepotLimit: return "One Vehicle Depot for every two carriers stands already";
                 default: return "Cannot be built here";
             }
         }
@@ -1294,6 +1368,8 @@ namespace PerformativeMail.Client
                 case InteractKind.OpenShop:
                     return p.ShopClosed ? $"Shop   ·   {ClosedWord} — the counter serves in Prep and at Payday" : "Open Shop  [E]";
                 case InteractKind.CloseShop: return "Close Shop  [E]";
+                case InteractKind.Configure when p.Built!.Def.IsVehicleDepot: return $"Open the route console of the {p.Built.Def.Name}  [E]";
+                case InteractKind.CloseFilters when p.Built!.Def.IsVehicleDepot: return $"Close the route console of the {p.Built.Def.Name}  [E]";
                 case InteractKind.Configure: return $"Set the filters of the {p.Built!.Def.Name}  [E]";
                 case InteractKind.CloseFilters: return $"Close the filters of the {p.Built!.Def.Name}  [E]";
                 case InteractKind.Mount:

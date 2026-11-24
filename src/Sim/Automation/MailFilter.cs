@@ -13,31 +13,43 @@ namespace PerformativeMail.Sim.Automation
         District = 2,
         /// <summary>A kind of mail (letters, parcels…), whatever the address.</summary>
         Kind = 3,
+        /// <summary>
+        /// One house, by its index in the map's destinations: a stop of a Vehicle Depot's route
+        /// (doc 04 §3.2 "a destination address"); no sorter filters by it.
+        /// </summary>
+        Address = 4,
     }
 
     /// <summary>
     /// One filter (doc 04 §2.4: district, street, kind; doc 08 §3.5 ConstructState config). On the
-    /// wire it is 16 bits, the kind over the value: a street's or district's id, a mail kind's index.
+    /// wire it is 16 bits, the kind over the value: a street's or district's id, a mail kind's index;
+    /// an <see cref="FilterKind.Address"/> is the top bit over 15 bits of a destination's index.
     /// </summary>
     public readonly struct MailFilter : System.IEquatable<MailFilter>
     {
         public readonly FilterKind Kind;
-        public readonly byte Value;
+        public readonly ushort Value;
 
         public MailFilter(FilterKind kind, int value)
         {
             Kind = kind;
-            Value = kind == FilterKind.None ? (byte)0 : (byte)value;
+            Value = kind switch
+            {
+                FilterKind.None => 0,
+                FilterKind.Address => (ushort)(value & 0x7FFF),
+                _ => (byte)value,
+            };
         }
 
         public static readonly MailFilter Empty = default;
 
         public bool IsEmpty => Kind == FilterKind.None;
 
-        public ushort Encode() => (ushort)(((int)Kind << 8) | Value);
+        public ushort Encode() => Kind == FilterKind.Address ? (ushort)(0x8000 | Value) : (ushort)(((int)Kind << 8) | Value);
 
         public static MailFilter Decode(ushort bits)
         {
+            if ((bits & 0x8000) != 0) return new MailFilter(FilterKind.Address, bits & 0x7FFF);
             var kind = (FilterKind)(bits >> 8);
             return kind > FilterKind.Kind ? Empty : new MailFilter(kind, bits & 0xFF);
         }

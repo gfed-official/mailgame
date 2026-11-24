@@ -28,7 +28,10 @@ namespace PerformativeMail.Sim.Tests
             + "\"grants\": { \"blueprint\": \"bp_sorting\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }, "
             // The pipes' (from the last shift too).
             + "{ \"id\": \"bp_pipes\", \"name\": \"Pneumatics\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 700, "
-            + "\"grants\": { \"blueprint\": \"bp_pipes\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }";
+            + "\"grants\": { \"blueprint\": \"bp_pipes\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }, "
+            // The Vehicle Depot's (from the last shift too).
+            + "{ \"id\": \"bp_truck\", \"name\": \"Motor Pool\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 500, "
+            + "\"grants\": { \"blueprint\": \"bp_truck\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }";
 
         private uint _nextRequest = 1;
         private uint _nextMailId = 960000;

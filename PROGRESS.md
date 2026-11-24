@@ -618,6 +618,11 @@ was found broken.
       sorters crowded the lines out), and `RandomNetworks_FeedDepots` checks over four seeds that
       depots really were fed. All invariants held on every seed
 
+### 2m. A check of pipes, the Mail Truck, the Long Inserter, belts, the sorter, the inserter and the Depot on 136f335 (2026-11-24)
+
+No playtest on 136f335. Build, Sim.Tests (459), Net.Tests (183) and both smokes were green on it;
+nothing was found broken in those systems, so nothing needed fixing before the next features.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
@@ -1428,6 +1433,33 @@ the whole line exists; the sub-lines say which parts do.
             belts out of the outfeed, the Intake's mail rides into its bay, the prompt reads with its
             fuel, the host gets in, and it is taken away again (`truck` shot). The Vehicle Depot,
             the route console and NPC drivers are next; passengers wait for them
+      - [x] **Vehicle Depot and its Route Console** (doc 04 §3.2, doc 10 §2.2, doc 09 §2.7; design
+            choice 109). `vehicle_depot` (behaviour `vehicle_depot`, footprint [3, 3], 1000 HP, 12
+            Planks, 8 Stones and 4 Iron Ingots, behind `bp_truck`) on the chest's key (the wheel's
+            3/3: Build mode keeps ten keys); one for every two carriers in the game, rounded up
+            (`DepotLimit`, the ghost says so). It is a pad: walked and driven over. Its **bay** is the
+            middle of its nine tiles, facing the way it does (`SimWorld.Bay`); a truck got off with
+            its middle on the pad is set into the bay if that is free (`SnapIntoBay`), and its rear
+            then stands on the back middle tile, its **loading face**: a belt ending into that tile
+            or an inserter facing it loads the truck. Its **Route Console** stands at the left of
+            the bay (`SimWorld.Console`, the aim box there): E opens it on the filter panel — six
+            stop cards, each stepped by its number key or a click (right click back) through the
+            houses open by this shift, their streets and their districts (`FilterKind.Address`, a
+            house by its destination index in 15 bits of the filter's 16); each card says how many
+            pieces in the truck in the bay are for it, the line under the title how many houses the
+            route visits and its round trip by the streets at a driver's pace
+            (`Vehicles/RoutePlan`: the houses of each stop nearest first, each once; the server's
+            driver will plan by the same code). Stops are kept as the construct's filters, so they
+            travel by `ConstructConfigured` and the Welcome; protocol `m2.7`. Drawn as a concrete
+            pad with the bay painted in yellow, a ribbed steel canopy on four orange posts, the
+            loading face hatched with an amber arrow, and a grey console with a lit screen. A
+            recipe card of three materials names two and "+1" (the prompt names all).
+            `VehicleDepotTests` (content; the blueprint and the limit; a truck got off crooked set
+            into the bay, a belt and an inserter loading it there; walked over; the console's stops,
+            refusals and counts, the plan), shop and content pins; in the smoke the wheel on the
+            chest's key builds one (`vehicle-depot-ghost`), a truck stands in its bay with two
+            letters, E at the console puts it up and key 1 makes stop 1 the first house with "2 for
+            it in the truck" (`vehicle-depot-console`, `vehicle-depot`), and it is taken down
 - [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
@@ -2519,6 +2551,20 @@ See "Commands" at the bottom (filled in as the tooling lands).
     tile, loads it; (f) a carrier may own one vehicle of each kind (a bike and a truck), the
     counter's old "one for each carrier" now per kind; (g) a free entry (a grant) reads "You were
     given …" in the feed.
+
+109. **The Vehicle Depot.** Doc 04 §3.2 gives 3 × 3 tiles, "one parking zone, one loading face,
+    one Route Console", stops of an address, a district macro or a construct, and one depot per
+    two players rounded up; doc 10 its HP, cost and blueprint. Choices: (a) it is a pad that
+    walkers and vehicles cross, its canopy drawn high over a truck; (b) the bay is the middle
+    tile, the loading face the back middle tile (where a truck's rear stands in the bay), and a
+    truck got off with its middle on the pad is set straight into the bay, so belts meet its rear;
+    (c) six stops, each a house, a street or a district — a street is a macro like a district;
+    construct stops (a Depot, a Port) wait for the ports; (d) a stop is set on the console's cards
+    as a sorter's filter is, stepping through houses, then streets, then districts open by the
+    shift: the map's route editor of doc 09 §2.6 waits for the map screen's layers; (e) the
+    recipe is open from shift 1 and its blueprint (sold from shift 2) is what holds it back; (f) it
+    shares the chest's key of Build mode (doc 09 groups it under Vehicles, but Build mode has ten
+    keys and every group but two is used).
 
 ## Commands
 

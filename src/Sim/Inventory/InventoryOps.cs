@@ -86,6 +86,8 @@ namespace PerformativeMail.Sim.Inventory
         TankFull,
         /// <summary>The pockets hold no Oil Can.</summary>
         NoOilCan,
+        /// <summary>Doc 04 §3.2: one Vehicle Depot for every two carriers, rounded up, stands already.</summary>
+        DepotLimit,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

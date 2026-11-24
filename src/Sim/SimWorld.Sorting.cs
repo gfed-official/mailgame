@@ -60,13 +60,16 @@ namespace PerformativeMail.Sim
         /// <summary>A sorter and a pipe outlet filter by street, district or kind of this map and content; a splitter and an inserter by kind only (doc 04 §2.3).</summary>
         private bool FilterExists(BuildingDef def, MailFilter filter)
         {
+            // A depot's stops: a house, a street or a district (doc 04 §3.2), never a kind.
+            if (def.IsVehicleDepot && filter.Kind == FilterKind.Kind) return false;
+            if (filter.Kind == FilterKind.Address) return def.IsVehicleDepot && Map.GetDestination(filter.Value) != null;
             switch (filter.Kind)
             {
                 case FilterKind.None: return true;
                 case FilterKind.Kind: return filter.Value < Content.MailKinds.Count;
-                case FilterKind.Street: return def.FiltersAddresses && Map.GetStreet(filter.Value) != null;
+                case FilterKind.Street: return (def.FiltersAddresses || def.IsVehicleDepot) && Map.GetStreet(filter.Value) != null;
                 case FilterKind.District:
-                    if (!def.FiltersAddresses) return false;
+                    if (!def.FiltersAddresses && !def.IsVehicleDepot) return false;
                     foreach (var d in Map.Districts) if (d.Id == filter.Value) return true;
                     return false;
                 default: return false;
@@ -117,6 +120,14 @@ namespace PerformativeMail.Sim
             bool sorter = built.Def.Behaviour == BuildingBehaviour.Sorter;
             int outputs = built.Def.FilterOutputs + (sorter ? 1 : 0);
             var matches = new int[outputs];
+            if (built.Def.IsVehicleDepot)
+            {
+                ev.Buffered = DepotStatus(built);
+                CountRouteMatches(built, matches);
+                foreach (int n in matches) ev.Matches.Add((ushort)Math.Min(ushort.MaxValue, n));
+                Events.Add(ev);
+                return;
+            }
             foreach (var e in Intake.Entries)
             {
                 if (e.Stack.Kind != StackKind.Mail) continue;

@@ -32,6 +32,8 @@
     "inputs": [ { "item": "iron_ingot", "count": 3 }, { "item": "plank", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_sorting", "group": "sorting" },
   { "id": "recipe_depot", "produces": { "building": "depot" },
     "inputs": [ { "item": "stone", "count": 8 }, { "item": "iron_ingot", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "group": "storage" },
+  { "id": "recipe_vehicle_depot", "produces": { "building": "vehicle_depot" },
+    "inputs": [ { "item": "plank", "count": 12 }, { "item": "stone", "count": 8 }, { "item": "iron_ingot", "count": 4 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_truck", "group": "storage" },
   { "id": "recipe_pipe", "produces": { "building": "pipe" },
     "inputs": [ { "item": "iron_ingot", "count": 1 }, { "item": "glass", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_pipes", "group": "pipe" },
   { "id": "recipe_pipe_underground", "produces": { "building": "pipe_underground" },

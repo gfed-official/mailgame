@@ -623,6 +623,18 @@ namespace PerformativeMail.Client
         public List<MailFilter> FilterChoices(Construct built)
         {
             var choices = new List<MailFilter> { MailFilter.Empty };
+            if (built.Def.IsVehicleDepot)
+            {
+                // A route's stops (doc 04 §3.2): the houses open by this shift, then their streets and districts.
+                int open = Math.Max(1, (int)Global.Shift);
+                foreach (var d in Map.Destinations)
+                    if (DistrictOpen(d.Address.District, open)) choices.Add(new MailFilter(FilterKind.Address, d.Id));
+                foreach (var street in Map.Streets)
+                    if (DistrictOpen(street.District, open)) choices.Add(new MailFilter(FilterKind.Street, street.Id));
+                foreach (var d in Map.Districts)
+                    if (d.UnlockShift <= open) choices.Add(new MailFilter(FilterKind.District, d.Id));
+                return choices;
+            }
             if (built.Def.FiltersAddresses)
             {
                 int shift = Math.Max(1, (int)Global.Shift);
@@ -753,8 +765,9 @@ namespace PerformativeMail.Client
             var tile = BuildRules.CheckPlacement(Map, Constructs, recipe.Building, tx, tz, rotation);
             if (tile != OpResult.Ok) return tile;
             if (!BuildRules.InRange(tx, tz, Local.X, Local.Z, Content.Balance.GetFloat("buildRange"))) return OpResult.OutOfRange;
-            // What lies flat is laid under the feet.
             var def = recipe.Building;
+            if (def.IsVehicleDepot && VehicleDepotCount() >= VehicleDepotLimit) return OpResult.DepotLimit;
+            // What lies flat is laid under the feet.
             if (def.Solid)
                 for (int i = 0; i < def.TileCount; i++)
                 {
@@ -762,6 +775,24 @@ namespace PerformativeMail.Client
                     if (TileOccupied(x, z)) return OpResult.Occupied;
                 }
             return state;
+        }
+
+        /// <summary>Doc 04 §3.2 "one depot per 2 players rounded up", of those in the game as the server's PresentCount.</summary>
+        public int VehicleDepotLimit
+        {
+            get
+            {
+                int present = 0;
+                foreach (var p in Players.Values) if (!p.Away) present++;
+                return Math.Max(1, (present + 1) / 2);
+            }
+        }
+
+        public int VehicleDepotCount()
+        {
+            int n = 0;
+            foreach (var c in Constructs.All) if (c.Def.IsVehicleDepot) n++;
+            return n;
         }
 
         /// <summary>

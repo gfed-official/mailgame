@@ -1210,6 +1210,177 @@ namespace PerformativeMail.App
                     var built = world.Constructs.At(_splitX, _splitZ);
                     if (built != null && client.PendingRequestCount == 0 && _beltFrames == 8) client.RemoveConstruct(built);
                     if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
+                    _beltStep = 33;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 33:
+                {
+                    // The Vehicle Depot (doc 04 §3.2, bp_truck, granted with the truck): the wheel on the
+                    // chest's key, on nine open tiles.
+                    if (_beltFrames < 2) break;
+                    var player = server.GetPlayer(world.LocalId)!;
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("plank"), 12)), "no room for twelve Planks");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("stone"), 8)), "no room for eight Stones");
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 4)), "no room for four Iron Ingots");
+                    var vd = world.Content.Building("vehicle_depot");
+                    var map = world.Map;
+                    int hx = (int)MathF.Floor(world.Local.X / SimConstants.TileSize), hz = (int)MathF.Floor(world.Local.Z / SimConstants.TileSize);
+                    _splitX = -1;
+                    for (int r = 2; r <= 12 && _splitX < 0; r++)
+                        for (int dz = -r; dz <= r && _splitX < 0; dz++)
+                            for (int dx = -r; dx <= r && _splitX < 0; dx++)
+                            {
+                                int x = hx + dx, z = hz + dz;
+                                if ((Math.Abs(dx) != r && Math.Abs(dz) != r) || BuildRules.CheckPlacement(map, world.Constructs, vd, x, z, 0) != OpResult.Ok) continue;
+                                if (BuildRules.CheckTile(map, world.Constructs, x - 1, z) != OpResult.Ok || !FreeGround(map, BuildRules.TileCentre(x - 1), BuildRules.TileCentre(z), -1)) continue;
+                                (_splitX, _splitZ) = (x, z);
+                            }
+                    if (_splitX < 0)
+                    {
+                        Fail("no nine open tiles near the Post Office for the Vehicle Depot");
+                        return false;
+                    }
+                    player.Move.X = BuildRules.TileCentre(_splitX - 1) - 0.4f;
+                    player.Move.Z = BuildRules.TileCentre(_splitZ);
+                    if (!build.Active) Check(build.Toggle(), $"B did not put Build mode up for the Vehicle Depot ({build.Refused})");
+                    var chestKey = world.Content.Recipes.First(r => r.Building.Id == "chest").Key;
+                    Check(build.PressKey(chestKey), "the chest's key did not take");
+                    for (int i = 0; i < 3 && build.Recipe?.Building != vd; i++) build.Cycle(1);
+                    for (int i = 0; i < 4 && build.Rotation != 0; i++) build.Rotate();
+                    Check(build.Recipe?.Building == vd, $"the wheel on key {chestKey + 1} never came to the Vehicle Depot ({build.Recipe?.Building.Name})");
+                    _beltStep = 34;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 34:
+                {
+                    AimAtTile(_splitX, _splitZ);
+                    var built = world.Constructs.At(_splitX, _splitZ);
+                    if (built == null)
+                    {
+                        if (_beltFrames == 8)
+                        {
+                            build.Update(1.0 / 30.0, false, false);
+                            hud.Refresh();
+                            Check(build.Ghost.State == OpResult.Ok && hud.PromptText.StartsWith("Build Vehicle Depot", StringComparison.Ordinal),
+                                $"the Vehicle Depot's ghost at ({_splitX}, {_splitZ}) is {build.Ghost.State}, the prompt \"{hud.PromptText}\"");
+                            Shot("vehicle-depot-ghost");
+                            build.Update(1.0 / 30.0, true, false);
+                            return true;
+                        }
+                        break;
+                    }
+                    if (client.PendingRequestCount > 0) break;
+                    Check(built.Def.Id == "vehicle_depot" && world.Constructs.At(_splitX + 2, _splitZ + 2) == built,
+                        $"the Vehicle Depot at ({_splitX}, {_splitZ}) is a {built.Def.Id}, not on nine tiles");
+                    Check(build.Toggle() == false, "B did not put Build mode down at the Vehicle Depot");
+                    // A truck in its bay, two letters in it for the first house.
+                    var truth = server.Constructs.At(_splitX, _splitZ)!;
+                    SimWorld.Bay(truth, out float bx, out float bz, out float heading);
+                    var truck = server.AddVehicleAt(world.Content.Vehicle("mail_truck"), bx, bz, heading, server.GetPlayer(world.LocalId)!.Id);
+                    var first = world.Map.Destinations[0];
+                    for (uint i = 0; i < 2; i++)
+                        Check(server.Give(truck.Cargo, ItemStack.OfMail(new MailItem { Id = 990301 + i, Kind = 1, Address = first.Address, Value = 8, SpawnShift = 1, DeadlineShift = 3 })), "no room in the truck");
+                    Check(server.InBay(truth) == truck, "the truck put into the bay is not in it");
+                    _beltStep = 35;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 35:
+                {
+                    var built = world.Constructs.At(_splitX, _splitZ)!;
+                    var box = AimBox.Built(world.Map, built);
+                    var player = server.GetPlayer(world.LocalId)!;
+                    // Before the console, facing it from outside the depot.
+                    SimWorld.Console(built, out float kx, out float kz);
+                    if (_beltFrames == 1) { player.Move.X = kx; player.Move.Z = kz - 2.2f; }
+                    ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    if (_beltFrames < 10) break;
+                    if (!_botAside)
+                    {
+                        client.TickStarting -= _botTick;
+                        _botAside = true;
+                    }
+                    _session.Interaction.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
+                    if (world.FilterTarget == null)
+                    {
+                        if (_beltFrames == 12)
+                            Check(_session.Interaction.Prompt.Kind == InteractKind.Configure && hud.PromptText == "Open the route console of the Vehicle Depot  [E]",
+                                $"at the console the prompt reads \"{hud.PromptText}\" ({_session.Interaction.Prompt.Kind})");
+                        if (_beltFrames % 10 == 2) _session.Interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
+                        break;
+                    }
+                    var panel = _screen.Inventory.Filters;
+                    if (world.FilterStatus == null || !panel.IsVisibleInTree() || _beltFrames < 20) break;
+                    Check(panel.Text == HudText.FilterText(world) && panel.CardCount == 6,
+                        $"the route console reads \"{panel.Text}\" ({panel.CardCount} cards), not \"{HudText.FilterText(world)}\"");
+                    Check(panel.Text.StartsWith("VEHICLE DEPOT   ·   route console\nNo stops yet", StringComparison.Ordinal), $"the console begins \"{panel.Text}\"");
+                    Check(client.PressFilterKey(0), "key 1 was not the console's");
+                    _beltStep = 36;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 36:
+                {
+                    var built = world.FilterTarget;
+                    var truth = server.Constructs.At(_splitX, _splitZ);
+                    if (built == null || truth == null || truth.Filter(0, 0).IsEmpty || client.PendingRequestCount > 0 || _beltFrames < 3) break;
+                    var panel = _screen.Inventory.Filters;
+                    if (world.FilterStatus == null || world.FilterStatus.Matches.Count == 0 || world.FilterStatus.Matches[0] == 0) break;
+                    var first = world.Map.Destinations[0];
+                    Check(truth.Filter(0, 0) == new MailFilter(FilterKind.Address, first.Id) && built.Filter(0, 0) == truth.Filter(0, 0),
+                        $"key 1 set stop 1 to {truth.Filter(0, 0).Kind} {truth.Filter(0, 0).Value}, not the first house");
+                    Check(panel.Text == HudText.FilterText(world) && panel.Text.Contains($"[1]  Stop 1   ·   {first.Label}\n2 for it in the truck", StringComparison.Ordinal)
+                        && panel.Text.Contains("1 house   ·   ", StringComparison.Ordinal),
+                        $"the console after key 1 reads \"{panel.Text}\"");
+                    var seen = GetViewport().GetVisibleRect();
+                    for (int c = 0; c < panel.CardCount; c++)
+                        Check(seen.Encloses(panel.CardAt(c).GetGlobalRect()), $"the console's card {c + 1} at {panel.CardAt(c).GetGlobalRect()} leaves the view");
+                    Shot("vehicle-depot-console");
+                    GD.Print($"[smoke] vehicle depot: built at ({_splitX}, {_splitZ}) on nine tiles by the wheel on the chest's key, a truck in its bay, the route console up by E, stop 1 set to {first.Label} by key 1 with the truck's 2 letters for it");
+                    Check(client.CloseFilters(), "the console was not up to take down");
+                    _beltStep = 37;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 37:
+                {
+                    var built = world.Constructs.At(_splitX, _splitZ);
+                    if (built == null)
+                    {
+                        if (client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
+                        _beltStep = 32;
+                        _beltFrames = 0;
+                        break;
+                    }
+                    var player = server.GetPlayer(world.LocalId)!;
+                    if (_botAside)
+                    {
+                        client.TickStarting += _botTick;
+                        _botAside = false;
+                    }
+                    // For the picture: back from its open side.
+                    if (_beltFrames == 1) { player.Move.X = built.CentreX - 9f; player.Move.Z = built.CentreZ + 4f; }
+                    ViewRay.Aim(world.Local, built.CentreX, 1.4f, built.CentreZ, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    if (_beltFrames < 16) break;
+                    if (_beltFrames == 16)
+                    {
+                        view.Refresh();
+                        Shot("vehicle-depot");
+                        Check(server.RemoveVehicle(server.Vehicles.First(v => v.Def.Id == "mail_truck")), "the truck was not taken away");
+                        player.Move.X = BuildRules.TileCentre(_splitX - 1) - 0.4f;
+                        player.Move.Z = BuildRules.TileCentre(_splitZ);
+                        break;
+                    }
+                    if (_beltFrames == 24 && client.PendingRequestCount == 0) client.RemoveConstruct(built);
+                    if (_beltFrames < 24 || client.PendingRequestCount > 0 || server.Constructs.At(_splitX, _splitZ) != null) break;
                     _beltStep = 32;
                     _beltFrames = 0;
                     break;
