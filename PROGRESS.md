@@ -629,6 +629,9 @@ No playtest. Build, Sim.Tests (469), Net.Tests (185) and both smokes were green;
 failed once on its 2 ms tick budget (p99 2.02 ms, one 6.2 ms tick with a GC pause while the box
 was loaded) and passed twice when run again: load on the shared machine, not a regression.
 Nothing in pipes, the truck, the inserters, belts, the sorter or the depots needed fixing.
+Later in the batch (on the sea path) one `tools/smoke.sh` hung in the first smoke after the hot
+reload and one island bot run timed out right after joining, both while other sessions loaded the
+box; each passed alone at once and the whole script passed again after. Watch for it.
 
 ### 3. Further features from `design/drive/`, in milestone order
 

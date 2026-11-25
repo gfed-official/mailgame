@@ -251,9 +251,9 @@ namespace PerformativeMail.App
                     var boat = server.InBay(built)!;
                     if (boat.Cargo.EntryCount == 0 || !world.Vehicles.ContainsKey(boat.Id)) break;
                     Check(_screen.Vehicles.TryGetPosition(boat.Id, out var drawn) && drawn.Y < -0.3f, "the Motor Boat is not drawn on the water");
-                    // Back on the quay's corner, looking over the port to the boat.
-                    player.Move.X = BuildRules.TileCentre(_portX + 1) + 0.6f;
-                    player.Move.Z = BuildRules.TileCentre(PortZ - 1);
+                    // On the quay's edge beside the bay, looking at the boat.
+                    player.Move.X = boat.X + 1.3f;
+                    player.Move.Z = BuildRules.TileCentre(PortZ + 1) + 0.3f;
                     ViewRay.Aim(world.Local, boat.X, 0.4f, boat.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
                     next = true;
                     break;
@@ -263,8 +263,13 @@ namespace PerformativeMail.App
                     var built = server.Constructs.At(_portX, PortZ)!;
                     var boat = server.InBay(built)!;
                     if (MathF.Abs(world.Local.X - player.Move.X) > 0.1f || _boatFrames < 10) break;
-                    ViewRay.Aim(world.Local, boat.X, 0.4f, boat.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    var here = world.Vehicles[boat.Id];
+                    var box = AimBox.Vehicle(world.Map, here.Def, here.X, here.Z, here.Heading);
+                    ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    _session.Interaction.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
                     if (_boatFrames < 14) break;
+                    Check(hud.PromptText == $"Drive the Motor Boat  [E]   ·   {HudText.FuelText(here)}", $"at the port the prompt reads \"{hud.PromptText}\"");
                     Shot("small-port");
                     GD.Print($"[smoke] boats: a Small Port built on the deep quay at ({_portX}, {PortZ}), a Motor Boat in its bay loaded from a belt into its loading face");
                     _boatVisits++;
