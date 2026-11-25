@@ -649,6 +649,10 @@ A read of the sea path found two ways to be stuck in the basin, both fixed (desi
       `PortTests.AMotorBoatRunDryOnTheWater_*`, `CodecTests` (the move flag)
 
 Nothing in the Vehicle Depot, drivers, the truck, pipes, inserters or belts needed fixing.
+Later in the batch the rendered smoke (`--shots` at 1280 × 720) found the shop's cards running off
+the screen once Blueprint: Oil made 21 (choice 118); after the fix it passed whole (SMOKE OK), with
+shots of the dock, the port's console, the pump, the ping wheel and the pings. One rendered run
+before that had the ENet guest time out joining while the box was loaded; the next passed.
 
 ### 3. Further features from `design/drive/`, in milestone order
 
@@ -2880,9 +2884,9 @@ See "Commands" at the bottom (filled in as the tooling lands).
     standing a carrier on the screen; (d) a ping in the feed for everyone, red for danger; (e)
     until the compass strip exists, the beam (7 m of light) shows the way from afar.
 
-118. **A crowded counter.** With Blueprint: Oil the shelf of shift 2 holds 22 cards, one more
-    than seven rows of three fit at 1280 × 720 (the rendered smoke caught it). Choice: above 21
-    cards the counter lays them four abreast and narrower, without the line saying what each is
+118. **A crowded counter.** With Blueprint: Oil the shelf holds 21 cards in shift 1 and 22 in
+    shift 2; seven rows of three do not fit at 1280 × 720 (the rendered smoke caught it; 20 did).
+    Choice: above 20 cards the counter lays them four abreast and narrower, without the line saying what each is
     (name, price and note stay; `HudText.ShopCompact`).
 
 ## Commands

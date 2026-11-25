@@ -748,8 +748,8 @@ namespace PerformativeMail.Client
             };
         }
 
-        /// <summary>The most cards the counter lays out in full (seven rows of three at 1280 × 720).</summary>
-        public const int ShopRoomyCards = 21;
+        /// <summary>The most cards the counter lays out in full (seven rows of three, the last short, at 1280 × 720).</summary>
+        public const int ShopRoomyCards = 20;
 
         /// <summary>More cards than that: four narrower ones abreast, without what each is (its name, price and note stay).</summary>
         public static bool ShopCompact(ClientWorld world) => world.ShopShelf.Count > ShopRoomyCards;
