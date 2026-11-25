@@ -459,7 +459,7 @@ namespace PerformativeMail.Net.Tests
             // A run starts with an empty wallet: every card says so, but the one that is not sold yet.
             Assert.Equal(OpResult.CantAfford, a.ShopState(bandages));
             Assert.Equal(OpResult.ShopLocked, a.ShopState(oil));
-            Assert.Equal("Not enough money", HudText.ShopNote(a, bandages));
+            Assert.Equal("Not enough gold", HudText.ShopNote(a, bandages));
             Assert.Equal("From shift 2", HudText.ShopNote(a, oil));
             Assert.True(ada.PressShopKey(0));
             Assert.False(a.IsBuying(bandages));
@@ -469,14 +469,14 @@ namespace PerformativeMail.Net.Tests
             s.Sim.Economy.AddLoot(1000);
             s.Run(5);
             Assert.Equal(1000, a.Global.Wallet);
-            Assert.Equal("SHOP   ·   team wallet $10.00", HudText.ShopTitle(a));
-            Assert.Equal(new[] { "[1]  Bandages ×3", "SPECIAL   ·   $0.64  (was $0.80)", "Each gives 50 HP back at once.", "" }, HudText.ShopCard(a, bandages, 0));
-            Assert.Equal(new[] { "[2]  Planks ×20", "$1.40", "Sawn timber.", "" }, HudText.ShopCard(a, planks, 1));
-            Assert.Equal(new[] { "[4]  Defense Blueprint", "$3.00", "Walls that hold.", "Once per run, for the whole team" }, HudText.ShopCard(a, blueprint, 3));
+            Assert.Equal("SHOP   ·   team wallet 1000 g", HudText.ShopTitle(a));
+            Assert.Equal(new[] { "[1]  Bandages ×3", "SPECIAL   ·   64 g  (was 80 g)", "Each gives 50 HP back at once.", "" }, HudText.ShopCard(a, bandages, 0));
+            Assert.Equal(new[] { "[2]  Planks ×20", "140 g", "Sawn timber.", "" }, HudText.ShopCard(a, planks, 1));
+            Assert.Equal(new[] { "[4]  Defense Blueprint", "300 g", "Walls that hold.", "Once per run, for the whole team" }, HudText.ShopCard(a, blueprint, 3));
             // A rotating entry is on the counter because it is a special; its price is its price.
-            Assert.Equal(new[] { "[5]  First-Aid Kit", "SPECIAL   ·   $1.05", "Five Bandages for the price of four.", "" }, HudText.ShopCard(a, kit, 4));
+            Assert.Equal(new[] { "[5]  First-Aid Kit", "SPECIAL   ·   105 g", "Five Bandages for the price of four.", "" }, HudText.ShopCard(a, kit, 4));
             string text = HudText.ShopText(a);
-            Assert.StartsWith("SHOP   ·   team wallet $10.00\n[1]  Bandages ×3\n", text);
+            Assert.StartsWith("SHOP   ·   team wallet 1000 g\n[1]  Bandages ×3\n", text);
             Assert.EndsWith("\n" + HudText.ShopHint, text);
             Assert.Equal(1 + 3 + 3 + 4 + 4 + 4 + 4 + 4 + 4 + 3 + 1, text.Split('\n').Length);
             Assert.Equal("", HudText.ShopText(b));
@@ -493,8 +493,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(936, b.Global.Wallet);
             Assert.Equal(3, Units(a.Hotbar, s.Content, "bandage"));
             Assert.Equal(0, Units(a.Inventory, s.Content, "bandage"));
-            Assert.Contains("You bought Bandages ×3  -$0.64", adaFeed.Entries.Select(e => e.Text));
-            Assert.Contains("Ada bought Bandages ×3  -$0.64", boFeed.Entries.Select(e => e.Text));
+            Assert.Contains("You bought Bandages ×3  -64 g", adaFeed.Entries.Select(e => e.Text));
+            Assert.Contains("Ada bought Bandages ×3  -64 g", boFeed.Entries.Select(e => e.Text));
 
             // Materials go to the bag.
             Assert.NotEqual(0u, ada.Buy(planks));
@@ -562,7 +562,7 @@ namespace PerformativeMail.Net.Tests
             s.Run(10);
             Assert.Equal(36 + 7, a.Global.Wallet);
             Assert.Equal(2, Units(a.Hotbar, s.Content, "bandage"));
-            Assert.Contains("You sold 1 Bandage  +$0.07", feed.Entries.Select(e => e.Text));
+            Assert.Contains("You sold 1 Bandage  +7 g", feed.Entries.Select(e => e.Text));
             // A sale is the team's money, not the shift's earnings.
             Assert.Equal(0, s.Sim.Economy.ShiftEarnings);
 

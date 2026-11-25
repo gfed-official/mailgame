@@ -139,6 +139,8 @@ Grids larger than \~10x16 are not rendered as full grids. Containers with more t
 
 One team wallet (integer ¢). Delivery income adds, misdelivery subtracts, purchases subtract, refunds add. Balance may go negative only via misdelivery, floored at −500 ¢. Shop purchases require sufficient balance.
 
+On screen the currency is shown as gold, 1 gold = 1 ¢ ("600 g"); the amounts in these docs are unchanged (Evan, 2026-11-25).
+
 ### 4.2 Income sources
 
 | Source | Amount |  

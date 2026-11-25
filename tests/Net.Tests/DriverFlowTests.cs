@@ -66,12 +66,12 @@ namespace PerformativeMail.Net.Tests
             Assert.NotEqual(0u, client.OpenFilters(built));
             Run(5);
             Assert.NotEqual(0u, client.SetFilter(0, 0, new MailFilter(FilterKind.Address, far.Id)));
-            Assert.Contains("[7]  Driver   ·   hire for this shift, $1.50", HudText.FilterText(a));
+            Assert.Contains("[7]  Driver   ·   hire for this shift, 150 g", HudText.FilterText(a));
             Assert.True(client.PressFilterKey(6));
             Run(10);
             Assert.Equal(DriverState.Waiting, sim.DriverAt(depot)!.State);
             Assert.Contains("[7]  Driver   ·   hired for this shift   ·   0 delivered\nwaiting for a truck with mail for the route, in Delivery", HudText.FilterText(a));
-            Assert.Contains(feed.Entries, e => e.Text == "You hired a driver for the Vehicle Depot   ·   $1.50");
+            Assert.Contains(feed.Entries, e => e.Text == "You hired a driver for the Vehicle Depot   ·   150 g");
             Assert.True(client.CloseFilters());
 
             // One who joins (in Prep) hears that a driver waits there, and the feed has no news of it.

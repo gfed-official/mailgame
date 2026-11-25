@@ -150,16 +150,16 @@ namespace PerformativeMail.Net.Tests
             client.PressGo();
             s.Step(10);
             Assert.StartsWith("Shift 1 / 5   PREP 01:00", HudText.ShiftAndPhase(world));
-            Assert.Equal("Quota $6.00", HudText.Quota(world.Global));
+            Assert.Equal("Quota 600 g", HudText.Quota(world.Global));
             Assert.Contains("[G] ready (0 / 1)", HudText.PhaseHint(world));
             Assert.Contains(feed.Entries, e => e.Text.StartsWith("Shift 1: get ready"));
 
             client.PressGo();
             s.Step(10);
             Assert.StartsWith("Shift 1 / 5   DELIVERY 0", HudText.ShiftAndPhase(world));
-            Assert.Equal("Quota $0.00 / $6.00", HudText.Quota(world.Global));
+            Assert.Equal("Quota 0 g / 600 g", HudText.Quota(world.Global));
             Assert.Equal("", HudText.PhaseHint(world));
-            Assert.Contains(feed.Entries, e => e.Text == "Shift 1 has started: deliver $6.00 of mail");
+            Assert.Contains(feed.Entries, e => e.Text == "Shift 1 has started: deliver 600 g of mail");
 
             // Now the same hold delivers.
             Frames(16, interact: true);
@@ -170,7 +170,7 @@ namespace PerformativeMail.Net.Tests
             Assert.True(s.StepUntil(() => world.Global.Phase == RunPhase.Payday, 241));
             var summary = HudText.SummaryLines(world, world.LastSummary!);
             Assert.Equal("SHIFT 1 — QUOTA MISSED", summary[0]);
-            Assert.Equal($"Earned {HudText.Money(kind.BaseValue)} of $6.00", summary[1]);
+            Assert.Equal($"Earned {HudText.Gold(kind.BaseValue)} of 600 g", summary[1]);
             Assert.Equal("Delivered 1 Letter", summary[2]);
             Assert.Equal("Misdelivered 0   ·   Late 0", summary[3]);
             // 10 % of one letter rounds down to nothing, so there is no bonus line.
@@ -190,6 +190,12 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("Delivered 1   ·   Misdelivered 0", results[2]);
             Assert.StartsWith("Ada:   1 delivered, 0 misdelivered", results[3]);
             Assert.EndsWith("+5 XP", results[3]);
+            // Design choice 124: gold on screen, never dollars or cents.
+            foreach (string line in summary.Concat(results).Concat(feed.Entries.Select(e => e.Text)))
+            {
+                Assert.DoesNotContain("$", line);
+                Assert.DoesNotContain("¢", line);
+            }
 
             client.PressGo();
             s.Step(10);

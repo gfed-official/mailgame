@@ -302,7 +302,7 @@ namespace PerformativeMail.App
                     Check(panel.Text == HudText.FilterText(world) && panel.CardCount == 7,
                         $"the port's console reads \"{panel.Text}\" ({panel.CardCount} cards), not \"{HudText.FilterText(world)}\"");
                     Check(panel.Text.StartsWith("SMALL PORT   ·   route console\nNo stops yet: a captain calls at the docks a boat can lie at", StringComparison.Ordinal)
-                        && panel.Text.Contains("[7]  Captain   ·   hire for this shift, $1.50\nfrom shift 3", StringComparison.Ordinal),
+                        && panel.Text.Contains("[7]  Captain   ·   hire for this shift, 150 g\nfrom shift 3", StringComparison.Ordinal),
                         $"the port's console reads \"{panel.Text}\"");
                     Check(HudText.FilterHintFor(world.FilterTarget!) == HudText.CaptainHint, "the console's hint does not name the captain");
                     Shot("small-port-console");

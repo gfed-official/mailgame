@@ -83,7 +83,7 @@ namespace PerformativeMail.App
                     Check(world.Map.Id == "debug_world", $"the map is {world.Map.Id}");
                     Check(world.Global.Phase == RunPhase.Delivery && world.Global.Shift == 5, $"the run is in {world.Global.Phase} of shift {world.Global.Shift}, not Delivery of shift 5");
                     Check(world.Global.ClockStopped && hud.PhaseText.Contains("(stopped)", StringComparison.Ordinal), $"the clock runs: \"{hud.PhaseText}\"");
-                    Check(world.Global.Wallet >= PlaytestMask.MaxWallet, $"the wallet holds {world.Global.Wallet} cents");
+                    Check(world.Global.Wallet >= PlaytestMask.MaxWallet, $"the wallet holds {world.Global.Wallet} g");
                     Check(debug == null || debug.LineText.StartsWith("DEBUG WORLD · god mode · unlimited · clock stopped", StringComparison.Ordinal), $"the debug line reads \"{debug?.LineText}\"");
                     Check(Server.Constructs.All.Count == world.Map.Debug!.Constructs.Count, $"{Server.Constructs.All.Count} constructs stand of the {world.Map.Debug.Constructs.Count} of the showcase");
                     if (!Smoke) { Next(Stage.Flow); return; }

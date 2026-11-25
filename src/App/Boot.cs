@@ -30,7 +30,7 @@ namespace PerformativeMail.App
     /// quota and raid), --no-quota (a missed quota does not end the run), --raid (the night raid
     /// comes five seconds into every shift, also in shift 1) and --playtest-package (this player
     /// has four Small Packages for the mail cannon when a shift starts and when they are back on
-    /// their feet), --playtest-wallet=N (runs start with $N in the team's wallet; asked for in a run
+    /// their feet), --playtest-wallet=N (runs start with N gold in the team's wallet; asked for in a run
     /// under way, the wallet is topped up to it at once). With --smoke they are not played with but checked:
     /// "--smoke --shift=2 --no-quota --raid --playtest-package" is the smoke of the raid playtest.
     /// </summary>
@@ -58,11 +58,11 @@ namespace PerformativeMail.App
                 else if (arg == "--raid") playtest |= PlaytestFlags.RaidNow;
                 else if (arg == "--playtest-package") playtest |= PlaytestFlags.Packages;
                 else if (arg.StartsWith("--shift=", StringComparison.Ordinal) && int.TryParse(arg.Substring(8), out int n) && n >= 1 && n <= byte.MaxValue) startShift = n;
-                // Dollars, as the HUD shows them ("5" or "4.50"); kept in cents.
+                // Gold, as the HUD shows it ("500"); the sim's amounts are one gold a unit (design choice 124).
                 else if (arg.StartsWith("--playtest-wallet=", StringComparison.Ordinal)
-                    && decimal.TryParse(arg.Substring(18), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out decimal dollars)
-                    && dollars > 0m)
-                    startWallet = (int)Math.Min(PlaytestMask.MaxWallet, Math.Round(dollars * 100m));
+                    && int.TryParse(arg.Substring(18), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int gold)
+                    && gold > 0)
+                    startWallet = Math.Min(PlaytestMask.MaxWallet, gold);
                 else if (arg == "--quick") quick = true;
                 // Design choice 119: the showcase map, everything built and running, the debug toggles on.
                 else if (arg == "--debug-world") { debugWorld = true; mapId = "debug_world"; }
@@ -115,7 +115,7 @@ namespace PerformativeMail.App
             InputActions.Register();
             // The smoke without playtest flags checks the game as it ships; with them, the flags themselves.
             bool playtesting = playtest != PlaytestFlags.None || startShift != 0 || startWallet != 0;
-            if (playtesting) GD.Print($"[boot] playtest: {playtest}{(startShift != 0 ? $", shift {startShift}" : "")}{(startWallet != 0 ? $", wallet {startWallet} cents" : "")}");
+            if (playtesting) GD.Print($"[boot] playtest: {playtest}{(startShift != 0 ? $", shift {startShift}" : "")}{(startWallet != 0 ? $", wallet {startWallet} g" : "")}");
             var session = new GameSession { Name = "Session", Playtest = playtest, StartShift = startShift, StartWallet = startWallet };
             if (join != null && !smoke)
             {

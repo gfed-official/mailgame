@@ -864,7 +864,7 @@ namespace PerformativeMail.Sim.Content
                         // Bought and sold straight back must never pay: not at the list price, not as a special.
                         if (item != null && count >= 1 && item.SellPrice > 0 && db.Balance.Has("shopSpecialDiscount")
                             && Run.ShopRules.Price(def, def.Special, Run.ShopRules.DiscountPermille(db.Balance)) < item.SellPrice * count)
-                            ctx.Error($"'{id}': costs less than the shop pays for {count} '{item.Id}' ({item.SellPrice * count} ¢)");
+                            ctx.Error($"'{id}': costs less than the shop pays for {count} '{item.Id}' ({item.SellPrice * count} gold)");
                         // The wire names a shop entry in one byte.
                         if (list.Count >= byte.MaxValue) { ctx.Error($"'{id}': more than {byte.MaxValue} shop entries"); continue; }
                         if (!AddUnique(ctx, db._shopById, def.Id, def)) continue;

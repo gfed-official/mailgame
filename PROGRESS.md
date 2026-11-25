@@ -1783,6 +1783,13 @@ the whole line exists; the sub-lines say which parts do.
             them, a right click takes it off — each on the server — and Esc through the real
             controller takes both down (`route-editor` shot)
 
+### 4b. Gold instead of dollars (Evan, 2026-11-25; design choice 124)
+
+- [x] Every amount on screen is gold: "600 g" for the old $6.00, "8 g" for an 8¢ letter (`HudText.Gold`);
+      the wallet, quota, shop, feed, Payday, Results, hire costs, loot cards and refusals; the sim's
+      numbers unchanged. `RunFlowTests` finds no "$" or "¢" in a run's feed, summary and results; the
+      smoke checks the HUD's wallet and quota lines and the shop's text are in gold
+
 ### 5. M3 — Combat (doc 12 M3, doc 05), in the docs' order
 
 Picking up after what was already on main from M1 (raids and their waves, the Wooden and Stone
@@ -3053,6 +3060,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     nobody's, the loot lies for anybody; a fleeing raider is let go (the raid is over for it); on
     the Alarm Post's key as the second tower.
     The debug world gets a turret range of its own so the turret is seen working without a raid.
+124. **Gold, not dollars.** Evan (2026-11-25): "Can we use gold instead of dollars/coins." Choice: the
+    sim's integer amounts are unchanged and one unit is one gold (the old 1¢: $6.00 is 600 gold, an
+    8¢ letter 8 gold); every amount on screen is a whole number with a " g" after it (`HudText.Gold`,
+    `HudText.GoldUnit`) — HUD wallet and quota, shop prices and specials, the feed, Payday and
+    Results, the consoles' hire costs, the loot cards (the coin card is called "Gold") and the
+    refusals ("Not enough gold"); no "$" or "¢" anywhere. `--playtest-wallet=N` is now N gold, a
+    whole number (`--playtest-wallet=500` is the old 5). Balance numbers do not move; the docs keep
+    their ¢ with a note in doc 03 §4.1 that they are shown as gold.
 
 ## Commands
 
@@ -3107,7 +3122,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --no-quota            a missed quota does not end the run; the next shift comes
 #   --raid                every shift's raid is announced as the shift starts and comes 5 s later
 #   --playtest-package    four Small Packages for the mail cannon (RMB) when a shift starts and when back on your feet
-#   --playtest-wallet=N   runs start with $N in the team's wallet (e.g. 5 or 4.50); asked in a run, topped up to it at once
+#   --playtest-wallet=N   runs start with N gold in the team's wallet (e.g. 500); asked in a run, topped up to it at once
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
 ~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come
 ~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-package --playtest-mailbox   # a guest: all three go together

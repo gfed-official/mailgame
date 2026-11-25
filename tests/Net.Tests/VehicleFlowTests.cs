@@ -92,7 +92,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Single(b.Vehicles.Values);
             Assert.False(bike.Ridden);
             Assert.Contains(adaFeed.Entries, e => e.Text == "The Bike stands by the counter   ·   look at it and [E] to ride");
-            Assert.Contains(boFeed.Entries, e => e.Text == "Ada bought Bike  -$1.20");
+            Assert.Contains(boFeed.Entries, e => e.Text == "Ada bought Bike  -120 g");
             // Another is there for Bo, and then the team has one each.
             Assert.Equal(OpResult.Ok, a.ShopState(card));
             ada.CloseShop();

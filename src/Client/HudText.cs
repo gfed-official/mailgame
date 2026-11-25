@@ -20,12 +20,12 @@ namespace PerformativeMail.Client
     /// <summary>Every string the HUD shows, derived from replicated state (doc 09 §2.4). Godot-free so it is testable.</summary>
     public static class HudText
     {
-        /// <summary>Integer cents as "$18.20"; negative balances as "-$1.50".</summary>
-        public static string Money(int cents)
-        {
-            int abs = Math.Abs(cents);
-            return string.Format(CultureInfo.InvariantCulture, "{0}${1}.{2:00}", cents < 0 ? "-" : "", abs / 100, abs % 100);
-        }
+        /// <summary>The sim's integer amounts shown as gold, one gold a unit: "1820 g"; negative balances as "-150 g"
+        /// (Evan, 2026-11-25; design choice 124).</summary>
+        public static string Gold(int amount) => string.Format(CultureInfo.InvariantCulture, "{0} {1}", amount, GoldUnit);
+
+        /// <summary>What follows a gold amount on screen.</summary>
+        public const string GoldUnit = "g";
 
         /// <summary>mm:ss, rounded up so the clock reads 00:00 only when the phase is over.</summary>
         public static string Clock(double secondsLeft)
@@ -321,7 +321,7 @@ namespace PerformativeMail.Client
             var lines = new List<string>
             {
                 s.QuotaMet ? $"SHIFT {s.Shift} — QUOTA MET" : $"SHIFT {s.Shift} — QUOTA MISSED",
-                $"Earned {Money(s.Earned)} of {Money(s.Quota)}",
+                $"Earned {Gold(s.Earned)} of {Gold(s.Quota)}",
             };
             var kinds = new List<string>();
             for (int i = 0; i < s.DeliveriesByKind.Length; i++)
@@ -331,7 +331,7 @@ namespace PerformativeMail.Client
             }
             lines.Add(kinds.Count == 0 ? "Delivered nothing" : "Delivered " + string.Join(", ", kinds));
             lines.Add($"Misdelivered {s.Misdeliveries}   ·   Late {s.LateDeliveries}");
-            if (s.Bonus > 0) lines.Add($"No misdeliveries: bonus +{Money(s.Bonus)}");
+            if (s.Bonus > 0) lines.Add($"No misdeliveries: bonus +{Gold(s.Bonus)}");
             if (!s.Mvp.IsNone) lines.Add($"Most deliveries: {PlayerName(world, s.Mvp)} ({s.MvpDeliveries})");
             return lines;
         }
@@ -360,11 +360,11 @@ namespace PerformativeMail.Client
             var lines = new List<string>
             {
                 r.Outcome == RunOutcome.Victory ? $"VICTORY — all {shifts} shifts delivered" : $"RUN OVER — quota missed on shift {r.ShiftsCompleted + 1}",
-                $"Shifts completed {r.ShiftsCompleted} / {shifts}   ·   Score {Money(r.Score)}",
+                $"Shifts completed {r.ShiftsCompleted} / {shifts}   ·   Score {Gold(r.Score)}",
                 $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}",
             };
             foreach (var p in r.Players)
-                lines.Add($"{PlayerName(world, p.Player)}:   {p.Deliveries} delivered, {p.Misdeliveries} misdelivered, {Money(p.Earned)}   ·   +{p.Xp} XP");
+                lines.Add($"{PlayerName(world, p.Player)}:   {p.Deliveries} delivered, {p.Misdeliveries} misdelivered, {Gold(p.Earned)}   ·   +{p.Xp} XP");
             return lines;
         }
 
@@ -379,12 +379,12 @@ namespace PerformativeMail.Client
                 case RunPhase.Lobby:
                 case RunPhase.Generating:
                 case RunPhase.Results: return "";
-                case RunPhase.Prep: return $"Quota {Money(g.Quota)}";
-                default: return $"Quota {Money(g.ShiftEarnings)} / {Money(g.Quota)}";
+                case RunPhase.Prep: return $"Quota {Gold(g.Quota)}";
+                default: return $"Quota {Gold(g.ShiftEarnings)} / {Gold(g.Quota)}";
             }
         }
 
-        public static string Wallet(in GlobalState g) => $"Wallet {Money(g.Wallet)}";
+        public static string Wallet(in GlobalState g) => $"Wallet {Gold(g.Wallet)}";
 
         /// <summary>"3 Letters" / "1 Small Package".</summary>
         public static string CountAndKind(ContentDb content, ItemStack stack) => CountAndKind(Name(content, stack), stack.Count);
@@ -709,14 +709,14 @@ namespace PerformativeMail.Client
         public const string SpecialWord = "SPECIAL";
 
         /// <summary>Over the cards: whose money it is, and how much of it there is.</summary>
-        public static string ShopTitle(ClientWorld world) => $"SHOP   ·   team wallet {Money(world.Global.Wallet)}";
+        public static string ShopTitle(ClientWorld world) => $"SHOP   ·   team wallet {Gold(world.Global.Wallet)}";
 
-        /// <summary>"$0.80"; a special says so, and what it was before.</summary>
+        /// <summary>"80 g"; a special says so, and what it was before.</summary>
         public static string ShopPriceLine(ClientWorld world, ShopItemDef def)
         {
             int price = world.ShopPrice(def);
-            if (!world.IsSpecial(def)) return Money(price);
-            return price < def.Price ? $"{SpecialWord}   ·   {Money(price)}  (was {Money(def.Price)})" : $"{SpecialWord}   ·   {Money(price)}";
+            if (!world.IsSpecial(def)) return Gold(price);
+            return price < def.Price ? $"{SpecialWord}   ·   {Gold(price)}  (was {Gold(def.Price)})" : $"{SpecialWord}   ·   {Gold(price)}";
         }
 
         /// <summary>What has become of a card: on its way, or why it is not to be had; a blueprint says whose it will be.</summary>
@@ -727,7 +727,7 @@ namespace PerformativeMail.Client
             {
                 case OpResult.ShopLocked: return $"From shift {def.FromShift}";
                 case OpResult.AlreadyOwned: return "The team owns it";
-                case OpResult.CantAfford: return "Not enough money";
+                case OpResult.CantAfford: return "Not enough gold";
                 case OpResult.DoesNotFit: return "No room in your pockets";
                 case OpResult.WrongPhase: return "The counter is closed";
                 case OpResult.OnePerCarrier: return $"A {def.Name} for each of you already";
@@ -779,7 +779,7 @@ namespace PerformativeMail.Client
         {
             switch (result)
             {
-                case OpResult.CantAfford: return "Not enough money in the wallet";
+                case OpResult.CantAfford: return "Not enough gold in the wallet";
                 case OpResult.DoesNotFit: return "No room in your pockets";
                 case OpResult.ShopLocked: return "The shop does not sell that yet";
                 case OpResult.AlreadyOwned: return "The team owns it already";
@@ -803,7 +803,7 @@ namespace PerformativeMail.Client
             string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
             // A grant (the smoke, a test) costs nothing: it was given, not bought.
             if (price == 0) return me ? $"You were given {def.Name}" : $"{who} was given {def.Name}";
-            return $"{who} bought {def.Name}  -{Money(price)}";
+            return $"{who} bought {def.Name}  -{Gold(price)}";
         }
 
         /// <summary>The event feed's line for a sale.</summary>
@@ -812,7 +812,7 @@ namespace PerformativeMail.Client
             bool me = player == world.LocalId;
             string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
             string what = CountAndKind(item >= 0 && item < world.Content.Items.Count ? world.Content.Items[item].Name : "item", count);
-            return $"{who} sold {what}  +{Money(paid)}";
+            return $"{who} sold {what}  +{Gold(paid)}";
         }
 
         // --- harvesting (doc 02 §3.9) -----------------------------------------------------------
@@ -1023,7 +1023,7 @@ namespace PerformativeMail.Client
                 int from = (int)world.Content.Balance.GetFloat(captain ? "npcCaptainHireShift" : world.Players.Count <= 1 ? "npcHireShiftSolo" : "npcHireShiftGroup");
                 string note = world.Global.Shift < from ? $"from shift {from.ToString(CultureInfo.InvariantCulture)}"
                     : captain ? "sails the route to the docks at 60 % of a boat's speed" : "drives the route at 60 % of your speed";
-                return new[] { $"{head}hire for this shift, {Money(built.Def.HireCost)}", note };
+                return new[] { $"{head}hire for this shift, {Gold(built.Def.HireCost)}", note };
             }
             return new[] { $"{head}hired for this shift   ·   {d.Delivered.ToString(CultureInfo.InvariantCulture)} delivered", DriverDoing(world, d) };
         }
@@ -1096,7 +1096,7 @@ namespace PerformativeMail.Client
                 // A joiner hears where things stand (nobody named), not news.
                 case DriverState.Waiting when was == null && d.Player.IsNone: return "";
                 case DriverState.Waiting when was == null || was.State == DriverState.None:
-                    return d.Player == world.LocalId ? $"You hired a {crew} for the {site}   ·   {Money(HireCost(world.Content))}"
+                    return d.Player == world.LocalId ? $"You hired a {crew} for the {site}   ·   {Gold(HireCost(world.Content))}"
                         : $"{(world.Players.TryGetValue(d.Player, out var p) ? p.Name : "Someone")} hired a {crew} for the {site}";
                 case DriverState.Waiting: return $"The {crew} is back at the {site}";
                 case DriverState.Out when was?.State == DriverState.Waiting:
@@ -1121,7 +1121,7 @@ namespace PerformativeMail.Client
         /// <summary>Why the driver was not hired.</summary>
         public static string HireRefused(OpResult result) => result switch
         {
-            OpResult.CantAfford => "Not enough money to hire a driver",
+            OpResult.CantAfford => "Not enough gold to hire a driver",
             OpResult.ShopLocked => "No driver for hire yet this run",
             OpResult.AlreadyHired => "A driver is hired there already",
             OpResult.WrongPhase => "Drivers are hired in Prep and during Delivery",

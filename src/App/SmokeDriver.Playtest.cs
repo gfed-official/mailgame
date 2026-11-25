@@ -404,7 +404,7 @@ namespace PerformativeMail.App
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
                     GD.Print($"[smoke] playtest: run started at shift {RaidPlaytestShift}; raid announced at the shift's start, {server.EnemiesSpawnedTotal} raiders in {waves.Pulses} pulses (most at once {_ptMostSeen}) felled with "
-                        + $"{client.LocalCannonShots - _ptShots} packages out of the cannon ({_screen.Effects.BlastsThatHit - _ptBlastHits} hit) and {client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, protected for {_ptProtected} frames, loot +{HudText.Money(server.Economy.Wallet)}"
+                        + $"{client.LocalCannonShots - _ptShots} packages out of the cannon ({_screen.Effects.BlastsThatHit - _ptBlastHits} hit) and {client.LocalHammerSwings - _ptSwings} swings, down {_ptDeaths} times, protected for {_ptProtected} frames, loot +{HudText.Gold(server.Economy.Wallet)}"
                         + $"; quota missed and waived, a card of the Draft taken with a click, on to shift {server.Run.Shift}");
                     Finish();
                     break;

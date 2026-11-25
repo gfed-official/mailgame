@@ -290,7 +290,7 @@ namespace PerformativeMail.App
                     if (_stageFrames == 2)
                     {
                         Check(hud.PhaseText.Contains("PREP", StringComparison.Ordinal), $"in Prep the HUD phase line is \"{hud.PhaseText}\"");
-                        Check(hud.QuotaText == HudText.Quota(world.Global) && hud.QuotaText.StartsWith("Quota $", StringComparison.Ordinal), $"in Prep the HUD quota line is \"{hud.QuotaText}\"");
+                        Check(hud.QuotaText == HudText.Quota(world.Global) && hud.QuotaText.StartsWith("Quota ", StringComparison.Ordinal) && hud.QuotaText.EndsWith(" " + HudText.GoldUnit, StringComparison.Ordinal), $"in Prep the HUD quota line is \"{hud.QuotaText}\"");
                         Check(hud.HintText.Contains("ready", StringComparison.Ordinal), $"in Prep the HUD hint is \"{hud.HintText}\"");
                         Check(server.Intake.EntryCount == 0, "mail arrived during Prep");
                         Shot("prep");
@@ -929,8 +929,8 @@ namespace PerformativeMail.App
             Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
 
             var book = new List<string>();
-            foreach (var s in _summaries) book.Add($"{HudText.Money(s.Earned)}/{HudText.Money(s.Quota)}");
-            GD.Print($"[smoke] run: {seen}; shifts {string.Join(" ", book)}; {(_results == null ? "no results" : $"{_results.Outcome}, score {HudText.Money(_results.Score)}")}; {server.Tick} ticks");
+            foreach (var s in _summaries) book.Add($"{HudText.Gold(s.Earned)}/{HudText.Gold(s.Quota)}");
+            GD.Print($"[smoke] run: {seen}; shifts {string.Join(" ", book)}; {(_results == null ? "no results" : $"{_results.Outcome}, score {HudText.Gold(_results.Score)}")}; {server.Tick} ticks");
         }
 
         private void Verify()
@@ -957,6 +957,9 @@ namespace PerformativeMail.App
             Check(_screen.Hud.WalletText == HudText.Wallet(global), $"HUD shows \"{_screen.Hud.WalletText}\", expected \"{HudText.Wallet(global)}\"");
             Check(_screen.Hud.QuotaText == HudText.Quota(global), $"HUD shows \"{_screen.Hud.QuotaText}\", expected \"{HudText.Quota(global)}\"");
             Check(_screen.Hud.PhaseText.Contains("DELIVERY", StringComparison.Ordinal), $"HUD phase line is \"{_screen.Hud.PhaseText}\"");
+            // Design choice 124: gold, "600 g", never dollars or cents.
+            foreach (string money in new[] { _screen.Hud.WalletText, _screen.Hud.QuotaText })
+                Check(money.EndsWith(" " + HudText.GoldUnit, StringComparison.Ordinal) && money.IndexOfAny(new[] { '$', '¢' }) < 0, $"the HUD shows money as \"{money}\", not in gold");
 
             Check(client.ContainerDesyncs == 0, $"{client.ContainerDesyncs} container desyncs");
             Check(client.BadPackets == 0, $"{client.BadPackets} bad packets");
@@ -1021,8 +1024,8 @@ namespace PerformativeMail.App
             Check(stack[1].GetGlobalRect().Size.Y >= stack[1].GetCombinedMinimumSize().Y, $"HUD {stack[1].Name} is {stack[1].GetGlobalRect().Size.Y:0} high, its text needs {stack[1].GetCombinedMinimumSize().Y:0}");
             Check(_maxPhaseWidth > 0f && _maxPhaseWidth <= plate.Size.X - 16f, $"the shift's line grew to {_maxPhaseWidth:0} wide, the top plate is {plate.Size.X:0}");
 
-            GD.Print($"[smoke] delivered {_bot.StacksDelivered} stacks ({_deliveredEvents} items, +{HudText.Money(_paid)}), "
-                + $"misdelivered {_bot.StacksMisdelivered} ({_misdeliveredEvents} items, -{HudText.Money(_penalties)}), "
+            GD.Print($"[smoke] delivered {_bot.StacksDelivered} stacks ({_deliveredEvents} items, +{HudText.Gold(_paid)}), "
+                + $"misdelivered {_bot.StacksMisdelivered} ({_misdeliveredEvents} items, -{HudText.Gold(_penalties)}), "
                 + $"rejected {_bot.RequestsRejected}; {_screen.Hud.WalletText}; {_screen.Hud.QuotaText}; "
                 + $"{server.Tick - _startTick} ticks, prediction rms {client.PredictionErrorRms:0.000} m");
         }

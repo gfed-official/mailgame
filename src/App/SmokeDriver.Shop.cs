@@ -114,6 +114,7 @@ namespace PerformativeMail.App
                     if (_shopFrames < 4) break;
                     var shelf = world.ShopShelf;
                     string want = HudText.ShopText(world);
+                    Check(want.IndexOfAny(new[] { '$', '¢' }) < 0 && want.Contains(" " + HudText.GoldUnit, StringComparison.Ordinal), "the shop's prices are not in gold");
                     Check(world.ShopOpen && _screen.Inventory.Visible && panel.Visible, "the press of interact at the counter did not put the cards up");
                     Check(!_screen.Mouse.Wanted, "with the shop's cards up the mouse is not free for them");
                     Check(want.Length > 0 && panel.Text == want, $"the shop shows \"{panel.Text}\", expected \"{want}\"");
@@ -240,8 +241,8 @@ namespace PerformativeMail.App
                     // Issue (c) of the 25fbca5 playtest: no click is needed to look around again.
                     Check(_screen.Mouse.Wanted && !_screen.Mouse.Released, "with the shop's cards down the mouse is not the view's again");
                     CheckMouseNote();
-                    GD.Print($"[smoke] shop: {world.ShopShelf.Count} cards ({world.ShopSpecials.Count} special), {_shopCard.Name} for {HudText.Money(price)}, "
-                        + $"{count - 1} sold back, 1 used, what was gathered sold for {HudText.Money(_shopGathered)}; wallet {HudText.Money(_shopWallet)} -> {HudText.Money(server.Economy.Wallet)}");
+                    GD.Print($"[smoke] shop: {world.ShopShelf.Count} cards ({world.ShopSpecials.Count} special), {_shopCard.Name} for {HudText.Gold(price)}, "
+                        + $"{count - 1} sold back, 1 used, what was gathered sold for {HudText.Gold(_shopGathered)}; wallet {HudText.Gold(_shopWallet)} -> {HudText.Gold(server.Economy.Wallet)}");
                     _shopVisits++;
                     _shopStep = 0;
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;
@@ -335,7 +336,7 @@ namespace PerformativeMail.App
                     int place = -1;
                     for (int i = 0; i < shelf.Count; i++)
                         if (shelf[i].Item != null && world.ShopState(shelf[i]) == OpResult.Ok && (place < 0 || world.ShopPrice(shelf[i]) < world.ShopPrice(shelf[place]))) place = i;
-                    if (place < 0) { Fail($"with {HudText.Money(world.Global.Wallet)} at Payday no card can be bought"); return; }
+                    if (place < 0) { Fail($"with {HudText.Gold(world.Global.Wallet)} at Payday no card can be bought"); return; }
                     _paydayCard = shelf[place];
                     _paydayWallet = server.Economy.Wallet;
                     _paydayUnits = Units(world.Hotbar, _paydayCard.Item!) + Units(world.Inventory, _paydayCard.Item!);
@@ -378,7 +379,7 @@ namespace PerformativeMail.App
                     Check(hud.Overlay.Visible && !_screen.Inventory.Visible, "the Payday summary is not back when the shop's cards are down");
                     Check(_screen.Mouse.Wanted, "with the shop's cards down at Payday the mouse is not the view's again");
                     GD.Print($"[smoke] shop at Payday: {MathF.Sqrt((world.Local.X - po.ShopX) * (world.Local.X - po.ShopX) + (world.Local.Z - po.ShopZ) * (world.Local.Z - po.ShopZ)):0} m from the counter, "
-                        + $"{_paydayCard!.Name} for {HudText.Money(world.ShopPrice(_paydayCard))} and sold back for {HudText.Money(_paydaySold)}; wallet {HudText.Money(_paydayWallet)} -> {HudText.Money(server.Economy.Wallet)}");
+                        + $"{_paydayCard!.Name} for {HudText.Gold(world.ShopPrice(_paydayCard))} and sold back for {HudText.Gold(_paydaySold)}; wallet {HudText.Gold(_paydayWallet)} -> {HudText.Gold(server.Economy.Wallet)}");
                     _paydayShopVisits++;
                     _paydayShopStep = 0;
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;

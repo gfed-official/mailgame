@@ -1352,7 +1352,7 @@ namespace PerformativeMail.App
                     Shot("vehicle-depot-console");
                     GD.Print($"[smoke] vehicle depot: built at ({_splitX}, {_splitZ}) on nine tiles by the wheel on the chest's key, a truck in its bay, the route console up by E, stop 1 set to {first.Label} by key 1 with the truck's 2 letters for it");
                     // Its driver (doc 04 §3.2), for hire from shift 2 solo: this is shift 2's Prep, key 7 hires one.
-                    Check(panel.Text.Contains("[7]  Driver   ·   hire for this shift, $1.50\ndrives the route at 60 % of your speed", StringComparison.Ordinal), $"the console's driver card reads \"{panel.Text}\"");
+                    Check(panel.Text.Contains("[7]  Driver   ·   hire for this shift, 150 g\ndrives the route at 60 % of your speed", StringComparison.Ordinal), $"the console's driver card reads \"{panel.Text}\"");
                     Check(client.PressFilterKey(6), "key 7 was not the console's");
                     _beltStep = 38;
                     _beltFrames = 0;
@@ -1364,11 +1364,11 @@ namespace PerformativeMail.App
                     if (client.PendingRequestCount > 0 || _beltFrames < 3) break;
                     var panel = _screen.Inventory.Filters;
                     if (world.FilterTarget == null || world.DriverAt(world.FilterTarget) == null) break;
-                    Check(_session.Feed.Entries.Any(e => e.Text == "You hired a driver for the Vehicle Depot   ·   $1.50"), "the feed did not say the driver was hired");
+                    Check(_session.Feed.Entries.Any(e => e.Text == "You hired a driver for the Vehicle Depot   ·   150 g"), "the feed did not say the driver was hired");
                     Check(server.Drivers.Count(d => d.State == DriverState.Waiting) == 1, "no driver waits at the depot on the server");
                     Check(panel.Text.Contains("[7]  Driver   ·   hired for this shift   ·   0 delivered\nwaiting for a truck with mail for the route, in Delivery", StringComparison.Ordinal),
                         $"after key 7 the console reads \"{panel.Text}\"");
-                    GD.Print("[smoke] vehicle depot: key 7 hired its driver for shift 2 ($1.50); the depot and the truck stay for Delivery");
+                    GD.Print("[smoke] vehicle depot: key 7 hired its driver for shift 2 (150 g); the depot and the truck stay for Delivery");
                     Check(client.CloseFilters(), "the console was not up to take down");
                     _beltStep = 37;
                     _beltFrames = 0;

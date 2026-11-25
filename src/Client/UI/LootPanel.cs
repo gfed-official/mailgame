@@ -82,7 +82,7 @@ namespace PerformativeMail.Client.UI
                 }
                 Outlined(font, new Vector2(rect.Position.X, rect.Position.Y + 14f), card.Name, CardW, 10);
                 if (!card.Coins && card.Count > 1) Outlined(font, new Vector2(rect.Position.X, rect.Position.Y + 48f), HudText.Count(card.Count), CardW - 8f, 11, HorizontalAlignment.Right);
-                Outlined(font, new Vector2(rect.Position.X, rect.End.Y - 7f), HudText.Money(card.Value), CardW, 14);
+                Outlined(font, new Vector2(rect.Position.X, rect.End.Y - 7f), HudText.Gold(card.Value), CardW, 14);
             }
         }
 

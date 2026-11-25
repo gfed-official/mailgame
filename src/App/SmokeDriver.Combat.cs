@@ -277,7 +277,7 @@ namespace PerformativeMail.App
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"in the fight the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
                     GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled; "
-                        + $"loot +{HudText.Money(server.Economy.Wallet - _fightWallet)}; health {hud.HealthText}");
+                        + $"loot +{HudText.Gold(server.Economy.Wallet - _fightWallet)}; health {hud.HealthText}");
                     client.Input.Buttons = InputButtons.None;
                     StartBag();
                     break;

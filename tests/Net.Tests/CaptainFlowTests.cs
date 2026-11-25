@@ -74,13 +74,13 @@ namespace PerformativeMail.Net.Tests
             Assert.Contains("1 dock   ·   ", text);
             Assert.Contains("m round trip over the water", text);
             Assert.Contains($"[1]  Stop 1   ·   {dock.Label}\n1 for it in the boat", text);
-            Assert.Contains("[7]  Captain   ·   hire for this shift, $1.50", text);
+            Assert.Contains("[7]  Captain   ·   hire for this shift, 150 g", text);
             Assert.Equal(HudText.CaptainHint, HudText.FilterHintFor(here));
             Assert.True(client.PressFilterKey(6));
             Run(10);
             Assert.Equal(DriverState.Waiting, sim.DriverAt(built)!.State);
             Assert.Contains("waiting for a boat with cargo for the route, in Delivery", HudText.FilterText(a));
-            Assert.Contains(feed.Entries, e => e.Text == "You hired a captain for the Small Port   ·   $1.50");
+            Assert.Contains(feed.Entries, e => e.Text == "You hired a captain for the Small Port   ·   150 g");
             Assert.True(client.CloseFilters());
 
             // Delivery: it sails, the boat here is where it is there, and the dock gets its crate.

@@ -283,7 +283,7 @@ namespace PerformativeMail.Server
         {
             if (player.Playtest == PlaytestFlags.None && player.PlaytestShift == 0 && player.PlaytestWallet == 0) return "";
             string shift = player.PlaytestShift == 0 ? "" : $"shift {player.PlaytestShift}";
-            if (player.PlaytestWallet != 0) shift += $"{(shift.Length > 0 ? ", " : "")}wallet {player.PlaytestWallet} cents";
+            if (player.PlaytestWallet != 0) shift += $"{(shift.Length > 0 ? ", " : "")}wallet {player.PlaytestWallet} g";
             string flags = player.Playtest == PlaytestFlags.None ? "" : player.Playtest.ToString();
             return $" (playtest: {flags}{(flags.Length > 0 && shift.Length > 0 ? ", " : "")}{shift})";
         }

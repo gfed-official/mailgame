@@ -165,7 +165,7 @@ namespace PerformativeMail.App
                     _screen.Constructs.Refresh();
                     Check(_screen.Constructs.Drawn >= 2, $"{_screen.Constructs.Drawn} constructs drawn with a Spike Strip and a Stone Wall built");
                     Shot("fortify-stone-wall");
-                    GD.Print($"[smoke] fortify: Blueprint: Fortify bought with its key for {HudText.Money(_fortifyWallet - world.Global.Wallet)}, a Spike Strip built at ({_stripTx}, {_stripTz}) and walked over, a Stone Wall ({built.Hp} HP, {StoneWallStone} Stone) at ({_buildTx}, {_buildTz})");
+                    GD.Print($"[smoke] fortify: Blueprint: Fortify bought with its key for {HudText.Gold(_fortifyWallet - world.Global.Wallet)}, a Spike Strip built at ({_stripTx}, {_stripTz}) and walked over, a Stone Wall ({built.Hp} HP, {StoneWallStone} Stone) at ({_buildTx}, {_buildTz})");
                     _fortifyVisits++;
                     _fortifyStep = 0;
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;

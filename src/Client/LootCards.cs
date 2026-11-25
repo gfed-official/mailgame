@@ -12,7 +12,7 @@ namespace PerformativeMail.Client
     public sealed class LootCards
     {
         public const double ShownSeconds = 4.0;
-        public const string CoinsName = "Coins";
+        public const string CoinsName = "Gold";
         public const string DefaultTitle = "Loot";
 
         public sealed class Card

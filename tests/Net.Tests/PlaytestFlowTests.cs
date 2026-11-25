@@ -190,7 +190,7 @@ namespace PerformativeMail.Net.Tests
             s.Step(10);
             var server = s.Server.World;
             Assert.Equal(500, server.GetPlayer(guest.World!.LocalId)!.PlaytestWallet);
-            Assert.Contains(s.Log, line => line.StartsWith("Bo joined as ", StringComparison.Ordinal) && line.EndsWith("(playtest: wallet 500 cents)", StringComparison.Ordinal));
+            Assert.Contains(s.Log, line => line.StartsWith("Bo joined as ", StringComparison.Ordinal) && line.EndsWith("(playtest: wallet 500 g)", StringComparison.Ordinal));
             // The Lobby has no wallet to fill.
             Assert.Equal(0, server.Economy.Wallet);
 

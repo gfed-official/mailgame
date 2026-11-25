@@ -63,7 +63,7 @@ namespace PerformativeMail.Client
                 case ShiftSummaryEvent e:
                 {
                     var s = e.Summary;
-                    string books = $"{HudText.Money(s.Earned)} of {HudText.Money(s.Quota)}";
+                    string books = $"{HudText.Gold(s.Earned)} of {HudText.Gold(s.Quota)}";
                     Add(s.QuotaMet ? $"Shift {s.Shift} is over: quota met ({books})" : $"Shift {s.Shift} is over: quota missed ({books})", bad: !s.QuotaMet);
                     break;
                 }
@@ -280,8 +280,8 @@ namespace PerformativeMail.Client
             switch (e.Phase)
             {
                 case RunPhase.Lobby: Add("Back in the lobby"); break;
-                case RunPhase.Prep: Add($"Shift {e.Shift}: get ready — the quota will be about {HudText.Money(e.Quota)}"); break;
-                case RunPhase.Delivery: Add($"Shift {e.Shift} has started: deliver {HudText.Money(e.Quota)} of mail"); break;
+                case RunPhase.Prep: Add($"Shift {e.Shift}: get ready — the quota will be about {HudText.Gold(e.Quota)}"); break;
+                case RunPhase.Delivery: Add($"Shift {e.Shift} has started: deliver {HudText.Gold(e.Quota)} of mail"); break;
                 case RunPhase.Draft: Add($"The Draft: one perk each before shift {e.Shift + 1}"); break;
                 case RunPhase.Results: Add(e.Outcome == RunOutcome.Victory ? "The run is won" : "The run is over", bad: e.Outcome != RunOutcome.Victory); break;
             }
@@ -317,10 +317,10 @@ namespace PerformativeMail.Client
             string what = HudText.CountAndKind(kind < world.Content.MailKinds.Count ? world.Content.MailKinds[kind].Name : "item", entry.Count);
             string where = world.Map.GetDestination(destId)?.Label ?? "?";
             entry.Text = bad
-                ? $"{who} misdelivered {what} at {where}  -{HudText.Money(entry.Amount)}"
+                ? $"{who} misdelivered {what} at {where}  -{HudText.Gold(entry.Amount)}"
                 : machine == DeliveryMachine.Dock && player.IsNone
-                    ? $"The dock at {where} took {what}  +{HudText.Money(entry.Amount)}"
-                    : $"{who} delivered {what} to {where}  +{HudText.Money(entry.Amount)}";
+                    ? $"The dock at {where} took {what}  +{HudText.Gold(entry.Amount)}"
+                    : $"{who} delivered {what} to {where}  +{HudText.Gold(entry.Amount)}";
             Revision++;
         }
 

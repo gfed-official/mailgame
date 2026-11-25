@@ -267,7 +267,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(value, s.Server.World.Economy.Wallet);
             Assert.Equal(value, s.World.Global.Wallet);
             Assert.Null(s.World.Hotbar.EntryAt(1, 0));
-            Assert.Equal($"Wallet {HudText.Money(value)}", HudText.Wallet(s.World.Global));
+            Assert.Equal($"Wallet {HudText.Gold(value)}", HudText.Wallet(s.World.Global));
             Assert.Contains(s.Feed.Entries, e => e.Text.StartsWith("You delivered") && e.Text.Contains(dest.Label) && !e.Bad);
             Assert.Equal(0, s.Client.ContainerDesyncs);
         }
@@ -411,9 +411,9 @@ namespace PerformativeMail.Net.Tests
         [Fact]
         public void HudTextFormats()
         {
-            Assert.Equal("$18.20", HudText.Money(1820));
-            Assert.Equal("$0.05", HudText.Money(5));
-            Assert.Equal("-$1.50", HudText.Money(-150));
+            Assert.Equal("1820 g", HudText.Gold(1820));
+            Assert.Equal("5 g", HudText.Gold(5));
+            Assert.Equal("-150 g", HudText.Gold(-150));
             Assert.Equal("03:58", HudText.Clock(237.2));
             Assert.Equal("00:00", HudText.Clock(-1));
             Assert.Equal("1 Letter", HudText.CountAndKind("Letter", 1));
@@ -421,7 +421,7 @@ namespace PerformativeMail.Net.Tests
 
             var s = new Session();
             Assert.StartsWith("Shift 1 / 5   DELIVERY 0", HudText.ShiftAndPhase(s.World));
-            Assert.Equal("Quota $0.00 / $6.00", HudText.Quota(s.World.Global));
+            Assert.Equal("Quota 0 g / 600 g", HudText.Quota(s.World.Global));
         }
 
         [Fact]
