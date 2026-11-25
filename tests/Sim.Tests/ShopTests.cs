@@ -226,9 +226,9 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("'stranger': grants unknown item 'medkit'", all);
             Assert.Contains("'heap': count must be in 1..5 (one stack of 'bandage')", all);
             Assert.Contains("'free': price must be in 1..65535", all);
-            Assert.Contains("'loop': costs less than the shop pays for 10 'glass' (70 ¢)", all);
+            Assert.Contains("'loop': costs less than the shop pays for 10 'glass' (70 gold)", all);
             // 110 pays for ten ingots at 10 ¢, but not at a fifth off.
-            Assert.Contains("'special_loop': costs less than the shop pays for 10 'iron_ingot' (100 ¢)", all);
+            Assert.Contains("'special_loop': costs less than the shop pays for 10 'iron_ingot' (100 gold)", all);
             Assert.Contains("'hidden': a rotating entry must be tagged 'special'", all);
             Assert.Contains("'sideways': availability.slot must be 'fixed', 'rotating' or 'kit', not 'weekly'", all);
             Assert.Contains("'early': availability.fromShift must be >= 1", all);
