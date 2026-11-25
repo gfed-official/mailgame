@@ -95,6 +95,8 @@ namespace PerformativeMail.Sim.Players
         /// </summary>
         public bool ProtectedAtPark;
         public float ParkX, ParkZ;
+        /// <summary>The turret whose controls this carrier holds (doc 05 §4 "Player-operated"); null: none.</summary>
+        public World.Construct? Turret;
         public uint HammerReadyTick;
         public uint CannonReadyTick;
         /// <summary>Run totals of the fight; cleared when a run starts.</summary>

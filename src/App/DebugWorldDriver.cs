@@ -7,6 +7,7 @@ using PerformativeMail.Client.UI;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.App
@@ -28,7 +29,7 @@ namespace PerformativeMail.App
         public string? ShotDir;
         public bool Smoke;
 
-        private enum Stage { Boot, Flow, Toggles, Console, RouteEdit, Map, Bookmarks, Fly, Scale, Done }
+        private enum Stage { Boot, Flow, Toggles, Console, RouteEdit, Map, Turret, Bookmarks, Fly, Scale, Done }
         private const int FastTicks = 30;
         /// <summary>Sim seconds the flow may take before the smoke gives up on a station.</summary>
         private const int FlowSeconds = 180;
@@ -157,6 +158,9 @@ namespace PerformativeMail.App
                     return;
                 case Stage.Map:
                     StepMap(world);
+                    return;
+                case Stage.Turret:
+                    StepTurret(world);
                     return;
                 case Stage.Bookmarks:
                 {
@@ -439,7 +443,86 @@ namespace PerformativeMail.App
             _keys!.QueueFree();
             _keys = null;
             GD.Print($"[smoke] debug world: the map's layers ({map.BeltsDrawn} belts and pipes, {map.MachinesDrawn} machines, {map.VehiclesDrawn} vehicles, {map.CrewsDrawn} crews' routes), the chips by Z and X");
-            Next(Stage.Bookmarks);
+            Next(Stage.Turret);
+        }
+
+        private int _turretStep, _turretShots0, _turretDrawn0, _turretAt;
+        private uint _turretTick0;
+        private float _turretX, _turretZ;
+
+        /// <summary>
+        /// The turret operated by hand (doc 05 §4; design choice 125): beside the range's turret the
+        /// prompt offers its controls, E takes them, the HUD's weapons line and the gun follow, a
+        /// second of attack held fires it at twice its rate where the carrier looks — at the
+        /// practice raider — and E lets go.
+        /// </summary>
+        private void StepTurret(Client.ClientWorld world)
+        {
+            var client = _session.Client;
+            var interaction = _session.Interaction;
+            var turret = world.Constructs.All.First(c => c.Def.IsTurret);
+            var truth = Server.GetPlayer(world.LocalId)!;
+            switch (_turretStep)
+            {
+                case 0:
+                    _turretX = turret.CentreX + 1.6f;
+                    _turretZ = turret.CentreZ;
+                    truth.Move.X = _turretX;
+                    truth.Move.Z = _turretZ;
+                    _turretStep++;
+                    return;
+                case 1:
+                    if (_frames < 120 && !ClientAt(world, _turretX, _turretZ)) return;
+                    var box = Client.AimBox.Built(world.Map, turret);
+                    Client.ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    interaction.Update(1.0 / 30.0, false, false);
+                    _screen.Hud.Refresh();
+                    Check(interaction.Prompt.Kind == Client.InteractKind.OperateTurret, $"beside the turret the prompt is {interaction.Prompt.Kind}");
+                    Check(_screen.Hud.PromptText.StartsWith("Operate the Turret  [E]", StringComparison.Ordinal), $"beside the turret the prompt reads \"{_screen.Hud.PromptText}\"");
+                    interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
+                    _turretAt = _frames;
+                    _turretStep++;
+                    return;
+                case 2:
+                    if (world.LocalTurret == null && _frames < _turretAt + 60) return;
+                    Check(world.LocalTurret == turret && truth.Turret != null, "E did not give the carrier the turret's controls");
+                    _turretShots0 = Server.TurretShots;
+                    _turretTick0 = Server.Tick;
+                    _turretDrawn0 = _screen.Constructs.TurretShotsDrawn;
+                    _turretAt = _frames;
+                    _turretStep++;
+                    return;
+                case 3:
+                {
+                    // A second of attack, the gun on the practice raider (or the range's spot, between raiders).
+                    float tx = BuildRules.TileCentre(57), tz = BuildRules.TileCentre(2);
+                    foreach (var e in world.Enemies.Values) { tx = e.X; tz = e.Z; }
+                    client.Input.YawRadians = MathF.Atan2(-(tx - world.Local.X), -(tz - world.Local.Z));
+                    client.Input.PitchRadians = 0f;
+                    client.Input.Buttons = InputButtons.Attack;
+                    if (Server.Tick < _turretTick0 + SimConstants.TickRate) return;
+                    client.Input.Buttons = InputButtons.None;
+                    _screen.Hud.Refresh();
+                    int shots = Server.TurretShots - _turretShots0;
+                    Check(shots >= 3, $"a second at the turret's controls fired {shots} shots");
+                    Check(_screen.Constructs.TurretShotsDrawn > _turretDrawn0, "the operated turret's shots are not drawn");
+                    Check(_screen.Constructs.TurretsManned == 1, $"{_screen.Constructs.TurretsManned} turrets drawn manned");
+                    Check(_screen.Hud.WeaponsText == Client.HudText.TurretWeapons(turret.Def), $"at the turret the weapons line reads \"{_screen.Hud.WeaponsText}\"");
+                    Check(new Vector2(truth.Move.X - _turretX, truth.Move.Z - _turretZ).Length() < 0.01f, "the carrier moved at the turret's controls");
+                    interaction.Update(1.0 / 30.0, false, false);
+                    Check(interaction.Prompt.Kind == Client.InteractKind.LeaveTurret, $"at the controls the prompt is {interaction.Prompt.Kind}");
+                    interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
+                    GD.Print($"[smoke] debug world: the turret operated by hand, {shots} shots in a second, let go with E");
+                    _turretAt = _frames;
+                    _turretStep++;
+                    return;
+                }
+                default:
+                    if (world.LocalTurret != null && _frames < _turretAt + 60) return;
+                    Check(world.LocalTurret == null && truth.Turret == null, "E did not let go of the turret");
+                    Next(Stage.Bookmarks);
+                    return;
+            }
         }
 
         private static string Slug(string name) => new string(name.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray());

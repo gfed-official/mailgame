@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Combat;
@@ -601,6 +602,15 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>Pushes the belt on a tile (doc 04 §2.1): its segment runs faster for a moment. 0 if not sent.</summary>
+        /// <summary>Takes (<paramref name="take"/>) or lets go of the controls of the turret on a tile (doc 05 §4). 0 if not sent.</summary>
+        public uint OperateTurret(int tx, int tz, bool take)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
+            if (take && (world.Local.Riding || world.Constructs.At(tx, tz) is not { Def.IsTurret: true })) return 0;
+            return Send(SimRequest.OperateTurret(0, tx, tz, take));
+        }
+
         public uint PushBelt(int tx, int tz)
         {
             var world = World;
@@ -681,11 +691,13 @@ namespace PerformativeMail.Client
                 driven.Fuel = MathF.Max(0f, driven.Fuel - SimConstants.TickDt);
             if (!world.HasLocal) return;
 
+            // At a turret's controls the carrier stands: walking off would let go of them (doc 05 §4; design choice 125).
+            bool manning = world.LocalTurret != null;
             var input = new PlayerInput
             {
                 Seq = _nextSeq++,
-                MoveX = PlayerInput.QuantizeAxis(Input.MoveX),
-                MoveZ = PlayerInput.QuantizeAxis(Input.MoveZ),
+                MoveX = manning ? (sbyte)0 : PlayerInput.QuantizeAxis(Input.MoveX),
+                MoveZ = manning ? (sbyte)0 : PlayerInput.QuantizeAxis(Input.MoveZ),
                 Yaw = PlayerInput.QuantizeYaw(Input.YawRadians),
                 Buttons = Input.Buttons,
                 HeldSlot = Input.HeldSlot,
@@ -718,7 +730,7 @@ namespace PerformativeMail.Client
         /// </summary>
         private void PredictAttacks(ClientWorld world, in PlayerInput input)
         {
-            if (world.Local.Dead) return;
+            if (world.Local.Dead || world.LocalTurret != null) return;
             if (input.Has(InputButtons.Attack) && input.Seq >= _hammerReadySeq)
             {
                 _hammerReadySeq = input.Seq + _hammerCooldownTicks;
@@ -1026,6 +1038,8 @@ namespace PerformativeMail.Client
                 case PlayerLeftEvent e:
                     world.LastLeft = world.Players.TryGetValue(e.Player, out var leaver) ? leaver : null;
                     world.Players.Remove(e.Player);
+                    foreach (var (tile, who) in world.TurretOperators.ToList())
+                        if (who == e.Player) world.TurretOperators.Remove(tile);
                     // Their id is free for the next to join, who did not drop these.
                     foreach (var bag in world.Bags.Values)
                         if (bag.Owner == e.Player) bag.Owner = EntityId.None;
@@ -1148,6 +1162,7 @@ namespace PerformativeMail.Client
                     world.LastRemoved = unbuilt;
                     if (unbuilt != null && unbuilt.ContainerId != 0) DropExternal(world, unbuilt.ContainerId);
                     world.Constructs.Remove(e.X, e.Y);
+                    world.TurretOperators.Remove(e.Y * world.Map.Cols + e.X);
                     break;
                 }
                 case ConstructConfiguredEvent e:
@@ -1165,6 +1180,11 @@ namespace PerformativeMail.Client
                 case TurretFiredEvent e:
                     if (world.Map.InBounds(e.X, e.Y)) world.TurretShots[e.Y * world.Map.Cols + e.X] = (world.ServerTick, e.TargetX, e.TargetZ);
                     break;
+                case TurretOperatedEvent e:
+                    if (!world.Map.InBounds(e.X, e.Y)) break;
+                    if (e.Player == EntityId.None) world.TurretOperators.Remove(e.Y * world.Map.Cols + e.X);
+                    else world.TurretOperators[e.Y * world.Map.Cols + e.X] = e.Player;
+                    break;
                 case SorterStatusEvent e:
                     if (world.FilterTarget != null && world.FilterTarget.Tx == e.X && world.FilterTarget.Tz == e.Y) world.FilterStatus = e;
                     break;
@@ -1180,6 +1200,7 @@ namespace PerformativeMail.Client
                     world.Belts.Clear();
                     world.Pipes.Clear();
                     world.Constructs.Clear();
+                    world.TurretOperators.Clear();
                     break;
                 case BeltStateEvent e:
                 {

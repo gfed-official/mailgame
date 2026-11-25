@@ -427,6 +427,8 @@ namespace PerformativeMail.Sim.Content
         public float ShotDamage { get; init; }
         public float ShotSeconds { get; init; }
         public float ShotRange { get; init; }
+        /// <summary>A turret with a carrier at its controls fires this many times as often (doc 05 §4: 2).</summary>
+        public float OperatedRate { get; init; }
         public bool IsTurret => Behaviour == BuildingBehaviour.Turret;
         /// <summary>A belt: metres a second (doc 11: Mk1 2, Mk2 4, Mk3 6).</summary>
         public float Speed { get; init; }

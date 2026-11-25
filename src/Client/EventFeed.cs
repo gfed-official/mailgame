@@ -187,6 +187,11 @@ namespace PerformativeMail.Client
                 string why = HudText.HireRefused(result);
                 if (why.Length > 0) Add(why, bad: true);
             }
+            if (result != OpResult.Ok && request.Kind == RequestKind.OperateTurret && request.Count == 1)
+            {
+                string why = HudText.OperateRefused(result);
+                if (why.Length > 0) Add(why, bad: true);
+            }
             if (result != OpResult.Ok && request.Kind == RequestKind.Refuel)
             {
                 string why = HudText.RefuelRefused(result);

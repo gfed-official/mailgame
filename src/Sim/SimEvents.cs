@@ -499,6 +499,16 @@ namespace PerformativeMail.Sim
         public float TargetX, TargetZ;
     }
 
+    /// <summary>
+    /// The controls of the turret on tile (X, Y) were taken by <see cref="Player"/>, or let go of
+    /// (<see cref="EntityId.None"/>) (doc 05 §4 "Player-operated"; design choice 125).
+    /// </summary>
+    public sealed class TurretOperatedEvent : SimEvent
+    {
+        public byte X, Y;
+        public EntityId Player;
+    }
+
     public sealed class VehicleFuelEvent : SimEvent
     {
         public EntityId Vehicle;

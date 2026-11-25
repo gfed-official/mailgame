@@ -234,6 +234,12 @@ namespace PerformativeMail.Sim
         private void HandleAttackInput(Player p, in PlayerInput input)
         {
             if (p.Dead) return;
+            // At a turret's controls the attack is the gun's, and neither the hammer nor the cannon is in the hands.
+            if (p.Turret != null)
+            {
+                if (input.Has(InputButtons.Attack)) FireOperatedTurret(p);
+                return;
+            }
             if (input.Has(InputButtons.Attack) && Tick >= p.HammerReadyTick) SwingHammer(p);
             if (input.Has(InputButtons.AltAttack) && Tick >= p.CannonReadyTick) FireCannon(p);
         }

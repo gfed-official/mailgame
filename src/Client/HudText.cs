@@ -1459,6 +1459,30 @@ namespace PerformativeMail.Client
             }
         }
 
+        /// <summary>"2×": how many times as often an operated turret fires.</summary>
+        private static string Rate(float rate) => rate.ToString("0.#", CultureInfo.InvariantCulture) + "×";
+
+        /// <summary>The weapons line at a turret's controls.</summary>
+        public static string TurretWeapons(BuildingDef turret)
+        {
+            float seconds = turret.ShotSeconds / Math.Max(1f, turret.OperatedRate);
+            return $"[LMB] {turret.Name.ToLowerInvariant()}, a shot every {seconds.ToString("0.##", CultureInfo.InvariantCulture)} s, {turret.ShotRange.ToString("0", CultureInfo.InvariantCulture)} m";
+        }
+
+        /// <summary>Why the turret's controls were not had.</summary>
+        public static string OperateRefused(OpResult result)
+        {
+            switch (result)
+            {
+                case OpResult.Manned: return "Somebody is at its controls";
+                case OpResult.OutOfRange: return "Too far away to take its controls";
+                case OpResult.AlreadyRiding: return "Not from a saddle";
+                case OpResult.Dead: return "Not while you are down";
+                case OpResult.BadRequest: return "It is not there any more";
+                default: return "";
+            }
+        }
+
         /// <summary>Why the saddle was not had.</summary>
         public static string MountRefused(OpResult result)
         {
@@ -1564,6 +1588,8 @@ namespace PerformativeMail.Client
                         : p.Vehicle.NpcDriving ? $"Take the wheel of the {p.Vehicle.Def.Name}  [E]   ·   the {(p.Vehicle.Def.OnWater ? "captain stands by" : "driver moves over")}"
                         : $"Drive the {p.Vehicle.Def.Name}  [E]   ·   {FuelText(p.Vehicle)}";
                 case InteractKind.Refuel: return $"Refuel the {p.Vehicle!.Def.Name} with an Oil Can  [E]   ·   {FuelText(p.Vehicle)}";
+                case InteractKind.OperateTurret: return $"Operate the {p.Built!.Def.Name}  [E]   ·   aimed by hand, {Rate(p.Built.Def.OperatedRate)} the rate";
+                case InteractKind.LeaveTurret: return $"At the {p.Built!.Def.Name}'s controls   ·   [LMB] fire where you look   ·   [E] let go";
                 case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOff(world, p.Vehicle)}{FuelNote(p.Vehicle)}";
                 case InteractKind.CloseRack: return $"Close {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOff(world, p.Vehicle)}{FuelNote(p.Vehicle)}";
                 case InteractKind.Harvest:

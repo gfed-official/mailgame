@@ -169,13 +169,20 @@ namespace PerformativeMail.Client.Presentation
 
             // A turret's gun turns on the raider it last shot at, or the nearest one in its range;
             // a shot is a muzzle flash and a tracer to where the raider stood, for a tenth of a second.
-            int aiming = 0;
+            // A gun with a carrier at its controls points where they look (design choice 125).
+            int aiming = 0, manned = 0;
             foreach (var g in _guns)
             {
                 var c = g.Built;
                 float tx = float.NaN, tz = 0f;
                 bool recent = world.TurretShots.TryGetValue(c.Tz * world.Map.Cols + c.Tx, out var shot);
-                if (recent && world.ServerTick - shot.Tick < SimConstants.TickRate) (tx, tz) = (shot.X, shot.Z);
+                if (OperatorYaw(world, c, out float facing))
+                {
+                    tx = c.CentreX - Mathf.Sin(facing);
+                    tz = c.CentreZ - Mathf.Cos(facing);
+                    manned++;
+                }
+                else if (recent && world.ServerTick - shot.Tick < SimConstants.TickRate) (tx, tz) = (shot.X, shot.Z);
                 else
                 {
                     float best = c.Def.ShotRange * c.Def.ShotRange;
@@ -210,6 +217,23 @@ namespace PerformativeMail.Client.Presentation
                 if (recent && g.Drawn != shot.Tick) { g.Drawn = shot.Tick; TurretShotsDrawn++; }
             }
             TurretsAiming = aiming;
+            TurretsManned = manned;
+        }
+
+        /// <summary>Turrets drawn pointing where a carrier at their controls looks, as of the last frame.</summary>
+        public int TurretsManned { get; private set; }
+
+        /// <summary>The facing of whoever holds the turret's controls; false if nobody does.</summary>
+        private static bool OperatorYaw(ClientWorld world, Construct c, out float yaw)
+        {
+            yaw = 0f;
+            if (!world.TurretOperators.TryGetValue(c.Tz * world.Map.Cols + c.Tx, out var who)) return false;
+            if (world.HasLocal && who == world.LocalId)
+            {
+                yaw = Sim.Players.PlayerInput.YawToRadians(world.Local.Yaw);
+                return true;
+            }
+            return world.Players.TryGetValue(who, out var p) && p.Interpolate(world.ServerTick - ClientRuntime.InterpolationDelayTicks, out _, out _, out _, out yaw);
         }
 
         /// <summary>Radians a second a turret's gun turns; how far ahead of the pedestal its muzzle is.</summary>

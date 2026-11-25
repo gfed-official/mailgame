@@ -477,8 +477,9 @@ namespace PerformativeMail.Client.UI
             // The Payday and Results panel stands where the banner does, and so do the cards; the tracker still says the raiders flee.
             _banner.Visible = _banner.Text.Length > 0 && !Overlay.Visible && !_draft.Visible;
             _banner.Modulate = down.Length > 0 ? Palette.Mismatch : safe.Length > 0 ? Palette.Match : world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
-            _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0);
-            if (_weapons.Visible) _weapons.Text = HudText.Weapons(_client.CannonAmmo);
+            var manned = world.LocalTurret;
+            _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0 || manned != null);
+            if (_weapons.Visible) _weapons.Text = manned != null ? HudText.TurretWeapons(manned.Def) : HudText.Weapons(_client.CannonAmmo);
 
             var prompt = _interaction.Prompt;
             bool building = Build != null && Build.Active;

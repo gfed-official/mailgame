@@ -78,6 +78,11 @@ namespace PerformativeMail.Sim
         /// <see cref="SimRequest.ToContainer"/>) in centimetres, of the kind <see cref="SimRequest.Count"/> (<see cref="PingKind"/>).
         /// </summary>
         Ping = 26,
+        /// <summary>
+        /// Doc 05 §4 "Player-operated": take the controls of the turret on tile (<see cref="SimRequest.X"/>,
+        /// <see cref="SimRequest.Y"/>) (<see cref="SimRequest.Count"/> 1), or let go of them (0).
+        /// </summary>
+        OperateTurret = 27,
     }
 
     /// <summary>What a ping says (doc 09 §2.6: a click, or the wheel's "Deliver here", "Build here", "Danger", "Need materials").</summary>
@@ -214,6 +219,9 @@ namespace PerformativeMail.Sim
                 RequestId = reqId, Kind = RequestKind.Ping, EntryId = (uint)Math.Max(0, (int)MathF.Round(x * 100f)),
                 ToContainer = (uint)Math.Max(0, (int)MathF.Round(z * 100f)), Count = (ushort)kind,
             };
+
+        public static SimRequest OperateTurret(uint reqId, int tx, int tz, bool take) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.OperateTurret, X = (byte)tx, Y = (byte)tz, Count = (ushort)(take ? 1 : 0) };
 
         public static SimRequest RemoveConstruct(uint reqId, int tx, int tz) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (byte)tx, Y = (byte)tz };

@@ -276,6 +276,7 @@ namespace PerformativeMail.Net.Tests
                 },
                 new MailWaitingEvent { Houses = { (3, 7), (11, 1) } },
                 new TurretFiredEvent { X = 30, Y = 12, TargetX = 70.5f, TargetZ = 22.25f },
+                new TurretOperatedEvent { X = 31, Y = 13, Player = player },
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
                 new VehicleParkedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), X = 60.75f, Z = 28f, Heading = -2.5f, Player = player },
@@ -331,6 +332,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(new (ushort, ushort)[] { (3, 7), (11, 1) }, back.OfType<MailWaitingEvent>().Single().Houses);
             var fired = back.OfType<TurretFiredEvent>().Single();
             Assert.Equal(((byte)30, (byte)12, 70.5f, 22.25f), (fired.X, fired.Y, fired.TargetX, fired.TargetZ));
+            var manned = back.OfType<TurretOperatedEvent>().Single();
+            Assert.Equal(((byte)31, (byte)13, player), (manned.X, manned.Y, manned.Player));
             var swung = back.OfType<InserterSwungEvent>().Single();
             Assert.Equal(((byte)11, (byte)12, (ushort)3), (swung.X, swung.Y, swung.Kind));
             var status = back.OfType<SorterStatusEvent>().Single();

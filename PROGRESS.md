@@ -1820,10 +1820,33 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             on **Home** with the proof `{"fired": [54, 10]}`; `DebugWorldTests` shoots two down in
             20 s with nothing of the showcase hurt; the debug-world smoke checks the shots reach the
             client and the view takes them up
-      - [ ] The turret operated by a carrier (2× the rate, manual aim)
+      - [x] **The turret operated by a carrier** (doc 05 §4 "Player-operated: 2× fire rate and manual
+            aim"; design choice 125). A turret's new param `operatedRate` (2; the validator wants it
+            ≥ 1 on a turret and on nothing else). Beside a turret nobody holds the prompt reads
+            "Operate the Turret  [E]   ·   aimed by hand, 2× the rate"; E sends `OperateTurret`
+            (request 27, `Count` 1 takes, 0 lets go; `OpResult.Manned` for a turret somebody holds,
+            `OutOfRange` from further than the server's interact reach). `TurretOperatedEvent`
+            (protocol `m2.13`) tells everybody who holds which (`ClientWorld.TurretOperators`,
+            `LocalTurret`). At the controls: the client sends no walking (the carrier stands), the
+            attack is the gun's — no hammer, no cannon — and fires along the carrier's facing from
+            the turret's middle every 0.25 s (7.5 ticks, timed from when the shot was due) at the first
+            raider within 0.3 m of the line and 18 m, fleeing or not; it can miss (the tracer goes to
+            the end of its reach); the kill is the carrier's. The gun does not fire by itself while
+            held. The prompt then reads "At the Turret's controls   ·   [LMB] fire where you look
+            ·   [E] let go" and the weapons line "[LMB] turret, a shot every 0.25 s, 18 m"; the
+            gun's head is drawn pointing where its operator looks (`ConstructsView.TurretsManned`).
+            The controls are let go of with E, by walking off (beyond the interact reach), going
+            down, getting away or into a saddle, leaving the game, or when the turret is taken down
+            or the run ends. `OperatedTurretTests` (2× the rate: eight shots in 2 s; the line, not the
+            nearest; misses; the kill; let go, walked off; one at a time, from beside it; taken down),
+            `TurretFlowTests` (prompt, E, standing still, attack, no hammer, the other client sees who
+            is at it, E again), codec pin; the debug-world smoke takes the range's turret's controls
+            through the prompt, holds attack a second on the practice raider (four shots), checks the
+            weapons line, the gun drawn manned and the carrier standing, and lets go with E
+- [ ] Construct damage (doc 05 §5): ruins and rebuilding, item spill
 
-Next in this order: the operated turret, then doc 05's construct damage (ruins and rebuilding,
-item spill), then the enemy traits.
+Next in this order: doc 05's construct damage (ruins and rebuilding, item spill), then the enemy
+traits (doc 05 §2).
 
 ## How to build and check
 
@@ -3068,6 +3091,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     refusals ("Not enough gold"); no "$" or "¢" anywhere. `--playtest-wallet=N` is now N gold, a
     whole number (`--playtest-wallet=500` is the old 5). Balance numbers do not move; the docs keep
     their ¢ with a note in doc 03 §4.1 that they are shown as gold.
+125. **The turret by hand.** Doc 05 §4 says only "Player-operated: 2× fire rate and manual aim".
+    Choices: (a) the controls are taken with E from within the interact reach and held standing
+    (the client sends no walking; walking off would let go) — no seat, no camera of its own: the
+    carrier's eyes are beside the gun, which turns where they look; (b) "manual aim" is the
+    carrier's facing on the ground, the shot hitscan from the turret's middle, hitting the first
+    raider whose body is within 0.3 m of the line, fleeing or not, and missing otherwise; (c) the
+    kill is the operator's (they chose it), and the raider's attention turns to them as from any
+    blow; (d) one carrier at a time; while held, the turret does not also fire by itself; (e) a
+    late joiner learns who holds a turret only at the next change (there is no turret state in the
+    join snapshot; letting go is quick and a shift's end clears it).
 
 ## Commands
 

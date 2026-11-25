@@ -40,6 +40,10 @@ namespace PerformativeMail.Client
         Configure,
         /// <summary>Its filters are up: the key takes them down.</summary>
         CloseFilters,
+        /// <summary>At a turret (doc 05 §4 "Player-operated"): take its controls.</summary>
+        OperateTurret,
+        /// <summary>At a turret's controls: the key lets go of them.</summary>
+        LeaveTurret,
     }
 
     /// <summary>What the interact prompt shows right now (doc 09 §2.4).</summary>
@@ -157,6 +161,17 @@ namespace PerformativeMail.Client
                     {
                         _pressLatch = 0;
                         _awaiting = _client.Mount(prompt.Vehicle!.Id);
+                    }
+                    break;
+
+                case InteractKind.OperateTurret:
+                case InteractKind.LeaveTurret:
+                    _hold = 0;
+                    _deliverAllDest = -1;
+                    if (_pressLatch > 0 && _awaiting == 0)
+                    {
+                        _pressLatch = 0;
+                        _awaiting = _client.OperateTurret(prompt.Built!.Tx, prompt.Built.Tz, prompt.Kind == InteractKind.OperateTurret);
                     }
                     break;
 
@@ -309,6 +324,15 @@ namespace PerformativeMail.Client
             {
                 prompt.Kind = InteractKind.CloseRack;
                 prompt.Vehicle = ride;
+                return prompt;
+            }
+
+            // At a turret's controls the key lets go of them, whatever else is in view.
+            var manned = world.LocalTurret;
+            if (manned != null)
+            {
+                prompt.Kind = InteractKind.LeaveTurret;
+                prompt.Built = manned;
                 return prompt;
             }
 
@@ -465,6 +489,24 @@ namespace PerformativeMail.Client
                 prompt.Node = null;
                 prompt.Vehicle = null;
                 prompt.Built = built;
+            }
+            // A turret's controls are taken from beside it (doc 05 §4), by one carrier at a time, on foot.
+            if (ride == null)
+            {
+                foreach (var built in world.Constructs.All)
+                {
+                    if (!built.Def.IsTurret || world.TurretOperators.ContainsKey(built.Tz * world.Map.Cols + built.Tx)) continue;
+                    if (DistSq(px, pz, built.CentreX, built.CentreZ) > rangeSq) continue;
+                    float t = ray.Hit(AimBox.Built(world.Map, built));
+                    if (t < 0f || t > best) continue;
+                    best = t;
+                    prompt.Kind = InteractKind.OperateTurret;
+                    prompt.Chest = null;
+                    prompt.Bag = null;
+                    prompt.Node = null;
+                    prompt.Vehicle = null;
+                    prompt.Built = built;
+                }
             }
             foreach (var dest in world.Map.Destinations)
             {

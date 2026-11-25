@@ -105,6 +105,6 @@
     "recipe": "recipe_oil_pump", "tags": ["extractor"] },
   { "id": "turret", "name": "Turret", "footprint": [1, 1], "rotations": 4, "hp": 400,
     "placement": { "onStreet": false }, "behaviour": "turret",
-    "params": { "radius": 0.45, "height": 2.4, "shotDamage": 12, "shotSeconds": 0.5, "range": 18 },
+    "params": { "radius": 0.45, "height": 2.4, "shotDamage": 12, "shotSeconds": 0.5, "range": 18, "operatedRate": 2 },
     "recipe": "recipe_turret", "tags": ["defense"] }
 ]
