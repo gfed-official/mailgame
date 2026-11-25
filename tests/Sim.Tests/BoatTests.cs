@@ -189,5 +189,23 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(27, tz);
             Assert.Equal(OpResult.BadRequest, Request(world, host, SimRequest.Buy(0, Db.ShopItem("bp_rowboat").Index)));
         }
+        [Fact]
+        public void GoneDownInABoatOnOpenWater_TheBagWashesUpOnTheShore_AndTheBoatStaysAfloat()
+        {
+            var (world, host) = InPrep(kit: "sea");
+            var boat = world.AddVehicleAt(Rowboat, BuildRules.TileCentre(10), BuildRules.TileCentre(32), 0f, host.Id);
+            SimDriver.Teleport(host, boat.X, boat.Z);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Mount(0, boat.Id.Value)));
+            world.DamagePlayer(host, 1000f);
+            Assert.True(host.Dead);
+            var bag = world.Bags.Single();
+            Assert.True(PlayerMovement.Walkable(world.Map, world.Constructs, (int)MathF.Floor(bag.X / 2f), (int)MathF.Floor(bag.Z / 2f)));
+            Move(world, host, 0f, 0f, 30);
+            Assert.False(host.Move.Riding);
+            Assert.False(boat.Ridden);
+            // The body is not left thrashing in the water: it lies ashore with the bag.
+            Assert.True(PlayerMovement.Walkable(world.Map, world.Constructs, (int)MathF.Floor(host.Move.X / 2f), (int)MathF.Floor(host.Move.Z / 2f)));
+            Assert.True(world.Map.IsWater((int)MathF.Floor(boat.X / 2f), (int)MathF.Floor(boat.Z / 2f)));
+        }
     }
 }

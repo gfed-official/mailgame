@@ -195,7 +195,16 @@ namespace PerformativeMail.Sim
                     MoveCargo(v);
                     if (!v.Def.Fuelled) continue;
                     // Doc 04 §3.1: it burns while it rolls; dry, it stops and its driver gets down.
+                    // A boat dry on the water drifts to a stop with its skipper aboard, who may fill it from the seat (design choice 113).
+                    bool wasDry = v.Fuel <= 0f;
                     if (rider.Move.RideSpeed > 0.1f) v.Fuel = MathF.Max(0f, v.Fuel - SimConstants.TickDt);
+                    if (v.Def.OnWater)
+                    {
+                        rider.Move.Becalmed = v.Fuel <= 0f;
+                        if (v.Fuel <= 0f && !wasDry) Events.Add(new VehicleFuelEvent { Vehicle = v.Id, Seconds = 0f });
+                        else if (v.Fuel > 0f && Tick % SimConstants.TickRate == 0) Events.Add(new VehicleFuelEvent { Vehicle = v.Id, Seconds = v.Fuel });
+                        continue;
+                    }
                     if (v.Fuel <= 0f)
                     {
                         Events.Add(new VehicleFuelEvent { Vehicle = v.Id, Seconds = 0f });
@@ -233,6 +242,7 @@ namespace PerformativeMail.Sim
                     else pocket.Remove(e.EntryId);
                     CommitContainer(pocket.Id);
                     v.Fuel = MathF.Min(v.Def.TankSeconds, v.Fuel + v.Def.FuelSecondsPerCan);
+                    if (GetPlayer(v.Rider) is { } skipper) skipper.Move.Becalmed = false;
                     Events.Add(new VehicleFuelEvent { Vehicle = v.Id, Seconds = v.Fuel });
                     return OpResult.Ok;
                 }
@@ -261,6 +271,7 @@ namespace PerformativeMail.Sim
             {
                 rider.Move.Ride = 0;
                 rider.Move.RideSpeed = 0f;
+                rider.Move.Becalmed = false;
             }
             var by = v.Rider;
             v.Rider = EntityId.None;

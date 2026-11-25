@@ -175,6 +175,13 @@ namespace PerformativeMail.Sim
             p.Hp = 0f;
             StopHealing(p);
             p.Move.Dead = true;
+            // Gone down on the open water, they and their bag wash up on the nearest shore (design choice 113).
+            if (p.Move.Riding && Map.IsWater((int)MathF.Floor(p.Move.X / SimConstants.TileSize), (int)MathF.Floor(p.Move.Z / SimConstants.TileSize))
+                && PlayerMovement.Ashore(Map, Constructs, p.Move.X, p.Move.Z, out float ax, out float az))
+            {
+                p.Move.X = ax;
+                p.Move.Z = az;
+            }
             p.RespawnTick = Tick + Math.Max(1, SimConstants.SecondsToTicks(StatFor(p, Stat.RespawnSeconds, _combat.RespawnSeconds)));
             CloseExternal(p, notify: true);
             Events.Add(new PlayerDiedEvent { Player = p.Id, RespawnTick = p.RespawnTick, Killer = enemyKind });

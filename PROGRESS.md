@@ -633,6 +633,20 @@ Later in the batch (on the sea path) one `tools/smoke.sh` hung in the first smok
 reload and one island bot run timed out right after joining, both while other sessions loaded the
 box; each passed alone at once and the whole script passed again after. Watch for it.
 
+### 2o. A check of the sea path, the depots, drivers, the truck, pipes, inserters and belts on 346eb3e (2026-11-24)
+
+No playtest on 346eb3e. Build, Sim.Tests (479), Net.Tests (186) and `tools/smoke.sh` were green.
+A read of the sea path found two ways to be stuck in the basin, both fixed (design choice 113):
+
+- [x] A carrier who went down in a boat on open water left their bag on the water, where no one
+      can walk, and their body thrashing in it until the respawn. They and the bag now wash up on
+      the nearest shore or deck. `BoatTests.GoneDownInABoatOnOpenWater_*`
+- [x] A Motor Boat run dry set its skipper down into the sea, stuck. It now drifts to a stop with
+      them aboard (`Becalmed`, protocol `m2.9`), and an Oil Can from the seat fills it.
+      `PortTests.AMotorBoatRunDryOnTheWater_*`, `CodecTests` (the move flag)
+
+Nothing in the Vehicle Depot, drivers, the truck, pipes, inserters or belts needed fixing.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
@@ -2697,6 +2711,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     drawn with a chute down to the boat; (d) the Route Console and NPC captains wait: on one island
     with one basin there is no second harbour to run a water route to; (e) the Motor Boat drives
     on the truck's fuel rules and is moored like a bought rowboat.
+
+113. **Going down and running dry on the water.** The docs say a dry vehicle stops (doc 04 §3.1)
+    and a carrier who goes down leaves a bag where they fell (doc 05 §1.1), and nothing about the
+    water. Set down into the basin, nobody can walk out (water is solid to feet) or reach a bag.
+    Choices: (a) a carrier who goes down in a boat on the water lies, with their bag, at the
+    nearest point of shore or deck (`PlayerMovement.Ashore`), "washed up"; (b) a boat run dry
+    keeps its skipper aboard and drifts to a stop (`PlayerMoveState.Becalmed`, set by the server
+    from the tank, a move flag in the snapshot so prediction agrees, protocol `m2.9`); an Oil Can
+    from the seat fills it ("Refuel … [E]" in place of the locker's prompt), and the jump key
+    still gets out by a pier or the shore. A truck run dry still sets its driver down.
 
 ## Commands
 

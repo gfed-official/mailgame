@@ -182,5 +182,37 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Mount(0, boat.Id.Value)));
             Assert.Null(world.LoadingFaceOn(lx, lz));
         }
+        [Fact]
+        public void AMotorBoatRunDryOnTheWater_DriftsToAStop_WithItsSkipperAboard_WhoFillsItFromTheSeat()
+        {
+            var (world, host) = InPrep();
+            var boat = world.AddVehicleAt(Motorboat, 20f, 62f, -MathF.PI / 2f, host.Id);
+            boat.Fuel = 1f;
+            SimDriver.Teleport(host, boat.X, boat.Z);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Mount(0, boat.Id.Value)));
+            for (int i = 0; i < 240; i++)
+            {
+                world.QueueInput(host.Id, new PlayerInput { Seq = host.LastQueuedSeq + 1, MoveX = PlayerInput.QuantizeAxis(1f) });
+                world.Step();
+            }
+            Assert.Equal(0f, boat.Fuel);
+            // Still aboard, out on the water, stopped: nobody is set down into the sea.
+            Assert.True(host.Move.Riding);
+            Assert.True(host.Move.Becalmed);
+            Assert.Equal(host.Id, boat.Rider);
+            Assert.Equal(0f, host.Move.RideSpeed);
+            Assert.True(world.Map.IsWater((int)MathF.Floor(host.Move.X / 2f), (int)MathF.Floor(host.Move.Z / 2f)));
+            // An Oil Can from the seat, and it runs again.
+            Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("oil_can"), 1)));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Refuel(0, boat.Id.Value)));
+            Assert.False(host.Move.Becalmed);
+            float x0 = host.Move.X;
+            for (int i = 0; i < 60; i++)
+            {
+                world.QueueInput(host.Id, new PlayerInput { Seq = host.LastQueuedSeq + 1, MoveX = PlayerInput.QuantizeAxis(1f) });
+                world.Step();
+            }
+            Assert.True(host.Move.X > x0 + 3f);
+        }
     }
 }

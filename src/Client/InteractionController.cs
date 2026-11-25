@@ -493,7 +493,8 @@ namespace PerformativeMail.Client
                 // In the saddle with nothing else to see to: the rack behind, and how to get off.
                 else if (ride != null)
                 {
-                    prompt.Kind = InteractKind.OpenRack;
+                    // A boat run dry on the water is filled from the seat (design choice 113).
+                    prompt.Kind = ride.Def.Fuelled && ride.Fuel <= 0f && HoldsOilCan(world) ? InteractKind.Refuel : InteractKind.OpenRack;
                     prompt.Vehicle = ride;
                 }
                 return prompt;

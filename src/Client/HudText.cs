@@ -1352,7 +1352,7 @@ namespace PerformativeMail.Client
         /// <summary>"fuel 4:32 of 10:00": a tank's driving left.</summary>
         public static string FuelText(ClientVehicle v) => $"fuel {Clock(v.Fuel)} of {Clock(v.Def.TankSeconds)}";
 
-        private static string FuelNote(ClientVehicle v) => v.Def.Fuelled ? "   ·   " + FuelText(v) : "";
+        private static string FuelNote(ClientVehicle v) => !v.Def.Fuelled ? "" : v.Fuel <= 0f ? "   ·   the tank is dry: an Oil Can fills it" : "   ·   " + FuelText(v);
 
         /// <summary>Why the tank was not filled.</summary>
         public static string RefuelRefused(OpResult result)

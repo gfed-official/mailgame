@@ -30,6 +30,11 @@ namespace PerformativeMail.Sim.Players
         public float RideSpeed;
         /// <summary>The way the vehicle points, a unit vector on the ground; (0, 0) before it has pointed anywhere.</summary>
         public float HeadX, HeadZ;
+        /// <summary>
+        /// The boat ridden has run its tank dry (design choice 113): it drifts to a stop and its
+        /// skipper stays aboard. Only the server sets it, from the boat's fuel.
+        /// </summary>
+        public bool Becalmed;
 
         public float Stamina => 1f - Fatigue;
         public bool Riding => Ride != 0;
@@ -104,6 +109,7 @@ namespace PerformativeMail.Sim.Players
                 {
                     s.Ride = 0;
                     s.RideSpeed = 0f;
+                    s.Becalmed = false;
                     var afoot = input;
                     afoot.Buttons &= ~InputButtons.Jump;
                     Step(ref s, afoot, map, speedMult, c, constructs);
@@ -203,7 +209,7 @@ namespace PerformativeMail.Sim.Players
             float mx = input.MoveX / 127f, mz = input.MoveZ / 127f;
             float len = MathF.Sqrt(mx * mx + mz * mz);
             if (len > 1f) { mx /= len; mz /= len; len = 1f; }
-            float top = v.OnWater ? v.WaterSpeed : OnRoad(map, s.X, s.Z) ? v.RoadSpeed : v.OffRoadSpeed;
+            float top = s.Becalmed ? 0f : v.OnWater ? v.WaterSpeed : OnRoad(map, s.X, s.Z) ? v.RoadSpeed : v.OffRoadSpeed;
 
             if (len > 0.01f)
             {
@@ -298,6 +304,37 @@ namespace PerformativeMail.Sim.Players
 
         /// <summary>How far from a boat its rower can step ashore.</summary>
         public const float LandingReach = 2.6f;
+
+        /// <summary>
+        /// The nearest point of walkable ground or deck to (x, z), however far (design choice 113:
+        /// a carrier gone down on the open water, and their bag, wash up there); false on a map
+        /// with nowhere to stand.
+        /// </summary>
+        public static bool Ashore(WorldMap map, ConstructField? constructs, float x, float z, out float lx, out float lz)
+        {
+            const float tile = SimConstants.TileSize, inset = 0.45f;
+            int ox = (int)MathF.Floor(x / tile), oz = (int)MathF.Floor(z / tile);
+            float best = float.MaxValue;
+            lx = x; lz = z;
+            int rings = Math.Max(map.Cols, map.Rows);
+            for (int k = 0; k <= rings; k++)
+            {
+                // Every tile of ring k is at least (k - 1) tiles away: nothing further out can beat what was found.
+                float near = Math.Max(0, k - 1) * tile;
+                if (best <= near * near) break;
+                for (int tz = oz - k; tz <= oz + k; tz++)
+                    for (int tx = ox - k; tx <= ox + k; tx++)
+                    {
+                        if (Math.Max(Math.Abs(tx - ox), Math.Abs(tz - oz)) != k) continue;
+                        if (!Walkable(map, constructs, tx, tz) || map.SolidPropsAt(tx, tz) is { Length: > 0 }) continue;
+                        float px = Math.Clamp(x, tx * tile + inset, (tx + 1) * tile - inset), pz = Math.Clamp(z, tz * tile + inset, (tz + 1) * tile - inset);
+                        float d = (px - x) * (px - x) + (pz - z) * (pz - z);
+                        if (d >= best) continue;
+                        best = d; lx = px; lz = pz;
+                    }
+            }
+            return best < float.MaxValue;
+        }
 
         /// <summary>
         /// Pushes a circle out of every solid tile and solid prop it overlaps. Map edges are solid.

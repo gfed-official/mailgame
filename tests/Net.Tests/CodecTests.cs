@@ -552,7 +552,7 @@ namespace PerformativeMail.Net.Tests
             var m = new SnapshotMsg
             {
                 Tick = 50, AckSeq = 7, HasOwn = true, HasEnemies = true, OwnHp = 62.5f,
-                Own = new PlayerMoveState { X = 1f, Z = 2f, Grounded = true, Winded = true, Dead = true, Fatigue = 0.75f },
+                Own = new PlayerMoveState { X = 1f, Z = 2f, Grounded = true, Winded = true, Dead = true, Becalmed = true, Fatigue = 0.75f },
             };
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 1), Hp = 128, Protected = true });
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), Hp = 255, Away = true });
@@ -567,7 +567,7 @@ namespace PerformativeMail.Net.Tests
             var back = SnapshotMsg.Read(Body(w, MsgType.Snapshot));
             Assert.True(back.HasEnemies);
             Assert.False(back.HasGlobal);
-            Assert.Equal((true, true, true, 0.75f, 62.5f), (back.Own.Grounded, back.Own.Winded, back.Own.Dead, back.Own.Fatigue, back.OwnHp));
+            Assert.Equal((true, true, true, true, 0.75f, 62.5f), (back.Own.Grounded, back.Own.Winded, back.Own.Dead, back.Own.Becalmed, back.Own.Fatigue, back.OwnHp));
             Assert.Equal(2, back.Players.Count);
             Assert.Equal(((byte)128, true, false, false), (back.Players[0].Hp, back.Players[0].Protected, back.Players[0].Away, back.Players[0].Ready));
             Assert.Equal(((byte)255, false, true, false), (back.Players[1].Hp, back.Players[1].Protected, back.Players[1].Away, back.Players[1].Ready));
