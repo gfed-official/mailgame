@@ -128,7 +128,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.True(world.Intake.EntryCount > 0);
 
             // A letter for the farthest house, walked there from the pad along the tile paths.
-            var far = world.Map.Destinations.OrderByDescending(d => Math.Abs(d.MailboxX - host.Move.X) + Math.Abs(d.MailboxZ - host.Move.Z)).First();
+            var far = world.Map.Houses.OrderByDescending(d => Math.Abs(d.MailboxX - host.Move.X) + Math.Abs(d.MailboxZ - host.Move.Z)).First();
             var letter = TestContent.Mail("letter", far.Address, 990001, world.Run.Shift);
             Assert.True(world.Give(host.Hotbar, ItemStack.OfMail(letter)));
             Assert.True(SimDriver.WalkTo(world, host, far.MailboxX, far.MailboxZ, stopDistance: 1.5f, maxTicks: 6000, sprint: true));
@@ -160,6 +160,23 @@ namespace PerformativeMail.Sim.Tests
             Assert.All(districts, d => Assert.InRange(d, 1, shift));
             // The newest district gets its share at once.
             Assert.Contains(shift, districts);
+        }
+        [Fact]
+        public void EveryTownOfFiftySeeds_HasABusinessDockOnTheBeachOverDeepWater_FromShiftFour()
+        {
+            var path = new System.Collections.Generic.List<(float X, float Z)>();
+            for (uint seed = 1; seed <= 50; seed++)
+            {
+                var map = WorldGenerator.Generate(Db, seed);
+                var dock = Assert.Single(map.Destinations, d => d.IsDock);
+                Assert.Equal(("business_dock", WorldGenerator.DockShift), (dock.Type.Id, map.OpensAt(dock)));
+                int tx = (int)MathF.Floor(dock.MailboxX / SimConstants.TileSize), tz = (int)MathF.Floor(dock.MailboxZ / SimConstants.TileSize);
+                // At the quay's edge: open ground under it, deep water in front, walked to from the Post Office.
+                Assert.False(map.IsSolid(tx, tz) || map.IsWater(tx, tz));
+                Assert.Equal(TileType.DeepWater, map.GetTile(tx, tz + 1));
+                Assert.True(TilePathfinder.Find(map, map.PostOffice.SpawnPadX, map.PostOffice.SpawnPadZ, dock.MailboxX, dock.MailboxZ, path), $"seed {seed}: no walk to the dock");
+                Assert.True(dock.MailboxX > map.PostOffice.SpawnPadX, $"seed {seed}: the dock is not east of the Post Office");
+            }
         }
     }
 }

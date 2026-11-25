@@ -119,6 +119,8 @@ namespace PerformativeMail.Sim.World
             foreach (var c in map.Chests) keepClear.Add((c.X, c.Z, c.X, c.Z, 2f));
             foreach (var d in map.Destinations)
             {
+                // A Business Dock has no garden: the town grows as if it were not there, and its lot is cleared after.
+                if (d.IsDock) continue;
                 keepClear.Add((d.MailboxX, d.MailboxZ, d.MailboxX, d.MailboxZ, 1.8f));
                 Walkway(d, out float wx0, out float wz0, out float wx1, out float wz1);
                 keepClear.Add((wx0, wz0, wx1, wz1, 1.3f));
@@ -136,11 +138,22 @@ namespace PerformativeMail.Sim.World
                 return true;
             }
 
-            TileType At(float x, float z) => map.GetTile((int)MathF.Floor(x / Tile), (int)MathF.Floor(z / Tile));
+            // A dock's lot reads as the grass it was laid on, so it moves nothing of the rest (the draws of the stream depend on what fits).
+            DestinationDef? OnDock(int tx, int tz)
+            {
+                foreach (var d in map.Destinations)
+                    if (d.IsDock && tx >= d.Lot.X && tx < d.Lot.X + d.Lot.W && tz >= d.Lot.Y && tz < d.Lot.Y + d.Lot.H) return d;
+                return null;
+            }
+            TileType At(float x, float z)
+            {
+                int tx = (int)MathF.Floor(x / Tile), tz = (int)MathF.Floor(z / Tile);
+                return OnDock(tx, tz)?.LaidOn ?? map.GetTile(tx, tz);
+            }
             bool Walkable(float x, float z)
             {
                 int tx = (int)MathF.Floor(x / Tile), tz = (int)MathF.Floor(z / Tile);
-                return map.InBounds(tx, tz) && !map.IsSolid(tx, tz);
+                return map.InBounds(tx, tz) && (!map.IsSolid(tx, tz) || OnDock(tx, tz) != null);
             }
             // Solid things keep a walker's width back from the street, so its tiles stay clear for tile paths.
             bool OffStreet(float x, float z, float r)
@@ -156,6 +169,7 @@ namespace PerformativeMail.Sim.World
             // Fences first: everything else keeps away from them.
             foreach (var d in map.Destinations)
             {
+                if (d.IsDock) continue;
                 Front(d, out int fx, out int fz);
                 float lx0 = d.Lot.X * Tile, lz0 = d.Lot.Y * Tile, lx1 = (d.Lot.X + d.Lot.W) * Tile, lz1 = (d.Lot.Y + d.Lot.H) * Tile;
                 Walkway(d, out float wx0, out float wz0, out _, out _);
@@ -212,6 +226,7 @@ namespace PerformativeMail.Sim.World
             // Bushes at the front corners of every house, flowers in the front yard.
             foreach (var d in map.Destinations)
             {
+                if (d.IsDock) continue;
                 Front(d, out int fx, out int fz);
                 var b = d.Building;
                 float halfW = b.W * Tile * 0.5f, halfD = b.H * Tile * 0.5f;
@@ -284,6 +299,13 @@ namespace PerformativeMail.Sim.World
                     if (x < r + 1f || z < r + 1f || x > map.WidthM - r - 1f || z > map.LandRows * Tile - r - 1f) continue;
                     if (Free(x, z, r) && OffStreet(x, z, r)) props.Add(new Prop(PropKind.SandPile, x, z, x, z, yaw, scale, 0, r, 0.45f * scale));
                 }
+            }
+            // A dock's paved yard and warehouse take their lot, and a body's width round it.
+            foreach (var d in map.Destinations)
+            {
+                if (!d.IsDock) continue;
+                float x0 = d.Lot.X * Tile - 1f, z0 = d.Lot.Y * Tile - 1f, x1 = (d.Lot.X + d.Lot.W) * Tile + 1f, z1 = (d.Lot.Y + d.Lot.H) * Tile + 1f;
+                props.RemoveAll(p => MathF.Max(p.X, p.X2) > x0 && MathF.Min(p.X, p.X2) < x1 && MathF.Max(p.Z, p.Z2) > z0 && MathF.Min(p.Z, p.Z2) < z1);
             }
             // Last, and without a roll of the dice: the chests stand where the map says.
             foreach (var c in map.Chests)

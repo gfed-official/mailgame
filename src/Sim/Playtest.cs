@@ -57,7 +57,7 @@ namespace PerformativeMail.Sim
         public const float GuardRadius = 4f;
 
         /// <summary>Each seat has a mailbox of its own, so two carriers do not stand in each other.</summary>
-        public static DestinationDef Mailbox(WorldMap map, int slot) => map.Destinations[slot % map.Destinations.Count];
+        public static DestinationDef Mailbox(WorldMap map, int slot) => map.Houses[slot % map.Houses.Count];
 
         /// <summary>The spot on the street side of a mailbox, clear of anything solid.</summary>
         public static void Stand(WorldMap map, DestinationDef dest, float radius, out float x, out float z)

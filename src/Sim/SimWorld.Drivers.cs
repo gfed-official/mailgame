@@ -300,22 +300,31 @@ namespace PerformativeMail.Sim
         /// <summary>One piece out of the truck into a house's box, if it holds one the box takes; the box's rate decides the next turn.</summary>
         private bool DeliverOne(DepotDriver d, DestinationDef house)
         {
-            var cargo = d.Truck!.Cargo;
+            if (!UnloadOne(d.Truck!.Cargo, house, DeliveryMachine.Driver)) return false;
+            d.Delivered++;
+            d.NextDeliverTick = Tick + InsertTicks(house);
+            return true;
+        }
+
+        /// <summary>Ticks between two pieces into a destination: its insert rate.</summary>
+        private static uint InsertTicks(DestinationDef dest) => Math.Max(1u, SimConstants.SecondsToTicks(1.0 / Math.Max(0.01, dest.Type.InsertRate)));
+
+        /// <summary>One piece out of a vehicle's cargo into a destination, if it holds one the destination takes by the belts' rules.</summary>
+        private bool UnloadOne(GridContainer cargo, DestinationDef dest, DeliveryMachine machine)
+        {
             foreach (var e in cargo.Entries)
             {
-                if (e.Stack.Kind != StackKind.Mail || e.Stack.Address != house.Address) continue;
+                if (e.Stack.Kind != StackKind.Mail || e.Stack.Address != dest.Address) continue;
                 var list = e.Stack.Mail;
                 for (int i = 0; i < list.Count; i++)
                 {
-                    if (!AutomatedDelivers(house, list[i])) continue;
+                    if (!AutomatedDelivers(dest, list[i])) continue;
                     var mail = list[i];
                     list.RemoveAt(i);
                     if (list.Count == 0) cargo.Remove(e.EntryId);
                     else cargo.MarkDirty(e.EntryId);
                     CommitContainer(cargo.Id);
-                    DeliverAutomated(house, mail, DeliveryMachine.Driver);
-                    d.Delivered++;
-                    d.NextDeliverTick = Tick + Math.Max(1u, SimConstants.SecondsToTicks(1.0 / Math.Max(0.01, house.Type.InsertRate)));
+                    DeliverAutomated(dest, mail, machine);
                     return true;
                 }
             }

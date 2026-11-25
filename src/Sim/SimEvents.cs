@@ -93,6 +93,8 @@ namespace PerformativeMail.Sim
         Pipe = 3,
         /// <summary>A Vehicle Depot's NPC driver (doc 04 §3.2).</summary>
         Driver = 4,
+        /// <summary>A Business Dock unloading a vehicle standing in its zone (doc 02 §3.5, doc 03 §2.1).</summary>
+        Dock = 5,
     }
 
     public sealed class MisdeliveredEvent : SimEvent

@@ -28,6 +28,8 @@ namespace PerformativeMail.Sim.World
         private const int BeachRows = 6;
         /// <summary>Doc 02 §3.2: the harbour basin below the beach, inside the map — shallow rows, then deep ones.</summary>
         public const int ShallowRows = 3, DeepRows = 3;
+        /// <summary>Doc 02 §3.5: the shift a Small Island's Business Dock opens.</summary>
+        public const int DockShift = 4;
 
         /// <summary>True for a map id the generator makes rather than a file.</summary>
         public static bool Generates(string mapId) => mapId == SmallIsland;
@@ -304,6 +306,54 @@ namespace PerformativeMail.Sim.World
                 }
             }
 
+            // Doc 02 §3.5: "Small Island gets one [Business Dock] from shift 4", on a coastal lot with
+            // deep water — the beach's east end, the farthest from the Post Office of the deep quay.
+            var dockType = content.DestinationType("business_dock");
+            for (int x = cols - 6; x >= cols / 2; x--)
+            {
+                var lot = new TileRect(x, rows - BeachRows, 4, BeachRows);
+                bool free = true;
+                for (int z = lot.Y; z < lot.Y + lot.H && free; z++)
+                    for (int tx = lot.X; tx < lot.X + lot.W && free; tx++)
+                        if (tiles[z * cols + tx] != TileType.Beach) free = false;
+                for (int tx = lot.X; tx < lot.X + lot.W && free; tx++)
+                    if (tiles[rows * cols + tx] != TileType.DeepWater) free = false;
+                if (!free) continue;
+                float mx = x * SimConstants.TileSize + 1f, mz = rows * SimConstants.TileSize - 1f;
+                StreetDef? near = null;
+                float best = float.MaxValue;
+                // On a street open by the dock's shift, so that it opens with it (districts open one a shift).
+                foreach (var st in streets)
+                {
+                    if (st.District > DockShift) continue;
+                    float sx = Math.Clamp(mx, st.Rect.X * SimConstants.TileSize, (st.Rect.X + st.Rect.W) * SimConstants.TileSize);
+                    float sz = Math.Clamp(mz, st.Rect.Y * SimConstants.TileSize, (st.Rect.Y + st.Rect.H) * SimConstants.TileSize);
+                    float d = (sx - mx) * (sx - mx) + (sz - mz) * (sz - mz);
+                    if (d < best) { best = d; near = st; }
+                }
+                if (near == null) break;
+                int number = 1;
+                foreach (var d in destinations)
+                    if (d.Address.Street == near.Id) number = Math.Max(number, d.Address.Number + 1);
+                var building = new TileRect(x + 1, lot.Y, 3, 3);
+                Fill(lot, TileType.Lot, near.District);
+                Fill(building, TileType.Building, near.District);
+                destinations.Add(new DestinationDef
+                {
+                    Id = (ushort)destinations.Count,
+                    Type = dockType,
+                    Address = new AddressId(near.District, near.Id, number),
+                    Street = near,
+                    Lot = lot,
+                    Building = building,
+                    MailboxX = mx,
+                    MailboxZ = mz,
+                    UnlockShift = DockShift,
+                    LaidOn = TileType.Beach,
+                });
+                break;
+            }
+
             var chests = new List<MapChestDef>
             {
                 // In the yard's north-east corner: the tile north of the Intake is the outfeed's (doc 04 §2.6).
@@ -391,6 +441,8 @@ namespace PerformativeMail.Sim.World
             if (!map.Routes.Connected()) return "the streets are not one network";
             foreach (var d in map.Destinations)
             {
+                // A dock's zone is on the quay, reached over the beach and from the water.
+                if (d.IsDock) continue;
                 map.Routes.NearestEdge(d.MailboxX, d.MailboxZ, out _, out _, out float off);
                 if (off > 6f) return $"the mailbox of {map.FormatAddress(d.Address)} is {off:F1} m from a street";
             }

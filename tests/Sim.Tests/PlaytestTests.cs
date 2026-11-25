@@ -244,7 +244,7 @@ namespace PerformativeMail.Sim.Tests
             var map = TestContent.Db.Map("test_street");
             var move = MoveConstants.From(TestContent.Db.Balance);
             float reach = TestContent.Db.Balance.GetFloat("interactRange");
-            foreach (var dest in map.Destinations)
+            foreach (var dest in map.Houses)
             {
                 PlaytestSpot.Stand(map, dest, move.Radius, out float x, out float z);
                 float dx = dest.MailboxX - x, dz = dest.MailboxZ - z;

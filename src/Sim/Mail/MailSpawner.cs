@@ -149,7 +149,10 @@ namespace PerformativeMail.Sim.Mail
             {
                 var kind = _content.MailKind(share.Key);
                 long budget = (long)Math.Round(_batchBudget * share.Value);
-                if (!HasDestination(kind)) { orphaned += budget; continue; }
+                // So does a kind whose share of the whole shift buys not one piece (a Cargo crate is
+                // worth a big share of a small team's shift; design choice 114): the value is not lost.
+                bool affordable = budget * _batchCount >= (long)Math.Round(kind.BaseValue * shiftMult) * Scale;
+                if (!HasDestination(kind) || !affordable) { orphaned += budget; continue; }
                 _accrued[kind.Index] += budget;
                 if (largest == null || kind.GridW * kind.GridH > largest.GridW * largest.GridH) largest = kind;
             }
@@ -199,12 +202,7 @@ namespace PerformativeMail.Sim.Mail
                 if (IsUnlocked(d) && DeliveryRules.KindAccepted(kind, d.Type)) _eligible.Add(d);
         }
 
-        private bool IsUnlocked(DestinationDef d)
-        {
-            foreach (var district in _map.Districts)
-                if (district.Id == d.Address.District) return district.UnlockShift <= _shift;
-            return false;
-        }
+        private bool IsUnlocked(DestinationDef d) => _map.OpensAt(d) <= _shift;
 
         /// <summary>Uniform over unlocked addresses, except that streetStreakRatio of picks reuse a street already in the batch.</summary>
         private DestinationDef PickDestination()

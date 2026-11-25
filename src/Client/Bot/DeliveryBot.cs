@@ -153,7 +153,12 @@ namespace PerformativeMail.Client.Bot
                     var dest = world.Map.FindDestination(entry.Stack.Address);
                     _targetIsWrong = MisdeliverEvery > 0 && ++_stackCounter % MisdeliverEvery == 0;
                     if (dest != null && _targetIsWrong)
-                        dest = world.Map.Destinations[(dest.Id + 1) % world.Map.Destinations.Count];
+                        {
+                        var houses = world.Map.Houses;
+                        int at = 0;
+                        for (int i = 0; i < houses.Count; i++) if (houses[i] == dest) at = i;
+                        dest = houses[(at + 1) % houses.Count];
+                    }
                     if (dest == null) { _step = Step.ToIntake; break; }
                     _targetEntry = entry.EntryId;
                     _targetContainer = container.Id;

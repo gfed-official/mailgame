@@ -18,7 +18,8 @@
     {"type": "house", "street": 1, "number": 7, "lot": [31, 8, 4, 4], "building": [31, 8, 3, 2], "mailbox": [66.0, 25.0], "variant": 6},
     {"type": "house", "street": 1, "number": 8, "lot": [31, 16, 4, 4], "building": [31, 18, 3, 2], "mailbox": [66.0, 31.0], "variant": 7},
     {"type": "house", "street": 1, "number": 9, "lot": [38, 8, 4, 4], "building": [38, 8, 3, 2], "mailbox": [80.0, 25.0], "variant": 8},
-    {"type": "house", "street": 1, "number": 10, "lot": [38, 16, 4, 4], "building": [38, 18, 3, 2], "mailbox": [80.0, 31.0], "variant": 9}
+    {"type": "house", "street": 1, "number": 10, "lot": [38, 16, 4, 4], "building": [38, 18, 3, 2], "mailbox": [80.0, 31.0], "variant": 9},
+    {"type": "business_dock", "street": 1, "number": 11, "lot": [42, 20, 4, 6], "building": [43, 20, 3, 3], "mailbox": [85.0, 51.0], "unlockShift": 3}
   ],
   "chests": [
     {"container": "chest", "at": [15.0, 12.8], "yawDegrees": -90}

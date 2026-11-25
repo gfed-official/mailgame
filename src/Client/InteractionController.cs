@@ -468,6 +468,8 @@ namespace PerformativeMail.Client
             }
             foreach (var dest in world.Map.Destinations)
             {
+                // A Business Dock takes Cargo from vehicles and belts, not from the hand.
+                if (dest.IsDock) continue;
                 if (DistSq(px, pz, dest.MailboxX, dest.MailboxZ) > rangeSq) continue;
                 float t = ray.Hit(AimBox.Mailbox(world.Map, dest));
                 if (t < 0f || t > best) continue;

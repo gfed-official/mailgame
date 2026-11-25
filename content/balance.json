@@ -62,6 +62,7 @@
   "npcDepartWaitSeconds": 4.0,
   "npcStopReach": 3.5,
   "npcFleeRadius": 20.0,
+  "dockZoneReach": 4.0,
   "harvestSwingSeconds": 0.6,
   "buildRange": 8.0,
   "serverBuildRange": 8.5,

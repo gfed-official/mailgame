@@ -1289,9 +1289,8 @@ namespace PerformativeMail.Client
         /// <summary>The shift a house's district opens in (doc 01 §1.2): its mail comes from then on.</summary>
         public static int DistrictOpensAt(WorldMap map, DestinationDef dest)
         {
-            foreach (var d in map.Districts)
-                if (d.Id == dest.Address.District) return d.UnlockShift;
-            return 1;
+            int at = map.OpensAt(dest);
+            return at == int.MaxValue ? 1 : at;
         }
 
         public static string OpensInShift(int shift) => $"opens in shift {shift.ToString(CultureInfo.InvariantCulture)}";

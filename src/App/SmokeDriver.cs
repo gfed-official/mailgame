@@ -963,6 +963,12 @@ namespace PerformativeMail.App
             Check(server.Tick - _realTimeStartTick >= 10, $"server advanced only {server.Tick - _realTimeStartTick} ticks in {_realTime:0.00} s of real time");
 
             Check(_screen.World.MailboxCount == world.Map.Destinations.Count, $"{_screen.World.MailboxCount} mailboxes drawn for {world.Map.Destinations.Count} destinations");
+            // The test street's Business Dock at the east end of the quay, drawn with its sign, shut in shift 1.
+            foreach (var dock in world.Map.Destinations.Where(d => d.IsDock))
+            {
+                var sign = _screen.World.GetNodeOrNull<Label3D>($"Dock{dock.Address.Number}");
+                Check(sign != null && sign.Text.Contains(HudText.OpensInShift(world.Map.OpensAt(dock)), StringComparison.Ordinal), $"the dock's sign reads \"{sign?.Text}\"");
+            }
             Check(_screen.Players.ViewCount == world.Players.Count, $"{_screen.Players.ViewCount} player views for {world.Players.Count} players");
             Check(GetViewport().GetCamera3D() == _screen.Camera, "the first-person camera is not the active camera");
             var view = _screen.Players.LocalView;

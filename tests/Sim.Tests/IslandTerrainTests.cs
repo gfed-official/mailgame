@@ -75,7 +75,11 @@ namespace PerformativeMail.Sim.Tests
                         {
                             // The town is levelled, its own beach the island's beach.
                             Assert.Equal(IslandTerrain.TownLevelCm, h);
-                            Assert.Equal(map.GetTile(ix - t.TownX, iz - t.TownZ) == TileType.Beach, biome == Biome.Beach);
+                            // (A Business Dock's yard is paved over the beach.)
+                            int mx = ix - t.TownX, mz = iz - t.TownZ;
+                            bool beach = map.GetTile(mx, mz) == TileType.Beach
+                                || map.Destinations.Any(d => d.IsDock && d.LaidOn == TileType.Beach && mx >= d.Lot.X && mx < d.Lot.X + d.Lot.W && mz >= d.Lot.Y && mz < d.Lot.Y + d.Lot.H);
+                            Assert.Equal(beach, biome == Biome.Beach);
                             continue;
                         }
                         // No spits: every land tile has two land neighbours at least.

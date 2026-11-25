@@ -79,6 +79,12 @@ namespace PerformativeMail.Client.Presentation
             var batch = new MeshBatch();
             foreach (var dest in map.Destinations)
             {
+                if (dest.IsDock)
+                {
+                    AddLight(DockBuilder.Build(batch, dest), DockBuilder.LampLight, 10f, 0.4f, 3.2f);
+                    AddDockSign(dest);
+                    continue;
+                }
                 AddLight(HouseBuilder.Build(batch, dest), HouseBuilder.LanternLight, 7f, 0.5f, 2.6f);
                 AddHouseNumber(dest);
                 AddMailbox(batch, dest);
@@ -107,7 +113,8 @@ namespace PerformativeMail.Client.Presentation
                 int opens = HudText.DistrictOpensAt(_map, dest);
                 bool closed = opens > shift;
                 if (closed) locked++;
-                label.Text = closed ? $"{dest.Label}\n{HudText.OpensInShift(opens)}" : dest.Label;
+                string name = dest.IsDock ? dest.Label + "  ·  Cargo" : dest.Label;
+                label.Text = closed ? $"{name}\n{HudText.OpensInShift(opens)}" : name;
                 label.Modulate = closed ? new Color(0.78f, 0.78f, 0.8f, 0.6f) : Colors.White;
             }
             LockedMailboxes = locked;
@@ -184,6 +191,7 @@ namespace PerformativeMail.Client.Presentation
             }
             foreach (var dest in map.Destinations)
             {
+                if (dest.IsDock) continue;
                 Scenery.Walkway(dest, out float x0, out float z0, out float x1, out float z1);
                 var line = new Prop(PropKind.Fence, x0, z0, x1, z1, 0f, 1f, 0, 0f, 0f);
                 int minX = Mathf.FloorToInt((Mathf.Min(x0, x1) - 1f + GroundMargin) * TexelsPerMetre), maxX = Mathf.CeilToInt((Mathf.Max(x0, x1) + 1f + GroundMargin) * TexelsPerMetre);
@@ -298,6 +306,19 @@ namespace PerformativeMail.Client.Presentation
             batch.Frame = Transform3D.Identity;
             var label = MakeLabel(dest.Label, at + new Vector3(0f, 1.75f, 0f), 56, Colors.White, flat: false);
             label.Name = $"Mailbox{dest.Address.Number}";
+            Fade(label, AddressFadeStart, AddressFadeEnd, 1);
+            AddChild(label);
+            _mailboxLabels.Add((dest, label));
+            MailboxCount++;
+        }
+
+        /// <summary>A Business Dock's name over its door, and its address over the unloading zone (the mailbox's label: it greys while the dock is shut).</summary>
+        private void AddDockSign(DestinationDef dest)
+        {
+            var frame = HouseBuilder.Frame(dest, out _, out float depth);
+            AddLabel("BUSINESS DOCK", frame * new Vector3(0f, 5.9f, depth * 0.5f), 120, new Color("f6f0e4"));
+            var label = MakeLabel(dest.Label + "  ·  Cargo", new Vector3(dest.MailboxX, 1.6f, dest.MailboxZ), 56, new Color("e8c13a"), flat: false);
+            label.Name = $"Dock{dest.Address.Number}";
             Fade(label, AddressFadeStart, AddressFadeEnd, 1);
             AddChild(label);
             _mailboxLabels.Add((dest, label));

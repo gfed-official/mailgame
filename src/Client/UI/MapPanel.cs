@@ -100,7 +100,7 @@ namespace PerformativeMail.Client.UI
             foreach (var d in map.Destinations)
                 for (int y = d.Building.Y; y < d.Building.Y + d.Building.H; y++)
                     for (int x = d.Building.X; x < d.Building.X + d.Building.W; x++)
-                        houseColour[y * map.Cols + x] = Palette.HouseColour(d.Variant);
+                        houseColour[y * map.Cols + x] = d.IsDock ? new Color("5d7383") : Palette.HouseColour(d.Variant);
             var po = map.PostOffice;
             for (int ty = 0; ty < map.Rows; ty++)
             {
@@ -198,7 +198,7 @@ namespace PerformativeMail.Client.UI
             {
                 var b = At(d.Building.CenterX, d.Building.CenterZ);
                 if (Guide.Carried.Contains(d.Address)) DrawArc(b, scale * 3.4f, 0f, Mathf.Tau, 24, Colors.White, 2f);
-                if (numbers) DrawString(font, b + new Vector2(-20f, 4f), d.Address.Number.ToString(), HorizontalAlignment.Center, 40f, 10, new Color(0.1f, 0.1f, 0.12f));
+                if (numbers || d.IsDock) DrawString(font, b + new Vector2(-20f, 4f), d.IsDock ? "DOCK" : d.Address.Number.ToString(), HorizontalAlignment.Center, 40f, 10, d.IsDock ? Colors.White : new Color(0.1f, 0.1f, 0.12f));
             }
             // The districts not open yet say when they open.
             foreach (var district in map.Districts)

@@ -31,17 +31,22 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
-        public void TestMapHasOneStreetTenHousesAndAPostOffice()
+        public void TestMapHasOneStreetTenHousesABusinessDockAndAPostOffice()
         {
             var map = TestContent.Db.Map("test_street");
             Assert.Single(map.Streets);
-            Assert.Equal(10, map.Destinations.Count);
+            Assert.Equal(11, map.Destinations.Count);
+            Assert.Equal(10, map.Houses.Count);
             Assert.NotEqual(0UL, map.MapHash);
+            // The dock last, on the coast at the east end, from shift 3.
+            var dock = map.Destinations[10];
+            Assert.Equal(("business_dock", true, 3), (dock.Type.Id, dock.IsDock, map.OpensAt(dock)));
+            Assert.True(map.IsWater((int)(dock.MailboxX / 2f), (int)(dock.MailboxZ / 2f) + 1));
 
             var seen = new HashSet<AddressId>();
             foreach (var d in map.Destinations)
             {
-                Assert.Equal("house", d.Type.Id);
+                Assert.Equal(d.IsDock ? "business_dock" : "house", d.Type.Id);
                 Assert.True(seen.Add(d.Address), $"duplicate address {d.Address}");
                 Assert.False(map.IsSolid((int)(d.MailboxX / 2f), (int)(d.MailboxZ / 2f)));
                 Assert.Same(d, map.FindDestination(d.Address));

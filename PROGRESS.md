@@ -127,7 +127,10 @@ list below.
       `LoopbackHub` conditioner). 100 ms each way + 5 % loss: rms 0.23 cm, worst single correction
       24.5 cm. 200 ms each way + 5 % loss: rms 0.23 cm, worst 25.0 cm. 100 ms each way without
       loss: 0 — latency alone never corrects. A correction happens only when three input packets
-      in a row are lost (each packet repeats the last three inputs). Known limits: the conditioner
+      in a row are lost (each packet repeats the last three inputs). *Since the weight carried
+      slows a carrier* (re-measured 2026-11-24): without loss the worst correction is 1.0–2.5 cm,
+      each where the speed multiplier changed (0.96 → 0.95) and the client learnt it a round trip
+      after the server moved by it; the no-loss bound is now 5 cm, RMS still under 0.01 cm. Known limits: the conditioner
       has no jitter; and after a *server* stall of a second or more (seen on this shared machine
       in the ENet soak, see the tick item below) a guest is pulled back once by up to a few
       metres, because the inputs that queued up meanwhile run into the server's speed clamp.
@@ -1570,6 +1573,33 @@ the whole line exists; the sub-lines say which parts do.
             rides a belt into its hold (`small-port`). NPC captains (and the water routes and
             navmesh they need) wait for a second harbour to sail to — a Business Dock or another
             town
+      - [x] **The Business Dock: somewhere to sail to** (doc 02 §3.5, doc 03 §1.1 and §2.1, doc 08
+            destination types; design choice 114). `business_dock` destinations (in
+            `destinations.json` since M0) now stand in the world: a destination may open later than
+            its district (`unlockShift`, `WorldMap.OpensAt`); the test street's is the eleventh,
+            "11 Larch Lane", at the east end of the quay from shift 3 (lot 4 × 6, a 3 × 3 warehouse,
+            its unloading zone's middle at the quay's edge, deep water in front), and the generator
+            gives every Small Island one on the beach's east end over deep water from shift 4
+            (`WorldGenerator.DockShift`), on the nearest street open by then. Cargo (5 × 8, not
+            carried by hand) is addressed to it. In Delivery a vehicle standing in its zone — a truck
+            on its yard or a boat at its quay, within `dockZoneReach` 4 m, parked or held still —
+            has the Cargo for it taken out at the dock's insert rate (2 a second) by the belts'
+            rules (`SimWorld.StepDocks`, `DeliveryMachine.Dock`: "The dock at 11 Larch Lane took 1
+            Cargo +$7.20"); a belt ending into the zone's tile feeds it as a mailbox; the hand
+            cannot (no prompt; `WontFitHere`). A kind whose share of a whole shift buys not one
+            piece hands it to the largest kind as one without a destination does, so a solo run's
+            Cargo first comes in shift 5 and a group's earlier. The town's scenery grows as if the
+            dock were not there and its lot is cleared after, so no tree of the street moved.
+            Drawn: a concrete yard, a ribbed steel warehouse with an amber roll-up door under a red
+            band and a lamp, BUSINESS DOCK over the door, pallets of crates, the zone framed and
+            hatched in yellow with bollards and a yellow jib crane, its address "· Cargo" in yellow
+            (greyed with "opens in shift 3" until then); the map screen shows it as DOCK. `Houses`
+            on the map lists the others (the bot, the playtest mailbox, tests). `DockTests`
+            (Cargo for it from the shift it opens; a truck in the zone unloaded at the rate and
+            nothing else; outside it or rolling through, nothing; a boat at its quay; a belt; not the
+            hand), `WorldGeneratorTests` (fifty seeds: one dock on the beach over deep water, walked
+            to, east of the Post Office, from shift 4), `ContentTests`, `IslandTerrainTests`; the
+            smoke checks its sign
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
@@ -2721,6 +2751,23 @@ See "Commands" at the bottom (filled in as the tooling lands).
     from the tank, a move flag in the snapshot so prediction agrees, protocol `m2.9`); an Oil Can
     from the seat fills it ("Refuel … [E]" in place of the locker's prompt), and the jump key
     still gets out by a pier or the shore. A truck run dry still sets its driver down.
+
+114. **The Business Dock.** Doc 02 §3.5 puts one "on a coastal lot with deep water; accepts Cargo
+    only", the Small Island's "from shift 4"; doc 03 its acceptance "Boat or vehicle unloading
+    zone, belt end, or crane (deferred) · Instant" and Cargo "Cannot be carried by hand". Choices:
+    (a) a destination like a house, with its own `unlockShift`; on the test street (a test map,
+    whose boats come at shift 3) it opens with the Motor Boat in shift 3; (b) its "mailbox" is the
+    middle of its unloading zone at the quay's edge, reached by a truck from land and a boat from
+    the water; (c) "Instant" is read as automatic: a vehicle held still in the zone is unloaded
+    without a key, at the dock's insert rate, by the rules automation goes by (it never takes what
+    would be a misdelivery), whoever drives it; an NPC driver or captain unloads by themselves;
+    (d) by doc 11's numbers a crate (600 ¢ and the shift's multiplier) is more than Cargo's share of
+    a solo shift 3 or 4 (5 % / 10 % of 1.6 × the quota), and the spawner's per-shift accrual would
+    lose that share: a kind that cannot make one piece in a shift hands its share to the largest
+    kind, as Cargo did while no dock stood; (e) the scenery grows as if the dock were not there and
+    its lot is cleared after (the stream's draws depend on what fits), so adding a dock to a map
+    moves no tree elsewhere; (f) a dock's address is "11 Larch Lane" like any; it is named on its
+    sign and the map.
 
 ## Commands
 

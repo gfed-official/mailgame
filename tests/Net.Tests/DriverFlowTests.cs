@@ -56,7 +56,7 @@ namespace PerformativeMail.Net.Tests
             var depot = sim.Constructs.At(14, 21)!;
             SimWorld.Bay(depot, out float bx, out float bz, out float heading);
             var truck = sim.AddVehicleAt(content.Vehicle("mail_truck"), bx, bz, heading);
-            var far = sim.Map.Destinations.OrderByDescending(h => h.MailboxX).First();
+            var far = sim.Map.Houses.OrderByDescending(h => h.MailboxX).First();
             for (uint i = 0; i < 2; i++)
                 Assert.True(sim.Give(truck.Cargo, ItemStack.OfMail(new MailItem { Id = 994000 + i, Kind = 1, Address = far.Address, Value = 8, SpawnShift = 2, DeadlineShift = 4 })));
             Run(10);

@@ -307,13 +307,16 @@ namespace PerformativeMail.Client
                 DeliveryMachine.Inserter => "An inserter",
                 DeliveryMachine.Pipe => "A pipe",
                 DeliveryMachine.Driver => "A driver",
+                DeliveryMachine.Dock => "The dock",
                 _ => Who(world, player),
             };
             string what = HudText.CountAndKind(kind < world.Content.MailKinds.Count ? world.Content.MailKinds[kind].Name : "item", entry.Count);
             string where = world.Map.GetDestination(destId)?.Label ?? "?";
             entry.Text = bad
                 ? $"{who} misdelivered {what} at {where}  -{HudText.Money(entry.Amount)}"
-                : $"{who} delivered {what} to {where}  +{HudText.Money(entry.Amount)}";
+                : machine == DeliveryMachine.Dock && player.IsNone
+                    ? $"The dock at {where} took {what}  +{HudText.Money(entry.Amount)}"
+                    : $"{who} delivered {what} to {where}  +{HudText.Money(entry.Amount)}";
             Revision++;
         }
 

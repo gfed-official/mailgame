@@ -165,7 +165,7 @@ namespace PerformativeMail.Sim.Tests
         public void ACarrierTakesTheWheel_AndHandsItBack_EachWithinOneTick_TheDriverHandingOutTheMailMeanwhile()
         {
             var (world, host, depot, truck) = Setup();
-            var far = world.Map.Destinations.OrderByDescending(h => h.MailboxX).First();
+            var far = world.Map.Houses.OrderByDescending(h => h.MailboxX).First();
             Assert.Equal(OpResult.Ok, SetStop(world, host, 0, new MailFilter(FilterKind.Address, far.Id)));
             Load(world, truck, far, 3);
             Assert.Equal(OpResult.Ok, Hire(world, host));
@@ -210,7 +210,7 @@ namespace PerformativeMail.Sim.Tests
         public void RaidersNearTheRoute_SendTheDriverHome()
         {
             var (world, host, depot, truck) = Setup();
-            var far = world.Map.Destinations.OrderByDescending(h => h.MailboxX).First();
+            var far = world.Map.Houses.OrderByDescending(h => h.MailboxX).First();
             Assert.Equal(OpResult.Ok, SetStop(world, host, 0, new MailFilter(FilterKind.Address, far.Id)));
             Load(world, truck, far, 2);
             Assert.Equal(OpResult.Ok, Hire(world, host));
@@ -228,7 +228,7 @@ namespace PerformativeMail.Sim.Tests
         public void AtPaydayTheHireEnds_AndTheTruckIsPutBackInItsBay()
         {
             var (world, host, depot, truck) = Setup();
-            var far = world.Map.Destinations.OrderByDescending(h => h.MailboxX).First();
+            var far = world.Map.Houses.OrderByDescending(h => h.MailboxX).First();
             Assert.Equal(OpResult.Ok, SetStop(world, host, 0, new MailFilter(FilterKind.Street, far.Address.Street)));
             Load(world, truck, far, 2);
             Assert.Equal(OpResult.Ok, Hire(world, host));

@@ -100,7 +100,7 @@ namespace PerformativeMail.Sim.Tests
         {
             // The far mailbox and back, at the widest radius a path is planned for.
             var po = Map.PostOffice;
-            var goal = Map.Destinations[Map.Destinations.Count - 1];
+            var goal = Map.Houses[Map.Houses.Count - 1];
             var path = new List<(float X, float Z)>();
             Assert.True(TilePathfinder.Find(Map, po.SpawnPadX, po.SpawnPadZ, goal.MailboxX, goal.MailboxZ, path));
             float x = po.SpawnPadX, z = po.SpawnPadZ;

@@ -197,6 +197,7 @@ namespace PerformativeMail.Sim.World
                     var address = new AddressId(street.District, street.Id, number, unit);
                     if (!seenAddresses.Add(address)) ctx.Error($"duplicate address {address}");
 
+                    var laidOn = RectOk(lot, $"destination {address} lot") ? tiles[lot.Y * cols + lot.X] : TileType.Grass;
                     if (RectOk(lot, $"destination {address} lot")) Fill(lot, TileType.Lot, street.District);
                     if (RectOk(building, $"destination {address} building")) Fill(building, TileType.Building, street.District);
 
@@ -211,6 +212,8 @@ namespace PerformativeMail.Sim.World
                         MailboxX = (float)mailbox[0],
                         MailboxZ = (float)mailbox[1],
                         Variant = J.Int(ctx, e, "variant", 0),
+                        UnlockShift = J.Int(ctx, e, "unlockShift", 0),
+                        LaidOn = laidOn,
                     });
                 }
             }

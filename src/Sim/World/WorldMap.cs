@@ -61,6 +61,17 @@ namespace PerformativeMail.Sim.World
         public float MailboxX { get; init; }
         public float MailboxZ { get; init; }
         public int Variant { get; init; }
+        /// <summary>The shift it takes mail from when later than its district's (doc 02 §3.5: a Small Island's Business Dock from shift 4); 0 for its district's.</summary>
+        public int UnlockShift { get; init; }
+
+        /// <summary>
+        /// Doc 02 §3.5 Business Dock: a warehouse on the coast that takes Cargo from a vehicle
+        /// standing in its unloading zone or from a belt's end, never from the hand. Its "mailbox"
+        /// is the middle of that zone, at the quay's edge.
+        /// </summary>
+        public bool IsDock => Type.RequiresVehicleZone;
+        /// <summary>The ground a dock's lot was laid on (grass or a beach): what the scenery grows as if it were not there.</summary>
+        public TileType LaidOn { get; init; } = TileType.Grass;
 
         /// <summary>Delivery label text: "{number} {street}".</summary>
         public string Label => $"{Address.Number} {Street.Name}";
@@ -123,6 +134,9 @@ namespace PerformativeMail.Sim.World
         public IReadOnlyList<DistrictDef> Districts { get; init; } = Array.Empty<DistrictDef>();
         public IReadOnlyList<StreetDef> Streets { get; init; } = Array.Empty<StreetDef>();
         public IReadOnlyList<DestinationDef> Destinations { get; init; } = Array.Empty<DestinationDef>();
+        private List<DestinationDef>? _houses;
+        /// <summary>The destinations that take mail by hand (every one but the Business Docks), in their order.</summary>
+        public IReadOnlyList<DestinationDef> Houses => _houses ??= new List<DestinationDef>(System.Linq.Enumerable.Where(Destinations, d => !d.IsDock));
         public PostOfficeDef PostOffice { get; init; } = new PostOfficeDef();
         public IReadOnlyList<MapChestDef> Chests { get; init; } = Array.Empty<MapChestDef>();
         /// <summary>The island around a generated town (doc 02 §3.1–§3.2); null for a map from a file.</summary>
@@ -209,6 +223,15 @@ namespace PerformativeMail.Sim.World
         }
 
         /// <summary>"13 Larch Lane" for a known address, or the canonical id if the street is unknown.</summary>
+        /// <summary>The shift a destination first takes mail: its district's, or its own if later (a Business Dock's).</summary>
+        public int OpensAt(DestinationDef d)
+        {
+            int at = int.MaxValue;
+            foreach (var district in Districts)
+                if (district.Id == d.Address.District) { at = district.UnlockShift; break; }
+            return Math.Max(at, d.UnlockShift);
+        }
+
         public string FormatAddress(AddressId address)
         {
             var street = GetStreet(address.Street);
@@ -226,10 +249,23 @@ namespace PerformativeMail.Sim.World
             // Water laid along the south edge does not move the trees either: the scenery key is the land's.
             h.Add(LandRows);
             // A beach is grass to the scenery's key, so laying one down does not move the street's trees.
-            for (int i = 0; i < LandRows * Cols; i++) { h.Add((byte)(Tiles[i] == TileType.Beach ? TileType.Grass : Tiles[i])); h.Add(TileDistrict[i]); }
+            // A Business Dock is not in the key either: putting one on the coast does not move the trees (its lot keeps them off itself).
+            var dockTile = new bool[Tiles.Length];
+            var dockBeach = new bool[Tiles.Length];
+            foreach (var d in Destinations)
+                if (d.IsDock)
+                    for (int z = d.Lot.Y; z < d.Lot.Y + d.Lot.H; z++)
+                        for (int x = d.Lot.X; x < d.Lot.X + d.Lot.W; x++)
+                            if (InBounds(x, z)) { dockTile[z * Cols + x] = true; dockBeach[z * Cols + x] = d.LaidOn == TileType.Beach; }
+            for (int i = 0; i < LandRows * Cols; i++)
+            {
+                h.Add((byte)(Tiles[i] == TileType.Beach || dockTile[i] ? TileType.Grass : Tiles[i]));
+                h.Add(dockTile[i] ? (byte)0 : TileDistrict[i]);
+            }
             foreach (var s in Streets) { h.Add(s.Id); h.Add(s.Name); h.Add(s.District); }
             foreach (var d in Destinations)
             {
+                if (d.IsDock) continue;
                 h.Add(d.Id);
                 h.Add(d.Type.Id);
                 h.Add(d.Address.Key);
@@ -245,7 +281,7 @@ namespace PerformativeMail.Sim.World
             SceneryKey = h.Value;
             Terrain?.AddTo(ref h);
             for (int i = 0; i < Tiles.Length; i++)
-                if (Tiles[i] == TileType.Beach) h.Add(i);
+                if (Tiles[i] == TileType.Beach || dockBeach[i]) h.Add(i);
             if (PostOffice.HasShop)
             {
                 h.Add((int)MathF.Round(PostOffice.ShopX * 100f));
@@ -260,6 +296,18 @@ namespace PerformativeMail.Sim.World
             }
             // The sand piles grow from the land's hash: water laid down after does not move them.
             LandHash = h.Value;
+            foreach (var d in Destinations)
+            {
+                if (!d.IsDock) continue;
+                h.Add(d.Id);
+                h.Add(d.Type.Id);
+                h.Add(d.Address.Key);
+                h.Add(d.UnlockShift);
+                h.Add((int)MathF.Round(d.MailboxX * 100f));
+                h.Add((int)MathF.Round(d.MailboxZ * 100f));
+                h.Add(d.Building.X); h.Add(d.Building.Y); h.Add(d.Building.W); h.Add(d.Building.H);
+                h.Add(d.Lot.X); h.Add(d.Lot.Y); h.Add(d.Lot.W); h.Add(d.Lot.H);
+            }
             if (Rows != LandRows || HasWater)
             {
                 h.Add(Rows);
