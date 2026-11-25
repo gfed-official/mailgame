@@ -26,6 +26,8 @@ namespace PerformativeMail.App
         public ServerRuntime? Server { get; private set; }
         public ClientRuntime Client { get; private set; } = null!;
         public InteractionController Interaction { get; private set; } = null!;
+        /// <summary>The ping key (doc 09 §2.6): a tap pings "Look here", a hold brings the wheel up.</summary>
+        public PingController Ping { get; private set; } = null!;
         /// <summary>Build mode (doc 09 §2.7): the recipe, the ghost and what it is on.</summary>
         public BuildController Build { get; private set; } = null!;
         public EventFeed Feed { get; } = new EventFeed();
@@ -133,6 +135,7 @@ namespace PerformativeMail.App
             Client = new ClientRuntime(content, transport, profile.DisplayName, Playtest, StartShift, profile.AccountId,
                 profile.Rank(HudText.RankXpPerRank(content)), StartWallet);
             Interaction = new InteractionController(Client);
+            Ping = new PingController(Client);
             Build = new BuildController(Client) { OnRefused = why => Feed.Add(HudText.PlaceReason(Client.World!, Client.World!.Content.Recipes[0], why), bad: true) };
             Interaction.Building = () => Build.Active;
             Feed.Content = content;

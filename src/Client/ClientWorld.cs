@@ -614,6 +614,22 @@ namespace PerformativeMail.Client
         /// <summary>What each Vehicle Depot's driver does, as the server last said, by the depot's tile index.</summary>
         public Dictionary<int, DriverEvent> Drivers { get; } = new Dictionary<int, DriverEvent>();
 
+        /// <summary>The team's pings standing now (doc 09 §2.6), oldest first; gone by their expiry tick.</summary>
+        public List<PingEvent> Pings { get; } = new List<PingEvent>();
+        /// <summary>A ping a carrier keeps at most at once: a fourth takes the place of their oldest.</summary>
+        public const int PingsEach = 3;
+
+        /// <summary>Drops the pings whose time is up.</summary>
+        public void PrunePings() => Pings.RemoveAll(p => ServerTick >= p.ExpiresTick);
+
+        public void AddPing(PingEvent e)
+        {
+            int mine = 0;
+            foreach (var p in Pings) if (p.Player == e.Player) mine++;
+            if (mine >= PingsEach) Pings.Remove(Pings.Find(p => p.Player == e.Player)!);
+            Pings.Add(e);
+        }
+
         public DriverEvent? DriverAt(Construct depot) =>
             Drivers.TryGetValue(depot.Tz * Map.Cols + depot.Tx, out var d) && d.State != DriverState.None ? d : null;
 

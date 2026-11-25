@@ -74,6 +74,7 @@ namespace PerformativeMail.Sim
                 case RequestKind.ConfigureConstruct: return ConfigureOp(player, r);
                 case RequestKind.Mount: return MountOp(player, r);
                 case RequestKind.Refuel: return RefuelOp(player, r);
+                case RequestKind.Ping: return PingOp(player, r);
                 case RequestKind.SetKit: return SetKitOp(player, r);
                 case RequestKind.SetWorld: return SetWorldOp(player, r);
                 default: return OpResult.BadRequest;

@@ -277,6 +277,7 @@ namespace PerformativeMail.Net.Tests
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
                 new VehicleParkedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), X = 60.75f, Z = 28f, Heading = -2.5f, Player = player },
+                new PingEvent { Player = player, X = 40.25f, Z = 12.5f, Kind = PingKind.Materials, ExpiresTick = 4321 },
                 new VehiclesClearedEvent(),
                 new WorldChangedEvent { MapId = "small_island", Seed = 0xC0FFEE, MapHash = 0x1122334455667788UL, ChestContainerIds = { 41, 42 } },
                 new KitGivenEvent { Player = new EntityId(EntityClass.Player, 2), Kit = 1, Team = true },
@@ -295,6 +296,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(events.Count, back.Count);
             for (int i = 0; i < events.Count; i++) Assert.IsType(events[i].GetType(), back[i]);
 
+            var pinged = (PingEvent)back[^10];
+            Assert.Equal((player, 40.25f, 12.5f, PingKind.Materials, 4321u), (pinged.Player, pinged.X, pinged.Z, pinged.Kind, pinged.ExpiresTick));
             var changed = (WorldChangedEvent)back[^8];
             Assert.Equal(("small_island", 0xC0FFEEu, 0x1122334455667788UL), (changed.MapId, changed.Seed, changed.MapHash));
             Assert.Equal(new uint[] { 41, 42 }, changed.ChestContainerIds);

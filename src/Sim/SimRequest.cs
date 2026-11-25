@@ -1,3 +1,4 @@
+using System;
 using PerformativeMail.Sim.Inventory;
 
 namespace PerformativeMail.Sim
@@ -72,6 +73,21 @@ namespace PerformativeMail.Sim
         ConfigureConstruct = 24,
         /// <summary>Doc 04 §3.1: an Oil Can out of the pockets into the tank of vehicle <see cref="SimRequest.EntryId"/>.</summary>
         Refuel = 25,
+        /// <summary>
+        /// Doc 09 §2.6 Ping: a mark for the team at (<see cref="SimRequest.EntryId"/>,
+        /// <see cref="SimRequest.ToContainer"/>) in centimetres, of the kind <see cref="SimRequest.Count"/> (<see cref="PingKind"/>).
+        /// </summary>
+        Ping = 26,
+    }
+
+    /// <summary>What a ping says (doc 09 §2.6: a click, or the wheel's "Deliver here", "Build here", "Danger", "Need materials").</summary>
+    public enum PingKind : byte
+    {
+        Here = 0,
+        Deliver = 1,
+        Build = 2,
+        Danger = 3,
+        Materials = 4,
     }
 
     /// <summary>
@@ -191,6 +207,13 @@ namespace PerformativeMail.Sim
 
         public static SimRequest PushBelt(uint reqId, int tx, int tz) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.PushBelt, X = (byte)tx, Y = (byte)tz };
+
+        public static SimRequest Ping(uint reqId, float x, float z, PingKind kind) =>
+            new SimRequest
+            {
+                RequestId = reqId, Kind = RequestKind.Ping, EntryId = (uint)Math.Max(0, (int)MathF.Round(x * 100f)),
+                ToContainer = (uint)Math.Max(0, (int)MathF.Round(z * 100f)), Count = (ushort)kind,
+            };
 
         public static SimRequest RemoveConstruct(uint reqId, int tx, int tz) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (byte)tx, Y = (byte)tz };

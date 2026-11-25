@@ -177,6 +177,7 @@ namespace PerformativeMail.Client
             _transport.Poll(this);
             StepGenerating();
             StepInput();
+            World?.PrunePings();
         }
 
         /// <summary>
@@ -233,6 +234,15 @@ namespace PerformativeMail.Client
             if (!world.Vehicles.TryGetValue(vehicle, out var v) || v.Ridden) return 0;
             return Send(SimRequest.Mount(0, vehicle.Value));
         }
+        /// <summary>A ping for the team at a point of the map (doc 09 §2.6). 0 if not sent.</summary>
+        public uint Ping(float x, float z, PingKind kind)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal) return 0;
+            if (x < 0f || z < 0f || x > world.Map.WidthM || z > world.Map.DepthM) return 0;
+            return Send(SimRequest.Ping(0, x, z, kind));
+        }
+
         /// <summary>An Oil Can from the pockets into a vehicle's tank (doc 04 §3.1). 0 if not sent.</summary>
         public uint Refuel(EntityId vehicle)
         {
@@ -1241,6 +1251,9 @@ namespace PerformativeMail.Client
                         DropExternal(world, removed.CargoContainer);
                         world.Vehicles.Remove(e.Vehicle);
                     }
+                    break;
+                case PingEvent e:
+                    world.AddPing(e);
                     break;
                 case VehicleFuelEvent e:
                     if (world.Vehicles.TryGetValue(e.Vehicle, out var fuelled)) fuelled.Fuel = e.Seconds;

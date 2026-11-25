@@ -66,6 +66,7 @@ namespace PerformativeMail.Sim.Net
         VehicleFuel = 56,
         VehicleRemoved = 57,
         Driver = 58,
+        Ping = 59,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -294,6 +295,10 @@ namespace PerformativeMail.Sim.Net
                 case DriverEvent e:
                     w.U8((byte)EventType.Driver);
                     w.U8(e.X); w.U8(e.Y); w.U8((byte)e.State); w.U32(e.Vehicle.Value); w.U16(e.House); w.U8(e.Houses); w.U8(e.At); w.U16(e.Delivered); w.U32(e.Player.Value);
+                    break;
+                case PingEvent e:
+                    w.U8((byte)EventType.Ping);
+                    w.U32(e.Player.Value); w.F32(e.X); w.F32(e.Z); w.U8((byte)e.Kind); w.U32(e.ExpiresTick);
                     break;
                 case VehicleFuelEvent e:
                     w.U8((byte)EventType.VehicleFuel);
@@ -531,6 +536,8 @@ namespace PerformativeMail.Sim.Net
                         X = r.U8(), Y = r.U8(), State = (DriverState)r.U8(), Vehicle = new EntityId(r.U32()), House = r.U16(), Houses = r.U8(), At = r.U8(),
                         Delivered = r.U16(), Player = new EntityId(r.U32()),
                     };
+                case EventType.Ping:
+                    return new PingEvent { Player = new EntityId(r.U32()), X = r.F32(), Z = r.F32(), Kind = (PingKind)r.U8(), ExpiresTick = r.U32() };
                 case EventType.VehicleFuel:
                     return new VehicleFuelEvent { Vehicle = new EntityId(r.U32()), Seconds = r.F32() };
                 case EventType.InserterSwung:

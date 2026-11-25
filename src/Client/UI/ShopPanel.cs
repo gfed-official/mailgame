@@ -15,7 +15,7 @@ namespace PerformativeMail.Client.UI
     /// </summary>
     public partial class ShopPanel : VBoxContainer
     {
-        private const float CardWidth = 232f;
+        private const float CardWidth = 232f, CompactCardWidth = 196f;
         private static readonly Color CardBack = new Color(0.11f, 0.19f, 0.29f, 0.96f);
         private static readonly Color PlainFrame = new Color("6f8296");
         private static readonly Color PriceColour = new Color("ffd24a");
@@ -103,9 +103,17 @@ namespace PerformativeMail.Client.UI
 
             _title.Text = HudText.ShopTitle(world);
             var shelf = world.ShopShelf;
-            // Three abreast once there are more than three rows of two: the panel stays clear of the HUD's foot.
-            _grid.Columns = shelf.Count > 6 ? 3 : 2;
+            // Three abreast once there are more than three rows of two: the panel stays clear of the HUD's foot;
+            // four narrower ones without their descriptions once seven rows of three would not do.
+            bool compact = HudText.ShopCompact(world);
+            _grid.Columns = compact ? 4 : shelf.Count > 6 ? 3 : 2;
+            float width = compact ? CompactCardWidth : CardWidth;
             while (_cards.Count < shelf.Count) AddCard();
+            foreach (var c in _cards)
+            {
+                c.Panel.CustomMinimumSize = new Vector2(width, 0f);
+                foreach (var line in c.Lines) line.CustomMinimumSize = new Vector2(width - 16f, 0f);
+            }
             int greyed = 0, specials = 0;
             for (int i = 0; i < _cards.Count; i++)
             {
@@ -126,6 +134,7 @@ namespace PerformativeMail.Client.UI
                 card.Panel.Modulate = live ? Colors.White : new Color(1f, 1f, 1f, 0.42f);
                 card.Lines[Price].Modulate = special ? Palette.Amber : PriceColour;
                 card.Lines[Note].Visible = lines[Note].Length > 0;
+                card.Lines[What].Visible = lines[What].Length > 0;
                 card.Lines[Note].Modulate = state == OpResult.Ok ? Palette.Match : Palette.Mismatch;
             }
             CardCount = shelf.Count;

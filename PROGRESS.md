@@ -1657,8 +1657,28 @@ the whole line exists; the sub-lines say which parts do.
             Blueprint: Oil in shift 2's Prep, is refused off the seep, builds a pump on it, and it
             nods and works, "Open Oil Pump [E]" (`oil-pump`)
 - [ ] Map screen with layers, filter chips, pings, route editor
+      - [x] **Pings** (doc 09 §2.6 "Ping: click to place a world ping visible to teammates (compass
+            icon + 3D marker, 10 s). Hold for ping wheel", §4 middle mouse / RS click; design choice
+            117). `Ping` request (protocol `m2.10`): a point of the map and one of five kinds; the
+            server checks it (on the map, a kind it knows, two a second a carrier) and tells
+            everyone a `PingEvent` with the tick it is gone by (10 s). `PingController`: a tap of the
+            middle button pings "Look here" where the crosshair meets the ground (within 120 m;
+            looking up, none); held 0.25 s the **ping wheel** comes up round the crosshair and the
+            mouse moves its pointer instead of the view — up "Deliver here", right "Build here", down
+            "Need materials", left "Danger", the middle "Look here" — and letting go pings the word
+            where the crosshair was when the button went down. The client keeps three pings a
+            carrier (a fourth replaces the oldest) and drops them at their tick. Drawn: a beam of
+            light in the ping's colour from a ring on the ground, a turning diamond and "Ada ·
+            Danger" over it, readable from anywhere, fading in its last two seconds (`PingsView`);
+            on the map a ring and the same words; the feed "Ada pinged: Danger · 24 m away" (red
+            for danger), "You pinged: …". `PingTests`, `PingFlowTests` (a tap and a held wheel
+            through the real controller, the other carrier's world and feed, gone after 10 s, none
+            at the sky). The compass strip of doc 09 §2.2 does not exist yet; the pings stand in the
+            world and on the map
+      - [ ] Layers (constructs, vehicles, resources, NPC routes), filter chips (Mail, Routes,
+            Resources), the route editor on the map
 
-Next in this order: the Map screen with layers, filter chips, pings and a route editor.
+Next in this order: the Map screen's layers, filter chips and route editor (pings are in).
 
 ## How to build and check
 
@@ -2850,6 +2870,20 @@ See "Commands" at the bottom (filled in as the tooling lands).
     whole can at a time, so a truck or a boat parked by a pump never runs dry; (e) the doc's id
     `pump` is `oil_pump` here; it shares the chest's key of Build mode (the recipe bar holds ten
     keys, and doc 09 §2.7's "Extractors" category has only this one).
+
+117. **Pings and the wheel.** Doc 09 §2.6 and §4 give a click to ping, a hold for a wheel of four
+    words, 10 s, a compass icon and a 3D marker; nothing on how the wheel is steered with a
+    captured mouse. Choices: (a) the ping goes where the crosshair meets the ground (the map
+    screen does not take the mouse; pinging on it waits for the map's mouse mode); (b) while the
+    wheel is up the mouse moves the wheel's pointer and not the view, and letting go in its
+    middle pings "Look here"; (c) at most two pings a second a carrier on the server, three
+    standing a carrier on the screen; (d) a ping in the feed for everyone, red for danger; (e)
+    until the compass strip exists, the beam (7 m of light) shows the way from afar.
+
+118. **A crowded counter.** With Blueprint: Oil the shelf of shift 2 holds 22 cards, one more
+    than seven rows of three fit at 1280 × 720 (the rendered smoke caught it). Choice: above 21
+    cards the counter lays them four abreast and narrower, without the line saying what each is
+    (name, price and note stay; `HudText.ShopCompact`).
 
 ## Commands
 

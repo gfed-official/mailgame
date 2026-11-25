@@ -203,6 +203,16 @@ namespace PerformativeMail.Client.UI
             // Oil seeps: black drops where a pump may stand.
             foreach (var (sx, sz) in map.OilSeeps)
                 DrawCircle(At((sx + 0.5f) * SimConstants.TileSize, (sz + 0.5f) * SimConstants.TileSize), Mathf.Max(3f, scale * 1.2f), new Color(0.06f, 0.05f, 0.04f));
+            // The team's pings (doc 09 §2.6): a ring in the ping's colour with who and what beside it.
+            if (_client?.World != null)
+                foreach (var ping in _client.World.Pings)
+                {
+                    var at = At(ping.X, ping.Z);
+                    var colour = PingsView.Colour(ping.Kind);
+                    DrawArc(at, 9f, 0f, Mathf.Tau, 20, colour, 3f);
+                    DrawCircle(at, 3.5f, colour);
+                    DrawString(font, at + new Vector2(12f, 5f), HudText.PingLabel(_client.World, ping), HorizontalAlignment.Left, 260f, 12, colour.Lightened(0.3f));
+                }
             // The districts not open yet say when they open.
             foreach (var district in map.Districts)
             {

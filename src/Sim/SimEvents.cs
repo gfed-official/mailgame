@@ -472,6 +472,15 @@ namespace PerformativeMail.Sim
         public EntityId Player;
     }
 
+    /// <summary>A carrier's ping (doc 09 §2.6): a mark for everyone at (X, Z) until <see cref="ExpiresTick"/>.</summary>
+    public sealed class PingEvent : SimEvent
+    {
+        public EntityId Player;
+        public float X, Z;
+        public PingKind Kind;
+        public uint ExpiresTick;
+    }
+
     public sealed class VehicleFuelEvent : SimEvent
     {
         public EntityId Vehicle;

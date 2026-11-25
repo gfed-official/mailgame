@@ -332,6 +332,15 @@ namespace PerformativeMail.Client.Presentation
             label.Name = $"Seep{tx}_{tz}";
             Fade(label, AddressFadeStart, AddressFadeEnd, 1);
             AddChild(label);
+            _seepLabels.Add((tx, tz, label));
+        }
+
+        private readonly List<(int X, int Z, Label3D Label)> _seepLabels = new List<(int, int, Label3D)>();
+
+        /// <summary>A seep says so only while nothing stands on it. Cheap to call every frame.</summary>
+        public void ShowSeeps(Sim.World.ConstructField constructs)
+        {
+            foreach (var (x, z, label) in _seepLabels) label.Visible = constructs.At(x, z) == null;
         }
 
         /// <summary>A Business Dock's name over its door, and its address over the unloading zone (the mailbox's label: it greys while the dock is shut).</summary>

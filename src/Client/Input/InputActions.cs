@@ -44,6 +44,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string World = "world", Seed = "seed";
         /// <summary>The map overlay (doc 09 §4: M).</summary>
         public const string Map = "map";
+        /// <summary>A ping for the team (doc 09 §4: middle mouse, held for the wheel; RS click).</summary>
+        public const string Ping = "ping";
         /// <summary>Hot reload of the content in a debug build (doc 07 §6: F6).</summary>
         public const string ReloadContent = "reload_content";
 
@@ -73,6 +75,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(ReloadContent, Key.F6);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);
+            BindMouse(Ping, MouseButton.Middle);
 
             BindAxis(MoveForward, JoyAxis.LeftY, -1f);
             BindAxis(MoveBack, JoyAxis.LeftY, 1f);
@@ -89,6 +92,7 @@ namespace PerformativeMail.Client.InputHandling
             BindButton(Build, JoyButton.LeftShoulder);
             BindButton(Rotate, JoyButton.RightShoulder);
             BindButton(Map, JoyButton.DpadDown);
+            BindButton(Ping, JoyButton.RightStick);
             BindAxis(Attack, JoyAxis.TriggerRight, 1f);
             BindAxis(AltAttack, JoyAxis.TriggerLeft, 1f);
         }

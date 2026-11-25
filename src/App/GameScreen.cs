@@ -16,6 +16,8 @@ namespace PerformativeMail.App
         public WorldView World { get; private set; } = null!;
         public NodesView Nodes { get; private set; } = null!;
         public ConstructsView Constructs { get; private set; } = null!;
+        public PingsView Pings { get; private set; } = null!;
+        public PingWheel PingWheel { get; private set; } = null!;
         public BeltItemsView BeltItems { get; private set; } = null!;
         public PipeCapsulesView PipeCapsules { get; private set; } = null!;
         public PlayersView Players { get; private set; } = null!;
@@ -121,6 +123,9 @@ namespace PerformativeMail.App
             Effects = new CombatEffects { Name = "Effects" };
             AddChild(Effects);
             Effects.Setup(client, Players);
+            Pings = new PingsView { Name = "Pings" };
+            AddChild(Pings);
+            Pings.Setup(client);
 
             // After the players in the tree, so each frame it sits on where the local view just moved to.
             Camera = new FirstPersonCamera { Name = "Camera", Target = Players.LocalView };
@@ -135,6 +140,9 @@ namespace PerformativeMail.App
             layer.AddChild(Map);
             Map.Setup(client);
             layer.AddChild(Hud);
+            PingWheel = new PingWheel { Name = "PingWheel" };
+            layer.AddChild(PingWheel);
+            PingWheel.Setup(session.Ping);
             Hud.Profile = session.Profile;
             Hud.Setup(client, session.Interaction, session.Feed);
             Hud.Build = session.Build;
@@ -158,6 +166,7 @@ namespace PerformativeMail.App
             _input.MapToggled += Map.Toggle;
             _input.ContentReloadAsked += () => session.HotReload(new GodotContentSource());
             _input.MapOpen = () => Map.Visible;
+            _input.Ping = session.Ping;
             _input.Cancelled += () =>
             {
                 // Esc closes what is open; with only the Draft's cards up it sets them aside, to look around before choosing by key.
@@ -179,6 +188,7 @@ namespace PerformativeMail.App
             Camera.Target = Players.LocalView;
             if (DriveAtmosphere) World.Atmosphere.TargetNight = NightFor(world.Raid);
             World.ShowDistricts(world.Global.Shift);
+            World.ShowSeeps(world.Constructs);
             bool open = InventoryOpen(world);
             Inventory.Visible = open;
             // The Draft's cards take a click until the local player has chosen; then the mouse is the view's again.

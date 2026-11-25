@@ -346,6 +346,49 @@ namespace PerformativeMail.App
                     Check(server.PumpWork(server.Constructs.At(sx, sz)!) > 0, "the pump does no work in Prep");
                     Shot("oil-pump");
                     GD.Print($"[smoke] oil pump: Blueprint: Oil, built on the oil seep at ({sx}, {sz}) and refused beside it; it nods and works in Prep, \"{hud.PromptText}\"");
+                    next = true;
+                    break;
+                }
+                case 19:
+                {
+                    // Pings (doc 09 §2.6): a tap of the middle button looking down at the grass, then a hold and the wheel.
+                    var ping = _session.Ping;
+                    client.Input.YawRadians = 0f;
+                    client.Input.PitchRadians = -0.35f;
+                    if (_boatFrames == 2) ping.Update(1.0 / 30.0, true);
+                    if (_boatFrames == 3) ping.Update(1.0 / 30.0, false);
+                    if (_boatFrames < 12) break;
+                    Check(world.Pings.Count == 1 && world.Pings[0].Kind == Sim.PingKind.Here && world.Pings[0].Player == world.LocalId,
+                        $"the tap left {world.Pings.Count} pings here");
+                    Check(_screen.Pings.Shown == 1, $"{_screen.Pings.Shown} ping markers drawn");
+                    Check(_session.Feed.Entries.Any(e => e.Text == "You pinged: Look here"), "the feed did not say the ping");
+                    next = true;
+                    break;
+                }
+                case 20:
+                {
+                    var ping = _session.Ping;
+                    if (_boatFrames <= 10) { ping.Update(1.0 / 30.0, true); break; }
+                    if (_boatFrames == 11)
+                    {
+                        Check(ping.WheelOpen, "held, the ping wheel did not come up");
+                        ping.Steer(-70f, 6f);
+                        break;
+                    }
+                    if (_boatFrames < 16) { ping.Update(1.0 / 30.0, true); break; }
+                    if (_boatFrames == 16)
+                    {
+                        Check(_screen.PingWheel.Visible && _screen.PingWheel.Text == "Danger", $"the ping wheel shows \"{_screen.PingWheel.Text}\" ({_screen.PingWheel.Visible})");
+                        Shot("ping-wheel");
+                        break;
+                    }
+                    if (_boatFrames == 17) { ping.Update(1.0 / 30.0, false); break; }
+                    if (_boatFrames < 26) break;
+                    Check(!_screen.PingWheel.Visible, "the ping wheel stayed up");
+                    Check(world.Pings.Count == 2 && world.Pings[1].Kind == Sim.PingKind.Danger, $"the wheel left {world.Pings.Count} pings, the last {(world.Pings.Count > 0 ? world.Pings[^1].Kind : default)}");
+                    Check(_screen.Pings.Shown == 2, $"{_screen.Pings.Shown} ping markers drawn");
+                    Shot("pings");
+                    GD.Print("[smoke] pings: a tap of the middle button pinged \"Look here\" on the grass, a hold put the wheel up and the mouse to the left pinged \"Danger\"; both drawn");
                     _boatVisits++;
                     _boatStep = 0;
                     client.TickStarting += _botTick;

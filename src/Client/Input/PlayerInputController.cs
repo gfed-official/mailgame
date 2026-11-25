@@ -24,6 +24,8 @@ namespace PerformativeMail.Client.InputHandling
         public event Action? ContentReloadAsked;
         /// <summary>True while the map is up: Esc puts it down first.</summary>
         public Func<bool>? MapOpen;
+        /// <summary>The ping key's controller (doc 09 §2.6): while its wheel is up the mouse points on it, not the view.</summary>
+        public PingController? Ping;
 
         private ClientRuntime _client = null!;
         private InteractionController _interaction = null!;
@@ -71,6 +73,9 @@ namespace PerformativeMail.Client.InputHandling
         {
             switch (ev)
             {
+                case InputEventMouseMotion motion when Captured && Ping?.WheelOpen == true:
+                    Ping.Steer(motion.Relative.X, motion.Relative.Y);
+                    return;
                 case InputEventMouseMotion motion when Captured:
                     Look(-motion.Relative.X * MouseSensitivity, -motion.Relative.Y * MouseSensitivity);
                     return;
@@ -167,6 +172,7 @@ namespace PerformativeMail.Client.InputHandling
         public void Sample(double delta)
         {
             SyncPause();
+            Ping?.Update(delta, !UiOpen && !Paused && Godot.Input.IsActionPressed(InputActions.Ping));
             var move = UiOpen
                 ? Vector2.Zero
                 : Godot.Input.GetVector(InputActions.MoveLeft, InputActions.MoveRight, InputActions.MoveForward, InputActions.MoveBack);

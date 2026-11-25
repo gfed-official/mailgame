@@ -122,6 +122,9 @@ namespace PerformativeMail.Client
                     if (line.Length > 0) Add(line);
                     break;
                 }
+                case PingEvent e:
+                    Add(HudText.PingNews(world, e), bad: e.Kind == PingKind.Danger);
+                    break;
                 case DriverEvent e:
                 {
                     int key = e.Y * world.Map.Cols + e.X;

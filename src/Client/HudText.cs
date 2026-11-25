@@ -743,10 +743,16 @@ namespace PerformativeMail.Client
             {
                 $"{CardKey(place)}  {def.Name}",
                 ShopPriceLine(world, def),
-                def.Description,
+                ShopCompact(world) ? "" : def.Description,
                 ShopNote(world, def),
             };
         }
+
+        /// <summary>The most cards the counter lays out in full (seven rows of three at 1280 × 720).</summary>
+        public const int ShopRoomyCards = 21;
+
+        /// <summary>More cards than that: four narrower ones abreast, without what each is (its name, price and note stay).</summary>
+        public static bool ShopCompact(ClientWorld world) => world.ShopShelf.Count > ShopRoomyCards;
 
         /// <summary>Under the cards: how to buy, how to sell, how to leave.</summary>
         /// <summary>The shop key (doc 09 §4 has none, and B is Build mode there): C, for the counter.</summary>
@@ -1047,6 +1053,33 @@ namespace PerformativeMail.Client
                 default: return "";
             }
         }
+
+        // --- pings (doc 09 §2.6) ---------------------------------------------------------------------
+
+        /// <summary>What a ping says: the wheel's words, or "Look here" for a click.</summary>
+        public static string PingName(PingKind kind) => kind switch
+        {
+            PingKind.Deliver => "Deliver here",
+            PingKind.Build => "Build here",
+            PingKind.Danger => "Danger",
+            PingKind.Materials => "Need materials",
+            _ => "Look here",
+        };
+
+        /// <summary>The mark's label in the world and on the map: "Ada · Danger".</summary>
+        public static string PingLabel(ClientWorld world, PingEvent p) =>
+            $"{(p.Player == world.LocalId ? "You" : PlayerName(world, p.Player))}   ·   {PingName(p.Kind)}";
+
+        /// <summary>The feed's line for a ping: who, what, and how far from you.</summary>
+        public static string PingNews(ClientWorld world, PingEvent p)
+        {
+            if (p.Player == world.LocalId) return $"You pinged: {PingName(p.Kind)}";
+            float dx = p.X - world.Local.X, dz = p.Z - world.Local.Z;
+            return $"{PlayerName(world, p.Player)} pinged: {PingName(p.Kind)}   ·   {MathF.Sqrt(dx * dx + dz * dz).ToString("F0", CultureInfo.InvariantCulture)} m away";
+        }
+
+        /// <summary>The ping wheel's hint while it is up.</summary>
+        public const string PingWheelHint = "Move the mouse to a word, let go of the middle button to ping it   ·   let go in the middle: Look here";
 
         /// <summary>The event feed's line for a driver's news; empty for what is not news.</summary>
         public static string DriverNews(ClientWorld world, DriverEvent d, DriverEvent? was)

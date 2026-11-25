@@ -36,6 +36,9 @@ namespace PerformativeMail.Sim.Players
 
         public uint LastDeliverTick;
         public bool HasDelivered;
+        /// <summary>When the carrier last pinged (doc 09 §2.6), and whether ever.</summary>
+        public uint LastPingTick;
+        public bool HasPinged;
         public uint LastHarvestTick;
         public bool HasHarvested;
         /// <summary>Run totals; cleared when a run starts.</summary>
