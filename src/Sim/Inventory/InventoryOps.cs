@@ -94,6 +94,8 @@ namespace PerformativeMail.Sim.Inventory
         NotOnWater,
         /// <summary>Doc 04 §3.3: a Pier is built out from the shore or from another pier.</summary>
         NotFromShore,
+        /// <summary>Doc 10 §2.3: an Oil Pump is placed on an oil seep.</summary>
+        NotOnSeep,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

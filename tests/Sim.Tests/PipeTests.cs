@@ -149,7 +149,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal((ShopKind.Blueprint, 700, 3), (bp.Kind, bp.Price, bp.FromShift));
             foreach (var def in new[] { Pipe, Under, Junction, Inlet, Outlet }) Assert.Same(bp, def.Recipe.Blueprint);
             Assert.Equal(new[] { "pipe", "pipe_underground", "pipe_junction", "pipe_inlet", "pipe_outlet" }, Db.RecipeKeys[Pipe.Recipe.Key].Select(r => r.Building.Id));
-            // Splitter and merger share a key now (doc 09 §2.7 Transport), so Build mode keeps ten.
+            // Splitter and merger share a key now (doc 09 §2.7 Transport), so Build mode keeps ten (the Oil Pump is on the chest's).
             Assert.Equal(Db.Building("splitter").Recipe.Key, Db.Building("merger").Recipe.Key);
             Assert.Equal(10, Db.RecipeKeys.Count);
             // A straight pipe and an underground one are walked over and dragged; the boxes stand.

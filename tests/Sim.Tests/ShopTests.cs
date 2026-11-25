@@ -34,6 +34,8 @@ namespace PerformativeMail.Sim.Tests
             + "\"grants\": { \"blueprint\": \"bp_rowboat\" }, \"availability\": { \"fromShift\": 1, \"slot\": \"kit\" }, \"tags\": [\"blueprint\"] }, "
             + "{ \"id\": \"bp_motorboat\", \"name\": \"Harbour\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 500, "
             + "\"grants\": { \"blueprint\": \"bp_motorboat\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }, "
+            + "{ \"id\": \"bp_oil\", \"name\": \"Oil\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 600, "
+            + "\"grants\": { \"blueprint\": \"bp_oil\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }, "
             + "{ \"id\": \"bp_truck\", \"name\": \"Motor Pool\", \"description\": \"-\", \"kind\": \"blueprint\", \"price\": 500, "
             + "\"grants\": { \"blueprint\": \"bp_truck\" }, \"availability\": { \"fromShift\": 5, \"slot\": \"fixed\" }, \"tags\": [\"blueprint\"] }";
 
@@ -154,7 +156,7 @@ namespace PerformativeMail.Sim.Tests
         {
             // The tools came with harvesting (HarvestTests); they are never a special, so the roll is as it was.
             // So did the Fortify blueprint with building (FortifyTests), the Shovel with the beach and the Bike (VehicleTests).
-            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "bike", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_truck", "mail_truck", "bp_rowboat", "rowboat", "bp_motorboat", "motorboat", "bp_pipes" },
+            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "bike", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_truck", "mail_truck", "bp_rowboat", "rowboat", "bp_motorboat", "motorboat", "bp_oil", "bp_pipes" },
                 Db.ShopItems.Select(s => s.Id).ToArray());
             for (int i = 0; i < Db.ShopItems.Count; i++) Assert.Equal(i, Db.ShopItems[i].Index);
 

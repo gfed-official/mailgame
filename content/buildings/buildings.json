@@ -98,5 +98,9 @@
   { "id": "small_port", "name": "Small Port", "footprint": [3, 4], "rotations": 4, "hp": 1200,
     "placement": { "onStreet": false }, "behaviour": "port",
     "params": { "radius": 2.5, "height": 3.0, "routeStops": 6, "npcHireCost": 150 },
-    "recipe": "recipe_small_port", "tags": ["vehicles"] }
+    "recipe": "recipe_small_port", "tags": ["vehicles"] },
+  { "id": "oil_pump", "name": "Oil Pump", "footprint": [1, 1], "rotations": 4, "hp": 400,
+    "placement": { "onStreet": false }, "behaviour": "pump", "container": "pump_tank",
+    "params": { "radius": 0.5, "height": 3.2, "cycleSeconds": 45 },
+    "recipe": "recipe_oil_pump", "tags": ["extractor"] }
 ]

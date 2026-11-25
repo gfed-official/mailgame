@@ -89,6 +89,7 @@ namespace PerformativeMail.Client.Presentation
                 AddHouseNumber(dest);
                 AddMailbox(batch, dest);
             }
+            foreach (var (sx, sz) in map.OilSeeps) AddSeep(batch, map, sx, sz);
             AddPostOffice(batch, map);
             foreach (var street in map.Streets) AddStreetSign(batch, map, street);
             foreach (var lamp in SceneryView.Build(batch, map, nodes)) AddLight(lamp + new Vector3(0f, -0.3f, 0f), SceneryView.LampLight, 12f, 0.8f, 4.5f);
@@ -310,6 +311,27 @@ namespace PerformativeMail.Client.Presentation
             AddChild(label);
             _mailboxLabels.Add((dest, label));
             MailboxCount++;
+        }
+
+        /// <summary>
+        /// An oil seep (doc 02 §3.9; design choice 116): a black, glossy pool on its tile in a ring
+        /// of stained ground, with a few bubbles, where an Oil Pump is to stand.
+        /// </summary>
+        private void AddSeep(MeshBatch batch, WorldMap map, int tx, int tz)
+        {
+            float x = (tx + 0.5f) * Tile, z = (tz + 0.5f) * Tile, y = map.HeightAt(x, z);
+            var stain = MeshKit.Mat(new Color("2e2a22"), 0.95f);
+            var oil = MeshKit.Mat(new Color("0c0a08"), 0.05f, 0.4f);
+            batch.Frame = Transform3D.Identity;
+            batch.Add(MeshKit.Cylinder(0.95f, 0.98f, 0.02f, 20), stain, new Vector3(x, y + 0.015f, z));
+            batch.Add(MeshKit.Cylinder(0.62f, 0.64f, 0.02f, 20), oil, new Vector3(x + 0.08f, y + 0.03f, z - 0.05f));
+            batch.Add(MeshKit.Cylinder(0.3f, 0.32f, 0.02f, 14), oil, new Vector3(x - 0.45f, y + 0.028f, z + 0.42f));
+            foreach (var (bx, bz, r) in new[] { (0.2f, 0.1f, 0.05f), (-0.15f, -0.2f, 0.035f), (0.32f, -0.25f, 0.03f) })
+                batch.Add(MeshKit.Sphere(r, 8), oil, new Vector3(x + bx, y + 0.04f, z + bz));
+            var label = MakeLabel("Oil seep", new Vector3(x, y + 0.9f, z), 44, new Color("d8c9a8"), flat: false);
+            label.Name = $"Seep{tx}_{tz}";
+            Fade(label, AddressFadeStart, AddressFadeEnd, 1);
+            AddChild(label);
         }
 
         /// <summary>A Business Dock's name over its door, and its address over the unloading zone (the mailbox's label: it greys while the dock is shut).</summary>

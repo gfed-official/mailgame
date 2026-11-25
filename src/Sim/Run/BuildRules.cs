@@ -86,6 +86,8 @@ namespace PerformativeMail.Sim.Run
         public static OpResult CheckPlacement(WorldMap map, ConstructField constructs, BuildingDef def, int tx, int tz, int rotation)
         {
             if (def.OnWater) return CheckOnWater(map, constructs, def, tx, tz, rotation);
+            // Doc 10 §2.3: an Oil Pump goes on an oil seep.
+            if (def.IsPump && map.InBounds(tx, tz) && !map.IsSeep(tx, tz)) return OpResult.NotOnSeep;
             if (def.IsPort) return CheckPort(map, constructs, def, tx, tz, rotation);
             for (int i = 0; i < Math.Max(1, def.TileCount); i++)
             {

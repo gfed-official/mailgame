@@ -308,6 +308,44 @@ namespace PerformativeMail.App
                     Shot("small-port-console");
                     GD.Print("[smoke] boats: the Small Port's route console up by E: no dock open yet in shift 2, its captain for hire from shift 3");
                     Check(client.CloseFilters(), "the port's console was not up to take down");
+                    // The Oil Pump (doc 10 §2.3): Blueprint: Oil and its iron and glass, the host beside the first seep.
+                    server.Grant(world.Content.ShopItem("bp_oil"), player.Id);
+                    Check(server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("iron_ingot"), 6))
+                        && server.Give(player.Inventory, ItemStack.OfItem(world.Content.Item("glass"), 2)), "no room for the pump's materials");
+                    var (sx, sz) = world.Map.OilSeeps[0];
+                    player.Move.X = BuildRules.TileCentre(sx - 1) - 0.2f;
+                    player.Move.Z = BuildRules.TileCentre(sz);
+                    next = true;
+                    break;
+                }
+                case 17:
+                {
+                    var (sx, sz) = world.Map.OilSeeps[0];
+                    var pumpRecipe = world.Content.Building("oil_pump").Recipe;
+                    if (MathF.Abs(world.Local.X - player.Move.X) > 0.1f || _boatFrames < 6 || client.PendingRequestCount > 0 || !world.ShopOwned.Contains(world.Content.ShopItem("bp_oil"))) break;
+                    Check(world.PlaceState(pumpRecipe, sx, sz + 1) == OpResult.NotOnSeep, "a pump off the seep was not refused here");
+                    Check(client.PlaceConstruct(pumpRecipe, sx, sz, 0) != 0, "the pump was not sent");
+                    next = true;
+                    break;
+                }
+                case 18:
+                {
+                    var (sx, sz) = world.Map.OilSeeps[0];
+                    var built = world.Constructs.At(sx, sz);
+                    if (client.PendingRequestCount > 0 || built == null) break;
+                    Check(server.Constructs.At(sx, sz)?.Def.Id == "oil_pump", "the Oil Pump does not stand on the server");
+                    var view = _screen.Constructs;
+                    // Looking at it from beside the seep: it nods in Prep, and E would open its tank.
+                    var box = AimBox.Built(world.Map, built);
+                    ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    if (_boatFrames < 12) break;
+                    _session.Interaction.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
+                    Check(hud.PromptText.StartsWith("Open Oil Pump  [E]", StringComparison.Ordinal), $"at the pump the prompt reads \"{hud.PromptText}\"");
+                    Check(view.PumpsNodding == 1, $"{view.PumpsNodding} pumps nod in Prep");
+                    Check(server.PumpWork(server.Constructs.At(sx, sz)!) > 0, "the pump does no work in Prep");
+                    Shot("oil-pump");
+                    GD.Print($"[smoke] oil pump: Blueprint: Oil, built on the oil seep at ({sx}, {sz}) and refused beside it; it nods and works in Prep, \"{hud.PromptText}\"");
                     _boatVisits++;
                     _boatStep = 0;
                     client.TickStarting += _botTick;

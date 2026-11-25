@@ -851,7 +851,7 @@ namespace PerformativeMail.Client
 
         /// <summary>A chest of the map, or one the carriers built.</summary>
         private static string ChestTitle(in InteractPrompt p) =>
-            p.Chest != null ? ContainerTitle(p.Chest.Container) : p.Built?.Def.Container != null ? ContainerTitle(p.Built.Def.Container) : "Chest";
+            p.Chest != null ? ContainerTitle(p.Chest.Container) : p.Built?.Def.IsPump == true ? p.Built.Def.Name : p.Built?.Def.Container != null ? ContainerTitle(p.Built.Def.Container) : "Chest";
 
         /// <summary>The keys of Build mode, over the hotbar while it is up.</summary>
         public const string BuildKeys = "[LMB] build / drag  [R] turn  [wheel] tier  [hold RMB] remove  [Q] pick  [B] done";
@@ -1214,6 +1214,7 @@ namespace PerformativeMail.Client
                 case OpResult.DepotLimit: return "One Vehicle Depot for every two carriers stands already";
                 case OpResult.NotOnWater: return recipe.Building.Deck ? "A Pier goes out over shallow water" : recipe.Building.OnWater ? "A boat goes on the water" : "Not on the water";
                 case OpResult.NotFromShore: return "A Pier is built out from the shore or another pier";
+                case OpResult.NotOnSeep: return "An Oil Pump stands on an oil seep";
                 case OpResult.OnePerCarrier: return $"One {recipe.Building.Name} for each carrier is on the water already";
                 default: return "Cannot be built here";
             }

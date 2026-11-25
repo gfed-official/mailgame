@@ -30,6 +30,8 @@ namespace PerformativeMail.Sim.World
         public const int ShallowRows = 3, DeepRows = 3;
         /// <summary>Doc 02 §3.5: the shift a Small Island's Business Dock opens.</summary>
         public const int DockShift = 4;
+        /// <summary>How many oil seeps a Small Island has (design choice 116).</summary>
+        public const int SeepCount = 3;
 
         /// <summary>True for a map id the generator makes rather than a file.</summary>
         public static bool Generates(string mapId) => mapId == SmallIsland;
@@ -354,6 +356,24 @@ namespace PerformativeMail.Sim.World
                 break;
             }
 
+            // Oil seeps (doc 02 §3.9; design choice 116): a Small Island has no marsh, so a few seeps
+            // on open grass out of the town, from a stream of their own, far from the Post Office and
+            // from one another, clear of streets and lots.
+            var oil = new RngStream(seed, "oil" + suffix);
+            var seeps = new List<(int X, int Z)>();
+            int poCx = poRect.X + 3, poCz = poRect.Y + 3;
+            for (int tries = 0; tries < 400 && seeps.Count < SeepCount; tries++)
+            {
+                int sx = 2 + oil.NextInt(cols - 4), sz = 2 + oil.NextInt(rows - BeachRows - 4);
+                if (Math.Abs(sx - poCx) + Math.Abs(sz - poCz) < 14) continue;
+                bool open = true;
+                for (int dz = -2; dz <= 2 && open; dz++)
+                    for (int dx = -2; dx <= 2 && open; dx++)
+                        if (tiles[(sz + dz) * cols + sx + dx] != TileType.Grass) open = false;
+                foreach (var (qx, qz) in seeps) if (Math.Abs(qx - sx) + Math.Abs(qz - sz) < 10) open = false;
+                if (open) seeps.Add((sx, sz));
+            }
+
             var chests = new List<MapChestDef>
             {
                 // In the yard's north-east corner: the tile north of the Intake is the outfeed's (doc 04 §2.6).
@@ -371,6 +391,7 @@ namespace PerformativeMail.Sim.World
                 Districts = districts,
                 Streets = streets,
                 Destinations = destinations,
+                OilSeeps = seeps,
                 PostOffice = po,
                 Chests = chests,
                 Terrain = terrain,

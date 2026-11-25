@@ -307,6 +307,13 @@ namespace PerformativeMail.Sim.World
                 float x0 = d.Lot.X * Tile - 1f, z0 = d.Lot.Y * Tile - 1f, x1 = (d.Lot.X + d.Lot.W) * Tile + 1f, z1 = (d.Lot.Y + d.Lot.H) * Tile + 1f;
                 props.RemoveAll(p => MathF.Max(p.X, p.X2) > x0 && MathF.Min(p.X, p.X2) < x1 && MathF.Max(p.Z, p.Z2) > z0 && MathF.Min(p.Z, p.Z2) < z1);
             }
+            // Nothing stands on an oil seep, nor within a body's width of it (design choice 116).
+            foreach (var (sx, sz) in map.OilSeeps)
+            {
+                // Clear of a walker's reach and the widest boulder, so the seep's tile is never nav-blocked.
+                float x0 = sx * Tile - 1.5f, z0 = sz * Tile - 1.5f, x1 = (sx + 1) * Tile + 1.5f, z1 = (sz + 1) * Tile + 1.5f;
+                props.RemoveAll(p => MathF.Max(p.X, p.X2) > x0 && MathF.Min(p.X, p.X2) < x1 && MathF.Max(p.Z, p.Z2) > z0 && MathF.Min(p.Z, p.Z2) < z1);
+            }
             // Last, and without a roll of the dice: the chests stand where the map says.
             foreach (var c in map.Chests)
                 props.Add(new Prop(PropKind.Chest, c.X, c.Z, c.X, c.Z, c.Yaw, 1f, 0, MapChestDef.Radius, MapChestDef.Height));

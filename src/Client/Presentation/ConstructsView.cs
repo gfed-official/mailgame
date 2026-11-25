@@ -54,6 +54,11 @@ namespace PerformativeMail.Client.Presentation
         private readonly System.Collections.Generic.List<(Construct Built, Node3D Arm, MeshInstance3D Piece)> _arms = new System.Collections.Generic.List<(Construct, Node3D, MeshInstance3D)>();
         /// <summary>Inserters whose arm is part way through a swing (for the smoke).</summary>
         public int ArmsSwinging { get; private set; }
+        /// <summary>Each Oil Pump's walking beam, nodding about its pivot while the run works.</summary>
+        private readonly System.Collections.Generic.List<(Construct Built, Node3D Beam)> _beams = new System.Collections.Generic.List<(Construct, Node3D)>();
+        private float _nod;
+        /// <summary>Oil Pumps nodding, as of the last frame (for the smoke).</summary>
+        public int PumpsNodding { get; private set; }
         private float _blink;
 
         /// <summary>Gates swinging open (a carrier is near), and Alarm Post lamps lit, as of the last frame.</summary>
@@ -135,7 +140,21 @@ namespace PerformativeMail.Client.Presentation
                 if (t < 1f) swinging++;
             }
             ArmsSwinging = swinging;
+
+            // An Oil Pump's beam nods while the run is in a working phase (it pumps in Prep and Delivery).
+            bool working = world.Global.Phase is Sim.Run.RunPhase.Prep or Sim.Run.RunPhase.Delivery;
+            if (working) _nod += (float)delta;
+            int nodding = 0;
+            foreach (var (_, beam) in _beams)
+            {
+                beam.Rotation = new Vector3(Mathf.Sin(_nod * Mathf.Tau / PumpStrokeSeconds) * 0.28f, 0f, 0f);
+                if (working) nodding++;
+            }
+            PumpsNodding = nodding;
         }
+
+        /// <summary>One nod of a pump's beam, down and up.</summary>
+        private const float PumpStrokeSeconds = 3.2f;
 
         /// <summary>How far out from its post the grab of the inserter on (tx, tz) is drawn; 0 for none (for the smoke).</summary>
         public float GrabReach(int tx, int tz)
@@ -219,6 +238,7 @@ namespace PerformativeMail.Client.Presentation
             _gates.Clear();
             _lamps.Clear();
             _arms.Clear();
+            _beams.Clear();
             foreach (var c in field.All)
             {
                 var at = new Vector3(c.X, world.Map.HeightAt(c.X, c.Z), c.Z);
@@ -247,6 +267,16 @@ namespace PerformativeMail.Client.Presentation
                     _gates.Add(g);
                 }
                 else if (c.Def.Behaviour == BuildingBehaviour.Inserter) InserterArm(c, at, c.Hp * 2 < c.Def.Hp);
+                else if (c.Def.IsPump)
+                {
+                    // The beam nods about its pivot on a node turned the way the pump faces.
+                    var holder = new Node3D { Name = $"Pump{c.Tx}_{c.Tz}", Position = at, Rotation = new Vector3(0f, PumpYaw(c.Rotation & 3), 0f) };
+                    var beam = new Node3D { Name = "Beam", Position = new Vector3(0f, PumpPivotHeight, 0f) };
+                    holder.AddChild(beam);
+                    PumpBeam(beam, null, c.Hp * 2 < c.Def.Hp);
+                    _built.AddChild(holder);
+                    _beams.Add((c, beam));
+                }
                 else if (c.Def.Behaviour == BuildingBehaviour.Alarm)
                 {
                     var lamp = MeshKit.Instance(MeshKit.Sphere(0.11f, 12), MeshKit.Glow(new Color("ff2a1a"), 4f), at + new Vector3(0f, AlarmLampHeight, 0f), default, $"AlarmLamp{c.Tx}_{c.Tz}");
@@ -832,6 +862,79 @@ namespace PerformativeMail.Client.Presentation
             batch.Add(MeshKit.Box(new Vector3(0.42f, 0.27f, 0.02f)), screen, new Transform3D(tilt, console + r * 0.1f + new Vector3(0f, 1.34f, 0f)));
         }
 
+        private const float PumpPivotHeight = 2.45f;
+        private static float PumpYaw(int facing) => Mathf.Atan2(Dir(facing).X, Dir(facing).Z);
+
+        /// <summary>
+        /// Doc 10 §2.3 Oil Pump (design choice 116), a pumpjack of the concept video's industrial
+        /// kit: a concrete pad, the gearbox and its crank behind, a steel A-frame, the wellhead with
+        /// its pipe to a small tank of cans. The walking beam with its horse head and counterweight
+        /// is <see cref="PumpBeam"/> (a node of its own that nods; in a ghost it is drawn in).
+        /// </summary>
+        public static void OilPump(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
+        {
+            var pad = only ?? MeshKit.Mat(worn ? new Color("6d6a64") : new Color("a8a49b"), 0.9f);
+            var steel = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            var oil = only ?? MeshKit.Mat(new Color("15120f"), 0.15f, 0.2f);
+            var basis = new Basis(Vector3.Up, PumpYaw(facing));
+            var old = batch.Frame;
+            batch.Frame = new Transform3D(basis, at);
+            batch.Box(new Vector3(0f, 0.08f, 0f), new Vector3(1.9f, 0.16f, 1.9f), pad, 0.04f);
+            // The wellhead in front (+Z), a stain of oil round it.
+            batch.Add(MeshKit.Cylinder(0.42f, 0.46f, 0.02f, 16), oil, new Vector3(0f, 0.17f, 0.62f));
+            batch.Add(MeshKit.Cylinder(0.11f, 0.13f, 0.7f, 12), dark, new Vector3(0f, 0.5f, 0.62f));
+            batch.Add(MeshKit.Cylinder(0.17f, 0.17f, 0.12f, 12), orange, new Vector3(0f, 0.86f, 0.62f));
+            // The A-frame: two legs splayed either side of the beam, a cross brace.
+            for (int k = -1; k <= 1; k += 2)
+            {
+                var foot = new Vector3(k * 0.45f, 0.16f, 0f);
+                var top = new Vector3(k * 0.1f, PumpPivotHeight, 0f);
+                var mid = (foot + top) * 0.5f;
+                var dir = (top - foot).Normalized();
+                var leg = new Basis(dir.Cross(new Vector3(0f, 0f, 1f)).Normalized(), dir, new Vector3(0f, 0f, 1f));
+                batch.Add(MeshKit.Box(new Vector3(0.12f, (top - foot).Length(), 0.12f)), orange, new Transform3D(leg, mid));
+            }
+            batch.Box(new Vector3(0f, 1.2f, 0f), new Vector3(0.7f, 0.08f, 0.08f), orange, 0.01f);
+            batch.Box(new Vector3(0f, PumpPivotHeight, 0f), new Vector3(0.36f, 0.16f, 0.16f), dark, 0.03f);
+            // The gearbox and its crank discs behind (−Z).
+            batch.Box(new Vector3(0f, 0.55f, -0.62f), new Vector3(0.5f, 0.6f, 0.46f), steel, 0.05f);
+            for (int k = -1; k <= 1; k += 2)
+                batch.Add(MeshKit.Cylinder(0.32f, 0.32f, 0.07f, 18), dark, new Transform3D(new Basis(Vector3.Forward, Mathf.Pi * 0.5f), new Vector3(k * 0.3f, 0.8f, -0.62f)));
+            // A small tank of cans at the side, a pipe to it from the wellhead.
+            batch.Add(MeshKit.Cylinder(0.26f, 0.26f, 0.7f, 14), only ?? MeshKit.Mat(new Color("c0392b"), 0.5f), new Vector3(0.7f, 0.5f, 0.5f));
+            batch.Box(new Vector3(0.35f, 0.4f, 0.62f), new Vector3(0.5f, 0.06f, 0.06f), dark, 0.01f);
+            if (only != null)
+            {
+                // The ghost: the beam in, level.
+                batch.Frame = new Transform3D(basis, at + new Vector3(0f, PumpPivotHeight, 0f));
+                PumpBeamInto(batch, only, worn);
+            }
+            batch.Frame = old;
+        }
+
+        /// <summary>A pump's walking beam on its own node, nodding about the pivot (its origin).</summary>
+        private static void PumpBeam(Node3D beam, Material? only, bool worn)
+        {
+            var batch = new MeshBatch();
+            PumpBeamInto(batch, only, worn);
+            batch.Flush(beam, "Beam");
+        }
+
+        private static void PumpBeamInto(MeshBatch batch, Material? only, bool worn)
+        {
+            var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            var steel = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            // The beam along Z, the horse head over the wellhead (+Z), the counterweight behind.
+            batch.Box(new Vector3(0f, 0.12f, 0f), new Vector3(0.2f, 0.22f, 1.9f), orange, 0.03f);
+            batch.Box(new Vector3(0f, 0.0f, 0.95f), new Vector3(0.24f, 0.62f, 0.3f), steel, 0.06f);
+            batch.Box(new Vector3(0f, -0.28f, 1.06f), new Vector3(0.2f, 0.12f, 0.12f), dark, 0.02f);
+            batch.Box(new Vector3(0f, -0.95f, 1.0f), new Vector3(0.03f, 1.3f, 0.03f), dark, 0.0f);
+            batch.Box(new Vector3(0f, 0.0f, -0.9f), new Vector3(0.36f, 0.4f, 0.34f), dark, 0.05f);
+        }
+
         public static void VehicleDepot(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
         {
             const float t = SimConstants.TileSize;
@@ -944,6 +1047,9 @@ namespace PerformativeMail.Client.Presentation
                     return;
                 case BuildingBehaviour.Port:
                     SmallPort(batch, at, rotation & 3, only, worn);
+                    return;
+                case BuildingBehaviour.Pump:
+                    OilPump(batch, at, rotation & 3, only, worn);
                     return;
                 case BuildingBehaviour.Boat:
                     // Only ever a ghost: what is placed is the boat itself (VehiclesView).

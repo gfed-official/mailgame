@@ -49,5 +49,7 @@
   { "id": "recipe_rowboat", "produces": { "building": "rowboat_build" },
     "inputs": [ { "item": "log", "count": 8 }, { "item": "rope", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_rowboat", "group": "storage" },
   { "id": "recipe_small_port", "produces": { "building": "small_port" },
-    "inputs": [ { "item": "plank", "count": 16 }, { "item": "stone", "count": 10 }, { "item": "iron_ingot", "count": 6 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_motorboat", "group": "storage" }
+    "inputs": [ { "item": "plank", "count": 16 }, { "item": "stone", "count": 10 }, { "item": "iron_ingot", "count": 6 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_motorboat", "group": "storage" },
+  { "id": "recipe_oil_pump", "produces": { "building": "oil_pump" },
+    "inputs": [ { "item": "iron_ingot", "count": 6 }, { "item": "glass", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_oil", "group": "storage" }
 ]

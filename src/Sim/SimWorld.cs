@@ -332,6 +332,7 @@ namespace PerformativeMail.Sim
             StepVehicles();
             StepDrivers();
             StepDocks();
+            StepPumps();
             StepCombat();
             StepPipes();
             StepBelts();

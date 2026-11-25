@@ -134,6 +134,18 @@ namespace PerformativeMail.Sim.World
         public IReadOnlyList<DistrictDef> Districts { get; init; } = Array.Empty<DistrictDef>();
         public IReadOnlyList<StreetDef> Streets { get; init; } = Array.Empty<StreetDef>();
         public IReadOnlyList<DestinationDef> Destinations { get; init; } = Array.Empty<DestinationDef>();
+        /// <summary>
+        /// Oil seeps (doc 02 §3.9 "Oil · Seep · Requires Pump"; design choice 116): tiles of open
+        /// ground where an Oil Pump draws oil. Nothing grows on them.
+        /// </summary>
+        public IReadOnlyList<(int X, int Z)> OilSeeps { get; init; } = Array.Empty<(int, int)>();
+
+        public bool IsSeep(int tx, int tz)
+        {
+            foreach (var (x, z) in OilSeeps) if (x == tx && z == tz) return true;
+            return false;
+        }
+
         private List<DestinationDef>? _houses;
         /// <summary>The destinations that take mail by hand (every one but the Business Docks), in their order.</summary>
         public IReadOnlyList<DestinationDef> Houses => _houses ??= new List<DestinationDef>(System.Linq.Enumerable.Where(Destinations, d => !d.IsDock));
@@ -304,6 +316,7 @@ namespace PerformativeMail.Sim.World
             }
             // The sand piles grow from the land's hash: water laid down after does not move them.
             LandHash = h.Value;
+            foreach (var (sx, sz) in OilSeeps) { h.Add(sx); h.Add(sz); }
             foreach (var d in Destinations)
             {
                 if (!d.IsDock) continue;

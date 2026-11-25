@@ -39,6 +39,8 @@
     "grants": { "blueprint": "bp_motorboat" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] },
   { "id": "motorboat", "name": "Motor Boat", "description": "9 m/s on the water; a hold of 8x10 for mail.", "kind": "vehicle", "price": 700,
     "requires": "bp_motorboat", "grants": { "vehicle": "motorboat" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["vehicle"] },
+  { "id": "bp_oil", "name": "Blueprint: Oil", "description": "The Oil Pump: an Oil Can every 45 s from an oil seep.", "kind": "blueprint", "price": 600,
+    "grants": { "blueprint": "bp_oil" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] },
   { "id": "bp_pipes", "name": "Blueprint: Pneumatics", "description": "Pneumatic pipes: inlets send mail to outlets.", "kind": "blueprint", "price": 700,
     "grants": { "blueprint": "bp_pipes" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] }
 ]

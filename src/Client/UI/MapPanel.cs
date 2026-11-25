@@ -200,6 +200,9 @@ namespace PerformativeMail.Client.UI
                 if (Guide.Carried.Contains(d.Address)) DrawArc(b, scale * 3.4f, 0f, Mathf.Tau, 24, Colors.White, 2f);
                 if (numbers || d.IsDock) DrawString(font, b + new Vector2(-20f, 4f), d.IsDock ? "DOCK" : d.Address.Number.ToString(), HorizontalAlignment.Center, 40f, 10, d.IsDock ? Colors.White : new Color(0.1f, 0.1f, 0.12f));
             }
+            // Oil seeps: black drops where a pump may stand.
+            foreach (var (sx, sz) in map.OilSeeps)
+                DrawCircle(At((sx + 0.5f) * SimConstants.TileSize, (sz + 0.5f) * SimConstants.TileSize), Mathf.Max(3f, scale * 1.2f), new Color(0.06f, 0.05f, 0.04f));
             // The districts not open yet say when they open.
             foreach (var district in map.Districts)
             {

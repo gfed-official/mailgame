@@ -1630,10 +1630,35 @@ the whole line exists; the sub-lines say which parts do.
             E at the port's console puts it up in shift 2: no dock open yet, the captain "from
             shift 3" (`small-port-console`). The main smoke run ends in shift 2, so the sailing
             itself is proved by the tests
-- [ ] Oil Pump for vehicle fuel
+- [x] Oil Pump for vehicle fuel
+      - [x] **Oil seeps and the Oil Pump** (doc 10 §2.3, doc 11 "Pump output 1 Oil Can per 45 s",
+            doc 02 §3.9 "Oil · Seep (marsh) · Requires Pump", doc 12 M2; design choice 116). The
+            map has **oil seeps** (`WorldMap.OilSeeps`): the test street's two from its file
+            (`oilSeeps`, (28, 22) and (34, 23) on the grass between the houses and the quay), every
+            Small Island three from a stream of its own (`WorldGenerator.SeepCount`) on open grass
+            14 tiles or more from the Post Office and 10 from one another; nothing of the scenery
+            stands within reach of one (grown first, cleared after, so nothing else moved). The
+            **Oil Pump** (`oil_pump`, 1 tile, 400 HP, 6 Iron Ingots and 2 Glass, behind
+            **Blueprint: Oil** — `bp_oil`, $6.00 from shift 3 at the counter; on the chest's key, as
+            the bar holds ten) stands on a seep only (`NotOnSeep`: "An Oil Pump stands on an oil
+            seep"). In Prep and Delivery it fills an Oil Can into its tank (`pump_tank`, 2 × 2: ten
+            cans) every 45 s of work (`cycleSeconds`), stopping while the tank is full; no power is
+            drawn. E opens the tank as a chest's ("Open Oil Pump [E]"). Its forecourt: a fuelled
+            vehicle held still within 3.2 m (plus a truck's half length) whose tank takes a whole
+            can is filled from the pump's tank, a can a second (`VehicleFuelEvent`; a becalmed
+            boat's skipper sails again). Drawn: a pumpjack — a concrete pad, an orange A-frame, the
+            gearbox with its crank discs, the wellhead in a stain of oil, a red can tank, and a
+            walking beam with its horse head and counterweight that nods while the run works
+            (`ConstructsView.PumpsNodding`); a seep is a black glossy pool with bubbles in a ring of
+            stained ground, labelled "Oil seep", and a black drop on the map screen. `PumpTests`
+            (content; seeps on the street and on thirty islands, none nav-blocked; the blueprint,
+            on a seep only; a can in 45 s, the tank full at ten, cans taken out; nothing at Payday;
+            a truck beside it filled), content, shop and key pins; in the smoke the host, given
+            Blueprint: Oil in shift 2's Prep, is refused off the seep, builds a pump on it, and it
+            nods and works, "Open Oil Pump [E]" (`oil-pump`)
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the Oil Pump, then the Map screen.
+Next in this order: the Map screen with layers, filter chips, pings and a route editor.
 
 ## How to build and check
 
@@ -2812,6 +2837,19 @@ See "Commands" at the bottom (filled in as the tooling lands).
     number); (e) a carrier who boards the captain's boat takes the wheel and the captain stands by
     and unloads at the route's docks, as a driver does; (f) a way cut off (a pier built across)
     leaves the boat standing where it is until the shift ends.
+
+116. **Oil seeps and the Oil Pump.** Doc 02 §3.9 puts oil in seeps of the marsh, a Large Island
+    biome; doc 10 gives the pump (1 tile, 400 HP, 6 Iron Ingots, 2 Glass, bp_oil, "1 Oil Can /
+    45 s; no power draw; place on oil seep") and the blueprint ($6.00, shift 3), and says nothing
+    of where the cans go. Choices: (a) a Small Island has no marsh, so it gets three seeps on
+    open grass out of town from a stream of their own (and the test street two in its file), or
+    the pump could not be built at all before M3; (b) the cans go into a small tank on the pump
+    (ten cans), taken out by hand as from a chest — belts and inserters carry mail only; (c) it
+    pumps in Prep and Delivery, the run's working phases (as belts run), and stops while the tank
+    is full; (d) a forecourt: a vehicle held still beside it is filled straight from the tank, a
+    whole can at a time, so a truck or a boat parked by a pump never runs dry; (e) the doc's id
+    `pump` is `oil_pump` here; it shares the chest's key of Build mode (the recipe bar holds ten
+    keys, and doc 09 §2.7's "Extractors" category has only this one).
 
 ## Commands
 

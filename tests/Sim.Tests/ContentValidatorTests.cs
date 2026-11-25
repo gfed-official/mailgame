@@ -34,8 +34,8 @@ namespace PerformativeMail.Sim.Tests
         public void TheRealContentIsValid()
         {
             Assert.Equal(Program.ExitOk, Run(_dir, "content"));
-            Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 13 containers, 15 items, 1 maps", _out.ToString());
-            Assert.Contains("21 shop entries, 6 resource nodes, 25 buildings, 4 vehicles, 3 kits;", _out.ToString());
+            Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 14 containers, 15 items, 1 maps", _out.ToString());
+            Assert.Contains("22 shop entries, 6 resource nodes, 26 buildings, 4 vehicles, 3 kits;", _out.ToString());
             Assert.Contains($"content hash {TestContent.Db.ContentHash:x8}", _out.ToString());
             Assert.Equal("", _err.ToString());
         }
@@ -158,7 +158,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("'belt': behaviour 'turret' is not built yet", err);
             Assert.Contains("'barn': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2], a container [1, 1] or [2, 2], a vehicle depot [3, 3], a pier [1, 3], a port [3, 4])", err);
             Assert.Contains("'barn': only an elevated belt and an underground pipe are built on a street", err);
-            Assert.Contains("'barn': only a building whose behaviour is 'container' has a container", err);
+            Assert.Contains("'barn': only a building whose behaviour is 'container' or 'pump' has a container", err);
             Assert.Contains("'recipe_wall_wood': craftSeconds must be 0, placement is instant", err);
             Assert.Contains("'recipe_wall_wood': 'log' is an input twice", err);
             Assert.Contains("'recipe_wall_wood': the count of 'plank' must be in 1..255", err);

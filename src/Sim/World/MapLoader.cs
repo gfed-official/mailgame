@@ -219,6 +219,22 @@ namespace PerformativeMail.Sim.World
             }
             else ctx.Error("missing 'destinations' array");
 
+            // Optional: oil seeps (doc 02 §3.9), tiles of open ground an Oil Pump stands on.
+            var seeps = new List<(int X, int Z)>();
+            if (root.TryGetProperty("oilSeeps", out var seepsEl))
+            {
+                if (seepsEl.ValueKind != JsonValueKind.Array) ctx.Error("'oilSeeps' must be an array");
+                else
+                    foreach (var e in seepsEl.EnumerateArray())
+                    {
+                        double[] at = J.NumArrayOf(ctx, e, "oilSeeps[]", 2);
+                        int sx = (int)at[0], sz = (int)at[1];
+                        if (sx < 0 || sz < 0 || sx >= cols || sz >= rows) { ctx.Error($"oil seep ({sx}, {sz}) is off the map"); continue; }
+                        if (tiles[sz * cols + sx] is not (TileType.Grass or TileType.Beach)) ctx.Error($"oil seep ({sx}, {sz}) is not on open ground");
+                        seeps.Add((sx, sz));
+                    }
+            }
+
             // Optional: storage that stands in the map from the start.
             var chests = new List<MapChestDef>();
             if (root.TryGetProperty("chests", out var chestsEl))
@@ -260,6 +276,7 @@ namespace PerformativeMail.Sim.World
                 Districts = districts,
                 Streets = streets,
                 Destinations = destinations,
+                OilSeeps = seeps,
                 PostOffice = po,
                 Chests = chests,
             };

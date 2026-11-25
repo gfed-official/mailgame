@@ -312,6 +312,11 @@ namespace PerformativeMail.Sim.Content
         /// water where a Motor Boat lies in its bay, loaded from the quay's loading face.
         /// </summary>
         Port = 14,
+        /// <summary>
+        /// Doc 10 §2.3 Oil Pump: one tile on an oil seep; an Oil Can into its tank every
+        /// <see cref="BuildingDef.CycleSeconds"/> of Prep and Delivery, no power drawn.
+        /// </summary>
+        Pump = 15,
     }
 
     /// <summary>What a piece of a pipe network is (doc 08 §2.6 "inlet/outlet/junction role").</summary>
@@ -365,6 +370,9 @@ namespace PerformativeMail.Sim.Content
         public bool HasConsole => (IsVehicleDepot || IsPort) && RouteStops > 0;
         public bool IsVehicleDepot => Behaviour == BuildingBehaviour.VehicleDepot;
         public bool IsPort => Behaviour == BuildingBehaviour.Port;
+        public bool IsPump => Behaviour == BuildingBehaviour.Pump;
+        /// <summary>An Oil Pump: the seconds of a working phase it takes to fill an Oil Can (doc 11 "1 Oil Can per 45 s").</summary>
+        public float CycleSeconds { get; init; }
         /// <summary>A Vehicle Depot or a Small Port: a bay a vehicle is set into, with a loading face.</summary>
         public bool HasBay => IsVehicleDepot || IsPort;
         /// <summary>Built on water (doc 04 §3.3): a Pier, a placed Rowboat.</summary>

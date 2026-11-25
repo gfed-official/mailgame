@@ -917,6 +917,7 @@ namespace PerformativeMail.Sim.Content
                             case "pier": behaviour = BuildingBehaviour.Pier; break;
                             case "boat": behaviour = BuildingBehaviour.Boat; break;
                             case "port": behaviour = BuildingBehaviour.Port; break;
+                            case "pump": behaviour = BuildingBehaviour.Pump; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
@@ -938,12 +939,12 @@ namespace PerformativeMail.Sim.Content
                         }
                         else if (J.Has(e, "vehicle")) ctx.Error($"'{id}': only a boat placement names a vehicle");
                         ContainerDef? container = null;
-                        if (behaviour == BuildingBehaviour.Container)
+                        if (behaviour == BuildingBehaviour.Container || behaviour == BuildingBehaviour.Pump)
                         {
                             string containerId = J.Str(ctx, e, "container");
                             if (!db._containersById.TryGetValue(containerId, out container)) ctx.Error($"'{id}': unknown container '{containerId}'");
                         }
-                        else if (J.Has(e, "container")) ctx.Error($"'{id}': only a building whose behaviour is 'container' has a container");
+                        else if (J.Has(e, "container")) ctx.Error($"'{id}': only a building whose behaviour is 'container' or 'pump' has a container");
                         bool hasParams = e.TryGetProperty("params", out var pars) && pars.ValueKind == JsonValueKind.Object;
                         if (!hasParams) ctx.Error($"'{id}': missing 'params' object");
                         var def = new BuildingDef
@@ -985,7 +986,11 @@ namespace PerformativeMail.Sim.Content
                             Vehicle = boat,
                             RouteStops = hasParams ? J.Int(ctx, pars, "routeStops", 0) : 0,
                             HireCost = hasParams ? J.Int(ctx, pars, "npcHireCost", 0) : 0,
+                            CycleSeconds = hasParams ? (float)J.Num(ctx, pars, "cycleSeconds", 0) : 0f,
                         };
+                        // Doc 10 §2.3: a pump fills a can in so many seconds, and only a pump has a cycle.
+                        if ((behaviour == BuildingBehaviour.Pump) != (def.CycleSeconds > 0f) || (behaviour == BuildingBehaviour.Pump && (def.Width != 1 || def.Length != 1)))
+                            ctx.Error($"'{id}': a pump, and only a pump, has params.cycleSeconds > 0 (and a footprint of [1, 1])");
                         // Doc 04 §2.1: a ramp is two tiles long and runs up or down; an elevated belt one level up crosses a street.
                         bool sorter = behaviour == BuildingBehaviour.Sorter;
                         bool square = sorter || behaviour == BuildingBehaviour.Container;
