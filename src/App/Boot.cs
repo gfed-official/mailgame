@@ -14,7 +14,9 @@ namespace PerformativeMail.App
     /// Entry point (scenes/Main.tscn). M0 has no menu: it loads content and hosts a listen server on
     /// the test map, in the Lobby, or joins one. User arguments (after "--"): --seed=N, --name=X,
     /// --world=island (host: the seed's generated Small Island town, doc 02; --map=ID for a map by id),
-    /// --quick (skip Lobby and Prep), --profile=FILE (instead of user://profile.json),
+    /// --quick (skip Lobby and Prep), --debug-world (the showcase map of design choice 119, everything
+    /// built and running, the debug toggles on; with --smoke its own smoke, with --shots=DIR a picture
+    /// of each station's bookmark, then quit), --profile=FILE (instead of user://profile.json),
     /// --port=N (host: the UDP port to listen on, 0 = any free one), --solo (host: do not listen),
     /// --join=ADDRESS[:PORT] (join that host instead of hosting), --bot (a DeliveryBot plays this
     /// client; with --wait-players=N a hosting bot starts the run at N players, with
@@ -40,7 +42,7 @@ namespace PerformativeMail.App
         {
             uint seed = 1;
             string? name = null, shots = null, profilePath = null, join = null, lookDev = null, lookDevViews = null;
-            bool smoke = false, quick = false, solo = false, bot = false, low = false;
+            bool smoke = false, quick = false, debugWorld = false, solo = false, bot = false, low = false;
             int? port = null;
             int waitPlayers = 1;
             double quitAfter = 0;
@@ -62,6 +64,8 @@ namespace PerformativeMail.App
                     && dollars > 0m)
                     startWallet = (int)Math.Min(PlaytestMask.MaxWallet, Math.Round(dollars * 100m));
                 else if (arg == "--quick") quick = true;
+                // Design choice 119: the showcase map, everything built and running, the debug toggles on.
+                else if (arg == "--debug-world") { debugWorld = true; mapId = "debug_world"; }
                 // Doc 02: the seed's own Small Island town instead of the test street.
                 else if (arg == "--world=island") mapId = WorldGenerator.SmallIsland;
                 else if (arg.StartsWith("--map=", StringComparison.Ordinal) && arg.Length > 6) mapId = arg.Substring(6);
@@ -127,7 +131,7 @@ namespace PerformativeMail.App
             {
                 // The smoke takes any free port, so two of them can run side by side.
                 int listen = solo ? -1 : port ?? (smoke ? 0 : GameSession.DefaultPort);
-                session.StartHost(content, seed, profile, store, quickStart: quick && !smoke, listenPort: listen, mapId: mapId);
+                session.StartHost(content, seed, profile, store, quickStart: (quick && !smoke) || debugWorld, listenPort: listen, mapId: mapId);
             }
             AddChild(session);
             BotDriver? botDriver = null;
@@ -159,6 +163,13 @@ namespace PerformativeMail.App
                     botDriver = new BotDriver { Name = "Bot", QuitAfterSeconds = quitAfter };
                     botDriver.Setup(session, waitPlayers);
                     AddChild(botDriver);
+                }
+                if (debugWorld && (smoke || shots != null))
+                {
+                    var tourer = new DebugWorldDriver { Name = "DebugWorldDriver", ShotDir = shots, Smoke = smoke };
+                    tourer.Setup(session, screen);
+                    AddChild(tourer);
+                    return;
                 }
                 if (!smoke) return;
                 var driver = new SmokeDriver { Name = "Smoke", ShotDir = shots };

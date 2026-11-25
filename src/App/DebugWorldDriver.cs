@@ -1,0 +1,336 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Godot;
+using PerformativeMail.Client.InputHandling;
+using PerformativeMail.Client.UI;
+using PerformativeMail.Sim;
+using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Run;
+
+namespace PerformativeMail.App
+{
+    /// <summary>
+    /// <c>--debug-world</c> with <c>--smoke</c> or <c>--shots=DIR</c> (design choice 119). With
+    /// <c>--smoke</c> it checks the showcase in the real host: the run in Delivery of shift 5 with
+    /// the clock stopped and the wallet full; fast-forwarded, the mail goes through every station
+    /// (each station's proofs, as the server's <see cref="ShowcaseProbe"/> sees them) while the
+    /// client mirrors every construct, vehicle and crew and draws mail on the belts and in the
+    /// pipes; the carrier takes no damage and builds out of empty pockets; each bookmark key puts
+    /// the free camera at its station with the station in view; the free camera flies while the
+    /// carrier stands; the time scale keys run the clock at 0.25×, 1× and 4×. With
+    /// <c>--shots</c> it saves a picture at every bookmark (in a window; headless there is
+    /// nothing to draw). Then "SMOKE OK" (or "SHOTS OK") and quit.
+    /// </summary>
+    public partial class DebugWorldDriver : Node
+    {
+        public string? ShotDir;
+        public bool Smoke;
+
+        private enum Stage { Boot, Flow, Toggles, Console, Bookmarks, Fly, Scale, Done }
+        private const int FastTicks = 30;
+        /// <summary>Sim seconds the flow may take before the smoke gives up on a station.</summary>
+        private const int FlowSeconds = 180;
+        /// <summary>Frames a bookmark is given to draw (labels settle, the far views fill in) before its picture.</summary>
+        private const int SettleFrames = 12;
+
+        private GameSession _session = null!;
+        private GameScreen _screen = null!;
+        private readonly List<string> _failures = new List<string>();
+        private Stage _stage;
+        private int _frames, _bookmark, _scaleStep;
+        private uint _scaleTick0;
+        private double _scaleTime;
+        private float _flyX, _flyZ, _carrierX, _carrierZ;
+        private readonly double[] _scaleRatios = new double[3];
+
+        private Sim.SimWorld Server => _session.Server!.World;
+
+        public void Setup(GameSession session, GameScreen screen)
+        {
+            _session = session;
+            _screen = screen;
+            GD.Print($"[debug] {(Smoke ? "smoke" : "shots")} of the debug world{(ShotDir != null ? $", pictures into {ShotDir}" : "")}");
+        }
+
+        private void Check(bool ok, string failure)
+        {
+            if (!ok) _failures.Add(failure);
+        }
+
+        private void Next(Stage stage)
+        {
+            _stage = stage;
+            _frames = 0;
+        }
+
+        public override void _Process(double delta)
+        {
+            if (_stage == Stage.Done) return;
+            _frames++;
+            var client = _session.Client;
+            var world = client.World!;
+            var debug = _screen.Debug;
+            switch (_stage)
+            {
+                case Stage.Boot:
+                {
+                    if (_frames < 3) return;
+                    var hud = _screen.Hud;
+                    hud.Refresh();
+                    Check(debug != null, "the debug world has no debug keys");
+                    Check(world.Map.Id == "debug_world", $"the map is {world.Map.Id}");
+                    Check(world.Global.Phase == RunPhase.Delivery && world.Global.Shift == 5, $"the run is in {world.Global.Phase} of shift {world.Global.Shift}, not Delivery of shift 5");
+                    Check(world.Global.ClockStopped && hud.PhaseText.Contains("(stopped)", StringComparison.Ordinal), $"the clock runs: \"{hud.PhaseText}\"");
+                    Check(world.Global.Wallet >= PlaytestMask.MaxWallet, $"the wallet holds {world.Global.Wallet} cents");
+                    Check(debug == null || debug.LineText.StartsWith("DEBUG WORLD · god mode · unlimited · clock stopped", StringComparison.Ordinal), $"the debug line reads \"{debug?.LineText}\"");
+                    Check(Server.Constructs.All.Count == world.Map.Debug!.Constructs.Count, $"{Server.Constructs.All.Count} constructs stand of the {world.Map.Debug.Constructs.Count} of the showcase");
+                    if (!Smoke) { Next(Stage.Flow); return; }
+                    string missing = FontCheck.MissingGlyphs(hud) + FontCheck.MissingGlyphs(this);
+                    Check(missing.Length == 0, $"no glyph for \"{missing}\"");
+                    _session.FixedTicksPerFrame = FastTicks;
+                    Next(Stage.Flow);
+                    return;
+                }
+                case Stage.Flow:
+                {
+                    var probe = Server.Showcase!;
+                    // The pictures want mail on the belts: the shots wait for the flow too, in real time at 4x.
+                    if (!Smoke && _frames == 1) debug!.SetScale(4.0);
+                    if (!probe.AllDone && Server.Tick < FlowSeconds * SimConstants.TickRate) return;
+                    for (int i = 0; i < probe.Stations.Count; i++)
+                        GD.Print($"[debug] {probe.Stations[i].Name}: {string.Join(", ", probe.Stations[i].Proofs.Select((p, k) => $"{p} x{probe.Count(i, k)}"))}");
+                    _session.FixedTicksPerFrame = 0;
+                    if (!Smoke) { debug!.SetScale(1.0); Next(Stage.Bookmarks); return; }
+                    Check(probe.AllDone, $"after {Server.Tick / SimConstants.TickRate} s no mail went through {probe.Missing()}");
+                    Check(world.Constructs.All.Count == Server.Constructs.All.Count, $"the client has {world.Constructs.All.Count} constructs, the server {Server.Constructs.All.Count}");
+                    Check(world.Vehicles.Count == Server.Vehicles.Count, $"the client has {world.Vehicles.Count} vehicles, the server {Server.Vehicles.Count}");
+                    Check(world.Drivers.Values.Count(d => d.State != DriverState.None) == 2, "the client does not know of both crews");
+                    Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"{client.ContainerDesyncs} container desyncs, {client.BadPackets} bad packets");
+                    Check(_screen.BeltItems.Drawn > 0, "no mail is drawn on the belts");
+                    Check(_screen.Constructs.PumpsNodding > 0, "the Oil Pump does not nod");
+                    Check(Server.Economy.ShiftMisdeliveries == 0, $"{Server.Economy.ShiftMisdeliveries} misdeliveries");
+                    Next(Stage.Toggles);
+                    return;
+                }
+                case Stage.Toggles:
+                {
+                    // God mode: a blow that would down anybody leaves the carrier whole, on the HUD too.
+                    var truth = Server.GetPlayer(world.LocalId)!;
+                    if (_frames == 1)
+                    {
+                        Server.DamagePlayer(truth, 1000f);
+                        Check(!truth.Dead && truth.Hp == truth.MaxHp, $"god mode: the carrier is at {truth.Hp} HP");
+                        // Unlimited: a Stone Wall (behind its blueprint) out of empty pockets, by the real request.
+                        foreach (var box in new[] { truth.Hotbar, truth.Inventory })
+                            foreach (uint id in box.Entries.Select(e => e.EntryId).ToList()) box.Remove(id);
+                        truth.Move.X = BuildRules.TileCentre(10);
+                        truth.Move.Z = BuildRules.TileCentre(17);
+                        return;
+                    }
+                    if (_frames < 6) return;
+                    if (_frames < 120 && !ClientAt(world, BuildRules.TileCentre(10), BuildRules.TileCentre(17))) return;
+                    if (_wallAsked == 0)
+                    {
+                        _wallAsked = _frames;
+                        var wall = world.Content.Recipes.First(r => r.Building.Id == "wall_stone");
+                        Check(world.RecipeState(wall) == OpResult.Ok, $"the Stone Wall out of empty pockets is {world.RecipeState(wall)}");
+                        Check(client.PlaceConstruct(wall, 10, 15, 0) != 0, "the Stone Wall was not asked for");
+                        return;
+                    }
+                    if (_frames < _wallAsked + 8) return;
+                    Check(Server.Constructs.At(10, 15)?.Def.Id == "wall_stone", "the Stone Wall out of empty pockets was not built");
+                    Check(world.Constructs.At(10, 15)?.Def.Id == "wall_stone", "the client does not see the Stone Wall");
+                    Check(world.LocalHp >= truth.MaxHp - 0.01f, $"god mode: the client has the carrier at {world.LocalHp} HP");
+                    Check(Server.Raid == Sim.Combat.RaidState.None && Server.Enemies.Count == 0, "a raid came to the debug world");
+                    GD.Print($"[smoke] debug world: every station ran ({Server.Tick / SimConstants.TickRate} s), no damage, a Stone Wall out of empty pockets, no raid");
+                    Next(Stage.Console);
+                    return;
+                }
+                case Stage.Console:
+                    StepConsole(world);
+                    return;
+                case Stage.Bookmarks:
+                {
+                    var stations = world.Map.Debug!.Stations;
+                    if (_bookmark >= stations.Count)
+                    {
+                        debug!.HandleKey(Key.F12);
+                        Check(!_screen.Camera.FreeLook, "F12 did not give the view back to the carrier");
+                        if (Smoke) GD.Print($"[smoke] debug world: {stations.Count} bookmarks, each station in view");
+                        _bookmark = 0;
+                        Next(Smoke ? Stage.Fly : Stage.Done);
+                        if (!Smoke) Finish();
+                        return;
+                    }
+                    if (_frames == 1)
+                    {
+                        Check(debug!.HandleKey(DebugWorldController.BookmarkKeys[_bookmark]), $"{DebugWorldController.BookmarkKeys[_bookmark]} is no bookmark key");
+                        return;
+                    }
+                    if (_frames == 2)
+                    {
+                        var s = stations[_bookmark];
+                        var camera = _screen.Camera;
+                        var eye = new Vector3(s.EyeX, s.EyeY, s.EyeZ);
+                        var target = new Vector3(s.TargetX, s.TargetY, s.TargetZ);
+                        Check(camera.FreeLook && camera.GlobalPosition.DistanceTo(eye) < 0.05f, $"{s.Name}: the camera is at {camera.GlobalPosition}, not {eye}");
+                        var forward = -camera.GlobalTransform.Basis.Z;
+                        Check(forward.Dot((target - eye).Normalized()) > 0.999f, $"{s.Name}: the camera does not look at its target");
+                        Check(camera.IsPositionInFrustum(target), $"{s.Name}: its target is out of view");
+                        Check(debug!.LineText.Contains(s.Name, StringComparison.Ordinal), $"{s.Name}: the debug line reads \"{debug.LineText}\"");
+                    }
+                    if (_frames < SettleFrames) return;
+                    Shot($"{_bookmark + 1:00}-{Slug(stations[_bookmark].Name)}");
+                    _bookmark++;
+                    _frames = 0;
+                    return;
+                }
+                case Stage.Fly:
+                {
+                    var truth = Server.GetPlayer(world.LocalId)!;
+                    if (_frames == 1)
+                    {
+                        debug!.HandleKey(Key.Quoteleft);
+                        Check(_screen.Camera.FreeLook, "the backquote did not free the camera");
+                        _flyX = _screen.Camera.FreePosition.X;
+                        _flyZ = _screen.Camera.FreePosition.Z;
+                        _carrierX = truth.Move.X;
+                        _carrierZ = truth.Move.Z;
+                        return;
+                    }
+                    if (_frames <= 31)
+                    {
+                        // A second of W, as the keys would fly it.
+                        debug!.Fly(new Vector2(0f, -1f), 0f, false, 1.0 / 30.0);
+                        return;
+                    }
+                    float flown = new Vector2(_screen.Camera.FreePosition.X - _flyX, _screen.Camera.FreePosition.Z - _flyZ).Length();
+                    float walked = new Vector2(truth.Move.X - _carrierX, truth.Move.Z - _carrierZ).Length();
+                    Check(flown > 6f && flown < 10f, $"a second of the free camera flew {flown:0.0} m");
+                    Check(walked < 0.05f, $"the carrier moved {walked:0.00} m under the free camera");
+                    debug!.HandleKey(Key.Quoteleft);
+                    Check(!_screen.Camera.FreeLook, "the backquote did not give the view back");
+                    GD.Print($"[smoke] debug world: the free camera flew {flown:0.0} m, the carrier stood");
+                    Next(Stage.Scale);
+                    return;
+                }
+                case Stage.Scale:
+                {
+                    // Each scale for half a second of real time: the server's ticks over the frames' time.
+                    if (_frames == 1)
+                    {
+                        debug!.HandleKey(_scaleStep == 0 ? Key.Comma : _scaleStep == 1 ? Key.Period : Key.Slash);
+                        _scaleTick0 = Server.Tick;
+                        _scaleTime = 0;
+                        return;
+                    }
+                    _scaleTime += delta;
+                    if (_scaleTime < 0.5 || _frames < 15) return;
+                    double want = DebugWorldController.Scales[_scaleStep];
+                    Check(_session.TimeScale == want, $"the time scale is {_session.TimeScale}, not {want}");
+                    _scaleRatios[_scaleStep] = (Server.Tick - _scaleTick0) / (_scaleTime * SimConstants.TickRate);
+                    if (++_scaleStep < 3) { _frames = 0; return; }
+                    debug!.HandleKey(Key.Period);
+                    // Wide bounds: the frames of a loaded machine are uneven, and the server catches up five ticks at most.
+                    Check(_scaleRatios[0] > 0.1 && _scaleRatios[0] < 0.45, $"at 0.25x the clock ran at {_scaleRatios[0]:0.00}x");
+                    Check(_scaleRatios[1] > 0.6 && _scaleRatios[1] < 1.4, $"at 1x the clock ran at {_scaleRatios[1]:0.00}x");
+                    Check(_scaleRatios[2] > 2.0, $"at 4x the clock ran at {_scaleRatios[2]:0.00}x");
+                    GD.Print(FormattableString.Invariant($"[smoke] debug world: time scale 0.25x/1x/4x ran at {_scaleRatios[0]:0.00}/{_scaleRatios[1]:0.00}/{_scaleRatios[2]:0.00}"));
+                    Finish();
+                    return;
+                }
+            }
+        }
+
+        private int _wallAsked;
+
+        /// <summary>The client sees its carrier where the server put them.</summary>
+        private static bool ClientAt(Client.ClientWorld world, float x, float z) =>
+            new Vector2(world.Local.X - x, world.Local.Z - z).Length() < 0.3f;
+
+        private float _consoleX, _consoleZ;
+        private int _wait;
+        private PlayerInputController? _keys;
+        private int _tap;
+        private static readonly Key[] Taps = { Key.Escape, Key.Tab, Key.E };
+
+        /// <summary>
+        /// Playtest 346eb3e: the Vehicle Depot's Route Console comes down on a tap of Esc, Tab or E
+        /// shorter than a frame, through the real input controller (a key pressed and let go
+        /// between two frames; only the event shows it).
+        /// </summary>
+        private void StepConsole(Client.ClientWorld world)
+        {
+            var client = _session.Client;
+            var depot = Server.Constructs.All.First(c => c.Def.IsVehicleDepot);
+            if (_frames == 1 && _tap == 0)
+            {
+                Sim.SimWorld.Console(depot, out float cx, out float cz);
+                float ox = cx - depot.CentreX, oz = cz - depot.CentreZ, len = Mathf.Max(0.01f, Mathf.Sqrt(ox * ox + oz * oz));
+                var truth = Server.GetPlayer(world.LocalId)!;
+                truth.Move.X = _consoleX = cx + ox / len * 1.2f;
+                truth.Move.Z = _consoleZ = cz + oz / len * 1.2f;
+                _keys = new PlayerInputController { Name = "SmokeKeys" };
+                _keys.Setup(client, _session.Interaction, _screen.Mouse, _session.Build);
+                _keys.Cancelled += () => client.CloseFilters();
+                _keys.InventoryToggled += () => { };
+                AddChild(_keys);
+                return;
+            }
+            if (_frames < 10) return;
+            // Until the client sees its carrier at the console (two seconds at most).
+            if (_tap == 0 && _frames == 10 && ++_wait < 120 && !ClientAt(world, _consoleX, _consoleZ)) { _frames = 9; return; }
+            var key = Taps[_tap];
+            if (_frames == 10)
+            {
+                Check(client.OpenFilters(world.Constructs.At(depot.Tx, depot.Tz)!) != 0, $"the Route Console did not come up for the {key} tap");
+                return;
+            }
+            // The screen marks the panel open a frame later, as it does in play.
+            if (_frames == 13)
+            {
+                Check(world.FilterTarget != null && _screen.Mouse.PanelOpen, "the Route Console is not up");
+                _keys!._UnhandledInput(new InputEventKey { PhysicalKeycode = key, Keycode = key, Pressed = true });
+                _keys._UnhandledInput(new InputEventKey { PhysicalKeycode = key, Keycode = key, Pressed = false });
+                _keys.Sample(1.0 / 30.0);
+                return;
+            }
+            if (_frames < 16) return;
+            Check(world.FilterTarget == null, $"a tap of {key} left the Route Console up");
+            if (++_tap < Taps.Length) { _frames = 9; return; }
+            _keys!.QueueFree();
+            _keys = null;
+            GD.Print("[smoke] debug world: the Route Console came down on a tap of Esc, Tab and E");
+            Next(Stage.Bookmarks);
+        }
+
+        private static string Slug(string name) => new string(name.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray());
+
+        private void Shot(string name)
+        {
+            if (ShotDir == null || DisplayServer.GetName() == "headless") return;
+            DirAccess.MakeDirRecursiveAbsolute(ShotDir);
+            Action? save = null;
+            save = () =>
+            {
+                RenderingServer.FramePostDraw -= save;
+                GetViewport().GetTexture().GetImage().SavePng($"{ShotDir}/debug-{name}.png");
+            };
+            RenderingServer.FramePostDraw += save;
+        }
+
+        private void Finish()
+        {
+            _stage = Stage.Done;
+            string ok = Smoke ? "SMOKE OK" : "SHOTS OK";
+            if (!Smoke && ShotDir != null && DisplayServer.GetName() == "headless") GD.Print("[debug] headless: nothing is drawn, so no pictures were saved (run it under xvfb-run)");
+            if (_failures.Count == 0) GD.Print(ok);
+            else
+                foreach (string failure in _failures) GD.PrintErr(Smoke ? "SMOKE FAIL: " : "SHOTS FAIL: ", failure);
+            // A frame more, so the last picture is saved.
+            GetTree().CreateTimer(0.2).Timeout += () => GetTree().Quit(_failures.Count == 0 ? 0 : 1);
+        }
+    }
+}

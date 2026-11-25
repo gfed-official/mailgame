@@ -27,6 +27,26 @@ namespace PerformativeMail.Client.Presentation
 
         public Node3D? Target;
 
+        /// <summary>
+        /// The debug world's free camera (design choice 119): while set, the camera stands at
+        /// <see cref="FreePosition"/> looking along <see cref="FreeYaw"/> and <see cref="FreePitch"/>
+        /// instead of from the carrier's eyes, and nothing is in the hands.
+        /// </summary>
+        public bool FreeLook;
+        public Vector3 FreePosition;
+        public float FreeYaw, FreePitch;
+
+        /// <summary>Free, at <paramref name="eye"/>, looking at <paramref name="target"/>.</summary>
+        public void LookFrom(Vector3 eye, Vector3 target)
+        {
+            FreeLook = true;
+            FreePosition = eye;
+            var d = target - eye;
+            FreeYaw = Mathf.Atan2(-d.X, -d.Z);
+            FreePitch = Mathf.Atan2(d.Y, new Vector2(d.X, d.Z).Length());
+            Sync();
+        }
+
         /// <summary>True while a weapon is up in the view.</summary>
         public bool WeaponDrawn => _drawn > 0.5f;
         /// <summary>True while the weapon in the view is the cannon.</summary>
@@ -74,12 +94,36 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Where the camera belongs for a player whose feet are at <paramref name="feet"/>.</summary>
         public static Vector3 EyePosition(Vector3 feet) => feet + new Vector3(0f, SimConstants.EyeHeight, 0f);
 
+        /// <summary>
+        /// Playtest 346eb3e: at the wheel of a long vehicle (the Mail Truck) the eyes are in its cab,
+        /// over the bonnet and a little higher, not in the middle of the body where its cargo box
+        /// stood in front of them.
+        /// </summary>
+        public const float CabEyeForward = 1.15f, CabEyeHeight = 1.8f;
+
+        /// <summary>Where the camera belongs for the local player whose feet are at <paramref name="feet"/>: the eyes, or a truck's cab.</summary>
+        public static Vector3 EyePosition(Vector3 feet, ClientWorld? world)
+        {
+            var ride = world?.LocalRide;
+            if (ride == null || ride.Def.BodyOffset <= 0f || ride.Def.OnWater) return EyePosition(feet);
+            float hx = world!.Local.HeadX, hz = world.Local.HeadZ, len = Mathf.Sqrt(hx * hx + hz * hz);
+            if (len < 1e-3f) return EyePosition(feet);
+            return feet + new Vector3(hx / len * CabEyeForward, CabEyeHeight, hz / len * CabEyeForward);
+        }
+
         /// <summary>Places the camera for this frame; runs after the player views have moved.</summary>
         public void Sync()
         {
             var world = _client?.World;
             if (world == null) return;
-            if (Target != null) Position = EyePosition(Target.Position);
+            if (FreeLook)
+            {
+                Position = FreePosition;
+                Rotation = new Vector3(FreePitch, FreeYaw, 0f);
+                _held.Visible = false;
+                return;
+            }
+            if (Target != null) Position = EyePosition(Target.Position, world);
             Rotation = new Vector3(_client!.Input.PitchRadians, _client.Input.YawRadians, 0f);
 
             int slot = _client.Input.HeldSlot;
@@ -134,13 +178,14 @@ namespace PerformativeMail.Client.Presentation
             _drawnLeft = Mathf.Max(0f, _drawnLeft - delta);
             _cannonLeft = Mathf.Max(0f, _cannonLeft - delta);
 
-            bool want = !world.Local.Dead && world.HasLocal && (world.Raid != RaidState.None || _drawnLeft > 0f || _tool != null);
+            bool want = !FreeLook && !world.Local.Dead && world.HasLocal && (world.Raid != RaidState.None || _drawnLeft > 0f || _tool != null);
             _drawn = Mathf.MoveToward(_drawn, want ? 1f : 0f, delta * 5f);
             bool cannon = _cannonLeft > 0f;
             // A tool in the hand takes the hammer's place; the cannon still comes up for a shot.
             var swung = _tool ?? _hammer;
             if (_tool != null) _hammer.Visible = false;
             swung.Visible = _drawn > 0.01f && !cannon;
+            if (_tool != null && FreeLook) _tool.Visible = false;
             _cannon.Visible = _drawn > 0.01f && cannon;
             var holstered = new Vector3(0f, -0.6f * (1f - Mathf.Ease(_drawn, 0.5f)), 0f);
 

@@ -593,7 +593,8 @@ namespace PerformativeMail.Client
         public bool PressFilterKey(int key)
         {
             var built = World?.FilterTarget;
-            if (built == null) return false;
+            // Only the number keys are the panel's: Esc, E and Tab still take it down (playtest 346eb3e).
+            if (built == null || key < 0 || key > 11) return false;
             if (key >= 0 && key < built.Def.FilterOutputs) StepFilter(key, 1);
             else if (built.Def.HasConsole && key == built.Def.RouteStops) HireDriver();
             return true;

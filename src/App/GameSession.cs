@@ -48,6 +48,8 @@ namespace PerformativeMail.App
         /// ticks of both ends per frame, which makes the headless smoke fast and repeatable.
         /// </summary>
         public int FixedTicksPerFrame;
+        /// <summary>The debug world's time scale keys (0.25×, 1×, 4×): real time runs this much faster on both ends.</summary>
+        public double TimeScale = 1.0;
         /// <summary>What the local client asks the server for when it joins; set before StartHost or StartRemote.</summary>
         public PlaytestFlags Playtest;
         /// <summary>The shift the local client asks runs to start at, 0 = the first; set like <see cref="Playtest"/>.</summary>
@@ -158,8 +160,8 @@ namespace PerformativeMail.App
             }
             else
             {
-                Client.Update(delta);
-                Server?.Update(delta);
+                Client.Update(delta * TimeScale);
+                Server?.Update(delta * TimeScale);
             }
             // What this frame queued goes out now, not at the next frame's poll.
             _enetClient?.Flush();

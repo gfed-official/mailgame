@@ -176,7 +176,7 @@ namespace PerformativeMail.App
             if (view == null) return;
             var camera = _screen.Camera;
             var input = _session.Client.Input;
-            _maxEyeOffset = Mathf.Max(_maxEyeOffset, camera.GlobalPosition.DistanceTo(FirstPersonCamera.EyePosition(view.GlobalPosition)));
+            _maxEyeOffset = Mathf.Max(_maxEyeOffset, camera.GlobalPosition.DistanceTo(FirstPersonCamera.EyePosition(view.GlobalPosition, _session.Client.World)));
             var ray = new ViewRay(0f, 0f, 0f, input.YawRadians, input.PitchRadians);
             var forward = -camera.GlobalTransform.Basis.Z;
             _maxAimOffset = Mathf.Max(_maxAimOffset, forward.DistanceTo(new Vector3(ray.DirX, ray.DirY, ray.DirZ)));

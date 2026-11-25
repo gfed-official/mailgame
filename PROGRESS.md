@@ -654,6 +654,65 @@ the screen once Blueprint: Oil made 21 (choice 118); after the fix it passed who
 shots of the dock, the port's console, the pump, the ping wheel and the pings. One rendered run
 before that had the ENet guest time out joining while the box was loaded; the next passed.
 
+### 2p. The debug world, and the 346eb3e playtest's Route Console and truck view (2026-11-25)
+
+- [x] **`--debug-world`** (`content/maps/debug_world.json`; design choice 119). A bare 60 × 40 map
+      (no scenery, no nodes; `"bare": true`) with the sea along its south edge, whose `debug` block
+      (`WorldMap.Debug`, `DebugWorldDef`) puts every construct there is up and running as each run
+      starts (`SimWorld.BuildShowcase`, at the end of `SetUpRun`; the host's `--debug-world` is a
+      quick start, so the run is in Delivery of shift 5 from the first tick): the Intake's outfeed into
+      a belt line up a Belt Ramp, over two Elevated Belts, down a ramp and along three Fast Belts into a
+      Splitter whose three ways meet again in a Merger; an Address Sorter (front: Anvil Close by a
+      belt into its mailbox; left: Cargo, by a belt into the Small Port's loading face; right: Beacon
+      Road, by a belt into the Vehicle Depot's loading face; overflow: a belt into a Pipe Inlet);
+      pipes (straight, buried under Beacon Road, two junctions) to three outlets — one before Fern
+      Hollow's mailbox, one into a Chest that an Inserter empties into Cobble Hill's, one into a Depot
+      that a Long Inserter empties into Ropewalk's; the Vehicle Depot with a Mail Truck in its bay and
+      a hired driver (stops: Beacon Road's three houses); the Small Port with a Motor Boat and a hired
+      captain (stop: the Business Dock "1 Quayside"); and an Oil Pump on a seep beside the depot's bay
+      that fills the truck (which starts with 200 s of fuel). Instead of the spawner's batches the
+      Intake gets one piece a second, the addresses in turn, each in turn of the kinds it takes
+      (`MailSpawner.SpawnOne`). Toggles, each in the file: **god mode** (`DamagePlayer` does nothing),
+      **unlimited** (the wallet topped up to $1000 every tick, every blueprint granted at the start,
+      building takes no materials — on the server and in the client's `RecipeState`/`LineStates`),
+      **the clock stopped** (`ClockStopped`, shown "(stopped)"), the quota waived, and **no raids**
+      unless a player asks with `--raid`. `ShowcaseProbe` (`SimWorld.Showcase`) watches each of the
+      ten **stations**' proofs from the sim's own events: mail onto the belt over a tile, a machine's
+      delivery (to an address), a can pumped. All ten come true in 45 s of sim time; over five
+      minutes nothing jams and nothing is misdelivered. *In the client* (`DebugWorldController`): F1–F5
+      and F7–F11 put a **free camera** at the stations' bookmarks (F6 stays the hot reload), F12 gives
+      the view back, the backquote key frees the camera where it is (WASD flies it the way it looks,
+      Space and Ctrl lift and lower, Shift is faster, the mouse turns it, the carrier stands still:
+      `PlayerInputController.Suspended`), and comma / period / slash set the **time scale** to 0.25×,
+      1× and 4× (`GameSession.TimeScale`, both ends of a host); three amber lines at the top left say
+      what is on. `--debug-world --shots=DIR` (under xvfb) waits for the flow at 4× and saves
+      `debug-01-intake-and-belt-line.png` … `debug-10-long-inserter-and-depot.png`, one per bookmark,
+      then "SHOTS OK". `DebugWorldTests` (6), `DebugWorldFlowTests` (a client mirrors the showcase,
+      belts item for item, no desync, every recipe open to empty pockets); **`tools/smoke.sh` runs
+      `--smoke --debug-world` third** (`DebugWorldDriver`): Delivery of shift 5, the clock stopped and
+      the wallet full on the HUD, every station's proofs (fast-forwarded), the client's constructs,
+      vehicles and crews equal to the server's with mail drawn on the belts and the pump nodding, no
+      damage, a Stone Wall out of empty pockets, the Route Console taps below, each bookmark key (the
+      camera there, looking at its station, the station in view, its name on the line), the free
+      camera flown 8 m while the carrier stood, and the three time scales measured (0.26 / 0.99 /
+      4.0 in the last run)
+- [x] **The Route Console missed a quick tap of Esc, E or Tab** (playtest 346eb3e issue 1). While a
+      filter panel or console was up, `ClientRuntime.PressFilterKey` took *every* key (a key that is
+      no number came to it as a "digit" far out of range), so the key branch of
+      `PlayerInputController` swallowed Esc, Tab and E before their actions were looked at; only E
+      held a quarter second got through, by polling. Now only the number keys are the panel's (both
+      ends: the controller makes any other key −1, `PressFilterKey` refuses one out of 0–11). The
+      debug-world smoke opens the depot's console and taps each key for less than a frame through the
+      real controller; without the fix all three taps leave it up
+- [x] **The Mail Truck's body blocked the driving view** (issue 2). The eyes sat in the middle of
+      the truck at 1.6 m — inside the cargo box. At the wheel of a long land vehicle they are now in
+      the cab, 1.15 m ahead of the middle and 1.8 m up (`FirstPersonCamera.EyePosition(feet, world)`,
+      `CabEyeForward`, `CabEyeHeight`; design choice 120); the smoke checks it as the host gets in.
+      The interact ray stays at the body's eyes
+- Issues 3 and 4 of that report (a driver in Waiting cannot be taken over; "Something stands
+  there" on one's own tile) are as designed; nothing in the Map pings, the Oil Pump, the sea path,
+  the Vehicle Depot, drivers, the truck, pipes, inserters or belts needed fixing beyond these.
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
@@ -2888,6 +2947,19 @@ See "Commands" at the bottom (filled in as the tooling lands).
     shift 2; seven rows of three do not fit at 1280 × 720 (the rendered smoke caught it; 20 did).
     Choice: above 20 cards the counter lays them four abreast and narrower, without the line saying what each is
     (name, price and note stay; `HudText.ShopCompact`).
+119. **A debug world.** Nothing in the docs; asked for to see and photograph every construct at work
+    without building it. Choice: a map file of its own whose `debug` block lists the showcase by
+    building ids, tiles and turns, as a carrier would build it, and is built through the same
+    placement rules (a layout that breaks a rule throws, and the tests build it). Its mail is one
+    piece a second for the addresses in turn instead of the spawner's batches, so every station sees
+    mail at a steady pace; the run is shift 5 so every blueprint, the captain and Cargo are out. It
+    is not one of the Lobby's worlds (`WorldChoices`). The toggles live in the file, not on keys, so
+    a guest's client knows them from the map it builds; only the camera and the time scale are keys.
+    The sea lies along the south edge as on the other maps, because the basin and its backdrop are
+    drawn there (`IslandView.Basin`).
+120. **Where the eyes are at a truck's wheel.** The docs say only "first person". Choice: in the cab
+    over the bonnet (1.15 m ahead of the middle, 1.8 m up), seeing past the cab's own walls; a bike
+    and the boats keep the eyes over the seat.
 
 ## Commands
 
@@ -2902,7 +2974,7 @@ All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes o
 tools/validate-content.sh [CONTENT_DIR] [--quiet]   # ContentValidator: "content OK …" / "error: …" lines, exit 0 / 1
 ~/.dotnet/dotnet tools/SeedViewer/bin/Debug/net8.0/SeedViewer.dll 1-20 [--map] [--island]   # the generated town of each seed: figures, the town in letters, the island by biome
 
-tools/smoke.sh [seed]            # build + two Godot headless smokes (the full run, the raid playtest); exit 0 and "SMOKE OK" twice
+tools/smoke.sh [seed]            # build + three Godot headless smokes (the full run, the raid playtest, the debug world); exit 0 and "SMOKE OK" three times
 ~/.local/bin/godot --headless --path . -- --smoke --seed=1      # the smoke alone (build first)
 ~/.local/bin/godot --headless --path . -- --smoke --seed=1 --shift=2 --no-quota --raid --playtest-package   # the raid playtest's smoke alone
 
@@ -2912,6 +2984,11 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path .                                      # play: host on the test street, in the Lobby (G starts)
 ~/.local/bin/godot --path . -- --seed=7 --name=Ada               # user args go after "--"
 ~/.local/bin/godot --path . -- --quick                           # skip Lobby, Prep and the Drafts: straight into shift 1
+~/.local/bin/godot --path . -- --debug-world                     # the showcase: every construct built and running (design choice 119)
+#   F1-F5, F7-F11 station bookmarks · F12 back to the carrier · ` free camera (WASD, Space/Ctrl, Shift) · , . / time 0.25x 1x 4x
+#   god mode, unlimited money/materials/blueprints, the clock stopped; no raid unless --raid
+~/.local/bin/godot --headless --path . -- --smoke --debug-world  # its smoke alone ("SMOKE OK")
+xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --debug-world --solo --shots=/tmp/dbg   # a PNG per bookmark, "SHOTS OK"
 ~/.local/bin/godot --path . -- --world=island --seed=7           # host the seed's generated Small Island town instead of the test street
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes

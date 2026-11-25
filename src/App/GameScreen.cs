@@ -32,6 +32,8 @@ namespace PerformativeMail.App
         /// <summary>The map overlay (doc 09 §2.6), M.</summary>
         public MapPanel Map { get; private set; } = null!;
         public LabelDeclutterer Labels { get; private set; } = null!;
+        /// <summary>The debug world's keys and free camera (design choice 119); null on any other map.</summary>
+        public DebugWorldController? Debug { get; private set; }
         /// <summary>Whose the mouse is: the view's, or the pointer's while a panel is open (or it was let go).</summary>
         public MouseCapture Mouse { get; } = new MouseCapture();
 
@@ -159,8 +161,17 @@ namespace PerformativeMail.App
             Labels = new LabelDeclutterer { Name = "Labels", KeepClear = Hud.KeepClear };
             AddChild(Labels);
 
+            Debug = null;
+            if (client.World.Map.Debug is { } debug)
+            {
+                Debug = new DebugWorldController { Name = "DebugWorld" };
+                Debug.Setup(session, this, debug);
+                AddChild(Debug);
+            }
+
             if (!humanInput) return;
             _input = new PlayerInputController { Name = "Input" };
+            if (Debug != null) _input.Suspended = () => Debug.FreeLook;
             _input.Setup(client, session.Interaction, Mouse, session.Build);
             _input.InventoryToggled += () => _inventoryOpen = !_inventoryOpen;
             _input.MapToggled += Map.Toggle;

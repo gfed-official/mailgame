@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Godot;
 using PerformativeMail.Client;
+using PerformativeMail.Client.Presentation;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Core;
@@ -1050,6 +1051,12 @@ namespace PerformativeMail.App
                     var player = server.GetPlayer(world.LocalId)!;
                     if (!world.Local.Riding || !player.Move.Riding || client.PendingRequestCount > 0) break;
                     Check(world.LocalRide?.Def.Id == "mail_truck", "the host rides something else than the truck");
+                    // Playtest 346eb3e: the eyes are in the cab, ahead of the cargo box, not inside it.
+                    _screen.Camera.Sync();
+                    var cab = _screen.Camera.GlobalPosition - _screen.Players.LocalView!.GlobalPosition;
+                    float ahead = cab.X * world.Local.HeadX + cab.Z * world.Local.HeadZ;
+                    Check(Mathf.Abs(ahead - FirstPersonCamera.CabEyeForward) < 0.05f && Mathf.Abs(cab.Y - FirstPersonCamera.CabEyeHeight) < 0.05f,
+                        $"at the truck's wheel the eyes are {ahead:0.00} m ahead and {cab.Y:0.00} m up, not in the cab");
                     // Off again, and the truck, the belts and what it held go.
                     var truck = server.Vehicles.First(v => v.Def.Id == "mail_truck");
                     Check(server.RemoveVehicle(truck), "the truck was not taken away");

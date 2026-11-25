@@ -784,10 +784,13 @@ namespace PerformativeMail.Client
         {
             if (HotbarId == 0) return OpResult.BadRequest;
             if (!BuildRules.IsOpen(Global.Phase)) return OpResult.WrongPhase;
-            var verdict = BuildRules.CheckRecipe(recipe, Global.Shift, recipe.Blueprint == null || ShopOwned.Contains(recipe.Blueprint));
+            var verdict = BuildRules.CheckRecipe(recipe, Global.Shift, recipe.Blueprint == null || ShopOwned.Contains(recipe.Blueprint) || Unlimited);
             if (verdict != OpResult.Ok) return verdict;
-            return BuildRules.HasMaterials(recipe, Hotbar, Inventory) ? OpResult.Ok : OpResult.MissingMaterials;
+            return Unlimited || BuildRules.HasMaterials(recipe, Hotbar, Inventory) ? OpResult.Ok : OpResult.MissingMaterials;
         }
+
+        /// <summary>The debug world's toggle (design choice 119): every blueprint owned, no materials taken, as on the server.</summary>
+        public bool Unlimited => Map.Debug is { Unlimited: true };
 
         /// <summary>
         /// What stands between the local player and a recipe built on a tile, in the order the
@@ -842,7 +845,7 @@ namespace PerformativeMail.Client
             var tiles = new List<(int, int)>();
             if (!BuildRules.LineTiles(x0, z0, x1, z1, tiles)) return false;
             int afford = int.MaxValue;
-            if (HotbarId != 0)
+            if (HotbarId != 0 && !Unlimited)
                 foreach (var input in recipe.Inputs)
                     afford = Math.Min(afford, input.Count <= 0 ? int.MaxValue : BuildRules.Have(Hotbar, Inventory, input.Item) / input.Count);
             int spent = 0;

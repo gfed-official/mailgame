@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Builds the solution and runs the Godot headless smoke twice: the full run (spawn -> pickup ->
-# deliver -> wallet -> ... -> results), then the raid playtest (--shift=2 --no-quota --raid
-# --playtest-package).
-# Exits 0 only if the game printed "SMOKE OK" both times and leaked nothing on its way out, and then
+# Builds the solution and runs the Godot headless smoke three times: the full run (spawn -> pickup ->
+# deliver -> wallet -> ... -> results), the raid playtest (--shift=2 --no-quota --raid
+# --playtest-package), and the debug world (--debug-world).
+# Exits 0 only if the game printed "SMOKE OK" each time and leaked nothing on its way out, and then
 # a bot played the generated Small Island town (doc 02) of the same seed to "BOT OK".
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -82,6 +82,12 @@ grep -q "^\[smoke\] bike: the Land kit's, ridden" "$work/log" || { echo "smoke: 
 # The sea path (doc 04 §3.3): a Pier built from the beach, a Rowboat placed, rowed and left from the pier.
 grep -q "^\[smoke\] boats: a Pier built" "$work/log" || { echo "smoke: no Pier and Rowboat in the smoke" >&2; exit 1; }
 grep -q "^\[smoke\] boats: a Small Port built" "$work/log" || { echo "smoke: no Small Port and Motor Boat in the smoke" >&2; exit 1; }
+
+# The debug world (design choice 119): the showcase map, every station built and running, the mail
+# going through each of them, its toggles, bookmarks, free camera and time scale.
+run_smoke "$work/log-debug" "--profile=$work/profile-debug.json" --debug-world
+grep -q "^\[smoke\] debug world: every station ran" "$work/log-debug" || { echo "smoke: mail did not go through every station of the debug world" >&2; exit 1; }
+grep -q "^\[smoke\] debug world: 10 bookmarks" "$work/log-debug" || { echo "smoke: the debug world's bookmarks were not checked" >&2; exit 1; }
 
 # The generated Small Island town (doc 02): twenty seeds make valid towns (SeedViewer), and a bot
 # plays the smoke seed's town for 25 s, the client building it from the seed and checking its hash.

@@ -26,6 +26,8 @@ namespace PerformativeMail.Client.InputHandling
         public Func<bool>? MapOpen;
         /// <summary>The ping key's controller (doc 09 §2.6): while its wheel is up the mouse points on it, not the view.</summary>
         public PingController? Ping;
+        /// <summary>True while the debug world's free camera has the keys and the mouse: the carrier stands still.</summary>
+        public Func<bool>? Suspended;
 
         private ClientRuntime _client = null!;
         private InteractionController _interaction = null!;
@@ -76,6 +78,8 @@ namespace PerformativeMail.Client.InputHandling
                 case InputEventMouseMotion motion when Captured && Ping?.WheelOpen == true:
                     Ping.Steer(motion.Relative.X, motion.Relative.Y);
                     return;
+                case InputEventMouseMotion when Suspended?.Invoke() == true:
+                    return;
                 case InputEventMouseMotion motion when Captured:
                     Look(-motion.Relative.X * MouseSensitivity, -motion.Relative.Y * MouseSensitivity);
                     return;
@@ -98,7 +102,7 @@ namespace PerformativeMail.Client.InputHandling
                 case InputEventKey key when key.Pressed && !key.Echo:
                     // 1–9, 0 for the tenth, and the minus and equals keys beside it for the eleventh and twelfth (cards of the shop).
                     int digit = key.PhysicalKeycode == Key.Key0 ? 9 : key.PhysicalKeycode == Key.Minus ? 10 : key.PhysicalKeycode == Key.Equal ? 11
-                        : (int)key.PhysicalKeycode - (int)Key.Key1;
+                        : key.PhysicalKeycode >= Key.Key1 && key.PhysicalKeycode <= Key.Key9 ? (int)key.PhysicalKeycode - (int)Key.Key1 : -1;
                     // At the shop's counter the numbers are its cards: first, so a key meant for them
                     // in the frame Payday turns into the Draft is no pick (playtest df77576).
                     if (_client.PressShopKey(digit)) return;
@@ -173,7 +177,8 @@ namespace PerformativeMail.Client.InputHandling
         {
             SyncPause();
             Ping?.Update(delta, !UiOpen && !Paused && Godot.Input.IsActionPressed(InputActions.Ping));
-            var move = UiOpen
+            bool suspended = Suspended?.Invoke() == true;
+            var move = UiOpen || suspended
                 ? Vector2.Zero
                 : Godot.Input.GetVector(InputActions.MoveLeft, InputActions.MoveRight, InputActions.MoveForward, InputActions.MoveBack);
 
@@ -203,15 +208,15 @@ namespace PerformativeMail.Client.InputHandling
             bool armed = !UiOpen && !Building && (Captured || DisplayServer.GetName() == "headless");
             if (armed && attack && !_attackSwallowed) buttons |= InputButtons.Attack;
             if (armed && Godot.Input.IsActionPressed(InputActions.AltAttack)) buttons |= InputButtons.AltAttack;
-            _client.Input.Buttons = buttons;
+            _client.Input.Buttons = suspended ? InputButtons.None : buttons;
 
             // The Intake closes with the same key that opened it, so interact stays live under the panel.
-            bool interactKey = Godot.Input.IsActionPressed(InputActions.Interact);
+            bool interactKey = !suspended && Godot.Input.IsActionPressed(InputActions.Interact);
             _assist.Update(_client);
             _interaction.Update(delta, interactKey, _deliverAllQueued && !UiOpen, _interactTapped);
             _deliverAllQueued = false;
             _interactTapped = false;
-            bool live = !UiOpen && (Captured || DisplayServer.GetName() == "headless");
+            bool live = !UiOpen && !suspended && (Captured || DisplayServer.GetName() == "headless");
             _build?.Update(delta, _placeQueued && live, live && Godot.Input.IsActionPressed(InputActions.AltAttack), live && Godot.Input.IsActionPressed(InputActions.Attack));
             _placeQueued = false;
         }
