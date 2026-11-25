@@ -59,6 +59,15 @@ namespace PerformativeMail.App
             Check(map.EdgesDrawn.Count == 1 && map.EdgesDrawn[0].Edge.Index == 0 && !map.EdgesDrawn[0].Raid
                     && map.EdgesDrawn[0].Edge.Name == "the east, along Larch Lane",
                 $"the map marks {map.EdgesDrawn.Count} ways in for the raiders");
+            // The Resources chip (doc 09 §2.6): off at first, on it draws every node with something left.
+            Check(map.NodesDrawn == 0 && !map.Layers.On(Client.MapChip.Resources), $"the map drew {map.NodesDrawn} nodes with Resources off");
+            map.Layers.Toggle(Client.MapChip.Resources);
+            map.Layers.Update(world, 0.0);
+            int left = 0;
+            for (int i = 0; i < world.Map.Props.Count; i++) if (world.Nodes.Def(i) != null && !world.Nodes.Depleted(i)) left++;
+            Check(map.Layers.Nodes.Count == left && left > 0, $"Resources on lists {map.Layers.Nodes.Count} nodes of the {left} with something left");
+            Check(map.Layers.MailHouses.Count > 0, "Mail on rings no house though mail is carried");
+            map.Layers.Toggle(Client.MapChip.Resources);
             int underMap = CheckLabelsOffMap();
             Shot("map");
             GD.Print($"[smoke] map: up with mail in the hotbar, \"{map.RouteText}\" in {guide.Points.Count} points; {underMap} world labels under it kept off");

@@ -22,6 +22,8 @@ namespace PerformativeMail.Client.InputHandling
         public event Action? MapToggled;
         /// <summary>F6 in a debug build: the content is to be read again (doc 07 §6).</summary>
         public event Action? ContentReloadAsked;
+        /// <summary>A chip's key while the map is up (Z, X, V).</summary>
+        public event Action<MapChip>? MapChipPressed;
         /// <summary>True while the map is up: Esc puts it down first.</summary>
         public Func<bool>? MapOpen;
         /// <summary>The ping key's controller (doc 09 §2.6): while its wheel is up the mouse points on it, not the view.</summary>
@@ -153,6 +155,10 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Use) && !UiOpen) _client.UseHeld();
             else if (ev.IsActionPressed(InputActions.Shop) && !Paused) _client.ToggleShop();
             else if (ev.IsActionPressed(InputActions.Map)) MapToggled?.Invoke();
+            // While the map is up Z, X and V are its chips (V is the world's key only in the Lobby, with the map down).
+            else if (MapOpen?.Invoke() == true && ev.IsActionPressed(InputActions.MapMail)) MapChipPressed?.Invoke(MapChip.Mail);
+            else if (MapOpen?.Invoke() == true && ev.IsActionPressed(InputActions.MapRoutes)) MapChipPressed?.Invoke(MapChip.Routes);
+            else if (MapOpen?.Invoke() == true && ev.IsActionPressed(InputActions.MapResources)) MapChipPressed?.Invoke(MapChip.Resources);
             else if (ev.IsActionPressed(InputActions.Kit) && !UiOpen) _client.CycleKit();
             else if (ev.IsActionPressed(InputActions.World) && !UiOpen) _client.CycleWorld();
             else if (ev.IsActionPressed(InputActions.Seed) && !UiOpen) _client.NewSeed();

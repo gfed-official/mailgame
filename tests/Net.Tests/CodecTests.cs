@@ -274,6 +274,7 @@ namespace PerformativeMail.Net.Tests
                 {
                     X = 14, Y = 21, State = DriverState.Unloading, Vehicle = new EntityId(EntityClass.Vehicle, 5), House = 7, Houses = 3, At = 1, Delivered = 9, Player = player,
                 },
+                new MailWaitingEvent { Houses = { (3, 7), (11, 1) } },
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
                 new VehicleParkedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), X = 60.75f, Z = 28f, Heading = -2.5f, Player = player },
@@ -326,6 +327,7 @@ namespace PerformativeMail.Net.Tests
             var driver = back.OfType<DriverEvent>().Single();
             Assert.Equal(((byte)14, (byte)21, DriverState.Unloading, new EntityId(EntityClass.Vehicle, 5), (ushort)7, (byte)3, (byte)1, (ushort)9, player),
                 (driver.X, driver.Y, driver.State, driver.Vehicle, driver.House, driver.Houses, driver.At, driver.Delivered, driver.Player));
+            Assert.Equal(new (ushort, ushort)[] { (3, 7), (11, 1) }, back.OfType<MailWaitingEvent>().Single().Houses);
             var swung = back.OfType<InserterSwungEvent>().Single();
             Assert.Equal(((byte)11, (byte)12, (ushort)3), (swung.X, swung.Y, swung.Kind));
             var status = back.OfType<SorterStatusEvent>().Single();

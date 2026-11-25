@@ -28,7 +28,7 @@ namespace PerformativeMail.App
         public string? ShotDir;
         public bool Smoke;
 
-        private enum Stage { Boot, Flow, Toggles, Console, Bookmarks, Fly, Scale, Done }
+        private enum Stage { Boot, Flow, Toggles, Console, RouteEdit, Map, Bookmarks, Fly, Scale, Done }
         private const int FastTicks = 30;
         /// <summary>Sim seconds the flow may take before the smoke gives up on a station.</summary>
         private const int FlowSeconds = 180;
@@ -150,6 +150,12 @@ namespace PerformativeMail.App
                 }
                 case Stage.Console:
                     StepConsole(world);
+                    return;
+                case Stage.RouteEdit:
+                    StepRouteEdit(world);
+                    return;
+                case Stage.Map:
+                    StepMap(world);
                     return;
                 case Stage.Bookmarks:
                 {
@@ -274,7 +280,7 @@ namespace PerformativeMail.App
                 truth.Move.Z = _consoleZ = cz + oz / len * 1.2f;
                 _keys = new PlayerInputController { Name = "SmokeKeys" };
                 _keys.Setup(client, _session.Interaction, _screen.Mouse, _session.Build);
-                _keys.Cancelled += () => client.CloseFilters();
+                _keys.Cancelled += _screen.Cancel;
                 _keys.InventoryToggled += () => { };
                 AddChild(_keys);
                 return;
@@ -303,6 +309,135 @@ namespace PerformativeMail.App
             _keys!.QueueFree();
             _keys = null;
             GD.Print("[smoke] debug world: the Route Console came down on a tap of Esc, Tab and E");
+            Next(Stage.RouteEdit);
+        }
+
+        /// <summary>
+        /// The route editor (doc 09 §2.6): with the depot's console up, M puts the map over it; a
+        /// click on a house makes it the next stop, a drag of that stop onto the first swaps them
+        /// over, a right click takes one off — on the server too — the console's cards wait
+        /// under it, and Esc takes both down.
+        /// </summary>
+        private void StepRouteEdit(Client.ClientWorld world)
+        {
+            var client = _session.Client;
+            var map = _screen.Map;
+            var depot = world.Constructs.All.First(c => c.Def.IsVehicleDepot);
+            var anvil = world.Map.Destinations.First(d => d.Label == "1 Anvil Close");
+            var beacon = world.Map.Streets.First(s => s.Name == "Beacon Road");
+            Sim.World.Construct Truth() => Server.Constructs.At(depot.Tx, depot.Tz)!;
+            switch (_frames)
+            {
+                case 1:
+                    Check(client.OpenFilters(depot) != 0, "the depot's console did not come up for the route editor");
+                    return;
+                case 3:
+                    map.Toggle();
+                    return;
+                case 6:
+                    Check(map.Editing && map.TitleText.StartsWith("ROUTE · Vehicle Depot", StringComparison.Ordinal), $"the map over the console is no route editor: \"{map.TitleText}\"");
+                    Check(!_screen.Inventory.Visible && _screen.Mouse.PanelOpen, "the console's cards show over the route editor, or the pointer is not free");
+                    Check(map.RouteText.Contains("round trip", StringComparison.Ordinal), $"the route editor's line reads \"{map.RouteText}\"");
+                    var at = map.ScreenAt(anvil.MailboxX, anvil.MailboxZ);
+                    map.Click(at, MouseButton.Left, true);
+                    map.Click(at, MouseButton.Left, false);
+                    return;
+                case 16:
+                {
+                    Check(Truth().Filter(1, 0) == new Sim.Automation.MailFilter(Sim.Automation.FilterKind.Address, anvil.Id), $"a click on 1 Anvil Close made stop 2 {Truth().Filter(1, 0)}");
+                    Shot("route-editor");
+                    // Stop 2 dragged onto stop 1.
+                    var two = map.StopMarkers.FirstOrDefault(m => m.Stop == 1).At;
+                    var one = map.StopMarkers.FirstOrDefault(m => m.Stop == 0).At;
+                    Check(map.StopMarkers.Count == 2, $"the route editor marks {map.StopMarkers.Count} stops");
+                    map.Click(two, MouseButton.Left, true);
+                    map.Click(one, MouseButton.Left, false);
+                    return;
+                }
+                case 26:
+                {
+                    Check(Truth().Filter(0, 0) == new Sim.Automation.MailFilter(Sim.Automation.FilterKind.Address, anvil.Id)
+                        && Truth().Filter(1, 0) == new Sim.Automation.MailFilter(Sim.Automation.FilterKind.Street, beacon.Id), "dragging stop 2 onto stop 1 did not swap them");
+                    var first = map.StopMarkers.FirstOrDefault(m => m.Stop == 0).At;
+                    map.Click(first, MouseButton.Right, true);
+                    return;
+                }
+                case 36:
+                {
+                    Check(Truth().Filter(0, 0) == new Sim.Automation.MailFilter(Sim.Automation.FilterKind.Street, beacon.Id) && Truth().Filter(1, 0) == Sim.Automation.MailFilter.Empty,
+                        "a right click on stop 1 did not take it off and move the next up");
+                    // Esc: the console and the editor go down together.
+                    _keys = new PlayerInputController { Name = "SmokeEditKeys" };
+                    _keys.Setup(client, _session.Interaction, _screen.Mouse, _session.Build);
+                    _keys.Cancelled += _screen.Cancel;
+                    AddChild(_keys);
+                    _keys._UnhandledInput(new InputEventKey { PhysicalKeycode = Key.Escape, Keycode = Key.Escape, Pressed = true });
+                    return;
+                }
+                case 38:
+                    Check(world.FilterTarget == null && !map.Visible, "Esc left the console or the route editor up");
+                    _keys!.QueueFree();
+                    _keys = null;
+                    GD.Print("[smoke] route editor: a house clicked in as stop 2, dragged onto stop 1, taken off by a right click, the server agreeing; Esc took it down");
+                    Next(Stage.Map);
+                    return;
+            }
+        }
+
+        /// <summary>
+        /// The map's layers and chips (doc 09 §2.6): every belt and pipe drawn as a line, the
+        /// machines, both vehicles, both crews' routes; the chips by their keys through the real
+        /// input controller take the routes and the mail away and bring them back.
+        /// </summary>
+        private void StepMap(Client.ClientWorld world)
+        {
+            var map = _screen.Map;
+            if (_frames == 1)
+            {
+                if (!map.Visible) map.Toggle();
+                _keys = new PlayerInputController { Name = "SmokeMapKeys" };
+                _keys.Setup(_session.Client, _session.Interaction, _screen.Mouse, _session.Build);
+                _keys.MapOpen = () => map.Visible;
+                _keys.MapChipPressed += map.Layers.Toggle;
+                AddChild(_keys);
+                return;
+            }
+            if (_frames == 4)
+            {
+                int belts = world.Constructs.All.Count(c => Sim.Automation.BeltNetwork.IsBelt(c) || c.Def.Behaviour == Sim.Content.BuildingBehaviour.Pipe);
+                Check(map.BeltsDrawn == belts, $"the map drew {map.BeltsDrawn} belts and pipes of {belts}");
+                Check(map.MachinesDrawn == world.Constructs.All.Count - belts, $"the map drew {map.MachinesDrawn} machines");
+                Check(map.VehiclesDrawn == world.Vehicles.Count && map.VehiclesDrawn >= 2, $"the map drew {map.VehiclesDrawn} vehicles of {world.Vehicles.Count}");
+                Check(map.CrewsDrawn == 2, $"the map drew {map.CrewsDrawn} crews' routes");
+                Check(map.ChipsText == "[Z] Mail on   [X] Routes on   [V] Resources off", $"the chips read \"{map.ChipsText}\"");
+                Shot("map-layers");
+                return;
+            }
+            if (_frames == 5)
+            {
+                foreach (var key in new[] { Key.X, Key.Z })
+                {
+                    _keys!._UnhandledInput(new InputEventKey { PhysicalKeycode = key, Keycode = key, Pressed = true });
+                    _keys._UnhandledInput(new InputEventKey { PhysicalKeycode = key, Keycode = key, Pressed = false });
+                }
+                return;
+            }
+            if (_frames == 8)
+            {
+                Check(map.CrewsDrawn == 0 && map.MailHousesDrawn == 0, $"with Routes and Mail off the map drew {map.CrewsDrawn} routes and {map.MailHousesDrawn} houses");
+                Check(map.ChipsText.StartsWith("[Z] Mail off   [X] Routes off", StringComparison.Ordinal), $"the chips read \"{map.ChipsText}\"");
+                map.Layers.Set(Client.MapChip.Mail, true);
+                map.Layers.Set(Client.MapChip.Routes, true);
+                return;
+            }
+            if (_frames < 11) return;
+            Check(map.CrewsDrawn == 2, "the routes did not come back with their chip");
+            string missing = FontCheck.MissingGlyphs(map);
+            Check(missing.Length == 0, $"the map has no glyph for \"{missing}\"");
+            map.Toggle();
+            _keys!.QueueFree();
+            _keys = null;
+            GD.Print($"[smoke] debug world: the map's layers ({map.BeltsDrawn} belts and pipes, {map.MachinesDrawn} machines, {map.VehiclesDrawn} vehicles, {map.CrewsDrawn} crews' routes), the chips by Z and X");
             Next(Stage.Bookmarks);
         }
 

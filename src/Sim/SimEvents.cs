@@ -481,6 +481,17 @@ namespace PerformativeMail.Sim
         public uint ExpiresTick;
     }
 
+    /// <summary>
+    /// The map's Mail chip (doc 09 §2.6 "houses that currently have mail for them in the
+    /// Intake/Depot"): how many pieces wait for each house in the Intake and the team's storage
+    /// (the map's chests, built chests and depots). Sent when it changes, at most once a second, and
+    /// to a joiner. Houses with none are left out.
+    /// </summary>
+    public sealed class MailWaitingEvent : SimEvent
+    {
+        public readonly List<(ushort Dest, ushort Count)> Houses = new List<(ushort, ushort)>();
+    }
+
     public sealed class VehicleFuelEvent : SimEvent
     {
         public EntityId Vehicle;

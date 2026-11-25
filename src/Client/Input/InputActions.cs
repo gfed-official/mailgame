@@ -44,6 +44,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string World = "world", Seed = "seed";
         /// <summary>The map overlay (doc 09 §4: M).</summary>
         public const string Map = "map";
+        /// <summary>The map's filter chips while it is up (doc 09 §2.6 has no keys for them): Z Mail, X Routes, V Resources.</summary>
+        public const string MapMail = "map_mail", MapRoutes = "map_routes", MapResources = "map_resources";
         /// <summary>A ping for the team (doc 09 §4: middle mouse, held for the wheel; RS click).</summary>
         public const string Ping = "ping";
         /// <summary>Hot reload of the content in a debug build (doc 07 §6: F6).</summary>
@@ -69,6 +71,9 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Shop, Key.C);
             BindKey(Build, Key.B);
             BindKey(Map, Key.M);
+            BindKey(MapMail, Key.Z);
+            BindKey(MapRoutes, Key.X);
+            BindKey(MapResources, Key.V);
             BindKey(Kit, Key.K);
             BindKey(World, Key.V);
             BindKey(Seed, Key.N);

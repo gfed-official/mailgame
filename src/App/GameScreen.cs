@@ -175,20 +175,28 @@ namespace PerformativeMail.App
             _input.Setup(client, session.Interaction, Mouse, session.Build);
             _input.InventoryToggled += () => _inventoryOpen = !_inventoryOpen;
             _input.MapToggled += Map.Toggle;
+            _input.MapChipPressed += Map.Layers.Toggle;
             _input.ContentReloadAsked += () => session.HotReload(new GodotContentSource());
             _input.MapOpen = () => Map.Visible;
             _input.Ping = session.Ping;
-            _input.Cancelled += () =>
-            {
-                // Esc closes what is open; with only the Draft's cards up it sets them aside, to look around before choosing by key.
-                if (!InventoryOpen(client.World)) _draftAside = true;
-                _inventoryOpen = false;
-                client.CloseContainer();
-                client.CloseShop();
-                client.CloseFilters();
-            };
+            _input.Cancelled += Cancel;
             AddChild(_input);
             session.InputSource = _input.Sample;
+        }
+
+        /// <summary>
+        /// Esc with something open: it closes what is open (the route editor with its console); with
+        /// only the Draft's cards up it sets them aside, to look around before choosing by key.
+        /// </summary>
+        public void Cancel()
+        {
+            var client = _session.Client;
+            if (!InventoryOpen(client.World)) _draftAside = true;
+            if (Map.Editing) Map.Toggle();
+            _inventoryOpen = false;
+            client.CloseContainer();
+            client.CloseShop();
+            client.CloseFilters();
         }
 
         public override void _Process(double delta)
@@ -201,7 +209,8 @@ namespace PerformativeMail.App
             World.ShowDistricts(world.Global.Shift);
             World.ShowSeeps(world.Constructs);
             bool open = InventoryOpen(world);
-            Inventory.Visible = open;
+            // The route editor (doc 09 §2.6): the map over the console takes the clicks, the console's cards wait.
+            Inventory.Visible = open && !Map.Editing;
             // The Draft's cards take a click until the local player has chosen; then the mouse is the view's again.
             if (!world.ChoosingCard) _draftAside = false;
             Mouse.SetPanelOpen(open || (world.ChoosingCard && !_draftAside));

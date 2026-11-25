@@ -1719,7 +1719,7 @@ the whole line exists; the sub-lines say which parts do.
             a truck beside it filled), content, shop and key pins; in the smoke the host, given
             Blueprint: Oil in shift 2's Prep, is refused off the seep, builds a pump on it, and it
             nods and works, "Open Oil Pump [E]" (`oil-pump`)
-- [ ] Map screen with layers, filter chips, pings, route editor
+- [x] Map screen with layers, filter chips, pings, route editor (all four below)
       - [x] **Pings** (doc 09 §2.6 "Ping: click to place a world ping visible to teammates (compass
             icon + 3D marker, 10 s). Hold for ping wheel", §4 middle mouse / RS click; design choice
             117). `Ping` request (protocol `m2.10`): a point of the map and one of five kinds; the
@@ -1738,10 +1738,53 @@ the whole line exists; the sub-lines say which parts do.
             through the real controller, the other carrier's world and feed, gone after 10 s, none
             at the sky). The compass strip of doc 09 §2.2 does not exist yet; the pings stand in the
             world and on the map
-      - [ ] Layers (constructs, vehicles, resources, NPC routes), filter chips (Mail, Routes,
-            Resources), the route editor on the map
+      - [x] **Layers** (doc 09 §2.6 "resources, constructs (belts as coloured lines with flow arrows),
+            teammates, vehicles, NPC routes, enemies within any Alarm Post radius"; design choice
+            121). `MapLayers` (Client, no Godot) works them out while the map is up and `MapPanel`
+            draws them over the tiles: every belt and pipe tile as a line the way it carries with a
+            flow arrow (amber, a Fast Belt blue, ramps and elevated pale yellow, pipes thin grey), the
+            other constructs as their tiles in a colour by kind (walls, storage, sorters, inserters,
+            the pump, depots and ports), the vehicles as little bodies pointing their way, the hired
+            crews' routes dashed — a driver's by the streets round its stops' houses and home, a
+            captain's over the water to its docks' berths (planned by `RoutePlan`, `WaterNav`, as the
+            consoles do, once a second) — with numbered stops, the one under way white, and the
+            raiders an Alarm Post reveals as red dots
+      - [x] **Filter chips** (doc 09 §2.6 "Mail, Routes, Resources"): pills under the map's line,
+            lit while on, on Z, X and V while the map is up (doc 09 has no keys for them; V is the
+            Lobby's world key only with the map down). **Mail** rings the houses with mail waiting
+            and how much: the server's new `MailWaitingEvent` (protocol `m2.11`; when it changes, at
+            most once a second, and to a joiner) counts the Intake, the map's chests and the Chests
+            and Depots built, and the client adds its own pockets. **Routes** shows the crews'
+            routes, **Resources** the nodes with something left in their resource's colour. Mail
+            and Routes start on, Resources off. `MapLayersFlowTests` (2: the debug world's belts,
+            machines, vehicles, both crews' routes, the server's counts; the test street's nodes, a
+            parcel in the map chest told within a second, a letter in the pockets), `CodecTests`;
+            the debug-world smoke opens the map and checks every belt, machine, vehicle and both
+            routes drawn and the chips by their keys through the real controller (`map-layers`
+            shot); the main smoke's map step checks the Resources chip and the Mail ring
+      - [x] **The route editor** (doc 09 §2.6 "when a Vehicle Depot console is open: click stops in
+            order; district macro by clicking the district label; drag to reorder; estimated
+            round-trip time shown from the routing graph"; design choice 122). With a depot's or a
+            port's console up, M puts the map over it as the editor ("ROUTE · Vehicle Depot   [M]
+            back to the console"; the console's cards wait under it, the pointer stays free, the
+            map takes the clicks): a click on a house (its building or mailbox) makes it the next
+            stop after the last there is, a click on a district's name (drawn over the middle of its
+            houses) the district; a stop's numbered marker dragged onto another's moves it there,
+            the ones between moving over; a right click on a marker takes the stop off and the later
+            ones move up. A depot's driver calls at houses only, a port's captain at docks only. The
+            line under the title is the console's round trip at the crew's pace, and the edited
+            route is drawn as it stands, every frame. Each change is the console's own `SetFilter`
+            requests slot by slot (`RouteEditor`, Client), so the server judges it as a key at the
+            console; Esc takes the editor and the console down together (`GameScreen.Cancel`).
+            The consoles' hints say "[M] route on the map". `RouteEditorFlowTests` (houses and a
+            district clicked in, a drag, a removal, the server's filters, the planned route, the
+            port's docks only); in the debug-world smoke the depot's console goes up, M, a click on
+            1 Anvil Close's mailbox on the map makes it stop 2, its marker dragged onto stop 1 swaps
+            them, a right click takes it off — each on the server — and Esc through the real
+            controller takes both down (`route-editor` shot)
 
-Next in this order: the Map screen's layers, filter chips and route editor (pings are in).
+Next in this order: M3 Combat (doc 12 M3, doc 05), picking up after what is on main (raids, the
+Wooden and Stone Walls, spikes, the Gate, the Alarm Post, the hammer and the mail cannon).
 
 ## How to build and check
 
@@ -2960,6 +3003,18 @@ See "Commands" at the bottom (filled in as the tooling lands).
 120. **Where the eyes are at a truck's wheel.** The docs say only "first person". Choice: in the cab
     over the bonnet (1.15 m ahead of the middle, 1.8 m up), seeing past the cab's own walls; a bike
     and the boats keep the eyes over the seat.
+121. **The map's layers and chips.** Doc 09 §2.6 lists them without keys, defaults or the source of
+    "mail in the Intake/Depot". Choice: the layers that cost nothing to read are always drawn;
+    the three chips start Mail and Routes on, Resources off (the nodes crowd a town); keys Z, X, V
+    while the map is up. The Intake's and the storage's contents are the server's (a client sees
+    a container only while it has it open), so it tells everybody a per-house count when it
+    changes, at most once a second.
+122. **The route editor's gestures.** Doc 09 §2.6 says click, click a district's label, drag. Choice:
+    the map over an open console is the editor (M toggles it there as anywhere); a house click
+    fills the stop after the last one (a route has no holes), a district needs its name drawn to
+    be clicked so the editor draws each district's name; drag drops a stop onto another's place;
+    a right click takes one off (as a right click steps a card back at the console). The edits
+    are the console's requests, nothing new on the wire.
 
 ## Commands
 
@@ -2995,7 +3050,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 # in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed
 # in the Draft: 1-3 take a card, R (or the button) draws new cards of your own, once a run (twice from Postal Rank 4)
 # in a debug build: F6 reloads content/ (a host alone in the game; the feed says whether it took)
-# in a run: M puts up the map with the way to the house of the mail in your hand
+# in a run: M puts up the map with the way to the house of the mail in your hand; Z / X / V toggle its Mail / Routes / Resources chips; at a depot's or port's console, M edits its route on the map
 
 # pictures of the world from a tour of viewpoints (and the frame time), then quit:
 xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --solo --lookdev=/tmp/look

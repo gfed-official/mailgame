@@ -1256,6 +1256,10 @@ namespace PerformativeMail.Client
                 case PingEvent e:
                     world.AddPing(e);
                     break;
+                case MailWaitingEvent e:
+                    world.MailWaiting.Clear();
+                    foreach (var (dest, count) in e.Houses) world.MailWaiting[dest] = count;
+                    break;
                 case VehicleFuelEvent e:
                     if (world.Vehicles.TryGetValue(e.Vehicle, out var fuelled)) fuelled.Fuel = e.Seconds;
                     break;

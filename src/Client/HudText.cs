@@ -896,8 +896,12 @@ namespace PerformativeMail.Client
         /// <summary>The hint under the cards: a depot's console says its stops are stepped as filters are.</summary>
         public static string FilterHintFor(Construct built) => !built.Def.HasConsole ? FilterHint : built.Def.IsPort ? CaptainHint : RouteHint;
 
-        public const string RouteHint = "A number key or a click: the next stop   ·   right click: back   ·   [7] hires the driver   ·   [E] or [Esc] close";
-        public const string CaptainHint = "A number key or a click: the next stop   ·   right click: back   ·   [7] hires the captain   ·   [E] or [Esc] close";
+        public const string RouteHint = "[1-6] or a click: next stop   ·   right click: back   ·   [7] hires the driver   ·   [M] route on the map   ·   [E] or [Esc] close";
+        public const string CaptainHint = "[1-6] or a click: next stop   ·   right click: back   ·   [7] hires the captain   ·   [M] route on the map   ·   [E] or [Esc] close";
+
+        /// <summary>The route editor's title on the map (doc 09 §2.6).</summary>
+        public static string RouteEditorTitle(Construct built) => $"ROUTE · {built.Def.Name}   [M] back to the console";
+        public const string RouteEditorHint = "Click a house: the next stop   ·   a district's name: the district   ·   drag a stop to move it   ·   right click takes it off";
 
         /// <summary>Who a console hires: a depot's driver, a port's captain.</summary>
         public static string Crew(Construct built) => built.Def.IsPort ? "captain" : "driver";

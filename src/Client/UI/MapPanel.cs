@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using PerformativeMail.Client.Presentation;
+using PerformativeMail.Sim;
+using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.World;
@@ -40,6 +42,31 @@ namespace PerformativeMail.Client.UI
         private int _textureShift = -1;
 
         public MapGuide Guide { get; } = new MapGuide();
+        /// <summary>The layers and the filter chips (doc 09 §2.6): what is drawn over the town.</summary>
+        public MapLayers Layers { get; } = new MapLayers();
+        /// <summary>The route editor (doc 09 §2.6): live while a depot's or a port's console is up.</summary>
+        public RouteEditor Editor { get; private set; } = null!;
+        /// <summary>True while the map is up over a console: clicks set its stops.</summary>
+        public bool Editing => Visible && Editor.Active;
+        /// <summary>The district labels a click makes a stop, where they were drawn.</summary>
+        public IReadOnlyList<(int District, Rect2 Rect)> DistrictLabels => _districtLabels;
+        private readonly List<(int District, Rect2 Rect)> _districtLabels = new List<(int, Rect2)>();
+        /// <summary>The edited route's stop markers as drawn: the stop and where.</summary>
+        public IReadOnlyList<(int Stop, Vector2 At)> StopMarkers => _stopMarkers;
+        private readonly List<(int Stop, Vector2 At)> _stopMarkers = new List<(int, Vector2)>();
+        private Vector2 _origin;
+        private float _scale = 1f;
+        private int _dragging = -1;
+        /// <summary>What the last draw put on the map, layer by layer.</summary>
+        public int BeltsDrawn { get; private set; }
+        public int MachinesDrawn { get; private set; }
+        public int VehiclesDrawn { get; private set; }
+        public int CrewsDrawn { get; private set; }
+        public int NodesDrawn { get; private set; }
+        public int MailHousesDrawn { get; private set; }
+        public string ChipsText { get; private set; } = "";
+        /// <summary>The chips on the screen, in pixels, Mail first.</summary>
+        public Rect2[] ChipRects { get; } = new Rect2[3];
         /// <summary>The line under the map, as last drawn; empty while it is closed.</summary>
         public string RouteText { get; private set; } = "";
         public string TitleText { get; private set; } = "";
@@ -54,6 +81,7 @@ namespace PerformativeMail.Client.UI
         public void Setup(ClientRuntime client)
         {
             _client = client;
+            Editor = new RouteEditor(client);
             _move = MoveConstants.From(client.World!.Content);
             SetAnchorsPreset(LayoutPreset.FullRect);
             MouseFilter = MouseFilterEnum.Ignore;
@@ -81,7 +109,17 @@ namespace PerformativeMail.Client.UI
             Guide.Update(world, _client.Input.HeldSlot);
             RouteText = Guide.Line(world, _move);
             TitleText = MapGuide.Title(world);
+            MouseFilter = Editing ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
+            Layers.UpdateEdited(world, Editing ? Editor.Console : null);
+            if (Editing)
+            {
+                TitleText = HudText.RouteEditorTitle(Editor.Console!);
+                RouteText = Editor.Line();
+            }
+            else _dragging = -1;
             _edges = MapGuide.Edges(world);
+            Layers.Update(world, delta);
+            ChipsText = Layers.ChipsText();
             QueueRedraw();
         }
 
@@ -90,6 +128,284 @@ namespace PerformativeMail.Client.UI
             _texture?.Dispose();
             _texture = null;
         }
+
+        private static readonly Color ChipOn = new Color("ffbf47"), ChipOff = new Color(0.55f, 0.58f, 0.62f);
+        private static readonly Color BeltCol = new Color("e9a23b"), FastCol = new Color("4ea3ff"), RaisedCol = new Color("ffd77a"), PipeCol = new Color("cfd8dc");
+        private static readonly Color CrewCol = new Color("2ec4b6"), CaptainCol = new Color("7fdcff"), MailCol = new Color("ffe066");
+
+        /// <summary>The chips (doc 09 §2.6 "Filter chips: Mail, Routes, Resources"): pills with their key, lit while on.</summary>
+        private void DrawChips(Font font, Vector2 at)
+        {
+            float x = at.X;
+            for (int i = 0; i < MapLayers.ChipNames.Length; i++)
+            {
+                bool on = Layers.On((MapChip)i);
+                string text = $"{MapLayers.ChipKeys[i]}  {MapLayers.ChipNames[i]}";
+                float w = font.GetStringSize(text, HorizontalAlignment.Left, -1f, 13).X + 22f;
+                var rect = new Rect2(x, at.Y, w, 20f);
+                ChipRects[i] = rect;
+                DrawRect(rect, on ? new Color(ChipOn, 0.9f) : new Color(0.2f, 0.23f, 0.27f, 0.9f));
+                DrawRect(rect, on ? ChipOn : ChipOff, false, 1.5f);
+                DrawString(font, new Vector2(x + 11f, at.Y + 15f), text, HorizontalAlignment.Left, -1f, 13, on ? new Color(0.08f, 0.08f, 0.1f) : ChipOff);
+                x += w + 8f;
+            }
+        }
+
+        /// <summary>
+        /// The layers over the tiles: resources (chip), constructs with the belts and pipes as lines
+        /// the way they run, the crews' routes (chip), the houses with mail waiting (chip), the
+        /// vehicles and the raiders an Alarm Post reveals.
+        /// </summary>
+        private void DrawLayers(ClientWorld world, float scale, Func<float, float, Vector2> At)
+        {
+            const float tile = SimConstants.TileSize;
+            NodesDrawn = 0;
+            foreach (var (x, z, node) in Layers.Nodes)
+            {
+                DrawCircle(At(x, z), Mathf.Max(2f, scale * 0.6f), ResourceColour(node.Resource));
+                NodesDrawn++;
+            }
+
+            MachinesDrawn = 0;
+            foreach (var c in Layers.Machines)
+            {
+                var colour = MachineColour(c.Def);
+                for (int i = 0; i < Math.Max(1, c.Def.TileCount); i++)
+                {
+                    var (tx, tz) = c.TileAt(i);
+                    var r = new Rect2(At(tx * tile, tz * tile) + new Vector2(1f, 1f), new Vector2(tile * scale - 2f, tile * scale - 2f));
+                    DrawRect(r, colour);
+                }
+                MachinesDrawn++;
+            }
+
+            BeltsDrawn = 0;
+            float width = Mathf.Clamp(scale * 0.8f, 2f, 5f);
+            foreach (var b in Layers.Belts)
+            {
+                var from = At(b.X0, b.Z0);
+                var to = At(b.X1, b.Z1);
+                var colour = b.Kind switch { MapBeltKind.Fast => FastCol, MapBeltKind.Raised => RaisedCol, MapBeltKind.Pipe => PipeCol, _ => BeltCol };
+                DrawLine(from, to, colour, b.Kind == MapBeltKind.Pipe ? width * 0.6f : width);
+                if (b.Kind != MapBeltKind.Pipe && from.DistanceTo(to) > 6f)
+                {
+                    // A flow arrow in the middle of the tile.
+                    var dir = (to - from).Normalized();
+                    var across = new Vector2(-dir.Y, dir.X);
+                    var mid = (from + to) * 0.5f + dir * 2f;
+                    float s = Mathf.Clamp(scale * 0.7f, 3f, 6f);
+                    DrawColoredPolygon(new[] { mid + dir * s, mid - dir * s + across * s, mid - dir * s - across * s }, new Color(0.1f, 0.08f, 0.06f, 0.9f));
+                }
+                BeltsDrawn++;
+            }
+
+            CrewsDrawn = 0;
+            foreach (var crew in Layers.Crews)
+            {
+                if (crew.Points.Count < 2) continue;
+                var colour = crew.Captain ? CaptainCol : CrewCol;
+                for (int i = 0; i + 1 < crew.Points.Count; i++)
+                    DrawDashedLine(At(crew.Points[i].X, crew.Points[i].Z), At(crew.Points[i + 1].X, crew.Points[i + 1].Z), colour, 2.5f, 7f);
+                var font = GetThemeDefaultFont();
+                for (int i = 0; i < crew.Stops.Count; i++)
+                {
+                    var stop = crew.Stops[i];
+                    var at = At(stop.MailboxX, stop.MailboxZ);
+                    DrawCircle(at, 7f, crew.Now == stop ? Colors.White : colour);
+                    DrawString(font, at + new Vector2(-6f, 4f), (i + 1).ToString(), HorizontalAlignment.Center, 12f, 10, new Color(0.05f, 0.05f, 0.08f));
+                }
+                CrewsDrawn++;
+            }
+
+            MailHousesDrawn = 0;
+            foreach (var (dest, count) in Layers.MailHouses)
+            {
+                var d = world.Map.GetDestination(dest);
+                if (d == null) continue;
+                var at = At(d.Building.CenterX, d.Building.CenterZ);
+                float r = Mathf.Max(8f, scale * 2.6f);
+                DrawArc(at, r, 0f, Mathf.Tau, 28, new Color(MailCol, 0.95f), 3f);
+                var font = GetThemeDefaultFont();
+                DrawStringOutline(font, at + new Vector2(r * 0.6f, -r * 0.6f), count.ToString(), HorizontalAlignment.Left, -1f, 12, 3, new Color(0f, 0f, 0f, 0.9f));
+                DrawString(font, at + new Vector2(r * 0.6f, -r * 0.6f), count.ToString(), HorizontalAlignment.Left, -1f, 12, MailCol);
+                MailHousesDrawn++;
+            }
+
+            VehiclesDrawn = 0;
+            foreach (var v in Layers.Vehicles)
+            {
+                var at = At(v.X, v.Z);
+                var fwd = new Vector2(-Mathf.Sin(v.Heading), -Mathf.Cos(v.Heading));
+                var side = new Vector2(-fwd.Y, fwd.X);
+                float len = Mathf.Max(5f, Mathf.Max(v.Def.Length, 1.6f) * scale * 0.5f), wide = Mathf.Max(3f, scale * 0.8f);
+                var body = new[] { at + fwd * len + side * wide, at + fwd * len - side * wide, at - fwd * len - side * wide, at - fwd * len + side * wide };
+                DrawColoredPolygon(body, v.Def.OnWater ? new Color("f4f7fb") : new Color("f2e8cf"));
+                DrawPolyline(new[] { body[0], body[1], body[2], body[3], body[0] }, new Color(0.7f, 0.12f, 0.1f), 1.5f, true);
+                DrawCircle(at + fwd * len, 2f, new Color(0.7f, 0.12f, 0.1f));
+                VehiclesDrawn++;
+            }
+
+            foreach (var (x, z) in Layers.Raiders)
+            {
+                DrawCircle(At(x, z), 5f, Raiders);
+                DrawArc(At(x, z), 7f, 0f, Mathf.Tau, 16, new Color(0f, 0f, 0f, 0.8f), 1.5f);
+            }
+        }
+
+        /// <summary>
+        /// The route editor's marks: the console's route as it stands, its stops numbered (a
+        /// district's on its label), the district names to click, and the hint over the map's foot.
+        /// </summary>
+        private void DrawEditor(ClientWorld world, Font font, Func<float, float, Vector2> At)
+        {
+            _districtLabels.Clear();
+            _stopMarkers.Clear();
+            if (!Editing) return;
+            var console = Editor.Console!;
+            var edited = Layers.Edited;
+            var colour = console.Def.IsPort ? CaptainCol : CrewCol;
+            if (edited != null && edited.Points.Count >= 2)
+                for (int i = 0; i + 1 < edited.Points.Count; i++)
+                    DrawLine(At(edited.Points[i].X, edited.Points[i].Z), At(edited.Points[i + 1].X, edited.Points[i + 1].Z), colour, 3f, true);
+            SimWorld.Bay(console, out float bx, out float bz, out _);
+            DrawArc(At(bx, bz), 9f, 0f, Mathf.Tau, 20, Colors.White, 2.5f);
+
+            // The districts' names, to click: each over the middle of its houses.
+            foreach (var district in world.Map.Districts)
+            {
+                if (console.Def.IsPort) break;
+                float sx = 0f, sz = 0f;
+                int n = 0;
+                foreach (var d in world.Map.Destinations)
+                    if (d.Address.District == district.Id && !d.IsDock) { sx += d.Lot.CenterX; sz += d.Lot.CenterZ; n++; }
+                if (n == 0) continue;
+                string name = district.Name.Length > 0 ? district.Name : $"District {district.Id}";
+                var size = font.GetStringSize(name, HorizontalAlignment.Left, -1f, 12) + new Vector2(14f, 6f);
+                var rect = new Rect2(At(sx / n, sz / n) - size * 0.5f + new Vector2(0f, -18f), size);
+                DrawRect(rect, new Color(0.1f, 0.12f, 0.16f, 0.85f));
+                DrawRect(rect, colour, false, 1.5f);
+                DrawString(font, rect.Position + new Vector2(7f, size.Y - 6f), name, HorizontalAlignment.Left, -1f, 12, Ink);
+                _districtLabels.Add((district.Id, rect));
+            }
+
+            // The stops, numbered where they are: a house's at its mailbox, a street's on its middle, a district's on its label.
+            var stops = Editor.Stops();
+            for (int i = 0; i < stops.Count; i++)
+            {
+                var stop = stops[i];
+                Vector2? at = null;
+                switch (stop.Kind)
+                {
+                    case FilterKind.Address when world.Map.GetDestination(stop.Value) is { } d:
+                        at = At(d.MailboxX, d.MailboxZ);
+                        break;
+                    case FilterKind.Street when world.Map.GetStreet(stop.Value) is { } s:
+                        at = At(s.Rect.CenterX, s.Rect.CenterZ);
+                        break;
+                    case FilterKind.District:
+                        foreach (var (id, rect) in _districtLabels) if (id == stop.Value) at = rect.Position + new Vector2(-10f, rect.Size.Y * 0.5f);
+                        break;
+                }
+                if (at == null) continue;
+                var p = at.Value;
+                if (_dragging == i) p = GetLocalMousePosition();
+                DrawCircle(p, 10f, colour);
+                DrawArc(p, 10f, 0f, Mathf.Tau, 20, new Color(0f, 0f, 0f, 0.8f), 2f);
+                DrawString(font, p + new Vector2(-8f, 5f), (i + 1).ToString(), HorizontalAlignment.Center, 16f, 13, new Color(0.05f, 0.05f, 0.08f));
+                _stopMarkers.Add((i, at.Value));
+            }
+            var area = PanelArea();
+            DrawString(font, new Vector2(area.Position.X + 14f, area.End.Y - 10f), HudText.RouteEditorHint, HorizontalAlignment.Left, area.Size.X - 28f, 13, new Color(Ink, 0.85f));
+        }
+
+        /// <summary>The route editor's clicks (doc 09 §2.6): on a house, a district's name, a stop to drag or take off.</summary>
+        public override void _GuiInput(InputEvent ev)
+        {
+            if (!Editing || ev is not InputEventMouseButton button) return;
+            AcceptEvent();
+            Click(button.Position, button.ButtonIndex, button.Pressed);
+        }
+
+        /// <summary>A press or a release of a mouse button on the map, in the panel's pixels: what the editor does with it.</summary>
+        public void Click(Vector2 at, MouseButton button, bool pressed)
+        {
+            var world = _client?.World;
+            if (world == null || !Editing) return;
+            int marker = MarkerAt(at);
+            if (button == MouseButton.Right)
+            {
+                if (pressed && marker >= 0) Editor.Remove(marker);
+                return;
+            }
+            if (button != MouseButton.Left) return;
+            if (pressed)
+            {
+                _dragging = marker;
+                return;
+            }
+            int from = _dragging;
+            _dragging = -1;
+            if (from >= 0)
+            {
+                if (marker >= 0 && marker != from) Editor.Move(from, marker);
+                return;
+            }
+            foreach (var (district, rect) in _districtLabels)
+                if (rect.HasPoint(at)) { Editor.AddDistrict(district); return; }
+            var house = HouseAt(world, at);
+            if (house != null) Editor.AddHouse(house);
+        }
+
+        private int MarkerAt(Vector2 at)
+        {
+            foreach (var (stop, p) in _stopMarkers)
+                if (p.DistanceTo(at) <= 11f) return stop;
+            return -1;
+        }
+
+        /// <summary>The house whose building or mailbox is under the pointer (within a few pixels).</summary>
+        private DestinationDef? HouseAt(ClientWorld world, Vector2 at)
+        {
+            if (!MapRect.HasPoint(at)) return null;
+            float x = (at.X - _origin.X) / _scale, z = (at.Y - _origin.Y) / _scale;
+            DestinationDef? best = null;
+            float bestD = Mathf.Max(3f, 10f / _scale);
+            foreach (var d in world.Map.Destinations)
+            {
+                var b = d.Building;
+                const float tile = SimConstants.TileSize;
+                float dx = Mathf.Max(0f, Mathf.Max(b.X * tile - x, x - (b.X + b.W) * tile));
+                float dz = Mathf.Max(0f, Mathf.Max(b.Y * tile - z, z - (b.Y + b.H) * tile));
+                float dist = Mathf.Min(Mathf.Sqrt(dx * dx + dz * dz), new Vector2(d.MailboxX - x, d.MailboxZ - z).Length());
+                if (dist < bestD) { bestD = dist; best = d; }
+            }
+            return best;
+        }
+
+        /// <summary>Where a point of the world is on the screen, as last drawn (for the smoke's clicks).</summary>
+        public Vector2 ScreenAt(float x, float z) => _origin + new Vector2(x, z) * _scale;
+
+        private static Color MachineColour(Sim.Content.BuildingDef def) => def.Behaviour switch
+        {
+            Sim.Content.BuildingBehaviour.Wall or Sim.Content.BuildingBehaviour.Gate => new Color("8d8478"),
+            Sim.Content.BuildingBehaviour.Container => new Color("a1683a"),
+            Sim.Content.BuildingBehaviour.Sorter => new Color("9b7fd1"),
+            Sim.Content.BuildingBehaviour.Inserter => new Color("e76f51"),
+            Sim.Content.BuildingBehaviour.Pump => new Color("1d1b19"),
+            Sim.Content.BuildingBehaviour.VehicleDepot or Sim.Content.BuildingBehaviour.Port => new Color(0.55f, 0.6f, 0.65f, 0.9f),
+            _ => new Color("b0a89a"),
+        };
+
+        private static Color ResourceColour(string resource) => resource switch
+        {
+            var r when r.Contains("log", StringComparison.OrdinalIgnoreCase) || r.Contains("wood", StringComparison.OrdinalIgnoreCase) => new Color("8a5a2b"),
+            var r when r.Contains("stone", StringComparison.OrdinalIgnoreCase) => new Color("b8b8b8"),
+            var r when r.Contains("fib", StringComparison.OrdinalIgnoreCase) => new Color("90be6d"),
+            var r when r.Contains("berr", StringComparison.OrdinalIgnoreCase) => new Color("e63946"),
+            var r when r.Contains("ore", StringComparison.OrdinalIgnoreCase) || r.Contains("iron", StringComparison.OrdinalIgnoreCase) => new Color("f4a261"),
+            var r when r.Contains("sand", StringComparison.OrdinalIgnoreCase) => new Color("e9d8a6"),
+            _ => new Color("ffffff"),
+        };
 
         /// <summary>The tiles, 4 texels a tile; a district not open by the shift is hatched grey.</summary>
         private ImageTexture Tiles(WorldMap map, int shift)
@@ -170,13 +486,17 @@ namespace PerformativeMail.Client.UI
             DrawString(font, area.Position + new Vector2(14f, 24f), TitleText, HorizontalAlignment.Left, area.Size.X - 28f, 17, Ink);
             DrawString(font, area.Position + new Vector2(14f, 46f), RouteText, HorizontalAlignment.Left, area.Size.X - 28f, 15,
                 Guide.Target != null ? Route : new Color(Ink, 0.75f));
-            var inner = new Rect2(area.Position + new Vector2(14f, 58f), area.Size - new Vector2(28f, 68f));
+            DrawChips(font, area.Position + new Vector2(14f, 56f));
+            var inner = new Rect2(area.Position + new Vector2(14f, 84f), area.Size - new Vector2(28f, 94f));
             float scale = Mathf.Min(inner.Size.X / map.WidthM, inner.Size.Y / map.DepthM);
             var size = new Vector2(map.WidthM, map.DepthM) * scale;
             var origin = inner.Position + (inner.Size - size) * 0.5f;
             MapRect = new Rect2(origin, size);
+            _origin = origin;
+            _scale = scale;
             Vector2 At(float x, float z) => origin + new Vector2(x, z) * scale;
             DrawTextureRect(_texture, MapRect, false);
+            DrawLayers(world, scale, At);
 
             // Street names, once per street: in the middle of its longest stretch.
             var longest = new Dictionary<string, StreetDef>();
@@ -260,6 +580,8 @@ namespace PerformativeMail.Client.UI
                     DrawString(font, label, "RAID", HorizontalAlignment.Center, 60f, 12, Raiders);
                 }
             }
+
+            DrawEditor(world, font, At);
 
             var po = map.PostOffice;
             DrawString(font, At(po.Rect.CenterX, po.Rect.CenterZ) + new Vector2(-40f, 4f), "PO", HorizontalAlignment.Center, 80f, 13, Ink);

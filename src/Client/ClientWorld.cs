@@ -630,6 +630,9 @@ namespace PerformativeMail.Client
             Pings.Add(e);
         }
 
+        /// <summary>The map's Mail chip: pieces waiting for each house in the Intake and the storage, as the server last said.</summary>
+        public Dictionary<ushort, int> MailWaiting { get; } = new Dictionary<ushort, int>();
+
         public DriverEvent? DriverAt(Construct depot) =>
             Drivers.TryGetValue(depot.Tz * Map.Cols + depot.Tx, out var d) && d.State != DriverState.None ? d : null;
 

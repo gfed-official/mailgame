@@ -340,6 +340,7 @@ namespace PerformativeMail.Sim
             StepInserters();
             StepSorterViewers();
             StepMail();
+            StepMailWaiting();
             StepAway();
             StepRun();
             if (Map.Debug != null) StepDebugWorld();
