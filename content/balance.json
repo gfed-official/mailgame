@@ -59,6 +59,7 @@
   "npcSpeedRatio": 0.6,
   "npcHireShiftSolo": 2,
   "npcHireShiftGroup": 3,
+  "npcCaptainHireShift": 3,
   "npcDepartWaitSeconds": 4.0,
   "npcStopReach": 3.5,
   "npcFleeRadius": 20.0,

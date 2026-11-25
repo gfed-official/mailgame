@@ -1516,7 +1516,7 @@ the whole line exists; the sub-lines say which parts do.
             on a client, the wheel offered), `CodecTests` (the snapshot's block); in the smoke key
             7 hires the driver in shift 2's Prep, and in Delivery it takes the truck's two letters
             to the first house, the truck drawn where the server has it with its driver aboard
-- [ ] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
+- [x] Sea path: rowboat, pier, motorboat, small port, NPC captain; water navmesh
       - [x] **Water, the Pier and the Rowboat** (doc 04 §3.1 and §3.3, doc 02 §3.2, doc 10 §1.3, §2
             and §3; design choice 111). The map now has **water**: `TileType.Water` (shallow) and
             `DeepWater`, from a map file's optional `water` / `deepWater` rects; the test street
@@ -1599,11 +1599,41 @@ the whole line exists; the sub-lines say which parts do.
             nothing else; outside it or rolling through, nothing; a boat at its quay; a belt; not the
             hand), `WorldGeneratorTests` (fifty seeds: one dock on the beach over deep water, walked
             to, east of the Post Office, from shift 4), `ContentTests`, `IslandTerrainTests`; the
-            smoke checks its sign
+            smoke checks its sign. Nothing but belts may be built on a dock's yard (a port tried
+            to take its quay in the smoke)
+      - [x] **The water navmesh and the NPC captain** (doc 04 §3.3 "NPC captains behave like NPC
+            drivers on water routes … a coarse water navmesh generated per seed", doc 10 §3
+            npc_captain; design choice 115). `World/WaterNav`: every tile a boat may lie on (water
+            with nothing over it but a port's bay) is a cell joined to its eight neighbours (a
+            corner only past two open sides); A* over the cells, then the way pulled tight to the
+            farthest point a hull sails straight to; read off the map and what is built when asked,
+            so a pier across a lane is sailed round at once. `Berth`: the open cell nearest a
+            destination's mailbox within the dock zone's reach (a dock has one, a house none). The
+            Small Port now has a **Route Console** (`routeStops` 6, `npcHireCost` 150 like the
+            depot's; `BuildingDef.HasConsole`) on its quay left of the bay: its stops are the docks
+            open by this shift that a boat can lie at; key 7 hires a **captain** from shift 3
+            (`npcCaptainHireShift`), $1.50 for the shift, one a port. The depot's driver code runs
+            it: in Delivery the captain takes the Motor Boat out of the bay once it holds Cargo for
+            the route and nothing more came for 4 s, sails the navmesh at 60 % of 9 m/s burning
+            fuel, unloads at each dock's berth at its rate (`DeliveryMachine.Captain`, "A captain
+            delivered 1 Cargo to 11 Larch Lane"), and sails home into the bay; raiders, a dry tank,
+            a carrier at the wheel ("the captain stands by") and Payday as for a driver; a way cut
+            off leaves the boat where it is. The console's line is the round trip over the water at
+            a captain's pace ("1 dock · 160 m round trip over the water, about 00:30 …"); its cards
+            say "for it in the boat"; the feed "You hired a captain for the Small Port", "The
+            captain sets out with the boat: 1 dock", "The captain is back at the Small Port". Drawn:
+            the port's console (as the depot's) and the captain in navy with a white peaked cap in
+            the wheelhouse while out. `CaptainTests` (round a pier; no way onto land; berths;
+            hire from shift 3; the crate sailed to the dock over water only at 60 % and the boat
+            back in the bay, the letter riding home; Payday), `CaptainFlowTests` (the console's
+            choices, line, cards and hint, key 7, the boat followed here, the feed); in the smoke
+            E at the port's console puts it up in shift 2: no dock open yet, the captain "from
+            shift 3" (`small-port-console`). The main smoke run ends in shift 2, so the sailing
+            itself is proved by the tests
 - [ ] Oil Pump for vehicle fuel
 - [ ] Map screen with layers, filter chips, pings, route editor
 
-Next in this order: the NPC captain and a water navmesh (once there is somewhere to sail to), then the Oil Pump.
+Next in this order: the Oil Pump, then the Map screen.
 
 ## How to build and check
 
@@ -2768,6 +2798,20 @@ See "Commands" at the bottom (filled in as the tooling lands).
     its lot is cleared after (the stream's draws depend on what fits), so adding a dock to a map
     moves no tree elsewhere; (f) a dock's address is "11 Larch Lane" like any; it is named on its
     sign and the map.
+
+115. **The water navmesh and the captain.** Doc 04 §3.3 says captains "behave like NPC drivers on
+    water routes (routing graph includes ferry lanes and a coarse water navmesh generated per
+    seed)"; doc 10 §3 hires one for 150 ¢ a shift from shift 3 at a Small Port. Choices: (a) the
+    navmesh is the grid of open water tiles (8-connected, no corner cut past land or a pier) with
+    A* and string pulling, computed on demand from the map and what stands on it rather than
+    baked, since piers and ports change it; ferry lanes wait for the Large Island; (b) the
+    captain is the depot driver's state machine with the water's way, speed (60 % of the boat's
+    9 m/s) and berths in place of streets and mailboxes; (c) a port's stops are docks only (only
+    a destination with a berth within the dock zone's reach can be served from a boat), by
+    address; (d) the hire shift is 3 for a solo carrier and a group alike (doc 10 gives one
+    number); (e) a carrier who boards the captain's boat takes the wheel and the captain stands by
+    and unloads at the route's docks, as a driver does; (f) a way cut off (a pier built across)
+    leaves the boat standing where it is until the shift ends.
 
 ## Commands
 

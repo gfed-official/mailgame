@@ -562,7 +562,7 @@ namespace PerformativeMail.Client
             var world = World;
             var built = world?.FilterTarget;
             // A depot's card after its stops is its driver: a click hires one.
-            if (built != null && built.Def.IsVehicleDepot && output == built.Def.RouteStops) return step > 0 ? HireDriver() : 0;
+            if (built != null && built.Def.HasConsole && output == built.Def.RouteStops) return step > 0 ? HireDriver() : 0;
             if (world == null || built == null || output < 0 || output >= built.Def.FilterOutputs) return 0;
             var choices = world.FilterChoices(built);
             int at = choices.IndexOf(world.ShownFilter(built, output, 0));
@@ -575,7 +575,7 @@ namespace PerformativeMail.Client
         {
             var world = World;
             var built = world?.FilterTarget;
-            if (world == null || built == null || !built.Def.IsVehicleDepot || world.DriverAt(built) != null) return 0;
+            if (world == null || built == null || !built.Def.HasConsole || world.DriverAt(built) != null) return 0;
             return Send(SimRequest.Configure(0, built.Tx, built.Tz, SimRequest.ConfigureHire));
         }
 
@@ -585,7 +585,7 @@ namespace PerformativeMail.Client
             var built = World?.FilterTarget;
             if (built == null) return false;
             if (key >= 0 && key < built.Def.FilterOutputs) StepFilter(key, 1);
-            else if (built.Def.IsVehicleDepot && key == built.Def.RouteStops) HireDriver();
+            else if (built.Def.HasConsole && key == built.Def.RouteStops) HireDriver();
             return true;
         }
 

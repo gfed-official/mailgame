@@ -883,27 +883,36 @@ namespace PerformativeMail.Client
         // --- the filters of sorters and splitters (doc 04 §2.3, §2.4, doc 09 §2.7) -------------------
 
         /// <summary>In Build mode, at what has filters: the key that puts them up.</summary>
-        public static string FiltersNote(Construct built) => built.Def.IsVehicleDepot ? "   ·   [E] route console" : built.Def.FilterOutputs > 0 ? "   ·   [E] filters" : "";
+        public static string FiltersNote(Construct built) => built.Def.HasConsole ? "   ·   [E] route console" : built.Def.FilterOutputs > 0 ? "   ·   [E] filters" : "";
 
         public const string FilterHint = "A number key or a click: the next filter   ·   right click: back   ·   [E] or [Esc] close";
 
         /// <summary>The hint under the cards: a depot's console says its stops are stepped as filters are.</summary>
-        public static string FilterHintFor(Construct built) => built.Def.IsVehicleDepot ? RouteHint : FilterHint;
+        public static string FilterHintFor(Construct built) => !built.Def.HasConsole ? FilterHint : built.Def.IsPort ? CaptainHint : RouteHint;
 
         public const string RouteHint = "A number key or a click: the next stop   ·   right click: back   ·   [7] hires the driver   ·   [E] or [Esc] close";
+        public const string CaptainHint = "A number key or a click: the next stop   ·   right click: back   ·   [7] hires the captain   ·   [E] or [Esc] close";
+
+        /// <summary>Who a console hires: a depot's driver, a port's captain.</summary>
+        public static string Crew(Construct built) => built.Def.IsPort ? "captain" : "driver";
+
+        /// <summary>What the crew of a console takes out: a depot's truck, a port's boat.</summary>
+        public static string Craft(Construct built) => built.Def.IsPort ? "boat" : "truck";
+
+        private static bool IsCaptain(ClientWorld world, DriverEvent d) => world.Constructs.At(d.X, d.Y)?.Def.IsPort == true;
 
         /// <summary>The cards of a panel: a sorter's outputs and its overflow, a depot's stops and its driver.</summary>
         public static int FilterRows(Construct built) =>
-            built.Def.FilterOutputs + (built.Def.Behaviour == BuildingBehaviour.Sorter || built.Def.IsVehicleDepot ? 1 : 0);
+            built.Def.FilterOutputs + (built.Def.Behaviour == BuildingBehaviour.Sorter || built.Def.HasConsole ? 1 : 0);
 
         public static string FilterTitle(Construct built) =>
-            built.Def.IsVehicleDepot ? $"{built.Def.Name.ToUpperInvariant()}   ·   route console"
+            built.Def.HasConsole ? $"{built.Def.Name.ToUpperInvariant()}   ·   route console"
             : built.Def.Behaviour == BuildingBehaviour.Sorter ? $"{built.Def.Name.ToUpperInvariant()}   ·   filters"
             : built.Def.PipeRole == PipeRole.Outlet ? $"{built.Def.Name.ToUpperInvariant()}   ·   what the inlets send it"
             : $"{built.Def.Name.ToUpperInvariant()}   ·   filters by kind";
 
         /// <summary>The ways out of a sorter or a splitter, as the panel names them (a sorter's last is its overflow).</summary>
-        public static string PortName(Construct built, int output) => built.Def.IsVehicleDepot ? $"Stop {(output + 1).ToString(CultureInfo.InvariantCulture)}"
+        public static string PortName(Construct built, int output) => built.Def.HasConsole ? $"Stop {(output + 1).ToString(CultureInfo.InvariantCulture)}"
             : built.Def.Behaviour == BuildingBehaviour.Inserter || built.Def.PipeRole == PipeRole.Outlet ? "Takes" : output switch
         {
             0 => "Front",
@@ -915,7 +924,7 @@ namespace PerformativeMail.Client
         /// <summary>"Larch Lane", "District 2", "Letters"; an empty filter takes nothing on a sorter and anything on a splitter.</summary>
         public static string FilterName(ClientWorld world, Construct built, MailFilter filter)
         {
-            if (built.Def.IsVehicleDepot) return StopName(world, filter);
+            if (built.Def.HasConsole) return StopName(world, filter);
             switch (filter.Kind)
             {
                 case FilterKind.Street: return world.Map.GetStreet(filter.Value)?.Name ?? $"Street {filter.Value.ToString(CultureInfo.InvariantCulture)}";
@@ -963,7 +972,7 @@ namespace PerformativeMail.Client
         /// </summary>
         public static string[] FilterRow(ClientWorld world, Construct built, int output)
         {
-            if (built.Def.IsVehicleDepot) return output < built.Def.RouteStops ? StopRow(world, built, output) : DriverRow(world, built);
+            if (built.Def.HasConsole) return output < built.Def.RouteStops ? StopRow(world, built, output) : DriverRow(world, built);
             bool overflow = output >= built.Def.FilterOutputs;
             string head = overflow ? PortName(built, output) : $"[{KeyName(output)}]  {PortName(built, output)}";
             string what = overflow ? "whatever no filter catches" : FilterName(world, built, world.ShownFilter(built, output, 0));
@@ -985,8 +994,8 @@ namespace PerformativeMail.Client
             var status = world.FilterStatus;
             string matches = filter.IsEmpty ? "a number key or a click sets it"
                 : status == null ? "…"
-                : (status.Buffered & DepotStatusTruck) == 0 ? "no truck in the bay"
-                : stop < status.Matches.Count ? $"{status.Matches[stop].ToString(CultureInfo.InvariantCulture)} for it in the truck" : "…";
+                : (status.Buffered & DepotStatusTruck) == 0 ? $"no {Craft(built)} in the bay"
+                : stop < status.Matches.Count ? $"{status.Matches[stop].ToString(CultureInfo.InvariantCulture)} for it in the {Craft(built)}" : "…";
             return new[] { head, matches };
         }
 
@@ -997,11 +1006,13 @@ namespace PerformativeMail.Client
         public static string[] DriverRow(ClientWorld world, Construct built)
         {
             var d = world.DriverAt(built);
-            string head = $"[{KeyName(built.Def.RouteStops)}]  Driver   ·   ";
+            bool captain = built.Def.IsPort;
+            string head = $"[{KeyName(built.Def.RouteStops)}]  {(captain ? "Captain" : "Driver")}   ·   ";
             if (d == null)
             {
-                int from = (int)world.Content.Balance.GetFloat(world.Players.Count <= 1 ? "npcHireShiftSolo" : "npcHireShiftGroup");
-                string note = world.Global.Shift < from ? $"from shift {from.ToString(CultureInfo.InvariantCulture)}" : "drives the route at 60 % of your speed";
+                int from = (int)world.Content.Balance.GetFloat(captain ? "npcCaptainHireShift" : world.Players.Count <= 1 ? "npcHireShiftSolo" : "npcHireShiftGroup");
+                string note = world.Global.Shift < from ? $"from shift {from.ToString(CultureInfo.InvariantCulture)}"
+                    : captain ? "sails the route to the docks at 60 % of a boat's speed" : "drives the route at 60 % of your speed";
                 return new[] { $"{head}hire for this shift, {Money(built.Def.HireCost)}", note };
             }
             return new[] { $"{head}hired for this shift   ·   {d.Delivered.ToString(CultureInfo.InvariantCulture)} delivered", DriverDoing(world, d) };
@@ -1012,6 +1023,18 @@ namespace PerformativeMail.Client
         {
             string house = world.Map.GetDestination(d.House)?.Label ?? "a house";
             string of = d.Houses > 1 ? $" ({(d.At + 1).ToString(CultureInfo.InvariantCulture)} of {d.Houses.ToString(CultureInfo.InvariantCulture)})" : "";
+            if (IsCaptain(world, d))
+                switch (d.State)
+                {
+                    case DriverState.Waiting: return "waiting for a boat with cargo for the route, in Delivery";
+                    case DriverState.Out: return $"sailing to {house}{of}";
+                    case DriverState.Unloading: return $"unloading at {house}{of}";
+                    case DriverState.Returning: return "on the way back to the port";
+                    case DriverState.Fleeing: return "turned back: raiders near the route";
+                    case DriverState.Stranded: return "out of fuel on the water: an Oil Can fills it";
+                    case DriverState.Passenger: return "aboard: stop by a dock of the route and the captain hands the cargo out";
+                    default: return "";
+                }
             switch (d.State)
             {
                 case DriverState.Waiting: return "waiting for a truck with mail for the route, in Delivery";
@@ -1029,21 +1052,25 @@ namespace PerformativeMail.Client
         public static string DriverNews(ClientWorld world, DriverEvent d, DriverEvent? was)
         {
             if (d.State == was?.State) return "";
+            bool captain = IsCaptain(world, d);
+            string crew = captain ? "captain" : "driver", craft = captain ? "boat" : "truck", site = captain ? "Small Port" : "Vehicle Depot";
             switch (d.State)
             {
                 // A joiner hears where things stand (nobody named), not news.
                 case DriverState.Waiting when was == null && d.Player.IsNone: return "";
                 case DriverState.Waiting when was == null || was.State == DriverState.None:
-                    return d.Player == world.LocalId ? $"You hired a driver for the Vehicle Depot   ·   {Money(HireCost(world.Content))}"
-                        : $"{(world.Players.TryGetValue(d.Player, out var p) ? p.Name : "Someone")} hired a driver for the Vehicle Depot";
-                case DriverState.Waiting: return "The driver is back at the Vehicle Depot";
+                    return d.Player == world.LocalId ? $"You hired a {crew} for the {site}   ·   {Money(HireCost(world.Content))}"
+                        : $"{(world.Players.TryGetValue(d.Player, out var p) ? p.Name : "Someone")} hired a {crew} for the {site}";
+                case DriverState.Waiting: return $"The {crew} is back at the {site}";
                 case DriverState.Out when was?.State == DriverState.Waiting:
-                    return d.Houses == 1 ? "The driver sets out with the truck: 1 house" : $"The driver sets out with the truck: {d.Houses.ToString(CultureInfo.InvariantCulture)} houses";
-                case DriverState.Fleeing: return "The driver turns back: raiders near the route";
-                case DriverState.Stranded: return "The driver's truck ran out of fuel";
+                    string stops = captain ? (d.Houses == 1 ? "1 dock" : $"{d.Houses.ToString(CultureInfo.InvariantCulture)} docks") : d.Houses == 1 ? "1 house" : $"{d.Houses.ToString(CultureInfo.InvariantCulture)} houses";
+                    return $"The {crew} sets out with the {craft}: {stops}";
+                case DriverState.Fleeing: return $"The {crew} turns back: raiders near the route";
+                case DriverState.Stranded: return $"The {crew}'s {craft} ran out of fuel";
                 case DriverState.Passenger:
-                    return d.Player == world.LocalId ? "You take the wheel   ·   the driver moves over and hands the mail out at the route's houses" : "";
-                case DriverState.None: return was != null && was.State != DriverState.None ? "The driver's hire is over for this shift" : "";
+                    return d.Player == world.LocalId ? (captain ? "You take the wheel   ·   the captain stands by and hands the cargo out at the route's docks"
+                        : "You take the wheel   ·   the driver moves over and hands the mail out at the route's houses") : "";
+                case DriverState.None: return was != null && was.State != DriverState.None ? $"The {crew}'s hire is over for this shift" : "";
                 default: return "";
             }
         }
@@ -1074,6 +1101,7 @@ namespace PerformativeMail.Client
             for (int i = 0; i < built.Def.RouteStops; i++) stops.Add(world.ShownFilter(built, i, 0));
             Sim.SimWorld.Bay(built, out float bx, out float bz, out _);
             var houses = new List<DestinationDef>();
+            if (built.Def.IsPort) return SeaRouteLine(world, built, stops, bx, bz);
             Sim.Vehicles.RoutePlan.Houses(world.Map, stops, bx, bz, null, houses);
             if (houses.Count == 0) return "No stops yet: a route is a few houses, streets or districts";
             float metres = Sim.Vehicles.RoutePlan.RoundTrip(world.Map, houses, bx, bz, new List<(float, float)>());
@@ -1084,9 +1112,35 @@ namespace PerformativeMail.Client
             return $"{n}   ·   {metres.ToString("F0", CultureInfo.InvariantCulture)} m round trip, about {Clock(speed > 0f ? metres / speed : 0f)} at a driver's pace";
         }
 
+        /// <summary>Under a port console's title: the docks its route calls at and the round trip over the water at a captain's pace, from the bay.</summary>
+        private static string SeaRouteLine(ClientWorld world, Construct built, List<Sim.Automation.MailFilter> stops, float bx, float bz)
+        {
+            float reach = world.Content.Balance.GetFloat("dockZoneReach");
+            var docks = new List<DestinationDef>();
+            Sim.Vehicles.RoutePlan.Houses(world.Map, stops, bx, bz, d => WaterNav.Berth(world.Map, world.Constructs, d, reach, out _, out _), docks);
+            if (docks.Count == 0) return "No stops yet: a captain calls at the docks a boat can lie at";
+            var scratch = new List<(float, float)>();
+            float metres = 0f, x = bx, z = bz, radius = 0.5f, speed = 0f;
+            foreach (var v in world.Content.Vehicles) if (v.OnWater && v.LoadingFace) { speed = MathF.Max(speed, v.WaterSpeed); radius = v.Radius; }
+            foreach (var d in docks)
+            {
+                WaterNav.Berth(world.Map, world.Constructs, d, reach, out float tx, out float tz);
+                float leg = WaterNav.Route(world.Map, world.Constructs, x, z, tx, tz, radius, scratch);
+                if (leg < 0f) return $"No way over the water to {d.Label}";
+                metres += leg;
+                x = tx;
+                z = tz;
+            }
+            float back = WaterNav.Route(world.Map, world.Constructs, x, z, bx, bz, radius, scratch);
+            metres += MathF.Max(0f, back);
+            speed *= world.Content.Balance.GetFloat("npcSpeedRatio");
+            string n = docks.Count == 1 ? "1 dock" : $"{docks.Count.ToString(CultureInfo.InvariantCulture)} docks";
+            return $"{n}   ·   {metres.ToString("F0", CultureInfo.InvariantCulture)} m round trip over the water, about {Clock(speed > 0f ? metres / speed : 0f)} at a captain's pace";
+        }
+
         /// <summary>A sorter's line under its title: its buffer and what it has sent where. Empty for a splitter.</summary>
         public static string FilterStatusLine(ClientWorld world, Construct built, SorterStatusEvent? status) =>
-            built.Def.IsVehicleDepot ? RouteLine(world, built) : FilterStatusLine(built, status);
+            built.Def.HasConsole ? RouteLine(world, built) : FilterStatusLine(built, status);
 
         public static string FilterStatusLine(Construct built, SorterStatusEvent? status)
         {
@@ -1460,8 +1514,8 @@ namespace PerformativeMail.Client
                 case InteractKind.OpenShop:
                     return p.ShopClosed ? $"Shop   ·   {ClosedWord} — the counter serves in Prep and at Payday" : "Open Shop  [E]";
                 case InteractKind.CloseShop: return "Close Shop  [E]";
-                case InteractKind.Configure when p.Built!.Def.IsVehicleDepot: return $"Open the route console of the {p.Built.Def.Name}  [E]";
-                case InteractKind.CloseFilters when p.Built!.Def.IsVehicleDepot: return $"Close the route console of the {p.Built.Def.Name}  [E]";
+                case InteractKind.Configure when p.Built!.Def.HasConsole: return $"Open the route console of the {p.Built.Def.Name}  [E]";
+                case InteractKind.CloseFilters when p.Built!.Def.HasConsole: return $"Close the route console of the {p.Built.Def.Name}  [E]";
                 case InteractKind.Configure: return $"Set the filters of the {p.Built!.Def.Name}  [E]";
                 case InteractKind.CloseFilters: return $"Close the filters of the {p.Built!.Def.Name}  [E]";
                 case InteractKind.Mount:
@@ -1469,7 +1523,7 @@ namespace PerformativeMail.Client
                     if (!p.Vehicle.Def.Fuelled) return $"Ride {p.Vehicle.Def.Name}  [E]";
                     return p.Vehicle.Fuel <= 0f
                         ? $"{p.Vehicle.Def.Name}   ·   out of fuel — an Oil Can in the hand fills it"
-                        : p.Vehicle.NpcDriving ? $"Take the wheel of the {p.Vehicle.Def.Name}  [E]   ·   the driver moves over"
+                        : p.Vehicle.NpcDriving ? $"Take the wheel of the {p.Vehicle.Def.Name}  [E]   ·   the {(p.Vehicle.Def.OnWater ? "captain stands by" : "driver moves over")}"
                         : $"Drive the {p.Vehicle.Def.Name}  [E]   ·   {FuelText(p.Vehicle)}";
                 case InteractKind.Refuel: return $"Refuel the {p.Vehicle!.Def.Name} with an Oil Can  [E]   ·   {FuelText(p.Vehicle)}";
                 case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOff(world, p.Vehicle)}{FuelNote(p.Vehicle)}";

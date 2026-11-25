@@ -84,11 +84,17 @@ namespace PerformativeMail.Sim
         /// <summary>Doc 01 §7 / doc 10 §3: a driver from shift 2 for a solo carrier, shift 3 for a group.</summary>
         public int DriverHireShift => (int)Content.Balance.GetFloat(PresentCount <= 1 ? "npcHireShiftSolo" : "npcHireShiftGroup");
 
+        /// <summary>Doc 10 §3 npc_captain: from shift 3, at a Small Port.</summary>
+        public int CaptainHireShift => (int)Content.Balance.GetFloat("npcCaptainHireShift");
+
+        /// <summary>The shift from which the crew of a depot (a driver) or a port (a captain) is for hire.</summary>
+        public int HireShift(Construct built) => built.Def.IsPort ? CaptainHireShift : DriverHireShift;
+
         private OpResult HireOp(Player player, Construct depot)
         {
-            if (!depot.Def.IsVehicleDepot) return OpResult.BadRequest;
+            if (!depot.Def.HasConsole) return OpResult.BadRequest;
             if (Run.Phase != RunPhase.Prep && Run.Phase != RunPhase.Delivery) return OpResult.WrongPhase;
-            if (Run.Shift < DriverHireShift) return OpResult.ShopLocked;
+            if (Run.Shift < HireShift(depot)) return OpResult.ShopLocked;
             if (_drivers.TryGetValue(depot, out var had) && had.Hired) return OpResult.AlreadyHired;
             if (!Economy.Spend(depot.Def.HireCost)) return OpResult.CantAfford;
             var d = had ?? (_drivers[depot] = new DepotDriver { Depot = depot });
@@ -165,7 +171,13 @@ namespace PerformativeMail.Sim
             d.Truck = truck;
             truck.NpcDriving = true;
             d.HouseAt = 0;
-            PathTo(d, d.Houses[0].MailboxX, d.Houses[0].MailboxZ);
+            if (!PathTo(d, d.Houses[0]))
+            {
+                truck.NpcDriving = false;
+                d.Truck = null;
+                d.LoadSeen = -1;
+                return;
+            }
             SetState(d, DriverState.Out);
         }
 
@@ -173,8 +185,16 @@ namespace PerformativeMail.Sim
         private void PlanTrip(DepotDriver d, Vehicle truck)
         {
             var stops = new List<MailFilter>(d.Depot.Filters);
-            RoutePlan.Houses(Map, stops, truck.X, truck.Z, dest => HasMailFor(truck, dest), d.Houses);
+            // A captain goes where a boat can lie by the destination, and sail to (doc 04 §3.3).
+            RoutePlan.Houses(Map, stops, truck.X, truck.Z,
+                dest => HasMailFor(truck, dest) && (!d.Depot.Def.IsPort || CanSailTo(truck, dest)), d.Houses);
         }
+
+        private readonly List<(float X, float Z)> _sailScratch = new List<(float X, float Z)>();
+
+        private bool CanSailTo(Vehicle boat, DestinationDef dest) =>
+            WaterNav.Berth(Map, Constructs, dest, Content.Balance.GetFloat("dockZoneReach"), out float bx, out float bz)
+            && WaterNav.Route(Map, Constructs, boat.X, boat.Z, bx, bz, boat.Def.Radius, _sailScratch) >= 0f;
 
         private bool HasMailFor(Vehicle truck, DestinationDef dest)
         {
@@ -194,10 +214,27 @@ namespace PerformativeMail.Sim
             return n;
         }
 
-        private void PathTo(DepotDriver d, float x, float z)
+        /// <summary>The way to a house: along the streets to its mailbox, or for a captain over the water to its berth. False if a boat cannot get there.</summary>
+        private bool PathTo(DepotDriver d, DestinationDef dest)
         {
-            Map.Routes.Route(d.Truck!.X, d.Truck.Z, x, z, d.Path);
+            if (!d.Depot.Def.IsPort) return PathTo(d, dest.MailboxX, dest.MailboxZ);
+            return WaterNav.Berth(Map, Constructs, dest, Content.Balance.GetFloat("dockZoneReach"), out float bx, out float bz) && PathTo(d, bx, bz);
+        }
+
+        private bool PathTo(DepotDriver d, float x, float z)
+        {
+            var v = d.Truck!;
             d.PathAt = 1;
+            if (!d.Depot.Def.IsPort)
+            {
+                Map.Routes.Route(v.X, v.Z, x, z, d.Path);
+                return true;
+            }
+            if (WaterNav.Route(Map, Constructs, v.X, v.Z, x, z, v.Def.Radius, d.Path) >= 0f) return true;
+            // Cut off (a pier built across the way): it stays where it is.
+            d.Path.Clear();
+            d.Path.Add((v.X, v.Z));
+            return false;
         }
 
         private void PathHome(DepotDriver d)
@@ -223,7 +260,7 @@ namespace PerformativeMail.Sim
                 return;
             }
             float ratio = Content.Balance.GetFloat("npcSpeedRatio");
-            float speed = ratio * (PlayerMovement.OnRoad(Map, v.X, v.Z) ? v.Def.RoadSpeed : v.Def.OffRoadSpeed);
+            float speed = ratio * (v.Def.OnWater ? v.Def.WaterSpeed : PlayerMovement.OnRoad(Map, v.X, v.Z) ? v.Def.RoadSpeed : v.Def.OffRoadSpeed);
             float left = speed * SimConstants.TickDt;
             float reach = d.State == DriverState.Out ? Content.Balance.GetFloat("npcStopReach") : 0.05f;
             float goalX = d.Path[d.Path.Count - 1].X, goalZ = d.Path[d.Path.Count - 1].Z;
@@ -285,11 +322,8 @@ namespace PerformativeMail.Sim
             // Done here: the next house it still has mail for.
             while (++d.HouseAt < d.Houses.Count)
                 if (HasMailFor(d.Truck!, d.Houses[d.HouseAt])) break;
-            if (d.HouseAt < d.Houses.Count)
-            {
-                PathTo(d, d.Houses[d.HouseAt].MailboxX, d.Houses[d.HouseAt].MailboxZ);
+            if (d.HouseAt < d.Houses.Count && PathTo(d, d.Houses[d.HouseAt]))
                 SetState(d, DriverState.Out);
-            }
             else
             {
                 PathHome(d);
@@ -300,7 +334,7 @@ namespace PerformativeMail.Sim
         /// <summary>One piece out of the truck into a house's box, if it holds one the box takes; the box's rate decides the next turn.</summary>
         private bool DeliverOne(DepotDriver d, DestinationDef house)
         {
-            if (!UnloadOne(d.Truck!.Cargo, house, DeliveryMachine.Driver)) return false;
+            if (!UnloadOne(d.Truck!.Cargo, house, d.Depot.Def.IsPort ? DeliveryMachine.Captain : DeliveryMachine.Driver)) return false;
             d.Delivered++;
             d.NextDeliverTick = Tick + InsertTicks(house);
             return true;
@@ -394,8 +428,7 @@ namespace PerformativeMail.Sim
             {
                 while (d.HouseAt < d.Houses.Count && !HasMailFor(d.Truck!, d.Houses[d.HouseAt])) d.HouseAt++;
             }
-            if (to == DriverState.Out && d.HouseAt < d.Houses.Count)
-                PathTo(d, d.Houses[d.HouseAt].MailboxX, d.Houses[d.HouseAt].MailboxZ);
+            if (to == DriverState.Out && d.HouseAt < d.Houses.Count && PathTo(d, d.Houses[d.HouseAt])) { }
             else
             {
                 if (to == DriverState.Out) to = DriverState.Returning;

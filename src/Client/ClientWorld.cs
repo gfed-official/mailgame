@@ -633,7 +633,16 @@ namespace PerformativeMail.Client
         public List<MailFilter> FilterChoices(Construct built)
         {
             var choices = new List<MailFilter> { MailFilter.Empty };
-            if (built.Def.IsVehicleDepot)
+            if (built.Def.IsPort)
+            {
+                // A captain's stops (doc 04 §3.3): the destinations a boat can lie at — the docks — open by this shift.
+                int now = Math.Max(1, (int)Global.Shift);
+                float reach = Content.Balance.GetFloat("dockZoneReach");
+                foreach (var d in Map.Destinations)
+                    if (Map.OpensAt(d) <= now && WaterNav.Berth(Map, Constructs, d, reach, out _, out _)) choices.Add(new MailFilter(FilterKind.Address, d.Id));
+                return choices;
+            }
+            if (built.Def.HasConsole)
             {
                 // A route's stops (doc 04 §3.2): the houses open by this shift, then their streets and districts.
                 int open = Math.Max(1, (int)Global.Shift);

@@ -356,11 +356,13 @@ namespace PerformativeMail.Sim.Content
         /// kind", §2.4); 0 for what sorts nothing.
         /// </summary>
         public int FilterOutputs => Behaviour == BuildingBehaviour.Sorter ? 3 : Behaviour == BuildingBehaviour.Splitter ? 3
-            : Behaviour == BuildingBehaviour.Inserter || PipeRole == PipeRole.Outlet ? 1 : Behaviour == BuildingBehaviour.VehicleDepot ? RouteStops : 0;
-        /// <summary>A Vehicle Depot: the stops its Route Console holds, kept as its filters (an address, a street or a district each).</summary>
+            : Behaviour == BuildingBehaviour.Inserter || PipeRole == PipeRole.Outlet ? 1 : HasConsole ? RouteStops : 0;
+        /// <summary>A Vehicle Depot or a Small Port: the stops its Route Console holds, kept as its filters (an address, a street or a district each).</summary>
         public int RouteStops { get; init; }
-        /// <summary>A Vehicle Depot: what hiring its NPC driver for a shift costs, in cents (doc 10 §3 npc_driver: 150).</summary>
+        /// <summary>What hiring its NPC driver or captain for a shift costs, in cents (doc 10 §3 npc_driver, npc_captain: 150).</summary>
         public int HireCost { get; init; }
+        /// <summary>A Route Console (doc 04 §3.2, §3.3): a Vehicle Depot's for an NPC driver, a Small Port's for an NPC captain.</summary>
+        public bool HasConsole => (IsVehicleDepot || IsPort) && RouteStops > 0;
         public bool IsVehicleDepot => Behaviour == BuildingBehaviour.VehicleDepot;
         public bool IsPort => Behaviour == BuildingBehaviour.Port;
         /// <summary>A Vehicle Depot or a Small Port: a bay a vehicle is set into, with a loading face.</summary>

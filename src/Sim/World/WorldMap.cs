@@ -223,6 +223,14 @@ namespace PerformativeMail.Sim.World
         }
 
         /// <summary>"13 Larch Lane" for a known address, or the canonical id if the street is unknown.</summary>
+        /// <summary>The Business Dock whose lot takes in a tile; null for none.</summary>
+        public DestinationDef? DockAt(int tx, int tz)
+        {
+            foreach (var d in Destinations)
+                if (d.IsDock && tx >= d.Lot.X && tx < d.Lot.X + d.Lot.W && tz >= d.Lot.Y && tz < d.Lot.Y + d.Lot.H) return d;
+            return null;
+        }
+
         /// <summary>The shift a destination first takes mail: its district's, or its own if later (a Business Dock's).</summary>
         public int OpensAt(DestinationDef d)
         {

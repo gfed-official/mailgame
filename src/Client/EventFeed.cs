@@ -308,6 +308,7 @@ namespace PerformativeMail.Client
                 DeliveryMachine.Pipe => "A pipe",
                 DeliveryMachine.Driver => "A driver",
                 DeliveryMachine.Dock => "The dock",
+                DeliveryMachine.Captain => "A captain",
                 _ => Who(world, player),
             };
             string what = HudText.CountAndKind(kind < world.Content.MailKinds.Count ? world.Content.MailKinds[kind].Name : "item", entry.Count);

@@ -95,6 +95,8 @@ namespace PerformativeMail.Sim
         Driver = 4,
         /// <summary>A Business Dock unloading a vehicle standing in its zone (doc 02 §3.5, doc 03 §2.1).</summary>
         Dock = 5,
+        /// <summary>A Small Port's NPC captain (doc 04 §3.3).</summary>
+        Captain = 6,
     }
 
     public sealed class MisdeliveredEvent : SimEvent

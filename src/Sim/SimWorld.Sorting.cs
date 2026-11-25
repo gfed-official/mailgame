@@ -63,15 +63,15 @@ namespace PerformativeMail.Sim
         private bool FilterExists(BuildingDef def, MailFilter filter)
         {
             // A depot's stops: a house, a street or a district (doc 04 §3.2), never a kind.
-            if (def.IsVehicleDepot && filter.Kind == FilterKind.Kind) return false;
-            if (filter.Kind == FilterKind.Address) return def.IsVehicleDepot && Map.GetDestination(filter.Value) != null;
+            if (def.HasConsole && filter.Kind == FilterKind.Kind) return false;
+            if (filter.Kind == FilterKind.Address) return def.HasConsole && Map.GetDestination(filter.Value) != null;
             switch (filter.Kind)
             {
                 case FilterKind.None: return true;
                 case FilterKind.Kind: return filter.Value < Content.MailKinds.Count;
-                case FilterKind.Street: return (def.FiltersAddresses || def.IsVehicleDepot) && Map.GetStreet(filter.Value) != null;
+                case FilterKind.Street: return (def.FiltersAddresses || def.HasConsole) && Map.GetStreet(filter.Value) != null;
                 case FilterKind.District:
-                    if (!def.FiltersAddresses && !def.IsVehicleDepot) return false;
+                    if (!def.FiltersAddresses && !def.HasConsole) return false;
                     foreach (var d in Map.Districts) if (d.Id == filter.Value) return true;
                     return false;
                 default: return false;
@@ -122,7 +122,7 @@ namespace PerformativeMail.Sim
             bool sorter = built.Def.Behaviour == BuildingBehaviour.Sorter;
             int outputs = built.Def.FilterOutputs + (sorter ? 1 : 0);
             var matches = new int[outputs];
-            if (built.Def.IsVehicleDepot)
+            if (built.Def.HasConsole)
             {
                 ev.Buffered = DepotStatus(built);
                 CountRouteMatches(built, matches);

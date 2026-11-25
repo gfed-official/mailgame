@@ -996,8 +996,8 @@ namespace PerformativeMail.Sim.Content
                             : square && def.Width == 2 ? def.Length != 2 : def.Width != 1 || (def.Length != 1 && !(def.Ramp && def.Length == 2)) || (sorter && def.Width != 2))
                             ctx.Error($"'{id}': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2], a container [1, 1] or [2, 2], a vehicle depot [3, 3], a pier [1, 3], a port [3, 4])");
                         // Doc 04 §3.2: a route of a few stops, kept as 16-bit filters; a driver hired for a price.
-                        if (vehicleDepot ? def.RouteStops < 1 || def.RouteStops > 9 || def.HireCost <= 0 || def.Rotations != 4 : def.RouteStops != 0 || def.HireCost != 0)
-                            ctx.Error($"'{id}': a vehicle depot, and only one, has params.routeStops in 1..9, params.npcHireCost > 0 (and 4 rotations)");
+                        if (vehicleDepot || behaviour == BuildingBehaviour.Port ? def.RouteStops < 1 || def.RouteStops > 9 || def.HireCost <= 0 || def.Rotations != 4 : def.RouteStops != 0 || def.HireCost != 0)
+                            ctx.Error($"'{id}': a vehicle depot or a port, and only they, have params.routeStops in 1..9, params.npcHireCost > 0 (and 4 rotations)");
                         // Doc 04 §2.4: a sorter looks at its mail at a rate, out of a buffer.
                         if (sorter && (def.Throughput <= 0f || def.BufferSize < 1 || def.BufferSize > 64 || def.Rotations != 4))
                             ctx.Error($"'{id}': a sorter needs params.throughputPerSecond > 0, params.bufferSize in 1..64 and 4 rotations");

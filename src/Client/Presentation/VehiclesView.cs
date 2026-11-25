@@ -287,7 +287,19 @@ namespace PerformativeMail.Client.Presentation
             var rear = new Node3D { Name = "RearWheel" };
             root.AddChild(front);
             root.AddChild(rear);
-            return new Drawn { Root = root, FrontWheel = front, RearWheel = rear, WheelRadius = 1000f };
+            // Its NPC captain (doc 04 §3.3): navy and a white peaked cap, at the wheel behind the glass.
+            var captain = new Node3D { Name = "Captain", Visible = false };
+            root.AddChild(captain);
+            var navy = MeshKit.Mat(new Color("23324f"), 0.7f);
+            var skin = MeshKit.Mat(new Color("d9a679"), 0.8f);
+            var cap = MeshKit.Mat(new Color("f2f0ea"), 0.5f);
+            captain.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.42f, 0.5f, 0.3f), 0.1f), navy, new Vector3(0f, 0.85f, -0.3f)));
+            captain.AddChild(MeshKit.Instance(MeshKit.Sphere(0.14f, 12), skin, new Vector3(0f, 1.2f, -0.32f)));
+            captain.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.15f, 0.15f, 0.08f, 12), cap, new Vector3(0f, 1.33f, -0.32f)));
+            captain.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.2f, 0.02f, 0.12f)), MeshKit.Mat(new Color("1a1a1a"), 0.6f), new Vector3(0f, 1.3f, -0.47f)));
+            var none = new Node3D { Name = "NoWindow" };
+            root.AddChild(none);
+            return new Drawn { Root = root, FrontWheel = front, RearWheel = rear, WheelRadius = 1000f, Driver = captain, LeftWindow = none, RightWindow = none };
         }
 
         /// <summary>A bike pointing along −Z (yaw 0), its wheels on the ground.</summary>

@@ -92,6 +92,8 @@ namespace PerformativeMail.Sim.Run
                 var (x, z) = Construct.TileOf(tx, tz, rotation, i % def.Length, i / def.Length);
                 var verdict = CheckTile(map, constructs, x, z, def.OnStreet);
                 if (verdict != OpResult.Ok) return verdict;
+                // A Business Dock's yard is its unloading zone's way in: belts may run over it, nothing stands on it (design choice 114).
+                if (map.DockAt(x, z) != null && !def.Carries) return OpResult.Blocked;
             }
             return OpResult.Ok;
         }
@@ -134,6 +136,7 @@ namespace PerformativeMail.Sim.Run
                 {
                     var verdict = CheckTile(map, constructs, x, z);
                     if (verdict != OpResult.Ok) return verdict;
+                    if (map.DockAt(x, z) != null) return OpResult.Blocked;
                 }
                 else if (!map.IsWater(x, z) || map.IsShallowWater(x, z)) return OpResult.NotOnWater;
                 else if (constructs.At(x, z) != null) return OpResult.Blocked;

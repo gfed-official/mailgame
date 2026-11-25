@@ -272,6 +272,42 @@ namespace PerformativeMail.App
                     Check(hud.PromptText == $"Drive the Motor Boat  [E]   ·   {HudText.FuelText(here)}", $"at the port the prompt reads \"{hud.PromptText}\"");
                     Shot("small-port");
                     GD.Print($"[smoke] boats: a Small Port built on the deep quay at ({_portX}, {PortZ}), a Motor Boat in its bay loaded from a belt into its loading face");
+                    next = true;
+                    break;
+                }
+                case 16:
+                {
+                    // Its Route Console (doc 04 §3.3): from the quay behind it, E puts it up.
+                    var built = world.Constructs.At(_portX, PortZ)!;
+                    Sim.SimWorld.Console(built, out float kx, out float kz);
+                    if (_boatFrames == 1) { player.Move.X = kx; player.Move.Z = kz - 1.6f; }
+                    var box = AimBox.Built(world.Map, built);
+                    ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    if (_boatFrames < 10) break;
+                    _session.Interaction.Update(1.0 / 30.0, false, false);
+                    hud.Refresh();
+                    if (world.FilterTarget == null)
+                    {
+                        if (_boatFrames == 12)
+                            Check(_session.Interaction.Prompt.Kind == InteractKind.Configure && hud.PromptText == "Open the route console of the Small Port  [E]",
+                                $"at the port's console the prompt reads \"{hud.PromptText}\" ({_session.Interaction.Prompt.Kind})");
+                        if (_boatFrames % 10 == 2) _session.Interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
+                        Check(_boatFrames < 120, "the port's route console did not come up");
+                        if (_boatFrames >= 120) next = true;
+                        break;
+                    }
+                    var panel = _screen.Inventory.Filters;
+                    if (world.FilterStatus == null || !panel.IsVisibleInTree() || _boatFrames < 20) break;
+                    // Shift 2: the dock opens in shift 3, so there is no stop yet, and the captain comes then too.
+                    Check(panel.Text == HudText.FilterText(world) && panel.CardCount == 7,
+                        $"the port's console reads \"{panel.Text}\" ({panel.CardCount} cards), not \"{HudText.FilterText(world)}\"");
+                    Check(panel.Text.StartsWith("SMALL PORT   ·   route console\nNo stops yet: a captain calls at the docks a boat can lie at", StringComparison.Ordinal)
+                        && panel.Text.Contains("[7]  Captain   ·   hire for this shift, $1.50\nfrom shift 3", StringComparison.Ordinal),
+                        $"the port's console reads \"{panel.Text}\"");
+                    Check(HudText.FilterHintFor(world.FilterTarget!) == HudText.CaptainHint, "the console's hint does not name the captain");
+                    Shot("small-port-console");
+                    GD.Print("[smoke] boats: the Small Port's route console up by E: no dock open yet in shift 2, its captain for hire from shift 3");
+                    Check(client.CloseFilters(), "the port's console was not up to take down");
                     _boatVisits++;
                     _boatStep = 0;
                     client.TickStarting += _botTick;

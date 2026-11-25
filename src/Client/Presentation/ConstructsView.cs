@@ -818,6 +818,18 @@ namespace PerformativeMail.Client.Presentation
                 batch.Box(pontoon + new Vector3(0f, -0.38f, 0f), across * 0.9f + along * (2f * t - 0.3f) + new Vector3(0f, 0.26f, 0f), float_, 0.08f);
                 batch.Add(MeshKit.Cylinder(0.1f, 0.1f, 2.6f, 10), iron, pontoon + f * (t - 0.2f) + new Vector3(0f, -0.3f, 0f));
             }
+            // The Route Console for its captain (doc 04 §3.3) on the quay left of the bay, where
+            // SimWorld.Console puts it, its screen turned to the bay.
+            var offset = -f * (0.5f * t) - r * t;
+            var console = at + offset + offset.Normalized() * Sim.SimWorld.ConsoleOutset;
+            float yaw = Mathf.Atan2(f.X, f.Z);
+            var screen = only ?? MeshKit.Glow(new Color("4fd3e8"), 1.2f);
+            batch.Box(console + new Vector3(0f, 0.08f, 0f), new Vector3(0.7f, 0.16f, 0.7f), dark, 0.03f);
+            batch.Box(console + new Vector3(0f, 0.6f, 0f), new Vector3(0.46f, 0.9f, 0.4f), steel, 0.05f, new Vector3(0f, Mathf.RadToDeg(yaw), 0f));
+            batch.Box(console + new Vector3(0f, 1.08f, 0f), new Vector3(0.56f, 0.07f, 0.5f), orange, 0.02f, new Vector3(0f, Mathf.RadToDeg(yaw), 0f));
+            var tilt = new Basis(Vector3.Up, yaw + Mathf.Pi * 0.5f) * new Basis(Vector3.Right, -0.6f);
+            batch.Add(MeshKit.Box(new Vector3(0.5f, 0.34f, 0.07f)), dark, new Transform3D(tilt, console + r * 0.06f + new Vector3(0f, 1.32f, 0f)));
+            batch.Add(MeshKit.Box(new Vector3(0.42f, 0.27f, 0.02f)), screen, new Transform3D(tilt, console + r * 0.1f + new Vector3(0f, 1.34f, 0f)));
         }
 
         public static void VehicleDepot(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)

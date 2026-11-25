@@ -158,6 +158,11 @@ namespace PerformativeMail.Sim.Tests
             SimDriver.StepTicks(world, 3 * Tps);
             Assert.Equal(before + 1, world.Economy.ShiftDeliveries);
 
+            // On its yard belts run, and nothing else stands; a port may not take its quay.
+            Assert.Equal(OpResult.Ok, BuildRules.CheckPlacement(world.Map, world.Constructs, Db.Building("belt_mk1"), dock.Lot.X, dock.Lot.Y + 4, 0));
+            Assert.Equal(OpResult.Blocked, BuildRules.CheckPlacement(world.Map, world.Constructs, Db.Building("chest"), dock.Lot.X, dock.Lot.Y + 4, 0));
+            Assert.Equal(OpResult.Blocked, BuildRules.CheckPlacement(world.Map, world.Constructs, Db.Building("small_port"), dock.Lot.X + 3, 24, 1));
+
             // A letter in the hand at the dock: it takes none.
             var letter = TestContent.Mail("letter", dock.Address, _nextMail++, 3);
             Assert.True(world.Give(host.Hotbar, ItemStack.OfMail(letter)));

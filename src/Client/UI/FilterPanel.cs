@@ -110,7 +110,7 @@ namespace PerformativeMail.Client.UI
                 var what = lines.Length > 2 ? card.Lines[1] : card.Lines[0];
                 what.Modulate = set ? SetColour : new Color(1f, 1f, 1f, lines.Length > 2 ? 0.7f : 1f);
                 card.Frame.BorderColor = set ? Palette.Amber : FilterFrame;
-                card.Panel.MouseDefaultCursorShape = output || built.Def.IsVehicleDepot ? CursorShape.PointingHand : CursorShape.Arrow;
+                card.Panel.MouseDefaultCursorShape = output || built.Def.HasConsole ? CursorShape.PointingHand : CursorShape.Arrow;
             }
             CardCount = rows;
         }

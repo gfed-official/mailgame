@@ -97,6 +97,6 @@
     "recipe": "recipe_rowboat", "tags": ["vehicles"] },
   { "id": "small_port", "name": "Small Port", "footprint": [3, 4], "rotations": 4, "hp": 1200,
     "placement": { "onStreet": false }, "behaviour": "port",
-    "params": { "radius": 2.5, "height": 3.0 },
+    "params": { "radius": 2.5, "height": 3.0, "routeStops": 6, "npcHireCost": 150 },
     "recipe": "recipe_small_port", "tags": ["vehicles"] }
 ]
