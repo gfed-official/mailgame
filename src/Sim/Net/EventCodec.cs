@@ -68,6 +68,7 @@ namespace PerformativeMail.Sim.Net
         Driver = 58,
         Ping = 59,
         MailWaiting = 60,
+        TurretFired = 61,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -296,6 +297,10 @@ namespace PerformativeMail.Sim.Net
                 case DriverEvent e:
                     w.U8((byte)EventType.Driver);
                     w.U8(e.X); w.U8(e.Y); w.U8((byte)e.State); w.U32(e.Vehicle.Value); w.U16(e.House); w.U8(e.Houses); w.U8(e.At); w.U16(e.Delivered); w.U32(e.Player.Value);
+                    break;
+                case TurretFiredEvent e:
+                    w.U8((byte)EventType.TurretFired);
+                    w.U8(e.X); w.U8(e.Y); w.F32(e.TargetX); w.F32(e.TargetZ);
                     break;
                 case MailWaitingEvent e:
                     w.U8((byte)EventType.MailWaiting);
@@ -542,6 +547,8 @@ namespace PerformativeMail.Sim.Net
                         X = r.U8(), Y = r.U8(), State = (DriverState)r.U8(), Vehicle = new EntityId(r.U32()), House = r.U16(), Houses = r.U8(), At = r.U8(),
                         Delivered = r.U16(), Player = new EntityId(r.U32()),
                     };
+                case EventType.TurretFired:
+                    return new TurretFiredEvent { X = r.U8(), Y = r.U8(), TargetX = r.F32(), TargetZ = r.F32() };
                 case EventType.MailWaiting:
                 {
                     var e = new MailWaitingEvent();

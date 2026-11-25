@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
@@ -32,6 +33,8 @@ namespace PerformativeMail.Sim
         private uint _debugMailTick;
         private int _debugMailNext;
         private readonly List<int> _debugMailKinds = new List<int>();
+        /// <summary>The turret range's practice raiders: the one each target has up, and when the next may come.</summary>
+        private readonly List<(EntityId Up, uint Next)> _debugTargets = new List<(EntityId, uint)>();
 
         /// <summary>At the end of <see cref="SetUpRun"/>: the debug world's showcase, as a carrier would have built it, and its crews hired.</summary>
         private void BuildShowcase()
@@ -42,6 +45,12 @@ namespace PerformativeMail.Sim
             _debugMailTick = 0;
             _debugMailNext = 0;
             _debugMailKinds.Clear();
+            _debugTargets.Clear();
+            foreach (var t in debug.Targets)
+            {
+                if (Content.Enemies.All(e => e.Id != t.Enemy)) throw new InvalidOperationException($"the debug world's target names no enemy '{t.Enemy}'");
+                _debugTargets.Add((EntityId.None, 0));
+            }
             if (debug.Unlimited)
                 foreach (var item in Content.ShopItems)
                     if (item.Kind == ShopKind.Blueprint) Grant(item, EntityId.None);
@@ -79,6 +88,26 @@ namespace PerformativeMail.Sim
                 var d = new DepotDriver { Depot = at, State = DriverState.Waiting, LoadSeen = -1 };
                 _drivers[at] = d;
                 Tell(d, EntityId.None);
+            }
+        }
+
+        /// <summary>A target whose raider is gone stands another up once its seconds have passed (the turret range, raids or not).</summary>
+        private void StepDebugTargets(DebugWorldDef debug)
+        {
+            for (int i = 0; i < _debugTargets.Count && i < debug.Targets.Count; i++)
+            {
+                var (up, next) = _debugTargets[i];
+                if (!up.IsNone)
+                {
+                    if (GetEnemy(up) != null) continue;
+                    _debugTargets[i] = (EntityId.None, Tick + Math.Max(1u, SimConstants.SecondsToTicks(debug.Targets[i].EverySeconds)));
+                    continue;
+                }
+                if (Tick < next) continue;
+                var t = debug.Targets[i];
+                var def = Content.Enemies.First(e => e.Id == t.Enemy);
+                var raider = SpawnEnemy(def, BuildRules.TileCentre(t.X), BuildRules.TileCentre(t.Z));
+                if (raider != null) _debugTargets[i] = (raider.Id, 0);
             }
         }
 
@@ -121,8 +150,9 @@ namespace PerformativeMail.Sim
         {
             var debug = Map.Debug!;
             if (debug.Unlimited) Economy.TopUp(PlaytestMask.MaxWallet);
-            if (Run.Phase != RunPhase.Delivery || Map.Destinations.Count == 0) return;
-            if (Tick < _debugMailTick) return;
+            if (Run.Phase != RunPhase.Delivery) return;
+            StepDebugTargets(debug);
+            if (Map.Destinations.Count == 0 || Tick < _debugMailTick) return;
             _debugMailTick = Tick + Math.Max(1u, SimConstants.SecondsToTicks(debug.MailEverySeconds));
             if (_debugMailKinds.Count < Map.Destinations.Count)
             {
@@ -205,6 +235,10 @@ namespace PerformativeMail.Sim
                     var proof = proofs[p];
                     switch (proof.Kind)
                     {
+                        case ShowcaseProofKind.Fired:
+                            for (int e = from; e < events.Count; e++)
+                                if (events[e] is TurretFiredEvent f && f.X == proof.X && f.Y == proof.Z) _counts[i][p]++;
+                            break;
                         case ShowcaseProofKind.Pumped:
                             _counts[i][p] = world.PumpedCans - _pumpedAtStart;
                             break;

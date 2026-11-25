@@ -58,6 +58,8 @@ namespace PerformativeMail.Net.Tests
                   ""grants"": { ""blueprint"": ""bp_motorboat"" }, ""availability"": { ""fromShift"": 5, ""slot"": ""kit"" }, ""tags"": [""blueprint""] },
                 { ""id"": ""bp_oil"", ""name"": ""Oil"", ""description"": ""Pumps."", ""kind"": ""blueprint"", ""price"": 600,
                   ""grants"": { ""blueprint"": ""bp_oil"" }, ""availability"": { ""fromShift"": 5, ""slot"": ""kit"" }, ""tags"": [""blueprint""] },
+                { ""id"": ""bp_turret"", ""name"": ""Turret"", ""description"": ""Guns."", ""kind"": ""blueprint"", ""price"": 600,
+                  ""grants"": { ""blueprint"": ""bp_turret"" }, ""availability"": { ""fromShift"": 5, ""slot"": ""kit"" }, ""tags"": [""blueprint""] },
                 { ""id"": ""bp_truck"", ""name"": ""Motor Pool"", ""description"": ""Trucks."", ""kind"": ""blueprint"", ""price"": 500,
                   ""grants"": { ""blueprint"": ""bp_truck"" }, ""availability"": { ""fromShift"": 5, ""slot"": ""fixed"" }, ""tags"": [""blueprint""] },
                 { ""id"": ""first_aid_kit"", ""name"": ""First-Aid Kit"", ""description"": ""Five Bandages for the price of four."", ""kind"": ""item"", ""price"": 105,

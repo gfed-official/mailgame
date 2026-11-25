@@ -28,6 +28,17 @@ namespace PerformativeMail.Sim.World
         public IReadOnlyList<(int X, int Z)> Hires { get; init; } = new List<(int, int)>();
         /// <summary>The stations, in the order of their camera bookmarks.</summary>
         public IReadOnlyList<ShowcaseStation> Stations { get; init; } = new List<ShowcaseStation>();
+        /// <summary>The turret range's practice raiders (raids or not): where each stands up, and how often once the last is gone.</summary>
+        public IReadOnlyList<ShowcaseTarget> Targets { get; init; } = new List<ShowcaseTarget>();
+    }
+
+    /// <summary>A raider of <see cref="Enemy"/> put on tile (X, Z) in Delivery, again <see cref="EverySeconds"/> after the last one fell or went.</summary>
+    public sealed class ShowcaseTarget
+    {
+        public string Enemy { get; init; } = "";
+        public int X { get; init; }
+        public int Z { get; init; }
+        public double EverySeconds { get; init; } = 4.0;
     }
 
     /// <summary>One construct of the showcase, as a carrier would build it on (X, Z) turned so.</summary>
@@ -71,6 +82,8 @@ namespace PerformativeMail.Sim.World
         Delivered = 1,
         /// <summary>An Oil Pump filled an Oil Can.</summary>
         Pumped = 2,
+        /// <summary>The turret on tile (X, Z) fired.</summary>
+        Fired = 3,
     }
 
     public sealed class ShowcaseProof
@@ -87,6 +100,7 @@ namespace PerformativeMail.Sim.World
         {
             ShowcaseProofKind.Belt => $"mail on the belt at ({X}, {Z})",
             ShowcaseProofKind.Delivered => $"{("aeiou".IndexOf(Machine.Length > 0 ? Machine[0] : 'x') >= 0 ? "an" : "a")} {Machine} delivery{(To.Length > 0 ? " to " + To : "")}",
+            ShowcaseProofKind.Fired => $"a shot of the turret at ({X}, {Z})",
             _ => "an Oil Can pumped",
         };
     }

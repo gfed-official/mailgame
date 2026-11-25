@@ -102,5 +102,9 @@
   { "id": "oil_pump", "name": "Oil Pump", "footprint": [1, 1], "rotations": 4, "hp": 400,
     "placement": { "onStreet": false }, "behaviour": "pump", "container": "pump_tank",
     "params": { "radius": 0.5, "height": 3.2, "cycleSeconds": 45 },
-    "recipe": "recipe_oil_pump", "tags": ["extractor"] }
+    "recipe": "recipe_oil_pump", "tags": ["extractor"] },
+  { "id": "turret", "name": "Turret", "footprint": [1, 1], "rotations": 4, "hp": 400,
+    "placement": { "onStreet": false }, "behaviour": "turret",
+    "params": { "radius": 0.45, "height": 2.4, "shotDamage": 12, "shotSeconds": 0.5, "range": 18 },
+    "recipe": "recipe_turret", "tags": ["defense"] }
 ]

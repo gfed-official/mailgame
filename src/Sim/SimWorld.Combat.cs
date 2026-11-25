@@ -134,6 +134,7 @@ namespace PerformativeMail.Sim
             StepRaid();
             StepShots();
             StepEnemies();
+            StepTurrets();
             StepLoot();
             StepBags();
         }

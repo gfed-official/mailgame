@@ -918,6 +918,7 @@ namespace PerformativeMail.Sim.Content
                             case "boat": behaviour = BuildingBehaviour.Boat; break;
                             case "port": behaviour = BuildingBehaviour.Port; break;
                             case "pump": behaviour = BuildingBehaviour.Pump; break;
+                            case "turret": behaviour = BuildingBehaviour.Turret; break;
                             // Doc 08 §2.6 names many more; nothing can honour them yet (no belts, no machines, no turrets).
                             default: ctx.Error($"'{id}': behaviour '{behaviourName}' is not built yet"); continue;
                         }
@@ -987,7 +988,15 @@ namespace PerformativeMail.Sim.Content
                             RouteStops = hasParams ? J.Int(ctx, pars, "routeStops", 0) : 0,
                             HireCost = hasParams ? J.Int(ctx, pars, "npcHireCost", 0) : 0,
                             CycleSeconds = hasParams ? (float)J.Num(ctx, pars, "cycleSeconds", 0) : 0f,
+                            ShotDamage = hasParams ? (float)J.Num(ctx, pars, "shotDamage", 0) : 0f,
+                            ShotSeconds = hasParams ? (float)J.Num(ctx, pars, "shotSeconds", 0) : 0f,
+                            ShotRange = hasParams ? (float)J.Num(ctx, pars, "range", 0) : 0f,
                         };
+                        // Doc 05 §4: a turret fires so hard, so often, so far; nothing else fires.
+                        bool turret = behaviour == BuildingBehaviour.Turret;
+                        if (turret ? def.ShotDamage <= 0f || def.ShotSeconds <= 0f || def.ShotRange <= 0f || def.Width != 1 || def.Length != 1
+                            : def.ShotDamage != 0f || def.ShotSeconds != 0f || def.ShotRange != 0f)
+                            ctx.Error($"'{id}': a turret, and only a turret, has params.shotDamage, params.shotSeconds and params.range > 0 (and a footprint of [1, 1])");
                         // Doc 10 §2.3: a pump fills a can in so many seconds, and only a pump has a cycle.
                         if ((behaviour == BuildingBehaviour.Pump) != (def.CycleSeconds > 0f) || (behaviour == BuildingBehaviour.Pump && (def.Width != 1 || def.Length != 1)))
                             ctx.Error($"'{id}': a pump, and only a pump, has params.cycleSeconds > 0 (and a footprint of [1, 1])");

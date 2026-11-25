@@ -611,6 +611,9 @@ namespace PerformativeMail.Client
         /// <summary>When each inserter last moved a piece (doc 04 §2.5), by tile index, as a server tick: its arm swings from it.</summary>
         public Dictionary<int, (double Tick, ushort Kind)> InserterSwings { get; } = new Dictionary<int, (double, ushort)>();
 
+        /// <summary>When each turret last fired (doc 05 §4), by tile index, as a server tick, and where it aimed: its gun turns there and the shot is drawn.</summary>
+        public Dictionary<int, (double Tick, float X, float Z)> TurretShots { get; } = new Dictionary<int, (double, float, float)>();
+
         /// <summary>What each Vehicle Depot's driver does, as the server last said, by the depot's tile index.</summary>
         public Dictionary<int, DriverEvent> Drivers { get; } = new Dictionary<int, DriverEvent>();
 

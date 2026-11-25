@@ -399,7 +399,12 @@ namespace PerformativeMail.Sim.World
                             proofs.Add(new ShowcaseProof { Kind = ShowcaseProofKind.Delivered, Machine = J.Str(ctx, p, "delivered"), To = J.Str(ctx, p, "to", "") });
                         else if (p.TryGetProperty("pumped", out _))
                             proofs.Add(new ShowcaseProof { Kind = ShowcaseProofKind.Pumped });
-                        else ctx.Error("a debug proof is one of \"belt\", \"delivered\" or \"pumped\"");
+                        else if (p.TryGetProperty("fired", out var firedEl))
+                        {
+                            var (fx, fz) = Tile(firedEl, "debug proof fired");
+                            proofs.Add(new ShowcaseProof { Kind = ShowcaseProofKind.Fired, X = fx, Z = fz });
+                        }
+                        else ctx.Error("a debug proof is one of \"belt\", \"delivered\", \"pumped\" or \"fired\"");
                     }
                 stations.Add(new ShowcaseStation
                 {
@@ -408,6 +413,16 @@ namespace PerformativeMail.Sim.World
                     TargetX = (float)target[0], TargetY = (float)target[1], TargetZ = (float)target[2],
                     Proofs = proofs,
                 });
+            }
+
+            var targets = new List<ShowcaseTarget>();
+            foreach (var e in Items("targets"))
+            {
+                if (!e.TryGetProperty("at", out var atEl)) { ctx.Error("a debug target has no 'at'"); continue; }
+                var (x, z) = Tile(atEl, "debug target");
+                double every = J.Num(ctx, e, "everySeconds", 4.0);
+                if (every <= 0) ctx.Error("a debug target's everySeconds must be > 0");
+                targets.Add(new ShowcaseTarget { Enemy = J.Str(ctx, e, "enemy"), X = x, Z = z, EverySeconds = every });
             }
 
             return new DebugWorldDef
@@ -422,6 +437,7 @@ namespace PerformativeMail.Sim.World
                 Vehicles = vehicles,
                 Hires = hires,
                 Stations = stations,
+                Targets = targets,
             };
         }
     }

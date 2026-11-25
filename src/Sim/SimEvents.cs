@@ -492,6 +492,13 @@ namespace PerformativeMail.Sim
         public readonly List<(ushort Dest, ushort Count)> Houses = new List<(ushort, ushort)>();
     }
 
+    /// <summary>The turret on tile (X, Y) fired at a raider standing at (TargetX, TargetZ) (doc 05 §4): the clients turn its gun and draw the shot.</summary>
+    public sealed class TurretFiredEvent : SimEvent
+    {
+        public byte X, Y;
+        public float TargetX, TargetZ;
+    }
+
     public sealed class VehicleFuelEvent : SimEvent
     {
         public EntityId Vehicle;

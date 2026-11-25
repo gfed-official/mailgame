@@ -55,6 +55,7 @@ namespace PerformativeMail.Sim.Tests
                         "pipe" or "pipe_underground" => '|', "pipe_junction" => '+', "pipe_inlet" => 'I', "pipe_outlet" => 'O',
                         "chest" => 'c', "depot" => 'D', "inserter" or "inserter_long" => 'i',
                         "vehicle_depot" => 'V', "small_port" => 'P', "oil_pump" => 'p',
+                        "turret" => 'T',
                         _ => '?',
                     } : map.GetTile(x, z) switch
                     {
@@ -79,7 +80,8 @@ namespace PerformativeMail.Sim.Tests
             Assert.DoesNotContain("debug_world", SimWorld.WorldChoices);
             var debug = map.Debug!;
             Assert.True(debug.GodMode && debug.Unlimited && debug.NoTimer && !debug.Raids);
-            Assert.Equal(10, debug.Stations.Count);
+            Assert.Equal(11, debug.Stations.Count);
+            Assert.Equal(("barbarian", 57, 2), (debug.Targets.Single().Enemy, debug.Targets.Single().X, debug.Targets.Single().Z));
             Assert.All(debug.Stations, s => Assert.NotEmpty(s.Proofs));
             Assert.Null(Db.Map("test_street").Debug);
         }
@@ -150,7 +152,9 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(RunPhase.Delivery, world.Run.Phase);
             Assert.True(world.Run.PhaseEndTick > end);
             Assert.Equal(Combat.RaidState.None, world.Raid);
-            Assert.Empty(world.Enemies);
+            // Only the turret range's practice raider, within the turret's reach.
+            var turret = world.Constructs.At(54, 10)!;
+            Assert.All(world.Enemies, e => Assert.InRange(MathF.Sqrt((e.X - turret.CentreX) * (e.X - turret.CentreX) + (e.Z - turret.CentreZ) * (e.Z - turret.CentreZ)), 0f, 18f));
 
             // A wall out of empty pockets, by the spawn pad.
             foreach (var c in new[] { host.Hotbar, host.Inventory })
@@ -163,6 +167,20 @@ namespace PerformativeMail.Sim.Tests
             world.Step();
             Assert.Equal(OpResult.Ok, world.Events.OfType<RequestResultEvent>().Single(e => e.RequestId == 77).Result);
             Assert.Equal(wall, world.Constructs.At(10, 15)!.Def);
+        }
+
+        [Fact]
+        public void TheTurretRange_ARaiderStandsUp_IsShotDown_AndAnotherComes()
+        {
+            var (world, _) = Start();
+            var turret = world.Constructs.At(54, 10)!;
+            Assert.True(turret.Def.IsTurret);
+            int killed = world.EnemiesKilledTotal;
+            SimDriver.StepTicks(world, 20 * Tps);
+            Assert.True(world.EnemiesKilledTotal - killed >= 2, $"{world.EnemiesKilledTotal - killed} practice raiders fell in 20 s");
+            Assert.True(world.TurretShots >= 10);
+            // Nothing of the showcase was broken by them.
+            Assert.All(world.Constructs.All, c => Assert.Equal(c.Def.Hp, c.Hp));
         }
 
         [Fact]

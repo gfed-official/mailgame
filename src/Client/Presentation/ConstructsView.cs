@@ -60,6 +60,21 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Oil Pumps nodding, as of the last frame (for the smoke).</summary>
         public int PumpsNodding { get; private set; }
         private float _blink;
+        /// <summary>Each turret's gun head (turned about its pedestal), its muzzle flash and its tracer.</summary>
+        private readonly System.Collections.Generic.List<TurretGun> _guns = new System.Collections.Generic.List<TurretGun>();
+
+        private sealed class TurretGun
+        {
+            public Construct Built = null!;
+            public Node3D Head = null!;
+            public MeshInstance3D Flash = null!, Tracer = null!;
+            public float Yaw;
+            public double Drawn = -1;
+        }
+
+        /// <summary>Turret shots the view has taken up since it began (for the smoke), and turrets whose gun is turned on a raider this frame.</summary>
+        public int TurretShotsDrawn { get; private set; }
+        public int TurretsAiming { get; private set; }
 
         /// <summary>Gates swinging open (a carrier is near), and Alarm Post lamps lit, as of the last frame.</summary>
         public int GatesOpening { get; private set; }
@@ -151,6 +166,120 @@ namespace PerformativeMail.Client.Presentation
                 if (working) nodding++;
             }
             PumpsNodding = nodding;
+
+            // A turret's gun turns on the raider it last shot at, or the nearest one in its range;
+            // a shot is a muzzle flash and a tracer to where the raider stood, for a tenth of a second.
+            int aiming = 0;
+            foreach (var g in _guns)
+            {
+                var c = g.Built;
+                float tx = float.NaN, tz = 0f;
+                bool recent = world.TurretShots.TryGetValue(c.Tz * world.Map.Cols + c.Tx, out var shot);
+                if (recent && world.ServerTick - shot.Tick < SimConstants.TickRate) (tx, tz) = (shot.X, shot.Z);
+                else
+                {
+                    float best = c.Def.ShotRange * c.Def.ShotRange;
+                    foreach (var e in world.Enemies.Values)
+                    {
+                        float dx = e.X - c.CentreX, dz = e.Z - c.CentreZ, d = dx * dx + dz * dz;
+                        if (d <= best) { best = d; tx = e.X; tz = e.Z; }
+                    }
+                }
+                if (!float.IsNaN(tx))
+                {
+                    float want = Mathf.Atan2(tx - c.CentreX, tz - c.CentreZ);
+                    g.Yaw = Mathf.RotateToward(g.Yaw, want, delta * TurretTurnRate);
+                    aiming++;
+                }
+                g.Head.Rotation = new Vector3(0f, g.Yaw, 0f);
+                bool flash = recent && world.ServerTick - shot.Tick < SimConstants.TickRate * 0.1;
+                g.Flash.Visible = flash;
+                g.Tracer.Visible = flash;
+                if (flash)
+                {
+                    var muzzle = g.Head.GlobalPosition + new Vector3(Mathf.Sin(g.Yaw), 0f, Mathf.Cos(g.Yaw)) * TurretMuzzle;
+                    var to = new Vector3(shot.X, world.Map.HeightAt(shot.X, shot.Z) + 1.1f, shot.Z);
+                    var span = to - muzzle;
+                    float len = span.Length();
+                    if (len > 0.1f)
+                    {
+                        g.Tracer.GlobalTransform = new Transform3D(new Basis(Vector3.Up, Mathf.Atan2(span.X, span.Z)) * new Basis(Vector3.Right, -Mathf.Asin(span.Y / len)), (muzzle + to) * 0.5f);
+                        g.Tracer.Scale = new Vector3(1f, 1f, len);
+                    }
+                }
+                if (recent && g.Drawn != shot.Tick) { g.Drawn = shot.Tick; TurretShotsDrawn++; }
+            }
+            TurretsAiming = aiming;
+        }
+
+        /// <summary>Radians a second a turret's gun turns; how far ahead of the pedestal its muzzle is.</summary>
+        private const float TurretTurnRate = 6f, TurretMuzzle = 0.95f, TurretHeadHeight = 1.45f;
+
+        /// <summary>A turret's gun head on its own node over the pedestal, with the flash at the muzzle and the tracer (both hidden till it fires).</summary>
+        private void TurretHead(Construct c, Vector3 at, float yaw, bool worn)
+        {
+            var head = new Node3D { Name = $"Turret{c.Tx}_{c.Tz}", Position = at + new Vector3(0f, TurretHeadHeight, 0f), Rotation = new Vector3(0f, yaw, 0f) };
+            var batch = new MeshBatch();
+            TurretHeadInto(batch, null, worn);
+            batch.Flush(head, "Gun");
+            var flash = MeshKit.Instance(MeshKit.Sphere(0.16f, 10), MeshKit.Glow(new Color("ffd27a"), 6f), new Vector3(0f, 0.02f, TurretMuzzle), default, "Flash");
+            flash.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            flash.Visible = false;
+            head.AddChild(flash);
+            _built!.AddChild(head);
+            var tracer = MeshKit.Instance(MeshKit.Box(new Vector3(0.04f, 0.04f, 1f)), MeshKit.Glow(new Color("ffe9a8"), 4f), at, default, $"Tracer{c.Tx}_{c.Tz}");
+            tracer.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            tracer.Visible = false;
+            _built.AddChild(tracer);
+            _guns.Add(new TurretGun { Built = c, Head = head, Flash = flash, Tracer = tracer, Yaw = yaw });
+        }
+
+        /// <summary>
+        /// A turret's base: a concrete pad, a squat steel ring with hazard trim and a pedestal up to
+        /// the gun's bearing (the gun is drawn apart, as it turns; the ghost has it in, ahead).
+        /// </summary>
+        public static void TurretBase(MeshBatch batch, Vector3 at, int facing, Material? only, bool worn)
+        {
+            var pad = only ?? MeshKit.Mat(worn ? new Color("6d6a64") : new Color("a8a49b"), 0.9f);
+            var steel = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            batch.Box(at + new Vector3(0f, 0.08f, 0f), new Vector3(1.8f, 0.16f, 1.8f), pad, 0.05f);
+            batch.Add(MeshKit.Cylinder(0.72f, 0.8f, 0.36f, 20), steel, at + new Vector3(0f, 0.34f, 0f));
+            batch.Add(MeshKit.Cylinder(0.74f, 0.74f, 0.08f, 20), orange, at + new Vector3(0f, 0.56f, 0f));
+            // Four bolted feet round the ring.
+            for (int k = 0; k < 4; k++)
+            {
+                float a = k * Mathf.Pi * 0.5f + Mathf.Pi * 0.25f;
+                batch.Box(at + new Vector3(Mathf.Sin(a) * 0.72f, 0.22f, Mathf.Cos(a) * 0.72f), new Vector3(0.22f, 0.12f, 0.22f), dark, 0.03f, new Vector3(0f, Mathf.RadToDeg(a), 0f));
+            }
+            batch.Add(MeshKit.Cylinder(0.3f, 0.38f, 0.8f, 16), dark, at + new Vector3(0f, 0.98f, 0f));
+            batch.Add(MeshKit.Cylinder(0.46f, 0.46f, 0.1f, 18), steel, at + new Vector3(0f, 1.36f, 0f));
+            if (only == null) return;
+            var old = batch.Frame;
+            batch.Frame = new Transform3D(new Basis(Vector3.Up, PumpYaw(facing)), at + new Vector3(0f, TurretHeadHeight, 0f));
+            TurretHeadInto(batch, only, worn);
+            batch.Frame = old;
+        }
+
+        /// <summary>The gun head about its bearing (its origin), pointing +Z: a sloped steel housing, twin barrels with shrouds, an ammo drum and a sight.</summary>
+        private static void TurretHeadInto(MeshBatch batch, Material? only, bool worn)
+        {
+            var steel = only ?? MeshKit.Mat(worn ? SorterDark : SorterBody, 0.45f, 0.6f);
+            var dark = only ?? MeshKit.Mat(SorterDark, 0.6f, 0.4f);
+            var orange = only ?? MeshKit.Mat(SorterTrim, 0.5f, 0.2f);
+            var barrel = only ?? MeshKit.Mat(new Color("26272b"), 0.35f, 0.8f);
+            batch.Box(new Vector3(0f, 0.12f, -0.05f), new Vector3(0.78f, 0.42f, 0.9f), steel, 0.08f);
+            batch.Box(new Vector3(0f, 0.36f, -0.12f), new Vector3(0.6f, 0.12f, 0.6f), steel, 0.05f, new Vector3(-8f, 0f, 0f));
+            batch.Box(new Vector3(0f, 0.12f, 0.42f), new Vector3(0.62f, 0.3f, 0.1f), orange, 0.03f);
+            var along = new Basis(Vector3.Right, Mathf.Pi * 0.5f);
+            for (int k = -1; k <= 1; k += 2)
+            {
+                batch.Add(MeshKit.Cylinder(0.075f, 0.075f, 0.32f, 12), dark, new Transform3D(along, new Vector3(k * 0.17f, 0.1f, 0.6f)));
+                batch.Add(MeshKit.Cylinder(0.045f, 0.045f, 0.62f, 10), barrel, new Transform3D(along, new Vector3(k * 0.17f, 0.1f, TurretMuzzle - 0.3f)));
+            }
+            batch.Add(MeshKit.Cylinder(0.2f, 0.2f, 0.22f, 16), dark, new Transform3D(new Basis(Vector3.Forward, Mathf.Pi * 0.5f), new Vector3(0.5f, 0.08f, -0.15f)));
+            batch.Box(new Vector3(-0.22f, 0.48f, 0.1f), new Vector3(0.1f, 0.12f, 0.24f), dark, 0.02f);
         }
 
         /// <summary>One nod of a pump's beam, down and up.</summary>
@@ -239,6 +368,9 @@ namespace PerformativeMail.Client.Presentation
             _lamps.Clear();
             _arms.Clear();
             _beams.Clear();
+            var yaws = new System.Collections.Generic.Dictionary<Construct, float>();
+            foreach (var g in _guns) yaws[g.Built] = g.Yaw;
+            _guns.Clear();
             foreach (var c in field.All)
             {
                 var at = new Vector3(c.X, world.Map.HeightAt(c.X, c.Z), c.Z);
@@ -277,6 +409,7 @@ namespace PerformativeMail.Client.Presentation
                     _built.AddChild(holder);
                     _beams.Add((c, beam));
                 }
+                else if (c.Def.IsTurret) TurretHead(c, at, yaws.TryGetValue(c, out float yaw) ? yaw : PumpYaw(c.Rotation & 3), c.Hp * 2 < c.Def.Hp);
                 else if (c.Def.Behaviour == BuildingBehaviour.Alarm)
                 {
                     var lamp = MeshKit.Instance(MeshKit.Sphere(0.11f, 12), MeshKit.Glow(new Color("ff2a1a"), 4f), at + new Vector3(0f, AlarmLampHeight, 0f), default, $"AlarmLamp{c.Tx}_{c.Tz}");
@@ -1050,6 +1183,9 @@ namespace PerformativeMail.Client.Presentation
                     return;
                 case BuildingBehaviour.Pump:
                     OilPump(batch, at, rotation & 3, only, worn);
+                    return;
+                case BuildingBehaviour.Turret:
+                    TurretBase(batch, at, rotation & 3, only, worn);
                     return;
                 case BuildingBehaviour.Boat:
                     // Only ever a ghost: what is placed is the boat itself (VehiclesView).

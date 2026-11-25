@@ -317,6 +317,12 @@ namespace PerformativeMail.Sim.Content
         /// <see cref="BuildingDef.CycleSeconds"/> of Prep and Delivery, no power drawn.
         /// </summary>
         Pump = 15,
+        /// <summary>
+        /// Doc 05 §4 Turret: one tile; it fires <see cref="BuildingDef.ShotDamage"/> at the nearest
+        /// raider within <see cref="BuildingDef.ShotRange"/> every <see cref="BuildingDef.ShotSeconds"/>,
+        /// never at a carrier.
+        /// </summary>
+        Turret = 16,
     }
 
     /// <summary>What a piece of a pipe network is (doc 08 §2.6 "inlet/outlet/junction role").</summary>
@@ -417,6 +423,11 @@ namespace PerformativeMail.Sim.Content
         public float WarningBonusSeconds { get; init; }
         /// <summary>An alarm: how far round it the raid is in range, and the raiders are marked.</summary>
         public float RevealRadius { get; init; }
+        /// <summary>A turret: damage of one shot, seconds between shots, metres it reaches (doc 05 §4: 12, 0.5, 18).</summary>
+        public float ShotDamage { get; init; }
+        public float ShotSeconds { get; init; }
+        public float ShotRange { get; init; }
+        public bool IsTurret => Behaviour == BuildingBehaviour.Turret;
         /// <summary>A belt: metres a second (doc 11: Mk1 2, Mk2 4, Mk3 6).</summary>
         public float Speed { get; init; }
         /// <summary>Laid in a line by dragging (doc 04 §1.1: belts, pipes, walls).</summary>

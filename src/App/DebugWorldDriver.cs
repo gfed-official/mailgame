@@ -110,6 +110,7 @@ namespace PerformativeMail.App
                     Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"{client.ContainerDesyncs} container desyncs, {client.BadPackets} bad packets");
                     Check(_screen.BeltItems.Drawn > 0, "no mail is drawn on the belts");
                     Check(_screen.Constructs.PumpsNodding > 0, "the Oil Pump does not nod");
+                    Check(_screen.Constructs.TurretShotsDrawn > 0 && world.TurretShots.Count > 0, $"the turret's shots are not drawn ({_screen.Constructs.TurretShotsDrawn} taken up, {world.TurretShots.Count} told)");
                     Check(Server.Economy.ShiftMisdeliveries == 0, $"{Server.Economy.ShiftMisdeliveries} misdeliveries");
                     Next(Stage.Toggles);
                     return;

@@ -245,6 +245,7 @@ namespace PerformativeMail.Sim
         private void ClearConstructs()
         {
             ClearDrivers();
+            ClearTurrets();
             ClearBelts();
             ClearPipes();
             if (Constructs.All.Count == 0) return;

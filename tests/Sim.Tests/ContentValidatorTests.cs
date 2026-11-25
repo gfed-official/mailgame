@@ -35,7 +35,7 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal(Program.ExitOk, Run(_dir, "content"));
             Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 14 containers, 15 items, 2 maps", _out.ToString());
-            Assert.Contains("22 shop entries, 6 resource nodes, 26 buildings, 4 vehicles, 3 kits;", _out.ToString());
+            Assert.Contains("23 shop entries, 6 resource nodes, 27 buildings, 4 vehicles, 3 kits;", _out.ToString());
             Assert.Contains($"content hash {TestContent.Db.ContentHash:x8}", _out.ToString());
             Assert.Equal("", _err.ToString());
         }
@@ -141,7 +141,7 @@ namespace PerformativeMail.Sim.Tests
             File.WriteAllText(Content("buildings/buildings.json"), buildings.Substring(0, end)
                 .Replace("\"rotations\": 2, \"hp\": 300", "\"rotations\": 3, \"hp\": 70000")
                 .Replace("\"radius\": 0.45", "\"radius\": 0.8")
-                + ", { \"id\": \"belt\", \"name\": \"Belt\", \"footprint\": [1, 1], \"hp\": 50, \"behaviour\": \"turret\", \"params\": { \"radius\": 0.2, \"height\": 0.2 }, \"recipe\": \"recipe_belt\" }"
+                + ", { \"id\": \"belt\", \"name\": \"Belt\", \"footprint\": [1, 1], \"hp\": 50, \"behaviour\": \"catapult\", \"params\": { \"radius\": 0.2, \"height\": 0.2 }, \"recipe\": \"recipe_belt\" }"
                 + ", { \"id\": \"barn\", \"name\": \"Barn\", \"footprint\": [2, 2], \"hp\": 50, \"placement\": { \"onStreet\": true }, \"behaviour\": \"wall\", \"container\": \"chest\","
                 + " \"params\": { \"radius\": 0.2, \"height\": 2 }, \"recipe\": \"recipe_barn\" }]");
             File.WriteAllText(Content("recipes/recipes.json"),
@@ -155,7 +155,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("'wall_wood': rotations must be 1, 2 or 4", err);
             Assert.Contains("'wall_wood': hp must be in 1..65535", err);
             Assert.Contains("'chest': params.radius must be in (0, 0.5]", err);
-            Assert.Contains("'belt': behaviour 'turret' is not built yet", err);
+            Assert.Contains("'belt': behaviour 'catapult' is not built yet", err);
             Assert.Contains("'barn': a footprint of [1, 1] (a ramp: [1, 2], a sorter: [2, 2], a container [1, 1] or [2, 2], a vehicle depot [3, 3], a pier [1, 3], a port [3, 4])", err);
             Assert.Contains("'barn': only an elevated belt and an underground pipe are built on a street", err);
             Assert.Contains("'barn': only a building whose behaviour is 'container' or 'pump' has a container", err);

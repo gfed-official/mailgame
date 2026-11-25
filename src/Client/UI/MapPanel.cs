@@ -392,6 +392,7 @@ namespace PerformativeMail.Client.UI
             Sim.Content.BuildingBehaviour.Sorter => new Color("9b7fd1"),
             Sim.Content.BuildingBehaviour.Inserter => new Color("e76f51"),
             Sim.Content.BuildingBehaviour.Pump => new Color("1d1b19"),
+            Sim.Content.BuildingBehaviour.Turret => new Color("c0392b"),
             Sim.Content.BuildingBehaviour.VehicleDepot or Sim.Content.BuildingBehaviour.Port => new Color(0.55f, 0.6f, 0.65f, 0.9f),
             _ => new Color("b0a89a"),
         };

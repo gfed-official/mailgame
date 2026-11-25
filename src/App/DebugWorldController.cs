@@ -7,7 +7,7 @@ namespace PerformativeMail.App
 {
     /// <summary>
     /// The debug world's keys (design choice 119), on a map with a <see cref="WorldMap.Debug"/>
-    /// block only: F1–F5 and F7–F11 put the free camera at the stations' bookmarks (F6 stays the
+    /// block only: F1–F5, F7–F11 and Home put the free camera at the stations' bookmarks (F6 stays the
     /// hot reload), F12 gives the view back to the carrier, the backquote key frees the camera
     /// where it is or gives it back; free, WASD flies it the way it looks, Space and Ctrl lift and
     /// lower it, Shift speeds it up, and the mouse turns it while the carrier stands still. The
@@ -17,7 +17,7 @@ namespace PerformativeMail.App
     public partial class DebugWorldController : Node
     {
         /// <summary>The bookmark keys, station by station.</summary>
-        public static readonly Key[] BookmarkKeys = { Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F7, Key.F8, Key.F9, Key.F10, Key.F11 };
+        public static readonly Key[] BookmarkKeys = { Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.Home };
         public static readonly double[] Scales = { 0.25, 1.0, 4.0 };
         private const float FlySpeed = 8f, FastFlySpeed = 24f, MouseSensitivity = 0.0035f;
 
@@ -152,7 +152,7 @@ namespace PerformativeMail.App
         public static string Line(DebugWorldDef debug, bool free, int station, double scale)
         {
             string toggles = (debug.GodMode ? " · god mode" : "") + (debug.Unlimited ? " · unlimited" : "") + (debug.NoTimer ? " · clock stopped" : "");
-            string where = !free ? "F1-F11 stations · ` free camera"
+            string where = !free ? "F1-F11, Home stations · ` free camera"
                 : station >= 0 ? $"{BookmarkKeys[station]}: {debug.Stations[station].Name} · F12 back"
                 : "free camera · WASD Space Ctrl Shift · F12 back";
             return $"DEBUG WORLD{toggles}\ntime {scale:0.##}x (, . /)\n{where}";

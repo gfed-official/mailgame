@@ -10,7 +10,7 @@
   { "id": "recipe_gate", "produces": { "building": "gate" },
     "inputs": [ { "item": "log", "count": 4 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
   { "id": "recipe_alarm_post", "produces": { "building": "alarm_post" },
-    "inputs": [ { "item": "log", "count": 2 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1 },
+    "inputs": [ { "item": "log", "count": 2 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "tower" },
   { "id": "recipe_belt_mk1", "produces": { "building": "belt_mk1" },
     "inputs": [ { "item": "plank", "count": 1 }, { "item": "iron_ingot", "count": 1 } ], "craftSeconds": 0, "unlockShift": 1, "group": "belt" },
   { "id": "recipe_splitter", "produces": { "building": "splitter" },
@@ -51,5 +51,7 @@
   { "id": "recipe_small_port", "produces": { "building": "small_port" },
     "inputs": [ { "item": "plank", "count": 16 }, { "item": "stone", "count": 10 }, { "item": "iron_ingot", "count": 6 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_motorboat", "group": "storage" },
   { "id": "recipe_oil_pump", "produces": { "building": "oil_pump" },
-    "inputs": [ { "item": "iron_ingot", "count": 6 }, { "item": "glass", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_oil", "group": "storage" }
+    "inputs": [ { "item": "iron_ingot", "count": 6 }, { "item": "glass", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_oil", "group": "storage" },
+  { "id": "recipe_turret", "produces": { "building": "turret" },
+    "inputs": [ { "item": "iron_ingot", "count": 6 }, { "item": "stone", "count": 2 } ], "craftSeconds": 0, "unlockShift": 1, "blueprint": "bp_turret", "group": "tower" }
 ]

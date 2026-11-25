@@ -82,10 +82,12 @@
       {"building": "pipe", "from": [34, 15], "to": [32, 15], "rot": 2},
       {"building": "pipe_outlet", "at": [31, 15], "rot": 2, "filters": ["street:Ropewalk"]},
       {"building": "depot", "at": [30, 15], "rot": 2},
-      {"building": "inserter_long", "at": [27, 15], "rot": 2}
+      {"building": "inserter_long", "at": [27, 15], "rot": 2},
+      {"building": "turret", "at": [54, 10], "rot": 3}
     ],
     "vehicles": [{"vehicle": "mail_truck", "bay": [35, 22], "fuelSeconds": 200}, {"vehicle": "motorboat", "bay": [39, 31]}],
     "hire": [[35, 22], [39, 31]],
+    "targets": [{"enemy": "barbarian", "at": [57, 2], "everySeconds": 4}],
     "stations": [
       {"name": "Intake and belt line", "eye": [98.0, 7.0, 40.0], "target": [98.0, 1.5, 53.0], "proofs": [{"belt": [49, 26]}, {"belt": [44, 26]}]},
       {
@@ -121,7 +123,8 @@
         "eye": [57.0, 6.0, 20.0],
         "target": [58.0, 1.0, 31.0],
         "proofs": [{"delivered": "inserter", "to": "1 Ropewalk"}]
-      }
+      },
+      {"name": "Turret range", "eye": [100.0, 6.0, 32.0], "target": [111.0, 1.5, 12.0], "proofs": [{"fired": [54, 10]}]}
     ]
   }
 }

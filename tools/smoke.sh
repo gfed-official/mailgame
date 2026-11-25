@@ -87,7 +87,7 @@ grep -q "^\[smoke\] boats: a Small Port built" "$work/log" || { echo "smoke: no 
 # going through each of them, its toggles, bookmarks, free camera and time scale.
 run_smoke "$work/log-debug" "--profile=$work/profile-debug.json" --debug-world
 grep -q "^\[smoke\] debug world: every station ran" "$work/log-debug" || { echo "smoke: mail did not go through every station of the debug world" >&2; exit 1; }
-grep -q "^\[smoke\] debug world: 10 bookmarks" "$work/log-debug" || { echo "smoke: the debug world's bookmarks were not checked" >&2; exit 1; }
+grep -q "^\[smoke\] debug world: 11 bookmarks" "$work/log-debug" || { echo "smoke: the debug world's bookmarks were not checked" >&2; exit 1; }
 
 # The generated Small Island town (doc 02): twenty seeds make valid towns (SeedViewer), and a bot
 # plays the smoke seed's town for 25 s, the client building it from the seed and checking its hash.

@@ -1783,8 +1783,40 @@ the whole line exists; the sub-lines say which parts do.
             them, a right click takes it off — each on the server — and Esc through the real
             controller takes both down (`route-editor` shot)
 
-Next in this order: M3 Combat (doc 12 M3, doc 05), picking up after what is on main (raids, the
-Wooden and Stone Walls, spikes, the Gate, the Alarm Post, the hammer and the mail cannon).
+### 5. M3 — Combat (doc 12 M3, doc 05), in the docs' order
+
+Picking up after what was already on main from M1 (raids and their waves, the Wooden and Stone
+Walls, the Spike Strip, the Gate, the Alarm Post, the Repair Hammer, the mail cannon, death bags).
+Doc 12's M3 "Defenses" line is the first with a piece still missing.
+
+- [ ] Defenses: walls, gate, spikes, turret (auto and operated), alarm post, repair hammer
+      - [x] Walls, the Gate, spikes, the Alarm Post, the hammer (M1, above)
+      - [x] **The Turret, automatic** (doc 05 §4 "1 tile, 400 HP, Blueprint; 6 Iron Ingot, 2
+            Stone; 12 dmg / 0.5 s, 18 m range; always fires at full rate; targets nearest enemy";
+            design choice 123). `turret` (behaviour `turret`, params `shotDamage` 12, `shotSeconds`
+            0.5, `range` 18; the validator wants all three on a turret and none elsewhere) behind
+            **Blueprint: Turret** (`bp_turret`, $6.00 from shift 3 at the counter), on the Alarm
+            Post's key (the towers, `group: "tower"`). `SimWorld.StepTurrets`, after the raiders
+            move: a turret whose gun is ready shoots the nearest raider within 18 m that is not
+            fleeing, and hits; nobody's kill (its loot lies for anybody); never a carrier.
+            `TurretFiredEvent` (protocol `m2.12`) tells the clients where it aimed. Drawn
+            (`ConstructsView.TurretBase`/`TurretHead`): a concrete pad, a steel ring with orange
+            trim on bolted feet, a pedestal, and a gun head that turns (6 rad/s) on the raider it
+            last shot or the nearest in range — a sloped housing, twin barrels in shrouds, an ammo
+            drum, a sight — with a muzzle flash and a tracer to the raider for a tenth of a second;
+            red on the map screen. `TurretTests` (content; no blueprint, no turret; the nearest
+            first, a shot every 15 ticks, five shots fell a raider and the gun goes on to the next;
+            nothing beyond 18 m, at a fleeing raider or at the carrier beside it), content, shop,
+            key and codec pins. **The debug world's turret range**: a turret at (54, 10) and a
+            practice raider stood up at (57, 2), 17 m off, 4 s after the last one fell (`debug.targets`,
+            raids or not; the toggle test now allows only it), an eleventh station "Turret range"
+            on **Home** with the proof `{"fired": [54, 10]}`; `DebugWorldTests` shoots two down in
+            20 s with nothing of the showcase hurt; the debug-world smoke checks the shots reach the
+            client and the view takes them up
+      - [ ] The turret operated by a carrier (2× the rate, manual aim)
+
+Next in this order: the operated turret, then doc 05's construct damage (ruins and rebuilding,
+item spill), then the enemy traits.
 
 ## How to build and check
 
@@ -3015,6 +3047,12 @@ See "Commands" at the bottom (filled in as the tooling lands).
     be clicked so the editor draws each district's name; drag drops a stop onto another's place;
     a right click takes one off (as a right click steps a card back at the console). The edits
     are the console's requests, nothing new on the wire.
+123. **The turret's sums.** Doc 05 §4 gives damage, rate and range; it is silent on whether a shot
+    can miss, whom a turret's kill belongs to, whether it fires at a raider running away, and where
+    it sits on the build bar. Choice: hitscan, it never misses (as the hammer's blow); the kill is
+    nobody's, the loot lies for anybody; a fleeing raider is let go (the raid is over for it); on
+    the Alarm Post's key as the second tower.
+    The debug world gets a turret range of its own so the turret is seen working without a raid.
 
 ## Commands
 

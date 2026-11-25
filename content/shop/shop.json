@@ -42,5 +42,7 @@
   { "id": "bp_oil", "name": "Blueprint: Oil", "description": "The Oil Pump: an Oil Can every 45 s from an oil seep.", "kind": "blueprint", "price": 600,
     "grants": { "blueprint": "bp_oil" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] },
   { "id": "bp_pipes", "name": "Blueprint: Pneumatics", "description": "Pneumatic pipes: inlets send mail to outlets.", "kind": "blueprint", "price": 700,
-    "grants": { "blueprint": "bp_pipes" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] }
+    "grants": { "blueprint": "bp_pipes" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] },
+  { "id": "bp_turret", "name": "Blueprint: Turret", "description": "Turrets: 12 damage twice a second at raiders within 18 m.", "kind": "blueprint", "price": 600,
+    "grants": { "blueprint": "bp_turret" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] }
 ]
