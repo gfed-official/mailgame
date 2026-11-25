@@ -111,6 +111,7 @@ namespace PerformativeMail.Sim.World
         public static List<Prop> Generate(WorldMap map)
         {
             var props = new List<Prop>();
+            if (map.Bare) return props;
             var rng = new RngStream((uint)(map.SceneryKey ^ (map.SceneryKey >> 32)), "scenery");
             var keepClear = new List<(float X0, float Z0, float X1, float Z1, float R)>();
             var po = map.PostOffice;

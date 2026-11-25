@@ -116,6 +116,28 @@ namespace PerformativeMail.Sim.Mail
             return spawned;
         }
 
+        /// <summary>
+        /// One piece of a kind for a destination, priced as a batch would price it, into the Intake
+        /// (or the backlog): the debug world's steady feed instead of the batches.
+        /// </summary>
+        public MailItem SpawnOne(MailKindDef kind, DestinationDef dest, int shift)
+        {
+            var mix = _content.MailMix;
+            double shiftMult = 1.0 + mix.ShiftMultiplierPerShift * (shift - 1);
+            double distMult = 1.0 + mix.DistanceMultiplierPerDistrict * (dest.Address.District - 1);
+            var item = new MailItem
+            {
+                Id = _nextMailId++,
+                Kind = kind.Index,
+                Address = dest.Address,
+                Value = (ushort)Math.Min(ushort.MaxValue, Math.Round(kind.BaseValue * distMult * shiftMult)),
+                SpawnShift = (byte)shift,
+                DeadlineShift = (byte)(shift + kind.DeadlineOffsetShifts),
+            };
+            ReturnToIntake(item);
+            return item;
+        }
+
         /// <summary>Puts an existing item back into the Intake (or the backlog), e.g. when its carrier leaves.</summary>
         public void ReturnToIntake(MailItem item)
         {

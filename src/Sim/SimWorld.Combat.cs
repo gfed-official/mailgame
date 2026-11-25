@@ -168,7 +168,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         public void DamagePlayer(Player p, float damage, byte enemyKind = 0)
         {
-            if (p.Dead || p.Away || damage <= 0f || Protected(p)) return;
+            if (p.Dead || p.Away || damage <= 0f || Protected(p) || GodMode) return;
             p.LastDamageTick = Tick;
             p.Hp -= damage;
             if (p.Hp > 0f) return;
@@ -860,7 +860,7 @@ namespace PerformativeMail.Sim
             _raidShift = Run.Shift;
             _raidEdgeA = _raidEdgeB = -1;
             var waves = Content.Waves;
-            if (!Settings.Raids || Content.Enemies.Count == 0) return;
+            if (!Settings.Raids || Content.Enemies.Count == 0 || (Map.Debug is { Raids: false } && !RaidsAtShiftStart)) return;
             if (RaidsAtShiftStart)
             {
                 // A shift without a raid of its own borrows the first one there is.

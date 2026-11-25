@@ -23,9 +23,9 @@ namespace PerformativeMail.Sim
         private uint _playtestMail;
 
         /// <summary>True while a player who asked for <see cref="PlaytestFlags.NoTimer"/> is in the game.</summary>
-        public bool ClockStopped => AnyPlaytest(PlaytestFlags.NoTimer);
+        public bool ClockStopped => AnyPlaytest(PlaytestFlags.NoTimer) || Map.Debug is { NoTimer: true };
         /// <summary>True while a player who asked for <see cref="PlaytestFlags.NoQuota"/> is in the game.</summary>
-        public bool QuotaWaived => AnyPlaytest(PlaytestFlags.NoQuota);
+        public bool QuotaWaived => AnyPlaytest(PlaytestFlags.NoQuota) || Map.Debug != null;
         /// <summary>True while a player who asked for <see cref="PlaytestFlags.RaidNow"/> is in the game.</summary>
         public bool RaidsAtShiftStart => AnyPlaytest(PlaytestFlags.RaidNow);
 
@@ -57,7 +57,7 @@ namespace PerformativeMail.Sim
         {
             get
             {
-                int shift = 1;
+                int shift = Map.Debug?.StartShift ?? 1;
                 foreach (var p in _players)
                     if (!p.Away) shift = Math.Max(shift, p.PlaytestShift);
                 return Math.Min(shift, ShiftCount);

@@ -60,7 +60,7 @@ namespace PerformativeMail.Sim
             def = Content.Buildings[r.DestId];
             if (r.Count >= def.Rotations) return OpResult.BadRequest;
             var recipe = def.Recipe;
-            return BuildRules.CheckRecipe(recipe, Run.Shift, recipe.Blueprint == null || _shopOwned.Contains(recipe.Blueprint));
+            return BuildRules.CheckRecipe(recipe, Run.Shift, recipe.Blueprint == null || _shopOwned.Contains(recipe.Blueprint) || Unlimited);
         }
 
         private OpResult PlaceOne(Player player, BuildingDef def, int tx, int tz, int rotation)
@@ -87,17 +87,27 @@ namespace PerformativeMail.Sim
                 foreach (var other in _vehicles) if (other.Def == def.Vehicle) same++;
                 if (same >= Math.Max(1, PresentCount)) return OpResult.OnePerCarrier;
             }
-            if (!BuildRules.HasMaterials(recipe, player.Hotbar, player.Inventory)) return OpResult.MissingMaterials;
-
-            foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, input.Count);
-            CommitContainer(player.Inventory.Id);
-            CommitContainer(player.Hotbar.Id);
+            if (!Unlimited)
+            {
+                if (!BuildRules.HasMaterials(recipe, player.Hotbar, player.Inventory)) return OpResult.MissingMaterials;
+                foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, input.Count);
+                CommitContainer(player.Inventory.Id);
+                CommitContainer(player.Hotbar.Id);
+            }
             if (def.Vehicle != null)
             {
                 var (fx, fz) = Construct.TileOf(0, 0, rotation, 1, 0);
                 AddVehicleAt(def.Vehicle, cx, cz, Vehicle.YawOf(fx, fz, 0f), player.Id);
                 return OpResult.Ok;
             }
+            Erect(def, tx, tz, rotation, player.Id);
+            return OpResult.Ok;
+        }
+
+        /// <summary>Puts a construct up on (tx, tz) turned so, the placement already judged; <paramref name="by"/> is told as its builder.</summary>
+        private Construct Erect(BuildingDef def, int tx, int tz, int rotation, EntityId by)
+        {
+            float cx = BuildRules.TileCentre(tx), cz = BuildRules.TileCentre(tz);
             uint containerId = 0;
             if (def.Container != null)
             {
@@ -111,10 +121,10 @@ namespace PerformativeMail.Sim
             var built = Constructs.Add(def, tx, tz, rotation, def.Hp, containerId);
             Events.Add(new ConstructPlacedEvent
             {
-                Player = player.Id, Building = def.Index, X = (byte)tx, Y = (byte)tz, Rotation = built.Rotation, Hp = (ushort)built.Hp, ContainerId = containerId,
+                Player = by, Building = def.Index, X = (byte)tx, Y = (byte)tz, Rotation = built.Rotation, Hp = (ushort)built.Hp, ContainerId = containerId,
             });
             if (def.Behaviour == BuildingBehaviour.Alarm) SetRaidWarnTick();
-            return OpResult.Ok;
+            return built;
         }
 
         /// <summary>

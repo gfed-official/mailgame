@@ -129,6 +129,7 @@ namespace PerformativeMail.Sim
             ClearConstructs();
             ClearVehicles();
             GiveKits();
+            BuildShowcase();
             foreach (var p in _players)
             {
                 p.Deliveries = 0;
@@ -170,7 +171,8 @@ namespace PerformativeMail.Sim
             foreach (var p in _players) p.ShiftDeliveries = 0;
             double seconds = b.GetForShift("deliverySeconds", Run.Shift);
             // As much mail as the quota of the formula asks for: a perk that lowers the quota does not thin the mail.
-            int spawnValue = (int)Math.Round(quota * Content.MailMix.SpawnOverhead);
+            // The debug world feeds the Intake a piece at a time instead (StepDebugWorld).
+            int spawnValue = Map.Debug != null ? 0 : (int)Math.Round(quota * Content.MailMix.SpawnOverhead);
             Spawner.BeginShift(Run.Shift, Tick + 1, SimConstants.SecondsToTicks(seconds), spawnValue);
             EnterPhase(RunPhase.Delivery, seconds);
             ScheduleRaid();

@@ -1141,6 +1141,12 @@ namespace PerformativeMail.Sim.Content
                     if (map == null) continue;
                     if (db._maps.ContainsKey(map.Id)) ctx.Error($"duplicate map id '{map.Id}'");
                     else db._maps[map.Id] = map;
+                    // The debug world's showcase names buildings and vehicles of the content (design choice 119).
+                    if (map.Debug == null) continue;
+                    foreach (var c in map.Debug.Constructs)
+                        if (!db._buildingsById.ContainsKey(c.Building)) ctx.Error($"debug: unknown building '{c.Building}'");
+                    foreach (var v in map.Debug.Vehicles)
+                        if (!db._vehiclesById.ContainsKey(v.Vehicle)) ctx.Error($"debug: unknown vehicle '{v.Vehicle}'");
                 }
             }
 

@@ -265,6 +265,8 @@ namespace PerformativeMail.Sim.World
                 }
             }
 
+            var debug = root.TryGetProperty("debug", out var debugEl) ? ReadDebug(ctx, debugEl, cols, rows) : null;
+
             var map = new WorldMap
             {
                 Id = id,
@@ -279,6 +281,8 @@ namespace PerformativeMail.Sim.World
                 OilSeeps = seeps,
                 PostOffice = po,
                 Chests = chests,
+                Bare = J.Bool(ctx, root, "bare", false),
+                Debug = debug,
             };
 
             // Interaction points must be standable: inside the map and not inside a solid tile.
@@ -321,6 +325,104 @@ namespace PerformativeMail.Sim.World
             if (ctx.Errors.Count != errorsBefore) return null;
             map.ComputeHash();
             return map;
+        }
+
+        /// <summary>
+        /// The debug world's block (design choice 119): its toggles, the constructs, vehicles and
+        /// crews of the showcase, and its stations. Ids and names are checked against the content
+        /// as the showcase is built (<c>SimWorld.BuildShowcase</c>) and by the content tests.
+        /// </summary>
+        private static DebugWorldDef? ReadDebug(JsonCtx ctx, JsonElement el, int cols, int rows)
+        {
+            if (el.ValueKind != JsonValueKind.Object) { ctx.Error("'debug' must be an object"); return null; }
+            (int, int) Tile(JsonElement e, string what)
+            {
+                double[] at = J.NumArrayOf(ctx, e, what, 2);
+                int x = (int)at[0], z = (int)at[1];
+                if (x < 0 || z < 0 || x >= cols || z >= rows) ctx.Error($"{what} ({x}, {z}) is off the map");
+                return (x, z);
+            }
+            IEnumerable<JsonElement> Items(string field)
+            {
+                if (!el.TryGetProperty(field, out var arr)) yield break;
+                if (arr.ValueKind != JsonValueKind.Array) { ctx.Error($"debug.{field} must be an array"); yield break; }
+                foreach (var e in arr.EnumerateArray()) yield return e;
+            }
+
+            var constructs = new List<ShowcaseConstruct>();
+            foreach (var e in Items("constructs"))
+            {
+                string building = J.Str(ctx, e, "building");
+                int rot = J.Int(ctx, e, "rot", 0);
+                var filters = e.TryGetProperty("filters", out _) ? J.StrArray(ctx, e, "filters") : new List<string>();
+                // A straight run of one kind, as a drag lays it: "from" to "to", each tile turned so.
+                if (e.TryGetProperty("from", out var fromEl) && e.TryGetProperty("to", out var toEl))
+                {
+                    var (x0, z0) = Tile(fromEl, $"debug {building} from");
+                    var (x1, z1) = Tile(toEl, $"debug {building} to");
+                    if (x0 != x1 && z0 != z1) { ctx.Error($"debug {building} line ({x0}, {z0})-({x1}, {z1}) is not straight"); continue; }
+                    int n = Math.Max(Math.Abs(x1 - x0), Math.Abs(z1 - z0));
+                    for (int i = 0; i <= n; i++)
+                        constructs.Add(new ShowcaseConstruct { Building = building, X = x0 + Math.Sign(x1 - x0) * i, Z = z0 + Math.Sign(z1 - z0) * i, Rotation = rot, Filters = filters });
+                    continue;
+                }
+                if (!e.TryGetProperty("at", out var atEl)) { ctx.Error($"debug {building}: 'at' or 'from' and 'to' are missing"); continue; }
+                var (x, z) = Tile(atEl, $"debug {building}");
+                constructs.Add(new ShowcaseConstruct { Building = building, X = x, Z = z, Rotation = rot, Filters = filters });
+            }
+
+            var vehicles = new List<ShowcaseVehicle>();
+            foreach (var e in Items("vehicles"))
+            {
+                if (!e.TryGetProperty("bay", out var bayEl)) { ctx.Error("a debug vehicle has no 'bay'"); continue; }
+                var (x, z) = Tile(bayEl, "debug vehicle bay");
+                vehicles.Add(new ShowcaseVehicle { Vehicle = J.Str(ctx, e, "vehicle"), BayX = x, BayZ = z, FuelSeconds = (float)J.Num(ctx, e, "fuelSeconds", -1.0) });
+            }
+
+            var hires = new List<(int, int)>();
+            foreach (var e in Items("hire")) hires.Add(Tile(e, "debug hire"));
+
+            var stations = new List<ShowcaseStation>();
+            foreach (var e in Items("stations"))
+            {
+                double[] eye = J.NumArray(ctx, e, "eye", 3), target = J.NumArray(ctx, e, "target", 3);
+                var proofs = new List<ShowcaseProof>();
+                if (e.TryGetProperty("proofs", out var proofsEl) && proofsEl.ValueKind == JsonValueKind.Array)
+                    foreach (var p in proofsEl.EnumerateArray())
+                    {
+                        if (p.TryGetProperty("belt", out var beltEl))
+                        {
+                            var (bx, bz) = Tile(beltEl, "debug proof belt");
+                            proofs.Add(new ShowcaseProof { Kind = ShowcaseProofKind.Belt, X = bx, Z = bz });
+                        }
+                        else if (p.TryGetProperty("delivered", out _))
+                            proofs.Add(new ShowcaseProof { Kind = ShowcaseProofKind.Delivered, Machine = J.Str(ctx, p, "delivered"), To = J.Str(ctx, p, "to", "") });
+                        else if (p.TryGetProperty("pumped", out _))
+                            proofs.Add(new ShowcaseProof { Kind = ShowcaseProofKind.Pumped });
+                        else ctx.Error("a debug proof is one of \"belt\", \"delivered\" or \"pumped\"");
+                    }
+                stations.Add(new ShowcaseStation
+                {
+                    Name = J.Str(ctx, e, "name"),
+                    EyeX = (float)eye[0], EyeY = (float)eye[1], EyeZ = (float)eye[2],
+                    TargetX = (float)target[0], TargetY = (float)target[1], TargetZ = (float)target[2],
+                    Proofs = proofs,
+                });
+            }
+
+            return new DebugWorldDef
+            {
+                StartShift = J.Int(ctx, el, "startShift", 5),
+                MailEverySeconds = J.Num(ctx, el, "mailEverySeconds", 1.0),
+                GodMode = J.Bool(ctx, el, "godMode", true),
+                Unlimited = J.Bool(ctx, el, "unlimited", true),
+                NoTimer = J.Bool(ctx, el, "noTimer", true),
+                Raids = J.Bool(ctx, el, "raids", false),
+                Constructs = constructs,
+                Vehicles = vehicles,
+                Hires = hires,
+                Stations = stations,
+            };
         }
     }
 }

@@ -327,6 +327,7 @@ namespace PerformativeMail.Sim
                 if (Paused) return;
             }
             Tick++;
+            int mark = Events.Count;
             ApplyRequests();
             StepPlayers();
             StepVehicles();
@@ -341,6 +342,8 @@ namespace PerformativeMail.Sim
             StepMail();
             StepAway();
             StepRun();
+            if (Map.Debug != null) StepDebugWorld();
+            Showcase?.Observe(this, Events, Math.Min(mark, Events.Count));
         }
 
         private void StepPlayers()

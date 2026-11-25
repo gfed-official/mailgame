@@ -27,6 +27,9 @@ namespace PerformativeMail.Sim
         /// <summary>Ticks of work into a pump's next can (0 when it has just filled one or stands idle).</summary>
         public uint PumpWork(Construct pump) => _pumpWork.TryGetValue(pump, out uint t) ? t : 0;
 
+        /// <summary>Oil Cans the pumps have filled since the world began (the debug world's proof).</summary>
+        public int PumpedCans { get; private set; }
+
         private void StepPumps()
         {
             if (Run.Phase != RunPhase.Prep && Run.Phase != RunPhase.Delivery) return;
@@ -50,6 +53,7 @@ namespace PerformativeMail.Sim
                     {
                         InventoryOps.AutoPlace(Content, tank, stack, _entryIds);
                         CommitContainer(tank.Id);
+                        PumpedCans++;
                         work = 0;
                     }
                     _pumpWork[pump] = work;

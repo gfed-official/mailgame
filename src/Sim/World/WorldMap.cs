@@ -151,6 +151,10 @@ namespace PerformativeMail.Sim.World
         public IReadOnlyList<DestinationDef> Houses => _houses ??= new List<DestinationDef>(System.Linq.Enumerable.Where(Destinations, d => !d.IsDock));
         public PostOfficeDef PostOffice { get; init; } = new PostOfficeDef();
         public IReadOnlyList<MapChestDef> Chests { get; init; } = Array.Empty<MapChestDef>();
+        /// <summary>A map file's <c>"bare": true</c>: no scenery and no resource nodes grow on it (the debug world).</summary>
+        public bool Bare { get; init; }
+        /// <summary>The debug world's showcase and toggles (<see cref="DebugWorldDef"/>); null on every other map.</summary>
+        public DebugWorldDef? Debug { get; init; }
         /// <summary>The island around a generated town (doc 02 §3.1–§3.2); null for a map from a file.</summary>
         public IslandTerrain? Terrain { get; init; }
         /// <summary>Street furniture and greenery, derived from the map itself (<see cref="Scenery"/>).</summary>
