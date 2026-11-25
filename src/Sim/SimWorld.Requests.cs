@@ -76,6 +76,7 @@ namespace PerformativeMail.Sim
                 case RequestKind.Refuel: return RefuelOp(player, r);
                 case RequestKind.Ping: return PingOp(player, r);
                 case RequestKind.OperateTurret: return OperateTurretOp(player, r);
+                case RequestKind.RebuildRuin: return RebuildRuinOp(player, r);
                 case RequestKind.SetKit: return SetKitOp(player, r);
                 case RequestKind.SetWorld: return SetWorldOp(player, r);
                 default: return OpResult.BadRequest;

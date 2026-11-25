@@ -1289,6 +1289,12 @@ namespace PerformativeMail.Client
                     }
                     tone = PromptTone.Mismatch;
                     return $"{recipe.Building.Name}   ·   {PlaceReason(world, recipe, g.State)}{RampNote(recipe.Building, g.Rotation)}";
+                case BuildAim.Construct when world.IsRuin(g.Target!):
+                {
+                    string name = g.Target!.Def.Name;
+                    if (g.State == OpResult.OutOfRange) { tone = PromptTone.Mismatch; return $"Ruin of the {name}   ·   too far away to clear"; }
+                    return $"Clear the ruin of the {name}   ·   for nothing   [hold RMB]";
+                }
                 case BuildAim.Construct:
                 {
                     var built = g.Target!;
@@ -1459,6 +1465,43 @@ namespace PerformativeMail.Client
             }
         }
 
+        /// <summary>"Stone x2": what rebuilding a ruin of the building takes (doc 05 §5).</summary>
+        public static string RuinCost(BuildingDef def)
+        {
+            var parts = new List<string>();
+            foreach (var input in def.Recipe.Inputs)
+            {
+                int n = BuildRules.RuinCost(input.Count, def.RuinRebuildRatio);
+                if (n > 0) parts.Add($"{input.Item.Name} {Count(n)}");
+            }
+            return parts.Count == 0 ? "nothing" : string.Join(", ", parts);
+        }
+
+        private static string AsItWas(BuildingDef def) =>
+            def.HasConsole ? ", with its route" : def.FilterOutputs > 0 ? ", with its filters" : "";
+
+        /// <summary>The event feed's line for a ruin rebuilt or cleared away.</summary>
+        public static string RuinGone(ClientWorld world, RuinEvent e, BuildingDef def)
+        {
+            string who = e.Player == world.LocalId ? "You" : world.Players.TryGetValue(e.Player, out var p) ? p.Name : "Someone";
+            return e.Rebuilt ? $"{who} rebuilt the {def.Name}" : $"{who} cleared away the ruin of the {def.Name}";
+        }
+
+        /// <summary>Why a ruin was not rebuilt or cleared.</summary>
+        public static string RuinRefused(OpResult result)
+        {
+            switch (result)
+            {
+                case OpResult.WrongPhase: return "A ruin is rebuilt in Prep; in Delivery it can only be cleared away";
+                case OpResult.MissingMaterials: return "Not enough in your pockets to rebuild it";
+                case OpResult.OutOfRange: return "Too far away";
+                case OpResult.Occupied: return "Somebody stands in the way";
+                case OpResult.Dead: return "Not while you are down";
+                case OpResult.BadRequest: return "It is not there any more";
+                default: return "";
+            }
+        }
+
         /// <summary>"2×": how many times as often an operated turret fires.</summary>
         private static string Rate(float rate) => rate.ToString("0.#", CultureInfo.InvariantCulture) + "×";
 
@@ -1518,7 +1561,7 @@ namespace PerformativeMail.Client
         /// <summary>The event feed's line for what is gone: taken down, or broken by the raiders.</summary>
         public static string Unbuilt(ClientWorld world, EntityId player, BuildingDef def, bool destroyed)
         {
-            if (destroyed) return $"The raiders broke {WithArticle(def.Name)}";
+            if (destroyed) return $"The raiders broke {WithArticle(def.Name)}: its ruin is left, rebuilt in Prep for half its cost";
             bool me = player == world.LocalId;
             string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
             return $"{who} took down {WithArticle(def.Name)}";
@@ -1588,6 +1631,18 @@ namespace PerformativeMail.Client
                         : p.Vehicle.NpcDriving ? $"Take the wheel of the {p.Vehicle.Def.Name}  [E]   ·   the {(p.Vehicle.Def.OnWater ? "captain stands by" : "driver moves over")}"
                         : $"Drive the {p.Vehicle.Def.Name}  [E]   ·   {FuelText(p.Vehicle)}";
                 case InteractKind.Refuel: return $"Refuel the {p.Vehicle!.Def.Name} with an Oil Can  [E]   ·   {FuelText(p.Vehicle)}";
+                case InteractKind.RebuildRuin:
+                {
+                    string name = p.Built!.Def.Name, cost = RuinCost(p.Built.Def);
+                    switch (world.RebuildState(p.Built))
+                    {
+                        case OpResult.Ok: return $"Rebuild the {name}  [E]   ·   {cost} (half its cost){AsItWas(p.Built.Def)}";
+                        case OpResult.MissingMaterials: tone = PromptTone.Mismatch; return $"Ruin of the {name}   ·   rebuilding it takes {cost}";
+                        default: tone = PromptTone.Mismatch; return $"Ruin of the {name}   ·   {PlaceReason(world, p.Built.Def.Recipe, world.RebuildState(p.Built))}";
+                    }
+                }
+                case InteractKind.ClearRuin:
+                    return $"Clear the ruin of the {p.Built!.Def.Name}  [E]   ·   rebuilt in Prep for half its cost, or anew at full cost";
                 case InteractKind.OperateTurret: return $"Operate the {p.Built!.Def.Name}  [E]   ·   aimed by hand, {Rate(p.Built.Def.OperatedRate)} the rate";
                 case InteractKind.LeaveTurret: return $"At the {p.Built!.Def.Name}'s controls   ·   [LMB] fire where you look   ·   [E] let go";
                 case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOff(world, p.Vehicle)}{FuelNote(p.Vehicle)}";

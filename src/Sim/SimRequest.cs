@@ -83,6 +83,11 @@ namespace PerformativeMail.Sim
         /// <see cref="SimRequest.Y"/>) (<see cref="SimRequest.Count"/> 1), or let go of them (0).
         /// </summary>
         OperateTurret = 27,
+        /// <summary>
+        /// Doc 05 §5: at the ruin on tile (<see cref="SimRequest.X"/>, <see cref="SimRequest.Y"/>),
+        /// rebuild it in Prep for a part of its cost (<see cref="SimRequest.Count"/> 1), or clear it away for nothing (0).
+        /// </summary>
+        RebuildRuin = 28,
     }
 
     /// <summary>What a ping says (doc 09 §2.6: a click, or the wheel's "Deliver here", "Build here", "Danger", "Need materials").</summary>
@@ -222,6 +227,9 @@ namespace PerformativeMail.Sim
 
         public static SimRequest OperateTurret(uint reqId, int tx, int tz, bool take) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.OperateTurret, X = (byte)tx, Y = (byte)tz, Count = (ushort)(take ? 1 : 0) };
+
+        public static SimRequest RebuildRuin(uint reqId, int tx, int tz, bool rebuild) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.RebuildRuin, X = (byte)tx, Y = (byte)tz, Count = (ushort)(rebuild ? 1 : 0) };
 
         public static SimRequest RemoveConstruct(uint reqId, int tx, int tz) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (byte)tx, Y = (byte)tz };

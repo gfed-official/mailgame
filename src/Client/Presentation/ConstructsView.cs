@@ -23,6 +23,8 @@ namespace PerformativeMail.Client.Presentation
     {
         private static readonly Color LogColour = new Color("8a5e3b"), LogDark = new Color("5a3b25"), RailColour = new Color("6e4a2e");
         private static readonly Color GhostOk = new Color(0.35f, 0.95f, 0.45f, 0.42f), GhostBad = new Color(1f, 0.3f, 0.28f, 0.42f);
+        /// <summary>A ruin (doc 05 §5): the shape it had in charred, see-through grey over a heap of its rubble.</summary>
+        private static readonly Color RuinGhost = new Color(0.22f, 0.2f, 0.19f, 0.38f), Rubble = new Color("4a4440");
         private const float LogRadius = 0.15f, LogStep = 0.3f;
 
         /// <summary>Constructs drawn as of the last redraw, and how often that was.</summary>
@@ -219,6 +221,9 @@ namespace PerformativeMail.Client.Presentation
             TurretsAiming = aiming;
             TurretsManned = manned;
         }
+
+        /// <summary>Ruins drawn at the last redraw of what is built.</summary>
+        public int RuinsDrawn { get; private set; }
 
         /// <summary>Turrets drawn pointing where a carrier at their controls looks, as of the last frame.</summary>
         public int TurretsManned { get; private set; }
@@ -443,6 +448,34 @@ namespace PerformativeMail.Client.Presentation
                     _lamps.Add((c, lamp));
                 }
             }
+            // Ruins (doc 05 §5): a ghost of what stood, over a heap of rubble on each of its tiles.
+            if (field.Ruins.Count > 0)
+            {
+                var ghost = GhostMat(RuinGhost);
+                var rubble = Mat(Rubble);
+                foreach (var r in field.Ruins)
+                {
+                    var at = new Vector3(r.X, world.Map.HeightAt(r.X, r.Z), r.Z);
+                    if (r.Def.Ramp) RampTile(batch, at, r.Facing, BeltNetwork.RampUp(r), ghost, true);
+                    else if (r.Def.Level > 0) ElevatedTile(batch, at, r.Facing, r.Facing, ghost, true, r.Def.Speed);
+                    else if (r.Def.Carries) BeltTile(batch, at, r.Facing, r.Facing, ghost, true, r.Def.Speed);
+                    else Draw(batch, r.Def, at + FootprintCentre(r.Def, r.Rotation), field.Arms(r), r.Rotation, ghost, true);
+                    for (int i = 0; i < r.Def.TileCount; i++)
+                    {
+                        var (tx, tz) = r.TileAt(i);
+                        float x = (tx + 0.5f) * SimConstants.TileSize, z = (tz + 0.5f) * SimConstants.TileSize, y = world.Map.HeightAt(x, z);
+                        // A few broken blocks, the same for the same tile every time.
+                        int seed = tx * 73856093 ^ tz * 19349663;
+                        for (int k = 0; k < 4; k++)
+                        {
+                            float ox = ((seed >> (k * 3)) & 7) / 7f - 0.5f, oz = ((seed >> (k * 3 + 12)) & 7) / 7f - 0.5f;
+                            float size = 0.22f + 0.06f * k;
+                            batch.Box(new Vector3(x + ox * 1.1f, y + size * 0.35f, z + oz * 1.1f), new Vector3(size, size * 0.7f, size * 0.85f), rubble, 0.02f);
+                        }
+                    }
+                }
+            }
+            RuinsDrawn = field.Ruins.Count;
             batch.Flush(_built, "Built");
             Drawn = field.All.Count;
             Redraws++;

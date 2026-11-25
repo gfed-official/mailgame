@@ -354,6 +354,15 @@ namespace PerformativeMail.Client
                 ghost.Aim = BuildAim.Construct;
                 ghost.Target = built;
             }
+            // A ruin is taken down as anything built: it is cleared away (doc 05 §5).
+            foreach (var ruin in world.Constructs.Ruins)
+            {
+                float t = ray.Hit(AimBox.Built(world.Map, ruin));
+                if (t < 0f || t > best) continue;
+                best = t;
+                ghost.Aim = BuildAim.Construct;
+                ghost.Target = ruin;
+            }
             if (ghost.Aim == BuildAim.Construct || ground > MaxAim) return;
             ghost.Aim = BuildAim.Place;
             ghost.Tx = (int)MathF.Floor((ray.X + ray.DirX * ground) / SimConstants.TileSize);

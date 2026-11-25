@@ -29,7 +29,7 @@ namespace PerformativeMail.App
         public string? ShotDir;
         public bool Smoke;
 
-        private enum Stage { Boot, Flow, Toggles, Console, RouteEdit, Map, Turret, Bookmarks, Fly, Scale, Done }
+        private enum Stage { Boot, Flow, Toggles, Ruin, Console, RouteEdit, Map, Turret, Bookmarks, Fly, Scale, Done }
         private const int FastTicks = 30;
         /// <summary>Sim seconds the flow may take before the smoke gives up on a station.</summary>
         private const int FlowSeconds = 180;
@@ -147,6 +147,43 @@ namespace PerformativeMail.App
                     Check(world.LocalHp >= truth.MaxHp - 0.01f, $"god mode: the client has the carrier at {world.LocalHp} HP");
                     Check(Server.Raid == Sim.Combat.RaidState.None && Server.Enemies.Count == 0, "a raid came to the debug world");
                     GD.Print($"[smoke] debug world: every station ran ({Server.Tick / SimConstants.TickRate} s), no damage, a Stone Wall out of empty pockets, no raid");
+                    Next(Stage.Ruin);
+                    return;
+                }
+                case Stage.Ruin:
+                {
+                    // Doc 05 §5: the Stone Wall broken leaves its ruin, drawn; in Delivery the prompt clears it away.
+                    var interaction = _session.Interaction;
+                    if (_frames == 1)
+                    {
+                        Server.DamageConstruct(Server.Constructs.At(10, 15)!, 100000f);
+                        var carrier = Server.GetPlayer(world.LocalId)!;
+                        carrier.Move.X = BuildRules.TileCentre(10) + 0.4f;
+                        carrier.Move.Z = BuildRules.TileCentre(16);
+                        return;
+                    }
+                    if (_frames < 8) return;
+                    // Until the client sees its carrier beside the ruin (two seconds at most).
+                    if (_frames == 8 && ++_ruinWait < 120 && !ClientAt(world, BuildRules.TileCentre(10) + 0.4f, BuildRules.TileCentre(16))) { _frames = 7; return; }
+                    var ruin = world.Constructs.RuinAt(10, 15);
+                    if (_frames == 8)
+                    {
+                        Check(ruin != null && world.Constructs.At(10, 15) == null && Server.Constructs.RuinAt(10, 15) != null, "the broken Stone Wall left no ruin on the client");
+                        Check(_screen.Constructs.RuinsDrawn == 1, $"{_screen.Constructs.RuinsDrawn} ruins drawn");
+                        if (ruin == null) { Next(Stage.Console); return; }
+                        var box = Client.AimBox.Built(world.Map, ruin);
+                        Client.ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
+                        interaction.Update(1.0 / 30.0, false, false);
+                        _screen.Hud.Refresh();
+                        Check(interaction.Prompt.Kind == Client.InteractKind.ClearRuin, $"at the ruin the prompt is {interaction.Prompt.Kind}");
+                        Check(_screen.Hud.PromptText.StartsWith("Clear the ruin of the Stone Wall  [E]", StringComparison.Ordinal), $"at the ruin the prompt reads \"{_screen.Hud.PromptText}\"");
+                        interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
+                        return;
+                    }
+                    if (ruin != null && _frames < 70) return;
+                    Check(ruin == null && Server.Constructs.RuinAt(10, 15) == null, "E did not clear the ruin away");
+                    Check(world.Constructs.At(10, 15) == null, "something stands where the ruin was cleared");
+                    GD.Print("[smoke] debug world: the broken Stone Wall left its ruin, drawn, and E cleared it away");
                     Next(Stage.Console);
                     return;
                 }
@@ -262,7 +299,7 @@ namespace PerformativeMail.App
             new Vector2(world.Local.X - x, world.Local.Z - z).Length() < 0.3f;
 
         private float _consoleX, _consoleZ;
-        private int _wait;
+        private int _wait, _ruinWait;
         private PlayerInputController? _keys;
         private int _tap;
         private static readonly Key[] Taps = { Key.Escape, Key.Tab, Key.E };

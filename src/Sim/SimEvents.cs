@@ -341,6 +341,22 @@ namespace PerformativeMail.Sim
         public bool Destroyed;
     }
 
+    /// <summary>
+    /// Doc 05 §5: the ruin of a <see cref="Building"/> turned so was left on tile (X, Y) by the
+    /// raiders, or (<see cref="Gone"/>) it was rebuilt or cleared away.
+    /// </summary>
+    public sealed class RuinEvent : SimEvent
+    {
+        public byte X, Y;
+        public byte Building;
+        public byte Rotation;
+        public bool Gone;
+        /// <summary>Gone because it stands again (else it was cleared away).</summary>
+        public bool Rebuilt;
+        /// <summary>Who rebuilt or cleared it; None for a ruin left by the raiders.</summary>
+        public EntityId Player;
+    }
+
     /// <summary>A raider's blow landed on a construct: the HP it has left.</summary>
     public sealed class ConstructDamagedEvent : SimEvent
     {

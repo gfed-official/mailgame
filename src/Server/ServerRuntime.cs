@@ -260,6 +260,9 @@ namespace PerformativeMail.Server
                     Filters = built.Filters.Length > 0 ? new List<ushort>(System.Linq.Enumerable.Select(built.Filters, f => f.Encode())) : null,
                 });
             }
+            // The ruins (doc 05 §5) go as constructs of 0 HP.
+            foreach (var ruin in World.Constructs.Ruins)
+                welcome.Constructs.Add(new ConstructInfo { Building = ruin.Def.Index, X = (byte)ruin.Tx, Y = (byte)ruin.Tz, Rotation = ruin.Rotation, Hp = 0 });
             foreach (var v in World.Vehicles)
             {
                 welcome.Vehicles.Add(new VehicleInfo

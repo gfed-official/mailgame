@@ -137,7 +137,8 @@ namespace PerformativeMail.Sim
             if (player.Dead) return OpResult.Dead;
             if (!BuildRules.IsOpen(Run.Phase)) return OpResult.WrongPhase;
             var built = Constructs.At(r.X, r.Y);
-            if (built == null) return OpResult.BadRequest;
+            // Taking down a ruin clears it away, for nothing and giving nothing back.
+            if (built == null) return Constructs.RuinAt(r.X, r.Y) != null ? ClearRuin(player, r.X, r.Y) : OpResult.BadRequest;
             if (!player.WasWithin(built.X, built.Z, _serverBuildRange, _rewindTicks)) return OpResult.OutOfRange;
             if (built.ContainerId != 0 && GetContainer(built.ContainerId) is { EntryCount: > 0 }) return OpResult.NotEmpty;
             var recipe = built.Def.Recipe;
@@ -182,8 +183,9 @@ namespace PerformativeMail.Sim
         }
 
         /// <summary>
-        /// A raider's blow on something built. At 0 HP it is gone for good (ruins and rebuilding
-        /// come with M3); what a chest held lies on its tile in a bag that is nobody's.
+        /// A raider's blow on something built. At 0 HP it is gone and its ruin is left on its
+        /// tiles (doc 05 §5, <see cref="LeaveRuin"/>); what a chest held lies on its tile in a bag
+        /// that is nobody's, and the mail on a belt goes back to the Intake.
         /// </summary>
         public void DamageConstruct(Construct built, float damage)
         {
@@ -198,6 +200,7 @@ namespace PerformativeMail.Sim
             var chest = built.ContainerId != 0 ? GetContainer(built.ContainerId) : null;
             if (chest != null && chest.EntryCount > 0) Spill(chest, built.X, built.Z);
             RemoveConstruct(built, EntityId.None, destroyed: true);
+            LeaveRuin(built);
         }
 
         /// <summary>
@@ -248,7 +251,7 @@ namespace PerformativeMail.Sim
             ClearTurrets();
             ClearBelts();
             ClearPipes();
-            if (Constructs.All.Count == 0) return;
+            if (Constructs.All.Count == 0 && Constructs.Ruins.Count == 0) return;
             foreach (var built in Constructs.All) DropContainer(built);
             Constructs.Clear();
             Events.Add(new ConstructsClearedEvent());

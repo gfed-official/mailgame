@@ -1843,10 +1843,38 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             is at it, E again), codec pin; the debug-world smoke takes the range's turret's controls
             through the prompt, holds attack a second on the practice raider (four shots), checks the
             weapons line, the gun drawn manned and the carrier standing, and lets go with E
-- [ ] Construct damage (doc 05 §5): ruins and rebuilding, item spill
+- [ ] Construct damage (doc 05 §5)
+      - [x] Item spill (M1: a broken chest's items in a bag that is nobody's, its mail back to the
+            Intake when the bag goes; a broken belt's mail back to the Intake)
+      - [x] **Ruins and rebuilding** (doc 05 §5, doc 01 §2 "a 'ruin' ghost that can be rebuilt for
+            50% cost during the next Prep", doc 08 `ruinRebuildRatio` 0.5; design choice 126). At 0 HP a
+            construct leaves its ruin on its tiles (`ConstructField.Ruins`, `RuinAt`, `Taken`):
+            nothing is built over it, but it stops nobody, does nothing and is no raider's
+            target. `RuinEvent` (protocol `m2.14`) tells the clients when one is left, rebuilt or
+            cleared; one who joins gets the ruins in the Welcome as constructs of 0 HP. Beside a
+            ruin in Prep the prompt reads "Rebuild the Stone Wall  [E]   ·   Stone x2 (half its
+            cost)" (", with its filters" / ", with its route" for a sorter, a splitter or a console);
+            E sends `RebuildRuin` (request 28): half of each input, rounded up, out of the pockets,
+            judged as a placement with the ruin out of the way, and it stands again turned as it
+            was, with its filters or route. In Delivery the prompt reads "Clear the ruin of the …
+            [E]   ·   rebuilt in Prep for half its cost, or anew at full cost" and E clears it away
+            for nothing; Build mode's take-down clears it too ("Clear the ruin of the …   ·   for
+            nothing   [hold RMB]"). The feed: "The raiders broke a Stone Wall: its ruin is left,
+            rebuilt in Prep for half its cost", "You rebuilt the Stone Wall" (no second "built"
+            line), "You cleared away the ruin of the Stone Wall"; refusals say why. Drawn as the
+            shape it had in charred see-through grey over a heap of rubble on each of its tiles
+            (`ConstructsView.RuinsDrawn`). The run's end clears the ruins with everything built.
+            `RuinTests` (the ruin and its event; stops nobody, holds its tile; half the cost, as
+            turned; too little or too far; Delivery: not rebuilt, cleared for nothing, then built at
+            full cost; Build mode clears it; a sorter back with its filters, from any of its tiles;
+            a chest spills and leaves one; the run's end), `RuinFlowTests` (seen by both, by a late
+            joiner, the prompts, E, the feed), codec pin; the debug-world smoke breaks its Stone Wall,
+            checks the ruin is on the client and drawn and clears it with the prompt
+      - [ ] The Post Office's HP (3000, regenerating 5 HP/s in Prep, the run lost at 0)
+      - [ ] Damage numbers, health bars over damaged constructs, the HUD's under-attack marker
 
-Next in this order: doc 05's construct damage (ruins and rebuilding, item spill), then the enemy
-traits (doc 05 §2).
+Next in this order: the enemy traits (doc 05 §2), then the rest of doc 05 §5 (the Post Office's HP,
+health bars and markers).
 
 ## How to build and check
 
@@ -3101,6 +3129,18 @@ See "Commands" at the bottom (filled in as the tooling lands).
     blow; (d) one carrier at a time; while held, the turret does not also fire by itself; (e) a
     late joiner learns who holds a turret only at the next change (there is no turret state in the
     join snapshot; letting go is quick and a shift's end clears it).
+126. **Ruins.** Doc 05 §5 says a ruin is "a non-functional ghost occupying its tiles", rebuilt in
+    Prep for 50% "(interact with the ruin)", deconstructed free in Delivery; silent on rounding,
+    on whether it blocks, on what "deconstruct" is, and on the PO. Choices: (a) a ruin blocks
+    building and nothing else — carriers and raiders walk through it, raiders never target it;
+    (b) half of each input rounded up (a gate's one Iron Ingot is one), per building
+    (`ruinRebuildRatio`, default 0.5); the blueprint and the shift still have to allow the recipe;
+    (c) deconstructing is clearing it away for nothing, by its prompt in Delivery and by Build
+    mode's take-down in Prep or Delivery — nothing comes back; (d) rebuilt, it stands at full HP,
+    turned as it was and with its filters or route, but not with a hired driver or captain (they
+    were the shift's); (e) a broken belt's mail goes back to the Intake as before (a piece of mail
+    is never lost, doc 03 §3.3), not onto the ground; (f) the run's end clears ruins as it clears
+    what is built.
 
 ## Commands
 

@@ -427,6 +427,8 @@ namespace PerformativeMail.Sim.Content
         public float ShotDamage { get; init; }
         public float ShotSeconds { get; init; }
         public float ShotRange { get; init; }
+        /// <summary>Doc 05 §5, doc 08 §2.6: the part of the recipe a ruin of it is rebuilt for in Prep (0.5).</summary>
+        public float RuinRebuildRatio { get; init; } = 0.5f;
         /// <summary>A turret with a carrier at its controls fires this many times as often (doc 05 §4: 2).</summary>
         public float OperatedRate { get; init; }
         public bool IsTurret => Behaviour == BuildingBehaviour.Turret;

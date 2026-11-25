@@ -70,6 +70,7 @@ namespace PerformativeMail.Sim.Net
         MailWaiting = 60,
         TurretFired = 61,
         TurretOperated = 62,
+        Ruin = 63,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -302,6 +303,10 @@ namespace PerformativeMail.Sim.Net
                 case TurretFiredEvent e:
                     w.U8((byte)EventType.TurretFired);
                     w.U8(e.X); w.U8(e.Y); w.F32(e.TargetX); w.F32(e.TargetZ);
+                    break;
+                case RuinEvent e:
+                    w.U8((byte)EventType.Ruin);
+                    w.U8(e.X); w.U8(e.Y); w.U8(e.Building); w.U8(e.Rotation); w.Bool(e.Gone); w.Bool(e.Rebuilt); w.U32(e.Player.Value);
                     break;
                 case TurretOperatedEvent e:
                     w.U8((byte)EventType.TurretOperated);
@@ -554,6 +559,8 @@ namespace PerformativeMail.Sim.Net
                     };
                 case EventType.TurretFired:
                     return new TurretFiredEvent { X = r.U8(), Y = r.U8(), TargetX = r.F32(), TargetZ = r.F32() };
+                case EventType.Ruin:
+                    return new RuinEvent { X = r.U8(), Y = r.U8(), Building = r.U8(), Rotation = r.U8(), Gone = r.Bool(), Rebuilt = r.Bool(), Player = new EntityId(r.U32()) };
                 case EventType.TurretOperated:
                     return new TurretOperatedEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()) };
                 case EventType.MailWaiting:

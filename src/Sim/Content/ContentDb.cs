@@ -992,7 +992,10 @@ namespace PerformativeMail.Sim.Content
                             ShotSeconds = hasParams ? (float)J.Num(ctx, pars, "shotSeconds", 0) : 0f,
                             ShotRange = hasParams ? (float)J.Num(ctx, pars, "range", 0) : 0f,
                             OperatedRate = hasParams ? (float)J.Num(ctx, pars, "operatedRate", 0) : 0f,
+                            RuinRebuildRatio = (float)J.Num(ctx, e, "ruinRebuildRatio", 0.5),
                         };
+                        // Doc 05 §5, doc 08 §2.6: a ruin is rebuilt for a part of the recipe, never more than all of it.
+                        if (def.RuinRebuildRatio < 0f || def.RuinRebuildRatio > 1f) ctx.Error($"'{id}': ruinRebuildRatio must be in [0, 1]");
                         // Doc 05 §4: a turret fires so hard, so often, so far; nothing else fires.
                         bool turret = behaviour == BuildingBehaviour.Turret;
                         if (turret ? def.ShotDamage <= 0f || def.ShotSeconds <= 0f || def.ShotRange <= 0f || def.OperatedRate < 1f || def.Width != 1 || def.Length != 1

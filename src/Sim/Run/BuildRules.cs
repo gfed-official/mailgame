@@ -36,6 +36,17 @@ namespace PerformativeMail.Sim.Run
         }
 
         /// <summary>True if the pockets hold everything the recipe takes.</summary>
+        /// <summary>Doc 05 §5: what of one input of the recipe a ruin is rebuilt for (half, rounded up: never nothing of an input).</summary>
+        public static int RuinCost(int count, float ratio) => Math.Min(count, (int)Math.Ceiling(count * ratio - 1e-6));
+
+        /// <summary>Whether the pockets hold what rebuilding the ruin of <paramref name="def"/> takes.</summary>
+        public static bool HasRuinMaterials(BuildingDef def, GridContainer hotbar, GridContainer inventory)
+        {
+            foreach (var input in def.Recipe.Inputs)
+                if (Have(hotbar, inventory, input.Item) < RuinCost(input.Count, def.RuinRebuildRatio)) return false;
+            return true;
+        }
+
         public static bool HasMaterials(RecipeDef recipe, GridContainer hotbar, GridContainer inventory)
         {
             foreach (var input in recipe.Inputs)
@@ -75,7 +86,7 @@ namespace PerformativeMail.Sim.Run
             // an elevated belt crosses it overhead.
             if (map.GetTile(tx, tz) == TileType.Street && !onStreet) return OpResult.OnStreet;
             if (map.IsWater(tx, tz)) return OpResult.NotOnWater;
-            if (map.IsNavBlocked(tx, tz) || constructs.At(tx, tz) != null || HoldsFixture(map, tx, tz)) return OpResult.Blocked;
+            if (map.IsNavBlocked(tx, tz) || constructs.Taken(tx, tz) || HoldsFixture(map, tx, tz)) return OpResult.Blocked;
             return OpResult.Ok;
         }
 
@@ -113,7 +124,7 @@ namespace PerformativeMail.Sim.Run
                 var (x, z) = Construct.TileOf(tx, tz, rotation, i % def.Length, i / def.Length);
                 if (!map.InBounds(x, z)) return OpResult.BadRequest;
                 if (def.Deck ? !map.IsShallowWater(x, z) : !map.IsWater(x, z)) return OpResult.NotOnWater;
-                if (constructs.At(x, z) != null) return OpResult.Blocked;
+                if (constructs.Taken(x, z)) return OpResult.Blocked;
             }
             if (def.Deck)
             {
@@ -141,7 +152,7 @@ namespace PerformativeMail.Sim.Run
                     if (map.DockAt(x, z) != null) return OpResult.Blocked;
                 }
                 else if (!map.IsWater(x, z) || map.IsShallowWater(x, z)) return OpResult.NotOnWater;
-                else if (constructs.At(x, z) != null) return OpResult.Blocked;
+                else if (constructs.Taken(x, z)) return OpResult.Blocked;
             }
             return OpResult.Ok;
         }

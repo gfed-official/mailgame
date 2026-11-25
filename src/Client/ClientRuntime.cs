@@ -611,6 +611,15 @@ namespace PerformativeMail.Client
             return Send(SimRequest.OperateTurret(0, tx, tz, take));
         }
 
+        /// <summary>Rebuilds (Prep, for a part of its cost) or clears away the ruin on a tile (doc 05 §5). 0 if not sent.</summary>
+        public uint RebuildRuin(int tx, int tz, bool rebuild)
+        {
+            var world = World;
+            if (State != ClientState.Joined || world == null || !world.HasLocal || world.Local.Dead || world.Paused) return 0;
+            if (world.Constructs.RuinAt(tx, tz) == null) return 0;
+            return Send(SimRequest.RebuildRuin(0, tx, tz, rebuild));
+        }
+
         public uint PushBelt(int tx, int tz)
         {
             var world = World;
@@ -853,7 +862,9 @@ namespace PerformativeMail.Client
                 if (item < _content.ShopItems.Count) world.ShopOwned.Add(_content.ShopItems[item]);
             foreach (var node in m.Nodes) world.Nodes.Set(node.Node, node.HitsLeft);
             foreach (var c in m.Constructs)
-                if (c.Building < _content.Buildings.Count && map.InBounds(c.X, c.Y))
+                if (c.Building < _content.Buildings.Count && map.InBounds(c.X, c.Y) && c.Hp == 0)
+                    world.Constructs.AddRuin(new Construct(_content.Buildings[c.Building], c.X, c.Y, c.Rotation, 0, 0));
+                else if (c.Building < _content.Buildings.Count && map.InBounds(c.X, c.Y))
                 {
                     var built = world.Constructs.Add(_content.Buildings[c.Building], c.X, c.Y, c.Rotation, c.Hp, c.ContainerId);
                     if (c.Filters != null) world.Constructs.SetFilters(built, c.Filters.ConvertAll(MailFilter.Decode));
@@ -1179,6 +1190,11 @@ namespace PerformativeMail.Client
                     break;
                 case TurretFiredEvent e:
                     if (world.Map.InBounds(e.X, e.Y)) world.TurretShots[e.Y * world.Map.Cols + e.X] = (world.ServerTick, e.TargetX, e.TargetZ);
+                    break;
+                case RuinEvent e:
+                    if (!world.Map.InBounds(e.X, e.Y) || e.Building >= _content.Buildings.Count) break;
+                    if (e.Gone) world.Constructs.RemoveRuin(e.X, e.Y);
+                    else world.Constructs.AddRuin(new Construct(_content.Buildings[e.Building], e.X, e.Y, e.Rotation, 0, 0));
                     break;
                 case TurretOperatedEvent e:
                     if (!world.Map.InBounds(e.X, e.Y)) break;

@@ -44,6 +44,10 @@ namespace PerformativeMail.Client
         OperateTurret,
         /// <summary>At a turret's controls: the key lets go of them.</summary>
         LeaveTurret,
+        /// <summary>At a ruin in Prep (doc 05 §5): rebuild it for half its cost.</summary>
+        RebuildRuin,
+        /// <summary>At a ruin in Delivery: clear it away.</summary>
+        ClearRuin,
     }
 
     /// <summary>What the interact prompt shows right now (doc 09 §2.4).</summary>
@@ -161,6 +165,19 @@ namespace PerformativeMail.Client
                     {
                         _pressLatch = 0;
                         _awaiting = _client.Mount(prompt.Vehicle!.Id);
+                    }
+                    break;
+
+                case InteractKind.RebuildRuin:
+                case InteractKind.ClearRuin:
+                    _hold = 0;
+                    _deliverAllDest = -1;
+                    if (_pressLatch > 0 && _awaiting == 0)
+                    {
+                        _pressLatch = 0;
+                        // A ruin that cannot be rebuilt yet is not cleared by the press that tried.
+                        if (prompt.Kind == InteractKind.RebuildRuin && world.RebuildState(prompt.Built!) != OpResult.Ok) break;
+                        _awaiting = _client.RebuildRuin(prompt.Built!.Tx, prompt.Built.Tz, prompt.Kind == InteractKind.RebuildRuin);
                     }
                     break;
 
@@ -489,6 +506,24 @@ namespace PerformativeMail.Client
                 prompt.Node = null;
                 prompt.Vehicle = null;
                 prompt.Built = built;
+            }
+            // A ruin (doc 05 §5): rebuilt from beside it in Prep, cleared away in Delivery.
+            if (BuildRules.IsOpen(world.Global.Phase))
+            {
+                foreach (var ruin in world.Constructs.Ruins)
+                {
+                    float reach = range + (ruin.Def.Width > 1 ? ruin.Def.Radius : 0f);
+                    if (DistSq(px, pz, ruin.CentreX, ruin.CentreZ) > reach * reach) continue;
+                    float t = ray.Hit(AimBox.Built(world.Map, ruin));
+                    if (t < 0f || t > best) continue;
+                    best = t;
+                    prompt.Kind = world.Global.Phase == RunPhase.Prep ? InteractKind.RebuildRuin : InteractKind.ClearRuin;
+                    prompt.Chest = null;
+                    prompt.Bag = null;
+                    prompt.Node = null;
+                    prompt.Vehicle = null;
+                    prompt.Built = ruin;
+                }
             }
             // A turret's controls are taken from beside it (doc 05 §4), by one carrier at a time, on foot.
             if (ride == null)

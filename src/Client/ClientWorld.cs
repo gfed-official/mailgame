@@ -810,6 +810,23 @@ namespace PerformativeMail.Client
             return Unlimited || BuildRules.HasMaterials(recipe, Hotbar, Inventory) ? OpResult.Ok : OpResult.MissingMaterials;
         }
 
+        /// <summary>Whether <paramref name="c"/> is a ruin (doc 05 §5) rather than something standing.</summary>
+        public bool IsRuin(Construct c) => Constructs.RuinAt(c.Tx, c.Tz) == c;
+
+        /// <summary>
+        /// What stands between the local player and rebuilding a ruin, as the server asks: Prep,
+        /// the recipe open, and half its materials in the pockets.
+        /// </summary>
+        public OpResult RebuildState(Construct ruin)
+        {
+            if (HotbarId == 0) return OpResult.BadRequest;
+            if (Global.Phase != RunPhase.Prep) return OpResult.WrongPhase;
+            var recipe = ruin.Def.Recipe;
+            var verdict = BuildRules.CheckRecipe(recipe, Global.Shift, recipe.Blueprint == null || ShopOwned.Contains(recipe.Blueprint) || Unlimited);
+            if (verdict != OpResult.Ok) return verdict;
+            return Unlimited || BuildRules.HasRuinMaterials(ruin.Def, Hotbar, Inventory) ? OpResult.Ok : OpResult.MissingMaterials;
+        }
+
         /// <summary>The debug world's toggle (design choice 119): every blueprint owned, no materials taken, as on the server.</summary>
         public bool Unlimited => Map.Debug is { Unlimited: true };
 
@@ -907,6 +924,8 @@ namespace PerformativeMail.Client
             if (HotbarId == 0) return OpResult.BadRequest;
             if (!BuildRules.IsOpen(Global.Phase)) return OpResult.WrongPhase;
             if (!BuildRules.InRange(built.Tx, built.Tz, Local.X, Local.Z, Content.Balance.GetFloat("buildRange"))) return OpResult.OutOfRange;
+            // A ruin is cleared away for nothing (doc 05 §5).
+            if (IsRuin(built)) return OpResult.Ok;
             if (built.ContainerId != 0 && Containers.TryGetValue(built.ContainerId, out var chest) && chest.EntryCount > 0) return OpResult.NotEmpty;
             return BuildRules.RefundFits(Content, built.Def.Recipe, RefundRatio, built.Hp, Inventory, Hotbar) ? OpResult.Ok : OpResult.DoesNotFit;
         }

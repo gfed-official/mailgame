@@ -14,6 +14,9 @@ namespace PerformativeMail.Client
     /// </summary>
     public sealed class EventFeed
     {
+        /// <summary>The tile of the ruin just rebuilt, whose construct's own line is not repeated; (-1, -1) for none.</summary>
+        private (int, int) _rebuilt = (-1, -1);
+
         public const int MaxEntries = 5;
         public const double EntrySeconds = 6.0;
 
@@ -140,6 +143,10 @@ namespace PerformativeMail.Client
                 case VehicleParkedEvent e when e.Player == world.LocalId && world.Vehicles.TryGetValue(e.Vehicle, out var parked):
                     Add($"You got off the {parked.Def.Name}");
                     break;
+                // A ruin rebuilt said so already (the ruin's line comes first).
+                case ConstructPlacedEvent e when _rebuilt == (e.X, e.Y):
+                    _rebuilt = (-1, -1);
+                    break;
                 case ConstructPlacedEvent e when e.Building < world.Content.Buildings.Count:
                 {
                     // A drag line is many in a row: one line, "You built 5 Conveyor Belts".
@@ -156,6 +163,10 @@ namespace PerformativeMail.Client
                     break;
                 }
                 // Cleared away with the run, nobody's doing: not worth a line.
+                case RuinEvent e when e.Gone && !e.Player.IsNone && e.Building < world.Content.Buildings.Count:
+                    Add(HudText.RuinGone(world, e, world.Content.Buildings[e.Building]));
+                    if (e.Rebuilt) _rebuilt = (e.X, e.Y);
+                    break;
                 case ConstructRemovedEvent e when world.LastRemoved != null && (e.Destroyed || !e.Player.IsNone):
                     Add(HudText.Unbuilt(world, e.Player, world.LastRemoved.Def, e.Destroyed), bad: e.Destroyed);
                     break;
@@ -185,6 +196,11 @@ namespace PerformativeMail.Client
             if (result != OpResult.Ok && request.Kind == RequestKind.ConfigureConstruct && request.Count == SimRequest.ConfigureHire)
             {
                 string why = HudText.HireRefused(result);
+                if (why.Length > 0) Add(why, bad: true);
+            }
+            if (result != OpResult.Ok && request.Kind == RequestKind.RebuildRuin)
+            {
+                string why = HudText.RuinRefused(result);
                 if (why.Length > 0) Add(why, bad: true);
             }
             if (result != OpResult.Ok && request.Kind == RequestKind.OperateTurret && request.Count == 1)

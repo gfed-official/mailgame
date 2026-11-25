@@ -87,6 +87,7 @@ grep -q "^\[smoke\] boats: a Small Port built" "$work/log" || { echo "smoke: no 
 # going through each of them, its toggles, bookmarks, free camera and time scale.
 run_smoke "$work/log-debug" "--profile=$work/profile-debug.json" --debug-world
 grep -q "^\[smoke\] debug world: every station ran" "$work/log-debug" || { echo "smoke: mail did not go through every station of the debug world" >&2; exit 1; }
+grep -q "^\[smoke\] debug world: the broken Stone Wall left its ruin" "$work/log-debug" || { echo "smoke: no ruin was left and cleared in the debug world" >&2; exit 1; }
 grep -q "^\[smoke\] debug world: 11 bookmarks" "$work/log-debug" || { echo "smoke: the debug world's bookmarks were not checked" >&2; exit 1; }
 grep -q "^\[smoke\] debug world: the turret operated by hand" "$work/log-debug" || { echo "smoke: the debug world's turret was not operated by hand" >&2; exit 1; }
 

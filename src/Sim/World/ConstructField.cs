@@ -106,6 +106,8 @@ namespace PerformativeMail.Sim.World
         private readonly WorldMap _map;
         private readonly Construct?[] _tiles;
         private readonly List<Construct> _all = new List<Construct>();
+        private readonly Construct?[] _ruinTiles;
+        private readonly List<Construct> _ruins = new List<Construct>();
 
         /// <summary>In the order they were built.</summary>
         public IReadOnlyList<Construct> All => _all;
@@ -116,9 +118,51 @@ namespace PerformativeMail.Sim.World
         {
             _map = map;
             _tiles = new Construct?[map.Cols * map.Rows];
+            _ruinTiles = new Construct?[map.Cols * map.Rows];
         }
 
         public Construct? At(int tx, int tz) => _map.InBounds(tx, tz) ? _tiles[tz * _map.Cols + tx] : null;
+
+        /// <summary>
+        /// Doc 05 §5: what is left of a construct broken at 0 HP — a ghost on its tiles that does
+        /// nothing and stops nobody, but holds the ground (and its configuration) until it is
+        /// rebuilt or cleared. In the order they fell.
+        /// </summary>
+        public IReadOnlyList<Construct> Ruins => _ruins;
+
+        public Construct? RuinAt(int tx, int tz) => _map.InBounds(tx, tz) ? _ruinTiles[tz * _map.Cols + tx] : null;
+
+        /// <summary>True for a tile something built or a ruin holds: nothing else is built there.</summary>
+        public bool Taken(int tx, int tz) => At(tx, tz) != null || RuinAt(tx, tz) != null;
+
+        /// <summary>Leaves the ruin of <paramref name="c"/> (gone from the field already, or never in it) on its tiles.</summary>
+        public void AddRuin(Construct c)
+        {
+            for (int i = 0; i < c.Def.TileCount; i++)
+            {
+                var (x, z) = c.TileAt(i);
+                if (!_map.InBounds(x, z)) continue;
+                RemoveRuin(x, z);
+                _ruinTiles[z * _map.Cols + x] = c;
+            }
+            _ruins.Add(c);
+            Version++;
+        }
+
+        /// <summary>Clears the ruin on the tile from all of its tiles; the ruin, or null if there was none.</summary>
+        public Construct? RemoveRuin(int tx, int tz)
+        {
+            var c = RuinAt(tx, tz);
+            if (c == null) return null;
+            for (int i = 0; i < c.Def.TileCount; i++)
+            {
+                var (x, z) = c.TileAt(i);
+                if (_map.InBounds(x, z) && _ruinTiles[z * _map.Cols + x] == c) _ruinTiles[z * _map.Cols + x] = null;
+            }
+            _ruins.Remove(c);
+            Version++;
+            return c;
+        }
 
         /// <summary>
         /// True for a tile a tile path keeps off because of what is built there: anything but
@@ -160,9 +204,11 @@ namespace PerformativeMail.Sim.World
 
         public void Clear()
         {
-            if (_all.Count == 0) return;
+            if (_all.Count == 0 && _ruins.Count == 0) return;
             Array.Clear(_tiles, 0, _tiles.Length);
             _all.Clear();
+            Array.Clear(_ruinTiles, 0, _ruinTiles.Length);
+            _ruins.Clear();
             Version++;
         }
 
