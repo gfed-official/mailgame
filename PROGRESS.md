@@ -2302,8 +2302,16 @@ corner for good.
       Now 0 of 2439 stall, 10438 walls, in 9 s; with either fix taken out the fuzz finds its stall again.
       `RaidFightTests` and the rest green with both
 
-M3's list in doc 12 is done but for the BalanceSim sanity check of chapter 11 §10.1 and the assertion tests
-(no friendly fire, no enemy damage to mailboxes or houses), which come next.
+- [x] **M3 acceptance: no friendly fire, no enemy damage to mailboxes or houses** (doc 12 M3 "(assertion
+      tests)"). `M3AssertionTests`: a hammer swung with a carrier in its arc hits nothing; a cannon package
+      over one carrier's head goes off at a raider beside another, and a Slingstone flies past a carrier on its
+      line to the raider: no carrier loses a point. Shift 3's raid (more than 20 raiders of four kinds and more)
+      fought for two minutes by two carriers standing at mailboxes: no construct was struck (none was built),
+      the map's tiles (the houses) and every destination's mailbox are as they were, and a dozen mailboxes
+      each take their mail after it. Both held as built; nothing changed
+
+M3's list in doc 12 is done but for the BalanceSim sanity check of chapter 11 §10.1 (a solo player with 6
+walls loses no belts on shift 2), which needs the BalanceSim's combat agents and comes next.
 
 ### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
 
