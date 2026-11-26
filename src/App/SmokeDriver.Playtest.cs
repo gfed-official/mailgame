@@ -180,6 +180,7 @@ namespace PerformativeMail.App
                 }
             }
             _ptMostSeen = Math.Max(_ptMostSeen, world.Enemies.Count);
+            TrackRuinFeed();
             _ptFrames++;
             _frames++;
 
@@ -337,6 +338,8 @@ namespace PerformativeMail.App
                     Check(_ptSawCards, "the loot cards never showed");
                     Check(server.Economy.ShiftEarnings < server.Run.Quota, $"the shift's quota of {server.Run.Quota} was met by a fight ({server.Economy.ShiftEarnings})");
                     Shot("playtest-loot");
+                    // A wall broken in the shift, for its ruin to be rebuilt in the next Prep.
+                    LeaveRuinForPrep();
                     // The rest of the shift has nothing to show: a second of it per frame.
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;
                     NextPlaytestStep();
@@ -393,6 +396,8 @@ namespace PerformativeMail.App
                         break;
                     }
                     if (_ptFrames < 2 * PlaytestStepFrames && world.Global.Shift != server.Run.Shift) break;
+                    if (StepRuinRebuild()) break;
+                    Check(_ruinStep == RuinStep.Done, $"the ruin of shift {RaidPlaytestShift} was not rebuilt in the next Prep ({_ruinStep})");
                     string want = $"Shift {RaidPlaytestShift + 1} / {HudText.ShiftCount(world.Content)}   PREP";
                     Check(server.Run.Phase == RunPhase.Prep && server.Run.Shift == RaidPlaytestShift + 1 && server.Run.Outcome == RunOutcome.None && server.Run.Results == null,
                         $"after the missed quota the server is in {server.Run.Phase} of shift {server.Run.Shift} ({server.Run.Outcome})");

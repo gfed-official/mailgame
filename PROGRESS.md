@@ -2015,6 +2015,15 @@ e23d8d7 as it was.
 
 ### 5a. Playtest nits of the 0abedd1 report (`mailgame-harness/results/20261125-200919-0abedd1/report.md`, 2026-11-25)
 
+- [x] **(a) A ruin rebuilt in Prep, proven by the smoke** (`SmokeDriver.Ruin.cs`). The raid playtest's
+      smoke (shift 2 → 3), once its raid is beaten, puts a Wooden Wall up beside the host and breaks
+      it (`DamageConstruct`, as a raider's blow); the feed's "The raiders broke a Wooden Wall: its
+      ruin is left, …" is seen. In shift 3's Prep the host stands beside the ruin, the prompt reads
+      "Rebuild the Wooden Wall  [E]   ·   Log x2 (half its cost)", E rebuilds it: turned as it was, at
+      its full 200 HP, two of its four Logs gone, "You rebuilt the Wooden Wall" in the feed (with
+      `--shots`: `ruin-rebuild.png`, `ruin-rebuilt.png`). `tools/smoke.sh` greps for it. The full run
+      could not carry it: its Build mode wall goes up in the last Prep before its Results. It worked
+      as built; nothing in the rebuild had to change.
 - [x] **(c) The Results headline with playtest flags** (design choice 133). `RunResults` now carries
       the shift the run started on and ended on and whether the quota was waived (protocol `m2.17`);
       `HudText.ResultsHeadline`: "RUN OVER — shifts 3–5 played, quota off (0 of 3 met)" for a run
