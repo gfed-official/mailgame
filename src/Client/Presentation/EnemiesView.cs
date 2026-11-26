@@ -15,8 +15,8 @@ namespace PerformativeMail.Client.Presentation
     /// </summary>
     public partial class EnemiesView : Node3D
     {
-        /// <summary>The enemy list comes every third tick; five ticks back there are always two samples to draw between.</summary>
-        public const double InterpolationDelayTicks = 5.0;
+        /// <summary>The raiders are drawn this far back; the inputs tell the server so (doc 06 §4.3).</summary>
+        public const double InterpolationDelayTicks = ClientRuntime.EnemyInterpolationDelayTicks;
         private const float FallSeconds = 0.7f, SinkSeconds = 0.5f;
 
         private sealed class View

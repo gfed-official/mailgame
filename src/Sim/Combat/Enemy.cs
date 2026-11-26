@@ -81,6 +81,36 @@ namespace PerformativeMail.Sim.Combat
         /// <summary>Pushes constructs: not before this tick does it shove the next one.</summary>
         public uint PushReadyTick;
 
+        /// <summary>
+        /// Doc 06 §4.3's rewind buffer: where it stood at the end of each of the last ticks (250 ms
+        /// and the tick it is at), newest at the head.
+        /// </summary>
+        public const int HistoryLength = 8;
+        private readonly float[] _histX = new float[HistoryLength], _histZ = new float[HistoryLength];
+        private int _histHead = -1, _histCount;
+
+        /// <summary>Notes where it stands as the tick ends.</summary>
+        public void RecordPosition()
+        {
+            _histHead = (_histHead + 1) % HistoryLength;
+            _histX[_histHead] = X;
+            _histZ[_histHead] = Z;
+            if (_histCount < HistoryLength) _histCount++;
+        }
+
+        /// <summary>
+        /// Where it stood <paramref name="ticksAgo"/> ticks before the last tick's end; where it stands
+        /// for 0, and its oldest known place for more than it has been about.
+        /// </summary>
+        public void PositionAgo(int ticksAgo, out float x, out float z)
+        {
+            if (ticksAgo <= 0 || _histCount == 0) { x = X; z = Z; return; }
+            int back = System.Math.Min(ticksAgo, _histCount - 1);
+            int i = (_histHead - back + HistoryLength) % HistoryLength;
+            x = _histX[i];
+            z = _histZ[i];
+        }
+
         /// <summary>Health as the snapshot carries it: 1..255.</summary>
         public byte HpByte => (byte)System.Math.Clamp((int)System.MathF.Ceiling(Hp / MaxHp * 255f), 1, 255);
     }

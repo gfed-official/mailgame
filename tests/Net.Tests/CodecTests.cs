@@ -91,14 +91,26 @@ namespace PerformativeMail.Net.Tests
         public void InputsRoundTrip()
         {
             var m = new InputsMsg();
-            m.Inputs.Add(new PlayerInput { Seq = 10, MoveX = -127, MoveZ = 64, Yaw = 40000, Buttons = InputButtons.Sprint | InputButtons.Jump, HeldSlot = 3 });
-            m.Inputs.Add(new PlayerInput { Seq = 11, MoveX = 5, MoveZ = -6, Yaw = 1, Buttons = InputButtons.Interact, HeldSlot = 0 });
+            m.Inputs.Add(new PlayerInput { Seq = 10, MoveX = -127, MoveZ = 64, Yaw = 40000, Buttons = InputButtons.Sprint | InputButtons.Jump, HeldSlot = 3, View = 500 });
+            m.Inputs.Add(new PlayerInput { Seq = 11, MoveX = 5, MoveZ = -6, Yaw = 1, Buttons = InputButtons.Interact, HeldSlot = 0, View = 501 });
             var w = new NetWriter();
             m.Write(w);
+            // Doc 06 §4.2's 8 kbps up: the seq and the drawn tick once a packet, 6 bytes an input.
+            Assert.Equal(1 + 1 + 4 + 2 + 2 * 6, w.ToArray().Length);
             var back = InputsMsg.Read(Body(w, MsgType.Inputs));
             Assert.Equal(2, back.Inputs.Count);
             Assert.Equal(m.Inputs[0], back.Inputs[0]);
             Assert.Equal(m.Inputs[1], back.Inputs[1]);
+
+            // Not consecutive: refused; none drawn: none said for any.
+            m.Inputs[1] = m.Inputs[1] with { Seq = 13 };
+            Assert.Throws<System.InvalidOperationException>(() => m.Write(new NetWriter()));
+            m.Inputs.Clear();
+            m.Inputs.Add(new PlayerInput { Seq = 4 });
+            m.Inputs.Add(new PlayerInput { Seq = 5 });
+            w = new NetWriter();
+            m.Write(w);
+            Assert.All(InputsMsg.Read(Body(w, MsgType.Inputs)).Inputs, i => Assert.Equal(0, i.View));
         }
 
         [Fact]

@@ -30,6 +30,19 @@ namespace PerformativeMail.Sim.Players
         public InputButtons Buttons;
         /// <summary>Selected hotbar slot, 0-based (0 = hands).</summary>
         public byte HeldSlot;
+        /// <summary>
+        /// The server tick the client drew the raiders at when it made this input, its low 16 bits;
+        /// 0: not said (doc 06 §4.3 lag compensation rewinds them there for the hit).
+        /// </summary>
+        public ushort View;
+
+        /// <summary>The wire's <see cref="View"/> of a drawn tick: never 0, which says none.</summary>
+        public static ushort ViewOf(double drawnTick)
+        {
+            if (drawnTick < 1.0) return 0;
+            ushort v = (ushort)((long)System.Math.Round(drawnTick) & 0xFFFF);
+            return v == 0 ? (ushort)1 : v;
+        }
 
         public bool Has(InputButtons b) => (Buttons & b) != 0;
 

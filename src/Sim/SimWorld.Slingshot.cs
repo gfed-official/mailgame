@@ -37,7 +37,8 @@ namespace PerformativeMail.Sim
             float best = float.MaxValue;
             foreach (var e in _enemies)
             {
-                float t = SlingRules.Along(p.Move.X, p.Move.Z, fx, fz, sling.ShotRange, e.X, e.Z, e.Radius);
+                Rewound(e, out float ex, out float ez);
+                float t = SlingRules.Along(p.Move.X, p.Move.Z, fx, fz, sling.ShotRange, ex, ez, e.Radius);
                 if (t >= 0f && t < best) { best = t; hit = e; }
             }
             float reach = hit != null ? best : sling.ShotRange;

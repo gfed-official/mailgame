@@ -144,6 +144,7 @@ namespace PerformativeMail.Sim
             StepTurrets();
             StepLoot();
             StepBags();
+            RecordEnemyPositions();
         }
 
         private void StepHealth()
@@ -281,15 +282,22 @@ namespace PerformativeMail.Sim
                 var e = _enemies[i];
                 // Doc 05 §2 Balloon: "Only ranged weapons and turrets can hit it".
                 if (e.Def.Airborne) continue;
-                float dx = e.X - p.Move.X, dz = e.Z - p.Move.Z;
+                // Doc 06 §4.3: where the swinger's client drew it, and its body 0.3 m the larger.
+                Rewound(e, out float ex, out float ez);
+                float dx = ex - p.Move.X, dz = ez - p.Move.Z, body = e.Radius + MeleeHitSlack;
                 float dist = MathF.Sqrt(dx * dx + dz * dz);
-                if (dist > _combat.HammerRange + e.Radius) continue;
-                if (dist > e.Radius)
+                if (dist > _combat.HammerRange + body) continue;
+                if (dist > body)
                 {
                     float angle = MathF.Acos(Math.Clamp((dx * fx + dz * fz) / dist, -1f, 1f));
-                    if (angle > _combat.HammerHalfArc + MathF.Asin(e.Radius / dist)) continue;
-                    e.PushX += dx / dist * knockback;
-                    e.PushZ += dz / dist * knockback;
+                    if (angle > _combat.HammerHalfArc + MathF.Asin(body / dist)) continue;
+                }
+                // Shoved away from the swinger from where it is now.
+                float nx = e.X - p.Move.X, nz = e.Z - p.Move.Z, now = MathF.Sqrt(nx * nx + nz * nz);
+                if (now > e.Radius)
+                {
+                    e.PushX += nx / now * knockback;
+                    e.PushZ += nz / now * knockback;
                 }
                 hits++;
                 DamageEnemy(e, pickaxe ? damage * e.Def.PickaxeMult : damage, p);

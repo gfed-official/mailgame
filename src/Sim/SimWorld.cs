@@ -381,7 +381,9 @@ namespace PerformativeMail.Sim
                     var input = p.Inputs.Dequeue();
                     PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs);
                     p.HeldSlot = input.HeldSlot < p.Hotbar.Cols ? input.HeldSlot : (byte)0;
+                    _attackRewind = RewindTicks(input);
                     HandleAttackInput(p, input);
+                    _attackRewind = 0;
                     p.LastProcessedSeq = input.Seq;
                     p.InputCredit -= 1f;
                     budget--;

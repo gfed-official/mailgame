@@ -51,6 +51,8 @@ namespace PerformativeMail.Client
     {
         /// <summary>Remote players are rendered this far in the past (doc 06 §3: 100 ms).</summary>
         public const double InterpolationDelayTicks = 3.0;
+        /// <summary>The enemy list comes every third tick; five ticks back there are always two samples to draw between.</summary>
+        public const double EnemyInterpolationDelayTicks = 5.0;
         private const int MaxPendingInputs = 120;
         /// <summary>The cards of the shop stay up this far past the reach they were opened within (the server serves a little further still).</summary>
         private const float ShopLeaveSlack = 0.4f;
@@ -731,6 +733,8 @@ namespace PerformativeMail.Client
                 Yaw = PlayerInput.QuantizeYaw(Input.YawRadians),
                 Buttons = Input.Buttons | Input.Tapped,
                 HeldSlot = Input.HeldSlot,
+                // Doc 06 §4.3: the tick the raiders are drawn at, for the server to judge this input's hits there.
+                View = PlayerInput.ViewOf(world.ServerTick - EnemyInterpolationDelayTicks),
             };
             Input.Tapped = InputButtons.None;
             PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs);

@@ -104,9 +104,11 @@ namespace PerformativeMail.Sim
             foreach (var e in _enemies)
             {
                 if (e.Hp <= 0f) continue;
-                float cx = e.X - c.CentreX, cz = e.Z - c.CentreZ, reachOfGun = c.Def.ShotRange + e.Radius;
+                // Doc 06 §4.3: where the gunner's client drew it.
+                Rewound(e, out float ex, out float ez);
+                float cx = ex - c.CentreX, cz = ez - c.CentreZ, reachOfGun = c.Def.ShotRange + e.Radius;
                 if (cx * cx + cz * cz > reachOfGun * reachOfGun) continue;
-                float dx = e.X - px, dz = e.Z - pz;
+                float dx = ex - px, dz = ez - pz;
                 float along = dx * fx + dz * fz;
                 if (along <= -e.Radius) continue;
                 float side = dx * fz - dz * fx, reach = e.Radius + TurretAimSlack;
@@ -116,7 +118,7 @@ namespace PerformativeMail.Sim
             }
             TurretShots++;
             float tx, tz;
-            if (target != null) (tx, tz) = (target.X, target.Z);
+            if (target != null) Rewound(target, out tx, out tz);
             else TurretSight.Exit(px, pz, fx, fz, c.CentreX, c.CentreZ, c.Def.ShotRange, out tx, out tz);
             Events.Add(new TurretFiredEvent { X = (byte)c.Tx, Y = (byte)c.Tz, TargetX = tx, TargetZ = tz });
             if (target != null) DamageEnemy(target, c.Def.ShotDamage, p);

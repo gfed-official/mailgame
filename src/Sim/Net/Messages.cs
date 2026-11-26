@@ -37,9 +37,9 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m2.24;" +
+            "m2.25;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
-            "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
+            "Inputs:u8 n,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
             "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount,kit,world,reroll,placeLine,beltResync,pushBelt,configure,refuel,ping,operateTurret,rebuildRuin,setStamps;" +
@@ -120,7 +120,12 @@ namespace PerformativeMail.Sim.Net
             new HelloMsg { ProtocolHash = r.U32(), Name = r.Str(), Playtest = (PlaytestFlags)r.U8(), StartShift = r.U8(), Account = r.U64(), Rank = r.U8(), StartWallet = r.U32() };
     }
 
-    /// <summary>The last few inputs, oldest first (doc 06 §3: each packet repeats the last 3 for loss cover).</summary>
+    /// <summary>
+    /// The last few inputs, oldest first (doc 06 §3: each packet repeats the last 3 for loss cover).
+    /// They are consecutive, so the packet carries the first one's seq and the tick the newest was
+    /// drawn at once (doc 06 §4.2's 8 kbps up: 26 bytes a packet, 6.2 kbps at 30 Hz); each earlier
+    /// input was drawn a tick before the next.
+    /// </summary>
     public sealed class InputsMsg
     {
         public const int MaxInputs = 3;
@@ -130,9 +135,14 @@ namespace PerformativeMail.Sim.Net
         {
             w.U8((byte)MsgType.Inputs);
             w.U8((byte)Inputs.Count);
+            if (Inputs.Count == 0) return;
+            for (int i = 1; i < Inputs.Count; i++)
+                if (Inputs[i].Seq != Inputs[0].Seq + (uint)i) throw new System.InvalidOperationException("the inputs of a packet are consecutive");
+            w.U32(Inputs[0].Seq);
+            w.U16(Inputs[Inputs.Count - 1].View);
             foreach (var i in Inputs)
             {
-                w.U32(i.Seq); w.I8(i.MoveX); w.I8(i.MoveZ); w.U16(i.Yaw); w.U8((byte)i.Buttons); w.U8(i.HeldSlot);
+                w.I8(i.MoveX); w.I8(i.MoveZ); w.U16(i.Yaw); w.U8((byte)i.Buttons); w.U8(i.HeldSlot);
             }
         }
 
@@ -141,12 +151,16 @@ namespace PerformativeMail.Sim.Net
             var m = new InputsMsg();
             int n = r.U8();
             if (n > MaxInputs) throw new NetFormatException("too many inputs in one packet");
+            if (n == 0) return m;
+            uint first = r.U32();
+            ushort view = r.U16();
             for (int i = 0; i < n; i++)
             {
+                ushort drawn = view == 0 ? (ushort)0 : (ushort)(view - (n - 1 - i));
                 m.Inputs.Add(new PlayerInput
                 {
-                    Seq = r.U32(), MoveX = r.I8(), MoveZ = r.I8(), Yaw = r.U16(),
-                    Buttons = (InputButtons)r.U8(), HeldSlot = r.U8(),
+                    Seq = first + (uint)i, MoveX = r.I8(), MoveZ = r.I8(), Yaw = r.U16(),
+                    Buttons = (InputButtons)r.U8(), HeldSlot = r.U8(), View = view != 0 && drawn == 0 ? (ushort)0xFFFF : drawn,
                 });
             }
             return m;

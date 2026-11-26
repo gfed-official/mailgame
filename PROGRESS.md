@@ -2243,8 +2243,25 @@ corner for good.
       `LostParcelTests.AMegasAura_…` (its kind within 8 m, not one beyond nor another kind nor the Mega
       itself, gone with the Mega); `RaidFightTests` green with it
 
-Next in this order: the rest of M3's list in doc 12 (lag compensation's rewind buffer for hitscan,
-M3's acceptance tests: 40 enemies within the per-client budget, the pathing fuzz).
+- [x] **Lag compensation's rewind buffer** (doc 06 §4.3 "Melee: server checks the target within an
+      expanded hit volume (+0.3 m) using the target's position at serverTick − attackerRTT/2 (rewind buffer
+      of 250 ms)"; doc 12 M3 "Player combat: melee arc, hitscan, lag compensation rewind buffer"; design
+      choice 145). Each raider keeps where it stood at the end of its last 8 ticks (`Enemy.RecordPosition`,
+      `PositionAgo`, recorded once a tick after the fight's step). Every input now says the server tick its
+      client drew the raiders at (`PlayerInput.View`, its low 16 bits, 0 for none; the client's
+      `ServerTick − EnemyInterpolationDelayTicks`, 5; protocol `m2.25`). An input packet now carries its first input's seq and the newest one's drawn tick once (the inputs of a packet are consecutive, each earlier one drawn a tick before), 26 bytes for three inputs, 6.2 kbps up at 30 Hz (was 32 bytes, 7.7 kbps; with the tick on each input it would have been 9.1, over doc 06 §4.2's 8 kbps; `CodecTests.InputsRoundTrip` pins the size). The swing, the
+      Slingshot's Stone and a manned turret's shot are judged where the raiders stood then, at most 7 ticks
+      (250 ms) back, none for a client that says none or draws ahead (`SimWorld.RewindTicks`, `Rewound`,
+      `SimWorld.Rewind.cs`); the damage and the shove land on the raider where it is, shoved from there. The
+      swing's reach is each raider's body and 0.3 m (`MeleeHitSlack`). The automatic turret, the cannon's
+      flying package and the raiders' own blows are the server's and not rewound. `LagCompensationTests`
+      (the Stone hits a raider where it was drawn 5 ticks ago and misses it where it is; 250 ms at most; ahead
+      and none not rewound, the wire's 16 bits; the hammer the same and its shove; its +0.3 m; the manned
+      turret), `SlingshotFlowTests.BehindLatency_…` (over a loopback with latency, a client looses a Stone at
+      a 7.5 m/s raider as it draws it on the line, where the server has it a metre past: hit, rewound 4–7
+      ticks; it fails with the input's tick left out)
+
+Next in this order: M3's acceptance tests (40 enemies within the per-client budget, the pathing fuzz).
 
 ### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
 
@@ -3780,6 +3797,15 @@ See "Commands" at the bottom (filled in as the tooling lands).
     comes first in the catalogue's order, the shift's rotating specials after it, so the number key
     of anything always sold is the same every shift (the 0e940bc playtest bought a Shovel with the
     key that had been the Repair Hammer's).
+
+145. **What the rewind goes back to.** Doc 06 §4.3 says "serverTick − attackerRTT/2": the one-way
+    trip, which is right for a client that draws the newest state. Ours draws the raiders 5 ticks behind
+    its newest snapshot (to have two samples to draw between), so the server rewinds to the tick the
+    client says it drew them at, sent with each input, which takes in the trip both ways and the queue
+    the input waited in; the doc's 250 ms is the cap (a client that lies gains at most that). The rewind
+    is for the carriers' own hits on raiders (the swing, the Slingshot, a manned turret: what a player aims);
+    the +0.3 m is the swing's alone, as the doc says (the hitscan lines already have their 0.3 m, choices
+    134 and 143). Players are not rewound for the raiders' blows: those are the server's own.
 
 ## Commands
 
