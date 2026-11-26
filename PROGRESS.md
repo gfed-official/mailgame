@@ -2317,6 +2317,14 @@ M3's acceptance tests: 40 enemies within the per-client budget, the pathing fuzz
       carriers' `RaidFightTests` hit it once a Tank reached the Post Office). The loop now picks up from
       the end of what is left. `PostOfficeTests.TheBlowThatFellsIt_AmongOtherRaiders_…`
 
+### 5d. Playtest bugs of the 0e940bc report (`mailgame-harness/results/20261126-081147-0e940bc/report.md`, 2026-11-26)
+
+- [x] **(1) A held E at a wrong mailbox emptied the whole hotbar into it.** Each hold put the selected
+      stack in, `HotbarAssist` then selected the next mail stack, and the still-held E went on with that
+      one: 2.5 s held put five stacks (19 items) in. A held E now puts in the one selected stack; the next
+      goes in only after E is let go (`InteractionController._holdSpent`); F still delivers every matching
+      stack one after another (choice 14). `InteractionTests.AHeldE_InsertsTheSelectedStackOnly_…`
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).

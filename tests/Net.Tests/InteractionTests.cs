@@ -299,6 +299,41 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void AHeldE_InsertsTheSelectedStackOnly_NotTheNextOneSelectedAfterIt()
+        {
+            // The 0e940bc playtest: a 2.5 s hold at a wrong mailbox put five stacks in, one after
+            // another as each emptied slot selected the next.
+            var s = new Session();
+            var map = s.World.Map;
+            var assist = new HotbarAssist();
+            void Frame(bool interact) { assist.Update(s.Client); s.Frame(interact); }
+            var wrong = map.Destinations[3];
+            s.Give(s.Player.Hotbar, "small", map.Destinations[2]);
+            s.Give(s.Player.Hotbar, "small", map.Destinations[4]);
+            s.Give(s.Player.Hotbar, "small", map.Destinations[5]);
+            s.Teleport(wrong.MailboxX + 0.5f, wrong.MailboxZ);
+            assist.Update(s.Client);
+            s.Client.Input.HeldSlot = 1;
+            Frame(interact: false);
+            Assert.NotNull(s.Interaction.Prompt.Stack);
+
+            for (int i = 0; i < 90; i++) Frame(interact: true); // 3 s held
+            Frame(interact: false);
+            s.Run(15);
+            Assert.Equal(-15, s.Server.World.Economy.Wallet); // one Small Package, 30 g × 0.5
+            int left = 0;
+            foreach (var e in s.World.Hotbar.Entries) if (e.Stack.Kind == StackKind.Mail) left++;
+            Assert.Equal(2, left);
+
+            // Let go and held again: the next selected stack goes in.
+            Frame(interact: false);
+            for (int i = 0; i < 20; i++) Frame(interact: true);
+            Frame(interact: false);
+            s.Run(15);
+            Assert.Equal(-30, s.Server.World.Economy.Wallet);
+        }
+
+        [Fact]
         public void PromptNeedsTheViewOnTheMailbox()
         {
             var s = new Session();

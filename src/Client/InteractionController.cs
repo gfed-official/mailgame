@@ -111,6 +111,11 @@ namespace PerformativeMail.Client
         private double _pressLatch;
         private double _hold;
         private int _deliverAllDest = -1;
+        /// <summary>
+        /// A held E has put its stack in: the next goes in only after E is let go (choice 14: a
+        /// hold inserts the selected stack; F is what delivers stack after stack).
+        /// </summary>
+        private bool _holdSpent;
         private int _harvestNode = -1;
         /// <summary>A push lasts 0.7 s on the server: one held is asked again this often.</summary>
         public const double PushRepeatSeconds = 0.4;
@@ -135,6 +140,7 @@ namespace PerformativeMail.Client
         {
             bool pressed = (interactHeld && !_wasHeld) || interactTapped;
             _wasHeld = interactHeld;
+            if (!interactHeld) _holdSpent = false;
             // A press is remembered for a moment, so one made while the last request is still on
             // its way (or a step before the Intake comes into view) is not lost.
             if (pressed) _pressLatch = PressLatchSeconds;
@@ -640,7 +646,7 @@ namespace PerformativeMail.Client
                 return;
             }
 
-            if (!interactHeld || prompt.Stack == null || !prompt.KindAccepted || _awaiting != 0)
+            if (!interactHeld || _holdSpent || prompt.Stack == null || !prompt.KindAccepted || _awaiting != 0)
             {
                 _hold = 0;
                 return;
@@ -649,6 +655,7 @@ namespace PerformativeMail.Client
             if (_hold >= holdSeconds)
             {
                 _hold = 0;
+                _holdSpent = true;
                 _awaiting = _client.Deliver(world.Hotbar.Id, prompt.Stack.EntryId, dest.Id);
             }
             prompt.HoldProgress = (float)Math.Min(1.0, _hold / holdSeconds);
