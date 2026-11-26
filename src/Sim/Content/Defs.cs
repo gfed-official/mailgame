@@ -680,6 +680,12 @@ namespace PerformativeMail.Sim.Content
         public float MegaScale { get; init; } = 1;
         public float MegaSpeedMult { get; init; } = 1;
         public int MegaLootMult { get; init; } = 1;
+        /// <summary>Doc 05 §2.1: the mail a Mega drops when felled, a Lost Parcel; null = none.</summary>
+        public MailKindDef? LostParcelKind { get; init; }
+        /// <summary>The Lost Parcel's value against the same piece spawned for the same address (×3).</summary>
+        public double LostParcelValueMult { get; init; } = 1;
+        /// <summary>What a Mega drops besides its kind's drops ×lootMult, always (doc 05 §2.1 "plus 2 Iron Ingots").</summary>
+        public IReadOnlyList<EnemyDrop> MegaItems { get; init; } = Array.Empty<EnemyDrop>();
         public int MaxAlive { get; init; }
         /// <summary>shift → (enemy, weight); a shift without an entry uses the last one before it.</summary>
         public IReadOnlyDictionary<int, IReadOnlyList<KeyValuePair<EnemyDef, int>>> WeightsByShift { get; init; }

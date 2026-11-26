@@ -994,7 +994,8 @@ namespace PerformativeMail.Sim.Tests
             var bundle = world.Loot.Single();
             Assert.True(bundle.Mega);
             Assert.InRange(bundle.Coins, 90, 150);
-            Assert.Equal(new[] { (byte)9, (byte)3 }, bundle.Items.Select(i => i.Count));
+            // 3 Stone and 1 Iron Ore ×3, and doc 05 §2.1's 2 Iron Ingots besides (design choice 142).
+            Assert.Equal(new[] { ("stone", 9), ("iron_ore", 3), ("iron_ingot", 2) }, bundle.Items.Select(i => (Db.Items[i.Item].Id, (int)i.Count)));
         }
 
         [Fact]

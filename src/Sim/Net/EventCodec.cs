@@ -76,6 +76,8 @@ namespace PerformativeMail.Sim.Net
         PostOfficeDamaged = 66,
         Repaired = 67,
         CursedRaid = 68,
+        MegaSighted = 69,
+        LostParcel = 70,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -325,6 +327,14 @@ namespace PerformativeMail.Sim.Net
                 case CursedRaidEvent e:
                     w.U8((byte)EventType.CursedRaid);
                     w.U16(e.DestId); w.U32(e.Player.Value); w.U16(e.Kind); w.U8(e.Raiders);
+                    break;
+                case MegaSightedEvent e:
+                    w.U8((byte)EventType.MegaSighted);
+                    w.U32(e.Enemy.Value); w.U8(e.Kind); w.U8((byte)e.Edge);
+                    break;
+                case LostParcelEvent e:
+                    w.U8((byte)EventType.LostParcel);
+                    w.U8(e.Enemy); w.U16(e.Kind); w.U32(e.Address.Key); w.U8(e.Address.Unit); w.U16(e.Value); w.U32(e.Bag);
                     break;
                 case RepairedEvent e:
                     w.U8((byte)EventType.Repaired);
@@ -594,6 +604,10 @@ namespace PerformativeMail.Sim.Net
                     return new PostOfficeDamagedEvent { Hp = r.U16(), Enemy = r.U8() };
                 case EventType.CursedRaid:
                     return new CursedRaidEvent { DestId = r.U16(), Player = new EntityId(r.U32()), Kind = r.U16(), Raiders = r.U8() };
+                case EventType.MegaSighted:
+                    return new MegaSightedEvent { Enemy = new EntityId(r.U32()), Kind = r.U8(), Edge = (sbyte)r.U8() };
+                case EventType.LostParcel:
+                    return new LostParcelEvent { Enemy = r.U8(), Kind = r.U16(), Address = new PerformativeMail.Sim.World.AddressId(r.U32(), r.U8()), Value = r.U16(), Bag = r.U32() };
                 case EventType.Repaired:
                     return new RepairedEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()), PostOffice = r.Bool() };
                 case EventType.ConstructPushed:

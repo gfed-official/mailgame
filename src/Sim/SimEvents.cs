@@ -408,6 +408,24 @@ namespace PerformativeMail.Sim
         public byte Raiders;
     }
 
+    /// <summary>Doc 05 §2.1 "Announced on the HUD when spawned (\"Mega Giant sighted, north\")": a raid's Mega came in by <see cref="Edge"/>.</summary>
+    public sealed class MegaSightedEvent : SimEvent
+    {
+        public EntityId Enemy;
+        public byte Kind;
+        public sbyte Edge;
+    }
+
+    /// <summary>Doc 05 §2.1: a felled Mega of <see cref="Enemy"/>'s kind dropped a Lost Parcel, in the bag <see cref="Bag"/>.</summary>
+    public sealed class LostParcelEvent : SimEvent
+    {
+        public byte Enemy;
+        public ushort Kind;
+        public World.AddressId Address;
+        public ushort Value;
+        public uint Bag;
+    }
+
     /// <summary>
     /// The Repair Hammer (doc 05 §4) has made a construct whole again, or the Post Office
     /// (<see cref="PostOffice"/>); who held it. Its HP on the way came as <see cref="ConstructDamagedEvent"/>s.

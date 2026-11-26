@@ -2191,7 +2191,29 @@ corner for good.
       the nearest wrong mailbox through the prompt (with `--shots`: `lobby-stamps.png`,
       `cursed-prompt.png`, `cursed-raid.png`)
 
-Next in this order: the rest of M3's list in doc 12 (drops, Lost Parcels).
+- [x] **Drops** (doc 05 §2.2's table, "Drops are WorldItems with a 2 min despawn"; doc 12 M3 "Drops").
+      Found already in from M1: each felled raider's coins and its kind's drops from `enemies.json`
+      (Fiber 50 %, 2 Stone 50 %, 3 Stone and an Iron Ore, an Oil Can 30 %, 4 Iron Ingots) lie as a
+      loot bundle with a `WorldItem` id, fly to who is near, and go after `lootDespawnSeconds` 120; the
+      Hog Rider's stolen item lies where it fell (`CombatTests`, `HogRiderTests`). Nothing changed
+- [x] **Lost Parcels and the Mega's announcement** (doc 05 §2.1 "Guaranteed drop on death: a Lost Parcel
+      (Medium Package with a random unlocked address, value ×3) plus 2 Iron Ingots. Announced on the HUD
+      when spawned (\"Mega Giant sighted, north\")"; doc 12 M3 "Lost Parcels"; design choice 142).
+      `waves.json` `mega.lostParcel` (`kind` medium, `valueMult` 3, `items` 2 Iron Ingots; the validator
+      checks the kind, the items and counts). A felled Mega's loot has the two Iron Ingots besides its
+      kind's drops ×3; the parcel (`MailSpawner.LostParcel`: an unlocked address that takes a Medium
+      Package, from the loot stream, priced as a batch would price it ×3, `MailFlags.Lost`) lies in a
+      bag that is nobody's where it fell, like a Hog Rider's theft: anybody takes it and delivers it as
+      any mail; left lying, it goes back to the Intake with the bag (mail is never destroyed). A raid's
+      Mega is announced as it comes in (`MegaSightedEvent`, its way in), the parcel when it drops
+      (`LostParcelEvent`; protocol `m2.23`). The client: the feed's "Mega Horned Giant sighted, east" (red)
+      and "The Mega Horned Giant dropped a Lost Medium Package for 9 Larch Lane"; the stack reads "Lost 1
+      Medium Package for …" with an amber rim and "LOST PARCEL" on it. `LostParcelTests` (the content;
+      the bag, the address, ×3; the Iron Ingots and none for a plain raider; taken and delivered home for
+      its value; back in the Intake when the bag's time is up; a raid's Mega announced with its way in),
+      `LostParcelFlowTests` (the feed's lines, the bag on the client, the stack's words), codec pins
+
+Next in this order: the rest of M3's list in doc 12 (weapons: the Slingshot).
 
 ### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
 
@@ -3660,6 +3682,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     1.67 and 1.44, under the doc's 360 / 560: high enough that two carriers' shift 4 can lead with a
     Tank, low enough that `RaidFightTests`' clumsy hammer bots (no walls, no turrets) still get through
     every shift within 9 downs a head. Choice 70 stands for shifts 2 and 3.
+
+142. **The Lost Parcel's bag.** Doc 05 §2.1 says only "Guaranteed drop". Loot bundles carry items
+    and coins and fly to whoever is near; mail cannot (it would fill a carrier's pockets unasked and
+    loot has no address), so the parcel lies in a bag that is nobody's, as a Hog Rider's theft does,
+    and its 30 s and the Intake afterwards keep doc 03 §3.3's "mail is never destroyed". "Random
+    unlocked address": uniform over the unlocked addresses that take a Medium Package, from the loot's
+    stream so the mail's own streams spawn what they did. "Value ×3": three times what a batch would
+    price that piece for that address in that shift; its deadline is a Medium Package's. The 2 Iron
+    Ingots are not multiplied by the Mega's loot ×3 (they are the Mega's own). Only a raid's Mega is
+    announced (a debug or test spawn is not); the words are the doc's with the kind's name.
 
 ## Commands
 

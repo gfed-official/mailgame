@@ -144,6 +144,8 @@ namespace PerformativeMail.Client
 
         /// <summary>The word on cursed mail (doc 05 §6 "glowing purple label").</summary>
         public const string CursedWord = "Cursed";
+        /// <summary>Doc 05 §2.1: what a felled Mega's parcel is called on its stack ("Lost 1 Medium Package for …").</summary>
+        public const string LostWord = "Lost";
         public const string CursedWarning = "   ·   raiders come!";
 
         /// <summary>The run's stamps (doc 01 §6) and its score multiplier: "Stamps: Cursed Mail   ·   score ×1.15", "Stamps: none".</summary>
@@ -164,6 +166,22 @@ namespace PerformativeMail.Client
             string kind = e.Kind < world.Content.MailKinds.Count ? world.Content.MailKinds[e.Kind].Name : "mail";
             var dest = world.Map.GetDestination(e.DestId);
             return $"{whose} cursed {kind} at {(dest != null ? dest.Label : "the wrong mailbox")}: {e.Raiders} raiders!";
+        }
+
+        /// <summary>Doc 05 §2.1 "Announced on the HUD when spawned (\"Mega Giant sighted, north\")".</summary>
+        public static string MegaSighted(ClientWorld world, MegaSightedEvent e)
+        {
+            string kind = e.Kind < world.Content.Enemies.Count ? world.Content.Enemies[e.Kind].Name : "raider";
+            var edges = world.Map.SpawnEdges;
+            return e.Edge >= 0 && e.Edge < edges.Count ? $"Mega {kind} sighted, {edges[e.Edge].Direction}" : $"Mega {kind} sighted";
+        }
+
+        /// <summary>Doc 05 §2.1: the feed's line when a felled Mega dropped its Lost Parcel.</summary>
+        public static string LostParcel(ClientWorld world, LostParcelEvent e)
+        {
+            string kind = e.Enemy < world.Content.Enemies.Count ? world.Content.Enemies[e.Enemy].Name : "raider";
+            string parcel = e.Kind < world.Content.MailKinds.Count ? world.Content.MailKinds[e.Kind].Name : "parcel";
+            return $"The Mega {kind} dropped a Lost {parcel} for {world.Map.FormatAddress(e.Address)}";
         }
 
         /// <summary>The feed's line when the host has picked another world.</summary>
@@ -462,7 +480,7 @@ namespace PerformativeMail.Client
         /// <summary>Full description of a stack for tooltips and lists: "3 Letters for 13 Larch Lane".</summary>
         public static string Stack(ClientWorld world, ItemStack stack) =>
             stack.Kind == StackKind.Mail
-                ? $"{(stack.Cursed ? CursedWord + " " : "")}{CountAndKind(world.Content, stack)} for {world.Map.FormatAddress(stack.Address)}"
+                ? $"{(stack.Cursed ? CursedWord + " " : "")}{(stack.Lost ? LostWord + " " : "")}{CountAndKind(world.Content, stack)} for {world.Map.FormatAddress(stack.Address)}"
                 : CountAndKind(world.Content, stack);
 
         /// <summary>A line of the Intake manifest: "8 Larch Lane  —  3 Letters", with the stack count when there are several.</summary>

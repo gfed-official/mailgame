@@ -12,7 +12,8 @@
   "raidWindowSeconds": 90,
   "megaChanceBase": 0.05,
   "megaChancePerShift": 0.02,
-  "mega": { "hpMult": 2.5, "dmgMult": 1.5, "scale": 1.4, "speedMult": 0.9, "lootMult": 3 },
+  "mega": { "hpMult": 2.5, "dmgMult": 1.5, "scale": 1.4, "speedMult": 0.9, "lootMult": 3,
+            "lostParcel": { "kind": "medium", "valueMult": 3, "items": { "iron_ingot": 2 } } },
   "maxAlive": 48,
   "weightsByShift": {
     "2": { "barbarian": 60, "swarmling": 40, "archer": 30 },

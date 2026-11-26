@@ -162,6 +162,13 @@ namespace PerformativeMail.Client.UI
                     canvas.DrawRect(new Rect2(rect.Position.X + 2f, rect.End.Y - 13f, rect.Size.X - 4f, 11f), new Color(Palette.Cursed, 0.85f * alpha));
                     canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.End.Y - 4f), "CURSED", HorizontalAlignment.Left, rect.Size.X - 4f, 9, new Color(1f, 1f, 1f, alpha));
                 }
+                // Doc 05 §2.1: a Lost Parcel, from a felled Mega — an amber rim and its word.
+                if (stack.Lost)
+                {
+                    canvas.DrawRect(rect.Grow(-1f), new Color(Palette.Lost, alpha), filled: false, width: 3f);
+                    canvas.DrawRect(new Rect2(rect.Position.X + 2f, rect.End.Y - 13f, rect.Size.X - 4f, 11f), new Color(Palette.Lost, 0.85f * alpha));
+                    canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.End.Y - 4f), "LOST PARCEL", HorizontalAlignment.Left, rect.Size.X - 4f, 9, new Color(0.1f, 0.07f, 0.02f, alpha));
+                }
             }
             else
             {

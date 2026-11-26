@@ -158,6 +158,32 @@ namespace PerformativeMail.Sim.Mail
             return item;
         }
 
+        /// <summary>
+        /// Doc 05 §2.1's Lost Parcel: a piece of the kind for a random unlocked address that takes
+        /// it, priced as a batch would price it times <paramref name="valueMult"/>, not placed
+        /// anywhere; null when no unlocked address takes the kind. The address comes from the
+        /// caller's stream, so the mail's own streams spawn what they always did.
+        /// </summary>
+        public MailItem? LostParcel(MailKindDef kind, int shift, double valueMult, RngStream rng)
+        {
+            CollectEligible(kind);
+            if (_eligible.Count == 0) return null;
+            var dest = _eligible[rng.NextInt(_eligible.Count)];
+            var mix = _content.MailMix;
+            double shiftMult = 1.0 + mix.ShiftMultiplierPerShift * (shift - 1);
+            double distMult = 1.0 + mix.DistanceMultiplierPerDistrict * (dest.Address.District - 1);
+            return new MailItem
+            {
+                Id = _nextMailId++,
+                Kind = kind.Index,
+                Address = dest.Address,
+                Value = (ushort)Math.Min(ushort.MaxValue, Math.Round(kind.BaseValue * distMult * shiftMult * valueMult)),
+                SpawnShift = (byte)shift,
+                DeadlineShift = (byte)(shift + kind.DeadlineOffsetShifts),
+                Flags = MailFlags.Lost,
+            };
+        }
+
         /// <summary>Puts an existing item back into the Intake (or the backlog), e.g. when its carrier leaves.</summary>
         public void ReturnToIntake(MailItem item)
         {

@@ -466,6 +466,7 @@ namespace PerformativeMail.Sim
             Events.Add(new EnemyDiedEvent { Enemy = e.Id, Kind = e.Def.Index, Mega = e.Mega, X = e.X, Z = e.Z, Killer = e.LastHitBy });
             DropLoot(e);
             DropCarried(e);
+            if (e.Mega) DropLostParcel(e);
         }
 
         private void StepEnemies()
@@ -1053,6 +1054,7 @@ namespace PerformativeMail.Sim
                 var spawned = SpawnEnemy(def, x, z, mega);
                 if (spawned == null) break;
                 spawned.Edge = edge.Index;
+                if (mega) Events.Add(new MegaSightedEvent { Enemy = spawned.Id, Kind = def.Index, Edge = (sbyte)edge.Index });
                 if (led) { lead++; continue; }
                 _raidSpawnedOf[def] = _raidSpawnedOf.TryGetValue(def, out int before) ? before + 1 : 1;
                 budget -= def.Cost;
@@ -1139,6 +1141,8 @@ namespace PerformativeMail.Sim
                 if (!_lootRng.Chance(drop.ChancePermille)) continue;
                 bundle.Items.Add(new LootItem { Item = drop.Item.Index, Count = (byte)Math.Min(255, drop.Count * mult) });
             }
+            // Doc 05 §2.1 "plus 2 Iron Ingots", on top of its kind's drops.
+            if (e.Mega) AddMegaItems(bundle);
             if (bundle.Coins == 0 && bundle.Items.Count == 0) return;
             bundle.Id = _entityIds.Allocate(EntityClass.WorldItem).Value;
             _loot.Add(bundle);

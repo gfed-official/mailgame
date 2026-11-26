@@ -160,6 +160,12 @@ namespace PerformativeMail.Client
                 case CursedRaidEvent e:
                     Add(HudText.CursedRaid(world, e), bad: true);
                     break;
+                case MegaSightedEvent e:
+                    Add(HudText.MegaSighted(world, e), bad: true);
+                    break;
+                case LostParcelEvent e:
+                    Add(HudText.LostParcel(world, e));
+                    break;
                 case RepairedEvent e:
                 {
                     var mended = e.PostOffice ? null : world.Constructs.At(e.X, e.Y);

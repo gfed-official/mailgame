@@ -34,6 +34,8 @@ namespace PerformativeMail.Client.Presentation
         public static readonly Color Amber = new Color("ffbf47");
         /// <summary>Doc 05 §6: cursed mail's "glowing purple label".</summary>
         public static readonly Color Cursed = new Color("b65cff");
+        /// <summary>Doc 05 §2.1: a Lost Parcel's tag, a Mega's prize.</summary>
+        public static readonly Color Lost = new Color("e8a33a");
 
         public static Color HouseColour(int variant) => House[Mod(variant, House.Length)];
         public static Color PlayerColour(int slot) => Player[Mod(slot, Player.Length)];

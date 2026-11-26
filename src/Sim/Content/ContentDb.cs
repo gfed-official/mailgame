@@ -627,6 +627,9 @@ namespace PerformativeMail.Sim.Content
 
                     float megaHp = 1, megaDmg = 1, megaScale = 1, megaSpeed = 1;
                     int megaLoot = 1;
+                    MailKindDef? parcelKind = null;
+                    double parcelValueMult = 1;
+                    var megaItems = new List<EnemyDrop>();
                     if (root.TryGetProperty("mega", out var mega) && mega.ValueKind == JsonValueKind.Object)
                     {
                         megaHp = (float)J.Num(ctx, mega, "hpMult");
@@ -635,6 +638,27 @@ namespace PerformativeMail.Sim.Content
                         megaSpeed = (float)J.Num(ctx, mega, "speedMult");
                         megaLoot = J.Int(ctx, mega, "lootMult", 1);
                         if (megaHp <= 0 || megaDmg <= 0 || megaScale <= 0 || megaSpeed <= 0 || megaLoot < 1) ctx.Error("mega multipliers must be positive");
+                        // Doc 05 §2.1 "Guaranteed drop on death: a Lost Parcel (Medium Package with a random
+                        // unlocked address, value ×3) plus 2 Iron Ingots".
+                        if (mega.TryGetProperty("lostParcel", out var parcel) && parcel.ValueKind == JsonValueKind.Object)
+                        {
+                            string kindId = J.Str(ctx, parcel, "kind");
+                            parcelKind = db.FindMailKind(kindId);
+                            if (parcelKind == null) ctx.Error($"mega.lostParcel: unknown mail kind '{kindId}'");
+                            parcelValueMult = J.Num(ctx, parcel, "valueMult", 1);
+                            if (parcelValueMult <= 0) ctx.Error("mega.lostParcel.valueMult must be positive");
+                            if (parcel.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Object)
+                                foreach (var it in items.EnumerateObject())
+                                {
+                                    if (!db._itemsById.TryGetValue(it.Name, out var itemDef)) { ctx.Error($"mega.lostParcel: unknown item '{it.Name}'"); continue; }
+                                    if (it.Value.ValueKind != JsonValueKind.Number || !it.Value.TryGetInt32(out int count) || count < 1 || count > 255)
+                                    {
+                                        ctx.Error($"mega.lostParcel: the count of '{it.Name}' must be in 1..255");
+                                        continue;
+                                    }
+                                    megaItems.Add(new EnemyDrop(itemDef, 1000, count));
+                                }
+                        }
                     }
                     else ctx.Error("missing 'mega' object");
 
@@ -654,6 +678,7 @@ namespace PerformativeMail.Sim.Content
                         MegaChanceBase = J.Num(ctx, root, "megaChanceBase", 0),
                         MegaChancePerShift = J.Num(ctx, root, "megaChancePerShift", 0),
                         MegaHpMult = megaHp, MegaDamageMult = megaDmg, MegaScale = megaScale, MegaSpeedMult = megaSpeed, MegaLootMult = megaLoot,
+                        LostParcelKind = parcelKind, LostParcelValueMult = parcelValueMult, MegaItems = megaItems,
                         MaxAlive = J.Int(ctx, root, "maxAlive"),
                         WeightsByShift = weights,
                         MaxByShift = maxes,
