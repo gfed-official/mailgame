@@ -154,6 +154,14 @@ namespace PerformativeMail.Client.UI
                 // The stripe is the colour of the house the mail is addressed to.
                 if (dest != null) canvas.DrawRect(new Rect2(rect.Position + new Vector2(1f, 3f), new Vector2(rect.Size.X - 2f, 6f)), new Color(Palette.HouseColour(dest.Variant), alpha));
                 canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.Position.Y + 23f), "#" + stack.Address.Number, HorizontalAlignment.Left, rect.Size.X - 3f, 13, ink);
+                // Doc 05 §6: cursed mail's glowing purple label — a purple rim and its word.
+                if (stack.Cursed)
+                {
+                    var purple = new Color(Palette.Cursed, alpha);
+                    canvas.DrawRect(rect.Grow(-1f), purple, filled: false, width: 3f);
+                    canvas.DrawRect(new Rect2(rect.Position.X + 2f, rect.End.Y - 13f, rect.Size.X - 4f, 11f), new Color(Palette.Cursed, 0.85f * alpha));
+                    canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.End.Y - 4f), "CURSED", HorizontalAlignment.Left, rect.Size.X - 4f, 9, new Color(1f, 1f, 1f, alpha));
+                }
             }
             else
             {

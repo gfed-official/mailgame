@@ -42,6 +42,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string Kit = "kit";
         /// <summary>Host, Lobby: the next world, and a new seed for it. Doc 09 §4 has no keys for them; V and N.</summary>
         public const string World = "world", Seed = "seed";
+        /// <summary>Host, Lobby: the next set of Postage Stamps (doc 01 §6). Doc 09 §4 has no key for it; T.</summary>
+        public const string Stamps = "stamps";
         /// <summary>The map overlay (doc 09 §4: M).</summary>
         public const string Map = "map";
         /// <summary>The map's filter chips while it is up (doc 09 §2.6 has no keys for them): Z Mail, X Routes, V Resources.</summary>
@@ -77,6 +79,7 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Kit, Key.K);
             BindKey(World, Key.V);
             BindKey(Seed, Key.N);
+            BindKey(Stamps, Key.T);
             BindKey(ReloadContent, Key.F6);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);

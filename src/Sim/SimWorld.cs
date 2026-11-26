@@ -67,6 +67,8 @@ namespace PerformativeMail.Sim
         public bool QuotaWaived;
         /// <summary>Doc 05 §5: the Post Office's health, whole numbers (its most is balance.postOfficeHp).</summary>
         public ushort PostOfficeHp;
+        /// <summary>Doc 01 §6: the run's Postage Stamps, a bit per <see cref="Content.StampDef.Index"/>.</summary>
+        public byte Stamps;
     }
 
     /// <summary>
@@ -314,6 +316,7 @@ namespace PerformativeMail.Sim
             ClockStopped = ClockStopped,
             QuotaWaived = QuotaWaived,
             PostOfficeHp = (ushort)Math.Clamp((int)MathF.Ceiling(PostOfficeHp), 0, ushort.MaxValue),
+            Stamps = Stamps,
         };
 
         // --- tick -----------------------------------------------------------------------------

@@ -1,0 +1,7 @@
+[
+  { "id": "cursed_mail", "name": "Cursed Mail", "tier": 1, "scoreMult": 1.15,
+    "description": "10% of the mail is cursed: worth half again, but a wrong mailbox brings 4 Barbarians and an Archer on the spot, unannounced.",
+    "rules": ["cursed_mail"],
+    "params": { "chance": 0.10, "valueMult": 1.5 },
+    "miniRaid": [ { "enemy": "barbarian", "count": 4 }, { "enemy": "archer", "count": 1 } ] }
+]

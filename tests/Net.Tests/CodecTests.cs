@@ -164,7 +164,7 @@ namespace PerformativeMail.Net.Tests
                 {
                     Shift = 1, Phase = RunPhase.Delivery, PhaseEndTick = 7200, Quota = 600, ShiftEarnings = -12, Wallet = -480,
                     Complaint = 17, Backlog = 3, Deliveries = 40, Misdeliveries = 2,
-                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true, PostOfficeHp = 2345,
+                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true, PostOfficeHp = 2345, Stamps = 5,
                 },
             };
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, HeldTool = 17, Ready = true, Ride = 1, Heading = MathF.PI / 2f, Kit = 2 });
@@ -281,6 +281,7 @@ namespace PerformativeMail.Net.Tests
                 new ConstructPushedEvent { FromX = 40, FromY = 9, X = 39, Y = 9, Enemy = 7 },
                 new PostOfficeDamagedEvent { Hp = 2960, Enemy = 2 },
                 new RepairedEvent { X = 33, Y = 15, Player = player, PostOffice = true },
+                new CursedRaidEvent { DestId = 301, Player = player, Kind = 2, Raiders = 5 },
                 new RuinEvent { X = 32, Y = 14, Building = 7, Rotation = 3, Gone = true, Rebuilt = true, Player = player },
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
@@ -345,6 +346,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(((byte)40, (byte)9, (byte)39, (byte)9, (byte)7), (shoved.FromX, shoved.FromY, shoved.X, shoved.Y, shoved.Enemy));
             var po = back.OfType<PostOfficeDamagedEvent>().Single();
             Assert.Equal(((ushort)2960, (byte)2), (po.Hp, po.Enemy));
+            var curse = back.OfType<CursedRaidEvent>().Single();
+            Assert.Equal(((ushort)301, player, (ushort)2, (byte)5), (curse.DestId, curse.Player, curse.Kind, curse.Raiders));
             var mended = back.OfType<RepairedEvent>().Single();
             Assert.Equal(((byte)33, (byte)15, player, true), (mended.X, mended.Y, mended.Player, mended.PostOffice));
             var ruin = back.OfType<RuinEvent>().Single();

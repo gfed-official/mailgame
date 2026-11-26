@@ -44,6 +44,23 @@ namespace PerformativeMail.Sim.Mail
         public uint MailSpawnedTotal => _nextMailId - 1;
         public int BatchesPerShift => _batchCount;
 
+        /// <summary>
+        /// Doc 05 §6 (the Cursed Mail stamp): the part of the mail spawned cursed, in permille (0: none —
+        /// and then nothing is drawn from its stream, so a run without it spawns what it always did),
+        /// and what a cursed item's value is multiplied by.
+        /// </summary>
+        public int CursedPermille { get; set; }
+        public float CursedValueMult { get; set; } = 1f;
+        private RngStream _curseRng;
+
+        /// <summary>A new item cursed or not, its value raised if it is.</summary>
+        private void Curse(ref MailItem item)
+        {
+            if (CursedPermille <= 0 || !_curseRng.Chance(CursedPermille)) return;
+            item.Flags |= MailFlags.Cursed;
+            item.Value = (ushort)Math.Min(ushort.MaxValue, Math.Round(item.Value * (double)CursedValueMult));
+        }
+
         public MailSpawner(ContentDb content, WorldMap map, GridContainer intake, EntryIdAllocator entryIds, uint seed)
         {
             _content = content;
@@ -53,6 +70,7 @@ namespace PerformativeMail.Sim.Mail
             _seed = seed;
             _spawnRng = new RngStream(seed, "mail.spawn");
             _addressRng = new RngStream(seed, "mail.address");
+            _curseRng = new RngStream(seed, "mail.curse");
             _accrued = new long[content.MailKinds.Count];
         }
 
@@ -64,6 +82,7 @@ namespace PerformativeMail.Sim.Mail
         {
             _spawnRng = new RngStream(_seed, "mail.spawn");
             _addressRng = new RngStream(_seed, "mail.address");
+            _curseRng = new RngStream(_seed, "mail.curse");
             Array.Clear(_accrued, 0, _accrued.Length);
             _backlog.Clear();
             _active = false;
@@ -134,6 +153,7 @@ namespace PerformativeMail.Sim.Mail
                 SpawnShift = (byte)shift,
                 DeadlineShift = (byte)(shift + kind.DeadlineOffsetShifts),
             };
+            Curse(ref item);
             ReturnToIntake(item);
             return item;
         }
@@ -203,6 +223,7 @@ namespace PerformativeMail.Sim.Mail
                         SpawnShift = (byte)_shift,
                         DeadlineShift = (byte)(_shift + kind.DeadlineOffsetShifts),
                     };
+                    Curse(ref item);
                     ReturnToIntake(item);
                     spawned++;
                 }

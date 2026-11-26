@@ -42,9 +42,12 @@ namespace PerformativeMail.Sim.Inventory
             ItemCount = count,
         };
 
-        /// <summary>Mail stacks only with the same kind and address; other stackables merge by item type.</summary>
+        /// <summary>Mail stacks only with the same kind and address, cursed with cursed (doc 05 §6); other stackables merge by item type.</summary>
         public bool CanStackWith(ItemStack other) =>
-            Kind == other.Kind && DefIndex == other.DefIndex && (Kind != StackKind.Mail || Address == other.Address);
+            Kind == other.Kind && DefIndex == other.DefIndex && (Kind != StackKind.Mail || (Address == other.Address && Cursed == other.Cursed));
+
+        /// <summary>Doc 05 §6: a stack of cursed mail (they never stack with mail that is not).</summary>
+        public bool Cursed => Kind == StackKind.Mail && Mail.Count > 0 && (Mail[0].Flags & Sim.Mail.MailFlags.Cursed) != 0;
 
         public ItemStack Clone() => new ItemStack
         {

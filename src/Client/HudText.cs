@@ -137,7 +137,34 @@ namespace PerformativeMail.Client
         public static string KitTracker(ClientWorld world) => $"Kit: {LocalKit(world).Name}   ·   {KitKey}";
 
         /// <summary>The host's keys in the Lobby.</summary>
-        public static string WorldKeys => $"{WorldKey} world   ·   {SeedKey} new seed";
+        public static string WorldKeys => $"{WorldKey} world   ·   {SeedKey} new seed   ·   {StampsKey} stamps";
+
+        /// <summary>Picks the next set of Postage Stamps in the Lobby (host). Doc 09 §4 has none; T.</summary>
+        public const string StampsKey = "[T]";
+
+        /// <summary>The word on cursed mail (doc 05 §6 "glowing purple label").</summary>
+        public const string CursedWord = "Cursed";
+        public const string CursedWarning = "   ·   raiders come!";
+
+        /// <summary>The run's stamps (doc 01 §6) and its score multiplier: "Stamps: Cursed Mail   ·   score ×1.15", "Stamps: none".</summary>
+        public static string StampsTracker(ClientWorld world)
+        {
+            var names = new List<string>();
+            double mult = 1.0;
+            foreach (var s in world.Content.Stamps)
+                if ((world.Global.Stamps & (1 << s.Index)) != 0) { names.Add(s.Name); mult *= s.ScoreMult; }
+            return names.Count == 0 ? "Stamps: none" : $"Stamps: {string.Join(", ", names)}   ·   score ×{mult.ToString("0.##", CultureInfo.InvariantCulture)}";
+        }
+
+        /// <summary>Doc 05 §6: the feed's line when cursed mail went to the wrong mailbox.</summary>
+        public static string CursedRaid(ClientWorld world, CursedRaidEvent e)
+        {
+            // Short enough for the feed's width (the long one was cut off in the smoke's picture).
+            string whose = e.Player == world.LocalId ? "Your" : PlayerName(world, e.Player) + "'s";
+            string kind = e.Kind < world.Content.MailKinds.Count ? world.Content.MailKinds[e.Kind].Name : "mail";
+            var dest = world.Map.GetDestination(e.DestId);
+            return $"{whose} cursed {kind} at {(dest != null ? dest.Label : "the wrong mailbox")}: {e.Raiders} raiders!";
+        }
 
         /// <summary>The feed's line when the host has picked another world.</summary>
         public static string WorldChanged(ClientWorld world, WorldChangedEvent e)
@@ -382,7 +409,7 @@ namespace PerformativeMail.Client
             var lines = new List<string>
             {
                 ResultsHeadline(world.Content, r),
-                $"Shifts completed {r.ShiftsCompleted} / {shifts}   ·   Score {Gold(r.Score)}",
+                $"Shifts completed {r.ShiftsCompleted} / {shifts}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" ({Gold(r.TotalEarned)} × the stamps)" : "")}",
                 $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}",
             };
             foreach (var p in r.Players)
@@ -435,7 +462,7 @@ namespace PerformativeMail.Client
         /// <summary>Full description of a stack for tooltips and lists: "3 Letters for 13 Larch Lane".</summary>
         public static string Stack(ClientWorld world, ItemStack stack) =>
             stack.Kind == StackKind.Mail
-                ? $"{CountAndKind(world.Content, stack)} for {world.Map.FormatAddress(stack.Address)}"
+                ? $"{(stack.Cursed ? CursedWord + " " : "")}{CountAndKind(world.Content, stack)} for {world.Map.FormatAddress(stack.Address)}"
                 : CountAndKind(world.Content, stack);
 
         /// <summary>A line of the Intake manifest: "8 Larch Lane  —  3 Letters", with the stack count when there are several.</summary>
@@ -1794,7 +1821,9 @@ namespace PerformativeMail.Client
                     }
                     tone = p.AddressMatches ? PromptTone.Match : PromptTone.Mismatch;
                     string verdict = p.AddressMatches ? MatchWord : MismatchWord;
-                    return $"{verdict}   ·   Deliver {Stack(world, p.Stack.Stack)}   |   mailbox: {dest.Label}   [hold E]{all}";
+                    // Doc 05 §6: the wrong box for cursed mail says what it will bring.
+                    string curse = p.Stack.Stack.Cursed && !p.AddressMatches ? CursedWarning : "";
+                    return $"{verdict}   ·   Deliver {Stack(world, p.Stack.Stack)}   |   mailbox: {dest.Label}   [hold E]{curse}{all}";
                 }
                 default: return "";
             }

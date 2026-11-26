@@ -216,6 +216,41 @@ namespace PerformativeMail.Sim.Content
     /// starts (or when they join in Prep), its team items — the host's kit's — once a run into the
     /// chest by the Post Office, its vehicles by the counter.
     /// </summary>
+    /// <summary>What a Postage Stamp does (doc 01 §6): the closed set of rule flags (doc 12 M4 "RuleFlag").</summary>
+    public enum StampRule : byte
+    {
+        /// <summary>Doc 05 §6: some mail is cursed; worth more; misdelivered, a mini-raid at the mailbox.</summary>
+        CursedMail,
+    }
+
+    /// <summary>A Postage Stamp (doc 01 §6, doc 08 §2.12): a difficulty modifier the host picks in the Lobby.</summary>
+    public sealed class StampDef
+    {
+        /// <summary>A run's stamps go in one byte of the global block.</summary>
+        public const int MaxStamps = 8;
+
+        public string Id { get; init; } = "";
+        public byte Index { get; init; }
+        public string Name { get; init; } = "";
+        public string Description { get; init; } = "";
+        public int Tier { get; init; } = 1;
+        /// <summary>Doc 01 §6: the run's score is its earnings times the product of its stamps'.</summary>
+        public float ScoreMult { get; init; } = 1f;
+        public IReadOnlyList<StampRule> Rules { get; init; } = Array.Empty<StampRule>();
+        /// <summary>Cursed Mail: the part of the mail that is cursed, and what its value is multiplied by.</summary>
+        public float CursedChance { get; init; }
+        public float CursedValueMult { get; init; } = 1f;
+        /// <summary>Cursed Mail: who comes when a cursed item goes to the wrong mailbox.</summary>
+        public IReadOnlyList<(EnemyDef Enemy, int Count)> MiniRaid { get; init; } = Array.Empty<(EnemyDef, int)>();
+
+        public bool Has(StampRule rule)
+        {
+            for (int i = 0; i < Rules.Count; i++)
+                if (Rules[i] == rule) return true;
+            return false;
+        }
+    }
+
     public sealed class KitDef
     {
         public string Id { get; init; } = "";

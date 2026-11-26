@@ -38,6 +38,8 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<KitDef> Kits { get; private set; } = Array.Empty<KitDef>();
         /// <summary>The kit a player has until they choose another: Land, open from rank 1.</summary>
         public KitDef DefaultKit => Kits[0];
+        /// <summary>The Postage Stamps (doc 01 §6, doc 08 §2.12), at most <see cref="StampDef.MaxStamps"/>; a run's are a bit mask of their indices.</summary>
+        public IReadOnlyList<StampDef> Stamps { get; private set; } = Array.Empty<StampDef>();
         /// <summary>What can be built, in the order of the build bar.</summary>
         public IReadOnlyList<BuildingDef> Buildings { get; private set; } = Array.Empty<BuildingDef>();
         public IReadOnlyList<RecipeDef> Recipes { get; private set; } = Array.Empty<RecipeDef>();
@@ -59,6 +61,7 @@ namespace PerformativeMail.Sim.Content
         private readonly Dictionary<string, ItemDef> _itemsById = new Dictionary<string, ItemDef>();
         private readonly Dictionary<string, WorldMap> _maps = new Dictionary<string, WorldMap>();
         private readonly Dictionary<string, EnemyDef> _enemiesById = new Dictionary<string, EnemyDef>();
+        private readonly Dictionary<string, StampDef> _stampsById = new Dictionary<string, StampDef>();
         private readonly Dictionary<string, PerkDef> _perksById = new Dictionary<string, PerkDef>();
         private readonly Dictionary<string, VehicleDef> _vehiclesById = new Dictionary<string, VehicleDef>();
         private readonly Dictionary<string, KitDef> _kitsById = new Dictionary<string, KitDef>();
@@ -78,6 +81,7 @@ namespace PerformativeMail.Sim.Content
         public ShopItemDef ShopItem(string id) => _shopById[id];
         public VehicleDef Vehicle(string id) => _vehiclesById[id];
         public KitDef Kit(string id) => _kitsById[id];
+        public StampDef Stamp(string id) => _stampsById[id];
         public ShopItemDef? FindShopItem(string id) => _shopById.TryGetValue(id, out var d) ? d : null;
         public BuildingDef Building(string id) => _buildingsById[id];
         public WorldMap Map(string id) => _maps[id];
@@ -855,6 +859,66 @@ namespace PerformativeMail.Sim.Content
                 }
                 if (list.Count == 0) errors.Add("kits: no starting kit (doc 03 §4.4 needs the default Land kit)");
                 db.Kits = list;
+            }
+
+            // --- postage stamps (doc 01 §6, doc 08 §2.12) ---------------------------------------
+            {
+                var list = new List<StampDef>();
+                foreach (string file in source.ListJson("stamps"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        var rules = new List<StampRule>();
+                        foreach (string rule in J.StrArray(ctx, e, "rules", optional: true))
+                        {
+                            switch (rule)
+                            {
+                                case "cursed_mail": rules.Add(StampRule.CursedMail); break;
+                                default: ctx.Error($"'{id}': unknown rule '{rule}' (known: cursed_mail)"); break;
+                            }
+                        }
+                        float chance = 0f, valueMult = 1f;
+                        if (e.TryGetProperty("params", out var ps) && ps.ValueKind == JsonValueKind.Object)
+                        {
+                            chance = (float)J.Num(ctx, ps, "chance", 0);
+                            valueMult = (float)J.Num(ctx, ps, "valueMult", 1);
+                        }
+                        var raid = new List<(EnemyDef, int)>();
+                        if (e.TryGetProperty("miniRaid", out var mr) && mr.ValueKind == JsonValueKind.Array)
+                            foreach (var m in mr.EnumerateArray())
+                            {
+                                string enemyId = J.Str(ctx, m, "enemy");
+                                int count = J.Int(ctx, m, "count");
+                                if (!db._enemiesById.TryGetValue(enemyId, out var enemy)) { ctx.Error($"'{id}': miniRaid names unknown enemy '{enemyId}'"); continue; }
+                                if (count < 1) { ctx.Error($"'{id}': miniRaid '{enemyId}' count must be >= 1"); continue; }
+                                raid.Add((enemy, count));
+                            }
+                        var def = new StampDef
+                        {
+                            Id = id,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Description = J.Str(ctx, e, "description", ""),
+                            Tier = J.Int(ctx, e, "tier", 1),
+                            ScoreMult = (float)J.Num(ctx, e, "scoreMult"),
+                            Rules = rules,
+                            CursedChance = chance,
+                            CursedValueMult = valueMult,
+                            MiniRaid = raid,
+                        };
+                        if (def.ScoreMult < 1f) ctx.Error($"'{id}': scoreMult must be >= 1");
+                        if (def.Tier < 1 || def.Tier > 3) ctx.Error($"'{id}': tier must be 1..3");
+                        bool cursed = rules.Contains(StampRule.CursedMail);
+                        if (cursed && (chance <= 0f || chance > 1f || valueMult < 1f || raid.Count == 0)) ctx.Error($"'{id}': cursed_mail wants params.chance in (0, 1], params.valueMult >= 1 and a miniRaid");
+                        if (!cursed && (chance > 0f || raid.Count > 0)) ctx.Error($"'{id}': params.chance and miniRaid are cursed_mail's");
+                        if (list.Count >= StampDef.MaxStamps) { ctx.Error($"'{id}': too many stamps (at most {StampDef.MaxStamps})"); continue; }
+                        if (!AddUnique(ctx, db._stampsById, def.Id, def)) continue;
+                        list.Add(def);
+                    }
+                }
+                db.Stamps = list;
             }
 
             // --- shop ----------------------------------------------------------------------------

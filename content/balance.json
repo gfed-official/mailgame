@@ -19,6 +19,7 @@
 
   "xpPerShift": 100,
   "xpVictory": 50,
+  "stampXpBonus": 0.1,
   "xpPerDelivery": 5,
   "rankXpPerRank": 500,
 

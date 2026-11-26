@@ -378,6 +378,17 @@ namespace PerformativeMail.Client
         /// <summary>The next world, from the same seed.</summary>
         public uint CycleWorld() => ChooseWorld((WorldChoice + 1) % SimWorld.WorldChoices.Count, World?.Seed ?? 1);
 
+        /// <summary>
+        /// Host, Lobby: the next set of Postage Stamps (doc 01 §6), counting through every set of them
+        /// as a bit mask (none, the first, the second, both, …); 0 if not the host's to pick now.
+        /// </summary>
+        public uint CycleStamps()
+        {
+            int n = _content.Stamps.Count;
+            if (!CanChooseWorld || n == 0) return 0;
+            return Send(SimRequest.SetStamps(0, (World!.Global.Stamps + 1) % (1 << n)));
+        }
+
         /// <summary>The same world from a seed drawn at random.</summary>
         public uint NewSeed() => ChooseWorld(Math.Max(0, WorldChoice), (uint)_seedDice.Next(1, int.MaxValue));
 

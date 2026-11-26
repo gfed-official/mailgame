@@ -155,6 +155,11 @@ namespace PerformativeMail.Client.Presentation
             var root = new Node3D { Name = "Letter" };
             root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.3f, 0.2f, 0.02f), 0.008f), MeshKit.Mat(new Color("fff8e7"), 0.8f), Vector3.Zero));
             root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.05f, 0.06f, 0.024f), 0.006f), MeshKit.Mat(Band, 0.7f), new Vector3(0.1f, 0.05f, 0f)));
+            // Doc 05 §6: cursed mail's glowing purple label, shown only while the letter in the hand is cursed.
+            var curse = MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.18f, 0.05f, 0.026f), 0.006f), MeshKit.Glow(new Color("b65cff"), 3f), new Vector3(-0.04f, -0.05f, 0f), default, "Curse");
+            curse.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            curse.Visible = false;
+            root.AddChild(curse);
             return root;
         }
     }

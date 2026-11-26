@@ -157,6 +157,9 @@ namespace PerformativeMail.Client
                         Add(HudText.PostOfficeUnderAttack, bad: true);
                     }
                     break;
+                case CursedRaidEvent e:
+                    Add(HudText.CursedRaid(world, e), bad: true);
+                    break;
                 case RepairedEvent e:
                 {
                     var mended = e.PostOffice ? null : world.Constructs.At(e.X, e.Y);

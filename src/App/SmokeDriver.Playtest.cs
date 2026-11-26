@@ -36,6 +36,7 @@ namespace PerformativeMail.App
         private const float AdvanceBeyond = 10f;
         /// <summary>The cannon is for raiders this far off: nearer is the hammer's, farther is past a sure shot.</summary>
         private const float CannonFrom = 5f, CannonTo = 24f;
+        private bool _ptLootSeen;
         private const int PlaytestStepFrames = 400, FightFrames = 2400, LootFrames = 300;
 
         private int _ptStep, _ptFrames, _ptSwings, _ptShots, _ptBlasts, _ptBlastHits, _ptDeaths, _ptProtected;
@@ -203,6 +204,8 @@ namespace PerformativeMail.App
                         Check(server.StartShift == RaidPlaytestShift && server.QuotaWaived && server.RaidsAtShiftStart && !server.ClockStopped,
                             $"the server would start at shift {server.StartShift}, quota waived {server.QuotaWaived}, raids at shift start {server.RaidsAtShiftStart}, clock stopped {server.ClockStopped}");
                     }
+                    // The Cursed Mail stamp (doc 01 §6), set with the host's key before the run starts.
+                    if (StepLobbyStamp()) break;
                     Go();
                     if (world.Global.Phase == RunPhase.Prep) NextPlaytestStep();
                     else if (_ptFrames > PlaytestStepFrames) Fail("the run did not leave the Lobby after the host pressed go");
@@ -333,12 +336,18 @@ namespace PerformativeMail.App
                     WalkToLoot(world);
                     if (world.Loot.Count > 0 && _ptFrames <= LootFrames) break;
                     if (world.Global.Wallet != server.Economy.Wallet && _ptFrames <= LootFrames + 30) break;
-                    StopHost();
-                    Check(server.Economy.Wallet > 0 && player.LootCoins == server.Economy.Wallet, $"the wallet holds {server.Economy.Wallet}, the host took {player.LootCoins} in loot");
-                    Check(hud.WalletText == HudText.Wallet(world.Global), $"with the loot taken the HUD shows \"{hud.WalletText}\", expected \"{HudText.Wallet(world.Global)}\"");
-                    Check(_ptSawCards, "the loot cards never showed");
-                    Check(server.Economy.ShiftEarnings < server.Run.Quota, $"the shift's quota of {server.Run.Quota} was met by a fight ({server.Economy.ShiftEarnings})");
-                    Shot("playtest-loot");
+                    if (!_ptLootSeen)
+                    {
+                        StopHost();
+                        Check(server.Economy.Wallet > 0 && player.LootCoins == server.Economy.Wallet, $"the wallet holds {server.Economy.Wallet}, the host took {player.LootCoins} in loot");
+                        Check(hud.WalletText == HudText.Wallet(world.Global), $"with the loot taken the HUD shows \"{hud.WalletText}\", expected \"{HudText.Wallet(world.Global)}\"");
+                        Check(_ptSawCards, "the loot cards never showed");
+                        Check(server.Economy.ShiftEarnings < server.Run.Quota, $"the shift's quota of {server.Run.Quota} was met by a fight ({server.Economy.ShiftEarnings})");
+                        Shot("playtest-loot");
+                        _ptLootSeen = true;
+                    }
+                    // Doc 05 §6: a cursed letter at the wrong mailbox, its mini-raid seen.
+                    if (StepCursedMail()) break;
                     // A wall broken in the shift, for its ruin to be rebuilt in the next Prep.
                     LeaveRuinForPrep();
                     ArmPostOfficeBlow();

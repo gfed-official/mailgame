@@ -2162,8 +2162,36 @@ corner for good.
 
 **Found missing: the Repair Hammer** (now done, above, after the f32ea2e nits).
 
-Next in this order: the Repair Hammer (constructs and the Post Office), then doc 05 §6 (Cursed Mail,
-with the Postage Stamps), then the rest of M3's list in doc 12.
+- [x] **Cursed Mail, with the Postage Stamps** (doc 05 §6 "When the Cursed Mail stamp is active, 10% of
+      mail carries the Cursed flag (glowing purple label). Misdelivering a cursed item spawns a mini-raid
+      at the mailbox: 4 Barbarians + 1 Archer (30 budget), no warning. Correct delivery pays ×1.5"; doc 01
+      §6 stamps "Selected in the lobby by the host … score multiplier", Cursed Mail tier 1, ×1.15; doc 08
+      §2.12 StampDef; doc 11 "Stamp XP bonus +10% per active stamp"; doc 12 M3 "Cursed Mail flag support";
+      design choice 140). `content/stamps/stamps.json` (`StampDef`: tier, scoreMult, rules from the
+      closed `StampRule` set — `cursed_mail` only so far — its `params.chance` 0.10 and `valueMult` 1.5,
+      its `miniRaid` of enemies and counts; the validator checks them). The host's T in the Lobby steps
+      through the sets of stamps (`SetStamps`, request 29; `SimWorld.Stamps`, a bit mask in the global
+      block, protocol `m2.22`); the Lobby's plate reads "Stamps: Cursed Mail   ·   score ×1.15" and the
+      host's keys "… [T] stamps". With it on, `MailSpawner` curses a tenth of the mail from a stream of
+      its own (`mail.curse`, so without the stamp a seed spawns what it always did): `MailFlags.Cursed`,
+      its value ×1.5 (so a right mailbox pays half again); cursed mail stacks only with cursed. Put in
+      the wrong mailbox by hand (the only way mail is misdelivered), 4 Barbarians and an Archer appear
+      round that mailbox 3 m out, at once, no warning and no raid (`SpawnMiniRaid`, `CursedRaidEvent`):
+      they fight as raiders and flee when Delivery ends. The client: a purple rim and "CURSED" on the
+      stack, a glowing purple label on the letter in the hand, "Cursed 1 Letter for …", the wrong
+      mailbox's prompt adds "·   raiders come!" (the stack's words already say "Cursed"), the feed "Your cursed Letter at 9 Larch
+      Lane: 5 raiders!". Results: the score is the earnings times the
+      stamps' multipliers ("Score 1150 g (1000 g × the stamps)"), the XP 10 % more a stamp.
+      `CursedMailTests` (the stamp; only the host in the Lobby; a tenth cursed and worth half again, the
+      same for the same seed, none without; the wrong box's mini-raid of 4 + 1 at the mailbox and no
+      raid; the right box pays and brings nobody, plain mail at the wrong box neither; score ×1.15 and
+      XP +10 %), `CursedMailFlowTests` (a guest's key does nothing, both see the plate, the stack's words,
+      the prompt's warning, the feed line, the raiders on the client), codec pins; the raid playtest's
+      smoke sets the stamp with the host's key in the Lobby and, after the raid, puts a cursed letter in
+      the nearest wrong mailbox through the prompt (with `--shots`: `lobby-stamps.png`,
+      `cursed-prompt.png`, `cursed-raid.png`)
+
+Next in this order: the rest of M3's list in doc 12 (drops, Lost Parcels).
 
 ### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
 
@@ -3572,6 +3600,17 @@ See "Commands" at the bottom (filled in as the tooling lands).
     average, not a Log each time); with none, nothing. The Post Office has no build cost: it is mended
     as if built of 30 Logs (7.5 Logs a full bar of 3000), so a hammer is no free answer to a Tank. Open
     in Prep and Delivery, like building. A ruin is not mended (it is rebuilt).
+140. **Postage Stamps and Cursed Mail.** Doc 01 §6 lists eight stamps (M4); doc 05 §6 / doc 12 M3 want
+    Cursed Mail now. Only it is in content; the rest come with M4 through the same `StampDef` and its
+    closed `StampRule` set. The host steps through every set of stamps with one key (T), as a bit mask,
+    rather than a grid of tiles (doc 09 §2's Lobby screen does not exist yet); the tier lock (rank) waits
+    for M4's unlocks. "10% of mail" is each spawned piece cursed with chance 0.10 from its own random
+    stream; "pays ×1.5" is its value raised at spawn (as the label shows it). Only a hand can misdeliver
+    (automation never does, choice 94), and a stack put in at once brings one mini-raid, not one a
+    piece. "(30 budget)" is the doc's costs; here a Barbarian costs 10 and an Archer 15, so the mini-raid
+    is the doc's 4 + 1 by count. It is no raid: no warning, the raid's state unchanged, its raiders
+    flee at the end of Delivery like any. The score is the run's earnings times the product of the
+    stamps' multipliers; XP 10 % more a stamp (doc 11).
 
 ## Commands
 
@@ -3604,7 +3643,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --world=island --seed=7           # host the seed's generated Small Island town instead of the test street
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
-# in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed
+# in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed, T through the Postage Stamps (Cursed Mail)
 # in the Draft: 1-3 take a card, R (or the button) draws new cards of your own, once a run (twice from Postal Rank 4)
 # in a debug build: F6 reloads content/ (a host alone in the game; the feed says whether it took)
 # in a run: M puts up the map with the way to the house of the mail in your hand; Z / X / V toggle its Mail / Routes / Resources chips; at a depot's or port's console, M edits its route on the map

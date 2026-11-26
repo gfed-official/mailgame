@@ -69,6 +69,7 @@ namespace PerformativeMail.Sim
             intake.X = Map.PostOffice.IntakeX;
             intake.Z = Map.PostOffice.IntakeZ;
             Spawner = new MailSpawner(Content, Map, Intake, _entryIds, seed);
+            ApplyStamps();
             Nodes = new NodeField(Content, Map);
             Constructs = new ConstructField(Map);
             ResetCombatRng();

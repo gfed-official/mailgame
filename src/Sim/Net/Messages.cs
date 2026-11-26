@@ -37,12 +37,12 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m2.21;" +
+            "m2.22;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
-            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount,kit,world,reroll,placeLine,beltResync,pushBelt,configure,refuel,ping,operateTurret,rebuildRuin;" +
+            "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount,kit,world,reroll,placeLine,beltResync,pushBelt,configure,refuel,ping,operateTurret,rebuildRuin,setStamps;" +
             "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u32 raidTick,u32 respawn,u32 protectedUntil,u8 chests,{u32 container},u8 bags,{u32 container,u32 owner,f32 x,f32 z,u32 despawn}," +
             "u16 loot,{u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count}},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory," +
             "u16 perks,{u32 holder,u8 perk},u8 offer,{u8 perk},u8 rerolls,u8 picks,{u32 player,u8 card,u8 perk},u8 specials,{u8 shop},u8 owned,{u8 shop},u16 nodes,{u16 node,u8 hitsLeft}," +
@@ -51,7 +51,7 @@ namespace PerformativeMail.Sim.Net
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp,u8 ride,f32 rideSpeed,f32 headX,f32 headZ]," +
             "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 tool,u8 flags,u8 hp,u8 ride,u8 heading,u8 kit},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global],[npcVehicles:u8 n,{u32 id,i32 xcm,i32 zcm,u8 heading}];" +
             "MoveFlags:grounded,winded,dead,becalmed;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies,npcVehicles;" +
-            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,i8 raidEdgeA,i8 raidEdgeB,u8 playtest,u16 poHp;GlobalPlaytest:clockStopped,quotaWaived;" +
+            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,i8 raidEdgeA,i8 raidEdgeB,u8 playtest,u16 poHp,u8 stamps;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
             "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone,playerAway,playerBack,draftOffer,perkPicked,shopOffer,shopBought,shopSold,nodeHarvested,nodesRegrown," +
@@ -61,7 +61,7 @@ namespace PerformativeMail.Sim.Net
             "NodeHarvested:u32 player,u16 node,u8 hitsLeft,u16 item,u8 count;NodesRegrown:u8 all;" +
             "ConstructPlaced:u32 player,u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container;ConstructRemoved:u8 x,u8 y,u32 player,u8 destroyed;" +
             "ConstructDamaged:u8 x,u8 y,u16 hp;ConstructsCleared:;Ruin:u8 x,u8 y,u8 building,u8 rot,u8 gone,u8 rebuilt,u32 player;WelcomeRuins:hp0;" +
-            "BeltItem:u32 mail,u16 kind,u32 addr,u8 unit,u8 lane,f32 pos;BeltState:u8 x,u8 y,u32 tick,u16 n,{item};BeltAdded:u8 x,u8 y,item;BeltMoved:u32 mail,u8 x,u8 y,u8 lane;BeltRemoved:u32 mail;BeltChecksum:u8 x,u8 y,u16 count,u32 hash;BeltPushed:u8 x,u8 y,u16 ticks,u32 player;ConstructConfigured:u8 x,u8 y,u32 player,u8 n,{u16 filter};SorterStatus:u8 x,u8 y,u8 buffered,u16 sorted,u16 overflowed,u8 n,{u16 matches};InserterSwung:u8 x,u8 y,u16 kind;PipeCapsule:item,u8 fromX,u8 fromY,u8 outX,u8 outY;PipeRemoved:u32 mail;VehicleFuel:u32 vehicle,f32 seconds;Ping:u32 player,f32 x,f32 z,u8 kind,u32 expires;PingKinds:here,deliver,build,danger,materials;MailWaiting:u16 n,{u16 dest,u16 count};TurretFired:u8 x,u8 y,f32 tx,f32 tz;TurretOperated:u8 x,u8 y,u32 player;EnemyShot:u8 kind,f32 fx,f32 fz,f32 tx,f32 tz,u8 atConstruct;EnemyShotKinds:arrow,blast,bomb;ConstructPushed:u8 fromX,u8 fromY,u8 x,u8 y,u8 enemy;PostOfficeDamaged:u16 hp,u8 enemy;Repaired:u8 x,u8 y,u32 player,u8 postOffice;Outcomes:none,victory,quotaMissed,postOfficeLost;VehicleRemoved:u32 vehicle;" +
+            "BeltItem:u32 mail,u16 kind,u32 addr,u8 unit,u8 lane,f32 pos;BeltState:u8 x,u8 y,u32 tick,u16 n,{item};BeltAdded:u8 x,u8 y,item;BeltMoved:u32 mail,u8 x,u8 y,u8 lane;BeltRemoved:u32 mail;BeltChecksum:u8 x,u8 y,u16 count,u32 hash;BeltPushed:u8 x,u8 y,u16 ticks,u32 player;ConstructConfigured:u8 x,u8 y,u32 player,u8 n,{u16 filter};SorterStatus:u8 x,u8 y,u8 buffered,u16 sorted,u16 overflowed,u8 n,{u16 matches};InserterSwung:u8 x,u8 y,u16 kind;PipeCapsule:item,u8 fromX,u8 fromY,u8 outX,u8 outY;PipeRemoved:u32 mail;VehicleFuel:u32 vehicle,f32 seconds;Ping:u32 player,f32 x,f32 z,u8 kind,u32 expires;PingKinds:here,deliver,build,danger,materials;MailWaiting:u16 n,{u16 dest,u16 count};TurretFired:u8 x,u8 y,f32 tx,f32 tz;TurretOperated:u8 x,u8 y,u32 player;EnemyShot:u8 kind,f32 fx,f32 fz,f32 tx,f32 tz,u8 atConstruct;EnemyShotKinds:arrow,blast,bomb;ConstructPushed:u8 fromX,u8 fromY,u8 x,u8 y,u8 enemy;PostOfficeDamaged:u16 hp,u8 enemy;Repaired:u8 x,u8 y,u32 player,u8 postOffice;CursedRaid:u16 dest,u32 player,u16 kind,u8 raiders;Outcomes:none,victory,quotaMissed,postOfficeLost;VehicleRemoved:u32 vehicle;" +
             "Driver:u8 x,u8 y,u8 state,u32 vehicle,u16 house,u8 houses,u8 at,u16 delivered,u32 player;DriverStates:none,waiting,out,unloading,returning,fleeing,stranded,passenger;" +
             "VehicleAdded:u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 buyer;VehicleMounted:u32 id,u32 player;VehicleParked:u32 id,f32 x,f32 z,f32 heading,u32 player;VehiclesCleared:;KitGiven:u32 player,u8 kit,u8 team;WorldChanged:str map,u32 seed,u64 hash,u8 n,{u32 chest};" +
             "Attack:u32 player,u8 weapon,f32 x,f32 z,u16 yaw,u8 hits;Blast:f32 x,f32 z,u8 hits;" +
@@ -421,6 +421,7 @@ namespace PerformativeMail.Sim.Net
             w.I32(g.Wallet); w.U8(g.Complaint); w.U16(g.Backlog); w.U16(g.Deliveries); w.U16(g.Misdeliveries);
             w.U8((byte)g.Outcome); w.U32(g.Host.Value); w.U8((byte)g.Raid); w.U8((byte)g.RaidEdgeA); w.U8((byte)g.RaidEdgeB); w.U8((byte)((g.ClockStopped ? 1 : 0) | (g.QuotaWaived ? 2 : 0)));
             w.U16(g.PostOfficeHp);
+            w.U8(g.Stamps);
         }
 
         public static GlobalState Read(NetReader r)
@@ -432,6 +433,7 @@ namespace PerformativeMail.Sim.Net
                 Outcome = (RunOutcome)r.U8(), Host = new EntityId(r.U32()), Raid = (RaidState)r.U8(), RaidEdgeA = (sbyte)r.U8(), RaidEdgeB = (sbyte)r.U8(),
             }, r.U8());
             g.PostOfficeHp = r.U16();
+            g.Stamps = r.U8();
             return g;
         }
     }

@@ -88,6 +88,8 @@ namespace PerformativeMail.Sim
         /// rebuild it in Prep for a part of its cost (<see cref="SimRequest.Count"/> 1), or clear it away for nothing (0).
         /// </summary>
         RebuildRuin = 28,
+        /// <summary>Doc 01 §6: the host sets the run's Postage Stamps in the Lobby, a bit mask of their indices (<see cref="SimRequest.Count"/>).</summary>
+        SetStamps = 29,
     }
 
     /// <summary>What a ping says (doc 09 §2.6: a click, or the wheel's "Deliver here", "Build here", "Danger", "Need materials").</summary>
@@ -192,6 +194,9 @@ namespace PerformativeMail.Sim
 
         public static SimRequest SetWorld(uint reqId, int choice, uint seed) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetWorld, Count = (ushort)choice, EntryId = seed };
+
+        public static SimRequest SetStamps(uint reqId, int mask) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.SetStamps, Count = (ushort)mask };
 
         public static SimRequest SetKit(uint reqId, int kit) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetKit, Count = (ushort)kit };

@@ -79,6 +79,7 @@ namespace PerformativeMail.Sim
                 case RequestKind.RebuildRuin: return RebuildRuinOp(player, r);
                 case RequestKind.SetKit: return SetKitOp(player, r);
                 case RequestKind.SetWorld: return SetWorldOp(player, r);
+                case RequestKind.SetStamps: return SetStampsOp(player, r);
                 default: return OpResult.BadRequest;
             }
         }
@@ -193,6 +194,7 @@ namespace PerformativeMail.Sim
             var mail = entry.Stack.Mail;
             int consumed = 0;
             bool delivered = false;
+            MailItem? cursed = null;
             while (mail.Count > 0)
             {
                 var item = mail[mail.Count - 1];
@@ -219,9 +221,12 @@ namespace PerformativeMail.Sim
                     {
                         MailId = item.Id, DestId = dest.Id, Penalty = (ushort)verdict.Amount, Player = player.Id, Kind = item.Kind,
                     });
+                    if ((item.Flags & MailFlags.Cursed) != 0) cursed = item;
                 }
             }
             if (consumed == 0) return OpResult.WalletFloor;
+            // Doc 05 §6: cursed mail at the wrong mailbox brings a mini-raid there — one a hand, however many went in.
+            if (cursed is { } curse) SpawnMiniRaid(dest, player, curse);
 
             if (mail.Count == 0) info.Container.Remove(entry.EntryId);
             else info.Container.MarkDirty(entry.EntryId);

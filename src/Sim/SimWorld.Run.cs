@@ -238,11 +238,11 @@ namespace PerformativeMail.Sim
                 LastShift = (byte)Run.Shift,
                 QuotaWaived = QuotaWaived,
                 TotalEarned = Economy.TotalEarned,
-                Score = Economy.TotalEarned,
+                Score = StampedScore(Economy.TotalEarned),
                 Deliveries = Economy.TotalDeliveries,
                 Misdeliveries = Economy.TotalMisdeliveries,
             };
-            int xp = QuotaFormula.Xp(b, Run.ShiftsCompleted, outcome == RunOutcome.Victory, Economy.TotalDeliveries, _players.Count);
+            int xp = StampedXp(QuotaFormula.Xp(b, Run.ShiftsCompleted, outcome == RunOutcome.Victory, Economy.TotalDeliveries, _players.Count));
             foreach (var p in _players)
             {
                 results.Players.Add(new PlayerResult
@@ -272,6 +272,7 @@ namespace PerformativeMail.Sim
                 ClearMail(p.Inventory, everything: true);
             }
             Spawner.Reset();
+            ApplyStamps();
             Economy.Reset();
             ClearPerks();
             ClearShop();

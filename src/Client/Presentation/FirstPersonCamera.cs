@@ -52,6 +52,10 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>True while the weapon in the view is the cannon.</summary>
         public bool CannonOut => _cannon.Visible && WeaponDrawn;
         /// <summary>The name of the tool drawn in the hand ("Shovel"); empty when none is.</summary>
+        /// <summary>True while the letter in the hand shows its cursed label (doc 05 §6).</summary>
+        public bool CursedInHand => _curse != null && _curse.Visible;
+        private Node3D? _curse;
+
         public string ToolInHand => _tool != null && _tool.Visible ? _tool.Name : "";
 
         private ClientRuntime _client = null!;
@@ -143,6 +147,8 @@ namespace PerformativeMail.Client.Presentation
             int slot = _client.Input.HeldSlot;
             var held = world.HasLocal && slot > 0 ? world.Hotbar.EntryAt(slot, 0) : null;
             _held.Visible = held != null && held.Stack.Kind == StackKind.Mail && !world.Local.Dead && world.LocalTurret == null;
+            _curse ??= _held.GetNode<Node3D>("Curse");
+            _curse.Visible = _held.Visible && held!.Stack.Cursed;
             var item = held != null && held.Stack.Kind == StackKind.Item ? world.Content.Items[held.Stack.DefIndex] : null;
             var tool = item != null && item.IsTool ? ToolModel(item) : null;
             if (tool != _tool)

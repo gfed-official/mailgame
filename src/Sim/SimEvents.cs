@@ -397,6 +397,18 @@ namespace PerformativeMail.Sim
     }
 
     /// <summary>
+    /// Doc 05 §6: cursed mail went into the wrong mailbox (<see cref="DestId"/>) from <see cref="Player"/>'s
+    /// hands, and a mini-raid of <see cref="Raiders"/> came at once, unannounced; the kind of the mail.
+    /// </summary>
+    public sealed class CursedRaidEvent : SimEvent
+    {
+        public ushort DestId;
+        public EntityId Player;
+        public ushort Kind;
+        public byte Raiders;
+    }
+
+    /// <summary>
     /// The Repair Hammer (doc 05 §4) has made a construct whole again, or the Post Office
     /// (<see cref="PostOffice"/>); who held it. Its HP on the way came as <see cref="ConstructDamagedEvent"/>s.
     /// </summary>
