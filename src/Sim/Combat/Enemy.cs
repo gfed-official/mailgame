@@ -78,6 +78,12 @@ namespace PerformativeMail.Sim.Combat
         public uint StolenBag;
         /// <summary>Ranged: the tick it began backing off from a carrier too near; 0 when it is not.</summary>
         public uint BackingSince;
+        /// <summary>Its step this tick and where from (0: it did not walk), and the ticks running its steps were undone.</summary>
+        public float WalkStep, WalkFromX, WalkFromZ;
+        public int Blocked;
+        /// <summary>Stepping aside from what blocks it (design choice 147): ticks left, and which side (+1 / −1).</summary>
+        public int SteerTicks;
+        public sbyte SteerSide = 1;
         /// <summary>Pushes constructs: not before this tick does it shove the next one.</summary>
         public uint PushReadyTick;
 

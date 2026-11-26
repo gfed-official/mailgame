@@ -27,6 +27,11 @@ namespace PerformativeMail.Sim
             player = null;
             built = null;
             postOffice = false;
+            // What it already goes for it keeps while within its leash, as it does a carrier: the pathing fuzz
+            // found a Tank whose way round to a wall led out of its aggroRange, which then went for the Post
+            // Office, came back within range and turned for the wall again, every half second for good.
+            var going = GoalOf(e);
+            float leash = e.Def.AggroRange * _combat.LeashMult;
             if (e.Def.Siege)
             {
                 // Doc 05 §2 Giant: the carrier who hurt it from close by is its target while that lasts, and no other.
@@ -44,7 +49,7 @@ namespace PerformativeMail.Sim
                 }
                 if (target == EnemyTarget.PostOffice)
                 {
-                    postOffice = PostOfficeStands && PostOfficeDistance(e.X, e.Z, out _, out _) <= e.Def.AggroRange;
+                    postOffice = PostOfficeStands && PostOfficeDistance(e.X, e.Z, out _, out _) <= (e.GoalPostOffice ? leash : e.Def.AggroRange);
                     if (postOffice) return;
                     continue;
                 }
@@ -53,7 +58,8 @@ namespace PerformativeMail.Sim
                 {
                     if (!EnemyDef.IsOf(target, c.Def)) continue;
                     float d = Constructs.Distance(c, e.X, e.Z, out _, out _) - c.Def.Radius;
-                    if (d > best) continue;
+                    if (c == going && d <= leash) { best = d; built = c; continue; }
+                    if (d > best || (built == going && built != null)) continue;
                     best = d;
                     built = c;
                 }

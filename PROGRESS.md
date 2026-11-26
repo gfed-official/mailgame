@@ -2281,7 +2281,29 @@ corner for good.
       baseline undecodable; whole raiders 10 bytes; the input packet 24 bytes); the prediction acceptance
       tests behind latency and loss stay green
 
-Next in this order: M3's last acceptance test (the pathing fuzz).
+- [x] **M3 acceptance: the pathing fuzz** (doc 12 M3 "Enemy pathing never stalls: a fuzz test spawning
+      waves against 200 random wall layouts finds a path or a wall to break within 2 s for every enemy";
+      design choice 147). `PathingFuzzTests`: 200 seeded layouts, each with one or two carriers on the street
+      round the Post Office, 10–80 Wooden and Stone Walls and Gates put up about them in lone pieces and runs,
+      and in a third a ring of walls shut round a carrier; then the raid of a random shift 2–5 at once, every
+      raider of it watched for 45 s. A raider stalls when for 2 s it neither went a metre nor struck (within
+      its own time between blows: a Tank's are 3 s) and was not resting where it should (its place on the raid's
+      line, waiting for room at its carrier, in reach of its carrier or of the construct it goes for). First
+      run: 2439 raiders, 76 stalls, two of them real bugs, both fixed:
+      - **A Giant walked dead centre into a post for good**: shoved onto a tree's tile, its next leg ran
+        exactly through a thin prop (0.12 m), and the collision pushed it straight back every tick. Raiders now
+        steer: one whose step is undone 4 ticks running walks 70° to one side for 8 ticks, the other side if
+        that is blocked too (`Enemy.Blocked`, `SteerTicks`, `SimWorld.NoteBlocked`)
+      - **A Tank dithered between a wall and the Post Office**: its way round to a wall 29 m off led out of its
+        30 m aggroRange, so the next repath it went for the Post Office, came back within range and turned for
+        the wall again, every half second for good. What a raider already goes for (a construct, the Post Office)
+        it now keeps while within its leash (aggroRange × 1.5), as it does a carrier (`AcquireByPriority`)
+      The other 74 were the fuzz's own first criterion (a Tank between its 3 s blows at a wall it was breaking).
+      Now 0 of 2439 stall, 10438 walls, in 9 s; with either fix taken out the fuzz finds its stall again.
+      `RaidFightTests` and the rest green with both
+
+M3's list in doc 12 is done but for the BalanceSim sanity check of chapter 11 §10.1 and the assertion tests
+(no friendly fire, no enemy damage to mailboxes or houses), which come next.
 
 ### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
 
@@ -3836,6 +3858,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     has the baseline it is sent against while the server keeps it (32 snapshots, 1.6 s; the client keeps
     96); past that, all goes whole. A short move is a signed byte in the wire's own unit (1 cm for a
     carrier, 2 cm for a raider), so a decoded delta is exactly the whole value.
+
+147. **What "never stalls" is held to.** Doc 12 says "finds a path or a wall to break within 2 s for every
+    enemy". A raider walking in from the edge has a path from its first tick, so that alone tests nothing;
+    the fuzz holds every raider, all through the raid's first 45 s, to never spending 2 s without going a metre
+    or striking, unless it rests where its rules put it (its line spot, waiting its turn, in reach of what it
+    fights); a blow counts for the raider's own time between blows (a Tank's 3 s). The steering it led to is
+    local and plain (70° aside for 8 ticks after 4 blocked ones), not a full avoidance scheme: the tile paths
+    already go round what is built, and a raider only needs nudging off a dead-centre bump.
 
 ## Commands
 

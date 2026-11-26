@@ -595,6 +595,7 @@ namespace PerformativeMail.Sim
             }
             foreach (var e in _enemies)
                 if (!e.Def.Airborne) PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false, jumper: e.Def.JumpsWalls);
+            NoteBlocked();
         }
 
         /// <summary>
@@ -799,9 +800,49 @@ namespace PerformativeMail.Sim
             float dist = MathF.Sqrt(dx * dx + dz * dz);
             if (dist < 1e-3f) return;
             if (step > dist) step = dist;
-            e.X += dx / dist * step;
-            e.Z += dz / dist * step;
-            e.Yaw = MathF.Atan2(-dx, -dz);
+            float dirX = dx / dist, dirZ = dz / dist;
+            if (e.SteerTicks > 0)
+            {
+                // Design choice 147: head-on into a post or a corner, it steps aside to get round.
+                e.SteerTicks--;
+                float c = MathF.Cos(SteerAngle * e.SteerSide), s = MathF.Sin(SteerAngle * e.SteerSide);
+                (dirX, dirZ) = (dirX * c - dirZ * s, dirX * s + dirZ * c);
+            }
+            e.WalkFromX = e.X;
+            e.WalkFromZ = e.Z;
+            e.WalkStep = step;
+            e.X += dirX * step;
+            e.Z += dirZ * step;
+            e.Yaw = MathF.Atan2(-dirX, -dirZ);
+        }
+
+        /// <summary>
+        /// Design choice 147 (the pathing fuzz found a Giant walking dead centre into a post for good): a
+        /// raider whose step is undone by what it bumps for <see cref="BlockedTicks"/> ticks running walks
+        /// <see cref="SteerAngle"/> to one side for <see cref="SteerFor"/> ticks; still blocked, the other.
+        /// </summary>
+        private const int BlockedTicks = 4, SteerFor = 8;
+        private const float SteerAngle = 70f * MathF.PI / 180f;
+
+        private void NoteBlocked()
+        {
+            foreach (var e in _enemies)
+            {
+                if (e.WalkStep <= 0f) { e.Blocked = 0; continue; }
+                float mx = e.X - e.WalkFromX, mz = e.Z - e.WalkFromZ;
+                if (mx * mx + mz * mz < 0.09f * e.WalkStep * e.WalkStep)
+                {
+                    if (++e.Blocked >= BlockedTicks)
+                    {
+                        // Blocked even while stepping aside: the other side.
+                        if (e.SteerTicks > 0) e.SteerSide = (sbyte)-e.SteerSide;
+                        e.SteerTicks = SteerFor;
+                        e.Blocked = 0;
+                    }
+                }
+                else e.Blocked = 0;
+                e.WalkStep = 0f;
+            }
         }
 
         /// <summary>Where it walks at next: the waypoint of its path it has not reached yet, or the goal itself.</summary>
