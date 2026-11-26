@@ -57,7 +57,7 @@ namespace PerformativeMail.App
             return (float)hit / rays;
         }
 
-        private enum Stage { Boot, Flow, Toggles, Ruin, Console, RouteEdit, Map, Turret, Bookmarks, Fly, Scale, Done }
+        private enum Stage { Boot, Flow, Toggles, Hurt, Ruin, Console, RouteEdit, Map, Turret, Bookmarks, Fly, Scale, Done }
         private const int FastTicks = 30;
         /// <summary>Sim seconds the flow may take before the smoke gives up on a station.</summary>
         private const int FlowSeconds = 180;
@@ -68,7 +68,7 @@ namespace PerformativeMail.App
         private GameScreen _screen = null!;
         private readonly List<string> _failures = new List<string>();
         private Stage _stage;
-        private int _frames, _bookmark, _scaleStep;
+        private int _frames, _bookmark, _scaleStep, _hurtNumbers;
         private uint _scaleTick0;
         private double _scaleTime;
         private float _flyX, _flyZ, _carrierX, _carrierZ;
@@ -175,6 +175,31 @@ namespace PerformativeMail.App
                     Check(world.LocalHp >= truth.MaxHp - 0.01f, $"god mode: the client has the carrier at {world.LocalHp} HP");
                     Check(Server.Raid == Sim.Combat.RaidState.None && Server.Enemies.Count == 0, "a raid came to the debug world");
                     GD.Print($"[smoke] debug world: every station ran ({Server.Tick / SimConstants.TickRate} s), no damage, a Stone Wall out of empty pockets, no raid");
+                    Next(Stage.Hurt);
+                    return;
+                }
+                case Stage.Hurt:
+                {
+                    // Doc 05 §5: a blow on the Stone Wall shows its number and a health bar over it, and the HUD's marker points at it.
+                    if (_frames == 1)
+                    {
+                        var carrier = Server.GetPlayer(world.LocalId)!;
+                        carrier.Move.X = BuildRules.TileCentre(10) + 0.4f;
+                        carrier.Move.Z = BuildRules.TileCentre(16);
+                        _hurtNumbers = _screen.ConstructHealth.NumbersShown;
+                        Server.DamageConstruct(Server.Constructs.At(10, 15)!, 200f);
+                        return;
+                    }
+                    var hurt = world.Constructs.At(10, 15);
+                    if ((hurt == null || hurt.Hp == hurt.Def.Hp || !_screen.AttackMarker.Visible) && _frames < 90) return;
+                    Check(hurt != null && hurt.Hp == hurt.Def.Hp - 200, $"the Stone Wall has {hurt?.Hp} of {hurt?.Def.Hp} on the client after a blow of 200");
+                    Check(_screen.ConstructHealth.BarsShown >= 1, "no health bar over the hurt Stone Wall");
+                    Check(_screen.ConstructHealth.NumbersShown > _hurtNumbers && _screen.ConstructHealth.LastNumber == "-200", $"the blow's number reads \"{_screen.ConstructHealth.LastNumber}\"");
+                    Check(_screen.AttackMarker.Visible && _screen.AttackMarker.Text == "Stone Wall under attack", $"the HUD's marker reads \"{_screen.AttackMarker.Text}\"");
+                    var screen = GetViewport().GetVisibleRect();
+                    Check(screen.HasPoint(_screen.AttackMarker.Tip), $"the marker's tip {_screen.AttackMarker.Tip} is off the screen");
+                    Shot("hurt-wall");
+                    GD.Print($"[smoke] debug world: a blow of 200 on the Stone Wall: \"{_screen.ConstructHealth.LastNumber}\" over it, a health bar, the HUD's marker \"{_screen.AttackMarker.Text}\"{(_screen.AttackMarker.OverIt ? " over it" : " on the edge")}");
                     Next(Stage.Ruin);
                     return;
                 }

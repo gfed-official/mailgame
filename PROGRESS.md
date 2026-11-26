@@ -1950,10 +1950,24 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             joiner, the prompts, E, the feed), codec pin; the debug-world smoke breaks its Stone Wall,
             checks the ruin is on the client and drawn and clears it with the prompt
       - [ ] The Post Office's HP (3000, regenerating 5 HP/s in Prep, the run lost at 0)
-      - [ ] Damage numbers, health bars over damaged constructs, the HUD's under-attack marker
+      - [x] **Damage numbers, health bars over damaged constructs, the HUD's under-attack marker**
+            (doc 05 §5; doc 12 M3 "HUD: … under-attack indicators, health bars"; design choice 130).
+            The client keeps the blows it hears (`ClientWorld.ConstructHits`, from `ConstructDamaged`
+            where the health went down — a mend is none — and from a construct removed as broken,
+            with what it had left) for 8 s. `ConstructHealthView`: a red number ("-150"; amber for the
+            blow that broke it) rises and fades off each over 1.2 s, seen through walls; a health
+            bar (the raiders' shader) stands over each construct hit in the last 8 s that is still
+            hurt; the HUD's `AttackMarker` — a red chevron and "Stone Wall under attack" / "… broken"
+            — stands over the nearest construct hit in the last 3 s where it is in view, else on the
+            screen's edge pointing its way (`EdgeMarker.Place`; behind the camera turned round).
+            `ConstructHitFlowTests` (the blow and its amount reach the client, a mend does not count,
+            under attack 3 s and shown 8, the broken one's last; the nearest is the marker's; the
+            marker over it in view, on the edge its way off screen and behind); the debug-world smoke
+            deals the Stone Wall a blow of 200 and checks the client's health, the bar, "-200", and the
+            marker's words and place on screen
 
 Next in this order: the rest of the enemy traits (doc 05 §2: the Giant's siege, the Hog Rider, the
-Balloon, the Tank), then the rest of doc 05 §5 (the Post Office's HP, health bars and markers).
+Balloon, the Tank), then the rest of doc 05 §5 (the Post Office's HP).
 
 ## How to build and check
 
@@ -3240,6 +3254,12 @@ See "Commands" at the bottom (filled in as the tooling lands).
     holds the line with the others; it also goes off against anything built in its way. "Otherwise"
     is read as everything else in the blast: other constructs and carriers take 20; raiders take
     nothing. It drops nothing and counts as nobody's kill.
+130. **What shows a construct is hurt.** Doc 05 §5 says numbers and a bar "appear over constructs
+    when damaged" and the HUD shows "a compass marker for any construct under attack"; there is no
+    compass strip. Choice: the bar is up for 8 s after the last blow (a field of worn walls would
+    otherwise be a field of bars), the numbers are the health a blow took, and one marker — for the
+    nearest construct hit in the last 3 s — stands over it or on the screen's edge its way, as a
+    compass mark would point; the words beside it name it.
 
 
 ## Commands

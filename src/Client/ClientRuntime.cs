@@ -1179,6 +1179,7 @@ namespace PerformativeMail.Client
                 {
                     var unbuilt = world.Constructs.At(e.X, e.Y);
                     world.LastRemoved = unbuilt;
+                    if (unbuilt != null && e.Destroyed) world.NoteConstructHit(unbuilt, unbuilt.Hp, broke: true);
                     if (unbuilt != null && unbuilt.ContainerId != 0) DropExternal(world, unbuilt.ContainerId);
                     world.Constructs.Remove(e.X, e.Y);
                     world.TurretOperators.Remove(e.Y * world.Map.Cols + e.X);
@@ -1215,10 +1216,15 @@ namespace PerformativeMail.Client
                 case ConstructDamagedEvent e:
                 {
                     var hit = world.Constructs.At(e.X, e.Y);
-                    if (hit != null) world.Constructs.SetHp(hit, e.Hp);
+                    if (hit != null)
+                    {
+                        world.NoteConstructHit(hit, hit.Hp - e.Hp, broke: false);
+                        world.Constructs.SetHp(hit, e.Hp);
+                    }
                     break;
                 }
                 case ConstructsClearedEvent:
+                    world.ConstructHits.Clear();
                     foreach (var built in world.Constructs.All)
                         if (built.ContainerId != 0) DropExternal(world, built.ContainerId);
                     world.Belts.Clear();

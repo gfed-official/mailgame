@@ -22,6 +22,9 @@ namespace PerformativeMail.Client
     {
         /// <summary>The sim's integer amounts shown as gold, one gold a unit: "1820 g"; negative balances as "-150 g"
         /// (Evan, 2026-11-25; design choice 124).</summary>
+        /// <summary>Doc 05 §5: the line beside the HUD's marker for a construct under attack.</summary>
+        public static string UnderAttack(ConstructHit hit) => hit.Broke ? $"{hit.Def.Name} broken" : $"{hit.Def.Name} under attack";
+
         public static string Gold(int amount) => string.Format(CultureInfo.InvariantCulture, "{0} {1}", amount, GoldUnit);
 
         /// <summary>What follows a gold amount on screen.</summary>

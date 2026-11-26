@@ -640,6 +640,49 @@ namespace PerformativeMail.Client
         /// <summary>Drops the pings whose time is up.</summary>
         public void PrunePings() => Pings.RemoveAll(p => ServerTick >= p.ExpiresTick);
 
+        /// <summary>Doc 05 §5: how long a construct's health bar stays up after a blow, and how long it counts as under attack.</summary>
+        public const double HitShownSeconds = 8.0, UnderAttackSeconds = 3.0;
+
+        /// <summary>Blows that took health off what the carriers built, the newest last, kept for <see cref="HitShownSeconds"/>.</summary>
+        public List<ConstructHit> ConstructHits { get; } = new List<ConstructHit>();
+
+        /// <summary>A blow took <paramref name="amount"/> health off a construct (its last, if it broke).</summary>
+        public void NoteConstructHit(Construct c, int amount, bool broke)
+        {
+            if (amount <= 0) return;
+            PruneConstructHits();
+            ConstructHits.Add(new ConstructHit { Tx = c.Tx, Tz = c.Tz, Def = c.Def, X = c.CentreX, Z = c.CentreZ, Tick = ServerTick, Amount = amount, Broke = broke });
+        }
+
+        public void PruneConstructHits() =>
+            ConstructHits.RemoveAll(h => ServerTick - h.Tick > HitShownSeconds * SimConstants.TickRate);
+
+        /// <summary>Whether the construct standing at its tile has been hit within <paramref name="seconds"/>.</summary>
+        public bool HitWithin(Construct c, double seconds)
+        {
+            for (int i = ConstructHits.Count - 1; i >= 0; i--)
+            {
+                var h = ConstructHits[i];
+                if (ServerTick - h.Tick > seconds * SimConstants.TickRate) break;
+                if (h.Tx == c.Tx && h.Tz == c.Tz && h.Def == c.Def) return true;
+            }
+            return false;
+        }
+
+        /// <summary>The HUD's marker (doc 05 §5): of what was hit within <see cref="UnderAttackSeconds"/>, the nearest to a point; null if nothing was.</summary>
+        public ConstructHit? UnderAttack(float x, float z)
+        {
+            ConstructHit? best = null;
+            float bestSq = float.MaxValue;
+            foreach (var h in ConstructHits)
+            {
+                if (ServerTick - h.Tick > UnderAttackSeconds * SimConstants.TickRate) continue;
+                float dx = h.X - x, dz = h.Z - z, sq = dx * dx + dz * dz;
+                if (sq < bestSq) { bestSq = sq; best = h; }
+            }
+            return best;
+        }
+
         public void AddPing(PingEvent e)
         {
             int mine = 0;
@@ -958,5 +1001,17 @@ namespace PerformativeMail.Client
                 return n;
             }
         }
+    }
+
+    /// <summary>A blow on a construct as this client heard it (doc 05 §5: damage numbers, health bars, the under-attack marker).</summary>
+    public sealed class ConstructHit
+    {
+        public int Tx, Tz;
+        public BuildingDef Def = null!;
+        public float X, Z;
+        public double Tick;
+        public int Amount;
+        /// <summary>It broke under this one.</summary>
+        public bool Broke;
     }
 }

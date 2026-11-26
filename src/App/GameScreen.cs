@@ -22,6 +22,8 @@ namespace PerformativeMail.App
         public PipeCapsulesView PipeCapsules { get; private set; } = null!;
         public PlayersView Players { get; private set; } = null!;
         public VehiclesView Vehicles { get; private set; } = null!;
+        public ConstructHealthView ConstructHealth { get; private set; } = null!;
+        public AttackMarker AttackMarker { get; private set; } = null!;
         public EnemiesView Enemies { get; private set; } = null!;
         public CombatEffects Effects { get; private set; } = null!;
         /// <summary>The raid brings the night (as in the concept video); look-dev sets the hour itself.</summary>
@@ -142,6 +144,12 @@ namespace PerformativeMail.App
             layer.AddChild(Map);
             Map.Setup(client);
             layer.AddChild(Hud);
+            // Doc 05 §5: health bars and damage numbers over what is hit, the marker on the HUD.
+            AttackMarker = new AttackMarker();
+            layer.AddChild(AttackMarker);
+            ConstructHealth = new ConstructHealthView { Name = "ConstructHealth" };
+            AddChild(ConstructHealth);
+            ConstructHealth.Setup(client, Camera, AttackMarker);
             PingWheel = new PingWheel { Name = "PingWheel" };
             layer.AddChild(PingWheel);
             PingWheel.Setup(session.Ping);
