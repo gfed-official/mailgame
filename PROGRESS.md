@@ -2324,6 +2324,13 @@ M3's acceptance tests: 40 enemies within the per-client budget, the pathing fuzz
       one: 2.5 s held put five stacks (19 items) in. A held E now puts in the one selected stack; the next
       goes in only after E is let go (`InteractionController._holdSpent`); F still delivers every matching
       stack one after another (choice 14). `InteractionTests.AHeldE_InsertsTheSelectedStackOnly_…`
+- [x] **(2) The shop's number keys changed between Payday and Prep.** The shelf was the catalogue's
+      order with the rotating specials in their places, so the First-Aid Kit (rotating, sixth in the
+      catalogue) on special in the next Prep put every card after it one key on: [0] was the Repair
+      Hammer at Payday, the Shovel in Prep. The shelf is now the fixed stock in the catalogue's order and
+      then the rotating specials (`ClientWorld.ShopShelf`; design choice 144): a fixed card's key never
+      changes. `ShopFlowTests.TheShelfsNumberKeys_DoNotChangeWithTheSpecials_…` (the game's own catalogue:
+      the Repair Hammer is [0] either way)
 
 ## How to build and check
 
@@ -3740,6 +3747,11 @@ See "Commands" at the bottom (filled in as the tooling lands).
     first body on the line only. "1 Stone = 5 shots": a Stone is taken when the pouch is empty and a
     shot is loosed, so carrying 9 Stones is 45 shots; the pouch's count is the server's, told with
     each shot. Held, it replaces the hammer's swing on attack, as the Repair Hammer does.
+
+144. **The shop's card order.** Doc 09 §2.8 numbers the cards but not their order. The fixed stock
+    comes first in the catalogue's order, the shift's rotating specials after it, so the number key
+    of anything always sold is the same every shift (the 0e940bc playtest bought a Shovel with the
+    key that had been the Repair Hammer's).
 
 ## Commands
 

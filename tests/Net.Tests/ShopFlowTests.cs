@@ -166,6 +166,25 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void TheShelfsNumberKeys_DoNotChangeWithTheSpecials_InTheGamesOwnCatalogue()
+        {
+            // The 0e940bc playtest: [0] was the Repair Hammer at Payday, the Shovel in the next Prep,
+            // as the rotating First-Aid Kit came onto the shelf before them.
+            var s = new Session(Shared.Content);
+            var a = s.Join("Ada").World!;
+            s.ToPrep();
+            var kit = s.Item("first_aid_kit");
+            Assert.True(kit.Rotating);
+            a.ShopSpecials.Remove(kit);
+            var without = a.ShopShelf.Select(d => d.Id).ToList();
+            a.ShopSpecials.Add(kit);
+            var with = a.ShopShelf.Select(d => d.Id).ToList();
+            Assert.Equal(without, with.Take(without.Count));
+            Assert.Equal("first_aid_kit", with[^1]);
+            Assert.Equal(9, with.IndexOf("repair_hammer")); // the [0] key
+        }
+
+        [Fact]
         public void TheCardsGoUpOnlyAtACounterThatServes()
         {
             var s = new Session();
@@ -199,6 +218,15 @@ namespace PerformativeMail.Net.Tests
                 Assert.Equal(s.Sim.ShopSpecials.Select(d => d.Id), w.ShopSpecials.Select(d => d.Id));
                 Assert.Equal(new[] { "bandage_x3", "plank_x20", "oil_can_x3", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_pipes", "bp_truck", "first_aid_kit" }, w.ShopShelf.Select(d => d.Id));
             }
+
+            // A fixed entry keeps its number key whatever is on special (the 0e940bc playtest: [0]
+            // was the Repair Hammer at Payday and the Shovel in the next Prep): the rotating ones come last.
+            var places = a.ShopShelf.Where(d => !d.Rotating).Select(d => d.Id).ToList();
+            var specials = a.ShopSpecials.ToList();
+            a.ShopSpecials.Clear();
+            Assert.Equal(places, a.ShopShelf.Select(d => d.Id));
+            a.ShopSpecials.AddRange(specials);
+            Assert.Equal(places, a.ShopShelf.Take(places.Count).Select(d => d.Id));
 
             // Out on the street there is no counter to open.
             s.Truth(ada).Move.X = po.ShopX + 8f;

@@ -542,8 +542,9 @@ namespace PerformativeMail.Client
         public bool ShopServes => Map.PostOffice.HasShop && ShopRules.IsOpen(Global.Phase);
 
         /// <summary>
-        /// What lies on the counter this shift, in the order of the catalogue: the fixed stock and
-        /// the rotating entries among the specials. The card's number key is its place here.
+        /// What lies on the counter this shift: the fixed stock in the order of the catalogue, then
+        /// the rotating entries among the specials. The card's number key is its place here, so a
+        /// fixed entry keeps its key from shift to shift, Payday to Prep (the 0e940bc playtest).
         /// </summary>
         public IReadOnlyList<ShopItemDef> ShopShelf
         {
@@ -551,7 +552,9 @@ namespace PerformativeMail.Client
             {
                 _shelf.Clear();
                 foreach (var def in Content.ShopItems)
-                    if (!def.KitOnly && (!def.Rotating || ShopSpecials.Contains(def))) _shelf.Add(def);
+                    if (!def.KitOnly && !def.Rotating) _shelf.Add(def);
+                foreach (var def in Content.ShopItems)
+                    if (!def.KitOnly && def.Rotating && ShopSpecials.Contains(def)) _shelf.Add(def);
                 return _shelf;
             }
         }
