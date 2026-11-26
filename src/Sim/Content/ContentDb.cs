@@ -657,6 +657,7 @@ namespace PerformativeMail.Sim.Content
                     float megaHp = 1, megaDmg = 1, megaScale = 1, megaSpeed = 1;
                     int megaLoot = 1;
                     MailKindDef? parcelKind = null;
+                    float auraRadius = 0f, auraSpeed = 1f;
                     double parcelValueMult = 1;
                     var megaItems = new List<EnemyDrop>();
                     if (root.TryGetProperty("mega", out var mega) && mega.ValueKind == JsonValueKind.Object)
@@ -669,6 +670,12 @@ namespace PerformativeMail.Sim.Content
                         if (megaHp <= 0 || megaDmg <= 0 || megaScale <= 0 || megaSpeed <= 0 || megaLoot < 1) ctx.Error("mega multipliers must be positive");
                         // Doc 05 §2.1 "Guaranteed drop on death: a Lost Parcel (Medium Package with a random
                         // unlocked address, value ×3) plus 2 Iron Ingots".
+                        if (mega.TryGetProperty("aura", out var aura) && aura.ValueKind == JsonValueKind.Object)
+                        {
+                            auraRadius = (float)J.Num(ctx, aura, "radius");
+                            auraSpeed = (float)J.Num(ctx, aura, "speedMult");
+                            if (auraRadius < 0f || auraSpeed <= 0f) ctx.Error("mega.aura: radius must not be negative and speedMult must be positive");
+                        }
                         if (mega.TryGetProperty("lostParcel", out var parcel) && parcel.ValueKind == JsonValueKind.Object)
                         {
                             string kindId = J.Str(ctx, parcel, "kind");
@@ -707,6 +714,7 @@ namespace PerformativeMail.Sim.Content
                         MegaChanceBase = J.Num(ctx, root, "megaChanceBase", 0),
                         MegaChancePerShift = J.Num(ctx, root, "megaChancePerShift", 0),
                         MegaHpMult = megaHp, MegaDamageMult = megaDmg, MegaScale = megaScale, MegaSpeedMult = megaSpeed, MegaLootMult = megaLoot,
+                        MegaAuraRadius = auraRadius, MegaAuraSpeedMult = auraSpeed,
                         LostParcelKind = parcelKind, LostParcelValueMult = parcelValueMult, MegaItems = megaItems,
                         MaxAlive = J.Int(ctx, root, "maxAlive"),
                         WeightsByShift = weights,

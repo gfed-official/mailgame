@@ -2235,8 +2235,16 @@ corner for good.
       first-person camera's frame did not run (its hand still showed the cannon of an earlier step), which
       is left to look into
 
-Next in this order: the rest of M3's list in doc 12 (the Mega's aura, lag compensation's rewind
-buffer for hitscan, M3's acceptance tests).
+- [x] **The Mega's aura** (doc 05 §2.1 "Aura: nearby normal enemies of the same type gain +20% speed
+      within 8 m"; doc 12 M3 "mega rolls"). `waves.json` `mega.aura` (radius 8, speedMult 1.2, checked by
+      the validator). Once a tick, before anyone walks, a raider of a Mega's kind within 8 m of it walks a
+      fifth faster (`Enemy.BaseSpeed`, `InAura`, `SimWorld.StepMegaAuras`); a Mega is in no aura, and two
+      Megas near do not stack. Nothing is drawn for it: the raiders are seen walking faster.
+      `LostParcelTests.AMegasAura_…` (its kind within 8 m, not one beyond nor another kind nor the Mega
+      itself, gone with the Mega); `RaidFightTests` green with it
+
+Next in this order: the rest of M3's list in doc 12 (lag compensation's rewind buffer for hitscan,
+M3's acceptance tests: 40 enemies within the per-client budget, the pathing fuzz).
 
 ### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
 

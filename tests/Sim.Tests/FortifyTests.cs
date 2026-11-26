@@ -187,8 +187,8 @@ namespace PerformativeMail.Sim.Tests
             SimDriver.Teleport(host, Centre(Tx - 4), Centre(Tz));
             var on = world.SpawnEnemy(Db.Enemy("barbarian"), x, z)!;
             var beside = world.SpawnEnemy(Db.Enemy("barbarian"), Centre(Tx), Centre(Tz + 2))!;
-            on.Speed = 0f;
-            beside.Speed = 0f;
+            on.Speed = on.BaseSpeed = 0f;
+            beside.Speed = beside.BaseSpeed = 0f;
             float hpOn = on.Hp, hpBeside = beside.Hp;
             SimDriver.StepTicks(world, Tps);
             Assert.InRange(hpOn - on.Hp, 14.5f, 15.5f);

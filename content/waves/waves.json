@@ -13,6 +13,7 @@
   "megaChanceBase": 0.05,
   "megaChancePerShift": 0.02,
   "mega": { "hpMult": 2.5, "dmgMult": 1.5, "scale": 1.4, "speedMult": 0.9, "lootMult": 3,
+            "aura": { "radius": 8, "speedMult": 1.2 },
             "lostParcel": { "kind": "medium", "valueMult": 3, "items": { "iron_ingot": 2 } } },
   "maxAlive": 48,
   "weightsByShift": {

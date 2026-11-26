@@ -263,7 +263,7 @@ namespace PerformativeMail.Net.Tests
             var mega = s.Sim.SpawnEnemy(def, edge - 0.45f, Centre(Tz), mega: true)!;
             Assert.True(mega.Radius > 0.45f && def.Radius < 0.45f);
             // It stands still for the test.
-            mega.Speed = 0f;
+            mega.Speed = mega.BaseSpeed = 0f;
             s.Run(4);
             var seen = Assert.Single(a.Enemies.Values);
             Assert.True(seen.Mega);
@@ -579,7 +579,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(0, a.MarkedEnemies);
             var near = s.Sim.SpawnEnemy(s.Content.Enemy("barbarian"), post.X + 30f, Centre(Tz - 2))!;
             var far = s.Sim.SpawnEnemy(s.Content.Enemy("barbarian"), post.X + 42f, Centre(Tz - 1))!;
-            near.Speed = far.Speed = 0f;
+            near.Speed = near.BaseSpeed = far.Speed = far.BaseSpeed = 0f;
             s.Run(6);
             Assert.Equal(2, a.Enemies.Count);
             Assert.Equal(1, a.MarkedEnemies);

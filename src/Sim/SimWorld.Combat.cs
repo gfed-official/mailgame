@@ -419,6 +419,7 @@ namespace PerformativeMail.Sim
                 MaxHp = def.Hp * (mega ? waves.MegaHpMult : 1f),
                 Damage = def.Damage * (mega ? waves.MegaDamageMult : 1f),
                 Speed = def.Speed * (mega ? waves.MegaSpeedMult : 1f),
+                BaseSpeed = def.Speed * (mega ? waves.MegaSpeedMult : 1f),
                 Radius = waves.BodyRadius(def, mega),
             };
             e.Hp = e.MaxHp;
@@ -483,6 +484,7 @@ namespace PerformativeMail.Sim
             const float dt = SimConstants.TickDt;
             bool fleeOver = _fleeEndTick != 0 && Tick >= _fleeEndTick;
             RankAttackers();
+            StepMegaAuras();
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
                 // A blow that fells the Post Office ends the run and clears the field mid-step.

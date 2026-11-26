@@ -159,5 +159,30 @@ namespace PerformativeMail.Sim.Tests
             }
             Assert.True(sighted >= 1);
         }
+
+        [Fact]
+        public void AMegasAura_SpeedsItsKindWithinEightMetresByAFifth_NotOthersNorItself()
+        {
+            var (world, host) = InDelivery();
+            SimDriver.Teleport(host, 10f, 28f);
+            var mega = world.SpawnEnemy(Db.Enemy("barbarian"), 60f, 28f, mega: true)!;
+            var near = world.SpawnEnemy(Db.Enemy("barbarian"), 60f, 34f)!;
+            var far = world.SpawnEnemy(Db.Enemy("barbarian"), 75f, 28f)!;
+            var other = world.SpawnEnemy(Db.Enemy("archer"), 62f, 28f)!;
+            world.Step();
+            Assert.Equal(8f, Db.Waves.MegaAuraRadius);
+            Assert.True(near.InAura);
+            Assert.Equal(near.BaseSpeed * 1.2f, near.Speed, 3);
+            Assert.False(far.InAura);
+            Assert.Equal(far.BaseSpeed, far.Speed);
+            Assert.False(other.InAura);
+            Assert.False(mega.InAura);
+            Assert.Equal(Db.Enemy("barbarian").Speed * Db.Waves.MegaSpeedMult, mega.Speed, 3);
+            // Felled, the aura is gone with it.
+            world.DamageEnemy(mega, 1e6f, host);
+            world.Step();
+            Assert.False(near.InAura);
+            Assert.Equal(near.BaseSpeed, near.Speed);
+        }
     }
 }

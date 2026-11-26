@@ -688,6 +688,9 @@ namespace PerformativeMail.Sim.Content
         public float MegaScale { get; init; } = 1;
         public float MegaSpeedMult { get; init; } = 1;
         public int MegaLootMult { get; init; } = 1;
+        /// <summary>Doc 05 §2.1 "Aura: nearby normal enemies of the same type gain +20% speed within 8 m"; radius 0 = none.</summary>
+        public float MegaAuraRadius { get; init; }
+        public float MegaAuraSpeedMult { get; init; } = 1;
         /// <summary>Doc 05 §2.1: the mail a Mega drops when felled, a Lost Parcel; null = none.</summary>
         public MailKindDef? LostParcelKind { get; init; }
         /// <summary>The Lost Parcel's value against the same piece spawned for the same address (×3).</summary>

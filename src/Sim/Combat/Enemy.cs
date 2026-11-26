@@ -40,6 +40,10 @@ namespace PerformativeMail.Sim.Combat
         public float Yaw;
         public float Hp, MaxHp;
         public float Damage, Speed, Radius;
+        /// <summary>The speed of its kind (a Mega's own), before a Mega's aura (doc 05 §2.1).</summary>
+        public float BaseSpeed;
+        /// <summary>Within a Mega of its kind's aura this tick (doc 05 §2.1 "+20% speed within 8 m").</summary>
+        public bool InAura;
         public EnemyState State;
         /// <summary>Windup: the tick the blow lands.</summary>
         public uint StateEndTick;

@@ -10,6 +10,28 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed partial class SimWorld
     {
+        /// <summary>
+        /// Doc 05 §2.1 "Aura: nearby normal enemies of the same type gain +20% speed within 8 m": set
+        /// once a tick, before anyone walks. A Mega is never in an aura, nor are two auras more than one.
+        /// </summary>
+        private void StepMegaAuras()
+        {
+            var waves = Content.Waves;
+            float r2 = waves.MegaAuraRadius * waves.MegaAuraRadius;
+            foreach (var e in _enemies)
+            {
+                e.InAura = false;
+                if (e.Mega || waves.MegaAuraRadius <= 0f) continue;
+                foreach (var m in _enemies)
+                {
+                    if (!m.Mega || m.Def != e.Def) continue;
+                    float dx = m.X - e.X, dz = m.Z - e.Z;
+                    if (dx * dx + dz * dz <= r2) { e.InAura = true; break; }
+                }
+            }
+            foreach (var e in _enemies) e.Speed = e.BaseSpeed * (e.InAura ? waves.MegaAuraSpeedMult : 1f);
+        }
+
         private void AddMegaItems(LootBundle bundle)
         {
             foreach (var drop in Content.Waves.MegaItems)
