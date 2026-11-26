@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m2.16;" +
+            "m2.17;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
             "Inputs:u8 n,{u32 seq,i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -73,7 +73,7 @@ namespace PerformativeMail.Sim.Net
             "Phase:u8 shift,u8 phase,u32 tick,u32 end,i32 quota,u8 outcome;Phases:lobby,prep,delivery,payday,draft,results,generating;" +
             "Paused:u8 paused,u32 tick;" +
             "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
-            "Results:u8 outcome,u8 shifts,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp};" +
+            "Results:u8 outcome,u8 shifts,u8 firstShift,u8 lastShift,u8 quotaWaived,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp};" +
             "Entry:u32 id,u8 x,u8 y,u8 w,u8 h,u8 rot,u8 kind,u16 def,(mail:u32 addr,u8 unit,u16 n,{u32 id,u16 value,u8 spawn,u8 deadline,u8 flags}|item:i32 count)";
 
         /// <summary>32-bit hash of the message schema plus the content data hash.</summary>

@@ -116,6 +116,7 @@ namespace PerformativeMail.Sim
         {
             Run.RunNumber++;
             Run.Shift = StartShift;
+            Run.FirstShift = Run.Shift;
             Run.ShiftsCompleted = 0;
             Run.Outcome = RunOutcome.None;
             Run.LastSummary = null;
@@ -231,6 +232,9 @@ namespace PerformativeMail.Sim
             {
                 Outcome = outcome,
                 ShiftsCompleted = (byte)Run.ShiftsCompleted,
+                FirstShift = (byte)Run.FirstShift,
+                LastShift = (byte)Run.Shift,
+                QuotaWaived = QuotaWaived,
                 TotalEarned = Economy.TotalEarned,
                 Score = Economy.TotalEarned,
                 Deliveries = Economy.TotalDeliveries,

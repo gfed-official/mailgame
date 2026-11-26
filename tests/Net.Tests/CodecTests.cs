@@ -229,7 +229,7 @@ namespace PerformativeMail.Net.Tests
                 {
                     Results = new RunResults
                     {
-                        Outcome = RunOutcome.QuotaMissed, ShiftsCompleted = 3, TotalEarned = 4321, Score = 4321, Deliveries = 70000, Misdeliveries = 9,
+                        Outcome = RunOutcome.QuotaMissed, ShiftsCompleted = 3, FirstShift = 2, LastShift = 5, QuotaWaived = true, TotalEarned = 4321, Score = 4321, Deliveries = 70000, Misdeliveries = 9,
                         Players = { new PlayerResult { Player = player, Deliveries = 41, Misdeliveries = 4, Earned = -15, Xp = 505 } },
                     },
                 },
@@ -367,6 +367,7 @@ namespace PerformativeMail.Net.Tests
             var results = ((RunResultsEvent)back[11]).Results;
             Assert.Equal((RunOutcome.QuotaMissed, 3, 4321, 4321, 70000, 9),
                 (results.Outcome, results.ShiftsCompleted, results.TotalEarned, results.Score, results.Deliveries, results.Misdeliveries));
+            Assert.Equal((2, 5, true), (results.FirstShift, results.LastShift, results.QuotaWaived));
             var row = Assert.Single(results.Players);
             Assert.Equal((player, 41, 4, -15, 505), (row.Player, row.Deliveries, row.Misdeliveries, row.Earned, row.Xp));
 

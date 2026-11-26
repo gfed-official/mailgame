@@ -2013,6 +2013,17 @@ Wall Breaker, the HUD's damage numbers, ruins, turrets, the debug world …) fou
 `tools/smoke.sh` (the three smokes and the island bot) and Sim.Tests 538 / Net.Tests 201 passed on
 e23d8d7 as it was.
 
+### 5a. Playtest nits of the 0abedd1 report (`mailgame-harness/results/20261125-200919-0abedd1/report.md`, 2026-11-25)
+
+- [x] **(c) The Results headline with playtest flags** (design choice 133). `RunResults` now carries
+      the shift the run started on and ended on and whether the quota was waived (protocol `m2.17`);
+      `HudText.ResultsHeadline`: "RUN OVER — shifts 3–5 played, quota off (0 of 3 met)" for a run
+      with the quota waived that missed one, "VICTORY — shifts 3–5 delivered" for one started later
+      that met them all, "RUN OVER — quota missed on shift N" naming the shift it ended on (it said
+      ShiftsCompleted + 1, so shift 1 for a run started at 3); "Shifts completed n / m" counts from
+      the first shift. `PlaytestFlowTests` (--shift=3 --no-quota to the end; started at 2, missed on 3),
+      codec pin
+
 Next in this order: the rest of the enemy traits (doc 05 §2: the Balloon, the Tank), then the rest of
 doc 05 §5 (the Post Office's HP).
 
@@ -3326,6 +3337,11 @@ See "Commands" at the bottom (filled in as the tooling lands).
     unless it is mail, which goes back to the Intake. "Jumps over walls" is read as every wall and
     gate, whatever its height; it is drawn in a leap clearing the wall, not 1 m up. There is no feed
     line for a theft yet (the container's own change is seen by whoever has it open).
+133. **The Results headline of a playtest run.** A run with `--no-quota` that misses a quota goes on
+    to the last shift and ends with the outcome QuotaMissed (or Victory if the last one was met).
+    Choice: with the quota waived and any shift missed, the headline says which shifts were played,
+    that the quota was off and how many were met; otherwise it names the shift the run ended on, and
+    a Victory from a later start names its shifts. The outcome itself (and its XP) is unchanged.
 
 
 ## Commands

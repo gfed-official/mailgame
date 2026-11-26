@@ -275,7 +275,39 @@ namespace PerformativeMail.Net.Tests
             while (server.Run.Phase == RunPhase.Payday) s.Step(30);
             s.Step(10);
             Assert.Equal("RESULTS   RUN OVER", HudText.ShiftAndPhase(host.World));
+            // The 0abedd1 playtest: the headline names the shift it ended on, not shift 1.
+            var results = HudText.ResultsLines(host.World, host.World.Results!);
+            Assert.Equal("RUN OVER — quota missed on shift 3", results[0]);
+            Assert.StartsWith("Shifts completed 0 / 4   ·   Score ", results[1]);
             Assert.Equal(0, host.ContainerDesyncs + host.BadPackets + guest.BadPackets);
+        }
+
+        [Fact]
+        public void AHostWithShift3AndNoQuota_PlaysShifts3To5_AndTheResultsSayTheQuotaWasOff()
+        {
+            // The 0abedd1 playtest: --shift=3 --no-quota --raid --playtest-no-timer read
+            // "RUN OVER — quota missed on shift 1" at the end of the run.
+            var s = new Session();
+            var host = s.AddClient("Ada", PlaytestFlags.NoQuota, 3);
+            s.Step(10);
+            var world = host.World!;
+            var server = s.Server.World;
+            Assert.NotEqual(0u, host.PressGo());
+            s.Step(5);
+            Assert.StartsWith("Shift 3 / 5   PREP", HudText.ShiftAndPhase(world));
+            for (int guard = 0; server.Run.Phase != RunPhase.Results && guard < 200; guard++)
+            {
+                if (server.Run.Phase is RunPhase.Prep or RunPhase.Draft) host.PressGo();
+                s.Step(30 * 10);
+            }
+            s.Step(10);
+            Assert.Equal(RunPhase.Results, world.Global.Phase);
+            var r = world.Results!;
+            Assert.Equal((3, 5, true, 0), (r.FirstShift, r.LastShift, r.QuotaWaived, r.ShiftsCompleted));
+            var lines = HudText.ResultsLines(world, r);
+            Assert.Equal("RUN OVER — shifts 3–5 played, quota off (0 of 3 met)", lines[0]);
+            Assert.StartsWith("Shifts completed 0 / 3   ·   Score ", lines[1]);
+            Assert.Equal(0, host.ContainerDesyncs + host.BadPackets);
         }
 
         [Fact]

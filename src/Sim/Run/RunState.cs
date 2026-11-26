@@ -77,6 +77,10 @@ namespace PerformativeMail.Sim.Run
     {
         public RunOutcome Outcome;
         public byte ShiftsCompleted;
+        /// <summary>The shift the run started on (above 1 with --shift=N or in the debug world) and the one it ended on.</summary>
+        public byte FirstShift = 1, LastShift = 1;
+        /// <summary>A missed quota did not end the run (--no-quota, the debug world).</summary>
+        public bool QuotaWaived;
         /// <summary>Shift earnings plus shift bonuses over the whole run.</summary>
         public int TotalEarned;
         /// <summary>totalEarned × stamp multipliers (doc 01 §6); no stamps exist yet, so equal to TotalEarned.</summary>
@@ -99,6 +103,8 @@ namespace PerformativeMail.Sim.Run
         /// <summary>Runs started on this server, including the current one.</summary>
         public int RunNumber;
         public int ShiftsCompleted;
+        /// <summary>The shift this run started on.</summary>
+        public int FirstShift = 1;
         public RunOutcome Outcome;
         /// <summary>The player who may start the run and leave Results; None while nobody is connected.</summary>
         public EntityId Host;

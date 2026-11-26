@@ -135,7 +135,8 @@ namespace PerformativeMail.Sim.Net
                 {
                     var s = e.Results;
                     w.U8((byte)EventType.RunResults);
-                    w.U8((byte)s.Outcome); w.U8(s.ShiftsCompleted); w.I32(s.TotalEarned); w.I32(s.Score);
+                    w.U8((byte)s.Outcome); w.U8(s.ShiftsCompleted); w.U8(s.FirstShift); w.U8(s.LastShift); w.U8(s.QuotaWaived ? (byte)1 : (byte)0);
+                    w.I32(s.TotalEarned); w.I32(s.Score);
                     w.I32(s.Deliveries); w.I32(s.Misdeliveries);
                     w.U8((byte)s.Players.Count);
                     foreach (var p in s.Players)
@@ -425,7 +426,8 @@ namespace PerformativeMail.Sim.Net
                 {
                     var s = new RunResults
                     {
-                        Outcome = (RunOutcome)r.U8(), ShiftsCompleted = r.U8(), TotalEarned = r.I32(), Score = r.I32(),
+                        Outcome = (RunOutcome)r.U8(), ShiftsCompleted = r.U8(), FirstShift = r.U8(), LastShift = r.U8(), QuotaWaived = r.U8() != 0,
+                        TotalEarned = r.I32(), Score = r.I32(),
                         Deliveries = r.I32(), Misdeliveries = r.I32(),
                     };
                     int n = r.U8();

@@ -359,16 +359,31 @@ namespace PerformativeMail.Client
 
         public static List<string> ResultsLines(ClientWorld world, RunResults r)
         {
-            int shifts = ShiftCount(world.Content);
+            int shifts = ShiftCount(world.Content) - r.FirstShift + 1;
             var lines = new List<string>
             {
-                r.Outcome == RunOutcome.Victory ? $"VICTORY — all {shifts} shifts delivered" : $"RUN OVER — quota missed on shift {r.ShiftsCompleted + 1}",
+                ResultsHeadline(world.Content, r),
                 $"Shifts completed {r.ShiftsCompleted} / {shifts}   ·   Score {Gold(r.Score)}",
                 $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}",
             };
             foreach (var p in r.Players)
                 lines.Add($"{PlayerName(world, p.Player)}:   {p.Deliveries} delivered, {p.Misdeliveries} misdelivered, {Gold(p.Earned)}   ·   +{p.Xp} XP");
             return lines;
+        }
+
+        /// <summary>
+        /// "VICTORY — all 5 shifts delivered" / "RUN OVER — quota missed on shift 2"; a run started later
+        /// (--shift=N, the debug world) names its shifts, and one with the quota waived says what was played.
+        /// </summary>
+        public static string ResultsHeadline(ContentDb content, RunResults r)
+        {
+            int played = r.LastShift - r.FirstShift + 1;
+            string span = played == 1 ? $"shift {r.LastShift}" : $"shifts {r.FirstShift}–{r.LastShift}";
+            if (r.QuotaWaived && r.ShiftsCompleted < played)
+                return $"RUN OVER — {span} played, quota off ({r.ShiftsCompleted} of {played} met)";
+            if (r.Outcome == RunOutcome.Victory)
+                return r.FirstShift <= 1 ? $"VICTORY — all {ShiftCount(content)} shifts delivered" : $"VICTORY — {span} delivered";
+            return $"RUN OVER — quota missed on shift {r.LastShift}";
         }
 
         public static string PlayerName(ClientWorld world, EntityId id) =>
