@@ -43,10 +43,11 @@ namespace PerformativeMail.Sim
                 e.State = EnemyState.Windup;
                 e.StateEndTick = Tick + _combat.WindupTicks;
                 e.NextAttackTick = Tick + SimConstants.SecondsToTicks(e.Def.AttackRate);
-                e.StrikeTx = built?.Tx ?? -1;
+                e.StrikeTx = built?.Tx ?? (target == null ? PostOfficeStrike : -1);
                 e.StrikeTz = built?.Tz ?? 0;
                 return;
             }
+            if (target == null && built == null) PostOfficeGoal(e.X, e.Z, out gx, out gz);
             if (StrikeWhatBlocks(e, gx, gz)) return;
             Walk(e, gx, gz, e.Speed * dt);
         }

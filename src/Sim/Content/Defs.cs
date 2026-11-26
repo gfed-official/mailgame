@@ -528,6 +528,8 @@ namespace PerformativeMail.Sim.Content
         AnyConstruct = 8,
         /// <summary>A Depot: a container of more than one tile (doc 08 §2.10 Balloon "depot").</summary>
         Depot = 9,
+        /// <summary>The Post Office itself (doc 08 §2.10 "po"), while it stands.</summary>
+        PostOffice = 10,
     }
 
     /// <summary>Enemy definition (doc 08 §2.10).</summary>
@@ -536,7 +538,7 @@ namespace PerformativeMail.Sim.Content
         /// <summary>The traits' names in content, in the order of <see cref="EnemyTraits"/>' bits.</summary>
         public static readonly string[] TraitNames = { "swarm", "ranged", "siege", "suicide", "jumps_walls", "steals_items", "airborne", "pushes_constructs", "flees_players" };
         /// <summary>The target classes' names in content, in the order of <see cref="EnemyTarget"/>.</summary>
-        public static readonly string[] TargetNames = { "player", "turret", "wall", "gate", "belt", "sorter", "vehicle_depot", "chest", "any_construct", "depot" };
+        public static readonly string[] TargetNames = { "player", "turret", "wall", "gate", "belt", "sorter", "vehicle_depot", "chest", "any_construct", "depot", "po" };
 
         public string Id { get; init; } = "";
         public byte Index { get; init; }

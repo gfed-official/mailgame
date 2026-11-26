@@ -22,10 +22,11 @@ namespace PerformativeMail.Sim
         /// The first class of its targetPriority with one in its aggroRange: a carrier (the nearest
         /// valid one) or a construct (the nearest standing one of that class).
         /// </summary>
-        private void AcquireByPriority(Enemy e, out Player? player, out Construct? built)
+        private void AcquireByPriority(Enemy e, out Player? player, out Construct? built, out bool postOffice)
         {
             player = null;
             built = null;
+            postOffice = false;
             if (e.Def.Siege)
             {
                 // Doc 05 §2 Giant: the carrier who hurt it from close by is its target while that lasts, and no other.
@@ -39,6 +40,12 @@ namespace PerformativeMail.Sim
                     if (e.Def.Siege) continue;
                     player = Acquire(e);
                     if (player != null) return;
+                    continue;
+                }
+                if (target == EnemyTarget.PostOffice)
+                {
+                    postOffice = PostOfficeStands && PostOfficeDistance(e.X, e.Z, out _, out _) <= e.Def.AggroRange;
+                    if (postOffice) return;
                     continue;
                 }
                 float best = e.Def.AggroRange;
@@ -81,33 +88,41 @@ namespace PerformativeMail.Sim
                 if (!ValidTarget(e, target, e.Def.AggroRange * _combat.LeashMult, e.SeenX, e.SeenZ)) target = null;
             }
             built = target == null ? GoalOf(e) : null;
-            if ((target == null && built == null) || Tick >= e.RepathTick)
+            bool postOffice = target == null && built == null && e.GoalPostOffice && PostOfficeStands;
+            if ((target == null && built == null && !postOffice) || Tick >= e.RepathTick)
             {
-                AcquireByPriority(e, out var player, out var goal);
+                AcquireByPriority(e, out var player, out var goal, out postOffice);
                 if (player != null && player != target) { e.SeenX = e.X; e.SeenZ = e.Z; }
                 target = player;
                 built = player == null ? goal : null;
                 e.Target = target?.Id ?? EntityId.None;
                 e.GoalTx = built?.Tx ?? -1;
                 e.GoalTz = built?.Tz ?? 0;
+                e.GoalPostOffice = postOffice;
                 e.RepathTick = Tick + RepathTicks;
                 e.Path.Clear();
                 e.Waypoint = 0;
                 float px, pz;
                 if (target != null) { px = target.Move.X; pz = target.Move.Z; }
                 else if (built != null) { px = built.CentreX; pz = built.CentreZ; }
+                else if (postOffice) PostOfficeGoal(e.X, e.Z, out px, out pz);
                 else HoldSpot(e, out px, out pz);
                 FindPath(e, px, pz);
             }
-            if (target != null || built != null) return true;
+            if (target != null || built != null || postOffice) return true;
             e.BackingSince = 0;
             Hold(e, dt);
             return false;
         }
 
-        /// <summary>Where its target is and how far: a carrier's feet, or the nearest point of a construct's body.</summary>
-        private void TargetPoint(Enemy e, Player? target, Construct built, out float gx, out float gz, out float dist)
+        /// <summary>Where its target is and how far: a carrier's feet, the nearest point of a construct's body, or of the Post Office's walls.</summary>
+        private void TargetPoint(Enemy e, Player? target, Construct? built, out float gx, out float gz, out float dist)
         {
+            if (target == null && built == null)
+            {
+                dist = PostOfficeDistance(e.X, e.Z, out gx, out gz);
+                return;
+            }
             if (target != null)
             {
                 gx = target.Move.X; gz = target.Move.Z;
@@ -115,7 +130,7 @@ namespace PerformativeMail.Sim
                 dist = MathF.Sqrt(dx * dx + dz * dz);
                 return;
             }
-            dist = Constructs.Distance(built, e.X, e.Z, out gx, out gz) - built.Def.Radius;
+            dist = Constructs.Distance(built!, e.X, e.Z, out gx, out gz) - built!.Def.Radius;
         }
 
         /// <summary>One tick of a ranged raider that is not winding up or fleeing.</summary>

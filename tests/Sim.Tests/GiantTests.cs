@@ -40,7 +40,7 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal((400f, 40f, 2f, 3f, 60, 3), (Giant.Hp, Giant.Damage, Giant.AttackRate, Giant.Speed, Giant.Cost, Giant.UnlockShift));
             Assert.Equal((EnemyTraits.Siege, 5f, 3f, 30f), (Giant.Traits, Giant.ProvokeRange, Giant.ProvokeSeconds, Giant.AggroRange));
-            Assert.Equal(new[] { EnemyTarget.Chest, EnemyTarget.Sorter, EnemyTarget.VehicleDepot, EnemyTarget.AnyConstruct, EnemyTarget.Player }, Giant.TargetPriority);
+            Assert.Equal(new[] { EnemyTarget.Chest, EnemyTarget.Sorter, EnemyTarget.VehicleDepot, EnemyTarget.AnyConstruct, EnemyTarget.PostOffice, EnemyTarget.Player }, Giant.TargetPriority);
         }
 
         [Fact]

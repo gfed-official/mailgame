@@ -63,7 +63,7 @@ namespace PerformativeMail.Client.Presentation
             foreach (var hit in world.ConstructHits)
             {
                 if (!_counted.Add(hit)) continue;
-                float y = world.Map.HeightAt(hit.X, hit.Z) + (hit.Def.Height > 0f ? hit.Def.Height : 1.2f) + 0.2f;
+                float y = world.Map.HeightAt(hit.X, hit.Z) + hit.Top + 0.2f;
                 var label = new Label3D
                 {
                     Text = "-" + hit.Amount,
@@ -132,7 +132,7 @@ namespace PerformativeMail.Client.Presentation
         {
             var hit = world.HasLocal ? world.UnderAttack(world.Local.X, world.Local.Z) : null;
             if (hit == null || _camera == null) { _marker.Visible = false; return; }
-            var at = new Vector3(hit.X, world.Map.HeightAt(hit.X, hit.Z) + (hit.Def.Height > 0f ? hit.Def.Height : 1.2f) + 0.9f, hit.Z);
+            var at = new Vector3(hit.X, world.Map.HeightAt(hit.X, hit.Z) + hit.Top + 0.9f, hit.Z);
             bool behind = _camera.IsPositionBehind(at);
             var p = _camera.UnprojectPosition(at);
             var screen = _marker.GetViewportRect().Size;

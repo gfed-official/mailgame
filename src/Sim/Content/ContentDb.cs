@@ -538,6 +538,9 @@ namespace PerformativeMail.Sim.Content
                         // Doc 05 §2 Balloon: "30 AoE r=2 m … Airborne (6 m)".
                         if (def.Airborne != (def.Altitude > 0f) || def.Airborne != (def.BombRadius > 0f))
                             ctx.Error($"'{def.Id}': an airborne enemy, and only one, has traitParams.altitude and traitParams.bombRadius > 0");
+                        // Only those that walk up and strike go for the Post Office.
+                        if (priority.Contains(EnemyTarget.PostOffice) && (def.Ranged || def.Suicide || def.Airborne))
+                            ctx.Error($"'{def.Id}': a ranged, suicide or airborne enemy cannot have 'po' in its targetPriority");
                         if (def.PickaxeMult < 1f) ctx.Error($"'{def.Id}': traitParams.pickaxeMult must be at least 1");
                         if (def.AggroRange < def.AttackRange) ctx.Error($"'{def.Id}': aggroRange must be at least its attackRange");
                         if (def.CoinsMin < 0 || def.CoinsMax < def.CoinsMin) ctx.Error($"'{def.Id}': coins must be [min, max] with 0 <= min <= max");

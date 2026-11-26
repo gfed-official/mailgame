@@ -72,7 +72,7 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal((900f, 60f, 3f, 2f, 150, 4), (Tank.Hp, Tank.Damage, Tank.AttackRate, Tank.Speed, Tank.Cost, Tank.UnlockShift));
             Assert.Equal(EnemyTraits.PushesConstructs, Tank.Traits);
-            Assert.Equal(new[] { EnemyTarget.Depot, EnemyTarget.AnyConstruct }, Tank.TargetPriority);
+            Assert.Equal(new[] { EnemyTarget.PostOffice, EnemyTarget.Depot, EnemyTarget.AnyConstruct }, Tank.TargetPriority);
             Assert.Equal(2f, Tank.PickaxeMult);
             Assert.All(Db.Enemies.Where(e => e != Tank), e => Assert.Equal(1f, e.PickaxeMult));
             var drop = Assert.Single(Tank.Drops);

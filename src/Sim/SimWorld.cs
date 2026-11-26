@@ -65,6 +65,8 @@ namespace PerformativeMail.Sim
         public bool ClockStopped;
         /// <summary>Playtest nit 13: a missed quota does not end the run (<see cref="SimWorld.QuotaWaived"/>).</summary>
         public bool QuotaWaived;
+        /// <summary>Doc 05 §5: the Post Office's health, whole numbers (its most is balance.postOfficeHp).</summary>
+        public ushort PostOfficeHp;
     }
 
     /// <summary>
@@ -152,6 +154,7 @@ namespace PerformativeMail.Sim
             var b = Content.Balance;
             _move = MoveConstants.From(Content);
             _combat = new CombatTuning(b);
+            PostOfficeHp = b.GetFloat("postOfficeHp");
             _maxPlayers = b.GetInt("maxPlayers");
             _serverInteractRange = b.GetFloat("serverInteractRange");
             _serverShopRange = b.GetFloat("serverShopRange");
@@ -310,6 +313,7 @@ namespace PerformativeMail.Sim
             RaidEdgeB = (sbyte)RaidEdgeB,
             ClockStopped = ClockStopped,
             QuotaWaived = QuotaWaived,
+            PostOfficeHp = (ushort)Math.Clamp((int)MathF.Ceiling(PostOfficeHp), 0, ushort.MaxValue),
         };
 
         // --- tick -----------------------------------------------------------------------------

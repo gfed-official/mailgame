@@ -64,6 +64,7 @@ namespace PerformativeMail.Client.UI
         public float StaminaShown => _staminaBar.Value;
         /// <summary>The raid's tracker row while there is a raid, else empty.</summary>
         public string RaidText => _raid.Visible ? _raid.Text : "";
+        public string PostOfficeText => _postOffice.Visible ? _postOffice.Text : "";
         /// <summary>The tracker row of the local player's own bag while it lies in the world, else empty.</summary>
         public string BagText => _bag.Visible ? _bag.Text : "";
         /// <summary>What the hammer and the cannon are bound to, while there is something to hit; else empty.</summary>
@@ -160,6 +161,7 @@ namespace PerformativeMail.Client.UI
         private InteractionController _interaction = null!;
         private EventFeed _feed = null!;
 
+        private Label _postOffice = null!;
         private Label _phase = null!, _status = null!, _tally = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!, _perks = null!;
         /// <summary>The Lobby's plates (doc 09 §2.2): the world and its seed, the kit, the host's keys for them.</summary>
         private Label _world = null!, _kit = null!, _worldKeys = null!;
@@ -334,6 +336,7 @@ namespace PerformativeMail.Client.UI
             _perks = AddTracker("Perks", 4, PerkColour);
             _raid = AddTracker("Raid", 5, HealthColour);
             _bag = AddTracker("Bag", 6, BagColour);
+            _postOffice = AddTracker("PostOffice", 7, new Color("e5383b"));
             // In the Lobby, where the shift's plates are empty.
             _world = AddTracker("World", 2, new Color("7fd1b9"));
             _kit = AddTracker("Kit", 3, new Color("f4a261"));
@@ -449,6 +452,8 @@ namespace PerformativeMail.Client.UI
             _raid.Visible = _raid.Text.Length > 0;
             _bag.Text = HudText.BagTracker(world);
             _bag.Visible = _bag.Text.Length > 0;
+            _postOffice.Text = HudText.PostOfficeTracker(world);
+            _postOffice.Visible = _postOffice.Text.Length > 0;
             foreach (var row in _trackerRows) row.Visible = !world.ShopOpen;
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
             bool lost = _client!.State == ClientState.Disconnected;

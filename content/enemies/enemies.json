@@ -7,7 +7,7 @@
     "drops": [] },
   { "id": "giant", "name": "Horned Giant", "hp": 400, "damage": 40, "attackRate": 2.0, "attackRange": 2.4, "speed": 3.0,
     "aggroRange": 30, "radius": 0.5, "scale": 1.9, "cost": 60, "unlockShift": 3, "coins": [30, 50],
-    "traits": ["siege"], "traitParams": { "provokeRange": 5, "provokeSeconds": 3 }, "targetPriority": ["chest", "sorter", "vehicle_depot", "any_construct", "player"],
+    "traits": ["siege"], "traitParams": { "provokeRange": 5, "provokeSeconds": 3 }, "targetPriority": ["chest", "sorter", "vehicle_depot", "any_construct", "po", "player"],
     "drops": [{ "item": "stone", "chance": 1.0, "count": 3 }, { "item": "iron_ore", "chance": 1.0, "count": 1 }] },
   { "id": "archer", "name": "Archer", "hp": 40, "damage": 8, "attackRate": 1.5, "attackRange": 15, "speed": 4.0,
     "aggroRange": 15, "radius": 0.4, "scale": 1.0, "cost": 15, "unlockShift": 2, "coins": [5, 9],
@@ -27,6 +27,6 @@
     "drops": [{ "item": "oil_can", "chance": 0.3, "count": 1 }] },
   { "id": "tank", "name": "Iron Tank", "hp": 900, "damage": 60, "attackRate": 3.0, "attackRange": 1.6, "speed": 2.0,
     "aggroRange": 30, "radius": 0.5, "scale": 2.0, "cost": 150, "unlockShift": 4, "coins": [40, 70],
-    "traits": ["pushes_constructs"], "traitParams": { "pickaxeMult": 2 }, "targetPriority": ["depot", "any_construct"],
+    "traits": ["pushes_constructs"], "traitParams": { "pickaxeMult": 2 }, "targetPriority": ["po", "depot", "any_construct"],
     "drops": [{ "item": "iron_ingot", "chance": 1.0, "count": 4 }] }
 ]

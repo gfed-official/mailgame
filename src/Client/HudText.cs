@@ -23,7 +23,26 @@ namespace PerformativeMail.Client
         /// <summary>The sim's integer amounts shown as gold, one gold a unit: "1820 g"; negative balances as "-150 g"
         /// (Evan, 2026-11-25; design choice 124).</summary>
         /// <summary>Doc 05 §5: the line beside the HUD's marker for a construct under attack.</summary>
-        public static string UnderAttack(ConstructHit hit) => hit.Broke ? $"{hit.Def.Name} broken" : $"{hit.Def.Name} under attack";
+        public static string UnderAttack(ConstructHit hit) => hit.Broke ? (hit.Def == null ? "Post Office fallen" : $"{hit.Name} broken") : $"{hit.Name} under attack";
+
+        /// <summary>
+        /// The HUD's Post Office tracker (doc 05 §5): "Post Office   2920 / 3000 HP" while it is hurt in a
+        /// run, with "· under attack" for 3 s after a blow; empty while it is whole or between runs.
+        /// </summary>
+        public const string PostOfficeUnderAttack = "The Post Office is under attack!";
+        public const string PostOfficeFallen = "The Post Office has fallen";
+
+        public static string PostOfficeTracker(ClientWorld world)
+        {
+            var phase = world.Global.Phase;
+            if (phase == RunPhase.Lobby || phase == RunPhase.Generating) return "";
+            int hp = world.PostOfficeHp, max = world.PostOfficeMaxHp;
+            if (hp >= max && phase != RunPhase.Results) return "";
+            string line = $"Post Office   {hp.ToString(CultureInfo.InvariantCulture)} / {max.ToString(CultureInfo.InvariantCulture)} HP";
+            foreach (var h in world.ConstructHits)
+                if (h.Def == null && world.ServerTick - h.Tick <= ClientWorld.UnderAttackSeconds * SimConstants.TickRate) return line + "   ·   under attack";
+            return line;
+        }
 
         public static string Gold(int amount) => string.Format(CultureInfo.InvariantCulture, "{0} {1}", amount, GoldUnit);
 
@@ -379,6 +398,7 @@ namespace PerformativeMail.Client
         {
             int played = r.LastShift - r.FirstShift + 1;
             string span = played == 1 ? $"shift {r.LastShift}" : $"shifts {r.FirstShift}–{r.LastShift}";
+            if (r.Outcome == RunOutcome.PostOfficeLost) return $"RUN OVER — the Post Office fell in shift {r.LastShift}";
             if (r.QuotaWaived && r.ShiftsCompleted < played)
                 return $"RUN OVER — {span} played, quota off ({r.ShiftsCompleted} of {played} met)";
             if (r.Outcome == RunOutcome.Victory)

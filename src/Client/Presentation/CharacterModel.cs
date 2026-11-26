@@ -405,8 +405,8 @@ namespace PerformativeMail.Client.Presentation
         public static CharacterModel Tank(bool mega)
         {
             var m = new CharacterModel { Name = "Tank", Height = 1.95f, RaisedArm = 2.4f };
-            var plate = MeshKit.Mat(new Color("5d636b"), 0.45f, 0.75f);
-            var dark = MeshKit.Mat(new Color("33373d"), 0.55f, 0.6f);
+            var plate = MeshKit.Mat(new Color("8d949d"), 0.5f, 0.35f);
+            var dark = MeshKit.Mat(new Color("4b5058"), 0.6f, 0.3f);
             var rivet = MeshKit.Mat(new Color("a7adb5"), 0.3f, 0.9f);
             var cloth = MeshKit.Mat(RaiderRed, 0.85f);
             Humanoid(m, plate, plate, dark, dark, MeshKit.Mat(new Color("2a1f1c"), 0.8f), shoulder: 0.42f, torsoRadius: 0.36f, limb: 0.13f);

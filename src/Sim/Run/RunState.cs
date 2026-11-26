@@ -31,6 +31,8 @@ namespace PerformativeMail.Sim.Run
         None = 0,
         Victory = 1,
         QuotaMissed = 2,
+        /// <summary>Doc 01 §7 "Post Office HP reaches 0 — Run Over (immediate)".</summary>
+        PostOfficeLost = 3,
     }
 
     /// <summary>The Payday summary of one shift (doc 01 §2.4).</summary>

@@ -654,6 +654,34 @@ namespace PerformativeMail.Client
             ConstructHits.Add(new ConstructHit { Tx = c.Tx, Tz = c.Tz, Def = c.Def, X = c.CentreX, Z = c.CentreZ, Tick = ServerTick, Amount = amount, Broke = broke });
         }
 
+        /// <summary>The Post Office's roof ridge over the ground, near enough: where its numbers and marker stand.</summary>
+        public const float PostOfficeTop = 6.5f;
+
+        /// <summary>The Post Office's health as the last word of it said (a blow's event, or the snapshot's global block).</summary>
+        public int PostOfficeHp => _postOfficeHeard >= 0 ? _postOfficeHeard : Global.PostOfficeHp;
+        public int PostOfficeMaxHp => (int)Content.Balance.GetFloat("postOfficeHp");
+        private int _postOfficeHeard = -1;
+
+        /// <summary>A blow on the Post Office (doc 05 §5) left it <paramref name="hp"/>; counted as a construct's is.</summary>
+        public void NotePostOfficeHit(int hp)
+        {
+            int amount = PostOfficeHp - hp;
+            _postOfficeHeard = hp;
+            if (amount <= 0) return;
+            PruneConstructHits();
+            var po = Map.PostOffice.Rect;
+            ConstructHits.Add(new ConstructHit { Tx = -1, Tz = -1, X = po.CenterX, Z = po.CenterZ, Tick = ServerTick, Amount = amount, Broke = hp <= 0 });
+        }
+
+        /// <summary>
+        /// A snapshot's global block came: once it has caught up with the last blow heard (or outside
+        /// Delivery, where it mends in Prep) it is the word on the Post Office's health again.
+        /// </summary>
+        public void GlobalCameForPostOffice()
+        {
+            if (_postOfficeHeard >= 0 && (Global.PostOfficeHp <= _postOfficeHeard || Global.Phase != Sim.Run.RunPhase.Delivery)) _postOfficeHeard = -1;
+        }
+
         public void PruneConstructHits() =>
             ConstructHits.RemoveAll(h => ServerTick - h.Tick > HitShownSeconds * SimConstants.TickRate);
 
@@ -1007,7 +1035,11 @@ namespace PerformativeMail.Client
     public sealed class ConstructHit
     {
         public int Tx, Tz;
-        public BuildingDef Def = null!;
+        /// <summary>What was built; null for a blow on the Post Office.</summary>
+        public BuildingDef? Def;
+        public string Name => Def?.Name ?? "Post Office";
+        /// <summary>How high its top is over the ground (the numbers and the marker go over it).</summary>
+        public float Top => Def == null ? ClientWorld.PostOfficeTop : Def.Height > 0f ? Def.Height : 1.2f;
         public float X, Z;
         public double Tick;
         public int Amount;

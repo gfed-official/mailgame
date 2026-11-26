@@ -18,6 +18,9 @@ namespace PerformativeMail.Client
         private (int, int) _rebuilt = (-1, -1);
         /// <summary>The tile a Tank just shoved a construct onto: its putting up there is not news of a building.</summary>
         private (int, int) _pushed = (-1, -1);
+        /// <summary>When the feed last said the Post Office was under attack; it says so again after a quiet 10 s.</summary>
+        private double _postOfficeNews = double.MinValue;
+        private const double PostOfficeNewsTicks = 10 * Sim.Core.SimConstants.TickRate;
 
         public const int MaxEntries = 5;
         public const double EntrySeconds = 6.0;
@@ -144,6 +147,15 @@ namespace PerformativeMail.Client
                     break;
                 case VehicleParkedEvent e when e.Player == world.LocalId && world.Vehicles.TryGetValue(e.Vehicle, out var parked):
                     Add($"You got off the {parked.Def.Name}");
+                    break;
+                // Doc 05 §5: once at the first blow of a while, and when it falls.
+                case PostOfficeDamagedEvent e:
+                    if (e.Hp == 0) Add(HudText.PostOfficeFallen, bad: true);
+                    else if (world.ServerTick - _postOfficeNews > PostOfficeNewsTicks)
+                    {
+                        _postOfficeNews = world.ServerTick;
+                        Add(HudText.PostOfficeUnderAttack, bad: true);
+                    }
                     break;
                 case ConstructPushedEvent e:
                 {

@@ -51,6 +51,8 @@ grep -q '"rankXp": [1-9]' "$profile" || { echo "smoke: no XP in the saved profil
 # and the missed quota does not end the run.
 run_smoke "$work/log-playtest" "--profile=$work/profile-playtest.json" --shift=2 --no-quota --raid --playtest-package
 grep -q "^\[smoke\] playtest: run started at shift 2" "$work/log-playtest" || { echo "smoke: the raid playtest did not run" >&2; exit 1; }
+# The Post Office's HP (doc 05 §5): a blow seen on the HUD, mending in the next Prep.
+grep -q "^\[smoke\] post office: a blow of 120" "$work/log-playtest" || { echo "smoke: no blow on the Post Office was seen" >&2; exit 1; }
 # A ruin rebuilt in Prep (doc 05 §5): a wall broken in shift 2's Delivery, back in shift 3's Prep for half its cost through the prompt.
 grep -q "^\[smoke\] ruin: the Wooden Wall broken in shift 2's Delivery rebuilt in shift 3's Prep" "$work/log-playtest" || { echo "smoke: no ruin was rebuilt in Prep" >&2; exit 1; }
 # Between them the two runs take a card of the Draft both ways: by its key, and with a click on it.

@@ -164,7 +164,7 @@ namespace PerformativeMail.Net.Tests
                 {
                     Shift = 1, Phase = RunPhase.Delivery, PhaseEndTick = 7200, Quota = 600, ShiftEarnings = -12, Wallet = -480,
                     Complaint = 17, Backlog = 3, Deliveries = 40, Misdeliveries = 2,
-                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true,
+                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true, PostOfficeHp = 2345,
                 },
             };
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, HeldTool = 17, Ready = true, Ride = 1, Heading = MathF.PI / 2f, Kit = 2 });
@@ -279,6 +279,7 @@ namespace PerformativeMail.Net.Tests
                 new TurretOperatedEvent { X = 31, Y = 13, Player = player },
                 new EnemyShotEvent { Kind = EnemyShotKind.Arrow, FromX = 61.5f, FromZ = 28.25f, ToX = 50f, ToZ = 27.75f, AtConstruct = true },
                 new ConstructPushedEvent { FromX = 40, FromY = 9, X = 39, Y = 9, Enemy = 7 },
+                new PostOfficeDamagedEvent { Hp = 2960, Enemy = 2 },
                 new RuinEvent { X = 32, Y = 14, Building = 7, Rotation = 3, Gone = true, Rebuilt = true, Player = player },
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
@@ -341,6 +342,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((EnemyShotKind.Arrow, 61.5f, 28.25f, 50f, 27.75f, true), (arrow.Kind, arrow.FromX, arrow.FromZ, arrow.ToX, arrow.ToZ, arrow.AtConstruct));
             var shoved = back.OfType<ConstructPushedEvent>().Single();
             Assert.Equal(((byte)40, (byte)9, (byte)39, (byte)9, (byte)7), (shoved.FromX, shoved.FromY, shoved.X, shoved.Y, shoved.Enemy));
+            var po = back.OfType<PostOfficeDamagedEvent>().Single();
+            Assert.Equal(((ushort)2960, (byte)2), (po.Hp, po.Enemy));
             var ruin = back.OfType<RuinEvent>().Single();
             Assert.Equal(((byte)32, (byte)14, (byte)7, (byte)3, true, true, player), (ruin.X, ruin.Y, ruin.Building, ruin.Rotation, ruin.Gone, ruin.Rebuilt, ruin.Player));
             var swung = back.OfType<InserterSwungEvent>().Single();

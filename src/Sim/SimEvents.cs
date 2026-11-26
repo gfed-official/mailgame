@@ -389,6 +389,13 @@ namespace PerformativeMail.Sim
         public byte Enemy;
     }
 
+    /// <summary>A raider's blow landed on the Post Office (doc 05 §5): the HP it has left, and the kind of raider.</summary>
+    public sealed class PostOfficeDamagedEvent : SimEvent
+    {
+        public ushort Hp;
+        public byte Enemy;
+    }
+
     /// <summary>A raider's blow landed on a construct: the HP it has left.</summary>
     public sealed class ConstructDamagedEvent : SimEvent
     {

@@ -987,6 +987,7 @@ namespace PerformativeMail.Client
             if (m.HasGlobal)
             {
                 world.Global = m.Global;
+                world.GlobalCameForPostOffice();
                 world.GlobalTick = m.Tick;
             }
             if (m.HasOwn) Reconcile(world, m);
@@ -1223,6 +1224,9 @@ namespace PerformativeMail.Client
                     }
                     break;
                 }
+                case PostOfficeDamagedEvent e:
+                    world.NotePostOfficeHit(e.Hp);
+                    break;
                 case ConstructsClearedEvent:
                     world.ConstructHits.Clear();
                     foreach (var built in world.Constructs.All)

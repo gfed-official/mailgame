@@ -132,6 +132,7 @@ namespace PerformativeMail.Sim
 
         private void StepCombat()
         {
+            StepPostOffice();
             StepHealth();
             StepRaid();
             StepShots();
@@ -487,6 +488,12 @@ namespace PerformativeMail.Sim
                         e.State = EnemyState.Chase;
                         if (e.Def.Ranged) { Loose(e); break; }
                         if (e.Def.Airborne) { DropBomb(e); break; }
+                        if (e.StrikeTx == PostOfficeStrike)
+                        {
+                            e.StrikeTx = -1;
+                            if (PostOfficeDistance(e.X, e.Z, out _, out _) <= e.Radius + MathF.Max(StrikeReach, e.Def.AttackRange) + WindupSlack) DamagePostOffice(e.Damage, e);
+                            break;
+                        }
                         if (e.StrikeTx >= 0)
                         {
                             var built = Constructs.At(e.StrikeTx, e.StrikeTz);
