@@ -573,6 +573,7 @@ namespace PerformativeMail.Sim.Content
                     var root = doc.RootElement;
                     var weights = new Dictionary<int, IReadOnlyList<KeyValuePair<EnemyDef, int>>>();
                     var maxes = new Dictionary<int, IReadOnlyDictionary<EnemyDef, int>>();
+                    var leadsByShift = new Dictionary<int, IReadOnlyList<KeyValuePair<EnemyDef, int>>>();
                     if (root.TryGetProperty("weightsByShift", out var byShift) && byShift.ValueKind == JsonValueKind.Object)
                     {
                         foreach (var s in byShift.EnumerateObject())
@@ -580,17 +581,29 @@ namespace PerformativeMail.Sim.Content
                             if (!int.TryParse(s.Name, out int shift) || shift < 1) { ctx.Error($"weightsByShift: '{s.Name}' is not a shift number"); continue; }
                             var entries = new List<KeyValuePair<EnemyDef, int>>();
                             var caps = new Dictionary<EnemyDef, int>();
+                            var leads = new List<KeyValuePair<EnemyDef, int>>();
                             if (s.Value.ValueKind != JsonValueKind.Object) { ctx.Error($"weightsByShift {shift}: must be an object of enemy weights"); continue; }
                             foreach (var p in s.Value.EnumerateObject())
                             {
                                 if (!db._enemiesById.TryGetValue(p.Name, out var enemy)) { ctx.Error($"weightsByShift {shift}: unknown enemy '{p.Name}'"); continue; }
-                                // A weight, or { "weight": w, "max": m } for an enemy a raid sends at most m of (doc 05 §3.2 Tank).
+                                // A weight, or { "weight": w, "max": m, "lead": l } for an enemy a raid sends at most m of
+                                // (doc 05 §3.2 Tank) and buys l of before its pulses roll (design choice 141).
                                 var w = p.Value;
                                 if (w.ValueKind == JsonValueKind.Object)
                                 {
-                                    int max = J.Int(ctx, w, "max");
-                                    if (max < 1) ctx.Error($"weightsByShift {shift}: max of '{p.Name}' must be at least 1");
-                                    else caps[enemy] = max;
+                                    int max = int.MaxValue;
+                                    if (w.TryGetProperty("max", out _))
+                                    {
+                                        max = J.Int(ctx, w, "max");
+                                        if (max < 1) ctx.Error($"weightsByShift {shift}: max of '{p.Name}' must be at least 1");
+                                        else caps[enemy] = max;
+                                    }
+                                    if (w.TryGetProperty("lead", out _))
+                                    {
+                                        int lead = J.Int(ctx, w, "lead");
+                                        if (lead < 1 || lead > max) ctx.Error($"weightsByShift {shift}: lead of '{p.Name}' must be at least 1 and at most its max");
+                                        else leads.Add(new KeyValuePair<EnemyDef, int>(enemy, lead));
+                                    }
                                     w = w.TryGetProperty("weight", out var inner) ? inner : default;
                                 }
                                 if (w.ValueKind != JsonValueKind.Number || !w.TryGetInt32(out int weight) || weight < 0)
@@ -605,6 +618,9 @@ namespace PerformativeMail.Sim.Content
                             }
                             weights[shift] = entries;
                             if (caps.Count > 0) maxes[shift] = caps;
+                            // Dearest first: the Tank leads before the Giants.
+                            leads.Sort((a, b) => b.Key.Cost.CompareTo(a.Key.Cost));
+                            leadsByShift[shift] = leads;
                         }
                     }
                     else ctx.Error("missing 'weightsByShift' object");
@@ -631,6 +647,7 @@ namespace PerformativeMail.Sim.Content
                         Pulses = J.Int(ctx, root, "pulses"),
                         PulseIntervalSeconds = J.Num(ctx, root, "pulseIntervalSeconds"),
                         FinalePulseMult = J.Num(ctx, root, "finalePulseMult", 1),
+                        LeadBudgetRatio = J.Num(ctx, root, "leadBudgetRatio", 0),
                         WarningSeconds = J.Num(ctx, root, "warningSeconds"),
                         MaxWarningSeconds = J.Num(ctx, root, "maxWarningSeconds", 0),
                         RaidWindowSeconds = J.Num(ctx, root, "raidWindowSeconds"),
@@ -640,9 +657,11 @@ namespace PerformativeMail.Sim.Content
                         MaxAlive = J.Int(ctx, root, "maxAlive"),
                         WeightsByShift = weights,
                         MaxByShift = maxes,
+                        LeadsByShift = leadsByShift,
                     };
                     if (def.Pulses < 1) ctx.Error("pulses must be >= 1");
                     if (def.PulseIntervalSeconds <= 0) ctx.Error("pulseIntervalSeconds must be > 0");
+                    if (def.LeadBudgetRatio != 0 && def.LeadBudgetRatio < 1) ctx.Error("leadBudgetRatio must be 0 (off) or at least 1");
                     if (def.WarningSeconds < 0 || def.RaidWindowSeconds <= 0) ctx.Error("warningSeconds must be >= 0 and raidWindowSeconds > 0");
                     if (def.MaxWarningSeconds != 0 && def.MaxWarningSeconds < def.WarningSeconds) ctx.Error("maxWarningSeconds must be 0 (no cap) or at least warningSeconds");
                     // The snapshot counts enemies in a byte.

@@ -119,6 +119,23 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void TheBlowThatFellsIt_AmongOtherRaiders_EndsTheRunWithoutBreakingTheirStep()
+        {
+            // The aa106cb fix's RaidFightTests: four carriers' Tank felled the Post Office while
+            // others stood behind it in the list, and the cleared field broke the enemies' step.
+            var (world, _) = InDelivery(PlaytestFlags.NoQuota);
+            world.DamagePostOffice(2950f);
+            var (x, z) = OffThePostOffice(world, 3f);
+            var (fx, fz) = OffThePostOffice(world, 25f);
+            world.SpawnEnemy(Db.Enemy("barbarian"), fx, fz + 2f);
+            world.SpawnEnemy(Db.Enemy("barbarian"), fx, fz - 2f);
+            world.SpawnEnemy(Db.Enemy("giant"), x, z);
+            for (int i = 0; i < 15 * Tps && world.Run.Phase == RunPhase.Delivery; i++) world.Step();
+            Assert.Equal(RunOutcome.PostOfficeLost, world.Run.Outcome);
+            Assert.Empty(world.Enemies);
+        }
+
+        [Fact]
         public void AtZero_TheRunIsOverAtOnce_TheQuotaWaivedOrNot()
         {
             var (world, host) = InDelivery(PlaytestFlags.NoQuota);

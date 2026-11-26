@@ -664,6 +664,11 @@ namespace PerformativeMail.Sim.Content
         public int Pulses { get; init; } = 1;
         public double PulseIntervalSeconds { get; init; }
         public double FinalePulseMult { get; init; } = 1;
+        /// <summary>
+        /// A lead (<see cref="LeadsFor"/>) is bought before the pulses roll while what is left of the
+        /// raid's budget is at least this many times its cost; 0 = no leads (design choice 141).
+        /// </summary>
+        public double LeadBudgetRatio { get; init; }
         public double WarningSeconds { get; init; }
         /// <summary>The longest warning there is, perks and alarm posts together; 0 = no cap.</summary>
         public double MaxWarningSeconds { get; init; }
@@ -694,6 +699,18 @@ namespace PerformativeMail.Sim.Content
                 if (WeightsByShift.ContainsKey(s))
                     return MaxByShift.TryGetValue(s, out var caps) && caps.TryGetValue(enemy, out int max) ? max : int.MaxValue;
             return int.MaxValue;
+        }
+
+        /// <summary>shift → (enemy, how many of it lead the raid), dearest first (design choice 141).</summary>
+        public IReadOnlyDictionary<int, IReadOnlyList<KeyValuePair<EnemyDef, int>>> LeadsByShift { get; init; }
+            = new Dictionary<int, IReadOnlyList<KeyValuePair<EnemyDef, int>>>();
+
+        public IReadOnlyList<KeyValuePair<EnemyDef, int>> LeadsFor(int shift)
+        {
+            for (int s = shift; s >= 1; s--)
+                if (WeightsByShift.ContainsKey(s))
+                    return LeadsByShift.TryGetValue(s, out var leads) ? leads : Array.Empty<KeyValuePair<EnemyDef, int>>();
+            return Array.Empty<KeyValuePair<EnemyDef, int>>();
         }
 
         public IReadOnlyList<KeyValuePair<EnemyDef, int>> WeightsFor(int shift)

@@ -26,9 +26,9 @@ namespace PerformativeMail.Net.Tests
             public readonly List<ClientRuntime> Clients = new List<ClientRuntime>();
             public readonly List<string> Log = new List<string>();
 
-            public Session(bool quickStart = false)
+            public Session(bool quickStart = false, bool raids = true)
             {
-                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 3, QuickStart = quickStart, Draft = false }, Hub);
+                Server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 3, QuickStart = quickStart, Draft = false, Raids = raids }, Hub);
                 Server.Log = Log.Add;
             }
 
@@ -286,8 +286,9 @@ namespace PerformativeMail.Net.Tests
         public void AHostWithShift3AndNoQuota_PlaysShifts3To5_AndTheResultsSayTheQuotaWasOff()
         {
             // The 0abedd1 playtest: --shift=3 --no-quota --raid --playtest-no-timer read
-            // "RUN OVER — quota missed on shift 1" at the end of the run.
-            var s = new Session();
+            // "RUN OVER — quota missed on shift 1" at the end of the run. Without the raids: a host who
+            // answers none loses the Post Office to shift 5's Tank (design choice 141).
+            var s = new Session(raids: false);
             var host = s.AddClient("Ada", PlaytestFlags.NoQuota, 3);
             s.Step(10);
             var world = host.World!;

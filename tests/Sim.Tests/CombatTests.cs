@@ -98,7 +98,7 @@ namespace PerformativeMail.Sim.Tests
             var waves = Db.Waves;
             Assert.Equal(0, waves.BudgetFor(1));
             Assert.Equal(120, waves.BudgetFor(2));
-            Assert.Equal(225, waves.BudgetFor(5));
+            Assert.Equal(360, waves.BudgetFor(5));
             Assert.Empty(waves.WeightsFor(1));
             Assert.DoesNotContain(waves.WeightsFor(2), w => w.Key.Id == "giant");
             Assert.Contains(waves.WeightsFor(3), w => w.Key.Id == "giant");
@@ -114,7 +114,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(120 * 0.8, SimWorld.WaveBudget(waves, 2, 1, 0), 6);
             Assert.Equal(120 * 1.35 * 0.8, SimWorld.WaveBudget(waves, 2, 2, 0), 6);
             Assert.Equal(120 * (1 + 0.35 * 3), SimWorld.WaveBudget(waves, 2, 4, 0), 6);
-            Assert.Equal(225 * (1 + 0.35 * 3) * 1.5, SimWorld.WaveBudget(waves, 5, 4, 50), 6);
+            Assert.Equal(360 * (1 + 0.35 * 3) * 1.5, SimWorld.WaveBudget(waves, 5, 4, 50), 6);
             Assert.Equal(0, SimWorld.WaveBudget(waves, 1, 4, 100), 6);
         }
 

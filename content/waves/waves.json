@@ -1,11 +1,12 @@
 {
-  "baseBudget": [0, 120, 150, 185, 225],
+  "baseBudget": [0, 120, 150, 250, 360],
   "waveScalePerExtraPlayer": 0.35,
   "soloMult": 0.8,
   "soloMaxPlayers": 2,
   "pulses": 6,
   "pulseIntervalSeconds": 15,
   "finalePulseMult": 1.5,
+  "leadBudgetRatio": 1.75,
   "warningSeconds": 15,
   "maxWarningSeconds": 45,
   "raidWindowSeconds": 90,
@@ -16,7 +17,7 @@
   "weightsByShift": {
     "2": { "barbarian": 60, "swarmling": 40, "archer": 30 },
     "3": { "barbarian": 40, "swarmling": 30, "archer": 30, "giant": 15, "wall_breaker": 10, "hog_rider": 5 },
-    "4": { "barbarian": 30, "swarmling": 30, "archer": 25, "giant": 15, "wall_breaker": 15, "hog_rider": 10, "balloon": 5, "tank": { "weight": 1, "max": 1 } },
-    "5": { "barbarian": 25, "swarmling": 30, "archer": 20, "giant": 15, "wall_breaker": 10, "hog_rider": 10, "balloon": 10, "tank": { "weight": 10, "max": 3 } }
+    "4": { "barbarian": 30, "swarmling": 30, "archer": 25, "giant": 15, "wall_breaker": 15, "hog_rider": 10, "balloon": 5, "tank": { "weight": 1, "max": 1, "lead": 1 } },
+    "5": { "barbarian": 25, "swarmling": 30, "archer": 20, "giant": { "weight": 15, "lead": 2 }, "wall_breaker": 10, "hog_rider": 10, "balloon": 10, "tank": { "weight": 10, "max": 3, "lead": 1 } }
   }
 }

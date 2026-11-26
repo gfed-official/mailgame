@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using PerformativeMail.Sim.Combat;
+using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
@@ -25,7 +26,7 @@ namespace PerformativeMail.Sim.Tests
 
         private sealed class Outcome
         {
-            public int Spawned, Killed, Downs, Seconds, FastReDowns, Left;
+            public int Spawned, Killed, Downs, Seconds, FastReDowns, Left, Tanks, Giants;
             public bool Won;
             public string LeftKinds = "";
             public float MinUpSeconds = float.MaxValue;
@@ -51,10 +52,17 @@ namespace PerformativeMail.Sim.Tests
             var wasDead = new Dictionary<Player, bool>();
             foreach (var p in team) wasDead[p] = false;
             int pulses = TestContent.Db.Waves.Pulses;
+            var seen = new HashSet<EntityId>();
             for (int t = 0; t < maxSeconds * Tps; t++)
             {
                 foreach (var p in team) world.QueueInput(p.Id, bots[p].Decide(world, p));
                 world.Step();
+                foreach (var e in world.Enemies)
+                    if (seen.Add(e.Id))
+                    {
+                        if (e.Def.Id == "tank") o.Tanks++;
+                        if (e.Def.Id == "giant") o.Giants++;
+                    }
                 foreach (var p in team)
                 {
                     if (p.Dead && !wasDead[p])
@@ -87,16 +95,54 @@ namespace PerformativeMail.Sim.Tests
         private static readonly int Shifts = new SimWorld(TestContent.Db, new SimSettings()).ShiftCount;
 
         [Fact]
-        public void TheBudgetGrowsFromShiftToShift_ByAThirdAtMost()
+        public void TheBudgetGrowsByAThirdAtMostIntoShiftThree_ThenFasterWithTheDefences()
         {
             // The a5d987e playtest: 16 raiders in shift 2, 32 in shift 3, and no way to win it.
             var waves = TestContent.Db.Waves;
             Assert.Equal(120, waves.BudgetFor(2));
-            for (int shift = 3; shift <= Shifts; shift++)
+            Assert.InRange(waves.BudgetFor(3) / waves.BudgetFor(2), 1.15, 1.34);
+            // Design choice 141: with walls, turrets, the shop and perks in, shifts 4 and 5 climb
+            // toward doc 05 §3.2's 360 and 560 again, never past them.
+            double[] doc = { 0, 120, 220, 360, 560 };
+            for (int shift = 4; shift <= Shifts; shift++)
             {
-                double step = waves.BudgetFor(shift) / waves.BudgetFor(shift - 1);
-                Assert.InRange(step, 1.15, 1.34);
+                Assert.InRange(waves.BudgetFor(shift) / waves.BudgetFor(shift - 1), 1.15, 1.7);
+                Assert.True(waves.BudgetFor(shift) <= doc[Math.Min(shift, doc.Length) - 1]);
             }
+        }
+
+        [Theory]
+        [InlineData(4, 2)]
+        [InlineData(4, 4)]
+        [InlineData(5, 1)]
+        [InlineData(5, 2)]
+        [InlineData(5, 4)]
+        public void ATeamOfFourOrFewer_MeetsATankInShiftsFourAndFive_AndBeatsIt(int shift, int players)
+        {
+            // The aa106cb playtest: a pulse's share (budget / 6) never bought a Tank (150) for a team
+            // of four or fewer, so the Post Office was never struck (design choice 141).
+            foreach (uint seed in Seeds)
+            {
+                var o = Fight(seed, shift, players, cannon: false, clumsy: true);
+                Assert.True(o.Tanks >= 1, $"shift {shift}, {players} carriers, seed {seed}: no tank");
+                Assert.True(o.Won, $"shift {shift}, {players} carriers, seed {seed}: {o.Killed} of {o.Spawned} felled; left {o.LeftKinds}");
+            }
+        }
+
+        [Fact]
+        public void ASoloShiftFour_HasNoTank()
+        {
+            foreach (uint seed in Seeds) Assert.Equal(0, Fight(seed, 4, 1, cannon: false, clumsy: true).Tanks);
+        }
+
+        [Theory]
+        [InlineData(2)]
+        [InlineData(4)]
+        public void ShiftFiveBringsGiants_MoreThanTheOldBudgetBought(int players)
+        {
+            int giants = 0;
+            foreach (uint seed in Seeds) giants += Fight(seed, 5, players, cannon: false, clumsy: true).Giants;
+            Assert.True(giants >= 2 * Seeds.Length, $"{giants} giants over {Seeds.Length} seeds");
         }
 
         [Theory]

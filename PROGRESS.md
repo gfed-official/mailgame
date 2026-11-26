@@ -2230,6 +2230,40 @@ Next in this order: the rest of M3's list in doc 12 (drops, Lost Parcels).
       fireball drawn 0.8 m from it"; the rendered `wallbreaker-wall.png` shows the fireball on the wall
       and the host at 100 HP. Nothing in the Wall Breaker changed
 
+### 5c. The aa106cb playtest's new bug (`mailgame-harness/results/20261126-041122-aa106cb/report.md`, 2026-11-26)
+
+- [x] **A raid of a team of four or fewer could not afford a Tank, and seldom a Giant** (design choice
+      141). Each pulse spent budget / 6 (the finale half again): two carriers' shift 5 had 243, 40 a
+      pulse and 61 for the finale, and a Tank costs 150, a Giant 60, so host and guest in shift 5 met
+      29 raiders in eight minutes and never a blow at the Post Office. Two changes. (1) `baseBudget` is
+      120 / 150 / **250 / 360** (was 120 / 150 / 185 / 225; doc 05 §3.2's 120 / 220 / 360 / 560):
+      shifts 2 and 3, the a5d987e wall, are as they were; 4 and 5 climb back toward the doc now walls,
+      turrets, the shop and perks are in (choice 70 said to). (2) **Leads**: a `weightsByShift` entry may
+      say `"lead": n` — the raid buys n of it from its whole budget when it starts (the pulses' shares
+      together), dearest first, each while what is left is at least `leadBudgetRatio` (1.75) times its
+      cost, and they walk in one a pulse from the first pulse (the Tank walks 2 m/s; the raid is 90 s).
+      What they cost comes off every pulse's share alike; a lead counts against its cap (`max`). Shift 4
+      leads with a Tank, shift 5 with a Tank and two Giants. So: one carrier's shift 4 has no Tank (217 <
+      262); two carriers' shift 4 a Tank and 142 of rolls; two carriers' shift 5 a Tank, two Giants and
+      151 of rolls (one of them a Mega in the finale); four carriers' shift 5 a Tank, two Giants and 530
+      of rolls, where pulses of 82 roll more Giants. The pulses roll as before (`SpawnPulse`); a lead that
+      finds `maxAlive` reached comes with the next pulse. `SimWorld.RaidLeads`. The validator checks a lead
+      is 1..max. Tests: `RaidFightTests` — its clumsy bots still win every shift for 1, 2 and 4 carriers
+      with and without the cannon, within 240 s and 9 downs a head (`AClumsyTeamWinsTheRaidOfEveryShift`
+      unchanged); `ATeamOfFourOrFewer_MeetsATankInShiftsFourAndFive_AndBeatsIt` (2 and 4 carriers in
+      shift 4, 1, 2 and 4 in shift 5, four seeds), `ASoloShiftFour_HasNoTank`,
+      `ShiftFiveBringsGiants_MoreThanTheOldBudgetBought` (0 and 1 Giants over the four seeds before),
+      `TheBudgetGrowsByAThirdAtMostIntoShiftThree_ThenFasterWithTheDefences` (never past the doc's table);
+      `TankTests.ATeamOfFourOrFewer_WhoBuildNothing_HasThePostOfficeStruckByTheTank` (the playtest's repro:
+      two carriers in shifts 4 and 5, four in 5, nothing built — the Tank strikes the Post Office). A team
+      that answers no raid at all now loses the Post Office in shift 5 (doc 01 §7): the three run-loop
+      tests that played five shifts standing still (`FiveShiftsOnQuotaIsAVictory`, `NoQuota_AMissed…`,
+      `AHostWithShift3AndNoQuota_…`) do so with raids off
+- [x] **Found on the way: the blow that fells the Post Office broke the server's step.** `BeginResults`
+      clears the field from inside `StepEnemies`; the loop then read past the end of the list (the four
+      carriers' `RaidFightTests` hit it once a Tank reached the Post Office). The loop now picks up from
+      the end of what is left. `PostOfficeTests.TheBlowThatFellsIt_AmongOtherRaiders_…`
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -2833,7 +2867,8 @@ See "Commands" at the bottom (filled in as the tooling lands).
     first three exists yet, and with hammer and cannon alone shift 3 was the wall the playtest
     hit. `baseBudget` is 120 / 150 / 185 / 225 until they do; the formula around it (players,
     complaint, the 0.8 for one or two) is the doc's. To be raised again when defences land —
-    `RaidFightTests` is the measure: its bots must still get through.
+    `RaidFightTests` is the measure: its bots must still get through. (Shifts 4 and 5 were
+    raised with the defences in: design choice 141.)
 
 71. **The shop.** Doc 01 §2.4 / §3.4, doc 08 §2.10, doc 09 §2.8 and doc 10 §3 give the list, the
     prices and "a grid of cards". What they leave open, and what was chosen:
@@ -3611,6 +3646,20 @@ See "Commands" at the bottom (filled in as the tooling lands).
     is the doc's 4 + 1 by count. It is no raid: no warning, the raid's state unchanged, its raiders
     flee at the end of Delivery like any. The score is the run's earnings times the product of the
     stamps' multipliers; XP 10 % more a stamp (doc 11).
+
+141. **A raid's leads (the aa106cb playtest).** Doc 05 §3.2 is at odds with itself: its pulse rule
+    (budget / 6 a pulse, the finale +50 %) never buys a Tank (150) under a pulse of 150, yet its own
+    example, "4 players shift 4: budget 360 × 2.05 = 738 → e.g. 1 Tank, 2 Giants, …", has one, from a
+    pulse of 123. Rolling the whole raid's roster at once matches the example but changed shift 3
+    (Giants bought from the whole budget: one carrier on seed 40 down 10 times, two carriers 6), the
+    wall the a5d987e playtest hit. So the pulse rule stands and the heavy few are bought first, from
+    the whole budget, as "leads" named in `waves.json` (shift 4 a Tank; shift 5 a Tank and two Giants;
+    a Giant lead in shift 4 had one carrier down 11 times), each only while what is left is 1.75 times
+    its cost so a lead never eats the raid whole; they come with the first pulses because the Tank is
+    slow and the raid is 90 s. `baseBudget` 250 / 360 for shifts 4 and 5 (from 185 / 225), steps of
+    1.67 and 1.44, under the doc's 360 / 560: high enough that two carriers' shift 4 can lead with a
+    Tank, low enough that `RaidFightTests`' clumsy hammer bots (no walls, no turrets) still get through
+    every shift within 9 downs a head. Choice 70 stands for shifts 2 and 3.
 
 ## Commands
 

@@ -101,10 +101,14 @@ namespace PerformativeMail.Sim
         private int _raidShift;
         private int _raidPulse;
         private double _raidBudget, _raidCarry;
+        /// <summary>What of the budget is left to the pulses' rolls once the leads are bought (design choice 141).</summary>
+        private double _raidRollBudget;
+        /// <summary>The raid's leads, bought when it starts, by the pulse they come with (design choice 141).</summary>
+        private readonly List<List<EnemyDef>> _raidLeads = new List<List<EnemyDef>>();
         /// <summary>The raid's ways in (doc 05 §3.2): the first half of its pulses by the one, then both; −1: none.</summary>
         private int _raidEdgeA = -1, _raidEdgeB = -1;
         private RngStream _spawnRng = null!;
-        /// <summary>How many of each enemy the raid under way has sent, against their caps.</summary>
+        /// <summary>How many of each enemy the raid under way brings, against their caps.</summary>
         private readonly Dictionary<EnemyDef, int> _raidSpawnedOf = new Dictionary<EnemyDef, int>();
 
         public IReadOnlyList<Enemy> Enemies => _enemies;
@@ -472,6 +476,8 @@ namespace PerformativeMail.Sim
             RankAttackers();
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
+                // A blow that fells the Post Office ends the run and clears the field mid-step.
+                if (i >= _enemies.Count) { i = _enemies.Count; continue; }
                 var e = _enemies[i];
                 StepPush(e, dt);
                 switch (e.State)
@@ -951,7 +957,7 @@ namespace PerformativeMail.Sim
                 _raidBudget = WaveBudget(waves, _raidShift, Run.PlayerCount, Economy.Complaint);
                 _raidCarry = 0;
                 _raidPulse = 0;
-                _raidSpawnedOf.Clear();
+                PlanRaid(waves);
                 SetRaid(RaidState.Active, Run.PhaseEndTick);
             }
             if (Raid != RaidState.Active) return;
@@ -963,38 +969,79 @@ namespace PerformativeMail.Sim
             }
         }
 
+        /// <summary>The leads of the raid under way, by the pulse they come with (design choice 141).</summary>
+        public IReadOnlyList<IReadOnlyList<EnemyDef>> RaidLeads => _raidLeads;
+
         /// <summary>
-        /// One pulse (doc 05 §3.2): weighted picks until its share of the budget is spent; what is
-        /// too little for any enemy carries over to the next pulse.
+        /// Design choice 141: a pulse's share of doc 05 §3.2's budget (budget / 6) never bought a
+        /// Tank (150), and seldom a Giant (60), for a team of four or fewer. The shift's leads
+        /// (waves.json "lead") are bought from the whole raid's budget when it starts instead,
+        /// dearest first, each while what is left is at least leadBudgetRatio times its cost, and
+        /// walk in one a pulse from the first (the Tank walks 2 m/s and the raid lasts 90 s). What
+        /// they cost is taken from every pulse's share alike; a shift without leads rolls as it did.
+        /// </summary>
+        private void PlanRaid(WaveDef waves)
+        {
+            int pulses = waves.Pulses;
+            while (_raidLeads.Count < pulses) _raidLeads.Add(new List<EnemyDef>());
+            while (_raidLeads.Count > pulses) _raidLeads.RemoveAt(_raidLeads.Count - 1);
+            foreach (var list in _raidLeads) list.Clear();
+            _raidSpawnedOf.Clear();
+            // The pulses' shares together: budget / 6 each, the finale's half again.
+            double shares = (pulses - 1 + waves.FinalePulseMult) / pulses;
+            double whole = _raidBudget * shares;
+            int nth = 0;
+            if (waves.LeadBudgetRatio > 0)
+                foreach (var l in waves.LeadsFor(_raidShift))
+                    for (int n = 0; n < l.Value && whole >= l.Key.Cost * waves.LeadBudgetRatio; n++)
+                    {
+                        _raidLeads[Math.Min(nth++, pulses - 1)].Add(l.Key);
+                        _raidSpawnedOf[l.Key] = n + 1;
+                        whole -= l.Key.Cost;
+                    }
+            _raidRollBudget = whole / shares;
+        }
+
+        /// <summary>
+        /// One pulse (doc 05 §3.2): its leads (design choice 141), then weighted picks until its
+        /// share of the budget is spent; what is too little for any enemy carries over to the next pulse.
         /// </summary>
         private void SpawnPulse(WaveDef waves, int pulse)
         {
             bool finale = pulse == waves.Pulses - 1;
-            double budget = _raidBudget / waves.Pulses * (finale ? waves.FinalePulseMult : 1.0) + _raidCarry;
+            double budget = _raidRollBudget / waves.Pulses * (finale ? waves.FinalePulseMult : 1.0) + _raidCarry;
             var weights = waves.WeightsFor(_raidShift);
             int megaPermille = (int)Math.Round((waves.MegaChanceBase + waves.MegaChancePerShift * Run.Shift) * 1000);
             // Doc 05 §3.2: the last pulse of the last shift always brings a Mega.
             bool forceMega = finale && Run.Shift >= ShiftCount;
             int nth = 0;
+            var leads = pulse < _raidLeads.Count ? _raidLeads[pulse] : null;
+            int lead = 0;
             while (_enemies.Count < waves.MaxAlive)
             {
-                _affordable.Clear();
-                int total = 0;
-                foreach (var w in weights)
+                EnemyDef def;
+                bool led = leads != null && lead < leads.Count;
+                if (led) def = leads![lead];
+                else
                 {
-                    if (w.Key.Cost > budget) continue;
-                    // Doc 05 §3.2 "Tank … (max 1)": no more of it than the raid's cap.
-                    if (_raidSpawnedOf.TryGetValue(w.Key, out int sent) && sent >= waves.MaxFor(_raidShift, w.Key)) continue;
-                    _affordable.Add(w);
-                    total += w.Value;
-                }
-                if (total == 0) break;
-                int roll = _waveRng.NextInt(total);
-                var def = _affordable[_affordable.Count - 1].Key;
-                foreach (var w in _affordable)
-                {
-                    if (roll < w.Value) { def = w.Key; break; }
-                    roll -= w.Value;
+                    _affordable.Clear();
+                    int total = 0;
+                    foreach (var w in weights)
+                    {
+                        if (w.Key.Cost > budget) continue;
+                        // Doc 05 §3.2 "Tank … (max 1)": no more of it than the raid's cap.
+                        if (_raidSpawnedOf.TryGetValue(w.Key, out int sent) && sent >= waves.MaxFor(_raidShift, w.Key)) continue;
+                        _affordable.Add(w);
+                        total += w.Value;
+                    }
+                    if (total == 0) break;
+                    int roll = _waveRng.NextInt(total);
+                    def = _affordable[_affordable.Count - 1].Key;
+                    foreach (var w in _affordable)
+                    {
+                        if (roll < w.Value) { def = w.Key; break; }
+                        roll -= w.Value;
+                    }
                 }
                 bool mega = forceMega || _waveRng.Chance(megaPermille);
                 forceMega = false;
@@ -1006,9 +1053,13 @@ namespace PerformativeMail.Sim
                 var spawned = SpawnEnemy(def, x, z, mega);
                 if (spawned == null) break;
                 spawned.Edge = edge.Index;
+                if (led) { lead++; continue; }
                 _raidSpawnedOf[def] = _raidSpawnedOf.TryGetValue(def, out int before) ? before + 1 : 1;
                 budget -= def.Cost;
             }
+            // A lead that found the field full comes with the next pulse.
+            if (leads != null && lead < leads.Count && pulse + 1 < _raidLeads.Count)
+                _raidLeads[pulse + 1].InsertRange(0, leads.GetRange(lead, leads.Count - lead));
             _raidCarry = budget;
         }
 

@@ -208,16 +208,44 @@ namespace PerformativeMail.Sim.Tests
                     Assert.Equal(OpResult.Ok, Request(world, team[0], SimRequest.StartRun(0)));
                     foreach (var c in team) Request(world, c, SimRequest.SetReady(0, true));
                     var tanks = new HashSet<EntityId>();
-                    for (int t = 0; t < 120 * Tps && world.RaidPulsesSpawned < Db.Waves.Pulses; t++)
+                    for (int t = 0; t < 120 * Tps && world.RaidPulsesSpawned < Db.Waves.Pulses && world.Run.Phase == RunPhase.Delivery; t++)
                     {
                         world.Step();
                         foreach (var en in world.Enemies) if (en.Def == Tank) tanks.Add(en.Id);
                     }
-                    Assert.Equal(Db.Waves.Pulses, world.RaidPulsesSpawned);
+                    // Eight carriers who stand about may lose the Post Office to three Tanks before the finale.
+                    Assert.True(world.RaidPulsesSpawned == Db.Waves.Pulses || world.Run.Outcome == RunOutcome.PostOfficeLost, $"shift {shift}, seed {seed}");
                     Assert.True(tanks.Count <= Db.Waves.MaxFor(shift, Tank), $"shift {shift}, seed {seed}: {tanks.Count} tanks");
                     seen += tanks.Count;
                 }
             Assert.True(seen > 0, "eight carriers' raids of shifts 4 and 5 never sent a tank");
+        }
+
+        [Theory]
+        [InlineData(4, 2)]
+        [InlineData(5, 2)]
+        [InlineData(5, 4)]
+        public void ATeamOfFourOrFewer_WhoBuildNothing_HasThePostOfficeStruckByTheTank(int shift, int players)
+        {
+            // The aa106cb playtest: host and guest in shift 5, nothing built, eight minutes in the yard,
+            // 29 raiders and never a blow at the Post Office (design choice 141).
+            var world = new SimWorld(Db, new SimSettings { Seed = 3, Draft = false });
+            var team = Enumerable.Range(0, players).Select(i => world.AddPlayer("c" + i)!).ToList();
+            foreach (var c in team)
+            {
+                c.MaxHp = c.Hp = 100000f;
+                world.SetPlaytest(c, PlaytestFlags.NoTimer | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow, shift);
+            }
+            Assert.Equal(OpResult.Ok, Request(world, team[0], SimRequest.StartRun(0)));
+            foreach (var c in team) Request(world, c, SimRequest.SetReady(0, true));
+            bool byTank = false;
+            for (int t = 0; t < 300 * Tps && !byTank; t++)
+            {
+                world.Events.Clear();
+                world.Step();
+                byTank = world.Events.OfType<PostOfficeDamagedEvent>().Any(e => e.Enemy == Tank.Index);
+            }
+            Assert.True(byTank, $"shift {shift}, {players} carriers: the Post Office at {world.PostOfficeHp} and no tank's blow");
         }
     }
 }

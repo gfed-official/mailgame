@@ -16,7 +16,7 @@ namespace PerformativeMail.Sim.Tests
         private uint _nextRequest = 1;
         private uint _nextMailId = 500000;
 
-        private static SimWorld NewWorld(uint seed = 7) => new SimWorld(TestContent.Db, new SimSettings { Seed = seed, Draft = false });
+        private static SimWorld NewWorld(uint seed = 7, bool raids = true) => new SimWorld(TestContent.Db, new SimSettings { Seed = seed, Draft = false, Raids = raids });
 
         private OpResult Request(SimWorld world, Player p, SimRequest request)
         {
@@ -267,7 +267,8 @@ namespace PerformativeMail.Sim.Tests
         [Fact]
         public void FiveShiftsOnQuotaIsAVictory()
         {
-            var world = NewWorld();
+            // Without the raids: who answers none loses the Post Office to shift 5's Tank (design choice 141).
+            var world = NewWorld(raids: false);
             var p = world.AddPlayer("a")!;
             int total = 0;
             for (int shift = 1; shift <= 5; shift++)

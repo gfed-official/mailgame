@@ -21,7 +21,7 @@ namespace PerformativeMail.Sim.Tests
 
         private uint _nextRequest = 1;
 
-        private static SimWorld NewWorld() => new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Draft = false });
+        private static SimWorld NewWorld(bool raids = true) => new SimWorld(TestContent.Db, new SimSettings { Seed = 7, Draft = false, Raids = raids });
 
         private OpResult Request(SimWorld world, Player p, SimRequest request)
         {
@@ -527,7 +527,8 @@ namespace PerformativeMail.Sim.Tests
         [Fact]
         public void NoQuota_AMissedQuotaDoesNotEndTheRun_UntilTheLastShiftIsOver()
         {
-            var world = NewWorld();
+            // Without the raids: who answers none loses the Post Office to shift 5's Tank (design choice 141).
+            var world = NewWorld(raids: false);
             var host = world.AddPlayer("host")!;
             Assert.False(world.QuotaWaived);
             Assert.False(world.GetGlobalState().QuotaWaived);
