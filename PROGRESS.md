@@ -1940,6 +1940,30 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             then hurts it from 3 m and takes its blow. `RaidFightTests`' clumsy team may be down
             9 times a head (8 before: four carriers' shift 5 on seed 11 went from 31 to 35 downs,
             while the four seeds' sum fell from 97 to 74)
+      - [x] **The Hog Rider** (doc 05 §2 "120 HP, 20 dmg, 1.0 s, 7 m/s; Depot > Vehicle Depot > chest >
+            player; Jumps over walls (1 m). Steals: each hit on a container pulls 1 random item out and
+            drops it as a WorldItem 3 m away"; §2.2 "returns 1 stolen item (100%)"; cost 25 from shift 3,
+            weights 5/10/10 on shifts 3–5; design choice 132). Traits `jumps_walls` and `steals_items`,
+            `targetPriority` chest (chests and depots), vehicle_depot, player, aggroRange 20, attackRange
+            1.2, coins 8–14. Jumps walls: walls and gates do not stop it — its collisions
+            (`ConstructField.Push`/`PlayerMovement.ResolveCollisions` `jumper`), its tile paths and
+            straight lines (`Blocks`, `TilePathfinder.Find`), what it strikes in its way (`Ahead`) and
+            the cover a wall gives a carrier from its blow all leave them out. It goes the way
+            `StepPriorityMelee` (the Giant's, renamed) sends it. Steals (`SimWorld.Steal`): each blow on
+            a container takes one unit of a random stack out first; the first it keeps
+            (`Enemy.Carried`), every further one lands in a bag that is nobody's 3 m from the container
+            on its side (the same bag while it lies there); felled, what it kept lies in a bag where it
+            fell; fled or swept away at the shift's end, kept mail goes back to the Intake (doc 03 §3.3)
+            and anything else is gone. Every melee raider's windup now lands on a construct from its
+            attackRange. Drawn (`CharacterModel.HogRider`): a bare-armed brute with a topknot and a war
+            hammer astride a bristling brown hog with tusks; over a wall or gate it is drawn in a leap
+            that clears it (`EnemiesView.JumpLift`). `HogRiderTests` (content; over a Stone Wall to the
+            carrier behind it, the wall unhurt; a chest before a carrier, three blows three things out —
+            one kept, two in one bag 3 m off; felled, it drops what it kept; with nothing built it rides
+            at a carrier); `SimWorld.PutUp`/`TakeDown` put a construct up and down for the smoke, the
+            clients told; the full smoke puts a Wooden Wall 5 m from the host and a hog rider 10 m off,
+            checks it is drawn as one, drawn over 1 m up going over the wall, the wall unhurt and its
+            blow of 20 taken
 - [ ] Construct damage (doc 05 §5)
       - [x] Item spill (M1: a broken chest's items in a bag that is nobody's, its mail back to the
             Intake when the bag goes; a broken belt's mail back to the Intake)
@@ -1989,8 +2013,8 @@ Wall Breaker, the HUD's damage numbers, ruins, turrets, the debug world …) fou
 `tools/smoke.sh` (the three smokes and the island bot) and Sim.Tests 538 / Net.Tests 201 passed on
 e23d8d7 as it was.
 
-Next in this order: the rest of the enemy traits (doc 05 §2: the Hog Rider, the Balloon, the Tank),
-then the rest of doc 05 §5 (the Post Office's HP).
+Next in this order: the rest of the enemy traits (doc 05 §2: the Balloon, the Tank), then the rest of
+doc 05 §5 (the Post Office's HP).
 
 ## How to build and check
 
@@ -3291,6 +3315,17 @@ See "Commands" at the bottom (filled in as the tooling lands).
     after the last such blow; a blow from farther is not noticed (the kill still counts). Its
     aggroRange is doc 05 §3.3's 30 m "noticed", so from the raid line it can reach what is built
     round the Post Office. It strikes a construct from its attackRange (2.4 m), not from beside it.
+132. **The Hog Rider's theft.** Doc 05 §2 says each hit "pulls 1 random item out and drops it as a
+    WorldItem 3 m away", §2.2 that it "returns 1 stolen item (100%)", and "Jumps over walls (1 m)";
+    doc 08 has no "depot" target class. Choice: "chest" (any container, so depots too) first, then
+    the vehicle depot, then a carrier within 20 m. A "random item" is one unit of a random stack
+    (one letter, one stone). The first it pulls out it keeps and drops where it is felled (the
+    "returned" item); the rest go into a bag that is nobody's — the death bags' rules: anybody takes
+    from it, its mail goes back to the Intake when its time is up — 3 m from the container towards
+    the rider, or at its feet where that is no open ground. What it kept when it gets away is lost,
+    unless it is mail, which goes back to the Intake. "Jumps over walls" is read as every wall and
+    gate, whatever its height; it is drawn in a leap clearing the wall, not 1 m up. There is no feed
+    line for a theft yet (the container's own change is seen by whoever has it open).
 
 
 ## Commands

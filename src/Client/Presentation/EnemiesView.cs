@@ -2,7 +2,9 @@ using System.Collections.Generic;
 using Godot;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Combat;
+using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Run;
+using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.Client.Presentation
 {
@@ -37,6 +39,8 @@ namespace PerformativeMail.Client.Presentation
 
         /// <summary>The name of the model an enemy is drawn as ("Archer"); null for one not drawn.</summary>
         public string? ModelOf(ushort id) => _views.TryGetValue(id, out var view) ? view.Model.Name : null;
+        /// <summary>How high off the ground an enemy was drawn last frame (a Hog Rider over a wall); 0 for one not drawn.</summary>
+        public float LiftOf(ushort id) => _views.TryGetValue(id, out var view) ? view.Root.Position.Y : 0f;
         /// <summary>How many raiders wear the Alarm Posts' mark as of the last frame.</summary>
         public int MarksShown { get; private set; }
 
@@ -78,7 +82,8 @@ namespace PerformativeMail.Client.Presentation
                 if (!_views.TryGetValue(enemy.Id, out var view)) _views[enemy.Id] = view = Create(enemy);
                 enemy.Interpolate(tick, out float x, out float z, out float yaw);
                 var position = new Vector3(x, 0f, z);
-                float moved = view.Placed ? view.Last.DistanceTo(position) : 0f;
+                float moved = view.Placed ? new Vector2(view.Last.X - x, view.Last.Z - z).Length() : 0f;
+                if (enemy.Def.JumpsWalls) position.Y = JumpLift(world.Constructs, x, z);
                 if (dt > 0f) view.Speed = Mathf.Lerp(view.Speed, moved / dt, 1f - Mathf.Exp(-10f * dt));
                 view.Last = position;
                 view.Placed = true;
@@ -130,6 +135,32 @@ namespace PerformativeMail.Client.Presentation
                 view.Root.QueueFree();
                 _dying.RemoveAt(i);
             }
+        }
+
+        /// <summary>Within this of a wall's or gate's middle a raider that jumps walls is in the air over it.</summary>
+        private const float JumpReach = 1.3f;
+
+        /// <summary>
+        /// How high a raider that jumps walls (doc 05 §2 Hog Rider) is off the ground: a leap that
+        /// clears the wall or gate it passes over at its middle, nothing away from one.
+        /// </summary>
+        public static float JumpLift(ConstructField constructs, float x, float z)
+        {
+            if (constructs.All.Count == 0) return 0f;
+            const float tile = SimConstants.TileSize;
+            int tx = (int)Mathf.Floor(x / tile), tz = (int)Mathf.Floor(z / tile);
+            float lift = 0f;
+            for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    var c = constructs.At(tx + dx, tz + dz);
+                    if (c == null || !c.Def.Joins) continue;
+                    float d = constructs.Distance(c, x, z, out _, out _);
+                    if (d >= JumpReach) continue;
+                    float t = d / JumpReach;
+                    lift = Mathf.Max(lift, (c.Def.Height + 0.15f) * (1f - t * t));
+                }
+            return lift;
         }
 
         private static StandardMaterial3D? _markMaterial;

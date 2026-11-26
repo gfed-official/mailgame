@@ -343,7 +343,7 @@ namespace PerformativeMail.Sim.Players
         /// (<paramref name="constructs"/>) stands in the way as well, a gate only in a raider's.
         /// </summary>
         public static void ResolveCollisions(ref float x, ref float z, float feetY, WorldMap map, float r,
-            ConstructField? constructs = null, bool carrier = true, bool boat = false)
+            ConstructField? constructs = null, bool carrier = true, bool boat = false, bool jumper = false)
         {
             const float tile = SimConstants.TileSize;
             for (int iter = 0; iter < 2; iter++)
@@ -403,7 +403,7 @@ namespace PerformativeMail.Sim.Players
                         pushed = true;
                     }
                 }
-                if (!boat && constructs != null && constructs.Push(ref x, ref z, feetY, r, carrier)) pushed = true;
+                if (!boat && constructs != null && constructs.Push(ref x, ref z, feetY, r, carrier, jumper)) pushed = true;
                 if (!pushed) break;
             }
         }

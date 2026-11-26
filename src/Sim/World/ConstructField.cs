@@ -166,10 +166,11 @@ namespace PerformativeMail.Sim.World
 
         /// <summary>
         /// True for a tile a tile path keeps off because of what is built there: anything but
-        /// spikes, and for a carrier's path anything but spikes and gates.
+        /// spikes, for a carrier's path anything but spikes and gates, and for a raider that jumps
+        /// walls (doc 05 §2 Hog Rider) anything but spikes, walls and gates.
         /// </summary>
-        public bool Blocks(int tx, int tz, bool carrier = false) =>
-            At(tx, tz) is { Def.Solid: true } c && !(carrier && c.Def.Behaviour == BuildingBehaviour.Gate);
+        public bool Blocks(int tx, int tz, bool carrier = false, bool jumper = false) =>
+            At(tx, tz) is { Def.Solid: true } c && !(carrier && c.Def.Behaviour == BuildingBehaviour.Gate) && !(jumper && c.Def.Joins);
 
         /// <summary>Builds on the tile, and on as many more as its length takes (on the map); what stood on them goes.</summary>
         public Construct Add(BuildingDef def, int tx, int tz, int rotation, int hp, uint containerId)
@@ -280,9 +281,10 @@ namespace PerformativeMail.Sim.World
 
         /// <summary>
         /// Pushes a walker's circle out of what is built. A carrier walks through a gate, a raider
-        /// does not; what is lower than the walker's feet is passed over. True if it moved.
+        /// does not; what is lower than the walker's feet is passed over, and a raider that jumps
+        /// walls goes over walls and gates. True if it moved.
         /// </summary>
-        public bool Push(ref float x, ref float z, float feetY, float r, bool carrier)
+        public bool Push(ref float x, ref float z, float feetY, float r, bool carrier, bool jumper = false)
         {
             if (_all.Count == 0) return false;
             const float tile = SimConstants.TileSize;
@@ -297,6 +299,7 @@ namespace PerformativeMail.Sim.World
                     var c = At(tx, tz);
                     if (c == null || !c.Def.Solid || feetY >= c.Def.Height) continue;
                     if (carrier && c.Def.Behaviour == BuildingBehaviour.Gate) continue;
+                    if (jumper && c.Def.Joins) continue;
                     float reach = c.Def.Radius + r;
                     float dist = Distance(c, x, z, out float nearX, out float nearZ);
                     if (dist >= reach) continue;
@@ -317,9 +320,9 @@ namespace PerformativeMail.Sim.World
         /// <summary>
         /// What a raider walking in a direction is up against: the nearest construct whose body is
         /// within <paramref name="reach"/> of the point and lies ahead (within 60° of the way it
-        /// walks) rather than beside or behind it.
+        /// walks) rather than beside or behind it. A raider that jumps walls is up against no wall or gate.
         /// </summary>
-        public Construct? Ahead(float x, float z, float dirX, float dirZ, float reach)
+        public Construct? Ahead(float x, float z, float dirX, float dirZ, float reach, bool jumper = false)
         {
             if (_all.Count == 0) return null;
             const float tile = SimConstants.TileSize;
@@ -333,7 +336,7 @@ namespace PerformativeMail.Sim.World
                 for (int tx = minTx; tx <= maxTx; tx++)
                 {
                     var c = At(tx, tz);
-                    if (c == null || !c.Def.Solid) continue;
+                    if (c == null || !c.Def.Solid || (jumper && c.Def.Joins)) continue;
                     float line = Distance(c, x, z, out float nearX, out float nearZ);
                     float dist = line - c.Def.Radius;
                     if (dist > reach || dist >= bestDist) continue;

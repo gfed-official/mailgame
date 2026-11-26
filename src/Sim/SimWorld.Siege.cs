@@ -28,8 +28,11 @@ namespace PerformativeMail.Sim
         private bool Provoked(Enemy e, Player p) =>
             e.ProvokedBy == p.Id && Tick < e.ProvokedUntilTick && !p.Dead && !p.Away && !Protected(p);
 
-        /// <summary>One tick of a siege raider that is not winding up or fleeing.</summary>
-        private void StepSiege(Enemy e, float dt)
+        /// <summary>
+        /// One tick of a melee raider of a targetPriority (the siege Giant, the Hog Rider) that is
+        /// not winding up or fleeing: at the first of its priority, struck from its attackRange.
+        /// </summary>
+        private void StepPriorityMelee(Enemy e, float dt)
         {
             if (!ChooseTarget(e, dt, out var target, out var built)) return;
             TargetPoint(e, target, built!, out float gx, out float gz, out float dist);

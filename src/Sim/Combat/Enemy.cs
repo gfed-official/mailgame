@@ -66,6 +66,10 @@ namespace PerformativeMail.Sim.Combat
         public int Edge;
         /// <summary>The tile of the construct it goes for (its targetPriority), −1 for none.</summary>
         public int GoalTx = -1, GoalTz;
+        /// <summary>Steals items: the first thing it pulled out of a container, which it rides off with (and drops when felled).</summary>
+        public PerformativeMail.Sim.Inventory.ItemStack? Carried;
+        /// <summary>Steals items: the bag where it threw what else it pulled out, while it lies there (0 for none).</summary>
+        public uint StolenBag;
         /// <summary>Ranged: the tick it began backing off from a carrier too near; 0 when it is not.</summary>
         public uint BackingSince;
 

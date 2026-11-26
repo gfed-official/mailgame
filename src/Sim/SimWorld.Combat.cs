@@ -403,7 +403,7 @@ namespace PerformativeMail.Sim
             e.Edge = NearestEdge(x, z);
             // Each enemy thinks on its own tick, so a pulse does not path all at once.
             e.RepathTick = Tick + 1 + e.Id.Counter % RepathTicks;
-            PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false);
+            PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false, jumper: def.JumpsWalls);
             _enemies.Add(e);
             EnemiesSpawnedTotal++;
             return e;
@@ -451,6 +451,7 @@ namespace PerformativeMail.Sim
             if (killer != null) killer.Kills++;
             Events.Add(new EnemyDiedEvent { Enemy = e.Id, Kind = e.Def.Index, Mega = e.Mega, X = e.X, Z = e.Z, Killer = e.LastHitBy });
             DropLoot(e);
+            DropCarried(e);
         }
 
         private void StepEnemies()
@@ -470,7 +471,7 @@ namespace PerformativeMail.Sim
                         var edge = EdgeOf(e);
                         float gx = edge.X, gz = edge.Z;
                         float dx = gx - e.X, dz = gz - e.Z;
-                        if (fleeOver || dx * dx + dz * dz < 1.5f * 1.5f) { _enemies.RemoveAt(i); continue; }
+                        if (fleeOver || dx * dx + dz * dz < 1.5f * 1.5f) { LoseCarried(e); _enemies.RemoveAt(i); continue; }
                         Walk(e, gx, gz, e.Speed * _combat.FleeSpeedMult * dt);
                         break;
                     }
@@ -483,9 +484,13 @@ namespace PerformativeMail.Sim
                         {
                             var built = Constructs.At(e.StrikeTx, e.StrikeTz);
                             e.StrikeTx = -1;
-                            float strikeReach = e.Def.Siege ? MathF.Max(StrikeReach, e.Def.AttackRange) : StrikeReach;
+                            // A raider at a construct of its targetPriority strikes from its attackRange.
+                            float strikeReach = MathF.Max(StrikeReach, e.Def.AttackRange);
                             if (built != null && Constructs.Distance(built, e.X, e.Z, out _, out _) <= built.Def.Radius + e.Radius + strikeReach + WindupSlack)
+                            {
+                                if (e.Def.StealsItems) Steal(e, built);
                                 DamageConstruct(built, e.Damage);
+                            }
                             break;
                         }
                         var target = GetPlayer(e.Target);
@@ -493,8 +498,8 @@ namespace PerformativeMail.Sim
                         float dx = target.Move.X - e.X, dz = target.Move.Z - e.Z;
                         float reach = e.Def.AttackRange + e.Radius + WindupSlack;
                         if (dx * dx + dz * dz > reach * reach) break;
-                        // A wall between them takes the blow that was meant for the carrier behind it.
-                        var cover = Constructs.Between(e.X, e.Z, target.Move.X, target.Move.Z);
+                        // A wall between them takes the blow that was meant for the carrier behind it (one who jumps walls reaches over).
+                        var cover = e.Def.JumpsWalls ? null : Constructs.Between(e.X, e.Z, target.Move.X, target.Move.Z);
                         if (cover != null) DamageConstruct(cover, e.Damage);
                         else DamagePlayer(target, e.Damage, e.Def.Index);
                         break;
@@ -502,7 +507,7 @@ namespace PerformativeMail.Sim
                     default:
                         if (e.Def.Ranged) StepRanged(e, dt);
                         else if (e.Def.Suicide) StepSuicide(e, dt);
-                        else if (e.Def.Siege) StepSiege(e, dt);
+                        else if (e.Def.Siege || e.Def.StealsItems) StepPriorityMelee(e, dt);
                         else StepChase(e, dt);
                         break;
                 }
@@ -542,7 +547,7 @@ namespace PerformativeMail.Sim
                     b.X += dx * push; b.Z += dz * push;
                 }
             }
-            foreach (var e in _enemies) PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false);
+            foreach (var e in _enemies) PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false, jumper: e.Def.JumpsWalls);
         }
 
         /// <summary>
@@ -661,8 +666,9 @@ namespace PerformativeMail.Sim
         /// </summary>
         private void FindPath(Enemy e, float gx, float gz)
         {
-            if (LineClear(e.X, e.Z, gx, gz)) return;
-            if (TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch, Constructs) || Constructs.All.Count == 0) return;
+            bool jumper = e.Def.JumpsWalls;
+            if (LineClear(e.X, e.Z, gx, gz, jumper)) return;
+            if (TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch, Constructs, jumper: jumper) || Constructs.All.Count == 0) return;
             TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch);
         }
 
@@ -679,7 +685,7 @@ namespace PerformativeMail.Sim
             float dx = tx - e.X, dz = tz - e.Z;
             float dist = MathF.Sqrt(dx * dx + dz * dz);
             if (dist < 1e-3f) return false;
-            var built = Constructs.Ahead(e.X, e.Z, dx / dist, dz / dist, e.Radius + StrikeReach);
+            var built = Constructs.Ahead(e.X, e.Z, dx / dist, dz / dist, e.Radius + StrikeReach, e.Def.JumpsWalls);
             if (built == null) return false;
             Constructs.Distance(built, e.X, e.Z, out float nearX, out float nearZ);
             if (MathF.Abs(nearX - e.X) + MathF.Abs(nearZ - e.Z) > 1e-3f) e.Yaw = MathF.Atan2(-(nearX - e.X), -(nearZ - e.Z));
@@ -782,7 +788,7 @@ namespace PerformativeMail.Sim
         }
 
         /// <summary>True if a walker can go straight from one point to the other without leaving the open tiles.</summary>
-        private bool LineClear(float x0, float z0, float x1, float z1)
+        private bool LineClear(float x0, float z0, float x1, float z1, bool jumper = false)
         {
             const float tile = SimConstants.TileSize;
             float dx = x1 - x0, dz = z1 - z0;
@@ -792,7 +798,7 @@ namespace PerformativeMail.Sim
             {
                 float t = i / (float)steps;
                 int tx = (int)MathF.Floor((x0 + dx * t) / tile), tz = (int)MathF.Floor((z0 + dz * t) / tile);
-                if (Map.IsNavBlocked(tx, tz) || Constructs.Blocks(tx, tz)) return false;
+                if (Map.IsNavBlocked(tx, tz) || Constructs.Blocks(tx, tz, jumper: jumper)) return false;
             }
             return true;
         }
@@ -1008,6 +1014,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         private void ClearCombat()
         {
+            foreach (var e in _enemies) LoseCarried(e);
             _enemies.Clear();
             _shots.Clear();
             foreach (var bundle in _loot) Events.Add(new LootGoneEvent { LootId = bundle.Id });

@@ -181,6 +181,7 @@ namespace PerformativeMail.Client.Presentation
                 case "giant": return Giant(mega);
                 case "archer": return Archer(mega);
                 case "wall_breaker": return WallBreaker(mega);
+                case "hog_rider": return HogRider(mega);
                 default: return Raider(mega);
             }
         }
@@ -265,6 +266,74 @@ namespace PerformativeMail.Client.Presentation
             m.Part(m.Trunk, MeshKit.Cylinder(0.25f, 0.25f, 0.05f, 16), band, new Vector3(-0.4f, 1.75f, 0.06f), new Vector3(0f, 0f, 70f));
             m.Part(m.Trunk, MeshKit.Cylinder(0.015f, 0.015f, 0.18f, 6), MeshKit.Mat(new Color("c9b48a"), 0.9f), new Vector3(-0.58f, 1.86f, 0.06f), new Vector3(0f, 0f, 40f));
             m.Part(m.Trunk, MeshKit.Sphere(0.05f, 8), MeshKit.Glow(new Color("ffb347"), 4f), new Vector3(-0.64f, 1.93f, 0.06f));
+            return m;
+        }
+
+        /// <summary>
+        /// The Hog Rider (doc 05 §2): a bare-armed brute with a black topknot astride a bristling
+        /// brown hog with tusks, a war hammer in the hand; the hog's front legs carry the stride.
+        /// </summary>
+        public static CharacterModel HogRider(bool mega)
+        {
+            var m = new CharacterModel { Name = "HogRider", Height = 1.95f, RaisedArm = 2.6f };
+            var hide = MeshKit.Mat(new Color("6e4b36"), 0.95f);
+            var bristle = MeshKit.Mat(new Color("3b2a20"), 1f);
+            var snout = MeshKit.Mat(new Color("c98f7a"), 0.8f);
+            var bone = MeshKit.Mat(Bone, 0.55f);
+            // The hog: a long round body, a heavy head low in front, a ridge of bristles down the back.
+            m.Part(m.Trunk, MeshKit.Blob(0.42f, 0.06f, 2.4f, 13, new Vector3(0.95f, 0.85f, 1.55f), 9), hide, new Vector3(0f, 0.68f, 0.05f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.27f), hide, new Vector3(0f, 0.66f, -0.6f), scale: new Vector3(1f, 0.95f, 1.15f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.11f, 0.13f, 0.2f, 14), snout, new Vector3(0f, 0.6f, -0.86f), new Vector3(90f, 0f, 0f));
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.1f, 0.24f, 0.9f), 0.04f), bristle, new Vector3(0f, 1.0f, -0.05f));
+            for (int side = -1; side <= 1; side += 2)
+            {
+                m.Part(m.Trunk, MeshKit.Cone(0.035f, 0.2f, 8), bone, new Vector3(side * 0.12f, 0.58f, -0.86f), new Vector3(-60f, 0f, side * -25f));
+                m.Part(m.Trunk, MeshKit.Cone(0.07f, 0.16f, 8), bristle, new Vector3(side * 0.16f, 0.9f, -0.62f), new Vector3(-20f, 0f, side * -35f));
+                m.Part(m.Trunk, MeshKit.Sphere(0.03f, 8), MeshKit.Mat(new Color("1b1b1e"), 0.4f), new Vector3(side * 0.13f, 0.74f, -0.8f));
+            }
+            // Its legs: the front pair walks, the hind pair stands.
+            var legL = m.Pivot("LegL", new Vector3(-0.2f, 0.46f, -0.38f), onTrunk: false);
+            var legR = m.Pivot("LegR", new Vector3(0.2f, 0.46f, -0.38f), onTrunk: false);
+            foreach (var leg in new[] { legL, legR })
+            {
+                m.Part(leg, MeshKit.Capsule(0.085f, 0.46f, 12), hide, new Vector3(0f, -0.22f, 0f));
+                m.Part(leg, MeshKit.Cylinder(0.075f, 0.085f, 0.08f, 10), bristle, new Vector3(0f, -0.43f, 0f));
+            }
+            for (int side = -1; side <= 1; side += 2)
+            {
+                m.Part(m.Trunk, MeshKit.Capsule(0.095f, 0.5f, 12), hide, new Vector3(side * 0.21f, 0.24f, 0.48f));
+                m.Part(m.Trunk, MeshKit.Cylinder(0.075f, 0.085f, 0.08f, 10), bristle, new Vector3(side * 0.21f, 0.03f, 0.48f));
+            }
+
+            // The rider, astride its back: legs down its flanks, a broad bare chest, a topknot.
+            var skin = MeshKit.Mat(new Color("b98263"), 0.75f);
+            var leather = MeshKit.Mat(Leather, 0.8f);
+            m.Part(m.Trunk, MeshKit.Capsule(0.27f, 0.62f), skin, new Vector3(0f, 1.36f, 0.08f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.29f, 0.29f, 0.12f), leather, new Vector3(0f, 1.12f, 0.08f));
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.62f, 0.08f, 0.5f), 0.03f), MeshKit.Mat(RaiderRed, 0.85f), new Vector3(0f, 1.0f, 0.1f));
+            for (int side = -1; side <= 1; side += 2)
+            {
+                m.Part(m.Trunk, MeshKit.Capsule(0.1f, 0.6f, 12), leather, new Vector3(side * 0.38f, 0.86f, 0.0f), new Vector3(-30f, 0f, side * 12f));
+                m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.15f, 0.1f, 0.26f), 0.04f), MeshKit.Mat(new Color("2a1f1c"), 0.8f), new Vector3(side * 0.44f, 0.6f, -0.12f));
+            }
+            m.Part(m.Trunk, MeshKit.Sphere(0.2f), skin, new Vector3(0f, 1.8f, 0.04f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.06f, 0.09f, 0.2f, 10), bristle, new Vector3(0f, 2.0f, 0.08f));
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.22f, 0.05f, 0.05f), 0.02f), bristle, new Vector3(0f, 1.76f, -0.16f));
+            Eyes(m, new Vector3(0f, 1.82f, -0.15f), 0.07f, 0.028f, mega);
+            var armL = m.Pivot("ArmL", new Vector3(-0.36f, 1.6f, 0.08f));
+            var armR = m.Pivot("ArmR", new Vector3(0.36f, 1.6f, 0.08f));
+            foreach (var arm in new[] { armL, armR })
+            {
+                m.Part(arm, MeshKit.Capsule(0.1f, 0.62f, 14), skin, new Vector3(0f, -0.26f, 0f));
+                m.Part(arm, MeshKit.Sphere(0.11f, 12), skin, new Vector3(0f, -0.58f, 0f));
+            }
+            var hand = new Node3D { Name = "Hand", Position = new Vector3(0f, -0.58f, 0f) };
+            armR.AddChild(hand);
+            m.SetLimbs(armL, armR, legL, legR, hand);
+            // The war hammer: a long haft and a heavy iron head.
+            var iron = MeshKit.Mat(Iron, 0.45f, 0.7f);
+            m.Part(hand, MeshKit.Cylinder(0.03f, 0.035f, 0.85f, 10), MeshKit.Mat(new Color("6b4a2e"), 0.9f), new Vector3(0f, 0.05f, -0.32f), new Vector3(-80f, 0f, 0f));
+            m.Part(hand, MeshKit.RoundedBox(new Vector3(0.34f, 0.16f, 0.16f), 0.03f), iron, new Vector3(0f, 0.12f, -0.72f));
             return m;
         }
 

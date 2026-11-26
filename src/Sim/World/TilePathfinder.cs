@@ -29,7 +29,7 @@ namespace PerformativeMail.Sim.World
         /// unreachable. A <paramref name="carrier"/> goes through gates; a raider does not.
         /// </summary>
         public static bool Find(WorldMap map, float fromX, float fromZ, float toX, float toZ, List<(float X, float Z)> path, Scratch? scratch = null,
-            ConstructField? constructs = null, bool carrier = false)
+            ConstructField? constructs = null, bool carrier = false, bool jumper = false)
         {
             path.Clear();
             const float tile = SimConstants.TileSize;
@@ -55,8 +55,8 @@ namespace PerformativeMail.Sim.World
                 {
                     int nx = cx + dx, nz = cz + dz;
                     int next = nz * cols + nx;
-                    if (next == goal ? map.IsSolid(nx, nz) : Blocked(map, constructs, nx, nz, carrier)) continue;
-                    if (dx != 0 && dz != 0 && (Blocked(map, constructs, cx + dx, cz, carrier) || Blocked(map, constructs, cx, cz + dz, carrier))) continue;
+                    if (next == goal ? map.IsSolid(nx, nz) : Blocked(map, constructs, nx, nz, carrier, jumper)) continue;
+                    if (dx != 0 && dz != 0 && (Blocked(map, constructs, cx + dx, cz, carrier, jumper) || Blocked(map, constructs, cx, cz + dz, carrier, jumper))) continue;
                     if (cameFrom[next] >= 0) continue;
                     cameFrom[next] = cur;
                     queue.Enqueue(next);
@@ -73,7 +73,7 @@ namespace PerformativeMail.Sim.World
             return true;
         }
 
-        private static bool Blocked(WorldMap map, ConstructField? constructs, int tx, int tz, bool carrier) =>
-            map.IsNavBlocked(tx, tz) || (constructs != null && constructs.Blocks(tx, tz, carrier));
+        private static bool Blocked(WorldMap map, ConstructField? constructs, int tx, int tz, bool carrier, bool jumper) =>
+            map.IsNavBlocked(tx, tz) || (constructs != null && constructs.Blocks(tx, tz, carrier, jumper));
     }
 }

@@ -16,5 +16,9 @@
   { "id": "wall_breaker", "name": "Wall Breaker", "hp": 30, "damage": 20, "attackRate": 1.0, "attackRange": 0.6, "speed": 6.0,
     "aggroRange": 18, "radius": 0.35, "scale": 0.8, "cost": 12, "unlockShift": 3, "coins": [0, 0],
     "traits": ["suicide"], "traitParams": { "blastRadius": 1.5, "structureDamage": 150 }, "targetPriority": ["wall", "gate", "belt", "player"],
+    "drops": [] },
+  { "id": "hog_rider", "name": "Hog Rider", "hp": 120, "damage": 20, "attackRate": 1.0, "attackRange": 1.2, "speed": 7.0,
+    "aggroRange": 20, "radius": 0.5, "scale": 1.0, "cost": 25, "unlockShift": 3, "coins": [8, 14],
+    "traits": ["jumps_walls", "steals_items"], "targetPriority": ["chest", "vehicle_depot", "player"],
     "drops": [] }
 ]

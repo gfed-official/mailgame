@@ -104,6 +104,15 @@ namespace PerformativeMail.Sim
             return OpResult.Ok;
         }
 
+        /// <summary>Puts a construct up for nothing and nobody, the clients told (the smoke; no placement is judged).</summary>
+        public Construct PutUp(BuildingDef def, int tx, int tz, int rotation = 0) => Erect(def, tx, tz, rotation, EntityId.None);
+
+        /// <summary>Takes a construct down for nothing, the clients told, no ruin left (the smoke).</summary>
+        public void TakeDown(Construct built)
+        {
+            if (Constructs.At(built.Tx, built.Tz) == built) RemoveConstruct(built, EntityId.None, destroyed: false);
+        }
+
         /// <summary>Puts a construct up on (tx, tz) turned so, the placement already judged; <paramref name="by"/> is told as its builder.</summary>
         private Construct Erect(BuildingDef def, int tx, int tz, int rotation, EntityId by)
         {

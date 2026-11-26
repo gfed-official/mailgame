@@ -9,6 +9,7 @@ using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.App
 {
@@ -24,7 +25,9 @@ namespace PerformativeMail.App
         private const float RaiderDistance = 2.2f, GiantDistance = 10f;
 
         private int _fightStep, _fightFrames, _fightArrows;
-        private bool _sawBreakerDrawn, _giantProvoked;
+        private bool _sawBreakerDrawn, _giantProvoked, _sawHogDrawn;
+        private float _hogLift;
+        private Construct _hogWall = null!;
         /// <summary>The server tick by which the giant, hurt from afar, has shown it does not care (its siege, design choice 131).</summary>
         private uint _giantCalmTick;
         private Enemy _raider = null!, _giant = null!;
@@ -359,6 +362,52 @@ namespace PerformativeMail.App
                 }
 
                 case 13:
+                {
+                    // A Hog Rider (doc 05 §2) 10 m off behind a Wooden Wall 5 m off: it jumps the wall and strikes the host.
+                    if (_fightFrames < 3) break;
+                    if (!ClearLine(server, player.Move.X, player.Move.Z, GiantDistance, out float x, out float z)) { Fail("no clear line for the hog rider"); return; }
+                    float wx = (player.Move.X + x) * 0.5f, wz = (player.Move.Z + z) * 0.5f;
+                    int tx = (int)MathF.Floor(wx / SimConstants.TileSize), tz = (int)MathF.Floor(wz / SimConstants.TileSize);
+                    _hogWall = server.PutUp(_session.Content.Building("wall_wood"), tx, tz);
+                    var hog = server.SpawnEnemy(_session.Content.Enemy("hog_rider"), x, z);
+                    if (hog == null) { Fail("the server would not spawn a hog rider"); return; }
+                    _giant = hog;
+                    player.Hp = player.MaxHp;
+                    _hogLift = 0f;
+                    _sawHogDrawn = false;
+                    NextFightStep();
+                    break;
+                }
+
+                case 14:
+                {
+                    if (_screen.Enemies.ModelOf((ushort)_giant.Id.Value) == "HogRider") _sawHogDrawn = true;
+                    _hogLift = MathF.Max(_hogLift, _screen.Enemies.LiftOf((ushort)_giant.Id.Value));
+                    var seen = Seen(world, _giant);
+                    if (seen != null) AimAt(seen.X, seen.Z, InputButtons.None);
+                    if (world.LocalHp >= world.LocalMaxHp) break;
+                    Check(_sawHogDrawn, "the hog rider was never drawn as one");
+                    Check(_hogWall.Hp == _hogWall.Def.Hp && server.Constructs.At(_hogWall.Tx, _hogWall.Tz) == _hogWall, "the hog rider struck the wall rather than jumping it");
+                    Check(world.LocalMaxHp - world.LocalHp == _giant.Damage, $"the hog rider's blow took {world.LocalMaxHp - world.LocalHp:0} health, not {_giant.Damage:0}");
+                    Check(_hogLift > 1f, $"the hog rider was drawn no higher than {_hogLift:0.00} m going over the wall");
+                    Shot("hogrider");
+                    GD.Print($"[smoke] combat: a hog rider jumped a wooden wall ({_hogLift:0.0} m up) and struck the host for {world.LocalMaxHp - world.LocalHp:0}");
+                    server.DamageEnemy(_giant, 9999f, player);
+                    server.TakeDown(_hogWall);
+                    NextFightStep();
+                    break;
+                }
+
+                case 15:
+                    // What it dropped is walked over.
+                    WalkToLoot(world);
+                    if (server.Loot.Count > 0 || world.Loot.Count > 0) break;
+                    client.Input.MoveX = 0f;
+                    client.Input.MoveZ = 0f;
+                    NextFightStep();
+                    break;
+
+                case 16:
                     // Nothing is left behind: no enemy, no body on screen, no loot.
                     if (world.Enemies.Count > 0 || _screen.Enemies.ViewCount > 0 || _screen.Effects.LootViewCount > 0) break;
                     Check(_sawEnemyView, "no enemy was ever drawn");
@@ -367,7 +416,7 @@ namespace PerformativeMail.App
                     Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"after the fight: {client.ContainerDesyncs} desyncs, {client.BadPackets} bad packets");
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"in the fight the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
-                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow and a wall breaker's blast taken; "
+                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow, a wall breaker's blast and a hog rider's blow over a wall taken; "
                         + $"loot +{HudText.Gold(server.Economy.Wallet - _fightWallet)}; health {hud.HealthText}");
                     client.Input.Buttons = InputButtons.None;
                     StartBag();

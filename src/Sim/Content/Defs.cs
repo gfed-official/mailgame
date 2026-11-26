@@ -503,7 +503,9 @@ namespace PerformativeMail.Sim.Content
         /// <summary>Goes for what is built (doc 05 §2 Giant); a carrier only when one hurts it from close by.</summary>
         Siege = 1 << 2,
         Suicide = 1 << 3,
+        /// <summary>Goes over walls and gates rather than round or through them (doc 05 §2 Hog Rider).</summary>
         JumpsWalls = 1 << 4,
+        /// <summary>Each blow on a container pulls an item out of it (doc 05 §2 Hog Rider).</summary>
         StealsItems = 1 << 5,
         Airborne = 1 << 6,
         PushesConstructs = 1 << 7,
@@ -571,6 +573,8 @@ namespace PerformativeMail.Sim.Content
         public bool Ranged => (Traits & EnemyTraits.Ranged) != 0;
         public bool Suicide => (Traits & EnemyTraits.Suicide) != 0;
         public bool Siege => (Traits & EnemyTraits.Siege) != 0;
+        public bool JumpsWalls => (Traits & EnemyTraits.JumpsWalls) != 0;
+        public bool StealsItems => (Traits & EnemyTraits.StealsItems) != 0;
 
         /// <summary>Whether a construct of <paramref name="building"/> is of the target class <paramref name="target"/>.</summary>
         public static bool IsOf(EnemyTarget target, BuildingDef building) => target switch
