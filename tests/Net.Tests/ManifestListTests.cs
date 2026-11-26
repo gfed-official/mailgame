@@ -19,12 +19,12 @@ namespace PerformativeMail.Net.Tests
         private readonly ManifestList _list = new ManifestList();
         private uint _mailId = 1;
 
-        private void Arrive(string kindId, AddressId address, int count = 1)
+        private void Arrive(string kindId, AddressId address, int count = 1, byte flags = 0)
         {
             var kind = Shared.Content.MailKind(kindId);
             for (int i = 0; i < count; i++)
             {
-                var item = new MailItem { Id = _mailId++, Kind = kind.Index, Address = address, Value = (ushort)kind.BaseValue, SpawnShift = 1, DeadlineShift = 1 };
+                var item = new MailItem { Id = _mailId++, Kind = kind.Index, Address = address, Value = (ushort)kind.BaseValue, SpawnShift = 1, DeadlineShift = 1, Flags = flags };
                 Assert.True(InventoryOps.AutoPlace(Shared.Content, _intake, ItemStack.OfMail(item), _ids));
             }
         }
@@ -113,6 +113,19 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal($"{dest.Label}  —  3 Letters", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 1, Items = 3 }));
             Assert.Equal($"{dest.Label}  —  30 Letters  (2 stacks)", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 2, Items = 30 }));
             Assert.Equal($"{dest.Label}  —  no Letters left", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter }));
+            // The 0e940bc playtest: the list did not say which rows were cursed.
+            Assert.Equal($"{dest.Label}  —  5 Letters  (2 stacks)   ·   2 CURSED", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 2, Items = 5, Cursed = 2 }));
+        }
+
+        [Fact]
+        public void ARowCountsItsCursedMail()
+        {
+            Arrive("letter", A5, 3);
+            Arrive("letter", A5, 2, MailFlags.Cursed);
+            Arrive("letter", A8);
+            _list.Update(_intake);
+            Assert.Equal(new[] { (5, 5, 2), (8, 1, 0) }, _list.Rows.Select(r => (r.Address.Number, r.Items, r.Cursed)).ToArray());
+            Assert.Equal(2, _list.Rows[0].Stacks); // cursed mail stacks only with cursed
         }
     }
 }

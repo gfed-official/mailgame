@@ -108,6 +108,14 @@ namespace PerformativeMail.App
                     if (interaction.Prompt.Kind != InteractKind.Deliver) return true;
                     Check(hud.PromptText.Contains(HudText.CursedWarning, StringComparison.Ordinal) && hud.PromptText.Contains("Cursed 1 Letter", StringComparison.Ordinal),
                         $"at the wrong mailbox with the cursed letter the prompt reads \"{hud.PromptText}\"");
+                    // The 0e940bc playtest: at 1280×720 the cursed wrong-box prompt ran off the right edge,
+                    // and CURSED read "CURSE" on a 1×1 stack.
+                    var words = hud.PromptTextRect;
+                    var view = GetViewport().GetVisibleRect();
+                    Check(words.Position.X >= 0f && words.End.X <= view.End.X, $"the prompt's words {words} run off the {view.Size.X:0} px screen: \"{hud.PromptText}\"");
+                    var font = ThemeDB.FallbackFont;
+                    float stack = Client.UI.GridView.Cell - 10f;
+                    Check(Client.UI.GridView.TagWidth(font, "CURSED", Client.UI.GridView.TagFontSize(font, "CURSED", stack)) <= stack - 6f, "CURSED does not fit a 1×1 stack");
                     Shot("cursed-prompt");
                     _cursePromptSeen = true;
                 }

@@ -13,6 +13,8 @@ namespace PerformativeMail.Client
         public uint FirstEntry;
         public int Stacks;
         public int Items;
+        /// <summary>Of the items, those cursed (doc 05 §6) and Lost Parcels (doc 05 §2.1).</summary>
+        public int Cursed, Lost;
 
         public bool Empty => Items == 0;
     }
@@ -48,6 +50,8 @@ namespace PerformativeMail.Client
                 row.FirstEntry = 0;
                 row.Stacks = 0;
                 row.Items = 0;
+                row.Cursed = 0;
+                row.Lost = 0;
                 _rows[i] = row;
             }
 
@@ -71,6 +75,8 @@ namespace PerformativeMail.Client
                 row.FirstEntry = row.Stacks == 0 || e.EntryId < row.FirstEntry ? e.EntryId : row.FirstEntry;
                 row.Stacks++;
                 row.Items += e.Stack.Count;
+                if (e.Stack.Cursed) row.Cursed += e.Stack.Count;
+                if (e.Stack.Lost) row.Lost += e.Stack.Count;
                 _rows[i] = row;
                 TotalItems += e.Stack.Count;
             }

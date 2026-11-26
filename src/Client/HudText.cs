@@ -493,7 +493,9 @@ namespace PerformativeMail.Client
             string name = world.Content.MailKinds[row.Kind].Name;
             if (row.Empty) return $"{address}  —  no {name}s left";
             string stacks = row.Stacks > 1 ? $"  ({row.Stacks} stacks)" : "";
-            return $"{address}  —  {CountAndKind(name, row.Items)}{stacks}";
+            // The 0e940bc playtest: which rows are cursed was only found out once a stack was taken.
+            string flags = (row.Cursed > 0 ? $"   ·   {row.Cursed} {CursedWord.ToUpperInvariant()}" : "") + (row.Lost > 0 ? $"   ·   {row.Lost} {LostWord.ToUpperInvariant()}" : "");
+            return $"{address}  —  {CountAndKind(name, row.Items)}{stacks}{flags}";
         }
 
         // --- the fight of the concept video: health, the raid, loot --------------------------------
@@ -1664,6 +1666,17 @@ namespace PerformativeMail.Client
             if (hammer == null) return null;
             bool hurt = world.PostOfficeHp > 0 && world.PostOfficeHp < world.PostOfficeMaxHp;
             return RepairRules.Target(world.Map, world.Constructs, world.Local.X, world.Local.Z, Sim.Players.PlayerInput.YawToRadians(world.Local.Yaw), hurt, out postOffice);
+        }
+
+        /// <summary>
+        /// The health of what the Repair Hammer in the hand is held at, 0..1, for the HUD's target bar
+        /// (doc 09 §3); -1 with nothing hurt before it or no hammer in the hand.
+        /// </summary>
+        public static float RepairTargetHealth(ClientWorld world, int heldSlot)
+        {
+            var c = RepairTarget(world, heldSlot, out bool po, out var hammer);
+            if (hammer == null || (c == null && !po)) return -1f;
+            return c == null ? world.PostOfficeHp / (float)world.PostOfficeMaxHp : c.Hp / (float)c.Def.Hp;
         }
 
         /// <summary>

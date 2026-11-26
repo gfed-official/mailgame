@@ -2342,6 +2342,23 @@ M3's acceptance tests: 40 enemies within the per-client budget, the pathing fuzz
       "SHIFT 5 — QUOTA OFF (playtest)" when the quota is waived and was not met (met, it still says QUOTA
       MET), and the last shift's hint "Quota off — results in …" (`HudText.SummaryLines`, `PhaseHint`).
       `PlaytestFlowTests` (the --no-quota guest's Payday), the raid playtest's smoke checks the panel
+- [x] **(5) Cursed Mail's words at 1280×720.** CURSED on a 1×1 stack (34 px) was clipped to "CURSE": a
+      stack's tag is now drawn centred and smaller, 9 px down to 7, until it fits (`GridView.DrawTag`,
+      `TagFontSize`); LOST PARCEL reads LOST where it would not fit. The prompt line ("✕ WRONG ADDRESS · Deliver
+      Cursed 1 Postcard for … · raiders come! · deliver all matching …") is drawn smaller, 20 px down to 13,
+      until it fits between the margins (`Hud.FitPrompt`). The Intake's rows say which are cursed: "9 Larch
+      Lane  —  5 Letters  (2 stacks)   ·   2 CURSED" on a purple ground (`ManifestRow.Cursed`, `Lost`).
+      `ManifestListTests` (the counts and the words); the raid playtest's cursed step checks the prompt's
+      words lie on the screen and CURSED fits a 1×1 stack
+- [x] **(6) The Repair Hammer's target health bar.** The bar over the construct was drawn (the smoke
+      checked `RepairBarShown`) but stood 0.45 m over its top, above a first-person view from within the
+      hammer's 2.5 m: no shot had it. Doc 09 §3's "target health bar" is now also the HUD's own, under the
+      crosshair where the hold bar stands, for the construct or the Post Office the hammer is held at
+      (`HudText.RepairTargetHealth`, `Hud.RepairBarValue`). `RepairFlowTests` (a third, then none once
+      whole); the raid playtest's repair step checks the HUD's bar shows the wall's 150 / 300
+
+Item 1 of this batch: `tools/smoke.sh` (SMOKEEXIT 0: the three smokes and the island bot), Sim.Tests 608 and
+Net.Tests 211 green after (1)–(6).
 
 ## How to build and check
 

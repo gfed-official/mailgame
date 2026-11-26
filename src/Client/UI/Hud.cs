@@ -155,6 +155,41 @@ namespace PerformativeMail.Client.UI
             _keepClear.Add(ScreenBox.Around(rect.GetCenter().X, rect.GetCenter().Y, width, rect.Size.Y));
         }
 
+        private const int PromptFontSize = 20, PromptMinFontSize = 13;
+        private int _promptFont = PromptFontSize;
+        private string _promptFitted = "";
+
+        /// <summary>
+        /// The prompt stays on the screen: a long line ("✕ WRONG ADDRESS · Deliver Cursed 1 Postcard for …
+        /// raiders come! · deliver all matching …") is drawn smaller, down to 13 px, until it fits beside
+        /// the mark (the 0e940bc playtest's ran off the right edge at 1280×720).
+        /// </summary>
+        private void FitPrompt()
+        {
+            if (_prompt.Text == _promptFitted) return;
+            _promptFitted = _prompt.Text;
+            var font = _prompt.GetThemeFont("font");
+            float room = GetViewportRect().Size.X - 2f * SafeMargin - _mark.CustomMinimumSize.X - 10f - 2f * 6f;
+            int size = PromptFontSize;
+            while (size > PromptMinFontSize && font.GetStringSize(_prompt.Text, HorizontalAlignment.Left, -1, size).X > room) size--;
+            if (size != _promptFont) _prompt.AddThemeFontSizeOverride("font_size", _promptFont = size);
+        }
+
+        /// <summary>
+        /// Where the prompt's words are drawn on screen, for the smoke's "on the screen" check: the
+        /// row spans the screen between the margins and centres the mark and the words as one.
+        /// </summary>
+        public Rect2 PromptTextRect
+        {
+            get
+            {
+                float w = _prompt.GetThemeFont("font").GetStringSize(_prompt.Text, HorizontalAlignment.Left, -1, _promptFont).X;
+                float lead = _mark.CustomMinimumSize.X + 10f;
+                float x = GetViewportRect().Size.X * 0.5f - (lead + w) * 0.5f + lead;
+                return new Rect2(x, _prompt.GetGlobalRect().Position.Y, w, _prompt.GetGlobalRect().Size.Y);
+            }
+        }
+
         private const float HintClearWidth = 560f, BannerClearWidth = 640f, BannerClearMargin = 24f;
 
         /// <summary>Where the banner's words are drawn on screen (centred on its line).</summary>
@@ -188,6 +223,9 @@ namespace PerformativeMail.Client.UI
         public string WorldKeysText => _worldKeys.Visible ? _worldKeys.Text : "";
         private DraftPanel _draft = null!;
         private GeneratingPanel _generating = null!;
+        private MeterBar _repairBar = null!;
+        /// <summary>The Repair Hammer's target bar under the crosshair: -1 while it is down, else what it shows.</summary>
+        public float RepairBarValue => _repairBar.Visible ? _repairBar.Value : -1f;
         private Label _prompt = null!, _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
         private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
         private ColorRect _hurt = null!;
@@ -330,6 +368,11 @@ namespace PerformativeMail.Client.UI
                 OffsetBottom = 52f,
             };
             AddChild(_hold);
+            // Doc 09 §3 "Repair hammer shows a target health bar": under the crosshair, where the hold
+            // bar stands (no hold goes with the hammer). The bar over the construct itself stands above
+            // a first-person view this close (the 0e940bc playtest saw it in no shot).
+            _repairBar = AddBar("RepairTarget", 0.5f, 0.62f, -130f, 40f, 130f, 50f, HealthColour);
+            _repairBar.Visible = false;
 
             // Bottom left: health in red with its number, stamina in five blocks; the feed above them.
             _healthBar = AddBar("Health", 0f, 1f, m, -m - 40f, m + 180f, -m - 28f, HealthColour);
@@ -533,8 +576,12 @@ namespace PerformativeMail.Client.UI
                 tone = PromptTone.Neutral;
                 holdProgress = 0f;
             }
+            FitPrompt();
             _prompt.Modulate = tone == PromptTone.Match ? Palette.Match : tone == PromptTone.Mismatch ? Palette.Mismatch : Colors.White;
             _mark.Tone = _prompt.Text.Length > 0 ? tone : PromptTone.Neutral;
+            float mendHealth = building || MapOpen?.Invoke() == true ? -1f : HudText.RepairTargetHealth(world, _client!.Input.HeldSlot);
+            _repairBar.Visible = mendHealth >= 0f && holdProgress <= 0f;
+            if (_repairBar.Visible) _repairBar.Value = mendHealth;
             _hold.Visible = holdProgress > 0f;
             _hold.Value = holdProgress;
             RefreshRecipeBar(world, building);

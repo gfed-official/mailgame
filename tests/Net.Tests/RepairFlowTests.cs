@@ -68,6 +68,8 @@ namespace PerformativeMail.Net.Tests
             Run(10);
             Assert.Equal("Mend the Wooden Wall  [hold LMB]   ·   100 / 300 HP   ·   Log x0.75 a full bar", HudText.RepairPrompt(a, slot, out tone));
             Assert.Equal(PromptTone.Neutral, tone);
+            // Doc 09 §3: the HUD's target bar under the crosshair shows a third.
+            Assert.Equal(100f / 300f, HudText.RepairTargetHealth(a, slot), 3);
 
             // Held for five seconds: whole, on the client too, and the feed says so once.
             ada.Input.Buttons = InputButtons.Attack;
@@ -81,6 +83,7 @@ namespace PerformativeMail.Net.Tests
             Assert.All(a.ConstructHits, h => Assert.Equal(200, h.Amount));
             // Whole, it is nothing to mend: no line.
             Assert.Equal("", HudText.RepairPrompt(a, slot, out _));
+            Assert.Equal(-1f, HudText.RepairTargetHealth(a, slot));
             Assert.Equal(0, ada.ContainerDesyncs + ada.BadPackets);
         }
     }

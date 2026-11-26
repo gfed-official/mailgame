@@ -422,6 +422,8 @@ namespace PerformativeMail.Client.UI
                 var dest = world.Map.FindDestination(row.Address);
                 var colour = dest != null ? Palette.HouseColour(dest.Variant).Lightened(0.4f) : Colors.White;
                 _manifest.SetItemCustomFgColor(i, row.Empty ? new Color(colour, 0.35f) : colour);
+                // Doc 05 §6's purple for a row with cursed mail in it.
+                _manifest.SetItemCustomBgColor(i, row.Cursed > 0 ? new Color(Palette.Cursed, 0.35f) : new Color(0f, 0f, 0f, 0f));
             }
             _externalTitle.Text = $"Intake  ·  {HudText.CountAndKind("item", _rows.TotalItems)} waiting";
         }

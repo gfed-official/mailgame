@@ -141,6 +141,29 @@ namespace PerformativeMail.Client.UI
 
         }
 
+        private const int TagFont = 9, TagMinFont = 7;
+
+        /// <summary>
+        /// A stack's tag on its bottom band, whole: drawn smaller, down to 7 px, until it fits the
+        /// stack (the 0e940bc playtest read "CURSE" on a Letter at 1280×720).
+        /// </summary>
+        public static int TagFontSize(Font font, string tag, float stackWidth)
+        {
+            int size = TagFont;
+            while (size > TagMinFont && TagWidth(font, tag, size) > stackWidth - 6f) size--;
+            return size;
+        }
+
+        public static float TagWidth(Font font, string tag, int size) => font.GetStringSize(tag, HorizontalAlignment.Left, -1f, size).X;
+
+        private static void DrawTag(CanvasItem canvas, Font font, Rect2 rect, string tag, Color colour)
+        {
+            int size = TagFontSize(font, tag, rect.Size.X);
+            float w = TagWidth(font, tag, size);
+            // Centred on the band, and never clipped: what does not fit at 7 px overhangs it evenly.
+            canvas.DrawString(font, new Vector2(rect.GetCenter().X - w * 0.5f, rect.End.Y - 4f), tag, HorizontalAlignment.Left, -1f, size, colour);
+        }
+
         /// <summary>One stack in a rectangle of a canvas item: in a cell of a grid, or on the cursor.</summary>
         public static void DrawStack(CanvasItem canvas, Font font, ClientWorld world, ItemStack stack, Rect2 rect, int count, float alpha)
         {
@@ -160,14 +183,14 @@ namespace PerformativeMail.Client.UI
                     var purple = new Color(Palette.Cursed, alpha);
                     canvas.DrawRect(rect.Grow(-1f), purple, filled: false, width: 3f);
                     canvas.DrawRect(new Rect2(rect.Position.X + 2f, rect.End.Y - 13f, rect.Size.X - 4f, 11f), new Color(Palette.Cursed, 0.85f * alpha));
-                    canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.End.Y - 4f), "CURSED", HorizontalAlignment.Left, rect.Size.X - 4f, 9, new Color(1f, 1f, 1f, alpha));
+                    DrawTag(canvas, font, rect, "CURSED", new Color(1f, 1f, 1f, alpha));
                 }
                 // Doc 05 §2.1: a Lost Parcel, from a felled Mega — an amber rim and its word.
                 if (stack.Lost)
                 {
                     canvas.DrawRect(rect.Grow(-1f), new Color(Palette.Lost, alpha), filled: false, width: 3f);
                     canvas.DrawRect(new Rect2(rect.Position.X + 2f, rect.End.Y - 13f, rect.Size.X - 4f, 11f), new Color(Palette.Lost, 0.85f * alpha));
-                    canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.End.Y - 4f), "LOST PARCEL", HorizontalAlignment.Left, rect.Size.X - 4f, 9, new Color(0.1f, 0.07f, 0.02f, alpha));
+                    DrawTag(canvas, font, rect, rect.Size.X - 6f < TagWidth(font, "LOST PARCEL", TagMinFont) ? "LOST" : "LOST PARCEL", new Color(0.1f, 0.07f, 0.02f, alpha));
                 }
             }
             else

@@ -65,6 +65,8 @@ namespace PerformativeMail.App
                 Check(hud.PromptText == want, $"with the Repair Hammer at the hurt wall the line reads \"{hud.PromptText}\", expected \"{want}\"");
                 Check(hud.WeaponsText.StartsWith("[LMB] mend, 50 HP a second", StringComparison.Ordinal), $"with the Repair Hammer in the hand the weapons line reads \"{hud.WeaponsText}\"");
                 Check(_screen.ConstructHealth.RepairBarShown, "no health bar over the wall the Repair Hammer is held at");
+                // The 0e940bc playtest saw the bar over the wall in no shot: the HUD's own target bar, under the crosshair.
+                Check(Mathf.IsEqualApprox(hud.RepairBarValue, wall.Hp / (float)wall.Def.Hp), $"the HUD's target bar shows {hud.RepairBarValue}, the wall has {wall.Hp} / {wall.Def.Hp}");
                 Check(_screen.Camera.ToolInHand == hammer.Name, $"the hand holds \"{_screen.Camera.ToolInHand}\", not the Repair Hammer");
                 Shot("repair");
                 _repairLogs = BuildRules.Have(player.Hotbar, player.Inventory, log);
