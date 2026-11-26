@@ -33,6 +33,8 @@ namespace PerformativeMail.Server
             public int SnapshotCount;
             /// <summary>The wallet in the last global block sent to this client.</summary>
             public int WalletSent = int.MinValue;
+            /// <summary>Doc 06 §4.2: the newest snapshot it has decoded, and the newest with enemies in it (0: none).</summary>
+            public uint AckTick, EnemyAckTick;
             public readonly List<SimEvent> Outbox = new List<SimEvent>();
         }
 
@@ -169,7 +171,12 @@ namespace PerformativeMail.Server
                         break;
                     case MsgType.Inputs:
                         if (client.Player == null) break;
-                        foreach (var input in InputsMsg.Read(r).Inputs) World.QueueInput(client.Player.Id, input);
+                        var inputs = InputsMsg.Read(r);
+                        // Acks ride the unreliable channel: the newest said counts; one from before is old news.
+                        uint ack = SnapshotDelta.Expand(inputs.Ack, World.Tick), enemyAck = SnapshotDelta.Expand(inputs.EnemyAck, World.Tick);
+                        if (ack > client.AckTick) client.AckTick = ack;
+                        if (enemyAck > client.EnemyAckTick) client.EnemyAckTick = enemyAck;
+                        foreach (var input in inputs.Inputs) World.QueueInput(client.Player.Id, input);
                         break;
                     case MsgType.Request:
                         if (client.Player == null || channel == NetChannel.Unreliable) break;
@@ -327,6 +334,18 @@ namespace PerformativeMail.Server
             }
         }
 
+        /// <summary>Doc 06 §4.2: what was sent at each of the last snapshots' ticks.</summary>
+        private readonly Dictionary<uint, (Dictionary<uint, PlayerQ> Players, Dictionary<ushort, EnemyQ> Enemies)> _sent =
+            new Dictionary<uint, (Dictionary<uint, PlayerQ>, Dictionary<ushort, EnemyQ>)>();
+        private readonly Queue<uint> _sentTicks = new Queue<uint>();
+
+        /// <summary>A tick's sent lists, if still kept and nameable on the wire (its low 16 bits are not 0, which says none).</summary>
+        private bool Baseline(uint tick, out (Dictionary<uint, PlayerQ> Players, Dictionary<ushort, EnemyQ> Enemies) sent)
+        {
+            sent = default;
+            return tick != 0 && (ushort)tick != 0 && _sent.TryGetValue(tick, out sent);
+        }
+
         private void SendSnapshots()
         {
             if (_clientList.Count == 0) return;
@@ -354,6 +373,14 @@ namespace PerformativeMail.Server
                 if (v.NpcDriving) _snapshot.NpcVehicles.Add((v.Id.Value, v.X, v.Z, v.Heading));
             _snapshot.Tick = World.Tick;
             var global = World.GetGlobalState();
+            // What every client is sent this tick, as the wire has it: the baselines of later snapshots.
+            var sentPlayers = new Dictionary<uint, PlayerQ>(_snapshot.Players.Count);
+            foreach (var p in _snapshot.Players) { var q = SnapshotMsg.Quantise(p); sentPlayers[q.Id] = q; }
+            var sentEnemies = new Dictionary<ushort, EnemyQ>(_snapshot.Enemies.Count);
+            foreach (var e in _snapshot.Enemies) { var q = SnapshotMsg.Quantise(e); sentEnemies[q.Id] = q; }
+            if (!_sent.ContainsKey(World.Tick)) _sentTicks.Enqueue(World.Tick);
+            _sent[World.Tick] = (sentPlayers, sentEnemies);
+            while (_sentTicks.Count > SnapshotDelta.RingLength) _sent.Remove(_sentTicks.Dequeue());
 
             foreach (var c in _clientList)
             {
@@ -369,6 +396,11 @@ namespace PerformativeMail.Server
                 _snapshot.HasGlobal = c.SnapshotCount++ % GlobalEverySnapshots == 0 || global.Wallet != c.WalletSent;
                 _snapshot.Global = global;
                 if (_snapshot.HasGlobal) c.WalletSent = global.Wallet;
+                // Delta-coded against what it says it has (doc 06 §4.2), whole while it has nothing we still keep.
+                _snapshot.PlayerBase = Baseline(c.AckTick, out var pb) ? pb.Players : null;
+                _snapshot.PlayerBaseTick = _snapshot.PlayerBase != null ? c.AckTick : 0;
+                _snapshot.EnemyBase = Baseline(c.EnemyAckTick, out var eb) ? eb.Enemies : null;
+                _snapshot.EnemyBaseTick = _snapshot.EnemyBase != null ? c.EnemyAckTick : 0;
                 _writer.Reset();
                 _snapshot.Write(_writer);
                 _transport.Send(c.Connection, NetChannel.Unreliable, _writer.ToArray());

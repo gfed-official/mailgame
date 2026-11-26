@@ -752,6 +752,8 @@ namespace PerformativeMail.Client
             }
 
             _inputsMsg.Inputs.Clear();
+            _inputsMsg.Ack = (ushort)_baselines.Newest;
+            _inputsMsg.EnemyAck = (ushort)_baselines.NewestEnemies;
             for (int i = Math.Max(0, _pendingInputs.Count - InputsMsg.MaxInputs); i < _pendingInputs.Count; i++)
                 _inputsMsg.Inputs.Add(_pendingInputs[i]);
             _writer.Reset();
@@ -847,7 +849,7 @@ namespace PerformativeMail.Client
                         RejectReason = RejectMsg.Read(r);
                         State = ClientState.Rejected;
                         break;
-                    case MsgType.Snapshot: HandleSnapshot(SnapshotMsg.Read(r)); break;
+                    case MsgType.Snapshot: HandleSnapshot(SnapshotMsg.Read(r, _baselines)); break;
                     case MsgType.Events:
                         // The Welcome travels on a channel of its own: what overtakes it waits for it.
                         if (World == null && State == ClientState.Joining) _early.AddRange(EventsMsg.Read(r));
@@ -1001,10 +1003,57 @@ namespace PerformativeMail.Client
             }
         }
 
+        /// <summary>
+        /// Doc 06 §4.2: what this client decoded of the last snapshots, by tick, for the server's deltas to
+        /// be read against; the newest of them are acked with every input packet.
+        /// </summary>
+        private sealed class Baselines : ISnapshotBaselines
+        {
+            private readonly Dictionary<uint, IReadOnlyDictionary<uint, PlayerQ>> _players = new Dictionary<uint, IReadOnlyDictionary<uint, PlayerQ>>();
+            private readonly Dictionary<uint, IReadOnlyDictionary<ushort, EnemyQ>> _enemies = new Dictionary<uint, IReadOnlyDictionary<ushort, EnemyQ>>();
+            public uint Newest, NewestEnemies;
+
+            public bool TryPlayers(uint tick, out IReadOnlyDictionary<uint, PlayerQ> players) => _players.TryGetValue(tick, out players!);
+            public bool TryEnemies(uint tick, out IReadOnlyDictionary<ushort, EnemyQ> enemies) => _enemies.TryGetValue(tick, out enemies!);
+
+            public void Keep(SnapshotMsg m)
+            {
+                var players = new Dictionary<uint, PlayerQ>(m.PlayersQ.Count);
+                foreach (var q in m.PlayersQ) players[q.Id] = q;
+                _players[m.Tick] = players;
+                if (m.Tick > Newest) Newest = m.Tick;
+                if (m.HasEnemies)
+                {
+                    var enemies = new Dictionary<ushort, EnemyQ>(m.EnemiesQ.Count);
+                    foreach (var q in m.EnemiesQ) enemies[q.Id] = q;
+                    _enemies[m.Tick] = enemies;
+                    if (m.Tick > NewestEnemies) NewestEnemies = m.Tick;
+                }
+                // The server keeps 32 snapshots' worth; a baseline older than that is never named.
+                uint oldest = Newest > SnapshotDelta.RingLength * 3 ? Newest - SnapshotDelta.RingLength * 3 : 0;
+                Prune(_players, oldest);
+                Prune(_enemies, oldest);
+            }
+
+            private static void Prune<T>(Dictionary<uint, T> ring, uint oldest)
+            {
+                if (ring.Count <= SnapshotDelta.RingLength * 2) return;
+                var old = new List<uint>();
+                foreach (var tick in ring.Keys) if (tick < oldest) old.Add(tick);
+                foreach (var tick in old) ring.Remove(tick);
+            }
+        }
+
+        private readonly Baselines _baselines = new Baselines();
+        /// <summary>Snapshots delta-coded against a baseline this client did not have (lost, or kept no longer): dropped.</summary>
+        public int UndecodableSnapshots { get; private set; }
+
         private void HandleSnapshot(SnapshotMsg m)
         {
             var world = World;
             if (world == null || State != ClientState.Joined) return;
+            if (m.Undecodable) { UndecodableSnapshots++; return; }
+            _baselines.Keep(m);
             if (SnapshotsReceived > 0 && m.Tick <= _lastSnapshotTick) return; // stale or duplicate
             _lastSnapshotTick = m.Tick;
             SnapshotsReceived++;

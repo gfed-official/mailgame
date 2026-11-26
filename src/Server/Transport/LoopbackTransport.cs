@@ -34,6 +34,9 @@ namespace PerformativeMail.Server.Transport
         /// <summary>Loss probability for the unreliable channel, 0..1. Reliable channels never drop.</summary>
         public double UnreliableLoss;
 
+        /// <summary>Payload bytes sent to each connection and from it, as offered to the wire (before any loss).</summary>
+        public readonly Dictionary<int, long> BytesDown = new Dictionary<int, long>(), BytesUp = new Dictionary<int, long>();
+
         public LoopbackHub(int conditionerSeed = 1) { _rng = new Random(conditionerSeed); }
 
         /// <summary>Opens a new client connection; the server sees it on its next poll.</summary>
@@ -68,6 +71,7 @@ namespace PerformativeMail.Server.Transport
         public void Send(int connectionId, NetChannel channel, byte[] data)
         {
             if (!_clients.TryGetValue(connectionId, out var client)) return;
+            BytesDown[connectionId] = BytesDown.GetValueOrDefault(connectionId) + data.Length;
             if (Dropped(channel)) return;
             client.Enqueue(Kind.Data, channel, data, DelayPolls);
         }
@@ -84,6 +88,7 @@ namespace PerformativeMail.Server.Transport
 
         private void FromClient(Kind kind, int connection, NetChannel channel, byte[] data)
         {
+            if (kind == Kind.Data) BytesUp[connection] = BytesUp.GetValueOrDefault(connection) + data.Length;
             if (kind == Kind.Data && Dropped(channel)) return;
             _toServer.Add(new Packet
             {

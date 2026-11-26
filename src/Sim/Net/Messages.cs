@@ -37,9 +37,9 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m2.25;" +
+            "m2.26;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages;" +
-            "Inputs:u8 n,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
+            "Inputs:u8 n,u16 ack,u16 enemyAck,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
             "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
             "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount,kit,world,reroll,placeLine,beltResync,pushBelt,configure,refuel,ping,operateTurret,rebuildRuin,setStamps;" +
@@ -48,9 +48,10 @@ namespace PerformativeMail.Sim.Net
             "u16 perks,{u32 holder,u8 perk},u8 offer,{u8 perk},u8 rerolls,u8 picks,{u32 player,u8 card,u8 perk},u8 specials,{u8 shop},u8 owned,{u8 shop},u16 nodes,{u16 node,u8 hitsLeft}," +
             "u16 constructs,{u8 building,u8 x,u8 y,u8 rot,u16 hp,u32 container,u8 nf,{u16 filter}},u8 vehicles,{u32 id,u8 def,f32 x,f32 z,f32 heading,u32 cargo,u32 rider};" +
             "Reject:u8 reason;" +
-            "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp,u8 ride,f32 rideSpeed,f32 headX,f32 headZ]," +
-            "u8 n,{u32 id,i32 xcm,i16 ycm,i32 zcm,u16 yaw,u8 held,u8 tool,u8 flags,u8 hp,u8 ride,u8 heading,u8 kit},[enemies:u8 n,{u16 id,u8 kindMegaState,u16 x2cm,u16 z2cm,u8 yaw,u8 hp}],[global],[npcVehicles:u8 n,{u32 id,i32 xcm,i32 zcm,u8 heading}];" +
-            "MoveFlags:grounded,winded,dead,becalmed;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies,npcVehicles;" +
+            "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp,[riding:u8 ride,f32 rideSpeed,f32 headX,f32 headZ]]," +
+            "u16 playerBase,u8 n,{u32 id,u8 mask,[i8 dx,i8 dy,i8 dz],[i32 xcm,i16 ycm,i32 zcm],[u16 yaw],[u8 held,u8 tool],[u8 flags],[u8 hp],[u8 ride,u8 heading],[u8 kit]}," +
+            "[enemies:u16 enemyBase,u8 n,{u16 id,u8 mask,[u8 kindMegaState],[i8 dx,i8 dz],[u16 x2cm,u16 z2cm],[u8 yaw],[u8 hp]}],[global],[npcVehicles:u8 n,{u32 id,i32 xcm,i32 zcm,u8 heading}];" +
+            "MoveFlags:grounded,winded,dead,becalmed,riding;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies,npcVehicles;" +
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,i8 raidEdgeA,i8 raidEdgeB,u8 playtest,u16 poHp,u8 stamps;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
@@ -130,11 +131,17 @@ namespace PerformativeMail.Sim.Net
     {
         public const int MaxInputs = 3;
         public readonly List<PlayerInput> Inputs = new List<PlayerInput>(MaxInputs);
+        /// <summary>
+        /// Doc 06 §4.2: the newest snapshot the client has decoded, and the newest with the enemy list in
+        /// it (low 16 bits; 0: none) — the baselines the server may delta-code the next ones against.
+        /// </summary>
+        public ushort Ack, EnemyAck;
 
         public void Write(NetWriter w)
         {
             w.U8((byte)MsgType.Inputs);
             w.U8((byte)Inputs.Count);
+            w.U16(Ack); w.U16(EnemyAck);
             if (Inputs.Count == 0) return;
             for (int i = 1; i < Inputs.Count; i++)
                 if (Inputs[i].Seq != Inputs[0].Seq + (uint)i) throw new System.InvalidOperationException("the inputs of a packet are consecutive");
@@ -151,6 +158,7 @@ namespace PerformativeMail.Sim.Net
             var m = new InputsMsg();
             int n = r.U8();
             if (n > MaxInputs) throw new NetFormatException("too many inputs in one packet");
+            m.Ack = r.U16(); m.EnemyAck = r.U16();
             if (n == 0) return m;
             uint first = r.U32();
             ushort view = r.U16();
@@ -500,7 +508,7 @@ namespace PerformativeMail.Sim.Net
     {
         private const byte FlagOwn = 1, FlagGlobal = 2, FlagEnemies = 4, FlagNpcVehicles = 8;
         private const byte PlayerReady = 1, PlayerProtected = 2, PlayerAway = 4;
-        private const byte MoveGrounded = 1, MoveWinded = 2, MoveDead = 4, MoveBecalmed = 8;
+        private const byte MoveGrounded = 1, MoveWinded = 2, MoveDead = 4, MoveBecalmed = 8, MoveRiding = 16;
         private const float TwoPi = System.MathF.PI * 2f;
 
         public uint Tick;
@@ -519,6 +527,44 @@ namespace PerformativeMail.Sim.Net
         /// <summary>The vehicles NPC drivers drive (doc 06 §3 "same as vehicles without driver prediction"): where each is, every snapshot while any is.</summary>
         public readonly List<(uint Id, float X, float Z, float Heading)> NpcVehicles = new List<(uint, float, float, float)>();
 
+        /// <summary>
+        /// Doc 06 §4.2 (design choice 146): the snapshot the players are delta-coded against and the one
+        /// the enemies are (full ticks; 0: none, all whole), with what that client was sent in them.
+        /// </summary>
+        public uint PlayerBaseTick, EnemyBaseTick;
+        public IReadOnlyDictionary<uint, PlayerQ>? PlayerBase;
+        public IReadOnlyDictionary<ushort, EnemyQ>? EnemyBase;
+        /// <summary>As read: the players and enemies as the wire had them, the next baseline of this client.</summary>
+        public readonly List<PlayerQ> PlayersQ = new List<PlayerQ>();
+        public readonly List<EnemyQ> EnemiesQ = new List<EnemyQ>();
+        /// <summary>As read: a delta against a baseline this client does not have; nothing of it may be used.</summary>
+        public bool Undecodable;
+
+        public static PlayerQ Quantise(in PlayerSnap p) => new PlayerQ
+        {
+            Id = p.Id.Value, X = ToCm(p.X), Y = (short)ToCm(p.Y), Z = ToCm(p.Z), Yaw = p.Yaw, HeldSlot = p.HeldSlot, HeldTool = p.HeldTool,
+            Flags = (byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0) | (p.Away ? PlayerAway : 0)),
+            Hp = p.Hp, Ride = p.Ride, Heading = ToAngle(p.Heading), Kit = p.Kit,
+        };
+
+        public static PlayerSnap Of(in PlayerQ q) => new PlayerSnap
+        {
+            Id = new EntityId(q.Id), X = q.X / 100f, Y = q.Y / 100f, Z = q.Z / 100f, Yaw = q.Yaw, HeldSlot = q.HeldSlot, HeldTool = q.HeldTool,
+            Ready = (q.Flags & PlayerReady) != 0, Protected = (q.Flags & PlayerProtected) != 0, Away = (q.Flags & PlayerAway) != 0,
+            Hp = q.Hp, Ride = q.Ride, Heading = q.Heading / 256f * TwoPi, Kit = q.Kit,
+        };
+
+        public static EnemyQ Quantise(in EnemySnap e) => new EnemyQ
+        {
+            Id = e.Id, Packed = (byte)((e.Kind & 0x0F) | (e.Mega ? 0x10 : 0) | ((byte)e.State << 5)), X = To2Cm(e.X), Z = To2Cm(e.Z), Yaw = ToAngle(e.Yaw), Hp = e.Hp,
+        };
+
+        public static EnemySnap Of(in EnemyQ q) => new EnemySnap
+        {
+            Id = q.Id, Kind = (byte)(q.Packed & 0x0F), Mega = (q.Packed & 0x10) != 0, State = (EnemyState)(q.Packed >> 5),
+            X = q.X * 0.02f, Z = q.Z * 0.02f, Yaw = q.Yaw / 256f * TwoPi, Hp = q.Hp,
+        };
+
         public void Write(NetWriter w)
         {
             w.U8((byte)MsgType.Snapshot);
@@ -527,29 +573,28 @@ namespace PerformativeMail.Sim.Net
             w.U8((byte)((HasOwn ? FlagOwn : 0) | (HasGlobal ? FlagGlobal : 0) | (HasEnemies ? FlagEnemies : 0) | (NpcVehicles.Count > 0 ? FlagNpcVehicles : 0)));
             if (HasOwn)
             {
+                // The saddle's four only while there is something in them (13 bytes of 49 on foot).
+                bool riding = Own.Ride != 0 || Own.RideSpeed != 0f || Own.HeadX != 0f || Own.HeadZ != 0f;
                 w.F32(Own.X); w.F32(Own.Y); w.F32(Own.Z); w.F32(Own.VelY);
-                w.U8((byte)((Own.Grounded ? MoveGrounded : 0) | (Own.Winded ? MoveWinded : 0) | (Own.Dead ? MoveDead : 0) | (Own.Becalmed ? MoveBecalmed : 0)));
+                w.U8((byte)((Own.Grounded ? MoveGrounded : 0) | (Own.Winded ? MoveWinded : 0) | (Own.Dead ? MoveDead : 0) | (Own.Becalmed ? MoveBecalmed : 0) | (riding ? MoveRiding : 0)));
                 w.F32(OwnSpeedMult); w.F32(Own.Fatigue); w.F32(OwnHp);
-                w.U8(Own.Ride); w.F32(Own.RideSpeed); w.F32(Own.HeadX); w.F32(Own.HeadZ);
+                if (riding) { w.U8(Own.Ride); w.F32(Own.RideSpeed); w.F32(Own.HeadX); w.F32(Own.HeadZ); }
             }
+            w.U16(PlayerBase != null ? (ushort)PlayerBaseTick : (ushort)0);
             w.U8((byte)Players.Count);
             foreach (var p in Players)
             {
-                w.U32(p.Id.Value);
-                w.I32(ToCm(p.X)); w.I16((short)ToCm(p.Y)); w.I32(ToCm(p.Z));
-                w.U16(p.Yaw); w.U8(p.HeldSlot); w.U8(p.HeldTool); w.U8((byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0) | (p.Away ? PlayerAway : 0))); w.U8(p.Hp);
-                w.U8(p.Ride); w.U8(ToAngle(p.Heading)); w.U8(p.Kit);
+                var q = Quantise(p);
+                SnapshotDelta.WritePlayer(w, q, PlayerBase != null && PlayerBase.TryGetValue(q.Id, out var b) ? b : null);
             }
             if (HasEnemies)
             {
+                w.U16(EnemyBase != null ? (ushort)EnemyBaseTick : (ushort)0);
                 w.U8((byte)Enemies.Count);
                 foreach (var e in Enemies)
                 {
-                    w.U16(e.Id);
-                    w.U8((byte)((e.Kind & 0x0F) | (e.Mega ? 0x10 : 0) | ((byte)e.State << 5)));
-                    w.U16(To2Cm(e.X)); w.U16(To2Cm(e.Z));
-                    w.U8(ToAngle(e.Yaw));
-                    w.U8(e.Hp);
+                    var q = Quantise(e);
+                    SnapshotDelta.WriteEnemy(w, q, EnemyBase != null && EnemyBase.TryGetValue(q.Id, out var b) ? b : null);
                 }
             }
             if (HasGlobal) GlobalCodec.Write(w, Global);
@@ -564,7 +609,7 @@ namespace PerformativeMail.Sim.Net
             }
         }
 
-        public static SnapshotMsg Read(NetReader r)
+        public static SnapshotMsg Read(NetReader r, ISnapshotBaselines? baselines = null)
         {
             var m = new SnapshotMsg { Tick = r.U32(), AckSeq = r.U32() };
             byte flags = r.U8();
@@ -582,39 +627,29 @@ namespace PerformativeMail.Sim.Net
                 m.OwnSpeedMult = r.F32();
                 m.Own.Fatigue = r.F32();
                 m.OwnHp = r.F32();
-                m.Own.Ride = r.U8(); m.Own.RideSpeed = r.F32(); m.Own.HeadX = r.F32(); m.Own.HeadZ = r.F32();
+                if ((move & MoveRiding) != 0) { m.Own.Ride = r.U8(); m.Own.RideSpeed = r.F32(); m.Own.HeadX = r.F32(); m.Own.HeadZ = r.F32(); }
             }
+            m.PlayerBaseTick = SnapshotDelta.Expand(r.U16(), m.Tick);
+            IReadOnlyDictionary<uint, PlayerQ>? players = null;
+            if (m.PlayerBaseTick != 0 && (baselines == null || !baselines.TryPlayers(m.PlayerBaseTick, out players))) m.Undecodable = true;
             int n = r.U8();
             for (int i = 0; i < n; i++)
             {
-                var p = new PlayerSnap
-                {
-                    Id = new EntityId(r.U32()),
-                    X = r.I32() / 100f, Y = r.I16() / 100f, Z = r.I32() / 100f,
-                    Yaw = r.U16(), HeldSlot = r.U8(), HeldTool = r.U8(),
-                };
-                byte playerFlags = r.U8();
-                p.Ready = (playerFlags & PlayerReady) != 0;
-                p.Protected = (playerFlags & PlayerProtected) != 0;
-                p.Away = (playerFlags & PlayerAway) != 0;
-                p.Hp = r.U8();
-                p.Ride = r.U8();
-                p.Heading = r.U8() / 256f * TwoPi;
-                p.Kit = r.U8();
-                m.Players.Add(p);
+                if (!SnapshotDelta.ReadPlayer(r, players, out var q)) m.Undecodable = true;
+                m.PlayersQ.Add(q);
+                m.Players.Add(Of(q));
             }
             if (m.HasEnemies)
             {
+                m.EnemyBaseTick = SnapshotDelta.Expand(r.U16(), m.Tick);
+                IReadOnlyDictionary<ushort, EnemyQ>? enemies = null;
+                if (m.EnemyBaseTick != 0 && (baselines == null || !baselines.TryEnemies(m.EnemyBaseTick, out enemies))) m.Undecodable = true;
                 n = r.U8();
                 for (int i = 0; i < n; i++)
                 {
-                    ushort id = r.U16();
-                    byte packed = r.U8();
-                    m.Enemies.Add(new EnemySnap
-                    {
-                        Id = id, Kind = (byte)(packed & 0x0F), Mega = (packed & 0x10) != 0, State = (EnemyState)(packed >> 5),
-                        X = r.U16() * 0.02f, Z = r.U16() * 0.02f, Yaw = r.U8() / 256f * TwoPi, Hp = r.U8(),
-                    });
+                    if (!SnapshotDelta.ReadEnemy(r, enemies, out var q)) m.Undecodable = true;
+                    m.EnemiesQ.Add(q);
+                    m.Enemies.Add(Of(q));
                 }
             }
             if (m.HasGlobal) m.Global = GlobalCodec.Read(r);

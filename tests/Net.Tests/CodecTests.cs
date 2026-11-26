@@ -91,14 +91,17 @@ namespace PerformativeMail.Net.Tests
         public void InputsRoundTrip()
         {
             var m = new InputsMsg();
+            m.Ack = 4321;
+            m.EnemyAck = 4320;
             m.Inputs.Add(new PlayerInput { Seq = 10, MoveX = -127, MoveZ = 64, Yaw = 40000, Buttons = InputButtons.Sprint | InputButtons.Jump, HeldSlot = 3, View = 500 });
             m.Inputs.Add(new PlayerInput { Seq = 11, MoveX = 5, MoveZ = -6, Yaw = 1, Buttons = InputButtons.Interact, HeldSlot = 0, View = 501 });
             var w = new NetWriter();
             m.Write(w);
-            // Doc 06 §4.2's 8 kbps up: the seq and the drawn tick once a packet, 6 bytes an input.
-            Assert.Equal(1 + 1 + 4 + 2 + 2 * 6, w.ToArray().Length);
+            // Doc 06 §4.2's 8 kbps up: the two acks, the seq and the drawn tick once a packet, 6 bytes an input.
+            Assert.Equal(1 + 1 + 2 + 2 + 4 + 2 + 2 * 6, w.ToArray().Length);
             var back = InputsMsg.Read(Body(w, MsgType.Inputs));
             Assert.Equal(2, back.Inputs.Count);
+            Assert.Equal(((ushort)4321, (ushort)4320), (back.Ack, back.EnemyAck));
             Assert.Equal(m.Inputs[0], back.Inputs[0]);
             Assert.Equal(m.Inputs[1], back.Inputs[1]);
 
@@ -592,7 +595,7 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
-        public void SnapshotCarriesTheFight_EnemiesInNineBytesEach()
+        public void SnapshotCarriesTheFight_EnemiesInTenBytesEachWhole()
         {
             var m = new SnapshotMsg
             {
@@ -607,7 +610,8 @@ namespace PerformativeMail.Net.Tests
             m.Enemies.Add(new EnemySnap { Id = 3, Kind = 0, State = EnemyState.Windup, X = 0f, Z = 5.5f, Yaw = MathF.PI / 4f, Hp = 255 });
             var w = new NetWriter();
             m.Write(w);
-            Assert.Equal(18, w.ToArray().Length - empty.ToArray().Length);
+            // Whole (no baseline): id, mask, kind/mega/state, position, yaw, health.
+            Assert.Equal(20, w.ToArray().Length - empty.ToArray().Length);
 
             var back = SnapshotMsg.Read(Body(w, MsgType.Snapshot));
             Assert.True(back.HasEnemies);
@@ -634,6 +638,59 @@ namespace PerformativeMail.Net.Tests
             var none = SnapshotMsg.Read(Body(w2, MsgType.Snapshot));
             Assert.False(none.HasEnemies);
             Assert.Empty(none.Enemies);
+        }
+
+        private sealed class Kept : ISnapshotBaselines
+        {
+            public readonly Dictionary<uint, IReadOnlyDictionary<uint, PlayerQ>> Players = new Dictionary<uint, IReadOnlyDictionary<uint, PlayerQ>>();
+            public readonly Dictionary<uint, IReadOnlyDictionary<ushort, EnemyQ>> Enemies = new Dictionary<uint, IReadOnlyDictionary<ushort, EnemyQ>>();
+            public bool TryPlayers(uint tick, out IReadOnlyDictionary<uint, PlayerQ> players) => Players.TryGetValue(tick, out players!);
+            public bool TryEnemies(uint tick, out IReadOnlyDictionary<ushort, EnemyQ> enemies) => Enemies.TryGetValue(tick, out enemies!);
+        }
+
+        [Fact]
+        public void ASnapshotDeltaCodedAgainstAnAckedOne_CarriesOnlyWhatChanged()
+        {
+            // Doc 06 §4.2 "delta-compressed against the last acked snapshot per client (bitmask of changed fields per entity)".
+            var first = new SnapshotMsg { Tick = 100, HasEnemies = true };
+            first.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 1), X = 10f, Y = 0f, Z = 20f, Yaw = 100, Hp = 255, Kit = 1 });
+            first.Enemies.Add(new EnemySnap { Id = 7, Kind = 2, X = 30f, Z = 40f, Yaw = 1f, Hp = 255 });
+            first.Enemies.Add(new EnemySnap { Id = 8, Kind = 0, X = 50f, Z = 40f, Yaw = 2f, Hp = 200 });
+            var w = new NetWriter();
+            first.Write(w);
+            var kept = new Kept();
+            var got = SnapshotMsg.Read(Body(w, MsgType.Snapshot), kept);
+            Assert.False(got.Undecodable);
+            kept.Players[100] = got.PlayersQ.ToDictionary(q => q.Id);
+            kept.Enemies[100] = got.EnemiesQ.ToDictionary(q => q.Id);
+
+            // Four ticks on: the carrier walked half a metre and turned, raider 7 walked 0.6 m, raider 8 stood, a new one came.
+            var next = new SnapshotMsg { Tick = 104, HasEnemies = true, PlayerBaseTick = 100, EnemyBaseTick = 100, PlayerBase = kept.Players[100], EnemyBase = kept.Enemies[100] };
+            next.Players.Add(first.Players[0] with { X = 10.5f, Yaw = 300 });
+            next.Enemies.Add(first.Enemies[0] with { Z = 40.6f });
+            next.Enemies.Add(first.Enemies[1]);
+            next.Enemies.Add(new EnemySnap { Id = 9, Kind = 1, X = 5f, Z = 6f, Yaw = 0f, Hp = 255 });
+            var w2 = new NetWriter();
+            next.Write(w2);
+            int header = 1 + 4 + 4 + 1, player = 4 + 1 + 3 + 2, enemies = 2 + 1 + (2 + 1 + 2) + (2 + 1) + (2 + 1 + 1 + 4 + 1 + 1);
+            Assert.Equal(header + 2 + 1 + player + enemies, w2.ToArray().Length);
+            var back = SnapshotMsg.Read(Body(w2, MsgType.Snapshot), kept);
+            Assert.False(back.Undecodable);
+            Assert.Equal((100u, 100u), (back.PlayerBaseTick, back.EnemyBaseTick));
+            Assert.Equal((10.5f, 20f, (ushort)300, (byte)255, (byte)1), (back.Players[0].X, back.Players[0].Z, back.Players[0].Yaw, back.Players[0].Hp, back.Players[0].Kit));
+            Assert.Equal(40.6f, back.Enemies[0].Z, 2);
+            Assert.Equal((50f, (byte)200), (back.Enemies[1].X, back.Enemies[1].Hp));
+            Assert.Equal(((ushort)9, (byte)1, 5f), (back.Enemies[2].Id, back.Enemies[2].Kind, back.Enemies[2].X));
+
+            // A long walk does not fit a byte: the position goes whole.
+            next.Players[0] = first.Players[0] with { X = 14f };
+            w2 = new NetWriter();
+            next.Write(w2);
+            Assert.Equal(14f, SnapshotMsg.Read(Body(w2, MsgType.Snapshot), kept).Players[0].X);
+
+            // Against a baseline the reader does not have, nothing of it may be used.
+            Assert.True(SnapshotMsg.Read(Body(w2, MsgType.Snapshot), new Kept()).Undecodable);
+            Assert.True(SnapshotMsg.Read(Body(w2, MsgType.Snapshot)).Undecodable);
         }
 
         [Fact]

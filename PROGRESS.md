@@ -2261,7 +2261,27 @@ corner for good.
       a 7.5 m/s raider as it draws it on the line, where the server has it a metre past: hit, rewound 4–7
       ticks; it fails with the input's tick left out)
 
-Next in this order: M3's acceptance tests (40 enemies within the per-client budget, the pathing fuzz).
+- [x] **M3 acceptance: 40 enemies to 8 clients within the per-client budget** (doc 12 M3 "40 enemies in
+      interest replicated to 8 clients within the 40 kbps per-client budget; 80 kbps worst case"; doc 06
+      §4.2 "≤ 40 kbps down, ≤ 8 kbps up"; design choice 146). Measured first: eight bots on the street with
+      forty raiders among them were sent **70 kbps** each — 20 snapshots a second of ~410 bytes (the own
+      state 49, the eight carriers 24 each, the forty raiders 9 each every other snapshot). Doc 06 §4.2's
+      "Snapshots are delta-compressed against the last acked snapshot per client (bitmask of changed fields
+      per entity)" was not built. Now: each input packet acks the newest snapshot the client decoded and the
+      newest with the raider list in it (`InputsMsg.Ack`, `EnemyAck`); the server keeps what it sent at each
+      of the last 32 snapshot ticks (`ServerRuntime._sent`) and writes each carrier and raider as its id, a
+      mask of the fields that differ from the acked one, and only those, a short move as a signed byte a
+      coordinate (`SnapshotDelta`, `PlayerQ`, `EnemyQ`); one not in the baseline goes whole, and so does all
+      of it while nothing acked is still kept. The client keeps what it decoded by tick
+      (`ClientRuntime.Baselines`) and drops a snapshot against a baseline it lacks (`UndecodableSnapshots`;
+      none in the tests). The own state leaves out the saddle's 13 bytes on foot. Protocol `m2.26`. Now
+      **29.7 kbps** mean, 39 in the busiest second, 4.9 kbps up. `M3AcceptanceTests.FortyRaidersToEightClients_…`
+      (two minutes, 33 ms each way, 2 % lost: mean ≤ 40, busiest second ≤ 80, up ≤ 8, every client drew all
+      forty, nothing undecodable or desynced); `CodecTests` (a delta's bytes, a long move whole, a missing
+      baseline undecodable; whole raiders 10 bytes; the input packet 24 bytes); the prediction acceptance
+      tests behind latency and loss stay green
+
+Next in this order: M3's last acceptance test (the pathing fuzz).
 
 ### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
 
@@ -3806,6 +3826,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     is for the carriers' own hits on raiders (the swing, the Slingshot, a manned turret: what a player aims);
     the +0.3 m is the swing's alone, as the doc says (the hitscan lines already have their 0.3 m, choices
     134 and 143). Players are not rewound for the raiders' blows: those are the server's own.
+
+146. **What the bandwidth budget counts, and the deltas' baseline.** Doc 06 §4.2's kbps are read as
+    the payload the server offers a connection (what the loopback hub counts), without UDP / IP / ENet
+    headers: with them, 30 input packets a second alone would be 6.7 kbps of headers against the 8 kbps
+    up. The baseline is per client and per list: the newest decoded snapshot for the carriers and the
+    newest decoded raider list for the raiders (it rides every other snapshot, and the ack of a snapshot
+    without it says nothing of the last one with it). A client acks only what it decoded, so it always
+    has the baseline it is sent against while the server keeps it (32 snapshots, 1.6 s; the client keeps
+    96); past that, all goes whole. A short move is a signed byte in the wire's own unit (1 cm for a
+    carrier, 2 cm for a raider), so a decoded delta is exactly the whole value.
 
 ## Commands
 
