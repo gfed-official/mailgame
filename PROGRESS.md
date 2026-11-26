@@ -2024,6 +2024,12 @@ e23d8d7 as it was.
       `--shots`: `ruin-rebuild.png`, `ruin-rebuilt.png`). `tools/smoke.sh` greps for it. The full run
       could not carry it: its Build mode wall goes up in the last Prep before its Results. It worked
       as built; nothing in the rebuild had to change.
+- [x] **(b) A Wall Breaker's blast at a wall** (`SmokeDriver.Combat`, steps 13–14). After the one that
+      runs at the host, the full smoke puts a Wooden Wall 5 m from the host and a second Wall Breaker
+      10 m off beyond it: it runs at the wall and goes off against it — the wall 150 HP down on both
+      ends, the host unhurt, the fireball (`CombatEffects.LastWallBreakerBlast`, counted in
+      `WallBreakerBlastsAtConstructs`) drawn within 1.5 m of the wall; with `--shots`:
+      `wallbreaker-wall.png`. `tools/smoke.sh` greps for it.
 - [x] **(c) The Results headline with playtest flags** (design choice 133). `RunResults` now carries
       the shift the run started on and ended on and whether the quota was waived (protocol `m2.17`);
       `HudText.ResultsHeadline`: "RUN OVER — shifts 3–5 played, quota off (0 of 3 met)" for a run

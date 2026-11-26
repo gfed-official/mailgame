@@ -363,6 +363,45 @@ namespace PerformativeMail.App
 
                 case 13:
                 {
+                    // A second Wall Breaker 10 m off, a Wooden Wall 5 m off between: it runs at the wall, not
+                    // the host, and goes off against it (the 0abedd1 playtest saw only the blast at a carrier).
+                    if (_fightFrames < 3) break;
+                    if (!ClearLine(server, player.Move.X, player.Move.Z, GiantDistance, out float x, out float z)) { Fail("no clear line for the wall breaker at a wall"); return; }
+                    float wx = (player.Move.X + x) * 0.5f, wz = (player.Move.Z + z) * 0.5f;
+                    int tx = (int)MathF.Floor(wx / SimConstants.TileSize), tz = (int)MathF.Floor(wz / SimConstants.TileSize);
+                    _hogWall = server.PutUp(_session.Content.Building("wall_wood"), tx, tz);
+                    var breaker = server.SpawnEnemy(_session.Content.Enemy("wall_breaker"), x, z);
+                    if (breaker == null) { Fail("the server would not spawn a wall breaker"); return; }
+                    _giant = breaker;
+                    player.Hp = player.MaxHp;
+                    _fightArrows = _screen.Effects.WallBreakerBlastsAtConstructs;
+                    NextFightStep();
+                    break;
+                }
+
+                case 14:
+                {
+                    var seen = Seen(world, _giant);
+                    if (seen != null) AimAt(seen.X, seen.Z, InputButtons.None);
+                    else AimAt(_hogWall.CentreX, _hogWall.CentreZ, InputButtons.None);
+                    if (_screen.Effects.WallBreakerBlastsAtConstructs == _fightArrows) break;
+                    var at = _screen.Effects.LastWallBreakerBlast;
+                    float off = new Vector2(at.X - _hogWall.CentreX, at.Z - _hogWall.CentreZ).Length();
+                    int structure = (int)(_giant.Def.StructureDamage * (1f - _hogWall.Def.WallBreakerResist));
+                    Check(off < 1.5f, $"the wall breaker's fireball is drawn {off:0.0} m from the wall");
+                    Check(_hogWall.Hp == _hogWall.Def.Hp - structure && world.Constructs.At(_hogWall.Tx, _hogWall.Tz)?.Hp == _hogWall.Hp,
+                        $"the wall has {_hogWall.Hp} of {_hogWall.Def.Hp} HP after the blast (the client's {world.Constructs.At(_hogWall.Tx, _hogWall.Tz)?.Hp}), not {_hogWall.Def.Hp - structure}");
+                    Check(player.Hp == player.MaxHp, $"the blast at the wall 5 m off took {player.MaxHp - player.Hp:0} of the host's health");
+                    Check(!server.Enemies.Contains(_giant), "the wall breaker is still about after going off at the wall");
+                    Shot("wallbreaker-wall");
+                    GD.Print($"[smoke] combat: a wall breaker ran at a wooden wall 5 m before the host and went off against it for {structure}, its fireball drawn {off:0.0} m from it");
+                    server.TakeDown(_hogWall);
+                    NextFightStep();
+                    break;
+                }
+
+                case 15:
+                {
                     // A Hog Rider (doc 05 §2) 10 m off behind a Wooden Wall 5 m off: it jumps the wall and strikes the host.
                     if (_fightFrames < 3) break;
                     if (!ClearLine(server, player.Move.X, player.Move.Z, GiantDistance, out float x, out float z)) { Fail("no clear line for the hog rider"); return; }
@@ -379,7 +418,7 @@ namespace PerformativeMail.App
                     break;
                 }
 
-                case 14:
+                case 16:
                 {
                     if (_screen.Enemies.ModelOf((ushort)_giant.Id.Value) == "HogRider") _sawHogDrawn = true;
                     _hogLift = MathF.Max(_hogLift, _screen.Enemies.LiftOf((ushort)_giant.Id.Value));
@@ -399,7 +438,7 @@ namespace PerformativeMail.App
                     break;
                 }
 
-                case 15:
+                case 17:
                     // What it dropped is walked over.
                     WalkToLoot(world);
                     if (server.Loot.Count > 0 || world.Loot.Count > 0) break;
@@ -408,7 +447,7 @@ namespace PerformativeMail.App
                     NextFightStep();
                     break;
 
-                case 16:
+                case 18:
                     // Nothing is left behind: no enemy, no body on screen, no loot.
                     if (world.Enemies.Count > 0 || _screen.Enemies.ViewCount > 0 || _screen.Effects.LootViewCount > 0) break;
                     Check(_sawEnemyView, "no enemy was ever drawn");
@@ -417,7 +456,7 @@ namespace PerformativeMail.App
                     Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"after the fight: {client.ContainerDesyncs} desyncs, {client.BadPackets} bad packets");
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"in the fight the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
-                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow, a wall breaker's blast and a hog rider's blow over a wall taken; "
+                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow, a wall breaker's blast at the host and one at a wall, and a hog rider's blow over a wall taken; "
                         + $"loot +{HudText.Gold(server.Economy.Wallet - _fightWallet)}; health {hud.HealthText}");
                     client.Input.Buttons = InputButtons.None;
                     StartBag();

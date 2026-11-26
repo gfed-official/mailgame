@@ -68,6 +68,9 @@ namespace PerformativeMail.Client.Presentation
         public int ArrowsFlying => _arrows.Count;
         /// <summary>Wall Breakers seen going off.</summary>
         public int WallBreakerBlasts { get; private set; }
+        /// <summary>Of them, those that went off at something built; and where the last one went off.</summary>
+        public int WallBreakerBlastsAtConstructs { get; private set; }
+        public Vector3 LastWallBreakerBlast { get; private set; }
 
         /// <summary>An arrow from an Archer, flying to where the server says it struck.</summary>
         private sealed class Arrow
@@ -140,6 +143,8 @@ namespace PerformativeMail.Client.Presentation
                 case EnemyShotEvent e when e.Kind == EnemyShotKind.Blast:
                     Blast(new Vector3(e.ToX, Height(e.ToX, e.ToZ) + 0.7f, e.ToZ), cannon: false);
                     WallBreakerBlasts++;
+                    if (e.AtConstruct) WallBreakerBlastsAtConstructs++;
+                    LastWallBreakerBlast = new Vector3(e.ToX, 0f, e.ToZ);
                     break;
                 case EnemyDiedEvent e:
                     Puff(new Vector3(e.X, 0.8f, e.Z), e.Mega ? 9 : 5, new Color("b9a892"), 0.45f);

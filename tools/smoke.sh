@@ -85,6 +85,9 @@ grep -q "^\[smoke\] bike: the Land kit's, ridden" "$work/log" || { echo "smoke: 
 grep -q "^\[smoke\] boats: a Pier built" "$work/log" || { echo "smoke: no Pier and Rowboat in the smoke" >&2; exit 1; }
 grep -q "^\[smoke\] boats: a Small Port built" "$work/log" || { echo "smoke: no Small Port and Motor Boat in the smoke" >&2; exit 1; }
 
+# The Wall Breaker (doc 05 §2) at a wall, not the carrier (0abedd1 nit b): the blast on the wall, the fireball drawn there.
+grep -q "^\[smoke\] combat: a wall breaker ran at a wooden wall 5 m before the host and went off against it" "$work/log" || { echo "smoke: no wall breaker went off at a wall" >&2; exit 1; }
+
 # The debug world (design choice 119): the showcase map, every station built and running, the mail
 # going through each of them, its toggles, bookmarks, free camera and time scale.
 run_smoke "$work/log-debug" "--profile=$work/profile-debug.json" --debug-world
