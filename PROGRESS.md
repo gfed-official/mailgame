@@ -2044,7 +2044,31 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             a chest spills and leaves one; the run's end), `RuinFlowTests` (seen by both, by a late
             joiner, the prompts, E, the feed), codec pin; the debug-world smoke breaks its Stone Wall,
             checks the ruin is on the client and drawn and clears it with the prompt
-      - [ ] The Post Office's HP (3000, regenerating 5 HP/s in Prep, the run lost at 0)
+      - [x] **The Post Office's HP** (doc 05 §5 "PO 3000 … The PO cannot become a ruin: at 0 HP the run
+            ends. The PO regenerates 5 HP/s during Prep"; doc 01 §7 "Post Office HP reaches 0 — Run Over
+            (immediate)"; doc 11 "the PO in 150 s of uninterrupted attack" by a Giant; design choice 137).
+            `balance.postOfficeHp` 3000 and `postOfficeRegenPerSecond` 5. `SimWorld.PostOfficeHp`: whole
+            at the run's start and in the Lobby, 5 a second back in Prep (never past 3000), nothing in
+            the other phases; `DamagePostOffice` (not in the debug world's god mode): at 0 the run goes
+            straight to Results with the new outcome `PostOfficeLost`, the quota waived or not. A new
+            target class `po` (the validator refuses it on a ranged, suicide or airborne enemy): the
+            Tank's priority is now po, depot, any construct, the Giant's chest, sorter, vehicle depot,
+            any construct, po, player; they walk to just outside the nearest point of its walls and
+            strike it from their reach (a windup's blow for it lands if they are still in reach). The
+            other raiders still hold their line. The global block carries its HP (`u16 poHp`) and
+            `PostOfficeDamagedEvent` each blow (protocol `m2.20`): the client counts it as it counts a
+            blow on a construct (`ConstructHit` without a `Def`), so a red number rises over its roof and
+            the HUD's marker reads "Post Office under attack" ("Post Office fallen"); a new tracker plate
+            reads "Post Office   2880 / 3000 HP   ·   under attack" while it is hurt; the feed says "The
+            Post Office is under attack!" at the first blow of a quiet 10 s and "The Post Office has
+            fallen"; Results: "RUN OVER — the Post Office fell in shift N". `PostOfficeTests` (3000 and
+            the mending in Prep, none in Delivery; a giant with nothing built about strikes it 40 every
+            2 s; a tank goes for it before a nearer depot; a raider holds its line; at 0 the run is over
+            with the quota waived, whole again in the Lobby), `PostOfficeFlowTests` (the blow, its number
+            and marker, the tracker, the feed once, the fall and the headline), codec pins; the raid
+            playtest's smoke deals it a blow of 120 in shift 2 and checks the tracker, the number and the
+            marker, and that it mends in shift 3's Prep (with `--shots`: `postoffice-hit.png`).
+            Not done: repairing it (or anything) with the hammer — see below
       - [x] **Damage numbers, health bars over damaged constructs, the HUD's under-attack marker**
             (doc 05 §5; doc 12 M3 "HUD: … under-attack indicators, health bars"; design choice 130).
             The client keeps the blows it hears (`ClientWorld.ConstructHits`, from `ConstructDamaged`
@@ -2100,8 +2124,20 @@ e23d8d7 as it was.
       (a raider 3 m ahead of the carrier, 2 m beside the barrel's line, is hit — the old line missed it;
       one beyond the reach is not; the miss point)
 
-Next in this order: the rest of the enemy traits (doc 05 §2: the Balloon, the Tank), then the rest of
-doc 05 §5 (the Post Office's HP).
+Batch after 5ace9e6 (item 1, the 0abedd1 nits; item 2, further features): nits a–d above; the Balloon,
+the Tank and the Post Office's HP. The Giant's and the Hog Rider's tests, the turret's, the ruins' and
+the earlier M2/M3 tests and smokes stayed green throughout; two things found on the way are fixed: the
+feed said "felled a Archer" (now "an Archer"), and `RaidFightTests`' bots could stand stuck on a house's
+corner for good.
+
+**Found missing: the Repair Hammer.** The list above (and M1's) counts "the Repair Hammer" as done, but
+nothing repairs: there is no repair in `src/Sim` (the hammer is only the weapon, and `ConstructHits`'
+"a mend is none" has no mend to see). Doc 05 §4: "Repair Hammer (tool) — Shop 100 ¢ — Repairs 50 HP/s
+to a construct; consumes materials at 25% of build cost per full HP bar"; doc 05 §5 "the PO … can be
+repaired with the hammer".
+
+Next in this order: the Repair Hammer (constructs and the Post Office), then doc 05 §6 (Cursed Mail,
+with the Postage Stamps), then the rest of M3's list in doc 12.
 
 ## How to build and check
 
@@ -3446,6 +3482,17 @@ See "Commands" at the bottom (filled in as the tooling lands).
     against the raid budgets lowered after the a5d987e playtest (120 / 150 / 185 / 225 for shifts 2–5), so it comes only in big games; the
     Post Office as its first target waits for the Post Office's HP. "Shift 4–5 only" is its
     unlockShift 4 and the wave table's caps (1 in shift 4, 3 in shift 5).
+137. **Who goes for the Post Office, and where it is hit.** Doc 05 §5 gives it 3000 HP and says the
+    run ends at 0; doc 05 §3.3 says raiders "approach the PO, then divert to targets by priority";
+    only the Tank names "PO" in its priority, and doc 11 sizes its HP by a Giant's 20 DPS. Choice:
+    the Tank goes for it first and the Giant after every construct (before a carrier who provoked it
+    — that one still comes first); the other raiders keep holding their line (design choice 63), so
+    the swarm is not a timer on the run. It is struck from outside the nearest point of its walls
+    (the map's solid rects) at a raider's reach. Its health mends only in Prep; a blow in Payday or
+    the Draft still counts (there are no raiders then). At 0 the run is over at once with its own
+    outcome, `--no-quota` or not; the debug world (god mode) cannot lose it. The HUD shows it on a
+    tracker plate of its own only while it is hurt — it has no world-space bar (its building is the
+    size of a house; the number over its roof and the marker point at it).
 
 
 ## Commands
