@@ -375,7 +375,8 @@ namespace PerformativeMail.App
                     Check(summary.Shift == RaidPlaytestShift && !summary.QuotaMet, $"the summary is of shift {summary.Shift}, quota met: {summary.QuotaMet}");
                     string want = string.Join("\n", HudText.SummaryLines(world, summary));
                     Check(hud.Overlay.Visible && hud.OverlayText == want, $"at Payday the panel shows \"{hud.OverlayText}\", expected \"{want}\"");
-                    Check(hud.OverlayText.Contains("QUOTA MISSED", StringComparison.Ordinal), "the panel does not say the quota was missed");
+                    // --no-quota: the 0e940bc playtest's Payday read "QUOTA MISSED" though the quota was off.
+                    Check(hud.OverlayText.Contains("QUOTA OFF", StringComparison.Ordinal) && !hud.OverlayText.Contains("MISSED", StringComparison.Ordinal), "the panel does not say the quota is off");
                     Check(world.Raid == RaidState.Fleeing && hud.RaidText == HudText.RaidTracker(world) && hud.BannerText.Length == 0,
                         $"at Payday the raid is {world.Raid}, the tracker says \"{hud.RaidText}\" and the banner \"{hud.BannerText}\" lies over the panel");
                     Check(hud.HintText.Contains(HudText.QuotaWaivedTag, StringComparison.Ordinal) && hud.HintText.Contains($"shift {RaidPlaytestShift + 1} in ", StringComparison.Ordinal),

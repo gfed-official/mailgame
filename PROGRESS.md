@@ -2331,6 +2331,17 @@ M3's acceptance tests: 40 enemies within the per-client budget, the pathing fuzz
       then the rotating specials (`ClientWorld.ShopShelf`; design choice 144): a fixed card's key never
       changes. `ShopFlowTests.TheShelfsNumberKeys_DoNotChangeWithTheSpecials_…` (the game's own catalogue:
       the Repair Hammer is [0] either way)
+- [x] **(3) The under-attack marker over "PROTECTED in the yard".** The banner kept a fixed 640 px of its
+      line clear (f32ea2e, choice 138's work), and "PROTECTED in the yard   ·   until you leave it or hit a
+      raider" at 28 px is wider: the chevron and its words stood on its ends. The banner's keep-clear box is
+      now as wide as its words and 24 px either side, 640 at least (`Hud.BannerTextWidth`, `BannerTextRect`);
+      the marker's own placing (`AttackMarker`, `EdgeMarker`) is as it was. The bag smoke checks the
+      protected banner's words are all inside a keep-clear box; the raid playtest's Post Office blow checks
+      the marker's words and tip are in none
+- [x] **(4) Payday said "SHIFT 5 — QUOTA MISSED" under `--no-quota`.** The Payday panel's title is now
+      "SHIFT 5 — QUOTA OFF (playtest)" when the quota is waived and was not met (met, it still says QUOTA
+      MET), and the last shift's hint "Quota off — results in …" (`HudText.SummaryLines`, `PhaseHint`).
+      `PlaytestFlowTests` (the --no-quota guest's Payday), the raid playtest's smoke checks the panel
 
 ## How to build and check
 

@@ -44,7 +44,19 @@ namespace PerformativeMail.App
             int max = world.PostOfficeMaxHp;
             string want = $"Post Office   {max - PostOfficeBlow} / {max} HP   ·   under attack";
             if (hud.PostOfficeText == want) _poTracker = true;
-            if (_screen.AttackMarker.Text == "Post Office under attack") _poMarker = true;
+            if (_screen.AttackMarker.Text == "Post Office under attack")
+            {
+                _poMarker = true;
+                // The 0e940bc playtest: the marker over "PROTECTED in the yard".
+                var at = _screen.AttackMarker.WordsRect;
+                var words = new ScreenBox(at.Position.X, at.Position.Y, at.End.X, at.End.Y);
+                var tip = _screen.AttackMarker.Tip;
+                foreach (var box in hud.KeepClear())
+                {
+                    Check(!box.Overlaps(words), $"the marker's words {at} are over a line of the HUD ({box.X0:0},{box.Y0:0})–({box.X1:0},{box.Y1:0}), the banner \"{hud.BannerText}\"");
+                    Check(!(tip.X > box.X0 && tip.X < box.X1 && tip.Y > box.Y0 && tip.Y < box.Y1), $"the marker's tip {tip} is in a line of the HUD, the banner \"{hud.BannerText}\"");
+                }
+            }
             if (_poTracker && _poMarker && _screen.ConstructHealth.NumbersShown > _poNumbers0)
             {
                 Shot("postoffice-hit");

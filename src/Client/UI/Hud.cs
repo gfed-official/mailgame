@@ -126,7 +126,9 @@ namespace PerformativeMail.Client.UI
             var top = _topPlate.GetGlobalRect();
             _keepClear.Add(new ScreenBox(top.Position.X, 0f, top.End.X, top.End.Y));
             if (_hint.Visible && _hint.Text.Length > 0) AddClear(_hint, HintClearWidth);
-            if (_banner.Visible) AddClear(_banner, BannerClearWidth);
+            // As wide as its words, at least: "PROTECTED in the yard   ·   until you leave it …" is wider
+            // than the raid's banner, and the under-attack marker stood on its ends (the 0e940bc playtest).
+            if (_banner.Visible) AddClear(_banner, Mathf.Max(BannerClearWidth, BannerTextWidth + 2f * BannerClearMargin));
             AddPanel(_draft);
             AddPanel(_generating);
             AddPanel(_overlay);
@@ -153,7 +155,21 @@ namespace PerformativeMail.Client.UI
             _keepClear.Add(ScreenBox.Around(rect.GetCenter().X, rect.GetCenter().Y, width, rect.Size.Y));
         }
 
-        private const float HintClearWidth = 560f, BannerClearWidth = 640f;
+        private const float HintClearWidth = 560f, BannerClearWidth = 640f, BannerClearMargin = 24f;
+
+        /// <summary>Where the banner's words are drawn on screen (centred on its line).</summary>
+        public Rect2 BannerTextRect
+        {
+            get
+            {
+                var rect = _banner.GetGlobalRect();
+                float w = BannerTextWidth;
+                return new Rect2(rect.GetCenter().X - w * 0.5f, rect.Position.Y, w, rect.Size.Y);
+            }
+        }
+
+        /// <summary>How wide the banner's words are drawn, px.</summary>
+        public float BannerTextWidth => _banner.GetThemeFont("font").GetStringSize(_banner.Text, HorizontalAlignment.Left, -1, _banner.GetThemeFontSize("font_size")).X;
         private readonly List<ScreenBox> _keepClear = new List<ScreenBox>();
         private Panel _topPlate = null!;
 

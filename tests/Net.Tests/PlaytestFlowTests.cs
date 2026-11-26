@@ -251,6 +251,8 @@ namespace PerformativeMail.Net.Tests
             Assert.NotNull(world.LastSummary);
             Assert.False(world.LastSummary!.QuotaMet);
             Assert.StartsWith($"Quota missed — {HudText.QuotaWaivedTag}   ·   shift 3 in 00:", HudText.PhaseHint(world));
+            // The 0e940bc playtest: "SHIFT 5 — QUOTA MISSED" over a run with the quota off.
+            Assert.Equal("SHIFT 2 — QUOTA OFF (playtest)", HudText.SummaryLines(world, world.LastSummary!)[0]);
             Assert.Equal(HudText.PhaseHint(world), HudText.PhaseHint(host.World));
             while (server.Run.Phase == RunPhase.Payday) s.Step(30);
             s.Step(10);

@@ -102,6 +102,10 @@ namespace PerformativeMail.App
                     // Nit 17: nobody can hurt them for the first seconds, and the banner says so.
                     Check(world.LocalProtected && server.Protected(player) && hud.BannerText == HudText.Protected(world) && hud.BannerText.StartsWith("PROTECTED", StringComparison.Ordinal),
                         $"back on their feet the host is protected: {world.LocalProtected} (server: {server.Protected(player)}), the banner says \"{hud.BannerText}\"");
+                    // The 0e940bc playtest: the under-attack marker stood on the ends of "PROTECTED in the yard   ·   …".
+                    var words = hud.BannerTextRect;
+                    Check(hud.KeepClear().Any(b => b.X0 <= words.Position.X && b.X1 >= words.End.X && b.Y0 <= words.GetCenter().Y && b.Y1 >= words.GetCenter().Y),
+                        $"the banner's words {words} are not all kept clear of the HUD's marker");
                     Shot("bag-protected");
                     if (!world.Bags.TryGetValue(_bagId, out var bag)) { Fail("the bag was gone before its owner stood up"); return; }
                     if (!ClearLine(server, bag.X, bag.Z, 1.4f, out float standX, out float standZ)) { Fail("no open ground beside the bag"); return; }

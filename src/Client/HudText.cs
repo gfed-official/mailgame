@@ -79,6 +79,7 @@ namespace PerformativeMail.Client
         public const string ClockStoppedTag = "(stopped)";
         /// <summary>In the Payday hint of a missed quota that a playtest flag keeps from ending the run (nit 13).</summary>
         public const string QuotaWaivedTag = "playtest: the run goes on";
+        public const string QuotaOffTag = "playtest";
 
         public const string GoKey = "[G]";
         /// <summary>The host's keys for the world in the Lobby. Doc 09 §4 has none; V steps through the worlds, N draws a new seed.</summary>
@@ -292,6 +293,7 @@ namespace PerformativeMail.Client
                     // The counter serves the team where it stands, for as long as the summary is up.
                     string shop = world.ShopServes ? $"   ·   {ShopKey} shop" : "";
                     if (!s.QuotaMet && world.QuotaWaived && !last) return $"Quota missed — {QuotaWaivedTag}   ·   shift {s.Shift + 1} in {clock}{shop}";
+                    if (!s.QuotaMet && world.QuotaWaived) return $"Quota off — results in {clock}";
                     if (!s.QuotaMet) return $"Quota missed — results in {clock}";
                     return s.Shift >= ShiftCount(world.Content) ? $"Final quota met — results in {clock}" : $"Quota met — shift {s.Shift + 1} in {clock}{shop}";
                 }
@@ -387,7 +389,8 @@ namespace PerformativeMail.Client
         {
             var lines = new List<string>
             {
-                s.QuotaMet ? $"SHIFT {s.Shift} — QUOTA MET" : $"SHIFT {s.Shift} — QUOTA MISSED",
+                // --no-quota: a missed quota is no miss (the 0e940bc playtest read "QUOTA MISSED" over a run that went on).
+                s.QuotaMet ? $"SHIFT {s.Shift} — QUOTA MET" : world.QuotaWaived ? $"SHIFT {s.Shift} — QUOTA OFF ({QuotaOffTag})" : $"SHIFT {s.Shift} — QUOTA MISSED",
                 $"Earned {Gold(s.Earned)} of {Gold(s.Quota)}",
             };
             var kinds = new List<string>();
