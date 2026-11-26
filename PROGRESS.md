@@ -1992,6 +1992,31 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             leave balloons alone and a raid is won when the ground is clear (a balloon goes for nobody);
             their sidestep off a house now tries the other way when the first did not get them loose (four
             carriers in shift 4 on seed 40 stood stuck on a corner with the new raid mix)
+      - [x] **The Tank** (doc 05 §2 "900 HP, 60 dmg, 3.0 s, 2 m/s; PO > depot > any construct; Shift 4–5
+            only. Pushes constructs it walks into (destroys belts in path). Pickaxe deals 2×"; §2.2 "4 Iron
+            Ingot (100%)"; §3.2 cost 150 from shift 4, "1 (max 1) / 10 (max 3)"; design choice 136).
+            `tank` ("Iron Tank"): trait `pushes_constructs`, `traitParams.pickaxeMult` 2 (any enemy may have
+            one, at least 1), `targetPriority` depot, any_construct (the Post Office comes with its HP),
+            attackRange 1.6, aggroRange 30, coins 40–70. The wave table takes `{ "weight": w, "max": m }`
+            for an enemy a raid sends at most m of (`WaveDef.MaxFor`; `SpawnPulse` counts each raid's).
+            `SimWorld.StepPusher`: it walks at the first of its priority within 30 m (its paths go round
+            houses only) and strikes it from its reach, 60 every 3 s; a belt, splitter, merger or pipe
+            under it or in its way it crushes (a ruin left); a one-tile construct with nothing in it in
+            its way it shoves a tile on along its way, once a second, where that tile could be built on
+            and nobody stands (`Shove`: taken away and put up there as it was, its health kept); what it
+            cannot shove it strikes. It goes for no carrier and strikes none. A carrier with the Pickaxe
+            in the hand hurts it twice as much with the hammer. `ConstructPushedEvent` (protocol `m2.19`):
+            the feed says "An Iron Tank shoved a Wooden Wall out of its way" (not "Someone built …").
+            Drawn (`CharacterModel.Tank`, twice a carrier's size): a brute in riveted iron plate under a
+            red tabard, round pauldrons, a slit-visored great helm, a tower shield on the left arm and a
+            spiked mace. `TankTests` (content and caps; two walls across its way shoved a tile on, the hurt
+            one still hurt, no ruin left; walls with no room behind struck 60 a blow; belts in its way
+            crushed, then the depot struck; it goes for no carrier, a Pickaxe doubles the hammer; eight
+            carriers' raids of shifts 4 and 5 send tanks, never more than the cap), codec pin, `CombatTests`'
+            roster; the full smoke puts a Depot, two Wooden Walls and a tank on a strip of open ground and
+            checks it is drawn as one and shoves a wall a tile on, on the client and in the feed (with
+            `--shots`: `tank.png`). With today's raid budgets a pulse affords a tank (150) only in big
+            games: the finale of shift 5 from six carriers, of shift 4 from eight
 - [ ] Construct damage (doc 05 §5)
       - [x] Item spill (M1: a broken chest's items in a bag that is nobody's, its mail back to the
             Intake when the bag goes; a broken belt's mail back to the Intake)
@@ -3409,6 +3434,18 @@ See "Commands" at the bottom (filled in as the tooling lands).
     it falls, raiders not. With none of its targets within 30 m it hovers on the raid's line (it
     never goes for a carrier). It comes in by the raid's land edges like the rest; there are no water
     edges yet. The bomb's harm is done when it is dropped; the clients draw it falling for 0.4 s.
+136. **The Tank's push.** Doc 05 §2 says "Pushes constructs it walks into (destroys belts in path).
+    Pickaxe deals 2×" and gives no "player" in its priority. Choice: belts, splitters, mergers and
+    pipes under it or in its way are crushed (each leaves a ruin); a one-tile construct without a
+    container or a bay is shoved one tile along the axis it walks most along, once a second, if that
+    tile could be built on with its rules and nobody stands there — moved whole, turned as it was,
+    its health kept, a turret's controls let go; anything bigger, a container, or one with no room
+    behind it, it strikes (60 every 3 s). It never targets or strikes a carrier, even one who hurts
+    it. "Pickaxe deals 2×": the hammer's blow of a carrier holding the Pickaxe (the hammer is the
+    only melee) hurts it twice as much (`traitParams.pickaxeMult`). Its cost stays the docs' 150
+    against the raid budgets lowered after the a5d987e playtest (120 / 150 / 185 / 225 for shifts 2–5), so it comes only in big games; the
+    Post Office as its first target waits for the Post Office's HP. "Shift 4–5 only" is its
+    unlockShift 4 and the wave table's caps (1 in shift 4, 3 in shift 5).
 
 
 ## Commands

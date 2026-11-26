@@ -183,6 +183,7 @@ namespace PerformativeMail.Client.Presentation
                 case "wall_breaker": return WallBreaker(mega);
                 case "hog_rider": return HogRider(mega);
                 case "balloon": return Balloon(mega);
+                case "tank": return Tank(mega);
                 default: return Raider(mega);
             }
         }
@@ -393,6 +394,49 @@ namespace PerformativeMail.Client.Presentation
             m.Part(hand, MeshKit.Sphere(0.14f, 12), bombMat, new Vector3(0f, -0.06f, 0f));
             m.Part(hand, MeshKit.Sphere(0.04f, 8), MeshKit.Glow(new Color("ff8a2a"), 4f), new Vector3(0f, 0.1f, 0f));
             m.SetLimbs(m.Pivot("ArmL", new Vector3(-0.24f, 0.92f, 0f)), armR, m.Pivot("LegL", Vector3.Zero, onTrunk: false), m.Pivot("LegR", Vector3.Zero, onTrunk: false), hand);
+            return m;
+        }
+
+        /// <summary>
+        /// The Iron Tank (doc 05 §2): a hulking brute in riveted iron plate, a slit-visored great helm,
+        /// a tower shield bolted to its left arm held before it to shove with, a spiked mace in the
+        /// right; it is drawn twice a carrier's size.
+        /// </summary>
+        public static CharacterModel Tank(bool mega)
+        {
+            var m = new CharacterModel { Name = "Tank", Height = 1.95f, RaisedArm = 2.4f };
+            var plate = MeshKit.Mat(new Color("5d636b"), 0.45f, 0.75f);
+            var dark = MeshKit.Mat(new Color("33373d"), 0.55f, 0.6f);
+            var rivet = MeshKit.Mat(new Color("a7adb5"), 0.3f, 0.9f);
+            var cloth = MeshKit.Mat(RaiderRed, 0.85f);
+            Humanoid(m, plate, plate, dark, dark, MeshKit.Mat(new Color("2a1f1c"), 0.8f), shoulder: 0.42f, torsoRadius: 0.36f, limb: 0.13f);
+            // A red tabard over the plate, a heavy belt, round pauldrons with rivets.
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.42f, 0.62f, 0.06f), 0.03f), cloth, new Vector3(0f, 1.0f, -0.36f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.39f, 0.39f, 0.12f, 18), MeshKit.Mat(Leather, 0.8f), new Vector3(0f, 0.86f, 0f));
+            for (int side = -1; side <= 1; side += 2)
+            {
+                m.Part(m.Trunk, MeshKit.Sphere(0.2f, 14), plate, new Vector3(side * 0.42f, 1.44f, 0f), scale: new Vector3(1.1f, 0.8f, 1.1f));
+                m.Part(m.Trunk, MeshKit.Sphere(0.035f, 8), rivet, new Vector3(side * 0.5f, 1.55f, -0.12f));
+            }
+            // The great helm, its visor slit glowing for a mega.
+            m.Part(m.Trunk, MeshKit.Cylinder(0.22f, 0.2f, 0.36f, 18), plate, new Vector3(0f, 1.68f, 0f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.2f, 16), plate, new Vector3(0f, 1.86f, 0f), scale: new Vector3(1f, 0.5f, 1f));
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.3f, 0.035f, 0.04f), 0.01f), mega ? MeshKit.Glow(new Color("ff9a3c"), 3f) : MeshKit.Mat(new Color("111114"), 0.6f), new Vector3(0f, 1.72f, -0.2f));
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.04f, 0.2f, 0.05f), 0.01f), dark, new Vector3(0f, 1.62f, -0.21f));
+            // The tower shield, held before it on the left arm.
+            var wood = MeshKit.Mat(new Color("6b4a2e"), 0.85f);
+            m.Part(m.ArmL, MeshKit.RoundedBox(new Vector3(0.75f, 1.15f, 0.08f), 0.04f), wood, new Vector3(0.22f, -0.3f, -0.34f));
+            m.Part(m.ArmL, MeshKit.RoundedBox(new Vector3(0.79f, 0.08f, 0.1f), 0.02f), plate, new Vector3(0.22f, 0.2f, -0.35f));
+            m.Part(m.ArmL, MeshKit.RoundedBox(new Vector3(0.79f, 0.08f, 0.1f), 0.02f), plate, new Vector3(0.22f, -0.8f, -0.35f));
+            m.Part(m.ArmL, MeshKit.Sphere(0.12f, 12), rivet, new Vector3(0.22f, -0.3f, -0.4f), scale: new Vector3(1f, 1f, 0.5f));
+            // The spiked mace.
+            m.Part(m.Hand, MeshKit.Cylinder(0.035f, 0.04f, 0.7f, 10), wood, new Vector3(0f, 0.05f, -0.28f), new Vector3(-80f, 0f, 0f));
+            m.Part(m.Hand, MeshKit.Sphere(0.15f, 12), dark, new Vector3(0f, 0.11f, -0.62f));
+            for (int k = 0; k < 6; k++)
+            {
+                float a = k * Mathf.Tau / 6f;
+                m.Part(m.Hand, MeshKit.Cone(0.04f, 0.14f, 6), rivet, new Vector3(Mathf.Cos(a) * 0.15f, 0.11f + Mathf.Sin(a) * 0.15f, -0.62f), new Vector3(0f, 0f, Mathf.RadToDeg(a) - 90f));
+            }
             return m;
         }
 

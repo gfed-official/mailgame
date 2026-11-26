@@ -16,6 +16,8 @@ namespace PerformativeMail.Client
     {
         /// <summary>The tile of the ruin just rebuilt, whose construct's own line is not repeated; (-1, -1) for none.</summary>
         private (int, int) _rebuilt = (-1, -1);
+        /// <summary>The tile a Tank just shoved a construct onto: its putting up there is not news of a building.</summary>
+        private (int, int) _pushed = (-1, -1);
 
         public const int MaxEntries = 5;
         public const double EntrySeconds = 6.0;
@@ -142,6 +144,17 @@ namespace PerformativeMail.Client
                     break;
                 case VehicleParkedEvent e when e.Player == world.LocalId && world.Vehicles.TryGetValue(e.Vehicle, out var parked):
                     Add($"You got off the {parked.Def.Name}");
+                    break;
+                case ConstructPushedEvent e:
+                {
+                    var shoved = world.Constructs.At(e.FromX, e.FromY) ?? world.Constructs.At(e.X, e.Y);
+                    string who = e.Enemy < world.Content.Enemies.Count ? HudText.WithArticle(world.Content.Enemies[e.Enemy].Name) : "A raider";
+                    if (shoved != null) Add($"{char.ToUpperInvariant(who[0])}{who.Substring(1)} shoved {HudText.WithArticle(shoved.Def.Name)} out of its way", bad: true);
+                    _pushed = (e.X, e.Y);
+                    break;
+                }
+                case ConstructPlacedEvent e when _pushed == (e.X, e.Y):
+                    _pushed = (-1, -1);
                     break;
                 // A ruin rebuilt said so already (the ruin's line comes first).
                 case ConstructPlacedEvent e when _rebuilt == (e.X, e.Y):
@@ -292,7 +305,7 @@ namespace PerformativeMail.Client
             entry.Count++;
             entry.Age = 0;
             string name = HudText.EnemyName(world.Content, e.Kind, e.Mega);
-            entry.Text = entry.Count == 1 ? $"{Who(world, e.Killer)} felled a {name}" : $"{Who(world, e.Killer)} felled {HudText.CountAndKind(name, entry.Count)}";
+            entry.Text = entry.Count == 1 ? $"{Who(world, e.Killer)} felled {HudText.WithArticle(name)}" : $"{Who(world, e.Killer)} felled {HudText.CountAndKind(name, entry.Count)}";
             Revision++;
         }
 

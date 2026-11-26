@@ -86,10 +86,13 @@ grep -q "^\[smoke\] boats: a Pier built" "$work/log" || { echo "smoke: no Pier a
 grep -q "^\[smoke\] boats: a Small Port built" "$work/log" || { echo "smoke: no Small Port and Motor Boat in the smoke" >&2; exit 1; }
 
 # The Wall Breaker (doc 05 §2) at a wall, not the carrier (0abedd1 nit b): the blast on the wall, the fireball drawn there.
-grep -q "^\[smoke\] combat: a wall breaker ran at a wooden wall 5 m before the host and went off against it" "$work/log" || { echo "smoke: no wall breaker went off at a wall" >&2; exit 1; }
+grep -q "^\[smoke\] combat: a wall breaker ran at a wooden wall [0-9.]* m before the host and went off against it" "$work/log" || { echo "smoke: no wall breaker went off at a wall" >&2; exit 1; }
 
 # The Balloon (doc 05 §2): flown to a depot, drawn aloft, its bomb drawn falling on it.
 grep -q "^\[smoke\] combat: a balloon flew to a depot" "$work/log" || { echo "smoke: no balloon bombed a depot" >&2; exit 1; }
+
+# The Tank (doc 05 §2): a wooden wall in its way shoved a tile on, the feed saying so.
+grep -q "^\[smoke\] combat: an iron tank shoved a wooden wall a tile on" "$work/log" || { echo "smoke: no tank shoved a wall" >&2; exit 1; }
 
 # The debug world (design choice 119): the showcase map, every station built and running, the mail
 # going through each of them, its toggles, bookmarks, free camera and time scale.

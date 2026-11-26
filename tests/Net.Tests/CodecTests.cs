@@ -278,6 +278,7 @@ namespace PerformativeMail.Net.Tests
                 new TurretFiredEvent { X = 30, Y = 12, TargetX = 70.5f, TargetZ = 22.25f },
                 new TurretOperatedEvent { X = 31, Y = 13, Player = player },
                 new EnemyShotEvent { Kind = EnemyShotKind.Arrow, FromX = 61.5f, FromZ = 28.25f, ToX = 50f, ToZ = 27.75f, AtConstruct = true },
+                new ConstructPushedEvent { FromX = 40, FromY = 9, X = 39, Y = 9, Enemy = 7 },
                 new RuinEvent { X = 32, Y = 14, Building = 7, Rotation = 3, Gone = true, Rebuilt = true, Player = player },
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
@@ -338,6 +339,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(((byte)31, (byte)13, player), (manned.X, manned.Y, manned.Player));
             var arrow = back.OfType<EnemyShotEvent>().Single();
             Assert.Equal((EnemyShotKind.Arrow, 61.5f, 28.25f, 50f, 27.75f, true), (arrow.Kind, arrow.FromX, arrow.FromZ, arrow.ToX, arrow.ToZ, arrow.AtConstruct));
+            var shoved = back.OfType<ConstructPushedEvent>().Single();
+            Assert.Equal(((byte)40, (byte)9, (byte)39, (byte)9, (byte)7), (shoved.FromX, shoved.FromY, shoved.X, shoved.Y, shoved.Enemy));
             var ruin = back.OfType<RuinEvent>().Single();
             Assert.Equal(((byte)32, (byte)14, (byte)7, (byte)3, true, true, player), (ruin.X, ruin.Y, ruin.Building, ruin.Rotation, ruin.Gone, ruin.Rebuilt, ruin.Player));
             var swung = back.OfType<InserterSwungEvent>().Single();

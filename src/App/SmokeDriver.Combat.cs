@@ -9,6 +9,7 @@ using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
 using PerformativeMail.Sim.Players;
+using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
 namespace PerformativeMail.App
@@ -82,6 +83,31 @@ namespace PerformativeMail.App
             }
             x = z = 0f;
             return false;
+        }
+
+        private int _tankTx, _tankTz;
+        private readonly System.Collections.Generic.List<Construct> _tankBuilt = new System.Collections.Generic.List<Construct>();
+
+        /// <summary>The nearest strip of open ground two rows deep and ten tiles long (its west end), with room for the host north of it.</summary>
+        private static bool OpenStrip(SimWorld server, float px, float pz, out int tx, out int tz)
+        {
+            var map = server.Map;
+            tx = tz = 0;
+            float best = float.MaxValue;
+            for (int z = 2; z < map.Rows - 2; z++)
+                for (int x = 1; x < map.Cols - 11; x++)
+                {
+                    bool open = true;
+                    for (int i = 0; i < 10 && open; i++)
+                        open = BuildRules.CheckTile(map, server.Constructs, x + i, z) == OpResult.Ok && BuildRules.CheckTile(map, server.Constructs, x + i, z + 1) == OpResult.Ok;
+                    if (!open || map.IsNavBlocked(x + 4, z - 2) || map.IsNavBlocked(x + 4, z - 1)) continue;
+                    float dx = BuildRules.TileCentre(x + 4) - px, dz = BuildRules.TileCentre(z) - pz, d = dx * dx + dz * dz;
+                    if (d >= best) continue;
+                    best = d;
+                    tx = x;
+                    tz = z;
+                }
+            return best < float.MaxValue;
         }
 
         private static ClientEnemy? Seen(ClientWorld world, Enemy enemy) =>
@@ -381,9 +407,9 @@ namespace PerformativeMail.App
 
                 case 14:
                 {
-                    var seen = Seen(world, _giant);
-                    if (seen != null) AimAt(seen.X, seen.Z, InputButtons.None);
-                    else AimAt(_hogWall.CentreX, _hogWall.CentreZ, InputButtons.None);
+                    // The view on the wall, where the fireball is to be seen.
+                    ViewRay.Aim(world.Local, _hogWall.CentreX, 0.8f, _hogWall.CentreZ, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    client.Input.Buttons = InputButtons.None;
                     if (_screen.Effects.WallBreakerBlastsAtConstructs == _fightArrows) break;
                     var at = _screen.Effects.LastWallBreakerBlast;
                     float off = new Vector2(at.X - _hogWall.CentreX, at.Z - _hogWall.CentreZ).Length();
@@ -394,7 +420,8 @@ namespace PerformativeMail.App
                     Check(player.Hp == player.MaxHp, $"the blast at the wall 5 m off took {player.MaxHp - player.Hp:0} of the host's health");
                     Check(!server.Enemies.Contains(_giant), "the wall breaker is still about after going off at the wall");
                     Shot("wallbreaker-wall");
-                    GD.Print($"[smoke] combat: a wall breaker ran at a wooden wall 5 m before the host and went off against it for {structure}, its fireball drawn {off:0.0} m from it");
+                    float wallOff = new Vector2(_hogWall.CentreX - player.Move.X, _hogWall.CentreZ - player.Move.Z).Length();
+                    GD.Print($"[smoke] combat: a wall breaker ran at a wooden wall {wallOff:0.0} m before the host and went off against it for {structure}, its fireball drawn {off:0.0} m from it");
                     server.TakeDown(_hogWall);
                     NextFightStep();
                     break;
@@ -499,7 +526,8 @@ namespace PerformativeMail.App
                 }
 
                 case 20:
-                    // What the balloon dropped is walked over.
+                case 23:
+                    // What the balloon, then the tank, dropped is walked over.
                     WalkToLoot(world);
                     if (server.Loot.Count > 0 || world.Loot.Count > 0) break;
                     client.Input.MoveX = 0f;
@@ -508,6 +536,49 @@ namespace PerformativeMail.App
                     break;
 
                 case 21:
+                {
+                    // An Iron Tank (doc 05 §2) on a strip of open ground: a Depot at its west end, two Wooden
+                    // Walls across the way to it, the tank at the east end; the host stands north of the walls.
+                    if (_fightFrames < 3) break;
+                    if (!OpenStrip(server, player.Move.X, player.Move.Z, out _tankTx, out _tankTz)) { Fail("no strip of open ground for the tank"); return; }
+                    _tankBuilt.Clear();
+                    _tankBuilt.Add(server.PutUp(_session.Content.Building("depot"), _tankTx, _tankTz));
+                    _tankBuilt.Add(server.PutUp(_session.Content.Building("wall_wood"), _tankTx + 4, _tankTz, 1));
+                    _tankBuilt.Add(server.PutUp(_session.Content.Building("wall_wood"), _tankTx + 4, _tankTz + 1, 1));
+                    player.Move.X = BuildRules.TileCentre(_tankTx + 4);
+                    player.Move.Z = BuildRules.TileCentre(_tankTz) - 5f;
+                    var tank = server.SpawnEnemy(_session.Content.Enemy("tank"), BuildRules.TileCentre(_tankTx + 9), (_tankTz + 1) * SimConstants.TileSize);
+                    if (tank == null) { Fail("the server would not spawn a tank"); return; }
+                    _giant = tank;
+                    player.Hp = player.MaxHp;
+                    _sawHogDrawn = false;
+                    NextFightStep();
+                    break;
+                }
+
+                case 22:
+                {
+                    if (_screen.Enemies.ModelOf((ushort)_giant.Id.Value) == "Tank") _sawHogDrawn = true;
+                    // The view on the walls, the tank coming at them from the left.
+                    ViewRay.Aim(world.Local, BuildRules.TileCentre(_tankTx + 5), 1.2f, (_tankTz + 1) * SimConstants.TileSize, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    // Shoved a tile west: a wall where there was none, on the client too.
+                    var shoved = world.Constructs.At(_tankTx + 3, _tankTz) ?? world.Constructs.At(_tankTx + 3, _tankTz + 1);
+                    string line = "An Iron Tank shoved a Wooden Wall out of its way";
+                    if (shoved == null || !_session.Feed.Entries.Any(e => e.Text == line)) break;
+                    Check(_sawHogDrawn, "the tank was never drawn as one");
+                    Check(shoved.Def.Id == "wall_wood" && server.Constructs.At(shoved.Tx, shoved.Tz)?.Def.Id == "wall_wood", $"a {shoved.Def.Id} was shoved");
+                    Check(!_session.Feed.Entries.Any(e => e.Text.StartsWith("Someone built a Wooden Wall", StringComparison.Ordinal) && e.Age < 1.0), "the shoved wall reads as built in the feed");
+                    Check(player.Hp == player.MaxHp, $"the tank took {player.MaxHp - player.Hp:0} of the host's health");
+                    Shot("tank");
+                    GD.Print($"[smoke] combat: an iron tank shoved a wooden wall a tile on from ({_tankTx + 4}, {shoved.Tz}) to ({shoved.Tx}, {shoved.Tz}), \"{line}\" in the feed");
+                    server.DamageEnemy(_giant, 99999f, player);
+                    foreach (var c in server.Constructs.All.ToList())
+                        if (c.Def.Id == "wall_wood" || c.Def.Id == "depot") server.TakeDown(c);
+                    NextFightStep();
+                    break;
+                }
+
+                case 24:
                     // Nothing is left behind: no enemy, no body on screen, no loot.
                     if (world.Enemies.Count > 0 || _screen.Enemies.ViewCount > 0 || _screen.Effects.LootViewCount > 0) break;
                     Check(_sawEnemyView, "no enemy was ever drawn");
@@ -516,7 +587,7 @@ namespace PerformativeMail.App
                     Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"after the fight: {client.ContainerDesyncs} desyncs, {client.BadPackets} bad packets");
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"in the fight the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
-                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow, a wall breaker's blast at the host and one at a wall, a hog rider's blow over a wall taken and a balloon's bomb on a depot seen; "
+                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow, a wall breaker's blast at the host and one at a wall, a hog rider's blow over a wall taken, a balloon's bomb on a depot and a tank's shove seen; "
                         + $"loot +{HudText.Gold(server.Economy.Wallet - _fightWallet)}; health {hud.HealthText}");
                     client.Input.Buttons = InputButtons.None;
                     StartBag();

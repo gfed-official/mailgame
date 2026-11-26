@@ -469,7 +469,7 @@ namespace PerformativeMail.Sim.Content
                             else priority.Add((EnemyTarget)k);
                         }
                         if (priority.Count == 0) priority.Add(EnemyTarget.Player);
-                        float keepDistance = 0f, blastRadius = 0f, structureDamage = 0f, provokeRange = 0f, provokeSeconds = 0f, altitude = 0f, bombRadius = 0f;
+                        float keepDistance = 0f, blastRadius = 0f, structureDamage = 0f, provokeRange = 0f, provokeSeconds = 0f, altitude = 0f, bombRadius = 0f, pickaxeMult = 1f;
                         if (e.TryGetProperty("traitParams", out var traitParams))
                         {
                             if (traitParams.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': traitParams must be an object");
@@ -484,6 +484,7 @@ namespace PerformativeMail.Sim.Content
                                 provokeSeconds = (float)J.Num(ctx, traitParams, "provokeSeconds", 0);
                                 altitude = (float)J.Num(ctx, traitParams, "altitude", 0);
                                 bombRadius = (float)J.Num(ctx, traitParams, "bombRadius", 0);
+                                pickaxeMult = (float)J.Num(ctx, traitParams, "pickaxeMult", 1);
                             }
                         }
                         var def = new EnemyDef
@@ -497,6 +498,7 @@ namespace PerformativeMail.Sim.Content
                             ProvokeSeconds = provokeSeconds,
                             Altitude = altitude,
                             BombRadius = bombRadius,
+                            PickaxeMult = pickaxeMult,
                             Id = id,
                             Index = (byte)list.Count,
                             Name = J.Str(ctx, e, "name"),
@@ -536,6 +538,7 @@ namespace PerformativeMail.Sim.Content
                         // Doc 05 §2 Balloon: "30 AoE r=2 m … Airborne (6 m)".
                         if (def.Airborne != (def.Altitude > 0f) || def.Airborne != (def.BombRadius > 0f))
                             ctx.Error($"'{def.Id}': an airborne enemy, and only one, has traitParams.altitude and traitParams.bombRadius > 0");
+                        if (def.PickaxeMult < 1f) ctx.Error($"'{def.Id}': traitParams.pickaxeMult must be at least 1");
                         if (def.AggroRange < def.AttackRange) ctx.Error($"'{def.Id}': aggroRange must be at least its attackRange");
                         if (def.CoinsMin < 0 || def.CoinsMax < def.CoinsMin) ctx.Error($"'{def.Id}': coins must be [min, max] with 0 <= min <= max");
                         // The snapshot packs the kind into four bits.
@@ -554,17 +557,28 @@ namespace PerformativeMail.Sim.Content
                 {
                     var root = doc.RootElement;
                     var weights = new Dictionary<int, IReadOnlyList<KeyValuePair<EnemyDef, int>>>();
+                    var maxes = new Dictionary<int, IReadOnlyDictionary<EnemyDef, int>>();
                     if (root.TryGetProperty("weightsByShift", out var byShift) && byShift.ValueKind == JsonValueKind.Object)
                     {
                         foreach (var s in byShift.EnumerateObject())
                         {
                             if (!int.TryParse(s.Name, out int shift) || shift < 1) { ctx.Error($"weightsByShift: '{s.Name}' is not a shift number"); continue; }
                             var entries = new List<KeyValuePair<EnemyDef, int>>();
+                            var caps = new Dictionary<EnemyDef, int>();
                             if (s.Value.ValueKind != JsonValueKind.Object) { ctx.Error($"weightsByShift {shift}: must be an object of enemy weights"); continue; }
                             foreach (var p in s.Value.EnumerateObject())
                             {
                                 if (!db._enemiesById.TryGetValue(p.Name, out var enemy)) { ctx.Error($"weightsByShift {shift}: unknown enemy '{p.Name}'"); continue; }
-                                if (p.Value.ValueKind != JsonValueKind.Number || !p.Value.TryGetInt32(out int weight) || weight < 0)
+                                // A weight, or { "weight": w, "max": m } for an enemy a raid sends at most m of (doc 05 §3.2 Tank).
+                                var w = p.Value;
+                                if (w.ValueKind == JsonValueKind.Object)
+                                {
+                                    int max = J.Int(ctx, w, "max");
+                                    if (max < 1) ctx.Error($"weightsByShift {shift}: max of '{p.Name}' must be at least 1");
+                                    else caps[enemy] = max;
+                                    w = w.TryGetProperty("weight", out var inner) ? inner : default;
+                                }
+                                if (w.ValueKind != JsonValueKind.Number || !w.TryGetInt32(out int weight) || weight < 0)
                                 {
                                     ctx.Error($"weightsByShift {shift}: weight of '{p.Name}' must be a non-negative integer");
                                     continue;
@@ -575,6 +589,7 @@ namespace PerformativeMail.Sim.Content
                                 if (weight > 0) entries.Add(new KeyValuePair<EnemyDef, int>(enemy, weight));
                             }
                             weights[shift] = entries;
+                            if (caps.Count > 0) maxes[shift] = caps;
                         }
                     }
                     else ctx.Error("missing 'weightsByShift' object");
@@ -609,6 +624,7 @@ namespace PerformativeMail.Sim.Content
                         MegaHpMult = megaHp, MegaDamageMult = megaDmg, MegaScale = megaScale, MegaSpeedMult = megaSpeed, MegaLootMult = megaLoot,
                         MaxAlive = J.Int(ctx, root, "maxAlive"),
                         WeightsByShift = weights,
+                        MaxByShift = maxes,
                     };
                     if (def.Pulses < 1) ctx.Error("pulses must be >= 1");
                     if (def.PulseIntervalSeconds <= 0) ctx.Error("pulseIntervalSeconds must be > 0");
@@ -1228,7 +1244,7 @@ namespace PerformativeMail.Sim.Content
         }
 
         /// <summary>The traitParams an enemy may have (doc 08 §2.10).</summary>
-        private static readonly string[] TraitParamNames = { "keepDistance", "blastRadius", "structureDamage", "provokeRange", "provokeSeconds", "altitude", "bombRadius" };
+        private static readonly string[] TraitParamNames = { "keepDistance", "blastRadius", "structureDamage", "provokeRange", "provokeSeconds", "altitude", "bombRadius", "pickaxeMult" };
 
         /// <summary>Balance keys the code reads; a missing one is a validation error rather than a runtime crash.</summary>
         public static readonly string[] RequiredBalanceKeys =

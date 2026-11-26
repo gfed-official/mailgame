@@ -72,6 +72,8 @@ namespace PerformativeMail.Sim.Combat
         public uint StolenBag;
         /// <summary>Ranged: the tick it began backing off from a carrier too near; 0 when it is not.</summary>
         public uint BackingSince;
+        /// <summary>Pushes constructs: not before this tick does it shove the next one.</summary>
+        public uint PushReadyTick;
 
         /// <summary>Health as the snapshot carries it: 1..255.</summary>
         public byte HpByte => (byte)System.Math.Clamp((int)System.MathF.Ceiling(Hp / MaxHp * 255f), 1, 255);

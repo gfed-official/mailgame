@@ -104,6 +104,8 @@ namespace PerformativeMail.Sim
         /// <summary>The raid's ways in (doc 05 §3.2): the first half of its pulses by the one, then both; −1: none.</summary>
         private int _raidEdgeA = -1, _raidEdgeB = -1;
         private RngStream _spawnRng = null!;
+        /// <summary>How many of each enemy the raid under way has sent, against their caps.</summary>
+        private readonly Dictionary<EnemyDef, int> _raidSpawnedOf = new Dictionary<EnemyDef, int>();
 
         public IReadOnlyList<Enemy> Enemies => _enemies;
         public IReadOnlyList<LootBundle> Loot => _loot;
@@ -254,6 +256,8 @@ namespace PerformativeMail.Sim
             float yaw = PlayerInput.YawToRadians(p.Move.Yaw);
             float fx = -MathF.Sin(yaw), fz = -MathF.Cos(yaw);
             float damage = StatFor(p, Stat.MeleeDamage, _combat.HammerDamage);
+            // Doc 05 §2 Tank "Pickaxe deals 2×": the swing of one with a Pickaxe in the hand.
+            bool pickaxe = HeldTool(p) is byte held && held > 0 && Content.Items[held - 1].Id == "pickaxe";
             float knockback = StatFor(p, Stat.MeleeKnockback, _combat.HammerKnockback);
             int hits = 0;
             for (int i = _enemies.Count - 1; i >= 0; i--)
@@ -272,7 +276,7 @@ namespace PerformativeMail.Sim
                     e.PushZ += dz / dist * knockback;
                 }
                 hits++;
-                DamageEnemy(e, damage, p);
+                DamageEnemy(e, pickaxe ? damage * e.Def.PickaxeMult : damage, p);
             }
             Events.Add(new AttackEvent
             {
@@ -509,6 +513,7 @@ namespace PerformativeMail.Sim
                     }
                     default:
                         if (e.Def.Airborne) StepAirborne(e, dt);
+                        else if (e.Def.PushesConstructs) StepPusher(e, dt);
                         else if (e.Def.Ranged) StepRanged(e, dt);
                         else if (e.Def.Suicide) StepSuicide(e, dt);
                         else if (e.Def.Siege || e.Def.StealsItems) StepPriorityMelee(e, dt);
@@ -675,6 +680,12 @@ namespace PerformativeMail.Sim
         {
             // One in the air flies straight.
             if (e.Def.Airborne) return;
+            // One that shoves what is built out of its way goes round the houses only.
+            if (e.Def.PushesConstructs)
+            {
+                if (!LineClear(e.X, e.Z, gx, gz, ignoreBuilt: true)) TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch);
+                return;
+            }
             bool jumper = e.Def.JumpsWalls;
             if (LineClear(e.X, e.Z, gx, gz, jumper)) return;
             if (TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch, Constructs, jumper: jumper) || Constructs.All.Count == 0) return;
@@ -797,7 +808,7 @@ namespace PerformativeMail.Sim
         }
 
         /// <summary>True if a walker can go straight from one point to the other without leaving the open tiles.</summary>
-        private bool LineClear(float x0, float z0, float x1, float z1, bool jumper = false)
+        private bool LineClear(float x0, float z0, float x1, float z1, bool jumper = false, bool ignoreBuilt = false)
         {
             const float tile = SimConstants.TileSize;
             float dx = x1 - x0, dz = z1 - z0;
@@ -807,7 +818,7 @@ namespace PerformativeMail.Sim
             {
                 float t = i / (float)steps;
                 int tx = (int)MathF.Floor((x0 + dx * t) / tile), tz = (int)MathF.Floor((z0 + dz * t) / tile);
-                if (Map.IsNavBlocked(tx, tz) || Constructs.Blocks(tx, tz, jumper: jumper)) return false;
+                if (Map.IsNavBlocked(tx, tz) || (!ignoreBuilt && Constructs.Blocks(tx, tz, jumper: jumper))) return false;
             }
             return true;
         }
@@ -930,6 +941,7 @@ namespace PerformativeMail.Sim
                 _raidBudget = WaveBudget(waves, _raidShift, Run.PlayerCount, Economy.Complaint);
                 _raidCarry = 0;
                 _raidPulse = 0;
+                _raidSpawnedOf.Clear();
                 SetRaid(RaidState.Active, Run.PhaseEndTick);
             }
             if (Raid != RaidState.Active) return;
@@ -961,6 +973,8 @@ namespace PerformativeMail.Sim
                 foreach (var w in weights)
                 {
                     if (w.Key.Cost > budget) continue;
+                    // Doc 05 §3.2 "Tank … (max 1)": no more of it than the raid's cap.
+                    if (_raidSpawnedOf.TryGetValue(w.Key, out int sent) && sent >= waves.MaxFor(_raidShift, w.Key)) continue;
                     _affordable.Add(w);
                     total += w.Value;
                 }
@@ -982,6 +996,7 @@ namespace PerformativeMail.Sim
                 var spawned = SpawnEnemy(def, x, z, mega);
                 if (spawned == null) break;
                 spawned.Edge = edge.Index;
+                _raidSpawnedOf[def] = _raidSpawnedOf.TryGetValue(def, out int before) ? before + 1 : 1;
                 budget -= def.Cost;
             }
             _raidCarry = budget;

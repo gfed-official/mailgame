@@ -509,6 +509,7 @@ namespace PerformativeMail.Sim.Content
         StealsItems = 1 << 5,
         /// <summary>Flies over everything at traitParams.altitude; only the cannon and turrets reach it (doc 05 §2 Balloon).</summary>
         Airborne = 1 << 6,
+        /// <summary>Shoves what is built in its way a tile on, crushes belts and pipes (doc 05 §2 Tank).</summary>
         PushesConstructs = 1 << 7,
         FleesPlayers = 1 << 8,
     }
@@ -577,7 +578,11 @@ namespace PerformativeMail.Sim.Content
         public float Altitude { get; init; }
         public float BombRadius { get; init; }
 
+        /// <summary>A carrier with a Pickaxe in the hand hurts it this many times as much (traitParams.pickaxeMult; doc 05 §2 Tank "Pickaxe deals 2×").</summary>
+        public float PickaxeMult { get; init; } = 1f;
+
         public bool Ranged => (Traits & EnemyTraits.Ranged) != 0;
+        public bool PushesConstructs => (Traits & EnemyTraits.PushesConstructs) != 0;
         public bool Airborne => (Traits & EnemyTraits.Airborne) != 0;
         public bool Suicide => (Traits & EnemyTraits.Suicide) != 0;
         public bool Siege => (Traits & EnemyTraits.Siege) != 0;
@@ -635,6 +640,19 @@ namespace PerformativeMail.Sim.Content
 
         public double BudgetFor(int shift) =>
             BaseBudget.Length == 0 ? 0 : BaseBudget[Math.Clamp(shift - 1, 0, BaseBudget.Length - 1)];
+
+        /// <summary>shift → (enemy, most of them a raid of that shift sends); an enemy not listed has no cap.</summary>
+        public IReadOnlyDictionary<int, IReadOnlyDictionary<EnemyDef, int>> MaxByShift { get; init; }
+            = new Dictionary<int, IReadOnlyDictionary<EnemyDef, int>>();
+
+        /// <summary>Doc 05 §3.2 "Tank … 1 (max 1) / 10 (max 3)": how many of an enemy a raid of the shift may send.</summary>
+        public int MaxFor(int shift, EnemyDef enemy)
+        {
+            for (int s = shift; s >= 1; s--)
+                if (WeightsByShift.ContainsKey(s))
+                    return MaxByShift.TryGetValue(s, out var caps) && caps.TryGetValue(enemy, out int max) ? max : int.MaxValue;
+            return int.MaxValue;
+        }
 
         public IReadOnlyList<KeyValuePair<EnemyDef, int>> WeightsFor(int shift)
         {

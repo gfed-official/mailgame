@@ -24,5 +24,9 @@
   { "id": "balloon", "name": "Bomb Balloon", "hp": 90, "damage": 30, "attackRate": 3.0, "attackRange": 0.8, "speed": 2.5,
     "aggroRange": 30, "radius": 0.5, "scale": 1.0, "cost": 30, "unlockShift": 4, "coins": [10, 16],
     "traits": ["airborne"], "traitParams": { "altitude": 6, "bombRadius": 2 }, "targetPriority": ["turret", "depot", "vehicle_depot", "sorter"],
-    "drops": [{ "item": "oil_can", "chance": 0.3, "count": 1 }] }
+    "drops": [{ "item": "oil_can", "chance": 0.3, "count": 1 }] },
+  { "id": "tank", "name": "Iron Tank", "hp": 900, "damage": 60, "attackRate": 3.0, "attackRange": 1.6, "speed": 2.0,
+    "aggroRange": 30, "radius": 0.5, "scale": 2.0, "cost": 150, "unlockShift": 4, "coins": [40, 70],
+    "traits": ["pushes_constructs"], "traitParams": { "pickaxeMult": 2 }, "targetPriority": ["depot", "any_construct"],
+    "drops": [{ "item": "iron_ingot", "chance": 1.0, "count": 4 }] }
 ]

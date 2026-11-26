@@ -378,6 +378,17 @@ namespace PerformativeMail.Sim
         public EntityId Player;
     }
 
+    /// <summary>
+    /// A Tank shoved a construct a tile on (doc 05 §2, design choice 136); it comes before the
+    /// construct's removal from (FromX, FromY) and its placing on (X, Y).
+    /// </summary>
+    public sealed class ConstructPushedEvent : SimEvent
+    {
+        public byte FromX, FromY, X, Y;
+        /// <summary>The kind of the raider that shoved it.</summary>
+        public byte Enemy;
+    }
+
     /// <summary>A raider's blow landed on a construct: the HP it has left.</summary>
     public sealed class ConstructDamagedEvent : SimEvent
     {
