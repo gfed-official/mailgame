@@ -114,11 +114,12 @@ namespace PerformativeMail.Sim.Tests
         {
             var (world, host, turret) = Built();
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.OperateTurret(0, Tx, Tz, true)));
-            // Facing north at nothing: every shot misses, and is drawn to the end of its reach.
+            // Facing north at nothing: every shot misses, and is drawn to where the carrier's line of
+            // sight (from 2 m east of the turret) leaves its reach.
             int shots = Hold(world, host, InputButtons.Attack, North, 1);
             var miss = world.Events.OfType<TurretFiredEvent>().Single();
-            Assert.Equal(turret.CentreX, miss.TargetX, 3);
-            Assert.Equal(turret.CentreZ - Turret.ShotRange, miss.TargetZ, 3);
+            Assert.Equal(host.Move.X, miss.TargetX, 3);
+            Assert.Equal(turret.CentreZ - MathF.Sqrt(Turret.ShotRange * Turret.ShotRange - 4f), miss.TargetZ, 2);
             shots += Hold(world, host, InputButtons.Attack, North, 2 * Tps - 1);
             Assert.Equal(8, shots);
         }
@@ -131,6 +132,27 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.OperateTurret(0, Tx, Tz, true)));
             Assert.True(Hold(world, host, InputButtons.Attack, North, Tps) >= 4);
             Assert.Equal(Db.Enemy("barbarian").Hp, raider.Hp, 3);
+        }
+
+        [Fact]
+        public void ACloseRaiderUnderTheCrosshair_BesideTheBarrel_IsHit()
+        {
+            // The 0abedd1 playtest: the shot left the turret's middle along the carrier's facing, so a
+            // raider close by under the crosshair but off to the side of the barrel was missed.
+            var (world, host, turret) = Built();
+            // The carrier stands 2 m east of the turret and looks north at a raider 3 m ahead of them:
+            // 2 m to the side of the line from the turret's middle, on their own line of sight.
+            var raider = world.SpawnEnemy(Db.Enemy("barbarian"), host.Move.X, host.Move.Z - 3f)!;
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.OperateTurret(0, Tx, Tz, true)));
+            Hold(world, host, InputButtons.Attack, North, 1);
+            var shot = world.Events.OfType<TurretFiredEvent>().Single();
+            Assert.InRange(MathF.Abs(shot.TargetX - raider.X) + MathF.Abs(shot.TargetZ - raider.Z), 0f, 0.5f);
+            Assert.Equal(Db.Enemy("barbarian").Hp - Turret.ShotDamage, raider.Hp, 3);
+
+            // The nearer of two on the line of sight takes the shot; one beyond the gun's reach none.
+            var far = world.SpawnEnemy(Db.Enemy("barbarian"), turret.CentreX + 2f, turret.CentreZ + Turret.ShotRange + 3f)!;
+            Hold(world, host, InputButtons.Attack, MathF.PI, Tps / 2);
+            Assert.Equal(Db.Enemy("barbarian").Hp, far.Hp, 3);
         }
 
         [Fact]

@@ -81,7 +81,12 @@ namespace PerformativeMail.Sim
             return OpResult.Ok;
         }
 
-        /// <summary>Attack with a turret's controls in the hands: the gun fires along the carrier's facing, when it is ready.</summary>
+        /// <summary>
+        /// Attack with a turret's controls in the hands: the gun fires, when it is ready, at what is under
+        /// the carrier's crosshair — the first raider along their line of sight, from where they stand,
+        /// within the gun's reach of its middle (design choice 134; the line from the turret's middle
+        /// along their facing missed a raider close beside the barrel that the crosshair was on).
+        /// </summary>
         private void FireOperatedTurret(Player p)
         {
             var c = p.Turret!;
@@ -93,22 +98,26 @@ namespace PerformativeMail.Sim
             _turretReady[c] = from + System.Math.Max(1.0, c.Def.ShotSeconds * SimConstants.TickRate / rate);
             float yaw = PlayerInput.YawToRadians(p.Move.Yaw);
             float fx = -System.MathF.Sin(yaw), fz = -System.MathF.Cos(yaw);
+            float px = p.Move.X, pz = p.Move.Z;
             Enemy? target = null;
             float best = float.MaxValue;
             foreach (var e in _enemies)
             {
                 if (e.Hp <= 0f) continue;
-                float dx = e.X - c.CentreX, dz = e.Z - c.CentreZ;
+                float cx = e.X - c.CentreX, cz = e.Z - c.CentreZ, reachOfGun = c.Def.ShotRange + e.Radius;
+                if (cx * cx + cz * cz > reachOfGun * reachOfGun) continue;
+                float dx = e.X - px, dz = e.Z - pz;
                 float along = dx * fx + dz * fz;
-                if (along <= 0f || along > c.Def.ShotRange + e.Radius) continue;
+                if (along <= -e.Radius) continue;
                 float side = dx * fz - dz * fx, reach = e.Radius + TurretAimSlack;
                 if (side * side > reach * reach || along >= best) continue;
                 best = along;
                 target = e;
             }
             TurretShots++;
-            float tx = target != null ? target.X : c.CentreX + fx * c.Def.ShotRange;
-            float tz = target != null ? target.Z : c.CentreZ + fz * c.Def.ShotRange;
+            float tx, tz;
+            if (target != null) (tx, tz) = (target.X, target.Z);
+            else TurretSight.Exit(px, pz, fx, fz, c.CentreX, c.CentreZ, c.Def.ShotRange, out tx, out tz);
             Events.Add(new TurretFiredEvent { X = (byte)c.Tx, Y = (byte)c.Tz, TargetX = tx, TargetZ = tz });
             if (target != null) DamageEnemy(target, c.Def.ShotDamage, p);
         }
@@ -145,6 +154,27 @@ namespace PerformativeMail.Sim
             _turretReady.Clear();
             foreach (var p in _turretOperators.Values) p.Turret = null;
             _turretOperators.Clear();
+        }
+    }
+
+    /// <summary>Where an operated turret's carrier's line of sight leaves the gun's reach (design choice 134).</summary>
+    public static class TurretSight
+    {
+        /// <summary>
+        /// The point along the ray from (<paramref name="px"/>, <paramref name="pz"/>) in the unit
+        /// direction (<paramref name="fx"/>, <paramref name="fz"/>) that is <paramref name="range"/>
+        /// from the turret's middle (<paramref name="cx"/>, <paramref name="cz"/>); from beyond the
+        /// reach looking away, the ray's point nearest the middle.
+        /// </summary>
+        public static void Exit(float px, float pz, float fx, float fz, float cx, float cz, float range, out float x, out float z)
+        {
+            float ox = px - cx, oz = pz - cz;
+            float b = ox * fx + oz * fz, c = ox * ox + oz * oz - range * range;
+            float disc = b * b - c;
+            float t = disc >= 0f ? -b + System.MathF.Sqrt(disc) : -b;
+            if (t < 0f) t = 0f;
+            x = px + fx * t;
+            z = pz + fz * t;
         }
     }
 }

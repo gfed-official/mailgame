@@ -2023,6 +2023,14 @@ e23d8d7 as it was.
       ShiftsCompleted + 1, so shift 1 for a run started at 3); "Shifts completed n / m" counts from
       the first shift. `PlaytestFlowTests` (--shift=3 --no-quota to the end; started at 2, missed on 3),
       codec pin
+- [x] **(d) The operated turret hits what is under the crosshair** (design choice 134).
+      `FireOperatedTurret` casts the shot along the carrier's line of sight from where they stand
+      (their eyes' ground point and facing — what the crosshair is on), not from the turret's middle
+      along their facing: the first raider within 0.3 m of that line whose body is within the gun's
+      18 m of its middle takes it. A miss is drawn to where the line of sight leaves the gun's reach
+      (`TurretSight.Exit`), and the manned gun's head is drawn turned on that point. `OperatedTurretTests`
+      (a raider 3 m ahead of the carrier, 2 m beside the barrel's line, is hit — the old line missed it;
+      one beyond the reach is not; the miss point)
 
 Next in this order: the rest of the enemy traits (doc 05 §2: the Balloon, the Tank), then the rest of
 doc 05 §5 (the Post Office's HP).
@@ -3342,6 +3350,12 @@ See "Commands" at the bottom (filled in as the tooling lands).
     Choice: with the quota waived and any shift missed, the headline says which shifts were played,
     that the quota was off and how many were met; otherwise it names the shift the run ended on, and
     a Victory from a later start names its shifts. The outcome itself (and its XP) is unchanged.
+134. **Where an operated turret's shot goes.** Doc 05 §4 says only "manual aim". The carrier stands
+    beside the gun (up to the interact reach), so a line from the gun along their facing runs beside
+    the one they look along, and close raiders under the crosshair were missed. Choice: the shot is
+    the carrier's line of sight (on the ground plane; the sim has no pitch), from where they stand;
+    the gun's reach is still counted from its middle (18 m); a raider behind the carrier is not hit.
+    The tracer is drawn from the muzzle to the raider hit, so it is the gun that is seen to fire.
 
 
 ## Commands
