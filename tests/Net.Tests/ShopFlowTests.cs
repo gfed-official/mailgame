@@ -299,6 +299,56 @@ namespace PerformativeMail.Net.Tests
         private static float ViewYaw(float dx, float dz) => MathF.Atan2(-dx, -dz);
 
         /// <summary>
+        /// Playtest e36633c: the Repair Hammer held at the hurt Post Office beside the counter in Delivery
+        /// read "Shop · closed — …" over the right target bar. The mend line wins over a counter that serves
+        /// nothing; once the counter serves, it is the counter's again.
+        /// </summary>
+        [Fact]
+        public void TheHammerAtTheHurtPostOffice_BesideTheClosedCounter_SaysMend()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada");
+            var interaction = new InteractionController(ada);
+            s.ToPrep();
+            s.StartDelivery();
+            var a = ada.World!;
+            var po = a.Map.PostOffice;
+            var truth = s.Truth(ada);
+            var hammer = s.Content.Item("repair_hammer");
+            Assert.True(s.Sim.Give(truth.Hotbar, ItemStack.OfItem(hammer, 1)));
+            Assert.True(s.Sim.Give(truth.Inventory, ItemStack.OfItem(s.Content.Item("log"), 5)));
+            s.Sim.DamagePostOffice(1200f);
+            s.Run(10);
+            int slot = a.Hotbar.Entries.Single(e => e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == hammer.Index).X;
+            ada.Input.HeldSlot = (byte)slot;
+
+            bool found = false;
+            for (int i = 0; i < 9 && !found; i++)
+                for (int turn = 0; turn < 16 && !found; turn++)
+                {
+                    truth.Move.X = po.ShopX + (i % 3 - 1) * 0.8f;
+                    truth.Move.Z = po.ShopZ + (i / 3 - 1) * 0.8f;
+                    s.Run(4);
+                    ada.Input.YawRadians = turn * MathF.PI / 8f;
+                    ada.Input.PitchRadians = 0f;
+                    s.Run(2);
+                    interaction.Update(Dt, false, false);
+                    var prompt = interaction.Prompt;
+                    if (prompt.Kind != InteractKind.OpenShop || !prompt.ShopClosed) continue;
+                    HudText.RepairTarget(a, slot, out bool atPo, out _);
+                    if (!atPo) continue;
+                    found = true;
+                    string line = HudText.FocusPrompt(a, prompt, slot, out var tone);
+                    Assert.StartsWith("Mend the Post Office  [hold LMB]   ·   1800 / 3000 HP", line);
+                    Assert.Equal(PromptTone.Neutral, tone);
+                    // Without the hammer in the hand it is the counter's line.
+                    int bare = Enumerable.Range(0, 8).First(k => RepairRules.Hammer(s.Content, a.Hotbar, k) == null);
+                    Assert.StartsWith("Shop", HudText.FocusPrompt(a, prompt, bare, out _));
+                }
+            Assert.True(found, "no place by the counter both looks at the closed counter and holds the hammer at the Post Office");
+        }
+
+        /// <summary>
         /// Playtest 25fbca5: "Shop prompt only appears from fairly close (~1 m) and aiming at the
         /// counter body". The counter is found from every seat of the spawn pad by turning to it.
         /// </summary>

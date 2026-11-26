@@ -2427,6 +2427,41 @@ walls loses no belts on shift 2), which needs the BalanceSim's combat agents and
 Item 1 of this batch: `tools/smoke.sh` (SMOKEEXIT 0: the three smokes and the island bot), Sim.Tests 608 and
 Net.Tests 211 green after (1)–(6).
 
+### 5e. Playtest bugs of the e36633c report (`mailgame-harness/results/20261126-121731-e36633c/report.md`, 2026-11-26)
+
+- [x] **(1) The under-attack chevron on "PROTECTED in the yard".** The words went under the banner
+      (0e940bc), but the clamp held only the chevron's tip off the HUD's lines: pointing up at the Post
+      Office, the tip stood under the playtest hint and just over the banner, and the chevron's body (20 px
+      back from the tip) lay on "until". The whole chevron is now held off every keep-clear box: its outline
+      for the way it points (`EdgeMarker.Extent`, `ChevronBack`, `ChevronHalfWidth`) goes just under any box
+      it would touch (`EdgeMarker.TipClear` takes the angle). The hint's box is as wide as its words too,
+      560 px at least ("Playtest: the shift clock is stopped · [G] ends the shift"). `ConstructHitFlowTests`
+      (`AChevronOverTheProtectedBanner_…`: plate, hint and banner, an upward chevron and one beside the
+      banner's end); the raid playtest's Post Office blow checks the chevron's box (`AttackMarker.ChevronRect`)
+      lies in no keep-clear box
+- [x] **(2) The Intake's cursed count cut off on long rows.** "3 Larch Lane — 6 Letters (2 stacks) · 1 CU…":
+      the count now leads the row, where the list's ellipsis cannot reach it: "1 CURSED  ·  3 Larch Lane  —
+      6 Letters  (2 stacks)", LOST likewise (`HudText.ManifestRow`). `ManifestListTests`
+- [x] **(3) Payday under `--no-quota` in two words.** The card said QUOTA OFF, the hint "Quota missed —
+      playtest: …" and the feed "quota missed". All say "quota off" now: the hint "Quota off — playtest: the
+      run goes on · shift N in …", the feed "Shift 4 is over: quota off (0 g of 4237 g)" and not in red
+      (`EventFeed`). `PlaytestFlowTests`
+- [x] **(4) The Repair Hammer at the Post Office beside the counter said "Shop · closed".** The mend line
+      stood only where nothing was looked at. It now also wins over a counter that serves nothing (closed,
+      outside Prep and Payday); an open counter keeps its "Open Shop [E]" (E opens it, LMB still mends)
+      (`HudText.FocusPrompt`; design choice 148). `ShopFlowTests.TheHammerAtTheHurtPostOffice_…`
+- [x] **(5) Results said "Shifts completed 0 / 2" after shift 4 was played with the quota off.** With the
+      quota waived the shifts met say nothing of how far the run went: the line is "Shifts played 4–5   ·
+      quota off" (`HudText.ShiftsLine`; design choice 148). A normal run keeps "Shifts completed 3 / 5".
+      `PlaytestFlowTests`
+- [x] **(6) `Hud.FitPrompt` out of the tree.** On the Results → Lobby rebuild it asked for the viewport of a
+      HUD not yet in the tree (`!is_inside_tree()` once a run). `FitPrompt` waits for the next frame there,
+      `PromptTextRect` is empty; the smoke logs show no ERROR
+
+Not changed: the single-frame Slingshot click at ~10 FPS (attack is read as held per input tick; a press
+and release inside one rendered frame is the harness, not an input bug). Item 1: `tools/smoke.sh`
+(SMOKEEXIT 0), Sim.Tests 617 and Net.Tests 216 green.
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -3874,6 +3909,13 @@ See "Commands" at the bottom (filled in as the tooling lands).
     fights); a blow counts for the raider's own time between blows (a Tank's 3 s). The steering it led to is
     local and plain (70° aside for 8 ticks after 4 blocked ones), not a full avoidance scheme: the tile paths
     already go round what is built, and a raider only needs nudging off a dead-centre bump.
+
+148. **What wins the line under the crosshair, and the Results' shifts under `--no-quota`.** A focus
+    that offers nothing to do (a closed counter) yields the line to the Repair Hammer's mend line, since
+    the hammer is in the hand for that; one that offers something (an open counter, a mailbox) keeps it,
+    and the hammer still mends with LMB. With the quota waived the Results count the shifts played ("4–5")
+    and say the quota was off, not how many quotas were met: that number is 0 by design of the flag. A run
+    with the quota on keeps the old denominator (the shifts it set out to play from its first one).
 
 ## Commands
 

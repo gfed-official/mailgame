@@ -51,9 +51,13 @@ namespace PerformativeMail.App
                 var at = _screen.AttackMarker.WordsRect;
                 var words = new ScreenBox(at.Position.X, at.Position.Y, at.End.X, at.End.Y);
                 var tip = _screen.AttackMarker.Tip;
+                var c = _screen.AttackMarker.ChevronRect;
+                var chevron = new ScreenBox(c.Position.X, c.Position.Y, c.End.X, c.End.Y);
                 foreach (var box in hud.KeepClear())
                 {
                     Check(!box.Overlaps(words), $"the marker's words {at} are over a line of the HUD ({box.X0:0},{box.Y0:0})–({box.X1:0},{box.Y1:0}), the banner \"{hud.BannerText}\"");
+                    // The e36633c playtest: its tip clear, the chevron's body still on "PROTECTED … until".
+                    Check(!box.Overlaps(chevron), $"the marker's chevron {c} is over a line of the HUD ({box.X0:0},{box.Y0:0})–({box.X1:0},{box.Y1:0}), the banner \"{hud.BannerText}\"");
                     Check(!(tip.X > box.X0 && tip.X < box.X1 && tip.Y > box.Y0 && tip.Y < box.Y1), $"the marker's tip {tip} is in a line of the HUD, the banner \"{hud.BannerText}\"");
                 }
             }

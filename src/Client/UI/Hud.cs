@@ -125,7 +125,8 @@ namespace PerformativeMail.Client.UI
             _keepClear.Clear();
             var top = _topPlate.GetGlobalRect();
             _keepClear.Add(new ScreenBox(top.Position.X, 0f, top.End.X, top.End.Y));
-            if (_hint.Visible && _hint.Text.Length > 0) AddClear(_hint, HintClearWidth);
+            // The hint as wide as its words too ("Playtest: the shift clock is stopped · [G] ends the shift").
+            if (_hint.Visible && _hint.Text.Length > 0) AddClear(_hint, Mathf.Max(HintClearWidth, TextWidth(_hint) + 2f * BannerClearMargin));
             // As wide as its words, at least: "PROTECTED in the yard   ·   until you leave it …" is wider
             // than the raid's banner, and the under-attack marker stood on its ends (the 0e940bc playtest).
             if (_banner.Visible) AddClear(_banner, Mathf.Max(BannerClearWidth, BannerTextWidth + 2f * BannerClearMargin));
@@ -166,7 +167,8 @@ namespace PerformativeMail.Client.UI
         /// </summary>
         private void FitPrompt()
         {
-            if (_prompt.Text == _promptFitted) return;
+            // Out of the tree (the Results → Lobby rebuild) there is no viewport to fit to: next frame.
+            if (!IsInsideTree() || _prompt.Text == _promptFitted) return;
             _promptFitted = _prompt.Text;
             var font = _prompt.GetThemeFont("font");
             float room = GetViewportRect().Size.X - 2f * SafeMargin - _mark.CustomMinimumSize.X - 10f - 2f * 6f;
@@ -183,6 +185,7 @@ namespace PerformativeMail.Client.UI
         {
             get
             {
+                if (!IsInsideTree()) return new Rect2();
                 float w = _prompt.GetThemeFont("font").GetStringSize(_prompt.Text, HorizontalAlignment.Left, -1, _promptFont).X;
                 float lead = _mark.CustomMinimumSize.X + 10f;
                 float x = GetViewportRect().Size.X * 0.5f - (lead + w) * 0.5f + lead;
@@ -204,7 +207,10 @@ namespace PerformativeMail.Client.UI
         }
 
         /// <summary>How wide the banner's words are drawn, px.</summary>
-        public float BannerTextWidth => _banner.GetThemeFont("font").GetStringSize(_banner.Text, HorizontalAlignment.Left, -1, _banner.GetThemeFontSize("font_size")).X;
+        public float BannerTextWidth => TextWidth(_banner);
+
+        private static float TextWidth(Label line) =>
+            line.GetThemeFont("font").GetStringSize(line.Text, HorizontalAlignment.Left, -1, line.GetThemeFontSize("font_size")).X;
         private readonly List<ScreenBox> _keepClear = new List<ScreenBox>();
         private Panel _topPlate = null!;
 
@@ -567,9 +573,8 @@ namespace PerformativeMail.Client.UI
                 _prompt.Text = HudText.BuildPrompt(world, ghost, out tone);
                 holdProgress = ghost.HoldProgress;
             }
-            else _prompt.Text = HudText.Prompt(world, prompt, out tone);
-            // Nothing to interact with: the Repair Hammer's line at what is hurt before it (doc 05 §4, doc 09 §3 "a target health bar").
-            if (!building && _prompt.Text.Length == 0) _prompt.Text = HudText.RepairPrompt(world, _client.Input.HeldSlot, out tone);
+            // Nothing to interact with (or a closed counter): the Repair Hammer's line at what is hurt before it (doc 05 §4, doc 09 §3 "a target health bar").
+            else _prompt.Text = HudText.FocusPrompt(world, prompt, _client.Input.HeldSlot, out tone);
             if (MapOpen?.Invoke() == true)
             {
                 _prompt.Text = "";

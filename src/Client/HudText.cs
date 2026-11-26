@@ -292,7 +292,8 @@ namespace PerformativeMail.Client
                     bool last = s.Shift >= ShiftCount(world.Content);
                     // The counter serves the team where it stands, for as long as the summary is up.
                     string shop = world.ShopServes ? $"   ·   {ShopKey} shop" : "";
-                    if (!s.QuotaMet && world.QuotaWaived && !last) return $"Quota missed — {QuotaWaivedTag}   ·   shift {s.Shift + 1} in {clock}{shop}";
+                    // One word for a waived quota everywhere: "QUOTA OFF" on the card, "Quota off" here and in the feed (the e36633c playtest).
+                    if (!s.QuotaMet && world.QuotaWaived && !last) return $"Quota off — {QuotaWaivedTag}   ·   shift {s.Shift + 1} in {clock}{shop}";
                     if (!s.QuotaMet && world.QuotaWaived) return $"Quota off — results in {clock}";
                     if (!s.QuotaMet) return $"Quota missed — results in {clock}";
                     return s.Shift >= ShiftCount(world.Content) ? $"Final quota met — results in {clock}" : $"Quota met — shift {s.Shift + 1} in {clock}{shop}";
@@ -426,16 +427,27 @@ namespace PerformativeMail.Client
 
         public static List<string> ResultsLines(ClientWorld world, RunResults r)
         {
-            int shifts = ShiftCount(world.Content) - r.FirstShift + 1;
             var lines = new List<string>
             {
                 ResultsHeadline(world.Content, r),
-                $"Shifts completed {r.ShiftsCompleted} / {shifts}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" ({Gold(r.TotalEarned)} × the stamps)" : "")}",
+                $"{ShiftsLine(world.Content, r)}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" ({Gold(r.TotalEarned)} × the stamps)" : "")}",
                 $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}",
             };
             foreach (var p in r.Players)
                 lines.Add($"{PlayerName(world, p.Player)}:   {p.Deliveries} delivered, {p.Misdeliveries} misdelivered, {Gold(p.Earned)}   ·   +{p.Xp} XP");
             return lines;
+        }
+
+        /// <summary>
+        /// "Shifts completed 3 / 5" of the shifts the run set out to play (from the one it started at); with the
+        /// quota waived the shifts met say nothing of how far it went — "Shifts played 4–5   ·   quota off"
+        /// (the e36633c playtest read "Shifts completed 0 / 2" after shift 4 was played and ended with G).
+        /// </summary>
+        public static string ShiftsLine(ContentDb content, RunResults r)
+        {
+            if (!r.QuotaWaived) return $"Shifts completed {r.ShiftsCompleted} / {ShiftCount(content) - r.FirstShift + 1}";
+            string span = r.LastShift > r.FirstShift ? $"{r.FirstShift}–{r.LastShift}" : $"{r.LastShift}";
+            return $"Shifts played {span}   ·   quota off";
         }
 
         /// <summary>
@@ -493,9 +505,10 @@ namespace PerformativeMail.Client
             string name = world.Content.MailKinds[row.Kind].Name;
             if (row.Empty) return $"{address}  —  no {name}s left";
             string stacks = row.Stacks > 1 ? $"  ({row.Stacks} stacks)" : "";
-            // The 0e940bc playtest: which rows are cursed was only found out once a stack was taken.
-            string flags = (row.Cursed > 0 ? $"   ·   {row.Cursed} {CursedWord.ToUpperInvariant()}" : "") + (row.Lost > 0 ? $"   ·   {row.Lost} {LostWord.ToUpperInvariant()}" : "");
-            return $"{address}  —  {CountAndKind(name, row.Items)}{stacks}{flags}";
+            // The 0e940bc playtest: which rows are cursed was only found out once a stack was taken. First in
+            // the row, where the list's ellipsis cannot eat it (e36633c: "… 6 Letters (2 stacks) · 1 CU…").
+            string flags = (row.Cursed > 0 ? $"{row.Cursed} {CursedWord.ToUpperInvariant()}  ·  " : "") + (row.Lost > 0 ? $"{row.Lost} {LostWord.ToUpperInvariant()}  ·  " : "");
+            return $"{flags}{address}  —  {CountAndKind(name, row.Items)}{stacks}";
         }
 
         // --- the fight of the concept video: health, the raid, loot --------------------------------
@@ -1766,6 +1779,22 @@ namespace PerformativeMail.Client
         public const string MatchWord = "MATCH";
         public const string MismatchWord = "WRONG ADDRESS";
         public const string ClosedWord = "closed";
+
+        /// <summary>
+        /// The line under the crosshair: what is looked at (<see cref="Prompt"/>), but the Repair Hammer's mend
+        /// line where nothing is, or where what is offers nothing to do — the e36633c playtest held the hammer
+        /// at the hurt Post Office beside the counter in Delivery and read "Shop · closed" over the right bar.
+        /// </summary>
+        public static string FocusPrompt(ClientWorld world, in InteractPrompt p, int heldSlot, out PromptTone tone)
+        {
+            string line = Prompt(world, p, out tone);
+            bool idle = line.Length == 0 || (p.Kind == InteractKind.OpenShop && p.ShopClosed);
+            if (!idle) return line;
+            string mend = RepairPrompt(world, heldSlot, out var mendTone);
+            if (mend.Length == 0) return line;
+            tone = mendTone;
+            return mend;
+        }
 
         /// <summary>
         /// The interact prompt line. For a delivery it shows the stack's address and the mailbox's

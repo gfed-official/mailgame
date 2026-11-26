@@ -21,6 +21,16 @@ namespace PerformativeMail.Client.UI
         public Vector2 Tip => Position;
         public bool OverIt => _over;
 
+        /// <summary>The box the chevron covers on screen, as of the last placing.</summary>
+        public Rect2 ChevronRect
+        {
+            get
+            {
+                EdgeMarker.Extent(_angle, out float x0, out float y0, out float x1, out float y1);
+                return new Rect2(Position.X + x0, Position.Y + y0, x1 - x0, y1 - y0);
+            }
+        }
+
         public AttackMarker()
         {
             Name = "AttackMarker";
@@ -45,7 +55,7 @@ namespace PerformativeMail.Client.UI
         {
             Visible = true;
             var keep = KeepClear?.Invoke();
-            at.Y = EdgeMarker.TipClear(at.X, at.Y, keep);
+            at.Y = EdgeMarker.TipClear(at.X, at.Y, angle, keep);
             Position = at;
             _angle = angle;
             _over = over;
@@ -72,8 +82,8 @@ namespace PerformativeMail.Client.UI
             // A filled chevron whose tip is at the origin, pointing along the angle.
             var dir = new Vector2(Mathf.Cos(_angle), Mathf.Sin(_angle));
             var side = new Vector2(-dir.Y, dir.X);
-            var back = -dir * 20f;
-            var points = new[] { Vector2.Zero, back + side * 12f, back * 0.6f, back - side * 12f };
+            var back = -dir * EdgeMarker.ChevronBack;
+            var points = new[] { Vector2.Zero, back + side * EdgeMarker.ChevronHalfWidth, back * 0.6f, back - side * EdgeMarker.ChevronHalfWidth };
             DrawColoredPolygon(points, Red);
             DrawPolyline(new[] { points[0], points[1], points[2], points[3], points[0] }, new Color(0f, 0f, 0f, 0.8f), 2f);
         }

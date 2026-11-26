@@ -72,7 +72,9 @@ namespace PerformativeMail.Client
                 {
                     var s = e.Summary;
                     string books = $"{HudText.Gold(s.Earned)} of {HudText.Gold(s.Quota)}";
-                    Add(s.QuotaMet ? $"Shift {s.Shift} is over: quota met ({books})" : $"Shift {s.Shift} is over: quota missed ({books})", bad: !s.QuotaMet);
+                    // --no-quota: "quota off", as the Payday card says (the e36633c playtest read "quota missed" under "QUOTA OFF").
+                    string verdict = s.QuotaMet ? "quota met" : world.QuotaWaived ? "quota off" : "quota missed";
+                    Add($"Shift {s.Shift} is over: {verdict} ({books})", bad: !s.QuotaMet && !world.QuotaWaived);
                     break;
                 }
                 case PhaseChangedEvent e:

@@ -114,7 +114,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal($"{dest.Label}  —  30 Letters  (2 stacks)", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 2, Items = 30 }));
             Assert.Equal($"{dest.Label}  —  no Letters left", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter }));
             // The 0e940bc playtest: the list did not say which rows were cursed.
-            Assert.Equal($"{dest.Label}  —  5 Letters  (2 stacks)   ·   2 CURSED", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 2, Items = 5, Cursed = 2 }));
+            // e36633c: on a long row the list's ellipsis ate it ("· 1 CU…"); it leads the row now.
+            Assert.Equal($"2 CURSED  ·  {dest.Label}  —  5 Letters  (2 stacks)", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 2, Items = 5, Cursed = 2 }));
+            Assert.Equal($"1 CURSED  ·  1 LOST  ·  {dest.Label}  —  2 Letters", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 1, Items = 2, Cursed = 1, Lost = 1 }));
         }
 
         [Fact]

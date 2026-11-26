@@ -34,22 +34,39 @@ namespace PerformativeMail.Client
             return false;
         }
 
+        /// <summary>How far the chevron reaches back from its tip, and to either side, px.</summary>
+        public const float ChevronBack = 20f, ChevronHalfWidth = 12f;
+
         /// <summary>
         /// Playtest f32ea2e: a marker on the top edge, for a construct straight ahead or behind, had its
-        /// words over the shift's plate. A tip inside a box the HUD keeps clear goes down to just under it.
+        /// words over the shift's plate. A chevron that would stand on a box the HUD keeps clear goes down
+        /// to just under it. The whole chevron is held off, not its tip: pointing up, its tip stood just
+        /// over "PROTECTED in the yard" and its body on the words (the e36633c playtest).
         /// </summary>
-        public static float TipClear(float x, float y, IReadOnlyList<ScreenBox>? keep, float gap = 24f)
+        /// <param name="angle">The way it points, in screen radians (0 right, π/2 down).</param>
+        public static float TipClear(float x, float y, float angle, IReadOnlyList<ScreenBox>? keep, float gap = 4f)
         {
             if (keep == null) return y;
-            for (int pass = 0; pass < 4; pass++)
+            Extent(angle, out float x0, out float y0, out float x1, out float y1);
+            for (int pass = 0; pass < 6; pass++)
             {
                 bool moved = false;
                 foreach (var b in keep)
-                    // The chevron reaches back up to a gap over its tip.
-                    if (x >= b.X0 && x <= b.X1 && y >= b.Y0 && y < b.Y1 + gap) { y = b.Y1 + gap; moved = true; }
+                    if (new ScreenBox(x + x0, y + y0, x + x1, y + y1).Overlaps(b)) { y = b.Y1 + gap - y0; moved = true; }
                 if (!moved) break;
             }
             return y;
+        }
+
+        /// <summary>The box the chevron pointing <paramref name="angle"/> covers, about its tip.</summary>
+        public static void Extent(float angle, out float x0, out float y0, out float x1, out float y1)
+        {
+            float dx = MathF.Cos(angle), dy = MathF.Sin(angle);
+            float bx = -dx * ChevronBack, by = -dy * ChevronBack, sx = -dy * ChevronHalfWidth, sy = dx * ChevronHalfWidth;
+            x0 = MathF.Min(0f, MathF.Min(bx + sx, bx - sx)) - 2f;
+            x1 = MathF.Max(0f, MathF.Max(bx + sx, bx - sx)) + 2f;
+            y0 = MathF.Min(0f, MathF.Min(by + sy, by - sy)) - 2f;
+            y1 = MathF.Max(0f, MathF.Max(by + sy, by - sy)) + 2f;
         }
 
         /// <summary>

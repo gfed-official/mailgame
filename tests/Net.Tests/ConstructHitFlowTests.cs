@@ -124,18 +124,43 @@ namespace PerformativeMail.Net.Tests
         {
             // The f32ea2e playtest: a turret straight ahead, high over the view, put "Turret under attack" over "DELIVERY".
             var keep = new List<ScreenBox> { new ScreenBox(416f, 0f, 864f, 100f) };
-            bool over = EdgeMarker.Place(640f, -400f, false, 1280f, 720f, 48f, out float x, out float y, out _);
+            bool over = EdgeMarker.Place(640f, -400f, false, 1280f, 720f, 48f, out float x, out float y, out float angle);
             Assert.False(over);
             Assert.Equal(48f, y, 1);
-            float tip = EdgeMarker.TipClear(x, y, keep);
-            Assert.Equal(124f, tip, 1);
+            // Pointing up, the chevron hangs under its tip: the tip goes just under the plate.
+            float tip = EdgeMarker.TipClear(x, y, angle, keep);
+            Assert.Equal(106f, tip, 1);
             // Words beside a tip still in the plate's row go under it; words clear of it stay.
             Assert.Equal(106f, EdgeMarker.WordsClear(560f, 54f, 200f, 24f, keep, 720f), 1);
             Assert.Equal(54f, EdgeMarker.WordsClear(900f, 54f, 200f, 24f, keep, 720f), 1);
-            // A tip just under the plate, its chevron reaching up onto it, goes down too.
-            Assert.Equal(124f, EdgeMarker.TipClear(640f, 110f, keep), 1);
+            // A tip just under the plate pointing down, its chevron reaching up onto it, goes down too.
+            Assert.Equal(126f, EdgeMarker.TipClear(640f, 110f, MathF.PI / 2f, keep), 1);
             // Off the plate's span the edge is free.
-            Assert.Equal(48f, EdgeMarker.TipClear(1000f, 48f, keep), 1);
+            Assert.Equal(48f, EdgeMarker.TipClear(1000f, 48f, angle, keep), 1);
+        }
+
+        [Fact]
+        public void AChevronOverTheProtectedBanner_GoesUnderIt_NotOnItsWords()
+        {
+            // The e36633c playtest: the plate, the playtest hint under it and "PROTECTED in the yard · until …" at a
+            // quarter of the way down. The Post Office up the screen put the tip under the hint, just over the
+            // banner, and the upward chevron's body on "until".
+            var keep = new List<ScreenBox>
+            {
+                new ScreenBox(416f, 0f, 864f, 100f),
+                new ScreenBox(360f, 102f, 920f, 130f),
+                new ScreenBox(170f, 160f, 1110f, 200f),
+            };
+            float angle = -MathF.PI / 2f + 0.1f;
+            float tip = EdgeMarker.TipClear(700f, 48f, angle, keep);
+            EdgeMarker.Extent(angle, out float x0, out float y0, out float x1, out float y1);
+            var chevron = new ScreenBox(700f + x0, tip + y0, 700f + x1, tip + y1);
+            foreach (var b in keep) Assert.False(chevron.Overlaps(b));
+            Assert.True(tip + y1 <= 160f || tip + y0 >= 200f);
+            // A chevron just beside a box's end is held off it too, not only a tip inside it.
+            float beside = EdgeMarker.TipClear(1105f, 170f, MathF.PI, keep);
+            EdgeMarker.Extent(MathF.PI, out x0, out y0, out x1, out y1);
+            Assert.False(new ScreenBox(1105f + x0, beside + y0, 1105f + x1, beside + y1).Overlaps(keep[2]));
         }
     }
 }
