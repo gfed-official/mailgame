@@ -108,7 +108,8 @@ namespace PerformativeMail.Sim.Tests
             }
             // Heads, not weight: a richer pulse buys two Raiders where a poorer one bought a Raider and a Swarmling.
             Assert.InRange(three, two * 9 / 10, two * 3 / 2);
-            if (players == 2) Assert.InRange(three / Seeds.Length, 20, 28);
+            // 18 since the Wall Breakers (design choice 129): a pulse that buys one buys fewer heads.
+            if (players == 2) Assert.InRange(three / Seeds.Length, 18, 28);
         }
 
         [Theory]

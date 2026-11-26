@@ -1901,6 +1901,27 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             goes down or stands up again (a respawn is the server's word, not a misprediction): with
             archers about, the acceptance bot is shot down in the raids. `RaidFightTests`' two clumsy
             carriers in shift 3 may now be down 5 times between them (1–5 over its seeds; 4 before)
+      - [x] **The Wall Breaker** (doc 05 §2 "30 HP; 150 to walls/gates/belts, 20 otherwise; suicide;
+            6 m/s; Wall > gate > belt segment; runs to the nearest wall or belt … and explodes (r =
+            1.5 m)"; §2.2 "nothing"; §4 "Stone Wall: Wall Breaker damage reduced 50 %"; cost 12 from
+            shift 3, weights 10/15/10 on shifts 3–5; design choice 129). Trait `suicide` with
+            `traitParams` `blastRadius` 1.5 and `structureDamage` 150 (the validator wants both on a
+            suicide enemy and on no other), `targetPriority` wall, gate, belt, player, aggroRange 18;
+            buildings' `params.wallBreakerResist` (a wall's or a gate's, 0–1; the Stone Wall's 0.5).
+            `SimWorld.StepSuicide`: it runs at the first of its priority within 18 m and goes off
+            beside it, or against whatever built stands in its way (`GoOff`): structureDamage less the
+            resist to every wall, gate and belt in the blast, its damage 20 to everything else built
+            in it and to every carrier in it (×1.5 for a Mega); it is gone — nobody's kill, no loot,
+            no "felled" line; felled first, it does not go off. `EnemyShotEvent` kind `blast`
+            (protocol `m2.16`); the clients draw the cannon's fireball and smoke there. Drawn
+            (`CharacterModel.WallBreaker`): a small runner in rags and a rag mask with burning eyes, a
+            banded black keg on its shoulder with a lit fuse. `WallBreakerTests` (content; a Wooden
+            Wall loses 150, a Stone Wall 75; the wall before the carrier, a carrier against the wall
+            hurt 20 too; with nothing built it runs at a carrier; felled on the way it does not go
+            off; nothing within 18 m, it holds the line); the full smoke puts one 10 m from the host
+            and checks it is drawn as one, goes off, is gone and took 20 health. `RaidFightTests`:
+            two carriers' shift-3 raid now sends 18–28 heads on average (20–28 before; a pulse that
+            buys a Wall Breaker buys fewer)
 - [ ] Construct damage (doc 05 §5)
       - [x] Item spill (M1: a broken chest's items in a bag that is nobody's, its mail back to the
             Intake when the bag goes; a broken belt's mail back to the Intake)
@@ -1931,8 +1952,8 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
       - [ ] The Post Office's HP (3000, regenerating 5 HP/s in Prep, the run lost at 0)
       - [ ] Damage numbers, health bars over damaged constructs, the HUD's under-attack marker
 
-Next in this order: the rest of the enemy traits (doc 05 §2: the Wall Breaker's suicide, the Giant's
-siege, …), then the rest of doc 05 §5 (the Post Office's HP, health bars and markers).
+Next in this order: the rest of the enemy traits (doc 05 §2: the Giant's siege, the Hog Rider, the
+Balloon, the Tank), then the rest of doc 05 §5 (the Post Office's HP, health bars and markers).
 
 ## How to build and check
 
@@ -3213,6 +3234,12 @@ See "Commands" at the bottom (filled in as the tooling lands).
     what is first on their line (no misses, no dodging): the wall or gate between, else the carrier.
     The barbarian's doc priority "Nearest of: player, construct" is not applied yet: the raiders
     keep holding their line until a carrier comes (nit 17).
+129. **The Wall Breaker's blast.** Doc 05 §2 says "runs to the nearest wall or belt in the path to the
+    PO" and "20 otherwise". Choice: the nearest wall, gate or belt within its aggroRange of 18 m (just
+    inside the raid line's 19 m, so it never runs at the pad), else a carrier within it, else it
+    holds the line with the others; it also goes off against anything built in its way. "Otherwise"
+    is read as everything else in the blast: other constructs and carriers take 20; raiders take
+    nothing. It drops nothing and counts as nobody's kill.
 
 
 ## Commands

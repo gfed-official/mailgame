@@ -56,16 +56,20 @@ namespace PerformativeMail.Sim
             return built;
         }
 
-        /// <summary>One tick of a ranged raider that is not winding up or fleeing.</summary>
-        private void StepRanged(Enemy e, float dt)
+        /// <summary>
+        /// Who or what a raider of the traits goes for this tick: the carrier it is after while it
+        /// still may be, else the construct it went for; every repath its targetPriority is asked
+        /// again and a fresh path laid. False with nothing to go for (it has walked to its line).
+        /// </summary>
+        private bool ChooseTarget(Enemy e, float dt, out Player? target, out Construct? built)
         {
-            var target = GetPlayer(e.Target);
+            target = GetPlayer(e.Target);
             if (target != null)
             {
                 if (DistanceSq(e, target) <= e.Def.AggroRange * e.Def.AggroRange) { e.SeenX = e.X; e.SeenZ = e.Z; }
                 if (!ValidTarget(e, target, e.Def.AggroRange * _combat.LeashMult, e.SeenX, e.SeenZ)) target = null;
             }
-            var built = target == null ? GoalOf(e) : null;
+            built = target == null ? GoalOf(e) : null;
             if ((target == null && built == null) || Tick >= e.RepathTick)
             {
                 AcquireByPriority(e, out var player, out var goal);
@@ -84,19 +88,30 @@ namespace PerformativeMail.Sim
                 else HoldSpot(e, out px, out pz);
                 FindPath(e, px, pz);
             }
-            if (target == null && built == null) { e.BackingSince = 0; Hold(e, dt); return; }
+            if (target != null || built != null) return true;
+            e.BackingSince = 0;
+            Hold(e, dt);
+            return false;
+        }
 
-            float gx, gz, dist;
+        /// <summary>Where its target is and how far: a carrier's feet, or the nearest point of a construct's body.</summary>
+        private void TargetPoint(Enemy e, Player? target, Construct built, out float gx, out float gz, out float dist)
+        {
             if (target != null)
             {
                 gx = target.Move.X; gz = target.Move.Z;
                 float dx = gx - e.X, dz = gz - e.Z;
                 dist = MathF.Sqrt(dx * dx + dz * dz);
+                return;
             }
-            else
-            {
-                dist = Constructs.Distance(built!, e.X, e.Z, out gx, out gz) - built!.Def.Radius;
-            }
+            dist = Constructs.Distance(built, e.X, e.Z, out gx, out gz) - built.Def.Radius;
+        }
+
+        /// <summary>One tick of a ranged raider that is not winding up or fleeing.</summary>
+        private void StepRanged(Enemy e, float dt)
+        {
+            if (!ChooseTarget(e, dt, out var target, out var built)) return;
+            TargetPoint(e, target, built!, out float gx, out float gz, out float dist);
 
             // A carrier nearer than keepDistance: it backs off, and only shoots when that has not shaken them off.
             if (target != null && dist < e.Def.KeepDistance)

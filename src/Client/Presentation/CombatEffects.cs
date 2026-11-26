@@ -66,6 +66,8 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Raiders' arrows drawn so far, and in the air right now (doc 05 §2 Archer).</summary>
         public int ArrowsDrawn { get; private set; }
         public int ArrowsFlying => _arrows.Count;
+        /// <summary>Wall Breakers seen going off.</summary>
+        public int WallBreakerBlasts { get; private set; }
 
         /// <summary>An arrow from an Archer, flying to where the server says it struck.</summary>
         private sealed class Arrow
@@ -129,11 +131,15 @@ namespace PerformativeMail.Client.Presentation
                     break;
                 }
                 case BlastEvent e:
-                    Blast(new Vector3(e.X, 0.7f, e.Z));
+                    Blast(new Vector3(e.X, 0.7f, e.Z), cannon: true);
                     if (e.Hits > 0) BlastsThatHit++;
                     break;
                 case EnemyShotEvent e when e.Kind == EnemyShotKind.Arrow:
                     Loose(new Vector3(e.FromX, Height(e.FromX, e.FromZ) + 1.45f, e.FromZ), new Vector3(e.ToX, Height(e.ToX, e.ToZ) + (e.AtConstruct ? 0.9f : 1.25f), e.ToZ));
+                    break;
+                case EnemyShotEvent e when e.Kind == EnemyShotKind.Blast:
+                    Blast(new Vector3(e.ToX, Height(e.ToX, e.ToZ) + 0.7f, e.ToZ), cannon: false);
+                    WallBreakerBlasts++;
                     break;
                 case EnemyDiedEvent e:
                     Puff(new Vector3(e.X, 0.8f, e.Z), e.Mega ? 9 : 5, new Color("b9a892"), 0.45f);
@@ -228,13 +234,14 @@ namespace PerformativeMail.Client.Presentation
             }
         }
 
-        private void Blast(Vector3 at)
+        /// <summary>A cannon package going off (counted in <see cref="Blasts"/>, its parcel taken out of the air), or a Wall Breaker's keg.</summary>
+        private void Blast(Vector3 at, bool cannon)
         {
-            Blasts++;
+            if (cannon) Blasts++;
             // The package that got there is the one closest to where the server says it went off.
-            int nearest = -1;
+            int nearest = cannon ? -1 : int.MinValue;
             float best = 36f;
-            for (int i = 0; i < _shots.Count; i++)
+            for (int i = 0; i < _shots.Count && nearest != int.MinValue; i++)
             {
                 float d = _shots[i].Node.Position.DistanceSquaredTo(at);
                 if (d >= best) continue;

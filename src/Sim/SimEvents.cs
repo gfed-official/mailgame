@@ -159,7 +159,12 @@ namespace PerformativeMail.Sim
         public byte Hits;
     }
 
-    public enum EnemyShotKind : byte { Arrow = 0 }
+    public enum EnemyShotKind : byte
+    {
+        Arrow = 0,
+        /// <summary>A Wall Breaker went off where it stood (From = To).</summary>
+        Blast = 1,
+    }
 
     /// <summary>
     /// A raider's shot from afar (doc 05 §2 Archer): from where it stood to where it struck — the

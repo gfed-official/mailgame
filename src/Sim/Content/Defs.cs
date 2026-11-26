@@ -431,6 +431,8 @@ namespace PerformativeMail.Sim.Content
         public float RuinRebuildRatio { get; init; } = 0.5f;
         /// <summary>A turret with a carrier at its controls fires this many times as often (doc 05 §4: 2).</summary>
         public float OperatedRate { get; init; }
+        /// <summary>Doc 05 §4: how much of a Wall Breaker's blast a wall or gate shrugs off (0–1; the Stone Wall's 0.5).</summary>
+        public float WallBreakerResist { get; init; }
         public bool IsTurret => Behaviour == BuildingBehaviour.Turret;
         /// <summary>A belt: metres a second (doc 11: Mk1 2, Mk2 4, Mk3 6).</summary>
         public float Speed { get; init; }
@@ -554,7 +556,12 @@ namespace PerformativeMail.Sim.Content
         /// <summary>Ranged: how near it lets a carrier come before it backs off (traitParams.keepDistance).</summary>
         public float KeepDistance { get; init; }
 
+        /// <summary>Suicide: the blast's reach, and what it does to a wall, gate or belt (traitParams); <see cref="Damage"/> to the rest.</summary>
+        public float BlastRadius { get; init; }
+        public float StructureDamage { get; init; }
+
         public bool Ranged => (Traits & EnemyTraits.Ranged) != 0;
+        public bool Suicide => (Traits & EnemyTraits.Suicide) != 0;
 
         /// <summary>Whether a construct of <paramref name="building"/> is of the target class <paramref name="target"/>.</summary>
         public static bool IsOf(EnemyTarget target, BuildingDef building) => target switch

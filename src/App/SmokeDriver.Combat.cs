@@ -24,6 +24,7 @@ namespace PerformativeMail.App
         private const float RaiderDistance = 2.2f, GiantDistance = 10f;
 
         private int _fightStep, _fightFrames, _fightArrows;
+        private bool _sawBreakerDrawn;
         private Enemy _raider = null!, _giant = null!;
         private int _fightKills, _fightSwings, _fightShots, _fightBlasts, _fightWallet, _raiderCoins;
         /// <summary>When the raider fell (ms): the hammer comes up in real time, the fight runs at fixed ticks a frame, so it gets half a second.</summary>
@@ -307,6 +308,36 @@ namespace PerformativeMail.App
                     break;
 
                 case 11:
+                {
+                    // A Wall Breaker (doc 05 §2) 10 m off, nothing built about: it runs at the host and goes off.
+                    if (_fightFrames < 3) break;
+                    if (!ClearLine(server, player.Move.X, player.Move.Z, GiantDistance, out float x, out float z)) { Fail("no clear line for the wall breaker"); return; }
+                    var breaker = server.SpawnEnemy(_session.Content.Enemy("wall_breaker"), x, z);
+                    if (breaker == null) { Fail("the server would not spawn a wall breaker"); return; }
+                    _giant = breaker;
+                    player.Hp = player.MaxHp;
+                    _fightArrows = _screen.Effects.WallBreakerBlasts;
+                    _sawBreakerDrawn = false;
+                    NextFightStep();
+                    break;
+                }
+
+                case 12:
+                {
+                    if (_screen.Enemies.ModelOf((ushort)_giant.Id.Value) == "WallBreaker") _sawBreakerDrawn = true;
+                    var seen = Seen(world, _giant);
+                    if (seen != null) AimAt(seen.X, seen.Z, InputButtons.None);
+                    if (_screen.Effects.WallBreakerBlasts == _fightArrows || world.LocalHp >= world.LocalMaxHp) break;
+                    Check(_sawBreakerDrawn, "the wall breaker was never drawn as one");
+                    Check(!server.Enemies.Contains(_giant), "the wall breaker is still about after going off");
+                    Check(world.LocalMaxHp - world.LocalHp == _giant.Damage, $"the blast took {world.LocalMaxHp - world.LocalHp:0} health, not {_giant.Damage:0}");
+                    Shot("wallbreaker");
+                    GD.Print($"[smoke] combat: a wall breaker ran at the host and went off for {world.LocalMaxHp - world.LocalHp:0}");
+                    NextFightStep();
+                    break;
+                }
+
+                case 13:
                     // Nothing is left behind: no enemy, no body on screen, no loot.
                     if (world.Enemies.Count > 0 || _screen.Enemies.ViewCount > 0 || _screen.Effects.LootViewCount > 0) break;
                     Check(_sawEnemyView, "no enemy was ever drawn");
@@ -315,7 +346,7 @@ namespace PerformativeMail.App
                     Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"after the fight: {client.ContainerDesyncs} desyncs, {client.BadPackets} bad packets");
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"in the fight the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
-                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow taken; "
+                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow and a wall breaker's blast taken; "
                         + $"loot +{HudText.Gold(server.Economy.Wallet - _fightWallet)}; health {hud.HealthText}");
                     client.Input.Buttons = InputButtons.None;
                     StartBag();

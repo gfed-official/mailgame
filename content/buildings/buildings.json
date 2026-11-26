@@ -9,7 +9,7 @@
     "recipe": "recipe_chest", "tags": ["storage"] },
   { "id": "wall_stone", "name": "Stone Wall", "footprint": [1, 1], "rotations": 2, "hp": 800,
     "placement": { "onStreet": false }, "behaviour": "wall",
-    "params": { "radius": 0.25, "height": 2.2 },
+    "params": { "radius": 0.25, "height": 2.2, "wallBreakerResist": 0.5 },
     "recipe": "recipe_wall_stone", "tags": ["defense"] },
   { "id": "spike_strip", "name": "Spike Strip", "footprint": [1, 1], "rotations": 1, "hp": 150,
     "placement": { "onStreet": false }, "behaviour": "spikes",

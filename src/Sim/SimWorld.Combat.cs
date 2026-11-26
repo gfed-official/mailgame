@@ -497,6 +497,7 @@ namespace PerformativeMail.Sim
                     }
                     default:
                         if (e.Def.Ranged) StepRanged(e, dt);
+                        else if (e.Def.Suicide) StepSuicide(e, dt);
                         else StepChase(e, dt);
                         break;
                 }
@@ -549,13 +550,13 @@ namespace PerformativeMail.Sim
             {
                 e.Waiting = false;
                 // One who shoots from afar takes nobody's place at the carrier.
-                var target = e.State == EnemyState.Flee || e.Def.Ranged ? null : GetPlayer(e.Target);
+                var target = e.State == EnemyState.Flee || e.Def.Ranged || e.Def.Suicide ? null : GetPlayer(e.Target);
                 if (target == null) continue;
                 float own = DistanceSq(e, target);
                 int nearer = 0;
                 foreach (var other in _enemies)
                 {
-                    if (other == e || other.Target != e.Target || other.State == EnemyState.Flee || other.Def.Ranged) continue;
+                    if (other == e || other.Target != e.Target || other.State == EnemyState.Flee || other.Def.Ranged || other.Def.Suicide) continue;
                     float d = DistanceSq(other, target);
                     if (d < own || (d == own && other.Id.Value < e.Id.Value)) nearer++;
                 }

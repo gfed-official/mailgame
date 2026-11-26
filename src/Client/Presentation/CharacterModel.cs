@@ -180,6 +180,7 @@ namespace PerformativeMail.Client.Presentation
                 case "swarmling": return Swarmling(mega);
                 case "giant": return Giant(mega);
                 case "archer": return Archer(mega);
+                case "wall_breaker": return WallBreaker(mega);
                 default: return Raider(mega);
             }
         }
@@ -240,6 +241,30 @@ namespace PerformativeMail.Client.Presentation
             m.Part(m.Hand, MeshKit.Cylinder(0.02f, 0.025f, 0.45f, 8), wood, new Vector3(0f, 0.43f, -0.04f), new Vector3(-22f, 0f, 0f));
             m.Part(m.Hand, MeshKit.Cylinder(0.025f, 0.02f, 0.45f, 8), wood, new Vector3(0f, -0.43f, -0.04f), new Vector3(22f, 0f, 0f));
             m.Part(m.Hand, MeshKit.Cylinder(0.006f, 0.006f, 1.25f, 4), fletch, new Vector3(0f, 0f, 0.05f));
+            return m;
+        }
+
+        /// <summary>
+        /// The Wall Breaker (doc 05 §2): a small runner in a rag mask with a black powder keg on its
+        /// shoulder, its fuse lit — what it means to do reads from down the street.
+        /// </summary>
+        public static CharacterModel WallBreaker(bool mega)
+        {
+            var m = new CharacterModel { Name = "WallBreaker", Height = 1.6f, RaisedArm = 2.9f };
+            var rags = MeshKit.Mat(new Color("8c6b3f"), 0.95f);
+            var skin = MeshKit.Mat(new Color("b58a6c"), 0.8f);
+            Humanoid(m, rags, skin, MeshKit.Mat(new Color("3b2a25"), 0.9f), skin, MeshKit.Mat(new Color("2a1f1c"), 0.8f), shoulder: 0.3f, torsoRadius: 0.24f, limb: 0.08f);
+            // A rag mask over the face, two eye holes.
+            m.Part(m.Trunk, MeshKit.Sphere(0.215f), MeshKit.Mat(new Color("d9c9a3"), 0.95f), new Vector3(0f, 1.65f, 0.01f), scale: new Vector3(1f, 0.95f, 1f));
+            Eyes(m, new Vector3(0f, 1.66f, -0.19f), 0.075f, 0.035f, glow: true);
+            // The keg on the left shoulder, banded, its fuse burning.
+            var keg = MeshKit.Mat(new Color("26221f"), 0.6f, 0.2f);
+            var band = MeshKit.Mat(new Color("8b9099"), 0.4f, 0.7f);
+            m.Part(m.Trunk, MeshKit.Cylinder(0.24f, 0.24f, 0.46f, 16), keg, new Vector3(-0.32f, 1.72f, 0.06f), new Vector3(0f, 0f, 70f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.25f, 0.25f, 0.05f, 16), band, new Vector3(-0.24f, 1.69f, 0.06f), new Vector3(0f, 0f, 70f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.25f, 0.25f, 0.05f, 16), band, new Vector3(-0.4f, 1.75f, 0.06f), new Vector3(0f, 0f, 70f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.015f, 0.015f, 0.18f, 6), MeshKit.Mat(new Color("c9b48a"), 0.9f), new Vector3(-0.58f, 1.86f, 0.06f), new Vector3(0f, 0f, 40f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.05f, 8), MeshKit.Glow(new Color("ffb347"), 4f), new Vector3(-0.64f, 1.93f, 0.06f));
             return m;
         }
 

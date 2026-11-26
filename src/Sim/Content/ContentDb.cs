@@ -469,15 +469,17 @@ namespace PerformativeMail.Sim.Content
                             else priority.Add((EnemyTarget)k);
                         }
                         if (priority.Count == 0) priority.Add(EnemyTarget.Player);
-                        float keepDistance = 0f;
+                        float keepDistance = 0f, blastRadius = 0f, structureDamage = 0f;
                         if (e.TryGetProperty("traitParams", out var traitParams))
                         {
                             if (traitParams.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': traitParams must be an object");
                             else
                             {
                                 foreach (var param in traitParams.EnumerateObject())
-                                    if (param.Name != "keepDistance") ctx.Error($"'{id}': unknown trait param '{param.Name}'");
+                                    if (param.Name != "keepDistance" && param.Name != "blastRadius" && param.Name != "structureDamage") ctx.Error($"'{id}': unknown trait param '{param.Name}'");
                                 keepDistance = (float)J.Num(ctx, traitParams, "keepDistance", 0);
+                                blastRadius = (float)J.Num(ctx, traitParams, "blastRadius", 0);
+                                structureDamage = (float)J.Num(ctx, traitParams, "structureDamage", 0);
                             }
                         }
                         var def = new EnemyDef
@@ -485,6 +487,8 @@ namespace PerformativeMail.Sim.Content
                             Traits = traits,
                             TargetPriority = priority,
                             KeepDistance = keepDistance,
+                            BlastRadius = blastRadius,
+                            StructureDamage = structureDamage,
                             Id = id,
                             Index = (byte)list.Count,
                             Name = J.Str(ctx, e, "name"),
@@ -515,6 +519,9 @@ namespace PerformativeMail.Sim.Content
                         if (def.Ranged && (def.KeepDistance <= 0 || def.KeepDistance >= def.AttackRange))
                             ctx.Error($"'{def.Id}': a ranged enemy needs traitParams.keepDistance in (0, attackRange)");
                         if (!def.Ranged && def.KeepDistance != 0) ctx.Error($"'{def.Id}': keepDistance is for a ranged enemy");
+                        // Doc 05 §2 Wall Breaker: "150 to walls/gates/belts, 20 otherwise; explodes (r = 1.5 m)".
+                        if (def.Suicide != (def.BlastRadius > 0f) || def.Suicide != (def.StructureDamage > 0f))
+                            ctx.Error($"'{def.Id}': a suicide enemy, and only one, has traitParams.blastRadius and traitParams.structureDamage > 0");
                         if (def.AggroRange < def.AttackRange) ctx.Error($"'{def.Id}': aggroRange must be at least its attackRange");
                         if (def.CoinsMin < 0 || def.CoinsMax < def.CoinsMin) ctx.Error($"'{def.Id}': coins must be [min, max] with 0 <= min <= max");
                         // The snapshot packs the kind into four bits.
@@ -1027,10 +1034,14 @@ namespace PerformativeMail.Sim.Content
                             ShotSeconds = hasParams ? (float)J.Num(ctx, pars, "shotSeconds", 0) : 0f,
                             ShotRange = hasParams ? (float)J.Num(ctx, pars, "range", 0) : 0f,
                             OperatedRate = hasParams ? (float)J.Num(ctx, pars, "operatedRate", 0) : 0f,
+                            WallBreakerResist = hasParams ? (float)J.Num(ctx, pars, "wallBreakerResist", 0) : 0f,
                             RuinRebuildRatio = (float)J.Num(ctx, e, "ruinRebuildRatio", 0.5),
                         };
                         // Doc 05 §5, doc 08 §2.6: a ruin is rebuilt for a part of the recipe, never more than all of it.
                         if (def.RuinRebuildRatio < 0f || def.RuinRebuildRatio > 1f) ctx.Error($"'{id}': ruinRebuildRatio must be in [0, 1]");
+                        // Doc 08 §2.6 "wall / gate: wallBreakerResist (0–1)".
+                        if (def.WallBreakerResist < 0f || def.WallBreakerResist > 1f || (def.WallBreakerResist != 0f && behaviour != BuildingBehaviour.Wall && behaviour != BuildingBehaviour.Gate))
+                            ctx.Error($"'{id}': params.wallBreakerResist is for a wall or a gate, in [0, 1]");
                         // Doc 05 §4: a turret fires so hard, so often, so far; nothing else fires.
                         bool turret = behaviour == BuildingBehaviour.Turret;
                         if (turret ? def.ShotDamage <= 0f || def.ShotSeconds <= 0f || def.ShotRange <= 0f || def.OperatedRate < 1f || def.Width != 1 || def.Length != 1
