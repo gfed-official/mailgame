@@ -65,8 +65,7 @@ namespace PerformativeMail.App
         /// A point that far from the player with nothing solid on the straight line to it (the
         /// cannon's package stops at the first wall). Looks west first: the smoke's chest stands east.
         /// </summary>
-        /// <param name="inView">Also keep the line and the host clear of trees and other tall props, so the view along it shows what happens.</param>
-        private static bool ClearLine(SimWorld server, float px, float pz, float distance, out float x, out float z, bool inView = false)
+        private static bool ClearLine(SimWorld server, float px, float pz, float distance, out float x, out float z)
         {
             var map = server.Map;
             const float tile = SimConstants.TileSize;
@@ -77,14 +76,6 @@ namespace PerformativeMail.App
                 bool clear = true;
                 for (float d = 0.5f; d <= distance + 1f && clear; d += 0.5f)
                     clear = !map.IsNavBlocked((int)MathF.Floor((px + dx * d) / tile), (int)MathF.Floor((pz + dz * d) / tile));
-                if (inView)
-                    foreach (var prop in map.Props)
-                    {
-                        if (!clear || prop.Height < 1.5f) continue;
-                        float ox = prop.X - px, oz = prop.Z - pz, along = Math.Clamp(ox * dx + oz * dz, 0f, distance);
-                        float sx = ox - dx * along, sz = oz - dz * along;
-                        clear = sx * sx + sz * sz > (prop.Radius + 2.5f) * (prop.Radius + 2.5f);
-                    }
                 if (!clear) continue;
                 x = px + dx * distance;
                 z = pz + dz * distance;
@@ -398,15 +389,15 @@ namespace PerformativeMail.App
 
                 case 13:
                 {
-                    // A second Wall Breaker 10 m off, a Wooden Wall 5 m off between: it runs at the wall, not
-                    // the host, and goes off against it (the 0abedd1 playtest saw only the blast at a carrier).
+                    // A second Wall Breaker, at a Wooden Wall on a strip of open ground 5 m before the host (in
+                    // view, clear of trees): it runs at the wall, not the host, and goes off against it (the
+                    // 0abedd1 playtest saw only the blast at a carrier).
                     if (_fightFrames < 3) break;
-                    if (!ClearLine(server, player.Move.X, player.Move.Z, GiantDistance, out float x, out float z, inView: true)
-                        && !ClearLine(server, player.Move.X, player.Move.Z, GiantDistance, out x, out z)) { Fail("no clear line for the wall breaker at a wall"); return; }
-                    float wx = (player.Move.X + x) * 0.5f, wz = (player.Move.Z + z) * 0.5f;
-                    int tx = (int)MathF.Floor(wx / SimConstants.TileSize), tz = (int)MathF.Floor(wz / SimConstants.TileSize);
-                    _hogWall = server.PutUp(_session.Content.Building("wall_wood"), tx, tz);
-                    var breaker = server.SpawnEnemy(_session.Content.Enemy("wall_breaker"), x, z);
+                    if (!OpenStrip(server, player.Move.X, player.Move.Z, out int tx, out int tz)) { Fail("no strip of open ground for the wall breaker at a wall"); return; }
+                    _hogWall = server.PutUp(_session.Content.Building("wall_wood"), tx + 4, tz, 1);
+                    player.Move.X = BuildRules.TileCentre(tx + 4);
+                    player.Move.Z = BuildRules.TileCentre(tz) - 5f;
+                    var breaker = server.SpawnEnemy(_session.Content.Enemy("wall_breaker"), BuildRules.TileCentre(tx + 9), BuildRules.TileCentre(tz));
                     if (breaker == null) { Fail("the server would not spawn a wall breaker"); return; }
                     _giant = breaker;
                     player.Hp = player.MaxHp;

@@ -2102,8 +2102,9 @@ e23d8d7 as it was.
       could not carry it: its Build mode wall goes up in the last Prep before its Results. It worked
       as built; nothing in the rebuild had to change.
 - [x] **(b) A Wall Breaker's blast at a wall** (`SmokeDriver.Combat`, steps 13–14). After the one that
-      runs at the host, the full smoke puts a Wooden Wall 5 m from the host and a second Wall Breaker
-      10 m off beyond it: it runs at the wall and goes off against it — the wall 150 HP down on both
+      runs at the host, the full smoke puts a Wooden Wall on a strip of open ground (`OpenStrip`, the
+      Tank's too: the host's own spot had a tree's crown filling the view), the host 5 m north of it
+      and a second Wall Breaker 10 m east: it runs at the wall and goes off against it — the wall 150 HP down on both
       ends, the host unhurt, the fireball (`CombatEffects.LastWallBreakerBlast`, counted in
       `WallBreakerBlastsAtConstructs`) drawn within 1.5 m of the wall; with `--shots`:
       `wallbreaker-wall.png`. `tools/smoke.sh` greps for it.
