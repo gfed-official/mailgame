@@ -7,5 +7,9 @@
     "drops": [] },
   { "id": "giant", "name": "Horned Giant", "hp": 400, "damage": 40, "attackRate": 2.0, "attackRange": 2.4, "speed": 3.0,
     "aggroRange": 15, "radius": 0.5, "scale": 1.9, "cost": 60, "unlockShift": 3, "coins": [30, 50],
-    "drops": [{ "item": "stone", "chance": 1.0, "count": 3 }, { "item": "iron_ore", "chance": 1.0, "count": 1 }] }
+    "drops": [{ "item": "stone", "chance": 1.0, "count": 3 }, { "item": "iron_ore", "chance": 1.0, "count": 1 }] },
+  { "id": "archer", "name": "Archer", "hp": 40, "damage": 8, "attackRate": 1.5, "attackRange": 15, "speed": 4.0,
+    "aggroRange": 15, "radius": 0.4, "scale": 1.0, "cost": 15, "unlockShift": 2, "coins": [5, 9],
+    "traits": ["ranged"], "traitParams": { "keepDistance": 10 }, "targetPriority": ["player", "turret"],
+    "drops": [{ "item": "stone", "chance": 0.5, "count": 2 }] }
 ]

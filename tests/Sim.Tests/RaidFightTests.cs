@@ -132,12 +132,13 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
-        public void TwoCarriersInShiftThree_AreDownFourTimesAtMostBetweenThem()
+        public void TwoCarriersInShiftThree_AreDownFiveTimesAtMostBetweenThem()
         {
+            // Four before the Archers (design choice 128) shot at them from 15 m; 1–5 over the seeds since.
             foreach (uint seed in Seeds)
             {
                 var o = Fight(seed, 3, 2, cannon: false, clumsy: true);
-                Assert.True(o.Won && o.Downs <= 4 && o.FastReDowns == 0, $"seed {seed}: won {o.Won}, {o.Downs} downs, {o.FastReDowns} of them within 8 s of standing up");
+                Assert.True(o.Won && o.Downs <= 5 && o.FastReDowns == 0, $"seed {seed}: won {o.Won}, {o.Downs} downs, {o.FastReDowns} of them within 8 s of standing up");
             }
         }
         [Theory]

@@ -14,9 +14,9 @@
   "mega": { "hpMult": 2.5, "dmgMult": 1.5, "scale": 1.4, "speedMult": 0.9, "lootMult": 3 },
   "maxAlive": 48,
   "weightsByShift": {
-    "2": { "barbarian": 60, "swarmling": 40 },
-    "3": { "barbarian": 40, "swarmling": 30, "giant": 15 },
-    "4": { "barbarian": 30, "swarmling": 30, "giant": 15 },
-    "5": { "barbarian": 25, "swarmling": 30, "giant": 15 }
+    "2": { "barbarian": 60, "swarmling": 40, "archer": 30 },
+    "3": { "barbarian": 40, "swarmling": 30, "archer": 30, "giant": 15 },
+    "4": { "barbarian": 30, "swarmling": 30, "archer": 25, "giant": 15 },
+    "5": { "barbarian": 25, "swarmling": 30, "archer": 20, "giant": 15 }
   }
 }

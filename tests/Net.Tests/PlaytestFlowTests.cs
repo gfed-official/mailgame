@@ -305,8 +305,9 @@ namespace PerformativeMail.Net.Tests
 
             // The raiders are on the street; one package down it, by the guest's own trigger.
             s.Step(5 * 30);
-            while (server.Enemies.Count == 0) s.Step(1);
-            var raider = server.Enemies[0];
+            // One who stands to be hit: an Archer backs off from a carrier 8 m off.
+            while (!server.Enemies.Any(e => !e.Def.Ranged)) s.Step(1);
+            var raider = server.Enemies.First(e => !e.Def.Ranged);
             truth.Move.X = raider.X - 8f;
             truth.Move.Z = raider.Z;
             s.Step(10);

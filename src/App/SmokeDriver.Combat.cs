@@ -23,7 +23,7 @@ namespace PerformativeMail.App
         private const int CombatStepFrames = 400;
         private const float RaiderDistance = 2.2f, GiantDistance = 10f;
 
-        private int _fightStep, _fightFrames;
+        private int _fightStep, _fightFrames, _fightArrows;
         private Enemy _raider = null!, _giant = null!;
         private int _fightKills, _fightSwings, _fightShots, _fightBlasts, _fightWallet, _raiderCoins;
         /// <summary>When the raider fell (ms): the hammer comes up in real time, the fight runs at fixed ticks a frame, so it gets half a second.</summary>
@@ -268,6 +268,45 @@ namespace PerformativeMail.App
                     break;
 
                 case 8:
+                {
+                    // An Archer (doc 05 §2) 12 m down the street shoots from there: an arrow drawn, the carrier hurt.
+                    if (_fightFrames < 3) break;
+                    if (!ClearLine(server, player.Move.X, player.Move.Z, 12f, out float x, out float z)) { Fail("no clear line for the archer"); return; }
+                    var archer = server.SpawnEnemy(_session.Content.Enemy("archer"), x, z);
+                    if (archer == null) { Fail("the server would not spawn an archer"); return; }
+                    _giant = archer;
+                    player.Hp = player.MaxHp;
+                    _fightArrows = _screen.Effects.ArrowsDrawn;
+                    NextFightStep();
+                    break;
+                }
+
+                case 9:
+                {
+                    var seen = Seen(world, _giant);
+                    if (seen != null) AimAt(seen.X, seen.Z, InputButtons.None);
+                    if (seen == null || world.LocalHp >= world.LocalMaxHp || _screen.Effects.ArrowsDrawn == _fightArrows) break;
+                    Check(_screen.Enemies.ModelOf((ushort)_giant.Id.Value) == "Archer", $"the archer is drawn as {_screen.Enemies.ModelOf((ushort)_giant.Id.Value)}");
+                    Check(world.LocalMaxHp - world.LocalHp == _giant.Damage, $"an arrow took {world.LocalMaxHp - world.LocalHp:0} health, not {_giant.Damage:0}");
+                    float off = MathF.Sqrt((_giant.X - player.Move.X) * (_giant.X - player.Move.X) + (_giant.Z - player.Move.Z) * (_giant.Z - player.Move.Z));
+                    Check(off > 9.5f, $"the archer shot from {off:0.0} m");
+                    Shot("archer");
+                    GD.Print($"[smoke] combat: an archer shot the host from {off:0.0} m, {_screen.Effects.ArrowsDrawn - _fightArrows} arrows drawn");
+                    server.DamageEnemy(_giant, 9999f, player);
+                    NextFightStep();
+                    break;
+                }
+
+                case 10:
+                    // What it dropped is walked over.
+                    WalkToLoot(world);
+                    if (server.Loot.Count > 0 || world.Loot.Count > 0) break;
+                    client.Input.MoveX = 0f;
+                    client.Input.MoveZ = 0f;
+                    NextFightStep();
+                    break;
+
+                case 11:
                     // Nothing is left behind: no enemy, no body on screen, no loot.
                     if (world.Enemies.Count > 0 || _screen.Enemies.ViewCount > 0 || _screen.Effects.LootViewCount > 0) break;
                     Check(_sawEnemyView, "no enemy was ever drawn");
@@ -276,7 +315,7 @@ namespace PerformativeMail.App
                     Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"after the fight: {client.ContainerDesyncs} desyncs, {client.BadPackets} bad packets");
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"in the fight the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
-                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled; "
+                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow taken; "
                         + $"loot +{HudText.Gold(server.Economy.Wallet - _fightWallet)}; health {hud.HealthText}");
                     client.Input.Buttons = InputButtons.None;
                     StartBag();

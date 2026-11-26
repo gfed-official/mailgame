@@ -1016,7 +1016,7 @@ namespace PerformativeMail.Client
         private void Reconcile(ClientWorld world, SnapshotMsg m)
         {
             float beforeX = world.Local.X, beforeZ = world.Local.Z;
-            bool hadLocal = world.HasLocal;
+            bool hadLocal = world.HasLocal, wasDead = world.Local.Dead;
             ushort yaw = world.Local.Yaw;
 
             int acked = 0;
@@ -1032,7 +1032,8 @@ namespace PerformativeMail.Client
             foreach (var input in _pendingInputs)
                 PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs);
 
-            if (!hadLocal) return;
+            // Going down or standing up again at the Post Office is the server's word, not a misprediction.
+            if (!hadLocal || wasDead || world.Local.Dead) return;
             double dx = world.Local.X - beforeX, dz = world.Local.Z - beforeZ;
             double errSq = dx * dx + dz * dz;
             _errorSumSq += errSq;

@@ -453,8 +453,38 @@ namespace PerformativeMail.Sim.Content
                                 drops.Add(new EnemyDrop(itemDef, (int)Math.Round(chance * 1000), count));
                             }
                         }
+                        var traits = EnemyTraits.None;
+                        foreach (string t in J.StrArray(ctx, e, "traits", optional: true))
+                        {
+                            int bit = Array.IndexOf(EnemyDef.TraitNames, t);
+                            if (bit < 0) ctx.Error($"'{id}': unknown trait '{t}' (the set is {string.Join(", ", EnemyDef.TraitNames)})");
+                            else traits |= (EnemyTraits)(1 << bit);
+                        }
+                        var priority = new List<EnemyTarget>();
+                        foreach (string t in J.StrArray(ctx, e, "targetPriority", optional: true))
+                        {
+                            int k = Array.IndexOf(EnemyDef.TargetNames, t);
+                            if (k < 0) ctx.Error($"'{id}': unknown target '{t}' in targetPriority (the set is {string.Join(", ", EnemyDef.TargetNames)})");
+                            else if (priority.Contains((EnemyTarget)k)) ctx.Error($"'{id}': '{t}' is twice in targetPriority");
+                            else priority.Add((EnemyTarget)k);
+                        }
+                        if (priority.Count == 0) priority.Add(EnemyTarget.Player);
+                        float keepDistance = 0f;
+                        if (e.TryGetProperty("traitParams", out var traitParams))
+                        {
+                            if (traitParams.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': traitParams must be an object");
+                            else
+                            {
+                                foreach (var param in traitParams.EnumerateObject())
+                                    if (param.Name != "keepDistance") ctx.Error($"'{id}': unknown trait param '{param.Name}'");
+                                keepDistance = (float)J.Num(ctx, traitParams, "keepDistance", 0);
+                            }
+                        }
                         var def = new EnemyDef
                         {
+                            Traits = traits,
+                            TargetPriority = priority,
+                            KeepDistance = keepDistance,
                             Id = id,
                             Index = (byte)list.Count,
                             Name = J.Str(ctx, e, "name"),
@@ -481,6 +511,11 @@ namespace PerformativeMail.Sim.Content
                             ctx.Error($"'{def.Id}': radius must be in (0, {WorldMap.WalkerReach}] (the widest body the props are indexed for)");
                         if (def.Scale <= 0) ctx.Error($"'{def.Id}': scale must be > 0");
                         if (def.Cost <= 0) ctx.Error($"'{def.Id}': cost must be > 0");
+                        // Doc 05 §2 Archer: "Ranged 15 m. Keeps 10 m distance".
+                        if (def.Ranged && (def.KeepDistance <= 0 || def.KeepDistance >= def.AttackRange))
+                            ctx.Error($"'{def.Id}': a ranged enemy needs traitParams.keepDistance in (0, attackRange)");
+                        if (!def.Ranged && def.KeepDistance != 0) ctx.Error($"'{def.Id}': keepDistance is for a ranged enemy");
+                        if (def.AggroRange < def.AttackRange) ctx.Error($"'{def.Id}': aggroRange must be at least its attackRange");
                         if (def.CoinsMin < 0 || def.CoinsMax < def.CoinsMin) ctx.Error($"'{def.Id}': coins must be [min, max] with 0 <= min <= max");
                         // The snapshot packs the kind into four bits.
                         if (list.Count >= 16) { ctx.Error($"'{def.Id}': more than 16 enemy kinds"); continue; }

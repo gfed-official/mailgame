@@ -475,6 +475,7 @@ namespace PerformativeMail.Sim
                     {
                         if (Tick < e.StateEndTick) break;
                         e.State = EnemyState.Chase;
+                        if (e.Def.Ranged) { Loose(e); break; }
                         if (e.StrikeTx >= 0)
                         {
                             var built = Constructs.At(e.StrikeTx, e.StrikeTz);
@@ -495,7 +496,8 @@ namespace PerformativeMail.Sim
                         break;
                     }
                     default:
-                        StepChase(e, dt);
+                        if (e.Def.Ranged) StepRanged(e, dt);
+                        else StepChase(e, dt);
                         break;
                 }
             }
@@ -546,13 +548,14 @@ namespace PerformativeMail.Sim
             foreach (var e in _enemies)
             {
                 e.Waiting = false;
-                var target = e.State == EnemyState.Flee ? null : GetPlayer(e.Target);
+                // One who shoots from afar takes nobody's place at the carrier.
+                var target = e.State == EnemyState.Flee || e.Def.Ranged ? null : GetPlayer(e.Target);
                 if (target == null) continue;
                 float own = DistanceSq(e, target);
                 int nearer = 0;
                 foreach (var other in _enemies)
                 {
-                    if (other == e || other.Target != e.Target || other.State == EnemyState.Flee) continue;
+                    if (other == e || other.Target != e.Target || other.State == EnemyState.Flee || other.Def.Ranged) continue;
                     float d = DistanceSq(other, target);
                     if (d < own || (d == own && other.Id.Value < e.Id.Value)) nearer++;
                 }

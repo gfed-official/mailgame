@@ -159,6 +159,20 @@ namespace PerformativeMail.Sim
         public byte Hits;
     }
 
+    public enum EnemyShotKind : byte { Arrow = 0 }
+
+    /// <summary>
+    /// A raider's shot from afar (doc 05 §2 Archer): from where it stood to where it struck — the
+    /// carrier it was for, or the wall or construct that took it. The clients draw its flight.
+    /// </summary>
+    public sealed class EnemyShotEvent : SimEvent
+    {
+        public EnemyShotKind Kind;
+        public float FromX, FromZ, ToX, ToZ;
+        /// <summary>It struck a construct, not a carrier.</summary>
+        public bool AtConstruct;
+    }
+
     /// <summary>An enemy fell. The snapshots simply stop listing it; this is for the effect and the loot card.</summary>
     public sealed class EnemyDiedEvent : SimEvent
     {

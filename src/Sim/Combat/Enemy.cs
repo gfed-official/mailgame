@@ -62,6 +62,10 @@ namespace PerformativeMail.Sim.Combat
         public int StrikeTx = -1, StrikeTz;
         /// <summary>The way in it came by (an index into the map's spawn edges): where it holds its line and where it flees to.</summary>
         public int Edge;
+        /// <summary>The tile of the construct it goes for (its targetPriority), −1 for none.</summary>
+        public int GoalTx = -1, GoalTz;
+        /// <summary>Ranged: the tick it began backing off from a carrier too near; 0 when it is not.</summary>
+        public uint BackingSince;
 
         /// <summary>Health as the snapshot carries it: 1..255.</summary>
         public byte HpByte => (byte)System.Math.Clamp((int)System.MathF.Ceiling(Hp / MaxHp * 255f), 1, 255);

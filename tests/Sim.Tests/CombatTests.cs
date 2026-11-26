@@ -89,7 +89,7 @@ namespace PerformativeMail.Sim.Tests
         [Fact]
         public void ContentHasTheThreeRaidersOfTheVideo_AndAWaveTable()
         {
-            Assert.Equal(new[] { "barbarian", "swarmling", "giant" }, Db.Enemies.Select(e => e.Id));
+            Assert.Equal(new[] { "barbarian", "swarmling", "giant", "archer" }, Db.Enemies.Select(e => e.Id));
             for (int i = 0; i < Db.Enemies.Count; i++) Assert.Equal(i, Db.Enemies[i].Index);
             var giant = Db.Enemy("giant");
             Assert.Equal(400f, giant.Hp);

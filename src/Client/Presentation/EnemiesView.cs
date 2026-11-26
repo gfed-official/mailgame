@@ -34,6 +34,9 @@ namespace PerformativeMail.Client.Presentation
         }
 
         public int ViewCount => _views.Count;
+
+        /// <summary>The name of the model an enemy is drawn as ("Archer"); null for one not drawn.</summary>
+        public string? ModelOf(ushort id) => _views.TryGetValue(id, out var view) ? view.Model.Name : null;
         /// <summary>How many raiders wear the Alarm Posts' mark as of the last frame.</summary>
         public int MarksShown { get; private set; }
 

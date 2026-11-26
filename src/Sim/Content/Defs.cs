@@ -490,9 +490,45 @@ namespace PerformativeMail.Sim.Content
         public EnemyDrop(ItemDef item, int chancePermille, int count) { Item = item; ChancePermille = chancePermille; Count = count; }
     }
 
-    /// <summary>Enemy definition (doc 08 §2.10); the fields the ground melee enemies need.</summary>
+    /// <summary>Doc 08 §2.10 "traits": the closed set of how an enemy behaves beyond walking up and hitting.</summary>
+    [Flags]
+    public enum EnemyTraits : ushort
+    {
+        None = 0,
+        Swarm = 1 << 0,
+        /// <summary>Shoots from afar (doc 05 §2 Archer): keeps its distance, backs off from a carrier coming close.</summary>
+        Ranged = 1 << 1,
+        Siege = 1 << 2,
+        Suicide = 1 << 3,
+        JumpsWalls = 1 << 4,
+        StealsItems = 1 << 5,
+        Airborne = 1 << 6,
+        PushesConstructs = 1 << 7,
+        FleesPlayers = 1 << 8,
+    }
+
+    /// <summary>Doc 08 §2.10 "targetPriority": a class of what an enemy goes for.</summary>
+    public enum EnemyTarget : byte
+    {
+        Player = 0,
+        Turret = 1,
+        Wall = 2,
+        Gate = 3,
+        Belt = 4,
+        Sorter = 5,
+        VehicleDepot = 6,
+        Chest = 7,
+        AnyConstruct = 8,
+    }
+
+    /// <summary>Enemy definition (doc 08 §2.10).</summary>
     public sealed class EnemyDef
     {
+        /// <summary>The traits' names in content, in the order of <see cref="EnemyTraits"/>' bits.</summary>
+        public static readonly string[] TraitNames = { "swarm", "ranged", "siege", "suicide", "jumps_walls", "steals_items", "airborne", "pushes_constructs", "flees_players" };
+        /// <summary>The target classes' names in content, in the order of <see cref="EnemyTarget"/>.</summary>
+        public static readonly string[] TargetNames = { "player", "turret", "wall", "gate", "belt", "sorter", "vehicle_depot", "chest", "any_construct" };
+
         public string Id { get; init; } = "";
         public byte Index { get; init; }
         public string Name { get; init; } = "";
@@ -512,6 +548,27 @@ namespace PerformativeMail.Sim.Content
         public int CoinsMin { get; init; }
         public int CoinsMax { get; init; }
         public IReadOnlyList<EnemyDrop> Drops { get; init; } = Array.Empty<EnemyDrop>();
+        public EnemyTraits Traits { get; init; }
+        /// <summary>What it goes for, the first class with one in its aggro range first; a carrier only if none is given.</summary>
+        public IReadOnlyList<EnemyTarget> TargetPriority { get; init; } = new[] { EnemyTarget.Player };
+        /// <summary>Ranged: how near it lets a carrier come before it backs off (traitParams.keepDistance).</summary>
+        public float KeepDistance { get; init; }
+
+        public bool Ranged => (Traits & EnemyTraits.Ranged) != 0;
+
+        /// <summary>Whether a construct of <paramref name="building"/> is of the target class <paramref name="target"/>.</summary>
+        public static bool IsOf(EnemyTarget target, BuildingDef building) => target switch
+        {
+            EnemyTarget.Turret => building.Behaviour == BuildingBehaviour.Turret,
+            EnemyTarget.Wall => building.Behaviour == BuildingBehaviour.Wall,
+            EnemyTarget.Gate => building.Behaviour == BuildingBehaviour.Gate,
+            EnemyTarget.Belt => building.Behaviour == BuildingBehaviour.Belt,
+            EnemyTarget.Sorter => building.Behaviour == BuildingBehaviour.Sorter,
+            EnemyTarget.VehicleDepot => building.Behaviour == BuildingBehaviour.VehicleDepot,
+            EnemyTarget.Chest => building.Behaviour == BuildingBehaviour.Container,
+            EnemyTarget.AnyConstruct => true,
+            _ => false,
+        };
     }
 
     /// <summary>Raid schedule and budget (doc 08 §2.11, doc 05 §3).</summary>

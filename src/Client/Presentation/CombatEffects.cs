@@ -63,6 +63,20 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Those of them that hurt at least one raider.</summary>
         public int BlastsThatHit { get; private set; }
         public int LootViewCount => _loot.Count;
+        /// <summary>Raiders' arrows drawn so far, and in the air right now (doc 05 §2 Archer).</summary>
+        public int ArrowsDrawn { get; private set; }
+        public int ArrowsFlying => _arrows.Count;
+
+        /// <summary>An arrow from an Archer, flying to where the server says it struck.</summary>
+        private sealed class Arrow
+        {
+            public Node3D Node = null!;
+            public Vector3 From, To;
+            public float Age, Life;
+        }
+
+        private const float ArrowSpeed = 32f;
+        private readonly List<Arrow> _arrows = new List<Arrow>();
         /// <summary>Death bags drawn in the world right now.</summary>
         public int BagViewCount => _bags.Count;
 
@@ -118,6 +132,9 @@ namespace PerformativeMail.Client.Presentation
                     Blast(new Vector3(e.X, 0.7f, e.Z));
                     if (e.Hits > 0) BlastsThatHit++;
                     break;
+                case EnemyShotEvent e when e.Kind == EnemyShotKind.Arrow:
+                    Loose(new Vector3(e.FromX, Height(e.FromX, e.FromZ) + 1.45f, e.FromZ), new Vector3(e.ToX, Height(e.ToX, e.ToZ) + (e.AtConstruct ? 0.9f : 1.25f), e.ToZ));
+                    break;
                 case EnemyDiedEvent e:
                     Puff(new Vector3(e.X, 0.8f, e.Z), e.Mega ? 9 : 5, new Color("b9a892"), 0.45f);
                     break;
@@ -135,9 +152,49 @@ namespace PerformativeMail.Client.Presentation
             SyncLoot(world, dt);
             SyncBags(world);
             StepShots(dt);
+            StepArrows(dt);
             StepFlashes(dt);
             StepParticles(dt);
             StepCoins(dt);
+        }
+
+        // --- arrows -------------------------------------------------------------------------------
+
+        private float Height(float x, float z) => _client.World?.Map.HeightAt(x, z) ?? 0f;
+
+        private void Loose(Vector3 from, Vector3 to)
+        {
+            var arrow = new Node3D { Name = "Arrow" };
+            var wood = MeshKit.Mat(new Color("8a5a32"), 0.7f);
+            arrow.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.03f, 0.03f, 0.75f)), wood, Vector3.Zero));
+            arrow.AddChild(MeshKit.Instance(MeshKit.Cone(0.035f, 0.1f, 6), MeshKit.Mat(new Color("8b9099"), 0.4f, 0.7f), new Vector3(0f, 0f, -0.42f), new Vector3(-90f, 0f, 0f)));
+            arrow.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.01f, 0.08f, 0.14f)), MeshKit.Mat(new Color("e9dfc8"), 0.7f), new Vector3(0f, 0f, 0.33f)));
+            arrow.Position = from;
+            AddChild(arrow);
+            _arrows.Add(new Arrow { Node = arrow, From = from, To = to, Life = Mathf.Max(0.12f, from.DistanceTo(to) / ArrowSpeed) });
+            ArrowsDrawn++;
+        }
+
+        private void StepArrows(float dt)
+        {
+            for (int i = _arrows.Count - 1; i >= 0; i--)
+            {
+                var a = _arrows[i];
+                a.Age += dt;
+                if (a.Age >= a.Life)
+                {
+                    Spark(a.To);
+                    a.Node.QueueFree();
+                    _arrows.RemoveAt(i);
+                    continue;
+                }
+                // A low arc, pointing along its flight.
+                float t = a.Age / a.Life, rise = a.From.DistanceTo(a.To) * 0.06f;
+                var at = a.From.Lerp(a.To, t) + Vector3.Up * (4f * rise * t * (1f - t));
+                var ahead = a.From.Lerp(a.To, Mathf.Min(1f, t + 0.05f)) + Vector3.Up * (4f * rise * (t + 0.05f) * (1f - t - 0.05f));
+                a.Node.Position = at;
+                if (ahead.DistanceSquaredTo(at) > 1e-6f) a.Node.LookAt(ahead, Vector3.Up);
+            }
         }
 
         // --- the cannon -------------------------------------------------------------------------

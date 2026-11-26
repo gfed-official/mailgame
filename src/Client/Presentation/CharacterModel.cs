@@ -145,6 +145,7 @@ namespace PerformativeMail.Client.Presentation
         private static readonly Color RaiderRed = new Color("7d2227");
         private static readonly Color SwarmRed = new Color("d8402f");
         private static readonly Color GiantHide = new Color("4b3d5c");
+        private static readonly Color ArcherGreen = new Color("3f5a34");
 
         /// <summary>A mail carrier: jacket and cap in the player's colour, satchel on the hip.</summary>
         public static CharacterModel Carrier(Color colour)
@@ -178,6 +179,7 @@ namespace PerformativeMail.Client.Presentation
             {
                 case "swarmling": return Swarmling(mega);
                 case "giant": return Giant(mega);
+                case "archer": return Archer(mega);
                 default: return Raider(mega);
             }
         }
@@ -204,6 +206,40 @@ namespace PerformativeMail.Client.Presentation
             var wood = MeshKit.Mat(new Color("6b4a2e"), 0.9f);
             m.Part(m.Hand, MeshKit.Cylinder(0.035f, 0.075f, 0.8f, 12), wood, new Vector3(0f, 0.05f, -0.3f), new Vector3(-80f, 0f, 0f));
             m.Part(m.Hand, MeshKit.Sphere(0.08f, 12), wood, new Vector3(0f, 0.12f, -0.7f));
+            return m;
+        }
+
+        /// <summary>
+        /// The Archer (doc 05 §2): a lean raider in a hooded green cloak with a quiver on the back
+        /// and a long bow in the hand, so it reads apart from the clubs at a distance.
+        /// </summary>
+        public static CharacterModel Archer(bool mega)
+        {
+            var m = new CharacterModel { Name = "Archer", Height = 1.85f, RaisedArm = 1.6f };
+            var cloak = MeshKit.Mat(ArcherGreen, 0.9f);
+            var skin = MeshKit.Mat(new Color("c99a7c"), 0.75f);
+            var leather = MeshKit.Mat(Leather, 0.8f);
+            Humanoid(m, cloak, MeshKit.Mat(ArcherGreen.Darkened(0.25f), 0.9f), MeshKit.Mat(new Color("4a3b2a"), 0.9f), skin, MeshKit.Mat(new Color("2a1f1c"), 0.8f), shoulder: 0.32f, torsoRadius: 0.25f, limb: 0.085f);
+
+            // The hood, its point falling back, and a dark face under it.
+            m.Part(m.Trunk, MeshKit.Sphere(0.245f), cloak, new Vector3(0f, 1.68f, 0.03f), scale: new Vector3(1f, 1.05f, 1.05f));
+            m.Part(m.Trunk, MeshKit.Cone(0.12f, 0.3f, 10), cloak, new Vector3(0f, 1.8f, 0.24f), new Vector3(-118f, 0f, 0f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.17f), MeshKit.Mat(new Color("2b2320"), 0.9f), new Vector3(0f, 1.63f, -0.08f), scale: new Vector3(1f, 1f, 0.8f));
+            Eyes(m, new Vector3(0f, 1.65f, -0.22f), 0.06f, 0.025f, mega);
+            // The cloak's hem over the shoulders and down the back.
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.62f, 0.9f, 0.08f), 0.04f), cloak, new Vector3(0f, 1.05f, 0.27f), new Vector3(6f, 0f, 0f));
+            // The quiver, fletchings out of its top.
+            m.Part(m.Trunk, MeshKit.Cylinder(0.08f, 0.07f, 0.6f, 12), leather, new Vector3(0.16f, 1.3f, 0.3f), new Vector3(0f, 0f, -20f));
+            var fletch = MeshKit.Mat(new Color("e9dfc8"), 0.7f);
+            for (int k = 0; k < 3; k++)
+                m.Part(m.Trunk, MeshKit.Box(new Vector3(0.03f, 0.12f, 0.06f)), fletch, new Vector3(0.24f + k * 0.025f, 1.66f, 0.29f + (k - 1) * 0.03f), new Vector3(0f, 0f, -20f));
+
+            // The bow: a curved stave of three pieces and its string, held upright out in front.
+            var wood = MeshKit.Mat(new Color("8a5a32"), 0.7f);
+            m.Part(m.Hand, MeshKit.Cylinder(0.025f, 0.025f, 0.5f, 8), wood, new Vector3(0f, 0f, -0.12f));
+            m.Part(m.Hand, MeshKit.Cylinder(0.02f, 0.025f, 0.45f, 8), wood, new Vector3(0f, 0.43f, -0.04f), new Vector3(-22f, 0f, 0f));
+            m.Part(m.Hand, MeshKit.Cylinder(0.025f, 0.02f, 0.45f, 8), wood, new Vector3(0f, -0.43f, -0.04f), new Vector3(22f, 0f, 0f));
+            m.Part(m.Hand, MeshKit.Cylinder(0.006f, 0.006f, 1.25f, 4), fletch, new Vector3(0f, 0f, 0.05f));
             return m;
         }
 

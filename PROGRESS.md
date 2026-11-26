@@ -1870,6 +1870,37 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             is at it, E again), codec pin; the debug-world smoke takes the range's turret's controls
             through the prompt, holds attack a second on the practice raider (four shots), checks the
             weapons line, the gun drawn manned and the carrier standing, and lets go with E
+- [ ] Enemy traits (doc 05 §2, doc 08 §2.10 `traits`, `traitParams`, `targetPriority`)
+      - [x] **Traits and target priority in content** (design choice 128). `EnemyDef.Traits` (the
+            closed set of doc 08: swarm, ranged, siege, suicide, jumps_walls, steals_items, airborne,
+            pushes_constructs, flees_players), `TargetPriority` (player, turret, wall, gate, belt,
+            sorter, vehicle_depot, chest, any_construct; a carrier only when none is given) and
+            `traitParams.keepDistance`; the validator refuses an unknown trait, target or param, a
+            ranged enemy without a keepDistance under its attackRange, and an aggroRange under the
+            attackRange. `SimWorld.AcquireByPriority`: the first class with one in aggroRange — the
+            nearest valid carrier, or the nearest standing construct of that class
+      - [x] **The Archer** (doc 05 §2 "40 HP, 8 dmg, 1.5 s, 4 m/s, Player > turret > construct;
+            Ranged 15 m. Keeps 10 m distance; retreats from approaching players"; doc 05 §2.2 "2
+            Stone (50%)"; cost 15 from shift 2, weights 30/30/25/20 on shifts 2–5 beside the raiders,
+            swarmlings and giants). `SimWorld.StepRanged`: it walks up to 15 m of its carrier and
+            shoots after the windup, an arrow every 1.5 s (`Loose`); a wall or gate between takes the
+            arrow; a carrier nearer than 10 m it backs off from (straight away, or turned up to 90°
+            round what stands there), still facing them — for 2 s, then it stands and shoots once and
+            backs off again; with no carrier within its 15 m it shoots the nearest turret; it takes
+            no place among the melee raiders at a carrier (`RankAttackers`). `EnemyShotEvent`
+            (protocol `m2.15`) says from where to where an arrow flew; the clients draw it
+            (`CombatEffects`, a shaft with a steel head and white fletching in a low arc at 32 m/s, a
+            spark where it lands). Drawn (`CharacterModel.Archer`): a lean raider in a hooded green
+            cloak, a quiver of arrows on the back, a long bow upright in the hand. `ArcherTests`
+            (content; four arrows in five seconds from 13 m without coming nearer; walks up from 18 m
+            to its reach; backs off 3 m in a second from a carrier at 6 m; shoots a carrier on its
+            heels after 2 s; a Stone Wall takes the arrows; a turret shot at with nobody about; a
+            raider still walks up beside it), codec pin; the full smoke puts an archer 12 m down the
+            street from the host, checks it is drawn as one, its arrow drawn and 8 health gone, and
+            fells it. The M0 prediction-error measure now leaves out the snapshots where the carrier
+            goes down or stands up again (a respawn is the server's word, not a misprediction): with
+            archers about, the acceptance bot is shot down in the raids. `RaidFightTests`' two clumsy
+            carriers in shift 3 may now be down 5 times between them (1–5 over its seeds; 4 before)
 - [ ] Construct damage (doc 05 §5)
       - [x] Item spill (M1: a broken chest's items in a bag that is nobody's, its mail back to the
             Intake when the bag goes; a broken belt's mail back to the Intake)
@@ -1900,8 +1931,8 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
       - [ ] The Post Office's HP (3000, regenerating 5 HP/s in Prep, the run lost at 0)
       - [ ] Damage numbers, health bars over damaged constructs, the HUD's under-attack marker
 
-Next in this order: the enemy traits (doc 05 §2), then the rest of doc 05 §5 (the Post Office's HP,
-health bars and markers).
+Next in this order: the rest of the enemy traits (doc 05 §2: the Wall Breaker's suicide, the Giant's
+siege, …), then the rest of doc 05 §5 (the Post Office's HP, health bars and markers).
 
 ## How to build and check
 
@@ -3172,6 +3203,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the cab's shell is not drawn for whoever is at the wheel (the others see it whole) and the eye
     goes down to 1.6 m, inside it; raising the eye further would have looked over the roof from a
     height no driver sits at. The chassis, lamps, mirrors and the NPC beside stay drawn.
+128. **The Archer's ways.** Doc 05 §2 gives "Player > turret > construct", "Keeps 10 m distance;
+    retreats from approaching players" and no aggroRange. Choice: aggroRange 15 (its reach; the raid
+    line stands 19 m from the pad so that nobody there is fought who did not pick the fight); a
+    carrier first, then the nearest turret in reach; "construct" is left to what blocks its way, as for
+    the raiders (they hold their line otherwise, nit 17). Backing off is straight away from the
+    carrier nearer than 10 m for at most 2 s at a time, then one shot — so a carrier who chases it
+    down is still shot at, and one who stands 10–15 m off is shot every 1.5 s. Arrows always hit
+    what is first on their line (no misses, no dodging): the wall or gate between, else the carrier.
+    The barbarian's doc priority "Nearest of: player, construct" is not applied yet: the raiders
+    keep holding their line until a carrier comes (nit 17).
 
 
 ## Commands

@@ -71,6 +71,7 @@ namespace PerformativeMail.Sim.Net
         TurretFired = 61,
         TurretOperated = 62,
         Ruin = 63,
+        EnemyShot = 64,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -307,6 +308,10 @@ namespace PerformativeMail.Sim.Net
                 case RuinEvent e:
                     w.U8((byte)EventType.Ruin);
                     w.U8(e.X); w.U8(e.Y); w.U8(e.Building); w.U8(e.Rotation); w.Bool(e.Gone); w.Bool(e.Rebuilt); w.U32(e.Player.Value);
+                    break;
+                case EnemyShotEvent e:
+                    w.U8((byte)EventType.EnemyShot);
+                    w.U8((byte)e.Kind); w.F32(e.FromX); w.F32(e.FromZ); w.F32(e.ToX); w.F32(e.ToZ); w.Bool(e.AtConstruct);
                     break;
                 case TurretOperatedEvent e:
                     w.U8((byte)EventType.TurretOperated);
@@ -561,6 +566,8 @@ namespace PerformativeMail.Sim.Net
                     return new TurretFiredEvent { X = r.U8(), Y = r.U8(), TargetX = r.F32(), TargetZ = r.F32() };
                 case EventType.Ruin:
                     return new RuinEvent { X = r.U8(), Y = r.U8(), Building = r.U8(), Rotation = r.U8(), Gone = r.Bool(), Rebuilt = r.Bool(), Player = new EntityId(r.U32()) };
+                case EventType.EnemyShot:
+                    return new EnemyShotEvent { Kind = (EnemyShotKind)r.U8(), FromX = r.F32(), FromZ = r.F32(), ToX = r.F32(), ToZ = r.F32(), AtConstruct = r.Bool() };
                 case EventType.TurretOperated:
                     return new TurretOperatedEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()) };
                 case EventType.MailWaiting:
