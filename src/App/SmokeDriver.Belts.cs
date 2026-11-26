@@ -26,6 +26,7 @@ namespace PerformativeMail.App
     {
         private const int BeltLine = 5;
         private int _beltStep, _beltFrames, _beltVisits, _beltDelivered, _pipeHold;
+        private PerformativeMail.Client.InputHandling.PlayerInputController? _tapKeys;
         private int _beltX0, _beltZ0, _beltX1, _beltZ1, _beltDest = -1;
         /// <summary>Interact held at the line (doc 04 §2.1 pushing a belt); where the ride began.</summary>
         private bool _beltPushing;
@@ -1057,6 +1058,38 @@ namespace PerformativeMail.App
                     float ahead = cab.X * world.Local.HeadX + cab.Z * world.Local.HeadZ;
                     Check(Mathf.Abs(ahead - FirstPersonCamera.CabEyeForward) < 0.05f && Mathf.Abs(cab.Y - FirstPersonCamera.CabEyeHeight) < 0.05f,
                         $"at the truck's wheel the eyes are {ahead:0.00} m ahead and {cab.Y:0.00} m up, not in the cab");
+                    // Playtest f5813b5: nothing of the truck hides the road within 4 m ahead, looking ahead or down.
+                    // Looking down the truck's way, a little down and then level (the picture of the cab's view).
+                    client.Input.YawRadians = MathF.Atan2(-world.Local.HeadX, -world.Local.HeadZ);
+                    _screen.Vehicles._Process(0.0);
+                    foreach (float look in new[] { -0.2f, 0f })
+                    {
+                        client.Input.PitchRadians = look;
+                        _screen.Camera.Sync();
+                        var blocking = _screen.Vehicles.PartsBlockingNearView(world.LocalRide!.Id, _screen.Camera);
+                        Check(blocking.Count == 0, $"at the truck's wheel {blocking.Count} of its parts hide the road ahead (pitch {look:0.00}): {string.Join("; ", blocking)}");
+                    }
+                    Shot("truck-cab");
+                    // Playtest f5813b5: Space pressed and let go between two frames, through the real
+                    // controller, gets the driver off (polling never saw such a tap held).
+                    _tapKeys = new PerformativeMail.Client.InputHandling.PlayerInputController { Name = "SmokeTapKeys" };
+                    _tapKeys.Setup(client, _session.Interaction, _screen.Mouse, _session.Build);
+                    _tapKeys.InventoryToggled += () => { };
+                    AddChild(_tapKeys);
+                    _tapKeys._UnhandledInput(new InputEventKey { PhysicalKeycode = Key.Space, Keycode = Key.Space, Pressed = true });
+                    _tapKeys._UnhandledInput(new InputEventKey { PhysicalKeycode = Key.Space, Keycode = Key.Space, Pressed = false });
+                    _beltStep = 77;
+                    _beltFrames = 0;
+                    break;
+                }
+
+                case 77:
+                {
+                    var player = server.GetPlayer(world.LocalId)!;
+                    if ((world.Local.Riding || player.Move.Riding) && _beltFrames < 60) break;
+                    Check(!world.Local.Riding && !player.Move.Riding, "a quick tap of Space did not get the host off the truck");
+                    _tapKeys?.QueueFree();
+                    _tapKeys = null;
                     // Off again, and the truck, the belts and what it held go.
                     var truck = server.Vehicles.First(v => v.Def.Id == "mail_truck");
                     Check(server.RemoveVehicle(truck), "the truck was not taken away");

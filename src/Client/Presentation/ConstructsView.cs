@@ -172,7 +172,7 @@ namespace PerformativeMail.Client.Presentation
             // A turret's gun turns on the raider it last shot at, or the nearest one in its range;
             // a shot is a muzzle flash and a tracer to where the raider stood, for a tenth of a second.
             // A gun with a carrier at its controls points where they look (design choice 125).
-            int aiming = 0, manned = 0;
+            int aiming = 0, manned = 0, tracers = 0;
             foreach (var g in _guns)
             {
                 var c = g.Built;
@@ -204,6 +204,7 @@ namespace PerformativeMail.Client.Presentation
                 bool flash = recent && world.ServerTick - shot.Tick < SimConstants.TickRate * 0.1;
                 g.Flash.Visible = flash;
                 g.Tracer.Visible = flash;
+                if (flash) tracers++;
                 if (flash)
                 {
                     var muzzle = g.Head.GlobalPosition + new Vector3(Mathf.Sin(g.Yaw), 0f, Mathf.Cos(g.Yaw)) * TurretMuzzle;
@@ -220,6 +221,7 @@ namespace PerformativeMail.Client.Presentation
             }
             TurretsAiming = aiming;
             TurretsManned = manned;
+            TracersShown = tracers;
         }
 
         /// <summary>Ruins drawn at the last redraw of what is built.</summary>
@@ -227,6 +229,8 @@ namespace PerformativeMail.Client.Presentation
 
         /// <summary>Turrets drawn pointing where a carrier at their controls looks, as of the last frame.</summary>
         public int TurretsManned { get; private set; }
+        /// <summary>Turrets whose tracer is drawn this frame.</summary>
+        public int TracersShown { get; private set; }
 
         /// <summary>The facing of whoever holds the turret's controls; false if nobody does.</summary>
         private static bool OperatorYaw(ClientWorld world, Construct c, out float yaw)

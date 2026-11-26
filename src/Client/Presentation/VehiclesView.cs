@@ -37,6 +37,8 @@ namespace PerformativeMail.Client.Presentation
             /// <summary>A truck's NPC driver (doc 04 §3.2), and the cab's side windows, rolled down beside whoever sits there.</summary>
             public Node3D? Driver;
             public Node3D? LeftWindow, RightWindow;
+            /// <summary>A truck's cab: its roof, sides, windscreen and windows, not drawn for the one at its wheel.</summary>
+            public Node3D? CabShell;
         }
 
         private readonly Dictionary<EntityId, Drawn> _drawn = new Dictionary<EntityId, Drawn>();
@@ -56,6 +58,42 @@ namespace PerformativeMail.Client.Presentation
         }
 
         public override void _Process(double delta) => Sync(delta);
+
+        /// <summary>
+        /// The parts of a vehicle drawn in <paramref name="camera"/>'s view below its horizon and within
+        /// <paramref name="reach"/> m ahead — what would hide the near road from its driver (playtest f5813b5).
+        /// The view is the camera's at 16:9, whatever the (headless) window is.
+        /// </summary>
+        public List<string> PartsBlockingNearView(EntityId id, Camera3D camera, float reach = 4f)
+        {
+            var blocking = new List<string>();
+            if (!_drawn.TryGetValue(id, out var d)) return blocking;
+            var eye = camera.GlobalPosition;
+            var toView = camera.GlobalTransform.AffineInverse();
+            float tanV = Mathf.Tan(Mathf.DegToRad(camera.Fov) * 0.5f), tanH = tanV * 16f / 9f;
+            bool InView(Vector3 p)
+            {
+                var v = toView * p;
+                return -v.Z > 0.05f && Mathf.Abs(v.Y) <= -v.Z * tanV && Mathf.Abs(v.X) <= -v.Z * tanH;
+            }
+            foreach (var mesh in d.Root.FindChildren("*", nameof(MeshInstance3D), true, false))
+            {
+                var m = (MeshInstance3D)mesh;
+                if (!m.IsVisibleInTree()) continue;
+                // Its corners, the middles of its edges and faces, and its middle, where it is turned;
+                // a lamp or a mirror at the edge of the view hides nothing.
+                var box = m.GetAabb();
+                if (Mathf.Max(box.Size.X * m.Scale.X, Mathf.Max(box.Size.Y * m.Scale.Y, box.Size.Z * m.Scale.Z)) < 0.3f) continue;
+                bool seen = false;
+                for (int k = 0; k < 27 && !seen; k++)
+                {
+                    var p = m.GlobalTransform * (box.Position + box.Size * new Vector3(k % 3, k / 3 % 3, k / 9) * 0.5f);
+                    seen = p.Y < eye.Y && p.DistanceTo(eye) < reach && InView(p);
+                }
+                if (seen) blocking.Add($"{m.GetParent().Name}/{m.Name} {m.GlobalTransform * box.GetCenter() - eye:0.00}");
+            }
+            return blocking;
+        }
 
         /// <summary>Where a vehicle is drawn right now; false for one that is not.</summary>
         public bool TryGetPosition(EntityId id, out Vector3 position)
@@ -125,6 +163,8 @@ namespace PerformativeMail.Client.Presentation
                         d.LeftWindow!.Visible = !(v.NpcAboard && !beside);
                         d.RightWindow!.Visible = !(v.NpcAboard && beside);
                     }
+                    // Playtest f5813b5: from the seat the cab's roof hid the road ahead; whoever sits in it looks out over the chassis.
+                    if (d.CabShell != null) d.CabShell.Visible = !(v.Ridden && v.Rider == world.LocalId && world.Local.Riding);
                     shown++;
                     if (v.Ridden) ridden++;
                 }
@@ -396,13 +436,15 @@ namespace PerformativeMail.Client.Presentation
             root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w, 0.22f, 0.16f), 0.06f), trim, new Vector3(0f, 0.42f, half - 0.02f)));
             // The cab, its bonnet and windscreen.
             float cabLen = 1.25f, cabZ = -half + cabLen * 0.5f;
-            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w, 1.15f, cabLen), 0.18f), body, new Vector3(0f, 1.15f, cabZ)));
-            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w - 0.2f, 0.5f, 0.06f), 0.04f), glass, new Vector3(0f, 1.42f, -half + 0.02f), new Vector3(-12f, 0f, 0f)));
+            var shell = new Node3D { Name = "CabShell" };
+            root.AddChild(shell);
+            shell.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w, 1.15f, cabLen), 0.18f), body, new Vector3(0f, 1.15f, cabZ)));
+            shell.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(w - 0.2f, 0.5f, 0.06f), 0.04f), glass, new Vector3(0f, 1.42f, -half + 0.02f), new Vector3(-12f, 0f, 0f)));
             var windows = new Node3D[2];
             foreach (float side in new[] { -1f, 1f })
             {
                 var window = MeshKit.Instance(MeshKit.Box(new Vector3(0.04f, 0.42f, 0.7f)), glass, new Vector3(side * (w * 0.5f + 0.005f), 1.4f, cabZ - 0.05f));
-                root.AddChild(window);
+                shell.AddChild(window);
                 windows[side < 0f ? 0 : 1] = window;
                 root.AddChild(MeshKit.Instance(MeshKit.Sphere(0.08f, 12), MeshKit.Glow(Lamp, 1.8f), new Vector3(side * (w * 0.5f - 0.25f), 0.75f, -half - 0.02f)));
                 root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.08f, 0.12f, 0.18f), 0.03f), trim, new Vector3(side * (w * 0.5f + 0.06f), 1.45f, -half + 0.25f)));
@@ -438,7 +480,7 @@ namespace PerformativeMail.Client.Presentation
             driver.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.22f, 0.025f, 0.14f)), MeshKit.Mat(VanTrim, 0.6f), new Vector3(0f, 1.72f, cabZ - 0.04f)));
             return new Drawn
             {
-                Root = root, FrontWheel = front, RearWheel = rear, WheelRadius = TruckWheel, Driver = driver, LeftWindow = windows[0], RightWindow = windows[1],
+                Root = root, FrontWheel = front, RearWheel = rear, WheelRadius = TruckWheel, Driver = driver, LeftWindow = windows[0], RightWindow = windows[1], CabShell = shell,
             };
         }
 

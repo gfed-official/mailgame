@@ -97,9 +97,10 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>
         /// Playtest 346eb3e: at the wheel of a long vehicle (the Mail Truck) the eyes are in its cab,
         /// over the bonnet and a little higher, not in the middle of the body where its cargo box
-        /// stood in front of them.
+        /// stood in front of them. Playtest f5813b5: the cab's roof then hid the near road, so the eyes
+        /// sit in the cab at a driver's height and the cab's shell is not drawn for its driver.
         /// </summary>
-        public const float CabEyeForward = 1.15f, CabEyeHeight = 1.8f;
+        public const float CabEyeForward = 1.15f, CabEyeHeight = 1.6f;
 
         /// <summary>Where the camera belongs for the local player whose feet are at <paramref name="feet"/>: the eyes, or a truck's cab.</summary>
         public static Vector3 EyePosition(Vector3 feet, ClientWorld? world)

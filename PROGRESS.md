@@ -713,6 +713,32 @@ before that had the ENet guest time out joining while the box was loaded; the ne
   there" on one's own tile) are as designed; nothing in the Map pings, the Oil Pump, the sea path,
   the Vehicle Depot, drivers, the truck, pipes, inserters or belts needed fixing beyond these.
 
+### 2q. Playtest nits of the f5813b5 report (`mailgame-harness/results/20261125-140250-f5813b5/report.md`, 2026-11-25)
+
+- [x] **The truck's cab hid the near road** (nit 2, check 5b). The eyes sat at 1.8 m, just over the
+      cab's roof (its top at 1.73 m), so the roof filled the lower 40 % of the view. Now the cab's
+      shell — roof, sides, windscreen, side windows — is one node (`VehiclesView` `CabShell`) not
+      drawn for the one at its wheel, and the eyes sit at a driver's 1.6 m (`CabEyeHeight`); what is
+      left in front is the chassis, bumper and lamps, below the view. `VehiclesView.PartsBlockingNearView`
+      counts the truck's parts (bigger than 0.3 m) seen within 4 m ahead and below the eyes in a 16:9
+      view; the smoke checks it is none looking down the truck's way level and 11° down, and with
+      `--shots` saves `truck-cab.png` (design choice 127)
+- [x] **F10 "Inserter and chest" was half a house roof** (nit 1). Its eye stood against 1 Cobble
+      Hill's west wall; it is now at (78, 6.5, 31) looking at (71, 0.5, 22), from the south-east over
+      the chest and the inserter to the mailbox and the house behind. The debug-world smoke now casts
+      a 12 × 7 grid of rays through each bookmark's picture and fails if more than 10 % meet a house
+      (walls and roof as a box) within half the way to the station (it found 68 % before; every
+      bookmark is 0–2 % now)
+- [x] **The turret range's picture caught no raider** (nit 3). With `--shots` (and in the smoke) the
+      bookmark waits, up to 900 frames past settling, for a frame with a tracer drawn
+      (`ConstructsView.TracersShown`) and a raider in view, and takes that one
+- [x] **A quick Space tap at the wheel was lost** (nit 4). Jump was only polled once a frame, so a
+      press and release between two frames never counted. A Space press now also comes from the input
+      event into `ClientInput.Tapped`, which the next tick's input adds once (`StepInput`; dropped under
+      a panel or in the free camera). `TruckFlowTests.AQuickTapOfSpace_NeverSeenHeld_GetsTheDriverOff`;
+      the full smoke taps Space for less than a frame through the real controller at the truck's wheel
+      and checks the host is off
+
 ### 3. Further features from `design/drive/`, in milestone order
 
 The order is doc 12's M1 "Systems" list (the next milestone after M0, whose hardening list is
@@ -3141,6 +3167,11 @@ See "Commands" at the bottom (filled in as the tooling lands).
     were the shift's); (e) a broken belt's mail goes back to the Intake as before (a piece of mail
     is never lost, doc 03 §3.3), not onto the ground; (f) the run's end clears ruins as it clears
     what is built.
+127. **The driver's view.** Playtest f5813b5 asked to raise the eye or hide or trim the hood. Choice:
+    the cab's shell is not drawn for whoever is at the wheel (the others see it whole) and the eye
+    goes down to 1.6 m, inside it; raising the eye further would have looked over the roof from a
+    height no driver sits at. The chassis, lamps, mirrors and the NPC beside stay drawn.
+
 
 ## Commands
 

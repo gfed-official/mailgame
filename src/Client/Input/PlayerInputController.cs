@@ -144,6 +144,7 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.DeliverAll)) _deliverAllQueued = true;
             // A tap can start and end between two frames, where polling never sees it held.
             else if (ev.IsActionPressed(InputActions.Interact)) _interactTapped = true;
+            else if (ev.IsActionPressed(InputActions.Jump) && !UiOpen) _client.Input.Tapped |= InputButtons.Jump;
             else if (ev.IsActionPressed(InputActions.Go) && !Paused) _client.PressGo();
             else if (ev.IsActionPressed(InputActions.Build) && !UiOpen && !Paused && _build != null) _build.Toggle();
             else if (ev.IsActionPressed(InputActions.Rotate) && Building) _build!.Rotate();
@@ -215,6 +216,7 @@ namespace PerformativeMail.Client.InputHandling
             if (armed && attack && !_attackSwallowed) buttons |= InputButtons.Attack;
             if (armed && Godot.Input.IsActionPressed(InputActions.AltAttack)) buttons |= InputButtons.AltAttack;
             _client.Input.Buttons = suspended ? InputButtons.None : buttons;
+            if (suspended || UiOpen) _client.Input.Tapped = InputButtons.None;
 
             // The Intake closes with the same key that opened it, so interact stays live under the panel.
             bool interactKey = !suspended && Godot.Input.IsActionPressed(InputActions.Interact);

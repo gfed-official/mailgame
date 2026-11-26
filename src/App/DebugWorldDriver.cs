@@ -29,6 +29,34 @@ namespace PerformativeMail.App
         public string? ShotDir;
         public bool Smoke;
 
+        /// <summary>
+        /// The share of a grid of rays through the picture that meet a house (its walls and roof as a
+        /// box) before they have come half the way to <paramref name="target"/>.
+        /// </summary>
+        private static float HiddenByHouses(Client.ClientWorld world, Camera3D camera, Vector3 target)
+        {
+            var eye = camera.GlobalPosition;
+            float far = eye.DistanceTo(target) * 0.5f;
+            var size = camera.GetViewport().GetVisibleRect().Size;
+            var boxes = world.Map.Houses.Select(h =>
+            {
+                var b = h.Building;
+                float w = b.W * SimConstants.TileSize, d = b.H * SimConstants.TileSize;
+                float ridge = Client.Presentation.HouseBuilder.RidgeHeight(Mathf.Max(w, d));
+                return new Aabb(new Vector3(b.CenterX - w * 0.5f - 0.6f, 0f, b.CenterZ - d * 0.5f - 0.6f), new Vector3(w + 1.2f, ridge + 0.3f, d + 1.2f));
+            }).ToList();
+            int rays = 0, hit = 0;
+            for (int i = 0; i < 12; i++)
+                for (int j = 0; j < 7; j++)
+                {
+                    var at = new Vector2((i + 0.5f) / 12f * size.X, (j + 0.5f) / 7f * size.Y);
+                    var dir = camera.ProjectRayNormal(at);
+                    rays++;
+                    if (boxes.Any(box => box.IntersectsSegment(eye, eye + dir * far))) hit++;
+                }
+            return (float)hit / rays;
+        }
+
         private enum Stage { Boot, Flow, Toggles, Ruin, Console, RouteEdit, Map, Turret, Bookmarks, Fly, Scale, Done }
         private const int FastTicks = 30;
         /// <summary>Sim seconds the flow may take before the smoke gives up on a station.</summary>
@@ -227,9 +255,22 @@ namespace PerformativeMail.App
                         var forward = -camera.GlobalTransform.Basis.Z;
                         Check(forward.Dot((target - eye).Normalized()) > 0.999f, $"{s.Name}: the camera does not look at its target");
                         Check(camera.IsPositionInFrustum(target), $"{s.Name}: its target is out of view");
+                        // Playtest f5813b5: a house's roof right by the eye hid half of a station's picture.
+                        float hidden = HiddenByHouses(world, camera, target);
+                        if (Smoke) GD.Print($"[smoke] debug world: {s.Name}: {hidden:P0} of the view hidden by houses");
+                        Check(hidden < 0.1f, $"{s.Name}: {hidden:P0} of the view is hidden by a house nearer than its station");
                         Check(debug!.LineText.Contains(s.Name, StringComparison.Ordinal), $"{s.Name}: the debug line reads \"{debug.LineText}\"");
                     }
                     if (_frames < SettleFrames) return;
+                    // Playtest f5813b5: the turret range's picture is taken as a tracer flies at a raider in view.
+                    if (stations[_bookmark].Proofs.Any(p => p.Kind == Sim.World.ShowcaseProofKind.Fired))
+                    {
+                        bool shooting = _screen.Constructs.TracersShown > 0 && world.Enemies.Values.Any(e =>
+                            _screen.Camera.IsPositionInFrustum(new Vector3(e.X, world.Map.HeightAt(e.X, e.Z) + 1f, e.Z)));
+                        if (!shooting && _frames < SettleFrames + 900) return;
+                        Check(shooting, $"{stations[_bookmark].Name}: no tracer at a raider in view in {_frames} frames");
+                        if (Smoke && shooting) GD.Print($"[smoke] debug world: {stations[_bookmark].Name}: a tracer at a raider in view");
+                    }
                     Shot($"{_bookmark + 1:00}-{Slug(stations[_bookmark].Name)}");
                     _bookmark++;
                     _frames = 0;

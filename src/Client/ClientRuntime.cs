@@ -34,6 +34,12 @@ namespace PerformativeMail.Client
         /// <summary>Look pitch, positive up. Client-side only: it aims the camera and the interact ray.</summary>
         public float PitchRadians;
         public InputButtons Buttons;
+        /// <summary>
+        /// Buttons pressed since the last tick, held or not: a tap that starts and ends between two
+        /// frames is never seen held (playtest f5813b5: Space at a truck's wheel), so it counts for
+        /// the next tick once.
+        /// </summary>
+        public InputButtons Tapped;
         public byte HeldSlot;
     }
 
@@ -708,9 +714,10 @@ namespace PerformativeMail.Client
                 MoveX = manning ? (sbyte)0 : PlayerInput.QuantizeAxis(Input.MoveX),
                 MoveZ = manning ? (sbyte)0 : PlayerInput.QuantizeAxis(Input.MoveZ),
                 Yaw = PlayerInput.QuantizeYaw(Input.YawRadians),
-                Buttons = Input.Buttons,
+                Buttons = Input.Buttons | Input.Tapped,
                 HeldSlot = Input.HeldSlot,
             };
+            Input.Tapped = InputButtons.None;
             PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs);
             _pendingInputs.Add(input);
             if (_pendingInputs.Count > MaxPendingInputs) _pendingInputs.RemoveAt(0);

@@ -98,5 +98,38 @@ namespace PerformativeMail.Net.Tests
             Run(15);
             Assert.Equal(truck.Fuel, late.World!.Vehicles[truck.Id].Fuel);
         }
+
+        [Fact]
+        public void AQuickTapOfSpace_NeverSeenHeld_GetsTheDriverOff()
+        {
+            // Playtest f5813b5: a tap shorter than a frame was lost; a 0.3 s hold worked.
+            var hub = new LoopbackHub();
+            var content = Shared.Content;
+            var server = new ServerRuntime(content, new SimSettings { Seed = 3, Raids = false, Draft = false, StartingKits = false }, hub);
+            var client = new ClientRuntime(content, hub.CreateClient(), "Ada", PlaytestFlags.None, 0);
+            void Run(int ticks)
+            {
+                for (int i = 0; i < ticks; i++) { client.Tick(); server.Tick(); }
+            }
+            Run(10);
+            Assert.NotEqual(0u, client.PressGo());
+            Run(10);
+            var truth = server.World.GetPlayer(client.World!.LocalId)!;
+            var truck = server.World.AddVehicleAt(content.Vehicle("mail_truck"), 30f, 28f, -MathF.PI / 2f, truth.Id);
+            truth.Move.X = 30f;
+            truth.Move.Z = 30.6f;
+            Run(10);
+            Assert.NotEqual(0u, client.Mount(truck.Id));
+            Run(10);
+            Assert.True(client.World.Local.Riding);
+
+            // Pressed and let go between two frames: never in Buttons, only in Tapped, for one tick.
+            client.Input.Tapped |= InputButtons.Jump;
+            Run(1);
+            Assert.Equal(InputButtons.None, client.Input.Tapped);
+            Run(10);
+            Assert.False(client.World.Local.Riding);
+            Assert.False(truth.Move.Riding);
+        }
     }
 }
