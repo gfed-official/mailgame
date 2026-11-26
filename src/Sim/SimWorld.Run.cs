@@ -140,6 +140,7 @@ namespace PerformativeMail.Sim
                 p.ShiftDeliveries = 0;
                 p.Kills = 0;
                 p.LootCoins = 0;
+                p.RepairPaid.Clear();
             }
         }
 

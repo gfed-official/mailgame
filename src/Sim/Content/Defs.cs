@@ -87,6 +87,11 @@ namespace PerformativeMail.Sim.Content
         public float YieldMultiplier { get; init; } = 1f;
         /// <summary>A tool: seconds one swing of it takes.</summary>
         public float SwingSeconds { get; init; }
+        /// <summary>A tool that mends (doc 05 §4 Repair Hammer): HP a second it gives back to what it is held at; 0 for none.</summary>
+        public float RepairPerSecond { get; init; }
+        /// <summary>A tool that mends: the part of the build cost a full bar of HP takes (0.25).</summary>
+        public float RepairCostRatio { get; init; }
+        public bool Repairs => RepairPerSecond > 0f;
 
         /// <summary>Drawn in the hand while it is held (an Axe, a Pickaxe, a Shovel).</summary>
         public bool IsTool => Category == "tool";

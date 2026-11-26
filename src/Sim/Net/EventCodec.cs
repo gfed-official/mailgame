@@ -74,6 +74,7 @@ namespace PerformativeMail.Sim.Net
         EnemyShot = 64,
         ConstructPushed = 65,
         PostOfficeDamaged = 66,
+        Repaired = 67,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -319,6 +320,10 @@ namespace PerformativeMail.Sim.Net
                 case PostOfficeDamagedEvent e:
                     w.U8((byte)EventType.PostOfficeDamaged);
                     w.U16(e.Hp); w.U8(e.Enemy);
+                    break;
+                case RepairedEvent e:
+                    w.U8((byte)EventType.Repaired);
+                    w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value); w.Bool(e.PostOffice);
                     break;
                 case ConstructPushedEvent e:
                     w.U8((byte)EventType.ConstructPushed);
@@ -582,6 +587,8 @@ namespace PerformativeMail.Sim.Net
                     return new EnemyShotEvent { Kind = (EnemyShotKind)r.U8(), FromX = r.F32(), FromZ = r.F32(), ToX = r.F32(), ToZ = r.F32(), AtConstruct = r.Bool() };
                 case EventType.PostOfficeDamaged:
                     return new PostOfficeDamagedEvent { Hp = r.U16(), Enemy = r.U8() };
+                case EventType.Repaired:
+                    return new RepairedEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()), PostOffice = r.Bool() };
                 case EventType.ConstructPushed:
                     return new ConstructPushedEvent { FromX = r.U8(), FromY = r.U8(), X = r.U8(), Y = r.U8(), Enemy = r.U8() };
                 case EventType.TurretOperated:

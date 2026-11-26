@@ -97,6 +97,7 @@
   "respawnSeconds": 10,
   "postOfficeHp": 3000,
   "postOfficeRegenPerSecond": 5,
+  "postOfficeRepairLogs": 30,
   "respawnProtectionSeconds": 5,
   "respawnYardMetres": 8,
   "raidStandoffMetres": 19,

@@ -55,6 +55,8 @@ grep -q "^\[smoke\] playtest: run started at shift 2" "$work/log-playtest" || { 
 grep -q "^\[smoke\] post office: a blow of 120" "$work/log-playtest" || { echo "smoke: no blow on the Post Office was seen" >&2; exit 1; }
 # A ruin rebuilt in Prep (doc 05 §5): a wall broken in shift 2's Delivery, back in shift 3's Prep for half its cost through the prompt.
 grep -q "^\[smoke\] ruin: the Wooden Wall broken in shift 2's Delivery rebuilt in shift 3's Prep" "$work/log-playtest" || { echo "smoke: no ruin was rebuilt in Prep" >&2; exit 1; }
+# The Repair Hammer (doc 05 §4): the rebuilt wall hurt and mended through the HUD, for a Log.
+grep -q "^\[smoke\] repair: the Wooden Wall mended" "$work/log-playtest" || { echo "smoke: no wall was mended with the Repair Hammer" >&2; exit 1; }
 # Between them the two runs take a card of the Draft both ways: by its key, and with a click on it.
 grep -q "^\[smoke\] draft: .* a card taken by its key" "$work/log" || { echo "smoke: no card of the Draft was taken by its key" >&2; exit 1; }
 grep -q "^\[smoke\] playtest: .* a card of the Draft taken with a click" "$work/log-playtest" || { echo "smoke: no card of the Draft was taken with a click" >&2; exit 1; }

@@ -483,8 +483,10 @@ namespace PerformativeMail.Client.UI
             _banner.Visible = _banner.Text.Length > 0 && !Overlay.Visible && !_draft.Visible;
             _banner.Modulate = down.Length > 0 ? Palette.Mismatch : safe.Length > 0 ? Palette.Match : world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
             var manned = world.LocalTurret;
-            _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0 || manned != null);
-            if (_weapons.Visible) _weapons.Text = manned != null ? HudText.TurretWeapons(manned.Def) : HudText.Weapons(_client.CannonAmmo);
+            var mender = RepairRules.Hammer(world.Content, world.Hotbar, _client!.Input.HeldSlot);
+            _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0 || manned != null || mender != null);
+            if (_weapons.Visible)
+                _weapons.Text = manned != null ? HudText.TurretWeapons(manned.Def) : mender != null ? HudText.RepairWeapons(mender, _client.CannonAmmo) : HudText.Weapons(_client.CannonAmmo);
 
             var prompt = _interaction.Prompt;
             bool building = Build != null && Build.Active;
@@ -499,6 +501,8 @@ namespace PerformativeMail.Client.UI
                 holdProgress = ghost.HoldProgress;
             }
             else _prompt.Text = HudText.Prompt(world, prompt, out tone);
+            // Nothing to interact with: the Repair Hammer's line at what is hurt before it (doc 05 §4, doc 09 §3 "a target health bar").
+            if (!building && _prompt.Text.Length == 0) _prompt.Text = HudText.RepairPrompt(world, _client.Input.HeldSlot, out tone);
             if (MapOpen?.Invoke() == true)
             {
                 _prompt.Text = "";

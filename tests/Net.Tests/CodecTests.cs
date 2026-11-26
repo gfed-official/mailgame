@@ -280,6 +280,7 @@ namespace PerformativeMail.Net.Tests
                 new EnemyShotEvent { Kind = EnemyShotKind.Arrow, FromX = 61.5f, FromZ = 28.25f, ToX = 50f, ToZ = 27.75f, AtConstruct = true },
                 new ConstructPushedEvent { FromX = 40, FromY = 9, X = 39, Y = 9, Enemy = 7 },
                 new PostOfficeDamagedEvent { Hp = 2960, Enemy = 2 },
+                new RepairedEvent { X = 33, Y = 15, Player = player, PostOffice = true },
                 new RuinEvent { X = 32, Y = 14, Building = 7, Rotation = 3, Gone = true, Rebuilt = true, Player = player },
                 new VehicleAddedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Def = 0, X = 14.5f, Z = 22.25f, Heading = 1.5f, CargoContainer = 4022, Buyer = player },
                 new VehicleMountedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 3), Player = player },
@@ -344,6 +345,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(((byte)40, (byte)9, (byte)39, (byte)9, (byte)7), (shoved.FromX, shoved.FromY, shoved.X, shoved.Y, shoved.Enemy));
             var po = back.OfType<PostOfficeDamagedEvent>().Single();
             Assert.Equal(((ushort)2960, (byte)2), (po.Hp, po.Enemy));
+            var mended = back.OfType<RepairedEvent>().Single();
+            Assert.Equal(((byte)33, (byte)15, player, true), (mended.X, mended.Y, mended.Player, mended.PostOffice));
             var ruin = back.OfType<RuinEvent>().Single();
             Assert.Equal(((byte)32, (byte)14, (byte)7, (byte)3, true, true, player), (ruin.X, ruin.Y, ruin.Building, ruin.Rotation, ruin.Gone, ruin.Rebuilt, ruin.Player));
             var swung = back.OfType<InserterSwungEvent>().Single();

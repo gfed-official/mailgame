@@ -46,24 +46,7 @@ namespace PerformativeMail.Sim
         private static bool IsRunning(RunPhase phase) => phase == RunPhase.Prep || phase == RunPhase.Delivery || phase == RunPhase.Payday || phase == RunPhase.Draft;
 
         /// <summary>How far a point is from the Post Office's walls, and the nearest point of them.</summary>
-        public float PostOfficeDistance(float x, float z, out float nearX, out float nearZ)
-        {
-            var po = Map.PostOffice;
-            const float tile = SimConstants.TileSize;
-            float best = float.MaxValue;
-            nearX = po.Rect.CenterX; nearZ = po.Rect.CenterZ;
-            int n = Math.Max(1, po.Solid.Count);
-            for (int i = 0; i < n; i++)
-            {
-                var r = po.Solid.Count > 0 ? po.Solid[i] : po.Rect;
-                float cx = Math.Clamp(x, r.X * tile, (r.X + r.W) * tile), cz = Math.Clamp(z, r.Y * tile, (r.Y + r.H) * tile);
-                float d = (x - cx) * (x - cx) + (z - cz) * (z - cz);
-                if (d >= best) continue;
-                best = d;
-                nearX = cx; nearZ = cz;
-            }
-            return MathF.Sqrt(best);
-        }
+        public float PostOfficeDistance(float x, float z, out float nearX, out float nearZ) => RepairRules.PostOfficeDistance(Map, x, z, out nearX, out nearZ);
 
         /// <summary>Where a raider at (x, z) stands to strike the Post Office: just outside the nearest point of its walls.</summary>
         private void PostOfficeGoal(float x, float z, out float gx, out float gz)

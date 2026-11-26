@@ -230,17 +230,23 @@ namespace PerformativeMail.Sim.Content
                         int[] grid = J.IntArray(ctx, e, "grid", 2);
                         string id = J.Str(ctx, e, "id");
                         IReadOnlyList<string> harvests = Array.Empty<string>();
-                        float yieldMultiplier = 1f, swingSeconds = 0f;
+                        float yieldMultiplier = 1f, swingSeconds = 0f, repairs = 0f, repairCostRatio = 0f;
+                        bool toolBlock = false;
                         if (e.TryGetProperty("tool", out var tool))
                         {
                             if (tool.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': 'tool' must be an object");
                             else
                             {
-                                harvests = J.StrArray(ctx, tool, "harvests");
+                                toolBlock = true;
+                                harvests = J.StrArray(ctx, tool, "harvests", optional: true);
                                 yieldMultiplier = (float)J.Num(ctx, tool, "yieldMultiplier", 1);
                                 swingSeconds = (float)J.Num(ctx, tool, "swingTime");
-                                if (harvests.Count == 0) ctx.Error($"'{id}': a tool harvests something");
+                                // Doc 05 §4 Repair Hammer: "Repairs 50 HP/s to a construct; consumes materials at 25% of build cost per full HP bar".
+                                repairs = (float)J.Num(ctx, tool, "repairs", 0);
+                                repairCostRatio = (float)J.Num(ctx, tool, "repairCostRatio", 0);
+                                if (harvests.Count == 0 && repairs <= 0f) ctx.Error($"'{id}': a tool harvests something or repairs");
                                 if (yieldMultiplier <= 0f || swingSeconds <= 0f) ctx.Error($"'{id}': tool.yieldMultiplier and tool.swingTime must be > 0");
+                                if (repairs < 0f || repairCostRatio < 0f || (repairs == 0f && repairCostRatio > 0f)) ctx.Error($"'{id}': tool.repairs and tool.repairCostRatio must not be negative, nor a cost without repairs");
                             }
                         }
                         var def = new ItemDef
@@ -260,8 +266,10 @@ namespace PerformativeMail.Sim.Content
                             Harvests = harvests,
                             YieldMultiplier = yieldMultiplier,
                             SwingSeconds = swingSeconds,
+                            RepairPerSecond = repairs,
+                            RepairCostRatio = repairCostRatio,
                         };
-                        if (harvests.Count > 0 && def.Category != "tool") ctx.Error($"'{def.Id}': only an item of category 'tool' has a 'tool' block");
+                        if (toolBlock && def.Category != "tool") ctx.Error($"'{def.Id}': only an item of category 'tool' has a 'tool' block");
                         if (def.GridW <= 0 || def.GridH <= 0) ctx.Error($"'{def.Id}': grid sizes must be positive");
                         if (def.MaxStack <= 0) ctx.Error($"'{def.Id}': maxStack must be positive");
                         if (def.SellPrice < 0 || def.BuyPrice < 0) ctx.Error($"'{def.Id}': prices must not be negative");

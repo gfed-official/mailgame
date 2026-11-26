@@ -400,6 +400,7 @@ namespace PerformativeMail.App
                     if (_ptFrames < 2 * PlaytestStepFrames && world.Global.Shift != server.Run.Shift) break;
                     if (StepRuinRebuild()) break;
                     Check(_ruinStep == RuinStep.Done, $"the ruin of shift {RaidPlaytestShift} was not rebuilt in the next Prep ({_ruinStep})");
+                    if (StepRepairWall()) break;
                     VerifyPostOffice();
                     string want = $"Shift {RaidPlaytestShift + 1} / {HudText.ShiftCount(world.Content)}   PREP";
                     Check(server.Run.Phase == RunPhase.Prep && server.Run.Shift == RaidPlaytestShift + 1 && server.Run.Outcome == RunOutcome.None && server.Run.Results == null,

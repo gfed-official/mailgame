@@ -41,8 +41,29 @@ namespace PerformativeMail.Client.Presentation
             "axe" => Axe(),
             "pickaxe" => Pickaxe(),
             "shovel" => Shovel(),
+            "repair_hammer" => RepairHammer(),
             _ => null,
         };
+
+        /// <summary>
+        /// The Repair Hammer: a short handle wrapped in safety orange at the grip, a squared steel head
+        /// with a striking face one way and a split claw the other, and a band of tape at its neck.
+        /// </summary>
+        public static Node3D RepairHammer()
+        {
+            var root = new Node3D { Name = "Repair Hammer" };
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.022f, 0.026f, 0.56f, 12), MeshKit.Mat(Wood.Lightened(0.15f), 0.75f), new Vector3(0f, 0.24f, 0f)));
+            var grip = MeshKit.Mat(new Color("e8742a"), 0.6f);
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.031f, 0.031f, 0.2f, 12), grip, new Vector3(0f, 0.02f, 0f)));
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.028f, 0.028f, 0.04f, 12), MeshKit.Mat(new Color("f2c230"), 0.6f), new Vector3(0f, 0.43f, 0f)));
+            var steel = MeshKit.Mat(Iron.Lightened(0.2f), 0.4f, 0.5f);
+            // The head across the top of the handle: the face towards −Z (the way it strikes), the claw behind.
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.06f, 0.07f, 0.12f), 0.012f), steel, new Vector3(0f, 0.54f, -0.03f)));
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.04f, 0.04f, 0.06f, 14), MeshKit.Mat(Edge, 0.3f, 0.5f), new Vector3(0f, 0.54f, -0.11f), new Vector3(90f, 0f, 0f)));
+            for (int k = -1; k <= 1; k += 2)
+                root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.02f, 0.035f, 0.13f), 0.008f), steel, new Vector3(k * 0.017f, 0.52f, 0.09f), new Vector3(-22f, 0f, 0f)));
+            return root;
+        }
 
         /// <summary>The Axe: a long ash handle and a wedge of a head with a bright edge.</summary>
         public static Node3D Axe()

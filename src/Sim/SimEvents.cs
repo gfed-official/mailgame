@@ -396,7 +396,18 @@ namespace PerformativeMail.Sim
         public byte Enemy;
     }
 
-    /// <summary>A raider's blow landed on a construct: the HP it has left.</summary>
+    /// <summary>
+    /// The Repair Hammer (doc 05 §4) has made a construct whole again, or the Post Office
+    /// (<see cref="PostOffice"/>); who held it. Its HP on the way came as <see cref="ConstructDamagedEvent"/>s.
+    /// </summary>
+    public sealed class RepairedEvent : SimEvent
+    {
+        public byte X, Y;
+        public EntityId Player;
+        public bool PostOffice;
+    }
+
+    /// <summary>A raider's blow landed on a construct (or a hammer mended it): the HP it has left.</summary>
     public sealed class ConstructDamagedEvent : SimEvent
     {
         public byte X, Y;

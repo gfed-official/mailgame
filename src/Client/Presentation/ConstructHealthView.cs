@@ -40,6 +40,8 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Bars up as of the last frame, numbers shown so far, and the last number's text.</summary>
         public int BarsShown => _bars.Count;
         public int NumbersShown { get; private set; }
+        /// <summary>A bar stands over what the Repair Hammer in the hand is held at, as of the last frame.</summary>
+        public bool RepairBarShown { get; private set; }
         public string LastNumber { get; private set; } = "";
         /// <summary>Where the last number rising is, in the world; null once it has faded.</summary>
         public Vector3? LastNumberAt => _numbers.Count > 0 ? _numbers[^1].Node.GlobalPosition : null;
@@ -101,10 +103,14 @@ namespace PerformativeMail.Client.Presentation
                 n.Node.OutlineModulate = new Color(n.Node.OutlineModulate, (1f - t * t) * 0.85f);
             }
 
-            // A bar over each construct hit lately that still stands hurt.
+            // A bar over each construct hit lately that still stands hurt, and over what the Repair Hammer
+            // in the hand is held at (doc 09 §3 "Repair hammer shows a target health bar").
+            var mending = HudText.RepairTarget(world, _client!.Input.HeldSlot, out _, out _);
+            RepairBarShown = false;
             foreach (var c in world.Constructs.All)
             {
-                bool show = c.Hp < c.Def.Hp && world.HitWithin(c, ClientWorld.HitShownSeconds);
+                bool show = c.Hp < c.Def.Hp && (world.HitWithin(c, ClientWorld.HitShownSeconds) || c == mending);
+                if (show && c == mending) RepairBarShown = true;
                 _bars.TryGetValue(c, out var bar);
                 if (!show)
                 {

@@ -98,6 +98,11 @@ namespace PerformativeMail.Sim.Players
         /// <summary>The turret whose controls this carrier holds (doc 05 §4 "Player-operated"); null: none.</summary>
         public World.Construct? Turret;
         public uint HammerReadyTick;
+        /// <summary>The Repair Hammer (doc 05 §4): what it was last held at, the HP mended not yet given, and what of a unit of each input (by item index) was paid and not yet used.</summary>
+        public World.Construct? RepairTarget;
+        public bool RepairingPostOffice;
+        public float RepairOwed;
+        public readonly System.Collections.Generic.Dictionary<ushort, float> RepairPaid = new System.Collections.Generic.Dictionary<ushort, float>();
         public uint CannonReadyTick;
         /// <summary>Run totals of the fight; cleared when a run starts.</summary>
         public int Kills;

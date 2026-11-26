@@ -157,6 +157,12 @@ namespace PerformativeMail.Client
                         Add(HudText.PostOfficeUnderAttack, bad: true);
                     }
                     break;
+                case RepairedEvent e:
+                {
+                    var mended = e.PostOffice ? null : world.Constructs.At(e.X, e.Y);
+                    if (e.PostOffice || mended != null) Add(HudText.Repaired(world, e.Player, mended?.Def));
+                    break;
+                }
                 case ConstructPushedEvent e:
                 {
                     var shoved = world.Constructs.At(e.FromX, e.FromY) ?? world.Constructs.At(e.X, e.Y);

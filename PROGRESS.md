@@ -1824,7 +1824,36 @@ Walls, the Spike Strip, the Gate, the Alarm Post, the Repair Hammer, the mail ca
 Doc 12's M3 "Defenses" line is the first with a piece still missing.
 
 - [ ] Defenses: walls, gate, spikes, turret (auto and operated), alarm post, repair hammer
-      - [x] Walls, the Gate, spikes, the Alarm Post, the hammer (M1, above)
+      - [x] Walls, the Gate, spikes, the Alarm Post (M1, above)
+      - [x] **The Repair Hammer** (doc 05 §4 "Repair Hammer (tool) — Shop 100 ¢ — Repairs 50 HP/s to a
+            construct; consumes materials at 25% of build cost per full HP bar"; §5 "the PO … can be
+            repaired with the hammer"; doc 09 §3 "Repair hammer shows a target health bar"; doc 10
+            `repair_hammer` 1x2, shop 100 from shift 2; design choice 139). Found missing after the M1
+            list counted "the hammer" (the fight's hammer) as it. `repair_hammer`: a tool whose `tool`
+            block `repairs` 50 HP a second at `repairCostRatio` 0.25 (a tool now harvests something or
+            repairs; the validator says so); `ItemDef.RepairPerSecond`, `RepairCostRatio`. In the shop
+            for 100 g from shift 2. `RepairRules` (shared by the server and the HUD): in Prep and
+            Delivery, held in the hand with attack held, it is at the nearest hurt construct within
+            2.5 m of its near side and 50° of the facing, or failing one at the Post Office if hurt and
+            its wall is within 2.5 m ahead; `SimWorld.StepRepair` mends it 10 HP at a time (every 0.2 s),
+            each 10 paid for out of the pockets at a quarter of the recipe a full bar — a unit of each
+            input taken when what was paid runs short, the rest of it kept for the next
+            (`Player.RepairPaid`); the Post Office as if built of 30 Logs (`balance.postOfficeRepairLogs`:
+            7.5 Logs a full bar of 3000). Without the materials nothing is mended (and nothing swung);
+            with nothing hurt before it, it swings as the hammer does. Its HP goes out as
+            `ConstructDamagedEvent` (going up, so no number and no marker), the Post Office's in the
+            global block; `RepairedEvent` (protocol `m2.21`) when it is whole: "You mended the Wooden
+            Wall". Others see the hammer go up and down (an `AttackEvent` of no hits). The HUD: "Mend
+            the Stone Wall  [hold LMB]   ·   620 / 800 HP   ·   Stone x1 a full bar" (red "… mending it
+            takes Stone" with none in the pockets), "[LMB] mend, 50 HP a second" on the weapons line, and a health bar over what it is held at. Drawn in the hand: a
+            claw hammer with an orange grip. The client's Post Office HP heard from a blow gives way to
+            the snapshot's after half a second (it could be mended in Delivery now). `RepairTests` (the
+            content; a wall 100 → 200 for one Log, whole on the paid part, `RepairedEvent` once; no Log,
+            no mend and no blow; bare hands or nothing hurt ahead, a swing; out of reach; the Post Office
+            for Logs, facing it), `RepairFlowTests` (the line red then with its cost, mended on the
+            client, the feed once), codec pin; the raid playtest's smoke hurts the rebuilt wall by 150
+            in shift 3's Prep and mends it through the HUD, checking the line, the weapons line, the bar
+            and the hammer in the hand, for one Log (with `--shots`: `repair.png`, `repaired.png`)
       - [x] **The Turret, automatic** (doc 05 §4 "1 tile, 400 HP, Blueprint; 6 Iron Ingot, 2
             Stone; 12 dmg / 0.5 s, 18 m range; always fires at full rate; targets nearest enemy";
             design choice 123). `turret` (behaviour `turret`, params `shotDamage` 12, `shotSeconds`
@@ -2068,7 +2097,7 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             and marker, the tracker, the feed once, the fall and the headline), codec pins; the raid
             playtest's smoke deals it a blow of 120 in shift 2 and checks the tracker, the number and the
             marker, and that it mends in shift 3's Prep (with `--shots`: `postoffice-hit.png`).
-            Not done: repairing it (or anything) with the hammer — see below
+            Repaired with the Repair Hammer since (below)
       - [x] **Damage numbers, health bars over damaged constructs, the HUD's under-attack marker**
             (doc 05 §5; doc 12 M3 "HUD: … under-attack indicators, health bars"; design choice 130).
             The client keeps the blows it hears (`ClientWorld.ConstructHits`, from `ConstructDamaged`
@@ -2131,11 +2160,7 @@ the earlier M2/M3 tests and smokes stayed green throughout; two things found on 
 feed said "felled a Archer" (now "an Archer"), and `RaidFightTests`' bots could stand stuck on a house's
 corner for good.
 
-**Found missing: the Repair Hammer.** The list above (and M1's) counts "the Repair Hammer" as done, but
-nothing repairs: there is no repair in `src/Sim` (the hammer is only the weapon, and `ConstructHits`'
-"a mend is none" has no mend to see). Doc 05 §4: "Repair Hammer (tool) — Shop 100 ¢ — Repairs 50 HP/s
-to a construct; consumes materials at 25% of build cost per full HP bar"; doc 05 §5 "the PO … can be
-repaired with the hammer".
+**Found missing: the Repair Hammer** (now done, above, after the f32ea2e nits).
 
 Next in this order: the Repair Hammer (constructs and the Post Office), then doc 05 §6 (Cursed Mail,
 with the Postage Stamps), then the rest of M3's list in doc 12.
@@ -3538,6 +3563,15 @@ See "Commands" at the bottom (filled in as the tooling lands).
     seen at the bottom of the view and the shot's line is the gun's own line from that seat (so the
     crosshair is what is hit, as choice 134 wanted). The carrier's body stays where they took the
     controls (others see them there); they cannot walk while at them (as before).
+139. **The Repair Hammer's rules.** Doc 05 §4 gives the rate and the cost ("25% of build cost per full
+    HP bar") and nothing of how it is used. Choices: it is a tool in the hand (doc 10 lists it with the
+    tools), used with attack held (doc 09's "target health bar" wants it aimed), and it mends what is
+    before it within the fight hammer's reach (2.5 m) and a 50° arc, nearest first; with nothing hurt
+    there it swings as the fight's hammer. Paid as it goes, whole units out of the pockets, the part of
+    a unit not used carried to the next mend (so a wall of 3 Logs costs 0.75 Log a full bar on
+    average, not a Log each time); with none, nothing. The Post Office has no build cost: it is mended
+    as if built of 30 Logs (7.5 Logs a full bar of 3000), so a hammer is no free answer to a Tank. Open
+    in Prep and Delivery, like building. A ruin is not mended (it is rebuilt).
 
 ## Commands
 

@@ -661,12 +661,14 @@ namespace PerformativeMail.Client
         public int PostOfficeHp => _postOfficeHeard >= 0 ? _postOfficeHeard : Global.PostOfficeHp;
         public int PostOfficeMaxHp => (int)Content.Balance.GetFloat("postOfficeHp");
         private int _postOfficeHeard = -1;
+        private double _postOfficeHeardTick;
 
         /// <summary>A blow on the Post Office (doc 05 §5) left it <paramref name="hp"/>; counted as a construct's is.</summary>
         public void NotePostOfficeHit(int hp)
         {
             int amount = PostOfficeHp - hp;
             _postOfficeHeard = hp;
+            _postOfficeHeardTick = ServerTick;
             if (amount <= 0) return;
             PruneConstructHits();
             var po = Map.PostOffice.Rect;
@@ -675,11 +677,13 @@ namespace PerformativeMail.Client
 
         /// <summary>
         /// A snapshot's global block came: once it has caught up with the last blow heard (or outside
-        /// Delivery, where it mends in Prep) it is the word on the Post Office's health again.
+        /// Delivery, where it mends in Prep), or half a second on (the Repair Hammer mends it in
+        /// Delivery too), it is the word on the Post Office's health again.
         /// </summary>
         public void GlobalCameForPostOffice()
         {
-            if (_postOfficeHeard >= 0 && (Global.PostOfficeHp <= _postOfficeHeard || Global.Phase != Sim.Run.RunPhase.Delivery)) _postOfficeHeard = -1;
+            if (_postOfficeHeard >= 0 && (Global.PostOfficeHp <= _postOfficeHeard || Global.Phase != Sim.Run.RunPhase.Delivery
+                || ServerTick - _postOfficeHeardTick > SimConstants.TickRate / 2)) _postOfficeHeard = -1;
         }
 
         public void PruneConstructHits() =>

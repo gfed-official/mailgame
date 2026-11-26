@@ -1597,6 +1597,70 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>The event feed's line for what is gone: taken down, or broken by the raiders.</summary>
+        /// <summary>The Repair Hammer made it whole: "You mended the Stone Wall", "Ann mended the Post Office".</summary>
+        public static string Repaired(ClientWorld world, EntityId player, BuildingDef? def)
+        {
+            string who = player == world.LocalId ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
+            return $"{who} mended the {(def == null ? "Post Office" : def.Name)}";
+        }
+
+        /// <summary>
+        /// The Repair Hammer in the hand (doc 05 §4; design choice 139): what it is held at, as the server
+        /// will judge it, from the local carrier; null and false when nothing hurt is before them.
+        /// </summary>
+        public static Construct? RepairTarget(ClientWorld world, int heldSlot, out bool postOffice, out ItemDef? hammer)
+        {
+            postOffice = false;
+            hammer = world.HasLocal && !world.Local.Dead && world.LocalTurret == null && world.LocalRide == null && RepairRules.IsOpen(world.Global.Phase)
+                ? RepairRules.Hammer(world.Content, world.Hotbar, heldSlot) : null;
+            if (hammer == null) return null;
+            bool hurt = world.PostOfficeHp > 0 && world.PostOfficeHp < world.PostOfficeMaxHp;
+            return RepairRules.Target(world.Map, world.Constructs, world.Local.X, world.Local.Z, Sim.Players.PlayerInput.YawToRadians(world.Local.Yaw), hurt, out postOffice);
+        }
+
+        /// <summary>
+        /// The line the Repair Hammer puts up at what is hurt: "Mend the Stone Wall  [hold LMB]   ·   600 / 800 HP
+        /// ·   Stone x1 a full bar"; red, "… mending it takes Stone", with none of an input in the pockets.
+        /// Empty with nothing hurt before it, or no hammer in the hand.
+        /// </summary>
+        public static string RepairPrompt(ClientWorld world, int heldSlot, out PromptTone tone)
+        {
+            tone = PromptTone.Neutral;
+            var c = RepairTarget(world, heldSlot, out bool po, out var hammer);
+            if (hammer == null || (c == null && !po)) return "";
+            string name = c == null ? "Post Office" : c.Def.Name;
+            int hp = c == null ? world.PostOfficeHp : c.Hp, max = c == null ? world.PostOfficeMaxHp : c.Def.Hp;
+            string health = $"{hp.ToString(CultureInfo.InvariantCulture)} / {max.ToString(CultureInfo.InvariantCulture)} HP";
+            var missing = RepairRules.Missing(world.Content, c, po, hammer, world.Hotbar, world.Inventory);
+            if (missing != null)
+            {
+                tone = PromptTone.Mismatch;
+                return $"{name}   ·   {health}   ·   mending it takes {missing.Name}";
+            }
+            string cost = RepairCost(world, c, hammer);
+            return $"Mend the {name}  [hold LMB]   ·   {health}{(cost.Length > 0 ? "   ·   " + cost + " a full bar" : "")}";
+        }
+
+        /// <summary>What a full bar of HP takes with the hammer: "Stone x1", "Log x0.75, Iron Ingot x0.25"; the Post Office "Log x7.5".</summary>
+        public static string RepairCost(ClientWorld world, Construct? c, ItemDef hammer)
+        {
+            if (hammer.RepairCostRatio <= 0f) return "";
+            if (c == null)
+            {
+                float logs = world.Content.Balance.GetFloat("postOfficeRepairLogs") * hammer.RepairCostRatio;
+                return logs > 0f ? $"{world.Content.Item(RepairRules.PostOfficeItem).Name} x{logs.ToString("0.##", CultureInfo.InvariantCulture)}" : "";
+            }
+            if (c.Def.Recipe == null) return "";
+            var parts = new List<string>();
+            foreach (var input in c.Def.Recipe.Inputs)
+                parts.Add($"{input.Item.Name} x{RepairRules.PerFullBar(input, hammer).ToString("0.##", CultureInfo.InvariantCulture)}");
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>The weapons line with the Repair Hammer in the hand.</summary>
+        public static string RepairWeapons(ItemDef hammer, int cannonAmmo) =>
+            $"[LMB] mend, {hammer.RepairPerSecond.ToString("0", CultureInfo.InvariantCulture)} HP a second   ·   [RMB] mail cannon{(cannonAmmo > 0 ? " x" + cannonAmmo.ToString(CultureInfo.InvariantCulture) : ": no Small Package")}";
+
         public static string Unbuilt(ClientWorld world, EntityId player, BuildingDef def, bool destroyed)
         {
             if (destroyed) return $"The raiders broke {WithArticle(def.Name)}: its ruin is left, rebuilt in Prep for half its cost";
