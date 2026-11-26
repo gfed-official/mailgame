@@ -2020,7 +2020,7 @@ e23d8d7 as it was.
       it (`DamageConstruct`, as a raider's blow); the feed's "The raiders broke a Wooden Wall: its
       ruin is left, …" is seen. In shift 3's Prep the host stands beside the ruin, the prompt reads
       "Rebuild the Wooden Wall  [E]   ·   Log x2 (half its cost)", E rebuilds it: turned as it was, at
-      its full 200 HP, two of its four Logs gone, "You rebuilt the Wooden Wall" in the feed (with
+      its full 300 HP, two of its three Logs gone (half, rounded up), "You rebuilt the Wooden Wall" in the feed (with
       `--shots`: `ruin-rebuild.png`, `ruin-rebuilt.png`). `tools/smoke.sh` greps for it. The full run
       could not carry it: its Build mode wall goes up in the last Prep before its Results. It worked
       as built; nothing in the rebuild had to change.
