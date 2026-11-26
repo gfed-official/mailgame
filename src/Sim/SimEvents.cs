@@ -164,6 +164,8 @@ namespace PerformativeMail.Sim
         Arrow = 0,
         /// <summary>A Wall Breaker went off where it stood (From = To).</summary>
         Blast = 1,
+        /// <summary>A Balloon's bomb fell from where it hovers (From = To, the point under it).</summary>
+        Bomb = 2,
     }
 
     /// <summary>

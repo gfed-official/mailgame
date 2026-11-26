@@ -16,7 +16,7 @@
   "weightsByShift": {
     "2": { "barbarian": 60, "swarmling": 40, "archer": 30 },
     "3": { "barbarian": 40, "swarmling": 30, "archer": 30, "giant": 15, "wall_breaker": 10, "hog_rider": 5 },
-    "4": { "barbarian": 30, "swarmling": 30, "archer": 25, "giant": 15, "wall_breaker": 15, "hog_rider": 10 },
-    "5": { "barbarian": 25, "swarmling": 30, "archer": 20, "giant": 15, "wall_breaker": 10, "hog_rider": 10 }
+    "4": { "barbarian": 30, "swarmling": 30, "archer": 25, "giant": 15, "wall_breaker": 15, "hog_rider": 10, "balloon": 5 },
+    "5": { "barbarian": 25, "swarmling": 30, "archer": 20, "giant": 15, "wall_breaker": 10, "hog_rider": 10, "balloon": 10 }
   }
 }

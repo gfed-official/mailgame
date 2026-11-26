@@ -469,7 +469,7 @@ namespace PerformativeMail.Sim.Content
                             else priority.Add((EnemyTarget)k);
                         }
                         if (priority.Count == 0) priority.Add(EnemyTarget.Player);
-                        float keepDistance = 0f, blastRadius = 0f, structureDamage = 0f, provokeRange = 0f, provokeSeconds = 0f;
+                        float keepDistance = 0f, blastRadius = 0f, structureDamage = 0f, provokeRange = 0f, provokeSeconds = 0f, altitude = 0f, bombRadius = 0f;
                         if (e.TryGetProperty("traitParams", out var traitParams))
                         {
                             if (traitParams.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': traitParams must be an object");
@@ -482,6 +482,8 @@ namespace PerformativeMail.Sim.Content
                                 structureDamage = (float)J.Num(ctx, traitParams, "structureDamage", 0);
                                 provokeRange = (float)J.Num(ctx, traitParams, "provokeRange", 0);
                                 provokeSeconds = (float)J.Num(ctx, traitParams, "provokeSeconds", 0);
+                                altitude = (float)J.Num(ctx, traitParams, "altitude", 0);
+                                bombRadius = (float)J.Num(ctx, traitParams, "bombRadius", 0);
                             }
                         }
                         var def = new EnemyDef
@@ -493,6 +495,8 @@ namespace PerformativeMail.Sim.Content
                             StructureDamage = structureDamage,
                             ProvokeRange = provokeRange,
                             ProvokeSeconds = provokeSeconds,
+                            Altitude = altitude,
+                            BombRadius = bombRadius,
                             Id = id,
                             Index = (byte)list.Count,
                             Name = J.Str(ctx, e, "name"),
@@ -529,6 +533,9 @@ namespace PerformativeMail.Sim.Content
                         // Doc 05 §2 Giant: "Ignores players unless attacked by one within 5 m for 3 s".
                         if (def.Siege != (def.ProvokeRange > 0f) || def.Siege != (def.ProvokeSeconds > 0f))
                             ctx.Error($"'{def.Id}': a siege enemy, and only one, has traitParams.provokeRange and traitParams.provokeSeconds > 0");
+                        // Doc 05 §2 Balloon: "30 AoE r=2 m … Airborne (6 m)".
+                        if (def.Airborne != (def.Altitude > 0f) || def.Airborne != (def.BombRadius > 0f))
+                            ctx.Error($"'{def.Id}': an airborne enemy, and only one, has traitParams.altitude and traitParams.bombRadius > 0");
                         if (def.AggroRange < def.AttackRange) ctx.Error($"'{def.Id}': aggroRange must be at least its attackRange");
                         if (def.CoinsMin < 0 || def.CoinsMax < def.CoinsMin) ctx.Error($"'{def.Id}': coins must be [min, max] with 0 <= min <= max");
                         // The snapshot packs the kind into four bits.
@@ -1221,7 +1228,7 @@ namespace PerformativeMail.Sim.Content
         }
 
         /// <summary>The traitParams an enemy may have (doc 08 §2.10).</summary>
-        private static readonly string[] TraitParamNames = { "keepDistance", "blastRadius", "structureDamage", "provokeRange", "provokeSeconds" };
+        private static readonly string[] TraitParamNames = { "keepDistance", "blastRadius", "structureDamage", "provokeRange", "provokeSeconds", "altitude", "bombRadius" };
 
         /// <summary>Balance keys the code reads; a missing one is a validation error rather than a runtime crash.</summary>
         public static readonly string[] RequiredBalanceKeys =

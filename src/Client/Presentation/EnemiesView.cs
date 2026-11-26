@@ -33,6 +33,9 @@ namespace PerformativeMail.Client.Presentation
             public uint HurtTick;
             public byte Hp = 255;
             public EnemyState State;
+            /// <summary>An airborne one's dark patch on the ground under it (null for the rest), and how high it flies.</summary>
+            public MeshInstance3D? Shadow;
+            public float Altitude;
         }
 
         public int ViewCount => _views.Count;
@@ -84,6 +87,13 @@ namespace PerformativeMail.Client.Presentation
                 var position = new Vector3(x, 0f, z);
                 float moved = view.Placed ? new Vector2(view.Last.X - x, view.Last.Z - z).Length() : 0f;
                 if (enemy.Def.JumpsWalls) position.Y = JumpLift(world.Constructs, x, z);
+                if (view.Shadow != null)
+                {
+                    // Aloft at its altitude, bobbing a little; its shadow on the ground under it.
+                    float ground = world.Map.HeightAt(x, z);
+                    position.Y = ground + view.Altitude + 0.15f * Mathf.Sin((float)(tick / SimConstants.TickRate) * 1.3f + enemy.Id);
+                    view.Shadow.Position = new Vector3(0f, ground + 0.04f - position.Y, 0f);
+                }
                 if (dt > 0f) view.Speed = Mathf.Lerp(view.Speed, moved / dt, 1f - Mathf.Exp(-10f * dt));
                 view.Last = position;
                 view.Placed = true;
@@ -128,7 +138,15 @@ namespace PerformativeMail.Client.Presentation
             {
                 var view = _dying[i];
                 view.Dying += dt;
-                view.Model.Animate(dt, 0f, windup: false, down: true);
+                if (view.Shadow != null)
+                {
+                    // Out of the sky as it goes, the shadow staying on the ground.
+                    var at = view.Root.Position;
+                    float drop = Mathf.Min(at.Y, 9f * view.Dying * dt);
+                    view.Root.Position = at - new Vector3(0f, drop, 0f);
+                    view.Shadow.Position += new Vector3(0f, drop, 0f);
+                }
+                else view.Model.Animate(dt, 0f, windup: false, down: true);
                 float sink = Mathf.Clamp((view.Dying - FallSeconds) / SinkSeconds, 0f, 1f);
                 view.Root.Scale = Vector3.One * (1f - sink * sink);
                 if (sink < 1f) continue;
@@ -177,6 +195,15 @@ namespace PerformativeMail.Client.Presentation
             RenderPriority = 2,
         };
 
+        private static StandardMaterial3D? _shadowMaterial;
+
+        private static StandardMaterial3D ShadowMaterial => _shadowMaterial ??= new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.05f, 0.04f, 0.06f, 0.32f),
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+        };
+
         private View Create(ClientEnemy enemy)
         {
             float scale = enemy.Def.Scale * (enemy.Mega ? 1.4f : 1f);
@@ -212,6 +239,19 @@ namespace PerformativeMail.Client.Presentation
                 Visible = false,
             };
             view.Root.AddChild(view.Mark);
+            if (enemy.Def.Airborne)
+            {
+                view.Altitude = enemy.Def.Altitude;
+                view.Shadow = new MeshInstance3D
+                {
+                    Name = "Shadow",
+                    Mesh = new CylinderMesh { TopRadius = 1.3f * scale, BottomRadius = 1.3f * scale, Height = 0.02f, RadialSegments = 24 },
+                    MaterialOverride = ShadowMaterial,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                    Position = new Vector3(0f, -view.Altitude, 0f),
+                };
+                view.Root.AddChild(view.Shadow);
+            }
             AddChild(view.Root);
             return view;
         }

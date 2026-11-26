@@ -71,6 +71,11 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Of them, those that went off at something built; and where the last one went off.</summary>
         public int WallBreakerBlastsAtConstructs { get; private set; }
         public Vector3 LastWallBreakerBlast { get; private set; }
+        /// <summary>Balloons' bombs dropped so far, those still falling, those that went off at something built, and where the last one fell.</summary>
+        public int BombsDropped { get; private set; }
+        public int BombsFalling => _bombs.Count;
+        public int BombsAtConstructs { get; private set; }
+        public Vector3 LastBomb { get; private set; }
 
         /// <summary>An arrow from an Archer, flying to where the server says it struck.</summary>
         private sealed class Arrow
@@ -79,6 +84,19 @@ namespace PerformativeMail.Client.Presentation
             public Vector3 From, To;
             public float Age, Life;
         }
+
+        /// <summary>A Balloon's bomb falling from its basket to where the server says it went off.</summary>
+        private sealed class Bomb
+        {
+            public Node3D Node = null!;
+            public Vector3 From, To;
+            public float Age, Life;
+        }
+
+        private readonly List<Bomb> _bombs = new List<Bomb>();
+        /// <summary>Seconds a bomb is drawn falling; the server's blast is already done, so it is quick.</summary>
+        private const float BombFallSeconds = 0.4f;
+        private float _bombDrop = 6f;
 
         private const float ArrowSpeed = 32f;
         private readonly List<Arrow> _arrows = new List<Arrow>();
@@ -113,6 +131,9 @@ namespace PerformativeMail.Client.Presentation
             _cannonRange = balance.GetFloat("cannonRange");
             _blastRadius = balance.GetFloat("cannonBlastRadius");
             _hammerRange = balance.GetFloat("hammerRange");
+            _bombDrop = 6f;
+            foreach (var def in _client.World.Content.Enemies)
+                if (def.Airborne) _bombDrop = def.Altitude;
         }
 
         public override void _ExitTree()
@@ -146,6 +167,12 @@ namespace PerformativeMail.Client.Presentation
                     if (e.AtConstruct) WallBreakerBlastsAtConstructs++;
                     LastWallBreakerBlast = new Vector3(e.ToX, 0f, e.ToZ);
                     break;
+                case EnemyShotEvent e when e.Kind == EnemyShotKind.Bomb:
+                    Drop(new Vector3(e.ToX, Height(e.ToX, e.ToZ), e.ToZ));
+                    BombsDropped++;
+                    if (e.AtConstruct) BombsAtConstructs++;
+                    LastBomb = new Vector3(e.ToX, 0f, e.ToZ);
+                    break;
                 case EnemyDiedEvent e:
                     Puff(new Vector3(e.X, 0.8f, e.Z), e.Mega ? 9 : 5, new Color("b9a892"), 0.45f);
                     break;
@@ -164,6 +191,7 @@ namespace PerformativeMail.Client.Presentation
             SyncBags(world);
             StepShots(dt);
             StepArrows(dt);
+            StepBombs(dt);
             StepFlashes(dt);
             StepParticles(dt);
             StepCoins(dt);
@@ -205,6 +233,41 @@ namespace PerformativeMail.Client.Presentation
                 var ahead = a.From.Lerp(a.To, Mathf.Min(1f, t + 0.05f)) + Vector3.Up * (4f * rise * (t + 0.05f) * (1f - t - 0.05f));
                 a.Node.Position = at;
                 if (ahead.DistanceSquaredTo(at) > 1e-6f) a.Node.LookAt(ahead, Vector3.Up);
+            }
+        }
+
+        // --- bombs ------------------------------------------------------------------------------
+
+        /// <summary>A round black bomb with a lit fuse, dropped from the basket over <paramref name="ground"/>.</summary>
+        private void Drop(Vector3 ground)
+        {
+            var bomb = new Node3D { Name = "Bomb" };
+            bomb.AddChild(MeshKit.Instance(MeshKit.Sphere(0.26f, 14), MeshKit.Mat(new Color("1f1d22"), 0.45f, 0.3f), Vector3.Zero));
+            bomb.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.08f, 0.08f, 0.1f, 10), MeshKit.Mat(new Color("8b9099"), 0.4f, 0.7f), new Vector3(0f, 0.27f, 0f)));
+            bomb.AddChild(MeshKit.Instance(MeshKit.Sphere(0.06f, 8), MeshKit.Glow(Fire, 5f), new Vector3(0f, 0.38f, 0f)));
+            var from = ground + Vector3.Up * (_bombDrop - 0.3f);
+            bomb.Position = from;
+            AddChild(bomb);
+            _bombs.Add(new Bomb { Node = bomb, From = from, To = ground + Vector3.Up * 0.3f, Life = BombFallSeconds });
+        }
+
+        private void StepBombs(float dt)
+        {
+            for (int i = _bombs.Count - 1; i >= 0; i--)
+            {
+                var b = _bombs[i];
+                b.Age += dt;
+                if (b.Age >= b.Life)
+                {
+                    Blast(b.To + Vector3.Up * 0.4f, cannon: false);
+                    b.Node.QueueFree();
+                    _bombs.RemoveAt(i);
+                    continue;
+                }
+                // Falling, faster and faster.
+                float t = b.Age / b.Life;
+                b.Node.Position = b.From.Lerp(b.To, t * t);
+                b.Node.Rotation = new Vector3(t * 2f, 0f, t * 1.3f);
             }
         }
 

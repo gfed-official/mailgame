@@ -167,7 +167,7 @@ namespace PerformativeMail.Sim
             foreach (var p in _players)
                 if (!p.Dead && BuildRules.Touches(tx, tz, p.Move.X, p.Move.Z, _move.Radius)) return true;
             foreach (var e in _enemies)
-                if (BuildRules.Touches(tx, tz, e.X, e.Z, e.Radius)) return true;
+                if (!e.Def.Airborne && BuildRules.Touches(tx, tz, e.X, e.Z, e.Radius)) return true;
             return false;
         }
 

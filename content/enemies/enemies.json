@@ -20,5 +20,9 @@
   { "id": "hog_rider", "name": "Hog Rider", "hp": 120, "damage": 20, "attackRate": 1.0, "attackRange": 1.2, "speed": 7.0,
     "aggroRange": 20, "radius": 0.5, "scale": 1.0, "cost": 25, "unlockShift": 3, "coins": [8, 14],
     "traits": ["jumps_walls", "steals_items"], "targetPriority": ["chest", "vehicle_depot", "player"],
-    "drops": [] }
+    "drops": [] },
+  { "id": "balloon", "name": "Bomb Balloon", "hp": 90, "damage": 30, "attackRate": 3.0, "attackRange": 0.8, "speed": 2.5,
+    "aggroRange": 30, "radius": 0.5, "scale": 1.0, "cost": 30, "unlockShift": 4, "coins": [10, 16],
+    "traits": ["airborne"], "traitParams": { "altitude": 6, "bombRadius": 2 }, "targetPriority": ["turret", "depot", "vehicle_depot", "sorter"],
+    "drops": [{ "item": "oil_can", "chance": 0.3, "count": 1 }] }
 ]

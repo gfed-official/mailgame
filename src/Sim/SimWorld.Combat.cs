@@ -259,6 +259,8 @@ namespace PerformativeMail.Sim
             for (int i = _enemies.Count - 1; i >= 0; i--)
             {
                 var e = _enemies[i];
+                // Doc 05 §2 Balloon: "Only ranged weapons and turrets can hit it".
+                if (e.Def.Airborne) continue;
                 float dx = e.X - p.Move.X, dz = e.Z - p.Move.Z;
                 float dist = MathF.Sqrt(dx * dx + dz * dz);
                 if (dist > _combat.HammerRange + e.Radius) continue;
@@ -403,7 +405,7 @@ namespace PerformativeMail.Sim
             e.Edge = NearestEdge(x, z);
             // Each enemy thinks on its own tick, so a pulse does not path all at once.
             e.RepathTick = Tick + 1 + e.Id.Counter % RepathTicks;
-            PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false, jumper: def.JumpsWalls);
+            if (!def.Airborne) PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false, jumper: def.JumpsWalls);
             _enemies.Add(e);
             EnemiesSpawnedTotal++;
             return e;
@@ -480,6 +482,7 @@ namespace PerformativeMail.Sim
                         if (Tick < e.StateEndTick) break;
                         e.State = EnemyState.Chase;
                         if (e.Def.Ranged) { Loose(e); break; }
+                        if (e.Def.Airborne) { DropBomb(e); break; }
                         if (e.StrikeTx >= 0)
                         {
                             var built = Constructs.At(e.StrikeTx, e.StrikeTz);
@@ -505,7 +508,8 @@ namespace PerformativeMail.Sim
                         break;
                     }
                     default:
-                        if (e.Def.Ranged) StepRanged(e, dt);
+                        if (e.Def.Airborne) StepAirborne(e, dt);
+                        else if (e.Def.Ranged) StepRanged(e, dt);
                         else if (e.Def.Suicide) StepSuicide(e, dt);
                         else if (e.Def.Siege || e.Def.StealsItems) StepPriorityMelee(e, dt);
                         else StepChase(e, dt);
@@ -520,7 +524,7 @@ namespace PerformativeMail.Sim
                 {
                     var e = _enemies[i];
                     var under = Constructs.At((int)MathF.Floor(e.X / SimConstants.TileSize), (int)MathF.Floor(e.Z / SimConstants.TileSize));
-                    if (under != null && under.Def.Behaviour == BuildingBehaviour.Spikes && e.State != EnemyState.Flee)
+                    if (under != null && under.Def.Behaviour == BuildingBehaviour.Spikes && e.State != EnemyState.Flee && !e.Def.Airborne)
                         DamageEnemy(e, under.Def.DamagePerSecond * dt, null);
                 }
             }
@@ -532,6 +536,8 @@ namespace PerformativeMail.Sim
                 for (int j = i + 1; j < _enemies.Count; j++)
                 {
                     var b = _enemies[j];
+                    // Those in the air keep apart from each other, not from those under them.
+                    if (a.Def.Airborne != b.Def.Airborne) continue;
                     float dx = b.X - a.X, dz = b.Z - a.Z, min = a.Radius + b.Radius;
                     float distSq = dx * dx + dz * dz;
                     if (distSq >= min * min) continue;
@@ -547,7 +553,8 @@ namespace PerformativeMail.Sim
                     b.X += dx * push; b.Z += dz * push;
                 }
             }
-            foreach (var e in _enemies) PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false, jumper: e.Def.JumpsWalls);
+            foreach (var e in _enemies)
+                if (!e.Def.Airborne) PlayerMovement.ResolveCollisions(ref e.X, ref e.Z, 0f, Map, e.Radius, Constructs, carrier: false, jumper: e.Def.JumpsWalls);
         }
 
         /// <summary>
@@ -666,6 +673,8 @@ namespace PerformativeMail.Sim
         /// </summary>
         private void FindPath(Enemy e, float gx, float gz)
         {
+            // One in the air flies straight.
+            if (e.Def.Airborne) return;
             bool jumper = e.Def.JumpsWalls;
             if (LineClear(e.X, e.Z, gx, gz, jumper)) return;
             if (TilePathfinder.Find(Map, e.X, e.Z, gx, gz, e.Path, _navScratch, Constructs, jumper: jumper) || Constructs.All.Count == 0) return;

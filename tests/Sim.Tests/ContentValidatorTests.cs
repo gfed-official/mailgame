@@ -132,6 +132,21 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void AnAirborneEnemyWithoutItsAltitude_OrARaiderWithABomb_IsAProblem()
+        {
+            string enemies = File.ReadAllText(Content("enemies/enemies.json"));
+            Assert.Contains("\"altitude\": 6, \"bombRadius\": 2", enemies);
+            Assert.Contains("\"traitParams\": { \"keepDistance\": 10 }", enemies);
+            File.WriteAllText(Content("enemies/enemies.json"), enemies
+                .Replace("\"altitude\": 6, \"bombRadius\": 2", "\"bombRadius\": 2")
+                .Replace("\"traitParams\": { \"keepDistance\": 10 }", "\"traitParams\": { \"keepDistance\": 10, \"altitude\": 4, \"bombRadius\": 1 }"));
+            Assert.Equal(Program.ExitInvalid, Run(_dir, "content"));
+            string err = _err.ToString();
+            Assert.Contains("'balloon': an airborne enemy, and only one, has traitParams.altitude and traitParams.bombRadius > 0", err);
+            Assert.Contains("'archer': an airborne enemy, and only one, has traitParams.altitude and traitParams.bombRadius > 0", err);
+        }
+
+        [Fact]
         public void SpikesWithoutDamage_OrAWallThatHurts_AreAProblem()
         {
             string buildings = File.ReadAllText(Content("buildings/buildings.json"));

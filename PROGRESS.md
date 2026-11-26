@@ -1964,6 +1964,34 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             clients told; the full smoke puts a Wooden Wall 5 m from the host and a hog rider 10 m off,
             checks it is drawn as one, drawn over 1 m up going over the wall, the wall unhurt and its
             blow of 20 taken (with `--shots`: `hogrider.png` at its blow, `hogrider-leap.png` over the wall)
+      - [x] **The Balloon** (doc 05 §2 "90 HP, 30 AoE r=2 m, 3.0 s, 2.5 m/s; Turret > depot > Vehicle
+            Depot > sorter; Airborne (6 m). Only ranged weapons and turrets can hit it. Drops bombs on
+            turrets and logistics hubs"; §2.2 "1 Oil Can (30%)"; §3.2 cost 30 from shift 4, weights 5/10
+            on shifts 4–5; doc 08 "Balloon targetPriority is turret, depot, vehicle_depot, sorter"; design
+            choice 135). `balloon` ("Bomb Balloon"): trait `airborne` with `traitParams` `altitude` 6 and
+            `bombRadius` 2 (the validator wants both on an airborne enemy and on no other), attackRange 0.8,
+            aggroRange 30, coins 10–16; a new target class `depot` (a container of more than one tile).
+            `SimWorld.StepAirborne`: it flies straight (no tile path, no collisions with houses, walls or
+            anything built, no shoving with those on the ground) at the first of its priority within 30 m
+            and, hovering over its middle, drops a bomb every 3 s after the windup (`DropBomb`): 30 to
+            everything built and every carrier within 2 m of the point under it. With none of its targets
+            about it hovers on the raid's line. The hammer and spikes do not reach it; the mail cannon's
+            package and turrets (automatic and operated) do; it keeps nothing from being built under it.
+            `EnemyShotEvent` kind `bomb` (protocol `m2.18`): the clients draw a black bomb with a lit fuse
+            falling from the basket and the fireball where it lands. Drawn (`CharacterModel.Balloon`): a
+            red envelope with eight cream gores and a dark cap, a skirt and the burner's glow, four ropes
+            to a banded wicker basket with bombs slung on its sides and a goggled bomber in a leather cap
+            with a bomb in the hand; 6 m up and bobbing, a shadow on the ground under it; felled, it drops
+            out of the sky. `BalloonTests` (content; straight over a line of Stone Walls to the turret
+            behind, the walls unhurt, a bomb of 30 every 3 s; the bomb's 2 m on a chest and a carrier,
+            not on a wall or a carrier further off; turret, then depot, never a chest, then its line; the
+            hammer and spikes do not hurt it, the cannon and a turret do; a wall built under it),
+            `CombatTests`' roster, a validator test; the full smoke puts a Depot 8 m from the host and a balloon 14 m off,
+            checks it is drawn as one 6 m up, its bomb drawn falling on the depot, the depot down 30 a
+            bomb, the host unhurt (with `--shots`: `balloon.png`). `RaidFightTests`' hammer-only bots
+            leave balloons alone and a raid is won when the ground is clear (a balloon goes for nobody);
+            their sidestep off a house now tries the other way when the first did not get them loose (four
+            carriers in shift 4 on seed 40 stood stuck on a corner with the new raid mix)
 - [ ] Construct damage (doc 05 §5)
       - [x] Item spill (M1: a broken chest's items in a bag that is nobody's, its mail back to the
             Intake when the bag goes; a broken belt's mail back to the Intake)
@@ -3371,6 +3399,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the carrier's line of sight (on the ground plane; the sim has no pitch), from where they stand;
     the gun's reach is still counted from its middle (18 m); a raider behind the carrier is not hit.
     The tracer is drawn from the muzzle to the raider hit, so it is the gun that is seen to fire.
+135. **The Balloon.** Doc 05 §2 gives "Turret > depot > Vehicle Depot > sorter", "Airborne (6 m). Only
+    ranged weapons and turrets can hit it. Drops bombs on turrets and logistics hubs"; doc 02 says
+    Balloons may spawn on water edges. Choice: a new target class `depot` (a container of more than
+    one tile; a chest is not one); "ranged weapons" are the mail cannon (its package goes off on it
+    at ground level — the sim has no height) and turrets, automatic or operated; the hammer and spikes
+    do not reach it. It flies straight over everything and stops nobody; it bombs from over the
+    middle of its target, and the bomb hurts everything built and every carrier within 2 m of where
+    it falls, raiders not. With none of its targets within 30 m it hovers on the raid's line (it
+    never goes for a carrier). It comes in by the raid's land edges like the rest; there are no water
+    edges yet. The bomb's harm is done when it is dropped; the clients draw it falling for 0.4 s.
 
 
 ## Commands

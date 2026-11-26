@@ -27,6 +27,7 @@ namespace PerformativeMail.Sim.Tests
         {
             public int Spawned, Killed, Downs, Seconds, FastReDowns, Left;
             public bool Won;
+            public string LeftKinds = "";
             public float MinUpSeconds = float.MaxValue;
         }
 
@@ -70,11 +71,15 @@ namespace PerformativeMail.Sim.Tests
                     wasDead[p] = p.Dead;
                 }
                 o.Seconds = t / Tps;
-                if (world.RaidPulsesSpawned >= pulses && world.Enemies.Count == 0) { o.Won = true; break; }
+                // A Balloon is beyond the hammer's reach (doc 05 §2, design choice 135) and goes for no carrier:
+                // the raid is won when the ground is clear; what floats over nothing of its own is left.
+                if (world.RaidPulsesSpawned >= pulses && world.Enemies.All(e => e.Def.Airborne)) { o.Won = true; break; }
             }
             o.Spawned = world.EnemiesSpawnedTotal;
             o.Killed = world.EnemiesKilledTotal;
             o.Left = world.Enemies.Count;
+            o.LeftKinds = string.Join(", ", world.Enemies.Select(e => $"{e.Def.Id} {e.State} at ({e.X:0.0}, {e.Z:0.0}) goal {e.GoalTx},{e.GoalTz} target {e.Target} hp {e.Hp}"))
+                + "; carriers " + string.Join(", ", team.Select(p => $"({p.Move.X:0.0}, {p.Move.Z:0.0}) hp {p.Hp} dead {p.Dead} prot {world.Protected(p)}"));
             return o;
         }
 
@@ -125,7 +130,7 @@ namespace PerformativeMail.Sim.Tests
                 foreach (uint seed in Seeds)
                 {
                     var o = Fight(seed, shift, players, cannon, clumsy: true);
-                    string what = $"shift {shift}, {players} carriers, seed {seed}: {o.Killed} of {o.Spawned} felled in {o.Seconds} s, {o.Downs} downs";
+                    string what = $"shift {shift}, {players} carriers, seed {seed}: {o.Killed} of {o.Spawned} felled in {o.Seconds} s, {o.Downs} downs; left {o.LeftKinds}";
                     Assert.True(o.Won, what);
                     Assert.True(o.Seconds <= 240, what);
                     // 9 since the Giants' siege (design choice 131): four carriers' shift 5 on seed 11
@@ -187,6 +192,7 @@ namespace PerformativeMail.Sim.Tests
         private float _moveX, _moveZ, _dist = float.MaxValue;
         private bool _see;
         private uint _asideUntil;
+        private float _asideSign = 1f;
         private float _lastX, _lastZ;
 
         public RaidBot(uint seed) { _rng = seed * 2654435761u + 12345u; }
@@ -208,6 +214,8 @@ namespace PerformativeMail.Sim.Tests
                 float best = float.MaxValue;
                 foreach (var e in world.Enemies)
                 {
+                    // Out of the hammer's reach and after nobody: left to the cannon and the turrets.
+                    if (e.Def.Airborne) continue;
                     float d = MathF.Sqrt((e.X - p.Move.X) * (e.X - p.Move.X) + (e.Z - p.Move.Z) * (e.Z - p.Move.Z));
                     if (d >= best) continue;
                     best = d;
@@ -240,16 +248,21 @@ namespace PerformativeMail.Sim.Tests
                 }
                 return input;
             }
-            // Against a wall for a second: a second along it, the same way round every time.
+            // Against a wall for a second: a second and a half along it, the same way round, unless the
+            // last time that way did not get it loose: then the other way.
             if (world.Tick % 30 == 0)
             {
-                if (world.Tick >= _asideUntil && MathF.Abs(p.Move.X - _lastX) + MathF.Abs(p.Move.Z - _lastZ) < 0.5f) _asideUntil = world.Tick + 45;
+                if (world.Tick >= _asideUntil && MathF.Abs(p.Move.X - _lastX) + MathF.Abs(p.Move.Z - _lastZ) < 0.5f)
+                {
+                    if (world.Tick <= _asideUntil + 30) _asideSign = -_asideSign;
+                    _asideUntil = world.Tick + 45;
+                }
                 _lastX = p.Move.X;
                 _lastZ = p.Move.Z;
             }
             bool aside = world.Tick < _asideUntil;
-            input.MoveX = PlayerInput.QuantizeAxis(aside ? -_moveZ : _moveX);
-            input.MoveZ = PlayerInput.QuantizeAxis(aside ? _moveX : _moveZ);
+            input.MoveX = PlayerInput.QuantizeAxis(aside ? -_moveZ * _asideSign : _moveX);
+            input.MoveZ = PlayerInput.QuantizeAxis(aside ? _moveX * _asideSign : _moveZ);
             return input;
         }
     }

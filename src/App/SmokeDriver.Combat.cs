@@ -448,6 +448,66 @@ namespace PerformativeMail.App
                     break;
 
                 case 18:
+                {
+                    // A Balloon (doc 05 §2) 14 m off, a Depot 8 m off on its way: it flies to the depot and bombs it.
+                    if (_fightFrames < 3) break;
+                    if (!ClearLine(server, player.Move.X, player.Move.Z, 14f, out float x, out float z)) { Fail("no clear line for the balloon"); return; }
+                    float dx = (x - player.Move.X) / 14f, dz = (z - player.Move.Z) / 14f;
+                    int tx = (int)MathF.Floor((player.Move.X + dx * 8f) / SimConstants.TileSize), tz = (int)MathF.Floor((player.Move.Z + dz * 8f) / SimConstants.TileSize);
+                    _hogWall = server.PutUp(_session.Content.Building("depot"), tx, tz);
+                    var balloon = server.SpawnEnemy(_session.Content.Enemy("balloon"), x, z);
+                    if (balloon == null) { Fail("the server would not spawn a balloon"); return; }
+                    _giant = balloon;
+                    player.Hp = player.MaxHp;
+                    _fightArrows = _screen.Effects.BombsAtConstructs;
+                    _hogLift = 0f;
+                    _sawHogDrawn = false;
+                    NextFightStep();
+                    break;
+                }
+
+                case 19:
+                {
+                    if (_screen.Enemies.ModelOf((ushort)_giant.Id.Value) == "Balloon") _sawHogDrawn = true;
+                    _hogLift = MathF.Max(_hogLift, _screen.Enemies.LiftOf((ushort)_giant.Id.Value) - world.Map.HeightAt(_giant.X, _giant.Z));
+                    // The view on the balloon and the depot under it.
+                    ViewRay.Aim(world.Local, _hogWall.CentreX, 3.2f, _hogWall.CentreZ, out client.Input.YawRadians, out client.Input.PitchRadians);
+                    if (_screen.Effects.BombsAtConstructs == _fightArrows)
+                    {
+                        if (_fightFrames > CombatStepFrames - 10)
+                            Fail($"the balloon never bombed the depot: it is at {_giant.X:0.0}, {_giant.Z:0.0} ({_giant.State}, goal {_giant.GoalTx},{_giant.GoalTz}), the depot at {_hogWall.CentreX:0.0}, {_hogWall.CentreZ:0.0}, {_screen.Effects.BombsDropped} bombs drawn");
+                        break;
+                    }
+                    // The first bomb the client hears of is drawn falling on the depot (the server may have dropped one more since).
+                    var at = _screen.Effects.LastBomb;
+                    float off = new Vector2(at.X - _hogWall.CentreX, at.Z - _hogWall.CentreZ).Length();
+                    var seenDepot = world.Constructs.At(_hogWall.Tx, _hogWall.Tz);
+                    Check(_sawHogDrawn, "the balloon was never drawn as one");
+                    Check(_hogLift >= _giant.Def.Altitude - 0.5f, $"the balloon was drawn no higher than {_hogLift:0.0} m");
+                    Check(off < 2f, $"the balloon's bomb fell {off:0.0} m from the depot");
+                    int bombs = (_hogWall.Def.Hp - _hogWall.Hp) / (int)_giant.Damage;
+                    Check(bombs >= 1 && _hogWall.Hp == _hogWall.Def.Hp - bombs * (int)_giant.Damage && seenDepot != null && seenDepot.Hp <= _hogWall.Def.Hp - (int)_giant.Damage,
+                        $"the depot has {_hogWall.Hp} of {_hogWall.Def.Hp} HP (the client's {seenDepot?.Hp}) after the bomb, not {_hogWall.Def.Hp - (int)_giant.Damage} less a multiple of 30");
+                    Check(_screen.Effects.BombsFalling > 0, "the bomb is not drawn falling");
+                    Check(player.Hp == player.MaxHp, $"the bomb on the depot 8 m off took {player.MaxHp - player.Hp:0} of the host's health");
+                    Shot("balloon");
+                    GD.Print($"[smoke] combat: a balloon flew to a depot, drawn {_hogLift:0.0} m up, and bombed it for {(int)_giant.Damage}, the bomb drawn falling {off:0.0} m from it");
+                    server.DamageEnemy(_giant, 9999f, player);
+                    server.TakeDown(_hogWall);
+                    NextFightStep();
+                    break;
+                }
+
+                case 20:
+                    // What the balloon dropped is walked over.
+                    WalkToLoot(world);
+                    if (server.Loot.Count > 0 || world.Loot.Count > 0) break;
+                    client.Input.MoveX = 0f;
+                    client.Input.MoveZ = 0f;
+                    NextFightStep();
+                    break;
+
+                case 21:
                     // Nothing is left behind: no enemy, no body on screen, no loot.
                     if (world.Enemies.Count > 0 || _screen.Enemies.ViewCount > 0 || _screen.Effects.LootViewCount > 0) break;
                     Check(_sawEnemyView, "no enemy was ever drawn");
@@ -456,7 +516,7 @@ namespace PerformativeMail.App
                     Check(client.ContainerDesyncs == 0 && client.BadPackets == 0, $"after the fight: {client.ContainerDesyncs} desyncs, {client.BadPackets} bad packets");
                     Check(_maxEyeOffset <= 0.001f && _maxAimOffset <= 0.001f, $"in the fight the camera strayed {_maxEyeOffset:0.000} m from the eyes and {_maxAimOffset:0.000} from the aim");
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
-                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow, a wall breaker's blast at the host and one at a wall, and a hog rider's blow over a wall taken; "
+                    GD.Print($"[smoke] combat: a raider felled with {client.LocalHammerSwings - _fightSwings} swings, a giant shot with the mail cannon and felled, an archer's arrow, a wall breaker's blast at the host and one at a wall, a hog rider's blow over a wall taken and a balloon's bomb on a depot seen; "
                         + $"loot +{HudText.Gold(server.Economy.Wallet - _fightWallet)}; health {hud.HealthText}");
                     client.Input.Buttons = InputButtons.None;
                     StartBag();

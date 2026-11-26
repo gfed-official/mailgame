@@ -507,6 +507,7 @@ namespace PerformativeMail.Sim.Content
         JumpsWalls = 1 << 4,
         /// <summary>Each blow on a container pulls an item out of it (doc 05 §2 Hog Rider).</summary>
         StealsItems = 1 << 5,
+        /// <summary>Flies over everything at traitParams.altitude; only the cannon and turrets reach it (doc 05 §2 Balloon).</summary>
         Airborne = 1 << 6,
         PushesConstructs = 1 << 7,
         FleesPlayers = 1 << 8,
@@ -524,6 +525,8 @@ namespace PerformativeMail.Sim.Content
         VehicleDepot = 6,
         Chest = 7,
         AnyConstruct = 8,
+        /// <summary>A Depot: a container of more than one tile (doc 08 §2.10 Balloon "depot").</summary>
+        Depot = 9,
     }
 
     /// <summary>Enemy definition (doc 08 §2.10).</summary>
@@ -532,7 +535,7 @@ namespace PerformativeMail.Sim.Content
         /// <summary>The traits' names in content, in the order of <see cref="EnemyTraits"/>' bits.</summary>
         public static readonly string[] TraitNames = { "swarm", "ranged", "siege", "suicide", "jumps_walls", "steals_items", "airborne", "pushes_constructs", "flees_players" };
         /// <summary>The target classes' names in content, in the order of <see cref="EnemyTarget"/>.</summary>
-        public static readonly string[] TargetNames = { "player", "turret", "wall", "gate", "belt", "sorter", "vehicle_depot", "chest", "any_construct" };
+        public static readonly string[] TargetNames = { "player", "turret", "wall", "gate", "belt", "sorter", "vehicle_depot", "chest", "any_construct", "depot" };
 
         public string Id { get; init; } = "";
         public byte Index { get; init; }
@@ -570,7 +573,12 @@ namespace PerformativeMail.Sim.Content
         public float ProvokeRange { get; init; }
         public float ProvokeSeconds { get; init; }
 
+        /// <summary>Airborne: how high it flies, and the reach of the bomb it drops (traitParams); <see cref="Damage"/> to all in it.</summary>
+        public float Altitude { get; init; }
+        public float BombRadius { get; init; }
+
         public bool Ranged => (Traits & EnemyTraits.Ranged) != 0;
+        public bool Airborne => (Traits & EnemyTraits.Airborne) != 0;
         public bool Suicide => (Traits & EnemyTraits.Suicide) != 0;
         public bool Siege => (Traits & EnemyTraits.Siege) != 0;
         public bool JumpsWalls => (Traits & EnemyTraits.JumpsWalls) != 0;
@@ -587,6 +595,7 @@ namespace PerformativeMail.Sim.Content
             EnemyTarget.VehicleDepot => building.Behaviour == BuildingBehaviour.VehicleDepot,
             EnemyTarget.Chest => building.Behaviour == BuildingBehaviour.Container,
             EnemyTarget.AnyConstruct => true,
+            EnemyTarget.Depot => building.Behaviour == BuildingBehaviour.Container && building.Width * building.Length > 1,
             _ => false,
         };
     }

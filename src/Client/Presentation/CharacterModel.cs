@@ -182,6 +182,7 @@ namespace PerformativeMail.Client.Presentation
                 case "archer": return Archer(mega);
                 case "wall_breaker": return WallBreaker(mega);
                 case "hog_rider": return HogRider(mega);
+                case "balloon": return Balloon(mega);
                 default: return Raider(mega);
             }
         }
@@ -335,6 +336,63 @@ namespace PerformativeMail.Client.Presentation
             var iron = MeshKit.Mat(Iron, 0.45f, 0.7f);
             m.Part(hand, MeshKit.Cylinder(0.03f, 0.035f, 0.85f, 10), MeshKit.Mat(new Color("6b4a2e"), 0.9f), new Vector3(0f, 0.05f, -0.32f), new Vector3(-80f, 0f, 0f));
             m.Part(hand, MeshKit.RoundedBox(new Vector3(0.34f, 0.16f, 0.16f), 0.03f), iron, new Vector3(0f, 0.12f, -0.72f));
+            return m;
+        }
+
+        /// <summary>
+        /// The Bomb Balloon (doc 05 §2): a striped red and cream envelope over a wicker basket on four
+        /// ropes, a goggled bomber in it with a bomb in the hand and more slung on the basket's sides.
+        /// Its origin is the basket's floor; <see cref="EnemiesView"/> draws it at its altitude.
+        /// </summary>
+        public static CharacterModel Balloon(bool mega)
+        {
+            var m = new CharacterModel { Name = "Balloon", Height = 5.6f, RaisedArm = 2.4f };
+            var red = MeshKit.Mat(RaiderRed.Lightened(0.12f), 0.75f);
+            var cream = MeshKit.Mat(new Color("e6d8b8"), 0.8f);
+            var wicker = MeshKit.Mat(new Color("9a7044"), 0.95f);
+            var rope = MeshKit.Mat(new Color("c9b48a"), 0.9f);
+            var dark = MeshKit.Mat(new Color("2a1f1c"), 0.8f);
+            var bombMat = MeshKit.Mat(new Color("1f1d22"), 0.45f, 0.3f);
+            // The basket and its rim.
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.95f, 0.62f, 0.95f), 0.06f), wicker, new Vector3(0f, 0.31f, 0f));
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(1.02f, 0.08f, 1.02f), 0.03f), MeshKit.Mat(new Color("5e4128"), 0.9f), new Vector3(0f, 0.62f, 0f));
+            for (int i = 0; i < 3; i++)
+                m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.97f, 0.025f, 0.97f), 0.01f), MeshKit.Mat(new Color("7c5833"), 0.95f), new Vector3(0f, 0.12f + i * 0.16f, 0f));
+            // Bombs slung on its sides.
+            for (int side = -1; side <= 1; side += 2)
+            {
+                m.Part(m.Trunk, MeshKit.Sphere(0.15f, 12), bombMat, new Vector3(side * 0.55f, 0.32f, 0.12f));
+                m.Part(m.Trunk, MeshKit.Sphere(0.15f, 12), bombMat, new Vector3(side * 0.55f, 0.32f, -0.2f));
+            }
+            // The ropes up to the skirt, the burner's glow under the mouth.
+            for (int sx = -1; sx <= 1; sx += 2)
+                for (int sz = -1; sz <= 1; sz += 2)
+                    m.Part(m.Trunk, MeshKit.Cylinder(0.014f, 0.014f, 1.2f, 5), rope, new Vector3(sx * 0.5f, 1.22f, sz * 0.5f), new Vector3(sz * 4f, 0f, sx * -4f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.5f, 0.78f, 0.5f, 18), dark, new Vector3(0f, 2.02f, 0f));
+            m.Part(m.Trunk, MeshKit.Cylinder(0.1f, 0.14f, 0.16f, 10), MeshKit.Mat(Iron, 0.4f, 0.7f), new Vector3(0f, 1.62f, 0f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.11f, 10), MeshKit.Glow(new Color("ffb347"), 5f), new Vector3(0f, 1.74f, 0f));
+            // The envelope: red, with eight cream gores running pole to pole, a dark cap on top.
+            var envelope = new Vector3(0f, 3.75f, 0f);
+            m.Part(m.Trunk, MeshKit.Sphere(1.6f, 28), red, envelope, scale: new Vector3(1f, 1.18f, 1f));
+            for (int k = 0; k < 4; k++)
+                m.Part(m.Trunk, MeshKit.Sphere(1.6f, 28), cream, envelope, new Vector3(0f, k * 45f, 0f), new Vector3(1.012f, 1.192f, 0.14f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.42f, 14), dark, envelope + new Vector3(0f, 1.78f, 0f), scale: new Vector3(1f, 0.4f, 1f));
+            // The bomber: shoulders over the rim, a leather cap and brass goggles.
+            var skin = MeshKit.Mat(new Color("c99a7c"), 0.75f);
+            m.Part(m.Trunk, MeshKit.Capsule(0.2f, 0.5f, 12), MeshKit.Mat(RaiderRed, 0.85f), new Vector3(0f, 0.72f, 0.05f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.16f, 14), skin, new Vector3(0f, 1.08f, 0.02f));
+            m.Part(m.Trunk, MeshKit.Sphere(0.17f, 14), MeshKit.Mat(Leather, 0.8f), new Vector3(0f, 1.13f, 0.04f), scale: new Vector3(1f, 0.75f, 1f));
+            for (int side = -1; side <= 1; side += 2)
+                m.Part(m.Trunk, MeshKit.Cylinder(0.05f, 0.05f, 0.05f, 10), MeshKit.Mat(new Color("c79a3c"), 0.35f, 0.8f), new Vector3(side * 0.06f, 1.1f, -0.13f), new Vector3(90f, 0f, 0f));
+            Eyes(m, new Vector3(0f, 1.1f, -0.15f), 0.06f, 0.025f, mega);
+            // The throwing arm, a bomb in the hand; the other arm and the legs are not seen.
+            var armR = m.Pivot("ArmR", new Vector3(0.24f, 0.92f, 0f));
+            m.Part(armR, MeshKit.Capsule(0.07f, 0.44f, 10), MeshKit.Mat(RaiderRed, 0.85f), new Vector3(0f, -0.18f, 0f));
+            var hand = new Node3D { Name = "Hand", Position = new Vector3(0f, -0.4f, 0f) };
+            armR.AddChild(hand);
+            m.Part(hand, MeshKit.Sphere(0.14f, 12), bombMat, new Vector3(0f, -0.06f, 0f));
+            m.Part(hand, MeshKit.Sphere(0.04f, 8), MeshKit.Glow(new Color("ff8a2a"), 4f), new Vector3(0f, 0.1f, 0f));
+            m.SetLimbs(m.Pivot("ArmL", new Vector3(-0.24f, 0.92f, 0f)), armR, m.Pivot("LegL", Vector3.Zero, onTrunk: false), m.Pivot("LegR", Vector3.Zero, onTrunk: false), hand);
             return m;
         }
 
