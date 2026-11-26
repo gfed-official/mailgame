@@ -66,6 +66,9 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Raiders' arrows drawn so far, and in the air right now (doc 05 §2 Archer).</summary>
         public int ArrowsDrawn { get; private set; }
         public int ArrowsFlying => _arrows.Count;
+        /// <summary>Stones loosed from a Slingshot drawn so far, and those that struck a raider (doc 05 §1.2).</summary>
+        public int SlingStonesDrawn { get; private set; }
+        public int SlingStonesThatHit { get; private set; }
         /// <summary>Wall Breakers seen going off.</summary>
         public int WallBreakerBlasts { get; private set; }
         /// <summary>Of them, those that went off at something built; and where the last one went off.</summary>
@@ -83,6 +86,8 @@ namespace PerformativeMail.Client.Presentation
             public Node3D Node = null!;
             public Vector3 From, To;
             public float Age, Life;
+            /// <summary>A Slingshot's Stone: no arc to speak of, and a spark only where it struck.</summary>
+            public bool Stone, Spark = true;
         }
 
         /// <summary>A Balloon's bomb falling from its basket to where the server says it went off.</summary>
@@ -154,6 +159,14 @@ namespace PerformativeMail.Client.Presentation
                     else if (e.Hits > 0) Spark(from + forward * (_hammerRange * 0.6f) + Vector3.Up * 1.0f);
                     break;
                 }
+                case SlingshotFiredEvent e:
+                {
+                    float toY = e.Hit == SlingHit.Air ? _bombDrop : Height(e.ToX, e.ToZ) + (e.Hit == SlingHit.Ground ? 1.1f : 0.1f);
+                    Loose(new Vector3(e.FromX, Height(e.FromX, e.FromZ) + 1.4f, e.FromZ), new Vector3(e.ToX, toY, e.ToZ), stone: true, spark: e.Hit != SlingHit.None);
+                    SlingStonesDrawn++;
+                    if (e.Hit != SlingHit.None) SlingStonesThatHit++;
+                    break;
+                }
                 case BlastEvent e:
                     Blast(new Vector3(e.X, 0.7f, e.Z), cannon: true);
                     if (e.Hits > 0) BlastsThatHit++;
@@ -201,6 +214,17 @@ namespace PerformativeMail.Client.Presentation
 
         private float Height(float x, float z) => _client.World?.Map.HeightAt(x, z) ?? 0f;
 
+        private const float StoneSpeed = 45f;
+
+        private void Loose(Vector3 from, Vector3 to, bool stone, bool spark)
+        {
+            var pebble = new Node3D { Name = "Sling Stone" };
+            pebble.AddChild(MeshKit.Instance(MeshKit.Sphere(0.06f, 8), MeshKit.Mat(new Color("8d8a83"), 0.85f), Vector3.Zero));
+            pebble.Position = from;
+            AddChild(pebble);
+            _arrows.Add(new Arrow { Node = pebble, From = from, To = to, Life = Mathf.Max(0.08f, from.DistanceTo(to) / StoneSpeed), Stone = stone, Spark = spark });
+        }
+
         private void Loose(Vector3 from, Vector3 to)
         {
             var arrow = new Node3D { Name = "Arrow" };
@@ -222,13 +246,13 @@ namespace PerformativeMail.Client.Presentation
                 a.Age += dt;
                 if (a.Age >= a.Life)
                 {
-                    Spark(a.To);
+                    if (a.Spark) Spark(a.To);
                     a.Node.QueueFree();
                     _arrows.RemoveAt(i);
                     continue;
                 }
-                // A low arc, pointing along its flight.
-                float t = a.Age / a.Life, rise = a.From.DistanceTo(a.To) * 0.06f;
+                // A low arc, pointing along its flight; a Stone's flatter.
+                float t = a.Age / a.Life, rise = a.From.DistanceTo(a.To) * (a.Stone ? 0.02f : 0.06f);
                 var at = a.From.Lerp(a.To, t) + Vector3.Up * (4f * rise * t * (1f - t));
                 var ahead = a.From.Lerp(a.To, Mathf.Min(1f, t + 0.05f)) + Vector3.Up * (4f * rise * (t + 0.05f) * (1f - t - 0.05f));
                 a.Node.Position = at;

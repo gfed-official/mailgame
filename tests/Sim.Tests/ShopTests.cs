@@ -158,7 +158,7 @@ namespace PerformativeMail.Sim.Tests
         {
             // The tools came with harvesting (HarvestTests); they are never a special, so the roll is as it was; so is the Repair Hammer (RepairTests).
             // So did the Fortify blueprint with building (FortifyTests), the Shovel with the beach and the Bike (VehicleTests).
-            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "repair_hammer", "bike", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_truck", "mail_truck", "bp_rowboat", "rowboat", "bp_motorboat", "motorboat", "bp_oil", "bp_pipes", "bp_turret" },
+            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "repair_hammer", "slingshot", "bike", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_truck", "mail_truck", "bp_rowboat", "rowboat", "bp_motorboat", "motorboat", "bp_oil", "bp_pipes", "bp_turret" },
                 Db.ShopItems.Select(s => s.Id).ToArray());
             for (int i = 0; i < Db.ShopItems.Count; i++) Assert.Equal(i, Db.ShopItems[i].Index);
 

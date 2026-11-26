@@ -78,6 +78,7 @@ namespace PerformativeMail.Sim.Net
         CursedRaid = 68,
         MegaSighted = 69,
         LostParcel = 70,
+        SlingshotFired = 71,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -331,6 +332,10 @@ namespace PerformativeMail.Sim.Net
                 case MegaSightedEvent e:
                     w.U8((byte)EventType.MegaSighted);
                     w.U32(e.Enemy.Value); w.U8(e.Kind); w.U8((byte)e.Edge);
+                    break;
+                case SlingshotFiredEvent e:
+                    w.U8((byte)EventType.SlingshotFired);
+                    w.U32(e.Player.Value); w.F32(e.FromX); w.F32(e.FromZ); w.F32(e.ToX); w.F32(e.ToZ); w.U8((byte)e.Hit); w.U8(e.Loaded);
                     break;
                 case LostParcelEvent e:
                     w.U8((byte)EventType.LostParcel);
@@ -606,6 +611,8 @@ namespace PerformativeMail.Sim.Net
                     return new CursedRaidEvent { DestId = r.U16(), Player = new EntityId(r.U32()), Kind = r.U16(), Raiders = r.U8() };
                 case EventType.MegaSighted:
                     return new MegaSightedEvent { Enemy = new EntityId(r.U32()), Kind = r.U8(), Edge = (sbyte)r.U8() };
+                case EventType.SlingshotFired:
+                    return new SlingshotFiredEvent { Player = new EntityId(r.U32()), FromX = r.F32(), FromZ = r.F32(), ToX = r.F32(), ToZ = r.F32(), Hit = (SlingHit)r.U8(), Loaded = r.U8() };
                 case EventType.LostParcel:
                     return new LostParcelEvent { Enemy = r.U8(), Kind = r.U16(), Address = new PerformativeMail.Sim.World.AddressId(r.U32(), r.U8()), Value = r.U16(), Bag = r.U32() };
                 case EventType.Repaired:

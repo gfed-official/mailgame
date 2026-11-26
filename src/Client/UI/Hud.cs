@@ -488,9 +488,13 @@ namespace PerformativeMail.Client.UI
             _banner.Modulate = down.Length > 0 ? Palette.Mismatch : safe.Length > 0 ? Palette.Match : world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
             var manned = world.LocalTurret;
             var mender = RepairRules.Hammer(world.Content, world.Hotbar, _client!.Input.HeldSlot);
-            _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0 || manned != null || mender != null);
+            var sling = SlingRules.Held(world.Content, world.Hotbar, _client.Input.HeldSlot);
+            _weapons.Visible = !world.Local.Dead && (world.Raid != RaidState.None || world.Enemies.Count > 0 || manned != null || mender != null || sling != null);
             if (_weapons.Visible)
-                _weapons.Text = manned != null ? HudText.TurretWeapons(manned.Def) : mender != null ? HudText.RepairWeapons(mender, _client.CannonAmmo) : HudText.Weapons(_client.CannonAmmo);
+                _weapons.Text = manned != null ? HudText.TurretWeapons(manned.Def)
+                    : mender != null ? HudText.RepairWeapons(mender, _client.CannonAmmo)
+                    : sling != null ? HudText.SlingWeapons(_client.SlingShots, _client.CannonAmmo)
+                    : HudText.Weapons(_client.CannonAmmo);
 
             var prompt = _interaction.Prompt;
             bool building = Build != null && Build.Active;

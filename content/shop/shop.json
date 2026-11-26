@@ -21,6 +21,8 @@
     "grants": { "item": "shovel", "count": 1 }, "availability": { "fromShift": 1, "slot": "fixed" }, "tags": ["tool"] },
   { "id": "repair_hammer", "name": "Repair Hammer", "description": "Held, LMB mends what the raiders hurt: 50 HP a second, a quarter of its cost a full bar.", "kind": "item", "price": 100,
     "grants": { "item": "repair_hammer", "count": 1 }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["tool"] },
+  { "id": "slingshot", "name": "Slingshot", "description": "Held, LMB looses a Stone 25 m for 12: five shots a Stone, and it reaches a Balloon.", "kind": "item", "price": 200,
+    "grants": { "item": "slingshot", "count": 1 }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["tool"] },
   { "id": "bike", "name": "Bike", "description": "8 m/s on the road, 5 off it; a rack of 2x8 for the round.", "kind": "vehicle", "price": 120,
     "grants": { "vehicle": "bike" }, "availability": { "fromShift": 1, "slot": "fixed" }, "tags": ["vehicle"] },
   { "id": "bp_defense", "name": "Blueprint: Fortify", "description": "The team can build Stone Walls and Spike Strips.", "kind": "blueprint", "price": 300,

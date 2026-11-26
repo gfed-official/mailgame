@@ -225,6 +225,7 @@ namespace PerformativeMail.Sim.Content
             }
             {
                 var list = new List<ItemDef>();
+                var ammoOf = new Dictionary<ItemDef, (string Id, JsonCtx Ctx)>();
                 foreach (string file in source.ListJson("items"))
                 {
                     if (file == "items/containers.json") continue;
@@ -235,6 +236,9 @@ namespace PerformativeMail.Sim.Content
                         string id = J.Str(ctx, e, "id");
                         IReadOnlyList<string> harvests = Array.Empty<string>();
                         float yieldMultiplier = 1f, swingSeconds = 0f, repairs = 0f, repairCostRatio = 0f;
+                        float shotDamage = 0f, shotCooldown = 0f, shotRange = 0f;
+                        int shotsPerAmmo = 0;
+                        string? ammoId = null;
                         bool toolBlock = false;
                         if (e.TryGetProperty("tool", out var tool))
                         {
@@ -248,7 +252,22 @@ namespace PerformativeMail.Sim.Content
                                 // Doc 05 §4 Repair Hammer: "Repairs 50 HP/s to a construct; consumes materials at 25% of build cost per full HP bar".
                                 repairs = (float)J.Num(ctx, tool, "repairs", 0);
                                 repairCostRatio = (float)J.Num(ctx, tool, "repairCostRatio", 0);
-                                if (harvests.Count == 0 && repairs <= 0f) ctx.Error($"'{id}': a tool harvests something or repairs");
+                                // Doc 05 §1.2 Slingshot: "12 | 0.8 s | 25 m | Shop 200 ¢; uses Stone as ammo (1 Stone = 5 shots)".
+                                if (tool.TryGetProperty("shoots", out var shoots))
+                                {
+                                    if (shoots.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': tool.shoots must be an object");
+                                    else
+                                    {
+                                        shotDamage = (float)J.Num(ctx, shoots, "damage");
+                                        shotCooldown = (float)J.Num(ctx, shoots, "cooldown");
+                                        shotRange = (float)J.Num(ctx, shoots, "range");
+                                        ammoId = J.Str(ctx, shoots, "ammo");
+                                        shotsPerAmmo = J.Int(ctx, shoots, "shotsPerAmmo");
+                                        if (shotDamage <= 0f || shotCooldown <= 0f || shotRange <= 0f || shotsPerAmmo < 1 || shotsPerAmmo > 255)
+                                            ctx.Error($"'{id}': tool.shoots needs damage, cooldown and range > 0 and shotsPerAmmo in 1..255");
+                                    }
+                                }
+                                if (harvests.Count == 0 && repairs <= 0f && shotDamage <= 0f) ctx.Error($"'{id}': a tool harvests something, repairs or shoots");
                                 if (yieldMultiplier <= 0f || swingSeconds <= 0f) ctx.Error($"'{id}': tool.yieldMultiplier and tool.swingTime must be > 0");
                                 if (repairs < 0f || repairCostRatio < 0f || (repairs == 0f && repairCostRatio > 0f)) ctx.Error($"'{id}': tool.repairs and tool.repairCostRatio must not be negative, nor a cost without repairs");
                             }
@@ -272,7 +291,12 @@ namespace PerformativeMail.Sim.Content
                             SwingSeconds = swingSeconds,
                             RepairPerSecond = repairs,
                             RepairCostRatio = repairCostRatio,
+                            ShotDamage = shotDamage,
+                            ShotCooldown = shotCooldown,
+                            ShotRange = shotRange,
+                            ShotsPerAmmo = shotsPerAmmo,
                         };
+                        if (ammoId != null) ammoOf[def] = (ammoId, ctx);
                         if (toolBlock && def.Category != "tool") ctx.Error($"'{def.Id}': only an item of category 'tool' has a 'tool' block");
                         if (def.GridW <= 0 || def.GridH <= 0) ctx.Error($"'{def.Id}': grid sizes must be positive");
                         if (def.MaxStack <= 0) ctx.Error($"'{def.Id}': maxStack must be positive");
@@ -282,6 +306,11 @@ namespace PerformativeMail.Sim.Content
                         if (!AddUnique(ctx, db._itemsById, def.Id, def)) continue;
                         list.Add(def);
                     }
+                }
+                foreach (var pair in ammoOf)
+                {
+                    if (db._itemsById.TryGetValue(pair.Value.Id, out var ammo) && ammo.Category != "tool") pair.Key.Ammo = ammo;
+                    else pair.Value.Ctx.Error($"'{pair.Key.Id}': tool.shoots.ammo '{pair.Value.Id}' is no item it can be loaded with");
                 }
                 db.Items = list;
             }

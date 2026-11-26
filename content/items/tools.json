@@ -6,5 +6,7 @@
   { "id": "shovel", "name": "Shovel", "category": "tool", "grid": [1, 2], "maxStack": 1, "weightClass": "light", "sellPrice": 22, "buyPrice": 90,
     "tool": { "harvests": ["sand"], "yieldMultiplier": 1.0, "swingTime": 0.6 } },
   { "id": "repair_hammer", "name": "Repair Hammer", "category": "tool", "grid": [1, 2], "maxStack": 1, "weightClass": "light", "sellPrice": 30, "buyPrice": 100,
-    "tool": { "repairs": 50, "repairCostRatio": 0.25, "swingTime": 0.6 } }
+    "tool": { "repairs": 50, "repairCostRatio": 0.25, "swingTime": 0.6 } },
+  { "id": "slingshot", "name": "Slingshot", "category": "tool", "grid": [1, 2], "maxStack": 1, "weightClass": "light", "sellPrice": 60, "buyPrice": 200,
+    "tool": { "swingTime": 0.8, "shoots": { "damage": 12, "cooldown": 0.8, "range": 25, "ammo": "stone", "shotsPerAmmo": 5 } } }
 ]

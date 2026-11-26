@@ -247,6 +247,14 @@ namespace PerformativeMail.Sim
                 if (input.Has(InputButtons.Attack)) FireOperatedTurret(p);
                 return;
             }
+            // The Slingshot in the hand looses a Stone instead of a swing (doc 05 §1.2); the cannon stays on the other button.
+            if (HeldSlingshot(p) is { } sling)
+            {
+                p.RepairTarget = null;
+                if (input.Has(InputButtons.Attack) && Tick >= p.SlingReadyTick) FireSlingshot(p, sling);
+                if (input.Has(InputButtons.AltAttack) && Tick >= p.CannonReadyTick) FireCannon(p);
+                return;
+            }
             // The Repair Hammer in the hand mends what is hurt before it; with nothing hurt there, it swings (doc 05 §4).
             bool mending = input.Has(InputButtons.Attack) && StepRepair(p);
             if (!mending) p.RepairTarget = null;

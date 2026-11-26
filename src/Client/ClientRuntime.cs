@@ -110,6 +110,10 @@ namespace PerformativeMail.Client
         /// <summary>Hammer swings and cannon shots the local player has started; the view model plays each one.</summary>
         public int LocalHammerSwings { get; private set; }
         public int LocalCannonShots { get; private set; }
+        /// <summary>Stones the local player has loosed from the Slingshot (doc 05 §1.2); the view model plays each one.</summary>
+        public int LocalSlingShots { get; private set; }
+        /// <summary>Shots left of the Stone last loaded into the local player's Slingshot, as the server last said.</summary>
+        public int SlingLoaded { get; private set; }
         /// <summary>Swings at a tree, a bush or a boulder the local player has started; the view model plays these too.</summary>
         public int LocalHarvestSwings { get; private set; }
 
@@ -124,7 +128,7 @@ namespace PerformativeMail.Client
         private readonly List<SimEvent> _early = new List<SimEvent>();
         private uint _hammerCooldownTicks, _cannonCooldownTicks;
         private float _shopRange;
-        private uint _hammerReadySeq, _cannonReadySeq;
+        private uint _hammerReadySeq, _cannonReadySeq, _slingReadySeq;
         private uint _nextSeq = 1;
         private uint _nextRequestId = 1;
         private uint _lastSnapshotTick;
@@ -758,7 +762,16 @@ namespace PerformativeMail.Client
         private void PredictAttacks(ClientWorld world, in PlayerInput input)
         {
             if (world.Local.Dead || world.LocalTurret != null) return;
-            if (input.Has(InputButtons.Attack) && input.Seq >= _hammerReadySeq)
+            var sling = SlingRules.Held(_content, world.Hotbar, input.HeldSlot);
+            if (sling != null)
+            {
+                if (input.Has(InputButtons.Attack) && input.Seq >= _slingReadySeq && SlingShots > 0)
+                {
+                    _slingReadySeq = input.Seq + Math.Max(1u, SimConstants.SecondsToTicks(sling.ShotCooldown));
+                    LocalSlingShots++;
+                }
+            }
+            else if (input.Has(InputButtons.Attack) && input.Seq >= _hammerReadySeq)
             {
                 _hammerReadySeq = input.Seq + _hammerCooldownTicks;
                 LocalHammerSwings++;
@@ -767,6 +780,18 @@ namespace PerformativeMail.Client
             {
                 _cannonReadySeq = input.Seq + _cannonCooldownTicks;
                 LocalCannonShots++;
+            }
+        }
+
+        /// <summary>Shots the Slingshot in the local player's hand has, the pouch and the Stones carried together; 0 without one.</summary>
+        public int SlingShots
+        {
+            get
+            {
+                var world = World;
+                if (world == null || world.HotbarId == 0) return 0;
+                var sling = SlingRules.Held(_content, world.Hotbar, Input.HeldSlot);
+                return sling == null ? 0 : SlingRules.Shots(sling, SlingLoaded, world.Hotbar, world.Inventory);
             }
         }
 
@@ -1208,6 +1233,9 @@ namespace PerformativeMail.Client
                 }
                 case InserterSwungEvent e:
                     if (world.Map.InBounds(e.X, e.Y)) world.InserterSwings[e.Y * world.Map.Cols + e.X] = (world.ServerTick, e.Kind);
+                    break;
+                case SlingshotFiredEvent e:
+                    if (e.Player == world.LocalId) SlingLoaded = e.Loaded;
                     break;
                 case TurretFiredEvent e:
                     if (world.Map.InBounds(e.X, e.Y)) world.TurretShots[e.Y * world.Map.Cols + e.X] = (world.ServerTick, e.TargetX, e.TargetZ);

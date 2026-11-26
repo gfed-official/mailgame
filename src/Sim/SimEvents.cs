@@ -408,6 +408,20 @@ namespace PerformativeMail.Sim
         public byte Raiders;
     }
 
+    public enum SlingHit : byte { None = 0, Ground = 1, Air = 2 }
+
+    /// <summary>
+    /// Doc 05 §1.2: <see cref="Player"/> loosed a Stone from the Slingshot, from (FromX, FromZ) to where it
+    /// struck a raider on the ground or in the air, or fell at its reach; the shots left in the pouch.
+    /// </summary>
+    public sealed class SlingshotFiredEvent : SimEvent
+    {
+        public EntityId Player;
+        public float FromX, FromZ, ToX, ToZ;
+        public SlingHit Hit;
+        public byte Loaded;
+    }
+
     /// <summary>Doc 05 §2.1 "Announced on the HUD when spawned (\"Mega Giant sighted, north\")": a raid's Mega came in by <see cref="Edge"/>.</summary>
     public sealed class MegaSightedEvent : SimEvent
     {

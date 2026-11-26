@@ -2213,7 +2213,30 @@ corner for good.
       its value; back in the Intake when the bag's time is up; a raid's Mega announced with its way in),
       `LostParcelFlowTests` (the feed's lines, the bag on the client, the stack's words), codec pins
 
-Next in this order: the rest of M3's list in doc 12 (weapons: the Slingshot).
+- [x] **The Slingshot** (doc 05 §1.2 "Slingshot | 12 | 0.8 s | 25 m | Shop 200 ¢; uses Stone as ammo (1
+      Stone = 5 shots)"; "ranged uses server-side hitscan"; §2 Balloon "Only ranged weapons and turrets can
+      hit it"; doc 12 M3 "Player combat: … hitscan …; weapons"; design choice 143). A tool
+      (`tool.shoots`: damage 12, cooldown 0.8, range 25, ammo stone, shotsPerAmmo 5; the validator checks
+      them and that the ammo is an item) in the shop for 200 g from shift 2. Held, attack looses a Stone
+      along the carrier's facing instead of the hammer's swing (`SimWorld.Slingshot`, `SlingRules`): the
+      first raider whose body is within 0.3 m of the line and 25 m takes 12, a Balloon in the air too; the
+      first shot takes a Stone from the pockets (inventory first) and loads five; with none it does nothing
+      (and the hammer does not swing instead). The mail cannon stays on the other button.
+      `SlingshotFiredEvent` (from, to, ground / air / miss, the shots left in the pouch; protocol `m2.24`).
+      The client: a forked branch with its band and pouch in the hand, the Stone drawn flying (a spark where
+      it strikes), the weapons line "[LMB] slingshot, 44 shots   ·   [RMB] mail cannon …" ("…: no Stone"),
+      the shots predicted on the cooldown like the hammer's. `SlingshotTests` (the content and the shop;
+      12 to a raider 10 m ahead and the Stone's five shots; held down, one every 0.8 s and a Stone every
+      fifth; nothing without a Stone; the first on the line, not one beside it nor beyond 25 m; a Balloon;
+      the cannon on the other button), `SlingshotFlowTests` (the line's shots on the client, a shot through
+      the client's own input hurts the raider, another client hears it, the pouch's count), codec pin; the
+      combat smoke shoots the bombed Balloon with it through the client's input (`slingshot.png` with
+      `--shots`). The hand's model is not checked by a smoke: in that stage of the main smoke the
+      first-person camera's frame did not run (its hand still showed the cannon of an earlier step), which
+      is left to look into
+
+Next in this order: the rest of M3's list in doc 12 (the Mega's aura, lag compensation's rewind
+buffer for hitscan, M3's acceptance tests).
 
 ### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
 
@@ -3692,6 +3715,15 @@ See "Commands" at the bottom (filled in as the tooling lands).
     price that piece for that address in that shift; its deadline is a Medium Package's. The 2 Iron
     Ingots are not multiplied by the Mega's loot ×3 (they are the Mega's own). Only a raid's Mega is
     announced (a debug or test spawn is not); the words are the doc's with the kind's name.
+
+143. **The Slingshot's shot.** Doc 05 §1.2 says "ranged uses server-side hitscan" and nothing of
+    where. The input carries only the yaw (no pitch), so the line is the carrier's facing on the
+    ground plane, from where they stand, 25 m long, and a raider is struck when its body is within
+    0.3 m of it (the operated turret's leeway, choice 134) — a Balloon included, whatever its height:
+    a slingshot is aimed up at it. Walls do not stop the Stone (it flies over a 1 m wall). It hits the
+    first body on the line only. "1 Stone = 5 shots": a Stone is taken when the pouch is empty and a
+    shot is loosed, so carrying 9 Stones is 45 shots; the pouch's count is the server's, told with
+    each shot. Held, it replaces the hammer's swing on attack, as the Repair Hammer does.
 
 ## Commands
 

@@ -57,6 +57,7 @@ namespace PerformativeMail.App
             // The cards of the run's own raid may still be up: the run went by in seconds.
             _screen.Hud.Loot.Cards.Clear();
             _fightStep = 0;
+            _slingStep = SlingStep.None;
             _fightFrames = 0;
             Enter(Stage.Combat);
         }
@@ -496,6 +497,15 @@ namespace PerformativeMail.App
 
                 case 19:
                 {
+                    // Bombed, the Balloon is shot with the Slingshot (doc 05 §1.2), then felled.
+                    if (_slingStep != SlingStep.None)
+                    {
+                        if (StepSlingAtBalloon()) break;
+                        server.DamageEnemy(_giant, 9999f, player);
+                        server.TakeDown(_hogWall);
+                        NextFightStep();
+                        break;
+                    }
                     if (_screen.Enemies.ModelOf((ushort)_giant.Id.Value) == "Balloon") _sawHogDrawn = true;
                     _hogLift = MathF.Max(_hogLift, _screen.Enemies.LiftOf((ushort)_giant.Id.Value) - world.Map.HeightAt(_giant.X, _giant.Z));
                     // The view on the balloon and the depot under it.
@@ -520,9 +530,7 @@ namespace PerformativeMail.App
                     Check(player.Hp == player.MaxHp, $"the bomb on the depot 8 m off took {player.MaxHp - player.Hp:0} of the host's health");
                     Shot("balloon");
                     GD.Print($"[smoke] combat: a balloon flew to a depot, drawn {_hogLift:0.0} m up, and bombed it for {(int)_giant.Damage}, the bomb drawn falling {off:0.0} m from it");
-                    server.DamageEnemy(_giant, 9999f, player);
-                    server.TakeDown(_hogWall);
-                    NextFightStep();
+                    StepSlingAtBalloon();
                     break;
                 }
 

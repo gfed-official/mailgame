@@ -42,8 +42,29 @@ namespace PerformativeMail.Client.Presentation
             "pickaxe" => Pickaxe(),
             "shovel" => Shovel(),
             "repair_hammer" => RepairHammer(),
+            "slingshot" => Slingshot(),
             _ => null,
         };
+
+        /// <summary>
+        /// The Slingshot (doc 05 §1.2): a forked branch with a leather-wrapped grip, the band strung
+        /// between the tips of the fork and a pouch in the middle of it, held up with the fork ahead.
+        /// </summary>
+        public static Node3D Slingshot()
+        {
+            var root = new Node3D { Name = "Slingshot" };
+            var wood = MeshKit.Mat(Wood.Lightened(0.1f), 0.75f);
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.022f, 0.026f, 0.26f, 10), wood, new Vector3(0f, 0.1f, 0f)));
+            root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.029f, 0.029f, 0.12f, 10), MeshKit.Mat(new Color("5a3a22"), 0.8f), new Vector3(0f, 0.04f, 0f)));
+            for (int k = -1; k <= 1; k += 2)
+                root.AddChild(MeshKit.Instance(MeshKit.Cylinder(0.016f, 0.02f, 0.2f, 8), wood, new Vector3(k * 0.05f, 0.31f, 0f), new Vector3(0f, 0f, -k * 24f)));
+            // The band from tip to tip, drawn back a little towards the carrier, and the pouch at its middle.
+            var band = MeshKit.Mat(Band.Darkened(0.1f), 0.6f);
+            for (int k = -1; k <= 1; k += 2)
+                root.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.012f, 0.012f, 0.12f)), band, new Vector3(k * 0.06f, 0.4f, 0.05f), new Vector3(0f, k * 35f, 0f)));
+            root.AddChild(MeshKit.Instance(MeshKit.RoundedBox(new Vector3(0.05f, 0.03f, 0.03f), 0.01f), MeshKit.Mat(new Color("6b4a2e"), 0.8f), new Vector3(0f, 0.4f, 0.1f)));
+            return root;
+        }
 
         /// <summary>
         /// The Repair Hammer: a short handle wrapped in safety orange at the grip, a squared steel head

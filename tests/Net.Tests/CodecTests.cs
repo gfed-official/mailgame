@@ -282,6 +282,7 @@ namespace PerformativeMail.Net.Tests
                 new PostOfficeDamagedEvent { Hp = 2960, Enemy = 2 },
                 new RepairedEvent { X = 33, Y = 15, Player = player, PostOffice = true },
                 new CursedRaidEvent { DestId = 301, Player = player, Kind = 2, Raiders = 5 },
+                new SlingshotFiredEvent { Player = player, FromX = 30.5f, FromZ = 28.25f, ToX = 18.75f, ToZ = 28f, Hit = SlingHit.Air, Loaded = 3 },
                 new MegaSightedEvent { Enemy = new EntityId(EntityClass.Enemy, 12), Kind = 2, Edge = 1 },
                 new LostParcelEvent { Enemy = 2, Kind = 3, Address = new PerformativeMail.Sim.World.AddressId(0x00020107, 0), Value = 315, Bag = 4031 },
                 new RuinEvent { X = 32, Y = 14, Building = 7, Rotation = 3, Gone = true, Rebuilt = true, Player = player },

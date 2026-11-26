@@ -1736,6 +1736,11 @@ namespace PerformativeMail.Client
         public static string Tally(in GlobalState g) => $"Delivered {g.Deliveries}   ·   Misdelivered {g.Misdeliveries}";
 
         /// <summary>What the two triggers do, beside the hotbar while there is something to hit.</summary>
+        /// <summary>Doc 05 §1.2: the Slingshot in the hand, its shots (five a Stone), and the cannon still on the other button.</summary>
+        public static string SlingWeapons(int shots, int cannonAmmo) =>
+            (shots > 0 ? $"[LMB] slingshot, {CountAndKind("shot", shots)}" : "[LMB] slingshot: no Stone")
+            + $"   ·   [RMB] mail cannon{(cannonAmmo > 0 ? " x" + cannonAmmo.ToString(CultureInfo.InvariantCulture) : ": no Small Package")}";
+
         public static string Weapons(int cannonAmmo) =>
             cannonAmmo > 0 ? $"[LMB] hammer   ·   [RMB] mail cannon x{cannonAmmo}" : "[LMB] hammer   ·   [RMB] mail cannon: no Small Package";
 

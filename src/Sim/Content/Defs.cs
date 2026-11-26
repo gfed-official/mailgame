@@ -92,6 +92,14 @@ namespace PerformativeMail.Sim.Content
         /// <summary>A tool that mends: the part of the build cost a full bar of HP takes (0.25).</summary>
         public float RepairCostRatio { get; init; }
         public bool Repairs => RepairPerSecond > 0f;
+        /// <summary>A tool that shoots (doc 05 §1.2 Slingshot): damage a shot, seconds between shots, metres it reaches; 0 for none.</summary>
+        public float ShotDamage { get; init; }
+        public float ShotCooldown { get; init; }
+        public float ShotRange { get; init; }
+        /// <summary>A tool that shoots: the item it is loaded with (Stone), and the shots one unit gives (5).</summary>
+        public ItemDef? Ammo { get; set; }
+        public int ShotsPerAmmo { get; init; }
+        public bool Shoots => ShotDamage > 0f;
 
         /// <summary>Drawn in the hand while it is held (an Axe, a Pickaxe, a Shovel).</summary>
         public bool IsTool => Category == "tool";
