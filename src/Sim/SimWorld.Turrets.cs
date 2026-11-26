@@ -83,9 +83,9 @@ namespace PerformativeMail.Sim
 
         /// <summary>
         /// Attack with a turret's controls in the hands: the gun fires, when it is ready, at what is under
-        /// the carrier's crosshair — the first raider along their line of sight, from where they stand,
-        /// within the gun's reach of its middle (design choice 134; the line from the turret's middle
-        /// along their facing missed a raider close beside the barrel that the crosshair was on).
+        /// the carrier's crosshair — the first raider along their line of sight, from the gunner's seat
+        /// over the gun (<see cref="TurretSight.Seat"/>, where their eyes are at its controls), within
+        /// the gun's reach of its middle (design choices 134 and 138).
         /// </summary>
         private void FireOperatedTurret(Player p)
         {
@@ -98,7 +98,7 @@ namespace PerformativeMail.Sim
             _turretReady[c] = from + System.Math.Max(1.0, c.Def.ShotSeconds * SimConstants.TickRate / rate);
             float yaw = PlayerInput.YawToRadians(p.Move.Yaw);
             float fx = -System.MathF.Sin(yaw), fz = -System.MathF.Cos(yaw);
-            float px = p.Move.X, pz = p.Move.Z;
+            TurretSight.Seat(c.CentreX, c.CentreZ, fx, fz, out float px, out float pz);
             Enemy? target = null;
             float best = float.MaxValue;
             foreach (var e in _enemies)
@@ -157,9 +157,23 @@ namespace PerformativeMail.Sim
         }
     }
 
-    /// <summary>Where an operated turret's carrier's line of sight leaves the gun's reach (design choice 134).</summary>
+    /// <summary>Where an operated turret's carrier looks from, and where their line of sight leaves the gun's reach (design choices 134 and 138).</summary>
     public static class TurretSight
     {
+        /// <summary>
+        /// How far behind the gun's bearing, against its facing, the gunner's eyes are, m, and how high
+        /// over the ground (the playtest f32ea2e: from where the carrier stood, the gun's head filled the
+        /// middle of the view; from over it, the head and the barrels are at the bottom of it).
+        /// </summary>
+        public const float SeatBack = 0.3f, SeatHeight = 2.4f;
+
+        /// <summary>The ground point of the gunner's eyes at a turret whose middle is (<paramref name="cx"/>, <paramref name="cz"/>), facing the unit (<paramref name="fx"/>, <paramref name="fz"/>).</summary>
+        public static void Seat(float cx, float cz, float fx, float fz, out float x, out float z)
+        {
+            x = cx - fx * SeatBack;
+            z = cz - fz * SeatBack;
+        }
+
         /// <summary>
         /// The point along the ray from (<paramref name="px"/>, <paramref name="pz"/>) in the unit
         /// direction (<paramref name="fx"/>, <paramref name="fz"/>) that is <paramref name="range"/>

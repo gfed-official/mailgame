@@ -105,11 +105,24 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Where the camera belongs for the local player whose feet are at <paramref name="feet"/>: the eyes, or a truck's cab.</summary>
         public static Vector3 EyePosition(Vector3 feet, ClientWorld? world)
         {
+            if (world?.LocalTurret is { } turret) return GunnerEye(world, turret);
             var ride = world?.LocalRide;
             if (ride == null || ride.Def.BodyOffset <= 0f || ride.Def.OnWater) return EyePosition(feet);
             float hx = world!.Local.HeadX, hz = world.Local.HeadZ, len = Mathf.Sqrt(hx * hx + hz * hz);
             if (len < 1e-3f) return EyePosition(feet);
             return feet + new Vector3(hx / len * CabEyeForward, CabEyeHeight, hz / len * CabEyeForward);
+        }
+
+        /// <summary>
+        /// Playtest f32ea2e: at a turret's controls the eyes are in the gunner's seat, over the gun's
+        /// bearing and a little behind it (<see cref="Sim.TurretSight.Seat"/>; design choice 138), so the
+        /// head and the barrels sit at the bottom of the view and the crosshair is on what the gun is.
+        /// </summary>
+        public static Vector3 GunnerEye(ClientWorld world, Sim.World.Construct turret)
+        {
+            float yaw = PlayerInput.YawToRadians(world.Local.Yaw);
+            Sim.TurretSight.Seat(turret.CentreX, turret.CentreZ, -Mathf.Sin(yaw), -Mathf.Cos(yaw), out float x, out float z);
+            return new Vector3(x, world.Map.HeightAt(turret.CentreX, turret.CentreZ) + Sim.TurretSight.SeatHeight, z);
         }
 
         /// <summary>Places the camera for this frame; runs after the player views have moved.</summary>
@@ -129,7 +142,7 @@ namespace PerformativeMail.Client.Presentation
 
             int slot = _client.Input.HeldSlot;
             var held = world.HasLocal && slot > 0 ? world.Hotbar.EntryAt(slot, 0) : null;
-            _held.Visible = held != null && held.Stack.Kind == StackKind.Mail && !world.Local.Dead;
+            _held.Visible = held != null && held.Stack.Kind == StackKind.Mail && !world.Local.Dead && world.LocalTurret == null;
             var item = held != null && held.Stack.Kind == StackKind.Item ? world.Content.Items[held.Stack.DefIndex] : null;
             var tool = item != null && item.IsTool ? ToolModel(item) : null;
             if (tool != _tool)
@@ -179,7 +192,8 @@ namespace PerformativeMail.Client.Presentation
             _drawnLeft = Mathf.Max(0f, _drawnLeft - delta);
             _cannonLeft = Mathf.Max(0f, _cannonLeft - delta);
 
-            bool want = !FreeLook && !world.Local.Dead && world.HasLocal && (world.Raid != RaidState.None || _drawnLeft > 0f || _tool != null);
+            // At a turret's controls the hands are on the gun's.
+            bool want = !FreeLook && !world.Local.Dead && world.HasLocal && world.LocalTurret == null && (world.Raid != RaidState.None || _drawnLeft > 0f || _tool != null);
             _drawn = Mathf.MoveToward(_drawn, want ? 1f : 0f, delta * 5f);
             bool cannon = _cannonLeft > 0f;
             // A tool in the hand takes the hammer's place; the cannon still comes up for a shot.

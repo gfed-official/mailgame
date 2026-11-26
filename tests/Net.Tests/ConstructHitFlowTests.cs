@@ -118,5 +118,24 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(y, my, 1);
             Assert.True(angle >= -MathF.PI && angle <= MathF.PI);
         }
+
+        [Fact]
+        public void OnTheTopEdge_TheMarkerAndItsWords_KeepOffTheShiftsPlate()
+        {
+            // The f32ea2e playtest: a turret straight ahead, high over the view, put "Turret under attack" over "DELIVERY".
+            var keep = new List<ScreenBox> { new ScreenBox(416f, 0f, 864f, 100f) };
+            bool over = EdgeMarker.Place(640f, -400f, false, 1280f, 720f, 48f, out float x, out float y, out _);
+            Assert.False(over);
+            Assert.Equal(48f, y, 1);
+            float tip = EdgeMarker.TipClear(x, y, keep);
+            Assert.Equal(124f, tip, 1);
+            // Words beside a tip still in the plate's row go under it; words clear of it stay.
+            Assert.Equal(106f, EdgeMarker.WordsClear(560f, 54f, 200f, 24f, keep, 720f), 1);
+            Assert.Equal(54f, EdgeMarker.WordsClear(900f, 54f, 200f, 24f, keep, 720f), 1);
+            // A tip just under the plate, its chevron reaching up onto it, goes down too.
+            Assert.Equal(124f, EdgeMarker.TipClear(640f, 110f, keep), 1);
+            // Off the plate's span the edge is free.
+            Assert.Equal(48f, EdgeMarker.TipClear(1000f, 48f, keep), 1);
+        }
     }
 }

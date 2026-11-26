@@ -178,10 +178,12 @@ namespace PerformativeMail.Client.Presentation
                 var c = g.Built;
                 float tx = float.NaN, tz = 0f;
                 bool recent = world.TurretShots.TryGetValue(c.Tz * world.Map.Cols + c.Tx, out var shot);
-                if (OperatorSight(world, c, out float ox, out float oz, out float facing))
+                if (OperatorFacing(world, c, out float facing))
                 {
-                    // At what is under its operator's crosshair: their line of sight where it leaves the gun's reach (design choice 134).
-                    Sim.TurretSight.Exit(ox, oz, -Mathf.Sin(facing), -Mathf.Cos(facing), c.CentreX, c.CentreZ, c.Def.ShotRange, out tx, out tz);
+                    // At what is under its operator's crosshair: their line of sight from the gunner's seat where it leaves the gun's reach (design choices 134, 138).
+                    float fx = -Mathf.Sin(facing), fz = -Mathf.Cos(facing);
+                    Sim.TurretSight.Seat(c.CentreX, c.CentreZ, fx, fz, out float ox, out float oz);
+                    Sim.TurretSight.Exit(ox, oz, fx, fz, c.CentreX, c.CentreZ, c.Def.ShotRange, out tx, out tz);
                     manned++;
                 }
                 else if (recent && world.ServerTick - shot.Tick < SimConstants.TickRate) (tx, tz) = (shot.X, shot.Z);
@@ -227,23 +229,42 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>Ruins drawn at the last redraw of what is built.</summary>
         public int RuinsDrawn { get; private set; }
 
+        /// <summary>
+        /// The corners of the turret's gun head as drawn (its housing, the sight and the muzzles), in the
+        /// world: the smoke sees they stay low in the gunner's view (playtest f32ea2e). Empty for no gun.
+        /// </summary>
+        public Vector3[] GunHeadPoints(Construct c)
+        {
+            foreach (var g in _guns)
+            {
+                if (g.Built != c) continue;
+                var t = g.Head.GlobalTransform;
+                return new[]
+                {
+                    t * new Vector3(-0.39f, 0.42f, 0.4f), t * new Vector3(0.39f, 0.42f, 0.4f),
+                    t * new Vector3(-0.3f, 0.48f, 0.18f), t * new Vector3(0.3f, 0.48f, 0.18f),
+                    t * new Vector3(-0.22f, 0.54f, 0.22f), t * new Vector3(-0.17f, 0.15f, TurretMuzzle), t * new Vector3(0.17f, 0.15f, TurretMuzzle),
+                };
+            }
+            return System.Array.Empty<Vector3>();
+        }
+
         /// <summary>Turrets drawn pointing where a carrier at their controls looks, as of the last frame.</summary>
         public int TurretsManned { get; private set; }
         /// <summary>Turrets whose tracer is drawn this frame.</summary>
         public int TracersShown { get; private set; }
 
-        /// <summary>Where whoever holds the turret's controls stands and faces; false if nobody does.</summary>
-        private static bool OperatorSight(ClientWorld world, Construct c, out float x, out float z, out float yaw)
+        /// <summary>Where whoever holds the turret's controls faces; false if nobody does.</summary>
+        private static bool OperatorFacing(ClientWorld world, Construct c, out float yaw)
         {
-            x = z = yaw = 0f;
+            yaw = 0f;
             if (!world.TurretOperators.TryGetValue(c.Tz * world.Map.Cols + c.Tx, out var who)) return false;
             if (world.HasLocal && who == world.LocalId)
             {
-                (x, z) = (world.Local.X, world.Local.Z);
                 yaw = Sim.Players.PlayerInput.YawToRadians(world.Local.Yaw);
                 return true;
             }
-            return world.Players.TryGetValue(who, out var p) && p.Interpolate(world.ServerTick - ClientRuntime.InterpolationDelayTicks, out x, out _, out z, out yaw);
+            return world.Players.TryGetValue(who, out var p) && p.Interpolate(world.ServerTick - ClientRuntime.InterpolationDelayTicks, out _, out _, out _, out yaw);
         }
 
         /// <summary>Radians a second a turret's gun turns; how far ahead of the pedestal its muzzle is.</summary>

@@ -9,6 +9,8 @@ namespace PerformativeMail.Client.UI
     public partial class AttackMarker : Control
     {
         private static readonly Color Red = new Color("ff3b30");
+        /// <summary>How far right of the chevron its words start when they cannot stand over it, px.</summary>
+        private const float SideOffset = 80f;
         private readonly Label _label;
         private float _angle;
         private bool _over;
@@ -32,10 +34,18 @@ namespace PerformativeMail.Client.UI
             AddChild(_label);
         }
 
+        /// <summary>The boxes of the HUD the marker keeps off (the shift's plate, the banner, panels up); null: none.</summary>
+        public System.Func<System.Collections.Generic.IReadOnlyList<ScreenBox>>? KeepClear;
+
+        /// <summary>Where its words are, on screen, as of the last placing.</summary>
+        public Rect2 WordsRect => new Rect2(Position + _label.Position, _label.GetMinimumSize());
+
         /// <summary>Puts it up at a screen point, pointing <paramref name="angle"/>; over the construct when <paramref name="over"/>.</summary>
         public void Place(Vector2 at, float angle, bool over, string text)
         {
             Visible = true;
+            var keep = KeepClear?.Invoke();
+            at.Y = EdgeMarker.TipClear(at.X, at.Y, keep);
             Position = at;
             _angle = angle;
             _over = over;
@@ -48,6 +58,11 @@ namespace PerformativeMail.Client.UI
             var global = at + offset;
             global.X = Mathf.Clamp(global.X, 8f, screen.X - size.X - 8f);
             global.Y = Mathf.Clamp(global.Y, 8f, screen.Y - size.Y - 8f);
+            float clear = EdgeMarker.WordsClear(global.X, global.Y, size.X, size.Y, keep, screen.Y);
+            // Over the construct, words pushed down would sit on the chevron: beside it instead, clear of
+            // the numbers rising under it (the f32ea2e smoke's wallbreaker-wall.png had "-150" under them).
+            if (over && clear != global.Y) clear = EdgeMarker.WordsClear(global.X = Mathf.Min(at.X + SideOffset, screen.X - size.X - 8f), at.Y - size.Y, size.X, size.Y, keep, screen.Y);
+            global.Y = clear;
             _label.Position = global - at;
             QueueRedraw();
         }

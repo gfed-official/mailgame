@@ -146,6 +146,8 @@ namespace PerformativeMail.App
             layer.AddChild(Hud);
             // Doc 05 §5: health bars and damage numbers over what is hit, the marker on the HUD.
             AttackMarker = new AttackMarker();
+            // Off the shift's plate and the banner (playtest f32ea2e).
+            AttackMarker.KeepClear = Hud.KeepClear;
             layer.AddChild(AttackMarker);
             ConstructHealth = new ConstructHealthView { Name = "ConstructHealth" };
             AddChild(ConstructHealth);

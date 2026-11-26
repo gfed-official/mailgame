@@ -14,7 +14,7 @@ namespace PerformativeMail.Client.Presentation
     /// </summary>
     public partial class ConstructHealthView : Node3D
     {
-        private const float NumberSeconds = 1.2f, NumberRise = 1.1f, MarkerMargin = 48f;
+        private const float NumberSeconds = 1.2f, NumberRise = 1.1f, MarkerMargin = 48f, MarkerHeight = 1.7f;
 
         private sealed class Bar
         {
@@ -41,6 +41,13 @@ namespace PerformativeMail.Client.Presentation
         public int BarsShown => _bars.Count;
         public int NumbersShown { get; private set; }
         public string LastNumber { get; private set; } = "";
+        /// <summary>Where the last number rising is, in the world; null once it has faded.</summary>
+        public Vector3? LastNumberAt => _numbers.Count > 0 ? _numbers[^1].Node.GlobalPosition : null;
+        /// <summary>Where the bars up are, in the world.</summary>
+        public IEnumerable<Vector3> BarsAt
+        {
+            get { foreach (var bar in _bars.Values) yield return bar.Node.GlobalPosition; }
+        }
 
         public void Setup(ClientRuntime client, Camera3D camera, AttackMarker marker)
         {
@@ -132,7 +139,8 @@ namespace PerformativeMail.Client.Presentation
         {
             var hit = world.HasLocal ? world.UnderAttack(world.Local.X, world.Local.Z) : null;
             if (hit == null || _camera == null) { _marker.Visible = false; return; }
-            var at = new Vector3(hit.X, world.Map.HeightAt(hit.X, hit.Z) + hit.Top + 0.9f, hit.Z);
+            // Over where its numbers rise to (playtest f32ea2e: "-200" sat on "Stone Wall under attack").
+            var at = new Vector3(hit.X, world.Map.HeightAt(hit.X, hit.Z) + hit.Top + MarkerHeight, hit.Z);
             bool behind = _camera.IsPositionBehind(at);
             var p = _camera.UnprojectPosition(at);
             var screen = _marker.GetViewportRect().Size;

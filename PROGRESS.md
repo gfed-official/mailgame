@@ -2140,6 +2140,43 @@ repaired with the hammer".
 Next in this order: the Repair Hammer (constructs and the Post Office), then doc 05 §6 (Cursed Mail,
 with the Postage Stamps), then the rest of M3's list in doc 12.
 
+### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
+
+- [x] **(a) The operated turret's view** (design choice 138). At a turret's controls the eyes are in the
+      gunner's seat: over the gun's bearing, 0.3 m behind it against its facing, 2.4 m over the ground
+      (`TurretSight.Seat`, `SeatBack`, `SeatHeight`; `FirstPersonCamera.GunnerEye`), not where the
+      carrier stood, where the gun's head filled the middle third of the view and hid the crosshair.
+      The head and the barrels are now at the bottom of the frame and the raider in front of the gun is
+      seen; nothing is in the hands. The shot goes along the line of sight from the seat — the gun's
+      own line — so the crosshair is still exactly what is hit (design choice 134 holds), and the gun
+      head is drawn on that line for every client. The turret still does not fire by itself while
+      someone holds its controls (doc 05 §4 "manual aim"; choice 125). `OperatedTurretTests`
+      (`TheLineOfSight_IsFromTheGunnersSeat_OverTheGun`: a raider close beside the barrel is hit, one on
+      the old line from where the carrier stands is not; the miss point from the seat); the debug-world
+      smoke checks the camera is in the seat, that every corner of the drawn head and the muzzles is in
+      the lower 38 % of the view, and that the prompt reads "At the Turret's controls"; with `--shots`:
+      `debug-turret-operated.png`
+- [x] **(b) The stale ruin prompt after a rebuild.** The live game recomputes the prompt every frame;
+      the raid playtest's smoke drives the interaction itself and stopped once the ruin was gone, so
+      `ruin-rebuilt.png` kept the ruin's prompt. The smoke now looks at the standing wall, recomputes the
+      prompt and checks that it no longer names a ruin before the shot
+- [x] **(c) The under-attack marker over the shift's plate.** `AttackMarker.KeepClear` takes the HUD's
+      keep-clear boxes (`Hud.KeepClear`: the shift's plate, the line under it, the banner, panels up):
+      a chevron that would stand in one (or reach up into one) goes just under it
+      (`EdgeMarker.TipClear`), its words go under any they would sit on (`EdgeMarker.WordsClear`); over a
+      construct in view, words that cannot stand over the chevron go 80 px to its right, clear of the
+      numbers rising. The in-view chevron stands 1.7 m over the construct's top, over where its numbers
+      rise to (they sat on "Stone Wall under attack"). `ConstructHitFlowTests.OnTheTopEdge_…`; the
+      debug-world smoke checks the words overlap no keep-clear box and no number
+- [x] **(d) Damage numbers and health bars in a picture.** They were drawn; the debug world's
+      `hurt-wall.png` stood the carrier right beside the wall looking past it. It now stands 4 m off,
+      facing the wall, and the smoke checks the "-200" and the bar project onto the screen
+      (`ConstructHealthView.LastNumberAt`, `BarsAt`) and the marker is over the wall
+- [x] **(e) The Wall Breaker's blast at a wall.** Confirmed green on aa106cb and after these changes:
+      "a wall breaker ran at a wooden wall 5.0 m before the host and went off against it for 150, its
+      fireball drawn 0.8 m from it"; the rendered `wallbreaker-wall.png` shows the fireball on the wall
+      and the host at 100 HP. Nothing in the Wall Breaker changed
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -3494,7 +3531,13 @@ See "Commands" at the bottom (filled in as the tooling lands).
     outcome, `--no-quota` or not; the debug world (god mode) cannot lose it. The HUD shows it on a
     tracker plate of its own only while it is hurt — it has no world-space bar (its building is the
     size of a house; the number over its roof and the marker point at it).
-
+138. **The operated turret's view.** The f32ea2e playtest: from where the carrier stood beside the
+    turret, its head and barrels filled the middle of the view. Choices weighed: hiding the gun for its
+    operator (no gun to see), a see-through gun, or moving the eyes. Choice: the gunner's seat — the eyes
+    over the gun's bearing, a little behind it, 2.4 m up, looking where the carrier looks; the gun is
+    seen at the bottom of the view and the shot's line is the gun's own line from that seat (so the
+    crosshair is what is hit, as choice 134 wanted). The carrier's body stays where they took the
+    controls (others see them there); they cannot walk while at them (as before).
 
 ## Commands
 

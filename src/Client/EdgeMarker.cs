@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace PerformativeMail.Client
 {
@@ -31,6 +32,43 @@ namespace PerformativeMail.Client
             y = cy + dy * k;
             angle = MathF.Atan2(dy, dx);
             return false;
+        }
+
+        /// <summary>
+        /// Playtest f32ea2e: a marker on the top edge, for a construct straight ahead or behind, had its
+        /// words over the shift's plate. A tip inside a box the HUD keeps clear goes down to just under it.
+        /// </summary>
+        public static float TipClear(float x, float y, IReadOnlyList<ScreenBox>? keep, float gap = 24f)
+        {
+            if (keep == null) return y;
+            for (int pass = 0; pass < 4; pass++)
+            {
+                bool moved = false;
+                foreach (var b in keep)
+                    // The chevron reaches back up to a gap over its tip.
+                    if (x >= b.X0 && x <= b.X1 && y >= b.Y0 && y < b.Y1 + gap) { y = b.Y1 + gap; moved = true; }
+                if (!moved) break;
+            }
+            return y;
+        }
+
+        /// <summary>
+        /// The top of the marker's words, a box of <paramref name="w"/> by <paramref name="h"/> at
+        /// (<paramref name="x"/>, <paramref name="y"/>), moved down under any box the HUD keeps clear
+        /// that it would sit on (and kept on a screen <paramref name="height"/> high).
+        /// </summary>
+        public static float WordsClear(float x, float y, float w, float h, IReadOnlyList<ScreenBox>? keep, float height, float gap = 6f)
+        {
+            if (keep == null) return y;
+            for (int pass = 0; pass < 4; pass++)
+            {
+                bool moved = false;
+                var words = new ScreenBox(x, y, x + w, y + h);
+                foreach (var b in keep)
+                    if (words.Overlaps(b) && b.Y1 + gap + h <= height) { y = b.Y1 + gap; words = new ScreenBox(x, y, x + w, y + h); moved = true; }
+                if (!moved) break;
+            }
+            return y;
         }
     }
 }

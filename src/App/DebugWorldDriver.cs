@@ -181,23 +181,51 @@ namespace PerformativeMail.App
                 case Stage.Hurt:
                 {
                     // Doc 05 §5: a blow on the Stone Wall shows its number and a health bar over it, and the HUD's marker points at it.
+                    // The f32ea2e playtest: beside the wall, looking away, no shot had the number or the bar in it;
+                    // the carrier now stands 4 m off, facing it.
+                    var wallBox = Client.AimBox.Built(world.Map, world.Constructs.At(10, 15)!);
                     if (_frames == 1)
                     {
                         var carrier = Server.GetPlayer(world.LocalId)!;
                         carrier.Move.X = BuildRules.TileCentre(10) + 0.4f;
-                        carrier.Move.Z = BuildRules.TileCentre(16);
+                        carrier.Move.Z = BuildRules.TileCentre(17);
+                        return;
+                    }
+                    if (_hurtAt == 0)
+                    {
+                        if (_frames < 120 && !ClientAt(world, BuildRules.TileCentre(10) + 0.4f, BuildRules.TileCentre(17))) return;
+                        Client.ViewRay.Aim(world.Local, wallBox.X, wallBox.Y, wallBox.Z, out _session.Client.Input.YawRadians, out _session.Client.Input.PitchRadians);
+                        _session.Client.Input.PitchRadians += 0.2f;
                         _hurtNumbers = _screen.ConstructHealth.NumbersShown;
                         Server.DamageConstruct(Server.Constructs.At(10, 15)!, 200f);
+                        _hurtAt = _frames;
                         return;
                     }
                     var hurt = world.Constructs.At(10, 15);
-                    if ((hurt == null || hurt.Hp == hurt.Def.Hp || !_screen.AttackMarker.Visible) && _frames < 90) return;
+                    // A few frames for the number to rise into view and the bar to come up.
+                    if ((hurt == null || hurt.Hp == hurt.Def.Hp || !_screen.AttackMarker.Visible || _frames < _hurtAt + 8) && _frames < _hurtAt + 90) return;
                     Check(hurt != null && hurt.Hp == hurt.Def.Hp - 200, $"the Stone Wall has {hurt?.Hp} of {hurt?.Def.Hp} on the client after a blow of 200");
                     Check(_screen.ConstructHealth.BarsShown >= 1, "no health bar over the hurt Stone Wall");
                     Check(_screen.ConstructHealth.NumbersShown > _hurtNumbers && _screen.ConstructHealth.LastNumber == "-200", $"the blow's number reads \"{_screen.ConstructHealth.LastNumber}\"");
                     Check(_screen.AttackMarker.Visible && _screen.AttackMarker.Text == "Stone Wall under attack", $"the HUD's marker reads \"{_screen.AttackMarker.Text}\"");
                     var screen = GetViewport().GetVisibleRect();
                     Check(screen.HasPoint(_screen.AttackMarker.Tip), $"the marker's tip {_screen.AttackMarker.Tip} is off the screen");
+                    var camera = _screen.Camera;
+                    var number = _screen.ConstructHealth.LastNumberAt;
+                    Check(number is { } n && !camera.IsPositionBehind(n) && screen.HasPoint(camera.UnprojectPosition(n)), $"the blow's number at {number} is not on the screen");
+                    Check(_screen.ConstructHealth.BarsAt.Any(b => !camera.IsPositionBehind(b) && screen.HasPoint(camera.UnprojectPosition(b))), "the Stone Wall's health bar is not on the screen");
+                    Check(_screen.AttackMarker.OverIt, "the HUD's marker is not over the Stone Wall in view");
+                    // The f32ea2e playtest: the marker's words were drawn over the shift's plate.
+                    var wordsAt = _screen.AttackMarker.WordsRect;
+                    var wordsBox = new Client.ScreenBox(wordsAt.Position.X, wordsAt.Position.Y, wordsAt.End.X, wordsAt.End.Y);
+                    Check(!_screen.Hud.KeepClear().Any(b => b.Overlaps(wordsBox)), $"the HUD's marker's words {wordsAt} are over the shift's plate or a line of the HUD");
+                    if (number is { } rising)
+                    {
+                        var words = _screen.AttackMarker.WordsRect.Grow(4f);
+                        var marker = new Rect2(_screen.AttackMarker.Tip - new Vector2(14f, 22f), new Vector2(28f, 24f));
+                        var at = camera.UnprojectPosition(rising);
+                        Check(!words.HasPoint(at) && !marker.HasPoint(at), $"the blow's number at {at} is under the marker's words {words}");
+                    }
                     Shot("hurt-wall");
                     GD.Print($"[smoke] debug world: a blow of 200 on the Stone Wall: \"{_screen.ConstructHealth.LastNumber}\" over it, a health bar, the HUD's marker \"{_screen.AttackMarker.Text}\"{(_screen.AttackMarker.OverIt ? " over it" : " on the edge")}");
                     Next(Stage.Ruin);
@@ -549,6 +577,7 @@ namespace PerformativeMail.App
             Next(Stage.Turret);
         }
 
+        private int _hurtAt, _turretShotsSeen;
         private int _turretStep, _turretShots0, _turretDrawn0, _turretAt;
         private uint _turretTick0;
         private float _turretX, _turretZ;
@@ -600,22 +629,46 @@ namespace PerformativeMail.App
                     // A second of attack, the gun on the practice raider (or the range's spot, between raiders).
                     float tx = BuildRules.TileCentre(57), tz = BuildRules.TileCentre(2);
                     foreach (var e in world.Enemies.Values) { tx = e.X; tz = e.Z; }
-                    client.Input.YawRadians = MathF.Atan2(-(tx - world.Local.X), -(tz - world.Local.Z));
+                    // From the gunner's seat, over the gun's middle.
+                    client.Input.YawRadians = MathF.Atan2(-(tx - turret.CentreX), -(tz - turret.CentreZ));
                     client.Input.PitchRadians = 0f;
                     client.Input.Buttons = InputButtons.Attack;
                     if (Server.Tick < _turretTick0 + SimConstants.TickRate) return;
                     client.Input.Buttons = InputButtons.None;
                     _screen.Hud.Refresh();
-                    int shots = Server.TurretShots - _turretShots0;
+                    int shots = _turretShotsSeen = Server.TurretShots - _turretShots0;
                     Check(shots >= 3, $"a second at the turret's controls fired {shots} shots");
                     Check(_screen.Constructs.TurretShotsDrawn > _turretDrawn0, "the operated turret's shots are not drawn");
                     Check(_screen.Constructs.TurretsManned == 1, $"{_screen.Constructs.TurretsManned} turrets drawn manned");
                     Check(_screen.Hud.WeaponsText == Client.HudText.TurretWeapons(turret.Def), $"at the turret the weapons line reads \"{_screen.Hud.WeaponsText}\"");
                     Check(new Vector2(truth.Move.X - _turretX, truth.Move.Z - _turretZ).Length() < 0.01f, "the carrier moved at the turret's controls");
+                    // The f32ea2e playtest: from where the carrier stood the gun's head hid the crosshair; the eyes
+                    // are in the gunner's seat over it (design choice 138), the head and barrels low in the view.
+                    var camera = _screen.Camera;
+                    var seat = Client.Presentation.FirstPersonCamera.GunnerEye(world, turret);
+                    Check(camera.GlobalPosition.DistanceTo(seat) < 0.05f, $"at the turret's controls the eyes are at {camera.GlobalPosition}, the gunner's seat is {seat}");
+                    var view = GetViewport().GetVisibleRect().Size;
+                    foreach (var corner in _screen.Constructs.GunHeadPoints(turret))
+                    {
+                        var at = camera.UnprojectPosition(corner);
+                        Check(camera.IsPositionBehind(corner) || at.Y > view.Y * 0.62f, $"the gun's head is drawn at {at.Y:0} of {view.Y:0} px, over the crosshair's part of the view");
+                    }
+                    Check(_screen.Constructs.GunHeadPoints(turret).Length > 0, "the turret's gun head is not drawn");
+                    interaction.Update(1.0 / 30.0, false, false);
+                    _screen.Hud.Refresh();
+                    Check(_screen.Hud.PromptText.StartsWith("At the Turret's controls", StringComparison.Ordinal), $"at the controls the prompt reads \"{_screen.Hud.PromptText}\"");
+                    Shot("turret-operated");
+                    _turretAt = _frames;
+                    _turretStep++;
+                    return;
+                }
+                case 4:
+                {
+                    if (_frames < _turretAt + 2) return;
                     interaction.Update(1.0 / 30.0, false, false);
                     Check(interaction.Prompt.Kind == Client.InteractKind.LeaveTurret, $"at the controls the prompt is {interaction.Prompt.Kind}");
                     interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
-                    GD.Print($"[smoke] debug world: the turret operated by hand, {shots} shots in a second, let go with E");
+                    GD.Print($"[smoke] debug world: the turret operated by hand from the gunner's seat, {_turretShotsSeen} shots in a second, the gun's head low in the view, let go with E");
                     _turretAt = _frames;
                     _turretStep++;
                     return;

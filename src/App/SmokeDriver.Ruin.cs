@@ -112,6 +112,11 @@ namespace PerformativeMail.App
                 $"rebuilt: a {standing.Def.Id} of {standing.Hp} HP turned {standing.Rotation} (the wall was turned {RuinRotation})");
             Check(CarriedLogs(world) == _ruinLogs - _ruinCost, $"the rebuild took {_ruinLogs - CarriedLogs(world)} Logs, half the wall's is {_ruinCost}");
             Check(_session.Feed.Entries.Any(e => e.Text == "You rebuilt the Wooden Wall"), "no \"You rebuilt the Wooden Wall\" line in the feed");
+            // Playtest f32ea2e: the shot kept the ruin's prompt the smoke last computed; the prompt is the standing wall's now.
+            AimAtBuilt(standing);
+            interaction.Update(1.0 / 30.0, false, false);
+            hud.Refresh();
+            Check(interaction.Prompt.Kind != InteractKind.RebuildRuin && !hud.PromptText.Contains("Ruin", StringComparison.Ordinal), $"after the rebuild the prompt still reads \"{hud.PromptText}\"");
             Shot("ruin-rebuilt");
             GD.Print($"[smoke] ruin: the Wooden Wall broken in shift {RaidPlaytestShift}'s Delivery rebuilt in shift {server.Run.Shift}'s Prep at ({_ruinTx}, {_ruinTz}) for {_ruinCost} Logs, half its cost, through the prompt and E");
             _ruinStep = RuinStep.Done;

@@ -114,12 +114,12 @@ namespace PerformativeMail.Sim.Tests
         {
             var (world, host, turret) = Built();
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.OperateTurret(0, Tx, Tz, true)));
-            // Facing north at nothing: every shot misses, and is drawn to where the carrier's line of
-            // sight (from 2 m east of the turret) leaves its reach.
+            // Facing north at nothing: every shot misses, and is drawn to where the line of sight from
+            // the gunner's seat (over the gun, a little behind its bearing) leaves its reach.
             int shots = Hold(world, host, InputButtons.Attack, North, 1);
             var miss = world.Events.OfType<TurretFiredEvent>().Single();
-            Assert.Equal(host.Move.X, miss.TargetX, 3);
-            Assert.Equal(turret.CentreZ - MathF.Sqrt(Turret.ShotRange * Turret.ShotRange - 4f), miss.TargetZ, 2);
+            Assert.Equal(turret.CentreX, miss.TargetX, 3);
+            Assert.Equal(turret.CentreZ - Turret.ShotRange, miss.TargetZ, 2);
             shots += Hold(world, host, InputButtons.Attack, North, 2 * Tps - 1);
             Assert.Equal(8, shots);
         }
@@ -135,22 +135,27 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
-        public void ACloseRaiderUnderTheCrosshair_BesideTheBarrel_IsHit()
+        public void TheLineOfSight_IsFromTheGunnersSeat_OverTheGun()
         {
-            // The 0abedd1 playtest: the shot left the turret's middle along the carrier's facing, so a
-            // raider close by under the crosshair but off to the side of the barrel was missed.
+            // The f32ea2e playtest: from where the carrier stood the gun's head hid the crosshair, so the
+            // eyes are now in the gunner's seat over the gun (design choice 138), and the shot goes along
+            // their line from there. 0abedd1: a raider close by, beside the barrel, under the crosshair, is hit.
             var (world, host, turret) = Built();
-            // The carrier stands 2 m east of the turret and looks north at a raider 3 m ahead of them:
-            // 2 m to the side of the line from the turret's middle, on their own line of sight.
-            var raider = world.SpawnEnemy(Db.Enemy("barbarian"), host.Move.X, host.Move.Z - 3f)!;
+            TurretSight.Seat(turret.CentreX, turret.CentreZ, 0f, -1f, out float sx, out float sz);
+            Assert.Equal(turret.CentreX, sx, 3);
+            Assert.Equal(turret.CentreZ + TurretSight.SeatBack, sz, 3);
+            var close = world.SpawnEnemy(Db.Enemy("barbarian"), turret.CentreX + 0.45f, turret.CentreZ - 1.4f)!;
+            // Where the carrier stands (2 m east) the line ahead of them is no longer the crosshair's.
+            var aside = world.SpawnEnemy(Db.Enemy("barbarian"), host.Move.X, host.Move.Z - 3f)!;
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.OperateTurret(0, Tx, Tz, true)));
             Hold(world, host, InputButtons.Attack, North, 1);
             var shot = world.Events.OfType<TurretFiredEvent>().Single();
-            Assert.InRange(MathF.Abs(shot.TargetX - raider.X) + MathF.Abs(shot.TargetZ - raider.Z), 0f, 0.5f);
-            Assert.Equal(Db.Enemy("barbarian").Hp - Turret.ShotDamage, raider.Hp, 3);
+            Assert.InRange(MathF.Abs(shot.TargetX - close.X) + MathF.Abs(shot.TargetZ - close.Z), 0f, 0.5f);
+            Assert.Equal(Db.Enemy("barbarian").Hp - Turret.ShotDamage, close.Hp, 3);
+            Assert.Equal(Db.Enemy("barbarian").Hp, aside.Hp, 3);
 
-            // The nearer of two on the line of sight takes the shot; one beyond the gun's reach none.
-            var far = world.SpawnEnemy(Db.Enemy("barbarian"), turret.CentreX + 2f, turret.CentreZ + Turret.ShotRange + 3f)!;
+            // One beyond the gun's reach takes none.
+            var far = world.SpawnEnemy(Db.Enemy("barbarian"), turret.CentreX, turret.CentreZ + Turret.ShotRange + 3f)!;
             Hold(world, host, InputButtons.Attack, MathF.PI, Tps / 2);
             Assert.Equal(Db.Enemy("barbarian").Hp, far.Hp, 3);
         }
