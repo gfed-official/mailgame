@@ -318,7 +318,8 @@ namespace PerformativeMail.Client.Presentation
             }
             m.Part(m.Trunk, MeshKit.Sphere(0.2f), skin, new Vector3(0f, 1.8f, 0.04f));
             m.Part(m.Trunk, MeshKit.Cylinder(0.06f, 0.09f, 0.2f, 10), bristle, new Vector3(0f, 2.0f, 0.08f));
-            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.22f, 0.05f, 0.05f), 0.02f), bristle, new Vector3(0f, 1.76f, -0.16f));
+            // A heavy brow over the eyes.
+            m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.24f, 0.045f, 0.06f), 0.02f), bristle, new Vector3(0f, 1.88f, -0.16f), new Vector3(-10f, 0f, 0f));
             Eyes(m, new Vector3(0f, 1.82f, -0.15f), 0.07f, 0.028f, mega);
             var armL = m.Pivot("ArmL", new Vector3(-0.36f, 1.6f, 0.08f));
             var armR = m.Pivot("ArmR", new Vector3(0.36f, 1.6f, 0.08f));

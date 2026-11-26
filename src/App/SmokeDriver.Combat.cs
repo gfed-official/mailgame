@@ -383,6 +383,7 @@ namespace PerformativeMail.App
                 {
                     if (_screen.Enemies.ModelOf((ushort)_giant.Id.Value) == "HogRider") _sawHogDrawn = true;
                     _hogLift = MathF.Max(_hogLift, _screen.Enemies.LiftOf((ushort)_giant.Id.Value));
+                    if (_screen.Enemies.LiftOf((ushort)_giant.Id.Value) > 1f) Shot("hogrider-leap");
                     var seen = Seen(world, _giant);
                     if (seen != null) AimAt(seen.X, seen.Z, InputButtons.None);
                     if (world.LocalHp >= world.LocalMaxHp) break;

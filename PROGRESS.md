@@ -1963,7 +1963,7 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             at a carrier); `SimWorld.PutUp`/`TakeDown` put a construct up and down for the smoke, the
             clients told; the full smoke puts a Wooden Wall 5 m from the host and a hog rider 10 m off,
             checks it is drawn as one, drawn over 1 m up going over the wall, the wall unhurt and its
-            blow of 20 taken
+            blow of 20 taken (with `--shots`: `hogrider.png` at its blow, `hogrider-leap.png` over the wall)
 - [ ] Construct damage (doc 05 §5)
       - [x] Item spill (M1: a broken chest's items in a bag that is nobody's, its mail back to the
             Intake when the bag goes; a broken belt's mail back to the Intake)
