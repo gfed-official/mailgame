@@ -128,7 +128,9 @@ namespace PerformativeMail.Sim.Tests
                     string what = $"shift {shift}, {players} carriers, seed {seed}: {o.Killed} of {o.Spawned} felled in {o.Seconds} s, {o.Downs} downs";
                     Assert.True(o.Won, what);
                     Assert.True(o.Seconds <= 240, what);
-                    Assert.True(o.Downs <= 8 * players, what);
+                    // 9 since the Giants' siege (design choice 131): four carriers' shift 5 on seed 11
+                    // had 31 downs before and 35 after, while the four seeds' sum fell from 97 to 74.
+                    Assert.True(o.Downs <= 9 * players, what);
                 }
         }
 

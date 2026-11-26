@@ -117,6 +117,21 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void ASiegeEnemyWithoutItsProvocation_OrARaiderWithOne_IsAProblem()
+        {
+            string enemies = File.ReadAllText(Content("enemies/enemies.json"));
+            Assert.Contains("\"provokeRange\": 5, \"provokeSeconds\": 3", enemies);
+            Assert.Contains("\"traitParams\": { \"keepDistance\": 10 }", enemies);
+            File.WriteAllText(Content("enemies/enemies.json"), enemies
+                .Replace("\"provokeRange\": 5, \"provokeSeconds\": 3", "\"provokeRange\": 5")
+                .Replace("\"traitParams\": { \"keepDistance\": 10 }", "\"traitParams\": { \"keepDistance\": 10, \"provokeRange\": 4, \"provokeSeconds\": 2 }"));
+            Assert.Equal(Program.ExitInvalid, Run(_dir, "content"));
+            string err = _err.ToString();
+            Assert.Contains("'giant': a siege enemy, and only one, has traitParams.provokeRange and traitParams.provokeSeconds > 0", err);
+            Assert.Contains("'archer': a siege enemy, and only one, has traitParams.provokeRange and traitParams.provokeSeconds > 0", err);
+        }
+
+        [Fact]
         public void SpikesWithoutDamage_OrAWallThatHurts_AreAProblem()
         {
             string buildings = File.ReadAllText(Content("buildings/buildings.json"));

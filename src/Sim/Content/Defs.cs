@@ -500,6 +500,7 @@ namespace PerformativeMail.Sim.Content
         Swarm = 1 << 0,
         /// <summary>Shoots from afar (doc 05 §2 Archer): keeps its distance, backs off from a carrier coming close.</summary>
         Ranged = 1 << 1,
+        /// <summary>Goes for what is built (doc 05 §2 Giant); a carrier only when one hurts it from close by.</summary>
         Siege = 1 << 2,
         Suicide = 1 << 3,
         JumpsWalls = 1 << 4,
@@ -560,8 +561,16 @@ namespace PerformativeMail.Sim.Content
         public float BlastRadius { get; init; }
         public float StructureDamage { get; init; }
 
+        /// <summary>
+        /// Siege: a carrier who hurts it from at most this far (traitParams.provokeRange) has it for
+        /// provokeSeconds; no other carrier is its target.
+        /// </summary>
+        public float ProvokeRange { get; init; }
+        public float ProvokeSeconds { get; init; }
+
         public bool Ranged => (Traits & EnemyTraits.Ranged) != 0;
         public bool Suicide => (Traits & EnemyTraits.Suicide) != 0;
+        public bool Siege => (Traits & EnemyTraits.Siege) != 0;
 
         /// <summary>Whether a construct of <paramref name="building"/> is of the target class <paramref name="target"/>.</summary>
         public static bool IsOf(EnemyTarget target, BuildingDef building) => target switch

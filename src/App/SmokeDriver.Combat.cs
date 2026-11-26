@@ -24,7 +24,9 @@ namespace PerformativeMail.App
         private const float RaiderDistance = 2.2f, GiantDistance = 10f;
 
         private int _fightStep, _fightFrames, _fightArrows;
-        private bool _sawBreakerDrawn;
+        private bool _sawBreakerDrawn, _giantProvoked;
+        /// <summary>The server tick by which the giant, hurt from afar, has shown it does not care (its siege, design choice 131).</summary>
+        private uint _giantCalmTick;
         private Enemy _raider = null!, _giant = null!;
         private int _fightKills, _fightSwings, _fightShots, _fightBlasts, _fightWallet, _raiderCoins;
         /// <summary>When the raider fell (ms): the hammer comes up in real time, the fight runs at fixed ticks a frame, so it gets half a second.</summary>
@@ -237,9 +239,28 @@ namespace PerformativeMail.App
 
                 case 6:
                 {
-                    // The giant walks up and lands a blow: the health bar and its number drop together.
+                    // Hurt from 10 m the giant does not turn on the carrier (doc 05 §2 siege): two seconds
+                    // later it is after nobody. Then a blow from 3 m: it walks up and lands one of its
+                    // own, and the health bar and its number drop together.
                     var seen = Seen(world, _giant);
                     if (seen != null) AimAt(seen.X, seen.Z, InputButtons.None);
+                    if (_fightFrames == 1) { _giantCalmTick = server.Tick + SimConstants.SecondsToTicks(2.0); _giantProvoked = false; }
+                    if (!_giantProvoked)
+                    {
+                        Check(world.LocalHp >= world.LocalMaxHp, "the giant hurt from afar came for the carrier");
+                        if (server.Tick < _giantCalmTick) break;
+                        Check(_giant.Target.IsNone, "the giant hurt from 10 m turned on the carrier");
+                        if (!ClearLine(server, player.Move.X, player.Move.Z, 3f, out float gx, out float gz)) { Fail("no clear line for the giant at 3 m"); return; }
+                        _giant.X = gx;
+                        _giant.Z = gz;
+                        server.DamageEnemy(_giant, 1f, player);
+                        Check(_giant.Target.IsNone || _giant.Target == player.Id, "the giant is after somebody else");
+                        _giantProvoked = true;
+                        // The blow has its own frames to come in.
+                        _fightFrames = 2;
+                        GD.Print("[smoke] combat: the giant ignored the cannon from 10 m and turned on a blow from 3 m");
+                        break;
+                    }
                     if (world.LocalHp >= world.LocalMaxHp) break;
                     Check(hud.HealthText == HudText.Health(world.LocalHp), $"hurt to {world.LocalHp:0.0} the HUD shows \"{hud.HealthText}\"");
                     Check(hud.HealthShown < 1f && Mathf.Abs(hud.HealthShown - world.LocalHp / world.LocalMaxHp) < 0.01f, $"hurt to {world.LocalHp:0.0} of {world.LocalMaxHp:0} the health bar is at {hud.HealthShown:0.00}");

@@ -56,6 +56,8 @@ namespace PerformativeMail.Sim.Combat
         public EntityId LastHitBy;
         /// <summary>Until this tick it goes for <see cref="LastHitBy"/> from any distance.</summary>
         public uint ProvokedUntilTick;
+        /// <summary>Siege: the carrier who hurt it from close by; it is theirs until <see cref="ProvokedUntilTick"/>.</summary>
+        public EntityId ProvokedBy;
         /// <summary>Enough others are nearer its target: it keeps back until there is room (set every tick).</summary>
         public bool Waiting;
         /// <summary>Windup: the tile of what the carriers built that the blow is for; StrikeTx −1: it is for the target.</summary>

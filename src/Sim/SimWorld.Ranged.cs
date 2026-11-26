@@ -26,10 +26,17 @@ namespace PerformativeMail.Sim
         {
             player = null;
             built = null;
+            if (e.Def.Siege)
+            {
+                // Doc 05 §2 Giant: the carrier who hurt it from close by is its target while that lasts, and no other.
+                var provoker = GetPlayer(e.ProvokedBy);
+                if (provoker != null && Provoked(e, provoker)) { player = provoker; return; }
+            }
             foreach (var target in e.Def.TargetPriority)
             {
                 if (target == EnemyTarget.Player)
                 {
+                    if (e.Def.Siege) continue;
                     player = Acquire(e);
                     if (player != null) return;
                     continue;
@@ -64,7 +71,11 @@ namespace PerformativeMail.Sim
         private bool ChooseTarget(Enemy e, float dt, out Player? target, out Construct? built)
         {
             target = GetPlayer(e.Target);
-            if (target != null)
+            if (target != null && e.Def.Siege)
+            {
+                if (!Provoked(e, target)) target = null;
+            }
+            else if (target != null)
             {
                 if (DistanceSq(e, target) <= e.Def.AggroRange * e.Def.AggroRange) { e.SeenX = e.X; e.SeenZ = e.Z; }
                 if (!ValidTarget(e, target, e.Def.AggroRange * _combat.LeashMult, e.SeenX, e.SeenZ)) target = null;

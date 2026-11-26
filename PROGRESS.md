@@ -1922,6 +1922,24 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             and checks it is drawn as one, goes off, is gone and took 20 health. `RaidFightTests`:
             two carriers' shift-3 raid now sends 18–28 heads on average (20–28 before; a pulse that
             buys a Wall Breaker buys fewer)
+      - [x] **The Giant's siege** (doc 05 §2 "400 HP, 40 dmg, 2.0 s, 3 m/s; Construct (buildings first:
+            depots, sorters) > player; Slow siege unit. Ignores players unless attacked by one within
+            5 m for 3 s"; design choice 131). Trait `siege` with `traitParams` `provokeRange` 5 and
+            `provokeSeconds` 3 (the validator wants both on a siege enemy and on no other),
+            `targetPriority` chest (chests and depots), sorter, vehicle_depot, any_construct, player;
+            aggroRange 30 (doc 05 §3.3's "noticed within 30 m"). `SimWorld.StepSiege`: it walks at
+            the first of its priority within 30 m and strikes it from its 2.4 m reach, 40 every 2 s
+            (the windup's blow lands from that reach too), breaking what stands in its way; a carrier
+            is its target only after hurting it from within 5 m (`Enemy.ProvokedBy`, `Provoke`), at
+            once and for 3 s after the last such blow — the cannon from 10 m it does not notice (the
+            kill is still the carrier's); with nothing built in reach it holds the line. `GiantTests`
+            (content; a carrier beside it ignored; a wall struck 40 every 2 s from its reach; a chest
+            before a wall; turned on from 3 m, back at the wall 3 s later; not from 10 m; a raider
+            beside it still goes for the carrier), validator test; `CombatTests`' blow from afar is a
+            raider's now; the full smoke checks the giant shot from 10 m is after nobody 2 s later,
+            then hurts it from 3 m and takes its blow. `RaidFightTests`' clumsy team may be down
+            9 times a head (8 before: four carriers' shift 5 on seed 11 went from 31 to 35 downs,
+            while the four seeds' sum fell from 97 to 74)
 - [ ] Construct damage (doc 05 §5)
       - [x] Item spill (M1: a broken chest's items in a bag that is nobody's, its mail back to the
             Intake when the bag goes; a broken belt's mail back to the Intake)
@@ -1966,8 +1984,13 @@ Doc 12's M3 "Defenses" line is the first with a piece still missing.
             deals the Stone Wall a blow of 200 and checks the client's health, the bar, "-200", and the
             marker's words and place on screen
 
-Next in this order: the rest of the enemy traits (doc 05 §2: the Giant's siege, the Hog Rider, the
-Balloon, the Tank), then the rest of doc 05 §5 (the Post Office's HP).
+Batch after e23d8d7: item 1 (keep smoke and the unit tests green, fix any break in the Archer, the
+Wall Breaker, the HUD's damage numbers, ruins, turrets, the debug world …) found nothing broken —
+`tools/smoke.sh` (the three smokes and the island bot) and Sim.Tests 538 / Net.Tests 201 passed on
+e23d8d7 as it was.
+
+Next in this order: the rest of the enemy traits (doc 05 §2: the Hog Rider, the Balloon, the Tank),
+then the rest of doc 05 §5 (the Post Office's HP).
 
 ## How to build and check
 
@@ -3260,6 +3283,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     otherwise be a field of bars), the numbers are the health a blow took, and one marker — for the
     nearest construct hit in the last 3 s — stands over it or on the screen's edge its way, as a
     compass mark would point; the words beside it name it.
+131. **The Giant's siege.** Doc 05 §2 says "Construct (buildings first: depots, sorters) > player" and
+    "Ignores players unless attacked by one within 5 m for 3 s"; doc 08's target classes have no
+    "depot". Choice: chest (which is any container, so depots and chests), sorter, vehicle depot,
+    then any construct; "player" in its list means only the carrier who provoked it: a blow from
+    within 5 m (of its body) turns it on that carrier at once, ahead of every construct, until 3 s
+    after the last such blow; a blow from farther is not noticed (the kill still counts). Its
+    aggroRange is doc 05 §3.3's 30 m "noticed", so from the raid line it can reach what is built
+    round the Post Office. It strikes a construct from its attackRange (2.4 m), not from beside it.
 
 
 ## Commands

@@ -652,7 +652,7 @@ namespace PerformativeMail.Sim.Tests
             var world = NewWorld();
             var p = PlayerOnTheStreet(world, 60f, 28f);
             p.MaxHp = p.Hp = 1000f;
-            var e = world.SpawnEnemy(Db.Enemy("giant"), 88f, 28f)!;
+            var e = world.SpawnEnemy(Db.Enemy("barbarian"), 88f, 28f)!;
             SimDriver.StepTicks(world, 3);
             Assert.True(e.Target.IsNone);
             world.DamageEnemy(e, 40f, p);
@@ -661,7 +661,7 @@ namespace PerformativeMail.Sim.Tests
             // Six seconds of that bring it within aggro range, and then it is a fight like any other.
             int ticks = 0;
             while (p.Hp == p.MaxHp && ticks++ < 12 * Tps) world.Step();
-            Assert.True(p.Hp < p.MaxHp, $"the giant never arrived: it stands at {e.X:0.0}, {e.Z:0.0}");
+            Assert.True(p.Hp < p.MaxHp, $"the raider never arrived: it stands at {e.X:0.0}, {e.Z:0.0}");
         }
 
         [Fact]

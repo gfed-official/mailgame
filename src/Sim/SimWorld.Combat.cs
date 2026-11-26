@@ -416,6 +416,7 @@ namespace PerformativeMail.Sim
             {
                 if (e.Target == player) e.Target = EntityId.None;
                 if (e.LastHitBy == player) e.LastHitBy = EntityId.None;
+                if (e.ProvokedBy == player) e.ProvokedBy = EntityId.None;
             }
             foreach (var s in _shots)
                 if (s.Owner == player) s.Owner = EntityId.None;
@@ -438,8 +439,10 @@ namespace PerformativeMail.Sim
                 e.LastHitBy = attacker.Id;
                 // Who hurts a raider is in the fight again; a swing at the air is not a blow.
                 EndProtection(attacker);
-                // Whoever hurt it has its attention for a while, from however far the blow came.
-                e.ProvokedUntilTick = Tick + _combat.ProvokedTicks;
+                // Whoever hurt it has its attention for a while, from however far the blow came;
+                // a siege raider's only from close by.
+                if (!e.Def.Siege) e.ProvokedUntilTick = Tick + _combat.ProvokedTicks;
+                else Provoke(e, attacker);
             }
             if (e.Hp > 0f) return;
             _enemies.Remove(e);
@@ -480,7 +483,8 @@ namespace PerformativeMail.Sim
                         {
                             var built = Constructs.At(e.StrikeTx, e.StrikeTz);
                             e.StrikeTx = -1;
-                            if (built != null && Constructs.Distance(built, e.X, e.Z, out _, out _) <= built.Def.Radius + e.Radius + StrikeReach + WindupSlack)
+                            float strikeReach = e.Def.Siege ? MathF.Max(StrikeReach, e.Def.AttackRange) : StrikeReach;
+                            if (built != null && Constructs.Distance(built, e.X, e.Z, out _, out _) <= built.Def.Radius + e.Radius + strikeReach + WindupSlack)
                                 DamageConstruct(built, e.Damage);
                             break;
                         }
@@ -498,6 +502,7 @@ namespace PerformativeMail.Sim
                     default:
                         if (e.Def.Ranged) StepRanged(e, dt);
                         else if (e.Def.Suicide) StepSuicide(e, dt);
+                        else if (e.Def.Siege) StepSiege(e, dt);
                         else StepChase(e, dt);
                         break;
                 }
