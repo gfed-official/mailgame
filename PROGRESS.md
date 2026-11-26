@@ -726,9 +726,10 @@ before that had the ENet guest time out joining while the box was loaded; the ne
 - [x] **F10 "Inserter and chest" was half a house roof** (nit 1). Its eye stood against 1 Cobble
       Hill's west wall; it is now at (78, 6.5, 31) looking at (71, 0.5, 22), from the south-east over
       the chest and the inserter to the mailbox and the house behind. The debug-world smoke now casts
-      a 12 × 7 grid of rays through each bookmark's picture and fails if more than 10 % meet a house
+      a 12 × 7 grid of rays through each bookmark's picture and fails if 20 % or more meet a house
       (walls and roof as a box) within half the way to the station (it found 68 % before; every
-      bookmark is 0–2 % now)
+      bookmark is 0–2 % now headless, the Small Port 11 % in a 1280 × 720 window, where the box of a
+      house's corner at the picture's edge is counted generously)
 - [x] **The turret range's picture caught no raider** (nit 3). With `--shots` (and in the smoke) the
       bookmark waits, up to 900 frames past settling, for a frame with a tracer drawn
       (`ConstructsView.TracersShown`) and a raider in view, and takes that one

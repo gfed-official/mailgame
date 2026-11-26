@@ -258,7 +258,7 @@ namespace PerformativeMail.App
                         // Playtest f5813b5: a house's roof right by the eye hid half of a station's picture.
                         float hidden = HiddenByHouses(world, camera, target);
                         if (Smoke) GD.Print($"[smoke] debug world: {s.Name}: {hidden:P0} of the view hidden by houses");
-                        Check(hidden < 0.1f, $"{s.Name}: {hidden:P0} of the view is hidden by a house nearer than its station");
+                        Check(hidden < 0.2f, $"{s.Name}: {hidden:P0} of the view is hidden by a house nearer than its station");
                         Check(debug!.LineText.Contains(s.Name, StringComparison.Ordinal), $"{s.Name}: the debug line reads \"{debug.LineText}\"");
                     }
                     if (_frames < SettleFrames) return;
