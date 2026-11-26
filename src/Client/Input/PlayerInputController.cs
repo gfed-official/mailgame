@@ -94,6 +94,9 @@ namespace PerformativeMail.Client.InputHandling
                         ApplyMouseMode();
                     }
                     else if (button.ButtonIndex == MouseButton.Left && Building) _placeQueued = true;
+                    // A click can start and end between two frames, where polling never sees it held (the
+                    // e36633c playtest's Slingshot at ~10 FPS): the press is the next tick's attack all the same.
+                    else if (button.ButtonIndex == MouseButton.Left && !UiOpen && Captured && Suspended?.Invoke() != true) _client.Input.Tapped |= InputButtons.Attack;
                     // In Build mode the wheel steps through the variants of a recipe (doc 09 §2.7: belt tiers).
                     else if (!UiOpen && Building && button.ButtonIndex == MouseButton.WheelUp) _build!.Cycle(-1);
                     else if (!UiOpen && Building && button.ButtonIndex == MouseButton.WheelDown) _build!.Cycle(1);

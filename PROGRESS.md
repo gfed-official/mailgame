@@ -2458,8 +2458,14 @@ Net.Tests 211 green after (1)–(6).
       HUD not yet in the tree (`!is_inside_tree()` once a run). `FitPrompt` waits for the next frame there,
       `PromptTextRect` is empty; the smoke logs show no ERROR
 
-Not changed: the single-frame Slingshot click at ~10 FPS (attack is read as held per input tick; a press
-and release inside one rendered frame is the harness, not an input bug). Item 1: `tools/smoke.sh`
+- [x] **(7) A click shorter than a frame fired nothing.** The report put it down to the harness, but the
+      attack button was only polled each frame (`Input.IsActionPressed`), so a press and release between two
+      frames — a quick click at ~10 FPS — was never an input; interact and jump were already latched. A left
+      press with the view captured is now also the next tick's attack (`ClientInput.Tapped`, as the jump),
+      so a short click swings the hammer or looses a Stone once. Not covered by a unit test (it is Godot's
+      input events); the smokes drive attack through `Input.Buttons` as before
+
+Item 1: `tools/smoke.sh`
 (SMOKEEXIT 0), Sim.Tests 617 and Net.Tests 216 green.
 
 ## How to build and check
