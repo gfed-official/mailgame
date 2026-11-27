@@ -3110,6 +3110,23 @@ top left? It takes up a lot of screen real estate."
       boot with exit 2 ("--playtest-perks: no such perk 'nope'"). Host-side like `--event` (`SimSettings.ForcedPerks`),
       no protocol change. `DraftTests.APlaytestsPerks_AreTheFirstCards_PastThePoolsRank_ButNotOnAReroll`
 
+### 7g. Playtest bugs of the 16e094f report (`mailgame-harness/results/20261127-080948-16e094f/report.md`, 2026-11-27)
+
+The report played 16e094f (before this batch: the old top-centre plate). Its fix re-checks passed or were not observed
+(N14 Big Pockets twice and N15 the struck Post Office's pill: the smoke checks both). Its new bugs:
+
+- [x] **(1) "White world-marker pills" over the map panel.** They were the prompt card's four empty keycaps: the card's
+      constructor put up "" while "" was already its text, so the early return left the four rows, keycaps and all,
+      visible under the crosshair until the first prompt came — over the map too (the HUD is drawn over it). Seen in
+      every shot with the hands in Prep or the Lobby (`PromptCard._laidOut`). The smoke checks no keycap is drawn while
+      there is no prompt, every frame
+- [x] **(2) The red "Postal Inspector…" feed line touched the mailbox prompt.** A feed line whose words would meet the
+      prompt card's waits while the card is up (the card's words win, as the open panels do; `Hud.Refresh`); the smoke
+      checks every frame that no shown feed line meets the prompt's words (`Hud.FeedWordRects`)
+- [x] (4) The Results' score base (13 g) over the Paydays' "Earned" (12 g): the no-misdelivery bonus is in the run's
+      score, and its Payday line now says so ("No misdeliveries: bonus +1 g, into the run's score")
+- (3) The Draft's auto-pick when idle is as designed (noted by the report for context)
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).

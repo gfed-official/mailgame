@@ -597,7 +597,8 @@ namespace PerformativeMail.Client
             lines.Add($"Misdelivered {s.Misdeliveries}{MisdeliveredAt(world, s)}   ·   Late {s.LateDeliveries}{(s.ConstructsLost > 0 ? $"   ·   Constructs lost {s.ConstructsLost}" : "")}");
             // The Backlog and the Complaint left the HUD's corner for here and the inventory screen (UI polish plan item 4).
             lines.Add(Status(world.Global));
-            if (s.Bonus > 0) lines.Add($"No misdeliveries: bonus +{Gold(s.Bonus)}");
+            // The 16e094f playtest: the Results' score was 1 g over the Paydays' "Earned" with nothing to say why.
+            if (s.Bonus > 0) lines.Add($"No misdeliveries: bonus +{Gold(s.Bonus)}, into the run's score");
             string mvp = MvpLine(world, s);
             if (mvp.Length > 0) lines.Add(mvp);
             // Doc 09 §2.9: the upcoming district and what new mail comes with it.

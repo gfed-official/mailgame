@@ -45,6 +45,19 @@ namespace PerformativeMail.Client.UI
         public float HeldTextWidth => _held.GetThemeFont("font").GetStringSize(_held.Text, HorizontalAlignment.Left, -1, _held.GetThemeFontSize("font_size")).X;
         /// <summary>The lowest point of the event feed's lines on screen.</summary>
         public float FeedBottom => _feedLines[_feedLines.Length - 1].GetGlobalRect().End.Y;
+        /// <summary>Where the feed's shown lines have their words on screen.</summary>
+        public IEnumerable<Rect2> FeedWordRects
+        {
+            get
+            {
+                foreach (var line in _feedLines)
+                {
+                    if (!line.Visible || line.Text.Length == 0 || line.SelfModulate.A <= 0.05f) continue;
+                    var at = line.GetGlobalRect();
+                    yield return new Rect2(at.Position, new Vector2(TextWidth(line), at.Size.Y));
+                }
+            }
+        }
         /// <summary>The top of the event feed's first line.</summary>
         public float FeedTop => _feedLines[0].GetGlobalRect().Position.Y;
         /// <summary>True while the map is up: the interact prompt keeps off it.</summary>
@@ -695,6 +708,13 @@ namespace PerformativeMail.Client.UI
             _held.Visible = !_loot.Cards.Visible;
             // Over the hotbar, or over the recipe bar's rows while Build mode is up.
             float m = SafeMargin;
+            // The 16e094f playtest: the red "Postal Inspector…" line ran into a tall prompt card; the card's words win.
+            ScreenBox? promptBox = null;
+            if (IsInsideTree() && _promptRow.Visible && _card.Text.Length > 0)
+            {
+                var words = PromptTextRect;
+                promptBox = new ScreenBox(words.Position.X - _mark.CustomMinimumSize.X - 10f, words.Position.Y - 2f, words.End.X, words.End.Y + 2f);
+            }
             _held.OffsetTop = building ? -m - RecipeBarHeight - 24f : -GridView.Cell - m - 30f;
             for (int i = 0; i < _feedLines.Length; i++)
             {
@@ -703,7 +723,8 @@ namespace PerformativeMail.Client.UI
                 _feedLines[i].OffsetBottom = top + 24f;
                 // Lifted over the recipe bar's rows, the oldest line would run into the prompt: it waits.
                 // Nor is a line drawn against an open panel (the e5be644 playtest's N8: old lines on the shop's foot).
-                _feedLines[i].Visible = !(building && i == 0) && !(panel is { } over && FeedBox(i, top).Overlaps(over));
+                _feedLines[i].Visible = !(building && i == 0) && !(panel is { } over && FeedBox(i, top).Overlaps(over))
+                    && !(promptBox is { } card && FeedBox(i, top).Overlaps(card));
             }
             _held.OffsetBottom = building ? -m - RecipeBarHeight : -GridView.Cell - m - 4f;
             if (building)

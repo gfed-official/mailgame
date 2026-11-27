@@ -794,6 +794,13 @@ namespace PerformativeMail.App
             // The d0c338e playtest's N15: "under attack" ran past the Post Office's plate.
             foreach (string tracker in _screen.Hud.TrackerOverflows)
                 Check(false, $"the tracker line \"{tracker}\" runs past its plate");
+            // The 16e094f playtest: a feed line ran into the prompt card's words.
+            if (_screen.Hud.PromptText.Length > 0 && _screen.Hud.PromptShown)
+                foreach (var feedAt in _screen.Hud.FeedWordRects)
+                    Check(!feedAt.Grow(-2f).Intersects(_screen.Hud.PromptTextRect), $"a feed line at {feedAt} runs into the prompt \"{_screen.Hud.PromptText}\" at {_screen.Hud.PromptTextRect}");
+            // The 16e094f playtest's "white pills": no keycap is drawn while there is no prompt.
+            if (_screen.Hud.PromptText.Length == 0)
+                Check(!_screen.Hud.PromptKeycaps.Any(), $"{_screen.Hud.PromptKeycaps.Count()} empty keycaps drawn with no prompt");
             // Design choice 168: the hint on the top row keeps off the corner's plate and the trackers standing from the top right.
             if (_screen.Hud.HintTextBox is { } hintWords)
             {

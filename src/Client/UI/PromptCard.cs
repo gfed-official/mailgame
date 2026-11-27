@@ -28,6 +28,8 @@ namespace PerformativeMail.Client.UI
         private float _fittedRoom = -1f;
         private Color _tone = Colors.White;
         private bool _compact;
+        /// <summary>False until the first text is laid out: the rows are built visible, and "" is the text they start at.</summary>
+        private bool _laidOut;
 
         /// <summary>The rows without the noun line over them, where there is no room for the whole card.</summary>
         public bool Compact
@@ -75,7 +77,10 @@ namespace PerformativeMail.Client.UI
         /// <summary>Puts up <paramref name="text"/>; the same text again changes nothing.</summary>
         public void SetText(string text)
         {
-            if (text == Text) return;
+            // The 16e094f playtest's "white pills": the constructor's "" was the text already, so the four empty keycaps
+            // stood under the crosshair (and over the map) until the first prompt came.
+            if (text == Text && _laidOut) return;
+            _laidOut = true;
             Text = text;
             _fittedRoom = -1f;
             string[] lines = text.Length == 0 ? System.Array.Empty<string>() : text.Split('\n');
