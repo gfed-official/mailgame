@@ -3024,7 +3024,7 @@ top left? It takes up a lot of screen real estate."
       (`WorldGenerator`, `WorldGeneratorTests.NoTwoDestinations_ShareALabel`). Scenery's "is it free" check looked at
       every prop placed so far (850 ms on a three-town island); it asks a grid of 4 m cells now, the same answers
       (the Small Island's props unchanged)
-- `LargeIslandTests` (5: determinism, the 100 seeds, the 1000 m island and its cut inlet, a ferry crossed by the
+- `LargeIslandTests` (6: determinism, the 100 seeds, Cargo for its docks by a solo shift 5, the 1000 m island and its cut inlet, a ferry crossed by the
       moored Rowboat to a far mailbox, a run in the PO town), `WorldChoiceTests` (the rank gate at 1, 2, 3 and with the
       flag; the seed string), `ProfileTests` (the unlocks and the reveal at rank 3, the refused paste), `RunModeTests`;
       the smoke: the Lobby refuses a pasted Large Island at rank 1, `tools/smoke.sh` validates Large Island seeds 1–20
@@ -3126,6 +3126,15 @@ The report played 16e094f (before this batch: the old top-centre plate). Its fix
 - [x] (4) The Results' score base (13 g) over the Paydays' "Earned" (12 g): the no-misdelivery bonus is in the run's
       score, and its Payday line now says so ("No misdeliveries: bonus +1 g, into the run's score")
 - (3) The Draft's auto-pick when idle is as designed (noted by the report for context)
+
+Batch 7–7g (Evan's top-left HUD; the Large Island with ferry lanes and its 100-seed validation; Apartment Complexes;
+the PO Box Bank; Sea Fog; Payday's preview; `--playtest-perks`; the 16e094f playtest's bugs): `tools/smoke.sh` SMOKE OK
+×3, BOT OK on the Small and the Large Island, the seeds valid; Sim.Tests 716 and Net.Tests 245 green (the 8-client
+acceptance run once failed its 2 ms tick bound while the box was loaded — CPU pressure avg60 23 % — and passed alone:
+mean 0.04 ms, p99 0.54 ms). Rendered at 1280×720: the default and raid smokes SMOKE OK; the corner plate, the Lobby,
+the Draft, Payday, a four-row inventory, the Large Island, an apartment block, the PO boxes and the fog looked at.
+Next in the docs' order: Cargo by boat to the far town's dock (the Motor Boat route of doc 11 §4), the map's outline of
+the incoming district (doc 01 §2.1 "Preview"), then M5.
 
 ## How to build and check
 

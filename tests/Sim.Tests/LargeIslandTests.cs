@@ -173,6 +173,41 @@ namespace PerformativeMail.Sim.Tests
             Assert.True(SimDriver.WalkTo(world, host, far.MailboxX, far.MailboxZ, stopDistance: 1.5f, maxTicks: 9000, sprint: true), $"no walk from the landing to {map.FormatAddress(far.Address)}");
         }
 
+        /// <summary>Doc 02 §3.5 "Business Dock · Yes on Large Island": its docks open in shift 4, and Cargo comes for them (by shift 5, solo, there is budget for a crate), only for them.</summary>
+        [Theory]
+        [InlineData(5)]
+        public void CargoComesForTheIslandsDocks(int shift)
+        {
+            var world = new SimWorld(Db, new SimSettings { Seed = 6, MapId = LargeIslandGenerator.LargeIsland, Raids = false, Draft = false });
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.NoQuota | PlaytestFlags.NoTimer, shift);
+            world.Submit(host.Id, SimRequest.StartRun(1));
+            world.Step();
+            world.Submit(host.Id, SimRequest.SetReady(2, true));
+            world.Step();
+            Assert.Equal((RunPhase.Delivery, shift), (world.Run.Phase, world.Run.Shift));
+            var docks = world.Map.Destinations.Where(d => d.IsDock).ToList();
+            Assert.Equal(2, docks.Count);
+            Assert.All(docks, d => Assert.Equal(4, world.Map.OpensAt(d)));
+            var cargo = Db.MailKind("cargo");
+            int seen = 0;
+            // A crate's worth accrues over the shift's batches (design choice 114): the first comes late in a solo shift.
+            for (int i = 0; i < 12 && seen == 0; i++)
+            {
+                SimDriver.StepTicks(world, 30 * 30);
+                foreach (var e in world.Intake.Entries.ToList())
+                {
+                    if (e.Stack.Kind == StackKind.Mail && e.Stack.DefIndex == cargo.Index)
+                    {
+                        seen++;
+                        Assert.Contains(docks, d => d.Takes(e.Stack.Address));
+                    }
+                    world.Intake.Remove(e.EntryId);
+                }
+            }
+            Assert.True(seen > 0, $"no Cargo came in shift {shift}: {world.Run.Phase} tick {world.Tick}, spawned {world.Spawner.MailSpawnedTotal}");
+        }
+
         [Fact]
         public void ARunIsPlayedOnTheIsland_ALetterIsDeliveredInThePostOfficesTown()
         {
