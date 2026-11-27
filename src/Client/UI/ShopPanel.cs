@@ -68,7 +68,7 @@ namespace PerformativeMail.Client.UI
             AddThemeConstantOverride("separation", 6);
 
             _title = Hud.MakeDisplayLabel("Title", 20, HorizontalAlignment.Left);
-            _title.Modulate = Palette.Amber;
+            _title.Modulate = Palette.PostalRed;
             AddChild(_title);
             _flow = new HFlowContainer { Name = "Sections", CustomMinimumSize = new Vector2(FlowWidth, 0f), MouseFilter = MouseFilterEnum.Ignore };
             _flow.AddThemeConstantOverride("h_separation", 16);
@@ -179,8 +179,9 @@ namespace PerformativeMail.Client.UI
     public partial class ShopTile : Control
     {
         public const float Width = 80f, Height = 84f;
-        private static readonly Color Back = new Color(0.11f, 0.19f, 0.29f, 0.96f);
-        private static readonly Color PlainFrame = new Color("6f8296");
+        // A card of the kraft panel (UI polish plan item 11): a darker brown, a muted tan rim.
+        private static readonly Color Back = new Color(0.29f, 0.21f, 0.14f, 0.96f);
+        private static readonly Color PlainFrame = new Color("8a7350");
         private static readonly Color Ink = new Color("1b1b1e");
         private static readonly Color ChipGreen = new Color("3d7a4f"), ChipRed = new Color("b23a3a"), ChipGold = new Color("b8860b");
 

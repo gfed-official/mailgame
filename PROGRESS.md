@@ -2614,6 +2614,19 @@ The report was played on f40acb7, before the HUD polish of 5f; each bug was chec
 - [x] Seen in a rendered 1280×720 `--shots` run: the stamp measured before the theme was on it overlapped the grade
       ring (now measured from the face, with room for the turn), and an oil pump's prompt stood on the Results card
       (the prompt now dodges the Payday / Results card as it does the inventory screen)
+- [x] **A warm postal palette for panels** (plan item 11; ref Webfishing 03, Stardew 07). Theme and Palette values
+      only: the theme's PanelContainer plate is dark kraft at 87 % (the inventory screen, the shop, the Payday /
+      Results card, Generating) with a tan rim, 4 px at the head; the shop's and the Draft's cards a darker brown with
+      a muted tan rim; the shop's title in postal red (`Palette.Kraft`, `KraftRim`, `PostalRed`); the report card's
+      title cream, its stamp carrying how it went. Not cream paper with dark ink: every panel's words are white on a
+      black outline (the theme's HudLabel), and paper that light would need all of them re-inked — left for a pass
+      with Evan (design choice 154). The one opacity serves day and night (the plan's ~85 %)
+- Known: on the very first frame of Payday the prompt can stand on the card for a frame (the card's rect is laid
+      out a frame after its lines are made); from the next frame on it dodges
+- Not built, as asked: plan item 12 (compass strip, complaint envelope) needs an ADR-0018 amendment first
+
+Items 1 and 6–11: `tools/smoke.sh` (SMOKEEXIT 0: SMOKE OK ×3, BOT OK, island OK), Sim.Tests 621 and Net.Tests 227
+green; the base smoke passes rendered at 1280×720 (`--shots`).
 
 ## How to build and check
 
@@ -4109,6 +4122,11 @@ See "Commands" at the bottom (filled in as the tooling lands).
     still says a number key buys. The grade's "in time" counts a late delivery as a miss (doc 01 has no grade);
     Results grade the whole run on its deliveries and misdeliveries (the run keeps no late count). RETURNED is the
     stamp of a run that ended badly, the Post Office's fall included.
+
+154. **Kraft, not cream.** Plan item 11 asks for cream / kraft-paper panels. Cream with the HUD's white words would
+    not read, and re-inking every panel label dark is a larger change than "theme values only"; the panels are dark
+    kraft (warm brown) with a tan rim instead, which keeps every label legible and moves the look off the slate
+    glass. A light-paper variant with dark ink is a follow-up if Evan wants it.
 
 ## Commands
 

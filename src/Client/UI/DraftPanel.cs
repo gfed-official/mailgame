@@ -19,7 +19,7 @@ namespace PerformativeMail.Client.UI
     {
         private const float CardWidth = 264f;
         private const double HurrySeconds = 10.0;
-        private static readonly Color CardBack = new Color(0.11f, 0.19f, 0.29f, 0.96f);
+        private static readonly Color CardBack = new Color(0.29f, 0.21f, 0.14f, 0.96f);
         private static readonly Color[] RarityColours = { new Color("b8c4d0"), new Color("5bc0eb"), new Color("f6c453") };
 
         public static Color RarityColour(PerkRarity rarity) => RarityColours[Mathf.Clamp((int)rarity, 0, RarityColours.Length - 1)];

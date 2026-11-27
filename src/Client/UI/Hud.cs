@@ -782,6 +782,8 @@ namespace PerformativeMail.Client.UI
                     : earned ? MakeDisplayLabel($"Line{i}", 24, HorizontalAlignment.Center)
                     : MakeLabel($"Line{i}", 18, HorizontalAlignment.Center);
                 label.Text = lines[i];
+                // The card's title in cream on the kraft (UI polish plan item 11): the stamp's colour says how it went.
+                if (i == 0) label.Modulate = CardTitle;
                 if (earned)
                 {
                     // Counted up from nothing (UI polish plan item 7; ref R.E.P.O.).
@@ -804,6 +806,7 @@ namespace PerformativeMail.Client.UI
         }
 
         private static readonly Color StampGrey = new Color("b8c4d0");
+        private static readonly Color CardTitle = new Color("f6f0e4");
         private static readonly Color FeedGood = new Color("a8f0b0");
         private const float FeedFadeSeconds = 1.5f;
         private string _heldKey = "";

@@ -32,6 +32,10 @@ namespace PerformativeMail.Client.Presentation
         public static readonly Color Match = new Color("7ae582");
         public static readonly Color Mismatch = new Color("ff6b6b");
         public static readonly Color Amber = new Color("ffbf47");
+        /// <summary>The panels' paper (UI polish plan item 11; ref Webfishing, Stardew): dark kraft, a tan rim; postal red for a title.</summary>
+        public static readonly Color Kraft = new Color(0.2f, 0.14f, 0.09f, 0.87f);
+        public static readonly Color KraftRim = new Color(0.79f, 0.65f, 0.42f, 0.85f);
+        public static readonly Color PostalRed = new Color("e0533f");
         /// <summary>The team's gold on the top plate.</summary>
         public static readonly Color Gold = new Color("ffd24a");
         /// <summary>Doc 05 §6: cursed mail's "glowing purple label".</summary>
