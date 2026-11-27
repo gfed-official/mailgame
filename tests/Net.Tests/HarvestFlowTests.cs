@@ -154,7 +154,7 @@ namespace PerformativeMail.Net.Tests
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Harvest, interaction.Prompt.Kind);
             Assert.Equal(pile, interaction.Prompt.NodeIndex);
-            Assert.Equal("Sand Pile   ·   needs a Shovel in the hand", HudText.Prompt(a, interaction.Prompt, out var tone));
+            Assert.Equal("SAND PILE\nNeeds a Shovel in the hand", HudText.Prompt(a, interaction.Prompt, out var tone));
             Assert.Equal(PromptTone.Mismatch, tone);
             ada.Input.HeldSlot = (byte)s.Hand(ada, "pickaxe");
             s.Run(3);
@@ -168,7 +168,7 @@ namespace PerformativeMail.Net.Tests
             s.Run(3);
             Assert.Equal(s.Content.Item("shovel").Index + 1, b.Players[a.LocalId].HeldTool);
             interaction.Update(Dt, false, false);
-            Assert.Equal("Dig Sand Pile   ·   Sand x4 a hit   ·   4 hits left   [hold E]", HudText.Prompt(a, interaction.Prompt, out tone));
+            Assert.Equal("SAND PILE  ·  4 hits left\n[hold E] Dig  ·  Sand x4 a hit", HudText.Prompt(a, interaction.Prompt, out tone));
             Assert.Equal(PromptTone.Neutral, tone);
             for (int frames = 0; frames < 150 && !a.Nodes.Depleted(pile); frames++)
             {
@@ -214,7 +214,7 @@ namespace PerformativeMail.Net.Tests
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Harvest, interaction.Prompt.Kind);
             Assert.Equal(bush, interaction.Prompt.NodeIndex);
-            Assert.Equal("Pick Bush   ·   Fiber x3 a hit   ·   3 hits left   [hold E]", HudText.Prompt(a, interaction.Prompt, out var tone));
+            Assert.Equal("BUSH  ·  3 hits left\n[hold E] Pick  ·  Fiber x3 a hit", HudText.Prompt(a, interaction.Prompt, out var tone));
             Assert.Equal(PromptTone.Neutral, tone);
             Assert.Equal(0f, interaction.Prompt.HoldProgress);
 
@@ -280,7 +280,7 @@ namespace PerformativeMail.Net.Tests
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Harvest, interaction.Prompt.Kind);
             Assert.Equal(OpResult.NeedsTool, interaction.Prompt.NodeState);
-            Assert.Equal("Boulder   ·   needs a Pickaxe in the hand", HudText.Prompt(a, interaction.Prompt, out var tone));
+            Assert.Equal("BOULDER\nNeeds a Pickaxe in the hand", HudText.Prompt(a, interaction.Prompt, out var tone));
             Assert.Equal(PromptTone.Mismatch, tone);
             for (int i = 0; i < 45; i++)
             {
@@ -299,7 +299,7 @@ namespace PerformativeMail.Net.Tests
             ada.Input.HeldSlot = (byte)pick;
             interaction.Update(Dt, false, false);
             Assert.Equal(OpResult.Ok, interaction.Prompt.NodeState);
-            Assert.Equal("Mine Boulder   ·   Stone x3 a hit   ·   6 hits left   [hold E]", HudText.Prompt(a, interaction.Prompt, out tone));
+            Assert.Equal("BOULDER  ·  6 hits left\n[hold E] Mine  ·  Stone x3 a hit", HudText.Prompt(a, interaction.Prompt, out tone));
             Assert.Equal(PromptTone.Neutral, tone);
             for (int i = 0; i < 30; i++)
             {
@@ -309,7 +309,7 @@ namespace PerformativeMail.Net.Tests
             interaction.Update(Dt, false, false);
             Assert.Equal(1, ada.LocalHarvestSwings);
             Assert.Equal(3, Units(a, "stone"));
-            Assert.Equal("Mine Boulder   ·   Stone x3 a hit   ·   5 hits left   [hold E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("BOULDER  ·  5 hits left\n[hold E] Mine  ·  Stone x3 a hit", HudText.Prompt(a, interaction.Prompt, out _));
 
             // A tree gives to bare hands and to the wrong tool, and says what gives more.
             int tree = s.Node("tree");
@@ -317,18 +317,18 @@ namespace PerformativeMail.Net.Tests
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Harvest, interaction.Prompt.Kind);
             Assert.Equal(tree, interaction.Prompt.NodeIndex);
-            Assert.Equal("Chop Tree   ·   Log x1 a hit (more with an Axe)   ·   5 hits left   [hold E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("TREE  ·  5 hits left\n[hold E] Chop  ·  Log x1 a hit (more with an Axe)", HudText.Prompt(a, interaction.Prompt, out _));
             ada.Input.HeldSlot = 0;
             interaction.Update(Dt, false, false);
-            Assert.Equal("Chop Tree   ·   Log x1 a hit (more with an Axe)   ·   5 hits left   [hold E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("TREE  ·  5 hits left\n[hold E] Chop  ·  Log x1 a hit (more with an Axe)", HudText.Prompt(a, interaction.Prompt, out _));
             ada.Input.HeldSlot = (byte)s.Hand(ada, "axe");
             interaction.Update(Dt, false, false);
-            Assert.Equal("Chop Tree   ·   Log x2 a hit   ·   5 hits left   [hold E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("TREE  ·  5 hits left\n[hold E] Chop  ·  Log x2 a hit", HudText.Prompt(a, interaction.Prompt, out _));
             Assert.NotEqual(0u, ada.Harvest(tree));
             s.Run(10);
             Assert.Equal(2, Units(a, "log"));
             interaction.Update(Dt, false, false);
-            Assert.Equal("Chop Tree   ·   Log x2 a hit   ·   4 hits left   [hold E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("TREE  ·  4 hits left\n[hold E] Chop  ·  Log x2 a hit", HudText.Prompt(a, interaction.Prompt, out _));
         }
 
         [Fact]
@@ -351,7 +351,7 @@ namespace PerformativeMail.Net.Tests
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Harvest, interaction.Prompt.Kind);
             Assert.Equal(OpResult.DoesNotFit, interaction.Prompt.NodeState);
-            Assert.Equal("Berry Bush   ·   no room in your pockets for Berries x2", HudText.Prompt(a, interaction.Prompt, out var tone));
+            Assert.Equal("BERRY BUSH\nNo room in your pockets for Berries x2", HudText.Prompt(a, interaction.Prompt, out var tone));
             Assert.Equal(PromptTone.Mismatch, tone);
             for (int i = 0; i < 30; i++)
             {

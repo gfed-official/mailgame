@@ -36,7 +36,7 @@ namespace PerformativeMail.Client.UI
         public string PhaseText => _phase.Text;
         public string QuotaText => _quota.Text;
         public string WalletText => _wallet.Text;
-        public string PromptText => _prompt.Text;
+        public string PromptText => _card.Text;
         /// <summary>The line over the hotbar: what is in the hand.</summary>
         public string HeldText => _held.Visible ? _held.Text : "";
         /// <summary>Where the held stack's name (or Build mode's keys) stands on screen.</summary>
@@ -120,7 +120,7 @@ namespace PerformativeMail.Client.UI
         public Control PhaseLine => _phase;
         public Control TopPlate => _topPlate;
         /// <summary>The faces the prompt and the shift's line are drawn in, for the smoke's check of the theme.</summary>
-        public (Font Body, Font Display) Faces => (_prompt.GetThemeFont("font"), _phase.GetThemeFont("font"));
+        public (Font Body, Font Display) Faces => (_card.BodyFont, _phase.GetThemeFont("font"));
 
         /// <summary>
         /// Where no world label may be drawn (nit 14): the top plate and the hint under it, and the
@@ -165,42 +165,23 @@ namespace PerformativeMail.Client.UI
             _keepClear.Add(ScreenBox.Around(rect.GetCenter().X, rect.GetCenter().Y, width, rect.Size.Y));
         }
 
-        private const int PromptFontSize = 20, PromptMinFontSize = 13;
-        private int _promptFont = PromptFontSize;
-        private string _promptFitted = "";
-
         /// <summary>
-        /// The prompt stays on the screen: a long line ("✕ WRONG ADDRESS · Deliver Cursed 1 Postcard for …
-        /// raiders come! · deliver all matching …") is drawn smaller, down to 13 px, until it fits beside
-        /// the mark (the 0e940bc playtest's ran off the right edge at 1280×720).
+        /// The prompt stays on the screen: a long card ("MAILBOX · … · WRONG ADDRESS" over "Deliver Cursed 1
+        /// Postcard for …") is drawn smaller, down to 12 px, until its widest line fits beside the mark (the
+        /// 0e940bc playtest's line ran off the right edge at 1280×720).
         /// </summary>
         private void FitPrompt()
         {
             // Out of the tree (the Results → Lobby rebuild) there is no viewport to fit to: next frame.
-            if (!IsInsideTree() || _prompt.Text == _promptFitted) return;
-            _promptFitted = _prompt.Text;
-            var font = _prompt.GetThemeFont("font");
-            float room = GetViewportRect().Size.X - 2f * SafeMargin - _mark.CustomMinimumSize.X - 10f - 2f * 6f;
-            int size = PromptFontSize;
-            while (size > PromptMinFontSize && font.GetStringSize(_prompt.Text, HorizontalAlignment.Left, -1, size).X > room) size--;
-            if (size != _promptFont) _prompt.AddThemeFontSizeOverride("font_size", _promptFont = size);
+            if (!IsInsideTree()) return;
+            _card.Fit(GetViewportRect().Size.X - 2f * SafeMargin - _mark.CustomMinimumSize.X - 10f - 2f * 6f);
         }
 
-        /// <summary>
-        /// Where the prompt's words are drawn on screen, for the smoke's "on the screen" check: the
-        /// row spans the screen between the margins and centres the mark and the words as one.
-        /// </summary>
-        public Rect2 PromptTextRect
-        {
-            get
-            {
-                if (!IsInsideTree()) return new Rect2();
-                float w = _prompt.GetThemeFont("font").GetStringSize(_prompt.Text, HorizontalAlignment.Left, -1, _promptFont).X;
-                float lead = _mark.CustomMinimumSize.X + 10f;
-                float x = GetViewportRect().Size.X * 0.5f - (lead + w) * 0.5f + lead;
-                return new Rect2(x, _prompt.GetGlobalRect().Position.Y, w, _prompt.GetGlobalRect().Size.Y);
-            }
-        }
+        /// <summary>Where the prompt's words are drawn on screen, for the smoke's "on the screen" check.</summary>
+        public Rect2 PromptTextRect => IsInsideTree() && _card.Text.Length > 0 ? _card.GetGlobalRect() : new Rect2();
+
+        /// <summary>The prompt card's keycaps, top row first ("E", "HOLD E", "F").</summary>
+        public IEnumerable<string> PromptKeycaps => _card.Keycaps;
 
         private const float HintClearWidth = 560f, BannerClearWidth = 640f, BannerClearMargin = 24f;
 
@@ -242,7 +223,8 @@ namespace PerformativeMail.Client.UI
         private MeterBar _repairBar = null!;
         /// <summary>The Repair Hammer's target bar under the crosshair: -1 while it is down, else what it shows.</summary>
         public float RepairBarValue => _repairBar.Visible ? _repairBar.Value : -1f;
-        private Label _prompt = null!, _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
+        private PromptCard _card = null!;
+        private Label _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
         private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
         private ColorRect _hurt = null!;
         private LootPanel _loot = null!;
@@ -363,10 +345,10 @@ namespace PerformativeMail.Client.UI
             };
             promptRow.AddThemeConstantOverride("separation", 10);
             AddChild(promptRow);
-            _mark = new MatchMark { Name = "Mark", CustomMinimumSize = new Vector2(30f, 30f) };
+            _mark = new MatchMark { Name = "Mark", CustomMinimumSize = new Vector2(30f, 30f), SizeFlagsVertical = SizeFlags.ShrinkCenter };
             promptRow.AddChild(_mark);
-            _prompt = MakeLabel("Prompt", 20, HorizontalAlignment.Center);
-            promptRow.AddChild(_prompt);
+            _card = new PromptCard();
+            promptRow.AddChild(_card);
             _hold = new ProgressBar
             {
                 Name = "Hold",
@@ -580,25 +562,27 @@ namespace PerformativeMail.Client.UI
             bool building = Build != null && Build.Active;
             float holdProgress = prompt.HoldProgress;
             PromptTone tone;
+            string text;
             // In Build mode the line is the ghost's, but a panel that is open still says how to close it.
             bool closing = prompt.Kind == InteractKind.CloseChest || prompt.Kind == InteractKind.CloseIntake || prompt.Kind == InteractKind.CloseBag || prompt.Kind == InteractKind.CloseShop;
             if (building && !closing)
             {
                 var ghost = Build!.Ghost;
-                _prompt.Text = HudText.BuildPrompt(world, ghost, out tone);
+                text = HudText.BuildPrompt(world, ghost, out tone);
                 holdProgress = ghost.HoldProgress;
             }
             // Nothing to interact with (or a closed counter): the Repair Hammer's line at what is hurt before it (doc 05 §4, doc 09 §3 "a target health bar").
-            else _prompt.Text = HudText.FocusPrompt(world, prompt, _client.Input.HeldSlot, out tone);
+            else text = HudText.FocusPrompt(world, prompt, _client.Input.HeldSlot, out tone);
             if (MapOpen?.Invoke() == true)
             {
-                _prompt.Text = "";
+                text = "";
                 tone = PromptTone.Neutral;
                 holdProgress = 0f;
             }
+            _card.SetText(text);
             FitPrompt();
-            _prompt.Modulate = tone == PromptTone.Match ? Palette.Match : tone == PromptTone.Mismatch ? Palette.Mismatch : Colors.White;
-            _mark.Tone = _prompt.Text.Length > 0 ? tone : PromptTone.Neutral;
+            _card.SetTone(tone == PromptTone.Match ? Palette.Match : tone == PromptTone.Mismatch ? Palette.Mismatch : Colors.White);
+            _mark.Tone = text.Length > 0 ? tone : PromptTone.Neutral;
             float mendHealth = building || MapOpen?.Invoke() == true ? -1f : HudText.RepairTargetHealth(world, _client!.Input.HeldSlot);
             _repairBar.Visible = mendHealth >= 0f && holdProgress <= 0f;
             if (_repairBar.Visible) _repairBar.Value = mendHealth;

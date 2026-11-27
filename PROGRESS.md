@@ -2502,6 +2502,18 @@ Item 1: `tools/smoke.sh`
       `RunFlowTests`; the smoke checks the inventory screen's head line in Delivery, that no corner row
       shows the tallies, and the Post Office row's bar after a blow
 
+- [x] **Shorter prompts with keycap chips** (plan item 5; ref Peak, Valheim; design choice 150). The interact
+      prompt is a card: a bold noun line in the display face ("MAILBOX  ·  2 Larch Lane  ·  MATCH", "TREE  ·  5
+      hits left", "SHOP  ·  closed") over verb rows, each led by a keycap drawn as the theme's `Keycap`
+      PanelContainer with its StyleBoxFlat ("[hold E] Deliver 3 Letters for 2 Larch Lane ✓", "[F] Deliver all
+      matching (2)", "[Space] Get off"). The explanatory clauses are gone ("Closed until Delivery", "Open in Prep
+      and at Payday", "[E] Clear it away"); the delivery row ends in ✓ / ✕, which the theme's faces now draw (the
+      drawn MatchMark stays beside the card). `HudText.Card` builds the text (noun, then a line a row); the HUD's
+      `PromptCard` lays it out, fits the widest line down to 12 px, and tints the words by the tone, not the
+      keycaps. Still screen-fixed under the crosshair (ADR-0018 H11). The Repair Hammer's line is a card too
+      ("WOODEN WALL  ·  100 / 300 HP" over "[hold LMB] Mend  ·  Log x0.75 a full bar"). Tests and smokes now
+      hold the card text; the harvest smoke checks the keycap drawn is HOLD E
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -3964,6 +3976,13 @@ See "Commands" at the bottom (filled in as the tooling lands).
     ignored), so the theme is a text resource and the fonts are attached to it at boot from the raw files
     rather than referenced by it; an exported build will have to list `content/fonts/*` as non-resource files,
     as it already must `content/*.json`.
+
+150. **What the prompt card covers.** The interaction prompts and the Repair Hammer's line became cards. Build
+    mode's readout ("Build Wooden Wall · Log x2 [LMB]", "Take down … [hold RMB]") stays one line, drawn as one
+    row without a noun: its keys are listed on the keys line over the recipe bar, and every build smoke step
+    keys on its wording. A key in a card is the first "[…]" of a row; a row without one (a closed counter, "Needs
+    a Pickaxe in the hand") has no keycap. "hold E" is drawn on the keycap as HOLD E rather than as a separate
+    hold glyph (no icon assets).
 
 ## Commands
 

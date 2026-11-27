@@ -350,7 +350,7 @@ namespace PerformativeMail.Net.Tests
             interaction.Update(Dt, false, false, interactTapped: true);
             Assert.Equal(InteractKind.OpenChest, interaction.Prompt.Kind);
             Assert.Same(chest, interaction.Prompt.Built);
-            Assert.Equal("Open Chest  [E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("CHEST\n[E] Open", HudText.Prompt(a, interaction.Prompt, out _));
             s.Run(10);
             Assert.Equal(chest.ContainerId, a.OpenContainerId);
             interaction.Update(Dt, false, false);

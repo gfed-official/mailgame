@@ -105,7 +105,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(a.Local, box.X, box.Y, box.Z, out ada.Input.YawRadians, out ada.Input.PitchRadians);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Mount, interaction.Prompt.Kind);
-            Assert.Equal("Ride Bike  [E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("BIKE\n[E] Ride", HudText.Prompt(a, interaction.Prompt, out _));
             interaction.Update(Dt, false, false, interactTapped: true);
             s.Run(10);
             Assert.True(a.Local.Riding);
@@ -142,7 +142,7 @@ namespace PerformativeMail.Net.Tests
             ada.Input.PitchRadians = -0.9f;
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.OpenRack, interaction.Prompt.Kind);
-            Assert.Equal("Open Bike cargo  [E]   ·   [Space] get off", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("BIKE CARGO\n[E] Open\n[Space] get off", HudText.Prompt(a, interaction.Prompt, out _));
             interaction.Update(Dt, false, false, interactTapped: true);
             s.Run(10);
             Assert.Equal(bike.CargoContainer, a.OpenContainerId);

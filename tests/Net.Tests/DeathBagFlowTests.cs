@@ -173,7 +173,8 @@ namespace PerformativeMail.Net.Tests
             bo.Client.Input.YawRadians = yaw;
             s.Frame(bo, interact: false);
             Assert.Equal(InteractKind.OpenBag, bo.Interaction.Prompt.Kind);
-            Assert.StartsWith("Open Ada's bag  [E]   ·   gone in 00:", HudText.Prompt(bo.World, bo.Interaction.Prompt, out _));
+            Assert.StartsWith("ADA'S BAG  ·  gone in 00:", HudText.Prompt(bo.World, bo.Interaction.Prompt, out _));
+            Assert.EndsWith("\n[E] Open", HudText.Prompt(bo.World, bo.Interaction.Prompt, out _));
 
             s.Frame(bo, interact: true);
             s.Run(3);
@@ -181,7 +182,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("Ada's bag", HudText.ContainerTitle(bo.World, bo.World.OpenContainer!));
             s.Frame(bo, interact: false);
             Assert.Equal(InteractKind.CloseBag, bo.Interaction.Prompt.Kind);
-            Assert.StartsWith("Close Ada's bag  [E]   ·   gone in 00:", HudText.Prompt(bo.World, bo.Interaction.Prompt, out _));
+            Assert.StartsWith("ADA'S BAG  ·  gone in 00:", HudText.Prompt(bo.World, bo.Interaction.Prompt, out _));
+            Assert.EndsWith("\n[E] Close", HudText.Prompt(bo.World, bo.Interaction.Prompt, out _));
 
             // The letter lies in the cell it had in the hotbar; taking it empties the bag, which is then gone.
             var letter = Assert.Single(bo.World.OpenContainer!.Entries);
@@ -266,7 +268,7 @@ namespace PerformativeMail.Net.Tests
             s.WalkUpTo(bo, seen);
             s.Frame(bo, interact: false);
             Assert.Equal(InteractKind.OpenBag, bo.Interaction.Prompt.Kind);
-            Assert.StartsWith("Open an unclaimed bag  [E]", HudText.Prompt(bo.World, bo.Interaction.Prompt, out _));
+            Assert.StartsWith("AN UNCLAIMED BAG  ·  gone in ", HudText.Prompt(bo.World, bo.Interaction.Prompt, out _));
             s.Frame(bo, interact: true);
             s.Run(3);
             Assert.Equal(seen.ContainerId, bo.World.OpenContainerId);

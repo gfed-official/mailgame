@@ -47,7 +47,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(a.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Mount, interaction.Prompt.Kind);
-            Assert.Equal("Get into the Rowboat  [E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("ROWBOAT\n[E] Get in", HudText.Prompt(a, interaction.Prompt, out _));
             interaction.Update(Dt, false, false, interactTapped: true);
             Run(10);
             Assert.True(a.Local.Riding);

@@ -92,7 +92,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(a.Local, box.X, box.Y, box.Z, out ada.Input.YawRadians, out ada.Input.PitchRadians);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.OperateTurret, interaction.Prompt.Kind);
-            Assert.Equal("Operate the Turret  [E]   ·   aimed by hand, 2× the rate", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("TURRET\n[E] Operate  ·  by hand, 2× the rate", HudText.Prompt(a, interaction.Prompt, out _));
             interaction.Update(Dt, false, false, interactTapped: true);
             s.Run(10);
             Assert.Same(turret, a.LocalTurret);
@@ -100,7 +100,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Same(s.Sim.Constructs.At(Tx, Tz), truth.Turret);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.LeaveTurret, interaction.Prompt.Kind);
-            Assert.Equal("At the Turret's controls   ·   [LMB] fire where you look   ·   [E] let go", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("TURRET  ·  at the controls\n[LMB] Fire where you look\n[E] Let go", HudText.Prompt(a, interaction.Prompt, out _));
             Assert.Equal("[LMB] turret, a shot every 0.25 s, 18 m", HudText.TurretWeapons(turret.Def));
 
             // At the controls the carrier stands, whatever the keys say.

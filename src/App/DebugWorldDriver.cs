@@ -257,7 +257,7 @@ namespace PerformativeMail.App
                         interaction.Update(1.0 / 30.0, false, false);
                         _screen.Hud.Refresh();
                         Check(interaction.Prompt.Kind == Client.InteractKind.ClearRuin, $"at the ruin the prompt is {interaction.Prompt.Kind}");
-                        Check(_screen.Hud.PromptText.StartsWith("Clear the ruin of the Stone Wall  [E]", StringComparison.Ordinal), $"at the ruin the prompt reads \"{_screen.Hud.PromptText}\"");
+                        Check(_screen.Hud.PromptText == "RUIN  ·  Stone Wall\n[E] Clear it away", $"at the ruin the prompt reads \"{_screen.Hud.PromptText}\"");
                         interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
                         return;
                     }
@@ -610,7 +610,7 @@ namespace PerformativeMail.App
                     interaction.Update(1.0 / 30.0, false, false);
                     _screen.Hud.Refresh();
                     Check(interaction.Prompt.Kind == Client.InteractKind.OperateTurret, $"beside the turret the prompt is {interaction.Prompt.Kind}");
-                    Check(_screen.Hud.PromptText.StartsWith("Operate the Turret  [E]", StringComparison.Ordinal), $"beside the turret the prompt reads \"{_screen.Hud.PromptText}\"");
+                    Check(_screen.Hud.PromptText.StartsWith("TURRET\n[E] Operate", StringComparison.Ordinal), $"beside the turret the prompt reads \"{_screen.Hud.PromptText}\"");
                     interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
                     _turretAt = _frames;
                     _turretStep++;
@@ -656,7 +656,7 @@ namespace PerformativeMail.App
                     Check(_screen.Constructs.GunHeadPoints(turret).Length > 0, "the turret's gun head is not drawn");
                     interaction.Update(1.0 / 30.0, false, false);
                     _screen.Hud.Refresh();
-                    Check(_screen.Hud.PromptText.StartsWith("At the Turret's controls", StringComparison.Ordinal), $"at the controls the prompt reads \"{_screen.Hud.PromptText}\"");
+                    Check(_screen.Hud.PromptText.StartsWith("TURRET  ·  at the controls", StringComparison.Ordinal), $"at the controls the prompt reads \"{_screen.Hud.PromptText}\"");
                     Shot("turret-operated");
                     _turretAt = _frames;
                     _turretStep++;

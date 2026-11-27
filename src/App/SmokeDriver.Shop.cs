@@ -99,7 +99,7 @@ namespace PerformativeMail.App
                     float dx = world.Local.X - (po.ShopX + ShopStandOff), dz = world.Local.Z - po.ShopZ;
                     if (dx * dx + dz * dz > 0.1f || prompt.Kind != InteractKind.OpenShop || _shopFrames < 4) break;
                     string want = HudText.Prompt(world, prompt, out _);
-                    Check(!prompt.ShopClosed && hud.PromptText == want && want.StartsWith("Open Shop", StringComparison.Ordinal), $"at the shop's counter in Prep the prompt says \"{hud.PromptText}\"");
+                    Check(!prompt.ShopClosed && hud.PromptText == want && want == "SHOP\n[E] Open", $"at the shop's counter in Prep the prompt says \"{hud.PromptText}\"");
                     var sign = _screen.World.GetNodeOrNull<Label3D>("Shop");
                     Check(sign != null && sign.Text == "SHOP", "the shop's counter has no sign");
                     Check(_screen.Mouse.Wanted, "before the shop's cards are up the mouse is not the view's");

@@ -133,7 +133,7 @@ namespace PerformativeMail.App
                     if (_invFrames == 4)
                     {
                         Check(prompt.Kind == InteractKind.OpenChest && prompt.Chest == world.Map.Chests[0], $"before the chest the prompt is {prompt.Kind}");
-                        Check(_screen.Hud.PromptText == "Open Chest  [E]", $"before the chest the HUD prompt reads \"{_screen.Hud.PromptText}\"");
+                        Check(_screen.Hud.PromptText == "CHEST\n[E] Open", $"before the chest the HUD prompt reads \"{_screen.Hud.PromptText}\"");
                         Check(world.Map.Props[world.Map.Props.Count - 1].Kind == PropKind.Chest, "the chest is not among the things drawn in the yard");
                         Shot("chest-prompt");
                         break;
@@ -281,7 +281,7 @@ namespace PerformativeMail.App
                         if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
                     Check(_missingGlyphs.Length == 0, $"the UI font has no glyph for: {_missingGlyphs}");
                     Shot("chest");
-                    Check(prompt.Kind == InteractKind.CloseChest && _screen.Hud.PromptText == "Close Chest  [E]",
+                    Check(prompt.Kind == InteractKind.CloseChest && _screen.Hud.PromptText == "CHEST\n[E] Close",
                         $"with the chest open the prompt is {prompt.Kind} \"{_screen.Hud.PromptText}\"");
                     NextInventoryStep();
                     break;

@@ -66,7 +66,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Configure, interaction.Prompt.Kind);
-            Assert.Equal("Set the filters of the Inserter  [E]", HudText.Prompt(world, interaction.Prompt, out _));
+            Assert.Equal("INSERTER\n[E] Set the filters", HudText.Prompt(world, interaction.Prompt, out _));
             interaction.Update(Dt, true, false);
             Run(5);
             Assert.StartsWith("INSERTER   ·   filters by kind\n[1]  Takes\nany mail\n", HudText.FilterText(world));

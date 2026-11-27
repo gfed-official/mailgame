@@ -201,7 +201,7 @@ namespace PerformativeMail.App
                     var prompt = _session.Interaction.Prompt;
                     if (!_beltPushing)
                     {
-                        Check(prompt.Kind == InteractKind.PushBelt && HudText.Prompt(world, prompt, out _).StartsWith("Push the Conveyor Belt", StringComparison.Ordinal),
+                        Check(prompt.Kind == InteractKind.PushBelt && HudText.Prompt(world, prompt, out _).StartsWith("CONVEYOR BELT\n[hold E] Push", StringComparison.Ordinal),
                             $"beside the belt the prompt is {prompt.Kind} \"{HudText.Prompt(world, prompt, out _)}\"");
                         _beltPushing = true;
                         break;
@@ -1006,7 +1006,7 @@ namespace PerformativeMail.App
                     _session.Interaction.Update(1.0 / 30.0, false, false);
                     hud.Refresh();
                     if (_session.Interaction.Prompt.Kind != InteractKind.Mount || _beltFrames < 30) break;
-                    Check(hud.PromptText == $"Drive the Mail Truck  [E]   ·   fuel 05:00 of 10:00", $"beside the truck the prompt reads \"{hud.PromptText}\"");
+                    Check(hud.PromptText == "MAIL TRUCK  ·  fuel 05:00 of 10:00\n[E] Drive", $"beside the truck the prompt reads \"{hud.PromptText}\"");
                     Check(_screen.Vehicles.Shown >= 1 && world.BeltMismatches == 0, $"{_screen.Vehicles.Shown} vehicles drawn, {world.BeltMismatches} checksums off");
                     _beltStep = 75;
                     _beltFrames = 0;
@@ -1350,7 +1350,7 @@ namespace PerformativeMail.App
                     if (world.FilterTarget == null)
                     {
                         if (_beltFrames == 12)
-                            Check(_session.Interaction.Prompt.Kind == InteractKind.Configure && hud.PromptText == "Open the route console of the Vehicle Depot  [E]",
+                            Check(_session.Interaction.Prompt.Kind == InteractKind.Configure && hud.PromptText == "VEHICLE DEPOT\n[E] Open the route console",
                                 $"at the console the prompt reads \"{hud.PromptText}\" ({_session.Interaction.Prompt.Kind})");
                         if (_beltFrames % 10 == 2) _session.Interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
                         break;

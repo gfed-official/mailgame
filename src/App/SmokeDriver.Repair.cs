@@ -61,7 +61,7 @@ namespace PerformativeMail.App
                 if (_repairFrames < 8) return true;
                 _session.Interaction.Update(1.0 / 30.0, false, false);
                 hud.Refresh();
-                string want = $"Mend the Wooden Wall  [hold LMB]   ·   {wall.Hp} / {wall.Def.Hp} HP   ·   Log x0.75 a full bar";
+                string want = $"WOODEN WALL  ·  {wall.Hp} / {wall.Def.Hp} HP\n[hold LMB] Mend  ·  Log x0.75 a full bar";
                 Check(hud.PromptText == want, $"with the Repair Hammer at the hurt wall the line reads \"{hud.PromptText}\", expected \"{want}\"");
                 Check(hud.WeaponsText.StartsWith("[LMB] mend, 50 HP a second", StringComparison.Ordinal), $"with the Repair Hammer in the hand the weapons line reads \"{hud.WeaponsText}\"");
                 Check(_screen.ConstructHealth.RepairBarShown, "no health bar over the wall the Repair Hammer is held at");

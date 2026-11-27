@@ -150,7 +150,7 @@ namespace PerformativeMail.Client
         public const string CursedWord = "Cursed";
         /// <summary>Doc 05 §2.1: what a felled Mega's parcel is called on its stack ("Lost 1 Medium Package for …").</summary>
         public const string LostWord = "Lost";
-        public const string CursedWarning = "   ·   raiders come!";
+        public const string CursedWarning = "Cursed: raiders come!";
 
         /// <summary>The run's stamps (doc 01 §6) and its score multiplier: "Stamps: Cursed Mail   ·   score ×1.15", "Stamps: none".</summary>
         public static string StampsTracker(ClientWorld world)
@@ -1562,7 +1562,7 @@ namespace PerformativeMail.Client
         /// <summary>"fuel 4:32 of 10:00": a tank's driving left.</summary>
         public static string FuelText(ClientVehicle v) => $"fuel {Clock(v.Fuel)} of {Clock(v.Def.TankSeconds)}";
 
-        private static string FuelNote(ClientVehicle v) => !v.Def.Fuelled ? "" : v.Fuel <= 0f ? "   ·   the tank is dry: an Oil Can fills it" : "   ·   " + FuelText(v);
+        private static string FuelNote(ClientVehicle v) => !v.Def.Fuelled ? "" : v.Fuel <= 0f ? Dot + "the tank is dry" : Dot + FuelText(v);
 
         /// <summary>Why the tank was not filled.</summary>
         public static string RefuelRefused(OpResult result)
@@ -1721,10 +1721,10 @@ namespace PerformativeMail.Client
             if (missing != null)
             {
                 tone = PromptTone.Mismatch;
-                return $"{name}   ·   {health}   ·   mending it takes {missing.Name}";
+                return Card($"{Upper(name)}{Dot}{health}", $"Mending it takes {missing.Name}");
             }
             string cost = RepairCost(world, c, hammer);
-            return $"Mend the {name}  [hold LMB]   ·   {health}{(cost.Length > 0 ? "   ·   " + cost + " a full bar" : "")}";
+            return Card($"{Upper(name)}{Dot}{health}", $"[hold LMB] Mend{(cost.Length > 0 ? Dot + cost + " a full bar" : "")}");
         }
 
         /// <summary>What a full bar of HP takes with the hammer: "Stone x1", "Log x0.75, Iron Ingot x0.25"; the Post Office "Log x7.5".</summary>
@@ -1815,10 +1815,27 @@ namespace PerformativeMail.Client
             return mend;
         }
 
+        /// <summary>Between the parts of a prompt's line.</summary>
+        public const string Dot = "  ·  ";
+        /// <summary>The marks a delivery row ends with (the theme's faces draw them, UI polish plan item 2).</summary>
+        public const string MatchGlyph = "✓", MismatchGlyph = "✕";
+
+        /// <summary>A prompt card: the noun line, then each verb row that says something, a line each.</summary>
+        public static string Card(string noun, params string[] rows)
+        {
+            var text = new System.Text.StringBuilder(noun);
+            foreach (string row in rows)
+                if (row.Length > 0) text.Append('\n').Append(row);
+            return text.ToString();
+        }
+
+        private static string Upper(string name) => name.ToUpperInvariant();
+
         /// <summary>
-        /// The interact prompt line. For a delivery it shows the stack's address and the mailbox's
-        /// address side by side with the verdict in words; the HUD draws the tick or cross that goes
-        /// with <paramref name="tone"/> itself, because the UI font has no ✓ / ✗ glyphs. The game
+        /// The interact prompt as a card (UI polish plan item 5; ref Peak, Valheim): a noun line ("MAILBOX  ·  2
+        /// Larch Lane") over verb rows, each led by its key ("[hold E] Deliver 3 Letters for 2 Larch Lane ✓"),
+        /// one row a line; the HUD draws a leading [key] as a keycap. No explanatory clauses: "Closed until
+        /// Delivery". The HUD draws the tick or cross that goes with <paramref name="tone"/> beside it. The game
         /// never hides a mismatch.
         /// </summary>
         public static string Prompt(ClientWorld world, in InteractPrompt p, out PromptTone tone)
@@ -1826,62 +1843,65 @@ namespace PerformativeMail.Client
             tone = PromptTone.Neutral;
             switch (p.Kind)
             {
-                case InteractKind.OpenIntake: return "Open Intake  [E]";
-                case InteractKind.CloseIntake: return "Close Intake  [E]";
-                case InteractKind.OpenChest: return $"Open {ChestTitle(p)}  [E]";
-                case InteractKind.CloseChest: return $"Close {ChestTitle(p)}  [E]";
-                case InteractKind.OpenBag: return $"Open {BagName(world, p.Bag!.Owner)}  [E]   ·   gone in {Clock(world.BagSecondsLeft(p.Bag))}";
-                case InteractKind.CloseBag: return $"Close {BagName(world, p.Bag!.Owner)}  [E]   ·   gone in {Clock(world.BagSecondsLeft(p.Bag))}";
+                case InteractKind.OpenIntake: return Card("INTAKE", "[E] Open");
+                case InteractKind.CloseIntake: return Card("INTAKE", "[E] Close");
+                case InteractKind.OpenChest: return Card(Upper(ChestTitle(p)), "[E] Open");
+                case InteractKind.CloseChest: return Card(Upper(ChestTitle(p)), "[E] Close");
+                case InteractKind.OpenBag: return Card($"{Upper(BagName(world, p.Bag!.Owner))}{Dot}gone in {Clock(world.BagSecondsLeft(p.Bag))}", "[E] Open");
+                case InteractKind.CloseBag: return Card($"{Upper(BagName(world, p.Bag!.Owner))}{Dot}gone in {Clock(world.BagSecondsLeft(p.Bag))}", "[E] Close");
                 case InteractKind.OpenShop:
-                    return p.ShopClosed ? $"Shop   ·   {ClosedWord} — the counter serves in Prep and at Payday" : "Open Shop  [E]";
-                case InteractKind.CloseShop: return "Close Shop  [E]";
-                case InteractKind.Configure when p.Built!.Def.HasConsole: return $"Open the route console of the {p.Built.Def.Name}  [E]";
-                case InteractKind.CloseFilters when p.Built!.Def.HasConsole: return $"Close the route console of the {p.Built.Def.Name}  [E]";
-                case InteractKind.Configure: return $"Set the filters of the {p.Built!.Def.Name}  [E]";
-                case InteractKind.CloseFilters: return $"Close the filters of the {p.Built!.Def.Name}  [E]";
+                    return p.ShopClosed ? Card($"SHOP{Dot}{ClosedWord}", "Open in Prep and at Payday") : Card("SHOP", "[E] Open");
+                case InteractKind.CloseShop: return Card("SHOP", "[E] Close");
+                case InteractKind.Configure when p.Built!.Def.HasConsole: return Card(Upper(p.Built.Def.Name), "[E] Open the route console");
+                case InteractKind.CloseFilters when p.Built!.Def.HasConsole: return Card(Upper(p.Built.Def.Name), "[E] Close the route console");
+                case InteractKind.Configure: return Card(Upper(p.Built!.Def.Name), "[E] Set the filters");
+                case InteractKind.CloseFilters: return Card(Upper(p.Built!.Def.Name), "[E] Close the filters");
                 case InteractKind.Mount:
-                    if (p.Vehicle!.Def.OnWater && !p.Vehicle.Def.Fuelled) return $"Get into the {p.Vehicle.Def.Name}  [E]";
-                    if (!p.Vehicle.Def.Fuelled) return $"Ride {p.Vehicle.Def.Name}  [E]";
-                    return p.Vehicle.Fuel <= 0f
-                        ? $"{p.Vehicle.Def.Name}   ·   out of fuel — an Oil Can in the hand fills it"
-                        : p.Vehicle.NpcDriving ? $"Take the wheel of the {p.Vehicle.Def.Name}  [E]   ·   the {(p.Vehicle.Def.OnWater ? "captain stands by" : "driver moves over")}"
-                        : $"Drive the {p.Vehicle.Def.Name}  [E]   ·   {FuelText(p.Vehicle)}";
-                case InteractKind.Refuel: return $"Refuel the {p.Vehicle!.Def.Name} with an Oil Can  [E]   ·   {FuelText(p.Vehicle)}";
+                {
+                    var v = p.Vehicle!;
+                    string noun = Upper(v.Def.Name);
+                    if (v.Def.OnWater && !v.Def.Fuelled) return Card(noun, "[E] Get in");
+                    if (!v.Def.Fuelled) return Card(noun, "[E] Ride");
+                    return v.Fuel <= 0f ? Card($"{noun}{Dot}out of fuel", "An Oil Can in the hand fills it")
+                        : v.NpcDriving ? Card(noun, "[E] Take the wheel")
+                        : Card($"{noun}{Dot}{FuelText(v)}", "[E] Drive");
+                }
+                case InteractKind.Refuel: return Card($"{Upper(p.Vehicle!.Def.Name)}{Dot}{FuelText(p.Vehicle)}", "[E] Refuel with an Oil Can");
                 case InteractKind.RebuildRuin:
                 {
-                    string name = p.Built!.Def.Name, cost = RuinCost(p.Built.Def);
+                    string noun = $"RUIN{Dot}{p.Built!.Def.Name}", cost = RuinCost(p.Built.Def);
                     switch (world.RebuildState(p.Built))
                     {
-                        case OpResult.Ok: return $"Rebuild the {name}  [E]   ·   {cost} (half its cost){AsItWas(p.Built.Def)}";
-                        case OpResult.MissingMaterials: tone = PromptTone.Mismatch; return $"Ruin of the {name}   ·   rebuilding it takes {cost}";
-                        default: tone = PromptTone.Mismatch; return $"Ruin of the {name}   ·   {PlaceReason(world, p.Built.Def.Recipe, world.RebuildState(p.Built))}";
+                        case OpResult.Ok: return Card(noun, $"[E] Rebuild{Dot}{cost}, half its cost{AsItWas(p.Built.Def)}");
+                        case OpResult.MissingMaterials: tone = PromptTone.Mismatch; return Card(noun, $"Rebuilding it takes {cost}");
+                        default: tone = PromptTone.Mismatch; return Card(noun, Capitalised(PlaceReason(world, p.Built.Def.Recipe, world.RebuildState(p.Built))));
                     }
                 }
-                case InteractKind.ClearRuin:
-                    return $"Clear the ruin of the {p.Built!.Def.Name}  [E]   ·   rebuilt in Prep for half its cost, or anew at full cost";
-                case InteractKind.OperateTurret: return $"Operate the {p.Built!.Def.Name}  [E]   ·   aimed by hand, {Rate(p.Built.Def.OperatedRate)} the rate";
-                case InteractKind.LeaveTurret: return $"At the {p.Built!.Def.Name}'s controls   ·   [LMB] fire where you look   ·   [E] let go";
-                case InteractKind.OpenRack: return $"Open {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOff(world, p.Vehicle)}{FuelNote(p.Vehicle)}";
-                case InteractKind.CloseRack: return $"Close {ContainerTitle(p.Vehicle!.Def.Cargo)}  [E]   ·   {GetOff(world, p.Vehicle)}{FuelNote(p.Vehicle)}";
+                case InteractKind.ClearRuin: return Card($"RUIN{Dot}{p.Built!.Def.Name}", "[E] Clear it away");
+                case InteractKind.OperateTurret: return Card(Upper(p.Built!.Def.Name), $"[E] Operate{Dot}by hand, {Rate(p.Built.Def.OperatedRate)} the rate");
+                case InteractKind.LeaveTurret: return Card($"{Upper(p.Built!.Def.Name)}{Dot}at the controls", "[LMB] Fire where you look", "[E] Let go");
+                case InteractKind.OpenRack: return Card($"{Upper(ContainerTitle(p.Vehicle!.Def.Cargo))}{FuelNote(p.Vehicle)}", "[E] Open", GetOff(world, p.Vehicle));
+                case InteractKind.CloseRack: return Card($"{Upper(ContainerTitle(p.Vehicle!.Def.Cargo))}{FuelNote(p.Vehicle)}", "[E] Close", GetOff(world, p.Vehicle));
                 case InteractKind.Harvest:
                 {
                     var node = p.Node!;
                     var tool = HarvestTool(world.Content, node);
+                    string noun = Upper(node.Name);
                     if (p.NodeState == OpResult.NeedsTool)
                     {
                         tone = PromptTone.Mismatch;
-                        return $"{node.Name}   ·   needs {WithArticle(tool?.Name ?? "tool")} in the hand";
+                        return Card(noun, $"Needs {WithArticle(tool?.Name ?? "tool")} in the hand");
                     }
                     string gives = $"{node.Item.Name} {Count(p.NodeYield)}";
                     if (p.NodeState == OpResult.DoesNotFit)
                     {
                         tone = PromptTone.Mismatch;
-                        return $"{node.Name}   ·   no room in your pockets for {gives}";
+                        return Card(noun, $"No room in your pockets for {gives}");
                     }
                     // Bare hands on a tree: it can be done, and it can be done better.
                     string better = tool != null && p.NodeYield < node.Yield ? $" (more with {WithArticle(tool.Name)})" : "";
                     string left = p.NodeHitsLeft == 1 ? "1 hit left" : $"{p.NodeHitsLeft} hits left";
-                    return $"{Capitalised(node.Verb)} {node.Name}   ·   {gives} a hit{better}   ·   {left}   [hold E]";
+                    return Card($"{noun}{Dot}{left}", $"[hold E] {Capitalised(node.Verb)}{Dot}{gives} a hit{better}");
                 }
                 case InteractKind.PushBelt:
                 {
@@ -1890,27 +1910,27 @@ namespace PerformativeMail.Client
                     if (p.Pushing)
                     {
                         tone = PromptTone.Match;
-                        return $"Pushing the {def.Name}   ·   {(def.Speed * mult).ToString("0.0", CultureInfo.InvariantCulture)} m/s";
+                        return Card(Upper(def.Name), $"Pushing{Dot}{(def.Speed * mult).ToString("0.0", CultureInfo.InvariantCulture)} m/s");
                     }
-                    string filters = def.FilterOutputs > 0 ? "   ·   its filters in Build mode" : "";
-                    return $"Push the {def.Name}   ·   ×{mult.ToString("0.0", CultureInfo.InvariantCulture)} while held   [hold E]{filters}";
+                    return Card(Upper(def.Name), $"[hold E] Push{Dot}×{mult.ToString("0.0", CultureInfo.InvariantCulture)} while held");
                 }
                 case InteractKind.Deliver:
                 {
                     var dest = p.Destination!;
-                    if (p.MailboxClosed) return $"Mailbox: {dest.Label}   ·   {ClosedWord} — mailboxes take mail only during Delivery";
-                    string all = p.MatchingStacks > 0 ? $"   ·   deliver all matching ({p.MatchingStacks})  [F]" : "";
-                    if (p.Stack == null) return $"Mailbox: {dest.Label}   ·   select mail (2–8) to deliver{all}";
+                    string noun = $"MAILBOX{Dot}{dest.Label}";
+                    if (p.MailboxClosed) return Card($"{noun}{Dot}{ClosedWord}", "Closed until Delivery");
+                    string all = p.MatchingStacks > 0 ? $"[F] Deliver all matching ({p.MatchingStacks})" : "";
+                    if (p.Stack == null) return Card(noun, "Select mail (2–8) to deliver", all);
                     if (!p.KindAccepted)
                     {
                         tone = PromptTone.Mismatch;
-                        return $"{Name(world.Content, p.Stack.Stack)} does not fit the mailbox at {dest.Label}";
+                        return Card(noun, $"{Name(world.Content, p.Stack.Stack)} does not fit this mailbox");
                     }
                     tone = p.AddressMatches ? PromptTone.Match : PromptTone.Mismatch;
                     string verdict = p.AddressMatches ? MatchWord : MismatchWord;
                     // Doc 05 §6: the wrong box for cursed mail says what it will bring.
                     string curse = p.Stack.Stack.Cursed && !p.AddressMatches ? CursedWarning : "";
-                    return $"{verdict}   ·   Deliver {Stack(world, p.Stack.Stack)}   |   mailbox: {dest.Label}   [hold E]{curse}{all}";
+                    return Card($"{noun}{Dot}{verdict}", $"[hold E] Deliver {Stack(world, p.Stack.Stack)} {(p.AddressMatches ? MatchGlyph : MismatchGlyph)}", curse, all);
                 }
                 default: return "";
             }

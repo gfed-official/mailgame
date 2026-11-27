@@ -203,7 +203,7 @@ namespace PerformativeMail.Net.Tests
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.OpenShop, interaction.Prompt.Kind);
             Assert.True(interaction.Prompt.ShopClosed);
-            Assert.Equal("Shop   ·   closed — the counter serves in Prep and at Payday", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("SHOP  ·  closed\nOpen in Prep and at Payday", HudText.Prompt(a, interaction.Prompt, out _));
             interaction.Update(Dt, true, false);
             interaction.Update(Dt, false, false);
             Assert.False(a.ShopOpen);
@@ -240,14 +240,14 @@ namespace PerformativeMail.Net.Tests
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.OpenShop, interaction.Prompt.Kind);
             Assert.False(interaction.Prompt.ShopClosed);
-            Assert.Equal("Open Shop  [E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("SHOP\n[E] Open", HudText.Prompt(a, interaction.Prompt, out _));
             interaction.Update(Dt, true, false);
             Assert.True(a.ShopOpen);
             Assert.False(b.ShopOpen);
             interaction.Update(Dt, true, false);
             Assert.True(a.ShopOpen);
             Assert.Equal(InteractKind.CloseShop, interaction.Prompt.Kind);
-            Assert.Equal("Close Shop  [E]", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("SHOP\n[E] Close", HudText.Prompt(a, interaction.Prompt, out _));
             // Released and pressed again: down.
             interaction.Update(Dt, false, false);
             interaction.Update(Dt, true, false);
@@ -339,11 +339,11 @@ namespace PerformativeMail.Net.Tests
                     if (!atPo) continue;
                     found = true;
                     string line = HudText.FocusPrompt(a, prompt, slot, out var tone);
-                    Assert.StartsWith("Mend the Post Office  [hold LMB]   ·   1800 / 3000 HP", line);
+                    Assert.StartsWith("POST OFFICE  ·  1800 / 3000 HP\n[hold LMB] Mend", line);
                     Assert.Equal(PromptTone.Neutral, tone);
                     // Without the hammer in the hand it is the counter's line.
                     int bare = Enumerable.Range(0, 8).First(k => RepairRules.Hammer(s.Content, a.Hotbar, k) == null);
-                    Assert.StartsWith("Shop", HudText.FocusPrompt(a, prompt, bare, out _));
+                    Assert.StartsWith("SHOP  ·  closed", HudText.FocusPrompt(a, prompt, bare, out _));
                 }
             Assert.True(found, "no place by the counter both looks at the closed counter and holds the hammer at the Post Office");
         }

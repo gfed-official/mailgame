@@ -110,7 +110,7 @@ namespace PerformativeMail.App
                     hud.Refresh();
                     // A few frames under the new aim, so that the picture is of it.
                     if (_session.Interaction.Prompt.Kind != InteractKind.Mount || _bikeFrames < 8) break;
-                    Check(hud.PromptText == "Ride Bike  [E]", $"beside the bike the prompt reads \"{hud.PromptText}\"");
+                    Check(hud.PromptText == "BIKE\n[E] Ride", $"beside the bike the prompt reads \"{hud.PromptText}\"");
                     Shot("bike-prompt");
                     tap = true;
                     next = true;

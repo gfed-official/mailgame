@@ -104,7 +104,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(a.Local, box.X, box.Y, box.Z, out client.Input.YawRadians, out client.Input.PitchRadians);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Mount, interaction.Prompt.Kind);
-            Assert.Equal("Take the wheel of the Mail Truck  [E]   ·   the driver moves over", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("MAIL TRUCK\n[E] Take the wheel", HudText.Prompt(a, interaction.Prompt, out _));
 
         }
     }

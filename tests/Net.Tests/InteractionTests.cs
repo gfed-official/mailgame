@@ -91,7 +91,7 @@ namespace PerformativeMail.Net.Tests
             s.Teleport(po.IntakeX + 1f, po.IntakeZ);
             s.Frame(interact: false);
             Assert.Equal(InteractKind.OpenIntake, s.Interaction.Prompt.Kind);
-            Assert.Equal("Open Intake  [E]", HudText.Prompt(s.World, s.Interaction.Prompt, out _));
+            Assert.Equal("INTAKE\n[E] Open", HudText.Prompt(s.World, s.Interaction.Prompt, out _));
 
             s.Frame(interact: true);
             s.Run(3);
@@ -126,7 +126,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(s.World.Local, chest.X, 0.5f, chest.Z, out s.Client.Input.YawRadians, out s.Client.Input.PitchRadians);
             s.Frame(interact: false);
             Assert.Equal(InteractKind.OpenChest, s.Interaction.Prompt.Kind);
-            Assert.Equal("Open Chest  [E]", HudText.Prompt(s.World, s.Interaction.Prompt, out _));
+            Assert.Equal("CHEST\n[E] Open", HudText.Prompt(s.World, s.Interaction.Prompt, out _));
 
             s.Frame(interact: true);
             s.Run(3);
@@ -134,7 +134,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("chest", s.World.OpenContainer!.Def.Id);
             s.Frame(interact: false);
             Assert.Equal(InteractKind.CloseChest, s.Interaction.Prompt.Kind);
-            Assert.Equal("Close Chest  [E]", HudText.Prompt(s.World, s.Interaction.Prompt, out _));
+            Assert.Equal("CHEST\n[E] Close", HudText.Prompt(s.World, s.Interaction.Prompt, out _));
 
             // What the server puts in is seen while it is open.
             Assert.True(s.Server.World.Give(s.Server.World.MapChests[0], ItemStack.OfItem(Shared.Content.Item("stone"), 3)));
@@ -252,7 +252,9 @@ namespace PerformativeMail.Net.Tests
             string text = HudText.Prompt(s.World, prompt, out var tone);
             Assert.Equal(PromptTone.Match, tone);
             Assert.Contains(dest.Label, text);
-            Assert.StartsWith(HudText.MatchWord, text);
+            Assert.StartsWith("MAILBOX  ·  ", text);
+            Assert.Contains("  ·  " + HudText.MatchWord + "\n[hold E] Deliver ", text);
+            Assert.Contains(" " + HudText.MatchGlyph, text);
 
             // A short tap does nothing; the full 0.4 s hold delivers.
             for (int i = 0; i < 6; i++) s.Frame(interact: true);
@@ -286,7 +288,8 @@ namespace PerformativeMail.Net.Tests
 
             string text = HudText.Prompt(s.World, s.Interaction.Prompt, out var tone);
             Assert.Equal(PromptTone.Mismatch, tone);
-            Assert.StartsWith(HudText.MismatchWord, text);
+            Assert.Contains("  ·  " + HudText.MismatchWord + "\n[hold E] Deliver ", text);
+            Assert.Contains(" " + HudText.MismatchGlyph, text);
             Assert.Contains(right.Label, text);
             Assert.Contains(wrong.Label, text);
 

@@ -98,7 +98,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(host.World.Local, box.X, box.Y, box.Z, out host.Input.YawRadians, out host.Input.PitchRadians);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.Configure, interaction.Prompt.Kind);
-            Assert.Equal("Set the filters of the Address Sorter  [E]", HudText.Prompt(host.World, interaction.Prompt, out _));
+            Assert.Equal("ADDRESS SORTER\n[E] Set the filters", HudText.Prompt(host.World, interaction.Prompt, out _));
             interaction.Update(Dt, true, false);
             interaction.Update(Dt, false, false);
             Assert.Same(built, host.World.FilterTarget);
@@ -173,7 +173,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(host.World.Local, box.X, box.Y, box.Z, out host.Input.YawRadians, out host.Input.PitchRadians);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.PushBelt, interaction.Prompt.Kind);
-            Assert.EndsWith("[hold E]   ·   its filters in Build mode", HudText.Prompt(host.World, interaction.Prompt, out _));
+            Assert.Contains("\n[hold E] Push  ·  ", HudText.Prompt(host.World, interaction.Prompt, out _));
             Assert.True(build.Toggle());
             build.Update(Dt, false, false);
             Assert.EndsWith("   ·   [E] filters", HudText.BuildPrompt(host.World, build.Ghost, out _));

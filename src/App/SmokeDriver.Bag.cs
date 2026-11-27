@@ -128,7 +128,7 @@ namespace PerformativeMail.App
                     if (!world.Bags.ContainsKey(_bagId)) { Fail($"the bag was gone before its owner got back to it, at ({world.Local.X:0.0}, {world.Local.Z:0.0})"); return; }
                     if (!_atBag || prompt.Kind != InteractKind.OpenBag || prompt.Bag!.ContainerId != _bagId) break;
                     if (++_bagPromptFrames != 1) break;
-                    Check(hud.PromptText.StartsWith("Open your bag  [E]   ·   gone in 00:", StringComparison.Ordinal), $"before the bag the HUD prompt reads \"{hud.PromptText}\"");
+                    Check(hud.PromptText.StartsWith("YOUR BAG  ·  gone in 00:", StringComparison.Ordinal) && hud.PromptText.EndsWith("\n[E] Open", StringComparison.Ordinal), $"before the bag the HUD prompt reads \"{hud.PromptText}\"");
                     Shot("bag-prompt");
                     break;
 

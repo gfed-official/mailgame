@@ -98,7 +98,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(a.Local, box.X, box.Y, box.Z, out ada.Input.YawRadians, out ada.Input.PitchRadians);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.RebuildRuin, interaction.Prompt.Kind);
-            Assert.Equal("Rebuild the Stone Wall  [E]   ·   Stone x2 (half its cost)", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("RUIN  ·  Stone Wall\n[E] Rebuild  ·  Stone x2, half its cost", HudText.Prompt(a, interaction.Prompt, out _));
             interaction.Update(Dt, false, false, interactTapped: true);
             s.Run(10);
             Assert.Null(a.Constructs.RuinAt(Tx, Tz));
@@ -118,7 +118,7 @@ namespace PerformativeMail.Net.Tests
             s.Run(5);
             interaction.Update(Dt, false, false);
             Assert.Equal(InteractKind.ClearRuin, interaction.Prompt.Kind);
-            Assert.Equal("Clear the ruin of the Stone Wall  [E]   ·   rebuilt in Prep for half its cost, or anew at full cost", HudText.Prompt(a, interaction.Prompt, out _));
+            Assert.Equal("RUIN  ·  Stone Wall\n[E] Clear it away", HudText.Prompt(a, interaction.Prompt, out _));
             interaction.Update(Dt, false, false, interactTapped: true);
             s.Run(10);
             Assert.Null(a.Constructs.RuinAt(Tx, Tz));

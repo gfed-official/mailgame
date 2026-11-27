@@ -60,13 +60,13 @@ namespace PerformativeMail.Net.Tests
             Assert.Same(seen, HudText.RepairTarget(a, slot, out bool po, out var held));
             Assert.False(po);
             Assert.Same(hammer, held);
-            Assert.Equal("Wooden Wall   ·   100 / 300 HP   ·   mending it takes Log", HudText.RepairPrompt(a, slot, out var tone));
+            Assert.Equal("WOODEN WALL  ·  100 / 300 HP\nMending it takes Log", HudText.RepairPrompt(a, slot, out var tone));
             Assert.Equal(PromptTone.Mismatch, tone);
             Assert.Equal("[LMB] mend, 50 HP a second   ·   [RMB] mail cannon: no Small Package", HudText.RepairWeapons(hammer, 0));
 
             Assert.True(sim.Give(truth.Inventory, ItemStack.OfItem(content.Item("log"), 1)));
             Run(10);
-            Assert.Equal("Mend the Wooden Wall  [hold LMB]   ·   100 / 300 HP   ·   Log x0.75 a full bar", HudText.RepairPrompt(a, slot, out tone));
+            Assert.Equal("WOODEN WALL  ·  100 / 300 HP\n[hold LMB] Mend  ·  Log x0.75 a full bar", HudText.RepairPrompt(a, slot, out tone));
             Assert.Equal(PromptTone.Neutral, tone);
             // Doc 09 §3: the HUD's target bar under the crosshair shows a third.
             Assert.Equal(100f / 300f, HudText.RepairTargetHealth(a, slot), 3);

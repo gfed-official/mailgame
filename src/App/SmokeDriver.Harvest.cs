@@ -171,10 +171,14 @@ namespace PerformativeMail.App
                     Shot($"harvest-{id}-tool");
                 }
                 if (needsTool)
-                    Check(want.Contains("needs a", StringComparison.Ordinal) && hud.PromptMark == PromptTone.Mismatch && tone == PromptTone.Mismatch, $"the prompt for what the {def.Name} takes is \"{want}\" ({hud.PromptMark})");
+                    Check(want.Contains("\nNeeds a", StringComparison.Ordinal) && hud.PromptMark == PromptTone.Mismatch && tone == PromptTone.Mismatch, $"the prompt for what the {def.Name} takes is \"{want}\" ({hud.PromptMark})");
                 else
-                    Check(want.StartsWith($"{HudText.Capitalised(def.Verb)} {def.Name}", StringComparison.Ordinal) && want.Contains($"{def.Item.Name} x{prompt.NodeYield} a hit", StringComparison.Ordinal)
-                        && want.EndsWith("[hold E]", StringComparison.Ordinal), $"the prompt at the {def.Name} is \"{want}\"");
+                {
+                    // UI polish plan item 5: the noun over the verb row, its key drawn as a keycap.
+                    Check(want.StartsWith(def.Name.ToUpperInvariant() + HudText.Dot, StringComparison.Ordinal)
+                        && want.Contains($"\n[hold E] {HudText.Capitalised(def.Verb)}{HudText.Dot}{def.Item.Name} x{prompt.NodeYield} a hit", StringComparison.Ordinal), $"the prompt at the {def.Name} is \"{want}\"");
+                    Check(hud.PromptKeycaps.FirstOrDefault() == "HOLD E", $"the prompt at the {def.Name} draws the keycaps {string.Join(", ", hud.PromptKeycaps)}");
+                }
                 Check(prompt.NodeHitsLeft == def.Hits && hud.HoldShown == 0f, $"the {def.Name} nobody has touched has {prompt.NodeHitsLeft} of {def.Hits} hits left, the bar at {hud.HoldShown:0.00}");
                 foreach (char c in FontCheck.MissingGlyphs(hud))
                     if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;

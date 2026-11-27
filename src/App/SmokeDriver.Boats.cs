@@ -101,7 +101,7 @@ namespace PerformativeMail.App
                     _session.Interaction.Update(1.0 / 30.0, false, false);
                     hud.Refresh();
                     if (_session.Interaction.Prompt.Kind != InteractKind.Mount || _boatFrames < 8) break;
-                    Check(hud.PromptText == "Get into the Rowboat  [E]", $"beside the rowboat the prompt reads \"{hud.PromptText}\"");
+                    Check(hud.PromptText == "ROWBOAT\n[E] Get in", $"beside the rowboat the prompt reads \"{hud.PromptText}\"");
                     Shot("rowboat-prompt");
                     tap = true;
                     next = true;
@@ -269,7 +269,7 @@ namespace PerformativeMail.App
                     _session.Interaction.Update(1.0 / 30.0, false, false);
                     hud.Refresh();
                     if (_boatFrames < 14) break;
-                    Check(hud.PromptText == $"Drive the Motor Boat  [E]   ·   {HudText.FuelText(here)}", $"at the port the prompt reads \"{hud.PromptText}\"");
+                    Check(hud.PromptText == $"MOTOR BOAT  ·  {HudText.FuelText(here)}\n[E] Drive", $"at the port the prompt reads \"{hud.PromptText}\"");
                     Shot("small-port");
                     GD.Print($"[smoke] boats: a Small Port built on the deep quay at ({_portX}, {PortZ}), a Motor Boat in its bay loaded from a belt into its loading face");
                     next = true;
@@ -289,7 +289,7 @@ namespace PerformativeMail.App
                     if (world.FilterTarget == null)
                     {
                         if (_boatFrames == 12)
-                            Check(_session.Interaction.Prompt.Kind == InteractKind.Configure && hud.PromptText == "Open the route console of the Small Port  [E]",
+                            Check(_session.Interaction.Prompt.Kind == InteractKind.Configure && hud.PromptText == "SMALL PORT\n[E] Open the route console",
                                 $"at the port's console the prompt reads \"{hud.PromptText}\" ({_session.Interaction.Prompt.Kind})");
                         if (_boatFrames % 10 == 2) _session.Interaction.Update(1.0 / 30.0, false, false, interactTapped: true);
                         Check(_boatFrames < 120, "the port's route console did not come up");
@@ -341,7 +341,7 @@ namespace PerformativeMail.App
                     if (_boatFrames < 12) break;
                     _session.Interaction.Update(1.0 / 30.0, false, false);
                     hud.Refresh();
-                    Check(hud.PromptText.StartsWith("Open Oil Pump  [E]", StringComparison.Ordinal), $"at the pump the prompt reads \"{hud.PromptText}\"");
+                    Check(hud.PromptText.StartsWith("OIL PUMP\n[E] Open", StringComparison.Ordinal), $"at the pump the prompt reads \"{hud.PromptText}\"");
                     Check(view.PumpsNodding == 1, $"{view.PumpsNodding} pumps nod in Prep");
                     Check(server.PumpWork(server.Constructs.At(sx, sz)!) > 0, "the pump does no work in Prep");
                     Shot("oil-pump");

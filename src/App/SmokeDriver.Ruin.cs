@@ -97,7 +97,7 @@ namespace PerformativeMail.App
                 interaction.Update(1.0 / 30.0, false, false);
                 if (!arrived || _ruinFrames < 4 || _ruinLogs >= 0 || CarriedLogs(world) < _ruinCost) return true;
                 hud.Refresh();
-                string want = $"Rebuild the Wooden Wall  [E]   ·   {HudText.RuinCost(wallDef)} (half its cost)";
+                string want = $"RUIN  ·  Wooden Wall\n[E] Rebuild  ·  {HudText.RuinCost(wallDef)}, half its cost";
                 Check(interaction.Prompt.Kind == InteractKind.RebuildRuin && interaction.Prompt.Built == left, $"beside the ruin in Prep the prompt is {interaction.Prompt.Kind}");
                 Check(hud.PromptText == want, $"beside the ruin in Prep the prompt reads \"{hud.PromptText}\", expected \"{want}\"");
                 Shot("ruin-rebuild");
@@ -116,7 +116,7 @@ namespace PerformativeMail.App
             AimAtBuilt(standing);
             interaction.Update(1.0 / 30.0, false, false);
             hud.Refresh();
-            Check(interaction.Prompt.Kind != InteractKind.RebuildRuin && !hud.PromptText.Contains("Ruin", StringComparison.Ordinal), $"after the rebuild the prompt still reads \"{hud.PromptText}\"");
+            Check(interaction.Prompt.Kind != InteractKind.RebuildRuin && !hud.PromptText.Contains("RUIN", StringComparison.Ordinal), $"after the rebuild the prompt still reads \"{hud.PromptText}\"");
             Shot("ruin-rebuilt");
             GD.Print($"[smoke] ruin: the Wooden Wall broken in shift {RaidPlaytestShift}'s Delivery rebuilt in shift {server.Run.Shift}'s Prep at ({_ruinTx}, {_ruinTz}) for {_ruinCost} Logs, half its cost, through the prompt and E");
             _ruinStep = RuinStep.Done;

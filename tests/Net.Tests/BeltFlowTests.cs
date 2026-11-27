@@ -154,7 +154,7 @@ namespace PerformativeMail.Net.Tests
             ViewRay.Aim(world.Local, box.X, box.Y, box.Z, out host.Input.YawRadians, out host.Input.PitchRadians);
             interaction.Update(1.0 / 30, false, false);
             Assert.Equal(InteractKind.PushBelt, interaction.Prompt.Kind);
-            Assert.Equal("Push the Conveyor Belt   ·   ×1.5 while held   [hold E]", HudText.Prompt(world, interaction.Prompt, out _));
+            Assert.Equal("CONVEYOR BELT\n[hold E] Push  ·  ×1.5 while held", HudText.Prompt(world, interaction.Prompt, out _));
             var server = session.Sim.Belts.SegmentAt(5, Row)!;
             var mirror = world.Belts.SegmentAt(5, Row)!;
             for (int i = 0; i < 30; i++)
@@ -162,7 +162,7 @@ namespace PerformativeMail.Net.Tests
                 interaction.Update(1.0 / 30, true, false);
                 session.Run(1);
             }
-            Assert.Equal("Pushing the Conveyor Belt   ·   3.0 m/s", HudText.Prompt(world, interaction.Prompt, out var tone));
+            Assert.Equal("CONVEYOR BELT\nPushing  ·  3.0 m/s", HudText.Prompt(world, interaction.Prompt, out var tone));
             Assert.Equal(PromptTone.Match, tone);
             Assert.True(server.PushTicks > 0 && mirror.PushTicks > 0, $"pushed {server.PushTicks} on the server, {mirror.PushTicks} on the client");
             // Let go, both run out.
