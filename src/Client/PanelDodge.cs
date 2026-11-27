@@ -41,7 +41,33 @@ namespace PerformativeMail.Client
             float y = System.MathF.Min(below, floor - tall);
             return new ScreenBox(margin, y, width - margin, y + tall);
         }
-    
+
+        /// <summary>
+        /// Where the banner's row (<paramref name="tall"/> high, its words <paramref name="wide"/> across, centred on
+        /// <paramref name="centreX"/>) goes while open panels are up (the e5be644 playtest's N9: PROTECTED across the top of
+        /// the inventory screen and the map): at <paramref name="top"/> if it is clear of every box in
+        /// <paramref name="avoid"/>, else the nearest spot under or over one of them that is clear of all of them and stays
+        /// between <paramref name="ceiling"/> and <paramref name="floor"/>; null if there is none (it waits).
+        /// </summary>
+        public static float? Banner(float top, float tall, float wide, float centreX, System.Collections.Generic.IReadOnlyList<ScreenBox> avoid, float ceiling, float floor, float gap = 8f)
+        {
+            float x0 = centreX - wide * 0.5f, x1 = centreX + wide * 0.5f;
+            bool Clear(float y)
+            {
+                if (y < ceiling || y + tall > floor) return false;
+                var box = new ScreenBox(x0, y, x1, y + tall);
+                foreach (var b in avoid)
+                    if (box.Overlaps(b)) return false;
+                return true;
+            }
+            if (Clear(top)) return top;
+            float? best = null;
+            foreach (var b in avoid)
+                foreach (float y in new[] { b.Y1 + gap, b.Y0 - gap - tall })
+                    if (Clear(y) && (best == null || System.MathF.Abs(y - top) < System.MathF.Abs(best.Value - top))) best = y;
+            return best;
+        }
+
         /// <summary>
         /// Where a control's edges fall along one axis once laid out: its anchors on the parent's
         /// <paramref name="parent"/> span plus its offsets, grown to <paramref name="min"/> towards

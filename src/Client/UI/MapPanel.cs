@@ -77,6 +77,8 @@ namespace PerformativeMail.Client.UI
         public Rect2 MapRect { get; private set; }
         /// <summary>The highest the HUD's lines along the bottom reach (the event feed): the panel ends above it.</summary>
         public Func<float>? BottomClear;
+        /// <summary>The lowest the HUD's lines along the top reach (the hint under the plate): the panel starts under it (the e5be644 playtest's N7).</summary>
+        public Func<float>? TopClear;
 
         public void Setup(ClientRuntime client)
         {
@@ -95,7 +97,8 @@ namespace PerformativeMail.Client.UI
         {
             var screen = Size;
             float bottom = Mathf.Min(screen.Y - 120f, (BottomClear?.Invoke() ?? screen.Y - 120f) - 8f);
-            return new Rect2(Side, Top, screen.X - Side * 2f, Mathf.Max(120f, bottom - Top));
+            float top = Mathf.Max(Top, (TopClear?.Invoke() ?? 0f) + 6f);
+            return new Rect2(Side, top, screen.X - Side * 2f, Mathf.Max(120f, bottom - top));
         }
 
         public override void _Process(double delta)

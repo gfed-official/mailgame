@@ -32,6 +32,8 @@ namespace PerformativeMail.Client.Presentation
             public float Speed, Dying = -1f;
             public uint HurtTick;
             public byte Hp = 255;
+            /// <summary>Hurt, so its bar is up unless it would lie on the HUD.</summary>
+            public bool BarWanted;
             public EnemyState State;
             /// <summary>An airborne one's dark patch on the ground under it (null for the rest), and how high it flies.</summary>
             public MeshInstance3D? Shadow;
@@ -46,6 +48,11 @@ namespace PerformativeMail.Client.Presentation
         public float LiftOf(ushort id) => _views.TryGetValue(id, out var view) ? view.Root.Position.Y : 0f;
         /// <summary>How many raiders wear the Alarm Posts' mark as of the last frame.</summary>
         public int MarksShown { get; private set; }
+        /// <summary>The view, and the boxes of the HUD a bar keeps off (<see cref="WorldBarClear"/>); without them every bar is drawn.</summary>
+        public Camera3D? Camera;
+        public System.Func<IReadOnlyList<ScreenBox>>? KeepClear;
+        /// <summary>Bars of hurt raiders held off the HUD as of the last frame.</summary>
+        public int BarsHeldOff { get; private set; }
 
         private readonly Dictionary<ushort, View> _views = new Dictionary<ushort, View>();
         private readonly List<View> _dying = new List<View>();
@@ -67,7 +74,7 @@ namespace PerformativeMail.Client.Presentation
         {
             if (!(ev is EnemyDiedEvent died) || !_views.Remove((ushort)died.Enemy.Counter, out var view)) return;
             view.Dying = 0f;
-            view.Bar.Visible = false;
+            view.Bar.Visible = view.BarWanted = false;
             view.Model.Flash();
             _dying.Add(view);
         }
@@ -111,7 +118,7 @@ namespace PerformativeMail.Client.Presentation
                 if (enemy.Hp != view.Hp)
                 {
                     view.Hp = enemy.Hp;
-                    view.Bar.Visible = enemy.Hp < 255;
+                    view.BarWanted = enemy.Hp < 255;
                     view.BarMaterial.SetShaderParameter("hp", enemy.Hp / 255f);
                 }
                 view.Model.Animate(dt, view.Speed, enemy.State == EnemyState.Windup, down: false);
@@ -120,6 +127,7 @@ namespace PerformativeMail.Client.Presentation
                 if (marked) marks++;
             }
             MarksShown = marks;
+            HoldBarsOffHud();
 
             if (_views.Count != world.Enemies.Count)
             {
@@ -179,6 +187,24 @@ namespace PerformativeMail.Client.Presentation
                     lift = Mathf.Max(lift, (c.Def.Height + 0.15f) * (1f - t * t));
                 }
             return lift;
+        }
+
+        private void HoldBarsOffHud()
+        {
+            var keepClear = Camera != null && KeepClear != null ? KeepClear() : null;
+            int held = 0;
+            foreach (var view in _views.Values)
+            {
+                bool show = view.BarWanted;
+                if (show && keepClear != null && view.Bar.IsInsideTree()
+                    && !WorldBarClear.Clear(Camera!, view.Bar.GlobalPosition, ((QuadMesh)view.Bar.Mesh).Size.X * view.Root.Scale.X, 0.14f, keepClear))
+                {
+                    show = false;
+                    held++;
+                }
+                view.Bar.Visible = show;
+            }
+            BarsHeldOff = held;
         }
 
         private static StandardMaterial3D? _markMaterial;

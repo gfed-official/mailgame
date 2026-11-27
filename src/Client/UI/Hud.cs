@@ -191,7 +191,7 @@ namespace PerformativeMail.Client.UI
         {
             get
             {
-                if (!IsInsideTree() || _card.Text.Length == 0) return new Rect2();
+                if (!IsInsideTree() || _card.Text.Length == 0 || !_promptRow.Visible) return new Rect2();
                 var size = _card.GetCombinedMinimumSize();
                 float lead = _mark.CustomMinimumSize.X + 10f;
                 var row = _promptRow.GetGlobalRect();
@@ -249,6 +249,13 @@ namespace PerformativeMail.Client.UI
         /// <summary>The Repair Hammer's target bar under the crosshair: -1 while it is down, else what it shows.</summary>
         public float RepairBarValue => _repairBar.Visible ? _repairBar.Value : -1f;
         private PromptCard _card = null!;
+        private RingCrosshair _crosshair = null!;
+        /// <summary>The ring in the middle of the view is drawn (not while the Payday / Results card or the Draft is up).</summary>
+        public bool CrosshairShown => _crosshair.Visible;
+        /// <summary>The prompt's row is drawn: false while no spot clear of the open panel is left for it.</summary>
+        public bool PromptShown => _promptRow.Visible;
+        /// <summary>The foot of the hint under the top plate while it says something, else of the plate: what the map hangs under.</summary>
+        public float HintBottom => _hint.Visible && _hint.Text.Length > 0 ? _hint.GetGlobalRect().End.Y : _topPlate.GetGlobalRect().End.Y;
         private HBoxContainer _promptRow = null!;
         private Label _playtestTag = null!;
         private Label _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
@@ -358,7 +365,7 @@ namespace PerformativeMail.Client.UI
             AddChild(_generating);
 
             // First person: the ring marks the exact point the interact ray leaves from.
-            var crosshair = new RingCrosshair
+            var crosshair = _crosshair = new RingCrosshair
             {
                 Name = "Crosshair",
                 AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.5f, AnchorBottom = 0.5f,
@@ -570,6 +577,10 @@ namespace PerformativeMail.Client.UI
             foreach (var row in _trackerRows) row.Visible = !world.ShopOpen;
             // The card's lines first, so that its first frame is dodged too (PROGRESS §5h's known first frame).
             RefreshOverlay(world);
+            _draft.Mouse = Mouse;
+            _draft.Refresh(world);
+            // The e5be644 playtest's N3: the ring stood on the card's words. The cards take the mouse; the ring waits.
+            _crosshair.Visible = !_overlay.Visible && !_draft.Visible;
             var panel = PanelBox();
             LayoutTrackers(panel);
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
@@ -578,13 +589,13 @@ namespace PerformativeMail.Client.UI
             // A playtest's note is a small tag in the top left corner, not a line competing with the banners (UI polish plan item 9).
             bool playtest = !lost && HudText.IsPlaytestHint(world);
             _hint.Text = playtest ? "" : hint;
+            // The e5be644 playtest's N11: the shop's head stands where the hint does; under it, the hint waits.
+            _hint.Visible = !(panel is { } covering && _hint.Text.Length > 0 && TextBox(_hint).Overlaps(covering));
             _playtestTag.Text = playtest ? hint : "";
             _playtestTag.Visible = playtest;
             _paused.Visible = world.Paused || lost;
             _paused.Text = lost ? HudText.HostLostTitle : HudText.PausedTitle;
             _mouseNote.Visible = Mouse != null && Mouse.Released && !Mouse.PanelOpen && !_paused.Visible;
-            _draft.Mouse = Mouse;
-            _draft.Refresh(world);
             _generating.Refresh(world);
 
             // Health, stamina, and what the fight asks of the player.
@@ -602,6 +613,7 @@ namespace PerformativeMail.Client.UI
             _banner.Text = down.Length > 0 ? down : safe.Length > 0 ? safe : HudText.RaidBanner(world);
             // The Payday and Results panel stands where the banner does, and so do the cards; the tracker still says the raiders flee.
             _banner.Visible = _banner.Text.Length > 0 && !Overlay.Visible && !_draft.Visible;
+            _bannerWanted = _banner.Visible;
             _banner.Modulate = down.Length > 0 ? Palette.Mismatch : safe.Length > 0 ? Palette.Match : world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
             var manned = world.LocalTurret;
             var mender = RepairRules.Hammer(world.Content, world.Hotbar, _client!.Input.HeldSlot);
@@ -637,6 +649,7 @@ namespace PerformativeMail.Client.UI
             _card.SetText(text);
             FitPrompt();
             DodgePrompt(panel);
+            DodgeBanner(panel);
             _card.SetTone(tone == PromptTone.Match ? Palette.Match : tone == PromptTone.Mismatch ? Palette.Mismatch : Colors.White);
             _mark.Tone = text.Length > 0 ? tone : PromptTone.Neutral;
             float mendHealth = building || MapOpen?.Invoke() == true ? -1f : HudText.RepairTargetHealth(world, _client!.Input.HeldSlot);
@@ -662,7 +675,8 @@ namespace PerformativeMail.Client.UI
                 _feedLines[i].OffsetTop = top;
                 _feedLines[i].OffsetBottom = top + 24f;
                 // Lifted over the recipe bar's rows, the oldest line would run into the prompt: it waits.
-                _feedLines[i].Visible = !(building && i == 0);
+                // Nor is a line drawn against an open panel (the e5be644 playtest's N8: old lines on the shop's foot).
+                _feedLines[i].Visible = !(building && i == 0) && !(panel is { } over && FeedBox(i, top).Overlaps(over));
             }
             _held.OffsetBottom = building ? -m - RecipeBarHeight : -GridView.Cell - m - 4f;
             if (building)
@@ -920,9 +934,12 @@ namespace PerformativeMail.Client.UI
         private ScreenBox? PanelBox()
         {
             // The inventory screen, else the Payday / Results card (the 720p Results had a pump's prompt on it).
-            Control? up = Panel != null && Panel.Visible && Panel.IsInsideTree() ? Panel : _overlay.Visible && _overlay.IsInsideTree() ? _overlay : null;
+            // And the Draft's cards (the e5be644 playtest's N6: the Intake's prompt behind "[R] New cards").
+            Control? up = Panel != null && Panel.Visible && Panel.IsInsideTree() ? Panel
+                : _overlay.Visible && _overlay.IsInsideTree() ? _overlay
+                : _draft.Visible && _draft.IsInsideTree() ? _draft : null;
             if (up == null) return null;
-            if (up == _overlay) return LaidOutBox(_overlay);
+            if (up == _overlay || up == _draft) return LaidOutBox(up);
             var rect = up.GetGlobalRect();
             return new ScreenBox(rect.Position.X, rect.Position.Y, rect.End.X, rect.End.Y);
         }
@@ -943,6 +960,10 @@ namespace PerformativeMail.Client.UI
 
         /// <summary>The Payday / Results card's box as the prompt and the trackers dodge it this frame; null while it is down.</summary>
         public ScreenBox? OverlayDodgeBox => _overlay.Visible && _overlay.IsInsideTree() ? LaidOutBox(_overlay) : null;
+        /// <summary>The Draft's box as the prompt dodges it this frame; null while it is down.</summary>
+        public ScreenBox? DraftDodgeBox => _draft.Visible && _draft.IsInsideTree() ? LaidOutBox(_draft) : null;
+        /// <summary>Where the hint's words are drawn while it is shown; null while it is hidden or says nothing.</summary>
+        public ScreenBox? HintTextBox => _hint.Visible && _hint.Text.Length > 0 ? TextBox(_hint) : null;
 
         /// <summary>
         /// The rows that say something, from the bottom right up with no gaps; from the top right down while an open
@@ -979,15 +1000,75 @@ namespace PerformativeMail.Client.UI
         {
             if (!IsInsideTree()) return;
             var screen = GetViewportRect().Size;
-            var card = _card.GetCombinedMinimumSize();
-            float mid = screen.Y * 0.5f, tall = Mathf.Max(PromptRowHeight, card.Y);
+            float mid = screen.Y * 0.5f;
             // Under the hint at the top, over the held stack's name at the foot.
             float ceiling = _hint.GetGlobalRect().End.Y + 4f, floor = screen.Y - SafeMargin - GridView.Cell - 34f;
-            var row = PanelDodge.Prompt(mid + PromptRowTop, tall, card.X + _mark.CustomMinimumSize.X + 10f, panel, ceiling, floor, screen.X, SafeMargin);
+            _card.Compact = false;
+            var row = PromptRow(panel, mid, ceiling, floor, screen);
+            // The e5be644 playtest's N11: no room left by the open shop, the card was pressed up onto its foot. Then the card
+            // goes without its noun line, down to the hotbar's top; and if even that is on the panel, it waits.
+            if (panel is { } p && row.Overlaps(p))
+            {
+                _card.Compact = true;
+                row = PromptRow(panel, mid, ceiling, screen.Y - SafeMargin - GridView.Cell - 4f, screen);
+            }
+            _promptRow.Visible = !(panel is { } q && row.Overlaps(q));
             _promptRow.OffsetLeft = row.X0;
             _promptRow.OffsetRight = row.X1 - screen.X;
             _promptRow.OffsetTop = row.Y0 - mid;
-            _promptRow.OffsetBottom = row.Y0 - mid + PromptRowHeight;
+            _promptRow.OffsetBottom = row.Y1 - mid;
+        }
+
+        private ScreenBox PromptRow(ScreenBox? panel, float mid, float ceiling, float floor, Vector2 screen)
+        {
+            var card = _card.GetCombinedMinimumSize();
+            float tall = Mathf.Max(PromptRowHeight, card.Y);
+            return PanelDodge.Prompt(mid + PromptRowTop, tall, card.X + _mark.CustomMinimumSize.X + 10f, panel, ceiling, floor, screen.X, SafeMargin);
+        }
+
+        private bool _bannerWanted;
+        private float _bannerTop;
+        private readonly List<ScreenBox> _bannerAvoid = new List<ScreenBox>();
+
+        /// <summary>
+        /// The banner keeps off the open inventory screen, the map and the prompt (the e5be644 playtest's N9: PROTECTED
+        /// across the inventory's and the map's heads): under or over them where there is room, else it waits.
+        /// </summary>
+        private void DodgeBanner(ScreenBox? panel)
+        {
+            if (!IsInsideTree()) return;
+            var screen = GetViewportRect().Size;
+            const float tall = 40f;
+            _bannerAvoid.Clear();
+            if (panel is { } p) _bannerAvoid.Add(p);
+            if (MapOpen?.Invoke() == true && MapArea != null)
+            {
+                var map = MapArea();
+                _bannerAvoid.Add(new ScreenBox(map.Position.X, map.Position.Y, map.End.X, map.End.Y));
+            }
+            if (_promptRow.Visible && _card.Text.Length > 0)
+                _bannerAvoid.Add(new ScreenBox(_promptRow.OffsetLeft, screen.Y * 0.5f + _promptRow.OffsetTop, screen.X + _promptRow.OffsetRight, screen.Y * 0.5f + _promptRow.OffsetBottom));
+            float? y = _bannerAvoid.Count == 0 ? _bannerTop
+                : PanelDodge.Banner(_bannerTop, tall, BannerTextWidth + 2f * BannerClearMargin, screen.X * 0.5f, _bannerAvoid,
+                    HintBottom + 4f, screen.Y - SafeMargin - GridView.Cell - 34f);
+            _banner.Visible = _bannerWanted && y != null;
+            float top = y ?? _bannerTop;
+            _banner.OffsetTop = top;
+            _banner.OffsetBottom = top + tall;
+        }
+
+        /// <summary>Where a centred line's words are drawn.</summary>
+        private static ScreenBox TextBox(Label line)
+        {
+            var rect = line.GetGlobalRect();
+            return ScreenBox.Around(rect.GetCenter().X, rect.GetCenter().Y, TextWidth(line), rect.Size.Y);
+        }
+
+        /// <summary>Where the feed's line <paramref name="i"/> has its words, its top <paramref name="top"/> px over the screen's foot.</summary>
+        private ScreenBox FeedBox(int i, float top)
+        {
+            float y = GetViewportRect().Size.Y + top;
+            return new ScreenBox(SafeMargin, y, SafeMargin + TextWidth(_feedLines[i]), y + 24f);
         }
 
         private const float PromptRowTop = 40f, PromptRowHeight = 34f;
@@ -1010,6 +1091,7 @@ namespace PerformativeMail.Client.UI
             // (at 1280×720 the hint, under the taller plate, reached 173 px and the cards stood at 144).
             float panelTop = y + 87f;
             // The banner too: at a quarter of 720 px its words ran into the lowered hint.
+            _bannerTop = y + 83f;
             Place(_banner, 0.5f, 0f, -520f, y + 83f, 520f, y + 123f);
             foreach (var panel in new Control?[] { _overlay, _draft })
             {
@@ -1055,7 +1137,8 @@ namespace PerformativeMail.Client.UI
             float half = TextWidth(_wallet) * 0.5f;
             const float m = SafeMargin;
             float rise = EarnPopRise * t;
-            Place(_earnPop, 0.5f, 0f, half + 10f, m - rise, half + 150f, m + 26f - rise);
+            // Rising inside the plate, not out over its top edge (the e5be644 playtest's N11).
+            Place(_earnPop, 0.5f, 0f, half + 10f, m + 6f - rise, half + 150f, m + 32f - rise);
             _earnPop.Modulate = new Color(_earnPop.Modulate, 1f - t * t);
         }
 

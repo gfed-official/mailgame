@@ -2756,6 +2756,43 @@ green; the base smoke passes rendered at 1280×720 (`--shots`).
 Batch 6 (item 1, the cap, the 29 perks, the eight stamps): `tools/smoke.sh` SMOKE OK ×3, BOT OK, island OK;
 Sim.Tests 652 and Net.Tests 231 green.
 
+### 6a. Playtest bugs of the e5be644 report (`mailgame-harness/results/20261127-001505-e5be644/report.md`, 2026-11-27)
+
+- [x] **(N3) The crosshair on the Payday / Results card's words.** The ring is not drawn while the card or the Draft's
+      cards are up (they take the mouse). The smoke checks every frame of the card and of the Draft (`Hud.CrosshairShown`)
+- [x] **(N4) `--playtest-materials` piled up over knockdowns** (shots 200 → 396 → 588 → 684 → 800): the top-up on
+      standing up came on top of the bag, whose return then brought the flag's materials back a second time. Going down,
+      a playtester now leaves out of the bag what the top-up gives back (`TakeBackPlaytestMaterials`): what they held
+      beyond 20 Logs / 40 Stone is in the bag and comes back with it; a kept hotbar's stock counts as held.
+      `PlaytestTests.Materials_AKnockdownsBagReturn_DoesNotAddThemAgain` (three knockdowns stay at 20 / 40; 55 Stone
+      come back to 55)
+- [x] **The empty hotbar on the second shift-3 raid run** (not confirmed in the report): reproduced in the sim. A bag's
+      return put everything in the inventory first, so after a knockdown the tools of the hotbar came back in the
+      inventory and the hotbar stood empty. What lay in the bag's hotbar rows now goes back to its slot, else the
+      hotbar, else the inventory. `DeathBagTests.ABagsReturn_PutsTheHotbarsToolsBackInTheHotbar_InTheirSlots`
+- [x] **(N6) The Intake's prompt behind the Draft's "[R] New cards".** The Draft is a panel the prompt dodges, as the
+      Payday card, from its laid-out box (`Hud.DraftDodgeBox`); the smoke checks it while the Draft is up
+- [x] **(N7) The map's head on the hint's line.** The map hangs under the hint (`MapPanel.TopClear` = `Hud.HintBottom`);
+      the map smoke checks its panel starts under it
+- [x] **(N8) Old feed lines on the open shop's foot.** A feed line whose words would lie on the open inventory screen
+      (the shop, a chest, the Intake) waits while it is open
+- [x] **(N9) PROTECTED across the inventory's and the map's head.** The banner keeps off the open inventory screen, the
+      map and the prompt: the nearest spot under or over them between the hint and the hotbar, else it waits while
+      they are up (`PanelDodge.Banner`). `PanelDodgeTests.TheBanner_KeepsOffTheOpenPanels_…`
+- [x] **(N10) A near raider's HP bar across the top plate.** The bars over raiders and constructs are 3D quads under the
+      HUD, and the plate lets the view through; a bar whose quad falls on a box the HUD keeps clear (the plate, the
+      hint, a banner, an open panel) is not drawn that frame (`WorldBarClear`, `EnemiesView.BarsHeldOff`)
+- [x] **(N11) The open shop: the hint through its head, the "−200 g" pop over the plate's edge, "SHOP" on its foot.**
+      The hint waits while an open panel covers its words. The gold pop rises inside the plate, not out over its top.
+      The "SHOP" was the prompt card's noun line: with no room under, over or beside the shop, the card was pressed up
+      onto the panel's foot. Now it goes without its noun line ("E Close") down to the hotbar's top, and if even that
+      is on the panel it waits (`PromptCard.Compact`, `Hud.PromptShown`). The shop smoke checks the hint and the
+      prompt are off the open shop
+- [x] **(N12) "0 / 3000 HP · under attack" after the fall.** Down, the tracker reads "Post Office 0 / 3000 HP · fallen".
+      `PostOfficeFlowTests`
+- Not changed, as asked: N1 (not seen), N2 (gone), N5 (Swarmling is an enemy); the perk cap, the pool, the stamps and the
+      HUD polish
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).

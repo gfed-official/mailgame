@@ -166,6 +166,10 @@ namespace PerformativeMail.App
             PingWheel.Setup(session.Ping);
             Hud.Profile = session.Profile;
             Hud.Setup(client, session.Interaction, session.Feed);
+            // Bars over raiders and constructs keep off the HUD's plates (the e5be644 playtest's N10).
+            Enemies.Camera = Camera;
+            Enemies.KeepClear = Hud.KeepClear;
+            ConstructHealth.KeepClear = Hud.KeepClear;
             Hud.Build = session.Build;
             Hud.Mouse = Mouse;
             Inventory = new InventoryPanel();
@@ -175,6 +179,7 @@ namespace PerformativeMail.App
             Hud.MapOpen = () => Map.Visible;
             Hud.MapArea = Map.PanelArea;
             Map.BottomClear = () => Hud.FeedTop;
+            Map.TopClear = () => Hud.HintBottom;
 
             // World labels thin out with distance, give way to nearer ones and stay off the HUD.
             Labels = new LabelDeclutterer { Name = "Labels", KeepClear = Hud.KeepClear };

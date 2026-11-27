@@ -54,6 +54,8 @@ namespace PerformativeMail.App
             Check(screen.Encloses(map.MapRect), $"the map {map.MapRect} is not inside the screen {screen}");
             float plateBottom = _screen.Hud.TopPlate.GetGlobalRect().End.Y;
             Check(map.MapRect.Position.Y >= plateBottom, $"the map's top {map.MapRect.Position.Y:0} is under the top plate (to {plateBottom:0})");
+            // The e5be644 playtest's N7: the map's head on the hint's line.
+            Check(map.PanelArea().Position.Y >= _screen.Hud.HintBottom, $"the map's panel starts at {map.PanelArea().Position.Y:0}, on the hint (to {_screen.Hud.HintBottom:0})");
             Check(map.TitleText.StartsWith("MAP · ", StringComparison.Ordinal), $"the map's title reads \"{map.TitleText}\"");
             // The raiders' way in (doc 02 §3.10) is marked: the east end of Larch Lane, no raid by it in shift 1.
             Check(map.EdgesDrawn.Count == 1 && map.EdgesDrawn[0].Edge.Index == 0 && !map.EdgesDrawn[0].Raid

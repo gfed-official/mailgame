@@ -43,6 +43,8 @@ namespace PerformativeMail.Client
             int hp = world.PostOfficeHp, max = world.PostOfficeMaxHp;
             if (hp >= max && phase != RunPhase.Results) return "";
             string line = $"Post Office   {hp.ToString(CultureInfo.InvariantCulture)} / {max.ToString(CultureInfo.InvariantCulture)} HP";
+            // Down, it is under attack no more (the e5be644 playtest's N12: "0 / 3000 HP · under attack" on Results).
+            if (hp <= 0) return line + "   ·   " + FallenTag;
             foreach (var h in world.ConstructHits)
                 if (h.Def == null && world.ServerTick - h.Tick <= ClientWorld.UnderAttackSeconds * SimConstants.TickRate) return line + "   ·   " + UnderAttackTag;
             return line;
@@ -50,6 +52,8 @@ namespace PerformativeMail.Client
 
         /// <summary>The end of the Post Office's tracker while it is struck.</summary>
         public const string UnderAttackTag = "under attack";
+        /// <summary>The end of the Post Office's tracker once it is down.</summary>
+        public const string FallenTag = "fallen";
 
         public static string Gold(int amount) => string.Format(CultureInfo.InvariantCulture, "{0} {1}", amount, GoldUnit);
 

@@ -126,6 +126,13 @@ namespace PerformativeMail.App
                     for (int i = 0; i < panel.CardCount; i++)
                         Check(view.Encloses(panel.CardAt(i).GetGlobalRect()), $"shop card {i + 1} at {panel.CardAt(i).GetGlobalRect()} is not inside the view");
                     Check(!hud.Overlay.Visible, "a summary panel is shown under the shop's cards");
+                    // The e5be644 playtest's N11: the hint through the shop's head, the prompt's noun on its foot.
+                    var shopRect = _screen.Inventory.GetGlobalRect();
+                    var shopBox = new ScreenBox(shopRect.Position.X, shopRect.Position.Y, shopRect.End.X, shopRect.End.Y);
+                    Check(hud.HintTextBox is not { } hintAt || !hintAt.Overlaps(shopBox), $"the hint \"{hud.HintText}\" is drawn on the open shop {shopRect}");
+                    var promptAt = hud.PromptTextRect;
+                    Check(!hud.PromptShown || !shopBox.Overlaps(new ScreenBox(promptAt.Position.X, promptAt.Position.Y, promptAt.End.X, promptAt.End.Y)),
+                        $"the prompt \"{hud.PromptText}\" at {promptAt} is on the open shop {shopRect}");
                     foreach (char c in FontCheck.MissingGlyphs(_screen.Inventory))
                         if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
                     Shot("shop");

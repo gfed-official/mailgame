@@ -51,6 +51,9 @@ namespace PerformativeMail.Client.Presentation
             get { foreach (var bar in _bars.Values) yield return bar.Node.GlobalPosition; }
         }
 
+        /// <summary>The boxes of the HUD a bar keeps off (<see cref="WorldBarClear"/>); without them every bar is drawn.</summary>
+        public System.Func<IReadOnlyList<ScreenBox>>? KeepClear;
+
         public void Setup(ClientRuntime client, Camera3D camera, AttackMarker marker)
         {
             _client = client;
@@ -107,6 +110,7 @@ namespace PerformativeMail.Client.Presentation
             // in the hand is held at (doc 09 §3 "Repair hammer shows a target health bar").
             var mending = HudText.RepairTarget(world, _client!.Input.HeldSlot, out _, out _);
             RepairBarShown = false;
+            IReadOnlyList<ScreenBox>? keepClear = null;
             foreach (var c in world.Constructs.All)
             {
                 bool show = c.Hp < c.MaxHp && (world.HitWithin(c, ClientWorld.HitShownSeconds) || c == mending);
@@ -132,6 +136,9 @@ namespace PerformativeMail.Client.Presentation
                     _bars[c] = bar;
                 }
                 bar.Material.SetShaderParameter("hp", c.Hp / (float)c.MaxHp);
+                keepClear ??= KeepClear?.Invoke();
+                bar.Node.Visible = keepClear == null || !bar.Node.IsInsideTree()
+                    || WorldBarClear.Clear(_camera, bar.Node.GlobalPosition, ((QuadMesh)bar.Node.Mesh).Size.X, 0.14f, keepClear);
             }
             _gone.Clear();
             foreach (var c in _bars.Keys)

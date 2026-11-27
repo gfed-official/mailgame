@@ -72,6 +72,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(RunOutcome.PostOfficeLost, a.Results!.Outcome);
             Assert.Equal("RUN OVER — the Post Office fell in shift 1", HudText.ResultsLines(a, a.Results).First());
             Assert.Equal("Post Office fallen", HudText.UnderAttack(a.ConstructHits.Last()));
+            // The e5be644 playtest's N12: fallen, not still under attack.
+            Assert.Equal("Post Office   0 / 3000 HP   ·   fallen", HudText.PostOfficeTracker(a));
             Assert.Equal(0, ada.ContainerDesyncs + ada.BadPackets);
         }
     }

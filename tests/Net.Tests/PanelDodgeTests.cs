@@ -44,6 +44,25 @@ namespace PerformativeMail.Net.Tests
         }
 
         [Fact]
+        public void TheBanner_KeepsOffTheOpenPanels_UnderOrOverThem_ElseItWaits()
+        {
+            // The e5be644 playtest's N9 at 1280×720: PROTECTED at 177 px across the inventory screen's head (205–535).
+            var inventory = new ScreenBox(432f, 205f, 858f, 535f);
+            var under = PanelDodge.Banner(177f, 40f, 740f, 640f, new[] { inventory }, 177f, 614f);
+            Assert.Equal(543f, under!.Value, 1);
+            // The map from 179 px to 506: under it, over the prompt's row and the hotbar.
+            var map = new ScreenBox(60f, 179f, 1220f, 506f);
+            Assert.Equal(514f, PanelDodge.Banner(177f, 40f, 740f, 640f, new[] { map }, 177f, 614f)!.Value, 1);
+            // The shop from 145 px to 595 and the prompt under it: no room anywhere, it waits.
+            var shop = new ScreenBox(25f, 145f, 1265f, 595f);
+            var prompt = new ScreenBox(28f, 603f, 1252f, 637f);
+            Assert.Null(PanelDodge.Banner(177f, 40f, 740f, 640f, new[] { shop, prompt }, 177f, 614f));
+            // Clear of them all: where it was.
+            Assert.Equal(177f, PanelDodge.Banner(177f, 40f, 740f, 640f, new[] { new ScreenBox(253f, 300f, 1037f, 500f) }, 177f, 614f)!.Value, 1);
+            Assert.Equal(177f, PanelDodge.Banner(177f, 40f, 740f, 640f, System.Array.Empty<ScreenBox>(), 177f, 614f)!.Value, 1);
+        }
+
+        [Fact]
         public void APanel_IsLaidOut_ByItsAnchorsOffsetsAndTheSizeItsLinesAsk()
         {
             // The Payday card: anchored at the middle, grown both ways to 520 px across at 1280 px.

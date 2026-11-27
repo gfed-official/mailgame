@@ -960,8 +960,18 @@ namespace PerformativeMail.App
         /// <summary>PROGRESS §5h: the Payday / Results card is dodged from its first frame on.</summary>
         private void CheckCardDodge()
         {
+            // The e5be644 playtest's N6: the Intake's prompt behind the Draft's "[R] New cards"; N3: the ring on the cards' words.
+            if (_screen.Hud.DraftDodgeBox is { } draft)
+            {
+                Check(!_screen.Hud.CrosshairShown, "the crosshair is drawn over the Draft's cards");
+                var promptAt = _screen.Hud.PromptTextRect;
+                if (_screen.Hud.PromptText.Length > 0 && _screen.Hud.PromptShown)
+                    Check(!draft.Overlaps(new ScreenBox(promptAt.Position.X, promptAt.Position.Y, promptAt.End.X, promptAt.End.Y)),
+                        $"the prompt \"{_screen.Hud.PromptText}\" at {promptAt} is on the Draft ({draft.X0:0},{draft.Y0:0})-({draft.X1:0},{draft.Y1:0})");
+            }
             if (_screen.Hud.OverlayDodgeBox is { } card)
             {
+                Check(!_screen.Hud.CrosshairShown, "the crosshair is drawn over the Payday / Results card");
                 // PROGRESS §5h: the card's first frame too. The box dodged is the laid-out card, and the prompt stays off it.
                 var promptAt = _screen.Hud.PromptTextRect;
                 if (_screen.Hud.PromptText.Length > 0)

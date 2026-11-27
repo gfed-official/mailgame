@@ -27,6 +27,19 @@ namespace PerformativeMail.Client.UI
         private int _size = FontSize;
         private float _fittedRoom = -1f;
         private Color _tone = Colors.White;
+        private bool _compact;
+
+        /// <summary>The rows without the noun line over them, where there is no room for the whole card.</summary>
+        public bool Compact
+        {
+            get => _compact;
+            set
+            {
+                if (_compact == value) return;
+                _compact = value;
+                _noun.Visible = _noun.Text.Length > 0 && !value;
+            }
+        }
 
         /// <summary>The whole text, as <see cref="HudText.Card"/> put it.</summary>
         public string Text { get; private set; } = "";
@@ -67,7 +80,7 @@ namespace PerformativeMail.Client.UI
             _fittedRoom = -1f;
             string[] lines = text.Length == 0 ? System.Array.Empty<string>() : text.Split('\n');
             bool card = lines.Length > 1;
-            _noun.Visible = card;
+            _noun.Visible = card && !_compact;
             _noun.Text = card ? lines[0] : "";
             int first = card ? 1 : 0;
             for (int i = 0; i < _rows.Count; i++)
