@@ -4845,7 +4845,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 
 # pictures of the world from a tour of viewpoints (and the frame time), then quit:
 xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --solo --lookdev=/tmp/look
-#   own views: "--lookdev-views=street:17,1.6,28.5:40,2.2,27;gate:70,3,28:92,3,28:night"  (name:eye:target[:night])
+#   own views: "--lookdev-views=street:17,1.6,28.5:40,2.2,27;gate:70,3,28:92,3,28:1"  (name:eye:target[:night 0..1[:fog 0..1]])
 
 # multiplayer: a host listens on UDP 24565 by default
 ~/.local/bin/godot --path . -- --port=24600                      # host on another port (0 = any free one; --solo = do not listen)
