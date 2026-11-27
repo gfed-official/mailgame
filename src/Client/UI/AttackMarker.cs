@@ -36,10 +36,8 @@ namespace PerformativeMail.Client.UI
             Name = "AttackMarker";
             MouseFilter = MouseFilterEnum.Ignore;
             Visible = false;
-            _label = new Label { MouseFilter = MouseFilterEnum.Ignore };
+            _label = new Label { MouseFilter = MouseFilterEnum.Ignore, ThemeTypeVariation = UiTheme.Hud };
             _label.AddThemeColorOverride("font_color", Red);
-            _label.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
-            _label.AddThemeConstantOverride("outline_size", 6);
             _label.AddThemeFontSizeOverride("font_size", 18);
             AddChild(_label);
         }

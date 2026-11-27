@@ -66,6 +66,7 @@ namespace PerformativeMail.App
         private int _startWallet, _paid, _penalties, _deliveredEvents, _misdeliveredEvents, _mailArrived;
         private bool _sawIntakePrompt, _sawMailboxPrompt, _sawManifest, _sawCarriedMail, _sawMatchMark, _sawMismatchMark;
         private float _spawnDistance, _maxEyeOffset, _maxAimOffset, _maxLabelOver, _maxPhaseWidth;
+        private bool _themeChecked;
         private string _missingGlyphs = "", _biggestLabel = "", _farLabel = "", _hudLabel = "";
         private int _maxLabelsHidden, _maxLabelsDrawn;
         private string _stackedLabels = "";
@@ -733,6 +734,17 @@ namespace PerformativeMail.App
             StepMap();
             foreach (char c in FontCheck.MissingGlyphs(_screen.Hud) + FontCheck.MissingGlyphs(_screen.Inventory))
                 if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
+            if (!_themeChecked)
+            {
+                // UI polish plan item 2: one theme, its two faces, and the marks both can draw.
+                _themeChecked = true;
+                var (body, display) = _screen.Hud.Faces;
+                Check(UiTheme.Body != null && body == UiTheme.Body, $"the prompt is drawn in {body.GetFontName()}, not the theme's body face");
+                Check(UiTheme.DisplayFont != null && display == UiTheme.DisplayFont, $"the shift's line is drawn in {display.GetFontName()}, not the theme's display face");
+                foreach (char c in "✓✕✗·—×")
+                    Check(body.HasChar(c) && display.HasChar(c), $"the theme's faces cannot draw '{c}'");
+                GD.Print($"[smoke] theme: the prompt in {body.GetFontName()}, the shift's line in {display.GetFontName()}; both draw ✓ ✕ ✗ · — ×");
+            }
 
             if (_sawIntakePrompt) Shot("intake");
             if (_sawManifest) Shot("manifest");

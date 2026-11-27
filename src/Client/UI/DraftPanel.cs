@@ -107,7 +107,7 @@ namespace PerformativeMail.Client.UI
             var column = new VBoxContainer { Name = "Column", MouseFilter = MouseFilterEnum.Ignore };
             column.AddThemeConstantOverride("separation", 10);
             AddChild(column);
-            _title = Hud.MakeLabel("Title", 24, HorizontalAlignment.Center);
+            _title = Hud.MakeDisplayLabel("Title", 24, HorizontalAlignment.Center);
             _title.Modulate = Palette.Amber;
             column.AddChild(_title);
             _row = new HBoxContainer { Name = "Cards", Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };

@@ -112,6 +112,8 @@ namespace PerformativeMail.Client.UI
         /// <summary>The top group from the top down: quota bar, the shift's line, clock bar. No two of them may touch (nit 14).</summary>
         public Control[] TopStack => new Control[] { _quotaBar, _phase, _timeBar, _hint };
         public Control TopPlate => _topPlate;
+        /// <summary>The faces the prompt and the shift's line are drawn in, for the smoke's check of the theme.</summary>
+        public (Font Body, Font Display) Faces => (_prompt.GetThemeFont("font"), _phase.GetThemeFont("font"));
 
         /// <summary>
         /// Where no world label may be drawn (nit 14): the top plate and the hint under it, and the
@@ -283,7 +285,7 @@ namespace PerformativeMail.Client.UI
             Place(_topPlate, 0.5f, 0f, -BarWidth * 0.5f - 14f, m - 10f, BarWidth * 0.5f + 14f, m + 70f);
             AddChild(_topPlate);
             _quotaBar = AddBar("QuotaBar", 0.5f, 0f, -BarWidth * 0.5f, m, BarWidth * 0.5f, m + 8f, QuotaColour);
-            _phase = AddLabel("Phase", 20, 0.5f, 0f, -350f, m + 12f, 350f, m + 48f, HorizontalAlignment.Center);
+            _phase = AddLabel("Phase", 20, 0.5f, 0f, -350f, m + 12f, 350f, m + 48f, HorizontalAlignment.Center, display: true);
             _timeBar = AddBar("TimeBar", 0.5f, 0f, -BarWidth * 0.5f, m + 52f, BarWidth * 0.5f, m + 60f, Colors.White);
 
             // What the run waits for and what the "go" key does, under the plate.
@@ -291,11 +293,11 @@ namespace PerformativeMail.Client.UI
             _hint.Modulate = Palette.Amber;
 
             // The raid warning and the countdown while down: across the view, above the crosshair.
-            _banner = AddLabel("Banner", 28, 0.5f, 0.25f, -520f, -20f, 520f, 20f, HorizontalAlignment.Center);
+            _banner = AddLabel("Banner", 28, 0.5f, 0.25f, -520f, -20f, 520f, 20f, HorizontalAlignment.Center, display: true);
             _banner.Visible = false;
 
             // Below the crosshair, clear of the Payday / Results panel a pause can sit on top of.
-            _paused = AddLabel("Paused", 44, 0.5f, 0.6f, -300f, -32f, 300f, 32f, HorizontalAlignment.Center);
+            _paused = AddLabel("Paused", 44, 0.5f, 0.6f, -300f, -32f, 300f, 32f, HorizontalAlignment.Center, display: true);
             _paused.Text = HudText.PausedTitle;
             _paused.Visible = false;
             // Where PAUSED stands in a solo run: with others in the run Esc only lets the mouse go, and the screen has to say so.
@@ -314,11 +316,7 @@ namespace PerformativeMail.Client.UI
                 GrowHorizontal = GrowDirection.Both,
                 GrowVertical = GrowDirection.End,
             };
-            var back = new StyleBoxFlat { BgColor = new Color(0.08f, 0.13f, 0.21f, 0.9f), BorderColor = new Color(0.45f, 0.72f, 0.86f, 0.35f) };
-            back.SetCornerRadiusAll(9);
-            back.SetBorderWidthAll(1);
-            back.SetContentMarginAll(22f);
-            _overlay.AddThemeStyleboxOverride("panel", back);
+            // Its plate is the theme's PanelContainer panel (content/ui/theme.tres).
             _overlayLines = new VBoxContainer { Name = "Lines", MouseFilter = MouseFilterEnum.Ignore };
             _overlayLines.AddThemeConstantOverride("separation", 6);
             _overlay.AddChild(_overlayLines);
@@ -382,7 +380,7 @@ namespace PerformativeMail.Client.UI
 
             // Bottom left: health in red with its number, stamina in five blocks; the feed above them.
             _healthBar = AddBar("Health", 0f, 1f, m, -m - 40f, m + 180f, -m - 28f, HealthColour);
-            _hp = AddLabel("HealthNumber", 14, 0f, 1f, m + 188f, -m - 46f, m + 260f, -m - 22f, HorizontalAlignment.Left);
+            _hp = AddLabel("HealthNumber", 14, 0f, 1f, m + 188f, -m - 46f, m + 260f, -m - 22f, HorizontalAlignment.Left, display: true);
             _staminaBar = AddBar("Stamina", 0f, 1f, m, -m - 16f, m + 180f, -m - 4f, Colors.White);
             _staminaBar.Segments = 5;
             _weapons = AddLabel("Weapons", 14, 0f, 1f, m, -m - 74f, m + 560f, -m - 50f, HorizontalAlignment.Left);
@@ -693,7 +691,7 @@ namespace PerformativeMail.Client.UI
             bool good = source is ShiftSummary s ? s.QuotaMet : ((RunResults)source).Outcome == RunOutcome.Victory;
             for (int i = 0; i < lines.Count; i++)
             {
-                var label = MakeLabel($"Line{i}", i == 0 ? 28 : 18, HorizontalAlignment.Center);
+                var label = i == 0 ? MakeDisplayLabel($"Line{i}", 28, HorizontalAlignment.Center) : MakeLabel($"Line{i}", 18, HorizontalAlignment.Center);
                 label.Text = lines[i];
                 if (i == 0) label.Modulate = good ? Palette.Match : Palette.Mismatch;
                 _overlayLines.AddChild(label);
@@ -702,9 +700,9 @@ namespace PerformativeMail.Client.UI
         }
 
         /// <summary>A label anchored at (<paramref name="anchorX"/>, <paramref name="anchorY"/>) with pixel offsets from that point.</summary>
-        private Label AddLabel(string name, int fontSize, float anchorX, float anchorY, float left, float top, float right, float bottom, HorizontalAlignment align)
+        private Label AddLabel(string name, int fontSize, float anchorX, float anchorY, float left, float top, float right, float bottom, HorizontalAlignment align, bool display = false)
         {
-            var label = MakeLabel(name, fontSize, align);
+            var label = display ? MakeDisplayLabel(name, fontSize, align) : MakeLabel(name, fontSize, align);
             Place(label, anchorX, anchorY, left, top, right, bottom);
             AddChild(label);
             return label;
@@ -752,10 +750,17 @@ namespace PerformativeMail.Client.UI
                 HorizontalAlignment = align,
                 VerticalAlignment = VerticalAlignment.Center,
                 MouseFilter = MouseFilterEnum.Ignore,
+                ThemeTypeVariation = UiTheme.Hud,
             };
             label.AddThemeFontSizeOverride("font_size", fontSize);
-            label.AddThemeColorOverride("font_outline_color", Colors.Black);
-            label.AddThemeConstantOverride("outline_size", 6);
+            return label;
+        }
+
+        /// <summary>A number, a title or a banner: <see cref="MakeLabel"/> in the display face.</summary>
+        internal static Label MakeDisplayLabel(string name, int fontSize, HorizontalAlignment align)
+        {
+            var label = MakeLabel(name, fontSize, align);
+            label.ThemeTypeVariation = UiTheme.Display;
             return label;
         }
     }

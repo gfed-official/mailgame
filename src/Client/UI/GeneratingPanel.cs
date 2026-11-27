@@ -34,16 +34,12 @@ namespace PerformativeMail.Client.UI
             GrowHorizontal = GrowDirection.Both;
             GrowVertical = GrowDirection.Both;
             CustomMinimumSize = new Vector2(560f, 0f);
-            var back = new StyleBoxFlat { BgColor = new Color(0.06f, 0.1f, 0.16f, 0.94f), BorderColor = new Color(0.45f, 0.72f, 0.86f, 0.4f) };
-            back.SetCornerRadiusAll(9);
-            back.SetBorderWidthAll(1);
-            back.SetContentMarginAll(22f);
-            AddThemeStyleboxOverride("panel", back);
+            // The theme's PanelContainer panel (content/ui/theme.tres).
 
             _column = new VBoxContainer { Name = "Column", MouseFilter = MouseFilterEnum.Ignore };
             _column.AddThemeConstantOverride("separation", 10);
             AddChild(_column);
-            _title = Hud.MakeLabel("Title", 26, HorizontalAlignment.Center);
+            _title = Hud.MakeDisplayLabel("Title", 26, HorizontalAlignment.Center);
             _title.Modulate = Palette.Amber;
             _column.AddChild(_title);
             _world = Hud.MakeLabel("World", 16, HorizontalAlignment.Center);

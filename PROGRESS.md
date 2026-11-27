@@ -2468,6 +2468,23 @@ Net.Tests 211 green after (1)–(6).
 Item 1: `tools/smoke.sh`
 (SMOKEEXIT 0), Sim.Tests 617 and Net.Tests 216 green.
 
+### 5f. HUD polish (`logs/fable52/ui-polish-plan.md` items 2–5, refs in `/workspace/ui-refs/`, 2026-11-26)
+
+- [x] **One real font and one theme** (plan item 2; design choice 149). `content/ui/theme.tres` is the project's
+      `gui/theme/custom`: the PanelContainer plate (dark slate, 10 px corners, a light rim), the `HudLabel`
+      variation (black outline 6, the outline the HUD's labels each set before), the `DisplayLabel` variation
+      (the display face, outline 7) and a `Keycap` plate. Two OFL faces under `content/fonts/` (`OFL.txt`):
+      **Nunito** at weight 650 for the body and **Fredoka** at weight 600 for numbers, titles and banners (the
+      shift's line, the banner, PAUSED, the health number, the Payday / Results title, the Draft's, the shop's,
+      the filters' and Generating's titles). Neither has ✓ ✕ ✗, so both fall back to **PM Marks**, Balsamiq
+      Sans Bold cut down to those marks and the arrows, its ascent and descent cut to Fredoka's (Godot lays a
+      line out as tall as the tallest face of its chain: a Noto Symbols fallback made every 12 px line 21 px
+      high and the recipe bar spilled over the screen's foot). The fonts are content read at boot
+      (`UiTheme.Load`, `FontFile.LoadDynamicFont`) like the JSON, so nothing needs importing. The per-widget
+      outline colour / size and the Payday and Generating panels' own plates are gone (the theme's now). The
+      smoke checks the prompt is in the theme's body face and the shift's line in its display face, that both
+      draw ✓ ✕ ✗ · — ×, and FontCheck still finds no missing glyph
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -3922,6 +3939,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     and the hammer still mends with LMB. With the quota waived the Results count the shifts played ("4–5")
     and say the quota was off, not how many quotas were met: that number is 0 by design of the flag. A run
     with the quota on keeps the old denominator (the shifts it set out to play from its first one).
+
+149. **The faces, and how they are loaded.** The plan named Fredoka SemiBold or Lilita One for the display
+    face and Nunito or Inter for the body; Fredoka (rounded, close to the concept video's friendly lettering)
+    at 600 and Nunito at 650 (650 rather than 400: thin strokes vanish over a bright 3D world at 720p) were
+    taken, both as the variable fonts Google ships. The repo imports nothing (no .import files, `.godot/` is
+    ignored), so the theme is a text resource and the fonts are attached to it at boot from the raw files
+    rather than referenced by it; an exported build will have to list `content/fonts/*` as non-resource files,
+    as it already must `content/*.json`.
 
 ## Commands
 

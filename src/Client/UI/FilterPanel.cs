@@ -61,7 +61,7 @@ namespace PerformativeMail.Client.UI
             Name = "Filters";
             Visible = false;
             AddThemeConstantOverride("separation", 8);
-            _title = Hud.MakeLabel("Title", 20, HorizontalAlignment.Left);
+            _title = Hud.MakeDisplayLabel("Title", 20, HorizontalAlignment.Left);
             _title.Modulate = Palette.Amber;
             AddChild(_title);
             _status = Hud.MakeLabel("Status", 13, HorizontalAlignment.Left);

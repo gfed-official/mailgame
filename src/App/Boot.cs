@@ -40,6 +40,8 @@ namespace PerformativeMail.App
 
         public override void _Ready()
         {
+            // The UI's faces into its theme before the first control is made (UI polish plan item 2).
+            Client.UI.UiTheme.Load();
             uint seed = 1;
             string? name = null, shots = null, profilePath = null, join = null, lookDev = null, lookDevViews = null;
             bool smoke = false, quick = false, debugWorld = false, solo = false, bot = false, low = false;
