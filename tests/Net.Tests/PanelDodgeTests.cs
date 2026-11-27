@@ -42,5 +42,22 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(400f, PanelDodge.Prompt(400f, 56f, 160f, new ScreenBox(253f, 460f, 1037f, 600f), 180f, 642f, 1280f, 28f).Y0, 1);
             Assert.Equal(400f, PanelDodge.Prompt(400f, 56f, 160f, null, 180f, 642f, 1280f, 28f).Y0, 1);
         }
+
+        [Fact]
+        public void APanel_IsLaidOut_ByItsAnchorsOffsetsAndTheSizeItsLinesAsk()
+        {
+            // The Payday card: anchored at the middle, grown both ways to 520 px across at 1280 px.
+            var (x0, x1) = PanelDodge.LaidOut(0.5f, 0.5f, 0f, 0f, 1280f, 520f, 0);
+            Assert.Equal(380f, x0, 1);
+            Assert.Equal(900f, x1, 1);
+            // Down from its top at 173 px to 410 px of lines.
+            var (y0, y1) = PanelDodge.LaidOut(0f, 0f, 173f, 173f, 720f, 410f, 1);
+            Assert.Equal(173f, y0, 1);
+            Assert.Equal(583f, y1, 1);
+            // Grown up from its foot.
+            Assert.Equal((90f, 200f), PanelDodge.LaidOut(0f, 0f, 100f, 200f, 720f, 110f, -1));
+            // Already wider than its lines: as its offsets say.
+            Assert.Equal((10f, 610f), PanelDodge.LaidOut(0f, 0.5f, 10f, -30f, 1280f, 100f, 0));
+        }
     }
 }

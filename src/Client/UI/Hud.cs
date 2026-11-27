@@ -564,6 +564,8 @@ namespace PerformativeMail.Client.UI
             poRow.Bar = _postOffice.Visible && world.PostOfficeMaxHp > 0 ? Mathf.Clamp(world.PostOfficeHp / (float)world.PostOfficeMaxHp, 0f, 1f) : -1f;
             poRow.Pulse = _postOffice.Visible && _postOffice.Text.EndsWith(HudText.UnderAttackTag, StringComparison.Ordinal);
             foreach (var row in _trackerRows) row.Visible = !world.ShopOpen;
+            // The card's lines first, so that its first frame is dodged too (PROGRESS §5h's known first frame).
+            RefreshOverlay(world);
             var panel = PanelBox();
             LayoutTrackers(panel);
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
@@ -577,7 +579,6 @@ namespace PerformativeMail.Client.UI
             _paused.Visible = world.Paused || lost;
             _paused.Text = lost ? HudText.HostLostTitle : HudText.PausedTitle;
             _mouseNote.Visible = Mouse != null && Mouse.Released && !Mouse.PanelOpen && !_paused.Visible;
-            RefreshOverlay(world);
             _draft.Mouse = Mouse;
             _draft.Refresh(world);
             _generating.Refresh(world);
@@ -750,7 +751,12 @@ namespace PerformativeMail.Client.UI
             if (ReferenceEquals(source, _overlaySource)) return;
             _overlaySource = source;
 
-            foreach (var child in _overlayLines.GetChildren()) child.QueueFree();
+            // Out of the box at once, not at the frame's end, so the card's size this frame is the new lines'.
+            foreach (var child in _overlayLines.GetChildren())
+            {
+                _overlayLines.RemoveChild(child);
+                child.QueueFree();
+            }
             _overlayText = "";
             _earnedLabel = null;
             _xpBar = null;
@@ -912,9 +918,27 @@ namespace PerformativeMail.Client.UI
             // The inventory screen, else the Payday / Results card (the 720p Results had a pump's prompt on it).
             Control? up = Panel != null && Panel.Visible && Panel.IsInsideTree() ? Panel : _overlay.Visible && _overlay.IsInsideTree() ? _overlay : null;
             if (up == null) return null;
+            if (up == _overlay) return LaidOutBox(_overlay);
             var rect = up.GetGlobalRect();
             return new ScreenBox(rect.Position.X, rect.Position.Y, rect.End.X, rect.End.Y);
         }
+
+        /// <summary>
+        /// Where a child of the HUD stands once laid out, from its anchors, offsets and the size its lines ask: on the
+        /// card's first frame its rect is still last frame's, before the container has sized itself to the new lines.
+        /// </summary>
+        private ScreenBox LaidOutBox(Control c)
+        {
+            var screen = GetViewportRect().Size;
+            var min = c.GetCombinedMinimumSize();
+            static int Grow(GrowDirection g) => g == GrowDirection.Begin ? -1 : g == GrowDirection.End ? 1 : 0;
+            var (x0, x1) = PanelDodge.LaidOut(c.AnchorLeft, c.AnchorRight, c.OffsetLeft, c.OffsetRight, screen.X, min.X, Grow(c.GrowHorizontal));
+            var (y0, y1) = PanelDodge.LaidOut(c.AnchorTop, c.AnchorBottom, c.OffsetTop, c.OffsetBottom, screen.Y, min.Y, Grow(c.GrowVertical));
+            return new ScreenBox(x0, y0, x1, y1);
+        }
+
+        /// <summary>The Payday / Results card's box as the prompt and the trackers dodge it this frame; null while it is down.</summary>
+        public ScreenBox? OverlayDodgeBox => _overlay.Visible && _overlay.IsInsideTree() ? LaidOutBox(_overlay) : null;
 
         /// <summary>
         /// The rows that say something, from the bottom right up with no gaps; from the top right down while an open

@@ -65,6 +65,8 @@ namespace PerformativeMail.App
         private readonly HashSet<string> _shots = new HashSet<string>();
         private int _startWallet, _paid, _penalties, _deliveredEvents, _misdeliveredEvents, _mailArrived;
         private bool _sawIntakePrompt, _sawMailboxPrompt, _sawManifest, _sawCarriedMail, _sawMatchMark, _sawMismatchMark;
+        private int _overlayFrames, _overlayChecks;
+        private string? _overlaySeen;
         private float _spawnDistance, _maxEyeOffset, _maxAimOffset, _maxLabelOver, _maxPhaseWidth;
         private bool _themeChecked, _sawEarnPop;
         private string _missingGlyphs = "", _biggestLabel = "", _farLabel = "", _hudLabel = "";
@@ -801,6 +803,7 @@ namespace PerformativeMail.App
                 if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
             TrackAlarm();
             TrackDriver();
+            CheckCardDodge();
             if (!_beltFeedSeen && _session.Feed.Entries.Any(e => e.Text.StartsWith("A belt delivered", StringComparison.Ordinal))) _beltFeedSeen = true;
 
             switch (world.Global.Phase)
@@ -920,6 +923,29 @@ namespace PerformativeMail.App
             GD.Print($"[smoke] profile: +{xp} XP, {HudText.Rank(profile, perRank)}, {profile.Runs} runs, {profile.Deliveries} deliveries");
         }
 
+        /// <summary>PROGRESS §5h: the Payday / Results card is dodged from its first frame on.</summary>
+        private void CheckCardDodge()
+        {
+            if (_screen.Hud.OverlayDodgeBox is { } card)
+            {
+                // PROGRESS §5h: the card's first frame too. The box dodged is the laid-out card, and the prompt stays off it.
+                var promptAt = _screen.Hud.PromptTextRect;
+                if (_screen.Hud.PromptText.Length > 0)
+                    Check(!card.Overlaps(new ScreenBox(promptAt.Position.X, promptAt.Position.Y, promptAt.End.X, promptAt.End.Y)),
+                        $"the prompt \"{_screen.Hud.PromptText}\" at {promptAt} is on the Payday / Results card ({card.X0:0},{card.Y0:0})-({card.X1:0},{card.Y1:0}) on its frame {_overlayFrames}");
+                if (_overlayFrames > 0 && _overlayFrames < 4 && ReferenceEquals(_overlaySeen, _screen.Hud.OverlayText))
+                {
+                    var rect = _screen.Hud.Overlay.GetGlobalRect();
+                    Check(MathF.Abs(rect.Position.X - card.X0) < 2f && MathF.Abs(rect.Position.Y - card.Y0) < 2f && MathF.Abs(rect.End.X - card.X1) < 2f && MathF.Abs(rect.End.Y - card.Y1) < 2f,
+                        $"the card dodged at ({card.X0:0},{card.Y0:0})-({card.X1:0},{card.Y1:0}) is not where it is laid out, {rect}");
+                    _overlayChecks++;
+                }
+                if (!ReferenceEquals(_overlaySeen, _screen.Hud.OverlayText)) { _overlaySeen = _screen.Hud.OverlayText; _overlayFrames = 0; }
+                _overlayFrames++;
+            }
+            else _overlaySeen = null;
+        }
+
         /// <summary>After Results → Lobby: the whole run as the client saw it.</summary>
         private void VerifyRun()
         {
@@ -933,6 +959,7 @@ namespace PerformativeMail.App
             Check(_phases.Count >= 6 && _phases[0] == RunPhase.Generating && _phases[1] == RunPhase.Prep && _phases[2] == RunPhase.Delivery && _phases[3] == RunPhase.Payday
                 && _phases[_phases.Count - 2] == RunPhase.Results && _phases[_phases.Count - 1] == RunPhase.Lobby,
                 $"the phases the client saw were: {seen}");
+            Check(_overlayChecks > 0, "the Payday / Results card's dodged box was never checked against where it was laid out");
             Check(_summaries.Count >= 1 && _results != null, $"{_summaries.Count} shift summaries and {(_results == null ? "no" : "the")} run results reached the client");
             if (_results != null)
             {

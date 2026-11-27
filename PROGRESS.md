@@ -2621,8 +2621,12 @@ The report was played on f40acb7, before the HUD polish of 5f; each bug was chec
       title cream, its stamp carrying how it went. Not cream paper with dark ink: every panel's words are white on a
       black outline (the theme's HudLabel), and paper that light would need all of them re-inked — left for a pass
       with Evan (design choice 154). The one opacity serves day and night (the plan's ~85 %)
-- Known: on the very first frame of Payday the prompt can stand on the card for a frame (the card's rect is laid
-      out a frame after its lines are made); from the next frame on it dodges
+- [x] The prompt dodges the Payday / Results card from its very first frame (it stood on the card for that one frame:
+      the card's rect is laid out a frame after its lines are made). The HUD makes the card's lines before it works out
+      the panel to dodge, takes the old lines out of the box at once rather than at the frame's end, and reckons the
+      card's box from its anchors, offsets and the size its new lines ask (`PanelDodge.LaidOut`, Godot's grow rule)
+      instead of last frame's rect. `PanelDodgeTests`; the smoke checks every frame of the card that the prompt is off
+      the box dodged, and on its first frames that the box is where the card is then laid out
 - Not built, as asked: plan item 12 (compass strip, complaint envelope) needs an ADR-0018 amendment first
 
 Items 1 and 6–11: `tools/smoke.sh` (SMOKEEXIT 0: SMOKE OK ×3, BOT OK, island OK), Sim.Tests 621 and Net.Tests 227

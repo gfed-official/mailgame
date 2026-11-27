@@ -41,5 +41,22 @@ namespace PerformativeMail.Client
             float y = System.MathF.Min(below, floor - tall);
             return new ScreenBox(margin, y, width - margin, y + tall);
         }
+    
+        /// <summary>
+        /// Where a control's edges fall along one axis once laid out: its anchors on the parent's
+        /// <paramref name="parent"/> span plus its offsets, grown to <paramref name="min"/> towards
+        /// <paramref name="grow"/> (−1 the start, 1 the end, 0 both ways) when that is short (Godot's own rule). The
+        /// HUD asks it of a panel whose lines were made this frame, before the container has sized itself (the Payday
+        /// card's first frame, when its last rect was still empty).
+        /// </summary>
+        public static (float Start, float End) LaidOut(float anchor0, float anchor1, float offset0, float offset1, float parent, float min, int grow)
+        {
+            float start = anchor0 * parent + offset0, end = anchor1 * parent + offset1;
+            float lack = min - (end - start);
+            if (lack <= 0f) return (start, end);
+            if (grow < 0) return (start - lack, end);
+            if (grow > 0) return (start, end + lack);
+            return (start - lack * 0.5f, end + lack * 0.5f);
+        }
     }
 }
