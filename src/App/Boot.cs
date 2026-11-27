@@ -64,7 +64,7 @@ namespace PerformativeMail.App
                 else if (arg == "--raid") playtest |= PlaytestFlags.RaidNow;
                 else if (arg == "--playtest-package") playtest |= PlaytestFlags.Packages;
                 else if (arg == "--playtest-materials") playtest |= PlaytestFlags.Materials;
-                else if (arg == "--playtest-stamps") playtest |= PlaytestFlags.AllStamps;
+                else if (arg == "--playtest-stamps" || arg == "--playtest-unlocks") playtest |= PlaytestFlags.AllUnlocks;
                 else if (arg.StartsWith("--shift=", StringComparison.Ordinal) && int.TryParse(arg.Substring(8), out int n) && n >= 1 && n <= byte.MaxValue) startShift = n;
                 // Gold, as the HUD shows it ("500"); the sim's amounts are one gold a unit (design choice 124).
                 else if (arg.StartsWith("--playtest-wallet=", StringComparison.Ordinal)

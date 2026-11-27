@@ -75,7 +75,7 @@ namespace PerformativeMail.Sim.Tests
             host.Rank = 1;
             // One put on already may be taken off at any rank.
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetStamps(0, 0)));
-            world.SetPlaytest(host, PlaytestFlags.AllStamps, 1);
+            world.SetPlaytest(host, PlaytestFlags.AllUnlocks, 1);
             Assert.Equal(3, world.StampTierOpen(host));
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetStamps(0, 0xFF)));
         }

@@ -239,6 +239,60 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(new[] { first, "late" }.OrderBy(id => id), Offer(world).OrderBy(id => id));
         }
 
+        [Fact]
+        public void TheFacilityPerksAskPostalRankFive_AndTheDefensePerksEight_TheRestOne()
+        {
+            // Doc 01 §5.2: "5 Facility perk pool expansion", "8 Defense perk pool expansion" (design choice 164).
+            foreach (var perk in Db.Perks)
+            {
+                int want = perk.Category switch { PerkCategory.Facility => 5, PerkCategory.Defense => 8, _ => 1 };
+                Assert.True(want == perk.RankMin, $"{perk.Id}: rank {perk.RankMin}, not {want}");
+            }
+            Assert.Equal(7, Db.Perks.Count(p => p.RankMin == 5));
+            Assert.Equal(5, Db.Perks.Count(p => p.RankMin == 8));
+        }
+
+        [Theory]
+        [InlineData(1, 1, PlaytestFlags.None, "base")]
+        [InlineData(4, 9, PlaytestFlags.None, "base")]
+        [InlineData(5, 1, PlaytestFlags.None, "base,five")]
+        [InlineData(7, 1, PlaytestFlags.None, "base,five")]
+        [InlineData(8, 1, PlaytestFlags.None, "base,eight,five")]
+        [InlineData(1, 1, PlaytestFlags.AllUnlocks, "base,eight,five")]
+        public void TheDraftsPool_IsTheHostsRanks_NotAGuests(int hostRank, int guestRank, PlaytestFlags hostFlags, string pool)
+        {
+            var db = Content(Perks(
+                Perk("base", "team"),
+                Perk("five", "team", "\"prerequisites\": { \"rankMin\": 5 }"),
+                Perk("eight", "team", "\"prerequisites\": { \"rankMin\": 8 }")));
+            var world = NewWorld(content: db);
+            var host = world.AddPlayer("host")!;
+            var guest = world.AddPlayer("guest")!;
+            world.SetRank(host, hostRank);
+            world.SetRank(guest, guestRank);
+            if (hostFlags != PlaytestFlags.None) world.SetPlaytest(host, hostFlags);
+
+            PastThePayday(world, host);
+            Assert.Equal(pool, string.Join(",", Offer(world).OrderBy(id => id, StringComparer.Ordinal)));
+        }
+
+        [Fact]
+        public void TheRunKeepsThePoolItWasSetUpWith_WhenTheHostHandsOver()
+        {
+            var db = Content(Perks(Perk("base", "team"), Perk("five", "team", "\"prerequisites\": { \"rankMin\": 5 }")));
+            var world = NewWorld(content: db);
+            var host = world.AddPlayer("host")!;
+            var guest = world.AddPlayer("guest")!;
+            world.SetRank(host, 5);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal(5, world.PerkPoolRank);
+            world.RemovePlayer(host.Id);
+            world.Step();
+            Assert.Equal(guest.Id, world.Run.Host);
+            PastThePayday(world, guest);
+            Assert.Equal(new[] { "base", "five" }, Offer(world).OrderBy(id => id, StringComparer.Ordinal));
+        }
+
         // --- picking ----------------------------------------------------------------------------
 
         [Fact]

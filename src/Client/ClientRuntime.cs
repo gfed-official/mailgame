@@ -412,7 +412,7 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>The highest tier of the Postage Stamps this client's Postal Rank opens (every tier with --playtest-stamps).</summary>
-        public int StampTierOpen => StampRules.TierOpen(_content.Balance, Rank, (Playtest & PlaytestFlags.AllStamps) != 0);
+        public int StampTierOpen => StampRules.TierOpen(_content.Balance, Rank, (Playtest & PlaytestFlags.AllUnlocks) != 0);
 
         /// <summary>The same world from a seed drawn at random.</summary>
         public uint NewSeed() => ChooseWorld(Math.Max(0, WorldChoice), (uint)_seedDice.Next(1, int.MaxValue));

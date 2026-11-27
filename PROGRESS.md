@@ -2855,6 +2855,18 @@ Batch 6a–6c (the e5be644 bugs, run events, the callouts / results / seed copy)
 SMOKE OK, BOT OK, the seeds valid; Sim.Tests 667 and Net.Tests 234 green. The rendered 1280×720 smoke passed after 6a
 (the shop's hint and prompt, the Payday card without the crosshair and the map under the hint checked in its shots).
 
+### 6d. Postal Rank unlock tracks and seeds (doc 12 M4; doc 01 §5.2–§5.3; doc 09 §2.2, §2.11, §6), 2026-11-27
+
+- [x] **Perk pool expansions by rank** (doc 01 §5.2; design choice 164). The facility perks (Express Lane, Greased
+      Inserters, Bulk Depot, Extra Labels, Presort, Shared Build, Postmaster's Eye) ask Postal Rank 5 and the defense
+      perks (Early Warning, Union Muscle, Reinforced, Hot Barrels, Insured) rank 8, as data: `"prerequisites":
+      { "rankMin": … }` in `content/perks/perks.json` (doc 08 §2.9's field, read since batch 6 but never checked). The
+      Draft's pool is the host's rank, fixed as the run is set up (`SimWorld.PerkPoolRank`), so a host handing the run
+      on does not change it; a guest's higher rank opens nothing. `--playtest-stamps` (now also `--playtest-unlocks`,
+      `PlaytestFlags.AllUnlocks`) opens the whole pool as well as every stamp tier, so a playtester of rank 1–3 still
+      sees every card. `DraftTests` (the content's ranks; the pool at host ranks 1, 4, 5, 7, 8 and with the flag; a
+      guest's rank 9; the host handing over)
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4438,6 +4450,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     ruins rebuilt by hand, not Insured's free rebuilds or the debug showcase. A tie goes to whoever joined first (the
     first to reach the count), as most deliveries did. All three share one line so the card does not grow at 720p.
 
+164. **Which rank opens the perk pool, and what "facility (sorter perks)" covers.** Doc 01 §5.2 says the archetypes
+    and stamps of a lobby are "the union of the host's unlocks" and the kits each player's own; it says nothing of the
+    perks. The Draft deals shared cards, so one rank must decide the pool: the host's, as for the stamps (a carrier
+    who is dealt a card of their own by a reroll or the cap draws from the same pool). It is read once as the run is
+    set up and kept, so a host leaving mid-run does not shrink or grow it. "Facility perk pool expansion (sorter
+    perks)" gates the whole facility category of doc 10 §4.2, not only Extra Labels and Postmaster's Eye: the
+    parenthesis names the pool's best-known cards, and splitting the category would leave rank 5 opening two cards
+    that already wait for `bp_sorting`. The ranks are per perk in the content (`rankMin`), not per category in code.
+    The playtest flag that opens the stamp tiers opens the pool too; both are what Postal Rank locks.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -4494,7 +4516,8 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --playtest-package    four Small Packages for the mail cannon (RMB) when a shift starts and when back on your feet
 #   --playtest-wallet=N   runs start with N gold in the team's wallet (e.g. 500); asked in a run, topped up to it at once
 #   --playtest-materials  20 Logs and 40 Stone in your pockets when a shift's Prep or Delivery starts and when back on your feet
-#   --playtest-stamps     as host, every tier of the Postage Stamps is open whatever your Postal Rank
+#   --playtest-stamps     as host, every tier of the Postage Stamps and the whole perk pool are open whatever your Postal Rank
+#                         (--playtest-unlocks says the same)
 #   --event=ID            as host, the run event ID of content/events (festival, lost_parcels, wildfire, …) comes in every shift it may
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
 ~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come

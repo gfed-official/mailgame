@@ -42,7 +42,7 @@ namespace PerformativeMail.Sim
         /// The highest tier of the Postage Stamps open to a host (doc 01 §5.2: tier 1 from the start, tier 2 from
         /// Postal Rank 6, tier 3 from 12; <c>stampTierRanks</c> in the balance); every tier with --playtest-stamps.
         /// </summary>
-        public int StampTierOpen(Player host) => StampRules.TierOpen(Content.Balance, host.Rank, (host.Playtest & PlaytestFlags.AllStamps) != 0);
+        public int StampTierOpen(Player host) => StampRules.TierOpen(Content.Balance, host.Rank, (host.Playtest & PlaytestFlags.AllUnlocks) != 0);
 
         /// <summary>The run's stamps, as the host's request sets them (and tests).</summary>
         public void SetStamps(byte mask)

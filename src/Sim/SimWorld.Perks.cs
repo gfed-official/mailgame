@@ -117,7 +117,21 @@ namespace PerformativeMail.Sim
         }
 
         /// <summary>The perk may be dealt for this shift: its shift and rank are reached, and what it builds on is there.</summary>
-        private bool InPool(PerkDef perk, int shift) => perk.ShiftMin <= shift && perk.RankMin <= 1 && PrerequisitesMet(perk);
+        private bool InPool(PerkDef perk, int shift) => perk.ShiftMin <= shift && perk.RankMin <= PerkPoolRank && PrerequisitesMet(perk);
+
+        /// <summary>
+        /// The Postal Rank the run's perk pool is opened for (doc 01 §5.2: the facility perks from rank 5, the defense
+        /// perks from 8): the host's as the run is set up, as the stamps and the archetypes follow the host; every rank
+        /// for a host with --playtest-stamps. Kept for the run, so a host handing over does not change the pool
+        /// (design choice 164).
+        /// </summary>
+        public int PerkPoolRank { get; private set; } = 1;
+
+        private void SetPerkPoolRank()
+        {
+            var host = GetPlayer(Run.Host);
+            PerkPoolRank = host == null ? 1 : (host.Playtest & PlaytestFlags.AllUnlocks) != 0 ? int.MaxValue : host.Rank;
+        }
 
         /// <summary>
         /// Doc 01 §2.5 "filtered by prerequisites": one of the buildings standing, one of the blueprints owned, one of
@@ -390,8 +404,7 @@ namespace PerformativeMail.Sim
         /// <summary>
         /// A perk may be a card when its prerequisites are met, it is not on the table already and
         /// excludes no card that is, and somebody who is here could take it — for a reroll, the
-        /// one who asked, and none of the cards they had. The perk pool is not rank-locked yet:
-        /// every perk asks rank 1.
+        /// one who asked, and none of the cards they had. The pool is the host's rank's (<see cref="PerkPoolRank"/>).
         /// </summary>
         private bool Offerable(PerkDef perk, int shift, List<PerkDef> offer, Player? only, IReadOnlyList<PerkDef>? avoid)
         {

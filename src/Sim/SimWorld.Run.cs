@@ -129,6 +129,7 @@ namespace PerformativeMail.Sim
             ResetRunEvents();
             _runConstructsLost = 0;
             ClearPerks();
+            SetPerkPoolRank();
             ClearShop();
             RegrowNodes(all: true);
             ClearConstructs();
