@@ -146,6 +146,14 @@ namespace PerformativeMail.Client.UI
                 var tag = _playtestTag.GetGlobalRect();
                 _keepClear.Add(new ScreenBox(tag.Position.X, tag.Position.Y, tag.Position.X + TextWidth(_playtestTag) + 8f, tag.End.Y));
             }
+            // The feed's lines while they say something: an edge marker stood on them (the Local Knowledge marker at the left edge).
+            for (int i = 0; i < _feedLines.Length; i++)
+            {
+                var line = _feedLines[i];
+                if (!line.Visible || line.Text.Length == 0 || line.SelfModulate.A <= 0.05f) continue;
+                var at = line.GetGlobalRect();
+                _keepClear.Add(new ScreenBox(at.Position.X, at.Position.Y, at.Position.X + TextWidth(line), at.End.Y));
+            }
             AddPanel(_draft);
             AddPanel(_generating);
             AddPanel(_overlay);
@@ -233,7 +241,9 @@ namespace PerformativeMail.Client.UI
 
         private Label _postOffice = null!;
         private Label _earnPop = null!;
-        private Label _phase = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!, _perks = null!;
+        private Label _phase = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!, _perks = null!, _event = null!;
+        /// <summary>The live run events' tracker row (doc 10 §6), else empty.</summary>
+        public string EventTrackerText => _event.Visible ? _event.Text : "";
         /// <summary>The Lobby's plates (doc 09 §2.2): the world and its seed, the kit, the host's keys for them.</summary>
         private Label _world = null!, _kit = null!, _worldKeys = null!, _stamps = null!, _stampPick = null!;
         /// <summary>The Lobby's Postage Stamps plate (doc 01 §6).</summary>
@@ -435,6 +445,7 @@ namespace PerformativeMail.Client.UI
             // inventory screen's head and the Payday card, the Post Office only when hurt, the raid only in one.
             _rank = AddTracker("Rank", 0, new Color("c3a6ff"));
             _perks = AddTracker("Perks", 0, PerkColour);
+            _event = AddTracker("RunEvent", 0, Palette.Gold);
             _raid = AddTracker("Raid", 1, HealthColour);
             _bag = AddTracker("Bag", 2, BagColour);
             _postOffice = AddTracker("PostOffice", 3, new Color("e5383b"));
@@ -565,6 +576,8 @@ namespace PerformativeMail.Client.UI
             }
             _perks.Text = HudText.PerkTracker(world);
             _perks.Visible = _perks.Text.Length > 0;
+            _event.Text = HudText.EventTracker(world);
+            _event.Visible = _event.Text.Length > 0;
             _raid.Text = HudText.RaidTracker(world);
             _raid.Visible = _raid.Text.Length > 0;
             _bag.Text = HudText.BagTracker(world);
@@ -610,11 +623,14 @@ namespace PerformativeMail.Client.UI
             }
             string down = HudText.Down(world);
             string safe = HudText.Protected(world);
-            _banner.Text = down.Length > 0 ? down : safe.Length > 0 ? safe : HudText.RaidBanner(world);
+            string raidLine = HudText.RaidBanner(world);
+            // Doc 10 §6: a run event's name for a few seconds as it begins, under everything more urgent.
+            string eventLine = HudText.RunEventBanner(world);
+            _banner.Text = down.Length > 0 ? down : safe.Length > 0 ? safe : raidLine.Length > 0 ? raidLine : eventLine;
             // The Payday and Results panel stands where the banner does, and so do the cards; the tracker still says the raiders flee.
             _banner.Visible = _banner.Text.Length > 0 && !Overlay.Visible && !_draft.Visible;
             _bannerWanted = _banner.Visible;
-            _banner.Modulate = down.Length > 0 ? Palette.Mismatch : safe.Length > 0 ? Palette.Match : world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
+            _banner.Modulate = down.Length > 0 ? Palette.Mismatch : safe.Length > 0 ? Palette.Match : raidLine.Length == 0 ? Palette.Gold : world.Raid == RaidState.Warning ? Palette.Mismatch : Palette.Amber;
             var manned = world.LocalTurret;
             var mender = RepairRules.Hammer(world.Content, world.Hotbar, _client!.Input.HeldSlot);
             var sling = SlingRules.Held(world.Content, world.Hotbar, _client.Input.HeldSlot);

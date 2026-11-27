@@ -220,7 +220,7 @@ namespace PerformativeMail.Sim
         private void DeliverAutomated(DestinationDef dest, in MailItem mail, DeliveryMachine machine)
         {
             var kind = Content.MailKinds[mail.Kind];
-            var verdict = DeliveryRules.Evaluate(mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats, Tick);
+            var verdict = EventPay(DeliveryRules.Evaluate(mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats, Tick), kind, dest);
             Economy.Apply(verdict, kind.Index);
             Events.Add(new DeliveredEvent
             {

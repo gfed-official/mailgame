@@ -209,9 +209,96 @@ namespace PerformativeMail.Client
             return e.Edge >= 0 && e.Edge < edges.Count ? $"Mega {kind} sighted, {edges[e.Edge].Direction}" : $"Mega {kind} sighted";
         }
 
+        // --- run events (doc 10 §6) -----------------------------------------------------------------
+
+        private static string Num(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+        /// <summary>
+        /// The feed's line for a run event's stage: what it is, and the numbers of this one ("Street Festival: Larch Lane is
+        /// closed to vehicles   ·   its letters pay ×2"). <paramref name="tone"/>: 1 good news, -1 bad, 0 neither.
+        /// </summary>
+        public static string RunEventLine(ClientWorld world, RunEventEvent e, out int tone)
+        {
+            tone = 0;
+            if (e.Event >= world.Content.RunEvents.Count) return "";
+            var def = world.Content.RunEvents[e.Event];
+            switch (e.Stage)
+            {
+                case RunEventStage.Coming:
+                    tone = -1;
+                    return $"Complaint {e.Amount}: the {def.Name} comes next shift   ·   {EventEffect(def)}";
+                case RunEventStage.Paid:
+                    tone = 1;
+                    return $"{def.Name}: no misdelivery this shift   ·   +{Gold(e.Amount)}";
+                case RunEventStage.Fizzled:
+                    return $"{def.Name}: a misdelivery this shift, no bonus";
+                case RunEventStage.Ended:
+                    return def.Has(RunEventRule.Wildfire) ? "The wildfire is out" : $"{def.Name} is over";
+            }
+            tone = def.Has(RunEventRule.Wildfire) || def.Trigger == RunEventTrigger.Complaint ? -1 : 0;
+            if (def.Has(RunEventRule.StreetFestival))
+            {
+                string street = e.Street > 0 && world.Map.GetStreet(e.Street - 1) is { } s ? s.Name : "a street";
+                return $"{def.Name}: {street} is closed to vehicles   ·   {KindsWord(def)} there pay ×{Num(def.Param("valueMult"))}";
+            }
+            if (def.Has(RunEventRule.Overtime))
+                return $"{def.Name}: Delivery runs {Num(def.Param("seconds"))} s longer   ·   {Gold(e.Amount)} short of the quota";
+            if (def.Has(RunEventRule.LostParcels))
+                return $"{def.Name}: {e.Amount} Lost Parcels worth ×{Num(def.Param("valueMult"))} lie about the streets{(def.Trigger == RunEventTrigger.Prep ? " once Delivery starts" : "")}   ·   marked from {Num(def.Param("markMetres"))} m";
+            if (def.Has(RunEventRule.BulkDrop))
+                return $"{def.Name}: {e.Amount} {KindsWord(def)} for the Business Docks at the Intake   ·   worth ×{Num(def.Param("valueMult"))}";
+            if (def.Has(RunEventRule.Wildfire))
+                return $"{def.Name}! Wooden walls and belts burn for {e.Amount} s   ·   safe within {Num(def.Param("waterMetres"))} m of water";
+            return $"{def.Name}: {EventEffect(def)}";
+        }
+
+        /// <summary>"Letters", "Cargo": the kinds an event is about, as the feed says them.</summary>
+        private static string KindsWord(RunEventDef def) =>
+            def.Kinds.Count == 0 ? "the mail" : string.Join(", ", System.Linq.Enumerable.Select(def.Kinds, k => def.Kinds.Count == 1 && k.MaxStack > 1 ? k.Name + "s" : k.Name));
+
+        /// <summary>What a live event does, in a few words (its description without the trigger).</summary>
+        public static string EventEffect(RunEventDef def)
+        {
+            if (def.Trigger == RunEventTrigger.Complaint)
+            {
+                foreach (var m in def.Modifiers)
+                    if (m.Stat == Sim.Perks.Stat.DeliveryEarnings) return $"deliveries pay {Num((1.0 - m.Value) * 100.0)}% less";
+            }
+            if (def.Has(RunEventRule.NeighbourhoodWatch)) return $"no misdelivery this shift: +{Num(def.Param("bonus") * 100.0)}% of its earnings at Payday";
+            if (def.Has(RunEventRule.MegaParcels)) return $"Megas come more often and drop {Num(def.Param("parcels"))} Lost Parcels each";
+            return def.Description;
+        }
+
+        /// <summary>The banner's line for the few seconds after an event began: its name, big; empty otherwise.</summary>
+        public static string RunEventBanner(ClientWorld world)
+        {
+            if (world.BannerEvent is not { } def || world.ServerTick - world.BannerEventTick > EventBannerSeconds * SimConstants.TickRate) return "";
+            return def.Name.ToUpperInvariant();
+        }
+
+        /// <summary>How long an event's name stays on the banner, s.</summary>
+        public const double EventBannerSeconds = 4.0;
+
+        /// <summary>The live events' tracker row: "Street Festival · Larch Lane", "Postal Inspector · −10%"; empty for none.</summary>
+        public static string EventTracker(ClientWorld world)
+        {
+            if (world.Global.Events == 0) return "";
+            var parts = new List<string>();
+            foreach (var def in world.Content.RunEvents)
+            {
+                if (!world.EventLive(def)) continue;
+                if (def.Has(RunEventRule.StreetFestival) && world.FestivalStreet is { } street) parts.Add($"{def.Name}   ·   {street.Name} ×{Num(def.Param("valueMult"))}");
+                else if (def.Trigger == RunEventTrigger.Complaint) parts.Add($"{def.Name}   ·   {EventEffect(def)}");
+                else parts.Add(def.Name);
+            }
+            return string.Join("   ·   ", parts);
+        }
+
         /// <summary>Doc 05 §2.1: the feed's line when a felled Mega dropped its Lost Parcel.</summary>
         public static string LostParcel(ClientWorld world, LostParcelEvent e)
         {
+            // A run event's parcels: its own line says how many and where.
+            if (e.Enemy == LostParcelEvent.NoEnemy) return "";
             string kind = e.Enemy < world.Content.Enemies.Count ? world.Content.Enemies[e.Enemy].Name : "raider";
             string parcel = e.Kind < world.Content.MailKinds.Count ? world.Content.MailKinds[e.Kind].Name : "parcel";
             return $"The Mega {kind} dropped a Lost {parcel} for {world.Map.FormatAddress(e.Address)}";

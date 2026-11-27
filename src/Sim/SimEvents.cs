@@ -433,6 +433,8 @@ namespace PerformativeMail.Sim
     /// <summary>Doc 05 §2.1: a felled Mega of <see cref="Enemy"/>'s kind dropped a Lost Parcel, in the bag <see cref="Bag"/>.</summary>
     public sealed class LostParcelEvent : SimEvent
     {
+        /// <summary>No Mega dropped it: a run event's Lost Parcel (doc 10 §6 Lost Parcels).</summary>
+        public const byte NoEnemy = byte.MaxValue;
         public byte Enemy;
         public ushort Kind;
         public World.AddressId Address;
@@ -611,6 +613,33 @@ namespace PerformativeMail.Sim
     {
         public byte Shift;
         public readonly List<(ushort Street, ushort Count)> Streets = new List<(ushort, ushort)>();
+    }
+
+    /// <summary>What a run event (doc 10 §6) did: the feed's line, the banner, the tracker.</summary>
+    public enum RunEventStage : byte
+    {
+        /// <summary>It began: its effect holds from now (Street, a street id, for Street Festival; Amount, the parcels or the Cargo for Lost Parcels and Bulk Drop).</summary>
+        Fired = 0,
+        /// <summary>Its time is over (the wildfire is out).</summary>
+        Ended = 1,
+        /// <summary>It paid out: Amount gold (Neighbourhood Watch).</summary>
+        Paid = 2,
+        /// <summary>Its condition failed: nothing comes of it (Neighbourhood Watch after a misdelivery).</summary>
+        Fizzled = 3,
+        /// <summary>It is coming next shift: Amount the complaint that called it (Postal Inspector).</summary>
+        Coming = 4,
+    }
+
+    /// <summary>A run event of the run (doc 10 §6; doc 01 §3.3) reached a <see cref="RunEventStage"/>.</summary>
+    public sealed class RunEventEvent : SimEvent
+    {
+        /// <summary>Index into ContentDb.RunEvents.</summary>
+        public byte Event;
+        public byte Shift;
+        public RunEventStage Stage;
+        /// <summary>Street Festival's street (a street id), else 0.</summary>
+        public byte Street;
+        public int Amount;
     }
 
     /// <summary>The turret on tile (X, Y) fired at a raider standing at (TargetX, TargetZ) (doc 05 §4): the clients turn its gun and draw the shot.</summary>

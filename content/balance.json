@@ -33,6 +33,7 @@
   "walletFloor": -500,
   "deadLetterShifts": 2,
   "zeroMisdeliveryBonus": 0.10,
+  "runEventChance": 0.5,
 
   "complaintMax": 100,
   "complaintDecayPerSecond": 0.1,

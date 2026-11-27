@@ -40,6 +40,11 @@ namespace PerformativeMail.Sim.Content
         public KitDef DefaultKit => Kits[0];
         /// <summary>The Postage Stamps (doc 01 §6, doc 08 §2.12), at most <see cref="StampDef.MaxStamps"/>; a run's are a bit mask of their indices.</summary>
         public IReadOnlyList<StampDef> Stamps { get; private set; } = Array.Empty<StampDef>();
+        /// <summary>The run events (doc 10 §6), at most <see cref="RunEventDef.MaxEvents"/>; the live ones are a bit mask of their indices.</summary>
+        public IReadOnlyList<RunEventDef> RunEvents { get; private set; } = Array.Empty<RunEventDef>();
+        private readonly Dictionary<string, RunEventDef> _runEventsById = new Dictionary<string, RunEventDef>();
+        public RunEventDef RunEvent(string id) => _runEventsById[id];
+        public bool TryRunEvent(string id, out RunEventDef def) => _runEventsById.TryGetValue(id, out def!);
         /// <summary>What can be built, in the order of the build bar.</summary>
         public IReadOnlyList<BuildingDef> Buildings { get; private set; } = Array.Empty<BuildingDef>();
         public IReadOnlyList<RecipeDef> Recipes { get; private set; } = Array.Empty<RecipeDef>();
@@ -1432,6 +1437,112 @@ namespace PerformativeMail.Sim.Content
                     foreach (var v in map.Debug.Vehicles)
                         if (!db._vehiclesById.ContainsKey(v.Vehicle)) ctx.Error($"debug: unknown vehicle '{v.Vehicle}'");
                 }
+            }
+
+            // --- run events (doc 10 §6, doc 01 §3.3) -----------------------------------------------
+            {
+                var list = new List<RunEventDef>();
+                foreach (string file in source.ListJson("events"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        RunEventTrigger trigger;
+                        switch (J.Str(ctx, e, "trigger"))
+                        {
+                            case "prep": trigger = RunEventTrigger.Prep; break;
+                            case "delivery_start": trigger = RunEventTrigger.DeliveryStart; break;
+                            case "delivery": trigger = RunEventTrigger.Delivery; break;
+                            case "payday": trigger = RunEventTrigger.Payday; break;
+                            case "complaint": trigger = RunEventTrigger.Complaint; break;
+                            case var t: ctx.Error($"'{id}': unknown trigger '{t}' (known: prep, delivery_start, delivery, payday, complaint)"); continue;
+                        }
+                        var rules = new List<RunEventRule>();
+                        foreach (string rule in J.StrArray(ctx, e, "rules", optional: true))
+                        {
+                            switch (rule)
+                            {
+                                case "street_festival": rules.Add(RunEventRule.StreetFestival); break;
+                                case "lost_parcels": rules.Add(RunEventRule.LostParcels); break;
+                                case "wildfire": rules.Add(RunEventRule.Wildfire); break;
+                                case "overtime": rules.Add(RunEventRule.Overtime); break;
+                                case "neighbourhood_watch": rules.Add(RunEventRule.NeighbourhoodWatch); break;
+                                case "mega_parcels": rules.Add(RunEventRule.MegaParcels); break;
+                                case "bulk_drop": rules.Add(RunEventRule.BulkDrop); break;
+                                default: ctx.Error($"'{id}': unknown rule '{rule}' (known: street_festival, lost_parcels, wildfire, overtime, neighbourhood_watch, mega_parcels, bulk_drop)"); break;
+                            }
+                        }
+                        var mods = new List<StatModifier>();
+                        if (e.TryGetProperty("modifiers", out var mEl))
+                        {
+                            if (mEl.ValueKind != JsonValueKind.Array) ctx.Error($"'{id}': 'modifiers' must be an array");
+                            else
+                                foreach (var m in mEl.EnumerateArray())
+                                {
+                                    if (m.ValueKind != JsonValueKind.Object) { ctx.Error($"'{id}': modifiers must be objects"); continue; }
+                                    string statName = J.Str(ctx, m, "stat");
+                                    string op = J.Str(ctx, m, "op");
+                                    double value = J.Num(ctx, m, "value");
+                                    if (!Stats.TryParse(statName, out var stat)) { ctx.Error($"'{id}': unknown stat '{statName}'"); continue; }
+                                    if (op != "mul" && op != "add") { ctx.Error($"'{id}': modifier op must be 'mul' or 'add', not '{op}'"); continue; }
+                                    if (op == "mul" && value < 0) ctx.Error($"'{id}': the multiplier on {stat} must not be negative");
+                                    mods.Add(new StatModifier(stat, op == "mul" ? ModifierOp.Mul : ModifierOp.Add, (float)value));
+                                }
+                        }
+                        if (rules.Count == 0 && mods.Count == 0) ctx.Error($"'{id}': an event without a rule or a modifier does nothing");
+                        var ps = new Dictionary<string, double>(StringComparer.Ordinal);
+                        if (e.TryGetProperty("params", out var pEl))
+                        {
+                            if (pEl.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': 'params' must be an object");
+                            else
+                                foreach (var prop in pEl.EnumerateObject())
+                                {
+                                    if (prop.Value.ValueKind != JsonValueKind.Number) { ctx.Error($"'{id}': params.{prop.Name} must be a number"); continue; }
+                                    ps[prop.Name] = prop.Value.GetDouble();
+                                }
+                        }
+                        var kinds = new List<MailKindDef>();
+                        foreach (string k in J.StrArray(ctx, e, "kinds", optional: true))
+                            if (db._mailKindsById.TryGetValue(k, out var kind)) kinds.Add(kind);
+                            else ctx.Error($"'{id}': unknown mail kind '{k}'");
+                        var buildings = new List<BuildingDef>();
+                        foreach (string b in J.StrArray(ctx, e, "buildings", optional: true))
+                            if (db._buildingsById.TryGetValue(b, out var building)) buildings.Add(building);
+                            else ctx.Error($"'{id}': unknown building '{b}'");
+                        var def = new RunEventDef
+                        {
+                            Id = id,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Description = J.Str(ctx, e, "description", ""),
+                            Trigger = trigger,
+                            MinShift = J.Int(ctx, e, "minShift", 2),
+                            Weight = J.Int(ctx, e, "weight", 1),
+                            OncePerRun = J.Bool(ctx, e, "oncePerRun", false),
+                            NeedsDock = J.Bool(ctx, e, "needsDock", false),
+                            Rules = rules,
+                            Modifiers = mods,
+                            Params = ps,
+                            Kinds = kinds,
+                            Buildings = buildings,
+                        };
+                        if (def.MinShift < 2) ctx.Error($"'{id}': minShift must be >= 2 (doc 10 §6: from shift 2)");
+                        if (def.Weight < 1 && trigger != RunEventTrigger.Complaint) ctx.Error($"'{id}': weight must be >= 1");
+                        if (trigger == RunEventTrigger.Complaint && def.Param("complaint") <= 0) ctx.Error($"'{id}': a complaint trigger wants params.complaint > 0");
+                        if (rules.Contains(RunEventRule.StreetFestival) && (def.Param("valueMult") < 1 || kinds.Count == 0)) ctx.Error($"'{id}': street_festival wants params.valueMult >= 1 and kinds");
+                        if (rules.Contains(RunEventRule.LostParcels) && (def.Param("count") < 1 || def.Param("valueMult") < 1 || kinds.Count != 1)) ctx.Error($"'{id}': lost_parcels wants params.count >= 1, params.valueMult >= 1 and one kind");
+                        if (rules.Contains(RunEventRule.Wildfire) && (def.Param("seconds") <= 0 || def.Param("damagePerSecond") <= 0 || buildings.Count == 0)) ctx.Error($"'{id}': wildfire wants params.seconds, params.damagePerSecond and buildings");
+                        if (rules.Contains(RunEventRule.Overtime) && (def.Param("seconds") <= 0 || def.Param("shortfall") <= 0 || trigger != RunEventTrigger.Payday)) ctx.Error($"'{id}': overtime wants params.seconds, params.shortfall and the payday trigger");
+                        if (rules.Contains(RunEventRule.NeighbourhoodWatch) && def.Param("bonus") <= 0) ctx.Error($"'{id}': neighbourhood_watch wants params.bonus > 0");
+                        if (rules.Contains(RunEventRule.MegaParcels) && def.Param("parcels") < 1) ctx.Error($"'{id}': mega_parcels wants params.parcels >= 1");
+                        if (rules.Contains(RunEventRule.BulkDrop) && (def.Param("valueMult") < 1 || kinds.Count != 1 || !def.NeedsDock)) ctx.Error($"'{id}': bulk_drop wants params.valueMult >= 1, one kind and needsDock");
+                        if (list.Count >= RunEventDef.MaxEvents) { ctx.Error($"'{id}': too many events (at most {RunEventDef.MaxEvents})"); continue; }
+                        if (!AddUnique(ctx, db._runEventsById, def.Id, def)) continue;
+                        list.Add(def);
+                    }
+                }
+                db.RunEvents = list;
             }
 
             // A perk's prerequisites name buildings, blueprints and vehicles, all read by now.

@@ -509,6 +509,17 @@ namespace PerformativeMail.Client.Presentation
 
         // --- death bags -------------------------------------------------------------------------
 
+        /// <summary>Bags marked as holding a Lost Parcel, since the view began.</summary>
+        public int LostParcelsMarked { get; private set; }
+
+        /// <summary>How near a Lost Parcel's mark is read: the Lost Parcels event's metres (30), else 30.</summary>
+        private static float LostParcelMarkMetres(ClientWorld world)
+        {
+            foreach (var e in world.Content.RunEvents)
+                if (e.Has(Sim.Content.RunEventRule.LostParcels)) return (float)e.Param("markMetres", 30);
+            return 30f;
+        }
+
         private void SyncBags(ClientWorld world)
         {
             foreach (var bag in world.Bags.Values)
@@ -521,6 +532,18 @@ namespace PerformativeMail.Client.Presentation
                     view.Rotation = new Vector3(0f, bag.ContainerId * 1.9f, 0f);
                     AddChild(view);
                     _bags[bag.ContainerId] = view;
+                }
+                // Doc 10 §6 Lost Parcels "marked at ≤ 30 m": a world label over a bag with one, read from close by only.
+                if (bag.LostParcel && view.GetNodeOrNull("LostParcel") == null)
+                {
+                    float mark = LostParcelMarkMetres(world);
+                    view.AddChild(new SizedLabel3D
+                    {
+                        Name = "LostParcel", Text = "LOST PARCEL", Position = new Vector3(0f, 1.1f, 0f), FontSize = 40, PixelSize = 0.01f,
+                        OutlineSize = 7, Modulate = Gold, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                        FadeStart = Mathf.Max(0f, mark - 5f), FadeEnd = mark,
+                    });
+                    LostParcelsMarked++;
                 }
                 // The last seconds it throbs: whoever means to fetch it has to go now.
                 double left = world.BagSecondsLeft(bag);

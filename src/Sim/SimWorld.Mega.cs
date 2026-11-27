@@ -50,12 +50,16 @@ namespace PerformativeMail.Sim
         {
             var waves = Content.Waves;
             if (waves.LostParcelKind == null) return;
-            var parcel = Spawner.LostParcel(waves.LostParcelKind, Math.Max(1, Run.Shift), waves.LostParcelValueMult, _lootRng);
-            if (parcel == null) return;
-            var item = parcel.Value;
-            uint bag = DropAsBag(ItemStack.OfMail(item), e.X, e.Z);
-            if (bag == 0) return;
-            Events.Add(new LostParcelEvent { Enemy = e.Def.Index, Kind = item.Kind, Address = item.Address, Value = item.Value, Bag = bag });
+            // Doc 10 §6 Mega Migration: more than one.
+            for (int i = MegaParcels; i > 0; i--)
+            {
+                var parcel = Spawner.LostParcel(waves.LostParcelKind, Math.Max(1, Run.Shift), waves.LostParcelValueMult, _lootRng);
+                if (parcel == null) return;
+                var item = parcel.Value;
+                uint bag = DropAsBag(ItemStack.OfMail(item), e.X, e.Z);
+                if (bag == 0) continue;
+                Events.Add(new LostParcelEvent { Enemy = e.Def.Index, Kind = item.Kind, Address = item.Address, Value = item.Value, Bag = bag });
+            }
         }
     }
 }

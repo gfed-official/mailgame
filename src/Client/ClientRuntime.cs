@@ -760,7 +760,7 @@ namespace PerformativeMail.Client
                 View = PlayerInput.ViewOf(world.ServerTick - EnemyInterpolationDelayTicks),
             };
             Input.Tapped = InputButtons.None;
-            PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f));
+            PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f), world.RoadClosure.Rect, world.RoadClosure.Mult);
             _pendingInputs.Add(input);
             if (_pendingInputs.Count > MaxPendingInputs) _pendingInputs.RemoveAt(0);
             PredictAttacks(world, input);
@@ -1143,7 +1143,7 @@ namespace PerformativeMail.Client
             world.LocalHp = m.OwnHp;
             world.HasLocal = true;
             foreach (var input in _pendingInputs)
-                PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f));
+                PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f), world.RoadClosure.Rect, world.RoadClosure.Mult);
 
             // Going down or standing up again at the Post Office is the server's word, not a misprediction.
             if (!hadLocal || wasDead || world.Local.Dead) return;
@@ -1534,6 +1534,14 @@ namespace PerformativeMail.Client
                     break;
                 case BagDroppedEvent e:
                     world.Bags[e.ContainerId] = new ClientBag { ContainerId = e.ContainerId, Owner = e.Owner, X = e.X, Z = e.Z, DespawnTick = e.DespawnTick };
+                    break;
+                // A bag with a Lost Parcel in it is marked from close by (doc 10 §6 Lost Parcels' 30 m; a Mega's too).
+                case LostParcelEvent e:
+                    if (world.Bags.TryGetValue(e.Bag, out var parcelBag)) parcelBag.LostParcel = true;
+                    break;
+                case RunEventEvent e when e.Stage == RunEventStage.Fired && e.Event < _content.RunEvents.Count:
+                    world.BannerEvent = _content.RunEvents[e.Event];
+                    world.BannerEventTick = (uint)Math.Floor(world.ServerTick);
                     break;
             }
             EventReceived?.Invoke(ev);

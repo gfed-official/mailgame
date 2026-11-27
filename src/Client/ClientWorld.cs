@@ -209,6 +209,8 @@ namespace PerformativeMail.Client
         public EntityId Owner;
         public float X, Z;
         public uint DespawnTick;
+        /// <summary>A Lost Parcel lies in it (a Mega's or a run event's): it is marked from close by.</summary>
+        public bool LostParcel;
     }
 
     /// <summary>
@@ -350,10 +352,10 @@ namespace PerformativeMail.Client
             get => _global;
             internal set
             {
-                byte was = _global.Stamps;
+                byte was = _global.Stamps, wasEvents = _global.Events;
                 _global = value;
-                // Doc 01 §6: the stamps' numbers lie on the team's sheet with its perks.
-                if (value.Stamps != was) RebuildTeamSheet();
+                // Doc 01 §6: the stamps' numbers lie on the team's sheet with its perks; doc 10 §6: so do the live events'.
+                if (value.Stamps != was || value.Events != wasEvents) RebuildTeamSheet();
             }
         }
         private GlobalState _global;
@@ -470,8 +472,33 @@ namespace PerformativeMail.Client
             foreach (var s in Content.Stamps)
                 if ((_global.Stamps & (1 << s.Index)) != 0) _teamStats.Apply(s.Modifiers);
             foreach (var perk in TeamPerks) _teamStats.Apply(perk);
+            foreach (var e in Content.RunEvents)
+                if (EventLive(e)) _teamStats.Apply(e.Modifiers);
             TeamStatsChanged();
         }
+
+        /// <summary>The run event that began last, for the banner, and the server tick it began on.</summary>
+        public RunEventDef? BannerEvent { get; internal set; }
+        public uint BannerEventTick { get; internal set; }
+
+        /// <summary>Doc 10 §6: the run event is live now (the global block's word).</summary>
+        public bool EventLive(RunEventDef e) => (_global.Events & (1 << e.Index)) != 0;
+
+        /// <summary>The first live run event with the rule; null for none.</summary>
+        public RunEventDef? LiveRule(RunEventRule rule)
+        {
+            if (_global.Events == 0) return null;
+            foreach (var e in Content.RunEvents)
+                if (EventLive(e) && e.Has(rule)) return e;
+            return null;
+        }
+
+        /// <summary>Street Festival's street while it is live; null for none.</summary>
+        public StreetDef? FestivalStreet => _global.EventStreet > 0 && LiveRule(RunEventRule.StreetFestival) != null ? Map.GetStreet(_global.EventStreet - 1) : null;
+
+        /// <summary>The street a land vehicle only crawls over and how fast (as SimWorld.RoadClosure), for the prediction.</summary>
+        public (TileRect Rect, float Mult) RoadClosure =>
+            FestivalStreet is { } street && LiveRule(RunEventRule.StreetFestival) is { } e ? (street.Rect, (float)e.Param("vehicleSpeed", 0.2)) : (default(TileRect), 1f);
 
         /// <summary>A team perk of the run holds the rule flag.</summary>
         public bool TeamHas(RuleFlag flag) => _teamStats.Has(flag);

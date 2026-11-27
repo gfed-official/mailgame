@@ -33,7 +33,8 @@ namespace PerformativeMail.App
     /// their feet), --playtest-wallet=N (runs start with N gold in the team's wallet; asked for in a run
     /// under way, the wallet is topped up to it at once), --playtest-materials (this player's pockets are topped up
     /// to 20 Logs and 40 Stone when a shift's Prep or Delivery starts and when they are back on their feet),
-    /// --playtest-stamps (as host, every tier of the Postage Stamps is open whatever the Postal Rank). With --smoke they are not played with but checked:
+    /// --playtest-stamps (as host, every tier of the Postage Stamps is open whatever the Postal Rank), --event=ID (as host, that
+    /// run event of content/events comes in every shift it may, doc 10 §6). With --smoke they are not played with but checked:
     /// "--smoke --shift=2 --no-quota --raid --playtest-package" is the smoke of the raid playtest.
     /// </summary>
     public partial class Boot : Node
@@ -53,6 +54,7 @@ namespace PerformativeMail.App
             var playtest = PlaytestFlags.None;
             int startShift = 0, startWallet = 0;
             string mapId = "test_street";
+            string? forcedEvent = null;
             foreach (string arg in OS.GetCmdlineUserArgs())
             {
                 if (arg == "--smoke") smoke = true;
@@ -69,6 +71,7 @@ namespace PerformativeMail.App
                     && int.TryParse(arg.Substring(18), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int gold)
                     && gold > 0)
                     startWallet = Math.Min(PlaytestMask.MaxWallet, gold);
+                else if (arg.StartsWith("--event=", StringComparison.Ordinal) && arg.Length > 8) forcedEvent = arg.Substring(8);
                 else if (arg == "--quick") quick = true;
                 // Design choice 119: the showcase map, everything built and running, the debug toggles on.
                 else if (arg == "--debug-world") { debugWorld = true; mapId = "debug_world"; }
@@ -137,7 +140,14 @@ namespace PerformativeMail.App
             {
                 // The smoke takes any free port, so two of them can run side by side.
                 int listen = solo ? -1 : port ?? (smoke ? 0 : GameSession.DefaultPort);
-                session.StartHost(content, seed, profile, store, quickStart: (quick && !smoke) || debugWorld, listenPort: listen, mapId: mapId);
+                if (forcedEvent != null && !content.TryRunEvent(forcedEvent, out _))
+                {
+                    GD.PrintErr($"[boot] --event={forcedEvent}: no such run event (content/events)");
+                    GetTree().Quit(2);
+                    return;
+                }
+                if (forcedEvent != null) GD.Print($"[boot] playtest: the run event {forcedEvent} in every shift it may come");
+                session.StartHost(content, seed, profile, store, quickStart: (quick && !smoke) || debugWorld, listenPort: listen, mapId: mapId, forcedEvent: forcedEvent);
             }
             AddChild(session);
             BotDriver? botDriver = null;

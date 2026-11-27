@@ -198,7 +198,7 @@ namespace PerformativeMail.Sim
             while (mail.Count > 0)
             {
                 var item = mail[mail.Count - 1];
-                var verdict = DeliveryRules.Evaluate(item, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats, Tick);
+                var verdict = EventPay(DeliveryRules.Evaluate(item, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats, Tick), kind, dest);
                 if (!verdict.Consumed) break;
                 mail.RemoveAt(mail.Count - 1);
                 consumed++;

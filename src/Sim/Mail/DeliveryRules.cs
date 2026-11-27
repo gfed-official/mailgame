@@ -82,6 +82,8 @@ namespace PerformativeMail.Sim.Mail
                 if (item.IsPriority && tick > item.DueTick) value = PriorityLapsed(item.Value, content);
                 int paid = value * permille / 1000;
                 if (team != null && kind.MaxStack > 1) paid = Whole(team.Resolve(Stat.PaperMailValue, paid));
+                // Doc 10 §6 Postal Inspector: the shift after, every delivery pays less.
+                if (team != null) paid = Whole(team.Resolve(Stat.DeliveryEarnings, paid));
                 return new DeliveryResult(DeliveryOutcome.Delivered, paid,
                     late ? content.Balance.GetInt("complaintLateDelivery") : 0, late);
             }

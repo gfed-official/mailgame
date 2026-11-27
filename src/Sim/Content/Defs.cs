@@ -235,6 +235,96 @@ namespace PerformativeMail.Sim.Content
         DoubleRaids,
     }
 
+    /// <summary>When a run event (doc 10 §6) happens once it is rolled for a shift, or what calls it.</summary>
+    public enum RunEventTrigger : byte
+    {
+        /// <summary>"Random Prep": as the shift's Prep begins; it holds for the shift.</summary>
+        Prep,
+        /// <summary>"Random Delivery start": as Delivery begins.</summary>
+        DeliveryStart,
+        /// <summary>"Random Delivery": at a random moment of Delivery.</summary>
+        Delivery,
+        /// <summary>"Random Payday": at Payday, if its rule's condition holds.</summary>
+        Payday,
+        /// <summary>Not rolled: called at every Payday by the complaint meter (doc 01 §3.3's Postal Inspector), for the next shift.</summary>
+        Complaint,
+    }
+
+    /// <summary>
+    /// What a run event does beyond the numbers its modifiers change (as <see cref="StampRule"/> and the perks' rule flags):
+    /// a closed set, each with its handler in SimWorld.RunEvents. The names are what content/events/*.json writes.
+    /// </summary>
+    public enum RunEventRule : byte
+    {
+        /// <summary>Street Festival: one street closed to vehicles (they crawl through the crowd); its letters pay more.</summary>
+        StreetFestival,
+        /// <summary>Lost Parcels: Lost Parcels lie about the map when Delivery begins, marked from close by.</summary>
+        LostParcels,
+        /// <summary>Wildfire: the buildings it names burn for a while unless near water.</summary>
+        Wildfire,
+        /// <summary>Overtime: a quota missed by a little gets more Delivery once a run.</summary>
+        Overtime,
+        /// <summary>Neighbourhood Watch: a shift with no misdelivery pays a bonus at Payday.</summary>
+        NeighbourhoodWatch,
+        /// <summary>Mega Migration: every felled Mega drops more Lost Parcels.</summary>
+        MegaParcels,
+        /// <summary>Bulk Drop: a Cargo item for every Business Dock open this shift, into the Intake.</summary>
+        BulkDrop,
+    }
+
+    /// <summary>A run event (doc 10 §6; doc 01 §3.3): rolled at most one a shift from shift 2 on the waves' stream.</summary>
+    public sealed class RunEventDef
+    {
+        /// <summary>The run's live events go in one byte of the global block.</summary>
+        public const int MaxEvents = 8;
+
+        public string Id { get; init; } = "";
+        public byte Index { get; init; }
+        public string Name { get; init; } = "";
+        public string Description { get; init; } = "";
+        public RunEventTrigger Trigger { get; init; }
+        /// <summary>The first shift it may be rolled for (doc 10 §6: Wildfire 4+, Mega Migration 3+); never before 2.</summary>
+        public int MinShift { get; init; } = 2;
+        /// <summary>Its share of the roll among the events that may come.</summary>
+        public int Weight { get; init; } = 1;
+        /// <summary>Overtime: once a run.</summary>
+        public bool OncePerRun { get; init; }
+        /// <summary>Bulk Drop: only where a Business Dock is open this shift.</summary>
+        public bool NeedsDock { get; init; }
+        public IReadOnlyList<RunEventRule> Rules { get; init; } = Array.Empty<RunEventRule>();
+        /// <summary>What it does to the numbers while it is live, on the team's stat sheet (the Inspector's −10 %, Mega Migration's ×3).</summary>
+        public IReadOnlyList<Perks.StatModifier> Modifiers { get; init; } = Array.Empty<Perks.StatModifier>();
+        /// <summary>Its numbers ("valueMult", "count", "seconds", …), read by its rules' handlers.</summary>
+        public IReadOnlyDictionary<string, double> Params { get; init; } = new Dictionary<string, double>();
+        /// <summary>The mail kinds it is about (Street Festival: letters; Bulk Drop: the Cargo).</summary>
+        public IReadOnlyList<MailKindDef> Kinds { get; init; } = Array.Empty<MailKindDef>();
+        /// <summary>The buildings it is about (Wildfire: wooden walls and belts).</summary>
+        public IReadOnlyList<BuildingDef> Buildings { get; init; } = Array.Empty<BuildingDef>();
+
+        public bool Has(RunEventRule rule)
+        {
+            for (int i = 0; i < Rules.Count; i++)
+                if (Rules[i] == rule) return true;
+            return false;
+        }
+
+        public double Param(string name, double fallback = 0) => Params.TryGetValue(name, out double v) ? v : fallback;
+
+        public bool HasKind(int kind)
+        {
+            for (int i = 0; i < Kinds.Count; i++)
+                if (Kinds[i].Index == kind) return true;
+            return false;
+        }
+
+        public bool HasBuilding(BuildingDef def)
+        {
+            for (int i = 0; i < Buildings.Count; i++)
+                if (Buildings[i] == def) return true;
+            return false;
+        }
+    }
+
     /// <summary>A Postage Stamp (doc 01 §6, doc 08 §2.12): a difficulty modifier the host picks in the Lobby.</summary>
     public sealed class StampDef
     {

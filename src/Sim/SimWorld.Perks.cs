@@ -166,6 +166,9 @@ namespace PerformativeMail.Sim
             foreach (var s in Content.Stamps)
                 if (HasStamp(s)) _teamStats.Apply(s.Modifiers);
             foreach (var perk in _teamPerks) _teamStats.Apply(perk);
+            // Doc 10 §6: a live run event's numbers (the Inspector's −10 %, Mega Migration's ×3) lie on the sheet too.
+            foreach (var e in Content.RunEvents)
+                if (EventLive(e)) _teamStats.Apply(e.Modifiers);
             ApplyTeamStats();
         }
 

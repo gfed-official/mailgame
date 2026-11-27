@@ -141,7 +141,42 @@ namespace PerformativeMail.App
                 case MailSpawnedEvent e: _mailArrived += e.Count; break;
                 case PhaseChangedEvent e: _phases.Add(e.Phase); break;
                 case ShiftSummaryEvent e: _summaries.Add(e.Summary); break;
+                case RunEventEvent e:
+                {
+                    string line = HudText.RunEventLine(_session.Client.World!, e, out _);
+                    if (line.Length > 0) _runEventLines.Add((line, 0));
+                    break;
+                }
             }
+        }
+
+        /// <summary>Doc 10 §6: the run events' lines the feed must say, and for how many frames it has not yet.</summary>
+        private readonly List<(string Line, int Frames)> _runEventLines = new List<(string, int)>();
+        private int _runEventsSeen;
+
+        /// <summary>A run event's line is in the feed within a few frames; while one is live, its tracker row says so.</summary>
+        private void CheckRunEvents()
+        {
+            var world = _session.Client.World!;
+            for (int i = _runEventLines.Count - 1; i >= 0; i--)
+            {
+                var (line, frames) = _runEventLines[i];
+                if (_session.Feed.Entries.Any(e => e.Text.StartsWith(line, StringComparison.Ordinal)))
+                {
+                    GD.Print($"[smoke] run event: \"{line}\" in the feed");
+                    _runEventsSeen++;
+                    _runEventLines.RemoveAt(i);
+                }
+                else if (frames > 10)
+                {
+                    _failures.Add($"the run event's line \"{line}\" is not in the feed");
+                    _runEventLines.RemoveAt(i);
+                }
+                else _runEventLines[i] = (line, frames + 1);
+            }
+            if (world.Global.Events != 0 && !world.ShopOpen)
+                Check(_screen.Hud.EventTrackerText == HudText.EventTracker(world) && _screen.Hud.EventTrackerText.Length > 0,
+                    $"with a run event live the tracker reads \"{_screen.Hud.EventTrackerText}\"");
         }
 
         /// <summary>
@@ -806,6 +841,7 @@ namespace PerformativeMail.App
             TrackAlarm();
             TrackDriver();
             CheckCardDodge();
+            CheckRunEvents();
             if (!_beltFeedSeen && _session.Feed.Entries.Any(e => e.Text.StartsWith("A belt delivered", StringComparison.Ordinal))) _beltFeedSeen = true;
 
             switch (world.Global.Phase)

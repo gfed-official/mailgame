@@ -65,10 +65,10 @@ namespace PerformativeMail.Sim
         /// A stack on the ground in a bag that is nobody's (as a broken chest's, <see cref="Spill"/>):
         /// when its time is up its mail is back in the Intake. The bag's id, 0 if it held nothing.
         /// </summary>
-        private uint DropAsBag(ItemStack stack, float x, float z)
+        private uint DropAsBag(ItemStack stack, float x, float z, uint despawnTick = 0)
         {
             var info = CreateContainer(DeathBagDefId, EntityId.None, x, z);
-            var bag = new DeathBag { Container = info.Container, Owner = EntityId.None, X = x, Z = z, DespawnTick = Tick + _combat.BagDespawnTicks };
+            var bag = new DeathBag { Container = info.Container, Owner = EntityId.None, X = x, Z = z, DespawnTick = despawnTick > Tick ? despawnTick : Tick + _combat.BagDespawnTicks };
             if (!InventoryOps.AutoPlace(Content, bag.Container, stack, _entryIds))
             {
                 _containers.Remove(bag.Id);

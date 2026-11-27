@@ -2793,6 +2793,45 @@ Sim.Tests 652 and Net.Tests 231 green.
 - Not changed, as asked: N1 (not seen), N2 (gone), N5 (Swarmling is an enemy); the perk cap, the pool, the stamps and the
       HUD polish
 
+### 6b. M4 run events (doc 12 M4; doc 10 §6; doc 01 §3.3), 2026-11-27
+
+- [x] **The scheduler** (design choice 162). Content as data: `content/events/events.json` (`RunEventDef`: a trigger —
+      `prep`, `delivery_start`, `delivery`, `payday`, `complaint` —, `minShift`, `weight`, `oncePerRun`, `needsDock`,
+      `modifiers` on the closed `Stat` set, `rules` of the closed `RunEventRule` set, `params`, `kinds`, `buildings`;
+      checked at load). As each shift begins (shift 2 on; none in the debug world) one event at most is rolled on the
+      waves' own stream `waves.events` (`runEventChance` 0.5 in the balance, then by weight among those that may come:
+      past their `minShift`, a once-a-run one not yet had, Bulk Drop only with a Business Dock open). It happens at its
+      trigger and is live for the rest of the shift (`SimWorld.LiveEvents`, a bit each in the global block with
+      Street Festival's street; protocol `m4.2`): its modifiers lie on the team's sheet with the stamps and the perks,
+      on the server and the clients alike; its rules act through the handlers of `SimWorld.RunEvents.cs`, the only place
+      that reads them (no event id in code). On in the game (`SimSettings.RunEvents`), off in tests unless asked;
+      `--event=ID` (host) forces one into every shift it may come in. Announced by `RunEventEvent` (`Fired`, `Ended`,
+      `Paid`, `Fizzled`, `Coming`): a feed line, the banner (the event's name for 4 s, under the down / PROTECTED / raid
+      lines) and a tracker row while live (all existing HUD kinds). `RunEventTests` (no event in shift 1, about half
+      the shifts from 2 over 480 rolls, each within its shifts, the same seed the same, the mail of a seed untouched)
+- [x] **The events of the Small Island and the test street**:
+      - Street Festival (Prep): a street with an open house that takes letters; land vehicles on it crawl at a fifth of
+        their speed (the shared movement step, so the client predicts it; NPC drivers too); letters to it pay ×2
+      - Postal Inspector (no roll): complaint ≥ 75 at Payday calls it for the next shift (`Coming`), whose deliveries pay
+        ×0.9 (`Stat.DeliveryEarnings`); Postal Audit's "Inspector at ≥ 50" is the stamp's modifier on
+        `Stat.InspectorComplaint` (−25), so the stamp of batch 6 now does what doc 01 §6 says. None at the last Payday
+      - Lost Parcels (Prep): told of in Prep, the 5 parcels (Medium, value ×3) lie on the open streets as Delivery
+        begins, each in a bag that is nobody's until Delivery's end (the Mega's path, `LostParcelEvent` with no enemy);
+        a bag with a Lost Parcel carries a "LOST PARCEL" world label read from 30 m (a Mega's too)
+      - Wildfire (a moment of Delivery, shift 4+): wooden walls, belts, ramps, elevated belts, splitters and mergers
+        take 1 damage a second for 60 s unless water is within 6 m (and leave ruins as any broken construct)
+      - Overtime (Payday, once a run): a quota missed by 10 % or less keeps Delivery going 60 s more; the next Payday
+        checks the quota again
+      - Neighbourhood Watch (Prep): no misdelivery in the shift pays +25 % of its earnings at Payday, beside the shift
+        bonus and like it not towards the quota; a misdelivery says "no bonus"
+      - Mega Migration (Prep, shift 3+): `MegaChance` ×3 for the shift, every felled Mega drops 2 Lost Parcels
+      - Bulk Drop (Delivery's start): a Cargo item for every Business Dock open this shift, value ×1.5, into the
+        Intake. The test street's dock opens at shift 3 and the Small Island's (doc 02 §3.5) at shift 4, so it can
+        come from then on
+      - Not built: Sea Fog (Large Island only, which does not exist yet) — left out of the content until then
+      `RunEventTests` (each event), `RunEventFlowTests` (the feed, the banner, the tracker, the client's closed street
+      and sheet), `CodecTests`; the smoke checks every event's line reaches the feed and the tracker row while live
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4355,6 +4394,22 @@ See "Commands" at the bottom (filled in as the tooling lands).
     The tier lock follows doc 01 §5.2, which locks most stamps away from today's playtesters (Postal Rank 1–3):
     `--playtest-stamps` is the way in for a playtest.
 
+162. **Run events (doc 10 §6), what the table leaves open.** "0–1 per shift from shift 2, waves RNG": one roll a shift
+    on a stream of its own, `waves.events`, so the raids' and the mail's draws are what they were (doc 12 M4's replay
+    criterion); the chance of an event is `runEventChance` 0.5 (not in the docs), then equal weights. The Postal
+    Inspector is no roll but doc 01 §3.3's consequence of the meter, so a shift may have it and a rolled event. An event
+    lasts its shift (Prep to Payday); the Inspector the shift after the Payday that called it. "Closed to vehicles" is a
+    crawl (×0.2) rather than a wall, so a vehicle on the street when it closes is not stuck and the drivers' routes
+    still run; "letters" means the Letter kind (postcards are their own kind). Lost Parcels are announced in Prep and
+    laid as Delivery begins (bags are swept between phases and mailboxes only take mail in Delivery), on street tiles
+    of open districts so every one is reachable; "marked at ≤ 30 m" is a world label that fades in from 30 m, not a
+    HUD marker. Wildfire burns the wooden wall and every belt-like construct (belts, ramps, elevated belts, splitters,
+    mergers), not the chest, Gate or Alarm Post; its moment is 10–60 % into Delivery. Overtime is rolled like the rest
+    ("random Payday") and only acts if the quota is then missed by ≤ 10 %; the extra 60 s carry on the same shift,
+    raid and spawn. Neighbourhood Watch's +25 % is paid like the zero-misdelivery shift bonus (into the wallet, not
+    towards the quota). Mega Migration's "all megas drop 2 Lost Parcels" replaces the one, it does not add one. Sea Fog
+    waits for the Large Island.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -4412,6 +4467,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --playtest-wallet=N   runs start with N gold in the team's wallet (e.g. 500); asked in a run, topped up to it at once
 #   --playtest-materials  20 Logs and 40 Stone in your pockets when a shift's Prep or Delivery starts and when back on your feet
 #   --playtest-stamps     as host, every tier of the Postage Stamps is open whatever your Postal Rank
+#   --event=ID            as host, the run event ID of content/events (festival, lost_parcels, wildfire, …) comes in every shift it may
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
 ~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come
 ~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-package --playtest-mailbox   # a guest: all three go together

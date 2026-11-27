@@ -183,6 +183,28 @@ namespace PerformativeMail.Sim.Mail
         }
 
         /// <summary>
+        /// Doc 10 §6 Bulk Drop: a piece of the kind for the destination, priced as a batch would price it times
+        /// <paramref name="valueMult"/>, into the Intake (or the backlog); never cursed nor Priority, so no stream is drawn.
+        /// </summary>
+        public MailItem SpawnBulk(MailKindDef kind, DestinationDef dest, int shift, double valueMult)
+        {
+            var mix = _content.MailMix;
+            double shiftMult = 1.0 + mix.ShiftMultiplierPerShift * (shift - 1);
+            double distMult = 1.0 + mix.DistanceMultiplierPerDistrict * (dest.Address.District - 1);
+            var item = new MailItem
+            {
+                Id = _nextMailId++,
+                Kind = kind.Index,
+                Address = dest.Address,
+                Value = (ushort)Math.Min(ushort.MaxValue, Math.Round(kind.BaseValue * distMult * shiftMult * valueMult)),
+                SpawnShift = (byte)shift,
+                DeadlineShift = (byte)(shift + kind.DeadlineOffsetShifts),
+            };
+            ReturnToIntake(item);
+            return item;
+        }
+
+        /// <summary>
         /// Doc 05 §2.1's Lost Parcel: a piece of the kind for a random unlocked address that takes
         /// it, priced as a batch would price it times <paramref name="valueMult"/>, not placed
         /// anywhere; null when no unlocked address takes the kind. The address comes from the

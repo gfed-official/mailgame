@@ -96,10 +96,11 @@ namespace PerformativeMail.Sim.Players
         /// <paramref name="airJumps"/>: jumps the carrier may make off the ground (Bunny Hop's double jump: 1);
         /// <paramref name="bikeMult"/>: the speed of a vehicle pedalled on land, as a share (Bike Courier). Both are
         /// the carrier's own stats, which the server and the carrier's client read alike. <paramref name="roadMult"/>: a
-        /// land vehicle's speed on a road, as a share (doc 01 §6 No Roads), the team's.
+        /// land vehicle's speed on a road, as a share (doc 01 §6 No Roads), the team's. <paramref name="closed"/>: tiles a land
+        /// vehicle only crawls over, at <paramref name="closedMult"/> of its speed (doc 10 §6 Street Festival's street).
         /// </summary>
         public static void Step(ref PlayerMoveState s, in PlayerInput input, WorldMap map, float speedMult, in MoveConstants c,
-            ConstructField? constructs = null, int airJumps = 0, float bikeMult = 1f, float roadMult = 1f)
+            ConstructField? constructs = null, int airJumps = 0, float bikeMult = 1f, float roadMult = 1f, TileRect closed = default, float closedMult = 1f)
         {
             const float dt = SimConstants.TickDt;
             s.Yaw = input.Yaw;
@@ -124,12 +125,12 @@ namespace PerformativeMail.Sim.Players
                     s.Becalmed = false;
                     var afoot = input;
                     afoot.Buttons &= ~InputButtons.Jump;
-                    Step(ref s, afoot, map, speedMult, c, constructs, airJumps, bikeMult, roadMult);
+                    Step(ref s, afoot, map, speedMult, c, constructs, airJumps, bikeMult, roadMult, closed, closedMult);
                     // Held through getting off, the key is still down.
                     s.JumpHeld = input.Has(InputButtons.Jump);
                     return;
                 }
-                StepRide(ref s, input, map, vehicle, c, constructs, !vehicle.Fuelled && !vehicle.OnWater ? bikeMult : 1f, roadMult);
+                StepRide(ref s, input, map, vehicle, c, constructs, !vehicle.Fuelled && !vehicle.OnWater ? bikeMult : 1f, roadMult, closed, closedMult);
                 return;
             }
 
@@ -209,6 +210,10 @@ namespace PerformativeMail.Sim.Players
         public static float Floor(WorldMap map, ConstructField? constructs, float x, float z) =>
             map.HeightAt(x, z) + (BeltUnder(constructs, x, z) != null ? BeltNetwork.SurfaceHeight : 0f);
 
+        /// <summary>True on a tile of <paramref name="closed"/> (an empty rect closes nothing).</summary>
+        public static bool Closed(TileRect closed, float x, float z) =>
+            closed.W > 0 && closed.Contains((int)MathF.Floor(x / SimConstants.TileSize), (int)MathF.Floor(z / SimConstants.TileSize));
+
         /// <summary>True on the paved tiles a vehicle runs at its road speed on: the street and the Post Office yard.</summary>
         public static bool OnRoad(WorldMap map, float x, float z)
         {
@@ -225,13 +230,14 @@ namespace PerformativeMail.Sim.Players
         /// the pockets does not slow it, and the rider's breath comes back as if they stood.
         /// </summary>
         private static void StepRide(ref PlayerMoveState s, in PlayerInput input, WorldMap map, VehicleDef v, in MoveConstants c,
-            ConstructField? constructs, float topMult = 1f, float roadMult = 1f)
+            ConstructField? constructs, float topMult = 1f, float roadMult = 1f, TileRect closed = default, float closedMult = 1f)
         {
             const float dt = SimConstants.TickDt;
             float mx = input.MoveX / 127f, mz = input.MoveZ / 127f;
             float len = MathF.Sqrt(mx * mx + mz * mz);
             if (len > 1f) { mx /= len; mz /= len; len = 1f; }
             float top = (s.Becalmed ? 0f : v.OnWater ? v.WaterSpeed : OnRoad(map, s.X, s.Z) ? v.RoadSpeed * roadMult : v.OffRoadSpeed) * topMult;
+            if (!v.OnWater && Closed(closed, s.X, s.Z)) top *= closedMult;
 
             if (len > 0.01f)
             {

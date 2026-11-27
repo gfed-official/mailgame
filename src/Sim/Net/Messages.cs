@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m4.1;" +
+            "m4.2;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages,materials,allStamps;" +
             "Inputs:u8 n,u16 ack,u16 enemyAck,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -52,7 +52,7 @@ namespace PerformativeMail.Sim.Net
             "u16 playerBase,u8 n,{u32 id,u8 mask,[i8 dx,i8 dy,i8 dz],[i32 xcm,i16 ycm,i32 zcm],[u16 yaw],[u8 held,u8 tool],[u8 flags],[u8 hp],[u8 ride,u8 heading],[u8 kit]}," +
             "[enemies:u16 enemyBase,u8 n,{u16 id,u8 mask,[u8 kindMegaState],[i8 dx,i8 dz],[u16 x2cm,u16 z2cm],[u8 yaw],[u8 hp]}],[global],[npcVehicles:u8 n,{u32 id,i32 xcm,i32 zcm,u8 heading}];" +
             "MoveFlags:grounded,winded,dead,becalmed,riding,jumpHeld,airJumped;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies,npcVehicles;" +
-            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,i8 raidEdgeA,i8 raidEdgeB,u8 playtest,u16 poHp,u8 stamps;GlobalPlaytest:clockStopped,quotaWaived;" +
+            "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,i8 raidEdgeA,i8 raidEdgeB,u8 playtest,u16 poHp,u8 stamps,u8 events,u8 eventStreet;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
             "attack,blast,enemyDied,lootDropped,lootTaken,lootGone,raid,playerDied,playerRespawned,playerParked,bagDropped,bagGone,playerAway,playerBack,draftOffer,perkPicked,shopOffer,shopBought,shopSold,nodeHarvested,nodesRegrown," +
@@ -75,7 +75,7 @@ namespace PerformativeMail.Sim.Net
             "Paused:u8 paused,u32 tick;" +
             "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
             "Results:u8 outcome,u8 shifts,u8 firstShift,u8 lastShift,u8 quotaWaived,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp};" +
-            "Entry:u32 id,u8 x,u8 y,u8 w,u8 h,u8 rot,u8 kind,u16 def,(mail:u32 addr,u8 unit,u16 n,{u32 id,u16 value,u8 spawn,u8 deadline,u8 flags,[priority:u32 due]}|item:i32 count);ContainerState:u32 id,u16 def,u8 extraRows,u32 version,u32 hash,u16 n,{entry};Forecast:u8 shift,u16 n,{u16 street,u16 count}";
+            "Entry:u32 id,u8 x,u8 y,u8 w,u8 h,u8 rot,u8 kind,u16 def,(mail:u32 addr,u8 unit,u16 n,{u32 id,u16 value,u8 spawn,u8 deadline,u8 flags,[priority:u32 due]}|item:i32 count);ContainerState:u32 id,u16 def,u8 extraRows,u32 version,u32 hash,u16 n,{entry};Forecast:u8 shift,u16 n,{u16 street,u16 count};RunEvent:u8 event,u8 shift,u8 stage,u8 street,i32 amount;RunEventStages:fired,ended,paid,fizzled,coming";
 
         /// <summary>32-bit hash of the message schema plus the content data hash.</summary>
         public static uint Hash(ContentDb content)
@@ -444,6 +444,8 @@ namespace PerformativeMail.Sim.Net
             w.U8((byte)g.Outcome); w.U32(g.Host.Value); w.U8((byte)g.Raid); w.U8((byte)g.RaidEdgeA); w.U8((byte)g.RaidEdgeB); w.U8((byte)((g.ClockStopped ? 1 : 0) | (g.QuotaWaived ? 2 : 0)));
             w.U16(g.PostOfficeHp);
             w.U8(g.Stamps);
+            w.U8(g.Events);
+            w.U8(g.EventStreet);
         }
 
         public static GlobalState Read(NetReader r)
@@ -456,6 +458,8 @@ namespace PerformativeMail.Sim.Net
             }, r.U8());
             g.PostOfficeHp = r.U16();
             g.Stamps = r.U8();
+            g.Events = r.U8();
+            g.EventStreet = r.U8();
             return g;
         }
     }

@@ -152,6 +152,18 @@ namespace PerformativeMail.Sim.Run
             return bonus;
         }
 
+        /// <summary>
+        /// A run event's bonus (doc 10 §6 Neighbourhood Watch): into the wallet at Payday like the shift bonus, not part
+        /// of the earnings the quota is checked against. Returns what was paid.
+        /// </summary>
+        public int PayEventBonus(int amount)
+        {
+            if (amount <= 0) return 0;
+            Wallet += amount;
+            TotalEarned += amount;
+            return amount;
+        }
+
         /// <summary>A new run starts from nothing.</summary>
         public void Reset()
         {

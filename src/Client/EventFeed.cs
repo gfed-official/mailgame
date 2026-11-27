@@ -193,8 +193,14 @@ namespace PerformativeMail.Client
                     Add(HudText.MegaSighted(world, e), bad: true);
                     break;
                 case LostParcelEvent e:
-                    Add(HudText.LostParcel(world, e));
+                    if (e.Enemy != LostParcelEvent.NoEnemy) Add(HudText.LostParcel(world, e));
                     break;
+                case RunEventEvent e:
+                {
+                    string line = HudText.RunEventLine(world, e, out int tone);
+                    if (line.Length > 0) Add(line, bad: tone < 0, good: tone > 0);
+                    break;
+                }
                 case RepairedEvent e:
                 {
                     var mended = e.PostOffice ? null : world.Constructs.At(e.X, e.Y);

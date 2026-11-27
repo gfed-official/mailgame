@@ -82,6 +82,10 @@ namespace PerformativeMail.Sim.Perks
         QuotaPlayers,
         /// <summary>A land vehicle's speed on a road, as a share of its def's (doc 01 §6 No Roads: dirt paths, ×0.6).</summary>
         VehicleRoadSpeed,
+        /// <summary>What a delivery pays, as a share (doc 10 §6 Postal Inspector: next shift ×0.9); base 1.</summary>
+        DeliveryEarnings,
+        /// <summary>The complaint at Payday that calls the Postal Inspector, over its event's (doc 01 §6 Postal Audit: 75 → 50).</summary>
+        InspectorComplaint,
     }
 
     /// <summary>

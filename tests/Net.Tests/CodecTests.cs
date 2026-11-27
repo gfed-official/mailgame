@@ -179,7 +179,7 @@ namespace PerformativeMail.Net.Tests
                 {
                     Shift = 1, Phase = RunPhase.Delivery, PhaseEndTick = 7200, Quota = 600, ShiftEarnings = -12, Wallet = -480,
                     Complaint = 17, Backlog = 3, Deliveries = 40, Misdeliveries = 2,
-                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true, PostOfficeHp = 2345, Stamps = 5,
+                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true, PostOfficeHp = 2345, Stamps = 5, Events = 0x41, EventStreet = 3,
                 },
             };
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, HeldTool = 17, Ready = true, Ride = 1, Heading = MathF.PI / 2f, Kit = 2 });
@@ -291,6 +291,7 @@ namespace PerformativeMail.Net.Tests
                 },
                 new MailWaitingEvent { Houses = { (3, 7), (11, 1) } },
                 new ForecastEvent { Shift = 2, Streets = { (1, 14), (4, 9) } },
+                new RunEventEvent { Event = 4, Shift = 3, Stage = RunEventStage.Paid, Street = 2, Amount = 123456 },
                 new TurretFiredEvent { X = 30, Y = 12, TargetX = 70.5f, TargetZ = 22.25f },
                 new TurretOperatedEvent { X = 31, Y = 13, Player = player },
                 new EnemyShotEvent { Kind = EnemyShotKind.Arrow, FromX = 61.5f, FromZ = 28.25f, ToX = 50f, ToZ = 27.75f, AtConstruct = true },
@@ -355,6 +356,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(((byte)14, (byte)21, DriverState.Unloading, new EntityId(EntityClass.Vehicle, 5), (ushort)7, (byte)3, (byte)1, (ushort)9, player),
                 (driver.X, driver.Y, driver.State, driver.Vehicle, driver.House, driver.Houses, driver.At, driver.Delivered, driver.Player));
             Assert.Equal(new (ushort, ushort)[] { (3, 7), (11, 1) }, back.OfType<MailWaitingEvent>().Single().Houses);
+            var runEvent = back.OfType<RunEventEvent>().Single();
+            Assert.Equal(((byte)4, (byte)3, RunEventStage.Paid, (byte)2, 123456), (runEvent.Event, runEvent.Shift, runEvent.Stage, runEvent.Street, runEvent.Amount));
             var forecast = back.OfType<ForecastEvent>().Single();
             Assert.Equal(2, forecast.Shift);
             Assert.Equal(new (ushort, ushort)[] { (1, 14), (4, 9) }, forecast.Streets);

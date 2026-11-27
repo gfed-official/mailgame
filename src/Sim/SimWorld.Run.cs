@@ -126,6 +126,7 @@ namespace PerformativeMail.Sim
             Economy.Reset();
             Economy.TopUp(StartWallet);
             ResetCombatRng();
+            ResetRunEvents();
             ClearPerks();
             ClearShop();
             RegrowNodes(all: true);
@@ -149,6 +150,7 @@ namespace PerformativeMail.Sim
         {
             RegrowNodes(all: false);
             RollShopSpecials();
+            BeginShiftEvents();
             if (Settings.QuickStart) BeginDelivery();
             else BeginPrep();
         }
@@ -162,6 +164,7 @@ namespace PerformativeMail.Sim
             // A preview for the HUD; the binding quota is sampled when Delivery starts.
             Run.Quota = TeamQuota(QuotaFormula.Quota(b, Run.Shift, QuotaHeads(Math.Max(1, PresentCount))));
             EnterPhase(RunPhase.Prep, b.GetForShift("prepSeconds", Run.Shift));
+            PrepEvents();
             SendForecast();
             StockPlaytesters();
         }
@@ -185,6 +188,7 @@ namespace PerformativeMail.Sim
             ApplyPriorityPost();
             Spawner.BeginShift(Run.Shift, Tick + 1, SimConstants.SecondsToTicks(seconds), spawnValue);
             EnterPhase(RunPhase.Delivery, seconds);
+            DeliveryEvents(SimConstants.SecondsToTicks(seconds));
             _earlyRaidDone = false;
             ScheduleRaid();
             ParkPlaytesters();
@@ -194,6 +198,9 @@ namespace PerformativeMail.Sim
         /// <summary>Doc 01 §2.4: the quota check, the shift bonus and the summary the clients show.</summary>
         private void BeginPayday()
         {
+            // Doc 10 §6 Overtime: a quota missed by a little, Delivery goes on.
+            if (TryOvertime()) return;
+            if (_wildfireEndTick != 0) EndWildfire(LiveRule(PerformativeMail.Sim.Content.RunEventRule.Wildfire));
             Spawner.EndShift();
             EndRaid();
             var summary = new ShiftSummary
@@ -214,7 +221,7 @@ namespace PerformativeMail.Sim
                 summary.Mvp = p.Id;
                 summary.MvpDeliveries = Clamp16(p.ShiftDeliveries);
             }
-            summary.Bonus = Economy.PayShiftBonus();
+            summary.Bonus = Economy.PayShiftBonus() + PaydayEvents();
             if (summary.QuotaMet) Run.ShiftsCompleted++;
             Run.LastSummary = summary;
             Events.Add(new ShiftSummaryEvent { Summary = summary });
@@ -282,6 +289,7 @@ namespace PerformativeMail.Sim
             Spawner.Reset();
             ApplyStamps();
             Economy.Reset();
+            ResetRunEvents();
             ClearPerks();
             ClearShop();
             RegrowNodes(all: true);

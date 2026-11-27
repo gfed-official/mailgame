@@ -41,6 +41,13 @@ namespace PerformativeMail.Sim
         /// straight into Prep leave it off.
         /// </summary>
         public bool Generating;
+        /// <summary>
+        /// Doc 10 §6: run events are rolled for each shift from shift 2. The game turns them on; tests that count a
+        /// shift's gold to the coin leave them off.
+        /// </summary>
+        public bool RunEvents;
+        /// <summary>A playtest's or a test's event (its id): rolled for every shift it may come in, whatever the chance.</summary>
+        public string? ForcedEvent;
     }
 
     /// <summary>The small global block replicated at 5 Hz (doc 06 §4: wallet, complaint, quota progress).</summary>
@@ -69,6 +76,10 @@ namespace PerformativeMail.Sim
         public ushort PostOfficeHp;
         /// <summary>Doc 01 §6: the run's Postage Stamps, a bit per <see cref="Content.StampDef.Index"/>.</summary>
         public byte Stamps;
+        /// <summary>Doc 10 §6: the run events live now, a bit per <see cref="Content.RunEventDef.Index"/>.</summary>
+        public byte Events;
+        /// <summary>Street Festival's street while it is live (a street id), else 0.</summary>
+        public byte EventStreet;
     }
 
     /// <summary>
@@ -316,6 +327,8 @@ namespace PerformativeMail.Sim
             QuotaWaived = QuotaWaived,
             PostOfficeHp = (ushort)Math.Clamp((int)MathF.Ceiling(PostOfficeHp), 0, ushort.MaxValue),
             Stamps = Stamps,
+            Events = LiveEvents,
+            EventStreet = (byte)(FestivalStreet + 1),
         };
 
         // --- tick -----------------------------------------------------------------------------
@@ -341,6 +354,7 @@ namespace PerformativeMail.Sim
             StepDocks();
             StepPumps();
             StepCombat();
+            StepRunEvents();
             StepPipes();
             StepBelts();
             StepInserters();
@@ -355,6 +369,7 @@ namespace PerformativeMail.Sim
 
         private void StepPlayers()
         {
+            var closure = RoadClosure;
             foreach (var p in _players)
             {
                 p.RecordPosition();
@@ -366,7 +381,7 @@ namespace PerformativeMail.Sim
                 if (p.Away)
                 {
                     // Nobody steers them: they come to rest where they stood.
-                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult);
+                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult, closure.Rect, closure.Mult);
                     continue;
                 }
 
@@ -378,7 +393,7 @@ namespace PerformativeMail.Sim
                 while (budget > 0 && p.Inputs.Count > 0)
                 {
                     var input = p.Inputs.Dequeue();
-                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult);
+                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult, closure.Rect, closure.Mult);
                     p.HeldSlot = input.HeldSlot < p.Hotbar.Cols ? input.HeldSlot : (byte)0;
                     _attackRewind = RewindTicks(input);
                     HandleAttackInput(p, input);
